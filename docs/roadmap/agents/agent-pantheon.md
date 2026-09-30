@@ -560,11 +560,19 @@ proposed  (initiator agent)
       -> approved
   -> executing          (Thor)
     -> execution_unknown (Thor: ambiguous dispatch or restart; recovery required)
-    -> succeeded        (terminal after audit)
+    -> effect_pending   (Thor: executor accepted; awaiting Heimdall effect verification)
+      -> succeeded      (terminal after verified effect and audit)
+    -> succeeded        (shadow only: no executor call; terminal after audit)
     -> failed
       -> rolled_back    (Vidar; terminal after audit)
       -> rollback_failed (Vidar/Thor: terminal after failed rollback audit)
+      -> rollback_refused (Vidar: rollback not attempted; durable precondition missing)
 ```
+
+After executor acceptance, Thor records `effect_pending`; operational success requires an exact
+Heimdall recovery or effect observation. Shadow runs do not call an executor and close as shadow
+success without independent effect verification. Vidar publishes `rollback_refused` when rollback
+is not attempted because required durable rollback preconditions are unavailable.
 
 Terminal `ActionRun` publications are audited by Saga after Thor publishes the terminal event;
 enforce-mode executor I/O additionally requires Thor's pre-execution Saga audit receipt when

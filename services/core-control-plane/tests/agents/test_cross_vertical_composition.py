@@ -91,14 +91,15 @@ def _wire(
     audit = InMemoryAuditChain()
     scenario = _scenario()
     action_ids = {str(candidate["action_type"]) for candidate in scenario["candidates"]}
+    action_semantics = ActionSemanticsCatalog(
+        irreversible_by_id={action_id: False for action_id in action_ids},
+        rollback_by_id={action_id: "state_forward_only" for action_id in action_ids},
+    )
     forseti = Forseti(
         bus=bus,
         operational_context=_FrozenContext(),  # type: ignore[arg-type]
         cross_vertical_timeout_seconds=timeout,
-        action_semantics=ActionSemanticsCatalog(
-            irreversible_by_id={action_id: False for action_id in action_ids},
-            rollback_by_id={action_id: "state_forward_only" for action_id in action_ids},
-        ),
+        action_semantics=action_semantics,
     )
     odin = Odin(bus=bus, vertical_precedence=InitialVerticalPrecedence())
     saga = Saga(audit_chain=audit)
@@ -108,6 +109,7 @@ def _wire(
         executor=executor,
         execution_audit_recorder=execution_audit_recorder,
         require_execution_audit=require_execution_audit,
+        action_semantics_catalog=action_semantics,
     )
 
     for topic in ("object.resilience-score", "object.drift", "object.cost-anomaly"):

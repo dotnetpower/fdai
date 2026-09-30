@@ -38,11 +38,13 @@ _ACTION_RUN_STATE_RANK = {
     ActionRunState.APPROVED: 3,
     ActionRunState.EXECUTING: 4,
     ActionRunState.EXECUTION_UNKNOWN: 5,
-    ActionRunState.FAILED: 6,
+    ActionRunState.EFFECT_PENDING: 6,
+    ActionRunState.FAILED: 7,
     ActionRunState.SUCCEEDED: 7,
     ActionRunState.REJECTED: 7,
     ActionRunState.DENY_DROPPED: 7,
     ActionRunState.ROLLBACK_FAILED: 8,
+    ActionRunState.ROLLBACK_REFUSED: 8,
     ActionRunState.ROLLED_BACK: 9,
 }
 _ACTION_RUN_RESTART_CHECKPOINT_FIELDS = {"history", "outcome", "shadow_mode", "terminal_published"}

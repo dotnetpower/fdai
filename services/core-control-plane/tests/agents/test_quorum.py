@@ -91,7 +91,11 @@ class TestActionSemantics:
         never being learned by the discovery loop."""
         from fdai.agents.thor import _TERMINAL_STATES, ActionRunState
 
-        non_execution = {ActionRunState.REJECTED, ActionRunState.DENY_DROPPED}
+        non_execution = {
+            ActionRunState.REJECTED,
+            ActionRunState.DENY_DROPPED,
+            ActionRunState.ROLLBACK_REFUSED,
+        }
         for state in _TERMINAL_STATES:
             learnable = outcome_result(str(state)) is not None
             assert learnable or state in non_execution, (

@@ -19,6 +19,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.ontology_platform.evidence_conflict import (
     EvidenceConflictRevision,
     EvidenceConflictStatus,
@@ -62,6 +63,13 @@ _RECOVERY_EFFECT_OBSERVATION_FIELDS = (
     "forbidden_effect_observed",
     "envelope_contained",
     "success",
+    "action_id",
+    "action_type",
+    "action_idempotency_key",
+    "params",
+    "effect_verification_ref",
+    "execution_closure_ref",
+    "observed_at",
 )
 
 
@@ -128,7 +136,19 @@ def recovery_effect_observation_record(
     }
     record["event_type"] = RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE
     record["correlation_id"] = str(payload.get("correlation_id") or "")
-    record["idempotency_key"] = str(payload.get("idempotency_key") or "")
+    record["idempotency_key"] = stable_idempotency_key(
+        "recovery-effect-observation",
+        record.get("correlation_id"),
+        record.get("resource_id"),
+        record.get("action_id"),
+        record.get("action_type"),
+        record.get("action_idempotency_key"),
+        record.get("params"),
+        record.get("effect_verification_ref"),
+        record.get("execution_closure_ref"),
+        record.get("evidence_digest"),
+        record.get("observed_at") or record.get("event_time") or record.get("recorded_time"),
+    )
     record["resource_id"] = str(payload.get("resource_id") or "")
     return record
 

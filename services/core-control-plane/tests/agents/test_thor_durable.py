@@ -57,6 +57,24 @@ def _rollback_for_run(
     }
 
 
+def _effect_observation_for_run(run: ActionRun) -> dict[str, object]:
+    return {
+        "producer_principal": "Heimdall",
+        "schema_version": "1.0.0",
+        "event_type": "action.execution.effect_verified.v1",
+        "correlation_id": run.correlation_id,
+        "idempotency_key": f"effect:{run.idempotency_key}",
+        "resource_id": run.resource_id,
+        "action_id": run.action_id,
+        "action_type": run.action_type,
+        "action_idempotency_key": run.idempotency_key,
+        "params": run.params,
+        "effect_verification_ref": "sha256:" + "a" * 64,
+        "execution_closure_ref": "sha256:" + "b" * 64,
+        "observed_at": "2026-09-17T00:00:00+00:00",
+    }
+
+
 class _FakeActionRunStore:
     """Minimal in-memory ActionRunStore double."""
 
@@ -428,7 +446,7 @@ def test_thor_executes_only_after_pre_execution_audit_receipt() -> None:
 
     run = asyncio.run(thor.dispatch_verdict(_verdict()))
 
-    assert run.state is ActionRunState.SUCCEEDED
+    assert run.state is ActionRunState.EFFECT_PENDING
     assert run.outcome == "command_accepted_verification_pending"
     assert run.execution_audit_receipt == "audit-receipt-1"
     recorder.assert_awaited_once_with(run)
@@ -498,7 +516,7 @@ def test_approval_and_verdict_redelivery_share_correlation_lock() -> None:
 
     asyncio.run(_race())
 
-    assert run.state is ActionRunState.SUCCEEDED
+    assert run.state is ActionRunState.EFFECT_PENDING
     assert calls == 1
 
 
@@ -659,7 +677,7 @@ def test_legacy_verdict_without_kinetic_proposal_is_unchanged() -> None:
         )
     )
 
-    assert run.state is ActionRunState.SUCCEEDED
+    assert run.state is ActionRunState.EFFECT_PENDING
     assert run.kinetic_proposal is None
     executor.assert_awaited_once()
 
@@ -913,8 +931,14 @@ def test_terminal_publish_failure_remains_durable_for_restart_replay() -> None:
     bus = _FailTerminalPublishBus()
     thor = Thor(bus=bus, state_store=store)
 
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+    assert run.state is ActionRunState.EFFECT_PENDING
     with pytest.raises(RuntimeError, match="injected terminal publish failure"):
-        asyncio.run(thor.dispatch_verdict(_verdict()))
+        asyncio.run(
+            thor.on_typed_message(
+                "object.recovery-effect-observation", _effect_observation_for_run(run)
+            )
+        )
 
     assert store.saved[_proposal().correlation_id].state is ActionRunState.SUCCEEDED
 
@@ -930,8 +954,14 @@ def test_terminal_save_failure_retains_resource_lock() -> None:
     store = _FailTerminalSaveStore()
     thor = Thor(state_store=store)
 
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+    assert run.state is ActionRunState.EFFECT_PENDING
     with pytest.raises(RuntimeError, match="injected terminal save failure"):
-        asyncio.run(thor.dispatch_verdict(_verdict()))
+        asyncio.run(
+            thor.on_typed_message(
+                "object.recovery-effect-observation", _effect_observation_for_run(run)
+            )
+        )
 
     assert _proposal().target_resource_ref in thor._resource_locks  # noqa: SLF001
 
@@ -1014,7 +1044,7 @@ def test_concurrent_new_correlations_cannot_bypass_terminal_resource_fence() -> 
         first_run.correlation_id: first_run.outcome,
         second_run.correlation_id: second_run.outcome,
     }
-    assert ActionRunState.SUCCEEDED in states.values()
+    assert ActionRunState.EFFECT_PENDING in states.values()
     assert ActionRunState.DENY_DROPPED in states.values()
     assert "resource_active_action_run_contention" in outcomes.values()
 
@@ -1295,7 +1325,7 @@ def test_atomic_correlation_claim_precedes_cross_replica_resource_claims() -> No
             value="claimed",
         )
     )
-    assert claimed_total == 0
+    assert claimed_total == 1
 
 
 def test_exact_duplicate_dispatch_does_not_sweep_unrelated_resource_claims() -> None:

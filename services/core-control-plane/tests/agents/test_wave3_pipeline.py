@@ -1397,7 +1397,7 @@ def test_thor_hil_verdict_waits_for_approval_then_executes() -> None:
     assert thor.action_runs["c-hil"].state == ActionRunState.HIL_PENDING
     # Operator approves
     asyncio.run(var.decide("c-hil", approver="operator@example.com", decision="approve"))
-    assert thor.action_runs["c-hil"].state == ActionRunState.SUCCEEDED
+    assert thor.action_runs["c-hil"].state == ActionRunState.EFFECT_PENDING
 
 
 def test_thor_duplicate_approval_does_not_re_execute() -> None:
@@ -1426,12 +1426,12 @@ def test_thor_duplicate_approval_does_not_re_execute() -> None:
     )
     approval = _approval_for_run(run)
     asyncio.run(thor._handle_approval(dict(approval)))  # noqa: SLF001
-    assert thor.action_runs["c-dup-appr"].state == ActionRunState.SUCCEEDED
+    assert thor.action_runs["c-dup-appr"].state == ActionRunState.EFFECT_PENDING
     assert calls["n"] == 1
     # Redeliver the same approval -> idempotent no-op, executor not called again.
     asyncio.run(thor._handle_approval(dict(approval)))  # noqa: SLF001
     assert calls["n"] == 1
-    assert thor.action_runs["c-dup-appr"].state == ActionRunState.SUCCEEDED
+    assert thor.action_runs["c-dup-appr"].state == ActionRunState.EFFECT_PENDING
 
 
 def test_thor_rejects_stale_approval_for_reused_correlation() -> None:
@@ -1585,9 +1585,9 @@ def test_thor_releases_lock_when_lifecycle_emit_fails() -> None:
                 }
             )
         )
-    # Lock released despite the failure -> the resource is not deadlocked.
-    assert thor.health()["locked_resources"] == 0
-    assert "vm-boom" not in thor._resource_locks  # noqa: SLF001
+    assert thor.health()["locked_resources"] == 1
+    assert thor.action_runs["c-boom"].outcome == "action_run_publication_unavailable"
+    assert "vm-boom" in thor._resource_locks  # noqa: SLF001
 
 
 def test_thor_degrades_to_shadow_when_saga_absent() -> None:
@@ -1648,7 +1648,7 @@ def test_thor_triggers_vidar_rollback_on_failure() -> None:
     assert rollbacks[0].payload["state"] == "succeeded"
 
 
-def test_vidar_missing_executor_fails_closed_and_retains_thor_lock() -> None:
+def test_vidar_missing_executor_fails_closed_and_releases_thor_lock() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
 
@@ -1673,15 +1673,15 @@ def test_vidar_missing_executor_fails_closed_and_retains_thor_lock() -> None:
         )
     )
 
-    assert run.state == ActionRunState.ROLLBACK_FAILED
+    assert run.state == ActionRunState.ROLLBACK_REFUSED
     assert run.rollback_ref is None
-    assert "db-1" in thor._resource_locks
+    assert "db-1" not in thor._resource_locks
     rollback = bus.messages_on("object.rollback")[0].payload
-    assert rollback["state"] == "failed"
+    assert rollback["state"] == "refused"
     assert rollback["contract"] == "scripted"
 
 
-def test_vidar_blank_receipt_fails_closed_and_retains_thor_lock() -> None:
+def test_vidar_blank_receipt_fails_closed_and_releases_thor_lock() -> None:
     bus = InMemoryBus(registry=load_pantheon())
 
     async def failing(_ctx):
@@ -1713,7 +1713,7 @@ def test_vidar_blank_receipt_fails_closed_and_retains_thor_lock() -> None:
 
     assert run.state == ActionRunState.ROLLBACK_FAILED
     assert run.rollback_ref is None
-    assert "vm-blank-rollback" in thor._resource_locks
+    assert "vm-blank-rollback" not in thor._resource_locks
     rollback = bus.messages_on("object.rollback")[0].payload
     assert rollback["state"] == "failed"
     assert rollback["rollback_ref"] is None
@@ -1749,7 +1749,7 @@ def test_thor_rejects_blank_succeeded_rollback_receipt() -> None:
     assert run.state == ActionRunState.ROLLBACK_FAILED
     assert run.outcome == "rollback_failed"
     assert run.rollback_ref is None
-    assert "vm-forged-blank-rollback" in thor._resource_locks
+    assert "vm-forged-blank-rollback" not in thor._resource_locks
 
 
 def test_vidar_rollback_is_idempotent_per_correlation() -> None:
@@ -2925,8 +2925,8 @@ def test_end_to_end_shadow_verdict_loop() -> None:
 
     # Every event that has a rule match must yield exactly one verdict.
     assert len(verdicts) == 100
-    # Every verdict must produce (at least) verdicted/executing/succeeded states.
-    assert len(action_runs) >= 300
+    # Every shadow verdict must produce visible verdicted and succeeded states.
+    assert len(action_runs) >= 200
     # Zero policy escapes: no state == 'failed' or 'deny_dropped'
     escaped = [a for a in action_runs if a.payload["state"] in ("failed", "deny_dropped")]
     assert escaped == []

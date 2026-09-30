@@ -189,19 +189,20 @@ def test_workflow_cost_aware_remediation_shadow_trace() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     cost_provider = _StaticCostProvider(monthly_delta_usd=Decimal("42.50"))
+    semantics = ActionSemanticsCatalog(
+        irreversible_by_id={"remediate.disable-public-access": False},
+        rollback_by_id={"remediate.disable-public-access": "state_forward_only"},
+    )
     forseti = Forseti(
         bus=bus,
-        action_semantics=ActionSemanticsCatalog(
-            irreversible_by_id={"remediate.disable-public-access": False},
-            rollback_by_id={"remediate.disable-public-access": "state_forward_only"},
-        ),
+        action_semantics=semantics,
     )
     njord = Njord(
         bus=bus,
         advisory_provider=cost_provider,
         package_enabled=True,
     )
-    thor = Thor(bus=bus)
+    thor = Thor(bus=bus, action_semantics_catalog=semantics)
     saga = Saga()
     for terminal in ("object.verdict", "object.action-run"):
         bus.subscribe(terminal, "Saga", saga.on_typed_message)
@@ -226,7 +227,7 @@ def test_workflow_cost_aware_remediation_shadow_trace() -> None:
     assert _cost_ceiling_disposition(est.monthly_delta_usd, ceiling_usd=40.0) == "requires_hil"
     # Verdict must have been auto-executed by Thor and audited by Saga.
     action_runs = bus.messages_on("object.action-run")
-    assert any(m.payload["state"] == "succeeded" for m in action_runs)
+    assert any(m.payload["state"] == "effect_pending" for m in action_runs)
     assert saga.audit_chain.entries[-1].topic == "object.action-run"
     saga.audit_chain.verify()
     _assert_published_payloads_are_traceable(bus)

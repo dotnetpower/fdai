@@ -202,9 +202,9 @@ def test_vidar_refuses_process_local_rollback_without_explicit_opt_in() -> None:
     )
 
     assert record is not None
-    assert record.state == "failed"
+    assert record.state == "refused"
     assert calls == []
     assert vidar.behavior_snapshot()["rollback:durability_unavailable"] == 1
     assert vidar.health()["rollback_durability"] == "process_local"
     assert vidar.health()["process_local_rollback_allowed"] is False
-    assert bus.messages_on("object.rollback")[0].payload["state"] == "failed"
+    assert bus.messages_on("object.rollback")[0].payload["state"] == "refused"

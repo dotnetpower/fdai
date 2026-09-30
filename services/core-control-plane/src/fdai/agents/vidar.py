@@ -100,7 +100,7 @@ class RollbackRecord:
     action_type: str
     resource_id: str | None
     contract: str
-    state: str  # succeeded | failed | execution_unknown
+    state: str  # succeeded | failed | refused | execution_unknown
     notes: str = ""
     rollback_ref: str | None = None
 
@@ -267,7 +267,7 @@ class Vidar(Agent):
             self.record_behavior("rollback_path_validation:checked")
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        # Vidar only reacts on failed ActionRuns.
+        # Vidar reacts on failed and ambiguous ActionRuns.
         if topic != "object.action-run":
             self.record_behavior("typed_message:ignored")
             return
@@ -278,7 +278,7 @@ class Vidar(Agent):
             behavior="rollback:rejected_owner",
         ):
             return
-        if payload.get("state") != "failed":
+        if payload.get("state") not in {"failed", "execution_unknown"}:
             self.record_behavior("action_run:ignored")
             return
         try:
@@ -384,7 +384,7 @@ class Vidar(Agent):
             action_type=str(action_run.get("action_type", "")),
             resource_id=_resource_id(action_run),
             contract=contract,
-            state="failed",
+            state="refused",
             notes="rollback refused because durable StateStore is unavailable",
         )
 
@@ -850,6 +850,7 @@ class Vidar(Agent):
                 "attempts": len(terminal_records),
                 "succeeded": succeeded,
                 "failed": sum(1 for rec in terminal_records if rec.state == "failed"),
+                "refused": sum(1 for rec in terminal_records if rec.state == "refused"),
                 "execution_unknown": sum(
                     1 for rec in terminal_records if rec.state == "execution_unknown"
                 ),

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c84b22bcbecfa3874c23298ab6dc4316d0d46376
+translation_source_sha: e10ee6d9aedd3fe22f82e0ed6ebe6ef242d129f8
 translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
@@ -550,11 +550,19 @@ proposed  (initiator agent)
       -> approved
   -> executing          (Thor)
     -> execution_unknown (Thor: 모호한 dispatch 또는 재시작, 복구 필요)
-    -> succeeded        (audit 후 terminal)
+    -> effect_pending   (Thor: executor 수락, Heimdall 효과 검증 대기)
+      -> succeeded      (효과 검증과 audit 후 terminal)
+    -> succeeded        (shadow 전용: executor 호출 없음, audit 후 terminal)
     -> failed
       -> rolled_back    (Vidar; audit 후 terminal)
       -> rollback_failed (Vidar/Thor: rollback 실패 audit 후 terminal)
+      -> rollback_refused (Vidar: rollback 미시도, 영속 전제 조건 없음)
 ```
+
+Executor가 명령을 수락하면 Thor는 `effect_pending`을 기록하며, 운영상 성공으로 인정하려면 정확한
+Heimdall 복구 또는 효과 관측이 있어야 합니다. Shadow 실행은 executor를 호출하지 않으므로 독립 효과
+검증 없이 shadow 성공으로 종결됩니다. 필요한 영속 rollback 전제 조건이 없어 rollback을 시도하지
+않으면 Vidar는 `rollback_refused`를 게시합니다.
 
 최종 `ActionRun` 게시는 Thor가 최종 이벤트를 게시한 뒤 Saga가 감사합니다. Enforce 모드 executor
 I/O는 설정된 경우 Thor의 실행 전 Saga 감사 receipt도 요구합니다. Shadow 최종 성공은 변경하지

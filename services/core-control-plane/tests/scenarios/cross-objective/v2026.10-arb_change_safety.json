@@ -318,7 +318,7 @@
         "quorum_required": 1
       }
     },
-    "decision_digest": "sha256:892edbc3b66176abba6a292e4d719e0723e0a3d7d2739c582f21cd7acee9586a",
+    "decision_digest": "sha256:b0467a07fd2046d291bfa92e1e4433fbb2ab624556cd455d5c33e052f08487ac",
     "evidence_digest": "sha256:cd23abc537306cc89c0b87ba78df646443fdb883eeb3baebe1fac70779d8aa9a"
   }
 }

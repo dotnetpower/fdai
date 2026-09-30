@@ -7,6 +7,7 @@ from typing import Any
 
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.action_run_state import ActionRunState
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.thor_action_run import ActionRun
@@ -23,17 +24,34 @@ def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
 
 
+def _semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={"ops.restart-service": False},
+        rollback_by_id={"ops.restart-service": "state_forward_only"},
+    )
+
+
 def _auto_verdict(correlation_id: str, resource_id: str) -> dict[str, Any]:
+    action_key = f"{correlation_id}:action"
     return {
         "producer_principal": "Forseti",
         "correlation_id": correlation_id,
         "idempotency_key": f"{correlation_id}:verdict",
-        "action_idempotency_key": f"{correlation_id}:action",
+        "action_idempotency_key": action_key,
         "action_type": "ops.restart-service",
         "risk_verdict": "auto",
         "resolved_autonomy_ceiling": Autonomy.ENFORCE_AUTO.value,
         "resource_id": resource_id,
         "rollback_contract": "state_forward_only",
+        "safeguards": {
+            "stop_condition": "effect verified",
+            "tested_rollback_contract": "state_forward_only:test",
+            "blast_radius_limit": {"scope": "resource", "max_targets": 1},
+            "dry_run_receipt": "sha256:" + "1" * 64,
+            "logical_target_lock": resource_id,
+            "stable_idempotency_key": action_key,
+            "two_phase_audit_intent": "audit-intent:test",
+        },
     }
 
 
@@ -113,7 +131,7 @@ async def test_thor_resource_contention_is_visible_while_executor_blocks() -> No
         await release.wait()
         return True
 
-    thor = Thor(bus=_bus(), executor=executor)
+    thor = Thor(bus=_bus(), executor=executor, action_semantics_catalog=_semantics())
     first = asyncio.create_task(thor.dispatch_verdict(_auto_verdict("corr-1", "resource-1")))
     await asyncio.wait_for(started.wait(), timeout=1)
 
@@ -137,7 +155,7 @@ async def test_thor_duplicate_approval_does_not_wait_for_executor() -> None:
         await release.wait()
         return True
 
-    thor = Thor(bus=_bus(), executor=executor)
+    thor = Thor(bus=_bus(), executor=executor, action_semantics_catalog=_semantics())
     run = await thor.dispatch_verdict(
         {**_auto_verdict("corr-hil", "resource-hil"), "risk_verdict": "hil"}
     )
@@ -171,6 +189,7 @@ async def test_thor_execution_audit_timeout_denies_before_executor_io() -> None:
         execution_audit_recorder=recorder,
         require_execution_audit=True,
         execution_audit_timeout_seconds=0.01,
+        action_semantics_catalog=_semantics(),
     )
 
     run = await thor.dispatch_verdict(_auto_verdict("corr-audit", "resource-audit"))

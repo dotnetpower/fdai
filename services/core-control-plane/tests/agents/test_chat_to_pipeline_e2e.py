@@ -150,7 +150,11 @@ class _Harness:
         )
         # Shadow-first: mirror the runtime default so an 'auto' verdict is
         # judged-and-logged, never a live mutation, until an explicit promotion.
-        self.thor = Thor(bus=self.bus, shadow_by_default=True)
+        self.thor = Thor(
+            bus=self.bus,
+            shadow_by_default=True,
+            action_semantics_catalog=_ACTION_SEMANTICS,
+        )
         self.var = Var(bus=self.bus, action_semantics=_ACTION_SEMANTICS)
         self.bragi = Bragi(
             semantic_judgment=_semantic_boundary(),

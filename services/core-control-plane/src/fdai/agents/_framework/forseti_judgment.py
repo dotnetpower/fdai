@@ -19,6 +19,8 @@ from fdai.agents._framework.anomaly_action import AnomalyActionPreparer, Anomaly
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.forseti_decision_helpers import copy_change_assessment, source_freshness
+from fdai.agents._framework.forseti_rule_bindings import RISK_VERDICT, RULE_MATCH
+from fdai.agents._framework.forseti_safeguards import execution_safeguards
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context import (
@@ -36,29 +38,6 @@ from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 from fdai.shared.contracts.models import Autonomy, Mode
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.state_store import StateStore
-
-RULE_MATCH: dict[str, str] = {
-    "public_network_enabled": "remediate.disable-public-access",
-    "unencrypted_disk": "remediate.enable-encryption",
-    "restart_needed": "ops.restart-service",
-    "chaos_experiment_request": "ops.restart-service",
-    "control_plane.t2_proposer_failure": "ops.switch-t2-proposer-route",
-    # Deployment Preflight active reassembly (INGRESS_EVENT_TYPE in
-    # fdai.core.deploy_preflight.reassembly_proposals). Ingress never carries
-    # an ActionType for a non-operator signal, so the binding is made here and
-    # keeps the default hil verdict - the toggle PR stays human-reviewed.
-    "preflight_toggle_blocker": "remediate.apply-preflight-toggle",
-}
-
-RISK_VERDICT: dict[str, str] = {
-    "remediate.disable-public-access": "auto",
-    "remediate.enable-encryption": "hil",
-    "ops.restart-service": "auto",
-    "governance.notify-admin-privilege-violation": "auto",
-    "ops.failover-primary": "hil",
-    "ops.switch-t2-proposer-route": "hil",
-    "remediate.delete-storage": "deny",
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -400,6 +379,10 @@ class ForsetiJudgmentMixin:
                         event.get("reason_code") or "t2_proposer_candidates_exhausted"
                     ),
                 }
+        action_idempotency_key = str(
+            event.get("idempotency_key") or event.get("correlation_id") or ""
+        )
+        rollback_contract = rollback_contract_for(action_type, self._action_semantics)
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": event.get("correlation_id") or event.get("idempotency_key") or "",
@@ -410,9 +393,7 @@ class ForsetiJudgmentMixin:
                 action_type,
                 event.get("event_type") or "",
             ),
-            "action_idempotency_key": str(
-                event.get("idempotency_key") or event.get("correlation_id") or ""
-            ),
+            "action_idempotency_key": action_idempotency_key,
             "resource_id": event.get("resource_id"),
             "action_type": action_type,
             "risk_verdict": risk_verdict,
@@ -428,9 +409,17 @@ class ForsetiJudgmentMixin:
             "params": params,
             "detection_readiness": readiness,
             "quorum_required": quorum_for(action_type, self._action_semantics),
-            "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
+            "rollback_contract": rollback_contract,
             "initiator_principal": event.get("initiator_principal"),
         }
+        if risk_verdict in {"auto", "hil"}:
+            verdict["safeguards"] = execution_safeguards(
+                action_type=action_type,
+                action_idempotency_key=action_idempotency_key,
+                resource_id=event.get("resource_id"),
+                rollback_contract=rollback_contract,
+                event=event,
+            )
         if isinstance(event.get("action_id"), str) and event["action_id"]:
             verdict["action_id"] = event["action_id"]
         workflow_action = event.get("workflow_action")

@@ -166,6 +166,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         execution_audit_recorder: ExecutionAuditRecorder | None = None,
         require_execution_audit: bool = False,
         hil_timeout_seconds: int = 3_600,
+        effect_verification_timeout_seconds: int = 3_600,
         executor_timeout_seconds: float = 300.0,
         execution_audit_timeout_seconds: float = 30.0,
         clock: Callable[[], datetime] | None = None,
@@ -181,6 +182,11 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
     ) -> None:
         if isinstance(hil_timeout_seconds, bool) or hil_timeout_seconds < 1:
             raise ValueError("hil_timeout_seconds MUST be a positive integer")
+        if (
+            isinstance(effect_verification_timeout_seconds, bool)
+            or effect_verification_timeout_seconds < 1
+        ):
+            raise ValueError("effect_verification_timeout_seconds MUST be a positive integer")
         if executor_timeout_seconds <= 0:
             raise ValueError("executor_timeout_seconds MUST be > 0")
         if execution_audit_timeout_seconds <= 0:
@@ -197,6 +203,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self._execution_audit_recorder = execution_audit_recorder
         self._require_execution_audit = require_execution_audit or development_profile is not None
         self._hil_timeout_seconds = hil_timeout_seconds
+        self._effect_verification_timeout_seconds = effect_verification_timeout_seconds
         self._executor_timeout_seconds = executor_timeout_seconds
         self._execution_audit_timeout_seconds = execution_audit_timeout_seconds
         self._clock = clock or (lambda: datetime.now(tz=UTC))
@@ -329,6 +336,15 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 self.record_behavior("dependency_probe:unavailable")
                 unavailable.update({"Saga", "Vidar"})
         return frozenset(name for name in unavailable if name in {"Saga", "Vidar"})
+
+    def _approver_unavailable(self) -> bool:
+        if self._agent_availability is None:
+            return False
+        try:
+            return "Var" in {str(name) for name in self._agent_availability()}
+        except Exception:  # noqa: BLE001 - approval probe failure must not fail open
+            self.record_behavior("approver_probe:unavailable")
+            return True
 
     def _must_shadow(self) -> bool:
         if self._shadow_by_default:
@@ -604,6 +620,13 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         elif kinetic_proposal is not None:
             self.record_behavior("kinetic_proposal:validated")
 
+        if risk_verdict in {"auto", "hil"} and not action_type:
+            self.record_behavior("dispatch:action_unavailable")
+            return await self._emit_terminal_rejection(
+                verdict,
+                outcome="triage_action_unavailable",
+            )
+
         # Idempotency: at-least-once delivery means the same verdict can arrive
         # twice. Keying the run by correlation is not enough - a re-delivery
         # after the first run terminated (lock released) would start a SECOND
@@ -685,20 +708,21 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             or self._must_shadow()
             or not (self._saga_available and self._vidar_available)
         )
-        if (
-            risk_verdict in {"auto", "hil"}
-            and not shadow_mode
-            and verdict.get("producer_principal") is not None
-            and "safeguards" in verdict
-        ):
+        wire_safeguard_required = verdict.get("producer_principal") is not None and (
+            verdict.get("action_idempotency_key") is not None
+            or "safeguards" in verdict
+            or str(verdict.get("idempotency_key") or "").startswith("forseti-verdict:")
+        )
+        if risk_verdict in {"auto", "hil"} and wire_safeguard_required:
             missing_safeguards = _missing_wire_safeguards(verdict)
             if missing_safeguards:
                 self.record_behavior("dispatch:missing_safeguards")
-                return await self._emit_terminal_rejection(
-                    verdict,
-                    outcome="missing_safeguards",
-                    params_extra={"missing_safeguards": list(missing_safeguards)},
-                )
+                if not shadow_mode:
+                    return await self._emit_terminal_rejection(
+                        verdict,
+                        outcome="missing_safeguards",
+                        params_extra={"missing_safeguards": list(missing_safeguards)},
+                    )
 
         # Propagate the approval quorum the judge set (2 for irreversible
         # actions, agent-pantheon.md 4.6). Floor at 1 so a forged / malformed
@@ -718,7 +742,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                     verdict.get("quorum_required", 1),
                 )
             )
-            original_quorum = max(original_quorum, required_quorum)
+            if verdict.get("development_authority") is None:
+                original_quorum = max(original_quorum, required_quorum)
             effective_quorum = _positive_quorum(
                 verdict.get("effective_quorum_required", original_quorum),
             )
@@ -729,7 +754,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 verdict,
                 outcome="invalid_quorum",
             )
-        if risk_verdict == "auto" and original_quorum >= 2:
+        if risk_verdict == "auto" and original_quorum >= 2 and not shadow_mode:
             risk_verdict = "hil"
             self.record_behavior("dispatch:auto_quorum_lowered")
         action_id = action_run_lineage.optional_bounded_text(
@@ -857,6 +882,14 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 return run
 
             if risk_verdict == "hil":
+                if not shadow_mode and self._approver_unavailable():
+                    run.outcome = "hil_held_approver_unavailable"
+                    run.transition(ActionRunState.DENY_DROPPED)
+                    await self._emit_action_run(run)
+                    await self._release_resource_claim(run)
+                    self._release_lock(resource_id)
+                    self.record_behavior("dispatch:hil_approver_unavailable")
+                    return run
                 run.transition(ActionRunState.HIL_PENDING)
                 await self._emit_action_run(run)
                 # Lock is held intentionally across the HIL wait; released
@@ -876,10 +909,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             # hold is unaffected by this guard.
             self.record_behavior("publication:unavailable")
             if run.state is ActionRunState.VERDICTED and not run.resource_claimed:
-                self.action_runs.pop(run.correlation_id, None)
-                if self._idempotency_runs.get(run.idempotency_key) is run:
-                    self._idempotency_runs.pop(run.idempotency_key, None)
-                self._release_lock(resource_id)
+                run.outcome = "action_run_publication_unavailable"
             raise
 
     async def _invoke_executor(self, run: ActionRun) -> bool:
@@ -1029,7 +1059,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         return None
 
     async def expire_pending_approvals(self) -> int:
-        """Expire HIL runs whose bounded approval window has elapsed."""
+        """Expire bounded HIL and effect-verification waits."""
 
         expired = [
             run
@@ -1047,7 +1077,30 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                     run.approval_expires_at is None or self._now() >= run.approval_expires_at
                 ):
                     await self._expire_approval(run)
-        return len(expired)
+        expired_effects = [
+            run
+            for run in self.action_runs.values()
+            if run.state is ActionRunState.EFFECT_PENDING
+            and (
+                run.effect_verification_expires_at is None
+                or self._now() >= run.effect_verification_expires_at
+            )
+        ]
+        for run in expired_effects:
+            lock = self._correlation_locks.setdefault(
+                run.correlation_id,
+                _ReentrantAsyncLock(),
+            )
+            async with lock:
+                if run.state is ActionRunState.EFFECT_PENDING and (
+                    run.effect_verification_expires_at is None
+                    or self._now() >= run.effect_verification_expires_at
+                ):
+                    run.transition(ActionRunState.FAILED)
+                    run.outcome = "effect_verification_expired"
+                    await self._emit_action_run(run)
+                    self.record_behavior("effect_verification:expired")
+        return len(expired) + len(expired_effects)
 
     async def _expire_approval(self, run: ActionRun) -> None:
         await asyncio.shield(self._expire_approval_critical(run))
@@ -1102,7 +1155,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             self.record_behavior("rollback:identity_mismatch")
             return
         rollback_ref = bounded_rollback_ref(rollback.get("rollback_ref"))
-        succeeded = rollback.get("state") == "succeeded" and rollback_ref is not None
+        rollback_state = str(rollback.get("state") or "")
+        succeeded = rollback_state == "succeeded" and rollback_ref is not None
         if run is not None and run.state is ActionRunState.ROLLBACK_FAILED and succeeded:
             run.rollback_ref = rollback_ref
             run.outcome = "rollback_succeeded"
@@ -1124,13 +1178,20 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         }:
             return
         run.rollback_ref = rollback_ref if succeeded else None
-        run.outcome = "rollback_succeeded" if succeeded else "rollback_failed"
-        run.transition(ActionRunState.ROLLED_BACK if succeeded else ActionRunState.ROLLBACK_FAILED)
+        if succeeded:
+            run.outcome = "rollback_succeeded"
+            next_state = ActionRunState.ROLLED_BACK
+        elif rollback_state == "refused":
+            run.outcome = "rollback_refused"
+            next_state = ActionRunState.ROLLBACK_REFUSED
+        else:
+            run.outcome = "rollback_failed"
+            next_state = ActionRunState.ROLLBACK_FAILED
+        run.transition(next_state)
         await self._emit_action_run(run)
         self.record_behavior(run.outcome)
-        if succeeded:
-            await self._release_resource_claim(run)
-            self._release_lock(run.resource_id)
+        await self._release_resource_claim(run)
+        self._release_lock(run.resource_id)
 
     # ---- helpers -------------------------------------------------------
 

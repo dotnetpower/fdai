@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from datetime import timedelta
 from typing import Any, Protocol
 
 from fdai.agents._framework.action_run_state import ActionRunState
@@ -24,6 +25,7 @@ class ExecutionResourceUnavailableError(RuntimeError):
 class ThorExecutionHost(Protocol):
     _executor: Callable[[dict[str, Any]], Awaitable[bool]]
     _executor_timeout_seconds: float
+    _effect_verification_timeout_seconds: int
     _execution_audit_timeout_seconds: float
     _execution_audit_recorder: Callable[[ActionRun], Awaitable[str]] | None
     _require_execution_audit: bool
@@ -35,6 +37,8 @@ class ThorExecutionHost(Protocol):
     def _must_shadow(self) -> bool: ...
 
     def _revalidate_development_authority(self, run: ActionRun) -> None: ...
+
+    def _now(self) -> Any: ...
 
     async def _emit_action_run(self, run: ActionRun) -> None: ...
 
@@ -160,16 +164,17 @@ async def execute(host: ThorExecutionHost, run: ActionRun) -> None:
             await host._emit_action_run(run)
             host.record_behavior("executed:unknown")
             return
-        run.transition(ActionRunState.SUCCEEDED if success else ActionRunState.FAILED)
+        run.transition(ActionRunState.EFFECT_PENDING if success else ActionRunState.FAILED)
         if success and run.outcome is None:
             run.outcome = "command_accepted_verification_pending"
+            run.effect_verification_expires_at = host._now() + timedelta(
+                seconds=host._effect_verification_timeout_seconds
+            )
         if not success and run.outcome is None:
             run.outcome = "executor returned false"
         await host._emit_action_run(run)
         host.record_behavior("executed:success" if success else "executed:failed")
-        if success:
-            await host._release_resource_claim(run)
-        release_run_lock = success
+        release_run_lock = False
     finally:
         if release_run_lock:
             host._release_lock(run.resource_id)

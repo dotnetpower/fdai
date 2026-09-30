@@ -34,6 +34,9 @@ from fdai.agents._framework.forseti_arbitration_contract import (
 from fdai.agents._framework.forseti_arbitration_contract import (
     winning_domain_disposition_allows_resolution as _winning_domain_disposition_allows_resolution,
 )
+from fdai.agents._framework.forseti_arbitration_planning import (
+    finalize_planning_projection as _finalize_planning_projection,
+)
 from fdai.agents._framework.forseti_cross_vertical_intake import (
     ingest_cross_vertical_candidate_locked,
 )
@@ -49,8 +52,9 @@ from fdai.agents._framework.forseti_decision_helpers import (
 from fdai.agents._framework.forseti_decision_helpers import is_conflict as _is_conflict
 from fdai.agents._framework.forseti_decision_helpers import signal_impact as _signal_impact
 from fdai.agents._framework.forseti_decision_helpers import source_freshness as _source_freshness
-from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
 from fdai.agents._framework.forseti_learned_outputs import ForsetiLearnedOutputMixin
+from fdai.agents._framework.forseti_rule_bindings import RISK_VERDICT as _RISK_VERDICT
+from fdai.agents._framework.forseti_safeguards import attach_arbitration_safeguards
 from fdai.agents._framework.forseti_timeout_tasks import (
     cancel_cross_vertical_timeout,
     start_cross_vertical_timeout,
@@ -79,7 +83,6 @@ from fdai.core.operational_planning.prospective_lineage import (
 _LOGGER = logging.getLogger(__name__)
 
 _MAX_RESOURCES = 10_000
-
 _DecisionProjection = DomainDecisionProjection | SpecialistPlanningProjection
 
 
@@ -439,7 +442,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         if option is None or option.option_id not in eligible_options or option.action_type is None:
             await self._escalate_arbitration(correlation_id, decision)
             return
-        projection, planning_invalid = await self._finalize_planning_projection(
+        projection, planning_invalid = await _finalize_planning_projection(
+            self,
             projection,
             selected_option_id=option.option_id,
         )
@@ -452,35 +456,6 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         )
         _remember_winner(self.arbitrations, correlation_id, winning_domain, _MAX_RESOURCES)
         await _durability.mark_arbitration_completed(self, correlation_id, "resolved")
-
-    async def _finalize_planning_projection(
-        self,
-        projection: _DecisionProjection,
-        *,
-        selected_option_id: str,
-    ) -> tuple[_DecisionProjection, bool]:
-        if not isinstance(projection, SpecialistPlanningProjection):
-            return projection, False
-        planner = self._operational_planner
-        if planner is None:
-            return projection, True
-        try:
-            return (
-                await planner.finalize(
-                    projection,
-                    selected_option_id=selected_option_id,
-                    recorded_at=projection.case.created_at,
-                ),
-                False,
-            )
-        except Exception:  # noqa: BLE001 - incomplete finalization denies execution
-            self.record_behavior("prospective_lineage:planning_failed")
-            _LOGGER.warning(
-                "prospective_lineage_planning_failed",
-                extra={"selected_option_id": selected_option_id},
-                exc_info=True,
-            )
-            return projection, True
 
     async def _build_domain_decision_projection(
         self,
@@ -559,6 +534,14 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         if invalid_kinetic_proposal or planning_invalid:
             risk_verdict = "deny"
         resource_id = self._arbitration_resources.get(correlation_id) or ""
+        action_idempotency_key = _arbitration_action_idempotency_key(
+            correlation_id,
+            action_type,
+            projection.selection.selected_option_id or "",
+            resource_id,
+            kinetic_proposal.proposal_id if kinetic_proposal is not None else "",
+        )
+        rollback_contract = rollback_contract_for(action_type, self._action_semantics)
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
@@ -568,13 +551,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 action_type,
                 self._arbitration_resources.get(correlation_id) or "",
             ),
-            "action_idempotency_key": _arbitration_action_idempotency_key(
-                correlation_id,
-                action_type,
-                projection.selection.selected_option_id or "",
-                resource_id,
-                kinetic_proposal.proposal_id if kinetic_proposal is not None else "",
-            ),
+            "action_idempotency_key": action_idempotency_key,
             "resource_id": resource_id,
             "action_type": action_type,
             "risk_verdict": risk_verdict,
@@ -590,11 +567,19 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 self._pending_change_assessments.pop(correlation_id, None),
             ),
             "quorum_required": quorum_for(action_type, self._action_semantics),
-            "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
+            "rollback_contract": rollback_contract,
             "initiator_principal": (
                 self._pending_arbitration_principals.pop(correlation_id, {}) or {}
             ).get(str(decision.get("winning_domain") or "")),
         }
+        attach_arbitration_safeguards(
+            verdict,
+            risk_verdict,
+            action_type,
+            action_idempotency_key,
+            resource_id,
+            rollback_contract,
+        )
         if kinetic_proposal is not None:
             verdict["params"] = kinetic_proposal.arguments()
             verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")
@@ -650,7 +635,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         )
         planning_invalid = False
         if projection is not None and winning_option is not None:
-            projection, planning_invalid = await self._finalize_planning_projection(
+            projection, planning_invalid = await _finalize_planning_projection(
+                self,
                 projection,
                 selected_option_id=winning_option.option_id,
             )
@@ -668,6 +654,15 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         self.record_behavior(f"verdict:{risk_verdict}")
         self.record_behavior("arbitration_escalated")
         principals = self._pending_arbitration_principals.pop(correlation_id, {}) or {}
+        resource_id = self._arbitration_resources.get(correlation_id) or ""
+        action_idempotency_key = _arbitration_action_idempotency_key(
+            correlation_id,
+            action_type,
+            winning_option.option_id if winning_option is not None else "",
+            resource_id,
+            kinetic_proposal.proposal_id if kinetic_proposal is not None else "",
+        )
+        rollback_contract = rollback_contract_for(action_type, self._action_semantics)
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
@@ -678,7 +673,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 self._arbitration_resources.get(correlation_id) or "",
                 reason,
             ),
-            "resource_id": self._arbitration_resources.get(correlation_id) or "",
+            "action_idempotency_key": action_idempotency_key,
+            "resource_id": resource_id,
             # Odin's winner is the concrete recommendation under review; the
             # complete DecisionCase keeps every alternative visible.
             "action_type": action_type,
@@ -691,9 +687,17 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 else None
             ),
             "quorum_required": quorum_for(action_type, self._action_semantics),
-            "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
+            "rollback_contract": rollback_contract,
             "initiator_principal": principals.get(winning_domain),
         }
+        attach_arbitration_safeguards(
+            verdict,
+            risk_verdict,
+            action_type,
+            action_idempotency_key,
+            resource_id,
+            rollback_contract,
+        )
         if kinetic_proposal is not None:
             verdict["params"] = kinetic_proposal.arguments()
             verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")

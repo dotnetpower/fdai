@@ -157,6 +157,12 @@ async def _drive_approved(
                 approver="approver@example.com",
                 decision="approve",
             )
+            if var.pending_tickets():
+                await var.decide(
+                    "corr-t2-recovery",
+                    approver="second-approver@example.com",
+                    decision="approve",
+                )
             break
     for _ in range(3000):
         await asyncio.sleep(0)
@@ -255,12 +261,12 @@ def test_approved_failure_switches_persistent_route_through_thor() -> None:
             provider,
             registry,
             expected_route="secondary",
-            expected_action_state="succeeded",
+            expected_action_state="effect_pending",
         )
     )
 
     assert asyncio.run(registry.preferred_route(("primary", "secondary"))) == "secondary"
-    assert runtime.shadow_decisions["action_run:succeeded"] >= 1
+    assert runtime.shadow_decisions["action_run:effect_pending"] >= 1
 
 
 def test_vidar_restores_route_when_thor_verification_fails() -> None:

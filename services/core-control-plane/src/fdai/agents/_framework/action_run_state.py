@@ -14,9 +14,11 @@ class ActionRunState(StrEnum):
     DENY_DROPPED = "deny_dropped"
     EXECUTING = "executing"
     EXECUTION_UNKNOWN = "execution_unknown"
+    EFFECT_PENDING = "effect_pending"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     ROLLED_BACK = "rolled_back"
+    ROLLBACK_REFUSED = "rollback_refused"
     ROLLBACK_FAILED = "rollback_failed"
 
 
@@ -26,6 +28,7 @@ TERMINAL_ACTION_RUN_STATES: frozenset[ActionRunState] = frozenset(
         ActionRunState.REJECTED,
         ActionRunState.DENY_DROPPED,
         ActionRunState.ROLLED_BACK,
+        ActionRunState.ROLLBACK_REFUSED,
         ActionRunState.ROLLBACK_FAILED,
     }
 )

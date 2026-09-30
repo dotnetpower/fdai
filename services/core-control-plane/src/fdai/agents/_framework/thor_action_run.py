@@ -62,6 +62,7 @@ class ActionRun:
     effect_verification_ref: str | None = None
     execution_closure_ref: str | None = None
     effect_verified_at: datetime | None = None
+    effect_verification_expires_at: datetime | None = None
     approval_expires_at: datetime | None = None
     terminal_published: bool = False
     resource_claimed: bool = False
@@ -180,6 +181,11 @@ class ActionRun:
             "prospective_lineage": deepcopy(self.prospective_lineage),
             "execution_audit_receipt": self.execution_audit_receipt,
             **effect_verification_mapping(self),
+            "effect_verification_expires_at": (
+                self.effect_verification_expires_at.isoformat()
+                if self.effect_verification_expires_at is not None
+                else None
+            ),
             "approval_expires_at": (
                 self.approval_expires_at.isoformat()
                 if self.approval_expires_at is not None
@@ -246,6 +252,10 @@ class ActionRun:
                 field_name="execution_audit_receipt",
             ),
             **durable_effect_verification(data),
+            effect_verification_expires_at=optional_datetime(
+                data.get("effect_verification_expires_at"),
+                field_name="effect_verification_expires_at",
+            ),
             approval_expires_at=optional_datetime(
                 data.get("approval_expires_at"),
                 field_name="approval_expires_at",

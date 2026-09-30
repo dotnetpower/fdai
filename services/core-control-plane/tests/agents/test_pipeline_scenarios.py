@@ -42,7 +42,7 @@ def _wire_pipeline(*, shadow: bool) -> tuple[InMemoryBus, Forseti, Thor, Var, Sa
         action_semantics=semantics,
     )
     forseti.bind_bus(bus)
-    thor = Thor(shadow_by_default=shadow)
+    thor = Thor(shadow_by_default=shadow, action_semantics_catalog=semantics)
     thor.bind_bus(bus)
     var = Var(action_semantics=semantics)
     var.bind_bus(bus)

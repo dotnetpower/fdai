@@ -221,9 +221,19 @@ def find_active_run(host: ThorPersistenceHost, resource_id: str) -> ActionRun | 
 
 async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
     """Write through one transition before publishing the owned ActionRun event."""
+    terminal_state = run.state in _TERMINAL_STATES
+    claimed_terminal_publication = (
+        terminal_state and host.bus is not None and not run.terminal_published
+    )
+    already_terminal_published = terminal_state and run.terminal_published
+    if claimed_terminal_publication:
+        run.terminal_published = True
     if host._state_store is not None:
         await host._state_store.save(run)
     evict_terminal_overflow(host)
+    if already_terminal_published and not claimed_terminal_publication:
+        host.record_behavior("action_run:duplicate_publication_suppressed")
+        return
     if host.bus is None:
         if run.state in _TERMINAL_STATES:
             if host._state_store is None:
@@ -244,14 +254,26 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
         "approval_expires_at": (
             run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
         ),
+        "effect_verification_expires_at": (
+            run.effect_verification_expires_at.isoformat()
+            if run.effect_verification_expires_at is not None
+            else None
+        ),
         "action_run_identity": run.action_run_identity(),
     }
     if run.evidence_rejection_ref is not None:
         payload["evidence_rejection_ref"] = run.evidence_rejection_ref
     if run.state in _TIMESTAMPED_ACTION_RUN_STATES:
         payload["terminal_at"] = host._now().isoformat().replace("+00:00", "Z")
-    await host.bus.publish("Thor", "object.action-run", payload)
-    if run.state in _TERMINAL_STATES:
+    try:
+        await host.bus.publish("Thor", "object.action-run", payload)
+    except Exception:
+        if claimed_terminal_publication:
+            run.terminal_published = False
+            if host._state_store is not None:
+                await host._state_store.save(run)
+        raise
+    if terminal_state:
         await asyncio.shield(_checkpoint_terminal_publication(host, run))
 
 
@@ -269,7 +291,9 @@ async def delete_terminal_state(host: ThorPersistenceHost, run: ActionRun) -> No
 
 
 async def finalize_terminal_replay(host: ThorPersistenceHost, run: ActionRun) -> None:
-    if run.state is ActionRunState.ROLLBACK_FAILED:
+    if run.state in {ActionRunState.ROLLBACK_FAILED, ActionRunState.ROLLBACK_REFUSED}:
+        await release_resource_claim(host, run)
+        release_lock(host, run.resource_id)
         return
     await release_resource_claim(host, run)
     if run.resource_claimed:

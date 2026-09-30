@@ -75,7 +75,12 @@ def _wired(
         **forseti_bindings,
     )
     executor = _RecordingExecutor()
-    thor = Thor(bus=bus, executor=executor, clock=lambda: _NOW)
+    thor = Thor(
+        bus=bus,
+        executor=executor,
+        clock=lambda: _NOW,
+        action_semantics_catalog=_known_action_semantics(),
+    )
     bus.subscribe("object.verdict", "Thor", thor.on_typed_message)
     if with_odin:
         odin = Odin(bus=bus, hil_margin=0.0)

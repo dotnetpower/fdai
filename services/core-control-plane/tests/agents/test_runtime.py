@@ -1268,8 +1268,9 @@ def test_object_event_produces_forseti_verdict_over_provider() -> None:
         return collected
 
     verdicts = asyncio.run(_drive())
-    assert verdicts == []
-    assert runtime.bridge.metrics.schema_violations == 1
+    assert len(verdicts) == 1
+    assert verdicts[0]["safeguards"]["stable_idempotency_key"] == "event:corr-2"
+    assert runtime.bridge.metrics.schema_violations == 0
 
 
 def test_operator_guidance_event_reaches_saga_without_action_verdict() -> None:
@@ -1438,7 +1439,7 @@ def test_shadow_observer_counts_verdicts_and_action_runs() -> None:
 
     asyncio.run(_drive())
     assert runtime.shadow_decisions["verdict:auto"] == 1
-    assert runtime.shadow_decisions["shadow_action_run:hil_pending"] == 1
+    assert runtime.shadow_decisions["shadow_action_run:succeeded"] == 1
     assert runtime.shadow_decisions["shadow_action_run:verdicted"] == 1
     assert runtime.health()["shadow_decisions"]["verdict:auto"] == 1
 
