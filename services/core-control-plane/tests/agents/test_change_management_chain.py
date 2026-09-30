@@ -116,6 +116,8 @@ async def test_muninn_preserves_distinct_change_revisions() -> None:
     muninn = Muninn()
     baseline = {
         "producer_principal": "Huginn",
+        "correlation_id": "change-corr",
+        "idempotency_key": "change-key",
         "id": "change-1",
         "status": "planned",
     }

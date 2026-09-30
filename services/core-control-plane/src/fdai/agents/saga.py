@@ -6,7 +6,8 @@ import asyncio
 import hashlib
 import inspect
 import json
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
@@ -47,6 +48,10 @@ _NON_LEARNABLE_TERMINAL_STATES = frozenset(
 )
 
 
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 class SagaAuditChain(Protocol):
     durable: bool
     entries: list[AuditEntry]
@@ -73,6 +78,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         state_store: InMemoryStateStore | None = None,
         durable_state_store: StateStore | None = None,
         github: IssueTrackerAdapter | None = None,
+        clock: Callable[[], datetime] = _utc_now,
     ) -> None:
         super().__init__(spec=_SAGA)
         self.audit_chain: SagaAuditChain = audit_chain or InMemoryAuditChain()
@@ -87,6 +93,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         )
         self._handoff_lock = asyncio.Lock()
         self.github = github or InMemoryGithubIssueAdapter()
+        self._clock = clock
 
     @property
     def durable_audit(self) -> bool:
@@ -255,7 +262,15 @@ class Saga(Agent, HandoverKnowledgeMixin):
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
-        if self.bus is None or not correlation_id:
+        if self.bus is None:
+            self.record_behavior("catalog_review_audit:transport_unavailable")
+            return
+        if not correlation_id:
+            self.record_behavior("catalog_review_audit:missing_correlation")
+            return
+        idempotency_key = str(payload.get("idempotency_key") or "")
+        if not idempotency_key:
+            self.record_behavior("catalog_review_audit:missing_idempotency_key")
             return
         await self.bus.publish(
             "Saga",
@@ -263,7 +278,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
             {
                 "producer_principal": "Saga",
                 "correlation_id": correlation_id,
-                "idempotency_key": str(payload.get("idempotency_key") or ""),
+                "idempotency_key": idempotency_key,
                 "audited_topic": "object.rule",
                 "action_kind": "catalog_review.outcome",
                 "candidate_digest": payload.get("candidate_digest"),
@@ -409,10 +424,19 @@ class Saga(Agent, HandoverKnowledgeMixin):
         correlation_id: str,
     ) -> None:
         """Seal a bounded forecast result onto Saga's public audit stream."""
-        if self.bus is None or not correlation_id:
+        if self.bus is None:
+            self.record_behavior("forecast_outcome_audit:transport_unavailable")
+            return
+        if not correlation_id:
+            self.record_behavior("forecast_outcome_audit:missing_correlation")
+            return
+        idempotency_key = str(payload.get("idempotency_key") or "")
+        if not idempotency_key:
+            self.record_behavior("forecast_outcome_audit:missing_idempotency_key")
             return
         outcome_id = str(payload.get("outcome_id") or "")
         if not outcome_id:
+            self.record_behavior("forecast_outcome_audit:missing_outcome_id")
             return
         await self.bus.publish(
             "Saga",
@@ -420,7 +444,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
             {
                 "producer_principal": "Saga",
                 "correlation_id": correlation_id,
-                "idempotency_key": str(payload.get("idempotency_key") or ""),
+                "idempotency_key": idempotency_key,
                 "audited_topic": "object.forecast-outcome",
                 "action_kind": "forecast.outcome.closed",
                 "outcome_id": outcome_id,
@@ -442,7 +466,15 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self, payload: dict[str, Any], correlation_id: str
     ) -> None:
         """Seal a document decision before the ingestion worker may act."""
-        if self.bus is None or not correlation_id:
+        if self.bus is None:
+            self.record_behavior("document_decision_audit:transport_unavailable")
+            return
+        if not correlation_id:
+            self.record_behavior("document_decision_audit:missing_correlation")
+            return
+        idempotency_key = str(payload.get("idempotency_key") or "")
+        if not idempotency_key:
+            self.record_behavior("document_decision_audit:missing_idempotency_key")
             return
         await self.bus.publish(
             "Saga",
@@ -453,7 +485,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 "kind": "document_ingestion",
                 "audited_topic": "object.verdict",
                 "correlation_id": correlation_id,
-                "idempotency_key": str(payload.get("idempotency_key") or ""),
+                "idempotency_key": idempotency_key,
                 "stage": str(payload.get("stage") or ""),
                 "decision": str(payload.get("decision") or "hold"),
                 "reason": str(payload.get("reason") or ""),
@@ -467,7 +499,15 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self, payload: dict[str, Any], correlation_id: str
     ) -> None:
         """Seal a document approval before promotion or hold."""
-        if self.bus is None or not correlation_id:
+        if self.bus is None:
+            self.record_behavior("document_approval_audit:transport_unavailable")
+            return
+        if not correlation_id:
+            self.record_behavior("document_approval_audit:missing_correlation")
+            return
+        idempotency_key = str(payload.get("idempotency_key") or "")
+        if not idempotency_key:
+            self.record_behavior("document_approval_audit:missing_idempotency_key")
             return
         await self.bus.publish(
             "Saga",
@@ -478,7 +518,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 "kind": "document_ingestion",
                 "audited_topic": "object.approval",
                 "correlation_id": correlation_id,
-                "idempotency_key": str(payload.get("idempotency_key") or ""),
+                "idempotency_key": idempotency_key,
                 "stage": str(payload.get("stage") or "protection_check"),
                 "decision": str(payload.get("state") or "rejected"),
                 "reason": "human_approval",
@@ -548,6 +588,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
             shadow_mode,
             payload.get("idempotency_key"),
         )
+        observed_at = str(payload.get("terminal_at") or "")
+        if shadow_mode and result is not None and not observed_at:
+            observed_at = self._clock().isoformat()
         await self.bus.publish(
             "Saga",
             "object.audit-entry",
@@ -565,7 +608,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 # 'success' is not evidence about the action's real safety).
                 "shadow_mode": shadow_mode,
                 "shadow_observation_id": correlation_id,
-                "observed_at": str(payload.get("terminal_at") or ""),
+                "observed_at": observed_at,
                 "operator_reviewed": False,
                 "operator_agreed": False,
                 "policy_escape": payload.get("policy_escape") is True,

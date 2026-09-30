@@ -65,6 +65,7 @@ class PublishedMessage:
     payload: Payload
     principal: str
     key: str = ""
+    failing_consumer: str = ""
 
 
 @dataclass
@@ -199,7 +200,11 @@ class InMemoryBus:
                 )
                 self.dead_letters.append(
                     PublishedMessage(
-                        topic=topic, payload=dict(enriched), principal=agent_name, key=key
+                        topic=topic,
+                        payload=dict(enriched),
+                        principal=principal,
+                        key=key,
+                        failing_consumer=agent_name,
                     )
                 )
                 if self.halt_ordered_topic_on_poison and topic in {

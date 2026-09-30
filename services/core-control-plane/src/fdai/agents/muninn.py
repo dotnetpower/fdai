@@ -242,14 +242,15 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         if not conversation_id or not correlation_id:
             self.record_behavior("conversation:rejected")
             return
+        idempotency_key = str(payload.get("idempotency_key") or "").strip()
+        if not idempotency_key:
+            self.record_behavior("conversation:missing_idempotency_key")
+            return
         record = {
             "schema_version": "1.0.0",
             "conversation_id": conversation_id,
             "correlation_id": correlation_id,
-            "idempotency_key": str(
-                payload.get("idempotency_key")
-                or stable_idempotency_key("conversation-index", conversation_id, correlation_id)
-            ),
+            "idempotency_key": idempotency_key,
             "principal_scope": str(payload.get("principal_scope") or ""),
             "status": str(payload.get("status") or ""),
             "payload_digest": _payload_digest(payload),
@@ -268,14 +269,15 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         if not preference_id or not correlation_id or not preference_digest:
             self.record_behavior("user_preference:rejected")
             return
+        idempotency_key = str(payload.get("idempotency_key") or "").strip()
+        if not idempotency_key:
+            self.record_behavior("user_preference:missing_idempotency_key")
+            return
         record = {
             "schema_version": "1.0.0",
             "id": preference_id,
             "correlation_id": correlation_id,
-            "idempotency_key": str(
-                payload.get("idempotency_key")
-                or stable_idempotency_key("user-preference-index", preference_id, preference_digest)
-            ),
+            "idempotency_key": idempotency_key,
             "principal_scope": str(payload.get("principal_scope") or ""),
             "preference_digest": preference_digest,
             "revision": payload.get("revision"),
@@ -367,6 +369,11 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         change_id = str(payload.get("id") or "").strip()
         if not change_id:
             self.record_behavior("change:invalid_payload")
+            return
+        correlation_id = str(payload.get("correlation_id") or "").strip()
+        idempotency_key = str(payload.get("idempotency_key") or "").strip()
+        if not correlation_id or not idempotency_key:
+            self.record_behavior("change:missing_identity")
             return
         canonical = {
             key: value

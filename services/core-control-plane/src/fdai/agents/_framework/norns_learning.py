@@ -123,6 +123,7 @@ def observe_fingerprint(state: NornsLearningState, payload: Mapping[str, Any]) -
     """Propose one inert candidate after a fingerprint repeats enough times."""
     fingerprint = str(payload.get("fingerprint", ""))
     if not fingerprint:
+        state.record_behavior("fingerprint:invalid")
         return
     count = (state._fingerprint_counter.get(fingerprint) or 0) + 1
     apply_fingerprint_count(state, fingerprint, count, propose=True)
@@ -163,12 +164,14 @@ def observe_outcome(state: NornsLearningState, payload: Mapping[str, Any]) -> No
     if not result:
         result = outcome_result(str(payload.get("state", ""))) or ""
     if not target:
+        state.record_behavior("audit_outcome:invalid_target")
         return
     if result in _ADVERSE_RESULTS:
         bucket = "rollback"
     elif result in _SUCCESS_RESULTS:
         bucket = "success"
     else:
+        state.record_behavior("audit_outcome:ignored_result")
         return
     correlation_id = str(payload.get("correlation_id", ""))
     if correlation_id:
@@ -212,6 +215,7 @@ def retain_shadow_dwell(
 ) -> None:
     """Retain one valid, deduplicated judge-and-log-only observation."""
     if not target:
+        state.record_behavior("shadow_dwell_observation_invalid")
         return
     correlation_id = str(payload.get("correlation_id", ""))
     observation_id = str(payload.get("shadow_observation_id") or correlation_id)
@@ -285,6 +289,7 @@ def observe_approval(state: NornsLearningState, payload: Mapping[str, Any]) -> N
     action_type = str(payload.get("action_type") or "")
     decision = str(payload.get("state", "")).strip().lower()
     if not action_type or decision not in ("approved", "rejected"):
+        state.record_behavior("approval:invalid")
         return
     correlation_id = str(payload.get("correlation_id", ""))
     if correlation_id:

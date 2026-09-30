@@ -23,6 +23,7 @@ class MuninnPatternReadMixin:
     if TYPE_CHECKING:
 
         def _case_projection_store(self, scope: str) -> CaseHistoryProjectionStore: ...
+        def record_behavior(self, key: str, count: int = 1) -> None: ...
 
     async def read_operating_pattern(
         self, *, cohort_key: str, pattern_id: str, access_scope_digest: str, purpose: str
@@ -36,23 +37,31 @@ class MuninnPatternReadMixin:
                     access_scope_digest=access_scope_digest,
                     purpose=purpose,
                 )
-        except (TimeoutError, ValueError, TypeError):
+        except TimeoutError:
+            self.record_behavior("operating_pattern_read:timeout")
+            return None
+        except (ValueError, TypeError):
+            self.record_behavior("operating_pattern_read:invalid")
             return None
 
     async def _read_operating_pattern(
         self, *, cohort_key: str, pattern_id: str, access_scope_digest: str, purpose: str
     ) -> dict[str, Any] | None:
         if self._durable_state_store is None or self._case_history is None:
+            self.record_behavior("operating_pattern_read:unavailable")
             return None
         prefix = "operational-case-fingerprint-cohort:v2:"
         if not cohort_key.startswith(prefix) or len(cohort_key) != len(prefix) + 64:
+            self.record_behavior("operating_pattern_read:invalid")
             return None
         if any(
             len(value) != 64 or any(character not in "0123456789abcdef" for character in value)
             for value in (cohort_key[len(prefix) :], pattern_id, access_scope_digest)
         ):
+            self.record_behavior("operating_pattern_read:invalid")
             return None
         if not purpose.strip() or len(purpose) > 512:
+            self.record_behavior("operating_pattern_read:invalid")
             return None
         key = f"{cohort_key}:pattern:{pattern_id}"
         record = await self._case_projection_store(access_scope_digest).read_state(key)
@@ -77,10 +86,12 @@ class MuninnPatternReadMixin:
             or record.get("execution_authority") is not False
             or record.get("promotion_authority") is not False
         ):
+            self.record_behavior("operating_pattern_read:stale")
             return None
         try:
             raw_cases = record["cases"]
             if not isinstance(raw_cases, list) or not 2 <= len(raw_cases) <= 100:
+                self.record_behavior("operating_pattern_read:stale")
                 return None
             compiled = OperatingPatternCompiler().compile(
                 tuple(PatternCase.from_mapping(item) for item in raw_cases),
@@ -91,6 +102,7 @@ class MuninnPatternReadMixin:
                 or compiled.pattern_id != pattern_id
                 or compiled.to_rule_candidate_mapping() != record["candidate"]
             ):
+                self.record_behavior("operating_pattern_read:stale")
                 return None
             for case_ref in compiled.immutable_case_refs:
                 if not isinstance(
@@ -101,7 +113,9 @@ class MuninnPatternReadMixin:
                     purpose=purpose,
                     now=self._case_history_clock(),
                 ):
+                    self.record_behavior("operating_pattern_read:stale")
                     return None
         except (KeyError, TypeError, ValueError):
+            self.record_behavior("operating_pattern_read:invalid")
             return None
         return record

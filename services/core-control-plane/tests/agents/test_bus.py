@@ -110,7 +110,8 @@ def test_inmemory_bus_isolates_raising_subscriber_by_default() -> None:
     assert seen == ["good"]  # sibling still ran
     assert bus.handler_errors == 1
     assert len(bus.dead_letters) == 1
-    assert bus.dead_letters[0].principal == "Heimdall"
+    assert bus.dead_letters[0].principal == "Huginn"
+    assert bus.dead_letters[0].failing_consumer == "Heimdall"
 
 
 def test_inmemory_bus_strict_mode_propagates_handler_error() -> None:

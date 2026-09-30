@@ -286,6 +286,10 @@ class Bragi(BragiPublicationMixin, Agent):
         )
         if outcome == "missing_correlation":
             self.record_behavior("progress:missing_correlation")
+        elif outcome == "ignored_topic":
+            self.record_behavior("progress:ignored_topic")
+        elif outcome == "duplicate":
+            self.record_behavior("progress:duplicate")
         elif outcome == "recorded":
             self.record_behavior("progress:recorded")
         return None

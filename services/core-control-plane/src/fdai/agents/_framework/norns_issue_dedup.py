@@ -47,6 +47,10 @@ class NornsIssueDeduplicator:
         payload: Mapping[str, Any],
     ) -> None:
         """Apply or resume one fingerprint operation without losing its count."""
+        fingerprint = payload.get("fingerprint")
+        if not isinstance(fingerprint, str) or not fingerprint:
+            state.record_behavior("fingerprint:invalid")
+            return
         if self._state_store is None:
             if self._claim_local(payload):
                 observe_fingerprint(state, payload)

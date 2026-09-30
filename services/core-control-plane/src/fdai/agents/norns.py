@@ -285,8 +285,12 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                 else:
                     self._append_candidate(candidate)
                     self.record_behavior("semantic_feedback_candidate_created")
-            else:
+            elif payload.get("kind") == "forecast_case_history":
                 await self._observe_forecast_case(payload)
+            else:
+                self.record_behavior("context_index:unsupported_kind")
+        else:
+            self.record_behavior("typed_message:ignored")
         # object.override is deliberately NOT handled here: it is not a pantheon
         # bus topic (agent-pantheon.md 2 - overrides flow through the exemption
         # / rule-catalog machinery). That machinery calls observe_override()
@@ -365,6 +369,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
 
     async def _observe_forecast_case(self, payload: dict[str, Any]) -> None:
         if payload.get("kind") != "forecast_case_history":
+            self.record_behavior("forecast_case:unsupported_kind")
             return
         case_id = str(payload.get("case_id") or "")
         revision = str(payload.get("revision") or "")
@@ -378,6 +383,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             self.record_behavior("forecast_case:invalid")
             return
         if dedup_key in self._counted_case_revisions:
+            self.record_behavior("forecast_case:duplicate")
             return
         self._counted_case_revisions.add(dedup_key)
         if label not in {
@@ -392,7 +398,11 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         count = (self._forecast_error_counts.get(fingerprint) or 0) + 1
         self._forecast_error_counts.set(fingerprint, count)
         self.record_behavior(f"forecast_case:{label}")
-        if count < self._forecast_error_threshold or fingerprint in self._forecast_error_proposed:
+        if count < self._forecast_error_threshold:
+            self.record_behavior("forecast_case:collecting")
+            return
+        if fingerprint in self._forecast_error_proposed:
+            self.record_behavior("forecast_case:already_proposed")
             return
         self._forecast_error_proposed.add(fingerprint)
         if self._case_history_analyzer is not None:

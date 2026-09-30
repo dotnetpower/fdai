@@ -168,6 +168,8 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             await binder.handle(command)
         elif topic == RULE_GENERATION_ACTIVATION_RESULT_TOPIC:
             await self._record_rule_generation_activation_result(payload)
+        else:
+            self.record_behavior("typed_message:ignored")
 
     def _handle_issue(self, payload: dict[str, Any]) -> None:
         """Retain Saga-owned issue fingerprints for candidate closure linkage."""
@@ -219,6 +221,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
 
     async def _handle_rule_generation_build_request(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Mimir":
+            self.record_behavior("rule_generation_build_request:rejected_owner")
             raise ValueError("Rule generation build request MUST be published by Mimir")
         request = RuleGenerationBuildRequestEvent.model_validate(
             {
@@ -247,6 +250,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         payload: dict[str, Any],
     ) -> None:
         if payload.get("producer_principal") != "Heimdall":
+            self.record_behavior("rule_generation_validation:rejected_owner")
             raise ValueError("Rule generation validation MUST be published by Heimdall")
         result = RuleGenerationValidationResultEvent.model_validate(
             {

@@ -23,6 +23,9 @@ def record_progress(
         "state": payload.get("state") or payload.get("risk_verdict"),
         "action_type": payload.get("action_type"),
         "outcome": payload.get("outcome"),
+        "idempotency_key": payload.get("idempotency_key"),
+        "action_run_identity": payload.get("action_run_identity"),
+        "action_idempotency_key": payload.get("action_idempotency_key"),
     }
     steps = progress.setdefault(correlation_id, [])
     if steps and steps[-1] == entry:

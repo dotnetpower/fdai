@@ -162,11 +162,16 @@ class Var(
             self._ingest_shadow_review(payload)
             return
         if topic != "object.action-run":
+            self.record_behavior("typed_message:ignored")
             return
-        if payload.get("state") != "hil_pending":
+        state = str(payload.get("state") or "")
+        if state != "hil_pending":
+            ignored_state = state if state in {"verdicted", "approved", "succeeded"} else "other"
+            self.record_behavior(f"action_run:ignored_state:{ignored_state}")
             return
         correlation = str(payload.get("correlation_id", ""))
         if not correlation:
+            self.record_behavior("ticket_invalid_correlation")
             return
         try:
             action_run_identity = validate_action_run_identity(payload)
@@ -181,10 +186,6 @@ class Var(
         ):
             self.record_behavior("ticket_identity_conflict")
             return
-        # Clamp quorum to a floor of 1: a forged / malformed action-run must
-        # never yield a zero-or-negative quorum that would approve with no
-        # approver (the two-approver requirement for irreversible actions is
-        # set by Forseti; this only prevents a downgrade below one).
         raw_quorum = payload.get("quorum_required", 1)
         if isinstance(raw_quorum, bool):
             self.record_behavior("ticket_invalid_quorum")
@@ -234,6 +235,7 @@ class Var(
         existing = self._pending.get(correlation)
         if existing is not None:
             if existing.action_run_identity == action_run_identity:
+                self.record_behavior("ticket_duplicate")
                 return
             self.record_behavior("ticket_identity_conflict")
             return
@@ -272,7 +274,11 @@ class Var(
         correlation = str(payload.get("correlation_id") or "")
         document_id = str(payload.get("document_id") or "")
         upload_id = str(payload.get("upload_id") or "")
-        if not correlation or not document_id or not upload_id or correlation in self._pending:
+        if correlation in self._pending:
+            self.record_behavior("document_ticket_duplicate")
+            return
+        if not correlation or not document_id or not upload_id:
+            self.record_behavior("document_ticket_invalid")
             return
         self._pending[correlation] = PendingHilTicket(
             correlation_id=correlation,
@@ -351,7 +357,8 @@ class Var(
     ) -> dict[str, Any] | None:
         ticket = self._pending.get(correlation_id)
         if ticket is None:
-            return None
+            self.record_behavior("decision:missing_ticket")
+            return {"state": "rejected", "reason": "missing_ticket"}
         final_approval = await self._load_final_approval(
             correlation_id,
             ticket.action_run_identity,
@@ -648,7 +655,8 @@ class Var(
 
         ticket = self._pending_shadow_reviews.get(correlation_id)
         if ticket is None:
-            return None
+            self.record_behavior("shadow_review:missing_ticket")
+            return {"state": "rejected", "reason": "missing_ticket"}
         reviewer_norm = reviewer.strip().casefold()
         if not reviewer_norm:
             raise ValueError("shadow outcome reviewer MUST be a non-empty principal")

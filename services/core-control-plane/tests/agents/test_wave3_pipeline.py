@@ -2371,16 +2371,15 @@ def test_var_rejects_durable_correlation_reuse() -> None:
         )
     )
     assert restarted.pending_tickets() == ()
-    assert (
-        asyncio.run(
-            restarted.decide(
-                correlation,
-                approver="reviewer-b@example.com",
-                decision="approve",
-            )
+    refusal = asyncio.run(
+        restarted.decide(
+            correlation,
+            approver="reviewer-b@example.com",
+            decision="approve",
         )
-        is None
     )
+    assert refusal is not None
+    assert refusal["reason"] == "missing_ticket"
     assert restarted.behavior_snapshot()["ticket_identity_conflict"] == 1
 
 
@@ -2653,7 +2652,9 @@ def test_var_serializes_concurrent_final_approvals() -> None:
 
     finalized = first or second
     assert finalized is not None
-    assert (first is None) is not (second is None)
+    assert (first.get("reason") == "missing_ticket") is not (
+        second.get("reason") == "missing_ticket"
+    )
     assert finalized["approvers"] == ["first@example.com"]
     assert var.bus is not None
     assert len(var.bus.messages_on("object.approval")) == 1  # type: ignore[union-attr]
@@ -2708,15 +2709,18 @@ def test_var_reject_flow_emits_rejected_approval() -> None:
     assert result is not None
     assert result["state"] == "rejected"
     # The ticket is consumed, so a second decide finds nothing.
-    assert asyncio.run(var.decide("c-hil", approver="b@example.com", decision="approve")) is None
+    refusal = asyncio.run(var.decide("c-hil", approver="b@example.com", decision="approve"))
+    assert refusal is not None
+    assert refusal["reason"] == "missing_ticket"
 
 
 def test_var_decide_unknown_correlation_returns_none() -> None:
     var = _var_with_pending()
-    assert (
-        asyncio.run(var.decide("does-not-exist", approver="a@example.com", decision="approve"))
-        is None
+    refusal = asyncio.run(
+        var.decide("does-not-exist", approver="a@example.com", decision="approve")
     )
+    assert refusal is not None
+    assert refusal["reason"] == "missing_ticket"
 
 
 def test_var_ingest_rejects_a_reused_correlation_with_new_identity() -> None:
