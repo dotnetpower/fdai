@@ -400,6 +400,21 @@ async def test_context_outbox_real_postgres_replay_claim_and_lease_recovery():
             assert await cursor.fetchone() == (0,)
 
 
+def _current_window() -> tuple[datetime, datetime]:
+    """Return a validity window around the wall clock at which the choice source evaluates.
+
+    A current window spans the present, and the expired and pending windows lie wholly before
+    or after it, so no fixed date can turn a pending grant current or a current grant expired.
+    """
+
+    now = datetime.now(UTC).replace(microsecond=0)
+    return now - timedelta(days=180), now + timedelta(days=185)
+
+
+def _stamp(value: datetime) -> str:
+    return value.isoformat().replace("+00:00", "Z")
+
+
 def _choice_registry(
     *,
     duplicate_scope: bool = False,
@@ -410,6 +425,9 @@ def _choice_registry(
     case_history_only: bool = False,
 ) -> str:
     import json
+
+    start, end = _current_window()
+    stamp = _stamp
 
     def grant(
         grant_id: str,
@@ -428,8 +446,8 @@ def _choice_registry(
             "operations": [operation],
             "purposes": [purpose],
             "reviewer": "reviewer-example",
-            "valid_from": "2026-10-01T00:00:00Z" if not_yet_valid else "2026-01-01T00:00:00Z",
-            "valid_until": "2026-01-02T00:00:00Z" if expired else "2027-01-01T00:00:00Z",
+            "valid_from": stamp(end - timedelta(days=1) if not_yet_valid else start),
+            "valid_until": stamp(start + timedelta(days=1) if expired else end),
             "revoked": revoked,
         }
 
@@ -441,8 +459,8 @@ def _choice_registry(
         if case_history_only
         else ["operator-test-context-command", "test-context-transition"],
         "policy_revision": "policy:example",
-        "valid_from": "2026-01-01T00:00:00Z",
-        "valid_until": "2027-01-01T00:00:00Z",
+        "valid_from": stamp(start),
+        "valid_until": stamp(end),
         "revoked": False,
     }
     grants = [
@@ -507,6 +525,7 @@ def _transition_only_registry() -> str:
 def _many_scope_registry(count: int = 129) -> str:
     import json
 
+    start, end = (_stamp(value) for value in _current_window())
     scopes = []
     case_scope_ids = []
     for index in range(count):
@@ -519,8 +538,8 @@ def _many_scope_registry(count: int = 129) -> str:
                 "resource_selectors": [f"resource-{index:03d}"],
                 "purposes": ["operator-test-context-command", "test-context-transition"],
                 "policy_revision": "policy:example",
-                "valid_from": "2026-01-01T00:00:00Z",
-                "valid_until": "2027-01-01T00:00:00Z",
+                "valid_from": start,
+                "valid_until": end,
                 "revoked": False,
             }
         )
@@ -536,8 +555,8 @@ def _many_scope_registry(count: int = 129) -> str:
                     "operations": ["test-context.propose"],
                     "purposes": ["operator-test-context-command"],
                     "reviewer": "reviewer-example",
-                    "valid_from": "2026-01-01T00:00:00Z",
-                    "valid_until": "2027-01-01T00:00:00Z",
+                    "valid_from": start,
+                    "valid_until": end,
                     "revoked": False,
                 },
                 {
@@ -547,8 +566,8 @@ def _many_scope_registry(count: int = 129) -> str:
                     "operations": ["test-context.propose"],
                     "purposes": ["test-context-transition"],
                     "reviewer": "reviewer-example",
-                    "valid_from": "2026-01-01T00:00:00Z",
-                    "valid_until": "2027-01-01T00:00:00Z",
+                    "valid_from": start,
+                    "valid_until": end,
                     "revoked": False,
                 },
             ]
