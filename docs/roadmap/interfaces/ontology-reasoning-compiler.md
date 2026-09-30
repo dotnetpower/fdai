@@ -315,7 +315,9 @@ self-composable, depth at most five.
 - **Unsupported atoms**: A `region` filter compiles to a `Resource.location` predicate only when two
   blind choosers ground its mention to the same codes of the reviewed region vocabulary, and a
   `diagnose` goal without an applicable recipe never reuses another type's recipe. An unbound region
-  and a missing recipe return a typed reason instead of a name predicate or a substitute.
+  and a missing recipe return a typed reason instead of a name predicate or a substitute. A row has
+  one location, so several stated regions read as one union, and V-SEM requires that predicate on
+  every result read.
 - **Schema reads**: A schema relation is answered only by the one-hop `query.ontology_relationships`
   read of the subject ObjectType's own LinkTypes in both directions, and a manifest count groups only
   by declaration kind. A LinkType subject scoped to one ObjectType, as in the LinkTypes in Workload,
@@ -819,8 +821,10 @@ with exactly the grounded concepts and no state concepts. The health reader also
 coverage and for other unavailable states, so a health-filtered count returns a typed unsupported reason
 instead of counting rows as matches. The reader unions the state rows it is given, while stated
 restrictions intersect, so a goal that states both a state and a health also returns a typed unsupported
-reason. V-SEM requires the health reader with the grounded concepts, and V-PROV requires exactly those
-concepts and no state concepts.
+reason. V-SEM requires the health reader with the grounded concepts to filter a result read and to
+answer the goal, requires that read to keep every other stated restriction, and rejects any aggregate
+over health rows; V-PROV requires exactly those concepts and no state concepts. A Resource state
+reader is checked the same way, except that its rows may be counted.
 
 **Lifecycle states**
 
@@ -830,8 +834,9 @@ that names its ObjectType and property, so two blind choosers ground a state men
 states and those values together. A lifecycle value then compiles only as an exact predicate on the
 read of its own ObjectType, and a count of it is exact. A lifecycle value stated on another subject, a
 Resource state stated on another ObjectType, or a mention that mixes both returns a typed unsupported
-reason. V-SEM requires the predicate on every result read, and V-PROV accepts only the grounded
-values.
+reason. Several stated lifecycle values read as one union because a row holds one value. V-SEM
+requires the predicate on every result read of that ObjectType, and V-PROV accepts the grounded values
+only on that ObjectType's read.
 
 ## Approved decisions
 

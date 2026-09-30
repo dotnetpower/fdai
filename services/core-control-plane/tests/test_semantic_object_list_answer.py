@@ -36,11 +36,21 @@ def _answer(locale: str, output: dict[str, Any]) -> str:
 def test_incident_rows_render_as_verified_rows_instead_of_unnamed_resources() -> None:
     incidents = _output(
         [
-            {"id": "inc-1", "status": "open", "severity": "sev2"},
-            {"id": "inc-2", "status": "open", "severity": "sev3"},
+            {"id": "inc-1", "object_type": "Incident", "status": "open", "severity": "sev2"},
+            {"id": "inc-2", "object_type": "Incident", "status": "open", "severity": "sev3"},
         ]
     )
-    resources = _output([{"name": "vm-app-01", "type": "compute.vm", "status": "running"}])
+    resources = _output(
+        [
+            {
+                "id": "vm-1",
+                "object_type": "Resource",
+                "name": "vm-app-01",
+                "type": "compute.vm",
+                "status": "running",
+            }
+        ]
+    )
 
     english = _answer("en", incidents)
     korean = _answer("ko", incidents)
@@ -51,3 +61,14 @@ def test_incident_rows_render_as_verified_rows_instead_of_unnamed_resources() ->
     assert "일치하는 리소스" not in korean
     # A row that names a Resource keeps the Resource list.
     assert "## 1 matching Resources" in _answer("en", resources)
+
+
+def test_an_incomplete_object_list_never_reads_as_an_exhaustive_count() -> None:
+    incidents = _output([{"id": "inc-1", "object_type": "Incident", "status": "closed"}])
+    incidents.update(source_complete=False, source_truncation_reason="limit_reached")
+
+    english = _answer("en", incidents)
+    korean = _answer("ko", incidents)
+
+    assert "The source scope is incomplete, so this is not an exhaustive count." in english
+    assert "원본 범위가 완전하지 않아 전체 개수로 해석할 수 없습니다." in korean

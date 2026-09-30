@@ -500,3 +500,17 @@ def test_reviewed_lifecycle_values_join_the_state_catalog_with_their_object_type
     assert lifecycle[("lifecycle:Incident.status=open",)].labels == ("open", "Incident status")
     # Resource states stay in the same catalog, unchanged.
     assert any(candidate.values == ("resource_state.running",) for candidate in catalog)
+
+
+def test_a_vocabulary_without_health_groups_offers_no_health_concepts() -> None:
+    mapping = yaml.safe_load(
+        (ROOT / "rule-catalog" / "vocabulary" / "inventory-query-language.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    for state in ("not_ready", "degraded", "unavailable", "unhealthy"):
+        mapping["states"].pop(state)
+    language = load_inventory_query_language_from_mapping(mapping)
+
+    # A fork without Resource Health keeps its manifest instead of failing composition.
+    assert ConceptVocabularies(inventory_query_language=language).health_labels() == {}

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 36ef4a23722da0f4ac2485d6a30b14ca7edca764
+translation_source_sha: edd893d9a0c86ebbdb290897ae7d365c7acc4f66
 translation_revised: 2026-09-30
 ---
 # 온톨로지 추론 컴파일러
@@ -338,7 +338,8 @@ LinkType에만 허용되며 깊이는 최대 5입니다.
 - **지원되지 않는 원자**: `region` 필터는 두 블라인드 선택자가 그 언급을 검토된 리전 어휘의 같은
   코드로 근거화할 때만 `Resource.location` 조건식으로 컴파일되고, 적용 가능한 레시피가 없는 `diagnose`
   목표는 다른 타입의 레시피를 재사용하지 않습니다. 근거화되지 않은 리전과 없는 레시피는 이름 조건식이나
-  대체 기능 대신 타입이 지정된 사유를 반환합니다.
+  대체 기능 대신 타입이 지정된 사유를 반환합니다. 한 행의 위치는 하나이므로 여러 리전을 밝히면 하나의
+  합집합으로 읽으며, V-SEM은 모든 결과 읽기에 그 조건식을 요구합니다.
 - **스키마 읽기**: 스키마 관계에는 주어 ObjectType 자신의 LinkType을 양방향으로 한 단계만 읽는
   `query.ontology_relationships`로만 답하고, manifest 개수는 선언 종류별로만 묶습니다. Workload 안의
   LinkType처럼 ObjectType 하나로 범위를 좁힌 LinkType 주어는 같은 조회이므로 그 ObjectType의 관계
@@ -829,8 +830,10 @@ Resource Health reader가 읽을 수 있고 바인딩된 선언이면, 매니페
 읽습니다. 이 reader는 수집 범위를 알 수 없는 행과 다른 사용 불가 상태의 행도 돌려주므로, Resource Health로
 거른 개수 질문은 행을 일치 항목으로 세지 않고 타입이 지정된 지원되지 않음 이유를 돌려줍니다. 또한 reader는
 받은 상태 행을 합집합으로 더하지만 밝힌 제한은 교집합이므로, 상태와 Resource Health를 함께 밝힌 목표도 타입이
-지정된 지원되지 않음 이유를 돌려줍니다. V-SEM은 근거화된 개념을 읽는 Resource Health reader를 요구하고,
-V-PROV는 정확히 그 개념만 있고 상태 개념은 없는지 확인합니다.
+지정된 지원되지 않음 이유를 돌려줍니다. V-SEM은 근거화된 개념을 읽는 Resource Health reader가 결과 읽기를
+거르고 목표에 답하도록 요구하고, 그 읽기가 밝힌 다른 제한을 모두 유지하도록 요구하며, Resource Health 행을
+세는 집계는 거부합니다. V-PROV는 정확히 그 개념만 있고 상태 개념은 없는지 확인합니다. Resource 상태
+reader도 같은 방식으로 확인하되, 그 행은 셀 수 있습니다.
 
 **수명 주기 상태**
 
@@ -839,8 +842,9 @@ V-PROV는 정확히 그 개념만 있고 상태 개념은 없는지 확인합니
 카탈로그에 들어가므로, 두 블라인드 선택자는 상태 언급을 Resource 상태와 이 값 전체에 대해 근거화합니다.
 수명 주기 값은 그 ObjectType 자신의 읽기에 대한 정확한 조건으로만 컴파일되며, 그 개수도 정확합니다.
 다른 주어에 밝힌 수명 주기 값, 다른 ObjectType에 밝힌 Resource 상태, 둘을 섞은 언급은 타입이 지정된
-지원되지 않음 이유를 돌려줍니다. V-SEM은 모든 결과 읽기에 그 조건을 요구하고, V-PROV는 근거화된 값만
-받습니다.
+지원되지 않음 이유를 돌려줍니다. 한 행의 값은 하나이므로 여러 수명 주기 값을 밝히면 하나의 합집합으로
+읽습니다. V-SEM은 그 ObjectType의 모든 결과 읽기에 그 조건을 요구하고, V-PROV는 그 ObjectType의 읽기에서만
+근거화된 값을 받습니다.
 
 ## 승인된 결정
 

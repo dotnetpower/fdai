@@ -39,7 +39,7 @@ from .semantic_reasoning_form import (
     SubjectScope,
 )
 from .semantic_reasoning_handles import ReferenceReceipt, restricting_rows
-from .semantic_reasoning_lifecycle import lifecycle_predicate
+from .semantic_reasoning_lifecycle import lifecycle_predicate, parse_lifecycle
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 
@@ -150,19 +150,22 @@ def endpoint_predicates(
     Each stated kind restriction narrows the others, so the subject kind and every
     type filter intersect; an empty intersection clarifies instead of widening. An
     empty value set is the explicit resources-in-general root and restricts nothing.
+    A single-valued property holds one value per row, so the regions or lifecycle
+    values that several filters state are read as one union, never as a conjunction
+    that no row can meet.
     """
 
     type_sets: list[frozenset[str]] = [frozenset(extra_types)] if extra_types else []
     predicates: list[dict[str, Any]] = []
+    regions: set[str] = set()
+    lifecycle: list[str] = []
     for item in goal.filters:
         if item.role is FilterRole.SCOPE:
             continue
         if item.role is FilterRole.STATE:
-            lifecycle, failure = _lifecycle_filter(item.mention, ctx, selector)
-            if failure is not None:
-                return [], failure
-            if lifecycle is not None:
-                predicates.append(lifecycle)
+            stated_lifecycle = _lifecycle_values(item.mention, ctx)
+            if stated_lifecycle:
+                lifecycle.extend(stated_lifecycle)
                 continue
         # A Resource state or health is read by the reader stage that follows this read.
         if staged is not None and item.role is staged:
@@ -180,18 +183,21 @@ def endpoint_predicates(
                 {"property": "name", "operator": "contains", "equals": ctx.text(item.mention)}
             )
         elif item.role is FilterRole.REGION:
-            regions, failure = concept_values(item.mention, ctx)
+            stated_regions, failure = concept_values(item.mention, ctx)
             if failure is not None:
                 return [], failure
-            if ctx.mention(item.mention).domain is not MentionDomain.REGION or not regions:
+            if ctx.mention(item.mention).domain is not MentionDomain.REGION or not stated_regions:
                 return [], OperatorResult(unsupported=("region_filter_domain_unsupported",))
-            predicates.append(
-                {"property": "location", "operator": "equals", "equals": regions[0]}
-                if len(regions) == 1
-                else {"property": "location", "operator": "in", "values": sorted(regions)}
-            )
+            regions.update(stated_regions)
         else:
             return [], OperatorResult(unsupported=(f"filter_unsupported:{item.role.value}",))
+    if regions:
+        predicates.append(_one_of("location", regions))
+    if lifecycle:
+        predicate, reason = lifecycle_predicate(lifecycle, selector)
+        if predicate is None:
+            return [], OperatorResult(unsupported=(reason or "state_filter_domain_unsupported",))
+        predicates.append(predicate)
     required = sorted(frozenset.intersection(*type_sets)) if type_sets else []
     if type_sets and not required:
         return [], OperatorResult(clarify=("type_restrictions_disjoint",))
@@ -286,22 +292,24 @@ def declared_measures(ctx: CompileContext, function_name: str) -> tuple[str, ...
     return ()
 
 
-def _lifecycle_filter(
-    mention_id: str, ctx: CompileContext, selector: str
-) -> tuple[dict[str, Any] | None, OperatorResult | None]:
-    """Return the exact predicate a grounded lifecycle state states on ``selector``.
+def _lifecycle_values(mention_id: str, ctx: CompileContext) -> tuple[str, ...]:
+    """Return a state mention's grounded values when any names a lifecycle value.
 
-    ``(None, None)`` leaves any other state filter, and a failed binding, to the flow
+    An empty result leaves any other state filter, and a failed binding, to the flow
     that reads or rejects it.
     """
 
     values, failure = concept_values(mention_id, ctx)
     if failure is not None or ctx.mention(mention_id).domain is not MentionDomain.STATE:
-        return None, None
-    predicate, reason = lifecycle_predicate(values, selector)
-    if reason is not None:
-        return None, OperatorResult(unsupported=(reason,))
-    return predicate, None
+        return ()
+    return values if any(parse_lifecycle(item) is not None for item in values) else ()
+
+
+def _one_of(property_name: str, values: set[str]) -> dict[str, Any]:
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return {"property": property_name, "operator": "equals", "equals": ordered[0]}
+    return {"property": property_name, "operator": "in", "values": ordered}
 
 
 def concept_values(

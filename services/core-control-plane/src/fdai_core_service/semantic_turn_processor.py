@@ -3467,6 +3467,9 @@ def _render_general_query_answer(
                 else f"- Verified {returned} of {total} rows."
             )
             lines.extend(verified_rows_table(output, korean=korean, leading=measure_concepts))
+            if output.get("source_complete") is False:
+                notice = output.get("source_truncation_reason")
+                lines.extend(["", _incomplete_source_notice(notice, korean=korean)])
     lines.extend(
         [
             "",
@@ -3512,7 +3515,7 @@ def _render_resource_list_answer(
         or any(not isinstance(row, Mapping) for row in rows)
     ):
         return None
-    if not any(_names_a_resource(row) for row in rows):
+    if _lists_another_object_type(rows):
         # Rows of another ObjectType, such as an Incident, are not Resources to list by name.
         return None
     if source_complete:
@@ -3560,25 +3563,7 @@ def _render_resource_list_answer(
             ]
         )
     if not source_complete:
-        limitation = (
-            source_limitation
-            if isinstance(source_limitation, str) and source_limitation
-            else "source_incomplete"
-        )
-        lines.extend(
-            [
-                "",
-                (
-                    "원본 범위가 완전하지 않아 전체 개수로 해석할 수 없습니다. "
-                    f"제한: {source_limitation_text(limitation, korean=True)}"
-                    if korean
-                    else (
-                        "The source scope is incomplete, so this is not an exhaustive count. "
-                        f"Limitation: {source_limitation_text(limitation, korean=False)}"
-                    )
-                ),
-            ]
-        )
+        lines.extend(["", _incomplete_source_notice(source_limitation, korean=korean)])
     lines.extend(
         [
             "",
@@ -5426,10 +5411,31 @@ def _hypothesis_names(hypotheses: list[Mapping[str, object]], *, korean: bool) -
     return ", ".join(names) if names else ("없음" if korean else "none")
 
 
-def _names_a_resource(row: Mapping[str, object]) -> bool:
-    values = row.get("values")
-    return isinstance(values, Mapping) and any(
-        _answer_text(values.get(field), fallback="") for field in ("name", "type")
+def _lists_another_object_type(rows: list[object]) -> bool:
+    """Return whether every row is an object of a named ObjectType other than Resource."""
+
+    kinds = [
+        values.get("object_type") if isinstance(values := row.get("values"), Mapping) else None
+        for row in rows
+        if isinstance(row, Mapping)
+    ]
+    return bool(kinds) and all(isinstance(kind, str) and kind != "Resource" for kind in kinds)
+
+
+def _incomplete_source_notice(source_limitation: object, *, korean: bool) -> str:
+    limitation = (
+        source_limitation
+        if isinstance(source_limitation, str) and source_limitation
+        else "source_incomplete"
+    )
+    return (
+        "원본 범위가 완전하지 않아 전체 개수로 해석할 수 없습니다. "
+        f"제한: {source_limitation_text(limitation, korean=True)}"
+        if korean
+        else (
+            "The source scope is incomplete, so this is not an exhaustive count. "
+            f"Limitation: {source_limitation_text(limitation, korean=False)}"
+        )
     )
 
 

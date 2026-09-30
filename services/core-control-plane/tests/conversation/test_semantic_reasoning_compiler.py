@@ -2397,3 +2397,76 @@ def test_a_lifecycle_state_never_restricts_another_subject() -> None:
         GoalStatus.UNSUPPORTED,
         ("state_filter_domain_unsupported",),
     )
+
+
+def _regions_form(utterance: str, regions: tuple[str, ...]) -> dict[str, Any]:
+    mentions: list[dict[str, Any]] = [
+        {"id": "m1", "form": "concept", "domain": "resource_type", "span": span(utterance, "VMs")}
+    ]
+    for index, region in enumerate(regions, start=2):
+        mentions.append(
+            {
+                "id": f"m{index}",
+                "form": "value",
+                "domain": "region",
+                "span": span(utterance, region),
+            }
+        )
+    return {
+        "mentions": mentions,
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [
+                    {"role": "region", "mention": f"m{index}"}
+                    for index in range(2, len(regions) + 2)
+                ],
+                "cue": span(utterance, "List"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_several_stated_regions_or_lifecycle_states_read_as_one_union() -> None:
+    regions = "List the VMs in koreacentral or eastus"
+    states = "List the open or triaging incidents"
+    lifecycle_form = _incident_form(states)
+    lifecycle_form["mentions"].append(
+        {"id": "m3", "form": "concept", "domain": "state", "span": span(states, "triaging")}
+    )
+    lifecycle_form["goals"][0]["filters"].append({"role": "state", "mention": "m3"})
+
+    located = _compile(
+        regions,
+        _regions_form(regions, ("koreacentral", "eastus")),
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.REGION, ("koreacentral",)),
+            ("m3", MentionDomain.REGION, ("eastus",)),
+        ),
+    ).goals[0]
+    staged = _compile(
+        states,
+        lifecycle_form,
+        concepts(
+            ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+            ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+            ("m3", MentionDomain.STATE, ("lifecycle:Incident.status=triaging",)),
+        ),
+    ).goals[0]
+
+    # A row holds one location and one status, so a conjunction would match nothing.
+    assert located.status is GoalStatus.COMPILED, located.reasons
+    location = [item for item in batch_predicates(located) if item["property"] == "location"]
+    assert location == [
+        {"property": "location", "operator": "in", "values": ["eastus", "koreacentral"]}
+    ]
+    assert staged.status is GoalStatus.COMPILED, staged.reasons
+    assert batch_predicates(staged) == [
+        {"property": "status", "operator": "in", "values": ["open", "triaging"]}
+    ]

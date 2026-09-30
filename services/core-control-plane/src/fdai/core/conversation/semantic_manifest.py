@@ -48,7 +48,13 @@ class ConceptVocabularies:
 
     def health_labels(self) -> dict[str, tuple[str, ...]]:
         language = self.inventory_query_language
-        return resource_health_state_values(language) if language is not None else {}
+        if language is None:
+            return {}
+        try:
+            return resource_health_state_values(language)
+        except ValueError:
+            # A vocabulary without Resource Health groups offers no health concepts.
+            return {}
 
 
 class CatalogQueryManifestProvider:
