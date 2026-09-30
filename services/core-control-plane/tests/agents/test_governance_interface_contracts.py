@@ -4,6 +4,7 @@ import asyncio
 from datetime import UTC, datetime
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.bragi import Bragi
@@ -19,6 +20,7 @@ from fdai.rule_catalog.schema.rule_semantic_generation_events import (
 
 def _hil_payload(correlation_id: str = "corr-var") -> dict[str, object]:
     return {
+        "producer_principal": "Thor",
         "correlation_id": correlation_id,
         "idempotency_key": f"{correlation_id}:hil",
         "action_type": "ops.restart-service",
@@ -27,12 +29,20 @@ def _hil_payload(correlation_id: str = "corr-var") -> dict[str, object]:
     }
 
 
+def _semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={"ops.restart-service": False},
+        rollback_by_id={},
+    )
+
+
 async def test_var_records_ignored_invalid_duplicate_and_missing_authority_paths() -> None:
-    var = Var()
+    var = Var(action_semantics=_semantics())
 
     await var.on_typed_message(
         "object.event",
         {
+            "producer_principal": "Huginn",
             "correlation_id": "event-ignored",
             "idempotency_key": "event-ignored",
             "event_type": "unrelated",
@@ -45,7 +55,12 @@ async def test_var_records_ignored_invalid_duplicate_and_missing_authority_paths
         )
     await var.on_typed_message(
         "object.action-run",
-        {"idempotency_key": "missing-correlation", "state": "hil_pending"},
+        {
+            "producer_principal": "Thor",
+            "idempotency_key": "missing-correlation",
+            "resource_id": "resource-missing",
+            "state": "hil_pending",
+        },
     )
     await var.on_typed_message("object.action-run", _hil_payload("corr-dup"))
     await var.on_typed_message("object.action-run", _hil_payload("corr-dup"))
@@ -74,7 +89,7 @@ async def test_var_records_ignored_invalid_duplicate_and_missing_authority_paths
 
 
 async def test_var_records_invalid_and_duplicate_document_hil_audit_entries() -> None:
-    var = Var()
+    var = Var(action_semantics=_semantics())
     base = {
         "producer_principal": "Saga",
         "kind": "document_ingestion",

@@ -135,14 +135,14 @@ def test_full_shadow_chain_propagates_over_live_bus() -> None:
 
     asyncio.run(_drive())
 
-    # Forseti judged the ingested event as an auto remediation...
-    assert runtime.shadow_decisions["verdict:auto"] >= 1
-    # ...Thor ran it in shadow, producing the ActionRun lifecycle...
-    assert any(k.startswith("shadow_action_run:") for k in runtime.shadow_decisions)
-    # ...and Saga audited the correlation end to end.
+    # The catalog-backed auto remediation lacks wire safeguards, so the
+    # runtime bridge rejects it before Thor can dispatch an ActionRun.
+    assert runtime.bridge.metrics.schema_violations >= 1
+    assert runtime.shadow_decisions["verdict:auto"] == 0
+    assert not any(k.startswith("shadow_action_run:") for k in runtime.shadow_decisions)
     saga = runtime.agents["Saga"]
     assert isinstance(saga, Saga)
-    assert len(saga.replay_for_correlation("corr-chain")) >= 1
+    assert saga.replay_for_correlation("corr-chain") == []
 
 
 def test_bridge_run_rejects_reentry_while_running() -> None:

@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.action_run_identity import validate_action_run_identity
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog, quorum_for
 from fdai.agents._framework.adapters import (
     AdminCard,
     AdminNotificationAdapter,
@@ -19,6 +20,8 @@ from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import _VAR
+from fdai.agents._framework.producer_auth import require_topic_owner
+from fdai.agents._framework.thor_dispatch_validation import bounded_params
 from fdai.agents._framework.var_decisions import (
     ApprovalDecisionState,
     TestContextReviewMixin,
@@ -30,19 +33,18 @@ from fdai.agents._framework.var_development_authority import (
     DevelopmentOwnerAuthorizer,
     VarDevelopmentAuthorityMixin,
 )
+from fdai.agents._framework.var_document_hil import ingest_document_hil
 from fdai.agents._framework.var_final_approval import (
     claim_approval_publication as _claim_approval_publication,
 )
 from fdai.agents._framework.var_final_approval import (
     release_approval_publication_claim as _release_approval_publication_claim,
 )
-from fdai.agents._framework.var_final_approval import validate_final_record
-from fdai.agents._framework.var_introspection import (
-    evidence_available as _var_evidence_available,
+from fdai.agents._framework.var_final_approval import (
+    validate_final_record,
 )
-from fdai.agents._framework.var_introspection import (
-    introspect_var as _introspect_var,
-)
+from fdai.agents._framework.var_introspection import evidence_available as _var_evidence_available
+from fdai.agents._framework.var_introspection import introspect_var as _introspect_var
 from fdai.agents._framework.var_pending_durability import (
     PENDING_TICKET_PREFIX,
     SHADOW_REVIEW_PREFIX,
@@ -90,12 +92,7 @@ from fdai.shared.providers.state_store import StateStore
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 
 
-class Var(
-    VarDevelopmentAuthorityMixin,
-    TestContextReviewMixin,
-    AssignmentReviewMixin,
-    Agent,
-):
+class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReviewMixin, Agent):
     _MAX_PENDING = 5_000
     _MAX_CARDS = 5_000
 
@@ -110,6 +107,7 @@ class Var(
         development_executor_principal: str | None = None,
         development_owner_authorizer: DevelopmentOwnerAuthorizer | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        action_semantics: ActionSemanticsCatalog | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(spec=_VAR)
@@ -148,17 +146,24 @@ class Var(
         self._action_correlation_identities: BoundedLruDict[str, str] = BoundedLruDict(
             self._MAX_PENDING
         )
+        self._action_semantics = action_semantics
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
+    def bind_action_semantics(self, action_semantics: ActionSemanticsCatalog | None) -> None:
+        self._action_semantics = action_semantics
+
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic in {"object.action-run", "object.audit-entry", "object.event"}:
+            if require_topic_owner(self, topic, payload, behavior="typed_message:rejected_owner"):
+                return
         if await self._test_context_review_message(topic, payload, self.record_behavior):
             return
         if await self._assignment_review_message(topic, payload):
             return
         if topic == "object.audit-entry":
-            await self._ingest_document_hil(payload)
+            await ingest_document_hil(self, payload)
             await self._ingest_shadow_review(payload)
             return
         if topic != "object.action-run":
@@ -178,6 +183,10 @@ class Var(
         except ValueError:
             self.record_behavior("ticket_invalid_action_identity")
             return
+        action_type = str(payload.get("action_type") or "")
+        if not action_type:
+            self.record_behavior("ticket_invalid_action_type")
+            return
         if not await claim_action_correlation_identity(
             self._state_store,
             self._action_correlation_identities,
@@ -191,16 +200,32 @@ class Var(
             self.record_behavior("ticket_invalid_quorum")
             return
         try:
-            quorum = max(1, int(raw_quorum))
+            payload_quorum = max(1, int(raw_quorum))
         except (TypeError, ValueError):
             self.record_behavior("ticket_invalid_quorum")
             return
         try:
             original_quorum, effective_quorum, development_authority = (
-                self._admit_development_ticket(payload, quorum=quorum)
+                self._admit_development_ticket(payload, quorum=payload_quorum)
             )
         except ValueError:
             self.record_behavior("ticket_invalid_development_authority")
+            return
+        required_quorum = quorum_for(action_type, self._action_semantics)
+        if development_authority is None:
+            if payload_quorum < required_quorum:
+                self.record_behavior("ticket_quorum_restored")
+            quorum = max(payload_quorum, required_quorum)
+            original_quorum = quorum
+            effective_quorum = quorum
+        elif original_quorum < required_quorum:
+            self.record_behavior("ticket_invalid_development_authority")
+            return
+        else:
+            quorum = effective_quorum
+        params = bounded_params(payload.get("params"))
+        if params is None:
+            self.record_behavior("ticket_invalid_params")
             return
         raw_initiator = payload.get("initiator_principal")
         if raw_initiator is not None and not isinstance(raw_initiator, str):
@@ -242,7 +267,7 @@ class Var(
         ticket = PendingHilTicket(
             correlation_id=correlation,
             action_id=raw_action_id,
-            action_type=str(payload.get("action_type", "")),
+            action_type=action_type,
             resource_id=raw_resource_id,
             quorum_required=quorum,
             original_quorum_required=original_quorum,
@@ -252,7 +277,7 @@ class Var(
             initiator_principal=raw_initiator.strip() if raw_initiator else None,
             idempotency_key=raw_idempotency_key or "",
             rollback_contract=raw_rollback_contract,
-            params=(dict(payload["params"]) if isinstance(payload.get("params"), Mapping) else {}),
+            params=params,
             decision_case=(
                 dict(payload["decision_case"])
                 if isinstance(payload.get("decision_case"), dict)
@@ -262,42 +287,6 @@ class Var(
         await checkpoint_pending_ticket(self._state_store, ticket)
         self._pending[correlation] = ticket
         self.record_behavior("ticket_pending")
-        if self._state_store is None:
-            _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
-
-    async def _ingest_document_hil(self, payload: dict[str, Any]) -> None:
-        if (
-            payload.get("producer_principal") != "Saga"
-            or payload.get("kind") != "document_ingestion"
-            or payload.get("audited_topic") != "object.verdict"
-            or payload.get("stage") != "protection_check"
-            or payload.get("decision") != "hil"
-        ):
-            return
-        correlation = str(payload.get("correlation_id") or "")
-        document_id = str(payload.get("document_id") or "")
-        upload_id = str(payload.get("upload_id") or "")
-        if correlation in self._pending:
-            self.record_behavior("document_ticket_duplicate")
-            return
-        if not correlation or not document_id or not upload_id:
-            self.record_behavior("document_ticket_invalid")
-            return
-        ticket = PendingHilTicket(
-            correlation_id=correlation,
-            action_type="document.promote-authoritative",
-            resource_id=document_id,
-            quorum_required=1,
-            initiator_principal=str(payload.get("initiator_principal") or "") or None,
-            kind="document_ingestion",
-            document_id=document_id,
-            upload_id=upload_id,
-            stage="protection_check",
-            idempotency_key=str(payload.get("idempotency_key") or ""),
-        )
-        await checkpoint_pending_ticket(self._state_store, ticket)
-        self._pending[correlation] = ticket
-        self.record_behavior("document_ticket_pending")
         if self._state_store is None:
             _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
 

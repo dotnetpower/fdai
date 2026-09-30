@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import InMemoryAuditChain, InMemoryGithubIssueAdapter
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.bus_bridge import EventBusBridge
@@ -20,8 +21,16 @@ def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
 
 
+def _semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={"ops.restart-service": False},
+        rollback_by_id={"ops.restart-service": "state_forward_only"},
+    )
+
+
 def _action_run(correlation_id: str = "corr-action") -> dict[str, object]:
     payload: dict[str, object] = {
+        "producer_principal": "Thor",
         "state": "hil_pending",
         "correlation_id": correlation_id,
         "idempotency_key": f"action:{correlation_id}",
@@ -41,7 +50,7 @@ def _action_run(correlation_id: str = "corr-action") -> dict[str, object]:
 
 async def test_var_rehydrates_action_document_and_shadow_tickets() -> None:
     store = InMemoryStateStore()
-    var = Var(state_store=store)
+    var = Var(state_store=store, action_semantics=_semantics())
 
     await var.on_typed_message("object.action-run", _action_run())
     await var.on_typed_message(
@@ -74,7 +83,7 @@ async def test_var_rehydrates_action_document_and_shadow_tickets() -> None:
         },
     )
 
-    restarted = Var(state_store=store)
+    restarted = Var(state_store=store, action_semantics=_semantics())
     await restarted.recover_approvals()
 
     tickets = {ticket.correlation_id: ticket for ticket in restarted.pending_tickets()}
@@ -86,13 +95,13 @@ async def test_var_rehydrates_action_document_and_shadow_tickets() -> None:
 
 async def test_var_durable_ticket_survives_projection_overflow_and_final_evidence() -> None:
     store = InMemoryStateStore()
-    var = Var(state_store=store)
+    var = Var(state_store=store, action_semantics=_semantics())
     original_cap = var._MAX_PENDING
     var._MAX_PENDING = 1
     await var.on_typed_message("object.action-run", _action_run("oldest"))
     await var.on_typed_message("object.action-run", _action_run("newest"))
 
-    restarted = Var(state_store=store)
+    restarted = Var(state_store=store, action_semantics=_semantics())
     restarted._MAX_PENDING = original_cap
     assert await restarted.decide("oldest", approver="approver@example.com", decision="approve")
     assert restarted.conversation_evidence_available({})

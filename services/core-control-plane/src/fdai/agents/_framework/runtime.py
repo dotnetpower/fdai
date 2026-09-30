@@ -28,6 +28,7 @@ from fdai.agents._framework.pantheon import (
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents._framework.runtime_conversation import RuntimeConversationPort
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter, SemanticRouterConfig
+from fdai.agents._framework.thor_dispatch_validation import missing_wire_safeguards
 from fdai.agents._framework.tool_answer import answer_from_owned_tools
 from fdai.agents._framework.tool_semantic import SemanticToolPlanner
 from fdai.agents.bragi import Bragi
@@ -88,6 +89,10 @@ _LOG = logging.getLogger(__name__)
 _INGRESS_PRINCIPAL = "Huginn"
 _DEFAULT_GROUP_PREFIX = "fdai-pantheon"
 _OBSERVER_PRINCIPAL = "runtime-observer"
+_EXECUTABLE_VERDICTS = frozenset({"auto", "hil"})
+_VERDICT_EVIDENCE_KEYS = frozenset(
+    {"arbitration", "change_assessment", "decision_case", "kind", "risk_verdict", "decision"}
+)
 
 
 @dataclass
@@ -226,6 +231,7 @@ class PantheonRuntime(RuntimeConversationPort):
             handler_max_retries=2,
             handler_observer=handler_observer,
             halt_state_store=ordered_poison_halt_state_store,
+            payload_validator=_default_payload_validator,
         )
         instantiated = factory.instantiate_pantheon()
         instantiated["Huginn"] = factory.configured_huginn(discovery_projector, huginn_state_store)
@@ -321,6 +327,9 @@ class PantheonRuntime(RuntimeConversationPort):
             vidar_state_store=vidar_state_store,
             development=development_authority,
         )
+        maybe_var = instantiated.get("Var")
+        if maybe_var is not None and hasattr(maybe_var, "bind_action_semantics"):
+            maybe_var.bind_action_semantics(action_semantics)
         if saga is not None:
             instantiated["Saga"] = saga
         assignment_runtime.bind_assignment_workflow(instantiated, assignment_workflow)
@@ -600,6 +609,62 @@ class PantheonRuntime(RuntimeConversationPort):
             "pantheon_ingress_unkeyed_event",
             extra={"error": str(error), "raw_event_topic": self.raw_event_topic},
         )
+
+
+def _default_payload_validator(topic: str, payload: Any) -> None:
+    """Default-on pantheon object payload validator.
+
+    Deployments can disable this only by constructing ``EventBusBridge``
+    directly with ``payload_validator=None``; ``PantheonRuntime.build`` keeps
+    the authority-bearing validator enabled so live delivery and redrive share
+    the same fail-closed boundary.
+    """
+
+    if not isinstance(payload, dict):
+        raise ValueError("pantheon payload MUST be a mapping")
+    if topic == "object.verdict":
+        _validate_verdict_payload(payload)
+        return
+    if topic == "object.action-run":
+        if payload.get("kind") == "human_access_execution" and isinstance(
+            payload.get("human_access"), dict
+        ):
+            return
+        _require_non_empty_strings(payload, "state", "action_type")
+        return
+    if topic == "object.approval":
+        if payload.get("kind") == "human_assignment" and isinstance(
+            payload.get("assignment"), dict
+        ):
+            return
+        if payload.get("kind") == "human_access_execution" and isinstance(
+            payload.get("human_access"), dict
+        ):
+            return
+        if not str(payload.get("state") or payload.get("decision") or "").strip():
+            raise ValueError("approval payload MUST carry state or decision")
+
+
+def _validate_verdict_payload(payload: dict[str, Any]) -> None:
+    decision = str(payload.get("risk_verdict") or payload.get("decision") or "").strip()
+    if not decision and not any(key in payload for key in _VERDICT_EVIDENCE_KEYS):
+        raise ValueError("verdict payload MUST carry risk_verdict, decision, or kind")
+    enforce_ceiling = str(payload.get("resolved_autonomy_ceiling") or "").strip()
+    executable = enforce_ceiling == "enforce_auto" or payload.get("execution_authority") is True
+    if (
+        executable
+        and decision in _EXECUTABLE_VERDICTS
+        and str(payload.get("action_type") or "").strip()
+    ):
+        missing = missing_wire_safeguards(payload)
+        if missing:
+            raise ValueError("executable verdict missing safeguard(s): " + ", ".join(missing))
+
+
+def _require_non_empty_strings(payload: dict[str, Any], *fields: str) -> None:
+    missing = [field for field in fields if not str(payload.get(field) or "").strip()]
+    if missing:
+        raise ValueError("payload missing required field(s): " + ", ".join(missing))
 
 
 __all__ = ["PantheonRuntime"]

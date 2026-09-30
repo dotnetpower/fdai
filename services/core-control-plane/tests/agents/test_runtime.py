@@ -20,6 +20,7 @@ from typing import cast
 
 import pytest
 from fdai.agents import StateStoreIssueTrackerAdapter, request_rule_generation
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
@@ -396,12 +397,20 @@ def test_runtime_rehydrates_durable_saga_issue_projection() -> None:
 
 def test_runtime_recovers_unpublished_var_approval() -> None:
     store = InMemoryStateStore()
-    seed = Var(state_store=store)
+    seed = Var(
+        state_store=store,
+        action_semantics=ActionSemanticsCatalog(
+            irreversible_by_id={"ops.restart-service": False},
+            rollback_by_id={},
+        ),
+    )
     asyncio.run(
         seed.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "runtime-var-recovery",
+                "resource_id": "resource-1",
                 "action_type": "ops.restart-service",
                 "state": "hil_pending",
                 "idempotency_key": "runtime-var-recovery:hil_pending",
@@ -755,6 +764,9 @@ def test_action_run_topic_reaches_heimdall_observation_hook() -> None:
             {
                 "producer_principal": "Thor",
                 "correlation_id": "terminal-observation-1",
+                "idempotency_key": "action-run:terminal-observation-1",
+                "resource_id": "resource-1",
+                "action_type": "ops.restart-service",
                 "state": "succeeded",
             },
         )
@@ -884,6 +896,8 @@ def test_runtime_injects_post_turn_review_into_norns() -> None:
             "principal-hash-1",
             {
                 "producer_principal": "Bragi",
+                "correlation_id": "review-runtime-1",
+                "idempotency_key": "post-turn-review:review-runtime-1",
                 "kind": "post_turn_review",
                 "review": review_input_to_mapping(review_input),
             },
@@ -1233,6 +1247,7 @@ def test_object_event_produces_forseti_verdict_over_provider() -> None:
             {
                 "producer_principal": "Huginn",
                 "correlation_id": "corr-2",
+                "idempotency_key": "event:corr-2",
                 "resource_id": "sa-1",
                 "event_type": "public_network_enabled",
             },
@@ -1253,10 +1268,8 @@ def test_object_event_produces_forseti_verdict_over_provider() -> None:
         return collected
 
     verdicts = asyncio.run(_drive())
-    assert len(verdicts) == 1
-    assert verdicts[0]["producer_principal"] == "Forseti"
-    assert verdicts[0]["action_type"] == "remediate.disable-public-access"
-    assert verdicts[0]["risk_verdict"] == "auto"
+    assert verdicts == []
+    assert runtime.bridge.metrics.schema_violations == 1
 
 
 def test_operator_guidance_event_reaches_saga_without_action_verdict() -> None:
@@ -1324,8 +1337,10 @@ async def test_operator_guidance_event_rejects_non_huginn_producer() -> None:
         "event_type": "incident.operator_guidance.v1",
     }
 
-    with pytest.raises(ValueError, match="Huginn-owned"):
-        await Saga().on_typed_message("object.event", payload)
+    saga = Saga()
+    await saga.on_typed_message("object.event", payload)
+    assert saga.audit_chain.entries == []
+    assert saga.behavior_snapshot()["typed_message:rejected_owner"] == 1
     with pytest.raises(ValueError, match="Huginn-owned"):
         await Forseti().on_typed_message("object.event", payload)
 
@@ -1401,6 +1416,14 @@ def test_shadow_observer_counts_verdicts_and_action_runs() -> None:
                 "correlation_id": "c1",
                 "idempotency_key": "c1:verdict",
                 "resource_id": "r1",
+                "safeguards": {
+                    "stop_condition": "stop",
+                    "rollback_receipt": "rollback",
+                    "blast_radius": "single-resource",
+                    "dry_run_receipt": "dry-run",
+                    "target_lock": "r1",
+                    "audit_intent": "two-phase",
+                },
             },
         )
         run_task = asyncio.create_task(runtime.run())
@@ -1415,7 +1438,7 @@ def test_shadow_observer_counts_verdicts_and_action_runs() -> None:
 
     asyncio.run(_drive())
     assert runtime.shadow_decisions["verdict:auto"] == 1
-    assert runtime.shadow_decisions["shadow_action_run:succeeded"] >= 1
+    assert runtime.shadow_decisions["shadow_action_run:hil_pending"] == 1
     assert runtime.shadow_decisions["shadow_action_run:verdicted"] == 1
     assert runtime.health()["shadow_decisions"]["verdict:auto"] == 1
 
@@ -1436,7 +1459,16 @@ def test_runtime_feeds_the_divergence_ledger() -> None:
                 "risk_verdict": "auto",
                 "action_type": "ops.restart-service",
                 "correlation_id": "c1",
+                "idempotency_key": "c1:verdict",
                 "resource_id": "r1",
+                "safeguards": {
+                    "stop_condition": "stop",
+                    "rollback_receipt": "rollback",
+                    "blast_radius": "single-resource",
+                    "dry_run_receipt": "dry-run",
+                    "target_lock": "r1",
+                    "audit_intent": "two-phase",
+                },
             },
         )
         run_task = asyncio.create_task(runtime.run())

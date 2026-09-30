@@ -6,6 +6,7 @@ from copy import deepcopy
 from typing import Any
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import (
     GitHubIssue,
     InMemoryAuditChain,
@@ -28,6 +29,7 @@ def _bus() -> InMemoryBus:
 
 def _hil_payload(correlation_id: str) -> dict[str, object]:
     return {
+        "producer_principal": "Thor",
         "correlation_id": correlation_id,
         "idempotency_key": f"{correlation_id}:hil",
         "action_idempotency_key": f"{correlation_id}:hil",
@@ -41,6 +43,13 @@ def _hil_payload(correlation_id: str) -> dict[str, object]:
         "params": {},
         "verdict": "hil",
     }
+
+
+def _semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={"ops.restart-service": False},
+        rollback_by_id={},
+    )
 
 
 class _BlockingBus(InMemoryBus):
@@ -205,7 +214,7 @@ async def test_var_unrelated_decision_not_blocked_by_slow_authorizer() -> None:
         return True
 
     bus = _bus()
-    var = Var(bus=bus, approver_authorizer=authorizer)
+    var = Var(bus=bus, approver_authorizer=authorizer, action_semantics=_semantics())
     await var.on_typed_message("object.action-run", _hil_payload("ticket-a"))
     await var.on_typed_message("object.action-run", _hil_payload("ticket-b"))
 
@@ -227,7 +236,7 @@ async def test_var_unrelated_decision_not_blocked_by_slow_authorizer() -> None:
 async def test_var_final_publish_marks_outbox_when_cancelled_during_receipt() -> None:
     store = InMemoryStateStore()
     bus = _bus()
-    var = Var(bus=bus, state_store=store)
+    var = Var(bus=bus, state_store=store, action_semantics=_semantics())
     await var.on_typed_message("object.action-run", _hil_payload("ticket-cancel"))
     mark_started = asyncio.Event()
     release_mark = asyncio.Event()
@@ -248,14 +257,14 @@ async def test_var_final_publish_marks_outbox_when_cancelled_during_receipt() ->
     with pytest.raises(asyncio.CancelledError):
         await task
 
-    restarted = Var(bus=bus, state_store=store)
+    restarted = Var(bus=bus, state_store=store, action_semantics=_semantics())
     assert await restarted.recover_approvals() == (0, 0)
     assert len(bus.messages_on("object.approval")) == 1
 
 
 async def test_var_shadow_review_concurrent_reviewers_publish_once() -> None:
     bus = _BlockingBus(block_topics={"object.approval"})
-    var = Var(bus=bus)
+    var = Var(bus=bus, action_semantics=_semantics())
     await var.on_typed_message(
         "object.audit-entry",
         {
@@ -290,14 +299,14 @@ async def test_var_shadow_review_concurrent_reviewers_publish_once() -> None:
 async def test_var_recovery_does_not_duplicate_live_final_publication() -> None:
     store = InMemoryStateStore()
     bus = _BlockingBus(block_topics={"object.approval"})
-    var = Var(bus=bus, state_store=store)
+    var = Var(bus=bus, state_store=store, action_semantics=_semantics())
     await var.on_typed_message("object.action-run", _hil_payload("ticket-recovery"))
 
     live = asyncio.create_task(
         var.decide("ticket-recovery", approver="approver@example.com", decision="approve")
     )
     await bus.wait_for("object.approval")
-    restarted = Var(bus=bus, state_store=store)
+    restarted = Var(bus=bus, state_store=store, action_semantics=_semantics())
     assert await restarted.recover_approvals() == (0, 0)
     bus.unblock("object.approval")
     assert await live is not None

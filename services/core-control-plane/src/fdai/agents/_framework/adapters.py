@@ -50,6 +50,8 @@ class InMemoryAuditChain:
 
     entries: list[AuditEntry] = field(default_factory=list)
     durable: bool = False
+    _sealed_head_hash: str = "0" * 64
+    _sealed_length: int = 0
 
     def append(
         self,
@@ -82,6 +84,8 @@ class InMemoryAuditChain:
             payload_digest=payload_digest,
         )
         self.entries.append(entry)
+        self._sealed_head_hash = entry.entry_hash
+        self._sealed_length = len(self.entries)
         return entry
 
     def verify(self) -> None:
@@ -107,6 +111,13 @@ class InMemoryAuditChain:
             if recomputed != entry.entry_hash:
                 raise AuditChainError(f"entry hash mismatch at seq {i}")
             prev = entry.entry_hash
+        if len(self.entries) != self._sealed_length:
+            raise AuditChainError(
+                f"chain length mismatch: got {len(self.entries)!r}, "
+                f"expected {self._sealed_length!r}"
+            )
+        if prev != self._sealed_head_hash:
+            raise AuditChainError("chain head mismatch")
 
     def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]:
         return [e for e in self.entries if e.correlation_id == correlation_id]

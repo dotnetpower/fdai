@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bragi_proposal import build_action_proposal
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
@@ -85,12 +86,22 @@ def test_forseti_closes_unanswered_arbitration_when_odin_unavailable() -> None:
 
 def test_var_durable_decision_audit_uses_injected_clock() -> None:
     store = InMemoryStateStore()
-    var = Var(state_store=store, clock=lambda: NOW)
+    var = Var(
+        state_store=store,
+        clock=lambda: NOW,
+        action_semantics=ActionSemanticsCatalog(
+            irreversible_by_id={"ops.restart-service": False},
+            rollback_by_id={},
+        ),
+    )
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "corr-var-clock",
+                "idempotency_key": "action-run:corr-var-clock",
+                "resource_id": "resource-1",
                 "action_type": "ops.restart-service",
                 "state": "hil_pending",
             },

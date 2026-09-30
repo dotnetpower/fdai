@@ -35,6 +35,21 @@ def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
 
 
+def _thor_action_run(**overrides: object) -> dict[str, object]:
+    correlation_id = str(overrides.get("correlation_id") or "c-var")
+    payload: dict[str, object] = {
+        "producer_principal": "Thor",
+        "correlation_id": correlation_id,
+        "idempotency_key": f"action-run:{correlation_id}",
+        "action_type": "remediate.delete-storage",
+        "resource_id": "resource-1",
+        "state": "hil_pending",
+        "quorum_required": 2,
+    }
+    payload.update(overrides)
+    return payload
+
+
 class TestActionSemantics:
     def test_missing_catalog_fails_closed_for_action_names(self) -> None:
         assert is_irreversible("remediate.delete-storage")
@@ -184,12 +199,11 @@ class TestEndToEndQuorum:
         asyncio.run(
             var.on_typed_message(
                 "object.action-run",
-                {
-                    "correlation_id": "malformed-initiator",
-                    "state": "hil_pending",
-                    "action_type": "ops.scale-out",
-                    "initiator_principal": {"principal": "operator-example"},
-                },
+                _thor_action_run(
+                    correlation_id="malformed-initiator",
+                    action_type="ops.scale-out",
+                    initiator_principal={"principal": "operator-example"},
+                ),
             )
         )
 
@@ -202,12 +216,11 @@ class TestEndToEndQuorum:
         asyncio.run(
             var.on_typed_message(
                 "object.action-run",
-                {
-                    "correlation_id": "malformed-quorum",
-                    "state": "hil_pending",
-                    "action_type": "ops.scale-out",
-                    "quorum_required": "two",
-                },
+                _thor_action_run(
+                    correlation_id="malformed-quorum",
+                    action_type="ops.scale-out",
+                    quorum_required="two",
+                ),
             )
         )
 
@@ -221,14 +234,13 @@ class TestEndToEndQuorum:
         asyncio.run(
             var.on_typed_message(
                 "object.action-run",
-                {
-                    "correlation_id": "c-6",
-                    "action_type": "remediate.delete-storage",
-                    "resource_id": "sa-9",
-                    "state": "hil_pending",
-                    "quorum_required": 2,
-                    "initiator_principal": "operator-a@example.com",
-                },
+                _thor_action_run(
+                    correlation_id="c-6",
+                    action_type="remediate.delete-storage",
+                    resource_id="sa-9",
+                    quorum_required=2,
+                    initiator_principal="operator-a@example.com",
+                ),
             )
         )
         # First approver: quorum not yet met, no approval published.
@@ -253,13 +265,12 @@ class TestEndToEndQuorum:
         asyncio.run(
             var.on_typed_message(
                 "object.action-run",
-                {
-                    "correlation_id": "c-self",
-                    "action_type": "remediate.delete-storage",
-                    "state": "hil_pending",
-                    "quorum_required": 1,
-                    "initiator_principal": "Operator-A@Example.com",
-                },
+                _thor_action_run(
+                    correlation_id="c-self",
+                    action_type="remediate.delete-storage",
+                    quorum_required=1,
+                    initiator_principal="Operator-A@Example.com",
+                ),
             )
         )
         with pytest.raises(ValueError, match="no self-approval"):
@@ -274,13 +285,12 @@ class TestEndToEndQuorum:
         asyncio.run(
             var.on_typed_message(
                 "object.action-run",
-                {
-                    "correlation_id": "c-dbl",
-                    "action_type": "remediate.delete-storage",
-                    "state": "hil_pending",
-                    "quorum_required": 2,
-                    "initiator_principal": "initiator@example.com",
-                },
+                _thor_action_run(
+                    correlation_id="c-dbl",
+                    action_type="remediate.delete-storage",
+                    quorum_required=2,
+                    initiator_principal="initiator@example.com",
+                ),
             )
         )
         first = asyncio.run(
@@ -300,13 +310,12 @@ class TestEndToEndQuorum:
         asyncio.run(
             var.on_typed_message(
                 "object.action-run",
-                {
-                    "correlation_id": "c-auth",
-                    "action_type": "remediate.enable-encryption",
-                    "state": "hil_pending",
-                    "quorum_required": 1,
-                    "initiator_principal": "initiator@example.com",
-                },
+                _thor_action_run(
+                    correlation_id="c-auth",
+                    action_type="remediate.enable-encryption",
+                    quorum_required=1,
+                    initiator_principal="initiator@example.com",
+                ),
             )
         )
 

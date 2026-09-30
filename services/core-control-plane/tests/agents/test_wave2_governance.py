@@ -41,6 +41,19 @@ from tests.core.rule_semantic_generation.test_ledger import _result
 # ---------------------------------------------------------------------------
 
 
+def _action_run_payload(**overrides: object) -> dict[str, object]:
+    correlation_id = str(overrides["correlation_id"]) if "correlation_id" in overrides else "c"
+    payload: dict[str, object] = {
+        "producer_principal": "Thor",
+        "correlation_id": correlation_id,
+        "idempotency_key": f"action-run:{correlation_id}",
+        "resource_id": "resource-1",
+        "action_type": "remediate.z",
+    }
+    payload.update(overrides)
+    return payload
+
+
 def test_saga_audit_chain_appends_hash_linked_entries() -> None:
     saga = Saga()
     asyncio.run(
@@ -56,11 +69,7 @@ def test_saga_audit_chain_appends_hash_linked_entries() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {
-                "producer_principal": "Thor",
-                "correlation_id": "corr-1",
-                "state": "succeeded",
-            },
+            _action_run_payload(correlation_id="corr-1", state="succeeded"),
         )
     )
     assert len(saga.audit_chain.entries) == 2
@@ -662,13 +671,15 @@ def test_saga_replay_returns_ordered_slice_for_correlation() -> None:
         asyncio.run(
             saga.on_typed_message(
                 "object.action-run",
-                {"producer_principal": "Thor", "correlation_id": "keep", "seq": i},
+                _action_run_payload(
+                    correlation_id="keep", idempotency_key=f"action-run:keep:{i}", seq=i
+                ),
             )
         )
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {"producer_principal": "Thor", "correlation_id": "other", "seq": 99},
+            _action_run_payload(correlation_id="other", seq=99),
         )
     )
     slice_entries = saga.replay_for_correlation("keep")
@@ -692,13 +703,14 @@ def test_saga_escalate_renders_context_lines_in_issue_body() -> None:
             intent_category="cost_query_failed",
             failure_reason_code="no_owned_data",
             correlation_id="corr-ctx",
-            context={"resource_id": "vm-9", "region": "koreacentral"},
+            context={"trace_ref": "trace://ctx", "payload_digest": "sha256:" + "a" * 64},
         )
     )
     body = saga.github.issues[fp].body
-    # Context items are rendered as sorted bullet lines in the issue body.
-    assert "- region: koreacentral" in body
-    assert "- resource_id: vm-9" in body
+    # Only bounded hash/ref context items are rendered in the issue body.
+    assert "- payload_digest: sha256:" in body
+    assert "- trace_ref: trace://ctx" in body
+    assert "koreacentral" not in body
 
 
 def test_saga_introspect_scoped_and_general() -> None:
@@ -707,7 +719,9 @@ def test_saga_introspect_scoped_and_general() -> None:
         asyncio.run(
             saga.on_typed_message(
                 "object.action-run",
-                {"producer_principal": "Thor", "correlation_id": "keep", "seq": i},
+                _action_run_payload(
+                    correlation_id="keep", idempotency_key=f"action-run:introspect:{i}", seq=i
+                ),
             )
         )
 
@@ -2210,7 +2224,7 @@ def test_saga_republishes_terminal_action_outcome() -> None:
         asyncio.run(
             saga.on_typed_message(
                 "object.action-run",
-                {"action_type": "remediate.z", "state": state, "correlation_id": "c"},
+                _action_run_payload(state=state),
             )
         )
         entries = bus.messages_on("object.audit-entry")
@@ -2228,12 +2242,7 @@ def test_saga_prefers_direct_result_over_unmappable_state() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {
-                "action_type": "remediate.z",
-                "result": "rollback",
-                "state": "some_future_state",
-                "correlation_id": "c",
-            },
+            _action_run_payload(result="rollback", state="some_future_state"),
         )
     )
     entries = bus.messages_on("object.audit-entry")
@@ -2249,12 +2258,7 @@ def test_saga_ignores_non_canonical_direct_result() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {
-                "action_type": "remediate.z",
-                "result": "banana",
-                "state": "succeeded",
-                "correlation_id": "c",
-            },
+            _action_run_payload(result="banana", state="succeeded"),
         )
     )
     entries = bus.messages_on("object.audit-entry")
@@ -2268,12 +2272,15 @@ def test_saga_does_not_republish_intermediate_or_untyped_state() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {"action_type": "remediate.z", "state": "executing", "correlation_id": "c"},
+            _action_run_payload(state="executing"),
         )
     )
     # Terminal but no action_type -> nothing to attribute.
     asyncio.run(
-        saga.on_typed_message("object.action-run", {"state": "succeeded", "correlation_id": "c"})
+        saga.on_typed_message(
+            "object.action-run",
+            _action_run_payload(state="succeeded", action_type=""),
+        )
     )
     assert bus.messages_on("object.audit-entry") == []
 
@@ -2284,7 +2291,8 @@ def test_saga_skips_republish_on_empty_correlation() -> None:
     saga, bus = _saga_on_bus()
     asyncio.run(
         saga.on_typed_message(
-            "object.action-run", {"action_type": "a", "state": "failed", "correlation_id": ""}
+            "object.action-run",
+            _action_run_payload(action_type="a", state="failed", correlation_id=""),
         )
     )
     assert bus.messages_on("object.audit-entry") == []
@@ -2299,9 +2307,8 @@ def test_saga_self_loop_guard_skips_already_republished_record() -> None:
         saga.on_typed_message(
             "object.action-run",
             {
-                "action_type": "a",
+                **_action_run_payload(action_type="a", state="failed"),
                 "state": "failed",
-                "correlation_id": "c",
                 "audited_topic": "object.action-run",
             },
         )
@@ -2314,7 +2321,7 @@ def test_saga_republishes_shadow_flag() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {"action_type": "a", "state": "succeeded", "correlation_id": "c", "shadow_mode": True},
+            _action_run_payload(action_type="a", state="succeeded", shadow_mode=True),
         )
     )
     entries = bus.messages_on("object.audit-entry")
@@ -2372,14 +2379,22 @@ def test_saga_audit_entry_drives_norns_outcome_learning() -> None:
             asyncio.run(
                 saga.on_typed_message(
                     "object.action-run",
-                    {"action_type": "remediate.z", "state": state, "correlation_id": f"f{i}"},
+                    _action_run_payload(
+                        correlation_id=f"f{i}",
+                        idempotency_key=f"action-run:f{i}:{state}",
+                        state=state,
+                    ),
                 )
             )
     for i in range(6):
         asyncio.run(
             saga.on_typed_message(
                 "object.action-run",
-                {"action_type": "remediate.z", "state": "succeeded", "correlation_id": f"s{i}"},
+                _action_run_payload(
+                    correlation_id=f"s{i}",
+                    idempotency_key=f"action-run:s{i}",
+                    state="succeeded",
+                ),
             )
         )
 

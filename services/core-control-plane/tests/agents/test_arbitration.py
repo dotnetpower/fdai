@@ -1338,8 +1338,28 @@ def test_odin_empty_state_separates_role_policy_and_observed_evidence(question: 
 )
 def test_odin_korean_locale_renders_the_same_role_and_observed_state(question: str) -> None:
     odin = Odin()
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "hil"}))
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-ko-1",
+                "idempotency_key": "verdict:odin-ko-1",
+                "risk_verdict": "auto",
+            },
+        )
+    )
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-ko-2",
+                "idempotency_key": "verdict:odin-ko-2",
+                "risk_verdict": "hil",
+            },
+        )
+    )
 
     envelope = asyncio.run(odin.on_conversation_turn(question, {"locale": "ko"}))
 
@@ -1357,12 +1377,52 @@ def test_odin_korean_locale_renders_the_same_role_and_observed_state(question: s
 def test_odin_observes_portfolio_verdicts_without_re_judging_them() -> None:
     odin = Odin()
 
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "hil"}))
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-obs-1",
+                "idempotency_key": "verdict:odin-obs-1",
+                "risk_verdict": "auto",
+            },
+        )
+    )
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-obs-2",
+                "idempotency_key": "verdict:odin-obs-2",
+                "risk_verdict": "hil",
+            },
+        )
+    )
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-obs-3",
+                "idempotency_key": "verdict:odin-obs-3",
+                "risk_verdict": "auto",
+            },
+        )
+    )
     # An unrecognized outcome folds into a bounded sentinel rather than
     # growing the counter's key space.
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "../etc/passwd"}))
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-obs-4",
+                "idempotency_key": "verdict:odin-obs-4",
+                "risk_verdict": "../etc/passwd",
+            },
+        )
+    )
 
     envelope = asyncio.run(
         odin.on_conversation_turn(
@@ -1382,7 +1442,17 @@ def test_odin_verdict_observation_never_publishes() -> None:
     bus = InMemoryBus(load_pantheon())
     odin = Odin(bus=bus)
 
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-readonly",
+                "idempotency_key": "verdict:odin-readonly",
+                "risk_verdict": "auto",
+            },
+        )
+    )
 
     assert bus.messages_on("object.arbitration-decision") == []
 

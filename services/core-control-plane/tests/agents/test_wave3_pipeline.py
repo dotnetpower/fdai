@@ -67,10 +67,14 @@ def _restart_semantics() -> ActionSemanticsCatalog:
         irreversible_by_id={
             "ops.restart-service": False,
             "remediate.disable-public-access": False,
+            "remediate.delete-storage": False,
+            "remediate.enable-encryption": False,
         },
         rollback_by_id={
             "ops.restart-service": "state_forward_only",
             "remediate.disable-public-access": "state_forward_only",
+            "remediate.delete-storage": "state_forward_only",
+            "remediate.enable-encryption": "state_forward_only",
         },
     )
 
@@ -924,7 +928,7 @@ def test_forseti_routes_authoritative_document_to_hil() -> None:
 def test_var_document_hil_blocks_uploader_and_emits_reviewer_approval() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    var = Var(bus=bus)
+    var = Var(bus=bus, action_semantics=_restart_semantics())
     asyncio.run(
         var.on_typed_message(
             "object.audit-entry",
@@ -1375,7 +1379,7 @@ def test_thor_hil_verdict_waits_for_approval_then_executes() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     thor = Thor(bus=bus)
-    var = Var(bus=bus)
+    var = Var(bus=bus, action_semantics=_restart_semantics())
     bus.subscribe("object.action-run", "Var", var.on_typed_message)
     bus.subscribe("object.approval", "Thor", thor.on_typed_message)
 
@@ -2186,7 +2190,9 @@ def test_var_quorum_two_approvers_required() -> None:
         var.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "c",
+                "idempotency_key": "action-run:c",
                 "action_type": "remediate.delete-storage",
                 "resource_id": "sa-1",
                 "state": "hil_pending",
@@ -2211,8 +2217,11 @@ def test_var_rejects_self_approval_twice() -> None:
         var.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "c",
+                "idempotency_key": "action-run:c",
                 "action_type": "x",
+                "resource_id": "resource-1",
                 "state": "hil_pending",
                 "quorum_required": 2,
             },
@@ -2232,10 +2241,16 @@ def _var_with_pending(
     state_store=None,  # noqa: ANN001
 ) -> Var:
     reg = load_pantheon()
-    var = Var(bus=InMemoryBus(registry=reg), state_store=state_store)
+    var = Var(
+        bus=InMemoryBus(registry=reg),
+        state_store=state_store,
+        action_semantics=_restart_semantics(),
+    )
     payload: dict[str, object] = {
+        "producer_principal": "Thor",
         "correlation_id": correlation,
         "action_type": "remediate.delete-storage",
+        "resource_id": "resource-1",
         "state": "hil_pending",
         "quorum_required": quorum,
         "idempotency_key": idempotency_key,
@@ -2288,14 +2303,16 @@ def test_var_retries_stored_final_approval_after_publication_failure() -> None:
 
     store = InMemoryStateStore()
     bus = _FailOnceApprovalBus()
-    var = Var(bus=bus, state_store=store)
+    var = Var(bus=bus, state_store=store, action_semantics=_restart_semantics())
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "c-approval-retry",
                 "idempotency_key": "c-approval-retry:hil_pending",
                 "action_type": "ops.restart-service",
+                "resource_id": "resource-1",
                 "state": "hil_pending",
             },
         )
@@ -2344,7 +2361,7 @@ def test_var_replays_final_approval_after_restart() -> None:
     assert finalized is not None
 
     bus = InMemoryBus(registry=load_pantheon())
-    restarted = Var(bus=bus, state_store=store)
+    restarted = Var(bus=bus, state_store=store, action_semantics=_restart_semantics())
     assert asyncio.run(restarted.recover_approvals()) == (0, 1)
     assert len(bus.messages_on("object.approval")) == 1
 
@@ -2354,12 +2371,14 @@ def test_var_rejects_durable_correlation_reuse() -> None:
 
     store = InMemoryStateStore()
     correlation = "c-var-reused-correlation"
-    first = Var(state_store=store)
+    first = Var(state_store=store, action_semantics=_restart_semantics())
     asyncio.run(
         first.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": correlation,
+                "idempotency_key": "action-run:old",
                 "action_type": "ops.restart-service",
                 "resource_id": "vm-old",
                 "state": "hil_pending",
@@ -2375,12 +2394,14 @@ def test_var_rejects_durable_correlation_reuse() -> None:
     )
     assert old_approval is not None
 
-    restarted = Var(state_store=store)
+    restarted = Var(state_store=store, action_semantics=_restart_semantics())
     asyncio.run(
         restarted.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": correlation,
+                "idempotency_key": "action-run:current",
                 "action_type": "remediate.delete-storage",
                 "resource_id": "storage-current",
                 "state": "hil_pending",
@@ -2574,8 +2595,10 @@ def test_var_combines_quorum_across_replicas() -> None:
         first = Var(state_store=store)
         second = Var(state_store=store)
         ticket = {
+            "producer_principal": "Thor",
             "correlation_id": "c-quorum-replicas",
             "action_type": "remediate.delete-storage",
+            "resource_id": "resource-1",
             "state": "hil_pending",
             "quorum_required": 2,
             "idempotency_key": "action-run:hil-pending",
@@ -2679,14 +2702,16 @@ def test_var_serializes_concurrent_final_approvals() -> None:
 
 @pytest.mark.parametrize("idempotency_key", [" ", 7])
 def test_var_rejects_invalid_action_run_idempotency_key(idempotency_key: object) -> None:
-    var = Var(bus=None)
+    var = Var(bus=None, action_semantics=_restart_semantics())
 
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "c-invalid-idempotency",
                 "action_type": "ops.restart-service",
+                "resource_id": "resource-1",
                 "state": "hil_pending",
                 "idempotency_key": idempotency_key,
             },
@@ -2747,16 +2772,43 @@ def test_var_ingest_rejects_a_reused_correlation_with_new_identity() -> None:
         var.on_typed_message("object.verdict", {"correlation_id": "z", "state": "hil_pending"})
     )
     # Right topic but not hil_pending is ignored.
-    asyncio.run(var.on_typed_message("object.action-run", {"correlation_id": "z", "state": "auto"}))
+    asyncio.run(
+        var.on_typed_message(
+            "object.action-run",
+            {
+                "producer_principal": "Thor",
+                "correlation_id": "z",
+                "idempotency_key": "action-run:z",
+                "resource_id": "resource-z",
+                "state": "auto",
+            },
+        )
+    )
     # Empty correlation is ignored.
     asyncio.run(
-        var.on_typed_message("object.action-run", {"correlation_id": "", "state": "hil_pending"})
+        var.on_typed_message(
+            "object.action-run",
+            {
+                "producer_principal": "Thor",
+                "correlation_id": "",
+                "idempotency_key": "action-run:empty",
+                "resource_id": "resource-empty",
+                "state": "hil_pending",
+            },
+        )
     )
     # A different ActionRun cannot reuse an already claimed correlation.
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
-            {"correlation_id": "c-dup", "action_type": "other", "state": "hil_pending"},
+            {
+                "producer_principal": "Thor",
+                "correlation_id": "c-dup",
+                "idempotency_key": "action-run:c-dup-new",
+                "resource_id": "resource-new",
+                "action_type": "other",
+                "state": "hil_pending",
+            },
         )
     )
     tickets = {t.correlation_id for t in var.pending_tickets()}

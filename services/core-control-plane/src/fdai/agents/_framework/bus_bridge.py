@@ -394,16 +394,16 @@ class EventBusBridge:
                 self._consumer_states[consumer_id] = "idle"
                 async for envelope in stream:
                     self._consumer_states[consumer_id] = "running"
-                    if not self._producer_authorized(topic, envelope.payload):
+                    try:
+                        self._validate_inbound_payload(topic, envelope.payload)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:  # noqa: BLE001 - malformed wire record
                         await self._safe_dead_letter(
                             group_id=group_id,
                             topic=topic,
                             envelope=envelope,
-                            reason=(
-                                "producer_principal "
-                                f"{envelope.payload.get('producer_principal')!r} "
-                                f"is not the owner of {topic!r}"
-                            ),
+                            reason=f"inbound validation failed: {type(exc).__name__}",
                         )
                         continue
                     try:
@@ -596,6 +596,18 @@ class EventBusBridge:
             )
             return False
         return True
+
+    def _validate_inbound_payload(self, topic: str, payload: Payload) -> None:
+        """Apply the publish/redrive validation boundary before live delivery."""
+
+        if not self._producer_authorized(topic, payload):
+            raise ValueError(
+                "producer_principal "
+                f"{payload.get('producer_principal')!r} is not the owner of {topic!r}"
+            )
+        self._check_envelope(topic, payload, str(payload.get("producer_principal", "")))
+        if self.payload_validator is not None:
+            self.payload_validator(topic, payload)
 
     async def _deliver(self, topic: str, handler: Handler, payload: Payload) -> None:
         """Invoke ``handler`` with bounded in-place retry before giving up.

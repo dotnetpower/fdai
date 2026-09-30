@@ -48,6 +48,7 @@ from fdai.agents._framework.introspection import (
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _ODIN
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.vertical_precedence import CrossVerticalPrecedence
 from fdai.shared.providers.state_store import StateStore
 
@@ -56,6 +57,9 @@ from fdai.shared.providers.state_store import StateStore
 #: the counter's key space.
 _PORTFOLIO_OUTCOMES = frozenset({"auto", "hil", "deny", "admit", "hold", "unknown"})
 _ARBITRATION_PREFIX = "pantheon/odin/arbitration-decision/"
+_MAX_ARBITRATION_DOMAINS = 16
+_MAX_ARBITRATION_DOMAIN_CHARS = 64
+_MAX_ARBITRATION_IMPACTS = 32
 
 
 @runtime_checkable
@@ -160,9 +164,18 @@ class Odin(Agent, HandoverKnowledgeMixin):
             self.record_behavior("assignment_non_action_observed")
             return
         if topic == "object.arbitration-request":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="arbitration:rejected_owner",
+            ):
+                return
             await self.arbitrate(payload)
             return
         if topic == "object.verdict":
+            if require_topic_owner(self, topic, payload, behavior="portfolio:rejected_owner"):
+                return
             if payload.get("kind") == "architecture_review":
                 self.record_behavior("architecture_review_verdict_observed")
                 return
@@ -193,8 +206,25 @@ class Odin(Agent, HandoverKnowledgeMixin):
                     stored, history_considered=self._last_history_considered
                 )
                 return stored
-        domains = tuple(str(d) for d in request.get("domains_in_conflict", ()))
+        domains = _coerce_domains(request.get("domains_in_conflict"))
+        if domains is None:
+            self.record_behavior("arbitration:invalid_domains")
+            return ArbitrationDecision(
+                correlation_id=correlation_id,
+                winning_domain="",
+                losing_domains=(),
+                reason="invalid_domains",
+            )
         impacts = _coerce_impacts(request.get("impacts"))
+        raw_impacts = request.get("impacts")
+        if impacts is None and isinstance(raw_impacts, Mapping) and bool(raw_impacts):
+            self.record_behavior("arbitration:invalid_impacts")
+            return ArbitrationDecision(
+                correlation_id=correlation_id,
+                winning_domain="",
+                losing_domains=(),
+                reason="invalid_impacts",
+            )
         resource_id = str(request.get("resource_id", ""))
         # History lookup happens even when no policy is bound, so the
         # audit trail carries a consistent "policy considered N prior
@@ -439,6 +469,21 @@ class Odin(Agent, HandoverKnowledgeMixin):
         return IntrospectionResult(answer=answer, facts=facts)
 
 
+def _coerce_domains(raw: Any) -> tuple[str, ...] | None:
+    values: tuple[str, ...]
+    if isinstance(raw, str):
+        values = (raw.strip(),)
+    elif isinstance(raw, Sequence) and not isinstance(raw, bytes):
+        values = tuple(str(item).strip() for item in raw if str(item).strip())
+    else:
+        values = ()
+    if len(values) > _MAX_ARBITRATION_DOMAINS:
+        return None
+    if any(len(value) > _MAX_ARBITRATION_DOMAIN_CHARS for value in values):
+        return None
+    return values
+
+
 def _coerce_impacts(raw: Any) -> dict[str, float] | None:
     """Coerce an untrusted ``impacts`` payload into ``{domain: float}``.
 
@@ -455,12 +500,17 @@ def _coerce_impacts(raw: Any) -> dict[str, float] | None:
     """
     if not isinstance(raw, dict):
         return None
+    if len(raw) > _MAX_ARBITRATION_IMPACTS:
+        return None
     coerced: dict[str, float] = {}
     for key, value in raw.items():
+        domain = str(key).strip()
+        if not domain or len(domain) > _MAX_ARBITRATION_DOMAIN_CHARS:
+            return None
         try:
-            coerced[str(key)] = float(value)
+            coerced[domain] = float(value)
         except (TypeError, ValueError):
-            coerced[str(key)] = float("nan")
+            coerced[domain] = float("nan")
     return coerced or None
 
 

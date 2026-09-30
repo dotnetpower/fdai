@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
 from collections.abc import Callable, Mapping
@@ -26,8 +25,8 @@ from fdai.agents._framework.action_run_store_time import (
 from fdai.agents._framework.action_run_store_time import (
     lease_expiry as _lease_expiry,
 )
-from fdai.agents._framework.adapters import AuditEntry, _digest
-from fdai.agents._framework.audit_chain_rehydrate import rehydrate_audit_entries
+from fdai.agents._framework.adapters import _digest as _digest  # noqa: F401
+from fdai.agents._framework.audit_chain_rehydrate import StateStoreAuditChainAdapter
 from fdai.agents.thor import ActionRun, ActionRunState
 from fdai.shared.providers.state_store import StateStore
 
@@ -52,89 +51,6 @@ _ACTION_RUN_RESTART_CHECKPOINT_FIELDS = {"history", "outcome", "shadow_mode", "t
 # the Mapping-only StateStore contract. Using a reserved sentinel key (not
 # a plausible user key like "value") lets ``get`` unwrap unambiguously.
 _SCALAR_ENVELOPE_KEY = "__fdai_scalar__"
-
-
-@dataclass
-class StateStoreAuditChainAdapter:
-    store: StateStore
-    entries: list[AuditEntry]
-    durable: bool = True
-
-    def __init__(self, store: StateStore) -> None:
-        self.store = store
-        self.entries = []
-        self._append_lock = asyncio.Lock()
-        self._rehydrated = False
-
-    async def append(
-        self,
-        *,
-        principal: str,
-        topic: str,
-        correlation_id: str,
-        payload: dict[str, Any],
-    ) -> AuditEntry:
-        async with self._append_lock:
-            await self._rehydrate_head()
-            seq = len(self.entries)
-            prev_hash = self.entries[-1].entry_hash if self.entries else "0" * 64
-            payload_digest = _digest(payload)
-            entry_hash = _digest(
-                {
-                    "seq": seq,
-                    "prev_hash": prev_hash,
-                    "principal": principal,
-                    "topic": topic,
-                    "correlation_id": correlation_id,
-                    "payload_digest": payload_digest,
-                }
-            )
-            entry = AuditEntry(
-                seq=seq,
-                prev_hash=prev_hash,
-                entry_hash=entry_hash,
-                principal=principal,
-                topic=topic,
-                correlation_id=correlation_id,
-                payload_digest=payload_digest,
-            )
-            await self.store.append_audit_entry(
-                {
-                    "actor": "Saga",
-                    "action_kind": "audit.record",
-                    "seq": seq,
-                    "prev_hash": prev_hash,
-                    "entry_hash": entry_hash,
-                    "principal": principal,
-                    "topic": topic,
-                    "correlation_id": correlation_id,
-                    "payload_digest": payload_digest,
-                    "payload": payload,
-                }
-            )
-            self.entries.append(entry)
-            return entry
-
-    async def _rehydrate_head(self) -> None:
-        if self._rehydrated:
-            return
-        self.entries = await rehydrate_audit_entries(self.store)
-        self.verify()
-        self._rehydrated = True
-
-    def verify(self) -> None:
-        prev = "0" * 64
-        for i, entry in enumerate(self.entries):
-            if entry.seq != i or entry.prev_hash != prev:
-                from fdai.agents._framework.adapters import AuditChainError
-
-                raise AuditChainError(
-                    f"chain break at seq {i}: prev={entry.prev_hash!r} expected {prev!r}"
-                )
-            prev = entry.entry_hash
-
-    def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]:
-        return [e for e in self.entries if e.correlation_id == correlation_id]
 
 
 @dataclass

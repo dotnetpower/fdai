@@ -35,6 +35,7 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _SAGA
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.saga_handoff import (
     HandoffIssueCheckpoint,
     SagaHandoffJournal,
@@ -46,6 +47,18 @@ _FINGERPRINT_BUCKET = "issue_fingerprint_index"
 _AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
 _FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
 _MAX_FINGERPRINT_INDEX = 50_000
+_MAX_HANDOFF_CONTEXT_ITEMS = 8
+_MAX_HANDOFF_CONTEXT_VALUE_CHARS = 256
+_HANDOFF_CONTEXT_KEYS = frozenset(
+    {
+        "context_ref",
+        "evidence_ref",
+        "handoff_ref",
+        "payload_digest",
+        "source_ref",
+        "trace_ref",
+    }
+)
 _NON_LEARNABLE_TERMINAL_STATES = frozenset(
     {"deny_dropped", "rejected", "expired", "approval_expired"}
 )
@@ -280,15 +293,27 @@ class Saga(Agent, HandoverKnowledgeMixin):
         )
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        """Authenticate every audited topic before appending it.
+
+        Rejected records are not appended: the append-only chain remains a
+        truthful record of authenticated owner-produced facts, while the
+        rejection is counted as behavior telemetry instead of being made to
+        look like a valid audit fact.
+        """
+
         if (
             topic == "object.event"
             and payload.get("event_type") != INCIDENT_INTERVENTION_EVENT_TYPE
         ):
             self.record_behavior("typed_message:ignored")
             return
-        if topic == "object.event" and payload.get("producer_principal") != "Huginn":
-            self.record_behavior("typed_message:rejected")
-            raise ValueError("incident guidance requires the Huginn-owned normalized Event")
+        if topic.startswith("object.") and require_topic_owner(
+            self,
+            topic,
+            payload,
+            behavior="typed_message:rejected_owner",
+        ):
+            return
         principal = str(payload.get("producer_principal", "unknown"))
         correlation_id = str(payload.get("correlation_id") or "")
         self.record_behavior("typed_message:accepted")
@@ -519,6 +544,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 failure_reason_code=failure_reason,
                 correlation_id=correlation_id,
                 emitted_at=str(payload.get("emitted_at") or ""),
+                context=_bounded_handoff_context(payload.get("context")),
                 require_idempotent=True,
             )
             checkpoint = HandoffIssueCheckpoint(
@@ -772,7 +798,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
             intent_category=intent_category,
             failure_reason_code=failure_reason_code,
             correlation_id=correlation_id,
-            context=context,
+            context=_bounded_handoff_context(context),
         )
         await self._append_issue_audit(
             fingerprint=fingerprint,
@@ -828,7 +854,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
             f"Correlation id: {correlation_id}",
         ]
         if context:
-            for k, v in sorted(context.items()):
+            for k, v in sorted(_bounded_handoff_context(context).items()):
                 body_lines.append(f"- {k}: {v}")
         body = "\n".join(body_lines)
         if durable_prior is not None:
@@ -1218,6 +1244,23 @@ def compute_fingerprint(
         )
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _bounded_handoff_context(raw: Mapping[str, Any] | object | None) -> dict[str, str]:
+    if not isinstance(raw, Mapping):
+        return {}
+    sanitized: dict[str, str] = {}
+    for key, value in sorted(raw.items()):
+        name = str(key)
+        if name not in _HANDOFF_CONTEXT_KEYS:
+            continue
+        if len(sanitized) >= _MAX_HANDOFF_CONTEXT_ITEMS:
+            break
+        rendered = str(value).strip()
+        if not rendered or len(rendered) > _MAX_HANDOFF_CONTEXT_VALUE_CHARS:
+            continue
+        sanitized[name] = rendered
+    return sanitized
 
 
 def _fingerprint_labels(fingerprint: str) -> tuple[str, ...]:

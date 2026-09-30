@@ -120,6 +120,21 @@ def _semantic_boundary() -> SemanticJudgmentBoundary:
     )
 
 
+def _thor_action_run(**overrides: object) -> dict[str, object]:
+    correlation_id = str(overrides.get("correlation_id") or "c-hil")
+    payload: dict[str, object] = {
+        "producer_principal": "Thor",
+        "correlation_id": correlation_id,
+        "idempotency_key": f"action-run:{correlation_id}",
+        "action_type": "ops.restart-service",
+        "resource_id": "resource-1",
+        "state": "hil_pending",
+        "quorum_required": 1,
+    }
+    payload.update(overrides)
+    return payload
+
+
 class _Harness:
     def __init__(self) -> None:
         reg = load_pantheon()
@@ -136,7 +151,7 @@ class _Harness:
         # Shadow-first: mirror the runtime default so an 'auto' verdict is
         # judged-and-logged, never a live mutation, until an explicit promotion.
         self.thor = Thor(bus=self.bus, shadow_by_default=True)
-        self.var = Var(bus=self.bus)
+        self.var = Var(bus=self.bus, action_semantics=_ACTION_SEMANTICS)
         self.bragi = Bragi(
             semantic_judgment=_semantic_boundary(),
             action_type_names=("ops.restart-service", "remediate.enable-encryption"),
@@ -427,12 +442,11 @@ def test_var_rejects_blank_approver_and_trims_self_approval() -> None:
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
-            {
-                "correlation_id": "c-hil",
-                "action_type": "ops.failover-primary",
-                "state": "hil_pending",
-                "initiator_principal": "operator@example.com",
-            },
+            _thor_action_run(
+                correlation_id="c-hil",
+                action_type="ops.failover-primary",
+                initiator_principal="operator@example.com",
+            ),
         )
     )
     # A blank approver is refused.
@@ -474,17 +488,16 @@ def test_thor_dispatch_verdict_is_idempotent_per_correlation() -> None:
 
 def test_var_clamps_quorum_to_a_floor_of_one() -> None:
     bus = _bus()
-    var = Var(bus=bus)
+    var = Var(bus=bus, action_semantics=_ACTION_SEMANTICS)
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
-            {
-                "correlation_id": "c-q",
-                "action_type": "ops.restart-service",
-                "state": "hil_pending",
-                "quorum_required": 0,  # forged / malformed downgrade
-                "initiator_principal": "op@example.com",
-            },
+            _thor_action_run(
+                correlation_id="c-q",
+                action_type="ops.restart-service",
+                quorum_required=0,  # forged / malformed downgrade
+                initiator_principal="op@example.com",
+            ),
         )
     )
     assert var._pending["c-q"].quorum_required == 1
@@ -515,18 +528,17 @@ def test_huginn_bounds_oversized_ingress_fields() -> None:
 
 def test_var_pending_map_is_bounded() -> None:
     bus = _bus()
-    var = Var(bus=bus)
+    var = Var(bus=bus, action_semantics=_ACTION_SEMANTICS)
     var._MAX_PENDING = 2  # instance override of the class cap
     for i in range(5):
         asyncio.run(
             var.on_typed_message(
                 "object.action-run",
-                {
-                    "correlation_id": f"c-{i}",
-                    "action_type": "ops.restart-service",
-                    "state": "hil_pending",
-                    "initiator_principal": "op@example.com",
-                },
+                _thor_action_run(
+                    correlation_id=f"c-{i}",
+                    action_type="ops.restart-service",
+                    initiator_principal="op@example.com",
+                ),
             )
         )
     assert len(var._pending) == 2
