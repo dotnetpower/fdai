@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.core.operational_learning import CatalogCandidateCompiler
 from fdai.delivery.gitops_pr.catalog_validator import DeterministicCatalogValidator
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai_core_test_support.operational_catalog import operational_candidate_mapping
+
+# Fixture cases end by 2026-08-02 and a review rejects evidence older than 90 days, so reviews
+# run at one fixed time instead of the wall clock, which passes that bound on 2026-10-30.
+_REVIEWED_AT = datetime(2026, 8, 3, tzinfo=UTC)
+
+
+def _review_clock() -> datetime:
+    return _REVIEWED_AT
 
 
 def _scenario() -> dict[str, Any]:
@@ -59,6 +68,7 @@ def test_validator_seals_repeatable_schema_shadow_and_policy_receipts() -> None:
         policy_version="policy-v1",
     )
     compiler = CatalogCandidateCompiler(
+        clock=_review_clock,
         validator=validator,
         catalog_version="catalog-v1",
         schema_version="2.0.0",
