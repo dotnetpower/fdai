@@ -11,6 +11,7 @@ from __future__ import annotations
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
 from fdai.rule_catalog.schema.provider_region import ProviderRegionRegistry
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
+from fdai.shared.contracts.models import IncidentState
 
 _RESOURCE_OBJECT_TYPE = "Resource"
 _RESOURCE_TYPE_PROPERTY = "type"
@@ -90,4 +91,21 @@ def resource_location_value_domains(
     )
 
 
-__all__ = ["resource_location_value_domains", "resource_type_value_domains"]
+def incident_lifecycle_value_domains() -> tuple[PropertyValueDomain, ...]:
+    """Return the `Incident.status` lifecycle domain the Incident projection writes."""
+
+    return (
+        PropertyValueDomain(
+            object_type="Incident",
+            property_name="status",
+            values=tuple(sorted(item.value for item in IncidentState)),
+            lifecycle_state=True,
+        ),
+    )
+
+
+__all__ = [
+    "incident_lifecycle_value_domains",
+    "resource_location_value_domains",
+    "resource_type_value_domains",
+]

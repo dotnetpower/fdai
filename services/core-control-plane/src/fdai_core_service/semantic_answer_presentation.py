@@ -7,6 +7,7 @@ instants are rendered for reading; the technical details retain the exact source
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 _STATUS_LABELS: dict[str, tuple[str, str]] = {
@@ -65,9 +66,32 @@ def readable_resource_status(value: str, *, korean: bool) -> str:
     return label[0] if korean else label[1]
 
 
+def condition_rows(output: Mapping[str, object]) -> tuple[Mapping[str, object], ...] | None:
+    """Return every row's values, or ``None`` when any row claims authority or is malformed."""
+
+    rows = output.get("rows")
+    if not isinstance(rows, list):
+        return None
+    projected: list[Mapping[str, object]] = []
+    for row in rows:
+        values = row.get("values") if isinstance(row, Mapping) else None
+        if not isinstance(values, Mapping) or values.get("execution_authority") is not False:
+            return None
+        projected.append(values)
+    return tuple(projected)
+
+
+def inline_code(value: str) -> str:
+    """Return a value safe inside one Markdown code span on one line."""
+
+    return value.replace("`", "'").replace("\r", " ").replace("\n", " ")[:512]
+
+
 __all__ = [
     "authority_line",
     "completeness_text",
+    "condition_rows",
+    "inline_code",
     "readable_resource_status",
     "readable_timestamp",
 ]

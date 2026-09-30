@@ -44,8 +44,8 @@ overlays. Its per-partition case counts and identity digests bind the exact Gold
 ontology release without retaining question text. Excluded declarations are counted separately.
 Any ontology release change, such as a new ActionType version, a reviewed LinkType semantic trait,
 a new readable ObjectType property, or an edited ontology function source whose artifact digest the
-release pins, rebinds the declaration partition, so the same change regenerates the manifest with
-its builder.
+release pins, such as a reader that now returns the exact count its row bound leaves out, rebinds the
+declaration partition, so the same change regenerates the manifest with its builder.
 This repository-only inventory is not an executable campaign, a production binding, or a
 certification receipt.
 

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: adb65e87ffee63ed8decd8d549aa1d2cb9781216
+translation_source_sha: 3752263f781879788cd8aea5fa5e136b13039f03
 translation_revised: 2026-09-30
 ---
 # 온톨로지 구조 모델
@@ -279,6 +279,12 @@ Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인�
 어휘로, Azure의 모든 물리 리전 코드와 `global`을 각각의 표시 이름과 함께 담습니다. 발화에 나온 리전은 이
 전체 목록에 대한 닫힌 선택으로 근거를 확인하며, 표시 이름은 선택하는 모델을 위한 맥락일 뿐 조회 표가
 아닙니다.
+
+값 도메인은 자신의 속성을 해당 ObjectType의 검토된 수명 주기 상태로 표시할 수도 있습니다.
+`Incident.status`가 첫 번째 도메인이며, 그 값은 Incident 투영이 기록하는 정식 Incident 수명 주기
+상태입니다. 발화에 나온 수명 주기 상태는 이 값에 대한 닫힌 선택으로 근거를 확인하고, 그 ObjectType에
+대한 정확한 조건으로만 읽습니다. 다른 ObjectType의 `status` 속성에는 아직 검토된 수명 주기 도메인이
+없으므로, 그 유형에 밝힌 상태는 타입이 지정된 지원되지 않음으로 남습니다.
 
 리소스 상태 조회는 카탈로그에 선언된 상태 개념과 정확하고 범위가 제한된 리소스 집합만 받습니다.
 구체적인 상태 개념은 일반 관측 상태 표시자보다 우선합니다. 비어 있거나 불완전한 결과는 행 개수와

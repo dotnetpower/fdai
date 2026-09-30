@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from fdai_service_contracts import canonical_ordinary_role
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.ontology_platform import QueryManifest, build_query_manifest
+from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
+from fdai.core.ontology_platform.resource_health_values import resource_health_state_values
+from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyActionType,
@@ -29,6 +33,30 @@ _ROLE_MAP = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class ConceptVocabularies:
+    """Reviewed measure vocabularies that concept choosers may ground a mention in."""
+
+    metric_registry: MetricSemanticRegistry | None = None
+    inventory_query_language: InventoryQueryLanguageRegistry | None = None
+
+    def metric_labels(self) -> dict[str, str]:
+        registry = self.metric_registry
+        if registry is None:
+            return {}
+        return {concept: item.description for concept, item in registry.definitions.items()}
+
+    def health_labels(self) -> dict[str, tuple[str, ...]]:
+        language = self.inventory_query_language
+        if language is None:
+            return {}
+        try:
+            return resource_health_state_values(language)
+        except ValueError:
+            # A vocabulary without Resource Health groups offers no health concepts.
+            return {}
+
+
 class CatalogQueryManifestProvider:
     """Build immutable planner metadata from one exact loaded catalog release."""
 
@@ -43,6 +71,7 @@ class CatalogQueryManifestProvider:
         functions: Sequence[OntologyFunctionType] = (),
         bound_function_names: Sequence[str] | None = None,
         property_values: Sequence[PropertyValueDomain] = (),
+        vocabularies: ConceptVocabularies | None = None,
     ) -> None:
         self._release = release
         self._object_types = tuple(object_types)
@@ -51,6 +80,10 @@ class CatalogQueryManifestProvider:
         self._action_types = tuple(action_types)
         self._functions = tuple(functions)
         self._property_values = tuple(property_values)
+        # Reviewed metric and health concepts, offered to concept choosers.
+        vocabulary = vocabularies or ConceptVocabularies()
+        self._metric_labels: Mapping[str, str] = vocabulary.metric_labels()
+        self._health_labels: Mapping[str, tuple[str, ...]] = vocabulary.health_labels()
         self._bound_function_names = (
             None if bound_function_names is None else tuple(bound_function_names)
         )
@@ -75,6 +108,8 @@ class CatalogQueryManifestProvider:
             functions=self._functions,
             bound_function_names=self._bound_function_names,
             property_values=self._property_values,
+            metric_labels=self._metric_labels,
+            health_labels=self._health_labels,
         )
 
 
@@ -91,4 +126,8 @@ def semantic_principal_scope_digest(*, principal: Principal, purpose: str) -> st
     )
 
 
-__all__ = ["CatalogQueryManifestProvider", "semantic_principal_scope_digest"]
+__all__ = [
+    "CatalogQueryManifestProvider",
+    "ConceptVocabularies",
+    "semantic_principal_scope_digest",
+]

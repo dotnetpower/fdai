@@ -14,6 +14,7 @@ from typing import Any
 import yaml
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
 from fdai.composition.semantic_query_value_domains import (
+    incident_lifecycle_value_domains,
     resource_location_value_domains,
     resource_type_value_domains,
 )
@@ -115,7 +116,13 @@ def production_catalog() -> OntologyCatalog:
 
 
 @lru_cache(maxsize=2)
-def production_manifest(role: CeilingRole = CeilingRole.READER) -> QueryManifest:
+def production_manifest(
+    role: CeilingRole = CeilingRole.READER,
+    *,
+    metric_labels: tuple[tuple[str, str], ...] = (),
+    health_labels: tuple[tuple[str, tuple[str, ...]], ...] = (),
+    unbound: tuple[str, ...] = (),
+) -> QueryManifest:
     catalog = production_catalog()
     functions = operational_function_types(catalog.function_types)
     release = build_ontology_release(
@@ -142,7 +149,11 @@ def production_manifest(role: CeilingRole = CeilingRole.READER) -> QueryManifest
         interfaces=catalog.interface_types,
         action_types=catalog.action_types,
         functions=functions,
-        bound_function_names=tuple(function.name for function in functions),
+        bound_function_names=tuple(
+            function.name for function in functions if function.name not in unbound
+        ),
+        metric_labels=dict(metric_labels),
+        health_labels=dict(health_labels),
         property_values=(
             *resource_type_value_domains(registry),
             *resource_location_value_domains(
@@ -154,6 +165,7 @@ def production_manifest(role: CeilingRole = CeilingRole.READER) -> QueryManifest
                     )
                 )
             ),
+            *incident_lifecycle_value_domains(),
         ),
     )
 

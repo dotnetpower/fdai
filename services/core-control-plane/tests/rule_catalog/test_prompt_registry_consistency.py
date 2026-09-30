@@ -34,7 +34,8 @@ _CATALOG = _REPO / "rule-catalog"
 # deterministic composition keys. Adaptive plan/answer and review/verify reuse independent
 # configured T1 narrators; optional refine uses t2.reasoner.primary. Ontology reasoning
 # question-form and concept-selection prompts reuse the semantic judgment T1 target as
-# shadow-only composition keys.
+# shadow-only composition keys; the closed ambiguity check reuses the direction reader's
+# third-family deployment the same way.
 # Adding to this set requires a stated reason.
 _PROMPT_ONLY_CAPABILITIES = frozenset(
     {
@@ -52,6 +53,7 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "conversation.social-narrator.self_introduction",
         "conversation.social-narrator.thanks",
         "norns.post-turn-review",
+        "semantic.ambiguity_check",
         "semantic.concept_selection",
         "semantic.constraint_extraction",
         "semantic.direction_check",

@@ -26,11 +26,17 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
+from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
 from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
+from .semantic_reasoning_filter_coverage import (
+    StatedRestrictions,
+    filter_coverage,
+    function_name,
+)
 from .semantic_reasoning_form import (
     SENSE_ROLES,
     DurationUnit,
@@ -50,6 +56,7 @@ from .semantic_reasoning_form import (
     TimeKind,
 )
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
+from .semantic_reasoning_lifecycle import parse_lifecycle
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
 from .semantic_reasoning_relations import SENSE_TRAITS
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
@@ -78,6 +85,10 @@ _SECONDS = {
     DurationUnit.WEEK: 604_800,
 }
 _TRANSITIVE_DEPTH = 5
+METRIC_READER = "query.resource_metric_inventory"
+# The reviewed default window a current metric question reads, and the reader's lower bound.
+_DEFAULT_METRIC_WINDOW_SECONDS = 900
+_MIN_METRIC_WINDOW_SECONDS = 300
 _REQUIRED_FUNCTIONS: Mapping[tuple[GoalLevel, GoalOperation], frozenset[str]] = {
     (GoalLevel.INSTANCE, GoalOperation.LOOKUP): frozenset({"query.resource_current_state"}),
     (GoalLevel.INSTANCE, GoalOperation.HISTORY): frozenset({"query.resource_change_activity"}),
@@ -156,7 +167,7 @@ def _read_starts_at(goal: FormGoal, mention_id: str) -> bool:
 def _level_violations(goal: FormGoal, nodes: Iterable[OntologyQueryNode]) -> list[str]:
     violations: list[str] = []
     for node in nodes:
-        function = _function_name(node)
+        function = function_name(node)
         if goal.level is GoalLevel.SCHEMA:
             if node.kind in _INSTANCE_READ_KINDS or (
                 function is not None and function not in _SCHEMA_ONLY_FUNCTIONS
@@ -177,6 +188,10 @@ class _Allowed:
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.state_concepts: set[str] = set()
+        # Another ObjectType's grounded lifecycle values, by (ObjectType, property).
+        self.lifecycle: dict[tuple[str, str], set[str]] = {}
+        self.health_concepts: set[str] = set()
+        self.metric_concepts: set[str] = set()
         self.regions: set[str] = set()
         self.relation_object_type = False
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
@@ -187,6 +202,18 @@ class _Allowed:
         """Return the intersection every stated kind restriction requires."""
 
         return frozenset.intersection(*self.type_sets) if self.type_sets else frozenset()
+
+    def stated(self) -> StatedRestrictions:
+        return StatedRestrictions(
+            kinds_stated=bool(self.type_sets),
+            required_types=self.required_types,
+            fragments=frozenset(self.fragments),
+            prior_rows=self.prior_rows,
+            regions=frozenset(self.regions),
+            lifecycle={key: frozenset(values) for key, values in self.lifecycle.items()},
+            state_concepts=tuple(sorted(self.state_concepts)),
+            health_concepts=tuple(sorted(self.health_concepts)),
+        )
 
 
 def _allowed_operands(
@@ -230,9 +257,27 @@ def _allowed_operands(
         elif mention.domain is MentionDomain.DECLARATION_KIND:
             allowed.declaration_kinds.update(concept.values)
         elif mention.domain is MentionDomain.STATE and role is FilterRole.STATE:
-            allowed.state_concepts.update(concept.values)
+            for value in concept.values:
+                lifecycle = parse_lifecycle(value)
+                if lifecycle is None:
+                    allowed.state_concepts.add(value)
+                else:
+                    key = (lifecycle.object_type, lifecycle.property_name)
+                    allowed.lifecycle.setdefault(key, set()).add(lifecycle.value)
+        elif mention.domain is MentionDomain.HEALTH and role is FilterRole.HEALTH:
+            allowed.health_concepts.update(concept.values)
         elif mention.domain is MentionDomain.REGION and role is FilterRole.REGION:
             allowed.regions.update(concept.values)
+    measure = goal.measure
+    if measure is not None and measure.kind is MeasureKind.METRIC and measure.mention is not None:
+        mention = admission.form.mention(measure.mention)
+        concept = concepts.binding(measure.mention)
+        if (
+            mention.domain is MentionDomain.METRIC
+            and concept is not None
+            and concept.outcome is ConceptOutcome.ACCEPTED
+        ):
+            allowed.metric_concepts.update(concept.values)
     return allowed
 
 
@@ -249,7 +294,10 @@ def _operand_violations(
         definition = arguments.get("definition") or {}
         if definition.get("object_ids") is not None or definition.get("root_ids"):
             return [f"prov_explicit_identity:{node.node_id}"]
-        return _predicate_violations(node.node_id, definition.get("predicates") or (), allowed)
+        selector = (definition.get("selector") or {}).get("name")
+        return _predicate_violations(
+            node.node_id, definition.get("predicates") or (), allowed, selector
+        )
     if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
         return _predicate_violations(
             node.node_id, arguments.get("endpoint_predicates") or (), allowed
@@ -267,6 +315,7 @@ def _predicate_violations(
     node_id: str,
     predicates: Iterable[Mapping[str, Any]],
     allowed: _Allowed,
+    selector: object = None,
 ) -> list[str]:
     violations: list[str] = []
     for predicate in predicates:
@@ -290,6 +339,9 @@ def _predicate_violations(
             permitted = allowed.regions
         elif prop == "type" and operator == "not_equals":
             permitted = set(OPERATIONAL_RESOURCE_EXCLUDED_TYPES)
+        elif operator in {"equals", "in"} and any(key[1] == prop for key in allowed.lifecycle):
+            # A lifecycle value restricts only its own ObjectType's read.
+            permitted = allowed.lifecycle.get((str(selector), str(prop)), set())
         else:
             violations.append(f"prov_unexpected_predicate:{node_id}:{prop}:{operator}")
             continue
@@ -306,7 +358,7 @@ def _function_violations(
     descriptors: Sequence[Mapping[str, Any]] = (),
     evaluation_time: datetime | None = None,
 ) -> list[str]:
-    name = _function_name(node)
+    name = function_name(node)
     static = node.arguments.get("arguments") or {}
     expected: Mapping[str, Any] | None
     if name == "query.resource_current_state":
@@ -342,6 +394,16 @@ def _function_violations(
         expected = {"kinds": sorted(allowed.declaration_kinds), "limit": 1000}
     elif name == RESOURCE_STATE_FUNCTION_NAME:
         expected = {"state_concepts": sorted(allowed.state_concepts)}
+    elif name == RESOURCE_HEALTH_FUNCTION_NAME:
+        health = sorted(allowed.health_concepts)
+        expected = {"health_concepts": health, "state_concepts": []} if health else None
+    elif name == METRIC_READER:
+        window = _expected_metric_window(goal, descriptors)
+        expected = (
+            {"metric_concepts": sorted(allowed.metric_concepts), "window_seconds": window}
+            if allowed.metric_concepts and window is not None
+            else None
+        )
     else:
         return [f"prov_unexpected_function:{node.node_id}:{name}"]
     if expected is None or dict(static) != dict(expected):
@@ -377,6 +439,16 @@ def _declared_maximum(
             maximum = (properties.get(argument) or {}).get("maximum")
             return maximum if isinstance(maximum, int) and not isinstance(maximum, bool) else None
     return None
+
+
+def _expected_metric_window(goal: FormGoal, descriptors: Sequence[Mapping[str, Any]]) -> int | None:
+    """Re-derive the metric window from the form and the reader's declared bounds."""
+
+    maximum = _declared_maximum(descriptors, METRIC_READER, "window_seconds")
+    seconds = _expected_lookback(goal, _DEFAULT_METRIC_WINDOW_SECONDS)
+    if maximum is None or seconds is None or not _MIN_METRIC_WINDOW_SECONDS <= seconds <= maximum:
+        return None
+    return seconds
 
 
 def _history_reads(goal: FormGoal) -> frozenset[str]:
@@ -416,19 +488,28 @@ def _coverage_violations(
     ):
         violations.append("sem_group_by_mismatch")
     functions = {
-        name for plan in plans for node in plan.nodes if (name := _function_name(node)) is not None
+        name for plan in plans for node in plan.nodes if (name := function_name(node)) is not None
     }
     required = _REQUIRED_FUNCTIONS.get((goal.level, goal.effective_operation))
     if (goal.level, goal.effective_operation) == (GoalLevel.INSTANCE, GoalOperation.HISTORY):
         required = _history_reads(goal)
         if functions != required:
             violations.append("sem_history_read_differs")
+    if (
+        (goal.level, goal.effective_operation) == (GoalLevel.INSTANCE, GoalOperation.LOOKUP)
+        and goal.measure is not None
+        and goal.measure.kind is MeasureKind.METRIC
+    ):
+        # A metric is read only by the metric reader, never answered as a current state.
+        required = frozenset({METRIC_READER})
+        if functions != required:
+            violations.append("sem_metric_read_differs")
     if required is not None and functions.isdisjoint(required):
         violations.append("sem_operation_read_missing")
     if goal.level is GoalLevel.SCHEMA:
         violations.extend(_schema_violations(goal, functions, admission))
     if goal.level is GoalLevel.INSTANCE:
-        violations.extend(_filter_coverage(goal, plans, allowed))
+        violations.extend(filter_coverage(plans, allowed.stated()))
     if goal.level is GoalLevel.INSTANCE and (
         (goal.relation is not None and not restated_relation(goal))
         or goal.effective_operation is GoalOperation.IMPACT
@@ -557,62 +638,6 @@ def _containment_scope_sides(
     }
 
 
-def _filter_coverage(
-    goal: FormGoal,
-    plans: Sequence[OntologyQueryPlan],
-    allowed: _Allowed,
-) -> list[str]:
-    """Require every restrictive filter on every result read of the goal."""
-
-    violations: list[str] = []
-    reads = [
-        _result_predicates(node)
-        for plan in plans
-        for node in plan.nodes
-        if _is_result_read(node, plan)
-    ]
-    for predicates in reads:
-        if allowed.type_sets and not any(
-            item.get("property") == "type"
-            and item.get("operator") in {"equals", "in"}
-            and frozenset(item.get("values") or [item.get("equals")]) == allowed.required_types
-            for item in predicates
-        ):
-            violations.append("sem_type_filter_missing")
-        for fragment in allowed.fragments:
-            if {"property": "name", "operator": "contains", "equals": fragment} not in predicates:
-                violations.append("sem_name_fragment_missing")
-        prior = {"property": "id", "operator": "in", "values": sorted(allowed.prior_rows)}
-        if allowed.prior_rows and prior not in predicates:
-            violations.append("sem_prior_result_unrestricted")
-    stated = sorted(allowed.state_concepts)
-    if stated and not any(
-        _function_name(node) == RESOURCE_STATE_FUNCTION_NAME
-        and (node.arguments.get("arguments") or {}).get("state_concepts") == stated
-        for plan in plans
-        for node in plan.nodes
-    ):
-        violations.append("sem_state_filter_missing")
-    return violations
-
-
-def _is_result_read(node: OntologyQueryNode, plan: OntologyQueryPlan) -> bool:
-    if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
-        return True
-    if node.kind is not QueryNodeKind.OBJECT_SET:
-        return False
-    dependents = [item for item in plan.nodes if node.node_id in item.depends_on]
-    return not any(item.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL for item in dependents) and (
-        not any(item.kind is QueryNodeKind.FUNCTION for item in dependents)
-    )
-
-
-def _result_predicates(node: OntologyQueryNode) -> list[Mapping[str, Any]]:
-    if node.kind is QueryNodeKind.OBJECT_SET:
-        return list((node.arguments.get("definition") or {}).get("predicates") or ())
-    return list(node.arguments.get("endpoint_predicates") or ())
-
-
 def _expected_sides(
     goal: FormGoal,
     descriptors: Sequence[Mapping[str, Any]],
@@ -699,13 +724,6 @@ def _expected_lookback(goal: FormGoal, default_seconds: int) -> int | None:
     if goal.time.kind is not TimeKind.WINDOW or value is None or value.duration is None:
         return None
     return value.duration.amount * _SECONDS[value.duration.unit]
-
-
-def _function_name(node: OntologyQueryNode) -> str | None:
-    if node.kind is not QueryNodeKind.FUNCTION:
-        return None
-    name = node.arguments.get("function_name")
-    return name if isinstance(name, str) else None
 
 
 def _all_zero(value: object) -> bool:

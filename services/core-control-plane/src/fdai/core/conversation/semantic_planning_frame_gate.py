@@ -373,6 +373,7 @@ def normalize_and_gate_frame(
             UNCOVERED_CONSTRAINT_CODE,
             manifest_digest=manifest_digest,
             frame=frame,
+            hold_details=("role:relates",),
         )
     resource_type_filters = tuple(
         target.value

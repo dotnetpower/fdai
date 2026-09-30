@@ -475,3 +475,249 @@ def test_a_relationship_read_never_answers_a_directed_or_paired_schema_relation(
 
     assert _violations(listing, receipt, batch.plan) == ()
     assert "sem_schema_relation_unread" in violations
+
+
+def test_a_metric_read_must_name_the_grounded_concept_and_the_reviewed_window() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import _CPU, _metric_form
+
+    utterance = "What is the CPU of vm-app-01?"
+    admission = admitted(_metric_form(utterance), utterance)
+    compilation = compile_question_form(
+        admission,
+        concepts=_CPU,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=utterance,
+        anchors=synthetic_anchors(admission),
+    )
+    plan = compilation.goals[0].batches[0].plan
+
+    def invented(arguments: dict[str, Any]) -> None:
+        arguments["arguments"]["metric_concepts"] = ["resource.memory.usage_pct"]
+
+    def widened(arguments: dict[str, Any]) -> None:
+        arguments["arguments"]["window_seconds"] = 604_800
+
+    def state_instead(arguments: dict[str, Any]) -> None:
+        arguments["function_name"] = "query.resource_current_state"
+        arguments["arguments"] = {}
+
+    assert _violations(admission, _CPU, plan) == ()
+    assert "prov_function_arguments:g1-read" in _violations(
+        admission, _CPU, _rewrite(plan, "g1-read", invented)
+    )
+    assert "prov_function_arguments:g1-read" in _violations(
+        admission, _CPU, _rewrite(plan, "g1-read", widened)
+    )
+    # A metric is never answered by a current-state read.
+    assert "sem_metric_read_differs" in _violations(
+        admission, _CPU, _rewrite(plan, "g1-read", state_instead)
+    )
+
+
+def test_a_health_read_must_keep_exactly_the_grounded_health_concepts() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import _UNHEALTHY, _health_form
+
+    utterance = "List the unhealthy VMs"
+    admission = admitted(_health_form(utterance), utterance)
+    compilation = compile_question_form(
+        admission,
+        concepts=_UNHEALTHY,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=utterance,
+        anchors=synthetic_anchors(admission),
+    )
+    plan = compilation.goals[0].batches[0].plan
+
+    def widened(arguments: dict[str, Any]) -> None:
+        arguments["arguments"]["health_concepts"] = ["resource_health.degraded"]
+
+    def with_states(arguments: dict[str, Any]) -> None:
+        arguments["arguments"]["state_concepts"] = ["resource_state.stopped"]
+
+    assert _violations(admission, _UNHEALTHY, plan) == ()
+    swapped = _violations(admission, _UNHEALTHY, _rewrite(plan, "g1-health", widened))
+    assert "prov_function_arguments:g1-health" in swapped
+    assert "sem_health_filter_missing" in swapped
+    # State rows the health reader would union in were never stated.
+    assert "prov_function_arguments:g1-health" in _violations(
+        admission, _UNHEALTHY, _rewrite(plan, "g1-health", with_states)
+    )
+
+
+def test_a_lifecycle_read_must_keep_exactly_the_grounded_values() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _OPEN_INCIDENT,
+        _incident_form,
+    )
+
+    utterance = "List the open incidents"
+    receipt = concepts(
+        ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+        ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+    )
+    admission = admitted(_incident_form(utterance), utterance)
+    compilation = compile_question_form(
+        admission,
+        concepts=receipt,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=utterance,
+        anchors=synthetic_anchors(admission),
+    )
+    plan = compilation.goals[0].batches[0].plan
+    (node_id,) = [node.node_id for node in plan.nodes]
+
+    def widened(arguments: dict[str, Any]) -> None:
+        arguments["definition"]["predicates"] = [
+            {"property": "status", "operator": "in", "values": ["open", "triaging"]}
+        ]
+
+    def dropped(arguments: dict[str, Any]) -> None:
+        arguments["definition"]["predicates"] = []
+
+    assert _violations(admission, receipt, plan) == ()
+    assert f"prov_operand_without_source:{node_id}:status" in _violations(
+        admission, receipt, _rewrite(plan, node_id, widened)
+    )
+    assert "sem_lifecycle_filter_missing" in _violations(
+        admission, receipt, _rewrite(plan, node_id, dropped)
+    )
+
+
+def _compiled_plan(
+    utterance: str, form: dict[str, Any], receipt: Any
+) -> tuple[Any, OntologyQueryPlan]:
+    admission = admitted(form, utterance)
+    compilation = compile_question_form(
+        admission,
+        concepts=receipt,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=utterance,
+        anchors=synthetic_anchors(admission),
+    )
+    return admission, compilation.goals[0].batches[0].plan
+
+
+def _with_outputs(
+    plan: OntologyQueryPlan, nodes: tuple[OntologyQueryNode, ...], outputs: tuple[str, ...]
+) -> OntologyQueryPlan:
+    body = {
+        **plan.model_dump(mode="json", exclude={"nodes", "output_node_ids", "plan_digest"}),
+        "nodes": [node.model_dump(mode="json") for node in nodes],
+        "output_node_ids": list(outputs),
+    }
+    return OntologyQueryPlan.model_validate({**body, "plan_digest": content_digest(body)})
+
+
+def test_a_filtered_reader_keeps_the_read_it_filters_restricted_and_answers_the_goal() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _UNHEALTHY,
+        _health_form,
+        _state_form,
+    )
+
+    listing = "List the unhealthy VMs"
+    admission, plan = _compiled_plan(listing, _health_form(listing), _UNHEALTHY)
+    running = concepts(
+        ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+        ("m2", MentionDomain.STATE, ("resource_state.running",)),
+    )
+    state_listing = "List the running VMs"
+    state_admission, state_plan = _compiled_plan(state_listing, _state_form(state_listing), running)
+
+    def untyped(arguments: dict[str, Any]) -> None:
+        arguments["definition"]["predicates"] = [
+            item
+            for item in arguments["definition"]["predicates"]
+            if item.get("operator") != "equals" or item.get("property") != "type"
+        ]
+
+    # The read a state or health reader filters is the result set: its kind is still stated.
+    assert "sem_type_filter_missing" in _violations(
+        admission, _UNHEALTHY, _rewrite(plan, "g1-collection", untyped)
+    )
+    assert "sem_type_filter_missing" in _violations(
+        state_admission, running, _rewrite(state_plan, "g1-collection", untyped)
+    )
+    # A reader whose rows never reach the answer does not restrict it.
+    bypassed = _with_outputs(plan, plan.nodes, ("g1-collection",))
+    assert "sem_health_filter_missing" in _violations(admission, _UNHEALTHY, bypassed)
+
+
+def test_health_rows_are_never_counted_as_matches() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import _UNHEALTHY, _health_form
+
+    listing = "List the unhealthy VMs"
+    counting = "How many unhealthy VMs"
+    _admission, plan = _compiled_plan(listing, _health_form(listing), _UNHEALTHY)
+    count = OntologyQueryNode(
+        node_id="g1-count",
+        kind=QueryNodeKind.AGGREGATE,
+        depends_on=("g1-health",),
+        arguments_json=canonical_json({"operation": "count"}),
+        output_kind="query.table",
+    )
+    counted = _with_outputs(plan, (*plan.nodes, count), ("g1-count",))
+    admission = admitted(_health_form(counting, operation="count"), counting)
+
+    assert "sem_health_rows_counted" in _violations(admission, _UNHEALTHY, counted)
+
+
+def test_a_lifecycle_value_restricts_only_its_own_object_type() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _OPEN_INCIDENT,
+        _incident_form,
+    )
+
+    utterance = "List the open incidents"
+    receipt = concepts(
+        ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+        ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+    )
+    admission, plan = _compiled_plan(utterance, _incident_form(utterance), receipt)
+    (node_id,) = [node.node_id for node in plan.nodes]
+
+    def elsewhere(arguments: dict[str, Any]) -> None:
+        arguments["definition"]["selector"]["name"] = "Change"
+
+    violations = _violations(admission, receipt, _rewrite(plan, node_id, elsewhere))
+    assert f"prov_operand_without_source:{node_id}:status" in violations
+    assert "sem_lifecycle_filter_missing" in violations
+
+
+def test_a_stated_region_must_restrict_every_result_read() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import _regions_form
+
+    utterance = "List the VMs in koreacentral"
+    receipt = concepts(
+        ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+        ("m2", MentionDomain.REGION, ("koreacentral",)),
+    )
+    admission, plan = _compiled_plan(
+        utterance, _regions_form(utterance, ("koreacentral",)), receipt
+    )
+
+    def unlocated(arguments: dict[str, Any]) -> None:
+        arguments["definition"]["predicates"] = [
+            item for item in arguments["definition"]["predicates"] if item["property"] != "location"
+        ]
+
+    assert _violations(admission, receipt, plan) == ()
+    assert "sem_region_filter_missing" in _violations(
+        admission, receipt, _rewrite(plan, "g1-collection", unlocated)
+    )

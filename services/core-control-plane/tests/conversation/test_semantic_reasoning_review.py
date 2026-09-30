@@ -9,10 +9,12 @@ import httpx
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain, SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
+from fdai.core.conversation.semantic_reasoning_repair import repair_keeps_operands
 from fdai.core.conversation.semantic_reasoning_review import (
     FormReview,
     describe_uncovered,
     extraction_schema,
+    quoted_form,
     resolve_extraction,
     review_forms,
 )
@@ -478,6 +480,10 @@ def test_a_particle_attached_to_a_mention_belongs_to_that_mention() -> None:
     assert review_forms((_typed(uncued, utterance),), attached, utterance=utterance).reasons == (
         "review_uncovered:relates:0-15",
     )
+    # A selection that reads the containing group answers where the resource is located.
+    for kind in ("location", "relation", "list"):
+        located = {**attached, "answer_kind": kind}
+        assert review_forms((typed,), located, utterance=utterance).faithful
 
 
 def _one_mention_form(utterance: str, text: str, domain: str) -> SemanticQuestionForm:
@@ -532,16 +538,89 @@ def test_a_kind_mention_that_holds_another_named_thing_releases_nothing() -> Non
     assert review_forms((split,), two_names, utterance=utterance) == FormReview("faithful")
 
 
-async def test_a_merged_mention_is_held_without_a_repair_it_could_not_make() -> None:
+async def test_a_merged_mention_a_split_repair_keeps_merged_is_held() -> None:
     merged = _aks_form("List", context=[_quote("the")])
     merged["mentions"][0].update(domain="object_type", span=_quote("AKS ObjectTypes"))
     model = _Model([merged, merged], {}, extraction=_EXTRACTED)
 
     observation = await _shadow(model)
 
+    # One split repair is asked along the independent reader's disjoint quotes; a form that
+    # still merges them is reviewed again and held.
     assert observation.review == "unfaithful" and observation.released is False
     assert observation.review_reasons == ("review_merged:9-12", "review_merged:13-24")
-    assert len(model.form_calls) == 1
+    assert len(model.form_calls) == 2
+    (violation,) = model.form_calls[1]["repair"].violations
+    assert violation.startswith('review_merged: mention m1 quotes "AKS ObjectTypes"')
+    assert '"AKS" (restricts); "ObjectTypes" (names)' in violation
+
+
+_WORKLOAD = "List the Workload ObjectType"
+_WORKLOAD_EXTRACTION = {
+    "constraints": [
+        _constraint("List", "asks"),
+        _constraint("Workload", "names"),
+        _constraint("ObjectType", "names"),
+    ]
+}
+
+
+def _workload_forms() -> tuple[dict[str, Any], dict[str, Any]]:
+    merged = _aks_form("List", context=[_quote("the")])
+    merged["mentions"][0].update(domain="object_type", span=_quote("Workload ObjectType"))
+    split = _aks_form("List", context=[_quote("the")])
+    split["mentions"][0].update(domain="object_type", span=_quote("Workload"))
+    split["mentions"].append(
+        {"id": "m2", "form": "concept", "domain": "declaration_kind", "span": _quote("ObjectType")}
+    )
+    return merged, split
+
+
+async def test_a_split_repair_along_the_disjoint_quotes_releases_the_reading() -> None:
+    merged, split = _workload_forms()
+    picks = {"m1": ["object:Workload"], "m2": ["kind:object"]}
+    model = _Model([merged, split], picks, extraction=_WORKLOAD_EXTRACTION)
+
+    observation = await run_reasoning_shadow(
+        model=model,
+        utterance=_WORKLOAD,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+    )
+
+    assert observation.review == "faithful" and observation.released is True
+    assert [item.repair for item in observation.passes] == [None, "review_split_applied"]
+    assert len(model.form_calls) == 2
+
+
+def test_a_split_repair_may_only_replace_the_merging_mention() -> None:
+    merged, split = _workload_forms()
+    typed = _typed(merged, _WORKLOAD)
+    previous = quoted_form(typed, _WORKLOAD)
+    repaired = _typed(split, _WORKLOAD)
+    recounted = json.loads(json.dumps(split))
+    recounted["goals"][0]["operation"] = "count"
+
+    def kept(form: SemanticQuestionForm, split_ids: frozenset[str]) -> bool:
+        return repair_keeps_operands(
+            previous,
+            form,
+            utterance=_WORKLOAD,
+            typed=typed,
+            extension_only=True,
+            split=split_ids,
+        )
+
+    assert kept(repaired, frozenset({"m1"}))
+    # Without the split exemption the narrower quote only shortens the mention.
+    assert not kept(repaired, frozenset())
+    # A split never excuses a changed goal.
+    assert not kept(_typed(recounted, _WORKLOAD), frozenset({"m1"}))
 
 
 def test_a_repair_violation_names_a_mention_that_quotes_part_of_the_constraint() -> None:
@@ -672,7 +751,7 @@ def test_a_literal_operand_must_equal_a_literal_the_extractor_quoted_alone() -> 
     assert _fragment_verdict(named, "app-dev") == FormReview("faithful")
     assert _fragment_verdict(stated, "app-dev가").reasons == ("review_literal_differs:4-11",)
     assert _fragment_verdict(named).reasons == ("review_literal_differs:4-11",)
-    assert extraction_schema()["required"] == ["constraints", "literals"]
+    assert extraction_schema()["required"] == ["answer_kind", "constraints", "literals"]
 
 
 def test_a_literal_the_extractor_cannot_locate_voids_the_review() -> None:
@@ -1034,3 +1113,120 @@ def test_a_references_position_words_are_never_a_merged_restriction() -> None:
     assert review_forms((_typed(form, utterance),), extraction, utterance=utterance) == (
         FormReview("faithful")
     )
+
+
+_WHERE = "Where is subnet-a located?"
+
+
+def _where_form(goal: dict[str, Any]) -> SemanticQuestionForm:
+    raw = {
+        "mentions": [
+            {"id": "m1", "form": "name", "domain": "instance", "span": _quote("subnet-a")}
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "cue": _quote("Where is"),
+                "confidence": 0.9,
+                **goal,
+            }
+        ],
+    }
+    return _typed(raw, _WHERE)
+
+
+def _where_extraction(answer_kind: str | None) -> dict[str, Any]:
+    extraction: dict[str, Any] = {
+        "constraints": [_constraint("Where is", "asks"), _constraint("subnet-a", "names")]
+    }
+    if answer_kind is not None:
+        extraction["answer_kind"] = answer_kind
+    return extraction
+
+
+def test_a_reading_that_answers_another_kind_of_question_is_held() -> None:
+    state = _where_form(
+        {"operation": "lookup", "measure": {"kind": "state", "cue": _quote("located")}}
+    )
+    container = _where_form(
+        {
+            "operation": "traverse",
+            "relation": {
+                "sense": "containment",
+                "anchor_role": "member",
+                "result_role": "container",
+                "cue": _quote("located"),
+            },
+        }
+    )
+
+    # A current-state lookup does not say where the subnet is located.
+    assert review_forms((state,), _where_extraction("location"), utterance=_WHERE) == (
+        FormReview("unfaithful", ("review_answer_kind:location",))
+    )
+    # The container it sits in does, and an unnamed or other kind is never judged.
+    assert review_forms((container,), _where_extraction("location"), utterance=_WHERE).faithful
+    assert review_forms((state,), _where_extraction(None), utterance=_WHERE).faithful
+    assert review_forms((state,), _where_extraction("other"), utterance=_WHERE).faithful
+    assert review_forms((state,), _where_extraction("state"), utterance=_WHERE).faithful
+
+
+def test_a_list_does_not_answer_a_count_but_a_state_filtered_list_answers_a_state() -> None:
+    utterance = "How many VMs are running?"
+    raw = {
+        "mentions": [
+            {"id": "m1", "form": "concept", "domain": "resource_type", "span": _quote("VMs")},
+            {"id": "m2", "form": "value", "domain": "state", "span": _quote("running")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "state", "mention": "m2"}],
+                "cue": _quote("How many"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    listed = _typed(raw, utterance)
+    extraction: dict[str, Any] = {
+        "constraints": [_constraint("VMs", "names"), _constraint("running", "restricts")],
+        "literals": [_quote("running")],
+    }
+
+    def verdict(kind: str) -> FormReview:
+        return review_forms((listed,), {**extraction, "answer_kind": kind}, utterance=utterance)
+
+    assert verdict("count").reasons == ("review_answer_kind:count",)
+    assert verdict("list").faithful and verdict("state").faithful
+
+
+def test_a_declaration_word_needs_no_span_only_beside_schema_goals() -> None:
+    utterance = "List the declared ObjectTypes"
+    schema = _typed(_aks_form("List", context=[_quote("the")]), utterance)
+    instance_raw = _aks_form("List", context=[_quote("the")])
+    instance_raw["mentions"][0].update(domain="resource_type", span=_quote("ObjectTypes"))
+    instance_raw["goals"][0].update(level="instance")
+    instance = _typed(instance_raw, utterance)
+
+    def verdict(form: SemanticQuestionForm, role: str) -> FormReview:
+        extraction = {
+            "constraints": [
+                _constraint("List", "asks"),
+                _constraint("declared", role),
+                _constraint("ObjectTypes", "names"),
+            ]
+        }
+        return review_forms((form,), extraction, utterance=utterance)
+
+    # The independent reader says the word only restates declaration, which a schema read is.
+    assert verdict(schema, "declares").faithful
+    # Read as a restriction it still needs a span, and beside an instance goal it always does.
+    assert verdict(schema, "restricts").reasons == ("review_uncovered:restricts:9-17",)
+    assert verdict(instance, "declares").reasons == ("review_uncovered:declares:9-17",)

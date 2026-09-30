@@ -20,7 +20,6 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.ontology_platform import QueryManifest
-from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_admission import FormAdmission
@@ -40,6 +39,7 @@ from .semantic_reasoning_form import (
     SubjectScope,
 )
 from .semantic_reasoning_handles import ReferenceReceipt, restricting_rows
+from .semantic_reasoning_lifecycle import lifecycle_predicates, parse_lifecycle
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 
@@ -106,7 +106,7 @@ class OperatorResult:
 
 
 def subject_selection(
-    goal: FormGoal, ctx: CompileContext, *, state_stage: bool = False
+    goal: FormGoal, ctx: CompileContext, *, staged: FilterRole | None = None
 ) -> tuple[str, list[dict[str, Any]], OperatorResult | None]:
     selector = RESOURCE_OBJECT_TYPE
     type_values: tuple[str, ...] = ()
@@ -126,7 +126,7 @@ def subject_selection(
             unsupported = OperatorResult(unsupported=(f"subject_unsupported:{domain.value}",))
             return selector, [], unsupported
     predicates, failure = endpoint_predicates(
-        goal, ctx, extra_types=type_values, selector=selector, state_stage=state_stage
+        goal, ctx, extra_types=type_values, selector=selector, staged=staged
     )
     if failure is not None:
         return selector, [], failure
@@ -143,20 +143,32 @@ def endpoint_predicates(
     *,
     extra_types: tuple[str, ...] = (),
     selector: str = RESOURCE_OBJECT_TYPE,
-    state_stage: bool = False,
+    staged: FilterRole | None = None,
 ) -> tuple[list[dict[str, Any]], OperatorResult | None]:
     """Return the endpoint predicates every stated restriction requires.
 
     Each stated kind restriction narrows the others, so the subject kind and every
     type filter intersect; an empty intersection clarifies instead of widening. An
     empty value set is the explicit resources-in-general root and restricts nothing.
+    A single-valued property holds one value per row, so the regions, or the values of
+    one lifecycle property, that several filters state are read as one union, never as a
+    conjunction that no row can meet; distinct lifecycle properties restrict together.
     """
 
     type_sets: list[frozenset[str]] = [frozenset(extra_types)] if extra_types else []
     predicates: list[dict[str, Any]] = []
+    regions: set[str] = set()
+    lifecycle: list[str] = []
     for item in goal.filters:
-        # A state restriction is read by the state inventory stage that follows this read.
-        if item.role is FilterRole.SCOPE or (state_stage and item.role is FilterRole.STATE):
+        if item.role is FilterRole.SCOPE:
+            continue
+        if item.role is FilterRole.STATE:
+            stated_lifecycle = _lifecycle_values(item.mention, ctx)
+            if stated_lifecycle:
+                lifecycle.extend(stated_lifecycle)
+                continue
+        # A Resource state or health is read by the reader stage that follows this read.
+        if staged is not None and item.role is staged:
             continue
         if item.role is FilterRole.TYPE:
             values, failure = concept_values(item.mention, ctx)
@@ -171,18 +183,21 @@ def endpoint_predicates(
                 {"property": "name", "operator": "contains", "equals": ctx.text(item.mention)}
             )
         elif item.role is FilterRole.REGION:
-            regions, failure = concept_values(item.mention, ctx)
+            stated_regions, failure = concept_values(item.mention, ctx)
             if failure is not None:
                 return [], failure
-            if ctx.mention(item.mention).domain is not MentionDomain.REGION or not regions:
+            if ctx.mention(item.mention).domain is not MentionDomain.REGION or not stated_regions:
                 return [], OperatorResult(unsupported=("region_filter_domain_unsupported",))
-            predicates.append(
-                {"property": "location", "operator": "equals", "equals": regions[0]}
-                if len(regions) == 1
-                else {"property": "location", "operator": "in", "values": sorted(regions)}
-            )
+            regions.update(stated_regions)
         else:
             return [], OperatorResult(unsupported=(f"filter_unsupported:{item.role.value}",))
+    if regions:
+        predicates.append(_one_of("location", regions))
+    if lifecycle:
+        restrictions, reason = lifecycle_predicates(lifecycle, selector)
+        if reason is not None:
+            return [], OperatorResult(unsupported=(reason,))
+        predicates.extend(restrictions)
     required = sorted(frozenset.intersection(*type_sets)) if type_sets else []
     if type_sets and not required:
         return [], OperatorResult(clarify=("type_restrictions_disjoint",))
@@ -277,6 +292,26 @@ def declared_measures(ctx: CompileContext, function_name: str) -> tuple[str, ...
     return ()
 
 
+def _lifecycle_values(mention_id: str, ctx: CompileContext) -> tuple[str, ...]:
+    """Return a state mention's grounded values when any names a lifecycle value.
+
+    An empty result leaves any other state filter, and a failed binding, to the flow
+    that reads or rejects it.
+    """
+
+    values, failure = concept_values(mention_id, ctx)
+    if failure is not None or ctx.mention(mention_id).domain is not MentionDomain.STATE:
+        return ()
+    return values if any(parse_lifecycle(item) is not None for item in values) else ()
+
+
+def _one_of(property_name: str, values: set[str]) -> dict[str, Any]:
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return {"property": property_name, "operator": "equals", "equals": ordered[0]}
+    return {"property": property_name, "operator": "in", "values": ordered}
+
+
 def concept_values(
     mention_id: str, ctx: CompileContext
 ) -> tuple[tuple[str, ...], OperatorResult | None]:
@@ -368,26 +403,6 @@ def traversal_node(
         kind=QueryNodeKind.RELATIONSHIP_TRAVERSAL,
         depends_on=(anchor_id,),
         arguments_json=canonical_json(arguments),
-        output_kind="query.table",
-    )
-
-
-def state_filter_node(
-    node_id: str, source_id: str, state_concepts: tuple[str, ...]
-) -> OntologyQueryNode:
-    """Filter one Resource read to the reviewed state concepts the goal states."""
-
-    return OntologyQueryNode(
-        node_id=node_id,
-        kind=QueryNodeKind.FUNCTION,
-        depends_on=(source_id,),
-        arguments_json=canonical_json(
-            {
-                "function_name": RESOURCE_STATE_FUNCTION_NAME,
-                "arguments": {"state_concepts": list(state_concepts)},
-                "dependency_arguments": {source_id: "query_result"},
-            }
-        ),
         output_kind="query.table",
     )
 
@@ -503,7 +518,6 @@ def function_declared(ctx: CompileContext, name: str) -> bool:
 
 __all__ = [
     "GROUP_BY_FIELDS",
-    "state_filter_node",
     "COLLECTION_LIMIT",
     "FUNCTION_ANCHOR_LIMIT",
     "RESOURCE_OBJECT_TYPE",

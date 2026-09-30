@@ -24,6 +24,7 @@ from fdai.core.ontology_platform.resource_state_queries import (
 
 from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission
 from .semantic_reasoning_form import MentionDomain, MentionForm
+from .semantic_reasoning_lifecycle import lifecycle_values
 
 DEFAULT_SHARD_BYTES = 12 * 1024
 _DECLARATION_KINDS = ("action", "function", "interface", "link", "object")
@@ -121,9 +122,22 @@ ConceptChooser = Callable[[str, tuple[dict[str, Any], ...], ConceptShard], Mappi
 
 def concept_catalogs(
     descriptors: Sequence[Mapping[str, Any]],
+    *,
+    object_labels: Mapping[str, str] | None = None,
+    metric_labels: Mapping[str, str] | None = None,
+    health_labels: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[MentionDomain, tuple[ConceptCandidate, ...]]:
-    """Return complete candidate catalogs for the domains the manifest declares."""
+    """Return complete candidate catalogs for the domains the manifest declares.
 
+    ``object_labels`` holds reviewed ObjectType descriptions; each follows its name as a
+    label, so a chooser can tell Resource from ResourceType by meaning. ``metric_labels``
+    holds the reviewed metric concepts the bound metric reader accepts, each with its
+    reviewed description. ``health_labels`` holds the reviewed Resource Health concepts the
+    bound health reader accepts, each with the provider states it groups. A label is
+    context for the chooser, never a lookup key.
+    """
+
+    described = object_labels or {}
     catalogs: dict[MentionDomain, tuple[ConceptCandidate, ...]] = {}
     objects = sorted(
         str(item["name"])
@@ -131,8 +145,23 @@ def concept_catalogs(
         if item.get("kind") == "object" and item.get("name")
     )
     catalogs[MentionDomain.OBJECT_TYPE] = tuple(
-        ConceptCandidate(id=f"object:{name}", values=(name,), labels=(name,)) for name in objects
+        ConceptCandidate(
+            id=f"object:{name}",
+            values=(name,),
+            labels=(name, described[name]) if described.get(name) else (name,),
+        )
+        for name in objects
     )
+    if metric_labels:
+        catalogs[MentionDomain.METRIC] = tuple(
+            ConceptCandidate(f"metric:{concept}", (concept,), (concept, description))
+            for concept, description in sorted(metric_labels.items())
+        )
+    if health_labels:
+        catalogs[MentionDomain.HEALTH] = tuple(
+            ConceptCandidate(f"health:{concept}", (concept,), (concept, *states))
+            for concept, states in sorted(health_labels.items())
+        )
     kinds = sorted({str(item.get("kind")) for item in descriptors} & set(_DECLARATION_KINDS))
     catalogs[MentionDomain.DECLARATION_KIND] = tuple(
         ConceptCandidate(id=f"kind:{kind}", values=(kind,), labels=(kind,)) for kind in kinds
@@ -142,7 +171,7 @@ def concept_catalogs(
         # Reviewed type groups are the resource classes a mention can bind today.
         catalogs[MentionDomain.RESOURCE_TYPE] = resource_types
         catalogs[MentionDomain.RESOURCE_CLASS] = resource_types
-    states = _state_candidates(descriptors)
+    states = (*_state_candidates(descriptors), *_lifecycle_candidates(descriptors))
     if states:
         catalogs[MentionDomain.STATE] = states
     regions = _region_candidates(descriptors)
@@ -202,6 +231,21 @@ def _state_candidates(descriptors: Sequence[Mapping[str, Any]]) -> tuple[Concept
     return tuple(
         ConceptCandidate(f"state:{concept}", (concept,), labels.get(concept) or (concept,))
         for concept in sorted(declared)
+    )
+
+
+def _lifecycle_candidates(
+    descriptors: Sequence[Mapping[str, Any]],
+) -> tuple[ConceptCandidate, ...]:
+    """Return each reviewed lifecycle value of an ObjectType, labeled with its type."""
+
+    return tuple(
+        ConceptCandidate(
+            f"state:{item.concept}",
+            (item.concept,),
+            (item.value, f"{item.object_type} {item.property_name}"),
+        )
+        for item in lifecycle_values(descriptors)
     )
 
 

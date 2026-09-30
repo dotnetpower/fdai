@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import replace
 from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
@@ -503,6 +504,76 @@ async def test_a_failed_continuation_pass_keeps_the_continuation_visible() -> No
 
     assert observation.continuation_pending is True
     assert observation.notes == ("continuation_failed",)
+
+
+class _GenerationResolver:
+    """Bind through the fixture gateway, reporting the next configured snapshot generation."""
+
+    def __init__(self, inner: GatewayAnchorResolver, generations: list[str]) -> None:
+        self._inner = inner
+        self._generations = generations
+
+    async def resolve(self, mention_id: str, text: str, extensions: tuple[str, ...] = ()) -> Any:
+        binding = await self._inner.resolve(mention_id, text, extensions)
+        return replace(binding, source_generation=self._generations.pop(0))
+
+
+async def _run_generations(model: _Model, generations: list[str]) -> Any:
+    inner = GatewayAnchorResolver(
+        await fixture_gateway(),
+        projection_request=ProjectionRequest(
+            caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+        ),
+        purpose=PURPOSE,
+        as_of=NOW,
+    )
+    return await run_reasoning_shadow(
+        model=model,
+        account_spans=False,
+        utterance=_UTTERANCE,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        budget=ShadowBudget(max_form_passes=3),
+        resolver=_GenerationResolver(inner, generations),
+        retain_compilations=True,
+    )
+
+
+async def test_a_continuation_that_reads_another_snapshot_ends_incomplete() -> None:
+    model = _Model(
+        [_quoted_form(remaining_goals=True), _quoted_form(remaining_goals=True), _quoted_form()],
+        {},
+    )
+
+    observation = await _run_generations(model, ["gen-1", "gen-2", "gen-2"])
+
+    # The second pass read a newer snapshot than the first, so no third pass starts and
+    # its compilation never joins the verified part.
+    assert [item.disposition for item in observation.passes] == [
+        "admitted",
+        "generation_changed",
+    ]
+    assert observation.passes[1].reasons == ("continuation_generation_changed",)
+    assert observation.continuation_pending is True and observation.released is False
+    assert observation.notes == ("continuation_generation_changed",)
+    assert len(observation.compilations) == 1
+    assert len(model.form_calls) == 2
+
+
+async def test_continuation_passes_on_the_first_snapshot_complete_the_reading() -> None:
+    model = _Model([_quoted_form(remaining_goals=True), _quoted_form()], {})
+
+    observation = await _run_generations(model, ["gen-1", "gen-1"])
+
+    assert [item.disposition for item in observation.passes] == ["admitted", "admitted"]
+    assert all(item.source_generations == ("gen-1",) for item in observation.passes)
+    assert observation.continuation_pending is False and observation.notes == ()
+    assert len(observation.compilations) == 2
 
 
 _FOLLOW_UP = "Among them, which ones depend on sql-app?"

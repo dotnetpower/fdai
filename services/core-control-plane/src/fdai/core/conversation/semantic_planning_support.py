@@ -354,6 +354,7 @@ def _outcome(
     advisory_response_answer: str | None = None,
     social_act: SocialAct = SocialAct.NONE,
     model_observations: tuple[SemanticJudgmentObservation, ...] = (),
+    hold_details: tuple[str, ...] = (),
 ) -> SemanticPlanningOutcome:
     return SemanticPlanningOutcome(
         disposition=disposition,
@@ -371,6 +372,7 @@ def _outcome(
         advisory_response_answer=advisory_response_answer,
         social_act=social_act,
         model_observations=model_observations,
+        hold_details=hold_details,
     )
 
 

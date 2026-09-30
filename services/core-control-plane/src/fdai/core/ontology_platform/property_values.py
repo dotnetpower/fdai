@@ -42,6 +42,8 @@ class PropertyValueDomain:
     property_name: str
     values: tuple[str, ...]
     groups: tuple[PropertyValueGroup, ...] = ()
+    # Marks the reviewed lifecycle state of its ObjectType, which a state mention may name.
+    lifecycle_state: bool = False
 
     def __post_init__(self) -> None:
         _bounded_identifier(self.object_type, "property value domain object type")
@@ -63,6 +65,8 @@ class PropertyValueDomain:
         """Return the manifest facet a planner reads for this property."""
 
         facet: dict[str, Any] = {"values": list(self.values)}
+        if self.lifecycle_state:
+            facet["lifecycle_state"] = True
         if self.groups:
             facet["value_groups"] = [
                 {"id": group.id, "terms": list(group.terms), "values": list(group.values)}

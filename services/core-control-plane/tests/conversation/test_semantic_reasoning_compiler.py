@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -22,6 +23,7 @@ from fdai.core.conversation.semantic_reasoning_form import (
     RelationSense,
 )
 from fdai.core.conversation.semantic_reasoning_operators import MAX_SIDES_PER_BATCH
+from fdai_service_contracts.ontology_query import QueryNodeKind
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,
@@ -2089,3 +2091,382 @@ def test_an_absolute_history_window_must_end_at_the_trusted_compile_clock() -> N
     # A window of the right length that ends anywhere else is not the stated recent window.
     assert violations(NOW + timedelta(days=1)) == ("prov_function_arguments:g1-changes",)
     assert violations(None) == ("prov_function_arguments:g1-changes",)
+
+
+def _metric_form(utterance: str, *, time: dict[str, Any] | None = None) -> dict[str, Any]:
+    goal: dict[str, Any] = {
+        "id": "g1",
+        "level": "instance",
+        "operation": "lookup",
+        "subject": "m1",
+        "subject_scope": "anchor",
+        "measure": {"kind": "metric", "mention": "m2"},
+        "cue": span(utterance, "What is"),
+        "confidence": 0.9,
+    }
+    if time is not None:
+        goal["time"] = time
+    return {
+        "mentions": [
+            _anchor(utterance, "vm-app-01"),
+            {"id": "m2", "form": "concept", "domain": "metric", "span": span(utterance, "CPU")},
+        ],
+        "goals": [goal],
+    }
+
+
+_CPU = concepts(("m2", MentionDomain.METRIC, ("resource.cpu.utilization_pct",)))
+
+
+def test_a_metric_lookup_reads_the_grounded_concept_over_the_bound_resource() -> None:
+    utterance = "What is the CPU of vm-app-01?"
+
+    compilation = _compile(utterance, _metric_form(utterance), _CPU)
+
+    (goal,) = compilation.goals
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    reads = [
+        json.loads(node.arguments_json)
+        for node in batch.plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+    ]
+    assert reads == [
+        {
+            "function_name": "query.resource_metric_inventory",
+            "arguments": {
+                "metric_concepts": ["resource.cpu.utilization_pct"],
+                "window_seconds": 900,
+            },
+            "dependency_arguments": {"g1-anchor": "query_result"},
+        }
+    ]
+    assert batch.frame.output_shape == "target_resource_metric"
+    # The reviewed default window is stated as a notice, never silently applied.
+    assert goal.limitations == ("default_window_applied:900",)
+    assert "window.default.900" in batch.frame.evidence_requirements
+
+
+def test_a_stated_metric_window_is_read_within_the_reader_bounds() -> None:
+    utterance = "What is the CPU of vm-app-01 in the last 2 hours?"
+    hours = {
+        "kind": "window",
+        "value": {"duration": {"amount": 2, "unit": "hour"}},
+        "cue": span(utterance, "in the last 2 hours"),
+    }
+    worded = "What is the CPU of vm-app-01 in the last hour?"
+    hour = {
+        "kind": "window",
+        "value": {"duration": {"amount": 1, "unit": "hour"}},
+        "cue": span(worded, "in the last hour"),
+    }
+    minutes = "What is the CPU of vm-app-01 in the last 2 minutes?"
+    short_window = {
+        "kind": "window",
+        "value": {"duration": {"amount": 2, "unit": "minute"}},
+        "cue": span(minutes, "in the last 2 minutes"),
+    }
+
+    stated = _compile(utterance, _metric_form(utterance, time=hours), _CPU).goals[0]
+    judged = _compile(worded, _metric_form(worded, time=hour), _CPU).goals[0]
+    short = _compile(minutes, _metric_form(minutes, time=short_window), _CPU).goals[0]
+    unbound = _compile(utterance, _metric_form(utterance, time=hours)).goals[0]
+
+    assert stated.status is GoalStatus.COMPILED
+    assert stated.limitations == ("time_window_applied:7200",)
+    # A window read from words without digits is the model's reading, stated as such.
+    assert judged.limitations == ("time_window_model_judged:3600",)
+    # A window below the reader's bound, or a metric no chooser grounded, never reads.
+    assert short.status is GoalStatus.UNSUPPORTED
+    assert short.reasons == ("metric_window_out_of_bounds",)
+    assert unbound.status is not GoalStatus.COMPILED
+
+
+def _health_form(utterance: str, *, operation: str = "select", state: str = "") -> dict[str, Any]:
+    mentions: list[dict[str, Any]] = [
+        {"id": "m1", "form": "concept", "domain": "resource_type", "span": span(utterance, "VMs")},
+        {"id": "m2", "form": "concept", "domain": "health", "span": span(utterance, "unhealthy")},
+    ]
+    filters = [{"role": "health", "mention": "m2"}]
+    if state:
+        mentions.append(
+            {"id": "m3", "form": "concept", "domain": "state", "span": span(utterance, state)}
+        )
+        filters.append({"role": "state", "mention": "m3"})
+    return {
+        "mentions": mentions,
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": operation,
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": filters,
+                "cue": span(utterance, "unhealthy"),
+                "confidence": 0.93,
+            }
+        ],
+    }
+
+
+_UNHEALTHY = concepts(
+    ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+    ("m2", MentionDomain.HEALTH, ("resource_health.unhealthy",)),
+)
+
+
+def test_a_stated_health_filters_the_collection_through_the_health_inventory() -> None:
+    utterance = "List the unhealthy VMs"
+
+    goal = _compile(utterance, _health_form(utterance), _UNHEALTHY).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    collection, health = batch.plan.nodes
+    assert collection.kind is QueryNodeKind.OBJECT_SET
+    assert {
+        "property": "type",
+        "operator": "equals",
+        "equals": "compute.vm",
+    } in collection.arguments["definition"]["predicates"]
+    assert json.loads(health.arguments_json) == {
+        "function_name": "query.resource_health_inventory",
+        "arguments": {"health_concepts": ["resource_health.unhealthy"], "state_concepts": []},
+        "dependency_arguments": {"g1-collection": "query_result"},
+    }
+    assert batch.frame.output_shape == "resource_health_list"
+    assert batch.frame.measure_concepts == ("resource_health.unhealthy",)
+
+
+def test_a_health_filter_never_counts_never_mixes_with_state_and_needs_its_reader() -> None:
+    counted = "How many unhealthy VMs"
+    mixed = "List the stopped unhealthy VMs"
+    listing = "List the unhealthy VMs"
+    admission = admitted(_health_form(listing), listing)
+
+    count = _compile(counted, _health_form(counted, operation="count"), _UNHEALTHY).goals[0]
+    both = _compile(
+        mixed,
+        _health_form(mixed, state="stopped"),
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.HEALTH, ("resource_health.unhealthy",)),
+            ("m3", MentionDomain.STATE, ("resource_state.stopped",)),
+        ),
+    ).goals[0]
+    unbound = compile_question_form(
+        admission,
+        concepts=_UNHEALTHY,
+        manifest=production_manifest(unbound=("query.resource_health_inventory",)),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=listing,
+        anchors=synthetic_anchors(admission),
+    ).goals[0]
+    ungrounded = _compile(
+        listing,
+        _health_form(listing),
+        concepts(("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",))),
+    ).goals[0]
+
+    # Health rows also report unknown coverage, so a row count is not a count of matches.
+    assert (count.status, count.reasons) == (GoalStatus.UNSUPPORTED, ("health_count_unsupported",))
+    # The health reader unions state rows, while stated restrictions intersect.
+    assert (both.status, both.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("state_and_health_filter_unsupported",),
+    )
+    assert (unbound.status, unbound.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("function_unavailable:query.resource_health_inventory",),
+    )
+    assert ungrounded.status is not GoalStatus.COMPILED
+
+
+_OPEN_INCIDENT = "lifecycle:Incident.status=open"
+
+
+def _incident_form(
+    utterance: str, *, operation: str = "select", subject: str = "incidents"
+) -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, subject),
+            },
+            {"id": "m2", "form": "concept", "domain": "state", "span": span(utterance, "open")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": operation,
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "state", "mention": "m2"}],
+                "cue": span(utterance, "open"),
+                "confidence": 0.93,
+            }
+        ],
+    }
+
+
+def test_the_lifecycle_state_of_another_object_type_reads_as_an_exact_predicate() -> None:
+    listing = "List the open incidents"
+    counting = "How many open incidents"
+    receipt = concepts(
+        ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+        ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+    )
+
+    listed = _compile(listing, _incident_form(listing), receipt).goals[0]
+    counted = _compile(counting, _incident_form(counting, operation="count"), receipt).goals[0]
+
+    assert listed.status is GoalStatus.COMPILED, listed.reasons
+    (batch,) = listed.batches
+    (read,) = batch.plan.nodes
+    definition = read.arguments["definition"]
+    assert definition["selector"]["name"] == "Incident"
+    assert definition["predicates"] == [
+        {"property": "status", "operator": "equals", "equals": "open"}
+    ]
+    # An exact predicate has no coverage rows, so its matches may be counted.
+    assert counted.status is GoalStatus.COMPILED, counted.reasons
+    assert [node.kind.value for node in counted.batches[0].plan.nodes] == [
+        "object_set",
+        "aggregate",
+    ]
+
+
+def test_a_lifecycle_state_never_restricts_another_subject() -> None:
+    utterance = "List the open incidents"
+    resources = "List the open VMs"
+
+    mismatched = _compile(
+        utterance,
+        _incident_form(utterance),
+        concepts(
+            ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+            ("m2", MentionDomain.STATE, ("resource_state.running",)),
+        ),
+    ).goals[0]
+    on_resources = _compile(
+        resources,
+        _incident_form(resources, subject="VMs")
+        | {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "concept",
+                    "domain": "resource_type",
+                    "span": span(resources, "VMs"),
+                },
+                {"id": "m2", "form": "concept", "domain": "state", "span": span(resources, "open")},
+            ]
+        },
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+        ),
+    ).goals[0]
+    mixed = _compile(
+        utterance,
+        _incident_form(utterance),
+        concepts(
+            ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+            ("m2", MentionDomain.STATE, (_OPEN_INCIDENT, "resource_state.running")),
+        ),
+    ).goals[0]
+
+    # A Resource state has no reader on an Incident, and an Incident state never filters VMs.
+    assert (mismatched.status, mismatched.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("filter_unsupported:state",),
+    )
+    assert (on_resources.status, on_resources.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("state_filter_subject_mismatch",),
+    )
+    assert (mixed.status, mixed.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("state_filter_domain_unsupported",),
+    )
+
+
+def _regions_form(utterance: str, regions: tuple[str, ...]) -> dict[str, Any]:
+    mentions: list[dict[str, Any]] = [
+        {"id": "m1", "form": "concept", "domain": "resource_type", "span": span(utterance, "VMs")}
+    ]
+    for index, region in enumerate(regions, start=2):
+        mentions.append(
+            {
+                "id": f"m{index}",
+                "form": "value",
+                "domain": "region",
+                "span": span(utterance, region),
+            }
+        )
+    return {
+        "mentions": mentions,
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [
+                    {"role": "region", "mention": f"m{index}"}
+                    for index in range(2, len(regions) + 2)
+                ],
+                "cue": span(utterance, "List"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_several_stated_regions_or_lifecycle_states_read_as_one_union() -> None:
+    regions = "List the VMs in koreacentral or eastus"
+    states = "List the open or triaging incidents"
+    lifecycle_form = _incident_form(states)
+    lifecycle_form["mentions"].append(
+        {"id": "m3", "form": "concept", "domain": "state", "span": span(states, "triaging")}
+    )
+    lifecycle_form["goals"][0]["filters"].append({"role": "state", "mention": "m3"})
+
+    located = _compile(
+        regions,
+        _regions_form(regions, ("koreacentral", "eastus")),
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.REGION, ("koreacentral",)),
+            ("m3", MentionDomain.REGION, ("eastus",)),
+        ),
+    ).goals[0]
+    staged = _compile(
+        states,
+        lifecycle_form,
+        concepts(
+            ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+            ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+            ("m3", MentionDomain.STATE, ("lifecycle:Incident.status=triaging",)),
+        ),
+    ).goals[0]
+
+    # A row holds one location and one status, so a conjunction would match nothing.
+    assert located.status is GoalStatus.COMPILED, located.reasons
+    location = [item for item in batch_predicates(located) if item["property"] == "location"]
+    assert location == [
+        {"property": "location", "operator": "in", "values": ["eastus", "koreacentral"]}
+    ]
+    assert staged.status is GoalStatus.COMPILED, staged.reasons
+    assert batch_predicates(staged) == [
+        {"property": "status", "operator": "in", "values": ["open", "triaging"]}
+    ]

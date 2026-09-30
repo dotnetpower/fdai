@@ -80,6 +80,7 @@ _CONCEPT_VALUES = {
     MentionDomain.OBJECT_TYPE: ("Resource",),
     MentionDomain.DECLARATION_KIND: ("object",),
     MentionDomain.STATE: ("resource_state.running",),
+    MentionDomain.HEALTH: ("resource_health.unhealthy",),
     MentionDomain.REGION: ("koreacentral",),
 }
 

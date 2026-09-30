@@ -51,27 +51,16 @@ from .semantic_reasoning_handles import (
 from .semantic_reasoning_kinds import ground_kinds
 from .semantic_reasoning_proposal import (
     FormInputHeldError,
-    FormResolution,
-    resolve_question_form,
 )
-from .semantic_reasoning_relabel import relabel_mentions
 from .semantic_reasoning_repair import (
-    FormProposal,
     FormRepair,
     propose_with_repair,
-    repair_keeps_operands,
 )
-from .semantic_reasoning_review import (
-    FormReview,
-    describe_uncovered,
-    describe_unexpressible,
-    literal_disagreements,
-    merged_constraints,
-    quoted_form,
-    resolve_extraction,
-    review_forms,
-    unacknowledged_constraints,
-    uncovered_constraints,
+from .semantic_reasoning_review import FormReview, review_forms
+from .semantic_reasoning_review_repair import (
+    ReviewRepair,
+    propose_review_repair,
+    review_repair,
 )
 from .semantic_reasoning_shape import form_shape
 
@@ -165,6 +154,9 @@ class ShadowPass:
     shape: tuple[str, ...] = ()
     # Goals whose relation roles follow two blind readers that outvoted the proposer.
     direction_swaps: tuple[str, ...] = ()
+    # Distinct snapshot generations this pass's own anchor reads saw; a result handle's
+    # generation is the earlier answer's and is never compared.
+    source_generations: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,7 +278,12 @@ async def run_reasoning_shadow(
     passes: list[ShadowPass] = []
     compilations: list[ReasoningCompilation] = []
     prior_goals: tuple[dict[str, Any], ...] = ()
-    catalogs = concept_catalogs(manifest.descriptors)
+    catalogs = concept_catalogs(
+        manifest.descriptors,
+        object_labels=dict(manifest.object_labels),
+        metric_labels=dict(manifest.metric_labels),
+        health_labels=dict(manifest.health_labels),
+    )
     pending = False
     notes: list[str] = []
     accounting = SpanAccounting(required=account_spans)
@@ -300,6 +297,8 @@ async def run_reasoning_shadow(
         "handle_scope": handle_scope,
     }
     admitted_forms: list[SemanticQuestionForm] = []
+    # The snapshot generation the turn's first anchor reads saw; continuations must match it.
+    pinned: tuple[str, ...] = ()
     # The extraction reads only the question, so it runs beside the form passes.
     extraction = asyncio.ensure_future(
         _extract(counting, utterance=utterance, context=context, locale=locale)
@@ -328,6 +327,20 @@ async def run_reasoning_shadow(
                     notes.append("continuation_failed")
                 break
             shadow_pass, goals, compilation, admitted = outcome
+            if index > 0 and _generation_drifted(pinned, shadow_pass.source_generations):
+                # A continuation that read another snapshot cannot join the verified part, so
+                # the turn stops with the continuation still pending instead of mixing reads.
+                passes.append(
+                    replace(
+                        shadow_pass,
+                        disposition="generation_changed",
+                        reasons=("continuation_generation_changed",),
+                    )
+                )
+                notes.append("continuation_generation_changed")
+                pending = True
+                break
+            pinned = pinned or shadow_pass.source_generations
             passes.append(shadow_pass)
             if admitted is not None and shadow_pass.disposition == "admitted":
                 admitted_forms.append(admitted)
@@ -343,7 +356,7 @@ async def run_reasoning_shadow(
             prior_goals = prior_goals + goals
             if admitted is not None:
                 accounting = accounting.after(admitted)
-        if pending and "continuation_failed" not in notes:
+        if pending and not {"continuation_failed", "continuation_generation_changed"} & set(notes):
             notes.append("continuation_budget_exhausted")
         complete = (
             bool(passes) and not pending and all(item.disposition == "admitted" for item in passes)
@@ -368,8 +381,13 @@ async def run_reasoning_shadow(
                     if failure is not None
                     else review_forms(admitted_forms, raw, utterance=utterance)
                 )
-            repair = _review_repair(
-                review, raw, admitted_forms, passes, limits, utterance=utterance
+            repair = review_repair(
+                review,
+                raw,
+                admitted_forms,
+                passes=len(passes),
+                repairs=limits.repairs_per_pass,
+                utterance=utterance,
             )
             if repair is not None:
                 try:
@@ -427,99 +445,24 @@ async def run_reasoning_shadow(
         await asyncio.gather(extraction, return_exceptions=True)
 
 
+def _generation_drifted(pinned: tuple[str, ...], observed: tuple[str, ...]) -> bool:
+    """Return whether a continuation pass's anchor reads left the turn's pinned snapshot.
+
+    A pass that read no anchor has nothing to compare. A pass whose own reads saw two
+    generations, or one other than the generation the first reads saw, has drifted.
+    """
+
+    if not observed:
+        return False
+    return len(observed) > 1 or (bool(pinned) and observed != pinned)
+
+
 def _failed_pass(index: int, exc: Exception) -> ShadowPass:
     """Record a pass that raised, as held input or a shadow error, instead of failing."""
 
     held = exc.reason if isinstance(exc, FormInputHeldError) else None
     reason = held or f"shadow_error:{type(exc).__name__}"
     return ShadowPass(index, "input_held" if held else "shadow_error", (reason,))
-
-
-@dataclass(frozen=True, slots=True)
-class _ReviewRepair:
-    """The admitted form the review found incomplete, and the constraints it must state."""
-
-    previous: Mapping[str, Any]
-    typed: SemanticQuestionForm
-    violations: tuple[str, ...]
-    reasons: tuple[str, ...]
-
-
-def _review_repair(
-    review: FormReview,
-    raw: Mapping[str, Any] | None,
-    forms: list[SemanticQuestionForm],
-    passes: list[ShadowPass],
-    limits: ShadowBudget,
-    *,
-    utterance: str,
-) -> _ReviewRepair | None:
-    """Return one repair for a single admitted pass whose review found uncovered words."""
-
-    if review.outcome != "unfaithful" or raw is None or limits.repairs_per_pass < 1:
-        return None
-    if len(forms) != 1 or len(passes) != 1:
-        return None
-    extraction = resolve_extraction(raw, utterance)
-    if extraction is None:
-        return None
-    uncovered = uncovered_constraints(forms, extraction, utterance)
-    unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
-    # A repair only adds information, so it can neither split a mention that merged a
-    # restriction with another constraint nor move a literal; the turn is held instead.
-    if not (uncovered or unacknowledged) or (
-        merged_constraints(forms, extraction) or literal_disagreements(forms, extraction)
-    ):
-        return None
-    violations = (
-        *(describe_uncovered(item, utterance, forms) for item in uncovered),
-        *(describe_unexpressible(item, utterance) for item in unacknowledged),
-    )
-    return _ReviewRepair(
-        previous=quoted_form(forms[0], utterance),
-        typed=forms[0],
-        violations=tuple(dict.fromkeys(violations)),
-        reasons=review.reasons,
-    )
-
-
-async def _propose_review_repair(
-    propose: Callable[..., Any],
-    repair: _ReviewRepair,
-    *,
-    utterance: str,
-    accounting: SpanAccounting,
-) -> FormProposal:
-    """Ask the proposer to state the uncovered constraints, adding information only."""
-
-    raw = await propose(repair=FormRepair(previous=repair.previous, violations=repair.violations))
-    if raw is None:
-        return FormProposal(None, None, "unavailable", repair.reasons)
-    resolution = resolve_question_form(raw, utterance=utterance)
-    if resolution.form is None:
-        return FormProposal(resolution, None, "invalid", repair.reasons)
-    form = relabel_mentions(repair.typed, resolution.form)
-    resolution = replace(resolution, form=form)
-    if not repair_keeps_operands(
-        repair.previous,
-        form,
-        utterance=utterance,
-        typed=repair.typed,
-        extension_only=True,
-    ):
-        dropped = FormResolution(None, ("review_repair_operand_dropped",))
-        return FormProposal(dropped, None, "operand_dropped", repair.reasons)
-    admission = admit_question_form(form, utterance=utterance, accounting=accounting)
-    if admission.disposition is AdmissionDisposition.INVALID and all(
-        reason.startswith("span_unaccounted:") for reason in admission.reasons
-    ):
-        # This is the turn's one repair, and the review reads the repaired form again, so
-        # a word it leaves unplaced is judged there, as after a first-pass repair.
-        relaxed = admit_question_form(
-            form, utterance=utterance, accounting=SpanAccounting(required=False)
-        )
-        return FormProposal(resolution, relaxed, "review_applied_unaccounted", repair.reasons)
-    return FormProposal(resolution, admission, "review_applied", repair.reasons)
 
 
 async def _extract(
@@ -554,7 +497,7 @@ async def _run_pass(
     resolver: AnchorResolver | None,
     compile_args: dict[str, Any],
     accounting: SpanAccounting,
-    review_repair: _ReviewRepair | None = None,
+    review_repair: ReviewRepair | None = None,
 ) -> tuple[
     ShadowPass,
     tuple[dict[str, Any], ...],
@@ -579,7 +522,7 @@ async def _run_pass(
             propose, utterance=utterance, repairs=repairs, accounting=accounting
         )
         if review_repair is None
-        else await _propose_review_repair(
+        else await propose_review_repair(
             propose, review_repair, utterance=utterance, accounting=accounting
         )
     )
@@ -660,6 +603,9 @@ async def _run_pass(
     if reasons:
         return ShadowPass(index, "direction_held", reasons, shape=form_shape(form)), (), None, None
     anchors = await bind_anchors(admission, resolver, utterance=utterance)
+    generations = tuple(
+        sorted({item.source_generation for item in anchors.bindings if item.source_generation})
+    )
     arguments = dict(compile_args)
     references = bind_references(
         admission, arguments.pop("handles", ()), arguments.pop("handle_scope", None)
@@ -700,6 +646,7 @@ async def _run_pass(
         grounding.regrounded,
         form_shape(form),
         settled.swapped,
+        source_generations=generations,
     )
     return shadow_pass, goals, compilation, form
 
