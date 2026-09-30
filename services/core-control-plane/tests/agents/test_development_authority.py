@@ -523,6 +523,7 @@ async def test_vidar_revalidates_same_action_identity_before_rollback() -> None:
         development_executor_principal=profile.executor_principal,
         development_binding_source=source,
         clock=lambda: NOW,
+        allow_process_local_rollback=True,
     )
     record = await vidar.rollback(run.to_dict())
     assert record is not None

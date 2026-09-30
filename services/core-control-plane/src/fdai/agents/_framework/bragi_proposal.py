@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import uuid
-from collections.abc import Collection
+import hashlib
+import json
+from collections.abc import Collection, Mapping
 from typing import Any
 
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.agents._framework.bragi_routing import action_from_semantic_judgment
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.rbac.roles import Capability, Role, has_capability
 
 _MAX_QUESTION_CHARS = 2_000
@@ -29,7 +31,6 @@ def build_action_proposal(
     pipeline_available: bool,
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
     """Build a typed proposal and its operator-facing status envelope."""
-    correlation_id = f"conv-{uuid.uuid4()}"
     if initiator_role is not None:
         role = _ROLE_BY_NAME.get(initiator_role.strip().lower())
         if role is None or not has_capability((role,), _SUBMIT_CAPABILITY):
@@ -38,9 +39,26 @@ def build_action_proposal(
                 "abstain_reason": "rbac_role_floor",
                 "required_role": "Contributor",
                 "initiator_role": initiator_role,
-                "correlation_id": correlation_id,
+                "correlation_id": _proposal_correlation_id(
+                    session_id=session_id,
+                    question=question,
+                    action_type="",
+                    resource_id="",
+                    params={},
+                ),
             }
     action_type, resource_id = action_from_semantic_judgment(judgment, action_type_names)
+    params = {
+        "question": question[:_MAX_QUESTION_CHARS],
+        "session_id": session_id[:_MAX_SESSION_CHARS],
+    }
+    correlation_id = _proposal_correlation_id(
+        session_id=session_id,
+        question=question,
+        action_type=action_type or "",
+        resource_id=resource_id or "",
+        params=params,
+    )
     if action_type is None:
         return None, {
             "submitted": False,
@@ -62,10 +80,7 @@ def build_action_proposal(
         "action_type": action_type,
         "resource_id": resource_id[:_MAX_RESOURCE_CHARS] if resource_id else None,
         "event_type": "operator_request",
-        "params": {
-            "question": question[:_MAX_QUESTION_CHARS],
-            "session_id": session_id[:_MAX_SESSION_CHARS],
-        },
+        "params": params,
     }
     return proposal, {
         "submitted": True,
@@ -73,6 +88,33 @@ def build_action_proposal(
         "action_type": action_type,
         "initiator_principal": user_id,
     }
+
+
+def _proposal_correlation_id(
+    *,
+    session_id: str,
+    question: str,
+    action_type: str,
+    resource_id: str,
+    params: Mapping[str, Any],
+) -> str:
+    params_digest = hashlib.sha256(
+        json.dumps(
+            params,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    turn_key = hashlib.sha256(question[:_MAX_QUESTION_CHARS].encode("utf-8")).hexdigest()
+    body = {
+        "session_id": session_id[:_MAX_SESSION_CHARS],
+        "turn": turn_key,
+        "action_type": action_type,
+        "resource_id": resource_id[:_MAX_RESOURCE_CHARS],
+        "params_digest": f"sha256:{params_digest}",
+    }
+    return stable_idempotency_key("conv", body).replace("conv:", "conv-", 1)
 
 
 __all__ = ["build_action_proposal"]

@@ -188,9 +188,16 @@ class ApprovalTicket(Protocol):
 class VarDecisionJournal:
     """Atomically combine immutable per-principal decisions across replicas."""
 
-    def __init__(self, store: StateStore, *, state_prefix: str) -> None:
+    def __init__(
+        self,
+        store: StateStore,
+        *,
+        state_prefix: str,
+        clock: Callable[[], datetime],
+    ) -> None:
         self._store = store
         self._state_prefix = state_prefix
+        self._clock = clock
 
     async def record(
         self,
@@ -252,6 +259,7 @@ class VarDecisionJournal:
                                 quorum_required,
                             )
                         ),
+                        recorded_at=self._recorded_at(),
                     ),
                 )
                 if created:
@@ -315,6 +323,7 @@ class VarDecisionJournal:
                             quorum_required,
                         )
                     ),
+                    recorded_at=self._recorded_at(),
                 ),
             )
             if advanced:
@@ -400,12 +409,18 @@ class VarDecisionJournal:
                         "effective_quorum_required",
                         ticket_identity["quorum_required"],
                     ),
-                    "recorded_at": datetime.now(tz=UTC).isoformat(),
+                    "recorded_at": self._recorded_at(),
                 },
             )
             if advanced:
                 return
         raise RuntimeError("approval finalization CAS retry limit exceeded")
+
+    def _recorded_at(self) -> str:
+        value = self._clock()
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise RuntimeError("Var clock MUST return a timezone-aware datetime")
+        return value.astimezone(UTC).isoformat()
 
 
 def _decision_state(
@@ -602,6 +617,7 @@ def _decision_audit_entry(
     revision: int,
     original_quorum_required: int,
     effective_quorum_required: int,
+    recorded_at: str,
 ) -> dict[str, Any]:
     return {
         "actor": "Var",
@@ -614,7 +630,7 @@ def _decision_audit_entry(
         "original_quorum_required": original_quorum_required,
         "effective_quorum_required": effective_quorum_required,
         "revision": revision,
-        "recorded_at": datetime.now(tz=UTC).isoformat(),
+        "recorded_at": recorded_at,
     }
 
 

@@ -121,6 +121,7 @@ class Vidar(Agent):
         development_profile: FullAuthorityDevelopmentProfile | None = None,
         development_executor_principal: str | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        allow_process_local_rollback: bool = False,
     ) -> None:
         if claim_lease <= timedelta(0) or claim_lease > _MAX_CLAIM_LEASE:
             raise ValueError("claim_lease MUST be greater than zero and at most one hour")
@@ -128,6 +129,7 @@ class Vidar(Agent):
         self.bus = bus
         self._executors = dict(executors or {})
         self._state_store = state_store
+        self._allow_process_local_rollback = allow_process_local_rollback
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._development_profile = development_profile
         self._development_executor_principal = development_executor_principal
@@ -153,8 +155,10 @@ class Vidar(Agent):
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         # Vidar only reacts on failed ActionRuns.
         if topic != "object.action-run":
+            self.record_behavior("typed_message:ignored")
             return
         if payload.get("state") != "failed":
+            self.record_behavior("action_run:ignored")
             return
         try:
             await self.rollback(payload)
@@ -201,6 +205,17 @@ class Vidar(Agent):
                     action_run_identity=action_run_identity,
                     request_digest=request_digest,
                 )
+            if not self._allow_process_local_rollback:
+                rec = self._process_local_refusal_record(
+                    action_run,
+                    correlation_id,
+                    contract=contract,
+                    action_run_identity=action_run_identity,
+                )
+                self.record_behavior("rollback:durability_unavailable")
+                self._remember_rollback(rec, request_digest=request_digest)
+                await self._publish_rollback_once(rec)
+                return rec
         rec = await self._execute_rollback(
             action_run,
             correlation_id,
@@ -209,6 +224,24 @@ class Vidar(Agent):
         self._remember_rollback(rec, request_digest=request_digest)
         await self._publish_rollback_once(rec)
         return rec
+
+    def _process_local_refusal_record(
+        self,
+        action_run: Mapping[str, Any],
+        correlation_id: str,
+        *,
+        contract: str,
+        action_run_identity: str,
+    ) -> RollbackRecord:
+        return RollbackRecord(
+            correlation_id=correlation_id,
+            action_run_identity=action_run_identity,
+            action_type=str(action_run.get("action_type", "")),
+            resource_id=_resource_id(action_run),
+            contract=contract,
+            state="failed",
+            notes="rollback refused because durable StateStore is unavailable",
+        )
 
     async def _rollback_durable(
         self,
@@ -412,6 +445,7 @@ class Vidar(Agent):
                 cache_key,
                 _CachedRollback(request_digest=request_digest, record=rec),
             )
+        self.record_behavior(f"rollback:{rec.state}")
         self.records.append(rec)
         # FIFO cap - drop the oldest 25% in one shot to amortise the cost.
         if len(self.records) > self._MAX_RECORDS:
@@ -493,6 +527,16 @@ class Vidar(Agent):
             },
         )
         return True
+
+    def health(self) -> dict[str, Any]:
+        durability = "durable" if self._state_store is not None else "process_local"
+        return {
+            "agent": self.spec.name,
+            "status": "stub",
+            "rollback_durability": durability,
+            "process_local_rollback_allowed": self._allow_process_local_rollback,
+            "behavior": self.behavior_snapshot(),
+        }
 
     # ---- conversational port -------------------------------------------
 

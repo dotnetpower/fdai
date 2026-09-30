@@ -120,6 +120,7 @@ class Bragi(BragiPublicationMixin, Agent):
             raise ValueError("proposal timeout MUST be positive")
         super().__init__(spec=_BRAGI)
         self._sessions: dict[str, ConversationSession] = {}
+        self._session_locks: dict[str, asyncio.Lock] = {}
         self._agent_responders: dict[str, AnswerFn] = {}
         self._proposal_sink: ProposalSink | None = None
         self._tool_answer: ToolAnswerFn | None = None
@@ -188,12 +189,14 @@ class Bragi(BragiPublicationMixin, Agent):
             )
         except TimeoutError:
             _LOG.warning("bragi_responder_timeout", extra={"agent": agent_name})
+            self.record_behavior("responder:timeout")
             return None, "timeout"
         except Exception as exc:  # noqa: BLE001 - isolate one primary responder
             _LOG.warning(
                 "bragi_responder_failed",
                 extra={"agent": agent_name, "error_type": type(exc).__name__},
             )
+            self.record_behavior("responder:error")
             return None, "responder_error"
         return normalize_responder_answer(agent_name, raw_response)
 
@@ -233,6 +236,7 @@ class Bragi(BragiPublicationMixin, Agent):
             pipeline_available=self._proposal_sink is not None,
         )
         if proposal is None or self._proposal_sink is None:
+            self.record_behavior(f"proposal:{status.get('abstain_reason', 'not_submitted')}")
             return status
         try:
             await asyncio.wait_for(
@@ -241,6 +245,7 @@ class Bragi(BragiPublicationMixin, Agent):
             )
         except TimeoutError:
             _LOG.warning("bragi_proposal_timeout", extra={"action_type": status["action_type"]})
+            self.record_behavior("proposal:timeout")
             return {**status, "submitted": False, "abstain_reason": "proposal_timeout"}
         except Exception as exc:  # noqa: BLE001 - isolate typed-pipeline handoff
             _LOG.warning(
@@ -250,6 +255,7 @@ class Bragi(BragiPublicationMixin, Agent):
                     "error_type": type(exc).__name__,
                 },
             )
+            self.record_behavior("proposal:sink_error")
             return {**status, "submitted": False, "abstain_reason": "proposal_sink_error"}
         correlation_id = str(status["correlation_id"])
         action_type = str(status["action_type"])
@@ -259,6 +265,7 @@ class Bragi(BragiPublicationMixin, Agent):
             action_type,
             max_keys=_MAX_PROGRESS_KEYS,
         )
+        self.record_behavior("proposal:submitted")
         return status
 
     # ---- typed port (progress rendering) -------------------------------
@@ -270,13 +277,17 @@ class Bragi(BragiPublicationMixin, Agent):
         to render progress back to the operator (agent-pantheon.md 7.7 - Bragi
         renders, never executes). It appends the state; it publishes nothing.
         """
-        record_progress(
+        outcome = record_progress(
             self._progress,
             topic,
             payload,
             max_keys=_MAX_PROGRESS_KEYS,
             max_steps=_MAX_PROGRESS_STEPS,
         )
+        if outcome == "missing_correlation":
+            self.record_behavior("progress:missing_correlation")
+        elif outcome == "recorded":
+            self.record_behavior("progress:recorded")
         return None
 
     def progress_for(self, correlation_id: str) -> list[dict[str, Any]]:
@@ -460,17 +471,20 @@ class Bragi(BragiPublicationMixin, Agent):
         publishing anything from the conversational port.
         """
         _validate_question(question)
-        session = self._sessions.setdefault(
-            session_id,
-            ConversationSession(session_id=session_id, user_id=user_id),
-        )
-        if session.user_id != user_id:
-            raise PermissionError(f"session {session_id!r} belongs to a different user")
-        if not session.conversation_published:
-            session.conversation_published = await self._publish_conversation(session)
-        # Bound the session map so a long-lived narrator cannot leak one entry
-        # per session id forever (evicts oldest, never the active session).
-        evict_oldest(self._sessions, _MAX_SESSIONS, keep=session_id)
+        session_lock = self._session_locks.setdefault(session_id, asyncio.Lock())
+        async with session_lock:
+            session = self._sessions.setdefault(
+                session_id,
+                ConversationSession(session_id=session_id, user_id=user_id),
+            )
+            if session.user_id != user_id:
+                raise PermissionError(f"session {session_id!r} belongs to a different user")
+            if not session.conversation_published:
+                session.conversation_published = await self._publish_conversation(session)
+            # Bound the session map so a long-lived narrator cannot leak one entry
+            # per session id forever (evicts oldest, never the active session).
+            evict_oldest(self._sessions, _MAX_SESSIONS, keep=session_id)
+            evict_oldest(self._session_locks, _MAX_SESSIONS, keep=session_id)
         judgment_result = (
             await asyncio.to_thread(
                 self._semantic_judgment.judge,
@@ -522,16 +536,17 @@ class Bragi(BragiPublicationMixin, Agent):
                 question=question,
                 session_id=session_id,
             )
-            turn = Turn(
-                turn_index=_next_turn_index(session),
-                question=question,
-                primary_agent=None,
-                answer=answer,
-                decision=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
-            )
-            _append_turn(session, turn)
-            await self._publish_turn(session_id=session_id, turn=turn)
-            return turn
+            async with session_lock:
+                turn = Turn(
+                    turn_index=_next_turn_index(session),
+                    question=question,
+                    primary_agent=None,
+                    answer=answer,
+                    decision=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
+                )
+                _append_turn(session, turn)
+                await self._publish_turn(session_id=session_id, turn=turn)
+                return turn
         decision = (
             self.route(judgment, question=question)
             if judgment is not None
@@ -689,24 +704,25 @@ class Bragi(BragiPublicationMixin, Agent):
             question=question,
             session_id=session_id,
         )
-        turn_index = _next_turn_index(session)
-        if answer.get("handoff_needed") and materialize_handoff:
-            answer["handoff_status"] = await self._publish_handoff(
-                session_id=session_id,
-                question=question,
+        async with session_lock:
+            turn_index = _next_turn_index(session)
+            if answer.get("handoff_needed") and materialize_handoff:
+                answer["handoff_status"] = await self._publish_handoff(
+                    session_id=session_id,
+                    question=question,
+                    turn_index=turn_index,
+                    reason=str(answer.get("abstain_reason") or "no_route"),
+                )
+            turn = Turn(
                 turn_index=turn_index,
-                reason=str(answer.get("abstain_reason") or "no_route"),
+                question=question,
+                primary_agent=decision.primary_agent,
+                answer=answer,
+                decision=decision,
             )
-        turn = Turn(
-            turn_index=turn_index,
-            question=question,
-            primary_agent=decision.primary_agent,
-            answer=answer,
-            decision=decision,
-        )
-        _append_turn(session, turn)
-        await self._publish_turn(session_id=session_id, turn=turn)
-        return turn
+            _append_turn(session, turn)
+            await self._publish_turn(session_id=session_id, turn=turn)
+            return turn
 
     async def _publish_turn(self, *, session_id: str, turn: Turn) -> None:
         if self.bus is None:

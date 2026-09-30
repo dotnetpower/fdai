@@ -1608,7 +1608,11 @@ def test_thor_triggers_vidar_rollback_on_failure() -> None:
         return f"rollback:{action_run['correlation_id']}"
 
     thor = Thor(bus=bus, executor=failing)
-    vidar = Vidar(bus=bus, executors={"state_forward_only": rollback_executor})
+    vidar = Vidar(
+        bus=bus,
+        executors={"state_forward_only": rollback_executor},
+        allow_process_local_rollback=True,
+    )
     bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)
     bus.subscribe("object.rollback", "Thor", thor.on_typed_message)
 
@@ -1677,6 +1681,7 @@ def test_vidar_blank_receipt_fails_closed_and_retains_thor_lock() -> None:
     vidar = Vidar(
         bus=bus,
         executors={"state_forward_only": blank_rollback_receipt},
+        allow_process_local_rollback=True,
     )
     bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)
     bus.subscribe("object.rollback", "Thor", thor.on_typed_message)
@@ -1778,7 +1783,11 @@ def test_vidar_retries_publication_without_repeating_rollback() -> None:
         return "rollback:c-publish-retry"
 
     bus = _FlakyRollbackBus()
-    vidar = Vidar(bus=bus, executors={"state_forward_only": rollback_executor})
+    vidar = Vidar(
+        bus=bus,
+        executors={"state_forward_only": rollback_executor},
+        allow_process_local_rollback=True,
+    )
     failed = {
         "correlation_id": "c-publish-retry",
         "action_type": "ops.restart-service",
@@ -2738,15 +2747,17 @@ def test_var_ingest_rejects_a_reused_correlation_with_new_identity() -> None:
     assert var.behavior_snapshot()["ticket_identity_conflict"] == 1
 
 
-def test_var_quorum_met_without_bus_still_consumes_ticket() -> None:
-    # bus=None: the approval is not published but the ticket still
-    # resolves and is removed from the pending queue.
+def test_var_quorum_met_without_bus_keeps_ticket_pending_for_publication() -> None:
+    # bus=None: the final approval is durable/in-memory, but the ticket stays
+    # pending until transport is bound so a success-shaped unpublished approval
+    # cannot vanish.
     var = _var_with_pending("c-nobus", quorum=1)
     var.bus = None
     result = asyncio.run(var.decide("c-nobus", approver="a@example.com", decision="approve"))
     assert result is not None
     assert result["state"] == "approved"
-    assert var.pending_tickets() == ()
+    assert var.pending_tickets()[0].correlation_id == "c-nobus"
+    assert var.behavior_snapshot()["approval:transport_unavailable"] == 1
 
 
 def test_var_bind_bus_late_binds_the_publisher() -> None:

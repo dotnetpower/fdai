@@ -314,7 +314,11 @@ async def test_failed_thor_execution_rolls_back_once_through_vidar() -> None:
 
     bus = InMemoryBus(load_pantheon())
     thor = Thor(bus=bus, executor=_executor)
-    vidar = Vidar(bus=bus, executors={"state_forward_only": _rollback})
+    vidar = Vidar(
+        bus=bus,
+        executors={"state_forward_only": _rollback},
+        allow_process_local_rollback=True,
+    )
     saga = Saga(audit_chain=InMemoryAuditChain())
     bus.subscribe("object.verdict", "Thor", thor.on_typed_message)
     bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)

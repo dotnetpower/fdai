@@ -224,6 +224,9 @@ class Odin(Agent, HandoverKnowledgeMixin):
                 else {domain: "win" if domain == outcome.winner else "defer" for domain in domains}
             ),
         )
+        if not decision.correlation_id:
+            self.record_behavior("arbitration:invalid_correlation")
+            return decision
         self._last_decision = decision
         self._last_history_considered = len(history)
         if self.bus is not None:

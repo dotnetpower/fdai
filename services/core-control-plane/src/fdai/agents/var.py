@@ -12,7 +12,7 @@ import asyncio
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.action_run_identity import validate_action_run_identity
@@ -110,6 +110,7 @@ class Var(
     ) -> None:
         super().__init__(spec=_VAR)
         self.bus = bus
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
         self.admin_channel = admin_channel or InMemoryAdminChannel()
         self._approver_authorizer = approver_authorizer
         self._initialize_development_authority(
@@ -121,7 +122,11 @@ class Var(
         )
         self._state_store = state_store
         self._decision_journal = (
-            VarDecisionJournal(state_store, state_prefix=APPROVAL_STATE_PREFIX)
+            VarDecisionJournal(
+                state_store,
+                state_prefix=APPROVAL_STATE_PREFIX,
+                clock=self._clock,
+            )
             if state_store is not None
             else None
         )
@@ -546,11 +551,7 @@ class Var(
             )
             return None
         if self.bus is None:
-            _remove_pending_ticket(
-                self._pending,
-                correlation_id,
-                action_run_identity,
-            )
+            self.record_behavior("approval:transport_unavailable")
             return deepcopy(approval)
         await self.bus.publish("Var", "object.approval", deepcopy(approval))
         await self._mark_approval_published(approval)

@@ -12,12 +12,12 @@ def record_progress(
     *,
     max_keys: int,
     max_steps: int,
-) -> None:
+) -> str:
     if topic not in ("object.verdict", "object.action-run"):
-        return
+        return "ignored_topic"
     correlation_id = str(payload.get("correlation_id", ""))
     if not correlation_id:
-        return
+        return "missing_correlation"
     entry = {
         "topic": topic,
         "state": payload.get("state") or payload.get("risk_verdict"),
@@ -26,11 +26,12 @@ def record_progress(
     }
     steps = progress.setdefault(correlation_id, [])
     if steps and steps[-1] == entry:
-        return
+        return "duplicate"
     steps.append(entry)
     if len(steps) > max_steps:
         del steps[:-max_steps]
     evict_oldest(progress, max_keys, keep=correlation_id)
+    return "recorded"
 
 
 def append_submitted(
