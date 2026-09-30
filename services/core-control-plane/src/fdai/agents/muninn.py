@@ -82,6 +82,9 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
 
 _MAX_OPERATING_PATTERN_CASES = 100
 _MAX_CONVERSATION_PROJECTIONS = 50_000
+_CONVERSATION_PROJECTION_RECOVERY_PAGE = 128
+_PUBLICATION_OUTBOX_RETAIN = 5_000
+_PUBLICATION_CAS_ATTEMPTS = 8
 _PROJECTION_PREFIX = "pantheon/muninn/conversation-projections"
 _OPERATIONAL_OUTBOX_PREFIX = "pantheon/muninn/operational-outbox"
 _DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
@@ -319,18 +322,29 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             ("conversations", self._conversation_sessions),
             ("user_preferences", self._user_preferences),
         ):
-            rows = await store.read_states(
-                f"{_PROJECTION_PREFIX}/{bucket}/",
-                limit=_MAX_CONVERSATION_PROJECTIONS,
-            )
-            for row in rows:
-                key = row.get("projection_key")
-                record = row.get("record")
-                if not isinstance(key, str) or not isinstance(record, dict):
-                    raise ValueError("Muninn durable conversation projection is invalid")
-                projection.set(key, dict(record))
-                restored += 1
-            self.state_store.data[bucket] = dict(projection.items())
+            offset = 0
+            bucket_restored = 0
+            while bucket_restored < _MAX_CONVERSATION_PROJECTIONS:
+                rows, _total = await store.read_state_page(
+                    f"{_PROJECTION_PREFIX}/{bucket}/",
+                    limit=min(
+                        _CONVERSATION_PROJECTION_RECOVERY_PAGE,
+                        _MAX_CONVERSATION_PROJECTIONS - bucket_restored,
+                    ),
+                    offset=offset,
+                )
+                if not rows:
+                    break
+                for row in rows:
+                    key = row.get("projection_key")
+                    record = row.get("record")
+                    if not isinstance(key, str) or not isinstance(record, dict):
+                        raise ValueError("Muninn durable conversation projection is invalid")
+                    projection.set(key, dict(record))
+                    self.state_store.put(bucket, key, dict(record))
+                    restored += 1
+                    bucket_restored += 1
+                offset += len(rows)
         return restored
 
     async def _materialize_turn_projection(self, payload: dict[str, Any]) -> None:
@@ -421,7 +435,8 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         bucket: str,
         projection: BoundedLruDict[str, dict[str, Any]],
     ) -> None:
-        self.state_store.data[bucket] = dict(projection.items())
+        for key, record in projection.items():
+            self.state_store.put(bucket, key, record)
 
     async def _sync_projection_record(
         self,
@@ -429,12 +444,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         key: str,
         record: dict[str, Any],
     ) -> None:
-        projection = {
-            "conversation_turns": self._conversation_turns,
-            "conversations": self._conversation_sessions,
-            "user_preferences": self._user_preferences,
-        }[bucket]
-        self._sync_projection_bucket(bucket, projection)
+        self.state_store.put(bucket, key, record)
         store = self._durable_state_store
         if store is None:
             return
@@ -827,7 +837,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         store = self._durable_state_store
         if store is None:
             return
-        while True:
+        for attempt in range(_PUBLICATION_CAS_ATTEMPTS):
             current = await store.read_state(key)
             if current is None or current.get("payload_digest") != _payload_digest(payload):
                 raise ValueError("Muninn publication outbox identity conflict")
@@ -849,8 +859,15 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
                     "grants_authority": False,
                 },
             ):
+                await store.delete_states_beyond(
+                    _OPERATIONAL_OUTBOX_PREFIX + "/",
+                    retain_newest=_PUBLICATION_OUTBOX_RETAIN,
+                )
                 return
             self.record_behavior("publication_outbox:cas_retry")
+            await asyncio.sleep(0 if attempt == 0 else min(0.001 * attempt, 0.01))
+        self.record_behavior("publication_outbox:cas_exhausted")
+        raise RuntimeError("Muninn publication outbox CAS did not converge")
 
     async def _publish_with_outbox(
         self,

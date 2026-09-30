@@ -104,8 +104,22 @@ from fdai.shared.providers.state_store import StateStore
 _MAX_TRACKED = 50_000
 _MAX_PENDING_CANDIDATES = 5_000
 _LEARNING_STATE_KEY = "pantheon/norns/learning-state"
+_LEARNING_STATE_PREFIX = "pantheon/norns/learning-state-deltas"
+_LEARNING_STATE_PAGE = 128
 _DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 _MAX_POST_TURN_BODY_BYTES = 64 * 1024
+_LEARNING_BUCKETS = (
+    "outcomes",
+    "outcome_proposed",
+    "counted_correlations",
+    "approval_counts",
+    "approval_proposed",
+    "counted_approvals",
+    "forecast_error_counts",
+    "forecast_error_proposed",
+    "counted_case_revisions",
+    "post_turn_hint_proposed",
+)
 
 
 class NornsCapacityError(RuntimeError):
@@ -177,6 +191,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         )
         self._learning_state_store = operational_state_store
         self._learning_state_recovered = operational_state_store is None
+        self._learning_dirty: dict[str, set[str]] = {}
         self._investigation_strategy_compiler = (
             investigation_strategy_compiler or InvestigationStrategyCandidateCompiler()
         )
@@ -460,7 +475,9 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                     self.record_behavior("forecast_case:duplicate")
                     return
                 self._counted_case_revisions.add(dedup_key)
+                self._mark_learning_dirty("counted_case_revisions", dedup_key)
                 self._forecast_error_counts.set(fingerprint, count)
+                self._mark_learning_dirty("forecast_error_counts", fingerprint)
                 self.record_behavior(f"forecast_case:{label}")
             self.record_behavior("forecast_case:collecting")
             return
@@ -487,8 +504,11 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                         self.record_behavior("forecast_case:duplicate")
                         return
                     self._counted_case_revisions.add(dedup_key)
+                    self._mark_learning_dirty("counted_case_revisions", dedup_key)
                     self._forecast_error_counts.set(fingerprint, count)
+                    self._mark_learning_dirty("forecast_error_counts", fingerprint)
                     self._forecast_error_proposed.add(fingerprint)
+                    self._mark_learning_dirty("forecast_error_proposed", fingerprint)
                     self.record_behavior(f"forecast_case:{label}")
                     self._append_candidate(
                         {
@@ -517,8 +537,11 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                 self.record_behavior("forecast_case:duplicate")
                 return
             self._counted_case_revisions.add(dedup_key)
+            self._mark_learning_dirty("counted_case_revisions", dedup_key)
             self._forecast_error_counts.set(fingerprint, count)
+            self._mark_learning_dirty("forecast_error_counts", fingerprint)
             self._forecast_error_proposed.add(fingerprint)
+            self._mark_learning_dirty("forecast_error_proposed", fingerprint)
             self.record_behavior(f"forecast_case:{label}")
             self._append_candidate(
                 {
@@ -755,6 +778,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         if digest in self._post_turn_hint_proposed:
             return proposal_ref
         self._post_turn_hint_proposed.add(digest)
+        self._mark_learning_dirty("post_turn_hint_proposed", digest)
         self._append_candidate(
             {
                 "source_signal": "post_turn_review",
@@ -786,10 +810,25 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         if store is None:
             return 0
         row = await store.read_state(_LEARNING_STATE_KEY)
-        if row is None:
-            return 0
-        self._load_learning_state(row)
-        return 1
+        restored = 0
+        if row is not None:
+            self._load_learning_state(row)
+            restored += 1
+        for bucket in _LEARNING_BUCKETS:
+            offset = 0
+            while True:
+                rows, _total = await store.read_state_page(
+                    f"{_LEARNING_STATE_PREFIX}/{bucket}/",
+                    limit=_LEARNING_STATE_PAGE,
+                    offset=offset,
+                )
+                if not rows:
+                    break
+                for delta in rows:
+                    self._load_learning_delta(delta)
+                    restored += 1
+                offset += len(rows)
+        return 1 if restored else 0
 
     async def _ensure_learning_state(self) -> None:
         await self.recover_learning_state()
@@ -798,37 +837,62 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         store = self._learning_state_store
         if store is None:
             return
-        current = await store.read_state(_LEARNING_STATE_KEY)
+        dirty = self._learning_dirty
+        if not dirty:
+            return
+        self._learning_dirty = {}
+        for bucket, keys in dirty.items():
+            for item_key in keys:
+                await self._persist_learning_delta(store, bucket, item_key)
+            await store.delete_states_beyond(
+                f"{_LEARNING_STATE_PREFIX}/{bucket}/",
+                retain_newest=_MAX_TRACKED,
+            )
+
+    async def _persist_learning_delta(
+        self,
+        store: StateStore,
+        bucket: str,
+        item_key: str,
+    ) -> None:
+        value = self._learning_value(bucket, item_key)
+        if value is None:
+            return
+        state_key = (
+            f"{_LEARNING_STATE_PREFIX}/{bucket}/{hashlib.sha256(item_key.encode()).hexdigest()}"
+        )
+        current = await store.read_state(state_key)
         revision = int(current.get("revision", 0)) if current is not None else 0
-        value = {
-            "kind": "norns_learning_state",
+        record = {
+            "kind": "norns_learning_state_delta",
             "revision": revision + 1,
-            "outcomes": dict(self._outcomes.items()),
-            "outcome_proposed": list(self._outcome_proposed),
-            "counted_correlations": list(self._counted_correlations),
-            "approval_counts": dict(self._approval_counts.items()),
-            "approval_proposed": list(self._approval_proposed),
-            "counted_approvals": list(self._counted_approvals),
-            "forecast_error_counts": dict(self._forecast_error_counts.items()),
-            "forecast_error_proposed": list(self._forecast_error_proposed),
-            "counted_case_revisions": list(self._counted_case_revisions),
-            "post_turn_hint_proposed": list(self._post_turn_hint_proposed),
+            "bucket": bucket,
+            "item_key": item_key,
+            "value": value,
         }
         audit = {
-            "kind": "norns_learning_state_checkpoint",
+            "kind": "norns_learning_state_delta",
             "principal": "Norns",
+            "bucket": bucket,
+            "item_key_digest": hashlib.sha256(item_key.encode()).hexdigest(),
             "revision": revision + 1,
             "grants_authority": False,
         }
         if current is None:
-            await store.write_state_with_audit_if_absent(_LEARNING_STATE_KEY, value, audit)
-            return
-        await store.compare_and_set_state_with_audit(
-            _LEARNING_STATE_KEY,
-            value,
+            if await store.write_state_with_audit_if_absent(state_key, record, audit):
+                return
+            current = await store.read_state(state_key)
+            revision = int(current.get("revision", 0)) if current is not None else 0
+            record["revision"] = revision + 1
+            audit["revision"] = revision + 1
+        if not await store.compare_and_set_state_with_audit(
+            state_key,
+            record,
             expected_revision=revision,
             audit_entry=audit,
-        )
+        ):
+            self.record_behavior("learning_state:cas_conflict")
+            raise RuntimeError("Norns learning state delta CAS did not converge")
 
     def _load_learning_state(self, row: Mapping[str, Any]) -> None:
         self._restore_counter_dict(self._outcomes, row.get("outcomes"), nested=True)
@@ -845,6 +909,58 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         self._restore_set(self._forecast_error_proposed, row.get("forecast_error_proposed"))
         self._restore_set(self._counted_case_revisions, row.get("counted_case_revisions"))
         self._restore_set(self._post_turn_hint_proposed, row.get("post_turn_hint_proposed"))
+
+    def _load_learning_delta(self, row: Mapping[str, Any]) -> None:
+        if row.get("kind") != "norns_learning_state_delta":
+            raise ValueError("Norns durable learner delta kind is invalid")
+        bucket = str(row.get("bucket") or "")
+        item_key = str(row.get("item_key") or "")
+        if bucket not in _LEARNING_BUCKETS or not item_key:
+            raise ValueError("Norns durable learner delta identity is invalid")
+        value = row.get("value")
+        if bucket == "outcomes":
+            if not isinstance(value, Mapping):
+                raise ValueError("Norns durable outcome delta is invalid")
+            self._outcomes.set(item_key, {str(name): int(count) for name, count in value.items()})
+        elif bucket == "approval_counts":
+            if not isinstance(value, Mapping):
+                raise ValueError("Norns durable approval delta is invalid")
+            self._approval_counts.set(
+                item_key, {str(name): int(count) for name, count in value.items()}
+            )
+        elif bucket == "forecast_error_counts":
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError("Norns durable forecast delta is invalid")
+            self._forecast_error_counts.set(item_key, int(value))
+        elif isinstance(value, bool) and value:
+            self._learning_set(bucket).add(item_key)
+        else:
+            raise ValueError("Norns durable learner set delta is invalid")
+
+    def _learning_value(self, bucket: str, item_key: str) -> object | None:
+        if bucket == "outcomes":
+            return self._outcomes.get(item_key)
+        if bucket == "approval_counts":
+            return self._approval_counts.get(item_key)
+        if bucket == "forecast_error_counts":
+            return self._forecast_error_counts.get(item_key)
+        return True if item_key in self._learning_set(bucket) else None
+
+    def _learning_set(self, bucket: str) -> BoundedLruSet[str]:
+        return {
+            "outcome_proposed": self._outcome_proposed,
+            "counted_correlations": self._counted_correlations,
+            "approval_proposed": self._approval_proposed,
+            "counted_approvals": self._counted_approvals,
+            "forecast_error_proposed": self._forecast_error_proposed,
+            "counted_case_revisions": self._counted_case_revisions,
+            "post_turn_hint_proposed": self._post_turn_hint_proposed,
+        }[bucket]
+
+    def _mark_learning_dirty(self, bucket: str, item_key: str) -> None:
+        if bucket not in _LEARNING_BUCKETS or not item_key:
+            return
+        self._learning_dirty.setdefault(bucket, set()).add(item_key)
 
     @staticmethod
     def _restore_set(target: BoundedLruSet[str], values: object) -> None:
@@ -879,6 +995,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
     def _append_candidate(self, candidate: dict[str, Any]) -> None:
         self._ensure_pending_capacity()
         self.pending_candidates.append(candidate)
+        self._index_pending_candidate(candidate)
 
     def _ensure_pending_capacity(self) -> None:
         if len(self.pending_candidates) >= self._max_pending_candidates:

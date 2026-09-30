@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.bounded import BoundedLruDict
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -66,6 +66,10 @@ _MAX_QUARANTINE = 5_000
 _MAX_PENDING_CANDIDATES = 5_000
 _MAX_CATALOG_REVIEW_PACKAGES = 5_000
 _MAX_ISSUE_FINGERPRINTS = 50_000
+_GOVERNANCE_RECOVERY_PAGE = 128
+_RULE_GENERATION_RECEIPT_RETAIN = 5_000
+_MAX_PROMOTION_PERSIST_QUEUE = 1_024
+_MAX_PROMOTION_PERSIST_ATTEMPTS = 8
 _OPERATIONAL_RULE_PREFIX = "learned.operational."
 _RULE_GENERATION_RECEIPT_PREFIX = "mimir:rule-generation-activation-result:"
 _RULE_GENERATION_VALIDATION_PREFIX = "mimir:rule-generation-validation-result:"
@@ -116,6 +120,8 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         self._promotions: dict[str, RulePromotion] = {}
         self._governance_state_store = governance_state_store
         self._promotion_persist_tasks: set[asyncio.Task[None]] = set()
+        self._promotion_persist_pending: dict[str, RulePromotion] = {}
+        self._promotion_persist_worker: asyncio.Task[None] | None = None
         self._shadow_dwell_thresholds = shadow_dwell_thresholds or ShadowDwellThresholds()
         self._init_catalog_review(
             compiler=catalog_candidate_compiler,
@@ -135,6 +141,10 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         self._issue_fingerprints: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
             _MAX_ISSUE_FINGERPRINTS
         )
+        self._operational_pending_targets: BoundedLruSet[str] = BoundedLruSet(
+            max_pending_candidates
+        )
+        self._catalog_draft_rule_ids: BoundedLruSet[str] = BoundedLruSet(max_review_packages)
 
     def bind_rule_generation_build_handler(
         self,
@@ -176,40 +186,8 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         if store is None:
             return 0
         restored = 0
-        rule_rows = await store.read_states(f"{_RULE_STATE_PREFIX}/", limit=_MAX_ISSUE_FINGERPRINTS)
-        for row in rule_rows:
-            rule_id = str(row.get("rule_id") or "")
-            state = str(row.get("state") or "")
-            source = str(row.get("source") or "")
-            if not rule_id or state not in {"shadow", "enforce", "retired"} or not source:
-                raise ValueError("Mimir durable rule state is invalid")
-            self._promotions[rule_id] = RulePromotion(
-                rule_id=rule_id,
-                state=state,
-                source=source,
-                updated_at=(
-                    row.get("updated_at") if isinstance(row.get("updated_at"), str) else None
-                ),
-            )
-            restored += 1
-        issue_rows = await store.read_states(
-            f"{_ISSUE_FINGERPRINT_PREFIX}/",
-            limit=_MAX_ISSUE_FINGERPRINTS,
-        )
-        for row in issue_rows:
-            fingerprint = str(row.get("fingerprint") or "")
-            if not fingerprint:
-                raise ValueError("Mimir durable issue fingerprint is invalid")
-            record = {
-                "fingerprint": fingerprint,
-                "issue_number": row.get("issue_number"),
-                "created": row.get("created") is True,
-                "correlation_id": str(row.get("correlation_id") or ""),
-                "open": row.get("open") is not False,
-                "candidate_count": row.get("candidate_count"),
-            }
-            self._issue_fingerprints.set(fingerprint, record)
-            restored += 1
+        restored += await self._recover_rule_rows(store)
+        restored += await self._recover_issue_rows(store)
         restored += await self._catalog_governance_store.recover(
             investigation_candidates=self._investigation_candidates,
             quarantined_candidates=self._quarantined_candidates,
@@ -230,8 +208,12 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             if not lock_key:
                 lock_key = repr(sorted(payload))
             lock = self._review_locks.setdefault(lock_key, asyncio.Lock())
-            async with lock:
-                await self._handle_rule_candidate(payload)
+            try:
+                async with lock:
+                    await self._handle_rule_candidate(payload)
+            finally:
+                if not lock.locked() and self._review_locks.get(lock_key) is lock:
+                    self._review_locks.pop(lock_key, None)
         elif topic == RULE_GENERATION_BUILD_REQUEST_TOPIC:
             await self._handle_rule_generation_build_request(payload)
         elif (
@@ -250,6 +232,67 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             await self._record_rule_generation_activation_result(payload)
         else:
             self.record_behavior("typed_message:ignored")
+
+    async def _recover_rule_rows(self, store: StateStore) -> int:
+        restored = 0
+        offset = 0
+        while restored < _MAX_ISSUE_FINGERPRINTS:
+            rows, _total = await store.read_state_page(
+                f"{_RULE_STATE_PREFIX}/",
+                limit=min(_GOVERNANCE_RECOVERY_PAGE, _MAX_ISSUE_FINGERPRINTS - restored),
+                offset=offset,
+            )
+            if not rows:
+                return restored
+            for row in rows:
+                rule_id = str(row.get("rule_id") or "")
+                state = str(row.get("state") or "")
+                source = str(row.get("source") or "")
+                if not rule_id or state not in {"shadow", "enforce", "retired"} or not source:
+                    raise ValueError("Mimir durable rule state is invalid")
+                self._promotions[rule_id] = RulePromotion(
+                    rule_id=rule_id,
+                    state=state,
+                    source=source,
+                    updated_at=(
+                        row.get("updated_at") if isinstance(row.get("updated_at"), str) else None
+                    ),
+                )
+                restored += 1
+            offset += len(rows)
+        self.record_behavior("governance_recovery:rules_deferred")
+        return restored
+
+    async def _recover_issue_rows(self, store: StateStore) -> int:
+        restored = 0
+        offset = 0
+        while restored < _MAX_ISSUE_FINGERPRINTS:
+            rows, _total = await store.read_state_page(
+                f"{_ISSUE_FINGERPRINT_PREFIX}/",
+                limit=min(_GOVERNANCE_RECOVERY_PAGE, _MAX_ISSUE_FINGERPRINTS - restored),
+                offset=offset,
+            )
+            if not rows:
+                return restored
+            for row in rows:
+                fingerprint = str(row.get("fingerprint") or "")
+                if not fingerprint:
+                    raise ValueError("Mimir durable issue fingerprint is invalid")
+                self._issue_fingerprints.set(
+                    fingerprint,
+                    {
+                        "fingerprint": fingerprint,
+                        "issue_number": row.get("issue_number"),
+                        "created": row.get("created") is True,
+                        "correlation_id": str(row.get("correlation_id") or ""),
+                        "open": row.get("open") is not False,
+                        "candidate_count": row.get("candidate_count"),
+                    },
+                )
+                restored += 1
+            offset += len(rows)
+        self.record_behavior("governance_recovery:issues_deferred")
+        return restored
 
     async def _handle_issue(self, payload: dict[str, Any]) -> None:
         """Retain Saga-owned issue fingerprints for candidate closure linkage."""
@@ -373,6 +416,10 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             self.record_behavior("rule_generation_validation_result_duplicate")
         if result.valid:
             await self._publish_rule_generation_activation_command(result)
+        await store.delete_states_beyond(
+            _RULE_GENERATION_VALIDATION_PREFIX,
+            retain_newest=_RULE_GENERATION_RECEIPT_RETAIN,
+        )
 
     async def _publish_rule_generation_activation_command(
         self,
@@ -428,6 +475,10 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             self.record_behavior("rule_generation_activation_command_timeout")
             raise
         self.record_behavior("rule_generation_activation_command_published")
+        await store.delete_states_beyond(
+            _RULE_GENERATION_COMMAND_PREFIX,
+            retain_newest=_RULE_GENERATION_RECEIPT_RETAIN,
+        )
 
     async def _retain_rule_generation_activation_command(
         self,
@@ -456,6 +507,10 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
                 "generation_id": (command.validation_result.build_result.generation.generation_id),
                 "grants_execution_authority": False,
             },
+        )
+        await store.delete_states_beyond(
+            _RULE_GENERATION_COMMAND_PREFIX,
+            retain_newest=_RULE_GENERATION_RECEIPT_RETAIN,
         )
 
     async def _record_rule_generation_activation_result(self, payload: dict[str, Any]) -> None:
@@ -504,11 +559,28 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         )
         if created:
             self.record_behavior("rule_generation_activation_result_recorded")
+            await store.delete_states_beyond(
+                _RULE_GENERATION_RECEIPT_PREFIX,
+                retain_newest=_RULE_GENERATION_RECEIPT_RETAIN,
+            )
             return
         existing = await store.read_state(receipt_key)
         if existing is None or existing.get("result_digest") != result.result_digest:
             raise ValueError("Rule generation activation result idempotency conflict")
         self.record_behavior("rule_generation_activation_result_duplicate")
+
+    def _rebuild_candidate_indexes(self) -> None:
+        self._operational_pending_targets = BoundedLruSet(self._max_pending_candidates)
+        self._catalog_draft_rule_ids = BoundedLruSet(self._max_review_packages)
+        for candidate in self._pending_candidates:
+            if candidate.get("source_signal") == "operational_case_fingerprint_cohort":
+                target = str(candidate.get("target_rule_id") or "")
+                if target:
+                    self._operational_pending_targets.add(target)
+        for package in self._catalog_review_packages.values():
+            rule_id = str(package.draft_rule.mapping["id"])
+            if rule_id:
+                self._catalog_draft_rule_ids.add(rule_id)
 
     def shadow_dwell_decision(self, candidate: dict[str, Any]) -> ShadowDwellDecision:
         """Re-derive the dwell verdict for one candidate from its own wire evidence.
@@ -558,20 +630,11 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         reviewed_change_ref: str | None = None,
         updated_at: str | None = None,
     ) -> RulePromotion:
-        operational_targets = {
-            str(candidate.get("target_rule_id"))
-            for candidate in self._pending_candidates
-            if candidate.get("source_signal") == "operational_case_fingerprint_cohort"
-        }
-        draft_rule_ids = {
-            str(package.draft_rule.mapping["id"])
-            for package in self._catalog_review_packages.values()
-        }
         if (
             rule_id.startswith(_OPERATIONAL_RULE_PREFIX)
-            or rule_id in operational_targets
+            or rule_id in self._operational_pending_targets
             or rule_id in self._published_operational_targets
-            or rule_id in draft_rule_ids
+            or rule_id in self._catalog_draft_rule_ids
         ):
             raise ValueError(
                 "operational candidates require a reviewed catalog PR; "
@@ -598,6 +661,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
                 if candidate.get("target_rule_id") != rule_id
             ),
         )
+        self._rebuild_candidate_indexes()
         return promo
 
     def _dwell_gaps_for(self, rule_id: str) -> tuple[str, ...]:
@@ -626,6 +690,9 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         """Wait for sync promotion/revocation persistence tasks before restart tests."""
         while self._promotion_persist_tasks:
             await asyncio.gather(*tuple(self._promotion_persist_tasks))
+        worker = self._promotion_persist_worker
+        if worker is not None:
+            await worker
 
     def _persist_promotion(self, promotion: RulePromotion) -> None:
         store = self._governance_state_store
@@ -636,53 +703,71 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         except RuntimeError:
             asyncio.run(self._persist_promotion_record(promotion))
             return
-        task = loop.create_task(self._persist_promotion_record(promotion))
-        self._promotion_persist_tasks.add(task)
-        task.add_done_callback(self._promotion_persist_done)
+        if (
+            promotion.rule_id not in self._promotion_persist_pending
+            and len(self._promotion_persist_pending) >= _MAX_PROMOTION_PERSIST_QUEUE
+        ):
+            self.record_behavior("promotion:persist_backpressure")
+            raise RuntimeError("Mimir promotion persistence queue is full")
+        self._promotion_persist_pending[promotion.rule_id] = promotion
+        if self._promotion_persist_worker is None or self._promotion_persist_worker.done():
+            self._promotion_persist_worker = loop.create_task(self._drain_promotion_persist_queue())
+            self._promotion_persist_tasks.add(self._promotion_persist_worker)
+            self._promotion_persist_worker.add_done_callback(self._promotion_persist_done)
 
     def _promotion_persist_done(self, task: asyncio.Task[None]) -> None:
         self._promotion_persist_tasks.discard(task)
+        if self._promotion_persist_worker is task:
+            self._promotion_persist_worker = None
         try:
             task.result()
         except Exception:
             self.record_behavior("promotion:persist_failed")
+
+    async def _drain_promotion_persist_queue(self) -> None:
+        while self._promotion_persist_pending:
+            _rule_id, promotion = self._promotion_persist_pending.popitem()
+            await self._persist_promotion_record(promotion)
 
     async def _persist_promotion_record(self, promotion: RulePromotion) -> None:
         store = self._governance_state_store
         if store is None:
             return
         key = _rule_state_key(promotion.rule_id)
-        current = await store.read_state(key)
-        revision = int(current.get("revision", 0)) if current is not None else 0
-        record = {
-            "kind": "mimir_rule_state",
-            "revision": revision + 1,
-            "rule_id": promotion.rule_id,
-            "state": promotion.state,
-            "source": promotion.source,
-            "updated_at": promotion.updated_at,
-            "terminal": promotion.state == "retired",
-        }
-        audit = {
-            "kind": "mimir_rule_state_recorded",
-            "principal": "Mimir",
-            "rule_id": promotion.rule_id,
-            "state": promotion.state,
-            "revision": revision + 1,
-            "grants_authority": False,
-        }
-        if current is None:
-            created = await store.write_state_with_audit_if_absent(key, record, audit)
-            if not created:
-                await self._persist_promotion_record(promotion)
-            return
-        if not await store.compare_and_set_state_with_audit(
-            key,
-            record,
-            expected_revision=revision,
-            audit_entry=audit,
-        ):
-            await self._persist_promotion_record(promotion)
+        for attempt in range(_MAX_PROMOTION_PERSIST_ATTEMPTS):
+            current = await store.read_state(key)
+            revision = int(current.get("revision", 0)) if current is not None else 0
+            record = {
+                "kind": "mimir_rule_state",
+                "revision": revision + 1,
+                "rule_id": promotion.rule_id,
+                "state": promotion.state,
+                "source": promotion.source,
+                "updated_at": promotion.updated_at,
+                "terminal": promotion.state == "retired",
+            }
+            audit = {
+                "kind": "mimir_rule_state_recorded",
+                "principal": "Mimir",
+                "rule_id": promotion.rule_id,
+                "state": promotion.state,
+                "revision": revision + 1,
+                "grants_authority": False,
+            }
+            if current is None:
+                if await store.write_state_with_audit_if_absent(key, record, audit):
+                    return
+            elif await store.compare_and_set_state_with_audit(
+                key,
+                record,
+                expected_revision=revision,
+                audit_entry=audit,
+            ):
+                return
+            self.record_behavior("promotion:persist_cas_retry")
+            await asyncio.sleep(0 if attempt == 0 else min(0.001 * attempt, 0.01))
+        self.record_behavior("promotion:persist_cas_exhausted")
+        raise RuntimeError("Mimir promotion persistence CAS did not converge")
 
     async def _persist_issue_fingerprint(self, record: dict[str, Any]) -> None:
         store = self._governance_state_store
@@ -725,7 +810,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             "tracked_rules": capped_list(sorted(self._promotions)),
             "tracked_rules_count": len(self._promotions),
             "pending_candidates": len(self._pending_candidates),
-            "promotion_ready_candidates": len(self.promotion_ready_candidates()),
+            "promotion_ready_candidates": "bounded-summary-not-recomputed",
             "quarantined_candidates": len(self._quarantined_candidates),
             "catalog_review_packages": len(self._catalog_review_packages),
             "catalog_review_publication_receipts": len(self._published_reviews),

@@ -3,7 +3,10 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, Protocol
 
-from fdai.agents._framework.mimir_governance_state import MimirCatalogGovernanceStore
+from fdai.agents._framework.mimir_governance_state import (
+    MimirCatalogGovernanceStore,
+    quarantine_summary,
+)
 
 
 class MimirCandidateQuarantineHost(Protocol):
@@ -34,7 +37,9 @@ async def quarantine_candidate(
         host._quarantined_candidates.append(prior_quarantine)
         host.record_behavior("catalog_candidate_quarantine_duplicate")
         return
-    host._quarantined_candidates.append({**dict(payload), "quarantine_reason": reason})
+    host._quarantined_candidates.append(
+        {**quarantine_summary(payload), "quarantine_reason": reason}
+    )
     await host._catalog_governance_store.persist_quarantine(payload, reason)
     await host._audit_outcome(payload, outcome="quarantined", reason=reason)
 

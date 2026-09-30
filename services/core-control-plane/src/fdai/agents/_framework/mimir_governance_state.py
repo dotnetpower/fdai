@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections import deque
 from collections.abc import Mapping
 from typing import Any
@@ -12,6 +14,7 @@ from fdai.shared.providers.state_store import StateStore
 _GOVERNANCE_PREFIX = "pantheon/mimir/governance/catalog-review"
 _INVESTIGATION_PREFIX = f"{_GOVERNANCE_PREFIX}/investigation-candidates"
 _QUARANTINE_PREFIX = f"{_GOVERNANCE_PREFIX}/quarantine"
+_QUARANTINE_RETAIN = 5_000
 
 
 class CatalogReviewCapacityError(RuntimeError):
@@ -60,11 +63,11 @@ class MimirCatalogGovernanceStore:
             restored += 1
         quarantine_rows = await store.read_states(f"{_QUARANTINE_PREFIX}/", limit=max_quarantine)
         for row in quarantine_rows:
-            payload = row.get("payload")
             reason = str(row.get("reason") or "")
-            if not isinstance(payload, Mapping) or not reason:
+            summary = row.get("summary")
+            if not isinstance(summary, Mapping) or not reason:
                 raise ValueError("Mimir durable quarantine record is invalid")
-            quarantined_candidates.append({**dict(payload), "quarantine_reason": reason})
+            quarantined_candidates.append({**dict(summary), "quarantine_reason": reason})
             restored += 1
         return restored
 
@@ -116,7 +119,7 @@ class MimirCatalogGovernanceStore:
         )
         if row is None:
             return None
-        stored = row.get("payload")
+        stored = row.get("summary")
         reason = row.get("reason")
         if not isinstance(stored, Mapping) or not isinstance(reason, str) or not reason:
             raise ValueError("Mimir durable quarantine record is invalid")
@@ -134,7 +137,7 @@ class MimirCatalogGovernanceStore:
                 "revision": 1,
                 "idempotency_key": idempotency_key,
                 "reason": reason,
-                "payload": dict(payload),
+                "summary": quarantine_summary(payload),
             },
             {
                 "kind": "mimir_catalog_candidate_quarantined",
@@ -144,6 +147,7 @@ class MimirCatalogGovernanceStore:
                 "grants_authority": False,
             },
         )
+        await store.delete_states_beyond(_QUARANTINE_PREFIX + "/", retain_newest=_QUARANTINE_RETAIN)
 
 
 def catalog_candidate_idempotency_key(payload: Mapping[str, Any]) -> str:
@@ -153,9 +157,22 @@ def catalog_candidate_idempotency_key(payload: Mapping[str, Any]) -> str:
     return value
 
 
+def quarantine_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
+    material = json.dumps(payload, separators=(",", ":"), sort_keys=True, default=str)
+    return {
+        "idempotency_key": catalog_candidate_idempotency_key(payload),
+        "candidate_digest": hashlib.sha256(material.encode()).hexdigest(),
+        "producer_principal": str(payload.get("producer_principal") or ""),
+        "source_signal": str(payload.get("source_signal") or ""),
+        "target_rule_id": str(payload.get("target_rule_id") or ""),
+        "correlation_id": str(payload.get("correlation_id") or ""),
+    }
+
+
 __all__ = [
     "CatalogReviewCapacityError",
     "CatalogReviewPublicationError",
     "MimirCatalogGovernanceStore",
     "catalog_candidate_idempotency_key",
+    "quarantine_summary",
 ]

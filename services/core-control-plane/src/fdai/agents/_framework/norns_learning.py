@@ -53,6 +53,8 @@ class NornsLearningState(Protocol):
 
     def _ensure_pending_capacity(self) -> None: ...
 
+    def _mark_learning_dirty(self, bucket: str, item_key: str) -> None: ...
+
     def record_behavior(self, name: str, amount: int = 1) -> None: ...
 
 
@@ -182,11 +184,13 @@ def observe_outcome(state: NornsLearningState, payload: Mapping[str, Any]) -> No
         if outcome_key in state._counted_correlations:
             return
         state._counted_correlations.add(outcome_key)
+        state._mark_learning_dirty("counted_correlations", outcome_key)
     counts = state._outcomes.get(target)
     if counts is None:
         counts = {"success": 0, "rollback": 0}
     counts[bucket] += 1
     state._outcomes.set(target, counts)
+    state._mark_learning_dirty("outcomes", target)
     total = counts["success"] + counts["rollback"]
     if total < state._min_outcome_samples or target in state._outcome_proposed:
         return
@@ -194,6 +198,7 @@ def observe_outcome(state: NornsLearningState, payload: Mapping[str, Any]) -> No
     if rollback_rate <= state._rollback_alarm_rate:
         return
     state._outcome_proposed.add(target)
+    state._mark_learning_dirty("outcome_proposed", target)
     state._append_candidate(
         {
             "source_signal": "audit_outcome",
@@ -302,16 +307,19 @@ def observe_approval(state: NornsLearningState, payload: Mapping[str, Any]) -> N
         if correlation_id in state._counted_approvals:
             return
         state._counted_approvals.add(correlation_id)
+        state._mark_learning_dirty("counted_approvals", correlation_id)
     counts = state._approval_counts.get(action_type)
     if counts is None:
         counts = {"approved": 0, "rejected": 0}
     counts[decision] += 1
     state._approval_counts.set(action_type, counts)
+    state._mark_learning_dirty("approval_counts", action_type)
     if decision != "rejected" or action_type in state._approval_proposed:
         return
     if counts["rejected"] < state._rejection_revise_threshold:
         return
     state._approval_proposed.add(action_type)
+    state._mark_learning_dirty("approval_proposed", action_type)
     state._append_candidate(
         {
             "source_signal": "recurring_hil_rejection",
