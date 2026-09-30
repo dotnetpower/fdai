@@ -51,6 +51,7 @@ from .semantic_reasoning_form import (
     TimeKind,
 )
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
+from .semantic_reasoning_lifecycle import parse_lifecycle
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
 from .semantic_reasoning_relations import SENSE_TRAITS
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
@@ -182,6 +183,8 @@ class _Allowed:
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.state_concepts: set[str] = set()
+        # Another ObjectType's grounded lifecycle values, by the property that holds them.
+        self.lifecycle: dict[str, set[str]] = {}
         self.health_concepts: set[str] = set()
         self.metric_concepts: set[str] = set()
         self.regions: set[str] = set()
@@ -237,7 +240,14 @@ def _allowed_operands(
         elif mention.domain is MentionDomain.DECLARATION_KIND:
             allowed.declaration_kinds.update(concept.values)
         elif mention.domain is MentionDomain.STATE and role is FilterRole.STATE:
-            allowed.state_concepts.update(concept.values)
+            for value in concept.values:
+                lifecycle = parse_lifecycle(value)
+                if lifecycle is None:
+                    allowed.state_concepts.add(value)
+                else:
+                    allowed.lifecycle.setdefault(lifecycle.property_name, set()).add(
+                        lifecycle.value
+                    )
         elif mention.domain is MentionDomain.HEALTH and role is FilterRole.HEALTH:
             allowed.health_concepts.update(concept.values)
         elif mention.domain is MentionDomain.REGION and role is FilterRole.REGION:
@@ -309,6 +319,8 @@ def _predicate_violations(
             permitted = allowed.regions
         elif prop == "type" and operator == "not_equals":
             permitted = set(OPERATIONAL_RESOURCE_EXCLUDED_TYPES)
+        elif isinstance(prop, str) and prop in allowed.lifecycle and operator in {"equals", "in"}:
+            permitted = allowed.lifecycle[prop]
         else:
             violations.append(f"prov_unexpected_predicate:{node_id}:{prop}:{operator}")
             continue
@@ -633,6 +645,14 @@ def _filter_coverage(
         prior = {"property": "id", "operator": "in", "values": sorted(allowed.prior_rows)}
         if allowed.prior_rows and prior not in predicates:
             violations.append("sem_prior_result_unrestricted")
+        for name, values in allowed.lifecycle.items():
+            if not any(
+                item.get("property") == name
+                and item.get("operator") in {"equals", "in"}
+                and set(item.get("values") or [item.get("equals")]) == values
+                for item in predicates
+            ):
+                violations.append("sem_lifecycle_filter_missing")
     stated = sorted(allowed.state_concepts)
     if stated and not any(
         _function_name(node) == RESOURCE_STATE_FUNCTION_NAME

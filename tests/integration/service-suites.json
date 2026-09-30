@@ -58,6 +58,7 @@
           "services/core-control-plane/tests/test_read_investigation_completion_publisher.py",
           "services/core-control-plane/tests/test_rule_activation_consumer.py",
           "services/core-control-plane/tests/test_semantic_assurance_projection.py",
+          "services/core-control-plane/tests/test_semantic_object_list_answer.py",
           "services/core-control-plane/tests/test_semantic_presentation_wiring.py",
           "services/core-control-plane/tests/test_semantic_query_progress.py",
           "services/core-control-plane/tests/test_semantic_reading_holds.py",

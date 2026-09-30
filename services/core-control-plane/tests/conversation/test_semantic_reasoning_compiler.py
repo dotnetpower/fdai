@@ -2284,3 +2284,116 @@ def test_a_health_filter_never_counts_never_mixes_with_state_and_needs_its_reade
         ("function_unavailable:query.resource_health_inventory",),
     )
     assert ungrounded.status is not GoalStatus.COMPILED
+
+
+_OPEN_INCIDENT = "lifecycle:Incident.status=open"
+
+
+def _incident_form(
+    utterance: str, *, operation: str = "select", subject: str = "incidents"
+) -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, subject),
+            },
+            {"id": "m2", "form": "concept", "domain": "state", "span": span(utterance, "open")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": operation,
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "state", "mention": "m2"}],
+                "cue": span(utterance, "open"),
+                "confidence": 0.93,
+            }
+        ],
+    }
+
+
+def test_the_lifecycle_state_of_another_object_type_reads_as_an_exact_predicate() -> None:
+    listing = "List the open incidents"
+    counting = "How many open incidents"
+    receipt = concepts(
+        ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+        ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+    )
+
+    listed = _compile(listing, _incident_form(listing), receipt).goals[0]
+    counted = _compile(counting, _incident_form(counting, operation="count"), receipt).goals[0]
+
+    assert listed.status is GoalStatus.COMPILED, listed.reasons
+    (batch,) = listed.batches
+    (read,) = batch.plan.nodes
+    definition = read.arguments["definition"]
+    assert definition["selector"]["name"] == "Incident"
+    assert definition["predicates"] == [
+        {"property": "status", "operator": "equals", "equals": "open"}
+    ]
+    # An exact predicate has no coverage rows, so its matches may be counted.
+    assert counted.status is GoalStatus.COMPILED, counted.reasons
+    assert [node.kind.value for node in counted.batches[0].plan.nodes] == [
+        "object_set",
+        "aggregate",
+    ]
+
+
+def test_a_lifecycle_state_never_restricts_another_subject() -> None:
+    utterance = "List the open incidents"
+    resources = "List the open VMs"
+
+    mismatched = _compile(
+        utterance,
+        _incident_form(utterance),
+        concepts(
+            ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+            ("m2", MentionDomain.STATE, ("resource_state.running",)),
+        ),
+    ).goals[0]
+    on_resources = _compile(
+        resources,
+        _incident_form(resources, subject="VMs")
+        | {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "concept",
+                    "domain": "resource_type",
+                    "span": span(resources, "VMs"),
+                },
+                {"id": "m2", "form": "concept", "domain": "state", "span": span(resources, "open")},
+            ]
+        },
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+        ),
+    ).goals[0]
+    mixed = _compile(
+        utterance,
+        _incident_form(utterance),
+        concepts(
+            ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+            ("m2", MentionDomain.STATE, (_OPEN_INCIDENT, "resource_state.running")),
+        ),
+    ).goals[0]
+
+    # A Resource state has no reader on an Incident, and an Incident state never filters VMs.
+    assert (mismatched.status, mismatched.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("filter_unsupported:state",),
+    )
+    assert (on_resources.status, on_resources.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("state_filter_subject_mismatch",),
+    )
+    assert (mixed.status, mixed.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("state_filter_domain_unsupported",),
+    )

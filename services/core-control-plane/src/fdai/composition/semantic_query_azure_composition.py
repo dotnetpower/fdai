@@ -62,6 +62,7 @@ from .semantic_query_instance_candidates import declare_instance_candidate_query
 from .semantic_query_model_targets import t1_model_targets, t2_model_targets
 from .semantic_query_type_grounding import build_second_reader
 from .semantic_query_value_domains import (
+    incident_lifecycle_value_domains,
     resource_location_value_domains,
     resource_type_value_domains,
 )
@@ -319,7 +320,11 @@ def _resource_type_property_values(catalog_root: Path) -> tuple[PropertyValueDom
             (catalog_root / "vocabulary" / "provider-regions.yaml").read_text(encoding="utf-8")
         )
     )
-    return (*resource_type_value_domains(registry), *resource_location_value_domains(regions))
+    return (
+        *resource_type_value_domains(registry),
+        *resource_location_value_domains(regions),
+        *incident_lifecycle_value_domains(),
+    )
 
 
 def _inventory_query_language(catalog_root: Path) -> InventoryQueryLanguageRegistry:

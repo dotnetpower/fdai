@@ -905,3 +905,31 @@ def test_a_compiled_health_filtered_list_answers_as_a_health_list(
     assert outcome.frame.output_shape == "resource_health_list"
     assert outcome.frame.measure_concepts == ("resource_health.unhealthy",)
     assert _completions(caplog) == ["selected"]
+
+
+def test_a_compiled_lifecycle_filtered_list_answers_over_its_object_type(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _OPEN_INCIDENT,
+        _compile,
+        _incident_form,
+    )
+
+    utterance = "List the open incidents"
+    compilation = _compile(
+        utterance,
+        _incident_form(utterance),
+        concepts(
+            ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+            ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+        ),
+    )
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    assert outcome is not None and outcome.frame is not None
+    assert "Incident" in outcome.frame.subject_constraints
+    assert _completions(caplog) == ["selected"]

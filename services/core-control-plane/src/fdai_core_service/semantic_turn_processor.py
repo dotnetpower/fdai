@@ -3512,6 +3512,9 @@ def _render_resource_list_answer(
         or any(not isinstance(row, Mapping) for row in rows)
     ):
         return None
+    if not any(_names_a_resource(row) for row in rows):
+        # Rows of another ObjectType, such as an Incident, are not Resources to list by name.
+        return None
     if source_complete:
         heading = f"## 일치하는 리소스 {total}개" if korean else f"## {total} matching Resources"
     else:
@@ -5421,6 +5424,13 @@ def _causal_limitations(
 def _hypothesis_names(hypotheses: list[Mapping[str, object]], *, korean: bool) -> str:
     names = [f"`{_answer_text(item.get('hypothesis_id'))}`" for item in hypotheses]
     return ", ".join(names) if names else ("없음" if korean else "none")
+
+
+def _names_a_resource(row: Mapping[str, object]) -> bool:
+    values = row.get("values")
+    return isinstance(values, Mapping) and any(
+        _answer_text(values.get(field), fallback="") for field in ("name", "type")
+    )
 
 
 def _answer_text(value: object, *, fallback: str = "unknown") -> str:

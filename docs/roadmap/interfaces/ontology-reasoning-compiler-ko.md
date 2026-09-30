@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: d133a23b5872b1c57cda54df5f2af8893b3aabba
+translation_source_sha: 36ef4a23722da0f4ac2485d6a30b14ca7edca764
 translation_revised: 2026-09-30
 ---
 # 온톨로지 추론 컴파일러
@@ -831,6 +831,16 @@ Resource Health reader가 읽을 수 있고 바인딩된 선언이면, 매니페
 받은 상태 행을 합집합으로 더하지만 밝힌 제한은 교집합이므로, 상태와 Resource Health를 함께 밝힌 목표도 타입이
 지정된 지원되지 않음 이유를 돌려줍니다. V-SEM은 근거화된 개념을 읽는 Resource Health reader를 요구하고,
 V-PROV는 정확히 그 개념만 있고 상태 개념은 없는지 확인합니다.
+
+**수명 주기 상태**
+
+검토된 값 도메인은 속성을 해당 ObjectType의 수명 주기 상태로 표시할 수 있으며, `Incident.status`는
+정식 Incident 상태로 이렇게 표시됩니다. 이 값 각각은 자신의 ObjectType과 속성을 밝힌 후보로 상태
+카탈로그에 들어가므로, 두 블라인드 선택자는 상태 언급을 Resource 상태와 이 값 전체에 대해 근거화합니다.
+수명 주기 값은 그 ObjectType 자신의 읽기에 대한 정확한 조건으로만 컴파일되며, 그 개수도 정확합니다.
+다른 주어에 밝힌 수명 주기 값, 다른 ObjectType에 밝힌 Resource 상태, 둘을 섞은 언급은 타입이 지정된
+지원되지 않음 이유를 돌려줍니다. V-SEM은 모든 결과 읽기에 그 조건을 요구하고, V-PROV는 근거화된 값만
+받습니다.
 
 ## 승인된 결정
 

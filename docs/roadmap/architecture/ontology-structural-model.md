@@ -273,6 +273,12 @@ from the adapter property bag. Its value domain is the reviewed provider-region 
 with its display name. A stated region is grounded by closed choice against that complete list, and
 the display names are context for the choosing model, never a lookup table.
 
+A value domain may also mark its property as the reviewed lifecycle state of its ObjectType.
+`Incident.status` is the first such domain: its values are the canonical Incident lifecycle states
+that the Incident projection writes. A stated lifecycle state is grounded by closed choice over those
+values and read only as an exact predicate on that ObjectType. Another ObjectType's `status` property
+has no reviewed lifecycle domain yet, so a state stated on that type stays typed unsupported.
+
 Resource-state queries accept only catalog-declared state concepts and exact bounded resource
 collections. A concrete state concept takes precedence over the generic observed-state sentinel.
 Empty or incomplete results preserve row-count and source limitations and never prove that matching

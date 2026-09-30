@@ -14,6 +14,7 @@ from typing import Any
 import yaml
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
 from fdai.composition.semantic_query_value_domains import (
+    incident_lifecycle_value_domains,
     resource_location_value_domains,
     resource_type_value_domains,
 )
@@ -164,6 +165,7 @@ def production_manifest(
                     )
                 )
             ),
+            *incident_lifecycle_value_domains(),
         ),
     )
 

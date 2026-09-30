@@ -822,6 +822,17 @@ restrictions intersect, so a goal that states both a state and a health also ret
 reason. V-SEM requires the health reader with the grounded concepts, and V-PROV requires exactly those
 concepts and no state concepts.
 
+**Lifecycle states**
+
+A reviewed value domain can mark a property as its ObjectType's lifecycle state, as `Incident.status`
+is marked with the canonical Incident states. Each such value joins the state catalog as a candidate
+that names its ObjectType and property, so two blind choosers ground a state mention over Resource
+states and those values together. A lifecycle value then compiles only as an exact predicate on the
+read of its own ObjectType, and a count of it is exact. A lifecycle value stated on another subject, a
+Resource state stated on another ObjectType, or a mention that mixes both returns a typed unsupported
+reason. V-SEM requires the predicate on every result read, and V-PROV accepts only the grounded
+values.
+
 ## Approved decisions
 
 The Owner approved these decisions on 2026-09-28.

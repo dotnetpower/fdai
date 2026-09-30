@@ -28,6 +28,7 @@ from .semantic_reasoning_form import (
     GoalOperation,
     MentionDomain,
 )
+from .semantic_reasoning_lifecycle import parse_lifecycle
 from .semantic_reasoning_nodes import (
     RESOURCE_OBJECT_TYPE,
     CompileContext,
@@ -121,7 +122,13 @@ def _stated_concepts(
     """Return the reviewed concepts every filter of ``reader.role`` binds, in stable order."""
 
     concepts: list[str] = []
-    stated = [item for item in goal.filters if item.role is reader.role]
+    # A lifecycle state of another ObjectType is an exact predicate, never a reader stage.
+    stated = [
+        item
+        for item in goal.filters
+        if item.role is reader.role
+        and not (reader.role is FilterRole.STATE and _names_lifecycle(item.mention, ctx))
+    ]
     if stated and goal.subject is not None:
         # Reviewed states and health describe Resources; another ObjectType has no reader here.
         subject = ctx.mention(goal.subject)
@@ -138,6 +145,13 @@ def _stated_concepts(
     if concepts and not function_declared(ctx, reader.function_name):
         return OperatorResult(unsupported=(f"function_unavailable:{reader.function_name}",))
     return tuple(sorted(set(concepts)))
+
+
+def _names_lifecycle(mention_id: str, ctx: CompileContext) -> bool:
+    """Return whether a mention grounds in another ObjectType's lifecycle values."""
+
+    values, _failure = concept_values(mention_id, ctx)
+    return any(parse_lifecycle(item) is not None for item in values)
 
 
 __all__ = ["MeasureRestriction", "stated_measure"]

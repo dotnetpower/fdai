@@ -550,3 +550,46 @@ def test_a_health_read_must_keep_exactly_the_grounded_health_concepts() -> None:
     assert "prov_function_arguments:g1-health" in _violations(
         admission, _UNHEALTHY, _rewrite(plan, "g1-health", with_states)
     )
+
+
+def test_a_lifecycle_read_must_keep_exactly_the_grounded_values() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _OPEN_INCIDENT,
+        _incident_form,
+    )
+
+    utterance = "List the open incidents"
+    receipt = concepts(
+        ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+        ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+    )
+    admission = admitted(_incident_form(utterance), utterance)
+    compilation = compile_question_form(
+        admission,
+        concepts=receipt,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=utterance,
+        anchors=synthetic_anchors(admission),
+    )
+    plan = compilation.goals[0].batches[0].plan
+    (node_id,) = [node.node_id for node in plan.nodes]
+
+    def widened(arguments: dict[str, Any]) -> None:
+        arguments["definition"]["predicates"] = [
+            {"property": "status", "operator": "in", "values": ["open", "triaging"]}
+        ]
+
+    def dropped(arguments: dict[str, Any]) -> None:
+        arguments["definition"]["predicates"] = []
+
+    assert _violations(admission, receipt, plan) == ()
+    assert f"prov_operand_without_source:{node_id}:status" in _violations(
+        admission, receipt, _rewrite(plan, node_id, widened)
+    )
+    assert "sem_lifecycle_filter_missing" in _violations(
+        admission, receipt, _rewrite(plan, node_id, dropped)
+    )

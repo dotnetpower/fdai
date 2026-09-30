@@ -24,6 +24,7 @@ from fdai.core.ontology_platform.resource_state_queries import (
 
 from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission
 from .semantic_reasoning_form import MentionDomain, MentionForm
+from .semantic_reasoning_lifecycle import lifecycle_values
 
 DEFAULT_SHARD_BYTES = 12 * 1024
 _DECLARATION_KINDS = ("action", "function", "interface", "link", "object")
@@ -170,7 +171,7 @@ def concept_catalogs(
         # Reviewed type groups are the resource classes a mention can bind today.
         catalogs[MentionDomain.RESOURCE_TYPE] = resource_types
         catalogs[MentionDomain.RESOURCE_CLASS] = resource_types
-    states = _state_candidates(descriptors)
+    states = (*_state_candidates(descriptors), *_lifecycle_candidates(descriptors))
     if states:
         catalogs[MentionDomain.STATE] = states
     regions = _region_candidates(descriptors)
@@ -230,6 +231,21 @@ def _state_candidates(descriptors: Sequence[Mapping[str, Any]]) -> tuple[Concept
     return tuple(
         ConceptCandidate(f"state:{concept}", (concept,), labels.get(concept) or (concept,))
         for concept in sorted(declared)
+    )
+
+
+def _lifecycle_candidates(
+    descriptors: Sequence[Mapping[str, Any]],
+) -> tuple[ConceptCandidate, ...]:
+    """Return each reviewed lifecycle value of an ObjectType, labeled with its type."""
+
+    return tuple(
+        ConceptCandidate(
+            f"state:{item.concept}",
+            (item.concept,),
+            (item.value, f"{item.object_type} {item.property_name}"),
+        )
+        for item in lifecycle_values(descriptors)
     )
 
 

@@ -482,3 +482,21 @@ def test_the_manifest_provider_offers_the_reviewed_health_groups() -> None:
     # Without reviewed vocabularies, no measure concept is offered.
     assert ConceptVocabularies().health_labels() == {}
     assert ConceptVocabularies().metric_labels() == {}
+
+
+def test_reviewed_lifecycle_values_join_the_state_catalog_with_their_object_type() -> None:
+    catalog = concept_catalogs(production_manifest().descriptors)[MentionDomain.STATE]
+    lifecycle = {
+        candidate.values: candidate
+        for candidate in catalog
+        if candidate.values[0].startswith("lifecycle:")
+    }
+
+    # Each lifecycle value names its ObjectType and property; the label says which.
+    assert set(lifecycle) == {
+        (f"lifecycle:Incident.status={value}",)
+        for value in ("closed", "mitigated", "open", "resolved", "triaging")
+    }
+    assert lifecycle[("lifecycle:Incident.status=open",)].labels == ("open", "Incident status")
+    # Resource states stay in the same catalog, unchanged.
+    assert any(candidate.values == ("resource_state.running",) for candidate in catalog)

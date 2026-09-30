@@ -39,6 +39,7 @@ from .semantic_reasoning_form import (
     SubjectScope,
 )
 from .semantic_reasoning_handles import ReferenceReceipt, restricting_rows
+from .semantic_reasoning_lifecycle import lifecycle_predicate
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 
@@ -154,8 +155,17 @@ def endpoint_predicates(
     type_sets: list[frozenset[str]] = [frozenset(extra_types)] if extra_types else []
     predicates: list[dict[str, Any]] = []
     for item in goal.filters:
-        # A state or health restriction is read by the reader stage that follows this read.
-        if item.role is FilterRole.SCOPE or (staged is not None and item.role is staged):
+        if item.role is FilterRole.SCOPE:
+            continue
+        if item.role is FilterRole.STATE:
+            lifecycle, failure = _lifecycle_filter(item.mention, ctx, selector)
+            if failure is not None:
+                return [], failure
+            if lifecycle is not None:
+                predicates.append(lifecycle)
+                continue
+        # A Resource state or health is read by the reader stage that follows this read.
+        if staged is not None and item.role is staged:
             continue
         if item.role is FilterRole.TYPE:
             values, failure = concept_values(item.mention, ctx)
@@ -274,6 +284,24 @@ def declared_measures(ctx: CompileContext, function_name: str) -> tuple[str, ...
                 return tuple(measures)
             return ()
     return ()
+
+
+def _lifecycle_filter(
+    mention_id: str, ctx: CompileContext, selector: str
+) -> tuple[dict[str, Any] | None, OperatorResult | None]:
+    """Return the exact predicate a grounded lifecycle state states on ``selector``.
+
+    ``(None, None)`` leaves any other state filter, and a failed binding, to the flow
+    that reads or rejects it.
+    """
+
+    values, failure = concept_values(mention_id, ctx)
+    if failure is not None or ctx.mention(mention_id).domain is not MentionDomain.STATE:
+        return None, None
+    predicate, reason = lifecycle_predicate(values, selector)
+    if reason is not None:
+        return None, OperatorResult(unsupported=(reason,))
+    return predicate, None
 
 
 def concept_values(
