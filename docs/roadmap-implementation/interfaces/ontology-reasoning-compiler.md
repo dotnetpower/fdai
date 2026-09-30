@@ -14,7 +14,9 @@ to result handles, and a shadow runner with an Azure adapter. The shadow runner 
 production semantic turn, so deployed venues answer only through the current path, where resource-group
 membership now reads containment. The local development profile alone may answer from a released
 compilation and, with typed-only answering, ends every other read with a typed hold whose notice names
-its reason. Shared model-input
+its reason. Its blind review also judges the kind of answer asked and lets one repair split a merged
+mention, and a closed ambiguity reader of a third model family decides whether a released reading may
+answer a question the judgment asked to clarify. Shared model-input
 minimization for every adapter now also redacts compound secret keys, escaped JSON values, and
 emails or tokens next to Korean text.
 Live evaluation evidence is session-local and is summarized, not retained, as repository evidence.
@@ -252,10 +254,18 @@ Live evaluation evidence is session-local and is summarized, not retained, as re
 - [ ] Treat a clarification or ambiguous judgment as terminal on the current path: the frame model may
   not reinterpret the utterance without the judgment and its coverage review. Exit: the traced
   incident and ordinal follow-up questions return a clarification, never a verified unrelated list.
+  Progress 2026-09-30: `test_an_ambiguous_judgment_keeps_its_clarification_unless_one_reading_is_found`
+  shows that no frame call follows an ambiguous judgment and that only the closed ambiguity reader's
+  `one` verdict lets a released reading answer instead; the traced live questions remain.
 - [ ] Answer ObjectType-schema questions through a closed ontology-schema form instead of selecting
   every declaration descriptor, and reserve frame budget before adaptive planning spends the turn
   budget. Exit: no judgment token-budget or adaptive budget-exceeded event on the traced schema and
   change-window questions.
+  Progress 2026-09-30: with typed-only answering in the local profile, a schema question answers only
+  from a compiled schema goal, as `test_schema_goal_reads_declarations_and_never_instances` and
+  `test_typed_only_ends_a_declined_read_with_its_decision_and_never_the_legacy_cascade` show, and a
+  `declares` word now needs no span beside schema goals; the frame budget reservation for the current
+  path and the traced live events remain.
 - [x] Surface the planner's typed hold reason, such as the uncovered constraint role, in the operator
   answer instead of the generic evidence hold. Evidence:
   `test_a_reading_hold_names_the_uncovered_role_instead_of_an_evidence_hold` and
