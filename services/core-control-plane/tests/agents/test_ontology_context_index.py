@@ -95,19 +95,22 @@ async def test_context_index_cannot_enter_learning_fallback_or_wrong_topic() -> 
 async def test_missing_worker_and_nondurable_saga_fail_before_publication() -> None:
     message = _prepare()
     muninn = Muninn()
-    muninn.bind_bus(AsyncMock())
+    muninn_bus = AsyncMock()
+    muninn.bind_bus(muninn_bus)
     with pytest.raises(RuntimeError, match="binding is unavailable"):
         await owned_context_index_handler(muninn, None, AsyncMock())(
             message.topic,
             message.model_dump(mode="json"),
         )
+    muninn_bus.publish.assert_not_awaited()
     intent = ContextIndexMessage.create(
         phase="intent",
         correlation_id=message.correlation_id,
         body={"transition_ref": "example"},
     )
     saga = Saga()
-    saga.bind_bus(AsyncMock())
+    saga_bus = AsyncMock()
+    saga.bind_bus(saga_bus)
     fallback = AsyncMock()
     with pytest.raises(RuntimeError, match="durable Saga"):
         await owned_context_index_handler(saga, None, fallback)(
@@ -115,6 +118,7 @@ async def test_missing_worker_and_nondurable_saga_fail_before_publication() -> N
             intent.model_dump(mode="json"),
         )
     fallback.assert_not_awaited()
+    saga_bus.publish.assert_not_awaited()
 
 
 async def test_runtime_delivers_every_phase_through_its_real_owned_subscription() -> None:

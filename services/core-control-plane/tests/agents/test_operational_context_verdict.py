@@ -197,6 +197,10 @@ async def test_context_governance_never_enters_signal_or_execution_approval_hand
     from fdai.agents.thor import Thor
 
     observer, executor = Heimdall(), Thor()
+    observer_bus = AsyncMock()
+    executor_bus = AsyncMock()
+    observer.bind_bus(observer_bus)
+    executor.bind_bus(executor_bus)
     observer._maybe_emit_anomaly = AsyncMock()
     executor._handle_approval = AsyncMock()
     await observer.on_typed_message(
@@ -217,6 +221,10 @@ async def test_context_governance_never_enters_signal_or_execution_approval_hand
     )
     observer._maybe_emit_anomaly.assert_not_awaited()
     executor._handle_approval.assert_not_awaited()
+    observer_bus.publish.assert_not_awaited()
+    executor_bus.publish.assert_not_awaited()
+    assert observer.behavior_snapshot()["typed_message:ignored"] == 1
+    assert executor.behavior_snapshot()["test_context_approval_ignored"] == 1
 
 
 @pytest.mark.parametrize(

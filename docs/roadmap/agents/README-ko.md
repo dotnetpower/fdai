@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 지원 부록
 translation_of: README.md
-translation_source_sha: 8176c9700546b46fc7f9c18cb1c972db4a358404
-translation_revised: 2026-09-15
+translation_source_sha: 0b8f45528ee6b4166bae21ced5032f1f387b4cd2
+translation_revised: 2026-09-30
 ---
 
 # 에이전트 판테온 지원 부록
@@ -99,13 +99,13 @@ Var를 통해 승인하는 일반 HIL 흐름입니다. 업그레이드 경로는
 
 | 포크가 할 수 있는 작업 | 방법 |
 |-------------------------|------|
-| 에이전트에 모델 바인딩 | `agents.<name>.llm_bindings` 구성 |
-| chaos와 같은 도메인 에이전트 비활성화 | `agents.<name>.enabled: false` |
+| 에이전트에 모델 바인딩 | Agent 온톨로지 `llm_bindings` 경계와 조립 소유 모델 바인딩을 사용합니다. live `agents.<name>.llm_bindings` 런타임 키는 아직 구현되지 않았습니다. |
+| chaos와 같은 도메인 에이전트 비활성화 | Agent 온톨로지 `enabled` 경계와 조립 소유 선택을 사용합니다. live `agents.<name>.enabled` 런타임 키는 아직 구현되지 않았습니다. |
 | 규칙 또는 정책 추가 | `rule-catalog/catalog/**` 오버레이 |
 | ActionType 추가 또는 재정의 | 에이전트 판테온 §7.8 경계 안에서 `rule-catalog/action-types-custom/**`와 `-overrides/**` 사용 |
 | ChatOps 채널 대상 변경 | 전달 어댑터 구성 |
 | 대화 보존 또는 명시적 선택 기본값 변경 | Bragi 구성 |
-| 비율 제한 기본값 변경 | `agents.<name>.rate_limits` 구성 |
+| 비율 제한 기본값 변경 | AgentSpec과 Agent 온톨로지 `rate_limits` 경계를 사용합니다. live `agents.<name>.rate_limits` 런타임 키는 아직 구현되지 않았습니다. |
 
 포크는 다음 작업을 할 수 없습니다.
 

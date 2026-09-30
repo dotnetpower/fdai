@@ -1,12 +1,11 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 22fb42fe8d62e0ae82e2ca45da1ada1911ff94b5
+translation_source_sha: c84b22bcbecfa3874c23298ab6dc4316d0d46376
 translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
 
-Bragi의 post-turn review publisher는 typed `object.post-turn-review` 묶음만 계속 소유합니다. Norns는 비활성 초안을 평가하고 라우팅하는 learner로 남습니다.
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
 
 > **범위:** 판테온은 고객-무관이다. 아래에 언급된 모든 에이전트 이름, 객체 타입, 액션 은 범용 이다. 고객별 바인딩은 포크 에서 관리 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
@@ -35,6 +34,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 - **판단자는 실행기가 아님.** Forseti가 판단하고 Var가 권한이 있으며 만료되지 않은 승인을 전달합니다. Thor는 권한 상한, Saga 증적, 안정적인 멱등성 예약, 소유자 경계가 적용된 분산 리소스 점유를 다시 확인한 뒤 실행하며 재시작 모호성은 `execution_unknown`으로 유지합니다.
 - **판테온은 업스트림에서 고정.** 15개 에이전트, 조직도, 역할 배정은 고정됩니다. 포크는 설정 가능한 경계 (§10)만 변경하며 에이전트를 추가, 제거하거나 이름을 바꾸지 않습니다.
 - **저장소 구조가 경계를 보존.** 이름이 있는 에이전트는 [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에, 공통 런타임은 비공개 `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오며 구조 테스트가 이 경계를 강제합니다. 런타임 조립은 소유 에이전트 모듈이 명시적으로 공개한 콜백 타입을 사용하며 타입 공개는 토픽, 관측, 승인 또는 실행 권한을 부여하지 않습니다. Heimdall의 작업 관측 중계와 Thor의 영속 `ActionRun` codec, verdict 검증, 감사로 통제된 실행 단계, 재생 및 게시 lifecycle, 효과 종결, 읽기 전용 대화 변환은 용도별 비공개 도우미에 둡니다. Thor는 이 도우미의 유일한 privileged 호출자이자 유일한 `ActionRun` 게시자로 유지됩니다. 도우미는 `AgentSpec`, topic, 판단, 승인, 감사, 복구 또는 실행 권한을 소유하지 않습니다. 영속 재생은 정확한 kinetic proposal이 없는 prospective lineage를 거부합니다.
+  Bragi의 post-turn review publisher는 typed `object.post-turn-review` 묶음만 계속 소유합니다. Norns는 비활성 초안을 평가하고 라우팅하는 learner로 남습니다.
 런타임 조립과 시나리오 재생은 `fdai.agents`에서 `ActionSemanticsCatalog`를 가져와
 카탈로그에 근거한 복구 가능 여부를 연결합니다. 타입 공개는 권한을 부여하지 않으며
 카탈로그가 없을 때의 보수적인 승인 정족수를 유지합니다. 동결된 재생 입력과 다이제스트 고정값은 변경하지 않습니다.
@@ -158,7 +158,8 @@ Norns는 ID로 보존된 표본의 검토 상태를 갱신합니다. 재생과 �
 > 아래 표는 그 `AgentSpec` 항목들을 사람이 읽기 좋게 재구성한 것이다.
 > 표와 코드가 다르면 **코드가 이긴다**.
 > [`services/core-control-plane/tests/agents/test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py)
-> 는 영어/한국어 문서의 15개 이름, 카탈로그 계층, 소유권을 `PANTHEON_SPECS`와
+> 는 영어/한국어 문서의 15개 이름, 카탈로그 계층, 소유권, 주요 동작, LLM 플래그,
+> 수명 주기 상태, 토픽 구독을 `PANTHEON_SPECS`와
 > exact 비교하여 CI에서 표류를 감지합니다.
 > 소유 객체 타입은 canonical machine token이므로 두 언어 표에서 번역하지 않습니다.
 
@@ -168,20 +169,20 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | 이름 | 역할 | 계층 | 소유 객체 types | 주요 동작 | Hot-path LLM? |
 |------|------|-------|-------------------|-------------------|---------------|
 | Odin | Master 플래너 | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
-| Thor | 응답자 | 2 | ActionRun | 전달하고 대상별 attempt 상태를 ActionRun에 포함해 기록합니다. ActionType을 직접 소유하지 않습니다 - §7.1 참조 | no |
+| Thor | 응답자 | 2 | ActionRun | 통제된 작업마다 하나의 `ActionRun`을 전달하고 수명 주기 상태를 기록합니다. ActionType을 직접 소유하지 않습니다 - §7.1 참조 | no |
 | Forseti | Judge | 2 | Verdict, SecurityEvent, ArbitrationRequest, ProspectiveLineage | 판정과 정확한 실행 전 prospective lineage를 생성합니다. 근거가 있는 RCA는 별도 bus topic이 아니라 core causal-hypothesis projection으로 유지됩니다. 실행기 역할은 없습니다. | yes (T2 abstain 시만) |
-| Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change | no |
+| Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change; planned schema-learning 경계 - exit: 범위가 제한된 off-path schema cluster가 hot-path 정규화를 바꾸지 않고 비활성 근거를 게시합니다 | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, relay_recovery_effect_observation, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
-| Vidar | 복구 | 2 | Rollback | perform_rollback, dr_failover | no |
+| Vidar | 복구 | 2 | Rollback | perform_rollback; planned dr_failover - exit: 타입 지정 DR failover 요청이 권한, 감사, 롤백, 효과 검증 계약을 가집니다 | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
-| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator 만) |
-| Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 추적 정규화), escalate_to_github_issue | no |
-| Mimir | Rule 담당자 | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation | no |
+| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; planned intent-classifier retraining - exit: 모델 품질 학습 계약, 범위가 제한된 근거 corpus, 회귀/승격 gate, 감사 근거를 구현합니다 | yes (translator 만) |
+| Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 추적 정규화), escalate_to_github_issue; issue auto-close는 Mimir 승격 근거와 깨끗한 24시간 재발 없음 구간을 기다립니다 | no |
+| Mimir | Rule 담당자 | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; planned recurring polling/regression/deprecation - exit: 예약 유지 관리가 범위가 제한된 no-op 또는 감사 근거를 기록합니다 | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
-| Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path 배치 만) |
+| Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history; planned close_issue signal - exit: Norns가 이슈를 변경하지 않고 Saga 소유 이슈 종료를 위한 비활성 적격성 신호를 냅니다 | yes (off-path 배치 만) |
 | Njord | 비용 | 1 | CostAnomaly | propose_cost_action을 수행하고 별도 `Budget` graph lifecycle을 유지합니다. | no |
-| Freyr | 용량 | 1 | CapacityForecast, CapacityGraduationRecommendation | 용량 예측과 shadow-only 전환을 권고하고 별도 `SizingRecommendation` graph lifecycle을 유지합니다. | no |
-| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment을 수행하고 resilience-score 후보를 검증해 게시합니다. | no |
+| Freyr | 용량 | 1 | CapacityForecast, CapacityGraduationRecommendation | 범위가 제한된 표본으로 용량을 예측하고 shadow-only 전환을 권고합니다. planned recurring sampling and scale proposal - exit: 스케줄러가 범위가 제한된 forecast와 shadow/HIL scale proposal만 냅니다 | no |
+| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule-triggered experiment 요청을 검증하고 resilience-score 후보를 게시합니다. planned recurring scheduling - exit: 결정론적 스케줄러가 완전한 always-HIL 제안 또는 보이는 no-op hold를 냅니다 | no |
 
 Heimdall은 결정론적 예측 에피소드 평가와 종결의 책임자이며 비공개 `heimdall_forecast.py`와 `heimdall_alert_window.py`가 계산과 범위가 제한된 에피소드/경고 구간 기록을 소유합니다.
 반복 이벤트의 권위 있는 이상 징후를 게시한 뒤 선택적 `incident_candidate_hook`이 정규화된 리소스, 이벤트 타입, 상관관계, 최대 심각도, 사유 코드, 모든 급증 근거 키를 조립 소유 `IncidentLifecycleWorkflow`로 보냅니다.
@@ -209,20 +210,20 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 | 에이전트 | R (recurring) | E (이벤트) | M (meta) | X-agent |
 |-------|---------------|-----------|----------|---------|
 | Odin | 주간 portfolio 리뷰, priority-policy 튜닝 | Forseti 신호 에 arbitrate_domain_conflict | portfolio 결과 점수 self-audit | 7 (에이전트 상태), 2 (Predictive 규모) tie-break |
-| Thor | execution-path 상태 검사, retry-strategy 캐시 예열 | 판정 전달, 롤백 트리거, rate-limit 강제 | high-risk 액션 pre-flight 시뮬레이션 | 1 (Cost-aware 교정), 2 (Predictive 규모), 11 (준비 상태), 12 (Scheduled Python) |
-| Forseti | rule-cache 리프레시, retrospective what-if 배치, 판정 coherence self-test | 이벤트 판단 (T0/T1/T2), domain_conflict 발행, SecurityEvent 발행 | novelty 표류 감지 (T0 vs T2 mix) | 1, 2, 5 (Security 에스컬레이션), 8 (Judgment coherence), 11, 12 |
-| Huginn | 출처 상태 검사, 발견 커서/backpressure 검사, dedup 구간 유지 | Event 및 정규화된 변경 정규화 + dedup + correlate + publish | 적응형 스키마 학습 (T1 clustering, off-path) | 모든 워크플로우에 피드 |
+| Thor | execution-path 상태 검사, retry-strategy 캐시 예열 | 판정 전달, 롤백 트리거, rate-limit 강제 | planned pre-flight simulation for high-risk actions - exit: Thor가 high-risk non-shadow executor I/O 전에 범위가 제한된 simulation receipt를 기록합니다 | 1 (Cost-aware 교정), 2 (Predictive 규모), 11 (준비 상태), 12 (Scheduled Python) |
+| Forseti | rule-cache 리프레시, 판정 coherence self-test | 이벤트 판단 (T0/T1/T2), domain_conflict 발행, SecurityEvent 발행 | novelty 표류 감지 (T0 vs T2 mix); planned retrospective what-if batch - exit: 범위가 제한된 보존 판단 입력을 versioned what-if 계약으로 replay하고 disagreement 근거를 기록합니다 | 1, 2, 5 (Security 에스컬레이션), 8 (Judgment coherence), 11, 12 |
+| Huginn | 출처 상태 검사, 발견 커서/backpressure 검사, dedup 구간 유지 | Event 및 정규화된 변경 정규화 + dedup + correlate + publish | planned adaptive schema learning - exit: 범위가 제한된 off-path schema cluster가 hot-path 정규화를 바꾸지 않고 비활성 근거를 게시합니다 | 모든 워크플로우에 피드 |
 | Heimdall | anomaly 기준선 업데이트, 예측 리프레시, 발견 최신성/커버리지 탐색, T2 제안자 상태 증적 reduction, external-actor 리스트 리프레시, agent-health 탐색 | anomaly detect, 표류 detect, 최종 제안자 exhaustion correlate, 발견 성능 저하 correlate, SecurityEvent correlate, notify_admin | multi-signal 다신호 상관 | 1, 2, 3 (DR 훈련), 5, 7 (에이전트 상태), 9 (Rollback 예행 연습) |
-| Vidar | rollback-path 검증, DR 준비 상태 점수, recovery-time SLI | perform_rollback, dr_failover | 롤백 예행 연습 (shadow) | 3, 9 |
+| Vidar | rollback-path 검증, DR 준비 상태 점수, recovery-time SLI | perform_rollback; planned dr_failover - exit: 타입 지정 DR failover 요청이 권한, 감사, 롤백, 효과 검증 계약을 가집니다 | planned rollback rehearsal (shadow) - exit: Vidar가 bound rollback 계약에 대한 범위가 제한된 비변경 rehearsal receipt를 기록합니다 | 3, 9 |
 | Var | 승인 SLA 모니터, 승인자 가용성 tracking | HIL 카드 제시, 정족수 강제, 시간 초과 / 에스컬레이션 | 승인 출처 이력 기록 | 4 (재정의 -> 발견), 5, 11, 12 |
-| Bragi | 만료 세션 정리, UserPreference 인덱스 리프레시 | NL 라우팅, multi-agent 집계, NL 렌더링 | 의도 classifier 재학습 (T1, off-path) | 7, 10 (Retrospective what-if), 12 |
-| Saga | audit-chain 무결성 self-check, issue-close 검사, 지문 인덱스 compaction | 덧붙이기 AuditEntry, escalate_to_github_issue, 재생 for reconstruction | 감사 체인 tamper 감지 | 모든 워크플로우 (감사) |
-| Mimir | rule-source 폴링, 회귀 모음, deprecation cycle | 룰 promote / 철회, cache-invalidation broadcast | freshness-score, stale-rule 감지 | 4, 6 (인계 -> 기능), 8, 11 |
+| Bragi | 만료 세션 정리, UserPreference 인덱스 리프레시 | NL 라우팅, multi-agent 집계, NL 렌더링 | planned intent-classifier retraining - exit: 모델 품질 학습 계약, 범위가 제한된 근거 corpus, 회귀/승격 gate, 감사 근거를 구현합니다 | 7, 10 (Retrospective what-if), 12 |
+| Saga | audit-chain 무결성 self-check, Mimir 승격 근거로 gated되는 issue-close 검사, 지문 인덱스 compaction | 덧붙이기 AuditEntry, escalate_to_github_issue, 재생 for reconstruction | 감사 체인 tamper 감지 | 모든 워크플로우 (감사) |
+| Mimir | planned rule-source polling, regression suite, deprecation cycle - exit: scheduled maintenance가 범위가 제한된 no-op 또는 감사 근거를 기록합니다 | 룰 promote / 철회, cache-invalidation broadcast | freshness-score, stale-rule 감지 | 4, 6 (인계 -> 기능), 8, 11 |
 | Muninn | 스냅샷 교대, RAG 인덱스 재구축, 캐시 제거, case-history 보존 | Forseti 를 위한 맥락 fetch, 변경할 수 없는 변경 개정 번호 저장, Bragi 를 위한 상태 조회, 보존 틱 적용 | trending-query pre-warm, 온톨로지 교차 검증 | 판단을 touch 하는 모든 워크플로우 지원 |
-| Norns | 시간당 배치 감사 분석, 스트리밍 pattern 추출 | pattern 신호, RuleCandidate publish, close_issue 신호 | 모델 성능 표류 감지 | 4, 6, 8 (Judgment coherence), 10 |
+| Norns | 시간당 배치 감사 분석, 스트리밍 pattern 추출 | pattern 신호, RuleCandidate publish; planned close_issue signal - exit: Norns가 이슈를 변경하지 않고 Saga 소유 이슈 종료를 위한 비활성 적격성 신호를 냅니다 | 모델 성능 표류 감지 | 4, 6, 8 (Judgment coherence), 10 |
 | Njord | 비용 인제스트 (daily), 예산 모니터, 비용 forecasting | 범위가 제한된 비용 샘플 -> anomaly, 시작할 때 수락된 보존 완료 USD 기준선을 복원하되 과거 finding은 다시 게시하지 않음, 예산 breach 경보, cost-advisor 조회 | RI / SP 최적화 제안 | 1, 2 |
-| Freyr | 사용률 샘플링, 용량 forecasting, sizing 분석 | 범위가 제한된 사용률 샘플 -> 예측, 규모 제안, 용량 advisor 조회 | 다차원 용량 (CPU + IOPS + net + mem) | 2, 3 |
-| Loki | chaos-experiment 스케줄, resilience-score 리프레시 | 범위가 제한된 예약 트리거 -> 항상-HIL 실험 제안, 범위가 제한된 정규화 score Event -> 검증된 cross-vertical 후보, blast-radius 계산 | adversarial 시나리오 생성 (T2, off-path) | 3, 9 |
+| Freyr | planned recurring utilization sampling plus implemented capacity forecasting and sizing analysis - exit: 스케줄러가 범위가 제한된 forecast와 shadow/HIL scale proposal만 냅니다 | 범위가 제한된 사용률 샘플 -> 예측, 용량 advisor 조회; planned scale proposal - exit: governed advisory-to-verdict path가 shadow/HIL 제안을 냅니다 | 다차원 용량 (CPU + IOPS + net + mem) | 2, 3 |
+| Loki | planned chaos-experiment scheduling plus implemented resilience-score refresh - exit: 결정론적 스케줄러가 완전한 always-HIL 제안 또는 보이는 no-op hold를 냅니다 | 범위가 제한된 예약 트리거 -> 항상-HIL 실험 제안, 범위가 제한된 정규화 score Event -> 검증된 cross-vertical 후보, blast-radius 계산 | planned adversarial scenario generation - exit: 범위가 제한된 off-path 설계, 회귀, 감사 계약을 구현합니다. 현재 LLM binding은 없습니다 | 3, 9 |
 
 ### 4.2 Per-agent KPI (성공과 성능 저하 신호)
 
@@ -304,7 +305,7 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 | Forseti 판정 coherence | T0 (SQL) + T1 (임베딩) | 과거 판정 는 구조화된 감사 로그 |
 | Var assisted 결정 | T0 (링크 유사 사례) + T2 (요약, off-path) | 카드는 요약 carry; 사람이 결정 |
 | Huginn 스키마 학습 | T1 (배치 clustering) + T2 for 승격 | 실시간 정규화는 T0 유지 |
-| Loki adversarial | T2 (off-path) | 시나리오 생성 LLM OK; 실행은 결정론적 |
+| Loki adversarial | planned (현재 LLM binding 없음) | exit: 범위가 제한된 off-path 설계, 회귀, 감사 계약을 구현합니다. 실행은 결정론적이고 HIL-gated 상태를 유지합니다 |
 
 명시된 LLM 호출 경계는 Bragi 변환, Forseti T2 판단 보류, Norns의 응답 경로 밖 배치입니다. 다른 주요 실행 경로에 LLM 호출을 추가하면 이 정책을 위반합니다.
 
@@ -492,7 +493,13 @@ fingerprint = sha256(
 
 - **최초 발생** 은 라벨 `fdai:fp:<hash>` 로 issue 생성.
 - **반복 발생**은 같은 이슈에 새 `correlation_id`와 맥락으로 댓글을 남깁니다. 본문은 `first_seen`, `last_seen`, `occurrence_count`를 유지하고 댓글은 각 재발을 기록합니다.
-- **자동 종료**에는 지문을 해결하는 규칙/기능의 Mimir 승격과 24시간 회귀 테스트 통과가 필요하며 종료 댓글은 승격 PR을 연결합니다. 수동 종료도 허용합니다.
+- **자동 종료**는 해결된 `problem_fingerprint`, 승격 PR, `clean_regression_started_at`을
+  포함한 승격 근거를 Mimir가 게시하기 전까지 비활성입니다. 그 근거가 있으면 Saga는
+  `clean_regression_started_at` 이후 24시간 동안 지문 재발이 없었음을 지문 인덱스
+  `last_seen`과 `occurrence_count`로 확인한 뒤에만 이슈를 닫을 수 있습니다. 그렇지 않으면
+  Saga는 이슈를 열어 두고 차단된 적격성을 기록합니다. 수동 종료도 허용합니다. Saga 상태는
+  Mimir 생산자가 생길 때까지 `issue_auto_close: awaiting_promotion_evidence_producer`를
+  노출합니다.
 
 지문 레이블은 해시만 담고 고객 식별자를 포함하지 않으며 상세 값은 포크의 이슈 추적기에 둡니다.
 
@@ -538,20 +545,25 @@ rollback_owner: Vidar
 proposed  (initiator agent)
   -> verdicted    (Forseti: auto | hil | deny)
     -> deny_dropped     (terminal; Saga 기록)
-    -> hil              (Var: approved | rejected | expired)
+    -> hil_pending      (Var: approved | rejected | approval expires)
       -> rejected       (terminal; Saga 기록)
-      -> expired        (terminal; Saga 기록)
       -> approved
-    -> auto             (Thor)
-  -> paused             (외부 hold: 유지보수 창)
   -> executing          (Thor)
+    -> execution_unknown (Thor: 모호한 dispatch 또는 재시작, 복구 필요)
     -> succeeded        (audit 후 terminal)
     -> failed
       -> rolled_back    (Vidar; audit 후 terminal)
-      -> compensated    (Thor + compensating action; audit 후 terminal)
+      -> rollback_failed (Vidar/Thor: rollback 실패 audit 후 terminal)
 ```
 
-모든 최종 상태는 종결 전에 `AuditEntry`를 씁니다. 감사 재생은 판단 전용이며 Saga는 과거 결정을 재구성할 뿐 다시 실행하지 않습니다.
+최종 `ActionRun` 게시는 Thor가 최종 이벤트를 게시한 뒤 Saga가 감사합니다. Enforce 모드 executor
+I/O는 설정된 경우 Thor의 실행 전 Saga 감사 receipt도 요구합니다. Shadow 최종 성공은 변경하지
+않으며 Saga의 게시 후 `object.audit-entry` 경로로 종결됩니다. 감사 재생은 판단 전용이며 Saga는
+과거 결정을 재구성할 뿐 다시 실행하지 않습니다.
+`approval_expires_at`은 `ActionRun`의 timestamp입니다. 만료는 별도 `expired` 상태가 아니라 만료
+근거가 있는 rejected run으로 표현됩니다. `auto`는 verdict/risk 어휘이고 `ActionRun` 상태가
+아닙니다. `paused`, `compensated`, `ActionAttempt`, 시도별 rollup, Saga 시도 감사는 §7.4의 exit
+condition이 충족될 때까지 planned-only 개념입니다.
 리소스가 활성 run 또는 승인 대기 run에 이미 점유되어 있거나, 다른 작업이 같은 상관관계를 다른 멱등성 키로 재사용하려고 하면 Thor는 보이는 최종 `ActionRun` 차단 결과를 기록합니다. 이 경우는 더 이상 dead-letter 큐로 조용히 사라지지 않습니다.
 Thor는 실행 전이 전에 verdict 위험 어휘와 정족수 필드도 검증합니다. 알 수 없는 위험 단어나
 잘못된 정족수 값은 범위가 제한된 동작 근거를 가진 보이는 비실행 차단 결과가 됩니다.
@@ -566,7 +578,9 @@ no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 �
 2. **판정 시.** Forseti가 스키마, 정책, what-if/예행 실행을 다시 확인하고 실패하면 `deny` 또는 `hil`로 낮춥니다.
 3. **실행 시.** Verdict, `ActionRun`, Approval, 감사에서 매개 변수를 바꾸지 않으며 Thor가 변경 전에 재검증하여 대상 상태 경합을 확인합니다.
 
-작업별 `action_run_id`와 시도별 `attempt_id`가 멱등성 키입니다. 같은 키로 다시 게시하면 실행기는 no-op 처리하고 중복을 감사합니다.
+구현된 수명 주기 안정 신원은 안정적인 게시 payload에서 파생되는 `action_run_identity()`입니다.
+`idempotency_key`는 같은 작업 재게시를 위한 executor no-op 키로 남습니다. 같은 키로 다시
+게시하면 실행기는 no-op 처리하고 중복을 감사합니다.
 상관관계 재사용도 실행 시 검증합니다. 같은 작업 신원의 재시도는 멱등성을 유지하지만, 같은 상관관계 아래 다른 작업은 모호한 dispatch가 아니라 감사 가능한 최종 차단 결과가 됩니다.
 Thor는 `ActionRun`을 만들거나 영속화하기 전에 verdict 매개 변수를 범위 제한합니다. 너무 크거나
 깊게 중첩되었거나 스키마에 맞지 않는 필드는 영속 실행기 맥락, 승인 맥락 또는 감사 자료가 되기
@@ -574,11 +588,16 @@ Thor는 `ActionRun`을 만들거나 영속화하기 전에 verdict 매개 변수
 
 ### 7.4 영향 범위 와 배치 시맨틱
 
-`blast_radius > 1`인 ActionType은 대상마다 독립적인 `ActionAttempt`를 만들고 `resource_id`로 분할합니다. 실패는 다음과 같이 격리합니다:
+구현된 모델은 하나의 `resource_id`에 대해 하나의 `ActionRun`을 게시하며 `ActionAttempt`,
+`attempt_id`, 타입이 지정된 시도별 rollup 필드를 노출하지 않습니다. 배치 시맨틱은 planned입니다.
+Exit condition: multi-target ActionType이 독립 attempt 신원, 대상별 rollback 격리, 타입이 지정된
+rollup 필드, Saga의 시도별 및 rollup 감사 항목을 생성합니다. 그전까지 `blast_radius > 1`인
+ActionType은 검토로 보류하거나 별도 single-resource run으로 나누는 것이 좋습니다. Planned 실패
+격리:
 
-- 실패한 시도 는 자기 타깃만 롤백.
-- 형제 성공은 undo 되지 않음; rollup `ActionRun` 이 mix 를 기록.
-- Saga 는 per-attempt 항목 와 rollup 항목 를 모두 쓰기.
+- 실패한 시도는 자기 타깃만 롤백합니다.
+- 형제 성공은 취소되지 않으며 rollup `ActionRun`이 혼합 결과를 기록합니다.
+- Saga는 시도별 항목과 rollup 항목을 모두 씁니다.
 
 파티션 키는 리소스별 순서만 보존하며 리소스 간 순서는 보장하지 않습니다.
 
@@ -650,7 +669,7 @@ Shadow에서 enforce로 승격하려면 승격 게이트를 통과한 뒤 별도
 
 ### 7.9 에이전트 별 비율 한도
 
-각 에이전트는 기본값 `20 proposals/minute`, `100 proposals/hour`인 `rate_limits`를 선언합니다. 런타임 적용은 고정 버킷이 아니라 sliding window를 사용하므로 경계 시점 burst가 유효 비율을 두 배로 만들지 않습니다. 초과 제안은 범위가 제한된 큐에 넣고 큐가 넘치면 `RateLimitExceeded` 감사와 함께 폐기하여 Saga와 Norns가 급증 원인을 학습하도록 합니다. 포크는 이 수치를 설정할 수 있습니다.
+각 에이전트는 기본값 `20 proposals/minute`, `100 proposals/hour`인 `rate_limits`를 선언합니다. 런타임 적용은 고정 버킷이 아니라 sliding window를 사용하므로 경계 시점 burst가 유효 비율을 두 배로 만들지 않습니다. 초과 제안은 범위가 제한된 큐에 넣고 큐가 넘치면 `rate_limit_exceeded` 감사 항목과 함께 폐기하여 Saga와 Norns가 급증 원인을 학습하도록 합니다. 포크는 이 수치를 설정할 수 있습니다.
 
 ## 8. 에이전트 별 LLM 정책
 

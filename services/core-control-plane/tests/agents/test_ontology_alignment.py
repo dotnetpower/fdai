@@ -62,6 +62,21 @@ def test_agent_yaml_declares_expected_properties() -> None:
         assert expected in props, f"Agent.yaml missing property {expected!r}"
 
 
+def test_documented_fork_customization_seams_exist_in_runtime_contract() -> None:
+    """Fork-facing agent seams stay represented by ontology and AgentSpec fields."""
+
+    props = _load_yaml()["properties"]
+    assert props["llm_bindings"]["type"] == "array"
+    assert props["rate_limits"]["type"] == "object"
+    assert props["enabled"]["type"] == "boolean"
+
+    for spec in PANTHEON_SPECS:
+        assert hasattr(spec, "hot_path_llm")
+        assert hasattr(spec, "off_path_llm")
+        assert spec.rate_limits.per_minute > 0
+        assert spec.rate_limits.per_hour >= spec.rate_limits.per_minute
+
+
 def test_pantheon_names_are_ascii_capitalized() -> None:
     for name in PANTHEON_NAMES:
         assert name.isascii(), f"{name!r} is not ASCII"

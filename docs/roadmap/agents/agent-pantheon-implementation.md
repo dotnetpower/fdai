@@ -283,6 +283,11 @@ resource claims require the same correlation, idempotency key, and action finger
 Long-lived agents page durable recovery state in bounded slices before they accept replayed work.
 Per-key locks are reference-counted or reclaimed after terminal completion, so an evicted or
 completed key cannot leave an unbounded process-local lock behind.
+The in-process bus, testing bus, and local bus keep bounded retained envelopes and dead letters;
+abandoned consumer groups expire rather than accumulating indefinitely. Maintenance ticks coalesce
+when a prior tick is still running, so slow health work cannot create an unbounded backlog. Redrive
+loads dead-letter batches through explicit caps and records any remaining backlog for the next
+operator action instead of draining without a bound.
 
 ### Conversational action re-entry
 
@@ -382,6 +387,9 @@ mode.
   letter cannot be written, so a later effect cannot overtake a failed earlier effect.
 - DLQ redrive is an explicit operator action. DLQ write failure is counted and isolated from healthy
   consumers, except for ordered consumers where the halt preserves stream order.
+- DLQ redrive is batch-bounded and preserves owner, schema, envelope, and partition validation on
+  every record. A redrive batch that reaches its cap leaves the rest parked with observable backlog
+  evidence instead of looping until empty.
 - Proposal budgets reserve capacity, publish the proposal, and then commit the reservation. The
   durable limiter uses atomic CAS reservations across replicas and releases the reservation on
   failure or cancellation.
@@ -390,8 +398,22 @@ mode.
   handler retries, duplicate-delivery simulation, and ordered poison halt for mutation topics.
 - Remaining local-bus gaps are intentional: delivery stays sequential and in-process, with no
   concurrency across topics and no broker-level partition rebalancing.
+- Local and test bus retention is finite. Old accepted envelopes, dead letters, and abandoned
+  consumer-group state expire under explicit bounds; this keeps parity tests deterministic without
+  pretending the local bus is a production broker.
 - Agent publication uses the `PantheonBus` protocol, so runtime composition can replace delivery
   adapters without changing role or authority contracts.
+
+### Health, KPI, and digest evidence
+
+Health and KPI snapshots distinguish measured values from unavailable evidence. Missing,
+stale, incomplete, or degraded samples render `value: null` with an evidence state and degradation
+facts; promotion gates treat that as failure, not as zero or success. Coverage claims are
+measured-only: workflow 7 reports degradation facts for unavailable or stale measurements rather
+than extrapolating from synthetic traces. Freyr capacity freshness follows the same rule: a gap in
+fresh utilization evidence blocks automatic graduation and records the freshness gap instead of
+reusing an old sample. Saga audit digests use strict canonical JSON over finite JSON-native values;
+non-JSON values, NaN, Infinity, or process-specific renderings are held rather than hashed.
 
 ## Governance and rollback
 

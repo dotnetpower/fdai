@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: f882988f989290cabd345c40597b6a826db1d003
+translation_source_sha: 458805678ae882fc1359712f9c0c6f0ce1d2f795
 translation_revised: 2026-09-30
 ---
 
@@ -282,6 +282,11 @@ translation_revised: 2026-09-30
 장기간 실행되는 에이전트는 재생된 작업을 받기 전에 영속 복구 상태를 범위가 제한된 페이지로
 읽습니다. 키별 잠금은 참조 수를 추적하거나 최종 완료 뒤 회수하므로, 축출되었거나 완료된 키가
 범위 없이 프로세스 로컬 잠금을 남기지 않습니다.
+In-process bus, testing bus, local bus는 보존된 묶음과 dead letter를 범위 안에 둡니다.
+버려진 consumer group 상태는 제한 없이 쌓이지 않고 만료됩니다. 이전 tick이 아직 실행 중이면
+maintenance tick은 합쳐지므로 느린 상태 작업이 무제한 backlog를 만들지 않습니다. Redrive는
+명시적 cap을 적용한 dead-letter batch를 읽고 남은 backlog를 다음 운영자 작업의 근거로
+기록합니다.
 
 ### 대화형 액션 재진입
 
@@ -379,6 +384,9 @@ Thor는 모든 프로필에서 이 사유를 가진 ActionType 없는 판정을 
   dead-letter를 쓸 수 없으면 중단하므로 나중 효과가 실패한 이전 효과를 앞지를 수 없습니다.
 - DLQ redrive는 명시적 운영자 작업입니다. DLQ 쓰기 실패는 집계하며 정상 소비자와 격리합니다.
   단, 순서가 있는 소비자는 스트림 순서를 보존하기 위해 중단합니다.
+- DLQ redrive는 batch 범위가 제한되며 모든 레코드에서 소유자, 스키마, 묶음, 파티션 검증을
+  보존합니다. Redrive batch가 cap에 도달하면 나머지는 빈 상태가 될 때까지 loop하지 않고
+  관측 가능한 backlog 근거와 함께 보관합니다.
 - 제안 예산은 용량을 예약하고 제안을 게시한 뒤 예약을 확정합니다. 영속 제한기는 복제본
   전체에서 원자적 CAS 예약을 사용하고 실패나 취소 시 예약을 해제합니다.
 - `InMemoryBus`는 로컬 검사에 parity가 필요한 범위에서 프로덕션 브리지와 동일한 묶음,
@@ -386,8 +394,22 @@ Thor는 모든 프로필에서 이 사유를 가진 ActionType 없는 판정을 
   handler retry, duplicate-delivery simulation, 변경 토픽의 ordered poison halt를 포함합니다.
 - 남은 로컬 버스 차이는 의도적입니다. 전달은 순차적이고 in-process이며, 토픽 간 동시성이나
   broker 수준 partition rebalancing은 없습니다.
+- 로컬 및 테스트 bus retention은 범위가 제한됩니다. 오래된 accepted envelope, dead letter, abandoned
+  consumer-group 상태는 명시적 한도 아래에서 만료됩니다. 이렇게 해서 로컬 bus를 프로덕션
+  broker로 가장하지 않으면서 parity 검사를 결정론적으로 유지합니다.
 - 에이전트 게시는 `PantheonBus` 프로토콜을 사용하므로 런타임 조립에서 역할이나 권한 계약을
   바꾸지 않고 전달 어댑터를 교체할 수 있습니다.
+
+### 상태, KPI, digest 근거
+
+상태와 KPI 스냅샷은 측정된 값과 사용할 수 없는 근거를 구분합니다. 누락, stale, incomplete,
+degraded sample은 `value: null`과 근거 상태 및 성능 저하 사실을 함께 렌더링합니다. 승격 gate는
+이를 0이나 성공이 아니라 실패로 처리합니다. Coverage claim은 측정된 값만 사용합니다. Workflow
+7은 synthetic trace에서 추정하지 않고 사용할 수 없거나 stale한 measurement에 대해 성능 저하
+사실을 보고합니다. Freyr capacity freshness도 같은 규칙을 따릅니다. 새로운 utilization 근거의
+gap은 자동 graduation을 차단하고 오래된 sample을 재사용하는 대신 freshness gap을 기록합니다.
+Saga audit digest는 유한한 JSON-native 값의 엄격한 canonical JSON을 사용합니다. JSON이 아닌 값,
+NaN, Infinity, 프로세스별 rendering은 hash하거나 표시하지 않고 보류합니다.
 
 ## 거버넌스와 롤백
 

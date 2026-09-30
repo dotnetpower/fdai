@@ -189,12 +189,20 @@ def test_registry_lookup_owner_of_topic() -> None:
 
 def test_publish_authorization_accepts_owner() -> None:
     reg = load_pantheon()
-    # Owner is allowed
-    reg.assert_can_publish("Thor", "object.action-run")
-    reg.assert_can_publish("Forseti", "object.verdict")
-    reg.assert_can_publish("Saga", "object.audit-entry")
-    reg.assert_can_publish("Bragi", "object.handoff-escalation")
-    reg.assert_can_publish("Heimdall", "object.retrieval-validation")
+    expected_owner_by_topic = {
+        "object.action-run": "Thor",
+        "object.verdict": "Forseti",
+        "object.audit-entry": "Saga",
+        "object.handoff-escalation": "Bragi",
+        "object.retrieval-validation": "Heimdall",
+    }
+    for topic, owner in expected_owner_by_topic.items():
+        assert reg.owner_of_topic(topic) == owner
+        reg.assert_can_publish(owner, topic)
+
+    reg._owner_of_topic["object.action-run"] = "Loki"  # type: ignore[attr-defined]
+    with pytest.raises(PantheonRegistryError, match="not the owner"):
+        reg.assert_can_publish("Thor", "object.action-run")
 
 
 def test_publish_authorization_rejects_non_owner() -> None:
