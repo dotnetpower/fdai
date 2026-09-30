@@ -41,6 +41,9 @@ class QueryManifest:
     unavailable: tuple[dict[str, str], ...]
     manifest_digest: str
     coverage_receipt: StructuralCoverageReceipt
+    # Reviewed ObjectType descriptions, by name, for choosers that pick a type by meaning.
+    # They are a function of the release the digest binds and never enter a plan prompt.
+    object_labels: tuple[tuple[str, str], ...] = ()
 
 
 def build_query_manifest(
@@ -89,6 +92,7 @@ def build_query_manifest(
 
     descriptors: list[dict[str, Any]] = []
     unavailable: list[dict[str, str]] = []
+    object_labels: list[tuple[str, str]] = []
     readable_count = 0
     for key, declaration_ref in sorted(
         declarations.items(), key=lambda item: (item[0][0].value, item[0][1])
@@ -122,6 +126,8 @@ def build_query_manifest(
         )
         if reason is None:
             descriptors.append(descriptor)
+            if isinstance(declaration, OntologyObjectType) and declaration.description:
+                object_labels.append((declaration.name, declaration.description.strip()))
         else:
             unavailable.append(
                 {
@@ -170,6 +176,7 @@ def build_query_manifest(
         unavailable=unavailable_tuple,
         manifest_digest=manifest_digest,
         coverage_receipt=coverage_receipt,
+        object_labels=tuple(sorted(object_labels)),
     )
 
 

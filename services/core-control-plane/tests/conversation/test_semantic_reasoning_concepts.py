@@ -353,3 +353,23 @@ def test_two_blind_choosers_bind_only_the_values_they_agree_on() -> None:
         assert binding.reason == "concept_disagreement:resource_type"
         assert binding.values == ()
     assert neither.bindings == (missing,)
+
+
+def test_choosers_see_reviewed_object_type_descriptions_as_labels() -> None:
+    manifest = production_manifest()
+    labels = dict(manifest.object_labels)
+
+    catalog = concept_catalogs(manifest.descriptors, object_labels=labels)[
+        MentionDomain.OBJECT_TYPE
+    ]
+    by_value = {candidate.values[0]: candidate for candidate in catalog}
+
+    # Resource and ResourceType differ by meaning, which each reviewed description states.
+    assert labels["Resource"] and labels["ResourceType"]
+    assert by_value["Resource"].labels == ("Resource", labels["Resource"])
+    assert by_value["ResourceType"].labels == ("ResourceType", labels["ResourceType"])
+    # The label is context only: the candidate still binds exactly its own name.
+    assert by_value["Resource"].values == ("Resource",)
+    # Without descriptions the catalog keeps name-only labels.
+    plain = concept_catalogs(manifest.descriptors)[MentionDomain.OBJECT_TYPE]
+    assert all(candidate.labels == candidate.values for candidate in plain)

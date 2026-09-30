@@ -121,9 +121,17 @@ ConceptChooser = Callable[[str, tuple[dict[str, Any], ...], ConceptShard], Mappi
 
 def concept_catalogs(
     descriptors: Sequence[Mapping[str, Any]],
+    *,
+    object_labels: Mapping[str, str] | None = None,
 ) -> dict[MentionDomain, tuple[ConceptCandidate, ...]]:
-    """Return complete candidate catalogs for the domains the manifest declares."""
+    """Return complete candidate catalogs for the domains the manifest declares.
 
+    ``object_labels`` holds reviewed ObjectType descriptions; each follows its name as a
+    label, so a chooser can tell Resource from ResourceType by meaning. A label is context
+    for the chooser, never a lookup key.
+    """
+
+    described = object_labels or {}
     catalogs: dict[MentionDomain, tuple[ConceptCandidate, ...]] = {}
     objects = sorted(
         str(item["name"])
@@ -131,7 +139,12 @@ def concept_catalogs(
         if item.get("kind") == "object" and item.get("name")
     )
     catalogs[MentionDomain.OBJECT_TYPE] = tuple(
-        ConceptCandidate(id=f"object:{name}", values=(name,), labels=(name,)) for name in objects
+        ConceptCandidate(
+            id=f"object:{name}",
+            values=(name,),
+            labels=(name, described[name]) if described.get(name) else (name,),
+        )
+        for name in objects
     )
     kinds = sorted({str(item.get("kind")) for item in descriptors} & set(_DECLARATION_KINDS))
     catalogs[MentionDomain.DECLARATION_KIND] = tuple(

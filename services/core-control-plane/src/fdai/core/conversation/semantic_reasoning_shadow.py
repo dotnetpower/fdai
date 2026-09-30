@@ -290,7 +290,7 @@ async def run_reasoning_shadow(
     passes: list[ShadowPass] = []
     compilations: list[ReasoningCompilation] = []
     prior_goals: tuple[dict[str, Any], ...] = ()
-    catalogs = concept_catalogs(manifest.descriptors)
+    catalogs = concept_catalogs(manifest.descriptors, object_labels=dict(manifest.object_labels))
     pending = False
     notes: list[str] = []
     accounting = SpanAccounting(required=account_spans)
