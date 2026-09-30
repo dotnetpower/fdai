@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 27fbb2b9f102aa1ed11dca0d3fd87c167495f5fe
+translation_source_sha: 091c3baadbe3b48088f11d7993e929711b63eb2d
 translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
@@ -278,6 +278,11 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 
 공통 규칙:
 
+- **느린 프로바이더와 실행기 대기는 범위가 제한됩니다**. 멈춘 감사 기록기, 아키텍처 검토기,
+  롤백 실행기, 전문 에이전트 프로바이더 또는 핸들러 후크는 브리지 취소만 안전 경로로 삼지
+  않고 `execution_unknown`, 보류 또는 사람 승인 (HIL) 검토 같은 가시적인 실패 시 안전한
+  결과로 끝납니다. Thor는 해당 리소스의 느린 실행 뒤에서 기다리지 않고 영속 리소스 점유를
+  기준으로 같은 리소스 경합을 즉시 보고합니다.
 - **Saga와 Vidar는 변경의 필수 의존성**입니다. 최종 소비자/상태 실패는 재시작 전까지 sticky shadow를 강제합니다. Noncritical 최종 소비자는 해당 에이전트만 degrade하고 형제는 계속 실행하며 상태는 false 하트비트 대신 exact 에이전트/토픽 상태를 기록합니다. Unified 동시성 테스트는 15개 소비자 신원과 same-topic non-stealing 동시 확산을 pin합니다.
 - **판단자 / 실행자 / 감사자 triad 중 하나라도 누락** 시 새 변경 을
   shadow 로 강등.

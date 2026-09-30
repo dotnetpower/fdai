@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 9d296d2152caf0e9e1d7c7cd7b912ceec1f6bcc3
+translation_source_sha: 23ed112a1fe78159200a92d36db0a422759bcb32
 translation_revised: 2026-09-30
 ---
 
@@ -203,6 +203,19 @@ Terraform 계획은 검토 입력이 아닙니다.
 유지합니다. 압축은 알려진 모든 구독 그룹이 해당 기록 이후로 진행한 뒤에만 기록을 제거하므로,
 느린 구독 그룹은 아직 소비하지 않은 트래픽을 잃지 않습니다. 나중에 구독한 그룹은 보존된 구간에서
 시작하며 그 범위 안에 아직 남아 있는 기록을 재생합니다.
+
+Pantheon 조립은 소유자 로컬 복구를 위한 선택적 영속 `StateStore` 경계를 노출합니다.
+`forseti_state_store`, `bragi_state_store`, `odin_state_store`,
+`proposal_rate_limit_state_store`, `ordered_poison_halt_state_store`, `heimdall_state_store`,
+`njord_state_store`, `freyr_state_store`가 그 경계입니다. 프로덕션은 거버넌스 및 전문
+에이전트 저장소를 인시던트 감사 저장소에 연결하지만, ordered poison halt는 운영자가 지울 수
+있는 표면이 생길 때까지 명시적 선택으로 유지합니다. 이 경계는 고정된 에이전트 소유자를 보존하며
+판단, 승인, 실행, 감사 또는 게시 권한을 추가하지 않습니다.
+
+`services/core-control-plane/src/fdai/agents/_framework/runtime.py`는 계속 `PantheonRuntime`
+조립 경계입니다. 읽기 전용 대화 포트 파사드는 비공개
+`services/core-control-plane/src/fdai/agents/_framework/runtime_conversation.py` 도우미에 위임되어
+런타임 경계를 작게 유지하면서 공개 가져오기 표면이나 새 권한 경로를 만들지 않습니다.
 
 시작 준비 상태의 프로바이더 중립 실행 예산, 탐색 시간 제한 및 파생 근거 수명은 `core/readiness`가
 소유합니다. 런타임은 범위가 제한된 새로 고침을 예약하고 기존 만료 시점에 처리를 닫으며, Thor가

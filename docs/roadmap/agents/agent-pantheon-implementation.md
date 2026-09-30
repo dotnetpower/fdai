@@ -153,6 +153,14 @@ These runtime contracts preserve the fixed role boundaries in [Agent Pantheon](a
 They provide restart and concurrency safety but do not grant judgment, approval, execution, audit,
 recovery, or publication authority to a different agent.
 
+#### Durable outbox rule
+
+Every owner-local durable outbox follows the same retry contract: write a pending intent with the
+stable idempotency key, publish the owned event, and only then mark the intent published. Startup
+recovery republishes pending intents with the same idempotency key, so delivery is at-least-once and
+consumers rely on their own idempotency fences instead of a best-effort broker acknowledgement.
+Cancelled publish-to-mark windows are treated as replayable, not as proof that the work completed.
+
 #### Tier, approval, and command identity
 
 - The authority ceiling evaluates an action at its actual originating T0, T1, or T2 tier. A
@@ -186,6 +194,9 @@ recovery, or publication authority to a different agent.
   generation as completed. Var scopes decision and final records by this identity, echoes it with
   explicit action fields, and Thor rejects a stale approval before execution. Thor and Var also
   claim the correlation for this identity; a different idempotency generation cannot reuse it.
+- Restart never resurrects expired approval windows. Thor closes an approval that elapsed while the
+  process was down with the same visible fail-closed expiry outcome it uses during live
+  maintenance, so a resource is not held by a stale human-approval ticket.
 
 #### Rollback claims and terminal replay
 
@@ -203,6 +214,23 @@ recovery, or publication authority to a different agent.
 - Vidar scopes claim, terminal, and publication records by the same ActionRun identity and echoes it
   with action type, resource, and rollback contract. Thor ignores a stale or mismatched rollback
   without changing the current run or releasing its claim.
+
+#### Arbitration, narration, audit, and specialist replay
+
+- Forseti persists pending arbitration context, cross-vertical candidate deadlines, completed
+  candidate fences, and arbitration completion markers. After restart it can consume Odin's stored
+  decision, close unresolved cases visibly, and avoid emitting a second completion for the same
+  arbitration.
+- Bragi persists conversation, handoff, and turn outboxes with arrival-ordered turn reservations, so
+  a slow responder or broker publish cannot reorder a session transcript after recovery.
+- Saga's audit chain resumes from the durable head. It checkpoints mutation, publication, and
+  completion before consumers start, so the local audit mirror does not fork a new chain after a
+  restart.
+- Odin stores the per-correlation arbitration decision fence. A redelivered arbitration request
+  replays the original decision instead of asking Odin to rank the same case again.
+- Heimdall, Njord, and Freyr recover their observation, advisory, and forecast fences from the
+  injected store before accepting replayed source events, so redelivery can complete unfinished
+  publications without advancing duplicate windows or stale baselines.
 
 #### Durable handoff and learning
 
@@ -233,10 +261,13 @@ recovery, or publication authority to a different agent.
 `StateStore` exposes one removal primitive: `delete_states_beyond(prefix, retain_newest)`. It drops
 the oldest rows past a projection bound in the same order returned by `read_states`. It cannot name
 one key, so it cannot erase an authoritative record or audit entry. Enforcement composition
-requires explicit `thor_state_store`, `vidar_state_store`, and `var_state_store` bindings. Production
-provides the durable Thor store in shadow and enforce modes whenever Var recovery is durable, so an
-incomplete quorum and its matching ActionRun resume together. Enforcement still requires every
-exact agent-owned binding before process-local approval or rollback state can be used. An inactive
+requires explicit `thor_state_store`, `vidar_state_store`, `var_state_store`, and
+`forseti_state_store` bindings. Production provides the durable Thor store in shadow and enforce
+modes whenever Var recovery is durable, and it binds the optional governance and specialist stores
+to the incident audit store: `forseti_state_store`, `bragi_state_store`, `odin_state_store`,
+`proposal_rate_limit_state_store`, `heimdall_state_store`, `njord_state_store`, and
+`freyr_state_store`. `ordered_poison_halt_state_store` remains opt-in until an operator clear
+surface exists. Enforcement still requires every exact agent-owned binding before process-local approval or rollback state can be used. An inactive
 Thor row retains its stable idempotency generation. The same generation remains suppressed, while a
 different generation fails closed, including pre-campaign tombstones whose generation is unknown.
 Active rows are validated before resource claim, lifecycle-rank suppression, or execution. Released
@@ -306,6 +337,14 @@ mode.
 | `thor_state_store` | Rehydrates non-terminal ActionRuns, preserves resource locks after restart, and holds advisory arbitration correlations with terminal non-action claims. |
 | `vidar_state_store` | Persists rollback claims, owner leases, fencing revisions, and terminal receipts. |
 | `var_state_store` | Persists approval decisions, final payloads, and publication checkpoints. |
+| `forseti_state_store` | Persists judgment ceilings, arbitration context, cross-vertical candidate deadlines, and completion markers. Required for enforce composition. |
+| `bragi_state_store` | Persists conversation, handoff, and turn outboxes so session recovery preserves arrival order and republishes pending conversational records. |
+| `odin_state_store` | Persists arbitration decision fences and replays the original decision for a redelivered request. |
+| `proposal_rate_limit_state_store` | Persists proposal budget windows and atomic reservations across replicas. |
+| `ordered_poison_halt_state_store` | Optionally persists ordered-consumer poison halts. Production leaves it unbound until an operator clear surface exists. |
+| `heimdall_state_store` | Persists observation windows, alert budgets, relay outboxes, and effect-observation replay fences. |
+| `njord_state_store` | Persists cost sample fences, stale-sample guards, and advisory baselines. |
+| `freyr_state_store` | Persists capacity sample fences, smoothing state, forecast outboxes, and cost evidence used by capacity graduation. |
 | `muninn_state_store` | Backs Muninn projections, Saga issue state, and Norns handoff-learning recovery. |
 | `payload_validator` | Rejects malformed publications at the provider boundary. |
 | Consumer restart bounds | Apply exponential backoff and a finite restart cap without cancelling siblings. |
@@ -325,10 +364,16 @@ mode.
   topics.
 - Published envelopes carry producer, schema, correlation, and idempotency metadata. Consumer-side
   ownership checks dead-letter an impostor publisher before handler delivery.
-- Handler retries and timeouts are bounded. Ordered mutation streams can halt on poison records so a
-  later effect cannot overtake a failed earlier effect.
+- Handler retries and per-topic timeouts are bounded. Handlers can mark short cooperative
+  cancellation-safe critical sections, so a wedged handler still times out while a durable commit
+  window can finish.
+- Observer callbacks and dead-letter writes are bounded. Ordered mutation streams halt when a dead
+  letter cannot be written, so a later effect cannot overtake a failed earlier effect.
 - DLQ redrive is an explicit operator action. DLQ write failure is counted and isolated from healthy
-  consumers.
+  consumers, except for ordered consumers where the halt preserves stream order.
+- Proposal budgets reserve capacity, publish the proposal, and then commit the reservation. The
+  durable limiter uses atomic CAS reservations across replicas and releases the reservation on
+  failure or cancellation.
 - `InMemoryBus` follows the same envelope, partition, timeout, and failure-isolation contract as the
   production bridge where local tests need parity. Options cover payload validation, bounded
   handler retries, duplicate-delivery simulation, and ordered poison halt for mutation topics.

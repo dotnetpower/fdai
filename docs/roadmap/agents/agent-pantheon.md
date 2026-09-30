@@ -276,6 +276,11 @@ behaviors. Anti-pattern §11 forbids collapsing these to nothing.
 
 Common rules:
 
+- **Slow provider and executor awaits are bounded**. A stuck audit recorder, architecture reviewer,
+  rollback executor, specialist provider, or handler hook ends in a visible fail-closed outcome such
+  as `execution_unknown`, a hold, or human-in-the-loop (HIL) review instead of relying on bridge
+  cancellation as the only safety path. Thor reports same-resource contention promptly from its
+  durable resource claim instead of waiting behind a slow execution for that resource.
 - **Saga and Vidar are hard dependencies** for mutation: terminal consumer or health failure forces sticky shadow until restart. Noncritical terminal consumers degrade only their agent; siblings continue and health records exact agent/topic state instead of a false live heartbeat. The unified concurrency test pins all 15 consumer identities and non-stealing same-topic fan-out.
 - **Any judge / executor / auditor triad missing** demotes new mutation to
   shadow.
