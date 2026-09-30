@@ -39,7 +39,7 @@ from .semantic_reasoning_form import (
     SubjectScope,
 )
 from .semantic_reasoning_handles import ReferenceReceipt, restricting_rows
-from .semantic_reasoning_lifecycle import lifecycle_predicate, parse_lifecycle
+from .semantic_reasoning_lifecycle import lifecycle_predicates, parse_lifecycle
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 
@@ -150,9 +150,9 @@ def endpoint_predicates(
     Each stated kind restriction narrows the others, so the subject kind and every
     type filter intersect; an empty intersection clarifies instead of widening. An
     empty value set is the explicit resources-in-general root and restricts nothing.
-    A single-valued property holds one value per row, so the regions or lifecycle
-    values that several filters state are read as one union, never as a conjunction
-    that no row can meet.
+    A single-valued property holds one value per row, so the regions, or the values of
+    one lifecycle property, that several filters state are read as one union, never as a
+    conjunction that no row can meet; distinct lifecycle properties restrict together.
     """
 
     type_sets: list[frozenset[str]] = [frozenset(extra_types)] if extra_types else []
@@ -194,10 +194,10 @@ def endpoint_predicates(
     if regions:
         predicates.append(_one_of("location", regions))
     if lifecycle:
-        predicate, reason = lifecycle_predicate(lifecycle, selector)
-        if predicate is None:
-            return [], OperatorResult(unsupported=(reason or "state_filter_domain_unsupported",))
-        predicates.append(predicate)
+        restrictions, reason = lifecycle_predicates(lifecycle, selector)
+        if reason is not None:
+            return [], OperatorResult(unsupported=(reason,))
+        predicates.extend(restrictions)
     required = sorted(frozenset.intersection(*type_sets)) if type_sets else []
     if type_sets and not required:
         return [], OperatorResult(clarify=("type_restrictions_disjoint",))

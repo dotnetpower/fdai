@@ -834,7 +834,8 @@ that names its ObjectType and property, so two blind choosers ground a state men
 states and those values together. A lifecycle value then compiles only as an exact predicate on the
 read of its own ObjectType, and a count of it is exact. A lifecycle value stated on another subject, a
 Resource state stated on another ObjectType, or a mention that mixes both returns a typed unsupported
-reason. Several stated lifecycle values read as one union because a row holds one value. V-SEM
+reason. A row holds one value of each property, so several stated values of one lifecycle property
+read as one union, and distinct lifecycle properties restrict together. V-SEM
 requires the predicate on every result read of that ObjectType, and V-PROV accepts the grounded values
 only on that ObjectType's read.
 

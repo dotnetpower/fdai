@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: edd893d9a0c86ebbdb290897ae7d365c7acc4f66
+translation_source_sha: 457554a9489d3123a929db9a12d0d0c853c6be6c
 translation_revised: 2026-09-30
 ---
 # 온톨로지 추론 컴파일러
@@ -842,8 +842,8 @@ reader도 같은 방식으로 확인하되, 그 행은 셀 수 있습니다.
 카탈로그에 들어가므로, 두 블라인드 선택자는 상태 언급을 Resource 상태와 이 값 전체에 대해 근거화합니다.
 수명 주기 값은 그 ObjectType 자신의 읽기에 대한 정확한 조건으로만 컴파일되며, 그 개수도 정확합니다.
 다른 주어에 밝힌 수명 주기 값, 다른 ObjectType에 밝힌 Resource 상태, 둘을 섞은 언급은 타입이 지정된
-지원되지 않음 이유를 돌려줍니다. 한 행의 값은 하나이므로 여러 수명 주기 값을 밝히면 하나의 합집합으로
-읽습니다. V-SEM은 그 ObjectType의 모든 결과 읽기에 그 조건을 요구하고, V-PROV는 그 ObjectType의 읽기에서만
+지원되지 않음 이유를 돌려줍니다. 한 행은 속성마다 값이 하나이므로, 한 수명 주기 속성의 값을 여러 개
+밝히면 하나의 합집합으로 읽고, 서로 다른 수명 주기 속성은 함께 제한합니다. V-SEM은 그 ObjectType의 모든 결과 읽기에 그 조건을 요구하고, V-PROV는 그 ObjectType의 읽기에서만
 근거화된 값을 받습니다.
 
 ## 승인된 결정

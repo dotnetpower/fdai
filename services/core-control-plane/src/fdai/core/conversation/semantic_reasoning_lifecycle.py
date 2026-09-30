@@ -64,29 +64,33 @@ def lifecycle_values(descriptors: Sequence[Mapping[str, Any]]) -> tuple[Lifecycl
     return tuple(sorted(found, key=lambda value: value.concept))
 
 
-def lifecycle_predicate(
+def lifecycle_predicates(
     concepts: Sequence[str], selector: str
-) -> tuple[dict[str, Any] | None, str | None]:
-    """Return the exact predicate for grounded lifecycle concepts on ``selector``.
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Return one exact predicate per lifecycle property the concepts restrict on ``selector``.
 
-    ``(None, None)`` means the concepts name no lifecycle value; a reason means they
-    mix lifecycle values with other states or name another ObjectType's lifecycle.
+    A row holds one value of each property, so the values stated for one property read
+    as a union and the properties restrict together. A reason means the concepts mix
+    lifecycle values with other states or name another ObjectType's lifecycle.
     """
 
     parsed = [parse_lifecycle(item) for item in concepts]
-    if not any(parsed):
-        return None, None
     if not all(parsed):
-        return None, "state_filter_domain_unsupported"
-    values = [item for item in parsed if item is not None]
-    targets = {(item.object_type, item.property_name) for item in values}
-    if len(targets) != 1 or next(iter(targets))[0] != selector:
-        return None, "state_filter_subject_mismatch"
-    ((_object_type, property_name),) = targets
-    stated = sorted({item.value for item in values})
-    if len(stated) == 1:
-        return {"property": property_name, "operator": "equals", "equals": stated[0]}, None
-    return {"property": property_name, "operator": "in", "values": stated}, None
+        return [], "state_filter_domain_unsupported"
+    stated: dict[str, set[str]] = {}
+    for item in parsed:
+        if item is None or item.object_type != selector:
+            return [], "state_filter_subject_mismatch"
+        stated.setdefault(item.property_name, set()).add(item.value)
+    predicates: list[dict[str, Any]] = []
+    for property_name, values in sorted(stated.items()):
+        ordered = sorted(values)
+        predicates.append(
+            {"property": property_name, "operator": "equals", "equals": ordered[0]}
+            if len(ordered) == 1
+            else {"property": property_name, "operator": "in", "values": ordered}
+        )
+    return predicates, None
 
 
-__all__ = ["LifecycleValue", "lifecycle_predicate", "lifecycle_values", "parse_lifecycle"]
+__all__ = ["LifecycleValue", "lifecycle_predicates", "lifecycle_values", "parse_lifecycle"]
