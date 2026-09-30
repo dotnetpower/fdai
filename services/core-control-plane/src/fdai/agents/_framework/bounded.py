@@ -58,6 +58,9 @@ class BoundedLruSet[K]:
     def __len__(self) -> int:
         return len(self._d)
 
+    def __iter__(self) -> Iterator[K]:
+        return iter(self._d)
+
 
 class BoundedLruDict[K, V]:
     """A dict capped at ``maxsize`` (LRU eviction on insert).

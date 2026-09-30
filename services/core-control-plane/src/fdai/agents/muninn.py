@@ -81,6 +81,8 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
 
 _MAX_OPERATING_PATTERN_CASES = 100
 _MAX_CONVERSATION_PROJECTIONS = 50_000
+_PROJECTION_PREFIX = "pantheon/muninn/conversation-projections"
+_OPERATIONAL_OUTBOX_PREFIX = "pantheon/muninn/operational-outbox"
 
 
 class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
@@ -146,11 +148,11 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             async with asyncio.timeout(5):
                 await self._materialize_operating_pattern(payload)
         elif topic == "object.turn":
-            self._materialize_turn_projection(payload)
+            await self._materialize_turn_projection(payload)
         elif topic == "object.conversation":
-            self._materialize_conversation_projection(payload)
+            await self._materialize_conversation_projection(payload)
         elif topic == "object.user-preference":
-            self._materialize_user_preference_projection(payload)
+            await self._materialize_user_preference_projection(payload)
         elif topic == "object.drift" and payload.get("kind") == "detection_readiness":
             await self._materialize_detection_readiness(payload)
         elif (
@@ -204,7 +206,32 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         else:
             self.record_behavior("typed_message:ignored")
 
-    def _materialize_turn_projection(self, payload: dict[str, Any]) -> None:
+    async def recover_conversation_projections(self) -> int:
+        """Restore digest-only Bragi conversation projections from the durable store."""
+        store = self._durable_state_store
+        if store is None:
+            return 0
+        restored = 0
+        for bucket, projection in (
+            ("conversation_turns", self._conversation_turns),
+            ("conversations", self._conversation_sessions),
+            ("user_preferences", self._user_preferences),
+        ):
+            rows = await store.read_states(
+                f"{_PROJECTION_PREFIX}/{bucket}/",
+                limit=_MAX_CONVERSATION_PROJECTIONS,
+            )
+            for row in rows:
+                key = row.get("projection_key")
+                record = row.get("record")
+                if not isinstance(key, str) or not isinstance(record, dict):
+                    raise ValueError("Muninn durable conversation projection is invalid")
+                projection.set(key, dict(record))
+                restored += 1
+            self.state_store.data[bucket] = dict(projection.items())
+        return restored
+
+    async def _materialize_turn_projection(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Bragi":
             self.record_behavior("conversation_turn:rejected")
             raise ValueError("Muninn conversation turns MUST be published by Bragi")
@@ -230,10 +257,10 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "answer_sha256": str(payload.get("answer_sha256") or ""),
         }
         self._conversation_turns.set(turn_id, record)
-        self._sync_projection_bucket("conversation_turns", self._conversation_turns)
+        await self._sync_projection_record("conversation_turns", turn_id, record)
         self.record_behavior("conversation_turn:accepted")
 
-    def _materialize_conversation_projection(self, payload: dict[str, Any]) -> None:
+    async def _materialize_conversation_projection(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Bragi":
             self.record_behavior("conversation:rejected")
             raise ValueError("Muninn conversations MUST be published by Bragi")
@@ -256,10 +283,10 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "payload_digest": _payload_digest(payload),
         }
         self._conversation_sessions.set(conversation_id, record)
-        self._sync_projection_bucket("conversations", self._conversation_sessions)
+        await self._sync_projection_record("conversations", conversation_id, record)
         self.record_behavior("conversation:accepted")
 
-    def _materialize_user_preference_projection(self, payload: dict[str, Any]) -> None:
+    async def _materialize_user_preference_projection(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Bragi":
             self.record_behavior("user_preference:rejected")
             raise ValueError("Muninn user preferences MUST be published by Bragi")
@@ -284,7 +311,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "payload_digest": _payload_digest(payload),
         }
         self._user_preferences.set(preference_id, record)
-        self._sync_projection_bucket("user_preferences", self._user_preferences)
+        await self._sync_projection_record("user_preferences", preference_id, record)
         self.record_behavior("user_preference:accepted")
 
     def _sync_projection_bucket(
@@ -293,6 +320,62 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         projection: BoundedLruDict[str, dict[str, Any]],
     ) -> None:
         self.state_store.data[bucket] = dict(projection.items())
+
+    async def _sync_projection_record(
+        self,
+        bucket: str,
+        key: str,
+        record: dict[str, Any],
+    ) -> None:
+        projection = {
+            "conversation_turns": self._conversation_turns,
+            "conversations": self._conversation_sessions,
+            "user_preferences": self._user_preferences,
+        }[bucket]
+        self._sync_projection_bucket(bucket, projection)
+        store = self._durable_state_store
+        if store is None:
+            return
+        state_key = f"{_PROJECTION_PREFIX}/{bucket}/{key}"
+        prior = await store.read_state(state_key)
+        revision = int(prior.get("revision", 0)) if prior is not None else 0
+        value = {
+            "kind": "muninn_conversation_projection",
+            "revision": revision + 1,
+            "bucket": bucket,
+            "projection_key": key,
+            "idempotency_key": record["idempotency_key"],
+            "correlation_id": record["correlation_id"],
+            "record": dict(record),
+        }
+        if prior is None:
+            await store.write_state_with_audit_if_absent(
+                state_key,
+                value,
+                {
+                    "kind": "muninn_conversation_projection_recorded",
+                    "principal": "Muninn",
+                    "bucket": bucket,
+                    "projection_key": key,
+                    "idempotency_key": record["idempotency_key"],
+                    "grants_authority": False,
+                },
+            )
+            return
+        await store.compare_and_set_state_with_audit(
+            state_key,
+            value,
+            expected_revision=revision,
+            audit_entry={
+                "kind": "muninn_conversation_projection_recorded",
+                "principal": "Muninn",
+                "bucket": bucket,
+                "projection_key": key,
+                "idempotency_key": record["idempotency_key"],
+                "revision": revision + 1,
+                "grants_authority": False,
+            },
+        )
 
     async def _materialize_evidence_conflict(self, payload: dict[str, Any]) -> None:
         if self._evidence_conflict_sink is None:
@@ -460,6 +543,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             self.record_behavior("operational_case:stored")
             return
         emission_key = f"{state_key}:emitted:{digest}"
+        outbox_key = f"{_OPERATIONAL_OUTBOX_PREFIX}/cohort/{digest}"
         if await projections.read_state(emission_key) is not None:
             self.record_behavior("operational_case:stored")
             return
@@ -467,30 +551,28 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         await projections.write_state_if_absent(snapshot_key, cohort)
         if await projections.read_state(snapshot_key) != cohort:
             raise ValueError("operational cohort snapshot conflict")
-        await self.bus.publish(
-            "Muninn",
-            "object.context-index",
-            {
-                "producer_principal": "Muninn",
-                "kind": "operational_case_fingerprint_cohort",
-                "correlation_id": state_key,
-                "idempotency_key": f"operational-case-fingerprint-cohort:{digest}",
-                "access_scope_digest": case_input.access_scope_digest,
-                "purpose": case_input.purpose,
-                "cohort_snapshot_ref": snapshot_key,
-                "case_id": case.case_id,
-                "revision": case.revision,
-                "manifest_digest": case.manifest_digest,
-                "failure_fingerprint": fingerprint,
-                "resource_type": case.resource_type,
-                "action_type": case.action_type,
-                "outcome_class": case.outcome_class.value,
-                "reusable": case.reusable,
-                "negative": case.negative,
-                "digest_evidence": list(case.digest_evidence),
-                "cases": [record["case"] for record in cases],
-            },
-        )
+        payload = {
+            "producer_principal": "Muninn",
+            "kind": "operational_case_fingerprint_cohort",
+            "correlation_id": state_key,
+            "idempotency_key": f"operational-case-fingerprint-cohort:{digest}",
+            "access_scope_digest": case_input.access_scope_digest,
+            "purpose": case_input.purpose,
+            "cohort_snapshot_ref": snapshot_key,
+            "case_id": case.case_id,
+            "revision": case.revision,
+            "manifest_digest": case.manifest_digest,
+            "failure_fingerprint": fingerprint,
+            "resource_type": case.resource_type,
+            "action_type": case.action_type,
+            "outcome_class": case.outcome_class.value,
+            "reusable": case.reusable,
+            "negative": case.negative,
+            "digest_evidence": list(case.digest_evidence),
+            "cases": [record["case"] for record in cases],
+        }
+        if await self._claim_publication(outbox_key, payload):
+            await self.bus.publish("Muninn", "object.context-index", payload)
         await projections.write_state_if_absent(
             emission_key, {"digest": digest, "revision": cohort["revision"]}
         )
@@ -589,22 +671,55 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             if await projections.read_state(key) != record:
                 raise ValueError("operating pattern immutable identity conflict")
         if self.bus is not None:
-            await self.bus.publish(
-                "Muninn",
-                "object.state-snapshot",
-                {
-                    "producer_principal": "Muninn",
-                    "kind": "operating_pattern_retained",
-                    "correlation_id": cohort_key,
-                    "idempotency_key": f"operating-pattern-retained:{pattern_id}",
-                    "pattern_id": pattern_id,
-                    "access_scope_digest": scope,
-                    "purpose": purpose,
-                    "execution_authority": False,
-                    "promotion_authority": False,
-                },
-            )
+            snapshot = {
+                "producer_principal": "Muninn",
+                "kind": "operating_pattern_retained",
+                "correlation_id": cohort_key,
+                "idempotency_key": f"operating-pattern-retained:{pattern_id}",
+                "pattern_id": pattern_id,
+                "access_scope_digest": scope,
+                "purpose": purpose,
+                "execution_authority": False,
+                "promotion_authority": False,
+            }
+            outbox_key = f"{_OPERATIONAL_OUTBOX_PREFIX}/operating-pattern-retained/{pattern_id}"
+            if await self._claim_publication(outbox_key, snapshot):
+                await self.bus.publish("Muninn", "object.state-snapshot", snapshot)
         self.record_behavior("operating_pattern:retained")
+
+    async def _claim_publication(self, key: str, payload: dict[str, Any]) -> bool:
+        store = self._durable_state_store
+        if store is None:
+            return True
+        idempotency_key = str(payload.get("idempotency_key") or "")
+        correlation_id = str(payload.get("correlation_id") or "")
+        if not idempotency_key or not correlation_id:
+            raise ValueError("Muninn publication payload requires correlation and idempotency")
+        record = {
+            "kind": "muninn_publication_outbox",
+            "revision": 1,
+            "state": "published",
+            "idempotency_key": idempotency_key,
+            "correlation_id": correlation_id,
+            "payload_digest": _payload_digest(payload),
+        }
+        created = await store.write_state_with_audit_if_absent(
+            key,
+            record,
+            {
+                "kind": "muninn_publication_claimed",
+                "principal": "Muninn",
+                "idempotency_key": idempotency_key,
+                "correlation_id": correlation_id,
+                "grants_authority": False,
+            },
+        )
+        if created:
+            return True
+        existing = await store.read_state(key)
+        if existing is None or existing.get("payload_digest") != record["payload_digest"]:
+            raise ValueError("Muninn publication outbox identity conflict")
+        return False
 
     def _case_projection_store(self, scope: str) -> CaseHistoryProjectionStore:
         if self._durable_state_store is None or self._case_history is None:

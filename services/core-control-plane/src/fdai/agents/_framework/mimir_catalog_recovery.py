@@ -19,6 +19,12 @@ from fdai.agents._framework.mimir_catalog_identity import (
 from fdai.agents._framework.mimir_catalog_identity import (
     idempotency_key as journal_idempotency_key,
 )
+from fdai.agents._framework.mimir_governance_state import (
+    CatalogReviewCapacityError,
+    CatalogReviewPublicationError,
+    MimirCatalogGovernanceStore,
+    catalog_candidate_idempotency_key,
+)
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
     CatalogCompilationError,
@@ -32,23 +38,12 @@ from fdai.shared.providers.state_store import StateStore
 _TERMINAL_STATUSES = frozenset({"invalidated", "published"})
 
 
-class CatalogReviewCapacityError(RuntimeError):
-    """Review work is saturated; transport must retry or dead-letter."""
-
-
-class CatalogReviewPublicationError(RuntimeError):
-    """The idempotent review publisher failed and durable work remains pending."""
-
-
 class MimirCatalogReviewJournal:
-    """Persist exact pending candidates and retire their case references after completion."""
-
     def __init__(self, store: StateStore | None, *, capacity: int) -> None:
         self._store = store
         self._capacity = capacity
 
     def bind(self, store: StateStore) -> None:
-        """Bind one production store before runtime recovery starts."""
         if self._store is not None:
             raise RuntimeError("Mimir catalog review state store is already bound")
         self._store = store
@@ -110,7 +105,6 @@ class MimirCatalogReviewJournal:
         raise ValueError("Mimir catalog review durable status is invalid")
 
     async def pending_candidates(self) -> tuple[tuple[dict[str, Any], ...], int]:
-        """Read one bounded pending batch and return the shared pending total."""
         store = self._store
         if store is None:
             return (), 0
@@ -292,8 +286,6 @@ class MimirCatalogReviewJournal:
 
 
 class MimirCatalogReviewMixin:
-    """Compile, persist, recover, and publish authority-free catalog review work."""
-
     bus: PantheonBus | None
     _catalog_candidate_compiler: CatalogCandidateCompiler | None
     _catalog_review_journal: MimirCatalogReviewJournal
@@ -336,6 +328,7 @@ class MimirCatalogReviewMixin:
         self._catalog_review_journal = MimirCatalogReviewJournal(
             state_store, capacity=max_review_packages
         )
+        self._catalog_governance_store = MimirCatalogGovernanceStore(state_store)
         self._max_pending_candidates = max_pending_candidates
         self._max_review_packages = max_review_packages
         self._catalog_review_packages = {}
@@ -345,8 +338,8 @@ class MimirCatalogReviewMixin:
         self._investigation_candidates = BoundedLruDict(max_pending_candidates)
 
     def bind_catalog_review_state_store(self, store: StateStore) -> None:
-        """Bind durable pending-review recovery without changing Mimir authority."""
         self._catalog_review_journal.bind(store)
+        self._catalog_governance_store.bind(store)
 
     async def _handle_rule_candidate(
         self,
@@ -371,6 +364,15 @@ class MimirCatalogReviewMixin:
                     raise ValueError("investigation strategy candidate idempotency conflict")
                 self.record_behavior("investigation_strategy_candidate_duplicate")
                 return
+            durable_existing = await self._catalog_governance_store.investigation_candidate(
+                idempotency_key
+            )
+            if durable_existing is not None:
+                if durable_existing != candidate_digest:
+                    raise ValueError("investigation strategy candidate idempotency conflict")
+                self._investigation_candidates.set(idempotency_key, candidate_digest)
+                self.record_behavior("investigation_strategy_candidate_duplicate")
+                return
             investigation_identity = (idempotency_key, candidate_digest)
         if payload.get("source_signal") == "operational_case_fingerprint_cohort":
             idempotency_key = self._idempotency_key(payload)
@@ -385,14 +387,22 @@ class MimirCatalogReviewMixin:
             await self._accept_candidate(payload, recovering=recovering)
             if investigation_identity is not None:
                 self._investigation_candidates.set(*investigation_identity)
+                await self._catalog_governance_store.persist_investigation_candidate(
+                    *investigation_identity
+                )
         else:
+            prior_quarantine = await self._catalog_governance_store.quarantine(payload)
+            if prior_quarantine is not None:
+                self._quarantined_candidates.append(prior_quarantine)
+                self.record_behavior("catalog_candidate_quarantine_duplicate")
+                return
             self._quarantined_candidates.append(
                 {**dict(payload), "quarantine_reason": verdict.reason}
             )
+            await self._catalog_governance_store.persist_quarantine(payload, verdict.reason)
             await self._audit_outcome(payload, outcome="quarantined", reason=verdict.reason)
 
     async def recover_catalog_reviews(self) -> int:
-        """Rebuild and publish bounded pending packages after restart."""
         candidates, total = await self._catalog_review_journal.pending_candidates()
         for candidate in candidates:
             try:
@@ -723,12 +733,7 @@ class MimirCatalogReviewMixin:
         if len(self._pending_candidates) >= self._max_pending_candidates:
             raise CatalogReviewCapacityError("Mimir pending candidate capacity exhausted")
 
-    @staticmethod
-    def _idempotency_key(payload: Mapping[str, Any]) -> str:
-        value = payload.get("idempotency_key")
-        if not isinstance(value, str) or not value:
-            raise ValueError("catalog review candidate requires an idempotency_key")
-        return value
+    _idempotency_key = staticmethod(catalog_candidate_idempotency_key)
 
     async def _audit_outcome(
         self,

@@ -97,6 +97,12 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
             _LOG.info("pantheon_freyr_rehydrated", extra={"records": restored})
     mimir = agents.get("Mimir")
     if isinstance(mimir, Mimir):
+        restored_governance = await mimir.recover_governance_state()
+        if restored_governance:
+            _LOG.info(
+                "pantheon_mimir_governance_rehydrated",
+                extra={"records": restored_governance},
+            )
         restored = await mimir.recover_catalog_reviews()
         if restored:
             _LOG.info(
@@ -105,6 +111,12 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
             )
     norns = agents.get("Norns")
     if isinstance(norns, Norns):
+        restored_learning = await norns.recover_learning_state()
+        if restored_learning:
+            _LOG.info(
+                "pantheon_norns_learning_rehydrated",
+                extra={"records": restored_learning},
+            )
         published = await norns.flush_candidates()
         if published or norns.pending_candidates:
             _LOG.info(
@@ -159,6 +171,14 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
                 "pantheon_bragi_state_recovered",
                 extra={"progress": progress, "turns_published": turns},
             )
+    muninn = agents.get("Muninn")
+    if isinstance(muninn, Muninn):
+        restored = await muninn.recover_conversation_projections()
+        if restored:
+            _LOG.info(
+                "pantheon_muninn_conversation_projections_rehydrated",
+                extra={"records": restored},
+            )
 
 
 def bind_operational_agents(
@@ -199,6 +219,7 @@ def bind_operational_agents(
 
     if muninn_state_store is not None:
         cast(Mimir, agents["Mimir"]).bind_catalog_review_state_store(muninn_state_store)
+        cast(Mimir, agents["Mimir"]).bind_governance_state_store(muninn_state_store)
     if case_history_materializer is not None:
         cast(Mimir, agents["Mimir"]).bind_case_history(case_history_materializer)
 

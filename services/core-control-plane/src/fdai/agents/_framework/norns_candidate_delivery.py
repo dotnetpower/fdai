@@ -229,6 +229,8 @@ class NornsCandidateDeliveryMixin:
     _pattern_publications: dict[str, dict[str, Any]]
     _published_pattern_ids: set[str]
     _shadow_dwell: ShadowDwellLedger
+    bus: Any
+    spec: Any
 
     def _init_candidate_delivery(
         self,
@@ -310,6 +312,9 @@ class NornsCandidateDeliveryMixin:
             raise RuntimeError("Norns candidate publication gate is already bound")
         self._candidate_publication_gate = gate
 
+    def _proposal_rate_limiter(self) -> Any:
+        raise NotImplementedError
+
     async def _flush_candidates_unlocked(self) -> int:
         published = 0
         issue_recovery_count = 0
@@ -387,22 +392,16 @@ class NornsCandidateDeliveryMixin:
             if dwell is not None:
                 payload["shadow_dwell"] = dwell.to_mapping()
             if pattern is not None and pattern_id not in self._published_pattern_ids:
-                if not await self._publish_proposal("object.pattern", pattern):
-                    break
                 await self._operational_journal.mark_pattern_published(
                     candidate=candidate,
                     pattern=pattern,
                 )
+                if not await self._publish_proposal("object.pattern", pattern):
+                    break
                 self._published_pattern_ids.add(pattern_id)
-            if not await self._publish_proposal("object.rule-candidate", payload):
+            if not await self._publish_rule_candidate(candidate, pattern, payload):
                 break
             if pattern is not None:
-                await self._operational_journal.mark_terminal(
-                    candidate=candidate,
-                    pattern=pattern,
-                    status="published",
-                    reason="candidate_published",
-                )
                 self._pattern_publications.pop(pattern_id, None)
                 self._published_pattern_ids.discard(pattern_id)
             self._flush_cursor += 1
@@ -413,6 +412,28 @@ class NornsCandidateDeliveryMixin:
             self._flush_cursor = 0
         await self._issue_deduplicator.after_flush(self)
         return published
+
+    async def _publish_rule_candidate(
+        self,
+        candidate: Mapping[str, Any],
+        pattern: Mapping[str, Any] | None,
+        payload: dict[str, Any],
+    ) -> bool:
+        if pattern is None:
+            return await self._publish_proposal("object.rule-candidate", payload)
+        if self.bus is None:
+            return False
+        if not self._proposal_rate_limiter().allow():
+            self.record_behavior("rate_limit_exceeded")
+            return False
+        await self._operational_journal.mark_terminal(
+            candidate=candidate,
+            pattern=pattern,
+            status="published",
+            reason="candidate_published",
+        )
+        await self.bus.publish(self.spec.name, "object.rule-candidate", payload)
+        return True
 
     async def _scrub_source_invalidated_candidates(self) -> None:
         retained: list[dict[str, Any]] = []

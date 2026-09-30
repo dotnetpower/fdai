@@ -91,18 +91,6 @@ class MuninnInvestigationStrategyCohortSink:
         )
         if claim_revision is None:
             return
-        await self._bus.publish(
-            "Muninn",
-            "object.context-index",
-            {
-                "producer_principal": "Muninn",
-                "kind": "investigation_strategy_comparison_cohort",
-                "correlation_id": pair_digest,
-                "idempotency_key": f"investigation-strategy:{cohort_digest}",
-                "cohort_digest": cohort_digest,
-                "comparisons": cohort_mappings,
-            },
-        )
         published = await self._state_store.compare_and_set_state_with_audit(
             published_key,
             {
@@ -125,6 +113,18 @@ class MuninnInvestigationStrategyCohortSink:
         )
         if not published:
             raise RuntimeError("investigation strategy publication claim changed")
+        await self._bus.publish(
+            "Muninn",
+            "object.context-index",
+            {
+                "producer_principal": "Muninn",
+                "kind": "investigation_strategy_comparison_cohort",
+                "correlation_id": pair_digest,
+                "idempotency_key": f"investigation-strategy:{cohort_digest}",
+                "cohort_digest": cohort_digest,
+                "comparisons": cohort_mappings,
+            },
+        )
         await self._state_store.delete_states_beyond(
             f"{_PREFIX}{pair_digest}:published:",
             retain_newest=_MAX_COMPARISONS,

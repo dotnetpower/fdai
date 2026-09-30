@@ -43,7 +43,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -101,6 +101,7 @@ from fdai.shared.providers.state_store import StateStore
 # so they cannot grow without bound over the process lifetime.
 _MAX_TRACKED = 50_000
 _MAX_PENDING_CANDIDATES = 5_000
+_LEARNING_STATE_KEY = "pantheon/norns/learning-state"
 
 
 class NornsCapacityError(RuntimeError):
@@ -167,6 +168,8 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             store=operational_state_store,
             max_pending_candidates=max_pending_candidates,
         )
+        self._learning_state_store = operational_state_store
+        self._learning_state_recovered = operational_state_store is None
         self._investigation_strategy_compiler = (
             investigation_strategy_compiler or InvestigationStrategyCandidateCompiler()
         )
@@ -256,6 +259,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             await self._handle_typed_message(topic, payload)
 
     async def _handle_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        await self._ensure_learning_state()
         operational_pattern_id = None
         if len(self.pending_candidates) >= self._max_pending_candidates:
             await self._flush_candidates_unlocked()
@@ -296,6 +300,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         # / rule-catalog machinery). That machinery calls observe_override()
         # directly.
         # Off-path batch: forward any newly-formed inert candidates to Mimir.
+        await self._persist_learning_state()
         await self._flush_candidates_unlocked()
         if (
             operational_pattern_id is not None
@@ -587,6 +592,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         at: datetime,
     ) -> str:
         async with self._learning_lock:
+            await self._ensure_learning_state()
             return await self._submit_rule_hint_unlocked(
                 hint,
                 proposed_by=proposed_by,
@@ -642,8 +648,108 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                 "suggested_pattern": hint.pattern,
             }
         )
+        await self._persist_learning_state()
         await self._flush_candidates_unlocked()
         return proposal_ref
+
+    async def recover_learning_state(self) -> int:
+        """Restore durable learner counters and idempotency fences once."""
+        if self._learning_state_recovered:
+            return 0
+        self._learning_state_recovered = True
+        store = self._learning_state_store
+        if store is None:
+            return 0
+        row = await store.read_state(_LEARNING_STATE_KEY)
+        if row is None:
+            return 0
+        self._load_learning_state(row)
+        return 1
+
+    async def _ensure_learning_state(self) -> None:
+        await self.recover_learning_state()
+
+    async def _persist_learning_state(self) -> None:
+        store = self._learning_state_store
+        if store is None:
+            return
+        current = await store.read_state(_LEARNING_STATE_KEY)
+        revision = int(current.get("revision", 0)) if current is not None else 0
+        value = {
+            "kind": "norns_learning_state",
+            "revision": revision + 1,
+            "outcomes": dict(self._outcomes.items()),
+            "outcome_proposed": list(self._outcome_proposed),
+            "counted_correlations": list(self._counted_correlations),
+            "approval_counts": dict(self._approval_counts.items()),
+            "approval_proposed": list(self._approval_proposed),
+            "counted_approvals": list(self._counted_approvals),
+            "forecast_error_counts": dict(self._forecast_error_counts.items()),
+            "forecast_error_proposed": list(self._forecast_error_proposed),
+            "counted_case_revisions": list(self._counted_case_revisions),
+            "post_turn_hint_proposed": list(self._post_turn_hint_proposed),
+        }
+        audit = {
+            "kind": "norns_learning_state_checkpoint",
+            "principal": "Norns",
+            "revision": revision + 1,
+            "grants_authority": False,
+        }
+        if current is None:
+            await store.write_state_with_audit_if_absent(_LEARNING_STATE_KEY, value, audit)
+            return
+        await store.compare_and_set_state_with_audit(
+            _LEARNING_STATE_KEY,
+            value,
+            expected_revision=revision,
+            audit_entry=audit,
+        )
+
+    def _load_learning_state(self, row: Mapping[str, Any]) -> None:
+        self._restore_counter_dict(self._outcomes, row.get("outcomes"), nested=True)
+        self._restore_set(self._outcome_proposed, row.get("outcome_proposed"))
+        self._restore_set(self._counted_correlations, row.get("counted_correlations"))
+        self._restore_counter_dict(self._approval_counts, row.get("approval_counts"), nested=True)
+        self._restore_set(self._approval_proposed, row.get("approval_proposed"))
+        self._restore_set(self._counted_approvals, row.get("counted_approvals"))
+        self._restore_counter_dict(
+            self._forecast_error_counts,
+            row.get("forecast_error_counts"),
+            nested=False,
+        )
+        self._restore_set(self._forecast_error_proposed, row.get("forecast_error_proposed"))
+        self._restore_set(self._counted_case_revisions, row.get("counted_case_revisions"))
+        self._restore_set(self._post_turn_hint_proposed, row.get("post_turn_hint_proposed"))
+
+    @staticmethod
+    def _restore_set(target: BoundedLruSet[str], values: object) -> None:
+        if values is None:
+            return
+        if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
+            raise ValueError("Norns durable learner set is invalid")
+        for item in values:
+            target.add(item)
+
+    @staticmethod
+    def _restore_counter_dict(
+        target: BoundedLruDict[str, Any],
+        values: object,
+        *,
+        nested: bool,
+    ) -> None:
+        if values is None:
+            return
+        if not isinstance(values, Mapping):
+            raise ValueError("Norns durable learner counter is invalid")
+        for key, value in values.items():
+            if not isinstance(key, str):
+                raise ValueError("Norns durable learner counter key is invalid")
+            if nested:
+                if not isinstance(value, Mapping):
+                    raise ValueError("Norns durable nested learner counter is invalid")
+                target.set(key, {str(name): int(count) for name, count in value.items()})
+            else:
+                target.set(key, int(value))
 
     def _append_candidate(self, candidate: dict[str, Any]) -> None:
         self._ensure_pending_capacity()
