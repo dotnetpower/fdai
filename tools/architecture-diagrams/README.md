@@ -103,6 +103,13 @@ Each `.diagram.yaml` file contains:
 - Single-direction edges with an explicit semantic kind.
 - A legend whenever line styles carry meaning.
 
+Detailed alt text is reader-facing, so it uses the display vocabulary that
+`scripts/quality/documentation/check-display-terminology.py` enforces, such as
+fix pull request rather than remediation pull request. Every page embed of a
+diagram, including a later Markdown image of the same diagram, repeats the
+canonical alt of its locale exactly. Change the alt here, run `render`, and then
+update each embed; the site page tests fail on any embed that differs.
+
 SVG is the mandatory canonical format. Diagrams default to SVG and PNG for
 backward compatibility, and can set `formats: [svg]` when no raster consumer
 exists.
