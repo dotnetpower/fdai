@@ -677,7 +677,10 @@ family; code still reads no meaning from words.
   `query.recent_resource_changes` over the typed window, bounded by the reader's declared row
   maximum, and renders as `resource_changes`. A stated kind is unsupported because that reader cannot
   restrict it. A window with more changed Resources than the bound, or with unverified change
-  coverage, stays incomplete.
+  coverage, stays incomplete. Over complete coverage, the reader counts every changed Resource the
+  bound left out in the same snapshot, the table carries that exact `total_rows`, and the answer states
+  how many changed Resources it does not list; listing them through a pinned continuation remains
+  open.
 - **Event history**: An anchored history with an `event` measure reads `query.resource_event_history`
   for every reviewed event family within the reader's declared lookback maximum. A longer window is
   unsupported.

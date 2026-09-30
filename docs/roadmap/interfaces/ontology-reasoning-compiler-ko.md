@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 613ac5864df093bdb9b220c9e4dd6986c6898113
+translation_source_sha: 48d3ea17b09b36c229070afdf132d2bc3ba3b314
 translation_revised: 2026-09-30
 ---
 # 온톨로지 추론 컴파일러
@@ -700,7 +700,9 @@ release는 바뀌지 않습니다.
 - **컬렉션 이력**: 일반 Resource 전체나 주체를 밝히지 않은 "무엇이 바뀌었나" 질문은 형식화된 기간에 대해
   `query.recent_resource_changes`를 읽고, reader가 선언한 최대 행 수로 제한하며, `resource_changes`로
   표시합니다. 그 reader가 종류를 제한할 수 없으므로 종류를 밝힌 질문은 지원하지 않습니다. 바뀐 Resource가
-  한도보다 많거나 변경 수집 범위를 확인하지 못한 기간은 불완전으로 남습니다.
+  한도보다 많거나 변경 수집 범위를 확인하지 못한 기간은 불완전으로 남습니다. 수집 범위가 완전하면 reader는
+  한도 때문에 빠진 변경 Resource를 같은 스냅숏에서 모두 세고, 표는 그 정확한 `total_rows`를 담으며, 답변은
+  목록에 없는 변경 Resource의 수를 밝힙니다. 고정된 이어받기로 나머지를 나열하는 일은 남아 있습니다.
 - **이벤트 이력**: `event` 측정값을 가진 앵커 이력은 reader가 선언한 최대 조회 기간 안에서 검토된 모든 이벤트
   계열에 대해 `query.resource_event_history`를 읽습니다. 더 긴 기간은 지원하지 않습니다.
 - **검증**: V-SEM은 각 이력 목표에 필요한 조회 하나, 즉 컬렉션 변경, 이벤트, 활동 중 하나를 도출합니다.

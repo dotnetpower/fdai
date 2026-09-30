@@ -286,7 +286,7 @@ def reading_hold_answer(
         return None
     korean = locale.casefold().startswith("ko")
     template = _NOTICES[reason_code][0 if korean else 1]
-    if "{detail}" not in template:
+    if reason_code not in _FAMILIES:
         return template
     labels = _labels(tuple(details), _FAMILIES[reason_code], korean=korean)
     if not labels:

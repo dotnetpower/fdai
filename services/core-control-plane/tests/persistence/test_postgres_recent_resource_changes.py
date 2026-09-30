@@ -113,6 +113,10 @@ async def test_recent_change_reader_reports_result_limit(
                 return _Cursor(rows)
             if "SELECT key, value" in statement:
                 return _Cursor([state])
+            if "SELECT count(*) AS total" in statement:
+                # The count reads the same window as the bounded page.
+                assert isinstance(params, tuple) and len(params) == 8
+                return _Cursor([{"total": 57}])
             return _Cursor([])
 
     connection = ReaderConnection([])
@@ -138,6 +142,8 @@ async def test_recent_change_reader_reports_result_limit(
 
     assert len(result.changes) == 5
     assert result.complete is False
+    # The bound left rows out over complete coverage, so their exact count is kept.
+    assert result.total == 57
     assert result.limitation == "result_limit"
     assert connection.isolation_level is module.IsolationLevel.REPEATABLE_READ
     assert connection.read_only is True

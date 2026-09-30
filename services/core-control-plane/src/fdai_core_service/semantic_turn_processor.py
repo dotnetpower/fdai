@@ -3915,6 +3915,20 @@ def _render_resource_change_answer(
             if korean
             else f"- Unresolved change evidence: {unresolved}"
         )
+    source_total = output.get("source_total_rows")
+    listed = min(len(verified_rows), 20)
+    if (
+        isinstance(source_total, int)
+        and not isinstance(source_total, bool)
+        and source_total > listed + unresolved
+    ):
+        remaining = source_total - listed - unresolved
+        lines.append(
+            f"- 이 기간에 변경된 리소스 {source_total}개 중 {remaining}개는 목록에 없습니다."
+            if korean
+            else f"- {remaining} of the {source_total} changed resources in this window "
+            "are not listed."
+        )
     lines.append(
         f"- 원본 완전성: {completeness_text(complete, korean=True)}"
         if korean
@@ -5678,6 +5692,8 @@ def _answer_output(
         "source_complete": table.complete,
         "source_truncation_reason": table.truncation_reason,
         "display_truncated": len(rows) < len(table.rows),
+        # The exact count a source holds beyond its read bound, when the reader counted it.
+        **({"source_total_rows": table.total_rows} if table.total_rows is not None else {}),
     }
 
 

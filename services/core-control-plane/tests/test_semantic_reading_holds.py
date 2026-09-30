@@ -89,3 +89,16 @@ async def test_a_reading_hold_without_a_labelled_code_states_the_plain_notice() 
     assert answer == (
         "The request was held because the question could not be settled to one reading."
     )
+
+
+def test_every_notice_with_a_detail_slot_has_a_label_family_and_a_plain_form() -> None:
+    from fdai_core_service import semantic_reading_holds as holds
+
+    detailed = {
+        reason
+        for reason, (korean, english) in holds._NOTICES.items()  # noqa: SLF001
+        if "{detail}" in korean or "{detail}" in english
+    }
+
+    assert detailed == set(holds._FAMILIES) == set(holds._PLAIN_NOTICES)  # noqa: SLF001
+    assert set(holds._NOTICES) == holds.READING_HOLD_REASONS | holds.READING_UNSUPPORTED_REASONS  # noqa: SLF001

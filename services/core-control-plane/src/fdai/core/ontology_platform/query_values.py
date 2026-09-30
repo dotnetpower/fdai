@@ -55,10 +55,20 @@ class QueryTable:
     truncation_reason: str | None = None
     numeric_fields: tuple[str, ...] = ()
     source_generation: str | None = None
+    # The exact number of rows the source holds when a bound cut the table short, so a
+    # reader can state how many rows it did not return instead of dropping them silently.
+    total_rows: int | None = None
 
     def __post_init__(self) -> None:
         if len(self.rows) > _MAX_ROWS:
             raise ValueError(f"query table exceeds {_MAX_ROWS} rows")
+        if self.total_rows is not None and (
+            isinstance(self.total_rows, bool)
+            or not isinstance(self.total_rows, int)
+            or self.total_rows < len(self.rows)
+            or (self.complete and self.total_rows != len(self.rows))
+        ):
+            raise ValueError("query table total rows MUST count at least its returned rows")
         if self.source_generation is not None and (
             not isinstance(self.source_generation, str) or not self.source_generation.strip()
         ):
@@ -92,6 +102,8 @@ class QueryTable:
             body["numeric_fields"] = list(self.numeric_fields)
         if self.source_generation is not None:
             body["source_generation"] = self.source_generation
+        if self.total_rows is not None:
+            body["total_rows"] = self.total_rows
         return _canonical_json(body)
 
     @property

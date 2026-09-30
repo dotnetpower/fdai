@@ -716,7 +716,7 @@ def _query_table(value: object) -> QueryTable:
     if (
         not isinstance(value, Mapping)
         or not required <= set(value)
-        or set(value) - required - {"numeric_fields", "source_generation"}
+        or set(value) - required - {"numeric_fields", "source_generation", "total_rows"}
     ):
         raise ValueError("query.table function output is malformed")
     raw_rows = value["rows"]
@@ -744,12 +744,16 @@ def _query_table(value: object) -> QueryTable:
     source_generation = value.get("source_generation")
     if source_generation is not None and not isinstance(source_generation, str):
         raise ValueError("query.table source generation MUST be a string")
+    total_rows = value.get("total_rows")
+    if total_rows is not None and (isinstance(total_rows, bool) or not isinstance(total_rows, int)):
+        raise ValueError("query.table total rows MUST be an integer")
     return QueryTable(
         rows=tuple(rows),
         complete=complete,
         truncation_reason=truncation_reason,
         numeric_fields=tuple(numeric_fields),
         source_generation=source_generation,
+        total_rows=total_rows,
     )
 
 
