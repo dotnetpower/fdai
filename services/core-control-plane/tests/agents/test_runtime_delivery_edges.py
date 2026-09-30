@@ -13,10 +13,12 @@ from fdai.agents._framework import architecture_review_runtime, factory, runtime
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.thor_action_run import ActionRun
+from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
 from fdai.agents.freyr import Freyr
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.mimir import Mimir
+from fdai.agents.muninn import Muninn
 from fdai.agents.njord import Njord
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
@@ -29,6 +31,7 @@ from fdai.shared.providers.cost_governance import (
     SignedCostEffectEstimate,
 )
 from fdai.shared.providers.local.event_bus import LocalEventBus
+from fdai.shared.providers.user_context import UserPreferenceRecord
 
 _RAW_TOPIC = "fdai.events.package-e"
 _NOW = datetime(2026, 9, 30, 0, 0, tzinfo=UTC)
@@ -109,6 +112,19 @@ def _runtime(**kwargs: Any) -> tuple[PantheonRuntime, LocalEventBus]:
 
 def _published_payloads(provider: LocalEventBus, topic: str) -> list[dict[str, Any]]:
     return [dict(payload) for _key, payload in provider._records.get(topic, [])]
+
+
+def _consumer_committed(
+    runtime: PantheonRuntime,
+    provider: LocalEventBus,
+    topic: str,
+    agent: str,
+) -> bool:
+    """Return whether ``agent`` finished handling and committed every record on ``topic``."""
+
+    group_id = f"{runtime.bridge.consumer_group_prefix}.{agent}"
+    end_offset = provider._base_offsets.get(topic, 0) + len(provider._records.get(topic, ()))
+    return end_offset > 0 and provider._offsets.get((topic, group_id), 0) >= end_offset
 
 
 def test_runtime_subscriptions_match_specs_plus_declared_framework_topics() -> None:
@@ -326,6 +342,7 @@ def test_runtime_exercises_spec_delivery_edges_with_observable_effects() -> None
             lambda: (
                 thor.action_runs["corr-effect"].state is ActionRunState.SUCCEEDED
                 and bool(_published_payloads(provider, "object.anomaly"))
+                and _consumer_committed(runtime, provider, "object.chaos-experiment", "Heimdall")
             ),
         )
 
@@ -345,7 +362,55 @@ def test_runtime_exercises_spec_delivery_edges_with_observable_effects() -> None
     assert len(saga.replay_for_correlation("corr-conflict")) == 1
     assert len(saga.replay_for_correlation("corr-issue")) == 1
     assert len(saga.replay_for_correlation("corr-security")) == 1
-    assert _published_payloads(provider, "object.action-run")[-1]["state"] == "succeeded"
-    assert _published_payloads(provider, "object.anomaly")[-1]["event_type"] == (
-        "chaos_experiment_request"
+    effect_runs = [
+        payload
+        for payload in _published_payloads(provider, "object.action-run")
+        if payload.get("correlation_id") == "corr-effect"
+    ]
+    assert effect_runs[-1]["state"] == "succeeded"
+    assert any(
+        payload["event_type"] == "chaos_experiment_request"
+        for payload in _published_payloads(provider, "object.anomaly")
+    )
+
+
+def test_bragi_user_preference_publication_reaches_muninn_through_runtime() -> None:
+    runtime, provider = _runtime()
+    bragi = runtime.agents["Bragi"]
+    muninn = runtime.agents["Muninn"]
+    assert isinstance(bragi, Bragi)
+    assert isinstance(muninn, Muninn)
+    preference = UserPreferenceRecord(
+        principal_id="operator-edge",
+        locale="ko",
+        verbosity="detailed",
+        timezone="Asia/Seoul",
+        share_with_learner=True,
+        revision=4,
+        updated_at=_NOW,
+    )
+
+    async def _drive() -> None:
+        assert await bragi.publish_user_preference(preference) is True
+        await _run_until(
+            runtime,
+            lambda: _consumer_committed(runtime, provider, "object.user-preference", "Muninn"),
+        )
+
+    asyncio.run(_drive())
+
+    (published,) = _published_payloads(provider, "object.user-preference")
+    assert published["producer_principal"] == "Bragi"
+    assert "operator-edge" not in str(published)
+    projection = muninn.get_context(
+        "user_preferences",
+        published["id"],
+        requester_user_id="operator-edge",
+    )
+    assert projection is not None
+    assert projection["preference_digest"] == published["preference_digest"]
+    assert "locale" not in projection
+    assert (
+        muninn.get_context("user_preferences", published["id"], requester_user_id="operator-other")
+        is None
     )
