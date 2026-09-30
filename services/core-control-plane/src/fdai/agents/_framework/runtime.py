@@ -530,13 +530,35 @@ class PantheonRuntime(RuntimeConversationPort):
             for consumer, state in self._continuity_failures.items()
             if consumer.split(":", 1)[0] in HARD_DEPENDENCY_AGENTS
         }
+        unavailable_sources: dict[str, set[str]] = {}
+        for agent_name in self.disabled:
+            unavailable_sources.setdefault(agent_name, set()).add("disabled")
+        for consumer in self._continuity_failures:
+            agent_name = consumer.split(":", 1)[0]
+            unavailable_sources.setdefault(agent_name, set()).add("continuity_failure")
+        bridge_unavailable = snap.get("unavailable_agents", [])
+        if isinstance(bridge_unavailable, list):
+            for agent_name in bridge_unavailable:
+                if isinstance(agent_name, str):
+                    unavailable_sources.setdefault(agent_name, set()).add("bridge_snapshot")
+        for name, item in agent_health.items():
+            if item.get("status") == "error":
+                unavailable_sources.setdefault(name, set()).add("health_probe")
         unavailable_agents = {
             *runtime_health.derive_unavailable_agents(
                 disabled=self.disabled, continuity_failures=self._continuity_failures
             ),
             *(name for name, item in agent_health.items() if item.get("status") == "error"),
+            *(
+                name
+                for name in unavailable_sources
+                if name in runtime_health.AGENT_DEGRADATION_POLICIES
+            ),
         }
-        degradation = runtime_health.evaluate_degradation(unavailable_agents)
+        degradation = runtime_health.evaluate_degradation(
+            unavailable_agents,
+            unavailable_sources=unavailable_sources,
+        )
         if degradation.blocks_mutation:
             thor = self.agents.get("Thor")
             if isinstance(thor, Thor):
@@ -590,7 +612,10 @@ class PantheonRuntime(RuntimeConversationPort):
     async def _heartbeat(self, interval: float) -> None:
         while True:
             await asyncio.sleep(interval)
-            _LOG.info("pantheon_heartbeat", extra=self.health())
+            _LOG.info(
+                "pantheon_heartbeat",
+                extra=runtime_health.heartbeat_log_summary(self.health()),
+            )
 
     async def _observe_verdict(self, _topic: str, payload: dict[str, Any]) -> None:
         risk = str(payload.get("risk_verdict", "unknown"))
@@ -607,7 +632,7 @@ class PantheonRuntime(RuntimeConversationPort):
         self._ingress_dropped += 1
         _LOG.warning(
             "pantheon_ingress_unkeyed_event",
-            extra={"error": str(error), "raw_event_topic": self.raw_event_topic},
+            extra={"error_type": type(error).__name__, "raw_event_topic": self.raw_event_topic},
         )
 
 

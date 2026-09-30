@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.kpi import KpiCollector
+from fdai.agents._framework.kpi import DECLARED_AGENT_KPIS, KpiCollector
 
 _LOG = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ _LOG = logging.getLogger(__name__)
 class AgentDegradationPolicy:
     safe_effect: str
     blocks_mutation: bool = False
+    portfolio_category: str = "agent_degradation"
 
 
 AGENT_DEGRADATION_POLICIES: dict[str, AgentDegradationPolicy] = {
@@ -42,26 +43,42 @@ AGENT_DEGRADATION_POLICIES: dict[str, AgentDegradationPolicy] = {
 class DegradationDecision:
     unavailable_agents: tuple[str, ...]
     effects: dict[str, str]
+    facts: dict[str, dict[str, object]]
     blocks_mutation: bool
+    unavailable_sources: dict[str, tuple[str, ...]]
 
     def to_mapping(self) -> dict[str, object]:
         return {
             "unavailable_agents": list(self.unavailable_agents),
             "effects": dict(self.effects),
+            "facts": {agent: dict(facts) for agent, facts in self.facts.items()},
             "blocks_mutation": self.blocks_mutation,
             "effective_mode": "shadow" if self.blocks_mutation else "configured",
+            "unavailable_sources": {
+                agent: list(sources) for agent, sources in self.unavailable_sources.items()
+            },
         }
 
 
-def evaluate_degradation(unavailable_agents: set[str]) -> DegradationDecision:
+def evaluate_degradation(
+    unavailable_agents: set[str],
+    *,
+    unavailable_sources: Mapping[str, Iterable[str]] | None = None,
+) -> DegradationDecision:
     unknown = unavailable_agents - set(AGENT_DEGRADATION_POLICIES)
     if unknown:
         raise ValueError(f"unknown degraded agents: {sorted(unknown)}")
     ordered = tuple(sorted(unavailable_agents))
+    source_map = {
+        name: tuple(sorted(set((unavailable_sources or {}).get(name, ("runtime",)))))
+        for name in ordered
+    }
     return DegradationDecision(
         unavailable_agents=ordered,
         effects={name: AGENT_DEGRADATION_POLICIES[name].safe_effect for name in ordered},
+        facts={name: _degradation_facts(name) for name in ordered},
         blocks_mutation=any(AGENT_DEGRADATION_POLICIES[name].blocks_mutation for name in ordered),
+        unavailable_sources=source_map,
     )
 
 
@@ -117,8 +134,21 @@ def safe_agent_health(name: str, agent: Agent) -> dict[str, Any]:
         snapshot.setdefault("behavior", agent.behavior_snapshot())
         return snapshot
     except Exception as exc:  # noqa: BLE001 - health probe must isolate failures
-        _LOG.warning("pantheon_agent_health_error", extra={"agent": name, "error": str(exc)})
-        return {"agent": name, "status": "error", "error": str(exc)}
+        error_type = type(exc).__name__
+        _LOG.warning(
+            "pantheon_agent_health_error",
+            extra={
+                "agent": name,
+                "error_type": error_type,
+                "failure_code": "health_probe_failed",
+            },
+        )
+        return {
+            "agent": name,
+            "status": "error",
+            "error_type": error_type,
+            "failure_code": "health_probe_failed",
+        }
 
 
 def snapshot_agent_health(agents: Mapping[str, Agent]) -> dict[str, dict[str, Any]]:
@@ -131,15 +161,18 @@ def report_agent_kpis(
 ) -> None:
     """Report every active agent's declared KPIs with truthful evidence state."""
     for name, health in agent_health.items():
-        values = _available_kpi_values(name, health)
+        values, metric_tags = _available_kpi_values(name, health)
         collector.report_declared(
             agent=name,
             values=values,
             tags={"source": "agent_health", "status": str(health.get("status", "unknown"))},
+            metric_tags=metric_tags,
         )
 
 
-def _available_kpi_values(agent: str, health: Mapping[str, Any]) -> dict[str, float]:
+def _available_kpi_values(
+    agent: str, health: Mapping[str, Any]
+) -> tuple[dict[str, float], dict[str, dict[str, str]]]:
     """Map health/behavior facts into declared KPI samples when available.
 
     Missing observations stay explicit ``not_observed`` samples. We only report
@@ -148,10 +181,11 @@ def _available_kpi_values(agent: str, health: Mapping[str, Any]) -> dict[str, fl
     """
     behavior = health.get("behavior")
     if not isinstance(behavior, Mapping):
-        return {}
+        return {}, {}
     kpis = health.get("kpis")
     if isinstance(kpis, Mapping):
         measured: dict[str, float] = {}
+        metric_tags: dict[str, dict[str, str]] = {}
         for metric, evidence in kpis.items():
             if not isinstance(metric, str) or not isinstance(evidence, Mapping):
                 continue
@@ -161,28 +195,151 @@ def _available_kpi_values(agent: str, health: Mapping[str, Any]) -> dict[str, fl
             if isinstance(value, bool) or not isinstance(value, int | float):
                 continue
             measured[metric] = float(value)
+            tags = _metric_tags_from_evidence(metric, evidence)
+            if tags:
+                metric_tags[metric] = tags
         if measured:
-            return measured
+            return measured, metric_tags
     if agent == "Saga":
         verified = behavior.get("maintenance_tick:audit_chain_verified")
         failed = behavior.get("maintenance_tick:failed")
         if isinstance(verified, int) and verified > 0 and not failed:
-            return {"audit_chain_integrity_rate": 1.0}
+            return {"audit_chain_integrity_rate": 1.0}, {
+                "audit_chain_integrity_rate": {"denominator": str(verified)}
+            }
     if agent == "Norns":
         published = behavior.get("rule_candidate_published")
         held = behavior.get("rule_candidate_consensus_held")
         if isinstance(published, int) and published >= 0 and isinstance(held, int):
             total = published + held
             if total:
-                return {"rule_candidate_adoption_rate": published / total}
+                return {"rule_candidate_adoption_rate": published / total}, {
+                    "rule_candidate_adoption_rate": {"denominator": str(total)}
+                }
     if agent == "Bragi":
         materialized = behavior.get("handoff:materialized")
         unavailable = behavior.get("handoff:transport_unavailable")
         if isinstance(materialized, int) and isinstance(unavailable, int):
             total = materialized + unavailable
             if total:
-                return {"handoff_rate": materialized / total}
-    return {}
+                return {"handoff_rate": materialized / total}, {
+                    "handoff_rate": {"denominator": str(total)}
+                }
+    return {}, {}
+
+
+def _metric_tags_from_evidence(metric: str, evidence: Mapping[str, Any]) -> dict[str, str]:
+    tags: dict[str, str] = {}
+    denominator = evidence.get("denominator")
+    if isinstance(denominator, int) and denominator > 0:
+        tags["denominator"] = str(denominator)
+    sample_count = evidence.get("sample_count")
+    if isinstance(sample_count, int) and sample_count > 0:
+        tags["sample_count"] = str(sample_count)
+    if metric.endswith("_seconds"):
+        tags["unit"] = "seconds"
+    observed_at = evidence.get("observed_at")
+    if isinstance(observed_at, str) and observed_at:
+        tags["observed_at"] = observed_at
+    return tags
+
+
+def _degradation_facts(agent: str) -> dict[str, object]:
+    policy = AGENT_DEGRADATION_POLICIES[agent]
+    facts: dict[str, object] = {
+        "safe_effect": policy.safe_effect,
+        "evidence_state": "declared_degradation_policy",
+        "workflow_7_category": policy.portfolio_category,
+        "portfolio_reportable": True,
+    }
+    if agent == "Forseti":
+        facts.update(
+            {
+                "no_verdict_fallback": True,
+                "operator_alert": {"required": True, "status": "pending"},
+                "events_retained": True,
+            }
+        )
+    elif agent == "Var":
+        facts.update(
+            {
+                "queue_preserved": True,
+                "timeouts_auto_extended": True,
+                "admin_alert": {"required": True, "status": "pending"},
+                "allowed_action_classes": ["A1", "A2"],
+                "blocked_action_classes": ["HIL", "A3-E"],
+            }
+        )
+    elif agent == "Odin":
+        facts.update(
+            {
+                "terminal_hil_closure": True,
+                "terminal_hil_closure_count": {
+                    "value": None,
+                    "evidence_state": "not_observed",
+                },
+                "no_action_type": True,
+                "no_initiator": True,
+                "no_winning_domain": True,
+                "no_action_authority": True,
+            }
+        )
+    elif agent == "Bragi":
+        facts.update(
+            {
+                "console_read_only_available": {
+                    "value": None,
+                    "evidence_state": "not_observed",
+                },
+                "direct_audit_query_available": {
+                    "value": None,
+                    "evidence_state": "not_observed",
+                },
+            }
+        )
+    return facts
+
+
+def heartbeat_log_summary(snapshot: Mapping[str, Any]) -> dict[str, object]:
+    degradation = snapshot.get("degradation")
+    unavailable_agents: list[str] = []
+    effective_mode = "unknown"
+    blocks_mutation = False
+    if isinstance(degradation, Mapping):
+        raw_agents = degradation.get("unavailable_agents")
+        if isinstance(raw_agents, list):
+            unavailable_agents = [str(agent) for agent in raw_agents[: len(DECLARED_AGENT_KPIS)]]
+        effective_mode = str(degradation.get("effective_mode", "unknown"))
+        blocks_mutation = degradation.get("blocks_mutation") is True
+    metrics = snapshot.get("metrics")
+    bridge_failures: list[str] = []
+    if isinstance(metrics, Mapping):
+        bridge_failures = [
+            key
+            for key, value in metrics.items()
+            if key
+            in {
+                "handler_errors",
+                "dead_letter_errors",
+                "publish_errors",
+                "schema_violations",
+                "producer_principal_mismatch",
+                "ordered_poison_halts",
+                "consumers_gave_up",
+                "consumers_crashed",
+            }
+            and isinstance(value, int)
+            and value > 0
+        ][:16]
+    return {
+        "agents": snapshot.get("agents"),
+        "bridge_status": snapshot.get("status"),
+        "effective_enforce": snapshot.get("effective_enforce"),
+        "degradation_unavailable_agents": unavailable_agents,
+        "degradation_effective_mode": effective_mode,
+        "degradation_blocks_mutation": blocks_mutation,
+        "bridge_failure_counters": bridge_failures,
+    }
 
 
 __all__ = [
@@ -192,6 +349,7 @@ __all__ = [
     "bind_availability_probe",
     "derive_unavailable_agents",
     "evaluate_degradation",
+    "heartbeat_log_summary",
     "report_agent_kpis",
     "safe_agent_health",
     "snapshot_agent_health",

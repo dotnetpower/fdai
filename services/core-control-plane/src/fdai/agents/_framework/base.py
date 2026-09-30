@@ -382,7 +382,8 @@ class Agent:
             # A measurement counter never decreases; a non-positive count is a
             # caller mistake, ignored (best-effort observability never raises).
             return
-        if key not in counter and len(counter) >= _MAX_BEHAVIOR_KEYS:
+        overflow_needed = key not in counter and key != _BEHAVIOR_OVERFLOW_KEY
+        if overflow_needed and len(counter) >= _MAX_BEHAVIOR_KEYS - 1:
             counter[_BEHAVIOR_OVERFLOW_KEY] += count
             return
         counter[key] += count

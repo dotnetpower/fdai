@@ -39,6 +39,21 @@ class BridgeMetrics:
     schema_violations: int = 0
     duplicate_deliveries: int = 0
 
+    def health_failures(self) -> tuple[str, ...]:
+        """Return process-window counters that make bridge health degraded."""
+        counters = self.as_dict()
+        watched = (
+            "consumers_crashed",
+            "consumers_gave_up",
+            "handler_errors",
+            "dead_letter_errors",
+            "publish_errors",
+            "producer_principal_mismatch",
+            "ordered_poison_halts",
+            "schema_violations",
+        )
+        return tuple(name for name in watched if counters[name] > 0)
+
     def as_dict(self) -> dict[str, int]:
         return {
             "consumers_started": self.consumers_started,

@@ -39,7 +39,12 @@ def test_kpi_collector_records_and_returns_latest() -> None:
 
 def test_kpi_collector_all_for_returns_agent_samples() -> None:
     c = KpiCollector()
-    c.record(agent="Thor", metric="execution_success_rate", value=0.99)
+    c.record(
+        agent="Thor",
+        metric="execution_success_rate",
+        value=0.99,
+        tags={"denominator": "100"},
+    )
     c.record(agent="Bragi", metric="routing_accuracy", value=0.92)
     thor_samples = c.all_for("Thor")
     assert len(thor_samples) == 1
@@ -58,18 +63,21 @@ def test_all_fifteen_agents_report_every_declared_kpi_without_fabricating_values
         assert all(sample.evidence_state is KpiEvidenceState.NOT_OBSERVED for sample in samples)
 
     for item in collector.coverage().values():
-        assert item["reported"] == item["declared"]
+        assert item["current"] == item["declared"]
+        assert item["reported"] == 0
         assert item["measured"] == 0
+        assert item["unavailable"] == item["declared"]
 
 
-def test_declared_health_report_preserves_newer_measured_evidence() -> None:
+def test_declared_health_report_marks_stale_when_current_evidence_disappears() -> None:
     collector = KpiCollector()
     collector.record(agent="Forseti", metric="verdict_accuracy", value=0.97)
     collector.report_declared(agent="Forseti")
     sample = collector.latest(agent="Forseti", metric="verdict_accuracy")
     assert sample is not None
-    assert sample.value == 0.97
-    assert sample.evidence_state is KpiEvidenceState.MEASURED
+    assert sample.value is None
+    assert sample.evidence_state is KpiEvidenceState.STALE
+    assert sample.tags["reason"] == "current_source_missing"
 
 
 def test_runtime_health_reports_declared_kpi_coverage_for_all_agents() -> None:
@@ -79,7 +87,7 @@ def test_runtime_health_reports_declared_kpi_coverage_for_all_agents() -> None:
     )
     coverage = runtime.health()["kpi_coverage"]
     assert set(coverage) == load_pantheon().names()
-    assert all(item["reported"] == item["declared"] for item in coverage.values())
+    assert all(item["current"] == item["declared"] for item in coverage.values())
 
 
 def test_kpi_collector_ring_is_bounded_and_latest_survives_eviction() -> None:
@@ -90,9 +98,9 @@ def test_kpi_collector_ring_is_bounded_and_latest_survives_eviction() -> None:
 
     c = KpiCollector()
     for i in range(_MAX_SAMPLES + 100):
-        c.record(agent="Forseti", metric="verdict_accuracy", value=float(i))
+        c.record(agent="Njord", metric="savings_realized_usd", value=float(i))
     assert len(c.samples) == _MAX_SAMPLES
-    latest = c.latest(agent="Forseti", metric="verdict_accuracy")
+    latest = c.latest(agent="Njord", metric="savings_realized_usd")
     assert latest is not None
     # The very first sample is long evicted, but latest is still correct.
     assert latest.value == float(_MAX_SAMPLES + 100 - 1)
@@ -106,7 +114,12 @@ def test_kpi_collector_ring_is_bounded_and_latest_survives_eviction() -> None:
 def test_promotion_gate_passes_when_all_thresholds_met() -> None:
     c = KpiCollector()
     c.record(agent="Forseti", metric="verdict_accuracy", value=0.97)
-    c.record(agent="Forseti", metric="t2_escalation_rate", value=0.05)
+    c.record(
+        agent="Forseti",
+        metric="t2_escalation_rate",
+        value=0.05,
+        tags={"denominator": "20"},
+    )
     gate = PromotionGate(
         workflow_id="security-escalation",
         thresholds=(
@@ -122,7 +135,12 @@ def test_promotion_gate_passes_when_all_thresholds_met() -> None:
 def test_passing_gate_promotes_one_workflow_without_changing_its_shadow_default() -> None:
     collector = KpiCollector()
     collector.record(agent="Forseti", metric="verdict_accuracy", value=0.97)
-    collector.record(agent="Forseti", metric="t2_escalation_rate", value=0.05)
+    collector.record(
+        agent="Forseti",
+        metric="t2_escalation_rate",
+        value=0.05,
+        tags={"denominator": "20"},
+    )
     gate = PromotionGate(
         workflow_id="security-escalation",
         thresholds=(
@@ -156,7 +174,12 @@ def test_promotion_gate_fails_when_min_not_met() -> None:
 
 def test_promotion_gate_fails_when_max_exceeded() -> None:
     c = KpiCollector()
-    c.record(agent="Forseti", metric="t2_escalation_rate", value=0.20)
+    c.record(
+        agent="Forseti",
+        metric="t2_escalation_rate",
+        value=0.20,
+        tags={"denominator": "20"},
+    )
     gate = PromotionGate(
         workflow_id="wf",
         thresholds=(PromotionGateThreshold(metric="Forseti.t2_escalation_rate", max=0.10),),

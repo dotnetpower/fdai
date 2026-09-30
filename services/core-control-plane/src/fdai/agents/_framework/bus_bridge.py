@@ -136,33 +136,37 @@ class EventBusBridge:
         existing.append((agent_name, handler))
 
     def snapshot(self) -> dict[str, object]:
-        """Return a health snapshot (metrics + live consumer count)."""
         live = sum(1 for t in self._tasks if not t.done())
-        terminal_states = {"gave_up", "halted"}
+        unavailable_states = {"gave_up", "halted", "stopped"}
         unavailable_agents = sorted(
             {
                 consumer_id.split(":", 1)[0]
                 for consumer_id, state in self._consumer_states.items()
-                if state in terminal_states
+                if state in unavailable_states
             }
         )
+        degraded_consumers = {
+            consumer_id: state
+            for consumer_id, state in sorted(self._consumer_states.items())
+            if state in unavailable_states | {"restarting"}
+        }
+        health_failures = self.metrics.health_failures()
+        status = "degraded" if unavailable_agents or health_failures else "healthy"
         return {
             "subscriptions": sum(len(v) for v in self._subs.values()),
             "consumers_live": live,
             "consumer_states": dict(sorted(self._consumer_states.items())),
+            "degraded_consumer_states": degraded_consumers,
             "consumer_deliveries": dict(sorted(self._consumer_delivery_counts.items())),
             "consumer_last_delivery_at": dict(sorted(self._consumer_last_delivery_at.items())),
             "unavailable_agents": unavailable_agents,
-            "status": "degraded" if unavailable_agents else "healthy",
+            "status": status,
+            "health_failures": list(health_failures),
+            "health_window": {"scope": "process", "threshold": 1},
             "metrics": self.metrics.as_dict(),
         }
 
-    async def publish(
-        self,
-        principal: str,
-        topic: str,
-        payload: Payload,
-    ) -> PublishReceipt:
+    async def publish(self, principal: str, topic: str, payload: Payload) -> PublishReceipt:
         self.registry.assert_can_publish(principal, topic)
         enriched = dict(payload)
         enriched["producer_principal"] = principal
@@ -336,7 +340,7 @@ class EventBusBridge:
                         extra={
                             "task_name": task.get_name(),
                             "error_type": type(result).__name__,
-                            "error": str(result),
+                            "failure_code": "consumer_crashed",
                         },
                     )
             if crashed:
@@ -451,7 +455,8 @@ class EventBusBridge:
                                 "group_id": group_id,
                                 "topic": topic,
                                 "offset": envelope.offset,
-                                "error": str(exc),
+                                "error_type": type(exc).__name__,
+                                "failure_code": "handler_error",
                             },
                         )
                         dead_letter_failed = False
