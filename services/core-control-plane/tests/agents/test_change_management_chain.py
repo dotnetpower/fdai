@@ -92,19 +92,24 @@ async def test_non_change_event_does_not_publish_change() -> None:
     assert bus.messages_on("object.change") == []
 
 
-async def test_change_without_authoritative_time_fails_before_publish() -> None:
+async def test_change_without_source_time_uses_trusted_ingestion_time() -> None:
     bus = InMemoryBus(registry=load_pantheon())
-    with pytest.raises(ValueError, match="occurred_at"):
-        await Huginn(bus=bus).ingest(
-            {
-                "id": "event-1",
-                "event_type": "iac.plan",
-                "source": "gitops",
-                "resource_id": "resource-1",
-            }
-        )
-    assert bus.messages_on("object.event") == []
-    assert bus.messages_on("object.change") == []
+    ingested_at = datetime(2026, 8, 4, tzinfo=UTC)
+
+    event = await Huginn(bus=bus, clock=lambda: ingested_at).ingest(
+        {
+            "id": "event-1",
+            "event_type": "iac.plan",
+            "source": "gitops",
+            "resource_id": "resource-1",
+        }
+    )
+
+    assert event is not None
+    (published_event,) = bus.messages_on("object.event")
+    (published_change,) = bus.messages_on("object.change")
+    assert published_event.payload["ingested_at"] == ingested_at.isoformat()
+    assert published_change.payload["occurred_at"] == ingested_at.isoformat()
 
 
 async def test_muninn_preserves_distinct_change_revisions() -> None:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.agents._framework.base import Agent
@@ -39,6 +39,7 @@ from fdai.core.capacity import CapacityGraduationController
 _MAX_SAMPLES = 512
 _MAX_TRACKED_RESOURCES = 512
 _MAX_COST_EVIDENCE = 512
+_COST_EVIDENCE_MAX_AGE = timedelta(hours=1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,7 +72,7 @@ class Freyr(Agent):
         self._samples: BoundedLruDict[str, list[float]] = BoundedLruDict(_MAX_TRACKED_RESOURCES)
         self._graduation_controller = graduation_controller
         self._clock = clock or (lambda: datetime.now(tz=UTC))
-        self._cost_evidence: dict[str, tuple[str, datetime]] = {}
+        self._cost_evidence: dict[str, tuple[str, datetime, str]] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -81,11 +82,13 @@ class Freyr(Agent):
             self._retain_cost_evidence(payload)
             return
         if topic != "object.event":
+            self.record_behavior("typed_message:ignored")
             return
         if payload.get("event_type") == CAPACITY_GRADUATION_EVENT:
             await self._evaluate_graduation(payload)
             return
         if payload.get("event_type") != CAPACITY_SAMPLE_EVENT:
+            self.record_behavior("capacity_sample:ignored_event")
             return
         if has_resource_id_conflict(payload):
             self.record_behavior("capacity_sample:resource_conflict")
@@ -112,12 +115,20 @@ class Freyr(Agent):
             return
         cost = self._cost_evidence.get(evidence.target_ref)
         if cost is not None:
-            evidence = evidence.model_copy(
-                update={
-                    "cost_evidence_ref": cost[0],
-                    "cost_observed_at": cost[1],
-                }
-            )
+            cost_ref, cost_observed_at, cost_correlation_id = cost
+            if cost_correlation_id != evidence.correlation_id:
+                self.record_behavior("capacity_graduation:cost_evidence_uncorrelated")
+            elif evidence.observed_at.astimezone(UTC) > cost_observed_at + _COST_EVIDENCE_MAX_AGE:
+                self.record_behavior("capacity_graduation:cost_evidence_stale")
+            else:
+                evidence = evidence.model_copy(
+                    update={
+                        "cost_evidence_ref": cost_ref,
+                        "cost_observed_at": cost_observed_at,
+                    }
+                )
+        else:
+            self.record_behavior("capacity_graduation:cost_evidence_missing")
         recommendation = self._graduation_controller.evaluate(
             evidence,
             evaluated_at=self._clock(),
@@ -142,8 +153,14 @@ class Freyr(Agent):
             return
         target_ref = str(payload.get("resource_id") or payload.get("target_ref") or "")
         evidence_ref = str(payload.get("evidence_ref") or payload.get("id") or "")
+        correlation_id = str(payload.get("correlation_id") or "")
         raw_observed = payload.get("observed_at") or payload.get("detected_at")
-        if not target_ref or not evidence_ref or not isinstance(raw_observed, str):
+        if (
+            not target_ref
+            or not evidence_ref
+            or not correlation_id
+            or not isinstance(raw_observed, str)
+        ):
             self.record_behavior("capacity_graduation:invalid_cost_evidence")
             return
         try:
@@ -156,7 +173,11 @@ class Freyr(Agent):
             return
         if len(self._cost_evidence) >= _MAX_COST_EVIDENCE and target_ref not in self._cost_evidence:
             self._cost_evidence.pop(next(iter(self._cost_evidence)))
-        self._cost_evidence[target_ref] = (evidence_ref, observed_at.astimezone(UTC))
+        self._cost_evidence[target_ref] = (
+            evidence_ref,
+            observed_at.astimezone(UTC),
+            correlation_id,
+        )
         self.record_behavior("capacity_graduation:cost_evidence_retained")
 
     async def ingest_utilization(
@@ -167,6 +188,9 @@ class Freyr(Agent):
         correlation_id: str = "",
         observed_at: str = "",
     ) -> None:
+        observed_at = self._normalize_observed_at(observed_at)
+        if not observed_at:
+            return
         prev_value = self._smoothed.get(resource_id)
         prev = utilization if prev_value is None else prev_value
         smoothed = self._alpha * utilization + (1 - self._alpha) * prev
@@ -228,6 +252,25 @@ class Freyr(Agent):
                     "observed_at": observed_at,
                 },
             )
+        else:
+            self.record_behavior("capacity_forecast:transport_unavailable")
+
+    def _normalize_observed_at(self, observed_at: str) -> str:
+        if not observed_at:
+            self.record_behavior("capacity_sample:filled_observed_at")
+            current = self._clock()
+            if current.tzinfo is None or current.utcoffset() is None:
+                raise ValueError("Freyr clock MUST return a timezone-aware datetime")
+            return current.isoformat()
+        try:
+            parsed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+        except ValueError:
+            self.record_behavior("capacity_sample:invalid_observed_at")
+            return ""
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            self.record_behavior("capacity_sample:invalid_observed_at")
+            return ""
+        return parsed.isoformat()
 
     def sizing_advice(self, resource_id: str) -> SizingRecommendation:
         samples = self._samples.get(resource_id)

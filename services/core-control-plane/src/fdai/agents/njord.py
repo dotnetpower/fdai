@@ -72,7 +72,11 @@ class Njord(Agent):
         self.bus = bus
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        if topic != "object.event" or payload.get("event_type") != COST_SAMPLE_EVENT:
+        if topic != "object.event":
+            self.record_behavior("typed_message:ignored")
+            return
+        if payload.get("event_type") != COST_SAMPLE_EVENT:
+            self.record_behavior("cost_sample:ignored_event")
             return
         if has_resource_id_conflict(payload):
             self.record_behavior("cost_sample:resource_conflict")
@@ -171,6 +175,7 @@ class Njord(Agent):
         finding = await self._advisory_provider.analyze_cost_sample(sample)
         self._remember_sample(sample)
         if finding is None:
+            self.record_behavior("cost_sample:no_finding")
             return None
         anomaly_material = {
             "target_ref": finding.resource_id,

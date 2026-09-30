@@ -181,6 +181,7 @@ def _change_projection(
             raw.get("occurred_at"),
             raw.get("detected_at"),
             raw.get("created_at"),
+            event_payload.get("ingested_at"),
         )
         or ""
     )

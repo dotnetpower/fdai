@@ -252,6 +252,8 @@ class Heimdall(
             severity = await self._maybe_classify_severity(payload)
             if severity in ("high", "critical") and self._alerter_hook is not None:
                 await self._maybe_send_admin_card(payload, severity)
+        else:
+            self.record_behavior("typed_message:ignored")
 
     async def _publish_evidence_conflict(self, payload: dict[str, Any]) -> None:
         """Validate one candidate and publish the authoritative immutable revision."""
@@ -364,6 +366,8 @@ class Heimdall(
         )
         if self.bus is not None:
             await self.bus.publish("Heimdall", "object.anomaly", anomaly)
+        else:
+            self.record_behavior("chaos_experiment:publication_unavailable")
 
     async def _observe_t2_proposer_health(self, event: dict[str, Any]) -> None:
         """Reduce one sanitized proposer receipt without another model call."""
@@ -429,6 +433,7 @@ class Heimdall(
         if self.bus is not None:
             await self.bus.publish("Heimdall", "object.anomaly", anomaly)
         if self._incident_candidate_hook is None:
+            self.record_behavior("incident_candidate_hook:unavailable")
             return
         try:
             accepted = await self._incident_candidate_hook(anomaly)
@@ -564,6 +569,7 @@ class Heimdall(
     async def _maybe_emit_anomaly(self, event: dict[str, Any]) -> None:
         resource_id = str(event.get("resource_id") or "")
         if not resource_id:
+            self.record_behavior("anomaly_event:missing_resource")
             return
         event_type = str(event.get("event_type", "generic"))
         correlation_id = str(event.get("correlation_id") or "").strip()
@@ -607,6 +613,7 @@ class Heimdall(
             )
             self._recent_events[episode_key] = history
         if len(history) < self._rate_threshold:
+            self.record_behavior("anomaly_window:collecting")
             return
         window_tail = list(history)[-self._rate_threshold :]
         if len(window_tail) == self._rate_threshold:
@@ -619,6 +626,11 @@ class Heimdall(
                 emitted_severity is not None
                 and _SEVERITY_RANK[severity] >= _SEVERITY_RANK[emitted_severity]
             ):
+                self.record_behavior("anomaly_episode:suppressed_duplicate_severity")
+                return
+            if not correlation_id:
+                self.record_behavior("incident_candidate_missing_correlation")
+                self._drop_episode(episode_key)
                 return
             incident_episode_id = self._incident_episode_ids.setdefault(
                 episode_key,

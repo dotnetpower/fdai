@@ -115,6 +115,7 @@ class Loki(Agent):
             await self._release_from_action_run(payload)
             return
         if topic != "object.event":
+            self.record_behavior("typed_message:ignored")
             return
         if payload.get("event_type") == RESILIENCE_SCORE_EVENT:
             candidate = resilience_score_candidate(payload)
@@ -126,6 +127,7 @@ class Loki(Agent):
                 self.record_behavior("resilience_score:published")
             return
         if payload.get("event_type") != CHAOS_SCHEDULE_EVENT:
+            self.record_behavior("chaos_schedule:ignored_event")
             return
         signal = parse_chaos_schedule(payload)
         if signal is None:
@@ -147,13 +149,15 @@ class Loki(Agent):
         return len(self._in_flight_targets)
 
     async def _release_from_action_run(self, payload: dict[str, Any]) -> None:
-        if (
-            payload.get("producer_principal") != "Thor"
-            or payload.get("state") not in _SAFE_CLOSURE_STATES
-        ):
+        if payload.get("producer_principal") != "Thor":
+            self.record_behavior("chaos_reservation:invalid_closure_producer")
+            return
+        if payload.get("state") not in _SAFE_CLOSURE_STATES:
+            self.record_behavior("chaos_reservation:ignored_nonterminal_closure")
             return
         params = payload.get("params")
         if not isinstance(params, dict):
+            self.record_behavior("chaos_reservation:malformed_closure")
             return
         experiment_id = str(params.get("experiment_id") or "")
         action_type = str(payload.get("action_type") or "")
@@ -164,6 +168,7 @@ class Loki(Agent):
             else ()
         )
         if not experiment_id or not action_type or not targets:
+            self.record_behavior("chaos_reservation:malformed_closure")
             return
         try:
             released = await self._release_reservation(
@@ -176,6 +181,8 @@ class Loki(Agent):
             return
         if released:
             self.record_behavior("chaos_reservation:released")
+        else:
+            self.record_behavior("chaos_reservation:missing_closure")
 
     # ---- experiment scheduling ----------------------------------------
 
@@ -246,6 +253,7 @@ class Loki(Agent):
                 targets_truncated=targets_truncated,
             )
             self.proposals.append(proposal)
+            self.record_behavior(f"chaos_proposal:{proposal.reason}")
             return proposal
         self._in_flight_targets.update(selected)
         self._reservations[experiment_id] = _Reservation(
@@ -312,6 +320,7 @@ class Loki(Agent):
                     recovery_plan_id=recovery_plan_id,
                 )
             )
+            self.record_behavior("chaos_proposal:publication_unavailable")
             return self.proposals[-1]
         self.proposals.append(proposal)
         return proposal
