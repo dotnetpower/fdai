@@ -339,22 +339,31 @@ class VarDecisionJournal:
 
     async def next_pending_finalization(self) -> ApprovalDecisionState | None:
         """Return one terminal decision whose final payload is not checkpointed."""
-        stored = await self._store.find_state(
+        states = await self.pending_finalizations(limit=1)
+        return states[0] if states else None
+
+    async def pending_finalizations(self, *, limit: int) -> list[ApprovalDecisionState]:
+        """Return one bounded page of terminal decisions needing final payloads."""
+        rows, _total = await self._store.read_state_page(
             f"{self._state_prefix}/",
+            limit=limit,
             field="finalization_status",
             value="pending",
         )
-        if stored is None:
-            return None
-        ticket_identity = _stored_ticket_identity(stored)
-        return _parse_decision_state(
-            stored,
-            correlation_id=str(ticket_identity["correlation_id"]),
-            action_type=str(ticket_identity["action_type"]),
-            quorum_required=int(ticket_identity["quorum_required"]),
-            ticket_digest=_ticket_digest(ticket_identity),
-            ticket_identity=ticket_identity,
-        )[0]
+        states: list[ApprovalDecisionState] = []
+        for stored in reversed(rows):
+            ticket_identity = _stored_ticket_identity(stored)
+            states.append(
+                _parse_decision_state(
+                    stored,
+                    correlation_id=str(ticket_identity["correlation_id"]),
+                    action_type=str(ticket_identity["action_type"]),
+                    quorum_required=int(ticket_identity["quorum_required"]),
+                    ticket_digest=_ticket_digest(ticket_identity),
+                    ticket_identity=ticket_identity,
+                )[0]
+            )
+        return states
 
     async def mark_finalized(
         self,

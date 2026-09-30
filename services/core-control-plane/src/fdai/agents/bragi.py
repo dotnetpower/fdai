@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import math
 from collections.abc import Awaitable, Callable, Collection, Mapping
@@ -61,6 +62,8 @@ from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
 _BRAGI_STATE_PREFIX = "pantheon/bragi"
+_TURN_OUTBOX_PENDING_SCAN_LIMIT = 5_000
+_TURN_OUTBOX_TOMBSTONE_RETENTION = 1_024
 
 #: A proposal sink accepts one raw operator ActionProposal and hands it to the
 #: typed pipeline (the composition root wires this to ``Huginn.ingest`` - the
@@ -82,6 +85,7 @@ _MAX_SESSIONS = 1_000
 _MAX_SESSION_TURNS = 100
 _MAX_QUESTION_CHARS = 2_000
 _MAX_PROGRESS_KEYS = 5_000
+_DURABLE_PROGRESS_RETENTION = _MAX_PROGRESS_KEYS
 #: Cap on progress steps retained per correlation. A pipeline has a handful of
 #: lifecycle states, but at-least-once redelivery (or a chatty retry) could
 #: append without limit, so the per-correlation list is bounded too - not just
@@ -362,6 +366,10 @@ class Bragi(BragiPublicationMixin, Agent):
                 "correlation_id": correlation_id,
                 "step": step,
             },
+        )
+        await self._state_store.delete_states_beyond(
+            f"{_BRAGI_STATE_PREFIX}/progress/",
+            retain_newest=_DURABLE_PROGRESS_RETENTION,
         )
 
     # ---- agent-to-agent introspection ----------------------------------
@@ -669,9 +677,10 @@ class Bragi(BragiPublicationMixin, Agent):
                 answer=answer,
                 decision=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
             )
+            turn_payload = await self._checkpoint_turn_payload(session=session, turn=turn)
             async with session_lock:
                 _append_turn(session, turn)
-            await self._publish_turn(session=session, turn=turn)
+            await self._publish_turn(turn_payload)
             return turn
         decision = (
             self.route(judgment, question=question)
@@ -866,14 +875,13 @@ class Bragi(BragiPublicationMixin, Agent):
             answer=answer,
             decision=decision,
         )
-        await self._checkpoint_turn_payload(session=session, turn=turn)
+        turn_payload = await self._checkpoint_turn_payload(session=session, turn=turn)
         async with session_lock:
             _append_turn(session, turn)
-        await self._publish_turn(session=session, turn=turn)
+        await self._publish_turn(turn_payload)
         return turn
 
-    async def _publish_turn(self, *, session: ConversationSession, turn: Turn) -> None:
-        payload = await self._checkpoint_turn_payload(session=session, turn=turn)
+    async def _publish_turn(self, payload: dict[str, Any]) -> None:
         if self.bus is None:
             self.record_behavior("turn:publication_pending")
             return
@@ -958,9 +966,13 @@ class Bragi(BragiPublicationMixin, Agent):
             raise RuntimeError("Bragi turn outbox row disappeared")
         stored_payload = stored.get("payload")
         if stored.get("status") == "published":
-            if not isinstance(stored_payload, Mapping):
-                raise RuntimeError("Bragi turn outbox row is malformed")
-            return dict(stored_payload)
+            if isinstance(stored_payload, Mapping):
+                return dict(stored_payload)
+            stored_digest = str(stored.get("payload_digest") or "")
+            payload_digest = _payload_digest(payload)
+            if stored_digest and stored_digest != payload_digest:
+                raise RuntimeError("Bragi turn outbox idempotency collision")
+            return payload
         revision = int(stored.get("revision", 1))
         advanced = await self._state_store.compare_and_set_state(
             key,
@@ -1005,12 +1017,21 @@ class Bragi(BragiPublicationMixin, Agent):
             revision = int(stored.get("revision", 1))
             advanced = await self._state_store.compare_and_set_state(
                 key,
-                {**dict(stored), "status": "published", "revision": revision + 1},
+                _published_turn_outbox_tombstone(stored, revision=revision + 1),
                 expected_revision=revision,
             )
             if advanced:
+                await self._compact_turn_outbox_tombstones()
                 return
         raise RuntimeError("Bragi turn publication CAS retry limit exceeded")
+
+    async def _compact_turn_outbox_tombstones(self) -> None:
+        if self._state_store is None:
+            return
+        await self._state_store.delete_states_beyond(
+            f"{_BRAGI_STATE_PREFIX}/turn-outbox/",
+            retain_newest=_TURN_OUTBOX_PENDING_SCAN_LIMIT + _TURN_OUTBOX_TOMBSTONE_RETENTION,
+        )
 
     async def recover_state(self) -> tuple[int, int]:
         """Restore durable progress and unpublished turn outbox rows."""
@@ -1035,7 +1056,7 @@ class Bragi(BragiPublicationMixin, Agent):
         if self.bus is not None:
             rows, _total = await self._state_store.read_state_page(
                 f"{_BRAGI_STATE_PREFIX}/turn-outbox/",
-                limit=_MAX_PROGRESS_KEYS,
+                limit=_TURN_OUTBOX_PENDING_SCAN_LIMIT,
                 field="status",
                 value="pending",
             )
@@ -1214,6 +1235,31 @@ def _turn_outbox_key(session_ref: str, turn_index: int, generation: int | None =
     del generation
     digest = hashlib.sha256(session_ref.encode("utf-8")).hexdigest()
     return f"{_BRAGI_STATE_PREFIX}/turn-outbox/{digest}/{turn_index:020d}"
+
+
+def _published_turn_outbox_tombstone(stored: Mapping[str, Any], *, revision: int) -> dict[str, Any]:
+    payload = stored.get("payload")
+    payload_digest = (
+        _payload_digest(payload)
+        if isinstance(payload, Mapping)
+        else str(stored.get("payload_digest") or "")
+    )
+    return {
+        "schema_version": "1.0.0",
+        "revision": revision,
+        "status": "published",
+        "session_ref": str(stored.get("session_ref") or ""),
+        "turn_index": int(stored.get("turn_index") or 0),
+        "payload_digest": payload_digest,
+        "retention_window": str(_TURN_OUTBOX_TOMBSTONE_RETENTION),
+    }
+
+
+def _payload_digest(payload: Mapping[str, Any]) -> str:
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return f"sha256:{digest}"
 
 
 __all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession"]

@@ -52,6 +52,12 @@ class InMemoryAuditChain:
     durable: bool = False
     _sealed_head_hash: str = "0" * 64
     _sealed_length: int = 0
+    _verified_head_hash: str = "0" * 64
+    _verified_length: int = 0
+    _correlation_index: dict[str, list[AuditEntry]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    last_verify_visit_count: int = 0
 
     def append(
         self,
@@ -86,12 +92,20 @@ class InMemoryAuditChain:
         self.entries.append(entry)
         self._sealed_head_hash = entry.entry_hash
         self._sealed_length = len(self.entries)
+        self._correlation_index[correlation_id].append(entry)
         return entry
 
-    def verify(self) -> None:
-        """Walk the chain and raise on any broken link."""
-        prev = "0" * 64
-        for i, entry in enumerate(self.entries):
+    def verify(self, *, full: bool = False) -> None:
+        """Verify the new suffix by default, or the whole chain for audits."""
+        if full:
+            prev = "0" * 64
+            start = 0
+        else:
+            prev = self._verified_head_hash
+            start = self._verified_length
+        visited = 0
+        for i, entry in enumerate(self.entries[start:], start=start):
+            visited += 1
             if entry.seq != i:
                 raise AuditChainError(f"seq mismatch at index {i}: {entry.seq!r}")
             if entry.prev_hash != prev:
@@ -111,6 +125,7 @@ class InMemoryAuditChain:
             if recomputed != entry.entry_hash:
                 raise AuditChainError(f"entry hash mismatch at seq {i}")
             prev = entry.entry_hash
+        self.last_verify_visit_count = visited
         if len(self.entries) != self._sealed_length:
             raise AuditChainError(
                 f"chain length mismatch: got {len(self.entries)!r}, "
@@ -118,9 +133,11 @@ class InMemoryAuditChain:
             )
         if prev != self._sealed_head_hash:
             raise AuditChainError("chain head mismatch")
+        self._verified_length = len(self.entries)
+        self._verified_head_hash = prev
 
     def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]:
-        return [e for e in self.entries if e.correlation_id == correlation_id]
+        return list(self._correlation_index.get(correlation_id, ()))
 
 
 # ---------------------------------------------------------------------------

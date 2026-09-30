@@ -54,7 +54,7 @@ from fdai.agents._framework.var_pending_durability import (
     mark_pending_ticket_closed_by_identity,
     shadow_review_from_state,
 )
-from fdai.agents._framework.var_shadow_review import decide_shadow_review_once
+from fdai.agents._framework.var_shadow_review import RefCountedAsyncLock, decide_shadow_review_once
 from fdai.agents._framework.var_ticket_identity import (
     APPROVAL_STATE_PREFIX,
     PendingHilTicket,
@@ -132,8 +132,8 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             if state_store is not None
             else None
         )
-        self._decision_locks: dict[str, asyncio.Lock] = {}
-        self._shadow_review_locks: dict[str, asyncio.Lock] = {}
+        self._decision_locks: dict[str, RefCountedAsyncLock] = {}
+        self._shadow_review_locks: dict[str, RefCountedAsyncLock] = {}
         self._pending: dict[str, PendingHilTicket] = {}
         self.initialize_assignment_review()
         self._pending_shadow_reviews: dict[str, PendingShadowReview] = {}
@@ -338,13 +338,22 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
         approver: str,
         decision: str,
     ) -> dict[str, Any] | None:
-        lock = self._decision_locks.setdefault(correlation_id, asyncio.Lock())
-        async with lock:
-            return await self._record_decision_locked(
-                correlation_id,
-                approver=approver,
-                decision=decision,
-            )
+        lock_entry = self._decision_locks.get(correlation_id)
+        if lock_entry is None:
+            lock_entry = RefCountedAsyncLock(asyncio.Lock())
+            self._decision_locks[correlation_id] = lock_entry
+        lock_entry.ref_count += 1
+        try:
+            async with lock_entry.lock:
+                return await self._record_decision_locked(
+                    correlation_id,
+                    approver=approver,
+                    decision=decision,
+                )
+        finally:
+            lock_entry.ref_count -= 1
+            if lock_entry.ref_count == 0 and self._decision_locks.get(correlation_id) is lock_entry:
+                del self._decision_locks[correlation_id]
 
     async def _record_decision_locked(
         self,
@@ -456,12 +465,8 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
         finalized = 0
         journal = self._decision_journal
         if journal is not None:
-            for index in range(self._MAX_PENDING + 1):
-                decision = await journal.next_pending_finalization()
-                if decision is None:
-                    break
-                if index == self._MAX_PENDING:
-                    raise RuntimeError("approval finalization recovery capacity exceeded")
+            decisions = await journal.pending_finalizations(limit=self._MAX_PENDING)
+            for decision in decisions:
                 ticket = _ticket_from_identity(decision.ticket_identity)
                 approval = approval_for_ticket(
                     ticket,
@@ -481,12 +486,7 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
         if self.bus is None or self._state_store is None:
             return finalized, 0
         published = 0
-        for index in range(self._MAX_PENDING + 1):
-            pending_approval = await self._next_pending_final_approval()
-            if pending_approval is None:
-                break
-            if index == self._MAX_PENDING:
-                raise RuntimeError("approval publication recovery capacity exceeded")
+        for pending_approval in await self._pending_final_approvals_page(limit=self._MAX_PENDING):
             await self._publish_final_approval(pending_approval)
             published += 1
         return finalized, published
@@ -717,18 +717,24 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
         self._published_approvals.add(cache_key)
 
     async def _next_pending_final_approval(self) -> dict[str, Any] | None:
+        approvals = await self._pending_final_approvals_page(limit=1)
+        return approvals[0] if approvals else None
+
+    async def _pending_final_approvals_page(self, *, limit: int) -> list[dict[str, Any]]:
         if self._state_store is None:
-            return None
-        stored = await self._state_store.find_state(
+            return []
+        rows, _total = await self._state_store.read_state_page(
             f"{APPROVAL_STATE_PREFIX}/",
+            limit=limit,
             field="publication_status",
             value="pending",
         )
-        if stored is None:
-            return None
-        correlation_id = str(stored.get("correlation_id") or "")
-        approval, _published = validate_final_record(stored, correlation_id)
-        return approval
+        approvals: list[dict[str, Any]] = []
+        for stored in reversed(rows):
+            correlation_id = str(stored.get("correlation_id") or "")
+            approval, _published = validate_final_record(stored, correlation_id)
+            approvals.append(approval)
+        return approvals
 
     async def decide_shadow_review(
         self,

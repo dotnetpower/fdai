@@ -7,6 +7,7 @@ import hashlib
 import inspect
 import json
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -46,6 +47,10 @@ from fdai.shared.providers.state_store import StateStore
 _FINGERPRINT_BUCKET = "issue_fingerprint_index"
 _AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
 _FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
+_AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
+# Published outbox tombstones retain only digests long enough to suppress
+# duplicate redelivery across restarts while keeping prefix scans bounded.
+_AUDIT_OUTBOX_TOMBSTONE_RETENTION = 1_024
 _MAX_FINGERPRINT_INDEX = 50_000
 _MAX_HANDOFF_CONTEXT_ITEMS = 8
 _MAX_HANDOFF_CONTEXT_VALUE_CHARS = 256
@@ -84,6 +89,12 @@ class SagaAuditChain(Protocol):
     def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]: ...
 
 
+@dataclass
+class _RefCountedLock:
+    lock: asyncio.Lock
+    ref_count: int = 0
+
+
 class Saga(Agent, HandoverKnowledgeMixin):
     """Wave-2 Saga: audit chain + GitHub Issue dedup."""
 
@@ -110,7 +121,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self._fingerprint_index: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
             _MAX_FINGERPRINT_INDEX
         )
-        self._handoff_locks: dict[str, asyncio.Lock] = {}
+        self._handoff_locks: dict[str, _RefCountedLock] = {}
         self.github = github or InMemoryGithubIssueAdapter()
         self._clock = clock
         self._issue_timeout_seconds = issue_timeout_seconds
@@ -135,7 +146,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
             return 0
         rows, _total = await self._durable_state_store.read_state_page(
             _AUDIT_OUTBOX_PREFIX,
-            limit=5_000,
+            limit=_AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
             field="status",
             value="pending",
         )
@@ -215,6 +226,15 @@ class Saga(Agent, HandoverKnowledgeMixin):
         stored = await self._durable_state_store.read_state(key)
         if not isinstance(stored, Mapping):
             raise RuntimeError("Saga audit outbox row disappeared")
+        if stored.get("status") == "published":
+            stored_digest = str(stored.get("payload_digest") or "")
+            record_payload = record["payload"]
+            if not isinstance(record_payload, Mapping):
+                raise RuntimeError("Saga audit outbox row is malformed")
+            payload_digest = _payload_digest(record_payload)
+            if stored_digest and stored_digest != payload_digest:
+                raise RuntimeError("Saga audit outbox idempotency collision")
+            return
         if stored.get("payload") != record["payload"]:
             raise RuntimeError("Saga audit outbox idempotency collision")
 
@@ -251,12 +271,21 @@ class Saga(Agent, HandoverKnowledgeMixin):
             revision = int(stored.get("revision", 1))
             advanced = await self._durable_state_store.compare_and_set_state(
                 key,
-                {**dict(stored), "status": "published", "revision": revision + 1},
+                _published_audit_outbox_tombstone(stored, revision=revision + 1),
                 expected_revision=revision,
             )
             if advanced:
+                await self._compact_audit_outbox_tombstones()
                 return
         raise RuntimeError("Saga audit outbox publication CAS retry limit exceeded")
+
+    async def _compact_audit_outbox_tombstones(self) -> None:
+        if self._durable_state_store is None:
+            return
+        await self._durable_state_store.delete_states_beyond(
+            _AUDIT_OUTBOX_PREFIX,
+            retain_newest=_AUDIT_OUTBOX_PENDING_SCAN_LIMIT + _AUDIT_OUTBOX_TOMBSTONE_RETENTION,
+        )
 
     async def record_rate_limit_overflow(
         self,
@@ -477,9 +506,18 @@ class Saga(Agent, HandoverKnowledgeMixin):
         correlation_id: str,
     ) -> None:
         lock_key = str(payload.get("escalation_id") or payload.get("id") or correlation_id)
-        lock = self._handoff_locks.setdefault(lock_key, asyncio.Lock())
-        async with lock:
-            await self._materialize_handoff_locked(payload, correlation_id)
+        lock_entry = self._handoff_locks.get(lock_key)
+        if lock_entry is None:
+            lock_entry = _RefCountedLock(asyncio.Lock())
+            self._handoff_locks[lock_key] = lock_entry
+        lock_entry.ref_count += 1
+        try:
+            async with lock_entry.lock:
+                await self._materialize_handoff_locked(payload, correlation_id)
+        finally:
+            lock_entry.ref_count -= 1
+            if lock_entry.ref_count == 0 and self._handoff_locks.get(lock_key) is lock_entry:
+                del self._handoff_locks[lock_key]
 
     async def _materialize_handoff_locked(
         self,
@@ -1329,6 +1367,33 @@ def _audit_outbox_key(payload: Mapping[str, Any]) -> str:
         raise RuntimeError("Saga audit outbox payload requires correlation_id and idempotency_key")
     digest = hashlib.sha256(f"{correlation_id}\0{idempotency_key}".encode()).hexdigest()
     return f"{_AUDIT_OUTBOX_PREFIX}{digest}"
+
+
+def _published_audit_outbox_tombstone(
+    stored: Mapping[str, Any], *, revision: int
+) -> dict[str, Any]:
+    payload = stored.get("payload")
+    payload_digest = (
+        _payload_digest(payload)
+        if isinstance(payload, Mapping)
+        else str(stored.get("payload_digest") or "")
+    )
+    return {
+        "schema_version": "1.0.0",
+        "revision": revision,
+        "status": "published",
+        "correlation_id": str(stored.get("correlation_id") or ""),
+        "idempotency_key": str(stored.get("idempotency_key") or ""),
+        "payload_digest": payload_digest,
+        "retention_window": str(_AUDIT_OUTBOX_TOMBSTONE_RETENTION),
+    }
+
+
+def _payload_digest(payload: Mapping[str, Any]) -> str:
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return f"sha256:{digest}"
 
 
 def _fingerprint_key(fingerprint: str) -> str:

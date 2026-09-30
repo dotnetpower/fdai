@@ -13,12 +13,15 @@ _CLAIM_BUCKET = "handoff_escalation_claims"
 _CHECKPOINT_BUCKET = "handoff_escalation_mutations"
 _RECEIPT_BUCKET = "handoff_escalation_receipts"
 _STATE_PREFIX = "pantheon/saga/handoff"
+_COMPLETION_RECEIPT_RETENTION = 1_024
 
 
 class LocalHandoffStateStore(Protocol):
     def get(self, bucket: str, key: str) -> Any | None: ...
 
     def put(self, bucket: str, key: str, value: Any) -> None: ...
+
+    def delete(self, bucket: str, key: str) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -287,8 +290,14 @@ class SagaHandoffJournal:
                 stored = await self._durable.read_state(key)
                 if stored != receipt:
                     raise RuntimeError("handoff completion receipt collision")
+            await self._durable.delete_states_beyond(
+                _STATE_PREFIX,
+                retain_newest=_COMPLETION_RECEIPT_RETENTION,
+            )
         else:
             self._local.put(_RECEIPT_BUCKET, escalation_id, receipt)
+            self._local.delete(_CLAIM_BUCKET, escalation_id)
+            self._local.delete(_CHECKPOINT_BUCKET, escalation_id)
 
 
 def _state_key(escalation_id: str, suffix: str) -> str:
