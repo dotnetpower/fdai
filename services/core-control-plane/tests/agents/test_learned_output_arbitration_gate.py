@@ -115,8 +115,12 @@ async def test_event_on_an_advisory_arbitration_correlation_never_judges_auto(
     gated = bus.messages_on("object.verdict")[-1].payload
 
     assert baseline is not None and baseline["risk_verdict"] == "auto"
-    assert advisory["reason"] == GOVERNED_EXECUTION_UNSELECTED_REASON
-    assert advisory["arbitration"]["outcome"] == outcome
+    if outcome == "arbitration_owner_unavailable":
+        assert advisory["reason"] == "arbitration_owner_unavailable"
+        assert advisory["arbitration"]["owner_available"] is False
+    else:
+        assert advisory["reason"] == GOVERNED_EXECUTION_UNSELECTED_REASON
+        assert advisory["arbitration"]["outcome"] == outcome
     assert _summary(gated) == _GATED
     # Thor's existing rule drops an arbitration-reason Verdict that carries no DecisionCase.
     assert thor.action_runs["corr-gate"].state.value == "deny_dropped"
@@ -181,13 +185,13 @@ async def test_failed_advisory_publication_stays_retryable() -> None:
     assert bus.rejected == 1
     assert len(advisories) == 1
     assert advisories[0]["arbitration"]["outcome"] == "escalated"
-    assert forseti.behavior_snapshot()["learned_output_advisory:duplicate"] == 1
+    assert forseti.behavior_snapshot()["arbitration_decision:duplicate"] == 1
     gated = await forseti.judge(dict(_OBSERVED))
     assert gated is not None and _summary(gated) == _GATED
 
 
 class _HeldVerdictBus(InMemoryBus):
-    """Hold the first advisory Verdict publication open so a second settlement can race it."""
+    """Hold the owner-unavailable Verdict publication open so a late decision can race it."""
 
     def __init__(self) -> None:
         super().__init__(registry=load_pantheon(), isolate_handlers=False)
@@ -195,8 +199,8 @@ class _HeldVerdictBus(InMemoryBus):
         self.release = asyncio.Event()
 
     async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
-        advisory = payload.get("reason") == GOVERNED_EXECUTION_UNSELECTED_REASON
-        if topic == "object.verdict" and advisory and not self.entered.is_set():
+        owner_unavailable = payload.get("reason") == "arbitration_owner_unavailable"
+        if topic == "object.verdict" and owner_unavailable and not self.entered.is_set():
             self.entered.set()
             await self.release.wait()
         await super().publish(principal, topic, payload)
@@ -231,12 +235,10 @@ async def test_concurrent_decision_and_owner_closure_publish_one_advisory_verdic
     bus.release.set()
     await asyncio.gather(closure, decision)
 
-    advisories = [
+    terminal = [
         message.payload
         for message in bus.messages_on("object.verdict")
-        if message.payload["reason"] == GOVERNED_EXECUTION_UNSELECTED_REASON
+        if message.payload["reason"] == "arbitration_owner_unavailable"
     ]
-    assert [item["arbitration"]["outcome"] for item in advisories] == [
-        "arbitration_owner_unavailable"
-    ]
-    assert forseti.behavior_snapshot()["learned_output_advisory:duplicate"] == 1
+    assert len(terminal) == 1
+    assert terminal[0]["arbitration"]["owner_available"] is False

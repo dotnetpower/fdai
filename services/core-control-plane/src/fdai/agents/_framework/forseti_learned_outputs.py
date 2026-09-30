@@ -120,19 +120,19 @@ class ForsetiLearnedOutputMixin:
             }
             if grounding_extra is not None:
                 grounding.update(dict(grounding_extra))
-            if self._unresolved_arbitrations.get(correlation_id) is None:
-                self._unresolved_arbitrations.set(correlation_id, grounding)
             self._pending_change_assessments.pop(correlation_id, None)
             self._pending_arbitration_principals.pop(correlation_id, None)
             verdict = advisory_verdict(
                 correlation_id=correlation_id,
-                idempotency_key=correlation_id,
                 resource_id=self._arbitration_resources.get(correlation_id) or "",
                 advisory_source=str(state["source"]),
+                arbitration_outcome=outcome,
             )
             verdict["arbitration"] = {"outcome": outcome, **grounding}
             if self.bus is not None:
                 await self.bus.publish("Forseti", "object.verdict", verdict)
+            if self._unresolved_arbitrations.get(correlation_id) is None:
+                self._unresolved_arbitrations.set(correlation_id, grounding)
             state["published"] = True
         self.record_behavior(f"learned_output_advisory:{state['source']}")
         return True
@@ -150,7 +150,6 @@ class ForsetiLearnedOutputMixin:
             return None
         verdict = advisory_verdict(
             correlation_id=correlation_id,
-            idempotency_key=str(payload.get("idempotency_key") or correlation_id),
             resource_id=resource_id,
             advisory_source=advisory_source,
         )

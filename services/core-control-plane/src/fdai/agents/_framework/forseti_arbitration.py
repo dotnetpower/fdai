@@ -50,8 +50,8 @@ from fdai.agents._framework.forseti_decision_helpers import (
     domain_option_evidence as _domain_option_evidence,
 )
 from fdai.agents._framework.forseti_decision_helpers import is_conflict as _is_conflict
-from fdai.agents._framework.forseti_decision_helpers import signal_impact as _signal_impact
 from fdai.agents._framework.forseti_decision_helpers import source_freshness as _source_freshness
+from fdai.agents._framework.forseti_domain_advice import ingest_domain_signal
 from fdai.agents._framework.forseti_learned_outputs import ForsetiLearnedOutputMixin
 from fdai.agents._framework.forseti_rule_bindings import RISK_VERDICT as _RISK_VERDICT
 from fdai.agents._framework.forseti_safeguards import attach_arbitration_safeguards
@@ -108,7 +108,9 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     _arbitration_resources: BoundedLruDict[str, str]
     _domain_advice: BoundedLruDict[str, dict[str, str]]
     _domain_impact: BoundedLruDict[str, dict[str, float]]
-    _domain_observed_at: BoundedLruDict[str, str]
+    _domain_observed_at: BoundedLruDict[str, dict[str, str]]
+    _domain_correlation_ids: BoundedLruDict[str, dict[str, str]]
+    _domain_source_freshness: BoundedLruDict[str, dict[str, tuple[SourceFreshness, ...]]]
     _domain_arguments: BoundedLruDict[str, dict[str, dict[str, object]]]
     _pending_decision_cases: BoundedLruDict[str, _DecisionProjection]
     _pending_change_assessments: BoundedLruDict[str, dict[str, Any]]
@@ -199,11 +201,13 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         correlation_id: str,
         *,
         domains: list[str],
+        arbitration_request: Mapping[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         return await _durability.close_unowned_arbitration(
             self,
             correlation_id,
             domains=domains,
+            arbitration_request=arbitration_request,
         )
 
     async def maybe_request_arbitration(self, event: dict[str, Any]) -> dict[str, Any] | None:
@@ -263,65 +267,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     async def _ingest_domain_signal(
         self, domain: str, payload: dict[str, Any]
     ) -> dict[str, Any] | None:
-        """Accumulate a domain recommendation and arbitrate on conflict.
-
-        Cost anomalies and capacity forecasts arrive as separate signals;
-        Forseti keys them by resource id so a cost 'scale_down' and a
-        capacity 'scale_up' on the same resource surface as a conflict.
-        """
-        resource_id = str(payload.get("resource_id") or payload.get("scope") or "")
-        recommendation = str(payload.get("recommendation", ""))
-        if not resource_id or not recommendation:
-            return None
-        advice = self._domain_advice.get(resource_id)
-        if advice is None:
-            advice = {}
-            self._domain_advice.set(resource_id, advice)
-        advice[domain] = recommendation
-        impacts = self._domain_impact.get(resource_id)
-        if impacts is None:
-            impacts = {}
-            self._domain_impact.set(resource_id, impacts)
-        impacts[domain] = _signal_impact(domain, payload)
-        raw_arguments = payload.get("action_arguments")
-        if isinstance(raw_arguments, Mapping):
-            arguments = self._domain_arguments.get(resource_id)
-            if arguments is None:
-                arguments = {}
-                self._domain_arguments.set(resource_id, arguments)
-            arguments[domain] = {
-                str(name): value for name, value in raw_arguments.items() if isinstance(name, str)
-            }
-        observed_at = str(payload.get("observed_at") or "")
-        if observed_at:
-            self._domain_observed_at.set(resource_id, observed_at)
-        if not _is_conflict(advice):
-            await _durability.persist_domain_advice(self, resource_id)
-            return None
-        correlation_id = str(payload.get("correlation_id") or "")
-        if not correlation_id:
-            self.record_behavior("arbitration_invalid_identity")
-            raise ValueError("arbitration input correlation_id MUST be non-empty")
-        request = await self._emit_arbitration_request(
-            resource_id=resource_id,
-            advice=dict(advice),
-            correlation_id=correlation_id,
-            impacts=dict(impacts),
-            arguments_by_domain=dict(self._domain_arguments.get(resource_id) or {}),
-            observed_at=self._domain_observed_at.get(resource_id) or "",
-            source_freshness=_source_freshness(payload.get("source_freshness")),
-        )
-        # Consume the accumulated advice once the conflict is surfaced.
-        # Leaving it in place would (a) grow both maps without bound over
-        # every resource ever seen (memory leak) and (b) make the stale
-        # opposing recommendation re-trigger a duplicate arbitration on the
-        # very next signal for this resource. Fresh signals re-accumulate.
-        self._domain_advice.pop(resource_id, None)
-        self._domain_impact.pop(resource_id, None)
-        self._domain_observed_at.pop(resource_id, None)
-        self._domain_arguments.pop(resource_id, None)
-        await _durability.persist_domain_advice(self, resource_id, status="consumed")
-        return request
+        return await ingest_domain_signal(self, domain, payload)
 
     async def _emit_arbitration_request(
         self,
@@ -336,6 +282,9 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         source_freshness: tuple[SourceFreshness, ...] = (),
         evidence_by_domain: dict[str, DomainOptionEvidence] | None = None,
         objective_conflicts: tuple[tuple[str, str, str], ...] = (),
+        domain_observed_at: dict[str, str] | None = None,
+        domain_correlation_ids: dict[str, str] | None = None,
+        domain_source_freshness: dict[str, tuple[SourceFreshness, ...]] | None = None,
     ) -> dict[str, Any]:
         if not correlation_id or not str(resource_id or ""):
             raise ValueError("arbitration request identities MUST be non-empty")
@@ -347,12 +296,29 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 correlation_id,
                 resource_id,
                 advice,
+                domain_observed_at or {},
+                domain_correlation_ids or {},
             ),
             "resource_id": resource_id,
             "domains_in_conflict": sorted(advice),
             "advice": advice,
             "impacts": impacts or {},
+            "source_correlations": domain_correlation_ids
+            or {domain: correlation_id for domain in advice},
+            "domain_observed_at": domain_observed_at or {},
         }
+        if domain_source_freshness:
+            request["domain_source_freshness"] = {
+                domain: [
+                    {
+                        "source": item.source,
+                        "observed_at": item.observed_at.isoformat(),
+                        "max_age_seconds": item.max_age_seconds,
+                    }
+                    for item in values
+                ]
+                for domain, values in domain_source_freshness.items()
+            }
         if objective_conflicts:
             # The independently computed relation that justified raising
             # this at all, carried so the arbiter and the audit can see
@@ -383,8 +349,25 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         # here), so a bus-less unit still measures the decision.
         self.record_behavior("arbitration_requested")
         if self.bus is not None:
-            await self.bus.publish("Forseti", "object.arbitration-request", request)
-        await _durability.close_unowned_arbitration(self, correlation_id, domains=sorted(advice))
+            try:
+                await self.bus.publish("Forseti", "object.arbitration-request", request)
+            except Exception:
+                self.record_behavior("arbitration_request:publish_failed")
+                closed = await _durability.close_unowned_arbitration(
+                    self,
+                    correlation_id,
+                    domains=sorted(advice),
+                    arbitration_request=request,
+                )
+                if closed is None:
+                    raise
+                return request
+        await _durability.close_unowned_arbitration(
+            self,
+            correlation_id,
+            domains=sorted(advice),
+            arbitration_request=request,
+        )
         return request
 
     async def _record_arbitration(self, decision: dict[str, Any]) -> None:
@@ -399,6 +382,9 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             self.record_behavior("arbitration_decision:duplicate")
             return
         if await _durability.durable_arbitration_completed(self, correlation_id):
+            self.record_behavior("arbitration_decision:duplicate")
+            return
+        if self._unresolved_arbitrations.get(correlation_id) is not None:
             self.record_behavior("arbitration_decision:duplicate")
             return
         escalated = decision.get("escalate_hil") is True
@@ -605,13 +591,14 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         once unresolved or settled, redelivery cannot publish another verdict
         or reopen the closure.
         """
-        if await self._settle_advisory_arbitration(
-            correlation_id,
-            decision,
-            outcome=reason,
-            grounding_extra=grounding_extra,
-        ):
-            return None
+        if reason != "arbitration_owner_unavailable":
+            if await self._settle_advisory_arbitration(
+                correlation_id,
+                decision,
+                outcome=reason,
+                grounding_extra=grounding_extra,
+            ):
+                return None
         if self._unresolved_arbitrations.get(correlation_id) is not None:
             return None
         losing = [str(domain) for domain in decision.get("losing_domains") or []]

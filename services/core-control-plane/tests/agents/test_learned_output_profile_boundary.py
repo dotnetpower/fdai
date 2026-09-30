@@ -344,9 +344,8 @@ async def test_owner_unavailable_closure_and_redelivery_stay_single_advisory_ver
     await forseti.on_typed_message("object.arbitration-decision", late_decision)
 
     verdict = _only_verdict(bus)
-    assert verdict["reason"] == _ADVISORY
-    assert verdict["arbitration"]["outcome"] == "arbitration_owner_unavailable"
-    assert forseti.behavior_snapshot()["learned_output_advisory:duplicate"] == 2
+    assert verdict["reason"] == "arbitration_owner_unavailable"
+    assert verdict["arbitration"]["owner_available"] is False
     _assert_no_action(bus, thor, executor)
 
 

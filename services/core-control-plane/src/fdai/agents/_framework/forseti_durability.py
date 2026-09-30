@@ -15,6 +15,7 @@ from fdai.agents._framework.forseti_arbitration_contract import (
     remember_arbitration_winner as _remember_winner,
 )
 from fdai.agents._framework.runtime_health import AGENT_DEGRADATION_POLICIES, evaluate_degradation
+from fdai.core.operational_context import SourceFreshness
 
 _MAX_RESOURCES = 10_000
 _RECOVERY_PAGE_SIZE = 1_000
@@ -156,7 +157,19 @@ async def persist_domain_advice(host: Any, resource_id: str, *, status: str = "p
             "resource_id": resource_id,
             "advice": dict(host._domain_advice.get(resource_id) or {}),
             "impacts": dict(host._domain_impact.get(resource_id) or {}),
-            "observed_at": host._domain_observed_at.get(resource_id) or "",
+            "observed_at_by_domain": dict(host._domain_observed_at.get(resource_id) or {}),
+            "correlation_id_by_domain": dict(host._domain_correlation_ids.get(resource_id) or {}),
+            "source_freshness_by_domain": {
+                domain: [
+                    {
+                        "source": item.source,
+                        "observed_at": item.observed_at.isoformat(),
+                        "max_age_seconds": item.max_age_seconds,
+                    }
+                    for item in values
+                ]
+                for domain, values in (host._domain_source_freshness.get(resource_id) or {}).items()
+            },
             "arguments": dict(host._domain_arguments.get(resource_id) or {}),
             "recorded_at": host._test_context_clock().isoformat(),
         },
@@ -180,6 +193,7 @@ async def close_unowned_arbitration(
     correlation_id: str,
     *,
     domains: list[str],
+    arbitration_request: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Close an arbitration request when the single owner is unavailable."""
 
@@ -205,6 +219,7 @@ async def close_unowned_arbitration(
             "arbitration_owner": owner,
             "owner_available": False,
             "degradation_effect": degradation.effects.get(owner, ""),
+            "arbitration_request": dict(arbitration_request or {}),
         },
     )
     return cast(dict[str, Any] | None, verdict)
@@ -258,9 +273,45 @@ async def _rehydrate_domain_advice(host: Any, store: Any) -> int:
             restored += 1
         if isinstance(impacts, Mapping):
             host._domain_impact.set(resource_id, {str(k): float(v) for k, v in impacts.items()})
-        observed_at = str(row.get("observed_at") or "")
-        if observed_at:
-            host._domain_observed_at.set(resource_id, observed_at)
+        observed_at = row.get("observed_at_by_domain")
+        if isinstance(observed_at, Mapping):
+            host._domain_observed_at.set(
+                resource_id, {str(k): str(v) for k, v in observed_at.items()}
+            )
+        correlation_ids = row.get("correlation_id_by_domain")
+        if isinstance(correlation_ids, Mapping):
+            host._domain_correlation_ids.set(
+                resource_id, {str(k): str(v) for k, v in correlation_ids.items()}
+            )
+        source_freshness = row.get("source_freshness_by_domain")
+        if isinstance(source_freshness, Mapping):
+            restored_freshness: dict[str, tuple[SourceFreshness, ...]] = {}
+            for domain, values in source_freshness.items():
+                if not isinstance(values, list):
+                    continue
+                items: list[SourceFreshness] = []
+                for value in values:
+                    if not isinstance(value, Mapping):
+                        continue
+                    max_age_seconds = value.get("max_age_seconds")
+                    if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int):
+                        continue
+                    try:
+                        items.append(
+                            SourceFreshness(
+                                source=str(value.get("source") or ""),
+                                observed_at=datetime.fromisoformat(
+                                    str(value.get("observed_at") or "").replace("Z", "+00:00")
+                                ),
+                                max_age_seconds=max_age_seconds,
+                            )
+                        )
+                    except (TypeError, ValueError):
+                        continue
+                if items:
+                    restored_freshness[str(domain)] = tuple(items)
+            if restored_freshness:
+                host._domain_source_freshness.set(resource_id, restored_freshness)
         if isinstance(arguments, Mapping):
             host._domain_arguments.set(
                 resource_id,

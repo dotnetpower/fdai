@@ -73,7 +73,7 @@ from fdai.core.impact_analysis import (
     ChangeGraphEvidenceReceipt,
     change_graph_evidence_from_snapshot,
 )
-from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.operational_context.test_context import TestContextSource
 from fdai.core.operational_planning import (
     KineticActionProposalSource,
@@ -133,6 +133,49 @@ def _ratio_kpi(numerator: int, denominator: int, *, unit: str = "ratio") -> dict
         "denominator": denominator,
         "unit": unit,
     }
+
+
+def _rule_revision(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, str) and value.isdecimal():
+        return int(value)
+    return None
+
+
+def _rule_updated_at(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if timestamp.tzinfo is None:
+        return None
+    return timestamp
+
+
+def _rule_state_is_newer(
+    current: Mapping[str, str],
+    *,
+    incoming_revision: int | None,
+    incoming_updated_at: datetime | None,
+    incoming_source_digest: str,
+) -> bool:
+    current_revision = _rule_revision(current.get("revision"))
+    if current_revision is not None or incoming_revision is not None:
+        return incoming_revision is not None and (
+            current_revision is None or incoming_revision > current_revision
+        )
+    current_updated_at = _rule_updated_at(current.get("updated_at"))
+    if current_updated_at is not None or incoming_updated_at is not None:
+        return incoming_updated_at is not None and (
+            current_updated_at is None or incoming_updated_at > current_updated_at
+        )
+    current_digest = str(current.get("source_digest") or "")
+    return bool(incoming_source_digest and incoming_source_digest != current_digest)
 
 
 class Forseti(
@@ -260,7 +303,15 @@ class Forseti(
         self._domain_advice: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(_MAX_RESOURCES)
         # Measured [0,1] domain impacts let Odin weigh magnitude instead of priority alone.
         self._domain_impact: BoundedLruDict[str, dict[str, float]] = BoundedLruDict(_MAX_RESOURCES)
-        self._domain_observed_at: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
+        self._domain_observed_at: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
+        self._domain_correlation_ids: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
+        self._domain_source_freshness: BoundedLruDict[
+            str, dict[str, tuple[SourceFreshness, ...]]
+        ] = BoundedLruDict(_MAX_RESOURCES)
         self._domain_arguments: BoundedLruDict[str, dict[str, dict[str, object]]] = BoundedLruDict(
             _MAX_RESOURCES
         )
@@ -617,10 +668,30 @@ class Forseti(
             self.record_behavior("rule_state:invalid")
             return
         normalized = "active" if state == "promoted" else state
+        incoming_revision = _rule_revision(payload.get("revision"))
+        incoming_updated_at = _rule_updated_at(payload.get("updated_at"))
+        incoming_source_digest = str(
+            payload.get("source_digest")
+            or payload.get("reviewed_package_digest")
+            or payload.get("package_digest")
+            or ""
+        )
+        current = self._rule_state.get(action_type)
+        if current is not None and not _rule_state_is_newer(
+            current,
+            incoming_revision=incoming_revision,
+            incoming_updated_at=incoming_updated_at,
+            incoming_source_digest=incoming_source_digest,
+        ):
+            self.record_behavior("rule_state:stale")
+            return
         record = {
             "state": normalized,
             "rule_id": str(payload.get("rule_id") or payload.get("id") or ""),
             "correlation_id": str(payload.get("correlation_id") or ""),
+            "revision": "" if incoming_revision is None else str(incoming_revision),
+            "updated_at": "" if incoming_updated_at is None else incoming_updated_at.isoformat(),
+            "source_digest": incoming_source_digest,
         }
         self._rule_state.set(action_type, record)
         if self._forseti_state_store is not None:
@@ -671,6 +742,9 @@ class Forseti(
                                 "state": str(row.get("state") or ""),
                                 "rule_id": str(row.get("rule_id") or ""),
                                 "correlation_id": str(row.get("correlation_id") or ""),
+                                "revision": str(row.get("revision") or ""),
+                                "updated_at": str(row.get("updated_at") or ""),
+                                "source_digest": str(row.get("source_digest") or ""),
                             },
                         )
                         restored += 1
