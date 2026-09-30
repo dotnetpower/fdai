@@ -33,6 +33,18 @@ RECOVERY_EFFECT_OBSERVER_PRINCIPAL = "recovery-effect-observer"
 RECOVERY_EFFECT_OBSERVATION_TOPIC = "object.recovery-effect-observation"
 """Heimdall-owned topic the independent recovery observation intake reads."""
 
+CONDITIONAL_RULE_GENERATION_COMMAND_SUBSCRIPTIONS = (
+    (RULE_GENERATION_ACTIVATION_COMMAND_TOPIC, "Mimir"),
+    (RULE_GENERATION_ACTIVATION_RESULT_TOPIC, "Mimir"),
+)
+"""Non-object command topics Mimir subscribes when rule-generation activation is bound.
+
+These topics are mechanical rule-generation commands rather than pantheon
+owned-object topics, so they intentionally stay out of ``AgentSpec.subscribes``.
+Runtime subscription parity tests account for them only when their optional
+bindings are present.
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class RuleGenerationWorkerBindings:
@@ -142,6 +154,7 @@ def bind_recovery_effect_observation(
 
 
 __all__ = [
+    "CONDITIONAL_RULE_GENERATION_COMMAND_SUBSCRIPTIONS",
     "ContextIndexWorkerBindings",
     "RECOVERY_EFFECT_OBSERVATION_TOPIC",
     "RECOVERY_EFFECT_OBSERVER_PRINCIPAL",

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: e1e1e99d60320585ef5fdccbeac8b6c83d352587
-translation_revised: 2026-09-29
+translation_source_sha: 7c1503d4344a011ebdaab04bd0e16c7b7caf83b9
+translation_revised: 2026-09-30
 ---
 
 # 에이전트 판테온 구현 계획
@@ -316,12 +316,20 @@ Thor는 모든 프로필에서 이 사유를 가진 ActionType 없는 판정을 
 
 - 토픽 소유권과 파티션 키는 공유 토픽 레지스트리를 사용합니다. 변경 토픽에는 비어 있지 않은
   리소스 키가 필요하며 잘못된 키는 게시 전에 차단됩니다.
+- 모든 소유 토픽 게시는 게시 경계에서 비어 있지 않은 `correlation_id`와
+  `idempotency_key`를 포함해야 합니다. 변경 토픽에는 `resource_id`도 필요합니다.
+  인메모리 버스와 프로덕션 브리지는 안전하지 않은 변경 묶음 누락을 fail closed로 처리하고,
+  다른 소유 토픽의 공유 묶음 누락은 기록합니다.
 - 게시 묶음은 생산자, 스키마, 상관관계 및 멱등성 메타데이터를 포함합니다. 소비자 측 소유권
   검사는 사칭 게시자를 핸들러에 전달하기 전에 dead-letter 처리합니다.
 - 핸들러 재시도와 시간 제한은 범위가 제한됩니다. 순서가 있는 변경 스트림은 독성 레코드에서
   중단할 수 있으므로 나중 효과가 실패한 이전 효과를 앞지를 수 없습니다.
 - DLQ redrive는 명시적 운영자 작업입니다. DLQ 쓰기 실패는 집계하며 정상 소비자와 격리합니다.
-- `InMemoryBus`는 프로덕션 브리지와 동일한 묶음, 파티션, 시간 제한 및 실패 격리 계약을 따릅니다.
+- `InMemoryBus`는 로컬 검사에 parity가 필요한 범위에서 프로덕션 브리지와 동일한 묶음,
+  파티션, 시간 제한 및 실패 격리 계약을 따릅니다. 선택 항목은 payload 검증, 범위가 제한된
+  handler retry, duplicate-delivery simulation, 변경 토픽의 ordered poison halt를 포함합니다.
+- 남은 로컬 버스 차이는 의도적입니다. 전달은 순차적이고 in-process이며, 토픽 간 동시성이나
+  broker 수준 partition rebalancing은 없습니다.
 - 에이전트 게시는 `PantheonBus` 프로토콜을 사용하므로 런타임 조립에서 역할이나 권한 계약을
   바꾸지 않고 전달 어댑터를 교체할 수 있습니다.
 

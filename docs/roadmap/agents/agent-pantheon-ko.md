@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 7217826c1c8c0aa448c8a525ba1b2e13e285f7ef
-translation_revised: 2026-09-29
+translation_source_sha: 6c6a45ff2f448fb7ce502d37003a347db6f28745
+translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
 
@@ -341,32 +341,39 @@ Huginn은 자체 표준 시간대 UTC 시계로 수집 시각을 기록하며 �
 Saga는 공급자 기반 chain append를 직렬화하고 영속 공급자가 append를 확인한 뒤에만 로컬 복사본 entry를 공개하므로 최종 상태 관측이 영속 감사 근거보다 앞설 수 없습니다.
 Owned-topic 생산자 검사는 끌 수 없고 알 수 없는 `object.*` 구독은 등록에 실패합니다. Ordered 변경 소비자는 poison 기록을 보관한 뒤 중지해 후속 변경의 추월을 막습니다.
 Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합니다. 오퍼레이터 redrive도 소유자, 묶음, 스키마를 다시 검사하고 실패하면 원본 페이로드만 다시 보관합니다. 각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
+런타임 조립은 에이전트별 소비자 모드를 선택적으로 사용할 수 있습니다. 이 모드에서는 에이전트 그룹마다 하나의 물리 소비자가 broker 스트림을 읽고 논리 `object.*` 토픽을 로컬에서 라우팅합니다. 기본값은 `(topic, agent)` 쌍마다 소비자를 유지합니다. 두 모드 모두 핸들러 전달 전에 같은 소유자, 묶음, poison, 재시도 검사를 보존합니다.
+Loki는 예약과 게시 전에 chaos 제안 근거를 검증합니다. 불완전한 제안은 검토 대상으로 보류하고, 대상 잘림은 명시적으로 기록하며, 완전한 제안만 Heimdall 관측을 위해 `object.chaos-experiment`를 게시합니다.
 | 토픽 | 발행기 | 기본 subscribers |
 |-------|-----------|---------------------|
-| object.event | Huginn | Heimdall, Muninn(보존 틱), Var/Mimir(테스트 맥락 명령), Njord/Freyr/Loki(범위가 제한된 전문가 신호) |
-| object.change | Huginn | Muninn (변경할 수 없는 변경 개정 번호), Forseti (관찰 모드 ARB 결합) |
-| object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn은 감지 준비도 표류만 읽음 |
+| object.event | Huginn | Heimdall(감지 및 효과 근거), Forseti(판정 입력), Saga(인시던트 안내 감사), Muninn(보존 틱과 운영 사례), Var/Mimir(테스트 맥락 명령), Njord/Freyr/Loki(범위가 제한된 전문가 신호) |
+| object.change | Huginn | Muninn (변경할 수 없는 변경 개정 번호), Forseti (계획된 변경 영향과 관찰 모드 ARB 결합) |
+| object.anomaly, object.forecast | Heimdall | Forseti |
+| object.drift | Heimdall | Forseti; Muninn은 감지 준비도 표류만 읽음 |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
 | object.retrieval-validation | Heimdall | Saga, Muninn, Mimir는 정확한 Rule 세대 근거만 읽음 |
-| object.rule-generation-build-request, object.rule-generation-build-result | Mimir | Mimir는 빌드 요청을 소비하고 Heimdall은 범위가 제한된 빌드 결과를 소비함 |
+| object.rule-generation-build-request | Mimir | Mimir(자체의 범위가 제한된 빌드 작업기) |
+| object.rule-generation-build-result | Mimir | Heimdall(범위가 제한된 빌드 결과 검증) |
 | object.security-event | Forseti | Heimdall (상관관계), Saga |
-| object.verdict | Forseti | Thor, Saga, Odin |
+| object.verdict | Forseti | Thor(액션 디스패치), Saga, Odin(포트폴리오 결과), Bragi(진행 상황 표시) |
 | object.arbitration-request | Forseti | Odin |
 | object.arbitration-decision | Odin | Forseti, Saga |
-| object.action-run | Thor | Heimdall(최종 효과 관측), Vidar, Var, Saga, Loki(안전한 제안 예약 종결 전용) |
+| object.action-run | Thor | Heimdall(최종 효과 관측), Vidar, Var, Saga, Loki(안전한 제안 예약 종결 전용), Bragi(진행 상황 표시) |
 | object.approval | Var | Thor(액션 승인만), Saga, Mimir(테스트 맥락 검토), Norns(학습 검토) |
 | object.rollback | Vidar | Thor (ActionRun 변환 결과), Saga |
 | object.audit-entry | Saga | Norns, Muninn (문서 인덱스 게이트), Var (문서 HIL) |
-| object.issue | Saga | Norns, Mimir |
+| object.issue | Saga | Saga(이슈 발행 감사), Norns, Mimir(열린 기능 공백 인덱스) |
 | object.rule-candidate | Norns | Mimir |
 | object.pattern | Norns | Muninn (비활성 기록 보존 및 조회 시 현재 사례 검증) |
-| object.rule, object.policy | Mimir | Forseti(Rule 캐시 갱신), Saga(Rule 및 Policy 감사) |
-| object.context-index, object.state-snapshot | Muninn | Norns (봉인된 case-history intake), Saga (스냅샷 감사) |
-| object.conversation | Bragi | (세션 인덱스) |
-| object.turn | Bragi | Muninn |
+| object.rule | Mimir | Forseti(Rule 캐시 갱신), Saga(Rule 감사) |
+| object.policy | Mimir | Saga(Policy 감사) |
+| object.context-index | Muninn | Norns(봉인된 case-history intake), Heimdall(온톨로지 인덱스 검증), Saga(인덱스 감사) |
+| object.state-snapshot | Muninn | Saga (스냅샷 감사) |
+| object.conversation | Bragi | Muninn(다이제스트만 담은 세션 인덱스) |
+| object.turn | Bragi | Muninn(다이제스트만 담은 턴 변환 결과) |
 | object.post-turn-review | Bragi | Norns(동의가 확인된 off-path 검토만) |
-| object.user-preference | Bragi | Muninn |
-| object.cost-anomaly | Njord | Forseti |
+| object.user-preference | Bragi | Muninn(다이제스트만 담은 선호 변환 결과) |
+| object.handoff-escalation | Bragi | Saga(이슈 인계) |
+| object.cost-anomaly | Njord | Forseti, Freyr(용량 졸업 판단용 비용 근거) |
 | object.resilience-score | Loki | Forseti |
 | object.capacity-forecast | Freyr | Forseti |
 | object.capacity-graduation-recommendation | Freyr | Forseti |
@@ -469,6 +476,7 @@ Bragi는 `Conversation`, `Turn`, `UserPreference`, `PostTurnReview`를
 
 - **세션.** `Conversation`은 첫 턴에 시작하고 30분 유휴 후 끝납니다. 각 턴은 불변 `Turn`으로 덧붙이며 `object.turn`은 본문 참조, SHA-256 다이제스트, 라우팅 메타데이터, 상관관계 추적만 담고 원시 질문/답변은 담지 않습니다.
 - **다중 턴 맥락.** Bragi는 요청한 `user_id` 범위의 최근 N개 턴을 `prior_turns_ref`로 기본 에이전트에 전달합니다.
+- **메모리 변환 결과.** Muninn은 `Conversation`, `Turn`, `UserPreference`를 다이제스트가 있는 본문 없는 변환 결과로만 소비합니다. 검색용 범위 지정 메타데이터를 보존하고 원시 대화 본문은 거부합니다.
 - **RBAC.** Muninn은 사용자 간 읽기에 빈 결과를 반환하며 Saga는 다른 사용자의 대화를 읽으려는 시도를 기록합니다.
 - **학습기 경계.** Norns는 기본적으로 메타데이터만 받습니다 (`UserPreference.share_with_learner: false`). 명시적 동의가 있으면 턴 본문으로 패턴을 추출할 수 있습니다. 배치 실행 이력 수집은 검토된 집계만 허용하며 원시 턴/실행 이력 본문은 받지 않습니다. 완료되고 동의가 확인된 대화는 `object.post-turn-review`를 사용하며 별도 `object.turn` 형태를 만들지 않습니다.
 - **보존.** 활성 대화는 30일, 저빈도 저장소는 추가 60일이며 총 90일 뒤 삭제합니다. 집계된 익명 지표는 Saga 감사 스트림에 남습니다.
@@ -514,6 +522,7 @@ proposed  (initiator agent)
 ```
 
 모든 최종 상태는 종결 전에 `AuditEntry`를 씁니다. 감사 재생은 판단 전용이며 Saga는 과거 결정을 재구성할 뿐 다시 실행하지 않습니다.
+리소스가 활성 run 또는 승인 대기 run에 이미 점유되어 있거나, 다른 작업이 같은 상관관계를 다른 멱등성 키로 재사용하려고 하면 Thor는 보이는 최종 `ActionRun` 차단 결과를 기록합니다. 이 경우는 더 이상 dead-letter 큐로 조용히 사라지지 않습니다.
 
 ### 7.3 파라미터 검증과 멱등성
 
@@ -524,6 +533,7 @@ proposed  (initiator agent)
 3. **실행 시.** Verdict, `ActionRun`, Approval, 감사에서 매개 변수를 바꾸지 않으며 Thor가 변경 전에 재검증하여 대상 상태 경합을 확인합니다.
 
 작업별 `action_run_id`와 시도별 `attempt_id`가 멱등성 키입니다. 같은 키로 다시 게시하면 실행기는 no-op 처리하고 중복을 감사합니다.
+상관관계 재사용도 실행 시 검증합니다. 같은 작업 신원의 재시도는 멱등성을 유지하지만, 같은 상관관계 아래 다른 작업은 모호한 dispatch가 아니라 감사 가능한 최종 차단 결과가 됩니다.
 
 ### 7.4 영향 범위 와 배치 시맨틱
 
@@ -546,6 +556,7 @@ proposed  (initiator agent)
 | `tool.run-chaos-experiment` | `scripted` | false |
 
 `irreversible: true` 작업에는 일반적으로 HIL, 서로 다른 승인자 2명 이상, 자기 승인 금지가 필요하며 Forseti가 `quorum_required: 2`를 첨부하고 Var가 적용합니다. 명시적으로 주입한 전권 개발 프로필만 예외이며, 현재 인증된 Owner 한 명이 정확한 작업과 보호 장치를 확인한 뒤 개발 환경의 유효 정족수를 충족할 수 있습니다. Var는 다른 사람을 만들어 내지 않고 원래 정족수와 유효 정족수를 모두 기록하며, Thor와 Vidar는 실행 또는 롤백 전에 같은 프로필, 확인, 작업 신원, 별도 실행기, 만료, 영속 감사, 잠금, 멱등성 및 관찰자 결속을 다시 검증합니다. 에이전트 역할과 토픽은 바뀌지 않으며 프로필 범위 승격은 프로덕션 준비 상태를 입증하지 않습니다.
+Forseti는 `auto`를 상한으로만 취급합니다. 거버넌스가 적용된 되돌릴 수 있는 ActionType 의미가 없거나 판정에 정족수 `>= 2`가 필요하면 런타임은 결정을 사람 승인(`hil`)으로 낮춥니다.
 
 ### 7.6 타입이 지정된 전달로서의 인계
 
@@ -574,7 +585,7 @@ Shadow에서 enforce로 승격하려면 승격 게이트를 통과한 뒤 별도
 
 ### 7.9 에이전트 별 비율 한도
 
-각 에이전트는 기본값 `20 proposals/minute`, `100 proposals/hour`인 `rate_limits`를 선언합니다. 초과 제안은 제한된 큐에 넣고 큐가 넘치면 `RateLimitExceeded` 감사와 함께 폐기하여 Norns가 급증 원인을 학습하도록 합니다. 포크는 이 수치를 설정할 수 있습니다.
+각 에이전트는 기본값 `20 proposals/minute`, `100 proposals/hour`인 `rate_limits`를 선언합니다. 런타임 적용은 고정 버킷이 아니라 sliding window를 사용하므로 경계 시점 burst가 유효 비율을 두 배로 만들지 않습니다. 초과 제안은 범위가 제한된 큐에 넣고 큐가 넘치면 `RateLimitExceeded` 감사와 함께 폐기하여 Saga와 Norns가 급증 원인을 학습하도록 합니다. 포크는 이 수치를 설정할 수 있습니다.
 
 ## 8. 에이전트 별 LLM 정책
 

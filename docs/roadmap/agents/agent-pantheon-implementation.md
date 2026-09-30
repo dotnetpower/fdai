@@ -319,6 +319,10 @@ mode.
 
 - Topic ownership and partition keys come from the shared topic registry. Mutation topics require a
   non-empty resource key, and an invalid key fails closed before publication.
+- Every owned-topic publication must carry non-empty `correlation_id` and `idempotency_key` at the
+  publish boundary. Mutation topics also require `resource_id`. The in-memory bus and production
+  bridge fail closed for unsafe mutation gaps and record shared-envelope gaps for other owned
+  topics.
 - Published envelopes carry producer, schema, correlation, and idempotency metadata. Consumer-side
   ownership checks dead-letter an impostor publisher before handler delivery.
 - Handler retries and timeouts are bounded. Ordered mutation streams can halt on poison records so a
@@ -326,7 +330,10 @@ mode.
 - DLQ redrive is an explicit operator action. DLQ write failure is counted and isolated from healthy
   consumers.
 - `InMemoryBus` follows the same envelope, partition, timeout, and failure-isolation contract as the
-  production bridge.
+  production bridge where local tests need parity. Options cover payload validation, bounded
+  handler retries, duplicate-delivery simulation, and ordered poison halt for mutation topics.
+- Remaining local-bus gaps are intentional: delivery stays sequential and in-process, with no
+  concurrency across topics and no broker-level partition rebalancing.
 - Agent publication uses the `PantheonBus` protocol, so runtime composition can replace delivery
   adapters without changing role or authority contracts.
 

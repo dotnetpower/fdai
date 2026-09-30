@@ -340,33 +340,45 @@ Saga serializes each provider-backed chain append and exposes its local mirror e
 Owned-topic producer checks cannot be disabled, and unknown `object.*` subscriptions fail registration. Ordered mutation consumers stop after parking poison so later mutations cannot pass it.
 Dead-letter writes retry with bounded backoff before consumer restart. Operator redrive repeats owner, envelope, and schema checks and re-parks only the original payload.
 Each consumer closes its subscription inside its own task, so the broker adapter releases the consumer group during shutdown rather than during interpreter finalization.
+Runtime composition may opt into per-agent consumer mode. In that mode one physical consumer per
+agent group reads the broker stream and routes logical `object.*` topics locally; the default
+keeps one consumer per `(topic, agent)` pair. Both modes preserve the same owner, envelope, poison,
+and retry checks before handler delivery.
+Loki validates chaos proposal evidence before reservation and publication. Incomplete proposals
+stay held for review, target truncation is recorded explicitly, and only complete proposals publish
+`object.chaos-experiment` for Heimdall observation.
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
-| object.event | Huginn | Heimdall, Muninn (retention ticks), Var/Mimir (test-context commands), Njord/Freyr/Loki (bounded specialist signals) |
-| object.change | Huginn | Muninn (immutable change revisions), Forseti (observation-mode ARB join) |
-| object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn reads detection-readiness drift only |
+| object.event | Huginn | Heimdall (detection and effect evidence), Forseti (judgment input), Saga (incident guidance audit), Muninn (retention ticks and operational cases), Var/Mimir (test-context commands), Njord/Freyr/Loki (bounded specialist signals) |
+| object.change | Huginn | Muninn (immutable change revisions), Forseti (planned-change impact and observation-mode ARB join) |
+| object.anomaly, object.forecast | Heimdall | Forseti |
+| object.drift | Heimdall | Forseti; Muninn reads detection-readiness drift only |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
 | object.retrieval-validation | Heimdall | Saga, Muninn; Mimir reads exact Rule generation evidence only |
-| object.rule-generation-build-request, object.rule-generation-build-result | Mimir | Mimir consumes build requests; Heimdall consumes bounded build results |
+| object.rule-generation-build-request | Mimir | Mimir (own bounded build worker) |
+| object.rule-generation-build-result | Mimir | Heimdall (bounded build-result validation) |
 | object.security-event | Forseti | Heimdall (correlation), Saga |
-| object.verdict | Forseti | Thor, Saga, Odin |
+| object.verdict | Forseti | Thor (action dispatch), Saga, Odin (portfolio outcomes), Bragi (progress rendering) |
 | object.arbitration-request | Forseti | Odin |
 | object.arbitration-decision | Odin | Forseti, Saga |
-| object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga, Loki (safe proposal-reservation closure only) |
+| object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga, Loki (safe proposal-reservation closure only), Bragi (progress rendering) |
 | object.approval | Var | Thor (action approvals only), Saga, Mimir (test-context reviews), Norns (learning reviews) |
 | object.rollback | Vidar | Thor (ActionRun projection), Saga |
 | object.audit-entry | Saga | Norns, Muninn (document index gate), Var (document HIL) |
-| object.issue | Saga | Norns, Mimir |
+| object.issue | Saga | Saga (issue publication audit), Norns, Mimir (open capability-gap index) |
 | object.rule-candidate | Norns | Mimir |
 | object.pattern | Norns | Muninn (inert retention and current-case read validation) |
-| object.rule, object.policy | Mimir | Forseti (Rule cache reload), Saga (Rule and Policy audit) |
-| object.context-index, object.state-snapshot | Muninn | Norns (sealed case-history intake), Saga (snapshot audit) |
-| object.conversation | Bragi | (session index) |
-| object.turn | Bragi | Muninn |
+| object.rule | Mimir | Forseti (Rule cache reload), Saga (Rule audit) |
+| object.policy | Mimir | Saga (Policy audit) |
+| object.context-index | Muninn | Norns (sealed case-history intake), Heimdall (ontology index validation), Saga (index audit) |
+| object.state-snapshot | Muninn | Saga (snapshot audit) |
+| object.conversation | Bragi | Muninn (digest-only session index) |
+| object.turn | Bragi | Muninn (digest-only turn projection) |
 | object.post-turn-review | Bragi | Norns (consent-filtered off-path review only) |
-| object.user-preference | Bragi | Muninn |
-| object.cost-anomaly | Njord | Forseti |
+| object.user-preference | Bragi | Muninn (digest-only preference projection) |
+| object.handoff-escalation | Bragi | Saga (issue handoff) |
+| object.cost-anomaly | Njord | Forseti, Freyr (cost evidence for capacity graduation) |
 | object.resilience-score | Loki | Forseti |
 | object.capacity-forecast | Freyr | Forseti |
 | object.capacity-graduation-recommendation | Freyr | Forseti |
@@ -468,6 +480,9 @@ State is partitioned by `user_id`:
 
 - **Session.** `Conversation` starts at the first turn and ends after 30 inactive minutes. Each turn is appended immutably as a `Turn`; `object.turn` carries only body references, SHA-256 digests, routing metadata, and correlation trace, never raw questions/answers.
 - **Multi-turn context.** Bragi gives the primary agent the last N turns as `prior_turns_ref`, scoped to the requesting `user_id`.
+- **Memory projection.** Muninn consumes `Conversation`, `Turn`, and `UserPreference` only as
+  digest-bearing, content-free projections. It retains scoped metadata for retrieval and refuses
+  raw conversation bodies.
 - **RBAC.** Muninn refuses cross-user reads with an empty result; Saga records attempts to read another user's conversation.
 - **Learner boundary.** Norns receives metadata by default (`UserPreference.share_with_learner: false`); opt-in permits turn-body pattern extraction. Batch trajectory intake accepts reviewed aggregates only, never raw turn/trajectory bodies. Completed consent-filtered exchanges use `object.post-turn-review`, never a second `object.turn` shape.
 - **Retention.** Active conversations: 30 days, then 60 days cold storage, then deletion at 90 days. Aggregated anonymized metrics survive in Saga's audit stream.
@@ -513,6 +528,9 @@ proposed  (initiator agent)
 ```
 
 Every terminal state writes an `AuditEntry` before closure. Audit replay is judge-only: Saga reconstructs past decisions, never re-executes.
+Thor records visible terminal `ActionRun` rejections when a resource is already held by an active or
+approval-parked run, or when a second action tries to reuse a correlation with a different
+idempotency key. Those cases no longer disappear into a dead-letter queue.
 
 ### 7.3 Parameter validation and idempotency
 
@@ -523,6 +541,9 @@ Three validation checks, all deterministic:
 3. **At execute.** Verdict, `ActionRun`, Approval, and audit preserve unchanged parameters; Thor revalidates before mutation to catch target-state races.
 
 Per-action `action_run_id` and per-attempt `attempt_id` are idempotency keys. Same-key republishing is an executor no-op, with the duplicate audited.
+Correlation reuse is also validated at execution. A retry with the same action identity remains
+idempotent, but a different action under the same correlation becomes an auditable terminal
+rejection rather than an ambiguous dispatch.
 
 ### 7.4 Impact scope and batch semantics
 
@@ -545,6 +566,8 @@ Every ActionType, including irreversible actions, declares a live `rollback_cont
 | `tool.run-chaos-experiment` | `scripted` | false |
 
 An `irreversible: true` action normally requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it. The only exception is an explicitly injected full-authority development profile with one currently authenticated Owner and exact action safeguards. Var records original and effective quorum without inventing another person; Thor and Vidar revalidate the same profile, confirmation, action identity, distinct executor, expiry, durable audit, lock, idempotency, and observer before execution or rollback. Roles and topics stay fixed, and profile-scoped promotion never establishes production readiness.
+Forseti treats `auto` as an upper bound. Without governed reversible ActionType semantics, or when
+the verdict requires quorum `>= 2`, the runtime caps the decision to human approval (`hil`).
 
 ### 7.6 Handoff as typed delivery
 
@@ -571,7 +594,11 @@ Role bindings (`executor`, `judge`, `approver`, `auditor`, `initiators`) and rol
 
 ### 7.9 Rate limits per agent
 
-Each agent declares `rate_limits`, defaulting to `20 proposals/minute` and `100 proposals/hour`. Excess proposals enter a bounded queue; overflow is dropped with a `RateLimitExceeded` audit for Norns to learn why the agent burst. Forks may configure the numbers.
+Each agent declares `rate_limits`, defaulting to `20 proposals/minute` and `100 proposals/hour`.
+Runtime enforcement uses a sliding window, not a fixed bucket, so boundary bursts do not double the
+effective rate. Excess proposals enter a bounded queue; overflow is dropped with a
+`RateLimitExceeded` audit for Saga and Norns to learn why the agent burst. Forks may configure the
+numbers.
 
 ## 8. LLM policy per agent
 

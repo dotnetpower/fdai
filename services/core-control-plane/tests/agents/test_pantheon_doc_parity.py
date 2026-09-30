@@ -14,6 +14,7 @@ canonical names and asserts each one appears at least once.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from fdai.agents import PANTHEON_NAMES, PANTHEON_SPECS
@@ -71,9 +72,48 @@ def _catalog_rows(text: str) -> dict[str, tuple[str, tuple[str, ...]]]:
     return rows
 
 
+def _topic_rows(text: str) -> dict[str, tuple[str, tuple[str, ...]]]:
+    section = text.split("### 6.1", 1)[1].split("Partitioning:", 1)[0]
+    rows: dict[str, tuple[str, tuple[str, ...]]] = {}
+    for line in section.splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 3 or not cells[0].startswith("object."):
+            continue
+        topics = tuple(item.strip().strip("`") for item in cells[0].split(","))
+        publisher = cells[1].strip().strip("`")
+        subscribers = tuple(
+            sorted(
+                name
+                for name in PANTHEON_NAMES
+                if re.search(rf"(?<![A-Za-z]){name}(?![A-Za-z])", cells[2])
+            )
+        )
+        for topic in topics:
+            rows[topic] = (publisher, subscribers)
+    return rows
+
+
 def test_agent_catalog_layer_and_ownership_match_specs_in_both_locales() -> None:
     expected = {spec.name: (spec.layer.value, spec.owns) for spec in PANTHEON_SPECS}
 
     for doc_path in _CATALOG_DOC_PATHS:
         rows = _catalog_rows(doc_path.read_text(encoding="utf-8"))
+        assert rows == expected, doc_path.relative_to(_REPO_ROOT)
+
+
+def test_topic_subscriber_tables_match_specs_in_both_locales() -> None:
+    expected: dict[str, tuple[str, tuple[str, ...]]] = {}
+    for spec in PANTHEON_SPECS:
+        for topic in spec.publishes:
+            subscribers = tuple(
+                sorted(
+                    subscriber.name
+                    for subscriber in PANTHEON_SPECS
+                    if topic in subscriber.subscribes
+                )
+            )
+            expected[topic] = (spec.name, subscribers)
+
+    for doc_path in _CATALOG_DOC_PATHS:
+        rows = _topic_rows(doc_path.read_text(encoding="utf-8"))
         assert rows == expected, doc_path.relative_to(_REPO_ROOT)
