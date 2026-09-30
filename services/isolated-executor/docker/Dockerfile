@@ -42,7 +42,7 @@ RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
 
-ARG OPENSSL_LIBS_VERSION=3.5.8-r0
+ARG OPENSSL_LIBS_VERSION=3.5.9-r0
 ARG SQLITE_LIBS_VERSION=3.53.4-r0
 ARG UTIL_LINUX_LIBS_VERSION=2.42.3-r1
 RUN apk add --no-cache --upgrade \

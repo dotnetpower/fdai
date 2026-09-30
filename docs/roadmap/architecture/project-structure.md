@@ -605,6 +605,10 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   service-suite manifest assigns every service-owned regression exactly one owner, and
   dependency/import manifests name each shared distribution used directly by a service. A security
   lock update invalidates prior image evidence and requires the selected images to rebuild and scan.
+  Shipped Dockerfiles pin exact Alpine runtime package revisions. Alpine repositories keep only the
+  latest revision, so an upstream security release makes the old pin unresolvable; every shipped
+  Dockerfile and the image contract then move to the published revision together, and all selected
+  images rebuild and scan.
 - Optional vertical distributions such as `fdai-cost-governance` live under `extensions/`. Core
   owns their immutable manifest, lifecycle, provider, and authority-neutral contracts, while the
   reviewed image composition supplies package code and resources. Core never imports an optional

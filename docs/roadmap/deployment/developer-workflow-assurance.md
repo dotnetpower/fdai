@@ -304,6 +304,10 @@ those sources. Service manifests remain authoritative for runtime images and pac
 | Release candidate | Selected images are built, scanned, published, and attested by the protected workflow. Typed shared packages include their marker and wheel in every declared consumer image. | Reuse a verified candidate digest instead of building every source commit or every environment. |
 | Deploy | Exact source, digest, provenance, approval, policy, and fresh evidence | Local caches grant no deployment authority; stale vulnerability evidence can require a new scan of the same digest. |
 
+A dependency lock change is validated in an environment synced from that lock, such as a task
+worktree's own virtual environment, because the shared development environment still holds the
+previous versions.
+
 The local structural runner can reuse successful results across the optional validator and push
 hook only when its complete content and execution context match. Gates without a proven narrower
 dependency set use the complete tracked tree. Missing, malformed, failed, or mismatched cache

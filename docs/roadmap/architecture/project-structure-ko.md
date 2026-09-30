@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e0f0b460b9e3fd73f0f8191c5ea292aabba6e8d7
-translation_revised: 2026-09-30
+translation_source_sha: fa172228005d2444f55efe1bbe2b3b88a088be8f
+translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. 조립 패키지는 서명된 스킬을 서명된 스킬 번들보다 먼저 다시 만들고, 두 후보가 모두 검증된 뒤에만 읽기 전용 공개 스냅샷 두 개를 게시하는 비활성 시작 도우미도 제공합니다. Core 시작은 신뢰 아티팩트 저장소와 배포가 제공하는 신뢰 루트가 조립되기 전까지 이 도우미를 호출하지 않습니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 워크플로 카탈로그 로드는 신호 트리거가 관찰 `SignalType` 레지스트리로 해석되었는지, 요청/명령 워크플로 트리거 어휘로 해석되었는지도 기록합니다. 이는 계약 메타데이터일 뿐이며 새 런타임 권한 경로를 추가하지 않습니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요. 공유 `fdai_service_contracts.post_turn_review` 모듈은 versioned cross-service wire seam입니다. Operator composition은 post-turn review 요청을 발행하고 Core Bragi만 review 묶음을 발행하므로 검토, 라우팅, 소유권은 Core와 Pantheon에 남습니다.
@@ -592,6 +592,10 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   서비스 테스트 모음 매니페스트는 서비스 소유 회귀 검사마다 담당자를 정확히 하나 지정하고,
   의존성 및 가져오기 매니페스트는 서비스가 직접 사용하는 공유 배포판을 모두 명시합니다. 보안
   lockfile 갱신은 이전 이미지 근거를 무효화하며 선택된 이미지를 다시 빌드하고 검사해야 합니다.
+  배포되는 Dockerfile은 Alpine 런타임 패키지의 정확한 리비전을 고정합니다. Alpine 저장소는 최신
+  리비전만 유지하므로 상위 보안 릴리스가 나오면 기존 고정 버전을 더 이상 설치할 수 없습니다.
+  이때 배포되는 모든 Dockerfile과 이미지 계약을 게시된 리비전으로 함께 옮기고, 선택된 모든
+  이미지를 다시 빌드하고 검사합니다.
 - `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
