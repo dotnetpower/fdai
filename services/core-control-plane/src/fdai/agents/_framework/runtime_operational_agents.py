@@ -181,6 +181,12 @@ async def rehydrate_operational_agents(
             )
     muninn = agents.get("Muninn")
     if isinstance(muninn, Muninn):
+        operational_published = await muninn.recover_operational_publications()
+        if operational_published:
+            _LOG.info(
+                "pantheon_muninn_operational_publications_recovered",
+                extra={"published": operational_published},
+            )
         restored = await muninn.recover_conversation_projections()
         if restored:
             _LOG.info(

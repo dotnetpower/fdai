@@ -984,13 +984,15 @@ class Heimdall(
             generated_at=self._forecast_clock(),
             deployment_ceiling=AuthorityCeiling.SHADOW,
         )
-        await self._publish_detection_readiness(event, snapshot)
+        await self._publish_detection_readiness(event, snapshot, pass_id=pass_id)
         await self._persist_state()
 
     async def _publish_detection_readiness(
         self,
         event: dict[str, Any],
         snapshot: DetectionReadinessSnapshot,
+        *,
+        pass_id: str,
     ) -> None:
         material = {
             "resource_ref": snapshot.resource_ref,
@@ -1011,17 +1013,28 @@ class Heimdall(
         digest = hashlib.sha256(
             json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
+        generated_at = snapshot.generated_at.isoformat()
+        idempotency_key = stable_idempotency_key(
+            "detection-readiness",
+            snapshot.resource_ref,
+            pass_id,
+            generated_at,
+            digest,
+        )
         payload = {
             "producer_principal": "Heimdall",
             "kind": "detection_readiness",
             "event_type": "detection.readiness",
-            "correlation_id": str(event.get("correlation_id") or f"readiness:{digest}"),
-            "idempotency_key": f"detection-readiness:{digest}",
+            "correlation_id": str(event.get("correlation_id") or idempotency_key),
+            "idempotency_key": idempotency_key,
             "resource_id": snapshot.resource_ref,
             "target_type": "kubernetes-cluster",
+            "pass_id": pass_id,
+            "content_digest": digest,
             "decision": snapshot.decision.value,
+            "readiness_status": "stale" if snapshot.stale_dimensions else snapshot.decision.value,
             "authority_ceiling": snapshot.authority_ceiling.value,
-            "generated_at": snapshot.generated_at.isoformat(),
+            "generated_at": generated_at,
             "observations": [item.model_dump(mode="json") for item in snapshot.observations],
             "missing_dimensions": [item.value for item in snapshot.missing_dimensions],
             "stale_dimensions": [item.value for item in snapshot.stale_dimensions],

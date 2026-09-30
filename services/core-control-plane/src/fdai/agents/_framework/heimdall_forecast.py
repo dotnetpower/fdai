@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.bus import PantheonBus
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
-from fdai.core.detection.forecast_episode import ForecastEpisodeStore
+from fdai.core.detection.forecast_episode import (
+    ForecastEpisodeStore,
+    ForecastPublicationOutboxItem,
+    forecast_publication_id,
+)
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
 from fdai.shared.contracts.models import ForecastOutcome
 
@@ -61,6 +65,25 @@ class HeimdallForecastMixin:
         self.record_behavior(f"forecast_outcome:{outcome.label.value}")
         if self.bus is None:
             return False
+        if self._forecast_store is not None:
+            episode_id = outcome.prediction_id or outcome.outcome_id
+            publication = ForecastPublicationOutboxItem(
+                publication_id=forecast_publication_id(
+                    episode_id=episode_id,
+                    topic="object.forecast-outcome",
+                ),
+                episode_id=episode_id,
+                topic="object.forecast-outcome",
+                payload=outcome.model_dump(mode="json"),
+                attempts=0,
+            )
+            await self._forecast_store.enqueue_publication(
+                publication,
+                available_at=outcome.closed_at,
+            )
+            published = await self._publish_forecast_outbox(now=self._forecast_clock())
+            return published > 0
+        self.record_behavior("forecast_publication:outbox_unavailable")
         await self.bus.publish(
             "Heimdall",
             "object.forecast-outcome",
@@ -92,6 +115,8 @@ class HeimdallForecastMixin:
             raise ValueError("Heimdall forecast clock MUST be timezone-aware")
         evaluated = 0
         closed = 0
+        evaluation_timed_out = False
+        closure_timed_out = False
         try:
             async with asyncio.timeout(_FORECAST_PROVIDER_TIMEOUT_SECONDS):
                 evaluated = await self._forecast_evaluator.evaluate(now=now)
@@ -102,14 +127,21 @@ class HeimdallForecastMixin:
                         if isinstance(error, int | float) and not isinstance(error, bool):
                             recorder(float(error))
         except TimeoutError:
+            evaluation_timed_out = True
             self.record_behavior("forecast_episode:evaluation_timeout")
         try:
             async with asyncio.timeout(_FORECAST_PROVIDER_TIMEOUT_SECONDS):
                 closed = await self._forecast_closer.close_due(now=now)
         except TimeoutError:
+            closure_timed_out = True
             self.record_behavior("forecast_episode:closure_timeout")
         published = await self._publish_forecast_outbox(now=now)
-        self.record_behavior("forecast_tick:completed")
+        if evaluation_timed_out or closure_timed_out:
+            self.record_behavior("forecast_tick:incomplete")
+        elif evaluated or closed or published:
+            self.record_behavior("forecast_tick:completed")
+        else:
+            self.record_behavior("forecast_tick:noop")
         for _ in range(evaluated):
             self.record_behavior("forecast_episode:evaluated")
         for _ in range(closed):

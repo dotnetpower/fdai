@@ -18,6 +18,7 @@ from fdai.agents._framework.action_run_identity import (
     is_action_run_identity,
 )
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.operational_context.test_context_commands import TestContextCommandHandler
 from fdai.shared.providers.state_store import StateStore
 
@@ -174,6 +175,7 @@ class ApprovalTicket(Protocol):
     original_quorum_required: int | None
     effective_quorum_required: int | None
     development_authority: dict[str, Any] | None
+    initiator_principal: str | None
     approvers: list[str]
     kind: str
     stage: str | None
@@ -183,6 +185,29 @@ class ApprovalTicket(Protocol):
     rollback_contract: str
     decision_case: dict[str, Any] | None
     params: dict[str, Any]
+
+
+def _approval_ticket_identity(ticket: ApprovalTicket) -> dict[str, Any]:
+    return {
+        "correlation_id": ticket.correlation_id,
+        "action_id": ticket.action_id,
+        "action_type": ticket.action_type,
+        "action_run_identity": ticket.action_run_identity,
+        "resource_id": ticket.resource_id,
+        "quorum_required": ticket.quorum_required,
+        "original_quorum_required": ticket.original_quorum_required,
+        "effective_quorum_required": ticket.effective_quorum_required,
+        "development_authority": ticket.development_authority,
+        "initiator_principal": ticket.initiator_principal,
+        "kind": ticket.kind,
+        "document_id": ticket.document_id,
+        "upload_id": ticket.upload_id,
+        "stage": ticket.stage,
+        "idempotency_key": ticket.idempotency_key,
+        "rollback_contract": ticket.rollback_contract,
+        "params": ticket.params,
+        "decision_case": ticket.decision_case,
+    }
 
 
 class VarDecisionJournal:
@@ -650,11 +675,16 @@ def approval_for_ticket(
     approvers: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """Build one deterministic final approval from a validated ticket."""
+    ticket_identity = _approval_ticket_identity(ticket)
     approval: dict[str, Any] = {
         "producer_principal": "Var",
         "kind": ticket.kind,
         "correlation_id": ticket.correlation_id,
-        "idempotency_key": (ticket.idempotency_key or f"{ticket.correlation_id}:hil_pending"),
+        "idempotency_key": stable_idempotency_key(
+            "approval-final",
+            ticket_identity,
+            state,
+        ),
         "action_id": ticket.action_id,
         "action_type": ticket.action_type,
         "action_run_identity": ticket.action_run_identity,

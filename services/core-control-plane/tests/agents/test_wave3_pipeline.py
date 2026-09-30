@@ -968,7 +968,8 @@ def test_var_document_hil_blocks_uploader_and_emits_reviewer_approval() -> None:
     assert approval["kind"] == "document_ingestion"
     assert approval["state"] == "approved"
     assert approval["document_id"] == "doc-hil"
-    assert approval["idempotency_key"] == "document.inspected:version-hil"
+    assert str(approval["idempotency_key"]).startswith("approval-final:")
+    assert approval["action_idempotency_key"] == "document.inspected:version-hil"
 
 
 def test_thor_ignores_document_approval() -> None:
@@ -2261,7 +2262,7 @@ def _var_with_pending(
     return var
 
 
-def test_var_preserves_action_run_idempotency_key_on_approval() -> None:
+def test_var_preserves_action_run_idempotency_key_separately_from_final_approval_key() -> None:
     var = _var_with_pending(
         "c-idempotency",
         idempotency_key="c-idempotency:hil_pending",
@@ -2276,10 +2277,12 @@ def test_var_preserves_action_run_idempotency_key_on_approval() -> None:
     )
 
     assert approval is not None
-    assert approval["idempotency_key"] == "c-idempotency:hil_pending"
+    assert str(approval["idempotency_key"]).startswith("approval-final:")
+    assert approval["action_idempotency_key"] == "c-idempotency:hil_pending"
     assert var.bus is not None
     published = var.bus.messages_on("object.approval")  # type: ignore[union-attr]
-    assert published[0].payload["idempotency_key"] == "c-idempotency:hil_pending"
+    assert str(published[0].payload["idempotency_key"]).startswith("approval-final:")
+    assert published[0].payload["action_idempotency_key"] == "c-idempotency:hil_pending"
 
 
 def test_var_retries_stored_final_approval_after_publication_failure() -> None:

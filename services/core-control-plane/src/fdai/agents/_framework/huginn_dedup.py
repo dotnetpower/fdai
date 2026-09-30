@@ -32,6 +32,7 @@ class HuginnIngressClaim:
     payload: dict[str, Any]
     change_projection: dict[str, Any] | None
     duplicate: bool = False
+    published_topics: frozenset[str] = frozenset()
 
 
 class HuginnDedupJournal:
@@ -202,7 +203,13 @@ class HuginnDedupJournal:
                 return _claim_from_entry(entry)
         raise RuntimeError("Huginn dedup claim contention exceeded the bounded retry limit")
 
-    async def complete(self, *, idempotency_key: str, request_digest: str) -> None:
+    async def complete(
+        self,
+        *,
+        idempotency_key: str,
+        request_digest: str,
+        require_published_topics: bool = False,
+    ) -> None:
         """Checkpoint successful publication without retaining the payload body."""
         await self._ensure_migrated()
         await self._store.write_state(
@@ -234,6 +241,12 @@ class HuginnDedupJournal:
                 return
             if existing["owner_token"] != self._owner_token:
                 raise HuginnClaimInProgressError("Huginn ingress claim belongs to another replica")
+            published_topics = set(_published_topics(existing))
+            required_topics = {"object.event"}
+            if existing.get("change_projection") is not None:
+                required_topics.add("object.change")
+            if require_published_topics and not required_topics.issubset(published_topics):
+                raise RuntimeError("Huginn ingress publication legs are incomplete")
             completed = {
                 "request_digest": request_digest,
                 "status": "published",
@@ -242,6 +255,7 @@ class HuginnDedupJournal:
                 "sequence": existing["sequence"],
                 "payload": None,
                 "change_projection": None,
+                "published_topics": sorted(required_topics),
             }
             if await self._advance(
                 state_key=state_key,
@@ -253,6 +267,50 @@ class HuginnDedupJournal:
             ):
                 return
         raise RuntimeError("Huginn dedup completion contention exceeded the bounded retry limit")
+
+    async def mark_published(
+        self,
+        *,
+        idempotency_key: str,
+        request_digest: str,
+        topic: str,
+    ) -> None:
+        """Durably record one downstream publication leg for retry resume."""
+        if topic not in {"object.event", "object.change"}:
+            raise ValueError("Huginn publication topic is unsupported")
+        await self._ensure_migrated()
+        shard_index = self._shard_index(idempotency_key)
+        state_key = self._shard_key(shard_index)
+        capacity = self._shard_capacity(shard_index)
+        for _ in range(_MAX_CAS_ATTEMPTS):
+            current = await self._store.read_state(state_key)
+            revision, stored_capacity, next_sequence, entries = _decode(current)
+            self._validate_capacity(stored_capacity, expected=capacity)
+            existing = entries.get(idempotency_key)
+            if existing is None:
+                raise RuntimeError("Huginn ingress claim disappeared before publication marker")
+            _validate_request(existing, request_digest=request_digest)
+            if existing["status"] == "published":
+                return
+            if existing["owner_token"] != self._owner_token:
+                raise HuginnClaimInProgressError("Huginn ingress claim belongs to another replica")
+            if topic == "object.change" and existing.get("change_projection") is None:
+                raise ValueError("Huginn change publication marker has no change payload")
+            published_topics = set(_published_topics(existing))
+            if topic in published_topics:
+                return
+            published_topics.add(topic)
+            marked = {**existing, "published_topics": sorted(published_topics)}
+            if await self._advance(
+                state_key=state_key,
+                current=current,
+                revision=revision,
+                capacity=capacity,
+                next_sequence=next_sequence,
+                entries={**entries, idempotency_key: marked},
+            ):
+                return
+        raise RuntimeError("Huginn publication marker contention exceeded the bounded retry limit")
 
     async def _advance(
         self,
@@ -463,6 +521,7 @@ def _decode(
             ):
                 raise ValueError("Huginn pending dedup entry is malformed")
             _parse_time(entry["lease_expires_at"])
+            _published_topics(entry)
         elif any(
             (
                 entry.get("owner_token") != "",
@@ -498,7 +557,25 @@ def _claim_from_entry(entry: Mapping[str, Any]) -> HuginnIngressClaim:
     change = (
         _json_mapping(raw_change, field="change_projection") if raw_change is not None else None
     )
-    return HuginnIngressClaim(payload=payload, change_projection=change)
+    return HuginnIngressClaim(
+        payload=payload,
+        change_projection=change,
+        published_topics=frozenset(_published_topics(entry)),
+    )
+
+
+def _published_topics(entry: Mapping[str, Any]) -> tuple[str, ...]:
+    raw_topics = entry.get("published_topics", ())
+    if raw_topics in (None, ()):
+        return ()
+    if not isinstance(raw_topics, list | tuple):
+        raise ValueError("Huginn published topic markers are malformed")
+    topics: list[str] = []
+    for topic in raw_topics:
+        if topic not in {"object.event", "object.change"} or topic in topics:
+            raise ValueError("Huginn published topic marker is invalid")
+        topics.append(topic)
+    return tuple(topics)
 
 
 def _validate_request(entry: Mapping[str, Any], *, request_digest: str) -> None:

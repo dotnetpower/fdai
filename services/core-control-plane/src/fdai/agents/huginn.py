@@ -864,6 +864,9 @@ class Huginn(Agent):
                 return None
             payload = claim.payload
             change_projection = claim.change_projection
+            published_topics = claim.published_topics
+        else:
+            published_topics = frozenset()
         # Measurable behaviour: the sensing layer's ingest / dedup rates, so a
         # scenario can see an ingress flood (the flooding concern one layer up
         # from the judge). Recorded on the decision to emit, before publish.
@@ -888,12 +891,31 @@ class Huginn(Agent):
                 raise
         publish_cancelled = False
         if self.bus is not None:
-            publish_cancelled = await self._publish_event_change(payload, change_projection)
+            publish_cancelled = await self._publish_event_change(
+                payload,
+                change_projection,
+                idempotency_key=key,
+                request_digest=raw_request_digest,
+                published_topics=published_topics,
+            )
+        elif self._dedup_journal is not None:
+            await self._dedup_journal.mark_published(
+                idempotency_key=key,
+                request_digest=raw_request_digest,
+                topic="object.event",
+            )
+            if change_projection is not None:
+                await self._dedup_journal.mark_published(
+                    idempotency_key=key,
+                    request_digest=raw_request_digest,
+                    topic="object.change",
+                )
         if self._dedup_journal is not None:
             complete_task = asyncio.create_task(
                 self._dedup_journal.complete(
                     idempotency_key=key,
                     request_digest=raw_request_digest,
+                    require_published_topics=self.bus is not None,
                 )
             )
             try:
@@ -929,27 +951,47 @@ class Huginn(Agent):
         self,
         payload: Mapping[str, Any],
         change_projection: Mapping[str, Any] | None,
+        *,
+        idempotency_key: str,
+        request_digest: str,
+        published_topics: frozenset[str],
     ) -> bool:
         if self.bus is None:
             return False
         cancelled = False
-        event_task = asyncio.create_task(self.bus.publish("Huginn", "object.event", dict(payload)))
-        try:
-            await asyncio.shield(event_task)
-        except asyncio.CancelledError:
-            await event_task
-            self.record_behavior("event_publication:cancelled")
-            cancelled = True
-        if change_projection is not None:
-            change_task = asyncio.create_task(
-                self.bus.publish("Huginn", "object.change", dict(change_projection))
+        if "object.event" not in published_topics:
+            event_task = asyncio.create_task(
+                self.bus.publish("Huginn", "object.event", dict(payload))
             )
             try:
-                await asyncio.shield(change_task)
+                await asyncio.shield(event_task)
             except asyncio.CancelledError:
-                await change_task
-                self.record_behavior("change_publication:cancelled")
+                await event_task
+                self.record_behavior("event_publication:cancelled")
                 cancelled = True
+            if self._dedup_journal is not None:
+                await self._dedup_journal.mark_published(
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest,
+                    topic="object.event",
+                )
+        if change_projection is not None:
+            if "object.change" not in published_topics:
+                change_task = asyncio.create_task(
+                    self.bus.publish("Huginn", "object.change", dict(change_projection))
+                )
+                try:
+                    await asyncio.shield(change_task)
+                except asyncio.CancelledError:
+                    await change_task
+                    self.record_behavior("change_publication:cancelled")
+                    cancelled = True
+                if self._dedup_journal is not None:
+                    await self._dedup_journal.mark_published(
+                        idempotency_key=idempotency_key,
+                        request_digest=request_digest,
+                        topic="object.change",
+                    )
         return cancelled
 
     @asynccontextmanager

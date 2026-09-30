@@ -811,21 +811,39 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             await self._publish_with_outbox(outbox_key, "object.state-snapshot", snapshot)
         self.record_behavior("operating_pattern:retained")
 
-    async def _claim_publication(self, key: str, payload: dict[str, Any]) -> bool:
+    async def _claim_publication(
+        self,
+        key: str,
+        topic: str | dict[str, Any],
+        payload: dict[str, Any] | None = None,
+    ) -> bool:
+        if payload is None:
+            if not isinstance(topic, dict):
+                raise ValueError("Muninn publication payload is invalid")
+            actual_payload = topic
+            actual_topic = "object.context-index"
+        elif isinstance(topic, str):
+            actual_payload = payload
+            actual_topic = topic
+        else:
+            raise ValueError("Muninn publication topic is invalid")
         store = self._durable_state_store
         if store is None:
             return True
-        idempotency_key = str(payload.get("idempotency_key") or "")
-        correlation_id = str(payload.get("correlation_id") or "")
+        idempotency_key = str(actual_payload.get("idempotency_key") or "")
+        correlation_id = str(actual_payload.get("correlation_id") or "")
         if not idempotency_key or not correlation_id:
             raise ValueError("Muninn publication payload requires correlation and idempotency")
         record = {
             "kind": "muninn_publication_outbox",
             "revision": 1,
             "state": "pending",
+            "outbox_key": key,
             "idempotency_key": idempotency_key,
             "correlation_id": correlation_id,
-            "payload_digest": _payload_digest(payload),
+            "topic": actual_topic,
+            "payload": dict(actual_payload),
+            "payload_digest": _payload_digest(actual_payload),
         }
         created = await store.write_state_with_audit_if_absent(
             key,
@@ -843,6 +861,8 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             return True
         existing = await store.read_state(key)
         if existing is None or existing.get("payload_digest") != record["payload_digest"]:
+            raise ValueError("Muninn publication outbox identity conflict")
+        if existing.get("topic") != actual_topic or existing.get("payload") != actual_payload:
             raise ValueError("Muninn publication outbox identity conflict")
         if existing.get("state") == "published":
             return False
@@ -904,7 +924,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
     ) -> bool:
         if self.bus is None:
             return False
-        if not await self._claim_publication(outbox_key, payload):
+        if not await self._claim_publication(outbox_key, topic, payload):
             return False
         await self.bus.publish("Muninn", topic, payload)
         mark_task = asyncio.create_task(self._mark_publication_published(outbox_key, payload))
@@ -914,6 +934,44 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             await mark_task
             raise
         return True
+
+    async def recover_operational_publications(self, *, limit: int = 100) -> int:
+        """Republish durable operational outbox rows left pending before startup."""
+        store = self._durable_state_store
+        if store is None or self.bus is None:
+            return 0
+        rows, _next_cursor = await store.read_state_page(
+            _OPERATIONAL_OUTBOX_PREFIX + "/",
+            limit=limit,
+            field="state",
+            value="pending",
+        )
+        published = 0
+        for row in rows:
+            topic = row.get("topic")
+            payload = row.get("payload")
+            if topic not in {"object.context-index", "object.state-snapshot"} or not isinstance(
+                payload, dict
+            ):
+                self.record_behavior("publication_outbox:invalid")
+                continue
+            await self.bus.publish("Muninn", topic, dict(payload))
+            await self._mark_publication_published(
+                self._outbox_key_for_recovery(row),
+                dict(payload),
+            )
+            published += 1
+        if published:
+            self.record_behavior("publication_outbox:recovered", published)
+        return published
+
+    def _outbox_key_for_recovery(self, row: Mapping[str, Any]) -> str:
+        raw_key = row.get("outbox_key")
+        if isinstance(raw_key, str) and raw_key.startswith(_OPERATIONAL_OUTBOX_PREFIX + "/"):
+            return raw_key
+        idempotency_key = str(row.get("idempotency_key") or "")
+        digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
+        return f"{_OPERATIONAL_OUTBOX_PREFIX}/recovered/{digest}"
 
     def _case_projection_store(self, scope: str) -> CaseHistoryProjectionStore:
         if self._durable_state_store is None or self._case_history is None:
@@ -953,6 +1011,9 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "producer_principal": "Muninn",
             "correlation_id": correlation_id,
             "idempotency_key": idempotency_key,
+            "pass_id": str(payload.get("pass_id") or ""),
+            "content_digest": str(payload.get("content_digest") or ""),
+            "readiness_status": str(payload.get("readiness_status") or snapshot.decision.value),
             **snapshot.model_dump(mode="json"),
         }
         prior = self.state_store.get("detection_readiness", snapshot.resource_ref)
@@ -1152,9 +1213,14 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
 
     def health(self) -> dict[str, Any]:
         durable_context = self._durable_state_store is not None
+        case_history_available = self._case_history is not None
         pending_outbox, oldest_outbox_age = self._publication_outbox_backlog()
         unavailable_count = len(self._context_unavailable_facts)
-        status = "ok" if durable_context and unavailable_count == 0 else "degraded"
+        status = (
+            "ok"
+            if durable_context and case_history_available and unavailable_count == 0
+            else "degraded"
+        )
         kpis = {
             "context_fetch_p99_seconds": _kpi_sample(
                 _p99(tuple(self._context_fetch_latencies)),
@@ -1179,6 +1245,10 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "context_store": {
                 "durability": "durable" if durable_context else "process_local",
                 "evidence_state": "bound" if durable_context else "durable_store_unbound",
+            },
+            "forecast_learning": {
+                "case_history_available": case_history_available,
+                "evidence_state": "bound" if case_history_available else "materializer_unbound",
             },
             "context_fetch": {
                 "sample_count": len(self._context_fetch_latencies),
