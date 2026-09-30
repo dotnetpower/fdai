@@ -44,6 +44,7 @@ from .semantic_reasoning_handles import (
     reference_mention,
     starts_from_reference,
 )
+from .semantic_reasoning_metrics import METRIC_READER, metric_read
 from .semantic_reasoning_nodes import (
     COLLECTION_LIMIT,
     FUNCTION_ANCHOR_LIMIT,
@@ -196,7 +197,7 @@ _SCHEMA_OPERATIONS = frozenset(
 # Measure kinds each compiled operation reads; any other measure atom is not dropped silently.
 _READ_MEASURES: dict[GoalOperation, frozenset[MeasureKind]] = {
     GoalOperation.COUNT: frozenset({MeasureKind.COUNT}),
-    GoalOperation.LOOKUP: frozenset({MeasureKind.STATE}),
+    GoalOperation.LOOKUP: frozenset({MeasureKind.STATE, MeasureKind.METRIC}),
     GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE, MeasureKind.EVENT}),
     GoalOperation.EXPLAIN_CAUSE: frozenset({MeasureKind.STATE, MeasureKind.CHANGE}),
     GoalOperation.SELECT: frozenset(),
@@ -509,6 +510,9 @@ def _lookup_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return OperatorResult(unsupported=("measure_required",))
     if goal.filters:
         return OperatorResult(unsupported=("filter_unsupported_for_operation:lookup",))
+    # A metric is read over a window, so it states its own time; a state is read now.
+    if goal.measure.kind is MeasureKind.METRIC:
+        return _metric_lookup(goal, ctx)
     if goal.time.kind not in _CURRENT_TIMES:
         return OperatorResult(unsupported=(f"time_unsupported:{goal.time.kind.value}",))
     if goal.measure.kind is not MeasureKind.STATE:
@@ -520,6 +524,29 @@ def _lookup_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         arguments={},
         output_shape=SemanticOutputShape.TARGET_CURRENT_STATE,
     )
+
+
+def _metric_lookup(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
+    """Read the metric concepts the measure grounds over one bound Resource."""
+
+    read = metric_read(goal, ctx)
+    if isinstance(read, OperatorResult):
+        return read
+    arguments, kind = read
+    seconds = int(arguments["window_seconds"])
+    # One window read from words without digits is the model's reading, stated as such.
+    if kind == "applied" and goal.id in ctx.admission.judged_times:
+        kind = "model_judged"
+    result = _anchored_function(
+        goal,
+        ctx,
+        function_name=METRIC_READER,
+        arguments=arguments,
+        output_shape=SemanticOutputShape.TARGET_RESOURCE_METRIC,
+        evidence_requirements=(f"window.{kind}.{seconds}",),
+    )
+    limitation = f"{_WINDOW_LIMITATIONS[kind]}:{seconds}"
+    return OperatorResult(specs=result.specs, limitations=(limitation,)) if result.specs else result
 
 
 def _history_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:

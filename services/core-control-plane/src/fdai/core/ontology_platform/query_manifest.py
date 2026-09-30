@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,6 +28,7 @@ from fdai.shared.contracts.models import (
 from .property_values import PropertyValueDomain, property_value_index
 
 _MAX_MANIFEST_BYTES = 8_388_608
+_METRIC_READER = "query.resource_metric_inventory"
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +45,9 @@ class QueryManifest:
     # Reviewed ObjectType descriptions, by name, for choosers that pick a type by meaning.
     # They are a function of the release the digest binds and never enter a plan prompt.
     object_labels: tuple[tuple[str, str], ...] = ()
+    # Reviewed metric concepts and descriptions the bound metric reader accepts; the digest
+    # binds them whenever they are present, and they never enter a plan prompt either.
+    metric_labels: tuple[tuple[str, str], ...] = ()
 
 
 def build_query_manifest(
@@ -59,6 +63,7 @@ def build_query_manifest(
     functions: Sequence[OntologyFunctionType] = (),
     bound_function_names: Sequence[str] | None = None,
     property_values: Sequence[PropertyValueDomain] = (),
+    metric_labels: Mapping[str, str] | None = None,
 ) -> QueryManifest:
     """Project every readable declaration or one typed unavailable record.
 
@@ -138,6 +143,12 @@ def build_query_manifest(
 
     descriptors_tuple = tuple(descriptors)
     unavailable_tuple = tuple(unavailable)
+    # Metric concepts are offered only when their reader is a readable, bound descriptor.
+    metric_reader = any(
+        item.get("kind") == "function" and item.get("name") == _METRIC_READER
+        for item in descriptors_tuple
+    )
+    metrics = tuple(sorted((metric_labels or {}).items())) if metric_reader else ()
     manifest_body = {
         "release_digest": release.digest,
         "principal_role": principal_role.value,
@@ -145,6 +156,7 @@ def build_query_manifest(
         "descriptors": descriptors_tuple,
         "unavailable": unavailable_tuple,
         "mutation_authority": False,
+        **({"metric_labels": [list(item) for item in metrics]} if metrics else {}),
     }
     manifest_digest = _manifest_digest(manifest_body)
     unavailable_ids = tuple(item["declaration_id"] for item in unavailable_tuple)
@@ -177,6 +189,7 @@ def build_query_manifest(
         manifest_digest=manifest_digest,
         coverage_receipt=coverage_receipt,
         object_labels=tuple(sorted(object_labels)),
+        metric_labels=metrics,
     )
 
 

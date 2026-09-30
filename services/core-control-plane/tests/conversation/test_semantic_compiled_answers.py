@@ -859,3 +859,26 @@ def test_a_settled_reading_takes_the_cutoff_after_the_ambiguity_verdict() -> Non
     assert outcome is not None and outcome.plan is not None
     definition = json.loads(outcome.plan.nodes[0].arguments_json)["definition"]
     assert definition["as_of"] == (_LATER + timedelta(seconds=8)).isoformat()
+
+
+def test_a_compiled_metric_lookup_answers_with_its_default_window_notice(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _CPU,
+        _compile,
+        _metric_form,
+    )
+
+    utterance = "What is the CPU of vm-app-01?"
+    compilation = _compile(utterance, _metric_form(utterance), _CPU)
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    # The frame, plan, and intent graph verify again, and the window notice is required.
+    assert outcome is not None and outcome.frame is not None
+    assert outcome.frame.output_shape == "target_resource_metric"
+    assert "window.default.900" in outcome.frame.evidence_requirements
+    assert _completions(caplog) == ["selected"]

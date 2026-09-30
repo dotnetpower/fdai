@@ -798,6 +798,18 @@ The query manifest also holds the reviewed description of each readable ObjectTy
 function of the release that the manifest digest binds and stay outside the descriptors, so no plan prompt
 grows and no pinned manifest digest changes.
 
+**Metric lookups**
+
+When the metric reader is a readable, bound declaration, the manifest also offers the reviewed metric
+registry's concepts with their descriptions, and the digest binds them. A lookup whose measure is a metric
+reads `query.resource_metric_inventory` over the bound Resource with the concepts two blind choosers ground
+for the measure's mention: the reviewed 15-minute default window when no time is stated, or a stated
+duration within the reader's declared bounds, and the answer restates the window it read. V-SEM requires
+that reader and never a current-state read, and V-PROV requires the concepts to come from that binding and
+re-derives the window. An ungrounded metric, too many concepts for one read, or a window outside the
+bounds returns a typed unsupported reason, and a metric the provider cannot read for that Resource stays
+incomplete.
+
 ## Approved decisions
 
 The Owner approved these decisions on 2026-09-28.

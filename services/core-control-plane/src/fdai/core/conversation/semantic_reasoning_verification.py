@@ -78,6 +78,10 @@ _SECONDS = {
     DurationUnit.WEEK: 604_800,
 }
 _TRANSITIVE_DEPTH = 5
+METRIC_READER = "query.resource_metric_inventory"
+# The reviewed default window a current metric question reads, and the reader's lower bound.
+_DEFAULT_METRIC_WINDOW_SECONDS = 900
+_MIN_METRIC_WINDOW_SECONDS = 300
 _REQUIRED_FUNCTIONS: Mapping[tuple[GoalLevel, GoalOperation], frozenset[str]] = {
     (GoalLevel.INSTANCE, GoalOperation.LOOKUP): frozenset({"query.resource_current_state"}),
     (GoalLevel.INSTANCE, GoalOperation.HISTORY): frozenset({"query.resource_change_activity"}),
@@ -177,6 +181,7 @@ class _Allowed:
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.state_concepts: set[str] = set()
+        self.metric_concepts: set[str] = set()
         self.regions: set[str] = set()
         self.relation_object_type = False
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
@@ -233,6 +238,16 @@ def _allowed_operands(
             allowed.state_concepts.update(concept.values)
         elif mention.domain is MentionDomain.REGION and role is FilterRole.REGION:
             allowed.regions.update(concept.values)
+    measure = goal.measure
+    if measure is not None and measure.kind is MeasureKind.METRIC and measure.mention is not None:
+        mention = admission.form.mention(measure.mention)
+        concept = concepts.binding(measure.mention)
+        if (
+            mention.domain is MentionDomain.METRIC
+            and concept is not None
+            and concept.outcome is ConceptOutcome.ACCEPTED
+        ):
+            allowed.metric_concepts.update(concept.values)
     return allowed
 
 
@@ -342,6 +357,13 @@ def _function_violations(
         expected = {"kinds": sorted(allowed.declaration_kinds), "limit": 1000}
     elif name == RESOURCE_STATE_FUNCTION_NAME:
         expected = {"state_concepts": sorted(allowed.state_concepts)}
+    elif name == METRIC_READER:
+        window = _expected_metric_window(goal, descriptors)
+        expected = (
+            {"metric_concepts": sorted(allowed.metric_concepts), "window_seconds": window}
+            if allowed.metric_concepts and window is not None
+            else None
+        )
     else:
         return [f"prov_unexpected_function:{node.node_id}:{name}"]
     if expected is None or dict(static) != dict(expected):
@@ -377,6 +399,16 @@ def _declared_maximum(
             maximum = (properties.get(argument) or {}).get("maximum")
             return maximum if isinstance(maximum, int) and not isinstance(maximum, bool) else None
     return None
+
+
+def _expected_metric_window(goal: FormGoal, descriptors: Sequence[Mapping[str, Any]]) -> int | None:
+    """Re-derive the metric window from the form and the reader's declared bounds."""
+
+    maximum = _declared_maximum(descriptors, METRIC_READER, "window_seconds")
+    seconds = _expected_lookback(goal, _DEFAULT_METRIC_WINDOW_SECONDS)
+    if maximum is None or seconds is None or not _MIN_METRIC_WINDOW_SECONDS <= seconds <= maximum:
+        return None
+    return seconds
 
 
 def _history_reads(goal: FormGoal) -> frozenset[str]:
@@ -423,6 +455,15 @@ def _coverage_violations(
         required = _history_reads(goal)
         if functions != required:
             violations.append("sem_history_read_differs")
+    if (
+        (goal.level, goal.effective_operation) == (GoalLevel.INSTANCE, GoalOperation.LOOKUP)
+        and goal.measure is not None
+        and goal.measure.kind is MeasureKind.METRIC
+    ):
+        # A metric is read only by the metric reader, never answered as a current state.
+        required = frozenset({METRIC_READER})
+        if functions != required:
+            violations.append("sem_metric_read_differs")
     if required is not None and functions.isdisjoint(required):
         violations.append("sem_operation_read_missing")
     if goal.level is GoalLevel.SCHEMA:

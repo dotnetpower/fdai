@@ -682,6 +682,7 @@ def build_semantic_query_runtime(
             functions=function_types,
             bound_function_names=tuple(function_registry.binding_authorities),
             property_values=property_values,
+            metric_registry=metric_registry,
         ),
         verifier=OntologyQueryPlanVerifier(
             available_kinds=available_kinds,

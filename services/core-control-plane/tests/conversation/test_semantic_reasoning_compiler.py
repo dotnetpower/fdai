@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -22,6 +23,7 @@ from fdai.core.conversation.semantic_reasoning_form import (
     RelationSense,
 )
 from fdai.core.conversation.semantic_reasoning_operators import MAX_SIDES_PER_BATCH
+from fdai_service_contracts.ontology_query import QueryNodeKind
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,
@@ -2089,3 +2091,92 @@ def test_an_absolute_history_window_must_end_at_the_trusted_compile_clock() -> N
     # A window of the right length that ends anywhere else is not the stated recent window.
     assert violations(NOW + timedelta(days=1)) == ("prov_function_arguments:g1-changes",)
     assert violations(None) == ("prov_function_arguments:g1-changes",)
+
+
+def _metric_form(utterance: str, *, time: dict[str, Any] | None = None) -> dict[str, Any]:
+    goal: dict[str, Any] = {
+        "id": "g1",
+        "level": "instance",
+        "operation": "lookup",
+        "subject": "m1",
+        "subject_scope": "anchor",
+        "measure": {"kind": "metric", "mention": "m2"},
+        "cue": span(utterance, "What is"),
+        "confidence": 0.9,
+    }
+    if time is not None:
+        goal["time"] = time
+    return {
+        "mentions": [
+            _anchor(utterance, "vm-app-01"),
+            {"id": "m2", "form": "concept", "domain": "metric", "span": span(utterance, "CPU")},
+        ],
+        "goals": [goal],
+    }
+
+
+_CPU = concepts(("m2", MentionDomain.METRIC, ("resource.cpu.utilization_pct",)))
+
+
+def test_a_metric_lookup_reads_the_grounded_concept_over_the_bound_resource() -> None:
+    utterance = "What is the CPU of vm-app-01?"
+
+    compilation = _compile(utterance, _metric_form(utterance), _CPU)
+
+    (goal,) = compilation.goals
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    reads = [
+        json.loads(node.arguments_json)
+        for node in batch.plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+    ]
+    assert reads == [
+        {
+            "function_name": "query.resource_metric_inventory",
+            "arguments": {
+                "metric_concepts": ["resource.cpu.utilization_pct"],
+                "window_seconds": 900,
+            },
+            "dependency_arguments": {"g1-anchor": "query_result"},
+        }
+    ]
+    assert batch.frame.output_shape == "target_resource_metric"
+    # The reviewed default window is stated as a notice, never silently applied.
+    assert goal.limitations == ("default_window_applied:900",)
+    assert "window.default.900" in batch.frame.evidence_requirements
+
+
+def test_a_stated_metric_window_is_read_within_the_reader_bounds() -> None:
+    utterance = "What is the CPU of vm-app-01 in the last 2 hours?"
+    hours = {
+        "kind": "window",
+        "value": {"duration": {"amount": 2, "unit": "hour"}},
+        "cue": span(utterance, "in the last 2 hours"),
+    }
+    worded = "What is the CPU of vm-app-01 in the last hour?"
+    hour = {
+        "kind": "window",
+        "value": {"duration": {"amount": 1, "unit": "hour"}},
+        "cue": span(worded, "in the last hour"),
+    }
+    minutes = "What is the CPU of vm-app-01 in the last 2 minutes?"
+    short_window = {
+        "kind": "window",
+        "value": {"duration": {"amount": 2, "unit": "minute"}},
+        "cue": span(minutes, "in the last 2 minutes"),
+    }
+
+    stated = _compile(utterance, _metric_form(utterance, time=hours), _CPU).goals[0]
+    judged = _compile(worded, _metric_form(worded, time=hour), _CPU).goals[0]
+    short = _compile(minutes, _metric_form(minutes, time=short_window), _CPU).goals[0]
+    unbound = _compile(utterance, _metric_form(utterance, time=hours)).goals[0]
+
+    assert stated.status is GoalStatus.COMPILED
+    assert stated.limitations == ("time_window_applied:7200",)
+    # A window read from words without digits is the model's reading, stated as such.
+    assert judged.limitations == ("time_window_model_judged:3600",)
+    # A window below the reader's bound, or a metric no chooser grounded, never reads.
+    assert short.status is GoalStatus.UNSUPPORTED
+    assert short.reasons == ("metric_window_out_of_bounds",)
+    assert unbound.status is not GoalStatus.COMPILED

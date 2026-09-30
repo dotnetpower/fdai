@@ -373,3 +373,26 @@ def test_choosers_see_reviewed_object_type_descriptions_as_labels() -> None:
     # Without descriptions the catalog keeps name-only labels.
     plain = concept_catalogs(manifest.descriptors)[MentionDomain.OBJECT_TYPE]
     assert all(candidate.labels == candidate.values for candidate in plain)
+
+
+def test_metric_concepts_ground_over_the_reviewed_registry_only_with_their_reader() -> None:
+    labels = {"resource.cpu.utilization_pct": "Processor utilization of one Resource."}
+    plain = production_manifest()
+    offered = production_manifest(metric_labels=tuple(labels.items()))
+    unbound = production_manifest(
+        metric_labels=tuple(labels.items()), unbound=("query.resource_metric_inventory",)
+    )
+
+    catalog = concept_catalogs(offered.descriptors, metric_labels=dict(offered.metric_labels))
+    (candidate,) = catalog[MentionDomain.METRIC]
+
+    assert candidate.values == ("resource.cpu.utilization_pct",)
+    assert candidate.labels == (
+        "resource.cpu.utilization_pct",
+        labels["resource.cpu.utilization_pct"],
+    )
+    # The digest binds the offered concepts, and no reader means no metric catalog.
+    assert offered.manifest_digest != plain.manifest_digest
+    assert unbound.metric_labels == () and MentionDomain.METRIC not in concept_catalogs(
+        unbound.descriptors, metric_labels=dict(unbound.metric_labels)
+    )

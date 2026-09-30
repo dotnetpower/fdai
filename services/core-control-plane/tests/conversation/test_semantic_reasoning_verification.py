@@ -475,3 +475,44 @@ def test_a_relationship_read_never_answers_a_directed_or_paired_schema_relation(
 
     assert _violations(listing, receipt, batch.plan) == ()
     assert "sem_schema_relation_unread" in violations
+
+
+def test_a_metric_read_must_name_the_grounded_concept_and_the_reviewed_window() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import _CPU, _metric_form
+
+    utterance = "What is the CPU of vm-app-01?"
+    admission = admitted(_metric_form(utterance), utterance)
+    compilation = compile_question_form(
+        admission,
+        concepts=_CPU,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=utterance,
+        anchors=synthetic_anchors(admission),
+    )
+    plan = compilation.goals[0].batches[0].plan
+
+    def invented(arguments: dict[str, Any]) -> None:
+        arguments["arguments"]["metric_concepts"] = ["resource.memory.usage_pct"]
+
+    def widened(arguments: dict[str, Any]) -> None:
+        arguments["arguments"]["window_seconds"] = 604_800
+
+    def state_instead(arguments: dict[str, Any]) -> None:
+        arguments["function_name"] = "query.resource_current_state"
+        arguments["arguments"] = {}
+
+    assert _violations(admission, _CPU, plan) == ()
+    assert "prov_function_arguments:g1-read" in _violations(
+        admission, _CPU, _rewrite(plan, "g1-read", invented)
+    )
+    assert "prov_function_arguments:g1-read" in _violations(
+        admission, _CPU, _rewrite(plan, "g1-read", widened)
+    )
+    # A metric is never answered by a current-state read.
+    assert "sem_metric_read_differs" in _violations(
+        admission, _CPU, _rewrite(plan, "g1-read", state_instead)
+    )

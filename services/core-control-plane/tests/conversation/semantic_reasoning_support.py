@@ -115,7 +115,12 @@ def production_catalog() -> OntologyCatalog:
 
 
 @lru_cache(maxsize=2)
-def production_manifest(role: CeilingRole = CeilingRole.READER) -> QueryManifest:
+def production_manifest(
+    role: CeilingRole = CeilingRole.READER,
+    *,
+    metric_labels: tuple[tuple[str, str], ...] = (),
+    unbound: tuple[str, ...] = (),
+) -> QueryManifest:
     catalog = production_catalog()
     functions = operational_function_types(catalog.function_types)
     release = build_ontology_release(
@@ -142,7 +147,10 @@ def production_manifest(role: CeilingRole = CeilingRole.READER) -> QueryManifest
         interfaces=catalog.interface_types,
         action_types=catalog.action_types,
         functions=functions,
-        bound_function_names=tuple(function.name for function in functions),
+        bound_function_names=tuple(
+            function.name for function in functions if function.name not in unbound
+        ),
+        metric_labels=dict(metric_labels),
         property_values=(
             *resource_type_value_domains(registry),
             *resource_location_value_domains(

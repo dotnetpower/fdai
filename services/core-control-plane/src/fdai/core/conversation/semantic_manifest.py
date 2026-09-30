@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from fdai_service_contracts import canonical_ordinary_role
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.ontology_platform import QueryManifest, build_query_manifest
+from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -43,6 +44,7 @@ class CatalogQueryManifestProvider:
         functions: Sequence[OntologyFunctionType] = (),
         bound_function_names: Sequence[str] | None = None,
         property_values: Sequence[PropertyValueDomain] = (),
+        metric_registry: MetricSemanticRegistry | None = None,
     ) -> None:
         self._release = release
         self._object_types = tuple(object_types)
@@ -51,6 +53,12 @@ class CatalogQueryManifestProvider:
         self._action_types = tuple(action_types)
         self._functions = tuple(functions)
         self._property_values = tuple(property_values)
+        # Reviewed metric concepts and descriptions, offered to concept choosers.
+        self._metric_labels: Mapping[str, str] = (
+            {concept: item.description for concept, item in metric_registry.definitions.items()}
+            if metric_registry is not None
+            else {}
+        )
         self._bound_function_names = (
             None if bound_function_names is None else tuple(bound_function_names)
         )
@@ -75,6 +83,7 @@ class CatalogQueryManifestProvider:
             functions=self._functions,
             bound_function_names=self._bound_function_names,
             property_values=self._property_values,
+            metric_labels=self._metric_labels,
         )
 
 
