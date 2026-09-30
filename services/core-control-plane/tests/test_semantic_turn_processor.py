@@ -3480,6 +3480,16 @@ async def test_an_unsupported_stated_constraint_names_its_atoms_in_korean() -> N
     assert "질문에 밝힌 조건(상태 조건, 그룹 기준)을" in semantic["answer"]
 
 
+async def test_a_plan_that_reads_no_stated_grouping_names_it_in_korean() -> None:
+    held = _reading_hold("held", "semantic_plan_constraint_uncovered", ("role:groups",))
+
+    projection = _projection(await _processor(_Runtime(held)).process(_request(locale="ko")))
+
+    semantic = projection["semantic_result"]
+    assert semantic["reason_code"] == "semantic_plan_constraint_uncovered"
+    assert "질문에 밝힌 조건(그룹 기준)을 읽지 않아" in semantic["answer"]
+
+
 async def test_a_reading_hold_without_a_labelled_code_states_the_plain_notice() -> None:
     held = _reading_hold("held", "semantic_reading_ambiguous", ("unknown_code",))
 

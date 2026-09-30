@@ -93,6 +93,7 @@ describe("verification presentation", () => {
     ["semantic_judgment_review_conflict", "contextRequired"],
     ["semantic_judgment_review_unavailable", "plannerUnavailable"],
     ["semantic_constraint_uncovered", "invalidQuery"],
+    ["semantic_plan_constraint_uncovered", "invalidQuery"],
     ["semantic_reading_unverified", "invalidQuery"],
     ["semantic_reading_continuation_required", "invalidQuery"],
     ["semantic_reading_limited", "invalidQuery"],

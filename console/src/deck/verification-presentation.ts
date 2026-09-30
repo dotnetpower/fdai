@@ -32,6 +32,7 @@ const CONTEXT_REQUIRED_REASONS = new Set([
 // A question held on its reading needs a narrower or restated question, not another source.
 const READING_HOLD_REASONS = new Set([
   "semantic_constraint_uncovered",
+  "semantic_plan_constraint_uncovered",
   "semantic_reading_continuation_required",
   "semantic_reading_limited",
   "semantic_reading_unverified",

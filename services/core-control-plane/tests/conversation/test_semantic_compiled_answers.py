@@ -681,6 +681,20 @@ def test_a_typed_hold_carries_the_closed_codes_that_say_why() -> None:
     assert vetoed is not None and vetoed.hold_details == ("filter_unsupported:region",)
 
 
+def test_any_current_path_plan_that_reads_only_a_list_is_held_by_a_wider_reading() -> None:
+    atom = _ticket(_unsupported_observation())
+    atom.outcome(manifest_digest="d", observations=[])
+    listed = _compilation().goals[0].batches[0].plan
+    functional = _cause_compilation().goals[0].batches[0].plan
+
+    # A typed builder's list or count reads no region either, so it may not answer.
+    held = atom.veto("server_resource_collection", manifest_digest="d", plan=listed)
+    assert held is not None and held.reason == "semantic_stated_constraint_unsupported"
+    # A plan that reads more than a list is left to its own verification.
+    assert atom.veto("server_resource_collection", manifest_digest="d", plan=functional) is None
+    assert atom.veto("server_resource_collection", manifest_digest="d") is None
+
+
 def test_hold_details_stay_closed_codes_on_held_outcomes_only() -> None:
     kept = hold_details(("role:times", "role:times", "free text!", "filter_unsupported:state"))
 

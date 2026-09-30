@@ -36,6 +36,7 @@ from .adaptive_call_scope import bind_adaptive_model_budget
 from .intent_graph import build_intent_graph
 from .model_observation import ConversationModelObservation
 from .semantic_manifest import semantic_principal_scope_digest
+from .semantic_plan_coverage import plan_reads_only_a_list
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_models import (
     SemanticPlanningDisposition,
@@ -190,15 +191,25 @@ class CompiledAnswerTicket:
             intent_graph=intent_graph,
         )
 
-    def veto(self, plan_source: str, *, manifest_digest: str) -> SemanticPlanningOutcome | None:
-        """Hold a word-recovered plan that answers a narrower question than the typed reading.
+    def veto(
+        self,
+        plan_source: str,
+        *,
+        manifest_digest: str,
+        plan: OntologyQueryPlan | None = None,
+    ) -> SemanticPlanningOutcome | None:
+        """Hold a current-path plan that answers a narrower question than the typed reading.
 
         A reviewed reading that no builder can compile names what the question needs, and
         any parsed reading may show a grouping, state, relation, or schema level that one
-        filtered list recovered from the judgment's words never reads.
+        filtered list never reads: neither a list recovered from the judgment's words nor
+        any other plan that reads only a filtered list may then answer.
         """
 
-        if not self._unsupported or plan_source not in _LEXICAL_PLAN_SOURCES:
+        if not self._unsupported:
+            return None
+        narrower = plan is not None and plan_reads_only_a_list(plan)
+        if plan_source not in _LEXICAL_PLAN_SOURCES and not narrower:
             return None
         _LOGGER.info(
             "semantic_compiled_answer_veto",

@@ -11,6 +11,12 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
+from fdai.core.conversation.semantic_reasoning_form import SourceSpan
+from fdai.core.conversation.semantic_reasoning_review import (
+    ConstraintExtraction,
+    ConstraintRole,
+    ExtractedConstraint,
+)
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier
 from fdai_service_contracts.ontology_query import QueryNodeKind
@@ -44,6 +50,7 @@ class _Ticket:
         self.result = result
         self.veto_result = veto
         self.vetoed_sources: list[str] = []
+        self.vetoed_plans: list[Any] = []
         self.consumed = False
         self.cancelled = False
         self.typed_only = False
@@ -55,8 +62,9 @@ class _Ticket:
         observations.append(SimpleNamespace(model="form-model", usage=None, trace_call={}))
         return self.result
 
-    def veto(self, plan_source: str, *, manifest_digest: str) -> Any:
+    def veto(self, plan_source: str, *, manifest_digest: str, plan: Any = None) -> Any:
         self.vetoed_sources.append(plan_source)
+        self.vetoed_plans.append(plan)
         return self.veto_result
 
     def cancel(self) -> None:
@@ -225,6 +233,74 @@ def test_a_released_unsupported_reading_holds_the_word_recovered_plan() -> None:
     )
     assert answered.disposition is SemanticPlanningDisposition.PLANNED
     assert kept.ticket.vetoed_sources == ["server_stated_filter"]
+
+
+class _Reading:
+    """A blind reading that has already arrived, as the judgment's coverage review holds it."""
+
+    def __init__(self, *roles: str) -> None:
+        self.extraction = ConstraintExtraction(
+            constraints=tuple(
+                ExtractedConstraint(quote=SourceSpan(start=0, end=2), role=ConstraintRole(role))
+                for role in roles
+            )
+        )
+
+    def settled_reading(self) -> ConstraintExtraction:
+        return self.extraction
+
+
+class _CoverageReview:
+    def __init__(self, reading: _Reading) -> None:
+        self._reading = reading
+
+    def start(self, *, utterance: str, locale: str) -> _Reading:
+        return self._reading
+
+
+def _plan_with_reading(*roles: str) -> Any:
+    manifest, _definition = _typed_fixture(groups=(_VM_GROUP,))
+    service = SemanticPlanningService(
+        model=_Model(frame=None, plan=None),  # type: ignore[arg-type]
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        now=lambda: NOW,
+        semantic_judgment=_Boundary(  # type: ignore[arg-type]
+            SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted()
+        ),
+        coverage_review=_CoverageReview(_Reading(*roles)),  # type: ignore[arg-type]
+    )
+    return service.plan(
+        utterance=_UTTERANCE,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale="ko",
+    )
+
+
+def test_a_stated_grouping_or_relation_holds_a_plan_that_reads_only_a_list() -> None:
+    grouped = _plan_with_reading("names", "groups")
+    related = _plan_with_reading("names", "relates")
+    listed = _plan_with_reading("names", "restricts")
+
+    # The verified list reads neither the grouping nor the relation the blind reading found.
+    assert grouped.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert grouped.reason == "semantic_plan_constraint_uncovered"
+    assert grouped.hold_details == ("role:groups",)
+    assert related.hold_details == ("role:relates",)
+    # A restriction stays with the judgment's coverage review, so the list still answers.
+    assert listed.disposition is SemanticPlanningDisposition.PLANNED
+
+
+def test_the_veto_sees_the_plan_the_current_path_verified() -> None:
+    path = _Path(result=None)
+    outcome, _model = _plan(
+        _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted()), path
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert path.ticket.vetoed_plans == [outcome.plan]
 
 
 def test_typed_only_ends_a_declined_read_with_its_decision_and_never_the_legacy_cascade() -> None:

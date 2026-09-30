@@ -51,6 +51,7 @@ from .semantic_judgment_coverage import (
     start_coverage,
 )
 from .semantic_judgment_review import promoted_state_collection
+from .semantic_plan_coverage import PLAN_CONSTRAINT_UNCOVERED, plan_uncovered_roles
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
@@ -672,9 +673,30 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
-            vetoed = ticket.veto(plan_source, manifest_digest=manifest_digest) if ticket else None
+            vetoed = (
+                ticket.veto(plan_source, manifest_digest=manifest_digest, plan=plan)
+                if ticket
+                else None
+            )
             if vetoed is not None:
                 return preflight_router.finish(vetoed)
+            # A stated grouping or relation the blind reading found must shape the plan too.
+            uncovered_roles = plan_uncovered_roles(
+                coverage.settled_reading() if coverage is not None else None, plan
+            )
+            if uncovered_roles:
+                _LOGGER.info(
+                    "semantic_plan_constraint_uncovered",
+                    extra={"plan_source": plan_source, "roles": list(uncovered_roles)},
+                )
+                return preflight_router.finish(
+                    _outcome(
+                        SemanticPlanningDisposition.UNAVAILABLE,
+                        PLAN_CONSTRAINT_UNCOVERED,
+                        manifest_digest=manifest.manifest_digest,
+                        hold_details=hold_details(f"role:{role}" for role in uncovered_roles),
+                    )
+                )
             if frame.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES:
                 verify_frame_plan_alignment(
                     frame,

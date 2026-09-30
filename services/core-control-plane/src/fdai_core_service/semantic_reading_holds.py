@@ -16,6 +16,7 @@ READING_HOLD_REASONS = frozenset(
         "semantic_constraint_uncovered",
         "semantic_judgment_review_conflict",
         "semantic_judgment_review_unavailable",
+        "semantic_plan_constraint_uncovered",
         "semantic_reading_ambiguous",
         "semantic_reading_continuation_required",
         "semantic_reading_limited",
@@ -29,6 +30,7 @@ _MAX_NAMED = 3
 # never reads as an unsupported atom.
 _FAMILIES: dict[str, frozenset[str]] = {
     "semantic_constraint_uncovered": frozenset({"role"}),
+    "semantic_plan_constraint_uncovered": frozenset({"role"}),
     "semantic_reading_ambiguous": frozenset({"kind"}),
     "semantic_reading_unavailable": frozenset({"kind"}),
     "semantic_reading_unverified": frozenset({"role", "kind"}),
@@ -41,6 +43,12 @@ _NOTICES: dict[str, tuple[str, str]] = {
         "질문에 밝힌 조건({detail})이 해석에 반영되지 않아 요청을 보류했습니다. "
         "질문보다 넓은 범위로 답하지 않았습니다.",
         "The request was held because the reading of the question left out a stated "
+        "{detail}. FDAI did not answer a broader question than the one asked.",
+    ),
+    "semantic_plan_constraint_uncovered": (
+        "검증된 조회 계획이 질문에 밝힌 조건({detail})을 읽지 않아 요청을 보류했습니다. "
+        "질문보다 넓은 범위로 답하지 않았습니다.",
+        "The request was held because the verified read plan does not read the stated "
         "{detail}. FDAI did not answer a broader question than the one asked.",
     ),
     "semantic_judgment_review_conflict": (
@@ -85,6 +93,12 @@ _NOTICES: dict[str, tuple[str, str]] = {
 }
 # Shown instead when a reason carries no code with a reviewed label.
 _PLAIN_NOTICES: dict[str, tuple[str, str]] = {
+    "semantic_plan_constraint_uncovered": (
+        "검증된 조회 계획이 질문에 밝힌 조건을 읽지 않아 요청을 보류했습니다. "
+        "질문보다 넓은 범위로 답하지 않았습니다.",
+        "The request was held because the verified read plan does not read a stated "
+        "condition. FDAI did not answer a broader question than the one asked.",
+    ),
     "semantic_constraint_uncovered": (
         "질문에 밝힌 조건이 해석에 반영되지 않아 요청을 보류했습니다. "
         "질문보다 넓은 범위로 답하지 않았습니다.",
