@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 4fab1a435ec093dbc4ea1ef0c3d8e5e81d8af856
+translation_source_sha: 720b3aed9ca72f17795649e621ab6415eb07148c
 translation_revised: 2026-09-30
 ---
 
@@ -226,11 +226,21 @@ translation_revised: 2026-09-30
 차단됩니다.
 
 실행 가능한 non-shadow 판정은 wire에 일곱 가지 보호 장치를 모두 포함합니다. 정지 조건,
-검증된 롤백, 영향 범위, 성공한 예행 실행, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계
-감사입니다. `safeguards` 객체가 없으면 executor I/O 전에 거부합니다. Forseti는 실행 가능한
-rule 및 중재 판정에 이 보호 장치를 담아 내보냅니다. 자문 판정은 타입이 지정된 안정 멱등성
-키를 유지하지만 작업 권한은 부여하지 않습니다. Forseti의 rule cache는 Mimir가 인증한 엄격히
-더 새로운 rule 개정만 수락합니다.
+검증된 롤백, 영향 범위, 예행 실행, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사입니다.
+Thor는 Forseti가 전달한 `auto` 또는 `hil` 판정에 보호 장치가 하나라도 없으면 멱등성 키의
+형태나 첨부된 kinetic 제안과 관계없이 실행기 I/O 전에 거부합니다. 직접
+`dispatch_verdict()` 호출은 프로세스 내부 테스트 경계이며, 소스 경계 테스트가 Thor의 타입이
+지정된 포트를 유일한 운영 호출자로 고정합니다. Forseti는 실행 가능한 rule 및 중재 판정에 이 보호
+장치를 담아 내보냅니다. 자문 판정은 타입이 지정된 안정 멱등성 키를 유지하지만 작업 권한은
+부여하지 않습니다. Forseti의 rule cache는 Mimir가 인증한 엄격히 더 새로운 rule 개정만
+수락합니다.
+
+`dry_run_evidence` 보호 장치 필드는 예행 실행 보호 장치의 출처를 밝힙니다.
+`upstream_receipt`는 발생 이벤트가 가져온 what-if 또는 예행 실행 증적을 인용합니다.
+`declared_obligation`은 결정적인 의무 식별자일 뿐이며 예행 실행이 실제로 수행되었다는 증거가
+아닙니다. Thor는 의무에만 의존하는 non-shadow 전달을 `dispatch:dry_run_obligation_only`로
+집계합니다. `evaluate_pre_dispatch`를 호출하는 Core 실행기 경로는 자체 예행 실행 증적을
+계산하며, Thor 사전 시뮬레이션 증적은 계획된 작업으로 남아 있습니다.
 
 #### 영향 범위와 배치 시맨틱
 

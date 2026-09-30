@@ -126,6 +126,42 @@ def test_norns_never_writes_catalog_or_publishes_rule_policy_topics() -> None:
     )
 
 
+def test_only_thor_typed_port_dispatches_verdicts_in_production_source() -> None:
+    callers = _dispatch_verdict_callers(_production_sources_mentioning("dispatch_verdict"))
+
+    assert callers == [("services/core-control-plane/src/fdai/agents/thor.py", "on_typed_message")]
+    assert _dispatch_verdict_callers(
+        {"bad_direct.py": "async def bypass(thor):\n    await thor.dispatch_verdict({})\n"}
+    ) == [("bad_direct.py", "bypass")]
+
+
+def _production_sources_mentioning(needle: str) -> dict[str, str]:
+    sources: dict[str, str] = {}
+    for root in ("services", "packages", "extensions"):
+        for path in sorted((REPO_ROOT / root).glob("*/src/**/*.py")):
+            text = path.read_text(encoding="utf-8")
+            if needle in text:
+                sources[str(path.relative_to(REPO_ROOT))] = text
+    return sources
+
+
+def _dispatch_verdict_callers(sources: dict[str, str]) -> list[tuple[str, str]]:
+    callers: list[tuple[str, str]] = []
+    for name, source in sources.items():
+        tree = ast.parse(source, filename=name)
+        for function in ast.walk(tree):
+            if not isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            for node in ast.walk(function):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "dispatch_verdict"
+                ):
+                    callers.append((name, function.name))
+    return sorted(set(callers))
+
+
 def _read_sources(paths: tuple[Path, ...]) -> dict[str, str]:
     return {str(path.relative_to(REPO_ROOT)): path.read_text() for path in paths}
 

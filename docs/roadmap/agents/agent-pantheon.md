@@ -622,7 +622,7 @@ action consumers.
 Three validation checks, all deterministic:
 
 1. **At propose.** Initiator asserts `argument_schema` conformance; the registry rejects malformed proposals.
-2. **At verdict.** Forseti repeats schema, policy, and what-if/dry-run checks; failure lowers the verdict to `deny` or `hil`.
+2. **At verdict.** Forseti repeats schema and policy checks and marks whether the dry-run safeguard cites an upstream what-if or dry-run receipt or only a declared obligation; failure lowers the verdict to `deny` or `hil`.
 3. **At execute.** Verdict, `ActionRun`, Approval, and audit preserve unchanged parameters; Thor revalidates before mutation to catch target-state races.
 
 The implemented lifecycle-stable identity is `action_run_identity()`, derived from the stable

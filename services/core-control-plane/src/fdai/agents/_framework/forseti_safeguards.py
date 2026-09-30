@@ -7,6 +7,12 @@ from typing import Any
 
 from fdai.agents._framework.topics import stable_idempotency_key
 
+#: The triggering event carried an upstream what-if or dry-run receipt.
+DRY_RUN_UPSTREAM_RECEIPT = "upstream_receipt"
+#: No upstream receipt exists; the value is a deterministic obligation identity, not proof
+#: that a dry-run ran. Proving it before executor I/O is the planned Thor pre-flight simulation.
+DRY_RUN_DECLARED_OBLIGATION = "declared_obligation"
+
 
 def execution_safeguards(
     *,
@@ -16,12 +22,14 @@ def execution_safeguards(
     rollback_contract: str,
     event: Mapping[str, Any],
 ) -> dict[str, object]:
-    dry_run_receipt = str(
-        event.get("dry_run_receipt")
-        or event.get("what_if_receipt")
-        or stable_idempotency_key("forseti-dry-run", action_idempotency_key, action_type)
+    upstream_receipt = str(event.get("dry_run_receipt") or event.get("what_if_receipt") or "")
+    dry_run_receipt = upstream_receipt.strip() or stable_idempotency_key(
+        "forseti-dry-run-obligation", action_idempotency_key, action_type
     )
     return {
+        "dry_run_evidence": (
+            DRY_RUN_UPSTREAM_RECEIPT if upstream_receipt.strip() else DRY_RUN_DECLARED_OBLIGATION
+        ),
         "stop_condition": str(event.get("stop_condition") or f"{action_type}:effect_verified"),
         "tested_rollback_contract": str(
             event.get("tested_rollback_contract") or f"{rollback_contract}:declared"
@@ -46,11 +54,12 @@ def arbitration_safeguards(
     rollback_contract: str,
 ) -> dict[str, object]:
     return {
+        "dry_run_evidence": DRY_RUN_DECLARED_OBLIGATION,
         "stop_condition": f"{action_type}:effect_verified",
         "tested_rollback_contract": f"{rollback_contract}:declared",
         "blast_radius_limit": {"scope": "resource", "resource_id": str(resource_id or "")},
         "dry_run_receipt": stable_idempotency_key(
-            "forseti-arbitration-dry-run", action_idempotency_key, action_type
+            "forseti-arbitration-dry-run-obligation", action_idempotency_key, action_type
         ),
         "logical_target_lock": str(resource_id or ""),
         "stable_idempotency_key": action_idempotency_key,
@@ -78,6 +87,8 @@ def attach_arbitration_safeguards(
 
 
 __all__ = [
+    "DRY_RUN_DECLARED_OBLIGATION",
+    "DRY_RUN_UPSTREAM_RECEIPT",
     "arbitration_safeguards",
     "attach_arbitration_safeguards",
     "execution_safeguards",

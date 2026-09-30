@@ -82,6 +82,7 @@ _resolved_autonomy_ceiling = thor_dispatch_validation.resolved_autonomy_ceiling
 _selected_action_matches = thor_dispatch_validation.selected_action_matches
 _bounded_params = thor_dispatch_validation.bounded_params
 _missing_wire_safeguards = thor_dispatch_validation.missing_wire_safeguards
+_dry_run_obligation_only = thor_dispatch_validation.dry_run_obligation_only
 _ACCEPTED_RISK_VERDICTS = frozenset({"auto", "hil", "deny", "shadow"})
 
 ActionExecutor = Callable[[dict[str, Any]], Awaitable[bool]]
@@ -708,11 +709,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             or self._must_shadow()
             or not (self._saga_available and self._vidar_available)
         )
-        wire_safeguard_required = verdict.get("producer_principal") is not None and (
-            verdict.get("action_idempotency_key") is not None
-            or "safeguards" in verdict
-            or str(verdict.get("idempotency_key") or "").startswith("forseti-verdict:")
-        )
+        wire_safeguard_required = verdict.get("producer_principal") is not None
         if risk_verdict in {"auto", "hil"} and wire_safeguard_required:
             missing_safeguards = _missing_wire_safeguards(verdict)
             if missing_safeguards:
@@ -723,6 +720,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                         outcome="missing_safeguards",
                         params_extra={"missing_safeguards": list(missing_safeguards)},
                     )
+            elif not shadow_mode and _dry_run_obligation_only(verdict):
+                self.record_behavior("dispatch:dry_run_obligation_only")
 
         # Propagate the approval quorum the judge set (2 for irreversible
         # actions, agent-pantheon.md 4.6). Floor at 1 so a forged / malformed

@@ -112,8 +112,6 @@ def bounded_params(raw: object) -> dict[str, Any] | None:
 def missing_wire_safeguards(verdict: Mapping[str, Any]) -> tuple[str, ...]:
     """Return the seven-safeguard ids missing from one executable verdict."""
 
-    if isinstance(verdict.get("kinetic_proposal"), Mapping):
-        return ()
     carrier = verdict.get("safeguards")
     if not isinstance(carrier, Mapping):
         carrier = verdict.get("kinetic_proposal")
@@ -125,6 +123,15 @@ def missing_wire_safeguards(verdict: Mapping[str, Any]) -> tuple[str, ...]:
         if not any(_present(mapping.get(field)) for mapping in carriers for field in fields):
             missing.append(safeguard)
     return tuple(missing)
+
+
+def dry_run_obligation_only(verdict: Mapping[str, Any]) -> bool:
+    """Return whether the verdict's dry-run safeguard is a declared obligation, not a receipt."""
+
+    carrier = verdict.get("safeguards")
+    return isinstance(carrier, Mapping) and carrier.get("dry_run_evidence") == (
+        "declared_obligation"
+    )
 
 
 def _bounded_value(value: object, *, depth: int) -> object | None:
@@ -172,6 +179,7 @@ def _present(value: object) -> bool:
 
 __all__ = [
     "bounded_params",
+    "dry_run_obligation_only",
     "missing_wire_safeguards",
     "resolved_autonomy_ceiling",
     "selected_action_matches",

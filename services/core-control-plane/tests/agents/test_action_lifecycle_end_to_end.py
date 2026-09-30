@@ -12,12 +12,22 @@ import pytest
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.forseti_safeguards import (
+    DRY_RUN_DECLARED_OBLIGATION,
+    DRY_RUN_UPSTREAM_RECEIPT,
+    execution_safeguards,
+)
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.thor_action_run import ActionRun
+from fdai.agents._framework.thor_dispatch_validation import (
+    dry_run_obligation_only,
+    missing_wire_safeguards,
+)
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.vidar import Vidar
+from fdai.core.executor.safeguards import SEVEN_SAFEGUARDS
 from fdai.core.workflow.recovery_effect_ingress import RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.local.event_bus import LocalEventBus
@@ -113,6 +123,96 @@ def test_non_shadow_verdict_without_safeguards_denies_before_executor_io() -> No
     assert run.outcome == "missing_safeguards"
     assert executor_called is False
     assert thor.behavior_snapshot()["dispatch:missing_safeguards"] == 1
+
+
+def test_wire_verdict_without_safeguards_denies_regardless_of_key_shape() -> None:
+    executor_called = False
+
+    async def _executor(_context: dict[str, Any]) -> bool:
+        nonlocal executor_called
+        executor_called = True
+        return True
+
+    thor = Thor(bus=_bus(), executor=_executor, action_semantics_catalog=_semantics())
+    verdict = _verdict(
+        correlation_id="unprefixed-key",
+        idempotency_key="legacy-shaped-key",
+        safeguards=None,
+    )
+    verdict.pop("safeguards")
+    verdict.pop("action_idempotency_key")
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.outcome == "missing_safeguards"
+    assert executor_called is False
+
+
+def test_kinetic_proposal_does_not_substitute_for_wire_safeguards() -> None:
+    verdict = _verdict(safeguards=None)
+    verdict.pop("safeguards")
+    verdict.pop("action_idempotency_key")
+    verdict.pop("idempotency_key")
+    verdict["kinetic_proposal"] = {"proposal_id": "kinetic-action-proposal:" + "0" * 64}
+
+    assert missing_wire_safeguards(verdict) == SEVEN_SAFEGUARDS
+
+
+def test_forseti_marks_dry_run_provenance_instead_of_claiming_a_receipt() -> None:
+    declared = execution_safeguards(
+        action_type="test.auto",
+        action_idempotency_key="r10-key",
+        resource_id="resource-r10",
+        rollback_contract="state_forward_only",
+        event={},
+    )
+    upstream = execution_safeguards(
+        action_type="test.auto",
+        action_idempotency_key="r10-key",
+        resource_id="resource-r10",
+        rollback_contract="state_forward_only",
+        event={"what_if_receipt": "what-if:resource-r10:1"},
+    )
+
+    assert declared["dry_run_evidence"] == DRY_RUN_DECLARED_OBLIGATION
+    assert str(declared["dry_run_receipt"]).startswith("forseti-dry-run-obligation:")
+    assert dry_run_obligation_only({"safeguards": declared}) is True
+    assert upstream["dry_run_evidence"] == DRY_RUN_UPSTREAM_RECEIPT
+    assert upstream["dry_run_receipt"] == "what-if:resource-r10:1"
+    assert dry_run_obligation_only({"safeguards": upstream}) is False
+
+
+def test_thor_counts_non_shadow_dispatch_backed_only_by_dry_run_obligation() -> None:
+    async def _executor(_context: dict[str, Any]) -> bool:
+        return True
+
+    thor = Thor(bus=_bus(), executor=_executor, action_semantics_catalog=_semantics())
+    declared = execution_safeguards(
+        action_type="test.auto",
+        action_idempotency_key="obligation-key",
+        resource_id="resource-r10",
+        rollback_contract="state_forward_only",
+        event={},
+    )
+
+    asyncio.run(
+        thor.dispatch_verdict(
+            _verdict(
+                correlation_id="obligation-only",
+                idempotency_key="obligation-key",
+                safeguards=declared,
+            )
+        )
+    )
+    upstream = asyncio.run(
+        thor.dispatch_verdict(
+            _verdict(correlation_id="upstream-receipt", resource_id="resource-r10-upstream")
+        )
+    )
+
+    assert upstream.state is not ActionRunState.DENY_DROPPED
+    assert thor.behavior_snapshot()["dispatch:dry_run_obligation_only"] == 1
 
 
 def test_actionless_hil_verdict_closes_without_unapprovable_ticket() -> None:

@@ -228,11 +228,20 @@ persists an `ActionRun`; oversized, deeply nested, or non-schema fields are reje
 can become durable executor context, approval context, or audit material.
 
 Executable non-shadow verdicts carry all seven safeguards on the wire: stop condition, tested
-rollback, impact scope, successful dry-run, logical target lock, stable idempotency key, and
-two-phase audit. A missing `safeguards` object is denied before executor I/O. Forseti emits those
-safeguards on executable rule and arbitration verdicts; advisory verdicts keep typed stable
-idempotency keys without granting action authority. Forseti's rule cache accepts only strictly
-newer, Mimir-authenticated rule revisions.
+rollback, impact scope, dry-run, logical target lock, stable idempotency key, and two-phase audit.
+Thor denies a Forseti-delivered `auto` or `hil` verdict with any missing safeguard before executor
+I/O, regardless of idempotency-key shape or an attached kinetic proposal. Direct
+`dispatch_verdict()` calls are an in-process test seam; a source-boundary test pins Thor's typed
+port as the only production caller. Forseti emits those safeguards on executable rule and
+arbitration verdicts; advisory verdicts keep typed stable idempotency keys without granting action
+authority. Forseti's rule cache accepts only strictly newer, Mimir-authenticated rule revisions.
+
+The `dry_run_evidence` safeguard field states where the dry-run safeguard comes from.
+`upstream_receipt` cites a what-if or dry-run receipt carried by the triggering event.
+`declared_obligation` is a deterministic obligation identity, not proof that a dry-run ran. Thor
+counts each non-shadow dispatch that relies on an obligation as `dispatch:dry_run_obligation_only`.
+Core executor paths that call `evaluate_pre_dispatch` compute their own dry-run receipt; a Thor
+pre-flight simulation receipt remains planned work.
 
 #### Impact scope and batch semantics
 

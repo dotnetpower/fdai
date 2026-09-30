@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 8ab8a5b1aa809a36d7fc3912c3436f47e8491cb9
+translation_source_sha: 14843f94dd88606dbf533d846cb4baf9955e93e9
 translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
@@ -608,7 +608,7 @@ no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 �
 세 개의 검증 지점, 모두 결정론적:
 
 1. **제안 시.** 시작 주체가 `argument_schema` 준수를 확인하며 레지스트리는 잘못된 제안을 거부합니다.
-2. **판정 시.** Forseti가 스키마, 정책, what-if/예행 실행을 다시 확인하고 실패하면 `deny` 또는 `hil`로 낮춥니다.
+2. **판정 시.** Forseti가 스키마와 정책을 다시 확인하고, 예행 실행 보호 장치가 상위 what-if 또는 예행 실행 증적을 인용하는지, 아니면 선언된 의무뿐인지 표시하며, 실패하면 `deny` 또는 `hil`로 낮춥니다.
 3. **실행 시.** Verdict, `ActionRun`, Approval, 감사에서 매개 변수를 바꾸지 않으며 Thor가 변경 전에 재검증하여 대상 상태 경합을 확인합니다.
 
 구현된 수명 주기 안정 신원은 안정적인 게시 payload에서 파생되는 `action_run_identity()`입니다.

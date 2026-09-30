@@ -315,7 +315,14 @@ async def test_failed_thor_execution_rolls_back_once_through_vidar() -> None:
         return "rollback:phase3-0001"
 
     bus = InMemoryBus(load_pantheon())
-    thor = Thor(bus=bus, executor=_executor)
+    thor = Thor(
+        bus=bus,
+        executor=_executor,
+        action_semantics_catalog=ActionSemanticsCatalog(
+            irreversible_by_id={"ops.restart-service": False},
+            rollback_by_id={"ops.restart-service": "state_forward_only"},
+        ),
+    )
     vidar = Vidar(
         bus=bus,
         executors={"state_forward_only": _rollback},
@@ -340,6 +347,18 @@ async def test_failed_thor_execution_rolls_back_once_through_vidar() -> None:
             "reason": "rule_match",
             "resolved_autonomy_ceiling": "enforce_auto",
             "rollback_contract": "state_forward_only",
+            "safeguards": {
+                "stop_condition": "ops.restart-service:effect_verified",
+                "tested_rollback_contract": "state_forward_only:declared",
+                "blast_radius_limit": {
+                    "scope": "resource",
+                    "resource_id": "resource://example/shared-workload-1",
+                },
+                "dry_run_receipt": "sha256:" + "1" * 64,
+                "logical_target_lock": "resource://example/shared-workload-1",
+                "stable_idempotency_key": "phase3-rollback-0001",
+                "two_phase_audit_intent": "audit-intent:phase3-rollback-0001",
+            },
         },
     )
 
