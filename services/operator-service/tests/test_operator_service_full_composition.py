@@ -532,9 +532,17 @@ def test_context_reviewer_can_read_other_principal_command_status(monkeypatch):
 @pytest.mark.parametrize(
     "registry",
     [None, _context_review_registry(other_scope=True), "{}"],
+    # The registry embeds wall-clock grant windows, so an id derived from it would differ
+    # between xdist workers that collect this module in different seconds.
+    ids=["no-registry", "other-scope", "empty-registry"],
 )
-def test_context_reviewer_without_matching_grant_cannot_read_command_status(monkeypatch, registry):
+def test_context_reviewer_without_matching_grant_cannot_read_command_status(
+    monkeypatch, registry, request
+):
     from unittest.mock import AsyncMock
+
+    # Every worker must collect the same ids, whatever second it imported this module in.
+    assert request.node.callspec.id in {"no-registry", "other-scope", "empty-registry"}
 
     read = AsyncMock(
         return_value={
