@@ -34,7 +34,7 @@ export const independentWorkloads: readonly IndependentWork[] = [
   lane("Vidar", "introspect", 14.9, 1.8, 6.1, "Inspect recovery readiness", "복구 준비 상태 조회"),
   lane("Saga", "introspect", 6.7, 3.1, 4.4, "Read audit evidence", "감사 근거 조회"),
   lane("Bragi", "prior_turns", 11.3, 6.7, 4.8, "Read conversation context", "대화 맥락 조회"),
-  lane("Mimir", "pending_candidates", 15.1, 2.9, 6.6, "Inspect rule candidates", "규칙 후보 조회"),
+  lane("Mimir", "promotion_ready_candidates", 15.1, 2.9, 6.6, "Inspect rule candidates", "규칙 후보 조회"),
   lane("Muninn", "get_context", 8.3, 0.8, 5.5, "Read state and case memory", "상태 및 사례 기억 조회"),
   lane("Norns", "occurrences", 16.7, 4.2, 7.3, "Read recurring patterns", "반복 패턴 조회"),
   lane("Njord", "cost_impact", 10.1, 5.9, 6.4, "Inspect cost context", "비용 맥락 확인"),

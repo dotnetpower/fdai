@@ -106,15 +106,19 @@ test("fdai-reference-architecture uses the page's dominant Korean control-plane 
   assert.doesNotMatch(koSvg, /복구 pull request/u);
 });
 
-test("architecture page duplicate embeds use consistent remediation pull-request wording", async () => {
+test("architecture page duplicate embeds use consistent fix pull-request wording", async () => {
   const [english, korean] = await Promise.all([
     readFile(new URL("src/content/docs/architecture.md", root), "utf8"),
     readFile(new URL("src/content/docs/ko/architecture.md", root), "utf8"),
   ]);
 
+  // Reader-facing text uses the display vocabulary that
+  // scripts/quality/documentation/check-display-terminology.py enforces, so a
+  // remediation pull request reads as a fix pull request in every embed.
   assert.doesNotMatch(english, /recovery pull request/u);
   assert.doesNotMatch(korean, /복구 pull request/u);
-  assert.match(english, /remediation pull requests?/u);
+  assert.doesNotMatch(english, /remediation pull request/u);
+  assert.match(english, /fix pull requests?/u);
 });
 
 test("fdai-agent-driven-runtime translates its descriptive Korean labels without adding tone", async () => {
@@ -194,11 +198,11 @@ test("fdai-system-overview English and Korean canonical alt describe the same ou
 
   // Structural alt-text length/embed-count parity does not guarantee the two
   // locales describe the same diagram content. The English alt states the
-  // outcome path explicitly (remediation pull requests recorded for the
-  // read-only console); the Korean translation must state the same outcome,
-  // not a different one (a prior bug had it describe a failure/rollback
-  // outcome instead, dropping both concepts below).
-  assert.match(enAlt, /remediation pull requests?/u);
+  // outcome path explicitly (fix pull requests recorded for the read-only
+  // console); the Korean translation must state the same outcome, not a
+  // different one (a prior bug had it describe a failure/rollback outcome
+  // instead, dropping both concepts below).
+  assert.match(enAlt, /fix pull requests?/u);
   assert.match(enAlt, /read-only console/u);
   assert.match(koAlt, /수정 pull request/u);
   assert.match(koAlt, /읽기 전용 콘솔/u);
