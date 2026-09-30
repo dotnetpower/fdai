@@ -686,7 +686,7 @@ def test_executor_exception_outcome_omits_sensitive_message() -> None:
     assert run.outcome == "executor_error:RuntimeError"
 
 
-def test_thor_deletes_terminal_run_from_store() -> None:
+def test_thor_keeps_terminal_run_pending_until_bus_publish() -> None:
     store = _FakeActionRunStore()
     thor = Thor(state_store=store, shadow_by_default=True)
 
@@ -702,7 +702,7 @@ def test_thor_deletes_terminal_run_from_store() -> None:
 
     run = asyncio.run(_dispatch())
     assert run.state == ActionRunState.SUCCEEDED  # shadow success is terminal
-    assert "c" in store.deleted  # terminal run removed from the durable store
+    assert "c" not in store.deleted  # terminal publication remains pending without a bus
 
 
 def test_thor_persists_in_flight_hil_run() -> None:

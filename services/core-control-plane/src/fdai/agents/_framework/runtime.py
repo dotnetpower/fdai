@@ -147,6 +147,7 @@ class PantheonRuntime:
         rollback_executors: dict[str, RollbackExecutor] | None = None,
         vidar_state_store: StateStore | None = None,
         var_state_store: StateStore | None = None,
+        forseti_state_store: StateStore | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
         development_authority: development_runtime.DevelopmentRuntimeBindings | None = None,
@@ -216,6 +217,7 @@ class PantheonRuntime:
             has_rollback=bool(rollback_executors) or human_access_bound,
             has_vidar_state_store=vidar_state_store is not None,
             has_var_state_store=var_state_store is not None,
+            has_forseti_state_store=forseti_state_store is not None,
             has_approver_authorizer=(
                 approver_authorizer is not None or development_authority is not None
             ),
@@ -293,6 +295,7 @@ class PantheonRuntime:
             development=development_authority,
             action_types=action_types,
             governed_execution_selected=governed_execution_selected,
+            forseti_state_store=forseti_state_store,
         )
         runtime_sensing.configure_heimdall(
             instantiated,

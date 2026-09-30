@@ -35,6 +35,7 @@ from fdai.core.operational_evidence.owner_outcome import (
 from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 from fdai.shared.contracts.models import Autonomy, Mode
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
+from fdai.shared.providers.state_store import StateStore
 
 RULE_MATCH: dict[str, str] = {
     "public_network_enabled": "remediate.disable-public-access",
@@ -105,6 +106,7 @@ class ForsetiJudgmentMixin:
     _judgment_table: JudgmentTable
     _no_rule_folds: BoundedLruDict[str, int]
     _rule_state: BoundedLruDict[str, dict[str, str]]
+    _forseti_state_store: StateStore | None
 
     def record_behavior(self, name: str, amount: int = 1) -> None:
         raise NotImplementedError
@@ -113,7 +115,7 @@ class ForsetiJudgmentMixin:
         """Bind bounded independent issuance: a provider call, never an agent call."""
         self._test_context_evidence = requester
 
-    def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
+    async def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
         resource_id = str(payload.get("resource_id") or "")
         try:
             decision = DetectionReadinessDecision(str(payload.get("decision") or ""))
@@ -124,10 +126,18 @@ class ForsetiJudgmentMixin:
         if not resource_id:
             self.record_behavior("detection_readiness:invalid")
             return
-        self._detection_readiness.set(
-            resource_id,
-            {"decision": decision.value, "authority_ceiling": ceiling.value},
-        )
+        record = {"decision": decision.value, "authority_ceiling": ceiling.value}
+        self._detection_readiness.set(resource_id, record)
+        if self._forseti_state_store is not None:
+            await self._forseti_state_store.write_state(
+                f"pantheon/forseti/detection-readiness|{resource_id}",
+                {
+                    "kind": "detection_readiness",
+                    "resource_id": resource_id,
+                    **record,
+                    "recorded_at": self._test_context_clock().isoformat(),
+                },
+            )
         self.record_behavior(f"detection_readiness:{decision.value}")
 
     async def judge_document_ingestion(self, event: dict[str, Any]) -> dict[str, Any]:
@@ -245,6 +255,22 @@ class ForsetiJudgmentMixin:
                 str(event.get("event_type") or ""),
                 "anomaly_action_unavailable" if candidate_held else "no_rule_match",
             )
+            if self._forseti_state_store is not None:
+                created = await self._forseti_state_store.write_state_if_absent(
+                    f"pantheon/forseti/no-rule-fold|{fold_key}",
+                    {
+                        "kind": "no_rule_fold",
+                        "fold_key": fold_key,
+                        "correlation_id": correlation_id,
+                        "resource_id": str(resource_id),
+                        "event_type": str(event.get("event_type") or ""),
+                        "recorded_at": self._test_context_clock().isoformat(),
+                    },
+                )
+                if not created:
+                    self._no_rule_folds.set(fold_key, 2)
+                    self.record_behavior("no_rule_match:folded")
+                    return None
             folded = (self._no_rule_folds.get(fold_key) or 0) + 1
             self._no_rule_folds.set(fold_key, folded)
             if folded > 1:

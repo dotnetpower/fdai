@@ -45,6 +45,7 @@ _ACTION_RUN_STATE_RANK = {
     ActionRunState.ROLLBACK_FAILED: 8,
     ActionRunState.ROLLED_BACK: 9,
 }
+_ACTION_RUN_RESTART_CHECKPOINT_FIELDS = {"history", "outcome", "shadow_mode", "terminal_published"}
 
 # Distinctive one-key envelope used to round-trip a non-dict value through
 # the Mapping-only StateStore contract. Using a reserved sentinel key (not
@@ -265,7 +266,8 @@ class StateStoreActionRunStore:
                     and current.get("resource_claimed") is False
                     and candidate["resource_claimed"] is True
                 )
-                if differences and not claim_recovery and not pending_claim:
+                checkpoint = differences <= _ACTION_RUN_RESTART_CHECKPOINT_FIELDS
+                if differences and not (claim_recovery or pending_claim or checkpoint):
                     raise RuntimeError("Thor ActionRun same-state payload conflicts")
                 if not differences and not pending_claim:
                     return

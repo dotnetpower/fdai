@@ -140,7 +140,7 @@ class ActionRun:
                 if self.approval_expires_at is not None
                 else None
             ),
-            "terminal_published": False,
+            "terminal_published": self.terminal_published,
             "resource_claimed": self.resource_claimed,
             "history": [state.value for state in self.history],
         }

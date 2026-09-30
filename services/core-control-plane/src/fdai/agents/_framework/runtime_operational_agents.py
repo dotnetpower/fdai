@@ -10,6 +10,7 @@ from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.development_authority_runtime import DevelopmentRuntimeBindings
+from fdai.agents.forseti import Forseti
 from fdai.agents.huginn import Huginn
 from fdai.agents.loki import Loki
 from fdai.agents.mimir import Mimir
@@ -18,6 +19,7 @@ from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
+from fdai.agents.vidar import Vidar
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.case_history import (
     CaseHistoryAnalyzer,
@@ -57,6 +59,16 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
         restored = await thor.rehydrate()
         if restored:
             _LOG.info("pantheon_thor_rehydrated", extra={"in_flight_runs": restored})
+    forseti = agents.get("Forseti")
+    if isinstance(forseti, Forseti):
+        restored = await forseti.rehydrate()
+        if restored:
+            _LOG.info("pantheon_forseti_rehydrated", extra={"records": restored})
+    vidar = agents.get("Vidar")
+    if isinstance(vidar, Vidar):
+        restored = await vidar.recover_rollbacks()
+        if restored:
+            _LOG.info("pantheon_vidar_rollbacks_recovered", extra={"rollbacks": restored})
     loki = agents.get("Loki")
     if isinstance(loki, Loki):
         restored = await loki.rehydrate()
@@ -144,6 +156,7 @@ def bind_operational_agents(
     development: DevelopmentRuntimeBindings | None = None,
     action_types: tuple[OntologyActionType, ...] = (),
     governed_execution_selected: bool = False,
+    forseti_state_store: StateStore | None = None,
 ) -> None:
     """Replace baseline instances only when runtime bindings are available."""
 
@@ -224,6 +237,7 @@ def bind_operational_agents(
             else None
         ),
         governed_execution_selected=governed_execution_selected,
+        state_store=forseti_state_store,
     )
     if forseti is not None:
         agents["Forseti"] = forseti

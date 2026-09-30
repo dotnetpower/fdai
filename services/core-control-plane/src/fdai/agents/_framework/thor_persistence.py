@@ -85,7 +85,10 @@ async def rehydrate(host: ThorPersistenceHost) -> int:
         if run.state in _TERMINAL_STATES:
             host.action_runs[run.correlation_id] = run
             host._idempotency_runs[run.idempotency_key] = run
-            await emit_action_run(host, run)
+            if not run.terminal_published:
+                await emit_action_run(host, run)
+            if not run.terminal_published:
+                continue
             await finalize_terminal_replay(host, run)
             continue
         if run.resource_claimed and run.state in {
@@ -109,9 +112,11 @@ async def rehydrate(host: ThorPersistenceHost) -> int:
         ):
             if not run.resource_claimed:
                 run.outcome = "resource_claim_contended_after_restart"
+                run.shadow_mode = True
                 host.action_runs[run.correlation_id] = run
                 host._idempotency_runs[run.idempotency_key] = run
                 host._resource_locks.add(str(run.resource_id))
+                await emit_action_run(host, run)
                 continue
             if run.state is not ActionRunState.EXECUTION_UNKNOWN:
                 run.transition(ActionRunState.EXECUTION_UNKNOWN)
@@ -126,6 +131,22 @@ async def rehydrate(host: ThorPersistenceHost) -> int:
             run.transition(ActionRunState.EXECUTION_UNKNOWN)
             run.outcome = "execution_state_unknown_after_restart"
             run.shadow_mode = True
+        if (
+            run.state is ActionRunState.HIL_PENDING
+            and run.approval_expires_at is not None
+            and host._now() >= run.approval_expires_at
+        ):
+            run.transition(ActionRunState.REJECTED)
+            run.outcome = "approval_expired"
+            host.action_runs[run.correlation_id] = run
+            host._idempotency_runs[run.idempotency_key] = run
+            if run.resource_id:
+                host._resource_locks.add(str(run.resource_id))
+            await emit_action_run(host, run)
+            await release_resource_claim(host, run)
+            release_lock(host, run.resource_id)
+            host.record_behavior("approval:expired")
+            continue
         if run.resolved_autonomy_ceiling is Autonomy.SHADOW_ONLY:
             run.shadow_mode = True
         host.action_runs[run.correlation_id] = run
@@ -187,8 +208,6 @@ def evict_terminal_overflow(host: ThorPersistenceHost) -> None:
             and run.terminal_published
         ):
             del host.action_runs[correlation_id]
-            if host._idempotency_runs.get(run.idempotency_key) is run:
-                del host._idempotency_runs[run.idempotency_key]
             overflow -= 1
 
 
@@ -209,14 +228,10 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
         await host._state_store.save(run)
     evict_terminal_overflow(host)
     if host.bus is None:
-        if (
-            host._state_store is not None
-            and run.state in _TERMINAL_STATES
-            and not run.resource_claimed
-        ):
-            await host._state_store.delete(run.correlation_id)
         if run.state in _TERMINAL_STATES:
-            run.terminal_published = True
+            if host._state_store is None:
+                run.terminal_published = True
+            host.record_behavior("action_run:terminal_publication_pending")
         return
     payload = {
         "producer_principal": "Thor",
@@ -259,6 +274,8 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
     await host.bus.publish("Thor", "object.action-run", payload)
     if run.state in _TERMINAL_STATES:
         run.terminal_published = True
+        if host._state_store is not None:
+            await host._state_store.save(run)
         if not run.resource_claimed:
             await delete_terminal_state(host, run)
 

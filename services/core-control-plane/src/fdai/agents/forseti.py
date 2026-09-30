@@ -13,6 +13,7 @@ from typing import Any
 
 from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
 
+from fdai.agents._framework import forseti_durability
 from fdai.agents._framework.action_semantics import (
     ActionSemanticsCatalog,
 )
@@ -85,6 +86,7 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
+from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -154,6 +156,7 @@ class Forseti(
         development_action_types: Mapping[str, RegisteredDevelopmentAction] | None = None,
         governed_execution_selected: bool = False,
         rule_staleness_window: timedelta = _DEFAULT_RULE_STALENESS_WINDOW,
+        state_store: StateStore | None = None,
     ) -> None:
         if cross_vertical_timeout_seconds <= 0.0 or cross_vertical_timeout_seconds > 300.0:
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
@@ -170,6 +173,7 @@ class Forseti(
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
         self._judgment_table = judgment_table or DEFAULT_JUDGMENT_TABLE
+        self._forseti_state_store = state_store
         self._operational_context = operational_context
         self._test_context_source = test_context_source
         self._test_context_admission = test_context_admission
@@ -285,7 +289,7 @@ class Forseti(
             self.record_behavior("detection_readiness:observation_deferred")
             return
         if topic == "object.drift" and payload.get("kind") == "detection_readiness":
-            self._record_detection_readiness(payload)
+            await self._record_detection_readiness(payload)
             return
         if payload.get("kind") == "document_ingestion":
             if topic == "object.event" and payload.get("event_type") == "document.received":
@@ -318,7 +322,7 @@ class Forseti(
         elif topic == "object.arbitration-decision":
             await self._record_arbitration(payload)
         elif topic == "object.rule":
-            self._record_rule_state(payload)
+            await self._record_rule_state(payload)
 
     async def _judge_capacity_graduation(self, payload: dict[str, Any]) -> None:
         """Issue one observation-only verdict over Freyr's shadow recommendation."""
@@ -464,7 +468,7 @@ class Forseti(
             raise ValueError("Forseti clock MUST return a timezone-aware datetime")
         return current
 
-    def _record_rule_state(self, payload: dict[str, Any]) -> None:
+    async def _record_rule_state(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Mimir":
             self.record_behavior("rule_state:rejected_owner")
             return
@@ -479,17 +483,65 @@ class Forseti(
             self.record_behavior("rule_state:invalid")
             return
         normalized = "active" if state == "promoted" else state
-        self._rule_state.set(
-            action_type,
-            {
-                "state": normalized,
-                "rule_id": str(payload.get("rule_id") or payload.get("id") or ""),
-                "correlation_id": str(payload.get("correlation_id") or ""),
-            },
-        )
+        record = {
+            "state": normalized,
+            "rule_id": str(payload.get("rule_id") or payload.get("id") or ""),
+            "correlation_id": str(payload.get("correlation_id") or ""),
+        }
+        self._rule_state.set(action_type, record)
+        if self._forseti_state_store is not None:
+            await self._forseti_state_store.write_state(
+                f"pantheon/forseti/rule-state|{action_type}",
+                {
+                    "kind": "rule_state",
+                    "action_type": action_type,
+                    **record,
+                    "recorded_at": self._now().isoformat(),
+                },
+            )
         self._last_owner_rule_update_at = self._now()
         self._rule_cache_stale = False
         self.record_behavior(f"rule_state:{normalized}")
+
+    async def rehydrate(self) -> int:
+        """Restore durable judgment-lowering projections before typed consumers start."""
+        store = self._forseti_state_store
+        if store is None:
+            return 0
+        restored = 0
+        for prefix, target in (
+            ("pantheon/forseti/detection-readiness|", self._detection_readiness),
+            ("pantheon/forseti/rule-state|", self._rule_state),
+        ):
+            rows, total = await store.read_state_page(prefix, limit=_MAX_RESOURCES)
+            if total > _MAX_RESOURCES:
+                raise RuntimeError("Forseti durable projection count exceeds its bound")
+            for row in rows:
+                if prefix.endswith("detection-readiness|"):
+                    resource_id = str(row.get("resource_id") or "")
+                    if resource_id:
+                        target.set(
+                            resource_id,
+                            {
+                                "decision": str(row.get("decision") or ""),
+                                "authority_ceiling": str(row.get("authority_ceiling") or ""),
+                            },
+                        )
+                        restored += 1
+                else:
+                    action_type = str(row.get("action_type") or "")
+                    if action_type:
+                        target.set(
+                            action_type,
+                            {
+                                "state": str(row.get("state") or ""),
+                                "rule_id": str(row.get("rule_id") or ""),
+                                "correlation_id": str(row.get("correlation_id") or ""),
+                            },
+                        )
+                        restored += 1
+        restored += await forseti_durability.rehydrate_arbitration_state(self)
+        return restored
 
     async def maintenance_tick(self) -> None:
         await super().maintenance_tick()

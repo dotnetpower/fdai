@@ -148,6 +148,8 @@ class Vidar(Agent):
             self._MAX_RECORDS
         )
         self._published_rollbacks: BoundedLruSet[tuple[str, str]] = BoundedLruSet(self._MAX_RECORDS)
+        self._process_local_terminal_fences: dict[tuple[str, str], str] = {}
+        self._durable_publication_pending = 0
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -197,6 +199,12 @@ class Vidar(Agent):
                 if not await self._publish_rollback_once(existing.record):
                     return None
                 return existing.record
+            terminal_digest = self._process_local_terminal_fences.get(cache_key)
+            if terminal_digest is not None:
+                if terminal_digest != request_digest:
+                    raise ValueError("rollback correlation collides with different action identity")
+                self.record_behavior("rollback:duplicate_terminal")
+                return None
             if self._state_store is not None:
                 return await self._rollback_durable(
                     action_run,
@@ -459,6 +467,7 @@ class Vidar(Agent):
                 cache_key,
                 _CachedRollback(request_digest=request_digest, record=rec),
             )
+            self._process_local_terminal_fences[cache_key] = request_digest
         self.record_behavior(f"rollback:{rec.state}")
         self.records.append(rec)
         # FIFO cap - drop the oldest 25% in one shot to amortise the cost.
@@ -485,6 +494,34 @@ class Vidar(Agent):
         if rec.correlation_id:
             await self._mark_rollback_published(rec)
         return True
+
+    async def recover_rollbacks(self) -> int:
+        """Publish terminal rollback records that completed before a bus was available."""
+        if self._state_store is None:
+            return 0
+        rows, total = await self._state_store.read_state_page(
+            _ROLLBACK_STATE_PREFIX,
+            limit=self._MAX_RECORDS,
+            field="status",
+            value="terminal",
+        )
+        if total > self._MAX_RECORDS:
+            raise RuntimeError("Vidar rollback recovery count exceeds its bound")
+        recovered = 0
+        pending = 0
+        for row in rows:
+            rec = _rollback_record_from_state(row)
+            if await self._rollback_was_published(rec.correlation_id, rec.action_run_identity):
+                continue
+            pending += 1
+            self._remember_rollback(
+                rec,
+                request_digest=str(row.get("request_digest") or ""),
+            )
+            if await self._publish_rollback_once(rec):
+                recovered += 1
+        self._durable_publication_pending = pending - recovered
+        return recovered
 
     async def _rollback_was_published(
         self,
@@ -552,16 +589,20 @@ class Vidar(Agent):
 
     def health(self) -> dict[str, Any]:
         durability = "durable" if self._state_store is not None else "process_local"
+        local_publication_pending = sum(
+            1
+            for rec in self.records
+            if rec.correlation_id
+            and (rec.correlation_id, rec.action_run_identity) not in self._published_rollbacks
+        )
         return {
             "agent": self.spec.name,
             "status": "stub",
             "rollback_durability": durability,
             "process_local_rollback_allowed": self._allow_process_local_rollback,
-            "rollback_publication_pending": sum(
-                1
-                for rec in self.records
-                if rec.correlation_id
-                and (rec.correlation_id, rec.action_run_identity) not in self._published_rollbacks
+            "rollback_publication_pending": max(
+                local_publication_pending,
+                self._durable_publication_pending,
             ),
             "behavior": self.behavior_snapshot(),
         }

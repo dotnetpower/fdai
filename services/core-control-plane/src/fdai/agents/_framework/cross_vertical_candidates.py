@@ -87,6 +87,7 @@ class _Candidate:
     evidence: DomainOptionEvidence
     source_freshness: tuple[SourceFreshness, ...]
     digest: str
+    payload: dict[str, Any]
 
 
 @dataclass(slots=True)
@@ -232,6 +233,21 @@ class CrossVerticalCandidateAccumulator:
             ),
         )
 
+    def is_completed(self, correlation_id: str) -> bool:
+        return correlation_id in self._completed
+
+    def mark_completed(self, correlation_id: str) -> None:
+        self._completed.add(correlation_id)
+
+    def restore_pending(self, topic: str, payload: dict[str, Any]) -> CandidateIntake:
+        return self.ingest(topic, payload)
+
+    def pending_payloads(self, correlation_id: str) -> tuple[dict[str, Any], ...]:
+        pending = self._pending.get(correlation_id)
+        if pending is None:
+            return ()
+        return tuple(candidate.payload for candidate in pending.candidates.values())
+
 
 def is_cross_vertical_candidate(topic: str, payload: dict[str, Any]) -> bool:
     return payload.get("kind") == "cross_vertical_candidate" and topic in _CANDIDATE_TOPIC_BINDINGS
@@ -293,8 +309,10 @@ def _parse_candidate(topic: str, payload: dict[str, Any]) -> _Candidate:
         if not math.isfinite(resilience_score) or not 0.0 <= resilience_score <= 1.0:
             raise ValueError("resilience candidate score MUST be finite and in [0, 1]")
     normalized = {
+        "topic": topic,
         "domain": domain,
         "principal": principal,
+        "producer_principal": principal,
         "correlation_id": correlation_id,
         "idempotency_key": idempotency_key,
         "resource_id": resource_id,
@@ -325,6 +343,7 @@ def _parse_candidate(topic: str, payload: dict[str, Any]) -> _Candidate:
         evidence=evidence,
         source_freshness=freshness,
         digest=digest,
+        payload=normalized,
     )
 
 

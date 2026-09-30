@@ -183,6 +183,7 @@ async def test_composed_forseti_bus_path_carries_verified_authority_to_execution
         rollback_executors={"scripted": rollback},
         vidar_state_store=state,
         var_state_store=state,
+        forseti_state_store=state,
         approver_authorizer=lambda _principal, _action: True,
         operator_rbac={profile.owner_principal: frozenset({action.name})},
         execution_resource_lock=_DistributedLock(),

@@ -122,6 +122,7 @@ def configured_forseti(
     development_executor_principal: str | None = None,
     development_action_types: dict[str, RegisteredDevelopmentAction] | None = None,
     governed_execution_selected: bool = False,
+    state_store: StateStore | None = None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding.
 
@@ -146,6 +147,7 @@ def configured_forseti(
             development_binding_source,
             development_executor_principal,
             development_action_types,
+            state_store,
         )
     ):
         return None
@@ -166,6 +168,7 @@ def configured_forseti(
         development_executor_principal=development_executor_principal,
         development_action_types=development_action_types,
         governed_execution_selected=governed_execution_selected,
+        state_store=state_store,
     )
 
 

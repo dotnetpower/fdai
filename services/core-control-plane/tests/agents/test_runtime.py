@@ -964,6 +964,7 @@ def test_enforce_true_disables_forced_shadow() -> None:
         rollback_executors={"state_forward_only": rollback_executor},
         vidar_state_store=state_store,
         var_state_store=state_store,
+        forseti_state_store=state_store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
         action_types=_action_types(),
@@ -1130,6 +1131,17 @@ def test_injected_saga_replaces_the_default() -> None:
                 "vidar_state_store": InMemoryStateStore(),
             },
             "var_state_store",
+        ),
+        (
+            {
+                "thor_executor": lambda _: None,
+                "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
+                "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
+                "rollback_executors": {"state_forward_only": lambda _: None},
+                "vidar_state_store": InMemoryStateStore(),
+                "var_state_store": InMemoryStateStore(),
+            },
+            "forseti_state_store",
         ),
     ],
 )

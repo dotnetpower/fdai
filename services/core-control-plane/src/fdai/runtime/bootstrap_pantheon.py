@@ -501,6 +501,7 @@ async def initialize_pantheon(
         rollback_executors=rollback_executors,
         vidar_state_store=config.incident_audit_store,
         var_state_store=config.incident_audit_store,
+        forseti_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
         approver_authorizer=approver_authorizer_from_environment(config.environment),
         development_authority=pantheon_development_bindings(config.control_loop),

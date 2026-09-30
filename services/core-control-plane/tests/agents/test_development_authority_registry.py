@@ -88,6 +88,7 @@ async def test_core_recorded_binding_carries_one_owner_through_var_and_thor() ->
         rollback_executors={"scripted": rollback},
         vidar_state_store=state,
         var_state_store=state,
+        forseti_state_store=state,
         approver_authorizer=lambda _principal, _action: True,
         operator_rbac={profile.owner_principal: frozenset({action_type.name})},
         execution_resource_lock=_DistributedLock(),
