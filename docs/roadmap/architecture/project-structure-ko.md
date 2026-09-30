@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9b9b0b1684a875832f97bd1834b3c286321e18b8
+translation_source_sha: 5867092544ac71af5f11302c64202ec4f832ce7b
 translation_revised: 2026-09-30
 ---
 # 프로젝트 구조
@@ -149,6 +149,9 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은
   `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/` 에 있고
   조립 시점에 주입됩니다. 이렇게 두 번째 클라우드는 어댑터 추가일 뿐이며 `core/` 편집이 아닙니다.
+  프로세스 로컬 `shared/providers/local/event_bus.py`는 브로커와 같은 보존 방식을 따릅니다. 토픽마다
+  재생 가능한 구간의 크기를 제한하고, 나중에 합류한 컨슈머 그룹도 그 구간을 재생할 수 있으며,
+  구독 중인 그룹이 아직 소비하지 않은 레코드는 정리하지 않습니다.
 - **허용된 가져오기**: `shared/`는 `core/`를 가져오기하지 않습니다. `core/`는 `shared/`의
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
