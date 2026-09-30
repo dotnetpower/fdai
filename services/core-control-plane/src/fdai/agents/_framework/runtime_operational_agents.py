@@ -13,10 +13,13 @@ from fdai.agents._framework.development_authority_runtime import DevelopmentRunt
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
+from fdai.agents.freyr import Freyr
+from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
 from fdai.agents.loki import Loki
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
+from fdai.agents.njord import Njord
 from fdai.agents.norns import Norns
 from fdai.agents.odin import Odin
 from fdai.agents.saga import Saga
@@ -77,6 +80,21 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
         restored = await loki.rehydrate()
         if restored:
             _LOG.info("pantheon_loki_rehydrated", extra={"reserved_targets": restored})
+    heimdall = agents.get("Heimdall")
+    if isinstance(heimdall, Heimdall):
+        restored = await heimdall.rehydrate()
+        if restored:
+            _LOG.info("pantheon_heimdall_rehydrated", extra={"records": restored})
+    njord = agents.get("Njord")
+    if isinstance(njord, Njord):
+        restored = await njord.rehydrate()
+        if restored:
+            _LOG.info("pantheon_njord_rehydrated", extra={"records": restored})
+    freyr = agents.get("Freyr")
+    if isinstance(freyr, Freyr):
+        restored = await freyr.rehydrate()
+        if restored:
+            _LOG.info("pantheon_freyr_rehydrated", extra={"records": restored})
     mimir = agents.get("Mimir")
     if isinstance(mimir, Mimir):
         restored = await mimir.recover_catalog_reviews()
@@ -166,7 +184,9 @@ def bind_operational_agents(
     prospective_lineage_finalizer: ProspectiveLineageFinalizer | None,
     change_assessor: ChangeAssessmentService | None,
     cost_runtime: factory.CostRuntimeBindings,
+    njord_state_store: StateStore | None,
     capacity_graduation_controller: CapacityGraduationController | None,
+    freyr_state_store: StateStore | None,
     test_context_source: TestContextSource | None = None,
     test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
     anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
@@ -258,8 +278,11 @@ def bind_operational_agents(
     )
     if forseti is not None:
         agents["Forseti"] = forseti
-    agents["Njord"] = factory.configured_njord(cost_runtime)
-    agents["Freyr"] = factory.configured_freyr(capacity_graduation_controller)
+    agents["Njord"] = factory.configured_njord(cost_runtime, state_store=njord_state_store)
+    agents["Freyr"] = factory.configured_freyr(
+        capacity_graduation_controller,
+        state_store=freyr_state_store,
+    )
 
 
 def bind_durable_governance_stores(

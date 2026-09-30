@@ -6,6 +6,7 @@ smoothing forecast, and exposes a sizing advisory hook.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -30,6 +31,7 @@ from fdai.agents._framework.specialist_ingress import (
 )
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.capacity import CapacityGraduationController
+from fdai.shared.providers.state_store import StateStore
 
 #: Hard cap on retained per-resource utilization samples. The EWMA forecast
 #: lives in ``_smoothed``; ``_samples`` is only read for its last value, its
@@ -40,6 +42,9 @@ _MAX_SAMPLES = 512
 _MAX_TRACKED_RESOURCES = 512
 _MAX_COST_EVIDENCE = 512
 _COST_EVIDENCE_MAX_AGE = timedelta(hours=1)
+_RESOURCE_PREFIX = "pantheon/freyr/capacity-resources/"
+_ACCEPTED_PREFIX = "pantheon/freyr/accepted-samples/"
+_COST_PREFIX = "pantheon/freyr/cost-evidence/"
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +67,7 @@ class Freyr(Agent):
         scale_down_threshold: float = 0.25,
         graduation_controller: CapacityGraduationController | None = None,
         clock: Callable[[], datetime] | None = None,
+        state_store: StateStore | None = None,
     ) -> None:
         super().__init__(spec=_FREYR)
         self.bus = bus
@@ -73,13 +79,16 @@ class Freyr(Agent):
         self._graduation_controller = graduation_controller
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._cost_evidence: dict[str, tuple[str, datetime, str]] = {}
+        self._state_store = state_store
+        self._accepted_sample_keys: set[str] = set()
+        self._latest_observed_at: dict[str, datetime] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.cost-anomaly":
-            self._retain_cost_evidence(payload)
+            await self._retain_cost_evidence(payload)
             return
         if topic != "object.event":
             self.record_behavior("typed_message:ignored")
@@ -103,7 +112,48 @@ class Freyr(Agent):
             utilization=signal.utilization,
             correlation_id=signal.correlation_id,
             observed_at=signal.observed_at,
+            sample_key=str(payload.get("idempotency_key") or payload.get("event_id") or ""),
         )
+
+    async def rehydrate(self) -> int:
+        """Restore forecast smoothing, sample tails, duplicate fences, and cost evidence."""
+        if self._state_store is None:
+            return 0
+        restored = 0
+        for record in await self._state_store.read_states(
+            _RESOURCE_PREFIX,
+            limit=_MAX_TRACKED_RESOURCES,
+        ):
+            resource_id = str(record.get("resource_id") or "")
+            smoothed = record.get("smoothed")
+            samples = record.get("samples")
+            latest = _parse_observed_at(str(record.get("latest_observed_at") or ""))
+            if (
+                resource_id
+                and isinstance(smoothed, int | float)
+                and isinstance(samples, list)
+                and latest is not None
+            ):
+                values = [float(item) for item in samples if isinstance(item, int | float)]
+                self._smoothed.set(resource_id, float(smoothed))
+                self._samples.set(resource_id, values[-_MAX_SAMPLES:])
+                self._latest_observed_at[resource_id] = latest
+                restored += 1
+        for record in await self._state_store.read_states(
+            _ACCEPTED_PREFIX,
+            limit=_MAX_TRACKED_RESOURCES * 4,
+        ):
+            sample_key = str(record.get("sample_key") or "")
+            if sample_key:
+                self._accepted_sample_keys.add(sample_key)
+        for record in await self._state_store.read_states(_COST_PREFIX, limit=_MAX_COST_EVIDENCE):
+            target_ref = str(record.get("target_ref") or "")
+            evidence_ref = str(record.get("evidence_ref") or "")
+            correlation_id = str(record.get("correlation_id") or "")
+            observed_at = _parse_observed_at(str(record.get("observed_at") or ""))
+            if target_ref and evidence_ref and correlation_id and observed_at is not None:
+                self._cost_evidence[target_ref] = (evidence_ref, observed_at, correlation_id)
+        return restored
 
     async def _evaluate_graduation(self, payload: dict[str, Any]) -> None:
         if self._graduation_controller is None:
@@ -147,7 +197,7 @@ class Freyr(Agent):
             + (recommendation.status.value if published else "publication_unavailable")
         )
 
-    def _retain_cost_evidence(self, payload: dict[str, Any]) -> None:
+    async def _retain_cost_evidence(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Njord":
             self.record_behavior("capacity_graduation:invalid_cost_owner")
             return
@@ -171,13 +221,41 @@ class Freyr(Agent):
         if observed_at.tzinfo is None:
             self.record_behavior("capacity_graduation:invalid_cost_evidence")
             return
+        retained_at = observed_at.astimezone(UTC)
+        existing = self._cost_evidence.get(target_ref)
+        if existing is not None and retained_at < existing[1]:
+            self.record_behavior("capacity_graduation:stale_cost_evidence")
+            return
+        cutoff = retained_at - _COST_EVIDENCE_MAX_AGE
+        for retained_target, (_, retained_observed_at, _) in list(self._cost_evidence.items()):
+            if retained_observed_at < cutoff:
+                self._cost_evidence.pop(retained_target, None)
         if len(self._cost_evidence) >= _MAX_COST_EVIDENCE and target_ref not in self._cost_evidence:
-            self._cost_evidence.pop(next(iter(self._cost_evidence)))
+            oldest_target, oldest = min(
+                self._cost_evidence.items(),
+                key=lambda item: item[1][1],
+            )
+            if retained_at <= oldest[1]:
+                self.record_behavior("capacity_graduation:cost_evidence_retention_full")
+                return
+            self._cost_evidence.pop(oldest_target, None)
         self._cost_evidence[target_ref] = (
             evidence_ref,
-            observed_at.astimezone(UTC),
+            retained_at,
             correlation_id,
         )
+        if self._state_store is not None:
+            await self._state_store.write_state(
+                f"{_COST_PREFIX}{_digest(target_ref)}",
+                {
+                    "schema_version": "1.0.0",
+                    "revision": 1,
+                    "target_ref": target_ref,
+                    "evidence_ref": evidence_ref,
+                    "observed_at": retained_at.isoformat(),
+                    "correlation_id": correlation_id,
+                },
+            )
         self.record_behavior("capacity_graduation:cost_evidence_retained")
 
     async def ingest_utilization(
@@ -187,9 +265,27 @@ class Freyr(Agent):
         utilization: float,
         correlation_id: str = "",
         observed_at: str = "",
+        sample_key: str = "",
     ) -> None:
         observed_at = self._normalize_observed_at(observed_at)
         if not observed_at:
+            return
+        parsed_observed_at = _parse_observed_at(observed_at)
+        if parsed_observed_at is None:
+            self.record_behavior("capacity_sample:invalid_observed_at")
+            return
+        normalized_key = sample_key.strip() or stable_idempotency_key(
+            "freyr-capacity-sample",
+            resource_id,
+            utilization,
+            observed_at,
+            correlation_id,
+        )
+        if not await self._claim_sample(normalized_key, resource_id, observed_at):
+            return
+        latest = self._latest_observed_at.get(resource_id)
+        if latest is not None and parsed_observed_at < latest:
+            self.record_behavior("capacity_sample:stale")
             return
         prev_value = self._smoothed.get(resource_id)
         prev = utilization if prev_value is None else prev_value
@@ -205,6 +301,8 @@ class Freyr(Agent):
         # memory on a long-lived watcher.
         if len(history) > _MAX_SAMPLES:
             del history[:-_MAX_SAMPLES]
+        self._latest_observed_at[resource_id] = parsed_observed_at
+        await self._persist_resource(resource_id, smoothed, history, parsed_observed_at)
         if self.bus is not None:
             # Normalize the forecast into an impact magnitude in [0, 1] so
             # arbitration weighs the capacity signal by measured urgency, not
@@ -254,6 +352,54 @@ class Freyr(Agent):
             )
         else:
             self.record_behavior("capacity_forecast:transport_unavailable")
+
+    async def _claim_sample(
+        self,
+        sample_key: str,
+        resource_id: str,
+        observed_at: str,
+    ) -> bool:
+        if sample_key in self._accepted_sample_keys:
+            self.record_behavior("capacity_sample:duplicate")
+            return False
+        if self._state_store is not None:
+            created = await self._state_store.write_state_if_absent(
+                _accepted_key(sample_key),
+                {
+                    "schema_version": "1.0.0",
+                    "revision": 1,
+                    "sample_key": sample_key,
+                    "resource_id": resource_id,
+                    "observed_at": observed_at,
+                },
+            )
+            if not created:
+                self._accepted_sample_keys.add(sample_key)
+                self.record_behavior("capacity_sample:duplicate")
+                return False
+        self._accepted_sample_keys.add(sample_key)
+        return True
+
+    async def _persist_resource(
+        self,
+        resource_id: str,
+        smoothed: float,
+        history: list[float],
+        observed_at: datetime,
+    ) -> None:
+        if self._state_store is None:
+            return
+        await self._state_store.write_state(
+            f"{_RESOURCE_PREFIX}{_digest(resource_id)}",
+            {
+                "schema_version": "1.0.0",
+                "revision": len(history),
+                "resource_id": resource_id,
+                "smoothed": smoothed,
+                "samples": list(history[-_MAX_SAMPLES:]),
+                "latest_observed_at": observed_at.astimezone(UTC).isoformat(),
+            },
+        )
 
     def _normalize_observed_at(self, observed_at: str) -> str:
         if not observed_at:
@@ -413,3 +559,21 @@ class Freyr(Agent):
 
 
 __all__ = ["Freyr", "SizingRecommendation"]
+
+
+def _parse_observed_at(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(UTC)
+
+
+def _accepted_key(sample_key: str) -> str:
+    return f"{_ACCEPTED_PREFIX}{_digest(sample_key)}"
+
+
+def _digest(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()

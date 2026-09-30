@@ -11,6 +11,7 @@ is capped by :pyattr:`blast_radius_cap`.
 
 from __future__ import annotations
 
+import hashlib
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -54,6 +55,9 @@ _CHAOS_EVIDENCE_FIELDS = (
     "dry_run_receipt",
 )
 _DEFAULT_RESERVATION_TTL = timedelta(minutes=30)
+_CHAOS_OUTBOX_PREFIX = "pantheon/loki/chaos-outbox/"
+_HELD_PREFIX = "pantheon/loki/held-proposals/"
+_RESILIENCE_PREFIX = "pantheon/loki/resilience-scores/"
 
 
 @dataclass
@@ -103,6 +107,7 @@ class Loki(Agent):
             if state_store is not None
             else None
         )
+        self._state_store = state_store
         self.proposals: deque[ChaosProposal] = deque(maxlen=_MAX_PROPOSALS)
         self._held_proposals: deque[ChaosProposal] = deque(maxlen=_MAX_HELD_PROPOSALS)
         self._resilience_scores: dict[str, tuple[float, str]] = {}
@@ -122,8 +127,9 @@ class Loki(Agent):
             if candidate is None:
                 self.record_behavior("resilience_score:invalid")
                 return
+            if not await self._remember_resilience_score(candidate):
+                return
             if await self._publish_proposal("object.resilience-score", candidate):
-                self._remember_resilience_score(candidate)
                 self.record_behavior("resilience_score:published")
             return
         if payload.get("event_type") != CHAOS_SCHEDULE_EVENT:
@@ -142,11 +148,29 @@ class Loki(Agent):
         )
 
     async def rehydrate(self) -> int:
-        """Restore durable target reservations before consumers start."""
-        if self._reservation_journal is None:
-            return 0
-        self._in_flight_targets = set(await self._reservation_journal.snapshot())
-        return len(self._in_flight_targets)
+        """Restore durable target reservations and advisory projections before consumers start."""
+        restored = 0
+        if self._reservation_journal is not None:
+            self._in_flight_targets = set(await self._reservation_journal.snapshot())
+            restored += len(self._in_flight_targets)
+        if self._state_store is None:
+            return restored
+        for record in await self._state_store.read_states(_HELD_PREFIX, limit=_MAX_HELD_PROPOSALS):
+            proposal = _proposal_from_record(record)
+            if proposal is not None:
+                self._held_proposals.append(proposal)
+                restored += 1
+        for record in await self._state_store.read_states(
+            _RESILIENCE_PREFIX,
+            limit=_MAX_RESILIENCE_SCORES,
+        ):
+            resource_id = str(record.get("resource_id") or "")
+            score = record.get("score")
+            observed_at = str(record.get("observed_at") or "")
+            if resource_id and isinstance(score, int | float) and observed_at:
+                self._resilience_scores[resource_id] = (float(score), observed_at)
+                restored += 1
+        return restored
 
     async def _release_from_action_run(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Thor":
@@ -217,6 +241,7 @@ class Loki(Agent):
                 requested_target_count=requested_target_count,
             )
             self._held_proposals.append(proposal)
+            await self._persist_held_proposal(proposal)
             self.record_behavior("chaos_proposal:held_incomplete")
             return proposal
         # Enforce cap BEFORE emitting anything so a proposal storm does
@@ -297,10 +322,8 @@ class Loki(Agent):
             "dry_run_receipt": dry_run_receipt,
             "human_approval_required": True,
         }
-        if self.bus is not None and not await self._publish_proposal(
-            "object.chaos-experiment",
-            payload,
-        ):
+        published = await self._publish_chaos_once(experiment_id, payload)
+        if not published:
             await self._release_reservation(
                 experiment_id=experiment_id,
                 action_type=action_type,
@@ -325,6 +348,72 @@ class Loki(Agent):
         self.proposals.append(proposal)
         return proposal
 
+    async def _publish_chaos_once(self, experiment_id: str, payload: dict[str, Any]) -> bool:
+        if self._state_store is None:
+            return self.bus is None or await self._publish_proposal(
+                "object.chaos-experiment",
+                payload,
+            )
+        outbox_key = f"{_CHAOS_OUTBOX_PREFIX}{_digest(experiment_id)}"
+        existing = await self._state_store.read_state(outbox_key)
+        if existing is not None:
+            if existing.get("state") == "published":
+                self.record_behavior("chaos_proposal:duplicate_published")
+                return True
+            stored_payload = existing.get("payload")
+            if not isinstance(stored_payload, dict):
+                raise ValueError("Loki chaos outbox payload is malformed")
+            payload = dict(stored_payload)
+        else:
+            await self._state_store.write_state_if_absent(
+                outbox_key,
+                {
+                    "schema_version": "1.0.0",
+                    "revision": 1,
+                    "state": "pending",
+                    "experiment_id": experiment_id,
+                    "idempotency_key": str(payload.get("idempotency_key") or ""),
+                    "payload": dict(payload),
+                },
+            )
+        if self.bus is None:
+            return True
+        if not await self._publish_proposal("object.chaos-experiment", payload):
+            return False
+        await self._state_store.write_state(
+            outbox_key,
+            {
+                "schema_version": "1.0.0",
+                "revision": 2,
+                "state": "published",
+                "experiment_id": experiment_id,
+                "idempotency_key": str(payload.get("idempotency_key") or ""),
+                "payload": dict(payload),
+            },
+        )
+        return True
+
+    async def _persist_held_proposal(self, proposal: ChaosProposal) -> None:
+        if self._state_store is None:
+            return
+        await self._state_store.write_state(
+            f"{_HELD_PREFIX}{_digest(proposal.experiment_id)}",
+            {
+                "schema_version": "1.0.0",
+                "revision": 1,
+                "experiment_id": proposal.experiment_id,
+                "action_type": proposal.action_type,
+                "targets": list(proposal.targets),
+                "accepted": proposal.accepted,
+                "reason": proposal.reason,
+                "requested_target_count": proposal.requested_target_count,
+                "targets_truncated": proposal.targets_truncated,
+                "causal_hypothesis_ref": proposal.causal_hypothesis_ref,
+                "impact_envelope_id": proposal.impact_envelope_id,
+                "recovery_plan_id": proposal.recovery_plan_id,
+            },
+        )
+
     def _release_targets(self, targets: tuple[str, ...]) -> None:
         """Release process-local slots only from validated terminal closure."""
         for t in targets:
@@ -336,8 +425,14 @@ class Loki(Agent):
             raise ValueError("Loki clock MUST return a timezone-aware datetime")
         return current
 
-    def _remember_resilience_score(self, candidate: dict[str, Any]) -> None:
+    async def _remember_resilience_score(self, candidate: dict[str, Any]) -> bool:
         resource_id = str(candidate["resource_id"])
+        observed_at = str(candidate["observed_at"])
+        existing = self._resilience_scores.get(resource_id)
+        parsed_observed_at = _parse_time(observed_at)
+        if existing is not None and parsed_observed_at < _parse_time(existing[1]):
+            self.record_behavior("resilience_score:stale")
+            return False
         if (
             len(self._resilience_scores) >= _MAX_RESILIENCE_SCORES
             and resource_id not in self._resilience_scores
@@ -345,8 +440,20 @@ class Loki(Agent):
             self._resilience_scores.pop(next(iter(self._resilience_scores)))
         self._resilience_scores[resource_id] = (
             float(candidate["score"]),
-            str(candidate["observed_at"]),
+            observed_at,
         )
+        if self._state_store is not None:
+            await self._state_store.write_state(
+                f"{_RESILIENCE_PREFIX}{_digest(resource_id)}",
+                {
+                    "schema_version": "1.0.0",
+                    "revision": 1,
+                    "resource_id": resource_id,
+                    "score": float(candidate["score"]),
+                    "observed_at": parsed_observed_at.isoformat(),
+                },
+            )
+        return True
 
     async def _release_reservation(
         self,
@@ -508,3 +615,40 @@ class Loki(Agent):
 
 
 __all__ = ["Loki", "ChaosProposal"]
+
+
+def _proposal_from_record(record: dict[str, Any] | Any) -> ChaosProposal | None:
+    if not isinstance(record, dict):
+        return None
+    raw_targets = record.get("targets")
+    targets = (
+        tuple(item for item in raw_targets if isinstance(item, str))
+        if isinstance(raw_targets, list)
+        else ()
+    )
+    return ChaosProposal(
+        experiment_id=str(record.get("experiment_id") or ""),
+        action_type=str(record.get("action_type") or ""),
+        targets=targets,
+        accepted=record.get("accepted") is True,
+        reason=str(record.get("reason") or ""),
+        requested_target_count=int(record.get("requested_target_count") or 0),
+        targets_truncated=record.get("targets_truncated") is True,
+        causal_hypothesis_ref=str(record.get("causal_hypothesis_ref") or ""),
+        impact_envelope_id=str(record.get("impact_envelope_id") or ""),
+        recovery_plan_id=str(record.get("recovery_plan_id") or ""),
+    )
+
+
+def _parse_time(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("Loki observed_at MUST be RFC 3339") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("Loki observed_at MUST be timezone-aware")
+    return parsed.astimezone(UTC)
+
+
+def _digest(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()

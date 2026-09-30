@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -30,9 +31,12 @@ from fdai.shared.providers.cost_governance import (
     CostAnalysisSample,
     CostPackageActivationReader,
 )
+from fdai.shared.providers.state_store import StateStore
 
 _PACKAGE_ID = "cost-governance"
 _MAX_TRACKED_SCOPES = 512
+_SAMPLE_PREFIX = "pantheon/njord/cost-samples/"
+_ACCEPTED_PREFIX = "pantheon/njord/accepted-samples/"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +59,7 @@ class Njord(Agent):
         allow_unbound_activation_reader: bool = False,
         budget_data_available: bool = False,
         initial_samples: Sequence[CostAnalysisSample] = (),
+        state_store: StateStore | None = None,
     ) -> None:
         super().__init__(spec=_NJORD)
         self.bus = bus
@@ -63,10 +68,13 @@ class Njord(Agent):
         self._package_enabled = package_enabled
         self._allow_unbound_activation_reader = allow_unbound_activation_reader
         self._budget_data_available = budget_data_available
+        self._state_store = state_store
         self._latest: dict[str, tuple[float, str]] = {}
         self._counts: dict[str, int] = {}
+        self._accepted_sample_keys: set[str] = set()
+        self._accepted_sample_digests: dict[str, str] = {}
         for sample in initial_samples:
-            self._remember_sample(sample)
+            self._remember_initial_sample(sample)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -130,7 +138,10 @@ class Njord(Agent):
             self.record_behavior("cost_sample:invalid_evidence")
             return
         self.record_behavior("cost_sample:accepted")
-        await self._analyze(sample)
+        await self._analyze(
+            sample,
+            sample_key=str(payload.get("idempotency_key") or payload.get("event_id") or ""),
+        )
 
     # ---- ingestion -----------------------------------------------------
 
@@ -166,14 +177,61 @@ class Njord(Agent):
             completeness=Decimal(str(completeness)),
             ontology_release_digest=ontology_release_digest,
         )
-        return await self._analyze(sample)
+        return await self._analyze(sample, sample_key=_sample_key(sample))
 
-    async def _analyze(self, sample: CostAnalysisSample) -> dict[str, Any] | None:
+    async def rehydrate(self) -> int:
+        """Restore accepted cost sample projections and duplicate fences."""
+        if self._state_store is None:
+            return 0
+        restored = 0
+        for record in await self._state_store.read_states(
+            _SAMPLE_PREFIX, limit=_MAX_TRACKED_SCOPES
+        ):
+            scope = str(record.get("scope_id") or "")
+            amount = record.get("amount_usd")
+            observed_at = str(record.get("observed_at") or "")
+            count = record.get("count")
+            if (
+                scope
+                and isinstance(amount, int | float)
+                and observed_at
+                and not isinstance(count, bool)
+                and isinstance(count, int)
+                and count >= 1
+            ):
+                self._latest[scope] = (float(amount), observed_at)
+                self._counts[scope] = count
+                restored += 1
+        for record in await self._state_store.read_states(
+            _ACCEPTED_PREFIX,
+            limit=_MAX_TRACKED_SCOPES * 4,
+        ):
+            sample_key = str(record.get("sample_key") or "")
+            if sample_key:
+                self._accepted_sample_keys.add(sample_key)
+        return restored
+
+    async def _analyze(
+        self,
+        sample: CostAnalysisSample,
+        *,
+        sample_key: str,
+    ) -> dict[str, Any] | None:
         if self._advisory_provider is None:
             self.record_behavior("cost_sample:provider_absent")
             return None
+        normalized_key = sample_key.strip() or _sample_key(sample)
+        sample_digest = _sample_digest(sample)
+        if not await self._claim_sample(normalized_key, sample, sample_digest=sample_digest):
+            return None
+        latest = self._latest.get(sample.scope_id)
+        if latest is not None:
+            latest_at = _parse_time(latest[1])
+            if latest_at is not None and sample.observed_at.astimezone(UTC) < latest_at:
+                self.record_behavior("cost_sample:stale")
+                return None
         finding = await self._advisory_provider.analyze_cost_sample(sample)
-        self._remember_sample(sample)
+        await self._remember_sample(sample)
         if finding is None:
             self.record_behavior("cost_sample:no_finding")
             return None
@@ -226,13 +284,74 @@ class Njord(Agent):
         await self._publish_proposal("object.cost-anomaly", payload)
         return payload
 
-    def _remember_sample(self, sample: CostAnalysisSample) -> None:
+    def _remember_initial_sample(self, sample: CostAnalysisSample) -> None:
         if len(self._latest) >= _MAX_TRACKED_SCOPES and sample.scope_id not in self._latest:
             oldest = next(iter(self._latest))
             self._latest.pop(oldest, None)
             self._counts.pop(oldest, None)
         self._latest[sample.scope_id] = (float(sample.amount_usd), sample.observed_at.isoformat())
         self._counts[sample.scope_id] = self._counts.get(sample.scope_id, 0) + 1
+
+    async def _claim_sample(
+        self,
+        sample_key: str,
+        sample: CostAnalysisSample,
+        *,
+        sample_digest: str,
+    ) -> bool:
+        if sample_key in self._accepted_sample_keys and self._state_store is None:
+            if self._accepted_sample_digests.get(sample_key) == sample_digest:
+                self.record_behavior("cost_sample:duplicate")
+                return False
+            self.record_behavior("cost_sample:key_collision")
+            return True
+        if self._state_store is not None:
+            existing = await self._state_store.read_state(_accepted_key(sample_key))
+            if existing is not None:
+                if existing.get("sample_digest") == sample_digest:
+                    self._accepted_sample_keys.add(sample_key)
+                    self.record_behavior("cost_sample:duplicate")
+                    return False
+                self.record_behavior("cost_sample:key_collision")
+                return True
+            created = await self._state_store.write_state_if_absent(
+                _accepted_key(sample_key),
+                {
+                    "schema_version": "1.0.0",
+                    "revision": 1,
+                    "sample_key": sample_key,
+                    "sample_digest": sample_digest,
+                    "scope_id": sample.scope_id,
+                    "observed_at": sample.observed_at.astimezone(UTC).isoformat(),
+                },
+            )
+            if not created:
+                self._accepted_sample_keys.add(sample_key)
+                self.record_behavior("cost_sample:duplicate")
+                return False
+        self._accepted_sample_keys.add(sample_key)
+        self._accepted_sample_digests[sample_key] = sample_digest
+        return True
+
+    async def _remember_sample(self, sample: CostAnalysisSample) -> None:
+        if len(self._latest) >= _MAX_TRACKED_SCOPES and sample.scope_id not in self._latest:
+            oldest = next(iter(self._latest))
+            self._latest.pop(oldest, None)
+            self._counts.pop(oldest, None)
+        self._latest[sample.scope_id] = (float(sample.amount_usd), sample.observed_at.isoformat())
+        self._counts[sample.scope_id] = self._counts.get(sample.scope_id, 0) + 1
+        if self._state_store is not None:
+            await self._state_store.write_state(
+                f"{_SAMPLE_PREFIX}{_digest(sample.scope_id)}",
+                {
+                    "schema_version": "1.0.0",
+                    "revision": self._counts[sample.scope_id],
+                    "scope_id": sample.scope_id,
+                    "amount_usd": float(sample.amount_usd),
+                    "observed_at": sample.observed_at.astimezone(UTC).isoformat(),
+                    "count": self._counts[sample.scope_id],
+                },
+            )
 
     async def _message_enabled(self, activation_revision: object) -> bool:
         if not self._package_enabled or self._advisory_provider is None:
@@ -404,3 +523,36 @@ def _parse_time(value: str) -> datetime | None:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         return None
     return parsed.astimezone(UTC)
+
+
+def _sample_key(sample: CostAnalysisSample) -> str:
+    return stable_idempotency_key(
+        "njord-cost-sample",
+        sample.scope_id,
+        sample.resource_id,
+        str(sample.amount_usd),
+        sample.observed_at.astimezone(UTC).isoformat(),
+        sample.source_authority,
+        sample.ontology_release_digest,
+    )
+
+
+def _sample_digest(sample: CostAnalysisSample) -> str:
+    return stable_idempotency_key(
+        "njord-cost-sample-digest",
+        sample.scope_id,
+        sample.resource_id,
+        str(sample.amount_usd),
+        sample.observed_at.astimezone(UTC).isoformat(),
+        sample.source_authority,
+        str(sample.completeness),
+        sample.ontology_release_digest,
+    )
+
+
+def _accepted_key(sample_key: str) -> str:
+    return f"{_ACCEPTED_PREFIX}{_digest(sample_key)}"
+
+
+def _digest(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()

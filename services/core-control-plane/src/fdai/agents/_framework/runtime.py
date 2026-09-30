@@ -134,6 +134,9 @@ class PantheonRuntime:
         saga: Saga | None = None,
         muninn_state_store: StateStore | None = None,
         huginn_state_store: StateStore | None = None,
+        heimdall_state_store: StateStore | None = None,
+        njord_state_store: StateStore | None = None,
+        freyr_state_store: StateStore | None = None,
         loki_state_store: StateStore | None = None,
         evidence_conflict_sink: EvidenceConflictSink | None = None,
         rule_generation_workers: runtime_subscriptions.RuleGenerationWorkerBindings | None = None,
@@ -225,9 +228,7 @@ class PantheonRuntime:
             resource_lock=execution_resource_lock,
             has_action_semantics=bool(action_types),
         )
-
         disabled = execution_safety.validate_disabled_agents(disabled_agents)
-
         reg = registry or load_pantheon()
         bridge = EventBusBridge(
             provider=provider,
@@ -300,7 +301,9 @@ class PantheonRuntime:
             prospective_lineage_finalizer=prospective_lineage_finalizer,
             change_assessor=change_assessor,
             cost_runtime=cost_runtime,
+            njord_state_store=njord_state_store,
             capacity_graduation_controller=capacity_graduation_controller,
+            freyr_state_store=freyr_state_store,
             development=development_authority,
             action_types=action_types,
             governed_execution_selected=governed_execution_selected,
@@ -319,6 +322,7 @@ class PantheonRuntime:
             forecast_store=forecast_store,
             operational_evidence_hook=operational_evidence_hook,
             action_observation_hook=heimdall_action_observation_hook,
+            state_store=heimdall_state_store,
         )
         development_runtime.configure_authority_agents(
             instantiated,
@@ -356,7 +360,7 @@ class PantheonRuntime:
                 return await incident_candidate_hook(candidate)
 
             heimdall.register_incident_candidate(observe_and_open)
-
+        # Only explicit promotion permits Thor enforce; parallel P1 dispatch could double-mutate.
         thor = instantiated["Thor"]
         if isinstance(thor, Thor):
             development_runtime.bind_thor_development_authority(thor, development_authority)
@@ -369,7 +373,6 @@ class PantheonRuntime:
                 enforce=enforce,
                 human_access_bound=human_access_bound,
             )
-
         agents = {n: a for n, a in instantiated.items() if n not in disabled}
         overflow_auditor: Saga | None = saga
         saga_agent = agents.get("Saga")
@@ -379,7 +382,6 @@ class PantheonRuntime:
             agent.bind_bus(bridge)
             if overflow_auditor is not None:
                 agent.bind_rate_limit_overflow_auditor(overflow_auditor.record_rate_limit_overflow)
-
         subscription_count = runtime_subscriptions.bind_runtime_subscriptions(
             bridge=bridge,
             instantiated=instantiated,

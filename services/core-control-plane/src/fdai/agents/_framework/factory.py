@@ -174,6 +174,7 @@ def configured_forseti(
 
 def configured_njord(
     bindings: CostRuntimeBindings,
+    state_store: StateStore | None = None,
 ) -> Njord:
     """Build Njord with optional package-neutral Cost Governance bindings."""
 
@@ -183,15 +184,17 @@ def configured_njord(
         package_enabled=bindings.package_enabled,
         budget_data_available=bindings.budget_data_available,
         initial_samples=bindings.initial_samples,
+        state_store=state_store,
     )
 
 
 def configured_freyr(
     graduation_controller: CapacityGraduationController | None,
+    state_store: StateStore | None = None,
 ) -> Freyr:
     """Build Freyr with the reviewed graduation controller."""
 
-    return Freyr(graduation_controller=graduation_controller)
+    return Freyr(graduation_controller=graduation_controller, state_store=state_store)
 
 
 def configured_huginn(

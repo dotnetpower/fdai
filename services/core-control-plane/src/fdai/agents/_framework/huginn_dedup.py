@@ -15,6 +15,7 @@ from fdai.shared.providers.state_store import StateStore
 
 _LEGACY_STATE_KEY = "pantheon/huginn/ingress-dedup"
 _SHARD_PREFIX = _LEGACY_STATE_KEY + "/shard-"
+_TERMINAL_PREFIX = _LEGACY_STATE_KEY + "/terminal/"
 _MAX_SHARDS = 64
 _MAX_CAS_ATTEMPTS = 8
 _DEFAULT_LEASE = timedelta(seconds=60)
@@ -85,6 +86,10 @@ class HuginnDedupJournal:
     ) -> HuginnIngressClaim:
         """Claim one key or return its completed duplicate disposition."""
         await self._ensure_migrated()
+        terminal = await self._store.read_state(_terminal_key(idempotency_key))
+        if terminal is not None:
+            _validate_request(terminal, request_digest=request_digest)
+            return HuginnIngressClaim(payload={}, change_projection=None, duplicate=True)
         shard_index = self._shard_index(idempotency_key)
         state_key = self._shard_key(shard_index)
         capacity = self._shard_capacity(shard_index)
@@ -170,6 +175,16 @@ class HuginnDedupJournal:
     async def complete(self, *, idempotency_key: str, request_digest: str) -> None:
         """Checkpoint successful publication without retaining the payload body."""
         await self._ensure_migrated()
+        await self._store.write_state(
+            _terminal_key(idempotency_key),
+            {
+                "schema_version": "1.0.0",
+                "revision": 1,
+                "idempotency_key": idempotency_key,
+                "request_digest": request_digest,
+                "status": "published",
+            },
+        )
         shard_index = self._shard_index(idempotency_key)
         state_key = self._shard_key(shard_index)
         capacity = self._shard_capacity(shard_index)
@@ -359,6 +374,11 @@ def request_digest(raw: Mapping[str, Any]) -> str:
     except (TypeError, ValueError) as exc:
         raise ValueError("raw ingress request MUST be canonical JSON") from exc
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _terminal_key(idempotency_key: str) -> str:
+    digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
+    return f"{_TERMINAL_PREFIX}{digest}"
 
 
 def _decode(
