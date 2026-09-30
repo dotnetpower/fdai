@@ -9,10 +9,12 @@ import httpx
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain, SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
+from fdai.core.conversation.semantic_reasoning_repair import repair_keeps_operands
 from fdai.core.conversation.semantic_reasoning_review import (
     FormReview,
     describe_uncovered,
     extraction_schema,
+    quoted_form,
     resolve_extraction,
     review_forms,
 )
@@ -532,16 +534,89 @@ def test_a_kind_mention_that_holds_another_named_thing_releases_nothing() -> Non
     assert review_forms((split,), two_names, utterance=utterance) == FormReview("faithful")
 
 
-async def test_a_merged_mention_is_held_without_a_repair_it_could_not_make() -> None:
+async def test_a_merged_mention_a_split_repair_keeps_merged_is_held() -> None:
     merged = _aks_form("List", context=[_quote("the")])
     merged["mentions"][0].update(domain="object_type", span=_quote("AKS ObjectTypes"))
     model = _Model([merged, merged], {}, extraction=_EXTRACTED)
 
     observation = await _shadow(model)
 
+    # One split repair is asked along the independent reader's disjoint quotes; a form that
+    # still merges them is reviewed again and held.
     assert observation.review == "unfaithful" and observation.released is False
     assert observation.review_reasons == ("review_merged:9-12", "review_merged:13-24")
-    assert len(model.form_calls) == 1
+    assert len(model.form_calls) == 2
+    (violation,) = model.form_calls[1]["repair"].violations
+    assert violation.startswith('review_merged: mention m1 quotes "AKS ObjectTypes"')
+    assert '"AKS" (restricts); "ObjectTypes" (names)' in violation
+
+
+_WORKLOAD = "List the Workload ObjectType"
+_WORKLOAD_EXTRACTION = {
+    "constraints": [
+        _constraint("List", "asks"),
+        _constraint("Workload", "names"),
+        _constraint("ObjectType", "names"),
+    ]
+}
+
+
+def _workload_forms() -> tuple[dict[str, Any], dict[str, Any]]:
+    merged = _aks_form("List", context=[_quote("the")])
+    merged["mentions"][0].update(domain="object_type", span=_quote("Workload ObjectType"))
+    split = _aks_form("List", context=[_quote("the")])
+    split["mentions"][0].update(domain="object_type", span=_quote("Workload"))
+    split["mentions"].append(
+        {"id": "m2", "form": "concept", "domain": "declaration_kind", "span": _quote("ObjectType")}
+    )
+    return merged, split
+
+
+async def test_a_split_repair_along_the_disjoint_quotes_releases_the_reading() -> None:
+    merged, split = _workload_forms()
+    picks = {"m1": ["object:Workload"], "m2": ["kind:object"]}
+    model = _Model([merged, split], picks, extraction=_WORKLOAD_EXTRACTION)
+
+    observation = await run_reasoning_shadow(
+        model=model,
+        utterance=_WORKLOAD,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+    )
+
+    assert observation.review == "faithful" and observation.released is True
+    assert [item.repair for item in observation.passes] == [None, "review_split_applied"]
+    assert len(model.form_calls) == 2
+
+
+def test_a_split_repair_may_only_replace_the_merging_mention() -> None:
+    merged, split = _workload_forms()
+    typed = _typed(merged, _WORKLOAD)
+    previous = quoted_form(typed, _WORKLOAD)
+    repaired = _typed(split, _WORKLOAD)
+    recounted = json.loads(json.dumps(split))
+    recounted["goals"][0]["operation"] = "count"
+
+    def kept(form: SemanticQuestionForm, split_ids: frozenset[str]) -> bool:
+        return repair_keeps_operands(
+            previous,
+            form,
+            utterance=_WORKLOAD,
+            typed=typed,
+            extension_only=True,
+            split=split_ids,
+        )
+
+    assert kept(repaired, frozenset({"m1"}))
+    # Without the split exemption the narrower quote only shortens the mention.
+    assert not kept(repaired, frozenset())
+    # A split never excuses a changed goal.
+    assert not kept(_typed(recounted, _WORKLOAD), frozenset({"m1"}))
 
 
 def test_a_repair_violation_names_a_mention_that_quotes_part_of_the_constraint() -> None:

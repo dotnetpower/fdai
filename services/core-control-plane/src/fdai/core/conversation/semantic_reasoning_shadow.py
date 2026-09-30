@@ -63,10 +63,11 @@ from .semantic_reasoning_repair import (
 )
 from .semantic_reasoning_review import (
     FormReview,
+    describe_merged,
     describe_uncovered,
     describe_unexpressible,
     literal_disagreements,
-    merged_constraints,
+    merged_mentions,
     quoted_form,
     resolve_extraction,
     review_forms,
@@ -474,6 +475,9 @@ class _ReviewRepair:
     typed: SemanticQuestionForm
     violations: tuple[str, ...]
     reasons: tuple[str, ...]
+    # Mentions the independent reading found merging separate constraints; the repair
+    # replaces each with one mention per part.
+    split: frozenset[str] = frozenset()
 
 
 def _review_repair(
@@ -496,21 +500,27 @@ def _review_repair(
         return None
     uncovered = uncovered_constraints(forms, extraction, utterance)
     unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
-    # A repair only adds information, so it can neither split a mention that merged a
-    # restriction with another constraint nor move a literal; the turn is held instead.
-    if not (uncovered or unacknowledged) or (
-        merged_constraints(forms, extraction) or literal_disagreements(forms, extraction)
-    ):
+    merged = merged_mentions(forms, extraction)
+    # A repair only adds information, except that it may split a mention holding separate
+    # constraints along the independent reader's disjoint quotes; it never moves a literal,
+    # so that turn is held instead.
+    if not (uncovered or unacknowledged or merged) or literal_disagreements(forms, extraction):
         return None
+    form = forms[0]
     violations = (
+        *(
+            describe_merged(mention_id, form.mention(mention_id).span, parts, utterance)
+            for mention_id, parts in merged.items()
+        ),
         *(describe_uncovered(item, utterance, forms) for item in uncovered),
         *(describe_unexpressible(item, utterance) for item in unacknowledged),
     )
     return _ReviewRepair(
-        previous=quoted_form(forms[0], utterance),
-        typed=forms[0],
+        previous=quoted_form(form, utterance),
+        typed=form,
         violations=tuple(dict.fromkeys(violations)),
         reasons=review.reasons,
+        split=frozenset(merged),
     )
 
 
@@ -529,7 +539,7 @@ async def _propose_review_repair(
     resolution = resolve_question_form(raw, utterance=utterance)
     if resolution.form is None:
         return FormProposal(resolution, None, "invalid", repair.reasons)
-    form = relabel_mentions(repair.typed, resolution.form)
+    form = relabel_mentions(repair.typed, resolution.form, split=repair.split)
     resolution = replace(resolution, form=form)
     if not repair_keeps_operands(
         repair.previous,
@@ -537,9 +547,11 @@ async def _propose_review_repair(
         utterance=utterance,
         typed=repair.typed,
         extension_only=True,
+        split=repair.split,
     ):
         dropped = FormResolution(None, ("review_repair_operand_dropped",))
         return FormProposal(dropped, None, "operand_dropped", repair.reasons)
+    applied = "review_split_applied" if repair.split else "review_applied"
     admission = admit_question_form(form, utterance=utterance, accounting=accounting)
     if admission.disposition is AdmissionDisposition.INVALID and all(
         reason.startswith("span_unaccounted:") for reason in admission.reasons
@@ -549,8 +561,8 @@ async def _propose_review_repair(
         relaxed = admit_question_form(
             form, utterance=utterance, accounting=SpanAccounting(required=False)
         )
-        return FormProposal(resolution, relaxed, "review_applied_unaccounted", repair.reasons)
-    return FormProposal(resolution, admission, "review_applied", repair.reasons)
+        return FormProposal(resolution, relaxed, f"{applied}_unaccounted", repair.reasons)
+    return FormProposal(resolution, admission, applied, repair.reasons)
 
 
 async def _extract(

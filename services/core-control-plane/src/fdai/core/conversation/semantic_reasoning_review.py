@@ -305,8 +305,33 @@ def merged_constraints(
     quotes restate one constraint, so only disjoint ones count.
     """
 
-    stated = [item for item in extraction.constraints if item.role not in _UNSTATED_ROLES]
     found: dict[tuple[int, int], ExtractedConstraint] = {}
+    for held, _parts in _merging(forms, extraction).values():
+        for item in held:
+            found.setdefault((item.quote.start, item.quote.end), item)
+    return tuple(found.values())
+
+
+def merged_mentions(
+    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
+) -> dict[str, tuple[ExtractedConstraint, ...]]:
+    """Return, per merging mention id, the disjoint extracted constraints it holds.
+
+    The mapping keeps the mention order of the forms and each mention's parts in their
+    question order, so a repair can name exactly where the mention should split: every
+    constraint it drops and every disjoint constraint beside one.
+    """
+
+    return {mention_id: parts for mention_id, (_held, parts) in _merging(forms, extraction).items()}
+
+
+def _merging(
+    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
+) -> dict[str, tuple[tuple[ExtractedConstraint, ...], tuple[ExtractedConstraint, ...]]]:
+    """Return, per merging mention id, the constraints it drops and the parts it holds."""
+
+    stated = [item for item in extraction.constraints if item.role not in _UNSTATED_ROLES]
+    merged: dict[str, tuple[tuple[ExtractedConstraint, ...], tuple[ExtractedConstraint, ...]]] = {}
     # A reference's position words, such as second in the second one, are its typed
     # position, not a restriction a concept binding could drop.
     grounded = (
@@ -322,13 +347,55 @@ def merged_constraints(
             if mention.span.start <= item.quote.start and item.quote.end <= mention.span.end
         ]
         kind = mention.domain in _DECLARATION_NAMES
-        for item in inside:
-            if (kind or item.role is ConstraintRole.RESTRICTS) and any(
+        held = {
+            (item.quote.start, item.quote.end): item
+            for item in inside
+            if (kind or item.role is ConstraintRole.RESTRICTS)
+            and any(
                 other.quote.end <= item.quote.start or item.quote.end <= other.quote.start
                 for other in inside
-            ):
-                found.setdefault((item.quote.start, item.quote.end), item)
-    return tuple(found.values())
+            )
+        }
+        if held:
+            # Every disjoint constraint the mention holds is a part the split must keep apart.
+            parts = {
+                (item.quote.start, item.quote.end): item
+                for item in inside
+                if any(
+                    other.quote.end <= item.quote.start or item.quote.end <= other.quote.start
+                    for other in held.values()
+                )
+                or (item.quote.start, item.quote.end) in held
+            }
+            merged[mention.id] = (
+                tuple(held.values()),
+                tuple(parts[key] for key in sorted(parts)),
+            )
+    return merged
+
+
+def describe_merged(
+    mention_id: str,
+    span: SourceSpan,
+    parts: Sequence[ExtractedConstraint],
+    utterance: str,
+) -> str:
+    """Render one merging mention as a repair violation naming the parts to keep apart.
+
+    The parts are the independent reader's disjoint quotes; Core never reads the words.
+    """
+
+    quote = _quote(span.start, span.end, utterance)
+    named = "; ".join(
+        f'"{_quote(item.quote.start, item.quote.end, utterance)["text"]}" ({item.role.value})'
+        for item in parts
+    )
+    return (
+        f'review_merged: mention {mention_id} quotes "{quote["text"]}" at occurrence '
+        f"{quote['occurrence']}, which holds separate constraints an independent reading "
+        f"found: {named}. Replace it with one mention for each of them, cite each where the "
+        "goal reads it, and keep every other mention, goal, and cue as it is"
+    )
 
 
 def literal_operands(forms: Sequence[SemanticQuestionForm]) -> frozenset[tuple[int, str]]:
@@ -496,11 +563,13 @@ __all__ = [
     "ConstraintRole",
     "ExtractedConstraint",
     "FormReview",
+    "describe_merged",
     "describe_uncovered",
     "describe_unexpressible",
     "literal_disagreements",
     "literal_operands",
     "merged_constraints",
+    "merged_mentions",
     "extraction_schema",
     "quoted_form",
     "resolve_extraction",

@@ -611,7 +611,7 @@ profiles:
     mode: active
     root: {id: semantic-question-form, version: 1, layer: base}
     packs: []
-    system_token_budget: 10240
+    system_token_budget: 11264
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
