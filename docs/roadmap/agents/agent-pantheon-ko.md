@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e10ee6d9aedd3fe22f82e0ed6ebe6ef242d129f8
+translation_source_sha: 576906891b79efcb76c49318d79dd496112aa770
 translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
@@ -52,6 +52,9 @@ Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 게�
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 Verdict가 제공한 작업 식별자만 보존하고 상관관계에서 만들어 내지 않으며 권한이 없는 `_framework` 도우미로 범위가 제한된 ActionRun 계보를 검증합니다.
 전달 계층의 생성기는 하나의 완전한 운영 계획에 대한 선택적인 인자 결속 실행 제안을 저장합니다. Forseti는 주입된 원본으로 이를 해석하고 엄격한 검증 뒤 같은 Verdict-to-ActionRun 경로를 유지합니다. 계보와 제안은 귀속 및 근거만 제공하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다. Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 Var 승인, Vidar 복구, Saga 인계, Norns 학습도 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)에 따라 영속 멱등성과 재시작 상태를 보존합니다.
+Bragi가 소유한 인계 에스컬레이션과 턴 이후 검토 게시는 broker 게시 전에 영속 보낼 편지함에
+보존됩니다. 복구는 같은 멱등성 키로 다시 게시하고 broker publish가 반환된 뒤에만 행을 게시
+완료로 표시하므로, 대화 전달은 확정되지 않은 게시를 성공으로 보고하지 않습니다.
 
 등록된 `AnomalyActionSource`는 정확한 Heimdall 신호를 조회해 Forseti에 최신의 비활성 작업
 후보를 제공합니다. 입력된 작업 인자와 사람 요청자 주장은 신뢰하지 않고 교체합니다.
@@ -104,6 +107,9 @@ Forseti가 중재를 제기한 뒤에는 같은 이벤트에 일반 판단을 �
 리소스와 기준 시점에 대해 소유자가 인증된 버티컬별 후보를 하나씩 결합합니다. Odin은 각
 후보의 `win`, `defer`, `hil` 처리 결과를 포함한 결정을 하나만 게시하고 Saga가 이를
 감사하며, 승리한 판정을 `ActionRun`으로 전환할 수 있는 에이전트는 Thor뿐입니다.
+`ArbitrationRequest` 페이로드는 기여한 영역마다 `source_correlations`, `domain_observed_at`,
+`domain_source_freshness`를 보존합니다. Forseti는 freshness 구간을 벗어난 오래된 신호를
+계산하되 중재 요청에는 결합하지 않으므로 Odin은 현재 영역별 근거만 순위합니다.
 후보의 상관관계, 멱등성, 리소스 및 ActionType 식별자는 유입 경계에서 범위가 제한되고 비어
 있지 않으며 앞뒤 공백을 허용하지 않습니다. 공유 관측 기준 시점에는 시간대가 포함되어야 합니다.
 Huginn이 소유하는 정규화된 `specialist.resilience_score` Event에는 0부터 1까지의 유한 score와
@@ -266,7 +272,7 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 | **Saga** | 감사 불가 | **HARD FAIL**: 새 변경 허용 안 됨; 전체 시스템 shadow 로 강등 |
 | **Vidar** | 롤백 불가 | Thor 가 새 auto 실행 거부; 모든 새 액션 shadow 로 강등 |
 | **Forseti** | 판단 정지 | Huginn / Heimdall 은 계속 publish (Kafka retain); 판정 대체 경로 없음 (판사 없이 판단 불가); 운영자 경보 |
-| **Odin** | cross-vertical 중재 누락 | Forseti가 Odin의 출시된 성능 저하 정책을 적용하고 자신이 제기한 중재를 ActionType도 개시자도 승리 영역도 조치 권한도 없는 종결 HIL 판정으로 닫으므로, 소유자 없는 중재가 열린 채로 남지 않고 두 번째 arbiter도 세우지 않음 (사람이 arbitrate) |
+| **Odin** | cross-vertical 중재 누락 | Forseti가 Odin의 출시된 성능 저하 정책을 적용하고 자신이 제기한 중재를 ActionType도 개시자도 승리 영역도 조치 권한도 없는 종결 HIL 판정으로 닫으므로, 소유자 없는 중재가 열린 채로 남지 않고 두 번째 arbiter도 세우지 않습니다. Forseti가 중재 요청을 게시할 수 없으면 대체 판정은 원래 요청을 담아 Saga가 감사할 수 있게 하며, Thor는 `arbitration_owner_unavailable`을 비작업으로 처리합니다. |
 | **Thor** | 실행 정지 | 판정 큐잉; 판정 TTL 만료 시 stale 폐기 (republish 시 재판단) |
 | **Huginn** | 인제스트 정지 | Kafka 보존 이 이벤트 보존; Huginn 복구 시 체크포인트 부터 재개 (멱등적) |
 | **Heimdall** | 감지/효과 관측 정지 | 읽기, 거부, shadow judgment는 계속; Heimdall 관측이 필요한 새 상태 변경은 차단되고 기존 결과는 pending, RBAC 거부는 감사 |
@@ -289,7 +295,12 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
   shadow 로 강등.
 - **Noncritical sensing 성능 저하**은 읽기, 거부, 큐 및 shadow 경로만 보존할 수 있습니다.
   Vidar는 변경 필수 의존성이고 Var는 HIL 및 A3-E 충족 여부를 별도로 통제합니다.
-- 모든 성능 저하 은 Odin 의 portfolio 리포트에 surfacing (워크플로우 7).
+- **Var를 사용할 수 없으면 승인을 가시적으로 보류합니다.** HIL은 Var가 처리할 수 있을 때만
+  라우팅합니다. Var를 사용할 수 없으면 종결 보류 상태는 `hil_held_approver_unavailable`이며,
+  조치 없는 no-rule HIL 판정은 승인할 수 없는 티켓을 만들지 않고 실행하지 않는 triage 결과로
+  닫힙니다.
+- 모든 성능 저하는 Odin의 portfolio 리포트에 표시합니다(워크플로우 7). 독립적으로 관측되지
+  않은 성능 저하 메커니즘은 정상이나 실패가 아니라 `not_observed`로 보고합니다.
 
 ### 4.4 작업 계층 분류 (per-task LLM 정책)
 
@@ -354,6 +365,16 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 `object.verdict`, `object.approval`, `object.action-run` 레코드는 처리기에 도달하지 않습니다.
 각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
 런타임 조립은 에이전트별 소비자 모드를 선택적으로 사용할 수 있습니다. 이 모드에서는 에이전트 그룹마다 하나의 물리 소비자가 broker 스트림을 읽고 논리 `object.*` 토픽을 로컬에서 라우팅합니다. 기본값은 `(topic, agent)` 쌍마다 소비자를 유지합니다. 두 모드 모두 핸들러 전달 전에 같은 소유자, 묶음, poison, 재시도 검사를 보존합니다.
+한 에이전트가 같은 토픽에 서로 다른 핸들러를 연결하면 런타임은 핸들러마다 결정론적 소비자
+그룹을 따로 할당합니다. 핸들러가 하나뿐이면 기존 group id를 유지합니다. 순서가 있는 poison은
+해당 토픽의 모든 형제 소비자를 중단해 이후 레코드가 보관된 레코드를 앞지르지 못하게 합니다.
+잘못된 소유 레코드는 broker 레코드마다 한 번만 dead-letter 처리하고 실패한 소비자 신원을
+귀속 근거로 남깁니다. `LocalEventBus`는 구독 재시작 후에도 확정된 offset을 보존하며,
+명시적 `reset_offsets()`만 재생합니다.
+런타임 시작은 소비자가 재생을 받기 전에 ContextIndex 변환 결과 복구도 수행하며,
+ContextIndex 봉인에 영속 Saga 감사가 없으면 실패 시 안전하게 닫힙니다. 정상 런타임 중지는
+성능 저하가 아니라 `stopped`를 보고하고, 관측되지 않은 성능 저하 구간은 `not_observed`를
+보고합니다.
 Loki는 예약과 게시 전에 chaos 제안 근거를 검증합니다. 불완전한 제안은 검토 대상으로 보류하고, 대상 잘림은 명시적으로 기록하며, 완전한 제안만 Heimdall 관측을 위해 `object.chaos-experiment`를 게시합니다.
 | 토픽 | 발행기 | 기본 subscribers |
 |-------|-----------|---------------------|
@@ -477,6 +498,8 @@ EventBus가 없으면 Bragi는 `handoff_status: transport_unavailable`을 기록
 Saga는 체인에 추가하거나 인계를 구체화하기 전에 감사 대상 토픽의 소유자를 인증합니다. 인계 이슈
 본문에는 허용 목록에 있고 크기가 제한된 맥락 필드만 포함합니다. 목록에 없는 값은 생략하거나
 요약하여 secret, 원시 prompt, 고객 식별자가 이슈 추적기에 복사되지 않게 합니다.
+Saga는 인계 이슈 변경, 감사, `object.issue` 게시, 완료를 검사 지점으로 남깁니다. 재시작하면
+구체화 완료를 보고하기 전에 게시되지 않은 `object.issue` 레코드를 복구합니다.
 
 중복 제거는 정본 실패 튜플의 SHA-256 `problem_fingerprint`를 사용합니다.
 
@@ -490,6 +513,8 @@ fingerprint = sha256(
 실패한 기본 에이전트는 턴에 선택된 에이전트이며 번역자인 Bragi가 아닙니다. Bragi는 전송이
 수락된 뒤 인계를 요청됨으로 보고하고, Saga가 이슈를 만들거나 갱신하기 전에는 생성됨으로 보고하지
 않습니다. Saga는 `fingerprint -> github_issue_number` 로컬 인덱스를 Muninn에 유지합니다.
+타입이 지정된 이슈 어댑터를 사용할 수 없는 이전 방식 인계 fallback도 이슈를 만들거나 댓글을
+남기기 전에 같은 문제 지문으로 중복 제거합니다.
 
 - **최초 발생** 은 라벨 `fdai:fp:<hash>` 로 issue 생성.
 - **반복 발생**은 같은 이슈에 새 `correlation_id`와 맥락으로 댓글을 남깁니다. 본문은 `first_seen`, `last_seen`, `occurrence_count`를 유지하고 댓글은 각 재발을 기록합니다.
@@ -593,6 +618,12 @@ no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 �
 Thor는 `ActionRun`을 만들거나 영속화하기 전에 verdict 매개 변수를 범위 제한합니다. 너무 크거나
 깊게 중첩되었거나 스키마에 맞지 않는 필드는 영속 실행기 맥락, 승인 맥락 또는 감사 자료가 되기
 전에 차단됩니다.
+실행 가능한 non-shadow 판정에는 일곱 가지 보호 장치가 모두 있어야 합니다. 정지 조건, 검증된
+롤백, 영향 범위, 성공한 예행 실행, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사입니다.
+`safeguards` 객체가 없으면 executor I/O 전에 거부합니다. Forseti는 실행 가능한 rule 및
+중재 판정에 이 보호 장치를 담아 내보냅니다. 자문 판정은 타입이 지정된 안정 멱등성 키를
+유지하지만 작업 권한은 부여하지 않습니다. Forseti의 rule cache는 Mimir가 인증한 엄격히 더
+새로운 rule 개정만 수락합니다.
 
 ### 7.4 영향 범위 와 배치 시맨틱
 
@@ -634,6 +665,10 @@ Forseti는 `auto`를 상한으로만 취급합니다. 거버넌스가 적용된 
 낮춥니다. 중재 결정은 Odin이 보낸 경우에만 수락하며, 해결된 중재 verdict를 내보내기 전에
 영역별 처리 결과를 반영합니다. 해결된 중재 verdict에는 결과 자율성 상한과 Thor가 강제할 작업
 멱등성 키가 포함됩니다.
+`execution_unknown`은 성공이나 실패한 작업이 아니라 복구 결정입니다. Vidar는 롤백 계약을
+통해서만 이를 닫거나, 필요한 영속 롤백 전제 조건이 없으면 가시적인 `rollback_refused`
+상태로 닫습니다. Thor는 rollback 실패나 거절 뒤에 리소스 잠금을 해제하거나 차단해 멈춘
+실행이 가시적으로 남되 리소스를 무기한 점유하지 않게 합니다.
 
 ### 7.6 타입이 지정된 전달로서의 인계
 

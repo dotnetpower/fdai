@@ -48,6 +48,10 @@ Var and Saga preserve stable document HIL idempotency, and Saga persists gated a
 Workflow requests preserve bounded `workflow_action` lineage, including a positive attempt number, through Huginn, Forseti, and Thor. Thor preserves an action identifier only when the Verdict supplies one, never invents it from correlation, and uses an authority-free `_framework` helper for bounded ActionRun lineage validation.
 A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan. Forseti resolves it through an injected source and preserves the same Verdict-to-ActionRun path after strict validation. Lineage and proposals provide attribution and evidence only, never change quorum, mode, judgment, approval, or execution authority. Norns proposes to Mimir; Odin arbitrates conflicts before judgment.
 Var approval, Vidar recovery, Saga handoff, and Norns learning also preserve durable idempotency and restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
+Bragi-owned handoff escalation and post-turn review publications are retained in a durable outbox
+before broker publication. Recovery republishes the same idempotency key and marks the row
+published only after the broker publish returns, so conversational delivery never reports success
+from an uncommitted publication.
 
 Registered `AnomalyActionSource` bindings resolve exact Heimdall signals into current, inert
 action candidates for Forseti. Incoming action arguments and human-initiator claims are replaced,
@@ -101,6 +105,10 @@ For the initial three verticals, Loki, Heimdall, and Njord retain distinct candi
 owner-authenticated candidate from each vertical for the same resource and cutoff. Odin emits one
 decision with a `win`, `defer`, or `hil` disposition per candidate, Saga audits that decision, and
 only Thor can turn the winning verdict into an `ActionRun`.
+`ArbitrationRequest` payloads preserve `source_correlations`, `domain_observed_at`, and
+`domain_source_freshness` for each contributing domain. Forseti counts stale signals outside their
+freshness window and does not join them into the arbitration request, so Odin ranks only current
+per-domain evidence.
 Candidate correlation, idempotency, resource, and ActionType identifiers are bounded, nonblank, and
 free of surrounding whitespace at ingress. The shared observation cutoff must include a timezone.
 A Huginn-owned normalized `specialist.resilience_score` Event must also carry a finite score from
@@ -264,7 +272,7 @@ behaviors. Anti-pattern §11 forbids collapsing these to nothing.
 | **Saga** | audit unavailable | **HARD FAIL**: no new mutation permitted; whole system demoted to shadow |
 | **Vidar** | rollback unavailable | Thor refuses new auto executions; all new actions demoted to shadow |
 | **Forseti** | judgment stopped | Huginn / Heimdall keep publishing (Kafka retains); no verdict fallback (judgment cannot proceed without judge); operator alert |
-| **Odin** | cross-vertical arbitration missing | Forseti applies Odin's shipped degradation policy and closes the arbitration it raised as a terminal HIL verdict with no ActionType, no initiator, no winning domain, and no action authority, so an unowned arbitration never hangs open and no second arbiter is appointed (human arbitrates) |
+| **Odin** | cross-vertical arbitration missing | Forseti applies Odin's shipped degradation policy and closes the arbitration it raised as a terminal HIL verdict with no ActionType, no initiator, no winning domain, and no action authority, so an unowned arbitration never hangs open and no second arbiter is appointed (human arbitrates). If Forseti cannot publish the arbitration request, the fallback verdict still carries the original request for Saga audit, and Thor treats `arbitration_owner_unavailable` as non-action. |
 | **Thor** | execution stopped | verdicts queued; verdict TTL expiry drops stale ones (re-judge on republish) |
 | **Huginn** | ingestion stopped | Kafka retention preserves events; Huginn resumes from checkpoint on recovery (idempotent) |
 | **Heimdall** | detection/effect observation stopped | reads, deny, and shadow judgment continue; new state changes needing Heimdall observation are blocked, existing outcomes remain pending, RBAC deny stays audited |
@@ -287,7 +295,11 @@ Common rules:
   shadow.
 - **Noncritical sensing degradation** may preserve read, deny, queue, and shadow paths only.
   Vidar remains a mutation hard dependency; Var independently controls HIL and A3-E eligibility.
-- Every degradation surfaces in Odin's portfolio report (workflow 7).
+- **Var unavailable holds approvals visibly.** HIL routes only when Var can act. If Var is
+  unavailable, the terminal hold is `hil_held_approver_unavailable`; actionless no-rule HIL
+  verdicts close as non-executing triage outcomes rather than creating an unapprovable ticket.
+- Every degradation surfaces in Odin's portfolio report (workflow 7). Degradation mechanisms that
+  were not independently observed are reported as `not_observed`, not as healthy or failed.
 
 ### 4.4 Task tier classification (LLM policy per task)
 
@@ -356,6 +368,15 @@ Runtime composition may opt into per-agent consumer mode. In that mode one physi
 agent group reads the broker stream and routes logical `object.*` topics locally; the default
 keeps one consumer per `(topic, agent)` pair. Both modes preserve the same owner, envelope, poison,
 and retry checks before handler delivery.
+When one agent binds distinct handlers to the same topic, runtime assigns each handler its own
+deterministic consumer group; a single handler keeps its original group id. Ordered poison halts
+all sibling consumers for that topic so later records cannot overtake the parked record. Invalid
+owned records are dead-lettered once per broker record with the failing consumer identity for
+attribution. `LocalEventBus` preserves committed offsets across subscription restarts, and only an
+explicit `reset_offsets()` replays them.
+Runtime startup also recovers ContextIndex projection work before consumers accept replay and fails
+closed when durable Saga audit for ContextIndex sealing is unavailable. Clean runtime stop reports
+`stopped`, while unobserved degradation windows report `not_observed`.
 Loki validates chaos proposal evidence before reservation and publication. Incomplete proposals
 stay held for review, target truncation is recorded explicitly, and only complete proposals publish
 `object.chaos-experiment` for Heimdall observation.
@@ -484,6 +505,8 @@ Saga authenticates the owner of each audited topic before appending to its chain
 handoff. Handoff issue bodies include only allowlisted, size-bounded context fields; unlisted values
 are omitted or summarized so secrets, raw prompts, and customer identifiers are not copied into the
 issue tracker.
+Saga checkpoints handoff issue mutation, audit, `object.issue` publication, and completion. On
+restart it recovers unpublished `object.issue` records before reporting materialization complete.
 
 Deduplication uses a SHA-256 `problem_fingerprint` over the canonical failure tuple:
 
@@ -497,7 +520,8 @@ fingerprint = sha256(
 The failed primary agent is the agent selected for the turn, not Bragi as translator. Bragi reports
 the handoff as requested after transport acceptance and does not report materialization until Saga
 creates or updates the issue. Saga keeps a local `fingerprint -> github_issue_number` index in
-Muninn.
+Muninn. Legacy handoff fallbacks that cannot use the typed issue adapter still deduplicate by the
+same problem fingerprint before creating or commenting on an issue.
 
 - **First occurrence** creates the issue with label `fdai:fp:<hash>`.
 - **Repeat occurrence** comments on the same issue with new `correlation_id` and context; the body retains `first_seen`, `last_seen`, and `occurrence_count`, and comments record each recurrence.
@@ -610,6 +634,12 @@ rejection rather than an ambiguous dispatch.
 Thor also bounds verdict parameters before it creates or persists an `ActionRun`. Oversized,
 deeply nested, or non-schema fields are rejected before they can become durable executor context,
 approval context, or audit material.
+Executable non-shadow verdicts must carry all seven safeguards: stop condition, tested rollback,
+impact scope, successful dry-run, logical target lock, stable idempotency key, and two-phase audit.
+A missing `safeguards` object is denied before executor I/O. Forseti emits those safeguards on
+executable rule and arbitration verdicts; advisory verdicts keep typed stable idempotency keys
+without granting action authority. Forseti's rule cache accepts only strictly newer,
+Mimir-authenticated rule revisions.
 
 ### 7.4 Impact scope and batch semantics
 
@@ -653,6 +683,10 @@ the event identity and action instead of falling back to a bare correlation. Ret
 rules also cap `auto` to `hil`. Arbitration decisions are accepted only from Odin, and per-domain
 dispositions are honored before a resolved arbitration verdict is emitted. Resolved arbitration
 verdicts carry the resulting autonomy ceiling and the action idempotency key Thor will enforce.
+`execution_unknown` is a recovery decision, not a successful or failed action. Vidar closes it only
+through the rollback contract or a visible `rollback_refused` state when the required durable
+rollback preconditions are missing. Thor releases or fences the resource lock after failed or
+refused rollback so the stuck run remains visible without holding the resource indefinitely.
 
 ### 7.6 Handoff as typed delivery
 

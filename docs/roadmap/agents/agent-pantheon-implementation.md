@@ -228,6 +228,9 @@ metadata.
   deadlines instead of one sleeping task per correlation.
 - Bragi persists conversation, handoff, and turn outboxes with arrival-ordered turn reservations, so
   a slow responder or broker publish cannot reorder a session transcript after recovery.
+- Bragi-owned handoff escalation and post-turn review publications use the same durable outbox
+  rule as other owner-local publications: recovery republishes the same idempotency key and marks a
+  row published only after broker publish returns.
 - Saga's audit chain resumes from the durable head. It checkpoints mutation, publication, and
   completion before consumers start, so the local audit mirror does not fork a new chain after a
   restart. Both in-memory and provider-backed audit chains recompute entry hashes to detect field
@@ -236,6 +239,9 @@ metadata.
   scanning the full chain.
 - Odin stores the per-correlation arbitration decision fence. A redelivered arbitration request
   replays the original decision instead of asking Odin to rank the same case again.
+- Forseti preserves per-domain arbitration lineage and freshness in each request. Stale domain
+  signals are counted, excluded from the join, and never converted into a synthetic fresh
+  arbitration input.
 - Heimdall, Njord, and Freyr recover their observation, advisory, and forecast fences from the
   injected store before accepting replayed source events, so redelivery can complete unfinished
   publications without advancing duplicate windows or stale baselines.
@@ -252,6 +258,9 @@ metadata.
 - Saga checkpoints mutation, audit, publication, and completion. It records completion only after
   `object.issue` publication; a missing bus keeps prior checkpoints pending and raises a retryable
   failure. Closure stays outside the bounded occurrence-comment list and is validated before CAS.
+- Saga handoff issue materialization recovers unpublished `object.issue` records on restart.
+  Legacy handoff fallbacks deduplicate by the problem fingerprint before creating or commenting on
+  an issue.
 - Norns claims the handoff idempotency key, CAS-applies a pending operation to a durable fingerprint
   count, and retains each candidate until publication or deterministic hold marks it delivered.
   Startup queries exact pending fields one bounded item at a time. A blocked head pauses recovery,
@@ -307,6 +316,8 @@ external signal cannot spoof an operator action.
   primary control loop without stealing records or becoming its dependency.
 - `run()` isolates consumer failures, restarts bounded transient failures, and keeps healthy sibling
   consumers running. Shutdown remains bounded.
+- Startup binds the recovery-effect observer intake, restores ContextIndex recovery before replay,
+  and fails closed if ContextIndex sealing cannot use durable Saga audit.
 - The runtime is enabled and shadow by default. `FDAI_START_PANTHEON=0` disables it, and missing
   consumer composition causes an explicit skip rather than an in-memory substitute.
 - Thor remains `enforce=False` unless a separately reviewed promotion enables enforcement. Enforce
@@ -380,6 +391,10 @@ mode.
   topics.
 - Published envelopes carry producer, schema, correlation, and idempotency metadata. Consumer-side
   ownership checks dead-letter an impostor publisher before handler delivery.
+- Distinct handlers of one agent on one topic fan out through distinct deterministic consumer
+  groups; a single handler preserves its existing group id. Ordered poison halts all sibling
+  consumers for the topic. Invalid owned records are dead-lettered once per broker record with the
+  failing consumer identity.
 - Handler retries and per-topic timeouts are bounded. Handlers can mark short cooperative
   cancellation-safe critical sections, so a wedged handler still times out while a durable commit
   window can finish.
@@ -401,6 +416,9 @@ mode.
 - Local and test bus retention is finite. Old accepted envelopes, dead letters, and abandoned
   consumer-group state expire under explicit bounds; this keeps parity tests deterministic without
   pretending the local bus is a production broker.
+- `LocalEventBus` keeps committed offsets across subscription restarts. Only explicit
+  `reset_offsets()` replays committed records, so restart recovery and replay tests remain
+  distinguishable.
 - Agent publication uses the `PantheonBus` protocol, so runtime composition can replace delivery
   adapters without changing role or authority contracts.
 

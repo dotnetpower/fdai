@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: c831104e8711920923cfc124e1f482e27cf29451
-translation_revised: 2026-09-28
+translation_source_sha: cb6deb1995c9a68abd132ae60b692ab9abe1b3ff
+translation_revised: 2026-09-30
 ---
 # 운영 학습 온톨로지
 
@@ -227,6 +227,9 @@ sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용
 모든 협업은 타입이 지정된 event-bus 토픽을 사용합니다. 사례 구체화와 learning은 hot 경로
 밖에 있습니다. Learner 지연이 detection, 완화, 롤백, 무관한 인시던트를 차단할 수
 없습니다.
+case-history 구체화기가 없으면 Muninn은 체인을 조용히 멈추지 않고 예측 학습 성능 저하
+상태를 보고합니다. Muninn의 운영 보낼 편지함은 시작 시 대기 행을 복구한 뒤 새 구체화 작업을
+수락하므로, 다시 시도 가능한 예측 결과는 case-history 입력이 재개될 때까지 계보를 유지합니다.
 
 ## 벤치마크 입력
 
