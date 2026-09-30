@@ -23,13 +23,14 @@ compiler ledger with their progress notes; their earlier history stays in that l
 | P3 Verified answer authoring | not-started | The partial claim verifier in [`semantic_reasoning_claims.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_claims.py) | The shared proposition schema, full V-CLAIM, and entailment review |
 | P4 Validation program | not-started | Session-local rounds are summarized, not retained | Baselines, per-wave validation, and final evidence |
 | P5 Promotion and removal | not-started | Design only | Per-family promotion and parity receipts, then R10 |
-| P6 Secret detection decision | not-started | Pattern-based detection with an encoded-shape regression suite | Owner decision |
+| P6 Secret detection decision | implemented | The [decision](../../roadmap/interfaces/ontology-reasoning-promotion-program.md#p6-secret-detection-decision) and the encoded-shape suite in `test_semantic_reasoning_masking.py` | Defense in depth; revisable by the Owner |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-10-01 | in-progress | Recorded the design after an independent critique, moved fifteen open items here from the compiler ledger with their progress notes, and added the model evidence view, decision approval, and document split items. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program.md`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program-ko.md` | Wave 0: R0 baselines, the P6 decision, and P0. |
+| 2026-10-01 | in-progress | Recorded the P6 decision: pattern-based secret detection stays as defense in depth for the in-tenant model deployment, adopted under the Owner's instruction to implement all waves and revisable by the Owner. The encoded-shape regression suite passes against it. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program.md`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program-ko.md`; `pytest -q services/core-control-plane/tests/conversation/test_semantic_reasoning_masking.py` passed (262) | Wave 0: P0 and the R0 baselines. |
 
 ### Remaining work
 
@@ -62,10 +63,14 @@ compiler ledger with their progress notes; their earlier history stays in that l
   such as declared that the extractor names as restrictions, extractor quotes that reach past the
   named thing, reach words left out of relation cues, and particles quoted inside resource names.
   Exit: at least 105 of 120 across two repeated rounds with zero released over-compilation.
-- [ ] Record an Owner decision that either replaces best-effort pattern detection of secrets in
+- [x] Record an Owner decision that either replaces best-effort pattern detection of secrets in
   operator-typed model input with a reviewed detector, or accepts it as defense in depth for the
   in-tenant model deployment. Exit: the decision is linked here, and the encoded-shape regression
-  suite in `test_semantic_reasoning_masking.py` passes against the chosen detector.
+  suite in `test_semantic_reasoning_masking.py` passes against the chosen detector. Evidence: the
+  [P6 decision](../../roadmap/interfaces/ontology-reasoning-promotion-program.md#p6-secret-detection-decision)
+  keeps the patterns as defense in depth, adopted under the Owner's 2026-10-01 instruction to
+  implement all waves and revisable by the Owner, and the suite passed (262 tests), in the
+  2026-10-01 P6 row.
 - [ ] Complete R9: record one promotion receipt and one SRE Agent parity receipt per operation
   family, and retire frame and plan prompts only for promoted families.
 - [ ] Complete R10: remove lexical re-derivation and template renderers from promoted paths after

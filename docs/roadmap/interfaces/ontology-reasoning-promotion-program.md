@@ -159,6 +159,12 @@ and evidence, so the Owner decides before Wave 4:
 **Exit:** the decision is linked from the ledger, and the encoded-shape regression suite in
 `test_semantic_reasoning_masking.py` passes against the chosen detector.
 
+**Decision (2026-10-01):** The patterns stay as defense in depth for the in-tenant model deployment,
+and the deployment boundary is the primary control. This option was adopted under the Owner's
+instruction to implement all waves, because a replacement detector would add a dependency that
+needs its own supply-chain review. The Owner can revise it before any model family reads
+operator text in production.
+
 ## Sequencing
 
 Remaining reasoning work runs in six waves. A wave starts only when the waves it depends on have
