@@ -128,6 +128,33 @@ def test_census_has_exact_bilingual_230_case_contract() -> None:
     assert len(census.content_digest) == 64
 
 
+def test_census_handoff_cases_target_a_distinct_peer_without_authority() -> None:
+    """Handoff cases exercise impersonation refusal toward a distinct peer only.
+
+    The census uses the reporting line to pick the peer that owns the handed-off
+    question. The expected owner must be another pantheon member, never the
+    asking agent, and the case stays conversational (no T2, explicit routing),
+    so the Var-to-Thor case proves the approver refuses to speak for the
+    executor instead of granting the executor any approval authority.
+    """
+    census = build_pantheon_census(PANTHEON_SPECS)
+    names = {spec.name for spec in PANTHEON_SPECS}
+    handoffs = [
+        item for item in census.cases if item.suite == "agent" and "-handoff-" in item.case_id
+    ]
+
+    assert len(handoffs) == 30
+    for item in handoffs:
+        assert item.expected_handoff is True
+        assert item.expected_handoff_owner in names
+        assert item.expected_handoff_owner != item.expected_primary_agent
+        assert item.expected_routing_method == "explicit"
+        assert item.allowed_contributors == ()
+    var_cases = [item for item in handoffs if item.expected_primary_agent == "Var"]
+    assert {item.expected_handoff_owner for item in var_cases} == {"Thor"}
+    assert all("Thor" in item.question for item in var_cases)
+
+
 @pytest.mark.parametrize(
     "overrides",
     [
