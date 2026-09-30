@@ -16,6 +16,7 @@ from fdai.shared.providers import EventBus, EventEnvelope, StateStore
 from fdai_service_contracts.semantic_turn import multiplexed_consumer_group
 
 from tests.agents.test_operating_pattern_learning_e2e import (
+    _case_history_clock,
     _learning_chain,
     _operational_input,
     _operational_raw,
@@ -95,6 +96,7 @@ async def test_pinned_broker_restart_and_redrive_preserve_throttled_candidate(
 
     output_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     throttled = Norns(
+        clock=_case_history_clock,
         case_history_materializer=materializer,
         operational_state_store=state_store,
     )
@@ -142,6 +144,7 @@ async def test_pinned_broker_restart_and_redrive_preserve_throttled_candidate(
 
     restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     restarted = Norns(
+        clock=_case_history_clock,
         case_history_materializer=materializer,
         operational_state_store=state_store,
     )
@@ -180,6 +183,7 @@ async def test_pinned_broker_restart_and_redrive_preserve_throttled_candidate(
 
     deleted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     after_deletion = Norns(
+        clock=_case_history_clock,
         case_history_materializer=materializer,
         operational_state_store=state_store,
     )

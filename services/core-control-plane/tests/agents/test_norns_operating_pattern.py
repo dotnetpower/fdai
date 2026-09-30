@@ -6,6 +6,14 @@ from typing import Any, cast
 from fdai.agents import Norns, instantiate_pantheon
 from fdai.core.case_history import OperationalOutcomeClass
 
+# Fixture cases end by 2026-08-02 and a review rejects evidence older than 90 days, so reviews
+# run at one fixed time instead of the wall clock, which passes that bound on 2026-10-30.
+_REVIEWED_AT = datetime(2026, 8, 3, tzinfo=UTC)
+
+
+def _review_clock() -> datetime:
+    return _REVIEWED_AT
+
 
 def _case(
     identifier: str,
@@ -45,7 +53,7 @@ def _payload(*cases: dict[str, object]) -> dict[str, object]:
 
 
 async def test_success_only_operating_cohort_is_held() -> None:
-    norns = Norns()
+    norns = Norns(clock=_review_clock)
 
     await norns.on_typed_message(
         "object.context-index",
@@ -59,7 +67,7 @@ async def test_success_only_operating_cohort_is_held() -> None:
 
 
 async def test_balanced_operating_cohort_reaches_mimir_guard() -> None:
-    norns = Norns()
+    norns = Norns(clock=_review_clock)
     mimir = cast(Any, instantiate_pantheon()["Mimir"])
 
     await norns.on_typed_message(
@@ -92,7 +100,7 @@ async def test_balanced_operating_cohort_reaches_mimir_guard() -> None:
 
 
 async def test_replayed_operating_cohort_emits_one_candidate() -> None:
-    norns = Norns()
+    norns = Norns(clock=_review_clock)
     payload = _payload(
         _case("a-success", outcome_class=OperationalOutcomeClass.SUCCESS),
         _case("b-control", outcome_class=OperationalOutcomeClass.ROLLBACK),
@@ -106,7 +114,7 @@ async def test_replayed_operating_cohort_emits_one_candidate() -> None:
 
 
 async def test_spoofed_operating_cohort_producer_is_rejected() -> None:
-    norns = Norns()
+    norns = Norns(clock=_review_clock)
     payload = _payload(
         _case("a-success", outcome_class=OperationalOutcomeClass.SUCCESS),
         _case("b-control", outcome_class=OperationalOutcomeClass.ROLLBACK),
@@ -120,7 +128,7 @@ async def test_spoofed_operating_cohort_producer_is_rejected() -> None:
 
 
 async def test_oversized_operating_cohort_is_rejected_before_materialization() -> None:
-    norns = Norns()
+    norns = Norns(clock=_review_clock)
     payload = _payload(
         *(
             _case(

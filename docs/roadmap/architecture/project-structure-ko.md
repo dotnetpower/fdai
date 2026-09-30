@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6c89099621a50ea4672ac3f167c1ab60151b7186
+translation_source_sha: e0f0b460b9e3fd73f0f8191c5ea292aabba6e8d7
 translation_revised: 2026-09-30
 ---
 # 프로젝트 구조
@@ -643,6 +643,9 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   경로는 shadow-mode 테스트와 롤백 테스트를 갖습니다.
 - 규칙과 정책 변경은 회귀 테스트와 함께 나갑니다. `services/core-control-plane/src/fdai/rule_catalog/pipeline/`
   승격 게이트는 실패한 회귀 스위트나 정책 위반 escape가 있으면 블록됩니다.
+- 사례 보존, 검토 기한, 이미지 만료, 권한 부여 기간처럼 기한이 있는 근거를 다루는 테스트는 테스트
+  대상 구성 요소마다 fixture의 유효 기간 안에 있는 고정 시계를 줍니다. 구성 요소가 시계를 받지
+  않으면 fixture 날짜를 현재 시각 기준으로 정하므로, 어떤 테스트도 실행 날짜에 좌우되지 않습니다.
 - CI는 위에서 참조된 게이트(포매터/린터, 시크릿 검사, 의존성 감사, 커버리지, 회귀)
   를 리뷰 전에 강제합니다;
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
