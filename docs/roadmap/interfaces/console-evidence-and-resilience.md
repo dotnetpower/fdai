@@ -272,7 +272,10 @@ unobserved phases; record presence isn't success. Result chips report observed q
 counts, evidence completion, references, and verification rather than internal event totals. The
 serialized `unverified` status remains stable for replay. Its primary Console label is derived from
 the bounded reason code as Context required, Source unavailable, Invalid query, or Unsupported
-claim, while technical detail retains the canonical status and raw reason code. The
+claim, while technical detail retains the canonical status and raw reason code. A question held on
+its reading keeps its typed reason code: an ambiguous reading asks for context, a reading or plan
+that left a stated constraint uncovered asks to narrow or restate the read as Invalid query, and a
+stated constraint no verified reader supports shows Unsupported request, never Source unavailable. The
 two result indicators are fixed dots no larger than 10 px that overlap by 2 px on the source-button
 edge. The source button keeps its own source tooltip. The dots form a separate pointer and keyboard
 trigger and directly widen into compact query, command, and evidence pills to the right without a

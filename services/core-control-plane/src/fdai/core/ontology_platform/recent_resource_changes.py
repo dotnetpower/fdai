@@ -48,6 +48,9 @@ class RecentResourceChangeRead:
     changes: tuple[RecentResourceChange, ...]
     complete: bool
     limitation: str | None = None
+    # The exact number of changed Resources in the window when the row bound cut the read
+    # short over complete source coverage; ``None`` when that count is unknown.
+    total: int | None = None
 
 
 class RecentResourceChangeReader(Protocol):
@@ -87,6 +90,7 @@ def recent_resource_changes_function_type() -> OntologyFunctionType:
                 "rows": {"type": "array", "maxItems": 20},
                 "complete": {"type": "boolean"},
                 "truncation_reason": {"type": ["string", "null"]},
+                "total_rows": {"type": "integer", "minimum": 0},
             },
         },
         read_sets=["Resource"],
@@ -149,6 +153,7 @@ def recent_resource_changes_function(
                     rows=rows,
                     complete=read.complete,
                     truncation_reason=read.limitation,
+                    total_rows=read.total if read.total is not None and not read.complete else None,
                 ).canonical_json()
             ),
         )

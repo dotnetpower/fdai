@@ -160,8 +160,9 @@ never a merged mention. The extractor also quotes each literal value on its own,
 mention a name-fragment filter reads, is used verbatim, so its quote must equal one of those literals; otherwise the turn is held, and no single
 reader decides where a literal ends. An uncovered constraint gets one review repair that may only add information, checked against the same
 extraction. Its violation names a mention that quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to
-the cue that cites it. A merged mention or a disagreeing literal is held without a repair, because such a repair cannot split a mention or move a
-literal. A missing, empty, unlocated, uncovered, merged, or disagreeing extraction releases nothing. Every question states at
+the cue that cites it. The same repair may split a merged mention along the extractor's disjoint quotes, as
+[Review and hold refinements](#review-and-hold-refinements) describes, and a disagreeing literal is held without a repair, because a repair cannot
+move a literal. A missing, empty, unlocated, uncovered, merged, or disagreeing extraction releases nothing. Every question states at
 least what it asks and every quote comes from the question alone, so an empty extraction made beside earlier turns is asked once
 more without them; live traces showed the extractor returning nothing for a standalone question after several long answers.
 
@@ -196,7 +197,8 @@ model never chooses identities, LinkTypes, path steps, FunctionTypes, or answer 
 The model grounds each non-referential mention inside its declared domain. Core presents the complete candidate catalog, with reviewed labels, in as
 many bounded shards as the budget needs; the model evaluates every shard, and a receipt proves each candidate was presented exactly once. Core accepts
 an identifier only from the shard that presented it. Finalists that differ across shards meet in one runoff call. Labels are model context, never a
-lookup table, and an explicit root candidate stands for resources in general. FunctionTypes and ActionTypes follow from operations.
+lookup table, and an explicit root candidate stands for resources in general. An ObjectType candidate's labels add its reviewed description, so a
+chooser can tell Resource from ResourceType by meaning. FunctionTypes and ActionTypes follow from operations.
 
 - **Class closure**: A `resource_class` mention compiles through `query.resource_class_closure`
   into an exact `Resource.type` set and pins the closure receipt.
@@ -313,7 +315,9 @@ self-composable, depth at most five.
 - **Unsupported atoms**: A `region` filter compiles to a `Resource.location` predicate only when two
   blind choosers ground its mention to the same codes of the reviewed region vocabulary, and a
   `diagnose` goal without an applicable recipe never reuses another type's recipe. An unbound region
-  and a missing recipe return a typed reason instead of a name predicate or a substitute.
+  and a missing recipe return a typed reason instead of a name predicate or a substitute. A row has
+  one location, so several stated regions read as one union, and V-SEM requires that predicate on
+  every result read.
 - **Schema reads**: A schema relation is answered only by the one-hop `query.ontology_relationships`
   read of the subject ObjectType's own LinkTypes in both directions, and a manifest count groups only
   by declaration kind. A LinkType subject scoped to one ObjectType, as in the LinkTypes in Workload,
@@ -497,7 +501,8 @@ have run; the frame model no longer reinterprets the utterance without the judgm
 the second reader, and the composition honors the flag only in the local execution venue. The planner then starts the form path beside
 the judgment on every unbound operational turn that needs no document evidence, with its own provider calls and budget scope, an
 absolute deadline, and anchor reads under the same role, purpose, and principal scope as the turn's executor. The planner consults the
-path only after the deterministic pre-frame checks, and an ambiguous judgment's clarification wins over it. The path answers only when
+path only after the deterministic pre-frame checks, and an ambiguous judgment's clarification wins over it unless the closed ambiguity reader in
+[Review and hold refinements](#review-and-hold-refinements) finds one plausible reading. The path answers only when
 it is released and its single retained compilation holds exactly one goal compiled into one verified batch, with no continuation and no
 limitation. The planner then stamps the plan with the gateway's current cutoff, verifies it again, and answers from that compiled
 frame and plan instead of the judgment path's frame and plan stages. When the judgment leaves a stated constraint uncovered, such a
@@ -674,7 +679,10 @@ family; code still reads no meaning from words.
   `query.recent_resource_changes` over the typed window, bounded by the reader's declared row
   maximum, and renders as `resource_changes`. A stated kind is unsupported because that reader cannot
   restrict it. A window with more changed Resources than the bound, or with unverified change
-  coverage, stays incomplete.
+  coverage, stays incomplete. Over complete coverage, the reader counts every changed Resource the
+  bound left out in the same snapshot, the table carries that exact `total_rows`, and the answer states
+  how many changed Resources it does not list; listing them through a pinned continuation remains
+  open.
 - **Event history**: An anchored history with an `event` measure reads `query.resource_event_history`
   for every reviewed event family within the reader's declared lookback maximum. A longer window is
   unsupported.
@@ -724,6 +732,118 @@ The design critique of this stage raised eight findings, five High and three Med
 | Twelve counted sides exceeded one intent graph once unions became a tree | Eleven sides at most, and the node budget is checked after the tree is built |
 | An answer read from an anchor with unproven uniqueness was labeled verified | Such an answer is partial |
 
+## Review and hold refinements
+
+This section records the 2026-09-30 refinements that close review, reading, and hold gaps the typed-only
+rounds traced. Each stays in the local profile and grants no authority.
+
+**Readings**
+
+- **Continuation snapshot**: A pass records the distinct snapshot generations its own anchor reads saw; a
+  result handle's generation belongs to the earlier answer and is never compared. A continuation pass whose
+  reads saw another generation than the first reads, or two, ends as `generation_changed` with the
+  `continuation_generation_changed` note, its compilation is discarded, and the continuation stays pending. A
+  pending reading is a continuation decision, never a failed form, so it is not resampled.
+- **Merged mention split**: When the blind extraction finds a mention that holds a restriction or a
+  declaration name beside another disjoint constraint, the one review repair names that mention and the
+  extractor's disjoint quotes with their roles, and the proposer replaces it with one mention per part. Only
+  that mention is exempt from the extension and exact-key rules: its words must still lie inside repaired
+  mentions, a goal may cite a part where it cited the mention, and every other mention and goal keeps its
+  stated values. The repaired form is reviewed again against the same extraction, so a form that still
+  merges them is held.
+- **Answer kind**: The extraction also names one closed kind of answer the question asks for: list, count,
+  state, value, location, relation, history, cause, schema, or other. A form whose goals cannot answer that
+  kind is held as `review_answer_kind:<kind>`, so a current-state lookup never answers where a subnet is
+  located, while the container read that answers it stays faithful. A selection or traversal with a
+  relation answers relation, and location for a containment whose result is the container. A null or
+  `other` kind, a comparison, and a draft are not judged, and a list filtered by a state also answers a
+  state question.
+- **Schema verbs**: The extraction has a closed `declares` role for a word that only says an ontology thing
+  is declared or has declarations, such as declared or have. Such a word needs no span only when every goal
+  is schema-level; beside an instance goal it is covered like a relation, and a word the reader labels a
+  restriction still needs a span, so the proposer can never excuse a real restriction.
+- **Closed ambiguity reader**: When the judgment ends with a clarification but the path released a reading
+  that passes every selection rule, a reader of a third model family answers one closed question from the
+  masked question alone, never seeing either reading: whether the question has one plausible reading,
+  several, or is unclear. Only one lets the released reading answer; any other verdict, no answer, a
+  timeout, or a failure keeps the clarification. The plan takes the gateway's cutoff only after that
+  verdict, because the gateway accepts a cutoff only within seconds of its own. The composition gives the check to the reasoning direction
+  reader only when it is neither the judgment and proposer's family nor the blind reviewer's; otherwise the
+  clarification always wins.
+
+**Current-path plans**
+
+- **List-only plans**: The veto holds any current-path plan, not only one recovered from the judgment's
+  words, when a parsed form reading asks more than one filtered list answers and the plan reads only such a
+  list: object reads by kind, name part, identity, or container, a read from a container to its members,
+  their unions and projections, and an ungrouped count.
+- **Blind-reading roles**: When the judgment's blind reading states a grouping and the plan has no grouped
+  aggregate, or states a relation and no traversal, path, function, or container grouping or filter reads
+  one, the planner holds the turn as
+  `semantic_plan_constraint_uncovered`. The check reads the blind reading only once it has arrived.
+  Restrictions stay with the judgment's coverage review and the form reading.
+- **Schema answers to instance questions**: A plan that reads only ontology declarations, through the
+  manifest, declaration, or relationship reads and their aggregates, answers what a type declares. When
+  the blind reading says the question asks for a state, value, location, history, or cause, the planner
+  holds the turn as `semantic_reading_unverified` with the answer kind, as the R2 interim level check.
+  A schema, list, count, relation, or unjudged answer kind is not held by this check.
+
+**Holds**
+
+A planning outcome carries bounded closed `hold_details`: the constraint roles a reading left uncovered, the
+atoms a released reading cannot read, a clarification's kind, or the other answer kind, never quote
+positions or words. The Core projection keeps the typed reason code, such as `semantic_constraint_uncovered`,
+`semantic_plan_constraint_uncovered`, `semantic_reading_ambiguous`, `semantic_reading_unverified`, or
+`semantic_stated_constraint_unsupported`, instead of the generic evidence hold. Its answer is a reviewed
+bilingual notice that names those roles or atom categories, and a code without a reviewed label is never
+shown. The Console maps each reading hold to a restate or unsupported prompt instead of a source-unavailable
+prompt.
+
+**Chooser labels**
+
+The query manifest also holds the reviewed description of each readable ObjectType. The descriptions are a
+function of the release that the manifest digest binds and stay outside the descriptors, so no plan prompt
+grows and no pinned manifest digest changes.
+
+**Metric lookups**
+
+When the metric reader is a readable, bound declaration, the manifest also offers the reviewed metric
+registry's concepts with their descriptions, and the digest binds them. A lookup whose measure is a metric
+reads `query.resource_metric_inventory` over the bound Resource with the concepts two blind choosers ground
+for the measure's mention: the reviewed 15-minute default window when no time is stated, or a stated
+duration within the reader's declared bounds, and the answer restates the window it read. V-SEM requires
+that reader and never a current-state read, and V-PROV requires the concepts to come from that binding and
+re-derives the window. An ungrounded metric, too many concepts for one read, or a window outside the
+bounds returns a typed unsupported reason, and a metric the provider cannot read for that Resource stays
+incomplete.
+
+**Health filters**
+
+When the Resource Health reader is a readable, bound declaration, the manifest also offers the reviewed
+Resource Health groups, each with the provider states it groups, and the digest binds them. A list whose
+filter is a stated health reads the collection or scope members and then `query.resource_health_inventory`
+with exactly the grounded concepts and no state concepts. The health reader also returns rows for unknown
+coverage and for other unavailable states, so a health-filtered count returns a typed unsupported reason
+instead of counting rows as matches. The reader unions the state rows it is given, while stated
+restrictions intersect, so a goal that states both a state and a health also returns a typed unsupported
+reason. V-SEM requires the health reader with the grounded concepts to filter a result read and to
+answer the goal, requires that read to keep every other stated restriction, and rejects any aggregate
+over health rows; V-PROV requires exactly those concepts and no state concepts. A Resource state
+reader is checked the same way, except that its rows may be counted.
+
+**Lifecycle states**
+
+A reviewed value domain can mark a property as its ObjectType's lifecycle state, as `Incident.status`
+is marked with the canonical Incident states. Each such value joins the state catalog as a candidate
+that names its ObjectType and property, so two blind choosers ground a state mention over Resource
+states and those values together. A lifecycle value then compiles only as an exact predicate on the
+read of its own ObjectType, and a count of it is exact. A lifecycle value stated on another subject, a
+Resource state stated on another ObjectType, or a mention that mixes both returns a typed unsupported
+reason. A row holds one value of each property, so several stated values of one lifecycle property
+read as one union, and distinct lifecycle properties restrict together. V-SEM
+requires the predicate on every result read of that ObjectType, and V-PROV accepts the grounded values
+only on that ObjectType's read.
+
 ## Approved decisions
 
 The Owner approved these decisions on 2026-09-28.
@@ -743,6 +863,9 @@ The Owner approved these decisions on 2026-09-28.
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md) |
 | Coverage guarantees, measured limits, and closure program | [Ontology Reasoning Coverage](ontology-reasoning-coverage.md) |
+| Result handles, continuations, and follow-ups | [Result Handles and Continuations](ontology-reasoning-result-handles.md) |
+| Remaining compiler coverage and current-path work | [Coverage Expansion and Current-Path Convergence](ontology-reasoning-coverage-expansion.md) |
+| Production shadow, verified answers, validation, and promotion | [Promotion Program](ontology-reasoning-promotion-program.md) |
 | Highest design authority | [FDAI Constitution](../architecture/fdai-constitution.md) |
 | Current semantic turn path | [Hierarchical Conversation Planning](hierarchical-conversation-planning.md) |
 | Query contracts and work packages | [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md) |

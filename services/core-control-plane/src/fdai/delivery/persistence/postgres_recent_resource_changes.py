@@ -44,6 +44,25 @@ class PostgresRecentResourceChangeReaderConfig:
             raise ValueError("recent Resource change reader timeouts MUST be positive")
 
 
+# The newest observed change of each Resource in one window, as recorded by one cutoff.
+_NEWEST_CHANGE_SQL = (
+    "SELECT DISTINCT ON (subject_ref) "
+    "subject_ref, properties->>'name' AS subject_name, subject_type, "
+    "operation, operation_status, mutation_kind, observation_kind, "
+    "effective_at, source_identity, observation_id "
+    "FROM inventory_observation_journal "
+    "WHERE subject_kind='object' "
+    "AND ((source_identity=%s "
+    "AND observation_kind=ANY(%s::text[])) "
+    "OR (source_identity=%s "
+    "AND operation IS NOT NULL AND observation_kind=ANY(%s::text[]))) "
+    "AND scope_ref=ANY(%s::text[]) "
+    "AND effective_at>=%s AND effective_at<=%s AND recorded_at<=%s "
+    "ORDER BY subject_ref, effective_at DESC, recorded_at DESC, "
+    "source_event_id DESC, content_digest DESC"
+)
+
+
 class PostgresRecentResourceChangeReader:
     def __init__(self, *, config: PostgresRecentResourceChangeReaderConfig) -> None:
         self._config = config
@@ -70,33 +89,20 @@ class PostgresRecentResourceChangeReader:
                 "SELECT set_config('statement_timeout', %s, true)",
                 (str(self._config.statement_timeout_ms),),
             )
+            window = (
+                ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
+                ["full", "tombstone"],
+                ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
+                ["partial", "change_hint", "tombstone"],
+                list(self._config.scope_refs),
+                start_at,
+                end_at,
+                known_at,
+            )
             cursor = await connection.execute(
-                "SELECT * FROM (SELECT DISTINCT ON (subject_ref) "
-                "subject_ref, properties->>'name' AS subject_name, subject_type, "
-                "operation, operation_status, mutation_kind, observation_kind, "
-                "effective_at, source_identity, observation_id "
-                "FROM inventory_observation_journal "
-                "WHERE subject_kind='object' "
-                "AND ((source_identity=%s "
-                "AND observation_kind=ANY(%s::text[])) "
-                "OR (source_identity=%s "
-                "AND operation IS NOT NULL AND observation_kind=ANY(%s::text[]))) "
-                "AND scope_ref=ANY(%s::text[]) "
-                "AND effective_at>=%s AND effective_at<=%s AND recorded_at<=%s "
-                "ORDER BY subject_ref, effective_at DESC, recorded_at DESC, "
-                "source_event_id DESC, content_digest DESC) AS newest "
+                "SELECT * FROM (" + _NEWEST_CHANGE_SQL + ") AS newest "  # noqa: S608 - module constant
                 "ORDER BY effective_at DESC, subject_ref LIMIT %s",
-                (
-                    ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
-                    ["full", "tombstone"],
-                    ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
-                    ["partial", "change_hint", "tombstone"],
-                    list(self._config.scope_refs),
-                    start_at,
-                    end_at,
-                    known_at,
-                    limit + 1,
-                ),
+                (*window, limit + 1),
             )
             rows = await cursor.fetchall()
             source_complete = await _cursor_coverage_complete(
@@ -106,7 +112,17 @@ class PostgresRecentResourceChangeReader:
                 window_start_at=start_at,
                 known_at=known_at,
             )
-        truncated = len(rows) > limit
+            truncated = len(rows) > limit
+            total: int | None = None
+            if truncated and source_complete:
+                # The same snapshot counts every changed Resource the bound left out, so the
+                # answer states exactly how many rows it does not list.
+                counted = await connection.execute(
+                    "SELECT count(*) AS total FROM (" + _NEWEST_CHANGE_SQL + ") AS newest",  # noqa: S608 - module constant
+                    window,
+                )
+                row = await counted.fetchone()
+                total = int(row["total"]) if row is not None else None
         return RecentResourceChangeRead(
             tuple(_change(row) for row in rows[:limit]),
             source_complete and not truncated,
@@ -117,6 +133,7 @@ class PostgresRecentResourceChangeReader:
                 if source_complete
                 else "resource_change_coverage_unverified"
             ),
+            total=total if total is not None and total > limit else None,
         )
 
 

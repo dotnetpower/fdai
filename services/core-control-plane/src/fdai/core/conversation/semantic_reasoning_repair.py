@@ -334,6 +334,7 @@ def repair_keeps_operands(
     utterance: str,
     typed: SemanticQuestionForm | None = None,
     extension_only: bool = False,
+    split: frozenset[str] = frozenset(),
 ) -> bool:
     """Return whether the repaired form keeps everything the rejected proposal stated.
 
@@ -355,13 +356,20 @@ def repair_keeps_operands(
     proposal that never parsed has no typed reading, so every field compared here
     must keep its closed shape, any present pending-goals value other than false
     stays pending, and anything unreadable fails closed instead of counting as absent.
+
+    ``split`` names typed mentions that an independent reading found merging separate
+    constraints. The repair replaces each with narrower parts, so it is exempt from the
+    extension and exact-key rules, and a goal may cite its parts where it cited it; its
+    words must still lie inside repaired mentions.
     """
 
     if typed is None and not _raw_readable(previous):
         return False
-    if extension_only and (typed is None or not _extends(typed, repaired)):
+    if split and typed is None:
         return False
-    if typed is not None and not _keys_kept(typed, repaired):
+    if extension_only and (typed is None or not _extends(typed, repaired, split)):
+        return False
+    if typed is not None and not _keys_kept(typed, repaired, split):
         return False
     spans = [(mention.span.start, mention.span.end) for mention in repaired.mentions]
     times = [
@@ -467,7 +475,11 @@ def _caution(
     )
 
 
-def _keys_kept(typed: SemanticQuestionForm, repaired: SemanticQuestionForm) -> bool:
+def _keys_kept(
+    typed: SemanticQuestionForm,
+    repaired: SemanticQuestionForm,
+    split: frozenset[str] = frozenset(),
+) -> bool:
     """Return whether every exact lookup key of the proposal keeps its exact quote.
 
     An instance name or identifier binds by its exact characters, so widening it over a
@@ -478,7 +490,7 @@ def _keys_kept(typed: SemanticQuestionForm, repaired: SemanticQuestionForm) -> b
     return all(
         kept.get(mention.id) == mention.span
         for mention in typed.mentions
-        if _is_lookup_key(mention)
+        if _is_lookup_key(mention) and mention.id not in split
     )
 
 
@@ -489,7 +501,11 @@ def _is_lookup_key(mention: FormMention) -> bool:
     }
 
 
-def _extends(typed: SemanticQuestionForm, repaired: SemanticQuestionForm) -> bool:
+def _extends(
+    typed: SemanticQuestionForm,
+    repaired: SemanticQuestionForm,
+    split: frozenset[str] = frozenset(),
+) -> bool:
     """Return whether a repair only adds information to what the proposal stated.
 
     Placing unaccounted words may add a mention, a goal, a filter, a cue's reach, or
@@ -506,11 +522,12 @@ def _extends(typed: SemanticQuestionForm, repaired: SemanticQuestionForm) -> boo
         (after := mentions.get(mention.id)) is not None
         and _widens(mention, after, literal=mention.id in literal)
         for mention in typed.mentions
+        if mention.id not in split
     ):
         return False
     goals = {goal.id: goal for goal in repaired.goals}
     return all(
-        (extended := goals.get(goal.id)) is not None and _goal_extends(goal, extended)
+        (extended := goals.get(goal.id)) is not None and _goal_extends(goal, extended, split)
         for goal in typed.goals
     )
 
@@ -533,17 +550,27 @@ def _widens(before: FormMention, after: FormMention, *, literal: bool = False) -
     )
 
 
-def _goal_extends(before: FormGoal, after: FormGoal) -> bool:
+def _goal_extends(before: FormGoal, after: FormGoal, split: frozenset[str] = frozenset()) -> bool:
+    """Return whether a goal keeps every stated value; a split mention's citations may move.
+
+    Where the goal cited a mention being split, it may cite one of the parts instead, or
+    a part may take another place; every other stated value stays as it was.
+    """
+
     fixed = ("level", "operation", "subject_scope", "want", "depends_on")
     if any(getattr(before, name) != getattr(after, name) for name in fixed):
         return False
-    if before.subject is not None and before.subject != after.subject:
+    if before.subject is not None and (
+        after.subject is None if before.subject in split else before.subject != after.subject
+    ):
         return False
     kept = {(item.role, item.mention) for item in after.filters}
-    if not {(item.role, item.mention) for item in before.filters} <= kept:
+    if not {(item.role, item.mention) for item in before.filters if item.mention not in split} <= (
+        kept
+    ):
         return False
     if before.relation is not None and (
-        after.relation is None or _uncued(before.relation) != _uncued(after.relation)
+        after.relation is None or not _relation_kept(before.relation, after.relation, split)
     ):
         return False
     if before.time.kind not in {TimeKind.CURRENT, TimeKind.UNSPECIFIED} and (
@@ -556,7 +583,7 @@ def _goal_extends(before: FormGoal, after: FormGoal) -> bool:
     return (
         repaired is not None
         and repaired.kind is measure.kind
-        and measure.mention in {None, repaired.mention}
+        and (measure.mention in {None, repaired.mention} or measure.mention in split)
         and measure.group_by in {GroupBy.NONE, repaired.group_by}
     )
 
@@ -564,6 +591,17 @@ def _goal_extends(before: FormGoal, after: FormGoal) -> bool:
 def _uncued(value: BaseModel) -> dict[str, Any]:
     # Cues may widen or be added by a repair; the typed atoms they quote may not change.
     return value.model_dump(mode="json", exclude={"cue", "reach_cue"})
+
+
+def _relation_kept(before: BaseModel, after: BaseModel, split: frozenset[str]) -> bool:
+    """Return whether a relation keeps its typed atoms; a split end may cite a part."""
+
+    stated, repaired = _uncued(before), _uncued(after)
+    for key in ("anchor", "counterpart"):
+        if stated.get(key) in split:
+            stated.pop(key)
+            repaired.pop(key, None)
+    return stated == repaired
 
 
 def _raw_readable(previous: Mapping[str, Any]) -> bool:

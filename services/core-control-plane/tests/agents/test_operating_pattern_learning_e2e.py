@@ -31,16 +31,17 @@ from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
-from tests.core.case_history.test_operational_case import _case_input, _receipt
+from tests.core.case_history.test_operational_case import T0, _case_input, _receipt
 
 _NOW = datetime(2026, 7, 31, tzinfo=UTC)
-# Case receipts occur at 2026-08-01 and leave retention 60 days later, so every
-# agent in this chain reads one pinned clock instead of the wall clock.
-_CASE_CLOCK_NOW = _NOW + timedelta(days=2)
+# Fixture cases are sealed at T0 and Muninn deletes them 60 days later, so Muninn, Norns, and Mimir
+# read case history at one fixed time inside that window; the wall clock crossed the deadline on
+# 2026-09-30.
+_CASE_HISTORY_AT = T0 + timedelta(days=1)
 
 
-def _case_clock() -> datetime:
-    return _CASE_CLOCK_NOW
+def _case_history_clock() -> datetime:
+    return _CASE_HISTORY_AT
 
 
 def _outcome(identifier: int, *, label: str, mode: str) -> ResponseOutcome:
@@ -142,16 +143,16 @@ def _learning_chain() -> tuple[InMemoryBus, Huginn, Muninn, Norns, Mimir, InMemo
     )
     huginn = Huginn()
     muninn = Muninn(
+        case_history_clock=_case_history_clock,
         case_history=materializer,
         durable_state_store=durable,
-        case_history_clock=_case_clock,
     )
     norns = Norns(
+        clock=_case_history_clock,
         case_history_materializer=materializer,
         operational_state_store=durable,
-        clock=_case_clock,
     )
-    mimir = Mimir(clock=_case_clock)
+    mimir = Mimir(clock=_case_history_clock)
     mimir.bind_case_history(muninn._case_history)
     saga = Saga()
     for agent in (huginn, muninn, norns, mimir, saga):
@@ -182,7 +183,7 @@ async def test_unpublished_cohort_is_not_acknowledged_and_replays_after_restart(
         await norns.on_typed_message("object.context-index", dict(payload))
     assert not bus.messages_on("object.pattern")
     restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
-    restarted = Norns(case_history_materializer=_muninn._case_history, clock=_case_clock)
+    restarted = Norns(clock=_case_history_clock, case_history_materializer=_muninn._case_history)
     restarted.bind_bus(restarted_bus)
     await restarted.on_typed_message("object.context-index", dict(payload))
     assert len(restarted_bus.messages_on("object.pattern")) == 1
@@ -214,9 +215,9 @@ async def test_throttled_candidate_recovers_from_durable_state_after_restart() -
 
     restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     restarted = Norns(
+        clock=_case_history_clock,
         case_history_materializer=muninn._case_history,
         operational_state_store=durable,
-        clock=_case_clock,
     )
     restarted.bind_bus(restarted_bus)
 
@@ -261,9 +262,9 @@ async def test_restart_scrubs_durable_candidate_after_source_deletion() -> None:
 
     restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     restarted = Norns(
+        clock=_case_history_clock,
         case_history_materializer=muninn._case_history,
         operational_state_store=durable,
-        clock=_case_clock,
     )
     restarted.bind_bus(restarted_bus)
 
@@ -302,9 +303,9 @@ async def test_shared_pending_overflow_drains_after_each_terminal_batch() -> Non
             pattern={"pattern_id": pattern_id},
         )
     norns = Norns(
+        clock=_case_history_clock,
         operational_state_store=durable,
         max_pending_candidates=1,
-        clock=_case_clock,
     )
     norns.bind_bus(InMemoryBus(registry=load_pantheon(), isolate_handlers=False))
 
@@ -343,10 +344,10 @@ async def test_startup_skips_invalid_first_page_and_drains_next_candidate() -> N
             pattern={"pattern_id": pattern_id},
         )
     norns = Norns(
+        clock=_case_history_clock,
         case_history_materializer=_CurrentCases(),  # type: ignore[arg-type]
         operational_state_store=durable,
         max_pending_candidates=1,
-        clock=_case_clock,
     )
     norns.bind_bus(InMemoryBus(registry=load_pantheon(), isolate_handlers=False))
 
@@ -385,10 +386,10 @@ async def test_disabled_gate_scrubs_invalid_candidate_behind_valid_batch() -> No
             pattern={"pattern_id": pattern_id},
         )
     norns = Norns(
+        clock=_case_history_clock,
         case_history_materializer=_CurrentCases(),  # type: ignore[arg-type]
         operational_state_store=durable,
         max_pending_candidates=1,
-        clock=_case_clock,
     )
     norns.bind_bus(InMemoryBus(registry=load_pantheon(), isolate_handlers=False))
     norns.bind_candidate_publication_gate(lambda: False)
@@ -440,9 +441,9 @@ async def test_terminal_candidate_redelivery_after_restart_is_a_noop() -> None:
     payload = dict(bus.messages_on("object.context-index")[-1].payload)
     restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     restarted = Norns(
+        clock=_case_history_clock,
         case_history_materializer=muninn._case_history,
         operational_state_store=durable,
-        clock=_case_clock,
     )
     restarted.bind_bus(restarted_bus)
 
@@ -570,7 +571,7 @@ async def test_deleted_case_body_cannot_return_through_broker_redelivery() -> No
     assert bridge.metrics.dead_lettered == 1
 
     restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
-    restarted = Norns(case_history_materializer=muninn._case_history, clock=_case_clock)
+    restarted = Norns(clock=_case_history_clock, case_history_materializer=muninn._case_history)
     restarted.bind_bus(restarted_bus)
     result = await bridge.redrive("object.context-index", restarted.on_typed_message)
 
@@ -589,12 +590,12 @@ async def test_operational_case_does_not_cache_a_failed_durable_write() -> None:
 
     case_input = _operational_input("f", OperationalOutcomeClass.SUCCESS)
     muninn = Muninn(
+        case_history_clock=_case_history_clock,
         case_history=CaseHistoryMaterializer(
             metadata=InMemoryCaseHistoryMetadataStore(),
             artifacts=InMemoryCaseHistoryArtifactStore(),
         ),
         durable_state_store=_FailingStore(),
-        case_history_clock=_case_clock,
     )
 
     with pytest.raises(RuntimeError, match="durable write failed"):
@@ -637,12 +638,12 @@ async def test_operational_case_does_not_cache_an_unpersisted_emission_marker() 
     durable = _SecondWriteFails()
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     muninn = Muninn(
+        case_history_clock=_case_history_clock,
         case_history=CaseHistoryMaterializer(
             metadata=InMemoryCaseHistoryMetadataStore(),
             artifacts=InMemoryCaseHistoryArtifactStore(),
         ),
         durable_state_store=durable,
-        case_history_clock=_case_clock,
     )
     muninn.bind_bus(bus)
     first = _operational_input("a", OperationalOutcomeClass.SUCCESS)
@@ -725,9 +726,9 @@ async def test_full_bus_groups_by_fingerprint_and_emits_balanced_candidate_once(
     assert snapshots[0].payload["pattern_id"] == pattern_id
     assert retained["candidate"]["evidence"]["immutable_case_refs"] == immutable_refs
     restarted = Muninn(
+        case_history_clock=_case_history_clock,
         durable_state_store=durable,
         case_history=muninn._case_history,
-        case_history_clock=_case_clock,
     )
     await restarted.on_typed_message("object.pattern", dict(patterns[0].payload))
     assert restarted.state_store.get("operating_patterns", key) is None
@@ -1030,9 +1031,9 @@ async def test_delayed_pattern_uses_its_frozen_cohort_after_later_case_arrives()
         _operational_raw("third", _operational_input("c", OperationalOutcomeClass.SUCCESS))
     )
     restarted = Muninn(
+        case_history_clock=_case_history_clock,
         durable_state_store=durable,
         case_history=muninn._case_history,
-        case_history_clock=_case_clock,
     )
     await restarted.on_typed_message("object.pattern", original)
     assert (
@@ -1157,12 +1158,15 @@ async def test_operational_case_requires_materializer_and_durable_store() -> Non
         "event_type": "case_history.operational_case.v1",
         "attributes": case_input.to_mapping(),
     }
-    without_materializer = Muninn(durable_state_store=InMemoryStateStore())
+    without_materializer = Muninn(
+        case_history_clock=_case_history_clock, durable_state_store=InMemoryStateStore()
+    )
     without_durable_store = Muninn(
+        case_history_clock=_case_history_clock,
         case_history=CaseHistoryMaterializer(
             metadata=InMemoryCaseHistoryMetadataStore(),
             artifacts=InMemoryCaseHistoryArtifactStore(),
-        )
+        ),
     )
 
     await without_materializer.on_typed_message("object.event", payload)

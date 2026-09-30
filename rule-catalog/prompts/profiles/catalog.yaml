@@ -611,7 +611,7 @@ profiles:
     mode: active
     root: {id: semantic-question-form, version: 1, layer: base}
     packs: []
-    system_token_budget: 10240
+    system_token_budget: 11264
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
@@ -633,7 +633,7 @@ profiles:
     mode: active
     root: {id: semantic-constraint-extraction, version: 1, layer: base}
     packs: []
-    system_token_budget: 3072
+    system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 1024
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
@@ -643,6 +643,17 @@ profiles:
     capability_id: semantic.direction_check
     mode: active
     root: {id: semantic-direction-check, version: 1, layer: base}
+    packs: []
+    system_token_budget: 1536
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
+    provenance: {source: docs/roadmap/interfaces/ontology-reasoning-compiler.md}
+  - id: active.semantic-ambiguity-check
+    version: 1
+    capability_id: semantic.ambiguity_check
+    mode: active
+    root: {id: semantic-ambiguity-check, version: 1, layer: base}
     packs: []
     system_token_budget: 1536
     request_token_budget: 32768

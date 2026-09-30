@@ -285,7 +285,15 @@ def _context_request():
 
 def _context_review_registry(*, other_scope: bool = False) -> str:
     import json
+    from datetime import UTC, datetime, timedelta
 
+    # Grants are evaluated at the wall clock, so the window spans the present instead of a fixed
+    # year that would expire the grant once the date passed.
+    now = datetime.now(UTC).replace(microsecond=0)
+    start, end = (
+        value.isoformat().replace("+00:00", "Z")
+        for value in (now - timedelta(days=180), now + timedelta(days=185))
+    )
     access_scope = "d" * 64 if other_scope else "a" * 64
     return json.dumps(
         {
@@ -299,8 +307,8 @@ def _context_review_registry(*, other_scope: bool = False) -> str:
                     "resource_selectors": ["resource-example"],
                     "purposes": ["operator-test-context-command", "test-context-transition"],
                     "policy_revision": "policy:example",
-                    "valid_from": "2026-01-01T00:00:00Z",
-                    "valid_until": "2027-01-01T00:00:00Z",
+                    "valid_from": start,
+                    "valid_until": end,
                     "revoked": False,
                 }
             ],
@@ -312,8 +320,8 @@ def _context_review_registry(*, other_scope: bool = False) -> str:
                     "operations": ["test-context.review", "test-context.revoke"],
                     "purposes": ["operator-test-context-command", "test-context-transition"],
                     "reviewer": "reviewer-example",
-                    "valid_from": "2026-01-01T00:00:00Z",
-                    "valid_until": "2027-01-01T00:00:00Z",
+                    "valid_from": start,
+                    "valid_until": end,
                     "revoked": False,
                 }
             ],
@@ -524,9 +532,17 @@ def test_context_reviewer_can_read_other_principal_command_status(monkeypatch):
 @pytest.mark.parametrize(
     "registry",
     [None, _context_review_registry(other_scope=True), "{}"],
+    # The registry embeds wall-clock grant windows, so an id derived from it would differ
+    # between xdist workers that collect this module in different seconds.
+    ids=["no-registry", "other-scope", "empty-registry"],
 )
-def test_context_reviewer_without_matching_grant_cannot_read_command_status(monkeypatch, registry):
+def test_context_reviewer_without_matching_grant_cannot_read_command_status(
+    monkeypatch, registry, request
+):
     from unittest.mock import AsyncMock
+
+    # Every worker must collect the same ids, whatever second it imported this module in.
+    assert request.node.callspec.id in {"no-registry", "other-scope", "empty-registry"}
 
     read = AsyncMock(
         return_value={

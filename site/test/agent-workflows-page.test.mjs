@@ -68,15 +68,22 @@ test("Round 12 regression: workflow 1 exit criteria cite real object.action-run 
   );
 });
 
-test("Round 12 regression: workflow 1 naming matches the registry's canonical 'Cost-aware remediation'", async () => {
+test("Round 12 regression: workflow 1 heading uses the display name and the table keeps the registry name", async () => {
   const { english, korean } = await loadEnKo();
+  // A heading is reader-facing, so check-display-terminology.py requires the display
+  // vocabulary there; the summary table keeps the WorkflowSpec registry name
+  // 'Cost-aware remediation' so the two stay traceable.
   assert.ok(
-    english.includes("## 1. Cost-aware remediation"),
-    "English section header must match the WorkflowSpec registry name, not the stale 'Cost-aware fix'",
+    english.includes("## 1. Cost-aware fix"),
+    "English section header must use the display name that the terminology gate requires",
   );
   assert.ok(
-    !english.includes("Cost-aware fix"),
-    "English page must not re-introduce the stale 'Cost-aware fix' naming",
+    !english.includes("## 1. Cost-aware remediation"),
+    "English section header must not re-introduce the technical term the terminology gate rejects",
+  );
+  assert.ok(
+    english.includes("| 1 | Cost-aware remediation |"),
+    "English summary table must keep the WorkflowSpec registry name for workflow 1",
   );
   assert.ok(
     korean.includes("Cost-aware 교정"),

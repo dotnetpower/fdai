@@ -28,6 +28,14 @@ from fdai.core.operational_learning import (
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+# Fixture cases end by 2026-08-02 and a review rejects evidence older than 90 days, so reviews
+# run at one fixed time instead of the wall clock, which passes that bound on 2026-10-30.
+_REVIEWED_AT = datetime(2026, 8, 3, tzinfo=UTC)
+
+
+def _review_clock() -> datetime:
+    return _REVIEWED_AT
+
 
 class _Publisher:
     def __init__(self, *, conflict: bool = False) -> None:
@@ -157,6 +165,7 @@ def _compiler(
     catalog_version: str = "catalog-v1",
 ) -> CatalogCandidateCompiler:
     return CatalogCandidateCompiler(
+        clock=_review_clock,
         validator=_Validator(fail_schema=fail_schema),
         catalog_version=catalog_version,
         schema_version="2.0.0",

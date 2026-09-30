@@ -113,6 +113,13 @@ class JudgmentCoverage:
                 uncovered, utterance=self.utterance, required=required, roles=roles
             )
 
+    def settled_reading(self) -> ConstraintExtraction | None:
+        """Return the blind reading only when it has already arrived; never wait for it."""
+
+        if not self._resolved and not self.future.done():
+            return None
+        return self.reading()
+
     def reading(self) -> ConstraintExtraction | None:
         """Return the located blind reading, or ``None`` when it cannot review."""
 

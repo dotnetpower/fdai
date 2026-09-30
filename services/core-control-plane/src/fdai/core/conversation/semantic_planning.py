@@ -38,6 +38,7 @@ from .semantic_compiled_answers import (
     CompiledAnswerPath,
     CompiledAnswerTicket,
     compiled_answer_or,
+    settled_clarification,
     start_compiled_answer,
     typed_only_outcome,
 )
@@ -51,6 +52,7 @@ from .semantic_judgment_coverage import (
     start_coverage,
 )
 from .semantic_judgment_review import promoted_state_collection
+from .semantic_plan_coverage import narrower_plan_outcome
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
@@ -339,6 +341,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                         reason_code=getattr(judgment_result.receipt, "reason_code", None),
                         observations=judgment_result.observations,
                         accepted=judgment_result.accepted,
+                        uncovered_roles=getattr(judgment_result, "uncovered_roles", ()),
                     )
                 model_observations.extend(judgment_decision.observations)
                 if judgment_decision.reason_code in {
@@ -354,6 +357,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                                 judgment_decision.reason_code,
                                 manifest_digest=manifest.manifest_digest,
                                 model_observations=tuple(model_observations),
+                                hold_details=judgment_decision.role_details,
                             ),
                             manifest_digest=manifest.manifest_digest,
                             observations=model_observations,
@@ -448,10 +452,12 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             )
             if pre_frame_outcome is not None:
                 return preflight_router.finish(pre_frame_outcome)
-            # An explicit clarification wins over the form path; the two readers disagreed.
+            # A released reading answers over a clarification only on a third reader's verdict.
             clarified = judgment_clarification_outcome(judgment_decision, manifest.manifest_digest)
             if clarified is not None:
-                return preflight_router.finish(clarified)
+                return preflight_router.finish(
+                    settled_clarification(ticket, clarified, manifest_digest, model_observations)
+                )
             compiled = (
                 ticket.outcome(
                     manifest_digest=manifest.manifest_digest, observations=model_observations
@@ -667,9 +673,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
-            vetoed = ticket.veto(plan_source, manifest_digest=manifest_digest) if ticket else None
-            if vetoed is not None:
-                return preflight_router.finish(vetoed)
+            held = narrower_plan_outcome(ticket, coverage, plan_source, plan, manifest_digest)
+            if held is not None:
+                return preflight_router.finish(held)
             if frame.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES:
                 verify_frame_plan_alignment(
                     frame,

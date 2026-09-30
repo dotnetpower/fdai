@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: e3c9e7edcd4b7b7d6e0191931dff8ebcea2138b8
+translation_source_sha: 511674a134f221d2ccf21f3b36852dfe53dd83c9
 translation_revised: 2026-09-30
 ---
 
@@ -122,6 +122,13 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 확인 질문은 특정 제품이나 리소스 종류에 고정되지 않습니다. 형식화된 판단이 빠뜨린 명시적 제약은, 프레임이
 명시된 관계의 피연산자를 빠뜨린 경우를 포함해 수정하거나 `semantic_constraint_uncovered`로 보류하며, 미리 정한
 질문 문구로 대신하지 않습니다.
+해석 때문에 보류된 읽기는 `semantic_evidence_held`나 `semantic_request_unsupported` 대신
+`semantic_constraint_uncovered`, `semantic_plan_constraint_uncovered`, `semantic_reading_ambiguous`,
+`semantic_reading_unverified`, `semantic_stated_constraint_unsupported` 같은 타입이 지정된 `reason_code`를 유지하며,
+보류된 결과는 `unavailable_reason`으로 `semantic_planner_unavailable`을 가집니다. `answer`는 플래너가 기록한 닫힌
+제약 역할이나 원자 범주를 밝히는 검토된 두 언어 안내이고 운영자의 단어는 담지 않으며, Console은 각 코드를 다시
+묻기나 지원되지 않음 안내로 보여 줍니다. `reason_code`는 크기가 제한된 소문자 코드로 유지되므로 wire 스키마는
+바뀌지 않습니다.
 동시 의미 기반 요청은 하나의 영속 처리 claim을 공유합니다. 대기자는 lease가 만료되면 claim을
 다시 시도하므로 실패한 소유자가 요청을 외부 기한까지 멈추게 할 수 없습니다. 대기 중 결과
 저장소가 실패하면 명시적인 보류 변환 결과를 반환합니다.

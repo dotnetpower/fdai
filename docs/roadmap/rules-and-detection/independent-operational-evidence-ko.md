@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: a47a846edbe8baa719f3ee10828ba51e5338ce06
+translation_source_sha: 2d29125409dcf8df431cbabd825d01a2c2b2e561
 translation_revised: 2026-09-30
 ---
 # 독립 운영 근거 발급
@@ -291,6 +291,9 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 소비자: `query.operating_patterns`를 처리하는 `core/ontology_platform/pattern_queries.py`의
 `OperatingPatternQuery._read`입니다. 조회: 인자와 `FunctionInvocationContext`의 digest, principal 범위와 사례
 범위와 목적의 digest, `case-history-read`, 활성 온톨로지 릴리스 digest.
+조회가 릴리스 digest를 묶으므로 운영 근거 밖의 온톨로지 함수 소스 수정을 포함한 모든 릴리스 변경은 새 조회를
+시작하고, 이전 릴리스에서 발급한 증적은 다시 쓰지 않습니다. 같은 변경에서 원본에 묶인 의미 보증 코퍼스도 다시
+생성합니다.
 
 | 증명 | 재조회 대상 |
 |------|-------------|

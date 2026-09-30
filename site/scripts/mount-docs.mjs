@@ -29,9 +29,28 @@
 // truth is docs/**/*.md; edits happen there. Symlink targets are
 // gitignored so they never appear in commits or in the
 // English-only / translation gates.
+//
+// A re-mount never removes a link or output that stays the same, so a
+// concurrent reader, such as another site test or a dev server, never
+// sees a mounted page or data file disappear. An unchanged link is
+// kept, a changed link or output is replaced atomically by rename, and
+// only links this script created earlier and no longer mounts are
+// removed after the new set is in place.
 
 import { execFileSync } from "node:child_process";
-import { mkdir, readdir, readFile, rm, stat, symlink, unlink, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  readlink,
+  rename,
+  rm,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { publicationRecord, SITE_OWNED_ROUTES } from "./publication-manifest.mjs";
@@ -187,21 +206,30 @@ function mountTargetFor(mount, relPath) {
   return join(contentRoot, ...prefix, ...dirParts, finalName);
 }
 
-async function ensureCleanMount() {
-  // Read the manifest from the previous run and unlink every symlink
-  // it recorded. This is precise: we never delete anything we didn't
-  // create ourselves, so hand-authored files under mount roots (like
+async function previousLinks() {
+  // The manifest from the previous run lists every symlink it created.
+  // Only those are ever removed, and only after this run no longer
+  // mounts them, so hand-authored files under mount roots (like
   // ko/index.mdx sharing the /ko/ prefix with the user-guide mount)
   // survive re-mounts unharmed.
-  let previous = [];
   try {
-    previous = JSON.parse(await readFile(manifestPath, "utf8"));
+    return JSON.parse(await readFile(manifestPath, "utf8"));
   } catch {
     // No manifest yet - first run, nothing to clean.
+    return [];
   }
+}
+
+async function removeStaleLinks(previous, current) {
+  const kept = new Set(current);
   for (const p of previous) {
-    await unlink(p).catch(() => {});
+    if (kept.has(p)) continue;
+    const entry = await lstat(p).catch(() => null);
+    if (entry?.isSymbolicLink()) await unlink(p).catch(() => {});
   }
+}
+
+async function purgeAstroCaches() {
 
   // Astro caches the content-collection store in two locations under
   // node_modules/ (persistent across builds) and site/.astro/ (per
@@ -223,12 +251,22 @@ async function ensureCleanMount() {
 async function linkOne(sourceAbs, mountAbs) {
   await mkdir(dirname(mountAbs), { recursive: true });
   const target = relative(dirname(mountAbs), sourceAbs);
+  if ((await readlink(mountAbs).catch(() => null)) === target) return;
   // The user-guide mount lands in contentRoot itself (enPrefix: []),
-  // which ensureCleanMount() cannot wipe without deleting hand-authored
-  // files like index.mdx. Unlink first so subsequent runs replace links
-  // instead of throwing EEXIST.
-  await unlink(mountAbs).catch(() => {});
-  await symlink(target, mountAbs);
+  // where hand-authored files like index.mdx also live. A temporary
+  // sibling renamed over the mount point replaces an older link in one
+  // step instead of leaving a moment with no file.
+  const temporary = `${mountAbs}.mount-${process.pid}`;
+  await unlink(temporary).catch(() => {});
+  await symlink(target, temporary);
+  await rename(temporary, mountAbs);
+}
+
+async function writeIfChanged(path, content) {
+  if ((await readFile(path, "utf8").catch(() => null)) === content) return;
+  const temporary = `${path}.mount-${process.pid}`;
+  await writeFile(temporary, content, "utf8");
+  await rename(temporary, path);
 }
 
 /**
@@ -280,7 +318,8 @@ function mountSlugForKo(mount, relPath) {
 }
 
 async function main() {
-  await ensureCleanMount();
+  const previous = await previousLinks();
+  await purgeAstroCaches();
 
   let linked = 0;
   const staleEntries = [];
@@ -334,22 +373,14 @@ async function main() {
     }
   }
 
+  await removeStaleLinks(previous, createdLinks);
   await mkdir(dirname(staleListPath), { recursive: true });
-  await writeFile(
-    staleListPath,
-    `${JSON.stringify(staleEntries, null, 2)}\n`,
-    "utf8",
-  );
-  await writeFile(
-    manifestPath,
-    `${JSON.stringify(createdLinks, null, 2)}\n`,
-    "utf8",
-  );
+  await writeIfChanged(staleListPath, `${JSON.stringify(staleEntries, null, 2)}\n`);
+  await writeIfChanged(manifestPath, `${JSON.stringify(createdLinks, null, 2)}\n`);
   publicationEntries.sort((left, right) => left.route.localeCompare(right.route));
-  await writeFile(
+  await writeIfChanged(
     publicationManifestPath,
     `${JSON.stringify(publicationEntries, null, 2)}\n`,
-    "utf8",
   );
 
   console.log(`mount-docs: linked ${linked} markdown files across ${MOUNTS.length} tree(s).`);

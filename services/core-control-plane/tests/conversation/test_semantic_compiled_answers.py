@@ -29,6 +29,7 @@ from fdai.core.conversation.semantic_compiled_answers import (
 from fdai.core.conversation.semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
+    hold_details,
 )
 from fdai.core.conversation.semantic_reasoning_compiler import (
     GoalCompilation,
@@ -540,6 +541,15 @@ def test_batches_with_clashing_node_ids_are_declined(
             "unverified",
         ),
         (_observation(continuation_pending=True), "continuation"),
+        # A reading that still needs a pass is never released, yet it is a continuation.
+        (
+            _observation(
+                released=False,
+                continuation_pending=True,
+                passes=(ShadowPass(0, "admitted"), ShadowPass(1, "generation_changed")),
+            ),
+            "continuation",
+        ),
     ],
 )
 def test_every_declined_path_ends_with_one_tagged_decision(
@@ -640,6 +650,74 @@ def test_a_data_outcome_is_unavailable_and_an_unsupported_atom_is_unsupported() 
     assert atom.decision == "unsupported"
 
 
+def test_a_typed_hold_carries_the_closed_codes_that_say_why() -> None:
+    atom = _ticket(_unsupported_observation())
+    atom.outcome(manifest_digest="d", observations=[])
+    review = _ticket(
+        _observation(
+            released=False,
+            review="unfaithful",
+            review_reasons=(
+                "review_answer_kind:location",
+                "review_uncovered:times:4-12",
+                "review_merged:0-3",
+            ),
+            passes=(ShadowPass(0, "admitted"),),
+        )
+    )
+    review.outcome(manifest_digest="d", observations=[])
+    clarified = _ticket(
+        _observation(released=False, passes=(ShadowPass(0, "clarify", ("competing_reading:g1",)),))
+    )
+    clarified.outcome(manifest_digest="d", observations=[])
+
+    unsupported = typed_only_outcome(atom, manifest_digest="d")
+    unverified = typed_only_outcome(review, manifest_digest="d")
+    ambiguous = typed_only_outcome(clarified, manifest_digest="d")
+
+    assert unsupported.hold_details == ("filter_unsupported:region",)
+    # A review reason keeps only its constraint role; a quote position never travels.
+    assert unverified.reason == "semantic_reading_unverified"
+    assert unverified.hold_details == ("answer_kind:location", "role:times", "review_merged")
+    assert ambiguous.hold_details == ("competing_reading",)
+    # A word-recovered plan held by a released reading names the atom it cannot read.
+    vetoed = atom.veto("server_stated_filter", manifest_digest="d")
+    assert vetoed is not None and vetoed.hold_details == ("filter_unsupported:region",)
+
+
+def test_any_current_path_plan_that_reads_only_a_list_is_held_by_a_wider_reading() -> None:
+    atom = _ticket(_unsupported_observation())
+    atom.outcome(manifest_digest="d", observations=[])
+    listed = _compilation().goals[0].batches[0].plan
+    functional = _cause_compilation().goals[0].batches[0].plan
+
+    # A typed builder's list or count reads no region either, so it may not answer.
+    held = atom.veto("server_resource_collection", manifest_digest="d", plan=listed)
+    assert held is not None and held.reason == "semantic_stated_constraint_unsupported"
+    # A plan that reads more than a list is left to its own verification.
+    assert atom.veto("server_resource_collection", manifest_digest="d", plan=functional) is None
+    assert atom.veto("server_resource_collection", manifest_digest="d") is None
+
+
+def test_hold_details_stay_closed_codes_on_held_outcomes_only() -> None:
+    kept = hold_details(("role:times", "role:times", "free text!", "filter_unsupported:state"))
+
+    assert kept == ("role:times", "filter_unsupported:state")
+    with pytest.raises(ValueError, match="closed codes"):
+        SemanticPlanningOutcome(
+            disposition=SemanticPlanningDisposition.UNAVAILABLE,
+            reason="semantic_reading_ambiguous",
+            hold_details=("Operator Words",),
+        )
+    with pytest.raises(ValueError, match="held or unsupported"):
+        SemanticPlanningOutcome(
+            disposition=SemanticPlanningDisposition.CLARIFICATION,
+            reason="semantic_clarification_required",
+            clarification="Which one?",
+            hold_details=("role:times",),
+        )
+
+
 async def test_a_failed_form_is_read_once_more_and_never_more_than_twice(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -682,3 +760,176 @@ async def test_an_answerable_or_unsupported_reading_is_never_resampled(
 
     # An unsupported atom stays unsupported in any sample, so no call is spent on it.
     assert calls == ["answerable", "unsupported"]
+
+
+async def test_a_reading_that_needs_another_pass_is_never_resampled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pending = _observation(
+        released=False, continuation_pending=True, passes=(ShadowPass(0, "admitted"),)
+    )
+    calls: list[int] = []
+
+    async def shadow(**_arguments: Any) -> ReasoningShadowObservation:
+        calls.append(1)
+        return pending
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    collector = semantic_compiled_answers._ObservationCollector()
+
+    result = await semantic_compiled_answers._run_form_path(object(), collector)  # type: ignore[arg-type]
+
+    # A continuation is not a failed form, so a second sample would only repeat it.
+    assert calls == [1] and result is pending
+
+
+def _ambiguity_ticket(answer: Any) -> CompiledAnswerTicket:
+    ticket = _ticket(_observation())
+    collector = ticket._collector  # noqa: SLF001 - the ambiguity call records into the same turn
+
+    def ambiguity() -> concurrent.futures.Future[Any]:
+        future: concurrent.futures.Future[Any] = concurrent.futures.Future()
+        collector.observations.append(SimpleNamespace(model="ambiguity-model"))  # type: ignore[arg-type]
+        if isinstance(answer, BaseException):
+            future.set_exception(answer)
+        else:
+            future.set_result(answer)
+        return future
+
+    ticket._ambiguity = ambiguity  # noqa: SLF001 - the path binds the reader at start
+    return ticket
+
+
+@pytest.mark.parametrize(
+    ("answer", "answers"),
+    (
+        ({"readings": "one"}, True),
+        ({"readings": "several"}, False),
+        ({"readings": "unclear"}, False),
+        ({"readings": "maybe"}, False),
+        (None, False),
+        (RuntimeError("provider"), False),
+    ),
+)
+def test_a_released_reading_answers_a_clarified_question_only_with_one_reading(
+    answer: Any, answers: bool
+) -> None:
+    ticket = _ambiguity_ticket(answer)
+    recorded: list[Any] = []
+
+    outcome = ticket.outcome_over_clarification(manifest_digest="d", observations=recorded)
+
+    assert (outcome is not None) is answers
+    assert ticket.decision == ("selected" if answers else "clarification")
+    # The ambiguity call is accounted with the form path's calls.
+    assert [item.model for item in recorded] == ["form-model", "ambiguity-model"]
+
+
+def test_without_an_ambiguity_reader_the_clarification_always_wins() -> None:
+    ticket = _ticket(_observation())
+
+    assert ticket.outcome_over_clarification(manifest_digest="d", observations=[]) is None
+    assert ticket.decision == "clarification"
+
+
+def test_a_settled_reading_takes_the_cutoff_after_the_ambiguity_verdict() -> None:
+    cutoffs = [_LATER]
+    future: concurrent.futures.Future[Any] = concurrent.futures.Future()
+    future.set_result(_observation())
+    ticket = CompiledAnswerTicket(
+        future,
+        semantic_compiled_answers._ObservationCollector(),
+        deadline_seconds=5.0,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        cutoff=lambda: cutoffs[-1],
+    )
+
+    def ambiguity() -> concurrent.futures.Future[Any]:
+        # The reader answers after the gateway's cutoff has moved on.
+        cutoffs.append(_LATER + timedelta(seconds=8))
+        answered: concurrent.futures.Future[Any] = concurrent.futures.Future()
+        answered.set_result({"readings": "one"})
+        return answered
+
+    ticket._ambiguity = ambiguity  # noqa: SLF001 - the path binds the reader at start
+
+    outcome = ticket.outcome_over_clarification(manifest_digest="d", observations=[])
+
+    assert outcome is not None and outcome.plan is not None
+    definition = json.loads(outcome.plan.nodes[0].arguments_json)["definition"]
+    assert definition["as_of"] == (_LATER + timedelta(seconds=8)).isoformat()
+
+
+def test_a_compiled_metric_lookup_answers_with_its_default_window_notice(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _CPU,
+        _compile,
+        _metric_form,
+    )
+
+    utterance = "What is the CPU of vm-app-01?"
+    compilation = _compile(utterance, _metric_form(utterance), _CPU)
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    # The frame, plan, and intent graph verify again, and the window notice is required.
+    assert outcome is not None and outcome.frame is not None
+    assert outcome.frame.output_shape == "target_resource_metric"
+    assert "window.default.900" in outcome.frame.evidence_requirements
+    assert _completions(caplog) == ["selected"]
+
+
+def test_a_compiled_health_filtered_list_answers_as_a_health_list(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _UNHEALTHY,
+        _compile,
+        _health_form,
+    )
+
+    utterance = "List the unhealthy VMs"
+    compilation = _compile(utterance, _health_form(utterance), _UNHEALTHY)
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    # The frame, plan, and intent graph verify again under the current path's health shape.
+    assert outcome is not None and outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_health_list"
+    assert outcome.frame.measure_concepts == ("resource_health.unhealthy",)
+    assert _completions(caplog) == ["selected"]
+
+
+def test_a_compiled_lifecycle_filtered_list_answers_over_its_object_type(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _OPEN_INCIDENT,
+        _compile,
+        _incident_form,
+    )
+
+    utterance = "List the open incidents"
+    compilation = _compile(
+        utterance,
+        _incident_form(utterance),
+        concepts(
+            ("m1", MentionDomain.OBJECT_TYPE, ("Incident",)),
+            ("m2", MentionDomain.STATE, (_OPEN_INCIDENT,)),
+        ),
+    )
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    assert outcome is not None and outcome.frame is not None
+    assert "Incident" in outcome.frame.subject_constraints
+    assert _completions(caplog) == ["selected"]

@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: cb6deb1995c9a68abd132ae60b692ab9abe1b3ff
+translation_source_sha: 04a8df46667d7908e642a3026ae671f6724c4b8e
 translation_revised: 2026-09-30
 ---
 # 운영 학습 온톨로지
@@ -176,6 +176,10 @@ shadow로 되돌립니다.
 원본의 최종 삭제 표시 전에 복사된 사례 집단, 스냅샷, 패턴, 발행 표시의 본문을 제거합니다.
 동시 쓰기는 CAS 경쟁 후 원본 적격성을 다시 검증합니다. 저장 한도와 이전 기록·브로커·후속
 데이터 삭제의 남은 조건은 [완료 및 삭제 계약](prediction-learning-and-case-history-ko.md#완료를-위한-상세-설계)을 참고하세요.
+
+삭제와 검토 기한은 읽는 에이전트의 시계로 판단합니다. 따라서 이 경로의 테스트는 Muninn, Norns,
+Mimir, 카탈로그 컴파일러에 fixture 사례의 보존 기간과 검토 기간 안에 있는 하나의 고정 시계를 주므로,
+어떤 테스트 결과도 테스트를 실행한 날짜에 좌우되지 않습니다.
 
 그래서 `learned_as`(`ObservedOutcome -> Pattern`)에는 생산 가능한 엔드포인트 쌍이 없습니다. Cohort는
 sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome`

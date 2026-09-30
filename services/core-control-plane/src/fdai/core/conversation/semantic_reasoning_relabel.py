@@ -7,7 +7,8 @@ given back to the one repaired mention that can be it: the same form and domain 
 a span that holds the earlier span. The renaming is a bijection applied to every
 reference, so the repaired form states exactly what it stated before. When any
 earlier mention has no single such counterpart, the labels stay as the model wrote
-them and the repair comparison decides.
+them and the repair comparison decides. A mention the repair was asked to split has
+no single counterpart by design, so it is left out of the matching.
 """
 
 from __future__ import annotations
@@ -22,12 +23,22 @@ _MAX_MENTION_NUMBER = 99
 
 
 def relabel_mentions(
-    previous: SemanticQuestionForm, repaired: SemanticQuestionForm
+    previous: SemanticQuestionForm,
+    repaired: SemanticQuestionForm,
+    *,
+    split: frozenset[str] = frozenset(),
 ) -> SemanticQuestionForm:
-    """Return ``repaired`` with each earlier mention's id restored, when unambiguous."""
+    """Return ``repaired`` with each earlier mention's id restored, when unambiguous.
+
+    ``split`` names earlier mentions the repair replaces with narrower parts; their ids
+    are never restored onto a part, so a part keeps the label the model gave it unless
+    that label belongs to a restored mention.
+    """
 
     restored: dict[str, str] = {}
     for before in previous.mentions:
+        if before.id in split:
+            continue
         matches = [
             after.id
             for after in repaired.mentions

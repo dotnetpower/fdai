@@ -288,6 +288,9 @@ Lookup: the aggregate digest, the scope, `forecast-context`, and the aggregate `
 Consumer: `OperatingPatternQuery._read` in `core/ontology_platform/pattern_queries.py` for
 `query.operating_patterns`. Lookup: the digest of the arguments and `FunctionInvocationContext`, the digest of
 the principal scope, case scope, and purpose, `case-history-read`, and the active ontology release digest.
+Because the lookup binds the release digest, any release change, including an edited ontology function
+source outside operational evidence, starts new lookups, and a receipt issued under the previous
+release is never reused; the same change regenerates the source-bound semantic assurance corpus.
 
 | Proof | Read-back subject |
 |-------|-------------------|

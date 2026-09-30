@@ -30,11 +30,17 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .semantic_reasoning_form import (
+    FilterRole,
+    FormGoal,
+    GoalLevel,
     GoalOperation,
+    MeasureKind,
     MentionDomain,
     MentionForm,
+    RelationSense,
     SemanticQuestionForm,
     SourceSpan,
+    SubjectRole,
 )
 from .semantic_reasoning_proposal import MAX_OCCURRENCE, locate_quote
 
@@ -67,6 +73,9 @@ class ConstraintRole(StrEnum):
     SUPPOSES = "supposes"
     QUANTIFIES = "quantifies"
     ASKS = "asks"
+    # A word that only restates that a schema thing is declared or has declarations, such as
+    # declared, defined, or have in which LinkTypes Workload has.
+    DECLARES = "declares"
 
 
 _RANKING = frozenset({GoalOperation.RANK, GoalOperation.AGGREGATE})
@@ -90,6 +99,35 @@ _UNEXPRESSIBLE: dict[ConstraintRole, frozenset[GoalOperation]] = {
 }
 
 
+class AnswerKind(StrEnum):
+    """The closed kind of answer a question asks for, named by the blind reader."""
+
+    LIST = "list"
+    COUNT = "count"
+    STATE = "state"
+    VALUE = "value"
+    LOCATION = "location"
+    RELATION = "relation"
+    HISTORY = "history"
+    CAUSE = "cause"
+    SCHEMA = "schema"
+    OTHER = "other"
+
+
+# Operations whose answer kind the review does not judge, such as a comparison or a draft.
+_UNJUDGED_OPERATIONS = frozenset(
+    {
+        GoalOperation.COMPARE_WINDOWS,
+        GoalOperation.COMPARE_ENTITIES,
+        GoalOperation.DIFF_VERSIONS,
+        GoalOperation.VERIFY_EVIDENCE,
+        GoalOperation.DRAFT_ACTION,
+    }
+)
+_STATE_MEASURES = frozenset({MeasureKind.STATE, MeasureKind.HEALTH})
+_VALUE_MEASURES = frozenset({MeasureKind.METRIC, MeasureKind.COST, MeasureKind.FORECAST})
+
+
 class _ExtractionModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -110,6 +148,8 @@ class ConstraintExtraction(_ExtractionModel):
         tuple[ExtractedConstraint, ...], Field(max_length=MAX_EXTRACTED_CONSTRAINTS)
     ]
     literals: Annotated[tuple[SourceSpan, ...], Field(max_length=MAX_EXTRACTED_LITERALS)] = ()
+    # The kind of answer asked; an older payload without it, or null, is not judged.
+    answer_kind: AnswerKind | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,7 +173,7 @@ def extraction_schema() -> dict[str, Any]:
         raise ValueError("constraint extraction schema has no SourceSpan definition")
     definitions["SourceSpan"] = copy.deepcopy(_QUOTE_SCHEMA)
     # Strict structured output requires every property, so the extractor always answers.
-    schema["required"] = sorted({*schema.get("required", ()), "literals"})
+    schema["required"] = sorted({*schema.get("required", ()), "literals", "answer_kind"})
     return schema
 
 
@@ -154,8 +194,10 @@ def review_forms(
     unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
     merged = merged_constraints(forms, extraction)
     differing = literal_disagreements(forms, extraction)
-    if uncovered or unacknowledged or merged or differing:
+    other_kind = answer_kind_unanswered(forms, extraction)
+    if uncovered or unacknowledged or merged or differing or other_kind is not None:
         reasons = (
+            *(() if other_kind is None else (f"review_answer_kind:{other_kind.value}",)),
             *(
                 f"review_uncovered:{item.role.value}:{item.quote.start}-{item.quote.end}"
                 for item in uncovered
@@ -169,6 +211,82 @@ def review_forms(
         )
         return FormReview("unfaithful", tuple(dict.fromkeys(reasons))[:MAX_REVIEW_REASONS])
     return FormReview("faithful")
+
+
+def answer_kind_unanswered(
+    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
+) -> AnswerKind | None:
+    """Return the answer kind the blind reader named when no goal answers that kind.
+
+    A form can be faithful to every quoted constraint and still answer another question,
+    such as a current-state lookup for a question asking where a subnet is located. Only
+    closed values decide this: the reader's kind and each goal's operation, measure,
+    level, filters, and relation roles.
+    """
+
+    kind = extraction.answer_kind
+    if kind is None or kind is AnswerKind.OTHER:
+        return None
+    goals = [goal for form in forms for goal in form.goals]
+    if not goals or any(
+        goal.effective_operation in _UNJUDGED_OPERATIONS or kind in answer_kinds(goal)
+        for goal in goals
+    ):
+        return None
+    return kind
+
+
+def answer_kinds(goal: FormGoal) -> frozenset[AnswerKind]:
+    """Return the closed answer kinds one goal's typed reading can answer."""
+
+    if goal.level is GoalLevel.SCHEMA or goal.operation is GoalOperation.DESCRIBE_SCHEMA:
+        return frozenset(
+            {AnswerKind.SCHEMA, AnswerKind.LIST, AnswerKind.COUNT, AnswerKind.RELATION}
+        )
+    operation = goal.effective_operation
+    measure = goal.measure.kind if goal.measure is not None else None
+    if operation is GoalOperation.COUNT or (
+        operation is GoalOperation.AGGREGATE and measure is MeasureKind.COUNT
+    ):
+        return frozenset({AnswerKind.COUNT})
+    if operation is GoalOperation.AGGREGATE:
+        return frozenset({AnswerKind.COUNT, AnswerKind.VALUE})
+    if operation in {GoalOperation.SELECT, GoalOperation.RANK}:
+        kinds = {AnswerKind.LIST, *_relation_kinds(goal)}
+        # A list filtered by a state answers whether its members are in that state.
+        if any(item.role in {FilterRole.STATE, FilterRole.HEALTH} for item in goal.filters):
+            kinds.add(AnswerKind.STATE)
+        return frozenset(kinds)
+    if operation in {GoalOperation.TRAVERSE, GoalOperation.PATH, GoalOperation.IMPACT}:
+        return frozenset({AnswerKind.LIST, AnswerKind.RELATION, *_relation_kinds(goal)})
+    if operation is GoalOperation.LOOKUP:
+        if measure in _STATE_MEASURES:
+            return frozenset({AnswerKind.STATE})
+        if measure in _VALUE_MEASURES:
+            return frozenset({AnswerKind.VALUE})
+        return frozenset({AnswerKind.STATE, AnswerKind.VALUE})
+    if operation is GoalOperation.HISTORY:
+        return frozenset({AnswerKind.HISTORY, AnswerKind.LIST})
+    if operation is GoalOperation.EXPLAIN_CAUSE:
+        return frozenset({AnswerKind.CAUSE})
+    if operation is GoalOperation.DIAGNOSE:
+        return frozenset({AnswerKind.CAUSE, AnswerKind.STATE})
+    return frozenset(AnswerKind)
+
+
+def _relation_kinds(goal: FormGoal) -> frozenset[AnswerKind]:
+    """Return the kinds a goal's relation answers; a selection with one reads the relation.
+
+    The container a thing sits in is where it is located, as in which group contains it.
+    """
+
+    relation = goal.relation
+    if relation is None:
+        return frozenset()
+    located = relation.result_role is SubjectRole.CONTAINER
+    if relation.sense is RelationSense.CONTAINMENT and located:
+        return frozenset({AnswerKind.RELATION, AnswerKind.LOCATION})
+    return frozenset({AnswerKind.RELATION})
 
 
 def resolve_extraction(raw: Mapping[str, Any], utterance: str) -> ConstraintExtraction | None:
@@ -225,10 +343,11 @@ def uncovered_constraints(
     supposing = any(
         goal.effective_operation is GoalOperation.IMPACT for form in forms for goal in form.goals
     )
+    unstated = _unstated_roles(forms)
     uncovered: list[ExtractedConstraint] = []
     for item in extraction.constraints:
         # A request word and a word meaning all or every state no restriction to cover.
-        if item.role in _UNSTATED_ROLES or (item.role is ConstraintRole.SUPPOSES and supposing):
+        if item.role in unstated or (item.role is ConstraintRole.SUPPOSES and supposing):
             continue
         # A restriction the extractor isolated inside such a particle, such as only or
         # from, narrows the answer, so the mention it rides on never states it.
@@ -305,8 +424,34 @@ def merged_constraints(
     quotes restate one constraint, so only disjoint ones count.
     """
 
-    stated = [item for item in extraction.constraints if item.role not in _UNSTATED_ROLES]
     found: dict[tuple[int, int], ExtractedConstraint] = {}
+    for held, _parts in _merging(forms, extraction).values():
+        for item in held:
+            found.setdefault((item.quote.start, item.quote.end), item)
+    return tuple(found.values())
+
+
+def merged_mentions(
+    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
+) -> dict[str, tuple[ExtractedConstraint, ...]]:
+    """Return, per merging mention id, the disjoint extracted constraints it holds.
+
+    The mapping keeps the mention order of the forms and each mention's parts in their
+    question order, so a repair can name exactly where the mention should split: every
+    constraint it drops and every disjoint constraint beside one.
+    """
+
+    return {mention_id: parts for mention_id, (_held, parts) in _merging(forms, extraction).items()}
+
+
+def _merging(
+    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
+) -> dict[str, tuple[tuple[ExtractedConstraint, ...], tuple[ExtractedConstraint, ...]]]:
+    """Return, per merging mention id, the constraints it drops and the parts it holds."""
+
+    unstated = _unstated_roles(forms)
+    stated = [item for item in extraction.constraints if item.role not in unstated]
+    merged: dict[str, tuple[tuple[ExtractedConstraint, ...], tuple[ExtractedConstraint, ...]]] = {}
     # A reference's position words, such as second in the second one, are its typed
     # position, not a restriction a concept binding could drop.
     grounded = (
@@ -322,13 +467,69 @@ def merged_constraints(
             if mention.span.start <= item.quote.start and item.quote.end <= mention.span.end
         ]
         kind = mention.domain in _DECLARATION_NAMES
-        for item in inside:
-            if (kind or item.role is ConstraintRole.RESTRICTS) and any(
+        held = {
+            (item.quote.start, item.quote.end): item
+            for item in inside
+            if (kind or item.role is ConstraintRole.RESTRICTS)
+            and any(
                 other.quote.end <= item.quote.start or item.quote.end <= other.quote.start
                 for other in inside
-            ):
-                found.setdefault((item.quote.start, item.quote.end), item)
-    return tuple(found.values())
+            )
+        }
+        if held:
+            # Every disjoint constraint the mention holds is a part the split must keep apart.
+            parts = {
+                (item.quote.start, item.quote.end): item
+                for item in inside
+                if any(
+                    other.quote.end <= item.quote.start or item.quote.end <= other.quote.start
+                    for other in held.values()
+                )
+                or (item.quote.start, item.quote.end) in held
+            }
+            merged[mention.id] = (
+                tuple(held.values()),
+                tuple(parts[key] for key in sorted(parts)),
+            )
+    return merged
+
+
+def _unstated_roles(forms: Sequence[SemanticQuestionForm]) -> frozenset[ConstraintRole]:
+    """Return the roles no span needs to state for these forms.
+
+    A word the independent reader says only restates declaration states nothing a schema
+    reading must cover, because the schema level already reads declarations. Beside an
+    instance goal the same word may relate or restrict, so it is then held to coverage.
+    """
+
+    goals = [goal for form in forms for goal in form.goals]
+    if goals and all(goal.level is GoalLevel.SCHEMA for goal in goals):
+        return _UNSTATED_ROLES | {ConstraintRole.DECLARES}
+    return _UNSTATED_ROLES
+
+
+def describe_merged(
+    mention_id: str,
+    span: SourceSpan,
+    parts: Sequence[ExtractedConstraint],
+    utterance: str,
+) -> str:
+    """Render one merging mention as a repair violation naming the parts to keep apart.
+
+    The parts are the independent reader's disjoint quotes; Core never reads the words.
+    """
+
+    quote = _quote(span.start, span.end, utterance)
+    named = "; ".join(
+        f'"{_quote(item.quote.start, item.quote.end, utterance)["text"]}" ({item.role.value})'
+        for item in parts
+    )
+    return (
+        f'review_merged: mention {mention_id} quotes "{quote["text"]}" at occurrence '
+        f"{quote['occurrence']}, which holds separate constraints an independent reading "
+        f"found: {named}. Replace it with one mention for each of them, cite each where the "
+        "goal reads it, and keep every other mention, goal, and cue as it is"
+    )
 
 
 def literal_operands(forms: Sequence[SemanticQuestionForm]) -> frozenset[tuple[int, str]]:
@@ -492,15 +693,20 @@ def _locate(quote: object, utterance: str) -> tuple[int, int] | None:
 
 __all__ = [
     "MAX_EXTRACTED_CONSTRAINTS",
+    "AnswerKind",
     "ConstraintExtraction",
     "ConstraintRole",
     "ExtractedConstraint",
     "FormReview",
+    "answer_kind_unanswered",
+    "answer_kinds",
+    "describe_merged",
     "describe_uncovered",
     "describe_unexpressible",
     "literal_disagreements",
     "literal_operands",
     "merged_constraints",
+    "merged_mentions",
     "extraction_schema",
     "quoted_form",
     "resolve_extraction",

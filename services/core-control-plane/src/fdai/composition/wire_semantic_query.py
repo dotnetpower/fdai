@@ -16,6 +16,7 @@ from fdai.core.conversation.adaptive_service import AdaptiveConversationService
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.conversation.semantic_manifest import (
     CatalogQueryManifestProvider,
+    ConceptVocabularies,
     semantic_principal_scope_digest,
 )
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
@@ -670,8 +671,7 @@ def build_semantic_query_runtime(
         model=model,
         escalation_model=escalation_model,
         semantic_judgment=semantic_judgment,
-        # The planner stamps ObjectSet as_of and the gateway validates it against the same
-        # cutoff within a 5s skew, so both MUST read one clock.
+        # Planner ObjectSet as_of and gateway validation (5s skew) MUST read one clock.
         now=evaluation_cutoff,
         manifests=CatalogQueryManifestProvider(
             release=ontology_release,
@@ -682,6 +682,7 @@ def build_semantic_query_runtime(
             functions=function_types,
             bound_function_names=tuple(function_registry.binding_authorities),
             property_values=property_values,
+            vocabularies=ConceptVocabularies(metric_registry, inventory_query_language),
         ),
         verifier=OntologyQueryPlanVerifier(
             available_kinds=available_kinds,
