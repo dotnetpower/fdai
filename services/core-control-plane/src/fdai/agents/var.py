@@ -30,6 +30,12 @@ from fdai.agents._framework.var_development_authority import (
     DevelopmentOwnerAuthorizer,
     VarDevelopmentAuthorityMixin,
 )
+from fdai.agents._framework.var_final_approval import (
+    claim_approval_publication as _claim_approval_publication,
+)
+from fdai.agents._framework.var_final_approval import (
+    release_approval_publication_claim as _release_approval_publication_claim,
+)
 from fdai.agents._framework.var_final_approval import validate_final_record
 from fdai.agents._framework.var_introspection import (
     evidence_available as _var_evidence_available,
@@ -44,9 +50,9 @@ from fdai.agents._framework.var_pending_durability import (
     checkpoint_shadow_review,
     load_pending_ticket,
     mark_pending_ticket_closed_by_identity,
-    mark_shadow_review_closed,
     shadow_review_from_state,
 )
+from fdai.agents._framework.var_shadow_review import decide_shadow_review_once
 from fdai.agents._framework.var_ticket_identity import (
     APPROVAL_STATE_PREFIX,
     PendingHilTicket,
@@ -128,7 +134,8 @@ class Var(
             if state_store is not None
             else None
         )
-        self._decision_lock = asyncio.Lock()
+        self._decision_locks: dict[str, asyncio.Lock] = {}
+        self._shadow_review_locks: dict[str, asyncio.Lock] = {}
         self._pending: dict[str, PendingHilTicket] = {}
         self.initialize_assignment_review()
         self._pending_shadow_reviews: dict[str, PendingShadowReview] = {}
@@ -342,7 +349,8 @@ class Var(
         approver: str,
         decision: str,
     ) -> dict[str, Any] | None:
-        async with self._decision_lock:
+        lock = self._decision_locks.setdefault(correlation_id, asyncio.Lock())
+        async with lock:
             return await self._record_decision_locked(
                 correlation_id,
                 approver=approver,
@@ -624,8 +632,28 @@ class Var(
                     action_run_identity,
                 )
             return deepcopy(approval)
-        await self.bus.publish("Var", "object.approval", deepcopy(approval))
-        await self._mark_approval_published(approval)
+        if not await _claim_approval_publication(
+            store=self._state_store,
+            approval=approval,
+            published_cache=self._published_approvals,
+        ):
+            return None
+        publish_task = asyncio.create_task(
+            self.bus.publish("Var", "object.approval", deepcopy(approval))
+        )
+        try:
+            await asyncio.shield(publish_task)
+            await asyncio.shield(self._mark_approval_published(approval))
+        except asyncio.CancelledError:
+            await asyncio.shield(publish_task)
+            await asyncio.shield(self._mark_approval_published(approval))
+            raise
+        except Exception:
+            await _release_approval_publication_claim(
+                store=self._state_store,
+                approval=approval,
+            )
+            raise
         _remove_pending_ticket(
             self._pending,
             correlation_id,
@@ -722,44 +750,17 @@ class Var(
     ) -> dict[str, Any] | None:
         """Publish one real human review without manufacturing another sample."""
 
-        ticket = self._pending_shadow_reviews.get(correlation_id)
-        if ticket is None:
-            self.record_behavior("shadow_review:missing_ticket")
-            return {"state": "rejected", "reason": "missing_ticket"}
-        reviewer_norm = reviewer.strip().casefold()
-        if not reviewer_norm:
-            raise ValueError("shadow outcome reviewer MUST be a non-empty principal")
-        if not isinstance(agreed, bool):
-            raise ValueError("shadow outcome agreement MUST be boolean")
-        initiator_norm = (ticket.initiator_principal or "").strip().casefold()
-        if initiator_norm and reviewer_norm == initiator_norm:
-            self._record_blocked_attempt(
-                "shadow_review_self_approval_blocked",
-                correlation_id,
-                reviewer_norm,
-            )
-            raise ValueError("a shadow outcome initiator cannot review their own action")
-        approval: dict[str, Any] = {
-            "producer_principal": "Var",
-            "kind": "shadow_outcome_review",
-            "correlation_id": ticket.correlation_id,
-            "idempotency_key": f"shadow-review:{ticket.correlation_id}",
-            "action_type": ticket.action_type,
-            "state": "reviewed",
-            "approvers": [reviewer_norm],
-            "shadow_mode": True,
-            "shadow_observation_id": ticket.correlation_id,
-            "observed_at": ticket.observed_at,
-            "operator_reviewed": True,
-            "operator_agreed": agreed,
-            "policy_escape": ticket.policy_escape,
-        }
-        if self.bus is not None:
-            await self.bus.publish("Var", "object.approval", approval)
-        del self._pending_shadow_reviews[correlation_id]
-        await mark_shadow_review_closed(self._state_store, correlation_id)
-        self.record_behavior("shadow_review_completed")
-        return approval
+        return await decide_shadow_review_once(
+            pending=self._pending_shadow_reviews,
+            locks=self._shadow_review_locks,
+            state_store=self._state_store,
+            bus=self.bus,
+            record_behavior=self.record_behavior,
+            record_blocked_attempt=self._record_blocked_attempt,
+            correlation_id=correlation_id,
+            reviewer=reviewer,
+            agreed=agreed,
+        )
 
     def pending_tickets(self) -> tuple[PendingHilTicket, ...]:
         return tuple(self._pending.values())

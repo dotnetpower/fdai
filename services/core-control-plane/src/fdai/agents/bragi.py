@@ -508,17 +508,31 @@ class Bragi(BragiPublicationMixin, Agent):
             )
             if session.user_id != user_id:
                 raise PermissionError(f"session {session_id!r} belongs to a different user")
-            if not session.conversation_published:
-                session.conversation_published = await self._publish_conversation(session)
+            publish_conversation = (
+                not session.conversation_published and not session.conversation_publication_inflight
+            )
+            if publish_conversation:
+                session.conversation_publication_inflight = True
+            turn_index = await self._reserve_turn_index(session_id, session)
+            prior_questions = tuple(turn.question for turn in session.turns[-8:])
             # Bound the session map so a long-lived narrator cannot leak one entry
             # per session id forever (evicts oldest, never the active session).
             evict_oldest(self._sessions, _MAX_SESSIONS, keep=session_id)
             evict_oldest(self._session_locks, _MAX_SESSIONS, keep=session_id)
+        if publish_conversation:
+            try:
+                conversation_published = await self._publish_conversation(session)
+            finally:
+                async with session_lock:
+                    session.conversation_publication_inflight = False
+            if conversation_published:
+                async with session_lock:
+                    session.conversation_published = True
         judgment_result = (
             await asyncio.to_thread(
                 self._semantic_judgment.judge,
                 utterance=question,
-                context=tuple(turn.question for turn in session.turns[-8:]),
+                context=prior_questions,
                 capabilities=semantic_capabilities(self._action_type_names),
             )
             if self._semantic_judgment is not None
@@ -565,18 +579,17 @@ class Bragi(BragiPublicationMixin, Agent):
                 question=question,
                 session_id=session_id,
             )
+            turn = Turn(
+                turn_index=turn_index,
+                question=question,
+                primary_agent=None,
+                answer=answer,
+                decision=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
+            )
             async with session_lock:
-                turn_index = await self._next_turn_index(session_id, session)
-                turn = Turn(
-                    turn_index=turn_index,
-                    question=question,
-                    primary_agent=None,
-                    answer=answer,
-                    decision=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
-                )
                 _append_turn(session, turn)
-                await self._publish_turn(session_id=session_id, turn=turn)
-                return turn
+            await self._publish_turn(session_id=session_id, turn=turn)
+            return turn
         decision = (
             self.route(judgment, question=question)
             if judgment is not None
@@ -734,44 +747,52 @@ class Bragi(BragiPublicationMixin, Agent):
             question=question,
             session_id=session_id,
         )
-        async with session_lock:
-            turn_index = await self._next_turn_index(session_id, session)
-            turn = Turn(
-                turn_index=turn_index,
+        if answer.get("handoff_needed") and materialize_handoff:
+            answer["handoff_status"] = await self._publish_handoff(
+                session_id=session_id,
                 question=question,
-                primary_agent=decision.primary_agent,
-                answer=answer,
-                decision=decision,
+                turn_index=turn_index,
+                reason=str(answer.get("abstain_reason") or "no_route"),
             )
-            await self._checkpoint_turn_payload(session_id=session_id, turn=turn)
-            if answer.get("handoff_needed") and materialize_handoff:
-                answer["handoff_status"] = await self._publish_handoff(
-                    session_id=session_id,
-                    question=question,
-                    turn_index=turn_index,
-                    reason=str(answer.get("abstain_reason") or "no_route"),
-                )
-                await self._checkpoint_turn_payload(session_id=session_id, turn=turn)
+        turn = Turn(
+            turn_index=turn_index,
+            question=question,
+            primary_agent=decision.primary_agent,
+            answer=answer,
+            decision=decision,
+        )
+        await self._checkpoint_turn_payload(session_id=session_id, turn=turn)
+        async with session_lock:
             _append_turn(session, turn)
-            await self._publish_turn(session_id=session_id, turn=turn)
-            return turn
+        await self._publish_turn(session_id=session_id, turn=turn)
+        return turn
 
     async def _publish_turn(self, *, session_id: str, turn: Turn) -> None:
         payload = await self._checkpoint_turn_payload(session_id=session_id, turn=turn)
         if self.bus is None:
             self.record_behavior("turn:publication_pending")
             return
-        await self.bus.publish("Bragi", "object.turn", payload)
-        await self._mark_turn_published(payload)
+        if not await self._claim_turn_publication(payload):
+            return
+        publish_task = asyncio.create_task(self.bus.publish("Bragi", "object.turn", payload))
+        try:
+            await asyncio.shield(publish_task)
+            await asyncio.shield(self._mark_turn_published(payload))
+        except asyncio.CancelledError:
+            await asyncio.shield(publish_task)
+            await asyncio.shield(self._mark_turn_published(payload))
+            raise
 
-    async def _next_turn_index(self, session_id: str, session: ConversationSession) -> int:
+    async def _reserve_turn_index(self, session_id: str, session: ConversationSession) -> int:
         if self._state_store is None:
-            return _next_turn_index(session)
+            turn_index = session.next_turn_index
+            session.next_turn_index += 1
+            return turn_index
         key = _session_sequence_key(session_id)
         for _attempt in range(16):
             stored = await self._state_store.read_state(key)
             if stored is None:
-                turn_index = _next_turn_index(session)
+                turn_index = session.next_turn_index
                 record = {
                     "schema_version": "1.0.0",
                     "revision": 1,
@@ -779,6 +800,7 @@ class Bragi(BragiPublicationMixin, Agent):
                     "next_turn_index": turn_index + 1,
                 }
                 if await self._state_store.write_state_if_absent(key, record):
+                    session.next_turn_index = max(session.next_turn_index, turn_index + 1)
                     return turn_index
                 continue
             next_index = stored.get("next_turn_index")
@@ -798,6 +820,7 @@ class Bragi(BragiPublicationMixin, Agent):
                 expected_revision=revision,
             )
             if advanced:
+                session.next_turn_index = max(session.next_turn_index, next_index + 1)
                 return next_index
         raise RuntimeError("Bragi turn sequence CAS retry limit exceeded")
 
@@ -838,6 +861,29 @@ class Bragi(BragiPublicationMixin, Agent):
         if not advanced:
             raise RuntimeError("Bragi turn outbox update conflicted")
         return payload
+
+    async def _claim_turn_publication(self, payload: Mapping[str, Any]) -> bool:
+        if self._state_store is None:
+            return True
+        key = _turn_outbox_key(str(payload["session_id"]), int(payload["turn_index"]))
+        for _attempt in range(16):
+            stored = await self._state_store.read_state(key)
+            if stored is None:
+                raise RuntimeError("Bragi turn outbox row disappeared before publication")
+            status = stored.get("status")
+            if status == "published":
+                return False
+            if status == "publishing":
+                return False
+            revision = int(stored.get("revision", 1))
+            advanced = await self._state_store.compare_and_set_state(
+                key,
+                {**dict(stored), "status": "publishing", "revision": revision + 1},
+                expected_revision=revision,
+            )
+            if advanced:
+                return True
+        raise RuntimeError("Bragi turn publication claim CAS retry limit exceeded")
 
     async def _mark_turn_published(self, payload: Mapping[str, Any]) -> None:
         if self._state_store is None:
@@ -888,9 +934,18 @@ class Bragi(BragiPublicationMixin, Agent):
                 payload = row.get("payload")
                 if not isinstance(payload, Mapping):
                     raise RuntimeError("Bragi turn outbox row is malformed")
-                await self.bus.publish("Bragi", "object.turn", dict(payload))
-                await self._mark_turn_published(payload)
-                published += 1
+                if await self._claim_turn_publication(payload):
+                    publish_task = asyncio.create_task(
+                        self.bus.publish("Bragi", "object.turn", dict(payload))
+                    )
+                    try:
+                        await asyncio.shield(publish_task)
+                        await asyncio.shield(self._mark_turn_published(payload))
+                    except asyncio.CancelledError:
+                        await asyncio.shield(publish_task)
+                        await asyncio.shield(self._mark_turn_published(payload))
+                        raise
+                    published += 1
         return progress, published
 
     async def _publish_handoff(
@@ -957,6 +1012,7 @@ def _next_turn_index(session: ConversationSession) -> int:
 
 def _append_turn(session: ConversationSession, turn: Turn) -> None:
     session.turns.append(turn)
+    session.next_turn_index = max(session.next_turn_index, turn.turn_index + 1)
     if len(session.turns) > _MAX_SESSION_TURNS:
         del session.turns[:-_MAX_SESSION_TURNS]
 

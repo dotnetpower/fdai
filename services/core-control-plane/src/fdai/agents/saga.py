@@ -81,7 +81,10 @@ class Saga(Agent, HandoverKnowledgeMixin):
         durable_state_store: StateStore | None = None,
         github: IssueTrackerAdapter | None = None,
         clock: Callable[[], datetime] = _utc_now,
+        issue_timeout_seconds: float = 5.0,
     ) -> None:
+        if issue_timeout_seconds <= 0:
+            raise ValueError("issue timeout MUST be positive")
         super().__init__(spec=_SAGA)
         self.audit_chain: SagaAuditChain = audit_chain or InMemoryAuditChain()
         self.state_store = state_store or InMemoryStateStore()
@@ -93,9 +96,10 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self._fingerprint_index: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
             _MAX_FINGERPRINT_INDEX
         )
-        self._handoff_lock = asyncio.Lock()
+        self._handoff_locks: dict[str, asyncio.Lock] = {}
         self.github = github or InMemoryGithubIssueAdapter()
         self._clock = clock
+        self._issue_timeout_seconds = issue_timeout_seconds
 
     @property
     def durable_audit(self) -> bool:
@@ -126,9 +130,18 @@ class Saga(Agent, HandoverKnowledgeMixin):
             payload = row.get("payload")
             if not isinstance(payload, Mapping):
                 raise RuntimeError("Saga audit outbox row is malformed")
-            await self.bus.publish("Saga", "object.audit-entry", dict(payload))
-            await self._mark_audit_outbox_published(dict(payload))
-            published += 1
+            if await self._claim_audit_outbox_publication(dict(payload)):
+                publish_task = asyncio.create_task(
+                    self.bus.publish("Saga", "object.audit-entry", dict(payload))
+                )
+                try:
+                    await asyncio.shield(publish_task)
+                    await asyncio.shield(self._mark_audit_outbox_published(dict(payload)))
+                except asyncio.CancelledError:
+                    await asyncio.shield(publish_task)
+                    await asyncio.shield(self._mark_audit_outbox_published(dict(payload)))
+                    raise
+                published += 1
         return published
 
     async def _append_audit(
@@ -159,8 +172,16 @@ class Saga(Agent, HandoverKnowledgeMixin):
         if self.bus is None:
             self.record_behavior("audit_outbox:publication_pending")
             return
-        await self.bus.publish("Saga", "object.audit-entry", payload)
-        await self._mark_audit_outbox_published(payload)
+        if not await self._claim_audit_outbox_publication(payload):
+            return
+        publish_task = asyncio.create_task(self.bus.publish("Saga", "object.audit-entry", payload))
+        try:
+            await asyncio.shield(publish_task)
+            await asyncio.shield(self._mark_audit_outbox_published(payload))
+        except asyncio.CancelledError:
+            await asyncio.shield(publish_task)
+            await asyncio.shield(self._mark_audit_outbox_published(payload))
+            raise
 
     async def _checkpoint_audit_outbox(self, payload: Mapping[str, Any]) -> None:
         if self._durable_state_store is None:
@@ -182,6 +203,28 @@ class Saga(Agent, HandoverKnowledgeMixin):
             raise RuntimeError("Saga audit outbox row disappeared")
         if stored.get("payload") != record["payload"]:
             raise RuntimeError("Saga audit outbox idempotency collision")
+
+    async def _claim_audit_outbox_publication(self, payload: Mapping[str, Any]) -> bool:
+        if self._durable_state_store is None:
+            return True
+        key = _audit_outbox_key(payload)
+        for _attempt in range(16):
+            stored = await self._durable_state_store.read_state(key)
+            if stored is None:
+                raise RuntimeError("Saga audit outbox row disappeared")
+            if stored.get("status") == "published":
+                return False
+            if stored.get("status") == "publishing":
+                return False
+            revision = int(stored.get("revision", 1))
+            advanced = await self._durable_state_store.compare_and_set_state(
+                key,
+                {**dict(stored), "status": "publishing", "revision": revision + 1},
+                expected_revision=revision,
+            )
+            if advanced:
+                return True
+        raise RuntimeError("Saga audit outbox publication claim CAS retry limit exceeded")
 
     async def _mark_audit_outbox_published(self, payload: Mapping[str, Any]) -> None:
         if self._durable_state_store is None:
@@ -407,7 +450,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
-        async with self._handoff_lock:
+        lock_key = str(payload.get("escalation_id") or payload.get("id") or correlation_id)
+        lock = self._handoff_locks.setdefault(lock_key, asyncio.Lock())
+        async with lock:
             await self._materialize_handoff_locked(payload, correlation_id)
 
     async def _materialize_handoff_locked(
@@ -746,15 +791,42 @@ class Saga(Agent, HandoverKnowledgeMixin):
         durable_prior = await self._load_durable_fingerprint(fingerprint)
         if durable_prior is not None:
             await self.rehydrate_issue_tracker()
-            occurrence_count = int(durable_prior["occurrence_count"]) + 1
-            updated = {
-                **durable_prior,
-                "occurrence_count": occurrence_count,
-                "last_correlation_id": correlation_id,
-            }
-            await self._put_durable_fingerprint(fingerprint, updated)
+            updated = await self._increment_durable_fingerprint(
+                fingerprint,
+                last_correlation_id=correlation_id,
+            )
+            if updated is None:
+                raise RuntimeError("durable issue fingerprint disappeared during increment")
             self._fingerprint_index.set(fingerprint, updated)
-            return int(updated["issue_number"]), False, occurrence_count
+            return int(updated["issue_number"]), False, int(updated["occurrence_count"])
+        if self._durable_state_store is not None and not await self._claim_fingerprint_creation(
+            fingerprint,
+            operation_id=operation_id,
+            correlation_id=correlation_id,
+        ):
+            creating_operation = await self._fingerprint_creation_operation(fingerprint)
+            if creating_operation == operation_id and isinstance(
+                self.github, IdempotentIssueTrackerAdapter
+            ):
+                pass
+            else:
+                await self.rehydrate_issue_tracker()
+                durable_after_claim = await self._load_durable_fingerprint(fingerprint)
+                if durable_after_claim is not None:
+                    updated = await self._increment_durable_fingerprint(
+                        fingerprint,
+                        last_correlation_id=correlation_id,
+                    )
+                    if updated is None:
+                        raise RuntimeError("durable issue fingerprint disappeared during increment")
+                    self._fingerprint_index.set(fingerprint, updated)
+                    return (
+                        int(updated["issue_number"]),
+                        False,
+                        int(updated["occurrence_count"]),
+                    )
+                self.record_behavior("handoff:fingerprint_claim_busy")
+                raise RuntimeError("issue fingerprint mutation is already in progress")
         title = f"[{intent_category}] {emitting_agent} handoff"
         body_lines = [
             f"Fingerprint: `{fingerprint}`",
@@ -782,7 +854,17 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 title=title,
                 body=body,
             )
-        issue, created = await issue_result if inspect.isawaitable(issue_result) else issue_result
+        if inspect.isawaitable(issue_result):
+            try:
+                issue, created = await asyncio.wait_for(
+                    issue_result,
+                    timeout=self._issue_timeout_seconds,
+                )
+            except TimeoutError:
+                self.record_behavior("handoff:issue_timeout")
+                raise
+        else:
+            issue, created = issue_result
         occurrence_count = 1 + len(issue.comments)
         fingerprint_state = {
             "issue_number": issue.number,
@@ -804,6 +886,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
         stored = await self._durable_state_store.read_state(_fingerprint_key(fingerprint))
         if stored is None:
             return None
+        if stored.get("status") == "creating":
+            return None
         issue_number = stored.get("issue_number")
         occurrence_count = stored.get("occurrence_count")
         if (
@@ -818,6 +902,68 @@ class Saga(Agent, HandoverKnowledgeMixin):
             raise RuntimeError("durable issue fingerprint record is malformed")
         return dict(stored)
 
+    async def _claim_fingerprint_creation(
+        self,
+        fingerprint: str,
+        *,
+        operation_id: str,
+        correlation_id: str,
+    ) -> bool:
+        if self._durable_state_store is None:
+            return True
+        key = _fingerprint_key(fingerprint)
+        return await self._durable_state_store.write_state_if_absent(
+            key,
+            {
+                "schema_version": "1.0.0",
+                "revision": 1,
+                "fingerprint": fingerprint,
+                "status": "creating",
+                "operation_id": operation_id,
+                "last_correlation_id": correlation_id,
+            },
+        )
+
+    async def _fingerprint_creation_operation(self, fingerprint: str) -> str | None:
+        if self._durable_state_store is None:
+            return None
+        stored = await self._durable_state_store.read_state(_fingerprint_key(fingerprint))
+        if stored is None or stored.get("status") != "creating":
+            return None
+        operation_id = stored.get("operation_id")
+        return str(operation_id) if isinstance(operation_id, str) and operation_id else None
+
+    async def _increment_durable_fingerprint(
+        self,
+        fingerprint: str,
+        *,
+        last_correlation_id: str,
+    ) -> dict[str, Any] | None:
+        if self._durable_state_store is None:
+            return None
+        key = _fingerprint_key(fingerprint)
+        for _attempt in range(16):
+            stored = await self._durable_state_store.read_state(key)
+            if stored is None:
+                return None
+            current = await self._load_durable_fingerprint(fingerprint)
+            if current is None:
+                return None
+            revision = int(stored.get("revision", 1))
+            updated = {
+                **current,
+                "occurrence_count": int(current["occurrence_count"]) + 1,
+                "last_correlation_id": last_correlation_id,
+            }
+            advanced = await self._durable_state_store.compare_and_set_state(
+                key,
+                {**updated, "revision": revision + 1},
+                expected_revision=revision,
+            )
+            if advanced:
+                return updated
+        raise RuntimeError("issue fingerprint occurrence CAS retry limit exceeded")
+
     async def _put_durable_fingerprint(self, fingerprint: str, value: dict[str, Any]) -> None:
         if self._durable_state_store is None:
             return
@@ -825,6 +971,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
             "schema_version": "1.0.0",
             "revision": 1,
             "fingerprint": fingerprint,
+            "status": "complete",
             **value,
         }
         key = _fingerprint_key(fingerprint)
