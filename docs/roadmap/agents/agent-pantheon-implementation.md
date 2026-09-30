@@ -219,6 +219,54 @@ metadata.
   with action type, resource, and rollback contract. Thor ignores a stale or mismatched rollback
   without changing the current run or releasing its claim.
 
+#### Parameter validation, idempotency, and safeguards
+
+Correlation reuse is validated at execution. A retry with the same action identity remains
+idempotent, but a different action under the same correlation becomes an auditable terminal
+rejection rather than an ambiguous dispatch. Thor bounds verdict parameters before it creates or
+persists an `ActionRun`; oversized, deeply nested, or non-schema fields are rejected before they
+can become durable executor context, approval context, or audit material.
+
+Executable non-shadow verdicts carry all seven safeguards on the wire: stop condition, tested
+rollback, impact scope, successful dry-run, logical target lock, stable idempotency key, and
+two-phase audit. A missing `safeguards` object is denied before executor I/O. Forseti emits those
+safeguards on executable rule and arbitration verdicts; advisory verdicts keep typed stable
+idempotency keys without granting action authority. Forseti's rule cache accepts only strictly
+newer, Mimir-authenticated rule revisions.
+
+#### Impact scope and batch semantics
+
+The current runtime does not expose `ActionAttempt`, `attempt_id`, or a typed per-attempt rollup
+field. Batch semantics remain planned. Exit condition: a multi-target ActionType produces
+independent attempt identities, per-target rollback isolation, a typed rollup field, and Saga
+per-attempt plus rollup audit entries. Planned failure isolation keeps a failing attempt scoped to
+its own target, preserves sibling successes, records the mixed outcome on the rollup `ActionRun`,
+and writes both per-attempt and rollup audit entries. Partition keys preserve per-resource, not
+cross-resource, ordering.
+
+#### Rollback quorum and recovery decisions
+
+Thor re-derives the irreversible-action quorum from ActionType semantics before leaving
+`verdicted` for any executable state. Human approvals bind to the exact `ActionRun` identity, Var
+producer evidence, approval idempotency key, approver set, and quorum evidence; when durable Var
+readback is configured, Thor requires the current stored approval before it advances. Var also
+re-derives quorum from ActionType semantics and treats unknown or catalog-missing actions as
+requiring the irreversible minimum. Vidar admits rollback only for Thor-owned `ActionRun` messages
+with matching identity and rollback evidence.
+
+Forseti treats `auto` as an upper bound. Without governed reversible ActionType semantics, or when
+the verdict requires quorum `>= 2`, the runtime caps the decision to human approval (`hil`). The
+judgment table is injected and digest-stamped; Forseti records deterministic verdict keys from the
+event identity and action instead of falling back to a bare correlation. Retired or revoked rules
+also cap `auto` to `hil`. Arbitration decisions are accepted only from Odin, and per-domain
+dispositions are honored before a resolved arbitration verdict is emitted. Resolved arbitration
+verdicts carry the resulting autonomy ceiling and the action idempotency key Thor will enforce.
+
+`execution_unknown` is a recovery decision, not a successful or failed action. Vidar closes it only
+through the rollback contract or a visible `rollback_refused` state when the required durable
+rollback preconditions are missing. Thor releases or fences the resource lock after failed or
+refused rollback so the stuck run remains visible without holding the resource indefinitely.
+
 #### Arbitration, narration, audit, and specialist replay
 
 - Forseti persists pending arbitration context, cross-vertical candidate deadlines, completed
@@ -307,6 +355,15 @@ preserve the initiator, and Var enforces no-self-approval. Entry RBAC rejects ac
 `Contributor`. Huginn accepts operator proposal fields only for
 `event_type == "operator_request"` and treats `operator_initiated` as a strict Boolean, so an
 external signal cannot spoof an operator action.
+The initiator principal participates in idempotency material, and typed params carry only action
+arguments plus digests or refs for conversational lineage, never raw question text or raw session
+identifiers. Huginn bounds raw request shape and depth, rejects unsafe identity characters,
+normalizes accepted source times to UTC with bounded skew, and records content-free rejection
+counters for inputs it cannot trust. Raw operator requests keep strictly bounded fields and a
+server-owned channel: `ingress` for authenticated service producers and `conversation` for Bragi's
+in-process proposal entry point. Huginn never copies unowned authority fields such as
+caller-supplied initiator, ActionType, or params from raw ingress, and Forseti's RBAC denies unknown
+initiators before a verdict can form.
 
 ### Assembly and lifecycle
 
@@ -422,7 +479,11 @@ mode.
 - Agent publication uses the `PantheonBus` protocol, so runtime composition can replace delivery
   adapters without changing role or authority contracts.
 
-### Health, KPI, and digest evidence
+### Rate-limit, health, and bounded backlogs
+
+Runtime rate-limit enforcement uses a sliding window, not a fixed bucket, so boundary bursts do not
+double the effective rate. Excess proposals enter a bounded queue; overflow is dropped with a
+`rate_limit_exceeded` audit entry for Saga and Norns to learn why the agent burst.
 
 Health and KPI snapshots distinguish measured values from unavailable evidence. Missing,
 stale, incomplete, or degraded samples render `value: null` with an evidence state and degradation

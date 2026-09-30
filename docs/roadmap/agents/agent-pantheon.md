@@ -627,34 +627,17 @@ Three validation checks, all deterministic:
 
 The implemented lifecycle-stable identity is `action_run_identity()`, derived from the stable
 publication payload. `idempotency_key` remains the executor no-op key for same-action
-republishing. Same-key republishing is an executor no-op, with the duplicate audited.
-Correlation reuse is also validated at execution. A retry with the same action identity remains
-idempotent, but a different action under the same correlation becomes an auditable terminal
-rejection rather than an ambiguous dispatch.
-Thor also bounds verdict parameters before it creates or persists an `ActionRun`. Oversized,
-deeply nested, or non-schema fields are rejected before they can become durable executor context,
-approval context, or audit material.
-Executable non-shadow verdicts must carry all seven safeguards: stop condition, tested rollback,
-impact scope, successful dry-run, logical target lock, stable idempotency key, and two-phase audit.
-A missing `safeguards` object is denied before executor I/O. Forseti emits those safeguards on
-executable rule and arbitration verdicts; advisory verdicts keep typed stable idempotency keys
-without granting action authority. Forseti's rule cache accepts only strictly newer,
-Mimir-authenticated rule revisions.
+republishing. Same-key republishing is an executor no-op, with the duplicate audited. The runtime
+mechanics for correlation reuse, parameter bounds, safeguard transport, and rule-cache freshness are
+specified in the [implementation plan](agent-pantheon-implementation.md#parameter-validation-idempotency-and-safeguards).
 
 ### 7.4 Impact scope and batch semantics
 
-The implemented model publishes one `ActionRun` for one `resource_id` and does not expose
-`ActionAttempt`, `attempt_id`, or a typed per-attempt rollup field. Batch semantics are planned.
-Exit condition: a multi-target ActionType produces independent attempt identities, per-target
-rollback isolation, a typed rollup field, and Saga per-attempt plus rollup audit entries.
-Until then, an ActionType with `blast_radius > 1` should be held for review or decomposed into
-separate single-resource runs. Planned failure isolation:
-
-- A failing attempt rolls back only its own target.
-- Sibling successes remain intact; the rollup `ActionRun` records the mix.
-- Saga writes both the per-attempt entries and the rollup entry.
-
-Partition keys preserve per-resource, not cross-resource, ordering.
+The implemented model publishes one `ActionRun` for one `resource_id`; multi-target batch semantics
+are planned and should not bypass per-resource ordering or rollback isolation. Until the batch exit
+condition in the [implementation plan](agent-pantheon-implementation.md#impact-scope-and-batch-semantics)
+lands, an ActionType with `blast_radius > 1` should be held for review or decomposed into separate
+single-resource runs.
 
 ### 7.5 Rollback contracts and irreversibility
 
@@ -667,26 +650,9 @@ Every ActionType, including irreversible actions, declares a live `rollback_cont
 | `tool.run-chaos-experiment` | `scripted` | false |
 
 An `irreversible: true` action normally requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it. The only exception is an explicitly injected full-authority development profile with one currently authenticated Owner and exact action safeguards. Var records original and effective quorum without inventing another person; Thor and Vidar revalidate the same profile, confirmation, action identity, distinct executor, expiry, durable audit, lock, idempotency, and observer before execution or rollback. Roles and topics stay fixed, and profile-scoped promotion never establishes production readiness.
-Thor re-derives the irreversible-action quorum from ActionType semantics before leaving
-`verdicted` for any executable state. The runtime requires all seven safeguards on the wire: stop
-condition, tested rollback, impact scope, successful dry-run, logical target lock, stable
-idempotency key, and two-phase audit. HIL approvals bind to the exact `ActionRun` identity, Var
-producer evidence, approval idempotency key, approver set, and quorum evidence; when durable Var
-readback is configured, Thor requires the current stored approval before it advances.
-Var also re-derives quorum from ActionType semantics and treats unknown or catalog-missing actions
-as requiring the irreversible minimum. Vidar admits rollback only for Thor-owned `ActionRun`
-messages with matching identity and rollback evidence.
-Forseti treats `auto` as an upper bound. Without governed reversible ActionType semantics, or when
-the verdict requires quorum `>= 2`, the runtime caps the decision to human approval (`hil`).
-The judgment table is injected and digest-stamped; Forseti records deterministic verdict keys from
-the event identity and action instead of falling back to a bare correlation. Retired or revoked
-rules also cap `auto` to `hil`. Arbitration decisions are accepted only from Odin, and per-domain
-dispositions are honored before a resolved arbitration verdict is emitted. Resolved arbitration
-verdicts carry the resulting autonomy ceiling and the action idempotency key Thor will enforce.
-`execution_unknown` is a recovery decision, not a successful or failed action. Vidar closes it only
-through the rollback contract or a visible `rollback_refused` state when the required durable
-rollback preconditions are missing. Thor releases or fences the resource lock after failed or
-refused rollback so the stuck run remains visible without holding the resource indefinitely.
+The runtime mechanics for quorum derivation, approval readback, autonomy ceilings, arbitration
+verdicts, and `execution_unknown` closure are specified in the
+[implementation plan](agent-pantheon-implementation.md#rollback-quorum-and-recovery-decisions).
 
 ### 7.6 Handoff as typed delivery
 
@@ -707,18 +673,8 @@ implementation that lets Bragi call an executor directly is a defect.
 Action re-entry fails closed unless the caller supplies an action-capable role and the semantic
 route binds the target required by the ActionType. Missing or read-only roles stop before proposal
 construction, and unbound targets hold as clarification rather than entering the pipeline. Proposal
-sinks report accepted, deduplicated, or unavailable outcomes separately. The initiator principal
-participates in idempotency material, and typed params carry only action arguments plus digests or
-refs for conversational lineage, never raw question text or raw session identifiers.
-Huginn is the raw-ingress trust boundary. It bounds raw request shape and depth, rejects unsafe
-identity characters, normalizes accepted source times to UTC with bounded skew, and records
-content-free rejection counters for inputs it cannot trust. Raw operator requests keep strictly
-bounded fields and a server-owned channel: `ingress` for authenticated service producers and
-`conversation` for Bragi's in-process proposal entry point. Huginn never copies unowned authority
-fields such as caller-supplied initiator, ActionType, or params from raw ingress, and Forseti's RBAC
-denies unknown initiators before a verdict can form.
-
-The exact proposal sink, operator RBAC, spoofing defense, and lineage propagation are specified in
+sinks report accepted, deduplicated, or unavailable outcomes separately. The exact proposal sink,
+operator RBAC, spoofing defense, raw-ingress bounds, and lineage propagation are specified in
 the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#conversational-action-re-entry).
 
 ### 7.8 Fork override boundaries
@@ -731,10 +687,9 @@ Role bindings (`executor`, `judge`, `approver`, `auditor`, `initiators`) and rol
 ### 7.9 Rate limits per agent
 
 Each agent declares `rate_limits`, defaulting to `20 proposals/minute` and `100 proposals/hour`.
-Runtime enforcement uses a sliding window, not a fixed bucket, so boundary bursts do not double the
-effective rate. Excess proposals enter a bounded queue; overflow is dropped with a
-`rate_limit_exceeded` audit entry for Saga and Norns to learn why the agent burst. Forks may configure the
-numbers.
+Runtime enforcement uses bounded queues and emits `rate_limit_exceeded` audit evidence when overflow
+occurs; the sliding-window and backlog mechanics are specified in the
+[implementation plan](agent-pantheon-implementation.md#rate-limit-health-and-bounded-backlogs). Forks may configure the numbers.
 
 ## 8. LLM policy per agent
 

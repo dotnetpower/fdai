@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 576906891b79efcb76c49318d79dd496112aa770
+translation_source_sha: 8ab8a5b1aa809a36d7fc3912c3436f47e8491cb9
 translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
@@ -613,32 +613,17 @@ no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 �
 
 구현된 수명 주기 안정 신원은 안정적인 게시 payload에서 파생되는 `action_run_identity()`입니다.
 `idempotency_key`는 같은 작업 재게시를 위한 executor no-op 키로 남습니다. 같은 키로 다시
-게시하면 실행기는 no-op 처리하고 중복을 감사합니다.
-상관관계 재사용도 실행 시 검증합니다. 같은 작업 신원의 재시도는 멱등성을 유지하지만, 같은 상관관계 아래 다른 작업은 모호한 dispatch가 아니라 감사 가능한 최종 차단 결과가 됩니다.
-Thor는 `ActionRun`을 만들거나 영속화하기 전에 verdict 매개 변수를 범위 제한합니다. 너무 크거나
-깊게 중첩되었거나 스키마에 맞지 않는 필드는 영속 실행기 맥락, 승인 맥락 또는 감사 자료가 되기
-전에 차단됩니다.
-실행 가능한 non-shadow 판정에는 일곱 가지 보호 장치가 모두 있어야 합니다. 정지 조건, 검증된
-롤백, 영향 범위, 성공한 예행 실행, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사입니다.
-`safeguards` 객체가 없으면 executor I/O 전에 거부합니다. Forseti는 실행 가능한 rule 및
-중재 판정에 이 보호 장치를 담아 내보냅니다. 자문 판정은 타입이 지정된 안정 멱등성 키를
-유지하지만 작업 권한은 부여하지 않습니다. Forseti의 rule cache는 Mimir가 인증한 엄격히 더
-새로운 rule 개정만 수락합니다.
+게시하면 실행기는 no-op 처리하고 중복을 감사합니다. 상관관계 재사용, 파라미터 한도, 보호 장치
+전달 및 rule cache 최신성의 런타임 방식은
+[구현 계획](agent-pantheon-implementation-ko.md#파라미터-검증-멱등성-및-보호-장치)에 명시합니다.
 
 ### 7.4 영향 범위 와 배치 시맨틱
 
-구현된 모델은 하나의 `resource_id`에 대해 하나의 `ActionRun`을 게시하며 `ActionAttempt`,
-`attempt_id`, 타입이 지정된 시도별 rollup 필드를 노출하지 않습니다. 배치 시맨틱은 planned입니다.
-Exit condition: multi-target ActionType이 독립 attempt 신원, 대상별 rollback 격리, 타입이 지정된
-rollup 필드, Saga의 시도별 및 rollup 감사 항목을 생성합니다. 그전까지 `blast_radius > 1`인
-ActionType은 검토로 보류하거나 별도 single-resource run으로 나누는 것이 좋습니다. Planned 실패
-격리:
-
-- 실패한 시도는 자기 타깃만 롤백합니다.
-- 형제 성공은 취소되지 않으며 rollup `ActionRun`이 혼합 결과를 기록합니다.
-- Saga는 시도별 항목과 rollup 항목을 모두 씁니다.
-
-파티션 키는 리소스별 순서만 보존하며 리소스 간 순서는 보장하지 않습니다.
+구현된 모델은 하나의 `resource_id`에 대해 하나의 `ActionRun`을 게시합니다. Multi-target 배치
+시맨틱은 계획되어 있으며 리소스별 순서나 rollback 격리를 우회하지 않는 것이 좋습니다.
+[구현 계획](agent-pantheon-implementation-ko.md#영향-범위와-배치-시맨틱)의 배치 종료 조건이
+완료되기 전까지 `blast_radius > 1`인 ActionType은 검토로 보류하거나 별도 single-resource
+run으로 나누는 것이 좋습니다.
 
 ### 7.5 Rollback 계약과 irreversibility
 
@@ -651,24 +636,8 @@ ActionType은 검토로 보류하거나 별도 single-resource run으로 나누�
 | `tool.run-chaos-experiment` | `scripted` | false |
 
 `irreversible: true` 작업에는 일반적으로 HIL, 서로 다른 승인자 2명 이상, 자기 승인 금지가 필요하며 Forseti가 `quorum_required: 2`를 첨부하고 Var가 적용합니다. 명시적으로 주입한 전권 개발 프로필만 예외이며, 현재 인증된 Owner 한 명이 정확한 작업과 보호 장치를 확인한 뒤 개발 환경의 유효 정족수를 충족할 수 있습니다. Var는 다른 사람을 만들어 내지 않고 원래 정족수와 유효 정족수를 모두 기록하며, Thor와 Vidar는 실행 또는 롤백 전에 같은 프로필, 확인, 작업 신원, 별도 실행기, 만료, 영속 감사, 잠금, 멱등성 및 관찰자 결속을 다시 검증합니다. 에이전트 역할과 토픽은 바뀌지 않으며 프로필 범위 승격은 프로덕션 준비 상태를 입증하지 않습니다.
-Thor는 실행 가능한 상태로 `verdicted`를 떠나기 전에 ActionType 의미에서 되돌릴 수 없는 작업의
-정족수를 다시 계산합니다. 런타임은 일곱 가지 보호 장치가 모두 wire에 있어야 합니다. 정지 조건,
-검증된 롤백, 영향 범위, 성공한 예행 실행, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사입니다.
-사람 승인은 정확한 `ActionRun` 신원, Var producer 근거, 승인 멱등성 키, 승인자 집합, 정족수
-근거에 결속됩니다. 영속 Var readback이 설정되어 있으면 Thor는 전이 전에 현재 저장된 승인을
-요구합니다. Var도 ActionType 의미에서 정족수를 다시 계산하고, 알 수 없거나 카탈로그가 없는
-작업은 되돌릴 수 없는 작업의 최소값이 필요한 것으로 처리합니다. Vidar는 Thor가 소유한
-`ActionRun` 메시지 중 신원과 롤백 근거가 일치하는 경우에만 롤백을 받아들입니다.
-Forseti는 `auto`를 상한으로만 취급합니다. 거버넌스가 적용된 되돌릴 수 있는 ActionType 의미가 없거나 판정에 정족수 `>= 2`가 필요하면 런타임은 결정을 사람 승인(`hil`)으로 낮춥니다.
-판단 표는 주입되며 digest가 찍힙니다. Forseti는 맨 상관관계로 대체하지 않고 이벤트 신원과
-작업에서 결정론적 verdict 키를 기록합니다. retired 또는 revoked 규칙도 `auto`를 `hil`로
-낮춥니다. 중재 결정은 Odin이 보낸 경우에만 수락하며, 해결된 중재 verdict를 내보내기 전에
-영역별 처리 결과를 반영합니다. 해결된 중재 verdict에는 결과 자율성 상한과 Thor가 강제할 작업
-멱등성 키가 포함됩니다.
-`execution_unknown`은 성공이나 실패한 작업이 아니라 복구 결정입니다. Vidar는 롤백 계약을
-통해서만 이를 닫거나, 필요한 영속 롤백 전제 조건이 없으면 가시적인 `rollback_refused`
-상태로 닫습니다. Thor는 rollback 실패나 거절 뒤에 리소스 잠금을 해제하거나 차단해 멈춘
-실행이 가시적으로 남되 리소스를 무기한 점유하지 않게 합니다.
+정족수 계산, 승인 재조회, 자율성 상한, 중재 판정 및 `execution_unknown` 종료의 런타임
+방식은 [구현 계획](agent-pantheon-implementation-ko.md#롤백-정족수와-복구-결정)에 명시합니다.
 
 ### 7.6 타입이 지정된 전달로서의 인계
 
@@ -689,18 +658,8 @@ Conversational 포트는 기본적으로 읽기 전용입니다. `allow_action_p
 액션 재진입은 호출자가 액션 가능 역할을 제공하고 의미 경로가 ActionType에 필요한 대상을
 연결한 경우에만 진행합니다. 누락된 역할이나 읽기 전용 역할은 제안 생성 전에 멈추며, 연결되지
 않은 대상은 파이프라인에 들어가지 않고 명확화로 보류합니다. 제안 싱크는 수락, 중복 제거, 사용
-불가 결과를 구분해 보고합니다. 시작 주체 principal은 멱등성 재료에 포함되며, 타입 지정
-파라미터는 대화 계보에 대한 다이제스트 또는 참조와 액션 인자만 담고 원시 질문 텍스트나 원시
-세션 식별자를 담지 않습니다.
-Huginn은 원시 유입 신뢰 경계입니다. 원시 요청의 형태와 깊이를 제한하고, 안전하지 않은 신원
-문자를 거부하며, 수락한 원본 시간을 범위가 제한된 오차 안에서 UTC로 정규화하고, 신뢰할 수 없는
-입력에는 내용 없는 거부 횟수를 기록합니다. 원시 운영자 요청은 엄격하게 제한된 필드와 서버가
-소유한 채널만 유지합니다. 인증된 서비스 producer에는 `ingress`, Bragi의 프로세스 내부 제안
-진입점에는 `conversation`을 사용합니다. Huginn은 호출자가 제공한 시작 주체, ActionType,
-params 같은 소유되지 않은 권한 필드를 원시 유입에서 복사하지 않으며, Forseti의 RBAC는 알 수
-없는 시작 주체를 verdict 형성 전에 차단합니다.
-
-정확한 제안 싱크, 운영자 RBAC, 위조 방어 및 계보 전달은
+불가 결과를 구분해 보고합니다. 정확한 제안 싱크, 운영자 RBAC, 위조 방어, 원시 유입 한도 및
+계보 전달은
 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#대화형-액션-재진입)을 따릅니다.
 
 ### 7.8 포크 재정의 경계
@@ -712,7 +671,8 @@ Shadow에서 enforce로 승격하려면 승격 게이트를 통과한 뒤 별도
 
 ### 7.9 에이전트 별 비율 한도
 
-각 에이전트는 기본값 `20 proposals/minute`, `100 proposals/hour`인 `rate_limits`를 선언합니다. 런타임 적용은 고정 버킷이 아니라 sliding window를 사용하므로 경계 시점 burst가 유효 비율을 두 배로 만들지 않습니다. 초과 제안은 범위가 제한된 큐에 넣고 큐가 넘치면 `rate_limit_exceeded` 감사 항목과 함께 폐기하여 Saga와 Norns가 급증 원인을 학습하도록 합니다. 포크는 이 수치를 설정할 수 있습니다.
+각 에이전트는 기본값 `20 proposals/minute`, `100 proposals/hour`인 `rate_limits`를 선언합니다. 런타임 적용은 범위가 제한된 큐를 사용하며 넘침이 발생하면 `rate_limit_exceeded` 감사 근거를 내보냅니다.
+슬라이딩 윈도 및 백로그 방식은 [구현 계획](agent-pantheon-implementation-ko.md#비율-한도-상태-및-범위가-제한된-백로그)에 명시합니다. 포크는 이 수치를 설정할 수 있습니다.
 
 ## 8. 에이전트 별 LLM 정책
 
