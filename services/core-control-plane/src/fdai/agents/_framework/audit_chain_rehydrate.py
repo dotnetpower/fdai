@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -47,7 +49,18 @@ async def rehydrate_audit_entries(store: StateStore) -> list[AuditEntry]:
                 correlation_id=restored_entry.correlation_id,
                 payload_digest=restored_entry.payload_digest,
             )
-            if recomputed != restored_entry.entry_hash:
+            if (
+                recomputed != restored_entry.entry_hash
+                and _legacy_entry_hash(
+                    seq=restored_entry.seq,
+                    prev_hash=restored_entry.prev_hash,
+                    principal=restored_entry.principal,
+                    topic=restored_entry.topic,
+                    correlation_id=restored_entry.correlation_id,
+                    payload_digest=restored_entry.payload_digest,
+                )
+                != restored_entry.entry_hash
+            ):
                 raise RuntimeError("durable audit hash chain verification failed")
             prev_hash = restored_entry.entry_hash
             restored.append(restored_entry)
@@ -108,6 +121,30 @@ def _entry_hash(
             "payload_digest": payload_digest,
         }
     )
+
+
+def _legacy_entry_hash(
+    *,
+    seq: int,
+    prev_hash: str,
+    principal: str,
+    topic: str,
+    correlation_id: str,
+    payload_digest: str,
+) -> str:
+    payload = json.dumps(
+        {
+            "seq": seq,
+            "prev_hash": prev_hash,
+            "principal": principal,
+            "topic": topic,
+            "correlation_id": correlation_id,
+            "payload_digest": payload_digest,
+        },
+        sort_keys=True,
+        ensure_ascii=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)

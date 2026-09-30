@@ -49,6 +49,7 @@ from typing import Any
 
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.agents._framework.adapters import canonical_json_digest
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
@@ -108,6 +109,13 @@ _LEARNING_STATE_PREFIX = "pantheon/norns/learning-state-deltas"
 _LEARNING_STATE_PAGE = 128
 _DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 _MAX_POST_TURN_BODY_BYTES = 64 * 1024
+_CANDIDATE_TERMINAL_OUTCOMES = (
+    "published",
+    "held",
+    "invalidated",
+    "disabled",
+    "rate_limited",
+)
 _LEARNING_BUCKETS = (
     "outcomes",
     "outcome_proposed",
@@ -252,6 +260,9 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         self._clock = clock or (lambda: datetime.now(UTC))
         self._operating_pattern_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._pattern_publications: dict[str, dict[str, Any]] = {}
+        self._candidate_terminal_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        self._candidate_terminal_counts = {outcome: 0 for outcome in _CANDIDATE_TERMINAL_OUTCOMES}
+        self._pattern_validation_counts = {"valid": 0, "false": 0}
         self._semantic_feedback = NornsSemanticFeedbackLearning(semantic_feedback_store)
         # Shadow outcomes never feed the rollback-rate learner (a judged-and-logged
         # 'success' says nothing about real safety), but they are the only evidence
@@ -465,7 +476,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             "late_breach",
             "magnitude_error",
         }:
-            self.record_behavior(f"forecast_case:{label or 'unknown'}")
+            self.record_behavior("forecast_case:invalid_label")
             return
         fingerprint = hashlib.sha256(f"{detector_id}\0{metric}".encode()).hexdigest()
         count = (self._forecast_error_counts.get(fingerprint) or 0) + 1
@@ -478,7 +489,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                 self._mark_learning_dirty("counted_case_revisions", dedup_key)
                 self._forecast_error_counts.set(fingerprint, count)
                 self._mark_learning_dirty("forecast_error_counts", fingerprint)
-                self.record_behavior(f"forecast_case:{label}")
+                self.record_behavior(_forecast_case_behavior_key(label))
             self.record_behavior("forecast_case:collecting")
             return
         if fingerprint in self._forecast_error_proposed:
@@ -509,7 +520,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                     self._mark_learning_dirty("forecast_error_counts", fingerprint)
                     self._forecast_error_proposed.add(fingerprint)
                     self._mark_learning_dirty("forecast_error_proposed", fingerprint)
-                    self.record_behavior(f"forecast_case:{label}")
+                    self.record_behavior(_forecast_case_behavior_key(label))
                     self._append_candidate(
                         {
                             "source_signal": "forecast_case_history_analysis",
@@ -542,7 +553,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             self._mark_learning_dirty("forecast_error_counts", fingerprint)
             self._forecast_error_proposed.add(fingerprint)
             self._mark_learning_dirty("forecast_error_proposed", fingerprint)
-            self.record_behavior(f"forecast_case:{label}")
+            self.record_behavior(_forecast_case_behavior_key(label))
             self._append_candidate(
                 {
                     "source_signal": "forecast_case_history",
@@ -1001,6 +1012,70 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         if len(self.pending_candidates) >= self._max_pending_candidates:
             raise NornsCapacityError("Norns pending candidate capacity exhausted")
 
+    def _record_candidate_terminal(self, candidate: Mapping[str, Any], outcome: str) -> None:
+        if outcome not in self._candidate_terminal_counts:
+            return
+        try:
+            identity = canonical_json_digest(candidate)
+        except (TypeError, ValueError):
+            identity = content_digest({"candidate_identity": "non_json", "outcome": outcome})
+        if identity in self._candidate_terminal_ids:
+            return
+        self._candidate_terminal_ids.add(identity)
+        self._candidate_terminal_counts[outcome] += 1
+
+    def observe_pattern_validation(self, *, valid: bool) -> None:
+        """Record a bounded pattern validation outcome for KPI reporting."""
+
+        key = "valid" if valid else "false"
+        self._pattern_validation_counts[key] += 1
+        self.record_behavior(f"pattern_validation:{key}")
+
+    def health(self) -> dict[str, Any]:
+        durable_learning = self._learning_state_store is not None
+        pending_count = len(self.pending_candidates)
+        terminal_total = sum(self._candidate_terminal_counts.values())
+        pattern_total = sum(self._pattern_validation_counts.values())
+        status = "ok" if durable_learning else "degraded"
+        return {
+            "agent": self.spec.name,
+            "status": status,
+            "learning": {
+                "mode": "off_path",
+                "status": "enabled",
+                "durability": "durable" if durable_learning else "process_local",
+                "warning": None if durable_learning else "learning_state_process_local",
+                "recovered": self._learning_state_recovered,
+            },
+            "candidate_delivery": {
+                "journal_durability": (
+                    "durable" if self._operational_journal.durable else "process_local"
+                ),
+                "pending_candidates": pending_count,
+                "durable_pending_count": self._operational_journal.last_pending_total,
+                "terminal_counts": dict(self._candidate_terminal_counts),
+                "oldest_pending_age_seconds": None,
+            },
+            "discovery_velocity": {
+                "pending_candidates": pending_count,
+                "terminal_candidates": terminal_total,
+            },
+            "kpis": {
+                "rule_candidate_adoption_rate": _ratio_kpi(
+                    self._candidate_terminal_counts["published"],
+                    terminal_total,
+                ),
+                "pattern_validity_rate": _ratio_kpi(
+                    self._pattern_validation_counts["valid"],
+                    pattern_total,
+                ),
+                "false_pattern_rate": _ratio_kpi(
+                    self._pattern_validation_counts["false"],
+                    pattern_total,
+                ),
+            },
+        }
+
     # ---- observers -----------------------------------------------------
 
     def occurrences(self, fingerprint: str) -> int:
@@ -1049,6 +1124,34 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         facts["evidence_refs"] = [evidence_ref]
         answer = norns_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
+
+
+def _forecast_case_behavior_key(label: str) -> str:
+    keys = {
+        "false_positive": "forecast_case:false_positive",
+        "false_negative": "forecast_case:false_negative",
+        "late_breach": "forecast_case:late_breach",
+        "magnitude_error": "forecast_case:magnitude_error",
+    }
+    return keys.get(label, "forecast_case:invalid_label")
+
+
+def _ratio_kpi(numerator: int, denominator: int) -> dict[str, Any]:
+    if denominator <= 0:
+        return {
+            "value": None,
+            "evidence_state": "not_observed",
+            "numerator": numerator,
+            "denominator": denominator,
+            "unit": "ratio",
+        }
+    return {
+        "value": numerator / denominator,
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": "ratio",
+    }
 
 
 __all__ = ["Norns", "NornsCapacityError"]

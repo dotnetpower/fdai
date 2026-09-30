@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import inspect
-import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -23,6 +22,7 @@ from fdai.agents._framework.adapters import (
     InMemoryGithubIssueAdapter,
     InMemoryStateStore,
     IssueTrackerAdapter,
+    canonical_json_digest,
 )
 from fdai.agents._framework.assignment_workflow import seal_assignment
 from fdai.agents._framework.base import Agent
@@ -307,6 +307,15 @@ class Saga(Agent, HandoverKnowledgeMixin):
         the overflowing member directly, and the record grants no authority.
         """
         correlation_id = str(payload.get("correlation_id") or "")
+        try:
+            payload_digest: str | None = canonical_json_digest(payload)
+            payload_digest_state = "measured"
+            payload_digest_error = None
+        except (TypeError, ValueError) as exc:
+            self.record_behavior("rate_limit_overflow:payload_digest_unavailable")
+            payload_digest = None
+            payload_digest_state = "non_json_rejected"
+            payload_digest_error = type(exc).__name__
         await self._append_audit(
             principal="Saga",
             topic="object.audit-entry",
@@ -315,16 +324,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 "kind": "rate_limit_overflow",
                 "overflowing_agent": agent_name,
                 "overflowed_topic": topic,
-                "payload_digest": hashlib.sha256(
-                    json.dumps(
-                        payload,
-                        allow_nan=False,
-                        default=str,
-                        ensure_ascii=True,
-                        separators=(",", ":"),
-                        sort_keys=True,
-                    ).encode("utf-8")
-                ).hexdigest(),
+                "payload_digest": payload_digest,
+                "payload_digest_evidence_state": payload_digest_state,
+                "payload_digest_error": payload_digest_error,
                 "execution_authority": False,
             },
         )
@@ -1440,10 +1442,7 @@ def _published_audit_outbox_tombstone(
 
 
 def _payload_digest(payload: Mapping[str, Any]) -> str:
-    digest = hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
-    return f"sha256:{digest}"
+    return f"sha256:{canonical_json_digest(payload)}"
 
 
 def _fingerprint_key(fingerprint: str) -> str:

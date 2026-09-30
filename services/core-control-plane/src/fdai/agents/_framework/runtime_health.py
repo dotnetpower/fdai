@@ -207,11 +207,42 @@ def _available_kpi_values(
             return {"audit_chain_integrity_rate": 1.0}, {
                 "audit_chain_integrity_rate": {"denominator": str(verified)}
             }
+    if agent == "Mimir":
+        passed = behavior.get("promotion:passed")
+        reviewed_required = behavior.get("promotion:reviewed_change_required")
+        failed_operational = behavior.get("promotion:failed_operational_candidate")
+        failed_dwell = behavior.get("promotion:failed_shadow_dwell")
+        if isinstance(passed, int):
+            total = passed + sum(
+                value
+                for value in (reviewed_required, failed_operational, failed_dwell)
+                if isinstance(value, int)
+            )
+            if total:
+                return {"promotion_pass_rate": passed / total}, {
+                    "promotion_pass_rate": {"denominator": str(total)}
+                }
+    if agent == "Muninn":
+        hits = behavior.get("context_fetch:hit")
+        misses = behavior.get("context_fetch:miss")
+        if isinstance(hits, int) and isinstance(misses, int):
+            total = hits + misses
+            if total:
+                return {"cache_hit_rate": hits / total}, {
+                    "cache_hit_rate": {"denominator": str(total)}
+                }
     if agent == "Norns":
         published = behavior.get("rule_candidate_published")
         held = behavior.get("rule_candidate_consensus_held")
-        if isinstance(published, int) and published >= 0 and isinstance(held, int):
-            total = published + held
+        disabled = behavior.get("rule_candidate_publication_disabled")
+        invalidated = behavior.get("operational_case_candidate_source_invalidated")
+        rate_limited = behavior.get("rate_limit_exceeded")
+        if isinstance(published, int) and published >= 0:
+            total = published + sum(
+                value
+                for value in (held, disabled, invalidated, rate_limited)
+                if isinstance(value, int)
+            )
             if total:
                 return {"rule_candidate_adoption_rate": published / total}, {
                     "rule_candidate_adoption_rate": {"denominator": str(total)}

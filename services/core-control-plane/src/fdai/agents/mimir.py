@@ -145,6 +145,8 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             max_pending_candidates
         )
         self._catalog_draft_rule_ids: BoundedLruSet[str] = BoundedLruSet(max_review_packages)
+        self._promotion_pass_count = 0
+        self._promotion_fail_count = 0
 
     def bind_rule_generation_build_handler(
         self,
@@ -636,17 +638,22 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             or rule_id in self._published_operational_targets
             or rule_id in self._catalog_draft_rule_ids
         ):
+            self._promotion_fail_count += 1
+            self.record_behavior("promotion:failed_operational_candidate")
             raise ValueError(
                 "operational candidates require a reviewed catalog PR; "
                 "direct runtime promotion is not supported"
             )
         blocking_gaps = self._dwell_gaps_for(rule_id)
         if blocking_gaps:
+            self._promotion_fail_count += 1
+            self.record_behavior("promotion:failed_shadow_dwell")
             raise ValueError(
                 f"rule {rule_id} has a pending discovery-loop candidate whose shadow "
                 f"dwell evidence is insufficient: {', '.join(blocking_gaps)}"
             )
         if not reviewed_change_ref or not reviewed_change_ref.strip():
+            self._promotion_fail_count += 1
             self.record_behavior("promotion:reviewed_change_required")
             raise ValueError("rule promotion requires a reviewed catalog-as-code reference")
         promo = RulePromotion(
@@ -662,6 +669,8 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             ),
         )
         self._rebuild_candidate_indexes()
+        self._promotion_pass_count += 1
+        self.record_behavior("promotion:passed")
         return promo
 
     def _dwell_gaps_for(self, rule_id: str) -> tuple[str, ...]:
@@ -685,6 +694,54 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
 
     def status(self, rule_id: str) -> RulePromotion | None:
         return self._promotions.get(rule_id)
+
+    def health(self) -> dict[str, Any]:
+        durable_governance = self._governance_state_store is not None
+        stale_rules = sum(1 for promotion in self._promotions.values() if not promotion.updated_at)
+        tracked_rules = len(self._promotions)
+        status = "ok" if durable_governance and stale_rules == 0 else "degraded"
+        return {
+            "agent": self.spec.name,
+            "status": status,
+            "rule_cache": {
+                "tracked_rules": tracked_rules,
+                "fresh_rules": tracked_rules - stale_rules,
+                "stale_rules": stale_rules,
+                "freshness_state": "measured" if tracked_rules else "not_observed",
+                "warning": "stale_rule_metadata" if stale_rules else None,
+            },
+            "persistence": {
+                "governance_state": "durable" if durable_governance else "process_local",
+                "catalog_review_state": (
+                    "durable" if self._catalog_review_journal.durable else "process_local"
+                ),
+                "pending_promotion_writes": len(self._promotion_persist_pending),
+            },
+            "catalog_review": {
+                "pending_candidates": len(self._pending_candidates),
+                "quarantined_candidates": len(self._quarantined_candidates),
+                "review_packages": len(self._catalog_review_packages),
+            },
+            "kpis": {
+                "rule_freshness_score": _ratio_kpi(
+                    tracked_rules - stale_rules,
+                    tracked_rules,
+                ),
+                "promotion_pass_rate": _ratio_kpi(
+                    self._promotion_pass_count,
+                    self._promotion_pass_count + self._promotion_fail_count,
+                ),
+                "shadow_failure_rate": _ratio_kpi(
+                    sum(
+                        1
+                        for candidate in self._pending_candidates
+                        if self.shadow_dwell_decision(candidate).gaps
+                    ),
+                    len(self._pending_candidates),
+                ),
+                "stale_rule_ratio": _ratio_kpi(stale_rules, tracked_rules),
+            },
+        }
 
     async def drain_governance_writes(self) -> None:
         """Wait for sync promotion/revocation persistence tasks before restart tests."""
@@ -810,7 +867,8 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             "tracked_rules": capped_list(sorted(self._promotions)),
             "tracked_rules_count": len(self._promotions),
             "pending_candidates": len(self._pending_candidates),
-            "promotion_ready_candidates": "bounded-summary-not-recomputed",
+            "promotion_ready_candidates": None,
+            "promotion_ready_candidates_evidence_state": "not_recomputed",
             "quarantined_candidates": len(self._quarantined_candidates),
             "catalog_review_packages": len(self._catalog_review_packages),
             "catalog_review_publication_receipts": len(self._published_reviews),
@@ -881,6 +939,24 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
                 f"Evidence: {evidence_ref}."
             )
         return IntrospectionResult(answer=answer, facts=facts)
+
+
+def _ratio_kpi(numerator: int, denominator: int) -> dict[str, Any]:
+    if denominator <= 0:
+        return {
+            "value": None,
+            "evidence_state": "not_observed",
+            "numerator": numerator,
+            "denominator": denominator,
+            "unit": "ratio",
+        }
+    return {
+        "value": numerator / denominator,
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": "ratio",
+    }
 
 
 __all__ = ["CatalogReviewCapacityError", "Mimir", "RulePromotion"]

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections import defaultdict
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field
@@ -353,9 +354,63 @@ class InMemoryAdminChannel:
 # ---------------------------------------------------------------------------
 
 
+def canonical_json_payload(obj: Any) -> str:
+    """Return strict canonical JSON for audit evidence.
+
+    The normalizer accepts JSON-native values plus Mapping and tuple/list containers.
+    Non-string Mapping keys, non-finite numbers, and arbitrary objects are rejected
+    instead of being stringified into process-dependent reprs.
+    """
+
+    return json.dumps(
+        _canonical_json_value(obj),
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def canonical_json_digest(obj: Any) -> str:
+    """Stable SHA-256 over :func:`canonical_json_payload`."""
+
+    return hashlib.sha256(canonical_json_payload(obj).encode("utf-8")).hexdigest()
+
+
+def _canonical_json_value(obj: Any) -> Any:
+    if obj is None or isinstance(obj, str | bool):
+        return obj
+    if isinstance(obj, int) and not isinstance(obj, bool):
+        return obj
+    if isinstance(obj, float):
+        if not math.isfinite(obj):
+            raise ValueError("canonical JSON numbers MUST be finite")
+        return obj
+    if isinstance(obj, Mapping):
+        normalized: dict[str, Any] = {}
+        for key, value in obj.items():
+            if not isinstance(key, str):
+                raise TypeError("canonical JSON object keys MUST be strings")
+            normalized[key] = _canonical_json_value(value)
+        return normalized
+    if isinstance(obj, tuple | list):
+        return [_canonical_json_value(value) for value in obj]
+    raise TypeError(f"object of type {type(obj).__name__} is not canonical JSON")
+
+
 def _digest(obj: Any) -> str:
-    """Stable JSON-based SHA256 digest, used for audit chain integrity."""
-    payload = json.dumps(obj, sort_keys=True, default=str, ensure_ascii=True)
+    """Stable strict-JSON SHA256 digest, used for audit chain integrity.
+
+    Audit-chain replay predates the compact evidence helper, so JSON-native
+    payloads keep the historical byte form (sorted keys, default separators,
+    ASCII) while still rejecting non-JSON values and non-finite numbers.
+    """
+    payload = json.dumps(
+        _canonical_json_value(obj),
+        allow_nan=False,
+        ensure_ascii=True,
+        sort_keys=True,
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -364,6 +419,8 @@ __all__ = [
     "AdminNotificationAdapter",
     "AuditChainError",
     "AuditEntry",
+    "canonical_json_digest",
+    "canonical_json_payload",
     "GitHubIssue",
     "InMemoryAdminChannel",
     "InMemoryAuditChain",

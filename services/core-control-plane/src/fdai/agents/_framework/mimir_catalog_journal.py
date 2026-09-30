@@ -26,6 +26,10 @@ class MimirCatalogReviewJournal:
         self._store = store
         self._capacity = capacity
 
+    @property
+    def durable(self) -> bool:
+        return self._store is not None
+
     def bind(self, store: StateStore) -> None:
         if self._store is not None:
             raise RuntimeError("Mimir catalog review state store is already bound")

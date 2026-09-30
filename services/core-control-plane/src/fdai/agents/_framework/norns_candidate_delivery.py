@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 from collections import deque
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any, Protocol
 
+from fdai.agents._framework.adapters import canonical_json_digest
 from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.norns_case_history import operational_candidate_cases_are_current
 from fdai.agents._framework.norns_consensus import NornsConsensus
@@ -40,6 +39,15 @@ class NornsOperationalCandidateJournal:
     def __init__(self, store: StateStore | None, *, capacity: int) -> None:
         self._store = store
         self._capacity = capacity
+        self._last_pending_total = 0
+
+    @property
+    def durable(self) -> bool:
+        return self._store is not None
+
+    @property
+    def last_pending_total(self) -> int:
+        return self._last_pending_total
 
     async def retain(
         self,
@@ -99,6 +107,7 @@ class NornsOperationalCandidateJournal:
     ) -> tuple[tuple[tuple[dict[str, Any], dict[str, Any], bool], ...], int]:
         store = self._store
         if store is None:
+            self._last_pending_total = 0
             return (), 0
         rows, total = await store.read_state_page(
             f"{_STATE_PREFIX}/",
@@ -108,6 +117,7 @@ class NornsOperationalCandidateJournal:
             value="pending",
         )
         recovered: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
+        self._last_pending_total = total
         for row in rows:
             candidate = row.get("candidate")
             pattern = row.get("pattern")
@@ -319,6 +329,9 @@ class NornsCandidateDeliveryMixin:
     def _proposal_rate_limiter(self) -> Any:
         raise NotImplementedError
 
+    def _record_candidate_terminal(self, candidate: Mapping[str, Any], outcome: str) -> None:
+        raise NotImplementedError
+
     async def _flush_candidates_unlocked(self) -> int:
         published = 0
         issue_recovery_count = 0
@@ -343,6 +356,8 @@ class NornsCandidateDeliveryMixin:
         await self._scrub_source_invalidated_candidates()
         await self._scrub_durable_source_invalidated_candidates()
         if self._candidate_publication_gate is not None and not self._candidate_publication_gate():
+            for candidate in self.pending_candidates:
+                self._record_candidate_terminal(candidate, "disabled")
             self.record_behavior("rule_candidate_publication_disabled")
             return 0
         published = 0
@@ -351,6 +366,7 @@ class NornsCandidateDeliveryMixin:
             pattern_id = str(candidate.get("suggested_pattern", ""))
             pattern = self._pattern_publications.get(pattern_id)
             if not await self._operational_candidate_cases_are_current(candidate):
+                self._record_candidate_terminal(candidate, "invalidated")
                 if pattern is not None:
                     await self._operational_journal.mark_terminal(
                         candidate=candidate,
@@ -383,6 +399,7 @@ class NornsCandidateDeliveryMixin:
                     }
                 )
                 self._flush_cursor += 1
+                self._record_candidate_terminal(candidate, "held")
                 self.record_behavior("rule_candidate_consensus_held")
                 continue
             payload = {
@@ -416,6 +433,7 @@ class NornsCandidateDeliveryMixin:
                 self._pattern_publications.pop(pattern_id, None)
                 self._forget_published_pattern(pattern_id)
             self._flush_cursor += 1
+            self._record_candidate_terminal(candidate, "published")
             self.record_behavior("rule_candidate_published")
             published += 1
         if self._flush_cursor:
@@ -436,6 +454,7 @@ class NornsCandidateDeliveryMixin:
         if self.bus is None:
             return False
         if not self._proposal_rate_limiter().allow():
+            self._record_candidate_terminal(candidate, "rate_limited")
             self.record_behavior("rate_limit_exceeded")
             return False
         await self.bus.publish(self.spec.name, "object.rule-candidate", payload)
@@ -460,6 +479,7 @@ class NornsCandidateDeliveryMixin:
             if await self._operational_candidate_cases_are_current(candidate):
                 retained.append(candidate)
                 continue
+            self._record_candidate_terminal(candidate, "invalidated")
             pattern_id = str(candidate.get("suggested_pattern", ""))
             pattern = self._pattern_publications.pop(pattern_id, None)
             if pattern is not None:
@@ -487,6 +507,7 @@ class NornsCandidateDeliveryMixin:
         for candidate, pattern, _pattern_published in rows:
             if await self._operational_candidate_cases_are_current(candidate):
                 continue
+            self._record_candidate_terminal(candidate, "invalidated")
             await self._operational_journal.mark_terminal(
                 candidate=candidate,
                 pattern=pattern,
@@ -548,8 +569,7 @@ def _candidate_identity(candidate: Mapping[str, Any]) -> str:
     suggested = candidate.get("suggested_pattern")
     if isinstance(suggested, str) and suggested:
         return suggested
-    material = json.dumps(candidate, separators=(",", ":"), sort_keys=True, default=str)
-    return hashlib.sha256(material.encode()).hexdigest()
+    return canonical_json_digest(candidate)
 
 
 def _candidate_correlation_id(candidate: Mapping[str, Any]) -> str:
@@ -577,8 +597,7 @@ def _state_key(pattern_id: str) -> str:
 
 
 def _digest(value: Mapping[str, Any]) -> str:
-    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
-    return hashlib.sha256(payload.encode()).hexdigest()
+    return canonical_json_digest(value)
 
 
 def _required_digest(record: Mapping[str, Any], field: str) -> str:

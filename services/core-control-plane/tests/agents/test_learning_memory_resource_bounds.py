@@ -171,7 +171,8 @@ async def test_mimir_introspection_does_not_recompute_ready_candidates(
 
     result = await mimir.introspect("status", {})
 
-    assert result.facts["promotion_ready_candidates"] == "bounded-summary-not-recomputed"
+    assert result.facts["promotion_ready_candidates"] is None
+    assert result.facts["promotion_ready_candidates_evidence_state"] == "not_recomputed"
 
 
 async def test_mimir_promotion_persistence_uses_one_worker_task() -> None:
