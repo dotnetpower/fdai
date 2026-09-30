@@ -1400,8 +1400,8 @@ def test_shadow_observer_counts_verdicts_and_action_runs() -> None:
 
     asyncio.run(_drive())
     assert runtime.shadow_decisions["verdict:auto"] == 1
-    assert runtime.shadow_decisions["action_run:succeeded"] >= 1
-    assert runtime.shadow_decisions["action_run:verdicted"] == 1
+    assert runtime.shadow_decisions["shadow_action_run:succeeded"] >= 1
+    assert runtime.shadow_decisions["shadow_action_run:verdicted"] == 1
     assert runtime.health()["shadow_decisions"]["verdict:auto"] == 1
 
 

@@ -114,15 +114,13 @@ def topic_for_object_type(object_type: str) -> str:
 def partition_key_for(topic: str, payload: dict[str, Any]) -> str:
     """Return the partition key for a given topic + payload.
 
-    Falls back to `correlation_id` when the payload lacks a
-    resource-scoped identifier on a mutation topic (bus adapter should
-    log this as a data-quality signal for Norns).
+    Mutation topics use the resource key the bus requires. Every other
+    owned topic uses the shared correlation key. The publish boundary is
+    responsible for rejecting or counting missing envelope values; this
+    helper only projects the already-enforced envelope into a broker key.
     """
     if topic in _MUTATION_TOPICS:
-        return str(payload.get("resource_id") or payload.get("correlation_id", ""))
-    if topic in _CORRELATION_TOPICS:
-        return str(payload.get("correlation_id", ""))
-    # Default: correlation_id if present, else empty (random partition).
+        return str(payload.get("resource_id", ""))
     return str(payload.get("correlation_id", ""))
 
 

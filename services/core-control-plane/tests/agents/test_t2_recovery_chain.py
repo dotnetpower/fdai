@@ -185,7 +185,7 @@ def test_terminal_proposer_failure_reaches_real_hil_chain() -> None:
     assert isinstance(var, Var)
     assert heimdall.behavior_snapshot().get("t2_proposer:unavailable") == 1
     assert runtime.shadow_decisions["verdict:hil"] >= 1
-    assert runtime.shadow_decisions["action_run:hil_pending"] >= 1
+    assert runtime.shadow_decisions["shadow_action_run:hil_pending"] >= 1
     assert var.behavior_snapshot().get("ticket_pending") == 1
     assert var.pending_tickets()[0].params == {
         "target_resource_ref": "control-plane:t2-proposer",

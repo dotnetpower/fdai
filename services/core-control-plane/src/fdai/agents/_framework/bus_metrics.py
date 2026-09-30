@@ -36,6 +36,7 @@ class BridgeMetrics:
     producer_principal_mismatch: int = 0
     ordered_poison_halts: int = 0
     schema_violations: int = 0
+    duplicate_deliveries: int = 0
 
     def as_dict(self) -> dict[str, int]:
         return {
@@ -57,6 +58,7 @@ class BridgeMetrics:
             "producer_principal_mismatch": self.producer_principal_mismatch,
             "ordered_poison_halts": self.ordered_poison_halts,
             "schema_violations": self.schema_violations,
+            "duplicate_deliveries": self.duplicate_deliveries,
         }
 
 

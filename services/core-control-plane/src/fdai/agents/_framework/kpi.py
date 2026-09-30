@@ -27,6 +27,7 @@ _MAX_SAMPLES = 10_000
 class KpiEvidenceState(StrEnum):
     MEASURED = "measured"
     NOT_MEASURED = "not_measured"
+    NOT_OBSERVED = "not_observed"
     NOT_CONNECTED = "not_connected"
     INSUFFICIENT_SAMPLE = "insufficient_sample"
     NOT_APPLICABLE = "not_applicable"
@@ -178,7 +179,7 @@ class KpiCollector:
         *,
         agent: str,
         values: Mapping[str, float] | None = None,
-        unavailable_state: KpiEvidenceState = KpiEvidenceState.NOT_MEASURED,
+        unavailable_state: KpiEvidenceState = KpiEvidenceState.NOT_OBSERVED,
         tags: dict[str, str] | None = None,
     ) -> tuple[KpiSample, ...]:
         declared = DECLARED_AGENT_KPIS.get(agent)

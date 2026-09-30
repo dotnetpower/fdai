@@ -150,17 +150,47 @@ def configure_thor_execution(
     thor.set_execution_resource_lock(resource_lock, required=enforce)
 
 
-async def maintain_agents(agents: Mapping[str, Agent], interval: float) -> None:
-    """Expire bounded HIL waits while the Pantheon runtime is active."""
+async def maintain_agents(
+    agents: Mapping[str, Agent],
+    interval: float,
+    *,
+    tick_timeout: float = 5.0,
+) -> None:
+    """Run isolated per-agent maintenance while consumers stay active.
+
+    A maintenance tick is cheap, bounded, and side-effect constrained to each
+    agent's own framework state: Thor expires HIL waits, the base agent drains
+    its proposal queue, Saga verifies its local chain, and Norns flushes inert
+    candidates. Ticks run concurrently and never block the event-bus consumers.
+    One timeout or exception increments that agent's behavior counter and does
+    not cancel sibling ticks.
+    """
 
     while True:
         await asyncio.sleep(interval)
-        thor = agents.get("Thor")
-        if isinstance(thor, Thor):
-            try:
-                await thor.expire_pending_approvals()
-            except Exception:  # noqa: BLE001 - one failed expiry must not stop later safety ticks
-                _LOG.exception("pantheon_hil_expiry_failed")
+        tasks = [
+            asyncio.create_task(
+                _run_agent_maintenance(agent, tick_timeout),
+                name=f"pantheon-maintenance.{name}",
+            )
+            for name, agent in agents.items()
+        ]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def _run_agent_maintenance(agent: Agent, tick_timeout: float) -> None:
+    try:
+        if isinstance(agent, Thor):
+            await asyncio.wait_for(agent.expire_pending_approvals(), tick_timeout)
+        await asyncio.wait_for(agent.maintenance_tick(), tick_timeout)
+        agent.record_behavior("maintenance_tick:completed")
+    except TimeoutError:
+        agent.record_behavior("maintenance_tick:timeout")
+        _LOG.warning("pantheon_agent_maintenance_timeout", extra={"agent": agent.spec.name})
+    except Exception:  # noqa: BLE001 - one failed tick must not stop later safety ticks
+        agent.record_behavior("maintenance_tick:failed")
+        _LOG.exception("pantheon_agent_maintenance_failed", extra={"agent": agent.spec.name})
 
 
 async def run_with_maintenance(

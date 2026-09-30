@@ -11,20 +11,22 @@ this limiter bounds the burst so downstream consumers (Mimir's
 ``CandidateGuard``, Odin's arbitration) are protected upstream, in addition
 to their own defenses.
 
-The limiter is a deterministic fixed dual-window counter:
+The limiter is a deterministic sliding dual-window counter:
 
-- one 60-second window capped at ``per_minute``;
-- one 3600-second window capped at ``per_hour``.
+- the previous 60 seconds capped at ``per_minute``;
+- the previous 3600 seconds capped at ``per_hour``.
 
 The clock is injected (``now``) so tests are deterministic - no reliance on
-wall-clock or ``sleep``. ``allow()`` is the only decision surface: it resets
-an elapsed window, then admits (and counts) the call when both windows have
-budget, or rejects without counting when either is exhausted.
+wall-clock or ``sleep``. ``allow()`` is the only decision surface: it evicts
+expired timestamps, then admits (and counts) the call when both windows have
+budget, or rejects without counting when either is exhausted. This avoids the
+2x burst that a fixed window admits at a boundary.
 """
 
 from __future__ import annotations
 
 import time
+from collections import deque
 from collections.abc import Callable
 
 from fdai.agents._framework.base import RateLimits
@@ -34,7 +36,7 @@ _HOUR_SECONDS = 3600.0
 
 
 class RateLimiter:
-    """Deterministic per-minute + per-hour proposal budget.
+    """Deterministic sliding per-minute + per-hour proposal budget.
 
     Not thread-safe by design: the pantheon runs one agent coroutine at a
     time on the event loop, so a single-threaded counter is sufficient and
@@ -45,10 +47,8 @@ class RateLimiter:
         "_per_minute",
         "_per_hour",
         "_now",
-        "_minute_start",
-        "_minute_count",
-        "_hour_start",
-        "_hour_count",
+        "_minute_events",
+        "_hour_events",
     )
 
     def __init__(
@@ -65,10 +65,8 @@ class RateLimiter:
         self._per_minute = per_minute
         self._per_hour = per_hour
         self._now = now
-        self._minute_start: float | None = None
-        self._minute_count = 0
-        self._hour_start: float | None = None
-        self._hour_count = 0
+        self._minute_events: deque[float] = deque()
+        self._hour_events: deque[float] = deque()
 
     @classmethod
     def from_limits(
@@ -85,17 +83,18 @@ class RateLimiter:
         (so a rejected call does not consume budget it did not get).
         """
         t = self._now()
-        if self._minute_start is None or t - self._minute_start >= _MINUTE_SECONDS:
-            self._minute_start = t
-            self._minute_count = 0
-        if self._hour_start is None or t - self._hour_start >= _HOUR_SECONDS:
-            self._hour_start = t
-            self._hour_count = 0
-        if self._minute_count >= self._per_minute or self._hour_count >= self._per_hour:
+        _evict_expired(self._minute_events, t - _MINUTE_SECONDS)
+        _evict_expired(self._hour_events, t - _HOUR_SECONDS)
+        if len(self._minute_events) >= self._per_minute or len(self._hour_events) >= self._per_hour:
             return False
-        self._minute_count += 1
-        self._hour_count += 1
+        self._minute_events.append(t)
+        self._hour_events.append(t)
         return True
+
+
+def _evict_expired(events: deque[float], cutoff: float) -> None:
+    while events and events[0] <= cutoff:
+        events.popleft()
 
 
 __all__ = ["RateLimiter"]

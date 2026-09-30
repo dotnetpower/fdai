@@ -117,6 +117,8 @@ class EventBusBridge:
     _subs: dict[str, list[tuple[str, Handler]]] = field(default_factory=lambda: defaultdict(list))
     _tasks: list[asyncio.Task[None]] = field(default_factory=list)
     _consumer_states: dict[str, str] = field(default_factory=dict)
+    _consumer_delivery_counts: dict[str, int] = field(default_factory=dict)
+    _consumer_last_delivery_at: dict[str, float] = field(default_factory=dict)
     _handler_observer_failures: dict[tuple[str, str, AgentHandlerPhase], int] = field(
         default_factory=dict
     )
@@ -153,6 +155,8 @@ class EventBusBridge:
             "subscriptions": sum(len(v) for v in self._subs.values()),
             "consumers_live": live,
             "consumer_states": dict(sorted(self._consumer_states.items())),
+            "consumer_deliveries": dict(sorted(self._consumer_delivery_counts.items())),
+            "consumer_last_delivery_at": dict(sorted(self._consumer_last_delivery_at.items())),
             "unavailable_agents": unavailable_agents,
             "status": "degraded" if unavailable_agents else "healthy",
             "metrics": self.metrics.as_dict(),
@@ -285,7 +289,7 @@ class EventBusBridge:
             for agent_name, handler in subs:
                 group_id = f"{self.consumer_group_prefix}.{agent_name}"
                 consumer_id = f"{agent_name}:{topic}"
-                self._consumer_states[consumer_id] = "starting"
+                self._consumer_states[consumer_id] = "idle"
                 task = asyncio.create_task(
                     self._consume(
                         topic=topic,
@@ -377,6 +381,7 @@ class EventBusBridge:
             stream = self.provider.subscribe(topic, group_id)
             try:
                 self._consumer_states[consumer_id] = "connecting"
+                self._consumer_states[consumer_id] = "idle"
                 async for envelope in stream:
                     self._consumer_states[consumer_id] = "running"
                     if not self._producer_authorized(topic, envelope.payload):
@@ -414,6 +419,13 @@ class EventBusBridge:
                             payload=envelope.payload,
                         )
                         self.metrics.delivered += 1
+                        self._consumer_delivery_counts[consumer_id] = (
+                            self._consumer_delivery_counts.get(consumer_id, 0) + 1
+                        )
+                        self._consumer_last_delivery_at[consumer_id] = (
+                            asyncio.get_running_loop().time()
+                        )
+                        self._consumer_states[consumer_id] = "idle"
                         attempt = 0  # progress resets the backoff window
                     except asyncio.CancelledError:
                         raise

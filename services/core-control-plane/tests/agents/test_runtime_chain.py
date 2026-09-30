@@ -138,7 +138,7 @@ def test_full_shadow_chain_propagates_over_live_bus() -> None:
     # Forseti judged the ingested event as an auto remediation...
     assert runtime.shadow_decisions["verdict:auto"] >= 1
     # ...Thor ran it in shadow, producing the ActionRun lifecycle...
-    assert any(k.startswith("action_run:") for k in runtime.shadow_decisions)
+    assert any(k.startswith("shadow_action_run:") for k in runtime.shadow_decisions)
     # ...and Saga audited the correlation end to end.
     saga = runtime.agents["Saga"]
     assert isinstance(saga, Saga)

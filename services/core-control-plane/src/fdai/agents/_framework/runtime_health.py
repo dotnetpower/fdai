@@ -131,10 +131,44 @@ def report_agent_kpis(
 ) -> None:
     """Report every active agent's declared KPIs with truthful evidence state."""
     for name, health in agent_health.items():
+        values = _available_kpi_values(name, health)
         collector.report_declared(
             agent=name,
+            values=values,
             tags={"source": "agent_health", "status": str(health.get("status", "unknown"))},
         )
+
+
+def _available_kpi_values(agent: str, health: Mapping[str, Any]) -> dict[str, float]:
+    """Map health/behavior facts into declared KPI samples when available.
+
+    Missing observations stay explicit ``not_observed`` samples. We only report
+    a value when the agent already exposes a bounded behavior/health value that
+    directly matches the KPI semantics; no zeros are fabricated from absence.
+    """
+    behavior = health.get("behavior")
+    if not isinstance(behavior, Mapping):
+        return {}
+    if agent == "Saga":
+        verified = behavior.get("maintenance_tick:audit_chain_verified")
+        failed = behavior.get("maintenance_tick:failed")
+        if isinstance(verified, int) and verified > 0 and not failed:
+            return {"audit_chain_integrity_rate": 1.0}
+    if agent == "Norns":
+        published = behavior.get("rule_candidate_published")
+        held = behavior.get("rule_candidate_consensus_held")
+        if isinstance(published, int) and published >= 0 and isinstance(held, int):
+            total = published + held
+            if total:
+                return {"rule_candidate_adoption_rate": published / total}
+    if agent == "Bragi":
+        materialized = behavior.get("handoff:materialized")
+        unavailable = behavior.get("handoff:transport_unavailable")
+        if isinstance(materialized, int) and isinstance(unavailable, int):
+            total = materialized + unavailable
+            if total:
+                return {"handoff_rate": materialized / total}
+    return {}
 
 
 __all__ = [

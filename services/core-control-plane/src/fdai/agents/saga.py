@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import inspect
+import json
 from collections.abc import Awaitable
 from typing import Any, Protocol
 
@@ -116,6 +117,40 @@ class Saga(Agent, HandoverKnowledgeMixin):
         )
         if inspect.isawaitable(result):
             await result
+
+    async def record_rate_limit_overflow(
+        self,
+        agent_name: str,
+        topic: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Append one rate-limit overflow record to Saga's chain.
+
+        Bound through the runtime as a callback. Saga does not import or call
+        the overflowing member directly, and the record grants no authority.
+        """
+        correlation_id = str(payload.get("correlation_id") or "")
+        await self._append_audit(
+            principal="Saga",
+            topic="object.audit-entry",
+            correlation_id=correlation_id,
+            payload={
+                "kind": "rate_limit_overflow",
+                "overflowing_agent": agent_name,
+                "overflowed_topic": topic,
+                "payload_digest": hashlib.sha256(
+                    json.dumps(
+                        payload,
+                        allow_nan=False,
+                        default=str,
+                        ensure_ascii=True,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    ).encode("utf-8")
+                ).hexdigest(),
+                "execution_authority": False,
+            },
+        )
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if (
@@ -694,6 +729,13 @@ class Saga(Agent, HandoverKnowledgeMixin):
 
     def replay_for_correlation(self, correlation_id: str) -> list[AuditEntry]:
         return self.audit_chain.entries_for_correlation(correlation_id)
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        verify = getattr(self.audit_chain, "verify", None)
+        if callable(verify):
+            verify()
+        self.record_behavior("maintenance_tick:audit_chain_verified")
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Audit answers rest on chain entries; an empty chain proves nothing."""

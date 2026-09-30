@@ -109,9 +109,9 @@ def test_hard_dependency_agents_are_saga_and_vidar() -> None:
     assert HARD_DEPENDENCY_AGENTS == {"Saga", "Vidar"}
 
 
-def test_llm_hot_path_allowlist_is_bragi_forseti_norns() -> None:
+def test_llm_hot_path_allowlist_excludes_off_path_norns() -> None:
     # docs/roadmap/agents/agent-pantheon.md \u00a78
-    assert LLM_HOT_PATH_ALLOWLIST == {"Bragi", "Forseti", "Norns"}
+    assert LLM_HOT_PATH_ALLOWLIST == {"Bragi", "Forseti"}
 
 
 def test_registry_loads_cleanly() -> None:

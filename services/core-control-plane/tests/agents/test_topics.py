@@ -38,13 +38,13 @@ def test_partition_key_mutation_prefers_resource_id() -> None:
     assert key == "rg-1/vm-1"
 
 
-def test_partition_key_mutation_falls_back_to_correlation() -> None:
-    # data-quality edge case: mutation topic missing resource_id
+def test_partition_key_mutation_requires_resource_envelope_key() -> None:
+    # Mutation publishes fail closed before this helper when resource_id is empty.
     key = partition_key_for(
         "object.action-run",
         {"correlation_id": "corr-only"},
     )
-    assert key == "corr-only"
+    assert key == ""
 
 
 def test_partition_key_correlation_topic_uses_correlation_id() -> None:

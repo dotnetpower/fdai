@@ -154,6 +154,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         if operational_case_max_age <= timedelta(0):
             raise ValueError("operational_case_max_age MUST be positive")
         super().__init__(spec=_NORNS)
+        self._proposal_queue_managed_externally = True
         self._fingerprint_counter: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
         self._issue_deduplicator = NornsIssueDeduplicator(issue_state_store, _MAX_TRACKED)
         # Fingerprints already proposed - same content-hash keyspace as the
@@ -467,6 +468,12 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
     async def recover_issue_learning(self) -> int:
         """Restore durable handoff-learning work before consumers start."""
         return await self._issue_deduplicator.recover(self)
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        published = await self.flush_candidates()
+        if published:
+            self.record_behavior("maintenance_tick:candidates_flushed", published)
 
     # ---- 1. fingerprint aggregator ------------------------------------
 

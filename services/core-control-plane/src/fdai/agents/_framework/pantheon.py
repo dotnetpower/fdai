@@ -763,11 +763,11 @@ HARD_DEPENDENCY_AGENTS: frozenset[str] = frozenset(
 )
 
 # `agent-pantheon.md` \u00a78: hot-path LLM invocation is restricted to
-# these three agents. Any other agent invoking an LLM synchronously is a
-# defect.
-LLM_HOT_PATH_ALLOWLIST: frozenset[str] = frozenset(
-    s.name for s in PANTHEON_SPECS if s.hot_path_llm
-) | frozenset(s.name for s in PANTHEON_SPECS if s.off_path_llm)
+# Bragi translator and Forseti T2 abstention. Norns is off-path only and is
+# listed separately so synchronous hot-path checks do not accidentally admit it.
+LLM_HOT_PATH_NAMES: frozenset[str] = frozenset(s.name for s in PANTHEON_SPECS if s.hot_path_llm)
+LLM_OFF_PATH_NAMES: frozenset[str] = frozenset(s.name for s in PANTHEON_SPECS if s.off_path_llm)
+LLM_HOT_PATH_ALLOWLIST: frozenset[str] = LLM_HOT_PATH_NAMES
 
 
 __all__ = [
@@ -775,4 +775,6 @@ __all__ = [
     "PANTHEON_NAMES",
     "HARD_DEPENDENCY_AGENTS",
     "LLM_HOT_PATH_ALLOWLIST",
+    "LLM_HOT_PATH_NAMES",
+    "LLM_OFF_PATH_NAMES",
 ]

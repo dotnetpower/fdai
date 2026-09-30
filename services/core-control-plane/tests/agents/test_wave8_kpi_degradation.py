@@ -55,7 +55,7 @@ def test_all_fifteen_agents_report_every_declared_kpi_without_fabricating_values
         samples = collector.report_declared(agent=agent)
         assert {sample.metric for sample in samples} == set(DECLARED_AGENT_KPIS[agent])
         assert all(sample.value is None for sample in samples)
-        assert all(sample.evidence_state is KpiEvidenceState.NOT_MEASURED for sample in samples)
+        assert all(sample.evidence_state is KpiEvidenceState.NOT_OBSERVED for sample in samples)
 
     for item in collector.coverage().values():
         assert item["reported"] == item["declared"]

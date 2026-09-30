@@ -9,10 +9,12 @@ is the immutable declaration read by the registry - see
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import logging
 import re
-from collections import Counter
+from collections import Counter, deque
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -52,6 +54,7 @@ _MAX_CONVERSATION_TOOLS = 16
 _MAX_TOOL_EXAMPLES = 4
 _MAX_TOOL_EXAMPLE_CHARS = 256
 _MAX_TOOL_PURPOSE_CHARS = 160
+_MAX_PROPOSAL_QUEUE = 100
 _TOOL_ID = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 _CHARTER_VERSION = re.compile(r"^v[1-9][0-9]*$")
 _FACT_KEY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -255,6 +258,8 @@ class AgentSpec:
             f"publishes={','.join(self.publishes) or 'none'}; "
             f"subscribes={','.join(self.subscribes) or 'none'}; "
             f"executes={','.join(self.executes) or 'none'}; "
+            "lifecycle_roles=judge:Forseti,approver:Var,executor:Thor,"
+            "auditor:Saga,rollback:Vidar; "
             f"initiates={','.join(self.initiates) or 'none'}; "
             f"question_domains={','.join(self.question_domains) or 'none'}; "
             f"llm={llm_policy}; "
@@ -333,6 +338,11 @@ class Agent:
         # :meth:`behavior_snapshot` and :meth:`health`, and merged into
         # ``PantheonRuntime.health()`` per agent.
         self._behavior: Counter[str] = Counter()
+        self._proposal_queue: deque[tuple[str, dict[str, Any]]] = deque(maxlen=_MAX_PROPOSAL_QUEUE)
+        self._proposal_overflow_auditor: (
+            Callable[[str, str, dict[str, Any]], Awaitable[None] | None] | None
+        ) = None
+        self._proposal_queue_managed_externally = False
 
     def record_behavior(self, key: str, count: int = 1) -> None:
         """Increment the measurable-behavior counter for ``key``.
@@ -408,9 +418,17 @@ class Agent:
         an agent's discretionary emissions; a malfunctioning or compromised
         agent could flood them. When the per-minute / per-hour budget
         (:class:`AgentSpec.rate_limits`, ``agent-pantheon.md`` 7.9) is
-        exhausted, the proposal is NOT published and the drop is recorded as
-        ``rate_limit_exceeded`` so the spike surfaces in health / KPI. Returns
-        ``True`` when published, ``False`` when rate-limited or bus-less.
+        exhausted, the proposal is NOT published in that call and the pressure
+        is recorded as ``rate_limit_exceeded`` so the spike surfaces in health /
+        KPI. Agents that do not already own a durable pending-proposal list keep
+        a bounded FIFO queue here. ``maintenance_tick`` flushes that queue
+        through this same single-writer publish path, in order, and still
+        spends the sliding-window budget. Returns ``True`` when published in
+        this call, ``False`` when queued, rate-limited, or bus-less.
+
+        Queue overflow is fail-visible: the dropped proposal is counted and, if
+        runtime composition bound an auditor, appended through that callback
+        without importing another pantheon member.
 
         Safety-critical emissions (verdicts, action runs, approvals, audit
         entries) are NOT proposals and MUST NOT go through this path - they
@@ -422,6 +440,8 @@ class Agent:
             return False
         if not self._proposal_rate_limiter().allow():
             self.record_behavior("rate_limit_exceeded")
+            if not getattr(self, "_proposal_queue_managed_externally", False):
+                await self._queue_rate_limited_proposal(topic, payload)
             _LOG.warning(
                 "proposal_rate_limited",
                 extra={"agent": self.spec.name, "topic": topic},
@@ -429,6 +449,60 @@ class Agent:
             return False
         await bus.publish(self.spec.name, topic, payload)
         return True
+
+    def bind_rate_limit_overflow_auditor(
+        self,
+        callback: Callable[[str, str, dict[str, Any]], Awaitable[None] | None],
+    ) -> None:
+        """Bind a runtime-owned overflow audit callback.
+
+        The base class deliberately knows nothing about Saga. The runtime may
+        bind a callback supplied by Saga (or a test double) so overflow is
+        append-only audited without cross-member imports.
+        """
+        self._proposal_overflow_auditor = callback
+
+    async def _queue_rate_limited_proposal(self, topic: str, payload: dict[str, Any]) -> None:
+        queue = getattr(self, "_proposal_queue", None)
+        if queue is None:
+            queue = deque(maxlen=_MAX_PROPOSAL_QUEUE)
+            self._proposal_queue = queue
+        maxlen = queue.maxlen or _MAX_PROPOSAL_QUEUE
+        if len(queue) >= maxlen:
+            self.record_behavior("rate_limit_overflow")
+            auditor = getattr(self, "_proposal_overflow_auditor", None)
+            if auditor is not None:
+                result = auditor(self.spec.name, topic, dict(payload))
+                if inspect.isawaitable(result):
+                    await result
+            return
+        queue.append((topic, dict(payload)))
+        self.record_behavior("rate_limit_queued")
+
+    async def flush_rate_limited_proposals(self) -> int:
+        """Flush queued discretionary proposals in FIFO order.
+
+        Flush stops on the first still-rate-limited item so ordering is
+        preserved and a later proposal cannot overtake an earlier poison or
+        exhausted-budget item.
+        """
+        queue = getattr(self, "_proposal_queue", None)
+        if not queue:
+            return 0
+        published = 0
+        while queue:
+            topic, payload = queue[0]
+            if not self._proposal_rate_limiter().allow():
+                self.record_behavior("rate_limit_flush_deferred")
+                break
+            bus = getattr(self, "bus", None)
+            if bus is None:
+                self.record_behavior("rate_limit_flush_transport_unavailable")
+                break
+            await bus.publish(self.spec.name, topic, payload)
+            queue.popleft()
+            published += 1
+        return published
 
     def bind_bus(self, bus: PantheonBus) -> None:
         """Bind the typed pub/sub port.
@@ -445,9 +519,20 @@ class Agent:
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         """Handle a message from a typed topic this agent subscribes to.
 
-        Wave 1 stubs default to a no-op. Behavior lands in later waves.
+        A subscribed default handler is a wiring defect, not a success. The
+        base records a stable counter so the message is visible in health
+        snapshots while preserving the legacy no-op return contract for stubs.
         """
+        self.record_behavior("typed_message:unhandled")
         return None
+
+    async def maintenance_tick(self) -> None:
+        """Run cheap periodic maintenance isolated by the runtime.
+
+        Default maintenance only drains this agent's rate-limited proposal
+        queue. Subclasses may extend with cheap, non-resource-mutating work.
+        """
+        await self.flush_rate_limited_proposals()
 
     # --- conversational port (LLM-backed NL Q&A) -----------------------
 

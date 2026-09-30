@@ -360,8 +360,14 @@ class PantheonRuntime:
             )
 
         agents = {n: a for n, a in instantiated.items() if n not in disabled}
+        overflow_auditor: Saga | None = saga
+        saga_agent = agents.get("Saga")
+        if overflow_auditor is None and isinstance(saga_agent, Saga):
+            overflow_auditor = saga_agent
         for agent in agents.values():
             agent.bind_bus(bridge)
+            if overflow_auditor is not None:
+                agent.bind_rate_limit_overflow_auditor(overflow_auditor.record_rate_limit_overflow)
 
         subscription_count = runtime_subscriptions.bind_runtime_subscriptions(
             bridge=bridge,
@@ -387,7 +393,6 @@ class PantheonRuntime:
             else None
         )
 
-        # Wire Bragi to every active agent's read-only conversational handler.
         bragi_ref: Bragi | None = None
         maybe_bragi = agents.get("Bragi")
         if isinstance(maybe_bragi, Bragi):
@@ -405,20 +410,10 @@ class PantheonRuntime:
                     question=question,
                     trace_ref=trace_ref,
                     registry=conversation_tools,
-                    # Bragi has already selected and confidence-gated the
-                    # owner, so meaning chooses only among that owner's
-                    # read tools. This is not the global ranker deciding
-                    # whether the system owns the question.
                     semantic=semantic_tool_planner,
                 )
 
             bragi_ref.register_tool_answer(answer_with_owned_tools)
-            # Conversational-port re-entry (agent-pantheon.md 7.7): an operator
-            # command routes into the typed pipeline through Huginn (the sole
-            # writer of object.event). Bragi builds the ActionProposal and
-            # submits it here - it never calls an executor. Absent when Huginn
-            # is disabled (ingress off), in which case an action request falls
-            # back to the requires_typed_pipeline signal.
             maybe_huginn = agents.get(_INGRESS_PRINCIPAL)
             if isinstance(maybe_huginn, Huginn):
                 bragi_ref.register_proposal_sink(maybe_huginn.ingest)
@@ -786,7 +781,9 @@ class PantheonRuntime:
             self.divergence.record_pantheon(str(payload.get("correlation_id", "")), risk)
 
     async def _observe_action_run(self, _topic: str, payload: dict[str, Any]) -> None:
-        self.shadow_decisions[f"action_run:{payload.get('state', 'unknown')}"] += 1
+        state = str(payload.get("state", "unknown"))
+        prefix = "shadow_action_run" if payload.get("shadow_mode") is True else "action_run"
+        self.shadow_decisions[f"{prefix}:{state}"] += 1
 
     def _record_ingress_drop(self, error: ValueError) -> None:
         self._ingress_dropped += 1
