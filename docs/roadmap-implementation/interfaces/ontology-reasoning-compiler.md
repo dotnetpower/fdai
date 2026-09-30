@@ -140,6 +140,10 @@ Live evaluation evidence is session-local and is summarized, not retained, as re
 - [ ] Finish R2: enforce interim operand-provenance and instance-versus-schema checks on the current
   path, with zero invented identity literals and zero schema answers to instance targets on both
   corpora.
+  Note 2026-09-30: a check that required every identity operand of a model-proposed plan to appear in
+  the utterance, earlier turns, or the bound context was tried and withdrawn before commit, because
+  59 planner tests showed that server-grounded identities, such as an exact name binding's resource
+  id, also reach model plans; the check must first trust the grounding receipts that bound them.
 - [ ] Complete R3 through R8 with the exit evidence in the owner delivery-round table, including
   shadow wiring with a turn reservation, per-type holdout accuracy, reviewed trait and path grammar
   catalog changes, traversal root lineage, the location property, the link-evidence allowlist, a
