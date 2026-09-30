@@ -20,6 +20,7 @@ _MAX_SHARDS = 64
 _MAX_CAS_ATTEMPTS = 8
 _DEFAULT_LEASE = timedelta(seconds=60)
 _MAX_LEASE = timedelta(minutes=5)
+_TERMINAL_RETENTION_MULTIPLIER = 4
 
 
 class HuginnClaimInProgressError(RuntimeError):
@@ -54,27 +55,55 @@ class HuginnDedupJournal:
         self._claim_lease = claim_lease
         self._owner_token = uuid4().hex
         self._shard_count = min(_MAX_SHARDS, capacity)
+        self._terminal_retention = max(capacity + 1, capacity * _TERMINAL_RETENTION_MULTIPLIER)
         self._migration_lock = asyncio.Lock()
         self._migration_complete = False
 
     async def published_keys(self) -> tuple[str, ...]:
-        """Return completed keys in oldest-to-newest sequence order."""
+        """Return completed keys in oldest-to-newest retention order.
+
+        Durable terminal receipts are retained for four process dedup windows. That
+        bounds state-store growth while preserving completed-key duplicate fences for
+        the supported redelivery window after a shard entry ages out.
+        """
         await self._ensure_migrated()
-        states = await asyncio.gather(
-            *(self._store.read_state(self._shard_key(index)) for index in range(self._shard_count))
+        rows = await self._store.read_states(
+            _TERMINAL_PREFIX,
+            limit=self._terminal_retention,
         )
-        entries: dict[str, dict[str, Any]] = {}
-        for index, state in enumerate(states):
-            _, stored_capacity, _, shard_entries = _decode(state)
-            self._validate_capacity(stored_capacity, expected=self._shard_capacity(index))
-            entries.update(shard_entries)
-        return tuple(
-            key
-            for key, entry in sorted(
-                entries.items(), key=lambda item: (int(item[1]["sequence"]), item[0])
+        retained_from_terminal = tuple(
+            str(row["idempotency_key"])
+            for row in reversed(rows)
+            if row.get("status") == "published" and isinstance(row.get("idempotency_key"), str)
+        )
+        if len(retained_from_terminal) < self._capacity:
+            states = await asyncio.gather(
+                *(
+                    self._store.read_state(self._shard_key(index))
+                    for index in range(self._shard_count)
+                )
             )
-            if entry["status"] == "published"
-        )
+            entries: dict[str, dict[str, Any]] = {}
+            for index, state in enumerate(states):
+                _, stored_capacity, _, shard_entries = _decode(state)
+                self._validate_capacity(stored_capacity, expected=self._shard_capacity(index))
+                entries.update(shard_entries)
+            retained: list[str] = []
+            remaining = {
+                key: int(entry["sequence"])
+                for key, entry in entries.items()
+                if entry["status"] == "published"
+            }
+            while remaining:
+                key, _sequence = min(remaining.items(), key=lambda item: (item[1], item[0]))
+                retained.append(key)
+                del remaining[key]
+            for key in retained_from_terminal:
+                if key in retained:
+                    retained.remove(key)
+                retained.append(key)
+            return tuple(retained[-self._capacity :])
+        return retained_from_terminal[-self._capacity :]
 
     async def claim(
         self,
@@ -134,17 +163,18 @@ class HuginnDedupJournal:
 
             next_entries = dict(entries)
             if len(next_entries) >= capacity:
-                evictable = sorted(
+                evictable = min(
                     (
-                        (key, entry)
+                        (key, int(entry["sequence"]))
                         for key, entry in next_entries.items()
                         if entry["status"] == "published"
                     ),
-                    key=lambda item: int(item[1]["sequence"]),
+                    key=lambda item: item[1],
+                    default=None,
                 )
-                if not evictable:
+                if evictable is None:
                     raise RuntimeError("Huginn dedup journal has no completed entry to evict")
-                del next_entries[evictable[0][0]]
+                del next_entries[evictable[0]]
             normalized_payload = _json_mapping(payload, field="payload")
             normalized_change = (
                 _json_mapping(change_projection, field="change_projection")
@@ -184,6 +214,10 @@ class HuginnDedupJournal:
                 "request_digest": request_digest,
                 "status": "published",
             },
+        )
+        await self._store.delete_states_beyond(
+            _TERMINAL_PREFIX,
+            retain_newest=self._terminal_retention,
         )
         shard_index = self._shard_index(idempotency_key)
         state_key = self._shard_key(shard_index)
@@ -454,7 +488,7 @@ def _encode(
         "revision": revision,
         "capacity": capacity,
         "next_sequence": next_sequence,
-        "entries": {key: dict(entries[key]) for key in sorted(entries)},
+        "entries": {key: dict(entry) for key, entry in entries.items()},
     }
 
 

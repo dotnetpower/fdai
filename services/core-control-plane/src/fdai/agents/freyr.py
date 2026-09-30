@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections.abc import Callable
+from collections import OrderedDict
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.bounded import BoundedLruDict
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -81,11 +83,12 @@ class Freyr(Agent):
         self._samples: BoundedLruDict[str, list[float]] = BoundedLruDict(_MAX_TRACKED_RESOURCES)
         self._graduation_controller = graduation_controller
         self._clock = clock or (lambda: datetime.now(tz=UTC))
-        self._cost_evidence: dict[str, tuple[str, datetime, str]] = {}
+        self._cost_evidence: OrderedDict[str, tuple[str, datetime, str]] = OrderedDict()
         self._state_store = state_store
-        self._accepted_sample_keys: set[str] = set()
+        self._accepted_sample_keys: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED_RESOURCES * 4)
         self._latest_observed_at: dict[str, datetime] = {}
         self._resource_locks: dict[str, asyncio.Lock] = {}
+        self._resource_lock_refs: dict[str, int] = {}
         self._cost_evidence_lock = asyncio.Lock()
 
     def bind_bus(self, bus: PantheonBus) -> None:
@@ -239,29 +242,29 @@ class Freyr(Agent):
             return
         retained_at = observed_at.astimezone(UTC)
         async with self._cost_evidence_lock:
-            next_evidence = dict(self._cost_evidence)
-            existing = next_evidence.get(target_ref)
+            existing = self._cost_evidence.get(target_ref)
             if existing is not None and retained_at < existing[1]:
                 self.record_behavior("capacity_graduation:stale_cost_evidence")
                 return
             cutoff = retained_at - _COST_EVIDENCE_MAX_AGE
-            for retained_target, (_, retained_observed_at, _) in list(next_evidence.items()):
-                if retained_observed_at < cutoff:
-                    next_evidence.pop(retained_target, None)
-            if len(next_evidence) >= _MAX_COST_EVIDENCE and target_ref not in next_evidence:
-                oldest_target, oldest = min(
-                    next_evidence.items(),
-                    key=lambda item: item[1][1],
-                )
-                if retained_at <= oldest[1]:
-                    self.record_behavior("capacity_graduation:cost_evidence_retention_full")
-                    return
-                next_evidence.pop(oldest_target, None)
-            next_evidence[target_ref] = (
-                evidence_ref,
-                retained_at,
-                correlation_id,
-            )
+            stale_targets: list[str] = []
+            for oldest_target, oldest in self._cost_evidence.items():
+                if oldest[1] >= cutoff:
+                    break
+                stale_targets.append(oldest_target)
+            retained_size = len(self._cost_evidence) - len(stale_targets)
+            if target_ref in self._cost_evidence and target_ref not in stale_targets:
+                retained_size -= 1
+            oldest_over_cap: str | None = None
+            if retained_size >= _MAX_COST_EVIDENCE:
+                for candidate_target, candidate in self._cost_evidence.items():
+                    if candidate_target in stale_targets or candidate_target == target_ref:
+                        continue
+                    if retained_at <= candidate[1]:
+                        self.record_behavior("capacity_graduation:cost_evidence_retention_full")
+                        return
+                    oldest_over_cap = candidate_target
+                    break
             if self._state_store is not None:
                 await self._state_store.write_state(
                     f"{_COST_PREFIX}{_digest(target_ref)}",
@@ -274,7 +277,16 @@ class Freyr(Agent):
                         "correlation_id": correlation_id,
                     },
                 )
-            self._cost_evidence = next_evidence
+            for stale_target in stale_targets:
+                self._cost_evidence.pop(stale_target, None)
+            if oldest_over_cap is not None:
+                self._cost_evidence.pop(oldest_over_cap, None)
+            self._cost_evidence.pop(target_ref, None)
+            self._cost_evidence[target_ref] = (
+                evidence_ref,
+                retained_at,
+                correlation_id,
+            )
         self.record_behavior("capacity_graduation:cost_evidence_retained")
 
     async def ingest_utilization(
@@ -300,7 +312,7 @@ class Freyr(Agent):
             observed_at,
             correlation_id,
         )
-        async with self._lock_for_resource(resource_id):
+        async with self._resource_lock(resource_id):
             if not await self._begin_sample(normalized_key, resource_id, observed_at):
                 return
             latest = self._latest_observed_at.get(resource_id)
@@ -437,6 +449,11 @@ class Freyr(Agent):
                 },
             )
         self._accepted_sample_keys.add(sample_key)
+        if self._state_store is not None:
+            await self._state_store.delete_states_beyond(
+                _ACCEPTED_PREFIX,
+                retain_newest=_MAX_TRACKED_RESOURCES * 4,
+            )
 
     async def _persist_resource(
         self,
@@ -475,6 +492,22 @@ class Freyr(Agent):
             self.record_behavior("capacity_sample:invalid_observed_at")
             return ""
         return parsed.isoformat()
+
+    @asynccontextmanager
+    async def _resource_lock(self, resource_id: str) -> AsyncIterator[None]:
+        lock = self._lock_for_resource(resource_id)
+        self._resource_lock_refs[resource_id] = self._resource_lock_refs.get(resource_id, 0) + 1
+        await lock.acquire()
+        try:
+            yield
+        finally:
+            lock.release()
+            remaining = self._resource_lock_refs.get(resource_id, 1) - 1
+            if remaining > 0:
+                self._resource_lock_refs[resource_id] = remaining
+            else:
+                self._resource_lock_refs.pop(resource_id, None)
+                self._resource_locks.pop(resource_id, None)
 
     def _lock_for_resource(self, resource_id: str) -> asyncio.Lock:
         lock = self._resource_locks.get(resource_id)

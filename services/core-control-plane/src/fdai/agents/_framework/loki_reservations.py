@@ -12,6 +12,7 @@ _STATE_KEY = "pantheon/loki/chaos-reservations"
 _MAX_CAS_ATTEMPTS = 8
 _MAX_IDENTIFIER_CHARS = 512
 _MAX_TARGETS = 32
+_MAX_BLAST_RADIUS_CAP = 256
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +34,8 @@ class LokiReservationJournal:
     """Atomically reserve and release proposal targets across replicas."""
 
     def __init__(self, store: StateStore, *, blast_radius_cap: int) -> None:
+        if blast_radius_cap < 1 or blast_radius_cap > _MAX_BLAST_RADIUS_CAP:
+            raise ValueError("chaos reservation blast-radius cap MUST be between 1 and 256")
         self._store = store
         self._cap = blast_radius_cap
 

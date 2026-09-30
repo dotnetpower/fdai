@@ -14,7 +14,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from collections import deque
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -120,6 +121,7 @@ class Loki(Agent):
         self._resilience_scores: dict[str, tuple[float, str]] = {}
         self._reservation_lock = asyncio.Lock()
         self._publication_locks: dict[str, asyncio.Lock] = {}
+        self._publication_lock_refs: dict[str, int] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -406,7 +408,7 @@ class Loki(Agent):
         return proposal
 
     async def _publish_chaos_once(self, experiment_id: str, payload: dict[str, Any]) -> bool:
-        async with self._lock_for_publication(experiment_id):
+        async with self._publication_lock(experiment_id):
             if self._state_store is None:
                 return self.bus is None or await self._publish_proposal(
                     "object.chaos-experiment",
@@ -470,6 +472,10 @@ class Loki(Agent):
                 "impact_envelope_id": proposal.impact_envelope_id,
                 "recovery_plan_id": proposal.recovery_plan_id,
             },
+        )
+        await self._state_store.delete_states_beyond(
+            _HELD_PREFIX,
+            retain_newest=_MAX_HELD_PROPOSALS,
         )
 
     def _release_targets(self, targets: tuple[str, ...]) -> None:
@@ -677,6 +683,24 @@ class Loki(Agent):
                 f"{facts['blast_radius_cap']}-target cap. Evidence: {evidence_ref}."
             )
         return IntrospectionResult(answer=answer, facts=facts)
+
+    @asynccontextmanager
+    async def _publication_lock(self, experiment_id: str) -> AsyncIterator[None]:
+        lock = self._lock_for_publication(experiment_id)
+        self._publication_lock_refs[experiment_id] = (
+            self._publication_lock_refs.get(experiment_id, 0) + 1
+        )
+        await lock.acquire()
+        try:
+            yield
+        finally:
+            lock.release()
+            remaining = self._publication_lock_refs.get(experiment_id, 1) - 1
+            if remaining > 0:
+                self._publication_lock_refs[experiment_id] = remaining
+            else:
+                self._publication_lock_refs.pop(experiment_id, None)
+                self._publication_locks.pop(experiment_id, None)
 
     def _lock_for_publication(self, experiment_id: str) -> asyncio.Lock:
         lock = self._publication_locks.get(experiment_id)

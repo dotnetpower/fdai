@@ -12,7 +12,8 @@ import asyncio
 import hashlib
 import re
 from collections import OrderedDict, deque
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -478,6 +479,7 @@ class Huginn(Agent):
         # OrderedDict as an LRU set: key -> None, oldest first.
         self._seen_keys: OrderedDict[str, None] = OrderedDict()
         self._ingress_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
+        self._ingress_lock_refs: dict[str, int] = {}
         self._operational_case_errors: deque[str] = deque(maxlen=_MAX_OPERATIONAL_CASE_ERRORS)
 
     def bind_bus(self, bus: PantheonBus) -> None:
@@ -532,7 +534,7 @@ class Huginn(Agent):
                     raise HuginnIngressRejected("alert_verifier_unavailable")
                 self._alert_noise_verifier(raw)
             key = self._ingress_key(raw)
-            async with self._lock_for_key(key):
+            async with self._key_lock(key):
                 return await self._ingest_locked(raw, key=key)
         except HuginnIngressRejectedError as exc:
             if not exc.payload_digest:
@@ -554,7 +556,7 @@ class Huginn(Agent):
             for field in ("initiator_principal", "action_type"):
                 _safe_string(proposal.get(field), field=field, required=True)
             key = self._ingress_key(proposal)
-            async with self._lock_for_key(key):
+            async with self._key_lock(key):
                 return await self._ingest_locked(
                     proposal,
                     key=key,
@@ -792,17 +794,36 @@ class Huginn(Agent):
                 cancelled = True
         return cancelled
 
+    @asynccontextmanager
+    async def _key_lock(self, key: str) -> AsyncIterator[None]:
+        lock = self._lock_for_key(key)
+        self._ingress_lock_refs[key] = self._ingress_lock_refs.get(key, 0) + 1
+        await lock.acquire()
+        try:
+            yield
+        finally:
+            lock.release()
+            remaining = self._ingress_lock_refs.get(key, 1) - 1
+            if remaining > 0:
+                self._ingress_lock_refs[key] = remaining
+            else:
+                self._ingress_lock_refs.pop(key, None)
+                self._ingress_locks.pop(key, None)
+
     def _lock_for_key(self, key: str) -> asyncio.Lock:
         lock = self._ingress_locks.get(key)
         if lock is None:
             lock = asyncio.Lock()
             self._ingress_locks[key] = lock
         self._ingress_locks.move_to_end(key)
-        while len(self._ingress_locks) > self._dedup_capacity:
-            old_key, old_lock = next(iter(self._ingress_locks.items()))
-            if old_lock.locked():
+        retained_count = sum(self._ingress_lock_refs.values())
+        while len(self._ingress_locks) > self._dedup_capacity + retained_count:
+            for old_key, old_lock in tuple(self._ingress_locks.items()):
+                if not old_lock.locked() and old_key not in self._ingress_lock_refs:
+                    self._ingress_locks.pop(old_key, None)
+                    break
+            else:
                 break
-            self._ingress_locks.pop(old_key, None)
         return lock
 
     def _ingress_key(self, raw: Mapping[str, Any]) -> str:

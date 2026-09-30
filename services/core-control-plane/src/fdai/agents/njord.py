@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections.abc import Sequence
+from collections import OrderedDict
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -75,9 +78,10 @@ class Njord(Agent):
         self._state_store = state_store
         self._latest: dict[str, tuple[float, str]] = {}
         self._counts: dict[str, int] = {}
-        self._accepted_sample_keys: set[str] = set()
-        self._accepted_sample_digests: dict[str, str] = {}
+        self._accepted_sample_keys: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED_SCOPES * 4)
+        self._accepted_sample_digests: OrderedDict[str, str] = OrderedDict()
         self._scope_locks: dict[str, asyncio.Lock] = {}
+        self._scope_lock_refs: dict[str, int] = {}
         for sample in initial_samples:
             self._remember_initial_sample(sample)
 
@@ -233,7 +237,7 @@ class Njord(Agent):
             self.record_behavior("cost_sample:provider_absent")
             return None
         normalized_key = sample_key.strip() or _sample_key(sample)
-        async with self._lock_for_scope(sample.scope_id):
+        async with self._scope_lock(sample.scope_id):
             sample_digest = _sample_digest(sample)
             if not await self._begin_sample(normalized_key, sample, sample_digest=sample_digest):
                 return None
@@ -384,33 +388,42 @@ class Njord(Agent):
             )
         self._accepted_sample_keys.add(sample_key)
         self._accepted_sample_digests[sample_key] = sample_digest
+        self._accepted_sample_digests.move_to_end(sample_key)
+        while len(self._accepted_sample_digests) > _MAX_TRACKED_SCOPES * 4:
+            self._accepted_sample_digests.popitem(last=False)
+        if self._state_store is not None:
+            await self._state_store.delete_states_beyond(
+                _ACCEPTED_PREFIX,
+                retain_newest=_MAX_TRACKED_SCOPES * 4,
+            )
 
     async def _remember_sample(self, sample: CostAnalysisSample) -> None:
-        next_latest = dict(self._latest)
-        next_counts = dict(self._counts)
-        if len(next_latest) >= _MAX_TRACKED_SCOPES and sample.scope_id not in next_latest:
-            oldest = next(iter(next_latest))
-            next_latest.pop(oldest, None)
-            next_counts.pop(oldest, None)
-        next_counts[sample.scope_id] = next_counts.get(sample.scope_id, 0) + 1
-        next_latest[sample.scope_id] = (
-            float(sample.amount_usd),
-            sample.observed_at.isoformat(),
-        )
+        evicted: str | None = None
+        if len(self._latest) >= _MAX_TRACKED_SCOPES and sample.scope_id not in self._latest:
+            evicted = next(iter(self._latest))
+        next_count = self._counts.get(sample.scope_id, 0) + 1
         if self._state_store is not None:
             await self._state_store.write_state(
                 f"{_SAMPLE_PREFIX}{_digest(sample.scope_id)}",
                 {
                     "schema_version": "1.0.0",
-                    "revision": next_counts[sample.scope_id],
+                    "revision": next_count,
                     "scope_id": sample.scope_id,
                     "amount_usd": float(sample.amount_usd),
                     "observed_at": sample.observed_at.astimezone(UTC).isoformat(),
-                    "count": next_counts[sample.scope_id],
+                    "count": next_count,
                 },
             )
-        self._latest = next_latest
-        self._counts = next_counts
+        if evicted is not None:
+            self._latest.pop(evicted, None)
+            self._counts.pop(evicted, None)
+            self._scope_locks.pop(evicted, None)
+            self._scope_lock_refs.pop(evicted, None)
+        self._counts[sample.scope_id] = next_count
+        self._latest[sample.scope_id] = (
+            float(sample.amount_usd),
+            sample.observed_at.isoformat(),
+        )
 
     async def _message_enabled(self, activation_revision: object) -> bool:
         if not self._package_enabled or self._advisory_provider is None:
@@ -578,6 +591,22 @@ class Njord(Agent):
                 )
             answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
+
+    @asynccontextmanager
+    async def _scope_lock(self, scope_id: str) -> AsyncIterator[None]:
+        lock = self._lock_for_scope(scope_id)
+        self._scope_lock_refs[scope_id] = self._scope_lock_refs.get(scope_id, 0) + 1
+        await lock.acquire()
+        try:
+            yield
+        finally:
+            lock.release()
+            remaining = self._scope_lock_refs.get(scope_id, 1) - 1
+            if remaining > 0:
+                self._scope_lock_refs[scope_id] = remaining
+            else:
+                self._scope_lock_refs.pop(scope_id, None)
+                self._scope_locks.pop(scope_id, None)
 
     def _lock_for_scope(self, scope_id: str) -> asyncio.Lock:
         lock = self._scope_locks.get(scope_id)

@@ -11,7 +11,8 @@ import json
 import logging
 import time
 from collections import Counter, deque
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -110,8 +111,12 @@ _SEVERITY_RANK = {
 }
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
 _STATE_KEY = "pantheon/heimdall/sensing-state"
+_EPISODE_PREFIX = "pantheon/heimdall/sensing-state/episodes/"
+_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness/"
+_PENDING_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness-pending/"
 _PUBLICATION_PREFIX = "pantheon/heimdall/publications/"
 _RULE_VALIDATION_TIMEOUT_SECONDS = 5.0
+_FULL_SNAPSHOT_LIMIT = 128
 
 
 class Heimdall(
@@ -189,6 +194,10 @@ class Heimdall(
         ] = {}
         self._detection_readiness_pass_order: dict[str, tuple[str, datetime]] = {}
         self._publication_locks: dict[str, asyncio.Lock] = {}
+        self._dirty_episode_keys: set[_EpisodeKey] = set()
+        self._dirty_readiness_resources: set[str] = set()
+        self._dirty_pending_readiness: set[tuple[str, str]] = set()
+        self._publication_lock_refs: dict[str, int] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -208,7 +217,31 @@ class Heimdall(
         restored = 0
         self._recent_events.clear()
         self._recent_episode_keys.clear()
+        episode_rows, _episode_total = await self._state_store.read_state_page(
+            _EPISODE_PREFIX,
+            limit=_MAX_TRACKED_KEYS,
+        )
+        for episode_record in reversed(episode_rows):
+            episode_key = _decode_episode_key(str(episode_record.get("episode_key") or ""))
+            raw_history = episode_record.get("history")
+            if episode_key is None or not isinstance(raw_history, list):
+                continue
+            legacy_history: deque[tuple[float, str, str]] = deque(maxlen=self._rate_threshold * 2)
+            for item in raw_history:
+                if (
+                    isinstance(item, list)
+                    and len(item) == 3
+                    and isinstance(item[0], int | float)
+                    and isinstance(item[1], str)
+                    and isinstance(item[2], str)
+                ):
+                    legacy_history.append((float(item[0]), item[1], item[2]))
+            self._recent_events[episode_key] = legacy_history
+            self._recent_episode_keys.setdefault(episode_key[0], {})[episode_key] = None
+            restored += 1
         for raw_key, raw_history in dict(record.get("recent_events") or {}).items():
+            if self._recent_events:
+                break
             episode_key = _decode_episode_key(raw_key)
             if episode_key is None or not isinstance(raw_history, list):
                 continue
@@ -245,9 +278,38 @@ class Heimdall(
             if isinstance(value, list) and len(value) == 2
         }
         self._detection_readiness = _decode_readiness_map(record.get("detection_readiness"))
+        readiness_rows, _readiness_total = await self._state_store.read_state_page(
+            _READINESS_PREFIX,
+            limit=_MAX_TRACKED_KEYS,
+        )
+        for readiness_record in reversed(readiness_rows):
+            resource = str(readiness_record.get("resource_id") or "")
+            observations = _decode_readiness_map(
+                {resource: readiness_record.get("observations")}
+            ).get(resource)
+            pass_order = readiness_record.get("pass_order")
+            if resource and observations is not None:
+                self._detection_readiness[resource] = observations
+                if isinstance(pass_order, list) and len(pass_order) == 2:
+                    self._detection_readiness_pass_order[resource] = (
+                        str(pass_order[0]),
+                        datetime.fromisoformat(str(pass_order[1])),
+                    )
         self._detection_readiness_pending = _decode_pending_readiness(
             record.get("detection_readiness_pending")
         )
+        pending_rows, _pending_total = await self._state_store.read_state_page(
+            _PENDING_READINESS_PREFIX,
+            limit=_MAX_TRACKED_KEYS,
+        )
+        for pending_record in reversed(pending_rows):
+            resource = str(pending_record.get("resource_id") or "")
+            pass_id = str(pending_record.get("pass_id") or "")
+            observations = _decode_pending_readiness(
+                {f"{resource}\0{pass_id}": pending_record.get("observations")}
+            ).get((resource, pass_id))
+            if resource and pass_id and observations is not None:
+                self._detection_readiness_pending[(resource, pass_id)] = observations
         self._detection_readiness_pass_order = {
             str(resource): (str(value[0]), datetime.fromisoformat(str(value[1])))
             for resource, value in dict(record.get("detection_readiness_pass_order") or {}).items()
@@ -477,7 +539,7 @@ class Heimdall(
             raise ValueError("Heimdall publication requires an idempotency_key")
         publication_digest = hashlib.sha256(f"{topic}:{idempotency_key}".encode()).hexdigest()
         state_key = f"{_PUBLICATION_PREFIX}{publication_digest}"
-        async with self._lock_for_publication(publication_digest):
+        async with self._publication_lock(publication_digest):
             if self._state_store is not None:
                 existing = await self._state_store.read_state(state_key)
                 if existing is not None and existing.get("state") == "published":
@@ -491,7 +553,7 @@ class Heimdall(
                         "state": "pending",
                         "topic": topic,
                         "idempotency_key": idempotency_key,
-                        "payload": dict(payload),
+                        "payload_digest": _payload_digest(payload),
                     },
                 )
             if self.bus is None:
@@ -514,7 +576,7 @@ class Heimdall(
                             "state": "published",
                             "topic": topic,
                             "idempotency_key": idempotency_key,
-                            "payload": dict(payload),
+                            "payload_digest": _payload_digest(payload),
                         },
                     )
                 )
@@ -531,12 +593,75 @@ class Heimdall(
     async def _persist_state(self) -> None:
         if self._state_store is None:
             return
+        compact_episode_mode = len(self._recent_events) > _FULL_SNAPSHOT_LIMIT
+        compact_readiness_mode = (
+            len(self._detection_readiness) + len(self._detection_readiness_pending)
+            > _FULL_SNAPSHOT_LIMIT
+        )
+        for episode_key in tuple(self._dirty_episode_keys):
+            history = self._recent_events.get(episode_key)
+            if history is None:
+                continue
+            await self._state_store.write_state(
+                f"{_EPISODE_PREFIX}{_digest(_encode_episode_key(episode_key))}",
+                {
+                    "schema_version": "1.0.0",
+                    "revision": len(history),
+                    "episode_key": _encode_episode_key(episode_key),
+                    "history": [
+                        [timestamp, severity, evidence_key]
+                        for timestamp, severity, evidence_key in history
+                    ],
+                },
+            )
+        for resource in tuple(self._dirty_readiness_resources):
+            observations = self._detection_readiness.get(resource)
+            if observations is None:
+                continue
+            pass_order = self._detection_readiness_pass_order.get(resource)
+            await self._state_store.write_state(
+                f"{_READINESS_PREFIX}{_digest(resource)}",
+                {
+                    "schema_version": "1.0.0",
+                    "revision": 1,
+                    "resource_id": resource,
+                    "observations": {
+                        dimension: observation.model_dump(mode="json")
+                        for dimension, observation in observations.items()
+                    },
+                    "pass_order": (
+                        [pass_order[0], pass_order[1].isoformat()]
+                        if pass_order is not None
+                        else None
+                    ),
+                },
+            )
+        for resource, pass_id in tuple(self._dirty_pending_readiness):
+            observations = self._detection_readiness_pending.get((resource, pass_id))
+            if observations is None:
+                continue
+            pending_identity = resource + "\0" + pass_id
+            await self._state_store.write_state(
+                f"{_PENDING_READINESS_PREFIX}{_digest(pending_identity)}",
+                {
+                    "schema_version": "1.0.0",
+                    "revision": len(observations),
+                    "resource_id": resource,
+                    "pass_id": pass_id,
+                    "observations": {
+                        dimension: observation.model_dump(mode="json")
+                        for dimension, observation in observations.items()
+                    },
+                },
+            )
         await self._state_store.write_state(
             _STATE_KEY,
             {
                 "schema_version": "1.0.0",
                 "revision": 1,
-                "recent_events": {
+                "recent_events": {}
+                if compact_episode_mode
+                else {
                     _encode_episode_key(key): [
                         [timestamp, severity, evidence_key]
                         for timestamp, severity, evidence_key in history
@@ -555,14 +680,18 @@ class Heimdall(
                 "alert_windows": {
                     key: [start, count] for key, (start, count) in self._alert_windows.items()
                 },
-                "detection_readiness": {
+                "detection_readiness": {}
+                if compact_readiness_mode
+                else {
                     resource: {
                         dimension: observation.model_dump(mode="json")
                         for dimension, observation in observations.items()
                     }
                     for resource, observations in self._detection_readiness.items()
                 },
-                "detection_readiness_pending": {
+                "detection_readiness_pending": {}
+                if compact_readiness_mode
+                else {
                     f"{resource}\0{pass_id}": {
                         dimension: observation.model_dump(mode="json")
                         for dimension, observation in observations.items()
@@ -572,7 +701,9 @@ class Heimdall(
                         pass_id,
                     ), observations in self._detection_readiness_pending.items()
                 },
-                "detection_readiness_pass_order": {
+                "detection_readiness_pass_order": {}
+                if compact_readiness_mode
+                else {
                     resource: [pass_id, observed_at.isoformat()]
                     for resource, (
                         pass_id,
@@ -581,6 +712,9 @@ class Heimdall(
                 },
             },
         )
+        self._dirty_episode_keys.clear()
+        self._dirty_readiness_resources.clear()
+        self._dirty_pending_readiness.clear()
 
     async def _observe_t2_proposer_health(self, event: dict[str, Any]) -> None:
         """Reduce one sanitized proposer receipt without another model call."""
@@ -686,6 +820,7 @@ class Heimdall(
         observations = self._detection_readiness_pending.setdefault(pending_key, {})
         _evict_oldest(self._detection_readiness_pending, _MAX_TRACKED_KEYS, keep=pending_key)
         observations[observation.dimension.value] = observation
+        self._dirty_pending_readiness.add(pending_key)
         if len(observations) != len(DetectionReadinessDimension):
             await self._persist_state()
             self.record_behavior("detection_readiness:collecting")
@@ -699,6 +834,7 @@ class Heimdall(
             return
         self._detection_readiness[resource_id] = dict(observations)
         self._detection_readiness_pass_order[resource_id] = (pass_id, pass_observed_at)
+        self._dirty_readiness_resources.add(resource_id)
         _evict_oldest(self._detection_readiness, _MAX_TRACKED_KEYS, keep=resource_id)
         del self._detection_readiness_pending[pending_key]
         snapshot = reduce_detection_readiness(
@@ -808,6 +944,7 @@ class Heimdall(
             time_basis,
         )
         history = self._episode_history(episode_key)
+        self._dirty_episode_keys.add(episode_key)
         watermark = max(observed_at, history[-1][0] if history else observed_at)
         while history and watermark - history[0][0] > self._rate_window:
             history.popleft()
@@ -1008,6 +1145,24 @@ class Heimdall(
             return
         await self._alerter_hook(payload)
 
+    @asynccontextmanager
+    async def _publication_lock(self, publication_digest: str) -> AsyncIterator[None]:
+        lock = self._lock_for_publication(publication_digest)
+        self._publication_lock_refs[publication_digest] = (
+            self._publication_lock_refs.get(publication_digest, 0) + 1
+        )
+        await lock.acquire()
+        try:
+            yield
+        finally:
+            lock.release()
+            remaining = self._publication_lock_refs.get(publication_digest, 1) - 1
+            if remaining > 0:
+                self._publication_lock_refs[publication_digest] = remaining
+            else:
+                self._publication_lock_refs.pop(publication_digest, None)
+                self._publication_locks.pop(publication_digest, None)
+
     def _lock_for_publication(self, publication_digest: str) -> asyncio.Lock:
         lock = self._publication_locks.get(publication_digest)
         if lock is None:
@@ -1104,6 +1259,20 @@ __all__ = [
 
 def _encode_episode_key(key: _EpisodeKey) -> str:
     return json.dumps(key, ensure_ascii=True, separators=(",", ":"))
+
+
+def _digest(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _payload_digest(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 def _decode_episode_key(value: object) -> _EpisodeKey | None:
