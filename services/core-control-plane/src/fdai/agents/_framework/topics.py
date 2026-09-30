@@ -13,6 +13,8 @@ these to enforce the contract before publish.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -138,6 +140,29 @@ def missing_mutation_envelope_fields(
     )
 
 
+def stable_idempotency_key(kind: str, *parts: object) -> str:
+    """Return a deterministic idempotency key for one logical publication.
+
+    The key depends only on ``kind`` and the canonical JSON form of ``parts``,
+    so a redelivered or recomputed publication receives the same key while a
+    different logical publication receives a different one. Parts MUST be
+    JSON-native values; an unsupported type raises instead of hashing an
+    unstable ``repr``.
+    """
+    if not isinstance(kind, str) or not kind.strip():
+        raise ValueError("idempotency key kind MUST be a non-empty string")
+    normalized_kind = kind.strip()
+    canonical = json.dumps(
+        [normalized_kind, *parts],
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"{normalized_kind}:{digest[:32]}"
+
+
 def _kebab(name: str) -> str:
     out: list[str] = []
     for i, ch in enumerate(name):
@@ -153,6 +178,7 @@ __all__ = [
     "CORRELATION_TOPICS",
     "ENVELOPE_SCHEMA_VERSION",
     "missing_mutation_envelope_fields",
+    "stable_idempotency_key",
     "topic_for_object_type",
     "partition_key_for",
 ]
