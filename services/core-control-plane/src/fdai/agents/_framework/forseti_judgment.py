@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from typing import Any
 
@@ -18,6 +19,7 @@ from fdai.agents._framework.anomaly_action import AnomalyActionPreparer, Anomaly
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.forseti_decision_helpers import copy_change_assessment, source_freshness
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context import (
     TestContextDecision,
@@ -58,6 +60,33 @@ RISK_VERDICT: dict[str, str] = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class JudgmentTable:
+    """Digest-stamped deterministic judgment defaults bound by composition."""
+
+    rule_match: Mapping[str, str]
+    risk_verdict: Mapping[str, str]
+    source: str = "built-in-shadow-defaults"
+
+    @property
+    def digest(self) -> str:
+        canonical = json.dumps(
+            {
+                "rule_match": dict(sorted(self.rule_match.items())),
+                "risk_verdict": dict(sorted(self.risk_verdict.items())),
+                "source": self.source,
+            },
+            allow_nan=False,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+DEFAULT_JUDGMENT_TABLE = JudgmentTable(RULE_MATCH, RISK_VERDICT)
+
+
 class ForsetiJudgmentMixin:
     """Issue deterministic Verdicts and lower authority on missing evidence."""
 
@@ -73,6 +102,9 @@ class ForsetiJudgmentMixin:
     _rbac: dict[str, frozenset[str]]
     _unresolved_arbitrations: BoundedLruDict[str, dict[str, Any]]
     _anomaly_action_sources: Mapping[str, AnomalyActionSource]
+    _judgment_table: JudgmentTable
+    _no_rule_folds: BoundedLruDict[str, int]
+    _rule_state: BoundedLruDict[str, dict[str, str]]
 
     def record_behavior(self, name: str, amount: int = 1) -> None:
         raise NotImplementedError
@@ -118,7 +150,14 @@ class ForsetiJudgmentMixin:
             "resource_id": document_id,
             "document_id": document_id,
             "upload_id": upload_id,
-            "idempotency_key": str(event.get("idempotency_key") or ""),
+            "idempotency_key": str(event.get("idempotency_key") or "")
+            or stable_idempotency_key(
+                "forseti-document-ingestion",
+                correlation_id or document_id,
+                document_id,
+                upload_id,
+                decision,
+            ),
         }
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
@@ -164,7 +203,14 @@ class ForsetiJudgmentMixin:
             "document_id": str(signal.get("document_id") or ""),
             "upload_id": str(signal.get("upload_id") or ""),
             "initiator_principal": str(signal.get("initiator_principal") or ""),
-            "idempotency_key": str(signal.get("idempotency_key") or ""),
+            "idempotency_key": str(signal.get("idempotency_key") or "")
+            or stable_idempotency_key(
+                "forseti-document-safety",
+                signal.get("correlation_id") or "",
+                signal.get("document_id") or "",
+                signal.get("upload_id") or "",
+                decision,
+            ),
         }
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
@@ -185,23 +231,43 @@ class ForsetiJudgmentMixin:
         event, candidate_held = await self._resolve_anomaly_action(event)
         action_type = None if candidate_held else event.get("action_type")
         if action_type is None and not candidate_held:
-            action_type = RULE_MATCH.get(str(event.get("event_type", "")))
+            action_type = self._judgment_table.rule_match.get(str(event.get("event_type", "")))
         if action_type is None:
             self.record_behavior("no_rule_match")
             resource_id = event.get("resource_id")
             correlation_id = str(event.get("correlation_id") or event.get("idempotency_key") or "")
             if not resource_id or not correlation_id:
                 return None
+            fold_key = stable_idempotency_key(
+                "forseti-no-rule-fold",
+                correlation_id,
+                str(resource_id),
+                str(event.get("event_type") or ""),
+                "anomaly_action_unavailable" if candidate_held else "no_rule_match",
+            )
+            folded = (self._no_rule_folds.get(fold_key) or 0) + 1
+            self._no_rule_folds.set(fold_key, folded)
+            if folded > 1:
+                self.record_behavior("no_rule_match:folded")
+                return None
             self.record_behavior("verdict:hil")
             verdict = {
                 "producer_principal": "Forseti",
                 "correlation_id": correlation_id,
-                "idempotency_key": str(event.get("idempotency_key") or correlation_id),
+                "idempotency_key": stable_idempotency_key(
+                    "forseti-verdict",
+                    correlation_id,
+                    resource_id,
+                    "",
+                    str(event.get("event_type") or ""),
+                ),
                 "resource_id": resource_id,
                 "action_type": "",
                 "risk_verdict": "hil",
                 "resolved_autonomy_ceiling": Autonomy.SHADOW_ONLY.value,
                 "reason": "anomaly_action_unavailable" if candidate_held else "no_rule_match",
+                "folded_count": folded,
+                "judgment_table_digest": self._judgment_table.digest,
                 "quorum_required": 1,
                 "initiator_principal": event.get("initiator_principal"),
             }
@@ -214,7 +280,12 @@ class ForsetiJudgmentMixin:
         action_type = str(action_type)
 
         initiator = str(event.get("initiator_principal", event.get("producer_principal", "")))
-        risk_verdict = RISK_VERDICT.get(action_type, "hil")
+        risk_verdict = self._judgment_table.risk_verdict.get(action_type, "hil")
+        rule_state = self._rule_state.get(action_type)
+        if rule_state is not None and rule_state.get("state") in {"retired", "revoked"}:
+            if risk_verdict == "auto":
+                risk_verdict = "hil"
+            self.record_behavior(f"rule_state:{rule_state['state']}")
         explicit_hil = event.get("human_approval_required") is True
         if explicit_hil:
             risk_verdict = "hil"
@@ -259,6 +330,13 @@ class ForsetiJudgmentMixin:
         )
         if arbitration_limited:
             risk_verdict = "hil"
+        if risk_verdict == "auto" and (
+            self._action_semantics is None
+            or action_type not in self._action_semantics.irreversible_by_id
+            or self._action_semantics.irreversible(action_type)
+        ):
+            risk_verdict = "hil"
+            self.record_behavior("verdict:auto_lowered_by_action_semantics")
 
         if risk_verdict == "deny":
             reason = (
@@ -295,8 +373,15 @@ class ForsetiJudgmentMixin:
                 }
         verdict = {
             "producer_principal": "Forseti",
-            "correlation_id": event.get("correlation_id", ""),
-            "idempotency_key": str(
+            "correlation_id": event.get("correlation_id") or event.get("idempotency_key") or "",
+            "idempotency_key": stable_idempotency_key(
+                "forseti-verdict",
+                event.get("correlation_id") or event.get("idempotency_key") or "",
+                event.get("resource_id"),
+                action_type,
+                event.get("event_type") or "",
+            ),
+            "action_idempotency_key": str(
                 event.get("idempotency_key") or event.get("correlation_id") or ""
             ),
             "resource_id": event.get("resource_id"),
@@ -310,6 +395,7 @@ class ForsetiJudgmentMixin:
                 else Autonomy.SHADOW_ONLY.value
             ),
             "reason": reason,
+            "judgment_table_digest": self._judgment_table.digest,
             "params": params,
             "detection_readiness": readiness,
             "quorum_required": quorum_for(action_type, self._action_semantics),
@@ -613,7 +699,7 @@ class ForsetiJudgmentMixin:
 
     @staticmethod
     def _hold_for_context(verdict: dict[str, Any], reason: str) -> None:
-        if verdict.get("risk_verdict") == "auto":
+        if verdict.get("risk_verdict") in {"auto", "hil"}:
             verdict["risk_verdict"] = "hil"
             verdict["reason"] = reason
 
@@ -633,6 +719,13 @@ class ForsetiJudgmentMixin:
             {
                 "producer_principal": "Forseti",
                 "correlation_id": event.get("correlation_id", ""),
+                "idempotency_key": stable_idempotency_key(
+                    "forseti-security-event",
+                    event.get("correlation_id") or "",
+                    event.get("resource_id") or "",
+                    initiator,
+                    action_type,
+                ),
                 "event_type": "privilege_escalation_attempt",
                 "initiator_principal": initiator,
                 "attempted_action": action_type,
@@ -642,7 +735,13 @@ class ForsetiJudgmentMixin:
         )
 
 
-__all__ = ["ForsetiJudgmentMixin", "RISK_VERDICT", "RULE_MATCH"]
+__all__ = [
+    "DEFAULT_JUDGMENT_TABLE",
+    "ForsetiJudgmentMixin",
+    "JudgmentTable",
+    "RISK_VERDICT",
+    "RULE_MATCH",
+]
 
 
 def _classified_hold(

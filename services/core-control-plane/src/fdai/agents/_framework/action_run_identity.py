@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
@@ -317,9 +317,14 @@ async def claim_durable_action_run_identity(
     completion_key: str,
     candidate: Mapping[str, Any],
     action_fingerprint: str,
+    clock: Callable[[], datetime] | None = None,
 ) -> Literal["acquired", "existing", "completed", "contended"]:
     """Atomically claim one correlation before idempotency or resource state."""
 
+    now = clock() if clock is not None else datetime.now(tz=UTC)
+    if now.tzinfo is None:
+        raise RuntimeError("Thor clock MUST be timezone-aware")
+    now = now.astimezone(UTC)
     current = await store.read_state(run_key)
     if current is not None:
         validate_durable_action_run_state(current, candidate)
@@ -335,7 +340,7 @@ async def claim_durable_action_run_identity(
     if (
         completion is not None
         and completion.get("status") == "reserved"
-        and claim_lease_expiry(completion) > datetime.now(tz=UTC)
+        and claim_lease_expiry(completion) > now
     ):
         return "contended"
     if await store.write_state_if_absent(

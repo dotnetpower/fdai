@@ -220,6 +220,7 @@ class PantheonRuntime:
                 approver_authorizer is not None or development_authority is not None
             ),
             resource_lock=execution_resource_lock,
+            has_action_semantics=bool(action_types),
         )
 
         disabled = execution_safety.validate_disabled_agents(disabled_agents)

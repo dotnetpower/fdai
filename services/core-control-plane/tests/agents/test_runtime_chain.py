@@ -19,14 +19,28 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Mapping
 from copy import deepcopy
+from functools import lru_cache
+from pathlib import Path
 from threading import Lock
 from typing import Any
 
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.saga import Saga
+from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.shared.contracts.models import OntologyActionType
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
 
 _RAW_TOPIC = "fdai.events"
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+@lru_cache(maxsize=1)
+def _action_types() -> tuple[OntologyActionType, ...]:
+    return load_action_type_catalog(
+        _REPO_ROOT / "rule-catalog" / "action-types",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
 
 
 class LiveInMemoryEventBus(EventBus):
@@ -88,7 +102,11 @@ class LiveInMemoryEventBus(EventBus):
 
 def test_full_shadow_chain_propagates_over_live_bus() -> None:
     provider = LiveInMemoryEventBus()
-    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        action_types=_action_types(),
+    )
 
     async def _drive() -> None:
         run_task = asyncio.create_task(runtime.run())

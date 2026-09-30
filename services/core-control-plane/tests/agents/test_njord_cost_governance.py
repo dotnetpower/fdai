@@ -89,7 +89,9 @@ def _event(observed_at: datetime, *, activation_revision: int = 2) -> dict[str, 
         "idempotency_key": f"cost:{observed_at.isoformat()}",
         "event_id": f"event:{observed_at.isoformat()}",
         "event_type": "specialist.cost_sample",
-        "detected_at": observed_at.isoformat(),
+        "occurred_at": observed_at.isoformat(),
+        "ingested_at": (observed_at + timedelta(seconds=1)).isoformat(),
+        "resource_id": "resource-a",
         "attributes": {
             "scope": "scope-a",
             "resource_id": "resource-a",
@@ -120,6 +122,25 @@ def test_disabled_or_absent_provider_produces_zero_analysis_and_publications() -
     assert bus.messages_on("object.cost-anomaly") == []
     assert disabled.behavior_snapshot()["cost_sample:disabled"] == 1
     assert absent.behavior_snapshot()["cost_sample:disabled"] == 1
+
+
+def test_njord_fails_closed_without_activation_reader_unless_explicitly_opted_in() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    advisory = Advisory()
+    default = Njord(bus=bus, advisory_provider=advisory, package_enabled=True)
+    opted_in = Njord(
+        bus=bus,
+        advisory_provider=advisory,
+        package_enabled=True,
+        allow_unbound_activation_reader=True,
+    )
+
+    asyncio.run(default.on_typed_message("object.event", _event(_NOW + timedelta(seconds=1))))
+    asyncio.run(opted_in.on_typed_message("object.event", _event(_NOW + timedelta(seconds=2))))
+
+    assert advisory.calls == 1
+    assert default.behavior_snapshot()["cost_sample:activation_reader_unbound"] == 1
+    assert opted_in.behavior_snapshot()["cost_sample:explicit_unbound_activation"] == 1
 
 
 def test_enabled_sample_is_analyzed_and_only_njord_publishes_finding() -> None:
@@ -226,7 +247,7 @@ def test_runtime_restores_njord_conversation_evidence() -> None:
     assert result.facts["tracked_scopes_count"] == 1
 
 
-def test_njord_accepts_canonical_attribute_observation_time() -> None:
+def test_njord_accepts_trusted_ingestion_time_when_source_time_absent() -> None:
     advisory = Advisory()
     njord = Njord(
         advisory_provider=advisory,
@@ -234,8 +255,7 @@ def test_njord_accepts_canonical_attribute_observation_time() -> None:
         package_enabled=True,
     )
     event = _event(_NOW)
-    event.pop("detected_at")
-    event["attributes"]["observed_at"] = _NOW.isoformat()
+    event.pop("occurred_at")
 
     asyncio.run(njord.on_typed_message("object.event", event))
 

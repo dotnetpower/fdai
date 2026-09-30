@@ -18,7 +18,12 @@ from fdai.agents._framework.introspection import (
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _NJORD
-from fdai.agents._framework.specialist_ingress import COST_SAMPLE_EVENT, parse_cost_sample
+from fdai.agents._framework.specialist_ingress import (
+    COST_SAMPLE_EVENT,
+    has_resource_id_conflict,
+    parse_cost_sample,
+)
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.ontology_platform.functions import ontology_function_digest
 from fdai.shared.providers.cost_governance import (
     CostAdvisoryProvider,
@@ -47,6 +52,7 @@ class Njord(Agent):
         advisory_provider: CostAdvisoryProvider | None = None,
         activation_reader: CostPackageActivationReader | None = None,
         package_enabled: bool = False,
+        allow_unbound_activation_reader: bool = False,
         budget_data_available: bool = False,
         initial_samples: Sequence[CostAnalysisSample] = (),
     ) -> None:
@@ -55,6 +61,7 @@ class Njord(Agent):
         self._advisory_provider = advisory_provider
         self._activation_reader = activation_reader
         self._package_enabled = package_enabled
+        self._allow_unbound_activation_reader = allow_unbound_activation_reader
         self._budget_data_available = budget_data_available
         self._latest: dict[str, tuple[float, str]] = {}
         self._counts: dict[str, int] = {}
@@ -66,6 +73,9 @@ class Njord(Agent):
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic != "object.event" or payload.get("event_type") != COST_SAMPLE_EVENT:
+            return
+        if has_resource_id_conflict(payload):
+            self.record_behavior("cost_sample:resource_conflict")
             return
         signal = parse_cost_sample(payload)
         if signal is None:
@@ -177,6 +187,14 @@ class Njord(Agent):
             "id": f"cost-anomaly:{anomaly_suffix}",
             "producer_principal": "Njord",
             "correlation_id": finding.correlation_id,
+            "idempotency_key": stable_idempotency_key(
+                "cost-anomaly",
+                finding.correlation_id,
+                finding.scope_id,
+                finding.resource_id,
+                finding.observed_at.isoformat(),
+                anomaly_digest,
+            ),
             "scope": finding.scope_id,
             "resource_id": finding.resource_id,
             "target_ref": finding.resource_id,
@@ -215,7 +233,11 @@ class Njord(Agent):
         if not self._package_enabled or self._advisory_provider is None:
             return False
         if self._activation_reader is None:
-            return True
+            if self._allow_unbound_activation_reader:
+                self.record_behavior("cost_sample:explicit_unbound_activation")
+                return True
+            self.record_behavior("cost_sample:activation_reader_unbound")
+            return False
         if isinstance(activation_revision, bool) or not isinstance(activation_revision, int):
             return False
         snapshot = await self._activation_reader.read_cost_activation(_PACKAGE_ID)
@@ -240,6 +262,33 @@ class Njord(Agent):
             monthly_delta_usd=float(estimate.monthly_delta_usd) if estimate else 0.0,
             confidence=float(estimate.confidence) if estimate else 0.0,
         )
+
+    def health(self) -> dict[str, Any]:
+        ingress_active = (
+            self._package_enabled
+            and self._advisory_provider is not None
+            and (self._activation_reader is not None or self._allow_unbound_activation_reader)
+        )
+        if not self._package_enabled:
+            reason = "package_disabled"
+        elif self._advisory_provider is None:
+            reason = "provider_unbound"
+        elif self._activation_reader is None and not self._allow_unbound_activation_reader:
+            reason = "activation_reader_unbound"
+        elif self._activation_reader is None:
+            reason = "explicit_unbound_activation_reader"
+        else:
+            reason = "activation_reader_bound"
+        return {
+            "agent": "Njord",
+            "status": "ok",
+            "ingress": {
+                "cost_sample": "active" if ingress_active else "disabled",
+                "reason": reason,
+            },
+            "tracked_scopes": len(self._latest),
+            "behavior": self.behavior_snapshot(),
+        }
 
     # ---- conversational port -------------------------------------------
 

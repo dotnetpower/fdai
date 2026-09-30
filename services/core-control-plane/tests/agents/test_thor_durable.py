@@ -239,7 +239,7 @@ def _verdict() -> dict[str, object]:
         "resolved_autonomy_ceiling": "enforce_auto",
         "resource_id": proposal.target_resource_ref,
         "params": proposal.arguments(),
-        "quorum_required": 2,
+        "quorum_required": 1,
         "decision_case": _decision_case(),
         "kinetic_proposal": proposal.model_dump(mode="json"),
     }
@@ -252,7 +252,7 @@ def test_thor_preserves_valid_kinetic_proposal_without_raising_authority() -> No
     run = asyncio.run(thor.dispatch_verdict(_verdict()))
 
     assert run.verdict == "auto"
-    assert run.quorum_required == 2
+    assert run.quorum_required == 1
     assert run.shadow_mode is True
     assert run.kinetic_proposal == _proposal().model_dump(mode="json")
     executor.assert_not_awaited()

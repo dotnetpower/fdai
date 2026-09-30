@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -55,6 +57,7 @@ from fdai.delivery.catalog_search import (
     RuleGenerationBuildWorker,
     RuleGenerationValidationWorker,
 )
+from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidate
 from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RULE_GENERATION_BUILD_REQUEST_TOPIC,
@@ -64,6 +67,8 @@ from fdai.rule_catalog.schema.rule_semantic_generation_events import (
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
 from fdai.runtime.bootstrap_bindings import build_rule_generation_runtime_binding
+from fdai.shared.contracts.models import OntologyActionType
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.catalog_search import CatalogSearchDocument
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -80,6 +85,17 @@ _RAW_TOPIC = "fdai.events"
 _DIGEST_A = "sha256:" + "a" * 64
 _DIGEST_B = "sha256:" + "b" * 64
 _DIGEST_C = "sha256:" + "c" * 64
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+@lru_cache(maxsize=1)
+def _action_types() -> tuple[OntologyActionType, ...]:
+    return load_action_type_catalog(
+        _REPO_ROOT / "rule-catalog" / "action-types",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+
+
 _VALIDATOR_DIGEST = "sha256:" + "d" * 64
 
 
@@ -113,7 +129,11 @@ def _build_request() -> RuleGenerationBuildRequestEvent:
 
 def _build() -> tuple[PantheonRuntime, InMemoryEventBus]:
     provider = InMemoryEventBus()
-    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        action_types=_action_types(),
+    )
     return runtime, provider
 
 
@@ -946,6 +966,7 @@ def test_enforce_true_disables_forced_shadow() -> None:
         var_state_store=state_store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
+        action_types=_action_types(),
     )
     assert runtime.enforce is True
     thor = runtime.agents["Thor"]
@@ -1294,13 +1315,12 @@ async def test_operator_guidance_event_rejects_non_huginn_producer() -> None:
         await Forseti().on_typed_message("object.event", payload)
 
 
-def test_unkeyed_ingress_event_is_dropped_not_dead_lettered() -> None:
+def test_unkeyed_ingress_event_gets_derived_key_not_dead_lettered() -> None:
     runtime, provider = _build()
 
     async def _drive() -> list[dict]:
-        # A raw event with no id / event_id / idempotency_key: Huginn
-        # cannot key it. The shadow pantheon drops it (the P1 loop still
-        # processes the same record) rather than flooding the DLQ.
+        # A raw event with no id / event_id / idempotency_key now receives
+        # a deterministic Huginn-derived key instead of being dropped.
         await provider.publish(_RAW_TOPIC, "", {"resource_id": "r-no-key"})
         run_task = asyncio.create_task(runtime.run())
         for _ in range(50):
@@ -1318,8 +1338,10 @@ def test_unkeyed_ingress_event_is_dropped_not_dead_lettered() -> None:
         return dlq
 
     dlq = asyncio.run(_drive())
-    assert dlq == []  # dropped, not dead-lettered
-    assert runtime.health()["ingress_dropped"] == 1
+    assert dlq == []
+    health = runtime.health()
+    assert health["ingress_dropped"] == 0
+    assert health["agent_health"]["Huginn"]["behavior"]["ingested"] == 1
 
 
 def test_huginn_dedup_memory_is_bounded() -> None:
@@ -1362,6 +1384,7 @@ def test_shadow_observer_counts_verdicts_and_action_runs() -> None:
                 "risk_verdict": "auto",
                 "action_type": "ops.restart-service",
                 "correlation_id": "c1",
+                "idempotency_key": "c1:verdict",
                 "resource_id": "r1",
             },
         )

@@ -38,6 +38,7 @@ from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDIC
 from fdai.agents._framework.forseti_learned_outputs import ForsetiLearnedOutputMixin
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime_health import AGENT_DEGRADATION_POLICIES, evaluate_degradation
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.decision_case import (
     DomainDecisionCoordinator,
     DomainDecisionProjection,
@@ -314,7 +315,12 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         request: dict[str, Any] = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
-            "idempotency_key": f"arbitration:{correlation_id}",
+            "idempotency_key": stable_idempotency_key(
+                "forseti-arbitration-request",
+                correlation_id,
+                resource_id,
+                advice,
+            ),
             "resource_id": resource_id,
             "domains_in_conflict": sorted(advice),
             "advice": advice,
@@ -559,7 +565,12 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
-            "idempotency_key": correlation_id,
+            "idempotency_key": stable_idempotency_key(
+                "forseti-arbitration-verdict",
+                correlation_id,
+                action_type,
+                self._arbitration_resources.get(correlation_id) or "",
+            ),
             "resource_id": self._arbitration_resources.get(correlation_id) or "",
             "action_type": action_type,
             "risk_verdict": risk_verdict,
@@ -665,7 +676,13 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
-            "idempotency_key": correlation_id,
+            "idempotency_key": stable_idempotency_key(
+                "forseti-arbitration-verdict",
+                correlation_id,
+                action_type,
+                self._arbitration_resources.get(correlation_id) or "",
+                reason,
+            ),
             "resource_id": self._arbitration_resources.get(correlation_id) or "",
             # Odin's winner is the concrete recommendation under review; the
             # complete DecisionCase keeps every alternative visible.

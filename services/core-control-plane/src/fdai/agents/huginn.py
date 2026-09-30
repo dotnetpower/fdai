@@ -8,7 +8,7 @@ behind a provider protocol added in a later wave.
 
 from __future__ import annotations
 
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -27,6 +27,7 @@ from fdai.agents._framework.introspection import (
     capability_facts,
 )
 from fdai.agents._framework.pantheon import _HUGINN
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.case_history import OperationalCaseInput
 from fdai.shared.providers.state_store import StateStore
 
@@ -60,6 +61,7 @@ _TRACE_CONTINUITY_FIELDS = (
     "evidence_refs",
     "window_bucket",
 )
+_MAX_OPERATIONAL_CASE_ERRORS = 32
 
 DiscoveryProjector = Callable[[Mapping[str, Any]], Awaitable[object]]
 """Injected durable inventory projector; cloud and database I/O stay outside Huginn."""
@@ -121,19 +123,28 @@ def _event_occurred_at(
             try:
                 observed_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError as exc:
-                raise ValueError(f"event {field} MUST be RFC 3339") from exc
+                raise HuginnIngressRejected(f"event {field} MUST be RFC 3339") from exc
         else:
-            raise ValueError(f"event {field} MUST be RFC 3339")
+            raise HuginnIngressRejected(f"event {field} MUST be RFC 3339")
         observed_field = field
         break
     if observed_at is None:
         return None
     if observed_at.tzinfo is None or observed_at.utcoffset() is None:
-        raise ValueError(f"event {observed_field} MUST be timezone-aware")
+        raise HuginnIngressRejected(f"event {observed_field} MUST be timezone-aware")
 
     if observed_at > ingested_at:
-        raise ValueError(f"event {observed_field} MUST NOT be after trusted ingestion time")
+        raise HuginnIngressRejected(
+            f"event {observed_field} MUST NOT be after trusted ingestion time"
+        )
     return observed_at.isoformat()
+
+
+class HuginnIngressRejectedError(ValueError):
+    """Ingress input was rejected before a normalized Event could be published."""
+
+
+HuginnIngressRejected = HuginnIngressRejectedError
 
 
 def _change_projection(
@@ -176,13 +187,13 @@ def _change_projection(
     try:
         parsed_at = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise ValueError("change occurred_at MUST be RFC 3339") from exc
+        raise HuginnIngressRejected("change occurred_at MUST be RFC 3339") from exc
     if parsed_at.tzinfo is None:
-        raise ValueError("change occurred_at MUST be timezone-aware")
+        raise HuginnIngressRejected("change occurred_at MUST be timezone-aware")
 
     target_ref = str(value("target_ref", event_payload.get("resource_id")) or "").strip()
     if not target_ref:
-        raise ValueError("change target_ref MUST be non-empty")
+        raise HuginnIngressRejected("change target_ref MUST be non-empty")
     actor = canonical_payload.get("actor")
     actor_ref = value(
         "actor_ref",
@@ -192,11 +203,11 @@ def _change_projection(
     )
     actor_ref = str(actor_ref or "").strip()
     if not actor_ref:
-        raise ValueError("change actor_ref MUST be non-empty")
+        raise HuginnIngressRejected("change actor_ref MUST be non-empty")
 
     change_id = str(value("id", event_payload.get("event_id")) or "").strip()
     if not change_id:
-        raise ValueError("change id MUST be non-empty")
+        raise HuginnIngressRejected("change id MUST be non-empty")
     default_status = "observed" if inferred_activity else "planned"
     default_intent = "detected" if inferred_activity else "planned"
     projection: dict[str, Any] = {
@@ -265,6 +276,7 @@ class Huginn(Agent):
         )
         # OrderedDict as an LRU set: key -> None, oldest first.
         self._seen_keys: OrderedDict[str, None] = OrderedDict()
+        self._operational_case_errors: deque[str] = deque(maxlen=_MAX_OPERATIONAL_CASE_ERRORS)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -297,6 +309,7 @@ class Huginn(Agent):
             },
             "dedup_size": len(self._seen_keys),
             "dedup_capacity": self._dedup_capacity,
+            "operational_case_errors": list(self._operational_case_errors),
             "behavior": self.behavior_snapshot(),
         }
 
@@ -312,11 +325,9 @@ class Huginn(Agent):
             or raw.get("source") == "operator-alert-noise"
         ):
             if self._alert_noise_verifier is None:
-                raise ValueError("alert ingress verifier is unavailable")
+                raise HuginnIngressRejected("alert ingress verifier is unavailable")
             self._alert_noise_verifier(raw)
-        key = str(raw.get("idempotency_key") or raw.get("id") or raw.get("event_id", ""))
-        if not key:
-            raise ValueError("event missing idempotency_key / id / event_id")
+        key = self._ingress_key(raw)
         key = key[:_MAX_FIELD_CHARS]
         raw_request_digest = request_digest(raw) if self._dedup_journal is not None else ""
         if key in self._seen_keys:
@@ -345,8 +356,10 @@ class Huginn(Agent):
                     operational_case = OperationalCaseInput.from_mapping(raw_attributes)
                     attributes = operational_case.to_mapping()
                     correlation_id = operational_case.failure_fingerprint.digest
-                except (TypeError, ValueError):
-                    pass
+                except (TypeError, ValueError) as exc:
+                    reason = type(exc).__name__
+                    self.record_behavior("operational_case:invalid")
+                    self._operational_case_errors.append(reason)
         payload: dict[str, Any] = {
             "producer_principal": "Huginn",
             "correlation_id": correlation_id,
@@ -373,7 +386,9 @@ class Huginn(Agent):
         if event_type in ALERT_NOISE_EVENT_TYPES:
             signed = SignedAlertCommand.model_validate(canonical_payload.get("alert_noise"))
             if signed.command.operation != event_type or raw.get("mode") != "shadow":
-                raise ValueError("alert quality ingress is mismatched or authority-bearing")
+                raise HuginnIngressRejected(
+                    "alert quality ingress is mismatched or authority-bearing"
+                )
             payload["alert_noise"] = signed.model_dump(mode="json")
             payload["incident_correlation"] = "none"
         if isinstance(severity, str) and severity.strip():
@@ -487,6 +502,28 @@ class Huginn(Agent):
         self._remember_key(key)
         return payload
 
+    def _ingress_key(self, raw: Mapping[str, Any]) -> str:
+        provided = str(raw.get("idempotency_key") or raw.get("id") or raw.get("event_id") or "")
+        if provided.strip():
+            return provided.strip()
+        event_type = str(raw.get("event_type") or "generic")[:_MAX_FIELD_CHARS]
+        source = str(raw.get("source") or "unknown")[:_MAX_FIELD_CHARS]
+        resource = str(raw.get("resource_id") or raw.get("resource_ref") or "")[:_MAX_FIELD_CHARS]
+        time_basis = str(
+            raw.get("occurred_at") or raw.get("detected_at") or raw.get("created_at") or ""
+        )[:_MAX_FIELD_CHARS]
+        attributes = _bound_attributes(raw.get("attributes", {}))
+        if not any((event_type, source, resource, time_basis, attributes)):
+            raise HuginnIngressRejected("event lacks a stable identity for idempotency")
+        return stable_idempotency_key(
+            "huginn-event",
+            event_type,
+            source,
+            resource,
+            time_basis,
+            attributes,
+        )
+
     def _remember_key(self, key: str) -> None:
         self._seen_keys[key] = None
         self._seen_keys.move_to_end(key)
@@ -541,4 +578,4 @@ class Huginn(Agent):
         return IntrospectionResult(answer=answer, facts=facts)
 
 
-__all__ = ["Huginn"]
+__all__ = ["Huginn", "HuginnIngressRejected"]

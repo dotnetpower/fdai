@@ -380,7 +380,7 @@ def test_forseti_operator_fail_closed_requires_strict_true() -> None:
         )
     )
     verdicts = bus.messages_on("object.verdict")
-    assert verdicts[0].payload["risk_verdict"] == "auto"
+    assert verdicts[0].payload["risk_verdict"] == "hil"
     assert bus.messages_on("object.security-event") == []
 
 

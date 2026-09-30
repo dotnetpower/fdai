@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.factory import configured_forseti
 from fdai.agents._framework.registry import load_pantheon
@@ -32,6 +33,21 @@ from tests.product_selection import governed_execution_selection
 
 _NOW = datetime(2026, 9, 28, 1, 0, tzinfo=UTC)
 _ADVISORY = "governed_execution_unselected"
+
+
+def _known_action_semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={
+            "ops.restart-service": False,
+            "ops.scale-out": False,
+            "remediate.delete-storage": True,
+        },
+        rollback_by_id={
+            "ops.restart-service": "state_forward_only",
+            "ops.scale-out": "state_forward_only",
+            "remediate.delete-storage": "state_forward_only",
+        },
+    )
 
 
 class _RecordingExecutor:
@@ -55,6 +71,7 @@ def _wired(
     forseti = Forseti(
         bus=bus,
         governed_execution_selected=governed_execution_selection(selected),
+        action_semantics=_known_action_semantics(),
         **forseti_bindings,
     )
     executor = _RecordingExecutor()
@@ -262,7 +279,7 @@ def test_freyr_prediction_settles_as_advisory_evidence_end_to_end() -> None:
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     njord = _njord(bus=bus, anomaly_ratio=1.5)
     freyr = Freyr(bus=bus, scale_up_threshold=0.5, clock=lambda: _NOW)
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_known_action_semantics())
     odin = Odin(bus=bus)
     executor = _RecordingExecutor()
     thor = Thor(bus=bus, executor=executor, clock=lambda: _NOW)

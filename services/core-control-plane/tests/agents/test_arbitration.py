@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
@@ -27,6 +28,13 @@ def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
 
 
+def _restart_semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={"ops.restart-service": False},
+        rollback_by_id={"ops.restart-service": "state_forward_only"},
+    )
+
+
 def _njord(bus: InMemoryBus) -> Njord:
     return Njord(
         bus=bus,
@@ -36,6 +44,7 @@ def _njord(bus: InMemoryBus) -> Njord:
             clock=lambda: _COST_NOW,
         ),
         package_enabled=True,
+        allow_unbound_activation_reader=True,
     )
 
 
@@ -61,7 +70,7 @@ def _ingest_cost(
 
 def test_forseti_requests_arbitration_on_conflicting_advice() -> None:
     bus = _bus()
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_restart_semantics())
     request = asyncio.run(
         forseti.maybe_request_arbitration(
             {
@@ -1459,7 +1468,7 @@ def test_redelivered_escalation_does_not_publish_a_second_verdict() -> None:
 def test_event_on_an_unresolved_correlation_never_judges_auto() -> None:
     """The contested resource stays with the human until the tie is settled."""
     bus = _bus()
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_restart_semantics())
     event = {
         "correlation_id": "corr-gate",
         "resource_id": "vm-gate",

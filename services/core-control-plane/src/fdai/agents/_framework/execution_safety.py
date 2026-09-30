@@ -52,6 +52,7 @@ def validate_enforce_bindings(
     has_var_state_store: bool,
     has_approver_authorizer: bool,
     resource_lock: ResourceLock | None,
+    has_action_semantics: bool,
 ) -> None:
     """Reject enforce mode until every durable safety binding is present."""
 
@@ -76,6 +77,8 @@ def validate_enforce_bindings(
         missing.append("execution_resource_lock")
     elif not resource_lock.distributed:
         missing.append("distributed_execution_resource_lock")
+    if not has_action_semantics:
+        missing.append("action_type_catalog")
     if missing:
         raise ValueError(
             "pantheon enforce mode requires explicit durable safety bindings: " + ", ".join(missing)

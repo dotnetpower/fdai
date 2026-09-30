@@ -12,12 +12,13 @@ from uuid import UUID
 import pytest
 from fdai.agents import PantheonRuntime
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionCandidate
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
-from fdai.agents.huginn import Huginn
+from fdai.agents.huginn import Huginn, HuginnIngressRejected
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.agents.var import Var
@@ -59,6 +60,19 @@ def _rollback_for_run(
         "state": state,
         "rollback_ref": rollback_ref,
     }
+
+
+def _restart_semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={
+            "ops.restart-service": False,
+            "remediate.disable-public-access": False,
+        },
+        rollback_by_id={
+            "ops.restart-service": "state_forward_only",
+            "remediate.disable-public-access": "state_forward_only",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -378,10 +392,36 @@ def test_huginn_publishes_on_bound_bus() -> None:
     assert events[0].principal == "Huginn"
 
 
-def test_huginn_requires_stable_key() -> None:
+def test_huginn_derives_stable_key_when_source_omits_one() -> None:
     huginn = Huginn()
-    with pytest.raises(ValueError, match="missing idempotency_key"):
-        asyncio.run(huginn.ingest({"resource_id": "r"}))
+    normalized = asyncio.run(
+        huginn.ingest(
+            {
+                "source": "test-source",
+                "resource_id": "r",
+                "event_type": "public_network_enabled",
+                "attributes": {"signal": "one"},
+            }
+        )
+    )
+
+    assert normalized is not None
+    assert normalized["idempotency_key"].startswith("huginn-event:")
+
+
+def test_huginn_raises_dedicated_rejection_for_malformed_event_time() -> None:
+    huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0, 1, tzinfo=UTC))
+    with pytest.raises(HuginnIngressRejected, match="event occurred_at MUST be RFC 3339"):
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "source": "test-source",
+                    "resource_id": "r",
+                    "event_type": "public_network_enabled",
+                    "occurred_at": "not-a-time",
+                }
+            )
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -714,7 +754,7 @@ def test_heimdall_security_severity_critical_on_pattern() -> None:
 def test_forseti_emits_verdict_auto_on_rule_match() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    f = Forseti(bus=bus)
+    f = Forseti(bus=bus, action_semantics=_restart_semantics())
     asyncio.run(
         f.on_typed_message(
             "object.event",
@@ -730,7 +770,7 @@ def test_forseti_emits_verdict_auto_on_rule_match() -> None:
     assert len(verdicts) == 1
     assert verdicts[0].payload["risk_verdict"] == "auto"
     assert verdicts[0].payload["action_type"] == "remediate.disable-public-access"
-    assert verdicts[0].payload["idempotency_key"] == "event-1"
+    assert verdicts[0].payload["idempotency_key"].startswith("forseti-verdict:")
 
 
 def test_forseti_emits_document_admission_without_action_type() -> None:
@@ -810,7 +850,7 @@ def test_heimdall_emits_content_free_document_safety_signal() -> None:
 def test_forseti_admits_clear_document_safety_signal() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_restart_semantics())
     asyncio.run(
         forseti.on_typed_message(
             "object.anomaly",
@@ -1028,7 +1068,7 @@ def test_forseti_uses_stable_idempotency_when_correlation_is_null() -> None:
 
     assert verdict is not None
     assert verdict["correlation_id"] == "inventory-delta:stable"
-    assert verdict["idempotency_key"] == "inventory-delta:stable"
+    assert verdict["idempotency_key"].startswith("forseti-verdict:")
     assert verdict["risk_verdict"] == "hil"
     assert verdict["resolved_autonomy_ceiling"] == Autonomy.SHADOW_ONLY.value
     published = bus.messages_on("object.verdict")
@@ -1082,7 +1122,7 @@ def test_thor_ignores_repeated_actionless_triage_verdicts() -> None:
 
 
 def test_forseti_cost_spike_has_no_placeholder_remediation() -> None:
-    f = Forseti(bus=None)
+    f = Forseti(bus=None, action_semantics=_restart_semantics())
 
     verdict = asyncio.run(
         f.judge(
@@ -1130,9 +1170,9 @@ def test_forseti_judge_without_bus_returns_verdict_and_no_publish() -> None:
     f = Forseti(bus=None)
     verdict = asyncio.run(f.judge({"action_type": "ops.restart-service", "correlation_id": "c-nb"}))
     # No bus wired: the verdict is still computed and returned (reason
-    # rule_match, risk auto) even though nothing is published.
+    # rule_match, HIL without a catalog) even though nothing is published.
     assert verdict is not None
-    assert verdict["risk_verdict"] == "auto"
+    assert verdict["risk_verdict"] == "hil"
     assert verdict["reason"] == "rule_match"
 
 
@@ -1434,20 +1474,21 @@ def test_thor_rejects_live_correlation_reuse() -> None:
         )
     )
 
-    with pytest.raises(ValueError, match="correlation cannot be reused"):
-        asyncio.run(
-            thor.dispatch_verdict(
-                {
-                    "correlation_id": previous.correlation_id,
-                    "idempotency_key": "generation-current",
-                    "action_type": "remediate.delete-storage",
-                    "risk_verdict": "hil",
-                    "resource_id": "storage-current",
-                }
-            )
+    rejected = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": previous.correlation_id,
+                "idempotency_key": "generation-current",
+                "action_type": "remediate.delete-storage",
+                "risk_verdict": "hil",
+                "resource_id": "storage-current",
+            }
         )
+    )
 
     assert thor.action_runs[previous.correlation_id] is previous
+    assert rejected.state is ActionRunState.DENY_DROPPED
+    assert rejected.outcome == "correlation_reuse_rejected"
     assert thor.behavior_snapshot()["dispatch:correlation_reuse_rejected"] == 1
 
 
@@ -2098,18 +2139,19 @@ def test_thor_per_resource_mutex_prevents_concurrent_runs() -> None:
             }
         )
     )
-    # A distinct action is not acknowledged or discarded while the resource is held.
-    with pytest.raises(RuntimeError, match="active ActionRun"):
-        asyncio.run(
-            thor.dispatch_verdict(
-                {
-                    "correlation_id": "c2",
-                    "action_type": "ops.restart-service",
-                    "risk_verdict": "auto",
-                    "resource_id": "vm-lock",
-                }
-            )
+    # A distinct action is rejected visibly while the resource is held.
+    rejected = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "c2",
+                "action_type": "ops.restart-service",
+                "risk_verdict": "auto",
+                "resource_id": "vm-lock",
+            }
         )
+    )
+    assert rejected.state is ActionRunState.DENY_DROPPED
+    assert rejected.outcome == "resource_active_action_run_contention"
 
 
 def test_var_quorum_two_approvers_required() -> None:
@@ -2765,7 +2807,7 @@ def test_end_to_end_shadow_verdict_loop() -> None:
     bus = InMemoryBus(registry=reg)
     huginn = Huginn(bus=bus)
     heimdall = Heimdall(bus=bus, rate_threshold=3)
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_restart_semantics())
     thor = Thor(bus=bus)
     vidar = Vidar(bus=bus)
     saga = Saga()

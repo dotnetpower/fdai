@@ -1963,6 +1963,7 @@ def test_introspect_facts_lists_are_capped() -> None:
             clock=lambda: now,
         ),
         package_enabled=True,
+        allow_unbound_activation_reader=True,
     )
     for i in range(30):
         asyncio.run(

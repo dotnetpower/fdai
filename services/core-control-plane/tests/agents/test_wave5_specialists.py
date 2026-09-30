@@ -14,6 +14,7 @@ from fdai.agents.forseti import Forseti
 from fdai.agents.freyr import _MAX_SAMPLES as _FREYR_MAX_SAMPLES
 from fdai.agents.freyr import Freyr
 from fdai.agents.heimdall import Heimdall
+from fdai.agents.huginn import Huginn
 from fdai.agents.loki import Loki
 from fdai.agents.njord import Njord
 from fdai.agents.odin import Odin
@@ -43,7 +44,12 @@ def _njord(
         ),
         clock=lambda: _COST_NOW,
     )
-    return Njord(bus=bus, advisory_provider=provider, package_enabled=True)
+    return Njord(
+        bus=bus,
+        advisory_provider=provider,
+        package_enabled=True,
+        allow_unbound_activation_reader=True,
+    )
 
 
 def _ingest(
@@ -75,15 +81,27 @@ def _specialist_event(event_type: str, **attributes: object) -> dict[str, object
         attributes.setdefault("source_authority", "test-cost-source")
         attributes.setdefault("completeness", 1.0)
         attributes.setdefault("ontology_release_digest", _COST_RELEASE)
+    resource_id = str(attributes.get("resource_id") or "resource-1")
     return {
         "producer_principal": "Huginn",
         "correlation_id": "specialist-correlation",
         "idempotency_key": f"specialist:{event_type}",
         "event_id": f"event:{event_type}",
         "event_type": event_type,
-        "detected_at": (_COST_NOW - timedelta(minutes=60 - _EVENT_SEQUENCE)).isoformat(),
-        "resource_id": "resource-1",
+        "occurred_at": (_COST_NOW - timedelta(minutes=60 - _EVENT_SEQUENCE)).isoformat(),
+        "ingested_at": (_COST_NOW - timedelta(minutes=59 - _EVENT_SEQUENCE)).isoformat(),
+        "resource_id": resource_id,
         "attributes": attributes,
+    }
+
+
+def _chaos_evidence() -> dict[str, str]:
+    return {
+        "causal_hypothesis_ref": "causal-1",
+        "refutation_query_ref": "query-1",
+        "impact_envelope_id": "impact-1",
+        "recovery_plan_id": "recovery-1",
+        "dry_run_receipt": "dry-run-1",
     }
 
 
@@ -91,6 +109,100 @@ def test_specialists_subscribe_to_canonical_event_ingress() -> None:
     for name in ("Njord", "Freyr", "Loki"):
         spec = load_pantheon().get(name)
         assert "object.event" in spec.subscribes
+
+
+def test_specialist_health_exposes_ingress_state_and_rejections() -> None:
+    njord = Njord(package_enabled=True)
+    freyr = Freyr()
+    loki = Loki()
+    njord.record_behavior("cost_sample:activation_reader_unbound")
+    freyr.record_behavior("capacity_sample:resource_conflict")
+    loki.record_behavior("chaos_proposal:held_incomplete")
+
+    assert njord.health()["ingress"]["cost_sample"] == "disabled"
+    assert njord.health()["behavior"]["cost_sample:activation_reader_unbound"] == 1
+    assert freyr.health()["ingress"]["capacity_sample"] == "active"
+    assert freyr.health()["behavior"]["capacity_sample:resource_conflict"] == 1
+    assert loki.health()["reservation"]["durability"] == "process_local"
+    assert loki.health()["behavior"]["chaos_proposal:held_incomplete"] == 1
+
+
+async def test_huginn_capacity_sample_uses_envelope_resource_and_source_time() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    huginn = Huginn(bus=bus, clock=lambda: datetime(2028, 1, 2, 0, 1, tzinfo=UTC))
+    freyr = Freyr(bus=bus)
+    bus.subscribe("object.event", "Freyr", freyr.on_typed_message)
+    occurred_at = datetime(2028, 1, 2, tzinfo=UTC)
+
+    normalized = await huginn.ingest(
+        {
+            "idempotency_key": "capacity-sample-e2e",
+            "event_id": "event:capacity-sample-e2e",
+            "correlation_id": "capacity-sample-e2e",
+            "event_type": "specialist.capacity_sample",
+            "source": "capacity-meter",
+            "resource_id": "vm-envelope",
+            "resource_type": "compute.vm",
+            "occurred_at": occurred_at.isoformat(),
+            "attributes": {"utilization": 0.85},
+        }
+    )
+
+    assert normalized is not None
+    (forecast,) = bus.messages_on("object.capacity-forecast")
+    assert forecast.payload["resource_id"] == "vm-envelope"
+    assert forecast.payload["observed_at"] == occurred_at.isoformat()
+    assert forecast.payload["idempotency_key"]
+
+
+async def test_huginn_cost_sample_uses_envelope_resource_and_rejects_conflict() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    ingested_at = datetime(2028, 1, 2, 0, 1, tzinfo=UTC)
+    huginn = Huginn(bus=bus, clock=lambda: ingested_at)
+    njord = _njord(bus=bus, anomaly_ratio=1.5)
+    freyr = Freyr(bus=bus)
+    bus.subscribe("object.event", "Njord", njord.on_typed_message)
+    bus.subscribe("object.event", "Freyr", freyr.on_typed_message)
+
+    for index, amount in enumerate((*([100.0] * 10), 200.0), start=1):
+        await huginn.ingest(
+            {
+                "event_type": "specialist.cost_sample",
+                "source": "cost-meter",
+                "resource_id": "resource-envelope",
+                "resource_type": "compute.vm",
+                "correlation_id": "cost-sample-e2e",
+                "attributes": {
+                    "scope": "scope-e2e",
+                    "amount_usd": amount,
+                    "source_authority": "test-cost-source",
+                    "completeness": 1.0,
+                    "ontology_release_digest": _COST_RELEASE,
+                },
+                "created_at": (ingested_at - timedelta(minutes=12 - index)).isoformat(),
+            }
+        )
+
+    (anomaly,) = bus.messages_on("object.cost-anomaly")
+    assert anomaly.payload["resource_id"] == "resource-envelope"
+    assert anomaly.payload["observed_at"] == (ingested_at - timedelta(minutes=1)).isoformat()
+    assert anomaly.payload["idempotency_key"]
+
+    await huginn.ingest(
+        {
+            "idempotency_key": "capacity-conflict",
+            "event_id": "event:capacity-conflict",
+            "correlation_id": "capacity-conflict",
+            "event_type": "specialist.capacity_sample",
+            "source": "capacity-meter",
+            "resource_id": "envelope-resource",
+            "occurred_at": (ingested_at - timedelta(seconds=1)).isoformat(),
+            "attributes": {"resource_id": "conflicting-resource", "utilization": 0.5},
+        }
+    )
+    assert njord.behavior_snapshot()["cost_sample:accepted"] == 11
+    assert freyr.behavior_snapshot()["capacity_sample:resource_conflict"] == 1
+    assert huginn.behavior_snapshot()["ingested"] == 12
 
 
 def test_specialist_advice_reaches_a_human_review_verdict() -> None:
@@ -369,7 +481,7 @@ def test_freyr_sample_history_is_bounded() -> None:
     for i in range(_FREYR_MAX_SAMPLES * 2):
         asyncio.run(f.ingest_utilization(resource_id="vm-soak", utilization=0.5))
         _ = i
-    assert len(f._samples["vm-soak"]) == _FREYR_MAX_SAMPLES  # noqa: SLF001
+    assert len(f._samples.get("vm-soak") or []) == _FREYR_MAX_SAMPLES  # noqa: SLF001
 
 
 # ---------------------------------------------------------------------------
@@ -386,15 +498,21 @@ def test_loki_respects_blast_radius_cap() -> None:
             experiment_id="ex-1",
             action_type="ops.restart-service",
             targets=("a", "b", "c", "d"),
+            **_chaos_evidence(),
         )
     )
     assert proposal.accepted
     assert len(proposal.targets) == 2
+    assert proposal.requested_target_count == 4
+    assert proposal.targets_truncated is True
     events = bus.messages_on("object.chaos-experiment")
     assert events[0].payload["blast_radius_used"] == 2
+    assert events[0].payload["requested_target_count"] == 4
+    assert events[0].payload["targets_truncated"] is True
+    assert events[0].payload["idempotency_key"]
 
 
-def test_loki_consumes_bounded_scheduled_trigger_events() -> None:
+def test_loki_holds_scheduled_trigger_without_complete_safety_evidence() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     loki = Loki(bus=bus, blast_radius_cap=2)
 
@@ -406,13 +524,13 @@ def test_loki_consumes_bounded_scheduled_trigger_events() -> None:
                 experiment_id="experiment-1",
                 action_type="tool.run-chaos-experiment",
                 targets=["resource-1", "resource-2", "resource-3"],
+                **_chaos_evidence(),
             ),
         )
     )
 
-    experiments = bus.messages_on("object.chaos-experiment")
-    assert len(experiments) == 1
-    assert experiments[0].payload["targets"] == ["resource-1", "resource-2"]
+    assert bus.messages_on("object.chaos-experiment") == []
+    assert loki.behavior_snapshot()["chaos_proposal:held_incomplete"] == 1
 
 
 def test_chaos_proposal_flows_through_heimdall_and_forseti_as_hil() -> None:
@@ -440,6 +558,7 @@ def test_chaos_proposal_flows_through_heimdall_and_forseti_as_hil() -> None:
     anomaly = bus.messages_on("object.anomaly")[-1].payload
     assert anomaly["evidence_complete"] is True
     assert anomaly["human_approval_required"] is True
+    assert anomaly["idempotency_key"]
 
     asyncio.run(forseti.on_typed_message("object.anomaly", anomaly))
     verdict = bus.messages_on("object.verdict")[-1].payload
@@ -447,26 +566,50 @@ def test_chaos_proposal_flows_through_heimdall_and_forseti_as_hil() -> None:
     assert verdict["reason"] == "human_approval_required"
 
 
-def test_incomplete_chaos_proposal_is_denied_before_approval() -> None:
+async def test_heimdall_t2_proposer_failure_anomaly_has_deterministic_key() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     heimdall = Heimdall(bus=bus)
-    forseti = Forseti(bus=bus)
-    proposal = {
-        "producer_principal": "Loki",
-        "experiment_id": "experiment-1",
-        "action_type": "ops.restart-service",
-        "targets": ["resource-1"],
-        "human_approval_required": True,
+    event = {
+        "producer_principal": "Huginn",
+        "correlation_id": "corr-t2",
+        "idempotency_key": "event-t2",
+        "event_id": "event-t2",
+        "event_type": "control_plane.t2_proposer_attempt",
+        "resource_id": "control-plane:t2-proposer",
+        "attributes": {
+            "terminal": True,
+            "status": "failed",
+            "preferred_route_ref": "primary",
+            "failure_class": "provider_error",
+        },
     }
 
-    asyncio.run(heimdall.on_typed_message("object.chaos-experiment", proposal))
-    anomaly = bus.messages_on("object.anomaly")[-1].payload
-    assert anomaly["evidence_complete"] is False
+    await heimdall.on_typed_message("object.event", event)
+    await heimdall.on_typed_message("object.event", dict(event))
 
-    asyncio.run(forseti.on_typed_message("object.anomaly", anomaly))
-    verdict = bus.messages_on("object.verdict")[-1].payload
-    assert verdict["risk_verdict"] == "deny"
-    assert verdict["reason"] == "chaos_evidence_incomplete"
+    anomalies = bus.messages_on("object.anomaly")
+    assert len(anomalies) == 2
+    assert anomalies[0].payload["idempotency_key"]
+    assert anomalies[0].payload["idempotency_key"] == anomalies[1].payload["idempotency_key"]
+
+
+def test_incomplete_chaos_proposal_is_held_before_reservation_or_approval() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    loki = Loki(bus=bus, blast_radius_cap=1)
+
+    proposal = asyncio.run(
+        loki.propose_experiment(
+            experiment_id="experiment-1",
+            action_type="ops.restart-service",
+            targets=("resource-1",),
+        )
+    )
+
+    assert proposal.accepted is False
+    assert proposal.reason == "incomplete_evidence"
+    assert loki._in_flight_targets == set()  # noqa: SLF001
+    assert bus.messages_on("object.chaos-experiment") == []
+    assert loki.health()["held_proposals"] == 1
 
 
 def test_sensing_and_judgment_defer_specialist_source_events() -> None:
@@ -495,6 +638,7 @@ def test_loki_refuses_further_proposals_when_radius_full() -> None:
             experiment_id="ex-1",
             action_type="x.y",
             targets=("t1",),
+            **_chaos_evidence(),
         )
     )
     second = asyncio.run(
@@ -502,6 +646,7 @@ def test_loki_refuses_further_proposals_when_radius_full() -> None:
             experiment_id="ex-2",
             action_type="x.y",
             targets=("t2",),
+            **_chaos_evidence(),
         )
     )
     assert not second.accepted
@@ -512,10 +657,22 @@ def test_loki_release_targets_frees_slots() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     loki = Loki(bus=bus, blast_radius_cap=1)
-    asyncio.run(loki.propose_experiment(experiment_id="e1", action_type="x", targets=("t1",)))
-    loki.release_targets(("t1",))
+    asyncio.run(
+        loki.propose_experiment(
+            experiment_id="e1",
+            action_type="x",
+            targets=("t1",),
+            **_chaos_evidence(),
+        )
+    )
+    loki._release_targets(("t1",))  # noqa: SLF001
     third = asyncio.run(
-        loki.propose_experiment(experiment_id="e2", action_type="x", targets=("t2",))
+        loki.propose_experiment(
+            experiment_id="e2",
+            action_type="x",
+            targets=("t2",),
+            **_chaos_evidence(),
+        )
     )
     assert third.accepted
 
@@ -527,6 +684,7 @@ async def test_loki_durable_reservations_survive_restart_and_release_on_safe_clo
         experiment_id="experiment-1",
         action_type="tool.run-chaos-experiment",
         targets=("target-1",),
+        **_chaos_evidence(),
     )
     assert proposal.accepted
 
@@ -536,6 +694,7 @@ async def test_loki_durable_reservations_survive_restart_and_release_on_safe_clo
         experiment_id="experiment-2",
         action_type="tool.run-chaos-experiment",
         targets=("target-2",),
+        **_chaos_evidence(),
     )
     assert blocked.reason == "blast_radius_full"
 
@@ -552,6 +711,7 @@ async def test_loki_durable_reservations_survive_restart_and_release_on_safe_clo
         experiment_id="experiment-2",
         action_type="tool.run-chaos-experiment",
         targets=("target-2",),
+        **_chaos_evidence(),
     )
     assert accepted.accepted
 
@@ -562,6 +722,7 @@ async def test_loki_keeps_reservation_for_failed_or_mismatched_closure() -> None
         experiment_id="experiment-1",
         action_type="tool.run-chaos-experiment",
         targets=("target-1",),
+        **_chaos_evidence(),
     )
 
     await loki.on_typed_message(
@@ -598,11 +759,13 @@ async def test_loki_cross_replica_reservations_share_one_blast_radius() -> None:
             experiment_id="experiment-1",
             action_type="tool.run-chaos-experiment",
             targets=("target-1",),
+            **_chaos_evidence(),
         ),
         second.propose_experiment(
             experiment_id="experiment-2",
             action_type="tool.run-chaos-experiment",
             targets=("target-2",),
+            **_chaos_evidence(),
         ),
     )
 
@@ -621,11 +784,13 @@ async def test_loki_exact_replay_reuses_partial_reservation() -> None:
         experiment_id="experiment-1",
         action_type="tool.run-chaos-experiment",
         targets=("target-1", "target-2"),
+        **_chaos_evidence(),
     )
     replay = await loki.propose_experiment(
         experiment_id="experiment-1",
         action_type="tool.run-chaos-experiment",
         targets=("target-1", "target-2"),
+        **_chaos_evidence(),
     )
 
     assert first.accepted and replay.accepted
@@ -640,6 +805,7 @@ async def test_loki_rejects_cross_replica_blast_radius_drift() -> None:
         experiment_id="experiment-1",
         action_type="tool.run-chaos-experiment",
         targets=("target-1",),
+        **_chaos_evidence(),
     )
 
     drifted = Loki(blast_radius_cap=2, state_store=store)
@@ -656,6 +822,11 @@ def test_loki_proposals_log_is_bounded() -> None:
     loki = Loki(blast_radius_cap=1)
     for i in range(_MAX_PROPOSALS + 50):
         asyncio.run(
-            loki.propose_experiment(experiment_id=f"e{i}", action_type="x", targets=(f"t{i}",))
+            loki.propose_experiment(
+                experiment_id=f"e{i}",
+                action_type="x",
+                targets=(f"t{i}",),
+                **_chaos_evidence(),
+            )
         )
     assert len(loki.proposals) == _MAX_PROPOSALS

@@ -33,6 +33,7 @@ from fdai.agents._framework.specialist_ingress import (
     CHAOS_SCHEDULE_EVENT,
     parse_chaos_schedule,
 )
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.shared.providers.state_store import StateStore
 
 #: Cap on the retained proposal log. Loki appends one entry per proposal for
@@ -40,8 +41,16 @@ from fdai.shared.providers.state_store import StateStore
 #: so a bounded ring is sufficient and stops an unbounded leak on a
 #: long-running chaos scheduler.
 _MAX_PROPOSALS = 1_000
+_MAX_HELD_PROPOSALS = 256
 _MAX_RESILIENCE_SCORES = 512
 _SAFE_CLOSURE_STATES = frozenset({"succeeded", "rejected", "deny_dropped", "rolled_back"})
+_CHAOS_EVIDENCE_FIELDS = (
+    "causal_hypothesis_ref",
+    "refutation_query_ref",
+    "impact_envelope_id",
+    "recovery_plan_id",
+    "dry_run_receipt",
+)
 
 
 @dataclass
@@ -51,6 +60,8 @@ class ChaosProposal:
     targets: tuple[str, ...]
     accepted: bool
     reason: str
+    requested_target_count: int = 0
+    targets_truncated: bool = False
     causal_hypothesis_ref: str = ""
     impact_envelope_id: str = ""
     recovery_plan_id: str = ""
@@ -77,6 +88,7 @@ class Loki(Agent):
             else None
         )
         self.proposals: deque[ChaosProposal] = deque(maxlen=_MAX_PROPOSALS)
+        self._held_proposals: deque[ChaosProposal] = deque(maxlen=_MAX_HELD_PROPOSALS)
         self._resilience_scores: dict[str, tuple[float, str]] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
@@ -164,6 +176,26 @@ class Loki(Agent):
         recovery_plan_id: str = "",
         dry_run_receipt: str = "",
     ) -> ChaosProposal:
+        requested_target_count = len(targets)
+        evidence = {
+            "causal_hypothesis_ref": causal_hypothesis_ref,
+            "refutation_query_ref": refutation_query_ref,
+            "impact_envelope_id": impact_envelope_id,
+            "recovery_plan_id": recovery_plan_id,
+            "dry_run_receipt": dry_run_receipt,
+        }
+        if any(not str(evidence[field]).strip() for field in _CHAOS_EVIDENCE_FIELDS):
+            proposal = ChaosProposal(
+                experiment_id=experiment_id,
+                action_type=action_type,
+                targets=(),
+                accepted=False,
+                reason="incomplete_evidence",
+                requested_target_count=requested_target_count,
+            )
+            self._held_proposals.append(proposal)
+            self.record_behavior("chaos_proposal:held_incomplete")
+            return proposal
         # Enforce cap BEFORE emitting anything so a proposal storm does
         # not exceed the declared radius.
         if self._reservation_journal is not None:
@@ -179,6 +211,9 @@ class Loki(Agent):
         else:
             available = self._cap - len(self._in_flight_targets)
             selected = tuple(t for t in targets if t not in self._in_flight_targets)[:available]
+        targets_truncated = len(selected) < requested_target_count
+        if targets_truncated and selected:
+            self.record_behavior("chaos_reservation:targets_truncated")
         if not selected:
             proposal = ChaosProposal(
                 experiment_id=experiment_id,
@@ -190,6 +225,8 @@ class Loki(Agent):
                     if len(self._in_flight_targets) >= self._cap
                     else "no_new_targets"
                 ),
+                requested_target_count=requested_target_count,
+                targets_truncated=targets_truncated,
             )
             self.proposals.append(proposal)
             return proposal
@@ -201,34 +238,65 @@ class Loki(Agent):
             targets=selected,
             accepted=True,
             reason="within_radius",
+            requested_target_count=requested_target_count,
+            targets_truncated=targets_truncated,
             causal_hypothesis_ref=causal_hypothesis_ref,
             impact_envelope_id=impact_envelope_id,
             recovery_plan_id=recovery_plan_id,
         )
-        self.proposals.append(proposal)
-        if self.bus is not None:
-            await self.bus.publish(
-                "Loki",
-                "object.chaos-experiment",
-                {
-                    "producer_principal": "Loki",
-                    "correlation_id": correlation_id or experiment_id,
-                    "experiment_id": experiment_id,
-                    "action_type": action_type,
-                    "targets": list(selected),
-                    "blast_radius_used": len(selected),
-                    "causal_hypothesis_ref": causal_hypothesis_ref,
-                    "refutation_query_ref": refutation_query_ref,
-                    "impact_envelope_id": impact_envelope_id,
-                    "recovery_plan_id": recovery_plan_id,
-                    "dry_run_receipt": dry_run_receipt,
-                    "human_approval_required": True,
-                },
+        payload = {
+            "producer_principal": "Loki",
+            "correlation_id": correlation_id or experiment_id,
+            "idempotency_key": stable_idempotency_key(
+                "chaos-experiment",
+                correlation_id or experiment_id,
+                experiment_id,
+                action_type,
+                selected,
+                evidence,
+            ),
+            "experiment_id": experiment_id,
+            "action_type": action_type,
+            "targets": list(selected),
+            "requested_target_count": requested_target_count,
+            "targets_truncated": targets_truncated,
+            "blast_radius_used": len(selected),
+            "causal_hypothesis_ref": causal_hypothesis_ref,
+            "refutation_query_ref": refutation_query_ref,
+            "impact_envelope_id": impact_envelope_id,
+            "recovery_plan_id": recovery_plan_id,
+            "dry_run_receipt": dry_run_receipt,
+            "human_approval_required": True,
+        }
+        if self.bus is not None and not await self._publish_proposal(
+            "object.chaos-experiment",
+            payload,
+        ):
+            await self._release_reservation(
+                experiment_id=experiment_id,
+                action_type=action_type,
+                targets=selected,
             )
+            self.proposals.append(
+                ChaosProposal(
+                    experiment_id=experiment_id,
+                    action_type=action_type,
+                    targets=(),
+                    accepted=False,
+                    reason="publication_unavailable",
+                    requested_target_count=requested_target_count,
+                    targets_truncated=targets_truncated,
+                    causal_hypothesis_ref=causal_hypothesis_ref,
+                    impact_envelope_id=impact_envelope_id,
+                    recovery_plan_id=recovery_plan_id,
+                )
+            )
+            return self.proposals[-1]
+        self.proposals.append(proposal)
         return proposal
 
-    def release_targets(self, targets: tuple[str, ...]) -> None:
-        """Called after experiment completion (Wave 5 test helper)."""
+    def _release_targets(self, targets: tuple[str, ...]) -> None:
+        """Release process-local slots only from validated terminal closure."""
         for t in targets:
             self._in_flight_targets.discard(t)
 
@@ -267,9 +335,29 @@ class Loki(Agent):
             return False
         if existing != (action_type, targets):
             raise ValueError("chaos completion does not match its reservation")
-        self.release_targets(targets)
+        self._release_targets(targets)
         del self._reservations[experiment_id]
         return True
+
+    def health(self) -> dict[str, Any]:
+        return {
+            "agent": "Loki",
+            "status": "ok",
+            "ingress": {
+                "chaos_schedule": "active",
+                "resilience_score": "active",
+                "reason": "event_subscriptions_bound_by_runtime",
+            },
+            "reservation": {
+                "durability": "durable"
+                if self._reservation_journal is not None
+                else "process_local",
+                "blast_radius_cap": self._cap,
+                "in_flight_target_count": len(self._in_flight_targets),
+            },
+            "held_proposals": len(self._held_proposals),
+            "behavior": self.behavior_snapshot(),
+        }
 
     # ---- conversational port -------------------------------------------
 
@@ -286,6 +374,10 @@ class Loki(Agent):
             "in_flight_target_count": len(self._in_flight_targets),
             "proposals_total": len(self.proposals),
             "proposals_accepted": len(accepted),
+            "held_proposals": len(self._held_proposals),
+            "reservation_durability": (
+                "durable" if self._reservation_journal is not None else "process_local"
+            ),
             "resilience_score_available": bool(self._resilience_scores),
             "resilience_score_resource_count": len(self._resilience_scores),
         }

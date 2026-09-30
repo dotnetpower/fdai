@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -54,18 +54,7 @@ _SCALAR_ENVELOPE_KEY = "__fdai_scalar__"
 
 @dataclass
 class StateStoreAuditChainAdapter:
-    """Saga's audit chain, backed by ``StateStore.append_audit_entry``.
-
-    The hash-linked chain contract stays identical to the in-memory
-    version: ``seq``, ``prev_hash``, and ``entry_hash`` are computed
-    the same way and the record is a plain dict handed to the Protocol.
-
-    The durable mirror records Saga as the audit actor and retains the
-    authenticated source publisher in ``principal``. ``entries`` is a local
-    snapshot cache used to compute the next ``prev_hash`` without a round-trip;
-    a fork can override this class if the backing store already computes hash
-    chains server-side.
-    """
+    """Saga's hash-linked audit chain backed by ``StateStore.append_audit_entry``."""
 
     store: StateStore
     entries: list[AuditEntry]
@@ -184,6 +173,19 @@ class StateStoreActionRunStore:
     _max_active_runs: int = 10_000
     owner_id: str = field(default_factory=lambda: uuid4().hex)
     claim_lease_seconds: int = 600
+    clock: Callable[[], datetime] | None = None
+
+    def set_clock(self, clock: Callable[[], datetime]) -> None:
+        self.clock = clock
+
+    def _now(self) -> datetime:
+        now = self.clock() if self.clock is not None else datetime.now(tz=UTC)
+        if now.tzinfo is None:
+            raise RuntimeError("Thor clock MUST be timezone-aware")
+        return now.astimezone(UTC)
+
+    def _lease_expiry(self) -> str:
+        return _lease_expiry(self.claim_lease_seconds, clock=self._now)
 
     async def claim_correlation_identity(
         self, run: ActionRun
@@ -194,6 +196,7 @@ class StateStoreActionRunStore:
             completion_key=self._completion_key(run.idempotency_key),
             candidate=run.to_dict(),
             action_fingerprint=action_fingerprint(run.to_dict()),
+            clock=self._now,
         )
 
     async def load_correlation_identity(
@@ -333,7 +336,7 @@ class StateStoreActionRunStore:
                 )
                 if not immutable_match:
                     raise RuntimeError("Thor completion marker conflicts with resource claim")
-                if claimed_by != self.owner_id and lease_expires_at > datetime.now(tz=UTC):
+                if claimed_by != self.owner_id and lease_expires_at > self._now():
                     runs_by_correlation.pop(str(claim.get("correlation_id") or ""), None)
                     continue
                 revision = claim.get("revision")
@@ -358,7 +361,7 @@ class StateStoreActionRunStore:
                 )
                 runs_by_correlation.pop(str(claim.get("correlation_id") or ""), None)
                 continue
-            if claimed_by != self.owner_id and lease_expires_at > datetime.now(tz=UTC):
+            if claimed_by != self.owner_id and lease_expires_at > self._now():
                 runs_by_correlation.pop(str(claim.get("correlation_id") or ""), None)
                 continue
             if claimed_by != self.owner_id:
@@ -375,7 +378,7 @@ class StateStoreActionRunStore:
                     **dict(claim),
                     "revision": revision + 1,
                     "owner_id": self.owner_id,
-                    "lease_expires_at": _lease_expiry(self.claim_lease_seconds),
+                    "lease_expires_at": self._lease_expiry(),
                 }
                 claim_key = self._resource_claim_key(str(claim.get("resource_id") or ""))
                 if not await self.store.compare_and_set_state_with_audit(
@@ -475,7 +478,7 @@ class StateStoreActionRunStore:
             "correlation_id": correlation_id,
             "idempotency_key": run.idempotency_key,
             "owner_id": self.owner_id,
-            "lease_expires_at": _lease_expiry(self.claim_lease_seconds),
+            "lease_expires_at": self._lease_expiry(),
             "action_fingerprint": action_fingerprint_value,
             "run": {**run.to_dict(), "resource_claimed": True},
         }
@@ -602,7 +605,7 @@ class StateStoreActionRunStore:
             {
                 **dict(reservation),
                 "revision": reservation_revision + 1,
-                "lease_expires_at": _lease_expiry(self.claim_lease_seconds),
+                "lease_expires_at": self._lease_expiry(),
             },
             expected_revision=reservation_revision,
             audit_entry={
@@ -633,7 +636,7 @@ class StateStoreActionRunStore:
                 **dict(current),
                 "revision": revision + 1,
                 "run": run.to_dict(),
-                "lease_expires_at": _lease_expiry(self.claim_lease_seconds),
+                "lease_expires_at": self._lease_expiry(),
             },
             expected_revision=revision,
             audit_entry={
@@ -653,7 +656,7 @@ class StateStoreActionRunStore:
         fingerprint = action_fingerprint(run.to_dict())
         claim = await self.store.read_state(self._resource_claim_key(resource_id))
         reservation = await self.store.read_state(self._completion_key(run.idempotency_key))
-        now = datetime.now(tz=UTC)
+        now = self._now()
         return bool(
             isinstance(claim, Mapping)
             and claim.get("status") == "claimed"
@@ -692,7 +695,7 @@ class StateStoreActionRunStore:
             "correlation_id": run.correlation_id,
             "idempotency_key": run.idempotency_key,
             "owner_id": self.owner_id,
-            "lease_expires_at": _lease_expiry(self.claim_lease_seconds),
+            "lease_expires_at": self._lease_expiry(),
             "action_fingerprint": action_fingerprint(run.to_dict()),
         }
         if await self.store.write_state_if_absent(key, reservation):
@@ -717,7 +720,7 @@ class StateStoreActionRunStore:
             and current.get("correlation_id") == run.correlation_id
         ):
             return "acquired"
-        if _claim_lease_expiry(current) > datetime.now(tz=UTC):
+        if _claim_lease_expiry(current) > self._now():
             return "contended"
         revision = current.get("revision")
         if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:

@@ -37,9 +37,11 @@ from fdai.agents._framework.forseti_decision_helpers import (
 from fdai.agents._framework.forseti_development_authority import (
     ForsetiDevelopmentAuthorityMixin,
 )
-from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
-from fdai.agents._framework.forseti_judgment import RULE_MATCH as _RULE_MATCH
-from fdai.agents._framework.forseti_judgment import ForsetiJudgmentMixin
+from fdai.agents._framework.forseti_judgment import (
+    DEFAULT_JUDGMENT_TABLE,
+    ForsetiJudgmentMixin,
+    JudgmentTable,
+)
 from fdai.agents._framework.forseti_telemetry_introspection import telemetry_recipe_facts
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
@@ -131,6 +133,7 @@ class Forseti(
         bus: PantheonBus | None = None,
         rbac: dict[str, frozenset[str]] | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
+        judgment_table: JudgmentTable | None = None,
         operational_context: OperationalContextMaterializer | None = None,
         test_context_source: TestContextSource | None = None,
         test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
@@ -162,6 +165,7 @@ class Forseti(
         self.initialize_assignment_checks()
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
+        self._judgment_table = judgment_table or DEFAULT_JUDGMENT_TABLE
         self._operational_context = operational_context
         self._test_context_source = test_context_source
         self._test_context_admission = test_context_admission
@@ -224,6 +228,8 @@ class Forseti(
         self._detection_readiness: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
             _MAX_RESOURCES
         )
+        self._rule_state: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(_MAX_RESOURCES)
+        self._no_rule_folds: BoundedLruDict[str, int] = BoundedLruDict(_MAX_RESOURCES)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -290,13 +296,21 @@ class Forseti(
                 return
             await self.judge(payload)
         elif topic == "object.cost-anomaly":
+            if payload.get("producer_principal") not in {None, "Njord"}:
+                self.record_behavior("specialist_advice:rejected_owner")
+                return
             await self._ingest_domain_signal("cost", payload)
         elif topic == "object.capacity-forecast":
+            if payload.get("producer_principal") not in {None, "Freyr"}:
+                self.record_behavior("specialist_advice:rejected_owner")
+                return
             await self._ingest_domain_signal("capacity", payload)
         elif topic == "object.capacity-graduation-recommendation":
             await self._judge_capacity_graduation(payload)
         elif topic == "object.arbitration-decision":
             await self._record_arbitration(payload)
+        elif topic == "object.rule":
+            self._record_rule_state(payload)
 
     async def _judge_capacity_graduation(self, payload: dict[str, Any]) -> None:
         """Issue one observation-only verdict over Freyr's shadow recommendation."""
@@ -336,6 +350,7 @@ class Forseti(
         """Judge one planned Change through the observation-only ARB seam."""
 
         if self._architecture_review_loop is None:
+            self.record_behavior("architecture_review:unbound")
             return
         try:
             observation = await self._architecture_review_loop.evaluate(payload)
@@ -416,12 +431,50 @@ class Forseti(
         """
         return bool(self.arbitrations or self._detection_readiness or self._unresolved_arbitrations)
 
+    def health(self) -> dict[str, Any]:
+        return {
+            "agent": "Forseti",
+            "status": "ok",
+            "judgment_table_digest": self._judgment_table.digest,
+            "action_semantics_bound": self._action_semantics is not None,
+            "architecture_review_bound": self._architecture_review_loop is not None,
+            "rule_state_cached": len(self._rule_state),
+            "no_rule_folds": dict(self._no_rule_folds.items()),
+            "behavior": self.behavior_snapshot(),
+        }
+
+    def _record_rule_state(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Mimir":
+            self.record_behavior("rule_state:rejected_owner")
+            return
+        action_type = str(
+            payload.get("action_type")
+            or payload.get("remediates")
+            or payload.get("action_type_id")
+            or ""
+        )
+        state = str(payload.get("state") or payload.get("outcome") or "").strip().lower()
+        if not action_type or state not in {"active", "promoted", "retired", "revoked"}:
+            self.record_behavior("rule_state:invalid")
+            return
+        normalized = "active" if state == "promoted" else state
+        self._rule_state.set(
+            action_type,
+            {
+                "state": normalized,
+                "rule_id": str(payload.get("rule_id") or payload.get("id") or ""),
+                "correlation_id": str(payload.get("correlation_id") or ""),
+            },
+        )
+        self.record_behavior(f"rule_state:{normalized}")
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),
             **telemetry_recipe_facts(),
-            "known_action_verdicts": dict(_RISK_VERDICT),
-            "rule_matches": dict(_RULE_MATCH),
+            "known_action_verdicts": dict(self._judgment_table.risk_verdict),
+            "rule_matches": dict(self._judgment_table.rule_match),
+            "judgment_table_digest": self._judgment_table.digest,
             "arbitrations_recorded": len(self.arbitrations),
             # Both gates that force an otherwise-auto verdict to human
             # review. The charter tells Forseti to report them as exactly
@@ -433,10 +486,10 @@ class Forseti(
         if "rca_evidence" in semantic_intents(context):
             statement = "No grounded RCA record is retained by this conversational projection"
             return evidence_backed_result(self.spec.name, facts, statement)
-        actions = mentioned(question, _RISK_VERDICT)
+        actions = mentioned(question, self._judgment_table.risk_verdict)
         if actions:
             action = actions[0]
-            verdict = _RISK_VERDICT[action]
+            verdict = self._judgment_table.risk_verdict[action]
             facts.update({"action_type": action, "risk_verdict": verdict})
             statement = f"Action {action!r} has configured default risk verdict {verdict!r}"
             return evidence_backed_result(self.spec.name, facts, statement)

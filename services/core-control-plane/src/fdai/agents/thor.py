@@ -172,6 +172,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         )
         # FIFO-cap terminal history; active runs retain resource mutex and approval lookups.
         self._max_retained_runs = 10_000
+        if self._state_store is not None:
+            self.set_state_store(self._state_store)
 
     def bind_test_context_dispatch_guard(self, guard: TestContextDispatchGuard) -> None:
         """Bind an authority-lowering context recheck before processing runtime events."""
@@ -188,6 +190,9 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
 
     def set_state_store(self, store: ActionRunStore) -> None:
         """Attach a durable ActionRun store (composition-root seam)."""
+        set_clock = getattr(store, "set_clock", None)
+        if callable(set_clock):
+            set_clock(self._now)
         self._state_store = store
 
     def set_execution_audit_recorder(
@@ -377,12 +382,31 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         # run and re-execute. Return the existing run for a correlation we have
         # already dispatched, so a duplicate verdict is a no-op (defense in
         # depth with the event idempotency_key dedup at ingress).
-        idempotency_key = str(verdict.get("idempotency_key") or correlation)
+        raw_idempotency_key = verdict.get("idempotency_key")
+        if (
+            not isinstance(raw_idempotency_key, str) or not raw_idempotency_key.strip()
+        ) and verdict.get("producer_principal") is not None:
+            self.record_behavior("dispatch:missing_idempotency_key")
+            return await self._emit_terminal_rejection(
+                verdict,
+                outcome="missing_verdict_idempotency_key",
+            )
+        idempotency_key = (
+            raw_idempotency_key.strip()
+            if isinstance(raw_idempotency_key, str) and raw_idempotency_key.strip()
+            else correlation
+        )
+        action_idempotency_key = str(verdict.get("action_idempotency_key") or idempotency_key)
         existing_by_corr = self.action_runs.get(correlation)
         if existing_by_corr is not None:
-            if existing_by_corr.idempotency_key != idempotency_key:
+            if existing_by_corr.idempotency_key != action_idempotency_key:
                 self.record_behavior("dispatch:correlation_reuse_rejected")
-                raise ValueError("ActionRun correlation cannot be reused by another generation")
+                return await self._emit_terminal_rejection(
+                    verdict,
+                    outcome="correlation_reuse_rejected",
+                    correlation_id=f"{correlation}:rejected:{idempotency_key}",
+                    params_extra={"rejected_correlation_id": correlation},
+                )
             self.record_behavior("dispatch:duplicate")
             if existing_by_corr.state not in _TERMINAL_STATES:
                 await self._resume_rehydrated(existing_by_corr)
@@ -392,7 +416,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             else:
                 await self._finalize_terminal_replay(existing_by_corr)
             return existing_by_corr
-        existing_by_idempotency = self._idempotency_runs.get(idempotency_key)
+        existing_by_idempotency = self._idempotency_runs.get(action_idempotency_key)
         if existing_by_idempotency is not None:
             self.record_behavior("dispatch:idempotent_duplicate")
             return existing_by_idempotency
@@ -404,7 +428,11 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             existing = self._find_active_run(str(resource_id))
             if existing is not None:
                 self.record_behavior("dispatch:lock_contention")
-                raise RuntimeError("resource already has an active ActionRun")
+                return await self._emit_terminal_rejection(
+                    verdict,
+                    outcome="resource_active_action_run_contention",
+                    params_extra={"blocking_correlation_id": existing.correlation_id},
+                )
             retained = next(
                 (
                     run
@@ -444,6 +472,9 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 )
             ),
         )
+        if risk_verdict == "auto" and original_quorum >= 2:
+            risk_verdict = "hil"
+            self.record_behavior("dispatch:auto_quorum_lowered")
         effective_quorum = max(
             1,
             int(verdict.get("effective_quorum_required", original_quorum)),
@@ -460,7 +491,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 "action_id": action_id,
                 "resource_id": resource_id,
                 "params": params,
-                "idempotency_key": idempotency_key,
+                "idempotency_key": action_idempotency_key,
                 "rollback_contract": rollback_contract,
                 "initiator_principal": verdict.get("initiator_principal"),
             },
@@ -477,7 +508,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             state=ActionRunState.VERDICTED,
             verdict=risk_verdict,
             action_id=action_id,
-            idempotency_key=str(verdict.get("idempotency_key") or correlation),
+            idempotency_key=action_idempotency_key,
             params=params,
             shadow_mode=shadow_mode,
             resolved_autonomy_ceiling=resolved_autonomy_ceiling,
@@ -597,6 +628,51 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
 
     async def _claim_execution_resource(self, run: ActionRun) -> bool:
         return await thor_execution.claim_execution_resource(self, run)
+
+    async def _emit_terminal_rejection(
+        self,
+        verdict: Mapping[str, Any],
+        *,
+        outcome: str,
+        correlation_id: str | None = None,
+        params_extra: Mapping[str, Any] | None = None,
+    ) -> ActionRun:
+        run_correlation = correlation_id or str(verdict.get("correlation_id") or "")
+        run_idempotency = str(
+            verdict.get("action_idempotency_key")
+            or verdict.get("idempotency_key")
+            or run_correlation
+        )
+        raw_params = verdict.get("params")
+        params = deepcopy(dict(raw_params)) if isinstance(raw_params, Mapping) else {}
+        if params_extra:
+            params.update(dict(params_extra))
+        run = ActionRun(
+            correlation_id=run_correlation,
+            action_type=str(verdict.get("action_type") or ""),
+            resource_id=verdict.get("resource_id"),
+            state=ActionRunState.VERDICTED,
+            verdict="deny",
+            action_id=action_run_lineage.optional_bounded_text(
+                verdict.get("action_id"),
+                field_name="action_id",
+            ),
+            idempotency_key=run_idempotency,
+            params=params,
+            shadow_mode=True,
+            resolved_autonomy_ceiling=Autonomy.SHADOW_ONLY,
+            outcome=outcome,
+            initiator_principal=verdict.get("initiator_principal"),
+            rollback_contract=str(verdict.get("rollback_contract", "state_forward_only")),
+        )
+        if run.correlation_id not in self.action_runs:
+            self.action_runs[run.correlation_id] = run
+            self._idempotency_runs[run.idempotency_key] = run
+        await self._emit_action_run(run)
+        run.transition(ActionRunState.DENY_DROPPED)
+        await self._emit_action_run(run)
+        self._release_lock(run.resource_id)
+        return run
 
     async def _handle_approval(self, approval: dict[str, Any]) -> None:
         correlation = str(approval.get("correlation_id", ""))

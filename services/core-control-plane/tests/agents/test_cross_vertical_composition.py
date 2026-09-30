@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import InMemoryAuditChain
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
@@ -88,10 +89,16 @@ def _wire(
 ) -> tuple[InMemoryBus, InMemoryAuditChain, Thor]:
     bus = InMemoryBus(load_pantheon())
     audit = InMemoryAuditChain()
+    scenario = _scenario()
+    action_ids = {str(candidate["action_type"]) for candidate in scenario["candidates"]}
     forseti = Forseti(
         bus=bus,
         operational_context=_FrozenContext(),  # type: ignore[arg-type]
         cross_vertical_timeout_seconds=timeout,
+        action_semantics=ActionSemanticsCatalog(
+            irreversible_by_id={action_id: False for action_id in action_ids},
+            rollback_by_id={action_id: "state_forward_only" for action_id in action_ids},
+        ),
     )
     odin = Odin(bus=bus, vertical_precedence=InitialVerticalPrecedence())
     saga = Saga(audit_chain=audit)

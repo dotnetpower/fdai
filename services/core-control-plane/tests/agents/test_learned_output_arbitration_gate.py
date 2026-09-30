@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.advisory_verdicts import GOVERNED_EXECUTION_UNSELECTED_REASON
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
@@ -37,6 +38,13 @@ _OBSERVED = {
 _GATED = ("ops.restart-service", "hil", "arbitration_unresolved", "enforce_hil")
 
 
+def _restart_semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={"ops.restart-service": False},
+        rollback_by_id={"ops.restart-service": "state_forward_only"},
+    )
+
+
 class _RecordingExecutor:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -54,6 +62,7 @@ def _forseti(bus: InMemoryBus, *, selected: bool, outcome: str) -> Forseti:
         bus=bus,
         governed_execution_selected=governed_execution_selection(selected),
         agent_availability=(lambda: {"Odin"}) if unavailable else None,
+        action_semantics=_restart_semantics(),
     )
     if not unavailable:
         # A margin band wider than any score gap forces escalation; zero resolves the tie.
@@ -92,7 +101,7 @@ def _summary(verdict: dict[str, Any]) -> tuple[str, str, str, str]:
 async def test_event_on_an_advisory_arbitration_correlation_never_judges_auto(
     outcome: str,
 ) -> None:
-    baseline = await Forseti().judge(dict(_OBSERVED))
+    baseline = await Forseti(action_semantics=_restart_semantics()).judge(dict(_OBSERVED))
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     forseti = _forseti(bus, selected=False, outcome=outcome)
     executor = _RecordingExecutor()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any, Protocol
 
 from fdai.agents._framework.action_run_identity import (
@@ -253,7 +253,7 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
         payload["evidence_rejection_ref"] = run.evidence_rejection_ref
     payload["action_run_identity"] = action_run_identity_digest(payload)
     if run.state in _TERMINAL_STATES:
-        payload["terminal_at"] = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
+        payload["terminal_at"] = host._now().isoformat().replace("+00:00", "Z")
     await host.bus.publish("Thor", "object.action-run", payload)
     if run.state in _TERMINAL_STATES:
         run.terminal_published = True

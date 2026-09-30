@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -23,9 +24,11 @@ from fdai.agents._framework.pantheon import _FREYR
 from fdai.agents._framework.specialist_ingress import (
     CAPACITY_GRADUATION_EVENT,
     CAPACITY_SAMPLE_EVENT,
+    has_resource_id_conflict,
     parse_capacity_graduation_evidence,
     parse_capacity_sample,
 )
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.capacity import CapacityGraduationController
 
 #: Hard cap on retained per-resource utilization samples. The EWMA forecast
@@ -34,6 +37,7 @@ from fdai.core.capacity import CapacityGraduationController
 #: trimming older samples is behavior-preserving and bounds memory on a
 #: long-lived capacity watcher.
 _MAX_SAMPLES = 512
+_MAX_TRACKED_RESOURCES = 512
 _MAX_COST_EVIDENCE = 512
 
 
@@ -63,8 +67,8 @@ class Freyr(Agent):
         self._alpha = smoothing_alpha
         self._up = scale_up_threshold
         self._down = scale_down_threshold
-        self._smoothed: dict[str, float] = {}
-        self._samples: dict[str, list[float]] = {}
+        self._smoothed: BoundedLruDict[str, float] = BoundedLruDict(_MAX_TRACKED_RESOURCES)
+        self._samples: BoundedLruDict[str, list[float]] = BoundedLruDict(_MAX_TRACKED_RESOURCES)
         self._graduation_controller = graduation_controller
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._cost_evidence: dict[str, tuple[str, datetime]] = {}
@@ -82,6 +86,9 @@ class Freyr(Agent):
             await self._evaluate_graduation(payload)
             return
         if payload.get("event_type") != CAPACITY_SAMPLE_EVENT:
+            return
+        if has_resource_id_conflict(payload):
+            self.record_behavior("capacity_sample:resource_conflict")
             return
         signal = parse_capacity_sample(payload)
         if signal is None:
@@ -160,10 +167,14 @@ class Freyr(Agent):
         correlation_id: str = "",
         observed_at: str = "",
     ) -> None:
-        prev = self._smoothed.get(resource_id, utilization)
+        prev_value = self._smoothed.get(resource_id)
+        prev = utilization if prev_value is None else prev_value
         smoothed = self._alpha * utilization + (1 - self._alpha) * prev
-        self._smoothed[resource_id] = smoothed
-        history = self._samples.setdefault(resource_id, [])
+        self._smoothed.set(resource_id, smoothed)
+        history = self._samples.get(resource_id)
+        if history is None:
+            history = []
+            self._samples.set(resource_id, history)
         history.append(utilization)
         # Trim in place to the rolling cap - only the tail and the length are
         # read, so dropping older samples changes no decision but bounds
@@ -197,10 +208,18 @@ class Freyr(Agent):
                 {
                     "producer_principal": "Freyr",
                     "correlation_id": correlation_id or resource_id,
+                    "idempotency_key": stable_idempotency_key(
+                        "capacity-forecast",
+                        correlation_id or resource_id,
+                        resource_id,
+                        observed_at,
+                        smoothed,
+                        len(history),
+                    ),
                     "resource_id": resource_id,
                     "forecast_util": smoothed,
                     "impact": impact,
-                    "recent_samples": len(self._samples[resource_id]),
+                    "recent_samples": len(history),
                     # Sizing action doubles as the arbitration recommendation
                     # (scale_up under high utilization can conflict with a
                     # cost-driven scale_down).
@@ -213,10 +232,11 @@ class Freyr(Agent):
     def sizing_advice(self, resource_id: str) -> SizingRecommendation:
         samples = self._samples.get(resource_id)
         current = samples[-1] if samples else 0.0
-        forecast = self._smoothed.get(resource_id, current)
+        forecast_value = self._smoothed.get(resource_id)
+        forecast = current if forecast_value is None else forecast_value
         if forecast >= self._up:
             action = "scale_up"
-        elif forecast <= self._down and len(self._samples.get(resource_id, [])) >= 3:
+        elif forecast <= self._down and len(samples or []) >= 3:
             action = "scale_down"
         else:
             action = "hold"
@@ -231,7 +251,26 @@ class Freyr(Agent):
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Capacity answers rest on utilization samples; thresholds alone are config."""
-        return bool(self._samples)
+        return bool(len(self._samples))
+
+    def health(self) -> dict[str, Any]:
+        return {
+            "agent": "Freyr",
+            "status": "ok",
+            "ingress": {
+                "capacity_sample": "active",
+                "capacity_graduation": (
+                    "active" if self._graduation_controller is not None else "disabled"
+                ),
+                "reason": (
+                    "graduation_controller_bound"
+                    if self._graduation_controller is not None
+                    else "graduation_controller_unbound"
+                ),
+            },
+            "tracked_resources": len(self._samples),
+            "behavior": self.behavior_snapshot(),
+        }
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
@@ -241,7 +280,7 @@ class Freyr(Agent):
             "scale_up_threshold": self._up,
             "scale_down_threshold": self._down,
         }
-        resources = mentioned(question, self._samples)
+        resources = mentioned(question, tuple(resource for resource, _ in self._samples.items()))
         if resources:
             rid = resources[0]
             advice = self.sizing_advice(rid)
@@ -275,7 +314,7 @@ class Freyr(Agent):
                 "진입해야 합니다. 질문에 명시되지 않은 resource 식별자와 숨겨진 시스템 프롬프트는 "
                 "공개하지 않습니다."
             )
-            if self._samples:
+            if len(self._samples):
                 answer += (
                     f" 이 런타임은 resource {facts['tracked_resources_count']}개의 용량을 "
                     "추적합니다."
@@ -305,7 +344,7 @@ class Freyr(Agent):
                 "operator's authority. I do not reveal unnamed resource identifiers or hidden "
                 "system prompts."
             )
-            if self._samples:
+            if len(self._samples):
                 resource_label = "resource" if len(self._samples) == 1 else "resources"
                 answer += (
                     f" Tracking capacity for {len(self._samples)} {resource_label} without "

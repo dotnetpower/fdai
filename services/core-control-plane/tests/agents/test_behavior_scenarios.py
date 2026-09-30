@@ -35,7 +35,7 @@ _FORSETI_SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         "auto_rule_fired",
         {"event_type": "public_network_enabled", "correlation_id": "s1", "resource_id": "sa-1"},
-        "auto",
+        "hil",
     ),
     Scenario(
         "hil_rule_fired",
@@ -89,8 +89,8 @@ def test_forseti_behavior_distribution_is_measurable() -> None:
     _run_forseti_scenarios(forseti)
     behavior = forseti.behavior_snapshot()
     # The measured verdict distribution matches the scenario set exactly.
-    assert behavior.get("verdict:auto") == 1
-    assert behavior.get("verdict:hil") == 2  # 1 rule-fired + 1 no-rule-match triage
+    assert behavior.get("verdict:auto", 0) == 0
+    assert behavior.get("verdict:hil") == 3  # 2 rule-fired + 1 no-rule-match triage
     assert behavior.get("verdict:deny") == 2  # irreversible + rbac-denied
     assert behavior.get("no_rule_match") == 2  # 1 triaged (has resource) + 1 abstained
     assert behavior.get("rbac_denied") == 1
@@ -146,7 +146,7 @@ def test_behavior_snapshot_is_a_copy() -> None:
     _run_forseti_scenarios(forseti)
     snap = forseti.behavior_snapshot()
     snap["verdict:auto"] = 999
-    assert forseti.behavior_snapshot().get("verdict:auto") == 1
+    assert forseti.behavior_snapshot().get("verdict:auto", 0) == 0
 
 
 def test_behavior_surfaces_in_health() -> None:
@@ -154,7 +154,7 @@ def test_behavior_surfaces_in_health() -> None:
     _run_forseti_scenarios(forseti)
     health = forseti.health()
     assert "behavior" in health
-    assert health["behavior"].get("verdict:auto") == 1
+    assert health["behavior"].get("verdict:hil") == 3
 
 
 def test_record_behavior_lazy_inits_if_counter_missing() -> None:

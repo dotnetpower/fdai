@@ -69,6 +69,7 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _HEIMDALL
 from fdai.agents._framework.role_answers import heimdall_role_answer
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
@@ -334,6 +335,13 @@ class Heimdall(
         anomaly = {
             "producer_principal": "Heimdall",
             "correlation_id": str(proposal.get("correlation_id") or experiment_id),
+            "idempotency_key": stable_idempotency_key(
+                "chaos-experiment-anomaly",
+                str(proposal.get("correlation_id") or experiment_id),
+                experiment_id,
+                action_type,
+                targets,
+            ),
             "resource_id": targets[0],
             "target_type": "experiment",
             "event_type": "chaos_experiment_request",
@@ -396,6 +404,13 @@ class Heimdall(
         anomaly = {
             "producer_principal": "Heimdall",
             "correlation_id": correlation_id,
+            "idempotency_key": stable_idempotency_key(
+                "t2-proposer-anomaly",
+                correlation_id,
+                resource_id,
+                evidence_key,
+                attributes.get("failure_class"),
+            ),
             "resource_id": resource_id,
             "target_type": "llm-endpoint",
             "event_type": "control_plane.t2_proposer_failure",

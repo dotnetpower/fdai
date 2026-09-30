@@ -9,6 +9,7 @@ from typing import Any
 from fdai.agents._framework.cross_vertical_candidates import (
     validate_cross_vertical_candidate,
 )
+from fdai.agents._framework.topics import stable_idempotency_key
 
 RESILIENCE_SCORE_EVENT = "specialist.resilience_score"
 
@@ -30,8 +31,16 @@ def resilience_score_candidate(event: Mapping[str, Any]) -> dict[str, Any] | Non
     candidate = {
         "kind": "cross_vertical_candidate",
         "producer_principal": "Loki",
-        "correlation_id": event.get("correlation_id"),
-        "idempotency_key": event.get("idempotency_key"),
+        "correlation_id": event.get("correlation_id") or event.get("resource_id"),
+        "idempotency_key": event.get("idempotency_key")
+        or stable_idempotency_key(
+            "resilience-score",
+            event.get("correlation_id"),
+            event.get("resource_id"),
+            event.get("occurred_at") or event.get("ingested_at"),
+            normalized_score,
+            attributes.get("action_type"),
+        ),
         "resource_id": attributes.get("resource_id") or event.get("resource_id"),
         "observed_at": event.get("occurred_at") or event.get("ingested_at"),
         "score": normalized_score,

@@ -13,6 +13,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.workflows import WORKFLOWS, workflow
@@ -72,7 +73,13 @@ def test_late_wave_workflows_are_registered() -> None:
 def test_workflow_cost_aware_remediation_shadow_trace() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(
+        bus=bus,
+        action_semantics=ActionSemanticsCatalog(
+            irreversible_by_id={"remediate.disable-public-access": False},
+            rollback_by_id={"remediate.disable-public-access": "state_forward_only"},
+        ),
+    )
     njord = Njord(bus=bus)
     thor = Thor(bus=bus)
     saga = Saga()
@@ -129,6 +136,11 @@ def test_workflow_dr_drill_orchestration_respects_blast_radius() -> None:
             experiment_id="drill-1",
             action_type="ops.failover-primary",
             targets=("dc-1", "dc-2", "dc-3", "dc-4"),
+            causal_hypothesis_ref="causal-drill",
+            refutation_query_ref="query-drill",
+            impact_envelope_id="impact-drill",
+            recovery_plan_id="recovery-drill",
+            dry_run_receipt="dry-run-drill",
         )
     )
     assert proposal.accepted
@@ -297,16 +309,26 @@ def test_workflow_rollback_rehearsal_uses_loki_and_leaves_no_flight_targets() ->
             experiment_id="rehearsal-1",
             action_type="ops.restart-service",
             targets=("target-a",),
+            causal_hypothesis_ref="causal-1",
+            refutation_query_ref="query-1",
+            impact_envelope_id="impact-1",
+            recovery_plan_id="recovery-1",
+            dry_run_receipt="dry-run-1",
         )
     )
     assert proposal.accepted
-    loki.release_targets(proposal.targets)
+    loki._release_targets(proposal.targets)  # noqa: SLF001
     # After release, a follow-up proposal is admitted again.
     followup = asyncio.run(
         loki.propose_experiment(
             experiment_id="rehearsal-2",
             action_type="ops.restart-service",
             targets=("target-b",),
+            causal_hypothesis_ref="causal-2",
+            refutation_query_ref="query-2",
+            impact_envelope_id="impact-2",
+            recovery_plan_id="recovery-2",
+            dry_run_receipt="dry-run-2",
         )
     )
     assert followup.accepted

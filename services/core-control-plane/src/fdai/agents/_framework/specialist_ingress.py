@@ -51,7 +51,7 @@ def parse_cost_sample(payload: Mapping[str, Any]) -> CostSampleSignal | None:
         return None
     scope = _bounded_string(attributes.get("scope"))
     amount = _finite_number(attributes.get("amount_usd"))
-    resource_id = _bounded_string(attributes.get("resource_id"), required=False)
+    resource_id = _envelope_resource_id(payload, attributes, required=False)
     if scope is None or amount is None or amount < 0:
         return None
     return CostSampleSignal(
@@ -59,9 +59,7 @@ def parse_cost_sample(payload: Mapping[str, Any]) -> CostSampleSignal | None:
         amount_usd=amount,
         resource_id=resource_id,
         correlation_id=_correlation_id(payload),
-        observed_at=(
-            _bounded_string(attributes.get("observed_at"), required=False) or _observed_at(payload)
-        ),
+        observed_at=_observed_at(payload),
     )
 
 
@@ -69,7 +67,7 @@ def parse_capacity_sample(payload: Mapping[str, Any]) -> CapacitySampleSignal | 
     attributes = _attributes(payload, CAPACITY_SAMPLE_EVENT)
     if attributes is None:
         return None
-    resource_id = _bounded_string(attributes.get("resource_id"))
+    resource_id = _envelope_resource_id(payload, attributes)
     utilization = _finite_number(attributes.get("utilization"))
     if resource_id is None or utilization is None or not 0 <= utilization <= 1:
         return None
@@ -156,8 +154,40 @@ def _correlation_id(payload: Mapping[str, Any]) -> str:
 
 
 def _observed_at(payload: Mapping[str, Any]) -> str:
-    value = _bounded_string(payload.get("detected_at"), required=False)
+    value = _bounded_string(payload.get("occurred_at"), required=False) or _bounded_string(
+        payload.get("ingested_at"), required=False
+    )
     return value or ""
+
+
+def _envelope_resource_id(
+    payload: Mapping[str, Any],
+    attributes: Mapping[str, Any],
+    *,
+    required: bool = True,
+) -> str | None:
+    envelope_resource = _bounded_string(payload.get("resource_id"), required=required)
+    attribute_resource = _bounded_string(attributes.get("resource_id"), required=False)
+    if envelope_resource is None:
+        return attribute_resource if not required else None
+    if attribute_resource is not None and attribute_resource != envelope_resource:
+        return None
+    return envelope_resource
+
+
+def has_resource_id_conflict(payload: Mapping[str, Any]) -> bool:
+    """Return whether the attribute copy conflicts with the authoritative envelope."""
+
+    attributes = payload.get("attributes")
+    if not isinstance(attributes, Mapping):
+        return False
+    envelope_resource = _bounded_string(payload.get("resource_id"), required=False)
+    attribute_resource = _bounded_string(attributes.get("resource_id"), required=False)
+    return (
+        envelope_resource is not None
+        and attribute_resource is not None
+        and attribute_resource != envelope_resource
+    )
 
 
 __all__ = [
@@ -169,6 +199,7 @@ __all__ = [
     "CapacitySampleSignal",
     "ChaosScheduleSignal",
     "CostSampleSignal",
+    "has_resource_id_conflict",
     "parse_capacity_sample",
     "parse_capacity_graduation_evidence",
     "parse_chaos_schedule",

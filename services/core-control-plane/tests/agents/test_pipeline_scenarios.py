@@ -27,8 +27,16 @@ def _wire_pipeline(*, shadow: bool) -> tuple[InMemoryBus, Forseti, Thor, Var, Sa
     forseti = Forseti(
         rbac={"operator@example.com": frozenset({"remediate.enable-encryption"})},
         action_semantics=ActionSemanticsCatalog(
-            irreversible_by_id={"remediate.enable-encryption": False},
-            rollback_by_id={},
+            irreversible_by_id={
+                "remediate.disable-public-access": False,
+                "remediate.enable-encryption": False,
+                "ops.restart-service": False,
+            },
+            rollback_by_id={
+                "remediate.disable-public-access": "state_forward_only",
+                "remediate.enable-encryption": "state_forward_only",
+                "ops.restart-service": "state_forward_only",
+            },
         ),
     )
     forseti.bind_bus(bus)

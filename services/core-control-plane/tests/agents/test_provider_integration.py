@@ -1225,7 +1225,7 @@ def test_forseti_publishes_verdict_over_provider_event_bus() -> None:
         return {}
 
     verdict = asyncio.run(_first_verdict())
-    assert verdict["risk_verdict"] == "auto"
+    assert verdict["risk_verdict"] == "hil"
     assert verdict["producer_principal"] == "Forseti"
 
 

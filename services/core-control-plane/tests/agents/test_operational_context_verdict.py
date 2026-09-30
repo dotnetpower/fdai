@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents.forseti import Forseti
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context import TestContextClaim as ContextClaim
@@ -15,6 +16,21 @@ from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 NOW = datetime(2026, 7, 31, tzinfo=UTC)
+
+
+def _semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={
+            "ops.restart-service": False,
+            "remediate.enable-encryption": False,
+            "remediate.delete-storage": True,
+        },
+        rollback_by_id={
+            "ops.restart-service": "state_forward_only",
+            "remediate.enable-encryption": "state_forward_only",
+            "remediate.delete-storage": "state_forward_only",
+        },
+    )
 
 
 async def test_operator_context_command_uses_var_mimir_and_saga_topics() -> None:
@@ -462,7 +478,7 @@ async def test_context_factory_binding_preserves_events_without_context_scope() 
     source = _Source()
     forseti = configured_forseti(
         rbac=None,
-        action_semantics=None,
+        action_semantics=_semantics(),
         operational_context=None,
         operational_planner=None,
         kinetic_proposal_source=None,
@@ -527,7 +543,8 @@ async def test_unmapped_operational_context_lowers_auto_verdict_to_hil() -> None
     store = _store()
     await _add_resource(store)
     forseti = Forseti(
-        operational_context=OperationalContextMaterializer(store=store, clock=lambda: NOW)
+        operational_context=OperationalContextMaterializer(store=store, clock=lambda: NOW),
+        action_semantics=_semantics(),
     )
 
     verdict = await forseti.judge(
@@ -598,7 +615,8 @@ async def test_fresh_operational_context_never_raises_verdict_authority(
     ):
         await store.upsert_link(link)
     forseti = Forseti(
-        operational_context=OperationalContextMaterializer(store=store, clock=lambda: NOW)
+        operational_context=OperationalContextMaterializer(store=store, clock=lambda: NOW),
+        action_semantics=_semantics(),
     )
 
     verdict = await forseti.judge(

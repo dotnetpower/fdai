@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 
-def lease_expiry(seconds: int) -> str:
+def lease_expiry(seconds: int, *, clock: Callable[[], datetime] | None = None) -> str:
     """Return the bounded claim expiry from the current UTC time."""
 
-    return (datetime.now(tz=UTC) + timedelta(seconds=seconds)).isoformat()
+    now = clock() if clock is not None else datetime.now(tz=UTC)
+    if now.tzinfo is None:
+        raise RuntimeError("ActionRun claim clock MUST be timezone-aware")
+    return (now.astimezone(UTC) + timedelta(seconds=seconds)).isoformat()
 
 
 def claim_lease_expiry(claim: Mapping[str, Any]) -> datetime:
