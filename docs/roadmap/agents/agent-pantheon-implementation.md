@@ -160,6 +160,10 @@ stable idempotency key, publish the owned event, and only then mark the intent p
 recovery republishes pending intents with the same idempotency key, so delivery is at-least-once and
 consumers rely on their own idempotency fences instead of a best-effort broker acknowledgement.
 Cancelled publish-to-mark windows are treated as replayable, not as proof that the work completed.
+Terminal outbox rows compact into digest-only tombstones after the documented replay window for the
+owning projection. The tombstone keeps the idempotency key, owner, topic, digest, and retention
+deadline needed to suppress duplicate redelivery; it drops full payload bodies and mutable delivery
+metadata.
 
 #### Tier, approval, and command identity
 
@@ -220,12 +224,16 @@ Cancelled publish-to-mark windows are treated as replayable, not as proof that t
 - Forseti persists pending arbitration context, cross-vertical candidate deadlines, completed
   candidate fences, and arbitration completion markers. After restart it can consume Odin's stored
   decision, close unresolved cases visibly, and avoid emitting a second completion for the same
-  arbitration.
+  arbitration. Pending cross-vertical deadlines are scheduled by one bounded timer over ordered
+  deadlines instead of one sleeping task per correlation.
 - Bragi persists conversation, handoff, and turn outboxes with arrival-ordered turn reservations, so
   a slow responder or broker publish cannot reorder a session transcript after recovery.
 - Saga's audit chain resumes from the durable head. It checkpoints mutation, publication, and
   completion before consumers start, so the local audit mirror does not fork a new chain after a
-  restart.
+  restart. Both in-memory and provider-backed audit chains recompute entry hashes to detect field
+  tampering and compare against a sealed head or expected length to detect truncation. Saga verifies
+  incrementally from anchored checkpoints and serves correlation replay through an index rather than
+  scanning the full chain.
 - Odin stores the per-correlation arbitration decision fence. A redelivered arbitration request
   replays the original decision instead of asking Odin to rank the same case again.
 - Heimdall, Njord, and Freyr recover their observation, advisory, and forecast fences from the
@@ -272,6 +280,9 @@ Thor row retains its stable idempotency generation. The same generation remains 
 different generation fails closed, including pre-campaign tombstones whose generation is unknown.
 Active rows are validated before resource claim, lifecycle-rank suppression, or execution. Released
 resource claims require the same correlation, idempotency key, and action fingerprint.
+Long-lived agents page durable recovery state in bounded slices before they accept replayed work.
+Per-key locks are reference-counted or reclaimed after terminal completion, so an evicted or
+completed key cannot leave an unbounded process-local lock behind.
 
 ### Conversational action re-entry
 

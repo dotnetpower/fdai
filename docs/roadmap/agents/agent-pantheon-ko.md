@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e839a6f0f04e41ecb61194ad032ad498030eb62d
+translation_source_sha: 22fb42fe8d62e0ae82e2ca45da1ada1911ff94b5
 translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
@@ -345,7 +345,13 @@ Huginn은 자체 표준 시간대 UTC 시계로 수집 시각을 기록하며 �
 버스는 인증된 `producer_principal`과 정수 `envelope_schema_version`을 기록하고 페이로드의 `schema_version`은 보존합니다. 변경은 비어 있지 않은 `correlation_id`, `resource_id`, `idempotency_key`가 필요합니다. 이 인증된 버스 경로 밖에서 기록하는 운영 감사 행은 기계 실행자 `actor`를 보존하고 책임 Pantheon 구성원을 `owner_agent`로 별도 기록하며 `producer_principal`을 만들어내지 않습니다. Saga의 영속 감사 체인 복사본은 `actor: Saga`를 기록하고, 감사 대상 페이로드나 다이제스트를 바꾸지 않은 채 인증된 원본 발행자를 `principal`에 보존합니다.
 Saga는 공급자 기반 chain append를 직렬화하고 영속 공급자가 append를 확인한 뒤에만 로컬 복사본 entry를 공개하므로 최종 상태 관측이 영속 감사 근거보다 앞설 수 없습니다.
 Owned-topic 생산자 검사는 끌 수 없고 알 수 없는 `object.*` 구독은 등록에 실패합니다. Ordered 변경 소비자는 poison 기록을 보관한 뒤 중지해 후속 변경의 추월을 막습니다.
-Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합니다. 오퍼레이터 redrive도 소유자, 묶음, 스키마를 다시 검사하고 실패하면 원본 페이로드만 다시 보관합니다. 각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
+Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합니다. 오퍼레이터 redrive도 소유자, 묶음, 스키마를 다시 검사하고 실패하면 원본 페이로드만 다시 보관합니다.
+권한을 수반하는 모든 소비자는 동작하기 전에 입력 토픽의 레지스트리 소유자를 다시 인증합니다.
+브리지가 이미 소유권을 검사했더라도 producer가 없거나 소유자가 아니면 상태를 바꾸기 전에
+차단하고 거부된 전달로 계산합니다. live 브리지와 redrive 경로는 같은 소유자, 묶음, payload
+검증을 적용하며, 런타임 조립은 기본적으로 권한 payload 검증기를 연결하므로 잘못된
+`object.verdict`, `object.approval`, `object.action-run` 레코드는 처리기에 도달하지 않습니다.
+각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
 런타임 조립은 에이전트별 소비자 모드를 선택적으로 사용할 수 있습니다. 이 모드에서는 에이전트 그룹마다 하나의 물리 소비자가 broker 스트림을 읽고 논리 `object.*` 토픽을 로컬에서 라우팅합니다. 기본값은 `(topic, agent)` 쌍마다 소비자를 유지합니다. 두 모드 모두 핸들러 전달 전에 같은 소유자, 묶음, poison, 재시도 검사를 보존합니다.
 Loki는 예약과 게시 전에 chaos 제안 근거를 검증합니다. 불완전한 제안은 검토 대상으로 보류하고, 대상 잘림은 명시적으로 기록하며, 완전한 제안만 Heimdall 관측을 위해 `object.chaos-experiment`를 게시합니다.
 | 토픽 | 발행기 | 기본 subscribers |
@@ -467,6 +473,9 @@ EventBus가 없으면 Bragi는 `handoff_status: transport_unavailable`을 기록
 대화 품질 보증 census 인계도 같은 보고 체계 경계를 사용합니다. gap은 실행기를 권한 우회로로
 삼지 않고 소유자 라인의 서로 다른 peer로 라우팅합니다. Var는 승인자로 유지되며 Thor를 대신해
 말하지 않으므로, 진단 인계가 승인 신원과 실행 신원을 결합할 수 없습니다.
+Saga는 체인에 추가하거나 인계를 구체화하기 전에 감사 대상 토픽의 소유자를 인증합니다. 인계 이슈
+본문에는 허용 목록에 있고 크기가 제한된 맥락 필드만 포함합니다. 목록에 없는 값은 생략하거나
+요약하여 secret, 원시 prompt, 고객 식별자가 이슈 추적기에 복사되지 않게 합니다.
 
 중복 제거는 정본 실패 튜플의 SHA-256 `problem_fingerprint`를 사용합니다.
 
@@ -497,6 +506,9 @@ Bragi는 `Conversation`, `Turn`, `UserPreference`, `PostTurnReview`를
 - **메모리 변환 결과.** Muninn은 `Conversation`, `Turn`, `UserPreference`를 다이제스트가 있는 본문 없는 변환 결과로만 소비합니다. 검색용 범위 지정 메타데이터를 보존하고 원시 대화 본문은 거부합니다.
 - **RBAC.** Muninn은 하나의 정본 principal 범위 다이제스트를 비교하고 범위가 없거나 사용자 간 읽기에는 빈 결과를 반환합니다. Saga는 다른 사용자의 대화를 읽으려는 시도를 기록합니다.
 - **학습기 경계.** Norns는 기본적으로 메타데이터만 받습니다 (`UserPreference.share_with_learner: false`). 원시 post-turn 본문은 일치하는 `share_with_learner` 동의가 있어야 패턴 추출에 사용할 수 있습니다. 배치 실행 이력 수집은 검토된 집계만 허용하며 원시 턴/실행 이력 본문은 받지 않습니다. 완료되고 동의가 확인된 대화는 `object.post-turn-review`를 사용하며 별도 `object.turn` 형태를 만들지 않습니다.
+- **Post-turn 본문 동의.** Norns는 Bragi가 발급한 `body_consent` 표시와 민감도 통과가
+  `object.post-turn-review`에 함께 있을 때만 원시 post-turn 운영자 및 assistant 본문을
+  수락합니다. 둘 중 하나라도 없으면 Norns는 메타데이터만 유지하고 본문 텍스트를 기록하지 않습니다.
 - **보존.** 활성 대화는 30일, 저빈도 저장소는 추가 60일이며 총 90일 뒤 삭제합니다. 집계된 익명 지표는 Saga 감사 스트림에 남습니다.
 
 ## 7. 온톨로지 액션
@@ -556,6 +568,9 @@ no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 �
 
 작업별 `action_run_id`와 시도별 `attempt_id`가 멱등성 키입니다. 같은 키로 다시 게시하면 실행기는 no-op 처리하고 중복을 감사합니다.
 상관관계 재사용도 실행 시 검증합니다. 같은 작업 신원의 재시도는 멱등성을 유지하지만, 같은 상관관계 아래 다른 작업은 모호한 dispatch가 아니라 감사 가능한 최종 차단 결과가 됩니다.
+Thor는 `ActionRun`을 만들거나 영속화하기 전에 verdict 매개 변수를 범위 제한합니다. 너무 크거나
+깊게 중첩되었거나 스키마에 맞지 않는 필드는 영속 실행기 맥락, 승인 맥락 또는 감사 자료가 되기
+전에 차단됩니다.
 
 ### 7.4 영향 범위 와 배치 시맨틱
 
@@ -578,6 +593,14 @@ no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 �
 | `tool.run-chaos-experiment` | `scripted` | false |
 
 `irreversible: true` 작업에는 일반적으로 HIL, 서로 다른 승인자 2명 이상, 자기 승인 금지가 필요하며 Forseti가 `quorum_required: 2`를 첨부하고 Var가 적용합니다. 명시적으로 주입한 전권 개발 프로필만 예외이며, 현재 인증된 Owner 한 명이 정확한 작업과 보호 장치를 확인한 뒤 개발 환경의 유효 정족수를 충족할 수 있습니다. Var는 다른 사람을 만들어 내지 않고 원래 정족수와 유효 정족수를 모두 기록하며, Thor와 Vidar는 실행 또는 롤백 전에 같은 프로필, 확인, 작업 신원, 별도 실행기, 만료, 영속 감사, 잠금, 멱등성 및 관찰자 결속을 다시 검증합니다. 에이전트 역할과 토픽은 바뀌지 않으며 프로필 범위 승격은 프로덕션 준비 상태를 입증하지 않습니다.
+Thor는 실행 가능한 상태로 `verdicted`를 떠나기 전에 ActionType 의미에서 되돌릴 수 없는 작업의
+정족수를 다시 계산합니다. 런타임은 일곱 가지 보호 장치가 모두 wire에 있어야 합니다. 정지 조건,
+검증된 롤백, 영향 범위, 성공한 예행 실행, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사입니다.
+사람 승인은 정확한 `ActionRun` 신원, Var producer 근거, 승인 멱등성 키, 승인자 집합, 정족수
+근거에 결속됩니다. 영속 Var readback이 설정되어 있으면 Thor는 전이 전에 현재 저장된 승인을
+요구합니다. Var도 ActionType 의미에서 정족수를 다시 계산하고, 알 수 없거나 카탈로그가 없는
+작업은 되돌릴 수 없는 작업의 최소값이 필요한 것으로 처리합니다. Vidar는 Thor가 소유한
+`ActionRun` 메시지 중 신원과 롤백 근거가 일치하는 경우에만 롤백을 받아들입니다.
 Forseti는 `auto`를 상한으로만 취급합니다. 거버넌스가 적용된 되돌릴 수 있는 ActionType 의미가 없거나 판정에 정족수 `>= 2`가 필요하면 런타임은 결정을 사람 승인(`hil`)으로 낮춥니다.
 판단 표는 주입되며 digest가 찍힙니다. Forseti는 맨 상관관계로 대체하지 않고 이벤트 신원과
 작업에서 결정론적 verdict 키를 기록합니다. retired 또는 revoked 규칙도 `auto`를 `hil`로
@@ -607,6 +630,13 @@ Conversational 포트는 기본적으로 읽기 전용입니다. `allow_action_p
 불가 결과를 구분해 보고합니다. 시작 주체 principal은 멱등성 재료에 포함되며, 타입 지정
 파라미터는 대화 계보에 대한 다이제스트 또는 참조와 액션 인자만 담고 원시 질문 텍스트나 원시
 세션 식별자를 담지 않습니다.
+Huginn은 원시 유입 신뢰 경계입니다. 원시 요청의 형태와 깊이를 제한하고, 안전하지 않은 신원
+문자를 거부하며, 수락한 원본 시간을 범위가 제한된 오차 안에서 UTC로 정규화하고, 신뢰할 수 없는
+입력에는 내용 없는 거부 횟수를 기록합니다. 원시 운영자 요청은 엄격하게 제한된 필드와 서버가
+소유한 채널만 유지합니다. 인증된 서비스 producer에는 `ingress`, Bragi의 프로세스 내부 제안
+진입점에는 `conversation`을 사용합니다. Huginn은 호출자가 제공한 시작 주체, ActionType,
+params 같은 소유되지 않은 권한 필드를 원시 유입에서 복사하지 않으며, Forseti의 RBAC는 알 수
+없는 시작 주체를 verdict 형성 전에 차단합니다.
 
 정확한 제안 싱크, 운영자 RBAC, 위조 방어 및 계보 전달은
 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#대화형-액션-재진입)을 따릅니다.

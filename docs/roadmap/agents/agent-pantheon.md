@@ -344,6 +344,12 @@ The bus stamps authenticated `producer_principal` and integer `envelope_schema_v
 Saga serializes each provider-backed chain append and exposes its local mirror entry only after the durable provider confirms the append, so terminal observation cannot outrun persisted audit evidence.
 Owned-topic producer checks cannot be disabled, and unknown `object.*` subscriptions fail registration. Ordered mutation consumers stop after parking poison so later mutations cannot pass it.
 Dead-letter writes retry with bounded backoff before consumer restart. Operator redrive repeats owner, envelope, and schema checks and re-parks only the original payload.
+Every authority-bearing consumer re-authenticates the registry owner for the input topic before it
+acts. A missing or non-owner producer is blocked before state changes and counted as a rejected
+delivery, even when the bridge already checked ownership. The live bridge and redrive path apply
+the same owner, envelope, and payload validation, and runtime composition binds the authority
+payload validator by default so malformed `object.verdict`, `object.approval`, and `object.action-run`
+records do not reach handlers.
 Each consumer closes its subscription inside its own task, so the broker adapter releases the consumer group during shutdown rather than during interpreter finalization.
 Runtime composition may opt into per-agent consumer mode. In that mode one physical consumer per
 agent group reads the broker stream and routes logical `object.*` topics locally; the default
@@ -473,6 +479,10 @@ Conversation-assurance census handoffs use the same reporting-line boundary: a g
 distinct peer on the owner's line, never to the executor as an authority shortcut. Var remains the
 approver and refuses to speak for Thor, so a diagnostic handoff cannot combine approval and
 execution identity.
+Saga authenticates the owner of each audited topic before appending to its chain or materializing a
+handoff. Handoff issue bodies include only allowlisted, size-bounded context fields; unlisted values
+are omitted or summarized so secrets, raw prompts, and customer identifiers are not copied into the
+issue tracker.
 
 Deduplication uses a SHA-256 `problem_fingerprint` over the canonical failure tuple:
 
@@ -506,6 +516,9 @@ State is partitioned by `user_id`:
   raw conversation bodies.
 - **RBAC.** Muninn compares one canonical principal-scope digest and refuses unscoped or cross-user reads with an empty result; Saga records attempts to read another user's conversation.
 - **Learner boundary.** Norns receives metadata by default (`UserPreference.share_with_learner: false`); raw post-turn bodies require a matching `share_with_learner` opt-in before pattern extraction. Batch trajectory intake accepts reviewed aggregates only, never raw turn/trajectory bodies. Completed consent-filtered exchanges use `object.post-turn-review`, never a second `object.turn` shape.
+- **Post-turn body consent.** Norns accepts raw post-turn operator and assistant bodies only when a
+  Bragi-issued `body_consent` marker and sensitivity clearance are present on the `object.post-turn-review`.
+  Without both, Norns keeps only metadata and records no body text.
 - **Retention.** Active conversations: 30 days, then 60 days cold storage, then deletion at 90 days. Aggregated anonymized metrics survive in Saga's audit stream.
 
 ## 7. Ontology actions
@@ -571,6 +584,9 @@ Per-action `action_run_id` and per-attempt `attempt_id` are idempotency keys. Sa
 Correlation reuse is also validated at execution. A retry with the same action identity remains
 idempotent, but a different action under the same correlation becomes an auditable terminal
 rejection rather than an ambiguous dispatch.
+Thor also bounds verdict parameters before it creates or persists an `ActionRun`. Oversized,
+deeply nested, or non-schema fields are rejected before they can become durable executor context,
+approval context, or audit material.
 
 ### 7.4 Impact scope and batch semantics
 
@@ -593,6 +609,15 @@ Every ActionType, including irreversible actions, declares a live `rollback_cont
 | `tool.run-chaos-experiment` | `scripted` | false |
 
 An `irreversible: true` action normally requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it. The only exception is an explicitly injected full-authority development profile with one currently authenticated Owner and exact action safeguards. Var records original and effective quorum without inventing another person; Thor and Vidar revalidate the same profile, confirmation, action identity, distinct executor, expiry, durable audit, lock, idempotency, and observer before execution or rollback. Roles and topics stay fixed, and profile-scoped promotion never establishes production readiness.
+Thor re-derives the irreversible-action quorum from ActionType semantics before leaving
+`verdicted` for any executable state. The runtime requires all seven safeguards on the wire: stop
+condition, tested rollback, impact scope, successful dry-run, logical target lock, stable
+idempotency key, and two-phase audit. HIL approvals bind to the exact `ActionRun` identity, Var
+producer evidence, approval idempotency key, approver set, and quorum evidence; when durable Var
+readback is configured, Thor requires the current stored approval before it advances.
+Var also re-derives quorum from ActionType semantics and treats unknown or catalog-missing actions
+as requiring the irreversible minimum. Vidar admits rollback only for Thor-owned `ActionRun`
+messages with matching identity and rollback evidence.
 Forseti treats `auto` as an upper bound. Without governed reversible ActionType semantics, or when
 the verdict requires quorum `>= 2`, the runtime caps the decision to human approval (`hil`).
 The judgment table is injected and digest-stamped; Forseti records deterministic verdict keys from
@@ -623,6 +648,13 @@ construction, and unbound targets hold as clarification rather than entering the
 sinks report accepted, deduplicated, or unavailable outcomes separately. The initiator principal
 participates in idempotency material, and typed params carry only action arguments plus digests or
 refs for conversational lineage, never raw question text or raw session identifiers.
+Huginn is the raw-ingress trust boundary. It bounds raw request shape and depth, rejects unsafe
+identity characters, normalizes accepted source times to UTC with bounded skew, and records
+content-free rejection counters for inputs it cannot trust. Raw operator requests keep strictly
+bounded fields and a server-owned channel: `ingress` for authenticated service producers and
+`conversation` for Bragi's in-process proposal entry point. Huginn never copies unowned authority
+fields such as caller-supplied initiator, ActionType, or params from raw ingress, and Forseti's RBAC
+denies unknown initiators before a verdict can form.
 
 The exact proposal sink, operator RBAC, spoofing defense, and lineage propagation are specified in
 the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#conversational-action-re-entry).
