@@ -1,8 +1,8 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: c8f798d278c81924ddb861409b3effb4b087bcda
-translation_revised: 2026-09-16
+translation_source_sha: a0291ea8005692c6f378742e6d9b753dc720ef65
+translation_revised: 2026-09-30
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
 
@@ -48,25 +48,32 @@ translation_revised: 2026-09-16
 [agent-workflows-ko.md](agent-workflows-ko.md)의 13개 작업 흐름은 각각 자체 shadow-mode 게이트가
 있는 별도 PR로 도입합니다. 대략적인 순서는 다음과 같습니다.
 
-1. Cost-aware 교정 (Njord + Forseti + Thor)
-2. Predictive 규모 (Freyr + Heimdall + Njord)
-3. DR 훈련 orchestration (Loki + Vidar + Heimdall + Norns)
+1. Cost-aware 교정 (현재 추적: Njord + Forseti + Thor + Saga)
+2. Predictive 규모 (현재 추적: Freyr + Heimdall + Njord + Odin + Forseti)
+3. DR 훈련 orchestration (현재 추적: Loki + Saga)
 4. 재정의 -> 발견 (Var + Saga + Norns + Mimir)
-5. Security 에스컬레이션 (Wave 6 이후 작업 흐름 객체로 formalize)
+5. Security 에스컬레이션 (현재 추적: Forseti + Heimdall + Var)
 6. 인계 -> 기능 (Saga + Norns + Mimir)
-7. 에이전트 상태 성능 저하 (Heimdall + Odin + Bragi)
-8. Judgment coherence 감사 (Forseti + Norns + Mimir)
-9. Rollback 예행 연습 (Loki + Vidar + Heimdall + Saga)
-10. Retrospective what-if (Saga + Forseti + Norns + Mimir)
-11. Operational 준비 상태 인계 (Forseti)
-12. Scheduled 통제된 Python 작업 (Forseti + Thor)
-13. Detection 준비 상태 assurance (Huginn + Heimdall + Muninn + Forseti + Saga + Bragi)
+7. 에이전트 상태 성능 저하 (현재 추적: Heimdall + Odin)
+8. Judgment coherence 감사 (현재 추적: Forseti + Saga + Norns)
+9. Rollback 예행 연습 (현재 추적: Loki + Saga)
+10. Retrospective what-if (현재 추적: Saga + Forseti)
+11. Operational 준비 상태 인계 (현재 추적: Forseti + Var + Thor + Saga)
+12. Scheduled 통제된 Python 작업 (현재 추적: Forseti + Var + Thor + Saga)
+13. Detection 준비 상태 assurance (현재 추적: Huginn + Heimdall + Muninn + Forseti + Saga)
 
 ## 작업 흐름별 exit 게이트
 
-- 모든 참여 에이전트를 포함한 shadow 종단 간 추적을 확보합니다.
-- 승격 게이트를 평가하기 전에 KPI 기준선을 수집합니다.
-- shadow에서 policy-violation escape가 없어야 합니다.
+- [에이전트 워크플로우](agent-workflows-ko.md)에 이름이 명시된 모든
+  **현재 실행 가능한 추적 에이전트**를 포함하는 focused executable shadow
+  추적을 확보합니다. `test_workflow_metadata_matches_documented_current_and_planned_agents`,
+  `test_every_workflow_trace_ref_resolves`,
+  `test_rollout_gate_is_bound_to_trace_assertion_metadata` 테스트가 이 게이트의
+  metadata, node-id, trace assertion 부분을 강제합니다.
+- 승격 게이트를 평가하기 전에 KPI 기준선을 수집합니다. 이는 운영 근거이며
+  unit test 대체물이 아닙니다.
+- shadow에서 policy-violation escape가 없어야 합니다. 이는 운영 기간 측정값이며,
+  워크플로우가 shadow를 벗어나기 전에 promotion verdict inventory에 기록합니다.
 
 ## 의존성 및 anti-scope
 

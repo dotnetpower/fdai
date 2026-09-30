@@ -45,25 +45,33 @@ remains independently reviewable and starts in shadow mode before any enforcemen
 Each of the 13 workflows in [agent-workflows.md](agent-workflows.md) lands as its own PR with its
 own shadow-mode gate. The rough sequence is:
 
-1. Cost-aware remediation (Njord + Forseti + Thor)
-2. Predictive scale (Freyr + Heimdall + Njord)
-3. DR drill orchestration (Loki + Vidar + Heimdall + Norns)
+1. Cost-aware remediation (current trace: Njord + Forseti + Thor + Saga)
+2. Predictive scale (current trace: Freyr + Heimdall + Njord + Odin + Forseti)
+3. DR drill orchestration (current trace: Loki + Saga)
 4. Override -> Discovery (Var + Saga + Norns + Mimir)
-5. Security escalation (formalized after Wave 6 into a workflow object)
+5. Security escalation (current trace: Forseti + Heimdall + Var)
 6. Handoff -> Capability (Saga + Norns + Mimir)
-7. Agent health degradation (Heimdall + Odin + Bragi)
-8. Judgment coherence audit (Forseti + Norns + Mimir)
-9. Rollback rehearsal (Loki + Vidar + Heimdall + Saga)
-10. Retrospective what-if (Saga + Forseti + Norns + Mimir)
-11. Operational readiness handoff (Forseti)
-12. Scheduled governed Python task (Forseti + Thor)
-13. Detection readiness assurance (Huginn + Heimdall + Muninn + Forseti + Saga + Bragi)
+7. Agent health degradation (current trace: Heimdall + Odin)
+8. Judgment coherence audit (current trace: Forseti + Saga + Norns)
+9. Rollback rehearsal (current trace: Loki + Saga)
+10. Retrospective what-if (current trace: Saga + Forseti)
+11. Operational readiness handoff (current trace: Forseti + Var + Thor + Saga)
+12. Scheduled governed Python task (current trace: Forseti + Var + Thor + Saga)
+13. Detection readiness assurance (current trace: Huginn + Heimdall + Muninn + Forseti + Saga)
 
 ## Per-workflow exit gate
 
-- End-to-end trace in shadow with all participating agents.
-- KPI baseline captured before promotion-gate evaluation.
-- Zero policy-violation escapes in shadow.
+- Focused executable trace in shadow with every **current executable trace
+  agent** named in [Agent workflows](agent-workflows.md). The
+  `test_workflow_metadata_matches_documented_current_and_planned_agents`,
+  `test_every_workflow_trace_ref_resolves`, and
+  `test_rollout_gate_is_bound_to_trace_assertion_metadata` tests enforce the
+  metadata, node-id, and trace-assertion parts of this gate.
+- KPI baseline captured before promotion-gate evaluation. This remains
+  operational evidence, not a unit-test substitute.
+- Zero policy-violation escapes in shadow. This remains an operating-period
+  measurement and is recorded through the promotion verdict inventory before a
+  workflow can leave shadow.
 
 ## Dependencies and anti-scope
 
