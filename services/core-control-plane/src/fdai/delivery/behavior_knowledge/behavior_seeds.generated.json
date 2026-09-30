@@ -138,7 +138,7 @@
         "When does Odin intervene?",
         "Odin이 개입하지 않는 경우는 언제인가요?"
       ],
-      "source_manifest_hash": "38487c1970f1c0620b773e6653c2dee12b415d5c324f6d0675b18dedb4ad616c",
+      "source_manifest_hash": "2fd04027d179ee8273ee678e4c712f60497dbe0aa1346922d33b4327ccb25faf",
       "sources": [
         {
           "authority_role": "implementation",
@@ -151,9 +151,9 @@
         },
         {
           "authority_role": "implementation",
-          "blob_sha": "e3db9ba4bb45227c4bbc2f8156d31a147a520a8e",
-          "line_end": 281,
-          "line_start": 200,
+          "blob_sha": "a93218a0bc8cc5d11419cf9a6ef2980c1a336830",
+          "line_end": 338,
+          "line_start": 257,
           "path": "services/core-control-plane/src/fdai/agents/odin.py",
           "source_kind": "code",
           "symbol": "Odin.arbitrate"
@@ -169,7 +169,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "73c45ae552b03e5e2ac2a1e8478c3fd2f2267bb9",
+          "blob_sha": "cb35c09ca46babd9db5243d8920301306a9a1d30",
           "line_end": 87,
           "line_start": 72,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
@@ -178,7 +178,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "73c45ae552b03e5e2ac2a1e8478c3fd2f2267bb9",
+          "blob_sha": "cb35c09ca46babd9db5243d8920301306a9a1d30",
           "line_end": 133,
           "line_start": 125,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
@@ -187,9 +187,9 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "73c45ae552b03e5e2ac2a1e8478c3fd2f2267bb9",
-          "line_end": 410,
-          "line_start": 394,
+          "blob_sha": "cb35c09ca46babd9db5243d8920301306a9a1d30",
+          "line_end": 422,
+          "line_start": 406,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_close_call_escalates_to_hil"
@@ -246,13 +246,13 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "5fd90b357a7141ac8a38e3d2f150e881087572297e3d346d5099d631237bfeeb",
+      "source_manifest_hash": "2b4257105e25dd59fe6b12141b5141bb36e162ff204e890b4a7b3ac195d60f76",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "83f33d2a60a90dd33e0b3d454cac60d0933c2157",
-          "line_end": 860,
-          "line_start": 821,
+          "blob_sha": "e4e57b0245d67e1eb0402d422a75c872c91f50ca",
+          "line_end": 870,
+          "line_start": 831,
           "path": "services/core-control-plane/src/fdai/agents/saga.py",
           "source_kind": "code",
           "symbol": "Saga.escalate_to_github_issue"
@@ -480,13 +480,13 @@
         "Can an approver approve their own action?",
         "자기 액션을 스스로 승인할 수 있나요?"
       ],
-      "source_manifest_hash": "6dd2234bfd71e77840bbab7df6ba5ef4958b3018bbc021e17084fac911a0fc3b",
+      "source_manifest_hash": "7811bfcf01d8e9814be7521ab450cf81e3f2073ba2a822e26965fd6956a2e0bd",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "f2b34d4fa73eb9a8011cbafb3b77bc9d4216eaef",
-          "line_end": 356,
-          "line_start": 334,
+          "blob_sha": "0ce12a95235874d711f4499c2b53ad61ad25eaa9",
+          "line_end": 357,
+          "line_start": 335,
           "path": "services/core-control-plane/src/fdai/agents/var.py",
           "source_kind": "code",
           "symbol": "Var.decide"
@@ -840,20 +840,20 @@
         "How does Vidar handle rollback?",
         "Vidar는 롤백을 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "cbf3a12a0d341e509d5a5baa7b172884283920efb81a793a87ef513189627c2b",
+      "source_manifest_hash": "b4965945485f49a50a61fb3e5b19d5baa12f620eeae2713d9994f9bee05edfed",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "c3d108b9ff6c2025fbcf888fc4920c268704d1ad",
-          "line_end": 218,
-          "line_start": 196,
+          "blob_sha": "f1172e63b03e350db5233b6408026d99a741a81f",
+          "line_end": 236,
+          "line_start": 214,
           "path": "services/core-control-plane/src/fdai/agents/vidar.py",
           "source_kind": "code",
           "symbol": "Vidar.rollback"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "1a7919f8fa3dd718431b9795fedb9166351f2cd8",
+          "blob_sha": "e70e4c470bd7a214e539488dee9451d5aa411fac",
           "line_end": 1648,
           "line_start": 1613,
           "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",
@@ -862,7 +862,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "1a7919f8fa3dd718431b9795fedb9166351f2cd8",
+          "blob_sha": "e70e4c470bd7a214e539488dee9451d5aa411fac",
           "line_end": 1773,
           "line_start": 1755,
           "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",
@@ -921,20 +921,20 @@
         "Can Bragi execute a command?",
         "Bragi는 명령을 직접 실행하나요?"
       ],
-      "source_manifest_hash": "1b0307c9361c997600ab61b3c22f589800a530c4eb82bde80e3528925f012675",
+      "source_manifest_hash": "bba0d2a617d525d1dafbc0b8d51c5227295a85414945e0e3119203ea66304f57",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "b362e1d5b2b9049ed41bce89f1025189869c64b3",
-          "line_end": 882,
-          "line_start": 556,
+          "blob_sha": "f75464b5977a1214931410dddb067dd9deb80b2d",
+          "line_end": 883,
+          "line_start": 557,
           "path": "services/core-control-plane/src/fdai/agents/bragi.py",
           "source_kind": "code",
           "symbol": "Bragi.ask"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "a7fc17ede15d6055684f5d7a14814804190bf387",
+          "blob_sha": "85d9532d5ff4b5eb9a2b7cb7f6d7a89030e416cc",
           "line_end": 1442,
           "line_start": 1420,
           "path": "services/core-control-plane/tests/agents/test_conversational_port.py",
