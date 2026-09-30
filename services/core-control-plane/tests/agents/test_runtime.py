@@ -339,7 +339,9 @@ def test_runtime_rehydrates_pending_norns_issue_candidate() -> None:
     store = InMemoryStateStore()
     payloads = [
         {
+            "producer_principal": "Saga",
             "fingerprint": f"startup-fingerprint-{cohort}",
+            "correlation_id": f"handoff:startup-{cohort}-{index}",
             "idempotency_key": f"handoff:startup-{cohort}-{index}",
         }
         for cohort in range(2)

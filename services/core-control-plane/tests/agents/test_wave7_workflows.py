@@ -157,8 +157,18 @@ def test_workflow_override_to_discovery_via_norns() -> None:
     """Repeat overrides on same fingerprint => Norns proposes a candidate."""
     norns = Norns(promotion_threshold=3)
     fp = "override-fp-1"
-    for _ in range(3):
-        asyncio.run(norns.on_typed_message("object.issue", {"fingerprint": fp}))
+    for index in range(3):
+        asyncio.run(
+            norns.on_typed_message(
+                "object.issue",
+                {
+                    "producer_principal": "Saga",
+                    "fingerprint": fp,
+                    "correlation_id": f"override-fp-1-{index}",
+                    "idempotency_key": f"override-fp-1-{index}",
+                },
+            )
+        )
     assert norns.pending_candidates[0]["evidence"]["fingerprint"] == fp
 
 

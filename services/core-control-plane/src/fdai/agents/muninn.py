@@ -33,6 +33,7 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.muninn_patterns import MuninnPatternReadMixin
 from fdai.agents._framework.pantheon import _MUNINN
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.case_history import (
     CaseHistoryMaterializer,
@@ -145,20 +146,49 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         if await self._handover_message(topic, payload):
             return
         if topic == "object.audit-entry" and payload.get("kind") == "human_assignment":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="assignment:invalid_producer",
+            ):
+                raise ValueError("human assignment audit MUST be published by Saga")
             await materialize_assignment(
                 self, payload, self._assignment_materializer, clock=self._assignment_clock
             )
             return
         if topic == "object.pattern":
+            if require_topic_owner(
+                self, topic, payload, behavior="operating_pattern:invalid_producer"
+            ):
+                return
             async with asyncio.timeout(5):
                 await self._materialize_operating_pattern(payload)
         elif topic == "object.turn":
+            if require_topic_owner(self, topic, payload, behavior="turn:invalid_producer"):
+                return
             await self._materialize_turn_projection(payload)
         elif topic == "object.conversation":
+            if require_topic_owner(self, topic, payload, behavior="conversation:invalid_producer"):
+                return
             await self._materialize_conversation_projection(payload)
         elif topic == "object.user-preference":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="user_preference:invalid_producer",
+            ):
+                return
             await self._materialize_user_preference_projection(payload)
         elif topic == "object.drift" and payload.get("kind") == "detection_readiness":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="detection_readiness:invalid_producer",
+            ):
+                return
             await self._materialize_detection_readiness(payload)
         elif (
             topic == "object.audit-entry"
@@ -175,38 +205,105 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
                 )
             )
         ):
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="document_index:invalid_producer",
+            ):
+                return
             await self._request_document_index(payload)
         elif topic == "object.forecast-outcome":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="forecast_outcome:invalid_producer",
+            ):
+                return
             await self._materialize_forecast_outcome(payload)
         elif (
             topic == "object.retrieval-validation"
             and payload.get("event_type") == "rule.semantic_generation.validation.completed.v1"
         ):
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="retrieval_validation:invalid_producer",
+            ):
+                return
             self.record_behavior("rule_generation_validation:observed")
         elif topic == "object.retrieval-validation":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="retrieval_validation:invalid_producer",
+            ):
+                return
             await self._materialize_retrieval_validation(payload)
         elif (
             topic == "object.event" and payload.get("event_type") == "measurement.action_outcome.v1"
         ):
+            if require_topic_owner(self, topic, payload, behavior="event:invalid_producer"):
+                return
             self._hold_response_outcome(payload)
         elif topic == "object.event" and payload.get("event_type") == (
             "case_history.operational_case.v1"
         ):
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="operational_case:invalid_producer",
+            ):
+                return
             await self._materialize_operational_case(payload)
         elif topic == "object.event" and payload.get("event_type") == (
             "case_history.retention_due"
         ):
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="case_history:retention_invalid_producer",
+            ):
+                return
             await self._apply_case_history_retention(payload)
         elif topic == "object.change":
+            if require_topic_owner(self, topic, payload, behavior="change:invalid_producer"):
+                return
             self._materialize_change(payload)
         elif topic == "object.evidence-conflict":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="evidence_conflict:invalid_producer",
+            ):
+                return
             await self._materialize_evidence_conflict(payload)
         elif topic == "object.prospective-lineage":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="prospective_lineage:invalid_producer",
+            ):
+                return
             await self._materialize_prospective_lineage(payload)
         elif (
             topic == "object.audit-entry"
             and payload.get("action_kind") == "prospective_lineage.sealed"
         ):
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="prospective_lineage:invalid_seal_producer",
+            ):
+                return
             await self._seal_prospective_lineage(payload)
         else:
             self.record_behavior("typed_message:ignored")

@@ -119,7 +119,7 @@ async def test_norns_rejects_non_muninn_strategy_cohort() -> None:
     )
 
     assert norns.pending_candidates == []
-    assert "investigation_strategy_cohort_invalid_producer" in norns.behavior_snapshot()
+    assert norns.behavior_snapshot()["context_index:invalid_producer"] == 1
 
 
 async def test_norns_holds_unbalanced_strategy_cohort() -> None:

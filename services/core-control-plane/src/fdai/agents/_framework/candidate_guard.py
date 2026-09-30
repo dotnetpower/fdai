@@ -14,8 +14,10 @@ rejected candidate is preserved for audit rather than silently dropped.
 
 Checks (all deterministic, no I/O, no model call):
 
-- **Provenance** - `proposed_by` and a known `proposal_kind` are
-  required.
+- **Provenance** - `proposed_by` must identify Norns and, when the
+  authenticated `producer_principal` is present, it must match that owner.
+  Mimir performs the mandatory topic-owner check before this guard runs; the
+  guard rejects forged free-form provenance if it is used directly.
 - **Grounding** - a non-empty `evidence` mapping is required; an
   ungrounded candidate is quarantined.
 - **Range sanity** - numeric evidence must be in range (a `rollback_rate`
@@ -95,6 +97,12 @@ class CandidateGuard:
             return GuardVerdict(False, f"unknown_proposal_kind:{kind or 'missing'}")
         if not candidate.get("proposed_by"):
             return GuardVerdict(False, "missing_provenance:proposed_by")
+        proposed_by = str(candidate.get("proposed_by") or "")
+        producer = candidate.get("producer_principal")
+        if proposed_by != "Norns":
+            return GuardVerdict(False, "invalid_provenance:proposed_by")
+        if producer is not None and producer != proposed_by:
+            return GuardVerdict(False, "invalid_provenance:producer_mismatch")
         evidence = candidate.get("evidence")
         if not isinstance(evidence, dict) or not evidence:
             return GuardVerdict(False, "ungrounded:no_evidence")

@@ -8,6 +8,7 @@ from typing import Any
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.candidate_guard import CandidateGuard
+from fdai.agents._framework.mimir_candidate_quarantine import quarantine_candidate
 from fdai.agents._framework.mimir_catalog_identity import (
     RECORD_KIND,
     STATE_PREFIX,
@@ -22,6 +23,7 @@ from fdai.agents._framework.mimir_governance_state import (
     MimirCatalogGovernanceStore,
     catalog_candidate_idempotency_key,
 )
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
     CatalogCompilationError,
@@ -341,9 +343,15 @@ class MimirCatalogReviewMixin:
         recovering: bool = False,
     ) -> None:
         investigation_identity: tuple[str, str] | None = None
+        if require_topic_owner(
+            self,
+            "object.rule-candidate",
+            payload,
+            behavior="catalog_candidate:invalid_producer",
+        ):
+            await quarantine_candidate(self, payload, "invalid_producer")
+            return
         if payload.get("source_signal") == "investigation_strategy_comparison_cohort":
-            if payload.get("producer_principal") != "Norns":
-                raise ValueError("investigation strategy candidate MUST be published by Norns")
             idempotency_key = str(payload.get("idempotency_key") or "")
             evidence = payload.get("evidence")
             candidate_digest = (
@@ -384,16 +392,7 @@ class MimirCatalogReviewMixin:
                     *investigation_identity
                 )
         else:
-            prior_quarantine = await self._catalog_governance_store.quarantine(payload)
-            if prior_quarantine is not None:
-                self._quarantined_candidates.append(prior_quarantine)
-                self.record_behavior("catalog_candidate_quarantine_duplicate")
-                return
-            self._quarantined_candidates.append(
-                {**dict(payload), "quarantine_reason": verdict.reason}
-            )
-            await self._catalog_governance_store.persist_quarantine(payload, verdict.reason)
-            await self._audit_outcome(payload, outcome="quarantined", reason=verdict.reason)
+            await quarantine_candidate(self, payload, verdict.reason)
 
     async def recover_catalog_reviews(self) -> int:
         candidates, total = await self._catalog_review_journal.pending_candidates()
@@ -760,7 +759,8 @@ class MimirCatalogReviewMixin:
             review_ref=review_ref,
         )
         if self.bus is None:
-            raise RuntimeError("Mimir catalog review audit transport is unavailable")
+            self.record_behavior("catalog_review_audit_unavailable")
+            return
         await self.bus.publish(
             "Mimir",
             "object.rule",

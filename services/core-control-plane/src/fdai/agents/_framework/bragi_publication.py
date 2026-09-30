@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.post_turn_review import (
+    PostTurnBodyConsent,
     PostTurnReviewInputWire,
 )
 from fdai_service_contracts.post_turn_review import (
@@ -87,12 +88,17 @@ def post_turn_review_event_payload(
     preference: UserPreferenceRecord | None = None,
 ) -> dict[str, Any]:
     """Return the consent-filtered review envelope consumed by Norns."""
+    principal_scope = (
+        f"sha256:{hashlib.sha256(preference.principal_id.encode()).hexdigest()}"
+        if preference is not None
+        else ""
+    )
     body_allowed = (
         preference is not None
         and preference.share_with_learner is True
-        and f"sha256:{hashlib.sha256(preference.principal_id.encode()).hexdigest()}"
-        == review.principal_scope
+        and principal_scope == review.principal_scope
     )
+    carries_raw_body = review.operator_body is not None or review.assistant_body is not None
     if not body_allowed and (review.operator_body is not None or review.assistant_body is not None):
         review = PostTurnReviewInput(
             review_id=review.review_id,
@@ -112,8 +118,19 @@ def post_turn_review_event_payload(
             procedure_fingerprint=review.procedure_fingerprint,
             repeated_procedure_count=review.repeated_procedure_count,
         )
+        carries_raw_body = False
+    body_consent = (
+        PostTurnBodyConsent(
+            share_with_learner=True,
+            principal_scope=review.principal_scope,
+            consent_ref=f"user-preference:{principal_scope}:{preference.revision}",
+        )
+        if body_allowed and carries_raw_body and preference is not None
+        else None
+    )
     return shared_post_turn_review_event_payload(
-        PostTurnReviewInputWire.model_validate(review_input_to_mapping(review))
+        PostTurnReviewInputWire.model_validate(review_input_to_mapping(review)),
+        body_consent=body_consent,
     )
 
 

@@ -77,6 +77,7 @@ from fdai.agents._framework.norns_learning import (
 )
 from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.pantheon import _NORNS
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.role_answers import norns_role_answer
 from fdai.core.case_history import CaseHistoryAnalyzer, CaseHistoryMaterializer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
@@ -94,6 +95,7 @@ from fdai.core.operational_learning import (
     ShadowDwellLedger,
 )
 from fdai.core.trajectory import ReviewedTrajectoryDataset
+from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
 from fdai.shared.providers.state_store import StateStore
 
@@ -103,6 +105,7 @@ _MAX_TRACKED = 50_000
 _MAX_PENDING_CANDIDATES = 5_000
 _LEARNING_STATE_KEY = "pantheon/norns/learning-state"
 _DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
+_MAX_POST_TURN_BODY_BYTES = 64 * 1024
 
 
 class NornsCapacityError(RuntimeError):
@@ -258,9 +261,23 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.post-turn-review":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="post_turn_review:invalid_producer",
+            ):
+                return
             await self._observe_post_turn_review(payload)
             return
         if topic == "object.context-index" and payload.get("kind") == "forecast_case_history":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="forecast_case:invalid_producer",
+            ):
+                return
             if await self._handover_message(topic, payload):
                 return
             await self._ensure_learning_state()
@@ -281,16 +298,34 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             await self._flush_candidates_unlocked()
         self._ensure_pending_capacity()
         if topic == "object.issue":
+            if require_topic_owner(self, topic, payload, behavior="issue:invalid_producer"):
+                return
             await self._issue_deduplicator.observe(self, payload)
         elif topic == "object.audit-entry":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="audit_outcome:invalid_producer",
+            ):
+                return
             # Saga audits every terminal state and republishes it as an
             # audit-entry; the outcome learner scores rollback rates from it.
             self._observe_outcome(payload)
         elif topic == "object.approval":
+            if require_topic_owner(self, topic, payload, behavior="approval:invalid_producer"):
+                return
             # Var publishes the final HIL decision (approved / rejected); the
             # approval-pattern learner scores recurring rejections from it.
             self._observe_approval(payload)
         elif topic == "object.context-index":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="context_index:invalid_producer",
+            ):
+                return
             if payload.get("kind") == "operational_case_fingerprint_cohort":
                 try:
                     async with asyncio.timeout(self._provider_timeout_seconds):
@@ -512,8 +547,6 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
     async def _observe_post_turn_review(self, payload: dict[str, Any]) -> None:
         if payload.get("kind") != "post_turn_review":
             return
-        if payload.get("producer_principal") != "Bragi":
-            raise ValueError("post-turn review turn MUST be published by Bragi")
         if self._post_turn_review is None:
             self.record_behavior("post_turn_review_unavailable")
             return
@@ -528,9 +561,49 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         if fence in self._reviewed_post_turn_reviews:
             self.record_behavior("post_turn_review_duplicate")
             return
+        try:
+            review_input = review_input_from_mapping(raw)
+        except ValueError:
+            self.record_behavior("post_turn_review_invalid")
+            return
+        if not self._post_turn_review_body_admissible(payload, raw, review_input):
+            return
+        await self._post_turn_review.review(review_input)
         self._reviewed_post_turn_reviews.add(fence)
-        await self._post_turn_review.review(review_input_from_mapping(raw))
         self.record_behavior("post_turn_review_completed")
+
+    def _post_turn_review_body_admissible(
+        self,
+        payload: Mapping[str, Any],
+        raw: Mapping[str, Any],
+        review_input: Any,
+    ) -> bool:
+        if not any(
+            body is not None for body in (review_input.operator_body, review_input.assistant_body)
+        ):
+            return True
+        if not review_input.body_shared:
+            self.record_behavior("post_turn_review_raw_body_incomplete")
+            return False
+        consent = raw.get("body_consent")
+        if not isinstance(consent, Mapping):
+            consent = payload.get("body_consent")
+        if not isinstance(consent, Mapping) or (
+            consent.get("share_with_learner") is not True
+            or consent.get("principal_scope") != review_input.principal_scope
+            or not isinstance(consent.get("consent_ref"), str)
+            or not consent.get("consent_ref")
+        ):
+            self.record_behavior("post_turn_review_raw_body_without_consent")
+            return False
+        text = "\n".join((review_input.operator_body or "", review_input.assistant_body or ""))
+        if len(text.encode("utf-8")) > _MAX_POST_TURN_BODY_BYTES:
+            self.record_behavior("post_turn_review_raw_body_too_large")
+            return False
+        if scan_text(text):
+            self.record_behavior("post_turn_review_raw_body_sensitive")
+            return False
+        return True
 
     async def recover_issue_learning(self) -> int:
         """Restore durable handoff-learning work before consumers start."""

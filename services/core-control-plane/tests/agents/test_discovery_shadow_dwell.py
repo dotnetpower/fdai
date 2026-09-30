@@ -30,10 +30,12 @@ _THRESHOLDS = ShadowDwellThresholds(min_shadow_days=14, min_samples=100, min_acc
 
 def _shadow_audit(index: int, **overrides: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
+        "producer_principal": "Saga",
         "action_type": _TARGET,
         "shadow_mode": True,
         "result": "success",
         "correlation_id": f"shadow-{index}",
+        "idempotency_key": f"shadow-{index}",
         "observed_at": (_START + timedelta(days=index * 0.2)).isoformat(),
         "operator_reviewed": True,
         "operator_agreed": True,
@@ -50,6 +52,7 @@ def _feed_shadow(norns: Norns, count: int, **overrides: Any) -> None:
 
 def _candidate(dwell: dict[str, Any] | None) -> dict[str, Any]:
     candidate: dict[str, Any] = {
+        "producer_principal": "Norns",
         "idempotency_key": f"candidate:{_TARGET}:1",
         "correlation_id": "corr-dwell",
         "target_rule_id": _TARGET,
@@ -178,9 +181,11 @@ def test_published_candidate_carries_its_dwell_evidence() -> None:
             norns.on_typed_message(
                 "object.approval",
                 {
+                    "producer_principal": "Var",
                     "action_type": _TARGET,
                     "state": "rejected",
                     "correlation_id": f"hil-{index}",
+                    "idempotency_key": f"hil-{index}",
                 },
             )
         )
@@ -312,7 +317,13 @@ def test_end_to_end_shadow_dwell_closes_the_loop() -> None:
         asyncio.run(
             norns.on_typed_message(
                 "object.approval",
-                {"action_type": _TARGET, "state": "rejected", "correlation_id": f"hil-{index}"},
+                {
+                    "producer_principal": "Var",
+                    "action_type": _TARGET,
+                    "state": "rejected",
+                    "correlation_id": f"hil-{index}",
+                    "idempotency_key": f"hil-{index}",
+                },
             )
         )
 

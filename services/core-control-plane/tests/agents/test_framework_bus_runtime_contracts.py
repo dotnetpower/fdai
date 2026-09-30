@@ -283,7 +283,15 @@ def test_maintenance_tick_isolated_and_flushes_norns_without_blocking_consumers(
         norns = Norns(promotion_threshold=1)
         norns.bind_candidate_publication_gate(lambda: gate_open)
         norns.bind_bus(bus)
-        await norns.on_typed_message("object.issue", {"fingerprint": "fp-maint"})
+        await norns.on_typed_message(
+            "object.issue",
+            {
+                "producer_principal": "Saga",
+                "fingerprint": "fp-maint",
+                "correlation_id": "fp-maint-1",
+                "idempotency_key": "fp-maint-1",
+            },
+        )
         assert bus.messages_on("object.rule-candidate") == []
         gate_open = True
         await norns.maintenance_tick()

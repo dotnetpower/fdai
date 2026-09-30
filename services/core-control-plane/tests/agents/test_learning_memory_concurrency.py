@@ -203,7 +203,10 @@ def _forecast_payload() -> dict[str, Any]:
         }
     )
     return {
+        "producer_principal": "Muninn",
         "kind": "forecast_case_history",
+        "correlation_id": "forecast-case-1",
+        "idempotency_key": "forecast-case-1",
         "case_id": "case-1",
         "revision": 1,
         "manifest_digest": "c" * 64,

@@ -152,6 +152,13 @@ async def test_bootstrap_keeps_replayed_bragi_proposals_inert_when_discovery_dis
     payload = {
         "producer_principal": "Bragi",
         "kind": "post_turn_review",
+        "correlation_id": "review-bootstrap-1",
+        "idempotency_key": "post-turn-review:review-bootstrap-1",
+        "body_consent": {
+            "share_with_learner": True,
+            "principal_scope": review_input.principal_scope,
+            "consent_ref": "preference:principal-hash-1:1",
+        },
         "review": review_input_to_mapping(review_input),
     }
     catalog_before = _catalog_snapshot()

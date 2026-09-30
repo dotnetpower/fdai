@@ -153,6 +153,9 @@ def apply_fingerprint_count(
 
 def observe_outcome(state: NornsLearningState, payload: Mapping[str, Any]) -> None:
     """Propose a safer threshold after measured rollback evidence clears its floor."""
+    if payload.get("producer_principal") != "Saga":
+        state.record_behavior("audit_outcome:invalid_producer")
+        return
     target = str(payload.get("action_type") or payload.get("rule_id") or "")
     if payload.get("shadow_mode"):
         retain_shadow_dwell(state, target, payload)
@@ -286,6 +289,9 @@ def shadow_dwell_evidence(
 
 def observe_approval(state: NornsLearningState, payload: Mapping[str, Any]) -> None:
     """Propose an inert revision after recurring human rejections."""
+    if payload.get("producer_principal") != "Var":
+        state.record_behavior("approval:invalid_producer")
+        return
     action_type = str(payload.get("action_type") or "")
     decision = str(payload.get("state", "")).strip().lower()
     if not action_type or decision not in ("approved", "rejected"):

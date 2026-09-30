@@ -204,7 +204,17 @@ def test_runtime_discovery_activation_gate_defaults_closed_for_norns() -> None:
     norns.bind_bus(bus)
 
     assert activation.is_enabled() is False
-    asyncio.run(norns.on_typed_message("object.issue", {"fingerprint": "fp-runtime-closed"}))
+    asyncio.run(
+        norns.on_typed_message(
+            "object.issue",
+            {
+                "producer_principal": "Saga",
+                "fingerprint": "fp-runtime-closed",
+                "correlation_id": "fp-runtime-closed-1",
+                "idempotency_key": "fp-runtime-closed-1",
+            },
+        )
+    )
 
     assert bus.messages_on("object.rule-candidate") == []
     assert len(norns.pending_candidates) == 1

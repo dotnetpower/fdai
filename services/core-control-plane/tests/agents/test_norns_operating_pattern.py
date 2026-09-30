@@ -116,7 +116,7 @@ async def test_spoofed_operating_cohort_producer_is_rejected() -> None:
     await norns.on_typed_message("object.context-index", payload)
 
     assert norns.pending_candidates == []
-    assert norns.behavior_snapshot()["operational_case_cohort_invalid_producer"] == 1
+    assert norns.behavior_snapshot()["context_index:invalid_producer"] == 1
 
 
 async def test_oversized_operating_cohort_is_rejected_before_materialization() -> None:

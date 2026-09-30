@@ -244,6 +244,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             binder = self._rule_generation_activation_binder
             if binder is None:
                 raise RuntimeError("Mimir Rule generation activation binder is unavailable")
+            await self._retain_rule_generation_activation_command(command)
             await binder.handle(command)
         elif topic == RULE_GENERATION_ACTIVATION_RESULT_TOPIC:
             await self._record_rule_generation_activation_result(payload)
@@ -428,11 +429,57 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             raise
         self.record_behavior("rule_generation_activation_command_published")
 
+    async def _retain_rule_generation_activation_command(
+        self,
+        command: RuleGenerationActivationCommandEvent,
+    ) -> None:
+        store = self._rule_generation_state_store
+        if store is None:
+            return
+        command_key = (
+            f"{_RULE_GENERATION_COMMAND_PREFIX}{command.validation_result.idempotency_key}"
+        )
+        existing = await store.read_state(command_key)
+        if existing is not None:
+            retained = RuleGenerationActivationCommandEvent.model_validate(existing)
+            if retained.command_digest != command.command_digest:
+                raise ValueError("Rule generation activation command idempotency conflict")
+            return
+        await store.write_state_with_audit_if_absent(
+            command_key,
+            command.model_dump(mode="json"),
+            {
+                "kind": "rule_semantic_generation_activation_command",
+                "principal": "Mimir",
+                "idempotency_key": command.idempotency_key,
+                "command_digest": command.command_digest,
+                "generation_id": (command.validation_result.build_result.generation.generation_id),
+                "grants_execution_authority": False,
+            },
+        )
+
     async def _record_rule_generation_activation_result(self, payload: dict[str, Any]) -> None:
-        result = RuleGenerationActivationResultEvent.model_validate(payload)
+        producer = payload.get("producer_principal")
+        if producer is not None and producer != "Mimir":
+            self.record_behavior("rule_generation_activation_result_rejected_owner")
+            raise ValueError("Rule generation activation result MUST be published by Mimir")
+        result_payload = dict(payload)
+        result_payload.pop("producer_principal", None)
+        result = RuleGenerationActivationResultEvent.model_validate(result_payload)
         store = self._rule_generation_state_store
         if store is None:
             raise RuntimeError("Mimir Rule generation receipt store is unavailable")
+        command_key = (
+            f"{_RULE_GENERATION_COMMAND_PREFIX}{result.command.validation_result.idempotency_key}"
+        )
+        command_record = await store.read_state(command_key)
+        if command_record is None:
+            self.record_behavior("rule_generation_activation_result_rejected_unbound")
+            raise ValueError("Rule generation activation result has no issued command")
+        command = RuleGenerationActivationCommandEvent.model_validate(command_record)
+        if command.command_digest != result.command.command_digest:
+            self.record_behavior("rule_generation_activation_result_rejected_unbound")
+            raise ValueError("Rule generation activation result command identity mismatch")
         receipt_key = f"{_RULE_GENERATION_RECEIPT_PREFIX}{result.idempotency_key}"
         receipt = {
             "kind": "rule_semantic_generation_activation_result",
