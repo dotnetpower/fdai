@@ -29,6 +29,7 @@ import hashlib
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 
 from fdai.agents._framework.arbitration import (
@@ -120,6 +121,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
         history_window: int = 10,
         vertical_precedence: CrossVerticalPrecedence | None = None,
         state_store: StateStore | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(spec=_ODIN)
         self.bus = bus
@@ -153,6 +155,8 @@ class Odin(Agent, HandoverKnowledgeMixin):
         self._verdicts_observed = 0
         self._verdict_outcomes: Counter[str] = Counter()
         self._state_store = state_store
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._last_portfolio_review: dict[str, Any] | None = None
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -244,6 +248,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
             "retained_decision_count": 1 if self._last_decision is not None else 0,
             "portfolio_window": total,
             "portfolio_outcomes": dict(self._verdict_outcomes),
+            "last_portfolio_review": self._last_portfolio_review,
             "fallback_closure_count": int(
                 self.behavior_snapshot().get("arbitration:fallback_terminal_hil", 0) or 0
             ),
@@ -253,6 +258,27 @@ class Odin(Agent, HandoverKnowledgeMixin):
             },
             "behavior": self.behavior_snapshot(),
         }
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        total = self._verdicts_observed
+        favorable = self._verdict_outcomes["auto"] + self._verdict_outcomes["admit"]
+        hil = self._verdict_outcomes["hil"] + self._verdict_outcomes["hold"]
+        denied = self._verdict_outcomes["deny"]
+        unknown = self._verdict_outcomes["unknown"]
+        self._last_portfolio_review = {
+            "reviewed_at": self._clock().isoformat(),
+            "portfolio_window": total,
+            "outcomes": dict(self._verdict_outcomes),
+            "advisory_priority_policy": list(self._priority),
+            "priority_policy_action": "retain",
+            "target_attainment_ratio": (favorable / total if total else None),
+            "hil_ratio": (hil / total if total else None),
+            "deny_ratio": (denied / total if total else None),
+            "unknown_ratio": (unknown / total if total else None),
+            "execution_authority": False,
+        }
+        self.record_behavior("maintenance_tick:portfolio_reviewed")
 
     async def arbitrate(self, request: dict[str, Any]) -> ArbitrationDecision:
         correlation_id = str(request.get("correlation_id", ""))

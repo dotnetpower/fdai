@@ -7,7 +7,7 @@ import hashlib
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
@@ -52,6 +52,9 @@ _AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
 # duplicate redelivery across restarts while keeping prefix scans bounded.
 _AUDIT_OUTBOX_TOMBSTONE_RETENTION = 1_024
 _MAX_FINGERPRINT_INDEX = 50_000
+_FINGERPRINT_RETENTION = 10_000
+_ISSUE_CLOSE_CLEAN_WINDOW = timedelta(hours=24)
+_ISSUE_CLOSE_ELIGIBILITY_BUCKET = "issue_close_eligibility"
 _MAX_HANDOFF_CONTEXT_ITEMS = 8
 _MAX_HANDOFF_CONTEXT_VALUE_CHARS = 256
 _HANDOFF_CONTEXT_KEYS = frozenset(
@@ -119,6 +122,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
             durable_store=durable_state_store,
         )
         self._fingerprint_index: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_FINGERPRINT_INDEX
+        )
+        self._issue_close_eligibility: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
             _MAX_FINGERPRINT_INDEX
         )
         self._handoff_locks: dict[str, _RefCountedLock] = {}
@@ -316,20 +322,44 @@ class Saga(Agent, HandoverKnowledgeMixin):
             payload_digest = None
             payload_digest_state = "non_json_rejected"
             payload_digest_error = type(exc).__name__
+        if not correlation_id:
+            correlation_id = stable_idempotency_key(
+                "rate-limit-exceeded:correlation",
+                agent_name,
+                topic,
+                payload_digest,
+                payload_digest_state,
+            )
+        idempotency_key = stable_idempotency_key(
+            "rate-limit-exceeded",
+            agent_name,
+            topic,
+            correlation_id,
+            payload_digest,
+            payload_digest_state,
+        )
+        audit_payload = {
+            "producer_principal": "Saga",
+            "kind": "rate_limit_exceeded",
+            "correlation_id": correlation_id,
+            "idempotency_key": idempotency_key,
+            "overflowing_agent": agent_name,
+            "overflowed_topic": topic,
+            "payload_digest": payload_digest,
+            "payload_digest_evidence_state": payload_digest_state,
+            "payload_digest_error": payload_digest_error,
+            "dropped_count": 1,
+            "non_learnable": True,
+            "execution_authority": False,
+        }
         await self._append_audit(
             principal="Saga",
             topic="object.audit-entry",
             correlation_id=correlation_id,
-            payload={
-                "kind": "rate_limit_overflow",
-                "overflowing_agent": agent_name,
-                "overflowed_topic": topic,
-                "payload_digest": payload_digest,
-                "payload_digest_evidence_state": payload_digest_state,
-                "payload_digest_error": payload_digest_error,
-                "execution_authority": False,
-            },
+            payload=audit_payload,
         )
+        await self._publish_audit_entry_with_outbox(audit_payload)
+        self.record_behavior("rate_limit_exceeded:audit_published")
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         """Authenticate every audited topic before appending it.
@@ -383,6 +413,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         if topic == "object.forecast-outcome":
             await self._republish_forecast_outcome(payload, correlation_id)
         if topic == "object.rule" and payload.get("kind") == "catalog_review_outcome":
+            self._record_issue_close_eligibility(payload)
             await self._republish_catalog_review_outcome(payload, correlation_id)
         if topic == "object.policy" and payload.get("kind") == "test_context_revision":
             if principal != "Mimir" or self.bus is None:
@@ -473,6 +504,38 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 "mode": "shadow",
             },
         )
+
+    def _record_issue_close_eligibility(self, payload: Mapping[str, Any]) -> None:
+        fingerprint = str(payload.get("problem_fingerprint") or payload.get("fingerprint") or "")
+        promotion_pr = str(payload.get("promotion_pr") or payload.get("promotion_pr_url") or "")
+        clean_started = str(
+            payload.get("clean_regression_started_at")
+            or payload.get("clean_regression_tests_started_at")
+            or ""
+        )
+        outcome = str(payload.get("outcome") or "").strip().lower()
+        correlation_id = str(payload.get("correlation_id") or "")
+        if (
+            payload.get("producer_principal") != "Mimir"
+            or outcome not in {"promoted", "promotion_succeeded"}
+            or not fingerprint
+            or not promotion_pr
+            or not clean_started
+            or not correlation_id
+        ):
+            return
+        evidence = {
+            "fingerprint": fingerprint,
+            "promotion_pr": promotion_pr,
+            "clean_regression_started_at": clean_started,
+            "promotion_recorded_at": self._clock().isoformat(),
+            "correlation_id": correlation_id,
+        }
+        self._issue_close_eligibility.set(fingerprint, evidence)
+        self.state_store.data[_ISSUE_CLOSE_ELIGIBILITY_BUCKET] = dict(
+            self._issue_close_eligibility.items()
+        )
+        self.record_behavior("issue_close:evidence_recorded")
 
     async def _republish_shadow_review(
         self,
@@ -1181,6 +1244,75 @@ class Saga(Agent, HandoverKnowledgeMixin):
         state["open"] = False
         self._put_fingerprint_index(fingerprint, state)
 
+    async def scan_issue_closures(self) -> int:
+        closed = 0
+        now = self._clock()
+        for fingerprint, evidence in tuple(self._issue_close_eligibility.items()):
+            if not _issue_close_evidence_is_eligible(evidence, now=now):
+                continue
+            fingerprint_state = await self._current_fingerprint_state(fingerprint)
+            if fingerprint_state is None:
+                self.record_behavior("issue_close:missing_fingerprint_state")
+                continue
+            if _fingerprint_recurred_since_clean(fingerprint_state, evidence):
+                self.record_behavior("issue_close:recurrence_after_clean")
+                continue
+            issue = self.github.issues.get(fingerprint)
+            if issue is None or not issue.open:
+                continue
+            fingerprint_state = await self._current_fingerprint_state(fingerprint)
+            if fingerprint_state is None:
+                self.record_behavior("issue_close:missing_fingerprint_state")
+                continue
+            if _fingerprint_recurred_since_clean(fingerprint_state, evidence):
+                self.record_behavior("issue_close:recurrence_after_clean")
+                continue
+            closed_by_pr = str(evidence["promotion_pr"])
+            await self.close_issue(fingerprint=fingerprint, closed_by_pr=closed_by_pr)
+            correlation_id = str(evidence["correlation_id"])
+            idempotency_key = stable_idempotency_key(
+                "issue-auto-close",
+                fingerprint,
+                closed_by_pr,
+                correlation_id,
+            )
+            await self._append_audit(
+                principal="Saga",
+                topic="object.issue",
+                correlation_id=correlation_id,
+                payload={
+                    "producer_principal": "Saga",
+                    "kind": "issue_auto_close",
+                    "correlation_id": correlation_id,
+                    "idempotency_key": idempotency_key,
+                    "fingerprint": fingerprint,
+                    "issue_number": issue.number,
+                    "closed_by_pr": closed_by_pr,
+                    "mimir_promotion_recorded_at": evidence["promotion_recorded_at"],
+                    "clean_regression_started_at": evidence["clean_regression_started_at"],
+                    "execution_authority": False,
+                },
+            )
+            if self.bus is not None:
+                await self._publish_issue(
+                    fingerprint=fingerprint,
+                    issue_number=issue.number,
+                    created=False,
+                    correlation_id=correlation_id,
+                    operation_id=idempotency_key,
+                )
+            closed += 1
+        if closed:
+            self.record_behavior("maintenance_tick:issue_close_scan_closed", closed)
+        return closed
+
+    async def _current_fingerprint_state(self, fingerprint: str) -> dict[str, Any] | None:
+        durable = await self._load_durable_fingerprint(fingerprint)
+        if durable is not None:
+            return durable
+        local = self._fingerprint_index.get(fingerprint)
+        return dict(local) if isinstance(local, Mapping) else None
+
     def replay_for_correlation(self, correlation_id: str) -> list[AuditEntry]:
         return self.audit_chain.entries_for_correlation(correlation_id)
 
@@ -1192,6 +1324,24 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self._last_chain_verified_entries = len(self.audit_chain.entries)
         if self._last_chain_verified_entries:
             self.record_behavior("maintenance_tick:audit_chain_verified")
+        await self.scan_issue_closures()
+        compacted = await self.compact_fingerprint_index()
+        if compacted:
+            self.record_behavior("maintenance_tick:fingerprint_index_compacted", compacted)
+
+    async def compact_fingerprint_index(self) -> int:
+        compacted = 0
+        while len(self._fingerprint_index) > _FINGERPRINT_RETENTION:
+            oldest = next(iter(self._fingerprint_index))
+            self._fingerprint_index.pop(oldest, None)
+            compacted += 1
+        self.state_store.data[_FINGERPRINT_BUCKET] = dict(self._fingerprint_index.items())
+        if self._durable_state_store is not None:
+            compacted += await self._durable_state_store.delete_states_beyond(
+                _FINGERPRINT_PREFIX,
+                retain_newest=_FINGERPRINT_RETENTION,
+            )
+        return compacted
 
     def health(self) -> dict[str, Any]:
         entries = len(self.audit_chain.entries)
@@ -1229,6 +1379,14 @@ class Saga(Agent, HandoverKnowledgeMixin):
             "pending_audit_outbox": self._audit_outbox_pending,
             "last_audit_outbox_recovered": self._last_audit_outbox_recovered,
             "audit_outbox_scan_limit": _AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
+            "fingerprint_index_size": len(self._fingerprint_index),
+            "fingerprint_retention": _FINGERPRINT_RETENTION,
+            "issue_auto_close": (
+                "evidence_available"
+                if self._issue_close_eligibility
+                else "awaiting_promotion_evidence_producer"
+            ),
+            "issue_auto_close_evidence_count": len(self._issue_close_eligibility),
             "kpis": {"audit_chain_integrity_rate": integrity_kpi},
             "behavior": self.behavior_snapshot(),
         }
@@ -1448,6 +1606,50 @@ def _payload_digest(payload: Mapping[str, Any]) -> str:
 def _fingerprint_key(fingerprint: str) -> str:
     digest = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()
     return f"{_FINGERPRINT_PREFIX}{digest}"
+
+
+def _issue_close_evidence_is_eligible(evidence: Mapping[str, Any], *, now: datetime) -> bool:
+    if not str(evidence.get("fingerprint") or "") or not str(evidence.get("promotion_pr") or ""):
+        return False
+    if not str(evidence.get("correlation_id") or ""):
+        return False
+    clean_started_raw = evidence.get("clean_regression_started_at")
+    if not isinstance(clean_started_raw, str):
+        return False
+    try:
+        clean_started = datetime.fromisoformat(clean_started_raw)
+    except ValueError:
+        return False
+    if clean_started.tzinfo is None:
+        clean_started = clean_started.replace(tzinfo=UTC)
+    return now >= clean_started + _ISSUE_CLOSE_CLEAN_WINDOW
+
+
+def _fingerprint_recurred_since_clean(
+    fingerprint_state: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+) -> bool:
+    clean_started_raw = evidence.get("clean_regression_started_at")
+    last_seen_raw = fingerprint_state.get("last_seen")
+    occurrence_count = fingerprint_state.get("occurrence_count")
+    if (
+        not isinstance(clean_started_raw, str)
+        or not isinstance(last_seen_raw, str)
+        or not isinstance(occurrence_count, int)
+        or isinstance(occurrence_count, bool)
+        or occurrence_count < 1
+    ):
+        return True
+    try:
+        clean_started = datetime.fromisoformat(clean_started_raw)
+        last_seen = datetime.fromisoformat(last_seen_raw)
+    except ValueError:
+        return True
+    if clean_started.tzinfo is None:
+        clean_started = clean_started.replace(tzinfo=UTC)
+    if last_seen.tzinfo is None:
+        last_seen = last_seen.replace(tzinfo=UTC)
+    return occurrence_count > 1 and last_seen > clean_started
 
 
 __all__ = ["Saga", "compute_fingerprint"]

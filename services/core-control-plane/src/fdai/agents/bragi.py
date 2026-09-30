@@ -59,9 +59,12 @@ from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
 from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.user_context import UserPreferenceRecord
 
 _LOG = logging.getLogger(__name__)
 _BRAGI_STATE_PREFIX = "pantheon/bragi"
+_USER_PREFERENCE_INDEX_PREFIX = f"{_BRAGI_STATE_PREFIX}/user-preference-index/"
+_USER_PREFERENCE_INDEX_SCAN_LIMIT = 1_000
 _TURN_OUTBOX_PENDING_SCAN_LIMIT = 5_000
 _TURN_OUTBOX_TOMBSTONE_RETENTION = 1_024
 
@@ -172,6 +175,7 @@ class Bragi(BragiPublicationMixin, Agent):
         self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
         self._a2a_turn_indexes: dict[tuple[str, str], int] = {}
         self._turn_outbox_pending = 0
+        self._last_preference_index_refresh: dict[str, Any] | None = None
 
     # ---- registration --------------------------------------------------
 
@@ -1084,6 +1088,50 @@ class Bragi(BragiPublicationMixin, Agent):
         self._turn_outbox_pending = max(0, self._turn_outbox_pending - published)
         return progress, published
 
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        refreshed = await self.refresh_user_preference_index()
+        if refreshed:
+            self.record_behavior("maintenance_tick:user_preference_index_refreshed", refreshed)
+
+    async def refresh_user_preference_index(self) -> int:
+        """Republish bounded durable UserPreference rows without changing routing authority."""
+
+        if self._state_store is None:
+            self._last_preference_index_refresh = {
+                "refreshed_at": self._clock().isoformat(),
+                "rows_scanned": 0,
+                "preferences_published": 0,
+                "evidence_state": "not_configured",
+                "execution_authority": False,
+            }
+            return 0
+        rows = await self._state_store.read_states(
+            _USER_PREFERENCE_INDEX_PREFIX,
+            limit=_USER_PREFERENCE_INDEX_SCAN_LIMIT,
+        )
+        published = 0
+        invalid = 0
+        for row in rows:
+            try:
+                preference = _preference_from_index_row(row)
+            except (KeyError, TypeError, ValueError):
+                invalid += 1
+                continue
+            if await self.publish_user_preference(preference):
+                published += 1
+        self._last_preference_index_refresh = {
+            "refreshed_at": self._clock().isoformat(),
+            "rows_scanned": len(rows),
+            "preferences_published": published,
+            "invalid_rows": invalid,
+            "evidence_state": "measured",
+            "execution_authority": False,
+        }
+        if invalid:
+            self.record_behavior("user_preference_index:invalid_row", invalid)
+        return published
+
     async def _publish_handoff(
         self,
         *,
@@ -1160,6 +1208,7 @@ class Bragi(BragiPublicationMixin, Agent):
             "session_durability": "durable" if self._state_store is not None else "process_local",
             "active_sessions": len(self._sessions),
             "pending_turn_outbox": self._turn_outbox_pending,
+            "last_preference_index_refresh": self._last_preference_index_refresh,
             "handoff_publication": {
                 "materialized": materialized,
                 "failed": failed,
@@ -1307,6 +1356,31 @@ def _payload_digest(payload: Mapping[str, Any]) -> str:
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     return f"sha256:{digest}"
+
+
+def _preference_from_index_row(row: Mapping[str, Any]) -> UserPreferenceRecord:
+    updated_at_raw = row.get("updated_at")
+    updated_at = datetime.fromisoformat(updated_at_raw) if isinstance(updated_at_raw, str) else None
+    answer_intent_detail = row.get("answer_intent_detail")
+    answer_intent_format = row.get("answer_intent_format")
+    return UserPreferenceRecord(
+        principal_id=str(row["principal_id"]),
+        locale=str(row.get("locale") or "en"),
+        verbosity=str(row.get("verbosity") or "concise"),
+        answer_detail=str(row.get("answer_detail") or "standard"),
+        answer_format=str(row.get("answer_format") or "prose"),
+        answer_preferences_enabled=bool(row.get("answer_preferences_enabled", True)),
+        answer_intent_detail=(
+            dict(answer_intent_detail) if isinstance(answer_intent_detail, Mapping) else {}
+        ),
+        answer_intent_format=(
+            dict(answer_intent_format) if isinstance(answer_intent_format, Mapping) else {}
+        ),
+        timezone=str(row["timezone"]) if isinstance(row.get("timezone"), str) else None,
+        share_with_learner=bool(row.get("share_with_learner", False)),
+        revision=int(row.get("revision", 0)),
+        updated_at=updated_at,
+    )
 
 
 __all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession"]
