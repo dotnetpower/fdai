@@ -129,6 +129,13 @@ name or ID; the internal token remains on the machine contract and is not shown 
 No clarification is fixed to one product or resource kind: a stated constraint the typed judgment
 omits, including the operand of a stated relation that a frame drops, is repaired or held as
 `semantic_constraint_uncovered`, never replaced by preset question text.
+A read held on its reading keeps its typed `reason_code`, such as `semantic_constraint_uncovered`,
+`semantic_plan_constraint_uncovered`, `semantic_reading_ambiguous`, `semantic_reading_unverified`, or
+`semantic_stated_constraint_unsupported`, instead of `semantic_evidence_held` or
+`semantic_request_unsupported`; a held one carries `unavailable_reason` `semantic_planner_unavailable`.
+Its `answer` is a reviewed bilingual notice that names the closed constraint roles or atom categories
+the planner recorded, never operator words, and the Console maps each code to a restate or unsupported
+prompt. The `reason_code` stays a bounded lowercase code, so the wire schema is unchanged.
 Concurrent semantic requests share one durable processing claim. A waiter retries the claim after
 its lease expires, so a failed owner cannot strand the request until its outer deadline. A result
 store failure while waiting returns an explicit held projection.
@@ -520,6 +527,7 @@ The Operator emits the optional content-free `authentication_receipt_ref` in `op
 | 2026-09-16 | implemented | Aligned service-suite ownership, semantic review registration, generated question-bank provenance, aggregate route counts, and Core bootstrap size with repository CI contracts. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; 76 focused CI contract tests, design-impact regressions, strict mypy, and Ruff. | Exact-head protected CI and the authenticated request-to-`incident.open` runtime receipt remain pending; no wire behavior or authority changed. |
 | 2026-09-16 | implemented | Preserved generic action-confirmation lifetime behavior, required exact typed Incident arguments and session identity, and bound both semantic request and result rows to the authenticated principal. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; focused Incident confirmation, generic action, and PostgreSQL query regressions. | Exact-head protected CI and the authenticated request-to-`incident.open` runtime receipt remain pending; no execution authority changed. |
 | 2026-09-16 | implemented | Added a generation-bound inventory invalidation cursor to the shared PostgreSQL read context. Incident drafts, source revalidation, proposal storage, publication, lifecycle ownership, and execution authority are unchanged. | `current change`; 153 focused Operator inventory-state and replay tests plus strict mypy and Ruff. | No Operator-initiated Incident wire behavior changed. |
+| 2026-09-30 | implemented | Kept typed reading-hold reason codes on the semantic terminal instead of the generic evidence hold or unsupported code, with a reviewed bilingual notice that names the closed constraint roles or atom categories, and mapped those codes to restate or unsupported prompts in the Console. The `reason_code` field keeps its bounded pattern, so no wire schema version changes. | `current change`; `services/core-control-plane/src/fdai_core_service/semantic_reading_holds.py`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; `console/src/deck/verification-presentation.ts`; `test_semantic_turn_processor.py` and `verification-presentation.test.ts` passed | Retain an authenticated held terminal that shows a typed reading hold after deployment. |
 
 ### Remaining work
 
