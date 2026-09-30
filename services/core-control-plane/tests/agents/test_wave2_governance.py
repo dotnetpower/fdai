@@ -1128,7 +1128,8 @@ def test_mimir_accepts_and_drains_rule_candidates() -> None:
     mimir.promote(
         "storage.public.deny",
         source="handoff",
-        reviewed_change_ref="catalog-pr:storage-public-deny",
+        reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+        + "a" * 64,
     )
     status = mimir.status("storage.public.deny")
     assert status is not None
@@ -1207,7 +1208,12 @@ def test_mimir_quarantine_is_bounded_against_poisoning_flood() -> None:
 
 def test_mimir_revoke_flips_state_to_retired() -> None:
     mimir = Mimir()
-    mimir.promote("r1", source="manual", reviewed_change_ref="catalog-pr:r1")
+    mimir.promote(
+        "r1",
+        source="manual",
+        reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+        + "a" * 64,
+    )
     mimir.revoke("r1")
     assert mimir.status("r1").state == "retired"
 

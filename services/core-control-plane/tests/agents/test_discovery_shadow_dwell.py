@@ -280,7 +280,8 @@ def test_promote_succeeds_once_the_dwell_is_proven() -> None:
     promotion = mimir.promote(
         _TARGET,
         source="handoff",
-        reviewed_change_ref="catalog-pr:shadow-dwell",
+        reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+        + "a" * 64,
     )
     assert promotion.state == "enforce"
     assert mimir.pending_candidates() == ()
@@ -293,7 +294,8 @@ def test_promote_is_unaffected_for_a_rule_with_no_pending_candidate() -> None:
         mimir.promote(
             "unrelated.rule",
             source="manual",
-            reviewed_change_ref="catalog-pr:manual",
+            reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/2@sha256:"
+            + "b" * 64,
         ).state
         == "enforce"
     )
@@ -333,7 +335,8 @@ def test_end_to_end_shadow_dwell_closes_the_loop() -> None:
         mimir.promote(
             _TARGET,
             source="handoff",
-            reviewed_change_ref="catalog-pr:shadow-dwell",
+            reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+            + "a" * 64,
         ).state
         == "enforce"
     )

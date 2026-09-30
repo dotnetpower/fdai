@@ -90,7 +90,8 @@ async def test_mimir_health_reports_process_local_and_promotion_denominators() -
     mimir.promote(
         "rule.example",
         source="manual",
-        reviewed_change_ref="catalog-pr:1",
+        reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+        + "a" * 64,
         updated_at="2026-01-01T00:00:00+00:00",
     )
 

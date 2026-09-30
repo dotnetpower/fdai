@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections.abc import Mapping
 
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
@@ -143,6 +144,101 @@ def test_muninn_indexes_bragi_conversation_and_user_preference_projections() -> 
     assert conversation["payload_digest"]
     assert preference["preference_digest"] == "sha256:" + "c" * 64
     assert "locale" not in preference
+
+
+@pytest.mark.parametrize(
+    ("bucket", "key", "topic", "payload"),
+    [
+        (
+            "conversation_turns",
+            "turn-1",
+            "object.turn",
+            {
+                "producer_principal": "Bragi",
+                "turn_id": "turn-1",
+                "correlation_id": "corr-turn-1",
+                "idempotency_key": "turn:1",
+                "principal_scope": "sha256:" + hashlib.sha256(b"user-a").hexdigest(),
+                "question_ref": "question-ref",
+                "question_sha256": "a" * 64,
+                "answer_ref": "answer-ref",
+                "answer_sha256": "b" * 64,
+            },
+        ),
+        (
+            "conversations",
+            "conversation-1",
+            "object.conversation",
+            {
+                "producer_principal": "Bragi",
+                "conversation_id": "conversation-1",
+                "correlation_id": "session-1",
+                "idempotency_key": "conversation:1",
+                "principal_scope": "sha256:" + hashlib.sha256(b"user-a").hexdigest(),
+                "status": "active",
+            },
+        ),
+        (
+            "user_preferences",
+            "preference-1",
+            "object.user-preference",
+            {
+                "producer_principal": "Bragi",
+                "id": "preference-1",
+                "correlation_id": "preference-corr",
+                "idempotency_key": "preference:1",
+                "principal_scope": "sha256:" + hashlib.sha256(b"user-a").hexdigest(),
+                "preference_digest": "sha256:" + "c" * 64,
+            },
+        ),
+    ],
+)
+def test_muninn_refuses_missing_and_forged_principal_scope_for_each_conversation_bucket(
+    bucket: str,
+    key: str,
+    topic: str,
+    payload: Mapping[str, object],
+) -> None:
+    muninn = Muninn()
+    asyncio.run(muninn.on_typed_message(topic, dict(payload)))
+
+    assert muninn.get_context(bucket, key) is None
+    assert muninn.get_context(bucket, key, requester_user_id="user-b") is None
+    assert muninn.get_context(bucket, key, requester_user_id="user-a") is not None
+    behaviors = muninn.behavior_snapshot()
+    assert behaviors["conversation_context:unscoped_refused"] == 1
+    assert behaviors["conversation_context:cross_user_refused"] == 1
+
+
+def test_muninn_introspection_scopes_conversation_bucket_counts() -> None:
+    muninn = Muninn()
+    for user_id, turn_id in (("user-a", "turn-a"), ("user-b", "turn-b")):
+        asyncio.run(
+            muninn.on_typed_message(
+                "object.turn",
+                {
+                    "producer_principal": "Bragi",
+                    "turn_id": turn_id,
+                    "correlation_id": f"corr-{turn_id}",
+                    "idempotency_key": f"turn:{turn_id}",
+                    "principal_scope": "sha256:" + hashlib.sha256(user_id.encode()).hexdigest(),
+                    "question_ref": f"question-{turn_id}",
+                    "question_sha256": "a" * 64,
+                    "answer_ref": f"answer-{turn_id}",
+                    "answer_sha256": "b" * 64,
+                },
+            )
+        )
+
+    unscoped = asyncio.run(muninn.introspect("conversation_turns", {}))
+    scoped = asyncio.run(muninn.introspect("conversation_turns", {"requester_user_id": "user-a"}))
+    forged = asyncio.run(muninn.introspect("conversation_turns", {"requester_user_id": "user-c"}))
+
+    assert unscoped.facts["bucket"] == "conversation_turns"
+    assert unscoped.facts["key_count"] is None
+    assert scoped.facts["key_count"] == 1
+    assert forged.facts["key_count"] == 0
+    assert muninn.behavior_snapshot()["conversation_context:unscoped_refused"] == 1
 
 
 def test_saga_publishes_non_learnable_terminal_audit_and_norns_skips_it() -> None:

@@ -9,8 +9,9 @@ machine and the RuleCandidate intake.
 from __future__ import annotations
 
 import asyncio
+import re
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -32,6 +33,7 @@ from fdai.agents._framework.mimir_catalog_recovery import (
 )
 from fdai.agents._framework.mimir_context import MimirContextMixin
 from fdai.agents._framework.pantheon import _MIMIR
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
     CatalogReviewPublisher,
@@ -78,6 +80,20 @@ _GOVERNANCE_PREFIX = "pantheon/mimir/governance"
 _RULE_STATE_PREFIX = f"{_GOVERNANCE_PREFIX}/rules"
 _ISSUE_FINGERPRINT_PREFIX = f"{_GOVERNANCE_PREFIX}/issue-fingerprints"
 _DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
+_REVIEWED_REPOSITORY_PREFIX = re.compile(
+    r"^https://(?P<host>[A-Za-z0-9.-]{1,253})/"
+    r"(?P<owner>[A-Za-z0-9_.-]{1,100})/"
+    r"(?P<repo>[A-Za-z0-9_.-]{1,100})$"
+)
+_REVIEWED_CATALOG_PR_REF = re.compile(
+    r"^catalog-pr:(?P<repository>https://[A-Za-z0-9.-]{1,253}/"
+    r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100})/"
+    r"pull/[1-9][0-9]{0,18}@sha256:"
+    r"(?P<digest>[a-f0-9]{64})$"
+)
+_REVIEWED_CATALOG_COMMIT_REF = re.compile(
+    r"^catalog-commit:[a-f0-9]{40}@sha256:(?P<digest>[a-f0-9]{64})$"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +112,68 @@ def _issue_fingerprint_key(fingerprint: str) -> str:
     return f"{_ISSUE_FINGERPRINT_PREFIX}/{fingerprint}"
 
 
+def _reviewed_package_digest(
+    reviewed_change_ref: str | None,
+    *,
+    allowed_repository_prefixes: frozenset[str] = frozenset(),
+) -> str | None:
+    if reviewed_change_ref is None:
+        return None
+    candidate = reviewed_change_ref.strip()
+    pr_match = _REVIEWED_CATALOG_PR_REF.fullmatch(candidate)
+    if pr_match is not None:
+        repository = _normalize_reviewed_repository_prefix(pr_match.group("repository"))
+        if repository is None:
+            return None
+        if allowed_repository_prefixes and repository not in allowed_repository_prefixes:
+            return None
+        return pr_match.group("digest")
+    commit_match = _REVIEWED_CATALOG_COMMIT_REF.fullmatch(candidate)
+    if commit_match is not None:
+        return commit_match.group("digest")
+    return None
+
+
+def _normalize_reviewed_repository_prefix(prefix: str) -> str | None:
+    match = _REVIEWED_REPOSITORY_PREFIX.fullmatch(prefix.strip())
+    if match is None:
+        return None
+    host = match.group("host").lower()
+    if not _valid_review_host(host):
+        return None
+    owner = match.group("owner")
+    repo = match.group("repo")
+    if owner in {".", ".."} or repo in {".", ".."}:
+        return None
+    return f"https://{host}/{owner}/{repo}"
+
+
+def _normalize_reviewed_repository_prefixes(prefixes: Sequence[str]) -> frozenset[str]:
+    normalized: set[str] = set()
+    for prefix in prefixes:
+        value = _normalize_reviewed_repository_prefix(prefix)
+        if value is None:
+            raise ValueError("Mimir reviewed repository prefix MUST be a structural HTTPS repo URL")
+        normalized.add(value)
+    return frozenset(normalized)
+
+
+def _valid_review_host(host: str) -> bool:
+    if len(host) > 253 or "." not in host:
+        return False
+    labels = host.split(".")
+    return all(
+        re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label) is not None
+        for label in labels
+    )
+
+
+def _promotion_topic(rule_id: str, source: str) -> str:
+    if rule_id.startswith("policy.") or source == "policy":
+        return "object.policy"
+    return "object.rule"
+
+
 class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReviewMixin):
     """Wave-2 Mimir: promotion state + candidate intake."""
 
@@ -111,15 +189,23 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         max_review_packages: int = _MAX_CATALOG_REVIEW_PACKAGES,
         clock: Callable[[], datetime] | None = None,
         provider_timeout_seconds: float = _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+        reviewed_repository_prefixes: Sequence[str] = (),
     ) -> None:
         super().__init__(spec=_MIMIR)
         if min(max_pending_candidates, max_review_packages) < 1:
             raise ValueError("Mimir review capacities MUST be positive")
         if provider_timeout_seconds <= 0:
             raise ValueError("Mimir provider timeout MUST be positive")
+        self._reviewed_repository_prefixes = _normalize_reviewed_repository_prefixes(
+            reviewed_repository_prefixes
+        )
         self._promotions: dict[str, RulePromotion] = {}
         self._governance_state_store = governance_state_store
         self._promotion_persist_tasks: set[asyncio.Task[None]] = set()
+        self._promotion_publish_tasks: set[asyncio.Task[Any]] = set()
+        self._published_promotion_keys: BoundedLruSet[str] = BoundedLruSet(
+            _MAX_PROMOTION_PERSIST_QUEUE
+        )
         self._promotion_persist_pending: dict[str, RulePromotion] = {}
         self._promotion_persist_worker: asyncio.Task[None] | None = None
         self._shadow_dwell_thresholds = shadow_dwell_thresholds or ShadowDwellThresholds()
@@ -652,15 +738,27 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
                 f"rule {rule_id} has a pending discovery-loop candidate whose shadow "
                 f"dwell evidence is insufficient: {', '.join(blocking_gaps)}"
             )
-        if not reviewed_change_ref or not reviewed_change_ref.strip():
+        package_digest = _reviewed_package_digest(
+            reviewed_change_ref,
+            allowed_repository_prefixes=self._reviewed_repository_prefixes,
+        )
+        if package_digest is None:
             self._promotion_fail_count += 1
-            self.record_behavior("promotion:reviewed_change_required")
-            raise ValueError("rule promotion requires a reviewed catalog-as-code reference")
+            self.record_behavior("promotion:invalid_reviewed_change_ref")
+            raise ValueError(
+                "rule promotion requires a reviewed catalog-as-code PR or commit reference "
+                "with the reviewed package digest"
+            )
         promo = RulePromotion(
             rule_id=rule_id, state="enforce", source=source, updated_at=updated_at
         )
         self._promotions[rule_id] = promo
         self._persist_promotion(promo)
+        self._publish_rule_or_policy_promotion(
+            promo,
+            reviewed_change_ref=reviewed_change_ref,
+            reviewed_package_digest=package_digest,
+        )
         self._pending_candidates = deque(
             (
                 candidate
@@ -690,7 +788,75 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         )
         self._promotions[rule_id] = promo
         self._persist_promotion(promo)
+        self._publish_rule_or_policy_promotion(promo)
         return promo
+
+    def _publish_rule_or_policy_promotion(
+        self,
+        promotion: RulePromotion,
+        *,
+        reviewed_change_ref: str | None = None,
+        reviewed_package_digest: str | None = None,
+    ) -> None:
+        topic = _promotion_topic(promotion.rule_id, promotion.source)
+        idempotency_key = stable_idempotency_key(
+            "mimir-promotion",
+            topic,
+            promotion.rule_id,
+            promotion.state,
+            promotion.source,
+            reviewed_change_ref or "",
+        )
+        if idempotency_key in self._published_promotion_keys:
+            self.record_behavior("promotion:publication_duplicate")
+            return
+        correlation_id = stable_idempotency_key(
+            "mimir-promotion-correlation",
+            topic,
+            promotion.rule_id,
+            promotion.state,
+            reviewed_change_ref or "",
+        )
+        payload = {
+            "kind": "rule_promotion" if topic == "object.rule" else "policy_promotion",
+            "correlation_id": correlation_id,
+            "idempotency_key": idempotency_key,
+            "rule_id": promotion.rule_id,
+            "state": promotion.state,
+            "source": promotion.source,
+            "updated_at": promotion.updated_at,
+            "reviewed_change_ref": reviewed_change_ref,
+            "reviewed_package_digest": reviewed_package_digest,
+            "grants_execution_authority": False,
+        }
+        if topic == "object.policy":
+            payload["policy_id"] = promotion.rule_id
+        if self.bus is None:
+            self.record_behavior("promotion:publication_transport_unavailable")
+            return
+        self._published_promotion_keys.add(idempotency_key)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            try:
+                asyncio.run(self.bus.publish("Mimir", topic, payload))
+            except Exception:
+                self.record_behavior("promotion:publication_failed")
+                raise
+            self.record_behavior("promotion:published")
+            return
+        task = loop.create_task(self.bus.publish("Mimir", topic, payload))
+        self._promotion_publish_tasks.add(task)
+        task.add_done_callback(self._promotion_publish_done)
+
+    def _promotion_publish_done(self, task: asyncio.Task[Any]) -> None:
+        self._promotion_publish_tasks.discard(task)
+        try:
+            task.result()
+        except Exception:
+            self.record_behavior("promotion:publication_failed")
+            return
+        self.record_behavior("promotion:published")
 
     def status(self, rule_id: str) -> RulePromotion | None:
         return self._promotions.get(rule_id)

@@ -41,7 +41,8 @@ async def test_mimir_rule_status_survives_restart_without_resurrecting_retired_r
     first.promote(
         "rules.restart",
         source="manual",
-        reviewed_change_ref="reviewed-pr:1",
+        reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+        + "a" * 64,
         updated_at=_NOW.isoformat(),
     )
     first.revoke("rules.restart", updated_at=_NOW.isoformat())

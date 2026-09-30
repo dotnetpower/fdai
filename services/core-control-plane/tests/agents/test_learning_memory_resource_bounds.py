@@ -180,7 +180,12 @@ async def test_mimir_promotion_persistence_uses_one_worker_task() -> None:
     mimir = Mimir(governance_state_store=store)
 
     for index in range(50):
-        mimir.promote(f"static-rule-{index}", source="manual", reviewed_change_ref="pr:1")
+        mimir.promote(
+            f"static-rule-{index}",
+            source="manual",
+            reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+            + "a" * 64,
+        )
 
     assert len(mimir._promotion_persist_tasks) <= 1
     await mimir.drain_governance_writes()

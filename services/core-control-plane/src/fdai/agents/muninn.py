@@ -91,6 +91,9 @@ _OPERATIONAL_OUTBOX_PREFIX = "pantheon/muninn/operational-outbox"
 _DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 _MAX_CONTEXT_FETCH_SAMPLES = 512
 _MAX_CONTEXT_UNAVAILABLE_FACTS = 128
+_PROTECTED_CONVERSATION_BUCKETS = frozenset(
+    {"conversation_turns", "conversations", "user_preferences"}
+)
 
 
 class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
@@ -1108,9 +1111,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         started_at = self._case_history_clock()
         value = self.state_store.get(bucket, key)
         self._record_context_fetch(started_at, hit=value is not None)
-        if bucket in {"conversation_turns", "conversations", "user_preferences"} and isinstance(
-            value, dict
-        ):
+        if bucket in _PROTECTED_CONVERSATION_BUCKETS and isinstance(value, dict):
             if not requester_user_id:
                 self.record_behavior("conversation_context:unscoped_refused")
                 self._record_context_unavailable("unscoped_refused", bucket=bucket, key=key)
@@ -1245,12 +1246,35 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         buckets = mentioned(question, data)
         if buckets:
             bucket = buckets[0]
-            facts.update({"bucket": bucket, "key_count": len(data[bucket])})
+            key_count: int | None = len(data[bucket])
+            if bucket in _PROTECTED_CONVERSATION_BUCKETS:
+                requester_user_id = str(context.get("requester_user_id") or "").strip()
+                if not requester_user_id:
+                    self.record_behavior("conversation_context:unscoped_refused")
+                    self._record_context_unavailable(
+                        "unscoped_refused",
+                        bucket=bucket,
+                        key="introspection",
+                    )
+                    key_count = None
+                else:
+                    requester_scope = _principal_scope(requester_user_id)
+                    key_count = sum(
+                        1
+                        for value in data[bucket].values()
+                        if isinstance(value, Mapping)
+                        and str(value.get("principal_scope") or "") == requester_scope
+                    )
+            facts.update({"bucket": bucket, "key_count": key_count})
             evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
             facts["evidence_refs"] = [evidence_ref]
-            answer = (
-                f"Bucket {bucket!r} holds {len(data[bucket])} key(s). Evidence: {evidence_ref}."
-            )
+            if key_count is None:
+                answer = (
+                    f"Bucket {bucket!r} requires a requester principal scope. "
+                    f"Evidence: {evidence_ref}."
+                )
+            else:
+                answer = f"Bucket {bucket!r} holds {key_count} key(s). Evidence: {evidence_ref}."
             return IntrospectionResult(answer=answer, facts=facts)
         evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
         facts["evidence_refs"] = [evidence_ref]
