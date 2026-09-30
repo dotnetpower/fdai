@@ -25,8 +25,9 @@ downstream consumer of :class:`Odin` changes shape.
 
 from __future__ import annotations
 
+import hashlib
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -47,11 +48,13 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _ODIN
 from fdai.agents._framework.vertical_precedence import CrossVerticalPrecedence
+from fdai.shared.providers.state_store import StateStore
 
 #: Bounded outcome vocabulary for the portfolio monitor. Anything a
 #: producer sends outside it folds into ``unknown`` rather than growing
 #: the counter's key space.
 _PORTFOLIO_OUTCOMES = frozenset({"auto", "hil", "deny", "admit", "hold", "unknown"})
+_ARBITRATION_PREFIX = "pantheon/odin/arbitration-decision/"
 
 
 @runtime_checkable
@@ -111,6 +114,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
         history: DecisionHistory | None = None,
         history_window: int = 10,
         vertical_precedence: CrossVerticalPrecedence | None = None,
+        state_store: StateStore | None = None,
     ) -> None:
         super().__init__(spec=_ODIN)
         self.bus = bus
@@ -143,6 +147,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
         self._last_history_considered = 0
         self._verdicts_observed = 0
         self._verdict_outcomes: Counter[str] = Counter()
+        self._state_store = state_store
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -179,6 +184,14 @@ class Odin(Agent, HandoverKnowledgeMixin):
         self.record_behavior(f"portfolio_outcome:{outcome}")
 
     async def arbitrate(self, request: dict[str, Any]) -> ArbitrationDecision:
+        correlation_id = str(request.get("correlation_id", ""))
+        if correlation_id:
+            stored = await self._load_arbitration_decision(correlation_id)
+            if stored is not None:
+                await self._publish_decision(
+                    stored, history_considered=self._last_history_considered
+                )
+                return stored
         domains = tuple(str(d) for d in request.get("domains_in_conflict", ()))
         impacts = _coerce_impacts(request.get("impacts"))
         resource_id = str(request.get("resource_id", ""))
@@ -211,7 +224,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
                 reason="initial_vertical_precedence",
             )
         decision = ArbitrationDecision(
-            correlation_id=str(request.get("correlation_id", "")),
+            correlation_id=correlation_id,
             winning_domain=outcome.winner,
             losing_domains=outcome.losers,
             reason=outcome.reason,
@@ -229,27 +242,77 @@ class Odin(Agent, HandoverKnowledgeMixin):
             return decision
         self._last_decision = decision
         self._last_history_considered = len(history)
-        if self.bus is not None:
-            await self.bus.publish(
-                "Odin",
-                "object.arbitration-decision",
-                {
-                    "producer_principal": "Odin",
-                    "correlation_id": decision.correlation_id,
-                    "idempotency_key": f"arbitration-decision:{decision.correlation_id}",
-                    "winning_domain": decision.winning_domain,
-                    "losing_domains": list(decision.losing_domains),
-                    "reason": decision.reason,
-                    "objective_scores": decision.objective_scores,
-                    "margin": decision.margin,
-                    "escalate_hil": decision.escalate_hil,
-                    "dispositions": decision.dispositions,
-                    # Grounding for the audit log: how many prior
-                    # decisions the policy considered on this resource.
-                    "history_considered": len(history),
-                },
-            )
+        decision = await self._checkpoint_arbitration_decision(
+            decision,
+            history_considered=len(history),
+        )
+        await self._publish_decision(decision, history_considered=self._last_history_considered)
         return decision
+
+    async def _checkpoint_arbitration_decision(
+        self,
+        decision: ArbitrationDecision,
+        *,
+        history_considered: int,
+    ) -> ArbitrationDecision:
+        if self._state_store is None:
+            return decision
+        record = {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "correlation_id": decision.correlation_id,
+            "decision": _decision_to_state(decision),
+            "history_considered": history_considered,
+        }
+        key = _arbitration_key(decision.correlation_id)
+        created = await self._state_store.write_state_if_absent(key, record)
+        stored = record if created else await self._state_store.read_state(key)
+        if not isinstance(stored, Mapping):
+            raise RuntimeError("durable arbitration decision disappeared")
+        restored = _decision_from_state(stored)
+        self._last_decision = restored
+        self._last_history_considered = _stored_history_considered(stored)
+        return restored
+
+    async def _load_arbitration_decision(
+        self,
+        correlation_id: str,
+    ) -> ArbitrationDecision | None:
+        if self._state_store is None:
+            return None
+        stored = await self._state_store.read_state(_arbitration_key(correlation_id))
+        if stored is None:
+            return None
+        decision = _decision_from_state(stored)
+        self._last_decision = decision
+        self._last_history_considered = _stored_history_considered(stored)
+        return decision
+
+    async def _publish_decision(
+        self,
+        decision: ArbitrationDecision,
+        *,
+        history_considered: int,
+    ) -> None:
+        if self.bus is None:
+            return
+        await self.bus.publish(
+            "Odin",
+            "object.arbitration-decision",
+            {
+                "producer_principal": "Odin",
+                "correlation_id": decision.correlation_id,
+                "idempotency_key": f"arbitration-decision:{decision.correlation_id}",
+                "winning_domain": decision.winning_domain,
+                "losing_domains": list(decision.losing_domains),
+                "reason": decision.reason,
+                "objective_scores": decision.objective_scores,
+                "margin": decision.margin,
+                "escalate_hil": decision.escalate_hil,
+                "dispositions": decision.dispositions,
+                "history_considered": history_considered,
+            },
+        )
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Report whether any arbitration or portfolio evidence is retained.
@@ -282,6 +345,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
             "history_considered": self._last_history_considered if last else None,
             "verdicts_observed": self._verdicts_observed,
             "verdict_outcomes": dict(self._verdict_outcomes),
+            "portfolio_window": "process_local_since_start",
         }
         if "arbitration_history" in semantic_intents(context):
             return IntrospectionResult(
@@ -380,6 +444,59 @@ def _coerce_impacts(raw: Any) -> dict[str, float] | None:
         except (TypeError, ValueError):
             coerced[str(key)] = float("nan")
     return coerced or None
+
+
+def _arbitration_key(correlation_id: str) -> str:
+    digest = hashlib.sha256(correlation_id.encode("utf-8")).hexdigest()
+    return f"{_ARBITRATION_PREFIX}{digest}"
+
+
+def _decision_to_state(decision: ArbitrationDecision) -> dict[str, Any]:
+    return {
+        "correlation_id": decision.correlation_id,
+        "winning_domain": decision.winning_domain,
+        "losing_domains": list(decision.losing_domains),
+        "reason": decision.reason,
+        "objective_scores": dict(decision.objective_scores),
+        "margin": decision.margin,
+        "escalate_hil": decision.escalate_hil,
+        "dispositions": dict(decision.dispositions),
+    }
+
+
+def _decision_from_state(stored: Mapping[str, Any]) -> ArbitrationDecision:
+    value = stored.get("decision")
+    if (
+        stored.get("schema_version") != "1.0.0"
+        or not isinstance(value, Mapping)
+        or not isinstance(value.get("correlation_id"), str)
+        or not value["correlation_id"]
+        or not isinstance(value.get("winning_domain"), str)
+        or not isinstance(value.get("losing_domains"), list)
+        or not isinstance(value.get("reason"), str)
+        or not isinstance(value.get("objective_scores"), Mapping)
+        or not isinstance(value.get("margin"), int | float)
+        or not isinstance(value.get("escalate_hil"), bool)
+        or not isinstance(value.get("dispositions"), Mapping)
+    ):
+        raise RuntimeError("durable arbitration decision is malformed")
+    return ArbitrationDecision(
+        correlation_id=str(value["correlation_id"]),
+        winning_domain=str(value["winning_domain"]),
+        losing_domains=tuple(str(item) for item in value["losing_domains"]),
+        reason=str(value["reason"]),
+        objective_scores={str(k): float(v) for k, v in value["objective_scores"].items()},
+        margin=float(value["margin"]),
+        escalate_hil=bool(value["escalate_hil"]),
+        dispositions={str(k): str(v) for k, v in value["dispositions"].items()},
+    )
+
+
+def _stored_history_considered(stored: Mapping[str, Any]) -> int:
+    value = stored.get("history_considered", 0)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RuntimeError("durable arbitration history count is malformed")
+    return int(value)
 
 
 __all__ = [

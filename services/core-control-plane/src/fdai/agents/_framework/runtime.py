@@ -90,6 +90,7 @@ from fdai.shared.providers.state_store import StateStore
 from . import development_authority_runtime as development_runtime
 from . import runtime_sensing
 from .runtime_operational_agents import (
+    bind_durable_governance_stores,
     bind_operational_agents,
     rehydrate_operational_agents,
 )
@@ -148,6 +149,10 @@ class PantheonRuntime:
         vidar_state_store: StateStore | None = None,
         var_state_store: StateStore | None = None,
         forseti_state_store: StateStore | None = None,
+        bragi_state_store: StateStore | None = None,
+        odin_state_store: StateStore | None = None,
+        proposal_rate_limit_state_store: StateStore | None = None,
+        ordered_poison_halt_state_store: StateStore | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
         development_authority: development_runtime.DevelopmentRuntimeBindings | None = None,
@@ -200,10 +205,6 @@ class PantheonRuntime:
         capacity_graduation_controller: CapacityGraduationController | None = None,
         assignment_workflow: assignment_runtime.AssignmentWorkflowBindings | None = None,
     ) -> PantheonRuntime:
-        """Wire the fixed pantheon to ``provider`` with shadow-safe defaults.
-
-        A partial runtime cannot disable the Saga or Vidar hard dependencies.
-        """
         if not raw_event_topic or not raw_event_topic.strip():
             raise ValueError("raw_event_topic MUST be a non-empty topic name")
 
@@ -234,6 +235,7 @@ class PantheonRuntime:
             consumer_group_prefix=consumer_group_prefix,
             handler_max_retries=2,
             handler_observer=handler_observer,
+            halt_state_store=ordered_poison_halt_state_store,
         )
         instantiated = factory.instantiate_pantheon()
         instantiated["Huginn"] = factory.configured_huginn(discovery_projector, huginn_state_store)
@@ -243,6 +245,7 @@ class PantheonRuntime:
             conversation_semantic_judgment is not None
             or conversation_embedding_model is not None
             or conversation_t2_synthesizer is not None
+            or bragi_state_store is not None
         ):
             instantiated["Bragi"] = Bragi(
                 semantic_judgment=conversation_semantic_judgment,
@@ -262,7 +265,13 @@ class PantheonRuntime:
                 pricing=conversation_pricing,
                 metering=conversation_metering,
                 t2_model_key=conversation_t2_model_key,
+                state_store=bragi_state_store,
             )
+        bind_durable_governance_stores(
+            instantiated,
+            odin_state_store=odin_state_store,
+            proposal_rate_limit_state_store=proposal_rate_limit_state_store,
+        )
         action_semantics = (
             ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
         )
@@ -348,7 +357,6 @@ class PantheonRuntime:
 
             heimdall.register_incident_candidate(observe_and_open)
 
-        # Only explicit promotion permits Thor enforce; parallel P1 dispatch could double-mutate.
         thor = instantiated["Thor"]
         if isinstance(thor, Thor):
             development_runtime.bind_thor_development_authority(thor, development_authority)
@@ -441,7 +449,6 @@ class PantheonRuntime:
             agents, disabled=runtime.disabled, continuity_failures=runtime._continuity_failures
         )
 
-        # Huginn has no subscription, so disabled Huginn leaves ingress idle.
         if huginn_active:
             bridge.subscribe(
                 raw_event_topic,
@@ -454,7 +461,6 @@ class PantheonRuntime:
         else:
             _LOG.warning("pantheon_ingress_disabled_no_huginn")
 
-        # A distinct observer group tallies shadow and terminal states.
         bridge.subscribe("object.verdict", _OBSERVER_PRINCIPAL, runtime._observe_verdict)
         bridge.subscribe("object.action-run", _OBSERVER_PRINCIPAL, runtime._observe_action_run)
         arb_runtime.bind_architecture_review_observer(
@@ -690,16 +696,9 @@ class PantheonRuntime:
         )
 
     async def _rehydrate(self) -> None:
-        """Restore durable agent work before consumers start."""
         await rehydrate_operational_agents(self.agents)
 
     def health(self) -> dict[str, Any]:
-        """Return a health snapshot (agents, mode, bridge metrics).
-
-        Includes a per-agent ``agent_health`` map so Heimdall's probe (and
-        the KPI collectors) can see individual agent state - active
-        ActionRuns, dedup pressure, etc. - not just bridge-level counters.
-        """
         snap = self.bridge.snapshot()
         agent_health = runtime_health.snapshot_agent_health(self.agents)
         runtime_health.report_agent_kpis(self.kpi_collector, agent_health)

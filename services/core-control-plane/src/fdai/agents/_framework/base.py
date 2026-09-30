@@ -39,6 +39,7 @@ from fdai.agents._framework.topics import topic_for_object_type
 
 if TYPE_CHECKING:
     from fdai.agents._framework.bus import PantheonBus
+    from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
 
@@ -407,9 +408,20 @@ class Agent:
         if limiter is None:
             from fdai.agents._framework.rate_limiter import RateLimiter
 
-            limiter = RateLimiter.from_limits(self.spec.rate_limits)
+            limiter = RateLimiter.from_limits(
+                self.spec.rate_limits,
+                state_store=getattr(self, "_proposal_rate_limit_state_store", None),
+                scope=self.spec.name,
+            )
             self._proposal_limiter = limiter
         return limiter
+
+    def bind_proposal_rate_limit_state_store(self, state_store: StateStore) -> None:
+        """Bind durable proposal budget state before the first proposal."""
+
+        if getattr(self, "_proposal_limiter", None) is not None:
+            raise RuntimeError("proposal rate limiter is already initialized")
+        self._proposal_rate_limit_state_store = state_store
 
     async def _publish_proposal(self, topic: str, payload: dict[str, Any]) -> bool:
         """Publish a discretionary proposal, honoring the agent's ``rate_limits``.

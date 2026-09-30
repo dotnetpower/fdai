@@ -10,12 +10,15 @@ from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.development_authority_runtime import DevelopmentRuntimeBindings
+from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
+from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
 from fdai.agents.huginn import Huginn
 from fdai.agents.loki import Loki
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
+from fdai.agents.odin import Odin
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
@@ -116,6 +119,12 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
         restored = await saga.rehydrate_issue_tracker()
         if restored:
             _LOG.info("pantheon_saga_issues_rehydrated", extra={"issues": restored})
+        audit_published = await saga.recover_audit_outbox()
+        if audit_published:
+            _LOG.info(
+                "pantheon_saga_audit_outbox_recovered",
+                extra={"published": audit_published},
+            )
     var = agents.get("Var")
     if isinstance(var, Var):
         finalized, published = await var.recover_approvals()
@@ -123,6 +132,14 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
             _LOG.info(
                 "pantheon_var_approvals_recovered",
                 extra={"finalized": finalized, "published": published},
+            )
+    bragi = agents.get("Bragi")
+    if isinstance(bragi, Bragi):
+        progress, turns = await bragi.recover_state()
+        if progress or turns:
+            _LOG.info(
+                "pantheon_bragi_state_recovered",
+                extra={"progress": progress, "turns_published": turns},
             )
 
 
@@ -243,6 +260,23 @@ def bind_operational_agents(
         agents["Forseti"] = forseti
     agents["Njord"] = factory.configured_njord(cost_runtime)
     agents["Freyr"] = factory.configured_freyr(capacity_graduation_controller)
+
+
+def bind_durable_governance_stores(
+    instantiated: dict[str, Agent],
+    *,
+    odin_state_store: StateStore | None,
+    proposal_rate_limit_state_store: StateStore | None,
+) -> None:
+    """Bind Odin's durable decision fence and every agent's proposal budget store."""
+    if odin_state_store is not None:
+        instantiated["Odin"] = Odin(
+            vertical_precedence=InitialVerticalPrecedence(),
+            state_store=odin_state_store,
+        )
+    if proposal_rate_limit_state_store is not None:
+        for agent in instantiated.values():
+            agent.bind_proposal_rate_limit_state_store(proposal_rate_limit_state_store)
 
 
 __all__ = ["bind_operational_agents"]

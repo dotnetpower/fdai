@@ -27,6 +27,7 @@ from fdai.agents._framework.action_run_store_time import (
     lease_expiry as _lease_expiry,
 )
 from fdai.agents._framework.adapters import AuditEntry, _digest
+from fdai.agents._framework.audit_chain_rehydrate import rehydrate_audit_entries
 from fdai.agents.thor import ActionRun, ActionRunState
 from fdai.shared.providers.state_store import StateStore
 
@@ -55,8 +56,6 @@ _SCALAR_ENVELOPE_KEY = "__fdai_scalar__"
 
 @dataclass
 class StateStoreAuditChainAdapter:
-    """Saga's hash-linked audit chain backed by ``StateStore.append_audit_entry``."""
-
     store: StateStore
     entries: list[AuditEntry]
     durable: bool = True
@@ -65,6 +64,7 @@ class StateStoreAuditChainAdapter:
         self.store = store
         self.entries = []
         self._append_lock = asyncio.Lock()
+        self._rehydrated = False
 
     async def append(
         self,
@@ -75,6 +75,7 @@ class StateStoreAuditChainAdapter:
         payload: dict[str, Any],
     ) -> AuditEntry:
         async with self._append_lock:
+            await self._rehydrate_head()
             seq = len(self.entries)
             prev_hash = self.entries[-1].entry_hash if self.entries else "0" * 64
             payload_digest = _digest(payload)
@@ -97,8 +98,6 @@ class StateStoreAuditChainAdapter:
                 correlation_id=correlation_id,
                 payload_digest=payload_digest,
             )
-            # Publish the local entry only after the provider confirms the
-            # durable append. Terminal observers must never outrun persistence.
             await self.store.append_audit_entry(
                 {
                     "actor": "Saga",
@@ -116,8 +115,14 @@ class StateStoreAuditChainAdapter:
             self.entries.append(entry)
             return entry
 
+    async def _rehydrate_head(self) -> None:
+        if self._rehydrated:
+            return
+        self.entries = await rehydrate_audit_entries(self.store)
+        self.verify()
+        self._rehydrated = True
+
     def verify(self) -> None:
-        """Local chain verification (equivalent to in-memory adapter)."""
         prev = "0" * 64
         for i, entry in enumerate(self.entries):
             if entry.seq != i or entry.prev_hash != prev:
@@ -134,11 +139,6 @@ class StateStoreAuditChainAdapter:
 
 @dataclass
 class StateStoreKvAdapter:
-    """Muninn's context store, backed by ``StateStore.read_state`` /
-    ``write_state``. Bucket + key are joined with ``|`` to form the
-    Protocol key.
-    """
-
     store: StateStore
 
     async def get(self, bucket: str, key: str) -> Any | None:

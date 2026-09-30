@@ -8,6 +8,7 @@ grants execution authority; direct action requests re-enter the typed pipeline.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from collections.abc import Awaitable, Callable, Collection, Mapping
 from typing import Any
@@ -53,8 +54,10 @@ from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
+from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
+_BRAGI_STATE_PREFIX = "pantheon/bragi"
 
 #: A proposal sink accepts one raw operator ActionProposal and hands it to the
 #: typed pipeline (the composition root wires this to ``Huginn.ingest`` - the
@@ -113,6 +116,7 @@ class Bragi(BragiPublicationMixin, Agent):
         t2_model_key: str = "",
         responder_timeout_seconds: float = _RESPONDER_TIMEOUT_SECONDS,
         proposal_timeout_seconds: float = _PROPOSAL_TIMEOUT_SECONDS,
+        state_store: StateStore | None = None,
     ) -> None:
         if responder_timeout_seconds <= 0:
             raise ValueError("responder timeout MUST be positive")
@@ -147,6 +151,7 @@ class Bragi(BragiPublicationMixin, Agent):
         # by _evict_oldest (_MAX_PROGRESS_KEYS) and each list's length by
         # _MAX_PROGRESS_STEPS, with redelivered steps deduped.
         self._progress: dict[str, list[dict[str, Any]]] = {}
+        self._state_store = state_store
 
     # ---- registration --------------------------------------------------
 
@@ -292,11 +297,31 @@ class Bragi(BragiPublicationMixin, Agent):
             self.record_behavior("progress:duplicate")
         elif outcome == "recorded":
             self.record_behavior("progress:recorded")
+            await self._checkpoint_progress(topic, payload)
         return None
 
     def progress_for(self, correlation_id: str) -> list[dict[str, Any]]:
         """The recorded pipeline progress for one submitted proposal."""
         return list(self._progress.get(correlation_id, []))
+
+    async def _checkpoint_progress(self, topic: str, payload: Mapping[str, Any]) -> None:
+        if self._state_store is None:
+            return
+        correlation_id = str(payload.get("correlation_id") or "")
+        idempotency_key = str(payload.get("idempotency_key") or "")
+        if not correlation_id or not idempotency_key:
+            return
+        step = self._progress.get(correlation_id, [])[-1]
+        key_material = f"{topic}\0{correlation_id}\0{idempotency_key}\0{step.get('state')}"
+        await self._state_store.write_state_if_absent(
+            f"{_BRAGI_STATE_PREFIX}/progress/"
+            f"{hashlib.sha256(key_material.encode('utf-8')).hexdigest()}",
+            {
+                "schema_version": "1.0.0",
+                "correlation_id": correlation_id,
+                "step": step,
+            },
+        )
 
     # ---- agent-to-agent introspection ----------------------------------
 
@@ -541,8 +566,9 @@ class Bragi(BragiPublicationMixin, Agent):
                 session_id=session_id,
             )
             async with session_lock:
+                turn_index = await self._next_turn_index(session_id, session)
                 turn = Turn(
-                    turn_index=_next_turn_index(session),
+                    turn_index=turn_index,
                     question=question,
                     primary_agent=None,
                     answer=answer,
@@ -709,14 +735,7 @@ class Bragi(BragiPublicationMixin, Agent):
             session_id=session_id,
         )
         async with session_lock:
-            turn_index = _next_turn_index(session)
-            if answer.get("handoff_needed") and materialize_handoff:
-                answer["handoff_status"] = await self._publish_handoff(
-                    session_id=session_id,
-                    question=question,
-                    turn_index=turn_index,
-                    reason=str(answer.get("abstain_reason") or "no_route"),
-                )
+            turn_index = await self._next_turn_index(session_id, session)
             turn = Turn(
                 turn_index=turn_index,
                 question=question,
@@ -724,22 +743,155 @@ class Bragi(BragiPublicationMixin, Agent):
                 answer=answer,
                 decision=decision,
             )
+            await self._checkpoint_turn_payload(session_id=session_id, turn=turn)
+            if answer.get("handoff_needed") and materialize_handoff:
+                answer["handoff_status"] = await self._publish_handoff(
+                    session_id=session_id,
+                    question=question,
+                    turn_index=turn_index,
+                    reason=str(answer.get("abstain_reason") or "no_route"),
+                )
+                await self._checkpoint_turn_payload(session_id=session_id, turn=turn)
             _append_turn(session, turn)
             await self._publish_turn(session_id=session_id, turn=turn)
             return turn
 
     async def _publish_turn(self, *, session_id: str, turn: Turn) -> None:
+        payload = await self._checkpoint_turn_payload(session_id=session_id, turn=turn)
         if self.bus is None:
+            self.record_behavior("turn:publication_pending")
             return
-        await self.bus.publish(
-            "Bragi",
-            "object.turn",
-            turn_event_payload(
-                session_id=session_id,
-                turn=turn,
-                contributor_limit=_MAX_CONTRIBUTORS,
-            ),
+        await self.bus.publish("Bragi", "object.turn", payload)
+        await self._mark_turn_published(payload)
+
+    async def _next_turn_index(self, session_id: str, session: ConversationSession) -> int:
+        if self._state_store is None:
+            return _next_turn_index(session)
+        key = _session_sequence_key(session_id)
+        for _attempt in range(16):
+            stored = await self._state_store.read_state(key)
+            if stored is None:
+                turn_index = _next_turn_index(session)
+                record = {
+                    "schema_version": "1.0.0",
+                    "revision": 1,
+                    "session_id": session_id,
+                    "next_turn_index": turn_index + 1,
+                }
+                if await self._state_store.write_state_if_absent(key, record):
+                    return turn_index
+                continue
+            next_index = stored.get("next_turn_index")
+            revision = stored.get("revision")
+            if (
+                stored.get("schema_version") != "1.0.0"
+                or not isinstance(next_index, int)
+                or isinstance(next_index, bool)
+                or next_index < 0
+                or not isinstance(revision, int)
+                or isinstance(revision, bool)
+            ):
+                raise RuntimeError("durable Bragi turn sequence is malformed")
+            advanced = await self._state_store.compare_and_set_state(
+                key,
+                {**dict(stored), "revision": revision + 1, "next_turn_index": next_index + 1},
+                expected_revision=revision,
+            )
+            if advanced:
+                return next_index
+        raise RuntimeError("Bragi turn sequence CAS retry limit exceeded")
+
+    async def _checkpoint_turn_payload(self, *, session_id: str, turn: Turn) -> dict[str, Any]:
+        payload = turn_event_payload(
+            session_id=session_id,
+            turn=turn,
+            contributor_limit=_MAX_CONTRIBUTORS,
         )
+        if self._state_store is None:
+            return payload
+        key = _turn_outbox_key(session_id, turn.turn_index)
+        record = {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "status": "pending",
+            "session_id": session_id,
+            "turn_index": turn.turn_index,
+            "payload": payload,
+        }
+        created = await self._state_store.write_state_if_absent(key, record)
+        if created:
+            return payload
+        stored = await self._state_store.read_state(key)
+        if not isinstance(stored, Mapping):
+            raise RuntimeError("Bragi turn outbox row disappeared")
+        stored_payload = stored.get("payload")
+        if stored.get("status") == "published":
+            if not isinstance(stored_payload, Mapping):
+                raise RuntimeError("Bragi turn outbox row is malformed")
+            return dict(stored_payload)
+        revision = int(stored.get("revision", 1))
+        advanced = await self._state_store.compare_and_set_state(
+            key,
+            {**record, "revision": revision + 1},
+            expected_revision=revision,
+        )
+        if not advanced:
+            raise RuntimeError("Bragi turn outbox update conflicted")
+        return payload
+
+    async def _mark_turn_published(self, payload: Mapping[str, Any]) -> None:
+        if self._state_store is None:
+            return
+        key = _turn_outbox_key(str(payload["session_id"]), int(payload["turn_index"]))
+        for _attempt in range(16):
+            stored = await self._state_store.read_state(key)
+            if stored is None or stored.get("status") == "published":
+                return
+            revision = int(stored.get("revision", 1))
+            advanced = await self._state_store.compare_and_set_state(
+                key,
+                {**dict(stored), "status": "published", "revision": revision + 1},
+                expected_revision=revision,
+            )
+            if advanced:
+                return
+        raise RuntimeError("Bragi turn publication CAS retry limit exceeded")
+
+    async def recover_state(self) -> tuple[int, int]:
+        """Restore durable progress and unpublished turn outbox rows."""
+
+        if self._state_store is None:
+            return 0, 0
+        progress_rows = await self._state_store.read_states(
+            f"{_BRAGI_STATE_PREFIX}/progress/",
+            limit=_MAX_PROGRESS_KEYS * _MAX_PROGRESS_STEPS,
+        )
+        progress = 0
+        for row in reversed(progress_rows):
+            correlation_id = str(row.get("correlation_id") or "")
+            step = row.get("step")
+            if correlation_id and isinstance(step, Mapping):
+                self._progress.setdefault(correlation_id, []).append(dict(step))
+                self._progress[correlation_id] = self._progress[correlation_id][
+                    -_MAX_PROGRESS_STEPS:
+                ]
+                progress += 1
+        published = 0
+        if self.bus is not None:
+            rows, _total = await self._state_store.read_state_page(
+                f"{_BRAGI_STATE_PREFIX}/turn-outbox/",
+                limit=_MAX_PROGRESS_KEYS,
+                field="status",
+                value="pending",
+            )
+            for row in reversed(rows):
+                payload = row.get("payload")
+                if not isinstance(payload, Mapping):
+                    raise RuntimeError("Bragi turn outbox row is malformed")
+                await self.bus.publish("Bragi", "object.turn", dict(payload))
+                await self._mark_turn_published(payload)
+                published += 1
+        return progress, published
 
     async def _publish_handoff(
         self,
@@ -807,6 +959,18 @@ def _append_turn(session: ConversationSession, turn: Turn) -> None:
     session.turns.append(turn)
     if len(session.turns) > _MAX_SESSION_TURNS:
         del session.turns[:-_MAX_SESSION_TURNS]
+
+
+def _session_digest(session_id: str) -> str:
+    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()
+
+
+def _session_sequence_key(session_id: str) -> str:
+    return f"{_BRAGI_STATE_PREFIX}/session/{_session_digest(session_id)}/sequence"
+
+
+def _turn_outbox_key(session_id: str, turn_index: int) -> str:
+    return f"{_BRAGI_STATE_PREFIX}/turn-outbox/{_session_digest(session_id)}/{turn_index:020d}"
 
 
 __all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession"]

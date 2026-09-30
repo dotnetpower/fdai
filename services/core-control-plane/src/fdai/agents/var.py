@@ -1,11 +1,3 @@
-"""Var - Approver (Wave 3 + Wave 6 behavior).
-
-Var carries the HIL approval principal (Wave 3) and delivers admin
-security notifications through the ChatOps admin channel (Wave 6).
-Every card is deduped by (initiator, action_type) within a rolling
-window and the last-seen counter is incremented on repeat.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -25,13 +17,7 @@ from fdai.agents._framework.assignment_workflow import AssignmentReviewMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
-from fdai.agents._framework.introspection import (
-    IntrospectionResult,
-    agent_state_evidence_ref,
-    capability_facts,
-    capped_list,
-    mentioned,
-)
+from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import _VAR
 from fdai.agents._framework.var_decisions import (
     ApprovalDecisionState,
@@ -45,6 +31,22 @@ from fdai.agents._framework.var_development_authority import (
     VarDevelopmentAuthorityMixin,
 )
 from fdai.agents._framework.var_final_approval import validate_final_record
+from fdai.agents._framework.var_introspection import (
+    evidence_available as _var_evidence_available,
+)
+from fdai.agents._framework.var_introspection import (
+    introspect_var as _introspect_var,
+)
+from fdai.agents._framework.var_pending_durability import (
+    PENDING_TICKET_PREFIX,
+    SHADOW_REVIEW_PREFIX,
+    checkpoint_pending_ticket,
+    checkpoint_shadow_review,
+    load_pending_ticket,
+    mark_pending_ticket_closed_by_identity,
+    mark_shadow_review_closed,
+    shadow_review_from_state,
+)
 from fdai.agents._framework.var_ticket_identity import (
     APPROVAL_STATE_PREFIX,
     PendingHilTicket,
@@ -88,10 +90,6 @@ class Var(
     AssignmentReviewMixin,
     Agent,
 ):
-    """Wave-3 HIL approval + Wave-6 admin channel delivery."""
-
-    #: Bound the in-memory maps so a long-lived approver cannot leak one entry
-    #: per never-decided HIL item / admin card forever (oldest-first eviction).
     _MAX_PENDING = 5_000
     _MAX_CARDS = 5_000
 
@@ -134,12 +132,7 @@ class Var(
         self._pending: dict[str, PendingHilTicket] = {}
         self.initialize_assignment_review()
         self._pending_shadow_reviews: dict[str, PendingShadowReview] = {}
-        # (initiator, action_type) -> AdminCard for dedup counter update
         self._last_cards: dict[tuple[str, str], AdminCard] = {}
-        # (correlation, approver) pairs already counted as a blocked attempt,
-        # so a caller that retries the same rejected approval does not inflate
-        # the security metric. Bounded (a distinct blocked attempt still
-        # counts; only an exact retry is deduped).
         self._blocked_attempts: BoundedLruSet[str] = BoundedLruSet(self._MAX_PENDING)
         self._final_approvals: BoundedLruDict[tuple[str, str], dict[str, Any]] = BoundedLruDict(
             self._MAX_PENDING
@@ -158,8 +151,8 @@ class Var(
         if await self._assignment_review_message(topic, payload):
             return
         if topic == "object.audit-entry":
-            self._ingest_document_hil(payload)
-            self._ingest_shadow_review(payload)
+            await self._ingest_document_hil(payload)
+            await self._ingest_shadow_review(payload)
             return
         if topic != "object.action-run":
             self.record_behavior("typed_message:ignored")
@@ -239,7 +232,7 @@ class Var(
                 return
             self.record_behavior("ticket_identity_conflict")
             return
-        self._pending[correlation] = PendingHilTicket(
+        ticket = PendingHilTicket(
             correlation_id=correlation,
             action_id=raw_action_id,
             action_type=str(payload.get("action_type", "")),
@@ -259,10 +252,13 @@ class Var(
                 else None
             ),
         )
+        await checkpoint_pending_ticket(self._state_store, ticket)
+        self._pending[correlation] = ticket
         self.record_behavior("ticket_pending")
-        _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
+        if self._state_store is None:
+            _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
 
-    def _ingest_document_hil(self, payload: dict[str, Any]) -> None:
+    async def _ingest_document_hil(self, payload: dict[str, Any]) -> None:
         if (
             payload.get("producer_principal") != "Saga"
             or payload.get("kind") != "document_ingestion"
@@ -280,7 +276,7 @@ class Var(
         if not correlation or not document_id or not upload_id:
             self.record_behavior("document_ticket_invalid")
             return
-        self._pending[correlation] = PendingHilTicket(
+        ticket = PendingHilTicket(
             correlation_id=correlation,
             action_type="document.promote-authoritative",
             resource_id=document_id,
@@ -292,10 +288,13 @@ class Var(
             stage="protection_check",
             idempotency_key=str(payload.get("idempotency_key") or ""),
         )
+        await checkpoint_pending_ticket(self._state_store, ticket)
+        self._pending[correlation] = ticket
         self.record_behavior("document_ticket_pending")
-        _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
+        if self._state_store is None:
+            _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
 
-    def _ingest_shadow_review(self, payload: dict[str, Any]) -> None:
+    async def _ingest_shadow_review(self, payload: dict[str, Any]) -> None:
         if (
             payload.get("producer_principal") != "Saga"
             or payload.get("audited_topic") != "object.action-run"
@@ -320,13 +319,15 @@ class Var(
         if initiator is not None and not isinstance(initiator, str):
             self.record_behavior("shadow_review_invalid")
             return
-        self._pending_shadow_reviews[correlation] = PendingShadowReview(
+        review = PendingShadowReview(
             correlation_id=correlation,
             action_type=action_type,
             observed_at=observed_at,
             policy_escape=policy_escape,
             initiator_principal=initiator.strip() if initiator else None,
         )
+        await checkpoint_shadow_review(self._state_store, review)
+        self._pending_shadow_reviews[correlation] = review
         _evict_oldest_ticket(
             self._pending_shadow_reviews,
             self._MAX_PENDING,
@@ -356,6 +357,10 @@ class Var(
         decision: str,
     ) -> dict[str, Any] | None:
         ticket = self._pending.get(correlation_id)
+        if ticket is None:
+            ticket = await load_pending_ticket(self._state_store, correlation_id)
+            if ticket is not None:
+                self._pending[correlation_id] = ticket
         if ticket is None:
             self.record_behavior("decision:missing_ticket")
             return {"state": "rejected", "reason": "missing_ticket"}
@@ -400,9 +405,6 @@ class Var(
         if decision not in {"approve", "reject"}:
             raise ValueError(f"unknown decision {decision!r}")
         if decision == "approve":
-            # One principal occupies one quorum slot. The sole-Owner
-            # development exception changes the effective quorum, never this
-            # duplicate-decision guard.
             if approver_norm in ticket.approvers:
                 self._record_blocked_attempt(
                     "double_approval_blocked", correlation_id, approver_norm
@@ -453,6 +455,7 @@ class Var(
 
     async def recover_approvals(self) -> tuple[int, int]:
         """Finalize terminal decisions and publish pending finals at startup."""
+        await self.rehydrate_pending_work()
         finalized = 0
         journal = self._decision_journal
         if journal is not None:
@@ -490,6 +493,51 @@ class Var(
             await self._publish_final_approval(pending_approval)
             published += 1
         return finalized, published
+
+    async def rehydrate_pending_work(self) -> tuple[int, int]:
+        if self._state_store is None:
+            return 0, 0
+        tickets = await self._state_store.read_state_page(
+            PENDING_TICKET_PREFIX,
+            limit=self._MAX_PENDING,
+            field="status",
+            value="pending",
+        )
+        restored_tickets = 0
+        for stored in tickets[0]:
+            identity = stored.get("ticket_identity")
+            if not isinstance(identity, Mapping):
+                raise RuntimeError("durable pending HIL ticket is malformed")
+            ticket = _ticket_from_identity(identity)
+            if (
+                await self._load_final_approval(ticket.correlation_id, ticket.action_run_identity)
+                is not None
+            ):
+                await mark_pending_ticket_closed_by_identity(
+                    self._state_store,
+                    ticket.correlation_id,
+                    ticket.action_run_identity,
+                )
+                continue
+            self._pending[ticket.correlation_id] = ticket
+            if ticket.action_run_identity is not None:
+                self._action_correlation_identities.set(
+                    ticket.correlation_id,
+                    ticket.action_run_identity,
+                )
+            restored_tickets += 1
+        reviews = await self._state_store.read_state_page(
+            SHADOW_REVIEW_PREFIX,
+            limit=self._MAX_PENDING,
+            field="status",
+            value="pending",
+        )
+        restored_reviews = 0
+        for stored in reviews[0]:
+            review = shadow_review_from_state(stored)
+            self._pending_shadow_reviews[review.correlation_id] = review
+            restored_reviews += 1
+        return restored_tickets, restored_reviews
 
     async def _load_final_approval(
         self,
@@ -556,14 +604,35 @@ class Var(
                 correlation_id,
                 action_run_identity,
             )
+            await mark_pending_ticket_closed_by_identity(
+                self._state_store,
+                correlation_id,
+                action_run_identity,
+            )
             return None
         if self.bus is None:
             self.record_behavior("approval:transport_unavailable")
+            if self._state_store is not None:
+                _remove_pending_ticket(
+                    self._pending,
+                    correlation_id,
+                    action_run_identity,
+                )
+                await mark_pending_ticket_closed_by_identity(
+                    self._state_store,
+                    correlation_id,
+                    action_run_identity,
+                )
             return deepcopy(approval)
         await self.bus.publish("Var", "object.approval", deepcopy(approval))
         await self._mark_approval_published(approval)
         _remove_pending_ticket(
             self._pending,
+            correlation_id,
+            action_run_identity,
+        )
+        await mark_pending_ticket_closed_by_identity(
+            self._state_store,
             correlation_id,
             action_run_identity,
         )
@@ -688,6 +757,7 @@ class Var(
         if self.bus is not None:
             await self.bus.publish("Var", "object.approval", approval)
         del self._pending_shadow_reviews[correlation_id]
+        await mark_shadow_review_closed(self._state_store, correlation_id)
         self.record_behavior("shadow_review_completed")
         return approval
 
@@ -695,17 +765,12 @@ class Var(
         return tuple(self._pending.values())
 
     def pending_shadow_reviews(self) -> tuple[PendingShadowReview, ...]:
-        """Return bounded shadow outcomes awaiting a distinct human review."""
-
         return tuple(self._pending_shadow_reviews.values())
 
     def _record_blocked_attempt(self, key: str, correlation_id: str, approver: str) -> None:
         _record_blocked_attempt_once(self, key, correlation_id, approver)
 
-    # ---- admin notification (Wave 6) ----------------------------------
-
     async def deliver_admin_card(self, payload: dict[str, Any]) -> AdminCard:
-        """Deliver an admin ChatOps card. Dedups by (initiator, action)."""
         initiator = str(payload.get("initiator_principal", ""))
         action = str(payload.get("attempted_action", ""))
         severity = str(payload.get("severity", "high"))
@@ -723,77 +788,11 @@ class Var(
         _evict_oldest_ticket(self._last_cards, self._MAX_CARDS, keep=key)
         return delivered
 
-    # ---- conversational port -------------------------------------------
-
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
-        """Approval answers rest on pending tickets; the policy alone is config."""
-        return bool(self._pending)
+        return _var_evidence_available(self)
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
-        pending = self._pending
-        facts = {
-            **capability_facts(self.spec),
-            "pending_hil": len(pending),
-            "correlations": capped_list(sorted(pending)),
-        }
-        corr = mentioned(question, pending)
-        if corr:
-            ticket = pending[corr[0]]
-            facts.update(
-                {
-                    "correlation_id": ticket.correlation_id,
-                    "action_type": ticket.action_type,
-                    "quorum_required": ticket.quorum_required,
-                    "approvals": len(ticket.approvers),
-                    "rejected": ticket.rejected,
-                }
-            )
-            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-            facts["evidence_refs"] = [evidence_ref]
-            answer = (
-                f"HIL {ticket.correlation_id!r} ({ticket.action_type}): "
-                f"{len(ticket.approvers)}/{ticket.quorum_required} approval(s)"
-                + (", rejected" if ticket.rejected else "")
-                + f". Evidence: {evidence_ref}."
-            )
-            return IntrospectionResult(answer=answer, facts=facts)
-        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-        facts["evidence_refs"] = [evidence_ref]
-        if context.get("locale") == "ko":
-            answer = (
-                "저는 사람의 HIL 결정을 Approval로 기록하는 파이프라인 승인 principal인 Var입니다. "
-                "Thor에게 보고하지만 Thor와는 별도 principal입니다. 현재 사람의 승인, 만료, quorum "
-                "및 기본 no-self-approval을 확인하며, 감사에는 원래 및 유효 정족수를 보존합니다. "
-                "작업을 판단하거나 실행하지 않습니다. "
-                "정확한 전권 개발 프로필에서만 인증된 Owner 한 명을 허용합니다. 침묵이나 이전 "
-                "승인을 현재 권한으로 간주하지 않습니다. 이 대화 포트는 읽기 전용이며 승인 요청은 "
-                "운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 시스템 "
-                "프롬프트는 공개하지 않습니다."
-            )
-            if pending:
-                answer += f" 이 런타임에는 HIL 승인 {len(pending)}건이 대기 중입니다."
-            else:
-                answer += " 이 런타임에는 대기 중인 HIL 승인이 없습니다."
-            answer += f" 근거: {evidence_ref}."
-        else:
-            answer = (
-                "I am Var, the pipeline approval principal that records current human HIL "
-                "decisions as Approval. I report to Thor but remain a distinct principal from "
-                "Thor. I verify current human approval, expiry, quorum, and no-self-approval. "
-                "Audit preserves original and effective quorum. Only an exact full-authority "
-                "development profile admits one authenticated Owner. I never judge or execute an "
-                "action. Silence and prior approval never become current "
-                "authority. This conversational port is read-only; approval requests re-enter the "
-                "typed pipeline under the operator's authority. I do not reveal hidden system "
-                "prompts."
-            )
-            if pending:
-                approval_label = "approval" if len(pending) == 1 else "approvals"
-                answer += f" This runtime has {len(pending)} HIL {approval_label} pending."
-            else:
-                answer += " No HIL approvals pending in this runtime."
-            answer += f" Evidence: {evidence_ref}."
-        return IntrospectionResult(answer=answer, facts=facts)
+        return await _introspect_var(self, question, context)
 
 
 __all__ = ["PendingHilTicket", "PendingShadowReview", "Var"]

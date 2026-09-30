@@ -31,6 +31,11 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from fdai.agents._framework.bus_metrics import BridgeMetrics
+from fdai.agents._framework.bus_poison_halt import (
+    clear_ordered_halt,
+    is_ordered_halted,
+    persist_ordered_halt,
+)
 from fdai.agents._framework.registry import PantheonRegistry
 from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
@@ -41,6 +46,7 @@ from fdai.agents._framework.topics import (
     partition_key_for,
 )
 from fdai.shared.providers.event_bus import EventBus, PublishReceipt
+from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
 
@@ -115,6 +121,7 @@ class EventBusBridge:
     payload_validator: PayloadValidator | None = None
     handler_observer: AgentHandlerObserver | None = None
     consumer_state_observer: ConsumerStateObserver | None = None
+    halt_state_store: StateStore | None = None
     _subs: dict[str, list[tuple[str, Handler]]] = field(default_factory=lambda: defaultdict(list))
     _tasks: list[asyncio.Task[None]] = field(default_factory=list)
     _consumer_states: dict[str, str] = field(default_factory=dict)
@@ -388,14 +395,14 @@ class EventBusBridge:
         consumer_id: str,
         handler: Handler,
     ) -> None:
-        # Self-healing: a subscribe-loop crash restarts THIS consumer with
-        # exponential backoff (blast-radius isolation keeps siblings
-        # running; self-healing brings a crashed subscription back rather
-        # than leaving it permanently dead). After max_consumer_restarts
-        # the consumer gives up - counted + logged - without touching the
-        # rest of the pantheon.
         attempt = 0
         while True:
+            halted = topic in MUTATION_TOPICS and await is_ordered_halted(
+                self.halt_state_store, group_id=group_id, topic=topic
+            )
+            if halted:
+                self._mark_consumer_terminal(consumer_id, "halted")
+                return
             stream = self.provider.subscribe(topic, group_id)
             try:
                 self._consumer_states[consumer_id] = "connecting"
@@ -403,14 +410,6 @@ class EventBusBridge:
                 async for envelope in stream:
                     self._consumer_states[consumer_id] = "running"
                     if not self._producer_authorized(topic, envelope.payload):
-                        # Consumer-side single-writer check: a record whose
-                        # producer_principal is not the topic owner is an
-                        # impostor (a compromised or buggy producer that got
-                        # past publish-side auth on another path). Do NOT
-                        # hand it to a subscriber - route it to the DLQ and
-                        # move on. Publish-side auth is not enough on its
-                        # own: the consumer trusts the wire, so it must
-                        # re-verify the wire.
                         await self._safe_dead_letter(
                             group_id=group_id,
                             topic=topic,
@@ -472,15 +471,15 @@ class EventBusBridge:
                             reason=f"handler error: {type(exc).__name__}",
                         )
                         if self.halt_ordered_topic_on_poison and topic in MUTATION_TOPICS:
-                            # Ordering preservation for a per-resource
-                            # mutation stream: continuing past a poison
-                            # record would let a LATER mutation on the same
-                            # resource apply while an EARLIER one was only
-                            # dead-lettered - an ordering violation the
-                            # per-resource partition mutex exists to prevent.
-                            # Halt this consumer so an operator intervenes;
-                            # siblings (other topics) keep running.
                             self.metrics.ordered_poison_halts += 1
+                            await persist_ordered_halt(
+                                self.halt_state_store,
+                                consumer_id=consumer_id,
+                                topic=topic,
+                                group_id=group_id,
+                                offset=int(envelope.offset or 0),
+                                key=envelope.key,
+                            )
                             self._mark_consumer_terminal(consumer_id, "halted")
                             _LOG.error(
                                 "pantheon_ordered_topic_halted",
@@ -611,6 +610,16 @@ class EventBusBridge:
                     "error_type": type(exc).__name__,
                 },
             )
+
+    async def clear_ordered_poison_halt(self, *, topic: str, agent_name: str) -> bool:
+        if self.halt_state_store is None:
+            return False
+        group_id = f"{self.consumer_group_prefix}.{agent_name}"
+        cleared = await clear_ordered_halt(self.halt_state_store, group_id=group_id, topic=topic)
+        consumer_id = f"{agent_name}:{topic}"
+        if cleared and self._consumer_states.get(consumer_id) == "halted":
+            self._consumer_states[consumer_id] = "cleared"
+        return cleared
 
     def _producer_authorized(self, topic: str, payload: Payload) -> bool:
         """Consumer-side single-writer check.

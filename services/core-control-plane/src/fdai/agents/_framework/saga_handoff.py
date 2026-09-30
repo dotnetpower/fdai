@@ -47,6 +47,7 @@ class HandoffIssueCheckpoint:
     def to_state(self) -> dict[str, Any]:
         return {
             "schema_version": "1.0.0",
+            "revision": 1,
             "fingerprint": self.fingerprint,
             "correlation_id": self.correlation_id,
             "issue_number": self.issue_number,
@@ -63,8 +64,12 @@ class HandoffIssueCheckpoint:
         created = value.get("created")
         audit_recorded = value.get("audit_recorded")
         published = value.get("published")
+        revision = value.get("revision", 1)
         if (
             value.get("schema_version") != "1.0.0"
+            or not isinstance(revision, int)
+            or isinstance(revision, bool)
+            or revision < 1
             or not isinstance(value.get("fingerprint"), str)
             or not value["fingerprint"]
             or not isinstance(value.get("correlation_id"), str)
@@ -223,11 +228,43 @@ class SagaHandoffJournal:
         checkpoint: HandoffIssueCheckpoint,
     ) -> None:
         if self._durable is not None:
-            await self._durable.write_state(
-                _state_key(escalation_id, "checkpoint"),
-                checkpoint.to_state(),
-            )
+            key = _state_key(escalation_id, "checkpoint")
+            next_state = checkpoint.to_state()
+            for _attempt in range(16):
+                stored = await self._durable.read_state(key)
+                if stored is None:
+                    await self._durable.write_state(key, next_state)
+                    return
+                current = HandoffIssueCheckpoint.from_state(stored)
+                if (
+                    current.fingerprint != checkpoint.fingerprint
+                    or current.correlation_id != checkpoint.correlation_id
+                    or current.issue_number != checkpoint.issue_number
+                    or current.created != checkpoint.created
+                    or current.occurrence_count != checkpoint.occurrence_count
+                ):
+                    raise RuntimeError("handoff checkpoint identity collision")
+                if (current.audit_recorded and not checkpoint.audit_recorded) or (
+                    current.published and not checkpoint.published
+                ):
+                    return
+                revision = int(stored.get("revision", 1))
+                next_state["revision"] = revision + 1
+                advanced = await self._durable.compare_and_set_state(
+                    key,
+                    next_state,
+                    expected_revision=revision,
+                )
+                if advanced:
+                    return
+            raise RuntimeError("handoff checkpoint CAS retry limit exceeded")
         else:
+            local_current = self._local.get(_CHECKPOINT_BUCKET, escalation_id)
+            if isinstance(local_current, HandoffIssueCheckpoint) and (
+                (local_current.audit_recorded and not checkpoint.audit_recorded)
+                or (local_current.published and not checkpoint.published)
+            ):
+                raise RuntimeError("handoff checkpoint write would regress durable state")
             self._local.put(_CHECKPOINT_BUCKET, escalation_id, checkpoint)
 
     async def complete(

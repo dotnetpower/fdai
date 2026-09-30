@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import inspect
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -42,6 +42,8 @@ from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.shared.providers.state_store import StateStore
 
 _FINGERPRINT_BUCKET = "issue_fingerprint_index"
+_AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
+_FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
 _MAX_FINGERPRINT_INDEX = 50_000
 _NON_LEARNABLE_TERMINAL_STATES = frozenset(
     {"deny_dropped", "rejected", "expired", "approval_expired"}
@@ -108,6 +110,27 @@ class Saga(Agent, HandoverKnowledgeMixin):
         restored = rehydrate()
         return int(await restored if inspect.isawaitable(restored) else restored)
 
+    async def recover_audit_outbox(self) -> int:
+        """Republish durable audit-entry intents left unpublished by a crash."""
+
+        if self._durable_state_store is None or self.bus is None:
+            return 0
+        rows, _total = await self._durable_state_store.read_state_page(
+            _AUDIT_OUTBOX_PREFIX,
+            limit=5_000,
+            field="status",
+            value="pending",
+        )
+        published = 0
+        for row in reversed(rows):
+            payload = row.get("payload")
+            if not isinstance(payload, Mapping):
+                raise RuntimeError("Saga audit outbox row is malformed")
+            await self.bus.publish("Saga", "object.audit-entry", dict(payload))
+            await self._mark_audit_outbox_published(dict(payload))
+            published += 1
+        return published
+
     async def _append_audit(
         self,
         *,
@@ -124,6 +147,59 @@ class Saga(Agent, HandoverKnowledgeMixin):
         )
         if inspect.isawaitable(result):
             await result
+
+    async def _publish_audit_entry_with_outbox(self, payload: dict[str, Any]) -> None:
+        if self._durable_state_store is None:
+            if self.bus is None:
+                self.record_behavior("audit_outbox:transport_unavailable")
+                return
+            await self.bus.publish("Saga", "object.audit-entry", payload)
+            return
+        await self._checkpoint_audit_outbox(payload)
+        if self.bus is None:
+            self.record_behavior("audit_outbox:publication_pending")
+            return
+        await self.bus.publish("Saga", "object.audit-entry", payload)
+        await self._mark_audit_outbox_published(payload)
+
+    async def _checkpoint_audit_outbox(self, payload: Mapping[str, Any]) -> None:
+        if self._durable_state_store is None:
+            return
+        key = _audit_outbox_key(payload)
+        record = {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "status": "pending",
+            "correlation_id": str(payload.get("correlation_id") or ""),
+            "idempotency_key": str(payload.get("idempotency_key") or ""),
+            "payload": dict(payload),
+        }
+        created = await self._durable_state_store.write_state_if_absent(key, record)
+        if created:
+            return
+        stored = await self._durable_state_store.read_state(key)
+        if not isinstance(stored, Mapping):
+            raise RuntimeError("Saga audit outbox row disappeared")
+        if stored.get("payload") != record["payload"]:
+            raise RuntimeError("Saga audit outbox idempotency collision")
+
+    async def _mark_audit_outbox_published(self, payload: Mapping[str, Any]) -> None:
+        if self._durable_state_store is None:
+            return
+        key = _audit_outbox_key(payload)
+        for _attempt in range(16):
+            stored = await self._durable_state_store.read_state(key)
+            if stored is None or stored.get("status") == "published":
+                return
+            revision = int(stored.get("revision", 1))
+            advanced = await self._durable_state_store.compare_and_set_state(
+                key,
+                {**dict(stored), "status": "published", "revision": revision + 1},
+                expected_revision=revision,
+            )
+            if advanced:
+                return
+        raise RuntimeError("Saga audit outbox publication CAS retry limit exceeded")
 
     async def record_rate_limit_overflow(
         self,
@@ -540,7 +616,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         does not subscribe ``object.audit-entry``, so this never loops. A
         bus-less Saga (unit scenarios) simply records to the chain.
         """
-        if self.bus is None:
+        if self.bus is None and self._durable_state_store is None:
             self.record_behavior("action_run_audit:transport_unavailable")
             return
         # Self-loop guard (defensive): never republish a record that is
@@ -591,9 +667,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         observed_at = str(payload.get("terminal_at") or "")
         if shadow_mode and result is not None and not observed_at:
             observed_at = self._clock().isoformat()
-        await self.bus.publish(
-            "Saga",
-            "object.audit-entry",
+        await self._publish_audit_entry_with_outbox(
             {
                 "producer_principal": "Saga",
                 "correlation_id": correlation_id,
@@ -603,9 +677,6 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 **({"result": result} if result is not None else {}),
                 "non_learnable": non_learnable,
                 "resource_id": payload.get("resource_id"),
-                # Carry the shadow flag so the learner can tell a real
-                # execution from a judged-and-logged shadow one (a shadow
-                # 'success' is not evidence about the action's real safety).
                 "shadow_mode": shadow_mode,
                 "shadow_observation_id": correlation_id,
                 "observed_at": observed_at,
@@ -613,7 +684,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 "operator_agreed": False,
                 "policy_escape": payload.get("policy_escape") is True,
                 "initiator_principal": payload.get("initiator_principal"),
-            },
+            }
         )
         self.record_behavior(
             "action_run_audit:non_learnable" if non_learnable else "action_run_audit:published"
@@ -672,6 +743,18 @@ class Saga(Agent, HandoverKnowledgeMixin):
         context: dict[str, Any] | None = None,
         require_idempotent: bool = False,
     ) -> tuple[int, bool, int]:
+        durable_prior = await self._load_durable_fingerprint(fingerprint)
+        if durable_prior is not None:
+            await self.rehydrate_issue_tracker()
+            occurrence_count = int(durable_prior["occurrence_count"]) + 1
+            updated = {
+                **durable_prior,
+                "occurrence_count": occurrence_count,
+                "last_correlation_id": correlation_id,
+            }
+            await self._put_durable_fingerprint(fingerprint, updated)
+            self._fingerprint_index.set(fingerprint, updated)
+            return int(updated["issue_number"]), False, occurrence_count
         title = f"[{intent_category}] {emitting_agent} handoff"
         body_lines = [
             f"Fingerprint: `{fingerprint}`",
@@ -701,20 +784,66 @@ class Saga(Agent, HandoverKnowledgeMixin):
             )
         issue, created = await issue_result if inspect.isawaitable(issue_result) else issue_result
         occurrence_count = 1 + len(issue.comments)
-        self._put_fingerprint_index(
-            fingerprint,
-            {
-                "issue_number": issue.number,
-                "occurrence_count": occurrence_count,
-                "last_correlation_id": correlation_id,
-                "open": issue.open,
-            },
-        )
+        fingerprint_state = {
+            "issue_number": issue.number,
+            "occurrence_count": occurrence_count,
+            "last_correlation_id": correlation_id,
+            "open": issue.open,
+        }
+        self._put_fingerprint_index(fingerprint, fingerprint_state)
+        await self._put_durable_fingerprint(fingerprint, fingerprint_state)
         return issue.number, created, occurrence_count
 
     def _put_fingerprint_index(self, fingerprint: str, value: dict[str, Any]) -> None:
         self._fingerprint_index.set(fingerprint, value)
         self.state_store.data[_FINGERPRINT_BUCKET] = dict(self._fingerprint_index.items())
+
+    async def _load_durable_fingerprint(self, fingerprint: str) -> dict[str, Any] | None:
+        if self._durable_state_store is None:
+            return None
+        stored = await self._durable_state_store.read_state(_fingerprint_key(fingerprint))
+        if stored is None:
+            return None
+        issue_number = stored.get("issue_number")
+        occurrence_count = stored.get("occurrence_count")
+        if (
+            stored.get("schema_version") != "1.0.0"
+            or not isinstance(issue_number, int)
+            or isinstance(issue_number, bool)
+            or issue_number < 1
+            or not isinstance(occurrence_count, int)
+            or isinstance(occurrence_count, bool)
+            or occurrence_count < 1
+        ):
+            raise RuntimeError("durable issue fingerprint record is malformed")
+        return dict(stored)
+
+    async def _put_durable_fingerprint(self, fingerprint: str, value: dict[str, Any]) -> None:
+        if self._durable_state_store is None:
+            return
+        record = {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "fingerprint": fingerprint,
+            **value,
+        }
+        key = _fingerprint_key(fingerprint)
+        created = await self._durable_state_store.write_state_if_absent(key, record)
+        if created:
+            return
+        for _attempt in range(16):
+            stored = await self._durable_state_store.read_state(key)
+            if stored is None:
+                continue
+            revision = int(stored.get("revision", 1))
+            advanced = await self._durable_state_store.compare_and_set_state(
+                key,
+                {**record, "revision": revision + 1},
+                expected_revision=revision,
+            )
+            if advanced:
+                return
+        raise RuntimeError("issue fingerprint CAS retry limit exceeded")
 
     async def _append_issue_audit(
         self,
@@ -879,6 +1008,20 @@ def compute_fingerprint(
         )
     )
     return hashlib.sha1(material.encode("utf-8")).hexdigest()  # noqa: S324 - fingerprint id, not security
+
+
+def _audit_outbox_key(payload: Mapping[str, Any]) -> str:
+    correlation_id = str(payload.get("correlation_id") or "")
+    idempotency_key = str(payload.get("idempotency_key") or "")
+    if not correlation_id or not idempotency_key:
+        raise RuntimeError("Saga audit outbox payload requires correlation_id and idempotency_key")
+    digest = hashlib.sha256(f"{correlation_id}\0{idempotency_key}".encode()).hexdigest()
+    return f"{_AUDIT_OUTBOX_PREFIX}{digest}"
+
+
+def _fingerprint_key(fingerprint: str) -> str:
+    digest = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()
+    return f"{_FINGERPRINT_PREFIX}{digest}"
 
 
 __all__ = ["Saga", "compute_fingerprint"]
