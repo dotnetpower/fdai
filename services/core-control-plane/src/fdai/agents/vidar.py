@@ -96,6 +96,12 @@ class _CachedRollback:
     record: RollbackRecord
 
 
+@dataclass(slots=True)
+class _RollbackLockEntry:
+    lock: asyncio.Lock
+    users: int = 0
+
+
 class RollbackClaimInProgressError(RuntimeError):
     """Raised so transport retry or DLQ retains a still-leased rollback."""
 
@@ -145,7 +151,7 @@ class Vidar(Agent):
             else min(max(claim_lease.total_seconds() / 2, 1.0), 300.0)
         )
         self._owner_token = uuid4().hex
-        self._rollback_locks: dict[tuple[str, str], asyncio.Lock] = {}
+        self._rollback_locks: dict[tuple[str, str], _RollbackLockEntry] = {}
         self.records: list[RollbackRecord] = []
         # Idempotency guard: at-least-once delivery means the same failed
         # ActionRun can arrive twice. Rolling a resource back twice is not a
@@ -158,7 +164,10 @@ class Vidar(Agent):
         )
         self._published_rollbacks: BoundedLruSet[tuple[str, str]] = BoundedLruSet(self._MAX_RECORDS)
         self._rollback_publication_claims: set[tuple[str, str]] = set()
-        self._process_local_terminal_fences: dict[tuple[str, str], str] = {}
+        self._process_local_terminal_fences: BoundedLruDict[
+            tuple[str, str],
+            str,
+        ] = BoundedLruDict(self._MAX_RECORDS)
         self._durable_publication_pending = 0
 
     def bind_bus(self, bus: PantheonBus) -> None:
@@ -195,9 +204,18 @@ class Vidar(Agent):
         correlation_id = str(action_run.get("correlation_id", ""))
         action_run_identity = validate_action_run_identity(action_run)
         lock_key = (correlation_id, action_run_identity)
-        lock = self._rollback_locks.setdefault(lock_key, asyncio.Lock())
-        async with lock:
-            return await self._rollback_locked(action_run)
+        entry = self._rollback_locks.get(lock_key)
+        if entry is None:
+            entry = _RollbackLockEntry(asyncio.Lock())
+            self._rollback_locks[lock_key] = entry
+        entry.users += 1
+        try:
+            async with entry.lock:
+                return await self._rollback_locked(action_run)
+        finally:
+            entry.users -= 1
+            if entry.users == 0 and not entry.lock.locked():
+                self._rollback_locks.pop(lock_key, None)
 
     async def _rollback_locked(self, action_run: dict[str, Any]) -> RollbackRecord | None:
         admit_development_authority(
@@ -217,22 +235,18 @@ class Vidar(Agent):
         correlation_id = str(action_run.get("correlation_id", ""))
         contract = str(action_run.get("rollback_contract", "state_forward_only"))
         action_run_identity = validate_action_run_identity(action_run)
-        request_digest = _rollback_request_digest(action_run, contract=contract)
         if correlation_id:
             cache_key = (correlation_id, action_run_identity)
             existing = self._rollback_results.get(cache_key)
             if existing is not None:
-                if existing.request_digest != request_digest:
-                    raise ValueError("rollback correlation collides with different action identity")
                 if not await self._publish_rollback_once(existing.record):
                     return None
                 return existing.record
             terminal_digest = self._process_local_terminal_fences.get(cache_key)
             if terminal_digest is not None:
-                if terminal_digest != request_digest:
-                    raise ValueError("rollback correlation collides with different action identity")
                 self.record_behavior("rollback:duplicate_terminal")
                 return None
+            request_digest = _rollback_request_digest(action_run, contract=contract)
             if self._state_store is not None:
                 return await self._rollback_durable(
                     action_run,
@@ -252,6 +266,8 @@ class Vidar(Agent):
                 self._remember_rollback(rec, request_digest=request_digest)
                 await self._publish_rollback_once(rec)
                 return rec
+        else:
+            request_digest = _rollback_request_digest(action_run, contract=contract)
         rec = await self._execute_rollback(
             action_run,
             correlation_id,
@@ -520,7 +536,7 @@ class Vidar(Agent):
                 cache_key,
                 _CachedRollback(request_digest=request_digest, record=rec),
             )
-            self._process_local_terminal_fences[cache_key] = request_digest
+            self._process_local_terminal_fences.set(cache_key, request_digest)
         self.record_behavior(f"rollback:{rec.state}")
         self.records.append(rec)
         # FIFO cap - drop the oldest 25% in one shot to amortise the cost.

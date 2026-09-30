@@ -844,7 +844,10 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             behavior="approval:rejected_owner",
         ):
             return None
-        if not approval_matches_action_run(approval, run.to_dict()):
+        run_identity = run.to_dict()
+        run_identity["action_run_identity"] = run.action_run_identity()
+        run_identity["_action_run_identity_verified"] = True
+        if not approval_matches_action_run(approval, run_identity):
             self.record_behavior("approval:identity_mismatch")
             raise ValueError("approval identity does not match the current ActionRun")
         self._validate_development_approval(run, approval)
@@ -978,7 +981,11 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         ):
             return
         run = self.action_runs.get(correlation)
-        if run is not None and not rollback_matches_action_run(rollback, run.to_dict()):
+        if run is not None:
+            run_identity = run.to_dict()
+            run_identity["action_run_identity"] = run.action_run_identity()
+            run_identity["_action_run_identity_verified"] = True
+        if run is not None and not rollback_matches_action_run(rollback, run_identity):
             self.record_behavior("rollback:identity_mismatch")
             return
         rollback_ref = bounded_rollback_ref(rollback.get("rollback_ref"))

@@ -103,6 +103,9 @@ def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
 def action_run_identity_digest(value: Mapping[str, Any]) -> str:
     """Return the canonical SHA-256 identity for one ActionRun projection."""
 
+    supplied = value.get("action_run_identity")
+    if value.get("_action_run_identity_verified") is True and is_action_run_identity(supplied):
+        return str(supplied)
     encoded = json.dumps(
         action_run_identity_projection(value),
         allow_nan=False,

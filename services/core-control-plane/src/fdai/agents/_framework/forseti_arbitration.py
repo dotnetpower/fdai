@@ -95,6 +95,9 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     _cross_vertical_timeout_seconds: float
     _cross_vertical_candidates: CrossVerticalCandidateAccumulator
     _cross_vertical_timeout_tasks: dict[str, asyncio.Task[None]]
+    _cross_vertical_timeout_deadlines: dict[str, float]
+    _cross_vertical_timeout_heap: list[tuple[float, str]]
+    _cross_vertical_timeout_max: int
     _cross_vertical_locks: WeakValueDictionary[str, asyncio.Lock]
     _pending_arbitration_principals: BoundedLruDict[str, dict[str, str]]
     arbitrations: dict[str, str]
@@ -132,15 +135,25 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     ) -> None:
         await ingest_cross_vertical_candidate_locked(self, topic, payload, correlation_id)
 
-    def _start_cross_vertical_timeout(self, correlation_id: str) -> None:
-        start_cross_vertical_timeout(self, correlation_id)
+    def _start_cross_vertical_timeout(
+        self,
+        correlation_id: str,
+        *,
+        delay_seconds: float | None = None,
+    ) -> None:
+        start_cross_vertical_timeout(self, correlation_id, delay_seconds=delay_seconds)
 
-    async def _cancel_cross_vertical_timeout(self, task: asyncio.Task[None]) -> None:
-        await cancel_cross_vertical_timeout(task)
+    async def _cancel_cross_vertical_timeout(
+        self,
+        timeout: str | asyncio.Task[None],
+    ) -> None:
+        if isinstance(timeout, str):
+            self._cross_vertical_timeout_deadlines.pop(timeout, None)
+            return
+        await cancel_cross_vertical_timeout(timeout)
 
     async def _expire_cross_vertical_candidates(self, correlation_id: str) -> None:
         try:
-            await asyncio.sleep(self._cross_vertical_timeout_seconds)
             lock = self._cross_vertical_locks.setdefault(correlation_id, asyncio.Lock())
             async with lock:
                 if await _durability.durable_cross_vertical_completed(self, correlation_id):
@@ -149,20 +162,14 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 if closure is not None:
                     await self._close_cross_vertical_candidates((closure,))
         finally:
-            self._cross_vertical_timeout_tasks.pop(correlation_id, None)
+            self._cross_vertical_timeout_deadlines.pop(correlation_id, None)
 
     async def _close_cross_vertical_candidates(
         self,
         closures: tuple[CandidateClosure, ...],
     ) -> None:
         for closure in closures:
-            timeout_task = self._cross_vertical_timeout_tasks.pop(
-                closure.correlation_id,
-                None,
-            )
-            current = asyncio.current_task()
-            if timeout_task is not None and timeout_task is not current:
-                await self._cancel_cross_vertical_timeout(timeout_task)
+            await self._cancel_cross_vertical_timeout(closure.correlation_id)
             self._arbitration_resources.set(closure.correlation_id, closure.resource_id)
             await _durability.persist_arbitration_resource(
                 self,

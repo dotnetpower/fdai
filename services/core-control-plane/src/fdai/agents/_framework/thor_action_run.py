@@ -12,6 +12,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from pydantic import ValidationError
 
 from fdai.agents._framework import action_run_lineage
+from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.action_run_lineage import (
     bounded_operational_context,
     optional_datetime,
@@ -65,6 +66,13 @@ class ActionRun:
     terminal_published: bool = False
     resource_claimed: bool = False
     history: list[ActionRunState] = field(default_factory=list)
+    _action_run_identity: str | None = field(default=None, init=False, repr=False, compare=False)
+    _publication_identity_payload: dict[str, Any] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         action_run_lineage.validate_action_run_lineage(self.action_id, self.workflow_action)
@@ -96,6 +104,43 @@ class ActionRun:
     def transition(self, new_state: ActionRunState) -> None:
         self.history.append(self.state)
         self.state = new_state
+
+    def action_run_identity(self) -> str:
+        """Return the cached identity digest for lifecycle-stable fields."""
+
+        if self._action_run_identity is None:
+            self._action_run_identity = action_run_identity_digest(
+                self.publication_identity_payload()
+            )
+        return self._action_run_identity
+
+    def publication_identity_payload(self) -> dict[str, Any]:
+        """Return the transition-stable ActionRun payload fields."""
+
+        if self._publication_identity_payload is None:
+            payload = {
+                "action_idempotency_key": self.idempotency_key,
+                "action_type": self.action_type,
+                "correlation_id": self.correlation_id,
+                "decision_case": self.decision_case,
+                "development_authority": deepcopy(self.development_authority),
+                "effective_quorum_required": self.effective_quorum_required,
+                "initiator_principal": self.initiator_principal,
+                "kinetic_proposal": deepcopy(self.kinetic_proposal),
+                "operational_context": deepcopy(self.operational_context),
+                "original_quorum_required": self.original_quorum_required,
+                "params": deepcopy(self.params),
+                "prospective_lineage": deepcopy(self.prospective_lineage),
+                "quorum_required": self.quorum_required,
+                "resource_id": self.resource_id,
+                "rollback_contract": self.rollback_contract,
+                "verdict": self.verdict,
+                "workflow_action": deepcopy(self.workflow_action),
+            }
+            if self.action_id is not None:
+                payload["action_id"] = self.action_id
+            self._publication_identity_payload = payload
+        return self._publication_identity_payload
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for a durable :class:`ActionRunStore` backend."""

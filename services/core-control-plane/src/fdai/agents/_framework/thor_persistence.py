@@ -4,14 +4,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from copy import deepcopy
 from datetime import datetime
 from typing import Any, Protocol
 
-from fdai.agents._framework.action_run_identity import (
-    action_run_identity_digest,
-    durable_correlation_reservation,
-)
+from fdai.agents._framework.action_run_identity import durable_correlation_reservation
 from fdai.agents._framework.action_run_state import (
     TERMINAL_ACTION_RUN_STATES as _TERMINAL_STATES,
 )
@@ -235,41 +231,23 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
             host.record_behavior("action_run:terminal_publication_pending")
         return
     payload = {
+        **run.publication_identity_payload(),
         "producer_principal": "Thor",
-        "correlation_id": run.correlation_id,
         "idempotency_key": f"{run.correlation_id}:{run.state.value}",
-        "action_idempotency_key": run.idempotency_key,
-        "action_type": run.action_type,
-        "resource_id": run.resource_id,
         "state": run.state.value,
         "shadow_mode": run.shadow_mode,
         "resolved_autonomy_ceiling": run.resolved_autonomy_ceiling.value,
         "outcome": run.outcome,
         **effect_publication_fields(run),
-        "verdict": run.verdict,
-        "params": deepcopy(run.params),
-        "quorum_required": run.quorum_required,
-        "original_quorum_required": run.original_quorum_required,
-        "effective_quorum_required": run.effective_quorum_required,
-        "development_authority": deepcopy(run.development_authority),
-        "initiator_principal": run.initiator_principal,
-        "rollback_contract": run.rollback_contract,
         "rollback_ref": run.rollback_ref,
-        "decision_case": run.decision_case,
-        "operational_context": deepcopy(run.operational_context),
-        "workflow_action": deepcopy(run.workflow_action),
-        "kinetic_proposal": deepcopy(run.kinetic_proposal),
-        "prospective_lineage": deepcopy(run.prospective_lineage),
         "execution_audit_receipt": run.execution_audit_receipt,
         "approval_expires_at": (
             run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
         ),
+        "action_run_identity": run.action_run_identity(),
     }
-    if run.action_id is not None:
-        payload["action_id"] = run.action_id
     if run.evidence_rejection_ref is not None:
         payload["evidence_rejection_ref"] = run.evidence_rejection_ref
-    payload["action_run_identity"] = action_run_identity_digest(payload)
     if run.state in _TIMESTAMPED_ACTION_RUN_STATES:
         payload["terminal_at"] = host._now().isoformat().replace("+00:00", "Z")
     await host.bus.publish("Thor", "object.action-run", payload)

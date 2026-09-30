@@ -217,6 +217,9 @@ class Forseti(
             max_pending=_MAX_RESOURCES
         )
         self._cross_vertical_timeout_tasks: dict[str, asyncio.Task[None]] = {}
+        self._cross_vertical_timeout_deadlines: dict[str, float] = {}
+        self._cross_vertical_timeout_heap: list[tuple[float, str]] = []
+        self._cross_vertical_timeout_max = _MAX_RESOURCES
         self._cross_vertical_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
         self._pending_arbitration_principals: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
             _MAX_RESOURCES

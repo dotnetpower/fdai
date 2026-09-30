@@ -11,9 +11,36 @@ from fdai.agents._framework.cross_vertical_candidates import CandidateClosure
 from fdai.agents._framework.forseti_arbitration_contract import (
     arbitration_owner as _arbitration_owner,
 )
+from fdai.agents._framework.forseti_arbitration_contract import (
+    remember_arbitration_winner as _remember_winner,
+)
 from fdai.agents._framework.runtime_health import AGENT_DEGRADATION_POLICIES, evaluate_degradation
 
 _MAX_RESOURCES = 10_000
+_RECOVERY_PAGE_SIZE = 1_000
+
+
+async def _read_state_pages(
+    store: Any,
+    prefix: str,
+    *,
+    field: str | None = None,
+    value: str | None = None,
+) -> tuple[Mapping[str, Any], ...]:
+    rows: list[Mapping[str, Any]] = []
+    offset = 0
+    while True:
+        page, total = await store.read_state_page(
+            prefix,
+            limit=_RECOVERY_PAGE_SIZE,
+            offset=offset,
+            field=field,
+            value=value,
+        )
+        rows.extend(page)
+        offset += len(page)
+        if offset >= total or not page:
+            return tuple(rows)
 
 
 async def durable_cross_vertical_completed(host: Any, correlation_id: str) -> bool:
@@ -183,12 +210,7 @@ async def close_unowned_arbitration(
 
 
 async def _rehydrate_arbitration_resources(host: Any, store: Any) -> int:
-    rows, total = await store.read_state_page(
-        "pantheon/forseti/arbitration-resource|",
-        limit=_MAX_RESOURCES,
-    )
-    if total > _MAX_RESOURCES:
-        raise RuntimeError("Forseti arbitration resources exceed recovery bound")
+    rows = await _read_state_pages(store, "pantheon/forseti/arbitration-resource|")
     restored = 0
     for row in rows:
         correlation_id = str(row.get("correlation_id") or "")
@@ -200,30 +222,28 @@ async def _rehydrate_arbitration_resources(host: Any, store: Any) -> int:
 
 
 async def _rehydrate_arbitration_completions(host: Any, store: Any) -> int:
-    rows, total = await store.read_state_page(
-        "pantheon/forseti/arbitration-completed|",
-        limit=_MAX_RESOURCES,
-    )
-    if total > _MAX_RESOURCES:
-        raise RuntimeError("Forseti arbitration completions exceed recovery bound")
+    rows = await _read_state_pages(store, "pantheon/forseti/arbitration-completed|")
     restored = 0
     for row in rows:
         correlation_id = str(row.get("correlation_id") or "")
         if correlation_id:
-            host.arbitrations[correlation_id] = str(row.get("outcome") or "completed")
+            _remember_winner(
+                host.arbitrations,
+                correlation_id,
+                str(row.get("outcome") or "completed"),
+                _MAX_RESOURCES,
+            )
             restored += 1
     return restored
 
 
 async def _rehydrate_domain_advice(host: Any, store: Any) -> int:
-    rows, total = await store.read_state_page(
+    rows = await _read_state_pages(
+        store,
         "pantheon/forseti/domain-advice|",
-        limit=_MAX_RESOURCES,
         field="status",
         value="pending",
     )
-    if total > _MAX_RESOURCES:
-        raise RuntimeError("Forseti domain advice exceeds recovery bound")
     restored = 0
     for row in rows:
         resource_id = str(row.get("resource_id") or "")
@@ -253,12 +273,7 @@ async def _rehydrate_domain_advice(host: Any, store: Any) -> int:
 
 
 async def _rehydrate_cross_vertical_completions(host: Any, store: Any) -> int:
-    rows, total = await store.read_state_page(
-        "pantheon/forseti/cross-vertical-completed|",
-        limit=_MAX_RESOURCES,
-    )
-    if total > _MAX_RESOURCES:
-        raise RuntimeError("Forseti completed candidate sets exceed recovery bound")
+    rows = await _read_state_pages(store, "pantheon/forseti/cross-vertical-completed|")
     restored = 0
     for row in rows:
         correlation_id = str(row.get("correlation_id") or "")
@@ -269,14 +284,12 @@ async def _rehydrate_cross_vertical_completions(host: Any, store: Any) -> int:
 
 
 async def _rehydrate_cross_vertical_pending(host: Any, store: Any) -> int:
-    rows, total = await store.read_state_page(
+    rows = await _read_state_pages(
+        store,
         "pantheon/forseti/cross-vertical-pending|",
-        limit=_MAX_RESOURCES,
         field="status",
         value="pending",
     )
-    if total > _MAX_RESOURCES:
-        raise RuntimeError("Forseti pending candidate sets exceed recovery bound")
     restored = 0
     for row in rows:
         correlation_id = str(row.get("correlation_id") or "")
@@ -312,7 +325,10 @@ async def _rehydrate_cross_vertical_pending(host: Any, store: Any) -> int:
                     )
             start_timeout = getattr(host, "_start_cross_vertical_timeout", None)
             if callable(start_timeout):
-                start_timeout(correlation_id)
+                start_timeout(
+                    correlation_id,
+                    delay_seconds=(deadline - host._test_context_clock()).total_seconds(),
+                )
             else:
                 host._cross_vertical_timeout_tasks[correlation_id] = asyncio.create_task(
                     host._expire_cross_vertical_candidates(correlation_id)

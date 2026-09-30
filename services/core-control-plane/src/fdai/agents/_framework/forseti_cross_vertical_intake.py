@@ -18,13 +18,19 @@ from fdai.core.operational_context import SourceFreshness
 class CrossVerticalIntakeHost(Protocol):
     _cross_vertical_candidates: CrossVerticalCandidateAccumulator
     _cross_vertical_timeout_tasks: dict[str, asyncio.Task[None]]
+    _cross_vertical_timeout_deadlines: dict[str, float]
     _pending_arbitration_principals: BoundedLruDict[str, dict[str, str]]
 
     def record_behavior(self, name: str, amount: int = 1) -> None: ...
 
-    def _start_cross_vertical_timeout(self, correlation_id: str) -> None: ...
+    def _start_cross_vertical_timeout(
+        self,
+        correlation_id: str,
+        *,
+        delay_seconds: float | None = None,
+    ) -> None: ...
 
-    async def _cancel_cross_vertical_timeout(self, task: asyncio.Task[None]) -> None: ...
+    async def _cancel_cross_vertical_timeout(self, timeout: str | asyncio.Task[None]) -> None: ...
 
     async def _close_cross_vertical_candidates(self, closures: tuple[Any, ...]) -> None: ...
 
@@ -67,7 +73,7 @@ async def ingest_cross_vertical_candidate_locked(
         return
     if intake.state is CandidateIntakeState.PENDING:
         await _durability.persist_cross_vertical_pending(host, intake.correlation_id)
-        if intake.correlation_id not in host._cross_vertical_timeout_tasks:
+        if intake.correlation_id not in host._cross_vertical_timeout_deadlines:
             host._start_cross_vertical_timeout(intake.correlation_id)
         host.record_behavior("cross_vertical_candidate:pending")
         return
@@ -76,9 +82,7 @@ async def ingest_cross_vertical_candidate_locked(
     if batch is None:  # pragma: no cover - CandidateIntake invariant
         raise RuntimeError("ready cross-vertical candidate intake has no batch")
     await _durability.mark_cross_vertical_completed(host, batch.correlation_id, "ready")
-    timeout_task = host._cross_vertical_timeout_tasks.pop(batch.correlation_id, None)
-    if timeout_task is not None:
-        await host._cancel_cross_vertical_timeout(timeout_task)
+    await host._cancel_cross_vertical_timeout(batch.correlation_id)
     conflicts = conflicting_objective_effects(tuple(batch.evidence_by_domain.values()))
     if not conflicts:
         host.record_behavior("cross_vertical_candidate:no_conflict")
