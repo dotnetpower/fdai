@@ -71,6 +71,9 @@ domain code and assets. It does not create another control plane or move authori
 > workflow text cannot execute ahead of the provenance gate. The verifier also rejects a
 > publication workflow dispatch outside protected `main`.
 > Build-input pull requests retain a separate read-only image build and vulnerability scan.
+> A finding in a transitive dependency is fixed by resolving a patched version in the shared
+> `uv.lock`; `.trivyignore.yaml` stays empty unless a reviewed, time-bound exception records why
+> the affected code is unreachable.
 > Known service source, test, and documentation paths are excluded at the PR trigger, while
 > packaged assets and unknown service inputs remain conservatively selected. A root README-only
 > change is documentation and does not select an image candidate.
