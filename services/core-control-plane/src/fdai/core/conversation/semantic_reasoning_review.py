@@ -73,6 +73,9 @@ class ConstraintRole(StrEnum):
     SUPPOSES = "supposes"
     QUANTIFIES = "quantifies"
     ASKS = "asks"
+    # A word that only restates that a schema thing is declared or has declarations, such as
+    # declared, defined, or have in which LinkTypes Workload has.
+    DECLARES = "declares"
 
 
 _RANKING = frozenset({GoalOperation.RANK, GoalOperation.AGGREGATE})
@@ -334,10 +337,11 @@ def uncovered_constraints(
     supposing = any(
         goal.effective_operation is GoalOperation.IMPACT for form in forms for goal in form.goals
     )
+    unstated = _unstated_roles(forms)
     uncovered: list[ExtractedConstraint] = []
     for item in extraction.constraints:
         # A request word and a word meaning all or every state no restriction to cover.
-        if item.role in _UNSTATED_ROLES or (item.role is ConstraintRole.SUPPOSES and supposing):
+        if item.role in unstated or (item.role is ConstraintRole.SUPPOSES and supposing):
             continue
         # A restriction the extractor isolated inside such a particle, such as only or
         # from, narrows the answer, so the mention it rides on never states it.
@@ -439,7 +443,8 @@ def _merging(
 ) -> dict[str, tuple[tuple[ExtractedConstraint, ...], tuple[ExtractedConstraint, ...]]]:
     """Return, per merging mention id, the constraints it drops and the parts it holds."""
 
-    stated = [item for item in extraction.constraints if item.role not in _UNSTATED_ROLES]
+    unstated = _unstated_roles(forms)
+    stated = [item for item in extraction.constraints if item.role not in unstated]
     merged: dict[str, tuple[tuple[ExtractedConstraint, ...], tuple[ExtractedConstraint, ...]]] = {}
     # A reference's position words, such as second in the second one, are its typed
     # position, not a restriction a concept binding could drop.
@@ -481,6 +486,20 @@ def _merging(
                 tuple(parts[key] for key in sorted(parts)),
             )
     return merged
+
+
+def _unstated_roles(forms: Sequence[SemanticQuestionForm]) -> frozenset[ConstraintRole]:
+    """Return the roles no span needs to state for these forms.
+
+    A word the independent reader says only restates declaration states nothing a schema
+    reading must cover, because the schema level already reads declarations. Beside an
+    instance goal the same word may relate or restrict, so it is then held to coverage.
+    """
+
+    goals = [goal for form in forms for goal in form.goals]
+    if goals and all(goal.level is GoalLevel.SCHEMA for goal in goals):
+        return _UNSTATED_ROLES | {ConstraintRole.DECLARES}
+    return _UNSTATED_ROLES
 
 
 def describe_merged(

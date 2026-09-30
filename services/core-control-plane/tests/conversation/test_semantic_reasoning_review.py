@@ -1201,3 +1201,28 @@ def test_a_list_does_not_answer_a_count_but_a_state_filtered_list_answers_a_stat
 
     assert verdict("count").reasons == ("review_answer_kind:count",)
     assert verdict("list").faithful and verdict("state").faithful
+
+
+def test_a_declaration_word_needs_no_span_only_beside_schema_goals() -> None:
+    utterance = "List the declared ObjectTypes"
+    schema = _typed(_aks_form("List", context=[_quote("the")]), utterance)
+    instance_raw = _aks_form("List", context=[_quote("the")])
+    instance_raw["mentions"][0].update(domain="resource_type", span=_quote("ObjectTypes"))
+    instance_raw["goals"][0].update(level="instance")
+    instance = _typed(instance_raw, utterance)
+
+    def verdict(form: SemanticQuestionForm, role: str) -> FormReview:
+        extraction = {
+            "constraints": [
+                _constraint("List", "asks"),
+                _constraint("declared", role),
+                _constraint("ObjectTypes", "names"),
+            ]
+        }
+        return review_forms((form,), extraction, utterance=utterance)
+
+    # The independent reader says the word only restates declaration, which a schema read is.
+    assert verdict(schema, "declares").faithful
+    # Read as a restriction it still needs a span, and beside an instance goal it always does.
+    assert verdict(schema, "restricts").reasons == ("review_uncovered:restricts:9-17",)
+    assert verdict(instance, "declares").reasons == ("review_uncovered:declares:9-17",)
