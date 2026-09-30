@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -69,12 +70,15 @@ class _Catalog:
 
 
 def _manifest() -> dict[str, object]:
+    # The trigger replays cases dated at reviewed_at through agents that read the wall clock, and
+    # Muninn deletes a case 60 days after that date, so the fixture review is always one day old.
+    reviewed_at = (datetime.now(UTC) - timedelta(days=1)).replace(microsecond=0)
     return {
         "schema_version": "1.0.0",
         "scenario_id": "governed-operational-learning-v2026.08",
         "fdai_revision": _REVISION,
         "scenario_set_version": "v2026.08",
-        "reviewed_at": "2026-08-31T08:00:00Z",
+        "reviewed_at": reviewed_at.isoformat().replace("+00:00", "Z"),
         "action_type": "remediate.tag-add",
         "resource_type": "kubernetes.service",
         "failure_mechanism": "selector_target_mismatch",
