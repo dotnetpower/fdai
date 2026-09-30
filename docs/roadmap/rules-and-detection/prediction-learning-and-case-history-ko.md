@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: b012272eedf4c6d22b8e5f9c20e8db182418dca4
-translation_revised: 2026-09-29
+translation_source_sha: 326ac0ae7dace02fd619280f529215d4d6817c88
+translation_revised: 2026-09-30
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -488,6 +488,7 @@ T1 벡터 정리는 새 보존 정책이 아니라 기존 원본 삭제 의도�
 - Synthetic detector 또는 메트릭 값 없는 액션/인시던트 영속성과 이전 방식 예측 행 호환성
 - Cross-scope 수집 차단 및 시크릿/hidden-reasoning 거부
 - 구독자 동시성, 실패 격리, 소유권 및 중복 전달 안전성
+- 실제 시각 대신 주입된 시계 하나를 읽어 날짜와 무관하게 통과하는 보존 및 재생 회귀 검사
 - 모델 출력이 활성 룰, detector, 승격 또는 액션을 직접 기록할 수 없음
 
 ## 연결 환경 검증 인계

@@ -496,6 +496,8 @@ The implementation must prove:
   forecast rows remain readable;
 - cross-scope retrieval denial and secret/hidden-reasoning rejection;
 - subscriber concurrency, failure isolation, ownership, and duplicate delivery safety;
+- date-independent retention and replay regressions that read one injected clock instead of the
+  wall clock;
 - no model output can write an active rule, detector, promotion, or action directly.
 
 ## Connected validation handoff
