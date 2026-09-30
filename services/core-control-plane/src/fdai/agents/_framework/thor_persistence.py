@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from copy import deepcopy
 from datetime import datetime
@@ -273,11 +274,15 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
         payload["terminal_at"] = host._now().isoformat().replace("+00:00", "Z")
     await host.bus.publish("Thor", "object.action-run", payload)
     if run.state in _TERMINAL_STATES:
-        run.terminal_published = True
-        if host._state_store is not None:
-            await host._state_store.save(run)
-        if not run.resource_claimed:
-            await delete_terminal_state(host, run)
+        await asyncio.shield(_checkpoint_terminal_publication(host, run))
+
+
+async def _checkpoint_terminal_publication(host: ThorPersistenceHost, run: ActionRun) -> None:
+    run.terminal_published = True
+    if host._state_store is not None:
+        await host._state_store.save(run)
+    if not run.resource_claimed:
+        await delete_terminal_state(host, run)
 
 
 async def delete_terminal_state(host: ThorPersistenceHost, run: ActionRun) -> None:
@@ -306,9 +311,10 @@ async def release_resource_claim(host: ThorPersistenceHost, run: ActionRun) -> N
         if not callable(refresh) or not await refresh(run):
             host.record_behavior("execution_resource_claim:refresh_failed")
             return
-        await delete_terminal_state(host, run)
     if await release(str(run.resource_id), run.correlation_id):
         run.resource_claimed = False
+        if run.state in _TERMINAL_STATES and run.terminal_published:
+            await delete_terminal_state(host, run)
     else:
         host.record_behavior("execution_resource_claim:retained")
 

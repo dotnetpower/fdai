@@ -24,6 +24,7 @@ class ExecutionResourceUnavailableError(RuntimeError):
 class ThorExecutionHost(Protocol):
     _executor: Callable[[dict[str, Any]], Awaitable[bool]]
     _executor_timeout_seconds: float
+    _execution_audit_timeout_seconds: float
     _execution_audit_recorder: Callable[[ActionRun], Awaitable[str]] | None
     _require_execution_audit: bool
     _execution_resource_lock: ResourceLock | None
@@ -64,7 +65,16 @@ async def execute(host: ThorExecutionHost, run: ActionRun) -> None:
                 release_run_lock = True
                 return
             try:
-                receipt = await recorder(run)
+                async with asyncio.timeout(host._execution_audit_timeout_seconds):
+                    receipt = await recorder(run)
+            except TimeoutError:
+                run.transition(ActionRunState.DENY_DROPPED)
+                run.outcome = "execution_audit_timeout"
+                await host._emit_action_run(run)
+                await host._release_resource_claim(run)
+                host.record_behavior("execution_audit:timeout")
+                release_run_lock = True
+                return
             except Exception:  # noqa: BLE001 - audit failure blocks executor I/O
                 run.transition(ActionRunState.DENY_DROPPED)
                 run.outcome = "execution_audit_failed"

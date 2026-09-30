@@ -7,6 +7,7 @@ import logging
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 from typing import Any
+from weakref import WeakValueDictionary
 
 from fdai.agents._framework import forseti_durability as _durability
 from fdai.agents._framework.action_semantics import (
@@ -19,7 +20,6 @@ from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.cross_vertical_candidates import (
     INITIAL_VERTICAL_DOMAINS,
     CandidateClosure,
-    CandidateIntakeState,
     CrossVerticalCandidateAccumulator,
 )
 from fdai.agents._framework.forseti_arbitration_contract import (
@@ -33,6 +33,9 @@ from fdai.agents._framework.forseti_arbitration_contract import (
 )
 from fdai.agents._framework.forseti_arbitration_contract import (
     winning_domain_disposition_allows_resolution as _winning_domain_disposition_allows_resolution,
+)
+from fdai.agents._framework.forseti_cross_vertical_intake import (
+    ingest_cross_vertical_candidate_locked,
 )
 from fdai.agents._framework.forseti_decision_helpers import (
     change_assessment_mapping as _change_assessment_mapping,
@@ -48,6 +51,10 @@ from fdai.agents._framework.forseti_decision_helpers import signal_impact as _si
 from fdai.agents._framework.forseti_decision_helpers import source_freshness as _source_freshness
 from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
 from fdai.agents._framework.forseti_learned_outputs import ForsetiLearnedOutputMixin
+from fdai.agents._framework.forseti_timeout_tasks import (
+    cancel_cross_vertical_timeout,
+    start_cross_vertical_timeout,
+)
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.decision_case import (
     DomainDecisionCoordinator,
@@ -88,6 +95,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     _cross_vertical_timeout_seconds: float
     _cross_vertical_candidates: CrossVerticalCandidateAccumulator
     _cross_vertical_timeout_tasks: dict[str, asyncio.Task[None]]
+    _cross_vertical_locks: WeakValueDictionary[str, asyncio.Lock]
     _pending_arbitration_principals: BoundedLruDict[str, dict[str, str]]
     arbitrations: dict[str, str]
     _unresolved_arbitrations: BoundedLruDict[str, dict[str, Any]]
@@ -112,65 +120,34 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         """Join the three owner-authenticated candidates and publish one request."""
 
         correlation_id = str(payload.get("correlation_id") or "")
-        if correlation_id and await _durability.durable_cross_vertical_completed(
-            self, correlation_id
-        ):
-            self._cross_vertical_candidates.mark_completed(correlation_id)
-            self.record_behavior("cross_vertical_candidate:duplicate")
-            return
-        intake = self._cross_vertical_candidates.ingest(topic, payload)
-        if intake.state is CandidateIntakeState.DUPLICATE:
-            self.record_behavior("cross_vertical_candidate:duplicate")
-            return
-        if intake.state is CandidateIntakeState.HIL:
-            for closure in intake.closures:
-                await _durability.mark_cross_vertical_completed(
-                    self, closure.correlation_id, closure.reason
-                )
-            await self._close_cross_vertical_candidates(intake.closures)
-            return
-        if intake.state is CandidateIntakeState.PENDING:
-            await _durability.persist_cross_vertical_pending(self, intake.correlation_id)
-            if intake.correlation_id not in self._cross_vertical_timeout_tasks:
-                self._cross_vertical_timeout_tasks[intake.correlation_id] = asyncio.create_task(
-                    self._expire_cross_vertical_candidates(intake.correlation_id)
-                )
-            self.record_behavior("cross_vertical_candidate:pending")
-            return
+        lock = self._cross_vertical_locks.setdefault(correlation_id, asyncio.Lock())
+        async with lock:
+            await self._ingest_cross_vertical_candidate_locked(topic, payload, correlation_id)
 
-        batch = intake.batch
-        if batch is None:  # pragma: no cover - CandidateIntake invariant
-            raise RuntimeError("ready cross-vertical candidate intake has no batch")
-        await _durability.mark_cross_vertical_completed(self, batch.correlation_id, "ready")
-        timeout_task = self._cross_vertical_timeout_tasks.pop(batch.correlation_id, None)
-        if timeout_task is not None:
-            timeout_task.cancel()
-        conflicts = conflicting_objective_effects(tuple(batch.evidence_by_domain.values()))
-        if not conflicts:
-            self.record_behavior("cross_vertical_candidate:no_conflict")
-            return
-        self._pending_arbitration_principals.set(
-            batch.correlation_id,
-            batch.principals_by_domain,
-        )
-        await self._emit_arbitration_request(
-            resource_id=batch.resource_id,
-            advice=batch.advice,
-            correlation_id=batch.correlation_id,
-            impacts=batch.impacts,
-            observed_at=batch.observed_at,
-            source_freshness=batch.source_freshness,
-            evidence_by_domain=batch.evidence_by_domain,
-            objective_conflicts=conflicts,
-        )
-        self.record_behavior("cross_vertical_candidate:ready")
+    async def _ingest_cross_vertical_candidate_locked(
+        self,
+        topic: str,
+        payload: dict[str, Any],
+        correlation_id: str,
+    ) -> None:
+        await ingest_cross_vertical_candidate_locked(self, topic, payload, correlation_id)
+
+    def _start_cross_vertical_timeout(self, correlation_id: str) -> None:
+        start_cross_vertical_timeout(self, correlation_id)
+
+    async def _cancel_cross_vertical_timeout(self, task: asyncio.Task[None]) -> None:
+        await cancel_cross_vertical_timeout(task)
 
     async def _expire_cross_vertical_candidates(self, correlation_id: str) -> None:
         try:
             await asyncio.sleep(self._cross_vertical_timeout_seconds)
-            closure = self._cross_vertical_candidates.expire(correlation_id)
-            if closure is not None:
-                await self._close_cross_vertical_candidates((closure,))
+            lock = self._cross_vertical_locks.setdefault(correlation_id, asyncio.Lock())
+            async with lock:
+                if await _durability.durable_cross_vertical_completed(self, correlation_id):
+                    return
+                closure = self._cross_vertical_candidates.expire(correlation_id)
+                if closure is not None:
+                    await self._close_cross_vertical_candidates((closure,))
         finally:
             self._cross_vertical_timeout_tasks.pop(correlation_id, None)
 
@@ -185,7 +162,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             )
             current = asyncio.current_task()
             if timeout_task is not None and timeout_task is not current:
-                timeout_task.cancel()
+                await self._cancel_cross_vertical_timeout(timeout_task)
             self._arbitration_resources.set(closure.correlation_id, closure.resource_id)
             await _durability.persist_arbitration_resource(
                 self,

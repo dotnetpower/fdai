@@ -118,6 +118,7 @@ class Vidar(Agent):
         state_store: StateStore | None = None,
         clock: Callable[[], datetime] | None = None,
         claim_lease: timedelta = _DEFAULT_CLAIM_LEASE,
+        rollback_executor_timeout_seconds: float | None = None,
         development_profile: FullAuthorityDevelopmentProfile | None = None,
         development_executor_principal: str | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
@@ -125,6 +126,8 @@ class Vidar(Agent):
     ) -> None:
         if claim_lease <= timedelta(0) or claim_lease > _MAX_CLAIM_LEASE:
             raise ValueError("claim_lease MUST be greater than zero and at most one hour")
+        if rollback_executor_timeout_seconds is not None and rollback_executor_timeout_seconds <= 0:
+            raise ValueError("rollback_executor_timeout_seconds MUST be positive")
         super().__init__(spec=_VIDAR)
         self.bus = bus
         self._executors = dict(executors or {})
@@ -135,8 +138,13 @@ class Vidar(Agent):
         self._development_executor_principal = development_executor_principal
         self._development_binding_source = development_binding_source
         self._claim_lease = claim_lease
+        self._rollback_executor_timeout_seconds = (
+            rollback_executor_timeout_seconds
+            if rollback_executor_timeout_seconds is not None
+            else min(max(claim_lease.total_seconds() / 2, 1.0), 300.0)
+        )
         self._owner_token = uuid4().hex
-        self._rollback_lock = asyncio.Lock()
+        self._rollback_locks: dict[tuple[str, str], asyncio.Lock] = {}
         self.records: list[RollbackRecord] = []
         # Idempotency guard: at-least-once delivery means the same failed
         # ActionRun can arrive twice. Rolling a resource back twice is not a
@@ -148,6 +156,7 @@ class Vidar(Agent):
             self._MAX_RECORDS
         )
         self._published_rollbacks: BoundedLruSet[tuple[str, str]] = BoundedLruSet(self._MAX_RECORDS)
+        self._rollback_publication_claims: set[tuple[str, str]] = set()
         self._process_local_terminal_fences: dict[tuple[str, str], str] = {}
         self._durable_publication_pending = 0
 
@@ -168,7 +177,11 @@ class Vidar(Agent):
             self.record_behavior("rollback:action_identity_mismatch")
 
     async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord | None:
-        async with self._rollback_lock:
+        correlation_id = str(action_run.get("correlation_id", ""))
+        action_run_identity = validate_action_run_identity(action_run)
+        lock_key = (correlation_id, action_run_identity)
+        lock = self._rollback_locks.setdefault(lock_key, asyncio.Lock())
+        async with lock:
             return await self._rollback_locked(action_run)
 
     async def _rollback_locked(self, action_run: dict[str, Any]) -> RollbackRecord | None:
@@ -295,11 +308,32 @@ class Vidar(Agent):
                 },
             )
             if claimed:
-                rec = await self._execute_rollback(
-                    action_run,
-                    correlation_id,
-                    action_run_identity=action_run_identity,
-                )
+                try:
+                    rec = await self._execute_rollback(
+                        action_run,
+                        correlation_id,
+                        action_run_identity=action_run_identity,
+                    )
+                except asyncio.CancelledError:
+                    rec = _execution_unknown_rollback_record(
+                        action_run,
+                        correlation_id,
+                        contract=contract,
+                        action_run_identity=action_run_identity,
+                        notes="rollback execution cancelled before terminal receipt",
+                    )
+                    rec = await asyncio.shield(
+                        self._complete_durable_rollback(
+                            state_key=state_key,
+                            request_digest=request_digest,
+                            rec=rec,
+                            claim_owner_token=self._owner_token,
+                            lease_expires_at=lease_expires_at,
+                        )
+                    )
+                    self._remember_rollback(rec, request_digest=request_digest)
+                    await asyncio.shield(self._publish_rollback_once(rec))
+                    raise
                 rec = await self._complete_durable_rollback(
                     state_key=state_key,
                     request_digest=request_digest,
@@ -428,7 +462,11 @@ class Vidar(Agent):
             notes = "rollback refused because correlation_id is empty"
         elif executor is not None:
             try:
-                returned_ref = await executor(_rollback_command(action_run, contract=contract))
+                async with asyncio.timeout(self._rollback_executor_timeout_seconds):
+                    returned_ref = await executor(_rollback_command(action_run, contract=contract))
+            except TimeoutError:
+                state = "execution_unknown"
+                notes = "rollback executor timed out before terminal receipt"
             except Exception as exc:  # noqa: BLE001 - provider boundary; fail closed
                 notes = f"rollback executor raised {type(exc).__name__}"
             else:
@@ -482,17 +520,59 @@ class Vidar(Agent):
             del self.records[:keep_from]
 
     async def _publish_rollback_once(self, rec: RollbackRecord) -> bool:
-        if rec.correlation_id and await self._rollback_was_published(
-            rec.correlation_id,
-            rec.action_run_identity,
-        ):
+        if self.bus is None:
+            return await self._publish_rollback(rec)
+        if rec.correlation_id and not await self._claim_rollback_publication(rec):
             self.record_behavior("rollback:duplicate_publication")
             return False
-        published = await self._publish_rollback(rec)
+        try:
+            published = await self._publish_rollback(rec)
+        except BaseException:
+            if rec.correlation_id:
+                self._rollback_publication_claims.discard(
+                    (rec.correlation_id, rec.action_run_identity)
+                )
+            raise
         if not published:
+            if rec.correlation_id:
+                self._rollback_publication_claims.discard(
+                    (rec.correlation_id, rec.action_run_identity)
+                )
             return False
         if rec.correlation_id:
             await self._mark_rollback_published(rec)
+            self._published_rollbacks.add((rec.correlation_id, rec.action_run_identity))
+            self._rollback_publication_claims.discard((rec.correlation_id, rec.action_run_identity))
+        return True
+
+    async def _claim_rollback_publication(self, rec: RollbackRecord) -> bool:
+        cache_key = (rec.correlation_id, rec.action_run_identity)
+        if cache_key in self._published_rollbacks or cache_key in self._rollback_publication_claims:
+            return False
+        receipt = {
+            "correlation_id": rec.correlation_id,
+            "action_run_identity": rec.action_run_identity,
+            "idempotency_key": _rollback_idempotency_key(rec),
+            "state": rec.state,
+            "status": "publishing",
+            "owner_token": self._owner_token,
+        }
+        if self._state_store is not None:
+            key = _rollback_state_key(
+                rec.correlation_id,
+                "published",
+                rec.action_run_identity,
+            )
+            created = await self._state_store.write_state_if_absent(key, receipt)
+            if not created:
+                stored = await self._state_store.read_state(key)
+                published_receipt = {**receipt, "status": "published"}
+                if stored == published_receipt:
+                    self._published_rollbacks.add(cache_key)
+                    return False
+                if stored != receipt:
+                    raise RuntimeError("rollback publication receipt collision")
+        self._rollback_publication_claims.add(cache_key)
         return True
 
     async def recover_rollbacks(self) -> int:
@@ -543,6 +623,8 @@ class Vidar(Agent):
             or stored.get("action_run_identity") != action_run_identity
         ):
             raise RuntimeError("rollback publication receipt has conflicting identity")
+        if stored.get("status") != "published":
+            return False
         self._published_rollbacks.add(cache_key)
         return True
 
@@ -552,6 +634,8 @@ class Vidar(Agent):
             "action_run_identity": rec.action_run_identity,
             "idempotency_key": _rollback_idempotency_key(rec),
             "state": rec.state,
+            "status": "published",
+            "owner_token": self._owner_token,
         }
         if self._state_store is not None:
             key = _rollback_state_key(
@@ -562,7 +646,10 @@ class Vidar(Agent):
             created = await self._state_store.write_state_if_absent(key, receipt)
             if not created:
                 stored = await self._state_store.read_state(key)
-                if stored != receipt:
+                publishing_receipt = {**receipt, "status": "publishing"}
+                if stored == publishing_receipt:
+                    await self._state_store.write_state(key, receipt)
+                elif stored != receipt:
                     raise RuntimeError("rollback publication receipt collision")
         self._published_rollbacks.add((rec.correlation_id, rec.action_run_identity))
 
@@ -774,6 +861,25 @@ def _rollback_record_state(
         "notes": rec.notes,
         "rollback_ref": rec.rollback_ref,
     }
+
+
+def _execution_unknown_rollback_record(
+    action_run: Mapping[str, Any],
+    correlation_id: str,
+    *,
+    contract: str,
+    action_run_identity: str,
+    notes: str,
+) -> RollbackRecord:
+    return RollbackRecord(
+        correlation_id=correlation_id,
+        action_run_identity=action_run_identity,
+        action_type=str(action_run.get("action_type", "")),
+        resource_id=_resource_id(action_run),
+        contract=contract,
+        state="execution_unknown",
+        notes=notes,
+    )
 
 
 def _validate_rollback_state_identity(

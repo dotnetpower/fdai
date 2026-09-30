@@ -140,6 +140,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         require_execution_audit: bool = False,
         hil_timeout_seconds: int = 3_600,
         executor_timeout_seconds: float = 300.0,
+        execution_audit_timeout_seconds: float = 30.0,
         clock: Callable[[], datetime] | None = None,
         execution_resource_lock: ResourceLock | None = None,
         require_execution_resource_lock: bool = False,
@@ -151,6 +152,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             raise ValueError("hil_timeout_seconds MUST be a positive integer")
         if executor_timeout_seconds <= 0:
             raise ValueError("executor_timeout_seconds MUST be > 0")
+        if execution_audit_timeout_seconds <= 0:
+            raise ValueError("execution_audit_timeout_seconds MUST be > 0")
         super().__init__(spec=_THOR)
         self.bus = bus
         self._executor = executor or _default_executor
@@ -163,6 +166,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self._require_execution_audit = require_execution_audit or development_profile is not None
         self._hil_timeout_seconds = hil_timeout_seconds
         self._executor_timeout_seconds = executor_timeout_seconds
+        self._execution_audit_timeout_seconds = execution_audit_timeout_seconds
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._execution_resource_lock = execution_resource_lock
         self._require_execution_resource_lock = (
@@ -322,10 +326,25 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                     asyncio.Lock(),
                 )
                 async with resource_lock:
-                    return await self._dispatch_verdict_once(verdict)
-            return await self._dispatch_verdict_once(verdict)
+                    run = await self._dispatch_verdict_once(
+                        verdict,
+                        defer_auto_execution=True,
+                    )
+            else:
+                run = await self._dispatch_verdict_once(
+                    verdict,
+                    defer_auto_execution=True,
+                )
+        if run.verdict == "auto" and run.state is ActionRunState.VERDICTED:
+            await self._execute(run)
+        return run
 
-    async def _dispatch_verdict_once(self, verdict: dict[str, Any]) -> ActionRun:
+    async def _dispatch_verdict_once(
+        self,
+        verdict: dict[str, Any],
+        *,
+        defer_auto_execution: bool = False,
+    ) -> ActionRun:
         correlation = str(verdict.get("correlation_id", ""))
         action_type = str(verdict.get("action_type", ""))
         risk_verdict = str(verdict.get("risk_verdict", "hil"))
@@ -631,6 +650,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 return run
 
             # auto path (releases the lock via _execute's own finally)
+            if defer_auto_execution:
+                return run
             await self._execute(run)
             return run
         except Exception:
@@ -702,18 +723,20 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         correlation = str(approval.get("correlation_id", ""))
         lock = self._correlation_locks.setdefault(correlation, _ReentrantAsyncLock())
         async with lock:
-            await self._handle_approval_locked(approval, correlation=correlation)
+            run_to_execute = await self._handle_approval_locked(approval, correlation=correlation)
+        if run_to_execute is not None:
+            await self._execute(run_to_execute)
 
     async def _handle_approval_locked(
         self,
         approval: dict[str, Any],
         *,
         correlation: str,
-    ) -> None:
+    ) -> ActionRun | None:
         run = self.action_runs.get(correlation)
         if run is None:
             self.record_behavior("approval:unknown_run")
-            return
+            return None
         if not approval_matches_action_run(approval, run.to_dict()):
             self.record_behavior("approval:identity_mismatch")
             raise ValueError("approval identity does not match the current ActionRun")
@@ -728,33 +751,33 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         if run.state != ActionRunState.HIL_PENDING:
             self.record_behavior("approval:duplicate")
             if run.state is ActionRunState.APPROVED:
-                await self._execute(run)
-                return
+                return run
             if run.state in _TERMINAL_STATES and not run.terminal_published:
                 await self._emit_action_run(run)
                 await self._finalize_terminal_replay(run)
             elif run.state in _TERMINAL_STATES:
                 await self._finalize_terminal_replay(run)
-            return
+            return None
         if run.approval_expires_at is None or self._now() >= run.approval_expires_at:
             await self._expire_approval(run)
-            return
+            return None
         if approval.get("state") == "approved":
             run.transition(ActionRunState.APPROVED)
-            await self._execute(run)
+            return run
         else:
             if not run.resource_claimed and not await self._claim_execution_resource(run):
                 run.transition(ActionRunState.DENY_DROPPED)
                 run.outcome = "duplicate_execution_already_completed"
                 await self._emit_action_run(run)
                 self._release_lock(run.resource_id)
-                return
+                return None
             try:
                 run.transition(ActionRunState.REJECTED)
                 await self._emit_action_run(run)
                 await self._release_resource_claim(run)
             finally:
                 self._release_lock(run.resource_id)
+        return None
 
     async def expire_pending_approvals(self) -> int:
         """Expire HIL runs whose bounded approval window has elapsed."""
@@ -778,6 +801,9 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         return len(expired)
 
     async def _expire_approval(self, run: ActionRun) -> None:
+        await asyncio.shield(self._expire_approval_critical(run))
+
+    async def _expire_approval_critical(self, run: ActionRun) -> None:
         if not run.resource_claimed and not await self._claim_execution_resource(run):
             run.transition(ActionRunState.DENY_DROPPED)
             run.outcome = "duplicate_execution_already_completed"

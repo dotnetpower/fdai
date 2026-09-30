@@ -1000,12 +1000,23 @@ def test_concurrent_new_correlations_cannot_bypass_terminal_resource_fence() -> 
 
     first_run, second_run = asyncio.run(_run())
 
-    assert calls == 2
+    assert calls == 1
     assert max_active == 1
     assert {first_run.correlation_id, second_run.correlation_id} == {
         "new-correlation-1",
         "new-correlation-2",
     }
+    states = {
+        first_run.correlation_id: first_run.state,
+        second_run.correlation_id: second_run.state,
+    }
+    outcomes = {
+        first_run.correlation_id: first_run.outcome,
+        second_run.correlation_id: second_run.outcome,
+    }
+    assert ActionRunState.SUCCEEDED in states.values()
+    assert ActionRunState.DENY_DROPPED in states.values()
+    assert "resource_active_action_run_contention" in outcomes.values()
 
 
 def test_statestore_action_run_store_round_trip() -> None:

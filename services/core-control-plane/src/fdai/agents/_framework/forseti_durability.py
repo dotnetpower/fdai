@@ -45,11 +45,14 @@ async def persist_cross_vertical_pending(host: Any, correlation_id: str) -> None
     store = host._forseti_state_store
     if store is None or not correlation_id:
         return
+    key = f"pantheon/forseti/cross-vertical-pending|{correlation_id}"
+    if await store.read_state(key) is not None:
+        return
     payloads = host._cross_vertical_candidates.pending_payloads(correlation_id)
     if not payloads:
         return
-    await store.write_state(
-        f"pantheon/forseti/cross-vertical-pending|{correlation_id}",
+    await store.write_state_if_absent(
+        key,
         {
             "kind": "cross_vertical_pending",
             "status": "pending",
@@ -307,8 +310,12 @@ async def _rehydrate_cross_vertical_pending(host: Any, store: Any) -> int:
                         str(raw.get("topic") or ""),
                         dict(raw),
                     )
-            host._cross_vertical_timeout_tasks[correlation_id] = asyncio.create_task(
-                host._expire_cross_vertical_candidates(correlation_id)
-            )
+            start_timeout = getattr(host, "_start_cross_vertical_timeout", None)
+            if callable(start_timeout):
+                start_timeout(correlation_id)
+            else:
+                host._cross_vertical_timeout_tasks[correlation_id] = asyncio.create_task(
+                    host._expire_cross_vertical_candidates(correlation_id)
+                )
             restored += 1
     return restored

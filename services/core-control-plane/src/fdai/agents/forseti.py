@@ -10,6 +10,7 @@ import logging
 from collections.abc import Callable, Iterable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from weakref import WeakValueDictionary
 
 from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
 
@@ -149,6 +150,8 @@ class Forseti(
         architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
         agent_availability: Callable[[], Iterable[str]] | None = None,
         cross_vertical_timeout_seconds: float = 30.0,
+        architecture_review_timeout_seconds: float = 30.0,
+        change_assessment_timeout_seconds: float = 30.0,
         anomaly_action_sources: Mapping[str, AnomalyActionSource] | None = None,
         development_profile: FullAuthorityDevelopmentProfile | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
@@ -160,6 +163,10 @@ class Forseti(
     ) -> None:
         if cross_vertical_timeout_seconds <= 0.0 or cross_vertical_timeout_seconds > 300.0:
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
+        if architecture_review_timeout_seconds <= 0.0:
+            raise ValueError("architecture_review_timeout_seconds MUST be positive")
+        if change_assessment_timeout_seconds <= 0.0:
+            raise ValueError("change_assessment_timeout_seconds MUST be positive")
         if rule_staleness_window <= timedelta(0):
             raise ValueError("rule_staleness_window MUST be positive")
         super().__init__(spec=_FORSETI)
@@ -200,6 +207,8 @@ class Forseti(
         ):
             raise ValueError("anomaly action bindings must contain bounded exact signal names")
         self._architecture_review_loop = architecture_review_loop
+        self._architecture_review_timeout_seconds = architecture_review_timeout_seconds
+        self._change_assessment_timeout_seconds = change_assessment_timeout_seconds
         # Optional runtime probe; an absent probe never invents agent unavailability.
         self._agent_availability = agent_availability
         self._cross_vertical_timeout_seconds = cross_vertical_timeout_seconds
@@ -207,6 +216,7 @@ class Forseti(
             max_pending=_MAX_RESOURCES
         )
         self._cross_vertical_timeout_tasks: dict[str, asyncio.Task[None]] = {}
+        self._cross_vertical_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
         self._pending_arbitration_principals: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
             _MAX_RESOURCES
         )
@@ -365,7 +375,24 @@ class Forseti(
             self.record_behavior("architecture_review:unbound")
             return
         try:
-            observation = await self._architecture_review_loop.evaluate(payload)
+            async with asyncio.timeout(self._architecture_review_timeout_seconds):
+                observation = await self._architecture_review_loop.evaluate(payload)
+        except TimeoutError:
+            self.record_behavior("architecture_review:timeout")
+            change_id = str(payload.get("id") or payload.get("event_id") or "unknown")
+            correlation_id = str(
+                payload.get("correlation_id") or f"architecture-review:{change_id}"
+            )
+            observation = ArchitectureReviewObservation.hold(
+                change_id=change_id,
+                idempotency_key=str(
+                    payload.get("idempotency_key") or f"architecture-review-timeout:{change_id}"
+                ),
+                correlation_id=correlation_id,
+                target_ref=str(payload.get("target_ref") or "unknown"),
+                change_digest="unknown",
+                reason="observation_review_timeout",
+            )
         except Exception as exc:  # noqa: BLE001 - fail closed and audit the hold
             self.record_behavior("architecture_review:failed")
             observation = ArchitectureReviewObservation.hold(
@@ -393,11 +420,18 @@ class Forseti(
             self.record_behavior("change_assessment:unavailable")
             return
         try:
-            graph_evidence = await self._planned_change_graph_evidence(change)
-            assessment = await self._change_assessor.assess(
-                change,
-                graph_evidence=graph_evidence,
-            )
+            async with asyncio.timeout(self._change_assessment_timeout_seconds):
+                graph_evidence = await self._planned_change_graph_evidence(change)
+            async with asyncio.timeout(self._change_assessment_timeout_seconds):
+                assessment = await self._change_assessor.assess(
+                    change,
+                    graph_evidence=graph_evidence,
+                )
+        except TimeoutError:
+            event["change_assessment_status"] = "failed"
+            event["human_approval_required"] = True
+            self.record_behavior("change_assessment:timeout")
+            return
         except Exception:  # noqa: BLE001 - missing impact evidence lowers authority
             event["change_assessment_status"] = "failed"
             event["human_approval_required"] = True

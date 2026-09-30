@@ -164,9 +164,9 @@ class ThorEffectVerificationMixin:
         run.outcome = "independent_effect_verified"
         if run.state is ActionRunState.EXECUTION_UNKNOWN:
             run.transition(ActionRunState.SUCCEEDED)
+        self.record_behavior("execution:independent_effect_verified")
         await self._emit_action_run(run)
         await self._finalize_terminal_replay(run)
-        self.record_behavior("execution:independent_effect_verified")
 
 
 __all__ = [
