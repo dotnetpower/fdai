@@ -1,7 +1,6 @@
-"""Durable pending-work journal for Mimir operational catalog reviews."""
-
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 from collections.abc import Mapping
 from typing import Any
@@ -16,9 +15,7 @@ from fdai.agents._framework.mimir_catalog_identity import (
     state_key,
     validate_identity,
 )
-from fdai.agents._framework.mimir_catalog_identity import (
-    idempotency_key as journal_idempotency_key,
-)
+from fdai.agents._framework.mimir_catalog_identity import idempotency_key as journal_idempotency_key
 from fdai.agents._framework.mimir_governance_state import (
     CatalogReviewCapacityError,
     CatalogReviewPublicationError,
@@ -266,7 +263,7 @@ class MimirCatalogReviewJournal:
             "reason": reason,
             **({"review_ref": review_ref} if review_ref is not None else {}),
         }
-        await store.compare_and_set_state_with_audit(
+        if not await store.compare_and_set_state_with_audit(
             key,
             terminal,
             expected_revision=revision,
@@ -279,7 +276,8 @@ class MimirCatalogReviewJournal:
                 "reason": reason,
                 "grants_authority": False,
             },
-        )
+        ):
+            raise RuntimeError("Mimir catalog review terminal CAS failed")
         readback = await store.read_state(key)
         if readback != terminal:
             raise RuntimeError("Mimir catalog review terminal readback failed")
@@ -293,15 +291,10 @@ class MimirCatalogReviewMixin:
     _catalog_review_publisher: CatalogReviewPublisher | None
     _guard: CandidateGuard
     _investigation_candidates: BoundedLruDict[str, str]
-    _max_pending_candidates: int
-    _max_review_packages: int
     _package_by_idempotency: dict[str, str]
     _pending_candidates: deque[dict[str, Any]]
     _published_operational_targets: BoundedLruSet[str]
-    _published_reviews: BoundedLruDict[
-        str,
-        tuple[str, str, CatalogReviewPublicationReceipt],
-    ]
+    _published_reviews: BoundedLruDict[str, tuple[str, str, CatalogReviewPublicationReceipt]]
     _quarantined_candidates: deque[dict[str, Any]]
 
     async def _require_current_candidate_cases(self, candidate: dict[str, Any]) -> None:
@@ -622,6 +615,17 @@ class MimirCatalogReviewMixin:
                 package_digest=package.content_digest,
             )
             raise ValueError("catalog review publication receipt digest conflict")
+        mark_task = asyncio.gather(
+            *(
+                self._catalog_review_journal.mark_published(completed_candidate, package, receipt)
+                for completed_candidate in self._package_candidates(candidate, package)
+            )
+        )
+        try:
+            await asyncio.shield(mark_task)
+        except asyncio.CancelledError:
+            await mark_task
+            raise
         await self._audit_outcome(
             candidate,
             outcome="published",
@@ -630,8 +634,6 @@ class MimirCatalogReviewMixin:
             package_digest=package.content_digest,
             review_ref=receipt.review_ref,
         )
-        for completed_candidate in self._package_candidates(candidate, package):
-            await self._catalog_review_journal.mark_published(completed_candidate, package, receipt)
         self._complete_publication(candidate, package, receipt)
 
     async def _invalidate_package(

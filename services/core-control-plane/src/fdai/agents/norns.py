@@ -102,6 +102,7 @@ from fdai.shared.providers.state_store import StateStore
 _MAX_TRACKED = 50_000
 _MAX_PENDING_CANDIDATES = 5_000
 _LEARNING_STATE_KEY = "pantheon/norns/learning-state"
+_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 
 
 class NornsCapacityError(RuntimeError):
@@ -134,6 +135,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         operational_case_max_age: timedelta = timedelta(days=90),
         clock: Callable[[], datetime] | None = None,
+        provider_timeout_seconds: float = _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
     ) -> None:  # Fail fast on misconfiguration: a non-positive threshold or a
         # rate outside [0, 1] would make the learner propose on thin or
         # impossible evidence (e.g. min_outcome_samples=0 fires on a single
@@ -154,6 +156,8 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             raise ValueError("max_pending_candidates MUST be >= 1")
         if operational_case_max_age <= timedelta(0):
             raise ValueError("operational_case_max_age MUST be positive")
+        if provider_timeout_seconds <= 0:
+            raise ValueError("Norns provider timeout MUST be positive")
         super().__init__(spec=_NORNS)
         self._proposal_queue_managed_externally = True
         self._fingerprint_counter: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
@@ -175,6 +179,8 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         )
         self._investigation_strategy_candidate_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._learning_lock = asyncio.Lock()
+        self._forecast_analysis_lock = asyncio.Lock()
+        self._provider_timeout_seconds = provider_timeout_seconds
         self._consensus = NornsConsensus()
         self._consensus_holds: deque[dict[str, object]] = deque(maxlen=1_000)
         # Outcome-threshold learner state.
@@ -253,6 +259,15 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         if topic == "object.post-turn-review":
             await self._observe_post_turn_review(payload)
             return
+        if topic == "object.context-index" and payload.get("kind") == "forecast_case_history":
+            if await self._handover_message(topic, payload):
+                return
+            await self._ensure_learning_state()
+            await self._observe_forecast_case(payload)
+            async with self._learning_lock:
+                await self._persist_learning_state()
+                await self._flush_candidates_unlocked()
+            return
         async with self._learning_lock:
             if await self._handover_message(topic, payload):
                 return
@@ -276,7 +291,13 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             self._observe_approval(payload)
         elif topic == "object.context-index":
             if payload.get("kind") == "operational_case_fingerprint_cohort":
-                if await operational_case_cohort_is_current(self, payload):
+                try:
+                    async with asyncio.timeout(self._provider_timeout_seconds):
+                        cohort_current = await operational_case_cohort_is_current(self, payload)
+                except TimeoutError:
+                    cohort_current = False
+                    self.record_behavior("operational_case_cohort_source_timeout")
+                if cohort_current:
                     operational_pattern_id = observe_operational_case_cohort(self, payload)
                     if operational_pattern_id is not None:
                         await self.retain_operational_candidate(operational_pattern_id)
@@ -387,10 +408,6 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         if not all((case_id, revision, manifest_digest, detector_id, metric, case_ref)):
             self.record_behavior("forecast_case:invalid")
             return
-        if dedup_key in self._counted_case_revisions:
-            self.record_behavior("forecast_case:duplicate")
-            return
-        self._counted_case_revisions.add(dedup_key)
         if label not in {
             "false_positive",
             "false_negative",
@@ -401,18 +418,27 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             return
         fingerprint = hashlib.sha256(f"{detector_id}\0{metric}".encode()).hexdigest()
         count = (self._forecast_error_counts.get(fingerprint) or 0) + 1
-        self._forecast_error_counts.set(fingerprint, count)
-        self.record_behavior(f"forecast_case:{label}")
         if count < self._forecast_error_threshold:
+            async with self._learning_lock:
+                if dedup_key in self._counted_case_revisions:
+                    self.record_behavior("forecast_case:duplicate")
+                    return
+                self._counted_case_revisions.add(dedup_key)
+                self._forecast_error_counts.set(fingerprint, count)
+                self.record_behavior(f"forecast_case:{label}")
             self.record_behavior("forecast_case:collecting")
             return
         if fingerprint in self._forecast_error_proposed:
             self.record_behavior("forecast_case:already_proposed")
             return
-        self._forecast_error_proposed.add(fingerprint)
         if self._case_history_analyzer is not None:
             try:
-                hint = await self._case_history_analyzer.analyze(payload)
+                async with self._forecast_analysis_lock:
+                    async with asyncio.timeout(self._provider_timeout_seconds):
+                        hint = await self._case_history_analyzer.analyze(payload)
+            except TimeoutError:
+                hint = None
+                self.record_behavior("forecast_case:analysis_timeout")
             except Exception:  # noqa: BLE001 - optional off-path analysis fails closed
                 hint = None
                 self.record_behavior("forecast_case:analysis_failed")
@@ -420,51 +446,67 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                 self.record_behavior("forecast_case:analysis_invalid")
                 hint = None
             if isinstance(hint, RuleCandidateHint):
-                self._append_candidate(
-                    {
-                        "source_signal": "forecast_case_history_analysis",
-                        "evidence": {
-                            "evidence_refs": list(hint.evidence_refs),
-                            "pattern_digest": hashlib.sha256(hint.pattern.encode()).hexdigest(),
-                            "confidence": hint.confidence,
-                            "occurrence_count": count,
-                        },
-                        "provenance": {
-                            "source": "case-history-analysis",
-                            "case_id": case_id,
-                            "revision": revision,
-                            "manifest_digest": manifest_digest,
-                        },
-                        "proposed_by": "Norns",
-                        "proposal_kind": hint.proposal_kind,
-                        "target_rule_id": hint.target_ref,
-                        "suggested_pattern": hint.pattern,
-                    }
-                )
+                async with self._learning_lock:
+                    if dedup_key in self._counted_case_revisions:
+                        self.record_behavior("forecast_case:duplicate")
+                        return
+                    self._counted_case_revisions.add(dedup_key)
+                    self._forecast_error_counts.set(fingerprint, count)
+                    self._forecast_error_proposed.add(fingerprint)
+                    self.record_behavior(f"forecast_case:{label}")
+                    self._append_candidate(
+                        {
+                            "source_signal": "forecast_case_history_analysis",
+                            "evidence": {
+                                "evidence_refs": list(hint.evidence_refs),
+                                "pattern_digest": hashlib.sha256(hint.pattern.encode()).hexdigest(),
+                                "confidence": hint.confidence,
+                                "occurrence_count": count,
+                            },
+                            "provenance": {
+                                "source": "case-history-analysis",
+                                "case_id": case_id,
+                                "revision": revision,
+                                "manifest_digest": manifest_digest,
+                            },
+                            "proposed_by": "Norns",
+                            "proposal_kind": hint.proposal_kind,
+                            "target_rule_id": hint.target_ref,
+                            "suggested_pattern": hint.pattern,
+                        }
+                    )
                 return
-        self._append_candidate(
-            {
-                "source_signal": "forecast_case_history",
-                "evidence": {
-                    "detector_id": detector_id,
-                    "metric": metric,
-                    "latest_label": label,
-                    "occurrence_count": count,
-                    "case_ref": case_ref,
-                    "manifest_digest": manifest_digest,
-                },
-                "provenance": {
-                    "source": "case-history",
-                    "case_id": case_id,
-                    "revision": revision,
-                    "manifest_digest": manifest_digest,
-                },
-                "proposed_by": "Norns",
-                "proposal_kind": "threshold_adjustment",
-                "suggested_change": "review_forecast_detector",
-                "target_rule_id": detector_id,
-            }
-        )
+        async with self._learning_lock:
+            if dedup_key in self._counted_case_revisions:
+                self.record_behavior("forecast_case:duplicate")
+                return
+            self._counted_case_revisions.add(dedup_key)
+            self._forecast_error_counts.set(fingerprint, count)
+            self._forecast_error_proposed.add(fingerprint)
+            self.record_behavior(f"forecast_case:{label}")
+            self._append_candidate(
+                {
+                    "source_signal": "forecast_case_history",
+                    "evidence": {
+                        "detector_id": detector_id,
+                        "metric": metric,
+                        "latest_label": label,
+                        "occurrence_count": count,
+                        "case_ref": case_ref,
+                        "manifest_digest": manifest_digest,
+                    },
+                    "provenance": {
+                        "source": "case-history",
+                        "case_id": case_id,
+                        "revision": revision,
+                        "manifest_digest": manifest_digest,
+                    },
+                    "proposed_by": "Norns",
+                    "proposal_kind": "threshold_adjustment",
+                    "suggested_change": "review_forecast_detector",
+                    "target_rule_id": detector_id,
+                }
+            )
 
     async def _observe_post_turn_review(self, payload: dict[str, Any]) -> None:
         if payload.get("kind") != "post_turn_review":

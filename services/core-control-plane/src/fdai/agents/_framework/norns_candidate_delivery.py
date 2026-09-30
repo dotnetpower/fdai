@@ -24,6 +24,7 @@ _TERMINAL = frozenset({"held", "invalidated", "published"})
 _MAX_EMPTY_RECOVERY_PAGES = 16
 _MAX_SOURCE_SCRUB_RECORDS = 50_000
 _RECOVERY_BUDGET_SECONDS = 5.0
+_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 
 
 class _IssueDeduplicator(Protocol):
@@ -146,7 +147,7 @@ class NornsOperationalCandidateJournal:
             "revision": revision + 1,
             "pattern_published": True,
         }
-        await store.compare_and_set_state_with_audit(
+        if not await store.compare_and_set_state_with_audit(
             key,
             updated,
             expected_revision=revision,
@@ -158,7 +159,8 @@ class NornsOperationalCandidateJournal:
                 "pattern_digest": current["pattern_digest"],
                 "grants_authority": False,
             },
-        )
+        ):
+            raise RuntimeError("Norns operational Pattern checkpoint CAS failed")
         if await store.read_state(key) != updated:
             raise RuntimeError("Norns operational Pattern checkpoint readback failed")
 
@@ -193,7 +195,7 @@ class NornsOperationalCandidateJournal:
             "pattern_digest": pattern_digest,
             "reason": reason,
         }
-        await store.compare_and_set_state_with_audit(
+        if not await store.compare_and_set_state_with_audit(
             key,
             terminal,
             expected_revision=revision,
@@ -206,7 +208,8 @@ class NornsOperationalCandidateJournal:
                 "reason": reason,
                 "grants_authority": False,
             },
-        )
+        ):
+            raise RuntimeError("Norns operational candidate terminal CAS failed")
         if await store.read_state(key) != terminal:
             raise RuntimeError("Norns operational candidate terminal readback failed")
 
@@ -228,6 +231,7 @@ class NornsCandidateDeliveryMixin:
     _operational_journal: NornsOperationalCandidateJournal
     _pattern_publications: dict[str, dict[str, Any]]
     _published_pattern_ids: set[str]
+    _provider_timeout_seconds: float
     _shadow_dwell: ShadowDwellLedger
     bus: Any
     spec: Any
@@ -275,7 +279,7 @@ class NornsCandidateDeliveryMixin:
                 pattern_id = _pattern_id(candidate, pattern)
                 if pattern_id in self._operating_pattern_ids:
                     continue
-                if not await operational_candidate_cases_are_current(self, candidate):
+                if not await self._operational_candidate_cases_are_current(candidate):
                     await self._operational_journal.mark_terminal(
                         candidate=candidate,
                         pattern=pattern,
@@ -346,7 +350,7 @@ class NornsCandidateDeliveryMixin:
             candidate = self.pending_candidates[self._flush_cursor]
             pattern_id = str(candidate.get("suggested_pattern", ""))
             pattern = self._pattern_publications.get(pattern_id)
-            if not await operational_candidate_cases_are_current(self, candidate):
+            if not await self._operational_candidate_cases_are_current(candidate):
                 if pattern is not None:
                     await self._operational_journal.mark_terminal(
                         candidate=candidate,
@@ -392,12 +396,19 @@ class NornsCandidateDeliveryMixin:
             if dwell is not None:
                 payload["shadow_dwell"] = dwell.to_mapping()
             if pattern is not None and pattern_id not in self._published_pattern_ids:
-                await self._operational_journal.mark_pattern_published(
-                    candidate=candidate,
-                    pattern=pattern,
-                )
                 if not await self._publish_proposal("object.pattern", pattern):
                     break
+                mark_task = asyncio.create_task(
+                    self._operational_journal.mark_pattern_published(
+                        candidate=candidate,
+                        pattern=pattern,
+                    )
+                )
+                try:
+                    await asyncio.shield(mark_task)
+                except asyncio.CancelledError:
+                    await mark_task
+                    raise
                 self._published_pattern_ids.add(pattern_id)
             if not await self._publish_rule_candidate(candidate, pattern, payload):
                 break
@@ -426,19 +437,26 @@ class NornsCandidateDeliveryMixin:
         if not self._proposal_rate_limiter().allow():
             self.record_behavior("rate_limit_exceeded")
             return False
-        await self._operational_journal.mark_terminal(
-            candidate=candidate,
-            pattern=pattern,
-            status="published",
-            reason="candidate_published",
-        )
         await self.bus.publish(self.spec.name, "object.rule-candidate", payload)
+        mark_task = asyncio.create_task(
+            self._operational_journal.mark_terminal(
+                candidate=candidate,
+                pattern=pattern,
+                status="published",
+                reason="candidate_published",
+            )
+        )
+        try:
+            await asyncio.shield(mark_task)
+        except asyncio.CancelledError:
+            await mark_task
+            raise
         return True
 
     async def _scrub_source_invalidated_candidates(self) -> None:
         retained: list[dict[str, Any]] = []
         for candidate in self.pending_candidates:
-            if await operational_candidate_cases_are_current(self, candidate):
+            if await self._operational_candidate_cases_are_current(candidate):
                 retained.append(candidate)
                 continue
             pattern_id = str(candidate.get("suggested_pattern", ""))
@@ -466,7 +484,7 @@ class NornsCandidateDeliveryMixin:
                 offset=offset,
             )
             for candidate, pattern, _pattern_published in rows:
-                if await operational_candidate_cases_are_current(self, candidate):
+                if await self._operational_candidate_cases_are_current(candidate):
                     continue
                 await self._operational_journal.mark_terminal(
                     candidate=candidate,
@@ -480,6 +498,19 @@ class NornsCandidateDeliveryMixin:
 
     async def _publish_proposal(self, topic: str, payload: dict[str, Any]) -> bool:
         raise NotImplementedError
+
+    async def _operational_candidate_cases_are_current(
+        self,
+        candidate: Mapping[str, Any],
+    ) -> bool:
+        try:
+            async with asyncio.timeout(
+                getattr(self, "_provider_timeout_seconds", _DEFAULT_PROVIDER_TIMEOUT_SECONDS)
+            ):
+                return await operational_candidate_cases_are_current(self, candidate)
+        except TimeoutError:
+            self.record_behavior("operational_case_candidate_source_timeout")
+            return False
 
     def _ensure_pending_capacity(self) -> None:
         raise NotImplementedError

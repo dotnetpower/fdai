@@ -83,6 +83,7 @@ _MAX_OPERATING_PATTERN_CASES = 100
 _MAX_CONVERSATION_PROJECTIONS = 50_000
 _PROJECTION_PREFIX = "pantheon/muninn/conversation-projections"
 _OPERATIONAL_OUTBOX_PREFIX = "pantheon/muninn/operational-outbox"
+_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 
 
 class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
@@ -100,9 +101,12 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         case_deletion_days: int = 60,
         evidence_conflict_sink: EvidenceConflictSink | None = None,
         prospective_lineage_materializer: ProspectiveLineageMaterializer | None = None,
+        provider_timeout_seconds: float = _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
     ) -> None:
         if case_retention_days < 1 or case_deletion_days < case_retention_days:
             raise ValueError("Muninn case retention days MUST be positive and ordered")
+        if provider_timeout_seconds <= 0:
+            raise ValueError("Muninn provider timeout MUST be positive")
         super().__init__(spec=_MUNINN)
         self.state_store = state_store or InMemoryStateStore()
         self._durable_state_store = durable_state_store
@@ -117,6 +121,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         self._prospective_lineage_materializer = prospective_lineage_materializer
         self._assignment_materializer: AssignmentMaterializer | None = None
         self._assignment_clock: AssignmentClock = assignment_clock
+        self._provider_timeout_seconds = provider_timeout_seconds
         self._conversation_turns: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
             _MAX_CONVERSATION_PROJECTIONS
         )
@@ -337,36 +342,19 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         if store is None:
             return
         state_key = f"{_PROJECTION_PREFIX}/{bucket}/{key}"
-        prior = await store.read_state(state_key)
-        revision = int(prior.get("revision", 0)) if prior is not None else 0
-        value = {
-            "kind": "muninn_conversation_projection",
-            "revision": revision + 1,
-            "bucket": bucket,
-            "projection_key": key,
-            "idempotency_key": record["idempotency_key"],
-            "correlation_id": record["correlation_id"],
-            "record": dict(record),
-        }
-        if prior is None:
-            await store.write_state_with_audit_if_absent(
-                state_key,
-                value,
-                {
-                    "kind": "muninn_conversation_projection_recorded",
-                    "principal": "Muninn",
-                    "bucket": bucket,
-                    "projection_key": key,
-                    "idempotency_key": record["idempotency_key"],
-                    "grants_authority": False,
-                },
-            )
-            return
-        await store.compare_and_set_state_with_audit(
-            state_key,
-            value,
-            expected_revision=revision,
-            audit_entry={
+        for _attempt in range(3):
+            prior = await store.read_state(state_key)
+            revision = int(prior.get("revision", 0)) if prior is not None else 0
+            value = {
+                "kind": "muninn_conversation_projection",
+                "revision": revision + 1,
+                "bucket": bucket,
+                "projection_key": key,
+                "idempotency_key": record["idempotency_key"],
+                "correlation_id": record["correlation_id"],
+                "record": dict(record),
+            }
+            audit = {
                 "kind": "muninn_conversation_projection_recorded",
                 "principal": "Muninn",
                 "bucket": bucket,
@@ -374,8 +362,22 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
                 "idempotency_key": record["idempotency_key"],
                 "revision": revision + 1,
                 "grants_authority": False,
-            },
-        )
+            }
+            if prior is None:
+                if await store.write_state_with_audit_if_absent(state_key, value, audit):
+                    return
+                self.record_behavior("conversation_projection:cas_retry")
+                continue
+            if await store.compare_and_set_state_with_audit(
+                state_key,
+                value,
+                expected_revision=revision,
+                audit_entry=audit,
+            ):
+                return
+            self.record_behavior("conversation_projection:cas_retry")
+        self.record_behavior("conversation_projection:cas_conflict")
+        raise RuntimeError("Muninn conversation projection CAS did not converge")
 
     async def _materialize_evidence_conflict(self, payload: dict[str, Any]) -> None:
         if self._evidence_conflict_sink is None:
@@ -431,17 +433,18 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             raise ValueError("retrieval validation candidate identity mismatch")
         if self.bus is None:
             raise RuntimeError("Muninn context-index bus is unavailable")
-        await self.bus.publish(
-            "Muninn",
+        indexed = {
+            "producer_principal": "Muninn",
+            "kind": "semantic_retrieval_failure",
+            "correlation_id": str(payload.get("correlation_id") or evidence.attempt_id),
+            "idempotency_key": f"semantic-feedback:{candidate.candidate_id}",
+            "candidate_id": candidate.candidate_id,
+            "failure": query_failure_evidence_to_mapping(evidence),
+        }
+        await self._publish_with_outbox(
+            f"{_OPERATIONAL_OUTBOX_PREFIX}/semantic-feedback/{candidate.candidate_id}",
             "object.context-index",
-            {
-                "producer_principal": "Muninn",
-                "kind": "semantic_retrieval_failure",
-                "correlation_id": str(payload.get("correlation_id") or evidence.attempt_id),
-                "idempotency_key": f"semantic-feedback:{candidate.candidate_id}",
-                "candidate_id": candidate.candidate_id,
-                "failure": query_failure_evidence_to_mapping(evidence),
-            },
+            indexed,
         )
         self.record_behavior("semantic_retrieval_failure:published")
 
@@ -571,8 +574,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "digest_evidence": list(case.digest_evidence),
             "cases": [record["case"] for record in cases],
         }
-        if await self._claim_publication(outbox_key, payload):
-            await self.bus.publish("Muninn", "object.context-index", payload)
+        await self._publish_with_outbox(outbox_key, "object.context-index", payload)
         await projections.write_state_if_absent(
             emission_key, {"digest": digest, "revision": cohort["revision"]}
         )
@@ -683,8 +685,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
                 "promotion_authority": False,
             }
             outbox_key = f"{_OPERATIONAL_OUTBOX_PREFIX}/operating-pattern-retained/{pattern_id}"
-            if await self._claim_publication(outbox_key, snapshot):
-                await self.bus.publish("Muninn", "object.state-snapshot", snapshot)
+            await self._publish_with_outbox(outbox_key, "object.state-snapshot", snapshot)
         self.record_behavior("operating_pattern:retained")
 
     async def _claim_publication(self, key: str, payload: dict[str, Any]) -> bool:
@@ -698,7 +699,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         record = {
             "kind": "muninn_publication_outbox",
             "revision": 1,
-            "state": "published",
+            "state": "pending",
             "idempotency_key": idempotency_key,
             "correlation_id": correlation_id,
             "payload_digest": _payload_digest(payload),
@@ -719,7 +720,59 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         existing = await store.read_state(key)
         if existing is None or existing.get("payload_digest") != record["payload_digest"]:
             raise ValueError("Muninn publication outbox identity conflict")
-        return False
+        if existing.get("state") == "published":
+            return False
+        if existing.get("state") == "pending":
+            return True
+        raise ValueError("Muninn publication outbox state is invalid")
+
+    async def _mark_publication_published(self, key: str, payload: dict[str, Any]) -> None:
+        store = self._durable_state_store
+        if store is None:
+            return
+        while True:
+            current = await store.read_state(key)
+            if current is None or current.get("payload_digest") != _payload_digest(payload):
+                raise ValueError("Muninn publication outbox identity conflict")
+            if current.get("state") == "published":
+                return
+            if current.get("state") != "pending":
+                raise ValueError("Muninn publication outbox state is invalid")
+            revision = int(current.get("revision", 0))
+            updated = {**dict(current), "revision": revision + 1, "state": "published"}
+            if await store.compare_and_set_state_with_audit(
+                key,
+                updated,
+                expected_revision=revision,
+                audit_entry={
+                    "kind": "muninn_publication_published",
+                    "principal": "Muninn",
+                    "idempotency_key": updated["idempotency_key"],
+                    "correlation_id": updated["correlation_id"],
+                    "grants_authority": False,
+                },
+            ):
+                return
+            self.record_behavior("publication_outbox:cas_retry")
+
+    async def _publish_with_outbox(
+        self,
+        outbox_key: str,
+        topic: str,
+        payload: dict[str, Any],
+    ) -> bool:
+        if self.bus is None:
+            return False
+        if not await self._claim_publication(outbox_key, payload):
+            return False
+        await self.bus.publish("Muninn", topic, payload)
+        mark_task = asyncio.create_task(self._mark_publication_published(outbox_key, payload))
+        try:
+            await asyncio.shield(mark_task)
+        except asyncio.CancelledError:
+            await mark_task
+            raise
+        return True
 
     def _case_projection_store(self, scope: str) -> CaseHistoryProjectionStore:
         if self._durable_state_store is None or self._case_history is None:
@@ -773,6 +826,12 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             self.record_behavior("detection_readiness:stale")
             return
         key = detection_readiness_state_key(snapshot.resource_ref)
+        snapshot_payload = {
+            **record,
+            "snapshot_type": "detection_readiness",
+            "idempotency_key": f"state-snapshot:{idempotency_key}",
+        }
+        outbox_key = f"{_OPERATIONAL_OUTBOX_PREFIX}/detection-readiness/{idempotency_key}"
         if self._durable_state_store is not None:
             durable_prior = await self._durable_state_store.read_state(key)
             if (
@@ -783,6 +842,9 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
                     "detection_readiness",
                     snapshot.resource_ref,
                     dict(durable_prior),
+                )
+                await self._publish_with_outbox(
+                    outbox_key, "object.state-snapshot", snapshot_payload
                 )
                 self.record_behavior("detection_readiness:duplicate")
                 return
@@ -801,16 +863,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             await self._durable_state_store.write_state(key, record)
         self.state_store.put("detection_readiness", snapshot.resource_ref, record)
         self.record_behavior(f"detection_readiness:{snapshot.decision.value}")
-        if self.bus is not None:
-            await self.bus.publish(
-                "Muninn",
-                "object.state-snapshot",
-                {
-                    **record,
-                    "snapshot_type": "detection_readiness",
-                    "idempotency_key": f"state-snapshot:{idempotency_key}",
-                },
-            )
+        await self._publish_with_outbox(outbox_key, "object.state-snapshot", snapshot_payload)
 
     async def _apply_case_history_retention(self, payload: dict[str, Any]) -> None:
         identity_fields = (
@@ -830,7 +883,12 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         as_of = self._case_history_clock()
         if as_of.tzinfo is None:
             raise ValueError("Muninn case history clock MUST be timezone-aware")
-        deleted = await self._case_history_retention.delete_due(now=as_of)
+        try:
+            async with asyncio.timeout(self._provider_timeout_seconds):
+                deleted = await self._case_history_retention.delete_due(now=as_of)
+        except TimeoutError:
+            self.record_behavior("case_history:retention_timeout")
+            raise
         self.record_behavior("case_history:retention_tick")
         for _case_id in deleted:
             self.record_behavior("case_history:deleted")
@@ -853,30 +911,27 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         self.record_behavior(f"case_history:{outcome.label.value}")
         if self.bus is None:
             return
-        await self.bus.publish(
-            "Muninn",
-            "object.context-index",
-            {
-                "producer_principal": "Muninn",
-                "kind": "forecast_case_history",
-                "correlation_id": outcome.correlation_id,
-                "idempotency_key": (
-                    f"case-history-index:{record.case_id}:{record.source_set_digest}"
-                ),
-                "case_id": record.case_id,
-                "revision": record.revision,
-                "manifest_digest": record.manifest_digest,
-                "access_scope_digest": record.access_scope_digest,
-                "purpose": record.purpose,
-                "outcome_label": record.outcome_label,
-                "detector_id": record.detector_id,
-                "detector_version": record.detector_version,
-                "metric": outcome.metric,
-                "case_ref": (
-                    f"case-history:{record.case_id}:{record.revision}:{record.manifest_digest}"
-                ),
-            },
+        indexed = {
+            "producer_principal": "Muninn",
+            "kind": "forecast_case_history",
+            "correlation_id": outcome.correlation_id,
+            "idempotency_key": f"case-history-index:{record.case_id}:{record.source_set_digest}",
+            "case_id": record.case_id,
+            "revision": record.revision,
+            "manifest_digest": record.manifest_digest,
+            "access_scope_digest": record.access_scope_digest,
+            "purpose": record.purpose,
+            "outcome_label": record.outcome_label,
+            "detector_id": record.detector_id,
+            "detector_version": record.detector_version,
+            "metric": outcome.metric,
+            "case_ref": f"case-history:{record.case_id}:{record.revision}:{record.manifest_digest}",
+        }
+        outbox_key = (
+            f"{_OPERATIONAL_OUTBOX_PREFIX}/forecast-case/"
+            f"{record.case_id}/{record.revision}/{record.manifest_digest}"
         )
+        await self._publish_with_outbox(outbox_key, "object.context-index", indexed)
 
     async def _request_document_index(self, audited: dict[str, Any]) -> None:
         """Publish the content-free command that unlocks document indexing."""

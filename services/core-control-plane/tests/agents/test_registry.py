@@ -45,7 +45,7 @@ def _producer_topics() -> set[str]:
             ):
                 topic_index = 0 if call.func.attr == "_publish_proposal" else 1
                 if (
-                    call.func.attr not in {"publish", "_publish_proposal"}
+                    call.func.attr not in {"publish", "_publish_proposal", "_publish_with_outbox"}
                     or len(call.args) <= topic_index
                 ):
                     continue

@@ -73,6 +73,7 @@ _RULE_GENERATION_COMMAND_PREFIX = "mimir:rule-generation-activation-command:"
 _GOVERNANCE_PREFIX = "pantheon/mimir/governance"
 _RULE_STATE_PREFIX = f"{_GOVERNANCE_PREFIX}/rules"
 _ISSUE_FINGERPRINT_PREFIX = f"{_GOVERNANCE_PREFIX}/issue-fingerprints"
+_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,10 +106,13 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         max_review_packages: int = _MAX_CATALOG_REVIEW_PACKAGES,
         clock: Callable[[], datetime] | None = None,
+        provider_timeout_seconds: float = _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
     ) -> None:
         super().__init__(spec=_MIMIR)
         if min(max_pending_candidates, max_review_packages) < 1:
             raise ValueError("Mimir review capacities MUST be positive")
+        if provider_timeout_seconds <= 0:
+            raise ValueError("Mimir provider timeout MUST be positive")
         self._promotions: dict[str, RulePromotion] = {}
         self._governance_state_store = governance_state_store
         self._promotion_persist_tasks: set[asyncio.Task[None]] = set()
@@ -122,10 +126,12 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             max_quarantine=_MAX_QUARANTINE,
         )
         self._review_lock = asyncio.Lock()
+        self._review_locks: dict[str, asyncio.Lock] = {}
         self._rule_generation_build_handler: RuleGenerationBuildHandler | None = None
         self._rule_generation_activation_binder: RuleGenerationActivationBinder | None = None
         self._rule_generation_state_store: StateStore | None = None
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._provider_timeout_seconds = provider_timeout_seconds
         self._issue_fingerprints: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
             _MAX_ISSUE_FINGERPRINTS
         )
@@ -218,9 +224,13 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         if topic == "object.issue":
             await self._handle_issue(payload)
         elif topic == "object.rule-candidate":
-            async with self._review_lock:
-                if await self._handover_message(topic, payload):
-                    return
+            if await self._handover_message(topic, payload):
+                return
+            lock_key = str(payload.get("idempotency_key") or payload.get("correlation_id") or "")
+            if not lock_key:
+                lock_key = repr(sorted(payload))
+            lock = self._review_locks.setdefault(lock_key, asyncio.Lock())
+            async with lock:
                 await self._handle_rule_candidate(payload)
         elif topic == RULE_GENERATION_BUILD_REQUEST_TOPIC:
             await self._handle_rule_generation_build_request(payload)
@@ -410,7 +420,12 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             command = RuleGenerationActivationCommandEvent.model_validate(existing)
         if command.validation_result.result_digest != result.result_digest:
             raise ValueError("Rule generation activation command idempotency conflict")
-        await binder.publish_command(command)
+        try:
+            async with asyncio.timeout(self._provider_timeout_seconds):
+                await binder.publish_command(command)
+        except TimeoutError:
+            self.record_behavior("rule_generation_activation_command_timeout")
+            raise
         self.record_behavior("rule_generation_activation_command_published")
 
     async def _record_rule_generation_activation_result(self, payload: dict[str, Any]) -> None:
@@ -576,7 +591,14 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             return
         task = loop.create_task(self._persist_promotion_record(promotion))
         self._promotion_persist_tasks.add(task)
-        task.add_done_callback(self._promotion_persist_tasks.discard)
+        task.add_done_callback(self._promotion_persist_done)
+
+    def _promotion_persist_done(self, task: asyncio.Task[None]) -> None:
+        self._promotion_persist_tasks.discard(task)
+        try:
+            task.result()
+        except Exception:
+            self.record_behavior("promotion:persist_failed")
 
     async def _persist_promotion_record(self, promotion: RulePromotion) -> None:
         store = self._governance_state_store
