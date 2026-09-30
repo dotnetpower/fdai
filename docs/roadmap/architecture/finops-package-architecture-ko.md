@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 7f1a8a40101fc910a4ee5120699af1fadda08911
+translation_source_sha: bc86eef9896a7108f7b4a0d90a1f72c109dea321
 translation_revised: 2026-09-30
 ---
 
@@ -79,7 +79,9 @@ Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발
 > 출처 확인 게이트보다 먼저 실행될 수 없습니다. 검증기는 실행 중인 워크플로 원본 참조가
 > 보호된 `main`이 아니면 게시 워크플로 디스패치를 차단합니다.
 > 빌드 입력을 변경하는 끌어오기 요청은 별도의 읽기 전용 이미지 빌드와 취약점 검사를
-> 유지합니다. 알려진 서비스 소스, 테스트 및 문서 경로는 PR 트리거에서 제외하지만 패키징된
+> 유지합니다. 전이 의존성의 취약점은 공유 `uv.lock`에서 수정된 버전으로 해결하며,
+> 영향받는 코드에 도달할 수 없는 이유를 기한과 함께 검토한 예외가 없으면 `.trivyignore.yaml`은
+> 비워 둡니다. 알려진 서비스 소스, 테스트 및 문서 경로는 PR 트리거에서 제외하지만 패키징된
 > 자산과 알 수 없는 서비스 입력은 보수적으로 선택합니다. 루트 README만 바뀌면 문서 변경으로
 > 처리하며 이미지 후보를 선택하지 않습니다. 레지스트리 게시, SBOM 및 증명에는 이미지 선택과 정확한 보호 소스 SHA를
 > 포함한 명시적 후보 디스패치가 필요합니다. 일반 소스 push와 버전 태그는 이미지를

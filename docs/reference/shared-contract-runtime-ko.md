@@ -1,8 +1,8 @@
 ---
 title: 공유 계약 런타임
 translation_of: shared-contract-runtime.md
-translation_source_sha: 0bc5080eeb0171bc01a28087d6edc0316f834457
-translation_revised: 2026-09-07
+translation_source_sha: 50b8400f8c534be9040035ac1b383e7acae05ad5
+translation_revised: 2026-09-30
 ---
 
 # 공유 계약 런타임
@@ -81,7 +81,7 @@ contract-set `1.0.0`/`1.1.0` 매트릭스는 프로세스 간 호환성 경계�
 패키지 테스트 트리는 SDK 동작을 검증합니다. 서비스 간 N/N-1 및 토폴로지 검사는
 [루트 통합 테스트](../../tests/integration/)에 유지합니다. 배포 가능한 서비스 이미지는 고정된
 Alpine Python, OpenSSL, SQLite 및 util-linux 런타임 패키지를 공유합니다. 이미지 계약과 Trivy
-게이트는 Dockerfile 6개 모두 알려진 차단 취약점이 없는 정확한 제공 버전을 유지합니다. 문서
+게이트는 Dockerfile 7개 모두 알려진 차단 취약점이 없는 정확한 제공 버전을 유지합니다. 문서
 워커는 자신이 소유한 Tesseract 언어 데이터와 OCR 의존성만 추가합니다.
 
 ## 관련 문서

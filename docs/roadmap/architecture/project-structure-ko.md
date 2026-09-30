@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e03801d90c91f8e96a246836f05733eb6575cda5
+translation_source_sha: 89a478045543bffd593f6594bd71e99f8cd44ae4
 translation_revised: 2026-09-30
 ---
 # 프로젝트 구조
@@ -592,6 +592,10 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   서비스 테스트 모음 매니페스트는 서비스 소유 회귀 검사마다 담당자를 정확히 하나 지정하고,
   의존성 및 가져오기 매니페스트는 서비스가 직접 사용하는 공유 배포판을 모두 명시합니다. 보안
   lockfile 갱신은 이전 이미지 근거를 무효화하며 선택된 이미지를 다시 빌드하고 검사해야 합니다.
+  배포되는 Dockerfile은 Alpine 런타임 패키지의 정확한 리비전을 고정합니다. Alpine 저장소는 최신
+  리비전만 유지하므로 상위 보안 릴리스가 나오면 기존 고정 버전을 더 이상 설치할 수 없습니다.
+  이때 배포되는 모든 Dockerfile과 이미지 계약을 게시된 리비전으로 함께 옮기고, 선택된 모든
+  이미지를 다시 빌드하고 검사합니다.
 - `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
