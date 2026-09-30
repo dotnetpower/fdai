@@ -191,10 +191,10 @@
       "issue": 252
     },
     {
-      "path": "services/core-control-plane/src/fdai/agents/_framework/runtime.py",
+      "path": "services/core-control-plane/src/fdai/agents/_framework/runtime_conversation.py",
       "disposition": "retain",
       "owner": "pantheon-runtime",
-      "reason": "Retains composition and validation of machine-record agent, tool, and action identities.",
+      "reason": "Retains the conversational-port facade's validation of machine-record agent, tool, and action identities moved out of runtime.py.",
       "issue": 252
     },
     {
