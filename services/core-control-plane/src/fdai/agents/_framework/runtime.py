@@ -5,11 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import Counter
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
-
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.agents._framework import architecture_review_runtime as arb_runtime
 from fdai.agents._framework import assignment_wiring as assignment_runtime
@@ -19,10 +16,7 @@ from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
 from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings, bind_catalog_review
-from fdai.agents._framework.conversation_tools import (
-    AgentConversationToolRegistry,
-    AgentToolResult,
-)
+from fdai.agents._framework.conversation_tools import AgentConversationToolRegistry
 from fdai.agents._framework.deliberation import T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.kpi import KpiCollector
@@ -32,16 +26,11 @@ from fdai.agents._framework.pantheon import (
     PANTHEON_SPECS,
 )
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
+from fdai.agents._framework.runtime_conversation import RuntimeConversationPort
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter, SemanticRouterConfig
 from fdai.agents._framework.tool_answer import answer_from_owned_tools
-from fdai.agents._framework.tool_planner import (
-    MAX_TOOL_PLANS,
-    ConversationToolPlan,
-    plan_conversation_tools,
-)
-from fdai.agents._framework.tool_prefetch import prefetch_tools
 from fdai.agents._framework.tool_semantic import SemanticToolPlanner
-from fdai.agents.bragi import Bragi, RoutingDecision, Turn
+from fdai.agents.bragi import Bragi
 from fdai.agents.heimdall import (
     ActionObservationHook,
     Heimdall,
@@ -102,7 +91,7 @@ _OBSERVER_PRINCIPAL = "runtime-observer"
 
 
 @dataclass
-class PantheonRuntime:
+class PantheonRuntime(RuntimeConversationPort):
     """Live wiring of the 15 pantheon agents over an ``EventBus`` provider."""
 
     bridge: EventBusBridge
@@ -507,195 +496,11 @@ class PantheonRuntime:
                 if self._semantic_tool_planner is not None:
                     await self._semantic_tool_planner.stop()
 
-    async def ask(
-        self,
-        *,
-        session_id: str,
-        user_id: str,
-        question: str,
-        locale: str = "en",
-        initiator_role: str | None = None,
-        allow_action_proposal: bool = True,
-        materialize_handoff: bool = True,
-    ) -> Turn | None:
-        """Operator conversational-port entry point.
-
-        Routes a natural-language question through Bragi to the right
-        primary agent, tracking a per-user session (Bragi enforces the
-        no-cross-user invariant). Returns ``None`` when Bragi is disabled
-        (the conversational port is off). Distinct from the typed
-        pub/sub port: a conversational request that wants an action must
-        re-enter the typed pipeline, never bypass it.
-
-        ``initiator_role`` (the console session's Entra role) drives the entry
-        RBAC gate for an action command - a Reader cannot submit an action.
-        ``locale`` is forwarded to the server-owned prompt composition.
-        Read-only channel adapters disable ``allow_action_proposal`` and
-        ``materialize_handoff`` so the narrator can contribute evidence without
-        creating a proposal or a discovery issue behind that channel's back.
-        """
-        if self._bragi is None:
-            return None
-        turn = await self._bragi.ask(
-            session_id=session_id,
-            user_id=user_id,
-            question=question,
-            locale=locale,
-            initiator_role=initiator_role,
-            allow_action_proposal=allow_action_proposal,
-            materialize_handoff=materialize_handoff,
-        )
-        return turn
-
-    def route_conversation(
-        self,
-        judgment: SemanticJudgmentProposal,
-    ) -> RoutingDecision | None:
-        """Project one verified judgment without exposing agent instances."""
-        if self._bragi is None:
-            return None
-        return self._bragi.route(judgment)
-
     async def ingest_raw_event(self, payload: dict[str, Any]) -> dict[str, Any] | None:
         huginn = self.agents.get(_INGRESS_PRINCIPAL)
         if not isinstance(huginn, Huginn):
             raise RuntimeError("Pantheon raw ingress requires active Huginn")
         return await huginn.ingest(payload)
-
-    def should_delegate_conversation(
-        self,
-        question: str,
-        view_context: dict[str, Any],
-    ) -> bool:
-        """Return Bragi's current-screen versus agent-owned scope decision."""
-        if self._bragi is None:
-            return False
-        return self._bragi.should_delegate(question, view_context)
-
-    async def contribute_conversation(
-        self,
-        agent_name: str,
-        question: str,
-        *,
-        requester: str = "Bragi",
-    ) -> dict[str, Any] | None:
-        """Collect one read-only contribution through Bragi's A2A boundary."""
-        if self._bragi is None:
-            return None
-        return await self._bragi.introspect_agent(
-            agent_name,
-            question,
-            requester=requester,
-            context={"answer_planning": "shadow", "nested_round": False},
-        )
-
-    async def introspect(
-        self,
-        agent_name: str,
-        question: str,
-        *,
-        requester: str,
-        correlation_id: str = "",
-    ) -> dict[str, Any] | None:
-        """Route one read-only agent-to-agent question through Bragi.
-
-        Commands re-enter the typed pipeline. ``correlation_id`` keeps the
-        answer on the shared trace, and a disabled Bragi returns ``None``.
-        """
-        if self._bragi is None:
-            return None
-        return await self._bragi.introspect_agent(
-            agent_name,
-            question,
-            requester=requester,
-            context={"correlation_id": correlation_id} if correlation_id else None,
-        )
-
-    async def deliberate(
-        self,
-        *,
-        question: str,
-        requester: str,
-        correlation_id: str = "",
-        reuse_semantic_route: bool = True,
-        fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
-    ) -> dict[str, Any]:
-        """Run bounded read-only T1/T2 discussion through Bragi."""
-        if self._bragi is None:
-            return {
-                "status": "abstain",
-                "reason": "conversational_port_unavailable",
-                "authority": "presentation_only",
-                "rounds": [],
-                "trace_ref": correlation_id,
-            }
-        return await self._bragi.deliberate(
-            question=question,
-            requester=requester,
-            correlation_id=correlation_id,
-            reuse_semantic_route=reuse_semantic_route,
-            fixed_assurance_facts=fixed_assurance_facts,
-        )
-
-    def plan_conversation_tools(
-        self,
-        requested_tool_ids: Sequence[str],
-        *,
-        agents: Sequence[str] = (),
-        limit: int = MAX_TOOL_PLANS,
-    ) -> tuple[ConversationToolPlan, ...]:
-        """Validate exact model-selected owned read tool ids.
-
-        Deterministic and side-effect free, so a caller may show the plan
-        before spending anything on it.
-        """
-        return plan_conversation_tools(requested_tool_ids, agents=agents, limit=limit)
-
-    async def prefetch_conversation_tools(
-        self,
-        question: str,
-        *,
-        agents: Sequence[str] = (),
-        limit: int = MAX_TOOL_PLANS,
-        trace_ref: str = "",
-    ) -> tuple[AgentToolResult, ...]:
-        """Run the tools this question asks for and return their results.
-
-        Bounded in count, depth, per-dispatch time, and total time. Never
-        raises for a tool that fails: a prefetch is supplementary
-        evidence, so an abstain or a timeout leaves the answering turn
-        untouched. See :mod:`fdai.agents._framework.tool_prefetch`.
-        """
-        registry = self._conversation_tools
-        if registry is None:
-            return ()
-        return await prefetch_tools(
-            question,
-            registry=registry,
-            semantic=self._semantic_tool_planner,
-            agents=agents,
-            limit=limit,
-            trace_ref=trace_ref,
-        )
-
-    async def invoke_conversation_tool(
-        self,
-        *,
-        agent_name: str,
-        tool_id: str,
-        question: str,
-        trace_ref: str = "",
-    ) -> AgentToolResult:
-        """Invoke one exact-owner read tool through the agent's guarded port."""
-        registry = self._conversation_tools
-        if registry is None:
-            raise RuntimeError("agent conversation tool registry is unavailable")
-        return await registry.invoke(
-            agent_name=agent_name,
-            tool_id=tool_id,
-            question=question,
-            trace_ref=trace_ref,
-        )
 
     async def _rehydrate(self) -> None:
         await rehydrate_operational_agents(self.agents)

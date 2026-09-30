@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -99,6 +99,7 @@ class InMemoryBus:
     registry: PantheonRegistry
     isolate_handlers: bool = True
     handler_timeout: float | None = 60.0
+    handler_timeouts: Mapping[str, float | None] = field(default_factory=dict)
     handler_max_retries: int = 0
     handler_retry_backoff: float = 0.0
     halt_ordered_topic_on_poison: bool = True
@@ -222,8 +223,9 @@ class InMemoryBus:
             last_exc: Exception | None = None
             for attempt in range(self.handler_max_retries + 1):
                 try:
-                    if self.handler_timeout is not None:
-                        await asyncio.wait_for(handler(topic, dict(payload)), self.handler_timeout)
+                    timeout = self.handler_timeouts.get(topic, self.handler_timeout)
+                    if timeout is not None:
+                        await asyncio.wait_for(handler(topic, dict(payload)), timeout)
                     else:
                         await handler(topic, dict(payload))
                     break

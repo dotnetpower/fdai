@@ -13,12 +13,14 @@ import inspect
 import json
 import logging
 import re
+from asyncio import CancelledError
 from collections import Counter, deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.cancellation import run_cancellation_safe_critical_section
 from fdai.agents._framework.conversation_prompt import (
     MAX_CHARTER_PROMPT_CHARS,
     MAX_ROLE_DIRECTIVE_CHARS,
@@ -35,6 +37,7 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capability_sentence,
 )
+from fdai.agents._framework.proposal_budget import reserve_proposal_budget
 from fdai.agents._framework.topics import topic_for_object_type
 
 if TYPE_CHECKING:
@@ -450,7 +453,8 @@ class Agent:
         bus = getattr(self, "bus", None)
         if bus is None:
             return False
-        if not self._proposal_rate_limiter().allow():
+        reservation = await reserve_proposal_budget(self._proposal_rate_limiter())
+        if reservation is None:
             self.record_behavior("rate_limit_exceeded")
             if not getattr(self, "_proposal_queue_managed_externally", False):
                 await self._queue_rate_limited_proposal(topic, payload)
@@ -459,8 +463,30 @@ class Agent:
                 extra={"agent": self.spec.name, "topic": topic},
             )
             return False
-        await bus.publish(self.spec.name, topic, payload)
+        try:
+            await run_cancellation_safe_critical_section(
+                self._publish_reserved_proposal(topic, payload, reservation)
+            )
+        except CancelledError:
+            raise
+        except Exception:
+            await reservation.release()
+            raise
         return True
+
+    async def _publish_reserved_proposal(
+        self,
+        topic: str,
+        payload: dict[str, Any],
+        reservation: Any,
+    ) -> None:
+        bus = getattr(self, "bus", None)
+        if bus is None:
+            await reservation.release()
+            self.record_behavior("rate_limit_flush_transport_unavailable")
+            return
+        await bus.publish(self.spec.name, topic, payload)
+        await reservation.commit()
 
     def bind_rate_limit_overflow_auditor(
         self,
@@ -504,17 +530,42 @@ class Agent:
         published = 0
         while queue:
             topic, payload = queue[0]
-            if not self._proposal_rate_limiter().allow():
+            reservation = await reserve_proposal_budget(self._proposal_rate_limiter())
+            if reservation is None:
                 self.record_behavior("rate_limit_flush_deferred")
                 break
             bus = getattr(self, "bus", None)
             if bus is None:
+                await reservation.release()
                 self.record_behavior("rate_limit_flush_transport_unavailable")
                 break
-            await bus.publish(self.spec.name, topic, payload)
-            queue.popleft()
+            try:
+                await run_cancellation_safe_critical_section(
+                    self._flush_reserved_proposal(topic, payload, reservation, queue)
+                )
+            except CancelledError:
+                raise
+            except Exception:
+                await reservation.release()
+                raise
             published += 1
         return published
+
+    async def _flush_reserved_proposal(
+        self,
+        topic: str,
+        payload: dict[str, Any],
+        reservation: Any,
+        queue: deque[tuple[str, dict[str, Any]]],
+    ) -> None:
+        bus = getattr(self, "bus", None)
+        if bus is None:
+            await reservation.release()
+            self.record_behavior("rate_limit_flush_transport_unavailable")
+            return
+        await bus.publish(self.spec.name, topic, payload)
+        await reservation.commit()
+        queue.popleft()
 
     def bind_bus(self, bus: PantheonBus) -> None:
         """Bind the typed pub/sub port.

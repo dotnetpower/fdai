@@ -27,9 +27,13 @@ import random
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any
 
+from fdai.agents._framework.bus_bridge_observer import (
+    AgentHandlerObserver,
+    AgentHandlerPhase,
+    notify_handler_observer,
+)
 from fdai.agents._framework.bus_metrics import BridgeMetrics
 from fdai.agents._framework.bus_poison_halt import (
     clear_ordered_halt,
@@ -57,28 +61,6 @@ ConsumerStateObserver = Callable[[str, str, str], None]
 """Optional publish-side contract check (topic, payload) -> None; raises on
 an invalid payload. Wire a ContractValidator-backed callable here to reject
 a malformed record at the publish boundary (fail closed)."""
-
-
-class AgentHandlerPhase(StrEnum):
-    """Lifecycle phase for one observed agent message delivery."""
-
-    STARTED = "started"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class AgentHandlerObserver(Protocol):
-    """Best-effort observer for actual Pantheon handler execution."""
-
-    async def observe(
-        self,
-        *,
-        agent: str,
-        topic: str,
-        phase: AgentHandlerPhase,
-        payload: Mapping[str, object],
-        error_type: str | None = None,
-    ) -> None: ...
 
 
 def _assert_known_topic(topic: str, agent_name: str) -> None:
@@ -116,8 +98,11 @@ class EventBusBridge:
     handler_retry_backoff: float = 0.05
     halt_ordered_topic_on_poison: bool = True
     handler_timeout: float | None = 60.0
+    handler_timeouts: Mapping[str, float | None] = field(default_factory=dict)
+    handler_observer_timeout: float | None = 1.0
     dead_letter_max_retries: int = 2
     dead_letter_retry_backoff: float = 0.25
+    dead_letter_timeout: float | None = 5.0
     payload_validator: PayloadValidator | None = None
     handler_observer: AgentHandlerObserver | None = None
     consumer_state_observer: ConsumerStateObserver | None = None
@@ -422,14 +407,16 @@ class EventBusBridge:
                         )
                         continue
                     try:
-                        await self._notify_handler_observer(
+                        await notify_handler_observer(
+                            self,
                             agent=group_id.rsplit(".", 1)[-1],
                             topic=topic,
                             phase=AgentHandlerPhase.STARTED,
                             payload=envelope.payload,
                         )
                         await self._deliver(topic, handler, envelope.payload)
-                        await self._notify_handler_observer(
+                        await notify_handler_observer(
+                            self,
                             agent=group_id.rsplit(".", 1)[-1],
                             topic=topic,
                             phase=AgentHandlerPhase.COMPLETED,
@@ -447,7 +434,8 @@ class EventBusBridge:
                     except asyncio.CancelledError:
                         raise
                     except Exception as exc:  # noqa: BLE001 - route to DLQ, keep loop alive
-                        await self._notify_handler_observer(
+                        await notify_handler_observer(
+                            self,
                             agent=group_id.rsplit(".", 1)[-1],
                             topic=topic,
                             phase=AgentHandlerPhase.FAILED,
@@ -464,12 +452,27 @@ class EventBusBridge:
                                 "error": str(exc),
                             },
                         )
-                        await self._safe_dead_letter(
-                            group_id=group_id,
-                            topic=topic,
-                            envelope=envelope,
-                            reason=f"handler error: {type(exc).__name__}",
-                        )
+                        dead_letter_failed = False
+                        try:
+                            await self._safe_dead_letter(
+                                group_id=group_id,
+                                topic=topic,
+                                envelope=envelope,
+                                reason=f"handler error: {type(exc).__name__}",
+                            )
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception as dlq_exc:  # noqa: BLE001 - ordered topics must halt
+                            dead_letter_failed = True
+                            _LOG.error(
+                                "pantheon_dead_letter_terminal_failure",
+                                extra={
+                                    "group_id": group_id,
+                                    "topic": topic,
+                                    "offset": envelope.offset,
+                                    "error_type": type(dlq_exc).__name__,
+                                },
+                            )
                         if self.halt_ordered_topic_on_poison and topic in MUTATION_TOPICS:
                             self.metrics.ordered_poison_halts += 1
                             await persist_ordered_halt(
@@ -490,6 +493,8 @@ class EventBusBridge:
                                 },
                             )
                             return
+                        if dead_letter_failed:
+                            raise
                 # Iterator ended normally (finite in-memory drain): done.
                 self._consumer_states[consumer_id] = "stopped"
                 return
@@ -540,57 +545,6 @@ class EventBusBridge:
                 aclose = getattr(stream, "aclose", None)
                 if aclose is not None:
                     await aclose()
-
-    async def _notify_handler_observer(
-        self,
-        *,
-        agent: str,
-        topic: str,
-        phase: AgentHandlerPhase,
-        payload: Payload,
-        error_type: str | None = None,
-    ) -> None:
-        observer = self.handler_observer
-        if observer is None:
-            return
-        # The observer projects Pantheon agents only; framework principals have no lane.
-        if agent not in self.registry.names():
-            return
-        failure_key = (agent, topic, phase)
-        try:
-            await observer.observe(
-                agent=agent,
-                topic=topic,
-                phase=phase,
-                payload=payload,
-                error_type=error_type,
-            )
-            failure_count = self._handler_observer_failures.pop(failure_key, 0)
-            if failure_count:
-                _LOG.info(
-                    "pantheon_handler_observer_recovered",
-                    extra={
-                        "agent": agent,
-                        "topic": topic,
-                        "phase": phase.value,
-                        "failure_count": failure_count,
-                    },
-                )
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - observation must not break delivery
-            self._handler_observer_failures[failure_key] = (
-                self._handler_observer_failures.get(failure_key, 0) + 1
-            )
-            _LOG.warning(
-                "pantheon_handler_observer_failed",
-                extra={
-                    "agent": agent,
-                    "topic": topic,
-                    "phase": phase.value,
-                    "error_type": type(exc).__name__,
-                },
-            )
 
     def _mark_consumer_terminal(self, consumer_id: str, state: str) -> None:
         self._consumer_states[consumer_id] = state
@@ -655,13 +609,14 @@ class EventBusBridge:
         last_exc: Exception
         for attempt in range(self.handler_max_retries + 1):
             try:
-                if self.handler_timeout is not None:
+                timeout = self.handler_timeouts.get(topic, self.handler_timeout)
+                if timeout is not None:
                     # A handler that never returns (a stuck backend call, a
                     # deadlock) would wedge the whole consumer - alive but
                     # delivering nothing. Bound it: a timeout is treated as a
                     # handler failure (retry / DLQ), keeping the subscription
                     # making progress.
-                    await asyncio.wait_for(handler(topic, dict(payload)), self.handler_timeout)
+                    await asyncio.wait_for(handler(topic, dict(payload)), timeout)
                 else:
                     await handler(topic, dict(payload))
                 return
@@ -675,6 +630,24 @@ class EventBusBridge:
         # Loop exhausted without a successful return: re-raise the final
         # failure so the caller routes the record to the DLQ.
         raise last_exc
+
+    async def _notify_handler_observer(
+        self,
+        *,
+        agent: str,
+        topic: str,
+        phase: AgentHandlerPhase,
+        payload: Payload,
+        error_type: str | None = None,
+    ) -> None:
+        await notify_handler_observer(
+            self,
+            agent=agent,
+            topic=topic,
+            phase=phase,
+            payload=payload,
+            error_type=error_type,
+        )
 
     async def _safe_dead_letter(
         self,
@@ -708,7 +681,11 @@ class EventBusBridge:
     ) -> None:
         for attempt in range(self.dead_letter_max_retries + 1):
             try:
-                await self.provider.dead_letter(topic, key, payload, reason=reason)
+                dead_letter = self.provider.dead_letter(topic, key, payload, reason=reason)
+                if self.dead_letter_timeout is None:
+                    await dead_letter
+                else:
+                    await asyncio.wait_for(dead_letter, self.dead_letter_timeout)
                 self.metrics.dead_lettered += 1
                 return
             except asyncio.CancelledError:
@@ -791,4 +768,4 @@ class EventBusBridge:
         return {"redriven": redriven, "failed": failed}
 
 
-__all__ = ["EventBusBridge", "BridgeMetrics"]
+__all__ = ["AgentHandlerObserver", "AgentHandlerPhase", "BridgeMetrics", "EventBusBridge"]

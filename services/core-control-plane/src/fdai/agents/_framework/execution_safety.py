@@ -8,6 +8,7 @@ import inspect
 import json
 import logging
 from collections.abc import Awaitable, Callable, Coroutine, Mapping
+from typing import Any
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAMES
@@ -185,15 +186,60 @@ async def maintain_agents(
 async def _run_agent_maintenance(agent: Agent, tick_timeout: float) -> None:
     try:
         if isinstance(agent, Thor):
-            await asyncio.wait_for(agent.expire_pending_approvals(), tick_timeout)
-        await asyncio.wait_for(agent.maintenance_tick(), tick_timeout)
+            if not await _run_maintenance_step(
+                agent,
+                agent.expire_pending_approvals(),
+                tick_timeout,
+                step="expire_pending_approvals",
+            ):
+                return
+        if not await _run_maintenance_step(
+            agent,
+            agent.maintenance_tick(),
+            tick_timeout,
+            step="maintenance_tick",
+        ):
+            return
         agent.record_behavior("maintenance_tick:completed")
-    except TimeoutError:
-        agent.record_behavior("maintenance_tick:timeout")
-        _LOG.warning("pantheon_agent_maintenance_timeout", extra={"agent": agent.spec.name})
     except Exception:  # noqa: BLE001 - one failed tick must not stop later safety ticks
         agent.record_behavior("maintenance_tick:failed")
         _LOG.exception("pantheon_agent_maintenance_failed", extra={"agent": agent.spec.name})
+
+
+async def _run_maintenance_step(
+    agent: Agent,
+    operation: Awaitable[Any],
+    tick_timeout: float,
+    *,
+    step: str,
+) -> bool:
+    """Run one maintenance step with a deadline that does not cancel commits."""
+
+    task: asyncio.Future[Any] = asyncio.ensure_future(operation)
+    if isinstance(task, asyncio.Task):
+        task.set_name(f"pantheon-maintenance.{agent.spec.name}.{step}")
+    try:
+        await asyncio.wait_for(asyncio.shield(task), tick_timeout)
+        return True
+    except TimeoutError:
+        agent.record_behavior("maintenance_tick:timeout")
+        _LOG.warning(
+            "pantheon_agent_maintenance_timeout",
+            extra={"agent": agent.spec.name, "step": step},
+        )
+        task.add_done_callback(lambda done: _observe_timed_out_maintenance(agent, step, done))
+        return False
+
+
+def _observe_timed_out_maintenance(agent: Agent, step: str, task: asyncio.Future[Any]) -> None:
+    try:
+        task.result()
+    except Exception:  # noqa: BLE001 - late failure is observability only
+        agent.record_behavior("maintenance_tick:late_failed")
+        _LOG.exception(
+            "pantheon_agent_maintenance_late_failed",
+            extra={"agent": agent.spec.name, "step": step},
+        )
 
 
 async def run_with_maintenance(
