@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+import re
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -44,6 +45,22 @@ class SemanticPlanningDisposition(StrEnum):
     ACTION_DRAFT = "action_draft"
     UNSUPPORTED = "unsupported"
     UNAVAILABLE = "unavailable"
+
+
+MAX_HOLD_DETAILS = 8
+# A closed code, optionally with closed values after colons, as in role:times.
+_HOLD_DETAIL = re.compile(r"[a-z0-9_]{1,64}(?::[a-z0-9_.-]{1,64}){0,2}")
+
+
+def hold_details(codes: Iterable[str]) -> tuple[str, ...]:
+    """Keep the closed codes a held outcome may carry, in first-seen order and bounded.
+
+    A code that is not a closed identifier, such as one that could hold operator text,
+    is dropped rather than shown.
+    """
+
+    kept = dict.fromkeys(code for code in codes if _HOLD_DETAIL.fullmatch(code) is not None)
+    return tuple(kept)[:MAX_HOLD_DETAILS]
 
 
 class SemanticAdvisoryResponseIntent(StrEnum):
@@ -426,11 +443,23 @@ class SemanticPlanningOutcome:
     advisory_response_answer: str | None = None
     social_act: SocialAct = SocialAct.NONE
     model_observations: tuple[SemanticJudgmentObservation, ...] = ()
+    # Closed codes that say why a read was held or unsupported, such as the constraint role
+    # a reading left uncovered or the atom no reviewed builder reads; never utterance text.
+    hold_details: tuple[str, ...] = ()
     execution_authority: Literal[False] = False
 
     def __post_init__(self) -> None:
         if self.execution_authority:
             raise ValueError("semantic planning outcome MUST NOT carry execution authority")
+        if len(self.hold_details) > MAX_HOLD_DETAILS or any(
+            _HOLD_DETAIL.fullmatch(item) is None for item in self.hold_details
+        ):
+            raise ValueError("semantic hold details MUST be bounded closed codes")
+        if self.hold_details and self.disposition not in {
+            SemanticPlanningDisposition.UNAVAILABLE,
+            SemanticPlanningDisposition.UNSUPPORTED,
+        }:
+            raise ValueError("only a held or unsupported planning outcome carries hold details")
         if (
             self.test_context_draft is not None
             and self.disposition is not SemanticPlanningDisposition.ACTION_DRAFT
@@ -475,6 +504,7 @@ class SemanticPlanningOutcome:
 
 
 __all__ = [
+    "MAX_HOLD_DETAILS",
     "BoundIncident",
     "BoundInvestigationContinuation",
     "BoundResourceContext",
@@ -492,4 +522,5 @@ __all__ = [
     "SemanticPlanningEscalationModel",
     "SemanticPlanningModel",
     "SemanticPlanningOutcome",
+    "hold_details",
 ]

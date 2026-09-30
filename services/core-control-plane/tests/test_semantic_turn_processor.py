@@ -3438,6 +3438,59 @@ async def test_planner_unavailable_is_not_misreported_as_an_evidence_hold(reason
     assert "authoritative evidence is insufficient" not in semantic["answer"]
 
 
+def _reading_hold(disposition: str, reason: str, details: tuple[str, ...]) -> Any:
+    held = _runtime_result(disposition, reason=reason)
+    planning = SimpleNamespace(**vars(held.planning), hold_details=details)
+    return replace(held, planning=cast(Any, planning))
+
+
+@pytest.mark.parametrize("continuity", [False, True])
+async def test_a_reading_hold_names_the_uncovered_role_instead_of_an_evidence_hold(
+    continuity: bool,
+) -> None:
+    held = _reading_hold(
+        "held", "semantic_constraint_uncovered", ("role:times", "role:restricts", "role:times")
+    )
+
+    projection = _projection(
+        await _processor(_Runtime(held), answer_continuity_enabled=continuity).process(_request())
+    )
+
+    semantic = projection["semantic_result"]
+    assert projection["status"] == "held"
+    assert semantic["reason_code"] == "semantic_constraint_uncovered"
+    assert semantic["unavailable_reason"] == "semantic_planner_unavailable"
+    assert "left out a stated time period, restriction." in semantic["answer"]
+    assert "verified evidence is unavailable" not in semantic["answer"]
+    assert "required FDAI internal component" not in semantic["answer"]
+
+
+async def test_an_unsupported_stated_constraint_names_its_atoms_in_korean() -> None:
+    unsupported = _reading_hold(
+        "unsupported",
+        "semantic_stated_constraint_unsupported",
+        ("filter_unsupported:state", "group_by_unsupported:container", "anchor_not_found:m1"),
+    )
+
+    projection = _projection(await _processor(_Runtime(unsupported)).process(_request(locale="ko")))
+
+    semantic = projection["semantic_result"]
+    assert semantic["disposition"] == "unsupported"
+    assert semantic["reason_code"] == "semantic_stated_constraint_unsupported"
+    assert "질문에 밝힌 조건(상태 조건, 그룹 기준)을" in semantic["answer"]
+
+
+async def test_a_reading_hold_without_a_labelled_code_states_the_plain_notice() -> None:
+    held = _reading_hold("held", "semantic_reading_ambiguous", ("unknown_code",))
+
+    projection = _projection(await _processor(_Runtime(held)).process(_request()))
+
+    answer = projection["semantic_result"]["answer"]
+    assert answer == (
+        "The request was held because the question could not be settled to one reading."
+    )
+
+
 async def test_answer_continuity_distinguishes_missing_evidence_from_runtime_failure() -> None:
     projection = _projection(
         await _processor(

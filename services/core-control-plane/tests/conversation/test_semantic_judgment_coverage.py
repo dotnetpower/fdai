@@ -149,6 +149,8 @@ def test_a_restriction_no_repair_copies_holds_instead_of_answering() -> None:
     assert result.accepted is False
     assert result.receipt.reason_code == UNCOVERED_CONSTRAINT_CODE
     assert model.calls == 3
+    # The held reading names the closed role it left out, never the words themselves.
+    assert result.uncovered_roles == ("restricts",)
 
 
 @pytest.mark.parametrize(
@@ -273,6 +275,7 @@ class _UncoveredBoundary:
                 tier=SimpleNamespace(value="t1"),
                 reason_code=UNCOVERED_CONSTRAINT_CODE,
             ),
+            uncovered_roles=("times", "restricts"),
         )
 
 
@@ -311,6 +314,8 @@ def test_the_planner_holds_a_turn_whose_constraint_stayed_uncovered() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
     assert outcome.reason == UNCOVERED_CONSTRAINT_CODE
     assert outcome.plan is None
+    # The hold carries the uncovered roles so the answer can name them.
+    assert outcome.hold_details == ("role:times", "role:restricts")
 
 
 @pytest.mark.parametrize(

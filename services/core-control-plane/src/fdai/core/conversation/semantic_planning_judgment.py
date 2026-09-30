@@ -39,6 +39,7 @@ class _JudgmentDecision:
     reason_code: str | None = None
     observations: tuple[SemanticJudgmentObservation, ...] = ()
     accepted: bool = False
+    uncovered_roles: tuple[str, ...] = ()
 
 
 _OPERATIONAL_DESCRIPTOR_NAMES = {

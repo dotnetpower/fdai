@@ -29,6 +29,7 @@ from fdai.core.conversation.semantic_compiled_answers import (
 from fdai.core.conversation.semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
+    hold_details,
 )
 from fdai.core.conversation.semantic_reasoning_compiler import (
     GoalCompilation,
@@ -540,6 +541,15 @@ def test_batches_with_clashing_node_ids_are_declined(
             "unverified",
         ),
         (_observation(continuation_pending=True), "continuation"),
+        # A reading that still needs a pass is never released, yet it is a continuation.
+        (
+            _observation(
+                released=False,
+                continuation_pending=True,
+                passes=(ShadowPass(0, "admitted"), ShadowPass(1, "generation_changed")),
+            ),
+            "continuation",
+        ),
     ],
 )
 def test_every_declined_path_ends_with_one_tagged_decision(
@@ -640,6 +650,56 @@ def test_a_data_outcome_is_unavailable_and_an_unsupported_atom_is_unsupported() 
     assert atom.decision == "unsupported"
 
 
+def test_a_typed_hold_carries_the_closed_codes_that_say_why() -> None:
+    atom = _ticket(_unsupported_observation())
+    atom.outcome(manifest_digest="d", observations=[])
+    review = _ticket(
+        _observation(
+            released=False,
+            review="unfaithful",
+            review_reasons=("review_uncovered:times:4-12", "review_merged:0-3"),
+            passes=(ShadowPass(0, "admitted"),),
+        )
+    )
+    review.outcome(manifest_digest="d", observations=[])
+    clarified = _ticket(
+        _observation(released=False, passes=(ShadowPass(0, "clarify", ("competing_reading:g1",)),))
+    )
+    clarified.outcome(manifest_digest="d", observations=[])
+
+    unsupported = typed_only_outcome(atom, manifest_digest="d")
+    unverified = typed_only_outcome(review, manifest_digest="d")
+    ambiguous = typed_only_outcome(clarified, manifest_digest="d")
+
+    assert unsupported.hold_details == ("filter_unsupported:region",)
+    # A review reason keeps only its constraint role; a quote position never travels.
+    assert unverified.reason == "semantic_reading_unverified"
+    assert unverified.hold_details == ("role:times", "review_merged")
+    assert ambiguous.hold_details == ("competing_reading",)
+    # A word-recovered plan held by a released reading names the atom it cannot read.
+    vetoed = atom.veto("server_stated_filter", manifest_digest="d")
+    assert vetoed is not None and vetoed.hold_details == ("filter_unsupported:region",)
+
+
+def test_hold_details_stay_closed_codes_on_held_outcomes_only() -> None:
+    kept = hold_details(("role:times", "role:times", "free text!", "filter_unsupported:state"))
+
+    assert kept == ("role:times", "filter_unsupported:state")
+    with pytest.raises(ValueError, match="closed codes"):
+        SemanticPlanningOutcome(
+            disposition=SemanticPlanningDisposition.UNAVAILABLE,
+            reason="semantic_reading_ambiguous",
+            hold_details=("Operator Words",),
+        )
+    with pytest.raises(ValueError, match="held or unsupported"):
+        SemanticPlanningOutcome(
+            disposition=SemanticPlanningDisposition.CLARIFICATION,
+            reason="semantic_clarification_required",
+            clarification="Which one?",
+            hold_details=("role:times",),
+        )
+
+
 async def test_a_failed_form_is_read_once_more_and_never_more_than_twice(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -682,3 +742,24 @@ async def test_an_answerable_or_unsupported_reading_is_never_resampled(
 
     # An unsupported atom stays unsupported in any sample, so no call is spent on it.
     assert calls == ["answerable", "unsupported"]
+
+
+async def test_a_reading_that_needs_another_pass_is_never_resampled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pending = _observation(
+        released=False, continuation_pending=True, passes=(ShadowPass(0, "admitted"),)
+    )
+    calls: list[int] = []
+
+    async def shadow(**_arguments: Any) -> ReasoningShadowObservation:
+        calls.append(1)
+        return pending
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    collector = semantic_compiled_answers._ObservationCollector()
+
+    result = await semantic_compiled_answers._run_form_path(object(), collector)  # type: ignore[arg-type]
+
+    # A continuation is not a failed form, so a second sample would only repeat it.
+    assert calls == [1] and result is pending

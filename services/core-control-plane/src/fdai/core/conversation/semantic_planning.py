@@ -91,6 +91,7 @@ from .semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningModel,
     SemanticPlanningOutcome,
+    hold_details,
 )
 from .semantic_planning_plan_dispatch import PlanDispatchResult, dispatch_semantic_plan
 from .semantic_planning_preflight import (
@@ -339,6 +340,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                         reason_code=getattr(judgment_result.receipt, "reason_code", None),
                         observations=judgment_result.observations,
                         accepted=judgment_result.accepted,
+                        uncovered_roles=getattr(judgment_result, "uncovered_roles", ()),
                     )
                 model_observations.extend(judgment_decision.observations)
                 if judgment_decision.reason_code in {
@@ -354,6 +356,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                                 judgment_decision.reason_code,
                                 manifest_digest=manifest.manifest_digest,
                                 model_observations=tuple(model_observations),
+                                hold_details=hold_details(
+                                    f"role:{role}" for role in judgment_decision.uncovered_roles
+                                ),
                             ),
                             manifest_digest=manifest.manifest_digest,
                             observations=model_observations,

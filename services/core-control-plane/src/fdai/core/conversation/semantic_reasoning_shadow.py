@@ -165,6 +165,9 @@ class ShadowPass:
     shape: tuple[str, ...] = ()
     # Goals whose relation roles follow two blind readers that outvoted the proposer.
     direction_swaps: tuple[str, ...] = ()
+    # Distinct snapshot generations this pass's own anchor reads saw; a result handle's
+    # generation is the earlier answer's and is never compared.
+    source_generations: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,6 +303,8 @@ async def run_reasoning_shadow(
         "handle_scope": handle_scope,
     }
     admitted_forms: list[SemanticQuestionForm] = []
+    # The snapshot generation the turn's first anchor reads saw; continuations must match it.
+    pinned: tuple[str, ...] = ()
     # The extraction reads only the question, so it runs beside the form passes.
     extraction = asyncio.ensure_future(
         _extract(counting, utterance=utterance, context=context, locale=locale)
@@ -328,6 +333,20 @@ async def run_reasoning_shadow(
                     notes.append("continuation_failed")
                 break
             shadow_pass, goals, compilation, admitted = outcome
+            if index > 0 and _generation_drifted(pinned, shadow_pass.source_generations):
+                # A continuation that read another snapshot cannot join the verified part, so
+                # the turn stops with the continuation still pending instead of mixing reads.
+                passes.append(
+                    replace(
+                        shadow_pass,
+                        disposition="generation_changed",
+                        reasons=("continuation_generation_changed",),
+                    )
+                )
+                notes.append("continuation_generation_changed")
+                pending = True
+                break
+            pinned = pinned or shadow_pass.source_generations
             passes.append(shadow_pass)
             if admitted is not None and shadow_pass.disposition == "admitted":
                 admitted_forms.append(admitted)
@@ -343,7 +362,7 @@ async def run_reasoning_shadow(
             prior_goals = prior_goals + goals
             if admitted is not None:
                 accounting = accounting.after(admitted)
-        if pending and "continuation_failed" not in notes:
+        if pending and not {"continuation_failed", "continuation_generation_changed"} & set(notes):
             notes.append("continuation_budget_exhausted")
         complete = (
             bool(passes) and not pending and all(item.disposition == "admitted" for item in passes)
@@ -425,6 +444,18 @@ async def run_reasoning_shadow(
         if not extraction.done():
             extraction.cancel()
         await asyncio.gather(extraction, return_exceptions=True)
+
+
+def _generation_drifted(pinned: tuple[str, ...], observed: tuple[str, ...]) -> bool:
+    """Return whether a continuation pass's anchor reads left the turn's pinned snapshot.
+
+    A pass that read no anchor has nothing to compare. A pass whose own reads saw two
+    generations, or one other than the generation the first reads saw, has drifted.
+    """
+
+    if not observed:
+        return False
+    return len(observed) > 1 or (bool(pinned) and observed != pinned)
 
 
 def _failed_pass(index: int, exc: Exception) -> ShadowPass:
@@ -660,6 +691,9 @@ async def _run_pass(
     if reasons:
         return ShadowPass(index, "direction_held", reasons, shape=form_shape(form)), (), None, None
     anchors = await bind_anchors(admission, resolver, utterance=utterance)
+    generations = tuple(
+        sorted({item.source_generation for item in anchors.bindings if item.source_generation})
+    )
     arguments = dict(compile_args)
     references = bind_references(
         admission, arguments.pop("handles", ()), arguments.pop("handle_scope", None)
@@ -700,6 +734,7 @@ async def _run_pass(
         grounding.regrounded,
         form_shape(form),
         settled.swapped,
+        source_generations=generations,
     )
     return shadow_pass, goals, compilation, form
 

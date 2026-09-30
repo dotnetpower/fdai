@@ -109,6 +109,7 @@ from .semantic_instance_candidates import project_instance_candidates, render_in
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
 from .semantic_ontology_answers import render_ontology_schema_answer
 from .semantic_presentation_semantics import project_presentation_semantics
+from .semantic_reading_holds import reading_hold_answer
 from .semantic_relationship_projection import (
     project_ontology_relationships,
     render_ontology_relationship_answer,
@@ -1256,6 +1257,16 @@ def _project_runtime_result(
         )
         disposition = result.disposition if result.disposition in reason_codes else "held"
         answer = result.planning.clarification if result.disposition == "clarification" else None
+        # A read held on its reading names why, instead of the generic evidence hold.
+        reading_answer = reading_hold_answer(
+            request.locale,
+            result.disposition,
+            result.reason,
+            getattr(result.planning, "hold_details", ()),
+        )
+        if reading_answer is not None:
+            reason_code = result.reason
+            answer = reading_answer
         terminal = _terminal_result(
             request,
             disposition,

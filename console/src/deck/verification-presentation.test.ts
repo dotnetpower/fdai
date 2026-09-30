@@ -89,6 +89,15 @@ describe("verification presentation", () => {
     ["semantic_result_store_unavailable", "sourceUnavailable"],
     ["semantic_runtime_unavailable", "plannerUnavailable"],
     ["semantic_transport_unavailable", "sourceUnavailable"],
+    ["semantic_reading_ambiguous", "contextRequired"],
+    ["semantic_judgment_review_conflict", "contextRequired"],
+    ["semantic_judgment_review_unavailable", "plannerUnavailable"],
+    ["semantic_constraint_uncovered", "invalidQuery"],
+    ["semantic_reading_unverified", "invalidQuery"],
+    ["semantic_reading_continuation_required", "invalidQuery"],
+    ["semantic_reading_limited", "invalidQuery"],
+    ["semantic_reading_unavailable", "sourceUnavailable"],
+    ["semantic_stated_constraint_unsupported", "requestUnsupported"],
   ] as const)("maps conversation hold %s to %s", (reason, kind) => {
     expect(verificationIssueKind(reason)).toBe(kind);
   });

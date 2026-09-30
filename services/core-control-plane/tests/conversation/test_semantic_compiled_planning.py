@@ -48,6 +48,7 @@ class _Ticket:
         self.cancelled = False
         self.typed_only = False
         self.decision: str | None = None
+        self.details: tuple[str, ...] = ()
 
     def outcome(self, *, manifest_digest: str, observations: list[Any]) -> Any:
         self.consumed = True

@@ -37,7 +37,11 @@ from .intent_graph import build_intent_graph
 from .model_observation import ConversationModelObservation
 from .semantic_manifest import semantic_principal_scope_digest
 from .semantic_planning_alignment import verify_frame_plan_alignment
-from .semantic_planning_models import SemanticPlanningDisposition, SemanticPlanningOutcome
+from .semantic_planning_models import (
+    SemanticPlanningDisposition,
+    SemanticPlanningOutcome,
+    hold_details,
+)
 from .semantic_planning_support import _outcome, _refresh_object_set_cutoffs
 from .semantic_reasoning_binding import GatewayAnchorResolver
 from .semantic_reasoning_compiler import CompiledBatch, GoalStatus
@@ -118,6 +122,8 @@ class CompiledAnswerTicket:
         self.typed_only = typed_only
         # The tagged terminal decision, set once the path is consumed or cancelled.
         self.decision: str | None = None
+        # Closed codes that say why a declined reading ended with its decision.
+        self.details: tuple[str, ...] = ()
 
     def outcome(
         self,
@@ -148,6 +154,7 @@ class CompiledAnswerTicket:
         if isinstance(selected, str):
             self._unsupported = _held_word_recovery_reasons(observation)
             self.decision = _decline_decision(selected, observation)
+            self.details = _decision_details(self.decision, observation)
             _log_completion("declined", observation=observation, decline_reason=selected)
             return None
         batch, confidence = selected
@@ -204,6 +211,7 @@ class CompiledAnswerTicket:
             SemanticPlanningDisposition.UNSUPPORTED,
             "semantic_stated_constraint_unsupported",
             manifest_digest=manifest_digest,
+            hold_details=hold_details(self._unsupported),
         )
 
     def cancel(self) -> None:
@@ -365,11 +373,17 @@ def typed_only_outcome(
 
     decision = ticket.decision if ticket is not None and ticket.decision else "unavailable"
     disposition, reason = _TYPED_ONLY_OUTCOMES.get(decision, _TYPED_ONLY_OUTCOMES["unavailable"])
+    details = ticket.details if ticket is not None and decision == ticket.decision else ()
     _LOGGER.info(
         "semantic_typed_only_outcome",
-        extra={"decision": decision, "reason": reason, "disposition": disposition.value},
+        extra={
+            "decision": decision,
+            "reason": reason,
+            "disposition": disposition.value,
+            "details": list(details),
+        },
     )
-    return _outcome(disposition, reason, manifest_digest=manifest_digest)
+    return _outcome(disposition, reason, manifest_digest=manifest_digest, hold_details=details)
 
 
 async def _run_form_path(
@@ -435,12 +449,14 @@ def _single_compiled_batch(
     batch's output when the union fits one intent graph; otherwise it is declined.
     """
 
-    if not observation.released:
-        return "not_released"
+    # A reading that needs another pass is a continuation, not a failed form, whether or
+    # not its later pass ran; it is never resampled as a form failure.
     if observation.continuation_pending or any(
         compilation.needs_continuation for compilation in observation.compilations
     ):
         return "continuation_pending"
+    if not observation.released:
+        return "not_released"
     if len(observation.compilations) != 1:
         return "compilation_count"
     goals = observation.compilations[0].goals
@@ -527,6 +543,64 @@ def _decline_decision(reason: str, observation: ReasoningShadowObservation) -> s
             return "clarification"
         return "unavailable"
     return "unverified"
+
+
+def _decision_details(decision: str, observation: ReasoningShadowObservation) -> tuple[str, ...]:
+    """Return the closed codes that say why a declined reading ended with ``decision``.
+
+    Positions and mention ids stay out of a code the operator's notice may name: a review
+    reason keeps only its constraint role, and a clarification keeps only its kind.
+    """
+
+    goals = [
+        goal
+        for compilation in observation.compilations
+        for goal in compilation.goals
+        if goal.status is not GoalStatus.COMPILED
+    ]
+    codes: list[str] = []
+    if decision == "unsupported":
+        codes.extend(
+            reason
+            for goal in goals
+            if goal.status is GoalStatus.UNSUPPORTED
+            for reason in goal.reasons
+            if reason.split(":", 1)[0].endswith("_unsupported")
+        )
+    elif decision == "clarification":
+        codes.extend(
+            reason.split(":", 1)[0]
+            for item in observation.passes
+            if item.disposition in {"clarify", "review"}
+            for reason in item.reasons
+        )
+        codes.extend(
+            reason.split(":", 1)[0]
+            for goal in goals
+            if goal.status is GoalStatus.CLARIFY
+            for reason in goal.reasons
+        )
+    elif decision == "unverified":
+        for reason in observation.review_reasons:
+            kind, _, rest = reason.partition(":")
+            role = rest.split(":", 1)[0]
+            if kind == "review_uncovered" and role:
+                codes.append(f"role:{role}")
+            elif kind == "review_unexpressible" and role:
+                codes.append(f"unexpressible:{role}")
+            else:
+                codes.append(kind)
+    elif decision == "unavailable":
+        codes.extend(reason for goal in goals for reason in goal.reasons)
+    elif decision == "limited":
+        codes.extend(
+            limitation.split(":", 1)[0]
+            for compilation in observation.compilations
+            for goal in compilation.goals
+            for limitation in goal.limitations
+            if limitation.split(":", 1)[0] not in _STATED_LIMITATIONS
+        )
+    return hold_details(codes)
 
 
 def _held_word_recovery_reasons(observation: ReasoningShadowObservation) -> tuple[str, ...]:

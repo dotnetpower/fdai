@@ -91,6 +91,8 @@ class SemanticJudgmentResult:
     proposal: SemanticJudgmentProposal | None
     receipt: SemanticJudgmentReceipt
     observations: tuple[SemanticJudgmentObservation, ...] = ()
+    # Closed constraint roles a proposal left uncovered, for a held reading's notice.
+    uncovered_roles: tuple[str, ...] = ()
 
     @property
     def accepted(self) -> bool:
@@ -245,6 +247,7 @@ class SemanticJudgmentBoundary:
         # The schema-repair prompt repairs only a schema-family reading, never another family.
         schema_family_read = False
         uncovered_seen = False
+        uncovered_roles: dict[str, None] = {}
         review_primary_binding: SemanticJudgmentBinding | None = None
         review_primary_proposal: SemanticJudgmentProposal | None = None
         observations: list[SemanticJudgmentObservation] = []
@@ -380,6 +383,8 @@ class SemanticJudgmentBoundary:
                 except (TypeError, ValueError, ValidationError) as exc:
                     uncovered = isinstance(exc, coverage_policy.UncoveredConstraintError)
                     uncovered_seen = uncovered_seen or uncovered
+                    if isinstance(exc, coverage_policy.UncoveredConstraintError):
+                        uncovered_roles.update(dict.fromkeys(exc.roles))
                     recovered_trace = (
                         None
                         if strict_grounding or uncovered
@@ -582,6 +587,11 @@ class SemanticJudgmentBoundary:
             binding=final_binding if final_disposition in _PROPOSAL_KEPT else None,
             proposal=final_proposal if final_disposition in _PROPOSAL_KEPT else None,
             observations=tuple(observations),
+            uncovered_roles=(
+                tuple(uncovered_roles)
+                if final_reason == coverage_policy.UNCOVERED_CONSTRAINT_CODE
+                else ()
+            ),
         )
 
     def _result(
@@ -596,6 +606,7 @@ class SemanticJudgmentBoundary:
         binding: SemanticJudgmentBinding | None = None,
         proposal: SemanticJudgmentProposal | None = None,
         observations: tuple[SemanticJudgmentObservation, ...] = (),
+        uncovered_roles: tuple[str, ...] = (),
     ) -> SemanticJudgmentResult:
         body = {
             "schema_version": "1.0.0",
@@ -624,7 +635,7 @@ class SemanticJudgmentBoundary:
         receipt = SemanticJudgmentReceipt.model_validate(
             {**body, "receipt_digest": content_digest(body)}
         )
-        return SemanticJudgmentResult(proposal, receipt, observations)
+        return SemanticJudgmentResult(proposal, receipt, observations, uncovered_roles)
 
 
 def _validate_direct_response(

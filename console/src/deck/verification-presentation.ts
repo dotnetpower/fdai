@@ -25,6 +25,16 @@ const CONTEXT_REQUIRED_REASONS = new Set([
   "ambiguous_candidate_identity_conflict",
   "ordinal_requery_not_unique",
   "semantic_clarification_required",
+  "semantic_judgment_review_conflict",
+  "semantic_reading_ambiguous",
+]);
+
+// A question held on its reading needs a narrower or restated question, not another source.
+const READING_HOLD_REASONS = new Set([
+  "semantic_constraint_uncovered",
+  "semantic_reading_continuation_required",
+  "semantic_reading_limited",
+  "semantic_reading_unverified",
 ]);
 
 const SOURCE_UNAVAILABLE_REASONS = new Set([
@@ -54,6 +64,7 @@ export function verificationIssueKind(reasonCode: string | null): VerificationIs
   if (
     reason === "conversation_preflight_malformed" ||
     reason === "semantic_frame_unavailable" ||
+    reason === "semantic_judgment_review_unavailable" ||
     reason === "semantic_planning_failed" ||
     reason === "semantic_runtime_unavailable"
   ) {
@@ -62,8 +73,14 @@ export function verificationIssueKind(reasonCode: string | null): VerificationIs
   if (reason === "vision_interpretation_unverified") {
     return "visionUnverified";
   }
-  if (reason === "semantic_request_unsupported") {
+  if (
+    reason === "semantic_request_unsupported" ||
+    reason === "semantic_stated_constraint_unsupported"
+  ) {
     return "requestUnsupported";
+  }
+  if (READING_HOLD_REASONS.has(reason)) {
+    return "invalidQuery";
   }
   if (
     CONTEXT_REQUIRED_REASONS.has(reason) ||
