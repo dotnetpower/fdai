@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: fcaef5f1d19727b4e814eca3b4905f282859ff2c
-translation_revised: 2026-09-30
+translation_source_sha: 0758e567ed7fa2d62afab5512cfdc94a7e4ee5ef
+translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 컴파일러
 
@@ -869,6 +869,9 @@ Owner가 2026-09-28에 다음 결정을 승인했습니다.
 |-------------|------|
 | 전달 상태와 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md) |
 | 커버리지 보장, 측정된 한도, 종결 프로그램 | [온톨로지 추론 커버리지](ontology-reasoning-coverage-ko.md) |
+| 결과 핸들, 이어 읽기, 후속 질문 | [결과 핸들과 이어 읽기](ontology-reasoning-result-handles-ko.md) |
+| 남은 컴파일러 커버리지와 현재 경로 작업 | [커버리지 확장과 현재 경로 수렴](ontology-reasoning-coverage-expansion-ko.md) |
+| 프로덕션 shadow, 검증된 답변, 검증 프로그램, 승격 | [승격 프로그램](ontology-reasoning-promotion-program-ko.md) |
 | 최상위 설계 권한 | [FDAI 헌법](../architecture/fdai-constitution-ko.md) |
 | 현재 의미 턴 경로 | [계층형 대화 계획](hierarchical-conversation-planning-ko.md) |
 | 조회 계약과 작업 패키지 | [온톨로지 조회 커버리지 구현 계획](ontology-query-coverage-implementation-plan-ko.md) |

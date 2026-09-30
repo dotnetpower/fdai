@@ -9,7 +9,7 @@ The [owner design](../../roadmap/interfaces/ontology-reasoning-compiler.md) was 
 2026-09-28. An initial, partial shadow implementation covers selected operations in Core: the
 closed form, admission, concept selection, anchor binding, relation and operator compilers for
 collection, count, state, history, impact, and schema reads, independent verifiers, the claim
-verifier, a coverage receipt in which 146 of 433 closed cells compile, follow-up references bound
+verifier, a coverage receipt in which 149 of 433 closed cells compile, follow-up references bound
 to result handles, and a shadow runner with an Azure adapter. The shadow runner is not wired into the
 production semantic turn, so deployed venues answer only through the current path, where resource-group
 membership now reads containment. The local development profile alone may answer from a released
@@ -20,6 +20,11 @@ answer a question the judgment asked to clarify. Shared model-input
 minimization for every adapter now also redacts compound secret keys, escaped JSON values, and
 emails or tokens next to Korean text.
 Live evaluation evidence is session-local and is summarized, not retained, as repository evidence.
+Since 2026-10-01 the remaining work lives with three focused owners, each with its own ledger:
+[result handles and continuations](ontology-reasoning-result-handles.md),
+[coverage expansion and current-path convergence](ontology-reasoning-coverage-expansion.md), and the
+[promotion program](ontology-reasoning-promotion-program.md). This ledger keeps the delivered scope
+and its history.
 
 ### Implementation scope
 
@@ -118,55 +123,21 @@ Live evaluation evidence is session-local and is summarized, not retained, as re
 | 2026-09-30 | in-progress | Fixed five defects that an independent code review of the health and lifecycle rows found, each reproduced by a test that fails on the reviewed code. V-SEM treated a read that a state or health reader filters as no result read, so a plan could drop that read's kind restriction, route the answer around the reader, or count health rows, and all three passed; the filter coverage moved to `semantic_reasoning_filter_coverage.py`, which checks the filtered read, requires the reader to filter a result read and answer the goal, and rejects any aggregate over health rows. The state reader had the same gap. Lifecycle values were allowed by property alone, so a `status` predicate on another ObjectType passed; they are now keyed by ObjectType and property and accepted only on that ObjectType's read. Several stated lifecycle values were read as a conjunction that no row can meet; they, and several stated regions, which had the same defect before this session, now read as one union, and V-SEM now also requires a stated region on every result read. A compiled list of another ObjectType is now recognized by its rows' `object_type`, and the generic rows answer states when the source is incomplete. A vocabulary without Resource Health groups now offers no health concepts instead of failing the manifest provider. | `current change`; `services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_{filter_coverage,verification,nodes}.py`; `services/core-control-plane/src/fdai/core/conversation/semantic_manifest.py`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; `test_a_filtered_reader_keeps_the_read_it_filters_restricted_and_answers_the_goal`, `test_health_rows_are_never_counted_as_matches`, `test_a_lifecycle_value_restricts_only_its_own_object_type`, `test_a_stated_region_must_restrict_every_result_read`, `test_several_stated_regions_or_lifecycle_states_read_as_one_union`, `test_a_vocabulary_without_health_groups_offers_no_health_concepts`, and `test_an_incomplete_object_list_never_reads_as_an_exhaustive_count`, each failing before the fix; `pytest -q -n 8 services/core-control-plane/tests/conversation services/core-control-plane/tests/core/ontology_platform services/core-control-plane/tests/composition` with the semantic service tests passed (4,553, one skipped without tsc); `pytest -q tests/integration/evaluation` passed (38); `check-reasoning-coverage.py` passed | None for this review. |
 | 2026-09-30 | in-progress | Fixed the one latent defect that a re-review of the filter coverage fixes found: lifecycle values from two properties of one ObjectType were pooled into one union and refused as `state_filter_subject_mismatch`. The compiler now emits one predicate per lifecycle property, a union within the property and a restriction across properties, while V-PROV and V-SEM were already keyed by ObjectType and property. Only `Incident.status` is a lifecycle property today, so no shipped question changed. The re-review compiled 335 forms before and after the fixes and found no other difference than the intended unions. | `current change`; `services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_{lifecycle,nodes}.py`; `test_values_of_one_property_unite_and_distinct_properties_restrict_together` and `test_another_subject_or_a_mixed_state_never_reads_a_lifecycle_value` in `test_semantic_reasoning_lifecycle.py`; `pytest -q -n 8 services/core-control-plane/tests/conversation services/core-control-plane/tests/core/ontology_platform services/core-control-plane/tests/composition` with the semantic service tests passed (4,555, one skipped without tsc); `check-reasoning-coverage.py` passed | None for this review. |
 | 2026-09-30 | in-progress | Enforced the R2 interim instance-versus-schema check on the current path. A verified plan that reads only ontology declarations, through `query.manifest`, `query.ontology_declaration`, or `query.ontology_relationships` and their aggregates, unions, or projections, answers what a type declares; when the judgment's blind reading says the question asks for a state, value, location, history, or cause, the planner now holds the turn as `semantic_reading_unverified` with the `answer_kind` detail, whose reviewed bilingual notice already existed. Schema, list, count, relation, other, and unjudged answer kinds are not held by this check, and a plan that also reads instances is left to the other checks. | `current change`; `services/core-control-plane/src/fdai/core/conversation/semantic_plan_coverage.py`; `test_a_declaration_read_never_answers_what_an_instance_is` and `test_a_schema_answer_to_an_instance_question_holds_as_an_unverified_reading` in `test_semantic_plan_coverage.py`; `pytest -q -n 8 services/core-control-plane/tests/conversation services/core-control-plane/tests/core/ontology_platform services/core-control-plane/tests/composition` with the semantic service tests passed (4,567, one skipped without tsc); `test_chat_semantic_routing.py` passed | Enforce operand provenance through grounding receipts, and record zero schema answers to instance targets on both corpora. |
+| 2026-10-01 | in-progress | Recorded three focused designs after an independent critique, for result handles and continuations, coverage expansion and current-path convergence, and the promotion program, and moved all 28 open items here to their owners' ledgers with their progress notes. This ledger keeps the delivered scope and its history. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-{result-handles,coverage-expansion,promotion-program}.md` and their Korean translations; `docs/roadmap-implementation/interfaces/ontology-reasoning-{result-handles,coverage-expansion,promotion-program}.md` | Tracked in the three focused ledgers. |
 
 ### Remaining work
 
 - [x] Record approval of the eight decisions listed in the owner design. Evidence: the owner
   design's `Approved decisions` section and the 2026-09-28 approval history row.
-- [ ] Complete R0: lock a holdout beside the committed bilingual cohort and fixture graph, keep
-  function binding production-faithful in the harness, and record baseline L1, L2, and Azure SRE
-  Agent parity receipts. The cohort, two locked holdouts, the fixture graph, and L2 tests exist;
-  retained L1 receipts and the parity baseline do not.
 - [x] Verify each directional relation with a focused, blind binary question to another model
   family that sees both readings in a fixed order without knowing which one the proposer chose,
   and hold a disagreement, because the proposer reversed a relation's direction on the holdout and
   open-ended extraction named the direction too rarely to catch it. Evidence:
   `test_semantic_reasoning_direction.py` and the 2026-09-28 direction confirmation row.
-- [ ] Configure the direction reader's reasoning-model deployment in production composition, with
-  its latency and cost measured per directional turn.
 - [x] Land the form, admission, concept-selection, binding, coverage-rule, and claim contracts of R1
   with focused tests and no production behavior change. Evidence: the 2026-09-28 implementation row.
-- [ ] Finish R1: add the handle, evidence-manifest, and aggregate and path pushdown contracts with
-  N/N-1 codec tests.
-- [ ] Persist result handles with the durable Operator turn and carry at most four recent handle
-  references in the semantic request contract, with the rendered-order digest, `snapshot_reference`,
-  explicit selection of an older handle, and zero cross-conversation bindings in a threat-review test.
 - [x] Replace lexical `parent_id` group membership with `contains` closure from the exact group.
   Evidence: `test_semantic_group_membership.py` in the 2026-09-28 implementation row.
-- [ ] Finish R2: enforce interim operand-provenance and instance-versus-schema checks on the current
-  path, with zero invented identity literals and zero schema answers to instance targets on both
-  corpora.
-  Note 2026-09-30: a check that required every identity operand of a model-proposed plan to appear in
-  the utterance, earlier turns, or the bound context was tried and withdrawn before commit, because
-  59 planner tests showed that server-grounded identities, such as an exact name binding's resource
-  id, also reach model plans; the check must first trust the grounding receipts that bound them.
-  Progress 2026-09-30: the instance-versus-schema half is enforced: a current-path plan that reads only
-  ontology declarations is held as `semantic_reading_unverified` when the blind reading asks for a
-  state, value, location, history, or cause, as
-  `test_a_schema_answer_to_an_instance_question_holds_as_an_unverified_reading` shows. Operand
-  provenance and the zero counts on both corpora remain.
-- [ ] Complete R3 through R8 with the exit evidence in the owner delivery-round table, including
-  shadow wiring with a turn reservation, per-type holdout accuracy, reviewed trait and path grammar
-  catalog changes, traversal root lineage, the location property, the link-evidence allowlist, a
-  result-handle threat review, an answer author that emits claims, and V-CLAIM with zero escapes.
-- [ ] Wire the shadow runner into the production semantic turn behind a turn budget reservation
-  with telemetry export, and record a shadow disposition for every turn with unchanged answers.
-  The form must first travel in the judgment call, and the wiring must meet the conditions in the
-  owner design's production shadow wiring paragraph; fresh anchor-read cutoffs and structured
-  cancellation are done.
-- [ ] Add an answer author that emits claims, a full proposition contract for V-CLAIM, and an
-  independent entailment review that regenerates or holds an answer, with zero escapes on an
-  adversarial claim suite.
 - [x] Bind anchors through a case-insensitive exhaustive read pushed to the store, with tests that a
   differently cased name binds and that the read never scans the whole inventory. Evidence:
   `test_a_differently_cased_name_binds_the_same_object` and
@@ -188,11 +159,6 @@ Live evaluation evidence is session-local and is summarized, not retained, as re
   state of another ObjectType remains.
   Progress 2026-09-30: a value domain marked as an ObjectType's lifecycle state now grounds a stated
   state and compiles it as an exact predicate, with `Incident.status` as the first reviewed domain.
-- [ ] Compile a Resource Health lookup of one bound Resource through a reviewed single-target health
-  read and the state history of one Resource through state transitions, and declare reviewed
-  lifecycle domains for other ObjectTypes whose `status` the ontology projects. Exit:
-  `check-reasoning-coverage.py` no longer reports `measure_unsupported:health` or
-  `measure_unsupported:state`, and a stated state on each projected ObjectType grounds.
 - [x] Pin every continuation pass to the first pass's source generation, with a test that drift ends
   the continuation with an explicit incomplete note. Evidence:
   `test_a_continuation_that_reads_another_snapshot_ends_incomplete` and
@@ -206,12 +172,6 @@ Live evaluation evidence is session-local and is summarized, not retained, as re
   extraction classifies part of one mention as a restriction and finds another disjoint constraint
   in the same mention. Evidence: `review_merged` tests in `test_semantic_reasoning_review.py` and the
   three-repeat L1 round in the 2026-09-28 review-tightening row, with zero such runs in each repeat.
-- [ ] Hold zero released wrong answers, a compiled and released answer whose executed rows differ
-  from the gold rows, in every L1 round. The review-tightening row recorded three before its fixes
-  and zero after them, and the two-reader review row recorded one from concept grounding; keep the
-  metric in every round and treat any occurrence as a defect. Since the kind-grounding row the metric
-  also counts a released answer where the gold expects none and a function answer whose calls differ
-  from the gold form's compile, which earlier status-only counts missed.
 - [x] Split a merged mention through one review repair along the blind extraction's disjoint quotes,
   so a question such as the Workload ObjectType, now held, can still be answered. Evidence:
   `test_a_split_repair_along_the_disjoint_quotes_releases_the_reading`,
@@ -250,92 +210,11 @@ Live evaluation evidence is session-local and is summarized, not retained, as re
   unclassified type and `하위 리소스` to the subnet group, and each was released as a wrong answer.
   Evidence: `test_two_blind_choosers_bind_only_the_values_they_agree_on`,
   `test_concepts_bind_only_where_two_blind_choosers_agree`, and the 2026-09-28 two-chooser row.
-- [ ] Recover live L1 coverage from 84 of 120 runs toward the 108 recorded before the review, without
-  a released over-compilation: schema goals given type filters of another domain, restating words
-  such as declared that the extractor names as restrictions, extractor quotes that reach past the
-  named thing, reach words left out of relation cues, and particles quoted inside resource names.
-  Exit: at least 105 of 120 across two repeated rounds with zero released over-compilation.
-- [ ] Record an Owner decision that either replaces best-effort pattern detection of secrets in
-  operator-typed model input with a reviewed detector, or accepts it as defense in depth for the
-  in-tenant model deployment. Exit: the decision is linked here, and the encoded-shape regression
-  suite in `test_semantic_reasoning_masking.py` passes against the chosen detector.
-- [ ] On the current path, give relationship questions about one named instance a typed plan through the relation compiler, and
-  compare the T2 state review on meaning axes rather than facet tokens, so neither holds a question the ontology can answer.
-- [ ] Keep standalone questions on the verified path inside long conversations: a live probe after the current-path fixes saw the
-  router mark standalone service-health and Key Vault questions as thread-dependent, which sent one to an ambiguous hold and one to
-  an advisory reading, and saw one judgment type `인시던트` as a Resource subtype instead of the Incident ObjectType. Exit: the same
-  questions asked late in a 20-turn conversation reach the same verified answers as in a fresh one across two repeats.
-- [ ] Complete R9: record one promotion receipt and one SRE Agent parity receipt per operation
-  family, and retire frame and plan prompts only for promoted families.
-- [ ] Complete R10: remove lexical re-derivation and template renderers from promoted paths after
-  replay equivalence and one stable rollback release.
-- [ ] Before promoting any operation family in R9, record the coverage-lane exits that gate it in
-  the [coverage ledger](ontology-reasoning-coverage.md).
-- [ ] Carry typed constraint slots in the judgment and frame contracts, mapped one-to-one from the
-  blind reading's `ConstraintRole` values: time window, location or property predicate, lifecycle
-  status per ObjectType, group-by measure, relation path, and prior-result or ordinal reference, each
-  grounded by closed-choice selection against the ontology. Exit: zero uncovered-constraint holds for
-  the traced window, region, and incident-status questions across two repeats.
-- [ ] Verify coverage on the compiled plan instead of only the judgment: every hard, measure, group,
-  quantity, or relation role that the blind reading names maps to a plan predicate, measure, or path,
-  or the turn returns a typed unknown. This complements the answer-kind hold above. Exit: the traced
-  per-group count and region questions never release a list or candidate answer.
-  Progress 2026-09-30: a current-path plan that reads only a filtered list is now held whenever a
-  parsed form reading asks more than such a list, whatever builder produced it, and a stated grouping
-  or relation in the blind reading holds a plan without a grouped aggregate or beyond a list as
-  `semantic_plan_constraint_uncovered`; `test_semantic_plan_coverage.py` and
-  `test_a_stated_grouping_or_relation_holds_a_plan_that_reads_only_a_list` pass. A restriction
-  such as a region is checked only through the form reading, and the exit needs a live traced round.
-- [ ] Treat a clarification or ambiguous judgment as terminal on the current path: the frame model may
-  not reinterpret the utterance without the judgment and its coverage review. Exit: the traced
-  incident and ordinal follow-up questions return a clarification, never a verified unrelated list.
-  Progress 2026-09-30: `test_an_ambiguous_judgment_keeps_its_clarification_unless_one_reading_is_found`
-  shows that no frame call follows an ambiguous judgment and that only the closed ambiguity reader's
-  `one` verdict lets a released reading answer instead; the traced live questions remain.
-- [ ] Answer ObjectType-schema questions through a closed ontology-schema form instead of selecting
-  every declaration descriptor, and reserve frame budget before adaptive planning spends the turn
-  budget. Exit: no judgment token-budget or adaptive budget-exceeded event on the traced schema and
-  change-window questions.
-  Progress 2026-09-30: with typed-only answering in the local profile, a schema question answers only
-  from a compiled schema goal, as `test_schema_goal_reads_declarations_and_never_instances` and
-  `test_typed_only_ends_a_declined_read_with_its_decision_and_never_the_legacy_cascade` show, and a
-  `declares` word now needs no span beside schema goals; the frame budget reservation for the current
-  path and the traced live events remain.
 - [x] Surface the planner's typed hold reason, such as the uncovered constraint role, in the operator
   answer instead of the generic evidence hold. Evidence:
   `test_a_reading_hold_names_the_uncovered_role_instead_of_an_evidence_hold` and
   `test_an_unsupported_stated_constraint_names_its_atoms_in_korean` in
   `test_semantic_reading_holds.py`, in the 2026-09-30 typed reading-hold row.
-- [ ] Reduce single-sample release variance in the local compiled path: when a compilable reading
-  fails release only through a competing reading, an unfaithful review, or a review repair that drops
-  an operand, take one bounded second form sample before the turn falls back. Exit: the deallocated
-  VM, recent change, and containing-group questions answer in three repeated 20-question rounds.
-  Progress 2026-09-30: the bounded second sample is implemented; the three-round exit remains open.
-  Progress 2026-09-30: a direction majority, quote relocation, measure-cue normalization, one
-  re-extraction, and resampling of an unmatched concept are implemented; rounds T8 to T11 still
-  held about five answerable questions each on form-only failures, so the exit remains open.
-- [ ] Let a count grouped by container name the group's kind, such as resource group, and group
-  members by the nearest ancestor of that kind through `contains` closure. Exit: the traced per-group
-  count answers with one count per resource group instead of a hold.
-- [ ] Give causal context an effect change point and complete accounting: read state-transition change
-  points once trusted coverage exists, page the full activity window with a pinned continuation, and
-  add a reviewed mechanism catalog and refutation queries before any evidence grade is shown. Exit: a
-  why question about a state change lists the change point and every operation in its window, and
-  no answer states a cause below the `predictive_precedence` grade.
-- [ ] Read an all-kinds neighbourhood that exceeds one intent graph as bounded successive plans with
-  exact accounting and a pinned continuation, never as a decline. Exit: the traced connected-resources
-  question lists every reached endpoint with its LinkType across the successive plans.
-- [ ] Resolve a judgment clarification that disagrees with a released reading through a closed
-  ambiguity reader of a third model family instead of letting either reader decide alone. Exit: the
-  traced why questions answer in three repeated rounds, and a question with two plausible readings
-  still clarifies.
-  Progress 2026-09-30: the closed ambiguity reader is implemented with
-  `test_a_released_reading_answers_a_clarified_question_only_with_one_reading`,
-  `test_an_ambiguous_judgment_keeps_its_clarification_unless_one_reading_is_found`, and
-  `test_the_third_family_reads_only_the_masked_question`; the three live rounds remain.
-- [ ] Answer a property of a named resource, such as a storage account SKU, from reviewed Property
-  declarations with a property mention domain, and bind ordinal follow-ups to Operator-persisted
-  result handles. Exit: the traced ordinal SKU follow-up answers with the exact property value.
 - [x] Page `query.recent_resource_changes` with a pinned continuation so a window with more changed
   Resources than one read bound is listed completely. Exit: a 24-hour window with more than 20
   changes lists every change or states the exact remaining count. Evidence: the exact remaining
@@ -343,6 +222,9 @@ Live evaluation evidence is session-local and is summarized, not retained, as re
   `test_semantic_recent_change_accounting.py`, `test_a_cut_read_keeps_the_exact_total_through_the_query_table`
   in `test_recent_change_accounting.py`, and `test_recent_change_reader_reports_result_limit`, in the
   2026-09-30 exact change accounting row.
-- [ ] List the changes a cut `query.recent_resource_changes` window leaves out through a continuation
-  pinned to principal, scope, snapshot cutoff, cursor, expiry, and remaining count. Exit: a 24-hour
-  window with more than 20 changes lists every change across the continuation with exact accounting.
+- [x] Give every open item one focused owner and move it to that owner's ledger, so remaining
+  reasoning work is resumable per package. Evidence: the
+  [remaining-work map](../../roadmap/interfaces/ontology-reasoning-promotion-program.md#remaining-work-map)
+  and the [result handles](ontology-reasoning-result-handles.md),
+  [coverage expansion](ontology-reasoning-coverage-expansion.md), and
+  [promotion program](ontology-reasoning-promotion-program.md) ledgers, in the 2026-10-01 row.

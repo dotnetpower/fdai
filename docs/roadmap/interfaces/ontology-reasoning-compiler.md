@@ -863,6 +863,9 @@ The Owner approved these decisions on 2026-09-28.
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md) |
 | Coverage guarantees, measured limits, and closure program | [Ontology Reasoning Coverage](ontology-reasoning-coverage.md) |
+| Result handles, continuations, and follow-ups | [Result Handles and Continuations](ontology-reasoning-result-handles.md) |
+| Remaining compiler coverage and current-path work | [Coverage Expansion and Current-Path Convergence](ontology-reasoning-coverage-expansion.md) |
+| Production shadow, verified answers, validation, and promotion | [Promotion Program](ontology-reasoning-promotion-program.md) |
 | Highest design authority | [FDAI Constitution](../architecture/fdai-constitution.md) |
 | Current semantic turn path | [Hierarchical Conversation Planning](hierarchical-conversation-planning.md) |
 | Query contracts and work packages | [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md) |

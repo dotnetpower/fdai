@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: b57e2cbdaa158509505abb07101632e4d4119f7f
-translation_revised: 2026-09-28
+translation_source_sha: 604a8201459154812fd369039e22e0b74e46ccd4
+translation_revised: 2026-10-01
 ---
 # FDAI 로드맵
 
@@ -139,6 +139,9 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 19m | [narrator-routing-and-latency-ko.md](interfaces/narrator-routing-and-latency-ko.md) | T1 서술기 배포 라우팅, 멀티모달 탐색, 운영자 선호 설정, TTFT, 웹 검색 풀 및 런타임 전달 결정 |
 | 19n | [hierarchical-conversation-planning-ko.md](interfaces/hierarchical-conversation-planning-ko.md) | Non-keyword 의미 decomposition, structural 온톨로지 조회 커버리지, 검증된 의도 그래프, 근거 결합 및 답변 경계 |
 | 19n.1 | [ontology-reasoning-compiler-ko.md](interfaces/ontology-reasoning-compiler-ko.md) | 제안된 닫힌 질문 논리 형식, 앵커 바인딩, 검토된 관계 경로, 독립적인 의미 커버리지 검증 |
+| 19n.3 | [ontology-reasoning-result-handles-ko.md](interfaces/ontology-reasoning-result-handles-ko.md) | 제안된 결과 핸들, 근거, pushdown, 이어 읽기 계약, Core 핸들 저장소, 속성과 서수 후속 질문, 연속 관계 계획 |
+| 19n.4 | [ontology-reasoning-coverage-expansion-ko.md](interfaces/ontology-reasoning-coverage-expansion-ko.md) | 제안된 타입 제약 슬롯, 피연산자 출처, 현재 경로의 관계와 라우팅, 턴 예산 예약, 컨테이너 종류별 그룹화, 상태 이상과 수명 주기 조회, 인과 등급, 남은 연산자 |
+| 19n.5 | [ontology-reasoning-promotion-program-ko.md](interfaces/ontology-reasoning-promotion-program-ko.md) | 제안된 모델 근거 보기, 프로덕션 shadow 연결, 방향 판독기, 검증된 답변 작성, 라이브 검증 프로그램, 승격과 제거, 남은 작업 지도 |
 | 19n.2 | [ontology-reasoning-coverage-ko.md](interfaces/ontology-reasoning-coverage-ko.md) | 제안된 커버리지 보장, 측정된 용량과 카탈로그 한도, 빠짐없는 묶음 처리 규칙, 완결 프로그램, Azure SRE Agent 품질 기준 |
 | 19r | [system-knowledge-service-ko.md](interfaces/system-knowledge-service-ko.md) | 전용 Teams 멘션 봇과 운영 권한 없는 독립 release 고정 FDAI 설계 및 구현 지식 서비스 |
 | 19o | [ontology-query-coverage-implementation-plan-ko.md](interfaces/ontology-query-coverage-implementation-plan-ko.md) | 매니페스트, 조회 계획, 의미 세대, 토폴로지 이력, causal 근거 및 이전 방식 전환을 위한 감사된 구현 공백과 의존성 순서 작업 패키지 |
