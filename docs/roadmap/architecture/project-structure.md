@@ -609,6 +609,10 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   latest revision, so an upstream security release makes the old pin unresolvable; every shipped
   Dockerfile and the image contract then move to the published revision together, and all selected
   images rebuild and scan.
+  Optional extras that no image installs, such as `pdf-report` and `azure-mcp`, follow the same
+  rule at lock level. A published advisory is fixed by locking a patched release. When a manifest
+  range excludes that release, the root and service manifests move together with the adapter code
+  and focused tests that the new release requires.
 - Optional vertical distributions such as `fdai-cost-governance` live under `extensions/`. Core
   owns their immutable manifest, lifecycle, provider, and authority-neutral contracts, while the
   reviewed image composition supplies package code and resources. Core never imports an optional
