@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_judgment import (
     _MAX_JUDGMENT_CAPABILITY_BYTES,
@@ -93,3 +95,39 @@ def test_a_ranked_descriptor_slice_never_limits_the_judgment_catalog() -> None:
 
     names = {item.get("name") for item in judgment.capabilities}
     assert {"query.ontology_declaration", "query.manifest", "Incident", "Resource"} <= names
+
+
+def test_oversized_catalog_stops_before_judgment_frame_or_plan(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    manifest = production_manifest()
+    manifest = replace(
+        manifest,
+        descriptors=(
+            *manifest.descriptors,
+            *(
+                {"kind": "function", "name": f"query.extra.{index}" + "x" * 90}
+                for index in range(512)
+            ),
+        ),
+    )
+    judgment = _RecordingJudgment()
+    model = _Model(frame={}, plan=None)
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        descriptor_selector=_RankedSlice(),
+        now=lambda: NOW,
+        semantic_judgment=judgment,
+    )
+    outcome = service.plan(
+        utterance="Inspect the declarations.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose=next(iter(manifest.purposes)),
+    )
+    assert outcome.reason == "semantic_plan_invalid"
+    assert judgment.capabilities == ()
+    assert model.frame_calls == model.plan_calls == 0
+    assert "semantic_judgment_capability_identities_exceed_bound" in caplog.text

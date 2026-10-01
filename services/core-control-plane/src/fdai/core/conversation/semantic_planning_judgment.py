@@ -298,7 +298,7 @@ def _semantic_judgment_capabilities(
                 "semantic_judgment_capability_identities_exceed_bound",
                 extra={"presented": len(capabilities), "descriptor_count": len(descriptors)},
             )
-            break
+            raise ValueError("semantic judgment capability projection exceeds its byte bound")
         capabilities.append(capability)
         encoded_bytes = candidate_bytes
     if utterance is not None:
