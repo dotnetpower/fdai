@@ -750,6 +750,110 @@ class CoreOperatorProjectionV1_7_0(TypedDict):
     semantic_result: NotRequired[CoreOperatorProjectionV1_7_0SemanticResult]
 
 
+class CoreOperatorProjectionV1_8_0SemanticResultAssuranceObservationFrameOption1(TypedDict):
+    operation: Literal['select', 'aggregate', 'compare', 'explain_change', 'validate', 'action_draft']
+    subject_types: tuple[str, ...]
+    measure_concepts: tuple[str, ...]
+    temporal_scope: Literal['none', 'current', 'windowed', 'historical']
+    output_shape: str
+    frame_digest: str
+
+
+class CoreOperatorProjectionV1_8_0SemanticResultAssuranceObservationOntologyPathsItemStepsItem(TypedDict):
+    from_type: str
+    link_type: str
+    direction: Literal['outgoing', 'incoming']
+    to_type: str
+
+
+class CoreOperatorProjectionV1_8_0SemanticResultAssuranceObservationOntologyPathsItem(TypedDict):
+    path_id: str
+    steps: tuple[CoreOperatorProjectionV1_8_0SemanticResultAssuranceObservationOntologyPathsItemStepsItem, ...]
+
+
+class CoreOperatorProjectionV1_8_0SemanticResultAssuranceObservation(TypedDict):
+    schema_version: Literal['1.0.0']
+    frame: NotRequired[CoreOperatorProjectionV1_8_0SemanticResultAssuranceObservationFrameOption1 | None]
+    capabilities: tuple[str, ...]
+    object_types: tuple[str, ...]
+    link_types: tuple[str, ...]
+    function_types: tuple[str, ...]
+    ontology_paths: tuple[CoreOperatorProjectionV1_8_0SemanticResultAssuranceObservationOntologyPathsItem, ...]
+    fact_kinds: tuple[str, ...]
+    limitation_kinds: tuple[str, ...]
+    claim_kinds: tuple[str, ...]
+    evidence_posture: Literal['fresh', 'stale', 'incomplete', 'conflicting', 'unavailable']
+    authority_posture: Literal['read_only', 'draft_only']
+    read_performed: bool
+    observation_digest: str
+    execution_authority: Literal[False]
+
+
+class CoreOperatorProjectionV1_8_0AdaptiveGoalResult(TypedDict):
+    goal_id: str
+    kind: Literal['knowledge', 'operational', 'environment_example']
+    status: Literal['answered', 'unavailable', 'held']
+    required: bool
+    evidence_refs: NotRequired[tuple[str, ...]]
+    limitation: NotRequired[str | None]
+
+
+class CoreOperatorProjectionV1_8_0SemanticResultAdaptiveAnswer(TypedDict):
+    answer: str
+    goals: tuple[CoreOperatorProjectionV1_8_0AdaptiveGoalResult, ...]
+    role_agent: Literal['Odin', 'Heimdall', 'Huginn', 'Forseti', 'Var', 'Thor', 'Vidar', 'Saga', 'Bragi', 'Njord', 'Freyr', 'Loki', 'Mimir', 'Norns', 'Muninn']
+    quality_status: Literal['passed', 'limited']
+    refinements: NotRequired[int]
+    execution_authority: NotRequired[Literal[False]]
+
+
+class CoreOperatorProjectionV1_8_0SemanticResultResultHandleRef(TypedDict):
+    schema_version: Literal['1.1', '1.2']
+    handle_ref: str
+    key_version: str
+    issued_at: str
+    expires_at: str
+
+
+class CoreOperatorProjectionV1_8_0SemanticResult(TypedDict):
+    disposition: Literal['answered', 'direct_response', 'held', 'clarification', 'unsupported', 'action_draft', 'cancelled', 'advisory_response']
+    reason_code: str
+    semantic_route: NotRequired[Literal['verified_query_plan', 'semantic_direct_response', 'semantic_clarification', 'semantic_unsupported', 'semantic_action_draft', 'semantic_cancellation', 'semantic_advisory_response']]
+    unavailable_reason: NotRequired[Literal['authoritative_evidence_unavailable', 'historical_evidence_unavailable', 'semantic_planner_unavailable']]
+    session_id: str
+    turn_id: str
+    turn_sequence: int
+    ontology_release_digest: NotRequired[str]
+    principal_manifest_digest: NotRequired[str]
+    plan_digest: NotRequired[str]
+    execution_receipt_digest: NotRequired[str]
+    intent_graph: NotRequired[dict[str, object]]
+    intent_graph_evidence: NotRequired[dict[str, object]]
+    evidence_refs: tuple[str, ...]
+    checks_completed: int
+    checks_total: int
+    answer: NotRequired[str]
+    direct_response_intent: NotRequired[Literal['greeting', 'self_introduction']]
+    assurance_observation: NotRequired[CoreOperatorProjectionV1_8_0SemanticResultAssuranceObservation]
+    execution_authority: Literal[False]
+    adaptive_answer: NotRequired[CoreOperatorProjectionV1_8_0SemanticResultAdaptiveAnswer]
+    document_context_digest: NotRequired[str]
+    result_handle_ref: NotRequired[CoreOperatorProjectionV1_8_0SemanticResultResultHandleRef]
+
+
+class CoreOperatorProjectionV1_8_0(TypedDict):
+    schema_version: Literal['1.8.0']
+    projection_id: str
+    request_id: str
+    correlation_id: str
+    idempotency_key: str
+    status: Literal['accepted', 'available', 'unavailable', 'answered', 'direct_response', 'held', 'clarification', 'unsupported', 'action_draft', 'cancelled', 'advisory_response']
+    recorded_at: str
+    payload: dict[str, object]
+    evidence_digest: NotRequired[str]
+    semantic_result: NotRequired[CoreOperatorProjectionV1_8_0SemanticResult]
+
+
 class DocumentIngestionActivityV1_0_0(TypedDict):
     schema_version: str
     activity_id: str
@@ -881,6 +985,121 @@ class OperatorCoreRequestV1_1_0(TypedDict):
     request_kind: Literal['query', 'proposal']
     requested_at: str
     context_digest: NotRequired[str]
+
+
+class OperatorCoreRequestV1_10_0SemanticTurnPrincipal(TypedDict):
+    subject_id: str
+    principal_kind: NotRequired[Literal['human', 'workload']]
+    roles: tuple[Literal['Reader', 'Contributor', 'Approver', 'Owner', 'BreakGlass'], ...]
+    groups: NotRequired[tuple[str, ...]]
+
+
+class OperatorCoreRequestV1_10_0SemanticTurnBoundContext(TypedDict):
+    kind: Literal['incident', 'screen', 'resource_group']
+    incident_id: NotRequired[str]
+    correlation_id: NotRequired[str]
+    screen_id: NotRequired[str]
+    resource_group_id: NotRequired[str]
+    selection_token: NotRequired[str]
+    resource_ids: NotRequired[tuple[str, ...]]
+    principal_id: NotRequired[str]
+    principal_scope_digest: NotRequired[str]
+    ontology_release_digest: NotRequired[str]
+    source_generation: NotRequired[str]
+    selection_digest: NotRequired[str]
+    complete: NotRequired[bool]
+
+
+class OperatorCoreRequestV1_10_0SemanticTurnInvestigationContinuation(TypedDict):
+    schema_version: Literal['1.0.0']
+    source_session_id: str
+    source_turn_id: str
+    source_turn_sequence: int
+    target_type: str
+    target_value: str
+    recovery_measure_concepts: tuple[str, ...]
+    baseline_start: str
+    baseline_end: str
+    initial_observation_cutoff: str
+    ontology_release_digest: str
+    principal_manifest_digest: str
+    source_frame_digest: str
+    source_plan_digest: str
+    source_execution_receipt_digest: str
+    execution_authority: Literal[False]
+
+
+class OperatorCoreRequestV1_10_0SemanticTurnPriorTurnsItem(TypedDict):
+    role: Literal['user', 'assistant']
+    content: str
+
+
+class OperatorCoreRequestV1_10_0AdaptiveRelationshipProof(TypedDict):
+    target_agent: Literal['Odin', 'Heimdall', 'Huginn', 'Forseti', 'Var', 'Thor', 'Vidar', 'Saga', 'Bragi', 'Njord', 'Freyr', 'Loki', 'Mimir', 'Norns', 'Muninn']
+    principal_id: str
+    kind: Literal['steward', 'collaborator']
+    source_revision: str
+    verified_at: str
+    expires_at: str
+    execution_authority: NotRequired[Literal[False]]
+
+
+class OperatorCoreRequestV1_10_0SemanticDocumentContext(TypedDict):
+    schema_version: NotRequired[Literal['1.0.0']]
+    source: Literal['channel_attachment', 'web_reference']
+    principal_ref: str
+    conversation_ref: str
+    citations: tuple[str, ...]
+    authorization_digest: str
+    receipt_digests: NotRequired[tuple[str, ...]]
+    context_digest: str
+    execution_authority: NotRequired[Literal[False]]
+
+
+class OperatorCoreRequestV1_10_0SemanticTurnRecentResultHandlesItem(TypedDict):
+    schema_version: Literal['1.1', '1.2']
+    handle_ref: str
+    key_version: str
+    issued_at: str
+    expires_at: str
+
+
+class OperatorCoreRequestV1_10_0SemanticTurn(TypedDict):
+    utterance: str
+    principal: OperatorCoreRequestV1_10_0SemanticTurnPrincipal
+    session_id: str
+    turn_id: str
+    turn_sequence: int
+    locale: str
+    purpose: str
+    deadline_at: str
+    view_context_digest: NotRequired[str]
+    bound_context: NotRequired[OperatorCoreRequestV1_10_0SemanticTurnBoundContext]
+    investigation_continuation: NotRequired[OperatorCoreRequestV1_10_0SemanticTurnInvestigationContinuation]
+    prior_turns: tuple[OperatorCoreRequestV1_10_0SemanticTurnPriorTurnsItem, ...]
+    planning_profile: NotRequired[Literal['interactive', 'golden_campaign_no_t2']]
+    include_model_trace: NotRequired[bool]
+    cancelled: NotRequired[bool]
+    execution_authority: Literal[False]
+    target_agent: NotRequired[Literal['Odin', 'Heimdall', 'Huginn', 'Forseti', 'Var', 'Thor', 'Vidar', 'Saga', 'Bragi', 'Njord', 'Freyr', 'Loki', 'Mimir', 'Norns', 'Muninn']]
+    relationship_proof: NotRequired[OperatorCoreRequestV1_10_0AdaptiveRelationshipProof | None]
+    relationship_unknown_reason: NotRequired[str | None]
+    conversation_model_tier: NotRequired[Literal['t1', 't2'] | None]
+    document_context: NotRequired[OperatorCoreRequestV1_10_0SemanticDocumentContext | None]
+    authentication_receipt_ref: NotRequired[str | None]
+    recent_result_handles: NotRequired[tuple[OperatorCoreRequestV1_10_0SemanticTurnRecentResultHandlesItem, ...]]
+
+
+class OperatorCoreRequestV1_10_0(TypedDict):
+    schema_version: Literal['1.10.0']
+    request_id: str
+    correlation_id: str
+    idempotency_key: str
+    resource_ref: str
+    request_kind: Literal['query', 'proposal', 'semantic_query']
+    requested_at: str
+    context_digest: NotRequired[str]
+    semantic_turn: NotRequired[OperatorCoreRequestV1_10_0SemanticTurn]
 
 
 class OperatorCoreRequestV1_2_0SemanticTurnPrincipal(TypedDict):
@@ -1502,6 +1721,7 @@ __all__ = (
     "CoreOperatorProjectionV1_4_0",
     "CoreOperatorProjectionV1_6_0",
     "CoreOperatorProjectionV1_7_0",
+    "CoreOperatorProjectionV1_8_0",
     "DocumentIngestionActivityV1_0_0",
     "DocumentIngestionActivityV1_1_0",
     "DocumentWorkerAuditV1_0_0",
@@ -1511,6 +1731,7 @@ __all__ = (
     "ExecutorReceiptV1_1_0",
     "OperatorCoreRequestV1_0_0",
     "OperatorCoreRequestV1_1_0",
+    "OperatorCoreRequestV1_10_0",
     "OperatorCoreRequestV1_2_0",
     "OperatorCoreRequestV1_3_0",
     "OperatorCoreRequestV1_4_0",

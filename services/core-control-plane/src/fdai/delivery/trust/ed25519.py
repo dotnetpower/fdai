@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.serialization import (
 
 from fdai.delivery.trust.key_file import read_key_file
 
-_PUBLIC_KEY_RESOURCE = "license-signing-key.pub"
+_PUBLIC_KEY_RESOURCE = "upstream-signing-key.pub"
 
 
 class Ed25519LicenseVerifier:
@@ -42,7 +42,7 @@ class Ed25519LicenseVerifier:
 
 
 def license_public_key_pem() -> bytes:
-    """Return the tracked public key packaged with the Core distribution."""
+    """Return the upstream integrity public key, Core's only license verification key."""
 
     return files("fdai.delivery.trust").joinpath(_PUBLIC_KEY_RESOURCE).read_bytes()
 

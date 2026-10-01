@@ -9,6 +9,7 @@ import pytest
 from fdai.core.conversation.semantic_governed_document_planning import (
     append_governed_document_plan,
     apply_document_evidence_requirement,
+    apply_required_document_evidence,
     compile_governed_document_plan,
     document_evidence_mode,
 )
@@ -577,3 +578,62 @@ def test_document_plan_rejects_blank_search_query() -> None:
             verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
             purpose="operations-review",
         )
+
+
+def _optional_judgment(version: str, **extra: object) -> SemanticJudgmentProposal:
+    return SemanticJudgmentProposal.model_validate(
+        {
+            "schema_version": version,
+            "primary_intent": "query.subscription_service_health",
+            "confidence": 0.95,
+            "ambiguous": False,
+            "document_evidence_mode": "optional",
+            "action_subject": "none",
+            **extra,
+        }
+    )
+
+
+@pytest.mark.parametrize("version", ("1.3.0", "1.4.0"))
+def test_a_later_minor_holds_a_missing_query_only_when_the_field_was_offered(version: str) -> None:
+    proposal = _proposal(
+        output_shape=SemanticOutputShape.SUBSCRIPTION_SERVICE_HEALTH,
+        requirements=("authoritative_service_health",),
+    )
+    frame = build_semantic_frame(proposal, utterance=UTTERANCE, context=())
+    arguments = {"utterance": UTTERANCE, "context": ()}
+
+    not_offered, _ = apply_document_evidence_requirement(
+        proposal, frame, judgment=_optional_judgment(version), **arguments
+    )
+    offered, _ = apply_document_evidence_requirement(
+        proposal, frame, judgment=_optional_judgment(version, document_query=None), **arguments
+    )
+
+    assert not any("unavailable" in item for item in not_offered.subject_constraints)
+    assert any("unavailable" in item for item in offered.subject_constraints)
+
+
+def test_a_rebuilt_frame_keeps_its_investigation_identity() -> None:
+    proposal = _proposal(
+        output_shape=SemanticOutputShape.SUBSCRIPTION_SERVICE_HEALTH,
+        requirements=("authoritative_service_health",),
+    )
+    intent = "sha256:" + "e" * 64
+    frame = build_semantic_frame(
+        proposal, utterance=UTTERANCE, context=(), investigation_intent_digest=intent
+    )
+
+    _updated, rebuilt = apply_document_evidence_requirement(
+        proposal,
+        frame,
+        judgment=_optional_judgment("1.1.0"),
+        utterance=UTTERANCE,
+        context=(),
+    )
+    _required, forced = apply_required_document_evidence(
+        proposal, frame, utterance=UTTERANCE, context=()
+    )
+
+    assert rebuilt.investigation_intent_digest == intent
+    assert forced.investigation_intent_digest == intent

@@ -25,10 +25,14 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
 )
 
+from fdai.core.ontology_platform import ReviewedPropertyRead
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
+from fdai.core.ontology_platform.state_transitions import RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
 
+from . import semantic_reasoning_comparison_checks as comparison_checks
+from . import semantic_reasoning_property_reads as property_ops
 from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
@@ -57,9 +61,18 @@ from .semantic_reasoning_form import (
 )
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
 from .semantic_reasoning_lifecycle import parse_lifecycle
+from .semantic_reasoning_lineage_counts import lineage_traversal_violations
+from .semantic_reasoning_measure_checks import (
+    expected_measure_arguments,
+    is_health_lookup,
+    is_state_history,
+    metric_scope_violations,
+    window_matches,
+)
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
 from .semantic_reasoning_relations import SENSE_TRAITS
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
+from .semantic_target_health import TARGET_HEALTH_FUNCTIONS
 
 _SCHEMA_ONLY_FUNCTIONS = frozenset(
     {
@@ -93,7 +106,11 @@ _REQUIRED_FUNCTIONS: Mapping[tuple[GoalLevel, GoalOperation], frozenset[str]] = 
     (GoalLevel.INSTANCE, GoalOperation.LOOKUP): frozenset({"query.resource_current_state"}),
     (GoalLevel.INSTANCE, GoalOperation.HISTORY): frozenset({"query.resource_change_activity"}),
     (GoalLevel.INSTANCE, GoalOperation.EXPLAIN_CAUSE): frozenset(
-        {"query.resource_current_state", "query.resource_change_activity"}
+        {
+            "query.resource_current_state",
+            "query.resource_state_transitions",
+            "query.resource_change_activity",
+        }
     ),
     (GoalLevel.SCHEMA, GoalOperation.DESCRIBE_SCHEMA): frozenset(
         {"query.ontology_declaration", "query.ontology_relationships"}
@@ -117,6 +134,7 @@ def verify_goal_semantics(
     anchors: AnchorBindingReceipt | None = None,
     references: ReferenceReceipt | None = None,
     evaluation_time: datetime | None = None,
+    property_reads: tuple[ReviewedPropertyRead, ...] = (),
 ) -> tuple[str, ...]:
     """Return every V-SEM, V-PROV, and V-LEVEL violation for one goal.
 
@@ -130,11 +148,20 @@ def verify_goal_semantics(
     allowed = _allowed_operands(
         goal, admission=admission, concepts=concepts, anchors=anchors or AnchorBindingReceipt()
     )
+    readable_properties = property_ops.readable_resource_properties(
+        tuple(dict(item) for item in descriptors)
+    )
+    allowed.property_fields = property_ops.expected_property_fields(
+        goal,
+        admission=admission,
+        concepts=concepts,
+        anchors=anchors or AnchorBindingReceipt(),
+        reads=property_reads,
+        readable=readable_properties,
+    )
     reference_id = reference_mention(admission, goal.id)
     reference = (references or ReferenceReceipt()).binding(reference_id)
     if reference is not None and reference.bound:
-        # Re-derived from the form: only one row that starts the read anchors it, and the
-        # traversal-root check verifies that anchor; any other reference narrows the read.
         if not (_read_starts_at(goal, reference.mention_id) and len(reference.row_ids) == 1):
             allowed.prior_rows = reference.row_ids
     for node in nodes:
@@ -148,12 +175,11 @@ def verify_goal_semantics(
             goal, plans, allowed, descriptors, admission, anchors or AnchorBindingReceipt()
         )
     )
+    violations.extend(comparison_checks.comparison_coverage_violations(goal, plans))
     return tuple(dict.fromkeys(violations))
 
 
 def _read_starts_at(goal: FormGoal, mention_id: str) -> bool:
-    """Return whether the goal's read starts at the mention rather than narrowing to it."""
-
     if goal.relation is not None:
         anchor = goal.relation.anchor if goal.relation.anchor is not None else goal.subject
         return anchor == mention_id
@@ -185,6 +211,7 @@ class _Allowed:
         self.anchor_ids: set[str] = set()
         self.fragments: set[str] = set()
         self.type_sets: list[frozenset[str]] = []
+        self.container_types: set[str] = set()
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.state_concepts: set[str] = set()
@@ -193,6 +220,7 @@ class _Allowed:
         self.health_concepts: set[str] = set()
         self.metric_concepts: set[str] = set()
         self.regions: set[str] = set()
+        self.property_fields: tuple[str, ...] | None = None
         self.relation_object_type = False
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
         self.prior_rows: tuple[str, ...] = ()
@@ -245,6 +273,8 @@ def _allowed_operands(
             anchor = anchors.binding(mention_id)
             if anchor is not None and anchor.outcome is AnchorOutcome.BOUND:
                 allowed.anchor_ids.add(str(anchor.object_id))
+                if property_ops.is_property_lookup(goal) and anchor.resource_type:
+                    allowed.type_sets.append(frozenset({anchor.resource_type}))
             continue
         concept = concepts.binding(mention_id)
         if concept is None or concept.outcome is not ConceptOutcome.ACCEPTED:
@@ -269,6 +299,19 @@ def _allowed_operands(
         elif mention.domain is MentionDomain.REGION and role is FilterRole.REGION:
             allowed.regions.update(concept.values)
     measure = goal.measure
+    if (
+        measure is not None
+        and measure.group_by is GroupBy.CONTAINER
+        and measure.mention is not None
+    ):
+        mention = admission.form.mention(measure.mention)
+        concept = concepts.binding(measure.mention)
+        if (
+            mention.domain in {MentionDomain.RESOURCE_TYPE, MentionDomain.RESOURCE_CLASS}
+            and concept is not None
+            and concept.outcome is ConceptOutcome.ACCEPTED
+        ):
+            allowed.container_types.update(concept.values)
     if measure is not None and measure.kind is MeasureKind.METRIC and measure.mention is not None:
         mention = admission.form.mention(measure.mention)
         concept = concepts.binding(measure.mention)
@@ -308,6 +351,15 @@ def _operand_violations(
         )
     if node.kind in {QueryNodeKind.AGGREGATE, QueryNodeKind.UNION}:
         return []
+    if node.kind is QueryNodeKind.METRIC_SCOPE_SERIES:
+        if goal.effective_operation is GoalOperation.COMPARE_WINDOWS:
+            return comparison_checks.comparison_operand_violations(node, goal)
+        return metric_scope_violations(node, goal, evaluation_time)
+    if node.kind is QueryNodeKind.METRIC_COMPARISON:
+        return comparison_checks.comparison_operand_violations(node, goal)
+    if node.kind is QueryNodeKind.PROJECT:
+        fields = list(allowed.property_fields or ()) or None
+        return [] if arguments.get("fields") == fields else [f"prov_property:{node.node_id}"]
     return [f"prov_unexpected_node:{node.node_id}:{node.kind.value}"]
 
 
@@ -334,7 +386,7 @@ def _predicate_violations(
         elif prop == "name" and operator == "contains":
             permitted = allowed.fragments
         elif prop == "type" and operator in {"equals", "in"}:
-            permitted = set(allowed.required_types)
+            permitted = set(allowed.required_types) | allowed.container_types
         elif prop == "location" and operator in {"equals", "in"}:
             permitted = allowed.regions
         elif prop == "type" and operator == "not_equals":
@@ -360,6 +412,11 @@ def _function_violations(
 ) -> list[str]:
     name = function_name(node)
     static = node.arguments.get("arguments") or {}
+    measured = expected_measure_arguments(
+        name, goal, _expected_lookback(goal, default_lookback_seconds), evaluation_time
+    )
+    if measured is not None:
+        return [] if dict(static) == measured else [f"prov_function_arguments:{node.node_id}"]
     expected: Mapping[str, Any] | None
     if name == "query.resource_current_state":
         expected = {}
@@ -377,7 +434,7 @@ def _function_violations(
             lookback is None
             or limit is None
             or evaluation_time is None
-            or not _window_matches(static, lookback, limit, evaluation_time)
+            or not window_matches(static, lookback, limit, evaluation_time)
         ):
             return [f"prov_function_arguments:{node.node_id}"]
         return []
@@ -411,25 +468,6 @@ def _function_violations(
     return []
 
 
-def _window_matches(
-    arguments: Mapping[str, Any], lookback: int, limit: int, evaluation_time: datetime
-) -> bool:
-    """Return whether an absolute window ends at the trusted clock and spans the lookback."""
-
-    if set(arguments) != {"start_at", "end_at", "known_at", "limit"} or arguments["limit"] != limit:
-        return False
-    try:
-        start, end, known = (
-            datetime.fromisoformat(str(arguments[key]))
-            for key in ("start_at", "end_at", "known_at")
-        )
-    except ValueError:
-        return False
-    if any(item.tzinfo is None for item in (start, end, known)):
-        return False
-    return end == known == evaluation_time and (end - start).total_seconds() == lookback
-
-
 def _declared_maximum(
     descriptors: Sequence[Mapping[str, Any]], function_name: str, argument: str
 ) -> int | None:
@@ -458,6 +496,8 @@ def _history_reads(goal: FormGoal) -> frozenset[str]:
         return frozenset({"query.recent_resource_changes"})
     if goal.measure is not None and goal.measure.kind is MeasureKind.EVENT:
         return frozenset({"query.resource_event_history"})
+    if is_state_history(goal):
+        return frozenset({RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME})
     return frozenset({"query.resource_change_activity"})
 
 
@@ -474,19 +514,37 @@ def _coverage_violations(
         node for plan in plans for node in plan.nodes if node.node_id in plan.output_node_ids
     ]
     if goal.effective_operation is GoalOperation.COUNT and not all(
-        node.kind is QueryNodeKind.AGGREGATE and node.arguments.get("operation") == "count"
+        node.kind is QueryNodeKind.AGGREGATE
+        and node.arguments.get("operation") in {"count", "count_by_nearest_container"}
         for node in outputs
     ):
         violations.append("sem_count_not_aggregated")
-    grouped = GROUP_BY_FIELDS.get(goal.measure.group_by) if goal.measure is not None else None
+    lineage_group = (
+        goal.measure is not None
+        and goal.measure.group_by is GroupBy.CONTAINER
+        and goal.measure.mention is not None
+    )
+    grouped = (
+        None
+        if lineage_group
+        else GROUP_BY_FIELDS.get(goal.measure.group_by)
+        if goal.measure is not None
+        else None
+    )
     if (
         goal.level is GoalLevel.INSTANCE
         and goal.effective_operation is GoalOperation.COUNT
         and any(
-            node.arguments.get("group_by", []) != ([grouped] if grouped else []) for node in outputs
+            (
+                node.arguments.get("operation") != "count_by_nearest_container"
+                if lineage_group
+                else node.arguments.get("group_by", []) != ([grouped] if grouped else [])
+            )
+            for node in outputs
         )
     ):
         violations.append("sem_group_by_mismatch")
+    violations.extend(lineage_traversal_violations(lineage_group=lineage_group, plans=plans))
     functions = {
         name for plan in plans for node in plan.nodes if (name := function_name(node)) is not None
     }
@@ -500,10 +558,20 @@ def _coverage_violations(
         and goal.measure is not None
         and goal.measure.kind is MeasureKind.METRIC
     ):
-        # A metric is read only by the metric reader, never answered as a current state.
         required = frozenset({METRIC_READER})
         if functions != required:
             violations.append("sem_metric_read_differs")
+    if property_ops.is_property_lookup(goal):
+        required = None
+        violations.extend(
+            property_ops.property_read_violations(
+                plans,
+                property_ops.expected_anchor_id(goal, anchors),
+                property_ops.expected_anchor_type(goal, anchors),
+            )
+        )
+    if is_health_lookup(goal) and functions != TARGET_HEALTH_FUNCTIONS:
+        violations.append("sem_health_read_differs")
     if required is not None and functions.isdisjoint(required):
         violations.append("sem_operation_read_missing")
     if goal.level is GoalLevel.SCHEMA:
@@ -536,7 +604,7 @@ def _coverage_violations(
             if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
         ):
             violations.append("sem_relation_reach_differs")
-        expected_anchor = _expected_anchor_id(goal, anchors)
+        expected_anchor = property_ops.expected_anchor_id(goal, anchors)
         if expected_anchor is None or _traversal_roots(plans) != {expected_anchor}:
             violations.append("sem_relation_anchor_differs")
     elif goal.level is GoalLevel.INSTANCE and any(
@@ -589,15 +657,6 @@ def _schema_violations(goal: FormGoal, functions: set[str], admission: FormAdmis
     if goal.measure is not None and goal.measure.group_by not in {GroupBy.NONE, GroupBy.TYPE}:
         violations.append("sem_schema_group_by_unread")
     return violations
-
-
-def _expected_anchor_id(goal: FormGoal, anchors: AnchorBindingReceipt) -> str | None:
-    relation = goal.relation
-    mention = relation.anchor if relation is not None and relation.anchor else goal.subject
-    binding = anchors.binding(mention) if mention is not None else None
-    if binding is None or binding.outcome is not AnchorOutcome.BOUND:
-        return None
-    return binding.object_id
 
 
 def _traversal_roots(plans: Sequence[OntologyQueryPlan]) -> set[str]:

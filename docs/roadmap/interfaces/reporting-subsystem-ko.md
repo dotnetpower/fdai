@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: d74f4e78dab320f64e831a2de17205ac51394f6d
+translation_source_sha: 78a9a172c66c529ebee463c135de39130a4e3740
 translation_revised: 2026-10-01
 ---
 # 리포팅 서브시스템
@@ -509,6 +509,8 @@ validate합니다.
   (`AuditReader`, `MetricProvider`, `LogQueryProvider`, `ReportFeed`, 온톨로지/프로세스 저장소)을
   감쌉니다. 로컬 `filesystem_manifest`와 `callable` 어댑터는 명시적 선택, 범위가 제한된, 읽기 전용
   등록입니다.
+  마이그레이션 소유권 매니페스트에는 `licensing_entitlement_state`처럼 기본 제공 데이터 원본이
+  감싸지 않는 Core 소유 테이블도 등록되므로, 기본 제공 리포트는 이 테이블을 읽지 않습니다.
 - **`core/`는 절대로 `delivery/`를 가져오기하지 않음**. 감사
   어댑터는 좁은 duck-typed 프로토콜을 받아 조립 wire-up을
   한 방향으로 유지합니다

@@ -51,6 +51,21 @@ a restriction that the blind reading found: a 24-hour window, a region, and an i
 - Both contracts gain a minor version with the rollout-safe version rules of
   [H1](ontology-reasoning-result-handles.md#h1-contracts). An older payload keeps today's behavior.
 
+**Implementation note (2026-10-01):** The service contracts now define typed constraint slots and
+minor-version pins for the judgment and frame records. The production judgment schema only exposes
+slots behind a default-off setting, so active model prompts keep their current output schema until
+the slot reader is calibrated. Local checks prove grounded slots cover the traced window, region,
+and incident-status restrictions, ungrounded slots hold with a typed reason, and grouped or
+relational frame slots must be represented by the verified plan. A time-window slot is covered only
+by an explicit window argument or by two distinct point-in-time reads, such as a snapshot pair. The
+single cutoff that the server stamps on every ObjectSet, traversal, and path read never counts as a
+window.
+Core now revalidates model-proposed location and lifecycle slot values against the exact manifest's
+closed concept catalogs before planning. A label or other non-canonical value becomes an unbound
+`out_of_domain` slot and follows the existing typed hold. One explicit historical snapshot satisfies
+a point-in-time slot only when its instant is earlier than the evaluation cutoff; a current cutoff
+still does not satisfy a window.
+
 **Exit:** zero uncovered-constraint holds for the traced window, region, and incident-status
 questions across two repeats.
 
@@ -67,6 +82,11 @@ of an exact name binding also reach model plans legitimately.
   `semantic_operand_without_source` otherwise.
 - The instance-versus-schema half already holds a declaration-only plan for an instance answer
   kind.
+- The local implementation applies this check at the current-path hold seam for model-proposed
+  operational plans, while server-built plans remain covered by their own deterministic builders.
+  A server-bound resource context now activates provenance enforcement even when no blind coverage
+  reader ran, and contributes typed receipts for each exact bound Resource or resource-group
+  identity at the planning call site.
 
 **Exit:** zero invented identity literals and zero schema answers to instance targets on the
 cohort and the holdout.
@@ -80,6 +100,11 @@ instead of the frame builders. The T2 state review then compares closed meaning 
 ObjectType, the state concept, the polarity, and the time basis, instead of facet tokens, so a
 reading the ontology can answer isn't held because two readers used different words.
 
+**Implementation note (2026-10-01):** The current path consumes released form-path relation
+compilations before it asks the frame model, so V-SEM-verified relation plans answer through the
+shared compiler. The independent state review compares Resource state readings by closed axes
+instead of facet spellings.
+
 **Exit:** the traced relation and state-review questions answer on the current path, and V-SEM
 accepts every relation plan it releases.
 
@@ -91,6 +116,13 @@ when the typed judgment cites an ordinal, an anaphor, or an explicit prior-resul
 binds. Conversation length, topic overlap, and earlier answers never imply a reference. The same
 closed choice reads an ObjectType, so an incident mention grounds as the Incident ObjectType, not a
 Resource subtype.
+
+**Implementation note (2026-10-01):** The preflight router can't see a typed reference, so a
+thread dependency it guesses for a turn with an explicit operational or knowledge request is read as
+none before routing, and the reviewed family that the guess blocked now promotes. Contextual
+follow-ups, social continuity, and pending decisions keep their route. The type closed choice also
+offers every ObjectType other than Resource, so an incident word can ground as the Incident
+ObjectType, and such a choice never becomes a Resource subtype.
 
 **Exit:** the traced questions asked late in a 20-turn conversation reach the same verified answers
 as in a fresh one across two repeats.
@@ -108,6 +140,14 @@ frame call runs. Each path gets a reservation plan that follows the
   cost, and read rows. The shadow reserves from its own capacity.
 - A stage that can't reserve returns the typed `budget_reserved_exceeded` hold before any call. A
   failed reservation stays recorded, and actual usage is reconciled after each stage.
+
+**Implementation note (2026-10-01):** `turn_reservations.py` holds the ledger, the reviewed
+current-path and shadow plans, and the stage labels the model adapters already record. Every
+physical request reserves at the shared provider choke point, and a held stage stops candidate
+failover before any request is sent. The shadow binds its own ledger, sized from its pass, repair,
+and concept limits, and reports a hold as a typed note. The current path's plan is defined but isn't
+bound in production yet, because its per-call worst cases need a calibration round over live
+request sizes. Read rows and priced cost are reserved dimensions that no caller charges yet.
 
 **Exit:** tests cover exact budget boundaries, cancellation, and continuations, and the traced
 schema and change-window questions record no judgment token-budget or adaptive budget-exceeded
@@ -129,6 +169,10 @@ many VMs per resource group" needs the nearest ancestor of one kind.
   and counted in a separate `ambiguous_membership` total, so the group counts plus that total
   equal the members read.
 - **Verify:** V-SEM requires the lineage grouping whenever the form names a container kind.
+- **Implementation note:** The local compiler represents the lineage grouping as a reviewed
+  aggregate operation over typed lineage rows. It reads the named container roots, asks secured
+  `contains` traversal to emit lineage rows, filters reached members by the stated subject kind,
+  and then aggregates the lineage rows. It remains shadow/local until promoted.
 
 **Exit:** exact gold tests pass for direct, indirect, and equal-nearest roots, and the traced
 per-group count answers with one count per resource group instead of a hold.
@@ -136,14 +180,18 @@ per-group count answers with one count per resource group instead of a hold.
 ### E7 Single-target health, state history, and lifecycle domains
 
 - **Health lookup:** A health question about one bound Resource compiles to the reviewed
-  single-target health assessment. V-PROV learns its fixed window and reviewed metric concepts, and
-  V-SEM requires the assessment. A resource with no health evidence stays `UNKNOWN_INCOMPLETE`.
-- **State history:** A history of one Resource's state compiles to reviewed state transitions only
-  when the source reports trusted transition coverage for the window. Otherwise it keeps its typed
-  unsupported reason.
+  single-target health assessment, the same shape the current path plans, from one shared module.
+  V-PROV recomputes its fixed 30-minute window and its three reviewed metric inputs, and V-SEM
+  requires exactly the assessment's reads. The answer restates the fixed window through a reviewed
+  notice. A resource with no health evidence stays `UNKNOWN_INCOMPLETE`.
+- **State history:** A history of one Resource's state compiles to the reviewed state transitions
+  reader over every reviewed transition type and target state in the window. The reader returns its
+  coverage proof, so an answer claims a complete history only when that proof is complete for the
+  window; otherwise the history is `UNKNOWN_INCOMPLETE`. A collection's state history, or a version,
+  `as_of`, or two-window history, keeps its typed unsupported reason.
 - **Lifecycle domains:** Each ObjectType whose projection writes a canonical status enum gets a
-  reviewed lifecycle value domain, following `Incident.status`, with a contract test that pins the
-  enum values.
+  reviewed lifecycle value domain, with a contract test that pins the enum values: `Incident`,
+  `Process`, `RecoveryPlan`, and `CausalHypothesis`.
 
 **Exit:** `check-reasoning-coverage.py` no longer reports `measure_unsupported:health` or
 `measure_unsupported:state`, and a stated state on each projected ObjectType grounds.
@@ -164,6 +212,9 @@ operations, and never names a cause.
 5. Release through V-CLAIM. A `predictive_precedence` grade renders a graded hypothesis, never a
    definitive cause, and no hypothesis releases before the verified answer authoring in the
    [Promotion Program](ontology-reasoning-promotion-program.md#p3-verified-answer-authoring).
+Local implementation now reads state-transition change points in causal context and computes a
+deterministic causal-grade receipt from reviewed mechanism evidence and refutation accounting. It
+still renders causal context below `predictive_precedence` and does not claim the live exit.
 
 **Exit:** a why question about a state change lists the change point and every operation in its
 window. No answer states a cause below `predictive_precedence`, and a single temporal coincidence
@@ -174,6 +225,13 @@ stays causal context.
 The coverage receipt still returns typed unsupported reasons for these operations and senses. Each
 one compiles only when its prerequisite exists. Until then it keeps the reason, and none borrows
 another operation's plan.
+The local implementation tightens those missing-prerequisite reasons in the coverage receipt; it
+does not compile new cells until the reviewed order, aggregation, comparison, history, evidence,
+diagnosis, path, or trait prerequisite exists.
+E9b adds the first such compiled cell: `compare_windows` over one reviewed metric uses two typed
+windows and the existing metric comparison node. Rank/non-count aggregate and compare-entities keep
+typed prerequisite reasons until their reviewed order/aggregation metadata and aligned answer shape
+exist.
 
 | Operation or sense | Prerequisite | Compiles to |
 |--------------------|--------------|-------------|

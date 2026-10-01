@@ -10,6 +10,7 @@ token expiration effective without a process restart.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -67,7 +68,8 @@ class _LicenseGate:
         """Return and audit a rejection, or return ``None`` when available."""
 
         checked_at = self.clock()
-        entitlement = self.authority.resolve(now=checked_at)
+        # A durable Trial observation commits to storage, so keep it off the event loop.
+        entitlement = await asyncio.to_thread(self.authority.resolve, now=checked_at)
         if MUTATION_CAPABILITY_ID in entitlement.available_capability_ids:
             return None
         context = _audit_context(entitlement, execution_path=execution_path)

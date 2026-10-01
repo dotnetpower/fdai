@@ -3,7 +3,7 @@ title: Subscription Genesis Assurance
 ---
 # Subscription Genesis Assurance
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document defines falsifiable safety, completeness, recovery, and operator-experience gates
 for the [Subscription Genesis Provisioning](subscription-genesis-provisioning.md) lifecycle.

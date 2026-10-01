@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 42e94d47aec66a868de46963b6878bf5dfd8a1d9
+translation_source_sha: 2420fa73c67643ef132cc0e66febb0f64bfea008
 translation_revised: 2026-10-01
 ---
 
@@ -61,6 +61,8 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 보관 근거 출처도 주입해야 합니다. 권한이 없는 근거 요청은 인시던트 생성이나 작업
 확인 경로로 들어가지 않습니다. 이 런타임 배치는 인시던트의 소유자, 상태 전환
 또는 승인을 변경하지 않습니다.
+의미 계획의 타입 제약 슬롯은 읽기 전용 계획 제약이며 인시던트 초안 생성, 확인,
+수명 주기 소유권 또는 Operator 권한을 바꾸지 않습니다.
 
 ![설계 요약. 주요 단계는 오퍼레이터 요청, 문제 대응인가?, Correlation ID 및 선택적 Process ID, Incident registry, Typed ActionProposal, Trust 및 risk gate, 판단, journal, audit, 승격된 executor adapter, 승인 후 재개, Stage stream입니다.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.ko.svg)
 

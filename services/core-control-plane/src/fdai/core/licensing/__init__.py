@@ -17,6 +17,11 @@ from fdai.core.licensing.entitlement import (
     LicenseVerifier,
     resolve_entitlement,
 )
+from fdai.core.licensing.installation_entitlement import (
+    INSTALLATION_ENTITLEMENT_SCHEMA,
+    InstallationEntitlementClaims,
+    parse_installation_entitlement,
+)
 from fdai.core.licensing.token import (
     LICENSE_SCHEMA,
     LicenseClaims,
@@ -26,15 +31,18 @@ from fdai.core.licensing.token import (
 )
 
 __all__ = [
+    "INSTALLATION_ENTITLEMENT_SCHEMA",
     "LICENSE_SCHEMA",
     "DeploymentBinding",
     "Entitlement",
+    "InstallationEntitlementClaims",
     "LicenseEntitlementAuthority",
     "LicenseClaims",
     "LicenseStatus",
     "LicenseTokenError",
     "LicenseVerifier",
     "encode_license_token",
+    "parse_installation_entitlement",
     "parse_license_token",
     "resolve_entitlement",
 ]

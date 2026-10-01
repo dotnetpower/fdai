@@ -11,16 +11,19 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, cast
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
+from .semantic_direction_receipt import DirectionCostReceipt, direction_cost_receipt
 from .semantic_reasoning_admission import (
     AdmissionDisposition,
+    FormAdmission,
     SpanAccounting,
     admit_question_form,
 )
@@ -44,6 +47,7 @@ from .semantic_reasoning_direction import (
 from .semantic_reasoning_form import SemanticQuestionForm
 from .semantic_reasoning_handles import (
     HandleScope,
+    ReferenceReceipt,
     ResultSetHandle,
     bind_references,
     reference_anchors,
@@ -63,6 +67,13 @@ from .semantic_reasoning_review_repair import (
     review_repair,
 )
 from .semantic_reasoning_shape import form_shape
+from .turn_reservations import (
+    TurnReservationLedger,
+    bind_turn_reservations,
+    current_ledger,
+    plan_capacity,
+    shadow_reservation_plan,
+)
 
 MAX_FORM_PASSES = 3
 
@@ -182,6 +193,8 @@ class ReasoningShadowObservation:
     execution_authority: Literal[False] = False
     notes: tuple[str, ...] = field(default=())
     compilations: tuple[ReasoningCompilation, ...] = field(default=(), repr=False)
+    # Content-free cost of the turn's direction readers, split by reader count.
+    direction_cost: DirectionCostReceipt | None = None
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -227,6 +240,7 @@ class _CountingModel:
         self.concept_calls = 0
         self.review_calls = 0
         self.direction_calls = 0
+        self.tiebreak_calls = 0
 
     @property
     def calls(self) -> int:
@@ -246,9 +260,33 @@ class _CountingModel:
 
     async def check_direction(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.direction_calls += 1
+        self.tiebreak_calls += 1 if kwargs.get("tiebreak") else 0
         return await self._inner.check_direction(**kwargs)
 
 
+def _with_shadow_reservations[**P](
+    run: Callable[P, Awaitable[ReasoningShadowObservation]],
+) -> Callable[P, Awaitable[ReasoningShadowObservation]]:
+    """Run the shadow under its own reservation ledger, never the answer's budget."""
+
+    @functools.wraps(run)
+    async def reserved(*args: P.args, **kwargs: P.kwargs) -> ReasoningShadowObservation:
+        limits = cast(ShadowBudget | None, kwargs.get("budget")) or ShadowBudget()
+        plan = shadow_reservation_plan(
+            form_passes=limits.max_form_passes,
+            repairs_per_pass=limits.repairs_per_pass,
+            concept_calls=limits.max_concept_calls,
+        )
+        ledger = TurnReservationLedger(plan_capacity(plan), plan)
+        async with bind_turn_reservations(ledger):
+            observation = await run(*args, **kwargs)
+        held = tuple(dict.fromkeys(ledger.holds))
+        return replace(observation, notes=(*observation.notes, *held)) if held else observation
+
+    return reserved
+
+
+@_with_shadow_reservations
 async def run_reasoning_shadow(
     *,
     model: QuestionFormModel,
@@ -267,6 +305,8 @@ async def run_reasoning_shadow(
     account_spans: bool = True,
     handles: tuple[ResultSetHandle, ...] = (),
     handle_scope: HandleScope | None = None,
+    stored_reference_binder: Callable[[FormAdmission], Awaitable[ReferenceReceipt | None]]
+    | None = None,
 ) -> ReasoningShadowObservation:
     """Run successive bounded form passes and compile each admitted pass."""
 
@@ -283,6 +323,7 @@ async def run_reasoning_shadow(
         object_labels=dict(manifest.object_labels),
         metric_labels=dict(manifest.metric_labels),
         health_labels=dict(manifest.health_labels),
+        property_reads=manifest.property_reads,
     )
     pending = False
     notes: list[str] = []
@@ -295,6 +336,7 @@ async def run_reasoning_shadow(
         "default_lookback_seconds": default_lookback_seconds,
         "handles": handles,
         "handle_scope": handle_scope,
+        "stored_reference_binder": stored_reference_binder,
     }
     admitted_forms: list[SemanticQuestionForm] = []
     # The snapshot generation the turn's first anchor reads saw; continuations must match it.
@@ -437,12 +479,20 @@ async def run_reasoning_shadow(
             review_reasons=review.reasons if review is not None else (),
             notes=tuple(notes),
             compilations=tuple(compilations),
+            direction_cost=_direction_cost(counting),
         )
     finally:
         # A cancelled or failed turn never leaves the extraction's provider call running.
         if not extraction.done():
             extraction.cancel()
         await asyncio.gather(extraction, return_exceptions=True)
+
+
+def _direction_cost(counting: _CountingModel) -> DirectionCostReceipt | None:
+    ledger = current_ledger()
+    if ledger is None:
+        return None
+    return direction_cost_receipt(ledger, counting.direction_calls, counting.tiebreak_calls)
 
 
 def _generation_drifted(pinned: tuple[str, ...], observed: tuple[str, ...]) -> bool:
@@ -607,9 +657,17 @@ async def _run_pass(
         sorted({item.source_generation for item in anchors.bindings if item.source_generation})
     )
     arguments = dict(compile_args)
-    references = bind_references(
-        admission, arguments.pop("handles", ()), arguments.pop("handle_scope", None)
+    stored_reference_binder = arguments.pop("stored_reference_binder", None)
+    references = (
+        await stored_reference_binder(admission) if stored_reference_binder is not None else None
     )
+    if references is None:
+        references = bind_references(
+            admission, arguments.pop("handles", ()), arguments.pop("handle_scope", None)
+        )
+    else:
+        arguments.pop("handles", ())
+        arguments.pop("handle_scope", None)
     anchors = reference_anchors(anchors, references)
     compilation = compile_question_form(
         admission,

@@ -302,12 +302,6 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         help="Override the online kit URL on an approved HTTPS release host",
     )
     advanced.add_argument(
-        "--license-signing-key",
-        type=Path,
-        metavar="PATH",
-        help="Maintainer-only private issuer key file; not an adopter prerequisite",
-    )
-    advanced.add_argument(
         "--control-package",
         type=Path,
         metavar="PATH",
@@ -643,6 +637,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     license_inspect.add_argument("--public-key", type=Path, required=True)
     license_inspect.add_argument("--image-digest", default=None)
     license_inspect.add_argument("--tenant-binding", default=None)
+    license_inspect.add_argument("--installation-binding", default=None, metavar="DIGEST")
     license_inspect.add_argument("--output", choices=("text", "json"), default="text")
     license_inspect.set_defaults(handler=handlers["license_inspect"])
 

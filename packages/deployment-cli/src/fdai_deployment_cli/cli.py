@@ -48,8 +48,18 @@ from fdai_deployment_cli.doctor import (
     doctor_json,
     inspect_tools,
 )
+from fdai_deployment_cli.entitlement_preflight import (
+    describe_entitlement_mode,
+    ensure_azure_session,
+    select_entitlement_mode,
+)
 from fdai_deployment_cli.entra_source import run_source_entra_operation
-from fdai_deployment_cli.license import inspect_license
+from fdai_deployment_cli.license import (
+    INSTALLATION_ENTITLEMENT_SCHEMA,
+    inspect_installation_entitlement,
+    inspect_license,
+    signed_token_schema,
+)
 from fdai_deployment_cli.offline_prepare import prepare_offline_release
 from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.profile import load_profile, write_profile
@@ -257,6 +267,13 @@ def _provision_azure(args: argparse.Namespace) -> int:
         raise ValueError("Foundation adoption requires both retained directories")
     if args.control_package is not None and args.offline_kit is None:
         raise ValueError("--control-package requires --offline-kit")
+    if not args.prepare_only:
+        entitlement_mode = select_entitlement_mode()
+        print(
+            f"fdaictl: entitlement: {describe_entitlement_mode(entitlement_mode)}",
+            file=sys.stderr,
+        )
+        ensure_azure_session()
     if args.source is not None:
         if catalog_review_profile.selected:
             raise ValueError(
@@ -279,7 +296,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 timeout_seconds=args.timeout_seconds,
                 approval_file=args.approval_file,
                 foundation_recovery_directory=args.foundation_recovery_directory,
-                interactive=False,
+                interactive=args.approval_file is None,
                 installation_options=(
                     InstallationOptions(
                         setup_cost_ceiling=args.setup_cost_ceiling,
@@ -343,7 +360,6 @@ def _provision_azure(args: argparse.Namespace) -> int:
             runtime_profile=runtime_profile,
             monthly_cost_ceiling=args.monthly_cost_ceiling,
             timeout_seconds=args.timeout_seconds,
-            license_signing_key=args.license_signing_key,
             trial_token=args.trial_token,
             adopt_runner_image_receipt=adoption_path(args.adopt_runner_image_receipt),
             adopt_application_state=adoption_path(args.adopt_application_state),
@@ -631,9 +647,24 @@ def _bundle_verify(args: argparse.Namespace) -> int:
 
 
 def _license_inspect(args: argparse.Namespace) -> int:
+    token = _read_private_license_token(args.token)
+    public_key_pem = _read_public_key(args.public_key)
+    if signed_token_schema(token) == INSTALLATION_ENTITLEMENT_SCHEMA:
+        if args.installation_binding is None or args.tenant_binding is None:
+            raise ValueError(
+                "an installation entitlement requires --installation-binding and --tenant-binding"
+            )
+        entitlement = inspect_installation_entitlement(
+            token,
+            public_key_pem=public_key_pem,
+            expected_installation_binding=args.installation_binding,
+            expected_deployment_binding=args.tenant_binding,
+        )
+        print(entitlement.to_json() if args.output == "json" else "active")
+        return 0
     result = inspect_license(
-        _read_private_license_token(args.token),
-        public_key_pem=_read_public_key(args.public_key),
+        token,
+        public_key_pem=public_key_pem,
         expected_image_digest=args.image_digest,
         expected_tenant_binding=args.tenant_binding,
     )

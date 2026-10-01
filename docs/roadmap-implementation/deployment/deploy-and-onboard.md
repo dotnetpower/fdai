@@ -48,6 +48,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | in-progress | Retargeted onboarding to the amended Constitution Article 1. `fdai-up.sh` becomes the keyless one-command source deployment, so removing tenant image construction no longer applies to the source path, which builds the five services in the deployment registry, and full-catalog VM selection is verified from the deployed source revision instead of an exact signed kit. | `current change`; [source deployment owner](../../roadmap/deployment/source-deployment.md) and [ledger](source-deployment.md) | Implement source deployment WP1 to WP3, then retain the VM selection receipt below. |
 | 2026-09-27 | implemented | Preserved one Azure Policy-managed Storage private-link child without weakening the sandbox's default-deny network contract. | `current change`; exact field readback and Terraform validation. | Complete plan-only zero-change verification. |
 | 2026-09-27 | implemented | Declared the exact PostgreSQL extension allowlist required by the existing Core migrations and bounded recovery to that single configuration address. | `current change`; Terraform and plan-gate tests. | Apply the extension-only plan and rerun migration. |
 | 2026-09-27 | implemented | Escaped URL-encoded percent signs only at the Alembic ConfigParser boundary so generated PostgreSQL credentials retain their exact decoded value. | `current change`; focused source and ConfigParser round-trip regressions. | Publish the exact image and rerun only the failed migration Job. |
@@ -222,9 +223,10 @@ and resumable work while the roadmap owner remains focused on normative design.
     dedicated workload/API-server subnets and the five baseline Kubernetes workloads.
 - [ ] Implement the Console network request and protected peering, DNS, private endpoint,
     private-cluster and public-access-removal plan with rollback and independent observations.
-- [ ] Remove tenant image construction and VM capture paths while retaining prebuilt artifact
-    verification, unchanged-digest ACR mirror/import and deployed Pod digest readback.
-- [ ] Publish and verify the full-catalog VM selection in an exact signed kit; retain successful
+- [ ] Keep VM image capture removed; pin source-deployment images to their registry-built digests,
+    verify prebuilt offline-package artifacts, and retain unchanged-digest ACR import and deployed
+    Pod digest readback.
+- [ ] Verify the full-catalog VM selection from the deployed source revision; retain successful
     image and Foundation readback under new exact approvals without repeating a retained claim.
 - [ ] Retain one approved private Foundation run that proves image and control-plane readback,
   stdin-only enrollment, claim-safe support repair when required, remote-state authority, cleanup,

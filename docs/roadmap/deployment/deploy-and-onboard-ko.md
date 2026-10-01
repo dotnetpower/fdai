@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 4de702508d5daa8f5a4fe2dfcb9a79cb4f2a24f4
+translation_source_sha: 1ad0076ea645c2f54dd5f6513e1a9571daa90cda
 translation_revised: 2026-10-01
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -192,10 +192,10 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 다음 고객 독립적 도구를 사용해 두 배포 경로를 반복 실행할 수 있습니다.
 
-- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev` 단일 명령 경로입니다. 버전이 지정된 서명 키트 하나를 검증하며 독립적인 아티팩트 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
-  현재의 각 계획을 승인받고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
-  기여자 소스 배포는 `--source <checkout> --signing-key <key>`를 추가합니다. 선택한 checkout이 실행 전체를 소유합니다. 해당 checkout의 잠긴 환경을 준비하고 그 안에서 키트를 빌드하며 배포 CLI도 거기에서 실행하므로, 다른 clone에서 호출해도 호출한 쪽 리비전이 대신 들어갈 수 없습니다. 이미 그 checkout이 키트를 결정하므로 `--online`이나 `--offline-kit`를 함께 지정하면 전달하지 않고 거부합니다.
-- [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 키트 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. 개발 프로필은 완전 키트와 번들 역할에 서명자 하나를 고정하므로 파일 하나로 `--signing-key`를 충족하며, 라이선스 발급자는 별도 키입니다.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 [단일 명령 소스 배포](source-deployment-ko.md)입니다. 어떤 clone이든 키 없이 배포하며, 무결성 서명 키가 없으면 영속 30일 Trial을, 사용할 수 있는 `secrets/integrity-signing-key.pem`이 있으면 전체 설치 사용권을 선택합니다. 독립적인 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
+  명령 실행이 표시하는 각 계획을 승인하고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
+  모드 인자가 없으면 어느 작업 디렉터리에서든 자기 checkout을 배포하고, Azure 호출 전에 `secrets/integrity-signing-key.pem`으로 사용권을 선택하며, Azure CLI 세션이 없으면 `az login`을 시작하고, 키트를 빌드하거나 서명하지 않습니다. 폐기된 `--signing-key` 옵션은 거부하며, 소스 빌드가 완성되기 전에 애플리케이션 단계가 필요한 키 보유자는 서명된 오프라인 패키지를 빌드해 `--offline-kit`로 전달합니다.
+- [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드나 배포가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. `--scan secrets`는 clone에 전체 사용권을 선택하는 업스트림 `integrity` 키가 있는지 보여 줍니다. 개발 프로필은 오프라인 패키지의 완전 키트와 번들 역할에 서명자 하나를 고정하며, 라이선싱은 무결성 키를 사용합니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
@@ -241,9 +241,10 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   Terraform은 기본 Event 허브 이름을 `event_bus_topics`로, 단계, 승인, 인벤토리 유입
   auxiliary 이름을 `event_bus_auxiliary_topics`로 제공해 로컬 런타임 준비가 provision된 토픽만 연결합니다.
 - **진입 명령**: `fdaictl provision azure`는 `infra/` HCL 모듈의 Terraform을 조정합니다.
-  환경 값은 source control 밖에 유지합니다. Standalone 조정기는 `서명 키트 검증 -> 대상 검사
-  -> 정확한 Foundation 계획 및 승인 -> Managed Host 적용 -> 정확한 애플리케이션 계획 및 승인
-  -> 배포 후 검사` 순서로 실행합니다. Terraform은 실행 엔진이자 인프라 단일 기준입니다.
+  환경 값은 source control 밖에 유지합니다. 소스 모드의 Standalone 조정기는 `소스 스냅샷 고정
+  -> 대상 검사 -> Foundation 계획 및 적용 -> 배포 레지스트리에서 이미지 빌드 -> 애플리케이션 계획 및
+  적용 -> 배포 후 검사` 순서로 실행하며, `--offline-kit`에서는 먼저 서명된 패키지를 검증합니다.
+  Terraform은 실행 엔진이자 인프라 단일 기준입니다.
 - 대상 환경 배포 전송 계층은 항상 `manual`입니다. 활성 Azure 사용자가 정확한 계획을 승인하고,
   Managed Host는 별도 workload identity로 계획을 실행합니다. 저장소 변수, 저장소 비밀,
   GitHub Environment, workflow dispatch 또는 GitHub runner는 참여하지 않습니다.
@@ -478,7 +479,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS` | env | 배포 | Core의 canary 및 raw 인벤토리 소비자만 사용하는 operational Event Hubs Kafka 엔드포인트입니다. 설정하지 않으면 비-Azure 어댑터에서 기본 엔드포인트로 대체 경로합니다. |
 | `KAFKA_SECURITY_PROTOCOL` | env | 배포 | Azure 에서 `SASL_SSL`; 다른 곳에서는 프로바이더별 값 |
 | `KAFKA_SASL_MECHANISM` | env | 배포 | Azure 에서 `OAUTHBEARER` |
-| `FDAI_STATE_STORE_DSN`; `FDAI_LICENSE_TOKEN` / `FDAI_LICENSE_IMAGE_DIGEST` / `FDAI_LICENSE_DEPLOYMENT_BINDING` / `FDAI_LICENSE_TOKEN_REVISION` | KV 참조 + env | 업스트림 / 배포 | 상태 저장소 값은 감사와 KPI용 PostgreSQL 연결 URI입니다. 라이선스 토큰은 Container Apps 기본 Key Vault 시크릿 참조로만 전달됩니다. 이미지와 배포 값은 서명된 점유와 비교하는 소문자 SHA-256 다이제스트이며, 토큰 개정 다이제스트는 갱신 시 새 Core 개정 번호를 강제하지만 권한 입력은 아닙니다. 배포되는 런타임은 입력이 없거나 잘못되거나 만료되거나 잘못 연결되면 읽기 전용으로 유지하고 세 Thor 작업 경로를 모두 차단합니다. 로컬 Git checkout은 고정된 소유자 전용 비공개 키가 패키지 공개 키와 암호학적으로 일치할 때만 토큰을 무시할 수 있으며, 배포 런타임은 이 경로를 열지 않습니다. |
+| `FDAI_STATE_STORE_DSN`; `FDAI_LICENSE_TOKEN` / `FDAI_LICENSE_IMAGE_DIGEST` / `FDAI_LICENSE_DEPLOYMENT_BINDING` / `FDAI_LICENSE_TOKEN_REVISION` | KV 참조 + env | 업스트림 / 배포 | 상태 저장소 값은 감사와 KPI용 PostgreSQL 연결 URI입니다. 라이선스 토큰은 Container Apps 기본 Key Vault 시크릿 참조로만 전달됩니다. 이미지와 배포 값은 서명된 점유와 비교하는 소문자 SHA-256 다이제스트이며, 토큰 개정 다이제스트는 갱신 시 새 Core 개정 번호를 강제하지만 권한 입력은 아닙니다. 배포되는 런타임은 입력이 없거나 잘못되거나 만료되거나 잘못 연결되면 읽기 전용으로 유지하고 세 Thor 작업 경로를 모두 차단합니다. 로컬 Git checkout은 고정된 소유자 전용 `secrets/integrity-signing-key.pem`이 패키지된 업스트림 무결성 공개 키와 암호학적으로 일치할 때만 토큰을 무시할 수 있으며, 배포 런타임은 이 경로를 열지 않습니다. |
 | `FDAI_CASE_HISTORY_CONTAINER_URL` / `FDAI_CASE_HISTORY_MI_CLIENT_ID` / `FDAI_CASE_HISTORY_RETENTION_DAYS` / `FDAI_CASE_HISTORY_DELETION_DAYS` / `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` | env | 업스트림 / 배포 | 변경할 수 없는 사례 개정 번호용 비공개 Blob 컨테이너 URL, 전용 연결된 UAMI 클라이언트 id, active-retention/deletion-due 오프셋 및 제한된 Muninn 보존 cadence입니다. Azure는 활성 보존, 삭제 예정, 이전 Blob 버전 및 변경 피드의 기본값을 30일로 설정합니다. Terraform은 저장소와 신원 연결을 파생하고 deletion이 보존보다 이르지 않게 검증하며, 시작은 전용 신원 id가 없거나 실행기 신원과 같으면 실패합니다. 공개/key-auth 대체 경로는 사용하지 않습니다. 보존 틱 기본값은 `86400`이며 배포 재정의 값은 승인된 데이터 일정에 결속됩니다. |
 | `FDAI_OPERATOR_MEMORY_DSN` | KV 참조 | 업스트림 | HIL 승인 운영자 기억 용 Postgres DSN. day-zero 는 `FDAI_STATE_STORE_DSN` 과 동일 소스 (단일 Flexible Server); 배포는 코어를 건드리지 않고 나중에 분리할 수 있습니다. |
 | `FDAI_T1_PATTERN_LIBRARY_DSN` | KV 참조 | 업스트림 | pgvector 기반 T1 패턴 라이브러리 용 Postgres DSN. day-zero 동일 소스, 동일 배선. |

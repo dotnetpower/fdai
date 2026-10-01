@@ -4,7 +4,7 @@ title: Package Assurance
 
 # Package assurance
 
-> **Deployment distribution:** The [constitution](fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document defines the minimal distribution contract for an FDAI Python package. An offline
 package should install like an ordinary local pip wheelhouse, with one detached private-key

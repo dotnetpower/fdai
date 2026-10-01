@@ -90,6 +90,40 @@ def test_forbidden_actions_schema_requires_explicit_shadow_opt_in() -> None:
     assert "forbidden_actions" in shadow_strict["json_schema"]["schema"]["required"]
 
 
+def test_constraint_slots_schema_requires_explicit_shadow_opt_in() -> None:
+    active_schema = _semantic_judgment_proposal_schema(intent_hardening_enabled=False)
+    slot_schema = _semantic_judgment_proposal_schema(
+        intent_hardening_enabled=False,
+        constraint_slots_enabled=True,
+    )
+
+    assert "constraint_slots" not in active_schema["properties"]
+    assert "constraint_slots" in slot_schema["properties"]
+    assert active_schema["properties"]["schema_version"]["const"] == "1.0.0"
+    assert slot_schema["properties"]["schema_version"]["const"] == "1.3.0"
+    active_strict = _strict_response_format(active_schema, name="semantic-judgment")
+    slot_strict = _strict_response_format(slot_schema, name="semantic-judgment-slots")
+    assert "constraint_slots" not in active_strict["json_schema"]["schema"]["required"]
+    assert "constraint_slots" in slot_strict["json_schema"]["schema"]["required"]
+
+
+def test_question_form_schema_requires_explicit_shadow_opt_in() -> None:
+    active_schema = _semantic_judgment_proposal_schema(intent_hardening_enabled=False)
+    form_schema = _semantic_judgment_proposal_schema(
+        intent_hardening_enabled=False,
+        question_form_enabled=True,
+    )
+
+    assert "question_form" not in active_schema["properties"]
+    assert "question_form" in form_schema["properties"]
+    assert active_schema["properties"]["schema_version"]["const"] == "1.0.0"
+    assert form_schema["properties"]["schema_version"]["const"] == "1.4.0"
+    active_strict = _strict_response_format(active_schema, name="semantic-judgment")
+    form_strict = _strict_response_format(form_schema, name="semantic-judgment-form")
+    assert "question_form" not in active_strict["json_schema"]["schema"]["required"]
+    assert "question_form" in form_strict["json_schema"]["schema"]["required"]
+
+
 def test_config_rejects_output_above_profile_reserve() -> None:
     prompt = "Judge."
     manifest = PromptReplayManifest(
@@ -629,3 +663,20 @@ def test_preflight_requests_topics_only_from_a_topic_defining_prompt() -> None:
     )
     topics = _preflight_proposal_schema(manifest("conversation-preflight-request-topics"))
     assert topics["properties"]["request_topics"]["maxItems"] == 3
+
+
+def test_a_disabled_field_leaves_no_unreferenced_schema_definitions() -> None:
+    active = _semantic_judgment_proposal_schema(intent_hardening_enabled=False)
+    with_form = _semantic_judgment_proposal_schema(
+        intent_hardening_enabled=False, question_form_enabled=True
+    )
+
+    def referenced(schema: dict[str, object]) -> set[str]:
+        text = json.dumps(schema)
+        return {name for name in schema.get("$defs", {}) if f'"#/$defs/{name}"' in text}
+
+    assert set(active.get("$defs", {})) == referenced(active)
+    assert "SemanticQuestionForm" not in active.get("$defs", {})
+    assert "SemanticQuestionForm" in with_form.get("$defs", {})
+    # The default-off request carries no question-form definitions at all.
+    assert len(json.dumps(active)) < len(json.dumps(with_form)) / 2

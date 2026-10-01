@@ -17,9 +17,10 @@ Fail-closed properties:
   that the runtime would reject cannot be issued.
 - Tenant binding is a digest computed by the caller; this script never accepts
   or stores a raw tenant identifier.
-- The repository issuer accepts 1 through 30 days and defaults to 30. Its
-    default inputs are the dedicated owner-only local key and packaged public
-    key; the framework integrity key is a separate trust domain.
+- The repository issuer accepts 1 through 30 days and defaults to 30. It reads
+    only the fixed owner-only upstream integrity key and verifies against the
+    packaged public key, which is the same key; the token's ``schema_version``
+    keeps its signatures domain-separated from the framework-surface manifest.
 """
 
 from __future__ import annotations
@@ -60,7 +61,7 @@ class LicenseIssueError(RuntimeError):
 
 
 _MAX_VALID_DAYS = 30
-_DEFAULT_PRIVATE_KEY = Path("secrets/license-signing-key.pem")
+_ISSUER_PRIVATE_KEY = Path(__file__).resolve().parents[3] / "secrets/integrity-signing-key.pem"
 
 
 def issue_license(
@@ -126,7 +127,6 @@ def _private_key(private_key_pem: bytes) -> Ed25519PrivateKey:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--private-key", type=Path, default=_DEFAULT_PRIVATE_KEY)
     parser.add_argument("--public-key", type=Path, default=None)
     parser.add_argument("--license-id", required=True)
     parser.add_argument("--distribution-id", required=True)
@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
             else tuple(args.capabilities or ())
         )
         token = issue_license(
-            private_key_pem=read_key_file(args.private_key, private=True),
+            private_key_pem=read_key_file(_ISSUER_PRIVATE_KEY, private=True),
             public_key_pem=public_key_pem,
             license_id=args.license_id,
             distribution_id=args.distribution_id,

@@ -12,30 +12,6 @@ transport. This document covers the deployed production composition.
 > **Scope**: this is a Tier B reference. The full dev/prod parity contract
 > lives in [dev-and-deploy-parity.md](dev-and-deploy-parity.md); the
 > deployment topology lives in [deployment.md](deployment.md).
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Independent service entrypoint and environment validation | implemented | `services/operator-service/src/fdai_operator_service/main.py`, `production.py`, `environment.py`, and composition tests | The service owns one factory and validates listener, Entra, RBAC, CORS, database, and semantic-transport combinations before provider use. |
-| Entra authentication and bounded Operator authorization | implemented | `services/operator-service/src/fdai_operator_service/auth.py`, route-family authorization, and focused service tests | Human identity remains separate from the executor identity; wildcard CORS and partial semantic transport fail closed. |
-| PostgreSQL read and family stores | implemented | `postgres.py`, `postgres_family_store.py`, and `test_operator_service_postgres.py` | DSN normalization, connection bounds, role binding, per-transaction statement timeout, and unavailable projections are implemented. |
-| Kafka semantic transport and Live/Agents relay | implemented | `adapters/`, `streaming/`, `test_semantic_kafka_adapter.py`, `test_semantic_turn_bridge.py`, and `test_live_stream.py` | Local plaintext and deployed managed-identity transport remain explicit execution-venue choices. Live late subscribers receive only the process-local stage frames accepted during the preceding 60 seconds. |
-| Independently deployed Operator service | validated | `.github/workflows/service-deploy.yml` and `config/independent-service-live-evidence-manifest.json` | Repository-safe live evidence covers the separately packaged service, migration branch, health, and rollback boundary. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-07 | implemented | Added capacity- and time-bounded recent-stage replay plus a fresh validated runtime-source marker for new Live subscribers without changing the durable History boundary. | `current change`; Live hub, Kafka relay, browser hook, and focused tests; Operator pytest passed 16 cases; Console Vitest passed 22 cases; Ruff, mypy, and Console typecheck passed. | Governed runtime validation remains separate; replay resets on Operator API restart and source readiness expires without a fresh Huginn observation. |
-| 2026-08-14 | validated | Adopted the implementation ledger; earlier provenance was not reconstructed. Updated the reference from the retired co-hosted facade to the independent Operator service. | current change; focused Operator service checks and the independent-service live evidence manifest | Keep the environment contract, service tests, deployment workflow, and live evidence manifest synchronized as the service evolves. |
-
-### Remaining work
-
-- [x] No implementation work remains for the bounded production-composition scope documented here; focused service tests and `config/independent-service-live-evidence-manifest.json` provide the current implementation and operational evidence.
-
 ## Design at a glance
 
 - **Service-owned factory.** The deployed process calls
@@ -100,7 +76,7 @@ Optional (defaults apply):
 |----------|---------|---------|
 | `FDAI_ENTRA_ISSUER` | `https://login.microsoftonline.com/<tenant>/v2.0` | Override for v1 tokens or sovereign clouds. |
 | `FDAI_ENTRA_JWKS_URI` | tenant discovery endpoint | Override for air-gapped clouds. |
-| `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | empty (same-origin) | Comma-separated origin list. A bare `*` element is rejected unconditionally by this factory (regardless of `RUNTIME_ENV`) - a cross-origin deploy MUST list the console origins explicitly. |
+| `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | empty (same-origin) | Comma-separated origin list. A bare `*` element is rejected unconditionally by this factory (regardless of `RUNTIME_ENV`) - a cross-origin deploy MUST list the console origins explicitly. Listed origins may send `Authorization`, `Content-Type`, `Idempotency-Key`, `If-Match`, `Last-Event-ID`, and `X-Correlation-ID`. |
 | `FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS` | `20000` | Applied transaction-locally with `set_config('statement_timeout', ..., true)` on database operations. |
 | `FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S` | `10` | Bounds the TCP and authentication handshake so an unavailable database fails promptly. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | empty | Starts the semantic transport and the shared Live/Agent observation relay. Uses the Event Hubs Kafka endpoint on `:9093`. An empty value leaves both SSE routes connected in `Awaiting source` without fabricating runtime evidence. |
@@ -175,6 +151,7 @@ Vault secret directly ([app-shape.instructions.md § Azure Mapping](../../../.gi
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/deployment/operator-api-prod.md) |
 | dev/prod parity contract | [dev-and-deploy-parity.md](dev-and-deploy-parity.md) |
 | deployment topology | [deployment.md](deployment.md) |
 | RBAC + identity flow | [../interfaces/user-rbac-and-identity.md](../interfaces/user-rbac-and-identity.md) |

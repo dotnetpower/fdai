@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import asyncio
+import threading
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import cast
 from uuid import UUID
@@ -27,8 +29,10 @@ from fdai.core.executor import (
 from fdai.core.executor.executor import ExecutionResult
 from fdai.core.executor.port import DirectApiExecutionPort
 from fdai.core.licensing import (
+    Entitlement,
     LicenseClaims,
     LicenseEntitlementAuthority,
+    LicenseStatus,
     encode_license_token,
 )
 from fdai.shared.contracts.models import (
@@ -214,6 +218,52 @@ async def test_trial_blocks_all_three_ports_before_delegate_io() -> None:
     }
     assert all(entry["license_status"] == "absent" for entry in entries)
     assert "FDAI_LICENSE_TOKEN" not in str(entries)
+
+
+@dataclass
+class _OffLoopTrial:
+    """Grant an active Trial only when consulted away from the event loop."""
+
+    catalog: CapabilityCatalog
+    threads: list[int] = field(default_factory=list)
+
+    def resolve(self, *, now: datetime) -> Entitlement:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            self.threads.append(threading.get_ident())
+            return Entitlement(
+                status=LicenseStatus.ACTIVE,
+                available_capability_ids=frozenset(
+                    capability.capability_id for capability in self.catalog.list()
+                ),
+                reason="active Trial window",
+            )
+        raise AssertionError("durable Trial state was observed on the event loop")
+
+
+async def test_durable_trial_is_resolved_off_the_event_loop() -> None:
+    base, _pr_native, direct_api, _tool_call = _port()
+    trial = _OffLoopTrial(_catalog())
+    gated = LicenseGatedThorExecutionPort(
+        delegate=base,
+        authority=LicenseEntitlementAuthority(
+            catalog=_catalog(),
+            token=None,
+            verifier=_RejectAll(),
+            trial=trial,
+        ),
+        audit_store=InMemoryStateStore(),
+        clock=lambda: _NOW,
+    )
+    assert gated.direct_api is not None
+
+    result = await gated.direct_api.execute(action=_action())
+
+    assert result.outcome is DirectApiExecutionOutcome.DISPATCHED
+    assert direct_api.calls == 1
+    assert len(trial.threads) == 1
+    assert trial.threads[0] != threading.get_ident()
 
 
 async def test_verified_issuer_workstation_delegates_all_three_ports() -> None:

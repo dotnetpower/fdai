@@ -30,7 +30,6 @@ from fdai.core.conversation.intent_graph import (
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import (
-    _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
     SemanticPlanningService,
     _descriptors_for_judgment,
     _operational_frame_matches_accepted_judgment,
@@ -50,6 +49,14 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticOutputShape,
     SemanticPlanningDisposition,
     SemanticPlanningModelResponse,
+)
+from fdai.core.conversation.semantic_planning_preflight import (
+    SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
+)
+from fdai.core.conversation.semantic_production_shadow import (
+    InMemoryProductionShadowSink,
+    ProductionShadowRecorder,
+    ProductionShadowSettings,
 )
 from fdai.core.conversation.semantic_resource_state_planning import (
     normalize_resource_state_proposal,
@@ -141,6 +148,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
     SemanticTarget,
 )
+from fdai_service_contracts.semantic_slots import SemanticConstraintSlot
 from pydantic import ValidationError
 
 DIGEST = "sha256:" + ("a" * 64)
@@ -258,6 +266,7 @@ def _service(
     inventory_query_language: InventoryQueryLanguageRegistry | None = None,
     metric_concepts: tuple[str, ...] = (),
     semantic_judgment: Any = None,
+    production_shadow: ProductionShadowRecorder | None = None,
 ) -> SemanticPlanningService:
     return SemanticPlanningService(
         model=model,
@@ -273,6 +282,7 @@ def _service(
         inventory_query_language=inventory_query_language,
         metric_concepts=metric_concepts,
         semantic_judgment=semantic_judgment,
+        production_shadow=production_shadow,
     )
 
 
@@ -289,6 +299,10 @@ class _JudgmentBoundary:
         )
 
     def judge(self, **_kwargs: Any) -> Any:
+        proposal_digest = self._proposal.proposal_digest
+        input_digest = content_digest({"utterance": _kwargs["utterance"]})
+        context_digest = content_digest({"context": _kwargs["context"]})
+        capability_digest = content_digest({"capabilities": _kwargs["capabilities"]})
         return SimpleNamespace(
             accepted=True,
             observations=(),
@@ -296,6 +310,12 @@ class _JudgmentBoundary:
             receipt=SimpleNamespace(
                 disposition=SimpleNamespace(value="accepted"),
                 tier=SimpleNamespace(value="t1"),
+                input_digest=input_digest,
+                context_digest=context_digest,
+                capability_digest=capability_digest,
+                proposal_digest=proposal_digest,
+                prompt_digest=DIGEST,
+                model_config_digest=DIGEST,
             ),
         )
 
@@ -338,6 +358,30 @@ def _resource_collection_judgment(
     )
 
 
+def _question_form() -> dict[str, object]:
+    return {
+        "mentions": (
+            {
+                "id": "m1",
+                "form": "name",
+                "domain": "instance",
+                "span": {"start": 0, "end": 8},
+            },
+        ),
+        "goals": (
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "lookup",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "confidence": 0.94,
+                "cue": {"start": 9, "end": 13},
+            },
+        ),
+    }
+
+
 def test_whole_turn_model_proposal_becomes_verified_server_owned_plan() -> None:
     manifest, definition = _fixture()
     model = _Model(frame=_frame(), plan=_plan(definition))
@@ -359,6 +403,281 @@ def test_whole_turn_model_proposal_becomes_verified_server_owned_plan() -> None:
     assert outcome.intent_graph.goals[0].arguments["definition"]["purpose"] == "operations-review"
     assert model.utterance.startswith("현재")
     assert manifest.descriptors[0]["name"] == "Resource"
+
+
+def test_production_shadow_records_linked_disposition_without_changing_plan() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+    sink = InMemoryProductionShadowSink()
+    recorder = ProductionShadowRecorder(
+        settings=ProductionShadowSettings(enabled=True, sample_key="test-sample"),
+        sink=sink,
+    )
+    judgment = _JudgmentBoundary(
+        SemanticJudgmentProposal.model_validate(
+            {
+                "schema_version": "1.4.0",
+                "primary_intent": "query.contextual_resources",
+                "confidence": 0.94,
+                "ambiguous": False,
+                "action_subject": "none",
+                "question_form": _question_form(),
+            }
+        )
+    )
+
+    off = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=judgment,
+    ).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+    on = _service(
+        model,
+        manifest,
+        semantic_judgment=judgment,
+        production_shadow=recorder,
+    ).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert off.plan is not None and on.plan is not None
+    assert content_digest({"plan": off.plan.plan_digest, "reason": off.reason}) == content_digest(
+        {"plan": on.plan.plan_digest, "reason": on.reason}
+    )
+    assert len(sink.records) == 1
+    assert sink.records[0].disposition == "linked"
+    assert sink.records[0].carried_form_digest is not None
+    assert sink.records[0].compiled_plan_digest == on.plan.plan_digest
+
+
+@pytest.mark.parametrize("sample_percent", [0, 50, 100])
+def test_production_shadow_samples_deterministically_with_bounded_expiry(
+    sample_percent: int,
+) -> None:
+    manifest, definition = _fixture()
+    sink = InMemoryProductionShadowSink()
+    at = datetime(2026, 9, 28, tzinfo=UTC)
+    settings = ProductionShadowSettings(
+        enabled=True, sample_key="test-sample", sample_percent=sample_percent, ttl_seconds=60
+    )
+    recorder = ProductionShadowRecorder(settings=settings, sink=sink, clock=lambda: at)
+    arguments = {
+        "utterance": "resource current state",
+        "prior_turns": (),
+        "principal": Principal(id="operator", role=Role.READER),
+        "purpose": "operations-review",
+    }
+    service = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=_carrying_judgment(),
+        production_shadow=recorder,
+    )
+    first = service.plan(**arguments)
+    second = service.plan(**arguments)
+
+    digest = content_digest(
+        {"sample_key": "test-sample", "utterance": arguments["utterance"], "context": ()}
+    )
+    expected = int(digest.removeprefix("sha256:"), 16) % 100 < sample_percent
+    assert len(sink.records) == (2 if expected else 0)
+    assert (first.disposition, first.reason) == (second.disposition, second.reason)
+    if expected:
+        assert sink.records[0].sample_id_digest == sink.records[1].sample_id_digest == digest
+        assert sink.records[0].expires_at == at + timedelta(seconds=60)
+        assert sink.records[0].as_state()["expires_at"] == (at + timedelta(seconds=60)).isoformat()
+        assert sink.records[0].as_state()["execution_authority"] is False
+
+
+def test_production_shadow_is_off_by_default_and_rejects_invalid_sampling() -> None:
+    manifest, definition = _fixture()
+    sink = InMemoryProductionShadowSink()
+    recorder = ProductionShadowRecorder(settings=ProductionShadowSettings(), sink=sink)
+    result = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=_carrying_judgment(),
+        production_shadow=recorder,
+    ).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+    assert result.plan is not None
+    assert not sink.records
+    with pytest.raises(ValueError, match="percent"):
+        ProductionShadowSettings(enabled=True, sample_percent=101)
+    with pytest.raises(ValueError, match="percent"):
+        ProductionShadowSettings(enabled=True, sample_percent=50.5)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="TTL"):
+        ProductionShadowSettings(enabled=True, ttl_seconds=0)
+    with pytest.raises(ValueError, match="TTL"):
+        ProductionShadowSettings(enabled=True, ttl_seconds=0.5)  # type: ignore[arg-type]
+
+
+class _FailingShadowSink:
+    def write(self, record: Any) -> None:
+        raise RuntimeError("state store unavailable")
+
+
+class _CapturingModel(_Model):
+    def propose_frame(self, **kwargs: Any) -> dict[str, object]:
+        self.frame_judgments = [
+            *getattr(self, "frame_judgments", []),
+            kwargs.get("semantic_judgment"),
+        ]
+        return super().propose_frame(**kwargs)
+
+
+def _carrying_judgment() -> _JudgmentBoundary:
+    return _JudgmentBoundary(
+        SemanticJudgmentProposal.model_validate(
+            {
+                "schema_version": "1.4.0",
+                "primary_intent": "query.contextual_resources",
+                "confidence": 0.94,
+                "ambiguous": False,
+                "action_subject": "none",
+                "question_form": _question_form(),
+            }
+        )
+    )
+
+
+def test_a_failing_shadow_sink_never_changes_the_planned_answer() -> None:
+    manifest, definition = _fixture()
+    recorder = ProductionShadowRecorder(
+        settings=ProductionShadowSettings(enabled=True, sample_key="test-sample"),
+        sink=_FailingShadowSink(),
+    )
+    arguments = {
+        "utterance": "resource current state",
+        "prior_turns": (),
+        "principal": Principal(id="operator", role=Role.READER),
+        "purpose": "operations-review",
+    }
+
+    off = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=_carrying_judgment(),
+    ).plan(**arguments)
+    on = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=_carrying_judgment(),
+        production_shadow=recorder,
+    ).plan(**arguments)
+
+    assert (on.disposition, on.reason) == (off.disposition, off.reason)
+    assert on.plan is not None and off.plan is not None
+    assert on.plan.plan_digest == off.plan.plan_digest
+
+
+def test_the_carried_form_never_reaches_the_frame_model() -> None:
+    manifest, definition = _fixture()
+    model = _CapturingModel(frame=_frame(), plan=_plan(definition))
+
+    _service(model, manifest, semantic_judgment=_carrying_judgment()).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    judgments = [item for item in model.frame_judgments if isinstance(item, dict)]
+    assert judgments and all("question_form" not in item for item in judgments)
+
+
+def test_the_state_store_sink_writes_on_its_own_loop_and_keys_every_turn_apart(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import asyncio
+    import threading
+
+    from fdai.core.conversation.semantic_production_shadow import StateStoreProductionShadowSink
+
+    class _Store:
+        def __init__(self, *, fail: bool = False) -> None:
+            self.keys: list[str] = []
+            self.fail = fail
+
+        async def write_state(self, key: str, value: object) -> None:
+            if self.fail:
+                raise RuntimeError("state store unavailable")
+            self.keys.append(key)
+
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+    try:
+        store, failing = _Store(), _Store(fail=True)
+        record = SimpleNamespace(sample_id_digest="sha256:" + "a" * 64, as_state=lambda: {})
+        StateStoreProductionShadowSink(store, loop).write(record)  # type: ignore[arg-type]
+        StateStoreProductionShadowSink(store, loop).write(record)  # type: ignore[arg-type]
+        StateStoreProductionShadowSink(failing, loop).write(record)  # type: ignore[arg-type]
+        asyncio.run_coroutine_threadsafe(asyncio.sleep(0.05), loop).result(timeout=5)
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(timeout=5)
+        loop.close()
+
+    assert len(set(store.keys)) == 2
+    assert any(item.message == "semantic_production_shadow_unrecorded" for item in caplog.records)
+
+
+def test_missing_carried_form_records_form_absent_without_changing_plan() -> None:
+    manifest, definition = _fixture()
+    sink = InMemoryProductionShadowSink()
+    recorder = ProductionShadowRecorder(
+        settings=ProductionShadowSettings(enabled=True, sample_key="test-sample"),
+        sink=sink,
+    )
+    judgment = _JudgmentBoundary(
+        SemanticJudgmentProposal(
+            primary_intent="query.contextual_resources",
+            confidence=0.94,
+            ambiguous=False,
+            action_subject="none",
+        )
+    )
+
+    outcome = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=judgment,
+        production_shadow=recorder,
+    ).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert len(sink.records) == 1
+    assert sink.records[0].disposition == "form_absent"
+    assert sink.records[0].carried_form_digest is None
+
+
+def test_production_shadow_has_no_answer_composition_import_path() -> None:
+    answer_modules = (
+        REPO_ROOT
+        / "services/core-control-plane/src/fdai/core/conversation/semantic_compiled_answers.py",
+        REPO_ROOT / "services/core-control-plane/src/fdai/delivery/azure/llm/adaptive_answer.py",
+    )
+
+    for path in answer_modules:
+        assert "semantic_production_shadow" not in path.read_text(encoding="utf-8")
 
 
 def test_planning_model_observations_cover_frame_and_plan_calls() -> None:
@@ -2837,8 +3156,8 @@ def test_unknown_judgment_preserves_complete_descriptor_fallback() -> None:
 
 
 def test_unaccepted_event_history_can_only_narrow_model_descriptors() -> None:
-    assert "query.resource_event_history" in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
-    assert "query.resource_health_inventory" not in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+    assert "query.resource_event_history" in SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+    assert "query.resource_health_inventory" not in SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
 
 
 @pytest.mark.parametrize("output_shape", ("ontology_manifest", "ontology_declaration"))
@@ -3278,6 +3597,35 @@ def test_gateway_judgment_binds_past_hour_to_frame_window() -> None:
     )
     assert rejected == proposal
     assert rejected_frame == frame
+
+
+def test_slot_bearing_frame_uses_minor_version_and_preserves_slotless_schema() -> None:
+    slot = SemanticConstraintSlot(
+        role="time_window",
+        source_start=0,
+        source_end=8,
+        grounded=True,
+        value="PT24H",
+    )
+    legacy = build_semantic_frame(
+        SemanticFrameProposal.model_validate(
+            _frame(temporal_scope={}, output_shape="contextual_resource_list")
+        ),
+        utterance="List incidents.",
+        context=(),
+    )
+    frame = build_semantic_frame(
+        SemanticFrameProposal.model_validate(
+            _frame(temporal_scope={}, output_shape="contextual_resource_list")
+            | {"constraint_slots": (slot,)}
+        ),
+        utterance="24 hours incidents.",
+        context=(),
+    )
+
+    assert legacy.schema_version == "1.0.0"
+    assert frame.schema_version == "1.1.0"
+    assert frame.constraint_slots == (slot,)
 
 
 def test_gateway_judgment_replaces_model_substituted_root() -> None:

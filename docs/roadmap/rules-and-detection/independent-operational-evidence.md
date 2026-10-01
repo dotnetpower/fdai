@@ -27,6 +27,11 @@ source named by a typed locator, recomputes the consumer's digest, proves comple
 freshness, and principal authorization, and writes an admission or a typed rejection to a store only it can
 write. Owners read admissions through the unchanged `admit` method and record every rejection class
 explicitly; only `unavailable` keeps today's generic hold.
+Semantic result-handle references are content-free conversation continuity records on the
+Operator/Core semantic transport. They do not admit operational evidence, satisfy verifier
+readbacks, or grant execution authority.
+Their sealed Core-only row identities are reauthorization operands for follow-up reads only; they
+are not verifier source artifacts, admissions, or proof material.
 
 ## Current state and gap
 
@@ -73,6 +78,8 @@ The verifier authenticates sources without retaining tokens:
   that `OperatorAuthenticator` in `services/operator-service/src/fdai_operator_service/auth.py` would retain on token
   verification: issuer, audience, tenant digest, subject, principal kind, exact group ids with a no-overage flag,
   token-id digest, issue and expiry time, roles, and role-mapping revision, with no token; local CLI receipts are `local-loopback`.
+  A successful verification also marks the request for the entitlement stamp; that mark adds no
+  field to the receipt and grants no authority.
 
 ## Issuance path and proof format
 
@@ -362,7 +369,9 @@ Local deterministic checks run without a live model, Azure service, or remote da
   Loopback PostgreSQL writer and reader roles prove Core can't create either record and replay is idempotent. An
   unlabeled removal or narrowing still retires records, and routine rotation doesn't.
 - **Regression baseline.** Existing decision-evidence tests, such as `core/readiness/test_decision_evidence.py`,
-  and each consumer's focused tests under `services/core-control-plane/tests/` keep passing.
+  each consumer's focused tests under `services/core-control-plane/tests/`, and the Operator composition tests that
+  keep the semantic authentication receipt reference off by default keep passing. That Operator test module also
+  checks the service distribution, such as the optional PDF renderer range, which carries no evidence authority.
 
 These checks validate mechanics only and never count as operational qualification. The connected handoff runs
 only after separate explicit authorization, on a selected non-production target, with the same source revision:

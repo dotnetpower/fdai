@@ -135,8 +135,10 @@ worker. Failed runs stop for repair instead of retrying continuously. Background
 limited to 180% CPU and at most two deterministic changed-test shards. A manual Integration
 Validator run keeps the adaptive one-to-four-shard range based on CPU load and available memory.
 Set `FDAI_PYTEST_MAX_WORKERS` to lower that foreground cap. Each shard records status, duration,
-and a command-bound pass marker under the shared queue state. An identical retry skips completed
-shards while rerunning failed ones.
+and a pass marker under the shared queue state. The marker binds the shard command, the
+working-tree bytes, and the project interpreter environment, so a retry with unchanged inputs skips
+completed shards while rerunning failed ones, and any source, test, lock, or installed-package
+change reruns every shard.
 
 Each stage records its duration and cache status in the run record and commit
 receipts under `.git/fdai-validation-queue/`. If a late gate fails, a retry at

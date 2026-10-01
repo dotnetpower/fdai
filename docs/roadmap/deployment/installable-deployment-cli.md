@@ -4,7 +4,7 @@ title: Installable Deployment CLI
 
 # Installable Deployment CLI
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
 
 This document defines the public FDAI deployment command. Operators run one local coordinator
 after Azure sign-in, while Terraform apply and private data-plane work run on the managed host
@@ -25,7 +25,7 @@ inside the target virtual network.
 | Infrastructure engine | Terraform from the selected signed profile closure |
 | Target selection | Active interactive Azure CLI user |
 | Apply location | Managed deployment host inside the target VNet |
-| Connected artifact source | Clean source plus an approved exact-revision image manifest; optional `--online` kit acquisition uses the complete offline-compatible closure |
+| Connected artifact source | One clean checkout; service images are built from it into the deployment's own registry, as [source deployment](source-deployment.md) defines |
 | Disconnected artifact source | Complete offline profile in one signed kit; no appliance image is produced |
 | Approval | Current human approval bound to each exact plan digest |
 | Runtime identity | Scoped read-only observation identity by default; privileged executor only for the explicit governed-execution add-on |
@@ -41,15 +41,16 @@ to the enrolled host, plus source-runtime OCI image preparation. Connected deplo
 build a dedicated managed-host image.
 The public source command resumes these checkpoints using the shared private coordinator;
 new interactive source installations confirm settings at startup only; later stages and JSON
-execution never prompt. `--approval-file <path>` explicitly supplies an existing
-private human approval to the shared verifier. Without it, retained ambient approvals are ignored.
-The public command never opens an interactive checkpoint prompt itself, so `--approval-file` is the
-only way to advance past a checkpoint that returned review state. Produce that record with
-`scripts/deployment/azure/genesis_approval_prompt.py --status <work-dir>/foundation/status.json
---output <path>`, which reads the exact checkpoint the run reached and, under constitution Article
-1, treats the operator's invocation as approval of the evidence it prints. The record binds the
-authenticated operator and expires 30 minutes after issuance, so reissue it if a resume starts
-later.
+execution never prompt. Under constitution Article 1 the invocation approves each checkpoint it
+reaches: without `--approval-file`, the command runs
+`scripts/deployment/azure/genesis_approval_prompt.py` itself, which reads the exact checkpoint the
+run reached and records the operator's invocation as approval of the evidence it prints, and then
+continues to the next checkpoint. Foundation and runner-image plan contracts refuse every update,
+replacement, or deletion, so no Foundation checkpoint needs the typed confirmation that deleting or
+replacing an existing resource requires. `--approval-file <path>` remains an advanced input that
+supplies an existing exact record instead; retained ambient approvals are otherwise ignored. The
+record binds the authenticated operator and expires 30 minutes after issuance, so reissue it if a
+resume starts later.
 Resuming a run repeats its sealed intent. Cost and profile arguments belong to that intent, so a
 resume that omits or changes one is refused and names the differing fields rather than failing
 opaquely.
@@ -105,7 +106,9 @@ retained run, and published exact-source CI must match before effects. A source 
 verified Foundation handoff and does not transfer application source or invoke Docker or Buildx
 for a new installation; the bounded single-service `dev` update remains separate.
 **Initial design:** build every runtime image during source provisioning. **Critique:** that makes the tenant an unsigned release builder. **Revised contract:** a complete signed kit uses `--adopt-foundation-directory` plus `--adopt-foundation-recovery` only after recovery, enrollment, state-authority, target, profile, host-key, cleanup, and zero-change verification.
+**Superseded for new source installations:** Constitution Article 1 makes the tenant-side build the source path itself, with `operator-selected-source` provenance rather than release trust, as [source deployment](source-deployment.md) defines. The signed-kit adoption below remains for recovered Foundations that continue with an offline package.
 Adoption stages exact handoff and access evidence and emits a no-effect receipt. The local coordinator retains the complete chain, and the managed host independently verifies the historical handoff digest plus the distinct current kit and runtime digests before preparation; neither repeats Foundation apply, enrollment, migration, or state ownership. Repository admission persists digest-pinned references for all five baseline services before application planning. Application plans, approvals, and the optional catalog review checkpoint remain separate.
+The terminal Foundation receipt in that evidence is either a verified recovery receipt or the `applied` receipt of an ordinary Foundation apply, so a Foundation that applied normally continues without a recovery detour. Any other schema and state pair, including an in-progress apply, stops adoption.
 
 ### Application group collision recovery
 
@@ -261,11 +264,14 @@ open. Local and mocked transport evidence do not establish a successful Azure de
 
 ### Source runtime artifact admission
 
-Contributor source deployment follows the constitution's deployment distribution. With `--source`
-and `--signing-key`, `fdai-up.sh` builds every deployment artifact from the checkout, including
-service images, and deploys it. It requires no protected branch, CI result, published artifact,
-attestation, provenance, or SBOM. The offline package keeps one signed package for an Azure VM
-without internet access.
+Source deployment follows the constitution's deployment distribution and is owned by
+[One-Command Source Deployment](source-deployment.md): anyone with a clone runs one command, the
+command builds service images from the checkout into the deployment's own registry, and no key,
+signed kit, protected branch, CI result, published artifact, attestation, provenance, or SBOM is
+required or created. `fdai-up.sh` builds and signs no kit: without a mode argument it deploys its
+own checkout, and it refuses the retired `--signing-key` option. The offline package keeps one
+signed package for
+an Azure VM without internet access.
 
 An existing `dev` AKS installation can update one service directly from a clean local checkout on
 its eligible deployment host. This path is separate from new installation and release assembly:
@@ -355,19 +361,19 @@ Reading an internal tracked document link may update its access time without cha
 Verification ignores that access-time-only change, while checking the target bytes, file identity,
 mode, size, modification time, and change time; links outside the tracked snapshot stay blocked.
 
-Source alone is not a complete runtime deployment input. It avoids local release assembly and
-publisher keys, but the application stage still requires the prebuilt signed runtime artifact
-manifest described above, digest readback and configuration validation. Foundation, private
+Source alone is the complete runtime deployment input. The application stage builds the service
+images from the pinned snapshot into the deployment's own registry, reads back their digests, and
+validates configuration as [source deployment](source-deployment.md#what-the-command-builds)
+defines; it never requires a prebuilt signed runtime artifact manifest. Foundation, private
 data-plane execution, exact-plan approvals, immutable claims, bounded commands, independent effect
-checks, and recovery remain required. A failed kit or runtime-artifact verification never falls
+checks, and recovery remain required. A failed kit verification in `--offline-kit` mode never falls
 back to source mode or an installation-time build.
 
-No license starts a durable 30-day Trial at first activation, not on each process start or image
-upgrade. Trial availability does not change promotion, risk, RBAC, human approval, or executor
-identity. Expiry blocks new acting work while preserving observation, diagnosis, export, audit,
-and safe completion or recovery of in-flight work. Missing or inconsistent retained Trial state
-cannot silently create another Trial. A later trusted entitlement can replace Trial without an
-infrastructure reinstall; a release signature alone is not an entitlement.
+Trial and entitlement selection belong to
+[source deployment](source-deployment.md#entitlement-selection) and
+[Capability Licensing](../fork-and-sequencing/capability-licensing.md). Trial availability does not
+change promotion, risk, RBAC, human approval, or executor identity, and a release signature alone
+is never an entitlement.
 
 These are target contracts. The implementation ledger records separately the source entrypoint,
 Foundation execution, workload activation, Trial enforcement, and live acceptance. Deployment
@@ -488,7 +494,7 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl bundle verify` | Inspect an optional deployment bundle | No |
 | `fdaictl offline prepare` | Prepare a local deployment payload; not required for Python package installation | No |
 | `fdaictl offline install-support` | Install optional migration support from local wheels | No |
-| `fdaictl license inspect` | Verify a capability token without a network call | No |
+| `fdaictl license inspect` | Verify a capability token, or an installation entitlement against both exact bindings, without a network call | No |
 
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.
@@ -540,7 +546,8 @@ separate checker identifies a candidate key before a build consumes it: it repor
 roots' fingerprints, the roles a candidate satisfies, and the unmet custody requirements, and it
 emits no key material so it stays safe to run wherever the key might be. Both build refusals name
 it. The development profile pins one signer for the complete-kit and bundle roles, so one file
-satisfies `--signing-key`; the license issuer stays a separate key. The build shares a three-hour
+satisfies `--signing-key`; licensing uses the separate upstream integrity key, which the checker
+reports as the `integrity` role. The build shares a three-hour
 total budget with per-stage and
 no-progress deadlines. Nested supervisors forward
 cancellation with shorter cleanup grace than their parent. Success requires a valid archive checksum
@@ -609,19 +616,24 @@ A control-only repair can reuse a verified kit through a [signed deployment-cont
 
 ## Capability token behavior
 
-A maintainer signing key is not an adopter prerequisite. The command uses a matching operator-held
-issuer key when one is explicitly available, or verifies a supplied pre-issued Trial token. When
-neither is present, a new installation can start in observation-only mode without creating a license
-secret. Omitting a token on a resumed installation does not revoke one previously installed.
-Without action authority, the Core can observe and report but cannot execute managed-resource actions.
+No signing key is an installation prerequisite. The command selects the entitlement mode on the
+workstation before any Azure effect, as [source deployment](source-deployment.md#entitlement-selection)
+defines: no integrity signing key means the durable Trial, and a usable
+`secrets/integrity-signing-key.pem` means a full installation entitlement. That fixed path in the
+working checkout is the only issuer key the CLI reads; no option, environment variable, or home
+directory path selects another one. A pre-issued token file
+remains an advanced `--trial-token` input. Until the Trial is initialized by deployment, an
+installation without a token starts observation-only without creating a license secret. Omitting a
+token on a resumed installation does not revoke one previously installed. Without action
+authority, the Core can observe and report but cannot execute managed-resource actions.
 
 A token never grants deployment or runtime authority by itself. Promotion state, risk policy,
 human approval, executor identity, and effect verification remain separate controls.
 
 ## Deployment appliance
 
-Removed. Constitution Article 1 defines exactly two installation paths, a key holder's contributor
-source deployment and a signed offline package, and states that installation tooling adds no other
+Removed. Constitution Article 1 defines exactly two installation paths, the one-command source
+deployment and a signed offline package, and states that installation tooling adds no other
 gate. An appliance image was a third packaging of the same kit, so its builder and runner are gone
 and no release step produces one.
 
@@ -646,6 +658,7 @@ use mode `0600`.
 | To learn about | Read |
 |----------------|------|
 | Implementation status and remaining evidence | [Implementation ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md) |
+| One-command source deployment and entitlement | [One-Command Source Deployment](source-deployment.md) |
 | Execution-host and connectivity choices | [Provisioning Execution Profiles](provisioning-execution-profiles.md) |
 | Disconnected trust and artifact delivery | [Disconnected Deployment](disconnected-deployment.md) |
 | Azure resource inventory and bootstrap | [Deploy and Onboard](deploy-and-onboard.md) |

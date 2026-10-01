@@ -100,6 +100,16 @@ output "resolved_models_sha256" {
   value       = var.resolved_models_sha256
 }
 
+output "installation_binding" {
+  description = "Digest that binds this installation's Trial record and installation entitlement."
+  value       = local.installation_binding
+}
+
+output "installation_created_at" {
+  description = "Terraform-recorded first-apply time that anchors the Trial window."
+  value       = local.installation_created_at
+}
+
 output "event_bus_kafka_bootstrap" {
   description = "Kafka bootstrap host:port for the Event Hubs endpoint on :9093."
   value       = module.event_bus.kafka_bootstrap

@@ -99,6 +99,8 @@ rule of thumb: **if a path is listed there, it is LOCKED; otherwise it is editab
 | `services/core-control-plane/src/fdai/shared/providers/` | injectable Protocol seam **definitions** |
 | `services/core-control-plane/src/fdai/shared/contracts/` | versioned event / action / rule / ontology types |
 | `services/core-control-plane/src/fdai/agents/` | the 15-agent pantheon (role bindings fork-locked) |
+| `services/core-control-plane/src/fdai/runtime/licensing.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/delivery/trust/` | licensing binding, durable Trial store and activation writer, verifier, and packaged upstream integrity key |
+| `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py`, `services/operator-service/src/fdai_operator_service/entitlement_stamp.py` | Trial expiry watermark: Core's entitlement-state publisher and writer, and the Operator response stamp |
 | `rule-catalog/schema/` | catalog schemas (add entries, never widen a schema) |
 | `.github/instructions/` | this normative rule set |
 
@@ -140,7 +142,7 @@ Do not rely on human review alone. Gate every change:
 - **Framework-surface guard**: `scripts/integrity/check-protected-paths.sh` warns (upstream)
   or hard-blocks (fork) any edit to the files a fork MUST NOT touch (`services/core-control-plane/src/fdai/core/`,
   `services/core-control-plane/src/fdai/composition.py`, `services/core-control-plane/src/fdai/shared/providers/`, `services/core-control-plane/src/fdai/shared/contracts/`,
-  `services/core-control-plane/src/fdai/agents/`, `rule-catalog/schema/`, `.github/instructions/`). A fork opts into
+  `services/core-control-plane/src/fdai/agents/`, the licensing binding, durable Trial store and activation writer, and trust package, the Trial expiry watermark publisher and Operator stamp, `rule-catalog/schema/`, `.github/instructions/`). A fork opts into
   block mode with `FDAI_FORK=1`, a `.fdai-fork` marker, or `git config fdai.fork true`.
   Runs in the pre-push hook and the `protected-paths` CI job; `.github/CODEOWNERS`
   is its review-time counterpart.

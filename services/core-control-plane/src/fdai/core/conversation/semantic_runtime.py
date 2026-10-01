@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
@@ -53,6 +52,7 @@ from .conversation_preflight import (
     preflight_selects_general_knowledge,
 )
 from .intent_graph import build_intent_graph_evidence, resolve_execution_authority
+from .model_evidence_view import adaptive_model_evidence_content
 from .semantic_governed_document_planning import document_evidence_mode
 from .semantic_planning import SemanticPlanningService
 from .semantic_planning_cascade import NO_T2_ESCALATION_POLICY, SemanticPlanningEscalationPolicy
@@ -68,6 +68,7 @@ from .semantic_runtime_cancellation import (
     _run_planning_with_cancellation,
     _run_preflight_with_cancellation,
 )
+from .semantic_stored_result_handles import StoredReferenceContext
 from .session import Principal, Turn
 from .work_progress import publish_work_progress_pin
 
@@ -213,6 +214,7 @@ class SemanticConversationRuntime:
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_model_tier: SemanticConversationModelTier | None = None,
         document_context: SemanticDocumentContext | None = None,
+        stored_reference_context: StoredReferenceContext | None = None,
         progress_observer: QueryProgressObserver | None = None,
         target_agent: str = "Bragi",
         relationship: Mapping[str, object] | None = None,
@@ -254,6 +256,7 @@ class SemanticConversationRuntime:
                 escalation_policy=escalation_policy,
                 conversation_model_tier=conversation_model_tier,
                 document_context=document_context,
+                stored_reference_context=stored_reference_context,
                 progress_observer=progress_observer,
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
@@ -263,7 +266,6 @@ class SemanticConversationRuntime:
 
         if document_context is not None:
             return await verified(utterance)
-
         if (
             preflight_result is not None
             and preflight_result.attempted
@@ -289,30 +291,19 @@ class SemanticConversationRuntime:
                 if degraded_optional_document and result.planning.plan is not None
                 else set()
             )
-            values: list[object] = []
-            refs: list[str] = []
-            authorities: list[EvidenceAuthority] = []
-            for node_id in result.execution.output_node_ids:
-                if node_id in document_output_ids:
-                    continue
-                node = result.execution.results.get(node_id)
-                if node is None:
-                    return AdaptiveEvidence(status="unavailable", limitation="missing_query_output")
-                value = node.value
-                values.append(
-                    json.loads(value.canonical_json()) if isinstance(value, QueryTable) else value
-                )
-                refs.extend(node.evidence_refs)
-                if node.authority is not None:
-                    authorities.append(node.authority)
-                authorities.extend(node.authority_inputs)
             try:
-                content = json.dumps(values, ensure_ascii=False, allow_nan=False)
+                evidence_content = adaptive_model_evidence_content(
+                    result.execution,
+                    plan=result.planning.plan,
+                    document_output_ids=document_output_ids,
+                )
             except (TypeError, ValueError):
                 return AdaptiveEvidence(
                     status="unavailable", limitation="unsupported_evidence_shape"
                 )
-            references = tuple(dict.fromkeys(refs))
+            if isinstance(evidence_content, str):
+                return AdaptiveEvidence(status="unavailable", limitation=evidence_content)
+            content, references, authorities = evidence_content
             if (
                 len(content) > 12000
                 or len(references) > 12
@@ -435,7 +426,7 @@ class SemanticConversationRuntime:
                 needs_explanation = outcome.plan.action_requested and any(
                     goal.kind == "knowledge" for goal in outcome.plan.goals
                 )
-                # A read handed back to the semantic path keeps that path's own stage bounds.
+
                 read_handoff = outcome.plan.route == "legacy" and not outcome.plan.action_requested
                 try:
                     async with (
@@ -499,7 +490,6 @@ class SemanticConversationRuntime:
                     planning=SemanticPlanningOutcome(
                         disposition=SemanticPlanningDisposition.ADVISORY_RESPONSE,
                         reason="semantic_advisory_response",
-                        # The routing preflight that preceded the adaptive answer is a call too.
                         model_observations=(*preflight_observations, *outcome.observations),
                     ),
                     adaptive_answer=outcome.answer,
@@ -520,13 +510,13 @@ class SemanticConversationRuntime:
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_model_tier: SemanticConversationModelTier | None = None,
         document_context: SemanticDocumentContext | None = None,
+        stored_reference_context: StoredReferenceContext | None = None,
         progress_observer: QueryProgressObserver | None = None,
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
         target_agent: str = "Bragi",
         pin_work_progress: bool = True,
     ) -> SemanticTurnResult:
-        """Terminate every accepted turn without invoking a compatibility parser."""
         planner = self._planner
         if planner is None:
             reason = self._verified_unavailable_reason or "semantic_query_runtime_unavailable"
@@ -553,6 +543,7 @@ class SemanticConversationRuntime:
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
                 required_document_evidence=document_context is not None,
+                stored_reference_context=stored_reference_context,
             ),
             cancelled=cancelled,
         )

@@ -30,6 +30,32 @@ from .property_values import PropertyValueDomain, property_value_index
 _MAX_MANIFEST_BYTES = 8_388_608
 _METRIC_READER = "query.resource_metric_inventory"
 _HEALTH_READER = "query.resource_health_inventory"
+# Provider properties of a Resource live in this readable object property.
+_PROVIDER_BAG = "properties"
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewedPropertyRead:
+    """One reviewed Property semantic a property measure may read from a Resource.
+
+    ``paths`` pairs each resource type with the one reviewed provider path that carries
+    the semantic for it. The semantic id and paths are reviewed identities, never words.
+    """
+
+    semantic_id: str
+    value_type: str
+    unit: str | None
+    max_age_seconds: int
+    paths: tuple[tuple[str, str], ...]
+
+    def payload(self) -> dict[str, Any]:
+        return {
+            "semantic_id": self.semantic_id,
+            "value_type": self.value_type,
+            "unit": self.unit,
+            "max_age_seconds": self.max_age_seconds,
+            "paths": [list(item) for item in self.paths],
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +77,8 @@ class QueryManifest:
     metric_labels: tuple[tuple[str, str], ...] = ()
     # Reviewed Resource Health concepts and their provider values under the same binding.
     health_labels: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    # Reviewed Property semantics a property measure may read; bound by the digest too.
+    property_reads: tuple[ReviewedPropertyRead, ...] = ()
 
 
 def build_query_manifest(
@@ -68,6 +96,7 @@ def build_query_manifest(
     property_values: Sequence[PropertyValueDomain] = (),
     metric_labels: Mapping[str, str] | None = None,
     health_labels: Mapping[str, Sequence[str]] | None = None,
+    property_reads: Sequence[ReviewedPropertyRead] = (),
 ) -> QueryManifest:
     """Project every readable declaration or one typed unavailable record.
 
@@ -155,6 +184,12 @@ def build_query_manifest(
         if _HEALTH_READER in readers
         else ()
     )
+    # Provider properties are offered only when the principal can read the Resource bag.
+    readable_reads = (
+        tuple(sorted(property_reads, key=lambda item: item.semantic_id))
+        if _provider_bag_readable(descriptors_tuple)
+        else ()
+    )
     manifest_body = {
         "release_digest": release.digest,
         "principal_role": principal_role.value,
@@ -164,6 +199,11 @@ def build_query_manifest(
         "mutation_authority": False,
         **({"metric_labels": [list(item) for item in metrics]} if metrics else {}),
         **({"health_labels": [[key, list(values)] for key, values in health]} if health else {}),
+        **(
+            {"property_reads": [item.payload() for item in readable_reads]}
+            if readable_reads
+            else {}
+        ),
     }
     manifest_digest = _manifest_digest(manifest_body)
     unavailable_ids = tuple(item["declaration_id"] for item in unavailable_tuple)
@@ -198,7 +238,22 @@ def build_query_manifest(
         object_labels=tuple(sorted(object_labels)),
         metric_labels=metrics,
         health_labels=health,
+        property_reads=readable_reads,
     )
+
+
+def _provider_bag_readable(descriptors: Sequence[Mapping[str, Any]]) -> bool:
+    resource = next(
+        (
+            item
+            for item in descriptors
+            if item.get("kind") == "object" and item.get("name") == "Resource"
+        ),
+        None,
+    )
+    properties = resource.get("properties") if isinstance(resource, Mapping) else None
+    bag = properties.get(_PROVIDER_BAG) if isinstance(properties, Mapping) else None
+    return isinstance(bag, Mapping) and bag.get("type") == "object"
 
 
 def _function_readable(

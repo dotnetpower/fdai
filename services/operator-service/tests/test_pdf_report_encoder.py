@@ -107,13 +107,35 @@ def test_source_digest_is_stable_across_mapping_order() -> None:
     assert source_envelope_digest(report) == source_envelope_digest(reordered)
 
 
+@pytest.mark.parametrize(
+    "markup",
+    [
+        "<img src='https://example.invalid/private'>",
+        "<img src='file:///etc/hostname'>",
+        "<link rel='stylesheet' href='file:///etc/hostname'>",
+        "<style>@import url('https://example.invalid/report.css');</style><p>x</p>",
+        "<p style=\"background: url('file:///etc/hostname')\">x</p>",
+        "<a rel='attachment' href='file:///etc/hostname'>x</a>",
+        "<svg width='9' height='9'><image href='file:///etc/hostname' width='5' height='5'/></svg>",
+    ],
+    ids=[
+        "remote-image",
+        "local-image",
+        "stylesheet",
+        "import",
+        "css-url",
+        "attachment",
+        "svg-image",
+    ],
+)
 def test_pdf_fails_closed_if_generated_markup_references_external_resource(
     monkeypatch: pytest.MonkeyPatch,
+    markup: str,
 ) -> None:
     monkeypatch.setattr(
         pdf_format_module,
         "_report_html",
-        lambda report, *, digest: "<img src='https://example.invalid/private'>",
+        lambda report, *, digest: markup,
     )
 
     with pytest.raises(ReportPdfEncodingError, match="external resources"):

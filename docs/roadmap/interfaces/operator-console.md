@@ -4,7 +4,17 @@ title: FDAI Console Conversations
 # FDAI Console Conversations
 How a human operator talks *back to* FDAI through CLI, Teams, Slack, and web chat. This FDAI Console capability owns the **conversational surface**, not a separate product: layered architecture, tool catalog, LLM tiers, session persistence, per-tool RBAC, safety invariants, and rollout status. FDAI Console is a governed operator surface, not a read-only product. It can submit server-authorized typed requests, while managed-resource execution remains outside the browser and high-risk actions still require human approval. Module splits keep proposal claim types with their focused model owner, preserve public assurance facades, generated CQAS inventory, and canonical visual mappings, and do not change request or execution authority. Extracting runtime catalog loaders while preserving their facade import names changes no human-report, approval-routing, RBAC, or Console request contract. Registering Rule activation tests under their owning Core and Operator service suites changes test selection only and grants no reporting or approval authority. Regenerating question-bank and CQAS artifacts after Console catalog or deck presentation-contract changes updates source commitments only; it does not change question identities, reporting authority, or conversation execution authority.
 Push-direction notifications (system → human) live in [channels-and-notifications.md](channels-and-notifications.md); operational views and requests are defined in [console-operations.md](console-operations.md), and the SPA lives under [project-structure.md § console/](../architecture/project-structure.md#module-boundaries); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md). Login bootstrap derives assigned-principal access from verified App Roles without requiring the optional access-request projection; unassigned access remains closed when that projection is unavailable. In local development, an independent service adapter may use Azure CLI only for model narration; it has no provider-read or execution authority. Ontology presents a reviewed Semantic model and Catalog topology from one exact-release registry projection. Runtime instances appear only in a separate, purpose-scoped Context snapshot backed by a secured receipt. The instance surface keeps source candidate accounting, bounded response counts, focus-graph items, Inspector-only relationships, and IAM-only relationships separate so layout omission never reads as missing provider evidence. Fleet source rows use `(source, scope_digest)` identity, display each opaque scope digest, and do not collapse several cluster states into one row. While visible, it consumes an authenticated inventory-invalidation SSE stream and immediately revalidates the selected instance after a committed watermark. Cross-origin replay explicitly admits the bounded `Last-Event-ID` request header. When SSE is unavailable, a monotonic countdown shows the next 15-second fallback poll; browser resume also triggers immediate revalidation. Refresh failure preserves the last verified response, provider states remain text-bearing semantic badges, and neither SSE nor polling substitutes for inventory observation or raises relationship completeness. Incident attention never submits during mount; each explicit click opens a fresh incident-bound conversation, and a receipt-bound planner outage renders a localized model-connectivity or semantic-runtime recovery step. Once server verification exists, its evidence references exclusively own citations, including an explicit zero-reference result; screen context is cited only when no verification result exists.
-Workflow Builder saves now return committed Operator records: private drafts and bindings include the durable revision and appear only in the requesting principal's Mine or My automations projection, while Built-in definitions stay catalog-seeded and read-only.
+Workflow Builder saves now return committed Operator records: private drafts and bindings include the durable revision and appear only in the requesting principal's Mine or My automations projection, while Built-in definitions stay catalog-seeded and read-only. The local Console calls the Operator API cross-origin, so the Operator's CORS policy allows the `If-Match` revision header that every revision-checked mutation sends; otherwise the browser preflight blocks those saves before they reach the Operator.
+Semantic result-handle references persist only opaque Core-issued tokens with the durable turn and
+return at most four recent references on the next semantic request. They do not expose row bodies to
+Operator, change human-report routing, or grant Console execution authority.
+Generated contract views may add rollout-safe handle-reference schema versions, but the browser and
+Operator still receive no row identity, row body, or model-visible handle payload.
+Adaptive answer evidence crosses the model boundary as `ModelEvidenceView`, a Core-built
+allowlisted projection. Raw query tables, provider bodies, handles, and retained snapshot cells do
+not reach answer-authoring or review model calls.
+Verified-answer authoring adds a shared proposition contract plus default-off author/reviewer
+ports behind Core. Until promoted, Console answers continue to use the current verified path.
 
 Operations > Alert quality decodes signed result `1.1.0` and its provider-neutral plan `1.1.0` through the regenerated TypeScript contract view.
 The browser displays `direct_api` as retained contract metadata only. It never selects a provider
@@ -317,6 +327,10 @@ Every write-class tool call (`simulate_change` in enforce mode - disallowed toda
    and mirrored by the RiskGate role axis
    ([execution-model.md § 2.5](../decisioning/execution-model.md#25-axis-f---role-rbac)).
 
+A compiled property answer shows only a reviewed Property value. A structured value keeps its
+nested secret, credential, connection, and key material and any address redacted, in the answer and
+in technical details alike.
+
 ### 7.3 BreakGlass request receipt
 
 The current `ActivateBreakGlassTool` result contains `activated_at`, `expires_at`, a redacted reason, `pager_receipt`, and `audit_id`. Its
@@ -509,6 +523,8 @@ Split into focused owner documents:
 - [operator-console-view-snapshot.md](operator-console-view-snapshot.md) - the self-describing screen contract (13.4).
 - [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster, fix history, catalog-reused queued/applied status, bounded HTTP `202` revalidation, and the no-authority Huginn-to-Saga guidance audit path (13.5).
 Authenticated semantic turns may carry a content-free authentication receipt reference in `operator-core-request` 1.9.0 only when the default-off Operator setting `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on; the reference never reaches the browser as authority, and see [13.12](operator-console-wire-contracts.md#1312-semantic-turn-authentication-receipt-reference) for the rollout order. With the setting on, the Operator retains that receipt for the exact request before it publishes the turn, so the verifier can check `case-history-read` against it. A retention failure fails the turn instead of sending a reference that Core cannot resolve.
+Every response to a bearer-authenticated request also carries the `X-FDAI-Entitlement` stamp
+that the Console watermark reads; see [13.13](operator-console-wire-contracts.md#1313-entitlement-stamp-response-header).
 
 ## 14. MCP delivery and managed catalog
 

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -12,11 +15,15 @@ from cryptography.hazmat.primitives.serialization import (
     PrivateFormat,
     PublicFormat,
 )
+from fdai.core.capability_catalog import default_capability_catalog
+from fdai.core.licensing import LicenseStatus, encode_license_token, resolve_entitlement
 from fdai.delivery.trust import (
     Ed25519LicenseVerifier,
     license_public_key_pem,
     private_key_matches_public_key,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
 def _key_pair() -> tuple[Ed25519PrivateKey, bytes, bytes]:
@@ -46,7 +53,7 @@ def test_verifier_accepts_only_the_matching_signature() -> None:
 def test_private_key_match_requires_the_matching_owner_only_key(tmp_path: Path) -> None:
     _signer, private_pem, public_pem = _key_pair()
     _other, _other_private_pem, other_public_pem = _key_pair()
-    private_path = tmp_path / "license-signing-key.pem"
+    private_path = tmp_path / "integrity-signing-key.pem"
     private_path.write_bytes(private_pem)
     private_path.chmod(0o600)
 
@@ -62,3 +69,43 @@ def test_packaged_public_key_is_a_valid_ed25519_key() -> None:
     verifier = Ed25519LicenseVerifier(license_public_key_pem())
 
     assert verifier.verify(b"not-signed", b"x" * 64) is False
+
+
+def test_packaged_key_is_the_tracked_upstream_integrity_key() -> None:
+    tracked = _REPO_ROOT / "security/integrity/upstream-signing-key.pub"
+
+    assert license_public_key_pem() == tracked.read_bytes()
+
+
+def test_signed_integrity_manifest_never_resolves_as_a_license_token() -> None:
+    integrity = _REPO_ROOT / "security/integrity"
+    manifest = (integrity / "manifest.json").read_bytes()
+    signature = base64.b64decode((integrity / "manifest.json.sig").read_bytes())
+
+    # One key signs both, so only the document shape keeps the two domains apart.
+    assert Ed25519LicenseVerifier(license_public_key_pem()).verify(manifest, signature)
+
+    signer, _private_pem, public_pem = _key_pair()
+    manifest_shaped = json.dumps(
+        {
+            "algorithm": "sha256",
+            "file_count": 1,
+            "files": {"services/core-control-plane/src/fdai/core/example.py": "a" * 64},
+            "generated_at": "2026-10-01T00:00:00Z",
+            "surface": ["services/core-control-plane/src/fdai/core/"],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    token = encode_license_token(manifest_shaped, signer.sign(manifest_shaped))
+
+    entitlement = resolve_entitlement(
+        catalog=default_capability_catalog(),
+        token=token,
+        verifier=Ed25519LicenseVerifier(public_pem),
+        now=datetime(2026, 10, 1, tzinfo=UTC),
+        require_license=True,
+    )
+
+    assert entitlement.status is LicenseStatus.UNTRUSTED
+    assert "operations.typed-mutation" not in entitlement.available_capability_ids

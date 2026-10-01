@@ -113,6 +113,8 @@ EXPECTED_RUNTIME_MODULES = {
     "isolated_executor_client.py",
     "isolated_executor_receipt_journal.py",
     "licensing.py",
+    "licensing_state.py",
+    "licensing_trial_activation.py",
     "metric_semantic_catalog.py",
     "notification_direct_line.py",
     "notification_registry.py",
@@ -172,7 +174,7 @@ PROHIBITED_RUNTIME_MODULES = {
 }
 
 EXPECTED_NON_CODE_MEMBERS = {
-    "fdai/delivery/trust/license-signing-key.pub",
+    "fdai/delivery/trust/upstream-signing-key.pub",
 }
 
 

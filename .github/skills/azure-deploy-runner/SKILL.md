@@ -1,11 +1,12 @@
 ---
 name: azure-deploy-runner
 description: |
-  FDAI installation to Azure through exactly two paths: a key holder's contributor deployment from
-  a local checkout, or a signed offline package on an Azure VM without internet. Load before
-  running `fdaictl provision azure`, `fdai-up.sh`, building an offline package, Terraform apply
-  for FDAI resources, or onboarding a new Azure target.
-version: 3.0.0
+  FDAI installation to Azure through exactly two paths: a one-line source deployment from any
+  local checkout (30-day Trial and expiry watermark without the integrity signing key, full
+  entitlement with it), or a signed offline package on an Azure VM without internet. Load before
+  running `fdaictl provision azure`, `fdai-up.sh`, building an offline package, Terraform apply for
+  FDAI resources, or onboarding a new Azure target.
+version: 4.1.0
 scope: repository
 ---
 
@@ -14,20 +15,38 @@ scope: repository
 The [constitution](../../../docs/roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)
 defines FDAI installation. There are two paths, and each needs only what is listed.
 
-## Contributor source deployment
+## Source deployment
 
-A contributor with a clone, an active `az login`, and the development signing private key deploys
-every FDAI resource to their own subscription:
+Anyone with a clone and an active `az login` deploys every FDAI resource to their own subscription
+with one command line. The [source deployment owner](../../../docs/roadmap/deployment/source-deployment.md)
+defines the contract:
 
 ```bash
 az login
-scripts/deployment/azure/fdai-up.sh --source . --signing-key /private/signing-key.pem \
-  --region <azure-region>
+git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region <azure-region>
 ```
 
-- Build whatever is needed from the checkout, including service images.
-- Do not require a protected branch, CI result, published artifact, prebuilt package, appliance,
-  attestation, provenance, SBOM, or maintainer involvement.
+- Build service images from the checkout into the deployment's own registry. Do not build, sign,
+  or require a kit, bundle, control package, appliance, SBOM, provenance, attestation, published
+  release, protected branch, CI result, or maintainer involvement.
+- No `secrets/integrity-signing-key.pem` means one durable 30-day Trial. A usable upstream
+  integrity signing key there, matching `security/integrity/upstream-signing-key.pub`, means a
+  full installation entitlement. A present but unusable key stops the run before any Azure effect.
+  No other key under `secrets/` selects full mode.
+- After the Trial ends, every Console view shows a persistent expiry watermark. Never add a
+  setting, flag, or data path that hides it; only a full entitlement does.
+- Never copy, print, or pass a private key value. Only the signed entitlement reaches Key Vault.
+
+Current status: the keyless source run stops after Foundation handoff with
+`prebuilt_runtime_artifacts_required` until the
+[source deployment ledger](../../../docs/roadmap-implementation/deployment/source-deployment.md)
+closes its application work packages. Licenses already verify against the upstream integrity key,
+but a key holder still receives a 30-day token rather than the installation entitlement, and no
+watermark exists yet. The bare command deploys its own checkout, approves each Foundation
+checkpoint it shows, and refuses the retired `--signing-key` option. Until the application work
+packages close, a holder of the offline-package signing key reaches the application stage only by
+building the signed offline package and passing `--offline-kit`. Report that limitation instead of
+presenting the offline package as the source path.
 
 ## Offline package
 
@@ -46,6 +65,8 @@ fdaictl provision azure --offline-kit /private/fdai-offline/fdai-deployment-kit-
   public registry, use a package index, or build.
 - Azure management and data-plane endpoints must stay reachable through Azure network paths.
 - The only package guarantee is one detached Ed25519 signature over the checksum list.
+- The package signing key authenticates artifacts, not usage rights. An offline installation runs
+  the 30-day Trial unless a separately issued entitlement is supplied.
 
 ## Rules that remain
 

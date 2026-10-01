@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: b5ce7330a019a6ef80248716a9e5db3095fd5980
+translation_source_sha: 9718e58ae5ea5560c8a5ee972c2a849ef518e4ce
 translation_revised: 2026-10-01
 ---
 # FDAI Console 대화
@@ -9,7 +9,17 @@ translation_revised: 2026-10-01
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#모듈-경계모듈-boundaries)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다. 인스턴스 화면은 출처 후보 회계, 범위가 제한된 응답 수, 집중 그래프 항목, Inspector 전용 관계, IAM 전용 관계를 분리하여 레이아웃 생략이 프로바이더 근거 누락처럼 보이지 않게 합니다. Fleet 출처 행은 `(source, scope_digest)` 신원을 사용하고 각 불투명 범위 다이제스트를 표시하며 여러 클러스터 상태를 행 하나로 축약하지 않습니다. 화면이 보이는 동안 인증된 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를 받으면 선택한 인스턴스를 즉시 다시 검증합니다. 교차 출처 재현은 범위가 제한된 `Last-Event-ID` 요청 헤더를 명시적으로 허용합니다. SSE를 사용할 수 없으면 단조 증가 시계를 기준으로 다음 15초 fallback 폴링까지 남은 시간을 표시하며 브라우저 복귀 시에도 즉시 다시 확인합니다. 새로고침 실패 시 마지막으로 검증된 응답을 유지하고 프로바이더 상태를 텍스트가 있는 의미 배지로 표시합니다. SSE와 폴링은 인벤토리 관측을 대체하거나 관계 완전성을 높이지 않습니다. 인시던트 주의 컨트롤은 마운트 중 제출하지 않으며, 명시적으로 클릭할 때마다 인시던트에 결속된 새 대화를 열고, 증적에 결속된 플래너 중단 시 모델 연결 또는 의미 런타임 복구 단계를 현지화해 표시합니다. 서버 검증 결과가 있으면 참조가 0개인 경우까지 그 근거 참조만 인용 출처로 사용하며, 검증 결과가 없을 때만 화면 맥락을 인용합니다.
 
 
-Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니다. 비공개 초안과 바인딩은 영속 리비전을 포함하고 요청 principal 의 Mine 또는 My automations projection 에만 나타나며, Built-in 정의는 계속 카탈로그에서 시드되고 읽기 전용으로 유지됩니다.
+Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니다. 비공개 초안과 바인딩은 영속 리비전을 포함하고 요청 principal 의 Mine 또는 My automations projection 에만 나타나며, Built-in 정의는 계속 카탈로그에서 시드되고 읽기 전용으로 유지됩니다. 로컬 Console은 다른 출처에서 Operator API를 호출하므로, Operator의 CORS 정책은 리비전을 확인하는 모든 변경 요청이 보내는 `If-Match` 헤더를 허용합니다. 허용하지 않으면 브라우저 사전 요청이 Operator에 도달하기 전에 이 저장을 차단합니다.
+의미 결과 핸들 참조는 Core가 발급한 불투명 토큰만 영속 턴과 함께 보관하고 다음 의미 요청에서
+최근 참조를 최대 네 개까지 돌려보냅니다. Operator에 행 본문을 노출하거나 사람 보고 경로를
+바꾸거나 Console 실행 권한을 부여하지 않습니다.
+생성된 계약 view가 롤아웃에 안전한 핸들 참조 스키마 버전을 추가할 수는 있지만, 브라우저와 Operator는
+여전히 행 신원, 행 본문 또는 모델에 보이는 핸들 payload를 받지 않습니다.
+적응형 답변 근거는 Core가 만든 허용 목록 기반 변환 결과인 `ModelEvidenceView`로 모델 경계를
+넘습니다. 원시 조회 표, 프로바이더 본문, 핸들, 보관된 스냅숏 셀은 답변 작성 또는 검토 모델
+호출에 들어가지 않습니다.
+검증된 답변 작성은 공유 명제 계약과 기본값이 꺼진 작성자/검토자 포트를 Core 뒤에 추가합니다.
+승격되기 전까지 Console 답변은 현재 검증된 경로를 계속 사용합니다.
 
 운영 > 알림 품질은 다시 생성한 TypeScript 계약 뷰로 서명된 결과 `1.1.0`과 그 안의 공급자 중립 계획 `1.1.0`을 디코딩합니다.
 브라우저는 `direct_api`를 보존된 계약 메타데이터로만 표시합니다. 공급자 어댑터를 선택하거나
@@ -315,6 +325,9 @@ focused 소유자 문서로 이동했습니다: [operator-console-runtime-model-
    에 정의되고 RiskGate 역할 축
    ([execution-model.md § 2.5](../decisioning/execution-model-ko.md#25-axis-f---role-rbac))가 mirror.
 
+컴파일된 속성 답변은 검토된 Property 값만 보여 줍니다. 구조화된 값은 중첩된 비밀, 자격 증명, 연결,
+키 정보와 주소를 답변과 기술 상세 모두에서 가린 채로 유지합니다.
+
 ### 7.3 BreakGlass 요청 증적
 
 현재 `ActivateBreakGlassTool` 결과는 `activated_at`, `expires_at`, 민감정보가 제거된 사유,
@@ -506,6 +519,9 @@ focused 소유자 문서로 분리했습니다:
 - [operator-console-view-snapshot-ko.md](operator-console-view-snapshot-ko.md) - self-describing 화면 계약(13.4).
 - [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록, 교정 이력, 카탈로그를 재사용하는 대기/적용 상태, 제한된 HTTP `202` 재조회, 권한을 부여하지 않는 Huginn-to-Saga 지침 감사 경로(13.5).
 인증된 의미 턴은 기본값이 꺼진 Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 인증 영수증 참조를 담을 수 있습니다. 이 참조는 브라우저에 권한으로 전달되지 않으며, 배포 순서는 [13.12](operator-console-wire-contracts-ko.md#1312-의미-턴-인증-영수증-참조)를 참고하십시오. 설정을 켜면 Operator는 턴을 게시하기 전에 바로 그 요청의 영수증을 보존하므로 검증기가 이 영수증으로 `case-history-read`를 확인할 수 있습니다. 보존에 실패하면 Core가 해소할 수 없는 참조를 보내지 않고 턴을 실패로 처리합니다.
+베어러 인증된 요청의 모든 응답에는 Console 워터마크가 읽는 `X-FDAI-Entitlement` 표시도
+포함됩니다. [13.13](operator-console-wire-contracts-ko.md#1313-사용권-표시-응답-헤더)을
+참고하십시오.
 
 ## 14. MCP 전달 및 managed 카탈로그
 

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from .model_observation import ConversationModelObservation
+from .turn_reservations import StageReservation, fail_call, reconcile_call, reserve_call
 
 
 class AdaptiveBudgetExceededError(RuntimeError):
@@ -33,12 +34,15 @@ class ModelCallBudget(Protocol):
 class ModelCallReservation:
     """An already-charged attempt, completed with content-free measured usage."""
 
-    budget: ModelCallBudget
+    budget: ModelCallBudget | None
     amount: int
+    turn: StageReservation | None = None
 
     def record(self, observation: ConversationModelObservation) -> None:
         """Preserve measured usage and reject an over-budget result."""
-        self.budget.observe(self.amount, observation)
+        reconcile_call(self.turn, observation.usage)
+        if self.budget is not None:
+            self.budget.observe(self.amount, observation)
 
 
 class _CallScope:
@@ -117,17 +121,37 @@ async def call_scoped_provider[Result](
     *,
     request: Mapping[str, object],
     output_tokens: int,
+    stage: str | None = None,
 ) -> tuple[Result, ModelCallReservation | None]:
-    """Reserve each physical request; any failed request ends this read's retry scope."""
+    """Reserve each physical request; any failed request ends this read's retry scope.
+
+    ``stage`` is the adapter's reviewed call label. Under a bound turn ledger the call
+    first reserves its stage's worst case, and a stage that can't reserve raises the
+    typed hold before anything is sent.
+    """
     scope = _SCOPE.get()
-    if scope is None:
-        return await operation(), None
-    scope.check()
-    if scope.budget is None:
-        return await operation(), None
-    size = len(json.dumps(request, ensure_ascii=False, allow_nan=False).encode())
-    amount = scope.budget.reserve(size, output_tokens, scope.reserved_calls)
-    reservation = ModelCallReservation(scope.budget, amount)
+    if scope is not None:
+        scope.check()
+    budget = scope.budget if scope is not None else None
+    size = (
+        len(json.dumps(request, ensure_ascii=False, allow_nan=False).encode())
+        if budget is not None or stage
+        else 0
+    )
+    turn = reserve_call(stage, input_bytes=size, output_tokens=output_tokens) if stage else None
+    if scope is None or budget is None:
+        try:
+            result = await operation()
+        except BaseException:
+            fail_call(turn)
+            raise
+        return result, ModelCallReservation(None, 0, turn) if turn is not None else None
+    try:
+        amount = budget.reserve(size, output_tokens, scope.reserved_calls)
+    except BaseException:
+        fail_call(turn)
+        raise
+    reservation = ModelCallReservation(budget, amount, turn)
     completed = False
     try:
         result = await operation()
@@ -135,6 +159,7 @@ async def call_scoped_provider[Result](
         return result, reservation
     finally:
         if not completed:
+            fail_call(turn)
             scope.closed = True
 
 

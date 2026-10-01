@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:7f8d1502a9744032b2e93ecfd36726627b15a8490b5a48204dd9b8a6692bfa3f",
+  "catalog_digest": "sha256:235a27009a7a5f23ac9721d4c9edfb894beac7febb431026b9795cb179eb562e",
   "execution_authority": false,
-  "generated_at": "2026-10-01T03:26:17.112865Z",
+  "generated_at": "2026-10-01T12:23:32.388723Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,13 +21,13 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:d326a977ca7f9ed4918b73d5b05c41ef515c6d778e4b2f7725649d34c05143df",
+      "record_digest": "sha256:08a976932f0af17e3ee3ea36b99c8d06f0666e1468ceb2c6601b0c39702e095a",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "508f443f48568254c8ee37c095454a635956e39d",
-          "line_end": 110,
-          "line_start": 110,
+          "blob_sha": "7b8d0546f3e9f7cfbc91c76075a30dfff9d7295a",
+          "line_end": 123,
+          "line_start": 123,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 3: Agent-driven authority"
@@ -235,13 +235,13 @@
         "What accuracy does FDAI guarantee?",
         "FDAI는 어떤 정확성을 보장하나요?"
       ],
-      "record_digest": "sha256:6e46114f4ac9259e84c6d80ce3e284f58a4c2e7b15866d0739f1d0d61b272850",
+      "record_digest": "sha256:67c7ac3ef2ff35334e5bf4c6239b5204b982e202c22d75b59d5c3c171f9a1b1f",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "508f443f48568254c8ee37c095454a635956e39d",
-          "line_end": 83,
-          "line_start": 83,
+          "blob_sha": "7b8d0546f3e9f7cfbc91c76075a30dfff9d7295a",
+          "line_end": 96,
+          "line_start": 96,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 2: Contract-conformant accuracy"
@@ -448,8 +448,17 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:42f0074abbe0c3302cdf0ca947b981d1344fb7a75c8af787ee2281f29fc76cac",
+      "record_digest": "sha256:64b6160952e643a7abca983106efe693f5d023e2e00809fdf3945a8abe8f9bf9",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "2c5a6e7b9bb1f6324287ac8a544caa8f396452dd",
+          "line_end": 110,
+          "line_start": 110,
+          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
+          "source_kind": "doc",
+          "symbol": "Graduation scorecard"
+        },
         {
           "authority_role": "design",
           "blob_sha": "abb146564b07cb5f66047b5df5976411b8a4f376",
@@ -458,15 +467,6 @@
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "c6725a2c903ca29ddbc2ba5c53d723a2dbf6fa36",
-          "line_end": 110,
-          "line_start": 110,
-          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
-          "source_kind": "doc",
-          "symbol": "Graduation scorecard"
         }
       ],
       "status": "in_progress",

@@ -1,12 +1,12 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: e579f742ec234f89c4d417501b6f6d0be819953a
-translation_revised: 2026-09-28
+translation_source_sha: c1e0849928948763123b09a083512a7675506e07
+translation_revised: 2026-10-01
 ---
 
 # 패키지 보증
 
-> **배포 방식:** [헌법](fdai-constitution.md#article-1-purpose-and-scope)은 기여자 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 FDAI Python 패키지의 최소 배포 계약을 정의합니다. 오프라인 패키지는 일반 로컬 pip
 wheelhouse처럼 설치할 수 있으며, 설치 전에 private key로 만든 detached signature 하나만

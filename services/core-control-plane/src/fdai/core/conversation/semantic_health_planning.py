@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
@@ -39,18 +39,16 @@ from fdai.core.ontology_platform.resource_health_assessment_queries import (
 from .semantic_planning_models import (
     SemanticOutputShape,
 )
+from .semantic_target_health import TARGET_HEALTH_METRICS, TARGET_HEALTH_WINDOW
 
 _LOGGER = logging.getLogger(__name__)
 _RUNTIME_TARGET = re.compile(
     r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}"
     r"(?![A-Za-z0-9_.-])"
 )
-_HEALTH_WINDOW = timedelta(minutes=30)
-_METRIC_CONCEPTS = (
-    ("health-cpu", "resource.saturation", "resource_saturation"),
-    ("health-request-volume", "request.volume", "request_volume"),
-    ("health-request-errors", "request.errors", "request_errors"),
-)
+# One reviewed shape for both paths; the compiler reads the same window and metrics.
+_HEALTH_WINDOW = TARGET_HEALTH_WINDOW
+_METRIC_CONCEPTS = TARGET_HEALTH_METRICS
 
 
 def compile_target_health_plan(

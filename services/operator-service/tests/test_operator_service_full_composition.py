@@ -194,7 +194,7 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     assert ("GET", "/handover/readiness") in identities
     assert owner_counts == {
         "minimal": 18,
-        "conversation": 45,
+        "conversation": 46,
         "iam": 59,
         "workflow": 47,
         "operations": 43,

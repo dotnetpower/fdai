@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import os
 from collections.abc import Mapping
@@ -71,6 +72,7 @@ from fdai.runtime.github_auth import (
     github_credentials_configured,
 )
 from fdai.runtime.licensing import build_runtime_license_authority
+from fdai.runtime.licensing_state import build_entitlement_state_publisher
 from fdai.runtime.model_lifecycle_startup import (
     FileResolvedModelsSource,
     resolve_models_startup_revision,
@@ -200,18 +202,26 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
                     resources.http_client = _new_http_client()
                 identity = _build_runtime_workload_identity(resources.http_client)
             container = bind_context_selection_shadow(container, state_store=state_store)
+            license_authority = build_runtime_license_authority(
+                catalog=container.capability_runtime.catalog,
+                environment=os.environ,
+            )
             core_runtime = await build_core_runtime(
                 container=container,
                 plan=plan,
                 resources=resources,
                 identity=identity,
                 environment=os.environ,
-                license_authority=build_runtime_license_authority(
-                    catalog=container.capability_runtime.catalog,
-                    environment=os.environ,
-                ),
+                license_authority=license_authority,
                 runtime_values_snapshot=runtime_values,
                 state_store=state_store,
+            )
+            core_runtime = dataclasses.replace(
+                core_runtime,
+                entitlement_state_publisher=build_entitlement_state_publisher(
+                    authority=license_authority,
+                    environment=os.environ,
+                ),
             )
         elif pantheon_start_enabled(os.environ):
             # Pantheon needs the same Kafka bus the consumer builds; without

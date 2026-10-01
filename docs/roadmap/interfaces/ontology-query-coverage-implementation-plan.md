@@ -12,6 +12,9 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 The instance-candidate Function binds server principal scope, object read sets, the original release, query, result digest, and bounded accounting. Default bootstrap uses the same declaration as semantic composition and injects controlled-identity workers into Pantheon. Authenticated enrollment drives supervised off-path preparation, audited cold-cache restoration, and source-change withdrawal/rebuild; it never performs query-path embedding builds. Missing model identity keeps the binding unavailable and real semantic qualification remains required. Exact-ID reads retain current graph authorization. Core's dedicated bilingual terminal projection verifies the candidate bindings and displays only identities, types, and revisions, without arbitrary property bags. It reports a partial, non-exhaustive result: an empty candidate list never proves absence. Authenticated live Console evidence remains separate.
 Capability preparation preserves all selected canonical property tokens, including ObjectTypes with more than 32 properties. A complete projection over the existing 32 KiB budget fails explicitly before semantic judgment instead of silently dropping its tail.
 Semantic judgment keeps the complete capability set when a dynamic prompt profile selects guidance by closed preflight request topics. Topics change only prompt guidance; an accepted meaning whose governed guidance was excluded is judged once more with the complete prompt, as described in [Dynamic assembly](../decisioning/prompt-composition.md#dynamic-assembly). Core grounds preflight collection filters from their source text, so a model-proposed canonical value on such a filter is dropped instead of voiding the route. A read-only plan request omits ActionType descriptors unless its frame is an action draft, and with shape-selected guidance it sends only the functions that guidance or the frame names.
+The causal-mechanism vocabulary is reviewed catalog data for causal context and grade receipts.
+It supplies required evidence and refutation reads only; it does not create a new ontology type,
+query authority, or recovery permission.
 
 > **Coverage boundary:** 100% means every readable declaration in one active ontology release has a principal-scoped query descriptor or a typed unavailable reason. It does not promise a complete or correct answer when identity, provider data, history, or evidence is missing.
 >
@@ -133,6 +136,9 @@ Semantic judgment keeps the complete capability set when a dynamic prompt profil
 > verifier and executor handler map. Production composition binds PostgreSQL topology history from
 > a non-empty state-store DSN and binds metric/evidence handlers only when both a reviewed registry
 > and a non-noop provider are available; otherwise, those capabilities remain typed unavailable.
+> Reviewed provider-property paths are also scoped to their reviewed Resource types. A mixed-type
+> ObjectSet can project a path only when every selected type reviews it, and a bound property lookup
+> carries its exact Resource type into both compilation and semantic verification.
 > OQ-07 now projects current connected VNet peering records in the observed direction and private
 > endpoint attachments to their exact private-link service targets. Reverse peering still requires
 > an independent remote-VNet observation. It also projects `routes_to` only from explicit ARM

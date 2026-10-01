@@ -493,9 +493,15 @@ def test_reviewed_lifecycle_values_join_the_state_catalog_with_their_object_type
     }
 
     # Each lifecycle value names its ObjectType and property; the label says which.
-    assert set(lifecycle) == {
+    assert {
         (f"lifecycle:Incident.status={value}",)
         for value in ("closed", "mitigated", "open", "resolved", "triaging")
+    } <= set(lifecycle)
+    assert {values[0].split(".", 1)[0] for values in lifecycle} == {
+        "lifecycle:CausalHypothesis",
+        "lifecycle:Incident",
+        "lifecycle:Process",
+        "lifecycle:RecoveryPlan",
     }
     assert lifecycle[("lifecycle:Incident.status=open",)].labels == ("open", "Incident status")
     # Resource states stay in the same catalog, unchanged.
@@ -514,3 +520,29 @@ def test_a_vocabulary_without_health_groups_offers_no_health_concepts() -> None:
 
     # A fork without Resource Health keeps its manifest instead of failing composition.
     assert ConceptVocabularies(inventory_query_language=language).health_labels() == {}
+
+
+def test_every_lifecycle_domain_pins_its_projection_enum_and_a_readable_status() -> None:
+    from fdai.composition.semantic_query_value_domains import lifecycle_value_domains
+    from fdai.core.rca.hypothesis import CausalHypothesisStatus
+    from fdai.core.recovery.models import RecoveryPlanStatus
+    from fdai.shared.contracts.models import IncidentState
+    from fdai.shared.providers.process_runtime import ProcessStatus
+
+    enums = {
+        "CausalHypothesis": CausalHypothesisStatus,
+        "Incident": IncidentState,
+        "Process": ProcessStatus,
+        "RecoveryPlan": RecoveryPlanStatus,
+    }
+    readable = {
+        item["name"]: item.get("properties") or {}
+        for item in production_manifest().descriptors
+        if item.get("kind") == "object"
+    }
+
+    for domain in lifecycle_value_domains():
+        # The projection writes exactly these enum values, so the domain can't drift from it.
+        assert domain.values == tuple(sorted(item.value for item in enums[domain.object_type]))
+        assert domain.lifecycle_state is True
+        assert readable[domain.object_type]["status"]["lifecycle_state"] is True

@@ -24,6 +24,7 @@ from .models import (
 )
 from .property_values import declared_property_values
 from .query_manifest import QueryManifest
+from .query_property_review import reviewed_fields_for_resource_set, reviewed_property_paths
 
 _EXACT_VALUE_OPERATORS = {
     ObjectPredicateOperator.EQUALS,
@@ -107,10 +108,13 @@ class OntologyQueryPlanVerifier:
             (str(item["kind"]), str(item["name"])): item for item in manifest.descriptors
         }
         nodes_by_id: dict[str, OntologyQueryNode] = {}
+        reviewed = reviewed_property_paths(manifest.property_reads)
         for node in plan.nodes:
             if node.kind not in self._available_kinds:
                 raise ValueError(f"query node kind {node.kind.value!r} is unavailable")
-            self._verify_node(node, nodes_by_id=nodes_by_id, descriptors=descriptors)
+            self._verify_node(
+                node, nodes_by_id=nodes_by_id, descriptors=descriptors, reviewed_nested=reviewed
+            )
             nodes_by_id[node.node_id] = node
         missing_outputs = set(plan.output_node_ids) - nodes_by_id.keys()
         if missing_outputs:
@@ -123,6 +127,7 @@ class OntologyQueryPlanVerifier:
         *,
         nodes_by_id: Mapping[str, OntologyQueryNode],
         descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+        reviewed_nested: Mapping[str, frozenset[str]] | None = None,
     ) -> None:
         arguments = node.arguments
         if node.kind in _TABLE_KINDS and node.output_kind != "query.table":
@@ -201,16 +206,22 @@ class OntologyQueryPlanVerifier:
                 fields=normalized,
                 nodes_by_id=nodes_by_id,
                 descriptors=descriptors,
+                reviewed_nested=reviewed_nested or {},
             )
             return
         if node.kind is QueryNodeKind.AGGREGATE:
             self._verify_table_dependencies(node, nodes_by_id=nodes_by_id, minimum=1, expected=1)
             _verify_keys(
                 arguments,
-                allowed={"operation", "field", "group_by", "limit"},
+                allowed={"operation", "field", "group_by", "limit", "container_kind"},
                 required={"operation"},
             )
             operation = arguments["operation"]
+            if operation == "count_by_nearest_container":
+                container = arguments.get("container_kind")
+                if not isinstance(container, str) or not container:
+                    raise ValueError("lineage aggregate requires a container_kind")
+                return
             if operation not in {"count", "sum", "minimum", "maximum", "average"}:
                 raise ValueError("aggregate operation is unsupported")
             if operation == "count":
@@ -357,6 +368,8 @@ class OntologyQueryPlanVerifier:
         else:
             raise ValueError("relationship traversal source MUST be a secured query table")
         definition = RelationshipTraversalDefinition.model_validate(arguments)
+        if definition.emit_lineage and source.kind is not QueryNodeKind.OBJECT_SET:
+            raise ValueError("lineage traversal source MUST be a secured object set")
         if source_selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
             raise ValueError("relationship traversal source MUST select one ObjectType")
         if definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
@@ -577,6 +590,7 @@ class OntologyQueryPlanVerifier:
         fields: tuple[str, ...],
         nodes_by_id: Mapping[str, OntologyQueryNode],
         descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+        reviewed_nested: Mapping[str, frozenset[str]] | None = None,
     ) -> None:
         dependency = nodes_by_id[node.depends_on[0]]
         available_fields = OntologyQueryPlanVerifier._table_fields(
@@ -586,7 +600,14 @@ class OntologyQueryPlanVerifier:
         )
         if available_fields is None:
             return
-        if any(field not in available_fields for field in fields):
+        # A projection reads inside the readable provider bag of the Resource set it reads
+        # directly only at a reviewed Property path, never at any other provider field.
+        nested = (
+            reviewed_fields_for_resource_set(dependency, reviewed_nested or {})
+            if _reads_resources(dependency, available_fields)
+            else {}
+        )
+        if any(field not in available_fields and field not in nested for field in fields):
             raise ValueError("aggregate field is absent from dependency output schema")
 
     @staticmethod
@@ -645,6 +666,18 @@ class OntologyQueryPlanVerifier:
             raise ValueError("query table node has an invalid dependency count")
         if any(nodes_by_id[item].output_kind != "query.table" for item in node.depends_on):
             raise ValueError("query table node dependencies MUST output query.table")
+
+
+def _reads_resources(node: OntologyQueryNode, available_fields: frozenset[str]) -> bool:
+    """Return whether the node selects Resource objects whose provider bag is readable."""
+
+    if node.kind is not QueryNodeKind.OBJECT_SET or "properties.properties" not in available_fields:
+        return False
+    definition = ObjectSetDefinition.model_validate(node.arguments["definition"])
+    return (
+        definition.selector.kind is ObjectSelectorKind.OBJECT_TYPE
+        and definition.selector.name == "Resource"
+    )
 
 
 def _metric_interval(arguments: Mapping[str, Any]) -> None:

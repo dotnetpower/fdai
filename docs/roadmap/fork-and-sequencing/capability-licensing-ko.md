@@ -1,8 +1,8 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 89d3509239b1ec501c9abd99803347efdad07942
-translation_revised: 2026-09-14
+translation_source_sha: 25d1d616481f5f2b9abfda67ccedb93a36806107
+translation_revised: 2026-10-01
 ---
 # 기능 라이선싱
 
@@ -35,7 +35,10 @@ translation_revised: 2026-09-14
 
 ## 영속적인 무키 Trial 목표
 
-연결된 소스 배포는 인증된 배포 기록 작성자를 통해 첫 활성화 때 30일 Trial 하나를 초기화합니다.
+[단일 명령 소스 배포](../deployment/source-deployment-ko.md)는 데이터베이스 부트스트랩 중에 인증된 배포 기록
+작성자를 통해 첫 활성화 때 30일 Trial 하나를 초기화합니다.
+활성화 시각은 Terraform이 소유한 설치 생성 시각에 고정되므로, 기록이 없어진 것을 발견한 실행은
+새 기간을 여는 대신 그 원래 시각으로 기록을 다시 만듭니다.
 설치 및 배포 바인딩은 소스 버전과 이미지 digest에 종속되지 않으므로 일반 업그레이드나 재시작으로
 Trial을 갱신하지 않습니다. 활성화 시각은 변경되지 않습니다. 영속 관측마다 리비전과 마지막 UTC
 관측 시각을 갱신합니다. 시간이 역행하면 새 Trial이 아니라 영속적인 차단 상태를 기록합니다.
@@ -52,16 +55,80 @@ Trial은 없거나 만료된 토큰을 대신할 뿐, 거부·오바인딩·아�
 권한은 조건 없이 유지되므로 창이 끝나면 새로운 행위만 차단되고 관측, 진단, 감사, 내보내기는
 계속됩니다. 부재, 다른 설치에 바인딩된 기록, 감지된 시계 역행, 판정 시점보다 오래된 관측,
 접근 불가한 저장소는 모두 허용이 아니라 거부로 귀결됩니다. 기존 기록의 누락이나 불일치는
-재초기화를 허용하지 않습니다.
+새 기간을 열지 않습니다. 런타임은 거부하며, 누락된 기록은 배포 실행만 고정된 활성화 시각으로
+다시 만듭니다.
 
-영속화는 별도로 남습니다. 이전 리비전 전체를 비교 후 기록하는 저장소와 설치 시점 초기화는
-아직 구현하지 않았습니다.
+저장소는 이전 리비전 전체를 비교한 뒤 관측을 기록합니다. 배포가 `FDAI_INSTALLATION_BINDING`,
+`FDAI_LICENSE_DEPLOYMENT_BINDING`, 상태 저장소 DSN을 제공하면 Core 조립은 이 저장소를 조회합니다.
+행위 판정마다 Core 이벤트 루프가 아닌 작업자 스레드에서 저장소를 관측하며, 바인딩이 잘못되었거나
+불완전하면 Trial을 조립하지 않습니다. 작성자 `python -m fdai.runtime.licensing_trial_activation`은
+전달받은 고정 시각으로 기간을 열고, 기존 기록은 그대로 유지하며, 다른 설치에 바인딩된 기록은
+거부합니다. AKS 소스 배포는 두 바인딩을 Core에 제공하고, 재실행이나 업그레이드로 바뀌지 않는
+Terraform 상태의 식별자와 최초 적용 시각에 설치를 고정하며, 애플리케이션 적용 후 초기 인벤토리
+전에 이 작성자를 실행합니다. Container Apps 런타임은 아직 바인딩을 제공하지 않으므로, 키 없는
+Container Apps 설치는 관찰 전용으로 남습니다.
 
-향후 버전이 있는 사용권으로 Trial 제한을 해제할 수 있습니다. 해당 계약이 구현될 때까지 현재
-서명 토큰의 30일 상한은 유지합니다. 서명된 배포 키트는 산출물을 인증할 뿐 사용 권한을 뜻하지
-않으며, 별도로 유효한 사용권을 포함할 때만 Trial을 해제합니다. 발급자 개인 키는 배포 환경에
-전달하지 않습니다. 소스와 모든 영속 상태를 통제하는 소유자는 이 검사를 제거할 수 있으므로,
-오프라인 방식이 변조를 완전히 막거나 모든 재설치를 탐지한다고 주장하지 않습니다.
+[키 보유자 설치 사용권](#키-보유자-설치-사용권)은 설치 하나에 대해 Trial 제한을 해제합니다.
+다른 운영자에게 전달되는 모든 토큰에는 서명 토큰의 30일 상한이 계속 적용됩니다. 서명된 오프라인
+패키지는 산출물을 인증할 뿐 사용 권한을 뜻하지 않으며, 별도로 유효한 사용권이 함께 있을 때만
+Trial을 해제합니다. 발급자 개인 키는 배포 환경에 전달하지 않습니다. 소스와 모든 영속 상태를
+통제하는 소유자는 이 검사를 제거할 수 있으므로, 오프라인 방식이 변조를 완전히 막거나 모든
+재설치를 탐지한다고 주장하지 않습니다.
+
+## Trial 만료 워터마크
+
+끝난 Trial은 차단될 뿐 아니라 눈에 보여야 합니다. 정품 인증되지 않은 데스크톱 운영 체제의 활성화
+안내처럼, 그때 Console은 모든 화면에 영구 워터마크를 표시합니다.
+
+- **표시 시점:** 라이선스가 변경 기능 `operations.typed-mutation`을 보류하거나 Console에 현재 사용권
+  상태가 없을 때마다 표시합니다. 끝난 Trial, 없거나 다른 설치에 바인딩된 기록, 거부되거나
+  만료된 토큰, 감지된 시계 역행, 접근할 수 없는 Trial 저장소가 모두 포함됩니다. 진행 중인
+  Trial, 발급자 워크스테이션, 변경 기능을 부여하는 사용권만 워터마크를 숨깁니다.
+- **표시 내용:** 오른쪽 아래 모서리에 모든 콘텐츠와 대화 상자 위로, 평가 기간이 만료되었거나
+  FDAI가 활성화되지 않았으며 관찰은 계속되지만 변경 작업은 사용할 수 없다는 두 줄짜리
+  현지화 안내를 표시합니다. 반투명하고 포인터 입력을 통과시키며 닫을 수 없고, 보조 기술에도
+  노출됩니다.
+- **전달 방식:** Core는 해석한 사용권 상태를 관측 시각과 함께 게시하고, Operator API는
+  인증된 모든 응답에 최신 상태를 표시합니다. Console은 도착한 어떤 응답에서든 워터마크를
+  렌더링하므로 엔드포인트 하나를 막아서는 숨길 수 없으며, 상태가 없거나 오래되면
+  워터마크를 표시합니다.
+- **끄는 방법 없음:** 설정, 환경 변수, 기능 플래그, 데이터베이스 값, 역할, Console 환경 설정,
+  포크 조립 확장 지점 어느 것도 워터마크를 숨기지 못합니다.
+- **변조 증거:** Console 워터마크, Operator 상태 표시, 런타임 라이선스 연결, 패키지에 포함된
+  검증 키는 서명된 프레임워크 표면에 속합니다. 이를 바꾸면 표면 다이제스트가 바뀌고 새
+  매니페스트는 업스트림 무결성 키로만 서명할 수 있으므로, 설치의 소스나 이미지를 서명된
+  매니페스트로 검증하면 그 변경이 드러납니다.
+
+워터마크는 가용성 안내입니다. 권한을 부여하거나 제거하지 않으며, 워터마크가 없다고 해서 무엇이
+증명되지도 않습니다. 모든 변경 요청은 여전히 공유 실행 상한이 결정합니다.
+
+### 사용권 상태 전달
+
+**초기 설계.** Operator가 Trial 기록과 자신이 가진 토큰 사본으로 사용권을 다시 해석합니다.
+
+**비판.** 그러면 라이선스 판정기가 Core 밖에 중복됩니다. Operator에는 토큰, 바인딩, 발급자
+워크스테이션 증명이 모두 없으므로 두 판정기의 결론이 달라질 수 있습니다. 또한
+[데이터 소유권 매트릭스](../architecture/service-graduation-and-ownership-ko.md#데이터-소유권-매트릭스)가
+Core에만 허용한 Trial 기록 읽기 권한을 두 번째 주체가 갖게 됩니다.
+
+**수정된 설계.** Core가 하나의 안내 값을 도출하고, 다른 계층은 그 값을 전달하기만 합니다.
+
+- Core는 해석한 사용권에 `operations.typed-mutation`이 있으면 `none`, 토큰이나 Trial 기간이
+  만료되었으면 `evaluation-ended`, 그 밖에는 `not-activated`를 도출합니다. 따라서 끝난 Trial은
+  Trial의 사유와 함께 `expired`로 해석되며, 읽기 전용 카탈로그는 계속 사용할 수 있습니다.
+- Core는 시작할 때와 60초마다 이벤트 루프 밖에서 사용권을 해석하고, 안내 값과 관측 시각을
+  Core가 소유한 단일 행 테이블 `licensing_entitlement_state`에 기록합니다. 기록은 관측 시각을
+  과거로 되돌리지 않습니다. 이 행은 Core만 쓰며, Operator 역할은 `SELECT` 권한만 받습니다.
+- Operator는 이 행을 최대 15초에 한 번 읽습니다. 베어러 인증을 통과한 요청의 모든 응답에 안내
+  값을 `X-FDAI-Entitlement`로 표시하며, CORS는 이 헤더를 Console에 노출합니다. 행이 없거나,
+  형식이 잘못되었거나, 읽을 수 없거나, 관측 시각이 Operator 시계와 5분 넘게 차이 나면
+  `not-activated`를 표시합니다.
+- Console은 공유 Operator 전송 계층의 모든 응답에서 표시 값을 기록하고, 60초마다 인증된 읽기로
+  값을 갱신합니다. 최신 표시 값이 `none`이고 5분이 지나지 않은 동안에만 워터마크를 숨깁니다.
+  첫 표시 값이 도착하기 전에는 최대 10초까지 기다립니다.
+
+Core 밖에서 행을 수정하는 것은 영속 상태 변조이며, [정직한 한계](#정직한-한계)가 이미 범위에서
+제외합니다. 워터마크 표시 여부를 정하는 설정이나 구성 값은 없습니다.
 
 ## 발급자 워크스테이션 예외
 
@@ -69,18 +136,24 @@ Trial은 없거나 만료된 토큰을 대신할 뿐, 거부·오바인딩·아�
 라이선스 검사를 건너뜁니다.
 
 **비판.** 파일 이름은 암호학적 신원이 아닙니다. 빈 파일, 관계없는 키, 심볼릭 링크 또는 마운트된
-키 경로도 단순 존재 검사를 통과합니다. `secrets/integrity-signing-key.pem`을 재사용하면 프레임워크
-무결성과 라이선스의 침해 범위가 합쳐지고, 런타임이 필요하지 않은 키를 읽게 됩니다.
+키 경로도 단순 존재 검사를 통과합니다.
 
 **수정된 설계.** 소스 checkout은 다음 검사를 모두 통과해야만 `issuer-workstation` 상태가 될 수
 있습니다.
 
 - 실행 장소가 `local`이고 아티팩트 루트에 Git checkout 표시가 있습니다.
-- 고정 경로 `secrets/license-signing-key.pem`이 현재 UID 소유의 mode-`0600` 일반 파일이며,
+- 고정 경로 `secrets/integrity-signing-key.pem`이 현재 UID 소유의 mode-`0600` 일반 파일이며,
   크기를 제한하고 차단하지 않으며 링크를 따르지 않는 파일 서술자로 읽힙니다.
-- 파일에 든 Ed25519 비공개 키에서 유도한 공개 바이트가 Core 배포판에 포함된 추적 대상 라이선스
-  공개 키와 정확히 일치합니다.
-- 전용 라이선스 키는 `secrets/integrity-signing-key.pem`과 분리됩니다.
+- 파일에 든 Ed25519 비공개 키에서 유도한 공개 바이트가 추적 대상 업스트림 무결성 공개 키
+  `security/integrity/upstream-signing-key.pub`와 정확히 일치합니다. Core는 이 키를 유일한
+  라이선스 검증 키로 패키지에 포함합니다.
+
+**소유자 결정(2026-10-01).** 업스트림 무결성 서명 키가 유일한 라이선스 키이며 별도 라이선스 키
+쌍을 대체합니다. 이제 하나의 침해 범위가 프레임워크 무결성과
+라이선싱을 함께 덮습니다. 키 보유자는 프레임워크 표면에 다시 서명하고 모든 토큰과 사용권을
+발급할 수 있으며, 키를 교체하면 그 전부를 다시 발급해야 합니다. 도메인 분리로 각 서명은 한
+용도에만 쓰입니다. 무결성 검증기는 매니페스트 형태만, 각 라이선스 검증기는 자신의
+`schema_version`만 받아들이므로 한 용도로 만든 서명은 다른 용도로 검증되지 않습니다.
 
 배포된 실행 장소에서는 런타임이 비공개 키 경로를 열지 않습니다. Docker 빌드 맥락은 전체
 `secrets/` 트리를 제외합니다. 검증된 발급자 워크스테이션은 설정된 라이선스 토큰을 무시하고 전체
@@ -88,16 +161,53 @@ Trial은 없거나 만료된 토큰을 대신할 뿐, 거부·오바인딩·아�
 그대로 적용됩니다. 비공개 키가 없거나 형식, 권한 또는 키 쌍이 잘못되어도 예외를 부여하지 않으며
 관찰 기능은 중단하지 않습니다.
 
-이는 변경할 수 없는 물리 하드웨어가 아니라 전용 키의 소유를 증명합니다. 키를 복사하면 발급자
+이는 변경할 수 없는 물리 하드웨어가 아니라 무결성 키의 소유를 증명합니다. 키를 복사하면 발급자
 상태도 복사됩니다. 향후 하드웨어 보호 키 설계로 서명 토큰 계약을 바꾸지 않고 보관 경계를 강화할
 수 있습니다.
+
+## 키 보유자 설치 사용권
+
+발급자 워크스테이션 예외는 로컬 런타임만 다룹니다. Azure에 배포하는 키 보유자는 비공개 키를
+결코 읽어서는 안 되는 실행 장소에서도 같은 전체 가용성이 필요합니다.
+
+**초기 설계.** 키 보유자가 배포할 때마다 기존 30일 전체 카탈로그 토큰을 발급합니다.
+
+**비판.** 그러면 키 보유자 자신의 설치가 마지막 배포 30일 뒤 읽기 전용으로 돌아가며, 이름만
+다를 뿐 Trial과 같습니다. 이미지 digest에 바인딩하면 업그레이드마다 새 발급이 필요하고, v1 기간을
+늘리면 다른 운영자에게 발급한 토큰을 보호하는 상한이 약해집니다.
+
+**수정된 설계.** 배포 도구는 별도로 버전이 지정된 설치 사용권을 발급합니다.
+
+- 발급자 예외와 같은 무결성 키 검사를 통과한 작업 스테이션에서만 발급합니다. 런타임은 여전히
+  비공개 키를 열지 않습니다.
+- 새 `schema_version`으로 문서를 v1 토큰 및 무결성 매니페스트와 분리하며, 무결성 키로
+  서명합니다.
+- 예상 배포판이 배포하는 카탈로그 전체를 부여합니다.
+- 정확한 설치 및 배포 바인딩 다이제스트를 요구하고 이미지 digest와 `not_after`를 담지 않으므로,
+  업그레이드와 재시작 뒤에도 유효합니다.
+- 토큰처럼 이동합니다. 관리 호스트가 고정된 `fdai-capability-license` Key Vault 비밀에 기록하고
+  정확한 버전을 다시 읽어 확인하며, Core는 시작할 때 `FDAI_LICENSE_TOKEN`에서 읽습니다. 고정
+  이름은 비밀 참조와 읽기 범위를 하나로 유지하고, 이력은 Key Vault 버전이 보관합니다.
+- 바인딩이 하나라도 다르면 `misbound`로 해석하며, 키 보유자 자신의 설치를 벗어나는 모든 토큰에는
+  v1 30일 상한이 그대로 적용됩니다.
+
+이 사용권은 배포의 비밀 참조를 교체하는 것 외에 철회 경로가 없습니다. 사용권이 바인딩한 설치
+밖에서는 쓸모가 없기 때문에만 허용됩니다.
+
+계약, 공용 라이선스 판정기를 통한 Core 해석, 작업 스테이션 발급, `fdaictl license inspect` 지원은
+구현되었습니다. Core는 기존 라이선스 토큰 입력에서 문서를 읽고 `FDAI_INSTALLATION_BINDING`과
+`FDAI_LICENSE_DEPLOYMENT_BINDING`을 바인딩합니다. AKS에서는 키 보유자 배포가 기능 단계에서
+사용권을 발급하고, AKS Core는 이를 CSI로 마운트된 비밀 환경 변수로 받습니다. Container Apps
+Core는 아직 설치 바인딩을 받지 않으므로, Container Apps 키 보유자 배포는 여전히 30일 v1 토큰을
+받습니다.
 
 ## 토큰
 
 토큰은 `base64url(canonical-document) "." base64url(signature)`입니다. 환경변수, Container Apps
 시크릿, Kubernetes 시크릿 마운트에 들어가는 단일 ASCII 문자열입니다. 서명은 정본
 문서의 정확한 바이트를 덮으므로 필드 순서를 다르게 해석할 수 없고, 문서 안의
-`schema_version`이 다른 모든 FDAI 서명과 페이로드를 분리합니다.
+`schema_version`이 다른 모든 FDAI 서명과 페이로드를 분리합니다. 같은 키가 `schema_version`이
+없는 프레임워크 표면 매니페스트에도 서명하므로 이 분리가 중요합니다.
 
 | 점유 | 목적 |
 |-------|------|
@@ -177,12 +287,15 @@ License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 �
 
 | 상태 | 원인 | 가용성 |
 |------|------|--------|
-| `issuer-workstation` | 로컬 소스 checkout이 일치하는 전용 비공개 키의 소유를 증명 | 전체 카탈로그, 설정된 토큰은 무시 |
+| `issuer-workstation` | 로컬 소스 checkout이 무결성 서명 비공개 키의 소유를 증명 | 전체 카탈로그, 설정된 토큰은 무시 |
 | `active` | 서명 검증 통과, 기간 내, 연결 일치 | 카탈로그에 존재하는 나열된 기능과 모든 읽기 전용 기능 |
+| `active` 설치 사용권(목표) | 서명 검증 통과, 두 설치 바인딩 일치, 기간 없음 | 배포된 카탈로그 전체 |
 | `absent` | 토큰 미설정 및 발급자 워크스테이션 증명 없음 | 배포된 런타임에서 읽기 전용 |
 | `untrusted` | 형식 오류 토큰, 비정규 토큰, packaged 키가 거부한 서명, 또는 실행되지 못한 검증기 | 읽기 전용 |
-| `not-yet-valid` / `expired` | 유효 기간 밖 | 읽기 전용 |
+| `not-yet-valid` / `expired` | 토큰 유효 기간 밖, 또는 `expired`의 경우 Trial 기간이 끝난 무키 설치 | 읽기 전용 |
 | `misbound` | 배포판 신원, 이미지 다이제스트 또는 배포 연결 불일치 | 읽기 전용 |
+
+변경 기능을 보류하는 모든 상태는 [Trial 만료 워터마크](#trial-만료-워터마크)를 표시합니다.
 
 암호화 구현과 분리된 해석기는 격리된 라이브러리 및 포크 조립을 위해 명시적인
 `require_license` 입력을 유지합니다. 배포되는 Core 런타임은 항상 이 입력을 설정합니다. 개발은
@@ -213,16 +326,26 @@ PR 기반, 직접 API 및 도구 호출 작업 경로는 모두 카탈로그 기
 | 관심사 | 위치 |
 |--------|------|
 | 토큰 계약, 검증, 정본 바이트 | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
+| 설치 사용권 계약 | `services/core-control-plane/src/fdai/core/licensing/installation_entitlement.py` (crypto-free) |
 | 상태, 연결, 현재 시각 기준 권한 해석 | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
-| 런타임 서명 및 로컬 발급자 키 검증 | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
+| 런타임 서명 및 로컬 발급자 키 검증 | 패키지에 포함된 `upstream-signing-key.pub`로 검증하는 `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
 | 런타임 Trial 연결 | `services/core-control-plane/src/fdai/runtime/licensing.py` |
+| 영속 Trial 저장소 및 고정 시각 활성화 작성자 | `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py` |
+| 워터마크 안내 값, 상태 게시자, 기록기 | `services/core-control-plane/src/fdai/core/licensing/entitlement_notice.py`, `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py` |
+| Operator 응답 표시 | `services/operator-service/src/fdai_operator_service/entitlement_stamp.py` |
 | 최종 공유 실행 상한 | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | 발급 및 자체 검증 (release 전용) | 고정된 cryptography 의존성의 Ed25519와 배타적 mode-`0600` 출력 생성을 사용하는 `scripts/deployment/release/issue-license.py` |
 | 모든 운영자를 위한 오프라인 검증 | 배포 CLI의 독립 Ed25519 검증기를 사용하는 `fdaictl license inspect` |
+| 매니페스트 전용 무결성 검증 | 다른 형태의 서명 문서를 모든 모드에서 거부하는 `scripts/integrity/check-integrity.sh` |
 
 이 분리는 확장 및 스킬 trust 경계와 같습니다. `core/`는 `LicenseVerifier` 프로토콜만 선언하고
 crypto 백엔드, 전송 계층, `fdai.delivery`를 가져오기하지 않습니다
 ([project-structure-ko.md](../architecture/project-structure-ko.md#module-boundaries)).
+
+Core와 배포 CLI는 각각 `security/integrity/upstream-signing-key.pub`와 바이트까지 같은 사본을
+패키지에 포함하며, 테스트가 두 사본을 모두 원본에 고정합니다. 런타임 라이선싱 연결, 영속 Trial
+저장소와 그 활성화 작성자, 워터마크의 상태 게시자와 기록기, Operator 표시, 그 사본을 포함한
+`fdai/delivery/trust/` 패키지는 서명된 프레임워크 표면에 속합니다.
 
 ## 이 리포지토리에서 검증하기
 
@@ -236,16 +359,16 @@ uv run python scripts/deployment/release/issue-license.py \
   --output /tmp/license.token
 uv run python -m fdai.deployment_cli license inspect \
   --token /tmp/license.token \
-  --public-key services/core-control-plane/src/fdai/delivery/trust/license-signing-key.pub \
+  --public-key security/integrity/upstream-signing-key.pub \
   --output json
 ```
 
 `issue-license.py`는 출력 전에 자신의 결과를 supplied 공개 키로 재검증하므로, 교대된 서명
-키는 고객 현장이 아니라 발급 시점에 실패합니다. 비공개 키는 현재 UID가 소유한 mode-`0600`
-일반 파일일 때만 허용되며, 두 키 모두 비차단, 심볼릭 링크 차단, 65536바이트 경계를 통해
-읽습니다. 기본값은 고정 발급자 키, 패키지 공개 키 및 30일 유효 기간이며, 키 교대 확인을 위해
-공개 키를 명시할 수도 있습니다. `license inspect`는 상태와 비밀이 아닌 메타데이터만 보고하며
-토큰, 문서, 서명을 출력하지 않습니다.
+키는 고객 현장이 아니라 발급 시점에 실패합니다. 고정 경로 `secrets/integrity-signing-key.pem`만
+현재 UID가 소유한 mode-`0600` 일반 파일로 읽으며, 두 키 모두 비차단, 심볼릭 링크 차단,
+65536바이트 경계를 통해 읽습니다. 기본값은 패키지 공개 키와 30일 유효 기간이며, 키 교대
+확인을 위해 공개 키를 명시할 수도 있습니다. `license inspect`는 상태와 비밀이 아닌
+메타데이터만 보고하며 토큰, 문서, 서명을 출력하지 않습니다.
 
 자동화된 커버리지는 계약과 저하 표에 대해 `services/core-control-plane/tests/core/licensing/`, 변조·잘못된 서명자·잘못된
 연결을 포함한 실제 발급-검증 경로에 대해 `tests/integration/scripts/test_issue_license.py`에 있습니다.
@@ -255,6 +378,10 @@ uv run python -m fdai.deployment_cli license inspect \
 서명 검증은 framework-surface 매니페스트에 기록된 것과 똑같이 **tamper-evident이지
 tamper-proof가 아닙니다**. 이미지를 받은 고객은 그 런타임을 통제하므로 검사를 제거할 수 있습니다.
 난독화는 걸리는 시간만 바꿉니다.
+
+Trial과 워터마크에도 같은 한계가 있습니다. 둘 중 하나를 제거하려면 서명된 프레임워크 표면 코드를
+바꿔야 하며, 그 변경은 업스트림이 서명한 매니페스트로 검증할 때만 드러납니다. FDAI는 소스와
+런타임을 통제하는 운영자가 수정된 코드를 실행하는 것을 막는다고 주장하지 않습니다.
 
 따라서 강제력 있는 부분은 binary가 아니라 배포 채널입니다.
 
@@ -273,3 +400,4 @@ tamper-proof가 아닙니다**. 이미지를 받은 고객은 그 런타임을 �
 | 기능 번들, 확장, 신뢰 검사 | [project-structure-ko.md](../architecture/project-structure-ko.md#capability-bundles) |
 | 시크릿 처리와 네트워크 경계 | [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) |
 | 폐쇄망으로 이미지와 키트 전달 | [disconnected-deployment-ko.md](../deployment/disconnected-deployment-ko.md) |
+| 배포가 Trial과 전체 사용권 중 하나를 선택하는 방식 | [source-deployment-ko.md](../deployment/source-deployment-ko.md) |

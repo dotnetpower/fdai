@@ -705,11 +705,11 @@
         "Does the browser hold the executor identity?",
         "브라우저가 실행기 신원을 갖나요?"
       ],
-      "source_manifest_hash": "539cf44dac1fedccd8ff3e989660179e9dacea8c3752ecf1f4bd89570e37bf1c",
+      "source_manifest_hash": "21f2263a6d512588872f317f7e1a960b8e1c00f61d5fc6ed9ce7bdd8c7dbaa5e",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "aad7e702ce9055c70f961d344fc076f30e29be7a",
+          "blob_sha": "d21d3fe5835899c687b15bdec1de0b5f539e8ff9",
           "line_end": 60,
           "line_start": 28,
           "path": ".github/instructions/app-shape.instructions.md",
@@ -993,11 +993,11 @@
         "Can local Console use synthetic operational evidence?",
         "로컬 Console이 합성 운영 근거를 써도 되나요?"
       ],
-      "source_manifest_hash": "2144c8bb9d83bca9c5bef44055011dab6bfb64b1ad301bd38c059281c781b504",
+      "source_manifest_hash": "39f4bd4994670055af030772a40d3591a24063784a9784682d5f88b027af995e",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "aad7e702ce9055c70f961d344fc076f30e29be7a",
+          "blob_sha": "d21d3fe5835899c687b15bdec1de0b5f539e8ff9",
           "line_end": 118,
           "line_start": 82,
           "path": ".github/instructions/app-shape.instructions.md",

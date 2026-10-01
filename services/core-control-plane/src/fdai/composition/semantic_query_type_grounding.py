@@ -54,6 +54,7 @@ from .semantic_query_model_targets import t1_model_targets
 
 SECOND_READER_ENV = "FDAI_SEMANTIC_SECOND_READER"
 COMPILED_ANSWERS_ENV = "FDAI_SEMANTIC_COMPILED_ANSWERS"
+PRODUCTION_SHADOW_ENV = "FDAI_SEMANTIC_PRODUCTION_SHADOW"
 TYPED_ONLY_ENV = "FDAI_SEMANTIC_TYPED_ONLY"
 _LOGGER = logging.getLogger(__name__)
 
@@ -91,11 +92,16 @@ def build_second_reader(
     concept_prompt = compose_static_selection(prompts.resolve("semantic.concept_selection"))
     extraction_prompt = compose_static_selection(prompts.resolve("semantic.constraint_extraction"))
     compiled = compiled_answers_enabled()
+    production_shadow = production_shadow_enabled()
     direction_prompt = (
-        compose_static_selection(prompts.resolve("semantic.direction_check")) if compiled else None
+        compose_static_selection(prompts.resolve("semantic.direction_check"))
+        if compiled or production_shadow
+        else None
     )
     ambiguity_prompt = (
-        compose_static_selection(prompts.resolve("semantic.ambiguity_check")) if compiled else None
+        compose_static_selection(prompts.resolve("semantic.ambiguity_check"))
+        if compiled or production_shadow
+        else None
     )
     third = ambiguity_reader_target(targets, second)
 
@@ -127,7 +133,7 @@ def build_second_reader(
         )
 
     try:
-        config = reader_config(compiled)
+        config = reader_config(compiled or production_shadow)
     except ValueError:
         if typed_only:
             raise
@@ -191,6 +197,13 @@ def typed_only_enabled(environment: Mapping[str, str] | None = None) -> bool:
     return True
 
 
+def production_shadow_enabled(environment: Mapping[str, str] | None = None) -> bool:
+    """Return whether observe-only production shadow wiring should bind reader prompts."""
+
+    source = os.environ if environment is None else environment
+    return source.get(PRODUCTION_SHADOW_ENV) == "1"
+
+
 def direction_reader_target(
     targets: tuple[ModelRequestTarget, ...],
 ) -> ModelRequestTarget | None:
@@ -242,10 +255,12 @@ def second_reader_target(
 
 __all__ = [
     "COMPILED_ANSWERS_ENV",
+    "PRODUCTION_SHADOW_ENV",
     "SECOND_READER_ENV",
     "ambiguity_reader_target",
     "build_second_reader",
     "compiled_answers_enabled",
+    "production_shadow_enabled",
     "typed_only_enabled",
     "direction_reader_target",
     "second_reader_target",

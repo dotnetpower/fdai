@@ -34,8 +34,11 @@ store.
 
 ## Durable keyless Trial target
 
-The connected source deployment will initialize one 30-day Trial at first activation through an
-authenticated deployment writer. Its installation and deployment bindings are independent from
+The [one-command source deployment](../deployment/source-deployment.md) will initialize one 30-day
+Trial at first activation through an authenticated deployment writer during database bootstrap.
+The activation time is anchored to the installation's Terraform-owned creation time, so a run that
+finds the record missing re-creates it with that original time instead of opening a new window.
+Its installation and deployment bindings are independent from
 the source revision and image digest, so an ordinary upgrade or restart cannot renew the Trial.
 The activation time never changes. Every durable observation advances a revision and the
 last-observed UTC time; a clock regression creates a persistent blocked state, not another Trial.
@@ -53,17 +56,89 @@ Read-only capability stays unconditional, so an ended window blocks new acting w
 observation, diagnosis, audit, and export continue. Absence, a record bound to another
 installation, a detected clock regression, an observation older than the moment being decided,
 and unreachable storage each deny rather than grant. Missing or inconsistent retained records
-never authorize reinitialization.
+never open a new window: the runtime denies, and only a deployment run re-creates a missing record
+at its anchored activation time.
 
-Persistence remains separate: the store that commits observations with a compare-and-set on the
-complete previous revision, and initializes the record at installation time, is still open.
+The store commits observations with a compare-and-set on the complete previous revision. Core
+composition consults it whenever the deployment supplies `FDAI_INSTALLATION_BINDING`,
+`FDAI_LICENSE_DEPLOYMENT_BINDING`, and the state-store DSN. Each acting decision observes the store
+in a worker thread, away from Core's event loop, and an invalid or incomplete binding composes no
+Trial. The writer `python -m fdai.runtime.licensing_trial_activation` opens the window at the
+supplied anchored time, keeps a retained record unchanged, and refuses a record bound to another
+installation. The AKS source deployment supplies both bindings to Core, anchors the installation to
+a Terraform-state identity and first-apply time that no rerun or upgrade changes, and runs that
+writer after the application apply and before the initial inventory. The Container Apps runtime
+does not supply the bindings yet, so a keyless Container Apps installation remains
+observation-only.
 
-A future versioned entitlement can remove the Trial restriction; the current signed-token
-30-day ceiling remains unchanged until that contract is implemented. A signed deployment kit
-authenticates artifacts, not usage rights. It removes Trial only when it carries a separately
-valid entitlement. Publisher private keys never enter the deployment. A source owner who also
+The [key-holder installation entitlement](#key-holder-installation-entitlement) removes the Trial
+restriction for one installation; the signed-token 30-day ceiling stays for every token that
+travels to another operator. A signed offline package authenticates artifacts, not usage rights.
+It removes Trial only when a separately valid entitlement accompanies it. Publisher private keys
+never enter the deployment. A source owner who also
 controls all persistent state can remove these checks; this offline mechanism does not claim
 tamper-proof enforcement or global reinstall detection.
+
+## Trial expiry watermark
+
+An ended Trial must be visible, not only enforced. Like the activation notice of an unactivated
+desktop operating system, the Console then shows a persistent watermark on every view.
+
+- **When it shows:** whenever licensing withholds the acting capability `operations.typed-mutation`
+  or the Console has no current entitlement state. That covers an ended Trial, a missing or
+  misbound record, a rejected or expired token, a detected clock regression, and unreachable Trial
+  storage. Only an active Trial, the issuer workstation, or an entitlement that grants the acting
+  capability hides it.
+- **What it shows:** a localized two-line notice in the lower-right corner, above all content and
+  dialogs, stating that the evaluation period has expired or that FDAI is not activated, and that
+  observation continues while acting work is unavailable. It is semi-transparent, passes pointer
+  input through, cannot be dismissed, and is exposed to assistive technology.
+- **How it travels:** Core publishes its resolved entitlement state with the observation time, and
+  the Operator API stamps every authenticated response with the latest state. The Console renders
+  the watermark from whichever response arrives, so blocking one endpoint cannot hide it, and a
+  missing or stale state renders it.
+- **No off switch:** No configuration, environment variable, feature flag, database value, role,
+  Console preference, or fork composition seam hides it.
+- **Tamper evidence:** The Console watermark, the Operator stamp, the runtime licensing binding, and
+  the packaged verification key belong to the signed framework surface. Changing them changes the
+  surface digest, and only the upstream integrity key can sign a new manifest, so verifying an
+  installation's source or images against the signed manifest exposes the change.
+
+The watermark is an availability notice. It neither grants nor removes authority, and its absence
+proves nothing: the shared execution ceiling still decides every acting request.
+
+### Entitlement state transport
+
+**Initial design.** Let the Operator re-resolve the entitlement from the Trial record and its own
+copy of the token.
+
+**Critique.** That duplicates the license authority outside Core. The Operator holds neither the
+token, the bindings, nor the issuer-workstation proof, so two resolvers could disagree, and the
+Trial record would gain a second reader that the
+[data ownership matrix](../architecture/service-graduation-and-ownership.md#data-ownership-matrix)
+reserves for Core.
+
+**Revised design.** Core derives one notice, and every other layer only carries it:
+
+- Core derives `none` when the resolved entitlement includes `operations.typed-mutation`,
+  `evaluation-ended` when the token or the Trial window has expired, and `not-activated`
+  otherwise. An ended Trial therefore resolves to `expired` with the Trial's reason, while the
+  read-only catalog stays available.
+- At startup and every 60 seconds, Core resolves the entitlement off its event loop and upserts the
+  notice with its observation time into the Core-owned singleton `licensing_entitlement_state`.
+  A write never moves the observation time backward. Core alone writes the row, and the Operator
+  role receives `SELECT` only.
+- The Operator reads the row at most once every 15 seconds. It stamps the notice as
+  `X-FDAI-Entitlement` on every response to a request that passed bearer authentication, and CORS
+  exposes that header to the Console. A missing, malformed, or unreadable row, or one observed more
+  than five minutes away from the Operator clock, stamps `not-activated`.
+- The Console records the stamp from every shared Operator transport response and refreshes it
+  with an authenticated read every 60 seconds. It hides the watermark only while the latest stamp
+  is `none` and less than five minutes old. Before the first stamp arrives, it waits at most
+  10 seconds.
+
+A row edited outside Core is persistent-state tampering, which the [honest limits](#honest-limits)
+already exclude. No setting or configuration value decides whether the watermark shows.
 
 ## Issuer workstation exception
 
@@ -71,19 +146,25 @@ tamper-proof enforcement or global reinstall detection.
 runtime is on the issuer workstation, then skip licensing.
 
 **Critique.** A filename is not a cryptographic identity. An empty file, an unrelated key, a
-symlink, or a mounted key path would satisfy a presence check. Reusing
-`secrets/integrity-signing-key.pem` would also collapse framework-integrity and license compromise
-domains and make the runtime read a key it does not need.
+symlink, or a mounted key path would satisfy a presence check.
 
 **Revised design.** A source checkout may enter `issuer-workstation` status only when every check
 below passes:
 
 - the execution venue is `local` and the asset root has a Git checkout marker;
-- the fixed `secrets/license-signing-key.pem` path is a current-UID, mode-`0600` regular file read
-  through a bounded, nonblocking, no-follow descriptor;
+- the fixed `secrets/integrity-signing-key.pem` path is a current-UID, mode-`0600` regular file
+  read through a bounded, nonblocking, no-follow descriptor; and
 - the file contains an Ed25519 private key whose derived public bytes exactly match the tracked
-  license public key packaged with the Core distribution; and
-- the dedicated license key is separate from `secrets/integrity-signing-key.pem`.
+  upstream integrity public key `security/integrity/upstream-signing-key.pub`, which Core
+  packages as its only license verification key.
+
+**Owner decision (2026-10-01).** The upstream integrity signing key is the only licensing key and
+replaces the separate license key pair. One
+compromise domain now covers framework integrity and licensing: the key holder can re-sign the
+framework surface and issue every token and entitlement, and a key rotation requires re-issuing
+all of them. Domain separation keeps each signature to one purpose: the integrity verifier accepts
+only the manifest shape, and each license verifier accepts only its own `schema_version`, so a
+signature made for one never verifies as the other.
 
 The runtime does not open the private-key path in a deployed venue. The Docker build context excludes
 the complete `secrets/` tree. A verified issuer workstation ignores any configured license token and
@@ -91,9 +172,48 @@ keeps the full catalog available, while all promotion, RBAC, risk, approval, rol
 effect-verification gates remain unchanged. Missing, malformed, incorrectly permissioned, or
 mismatched private-key material grants no exception and does not stop observation.
 
-This proves possession of the dedicated key, not attachment to immutable physical hardware. Copying
+This proves possession of the integrity key, not attachment to immutable physical hardware. Copying
 the key copies issuer status. A later hardware-backed key design can strengthen that custody boundary
 without changing the signed token contract.
+
+## Key-holder installation entitlement
+
+The issuer-workstation exception covers only a local runtime. A key holder who deploys to Azure
+needs the same full availability in a venue that must never read the private key.
+
+**Initial design.** Issue the existing 30-day full-catalog token on every key-holder deployment.
+
+**Critique.** The key holder's own installation then falls back to read-only 30 days after the
+last deployment, which is a Trial under another name. Binding the image digest also makes every
+upgrade depend on a new issuance, and a longer v1 window would weaken the ceiling that protects
+tokens issued to other operators.
+
+**Revised design.** Deployment tooling issues a separately versioned installation entitlement:
+
+- It is issued only on a workstation that passes the same integrity-key checks as the issuer
+  exception. The runtime still never opens a private key.
+- A new `schema_version` keeps the document domain-separated from the v1 token and the integrity
+  manifest, and the integrity key signs it.
+- It grants the complete shipped catalog of the expected distribution.
+- It requires exact installation and deployment binding digests and carries no image digest and
+  no `not_after`, so upgrades and restarts keep it valid.
+- It travels like a token: the managed host writes it to the fixed `fdai-capability-license` Key
+  Vault secret, reads the exact version back, and Core reads it from `FDAI_LICENSE_TOKEN` at
+  startup. A fixed name keeps one secret reference and one read scope; Key Vault versions keep
+  the history.
+- Any binding mismatch resolves to `misbound`, and the v1 30-day ceiling stays unchanged for
+  every token that leaves the key holder's own installations.
+
+The entitlement has no revocation path other than replacing the deployment's secret reference. It
+is acceptable only because it is useless outside the installation it binds.
+
+The contract, Core resolution through the shared license authority, workstation issuance, and
+`fdaictl license inspect` support are implemented. Core reads the document from the existing
+license-token input and binds `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`.
+On AKS, a key-holder deployment issues the entitlement during the capability stage and AKS Core
+receives it as a CSI-mounted secret environment. Container Apps Core does not receive the
+installation binding yet, so a Container Apps key-holder deployment still receives the 30-day v1
+token.
 
 ## The token
 
@@ -101,7 +221,8 @@ The token is `base64url(canonical-document) "." base64url(signature)` - a single
 fits an environment variable, a Container Apps secret, or a Kubernetes Secret mount. The signature
 covers the exact canonical document bytes, so field order cannot be reinterpreted, and
 `schema_version` inside the document keeps the payload domain-separated from every other FDAI
-signature.
+signature. That matters because the same key also signs the framework-surface manifest, which
+carries no `schema_version`.
 
 | Claim | Purpose |
 |-------|---------|
@@ -183,12 +304,16 @@ diagnosed. The operator-facing reason stays generic and never echoes verifier ex
 
 | Status | Cause | Availability |
 |--------|-------|--------------|
-| `issuer-workstation` | local source checkout proves possession of the dedicated matching private key | full catalog; any configured token is ignored |
+| `issuer-workstation` | local source checkout proves possession of the integrity signing private key | full catalog; any configured token is ignored |
 | `active` | signature verifies, inside the window, bindings match | listed capabilities that exist in the catalog, plus every read-only capability |
+| `active` installation entitlement (target) | signature verifies and both installation bindings match; no window applies | the complete shipped catalog |
 | `absent` | no token configured and no issuer-workstation proof | read-only in the shipped runtime |
 | `untrusted` | malformed token, a non-canonical token, a signature the packaged key rejects, or a verifier that cannot run | read-only |
-| `not-yet-valid` / `expired` | outside the validity window | read-only |
+| `not-yet-valid` / `expired` | outside the token's validity window, or, for `expired`, a keyless installation whose Trial window ended | read-only |
 | `misbound` | distribution identity, image digest, or deployment binding does not match | read-only |
+
+Every status that withholds the acting capability shows the
+[Trial expiry watermark](#trial-expiry-watermark).
 
 The crypto-free resolver keeps its explicit `require_license` input for isolated library and fork
 composition. The shipped Core runtime always sets it. Development remains unrestricted only on a
@@ -221,16 +346,27 @@ expiration itself does not require one.
 | Concern | Location |
 |---------|----------|
 | Token contract, validation, canonical bytes | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
+| Installation entitlement contract | `services/core-control-plane/src/fdai/core/licensing/installation_entitlement.py` (crypto-free) |
 | Status, binding, current-time entitlement resolution | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
-| Runtime signature and local issuer-key verification | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
+| Runtime signature and local issuer-key verification | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py`, verifying against the packaged `upstream-signing-key.pub` |
 | Runtime Trial binding | `services/core-control-plane/src/fdai/runtime/licensing.py` |
+| Durable Trial store and anchored activation writer | `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py` |
+| Watermark notice, state publisher, and its writer | `services/core-control-plane/src/fdai/core/licensing/entitlement_notice.py`, `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py` |
+| Operator response stamp | `services/operator-service/src/fdai_operator_service/entitlement_stamp.py` |
 | Final shared execution ceiling | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | Issuing and self-verification (release-only) | `scripts/deployment/release/issue-license.py`, using Ed25519 from the pinned cryptography dependency and exclusive mode-`0600` output creation |
 | Offline verification for any operator | `fdaictl license inspect`, using the deployment CLI's independent Ed25519 verifier |
+| Manifest-only integrity verification | `scripts/integrity/check-integrity.sh`, which rejects any other signed document shape in every mode |
 
 The split matches the extension and skill trust seams: `core/` declares a `LicenseVerifier` Protocol
 and never imports a crypto backend, a transport, or `fdai.delivery`
 ([project-structure.md](../architecture/project-structure.md#module-boundaries)).
+
+Core and the deployment CLI each package a byte-identical copy of
+`security/integrity/upstream-signing-key.pub`, and tests pin both copies to it. The runtime licensing
+binding, the durable Trial store and its activation writer, the watermark's state publisher and
+writer, the Operator stamp, and the `fdai/delivery/trust/` package, including that copy, belong to
+the signed framework surface.
 
 ## Verifying it in this repository
 
@@ -244,16 +380,17 @@ uv run python scripts/deployment/release/issue-license.py \
   --output /tmp/license.token
 uv run python -m fdai.deployment_cli license inspect \
   --token /tmp/license.token \
-  --public-key services/core-control-plane/src/fdai/delivery/trust/license-signing-key.pub \
+  --public-key security/integrity/upstream-signing-key.pub \
   --output json
 ```
 
 `issue-license.py` re-verifies its own output against the supplied public key before printing, so a
-rotated signing key fails at issue time rather than at the customer site. It accepts the private key
-only as a current-UID mode-`0600` regular file and reads both keys through a nonblocking, no-follow,
-65536-byte boundary. Its defaults are the fixed issuer key, packaged public key, and 30-day validity;
-an explicit public key remains available for rotation verification. `license inspect` reports status
-and non-secret metadata only; it never echoes the token, the document, or the signature.
+rotated signing key fails at issue time rather than at the customer site. It reads only the fixed
+`secrets/integrity-signing-key.pem`, as a current-UID mode-`0600` regular file, and reads both keys
+through a nonblocking, no-follow, 65536-byte boundary. Its defaults are the packaged public key and
+30-day validity; an explicit public key remains available for rotation verification. `license
+inspect` reports status and non-secret metadata only; it never echoes the token, the document, or
+the signature.
 
 Automated coverage lives in `services/core-control-plane/tests/core/licensing/` for the contract and degradation table, and in
 `tests/integration/scripts/test_issue_license.py` for a real issue-then-verify path including tampering, a wrong
@@ -264,6 +401,10 @@ signer, and a wrong binding.
 Signature verification is **tamper-evident, not tamper-proof**, exactly as recorded for the
 framework-surface manifest. A customer who receives an image controls its runtime and can remove the
 check; obfuscation only changes how long that takes.
+
+The Trial and its watermark share that limit. Removing either requires changing signed
+framework-surface code, which only verification against the upstream-signed manifest exposes. FDAI
+does not claim to stop an operator who controls the source and runtime from running modified code.
 
 The enforceable part is therefore the distribution channel, not the binary:
 
@@ -282,3 +423,4 @@ The enforceable part is therefore the distribution channel, not the binary:
 | Capability bundles, extensions, and their trust checks | [project-structure.md](../architecture/project-structure.md#capability-bundles) |
 | Secret handling and network boundaries | [security-and-identity.md](../architecture/security-and-identity.md) |
 | Delivering an image and kit into a closed network | [disconnected-deployment.md](../deployment/disconnected-deployment.md) |
+| How a deployment selects Trial or full entitlement | [source-deployment.md](../deployment/source-deployment.md) |

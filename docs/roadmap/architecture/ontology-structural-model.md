@@ -28,6 +28,10 @@ Workflow authoring records remain outside ontology identity. Saved private draft
 ![Design at a glance. The main stages are Resource, ResourceType, ResourceClass, Query, Exploratory traversal, Ordered typed path, LinkType, Forward and reverse roles, Semantic traits.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.en.svg)
 
 The model separates exact identity, aggregation, behavior, language, topology hints, query execution, and presentation. Each concern has one canonical representation and one bounded consumer contract.
+Nearest-container lineage grouping is an aggregate over typed lineage rows emitted by a bounded
+secured `contains` traversal from the named container roots. Equal-depth nearest roots are excluded
+from every group and reported through `ambiguous_membership`, so grouped counts reconcile to the
+members read.
 Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence metadata for one collection scope and does not replace Resource or link identity.
 An optional recorded `serving` fact is presentation evidence for one exact data-plane target. It
 does not add an ontology type, relationship, or authority edge and never replaces operational,
@@ -37,6 +41,9 @@ Model-serving source availability uses a separate additive metadata list. Upgrad
 merge it with baseline sources, while older readers continue to consume only the baseline list.
 Current instance-detail consumers require explicit runtime-call and PostgreSQL-role source states.
 Omitting either state is an invalid projection, not evidence of availability or a measured zero.
+Semantic problem frames may carry typed constraint slots for time windows, locations, lifecycle
+states, grouping, relation paths, prior results, and ordinals. These slots are read-only planning
+constraints: they do not create ontology identities, provider facts, or execution authority.
 Additive identity fields use a fail-closed rollout boundary. A legacy Resource remains queryable,
 but consumers cannot project a new exact identity until every field required by that identity is
 present.
@@ -276,8 +283,17 @@ the display names are context for the choosing model, never a lookup table.
 A value domain may also mark its property as the reviewed lifecycle state of its ObjectType.
 `Incident.status` is the first such domain: its values are the canonical Incident lifecycle states
 that the Incident projection writes. A stated lifecycle state is grounded by closed choice over those
-values and read only as an exact predicate on that ObjectType. Another ObjectType's `status` property
-has no reviewed lifecycle domain yet, so a state stated on that type stays typed unsupported.
+values and read only as an exact predicate on that ObjectType. `Process.status`,
+`RecoveryPlan.status`, and `CausalHypothesis.status` follow the same rule, each pinned to the enum
+its projection writes. Another ObjectType's `status` property has no reviewed lifecycle domain yet,
+so a state stated on that type stays typed unsupported.
+
+The query manifest also carries the reviewed Property semantics of
+`rule-catalog/vocabulary/property-semantics.yaml`, each with one provider path per resource type,
+bound by the manifest digest and offered only when the principal can read the Resource provider
+bag. A `project` node over a Resource ObjectSet may name a field inside the provider bag only at a
+reviewed Property path that the manifest offers. Any other provider field, nested or not, can't be
+projected, and every other projected field still has to be a declared readable property.
 
 Resource-state queries accept only catalog-declared state concepts and exact bounded resource
 collections. A concrete state concept takes precedence over the generic observed-state sentinel.

@@ -81,8 +81,12 @@ _CONCEPT_VALUES = {
     MentionDomain.DECLARATION_KIND: ("object",),
     MentionDomain.STATE: ("resource_state.running",),
     MentionDomain.HEALTH: ("resource_health.unhealthy",),
+    MentionDomain.METRIC: ("resource.cpu.utilization_pct",),
     MentionDomain.REGION: ("koreacentral",),
+    MentionDomain.PROPERTY: ("retention.backup.days",),
 }
+# Every synthetic anchor is a PostgreSQL server, a type with a reviewed backup retention path.
+_ANCHOR_TYPE = "postgresql-server"
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +168,12 @@ def reasoning_coverage_receipt(
         )
         anchors = AnchorBindingReceipt(
             tuple(
-                AnchorBinding(item, AnchorOutcome.BOUND, object_id=f"object-{item}")
+                AnchorBinding(
+                    item,
+                    AnchorOutcome.BOUND,
+                    object_id=f"object-{item}",
+                    resource_type=_ANCHOR_TYPE,
+                )
                 for item in anchor_mentions(admission)
             )
         )
@@ -260,6 +269,10 @@ def _cells() -> Iterator[tuple[str, dict[str, Any]]]:
             f"instance.lookup.{measure.value}",
             _form("lookup", subject="anchor", measure=measure.value),
         )
+    yield (
+        "instance.lookup.property.bound",
+        _form("lookup", subject="anchor", measure="property", measure_domain="property"),
+    )
     for history_measure in ("none", "change", "event", "state"):
         for time in TimeKind:
             yield (
@@ -273,6 +286,20 @@ def _cells() -> Iterator[tuple[str, dict[str, Any]]]:
             f"instance.{operation.value}",
             _form(operation.value, subject="anchor", measure="state", want=want),
         )
+    yield (
+        "instance.compare_windows.metric.two_windows",
+        _form(
+            "compare_windows",
+            subject="anchor",
+            measure="metric",
+            measure_domain="metric",
+            time=TimeKind.TWO_WINDOWS,
+        ),
+    )
+    yield (
+        "instance.compare_entities.state.two_anchors",
+        _form("compare_entities", subject="anchor", measure="state", counterpart=True),
+    )
     for want in ("cause", "verification", "completeness"):
         relation = {
             "sense": "dependency",
@@ -329,9 +356,11 @@ def _form(
     relation: dict[str, Any] | None = None,
     filter_role: str = "none",
     measure: str | None = None,
+    measure_domain: str | None = None,
     time: TimeKind = TimeKind.CURRENT,
     want: str = "fact",
     object_anchor: bool = False,
+    counterpart: bool = False,
 ) -> dict[str, Any]:
     mentions: list[dict[str, Any]] = []
     goal: dict[str, Any] = {
@@ -359,6 +388,9 @@ def _form(
         goal.update(subject="m1", subject_scope="anchor" if level == "schema" else "collection")
     if object_anchor:
         mentions.append(_mention("m2", "name", "instance", "anchor-a"))
+    if counterpart:
+        mentions.append(_mention("m2", "name", "instance", "scope-b"))
+        goal["counterpart"] = "m2"
     if relation is not None:
         goal["relation"] = relation
     if filter_role != "none":
@@ -375,6 +407,10 @@ def _form(
         goal["filters"] = [{"role": filter_role, "mention": mention_id}]
     if measure is not None and measure != "none":
         goal["measure"] = {"kind": measure}
+        if measure_domain is not None:
+            mention_id = f"m{len(mentions) + 1}"
+            mentions.append(_mention(mention_id, "concept", measure_domain, "concept-c"))
+            goal["measure"]["mention"] = mention_id
     goal["time"] = _time(time)
     return {"mentions": mentions, "goals": [goal]}
 
@@ -392,6 +428,15 @@ def _time(kind: TimeKind) -> dict[str, Any]:
         }
     if kind is TimeKind.AS_OF:
         return {"kind": kind.value, "value": {"calendar_offset_days": -1}, "cue": _SPANS["time-f"]}
+    if kind is TimeKind.TWO_WINDOWS:
+        return {
+            "kind": kind.value,
+            "windows": (
+                {"duration": {"amount": 5, "unit": "minute"}},
+                {"duration": {"amount": 5, "unit": "minute"}},
+            ),
+            "cue": _SPANS["time-f"],
+        }
     return {"kind": kind.value}
 
 

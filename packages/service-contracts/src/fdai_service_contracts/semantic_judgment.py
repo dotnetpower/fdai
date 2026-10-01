@@ -11,6 +11,8 @@ from pydantic import Field, model_validator
 
 from fdai_service_contracts.cloud_knowledge_query import DocumentRetrievalQuery
 from fdai_service_contracts.ontology_query import QueryContract, content_digest
+from fdai_service_contracts.semantic_question_form import SemanticQuestionForm
+from fdai_service_contracts.semantic_slots import SemanticConstraintSlot
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 MachineToken = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")]
@@ -118,7 +120,7 @@ class SemanticDirectResponseDraft(QueryContract):
 class SemanticJudgmentProposal(QueryContract):
     """Untrusted structured meaning proposed without policy or action authority."""
 
-    schema_version: Literal["1.0.0", "1.1.0", "1.2.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"] = "1.0.0"
     primary_intent: MachineToken
     secondary_intents: Annotated[tuple[MachineToken, ...], Field(max_length=8)] = ()
     targets: Annotated[tuple[SemanticTarget, ...], Field(max_length=32)] = ()
@@ -127,6 +129,18 @@ class SemanticJudgmentProposal(QueryContract):
         Field(max_length=8, exclude_if=lambda actions: not actions),
     ] = ()
     requested_facets: Annotated[tuple[MachineToken, ...], Field(max_length=32)] = ()
+    constraint_slots: Annotated[
+        tuple[SemanticConstraintSlot, ...],
+        Field(max_length=16, exclude_if=lambda slots: not slots),
+    ] = ()
+    question_form: SemanticQuestionForm | None = Field(
+        default=None,
+        exclude_if=lambda form: form is None,
+        description=(
+            "Closed question logical form carried by the judgment call for production shadow. "
+            "A non-null form requires schema_version 1.4.0 and grants no authority."
+        ),
+    )
     confidence: float = Field(ge=0.0, le=1.0)
     ambiguous: bool
     alternatives: Annotated[
@@ -224,8 +238,22 @@ class SemanticJudgmentProposal(QueryContract):
         )
         if len(forbidden_spans) != len(set(forbidden_spans)):
             raise ValueError("semantic judgment forbidden action spans MUST be unique")
-        if self.forbidden_actions and self.schema_version not in {"1.1.0", "1.2.0"}:
+        if self.forbidden_actions and self.schema_version not in {
+            "1.1.0",
+            "1.2.0",
+            "1.3.0",
+            "1.4.0",
+        }:
             raise ValueError("semantic judgment forbidden actions require schema 1.1.0 or later")
+        if self.constraint_slots and self.schema_version not in {"1.3.0", "1.4.0"}:
+            raise ValueError("semantic judgment constraint slots require schema 1.3.0")
+        if self.question_form is not None and self.schema_version != "1.4.0":
+            raise ValueError("semantic judgment question form requires schema 1.4.0")
+        slot_spans = tuple(
+            (slot.source_start, slot.source_end, slot.role) for slot in self.constraint_slots
+        )
+        if len(slot_spans) != len(set(slot_spans)):
+            raise ValueError("semantic judgment constraint slots MUST be unique by role and span")
         if any(action.kind not in {"action", "action_type"} for action in self.forbidden_actions):
             raise ValueError("semantic judgment forbidden actions MUST use an action kind")
         if self.ambiguous != bool(self.alternatives or self.unresolved_terms):
@@ -266,8 +294,8 @@ class SemanticJudgmentProposal(QueryContract):
         if self.ambiguous and self.document_evidence_mode is not SemanticDocumentEvidenceMode.NONE:
             raise ValueError("ambiguous semantic judgment MUST NOT request document evidence")
         if self.document_query is not None:
-            if self.schema_version != "1.2.0":
-                raise ValueError("semantic judgment document query requires schema 1.2.0")
+            if self.schema_version not in {"1.2.0", "1.3.0", "1.4.0"}:
+                raise ValueError("semantic judgment document query requires schema 1.2.0 or later")
             if (
                 self.ambiguous
                 or self.document_evidence_mode is SemanticDocumentEvidenceMode.NONE

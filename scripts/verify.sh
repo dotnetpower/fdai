@@ -306,11 +306,15 @@ run_gate_scoped "architecture-review" '^(config/architecture-review\.yaml$|scrip
 # that declare derives_from are checked.
 run_gate_scoped "derived-sources" '^(README(-ko)?\.md$|docs/|scripts/quality/localization/check-derived-sources\.py$)' "${python_runner[@]}" scripts/quality/localization/check-derived-sources.py
 
+# Behavior seeds pin the blob of every source they cite, including instruction files that no
+# changed-test selection maps to the seed tests.
+run_gate_scoped "behavior-seeds" '^(\.github/instructions/|rule-catalog/vocabulary/|services/core-control-plane/(src|tests)/|scripts/quality/architecture/generate-behavior-seeds\.py$)' "${python_runner[@]}" scripts/quality/architecture/generate-behavior-seeds.py --check
+
 # Framework-surface integrity: offline signature + content verification.
 # Upstream: advisory (edits are legitimate; re-sign before release, rc 0).
 # Fork: hard fail on any edit/add under the signed surface (rc 1). Skipped
 # loudly when any signed artifact is missing.
-run_gate_scoped "framework-integrity" '^(services/core-control-plane/src/fdai/(core/|agents/|composition|shared/(contracts|providers)/)|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
+run_gate_scoped "framework-integrity" '^(services/core-control-plane/src/fdai/(core/|agents/|composition|shared/(contracts|providers)/|runtime/licensing(_trial_activation|_state)?\.py$|delivery/persistence/postgres_licensing_(trial|entitlement_state)\.py$|delivery/trust/)|services/operator-service/src/fdai_operator_service/entitlement_stamp\.py$|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
 
 # ---- pytest and whole-repository gates (opt-in) -----------------------------
 

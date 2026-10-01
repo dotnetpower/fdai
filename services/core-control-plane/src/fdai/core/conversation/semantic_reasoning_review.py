@@ -125,7 +125,9 @@ _UNJUDGED_OPERATIONS = frozenset(
     }
 )
 _STATE_MEASURES = frozenset({MeasureKind.STATE, MeasureKind.HEALTH})
-_VALUE_MEASURES = frozenset({MeasureKind.METRIC, MeasureKind.COST, MeasureKind.FORECAST})
+_VALUE_MEASURES = frozenset(
+    {MeasureKind.METRIC, MeasureKind.COST, MeasureKind.FORECAST, MeasureKind.PROPERTY}
+)
 
 
 class _ExtractionModel(BaseModel):

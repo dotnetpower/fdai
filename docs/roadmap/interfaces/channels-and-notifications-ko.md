@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 2e3b752c75144900277472fa31c34aaf502aa10f
+translation_source_sha: d8264934cf1caef4cdb8f55228a754906a881709
 translation_revised: 2026-10-01
 ---
 
@@ -74,6 +74,9 @@ Teams Workflows 웹훅 바인딩은
   어댑터는 절대 자체로 결정을 authorize 하지 않음. 채널 승인은 full-authority 개발 확인이 될 수
   없습니다. FDAI Console 결정 경로만 토큰을 담지 않은 새 로그인 증명을 첨부할 수 있으며, HIL 결정
   페이로드가 이를 Core로 전달해 다시 검증합니다. Slack과 Teams 결정은 이 증명을 담지 않습니다.
+- Core의 런타임 작업 감독은 라이선스 사용권 상태 게시자를 채널 outbox 작업과 별도의 백그라운드
+  작업으로 실행합니다. 이 게시자는 채널 메시지를 보내지 않으며, 게시가 느리거나 실패해도 Slack,
+  Teams, 알림 전달을 지연시키지 않습니다.
 
 ## 3. 카테고리 (A1-A4)
 

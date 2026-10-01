@@ -17,6 +17,7 @@ from fdai_service_contracts import (
     OperatorPrincipalKind,
     OperatorRole,
     PackageResourceSchemaRegistry,
+    ResultHandleRef,
     SemanticBoundContext,
     SemanticConversationModelTier,
     SemanticDocumentContext,
@@ -64,6 +65,7 @@ class SemanticTurnEnvelopeBuilder:
         proposal: ConversationProposal,
         *,
         investigation_continuation: SemanticInvestigationContinuation | None = None,
+        recent_result_handles: tuple[ResultHandleRef, ...] = (),
         relationship_proof: AdaptiveRelationshipProof | None = None,
         relationship_unknown_reason: AdaptiveRelationshipUnknownReason | None = None,
     ) -> dict[str, object]:
@@ -125,6 +127,7 @@ class SemanticTurnEnvelopeBuilder:
                 selection_registry=self._selection_registry,
             ),
             investigation_continuation=investigation_continuation,
+            recent_result_handles=recent_result_handles,
             prior_turns=_prior_turns(proposal.body.get("history")),
             planning_profile=_planning_profile(proposal.body),
             conversation_model_tier=_conversation_model_tier(proposal.body),
@@ -137,7 +140,9 @@ class SemanticTurnEnvelopeBuilder:
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
         schema_version = (
-            "1.9.0"
+            "1.10.0"
+            if semantic_turn.recent_result_handles
+            else "1.9.0"
             if semantic_turn.authentication_receipt_ref is not None
             else "1.8.0"
             if semantic_turn.document_context is not None

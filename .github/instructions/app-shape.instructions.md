@@ -204,7 +204,7 @@ Recommended mapping:
 - Runtime services: **AKS Standard** is the new-install default for the five packaged services.
   Core stays non-privileged and only internal Executor may hold effect authority. Digest-pinned OCI
   images and runtime-neutral specs render to Kubernetes `Deployment`, `Service`, `ServiceAccount`,
-  HPA, PDB, `NetworkPolicy`, and `CronJob`. Contributor deployment builds images from the checkout;
+  HPA, PDB, `NetworkPolicy`, and `CronJob`. Source deployment builds images from the checkout;
   the offline package carries them prebuilt. Existing Container Apps installations are compatibility/migration sources. See
   [../../docs/roadmap/architecture/service-decomposition-execution-plan.md](../../docs/roadmap/architecture/service-decomposition-execution-plan.md).
 - Light triggers: AKS `CronJob` resources use the portable schedule contract.

@@ -78,13 +78,21 @@ One fork can have no deployments or several deployments in different environment
 also be deployed directly. `.fdai-fork`, `FDAI_FORK`, and `git config fdai.fork true` enable
 repository-integrity checks only; runtime code must not branch on them.
 
-The connected source deployment and keyless Trial target applies equally to upstream and forks.
+The one-command source deployment and its keyless Trial apply equally to upstream and forks.
 A fork marker, clean checkout, or artifact signature never grants entitlement or starts a new
-Trial. Preserve the installation-bound record across upgrades: a fork that supplies a record bound
-to another installation receives no capability, and runtime enforcement resolves through the shared
-license entitlement authority rather than any fork-supplied check. Atomic storage remains separate
-implementation work in
-[Capability Licensing](capability-licensing.md#durable-keyless-trial-target).
+Trial. Only the upstream integrity signing key on the installing workstation selects the
+[installation entitlement](capability-licensing.md#key-holder-installation-entitlement), and every
+distribution verifies entitlements against the packaged upstream integrity public key. An
+installation entitlement grants nothing outside the exact distribution, installation, and
+deployment digests it carries, so a fork cannot reuse one from another installation. The Trial
+check, the [expiry watermark](capability-licensing.md#trial-expiry-watermark), and that key belong
+to the framework surface, so a fork must not edit, hide, or replace them. Preserve the
+installation-bound record across upgrades: a fork that supplies a record bound to another
+installation receives no capability, and runtime enforcement resolves through the shared license
+entitlement authority rather than any fork-supplied check. Durable Trial storage, its Core
+composition, its anchored activation writer, its AKS source-deployment wiring, and AKS
+key-holder entitlement issuance exist; the Container Apps runtime's binding input remains open in
+[Source Deployment](../deployment/source-deployment.md).
 
 An optional vertical package is also independent from the fork boundary. For example,
 [`fdai-cost-governance`](../architecture/finops-package-architecture.md) can be included in a
@@ -158,14 +166,18 @@ Do these before your first `git commit` on the fork.
 
 Never edit a path listed in
 [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt). Definitions under core,
-composition, shared contracts and providers, agents, schemas, and repository instructions are
-upstream-owned. A fork adds implementations, catalog entries, and overlays through the seams in
-its own package.
+composition, shared contracts and providers, agents, the capability-licensing runtime binding,
+durable Trial store and activation writer, and trust package, the Trial expiry watermark's state
+publisher and Operator stamp, schemas, and repository instructions
+are upstream-owned. A fork adds
+implementations, catalog entries, and overlays through the seams in its own package.
 
 Use the [Fork Customization skill](../../../.github/skills/fork-customization/SKILL.md) as the
 decision procedure. If no seam exists, open an upstream issue or compose a fork-local wrapper. Do
 not patch the definition. `check-protected-paths.sh` enforces this boundary in fork mode, while the
-signed integrity manifest detects offline framework-surface drift.
+signed integrity manifest detects offline framework-surface drift. Because the same upstream key
+also signs licenses, the checker accepts only the exact manifest shape and rejects every other
+signed document in either mode.
 
 Verify a checkout offline at any time:
 
@@ -422,7 +434,8 @@ Hard don'ts. Any of these is a merge-blocker:
   cannot withdraw read-only capabilities, so a fork can gate what an operator
   may do without ever gating what they can see. Bind tokens to an image digest
   or a deployment; an unbound one works for whoever can read it. The fork supplies
-  its fixed expected `distribution_id` and `LicenseVerifier` at composition; an environment
+  only its fixed expected `distribution_id` at composition; verification always uses the
+  packaged upstream integrity public key, and an environment
   value cannot relabel a token. Core and `fdaictl` reject signed windows longer than 30 elapsed UTC days, while release issuance and inspection use
   their independent Ed25519 verification paths. Issuance writes only to a new
   private output and never replaces an existing token file. Release key inputs

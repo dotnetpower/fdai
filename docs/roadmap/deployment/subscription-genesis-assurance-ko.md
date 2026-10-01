@@ -1,12 +1,12 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 7ec4bc2831668843789f54fb511a181c45eb3e38
-translation_revised: 2026-09-28
+translation_source_sha: d75a6918dc508893ca3795a7279deaead0463aa2
+translation_revised: 2026-10-01
 ---
 # 구독 초기 구성 보증
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 기여자 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 [구독 초기 프로비저닝](subscription-genesis-provisioning-ko.md) 수명 주기의
 안전, 완전성, 복구, 운영자 경험을 반증 가능한 게이트로 정의합니다.

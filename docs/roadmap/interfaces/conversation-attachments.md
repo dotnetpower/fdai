@@ -18,6 +18,9 @@ All channel types converge on the same document lifecycle:
 ![Design at a glance. The main stages are Slack opaque file id, Server-authenticated fetcher, Teams opaque attachment id, Web upload session, Ingestion gateway, Malware and protection checks, Text, Office, or optional OCR extraction, Immutable document version and index, Authorized doc citation, Conversation evidence, Ownership draft and governance PR.](../../diagrams/generated/fdai-roadmap-interfaces-conversation-attachments-01.en.svg)
 
 The file source changes by channel. Safety, storage, purpose, citations, retention, and audit do not.
+The generated semantic-assurance inventory is shared with the conversation reasoning boundary.
+Reasoning hardening can therefore refresh its source digest, but it does not change attachment
+admission, document citations, ownership routing, or channel authority.
 
 ## Implementation status
 

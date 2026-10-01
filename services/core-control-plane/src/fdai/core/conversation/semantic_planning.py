@@ -22,6 +22,7 @@ from fdai_service_contracts.semantic_judgment import (
 from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
 
+from fdai.core.conversation.semantic_stored_result_handles import StoredReferenceContext
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
@@ -52,7 +53,8 @@ from .semantic_judgment_coverage import (
     start_coverage,
 )
 from .semantic_judgment_review import promoted_state_collection
-from .semantic_plan_coverage import narrower_plan_outcome
+from .semantic_operand_provenance import provenance_scope
+from .semantic_plan_coverage import narrower_plan_outcome as _npo
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
@@ -60,9 +62,7 @@ from .semantic_planning_cascade import (
     SemanticPlanningCascade,
     SemanticPlanningEscalationPolicy,
 )
-from .semantic_planning_frame import (
-    build_semantic_frame as _build_frame,
-)
+from .semantic_planning_frame import build_semantic_frame as _build_frame
 from .semantic_planning_frame_checks import (
     deterministic_pre_frame_outcome,
     deterministic_pre_frame_selection,
@@ -95,12 +95,8 @@ from .semantic_planning_models import (
     SemanticPlanningOutcome,
 )
 from .semantic_planning_plan_dispatch import PlanDispatchResult, dispatch_semantic_plan
-from .semantic_planning_preflight import (
-    DIRECT_RESPONSE_PROFILE,
-)
-from .semantic_planning_preflight import (
-    preflight_descriptor_intent as _preflight_descriptor_intent,
-)
+from .semantic_planning_preflight import DIRECT_RESPONSE_PROFILE, SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+from .semantic_planning_preflight import preflight_descriptor_intent as _preflight_descriptor_intent
 from .semantic_planning_preflight_router import PreflightDirectResponseRouter
 from .semantic_planning_preflight_service import SemanticPlanningPreflightMixin
 from .semantic_planning_specialized_plans import (
@@ -118,21 +114,14 @@ from .semantic_planning_support import (
     judgment_clarification_outcome,
     log_judgment_posture,
 )
+from .semantic_production_shadow import ProductionShadowRecorder, record_planned_shadow
 from .semantic_resource_state_planning import resource_condition_intents_grounded
+from .semantic_slot_grounding import reground_constraint_slots
 from .semantic_test_context import test_context_capability, test_context_planning_outcome
 from .semantic_type_grounding import ResourceTypeGrounding
 from .session import Principal, Turn
 
 _LOGGER = logging.getLogger(__name__)
-
-
-_SAFE_UNACCEPTED_DESCRIPTOR_INTENTS = frozenset(
-    {
-        "query.gateway_diagnostic_evidence",
-        "query.resource_configuration_changes",
-        "query.resource_event_history",
-    }
-)
 
 
 class SemanticPlanningService(SemanticPlanningPreflightMixin):
@@ -156,11 +145,13 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
         type_grounding: ResourceTypeGrounding | None = None,
         coverage_review: JudgmentCoverageReview | None = None,
         compiled_answers: CompiledAnswerPath | None = None,
+        production_shadow: ProductionShadowRecorder | None = None,
     ) -> None:
         self._manifests = manifests
         self._type_grounding = type_grounding
         self._coverage_review = coverage_review
         self._compiled_answers = compiled_answers
+        self._production_shadow = production_shadow
         self._verifier = verifier
         self._selector = descriptor_selector or CompleteManifestSelector()
         self._semantic_judgment = semantic_judgment
@@ -199,6 +190,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
         required_document_evidence: bool = False,
+        stored_reference_context: StoredReferenceContext | None = None,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
 
@@ -245,6 +237,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                     verifier=self._verifier,
                     principal=principal,
                     purpose=purpose,
+                    stored_reference_context=stored_reference_context,
                 )
             selected = self._selector.select(
                 utterance=utterance,
@@ -253,7 +246,6 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
             preflight_intent = _preflight_descriptor_intent(preflight_router.effective_result)
-            # A resource collection is typed by the capability-aware judgment: the preflight
             # router can omit a stated constraint, and a router reading is not semantic authority.
             promoted_preflight = (
                 preflight_operational_judgment(
@@ -342,6 +334,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                         observations=judgment_result.observations,
                         accepted=judgment_result.accepted,
                         uncovered_roles=getattr(judgment_result, "uncovered_roles", ()),
+                        receipt=judgment_result.receipt,
                     )
                 model_observations.extend(judgment_decision.observations)
                 if judgment_decision.reason_code in {
@@ -367,7 +360,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                 if judgment_decision.proposal is not None and (
                     judgment_decision.accepted
                     or judgment_decision.proposal.primary_intent
-                    in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+                    in SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
                 ):
                     descriptors = _narrowed_descriptors(
                         manifest_descriptors,
@@ -392,6 +385,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                     )
                 if judgment_decision.accepted and judgment_decision.proposal is not None:
                     accepted = promoted_state_collection(judgment_decision.proposal)
+                    accepted = reground_constraint_slots(accepted, manifest=manifest)
                     if self._type_grounding is not None:
                         grounding = self._type_grounding.ground(
                             utterance=utterance,
@@ -405,7 +399,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                         model_observations.extend(grounding.observations)
                         accepted = settled_proposal(coverage, grounding.judgment)
                     judgment_decision = replace(judgment_decision, proposal=accepted)
-                    semantic_judgment = accepted.model_dump(mode="json")
+                    semantic_judgment = accepted.model_dump(mode="json", exclude={"question_form"})
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             judgment_proposal = (
                 judgment_decision.proposal if judgment_decision is not None else None
@@ -673,7 +667,11 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
-            held = narrower_plan_outcome(ticket, coverage, plan_source, plan, manifest_digest)
+            prov = provenance_scope(coverage, dispatch_result.bound_context, utterance, context)
+            _pc = partial(_npo, evaluated_at=dispatch_result.evaluated_at)
+            held = _pc(
+                ticket, coverage, plan_source, plan, manifest_digest, enforce_when=prov, frame=frame
+            )
             if held is not None:
                 return preflight_router.finish(held)
             if frame.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES:
@@ -698,17 +696,22 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                 plan=plan,
                 confidence=proposal.confidence,
             )
-            return preflight_router.finish(
-                _outcome(
-                    SemanticPlanningDisposition.PLANNED,
-                    "semantic_plan_verified",
-                    manifest_digest=manifest.manifest_digest,
-                    frame=frame,
-                    plan=plan,
-                    intent_graph=graph,
-                    investigation_intent=investigation_intent,
-                )
+            outcome = _outcome(
+                SemanticPlanningDisposition.PLANNED,
+                "semantic_plan_verified",
+                manifest_digest=manifest.manifest_digest,
+                frame=frame,
+                plan=plan,
+                intent_graph=graph,
+                investigation_intent=investigation_intent,
             )
+            shadow_args = dict(
+                utterance=utterance, context=context, manifest=manifest, frame=frame, plan=plan
+            )
+            record_planned_shadow(
+                self._production_shadow, judgment_decision, outcome=outcome, **shadow_args
+            )
+            return preflight_router.finish(outcome)
         except PermissionError:
             return preflight_router.finish(
                 _outcome(

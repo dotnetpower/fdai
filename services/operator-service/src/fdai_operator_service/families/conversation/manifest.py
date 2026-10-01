@@ -37,6 +37,13 @@ CONVERSATION_ROUTE_MANIFEST: tuple[ConversationRouteSpec, ...] = (
         "POST", "/chat/stream", "handler", "chat.stream", "stream", 200, 1_048_576
     ),
     ConversationRouteSpec(
+        "GET",
+        "/chat/continuations/recent-resource-changes",
+        "recent_resource_change_continuation",
+        "chat.continuation.recent-resource-changes",
+        "read",
+    ),
+    ConversationRouteSpec(
         "POST",
         "/chat/action/confirm",
         "confirm_action",

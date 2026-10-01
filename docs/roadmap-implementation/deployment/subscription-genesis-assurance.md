@@ -29,6 +29,7 @@ and recoverable.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | in-progress | Retargeted signed-kit release items to the amended Constitution Article 1. The connected path is now a keyless one-command source deployment, so publishing and re-verifying a signed release, or binding the local coordinator to a corrected kit, no longer gates a new deployment context. Selector correctness is proved by the source revision that runs, and signed kits remain only for the offline package. | `current change`; [source deployment owner](../../roadmap/deployment/source-deployment.md) and [ledger](source-deployment.md) | Prove the corrected selector from the deployed source revision, then retain the governed run receipts below. |
 | 2026-09-20 | in-progress | Aligned initial collection with bounded source cleanup after run expiry or cancellation. Cleanup failure preserves cancellation and withholds promotion despite a received final fence. | `current change`; shared `inventory_collection.py` and coordinator; two pre-fix stalled-close failures, six passing cleanup conditions, full 72-case coordinator suite, Ruff and strict mypy. | This shared collector repair does not implement unfinished provider continuation or certify initial subscription readiness. Live deployment and complete-source receipts remain separately authorized work. |
 | 2026-09-20 | in-progress | Bound inventory recovery to installed producer source, exact sealed completed evidence, original clocks, and active-base validation. Resource-only chunks still cannot certify completeness. | `current change`; shared coordinator, source builder and candidate store; 237 focused coordinator/CLI/disposable PostgreSQL tests passed with stable input digests, including 12 separate-process recovery conditions; Ruff and mypy passed. | Unfinished provider continuation, partitioned ontology publication, and independent initial subscription readiness remain open; no live provider or deployment receipt. |
 | 2026-09-20 | in-progress | Pinned the shared ARG source contract to generated queries, reviewed relationships, and request configuration without persisting private values. | `current change`; query/source context tests: 21 passed; focused Ruff and mypy passed. | Provider restart, ARM-overlay revision binding, and initial subscription readiness remain separate evidence requirements. |
@@ -94,9 +95,6 @@ and recoverable.
   across five SKU modules. The prior preflight-only evidence below remains historical.
 - [x] Verified the exact-plan SKU preflight, expiry recheck, and no-repeat-apply regressions with
   synthetic provider boundaries: 192 tests passed and both new modules reached 100% coverage.
-- [ ] Publish and reverify a signed release containing full-catalog image/host selection and
-  preflight before using it in a new deployment context; do not edit an extracted signed cache
-  or repeat a retained claim.
 - [ ] Add a reviewed partial-image recovery path that preserves prior claims and Terraform lineage,
   requires a new exact approved plan, and retains independent cleanup or completion evidence.
 - [x] Bound Foundation VM eligibility, headroom, and actual image requirements before planning
@@ -109,10 +107,8 @@ and recoverable.
   execution matrix passes without customer data or Azure mutation.
 - [x] The local private Foundation path rejects stale or mismatched approval, never repeats a
   claimed effect, keeps registration tokens off arguments and records, and withholds readiness.
-- [ ] Publish a signed kit with the corrected selector and confirm that its actual bundled
-  preparation code accepts default forwarding routes while rejecting real CIDR conflicts.
-- [ ] Bind the local coordinator to that corrected kit through an explicit verified source transition,
-  preserving the prior work directory and proving the intended kit revision before another Azure run.
+- [ ] Prove from the deployed source revision that the corrected selector accepts default
+  forwarding routes while rejecting real CIDR conflicts, before another Azure run.
 - [ ] Retain one governed empty-subscription run, one supported-upgrade run, one rollback/restore
   run, and one second-run no-change receipt.
 - [ ] Retain one exact live private-relay staging receipt proving the reviewed peered route, fixed

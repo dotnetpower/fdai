@@ -256,7 +256,10 @@ class _Spy:
         self.definitions.append(definition)
         (predicate,) = definition.predicates
         objects = (
-            [SimpleNamespace(id=f"object-{index}") for index, _ in enumerate(self.names)]
+            [
+                SimpleNamespace(id=f"object-{index}", properties={"type": "compute.vm"})
+                for index, _ in enumerate(self.names)
+            ]
             if predicate.property == "name"
             else []
         )

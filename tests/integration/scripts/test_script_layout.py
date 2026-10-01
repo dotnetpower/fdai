@@ -40,6 +40,7 @@ def test_verify_declares_every_required_gate() -> None:
         '"chaos-scenarios"',
         '"architecture-review"',
         '"derived-sources"',
+        '"behavior-seeds"',
         '"framework-integrity"',
     )
 

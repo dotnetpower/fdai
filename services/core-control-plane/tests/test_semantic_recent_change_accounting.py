@@ -53,10 +53,16 @@ def _answer(locale: str, output: dict[str, Any]) -> str:
 
 
 def test_a_cut_change_read_states_its_exact_remaining_count() -> None:
-    english = _answer("en", _output(57))
-    korean = _answer("ko", _output(57))
+    english_output = _output(57)
+    english_output["continuation_ref"] = "opaqueContinuationReference0123456789abcd"
+    english = _answer("en", english_output)
+    korean_output = _output(57)
+    korean_output["continuation_ref"] = "opaqueContinuationReference0123456789abcd"
+    korean = _answer("ko", korean_output)
 
     assert "- 37 of the 57 changed resources in this window are not listed." in english
+    assert "continuation reference `opaqueContinuationReference0123456789abcd`" in english
     assert "- 이 기간에 변경된 리소스 57개 중 37개는 목록에 없습니다." in korean
+    assert "continuation reference `opaqueContinuationReference0123456789abcd`" in korean
     # A read that listed every change states no remaining count.
     assert "not listed" not in _answer("en", _output(None, rows=3))

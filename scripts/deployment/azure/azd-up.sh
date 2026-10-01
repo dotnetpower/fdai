@@ -363,10 +363,10 @@ build_core_image() {
 }
 
 prepare_capability_license() {
-  local private_key="$REPO_ROOT/secrets/license-signing-key.pem"
+  local private_key="$REPO_ROOT/secrets/integrity-signing-key.pem"
   local vault_uri vault_name app_name license_id secret_name
   if [[ ! -e "$private_key" && ! -L "$private_key" ]]; then
-    log "dedicated license issuer key is absent; Core will run in observation-only Trial mode"
+    log "upstream integrity key is absent; Core will run in observation-only Trial mode"
     return
   fi
 
@@ -384,7 +384,6 @@ prepare_capability_license() {
   license_id="lic-${RESOURCE_NAME_SUFFIX}-$(date -u +%Y%m%d)"
   rm -f -- "$LICENSE_TOKEN_FILE"
   uv run python "$REPO_ROOT/scripts/deployment/release/issue-license.py" \
-    --private-key "$private_key" \
     --license-id "$license_id" \
     --distribution-id fdai-upstream \
     --all-capabilities \

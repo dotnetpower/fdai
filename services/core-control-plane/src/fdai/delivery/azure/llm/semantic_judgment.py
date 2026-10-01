@@ -30,6 +30,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
     SemanticJudgmentObservation,
 )
+from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.prompts import PromptAssembler, PromptReplayManifest, estimate_chat_request_tokens
 from fdai.core.prompts.types import PromptLayer
 from fdai.delivery.azure.llm.completion_body import completion_body_params
@@ -72,6 +73,8 @@ class AzureOpenAISemanticJudgmentModelConfig:
     social_narrator_timeout_seconds: float = 10.0
     max_tokens: int = 2_048
     intent_hardening_enabled: bool = False
+    constraint_slots_enabled: bool = False
+    question_form_enabled: bool = False
     system_prompt_assembler: PromptAssembler | None = None
 
     def __post_init__(self) -> None:
@@ -209,6 +212,8 @@ class AzureOpenAISemanticJudgmentModel:
             prompt_manifest = assembled.replay_manifest()
         proposal_schema = _semantic_judgment_proposal_schema(
             intent_hardening_enabled=self._config.intent_hardening_enabled,
+            constraint_slots_enabled=self._config.constraint_slots_enabled,
+            question_form_enabled=self._config.question_form_enabled,
             document_query_enabled=_document_query_prompt_enabled(prompt_manifest)
             and any(
                 capability.get("kind") == "function_type"
@@ -528,6 +533,7 @@ class AzureOpenAISemanticJudgmentModel:
                         ),
                         request=body,
                         output_tokens=max_tokens,
+                        stage=call_kind,
                     )
                     response.raise_for_status()
                     proposal, response_content, usage = _response_mapping(response)
@@ -552,6 +558,8 @@ class AzureOpenAISemanticJudgmentModel:
                         observation=observation,
                     )
             except Exception as exc:  # noqa: BLE001 - bounded candidate failover
+                if isinstance(exc, TurnReservationHeldError):
+                    return None  # Every candidate would hold; the ledger names the stage.
                 if stop_scoped_provider_retry():
                     _LOGGER.warning(
                         "adaptive_judgment_provider_attempt_ended",
@@ -639,6 +647,25 @@ def _validate_prompt_manifest(
         raise ValueError("semantic judgment prompt manifest does not match its system prompt")
 
 
+def _prune_unreferenced_definitions(schema: dict[str, Any]) -> None:
+    """Drop definitions no remaining property references, so off fields cost no tokens."""
+
+    definitions = schema.get("$defs")
+    if not isinstance(definitions, dict):
+        return
+    reachable: set[str] = set()
+    pending = [{key: value for key, value in schema.items() if key != "$defs"}]
+    while pending:
+        text = json.dumps(pending.pop())
+        for name in definitions:
+            if name not in reachable and f'"#/$defs/{name}"' in text:
+                reachable.add(name)
+                pending.append(definitions[name])
+    for name in tuple(definitions):
+        if name not in reachable:
+            del definitions[name]
+
+
 def _validate_output_reserve(
     name: str,
     manifest: PromptReplayManifest | None,
@@ -679,6 +706,8 @@ def _semantic_judgment_proposal_schema(
     *,
     intent_hardening_enabled: bool,
     document_query_enabled: bool = False,
+    constraint_slots_enabled: bool = False,
+    question_form_enabled: bool = False,
     source_locale: str | None = None,
 ) -> dict[str, Any]:
     """Add retrieval terms only to the existing document-capable judgment call.
@@ -698,6 +727,10 @@ def _semantic_judgment_proposal_schema(
         raise ValueError("semantic judgment proposal schema has no version property")
     if not intent_hardening_enabled:
         properties.pop("forbidden_actions", None)
+    if not constraint_slots_enabled:
+        properties.pop("constraint_slots", None)
+    if not question_form_enabled:
+        properties.pop("question_form", None)
     if not document_query_enabled:
         properties.pop("document_query", None)
         schema.get("$defs", {}).pop("DocumentRetrievalQuery", None)
@@ -706,9 +739,18 @@ def _semantic_judgment_proposal_schema(
             "type": "string",
             "const": _DOCUMENT_QUERY_LOCALE.validate_python(source_locale, strict=True),
         }
+    _prune_unreferenced_definitions(schema)
     schema_version.clear()
     schema_version["const"] = (
-        "1.2.0" if document_query_enabled else "1.1.0" if intent_hardening_enabled else "1.0.0"
+        "1.4.0"
+        if question_form_enabled
+        else "1.3.0"
+        if constraint_slots_enabled
+        else "1.2.0"
+        if document_query_enabled
+        else "1.1.0"
+        if intent_hardening_enabled
+        else "1.0.0"
     )
     schema_version["type"] = "string"
     return schema

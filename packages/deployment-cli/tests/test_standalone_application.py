@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from fdai_deployment_cli import standalone_aks_inventory, standalone_application
+from fdai_deployment_cli import license_issue, standalone_aks_inventory, standalone_application
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.target import compute_target_binding
 
@@ -62,10 +62,9 @@ def test_residual_recovery_review_skips_ordinary_replanning(monkeypatch) -> None
 
 
 def test_missing_license_material_keeps_deployment_observation_only(monkeypatch) -> None:
-    monkeypatch.setattr(standalone_application, "discover_license_signing_key", lambda _key: None)
+    monkeypatch.setattr(license_issue, "discover_license_signing_key", lambda: None)
 
     token = standalone_application._license_token(
-        key=None,
         trial_token=None,
         image_digest="a" * 64,
         deployment_binding="b" * 64,

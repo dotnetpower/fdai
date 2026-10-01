@@ -3,7 +3,7 @@ title: Runtime Deployment Profiles
 ---
 # Runtime Deployment Profiles
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI installations without changing application behavior or deployment
 authority. Azure Container Apps remains a supported compatibility profile for existing installations. The selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan.
@@ -618,6 +618,29 @@ the Audit API's page-only default: a newer Console may send additive `summary=tr
 Operator returns the prior page envelope, and new Operators compute the ledger-wide summary only
 for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit
 its scan cost.
+
+On AKS, the substrate root's `terraform_data.installation` anchor keeps the installation identifier
+and first-apply time in Terraform state, so no rerun or upgrade changes them. The application stage
+gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application
+apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial
+writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a
+retained window unchanged, so a keyless installation keeps the 30-day window that started at its
+first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)).
+The deployment receipt reports `license_mode=trial` only while that read-back window is open under
+a trusted clock.
+
+When the deploying operator holds the upstream integrity signing key, the deployment binding step
+also returns the installation binding. The capability stage then issues a no-expiry installation
+entitlement bound to that installation and deployment, instead of the 30-day token. The managed
+host verifies it, writes it to the fixed `fdai-capability-license` Key Vault secret, and reads it
+back. AKS Core receives it as the CSI-mounted `FDAI_LICENSE_TOKEN` secret environment. The Core
+identity already reads that vault, so no new role is needed. Container Apps key holders keep the
+image-bound 30-day token.
+
+In every runtime profile, Core publishes its [watermark notice](../fork-and-sequencing/capability-licensing.md#entitlement-state-transport)
+into the Core-owned `licensing_entitlement_state` row through the state-store DSN. The Core
+migration branch creates that row, the Operator branch grants the Operator role `SELECT` on it,
+and the Operator stamps the notice on authenticated responses.
 
 ## Deployment payloads
 

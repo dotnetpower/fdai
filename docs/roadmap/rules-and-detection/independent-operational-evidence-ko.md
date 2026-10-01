@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 2d29125409dcf8df431cbabd825d01a2c2b2e561
-translation_revised: 2026-09-30
+translation_source_sha: 98ca7e59f3f055b1cfad8c1f860fe4d5d1440c49
+translation_revised: 2026-10-01
 ---
 # 독립 운영 근거 발급
 
@@ -29,6 +29,10 @@ translation_revised: 2026-09-30
 자신만 쓸 수 있는 저장소에 검증 증적이나 유형이 지정된 거부 기록을 씁니다. 소유자는 변경되지 않은 `admit`
 메서드로 검증 증적을 읽고 모든 거부 유형을 명시적으로 기록하며, `unavailable`일 때만 현재의 일반 보류를
 유지합니다.
+의미 결과 핸들 참조는 Operator/Core 의미 전송의 본문 없는 대화 연속성 레코드입니다. 운영 근거를
+수락하거나 검증기 재확인을 충족하거나 실행 권한을 부여하지 않습니다.
+봉인된 Core 전용 행 신원은 후속 읽기의 재인가 피연산자일 뿐이며, 검증기 출처 산출물, 수락 기록 또는
+증명 자료가 아닙니다.
 
 ## 현재 상태와 공백
 
@@ -75,6 +79,8 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준이며, 그 밖의 
   보존하게 될 본문 없는 인증 증적을 읽습니다. 여기에는 발급자, 대상, 테넌트 digest, subject, principal 종류,
   초과(overage) 없음 표시가 붙은 정확한 그룹 id, 토큰 식별자 digest, 발급 및 만료 시각, 확인된 역할, 역할 매핑
   개정이 담깁니다. 토큰은 보관하지 않고, 로컬 CLI 세션의 증적은 `local-loopback`이며, 이 증적은 선행 조건입니다.
+  검증에 성공하면 요청에 사용권 표시용 표식도 남기지만, 이 표식은 증적에 필드를 더하지 않고
+  권한도 부여하지 않습니다.
 
 ## 발급 경로와 증명 형식
 
@@ -364,8 +370,10 @@ shadow로 내려가지만 발급 장애는 해당 목적만 `unavailable`로 만
   `outcome`이 거부하는 이전 거부 기록, 위조된 응답 본문 이후의 재조회를 검사합니다. 루프백 PostgreSQL의 작성자
   역할과 읽기 역할로 Core가 두 기록 모두 만들 수 없고 재생이 멱등임을 증명합니다. 이름표 없는 제거나 축소도
   기록을 폐기하고, 일상적 교체는 폐기하지 않음을 확인합니다.
-- **회귀 기준선.** `core/readiness/test_decision_evidence.py` 같은 기존 의사결정 근거 테스트와
-  `services/core-control-plane/tests/` 아래 각 소비자의 집중 테스트가 계속 통과합니다.
+- **회귀 기준선.** `core/readiness/test_decision_evidence.py` 같은 기존 의사결정 근거 테스트,
+  `services/core-control-plane/tests/` 아래 각 소비자의 집중 테스트, semantic 인증 증적 참조를 기본적으로
+  꺼 두는 Operator 조립 테스트가 계속 통과합니다. 이 Operator 테스트 모듈은 선택적 PDF 렌더러 버전 범위
+  같은 서비스 배포판 구성도 검사하며, 이 검사는 근거 권한을 갖지 않습니다.
 
 이 검사는 동작 방식만 검증하며 운영 자격 검증으로 인정하지 않습니다. 연결 환경 인계는 별도의 명시적 승인
 후에만, 선택한 비운영 대상에서, 같은 소스 개정으로 실행합니다.

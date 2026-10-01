@@ -43,6 +43,9 @@ receives a `ModelEvidenceView` built by the secured gateway, never raw tables.
   metadata, and retained snapshot cells are excluded.
 - The view carries digests of the deployment scope, authority, temporal basis, completeness,
   release, and the verifier that built it, so a claim can cite exactly what the model saw.
+- Local implementation routes adaptive evidence reads through this view before model input. Until
+  the Owner approves model families for P0, the proposed default is that no model family may read
+  the view in production.
 
 **Exit:** tests show that hidden endpoints and non-allowlisted fields never reach any model call,
 and the Owner approves which model families may read the view.
@@ -70,6 +73,14 @@ records stay an experiment.
 - **Non-interference:** The shadow has no data path into answer composition, and a module-boundary
   test enforces it. Replaying the same request and snapshot inputs with the shadow on and off
   yields identical answer digests.
+Local implementation carries the closed form on the judgment contract under schema `1.4.0`, exposes
+it to the judgment model only behind a default-off setting, and records linked content-free
+dispositions through an injected production-shadow sink. Missing or invalid forms record
+`form_absent` without changing the answer path. Every judgment recovery path validates the carried
+form the same way, so an invalid form can't disable a recovery that accepts the same judgment
+without it. Records now carry a bounded expiry and deterministic percentage sampling over the keyed
+sample digest. Sampling remains default-off with the shadow and never changes the answer path. The
+sampled production window remains live promotion evidence.
 
 **Exit:** a linked disposition for every eligible turn over a sampled production window, and replay
 equivalence with the shadow on and off.
@@ -88,6 +99,14 @@ reader:
 Production composition binds both readers through the resolved model manifest under the provider
 budget. Each directional turn records latency and token cost, split between one-reader and
 two-reader turns.
+
+**Implementation note (2026-10-01):** Every shadow turn now carries a content-free direction cost
+receipt, and logs it as `semantic_direction_cost`. The receipt counts one or two readers, with the
+calls, input bytes, output tokens, and wall time that the turn's reservation ledger reconciled.
+An overrun records the actual reconciled usage rather than its reserved ceiling, and failover of a
+first reader remains one reader unless a tiebreak call was actually sent.
+Production composition also binds the direction reader and third-family tiebreaker when the P1
+production shadow setting is on, but keeps compiled answers disabled outside the local venue.
 
 **Exit:** both readers run in the production composition, and a latency and cost receipt covers a
 sampled production window for each turn type.
@@ -110,6 +129,11 @@ statuses and typed limitations, and returns structured claims, as the owner desi
    rejection holds the answer with the verified evidence view.
 4. **Adversarial suite:** One test class per proposition field and per completeness check, plus
    negated, swapped, off-by-one, and causal-overreach claims.
+Local implementation provides the shared proposition contract, default-off author and reviewer
+ports, and the deterministic adversarial V-CLAIM suite. Production model-family bindings and the
+R8 live holdout remain promotion evidence, not local proof. The reviewer returns one typed result
+per claim. Rejected claim ids and reasons feed the single retry, while missing, duplicate, unknown,
+or malformed claim results hold the answer.
 
 **Exit:** zero escapes on the adversarial claim suite, and zero V-CLAIM escapes in the R8 holdout.
 
@@ -145,6 +169,13 @@ Promotion is per operation family, through the promotion registry, in this order
 R10 removes lexical re-derivation and template renderers only from promoted paths, after replay
 equivalence and one stable rollback release.
 
+**Hardening note (2026-10-01):** Critique rounds tightened P1 and P2 before any promotion. A shadow
+record that fails to persist is logged and never changes the answer, and each record has its own
+key. The carried form stays out of the frame model's input, and a judgment at schema 1.3.0 or 1.4.0
+keeps its document query. The judgment schema sent to the model drops the definitions a disabled
+field no longer references. The direction cost receipt measures latency as a span, counts only
+settled usage, and counts a second reader only when a tie-break call was sent.
+
 ## P6 Secret detection decision
 
 Operator-typed text reaches models after identity masking, and pattern-based detection removes
@@ -159,21 +190,18 @@ and evidence, so the Owner decides before Wave 4:
 **Exit:** the decision is linked from the ledger, and the encoded-shape regression suite in
 `test_semantic_reasoning_masking.py` passes against the chosen detector.
 
+**Decision (2026-10-01):** The patterns stay as defense in depth for the in-tenant model deployment,
+and the deployment boundary is the primary control. This option was adopted under the Owner's
+instruction to implement all waves, because a replacement detector would add a dependency that
+needs its own supply-chain review. The Owner can revise it before any model family reads
+operator text in production.
+
 ## Sequencing
 
 Remaining reasoning work runs in six waves. A wave starts only when the waves it depends on have
 their exits, and every package keeps its own exit. Validation runs after each wave.
 
-```mermaid
-flowchart LR
-  W0["Wave 0: R0 baselines, P6 decision, P0 evidence view"]
-  W1["Wave 1: H1 contracts, H3 property lookup, E5 reservation, E7 readers and domains"]
-  W2["Wave 2: H2 handle store, E1 slots, E6 lineage, H5 change continuation"]
-  W3["Wave 3: H4 ordinals, E2 provenance, E3 relations, E4 routing, H6 plans, E9 operators"]
-  W4["Wave 4: P1 shadow, P2 readers, P3 verified answers, then E8 hypotheses"]
-  W5["Wave 5: final evidence, P5 promotion, then removal"]
-  W0 --> W1 --> W2 --> W3 --> W4 --> W5
-```
+![Sequencing. The main stages are Wave 0: R0 baselines, P6 decision, P0 evidence view, Wave 1: H1 contracts, H3 property lookup, E5 reservation, E7 readers and domains, Wave 2: H2 handle store, E1 slots, E6 lineage, H5 change continuation, Wave 3: H4 ordinals, E2 provenance, E3 relations, E4 routing, H6 plans, E9 operators, Wave 4: P1 shadow, P2 readers, P3 verified answers, then E8 hypotheses, Wave 5: final evidence, P5 promotion, then removal.](../../diagrams/generated/fdai-roadmap-interfaces-ontology-reasoning-promotion-program-01.en.svg)
 
 Documentation follows the same structure. The owner design stays the normative contract for the
 form, the checks, and the delivery rounds, and new work lands in the focused designs. After the
