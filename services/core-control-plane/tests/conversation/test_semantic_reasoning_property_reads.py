@@ -25,6 +25,7 @@ from fdai.rule_catalog.schema.property_semantic import (
     PropertySemanticRegistry,
 )
 from fdai_core_service.semantic_property_answer import render_property_value_answer
+from fdai_core_service.semantic_turn_processor import _answer_row_values
 from fdai_core_service.semantic_verified_rows import with_stated_notices
 from fdai_service_contracts.ontology_query import (
     OntologyQueryNode,
@@ -356,7 +357,8 @@ async def _answer(bag: dict[str, Any] | None, *, korean: bool = False) -> str:
     gateway = await fixture_gateway({} if bag is None else {"sql-1": bag})
     execution = await execute(batch.plan, gateway)
     table = execution.results["g1-read"].value
-    output = {"rows": [{"values": dict(row.values)} for row in table.rows]}
+    # Answer rows pass the production filter, exactly as the turn processor builds them.
+    output = {"rows": [{"values": _answer_row_values(row.values)} for row in table.rows]}
     answer = render_property_value_answer(
         [output],
         korean=korean,
@@ -429,23 +431,51 @@ def test_a_long_property_value_is_named_not_cut() -> None:
     assert "x" * 500 not in answer
 
 
-def test_a_structured_value_dropped_from_answer_rows_is_named_not_replaced_by_the_type() -> None:
-    # Answer rows keep scalar fields only, so a list-valued property arrives without its field.
-    values = {"id": "a", "properties.name": "sql-app", "properties.type": "sql-database"}
-
+def _rendered(values: dict[str, object], field: str, label: str) -> str:
     answer = render_property_value_answer(
-        [{"rows": [{"values": values}]}],
+        [{"rows": [{"values": _answer_row_values(values)}]}],
         korean=False,
         output_shape="target_property_value",
-        measure_concepts=(
-            "observability.diagnostic.settings",
-            "properties.properties.diagnostic_settings",
-        ),
+        measure_concepts=(label, field),
+    )
+    assert answer is not None
+    return answer
+
+
+_SETTINGS = "observability.diagnostic.settings"
+_SETTINGS_FIELD = "properties.properties.diagnostic_settings"
+_IDENTITY = {"id": "a", "properties.name": "aks-prod-01", "properties.type": "kubernetes-cluster"}
+
+
+def test_a_structured_reviewed_value_reaches_the_answer_and_never_shows_the_type() -> None:
+    answer = _rendered(
+        {**_IDENTITY, _SETTINGS_FIELD: [{"name": "to-law", "enabled": True}]},
+        _SETTINGS_FIELD,
+        _SETTINGS,
     )
 
-    assert answer is not None
-    assert "observability.diagnostic.settings: a structured value" in answer
-    assert "observability.diagnostic.settings: sql-database" not in answer
+    assert "to-law" in answer
+    assert f"{_SETTINGS}: kubernetes-cluster" not in answer
+
+
+def test_an_empty_structured_value_reads_as_none_and_nested_identities_redact() -> None:
+    empty = _rendered({**_IDENTITY, _SETTINGS_FIELD: []}, _SETTINGS_FIELD, _SETTINGS)
+    redacted = _rendered(
+        {**_IDENTITY, _SETTINGS_FIELD: [{"workspace": "/subscriptions/hidden/law"}]},
+        _SETTINGS_FIELD,
+        _SETTINGS,
+    )
+
+    assert f"- {_SETTINGS}: none" in empty
+    assert "/subscriptions/hidden" not in redacted and "<redacted>" in redacted
+
+
+def test_a_structured_value_too_large_to_show_says_so() -> None:
+    large = [{"name": f"setting-{index}", "category": "x" * 40} for index in range(200)]
+
+    answer = _rendered({**_IDENTITY, _SETTINGS_FIELD: large}, _SETTINGS_FIELD, _SETTINGS)
+
+    assert f"{_SETTINGS}: the value is too large to show here." in answer
 
 
 def test_a_missing_name_clarifies_before_any_provider_path_is_chosen() -> None:

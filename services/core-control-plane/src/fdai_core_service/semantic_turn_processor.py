@@ -112,7 +112,7 @@ from .semantic_instance_candidates import project_instance_candidates, render_in
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
 from .semantic_ontology_answers import render_ontology_schema_answer
 from .semantic_presentation_semantics import project_presentation_semantics
-from .semantic_property_answer import render_property_value_answer
+from .semantic_property_answer import render_property_value_answer, reviewed_structured_cells
 from .semantic_reading_holds import reading_hold_answer
 from .semantic_relationship_projection import (
     project_ontology_relationships,
@@ -3130,6 +3130,7 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         for field, value in values.items()
         if isinstance(field, str) and field and not isinstance(value, Mapping | list)
     }
+    projected.update(reviewed_structured_cells(values, redact=_redact_answer_scalar))
     if values.get("record_kind") == "excerpt" and values.get("cloud_source") is not None:
         from fdai_service_contracts.cloud_knowledge import CloudSourceEvidence
 
