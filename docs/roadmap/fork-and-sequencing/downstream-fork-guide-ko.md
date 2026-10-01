@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 66bf1defd4bdac83fdce4d11c894c166dc9ae295
-translation_revised: 2026-09-26
+translation_source_sha: 3e369967adf07edd93ae65afca305c2be37d7ed6
+translation_revised: 2026-10-01
 ---
 
 # 다운스트림 포크 가이드
@@ -83,12 +83,15 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 업스트림도 직접 deploy할 수 있습니다. `.fdai-fork`, `FDAI_FORK`, `git config fdai.fork true`는
 repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 기준으로 분기하면 안 됩니다.
 
-연결된 소스 배포와 무키 Trial 목표는 업스트림과 포크에 동일하게 적용합니다. 포크 표시,
-변경 없는 체크아웃, 산출물 서명은 사용권을 부여하거나 새 Trial을 시작하지 않습니다.
-업그레이드할 때 설치에 연결된 기록을 보존해야 합니다. 다른 설치에 바인딩된 기록을 제공하는
-포크는 어떤 권한도 받지 못하며, 런타임 적용은 포크가 제공하는 검사가 아니라 공용 라이선스
-사용권 판정기를 통해 이뤄집니다. 원자적인 저장은
-[기능 라이선싱](capability-licensing-ko.md#영속적인-무키-trial-목표)의 별도 구현 과제로 남아 있습니다.
+단일 명령 소스 배포와 그 무키 Trial은 업스트림과 포크에 동일하게 적용합니다. 포크 표시,
+변경 없는 체크아웃, 산출물 서명은 사용권을 부여하거나 새 Trial을 시작하지 않습니다. 설치하는
+작업 스테이션에 있는 사용 가능한 전용 라이선스 키만
+[설치 사용권](capability-licensing-ko.md#키-보유자-설치-사용권)을 선택하며, 포크의 키는 그 포크가
+패키징한 라이선스 공개 키와 일치해야 합니다. 업그레이드할 때 설치에 연결된 기록을 보존해야
+합니다. 다른 설치에 바인딩된 기록을 제공하는 포크는 어떤 권한도 받지 못하며, 런타임 적용은
+포크가 제공하는 검사가 아니라 공용 라이선스 사용권 판정기를 통해 이뤄집니다. 영속 Trial
+저장소는 이미 있으며, 배포 중 초기화와 Core 구성은
+[소스 배포](../deployment/source-deployment-ko.md)의 남은 과제입니다.
 
 선택적 버티컬 패키지도 포크 경계와 독립적입니다. 예를 들어
 [`fdai-cost-governance`](../architecture/finops-package-architecture-ko.md)는 검토된 업스트림
