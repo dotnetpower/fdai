@@ -489,6 +489,7 @@ class ThorDispatchMixin:
         self._idempotency_runs[run.idempotency_key] = run
         if resource_id:
             self._resource_locks.add(str(resource_id))
+        initial_publication_failed = False
         try:
             if risk_verdict == "auto" and not shadow_mode:
                 if not await self._claim_execution_resource(run):
@@ -499,7 +500,11 @@ class ThorDispatchMixin:
                     return run
             # Emit the initial VERDICTED state so downstream consumers
             # (audit chain, Var) see the lifecycle start.
-            await self._emit_action_run(run)
+            try:
+                await self._emit_action_run(run)
+            except Exception:
+                initial_publication_failed = True
+                raise
             # Record the verdict split so scenario checks can prove shadow and
             # deny paths never mutate.
             self.record_behavior(f"dispatch:{risk_verdict}")
@@ -544,8 +549,27 @@ class ThorDispatchMixin:
             # re-raise. The HIL path returns normally, so its intentional lock
             # hold is unaffected by this guard.
             self.record_behavior("publication:unavailable")
-            if run.state is ActionRunState.VERDICTED and not run.resource_claimed:
+            if initial_publication_failed and run.state is ActionRunState.VERDICTED:
                 run.outcome = "action_run_publication_unavailable"
+                cleaned = True
+                if self._state_store is not None:
+                    if run.resource_claimed:
+                        claim_abandoned = (
+                            await self._state_store.abandon_unpublished_resource_claim(run)
+                        )
+                        if claim_abandoned:
+                            run.resource_claimed = False
+                        else:
+                            cleaned = False
+                            self.record_behavior("publication:unpublished_resource_claim_retained")
+                    if cleaned and not await self._state_store.discard_unpublished(run):
+                        cleaned = False
+                        self.record_behavior("publication:unpublished_run_discard_skipped")
+                if cleaned:
+                    self.action_runs.pop(correlation, None)
+                    if self._idempotency_runs.get(run.idempotency_key) is run:
+                        self._idempotency_runs.pop(run.idempotency_key, None)
+                    self._release_lock(resource_id)
             raise
 
     async def _execute_batch_rollup(

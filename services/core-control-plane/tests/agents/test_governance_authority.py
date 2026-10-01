@@ -4,14 +4,19 @@ import asyncio
 from dataclasses import replace
 
 import pytest
+from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.adapters import AuditChainError, InMemoryAuditChain
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.provider_adapters import StateStoreAuditChainAdapter
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents._framework.vidar_dr import DR_CONTRACT_KIND, DR_OUTCOME_KIND
+from fdai.agents._framework.vidar_rehearsal import REHEARSAL_KIND
+from fdai.agents._framework.vidar_rehearsal import digest as rehearsal_digest
 from fdai.agents.odin import Odin
 from fdai.agents.saga import Saga
+from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.agents.var import Var
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -32,6 +37,82 @@ def _action_run(**overrides: object) -> dict[str, object]:
         "state": "hil_pending",
         "quorum_required": 1,
     }
+    payload.update(overrides)
+    payload.setdefault("action_run_identity", action_run_identity_digest(payload))
+    return payload
+
+
+def _ordinary_rollback(**overrides: object) -> dict[str, object]:
+    run = _action_run(state="failed")
+    payload: dict[str, object] = {
+        "producer_principal": "Vidar",
+        "correlation_id": run["correlation_id"],
+        "idempotency_key": "rollback:corr-action",
+        "action_run_identity": run["action_run_identity"],
+        "action_type": run["action_type"],
+        "resource_id": run["resource_id"],
+        "contract": "state_forward_only",
+        "state": "succeeded",
+        "rollback_ref": "rollback:test",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _dr_contract(**overrides: object) -> dict[str, object]:
+    run = _action_run(action_type="ops.failover-primary", state="approved")
+    payload: dict[str, object] = {
+        "producer_principal": "Vidar",
+        "kind": DR_CONTRACT_KIND,
+        "correlation_id": run["correlation_id"],
+        "idempotency_key": "dr-contract:corr-action",
+        "action_run_identity": run["action_run_identity"],
+        "action_type": run["action_type"],
+        "resource_id": run["resource_id"],
+        "decision": "accepted",
+        "failback_contract": "scripted",
+        "failback_executor_bound": True,
+        "contract_ready": True,
+        "expected_effect_digest": "sha256:" + "1" * 64,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _dr_outcome(**overrides: object) -> dict[str, object]:
+    run = _action_run(action_type="ops.failover-primary", state="succeeded")
+    payload: dict[str, object] = {
+        "producer_principal": "Vidar",
+        "kind": DR_OUTCOME_KIND,
+        "correlation_id": run["correlation_id"],
+        "idempotency_key": "dr-outcome:corr-action",
+        "action_run_identity": run["action_run_identity"],
+        "action_type": run["action_type"],
+        "resource_id": run["resource_id"],
+        "state": "succeeded",
+        "effect_verification_ref": "sha256:" + "2" * 64,
+        "execution_closure_ref": "sha256:" + "3" * 64,
+        "expected_effect_digest": "sha256:" + "1" * 64,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _rehearsal(**overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "producer_principal": "Vidar",
+        "kind": REHEARSAL_KIND,
+        "correlation_id": "rollback-rehearsal:ops.scale-out",
+        "idempotency_key": "rollback-rehearsal:ops.scale-out",
+        "resource_id": "action-type:ops.scale-out",
+        "action_type": "ops.scale-out",
+        "rollback_contract": "state_forward_only",
+        "outcome": "passed",
+        "reason": "ok",
+        "recorded_at": "2026-10-01T00:00:00+00:00",
+        "rehearsal_version": "1.0.0",
+    }
+    payload["receipt_digest"] = rehearsal_digest(payload)
     payload.update(overrides)
     return payload
 
@@ -124,6 +205,88 @@ def test_runtime_default_payload_validator_rejects_malformed_authority_payloads(
                 {"correlation_id": "corr-p", "idempotency_key": "approval:corr-p"},
             )
         )
+    with pytest.raises(ValueError, match="state"):
+        asyncio.run(
+            runtime.bridge.publish(
+                "Vidar",
+                "object.rollback",
+                {
+                    "producer_principal": "Vidar",
+                    "correlation_id": "corr-r",
+                    "idempotency_key": "rollback:corr-r",
+                    "action_run_identity": "sha256:" + "1" * 64,
+                    "action_type": "ops.scale-out",
+                    "resource_id": "resource-1",
+                    "contract": "state_forward_only",
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        _ordinary_rollback(),
+        _ordinary_rollback(state="failed", rollback_ref=None),
+        _ordinary_rollback(state="refused", rollback_ref=None),
+        _ordinary_rollback(state="execution_unknown", rollback_ref=None),
+        _dr_contract(),
+        _dr_contract(decision="held"),
+        _dr_outcome(),
+        _rehearsal(),
+        _rehearsal(outcome="failed"),
+        _rehearsal(outcome="held"),
+    ],
+)
+def test_runtime_default_payload_validator_accepts_vidar_rollback_shapes(
+    payload: dict[str, object],
+) -> None:
+    runtime = PantheonRuntime.build(provider=InMemoryEventBus(), raw_event_topic="runtime.raw")
+
+    asyncio.run(runtime.bridge.publish("Vidar", "object.rollback", payload))
+
+
+def test_bridge_rejects_malformed_rollback_before_thor_terminalizes_run() -> None:
+    provider = InMemoryEventBus()
+    bridge = EventBusBridge(
+        provider=provider,
+        registry=load_pantheon(),
+        payload_validator=lambda topic, payload: PantheonRuntime.build(
+            provider=InMemoryEventBus(),
+            raw_event_topic="runtime.raw",
+        ).bridge.payload_validator(topic, payload),
+    )
+    thor = Thor()
+    run = ActionRun(
+        correlation_id="corr-rollback-invalid",
+        action_type="ops.scale-out",
+        resource_id="resource-1",
+        state=ActionRunState.FAILED,
+        verdict="auto",
+    )
+    thor.action_runs[run.correlation_id] = run
+    bridge.subscribe("object.rollback", "Thor", thor.on_typed_message)
+
+    async def _run() -> None:
+        await provider.publish(
+            "object.rollback",
+            "rollback:invalid",
+            _ordinary_rollback(
+                correlation_id=run.correlation_id,
+                action_run_identity=run.action_run_identity(),
+                action_type=run.action_type,
+                resource_id=run.resource_id,
+                state=None,
+                rollback_ref=None,
+            ),
+        )
+        await _drain_bridge(bridge, done=lambda: bridge.metrics.dead_lettered > 0)
+
+    asyncio.run(_run())
+
+    assert bridge.metrics.dead_lettered == 1
+    assert run.state is ActionRunState.FAILED
+    assert run.outcome is None
 
 
 def test_var_rejects_non_thor_action_run_before_ticket() -> None:

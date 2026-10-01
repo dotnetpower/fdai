@@ -10,6 +10,7 @@ import logging
 from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from typing import Any
 
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAMES
 from fdai.agents._framework.thor_preflight import ThorPreflightSimulator
@@ -18,6 +19,15 @@ from fdai.agents.thor import ActionExecutor, ActionRun, ActionRunStore, Thor
 from fdai.shared.providers.resource_lock import ResourceLock
 
 _LOG = logging.getLogger(__name__)
+_ROLLBACK_CONTRACTS_WITHOUT_EXECUTOR = frozenset(
+    {
+        "irreversible",
+        "not_applicable",
+        "not-applicable",
+        "not_required",
+        "none",
+    }
+)
 
 
 def validate_disabled_agents(disabled_agents: frozenset[str] | None) -> frozenset[str]:
@@ -49,7 +59,9 @@ def validate_enforce_bindings(
     has_executor: bool,
     has_state_store: bool,
     saga: Saga | None,
-    has_rollback: bool,
+    rollback_executors: Mapping[str, object] | None,
+    action_rollback_executors: Mapping[tuple[str, str], object] | None,
+    action_semantics: ActionSemanticsCatalog | None,
     has_vidar_state_store: bool,
     has_var_state_store: bool,
     has_forseti_state_store: bool,
@@ -69,8 +81,13 @@ def validate_enforce_bindings(
         missing.append("thor_state_store")
     if saga is None or not saga.durable_audit:
         missing.append("durable_saga")
-    if not has_rollback:
-        missing.append("rollback_executors")
+    missing.extend(
+        _missing_rollback_executor_bindings(
+            action_semantics=action_semantics,
+            rollback_executors=rollback_executors,
+            action_rollback_executors=action_rollback_executors,
+        )
+    )
     if not has_vidar_state_store:
         missing.append("vidar_state_store")
     if not has_var_state_store:
@@ -91,6 +108,45 @@ def validate_enforce_bindings(
         raise ValueError(
             "pantheon enforce mode requires explicit durable safety bindings: " + ", ".join(missing)
         )
+
+
+def _missing_rollback_executor_bindings(
+    *,
+    action_semantics: ActionSemanticsCatalog | None,
+    rollback_executors: Mapping[str, object] | None,
+    action_rollback_executors: Mapping[tuple[str, str], object] | None,
+) -> list[str]:
+    if action_semantics is None:
+        return ["rollback_executors"]
+    generic_contracts = frozenset(str(contract) for contract in (rollback_executors or {}))
+    action_pairs = frozenset(
+        (str(action_type), str(contract))
+        for action_type, contract in (action_rollback_executors or {})
+    )
+    missing = [
+        f"rollback_executors[{action_type}:{contract}]"
+        for action_type, contract in _rollback_executor_requirements(action_semantics)
+        if contract not in generic_contracts and (action_type, contract) not in action_pairs
+    ]
+    if not missing and not generic_contracts and not action_pairs:
+        return ["rollback_executors"]
+    return missing
+
+
+def _rollback_executor_requirements(
+    action_semantics: ActionSemanticsCatalog,
+) -> tuple[tuple[str, str], ...]:
+    requirements: list[tuple[str, str]] = []
+    for action_type, contract in action_semantics.rollback_by_id.items():
+        normalized_contract = str(contract).strip()
+        if not normalized_contract:
+            continue
+        if normalized_contract in _ROLLBACK_CONTRACTS_WITHOUT_EXECUTOR:
+            continue
+        if action_semantics.irreversible(action_type):
+            continue
+        requirements.append((action_type, normalized_contract))
+    return tuple(sorted(requirements))
 
 
 def bind_execution_audit(*, thor: Thor, saga: Saga | None, enforce: bool) -> None:

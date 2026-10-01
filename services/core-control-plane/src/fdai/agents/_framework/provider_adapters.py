@@ -387,6 +387,29 @@ class StateStoreActionRunStore:
                 return
         raise RuntimeError("Thor ActionRun delete exceeded its CAS retry bound")
 
+    async def discard_unpublished(self, run: ActionRun) -> bool:
+        key = f"{self.run_prefix}{run.correlation_id}"
+        current = await self.store.read_state(key)
+        if not self._matches_unpublished_run(current, run):
+            return False
+        return await self.store.delete_state(key)
+
+    async def abandon_unpublished_resource_claim(self, run: ActionRun) -> bool:
+        resource_id = str(run.resource_id or "")
+        if not resource_id:
+            return True
+        claim_key = self._resource_claim_key(resource_id)
+        claim = await self.store.read_state(claim_key)
+        if not self._matches_unpublished_resource_claim(claim, run, resource_id):
+            return False
+        idempotency_key = self._completion_key(run.idempotency_key)
+        reservation = await self.store.read_state(idempotency_key)
+        if not self._matches_unpublished_idempotency_reservation(reservation, run):
+            return False
+        claim_deleted = await self.store.delete_state(claim_key)
+        reservation_deleted = await self.store.delete_state(idempotency_key)
+        return claim_deleted and reservation_deleted
+
     async def claim_resource(
         self,
         run: ActionRun,
@@ -613,6 +636,51 @@ class StateStoreActionRunStore:
     def _completion_key(self, idempotency_key: str) -> str:
         digest = hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()
         return f"{self.completion_prefix}{digest}"
+
+    def _matches_unpublished_run(self, current: Mapping[str, Any] | None, run: ActionRun) -> bool:
+        if not isinstance(current, Mapping) or (
+            current.get("active") != "true"
+            or current.get("state") != ActionRunState.VERDICTED.value
+            or current.get("correlation_id") != run.correlation_id
+            or current.get("idempotency_key") != run.idempotency_key
+        ):
+            return False
+        try:
+            validate_durable_action_run_state(current, run.to_dict())
+        except RuntimeError:
+            return False
+        return action_fingerprint(durable_action_run_payload(current)) == action_fingerprint(
+            run.to_dict()
+        )
+
+    def _matches_unpublished_resource_claim(
+        self,
+        current: Mapping[str, Any] | None,
+        run: ActionRun,
+        resource_id: str,
+    ) -> bool:
+        return isinstance(current, Mapping) and (
+            current.get("status") == "claimed"
+            and current.get("resource_id") == resource_id
+            and current.get("correlation_id") == run.correlation_id
+            and current.get("idempotency_key") == run.idempotency_key
+            and current.get("owner_id") == self.owner_id
+            and current.get("action_fingerprint") == action_fingerprint(run.to_dict())
+        )
+
+    def _matches_unpublished_idempotency_reservation(
+        self,
+        current: Mapping[str, Any] | None,
+        run: ActionRun,
+    ) -> bool:
+        return isinstance(current, Mapping) and (
+            current.get("status") == "reserved"
+            and current.get("resource_id") == run.resource_id
+            and current.get("correlation_id") == run.correlation_id
+            and current.get("idempotency_key") == run.idempotency_key
+            and current.get("owner_id") == self.owner_id
+            and current.get("action_fingerprint") == action_fingerprint(run.to_dict())
+        )
 
     async def _reserve_idempotency(
         self,

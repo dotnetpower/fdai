@@ -34,6 +34,14 @@ _ACTION_TYPES = tuple(
 )
 
 
+def _rollback_executors(registry: T2RouteRegistry) -> dict[str, object]:
+    return {
+        action_type.rollback_contract.value: registry.rollback
+        for action_type in _ACTION_TYPES
+        if not action_type.irreversible
+    }
+
+
 class _DistributedTestLock(ResourceLockManager):
     distributed = True
 
@@ -249,7 +257,7 @@ def test_approved_failure_switches_persistent_route_through_thor() -> None:
         thor_executor=registry.execute,
         thor_state_store=StateStoreActionRunStore(store),
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
-        rollback_executors={"state_forward_only": registry.rollback},
+        rollback_executors=_rollback_executors(registry),
         vidar_state_store=store,
         var_state_store=store,
         forseti_state_store=store,
@@ -289,7 +297,7 @@ def test_vidar_restores_route_when_thor_verification_fails() -> None:
         thor_executor=switch_then_fail,
         thor_state_store=StateStoreActionRunStore(store),
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
-        rollback_executors={"state_forward_only": registry.rollback},
+        rollback_executors=_rollback_executors(registry),
         vidar_state_store=store,
         var_state_store=store,
         forseti_state_store=store,

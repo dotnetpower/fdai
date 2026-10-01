@@ -237,14 +237,17 @@ class PantheonRuntime(RuntimeConversationPort):
 
         human_access = assignment_workflow.human_access if assignment_workflow is not None else None
         human_access_bound = human_access is not None and human_access.execution_bound
+        action_semantics = (
+            ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
+        )
         execution_safety.validate_enforce_bindings(
             enforce=enforce or development_authority is not None,
             has_executor=thor_executor is not None or human_access_bound,
             has_state_store=thor_state_store is not None,
             saga=saga,
-            has_rollback=bool(rollback_executors)
-            or bool(action_rollback_executors)
-            or human_access_bound,
+            rollback_executors=rollback_executors,
+            action_rollback_executors=action_rollback_executors,
+            action_semantics=action_semantics,
             has_vidar_state_store=vidar_state_store is not None,
             has_var_state_store=var_state_store is not None,
             has_forseti_state_store=forseti_state_store is not None,
@@ -319,9 +322,6 @@ class PantheonRuntime(RuntimeConversationPort):
             instantiated,
             odin_state_store=odin_state_store,
             proposal_rate_limit_state_store=proposal_rate_limit_state_store,
-        )
-        action_semantics = (
-            ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
         )
         rollback_contracts_by_action_type = (
             {

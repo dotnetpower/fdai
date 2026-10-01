@@ -439,6 +439,10 @@ class ActionRunStore(Protocol):
 
     async def delete(self, correlation_id: str) -> None: ...
 
+    async def discard_unpublished(self, run: ActionRun) -> bool: ...
+
+    async def abandon_unpublished_resource_claim(self, run: ActionRun) -> bool: ...
+
     async def claim_resource(
         self,
         run: ActionRun,

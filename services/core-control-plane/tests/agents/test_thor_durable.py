@@ -94,6 +94,14 @@ class _FakeActionRunStore:
         self.deleted.append(correlation_id)
         self.saved.pop(correlation_id, None)
 
+    async def discard_unpublished(self, run: ActionRun) -> bool:
+        self.deleted.append(run.correlation_id)
+        return self.saved.pop(run.correlation_id, None) is not None
+
+    async def abandon_unpublished_resource_claim(self, run: ActionRun) -> bool:
+        del run
+        return True
+
 
 class _FailTerminalPublishBus:
     def __init__(self) -> None:
@@ -112,6 +120,29 @@ class _FailTerminalPublishBus:
             self.fail_terminal_once = False
             raise RuntimeError("injected terminal publish failure")
         self.payloads.append(payload)
+
+
+class _FailInitialPublishBus:
+    def __init__(self) -> None:
+        self.fail_initial_once = True
+        self.payloads: list[dict[str, object]] = []
+
+    async def publish(
+        self,
+        principal: str,
+        topic: str,
+        payload: dict[str, object],
+    ) -> None:
+        assert principal == "Thor"
+        assert topic == "object.action-run"
+        if payload.get("state") == "verdicted" and self.fail_initial_once:
+            self.fail_initial_once = False
+            raise RuntimeError("injected initial publish failure")
+        self.payloads.append(payload)
+
+
+class _FailInitialPublishOnceBus(_FailInitialPublishBus):
+    pass
 
 
 class _FailTerminalSaveStore(_FakeActionRunStore):
@@ -1288,6 +1319,84 @@ def test_later_successful_rollback_closes_prior_rollback_failure() -> None:
     assert run.state is ActionRunState.ROLLED_BACK
     assert run.rollback_ref == "rollback:retry"
     assert str(run.resource_id) not in thor._resource_locks  # noqa: SLF001
+
+
+def test_initial_action_run_publish_failure_releases_lock_and_redelivery_succeeds() -> None:
+    bus = _FailInitialPublishBus()
+    thor = Thor(bus=bus)
+
+    with pytest.raises(RuntimeError, match="injected initial publish failure"):
+        asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    resource_id = _proposal().target_resource_ref
+    assert resource_id not in thor._resource_locks  # noqa: SLF001
+    assert thor.action_runs == {}
+    assert thor._idempotency_runs == {}  # noqa: SLF001
+
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    assert run.state is ActionRunState.EFFECT_PENDING
+    assert thor.behavior_snapshot().get("dispatch:lock_contention", 0) == 0
+    assert [payload["state"] for payload in bus.payloads] == [
+        "verdicted",
+        "executing",
+        "effect_pending",
+    ]
+
+
+def test_discard_unpublished_keeps_mismatched_durable_row() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreActionRunStore(store=state)
+    run = ActionRun(
+        correlation_id="discard-mismatch",
+        action_type="ops.restart-service",
+        resource_id="vm-mismatch",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        idempotency_key="discard-mismatch-key",
+    )
+
+    asyncio.run(store.save(run))
+    advanced = dict(asyncio.run(state.read_state("thor:run|discard-mismatch")) or {})
+    advanced["state"] = ActionRunState.EXECUTING.value
+    advanced["revision"] = 1
+    asyncio.run(state.write_state("thor:run|discard-mismatch", advanced))
+
+    assert asyncio.run(store.discard_unpublished(run)) is False
+    assert asyncio.run(state.read_state("thor:run|discard-mismatch")) == advanced
+
+
+def test_enforce_auto_initial_publish_failure_abandons_claim_and_redelivery_executes_once() -> None:
+    state = InMemoryStateStore()
+    bus = _FailInitialPublishOnceBus()
+    executions: list[str] = []
+
+    async def executor(context: dict[str, object]) -> bool:
+        run = context["run"]
+        assert isinstance(run, ActionRun)
+        executions.append(run.correlation_id)
+        return True
+
+    thor = Thor(
+        bus=bus,
+        executor=executor,
+        state_store=StateStoreActionRunStore(store=state),
+        shadow_by_default=False,
+    )
+
+    with pytest.raises(RuntimeError, match="injected initial publish failure"):
+        asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    resource_id = _proposal().target_resource_ref
+    assert executions == []
+    assert resource_id not in thor._resource_locks  # noqa: SLF001
+    assert thor.action_runs == {}
+
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    assert executions == [run.correlation_id]
+    assert run.state is ActionRunState.EFFECT_PENDING
+    assert run.resource_claimed is True
 
 
 def test_terminal_publish_failure_remains_durable_for_restart_replay() -> None:

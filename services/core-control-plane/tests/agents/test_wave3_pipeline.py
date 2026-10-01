@@ -1586,9 +1586,9 @@ def test_thor_releases_lock_when_lifecycle_emit_fails() -> None:
                 }
             )
         )
-    assert thor.health()["locked_resources"] == 1
-    assert thor.action_runs["c-boom"].outcome == "action_run_publication_unavailable"
-    assert "vm-boom" in thor._resource_locks  # noqa: SLF001
+    assert thor.health()["locked_resources"] == 0
+    assert "c-boom" not in thor.action_runs
+    assert "vm-boom" not in thor._resource_locks  # noqa: SLF001
 
 
 def test_thor_degrades_to_shadow_when_saga_absent() -> None:

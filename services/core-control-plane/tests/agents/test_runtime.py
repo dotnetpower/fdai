@@ -23,6 +23,7 @@ from fdai.agents import StateStoreIssueTrackerAdapter, request_rule_generation
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
+from fdai.agents._framework.execution_safety import validate_enforce_bindings
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.agents._framework.provider_adapters import (
     StateStoreActionRunStore,
@@ -97,6 +98,17 @@ def _action_types() -> tuple[OntologyActionType, ...]:
         _REPO_ROOT / "rule-catalog" / "action-types",
         schema_registry=PackageResourceSchemaRegistry(),
     )
+
+
+def _all_rollback_executors() -> dict[str, object]:
+    async def rollback_executor(_action_run: dict[str, object]) -> str:
+        return "rollback:test"
+
+    return {
+        action_type.rollback_contract.value: rollback_executor
+        for action_type in _action_types()
+        if not action_type.irreversible
+    }
 
 
 _VALIDATOR_DIGEST = "sha256:" + "d" * 64
@@ -992,9 +1004,6 @@ def test_enforce_true_disables_forced_shadow() -> None:
         executed.append(context["run"].correlation_id)
         return True
 
-    async def rollback_executor(_action_run: dict) -> str:
-        return "rollback:test"
-
     state_store = InMemoryStateStore()
 
     runtime = PantheonRuntime.build(
@@ -1004,7 +1013,7 @@ def test_enforce_true_disables_forced_shadow() -> None:
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store=state_store)),
         thor_executor=executor,
         thor_state_store=StateStoreActionRunStore(store=state_store),
-        rollback_executors={"state_forward_only": rollback_executor},
+        rollback_executors=_all_rollback_executors(),
         vidar_state_store=state_store,
         var_state_store=state_store,
         forseti_state_store=state_store,
@@ -1162,7 +1171,7 @@ def test_injected_saga_replaces_the_default() -> None:
                 "thor_executor": lambda _: None,
                 "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
                 "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
-                "rollback_executors": {"state_forward_only": lambda _: None},
+                "rollback_executors": _all_rollback_executors(),
             },
             "vidar_state_store",
         ),
@@ -1171,7 +1180,7 @@ def test_injected_saga_replaces_the_default() -> None:
                 "thor_executor": lambda _: None,
                 "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
                 "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
-                "rollback_executors": {"state_forward_only": lambda _: None},
+                "rollback_executors": _all_rollback_executors(),
                 "vidar_state_store": InMemoryStateStore(),
             },
             "var_state_store",
@@ -1181,7 +1190,7 @@ def test_injected_saga_replaces_the_default() -> None:
                 "thor_executor": lambda _: None,
                 "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
                 "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
-                "rollback_executors": {"state_forward_only": lambda _: None},
+                "rollback_executors": _all_rollback_executors(),
                 "vidar_state_store": InMemoryStateStore(),
                 "var_state_store": InMemoryStateStore(),
             },
@@ -1192,7 +1201,7 @@ def test_injected_saga_replaces_the_default() -> None:
                 "thor_executor": lambda _: None,
                 "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
                 "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
-                "rollback_executors": {"state_forward_only": lambda _: None},
+                "rollback_executors": _all_rollback_executors(),
                 "vidar_state_store": InMemoryStateStore(),
                 "var_state_store": InMemoryStateStore(),
                 "forseti_state_store": InMemoryStateStore(),
@@ -1212,6 +1221,63 @@ def test_enforce_requires_explicit_safety_bindings(kwargs: dict, missing: str) -
             enforce=True,
             **kwargs,
         )
+
+
+def test_enforce_rollback_coverage_is_required_per_action_contract_pair() -> None:
+    async def rollback_executor(_action_run: dict[str, object]) -> str:
+        return "rollback:test"
+
+    saga = Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore()))
+    catalog = ActionSemanticsCatalog(
+        irreversible_by_id={
+            "ops.first": False,
+            "ops.second": False,
+            "ops.one-way": True,
+        },
+        rollback_by_id={
+            "ops.first": "scripted",
+            "ops.second": "snapshot_restore",
+            "ops.one-way": "state_forward_only",
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"rollback_executors\[ops\.second:snapshot_restore\]",
+    ):
+        validate_enforce_bindings(
+            enforce=True,
+            has_executor=True,
+            has_state_store=True,
+            saga=saga,
+            rollback_executors=None,
+            action_rollback_executors={("ops.first", "scripted"): rollback_executor},
+            action_semantics=catalog,
+            has_vidar_state_store=True,
+            has_var_state_store=True,
+            has_forseti_state_store=True,
+            has_approver_authorizer=True,
+            resource_lock=_DistributedTestLock(),
+            has_action_semantics=True,
+            has_preflight_simulator=True,
+        )
+
+    validate_enforce_bindings(
+        enforce=True,
+        has_executor=True,
+        has_state_store=True,
+        saga=saga,
+        rollback_executors={"snapshot_restore": rollback_executor},
+        action_rollback_executors={("ops.first", "scripted"): rollback_executor},
+        action_semantics=catalog,
+        has_vidar_state_store=True,
+        has_var_state_store=True,
+        has_forseti_state_store=True,
+        has_approver_authorizer=True,
+        resource_lock=_DistributedTestLock(),
+        has_action_semantics=True,
+        has_preflight_simulator=True,
+    )
 
 
 def test_health_snapshot_reports_agents_mode_and_metrics() -> None:

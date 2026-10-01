@@ -567,7 +567,7 @@ class _FailingPublishBus:
         raise RuntimeError("publish unavailable")
 
 
-def test_initial_action_run_publish_failure_retains_retryable_run() -> None:
+def test_initial_action_run_publish_failure_drops_unpublished_run_for_clean_retry() -> None:
     thor = Thor(bus=_FailingPublishBus(), action_semantics_catalog=_semantics())
 
     with pytest.raises(RuntimeError, match="publish unavailable"):
@@ -582,10 +582,9 @@ def test_initial_action_run_publish_failure_retains_retryable_run() -> None:
             )
         )
 
-    run = thor.action_runs["publish-fails"]
-    assert run.state is ActionRunState.VERDICTED
-    assert run.outcome == "action_run_publication_unavailable"
-    assert thor._idempotency_runs["publish-fails-key"] is run
+    assert "publish-fails" not in thor.action_runs
+    assert "publish-fails-key" not in thor._idempotency_runs  # noqa: SLF001
+    assert thor.health()["locked_resources"] == 0
 
 
 class _AcceptingBus:
