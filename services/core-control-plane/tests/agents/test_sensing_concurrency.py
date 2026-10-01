@@ -4,17 +4,18 @@ import asyncio
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import pytest
-from fdai.agents import heimdall as heimdall_module
 from fdai.agents._framework import heimdall_action_observation as action_observation_module
 from fdai.agents._framework import heimdall_forecast as forecast_module
+from fdai.agents._framework import heimdall_publication_runtime as publication_module
 from fdai.agents.freyr import Freyr
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
 from fdai.agents.loki import Loki
 from fdai.agents.njord import Njord
+from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_episode_testing import InMemoryForecastEpisodeStore
 from fdai.shared.providers.cost_governance import CostAnalysisSample
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -218,7 +219,7 @@ async def test_njord_provider_timeout_leaves_sample_retryable(
     monkeypatch.setattr("fdai.agents.njord._ADVISORY_TIMEOUT_SECONDS", 0.01)
     provider = BlockingAdvisory()
     njord = Njord(
-        advisory_provider=provider,  # type: ignore[arg-type]
+        advisory_provider=provider,
         package_enabled=True,
         allow_unbound_activation_reader=True,
         state_store=InMemoryStateStore(),
@@ -236,7 +237,7 @@ async def test_njord_provider_timeout_leaves_sample_retryable(
 async def test_njord_newer_sample_survives_older_provider_completion() -> None:
     provider = DelayByAmountAdvisory()
     njord = Njord(
-        advisory_provider=provider,  # type: ignore[arg-type]
+        advisory_provider=provider,
         package_enabled=True,
         allow_unbound_activation_reader=True,
         state_store=InMemoryStateStore(),
@@ -322,7 +323,7 @@ async def test_heimdall_forecast_tick_bounds_evaluator(monkeypatch: pytest.Monke
     heimdall = Heimdall(
         forecast_evaluator=_BlockingEvaluator(),  # type: ignore[arg-type]
         forecast_closer=_NoopCloser(),  # type: ignore[arg-type]
-        forecast_store=InMemoryForecastEpisodeStore(),
+        forecast_store=cast(ForecastEpisodeStore, InMemoryForecastEpisodeStore()),
         forecast_clock=lambda: NOW,
     )
     await heimdall._run_forecast_tick(_forecast_tick())  # noqa: SLF001
@@ -346,8 +347,8 @@ async def test_heimdall_action_observation_hook_timeout(monkeypatch: pytest.Monk
 async def test_heimdall_rule_generation_validation_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(heimdall_module, "_RULE_VALIDATION_TIMEOUT_SECONDS", 0.01)
-    monkeypatch.setattr(heimdall_module, "RuleGenerationBuildResultEvent", _FakeBuildResultEvent)
+    monkeypatch.setattr(publication_module, "_RULE_VALIDATION_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(publication_module, "RuleGenerationBuildResultEvent", _FakeBuildResultEvent)
     heimdall = Heimdall()
     heimdall.bind_rule_generation_validation_handler(_BlockingRuleValidationHandler())  # type: ignore[arg-type]
 

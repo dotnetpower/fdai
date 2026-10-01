@@ -156,7 +156,10 @@ SEEDS: tuple[Seed, ...] = (
             "종료에는 별도 해결 기능 승격과 회귀 검증 구간이 필요합니다.",
         ),
         (
-            _code("agents/saga.py", "Saga.escalate_to_github_issue"),
+            _code(
+                "agents/_framework/saga_issue_runtime.py",
+                "SagaIssueRuntimeMixin.escalate_to_github_issue",
+            ),
             _test(
                 "agents/test_wave2_governance.py",
                 "test_saga_issue_dedup_creates_once_and_appends_comment_on_repeat",
