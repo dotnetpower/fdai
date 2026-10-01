@@ -148,3 +148,27 @@ def test_runtime_profile_reads_legacy_mapping_as_explicit_full_product() -> None
     assert profile.matches_mapping(legacy) is True
     assert len(profile.product_profile.add_ons) == 4
     assert profile.product_profile.authority_granted is False
+
+
+def test_postgres_aks_refuses_the_console_until_in_cluster_ingestion_dsns_exist() -> None:
+    # The Console enables AKS document ingestion, whose DSNs only the Flexible Server provides.
+    with pytest.raises(ValueError, match="postgres-aks does not yet provide"):
+        RuntimeDeploymentProfile.create(
+            runtime_platform="aks",
+            database_placement="postgres-aks",
+            user_node_min_count=4,
+            product_add_ons=(
+                "read-only-console",
+                "notifications",
+                "governed-execution",
+                "enterprise-identity-governance",
+            ),
+        )
+
+    headless = RuntimeDeploymentProfile.create(
+        runtime_platform="aks",
+        database_placement="postgres-aks",
+        user_node_min_count=4,
+    )
+
+    assert headless.console_selected is False

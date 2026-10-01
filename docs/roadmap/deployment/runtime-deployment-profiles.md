@@ -598,6 +598,13 @@ read by workloads through managed CSI. Client traffic requires TLS with a state-
 The minimum four user nodes make this profile schedulable
 but do not claim database high availability, backup, or point-in-time recovery.
 
+The in-cluster database stage writes only the shared state-store DSN. It doesn't yet write the
+role-scoped DSNs that AKS document ingestion reads. Because the read-only Console turns on that
+ingestion, `postgres-aks` refuses the Console add-on until #1762 adds those DSNs. The substrate
+plan also leaves out the ingestion DSN secrets and their reader roles. Terraform `-target` keeps
+every configuration dependency of a target, even at count 0, so either would otherwise plan the
+Flexible Server through `module.state_store`.
+
 The Key Vault DSN has no independent fixed expiration. Credential rotation requires coordinated
 database and workload updates; expiring only the secret would interrupt access without rotating
 the database credential. This resource-local exception does not claim automated rotation evidence.

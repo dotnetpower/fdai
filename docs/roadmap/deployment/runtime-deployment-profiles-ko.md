@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 6a14206ad3ae2bda7e5ef7ec31ac7f8ff84947c4
+translation_source_sha: 49be027d3fd76f383e61267f5116a6944c0c6106
 translation_revised: 2026-10-01
 ---
 # 런타임 배포 프로파일
@@ -598,6 +598,13 @@ Managed Identity에 구독 `Reader`만 부여합니다. 데이터 플레인 역�
 CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하는 인증서를 사용한 TLS가 필요합니다.
 사용자 노드 최소 4개는 이 프로파일의 스케줄 가능성을 위한 값이며,
 데이터베이스 고가용성, 백업 또는 특정 시점 복구를 의미하지 않습니다.
+
+클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN만 기록합니다. AKS 문서 수집이 읽는 역할별
+DSN은 아직 기록하지 않습니다. 읽기 전용 Console을 선택하면 이 수집이 켜지므로, #1762에서 해당
+DSN을 추가할 때까지 `postgres-aks`는 Console 추가 기능을 거부합니다. 기반 구성 플랜도 수집 DSN
+비밀과 그 읽기 역할을 제외합니다. Terraform `-target`은 count가 0인 대상이라도 구성 의존성을 모두
+유지하므로, 이 항목이 하나라도 포함되면 `module.state_store`를 통해 Flexible Server가 플랜에
+들어가기 때문입니다.
 
 Key Vault DSN에는 별도의 고정 만료일을 두지 않습니다. 자격 증명을 교체하려면 데이터베이스와
 워크로드를 함께 갱신해야 합니다. 비밀 값만 만료시키면 데이터베이스 자격 증명은 바뀌지 않은 채
