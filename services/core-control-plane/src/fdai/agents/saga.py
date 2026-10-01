@@ -7,7 +7,7 @@ import hashlib
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fdai.agents._framework.adapters import (
@@ -34,6 +34,57 @@ from fdai.agents._framework.outbox_publication import (
 )
 from fdai.agents._framework.pantheon import _SAGA
 from fdai.agents._framework.saga_audit_runtime import SagaAuditRuntimeMixin
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_CLAIM_LEASE as _AUDIT_OUTBOX_CLAIM_LEASE,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_MAINTENANCE_PAGE as _AUDIT_OUTBOX_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_PENDING_SCAN_LIMIT as _AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_PREFIX as _AUDIT_OUTBOX_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_TOMBSTONE_RETENTION as _AUDIT_OUTBOX_TOMBSTONE_RETENTION,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_BUCKET as _FINGERPRINT_BUCKET,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_PREFIX as _FINGERPRINT_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_RETENTION as _FINGERPRINT_RETENTION,
+)
+from fdai.agents._framework.saga_constants import (
+    _FORECAST_AUDIT_FENCE_SIZE as _FORECAST_AUDIT_FENCE_SIZE,
+)
+from fdai.agents._framework.saga_constants import (
+    _HANDOFF_CONTEXT_KEYS as _HANDOFF_CONTEXT_KEYS,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_CLEAN_WINDOW as _ISSUE_CLOSE_CLEAN_WINDOW,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_ELIGIBILITY_BUCKET as _ISSUE_CLOSE_ELIGIBILITY_BUCKET,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_ELIGIBILITY_PREFIX as _ISSUE_CLOSE_ELIGIBILITY_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_FINGERPRINT_INDEX as _MAX_FINGERPRINT_INDEX,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_HANDOFF_CONTEXT_ITEMS as _MAX_HANDOFF_CONTEXT_ITEMS,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_HANDOFF_CONTEXT_VALUE_CHARS as _MAX_HANDOFF_CONTEXT_VALUE_CHARS,
+)
+from fdai.agents._framework.saga_constants import (
+    _NON_LEARNABLE_TERMINAL_STATES as _NON_LEARNABLE_TERMINAL_STATES,
+)
 from fdai.agents._framework.saga_handoff import (
     SagaHandoffJournal,
 )
@@ -42,37 +93,6 @@ from fdai.agents._framework.saga_issue_maintenance import SagaIssueMaintenanceMi
 from fdai.agents._framework.saga_issue_runtime import SagaIssueRuntimeMixin
 from fdai.agents._framework.saga_message_runtime import SagaMessageRuntimeMixin
 from fdai.shared.providers.state_store import StateStore
-
-_FINGERPRINT_BUCKET = "issue_fingerprint_index"
-_AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
-_FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
-_ISSUE_CLOSE_ELIGIBILITY_PREFIX = "pantheon/saga/issue-close-eligibility/"
-_AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
-_AUDIT_OUTBOX_MAINTENANCE_PAGE = 16
-# Published outbox tombstones retain only digests long enough to suppress
-# duplicate redelivery across restarts while keeping prefix scans bounded.
-_AUDIT_OUTBOX_TOMBSTONE_RETENTION = 1_024
-_AUDIT_OUTBOX_CLAIM_LEASE = timedelta(minutes=5)
-_FORECAST_AUDIT_FENCE_SIZE = 10_000
-_MAX_FINGERPRINT_INDEX = 50_000
-_FINGERPRINT_RETENTION = 10_000
-_ISSUE_CLOSE_CLEAN_WINDOW = timedelta(hours=24)
-_ISSUE_CLOSE_ELIGIBILITY_BUCKET = "issue_close_eligibility"
-_MAX_HANDOFF_CONTEXT_ITEMS = 8
-_MAX_HANDOFF_CONTEXT_VALUE_CHARS = 256
-_HANDOFF_CONTEXT_KEYS = frozenset(
-    {
-        "context_ref",
-        "evidence_ref",
-        "handoff_ref",
-        "payload_digest",
-        "source_ref",
-        "trace_ref",
-    }
-)
-_NON_LEARNABLE_TERMINAL_STATES = frozenset(
-    {"deny_dropped", "rejected", "expired", "approval_expired"}
-)
 
 
 def _utc_now() -> datetime:

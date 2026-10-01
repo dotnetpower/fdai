@@ -12,9 +12,10 @@ import logging
 import time
 from collections import Counter, deque
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework import heimdall_alert_window as _heimdall_alert_window
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.alert_noise_callbacks import HeimdallAlertNoiseMixin
 from fdai.agents._framework.base import Agent
@@ -32,6 +33,54 @@ from fdai.agents._framework.heimdall_alert_window import (
 from fdai.agents._framework.heimdall_alert_window import EpisodeKey as _EpisodeKey
 from fdai.agents._framework.heimdall_alert_window import HeimdallAlertWindowMixin
 from fdai.agents._framework.heimdall_anomaly_runtime import HeimdallAnomalyRuntimeMixin
+from fdai.agents._framework.heimdall_constants import (
+    _DETECTION_READINESS_EVENT as _DETECTION_READINESS_EVENT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _EPISODE_PREFIX as _EPISODE_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _FULL_SNAPSHOT_LIMIT as _FULL_SNAPSHOT_LIMIT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _INCIDENT_CORRELATION_DISABLED as _INCIDENT_CORRELATION_DISABLED,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _MAX_KPI_SAMPLES as _MAX_KPI_SAMPLES,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PENDING_READINESS_PREFIX as _PENDING_READINESS_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_CAS_ATTEMPTS as _PUBLICATION_CAS_ATTEMPTS,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_CLAIM_LEASE as _PUBLICATION_CLAIM_LEASE,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_MAINTENANCE_PAGE as _PUBLICATION_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_PREFIX as _PUBLICATION_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_RECOVERY_LIMIT as _PUBLICATION_RECOVERY_LIMIT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES as _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _READINESS_PREFIX as _READINESS_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _RULE_VALIDATION_TIMEOUT_SECONDS as _RULE_VALIDATION_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _SEVERITY_RANK as _SEVERITY_RANK,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _STATE_KEY as _STATE_KEY,
+)
 from fdai.agents._framework.heimdall_forecast import HeimdallForecastMixin
 from fdai.agents._framework.heimdall_provider_schema import HeimdallProviderSchemaMixin
 from fdai.agents._framework.heimdall_publication_runtime import HeimdallPublicationRuntimeMixin
@@ -70,26 +119,8 @@ ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]
 OperationalEvidenceHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
 """Composition-provided bounded evidence collector for one operational Event."""
 
-_LOG = logging.getLogger(__name__)
 
-_INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
-_SEVERITY_RANK = {
-    severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
-}
-_DETECTION_READINESS_EVENT = "detection.readiness.observed"
-_STATE_KEY = "pantheon/heimdall/sensing-state"
-_EPISODE_PREFIX = "pantheon/heimdall/sensing-state/episodes/"
-_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness/"
-_PENDING_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness-pending/"
-_PUBLICATION_PREFIX = "pantheon/heimdall/publications/"
-_PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES = 8192
-_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
-_PUBLICATION_CAS_ATTEMPTS = 8
-_PUBLICATION_RECOVERY_LIMIT = 5_000
-_PUBLICATION_MAINTENANCE_PAGE = 16
-_RULE_VALIDATION_TIMEOUT_SECONDS = 5.0
-_FULL_SNAPSHOT_LIMIT = 128
-_MAX_KPI_SAMPLES = 512
+_LOG = logging.getLogger(__name__)
 
 
 def _kpi_measured(
@@ -193,8 +224,8 @@ class Heimdall(
         self._state_store = state_store
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
-        self._max_tracked_keys = _MAX_TRACKED_KEYS
-        self._max_episodes_per_resource = _MAX_EPISODES_PER_RESOURCE
+        self._max_tracked_keys = _heimdall_alert_window.MAX_TRACKED_KEYS
+        self._max_episodes_per_resource = _heimdall_alert_window.MAX_EPISODES_PER_RESOURCE
         self._recent_events: dict[_EpisodeKey, deque[tuple[float, str, str]]] = {}
         self._recent_episode_keys: dict[str, dict[_EpisodeKey, None]] = {}
         self._incident_episode_ids: dict[_EpisodeKey, str] = {}
@@ -458,6 +489,8 @@ __all__ = [
     "AlerterHook",
     "IncidentCandidateHook",
     "ReadInvestigationHook",
+    "_MAX_EPISODES_PER_RESOURCE",
+    "_MAX_TRACKED_KEYS",
 ]
 
 

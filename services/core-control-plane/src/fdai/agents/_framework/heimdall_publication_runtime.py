@@ -11,10 +11,57 @@ import json
 import logging
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.heimdall_constants import (
+    _DETECTION_READINESS_EVENT as _DETECTION_READINESS_EVENT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _EPISODE_PREFIX as _EPISODE_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _FULL_SNAPSHOT_LIMIT as _FULL_SNAPSHOT_LIMIT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _INCIDENT_CORRELATION_DISABLED as _INCIDENT_CORRELATION_DISABLED,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _MAX_KPI_SAMPLES as _MAX_KPI_SAMPLES,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PENDING_READINESS_PREFIX as _PENDING_READINESS_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_CAS_ATTEMPTS as _PUBLICATION_CAS_ATTEMPTS,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_CLAIM_LEASE as _PUBLICATION_CLAIM_LEASE,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_MAINTENANCE_PAGE as _PUBLICATION_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_PREFIX as _PUBLICATION_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_RECOVERY_LIMIT as _PUBLICATION_RECOVERY_LIMIT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES as _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _READINESS_PREFIX as _READINESS_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _RULE_VALIDATION_TIMEOUT_SECONDS as _RULE_VALIDATION_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _SEVERITY_RANK as _SEVERITY_RANK,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _STATE_KEY as _STATE_KEY,
+)
 from fdai.agents._framework.heimdall_huginn_projection import (
     RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE,
     evidence_conflict_record,
@@ -37,6 +84,11 @@ from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RuleGenerationBuildResultEvent,
 )
 
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import Agent as _AgentMixinBase
+else:
+    _AgentMixinBase = object
+
 AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
 """Var-provided hook that delivers the admin notification card."""
 
@@ -49,28 +101,11 @@ ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]
 OperationalEvidenceHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
 """Composition-provided bounded evidence collector for one operational Event."""
 
-_LOG = logging.getLogger(__name__)
 
-_INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
-_SEVERITY_RANK = {
-    severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
-}
-_DETECTION_READINESS_EVENT = "detection.readiness.observed"
-_STATE_KEY = "pantheon/heimdall/sensing-state"
-_EPISODE_PREFIX = "pantheon/heimdall/sensing-state/episodes/"
-_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness/"
-_PENDING_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness-pending/"
-_PUBLICATION_PREFIX = "pantheon/heimdall/publications/"
-_PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES = 8192
 # Accepted publications must fit one broker request with envelope headroom.
 _PUBLICATION_MAX_PAYLOAD_BYTES = 512 * 1024
-_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
-_PUBLICATION_CAS_ATTEMPTS = 8
-_PUBLICATION_RECOVERY_LIMIT = 5_000
-_PUBLICATION_MAINTENANCE_PAGE = 16
-_RULE_VALIDATION_TIMEOUT_SECONDS = 5.0
-_FULL_SNAPSHOT_LIMIT = 128
-_MAX_KPI_SAMPLES = 512
+
+_LOG = logging.getLogger("fdai.agents.heimdall")
 
 
 def _kpi_measured(
@@ -127,10 +162,56 @@ def _mean_kpi(samples: deque[float], *, reason: str, unit: str) -> dict[str, Any
     )
 
 
-class HeimdallPublicationRuntimeMixin:
+class HeimdallPublicationRuntimeMixin(_AgentMixinBase):
     """Behavior-preserving extracted runtime methods."""
 
-    async def on_typed_message(self: Any, topic: str, payload: dict[str, Any]) -> None:
+    if TYPE_CHECKING:
+        _action_semantics: Any
+        _alert_counters: Any
+        _alert_noise_message: Any
+        _alert_windows: Any
+        _alerter_hook: Any
+        _clock: Any
+        _detection_readiness: Any
+        _detection_readiness_pass_order: Any
+        _detection_readiness_pending: Any
+        _dirty_episode_keys: Any
+        _dirty_pending_readiness: Any
+        _dirty_readiness_resources: Any
+        _drop_episode: Any
+        _emit_document_safety_signal: Any
+        _episode_history: Any
+        _forecast_clock: Any
+        _forecast_context_message: Any
+        _incident_candidate_hook: Any
+        _incident_episode_ids: Any
+        _incident_episode_severities: Any
+        _maybe_classify_severity: Any
+        _maybe_emit_anomaly: Any
+        _maybe_send_admin_card: Any
+        _observe_action_run: Any
+        _observe_detection_readiness: Any
+        _observe_t2_proposer_health: Any
+        _operational_evidence_hook: Any
+        _persist_state: Any
+        _publication_lock: Any
+        _publication_lock_refs: Any
+        _publication_locks: Any
+        _rate_threshold: Any
+        _rate_window: Any
+        _readiness_expected_dimensions: Any
+        _readiness_observed_dimensions: Any
+        _recent_episode_keys: Any
+        _recent_events: Any
+        _reserve_alert_slot: Any
+        _rule_generation_validation_handler: Any
+        _run_forecast_tick: Any
+        _security_high_threshold: Any
+        _security_recent: Any
+        _stale_inventory_delays_seconds: Any
+        _state_store: Any
+
+    async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if await self._alert_noise_message(topic, payload):
             return
         if topic == "object.action-run":
@@ -183,7 +264,7 @@ class HeimdallPublicationRuntimeMixin:
         else:
             self.record_behavior("typed_message:ignored")
 
-    async def _publish_evidence_conflict(self: Any, payload: dict[str, Any]) -> None:
+    async def _publish_evidence_conflict(self, payload: dict[str, Any]) -> None:
         """Validate one candidate and publish the authoritative immutable revision."""
 
         record = evidence_conflict_record(payload)
@@ -195,7 +276,7 @@ class HeimdallPublicationRuntimeMixin:
         await self._publish_once("object.evidence-conflict", record)
         self.record_behavior(f"evidence_conflict:{record['status']}")
 
-    async def _publish_recovery_effect_observation(self: Any, payload: dict[str, Any]) -> None:
+    async def _publish_recovery_effect_observation(self, payload: dict[str, Any]) -> None:
         """Relay one external recovery post-effect observation onto the owned topic.
 
         Heimdall is the terminal effect observer, so the independent observation
@@ -213,13 +294,13 @@ class HeimdallPublicationRuntimeMixin:
         await self._publish_once("object.recovery-effect-observation", record)
         self.record_behavior("recovery_effect_observation:relayed")
 
-    async def _publish_retrieval_validation(self: Any, payload: dict[str, object]) -> None:
+    async def _publish_retrieval_validation(self, payload: dict[str, object]) -> None:
         self.record_behavior("semantic_retrieval_validation:accepted")
         if self.bus is None:
             raise RuntimeError("Heimdall retrieval validation bus is unavailable")
         await self._publish_once("object.retrieval-validation", payload)
 
-    async def _validate_rule_generation(self: Any, payload: dict[str, Any]) -> None:
+    async def _validate_rule_generation(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Mimir":
             raise ValueError("Rule generation build result MUST be published by Mimir")
         build_result = RuleGenerationBuildResultEvent.model_validate(
@@ -253,7 +334,7 @@ class HeimdallPublicationRuntimeMixin:
         await self._publish_once("object.retrieval-validation", result_payload)
         self.record_behavior("rule_generation_validation:published")
 
-    async def _observe_chaos_experiment(self: Any, proposal: dict[str, Any]) -> None:
+    async def _observe_chaos_experiment(self, proposal: dict[str, Any]) -> None:
         kind = str(proposal.get("kind") or "chaos_experiment_proposal")
         if kind != "chaos_experiment_proposal":
             self.record_behavior("chaos_experiment:ignored_non_proposal_kind")
@@ -324,7 +405,7 @@ class HeimdallPublicationRuntimeMixin:
             return
         await self._publish_once("object.anomaly", anomaly)
 
-    async def _publish_once(self: Any, topic: str, payload: dict[str, Any]) -> bool:
+    async def _publish_once(self, topic: str, payload: dict[str, Any]) -> bool:
         idempotency_key = str(payload.get("idempotency_key") or "")
         if not idempotency_key:
             raise ValueError("Heimdall publication requires an idempotency_key")
@@ -371,7 +452,7 @@ class HeimdallPublicationRuntimeMixin:
                 lease=_PUBLICATION_CLAIM_LEASE,
             )
 
-    async def recover_publications(self: Any, *, limit: int = _PUBLICATION_RECOVERY_LIMIT) -> int:
+    async def recover_publications(self, *, limit: int = _PUBLICATION_RECOVERY_LIMIT) -> int:
         """Republish durable Heimdall publication intents left pending at restart."""
 
         if self._state_store is None or self.bus is None:
@@ -477,7 +558,7 @@ class HeimdallPublicationRuntimeMixin:
                 break
         return recovered
 
-    async def maintenance_tick(self: Any) -> None:
+    async def maintenance_tick(self) -> None:
         await Agent.maintenance_tick(self)
         try:
             await self.recover_publications(limit=_PUBLICATION_MAINTENANCE_PAGE)
@@ -485,7 +566,7 @@ class HeimdallPublicationRuntimeMixin:
             self.record_behavior("publication:maintenance_recovery_failed")
 
     async def _claim_publication(
-        self: Any,
+        self,
         state_key: str,
         topic: str,
         idempotency_key: str,
@@ -535,7 +616,7 @@ class HeimdallPublicationRuntimeMixin:
         raise RuntimeError("Heimdall publication claim CAS retry limit exceeded")
 
     async def _mark_publication_published(
-        self: Any,
+        self,
         state_key: str,
         topic: str,
         idempotency_key: str,
@@ -571,7 +652,7 @@ class HeimdallPublicationRuntimeMixin:
         raise RuntimeError("Heimdall publication mark CAS retry limit exceeded")
 
     async def _release_publication_claim(
-        self: Any,
+        self,
         state_key: str,
         payload: Mapping[str, Any],
         claim: PublicationClaim,

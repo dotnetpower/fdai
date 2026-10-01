@@ -200,10 +200,10 @@ def test_heimdall_recent_events_keyspace_is_bounded() -> None:
 def test_heimdall_correlation_flood_does_not_evict_other_resource(
     monkeypatch,
 ) -> None:
-    import fdai.agents.heimdall as heimdall_module
+    import fdai.agents._framework.heimdall_alert_window as alert_window_module
 
-    monkeypatch.setattr(heimdall_module, "_MAX_TRACKED_KEYS", 4)
-    monkeypatch.setattr(heimdall_module, "_MAX_EPISODES_PER_RESOURCE", 2, raising=False)
+    monkeypatch.setattr(alert_window_module, "MAX_TRACKED_KEYS", 4)
+    monkeypatch.setattr(alert_window_module, "MAX_EPISODES_PER_RESOURCE", 2)
     heimdall = Heimdall(rate_threshold=3)
     asyncio.run(
         heimdall.on_typed_message(

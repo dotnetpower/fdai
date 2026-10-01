@@ -10,11 +10,58 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.muninn_constants import (
+    _CONVERSATION_PROJECTION_RECOVERY_PAGE as _CONVERSATION_PROJECTION_RECOVERY_PAGE,
+)
+from fdai.agents._framework.muninn_constants import (
+    _DEFAULT_PROVIDER_TIMEOUT_SECONDS as _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_CONTEXT_FETCH_SAMPLES as _MAX_CONTEXT_FETCH_SAMPLES,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_CONTEXT_UNAVAILABLE_FACTS as _MAX_CONTEXT_UNAVAILABLE_FACTS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_CONVERSATION_PROJECTIONS as _MAX_CONVERSATION_PROJECTIONS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_OPERATING_PATTERN_CASES as _MAX_OPERATING_PATTERN_CASES,
+)
+from fdai.agents._framework.muninn_constants import (
+    _OPERATIONAL_OUTBOX_PREFIX as _OPERATIONAL_OUTBOX_PREFIX,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PROJECTION_PREFIX as _PROJECTION_PREFIX,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PROTECTED_CONVERSATION_BUCKETS as _PROTECTED_CONVERSATION_BUCKETS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_CAS_ATTEMPTS as _PUBLICATION_CAS_ATTEMPTS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_CLAIM_LEASE as _PUBLICATION_CLAIM_LEASE,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_COMPACTION_INTERVAL as _PUBLICATION_COMPACTION_INTERVAL,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_MAINTENANCE_PAGE as _PUBLICATION_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_OUTBOX_RETAIN as _PUBLICATION_OUTBOX_RETAIN,
+)
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.readiness import DetectionReadinessSnapshot, detection_readiness_state_key
 from fdai.shared.contracts.models import ForecastOutcome
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import Agent as _AgentMixinBase
+else:
+    _AgentMixinBase = object
 
 
 def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
@@ -28,29 +75,40 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
     return generated_at if generated_at.tzinfo is not None else None
 
 
-_MAX_OPERATING_PATTERN_CASES = 100
-_MAX_CONVERSATION_PROJECTIONS = 50_000
-_CONVERSATION_PROJECTION_RECOVERY_PAGE = 128
-_PUBLICATION_OUTBOX_RETAIN = 5_000
-# Compaction runs every N published rows (and on maintenance) so a publish costs O(1) amortized.
-_PUBLICATION_COMPACTION_INTERVAL = 64
-_PUBLICATION_CAS_ATTEMPTS = 8
-_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
-_PUBLICATION_MAINTENANCE_PAGE = 16
-_PROJECTION_PREFIX = "pantheon/muninn/conversation-projections"
-_OPERATIONAL_OUTBOX_PREFIX = "pantheon/muninn/operational-outbox"
-_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
-_MAX_CONTEXT_FETCH_SAMPLES = 512
-_MAX_CONTEXT_UNAVAILABLE_FACTS = 128
-_PROTECTED_CONVERSATION_BUCKETS = frozenset(
-    {"conversation_turns", "conversations", "user_preferences"}
-)
-
-
-class MuninnReadinessRuntimeMixin:
+class MuninnReadinessRuntimeMixin(_AgentMixinBase):
     """Behavior-preserving extracted runtime methods."""
 
-    async def _materialize_detection_readiness(self: Any, payload: dict[str, Any]) -> None:
+    if TYPE_CHECKING:
+        _assignment_clock: Any
+        _assignment_materializer: Any
+        _case_deletion_days: Any
+        _case_history: Any
+        _case_history_clock: Any
+        _case_history_retention: Any
+        _case_projection_store: Any
+        _case_retention_days: Any
+        _conversation_sessions: Any
+        _conversation_turns: Any
+        _durable_state_store: Any
+        _evidence_conflict_sink: Any
+        _handover_message: Any
+        _hold_response_outcome: Any
+        _materialize_change: Any
+        _materialize_evidence_conflict: Any
+        _materialize_operating_pattern: Any
+        _materialize_operational_case: Any
+        _materialize_prospective_lineage: Any
+        _materialize_retrieval_validation: Any
+        _outbox_key_for_recovery: Any
+        _prospective_lineage_materializer: Any
+        _provider_timeout_seconds: Any
+        _publication_outbox_claimed_at: Any
+        _publish_with_outbox: Any
+        _seal_prospective_lineage: Any
+        _user_preferences: Any
+        state_store: Any
+
+    async def _materialize_detection_readiness(self, payload: dict[str, Any]) -> None:
         """Persist and publish one validated Heimdall readiness snapshot."""
         try:
             snapshot = DetectionReadinessSnapshot.model_validate(
@@ -134,7 +192,7 @@ class MuninnReadinessRuntimeMixin:
         self.record_behavior(f"detection_readiness:{snapshot.decision.value}")
         await self._publish_with_outbox(outbox_key, "object.state-snapshot", snapshot_payload)
 
-    async def _apply_case_history_retention(self: Any, payload: dict[str, Any]) -> None:
+    async def _apply_case_history_retention(self, payload: dict[str, Any]) -> None:
         identity_fields = (
             payload.get("event_id"),
             payload.get("idempotency_key"),
@@ -162,7 +220,7 @@ class MuninnReadinessRuntimeMixin:
         for _case_id in deleted:
             self.record_behavior("case_history:deleted")
 
-    async def _materialize_forecast_outcome(self: Any, payload: dict[str, Any]) -> None:
+    async def _materialize_forecast_outcome(self, payload: dict[str, Any]) -> None:
         if self._case_history is None:
             self.record_behavior("case_history:unavailable")
             return
@@ -202,7 +260,7 @@ class MuninnReadinessRuntimeMixin:
         )
         await self._publish_with_outbox(outbox_key, "object.context-index", indexed)
 
-    async def _request_document_index(self: Any, audited: dict[str, Any]) -> None:
+    async def _request_document_index(self, audited: dict[str, Any]) -> None:
         """Publish the content-free command that unlocks document indexing."""
         upload_id = str(audited.get("upload_id") or "")
         document_id = str(audited.get("document_id") or "")

@@ -6,48 +6,73 @@ import asyncio
 import hashlib
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fdai.agents._framework.action_semantics import RESULT_VALUES, outcome_result
 from fdai.agents._framework.adapters import (
     AuditEntry,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_CLAIM_LEASE as _AUDIT_OUTBOX_CLAIM_LEASE,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_MAINTENANCE_PAGE as _AUDIT_OUTBOX_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_PENDING_SCAN_LIMIT as _AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_PREFIX as _AUDIT_OUTBOX_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_TOMBSTONE_RETENTION as _AUDIT_OUTBOX_TOMBSTONE_RETENTION,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_BUCKET as _FINGERPRINT_BUCKET,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_PREFIX as _FINGERPRINT_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_RETENTION as _FINGERPRINT_RETENTION,
+)
+from fdai.agents._framework.saga_constants import (
+    _FORECAST_AUDIT_FENCE_SIZE as _FORECAST_AUDIT_FENCE_SIZE,
+)
+from fdai.agents._framework.saga_constants import (
+    _HANDOFF_CONTEXT_KEYS as _HANDOFF_CONTEXT_KEYS,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_CLEAN_WINDOW as _ISSUE_CLOSE_CLEAN_WINDOW,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_ELIGIBILITY_BUCKET as _ISSUE_CLOSE_ELIGIBILITY_BUCKET,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_ELIGIBILITY_PREFIX as _ISSUE_CLOSE_ELIGIBILITY_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_FINGERPRINT_INDEX as _MAX_FINGERPRINT_INDEX,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_HANDOFF_CONTEXT_ITEMS as _MAX_HANDOFF_CONTEXT_ITEMS,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_HANDOFF_CONTEXT_VALUE_CHARS as _MAX_HANDOFF_CONTEXT_VALUE_CHARS,
+)
+from fdai.agents._framework.saga_constants import (
+    _NON_LEARNABLE_TERMINAL_STATES as _NON_LEARNABLE_TERMINAL_STATES,
 )
 from fdai.agents._framework.saga_handoff import (
     HandoffIssueCheckpoint,
 )
 from fdai.agents._framework.topics import stable_idempotency_key
 
-_FINGERPRINT_BUCKET = "issue_fingerprint_index"
-_AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
-_FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
-_ISSUE_CLOSE_ELIGIBILITY_PREFIX = "pantheon/saga/issue-close-eligibility/"
-_AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
-_AUDIT_OUTBOX_MAINTENANCE_PAGE = 16
-# Published outbox tombstones retain only digests long enough to suppress
-# duplicate redelivery across restarts while keeping prefix scans bounded.
-_AUDIT_OUTBOX_TOMBSTONE_RETENTION = 1_024
-_AUDIT_OUTBOX_CLAIM_LEASE = timedelta(minutes=5)
-_FORECAST_AUDIT_FENCE_SIZE = 10_000
-_MAX_FINGERPRINT_INDEX = 50_000
-_FINGERPRINT_RETENTION = 10_000
-_ISSUE_CLOSE_CLEAN_WINDOW = timedelta(hours=24)
-_ISSUE_CLOSE_ELIGIBILITY_BUCKET = "issue_close_eligibility"
-_MAX_HANDOFF_CONTEXT_ITEMS = 8
-_MAX_HANDOFF_CONTEXT_VALUE_CHARS = 256
-_HANDOFF_CONTEXT_KEYS = frozenset(
-    {
-        "context_ref",
-        "evidence_ref",
-        "handoff_ref",
-        "payload_digest",
-        "source_ref",
-        "trace_ref",
-    }
-)
-_NON_LEARNABLE_TERMINAL_STATES = frozenset(
-    {"deny_dropped", "rejected", "expired", "approval_expired"}
-)
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import Agent as _AgentMixinBase
+else:
+    _AgentMixinBase = object
 
 
 def _utc_now() -> datetime:
@@ -59,7 +84,7 @@ class SagaAuditChain(Protocol):
     entries: list[AuditEntry]
 
     def append(
-        self: Any,
+        self,
         *,
         principal: str,
         topic: str,
@@ -67,7 +92,7 @@ class SagaAuditChain(Protocol):
         payload: dict[str, Any],
     ) -> AuditEntry | Awaitable[AuditEntry]: ...
 
-    def entries_for_correlation(self: Any, correlation_id: str) -> list[AuditEntry]: ...
+    def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]: ...
 
 
 @dataclass
@@ -76,11 +101,41 @@ class _RefCountedLock:
     ref_count: int = 0
 
 
-class SagaHandoffRuntimeMixin:
+class SagaHandoffRuntimeMixin(_AgentMixinBase):
     """Behavior-preserving extracted runtime methods."""
 
+    if TYPE_CHECKING:
+        _append_audit: Any
+        _append_issue_audit: Any
+        _audit_outbox_pending: Any
+        _clock: Any
+        _durable_state_store: Any
+        _fingerprint_index: Any
+        _forecast_audit_keys: Any
+        _handoff_journal: Any
+        _handoff_locks: Any
+        _handover_message: Any
+        _issue_close_eligibility: Any
+        _issue_close_eligibility_rehydrated: Any
+        _issue_close_promotion_evidence_producer_bound: Any
+        _issue_timeout_seconds: Any
+        _last_audit_outbox_recovered: Any
+        _last_issue_close_eligibility_recovered: Any
+        _load_durable_fingerprint: Any
+        _mutate_github_issue: Any
+        _publish_audit_entry_with_outbox: Any
+        _publish_issue: Any
+        _put_fingerprint_index: Any
+        audit_chain: Any
+        durable_audit: Any
+        github: Any
+        recover_audit_outbox: Any
+        rehydrate_issue_close_eligibility: Any
+        rehydrate_issue_tracker: Any
+        state_store: Any
+
     async def _materialize_handoff(
-        self: Any,
+        self,
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
@@ -99,7 +154,7 @@ class SagaHandoffRuntimeMixin:
                 del self._handoff_locks[lock_key]
 
     async def _materialize_handoff_locked(
-        self: Any,
+        self,
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
@@ -208,7 +263,7 @@ class SagaHandoffRuntimeMixin:
         await self._handoff_journal.complete(escalation_id, checkpoint)
         self.record_behavior("handoff:materialized")
 
-    async def recover_handoff_issue_publications(self: Any) -> int:
+    async def recover_handoff_issue_publications(self) -> int:
         """Republish Saga-owned issue records whose checkpoint survived a crash."""
 
         if self.bus is None:
@@ -234,7 +289,7 @@ class SagaHandoffRuntimeMixin:
         return recovered
 
     async def _append_ingress_retention_audit(
-        self: Any,
+        self,
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
@@ -271,7 +326,7 @@ class SagaHandoffRuntimeMixin:
         self.record_behavior("ingress_retention:audit_recorded")
 
     async def _republish_forecast_outcome(
-        self: Any,
+        self,
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
@@ -322,7 +377,7 @@ class SagaHandoffRuntimeMixin:
         self._forecast_audit_keys.add(audit_idempotency_key)
 
     async def _republish_document_decision(
-        self: Any, payload: dict[str, Any], correlation_id: str
+        self, payload: dict[str, Any], correlation_id: str
     ) -> None:
         """Seal a document decision before the ingestion worker may act."""
         if self.bus is None:
@@ -355,7 +410,7 @@ class SagaHandoffRuntimeMixin:
         )
 
     async def _republish_document_approval(
-        self: Any, payload: dict[str, Any], correlation_id: str
+        self, payload: dict[str, Any], correlation_id: str
     ) -> None:
         """Seal a document approval before promotion or hold."""
         if self.bus is None:
@@ -387,7 +442,7 @@ class SagaHandoffRuntimeMixin:
             },
         )
 
-    async def _republish_outcome(self: Any, payload: dict[str, Any], correlation_id: str) -> None:
+    async def _republish_outcome(self, payload: dict[str, Any], correlation_id: str) -> None:
         """Republish a terminal action outcome as an ``object.audit-entry``.
 
         Saga owns AuditEntry, so it is the writer that closes the discovery

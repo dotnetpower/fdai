@@ -7,50 +7,76 @@ import hashlib
 import inspect
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fdai.agents._framework.adapters import (
     AuditEntry,
     canonical_json_digest,
 )
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_CLAIM_LEASE as _AUDIT_OUTBOX_CLAIM_LEASE,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_MAINTENANCE_PAGE as _AUDIT_OUTBOX_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_PENDING_SCAN_LIMIT as _AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_PREFIX as _AUDIT_OUTBOX_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_TOMBSTONE_RETENTION as _AUDIT_OUTBOX_TOMBSTONE_RETENTION,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_BUCKET as _FINGERPRINT_BUCKET,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_PREFIX as _FINGERPRINT_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_RETENTION as _FINGERPRINT_RETENTION,
+)
+from fdai.agents._framework.saga_constants import (
+    _FORECAST_AUDIT_FENCE_SIZE as _FORECAST_AUDIT_FENCE_SIZE,
+)
+from fdai.agents._framework.saga_constants import (
+    _HANDOFF_CONTEXT_KEYS as _HANDOFF_CONTEXT_KEYS,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_CLEAN_WINDOW as _ISSUE_CLOSE_CLEAN_WINDOW,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_ELIGIBILITY_BUCKET as _ISSUE_CLOSE_ELIGIBILITY_BUCKET,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_ELIGIBILITY_PREFIX as _ISSUE_CLOSE_ELIGIBILITY_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_FINGERPRINT_INDEX as _MAX_FINGERPRINT_INDEX,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_HANDOFF_CONTEXT_ITEMS as _MAX_HANDOFF_CONTEXT_ITEMS,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_HANDOFF_CONTEXT_VALUE_CHARS as _MAX_HANDOFF_CONTEXT_VALUE_CHARS,
+)
+from fdai.agents._framework.saga_constants import (
+    _NON_LEARNABLE_TERMINAL_STATES as _NON_LEARNABLE_TERMINAL_STATES,
+)
 from fdai.agents._framework.topics import stable_idempotency_key
 
-_FINGERPRINT_BUCKET = "issue_fingerprint_index"
-_AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
-_FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
-_ISSUE_CLOSE_ELIGIBILITY_PREFIX = "pantheon/saga/issue-close-eligibility/"
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import Agent as _AgentMixinBase
+else:
+    _AgentMixinBase = object
+
 _ISSUE_CLOSE_CHECKPOINT_PREFIX = "pantheon/saga/issue-close-checkpoint/"
-_AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
-_AUDIT_OUTBOX_MAINTENANCE_PAGE = 16
-# Published outbox tombstones retain only digests long enough to suppress
-# duplicate redelivery across restarts while keeping prefix scans bounded.
-_AUDIT_OUTBOX_TOMBSTONE_RETENTION = 1_024
-_AUDIT_OUTBOX_CLAIM_LEASE = timedelta(minutes=5)
-_FORECAST_AUDIT_FENCE_SIZE = 10_000
-_MAX_FINGERPRINT_INDEX = 50_000
-_FINGERPRINT_RETENTION = 10_000
-_ISSUE_CLOSE_CLEAN_WINDOW = timedelta(hours=24)
-_ISSUE_CLOSE_ELIGIBILITY_BUCKET = "issue_close_eligibility"
 _ISSUE_CLOSE_CHECKPOINT_PAGE = 128
 _ISSUE_CLOSE_CHECKPOINT_RETENTION = 1_024
 _ISSUE_CLOSE_CHECKPOINT_CAS_RETRIES = 16
-_MAX_HANDOFF_CONTEXT_ITEMS = 8
-_MAX_HANDOFF_CONTEXT_VALUE_CHARS = 256
-_HANDOFF_CONTEXT_KEYS = frozenset(
-    {
-        "context_ref",
-        "evidence_ref",
-        "handoff_ref",
-        "payload_digest",
-        "source_ref",
-        "trace_ref",
-    }
-)
-_NON_LEARNABLE_TERMINAL_STATES = frozenset(
-    {"deny_dropped", "rejected", "expired", "approval_expired"}
-)
 
 
 def _utc_now() -> datetime:
@@ -62,7 +88,7 @@ class SagaAuditChain(Protocol):
     entries: list[AuditEntry]
 
     def append(
-        self: Any,
+        self,
         *,
         principal: str,
         topic: str,
@@ -70,7 +96,7 @@ class SagaAuditChain(Protocol):
         payload: dict[str, Any],
     ) -> AuditEntry | Awaitable[AuditEntry]: ...
 
-    def entries_for_correlation(self: Any, correlation_id: str) -> list[AuditEntry]: ...
+    def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]: ...
 
 
 @dataclass
@@ -79,10 +105,46 @@ class _RefCountedLock:
     ref_count: int = 0
 
 
-class SagaIssueMaintenanceMixin:
+class SagaIssueMaintenanceMixin(_AgentMixinBase):
     """Behavior-preserving extracted runtime methods."""
 
-    async def close_issue(self: Any, *, fingerprint: str, closed_by_pr: str) -> None:
+    if TYPE_CHECKING:
+        _append_audit: Any
+        _append_ingress_retention_audit: Any
+        _append_issue_audit: Any
+        _audit_outbox_pending: Any
+        _clock: Any
+        _durable_state_store: Any
+        _fingerprint_index: Any
+        _forecast_audit_keys: Any
+        _handoff_journal: Any
+        _handoff_locks: Any
+        _handover_message: Any
+        _issue_close_eligibility: Any
+        _issue_close_eligibility_rehydrated: Any
+        _issue_close_promotion_evidence_producer_bound: Any
+        _issue_timeout_seconds: Any
+        _last_audit_outbox_recovered: Any
+        _last_issue_close_eligibility_recovered: Any
+        _load_durable_fingerprint: Any
+        _materialize_handoff: Any
+        _mutate_github_issue: Any
+        _publish_audit_entry_with_outbox: Any
+        _publish_issue: Any
+        _put_fingerprint_index: Any
+        _republish_document_approval: Any
+        _republish_document_decision: Any
+        _republish_forecast_outcome: Any
+        _republish_outcome: Any
+        audit_chain: Any
+        durable_audit: Any
+        github: Any
+        recover_audit_outbox: Any
+        rehydrate_issue_close_eligibility: Any
+        rehydrate_issue_tracker: Any
+        state_store: Any
+
+    async def close_issue(self, *, fingerprint: str, closed_by_pr: str) -> None:
         result = self.github.close(fingerprint, closed_by_pr=closed_by_pr)
         if inspect.isawaitable(result):
             await result
@@ -91,7 +153,7 @@ class SagaIssueMaintenanceMixin:
         state["open"] = False
         self._put_fingerprint_index(fingerprint, state)
 
-    async def scan_issue_closures(self: Any) -> int:
+    async def scan_issue_closures(self) -> int:
         if not self._issue_close_eligibility_rehydrated:
             await self.rehydrate_issue_close_eligibility()
         await self.rehydrate_issue_tracker()
@@ -135,7 +197,7 @@ class SagaIssueMaintenanceMixin:
         return closed
 
     async def _issue_close_checkpoint(
-        self: Any,
+        self,
         *,
         fingerprint: str,
         issue_number: int,
@@ -171,7 +233,7 @@ class SagaIssueMaintenanceMixin:
             raise RuntimeError("Saga issue-close checkpoint disappeared after creation")
         return dict(stored)
 
-    async def _recover_issue_close_checkpoints(self: Any) -> int:
+    async def _recover_issue_close_checkpoints(self) -> int:
         if self._durable_state_store is None:
             return 0
         recovered = 0
@@ -192,7 +254,7 @@ class SagaIssueMaintenanceMixin:
             self.record_behavior("issue_close:checkpoint_recovered", recovered)
         return recovered
 
-    async def _advance_issue_close_checkpoint(self: Any, checkpoint: dict[str, Any]) -> bool:
+    async def _advance_issue_close_checkpoint(self, checkpoint: dict[str, Any]) -> bool:
         for _attempt in range(_ISSUE_CLOSE_CHECKPOINT_CAS_RETRIES):
             completed, checkpoint, retry = await self._advance_issue_close_checkpoint_once(
                 checkpoint
@@ -202,7 +264,7 @@ class SagaIssueMaintenanceMixin:
         raise RuntimeError("Saga issue-close checkpoint CAS retry limit exceeded")
 
     async def _advance_issue_close_checkpoint_once(
-        self: Any,
+        self,
         checkpoint: dict[str, Any],
     ) -> tuple[bool, dict[str, Any], bool]:
         fingerprint = str(checkpoint.get("fingerprint") or "")
@@ -327,7 +389,7 @@ class SagaIssueMaintenanceMixin:
         return True, checkpoint, False
 
     async def _append_issue_close_audit(
-        self: Any,
+        self,
         *,
         fingerprint: str,
         issue_number: int,
@@ -359,7 +421,7 @@ class SagaIssueMaintenanceMixin:
         )
 
     async def _append_issue_close_cancelled_audit(
-        self: Any,
+        self,
         *,
         fingerprint: str,
         issue_number: int,
@@ -396,7 +458,7 @@ class SagaIssueMaintenanceMixin:
         )
 
     async def _store_issue_close_checkpoint(
-        self: Any,
+        self,
         checkpoint: dict[str, Any],
         updates: Mapping[str, Any],
     ) -> tuple[dict[str, Any], bool]:
@@ -424,7 +486,7 @@ class SagaIssueMaintenanceMixin:
             raise RuntimeError("Saga issue-close checkpoint disappeared during transition")
         return dict(latest), False
 
-    async def _compact_issue_close_checkpoints(self: Any) -> int:
+    async def _compact_issue_close_checkpoints(self) -> int:
         if self._durable_state_store is None:
             return 0
         rows, total = await self._durable_state_store.read_state_page(
@@ -447,17 +509,17 @@ class SagaIssueMaintenanceMixin:
             self.record_behavior("issue_close:checkpoint_compacted", deleted)
         return deleted
 
-    async def _current_fingerprint_state(self: Any, fingerprint: str) -> dict[str, Any] | None:
+    async def _current_fingerprint_state(self, fingerprint: str) -> dict[str, Any] | None:
         durable = await self._load_durable_fingerprint(fingerprint)
         if durable is not None:
             return dict(durable)
         local = self._fingerprint_index.get(fingerprint)
         return dict(local) if isinstance(local, Mapping) else None
 
-    def replay_for_correlation(self: Any, correlation_id: str) -> list[AuditEntry]:
+    def replay_for_correlation(self, correlation_id: str) -> list[AuditEntry]:
         return list(self.audit_chain.entries_for_correlation(correlation_id))
 
-    async def maintenance_tick(self: Any) -> None:
+    async def maintenance_tick(self) -> None:
         await Agent.maintenance_tick(self)
         await self.recover_audit_outbox(limit=_AUDIT_OUTBOX_MAINTENANCE_PAGE)
         verify = getattr(self.audit_chain, "verify", None)
@@ -471,7 +533,7 @@ class SagaIssueMaintenanceMixin:
         if compacted:
             self.record_behavior("maintenance_tick:fingerprint_index_compacted", compacted)
 
-    async def compact_fingerprint_index(self: Any) -> int:
+    async def compact_fingerprint_index(self) -> int:
         compacted = 0
         while len(self._fingerprint_index) > _FINGERPRINT_RETENTION:
             oldest = next(iter(self._fingerprint_index))
@@ -485,7 +547,7 @@ class SagaIssueMaintenanceMixin:
             )
         return compacted
 
-    def health(self: Any) -> dict[str, Any]:
+    def health(self) -> dict[str, Any]:
         entries = len(self.audit_chain.entries)
         durable = self.durable_audit
         verified_entries = self._last_chain_verified_entries

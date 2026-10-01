@@ -9,15 +9,62 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.adapters import canonical_json_digest
 from fdai.agents._framework.assignment_workflow import (
     materialize_assignment,
 )
 from fdai.agents._framework.bounded import BoundedLruDict
+from fdai.agents._framework.muninn_constants import (
+    _CONVERSATION_PROJECTION_RECOVERY_PAGE as _CONVERSATION_PROJECTION_RECOVERY_PAGE,
+)
+from fdai.agents._framework.muninn_constants import (
+    _DEFAULT_PROVIDER_TIMEOUT_SECONDS as _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_CONTEXT_FETCH_SAMPLES as _MAX_CONTEXT_FETCH_SAMPLES,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_CONTEXT_UNAVAILABLE_FACTS as _MAX_CONTEXT_UNAVAILABLE_FACTS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_CONVERSATION_PROJECTIONS as _MAX_CONVERSATION_PROJECTIONS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_OPERATING_PATTERN_CASES as _MAX_OPERATING_PATTERN_CASES,
+)
+from fdai.agents._framework.muninn_constants import (
+    _OPERATIONAL_OUTBOX_PREFIX as _OPERATIONAL_OUTBOX_PREFIX,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PROJECTION_PREFIX as _PROJECTION_PREFIX,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PROTECTED_CONVERSATION_BUCKETS as _PROTECTED_CONVERSATION_BUCKETS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_CAS_ATTEMPTS as _PUBLICATION_CAS_ATTEMPTS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_CLAIM_LEASE as _PUBLICATION_CLAIM_LEASE,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_COMPACTION_INTERVAL as _PUBLICATION_COMPACTION_INTERVAL,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_MAINTENANCE_PAGE as _PUBLICATION_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_OUTBOX_RETAIN as _PUBLICATION_OUTBOX_RETAIN,
+)
 from fdai.agents._framework.producer_auth import require_topic_owner
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import Agent as _AgentMixinBase
+else:
+    _AgentMixinBase = object
 
 
 def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
@@ -31,29 +78,44 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
     return generated_at if generated_at.tzinfo is not None else None
 
 
-_MAX_OPERATING_PATTERN_CASES = 100
-_MAX_CONVERSATION_PROJECTIONS = 50_000
-_CONVERSATION_PROJECTION_RECOVERY_PAGE = 128
-_PUBLICATION_OUTBOX_RETAIN = 5_000
-# Compaction runs every N published rows (and on maintenance) so a publish costs O(1) amortized.
-_PUBLICATION_COMPACTION_INTERVAL = 64
-_PUBLICATION_CAS_ATTEMPTS = 8
-_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
-_PUBLICATION_MAINTENANCE_PAGE = 16
-_PROJECTION_PREFIX = "pantheon/muninn/conversation-projections"
-_OPERATIONAL_OUTBOX_PREFIX = "pantheon/muninn/operational-outbox"
-_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
-_MAX_CONTEXT_FETCH_SAMPLES = 512
-_MAX_CONTEXT_UNAVAILABLE_FACTS = 128
-_PROTECTED_CONVERSATION_BUCKETS = frozenset(
-    {"conversation_turns", "conversations", "user_preferences"}
-)
-
-
-class MuninnConversationProjectionMixin:
+class MuninnConversationProjectionMixin(_AgentMixinBase):
     """Behavior-preserving extracted runtime methods."""
 
-    async def on_typed_message(self: Any, topic: str, payload: dict[str, Any]) -> None:
+    if TYPE_CHECKING:
+        _apply_case_history_retention: Any
+        _assignment_clock: Any
+        _assignment_materializer: Any
+        _case_deletion_days: Any
+        _case_history: Any
+        _case_history_clock: Any
+        _case_history_retention: Any
+        _case_projection_store: Any
+        _case_retention_days: Any
+        _conversation_sessions: Any
+        _conversation_turns: Any
+        _durable_state_store: Any
+        _evidence_conflict_sink: Any
+        _handover_message: Any
+        _hold_response_outcome: Any
+        _materialize_change: Any
+        _materialize_detection_readiness: Any
+        _materialize_evidence_conflict: Any
+        _materialize_forecast_outcome: Any
+        _materialize_operating_pattern: Any
+        _materialize_operational_case: Any
+        _materialize_prospective_lineage: Any
+        _materialize_retrieval_validation: Any
+        _outbox_key_for_recovery: Any
+        _prospective_lineage_materializer: Any
+        _provider_timeout_seconds: Any
+        _publication_outbox_claimed_at: Any
+        _publish_with_outbox: Any
+        _request_document_index: Any
+        _seal_prospective_lineage: Any
+        _user_preferences: Any
+        state_store: Any
+
+    async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if await self._handover_message(topic, payload):
             return
         if topic == "object.audit-entry" and payload.get("kind") == "human_assignment":
@@ -219,7 +281,7 @@ class MuninnConversationProjectionMixin:
         else:
             self.record_behavior("typed_message:ignored")
 
-    async def recover_conversation_projections(self: Any) -> int:
+    async def recover_conversation_projections(self) -> int:
         """Restore digest-only Bragi conversation projections from the durable store."""
         store = self._durable_state_store
         if store is None:
@@ -255,7 +317,7 @@ class MuninnConversationProjectionMixin:
                 offset += len(rows)
         return restored
 
-    async def _materialize_turn_projection(self: Any, payload: dict[str, Any]) -> None:
+    async def _materialize_turn_projection(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Bragi":
             self.record_behavior("conversation_turn:rejected")
             raise ValueError("Muninn conversation turns MUST be published by Bragi")
@@ -284,7 +346,7 @@ class MuninnConversationProjectionMixin:
         await self._sync_projection_record("conversation_turns", turn_id, record)
         self.record_behavior("conversation_turn:accepted")
 
-    async def _materialize_conversation_projection(self: Any, payload: dict[str, Any]) -> None:
+    async def _materialize_conversation_projection(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Bragi":
             self.record_behavior("conversation:rejected")
             raise ValueError("Muninn conversations MUST be published by Bragi")
@@ -310,7 +372,7 @@ class MuninnConversationProjectionMixin:
         await self._sync_projection_record("conversations", conversation_id, record)
         self.record_behavior("conversation:accepted")
 
-    async def _materialize_user_preference_projection(self: Any, payload: dict[str, Any]) -> None:
+    async def _materialize_user_preference_projection(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Bragi":
             self.record_behavior("user_preference:rejected")
             raise ValueError("Muninn user preferences MUST be published by Bragi")
@@ -339,7 +401,7 @@ class MuninnConversationProjectionMixin:
         self.record_behavior("user_preference:accepted")
 
     def _sync_projection_bucket(
-        self: Any,
+        self,
         bucket: str,
         projection: BoundedLruDict[str, dict[str, Any]],
     ) -> None:
@@ -347,7 +409,7 @@ class MuninnConversationProjectionMixin:
             self.state_store.put(bucket, key, record)
 
     async def _sync_projection_record(
-        self: Any,
+        self,
         bucket: str,
         key: str,
         record: dict[str, Any],

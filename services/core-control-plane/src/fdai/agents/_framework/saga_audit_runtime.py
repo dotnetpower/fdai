@@ -7,8 +7,8 @@ import hashlib
 import inspect
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fdai.agents._framework.adapters import (
     AuditEntry,
@@ -20,37 +20,62 @@ from fdai.agents._framework.outbox_publication import (
     new_publication_claim_owner,
     publish_claimed_outbox,
 )
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_CLAIM_LEASE as _AUDIT_OUTBOX_CLAIM_LEASE,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_MAINTENANCE_PAGE as _AUDIT_OUTBOX_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_PENDING_SCAN_LIMIT as _AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_PREFIX as _AUDIT_OUTBOX_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _AUDIT_OUTBOX_TOMBSTONE_RETENTION as _AUDIT_OUTBOX_TOMBSTONE_RETENTION,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_BUCKET as _FINGERPRINT_BUCKET,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_PREFIX as _FINGERPRINT_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _FINGERPRINT_RETENTION as _FINGERPRINT_RETENTION,
+)
+from fdai.agents._framework.saga_constants import (
+    _FORECAST_AUDIT_FENCE_SIZE as _FORECAST_AUDIT_FENCE_SIZE,
+)
+from fdai.agents._framework.saga_constants import (
+    _HANDOFF_CONTEXT_KEYS as _HANDOFF_CONTEXT_KEYS,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_CLEAN_WINDOW as _ISSUE_CLOSE_CLEAN_WINDOW,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_ELIGIBILITY_BUCKET as _ISSUE_CLOSE_ELIGIBILITY_BUCKET,
+)
+from fdai.agents._framework.saga_constants import (
+    _ISSUE_CLOSE_ELIGIBILITY_PREFIX as _ISSUE_CLOSE_ELIGIBILITY_PREFIX,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_FINGERPRINT_INDEX as _MAX_FINGERPRINT_INDEX,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_HANDOFF_CONTEXT_ITEMS as _MAX_HANDOFF_CONTEXT_ITEMS,
+)
+from fdai.agents._framework.saga_constants import (
+    _MAX_HANDOFF_CONTEXT_VALUE_CHARS as _MAX_HANDOFF_CONTEXT_VALUE_CHARS,
+)
+from fdai.agents._framework.saga_constants import (
+    _NON_LEARNABLE_TERMINAL_STATES as _NON_LEARNABLE_TERMINAL_STATES,
+)
 
-_FINGERPRINT_BUCKET = "issue_fingerprint_index"
-_AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
-_FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
-_ISSUE_CLOSE_ELIGIBILITY_PREFIX = "pantheon/saga/issue-close-eligibility/"
-_AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
-_AUDIT_OUTBOX_MAINTENANCE_PAGE = 16
-# Published outbox tombstones retain only digests long enough to suppress
-# duplicate redelivery across restarts while keeping prefix scans bounded.
-_AUDIT_OUTBOX_TOMBSTONE_RETENTION = 1_024
-_AUDIT_OUTBOX_CLAIM_LEASE = timedelta(minutes=5)
-_FORECAST_AUDIT_FENCE_SIZE = 10_000
-_MAX_FINGERPRINT_INDEX = 50_000
-_FINGERPRINT_RETENTION = 10_000
-_ISSUE_CLOSE_CLEAN_WINDOW = timedelta(hours=24)
-_ISSUE_CLOSE_ELIGIBILITY_BUCKET = "issue_close_eligibility"
-_MAX_HANDOFF_CONTEXT_ITEMS = 8
-_MAX_HANDOFF_CONTEXT_VALUE_CHARS = 256
-_HANDOFF_CONTEXT_KEYS = frozenset(
-    {
-        "context_ref",
-        "evidence_ref",
-        "handoff_ref",
-        "payload_digest",
-        "source_ref",
-        "trace_ref",
-    }
-)
-_NON_LEARNABLE_TERMINAL_STATES = frozenset(
-    {"deny_dropped", "rejected", "expired", "approval_expired"}
-)
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import Agent as _AgentMixinBase
+else:
+    _AgentMixinBase = object
 
 
 def _utc_now() -> datetime:
@@ -62,7 +87,7 @@ class SagaAuditChain(Protocol):
     entries: list[AuditEntry]
 
     def append(
-        self: Any,
+        self,
         *,
         principal: str,
         topic: str,
@@ -70,7 +95,7 @@ class SagaAuditChain(Protocol):
         payload: dict[str, Any],
     ) -> AuditEntry | Awaitable[AuditEntry]: ...
 
-    def entries_for_correlation(self: Any, correlation_id: str) -> list[AuditEntry]: ...
+    def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]: ...
 
 
 @dataclass
@@ -79,12 +104,43 @@ class _RefCountedLock:
     ref_count: int = 0
 
 
-class SagaAuditRuntimeMixin:
+class SagaAuditRuntimeMixin(_AgentMixinBase):
     """Behavior-preserving extracted runtime methods."""
 
-    async def recover_audit_outbox(
-        self: Any, *, limit: int = _AUDIT_OUTBOX_PENDING_SCAN_LIMIT
-    ) -> int:
+    if TYPE_CHECKING:
+        _append_ingress_retention_audit: Any
+        _append_issue_audit: Any
+        _audit_outbox_pending: Any
+        _clock: Any
+        _durable_state_store: Any
+        _fingerprint_index: Any
+        _forecast_audit_keys: Any
+        _handoff_journal: Any
+        _handoff_locks: Any
+        _handover_message: Any
+        _issue_close_eligibility: Any
+        _issue_close_eligibility_rehydrated: Any
+        _issue_close_promotion_evidence_producer_bound: Any
+        _issue_timeout_seconds: Any
+        _last_audit_outbox_recovered: Any
+        _last_issue_close_eligibility_recovered: Any
+        _load_durable_fingerprint: Any
+        _materialize_handoff: Any
+        _mutate_github_issue: Any
+        _publish_issue: Any
+        _put_fingerprint_index: Any
+        _republish_document_approval: Any
+        _republish_document_decision: Any
+        _republish_forecast_outcome: Any
+        _republish_outcome: Any
+        audit_chain: Any
+        durable_audit: Any
+        github: Any
+        rehydrate_issue_close_eligibility: Any
+        rehydrate_issue_tracker: Any
+        state_store: Any
+
+    async def recover_audit_outbox(self, *, limit: int = _AUDIT_OUTBOX_PENDING_SCAN_LIMIT) -> int:
         """Republish durable audit-entry intents left unpublished by a crash."""
 
         if self._durable_state_store is None or self.bus is None:
@@ -138,7 +194,7 @@ class SagaAuditRuntimeMixin:
         return published
 
     async def _append_audit(
-        self: Any,
+        self,
         *,
         principal: str,
         topic: str,
@@ -154,7 +210,7 @@ class SagaAuditRuntimeMixin:
         if inspect.isawaitable(result):
             await result
 
-    async def _publish_audit_entry_with_outbox(self: Any, payload: dict[str, Any]) -> None:
+    async def _publish_audit_entry_with_outbox(self, payload: dict[str, Any]) -> None:
         if self._durable_state_store is None:
             if self.bus is None:
                 self.record_behavior("audit_outbox:transport_unavailable")
@@ -167,7 +223,7 @@ class SagaAuditRuntimeMixin:
             return
         await self._publish_claimed_audit_outbox(payload)
 
-    async def _publish_claimed_audit_outbox(self: Any, payload: dict[str, Any]) -> bool:
+    async def _publish_claimed_audit_outbox(self, payload: dict[str, Any]) -> bool:
         bus = self.bus
         if bus is None:
             self.record_behavior("audit_outbox:publication_pending")
@@ -185,7 +241,7 @@ class SagaAuditRuntimeMixin:
             lease=_AUDIT_OUTBOX_CLAIM_LEASE,
         )
 
-    async def _checkpoint_audit_outbox(self: Any, payload: Mapping[str, Any]) -> None:
+    async def _checkpoint_audit_outbox(self, payload: Mapping[str, Any]) -> None:
         if self._durable_state_store is None:
             return
         key = _audit_outbox_key(payload)
@@ -218,7 +274,7 @@ class SagaAuditRuntimeMixin:
             raise RuntimeError("Saga audit outbox idempotency collision")
 
     async def _claim_audit_outbox_publication(
-        self: Any,
+        self,
         payload: Mapping[str, Any],
     ) -> PublicationClaim | None:
         if self._durable_state_store is None:
@@ -257,7 +313,7 @@ class SagaAuditRuntimeMixin:
         raise RuntimeError("Saga audit outbox publication claim CAS retry limit exceeded")
 
     async def _mark_audit_outbox_published(
-        self: Any,
+        self,
         payload: Mapping[str, Any],
         claim: PublicationClaim,
     ) -> bool:
@@ -285,7 +341,7 @@ class SagaAuditRuntimeMixin:
         raise RuntimeError("Saga audit outbox publication CAS retry limit exceeded")
 
     async def _release_audit_outbox_publication_claim(
-        self: Any,
+        self,
         payload: Mapping[str, Any],
         claim: PublicationClaim,
     ) -> None:
@@ -317,7 +373,7 @@ class SagaAuditRuntimeMixin:
                 return
         raise RuntimeError("Saga audit outbox publication release CAS retry limit exceeded")
 
-    async def _compact_audit_outbox_tombstones(self: Any) -> None:
+    async def _compact_audit_outbox_tombstones(self) -> None:
         if self._durable_state_store is None:
             return
         await self._durable_state_store.delete_states_beyond(

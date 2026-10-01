@@ -13,9 +13,80 @@ import re
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.mimir_constants import (
+    _DEFAULT_PROVIDER_TIMEOUT_SECONDS as _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.mimir_constants import (
+    _DEPRECATION_CANDIDATE_PREFIX as _DEPRECATION_CANDIDATE_PREFIX,
+)
+from fdai.agents._framework.mimir_constants import (
+    _GOVERNANCE_PREFIX as _GOVERNANCE_PREFIX,
+)
+from fdai.agents._framework.mimir_constants import (
+    _GOVERNANCE_RECOVERY_PAGE as _GOVERNANCE_RECOVERY_PAGE,
+)
+from fdai.agents._framework.mimir_constants import (
+    _ISSUE_FINGERPRINT_PREFIX as _ISSUE_FINGERPRINT_PREFIX,
+)
+from fdai.agents._framework.mimir_constants import (
+    _MAX_CATALOG_REVIEW_PACKAGES as _MAX_CATALOG_REVIEW_PACKAGES,
+)
+from fdai.agents._framework.mimir_constants import (
+    _MAX_ISSUE_FINGERPRINTS as _MAX_ISSUE_FINGERPRINTS,
+)
+from fdai.agents._framework.mimir_constants import (
+    _MAX_MAINTENANCE_RECORDS as _MAX_MAINTENANCE_RECORDS,
+)
+from fdai.agents._framework.mimir_constants import (
+    _MAX_PENDING_CANDIDATES as _MAX_PENDING_CANDIDATES,
+)
+from fdai.agents._framework.mimir_constants import (
+    _MAX_PROMOTION_PERSIST_ATTEMPTS as _MAX_PROMOTION_PERSIST_ATTEMPTS,
+)
+from fdai.agents._framework.mimir_constants import (
+    _MAX_PROMOTION_PERSIST_QUEUE as _MAX_PROMOTION_PERSIST_QUEUE,
+)
+from fdai.agents._framework.mimir_constants import (
+    _MAX_QUARANTINE as _MAX_QUARANTINE,
+)
+from fdai.agents._framework.mimir_constants import (
+    _OPERATIONAL_RULE_PREFIX as _OPERATIONAL_RULE_PREFIX,
+)
+from fdai.agents._framework.mimir_constants import (
+    _REVIEWED_CATALOG_COMMIT_REF as _REVIEWED_CATALOG_COMMIT_REF,
+)
+from fdai.agents._framework.mimir_constants import (
+    _REVIEWED_CATALOG_PR_REF as _REVIEWED_CATALOG_PR_REF,
+)
+from fdai.agents._framework.mimir_constants import (
+    _REVIEWED_REPOSITORY_PREFIX as _REVIEWED_REPOSITORY_PREFIX,
+)
+from fdai.agents._framework.mimir_constants import (
+    _RULE_GENERATION_COMMAND_PREFIX as _RULE_GENERATION_COMMAND_PREFIX,
+)
+from fdai.agents._framework.mimir_constants import (
+    _RULE_GENERATION_RECEIPT_PREFIX as _RULE_GENERATION_RECEIPT_PREFIX,
+)
+from fdai.agents._framework.mimir_constants import (
+    _RULE_GENERATION_RECEIPT_RETAIN as _RULE_GENERATION_RECEIPT_RETAIN,
+)
+from fdai.agents._framework.mimir_constants import (
+    _RULE_GENERATION_VALIDATION_PREFIX as _RULE_GENERATION_VALIDATION_PREFIX,
+)
+from fdai.agents._framework.mimir_constants import (
+    _RULE_PUBLICATION_CLAIM_LEASE as _RULE_PUBLICATION_CLAIM_LEASE,
+)
+from fdai.agents._framework.mimir_constants import (
+    _RULE_PUBLICATION_MAINTENANCE_PAGE as _RULE_PUBLICATION_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.mimir_constants import (
+    _RULE_PUBLICATION_PREFIX as _RULE_PUBLICATION_PREFIX,
+)
+from fdai.agents._framework.mimir_constants import (
+    _RULE_STATE_PREFIX as _RULE_STATE_PREFIX,
+)
 from fdai.agents._framework.mimir_maintenance import (
     MimirCatalogPromotionOutcome,
 )
@@ -30,46 +101,10 @@ from fdai.rule_catalog.schema.rule_semantic_generation_events import (
 )
 from fdai.shared.providers.state_store import StateStore
 
-#: Cap on retained rejected-candidate records. Quarantine holds candidates the
-#: CandidateGuard REJECTED - i.e. attacker-controlled volume under a
-#: candidate-poisoning attempt. An unbounded list would be a memory-exhaustion
-#: DoS vector: a poisoning flood grows it without limit. The durable audit
-#: trail is Saga's chain; this in-memory list is a bounded diagnostic ring.
-_MAX_QUARANTINE = 5_000
-_MAX_PENDING_CANDIDATES = 5_000
-_MAX_CATALOG_REVIEW_PACKAGES = 5_000
-_MAX_ISSUE_FINGERPRINTS = 50_000
-_GOVERNANCE_RECOVERY_PAGE = 128
-_RULE_GENERATION_RECEIPT_RETAIN = 5_000
-_MAX_PROMOTION_PERSIST_QUEUE = 1_024
-_MAX_PROMOTION_PERSIST_ATTEMPTS = 8
-_RULE_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
-_RULE_PUBLICATION_MAINTENANCE_PAGE = 16
-_MAX_MAINTENANCE_RECORDS = 128
-_OPERATIONAL_RULE_PREFIX = "learned.operational."
-_RULE_GENERATION_RECEIPT_PREFIX = "mimir:rule-generation-activation-result:"
-_RULE_GENERATION_VALIDATION_PREFIX = "mimir:rule-generation-validation-result:"
-_RULE_GENERATION_COMMAND_PREFIX = "mimir:rule-generation-activation-command:"
-_GOVERNANCE_PREFIX = "pantheon/mimir/governance"
-_RULE_STATE_PREFIX = f"{_GOVERNANCE_PREFIX}/rules"
-_ISSUE_FINGERPRINT_PREFIX = f"{_GOVERNANCE_PREFIX}/issue-fingerprints"
-_RULE_PUBLICATION_PREFIX = f"{_GOVERNANCE_PREFIX}/rule-publications"
-_DEPRECATION_CANDIDATE_PREFIX = f"{_GOVERNANCE_PREFIX}/deprecation-candidates"
-_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
-_REVIEWED_REPOSITORY_PREFIX = re.compile(
-    r"^https://(?P<host>[A-Za-z0-9.-]{1,253})/"
-    r"(?P<owner>[A-Za-z0-9_.-]{1,100})/"
-    r"(?P<repo>[A-Za-z0-9_.-]{1,100})$"
-)
-_REVIEWED_CATALOG_PR_REF = re.compile(
-    r"^catalog-pr:(?P<repository>https://[A-Za-z0-9.-]{1,253}/"
-    r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100})/"
-    r"pull/[1-9][0-9]{0,18}@sha256:"
-    r"(?P<digest>[a-f0-9]{64})$"
-)
-_REVIEWED_CATALOG_COMMIT_REF = re.compile(
-    r"^catalog-commit:[a-f0-9]{40}@sha256:(?P<digest>[a-f0-9]{64})$"
-)
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import Agent as _AgentMixinBase
+else:
+    _AgentMixinBase = object
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,10 +219,57 @@ def _promotion_topic(rule_id: str, source: str) -> str:
     return "object.rule"
 
 
-class MimirGovernanceRecoveryMixin:
+class MimirGovernanceRecoveryMixin(_AgentMixinBase):
     """Behavior-preserving extracted runtime methods."""
 
-    async def recover_governance_state(self: Any) -> int:
+    if TYPE_CHECKING:
+        _catalog_draft_rule_ids: Any
+        _catalog_governance_store: Any
+        _checkpoint_rule_publication: Any
+        _clock: Any
+        _governance_state_store: Any
+        _handle_rule_candidate: Any
+        _handle_rule_generation_build_request: Any
+        _handover_message: Any
+        _investigation_candidates: Any
+        _issue_fingerprints: Any
+        _max_pending_candidates: Any
+        _norns_issue_close_support: Any
+        _operational_pending_targets: Any
+        _pending_candidates: Any
+        _persist_issue_fingerprint: Any
+        _persist_promotion_record: Any
+        _promotion_fail_count: Any
+        _promotion_outcome_reader: Any
+        _promotion_pass_count: Any
+        _promotion_persist_pending: Any
+        _promotion_persist_tasks: Any
+        _promotion_publish_tasks: Any
+        _promotions: Any
+        _provider_timeout_seconds: Any
+        _publish_claimed_rule_publication: Any
+        _publish_rule_or_policy_promotion: Any
+        _published_issue_close_evidence: Any
+        _published_operational_targets: Any
+        _published_promotion_keys: Any
+        _quarantined_candidates: Any
+        _rebuild_candidate_indexes: Any
+        _record_norns_issue_close_support: Any
+        _record_rule_generation_activation_result: Any
+        _record_rule_generation_validation_result: Any
+        _regression_runner: Any
+        _retain_rule_generation_activation_command: Any
+        _review_locks: Any
+        _reviewed_repository_prefixes: Any
+        _rule_deprecation_reader: Any
+        _rule_generation_activation_binder: Any
+        _rule_generation_build_handler: Any
+        _rule_generation_state_store: Any
+        _rule_source_poller: Any
+        _shadow_dwell_thresholds: Any
+        _test_context_message: Any
+
+    async def recover_governance_state(self) -> int:
         """Restore durable rule, issue, investigation, and quarantine projections."""
         store = self._governance_state_store
         if store is None:
@@ -204,7 +286,7 @@ class MimirGovernanceRecoveryMixin:
         )
         return int(restored)
 
-    async def on_typed_message(self: Any, topic: str, payload: dict[str, Any]) -> None:
+    async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if await self._test_context_message(topic, payload, self.record_behavior):
             return
         if topic == "object.issue":
@@ -244,7 +326,7 @@ class MimirGovernanceRecoveryMixin:
         else:
             self.record_behavior("typed_message:ignored")
 
-    async def _recover_rule_rows(self: Any, store: StateStore) -> int:
+    async def _recover_rule_rows(self, store: StateStore) -> int:
         restored = 0
         offset = 0
         while restored < _MAX_ISSUE_FINGERPRINTS:
@@ -274,7 +356,7 @@ class MimirGovernanceRecoveryMixin:
         self.record_behavior("governance_recovery:rules_deferred")
         return restored
 
-    async def _recover_issue_rows(self: Any, store: StateStore) -> int:
+    async def _recover_issue_rows(self, store: StateStore) -> int:
         restored = 0
         offset = 0
         while restored < _MAX_ISSUE_FINGERPRINTS:
@@ -306,7 +388,7 @@ class MimirGovernanceRecoveryMixin:
         return restored
 
     async def _recover_rule_publications(
-        self: Any,
+        self,
         store: StateStore,
         *,
         limit: int = _MAX_PROMOTION_PERSIST_QUEUE,
@@ -371,7 +453,7 @@ class MimirGovernanceRecoveryMixin:
             self.record_behavior("promotion:publication_recovery_deferred")
         return published
 
-    async def _handle_issue(self: Any, payload: dict[str, Any]) -> None:
+    async def _handle_issue(self, payload: dict[str, Any]) -> None:
         """Retain Saga-owned issue fingerprints for candidate closure linkage."""
         if payload.get("producer_principal") != "Saga":
             self.record_behavior("issue_fingerprint:rejected")
@@ -400,7 +482,7 @@ class MimirGovernanceRecoveryMixin:
         await self._persist_issue_fingerprint(record)
         self.record_behavior("issue_fingerprint:accepted")
 
-    def _candidate_count_for_fingerprint(self: Any, fingerprint: str) -> int:
+    def _candidate_count_for_fingerprint(self, fingerprint: str) -> int:
         count = 0
         for candidate in self._pending_candidates:
             evidence = candidate.get("evidence")
@@ -409,7 +491,7 @@ class MimirGovernanceRecoveryMixin:
         return count
 
     async def _refresh_issue_candidate_counts_for_candidate(
-        self: Any,
+        self,
         candidate: dict[str, Any],
     ) -> None:
         evidence = candidate.get("evidence")
@@ -418,7 +500,7 @@ class MimirGovernanceRecoveryMixin:
             return
         await self._refresh_issue_candidate_count(fingerprint)
 
-    async def _refresh_issue_candidate_counts_for_rule(self: Any, _rule_id: str) -> None:
+    async def _refresh_issue_candidate_counts_for_rule(self, _rule_id: str) -> None:
         for fingerprint, record in tuple(self._issue_fingerprints.items()):
             count = self._candidate_count_for_fingerprint(fingerprint)
             if record.get("candidate_count") != count:
@@ -426,7 +508,7 @@ class MimirGovernanceRecoveryMixin:
                 self._issue_fingerprints.set(fingerprint, updated)
                 await self._persist_issue_fingerprint(updated)
 
-    async def _refresh_issue_candidate_count(self: Any, fingerprint: str) -> None:
+    async def _refresh_issue_candidate_count(self, fingerprint: str) -> None:
         record = self._issue_fingerprints.get(fingerprint)
         if record is None:
             return

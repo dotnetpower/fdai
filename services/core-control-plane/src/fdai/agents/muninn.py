@@ -11,7 +11,7 @@ import hashlib
 import json
 from collections import deque
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.adapters import InMemoryStateStore, canonical_json_digest
@@ -29,6 +29,48 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capped_list,
     mentioned,
+)
+from fdai.agents._framework.muninn_constants import (
+    _CONVERSATION_PROJECTION_RECOVERY_PAGE as _CONVERSATION_PROJECTION_RECOVERY_PAGE,
+)
+from fdai.agents._framework.muninn_constants import (
+    _DEFAULT_PROVIDER_TIMEOUT_SECONDS as _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_CONTEXT_FETCH_SAMPLES as _MAX_CONTEXT_FETCH_SAMPLES,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_CONTEXT_UNAVAILABLE_FACTS as _MAX_CONTEXT_UNAVAILABLE_FACTS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_CONVERSATION_PROJECTIONS as _MAX_CONVERSATION_PROJECTIONS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _MAX_OPERATING_PATTERN_CASES as _MAX_OPERATING_PATTERN_CASES,
+)
+from fdai.agents._framework.muninn_constants import (
+    _OPERATIONAL_OUTBOX_PREFIX as _OPERATIONAL_OUTBOX_PREFIX,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PROJECTION_PREFIX as _PROJECTION_PREFIX,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PROTECTED_CONVERSATION_BUCKETS as _PROTECTED_CONVERSATION_BUCKETS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_CAS_ATTEMPTS as _PUBLICATION_CAS_ATTEMPTS,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_CLAIM_LEASE as _PUBLICATION_CLAIM_LEASE,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_COMPACTION_INTERVAL as _PUBLICATION_COMPACTION_INTERVAL,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_MAINTENANCE_PAGE as _PUBLICATION_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.muninn_constants import (
+    _PUBLICATION_OUTBOX_RETAIN as _PUBLICATION_OUTBOX_RETAIN,
 )
 from fdai.agents._framework.muninn_context_materialization import MuninnContextMaterializationMixin
 from fdai.agents._framework.muninn_conversation_projection import MuninnConversationProjectionMixin
@@ -63,25 +105,6 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
     except ValueError:
         return None
     return generated_at if generated_at.tzinfo is not None else None
-
-
-_MAX_OPERATING_PATTERN_CASES = 100
-_MAX_CONVERSATION_PROJECTIONS = 50_000
-_CONVERSATION_PROJECTION_RECOVERY_PAGE = 128
-_PUBLICATION_OUTBOX_RETAIN = 5_000
-# Compaction runs every N published rows (and on maintenance) so a publish costs O(1) amortized.
-_PUBLICATION_COMPACTION_INTERVAL = 64
-_PUBLICATION_CAS_ATTEMPTS = 8
-_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
-_PUBLICATION_MAINTENANCE_PAGE = 16
-_PROJECTION_PREFIX = "pantheon/muninn/conversation-projections"
-_OPERATIONAL_OUTBOX_PREFIX = "pantheon/muninn/operational-outbox"
-_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
-_MAX_CONTEXT_FETCH_SAMPLES = 512
-_MAX_CONTEXT_UNAVAILABLE_FACTS = 128
-_PROTECTED_CONVERSATION_BUCKETS = frozenset(
-    {"conversation_turns", "conversations", "user_preferences"}
-)
 
 
 class Muninn(

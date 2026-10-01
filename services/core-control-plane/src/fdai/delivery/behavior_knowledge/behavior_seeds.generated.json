@@ -246,13 +246,13 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "e3688d71651726ec3b92d3396adb7b8f276bebfc48fa0e1652a815e44ffd5be5",
+      "source_manifest_hash": "7b5aea4f18527dd02c97f21722595b63f2c02ebc6c726fd14a43e16b27520f6b",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "8044f0eb9e6254b16e5bd14aa1884f90f1f5dad0",
-          "line_end": 120,
-          "line_start": 81,
+          "blob_sha": "02c7ba281cef48b252f03c5981e0c56fc4fdce8f",
+          "line_end": 176,
+          "line_start": 137,
           "path": "services/core-control-plane/src/fdai/agents/_framework/saga_issue_runtime.py",
           "source_kind": "code",
           "symbol": "SagaIssueRuntimeMixin.escalate_to_github_issue"

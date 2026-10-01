@@ -11,8 +11,7 @@ import logging
 from collections import deque
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
-from datetime import timedelta
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from fdai.agents._framework.action_semantics import is_irreversible
 from fdai.agents._framework.heimdall_alert_window import (
@@ -27,6 +26,54 @@ from fdai.agents._framework.heimdall_alert_window import (
 from fdai.agents._framework.heimdall_alert_window import (
     incident_episode_id as _incident_episode_id,
 )
+from fdai.agents._framework.heimdall_constants import (
+    _DETECTION_READINESS_EVENT as _DETECTION_READINESS_EVENT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _EPISODE_PREFIX as _EPISODE_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _FULL_SNAPSHOT_LIMIT as _FULL_SNAPSHOT_LIMIT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _INCIDENT_CORRELATION_DISABLED as _INCIDENT_CORRELATION_DISABLED,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _MAX_KPI_SAMPLES as _MAX_KPI_SAMPLES,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PENDING_READINESS_PREFIX as _PENDING_READINESS_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_CAS_ATTEMPTS as _PUBLICATION_CAS_ATTEMPTS,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_CLAIM_LEASE as _PUBLICATION_CLAIM_LEASE,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_MAINTENANCE_PAGE as _PUBLICATION_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_PREFIX as _PUBLICATION_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_RECOVERY_LIMIT as _PUBLICATION_RECOVERY_LIMIT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES as _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _READINESS_PREFIX as _READINESS_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _RULE_VALIDATION_TIMEOUT_SECONDS as _RULE_VALIDATION_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _SEVERITY_RANK as _SEVERITY_RANK,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _STATE_KEY as _STATE_KEY,
+)
 from fdai.agents._framework.heimdall_helpers import (
     TRACE_CONTINUITY_REASONS as _TRACE_CONTINUITY_REASONS,
 )
@@ -35,6 +82,11 @@ from fdai.agents._framework.heimdall_helpers import evict_oldest as _evict_oldes
 from fdai.agents._framework.heimdall_helpers import (
     trace_continuity_evidence as _trace_continuity_evidence,
 )
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import Agent as _AgentMixinBase
+else:
+    _AgentMixinBase = object
 
 AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
 """Var-provided hook that delivers the admin notification card."""
@@ -48,26 +100,8 @@ ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]
 OperationalEvidenceHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
 """Composition-provided bounded evidence collector for one operational Event."""
 
-_LOG = logging.getLogger(__name__)
 
-_INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
-_SEVERITY_RANK = {
-    severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
-}
-_DETECTION_READINESS_EVENT = "detection.readiness.observed"
-_STATE_KEY = "pantheon/heimdall/sensing-state"
-_EPISODE_PREFIX = "pantheon/heimdall/sensing-state/episodes/"
-_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness/"
-_PENDING_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness-pending/"
-_PUBLICATION_PREFIX = "pantheon/heimdall/publications/"
-_PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES = 8192
-_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
-_PUBLICATION_CAS_ATTEMPTS = 8
-_PUBLICATION_RECOVERY_LIMIT = 5_000
-_PUBLICATION_MAINTENANCE_PAGE = 16
-_RULE_VALIDATION_TIMEOUT_SECONDS = 5.0
-_FULL_SNAPSHOT_LIMIT = 128
-_MAX_KPI_SAMPLES = 512
+_LOG = logging.getLogger("fdai.agents.heimdall")
 
 
 def _kpi_measured(
@@ -124,10 +158,53 @@ def _mean_kpi(samples: deque[float], *, reason: str, unit: str) -> dict[str, Any
     )
 
 
-class HeimdallAnomalyRuntimeMixin:
+class HeimdallAnomalyRuntimeMixin(_AgentMixinBase):
     """Behavior-preserving extracted runtime methods."""
 
-    async def _maybe_emit_anomaly(self: Any, event: dict[str, Any]) -> None:
+    if TYPE_CHECKING:
+        _action_semantics: Any
+        _alert_counters: Any
+        _alert_noise_message: Any
+        _alert_windows: Any
+        _alerter_hook: Any
+        _clock: Any
+        _detection_readiness: Any
+        _detection_readiness_pass_order: Any
+        _detection_readiness_pending: Any
+        _dirty_episode_keys: Any
+        _dirty_pending_readiness: Any
+        _dirty_readiness_resources: Any
+        _drop_episode: Any
+        _emit_document_safety_signal: Any
+        _episode_history: Any
+        _forecast_clock: Any
+        _forecast_context_message: Any
+        _incident_candidate_hook: Any
+        _incident_episode_ids: Any
+        _incident_episode_severities: Any
+        _observe_action_run: Any
+        _observe_detection_readiness: Any
+        _observe_t2_proposer_health: Any
+        _operational_evidence_hook: Any
+        _persist_state: Any
+        _publication_lock_refs: Any
+        _publication_locks: Any
+        _publish_once: Any
+        _rate_threshold: Any
+        _rate_window: Any
+        _readiness_expected_dimensions: Any
+        _readiness_observed_dimensions: Any
+        _recent_episode_keys: Any
+        _recent_events: Any
+        _reserve_alert_slot: Any
+        _rule_generation_validation_handler: Any
+        _run_forecast_tick: Any
+        _security_high_threshold: Any
+        _security_recent: Any
+        _stale_inventory_delays_seconds: Any
+        _state_store: Any
+
+    async def _maybe_emit_anomaly(self, event: dict[str, Any]) -> None:
         resource_id = str(event.get("resource_id") or "")
         if not resource_id:
             self.record_behavior("anomaly_event:missing_resource")
@@ -269,7 +346,7 @@ class HeimdallAnomalyRuntimeMixin:
             self.record_behavior("incident_candidate" if accepted else "incident_candidate_held")
 
     async def _collect_operational_evidence(
-        self: Any,
+        self,
         event: dict[str, Any],
     ) -> Mapping[str, Any]:
         if self._operational_evidence_hook is None:
@@ -289,7 +366,7 @@ class HeimdallAnomalyRuntimeMixin:
         )
         return dict(evidence)
 
-    async def _maybe_classify_severity(self: Any, event: dict[str, Any]) -> str:
+    async def _maybe_classify_severity(self, event: dict[str, Any]) -> str:
         self._security_recent.append(event)
         initiator = str(event.get("initiator_principal", ""))
         action = str(event.get("attempted_action", ""))
@@ -323,7 +400,7 @@ class HeimdallAnomalyRuntimeMixin:
         await self._persist_state()
         return severity
 
-    async def _maybe_send_admin_card(self: Any, event: dict[str, Any], severity: str) -> None:
+    async def _maybe_send_admin_card(self, event: dict[str, Any], severity: str) -> None:
         """Send an admin card, deduped by (initiator, action) within window."""
         initiator = str(event.get("initiator_principal", ""))
         action = str(event.get("attempted_action", ""))
@@ -348,7 +425,7 @@ class HeimdallAnomalyRuntimeMixin:
         await self._alerter_hook(payload)
 
     @asynccontextmanager
-    async def _publication_lock(self: Any, publication_digest: str) -> AsyncIterator[None]:
+    async def _publication_lock(self, publication_digest: str) -> AsyncIterator[None]:
         lock = self._lock_for_publication(publication_digest)
         self._publication_lock_refs[publication_digest] = (
             self._publication_lock_refs.get(publication_digest, 0) + 1
@@ -365,7 +442,7 @@ class HeimdallAnomalyRuntimeMixin:
                 self._publication_lock_refs.pop(publication_digest, None)
                 self._publication_locks.pop(publication_digest, None)
 
-    def _lock_for_publication(self: Any, publication_digest: str) -> asyncio.Lock:
+    def _lock_for_publication(self, publication_digest: str) -> asyncio.Lock:
         lock = self._publication_locks.get(publication_digest)
         if lock is None:
             lock = asyncio.Lock()
