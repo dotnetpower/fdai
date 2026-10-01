@@ -138,22 +138,22 @@
         "When does Odin intervene?",
         "Odin이 개입하지 않는 경우는 언제인가요?"
       ],
-      "source_manifest_hash": "a386c714717ccae8d6a29c200ff347d546de0741b50e1288320001661b78959e",
+      "source_manifest_hash": "f9263797f1a2f76cdeb153b959a0b9f7fae9c7be59cbc5f7174afaa513077ab8",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "e3051ac0f91ebc1c44eeea7a62c19d1852ab5f17",
-          "line_end": 265,
-          "line_start": 213,
+          "blob_sha": "f2ef52914c4661dd78861375aee6fcb6b802c536",
+          "line_end": 274,
+          "line_start": 217,
           "path": "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration.py",
           "source_kind": "code",
           "symbol": "ForsetiArbitrationMixin.maybe_request_arbitration"
         },
         {
           "authority_role": "implementation",
-          "blob_sha": "c1e3265160752b19f420dd54eeafe3743009da61",
-          "line_end": 364,
-          "line_start": 283,
+          "blob_sha": "e36c19708cf9812a4bc327fa55ce7848e10b64c9",
+          "line_end": 371,
+          "line_start": 284,
           "path": "services/core-control-plane/src/fdai/agents/odin.py",
           "source_kind": "code",
           "symbol": "Odin.arbitrate"
@@ -246,13 +246,13 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "8974d463b38342b59a873c959be3c997c81409d7f166c8bcd3643f77b1ac19d8",
+      "source_manifest_hash": "5cbbb5f1b3bf7c91e9423ec9d83e8f3745bc242d10c9f710ecc5fc6ad41ac226",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "de26c628cd39ba11fe28d0d189868924227d3d8a",
-          "line_end": 1020,
-          "line_start": 981,
+          "blob_sha": "726b0a2c92d9bbc15859ad0d7d6701ea77db45f4",
+          "line_end": 1082,
+          "line_start": 1043,
           "path": "services/core-control-plane/src/fdai/agents/saga.py",
           "source_kind": "code",
           "symbol": "Saga.escalate_to_github_issue"
@@ -921,13 +921,13 @@
         "Can Bragi execute a command?",
         "Bragi는 명령을 직접 실행하나요?"
       ],
-      "source_manifest_hash": "f20a4ab6fbf5352bb3dfe25d1de30b357b2ca36849ec4d93f961221727a9e415",
+      "source_manifest_hash": "e1598568a11394c15b76787d50e8147081e0860c422072d4d458946ef4b3b314",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "09ea5c325ff3474762dba7d3bdfaf108e1f2b9e2",
-          "line_end": 893,
-          "line_start": 567,
+          "blob_sha": "1a3b03809cfadefbdadc64ceee7f8d4887f2a982",
+          "line_end": 1056,
+          "line_start": 730,
           "path": "services/core-control-plane/src/fdai/agents/bragi.py",
           "source_kind": "code",
           "symbol": "Bragi.ask"
