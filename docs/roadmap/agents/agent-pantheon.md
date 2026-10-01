@@ -358,7 +358,8 @@ acts. A missing or non-owner producer is blocked before state changes and counte
 delivery, even when the bridge already checked ownership. The live bridge and redrive path apply
 the same owner, envelope, and payload validation, and runtime composition binds the authority
 payload validator by default so malformed `object.verdict`, `object.approval`, `object.action-run`,
-and `object.rollback` records do not reach handlers.
+`object.rollback`, `object.issue`, `object.audit-entry`, `object.rule`, and `object.policy` records
+do not reach handlers.
 Each consumer closes its subscription inside its own task, so the broker adapter releases the consumer group during shutdown rather than during interpreter finalization.
 Runtime composition may opt into per-agent consumer mode. In that mode one physical consumer per
 agent group reads the broker stream and routes logical `object.*` topics locally; the default

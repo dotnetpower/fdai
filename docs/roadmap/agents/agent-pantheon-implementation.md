@@ -47,6 +47,7 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | implemented | Closed critique rounds six to eight. Mimir, Muninn, and Saga route their remaining publications through fenced outboxes; Operator Incident creation is signed and Core verifies the receipt before opening an Incident; the default payload validator covers issue, audit-entry, rule, and policy records and accepts every real producer shape; Thor republishes a claimed terminal ActionRun byte-identically after a crash; replay fences finalize regardless of expiry and report post-side-effect failures as applied-but-unfinalized; and Huginn, Loki, Vidar, Forseti, and Norns report publication only after broker acceptance. Round eight found no Medium or higher finding. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `services/core-control-plane/src/fdai_core_service/incident_creation_consumer.py`; `services/operator-service/src/fdai_operator_service/action_confirmation_runtime.py`; `packages/service-contracts/src/fdai_service_contracts/incident_creation.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4533 passed, 1 skipped; real provider matrix on loopback Redpanda and PostgreSQL: 63 passed twice. | Bind and validate the remaining production ports and live or deployment evidence listed below. |
 | 2026-10-01 | implemented | Closed the fifth critique round. Saga issue auto-close became a checkpointed two-phase flow with a recurrence re-check and cancellation audit; a failed first ActionRun publication rolls back the unpublished run and its exact resource claim; enforce startup validates per-`(ActionType, rollback_contract)` coverage; `object.rollback` records are schema-validated; Vidar rehearsal cadence waits for publication; Bragi outboxes are claim-fenced; Heimdall keeps large replay payloads; and Loki, Freyr, and Njord no longer report unpublished or stale work as complete. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `test_bragi_outbox_fencing.py`, `test_heimdall_large_publication.py`, `test_stale_sample_fences.py`, `test_mimir_issue_close_evidence.py`, `test_vidar_dr_failover_rehearsal.py`, `test_thor_durable.py`, `test_runtime.py`, `test_governance_authority.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4463 passed, 1 skipped. | Bind and validate the remaining production ports and live or deployment evidence listed below. |
 | 2026-10-01 | implemented | Hardened the phase-2 Agent Pantheon capabilities through repeated critique rounds: signed, fence-ordered ordered-poison-halt clears; receipt schema `1.1.0` with presence-aware workflow lineage and pending-then-final replay fences; token-fenced durable publication outboxes with bounded publish, paged recovery, per-row deferral, and maintenance re-drive; per-ActionType rollback readiness; batch refusal accounting; bounded specialist sampling and recoverable Loki windows; and exact-key `delete_state` retention. Oversized members moved into `_framework` capability modules without behavior change. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `services/operator-service/src/fdai_operator_service/**`; `services/core-control-plane/tests/agents/test_outbox_publication_hardening.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4407 passed, 1 skipped; real provider matrix on loopback Redpanda and PostgreSQL passed twice. | Bind and validate the remaining production ports and live or deployment evidence listed below. |
 | 2026-10-01 | implemented | Documented the phase-2 Agent Pantheon capabilities: pre-flight receipts, DR contracts, signed operator-request receipts, schema learning, intent-training evidence, Mimir and Norns issue-close support, Freyr/Loki specialist loops, poison-halt clear semantics, cost annotations, multi-target batch semantics, and Muninn compaction. | `current change`; `docs/roadmap/agents/agent-pantheon*.md`; `docs/roadmap/agents/agent-pantheon-implementation*.md`; `docs/roadmap-implementation/agents/agent-pantheon.md`; focused checks listed in the final report. | Bind and validate the remaining production ports and live/deployment evidence listed below. |
@@ -187,11 +188,20 @@ transport failure, so a late publisher whose lease was reclaimed cannot complete
 claim. Startup recovery pages `pending` rows and expired `publishing` rows up to an explicit backlog
 cap and republishes them with their original idempotency keys and payloads. A row that fails to
 publish, or a malformed row, is recorded and deferred instead of aborting startup, and bounded
-maintenance re-drives deferred rows. Var final approvals, Saga audit entries, Muninn operational
-publications, Heimdall observation publications, Mimir rule and policy publications, and Bragi
-publication outboxes follow this contract. Unpublished rows always keep their full replay payload;
+maintenance re-drives deferred rows. Var final approvals, Saga audit entries (including derived
+test-context, prospective-lineage, shadow-review, catalog-review, and document decision seals),
+Muninn operational publications and investigation-strategy cohorts, Heimdall observation
+publications, Mimir rule, policy, test-context policy, and issue-close evidence publications, and
+Bragi publication outboxes follow this contract. Unpublished rows always keep their full replay payload;
 Heimdall drops bodies above 8 KiB only from published tombstones and rejects a publication above
 512 KiB before it writes any checkpoint.
+
+An owner reports a publication, an acceptance, or a learned outcome as complete only after broker
+acceptance. Claimed but unpublished Thor terminal ActionRuns, Huginn Events and Changes, Loki
+chaos proposals, Vidar Rollback records, schema-cluster Events, Norns quiet-window support, and
+Forseti retrospective what-if Verdicts stay retryable. Thor persists a terminal publication claim
+with the original `terminal_at` before it publishes, so a terminal ActionRun republished after a
+crash is byte-identical to the first copy and consumers deduplicate it by idempotency key.
 
 #### Tier, approval, and command identity
 
@@ -479,6 +489,16 @@ publication fails. Fences expire after `expires_at` plus the allowed clock skew 
 clock and are removed with a bounded aggregate summary. Core derives trusted producer public keys
 at startup from the Core and Operator signing seeds and signs only as `core-control-plane`.
 Schema-cluster evidence is recorded only after the event-type authorization gates pass.
+
+A replay fence finalizes the caller's own pending reservation regardless of the current time,
+because expiry is already enforced when the receipt is verified and reserved. If finalization fails
+after the side effect, such as a published Event or an opened Incident, the owner records an
+applied-but-unfinalized outcome instead of rejecting the applied request. Operator Incident creation
+uses the same receipt: the signed params bind the principal id, roles, target, arguments, and
+source request id, and Core verifies the trusted `operator-service` key, expiry, exact binding, and
+replay before it opens or reuses the Incident. Requests without a valid receipt are dead-lettered
+with a distinct reason. The default payload validator also covers `object.issue`,
+`object.audit-entry`, `object.rule`, and `object.policy`, and accepts every real producer shape.
 
 #### Freyr sampling and Loki scheduling/adversarial generation
 

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 985df44eaf5b1dd5383950ff2ef8a6a1fb226158
-translation_revised: 2026-10-01
+translation_source_sha: c7b7feec36f9d8732ba8fa6f05cbef48054a595e
+translation_revised: 2026-10-02
 ---
 
 # 에이전트 판테온 구현 계획
@@ -49,6 +49,7 @@ translation_revised: 2026-10-01
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-01 | implemented | 비평 라운드 6부터 8까지를 마무리했습니다. Mimir, Muninn, Saga는 남은 게시를 점유 토큰으로 보호되는 보낼 편지함으로 보내고, Operator Incident 생성은 서명되며 Core는 Incident를 열기 전에 증적을 검증합니다. 기본 payload 검증기는 issue, audit-entry, rule, policy 레코드를 다루고 실제 생산자 형태를 모두 허용하며, Thor는 장애 뒤 점유된 종료 ActionRun을 바이트 단위로 같게 다시 게시하고, replay 차단 장치는 만료와 관계없이 확정하며 부수 효과 뒤 실패를 적용되었지만 확정되지 않은 결과로 보고하고, Huginn, Loki, Vidar, Forseti, Norns는 broker 수락 뒤에만 게시를 보고합니다. 라운드 8에서는 Medium 이상 발견 사항이 없었습니다. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `services/core-control-plane/src/fdai_core_service/incident_creation_consumer.py`; `services/operator-service/src/fdai_operator_service/action_confirmation_runtime.py`; `packages/service-contracts/src/fdai_service_contracts/incident_creation.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4533 passed, 1 skipped; loopback Redpanda와 PostgreSQL의 실제 provider matrix가 63개 테스트로 두 번 통과했습니다. | 아래에 나열한 남은 프로덕션 port와 live 또는 배포 근거를 바인딩하고 검증합니다. |
 | 2026-10-01 | implemented | 다섯 번째 비평 라운드를 마무리했습니다. Saga 이슈 자동 종료는 재발 재확인과 취소 감사를 갖춘 checkpoint 기반 2단계 흐름이 되었고, 첫 ActionRun 게시가 실패하면 게시되지 않은 실행과 정확한 리소스 점유를 되돌리며, 적용 모드 시작은 `(ActionType, rollback_contract)` 쌍별 실행기 범위를 검증하고, `object.rollback` 레코드는 schema 검증을 거치며, Vidar rehearsal 주기는 게시를 기다리고, Bragi 보낼 편지함은 점유 토큰으로 보호되며, Heimdall은 큰 재생 payload를 유지하고, Loki, Freyr, Njord는 게시되지 않았거나 오래된 작업을 완료로 보고하지 않습니다. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `test_bragi_outbox_fencing.py`, `test_heimdall_large_publication.py`, `test_stale_sample_fences.py`, `test_mimir_issue_close_evidence.py`, `test_vidar_dr_failover_rehearsal.py`, `test_thor_durable.py`, `test_runtime.py`, `test_governance_authority.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4463 passed, 1 skipped. | 아래에 나열한 남은 프로덕션 port와 live 또는 배포 근거를 바인딩하고 검증합니다. |
 | 2026-10-01 | implemented | 반복 비평 라운드로 Phase-2 Agent Pantheon 기능을 하드닝했습니다. 서명되고 차단 장치 순서를 지키는 ordered-poison-halt clear, 존재 여부를 구분하는 workflow lineage와 pending 후 확정되는 replay 차단 장치를 가진 증적 schema `1.1.0`, 범위가 제한된 게시, 페이지 단위 복구, 행 단위 연기, 유지 관리 재게시를 갖춘 토큰 차단 영속 게시 보낼 편지함, ActionType별 롤백 준비 상태, batch 거부 집계, 범위가 제한된 전문 에이전트 sampling과 복구 가능한 Loki window, 정확한 키 단위 `delete_state` 보존을 포함합니다. 지나치게 커진 멤버는 동작 변경 없이 `_framework` 기능 모듈로 옮겼습니다. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `services/operator-service/src/fdai_operator_service/**`; `services/core-control-plane/tests/agents/test_outbox_publication_hardening.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4407 passed, 1 skipped; loopback Redpanda와 PostgreSQL의 실제 provider matrix가 두 번 통과했습니다. | 아래에 나열한 남은 프로덕션 port와 live 또는 배포 근거를 바인딩하고 검증합니다. |
 | 2026-10-01 | implemented | Phase-2 Agent Pantheon 기능을 문서화했습니다. Pre-flight 증적, DR 계약, 서명된 operator-request 증적, schema learning, intent-training 근거, Mimir 및 Norns issue-close 지원, Freyr/Loki 전문 루프, poison-halt clear 시맨틱, cost annotation, multi-target batch 시맨틱, Muninn compaction을 포함합니다. | `current change`; `docs/roadmap/agents/agent-pantheon*.md`; `docs/roadmap/agents/agent-pantheon-implementation*.md`; `docs/roadmap-implementation/agents/agent-pantheon.md`; 최종 보고서의 집중 검사. | 아래 남은 production port 및 live/deployment 근거를 바인딩하고 검증합니다. |
@@ -186,10 +187,18 @@ translation_revised: 2026-10-01
 복구는 `pending` 행과 임대가 만료된 `publishing` 행을 명시적 백로그 한도까지 페이지 단위로
 읽고 원래 멱등성 키와 payload로 다시 게시합니다. 게시에 실패한 행이나 형식이 잘못된 행은
 기록한 뒤 연기하며 시작을 중단하지 않습니다. 범위가 제한된 유지 관리 작업이 연기된 행을 다시
-게시합니다. Var 최종 승인, Saga 감사 항목, Muninn 운영 게시, Heimdall 관측 게시, Mimir 규칙 및
-정책 게시, Bragi 게시 보낼 편지함이 이 계약을 따릅니다. 게시되지 않은 행은 항상 전체 재생
+게시합니다. Var 최종 승인, Saga 감사 항목(파생된 테스트 맥락, 예상 계보, shadow 검토, 카탈로그
+검토, 문서 결정 봉인 포함), Muninn 운영 게시와 조사 전략 cohort, Heimdall 관측 게시, Mimir 규칙,
+정책, 테스트 맥락 정책, issue-close 근거 게시, Bragi 게시 보낼 편지함이 이 계약을 따릅니다.
+게시되지 않은 행은 항상 전체 재생
 payload를 유지합니다. Heimdall은 8 KiB를 넘는 본문을 게시 완료 tombstone에서만 버리고, 512 KiB를
 넘는 게시는 checkpoint를 쓰기 전에 거부합니다.
+
+소유자는 broker가 수락한 뒤에만 게시, 수락 또는 학습 결과를 완료로 보고합니다. 점유되었지만 게시되지
+않은 Thor 종료 ActionRun, Huginn Event와 Change, Loki chaos proposal, Vidar Rollback 레코드,
+schema-cluster Event, Norns quiet-window 지원 신호, Forseti 회고 what-if Verdict는 재시도할 수 있는
+상태로 남습니다. Thor는 게시 전에 원래 `terminal_at`을 담은 종료 게시 점유를 저장하므로, 장애 뒤 다시
+게시된 종료 ActionRun은 첫 사본과 바이트 단위로 같고 소비자는 멱등성 키로 중복을 제거합니다.
 
 #### Tier, 승인 및 명령 신원
 
@@ -473,6 +482,15 @@ lineage digest는 존재 여부를 구분하므로 lineage가 없을 때와 비�
 함께 제거됩니다. Core는 시작 시 Core 및 Operator signing seed에서 신뢰하는 producer 공개 키를
 도출하고 `core-control-plane`으로만 서명합니다. Schema-cluster 근거는 이벤트 유형 인가
 검사를 통과한 뒤에만 기록합니다.
+
+Replay 차단 장치는 현재 시각과 관계없이 호출자 자신의 pending 예약을 확정합니다. 만료는 증적을
+검증하고 예약할 때 이미 확인하기 때문입니다. 게시된 Event나 열린 Incident 같은 부수 효과 뒤에
+확정이 실패하면 소유자는 적용된 요청을 거부하지 않고 적용되었지만 확정되지 않은 결과로 기록합니다.
+Operator Incident 생성도 같은 증적을 사용합니다. 서명된 params는 principal id, 역할, 대상, 인자,
+원본 요청 id를 결속하며, Core는 Incident를 열거나 재사용하기 전에 신뢰하는 `operator-service`
+키, 만료, 정확한 결속, replay를 검증합니다. 유효한 증적이 없는 요청은 구별되는 사유와 함께
+dead-letter로 보냅니다. 기본 payload 검증기는 `object.issue`, `object.audit-entry`,
+`object.rule`, `object.policy`도 다루며 실제 생산자가 만드는 모든 형태를 허용합니다.
 
 #### Freyr sampling 및 Loki scheduling/adversarial generation
 
