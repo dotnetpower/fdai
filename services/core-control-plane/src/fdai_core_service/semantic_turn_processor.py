@@ -5626,6 +5626,7 @@ def _answer_output(
     rows: list[dict[str, object]],
     evidence_refs: Sequence[str],
 ) -> dict[str, object]:
+    continuation_ref = _recent_change_continuation_ref(table)
     return {
         "node_id": node_id,
         "evidence_refs": list(evidence_refs),
@@ -5637,7 +5638,16 @@ def _answer_output(
         "display_truncated": len(rows) < len(table.rows),
         # The exact count a source holds beyond its read bound, when the reader counted it.
         **({"source_total_rows": table.total_rows} if table.total_rows is not None else {}),
+        **({"continuation_ref": continuation_ref} if continuation_ref is not None else {}),
     }
+
+
+def _recent_change_continuation_ref(table: QueryTable) -> str | None:
+    prefix = "recent-resource-change-continuation:"
+    if table.source_generation is None or not table.source_generation.startswith(prefix):
+        return None
+    value = table.source_generation.removeprefix(prefix)
+    return value if 32 <= len(value) <= 128 else None
 
 
 def _answer_json(outputs: list[dict[str, object]]) -> str:
