@@ -246,13 +246,13 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "1c45326c8aa085d33f765953c70b50cb564b3827e77bfedcf1e4081dc9deb9b5",
+      "source_manifest_hash": "9b763b6713d13236dd9d7407373d8df1f32aa5c780513d7ccc60702c6646856c",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "7366a16962d235a5122ea1982b735ac698ae0efd",
-          "line_end": 1142,
-          "line_start": 1103,
+          "blob_sha": "21f68d326387481512300b14e641354a4a90be99",
+          "line_end": 1146,
+          "line_start": 1107,
           "path": "services/core-control-plane/src/fdai/agents/saga.py",
           "source_kind": "code",
           "symbol": "Saga.escalate_to_github_issue"
@@ -480,11 +480,11 @@
         "Can an approver approve their own action?",
         "자기 액션을 스스로 승인할 수 있나요?"
       ],
-      "source_manifest_hash": "f0b863b8bea8bdabda1272b53e8b31f6346ed54ce1a3fb07ba4404d870ba1ad0",
+      "source_manifest_hash": "9dea93423ec0bdc2f99f7085335b1bd64a40ed11409572042a37691582ec34d6",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "0ce12a95235874d711f4499c2b53ad61ad25eaa9",
+          "blob_sha": "29d369af7ea5c0e140ec7ca34700a15a8c1ba890",
           "line_end": 357,
           "line_start": 335,
           "path": "services/core-control-plane/src/fdai/agents/var.py",
@@ -840,20 +840,20 @@
         "How does Vidar handle rollback?",
         "Vidar는 롤백을 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "44d34adcb2ba4e27f82195d7ca82546c2119005344b0276d957cf105a2b16b01",
+      "source_manifest_hash": "b264c51c83c350b5d4228698ef275d0dcd89f35dd95ad0d96480c868253e8ea7",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "6365ed2e2bd132140d116abada011defbb58f8d6",
-          "line_end": 519,
-          "line_start": 497,
+          "blob_sha": "52d79205ae2d0f3ae3f70712cdc7ce9ad5fbfcd5",
+          "line_end": 579,
+          "line_start": 557,
           "path": "services/core-control-plane/src/fdai/agents/vidar.py",
           "source_kind": "code",
           "symbol": "Vidar.rollback"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "d500e9fbecd2cdec7bda7823f50bb85d9be09d1e",
+          "blob_sha": "760fe46fa1baa63abfdceb302fd4e95a13602323",
           "line_end": 1649,
           "line_start": 1614,
           "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",
@@ -862,7 +862,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "d500e9fbecd2cdec7bda7823f50bb85d9be09d1e",
+          "blob_sha": "760fe46fa1baa63abfdceb302fd4e95a13602323",
           "line_end": 1776,
           "line_start": 1758,
           "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",
@@ -921,13 +921,13 @@
         "Can Bragi execute a command?",
         "Bragi는 명령을 직접 실행하나요?"
       ],
-      "source_manifest_hash": "9651f4efa0bd6da72c2b5dc38d055f98f6b5cf3a44023daa17a01b146a88155a",
+      "source_manifest_hash": "86542b5299b5539b79e4e2ec038276529d85706e46ddcadc3c9ef6fb315348f1",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "c856bb159d3962162164b640eaeb52a558785547",
-          "line_end": 1057,
-          "line_start": 731,
+          "blob_sha": "4702090abe0f364125472bd0a15fe9d14952bce9",
+          "line_end": 1061,
+          "line_start": 735,
           "path": "services/core-control-plane/src/fdai/agents/bragi.py",
           "source_kind": "code",
           "symbol": "Bragi.ask"
