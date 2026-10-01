@@ -153,6 +153,9 @@ class SuccessiveRelationContinuationIssuer:
     ) -> SuccessiveRelationPage:
         record = await self._valid_record(continuation_ref)
         batch = record.pending_batches[0]
+        # Only the pending batch's own verified plan may advance this continuation.
+        if execution.plan_digest != batch.plan.plan_digest:
+            raise SuccessiveRelationContinuationInvalidError
         source_generation = _execution_generation(batch, execution)
         if source_generation != record.source_generation:
             await self._store.delete(continuation_ref)

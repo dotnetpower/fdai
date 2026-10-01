@@ -126,6 +126,22 @@ async def test_successive_relation_rejects_tampered_or_foreign_continuation() ->
         await _issuer(store, principal=_OTHER_DIGEST).next_batch(page.continuation_ref)
 
 
+@pytest.mark.asyncio
+async def test_only_the_pending_batch_plan_can_advance_the_continuation() -> None:
+    goal = await _all_kinds_goal()
+    store = InMemorySuccessiveRelationContinuationStore()
+    issuer = _issuer(store)
+    page = await issuer.start(goal=goal, first_execution=_execution(goal.batches[0]))
+    assert page.continuation_ref is not None
+    batch = await issuer.next_batch(page.continuation_ref)
+    # The first batch's execution, replayed, is another plan's rows.
+    replayed = replace(_execution(batch), plan_digest=goal.batches[0].plan.plan_digest)
+
+    with pytest.raises(SuccessiveRelationContinuationInvalidError):
+        await issuer.complete_batch(continuation_ref=page.continuation_ref, execution=replayed)
+    assert (await issuer.next_batch(page.continuation_ref)) == batch
+
+
 def _pairs(endpoints: list[RelationEndpoint]) -> set[tuple[str, str]]:
     return {(item.endpoint_name, item.link_type) for item in endpoints}
 
