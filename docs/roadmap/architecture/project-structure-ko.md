@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fa172228005d2444f55efe1bbe2b3b88a088be8f
+translation_source_sha: 670db6780aa4a97ebd92dbbb4a6e2fff81fa99e4
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -596,6 +596,10 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   리비전만 유지하므로 상위 보안 릴리스가 나오면 기존 고정 버전을 더 이상 설치할 수 없습니다.
   이때 배포되는 모든 Dockerfile과 이미지 계약을 게시된 리비전으로 함께 옮기고, 선택된 모든
   이미지를 다시 빌드하고 검사합니다.
+  이미지에 설치되지 않는 `pdf-report`, `azure-mcp` 같은 선택적 extra도 lock 수준에서 같은
+  규칙을 따릅니다. 공개된 보안 권고는 패치된 릴리스를 lock에 고정해 해결합니다. 매니페스트
+  범위가 그 릴리스를 제외하면 루트와 서비스 매니페스트를 함께 옮기고, 새 릴리스에 맞춰야 하는
+  어댑터 코드와 집중 테스트도 함께 갱신합니다.
 - `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며

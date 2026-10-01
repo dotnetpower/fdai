@@ -318,9 +318,16 @@ Fast-gate cache identities are computed once before and after the batch, not onc
 Pure checks bind content; history checks also bind revisions and refs. Input drift rejects the
 batch. Integrity and external-evidence checks remain uncached; CI runs retain their own environment.
 The changed-test runner behind `tests-for-diff.sh --run` follows the same rule. A shard pass is
-reused only under the content identity the structural runner computes: the selected test and
-source files, the lock file, the installed environment digest, and the exact pytest command. A
-pass recorded under any other identity, including a legacy command-only marker, runs again.
+reused only under one content identity: the bytes of every tracked and untracked, non-ignored
+working-tree file, which include the selected tests, their sources, and the lock file; the
+structural runner's installed-environment digest of the project environment that `uv run`
+selects, without the bytecode caches that tests write; the exact pytest command; and the
+interpreter, pytest, uv, and locale variables. A pass recorded under any other identity, including
+a legacy command-only marker, runs again. A run records a pass only when the working tree,
+including the status times of its files, and the environment are unchanged after every shard
+finishes. A working-tree change reverted during the run, or an environment that `uv run`
+synchronized during it, therefore records nothing until the next run. An identity that can't be
+computed disables reuse.
 
 Documentation updates refresh only the translated files actually reviewed. Coverage candidate
 selection can use existing reports as hints; a one-module task measures that module, not a mandatory
@@ -505,7 +512,7 @@ The remaining Low risks are explicit and bounded:
 | Remote preflight | implemented | `live_preflight/transport.py`; 6 focused tests | At most three read attempts; permanent errors fail immediately. |
 | Ten-round assurance | validated | 13 rounds, final independent re-review, and central receipt for `d3f5257b9` | No residual finding exceeds Low. |
 | Developer validation authority | implemented | `.githooks/post-commit`; `.githooks/pre-push`; `scripts/agent/design_context.py`; focused hook and dispatcher tests | Commits and pushes no longer depend on local queue receipts; CI owns pushed-SHA integration. |
-| Local-first validation and candidate publication | implemented | Focused facade, route, guidance, selector, cache, queue, workflow, and Genesis regression suites; static and type checks | Local structural passes bind content and execution inputs. Fast-gate reuse requires verified clean inputs and a final identity recheck. Remote evidence remains independent. |
+| Local-first validation and candidate publication | implemented | Focused facade, route, guidance, selector, cache, changed-test shard, queue, workflow, and Genesis regression suites; static and type checks | Local structural passes and changed-test shard passes bind content and execution inputs. Fast-gate reuse requires verified clean inputs and a final identity recheck. Remote evidence remains independent. |
 
 ### Implementation history
 
@@ -550,13 +557,15 @@ The remaining Low risks are explicit and bounded:
 | 2026-09-29 | implemented | Added content-free semantic decision traces to `dev discuss` so a developer can see why a question was understood the way it was. Core keeps one trace per completed semantic turn in a 50-trace process-local buffer: routing, each judgment attempt, grounding calls, the planner's own structured decision events, the executed intent graph, the outcome with the planner's internal reason, and review cues that point at a step. Model-authored tokens need reviewed vocabulary membership, deployment names and sessions become process-local aliases, offsets and values never leave the process, and packets without traces keep the schema 1.0.0 wire shape. `dev-discuss explain` renders the traces, `copilot-export` carries them, and a coverage rejection now logs only the closed constraint roles it found uncovered. The design was critiqued before implementation and all eight findings were revised. | `test_decision_traces.py`; `test_development_decisions.py`; `test_dev_discuss.py` explain test; `test_an_uncovered_constraint_names_only_its_closed_roles_in_the_rejection_log`; 1,145 related conversation tests; two live Console runs with 20 traced turns, no rejected trace, and no tenant name or non-ASCII text in the exported packet; imported review `sha256:f2be8aca0c1320734a0d781bb2ac4d2ef34cb0e597d5967dcce6774a90845ed0`. | The traced misunderstanding patterns are recorded in the [reasoning compiler ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md). |
 | 2026-09-29 | implemented | Extended the compiled-answer decision event for the local compiled-answer rounds: a declined compilation names the one selection rule it failed and its batch count, an invalid review names why the extraction could not serve without quoting it, a word-recovered plan held by the typed reading emits its own cue, and the last form pass carries a content-free shape of mention and goal ids with closed domain, form, operation, measure, filter, relation, and time values. | `test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it`; `test_semantic_reasoning_shape.py`; typed decline and review-reason tests; live traces over rounds 7 to 10 and imported review `sha256:a566db4ef38ca7d46ccb47f99761a6496821395a6f0d9c46dae43ee9486df4cc`. | The remaining conversation gaps are recorded in the [reasoning compiler ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md). |
 | 2026-10-01 | in-progress | Recorded the design that binds a reused changed-test shard pass to the structural runner's content identity, after a full-suite run returned four cached passes in 0 seconds following a lock and source change (#1726). No runner behavior changed. | `current change`; `docs/roadmap/deployment/developer-workflow-assurance.md`; `docs/roadmap/deployment/developer-workflow-assurance-ko.md` | Implement the content-bound shard marker with its regression test. |
+| 2026-10-01 | implemented | Implemented the content-bound changed-test shard pass (#1726). A marker was keyed only on the pytest command, `PYTHONPATH`, and the shard index, so a full-suite rerun reported cached passes after source, test, or `uv.lock` changes. It now binds the shard command; the interpreter, pytest, uv, and locale variables; the bytes of every tracked and untracked, non-ignored working-tree file outside the runner's own state; and the structural runner's installed-environment digest of the project environment without bytecode caches. A run records a pass only when the working tree, including the status times of its files, and the environment are unchanged after every shard finishes, and an identity that can't be computed never reuses one. | `current change`; `scripts/automation/run-changed-test-shards.py`, `scripts/automation/changed_test_inputs.py`, and `scripts/automation/local_validation_inputs.py`; `tests/integration/scripts/test_changed_test_shards.py`, `tests/integration/scripts/test_tests_for_diff.py`, and `tests/integration/scripts/test_local_validation_cache.py`; the new source, test, lock, dependency, interpreter, variable, mid-run, and reverted-edit cases fail against the previous runner. A real two-shard run reused both passes while unchanged and reran both after a source edit. | None for shard pass reuse. |
 
 ### Remaining work
 
-- [ ] Bind each reused changed-test shard pass in `run-changed-test-shards.py` to the structural
+- [x] Bind each reused changed-test shard pass in `run-changed-test-shards.py` to the structural
   runner's content identity (selected tests and sources, lock file, installed environment digest,
   and pytest command), per #1726. Exit: a regression test shows that editing a selected source file
-  or `uv.lock` causes a cache miss while an unchanged rerun still reuses the pass.
+  or `uv.lock` causes a cache miss while an unchanged rerun still reuses the pass. Evidence:
+  `tests/integration/scripts/test_changed_test_shards.py`, recorded in the 2026-10-01 history row.
 - [x] Completed 13 independent critique rounds with focused checks and recorded accepted and
   rejected findings above.
 - [x] Central validation accepted integrated implementation revision `d3f5257b9`.

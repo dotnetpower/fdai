@@ -9,12 +9,14 @@ from collections.abc import Mapping, Sequence
 from typing import Final, Never
 
 from weasyprint import HTML
+from weasyprint.urls import FatalURLFetchingError, URLFetcher
 
 from fdai_operator_service.families.operations import ReportPdfEncodingError
 
 MAX_ENVELOPE_BYTES: Final = 2 * 1024 * 1024
 MAX_WIDGETS: Final = 200
 MAX_PAGES: Final = 250
+_EXTERNAL_RESOURCES_PROHIBITED: Final = "external resources are prohibited in report PDFs"
 
 _STYLE: Final = """
 @page {
@@ -64,12 +66,19 @@ class PdfReportEncoder:
         try:
             document = HTML(string=markup, url_fetcher=fetch_guard).render()
             if fetch_guard.attempted:
-                raise ReportPdfEncodingError("external resources are prohibited in report PDFs")
+                raise ReportPdfEncodingError(_EXTERNAL_RESOURCES_PROHIBITED)
             if not 1 <= len(document.pages) <= MAX_PAGES:
                 raise ReportPdfEncodingError("report PDF page count is outside the allowed bound")
             payload = document.write_pdf()
+            # SVG drawing during write_pdf swallows the refusal, so check the guard again.
+            if fetch_guard.attempted:
+                raise ReportPdfEncodingError(_EXTERNAL_RESOURCES_PROHIBITED)
         except ReportPdfEncodingError:
             raise
+        except FatalURLFetchingError as exc:
+            if fetch_guard.attempted:
+                raise ReportPdfEncodingError(_EXTERNAL_RESOURCES_PROHIBITED) from exc
+            raise ReportPdfEncodingError("report PDF rendering failed") from exc
         except Exception as exc:
             raise ReportPdfEncodingError("report PDF rendering failed") from exc
         if not isinstance(payload, bytes) or not payload.startswith(b"%PDF-"):
@@ -225,21 +234,23 @@ def _escape(value: object) -> str:
     return html.escape(str(value), quote=True)
 
 
-class _ExternalFetchGuard:
-    """Block and remember every resource request attempted by generated markup."""
+class _ExternalFetchGuard(URLFetcher):  # type: ignore[misc]
+    """Refuse and remember every resource request attempted by generated markup.
+
+    WeasyPrint 70 requires a ``URLFetcher`` subclass. The refusal raises
+    ``FatalURLFetchingError``, which stops rendering except where WeasyPrint swallows it,
+    as SVG drawing does; the encoder therefore also checks ``attempted`` after each stage.
+    No protocol is allowed if the base fetch is ever reached.
+    """
 
     def __init__(self) -> None:
+        super().__init__(allowed_protocols=(), allow_redirects=False, fail_on_errors=True)
         self.attempted = False
 
-    def __call__(
-        self,
-        url: str,
-        timeout: int = 10,
-        ssl_context: object | None = None,
-    ) -> Never:
-        del url, timeout, ssl_context
+    def fetch(self, url: str, headers: Mapping[str, str] | None = None) -> Never:
+        del url, headers
         self.attempted = True
-        raise ReportPdfEncodingError("external resources are prohibited in report PDFs")
+        raise FatalURLFetchingError(_EXTERNAL_RESOURCES_PROHIBITED)
 
 
 __all__ = ["PdfReportEncoder", "source_envelope_digest"]

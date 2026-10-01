@@ -93,7 +93,7 @@ serve = [
     "uvicorn>=0.32,<1",
 ]
 pdf-report = [
-    "weasyprint>=66,<70",
+    "weasyprint>=70,<71",
 ]
 # Isolated browser-evidence workers install this extra explicitly. The core and
 # Operator API images omit it so browser code and binaries never inherit executor identity.
@@ -246,7 +246,7 @@ ignore_missing_imports = true
 # WeasyPrint is isolated to the optional delivery/reporting adapter and ships
 # no py.typed marker. The adapter validates its byte-return boundary.
 [[tool.mypy.overrides]]
-module = ["weasyprint"]
+module = ["weasyprint", "weasyprint.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

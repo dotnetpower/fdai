@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 승격 프로그램
 translation_of: ontology-reasoning-promotion-program.md
-translation_source_sha: cac11ff493c7e1957aa8d4e4068b0bb2ce809bb6
+translation_source_sha: 061bffb8566622b80096c1f6dead1e7fb81e60c8
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 승격 프로그램
@@ -157,16 +157,7 @@ Owner는 4단계 전에 결정합니다.
 남은 추론 작업은 여섯 단계로 진행합니다. 각 단계는 의존하는 앞 단계가 종료 조건을 충족한 뒤에만
 시작하며, 모든 패키지는 자신의 종료 조건을 유지합니다. 검증은 각 단계가 끝날 때마다 실행합니다.
 
-```mermaid
-flowchart LR
-  W0["0단계: R0 기준선, P6 결정, P0 근거 보기"]
-  W1["1단계: H1 계약, H3 속성 조회, E5 예약, E7 reader와 도메인"]
-  W2["2단계: H2 핸들 저장소, E1 슬롯, E6 계보, H5 변경 이어 읽기"]
-  W3["3단계: H4 서수, E2 출처, E3 관계, E4 라우팅, H6 계획, E9 연산자"]
-  W4["4단계: P1 shadow, P2 판독기, P3 검증된 답변, 이후 E8 가설"]
-  W5["5단계: 최종 근거, P5 승격, 이후 제거"]
-  W0 --> W1 --> W2 --> W3 --> W4 --> W5
-```
+![진행 순서. 주요 단계는 0단계: R0 기준선, P6 결정, P0 근거 보기, 1단계: H1 계약, H3 속성 조회, E5 예약, E7 reader와 도메인, 2단계: H2 핸들 저장소, E1 슬롯, E6 계보, H5 변경 이어 읽기, 3단계: H4 서수, E2 출처, E3 관계, E4 라우팅, H6 계획, E9 연산자, 4단계: P1 shadow, P2 판독기, P3 검증된 답변, 이후 E8 가설, 5단계: 최종 근거, P5 승격, 이후 제거입니다.](../../diagrams/generated/fdai-roadmap-interfaces-ontology-reasoning-promotion-program-01.ko.svg)
 
 문서도 같은 구조를 따릅니다. 상위 설계는 형식, 검사, 전달 라운드의 규범 계약으로 남고, 새 작업은
 집중 설계 문서에 들어갑니다. 첫 계열이 승격된 뒤에는 상위 설계의 형식 전용 답변, 인과 맥락, 검토

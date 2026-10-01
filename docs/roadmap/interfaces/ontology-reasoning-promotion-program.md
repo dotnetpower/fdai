@@ -164,16 +164,7 @@ and evidence, so the Owner decides before Wave 4:
 Remaining reasoning work runs in six waves. A wave starts only when the waves it depends on have
 their exits, and every package keeps its own exit. Validation runs after each wave.
 
-```mermaid
-flowchart LR
-  W0["Wave 0: R0 baselines, P6 decision, P0 evidence view"]
-  W1["Wave 1: H1 contracts, H3 property lookup, E5 reservation, E7 readers and domains"]
-  W2["Wave 2: H2 handle store, E1 slots, E6 lineage, H5 change continuation"]
-  W3["Wave 3: H4 ordinals, E2 provenance, E3 relations, E4 routing, H6 plans, E9 operators"]
-  W4["Wave 4: P1 shadow, P2 readers, P3 verified answers, then E8 hypotheses"]
-  W5["Wave 5: final evidence, P5 promotion, then removal"]
-  W0 --> W1 --> W2 --> W3 --> W4 --> W5
-```
+![Sequencing. The main stages are Wave 0: R0 baselines, P6 decision, P0 evidence view, Wave 1: H1 contracts, H3 property lookup, E5 reservation, E7 readers and domains, Wave 2: H2 handle store, E1 slots, E6 lineage, H5 change continuation, Wave 3: H4 ordinals, E2 provenance, E3 relations, E4 routing, H6 plans, E9 operators, Wave 4: P1 shadow, P2 readers, P3 verified answers, then E8 hypotheses, Wave 5: final evidence, P5 promotion, then removal.](../../diagrams/generated/fdai-roadmap-interfaces-ontology-reasoning-promotion-program-01.en.svg)
 
 Documentation follows the same structure. The owner design stays the normative contract for the
 form, the checks, and the delivery rounds, and new work lands in the focused designs. After the
