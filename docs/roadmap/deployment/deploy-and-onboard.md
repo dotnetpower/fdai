@@ -565,8 +565,9 @@ required baseline, not observations from the signed-in tenant.
   secret-scan gate.
 - Per-environment values differ; the same image reads them from the injected environment.
 - Terraform creates deployment-owned operator-request receipt signing seed secrets for Core and
-  Operator in Key Vault and exports only their secret ids and producer ids. The deploy workflow
-  hydrates those references into service tfvars. Operator receives only its own seed. Core receives
+  Operator in Key Vault and exports only their versionless secret ids and producer ids. The deploy
+  workflow rejects a versioned secret reference before it hydrates those references into service
+  tfvars, so a rotated seed resolves to its current version. Operator receives only its own seed. Core receives
   its own seed plus the Operator seed, derives trusted producer public keys at startup, and signs
   only as `core-control-plane`; Core remains the verifier inside the trusted computing base.
 

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 1ad0076ea645c2f54dd5f6513e1a9571daa90cda
+translation_source_sha: 344fddd38ae6b21dedd298a5b75746673a505745
 translation_revised: 2026-10-01
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -565,8 +565,9 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
   실패.
 - 환경별 값이 다름; 같은 이미지가 주입된 환경에서 값을 읽음.
 - Terraform은 Core와 Operator용 deployment-owned operator-request receipt signing seed
-  secret을 Key Vault에 만들고 secret id와 producer id만 내보냅니다. Deploy workflow는 이 참조를
-  service tfvars로 hydrate합니다. Operator는 자기 seed만 받고, Core는 자기 seed와 Operator seed를
+  secret을 Key Vault에 만들고 버전이 없는 secret id와 producer id만 내보냅니다. Deploy workflow는
+  버전이 지정된 secret 참조를 hydrate 전에 거부하고 이 참조를 service tfvars로 hydrate하므로,
+  교체된 seed는 현재 버전으로 해석됩니다. Operator는 자기 seed만 받고, Core는 자기 seed와 Operator seed를
   받아 startup에서 trusted producer public key를 파생하며 `core-control-plane`으로만 서명합니다.
   Core는 trusted computing base 안의 verifier로 남습니다.
 

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 2420fa73c67643ef132cc0e66febb0f64bfea008
+translation_source_sha: 3cd4f82bb3878a29fe1d9a0dbaed787ff91166bb
 translation_revised: 2026-10-01
 ---
 
@@ -76,7 +76,7 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 | 감지 에피소드와 검증된 복구 연결 | implemented | `fdai/runtime/bootstrap_incidents.py`, `tests/runtime/test_bootstrap_incidents.py` | 수명 주기가 실제 Incident를 반환한 뒤 런타임은 감지 에피소드의 Action 멱등성 키를 해당 ID에 원자적으로 연결합니다. 독립 효과 종결은 리소스, 신호 및 상관관계를 검증하고 합법적인 Incident 전이만 따르며 같은 리소스의 이후 에피소드를 종결할 수 없습니다. |
 | 오퍼레이터 확인 인시던트 수명 주기 및 조사 기본 기능 | implemented | `fdai/core/incident/workflow.py`, `fdai/core/investigation/coordinator.py`, `tests/core/incident/test_incident_workflow.py`, `tests/core/investigation/test_coordinator.py` | 범위가 제한된 기본 기능이 존재하고 집중 검사를 통과합니다. |
 | 오퍼레이터 확인 인시던트 생성 전송 | implemented | `fdai_service_contracts.incident_creation`, Core 의미 기반 초안 변환 결과 및 인시던트 생성 소비자, Operator 확인 경로, 원본 확인기 및 보낼 편지함 브리지, 집중 교차 서비스 테스트 | 브라우저는 공개 초안 필드 네 개를 제출합니다. Operator는 principal 소유 원본을 다시 읽고 권한 없는 요청을 전용 인시던트 토픽에 게시합니다. Core는 감사되는 인시던트 하나를 생성하거나 재사용합니다. |
-| 서명된 action confirmation 및 poison-halt clear | implemented | `fdai_operator_service/action_confirmation_runtime.py`, `fdai_operator_service/operator_request_receipt.py`, `fdai_operator_service/bus_poison_halt_clear.py`, 집중 Operator route 테스트 | Action confirmation은 범위가 제한된 서명된 operator-request 증적을 첨부합니다. Owner-only poison-halt clear route는 Core 검증을 위한 수락을 대기열에 넣으며, Core가 parked-record 근거를 검증하기 전에는 완료를 주장하지 않습니다. |
+| 서명된 action confirmation 및 poison-halt clear | implemented | `fdai_operator_service/action_confirmation_runtime.py`, `fdai_operator_service/operator_request_receipt.py`, `fdai_operator_service/bus_poison_halt_clear.py`, 집중 Operator route 테스트 | Action confirmation은 범위가 제한된 서명된 operator-request 증적을 첨부하며, 증적 발급기가 구성된 경우에만 권한이 있는 `operator_request` 이벤트를 게시합니다. 그렇지 않으면 readiness가 준비되지 않음으로 보고되고 proposal은 재시도를 위해 게시되지 않은 상태로 남습니다. Owner-only poison-halt clear route는 Core 검증을 위한 수락을 대기열에 넣고, 증적 발급기가 없으면 `503`을 반환하며, Core가 parked-record 근거를 검증하기 전에는 완료를 주장하지 않습니다. |
 | 런타임 작업 격리 | implemented | `fdai/runtime/bootstrap_tasks.py`, 집중 HIL 부하 제어, 런타임 구성 및 부트스트랩 검사 | 인시던트 생성과 채널 독립 승인 만료 처리는 별도의 감독 작업으로 실행됩니다. 어느 작업도 다른 작업에 승인 또는 실행 권한을 부여하지 않습니다. |
 | Assurance Twin 시작 조립 격리 | implemented | `fdai/runtime/bootstrap_core.py`, Assurance Twin 생산자 및 시작 조립 검사 | Core 시작 조립은 Heimdall의 읽기 전용 자세 생산자도 구성합니다. 이 생산자는 별도의 인벤토리, Rule, 정책, 원본 및 작성기 보호 경계를 사용하며 Operator가 확인한 인시던트 요청, 감사, 승인 또는 실행 경로를 변경하지 않습니다. |
 | 통합 오퍼레이터 SRE 작업 및 진행 상황 계약 | in-progress | `fdai/core/incident/sre_request.py`, `fdai/shared/providers/operator_request.py`, 프로세스 내부 집중 Core 검사 | 프로세스 내부 조정기는 인시던트와 조사 작업 동작을 입증합니다. 배포된 관리 리소스 의미 기반 작업 확인에는 독립적으로 검토된 원본과 요청부터 감사까지의 증적이 더 필요합니다. |
@@ -88,6 +88,7 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-01 | implemented | 증적 발급기가 없을 때 서명된 action confirmation이 실패를 드러내도록 했습니다. 권한이 있는 `operator_request` 이벤트는 operator-request 증적 발급기가 구성된 경우에만 게시됩니다. 그렇지 않으면 confirmation bridge는 동작하는 경로가 아니고, Operator readiness는 준비되지 않음으로 보고되며, 수락된 proposal은 재시도를 위해 게시되지 않은 상태로 남습니다. 같은 경우 ordered poison-halt clear route는 `503`을 반환합니다. | `current change`; `fdai_operator_service/composition.py`; `fdai_operator_service/composition_readiness.py`; `fdai_operator_service/action_confirmation_runtime.py`; `test_action_confirmation_composition.py`; `test_bus_poison_halt_clear.py`. | 서명된 관리형 리소스 action confirmation에 대한 배포 환경의 요청부터 감사까지의 근거를 보존합니다. |
 | 2026-09-27 | implemented | 인시던트 런타임 옆에 Heimdall의 읽기 전용 Assurance Twin 자세 생산자를 추가하되 인시던트 생성 소유권, 토픽, 스키마, 준비 상태 및 권한은 변경하지 않았습니다. | `current change`, Assurance Twin 런타임 및 서비스 소유권 집중 검사. | 인시던트 런타임 근거는 이 문서에서 계속 추적하고 제안 IaC 검토 근거는 #350에서 추적합니다. |
 | 2026-09-21 | implemented | 인시던트 확인 배선과 준비 상태를 보존하면서 Operator 수명 주기와 리소스 정리, 경로 계열 조립 및 읽기 출처 선언을 운영 조립 파사드에서 분리했습니다. | `current change`, Operator 조립 테스트 120개 통과와 선택적 PDF 테스트 1개 건너뜀, Ruff, strict mypy, Operator 경계, 독립 서비스, 설계 경로 및 LOC 게이트 통과. | 이 내부 소유권 분리에 남은 인시던트 전송 또는 권한 작업은 없습니다. |
 | 2026-09-17 | implemented | 각 감지 에피소드의 Action 멱등성 키를 레지스트리가 실제로 반환한 Incident에 연결하고, 독립 효과 검증이 해당 Incident의 합법적인 최종 경로만 적용하도록 했습니다. | `current change`, `bootstrap_incidents.py`, 같은 리소스 재발 및 재생 집중 검사 | 실제 복구를 주장하기 전에 배포된 인증 에피소드 및 효과 근거를 보존해야 합니다. |

@@ -47,6 +47,7 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | implemented | Hardened the phase-2 Agent Pantheon capabilities through repeated critique rounds: signed, fence-ordered ordered-poison-halt clears; receipt schema `1.1.0` with presence-aware workflow lineage and pending-then-final replay fences; token-fenced durable publication outboxes with bounded publish, paged recovery, per-row deferral, and maintenance re-drive; per-ActionType rollback readiness; batch refusal accounting; bounded specialist sampling and recoverable Loki windows; and exact-key `delete_state` retention. Oversized members moved into `_framework` capability modules without behavior change. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `services/operator-service/src/fdai_operator_service/**`; `services/core-control-plane/tests/agents/test_outbox_publication_hardening.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4407 passed, 1 skipped; real provider matrix on loopback Redpanda and PostgreSQL passed twice. | Bind and validate the remaining production ports and live or deployment evidence listed below. |
 | 2026-10-01 | implemented | Documented the phase-2 Agent Pantheon capabilities: pre-flight receipts, DR contracts, signed operator-request receipts, schema learning, intent-training evidence, Mimir and Norns issue-close support, Freyr/Loki specialist loops, poison-halt clear semantics, cost annotations, multi-target batch semantics, and Muninn compaction. | `current change`; `docs/roadmap/agents/agent-pantheon*.md`; `docs/roadmap/agents/agent-pantheon-implementation*.md`; `docs/roadmap-implementation/agents/agent-pantheon.md`; focused checks listed in the final report. | Bind and validate the remaining production ports and live/deployment evidence listed below. |
 | 2026-09-29 | implemented | Thor, Heimdall, Mimir, and Forseti now record the independent verifier's explicit rejection class and cite its rejection record while keeping their roles, owned objects, and topics. Thor's test-context dispatch hold sets the `ActionRun` outcome and `evidence_rejection_ref` on `object.action-run`; Heimdall excludes scoring in `ForecastOutcome` `1.2.0` on `object.forecast-outcome`; Mimir appends a `test_context.transition_refused` audit entry and publishes no `object.policy`; Forseti's held verdict carries `evidence_rejection_ref`. Only `unavailable` keeps each generic reason, issuance stays a bounded provider call, and no execution or promotion authority changes. | `current change`; `agents/_framework/{thor_execution,thor_action_run,thor_persistence,forseti_judgment}.py`; `tests/agents/test_operational_evidence_owner_records.py`; see the [independent operational evidence ledger](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md) | Purposes without a bound verifier readback still reach these agents only as `unavailable`. |
 | 2026-09-28 | implemented | Closed the residual default-profile paths by which learned patterns and predictions became action proposals, gated on the existing `governed-execution` product add-on. The control-loop builder passes `RuntimeProductSelection.governed_execution` to the control loop, and Pantheon composition passes the control loop's value to Forseti, so no second selection input exists. Without the add-on, Forseti answers forecasts and capacity-fed arbitration with ActionType-free Verdicts and builds no decision options or kinetic proposals from a prediction, and the control loop stops T1 learned reuse before it builds an Action. Every settled advisory arbitration marks its correlation unresolved as the governed path does, publishes one Verdict under a per-correlation lock, and Thor holds the correlation durably with a terminal non-action claim in its ActionRun store, so a later Verdict on it is refused after a restart or gate eviction as a reused correlation is refused on the governed path; no ActionRun, approval, or executor call results. With the add-on, the existing gates run with one deliberate restriction: an action Verdict derived from a forecast without an exact `mode: enforce` is capped at `shadow_only`. Roles, topics, and `PANTHEON_SPECS` are unchanged. | `current change`; 50 cases in `test_learned_output_profile_boundary.py`, `test_learned_output_arbitration_gate.py`, `test_learned_output_durable_gate.py`, `test_learned_reuse_profile_boundary.py`, and `test_bootstrap_pantheon_product_selection.py`, a mutation check for each gate, the unresolved mark, the publication retry and lock, the durable hold, and both composition hand-offs, and the governed-path arbitration, decision-case, specialist, and T1 wire tests updated to select the add-on through the product profile; framework layout, Ruff, and strict mypy passed. | Review T2, anomaly-action, alert-noise, and other learned-evidence consumers. No live validation was performed. |
@@ -177,6 +178,18 @@ owning projection. The tombstone keeps the idempotency key, owner, topic, digest
 deadline needed to suppress duplicate redelivery; it drops full payload bodies and mutable delivery
 metadata.
 
+Publication claims are fenced. Before it publishes, an owner claims the pending row with a unique
+per-claim owner token and a `claimed_at` lease on its injected clock. Broker publication runs under a
+timeout shorter than the lease and is cancelled and awaited on timeout or caller cancellation. Only a
+compare-and-swap that still matches the claim token marks the row published or releases it after a
+transport failure, so a late publisher whose lease was reclaimed cannot complete or reopen another
+claim. Startup recovery pages `pending` rows and expired `publishing` rows up to an explicit backlog
+cap and republishes them with their original idempotency keys and payloads. A row that fails to
+publish, or a malformed row, is recorded and deferred instead of aborting startup, and bounded
+maintenance re-drives deferred rows. Var final approvals, Saga audit entries, Muninn operational
+publications, Heimdall observation publications, Mimir rule and policy publications, and Bragi
+publication outboxes follow this contract.
+
 #### Tier, approval, and command identity
 
 - The authority ceiling evaluates an action at its actual originating T0, T1, or T2 tier. A
@@ -292,6 +305,11 @@ through the rollback contract or a visible `rollback_refused` state when the req
 rollback preconditions are missing. Thor releases or fences the resource lock after failed or
 refused rollback so the stuck run remains visible without holding the resource indefinitely.
 
+When action-specific rollback bindings exist, rollback readiness is validated per
+`(ActionType, rollback_contract)` pair. A contract name alone does not prove that a bound executor
+can recover a different ActionType. For example, the AKS acceptance `ops.scale-out` executor is bound
+for non-shadow execution only when its matching `state_forward_only` rollback adapter is supplied.
+
 #### Arbitration, narration, audit, and specialist replay
 
 - Forseti persists pending arbitration context, cross-vertical candidate deadlines, completed
@@ -348,16 +366,19 @@ refused rollback so the stuck run remains visible without holding the resource i
 
 #### Bounded shared state
 
-`StateStore` exposes one removal primitive: `delete_states_beyond(prefix, retain_newest)`. It drops
-the oldest rows past a projection bound in the same order returned by `read_states`. It cannot name
-one key, so it cannot erase an authoritative record or audit entry. Enforcement composition
+`StateStore` exposes two removal primitives. `delete_states_beyond(prefix, retain_newest)` drops the
+oldest rows past a projection bound in the same order returned by `read_states`. `delete_state(key)`
+removes one exact non-authority row, such as an expired replay fence, after its owner records a
+bounded retained summary. Neither primitive is used for audit entries or authority records.
+Enforcement composition
 requires explicit `thor_state_store`, `vidar_state_store`, `var_state_store`, and
 `forseti_state_store` bindings. Production provides the durable Thor store in shadow and enforce
 modes whenever Var recovery is durable, and it binds the optional governance and specialist stores
 to the incident audit store: `forseti_state_store`, `bragi_state_store`, `odin_state_store`,
 `proposal_rate_limit_state_store`, `heimdall_state_store`, `njord_state_store`, and
-`freyr_state_store`. `ordered_poison_halt_state_store` remains opt-in until an operator clear
-surface exists. Enforcement still requires every exact agent-owned binding before process-local approval or rollback state can be used. An inactive
+`freyr_state_store`. `ordered_poison_halt_state_store` remains opt-in: the Owner-only Operator clear
+surface exists, and production enablement of durable halt storage is a recorded remaining decision.
+Enforcement still requires every exact agent-owned binding before process-local approval or rollback state can be used. An inactive
 Thor row retains its stable idempotency generation. The same generation remains suppressed, while a
 different generation fails closed, including pre-campaign tombstones whose generation is unknown.
 Active rows are validated before resource claim, lifecycle-rank suppression, or execution. Released
@@ -421,7 +442,8 @@ with the same key, and recurrence after the clean start requires a new reviewed 
 
 Norns publishes inert quiet-window close eligibility on `object.rule-candidate`. It never mutates
 issues. Saga remains the issue closer and waits for Mimir promotion evidence plus the clean
-recurrence window before closing.
+recurrence window before closing. Saga keeps issue-close eligibility in bounded durable state and
+rehydrates it before any close scan.
 
 #### Operator-request receipts and schema learning
 
@@ -431,15 +453,29 @@ validity window. Huginn rejects missing, expired, replayed, mismatched, unverifi
 unknown-producer receipts. Schema learning records bounded content-free fingerprints on the hot
 path and publishes inert `schema_cluster.evidence` during maintenance.
 
+Receipt schema `1.1.0` is the default and also binds `canonical_workflow_action_digest`. Its
+workflow lineage digest is presence-aware, so an absent lineage and an empty lineage produce
+different digests. Schema `1.0.0` is accepted only for requests without workflow lineage. Huginn
+reserves the receipt replay fence as pending before it publishes, finalizes the fence after the
+publish and deduplication checkpoint succeed, and releases only its own pending reservation when
+publication fails. Fences expire after `expires_at` plus the allowed clock skew on the injected
+clock and are removed with a bounded aggregate summary. Core derives trusted producer public keys
+at startup from the Core and Operator signing seeds and signs only as `core-control-plane`.
+Schema-cluster evidence is recorded only after the event-type authorization gates pass.
+
 #### Freyr sampling and Loki scheduling/adversarial generation
 
 Freyr samples utilization through an injected read-only sampler. If unbound, the sampler reports a
-visible no-op rather than a degraded runtime. Forecasts remain advisory unless the governed
-advisory-to-verdict path emits shadow/HIL proposals through Forseti.
+visible no-op rather than a degraded runtime. A sampler call is bounded by a timeout that records
+`capacity_sampling:timeout`. Forecasts remain advisory unless the governed advisory-to-verdict path
+emits shadow/HIL proposals through Forseti.
 
 Loki's deterministic recurring scheduler emits one complete always-HIL chaos proposal per due
-window or a visible hold. Its adversarial scenario generator is an injected off-path port with no
-default binding; accepted candidates are inert and regression-gated against the frozen corpus.
+window or a visible hold. A claimed window is either recovered after restart or held with a bounded
+reason, never silently skipped. Its adversarial scenario generator is an injected off-path port with
+no default binding; accepted candidates are inert and regression-gated against the frozen corpus.
+Heimdall's recovery-effect observation key includes the published resource id, so observations for
+different resources in one correlation never collapse into one key.
 
 #### Poison-halt clear surface and publication replay evidence
 
@@ -449,14 +485,28 @@ pantheon-object transport. Core validates topic, group, agent, halt revision/dig
 parked-record key, offset, and digest before an audited compare-and-swap clear resumes the
 consumer. Durable halt storage remains opt-in.
 
+The Operator signs the exact canonical clear request, including the principal, the halt, and the
+parked-record evidence digests, with an operator-request receipt. The route returns `503` when no
+receipt issuer is configured. Acceptance claims the stored proposal with a lease and owner token
+before it publishes, marks it published by compare-and-swap on that claim, and releases it only
+after a transport failure; a concurrent live claim reports the request as accepted and pending.
+Core verifies the trusted `operator-service` producer, expiry, replay fence, Owner role, halt-marker
+key, offset, group, and topic binding, multi-handler group grammar, and request TTL. It commits the
+receipt replay fence before the durable halt compare-and-swap, bounds DLQ evidence scans by timeout
+and record count, and resumes only the cleared ordinal consumer group. Rejected clears are audited,
+queryable, and counted.
+
 Provider-harness restart replay tests cover Bragi, Var final approval, Saga audit outbox, Muninn,
-Mimir, Heimdall, and Odin publication replay. Real broker evidence remains a deployment-owned
-validation step.
+Mimir, Heimdall, and Odin publication replay. The real provider matrix for durable publication
+replay and Odin redelivery passed twice against loopback Redpanda v26.2.2 and PostgreSQL (30 tests
+each run). Real broker evidence for a deployed environment remains a deployment-owned validation
+step.
 
 #### Forseti what-if and cost annotations
 
 Forseti retrospective what-if replay is judge-only and inert. It compares retained judgment inputs
-through a versioned contract and publishes disagreement evidence without changing authority.
+through a versioned contract and publishes disagreement evidence without changing authority. What-if
+keys include the correlation, so replays of the same rule for different events stay distinct.
 Executable and advisory Verdicts and ArbitrationRequests carry bounded `cost_annotation` evidence
 or an explicit unavailable state; Odin preserves it and Thor stores it as non-identity metadata.
 
@@ -472,7 +522,9 @@ A multi-target Verdict with an explicit bounded target list creates one rollup `
 independent per-target `ActionRun`. Attempts have stable identities, resource locks, idempotency
 keys, safeguards, pre-flight/audit/executor/effect paths, and target-scoped Vidar rollback. The
 rollup records counts, failed and rolled-back target digests, terminal rules, and the durable
-bounded target list so approval after restart binds the same set. Single-target runs keep unchanged
+bounded target list so approval after restart binds the same set. The rollup counts rejected and
+`deny_dropped` targets separately; a terminal batch with any rejected or deny-dropped attempt
+becomes `rollback_failed` with outcome `batch_refused_attempt`. Single-target runs keep unchanged
 identity and payloads.
 
 #### Muninn compaction
