@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Iterable, Mapping
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from weakref import WeakValueDictionary
@@ -22,6 +23,7 @@ from weakref import WeakValueDictionary
 from fdai.agents._framework import (
     action_run_lineage,
     action_semantics,
+    thor_batch,
     thor_dispatch_validation,
     thor_execution,
     thor_introspection,
@@ -250,6 +252,10 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self._resource_dispatch_locks: WeakValueDictionary[str, asyncio.Lock] = (
             WeakValueDictionary()
         )
+        self._batch_rollup_attempts: dict[str, tuple[str, ...]] = {}
+        self._batch_attempt_rollups: dict[str, str] = {}
+        self._batch_rollup_targets: dict[str, tuple[str, ...]] = {}
+        self._batch_rollup_verdicts: dict[str, dict[str, Any]] = {}
         if self._state_store is not None:
             self.set_state_store(self._state_store)
 
@@ -553,6 +559,12 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         correlation = str(verdict.get("correlation_id", ""))
         lock = self._correlation_locks.setdefault(correlation, _ReentrantAsyncLock())
         async with lock:
+            batch_target_set = thor_batch.parse_batch_target_set(verdict)
+            if batch_target_set is not None:
+                return await self._dispatch_batch_verdict(
+                    verdict,
+                    batch_target_set=batch_target_set,
+                )
             resource_id = str(verdict.get("resource_id") or "")
             if resource_id:
                 resource_lock = self._resource_dispatch_locks.setdefault(
@@ -572,6 +584,58 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         if run.verdict == "auto" and run.state is ActionRunState.VERDICTED:
             await self._execute(run)
         return run
+
+    async def _dispatch_batch_verdict(
+        self,
+        verdict: dict[str, Any],
+        *,
+        batch_target_set: thor_batch.BatchTargetSet | thor_batch.BatchHold,
+    ) -> ActionRun:
+        if isinstance(batch_target_set, thor_batch.BatchHold):
+            held_verdict = deepcopy(dict(verdict))
+            held_verdict["resource_id"] = (
+                "target-set:held:"
+                + str(verdict.get("correlation_id") or "unknown").replace(":", "-")[:64]
+            )
+            return await self._emit_terminal_rejection(
+                held_verdict,
+                outcome=batch_target_set.outcome,
+                params_extra={
+                    "target_count": batch_target_set.target_count,
+                    "max_targets": batch_target_set.max_targets,
+                },
+            )
+        rollup_verdict = deepcopy(dict(verdict))
+        rollup_verdict.pop("targets", None)
+        rollup_verdict.pop("target_set", None)
+        rollup_verdict["resource_id"] = thor_batch.rollup_resource_id(batch_target_set)
+        rollup_verdict["batch_role"] = "rollup"
+        rollup_verdict["target_set_digest"] = batch_target_set.digest
+        rollup_verdict["target_set"] = list(batch_target_set.targets)
+        rollup_verdict["target_count"] = len(batch_target_set.targets)
+        existing = self.action_runs.get(str(verdict.get("correlation_id", "")))
+        if existing is not None:
+            self.record_behavior("dispatch:batch_duplicate")
+            if existing.verdict == "auto" and existing.state is ActionRunState.VERDICTED:
+                await self._execute_batch_rollup(existing)
+            return existing
+        rollup = await self._dispatch_verdict_once(rollup_verdict, defer_auto_execution=True)
+        rollup.batch_role = "rollup"
+        rollup.target_set_digest = batch_target_set.digest
+        rollup.target_set = batch_target_set.targets
+        rollup.target_count = len(batch_target_set.targets)
+        rollup.batch_rollup = thor_batch.build_rollup_fields(batch_target_set)["batch_rollup"]
+        self._batch_rollup_targets[rollup.correlation_id] = batch_target_set.targets
+        self._batch_rollup_verdicts[rollup.correlation_id] = deepcopy(dict(verdict))
+        await self._emit_action_run(rollup)
+        self.record_behavior("dispatch:batch_rollup")
+        if rollup.state is ActionRunState.HIL_PENDING:
+            return rollup
+        if rollup.verdict == "auto" and rollup.state is ActionRunState.VERDICTED:
+            await self._execute_batch_rollup(
+                rollup, targets=batch_target_set.targets, verdict=verdict
+            )
+        return rollup
 
     async def _dispatch_verdict_once(
         self,
@@ -882,6 +946,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 else None
             ),
         )
+        thor_batch.apply_batch_verdict_fields(run, verdict)
         run.preflight_required = wire_safeguard_required and (
             dry_run_evidence == "declared_obligation"
             or thor_preflight.high_risk(run, self._action_semantics)
@@ -969,6 +1034,99 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 run.outcome = "action_run_publication_unavailable"
             raise
 
+    async def _execute_batch_rollup(
+        self,
+        rollup: ActionRun,
+        *,
+        targets: tuple[str, ...] | None = None,
+        verdict: Mapping[str, Any] | None = None,
+    ) -> None:
+        if rollup.batch_role != "rollup":
+            return
+        if targets is None:
+            targets = self._batch_rollup_targets.get(rollup.correlation_id)
+        if targets is None:
+            targets = rollup.target_set
+        if not thor_batch.target_set_matches_digest(targets, rollup.target_set_digest):
+            rollup.transition(ActionRunState.DENY_DROPPED)
+            rollup.outcome = "batch_target_set_digest_mismatch"
+            await self._emit_action_run(rollup)
+            await self._release_resource_claim(rollup)
+            self._release_lock(rollup.resource_id)
+            self.record_behavior("batch_target_set:digest_mismatch")
+            return
+        if targets is None:
+            targets = tuple(
+                str(run.resource_id)
+                for run in self.action_runs.values()
+                if run.rollup_correlation_id == rollup.correlation_id and run.resource_id
+            )
+        if verdict is None:
+            verdict = self._batch_rollup_verdicts.get(rollup.correlation_id)
+        if verdict is None:
+            verdict = {
+                **rollup.publication_identity_payload(),
+                "idempotency_key": rollup.idempotency_key,
+                "risk_verdict": rollup.verdict,
+                "resolved_autonomy_ceiling": rollup.resolved_autonomy_ceiling.value,
+                "rollback_contract": rollup.rollback_contract,
+                "initiator_principal": rollup.initiator_principal,
+                "dry_run_receipt": rollup.dry_run_receipt,
+            }
+        if rollup.state is ActionRunState.APPROVED:
+            verdict = {
+                **dict(verdict),
+                "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": Autonomy.ENFORCE_AUTO.value,
+            }
+        if not targets:
+            rollup.transition(ActionRunState.ROLLBACK_FAILED)
+            rollup.outcome = "batch_target_set_unknown"
+            await self._emit_action_run(rollup)
+            return
+        attempts: list[ActionRun] = []
+        for target in targets:
+            attempt_payload = thor_batch.attempt_verdict(verdict, rollup=rollup, target=target)
+            attempt = await self._dispatch_verdict_once(attempt_payload, defer_auto_execution=False)
+            self._batch_attempt_rollups[attempt.correlation_id] = rollup.correlation_id
+            attempts.append(attempt)
+        self._batch_rollup_attempts[rollup.correlation_id] = tuple(
+            attempt.correlation_id for attempt in attempts
+        )
+        await self._refresh_batch_rollup(rollup.correlation_id)
+
+    async def _refresh_batch_rollup(self, rollup_correlation_id: str) -> None:
+        rollup = self.action_runs.get(rollup_correlation_id)
+        if rollup is None or rollup.batch_role != "rollup":
+            return
+        attempt_ids = self._batch_rollup_attempts.get(rollup_correlation_id)
+        if attempt_ids is None:
+            attempt_ids = tuple(
+                correlation_id
+                for correlation_id, run in self.action_runs.items()
+                if run.rollup_correlation_id == rollup_correlation_id
+            )
+            if attempt_ids:
+                self._batch_rollup_attempts[rollup_correlation_id] = attempt_ids
+        attempts = tuple(
+            run for correlation_id in attempt_ids if (run := self.action_runs.get(correlation_id))
+        )
+        if not attempts:
+            return
+        state_before = rollup.state
+        thor_batch.refresh_rollup(rollup, attempts)
+        if rollup.state != state_before and rollup.state in _TERMINAL_STATES:
+            rollup.terminal_published = False
+        await self._emit_action_run(rollup)
+        if state_before not in _TERMINAL_STATES and rollup.state in _TERMINAL_STATES:
+            await self._release_resource_claim(rollup)
+            self._release_lock(rollup.resource_id)
+
+    def _batch_has_attempts(self, rollup_correlation_id: str) -> bool:
+        return bool(self._batch_rollup_attempts.get(rollup_correlation_id)) or any(
+            run.rollup_correlation_id == rollup_correlation_id for run in self.action_runs.values()
+        )
+
     async def _invoke_executor(self, run: ActionRun) -> bool:
         return await thor_execution.invoke_executor(self, run)
 
@@ -1030,6 +1188,12 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         async with lock:
             run_to_execute = await self._handle_approval_locked(approval, correlation=correlation)
         if run_to_execute is not None:
+            if run_to_execute.batch_role == "rollup":
+                if self._batch_has_attempts(run_to_execute.correlation_id):
+                    self.record_behavior("approval:batch_duplicate")
+                    return
+                await self._execute_batch_rollup(run_to_execute)
+                return
             await self._execute(run_to_execute)
 
     async def _handle_approval_locked(
@@ -1258,6 +1422,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             await self._emit_action_run(run)
             await self._release_resource_claim(run)
             self._release_lock(run.resource_id)
+            if run.rollup_correlation_id is not None:
+                await self._refresh_batch_rollup(run.rollup_correlation_id)
             return
         if run is not None and run.state in _TERMINAL_STATES:
             if run.terminal_published:
@@ -1286,6 +1452,15 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self.record_behavior(run.outcome)
         await self._release_resource_claim(run)
         self._release_lock(run.resource_id)
+        if run.rollup_correlation_id is not None:
+            await self._refresh_batch_rollup(run.rollup_correlation_id)
+
+    async def _handle_effect_observation(self, observation: dict[str, Any]) -> None:
+        correlation = str(observation.get("correlation_id") or "")
+        await super()._handle_effect_observation(observation)
+        run = self.action_runs.get(correlation)
+        if run is not None and run.rollup_correlation_id is not None:
+            await self._refresh_batch_rollup(run.rollup_correlation_id)
 
     async def _handle_dr_failover_contract_decision(self, decision: Mapping[str, Any]) -> None:
         identity = decision.get("action_run_identity")

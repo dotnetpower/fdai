@@ -34,6 +34,15 @@ _DEVELOPMENT_IDENTITY_FIELDS = (
     "effective_quorum_required",
     "development_authority",
 )
+_BATCH_IDENTITY_FIELDS = (
+    "batch_role",
+    "attempt_id",
+    "rollup_correlation_id",
+    "rollup_action_run_identity",
+    "target_set_digest",
+    "target_set",
+    "target_count",
+)
 
 
 class _StateStore(Protocol):
@@ -77,6 +86,9 @@ def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
                 "development_authority": value.get("development_authority"),
             }
         )
+    for field in _BATCH_IDENTITY_FIELDS:
+        if value.get(field) is not None:
+            projected[field] = value.get(field)
     try:
         encoded = json.dumps(
             projected,
@@ -88,14 +100,11 @@ def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
         canonical = json.loads(encoded)
     except (TypeError, ValueError) as exc:
         raise ValueError("ActionRun identity MUST be canonical JSON") from exc
-    expected_fields = (
-        (*_IDENTITY_FIELDS, *_DEVELOPMENT_IDENTITY_FIELDS)
-        if value.get("development_authority") is not None
-        else _IDENTITY_FIELDS
-    )
-    if not isinstance(canonical, dict) or tuple(sorted(canonical)) != tuple(
-        sorted(expected_fields)
-    ):
+    expected = [*_IDENTITY_FIELDS]
+    if value.get("development_authority") is not None:
+        expected.extend(_DEVELOPMENT_IDENTITY_FIELDS)
+    expected.extend(field for field in _BATCH_IDENTITY_FIELDS if value.get(field) is not None)
+    if not isinstance(canonical, dict) or tuple(sorted(canonical)) != tuple(sorted(expected)):
         raise ValueError("ActionRun identity projection is malformed")
     return canonical
 

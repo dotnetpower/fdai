@@ -48,6 +48,7 @@ _ACTION_RUN_STATE_RANK = {
     ActionRunState.ROLLED_BACK: 9,
 }
 _ACTION_RUN_RESTART_CHECKPOINT_FIELDS = {
+    "batch_rollup",
     "dr_failover_contract_decision",
     "dry_run_evidence",
     "dry_run_receipt",
@@ -55,6 +56,7 @@ _ACTION_RUN_RESTART_CHECKPOINT_FIELDS = {
     "outcome",
     "preflight_simulation_receipt",
     "shadow_mode",
+    "target_set",
     "terminal_published",
 }
 

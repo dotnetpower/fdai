@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Protocol
@@ -88,6 +90,18 @@ async def rehydrate(host: ThorPersistenceHost) -> int:
                 continue
             await finalize_terminal_replay(host, run)
             continue
+        if not _valid_batch_target_set(run):
+            run.transition(ActionRunState.DENY_DROPPED)
+            run.outcome = "batch_target_set_digest_mismatch"
+            run.shadow_mode = True
+            host.action_runs[run.correlation_id] = run
+            host._idempotency_runs[run.idempotency_key] = run
+            if run.resource_id:
+                host._resource_locks.add(str(run.resource_id))
+            await _publish_rehydrate_hold_without_save(host, run)
+            release_lock(host, run.resource_id)
+            host.record_behavior("batch_target_set:digest_mismatch")
+            continue
         if run.resource_claimed and run.state in {
             ActionRunState.VERDICTED,
             ActionRunState.APPROVED,
@@ -152,6 +166,53 @@ async def rehydrate(host: ThorPersistenceHost) -> int:
             host._resource_locks.add(str(run.resource_id))
         await resume_rehydrated(host, run)
     return len(active)
+
+
+def _valid_batch_target_set(run: ActionRun) -> bool:
+    if run.batch_role != "rollup":
+        return True
+    if run.target_set is None or run.target_set_digest is None:
+        return False
+    encoded = json.dumps(
+        list(run.target_set),
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest() == run.target_set_digest
+
+
+async def _publish_rehydrate_hold_without_save(host: ThorPersistenceHost, run: ActionRun) -> None:
+    if host.bus is None:
+        return
+    payload = {
+        **run.publication_identity_payload(),
+        "producer_principal": "Thor",
+        "idempotency_key": f"{run.correlation_id}:{run.state.value}",
+        "state": run.state.value,
+        "shadow_mode": run.shadow_mode,
+        "resolved_autonomy_ceiling": run.resolved_autonomy_ceiling.value,
+        "outcome": run.outcome,
+        "rollback_ref": run.rollback_ref,
+        "dry_run_evidence": run.dry_run_evidence,
+        "dry_run_receipt": run.dry_run_receipt,
+        "preflight_simulation_receipt": run.preflight_simulation_receipt,
+        "preflight_required": run.preflight_required,
+        "execution_audit_receipt": run.execution_audit_receipt,
+        "cost_annotation": run.cost_annotation,
+        **({"batch_rollup": run.batch_rollup} if run.batch_rollup is not None else {}),
+        "approval_expires_at": (
+            run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
+        ),
+        "effect_verification_expires_at": (
+            run.effect_verification_expires_at.isoformat()
+            if run.effect_verification_expires_at is not None
+            else None
+        ),
+        "action_run_identity": run.action_run_identity(),
+        "terminal_at": host._now().isoformat().replace("+00:00", "Z"),
+    }
+    await host.bus.publish("Thor", "object.action-run", payload)
 
 
 async def resume_rehydrated(host: ThorPersistenceHost, run: ActionRun) -> None:
@@ -256,6 +317,7 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
         "preflight_required": run.preflight_required,
         "execution_audit_receipt": run.execution_audit_receipt,
         "cost_annotation": run.cost_annotation,
+        **({"batch_rollup": run.batch_rollup} if run.batch_rollup is not None else {}),
         "approval_expires_at": (
             run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
         ),

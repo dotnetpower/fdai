@@ -993,6 +993,47 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 "operator_agreed": False,
                 "policy_escape": payload.get("policy_escape") is True,
                 "initiator_principal": payload.get("initiator_principal"),
+                **(
+                    {"batch_role": payload.get("batch_role")}
+                    if payload.get("batch_role") in {"rollup", "attempt"}
+                    else {}
+                ),
+                **(
+                    {"attempt_id": payload.get("attempt_id")}
+                    if isinstance(payload.get("attempt_id"), str)
+                    else {}
+                ),
+                **(
+                    {"rollup_correlation_id": payload.get("rollup_correlation_id")}
+                    if isinstance(payload.get("rollup_correlation_id"), str)
+                    else {}
+                ),
+                **(
+                    {"rollup_action_run_identity": payload.get("rollup_action_run_identity")}
+                    if isinstance(payload.get("rollup_action_run_identity"), str)
+                    else {}
+                ),
+                **(
+                    {"target_set_digest": payload.get("target_set_digest")}
+                    if isinstance(payload.get("target_set_digest"), str)
+                    else {}
+                ),
+                **(
+                    {"target_set": list(payload["target_set"])}
+                    if isinstance(payload.get("target_set"), list)
+                    else {}
+                ),
+                **(
+                    {"target_count": payload.get("target_count")}
+                    if isinstance(payload.get("target_count"), int)
+                    and not isinstance(payload.get("target_count"), bool)
+                    else {}
+                ),
+                **(
+                    {"batch_rollup": dict(payload["batch_rollup"])}
+                    if isinstance(payload.get("batch_rollup"), Mapping)
+                    else {}
+                ),
             }
         )
         self.record_behavior(

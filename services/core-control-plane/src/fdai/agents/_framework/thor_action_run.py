@@ -70,6 +70,14 @@ class ActionRun:
     effect_verified_at: datetime | None = None
     effect_verification_expires_at: datetime | None = None
     approval_expires_at: datetime | None = None
+    batch_role: Literal["rollup", "attempt"] | None = None
+    attempt_id: str | None = None
+    rollup_correlation_id: str | None = None
+    rollup_action_run_identity: str | None = None
+    target_set_digest: str | None = None
+    target_set: tuple[str, ...] | None = None
+    target_count: int | None = None
+    batch_rollup: dict[str, Any] | None = None
     terminal_published: bool = False
     resource_claimed: bool = False
     history: list[ActionRunState] = field(default_factory=list)
@@ -107,6 +115,18 @@ class ActionRun:
             or _REJECTION_REF.fullmatch(self.evidence_rejection_ref) is None
         ):
             raise ValueError("ActionRun evidence rejection reference MUST be a SHA-256 digest")
+        if self.batch_role not in {None, "rollup", "attempt"}:
+            raise ValueError("ActionRun batch role is invalid")
+        if self.target_count is not None and (
+            isinstance(self.target_count, bool) or self.target_count < 1
+        ):
+            raise ValueError("ActionRun target count is invalid")
+        if self.target_set is not None and (
+            not self.target_set
+            or len(self.target_set) > 64
+            or any(not isinstance(target, str) or not target for target in self.target_set)
+        ):
+            raise ValueError("ActionRun target set is invalid")
 
     def transition(self, new_state: ActionRunState) -> None:
         self.history.append(self.state)
@@ -154,8 +174,27 @@ class ActionRun:
             }
             if self.action_id is not None:
                 payload["action_id"] = self.action_id
+            payload.update(self._batch_identity_fields())
             self._publication_identity_payload = payload
         return self._publication_identity_payload
+
+    def _batch_identity_fields(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if self.batch_role is not None:
+            payload["batch_role"] = self.batch_role
+        if self.attempt_id is not None:
+            payload["attempt_id"] = self.attempt_id
+        if self.rollup_correlation_id is not None:
+            payload["rollup_correlation_id"] = self.rollup_correlation_id
+        if self.rollup_action_run_identity is not None:
+            payload["rollup_action_run_identity"] = self.rollup_action_run_identity
+        if self.target_set_digest is not None:
+            payload["target_set_digest"] = self.target_set_digest
+        if self.target_set is not None:
+            payload["target_set"] = list(self.target_set)
+        if self.target_count is not None:
+            payload["target_count"] = self.target_count
+        return payload
 
     def _stable_fields_match(self, payload: dict[str, Any]) -> bool:
         return (
@@ -177,6 +216,20 @@ class ActionRun:
             and payload["verdict"] == self.verdict
             and payload["workflow_action"] == self.workflow_action
             and payload.get("action_id") == self.action_id
+            and {
+                key: payload[key]
+                for key in (
+                    "batch_role",
+                    "attempt_id",
+                    "rollup_correlation_id",
+                    "rollup_action_run_identity",
+                    "target_set_digest",
+                    "target_set",
+                    "target_count",
+                )
+                if key in payload
+            }
+            == self._batch_identity_fields()
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -232,6 +285,12 @@ class ActionRun:
                 self.approval_expires_at.isoformat()
                 if self.approval_expires_at is not None
                 else None
+            ),
+            **self._batch_identity_fields(),
+            **(
+                {"batch_rollup": deepcopy(self.batch_rollup)}
+                if self.batch_rollup is not None
+                else {}
             ),
             "terminal_published": self.terminal_published,
             "resource_claimed": self.resource_claimed,
@@ -325,6 +384,42 @@ class ActionRun:
             approval_expires_at=optional_datetime(
                 data.get("approval_expires_at"),
                 field_name="approval_expires_at",
+            ),
+            batch_role=(
+                data["batch_role"] if data.get("batch_role") in {"rollup", "attempt"} else None
+            ),
+            attempt_id=action_run_lineage.optional_bounded_text(
+                data.get("attempt_id"),
+                field_name="attempt_id",
+            ),
+            rollup_correlation_id=action_run_lineage.optional_bounded_text(
+                data.get("rollup_correlation_id"),
+                field_name="rollup_correlation_id",
+            ),
+            rollup_action_run_identity=action_run_lineage.optional_bounded_text(
+                data.get("rollup_action_run_identity"),
+                field_name="rollup_action_run_identity",
+            ),
+            target_set_digest=action_run_lineage.optional_bounded_text(
+                data.get("target_set_digest"),
+                field_name="target_set_digest",
+            ),
+            target_set=(
+                tuple(str(target) for target in data["target_set"])
+                if isinstance(data.get("target_set"), list)
+                and all(isinstance(target, str) for target in data["target_set"])
+                else None
+            ),
+            target_count=(
+                int(data["target_count"])
+                if isinstance(data.get("target_count"), int)
+                and not isinstance(data.get("target_count"), bool)
+                else None
+            ),
+            batch_rollup=(
+                deepcopy(dict(data["batch_rollup"]))
+                if isinstance(data.get("batch_rollup"), Mapping)
+                else None
             ),
             terminal_published=bool(data.get("terminal_published", False)),
             resource_claimed=bool(data.get("resource_claimed", False)),
