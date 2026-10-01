@@ -11,10 +11,15 @@ The [structured retrieval owner](cloud-resource-knowledge-structured-rag.md) def
 Coverage-inventory regeneration follows question-bank source changes, including navigation and trace-label catalogs, and refreshes source digests, not measured coverage. A merged Console catalog change requires rebuilding the question bank before its dependent semantic inventory; source-only repairs preserve the 400-question cohort and its existing validation gaps.
 The instance-candidate Function binds server principal scope, object read sets, the original release, query, result digest, and bounded accounting. Default bootstrap uses the same declaration as semantic composition and injects controlled-identity workers into Pantheon. Authenticated enrollment drives supervised off-path preparation, audited cold-cache restoration, and source-change withdrawal/rebuild; it never performs query-path embedding builds. Missing model identity keeps the binding unavailable and real semantic qualification remains required. Exact-ID reads retain current graph authorization. Core's dedicated bilingual terminal projection verifies the candidate bindings and displays only identities, types, and revisions, without arbitrary property bags. It reports a partial, non-exhaustive result: an empty candidate list never proves absence. Authenticated live Console evidence remains separate.
 Capability preparation requires all selected canonical property tokens, including ObjectTypes with
-more than 32 properties. Declaration identities already fail explicitly before semantic judgment
-when the complete set exceeds the existing 32 KiB budget. Complete bounded property presentation
-remains open as finding 24 in the [implementation ledger](../../roadmap-implementation/interfaces/ontology-query-coverage-implementation-plan.md);
-the current optional-property omission is not accepted as coverage evidence.
+more than 32 properties. Complete declaration and property projections fail explicitly before
+semantic judgment when they exceed the existing 32 KiB budget.
+The projection uses lossless property factoring: each ObjectType carries its complete `property_names`
+list once, and canonical property identities are exactly its `name`, a dot, and one literal property
+name. Core validates this representation and retains legacy explicit `canonical_values` support.
+The model payload declares the encoding; receipts bind the complete represented list. This changes
+neither the 32 KiB ceiling nor the model-call count. Any still-oversized complete projection holds.
+Focused implementation evidence and the remaining live gates are recorded in the
+[implementation ledger](../../roadmap-implementation/interfaces/ontology-query-coverage-implementation-plan.md).
 Semantic judgment keeps the complete capability set when a dynamic prompt profile selects guidance by closed preflight request topics. Topics change only prompt guidance; an accepted meaning whose governed guidance was excluded is judged once more with the complete prompt, as described in [Dynamic assembly](../decisioning/prompt-composition.md#dynamic-assembly). Core grounds preflight collection filters from their source text, so a model-proposed canonical value on such a filter is dropped instead of voiding the route. A read-only plan request omits ActionType descriptors unless its frame is an action draft, and with shape-selected guidance it sends only the functions that guidance or the frame names.
 The causal-mechanism vocabulary is reviewed catalog data for causal context and grade receipts.
 It supplies required evidence and refutation reads only; it does not create a new ontology type,

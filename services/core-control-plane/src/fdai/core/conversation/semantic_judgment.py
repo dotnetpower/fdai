@@ -50,7 +50,12 @@ _PROPOSAL_KEPT = frozenset(
 
 
 class SemanticJudgmentModel(Protocol):
-    """Propose candidate-only structured meaning without authority."""
+    """Propose candidate-only structured meaning without authority.
+
+    ObjectType capabilities may supply complete literal ``property_names``. Their canonical
+    identities are ``name + "." + property_name``; legacy explicit ``canonical_values``
+    remain supported. Adapters must preserve the whole represented domain.
+    """
 
     def judge(
         self,

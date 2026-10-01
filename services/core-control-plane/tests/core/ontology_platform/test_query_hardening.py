@@ -212,7 +212,7 @@ def test_hidden_and_unknown_projection_fields_are_rejected(kind: QueryNodeKind) 
             )
 
 
-def test_large_property_projection_omits_oversized_canonical_values() -> None:
+def test_large_property_projection_preserves_complete_factored_names() -> None:
     result = _semantic_judgment_capabilities(
         (
             {
@@ -223,7 +223,10 @@ def test_large_property_projection_omits_oversized_canonical_values() -> None:
             },
         )
     )
-    assert result == ({"kind": "object_type", "name": "Example"},)
+    assert result[0].get("property_names") == [
+        "id",
+        *sorted(f"property_{index}" for index in range(40)),
+    ]
 
 
 def test_capability_budget_rejects_incomplete_projection() -> None:
