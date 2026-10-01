@@ -265,6 +265,13 @@ rejection rather than an ambiguous dispatch. Thor bounds verdict parameters befo
 persists an `ActionRun`; oversized, deeply nested, or non-schema fields are rejected before they
 can become durable executor context, approval context, or audit material.
 
+Thor records a visible terminal `ActionRun` rejection, rather than a dead letter, when a resource is
+already held by an active or approval-parked run. It validates verdict risk vocabulary and quorum
+fields before any execution transition; unknown risk words or malformed quorum values become
+visible non-executing rejections with bounded behavior evidence. Heimdall refuses to publish an
+Anomaly without the required correlation identity and records the missing-correlation no-op instead
+of letting uncorrelated evidence reach incident or action consumers.
+
 Executable non-shadow verdicts carry all seven safeguards on the wire: stop condition, tested
 rollback, impact scope, dry-run, logical target lock, stable idempotency key, and two-phase audit.
 Thor denies a Forseti-delivered `auto` or `hil` verdict with any missing safeguard before executor
@@ -370,7 +377,8 @@ for non-shadow execution only when its matching `state_forward_only` rollback ad
 - Saga checkpoints mutation, audit, publication, and completion. It records completion only after
   `object.issue` publication; a missing bus keeps prior checkpoints pending and raises a retryable
   failure. Closure stays outside the bounded occurrence-comment list and is validated before CAS.
-- Saga handoff issue materialization recovers unpublished `object.issue` records on restart.
+- Saga handoff issue materialization recovers unpublished `object.issue` records on restart before
+  it reports materialization complete.
   Legacy handoff fallbacks deduplicate by the problem fingerprint before creating or commenting on
   an issue.
 - Norns claims the handoff idempotency key, CAS-applies a pending operation to a durable fingerprint
@@ -508,11 +516,17 @@ visible no-op rather than a degraded runtime. A sampler call is bounded by a tim
 redelivered stale sample is a duplicate rather than reprocessed work. Forecasts remain advisory unless the governed advisory-to-verdict path
 emits shadow/HIL proposals through Forseti.
 
+Loki validates chaos proposal evidence before reservation and publication. Incomplete proposals
+stay held for review, target truncation is recorded explicitly, and only complete proposals publish
+`object.chaos-experiment` for Heimdall observation.
 Loki's deterministic recurring scheduler emits one complete always-HIL chaos proposal per due
 window or a visible hold. A claimed window is either recovered after restart or held with a bounded
 reason, never silently skipped. Without a durable outbox and a bus, a proposal is
-`publication_unavailable` and releases its reservation. Its adversarial scenario generator is an
-injected off-path port with no default binding; accepted candidates are inert and regression-gated against the frozen corpus.
+`publication_unavailable` and releases its reservation. Loki never falls back to the base
+process-local proposal queue, so a rate-limited proposal stays in its durable outbox or is reported
+unavailable. Its adversarial scenario generator is an injected off-path port with no default
+binding; accepted candidates are inert and regression-gated against the frozen corpus, and a
+candidate is retained as `accepted_inert` only after its inert audit payload publishes.
 Heimdall's recovery-effect observation key includes the published resource id, so observations for
 different resources in one correlation never collapse into one key.
 
@@ -530,10 +544,12 @@ receipt issuer is configured. Acceptance claims the stored proposal with a lease
 before it publishes, marks it published by compare-and-swap on that claim, and releases it only
 after a transport failure; a concurrent live claim reports the request as accepted and pending.
 Core verifies the trusted `operator-service` producer, expiry, replay fence, Owner role, halt-marker
-key, offset, group, and topic binding, multi-handler group grammar, and request TTL. It commits the
-receipt replay fence before the durable halt compare-and-swap, bounds DLQ evidence scans by timeout
-and record count, and resumes only the cleared ordinal consumer group. Rejected clears are audited,
-queryable, and counted.
+key, offset, group, and topic binding, multi-handler group grammar, and request TTL. It reserves
+the receipt replay fence, performs the audited halt compare-and-swap, and then finalizes the fence;
+a failed or mismatched clear releases the reservation so the same signed request can be retried,
+and a finalize failure after the clear reports `applied_but_unfinalized` with the halt cleared. It
+bounds DLQ evidence scans by timeout and record count and resumes only the cleared ordinal consumer
+group. Rejected clears are audited, queryable, and counted.
 
 Provider-harness restart replay tests cover Bragi, Var final approval, Saga audit outbox, Muninn,
 Mimir, Heimdall, and Odin publication replay. The real provider matrix for durable publication
@@ -583,7 +599,8 @@ touched rows for audited-write rollback.
 - `run()` isolates consumer failures, restarts bounded transient failures, and keeps healthy sibling
   consumers running. Shutdown remains bounded.
 - Startup binds the recovery-effect observer intake, restores ContextIndex recovery before replay,
-  and fails closed if ContextIndex sealing cannot use durable Saga audit.
+  and fails closed if ContextIndex sealing cannot use durable Saga audit. A clean runtime stop
+  reports `stopped`, while unobserved degradation windows report `not_observed`.
 - The runtime is enabled and shadow by default. `FDAI_START_PANTHEON=0` disables it, and missing
   consumer composition causes an explicit skip rather than an in-memory substitute.
 - Thor remains `enforce=False` unless a separately reviewed promotion enables enforcement. Enforce
@@ -661,6 +678,12 @@ mode.
   groups; a single handler preserves its existing group id. Ordered poison halts all sibling
   consumers for the topic. Invalid owned records are dead-lettered once per broker record with the
   failing consumer identity.
+- Runtime composition may opt into per-agent consumer mode, in which one physical consumer per agent
+  group reads the broker stream and routes logical `object.*` topics locally. The default keeps one
+  consumer per `(topic, agent)` pair, and both modes apply the same owner, envelope, poison, and
+  retry checks before handler delivery.
+- Each consumer closes its subscription inside its own task, so the broker adapter releases the
+  consumer group during shutdown rather than during interpreter finalization.
 - Handler retries and per-topic timeouts are bounded. Handlers can mark short cooperative
   cancellation-safe critical sections, so a wedged handler still times out while a durable commit
   window can finish.

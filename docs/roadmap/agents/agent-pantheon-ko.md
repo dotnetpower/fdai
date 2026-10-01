@@ -1,12 +1,12 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c7d99d158bc55712b949acb0631c937002803d3b
+translation_source_sha: b3fe4a952ba26c8105f7c1b8acd71be9df40840d
 translation_revised: 2026-10-02
 ---
 # 에이전트 판테온
 
-FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
+FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 소유자가 검증되고 envelope와 권한 행사 payload가 스키마로 검증되는 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
 
 > **범위:** 판테온은 고객-무관이다. 아래에 언급된 모든 에이전트 이름, 객체 타입, 액션 은 범용 이다. 고객별 바인딩은 포크 에서 관리 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
@@ -361,19 +361,10 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 검증을 적용하며, 런타임 조립은 기본적으로 권한 payload 검증기를 연결하므로 잘못된
 `object.verdict`, `object.approval`, `object.action-run`, `object.rollback`, `object.issue`,
 `object.audit-entry`, `object.rule`, `object.policy` 레코드는 처리기에 도달하지 않습니다.
-각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
-런타임 조립은 에이전트별 소비자 모드를 선택적으로 사용할 수 있습니다. 이 모드에서는 에이전트 그룹마다 하나의 물리 소비자가 broker 스트림을 읽고 논리 `object.*` 토픽을 로컬에서 라우팅합니다. 기본값은 `(topic, agent)` 쌍마다 소비자를 유지합니다. 두 모드 모두 핸들러 전달 전에 같은 소유자, 묶음, poison, 재시도 검사를 보존합니다.
-한 에이전트가 같은 토픽에 서로 다른 핸들러를 연결하면 런타임은 핸들러마다 결정론적 소비자
-그룹을 따로 할당합니다. 핸들러가 하나뿐이면 기존 group id를 유지합니다. 순서가 있는 poison은
-해당 토픽의 모든 형제 소비자를 중단해 이후 레코드가 보관된 레코드를 앞지르지 못하게 합니다.
-잘못된 소유 레코드는 broker 레코드마다 한 번만 dead-letter 처리하고 실패한 소비자 신원을
-귀속 근거로 남깁니다. `LocalEventBus`는 구독 재시작 후에도 확정된 offset을 보존하며,
-명시적 `reset_offsets()`만 재생합니다.
-런타임 시작은 소비자가 재생을 받기 전에 ContextIndex 변환 결과 복구도 수행하며,
-ContextIndex 봉인에 영속 Saga 감사가 없으면 실패 시 안전하게 닫힙니다. 정상 런타임 중지는
-성능 저하가 아니라 `stopped`를 보고하고, 관측되지 않은 성능 저하 구간은 `not_observed`를
-보고합니다.
-Loki는 예약과 게시 전에 chaos 제안 근거를 검증합니다. 불완전한 제안은 검토 대상으로 보류하고, 대상 잘림은 명시적으로 기록하며, 완전한 제안만 Heimdall 관측을 위해 `object.chaos-experiment`를 게시합니다.
+소비자 모드, multi-handler 소비자 그룹, 종료 처리는
+[이벤트 버스 불변식](agent-pantheon-implementation-ko.md#이벤트-버스-불변식)을 따르며, 시작 복구와
+Loki 제안 근거 검사는 같은 구현 계획의 런타임 메커니즘입니다.
+
 | 토픽 | 발행기 | 기본 subscribers |
 |-------|-----------|---------------------|
 | object.event | Huginn | Heimdall(감지 및 효과 근거), Forseti(판정 입력), Saga(인시던트 안내 감사), Muninn(보존 틱과 운영 사례), Var/Mimir(테스트 맥락 명령), Njord/Freyr/Loki(범위가 제한된 전문가 신호) |
@@ -496,8 +487,6 @@ EventBus가 없으면 Bragi는 `handoff_status: transport_unavailable`을 기록
 Saga는 체인에 추가하거나 인계를 구체화하기 전에 감사 대상 토픽의 소유자를 인증합니다. 인계 이슈
 본문에는 허용 목록에 있고 크기가 제한된 맥락 필드만 포함합니다. 목록에 없는 값은 생략하거나
 요약하여 secret, 원시 prompt, 고객 식별자가 이슈 추적기에 복사되지 않게 합니다.
-Saga는 인계 이슈 변경, 감사, `object.issue` 게시, 완료를 검사 지점으로 남깁니다. 재시작하면
-구체화 완료를 보고하기 전에 게시되지 않은 `object.issue` 레코드를 복구합니다.
 
 중복 제거는 정본 실패 튜플의 SHA-256 `problem_fingerprint`를 사용합니다.
 
@@ -595,11 +584,9 @@ I/O는 설정된 경우 Thor의 실행 전 Saga 감사 receipt도 요구합니�
 근거가 있는 rejected run으로 표현됩니다. `auto`는 verdict/risk 어휘이고 `ActionRun` 상태가
 아닙니다. Multi-target rollup 및 target-attempt 세부 정보는 §7.4의 추가 배치 metadata이며 lifecycle
 state를 추가하지 않습니다.
-리소스가 활성 run 또는 승인 대기 run에 이미 점유되어 있거나, 다른 작업이 같은 상관관계를 다른 멱등성 키로 재사용하려고 하면 Thor는 보이는 최종 `ActionRun` 차단 결과를 기록합니다. 이 경우는 더 이상 dead-letter 큐로 조용히 사라지지 않습니다.
-Thor는 실행 전이 전에 verdict 위험 어휘와 정족수 필드도 검증합니다. 알 수 없는 위험 단어나
-잘못된 정족수 값은 범위가 제한된 동작 근거를 가진 보이는 비실행 차단 결과가 됩니다.
-Heimdall은 필요한 상관관계 신원이 없으면 Anomaly를 게시하지 않습니다. 관찰자는 상관관계 누락
-no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 소비자에게 전달되지 않게 합니다.
+리소스 점유, 상관관계 재사용, 위험 어휘, 정족수, 상관관계 누락 사례는
+[구현 계획](agent-pantheon-implementation-ko.md#파라미터-검증-멱등성-및-보호-장치)에 명시한 대로
+보이는 비실행 차단 결과 또는 no-op이 됩니다.
 
 ### 7.3 파라미터 검증과 멱등성
 

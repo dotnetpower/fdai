@@ -2,7 +2,7 @@
 title: Agent Pantheon
 ---
 # Agent Pantheon
-FDAI's fixed organization of 15 named agents owns the cloud-operations runtime. Agents observe, judge, plan, approve, execute, verify, recover, audit, and learn through schema-checked events. The operating ontology supports them with typed meaning and bounded context; it is not the runtime actor, decision authority, or executor. The pantheon is defined once upstream - forks configure it but never add or rename agents.
+FDAI's fixed organization of 15 named agents owns the cloud-operations runtime. Agents observe, judge, plan, approve, execute, verify, recover, audit, and learn through owner-checked events whose envelopes and authority-bearing payloads are schema-validated. The operating ontology supports them with typed meaning and bounded context; it is not the runtime actor, decision authority, or executor. The pantheon is defined once upstream - forks configure it but never add or rename agents.
 
 > **Scope:** the pantheon is customer-agnostic. Every agent name, object type, and action referenced below is generic. Per-customer bindings live in a fork ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
@@ -360,23 +360,9 @@ the same owner, envelope, and payload validation, and runtime composition binds 
 payload validator by default so malformed `object.verdict`, `object.approval`, `object.action-run`,
 `object.rollback`, `object.issue`, `object.audit-entry`, `object.rule`, and `object.policy` records
 do not reach handlers.
-Each consumer closes its subscription inside its own task, so the broker adapter releases the consumer group during shutdown rather than during interpreter finalization.
-Runtime composition may opt into per-agent consumer mode. In that mode one physical consumer per
-agent group reads the broker stream and routes logical `object.*` topics locally; the default
-keeps one consumer per `(topic, agent)` pair. Both modes preserve the same owner, envelope, poison,
-and retry checks before handler delivery.
-When one agent binds distinct handlers to the same topic, runtime assigns each handler its own
-deterministic consumer group; a single handler keeps its original group id. Ordered poison halts
-all sibling consumers for that topic so later records cannot overtake the parked record. Invalid
-owned records are dead-lettered once per broker record with the failing consumer identity for
-attribution. `LocalEventBus` preserves committed offsets across subscription restarts, and only an
-explicit `reset_offsets()` replays them.
-Runtime startup also recovers ContextIndex projection work before consumers accept replay and fails
-closed when durable Saga audit for ContextIndex sealing is unavailable. Clean runtime stop reports
-`stopped`, while unobserved degradation windows report `not_observed`.
-Loki validates chaos proposal evidence before reservation and publication. Incomplete proposals
-stay held for review, target truncation is recorded explicitly, and only complete proposals publish
-`object.chaos-experiment` for Heimdall observation.
+Consumer modes, multi-handler consumer groups, and shutdown follow the
+[event-bus invariants](agent-pantheon-implementation.md#event-bus-invariants); startup recovery and
+Loki proposal evidence checks are runtime mechanics in the same implementation plan.
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
@@ -502,8 +488,6 @@ Saga authenticates the owner of each audited topic before appending to its chain
 handoff. Handoff issue bodies include only allowlisted, size-bounded context fields; unlisted values
 are omitted or summarized so secrets, raw prompts, and customer identifiers are not copied into the
 issue tracker.
-Saga checkpoints handoff issue mutation, audit, `object.issue` publication, and completion. On
-restart it recovers unpublished `object.issue` records before reporting materialization complete.
 
 Deduplication uses a SHA-256 `problem_fingerprint` over the canonical failure tuple:
 
@@ -602,14 +586,10 @@ configured. Shadow terminal success is non-mutating and closes through Saga's po
 re-executes. `approval_expires_at` is a timestamp on `ActionRun`; expiry is represented by a
 rejected run with expiry evidence rather than a separate `expired` state. `auto` is a verdict/risk
 vocabulary, not an `ActionRun` state. Multi-target rollup and target-attempt details are additive
-batch metadata under §7.4; they do not add lifecycle states. Thor records visible terminal
-`ActionRun` rejections when a resource is already held by an active or approval-parked run, or when
-a second action tries to reuse a correlation with a different idempotency key. Those cases no longer
-disappear into a dead-letter queue. Thor also validates verdict risk vocabulary and quorum fields
-before any execution transition. Unknown risk words or malformed quorum values become visible
-non-executing rejections with bounded behavior evidence. Heimdall refuses to publish an Anomaly
-without the required correlation identity. The observer records the missing-correlation no-op
-instead of letting uncorrelated evidence reach incident or action consumers.
+batch metadata under §7.4; they do not add lifecycle states. Resource-hold, correlation-reuse,
+risk-vocabulary, quorum, and missing-correlation cases become visible non-executing rejections or
+no-ops, as specified in the
+[implementation plan](agent-pantheon-implementation.md#parameter-validation-idempotency-and-safeguards).
 
 ### 7.3 Parameter validation and idempotency
 

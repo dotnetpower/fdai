@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: c7b7feec36f9d8732ba8fa6f05cbef48054a595e
+translation_source_sha: 09f5839e16a5d38ef31e56102bc33301f6f90f69
 translation_revised: 2026-10-02
 ---
 
@@ -261,6 +261,13 @@ schema-cluster Event, Norns quiet-window 지원 신호, Forseti 회고 what-if V
 중첩되었거나 스키마에 맞지 않는 필드는 영속 실행기 맥락, 승인 맥락 또는 감사 자료가 되기 전에
 차단됩니다.
 
+리소스가 활성 run 또는 승인 대기 run에 이미 점유되어 있으면 Thor는 dead letter 대신 보이는 최종
+`ActionRun` 차단 결과를 기록합니다. Thor는 실행 전이 전에 verdict 위험 어휘와 정족수 필드를
+검증하며, 알 수 없는 위험 단어나 잘못된 정족수 값은 범위가 제한된 동작 근거를 가진 보이는
+비실행 차단 결과가 됩니다. Heimdall은 필요한 상관관계 신원이 없으면 Anomaly를 게시하지 않고,
+상관관계 누락 no-op을 기록해 상관관계가 없는 근거가 incident 또는 작업 소비자에게 전달되지 않게
+합니다.
+
 실행 가능한 non-shadow 판정은 wire에 일곱 가지 보호 장치를 모두 포함합니다. 정지 조건,
 검증된 롤백, 영향 범위, 예행 실행, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사입니다.
 Thor는 Forseti가 전달한 `auto` 또는 `hil` 판정에 보호 장치가 하나라도 없으면 멱등성 키의
@@ -364,8 +371,9 @@ Forseti는 `auto`를 상한으로만 취급합니다. 거버넌스가 적용된 
 - Saga는 변경, 감사, 게시 및 완료 검사 지점을 기록합니다. `object.issue`를 게시한 뒤에만
   완료를 기록합니다. 버스가 없으면 이전 검사 지점을 대기 상태로 유지하고 재시도 가능한 실패를
   발생시킵니다. 종료 정보는 범위가 제한된 발생 댓글 목록 밖에 두고 CAS 전에 검증합니다.
-- Saga 인계 이슈 구체화는 재시작 시 게시되지 않은 `object.issue` 레코드를 복구합니다. 이전
-  방식 인계 fallback은 이슈를 만들거나 댓글을 남기기 전에 문제 지문으로 중복 제거합니다.
+- Saga 인계 이슈 구체화는 재시작 시 구체화 완료를 보고하기 전에 게시되지 않은 `object.issue`
+  레코드를 복구합니다. 이전 방식 인계 fallback은 이슈를 만들거나 댓글을 남기기 전에 문제
+  지문으로 중복 제거합니다.
 - Norns는 인계 멱등성 키를 점유하고 대기 작업을 영속 지문 횟수에 CAS로 적용하며, 게시 또는
   결정론적 보류가 전달 완료를 표시할 때까지 각 후보를 유지합니다. 시작 처리는 정확한 대기 필드를
   범위가 제한된 항목 하나씩 조회합니다. 차단된 선두 항목은 복구를 멈추지만 다음으로 성공한
@@ -500,11 +508,17 @@ runtime degraded가 아니라 보이는 no-op을 보고합니다. Sampler 호출
 완료하므로, 다시 전달된 오래된 표본은 재처리되지 않고 중복으로 처리됩니다. Forecast는 governed advisory-to-verdict
 경로가 Forseti를 통해 shadow/HIL proposal을 낼 때까지 자문 근거로 유지됩니다.
 
+Loki는 예약과 게시 전에 chaos 제안 근거를 검증합니다. 불완전한 제안은 검토 대상으로 보류하고,
+대상 잘림은 명시적으로 기록하며, 완전한 제안만 Heimdall 관측을 위해
+`object.chaos-experiment`를 게시합니다.
 Loki의 결정론적 recurring scheduler는 due window마다 완전한 always-HIL chaos proposal 하나를
 내거나 보이는 hold를 기록합니다. 점유된 window는 재시작 뒤 복구되거나 범위가 제한된 사유와 함께
 hold되며, 조용히 건너뛰지 않습니다. 영속 보낼 편지함과 bus가 모두 없으면 proposal은
-`publication_unavailable`이 되고 예약을 해제합니다. Adversarial scenario generator는 기본 바인딩이 없는 주입형
-off-path port입니다. 수락된 candidate는 비활성이며 frozen corpus에 대해 regression-gated됩니다.
+`publication_unavailable`이 되고 예약을 해제합니다. Loki는 기본 process-local proposal 대기열로
+대체하지 않으므로, rate-limit에 걸린 proposal은 영속 보낼 편지함에 남거나 사용할 수 없음으로
+보고됩니다. Adversarial scenario generator는 기본 바인딩이 없는 주입형 off-path port입니다.
+수락된 candidate는 비활성이며 frozen corpus에 대해 regression-gated되고, 비활성 감사 payload가
+게시된 뒤에만 `accepted_inert`로 보존됩니다.
 Heimdall의 recovery-effect 관측 키에는 게시된 resource id가 포함되므로, 한 correlation 안의 서로
 다른 리소스 관측이 하나의 키로 합쳐지지 않습니다.
 
@@ -522,9 +536,11 @@ operator-request 증적으로 서명합니다. 증적 발급기가 구성되지 
 compare-and-swap으로 게시 완료를 표시하며, 전송 실패 뒤에만 점유를 해제합니다. 다른 활성 점유가
 있으면 요청은 수락되어 대기 중인 것으로 보고됩니다. Core는 신뢰하는 `operator-service`
 producer, 만료, replay 차단 장치, Owner 역할, halt marker의 key, offset, group, topic 결속,
-multi-handler group 문법, 요청 TTL을 검증합니다. 영속 halt compare-and-swap 전에 증적 replay
-차단 장치를 확정하고, DLQ 근거 검색을 제한 시간과 레코드 수로 제한하며, 해제된 ordinal
-consumer group만 재개합니다. 거부된 clear는 감사되고 조회할 수 있으며 집계됩니다.
+multi-handler group 문법, 요청 TTL을 검증합니다. 증적 replay 차단 장치를 예약하고, 감사되는
+halt compare-and-swap을 수행한 다음 차단 장치를 확정합니다. Clear가 실패하거나 일치하지 않으면
+예약을 해제해 같은 서명 요청을 다시 시도할 수 있고, clear 뒤 확정에 실패하면 halt는 해제된
+상태로 `applied_but_unfinalized`를 보고합니다. DLQ 근거 검색을 제한 시간과 레코드 수로 제한하며,
+해제된 ordinal consumer group만 재개합니다. 거부된 clear는 감사되고 조회할 수 있으며 집계됩니다.
 
 Provider-harness restart replay 검사는 Bragi, Var final approval, Saga audit outbox, Muninn,
 Mimir, Heimdall, Odin publication replay를 다룹니다. 영속 publication replay와 Odin 재전달에 대한
@@ -573,7 +589,9 @@ write rollback을 위해 touched row만 snapshot합니다.
 - `run()`은 소비자 실패를 격리하고 범위가 제한된 일시적 실패를 재시작하며 정상 형제 소비자를
   계속 실행합니다. 종료 시간도 제한됩니다.
 - 시작은 recovery-effect observer intake를 연결하고 재생 전에 ContextIndex 복구를 되살리며,
-  ContextIndex 봉인에 영속 Saga 감사를 사용할 수 없으면 실패 시 안전하게 닫습니다.
+  ContextIndex 봉인에 영속 Saga 감사를 사용할 수 없으면 실패 시 안전하게 닫습니다. 정상
+  런타임 중지는 `stopped`를 보고하고, 관측되지 않은 성능 저하 구간은 `not_observed`를
+  보고합니다.
 - 런타임은 기본적으로 활성화된 shadow입니다. `FDAI_START_PANTHEON=0`으로 비활성화하며,
   소비자 조립이 없으면 in-memory 대체품을 만들지 않고 명시적으로 건너뜁니다.
 - 별도 검토된 승격이 enforce를 활성화하기 전까지 Thor는 `enforce=False`를 유지합니다. Enforce
@@ -649,6 +667,12 @@ Thor는 모든 프로필에서 이 사유를 가진 ActionType 없는 판정을 
   fan-out합니다. 핸들러가 하나뿐이면 기존 group id를 유지합니다. 순서가 있는 poison은 해당
   토픽의 모든 형제 소비자를 중단합니다. 잘못된 소유 레코드는 broker 레코드마다 한 번만
   dead-letter 처리하고 실패한 소비자 신원을 남깁니다.
+- 런타임 조립은 에이전트별 소비자 모드를 선택적으로 사용할 수 있습니다. 이 모드에서는 에이전트
+  그룹마다 하나의 물리 소비자가 broker 스트림을 읽고 논리 `object.*` 토픽을 로컬에서
+  라우팅합니다. 기본값은 `(topic, agent)` 쌍마다 소비자를 유지하며, 두 모드 모두 핸들러 전달
+  전에 같은 소유자, 묶음, poison, 재시도 검사를 적용합니다.
+- 각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이
+  아니라 종료 절차 중에 소비자 그룹을 반납합니다.
 - 핸들러 재시도와 토픽별 시간 제한은 범위가 제한됩니다. 핸들러는 짧은 협력적 취소 안전
   임계 구간을 표시할 수 있으므로 멈춘 핸들러는 여전히 시간 초과되지만 영속 확정
   구간은 끝낼 수 있습니다.
