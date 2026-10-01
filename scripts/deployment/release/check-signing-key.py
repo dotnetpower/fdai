@@ -37,8 +37,8 @@ from fdai_deployment_cli import trust_roots  # noqa: E402 - needs the sys.path e
 # pins a single signer for both the complete kit and the bundle inside it. The
 # integrity role signs the framework surface and every license or entitlement.
 _ROLES: tuple[tuple[str, str], ...] = (
-    ("deployment-release", "fdai-up.sh --signing-key / --release-key"),
-    ("deployment-bundle", "fdai-up.sh --signing-key / --bundle-key"),
+    ("deployment-release", "build-standalone-deployment-kit.sh --signing-key / --release-key"),
+    ("deployment-bundle", "build-standalone-deployment-kit.sh --signing-key / --bundle-key"),
     ("integrity", "secrets/integrity-signing-key.pem (framework integrity and licensing)"),
 )
 _INTEGRITY_PUBLIC_KEY = _REPO_ROOT / "security/integrity/upstream-signing-key.pub"

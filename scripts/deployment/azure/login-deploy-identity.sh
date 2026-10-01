@@ -31,6 +31,9 @@ for command_name in az base64 jq tr; do
   }
 done
 
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+bash "$script_dir/check-runner-terraform.sh"
+
 azure_config_dir="$RUNNER_TEMP/fdai-deploy-azure"
 rm -rf -- "$azure_config_dir"
 install -d -m 0700 "$azure_config_dir"
@@ -47,7 +50,6 @@ az login \
   --output none \
   --only-show-errors
 
-script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 bash "$script_dir/verify-azure-context.sh" "$expected_subscription" "$expected_tenant"
 
 access_token="$(az account get-access-token \
