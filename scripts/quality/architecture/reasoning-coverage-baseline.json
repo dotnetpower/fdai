@@ -1,6 +1,7 @@
 {
-  "cells": 435,
+  "cells": 437,
   "compiled_cells": [
+    "instance.compare_windows.metric.two_windows",
     "instance.count.attachment.attached.one_hop",
     "instance.count.attachment.either.one_hop",
     "instance.count.attachment.host.one_hop",
@@ -160,8 +161,8 @@
     "aggregate_measure_unreviewed": 1,
     "cause_form_inconsistent:g1": 1,
     "compare_entities_requires_two_bound_anchors": 1,
-    "compare_windows_requires_two_typed_windows": 1,
     "count_side_budget_exceeded": 2,
+    "counterpart_missing:g1": 1,
     "diagnose_recipe_unavailable": 1,
     "endpoint_filter_unreadable": 2,
     "event_window_unsupported": 1,
@@ -176,10 +177,10 @@
     "measure_unsupported:forecast": 1,
     "metric_concept_required": 1,
     "operation_unsupported:draft_action": 1,
+    "order_required:g1": 1,
     "path_grammar_unavailable": 60,
     "prior_result_multiple_anchors_unsupported": 1,
     "property_mention_required": 1,
-    "rank_measure_unreviewed": 1,
     "relation_not_transitive": 63,
     "relation_required:g1": 3,
     "relation_sense_unmapped:authorization": 20,
@@ -193,13 +194,14 @@
     "time_unsupported:as_of": 4,
     "time_unsupported:two_windows": 4,
     "time_unsupported:versions": 4,
+    "two_windows_required:g1": 1,
     "version_history_unavailable": 1,
     "want_unsupported:verification": 1
   },
   "status_counts": {
-    "compiled": 154,
-    "inadmissible": 8,
-    "unsupported": 273
+    "compiled": 155,
+    "inadmissible": 11,
+    "unsupported": 271
   },
   "version": 1
 }

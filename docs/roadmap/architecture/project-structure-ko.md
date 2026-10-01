@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1b9f1791166c691b95392a877a764ca8d519c336
+translation_source_sha: 116fe7fb0b8d8ca4b54a9b264f29eaff5da37ca8
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -12,6 +12,7 @@ translation_revised: 2026-10-01
 연속 all-kinds 관계 이어 읽기는 이미 검증된 계획 묶음 위의 shadow 전용 상태로 Core 대화 모듈에 남습니다. Operator route나 기본 답변 동작은 추가하지 않습니다.
 컨테이너 종류 계보 그룹화는 Core 대화 컴파일과 일반 온톨로지 query aggregate handler가 나누어 소유합니다. 컴파일러는 검토된 컨테이너 종류를 선택하고, 실행기는 새 권한 없이 가장 가까운 루트 개수와 `ambiguous_membership`을 계산합니다.
 남은 E9 연산자는 전용 Core 대화 helper에 누락된 선행 조건 결정을 보존하므로, 지원되지 않는 rank, aggregate, comparison, version, evidence, diagnose 및 path 행은 다른 연산의 계획으로 fallback하지 않습니다.
+Metric window comparison 계획도 전용 Core 대화 helper에 격리됩니다. 형식 필드는 두 기간을 전달하고, query runtime은 기존 metric comparison node를 사용하며 실행 권한은 부여하지 않습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
