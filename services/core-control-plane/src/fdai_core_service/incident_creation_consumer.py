@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -16,6 +17,8 @@ from fdai_service_contracts.incident_creation import (
 )
 from fdai_service_contracts.operator import OperatorRole
 from pydantic import ValidationError
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,7 +90,17 @@ async def consume_incident_creations(
                 except Exception:
                     await receipt_gate.release(reserved)
                     raise
-                await receipt_gate.finalize(reserved)
+                try:
+                    await receipt_gate.finalize(reserved)
+                except ValueError as exc:
+                    _LOG.warning(
+                        "incident_creation_applied_but_receipt_fence_unfinalized",
+                        extra={
+                            "source_request_id": request.source_request_id,
+                            "target_ref": request.target_ref,
+                            "reason": _receipt_rejection_reason(str(exc) or type(exc).__name__),
+                        },
+                    )
             except _IncidentCreationReceiptRejectedError as exc:
                 await bus.dead_letter(
                     envelope.topic,

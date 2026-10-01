@@ -258,8 +258,10 @@ def _validate_rule_payload(payload: dict[str, Any]) -> None:
         ):
             raise ValueError("rule payload handover knowledge MUST be non-authority")
     elif kind == "catalog_review_outcome":
-        _require_non_empty_strings(payload, "candidate_digest", "package_digest", "outcome")
-        if payload.get("mode") != "shadow":
+        _require_non_empty_strings(payload, "outcome")
+        _require_optional_non_empty_strings(payload, "candidate_digest", "package_digest")
+        mode = payload.get("mode")
+        if mode is not None and mode != "shadow":
             raise ValueError("rule payload catalog_review_outcome MUST remain shadow")
     else:
         _require_non_empty_strings(payload, "rule_id", "state")
@@ -268,6 +270,12 @@ def _validate_rule_payload(payload: dict[str, Any]) -> None:
         bool,
     ):
         raise ValueError("rule payload grants_execution_authority MUST be boolean")
+
+
+def _require_optional_non_empty_strings(payload: dict[str, Any], *fields: str) -> None:
+    present = [field for field in fields if payload.get(field) is not None]
+    if present:
+        _require_non_empty_strings(payload, *present)
 
 
 def _validate_policy_payload(payload: dict[str, Any]) -> None:

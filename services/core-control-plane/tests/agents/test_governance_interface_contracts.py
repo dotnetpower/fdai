@@ -36,6 +36,18 @@ def _semantics() -> ActionSemanticsCatalog:
     )
 
 
+class _FailOnceAuditBus(InMemoryBus):
+    def __init__(self) -> None:
+        super().__init__(registry=load_pantheon())
+        self.failed = False
+
+    async def publish(self, principal: str, topic: str, payload: dict[str, object]) -> None:
+        if principal == "Saga" and topic == "object.audit-entry" and not self.failed:
+            self.failed = True
+            raise RuntimeError("audit broker unavailable")
+        await super().publish(principal, topic, payload)
+
+
 async def test_var_records_ignored_invalid_duplicate_and_missing_authority_paths() -> None:
     var = Var(action_semantics=_semantics())
 
@@ -213,6 +225,82 @@ async def test_saga_records_republication_gaps_and_stamps_shadow_observation_tim
         },
     )
     assert transportless.behavior_snapshot()["catalog_review_audit:transport_unavailable"] == 1
+
+
+@pytest.mark.parametrize(
+    ("topic", "source_payload", "expected_idempotency_key", "expected_audited_topic"),
+    [
+        (
+            "object.rule",
+            {
+                "producer_principal": "Mimir",
+                "kind": "catalog_review_outcome",
+                "correlation_id": "catalog-recovery",
+                "idempotency_key": "catalog-source-key",
+                "outcome": "promoted",
+            },
+            "catalog-source-key",
+            "object.rule",
+        ),
+        (
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "kind": "document_ingestion",
+                "correlation_id": "document-decision-recovery",
+                "idempotency_key": "document-decision-source-key",
+                "stage": "protection_check",
+                "decision": "hil",
+                "document_id": "document-1",
+                "upload_id": "upload-1",
+            },
+            "document-decision-source-key",
+            "object.verdict",
+        ),
+        (
+            "object.approval",
+            {
+                "producer_principal": "Var",
+                "kind": "document_ingestion",
+                "correlation_id": "document-approval-recovery",
+                "idempotency_key": "document-approval-source-key",
+                "stage": "protection_check",
+                "state": "approved",
+                "document_id": "document-1",
+                "upload_id": "upload-1",
+                "approvers": ["operator-one"],
+            },
+            "document-approval-source-key",
+            "object.approval",
+        ),
+    ],
+)
+async def test_saga_derived_audit_paths_recover_from_outbox(
+    topic: str,
+    source_payload: dict[str, object],
+    expected_idempotency_key: str,
+    expected_audited_topic: str,
+) -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    first = Saga(durable_state_store=store)
+    first.bind_bus(_FailOnceAuditBus())
+
+    with pytest.raises(RuntimeError, match="audit broker unavailable"):
+        await first.on_typed_message(topic, source_payload)
+
+    recovered_bus = InMemoryBus(registry=load_pantheon())
+    restarted = Saga(durable_state_store=store)
+    restarted.bind_bus(recovered_bus)
+
+    assert await restarted.recover_audit_outbox() == 1
+    messages = recovered_bus.messages_on("object.audit-entry")
+    assert len(messages) == 1
+    assert messages[0].payload["idempotency_key"] == expected_idempotency_key
+    assert messages[0].payload["audited_topic"] == expected_audited_topic
+    assert await restarted.recover_audit_outbox() == 0
+    assert len(recovered_bus.messages_on("object.audit-entry")) == 1
 
 
 async def test_mimir_records_ignored_and_rejected_owner_contract_failures() -> None:

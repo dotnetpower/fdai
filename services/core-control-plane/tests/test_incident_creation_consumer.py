@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 from datetime import UTC, datetime, timedelta
+from typing import cast
 from uuid import NAMESPACE_URL, uuid5
 
+import pytest
 from fdai.agents import OperatorRequestReceiptGate
 from fdai.core.incident import IncidentLifecycleWorkflow, IncidentRegistry
 from fdai.shared.providers.event_bus import EventEnvelope
@@ -154,6 +157,31 @@ class _Verifier:
         return False
 
 
+class _FinalizeFailsOnceGate:
+    def __init__(self) -> None:
+        self.finalize_calls = 0
+        self.release_calls = 0
+
+    async def verify_or_committed(self, event: object) -> object:
+        del event
+        return object()
+
+    async def reserve(self, verified: object) -> object:
+        return verified
+
+    async def finalize(self, reserved: object) -> object:
+        del reserved
+        self.finalize_calls += 1
+        if self.finalize_calls == 1:
+            raise ValueError("expired")
+        return object()
+
+    async def release(self, reserved: object) -> bool:
+        del reserved
+        self.release_calls += 1
+        return True
+
+
 async def test_consumer_opens_one_incident_for_redelivered_request() -> None:
     payload = _signed_payload()
     target_ref = str(payload["target_ref"])
@@ -180,6 +208,41 @@ async def test_consumer_opens_one_incident_for_redelivered_request() -> None:
         item for item in state_store.audit_entries if item["entry"].get("kind") == "incident.open"
     ]
     assert len(opens) == 1
+
+
+async def test_consumer_acknowledges_applied_incident_when_finalize_fails_once(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    payload = _signed_payload()
+    target_ref = str(payload["target_ref"])
+    envelope = EventEnvelope(INCIDENT_CREATION_REQUEST_TOPIC, target_ref, payload, 1)
+    bus = _Bus([envelope, envelope])
+    registry_store = InMemoryStateStore()
+    registry = IncidentRegistry(state_store=registry_store)
+    gate = _FinalizeFailsOnceGate()
+
+    with caplog.at_level(logging.WARNING):
+        await consume_incident_creations(
+            bus=bus,  # type: ignore[arg-type]
+            topic=INCIDENT_CREATION_REQUEST_TOPIC,
+            group_id=INCIDENT_CREATION_CONSUMER_GROUP,
+            workflow=IncidentLifecycleWorkflow(registry=registry),
+            receipt_gate=cast(OperatorRequestReceiptGate, gate),
+            stop=asyncio.Event(),
+        )
+
+    incidents = tuple(registry.snapshot().values())
+    assert len(incidents) == 1
+    assert bus.dead_letters == []
+    assert gate.finalize_calls == 2
+    assert gate.release_calls == 0
+    opens = [
+        item
+        for item in registry_store.audit_entries
+        if item["entry"].get("kind") == "incident.open"
+    ]
+    assert len(opens) == 1
+    assert "incident_creation_applied_but_receipt_fence_unfinalized" in caplog.text
 
 
 async def test_consumer_dead_letters_a_partition_mismatch() -> None:

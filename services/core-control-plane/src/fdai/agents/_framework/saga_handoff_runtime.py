@@ -380,7 +380,7 @@ class SagaHandoffRuntimeMixin(_AgentMixinBase):
         self, payload: dict[str, Any], correlation_id: str
     ) -> None:
         """Seal a document decision before the ingestion worker may act."""
-        if self.bus is None:
+        if self.bus is None and self._durable_state_store is None:
             self.record_behavior("document_decision_audit:transport_unavailable")
             return
         if not correlation_id:
@@ -390,9 +390,7 @@ class SagaHandoffRuntimeMixin(_AgentMixinBase):
         if not idempotency_key:
             self.record_behavior("document_decision_audit:missing_idempotency_key")
             return
-        await self.bus.publish(
-            "Saga",
-            "object.audit-entry",
+        await self._publish_audit_entry_with_outbox(
             {
                 "schema_version": "1.0.0",
                 "producer_principal": "Saga",
@@ -413,7 +411,7 @@ class SagaHandoffRuntimeMixin(_AgentMixinBase):
         self, payload: dict[str, Any], correlation_id: str
     ) -> None:
         """Seal a document approval before promotion or hold."""
-        if self.bus is None:
+        if self.bus is None and self._durable_state_store is None:
             self.record_behavior("document_approval_audit:transport_unavailable")
             return
         if not correlation_id:
@@ -423,9 +421,7 @@ class SagaHandoffRuntimeMixin(_AgentMixinBase):
         if not idempotency_key:
             self.record_behavior("document_approval_audit:missing_idempotency_key")
             return
-        await self.bus.publish(
-            "Saga",
-            "object.audit-entry",
+        await self._publish_audit_entry_with_outbox(
             {
                 "schema_version": "1.0.0",
                 "producer_principal": "Saga",

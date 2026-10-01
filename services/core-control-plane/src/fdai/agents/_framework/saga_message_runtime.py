@@ -313,7 +313,7 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
-        if self.bus is None:
+        if self.bus is None and self._durable_state_store is None:
             self.record_behavior("catalog_review_audit:transport_unavailable")
             return
         if not correlation_id:
@@ -323,9 +323,7 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
         if not idempotency_key:
             self.record_behavior("catalog_review_audit:missing_idempotency_key")
             return
-        await self.bus.publish(
-            "Saga",
-            "object.audit-entry",
+        await self._publish_audit_entry_with_outbox(
             {
                 "producer_principal": "Saga",
                 "correlation_id": correlation_id,
