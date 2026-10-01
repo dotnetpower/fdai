@@ -1,5 +1,10 @@
 import type { AuthContext } from "./auth";
 import type { ConsoleConfig } from "./config";
+import {
+  ENTITLEMENT_HEADER,
+  entitlementStamps,
+  type EntitlementStampStore,
+} from "./entitlement-state";
 import type { ApiError } from "./types";
 
 export class OperatorApiError extends Error {
@@ -54,6 +59,7 @@ export interface OperatorApiTransportOptions {
     path: string,
     params: URLSearchParams,
   ) => unknown | undefined;
+  readonly entitlementStamps?: EntitlementStampStore;
 }
 
 export class OperatorApiTransport {
@@ -61,6 +67,7 @@ export class OperatorApiTransport {
   readonly #auth: AuthContext;
   readonly #onUnauthorized: ((error: OperatorApiError) => void) | undefined;
   readonly #sampleResponse: OperatorApiTransportOptions["sampleResponse"];
+  readonly #entitlementStamps: EntitlementStampStore;
 
   constructor(
     config: ConsoleConfig,
@@ -71,6 +78,7 @@ export class OperatorApiTransport {
     this.#auth = auth;
     this.#onUnauthorized = options.onUnauthorized;
     this.#sampleResponse = options.sampleResponse;
+    this.#entitlementStamps = options.entitlementStamps ?? entitlementStamps;
   }
 
   get baseUrl(): string {
@@ -165,6 +173,7 @@ export class OperatorApiTransport {
     } finally {
       globalThis.clearTimeout(timeout);
     }
+    this.#entitlementStamps.record(response.headers.get(ENTITLEMENT_HEADER));
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
       try {
@@ -225,6 +234,7 @@ export class OperatorApiTransport {
     } finally {
       globalThis.clearTimeout(timeout);
     }
+    this.#entitlementStamps.record(response.headers.get(ENTITLEMENT_HEADER));
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
       let reason: unknown;

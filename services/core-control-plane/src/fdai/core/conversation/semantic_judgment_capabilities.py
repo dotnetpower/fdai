@@ -25,6 +25,24 @@ _ONTOLOGY_COUNT_INTENT_KINDS = {
 }
 
 
+def property_canonical_values(capability: Mapping[str, Any]) -> tuple[str, ...]:
+    """Expand complete, type-scoped literal property names without interpreting language."""
+    if "property_names" not in capability:
+        return ()
+    name = capability.get("name")
+    properties = capability["property_names"]
+    if (
+        capability.get("kind") != "object_type"
+        or not isinstance(name, str)
+        or not name
+        or not isinstance(properties, (list, tuple))
+        or any(not isinstance(item, str) or not item for item in properties)
+        or len(properties) != len(set(properties))
+    ):
+        raise ValueError("semantic property names require one exact ObjectType and unique names")
+    return tuple(f"{name}.{item}" for item in properties)
+
+
 def normalize_primary_intent(
     proposal: SemanticJudgmentProposal,
     *,
@@ -103,4 +121,8 @@ def normalize_collection_identity_ambiguity(
     )
 
 
-__all__ = ["normalize_collection_identity_ambiguity", "normalize_primary_intent"]
+__all__ = [
+    "normalize_collection_identity_ambiguity",
+    "normalize_primary_intent",
+    "property_canonical_values",
+]

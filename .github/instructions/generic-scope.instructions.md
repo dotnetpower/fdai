@@ -100,7 +100,7 @@ rule of thumb: **if a path is listed there, it is LOCKED; otherwise it is editab
 | `services/core-control-plane/src/fdai/shared/contracts/` | versioned event / action / rule / ontology types |
 | `services/core-control-plane/src/fdai/agents/` | the 15-agent pantheon (role bindings fork-locked) |
 | `services/core-control-plane/src/fdai/runtime/licensing.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/delivery/trust/` | licensing binding, durable Trial store and activation writer, verifier, and packaged upstream integrity key |
-| `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py`, `services/operator-service/src/fdai_operator_service/entitlement_stamp.py` | Trial expiry watermark: Core's entitlement-state publisher and writer, and the Operator response stamp |
+| `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py`, `services/operator-service/src/fdai_operator_service/entitlement_stamp.py`, `console/src/entitlement-state.ts`, `console/src/components/entitlement-watermark.tsx` | Trial expiry watermark: Core's entitlement-state publisher and writer, the Operator response stamp, and the Console state contract and watermark component |
 | `rule-catalog/schema/` | catalog schemas (add entries, never widen a schema) |
 | `.github/instructions/` | this normative rule set |
 
