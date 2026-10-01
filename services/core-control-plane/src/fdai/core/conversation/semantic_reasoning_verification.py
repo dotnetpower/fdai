@@ -28,6 +28,7 @@ from fdai_service_contracts.ontology_query import (
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
+from fdai.core.ontology_platform.state_transitions import RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
 
 from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
@@ -57,9 +58,16 @@ from .semantic_reasoning_form import (
 )
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
 from .semantic_reasoning_lifecycle import parse_lifecycle
+from .semantic_reasoning_measure_checks import (
+    expected_measure_arguments,
+    is_health_lookup,
+    is_state_history,
+    metric_scope_violations,
+)
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
 from .semantic_reasoning_relations import SENSE_TRAITS
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
+from .semantic_target_health import TARGET_HEALTH_FUNCTIONS
 
 _SCHEMA_ONLY_FUNCTIONS = frozenset(
     {
@@ -308,6 +316,8 @@ def _operand_violations(
         )
     if node.kind in {QueryNodeKind.AGGREGATE, QueryNodeKind.UNION}:
         return []
+    if node.kind is QueryNodeKind.METRIC_SCOPE_SERIES:
+        return metric_scope_violations(node, goal, evaluation_time)
     return [f"prov_unexpected_node:{node.node_id}:{node.kind.value}"]
 
 
@@ -360,6 +370,11 @@ def _function_violations(
 ) -> list[str]:
     name = function_name(node)
     static = node.arguments.get("arguments") or {}
+    measured = expected_measure_arguments(
+        name, goal, _expected_lookback(goal, default_lookback_seconds), evaluation_time
+    )
+    if measured is not None:
+        return [] if dict(static) == measured else [f"prov_function_arguments:{node.node_id}"]
     expected: Mapping[str, Any] | None
     if name == "query.resource_current_state":
         expected = {}
@@ -458,6 +473,8 @@ def _history_reads(goal: FormGoal) -> frozenset[str]:
         return frozenset({"query.recent_resource_changes"})
     if goal.measure is not None and goal.measure.kind is MeasureKind.EVENT:
         return frozenset({"query.resource_event_history"})
+    if is_state_history(goal):
+        return frozenset({RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME})
     return frozenset({"query.resource_change_activity"})
 
 
@@ -504,6 +521,9 @@ def _coverage_violations(
         required = frozenset({METRIC_READER})
         if functions != required:
             violations.append("sem_metric_read_differs")
+    if is_health_lookup(goal) and functions != TARGET_HEALTH_FUNCTIONS:
+        # Health is read only through the reviewed assessment, never as a current state.
+        violations.append("sem_health_read_differs")
     if required is not None and functions.isdisjoint(required):
         violations.append("sem_operation_read_missing")
     if goal.level is GoalLevel.SCHEMA:

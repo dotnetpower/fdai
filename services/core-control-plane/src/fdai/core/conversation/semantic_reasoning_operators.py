@@ -43,6 +43,7 @@ from .semantic_reasoning_handles import (
     reference_mention,
     starts_from_reference,
 )
+from .semantic_reasoning_measure_reads import health_lookup, state_history
 from .semantic_reasoning_measures import stated_measure
 from .semantic_reasoning_metrics import METRIC_READER, metric_read
 from .semantic_reasoning_nodes import (
@@ -196,8 +197,8 @@ _SCHEMA_OPERATIONS = frozenset(
 # Measure kinds each compiled operation reads; any other measure atom is not dropped silently.
 _READ_MEASURES: dict[GoalOperation, frozenset[MeasureKind]] = {
     GoalOperation.COUNT: frozenset({MeasureKind.COUNT}),
-    GoalOperation.LOOKUP: frozenset({MeasureKind.STATE, MeasureKind.METRIC}),
-    GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE, MeasureKind.EVENT}),
+    GoalOperation.LOOKUP: frozenset({MeasureKind.STATE, MeasureKind.METRIC, MeasureKind.HEALTH}),
+    GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE, MeasureKind.EVENT, MeasureKind.STATE}),
     GoalOperation.EXPLAIN_CAUSE: frozenset({MeasureKind.STATE, MeasureKind.CHANGE}),
     GoalOperation.SELECT: frozenset(),
     GoalOperation.TRAVERSE: frozenset(),
@@ -492,6 +493,8 @@ def _lookup_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return _metric_lookup(goal, ctx)
     if goal.time.kind not in _CURRENT_TIMES:
         return OperatorResult(unsupported=(f"time_unsupported:{goal.time.kind.value}",))
+    if goal.measure.kind is MeasureKind.HEALTH:
+        return health_lookup(goal, ctx)
     if goal.measure.kind is not MeasureKind.STATE:
         return OperatorResult(unsupported=(f"measure_unsupported:{goal.measure.kind.value}",))
     return _anchored_function(
@@ -544,6 +547,8 @@ def _history_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         if kind is not MeasureKind.CHANGE:
             return OperatorResult(unsupported=(f"collection_history_unsupported:{kind.value}",))
         result = _recent_changes(goal, ctx, seconds, requirement)
+    elif kind is MeasureKind.STATE:
+        result = state_history(goal, ctx, seconds, requirement)
     elif kind is MeasureKind.EVENT:
         maximum = declared_maximum(ctx, EVENT_HISTORY_FUNCTION, "lookback_seconds")
         if maximum is not None and seconds > maximum:

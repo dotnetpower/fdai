@@ -34,10 +34,14 @@ from fdai.core.ontology_platform.operational_functions import (  # noqa: E402
     operational_function_types,
 )
 from fdai.core.ontology_platform.query_manifest import build_query_manifest  # noqa: E402
+from fdai.core.ontology_platform.query_metric_handlers import (  # noqa: E402
+    METRIC_ARGUMENT_SCHEMAS,
+)
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog  # noqa: E402
 from fdai.rule_catalog.schema.resource_type import (  # noqa: E402
     load_resource_type_registry_from_mapping,
 )
+from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry  # noqa: E402
 from fdai.shared.contracts.models import CeilingRole  # noqa: E402
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry  # noqa: E402
 from fdai.shared.ontology.release import build_ontology_release  # noqa: E402
@@ -90,7 +94,20 @@ def _receipt() -> dict[str, object]:
             QueryNodeKind.FUNCTION,
             QueryNodeKind.UNION,
             QueryNodeKind.AGGREGATE,
-        )
+            QueryNodeKind.METRIC_SCOPE_SERIES,
+        ),
+        reviewed_metric_concepts=tuple(
+            sorted(
+                load_metric_semantic_registry(
+                    root / "vocabulary" / "metric-semantics.yaml"
+                ).definitions
+            )
+        ),
+        extension_argument_schemas={
+            QueryNodeKind.METRIC_SCOPE_SERIES: METRIC_ARGUMENT_SCHEMAS[
+                QueryNodeKind.METRIC_SCOPE_SERIES
+            ]
+        },
     )
     receipt = reasoning_coverage_receipt(
         manifest=manifest,

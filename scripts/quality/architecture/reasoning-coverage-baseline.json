@@ -53,8 +53,12 @@
     "instance.history.none.current",
     "instance.history.none.unspecified",
     "instance.history.none.window",
+    "instance.history.state.current",
+    "instance.history.state.unspecified",
+    "instance.history.state.window",
     "instance.impact.dependency.dependency.one_hop",
     "instance.impact.implied",
+    "instance.lookup.health",
     "instance.lookup.state",
     "instance.select.attachment.attached.one_hop",
     "instance.select.attachment.either.one_hop",
@@ -164,8 +168,6 @@
     "measure_unsupported:count": 1,
     "measure_unsupported:event": 1,
     "measure_unsupported:forecast": 1,
-    "measure_unsupported:health": 1,
-    "measure_unsupported:state": 6,
     "metric_concept_required": 1,
     "operation_unsupported:aggregate": 1,
     "operation_unsupported:compare_entities": 1,
@@ -187,15 +189,15 @@
     "schema_operation_unsupported:select": 1,
     "schema_subject_unsupported:declaration_kind": 1,
     "schema_subject_unsupported:resource_type": 3,
-    "time_unsupported:as_of": 3,
-    "time_unsupported:two_windows": 3,
-    "time_unsupported:versions": 3,
+    "time_unsupported:as_of": 4,
+    "time_unsupported:two_windows": 4,
+    "time_unsupported:versions": 4,
     "want_unsupported:verification": 1
   },
   "status_counts": {
-    "compiled": 149,
+    "compiled": 153,
     "inadmissible": 8,
-    "unsupported": 276
+    "unsupported": 272
   },
   "version": 1
 }

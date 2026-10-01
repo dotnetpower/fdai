@@ -91,6 +91,10 @@ _WINDOW_NOTICES = {
         "조회 기간: 질문의 표현에서 판단한 최근 {span}",
         "Read window: the last {span}, as judged from the question's wording.",
     ),
+    "fixed": (
+        "조회 기간: 상태 이상 평가의 검토된 고정 기간인 최근 {span}",
+        "Read window: the last {span}, the reviewed fixed window of the health assessment.",
+    ),
 }
 _CAUSE_NOTICE = (
     "원인은 확정하지 않았습니다. 아래는 현재 상태와 조회 기간에 기록된 작업이며, "

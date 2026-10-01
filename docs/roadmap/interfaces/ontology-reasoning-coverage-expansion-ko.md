@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 커버리지 확장과 현재 경로 수렴
 translation_of: ontology-reasoning-coverage-expansion.md
-translation_source_sha: ffa1317abc8668c9bc1dd71d1dac63490323af39
+translation_source_sha: 49a84af05932a6179aedee19b2951bec6d55c993
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 커버리지 확장과 현재 경로 수렴
@@ -130,13 +130,17 @@ ObjectType으로 근거화됩니다.
 
 ### E7 단일 대상 상태 이상, 상태 이력, 수명 주기 도메인
 
-- **상태 이상 조회:** 바인딩된 Resource 하나의 상태 이상 질문은 검토된 단일 대상 상태 이상 평가로
-  컴파일됩니다. V-PROV는 그 고정 기간과 검토된 지표 개념을 알고, V-SEM은 평가를 요구합니다. 상태 이상
-  근거가 없는 리소스는 `UNKNOWN_INCOMPLETE`로 남습니다.
-- **상태 이력:** Resource 하나의 상태 이력은 원본이 그 기간에 신뢰할 수 있는 전환 커버리지를 보고할
-  때만 검토된 상태 전환으로 컴파일됩니다. 그렇지 않으면 타입이 지정된 지원되지 않음 이유를 유지합니다.
-- **수명 주기 도메인:** 투영이 정식 상태 열거형을 기록하는 ObjectType마다 `Incident.status`처럼 검토된
-  수명 주기 값 도메인을 두고, 열거형 값을 고정하는 계약 테스트를 둡니다.
+- **상태 이상 조회:** 바인딩된 Resource 하나의 상태 이상 질문은 공유 모듈 하나에서 만든, 현재 경로가
+  계획하는 것과 같은 모양의 검토된 단일 대상 상태 이상 평가로 컴파일됩니다. V-PROV는 30분 고정 기간과
+  검토된 지표 입력 세 개를 다시 계산하고, V-SEM은 평가에 필요한 조회만 정확히 요구합니다. 답변은 검토된
+  안내로 고정 기간을 다시 밝힙니다. 상태 이상 근거가 없는 리소스는 `UNKNOWN_INCOMPLETE`로 남습니다.
+- **상태 이력:** Resource 하나의 상태 이력은 그 기간의 검토된 모든 전환 유형과 대상 상태에 대해 검토된
+  상태 전환 reader로 컴파일됩니다. reader는 커버리지 증명을 돌려주므로, 답변은 그 증명이 기간 전체에
+  대해 완전할 때만 완전한 이력이라고 밝히며, 그렇지 않으면 이력은 `UNKNOWN_INCOMPLETE`입니다. 컬렉션의
+  상태 이력, 그리고 버전, `as_of`, 두 기간 이력은 타입이 지정된 지원되지 않음 이유를 유지합니다.
+- **수명 주기 도메인:** 투영이 정식 상태 열거형을 기록하는 ObjectType마다 검토된 수명 주기 값 도메인을
+  두고, 열거형 값을 고정하는 계약 테스트를 둡니다. 대상은 `Incident`, `Process`, `RecoveryPlan`,
+  `CausalHypothesis`입니다.
 
 **종료 조건:** `check-reasoning-coverage.py`가 더 이상 `measure_unsupported:health`나
 `measure_unsupported:state`를 보고하지 않고, 투영되는 각 ObjectType에 밝힌 상태가 근거화됩니다.

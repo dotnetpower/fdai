@@ -136,14 +136,18 @@ per-group count answers with one count per resource group instead of a hold.
 ### E7 Single-target health, state history, and lifecycle domains
 
 - **Health lookup:** A health question about one bound Resource compiles to the reviewed
-  single-target health assessment. V-PROV learns its fixed window and reviewed metric concepts, and
-  V-SEM requires the assessment. A resource with no health evidence stays `UNKNOWN_INCOMPLETE`.
-- **State history:** A history of one Resource's state compiles to reviewed state transitions only
-  when the source reports trusted transition coverage for the window. Otherwise it keeps its typed
-  unsupported reason.
+  single-target health assessment, the same shape the current path plans, from one shared module.
+  V-PROV recomputes its fixed 30-minute window and its three reviewed metric inputs, and V-SEM
+  requires exactly the assessment's reads. The answer restates the fixed window through a reviewed
+  notice. A resource with no health evidence stays `UNKNOWN_INCOMPLETE`.
+- **State history:** A history of one Resource's state compiles to the reviewed state transitions
+  reader over every reviewed transition type and target state in the window. The reader returns its
+  coverage proof, so an answer claims a complete history only when that proof is complete for the
+  window; otherwise the history is `UNKNOWN_INCOMPLETE`. A collection's state history, or a version,
+  `as_of`, or two-window history, keeps its typed unsupported reason.
 - **Lifecycle domains:** Each ObjectType whose projection writes a canonical status enum gets a
-  reviewed lifecycle value domain, following `Incident.status`, with a contract test that pins the
-  enum values.
+  reviewed lifecycle value domain, with a contract test that pins the enum values: `Incident`,
+  `Process`, `RecoveryPlan`, and `CausalHypothesis`.
 
 **Exit:** `check-reasoning-coverage.py` no longer reports `measure_unsupported:health` or
 `measure_unsupported:state`, and a stated state on each projected ObjectType grounds.

@@ -23,7 +23,7 @@ earlier history stays in that ledger.
 | E4 Standalone questions | not-started | Design only | Routing needs a bound reference |
 | E5 Turn budget reservation | in-progress | Compiled schema goals in the local typed-only profile | The per-path reservation plan is not started |
 | E6 Grouping by container kind | not-started | Design only | Nearest-root lineage and `ambiguous_membership` |
-| E7 Health, history, and lifecycle | in-progress | The `Incident.status` lifecycle domain and health-filtered lists | Single-target health, state history, and other domains |
+| E7 Health, history, and lifecycle | implemented | [`semantic_reasoning_measure_reads.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_measure_reads.py), [`semantic_reasoning_measure_checks.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_measure_checks.py), [`semantic_target_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_target_health.py), and the lifecycle domains in [`semantic_query_value_domains.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_value_domains.py); `test_semantic_reasoning_measure_reads.py` | Local and shadow only; no live round yet |
 | E8 Causal change points | not-started | Causal context only | Needs H5, the causal-grade receipt, and P3 |
 | E9 Remaining operators and senses | not-started | Typed unsupported reasons in the coverage receipt | Each row waits for its prerequisite |
 
@@ -32,6 +32,7 @@ earlier history stays in that ledger.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-10-01 | in-progress | Recorded the design after an independent critique, moved eight open items here from the compiler ledger with their progress notes, and added the E9 operators item. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-coverage-expansion.md`; `docs/roadmap/interfaces/ontology-reasoning-coverage-expansion-ko.md` | Implement E5 and E7 in Wave 1. |
+| 2026-10-01 | in-progress | Implemented E7. A health lookup of one bound Resource compiles to the reviewed single-target assessment, built from one module that the current path now shares, with its fixed 30-minute window restated through a reviewed notice; V-PROV recomputes the window and the three metric inputs, and V-SEM requires exactly the assessment's reads. A state history of one Resource reads the reviewed transitions over every type and target state, and V-PROV recomputes those arguments. Process, RecoveryPlan, and CausalHypothesis join Incident as reviewed lifecycle domains pinned to their projection enums. The fixture and coverage verifiers now register metric scope reads with the reviewed metric registry, as production does. | `current change`; `services/core-control-plane/src/fdai/core/conversation/semantic_{target_health,reasoning_measure_reads,reasoning_measure_checks,reasoning_operators,reasoning_verification,compiled_selection,health_planning}.py`; `services/core-control-plane/src/fdai/composition/{semantic_query_value_domains,semantic_query_azure_composition}.py`; `services/core-control-plane/src/fdai_core_service/{semantic_verified_rows,semantic_turn_processor}.py`; `scripts/quality/architecture/{check-reasoning-coverage.py,reasoning-coverage-baseline.json}`; `pytest -q -n 8 services/core-control-plane/tests/conversation` with the verified-rows and turn-processor tests passed (3,222); `tests/integration/evaluation` with the composition and ontology platform tests passed (1,309); `check-reasoning-coverage.py` passed (153 compiled) | Live health and history rounds belong to the validation program. |
 
 ### Remaining work
 
@@ -47,11 +48,17 @@ earlier history stays in that ledger.
   state, value, location, history, or cause, as
   `test_a_schema_answer_to_an_instance_question_holds_as_an_unverified_reading` shows. Operand
   provenance and the zero counts on both corpora remain.
-- [ ] Compile a Resource Health lookup of one bound Resource through a reviewed single-target health
+- [x] Compile a Resource Health lookup of one bound Resource through a reviewed single-target health
   read and the state history of one Resource through state transitions, and declare reviewed
   lifecycle domains for other ObjectTypes whose `status` the ontology projects. Exit:
   `check-reasoning-coverage.py` no longer reports `measure_unsupported:health` or
   `measure_unsupported:state`, and a stated state on each projected ObjectType grounds.
+  Evidence: `test_a_health_lookup_reads_the_reviewed_single_target_assessment`,
+  `test_a_state_history_reads_every_reviewed_transition_in_the_window`,
+  `test_the_verifier_recomputes_every_health_argument`, and
+  `test_every_lifecycle_domain_pins_its_projection_enum_and_a_readable_status`; the coverage
+  receipt compiles 153 of 433 cells with no `measure_unsupported:health` or
+  `measure_unsupported:state`, in the 2026-10-01 E7 row.
 - [ ] On the current path, give relationship questions about one named instance a typed plan through the relation compiler, and
   compare the T2 state review on meaning axes rather than facet tokens, so neither holds a question the ontology can answer.
 - [ ] Keep standalone questions on the verified path inside long conversations: a live probe after the current-path fixes saw the

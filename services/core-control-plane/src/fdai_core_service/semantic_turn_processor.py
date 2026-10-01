@@ -4732,7 +4732,10 @@ def _render_health_query_answer(
         return None
     output = outputs[0]
     rows = output.get("rows")
-    if output.get("node_id") != "target-health-assessment" or not isinstance(rows, list):
+    # The current path names the node exactly; a compiled plan prefixes it with its goal.
+    if not str(output.get("node_id") or "").endswith("target-health-assessment") or not (
+        isinstance(rows, list)
+    ):
         return None
     if len(rows) != 1 or not isinstance(rows[0], Mapping):
         return None

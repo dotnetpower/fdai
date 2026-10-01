@@ -14,7 +14,7 @@ from typing import Any
 import yaml
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
 from fdai.composition.semantic_query_value_domains import (
-    incident_lifecycle_value_domains,
+    lifecycle_value_domains,
     resource_location_value_domains,
     resource_type_value_domains,
 )
@@ -52,6 +52,7 @@ from fdai.core.ontology_platform.object_sets import ObjectSetService
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.core.ontology_platform.query_manifest import build_query_manifest
+from fdai.core.ontology_platform.query_metric_handlers import METRIC_ARGUMENT_SCHEMAS
 from fdai.core.ontology_platform.query_source_handlers import (
     SecuredObjectSetNodeHandler,
     SecuredRelationshipTraversalNodeHandler,
@@ -165,7 +166,7 @@ def production_manifest(
                     )
                 )
             ),
-            *incident_lifecycle_value_domains(),
+            *lifecycle_value_domains(),
         ),
     )
 
@@ -180,8 +181,26 @@ def plan_verifier() -> OntologyQueryPlanVerifier:
             QueryNodeKind.FUNCTION,
             QueryNodeKind.UNION,
             QueryNodeKind.AGGREGATE,
-        )
+            QueryNodeKind.METRIC_SCOPE_SERIES,
+        ),
+        # Metric reads are verified against the reviewed registry, as in production.
+        reviewed_metric_concepts=reviewed_metric_concepts(),
+        extension_argument_schemas={
+            QueryNodeKind.METRIC_SCOPE_SERIES: METRIC_ARGUMENT_SCHEMAS[
+                QueryNodeKind.METRIC_SCOPE_SERIES
+            ]
+        },
     )
+
+
+@lru_cache(maxsize=1)
+def reviewed_metric_concepts() -> tuple[str, ...]:
+    from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
+
+    registry = load_metric_semantic_registry(
+        ROOT / "rule-catalog" / "vocabulary" / "metric-semantics.yaml"
+    )
+    return tuple(sorted(registry.definitions))
 
 
 def admitted(
