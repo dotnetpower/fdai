@@ -47,6 +47,21 @@ def test_expected_roots_cover_every_packaged_role() -> None:
     assert roots["integrity"] != roots["deployment-release"]
 
 
+def test_package_role_hints_name_the_kit_builder_not_the_retired_wrapper_option() -> None:
+    hints = dict(_module()._ROLES)
+    builder = _ROOT / "scripts/deployment/release/build-standalone-deployment-kit.sh"
+    wrapper = (_ROOT / "scripts/deployment/azure/fdai-up.sh").read_text(encoding="utf-8")
+
+    # fdai-up.sh refuses --signing-key; only the kit builder accepts the package keys.
+    assert "--signing-key was removed" in wrapper
+    for role in ("deployment-release", "deployment-bundle"):
+        assert hints[role].startswith(f"{builder.name} --signing-key")
+        assert "fdai-up.sh" not in hints[role]
+    builder_text = builder.read_text(encoding="utf-8")
+    for option in ("--signing-key)", "--release-key)", "--bundle-key)"):
+        assert option in builder_text
+
+
 def test_integrity_role_is_the_only_license_verification_key() -> None:
     from fdai_deployment_cli import trust_roots
 
