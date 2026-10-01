@@ -5,20 +5,24 @@ from __future__ import annotations
 import hmac
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from fdai_service_contracts.operator_request_receipt import (
     OperatorRequestReceipt,
     OperatorRequestReceiptBody,
     canonical_params_digest,
+    canonical_workflow_action_digest,
     operator_request_receipt_signing_bytes,
     verify_operator_request_receipt_with_public_key,
 )
 
-from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.state_store import StateStore, StateStoreKeysetReader
 
 _REPLAY_PREFIX = "pantheon/huginn/operator-request-receipts/"
+_REPLAY_SUMMARY_KEY = "pantheon/huginn/operator-request-receipt-summary"
+_REPLAY_CLEANUP_LIMIT = 128
+_REPLAY_CLOCK_SKEW = timedelta(minutes=2)
 
 
 class OperatorRequestReceiptVerifier(Protocol):
@@ -33,6 +37,14 @@ class OperatorRequestReceiptVerifier(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class VerifiedOperatorRequestReceipt:
+    """Receipt verified against the raw request but not yet replay-fenced."""
+
+    receipt: OperatorRequestReceipt
+    replay_key: str
+
+
+@dataclass(frozen=True, slots=True)
 class OperatorRequestReceiptGate:
     """Fail-closed gate for raw-ingress operator requests."""
 
@@ -41,15 +53,22 @@ class OperatorRequestReceiptGate:
     clock: Callable[[], datetime]
     trusted_producer_public_keys: Mapping[str, str] | None = None
 
-    async def verify(self, raw: Mapping[str, Any]) -> OperatorRequestReceipt:
-        """Verify exact binding, expiry, signature, and replay before publication."""
+    cleanup_limit: int = _REPLAY_CLEANUP_LIMIT
+    clock_skew: timedelta = _REPLAY_CLOCK_SKEW
+
+    async def verify(self, raw: Mapping[str, Any]) -> VerifiedOperatorRequestReceipt:
+        """Verify exact binding, expiry, signature, and live replay state."""
 
         raw_receipt = raw.get("operator_request_receipt")
         if not isinstance(raw_receipt, Mapping):
             raise ValueError("missing")
         receipt = OperatorRequestReceipt.model_validate(raw_receipt)
+        workflow_action = raw.get("workflow_action")
+        if receipt.schema_version == "1.0.0" and isinstance(workflow_action, Mapping):
+            raise ValueError("unsigned_workflow_action")
         expected = OperatorRequestReceiptBody.model_validate(
             {
+                "schema_version": receipt.schema_version,
                 "idempotency_key": raw.get("idempotency_key"),
                 "correlation_id": raw.get("correlation_id"),
                 "initiator_principal": raw.get("initiator_principal"),
@@ -58,6 +77,13 @@ class OperatorRequestReceiptGate:
                     raw.get("params") if isinstance(raw.get("params"), Mapping) else None
                 ),
                 "resource_id": raw.get("resource_id"),
+                "canonical_workflow_action_digest": (
+                    canonical_workflow_action_digest(
+                        workflow_action if isinstance(workflow_action, Mapping) else None
+                    )
+                    if receipt.schema_version == "1.1.0"
+                    else None
+                ),
                 "producer_service_identity": receipt.producer_service_identity,
                 "issued_at": receipt.issued_at,
                 "expires_at": receipt.expires_at,
@@ -91,23 +117,94 @@ class OperatorRequestReceiptGate:
             )
         if not verified:
             raise ValueError("unverifiable")
-        replay_key = _REPLAY_PREFIX + receipt.receipt_digest
+        replay_key = _replay_key(receipt)
+        existing = await self.state_store.read_state(replay_key)
+        if existing is not None:
+            raise ValueError("replayed")
+        return VerifiedOperatorRequestReceipt(receipt=receipt, replay_key=replay_key)
+
+    async def commit(self, verified: VerifiedOperatorRequestReceipt) -> OperatorRequestReceipt:
+        """Durably fence one verified receipt after the caller's safe checkpoint."""
+
+        receipt = verified.receipt
+        await self.cleanup_expired()
+        now = self.clock().astimezone(UTC)
+        if now >= receipt.expires_at + self.clock_skew:
+            raise ValueError("expired")
         created = await self.state_store.write_state_if_absent(
-            replay_key,
+            verified.replay_key,
             {
                 "schema_version": "1.0.0",
                 "kind": "huginn.operator_request_receipt_replay_fence",
+                "replay_key": verified.replay_key,
                 "receipt_digest": receipt.receipt_digest,
                 "producer_service_identity": receipt.producer_service_identity,
+                "issued_at": receipt.issued_at.isoformat(),
                 "expires_at": receipt.expires_at.isoformat(),
+                "committed_at": now.isoformat(),
             },
         )
         if not created:
             raise ValueError("replayed")
+        await self.cleanup_expired()
         return receipt
+
+    async def cleanup_expired(self) -> int:
+        """Compact expired replay rows and retain a bounded audit summary."""
+
+        if not isinstance(self.state_store, StateStoreKeysetReader):
+            raise RuntimeError("operator request receipt cleanup requires keyset state reads")
+        now = self.clock().astimezone(UTC)
+        deleted = 0
+        keys = await self.state_store.read_state_keys(_REPLAY_PREFIX, limit=self.cleanup_limit)
+        for replay_key in keys:
+            row = await self.state_store.read_state(replay_key)
+            if row is None:
+                continue
+            if row.get("kind") != "huginn.operator_request_receipt_replay_fence" or not _expired(
+                row,
+                now=now,
+                skew=self.clock_skew,
+            ):
+                break
+            if await self.state_store.delete_state(replay_key):
+                deleted += 1
+        if deleted:
+            summary = await self.state_store.read_state(_REPLAY_SUMMARY_KEY)
+            prior_expired = int(summary.get("expired_rows", 0)) if summary else 0
+            await self.state_store.write_state(
+                _REPLAY_SUMMARY_KEY,
+                {
+                    "schema_version": "1.0.0",
+                    "kind": "huginn.operator_request_receipt_replay_fence_summary",
+                    "expired_rows": prior_expired + deleted,
+                    "last_compacted_at": now.isoformat(),
+                },
+            )
+        return deleted
+
+
+def _expired(row: Mapping[str, Any], *, now: datetime, skew: timedelta) -> bool:
+    raw_expires_at = row.get("expires_at")
+    if not isinstance(raw_expires_at, str):
+        return False
+    try:
+        expires_at = datetime.fromisoformat(raw_expires_at)
+    except ValueError:
+        return False
+    if expires_at.tzinfo is None or expires_at.utcoffset() is None:
+        return False
+    return expires_at.astimezone(UTC) + skew <= now
+
+
+def _replay_key(receipt: OperatorRequestReceipt) -> str:
+    expires_at = receipt.expires_at.astimezone(UTC)
+    expiry_token = expires_at.strftime("%Y%m%dT%H%M%S.%fZ")
+    return f"{_REPLAY_PREFIX}{expiry_token}/{receipt.receipt_digest}"
 
 
 __all__ = [
     "OperatorRequestReceiptGate",
     "OperatorRequestReceiptVerifier",
+    "VerifiedOperatorRequestReceipt",
 ]

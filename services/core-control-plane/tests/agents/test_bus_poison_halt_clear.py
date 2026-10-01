@@ -312,7 +312,7 @@ async def test_ordered_poison_halt_clear_rejects_wrong_producer_and_replay() -> 
     second = await processor.handle(ORDERED_POISON_HALT_CLEAR_TOPIC, wrong_producer)
 
     assert first.reason == "receipt_wrong_producer"
-    assert second.reason == "receipt_replayed"
+    assert second.reason == "receipt_wrong_producer"
     assert (await store.read_state(halt_key(_GROUP, _TOPIC)))["status"] == "halted"  # type: ignore[index]
 
 

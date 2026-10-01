@@ -431,6 +431,12 @@ class InMemoryStateStore(StateStore):
                 del self._state[key]
         return len(expired)
 
+    async def delete_state(self, key: str) -> bool:
+        if not key:
+            raise ValueError("key MUST be non-empty")
+        with self._lock:
+            return self._state.pop(key, None) is not None
+
     async def read_state_page(
         self,
         prefix: str,

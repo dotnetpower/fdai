@@ -8,8 +8,9 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+import pytest
 from fdai.agents import OperatorRequestReceiptGate
-from fdai.agents.huginn import Huginn
+from fdai.agents.huginn import Huginn, HuginnIngressRejected
 from fdai.core.incident.sre_request import (
     OperatorSreRequest,
     OperatorSreRequestCoordinator,
@@ -125,6 +126,30 @@ async def test_workflow_dispatcher_raw_operator_request_carries_valid_receipt_fo
     payload = bus.published[0][2]
     assert payload["operator_request_receipt"]
     await _assert_huginn_accepts(payload)
+
+
+async def test_workflow_dispatcher_receipt_rejects_mutated_lineage() -> None:
+    bus = _Bus()
+    dispatcher = EventBusWorkflowActionDispatcher(bus, "fdai.events", receipt_issuer=_issuer())
+
+    await dispatcher.dispatch(
+        process_id="process-1",
+        correlation_id="correlation-1",
+        step=RunbookStep(id="restart", action_type="ops.restart-service"),
+        target_resource_id="resource:service/api",
+        params={"target_resource_ref": "resource:service/api"},
+        context={"workflow.requester_principal": "owner"},
+    )
+
+    payload = bus.published[0][2]
+    payload["workflow_action"] = {
+        "process_id": "evil",
+        "step_id": "restart",
+        "proposal_ref": "evil-ref",
+        "attempt": 99,
+    }
+    with pytest.raises(HuginnIngressRejected, match="operator_request_receipt_mismatch"):
+        await _assert_huginn_accepts(payload)
 
 
 async def test_irp_router_raw_operator_request_carries_valid_receipt_for_huginn() -> None:

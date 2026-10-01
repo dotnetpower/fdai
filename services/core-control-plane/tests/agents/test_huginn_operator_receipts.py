@@ -39,6 +39,18 @@ class _Verifier:
         return self.accepted is None or signing_bytes == self.accepted
 
 
+class _FailFirstPublishBus(InMemoryBus):
+    def __init__(self) -> None:
+        super().__init__(load_pantheon())
+        self.failures_remaining = 1
+
+    async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
+        if self.failures_remaining:
+            self.failures_remaining -= 1
+            raise RuntimeError("transient broker failure before durable publish")
+        await super().publish(principal, topic, payload)
+
+
 _CORE_SEED = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 _OPERATOR_SEED = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE"
 
@@ -187,6 +199,80 @@ async def test_huginn_rejects_mismatched_expired_unverifiable_and_replayed_recei
     with pytest.raises(HuginnIngressRejected) as replayed:
         await huginn.ingest(_request(now))
     assert replayed.value.reason_code == "operator_request_receipt_replayed"
+
+
+async def test_huginn_retries_receipt_when_publish_fails_before_durable_checkpoint() -> None:
+    now = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    gate = _gate(now)
+    bus = _FailFirstPublishBus()
+    huginn = Huginn(bus=bus, operator_request_receipt_gate=gate, clock=lambda: now)
+
+    with pytest.raises(RuntimeError, match="transient broker failure"):
+        await huginn.ingest(_request(now))
+
+    normalized = await huginn.ingest(_request(now))
+
+    assert normalized is not None
+    assert len(bus.messages_on("object.event")) == 1
+
+
+async def test_huginn_rejects_mutated_workflow_action_lineage() -> None:
+    now = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    request = _request(now)
+    request["workflow_action"] = {
+        "process_id": "process-one",
+        "step_id": "restart",
+        "proposal_ref": "process-one:step:restart:attempt:1",
+        "attempt": 1,
+    }
+    request["operator_request_receipt"] = _receipt(request, now=now).model_dump(mode="json")
+    mutated = dict(request)
+    mutated["workflow_action"] = {
+        "process_id": "evil",
+        "step_id": "restart",
+        "proposal_ref": "evil-ref",
+        "attempt": 99,
+    }
+
+    assert await Huginn(operator_request_receipt_gate=_gate(now), clock=lambda: now).ingest(request)
+    with pytest.raises(HuginnIngressRejected) as exc:
+        await Huginn(operator_request_receipt_gate=_gate(now), clock=lambda: now).ingest(mutated)
+
+    assert exc.value.reason_code == "operator_request_receipt_mismatch"
+
+
+async def test_receipt_replay_cleanup_expires_rows_and_retains_summary() -> None:
+    current = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+
+    def clock() -> datetime:
+        return current
+
+    gate = OperatorRequestReceiptGate(
+        verifier=_Verifier(),
+        state_store=store,
+        clock=clock,
+        cleanup_limit=10,
+    )
+    replayed_request: dict[str, Any] | None = None
+    for index in range(3):
+        request = _request(current)
+        request["idempotency_key"] = f"operator-request:{index}"
+        request["operator_request_receipt"] = _receipt(request, now=current).model_dump(mode="json")
+        await gate.commit(await gate.verify(request))
+        if index == 1:
+            replayed_request = request
+
+    with pytest.raises(ValueError, match="replayed"):
+        assert replayed_request is not None
+        await gate.verify(replayed_request)
+
+    current = current + timedelta(minutes=8)
+    assert await gate.cleanup_expired() == 3
+    assert await store.read_states("pantheon/huginn/operator-request-receipts/", limit=10) == ()
+    summary = await store.read_state("pantheon/huginn/operator-request-receipt-summary")
+    assert summary is not None
+    assert summary["expired_rows"] == 3
 
 
 async def test_schema_learning_publishes_inert_idempotent_evidence_without_normalizing_change() -> (

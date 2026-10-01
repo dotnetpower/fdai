@@ -18,16 +18,20 @@ from fdai_service_contracts.executor_models import ContractBase, Digest
 _MAX_RECEIPT_LIFETIME = timedelta(minutes=15)
 
 
+_RECEIPT_SCHEMA_VERSION = Literal["1.0.0", "1.1.0"]
+
+
 class OperatorRequestReceiptBody(ContractBase):
     """Bound facts the Operator signs before a request enters Core ingress."""
 
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: _RECEIPT_SCHEMA_VERSION = "1.1.0"
     idempotency_key: Annotated[str, Field(min_length=1, max_length=512)]
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)]
     initiator_principal: Annotated[str, Field(min_length=1, max_length=512)]
     action_type: Annotated[str, Field(min_length=1, max_length=512)]
     canonical_params_digest: Digest
     resource_id: Annotated[str, Field(min_length=1, max_length=512)]
+    canonical_workflow_action_digest: Digest | None = None
     producer_service_identity: Annotated[str, Field(min_length=1, max_length=512)]
     issued_at: datetime
     expires_at: datetime
@@ -43,6 +47,10 @@ class OperatorRequestReceiptBody(ContractBase):
     def _bounded_validity(self) -> OperatorRequestReceiptBody:
         if not self.issued_at < self.expires_at <= self.issued_at + _MAX_RECEIPT_LIFETIME:
             raise ValueError("operator request receipt validity MUST be positive and bounded")
+        if self.schema_version == "1.0.0" and self.canonical_workflow_action_digest is not None:
+            raise ValueError("operator request receipt v1.0 MUST NOT bind workflow action")
+        if self.schema_version == "1.1.0" and self.canonical_workflow_action_digest is None:
+            raise ValueError("operator request receipt v1.1 MUST bind workflow action digest")
         return self
 
 
@@ -99,6 +107,12 @@ def canonical_params_digest(params: Mapping[str, Any] | None) -> str:
     """Return the stable digest for the exact operator request params."""
 
     return canonical_digest(dict(params or {}))
+
+
+def canonical_workflow_action_digest(workflow_action: Mapping[str, Any] | None) -> str:
+    """Return the stable digest for optional workflow lineage."""
+
+    return canonical_digest(dict(workflow_action or {}))
 
 
 def operator_request_receipt_digest(body: OperatorRequestReceiptBody) -> str:
@@ -167,11 +181,21 @@ def operator_request_receipt_body_from_event(
     producer_service_identity: str,
     issued_at: datetime,
     expires_at: datetime,
+    schema_version: str = "1.1.0",
 ) -> OperatorRequestReceiptBody:
     """Build a receipt body from a flat raw-ingress operator request."""
 
+    workflow_action = event.get("workflow_action")
+    workflow_action_digest = (
+        canonical_workflow_action_digest(
+            workflow_action if isinstance(workflow_action, Mapping) else None
+        )
+        if schema_version == "1.1.0"
+        else None
+    )
     return OperatorRequestReceiptBody.model_validate(
         {
+            "schema_version": schema_version,
             "idempotency_key": event.get("idempotency_key"),
             "correlation_id": event.get("correlation_id"),
             "initiator_principal": event.get("initiator_principal"),
@@ -180,6 +204,7 @@ def operator_request_receipt_body_from_event(
                 event.get("params") if isinstance(event.get("params"), Mapping) else None
             ),
             "resource_id": event.get("resource_id"),
+            "canonical_workflow_action_digest": workflow_action_digest,
             "producer_service_identity": producer_service_identity,
             "issued_at": issued_at,
             "expires_at": expires_at,
@@ -191,6 +216,7 @@ __all__ = [
     "OperatorRequestReceipt",
     "OperatorRequestReceiptBody",
     "canonical_params_digest",
+    "canonical_workflow_action_digest",
     "operator_request_receipt_body_from_event",
     "operator_request_receipt_digest",
     "operator_request_receipt_signing_bytes",

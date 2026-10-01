@@ -14,7 +14,10 @@ from fdai_service_contracts.bus_poison_halt_clear import (
 from fdai_service_contracts.compatibility import canonical_digest
 
 from fdai.agents._framework.bus_poison_halt import clear_ordered_halt_with_evidence
-from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
+from fdai.agents._framework.huginn_operator_receipt import (
+    OperatorRequestReceiptGate,
+    VerifiedOperatorRequestReceipt,
+)
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
 
@@ -52,7 +55,7 @@ class OrderedPoisonHaltClearProcessor:
         payload: Mapping[str, object],
     ) -> OrderedPoisonHaltClearResult:
         request = OrderedPoisonHaltClearRequest.model_validate(payload)
-        receipt_rejection = await self._verify_operator_receipt(request)
+        receipt_verification, receipt_rejection = await self._verify_operator_receipt(request)
         if receipt_rejection is not None:
             await self._record_rejected_outcome(request, receipt_rejection)
             return OrderedPoisonHaltClearResult("rejected", halted=True, reason=receipt_rejection)
@@ -110,25 +113,38 @@ class OrderedPoisonHaltClearProcessor:
         if not cleared:
             await self._record_rejected_outcome(request, "halt_mismatch")
             return OrderedPoisonHaltClearResult("rejected", halted=True, reason="halt_mismatch")
+        if receipt_verification is None or self.operator_request_receipt_gate is None:
+            await self._record_rejected_outcome(request, "receipt_verifier_unbound")
+            return OrderedPoisonHaltClearResult(
+                "rejected",
+                halted=True,
+                reason="receipt_verifier_unbound",
+            )
+        try:
+            await self.operator_request_receipt_gate.commit(receipt_verification)
+        except ValueError as exc:
+            reason = f"receipt_{_safe_reason(str(exc))}"
+            await self._record_rejected_outcome(request, reason)
+            return OrderedPoisonHaltClearResult("rejected", halted=True, reason=reason)
         return OrderedPoisonHaltClearResult("cleared", halted=False)
 
     async def _verify_operator_receipt(
         self,
         request: OrderedPoisonHaltClearRequest,
-    ) -> str | None:
+    ) -> tuple[VerifiedOperatorRequestReceipt | None, str | None]:
         if self.operator_request_receipt_gate is None:
-            return "receipt_verifier_unbound"
+            return None, "receipt_verifier_unbound"
         if not isinstance(request.operator_request_receipt, Mapping):
-            return "receipt_missing"
+            return None, "receipt_missing"
         raw = ordered_poison_halt_clear_receipt_event(request)
         raw["operator_request_receipt"] = dict(request.operator_request_receipt)
         try:
-            receipt = await self.operator_request_receipt_gate.verify(raw)
+            verified = await self.operator_request_receipt_gate.verify(raw)
         except ValueError as exc:
-            return f"receipt_{_safe_reason(str(exc))}"
-        if receipt.producer_service_identity != self.trusted_operator_producer_id:
-            return "receipt_wrong_producer"
-        return None
+            return None, f"receipt_{_safe_reason(str(exc))}"
+        if verified.receipt.producer_service_identity != self.trusted_operator_producer_id:
+            return None, "receipt_wrong_producer"
+        return verified, None
 
     def _validate_group_id(self, request: OrderedPoisonHaltClearRequest) -> str | None:
         single = f"{self.consumer_group_prefix}.{request.agent_name}"

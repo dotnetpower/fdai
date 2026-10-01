@@ -25,7 +25,10 @@ from fdai.agents._framework.huginn_dedup import (
     HuginnDedupJournal,
     request_digest,
 )
-from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
+from fdai.agents._framework.huginn_operator_receipt import (
+    OperatorRequestReceiptGate,
+    VerifiedOperatorRequestReceipt,
+)
 from fdai.agents._framework.huginn_schema_learning import HuginnSchemaLearningLedger
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -679,6 +682,7 @@ class Huginn(Agent):
         and return ``None``.
         """
         try:
+            verified_operator_receipt: VerifiedOperatorRequestReceipt | None = None
             _validate_raw_ingress(raw)
             if (
                 raw.get("event_type") in ALERT_NOISE_EVENT_TYPES
@@ -691,7 +695,9 @@ class Huginn(Agent):
                 if self._operator_request_receipt_gate is None:
                     raise HuginnIngressRejected("operator_request_receipt_unbound")
                 try:
-                    await self._operator_request_receipt_gate.verify(raw)
+                    verified_operator_receipt = await self._operator_request_receipt_gate.verify(
+                        raw
+                    )
                 except ValueError as exc:
                     reason = str(exc) or "invalid"
                     safe_reason = (
@@ -704,6 +710,7 @@ class Huginn(Agent):
                             "unverifiable",
                             "replayed",
                             "unknown_producer",
+                            "unsigned_workflow_action",
                         }
                         else "invalid"
                     )
@@ -715,7 +722,11 @@ class Huginn(Agent):
                 self._schema_learning.record_accepted(raw)
             key = self._ingress_key(raw)
             async with self._key_lock(key):
-                return await self._ingest_locked(raw, key=key)
+                return await self._ingest_locked(
+                    raw,
+                    key=key,
+                    verified_operator_receipt=verified_operator_receipt,
+                )
         except HuginnIngressRejectedError as exc:
             if not exc.payload_digest:
                 exc.payload_digest = _raw_payload_digest(raw)
@@ -769,6 +780,7 @@ class Huginn(Agent):
         *,
         key: str,
         trusted_operator_proposal: bool = False,
+        verified_operator_receipt: VerifiedOperatorRequestReceipt | None = None,
     ) -> dict[str, Any] | None:
         raw_request_digest = request_digest(raw) if self._dedup_journal is not None else ""
         if key in self._seen_keys:
@@ -990,6 +1002,18 @@ class Huginn(Agent):
                 await complete_task
                 self.record_behavior("dedup_completion:cancelled")
                 publish_cancelled = True
+        if verified_operator_receipt is not None:
+            if self._operator_request_receipt_gate is None:
+                raise HuginnIngressRejected("operator_request_receipt_unbound")
+            try:
+                await self._operator_request_receipt_gate.commit(verified_operator_receipt)
+            except ValueError as exc:
+                reason = str(exc) or "invalid"
+                safe_reason = reason if reason in {"expired", "replayed"} else "invalid"
+                raise HuginnIngressRejected(
+                    f"operator_request_receipt_{safe_reason}",
+                    field="operator_request_receipt",
+                ) from exc
         self._remember_key(key)
         self._record_latency(self._event_latency_seconds, processing_started_at)
         if publish_cancelled:

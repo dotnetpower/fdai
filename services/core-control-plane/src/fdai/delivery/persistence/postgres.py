@@ -410,6 +410,15 @@ class PostgresStateStore(PostgresAssuranceTwinConfirmationMixin, StateStore):
                 )
         return cursor.rowcount if cursor.rowcount > 0 else 0
 
+    async def delete_state(self, key: str) -> bool:
+        if not key:
+            raise ValueError("key MUST be non-empty")
+        async with self._connection() as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                cursor = await conn.execute("DELETE FROM state_kv WHERE key = %s", (key,))
+        return cursor.rowcount > 0
+
     async def read_state_page(
         self,
         prefix: str,
