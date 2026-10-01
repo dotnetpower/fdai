@@ -715,7 +715,7 @@ def test_standalone_license_issuer_binds_image_and_deployment(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     private, public = _keys()
-    key = tmp_path / "license-signing-key.pem"
+    key = tmp_path / "integrity-signing-key.pem"
     key.write_bytes(
         private.private_bytes(
             serialization.Encoding.PEM,
@@ -743,11 +743,11 @@ def test_standalone_license_issuer_binds_image_and_deployment(
     assert "operations.typed-mutation" in result.capability_ids
 
 
-def test_standalone_license_key_discovery_rejects_public_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    private, public = _keys()
-    key = tmp_path / "license-signing-key.pem"
+def _write_issuer_key(root: Path, private: Ed25519PrivateKey, mode: int = 0o600) -> Path:
+    key = root / "secrets" / "integrity-signing-key.pem"
+    key.parent.mkdir(parents=True, exist_ok=True)
+    # A cloned checkout's secrets/ directory is ordinarily not owner-only.
+    key.parent.chmod(0o755)
     key.write_bytes(
         private.private_bytes(
             serialization.Encoding.PEM,
@@ -755,11 +755,55 @@ def test_standalone_license_key_discovery_rejects_public_file(
             serialization.NoEncryption(),
         )
     )
-    key.chmod(0o644)
+    key.chmod(mode)
+    return key
+
+
+def test_standalone_license_key_discovery_rejects_public_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    private, public = _keys()
+    _write_issuer_key(tmp_path, private, mode=0o644)
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(license_issue, "license_public_key_pem", lambda: public)
 
     with pytest.raises(PermissionError, match="mode-0600"):
-        license_issue.discover_license_signing_key(key)
+        license_issue.discover_license_signing_key()
+
+
+def test_issuer_key_discovery_reads_only_the_fixed_integrity_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    private, public = _keys()
+    elsewhere = _write_issuer_key(tmp_path / "elsewhere", private)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("FDAI_LICENSE_SIGNING_KEY_FILE", str(elsewhere))
+    monkeypatch.setenv("HOME", str(tmp_path / "elsewhere"))
+    monkeypatch.setattr(license_issue, "license_public_key_pem", lambda: public)
+
+    assert license_issue.discover_license_signing_key() is None
+
+    fixed = _write_issuer_key(tmp_path, private)
+    assert license_issue.discover_license_signing_key() == fixed
+
+
+def test_issuer_key_discovery_refuses_a_mismatched_or_linked_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    private, _public = _keys()
+    _other_private, other_public = _keys()
+    key = _write_issuer_key(tmp_path, private)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(license_issue, "license_public_key_pem", lambda: other_public)
+
+    with pytest.raises(ValueError, match="does not match"):
+        license_issue.discover_license_signing_key()
+
+    target = key.with_name("target.pem")
+    key.rename(target)
+    key.symlink_to(target)
+    with pytest.raises(PermissionError, match="regular file"):
+        license_issue.discover_license_signing_key()
 
 
 def test_license_inspection_rejects_a_signed_window_longer_than_30_days() -> None:
@@ -807,6 +851,27 @@ def test_license_rejects_noncanonical_base64_and_duplicate_capabilities() -> Non
         inspect_license(token, public_key_pem=public, now=now)
     with pytest.raises(LicenseInspectionError, match="canonical base64url"):
         inspect_license(f"{token}=x", public_key_pem=public, now=now)
+
+
+def test_license_inspection_never_accepts_a_signed_integrity_manifest() -> None:
+    private, public = _keys()
+    manifest = canonical_bytes(
+        {
+            "version": 1,
+            "algorithm": "sha256",
+            "generated_at": "2026-10-01T00:00:00Z",
+            "surface": ["services/core-control-plane/src/fdai/core/"],
+            "file_count": 1,
+            "files": {"services/core-control-plane/src/fdai/core/example.py": "a" * 64},
+        }
+    )
+    token = ".".join(
+        base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+        for value in (manifest, private.sign(manifest))
+    )
+
+    with pytest.raises(LicenseInspectionError, match="schema does not match"):
+        inspect_license(token, public_key_pem=public)
 
 
 def test_license_rejects_invalid_identifiers_and_unverified_bindings() -> None:

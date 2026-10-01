@@ -343,7 +343,6 @@ def _provision_azure(args: argparse.Namespace) -> int:
             runtime_profile=runtime_profile,
             monthly_cost_ceiling=args.monthly_cost_ceiling,
             timeout_seconds=args.timeout_seconds,
-            license_signing_key=args.license_signing_key,
             trial_token=args.trial_token,
             adopt_runner_image_receipt=adoption_path(args.adopt_runner_image_receipt),
             adopt_application_state=adoption_path(args.adopt_application_state),

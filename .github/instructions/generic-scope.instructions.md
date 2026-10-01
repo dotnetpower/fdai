@@ -99,6 +99,7 @@ rule of thumb: **if a path is listed there, it is LOCKED; otherwise it is editab
 | `services/core-control-plane/src/fdai/shared/providers/` | injectable Protocol seam **definitions** |
 | `services/core-control-plane/src/fdai/shared/contracts/` | versioned event / action / rule / ontology types |
 | `services/core-control-plane/src/fdai/agents/` | the 15-agent pantheon (role bindings fork-locked) |
+| `services/core-control-plane/src/fdai/runtime/licensing.py`, `services/core-control-plane/src/fdai/delivery/trust/` | licensing binding, verifier, and packaged upstream integrity key |
 | `rule-catalog/schema/` | catalog schemas (add entries, never widen a schema) |
 | `.github/instructions/` | this normative rule set |
 
@@ -140,7 +141,7 @@ Do not rely on human review alone. Gate every change:
 - **Framework-surface guard**: `scripts/integrity/check-protected-paths.sh` warns (upstream)
   or hard-blocks (fork) any edit to the files a fork MUST NOT touch (`services/core-control-plane/src/fdai/core/`,
   `services/core-control-plane/src/fdai/composition.py`, `services/core-control-plane/src/fdai/shared/providers/`, `services/core-control-plane/src/fdai/shared/contracts/`,
-  `services/core-control-plane/src/fdai/agents/`, `rule-catalog/schema/`, `.github/instructions/`). A fork opts into
+  `services/core-control-plane/src/fdai/agents/`, the licensing binding and trust package, `rule-catalog/schema/`, `.github/instructions/`). A fork opts into
   block mode with `FDAI_FORK=1`, a `.fdai-fork` marker, or `git config fdai.fork true`.
   Runs in the pre-push hook and the `protected-paths` CI job; `.github/CODEOWNERS`
   is its review-time counterpart.

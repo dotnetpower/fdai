@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: c17ab340639431c742865010c97d922bfb2a7ed2
+translation_source_sha: b45ea23d9f6ad45c33d729c691cc450896f002b7
 translation_revised: 2026-10-01
 ---
 # 기능 라이선싱
@@ -115,8 +115,7 @@ Trial을 해제합니다. 발급자 개인 키는 배포 환경에 전달하지 
   라이선스 검증 키로 패키지에 포함합니다.
 
 **소유자 결정(2026-10-01).** 업스트림 무결성 서명 키가 유일한 라이선스 키이며 별도 라이선스 키
-쌍을 대체합니다. 코드는 [소스 배포 WP5](../../roadmap-implementation/deployment/source-deployment.md)가
-구현될 때까지 별도 키 쌍을 계속 사용합니다. 이제 하나의 침해 범위가 프레임워크 무결성과
+쌍을 대체합니다. 이제 하나의 침해 범위가 프레임워크 무결성과
 라이선싱을 함께 덮습니다. 키 보유자는 프레임워크 표면에 다시 서명하고 모든 토큰과 사용권을
 발급할 수 있으며, 키를 교체하면 그 전부를 다시 발급해야 합니다. 도메인 분리로 각 서명은 한
 용도에만 쓰입니다. 무결성 검증기는 매니페스트 형태만, 각 라이선스 검증기는 자신의
@@ -286,15 +285,20 @@ PR 기반, 직접 API 및 도구 호출 작업 경로는 모두 카탈로그 기
 |--------|------|
 | 토큰 계약, 검증, 정본 바이트 | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
 | 상태, 연결, 현재 시각 기준 권한 해석 | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
-| 런타임 서명 및 로컬 발급자 키 검증 | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
+| 런타임 서명 및 로컬 발급자 키 검증 | 패키지에 포함된 `upstream-signing-key.pub`로 검증하는 `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
 | 런타임 Trial 연결 | `services/core-control-plane/src/fdai/runtime/licensing.py` |
 | 최종 공유 실행 상한 | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | 발급 및 자체 검증 (release 전용) | 고정된 cryptography 의존성의 Ed25519와 배타적 mode-`0600` 출력 생성을 사용하는 `scripts/deployment/release/issue-license.py` |
 | 모든 운영자를 위한 오프라인 검증 | 배포 CLI의 독립 Ed25519 검증기를 사용하는 `fdaictl license inspect` |
+| 매니페스트 전용 무결성 검증 | 다른 형태의 서명 문서를 모든 모드에서 거부하는 `scripts/integrity/check-integrity.sh` |
 
 이 분리는 확장 및 스킬 trust 경계와 같습니다. `core/`는 `LicenseVerifier` 프로토콜만 선언하고
 crypto 백엔드, 전송 계층, `fdai.delivery`를 가져오기하지 않습니다
 ([project-structure-ko.md](../architecture/project-structure-ko.md#module-boundaries)).
+
+Core와 배포 CLI는 각각 `security/integrity/upstream-signing-key.pub`와 바이트까지 같은 사본을
+패키지에 포함하며, 테스트가 두 사본을 모두 원본에 고정합니다. 런타임 라이선싱 연결과 그 사본을
+포함한 `fdai/delivery/trust/` 패키지는 서명된 프레임워크 표면에 속합니다.
 
 ## 이 리포지토리에서 검증하기
 
@@ -308,19 +312,16 @@ uv run python scripts/deployment/release/issue-license.py \
   --output /tmp/license.token
 uv run python -m fdai.deployment_cli license inspect \
   --token /tmp/license.token \
-  --public-key services/core-control-plane/src/fdai/delivery/trust/license-signing-key.pub \
+  --public-key security/integrity/upstream-signing-key.pub \
   --output json
 ```
 
 `issue-license.py`는 출력 전에 자신의 결과를 supplied 공개 키로 재검증하므로, 교대된 서명
-키는 고객 현장이 아니라 발급 시점에 실패합니다. 비공개 키는 현재 UID가 소유한 mode-`0600`
-일반 파일일 때만 허용되며, 두 키 모두 비차단, 심볼릭 링크 차단, 65536바이트 경계를 통해
-읽습니다. 기본값은 고정 발급자 키, 패키지 공개 키 및 30일 유효 기간이며, 키 교대 확인을 위해
-공개 키를 명시할 수도 있습니다. `license inspect`는 상태와 비밀이 아닌 메타데이터만 보고하며
-토큰, 문서, 서명을 출력하지 않습니다.
-
-이 명령은 아직 별도 라이선스 키 쌍을 사용합니다. 소스 배포 WP5 이후에는 발급자 키가
-`secrets/integrity-signing-key.pem`이고 공개 키가 `security/integrity/upstream-signing-key.pub`입니다.
+키는 고객 현장이 아니라 발급 시점에 실패합니다. 고정 경로 `secrets/integrity-signing-key.pem`만
+현재 UID가 소유한 mode-`0600` 일반 파일로 읽으며, 두 키 모두 비차단, 심볼릭 링크 차단,
+65536바이트 경계를 통해 읽습니다. 기본값은 패키지 공개 키와 30일 유효 기간이며, 키 교대
+확인을 위해 공개 키를 명시할 수도 있습니다. `license inspect`는 상태와 비밀이 아닌
+메타데이터만 보고하며 토큰, 문서, 서명을 출력하지 않습니다.
 
 자동화된 커버리지는 계약과 저하 표에 대해 `services/core-control-plane/tests/core/licensing/`, 변조·잘못된 서명자·잘못된
 연결을 포함한 실제 발급-검증 경로에 대해 `tests/integration/scripts/test_issue_license.py`에 있습니다.

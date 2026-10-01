@@ -24,7 +24,7 @@ from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
-_ISSUER_PRIVATE_KEY = Path("secrets/license-signing-key.pem")
+_ISSUER_PRIVATE_KEY = Path("secrets/integrity-signing-key.pem")
 _DEFAULT_DISTRIBUTION_ID = "fdai-upstream"
 
 
@@ -46,10 +46,10 @@ def build_runtime_license_authority(
 ) -> LicenseEntitlementAuthority:
     """Build the required-license authority for one Core process.
 
-    Only a local source checkout may inspect the fixed dedicated private-key
-    path. Deployed venues never open it, even if a file is mounted there.
-    Missing or rejected issuer material leaves the runtime in ordinary Trial
-    resolution rather than failing the observation path.
+    Only a local source checkout may inspect the fixed upstream integrity
+    private-key path. Deployed venues never open it, even if a file is mounted
+    there. Missing or rejected issuer material leaves the runtime in ordinary
+    Trial resolution rather than failing the observation path.
     """
 
     asset_root = root or repo_asset_root()

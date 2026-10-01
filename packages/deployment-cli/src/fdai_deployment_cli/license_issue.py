@@ -21,34 +21,26 @@ from cryptography.hazmat.primitives.serialization import (
 
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.license import inspect_license
-from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.trust_roots import license_public_key_pem
 
-_DEFAULT_USER_KEY = Path.home() / ".config/fdai/license-signing-key.pem"
-_SOURCE_KEY = Path("secrets/license-signing-key.pem")
+_ISSUER_KEY = Path("secrets/integrity-signing-key.pem")
+_MAX_KEY_BYTES = 65_536
 
 
-def discover_license_signing_key(explicit: Path | None = None) -> Path | None:
-    """Return the first explicit, configured, or documented issuer key that is safe to read."""
+def discover_license_signing_key() -> Path | None:
+    """Return the checkout's upstream integrity key, or None to keep the Trial.
 
-    configured = os.environ.get("FDAI_LICENSE_SIGNING_KEY_FILE")
-    candidates = (
-        (explicit, explicit is not None),
-        (Path(configured) if configured else None, configured is not None),
-        (_DEFAULT_USER_KEY, False),
-        (Path.cwd() / _SOURCE_KEY, False),
-    )
-    for candidate, required in candidates:
-        if candidate is None:
-            continue
-        path = candidate if candidate.is_absolute() else Path.cwd() / candidate
-        if not path.exists() and not path.is_symlink():
-            if required:
-                raise ValueError("configured license signing key is unavailable")
-            continue
-        _read_private_key(path)
-        return path
-    return None
+    Only the fixed `secrets/integrity-signing-key.pem` of the working checkout is
+    considered. A present key that is not an owner-only regular file matching the
+    packaged public key raises instead of silently selecting the Trial.
+    """
+
+    path = Path.cwd() / _ISSUER_KEY
+    if not path.exists() and not path.is_symlink():
+        return None
+    _read_private_key(path)
+    return path
 
 
 def issue_deployment_license(
@@ -104,7 +96,7 @@ def _read_private_key(path: Path) -> Ed25519PrivateKey:
     ):
         raise PermissionError("license signing key must be a current-UID mode-0600 regular file")
     try:
-        key = load_pem_private_key(read_private_bytes(path, max_bytes=65_536), password=None)
+        key = load_pem_private_key(_read_key_bytes(path), password=None)
         public = load_pem_public_key(license_public_key_pem())
     except (TypeError, ValueError) as exc:
         raise ValueError("license signing key is invalid") from exc
@@ -113,6 +105,33 @@ def _read_private_key(path: Path) -> Ed25519PrivateKey:
     if key.public_key().public_bytes_raw() != public.public_bytes_raw():
         raise ValueError("license signing key does not match the packaged public key")
     return key
+
+
+def _read_key_bytes(path: Path) -> bytes:
+    """Read the key file under the same custody rule Core's issuer check applies.
+
+    The descriptor never follows a link or blocks on a special file. Unlike a
+    private deployment output, the key's directory needs no owner-only mode.
+    """
+
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or stat.S_IMODE(details.st_mode) != 0o600
+            or details.st_uid != os.geteuid()
+            or details.st_nlink != 1
+        ):
+            raise PermissionError(
+                "license signing key must be a current-UID mode-0600 regular file"
+            )
+        if not 0 < details.st_size <= _MAX_KEY_BYTES:
+            raise ValueError("license signing key is empty or exceeds 65536 bytes")
+        content = stream.read(_MAX_KEY_BYTES + 1)
+    if len(content) != details.st_size:
+        raise ValueError("license signing key changed while being read")
+    return content
 
 
 def _capabilities() -> tuple[str, ...]:

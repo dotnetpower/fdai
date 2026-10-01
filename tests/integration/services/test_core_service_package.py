@@ -172,7 +172,7 @@ PROHIBITED_RUNTIME_MODULES = {
 }
 
 EXPECTED_NON_CODE_MEMBERS = {
-    "fdai/delivery/trust/license-signing-key.pub",
+    "fdai/delivery/trust/upstream-signing-key.pub",
 }
 
 

@@ -52,7 +52,6 @@ def deploy_standalone_application(
     foundation_status: dict[str, Any],
     entra_bindings: dict[str, str] | None,
     scripts: Path,
-    license_signing_key: Path | None,
     trial_token: Path | None,
     timeout_seconds: int,
     runtime_profile: RuntimeDeploymentProfile | None = None,
@@ -361,7 +360,6 @@ def deploy_standalone_application(
             _require_receipt(database_receipt, "database")
         begin_stage("capability")
         token = _license_token(
-            key=license_signing_key,
             trial_token=trial_token,
             image_digest=core_digest,
             deployment_binding=deployment_binding,
@@ -717,7 +715,6 @@ def _wait_for_approval_input(timeout_seconds: int) -> None:
 
 def _license_token(
     *,
-    key: Path | None,
     trial_token: Path | None,
     image_digest: str,
     deployment_binding: str,
@@ -725,7 +722,7 @@ def _license_token(
 ) -> str | None:
     """Return a verified license token or keep an unlicensed deployment observation-only."""
 
-    issuer = discover_license_signing_key(key)
+    issuer = discover_license_signing_key()
     if issuer is not None:
         return issue_deployment_license(
             private_key=issuer,

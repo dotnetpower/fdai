@@ -172,7 +172,6 @@ def coordinator(tmp_path, monkeypatch):
                 database_placement="postgres-flex",
                 product_add_ons=product_add_ons,
             ),
-            license_signing_key=None,
             trial_token=None,
             adopt_runner_image_receipt=runner_receipt,
             adopt_foundation_directory=(

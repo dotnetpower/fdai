@@ -84,7 +84,7 @@ if [[ -n "$signing_key" ]]; then
     esac
   done
   cli_root="$checkout"
-  # The deployment signing key is not the license issuer; pass --license-signing-key explicitly.
+  # Entitlement comes only from the working checkout's secrets/integrity-signing-key.pem.
   fdaictl --offline-kit "$kit" "${deploy[@]}"
 fi
 

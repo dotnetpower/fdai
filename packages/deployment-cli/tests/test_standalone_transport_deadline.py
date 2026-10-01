@@ -81,7 +81,6 @@ def test_application_does_not_reset_budget_after_transfer(
             foundation_status={"foundation_report": {"foundation_plan": {"plan_ref": "plan"}}},
             entra_bindings={},
             scripts=tmp_path,
-            license_signing_key=None,
             trial_token=None,
             timeout_seconds=100,
         )

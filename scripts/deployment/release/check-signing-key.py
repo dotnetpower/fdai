@@ -34,12 +34,14 @@ except ImportError:  # pragma: no cover - dependency guidance only
 from fdai_deployment_cli import trust_roots  # noqa: E402 - needs the sys.path entry above
 
 # One candidate key may satisfy several roles, because the development profile
-# pins a single signer for both the complete kit and the bundle inside it.
+# pins a single signer for both the complete kit and the bundle inside it. The
+# integrity role signs the framework surface and every license or entitlement.
 _ROLES: tuple[tuple[str, str], ...] = (
     ("deployment-release", "fdai-up.sh --signing-key / --release-key"),
     ("deployment-bundle", "fdai-up.sh --signing-key / --bundle-key"),
-    ("license-issuer", "--license-signing-key"),
+    ("integrity", "secrets/integrity-signing-key.pem (framework integrity and licensing)"),
 )
+_INTEGRITY_PUBLIC_KEY = _REPO_ROOT / "security/integrity/upstream-signing-key.pub"
 _MAX_KEY_BYTES = 8192
 
 
@@ -49,7 +51,7 @@ def expected_roots() -> dict[str, str]:
     pems = {
         "deployment-release": trust_roots.deployment_release_root_pem(),
         "deployment-bundle": trust_roots.deployment_bundle_root_pem(),
-        "license-issuer": trust_roots.license_public_key_pem(),
+        "integrity": _INTEGRITY_PUBLIC_KEY.read_bytes(),
     }
     return {role: _fingerprint(_public_bytes(pem)) for role, pem in pems.items()}
 

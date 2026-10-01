@@ -121,7 +121,9 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert "services/assets/resolved-models.json" in source
     assert '--image "fdai-core-control-plane:$tag"' in source
     assert 'CORE_IMAGE="$login_server/fdai-core-control-plane@$digest"' in source
-    assert 'private_key="$REPO_ROOT/secrets/license-signing-key.pem"' in source
+    assert 'private_key="$REPO_ROOT/secrets/integrity-signing-key.pem"' in source
+    assert "license-signing-key" not in source
+    assert "--private-key" not in source
     assert "--all-capabilities" in source
     assert "--valid-days 30" in source
     assert 'secret_name="fdai-license-$LICENSE_TOKEN_REVISION"' in source
