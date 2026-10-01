@@ -213,6 +213,7 @@ class SemanticConversationRuntime:
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_model_tier: SemanticConversationModelTier | None = None,
         document_context: SemanticDocumentContext | None = None,
+        stored_reference_context: object | None = None,
         progress_observer: QueryProgressObserver | None = None,
         target_agent: str = "Bragi",
         relationship: Mapping[str, object] | None = None,
@@ -254,6 +255,7 @@ class SemanticConversationRuntime:
                 escalation_policy=escalation_policy,
                 conversation_model_tier=conversation_model_tier,
                 document_context=document_context,
+                stored_reference_context=stored_reference_context,
                 progress_observer=progress_observer,
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
@@ -263,7 +265,6 @@ class SemanticConversationRuntime:
 
         if document_context is not None:
             return await verified(utterance)
-
         if (
             preflight_result is not None
             and preflight_result.attempted
@@ -435,7 +436,7 @@ class SemanticConversationRuntime:
                 needs_explanation = outcome.plan.action_requested and any(
                     goal.kind == "knowledge" for goal in outcome.plan.goals
                 )
-                # A read handed back to the semantic path keeps that path's own stage bounds.
+
                 read_handoff = outcome.plan.route == "legacy" and not outcome.plan.action_requested
                 try:
                     async with (
@@ -499,7 +500,6 @@ class SemanticConversationRuntime:
                     planning=SemanticPlanningOutcome(
                         disposition=SemanticPlanningDisposition.ADVISORY_RESPONSE,
                         reason="semantic_advisory_response",
-                        # The routing preflight that preceded the adaptive answer is a call too.
                         model_observations=(*preflight_observations, *outcome.observations),
                     ),
                     adaptive_answer=outcome.answer,
@@ -520,13 +520,13 @@ class SemanticConversationRuntime:
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_model_tier: SemanticConversationModelTier | None = None,
         document_context: SemanticDocumentContext | None = None,
+        stored_reference_context: object | None = None,
         progress_observer: QueryProgressObserver | None = None,
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
         target_agent: str = "Bragi",
         pin_work_progress: bool = True,
     ) -> SemanticTurnResult:
-        """Terminate every accepted turn without invoking a compatibility parser."""
         planner = self._planner
         if planner is None:
             reason = self._verified_unavailable_reason or "semantic_query_runtime_unavailable"
@@ -553,6 +553,7 @@ class SemanticConversationRuntime:
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
                 required_document_evidence=document_context is not None,
+                stored_reference_context=stored_reference_context,
             ),
             cancelled=cancelled,
         )

@@ -15,13 +15,14 @@ import time
 from collections.abc import Callable, Mapping, MutableSequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from fdai_service_contracts.ontology_query import (
     OntologyQueryPlan,
     project_intent_graph,
 )
 
+from fdai.core.conversation.result_handle_store import ResultHandleBinding, ResultHandleStore
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.shared.contracts.models import CeilingRole
@@ -46,15 +47,18 @@ from .semantic_planning_models import (
     hold_details,
 )
 from .semantic_planning_support import _outcome, _refresh_object_set_cutoffs
+from .semantic_reasoning_admission import FormAdmission
 from .semantic_reasoning_ambiguity import AmbiguityReader, ambiguity_verdict
 from .semantic_reasoning_binding import GatewayAnchorResolver
 from .semantic_reasoning_compiler import CompiledBatch
+from .semantic_reasoning_handles import ReferenceReceipt
 from .semantic_reasoning_shadow import (
     QuestionFormModel,
     ReasoningShadowObservation,
     ShadowBudget,
     run_reasoning_shadow,
 )
+from .semantic_stored_result_handles import StoredReferenceContext, bind_stored_references
 from .session import Principal
 
 _LOGGER = logging.getLogger(__name__)
@@ -336,6 +340,8 @@ class CompiledAnswerPath:
         verifier: OntologyQueryPlanVerifier,
         principal: Principal,
         purpose: str,
+        stored_reference_context: StoredReferenceContext | None = None,
+        result_handle_store: ResultHandleStore | None = None,
     ) -> CompiledAnswerTicket | None:
         """Schedule the form path; a break-glass principal or other purpose is skipped."""
 
@@ -345,18 +351,47 @@ class CompiledAnswerPath:
             role = CeilingRole(principal.role)
         except ValueError:
             return None
+        projection_request = ProjectionRequest(
+            caller_role=role,
+            declared_purposes=frozenset({purpose}),
+            principal_scope_digest=semantic_principal_scope_digest(
+                principal=principal, purpose=purpose
+            ),
+        )
         resolver = GatewayAnchorResolver(
             self._gateway,
-            projection_request=ProjectionRequest(
-                caller_role=role,
-                declared_purposes=frozenset({purpose}),
-                principal_scope_digest=semantic_principal_scope_digest(
-                    principal=principal, purpose=purpose
-                ),
-            ),
+            projection_request=projection_request,
             purpose=purpose,
             as_of=self._clock,
         )
+        stored_reference_binder = None
+        stored_context = stored_reference_context
+        active_store = result_handle_store or (
+            stored_context.store if stored_context is not None else None
+        )
+        if stored_context is not None and active_store is not None and stored_context.references:
+            binding = ResultHandleBinding(
+                deployment_scope_digest=manifest.release_digest,
+                principal_digest=manifest.manifest_digest,
+                conversation_id=stored_context.session_id,
+                purpose=purpose,
+                manifest_digest=manifest.manifest_digest,
+                now=self._clock(),
+            )
+
+            async def bind_stored(admission: FormAdmission) -> ReferenceReceipt | None:
+                return await bind_stored_references(
+                    admission,
+                    references=stored_context.references,
+                    store=active_store,
+                    binding=binding,
+                    gateway=self._gateway,
+                    projection_request=projection_request,
+                    purpose=purpose,
+                    as_of=self._clock,
+                )
+
+            stored_reference_binder = bind_stored
         collector = _ObservationCollector()
         future = asyncio.run_coroutine_threadsafe(
             _run_form_path(
@@ -372,6 +407,7 @@ class CompiledAnswerPath:
                 default_lookback_seconds=self._settings.default_lookback_seconds,
                 budget=self._settings.budget,
                 resolver=resolver,
+                stored_reference_binder=stored_reference_binder,
             ),
             self._owner_loop,
         )
@@ -382,8 +418,11 @@ class CompiledAnswerPath:
                 if reader is None:
                     return None
                 async with bind_adaptive_model_budget(collector):
-                    return await reader.check_ambiguity(
-                        utterance=utterance, context=context, locale=locale
+                    return cast(
+                        Mapping[str, Any] | None,
+                        await reader.check_ambiguity(
+                            utterance=utterance, context=context, locale=locale
+                        ),
                     )
 
             return asyncio.run_coroutine_threadsafe(ask(), self._owner_loop)

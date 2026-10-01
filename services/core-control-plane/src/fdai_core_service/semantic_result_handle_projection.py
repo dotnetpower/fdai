@@ -98,7 +98,7 @@ def _append_output_rows(
             continue
         key = TypedRowKey(
             row_type="semantic_query_row",
-            row_digest=content_digest({"node_id": node_id, "row_id": row_id}),
+            row_digest=content_digest({"row_id": row_id}),
         )
         row_keys.append(key)
         cells = tuple(

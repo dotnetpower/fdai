@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 0c49b9baf865a793ad7d28c4a26d4bcb5e242cf4
+translation_source_sha: ea25deeca7423d7a1e76b402b80fe58c840795ec
 translation_revised: 2026-10-01
 ---
 
@@ -16,7 +16,8 @@ Core가 감독하는 인스턴스 인덱스 조정은 Incident 생성 및 전송
 최근 Resource 변경 이어 읽기는 불투명 continuation reference를 전달하는 Operator 읽기 route만 추가합니다. Operator는 참조를 해독하거나 이어 읽기 본문을 읽지 않으며, Core가 재권한 확인과 타입이 지정된 `continuation_invalid` 결과를 계속 담당합니다.
 Core 초기화는 조립된 런타임 데이터 모델과 사람 승인 레지스트리 연결을 목적별 모듈에 유지합니다. Incident consumer, 감독 작업, 논리 토픽, 영속 수락 및 Operator/Core 권한 분리는 변경되지 않습니다.
 의미 결과 핸들 참조는 의미 요청과 변환 계약의 권한 없는 추가 필드입니다. Operator는 불투명
-참조만 저장하고 재생하며, 암호화된 핸들 본문은 Core만 읽습니다.
+참조만 저장하고 재생하며, 암호화된 핸들 본문은 Core만 읽습니다. 이 참조의 서수 후속 질문은
+읽기를 앵커링하기 전에 Core에서 행을 다시 권한 확인하며 Operator/Core 권한 분리를 바꾸지 않습니다.
 
 관측 구성은 기존 전송에서 별도의 `observer-proposal-projection` 스키마와
 `core.observer-deployment.projections` 논리 토픽을 사용합니다. Operator가 순서 보장된

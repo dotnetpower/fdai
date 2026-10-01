@@ -135,6 +135,9 @@ without a reviewed semantic holds with its typed reason.
 An ordinal or anaphor binds to a row of a stored handle (H2), and a property measure (H3) can then
 read that row. "What is the SKU of the second one" becomes a property lookup anchored on the handle's
 second row after reauthorization.
+The local H4 implementation also covers state lookup follow-ups such as "what is the state of the
+second one" over the newest stored handle. It loads only the newest opaque reference, maps the row
+key back through a secured gateway reread at the current cutoff, and never binds from wording alone.
 
 **Exit:** the traced ordinal SKU follow-up answers with the exact property value.
 
