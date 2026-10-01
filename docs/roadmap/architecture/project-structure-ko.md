@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 533b9c7105c467fdd3b38209cb53653707758593
+translation_source_sha: aa9f6cbdba7bac2e7f9c66dc354af7c4154c4918
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -52,7 +52,9 @@ Core는 계약 하위 모듈이 아니라 공유 계약 파사드를 통해 Rule
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,
-이 분리는 서비스, 신원, 데이터 소유자, wire 계약 또는 권한을 바꾸지 않습니다. 범위가 제한된 의미 후보 선택은 크기가 큰 서술자 축을 생략하고 기능 byte 한도에 맞는 순위 접두사를 보존하며 요청을 실패시키지 않습니다.
+이 분리는 서비스, 신원, 데이터 소유자, wire 계약 또는 권한을 바꾸지 않습니다. 모델에 전달하는
+선언 식별자는 기능 바이트 한도 안에서 완전하게 유지합니다. 전체 식별자 집합이 한도를 넘으면
+순위 목록의 앞부분만 반환하지 않고 의미 판단 전에 중단합니다.
 Core package는 배포된 `fdai-operational-catalog-review` entry point를 소유합니다. 기존 durable Pantheon, Saga audit 및 GitHub App delivery adapter를 Core runtime 경계 안에서 조립하며 새 service, executor identity, catalog 활성화, merge 또는 관리 리소스 권한을 추가하지 않습니다. Core package는 `fdai.delivery.automation_blueprint_tick_cli` binding도 소유하며, PostgreSQL blueprint evidence, candidate, proposal, audit 및 scheduler store를 아직 배포가 예약하지 않은 하나의 inert 일회성 tick으로 조립하되 Operator route나 tick에 관리 리소스 executor identity를 부여하지 않습니다.
 Core는 활성 Rule 세대 교체를 쓰기 전용 장벽 뒤에 두고, 완결된 결정은 동시 읽기 임대를 공유합니다. 따라서 결정 하나는 세대 하나만 사용하면서 서로 다른 리소스의 처리를 직렬화하지 않습니다. 목적별 모듈은 이 장벽, 의미 사전 판정, 이벤트 버스 payload 코덱, 조립된 런타임 모델, 사람 승인 레지스트리 연결 및 카탈로그 로더를 소유하며 공개 파사드는 기존 가져오기와 권한 경계를 보존합니다. `runtime/control_loop.py` 파사드는 초기화와 집중 테스트를 위해 기존 카탈로그 로더 이름을 명시적으로 다시 내보냅니다. Core wheel 인벤토리와 서비스 테스트 묶음 매니페스트는 새 런타임 모듈 및 Rule 활성화 테스트마다 하나의 소유 배포판을 지정하며 5개 서비스 경계나 System Knowledge 후보를 변경하지 않습니다. 목적별 `runtime/causal_bindings.py` 소유자는 배포의 범위가 제한된 시계열에 런타임 온톨로지 저장소 위의 Forseti `CausalHypothesis` 투영과 Thor ActionRun 영수증용 `delivery/persistence/state_store_causal_receipts.py` 확인기를 연결하며, 인과 개정은 근거로만 남습니다.
 대화 인과 맥락도 같은 근거 전용 경계를 사용합니다. 상태 전환 변화 지점, 활동, 인과 등급 증적을 읽을
@@ -77,7 +79,10 @@ principal 범위와 세대에 결속되며 권한을 부여하지 않습니다. 
 Protocol이므로 정확한 revision 인증 작업은 조립 또는 프로바이더 권한을 얻지 않고 같은 새로
 고침기를 실행할 수 있습니다.
 전달 계층의 온톨로지 세대 검증기는 선언 ID뿐 아니라 명시적 principal 범위와 정확한 선언 본문을 독립적으로 결속합니다. 런타임 인스턴스 저장과 활성화는 Rule 코퍼스 포인터와 분리해야 합니다.
-모델에 전달하는 기능 변환은 선택된 모든 정규 속성 토큰을 보존하고 바이트 예산 초과 시 판단 전에 거부합니다. 서술자의 앞부분만 조용히 전달하지 않으며 이 한도는 매니페스트나 조회 권한을 바꾸지 않습니다.
+기능 변환 계약은 모든 선언 식별자뿐 아니라 선택된 모든 정규 속성 토큰도 요구합니다.
+식별자 집합이 한도를 넘으면 이미 의미 판단 전에 중단합니다. 한도를 지키면서 속성을 빠짐없이
+전달하는 구현은 [조회 하드닝 원장](../../roadmap-implementation/interfaces/ontology-query-coverage-implementation-plan.md)에
+남은 과제로 기록합니다. 변환 결과나 프롬프트 한도는 매니페스트 또는 조회 권한을 바꾸지 않습니다.
 Core의 보안 게이트웨이는 일반 질의 경로 밖에서 완전한 다중 유형 인덱스 원본 스캔도 소유합니다. 크기가 제한된 단일 원본 스냅샷에 기존 ACL을 적용하고 순서가 있는 객체 해시를 결속하며 일반 ObjectSet 상한은 바꾸지 않습니다. 전달 계층은 이 투영을 격리된 불변 신원으로 준비할 수 있지만 저장 성공에서 검증, 활성화, 관측 상태 또는 실행 권한을 추론할 수 없습니다.
 전용 `query_snapshot.py` 도우미는 ACL 투영 전에 원본 선언 참조와 객체 키를 다시 검증하고 크기가 제한된 순서 기반 투영 신원을 계산합니다. 누락되거나 오래된 원본 참조는 거부하며 이전 행이 현재 상태처럼 보이도록 참조를 다시 고정하지 않습니다.
 문서 조회와 운영 조회는 독립된 근거 권한과 정확한 원본 범위를
