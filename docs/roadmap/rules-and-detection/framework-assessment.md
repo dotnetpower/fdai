@@ -15,6 +15,8 @@ guidance, observed evidence, human approval, and operational authority separate.
 > risk, approval, promotion, remediation, deployment, or execution.
 
 The shared catalog materialization job that publishes this assessment's catalogs also seeds Built-in `WorkflowDefinition` rows from the reviewed workflow catalog, and the shared workflow family now commits principal-owned private drafts and bindings. Neither path grants assessment execution or promotion authority.
+Semantic result-handle persistence reuses shared Operator semantic storage only for opaque
+conversation references. It does not change WAF or CAF assessment evidence, results, or authority.
 
 ## Design at a glance
 

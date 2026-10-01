@@ -11,8 +11,11 @@ import pytest
 from pydantic import ValidationError
 
 from fdai_service_contracts import (
+    ConsumerCodec,
     GoalTaskReceipt,
+    CompatibilityError,
     OperatorRole,
+    ResultHandleRef,
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticAssuranceObservation,
@@ -48,6 +51,84 @@ def test_empty_principal_groups_are_omitted_for_legacy_serialization() -> None:
     principal = request.model_dump(mode="json")["principal"]
     assert isinstance(principal, dict)
     assert "groups" not in principal
+
+
+def _handle_ref(index: int = 1) -> ResultHandleRef:
+    return ResultHandleRef(
+        handle_ref=f"OpaqueHandleRef{index:02d}23456789abcdefABCDEF",
+        key_version="result-handle-key-v1",
+        issued_at=datetime(2026, 10, 1, 0, index, tzinfo=UTC),
+        expires_at=datetime(2026, 10, 1, 0, index + 10, tzinfo=UTC),
+    )
+
+
+def test_semantic_turn_request_carries_recent_result_handles_newest_first() -> None:
+    now = datetime(2026, 10, 1, tzinfo=UTC)
+    request = SemanticTurnRequest(
+        utterance="What is its SKU?",
+        principal=SemanticTurnPrincipal(subject_id="operator-a", roles=(OperatorRole.READER,)),
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=2,
+        locale="en",
+        purpose="operations-review",
+        deadline_at=now + timedelta(seconds=30),
+        recent_result_handles=(_handle_ref(2), _handle_ref(1)),
+    )
+
+    assert [ref.handle_ref for ref in request.recent_result_handles] == [
+        _handle_ref(2).handle_ref,
+        _handle_ref(1).handle_ref,
+    ]
+    with pytest.raises(ValidationError, match="newest first"):
+        SemanticTurnRequest.model_validate(
+            {
+                **request.model_dump(mode="json"),
+                "recent_result_handles": [_handle_ref(1), _handle_ref(2)],
+            }
+        )
+    with pytest.raises(ValidationError, match="at most 4"):
+        SemanticTurnRequest.model_validate(
+            {
+                **request.model_dump(mode="json"),
+                "recent_result_handles": [
+                    _handle_ref(4),
+                    _handle_ref(3),
+                    _handle_ref(2),
+                    _handle_ref(1),
+                    _handle_ref(5),
+                ],
+            }
+        )
+
+
+def test_old_operator_core_request_consumer_rejects_recent_result_handles() -> None:
+    now = datetime(2026, 10, 1, tzinfo=UTC)
+    semantic = SemanticTurnRequest(
+        utterance="What is its SKU?",
+        principal=SemanticTurnPrincipal(subject_id="operator-a", roles=(OperatorRole.READER,)),
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=2,
+        locale="en",
+        purpose="operations-review",
+        deadline_at=now + timedelta(seconds=30),
+        recent_result_handles=(_handle_ref(),),
+    ).model_dump(mode="json", exclude_none=True)
+    payload = {
+        "schema_version": "1.10.0",
+        "request_id": "00000000-0000-0000-0000-000000000001",
+        "correlation_id": "semantic-turn:00000000-0000-0000-0000-000000000001",
+        "idempotency_key": "turn-1",
+        "resource_ref": "operator-conversation:example",
+        "request_kind": "semantic_query",
+        "requested_at": now.isoformat(),
+        "semantic_turn": semantic,
+    }
+
+    assert ConsumerCodec("operator-core-request", "N", ("1.10.0",)).decode_mapping(payload)
+    with pytest.raises(CompatibilityError, match="rejects version"):
+        ConsumerCodec("operator-core-request", "N", ("1.9.0",)).decode_mapping(payload)
 
 
 def _document_context(**updates: object) -> SemanticDocumentContext:

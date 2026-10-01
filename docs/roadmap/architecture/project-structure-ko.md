@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 237783f913d7de566bed9d68b325b7154d34878d
+translation_source_sha: f986d45775028a35f39057df52aaa961a70f85bb
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -521,6 +521,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 ## 의존성 주입을 통한 커스터마이제이션
 
 전체 경계 카탈로그와 구성 규칙은 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
+Core 결과 핸들 저장소도 같은 규칙을 따릅니다. `ResultHandleStore`는 Core 조립에서 주입되며, 인메모리 로컬 구현과 PostgreSQL 구현은 암호화된 핸들 본문을 Core 소유로 유지하고 Operator에는 불투명 참조만 영속화하게 합니다.
 
 ## 컨트롤 루프 배선
 

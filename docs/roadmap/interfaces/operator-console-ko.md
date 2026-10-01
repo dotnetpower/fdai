@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: b5ce7330a019a6ef80248716a9e5db3095fd5980
+translation_source_sha: 65a06ef2cdebd56e655875a315974b3cc3ef3291
 translation_revised: 2026-10-01
 ---
 # FDAI Console 대화
@@ -10,6 +10,9 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 
 
 Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니다. 비공개 초안과 바인딩은 영속 리비전을 포함하고 요청 principal 의 Mine 또는 My automations projection 에만 나타나며, Built-in 정의는 계속 카탈로그에서 시드되고 읽기 전용으로 유지됩니다.
+의미 결과 핸들 참조는 Core가 발급한 불투명 토큰만 영속 턴과 함께 보관하고 다음 의미 요청에서
+최근 참조를 최대 네 개까지 돌려보냅니다. Operator에 행 본문을 노출하거나 사람 보고 경로를
+바꾸거나 Console 실행 권한을 부여하지 않습니다.
 
 운영 > 알림 품질은 다시 생성한 TypeScript 계약 뷰로 서명된 결과 `1.1.0`과 그 안의 공급자 중립 계획 `1.1.0`을 디코딩합니다.
 브라우저는 `direct_api`를 보존된 계약 메타데이터로만 표시합니다. 공급자 어댑터를 선택하거나

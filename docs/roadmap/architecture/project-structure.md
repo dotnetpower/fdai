@@ -532,6 +532,7 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 ## Customization via Dependency Injection
 
 The complete seam catalog and composition rules are in [Project Structure Dependency Injection](project-structure-dependency-injection.md).
+Core result-handle storage follows the same rule: `ResultHandleStore` is injected at Core composition, with an in-memory local implementation and a PostgreSQL implementation that keep encrypted handle bodies Core-owned while Operator persists only opaque references.
 
 ## Control-Loop Wiring
 

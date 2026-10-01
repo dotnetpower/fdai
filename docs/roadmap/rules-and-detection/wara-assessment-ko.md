@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: c8ee0d210a839195b2136fd0a3ed067708eec295
-translation_revised: 2026-09-29
+translation_source_sha: a108232ad34a09c520a4b995be1a79067f3e624c
+translation_revised: 2026-10-01
 ---
 # WARA 근거 기반 평가
 
@@ -20,6 +20,8 @@ Resiliency Library(APRL) 목록을 범위를 인식하는 읽기 전용 평가�
 > 공급자 바인딩과 관리되는 런타임 증적이 필요합니다.
 
 WARA 변환을 제공하는 공유 작업 흐름 제품군은 이제 별도의 작성 저장소를 통해 principal 소유의 비공개 Workflow 초안과 바인딩도 커밋합니다. 이 쓰기 경로는 WARA 읽기, 실행 또는 승격 권한을 부여하지 않습니다.
+의미 결과 핸들 영속화는 공유 Operator 의미 저장소를 불투명 대화 참조에만 재사용합니다. WARA 범위,
+APRL 측정, 평가 수락 또는 권한을 바꾸지 않습니다.
 
 ## 설계 요약
 

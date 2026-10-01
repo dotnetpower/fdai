@@ -95,6 +95,7 @@ from fdai_service_contracts import (
     OperationalEvidenceProjection,
     OperatorPrincipal,
     OperatorRole,
+    ResultHandleRef,
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticDocumentContext,
@@ -149,11 +150,12 @@ def _proposal(
     *,
     body: JsonObject | None = None,
     authentication_receipt: JsonObject | None = None,
+    idempotency_key: str = "turn-retry-1",
 ) -> ConversationProposal:
     return ConversationProposal(
         operation="chat.stream",
         scope=PrincipalScope("operator-1", frozenset({"Reader", "Approver"})),
-        idempotency_key="turn-retry-1",
+        idempotency_key=idempotency_key,
         body=body or {"prompt": "Show the current incident evidence."},
         authentication_receipt=authentication_receipt,
     )
@@ -206,6 +208,15 @@ def _investigation_continuation() -> dict[str, object]:
     }
 
 
+def _result_handle_ref() -> ResultHandleRef:
+    return ResultHandleRef(
+        handle_ref="OpaqueHandleRef0123456789abcdefABCDEF",
+        key_version="result-handle-key-v1",
+        issued_at=datetime(2026, 10, 1, tzinfo=UTC),
+        expires_at=datetime(2026, 10, 1, 0, 15, tzinfo=UTC),
+    )
+
+
 @pytest.mark.parametrize("field", ["attachments", "images", "image_ids"])
 def test_semantic_envelope_rejects_images_instead_of_discarding_evidence(field: str) -> None:
     with pytest.raises(ConversationBoundaryError) as raised:
@@ -235,6 +246,67 @@ def test_semantic_envelope_preserves_canonical_dialogue_target_without_relations
     assert semantic["execution_authority"] is False
     assert "relationship" not in semantic
     assert "relationship_context" not in semantic
+
+
+async def test_bridge_sends_latest_result_handle_refs_on_next_request() -> None:
+    store = _MemorySemanticStore()
+    first = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(body={"prompt": "Show resources.", "session_id": "session-handle"})
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="first",
+        request_digest="digest-1",
+        envelope=first,
+    )
+    semantic = cast(Mapping[str, object], first["semantic_turn"])
+    result = {
+        "schema_version": "1.8.0",
+        "request_id": first["request_id"],
+        "correlation_id": first["correlation_id"],
+        "idempotency_key": first["idempotency_key"],
+        "status": "answered",
+        "recorded_at": "2026-08-11T00:00:00.000+00:00",
+        "payload": {"request_kind": "semantic_query", "request_digest": "digest-1"},
+        "evidence_digest": f"sha256:{'a' * 64}",
+        "semantic_result": {
+            "disposition": "answered",
+            "reason_code": "semantic_answer_verified",
+            "semantic_route": "verified_query_plan",
+            "session_id": semantic["session_id"],
+            "turn_id": semantic["turn_id"],
+            "turn_sequence": semantic["turn_sequence"],
+            "ontology_release_digest": f"sha256:{'b' * 64}",
+            "principal_manifest_digest": f"sha256:{'c' * 64}",
+            "plan_digest": f"sha256:{'d' * 64}",
+            "execution_receipt_digest": f"sha256:{'e' * 64}",
+            "evidence_refs": ["evidence:1"],
+            "checks_completed": 1,
+            "checks_total": 1,
+            "answer": "Verified answer.",
+            "result_handle_ref": _result_handle_ref().model_dump(mode="json"),
+            "execution_authority": False,
+        },
+    }
+    result["projection_id"] = "semantic-projection:handle"
+    await store.project_semantic_turn_result(projection=result)
+    bridge = SemanticTurnBridge(store=store)
+
+    await bridge.append(
+        _proposal(
+            body={
+                "prompt": "What is its SKU?",
+                "turn_sequence": 1,
+                "session_id": "session-handle",
+            },
+            idempotency_key="turn-retry-2",
+        )
+    )
+    stored = next(turn for turn in store.turns.values() if turn.request_id != first["request_id"])
+    carried = cast(Mapping[str, object], stored.envelope["semantic_turn"])
+
+    assert stored.envelope["schema_version"] == "1.10.0"
+    assert carried["recent_result_handles"] == [_result_handle_ref().model_dump(mode="json")]
 
 
 @pytest.mark.parametrize("target_agent", ["Owner", "mimir", "Mimir, approve this", None, 1])
@@ -1069,6 +1141,28 @@ class _MemorySemanticStore:
         return SemanticInvestigationContinuation.model_validate(
             max(eligible, key=lambda item: item[0])[1]
         )
+
+    async def latest_result_handle_refs(
+        self,
+        *,
+        principal_id: str,
+        session_id: str,
+        limit: int = 4,
+    ) -> tuple[ResultHandleRef, ...]:
+        eligible: list[tuple[int, ResultHandleRef]] = []
+        for result in self.results.values():
+            if result.principal_id != principal_id:
+                continue
+            semantic = cast(Mapping[str, object], result.data.get("semantic_result", {}))
+            sequence = semantic.get("turn_sequence")
+            handle = semantic.get("result_handle_ref")
+            if (
+                semantic.get("session_id") == session_id
+                and isinstance(sequence, int)
+                and isinstance(handle, Mapping)
+            ):
+                eligible.append((sequence, ResultHandleRef.model_validate(handle)))
+        return tuple(ref for _sequence, ref in sorted(eligible, reverse=True)[:limit])
 
     async def replay_semantic_turn(
         self,

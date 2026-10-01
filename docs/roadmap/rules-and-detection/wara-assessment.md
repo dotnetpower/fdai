@@ -15,6 +15,9 @@ cannot grant approval, policy, risk, promotion, mutation, or execution authority
 > authorized provider binding and a governed runtime receipt.
 
 The shared workflow family that serves WARA projections now also commits principal-owned private Workflow drafts and bindings through a separate authoring store. That write path grants no WARA read, execution, or promotion authority.
+Semantic result-handle persistence reuses shared Operator semantic storage only for opaque
+conversation references. It does not change WARA scope, APRL measurement, assessment admission, or
+authority.
 
 ## Design at a glance
 
