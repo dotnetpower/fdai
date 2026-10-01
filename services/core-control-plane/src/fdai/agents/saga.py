@@ -227,6 +227,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
             await asyncio.shield(publish_task)
             await asyncio.shield(self._mark_audit_outbox_published(payload))
             raise
+        except Exception:
+            await self._release_audit_outbox_publication_claim(payload)
+            raise
 
     async def _checkpoint_audit_outbox(self, payload: Mapping[str, Any]) -> None:
         if self._durable_state_store is None:
@@ -300,6 +303,24 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 await self._compact_audit_outbox_tombstones()
                 return
         raise RuntimeError("Saga audit outbox publication CAS retry limit exceeded")
+
+    async def _release_audit_outbox_publication_claim(self, payload: Mapping[str, Any]) -> None:
+        if self._durable_state_store is None:
+            return
+        key = _audit_outbox_key(payload)
+        for _attempt in range(16):
+            stored = await self._durable_state_store.read_state(key)
+            if stored is None or stored.get("status") != "publishing":
+                return
+            revision = int(stored.get("revision", 1))
+            advanced = await self._durable_state_store.compare_and_set_state(
+                key,
+                {**dict(stored), "status": "pending", "revision": revision + 1},
+                expected_revision=revision,
+            )
+            if advanced:
+                return
+        raise RuntimeError("Saga audit outbox publication release CAS retry limit exceeded")
 
     async def _compact_audit_outbox_tombstones(self) -> None:
         if self._durable_state_store is None:

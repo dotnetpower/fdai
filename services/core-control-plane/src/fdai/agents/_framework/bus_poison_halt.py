@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Any
+
+from fdai_service_contracts.compatibility import canonical_digest
 
 from fdai.shared.providers.state_store import StateStore
 
@@ -39,6 +42,7 @@ async def persist_ordered_halt(
         "partition_key": key,
         "offset": offset,
     }
+    marker["halt_record_digest"] = halt_record_digest(marker)
     state_key = halt_key(group_id, topic)
     if await store.write_state_if_absent(state_key, marker):
         return
@@ -47,9 +51,11 @@ async def persist_ordered_halt(
         raise RuntimeError("ordered poison halt marker is malformed")
     if stored.get("status") == "cleared":
         revision = int(stored.get("revision", 1))
+        replacement = {**marker, "revision": revision + 1}
+        replacement["halt_record_digest"] = halt_record_digest(replacement)
         await store.compare_and_set_state(
             state_key,
-            {**marker, "revision": revision + 1},
+            replacement,
             expected_revision=revision,
         )
 
@@ -77,8 +83,72 @@ async def clear_ordered_halt(store: StateStore | None, *, group_id: str, topic: 
     raise RuntimeError("ordered poison halt clear CAS retry limit exceeded")
 
 
+async def clear_ordered_halt_with_evidence(
+    store: StateStore | None,
+    *,
+    group_id: str,
+    topic: str,
+    expected_revision: int,
+    expected_halt_digest: str,
+    parked_record_evidence: Mapping[str, Any],
+    audit_entry: Mapping[str, Any],
+) -> bool:
+    if store is None:
+        return False
+    state_key = halt_key(group_id, topic)
+    stored = await store.read_state(state_key)
+    if stored is None:
+        return False
+    if stored.get("status") == "cleared":
+        return _existing_clear_matches(stored, parked_record_evidence)
+    if stored.get("status") != "halted":
+        raise RuntimeError("ordered poison halt marker is malformed")
+    revision = int(stored.get("revision", 1))
+    if revision != expected_revision:
+        return False
+    if halt_record_digest(stored) != expected_halt_digest:
+        return False
+    cleared = {
+        **dict(stored),
+        "status": "cleared",
+        "revision": revision + 1,
+        "clear_evidence": dict(parked_record_evidence),
+    }
+    cleared["clear_record_digest"] = halt_record_digest(cleared)
+    return await store.compare_and_set_state_with_audit(
+        state_key,
+        cleared,
+        expected_revision=revision,
+        audit_entry=audit_entry,
+    )
+
+
+def halt_record_digest(record: Mapping[str, Any]) -> str:
+    return canonical_digest(
+        {
+            key: value
+            for key, value in dict(record).items()
+            if key not in {"halt_record_digest", "clear_record_digest"}
+        }
+    )
+
+
 def halt_key(group_id: str, topic: str) -> str:
     return f"pantheon/bus/ordered-poison-halt/{group_id}/{topic}"
 
 
-__all__ = ["clear_ordered_halt", "is_ordered_halted", "persist_ordered_halt"]
+__all__ = [
+    "clear_ordered_halt",
+    "clear_ordered_halt_with_evidence",
+    "halt_record_digest",
+    "is_ordered_halted",
+    "persist_ordered_halt",
+]
+
+
+def _existing_clear_matches(
+    stored: Mapping[str, Any],
+    parked_record_evidence: Mapping[str, Any],
+) -> bool:
+    existing = stored.get("clear_evidence")
+    return isinstance(existing, Mapping) and dict(existing) == dict(parked_record_evidence)

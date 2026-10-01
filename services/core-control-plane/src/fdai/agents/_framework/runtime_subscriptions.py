@@ -33,6 +33,9 @@ RECOVERY_EFFECT_OBSERVER_PRINCIPAL = "recovery-effect-observer"
 RECOVERY_EFFECT_OBSERVATION_TOPIC = "object.recovery-effect-observation"
 """Heimdall-owned topic the independent recovery observation intake reads."""
 
+POISON_HALT_CLEAR_PRINCIPAL = "ordered-poison-halt-clear"
+"""Framework consumer identity for Operator-requested ordered poison halt clears."""
+
 CONDITIONAL_RULE_GENERATION_COMMAND_SUBSCRIPTIONS = (
     (RULE_GENERATION_ACTIVATION_COMMAND_TOPIC, "Mimir"),
     (RULE_GENERATION_ACTIVATION_RESULT_TOPIC, "Mimir"),
@@ -159,6 +162,7 @@ __all__ = [
     "ContextIndexWorkerBindings",
     "RECOVERY_EFFECT_OBSERVATION_TOPIC",
     "RECOVERY_EFFECT_OBSERVER_PRINCIPAL",
+    "POISON_HALT_CLEAR_PRINCIPAL",
     "RuleGenerationWorkerBindings",
     "bind_recovery_effect_observation",
     "bind_runtime_subscriptions",

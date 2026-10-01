@@ -32,6 +32,7 @@ from fdai.shared.providers.cost_governance import (
 )
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.user_context import UserPreferenceRecord
+from fdai_service_contracts.bus_poison_halt_clear import ORDERED_POISON_HALT_CLEAR_TOPIC
 
 _RAW_TOPIC = "fdai.events.package-e"
 _NOW = datetime(2026, 9, 30, 0, 0, tzinfo=UTC)
@@ -183,6 +184,21 @@ def test_runtime_subscriptions_include_declared_conditional_rule_generation_topi
     }
 
     assert set(runtime_subscriptions.CONDITIONAL_RULE_GENERATION_COMMAND_SUBSCRIPTIONS) <= actual
+
+
+def test_runtime_subscriptions_include_ordered_poison_clear_when_durable_halts_bound() -> None:
+    runtime, _provider = _runtime(ordered_poison_halt_state_store=object())
+
+    actual = {
+        (topic, principal)
+        for topic, subscribers in runtime.bridge._subs.items()
+        for principal, _handler in subscribers
+    }
+
+    assert (
+        ORDERED_POISON_HALT_CLEAR_TOPIC,
+        runtime_subscriptions.POISON_HALT_CLEAR_PRINCIPAL,
+    ) in actual
 
 
 def test_raw_specialist_samples_travel_from_huginn_to_freyr_and_njord() -> None:

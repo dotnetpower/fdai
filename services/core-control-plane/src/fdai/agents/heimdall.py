@@ -115,6 +115,7 @@ _EPISODE_PREFIX = "pantheon/heimdall/sensing-state/episodes/"
 _READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness/"
 _PENDING_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness-pending/"
 _PUBLICATION_PREFIX = "pantheon/heimdall/publications/"
+_PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES = 8192
 _RULE_VALIDATION_TIMEOUT_SECONDS = 5.0
 _FULL_SNAPSHOT_LIMIT = 128
 _MAX_KPI_SAMPLES = 512
@@ -682,14 +683,13 @@ class Heimdall(
                     return False
                 await self._state_store.write_state_if_absent(
                     state_key,
-                    {
-                        "schema_version": "1.0.0",
-                        "revision": 1,
-                        "state": "pending",
-                        "topic": topic,
-                        "idempotency_key": idempotency_key,
-                        "payload_digest": _payload_digest(payload),
-                    },
+                    _publication_row(
+                        topic=topic,
+                        idempotency_key=idempotency_key,
+                        payload=payload,
+                        revision=1,
+                        state="pending",
+                    ),
                 )
             if self.bus is None:
                 return False
@@ -705,14 +705,13 @@ class Heimdall(
                 complete_task = asyncio.create_task(
                     self._state_store.write_state(
                         state_key,
-                        {
-                            "schema_version": "1.0.0",
-                            "revision": 2,
-                            "state": "published",
-                            "topic": topic,
-                            "idempotency_key": idempotency_key,
-                            "payload_digest": _payload_digest(payload),
-                        },
+                        _publication_row(
+                            topic=topic,
+                            idempotency_key=idempotency_key,
+                            payload=payload,
+                            revision=2,
+                            state="published",
+                        ),
                     )
                 )
                 try:
@@ -724,6 +723,43 @@ class Heimdall(
             if publish_cancelled:
                 raise asyncio.CancelledError
             return True
+
+    async def recover_publications(self, *, limit: int = 100) -> int:
+        """Republish durable Heimdall publication intents left pending at restart."""
+
+        if self._state_store is None or self.bus is None:
+            return 0
+        rows, _total = await self._state_store.read_state_page(
+            _PUBLICATION_PREFIX,
+            limit=limit,
+            field="state",
+            value="pending",
+        )
+        recovered = 0
+        for row in reversed(rows):
+            topic = str(row.get("topic") or "")
+            payload = row.get("payload")
+            if topic not in {
+                "object.anomaly",
+                "object.drift",
+                "object.evidence-conflict",
+                "object.recovery-effect-observation",
+                "object.retrieval-validation",
+            } or not isinstance(payload, dict):
+                raise RuntimeError("Heimdall publication row is malformed")
+            await self.bus.publish("Heimdall", topic, dict(payload))
+            idempotency_key = str(row.get("idempotency_key") or "")
+            publication_digest = hashlib.sha256(f"{topic}:{idempotency_key}".encode()).hexdigest()
+            await self._state_store.write_state(
+                f"{_PUBLICATION_PREFIX}{publication_digest}",
+                {
+                    **dict(row),
+                    "revision": int(row.get("revision", 1)) + 1,
+                    "state": "published",
+                },
+            )
+            recovered += 1
+        return recovered
 
     async def _persist_state(self) -> None:
         if self._state_store is None:
@@ -1465,6 +1501,33 @@ def _payload_digest(payload: Mapping[str, Any]) -> str:
         sort_keys=True,
     ).encode()
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _publication_row(
+    *,
+    topic: str,
+    idempotency_key: str,
+    payload: Mapping[str, Any],
+    revision: int,
+    state: str,
+) -> dict[str, Any]:
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    row: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "revision": revision,
+        "state": state,
+        "topic": topic,
+        "idempotency_key": idempotency_key,
+        "payload_digest": "sha256:" + hashlib.sha256(encoded).hexdigest(),
+    }
+    if len(encoded) <= _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES:
+        row["payload"] = dict(payload)
+    return row
 
 
 def _decode_episode_key(value: object) -> _EpisodeKey | None:

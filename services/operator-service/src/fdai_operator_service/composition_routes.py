@@ -10,6 +10,7 @@ from fdai_operator_service.adapters import (
     StartupOwnedLocalAzureNarratorAdapters,
 )
 from fdai_operator_service.auth import OperatorAuthenticator
+from fdai_operator_service.bus_poison_halt_clear import OrderedPoisonHaltClearService
 from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.conversation_assurance_reader import (
     ConversationAssuranceReader,
@@ -145,6 +146,7 @@ def _build_route_families(
                 activation=unavailable_cost,
                 projections=unavailable_cost,
             ),
+            poison_halt_clear=None,
         )
         return routes, None
 
@@ -300,6 +302,11 @@ def _build_route_families(
                 .casefold()
                 in {"1", "true", "yes", "on"}
             ),
+        ),
+        poison_halt_clear=(
+            OrderedPoisonHaltClearService(store=store, publisher=semantic_bus)
+            if semantic_bus is not None
+            else None
         ),
     )
     return routes, local_narrator

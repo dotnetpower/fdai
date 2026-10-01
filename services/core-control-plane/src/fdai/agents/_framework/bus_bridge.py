@@ -21,6 +21,7 @@ from fdai.agents._framework.bus_poison_halt import (
     is_ordered_halted,
     persist_ordered_halt,
 )
+from fdai.agents._framework.bus_poison_resume import resume_ordered_consumer
 from fdai.agents._framework.registry import PantheonRegistry
 from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
@@ -30,7 +31,7 @@ from fdai.agents._framework.topics import (
     normalize_owned_object_envelope,
     partition_key_for,
 )
-from fdai.shared.providers.event_bus import EventBus, PublishReceipt
+from fdai.shared.providers.event_bus import EventBus, EventPublishNotAttemptedError, PublishReceipt
 from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
@@ -433,6 +434,8 @@ class EventBusBridge:
                     except asyncio.CancelledError:
                         raise
                     except Exception as exc:  # noqa: BLE001 - route to DLQ, keep loop alive
+                        if isinstance(exc, EventPublishNotAttemptedError):
+                            raise
                         await notify_handler_observer(
                             self,
                             agent=agent_name,
@@ -569,7 +572,15 @@ class EventBusBridge:
         consumer_id = f"{agent_name}:{topic}"
         if cleared and self._consumer_states.get(consumer_id) == "halted":
             self._consumer_states[consumer_id] = "cleared"
+            resume_ordered_consumer(self, topic=topic, agent_name=agent_name)
         return cleared
+
+    def resume_ordered_consumer_after_clear(self, *, topic: str, agent_name: str) -> bool:
+        consumer_id = f"{agent_name}:{topic}"
+        if self._consumer_states.get(consumer_id) not in {"halted", "cleared"}:
+            return False
+        self._consumer_states[consumer_id] = "cleared"
+        return resume_ordered_consumer(self, topic=topic, agent_name=agent_name)
 
     def _producer_authorized(self, topic: str, payload: Payload) -> bool:
         owner = self.registry.owner_of_topic(topic)

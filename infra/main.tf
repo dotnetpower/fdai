@@ -184,6 +184,7 @@ locals {
   semantic_turn_physical_topic     = "fdai.pantheon.objects"
   operating_model_topic            = "fdai.operating-model"
   read_investigation_request_topic = "operator.read-investigation.requests"
+  ordered_poison_halt_clear_topic  = "fdai.operator.ordered-poison-halt.clear.v1"
   event_topics = [
     "fdai.change.events",
     "fdai.dr.events",
@@ -193,6 +194,7 @@ locals {
   event_auxiliary_topics = [
     "fdai.hil.decisions",
     "fdai.pipeline.stages",
+    local.ordered_poison_halt_clear_topic,
   ]
 }
 
@@ -791,9 +793,10 @@ import {
 
 resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
   for_each = var.enable_operator_api ? {
-    (local.event_topics[0]) = module.event_bus.topic_ids[local.event_topics[0]]
-    "fdai.pantheon.objects" = module.event_bus.topic_ids["fdai.pantheon.objects"]
-    "fdai.hil.decisions"    = module.event_bus.auxiliary_topic_ids["fdai.hil.decisions"]
+    (local.event_topics[0])                 = module.event_bus.topic_ids[local.event_topics[0]]
+    "fdai.pantheon.objects"                 = module.event_bus.topic_ids["fdai.pantheon.objects"]
+    "fdai.hil.decisions"                    = module.event_bus.auxiliary_topic_ids["fdai.hil.decisions"]
+    (local.ordered_poison_halt_clear_topic) = module.event_bus.auxiliary_topic_ids[local.ordered_poison_halt_clear_topic]
   } : {}
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Sender"

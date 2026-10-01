@@ -423,6 +423,10 @@ from fdai_service_contracts.operator import (
     ReadDataSource,
     canonical_ordinary_role,
 )
+from fdai_service_contracts.bus_poison_halt_clear import (
+    ORDERED_POISON_HALT_CLEAR_TOPIC,
+    OrderedPoisonHaltClearRequest,
+)
 from fdai_service_contracts.read_investigation import (
     READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP,
     READ_INVESTIGATION_COMPLETION_TOPIC,
@@ -846,6 +850,8 @@ __all__ = [
     "OperatorPrincipalKind",
     "OperatorReadModel",
     "OperatorRole",
+    "ORDERED_POISON_HALT_CLEAR_TOPIC",
+    "OrderedPoisonHaltClearRequest",
     "OperatorTokenVerifier",
     "PackageResourceSchemaRegistry",
     "PageProjection",

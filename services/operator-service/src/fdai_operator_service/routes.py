@@ -56,6 +56,7 @@ from fdai_operator_service.auth import (
 from fdai_operator_service.browser_evidence_filters import (
     parse_browser_evidence_workspace_query,
 )
+from fdai_operator_service.bus_poison_halt_clear import OrderedPoisonHaltClearService
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.families.aks_commerce import (
     AKS_COMMERCE_ROUTE_MANIFEST,
@@ -154,6 +155,7 @@ class OperatorRouteFamilies:
     aks_commerce: AksCommerceFamilyDependencies | None = None
     cost_governance: CostGovernanceFamilyDependencies | None = None
     alert_quality: AlertQualityDependencies | None = None
+    poison_halt_clear: OrderedPoisonHaltClearService | None = None
 
 
 MINIMAL_ROUTE_MANIFEST: Final = (
@@ -172,6 +174,7 @@ MINIMAL_ROUTE_MANIFEST: Final = (
     RouteOwnership("GET", "/kpi/llm-cost", "minimal"),
     RouteOwnership("GET", "/live/stream", "minimal"),
     RouteOwnership("GET", "/notification-templates/incident-opened", "minimal"),
+    RouteOwnership("POST", "/operations/bus/ordered-poison-halts/clear", "minimal"),
     RouteOwnership("GET", "/rca", "minimal"),
     RouteOwnership("GET", "/system/data-sources", "minimal"),
 )
@@ -379,6 +382,56 @@ def build_operator_app(
             proposal_writer=route_families.operations_proposal_writer,
         )
 
+    async def post_ordered_poison_halt_clear(request: Request) -> Response:
+        service = route_families.poison_halt_clear
+        if service is None:
+            return _error(503, "ordered poison halt clear is not configured")
+        try:
+            principal = authenticator.require_any(
+                request.headers.get("authorization"),
+                frozenset({OperatorRole.OWNER}),
+            )
+        except AuthenticationError:
+            raise
+        except AuthorizationError:
+            raise
+        idempotency_key = request.headers.get("idempotency-key", "").strip()
+        if not 1 <= len(idempotency_key) <= 256:
+            return _error(400, "Idempotency-Key MUST contain 1 to 256 characters")
+        raw_body = await request.body()
+        if len(raw_body) > 16_384:
+            return _error(413, "ordered poison halt clear body is too large")
+        try:
+            raw = json.loads(raw_body)
+        except (UnicodeDecodeError, ValueError):
+            return _error(400, "invalid ordered poison halt clear request")
+        if not isinstance(raw, Mapping):
+            return _error(400, "invalid ordered poison halt clear request")
+        try:
+            accepted = await service.accept(
+                principal=principal,
+                idempotency_key=idempotency_key,
+                body=raw,
+            )
+        except PermissionError:
+            return _error(403, "ordered poison halt clear requires Owner")
+        except ValueError:
+            return _error(400, "invalid ordered poison halt clear request")
+        return JSONResponse(
+            {
+                "submitted": accepted.accepted,
+                "completed": False,
+                "request_id": accepted.request_id,
+                "dispatch_status": "queued",
+                "topic": accepted.topic,
+                "message": (
+                    "Ordered poison halt clear request queued. The consumer resumes only "
+                    "after Core verifies retained parked-record evidence and audits the clear."
+                ),
+            },
+            status_code=202,
+        )
+
     async def incident_attention_stream(request: Request) -> Response:
         authorize(request)
         after_seq = _last_event_id(request)
@@ -506,6 +559,12 @@ def build_operator_app(
             get_incident_opened_template,
             methods=["GET"],
             name="get_incident_opened_template",
+        ),
+        Route(
+            "/operations/bus/ordered-poison-halts/clear",
+            post_ordered_poison_halt_clear,
+            methods=["POST"],
+            name="post_ordered_poison_halt_clear",
         ),
         Route("/rca", get_rca, methods=["GET"], name="panel:rca"),
         Route(

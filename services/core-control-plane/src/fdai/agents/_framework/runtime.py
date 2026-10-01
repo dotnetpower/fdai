@@ -38,6 +38,7 @@ from fdai.agents._framework.pantheon import (
 )
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents._framework.runtime_conversation import RuntimeConversationPort
+from fdai.agents._framework.runtime_poison_clear import bind_ordered_poison_halt_clear
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter, SemanticRouterConfig
 from fdai.agents._framework.thor_dispatch_validation import missing_wire_safeguards
 from fdai.agents._framework.thor_preflight import ThorPreflightSimulator
@@ -260,6 +261,12 @@ class PantheonRuntime(RuntimeConversationPort):
             handler_observer=handler_observer,
             halt_state_store=ordered_poison_halt_state_store,
             payload_validator=_default_payload_validator,
+        )
+        bind_ordered_poison_halt_clear(
+            bridge=bridge,
+            provider=provider,
+            state_store=ordered_poison_halt_state_store,
+            consumer_group_prefix=consumer_group_prefix,
         )
         instantiated = factory.instantiate_pantheon()
         instantiated["Huginn"] = factory.configured_huginn(
