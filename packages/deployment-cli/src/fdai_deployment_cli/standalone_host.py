@@ -72,6 +72,10 @@ from fdai_deployment_cli.standalone_aks_inventory import (
     run_initial_aks_inventory as _initial_aks_inventory,
 )
 from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
+from fdai_deployment_cli.standalone_trial_activation import (
+    activate_trial,
+    deployment_binding_digest,
+)
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
 )
@@ -282,6 +286,8 @@ def main(argv: list[str] | None = None) -> int:
 
     migrate = subcommands.add_parser("migrate")
     migrate.set_defaults(handler=_migrate)
+
+    subcommands.add_parser("activate-trial").set_defaults(handler=_activate_trial)
 
     initial_inventory = subcommands.add_parser("initial-inventory")
     initial_inventory.set_defaults(handler=_initial_inventory)
@@ -843,6 +849,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "catalog_review_gitops_binding": _terraform_json_output(
             substrate, "catalog_review_gitops_binding"
         ),
+        "installation_binding": _terraform_output(substrate, "installation_binding"),
     }
     if _database_placement(context) == "postgres-flex":
         substrate_outputs.update(
@@ -860,6 +867,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     _activate_terraform_stage("runtime", context, work_dir)
     cluster_id = _terraform_output(runtime_infra, "cluster_id")
     cluster_name = _terraform_output(runtime_infra, "cluster_name")
+    deployment_binding = deployment_binding_digest(context, cluster_name)
     oidc_issuer_url = _terraform_output(runtime_infra, "oidc_issuer_url")
     kubeconfig = _prepare_aks_kubeconfig(
         context, work_dir, resource_group=resource_group, cluster_name=cluster_name
@@ -919,6 +927,8 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
         "FDAI_PRODUCT_PROFILE_JSON": str(application_values["product_profile_json"]),
         "FDAI_START_CONSUMER": "1",
+        "FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"]),
+        "FDAI_LICENSE_DEPLOYMENT_BINDING": deployment_binding,
     }
     core_environment.update(
         _aks_core_conversation_environment(
@@ -1054,6 +1064,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         workloads_state_key=f"fdai-{application_values['env']}-aks-workloads.tfstate",
         workloads_terraform_data=str(work_dir / "terraform-data-workloads"),
         kubeconfig=str(kubeconfig),
+        deployment_binding=deployment_binding,
         expected_workloads={
             name: aks_readiness.workload_contract(workload) for name, workload in workloads.items()
         },
@@ -3214,6 +3225,11 @@ def _catalog_review(_args: argparse.Namespace, work_dir: Path) -> dict[str, obje
     return run_catalog_review(context, work_dir, login=_managed_identity_login_from_context)
 
 
+def _activate_trial(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    return activate_trial(context, work_dir, login=_managed_identity_login_from_context)
+
+
 def _install_license(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context = _private_json(work_dir / "context.json", "standalone host context")
     _managed_identity_login_from_context(context, work_dir)
@@ -4042,11 +4058,7 @@ def _deployment_binding(_args: argparse.Namespace, work_dir: Path) -> dict[str, 
         runtime_name = _terraform_output(Path(str(context["runtime_infra"])), "cluster_name")
     else:
         runtime_name = _terraform_output(Path(str(context["infra"])), "core_app_name")
-    if re.fullmatch(r"[a-z][a-z0-9-]{1,62}", runtime_name) is None:
-        raise ValueError("Terraform runtime name is invalid")
-    deployment_binding = hashlib.sha256(
-        (f"{context['tenant_id']}\0{context['subscription_id']}\0{runtime_name}").encode()
-    ).hexdigest()
+    deployment_binding = deployment_binding_digest(context, runtime_name)
     return {
         "schema_version": "fdai.standalone-deployment-binding.v1",
         "state": "verified",

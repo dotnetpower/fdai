@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 445474bdaa95b255ea8c709ac9bccd9535f57ba8
+translation_source_sha: af6a2ca5cc0d4eddc3cf2251f18db11f77eb5045
 translation_revised: 2026-10-01
 ---
 # 기능 라이선싱
@@ -63,8 +63,10 @@ Trial은 없거나 만료된 토큰을 대신할 뿐, 거부·오바인딩·아�
 행위 판정마다 Core 이벤트 루프가 아닌 작업자 스레드에서 저장소를 관측하며, 바인딩이 잘못되었거나
 불완전하면 Trial을 조립하지 않습니다. 작성자 `python -m fdai.runtime.licensing_trial_activation`은
 전달받은 고정 시각으로 기간을 열고, 기존 기록은 그대로 유지하며, 다른 설치에 바인딩된 기록은
-거부합니다. 설치 바인딩을 제공하는 단계와 배포 부트스트랩에서 이 작성자를 호출하는 단계는 아직
-남아 있으므로, 두 단계가 구현될 때까지 키 없는 설치는 관찰 전용으로 남습니다.
+거부합니다. AKS 소스 배포는 두 바인딩을 Core에 제공하고, 재실행이나 업그레이드로 바뀌지 않는
+Terraform 상태의 식별자와 최초 적용 시각에 설치를 고정하며, 애플리케이션 적용 후 초기 인벤토리
+전에 이 작성자를 실행합니다. Container Apps 런타임은 아직 바인딩을 제공하지 않으므로, 키 없는
+Container Apps 설치는 관찰 전용으로 남습니다.
 
 [키 보유자 설치 사용권](#키-보유자-설치-사용권)은 설치 하나에 대해 Trial 제한을 해제합니다.
 다른 운영자에게 전달되는 모든 토큰에는 서명 토큰의 30일 상한이 계속 적용됩니다. 서명된 오프라인

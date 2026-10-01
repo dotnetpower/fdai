@@ -10,12 +10,14 @@ from typing import Any
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
 from fdai_deployment_cli.standalone_aks_inventory import require_initial_inventory_receipt
+from fdai_deployment_cli.standalone_trial_activation import require_trial_activation_receipt
 
 
 @dataclass(frozen=True, slots=True)
 class PostApplicationReceipts:
     inventory: dict[str, Any]
     catalog_review: dict[str, Any]
+    trial_activation: dict[str, Any] | None = None
 
 
 def run_post_application_checkpoints(
@@ -26,8 +28,14 @@ def run_post_application_checkpoints(
     runtime_platform: str,
     remote_json: Callable[..., dict[str, Any]],
 ) -> PostApplicationReceipts:
-    """Run inventory first, then the selected-or-skipped catalog review."""
+    """Open the AKS Trial window, then run inventory and the selected-or-skipped review."""
 
+    trial_activation = None
+    if runtime_platform == "aks":
+        progress_detail("Opening the Trial window at the installation's anchored creation time")
+        trial_activation = require_trial_activation_receipt(
+            remote_json(tunnel, remote_root, app_work, ("activate-trial",), timeout=900)
+        )
     begin_stage("initial-inventory")
     progress_detail("Collecting and independently reading back the initial inventory")
     inventory = remote_json(
@@ -48,7 +56,11 @@ def run_post_application_checkpoints(
         timeout=600,
     )
     require_catalog_review_receipt(catalog_review)
-    return PostApplicationReceipts(inventory=inventory, catalog_review=catalog_review)
+    return PostApplicationReceipts(
+        inventory=inventory,
+        catalog_review=catalog_review,
+        trial_activation=trial_activation,
+    )
 
 
 def require_catalog_review_receipt(value: dict[str, Any]) -> None:

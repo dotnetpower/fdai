@@ -619,6 +619,14 @@ Operator returns the prior page envelope, and new Operators compute the ledger-w
 for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit
 its scan cost.
 
+On AKS, the substrate root's `terraform_data.installation` anchor keeps the installation identifier
+and first-apply time in Terraform state, so no rerun or upgrade changes them. The application stage
+gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application
+apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial
+writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a
+retained window unchanged, so a keyless installation keeps the 30-day window that started at its
+first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)).
+
 ## Deployment payloads
 
 The installed Python package does not contain runtime payloads. A selected deployment provides the

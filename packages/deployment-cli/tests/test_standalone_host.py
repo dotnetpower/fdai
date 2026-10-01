@@ -1838,9 +1838,10 @@ def test_prepare_aks_application_requires_core_semantic_environment(
     monkeypatch.setattr(
         standalone_host,
         "_terraform_output",
-        lambda _infra, name: (
-            "console.azurestaticapps.net" if name == "console_default_hostname" else name
-        ),
+        lambda _infra, name: {
+            "console_default_hostname": "console.azurestaticapps.net",
+            "cluster_name": "aks-fdai-dev",
+        }.get(name, name),
     )
     monkeypatch.setattr(standalone_host, "_terraform_json_output", json_output)
     monkeypatch.setattr(
@@ -3526,6 +3527,9 @@ def test_aks_runtime_configuration_binds_consumer_scoped_dsns_and_roles() -> Non
     source = Path(standalone_host.__file__).read_text(encoding="utf-8")
 
     assert '"FDAI_START_CONSUMER": "1"' in source
+    assert '"FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"])' in source
+    assert '"FDAI_LICENSE_DEPLOYMENT_BINDING": deployment_binding' in source
+    assert "deployment_binding=deployment_binding" in source
     assert '{"FDAI_DATABASE_URL": "fdai-ingestion-api-dsn"}' in source
     assert '{"FDAI_DATABASE_URL": "fdai-ingestion-worker-dsn"}' in source
     targets = standalone_stage_targets.substrate_targets(

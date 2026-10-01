@@ -65,8 +65,11 @@ composition consults it whenever the deployment supplies `FDAI_INSTALLATION_BIND
 in a worker thread, away from Core's event loop, and an invalid or incomplete binding composes no
 Trial. The writer `python -m fdai.runtime.licensing_trial_activation` opens the window at the
 supplied anchored time, keeps a retained record unchanged, and refuses a record bound to another
-installation. Supplying the installation binding and invoking that writer during deployment
-bootstrap are still open, so a keyless installation remains observation-only until both land.
+installation. The AKS source deployment supplies both bindings to Core, anchors the installation to
+a Terraform-state identity and first-apply time that no rerun or upgrade changes, and runs that
+writer after the application apply and before the initial inventory. The Container Apps runtime
+does not supply the bindings yet, so a keyless Container Apps installation remains
+observation-only.
 
 The [key-holder installation entitlement](#key-holder-installation-entitlement) removes the Trial
 restriction for one installation; the signed-token 30-day ceiling stays for every token that

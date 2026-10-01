@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 12021ee13e61bf540d5e85aacfa92cb532500416
+translation_source_sha: 5306e28fabf89afd5de58233122aded59d03707c
 translation_revised: 2026-10-01
 ---
 # 런타임 배포 프로파일
@@ -619,6 +619,14 @@ anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드
 Console이 추가적인 `summary=true`를 보내더라도 이전 Operator는 기존 페이지 묶음을 반환하며, 새
 Operator는 이 활성화 설정이 있을 때만 원장 전체 요약을 계산하므로 Incident, Agent Activity, Trace 및
 선택적 비용 패키지 경로가 이 조회 비용을 이어받지 않습니다.
+
+AKS에서는 substrate root의 `terraform_data.installation` 고정점이 설치 식별자와 최초 적용 시각을
+Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 애플리케이션 단계는
+Core에 `FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제공합니다. 애플리케이션
+적용 후 초기 인벤토리 전에, 관리 호스트의 `activate-trial` 단계는 Key Vault 상태 저장소 DSN으로
+Core Trial 작성자를 한 번 실행하고 digest로 묶인 영수증을 기록합니다. 작성자는 기존 기간을 그대로
+유지하므로, 키 없는 설치는 최초 적용 시점에 시작된 30일 기간을 계속 유지합니다
+([기능 라이선싱](../fork-and-sequencing/capability-licensing-ko.md#영속적인-무키-trial-목표)).
 
 ## 배포 페이로드
 
