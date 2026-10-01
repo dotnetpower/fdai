@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
   "catalog_ref": "services/core-control-plane/src/fdai/agents/_framework/workflows.py",
-  "catalog_digest": "6cee70e483d6bac11121c74f53a4c140e4e0b22c83ff5576f0ba7b51ab48fe8a",
-  "reviewed_on": "2026-09-16",
+  "catalog_digest": "bb4f441afa0429809018d1a423ea1a6b591f7145dc0cb27368fb5a406cadc731",
+  "reviewed_on": "2026-10-01",
   "authority": {
     "changes_workflow_mode": false,
     "grants_execution_authority": false,
@@ -17,7 +17,7 @@
     {
       "workflow_id": "cost-aware-remediation",
       "workflow_name": "Cost-aware remediation",
-      "definition_digest": "a6ccc522018a7a24c3149f221b15a8c8836ab8e8c69bee58a65c139780f2cc45",
+      "definition_digest": "1d69344169739f00826fe316286af27cbe3e3d29871582686864931e95be8839",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_cost_aware_remediation_shadow_trace",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -43,7 +43,7 @@
     {
       "workflow_id": "predictive-scale",
       "workflow_name": "Predictive scale",
-      "definition_digest": "d661fcf29678af3699af17791f903307bf90895f3efa261941950f828cbf79e0",
+      "definition_digest": "654a6af00b542a2c7febc51928669380c29f16cc3f0855965a8becde04124216",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_predictive_scale_shadow_trace",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -69,7 +69,7 @@
     {
       "workflow_id": "dr-drill-orchestration",
       "workflow_name": "DR drill orchestration",
-      "definition_digest": "31f964c5d47af9888d5ff43d854adc4339b70046f3ea4bcbd574c34cb73cb219",
+      "definition_digest": "350b84620c838f2a2b01b6dc563038512635d5b95ff7f357261e34c316185bf0",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_dr_drill_orchestration_respects_blast_radius",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -147,7 +147,7 @@
     {
       "workflow_id": "handoff-capability",
       "workflow_name": "Handoff -> Capability",
-      "definition_digest": "8095e1a478e97246a52023170fc342a0cd38f9cee157e55a6ea145345980a0a9",
+      "definition_digest": "0635d40cbbeeff42d2b8d9a39564ed966088bf49ad32a8ebe48575a60ecbad87",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_keeps_issue_open_without_promotion",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -225,7 +225,7 @@
     {
       "workflow_id": "rollback-rehearsal",
       "workflow_name": "Rollback rehearsal",
-      "definition_digest": "ce19b3c4f9c3b254f88e62e557dbe0146474c30de452a5250d549cbc5e2ad3ab",
+      "definition_digest": "91ef249fa62a8fa4ea0173d8cbca1a250be44e0b3b76746da611ed1f0c2e1246",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_blocks_overlapping_loki_targets",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -251,7 +251,7 @@
     {
       "workflow_id": "retrospective-what-if",
       "workflow_name": "Retrospective what-if",
-      "definition_digest": "f1a76ea90779171b1da04be35760a8ff20e38a5a174f8da1982eb2f028b9b483",
+      "definition_digest": "5853ab3c219a7e2d05112a26a2b48ca94b34871c17b01d7770520657a1612db0",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_retrospective_what_if_is_judge_only",
       "current_mode": "shadow",
       "verdict": "permanent_shadow",
