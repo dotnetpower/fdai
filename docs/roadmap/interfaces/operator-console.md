@@ -11,6 +11,8 @@ Operator, change human-report routing, or grant Console execution authority.
 Adaptive answer evidence crosses the model boundary as `ModelEvidenceView`, a Core-built
 allowlisted projection. Raw query tables, provider bodies, handles, and retained snapshot cells do
 not reach answer-authoring or review model calls.
+Verified-answer authoring adds a shared proposition contract plus default-off author/reviewer
+ports behind Core. Until promoted, Console answers continue to use the current verified path.
 
 Operations > Alert quality decodes signed result `1.1.0` and its provider-neutral plan `1.1.0` through the regenerated TypeScript contract view.
 The browser displays `direct_api` as retained contract metadata only. It never selects a provider

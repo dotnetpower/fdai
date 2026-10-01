@@ -113,6 +113,9 @@ statuses and typed limitations, and returns structured claims, as the owner desi
    rejection holds the answer with the verified evidence view.
 4. **Adversarial suite:** One test class per proposition field and per completeness check, plus
    negated, swapped, off-by-one, and causal-overreach claims.
+Local implementation provides the shared proposition contract, default-off author and reviewer
+ports, and the deterministic adversarial V-CLAIM suite. Production model-family bindings and the
+R8 live holdout remain promotion evidence, not local proof.
 
 **Exit:** zero escapes on the adversarial claim suite, and zero V-CLAIM escapes in the R8 holdout.
 

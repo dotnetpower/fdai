@@ -13,9 +13,18 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from fdai_service_contracts.answer_claims import (
+    MAX_ANSWER_CHARS,
+    AnswerClaim,
+    AnswerClaimKind,
+    AnswerClaimProposition,
+    AnswerClaimSpan,
+    AnswerEvidenceRef,
+    AnswerLiteralBinding,
+    ComposedAnswer,
+)
 
 from fdai.core.ontology_platform.query_values import QueryTable
 
@@ -26,23 +35,12 @@ from .semantic_reasoning_claim_text import (
     text_violations,
     tokens,
 )
-from .semantic_reasoning_form import SourceSpan
 
-MAX_ANSWER_CHARS = 16_000
-MAX_CLAIMS = 64
-_ID = r"^[a-z][a-z0-9_.-]{0,63}$"
-
-
-class ClaimKind(StrEnum):
-    RESTATEMENT = "restatement"
-    FACT = "fact"
-    COUNT = "count"
-    RELATION = "relation"
-    STATE = "state"
-    CHANGE = "change"
-    CAUSE_HYPOTHESIS = "cause_hypothesis"
-    LIMITATION = "limitation"
-    NEXT_CHECK = "next_check"
+ClaimKind = AnswerClaimKind
+type EvidenceRef = AnswerEvidenceRef
+type LiteralBinding = AnswerLiteralBinding
+type ClaimProposition = AnswerClaimProposition
+type SourceSpan = AnswerClaimSpan
 
 
 class GoalEvidenceStatus(StrEnum):
@@ -51,61 +49,6 @@ class GoalEvidenceStatus(StrEnum):
     UNKNOWN_INCOMPLETE = "unknown_incomplete"
     UNAVAILABLE = "unavailable"
     UNSUPPORTED = "unsupported"
-
-
-class _ClaimModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-
-class EvidenceRef(_ClaimModel):
-    goal: Annotated[str, Field(pattern=r"^g[0-9]{1,2}$")]
-    node: Annotated[str, Field(pattern=_ID)]
-    row: Annotated[str, Field(min_length=1, max_length=512)] | None = None
-    field: Annotated[str, Field(min_length=1, max_length=256)] | None = None
-
-
-class LiteralBinding(_ClaimModel):
-    """One literal shown in the answer text and the exact evidence cell it renders."""
-
-    span: SourceSpan
-    value: str | int
-    ref: EvidenceRef
-
-
-class ClaimProposition(_ClaimModel):
-    polarity: Literal["affirm", "deny"] = "affirm"
-    quantifier: Literal["exact", "at_least"] = "exact"
-    modality: Literal["observed", "possible", "hypothesis"] = "observed"
-
-
-class AnswerClaim(_ClaimModel):
-    id: Annotated[str, Field(pattern=r"^c[0-9]{1,2}$")]
-    kind: ClaimKind
-    span: SourceSpan
-    refs: Annotated[tuple[EvidenceRef, ...], Field(max_length=32)] = ()
-    proposition: ClaimProposition = ClaimProposition()
-    literals: Annotated[tuple[LiteralBinding, ...], Field(max_length=64)] = ()
-    rows: Annotated[tuple[Annotated[str, Field(min_length=1)], ...], Field(max_length=1000)] = ()
-    limitation_codes: Annotated[tuple[str, ...], Field(max_length=16)] = ()
-
-
-class ComposedAnswer(_ClaimModel):
-    """The author's prose and the structured claims it asserts."""
-
-    text: Annotated[str, Field(min_length=1, max_length=MAX_ANSWER_CHARS)]
-    claims: Annotated[tuple[AnswerClaim, ...], Field(min_length=1, max_length=MAX_CLAIMS)]
-
-    @model_validator(mode="after")
-    def _spans_inside_text(self) -> ComposedAnswer:
-        size = len(self.text)
-        ids = [claim.id for claim in self.claims]
-        if len(ids) != len(set(ids)):
-            raise ValueError("answer claim ids MUST be unique")
-        for claim in self.claims:
-            spans = [claim.span, *(item.span for item in claim.literals)]
-            if any(item.end > size for item in spans):
-                raise ValueError("answer claim span exceeds the answer text")
-        return self
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +142,7 @@ def _claim_violations(claim: AnswerClaim, answer: ComposedAnswer, ctx: _Context)
         goal = ctx.goals.get(goal_id)
         if goal is not None:
             violations.extend(_goal_claim_violations(claim, goal))
+    violations.extend(_proposition_violations(claim, ctx))
     violations.extend(_row_violations(claim, ctx))
     return violations
 
@@ -304,6 +248,48 @@ def _row_violations(claim: AnswerClaim, ctx: _Context) -> list[str]:
     return violations
 
 
+def _proposition_violations(claim: AnswerClaim, ctx: _Context) -> list[str]:
+    proposition = claim.proposition
+    violations: list[str] = []
+    identities = _known_identity_values(ctx)
+    for field_name in ("subject", "object"):
+        value = getattr(proposition, field_name)
+        if value is not None and value not in identities:
+            violations.append(f"proposition_{field_name}_unresolved:{claim.id}")
+    if proposition.predicate is not None and not any(
+        ref.field is not None and proposition.predicate in ref.field for ref in claim.refs
+    ):
+        violations.append(f"proposition_predicate_unbacked:{claim.id}")
+    if proposition.value is not None and not any(
+        _same_proposition_value(_cell(ref, ctx.goals), proposition.value) for ref in claim.refs
+    ):
+        violations.append(f"proposition_value_mismatch:{claim.id}")
+    for field_name in ("unit", "currency", "temporal_basis", "time_zone"):
+        expected = getattr(proposition, field_name)
+        if expected is not None and not any(
+            _same_proposition_value(_cell(ref, ctx.goals), str(expected)) for ref in claim.refs
+        ):
+            violations.append(f"proposition_{field_name}_unbacked:{claim.id}")
+    if proposition.causal_class != "none" and not any(
+        ctx.goals[ref.goal].causal_evidence for ref in claim.refs if ref.goal in ctx.goals
+    ):
+        violations.append(f"proposition_causal_class_unbacked:{claim.id}")
+    return violations
+
+
+def _known_identity_values(ctx: _Context) -> set[str]:
+    identities: set[str] = set()
+    for goal in ctx.goals.values():
+        for table in goal.tables.values():
+            for row in table.rows:
+                identities.add(row.row_id)
+                for path in ("id", "object_type", "properties.name", "properties.id"):
+                    value = _path(row.values, path)
+                    if isinstance(value, str):
+                        identities.add(value)
+    return identities
+
+
 def _coverage_violations(answer: ComposedAnswer, goals: Mapping[str, GoalEvidence]) -> list[str]:
     violations: list[str] = []
     stated = {
@@ -363,7 +349,7 @@ def _undeclared_literals(
     for start, token in tokens(answer.text):
         if not literal_shaped(token, identities):
             continue
-        span = SourceSpan(start=start, end=start + len(token))
+        span = AnswerClaimSpan(start=start, end=start + len(token))
         if any(_inside(span, item) for item in declared):
             continue
         if token in asked and any(_inside(span, item) for item in restatements):
@@ -414,8 +400,20 @@ def _same_value(cell: Any, value: str | int) -> bool:
     return isinstance(cell, str) and cell == value
 
 
+def _same_proposition_value(cell: Any, value: str | int | float | bool) -> bool:
+    if cell is _MISSING:
+        return False
+    if isinstance(value, bool):
+        return isinstance(cell, bool) and cell is value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return isinstance(cell, int) and not isinstance(cell, bool) and cell == value
+    if isinstance(value, float):
+        return isinstance(cell, (int, float)) and not isinstance(cell, bool) and cell == value
+    return isinstance(cell, str) and cell == value
+
+
 def _inside(inner: SourceSpan, outer: SourceSpan) -> bool:
-    return outer.start <= inner.start and inner.end <= outer.end
+    return bool(outer.start <= inner.start and inner.end <= outer.end)
 
 
 __all__ = [
