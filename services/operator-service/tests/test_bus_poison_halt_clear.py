@@ -30,6 +30,7 @@ from starlette.testclient import TestClient
 @dataclass(frozen=True, slots=True)
 class _Stored:
     duplicate: bool
+    record: Mapping[str, object]
 
 
 class _Store:
@@ -46,7 +47,13 @@ class _Store:
             None,
         )
         if existing is not None:
-            return _Stored(duplicate=True)
+            return _Stored(
+                duplicate=True,
+                record={
+                    "dispatch_status": "published" if len(self.published) else "pending",
+                    "payload": existing[2],
+                },
+            )
         self.proposals.append(
             (
                 str(kwargs["operation"]),
@@ -54,14 +61,33 @@ class _Store:
                 kwargs["payload"],  # type: ignore[arg-type]
             )
         )
-        return _Stored(duplicate=False)
+        return _Stored(
+            duplicate=False,
+            record={"dispatch_status": "pending", "payload": kwargs["payload"]},  # type: ignore[dict-item]
+        )
+
+    @property
+    def published(self) -> set[str]:
+        if not hasattr(self, "_published"):
+            self._published: set[str] = set()
+        return self._published
+
+    async def mark_poison_halt_clear_published(self, *, idempotency_key: str) -> bool:
+        if not any(proposal[1] == idempotency_key for proposal in self.proposals):
+            return False
+        self.published.add(idempotency_key)
+        return True
 
 
 class _Publisher:
-    def __init__(self) -> None:
+    def __init__(self, *, fail_first: bool = False) -> None:
         self.published: list[tuple[str, str, Mapping[str, object]]] = []
+        self.fail_first = fail_first
 
     async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> object:
+        if self.fail_first:
+            self.fail_first = False
+            raise RuntimeError("broker unavailable")
         self.published.append((topic, key, payload))
         return object()
 
@@ -93,6 +119,11 @@ async def test_clear_acceptance_requires_owner_and_publishes_versioned_request()
         store=store,
         publisher=publisher,
         clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        receipt_issuer=OperatorRequestReceiptIssuer(
+            signer=_Signer(),
+            producer_service_identity="operator-service",
+            clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        ),
     )
     principal = OperatorPrincipal(
         subject_id="owner-one",
@@ -110,6 +141,24 @@ async def test_clear_acceptance_requires_owner_and_publishes_versioned_request()
     assert publisher.published[0][0] == ORDERED_POISON_HALT_CLEAR_TOPIC
     assert publisher.published[0][1] == "clear-key"
     assert store.proposals[0][0] == "bus.ordered-poison-halt.clear"
+    assert "clear-key" in store.published
+
+
+@pytest.mark.asyncio
+async def test_clear_acceptance_refuses_unavailable_receipt_issuer() -> None:
+    service = OrderedPoisonHaltClearService(
+        store=_Store(),
+        publisher=_Publisher(),
+        clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+    )
+    principal = OperatorPrincipal(
+        subject_id="owner-one",
+        roles=frozenset({OperatorRole.OWNER}),
+        principal_kind=OperatorPrincipalKind.HUMAN,
+    )
+
+    with pytest.raises(RuntimeError, match="receipt issuer is unavailable"):
+        await service.accept(principal=principal, idempotency_key="clear-key", body=_body())
 
 
 @pytest.mark.asyncio
@@ -152,6 +201,11 @@ async def test_clear_acceptance_rejects_non_owner() -> None:
         store=_Store(),
         publisher=_Publisher(),
         clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        receipt_issuer=OperatorRequestReceiptIssuer(
+            signer=_Signer(),
+            producer_service_identity="operator-service",
+            clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        ),
     )
     principal = OperatorPrincipal(
         subject_id="reader-one",
@@ -211,6 +265,11 @@ def _route_client(
                 store=resolved_store,
                 publisher=resolved_publisher,
                 clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+                receipt_issuer=OperatorRequestReceiptIssuer(
+                    signer=_Signer(),
+                    producer_service_identity="operator-service",
+                    clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+                ),
             ),
         ),
         readiness_probe=lambda: True,
@@ -290,3 +349,77 @@ def test_route_accepts_idempotent_replay() -> None:
     assert second.status_code == 202
     assert len(store.proposals) == 1
     assert len(publisher.published) == 1
+
+
+def test_route_returns_unavailable_when_receipt_issuer_is_missing() -> None:
+    authenticator = OperatorAuthenticator(verifier=_verify, group_ids={})
+    authorizer = OperatorFamilyAuthorizer(authenticator)
+    unavailable_conversation = UnavailableConversationAdapters()
+    unavailable_workflow = UnavailableWorkflowAdapters()
+    unavailable_operations = UnavailableOperationsAdapters()
+    app = build_operator_app(
+        authenticator=authenticator,
+        read_model=object(),  # type: ignore[arg-type]
+        data_sources=(),
+        route_families=OperatorRouteFamilies(
+            conversation=ConversationFamilyDependencies(
+                authorizer=authorizer,
+                projections=unavailable_conversation,
+                outbox=unavailable_conversation,
+                streams=unavailable_conversation,
+            ),
+            iam=build_unavailable_iam_bindings(authorizer=authorizer, role_group_ids={}),
+            workflow_authorize=authorizer.workflow,
+            workflow_read_store=unavailable_workflow,
+            workflow_proposal_writer=unavailable_workflow,
+            operations_projection_reader=unavailable_operations,
+            operations_proposal_writer=unavailable_operations,
+            operations_replay_reader=unavailable_operations,
+            operations_webhook_verifier=unavailable_operations,
+            poison_halt_clear=None,
+        ),
+        readiness_probe=lambda: True,
+        live_stream_hub=LiveStreamHub(),
+        agent_stream_hub=LiveStreamHub(),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/operations/bus/ordered-poison-halts/clear",
+        json=_body(),
+        headers={"Authorization": "******", "Idempotency-Key": "clear-route"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["message"] == "ordered poison halt clear is not configured"
+
+
+@pytest.mark.asyncio
+async def test_clear_retry_republishes_when_first_publish_fails_before_send() -> None:
+    store = _Store()
+    publisher = _Publisher(fail_first=True)
+    service = OrderedPoisonHaltClearService(
+        store=store,
+        publisher=publisher,
+        clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        receipt_issuer=OperatorRequestReceiptIssuer(
+            signer=_Signer(),
+            producer_service_identity="operator-service",
+            clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        ),
+    )
+    principal = OperatorPrincipal(
+        subject_id="owner-one",
+        roles=frozenset({OperatorRole.OWNER}),
+        principal_kind=OperatorPrincipalKind.HUMAN,
+    )
+
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        await service.accept(principal=principal, idempotency_key="clear-key", body=_body())
+    receipt = await service.accept(principal=principal, idempotency_key="clear-key", body=_body())
+
+    assert receipt.accepted is True
+    assert len(store.proposals) == 1
+    assert len(publisher.published) == 1
+    assert publisher.published[0][1] == "clear-key"
+    assert "clear-key" in store.published

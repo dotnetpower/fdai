@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -48,6 +49,7 @@ class OrderedPoisonHaltClearProcessor:
     request_ttl: timedelta = _DEFAULT_CLEAR_TTL
     consumer_group_prefix: str = "fdai-pantheon"
     dlq_scan_limit: int = 100
+    dlq_scan_timeout: timedelta = timedelta(seconds=5)
 
     async def handle(
         self,
@@ -91,6 +93,19 @@ class OrderedPoisonHaltClearProcessor:
             "parked_record_digest": request.parked_record_digest,
             "parked_record_metadata": dlq_metadata,
         }
+        if receipt_verification is None or self.operator_request_receipt_gate is None:
+            await self._record_rejected_outcome(request, "receipt_verifier_unbound")
+            return OrderedPoisonHaltClearResult(
+                "rejected",
+                halted=True,
+                reason="receipt_verifier_unbound",
+            )
+        try:
+            await self.operator_request_receipt_gate.commit(receipt_verification)
+        except ValueError as exc:
+            reason = f"receipt_{_safe_reason(str(exc))}"
+            await self._record_rejected_outcome(request, reason)
+            return OrderedPoisonHaltClearResult("rejected", halted=True, reason=reason)
         cleared = await clear_ordered_halt_with_evidence(
             self.halt_state_store,
             group_id=request.group_id,
@@ -113,19 +128,6 @@ class OrderedPoisonHaltClearProcessor:
         if not cleared:
             await self._record_rejected_outcome(request, "halt_mismatch")
             return OrderedPoisonHaltClearResult("rejected", halted=True, reason="halt_mismatch")
-        if receipt_verification is None or self.operator_request_receipt_gate is None:
-            await self._record_rejected_outcome(request, "receipt_verifier_unbound")
-            return OrderedPoisonHaltClearResult(
-                "rejected",
-                halted=True,
-                reason="receipt_verifier_unbound",
-            )
-        try:
-            await self.operator_request_receipt_gate.commit(receipt_verification)
-        except ValueError as exc:
-            reason = f"receipt_{_safe_reason(str(exc))}"
-            await self._record_rejected_outcome(request, reason)
-            return OrderedPoisonHaltClearResult("rejected", halted=True, reason=reason)
         return OrderedPoisonHaltClearResult("cleared", halted=False)
 
     async def _verify_operator_receipt(
@@ -213,17 +215,22 @@ class OrderedPoisonHaltClearProcessor:
         group = f"{self.consumer_group_prefix}.clear-evidence.{request.idempotency_key}"
         stream = self.bus.subscribe(request.parked_record_topic, group)
         try:
-            for _ in range(self.dlq_scan_limit):
-                try:
-                    envelope = await anext(stream)
-                except StopAsyncIteration:
-                    return None
-                if (
-                    envelope.key == request.parked_record_key
-                    and envelope.offset == request.parked_record_offset
-                    and canonical_digest(dict(envelope.payload)) == request.parked_record_digest
-                ):
-                    return envelope.payload
+            try:
+                async with asyncio.timeout(self.dlq_scan_timeout.total_seconds()):
+                    for _ in range(self.dlq_scan_limit):
+                        try:
+                            envelope = await anext(stream)
+                        except StopAsyncIteration:
+                            return None
+                        if (
+                            envelope.key == request.parked_record_key
+                            and envelope.offset == request.parked_record_offset
+                            and canonical_digest(dict(envelope.payload))
+                            == request.parked_record_digest
+                        ):
+                            return envelope.payload
+            except TimeoutError:
+                return None
         finally:
             close = getattr(stream, "aclose", None)
             if close is not None:

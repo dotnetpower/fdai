@@ -47,9 +47,11 @@ def bind_ordered_poison_halt_clear(
     ) -> None:
         result = await poison_clear.handle(request_topic, payload)
         if result.status == "cleared":
+            group_id = str(payload.get("group_id") or "")
             bridge.resume_ordered_consumer_after_clear(
                 topic=str(payload.get("topic") or ""),
                 agent_name=str(payload.get("agent_name") or ""),
+                group_id=group_id or None,
             )
         elif result.status == "rejected":
             bridge.metrics.ordered_poison_clear_rejections += 1

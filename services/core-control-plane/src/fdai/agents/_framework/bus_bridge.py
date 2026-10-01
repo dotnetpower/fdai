@@ -17,11 +17,14 @@ from fdai.agents._framework.bus_bridge_observer import (
 )
 from fdai.agents._framework.bus_metrics import BridgeMetrics
 from fdai.agents._framework.bus_poison_halt import (
-    clear_ordered_halt,
     is_ordered_halted,
     persist_ordered_halt,
 )
-from fdai.agents._framework.bus_poison_resume import resume_ordered_consumer
+from fdai.agents._framework.bus_poison_resume import (
+    clear_ordered_poison_halt,
+    consumer_id_for_group,
+    resume_ordered_consumer,
+)
 from fdai.agents._framework.registry import PantheonRegistry
 from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
@@ -295,7 +298,7 @@ class EventBusBridge:
                         consumer_id=consumer_id,
                         handler=handler,
                     ),
-                    name=f"pantheon-consumer.{agent_name}.{topic}",
+                    name=f"pantheon-consumer.{consumer_id}",
                 )
                 self._tasks.append(task)
         self.metrics.consumers_started = len(self._tasks)
@@ -565,22 +568,22 @@ class EventBusBridge:
             )
 
     async def clear_ordered_poison_halt(self, *, topic: str, agent_name: str) -> bool:
-        if self.halt_state_store is None:
-            return False
-        group_id = f"{self.consumer_group_prefix}.{agent_name}"
-        cleared = await clear_ordered_halt(self.halt_state_store, group_id=group_id, topic=topic)
-        consumer_id = f"{agent_name}:{topic}"
-        if cleared and self._consumer_states.get(consumer_id) == "halted":
-            self._consumer_states[consumer_id] = "cleared"
-            resume_ordered_consumer(self, topic=topic, agent_name=agent_name)
-        return cleared
+        return await clear_ordered_poison_halt(self, topic=topic, agent_name=agent_name)
 
-    def resume_ordered_consumer_after_clear(self, *, topic: str, agent_name: str) -> bool:
-        consumer_id = f"{agent_name}:{topic}"
+    def resume_ordered_consumer_after_clear(
+        self,
+        *,
+        topic: str,
+        agent_name: str,
+        group_id: str | None = None,
+    ) -> bool:
+        consumer_id = consumer_id_for_group(
+            self, agent_name=agent_name, topic=topic, group_id=group_id
+        )
         if self._consumer_states.get(consumer_id) not in {"halted", "cleared"}:
             return False
         self._consumer_states[consumer_id] = "cleared"
-        return resume_ordered_consumer(self, topic=topic, agent_name=agent_name)
+        return resume_ordered_consumer(self, topic=topic, agent_name=agent_name, group_id=group_id)
 
     def _producer_authorized(self, topic: str, payload: Payload) -> bool:
         owner = self.registry.owner_of_topic(topic)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -56,6 +57,39 @@ class _FailOncePublishBus:
         await self.delegate.dead_letter(topic, key, payload, reason)
 
 
+async def _stop_bridge(bridge: EventBusBridge, task: asyncio.Task[None]) -> None:
+    await bridge.stop()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+
+async def _wait_for_consumer_state(
+    bridge: EventBusBridge,
+    consumer_id: str,
+    expected: str,
+) -> None:
+    for _ in range(300):
+        if bridge.snapshot()["consumer_states"].get(consumer_id) == expected:
+            return
+        await asyncio.sleep(0.1)
+    raise TimeoutError(f"{consumer_id} did not reach {expected}")
+
+
+async def _collect_expected(
+    harness: _Harness,
+    topic: str,
+    group: str,
+    *,
+    expected_count: int,
+) -> tuple[Any, ...]:
+    for _ in range(100):
+        delivered = await harness.collect(topic, group, expected_count=expected_count)
+        if len(delivered) >= expected_count:
+            return delivered
+        await asyncio.sleep(0.1)
+    raise TimeoutError(f"{topic} did not deliver {expected_count} record(s)")
+
+
 @pytest.mark.asyncio
 async def test_odin_checkpointed_decision_republishes_after_bridge_redelivery(
     event_bus_harness: _Harness,
@@ -63,29 +97,30 @@ async def test_odin_checkpointed_decision_republishes_after_bridge_redelivery(
 ) -> None:
     input_topic = "object.arbitration-request"
     output_topic = "object.arbitration-decision"
+    correlation_id = f"{event_bus_harness.prefix}-corr-odin-redelivery"
     request = {
         "producer_principal": "Forseti",
-        "correlation_id": "corr-odin-redelivery",
-        "idempotency_key": "arbitration-request:corr-odin-redelivery",
-        "resource_id": "resource-odin",
+        "correlation_id": correlation_id,
+        "idempotency_key": f"arbitration-request:{correlation_id}",
+        "resource_id": f"{event_bus_harness.prefix}-resource-odin",
         "domains_in_conflict": ["cost", "capacity"],
         "impacts": {"cost": 0.7, "capacity": 0.2},
     }
     failing = _FailOncePublishBus(event_bus_harness.bus, fail_topic=output_topic)
     first_agent = Odin(state_store=state_store)
+    first_prefix = event_bus_harness.group("odin-first")
     first_bridge = EventBusBridge(
         provider=failing,
         registry=load_pantheon(),
         max_consumer_restarts=0,
+        consumer_group_prefix=first_prefix,
     )
     first_agent.bind_bus(first_bridge)
     first_bridge.subscribe(input_topic, "Odin", first_agent.on_typed_message)
     await event_bus_harness.bus.publish(input_topic, request["correlation_id"], request)
 
-    await first_bridge.run()
-    assert (
-        first_bridge.snapshot()["consumer_states"]["Odin:object.arbitration-request"] == "gave_up"
-    )
+    first_task = asyncio.create_task(first_bridge.run())
+    await _wait_for_consumer_state(first_bridge, "Odin:object.arbitration-request", "gave_up")
     assert (
         await event_bus_harness.collect(
             output_topic,
@@ -94,21 +129,28 @@ async def test_odin_checkpointed_decision_republishes_after_bridge_redelivery(
         )
         == ()
     )
+    await _stop_bridge(first_bridge, first_task)
 
     second_agent = Odin(state_store=state_store)
-    second_bridge = EventBusBridge(provider=event_bus_harness.bus, registry=load_pantheon())
+    second_bridge = EventBusBridge(
+        provider=event_bus_harness.bus,
+        registry=load_pantheon(),
+        consumer_group_prefix=event_bus_harness.group("odin-second"),
+    )
     second_agent.bind_bus(second_bridge)
     second_bridge.subscribe(input_topic, "Odin", second_agent.on_typed_message)
-    await second_bridge.run()
+    second_task = asyncio.create_task(second_bridge.run())
 
-    delivered = await event_bus_harness.collect(
+    delivered = await _collect_expected(
+        event_bus_harness,
         output_topic,
         event_bus_harness.group("odin-output"),
         expected_count=1,
     )
+    await _stop_bridge(second_bridge, second_task)
     assert len(delivered) == 1
-    assert delivered[0].key == "corr-odin-redelivery"
-    assert delivered[0].payload["idempotency_key"] == ("arbitration-decision:corr-odin-redelivery")
+    assert delivered[0].key == correlation_id
+    assert delivered[0].payload["idempotency_key"] == f"arbitration-decision:{correlation_id}"
     assert canonical_digest(dict(delivered[0].payload)).startswith("sha256:")
 
 

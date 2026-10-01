@@ -1841,6 +1841,28 @@ class PostgresFamilyStore:
             record=stored,
         )
 
+    async def mark_poison_halt_clear_published(self, *, idempotency_key: str) -> bool:
+        """Close one ordered-poison-halt clear proposal after broker acceptance."""
+
+        key = _proposal_key("operations", idempotency_key)
+        rows = await self._fetch_all(
+            """
+            UPDATE state_kv
+               SET value = value || jsonb_build_object(
+                   'dispatch_status', 'published',
+                   'published_at', NOW()
+               ),
+                   updated_at = NOW()
+             WHERE key = %(key)s
+               AND value ->> 'family' = 'operations'
+               AND value ->> 'operation' = 'bus.ordered-poison-halt.clear'
+               AND value ->> 'dispatch_status' IN ('pending', 'claimed')
+         RETURNING value
+            """,
+            {"key": key},
+        )
+        return bool(rows)
+
     async def append_guarded_workflow_transition_proposal(
         self,
         *,
@@ -3388,6 +3410,10 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         idempotency_key: str,
     ) -> StoredProposal | None:
         del family, idempotency_key
+        raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
+
+    async def mark_poison_halt_clear_published(self, *, idempotency_key: str) -> bool:
+        del idempotency_key
         raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
 
     async def append_revisioned_proposal(

@@ -32,6 +32,10 @@ class PoisonHaltProposalStore(Protocol):
         accepted_at: datetime | None = None,
     ) -> object: ...
 
+    async def mark_poison_halt_clear_published(self, *, idempotency_key: str) -> bool:
+        """Mark one poison-halt clear proposal after broker acceptance."""
+        ...
+
 
 class PoisonHaltClearPublisher(Protocol):
     """Publish an accepted clear request to Core."""
@@ -64,6 +68,8 @@ class OrderedPoisonHaltClearService:
         idempotency_key: str,
         body: Mapping[str, object],
     ) -> OrderedPoisonHaltClearAcceptance:
+        if self.receipt_issuer is None:
+            raise RuntimeError("ordered poison halt clear receipt issuer is unavailable")
         if principal.principal_kind is not OperatorPrincipalKind.HUMAN:
             raise PermissionError("ordered poison halt clear requires a human principal")
         if OperatorRole.OWNER not in principal.roles or OperatorRole.BREAK_GLASS in principal.roles:
@@ -81,10 +87,9 @@ class OrderedPoisonHaltClearService:
             }
         )
         payload = request.model_dump(mode="json")
-        if self.receipt_issuer is not None:
-            payload["operator_request_receipt"] = self.receipt_issuer.issue(
-                ordered_poison_halt_clear_receipt_event(payload)
-            ).model_dump(mode="json")
+        payload["operator_request_receipt"] = self.receipt_issuer.issue(
+            ordered_poison_halt_clear_receipt_event(payload)
+        ).model_dump(mode="json")
         stored = await self.store.append_proposal(
             family="operations",
             operation="bus.ordered-poison-halt.clear",
@@ -93,12 +98,19 @@ class OrderedPoisonHaltClearService:
             payload=payload,
             accepted_at=accepted_at,
         )
-        if not bool(getattr(stored, "duplicate", False)):
+        stored_payload = _stored_payload(stored) or payload
+        dispatch_status = _stored_dispatch_status(stored)
+        if dispatch_status != "published":
             await self.publisher.publish(
                 ORDERED_POISON_HALT_CLEAR_TOPIC,
                 request.idempotency_key,
-                payload,
+                stored_payload,
             )
+            marked = await self.store.mark_poison_halt_clear_published(
+                idempotency_key=idempotency_key
+            )
+            if not marked:
+                raise RuntimeError("ordered poison halt clear publication state was not recorded")
         return OrderedPoisonHaltClearAcceptance(
             accepted=True,
             request_id=request.request_id,
@@ -109,6 +121,22 @@ class OrderedPoisonHaltClearService:
 def _request_id(principal_id: str, idempotency_key: str) -> str:
     digest = hashlib.sha256(f"{principal_id}\0{idempotency_key}".encode()).hexdigest()
     return f"ordered-poison-halt-clear:{digest}"
+
+
+def _stored_payload(stored: object) -> Mapping[str, object] | None:
+    record = getattr(stored, "record", None)
+    if not isinstance(record, Mapping):
+        return None
+    payload = record.get("payload")
+    return payload if isinstance(payload, Mapping) else None
+
+
+def _stored_dispatch_status(stored: object) -> str:
+    record = getattr(stored, "record", None)
+    if not isinstance(record, Mapping):
+        return ""
+    status = record.get("dispatch_status")
+    return status if isinstance(status, str) else ""
 
 
 __all__ = [

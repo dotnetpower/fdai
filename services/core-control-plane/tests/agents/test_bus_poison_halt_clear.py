@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -24,6 +25,7 @@ from fdai_service_contracts.bus_poison_halt_clear import (
 from fdai_service_contracts.compatibility import canonical_digest
 from fdai_service_contracts.operator import OperatorPrincipalKind, OperatorRole
 from fdai_service_contracts.operator_request_receipt import (
+    OperatorRequestReceipt,
     operator_request_public_key_from_seed,
     sign_operator_request_receipt,
 )
@@ -58,6 +60,34 @@ class _UnboundVerifier:
     def verify_operator_request_receipt(self, *, receipt: object, signing_bytes: bytes) -> bool:
         del receipt, signing_bytes
         return False
+
+
+class _CommitFailingReceiptGate:
+    async def verify(self, raw: Mapping[str, Any]) -> Any:
+        receipt = OperatorRequestReceipt.model_validate(raw["operator_request_receipt"])
+        return type("Verified", (), {"receipt": receipt, "replay_key": "replay-key"})()
+
+    async def commit(self, _verified: Any) -> OperatorRequestReceipt:
+        raise ValueError("expired")
+
+
+class _NeverDlqBus(InMemoryEventBus):
+    def subscribe(self, topic: str, group_id: str) -> Any:
+        if topic.endswith(".dlq"):
+            return _NeverStream()
+        return super().subscribe(topic, group_id)
+
+
+class _NeverStream:
+    def __aiter__(self) -> _NeverStream:
+        return self
+
+    async def __anext__(self) -> Any:
+        await asyncio.Event().wait()
+        raise StopAsyncIteration
+
+    async def aclose(self) -> None:
+        return None
 
 
 def _receipt_gate(
@@ -431,6 +461,148 @@ async def test_ordered_poison_halt_clear_accepts_halted_multi_handler_group() ->
 
     assert result.status == "cleared"
     assert (await store.read_state(halt_key(group, _TOPIC)))["status"] == "cleared"  # type: ignore[index]
+
+
+@pytest.mark.asyncio
+async def test_ordered_poison_halt_clear_keeps_halt_when_receipt_commit_fails() -> None:
+    bus = InMemoryEventBus()
+    store = InMemoryStateStore()
+    halt = {
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "status": "halted",
+        "consumer_id": f"{_AGENT}:{_TOPIC}",
+        "group_id": _GROUP,
+        "topic": _TOPIC,
+        "partition_key": "resource-one",
+        "offset": 0,
+    }
+    halt["halt_record_digest"] = halt_record_digest(halt)
+    await store.write_state(halt_key(_GROUP, _TOPIC), halt)
+    parked = {
+        "payload": "halted",
+        "__fdai_dlq_metadata__": {
+            "consumer_group": _GROUP,
+            "agent": _AGENT,
+            "topic": _TOPIC,
+            "offset": 0,
+        },
+    }
+    await bus.dead_letter(_TOPIC, "resource-one", parked, reason="handler error")
+    dlq = [envelope async for envelope in bus.subscribe(f"{_TOPIC}.dlq", "dlq-evidence")]
+    request = {
+        "request_id": "clear-commit-fails",
+        "idempotency_key": "clear-commit-fails",
+        "requested_at": _NOW,
+        "principal_id": "owner-one",
+        "principal_kind": OperatorPrincipalKind.HUMAN,
+        "principal_roles": (OperatorRole.OWNER,),
+        "group_id": _GROUP,
+        "agent_name": _AGENT,
+        "topic": _TOPIC,
+        "halt_revision": 1,
+        "halt_record_digest": halt_record_digest(halt),
+        "parked_record_topic": f"{_TOPIC}.dlq",
+        "parked_record_key": dlq[0].key,
+        "parked_record_offset": dlq[0].offset,
+        "parked_record_digest": canonical_digest(dict(dlq[0].payload)),
+    }
+    processor = OrderedPoisonHaltClearProcessor(
+        bus=bus,
+        halt_state_store=store,
+        audit_store=store,
+        operator_request_receipt_gate=_CommitFailingReceiptGate(),  # type: ignore[arg-type]
+        clock=lambda: _NOW,
+    )
+
+    result = await processor.handle(ORDERED_POISON_HALT_CLEAR_TOPIC, _signed_clear_request(request))
+
+    assert result.reason == "receipt_expired"
+    assert (await store.read_state(halt_key(_GROUP, _TOPIC)))["status"] == "halted"  # type: ignore[index]
+
+
+@pytest.mark.asyncio
+async def test_ordered_poison_halt_clear_bounds_parked_record_scan_by_timeout() -> None:
+    bus = _NeverDlqBus()
+    store = InMemoryStateStore()
+    halt = {
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "status": "halted",
+        "consumer_id": f"{_AGENT}:{_TOPIC}",
+        "group_id": _GROUP,
+        "topic": _TOPIC,
+        "partition_key": "resource-one",
+        "offset": 0,
+    }
+    halt["halt_record_digest"] = halt_record_digest(halt)
+    await store.write_state(halt_key(_GROUP, _TOPIC), halt)
+    request = {
+        "request_id": "clear-scan-timeout",
+        "idempotency_key": "clear-scan-timeout",
+        "requested_at": _NOW,
+        "principal_id": "owner-one",
+        "principal_kind": OperatorPrincipalKind.HUMAN,
+        "principal_roles": (OperatorRole.OWNER,),
+        "group_id": _GROUP,
+        "agent_name": _AGENT,
+        "topic": _TOPIC,
+        "halt_revision": 1,
+        "halt_record_digest": halt_record_digest(halt),
+        "parked_record_topic": f"{_TOPIC}.dlq",
+        "parked_record_key": "resource-one",
+        "parked_record_offset": 0,
+        "parked_record_digest": "sha256:" + "b" * 64,
+    }
+    processor = OrderedPoisonHaltClearProcessor(
+        bus=bus,
+        halt_state_store=store,
+        audit_store=store,
+        operator_request_receipt_gate=_receipt_gate(store),
+        clock=lambda: _NOW,
+        dlq_scan_timeout=timedelta(milliseconds=10),
+    )
+
+    result = await asyncio.wait_for(
+        processor.handle(ORDERED_POISON_HALT_CLEAR_TOPIC, _signed_clear_request(request)),
+        timeout=1,
+    )
+
+    assert result.reason == "parked_missing"
+    assert (await store.read_state(halt_key(_GROUP, _TOPIC)))["status"] == "halted"  # type: ignore[index]
+
+
+@pytest.mark.asyncio
+async def test_resume_after_clear_targets_exact_halted_ordinal_consumer() -> None:
+    bus = InMemoryEventBus()
+    store = InMemoryStateStore()
+    bridge = EventBusBridge(provider=bus, registry=load_pantheon(), halt_state_store=store)
+
+    async def handler_one(_topic: str, _payload: dict[str, object]) -> None:
+        return None
+
+    async def handler_two(_topic: str, _payload: dict[str, object]) -> None:
+        return None
+
+    bridge.subscribe(_TOPIC, _AGENT, handler_one)
+    bridge.subscribe(_TOPIC, _AGENT, handler_two)
+    group = f"fdai-pantheon.{_AGENT}.object-action-run.1"
+    bridge._consumer_states[f"{_AGENT}:{_TOPIC}#1"] = "halted"  # noqa: SLF001
+    bridge._consumer_states[f"{_AGENT}:{_TOPIC}#2"] = "halted"  # noqa: SLF001
+
+    resumed = bridge.resume_ordered_consumer_after_clear(
+        topic=_TOPIC,
+        agent_name=_AGENT,
+        group_id=group,
+    )
+
+    assert resumed is True
+    assert bridge._consumer_states[f"{_AGENT}:{_TOPIC}#1"] == "cleared"  # noqa: SLF001
+    assert bridge._consumer_states[f"{_AGENT}:{_TOPIC}#2"] == "halted"  # noqa: SLF001
+    assert [task.get_name() for task in bridge._tasks] == [  # noqa: SLF001
+        f"pantheon-consumer.{_AGENT}:{_TOPIC}#1"
+    ]
+    await bridge.stop()
 
 
 @pytest.mark.asyncio

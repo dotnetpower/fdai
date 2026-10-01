@@ -139,6 +139,7 @@ def _build_route_families(
         unavailable_workflow = UnavailableWorkflowAdapters()
         unavailable_operations = UnavailableOperationsAdapters()
         unavailable_cost = UnavailableCostGovernanceReader()
+        poison_halt_clear_receipt_issuer = _operator_request_receipt_issuer(environment)
         routes = OperatorRouteFamilies(
             conversation=ConversationFamilyDependencies(
                 authorizer=authorizer,
@@ -330,9 +331,9 @@ def _build_route_families(
             OrderedPoisonHaltClearService(
                 store=store,
                 publisher=semantic_bus,
-                receipt_issuer=_operator_request_receipt_issuer(environment),
+                receipt_issuer=poison_halt_clear_receipt_issuer,
             )
-            if semantic_bus is not None
+            if semantic_bus is not None and poison_halt_clear_receipt_issuer is not None
             else None
         ),
     )

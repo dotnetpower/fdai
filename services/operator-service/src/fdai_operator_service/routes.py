@@ -415,6 +415,8 @@ def build_operator_app(
             )
         except PermissionError:
             return _error(403, "ordered poison halt clear requires Owner")
+        except RuntimeError as exc:
+            return _error(503, str(exc))
         except ValueError:
             return _error(400, "invalid ordered poison halt clear request")
         return JSONResponse(

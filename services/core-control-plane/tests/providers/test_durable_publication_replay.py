@@ -77,7 +77,8 @@ async def _var_final_approval(
     store: StateStore,
     payload: Mapping[str, object],
 ) -> int:
-    correlation_digest = hashlib.sha256(b"corr-var-replay").hexdigest()
+    correlation_id = str(payload["correlation_id"])
+    correlation_digest = hashlib.sha256(correlation_id.encode()).hexdigest()
     key = f"pantheon/var/approval/{correlation_digest}/non-action/final"
     await store.write_state(
         key,
@@ -85,7 +86,7 @@ async def _var_final_approval(
             "schema_version": "1.0.0",
             "record_kind": "final_approval",
             "revision": 1,
-            "correlation_id": "corr-var-replay",
+            "correlation_id": correlation_id,
             "publication_status": "pending",
             "approval": dict(payload),
         },
@@ -114,11 +115,12 @@ async def _muninn_publication(
     store: StateStore,
     payload: Mapping[str, object],
 ) -> int:
+    outbox_key = str(payload["idempotency_key"]).replace(":", "-")
     muninn = Muninn(durable_state_store=store)
     muninn.bind_bus(_AgentBus(harness.bus, fail_first=True))  # type: ignore[arg-type]
     with pytest.raises(EventPublishNotAttemptedError):
         await muninn._publish_with_outbox(  # noqa: SLF001
-            "pantheon/muninn/operational-outbox/replay/one",
+            f"pantheon/muninn/operational-outbox/replay/{outbox_key}",
             "object.context-index",
             dict(payload),
         )
@@ -132,7 +134,7 @@ async def _mimir_publication(
     store: StateStore,
     payload: Mapping[str, object],
 ) -> int:
-    key = "mimir-rule-replay"
+    key = str(payload["idempotency_key"])
     await store.write_state(
         f"pantheon/mimir/governance/rule-publications/{key}",
         {
@@ -249,6 +251,15 @@ _CASES = (
 )
 
 
+def _scoped_payload(payload: Mapping[str, object], prefix: str) -> dict[str, object]:
+    scoped = dict(payload)
+    for field in ("idempotency_key", "correlation_id", "resource_id", "rule_id"):
+        value = scoped.get(field)
+        if isinstance(value, str):
+            scoped[field] = f"{prefix}-{value}"
+    return scoped
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", _CASES, ids=[case.family for case in _CASES])
 async def test_pending_publication_replays_same_idempotency_key_after_broker_interruption(
@@ -256,7 +267,9 @@ async def test_pending_publication_replays_same_idempotency_key_after_broker_int
     event_bus_harness: _Harness,
     state_store: StateStore,
 ) -> None:
-    recovered = await case.run(event_bus_harness, state_store, case.payload)
+    payload = _scoped_payload(case.payload, event_bus_harness.prefix)
+    expected_key = str(payload["idempotency_key"])
+    recovered = await case.run(event_bus_harness, state_store, payload)
     assert recovered >= 1
 
     delivered = await event_bus_harness.collect(
@@ -265,9 +278,9 @@ async def test_pending_publication_replays_same_idempotency_key_after_broker_int
         expected_count=1,
     )
     assert len(delivered) == 1
-    assert delivered[0].key == case.idempotency_key
-    assert delivered[0].payload["idempotency_key"] == case.idempotency_key
-    assert canonical_digest(dict(delivered[0].payload)) == canonical_digest(case.payload)
+    assert delivered[0].key == expected_key
+    assert delivered[0].payload["idempotency_key"] == expected_key
+    assert canonical_digest(dict(delivered[0].payload)) == canonical_digest(payload)
 
 
 def test_inventoried_families_without_broker_replay_are_not_authority_publications() -> None:
