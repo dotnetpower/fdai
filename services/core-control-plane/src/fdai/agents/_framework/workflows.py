@@ -43,6 +43,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         trace_assertions=(
             "cost_advisory_measured",
             "cost_ceiling_blocks_auto",
+            "cost_annotation_attached_to_verdict",
             "terminal_action_run_audited",
         ),
         planned_agents=("Heimdall",),
@@ -60,6 +61,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
             "forecast_leads_reactive_baseline",
             "false_positive_baseline_checked",
             "arbitration_request_on_cost_conflict",
+            "recurring_sample_maps_to_shadow_scale_verdict",
         ),
         planned_agents=("Thor",),
     ),
@@ -67,7 +69,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         id="dr-drill-orchestration",
         name="DR drill orchestration",
         primary_agent="Loki",
-        participating_agents=("Loki", "Saga"),
+        participating_agents=("Loki", "Thor", "Vidar", "Saga"),
         trigger="Loki weekly schedule",
         default_mode="shadow",
         promotion_gate=(
@@ -75,8 +77,13 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
             "zero unplanned prod side-effects"
         ),
         trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_dr_drill_orchestration_respects_blast_radius",
-        trace_assertions=("blast_radius_capped", "proposal_audited"),
-        planned_agents=("Forseti", "Var", "Vidar", "Heimdall", "Norns"),
+        trace_assertions=(
+            "blast_radius_capped",
+            "recurring_scheduler_publishes_hil_drill_window",
+            "proposal_audited",
+            "vidar_dr_contract_gates_failover_recovery_time",
+        ),
+        planned_agents=("Forseti", "Var", "Heimdall", "Norns"),
     ),
     WorkflowSpec(
         id="override-discovery",
@@ -119,7 +126,12 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
             "90d shadow; conversion (handoff -> promoted rule) baseline; false-close rate < 2%"
         ),
         trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_keeps_issue_open_without_promotion",
-        trace_assertions=("candidate_deduped", "failed_promotion_keeps_issue_open"),
+        trace_assertions=(
+            "candidate_deduped",
+            "failed_promotion_keeps_issue_open",
+            "norns_quiet_window_signal_is_inert",
+            "promotion_evidence_closes_after_clean_window",
+        ),
         planned_agents=("Bragi",),
     ),
     WorkflowSpec(
@@ -153,13 +165,17 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         id="rollback-rehearsal",
         name="Rollback rehearsal",
         primary_agent="Loki",
-        participating_agents=("Loki", "Saga"),
+        participating_agents=("Loki", "Vidar", "Saga"),
         trigger="Loki monthly schedule",
         default_mode="shadow",
         promotion_gate="3 successful rehearsals per ActionType before enforce eligibility",
         trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_blocks_overlapping_loki_targets",
-        trace_assertions=("blast_radius_full_blocks_overlap", "proposal_audited"),
-        planned_agents=("Forseti", "Var", "Vidar", "Heimdall"),
+        trace_assertions=(
+            "blast_radius_full_blocks_overlap",
+            "proposal_audited",
+            "vidar_records_non_mutating_rehearsal_receipt",
+        ),
+        planned_agents=("Forseti", "Var", "Heimdall"),
     ),
     WorkflowSpec(
         id="retrospective-what-if",
@@ -170,7 +186,11 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         default_mode="shadow",
         promotion_gate="inherently shadow - never promoted",
         trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_retrospective_what_if_is_judge_only",
-        trace_assertions=("overlay_rejudgment_reproducible", "no_action_run_published"),
+        trace_assertions=(
+            "overlay_rejudgment_reproducible",
+            "no_action_run_published",
+            "versioned_what_if_disagreement_evidence_inert",
+        ),
         planned_agents=("Bragi", "Norns", "Mimir"),
     ),
     WorkflowSpec(

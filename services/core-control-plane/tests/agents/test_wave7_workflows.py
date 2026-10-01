@@ -13,18 +13,30 @@ from __future__ import annotations
 import ast
 import asyncio
 import re
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
+from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
+from fdai.agents._framework.bragi_publication import handoff_event_payload
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.forseti_judgment import RISK_VERDICT, RULE_MATCH, JudgmentTable
+from fdai.agents._framework.freyr_sampling import UtilizationSample
+from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
+from fdai.agents._framework.mimir_maintenance import (
+    MimirCatalogPromotionOutcome,
+    MimirRegressionResult,
+)
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.topics import stable_idempotency_key
+from fdai.agents._framework.vidar_dr import DR_CONTRACT_KIND, DR_OUTCOME_KIND
+from fdai.agents._framework.vidar_rehearsal import REHEARSAL_KIND
 from fdai.agents._framework.workflows import WORKFLOWS, workflow
 from fdai.agents.forseti import Forseti
 from fdai.agents.freyr import Freyr
@@ -35,13 +47,19 @@ from fdai.agents.njord import Njord
 from fdai.agents.norns import Norns
 from fdai.agents.odin import Odin
 from fdai.agents.saga import Saga, compute_fingerprint
-from fdai.agents.thor import Thor
+from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.var import Var
+from fdai.agents.vidar import Vidar
+from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.cost_governance import SignedCostEffectEstimate
+from fdai.shared.providers.local.event_bus import LocalEventBus
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from tests.agents.preflight_helpers import PassingPreflightSimulator
 
 _DOCSTRING_WORKFLOW_COUNT = 13
+_NOW = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+_DIGEST = "sha256:" + "a" * 64
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,8 +83,90 @@ class _StaticCostProvider:
         )
 
 
+class _Sampler:
+    def __init__(self, samples: Sequence[UtilizationSample]) -> None:
+        self.samples = tuple(samples)
+
+    async def read_utilization_samples(
+        self,
+        *,
+        limit: int,
+        observed_at: datetime,
+    ) -> Sequence[UtilizationSample]:
+        assert limit > 0
+        assert observed_at.tzinfo is not None
+        return self.samples
+
+
+class _RegressionRunner:
+    def __init__(self, *, started_at: datetime) -> None:
+        self.started_at = started_at
+
+    async def run_regression(
+        self,
+        outcome: MimirCatalogPromotionOutcome,
+        *,
+        now: datetime,
+    ) -> MimirRegressionResult:
+        return MimirRegressionResult(
+            passed=True,
+            started_at=self.started_at,
+            completed_at=self.started_at + timedelta(minutes=5),
+            evidence_ref=f"regression:{outcome.rule_id}",
+        )
+
+
+class _PromotionReader:
+    def __init__(self, outcomes: Sequence[MimirCatalogPromotionOutcome]) -> None:
+        self.outcomes = tuple(outcomes)
+
+    async def read_promotion_outcomes(
+        self,
+        *,
+        limit: int,
+        now: datetime,
+    ) -> Sequence[MimirCatalogPromotionOutcome]:
+        return self.outcomes[:limit]
+
+
+class _RehearsalPort:
+    async def rehearse(self, command: dict[str, Any]) -> dict[str, str]:
+        assert command["mode"] == "dry_run"
+        return {
+            "outcome": "passed",
+            "reason": "rehearsal_passed",
+            "rehearsal_version": "1.0.0",
+        }
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
+
+
+async def _run_until(
+    runtime: PantheonRuntime,
+    predicate: Callable[[], bool],
+    *,
+    steps: int = 2000,
+) -> None:
+    run_task = asyncio.create_task(runtime.run())
+    try:
+        for _ in range(steps):
+            await asyncio.sleep(0)
+            if predicate():
+                return
+        raise AssertionError("runtime condition was not observed")
+    finally:
+        await runtime.stop()
+        run_task.cancel()
+        try:
+            await run_task
+        except (asyncio.CancelledError, Exception):  # noqa: S110 - cleanup path
+            pass
+
+
+def _published_payloads(provider: LocalEventBus, topic: str) -> list[dict[str, Any]]:
+    return [dict(payload) for _key, payload in provider._records.get(topic, [])]
 
 
 def _assert_published_payloads_are_traceable(bus: InMemoryBus) -> None:
@@ -113,6 +213,40 @@ def _agents_from_line(section: str, label: str) -> tuple[str, ...]:
         match.group(1),
     )
     return tuple(dict.fromkeys(names))
+
+
+def _assert_trace_assertions_in_section(
+    *,
+    workflow_id: str,
+    trace_assertions: tuple[str, ...],
+    section: str,
+) -> None:
+    for assertion in trace_assertions:
+        assert assertion in section, (workflow_id, assertion)
+
+
+def _assert_planned_exit_condition_parity(
+    *,
+    workflow_id: str,
+    planned_agents: tuple[str, ...],
+    section: str,
+) -> None:
+    planned_conditions = re.findall(
+        r"Planned exit condition: (.*?)(?=\n\n|\Z)",
+        section,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    if not planned_agents:
+        assert not planned_conditions, workflow_id
+        return
+    assert len(planned_conditions) == 1, workflow_id
+    condition = " ".join(planned_conditions[0].split())
+    for agent in planned_agents:
+        assert agent in condition, (workflow_id, agent, condition)
+    assert re.search(
+        r"\b(feed|publish|dispatch|observe|report|compare|raise|deliver|generate|route|select|materialize|verify|execute|consume|join|fetch|review|exist|close|retain)\b",
+        condition,
+    ), (workflow_id, condition)
 
 
 def test_workflow_catalog_has_thirteen_entries() -> None:
@@ -167,8 +301,41 @@ def test_rollout_gate_is_bound_to_trace_assertion_metadata() -> None:
     for item in WORKFLOWS:
         assert item.trace_assertions, item.id
         section = _workflow_doc_section(item.id)
-        for assertion in item.trace_assertions:
-            assert assertion in section, (item.id, assertion)
+        _assert_trace_assertions_in_section(
+            workflow_id=item.id,
+            trace_assertions=item.trace_assertions,
+            section=section,
+        )
+
+
+def test_planned_exit_conditions_match_planned_agents() -> None:
+    for item in WORKFLOWS:
+        _assert_planned_exit_condition_parity(
+            workflow_id=item.id,
+            planned_agents=item.planned_agents,
+            section=_workflow_doc_section(item.id),
+        )
+
+
+def test_planned_exit_condition_parity_negative_self_check() -> None:
+    with pytest.raises(AssertionError):
+        _assert_planned_exit_condition_parity(
+            workflow_id="synthetic-empty",
+            planned_agents=(),
+            section="- Planned exit condition: Bragi delivers a report.",
+        )
+    with pytest.raises(AssertionError):
+        _assert_planned_exit_condition_parity(
+            workflow_id="synthetic-missing-agent",
+            planned_agents=("Bragi",),
+            section="- Planned exit condition: Norns publishes a candidate.",
+        )
+    with pytest.raises(AssertionError):
+        _assert_trace_assertions_in_section(
+            workflow_id="synthetic-missing-assertion",
+            trace_assertions=("missing_trace_assertion",),
+            section="Current trace assertion `other`: present.",
+        )
 
 
 def test_workflow_lookup_by_id() -> None:
@@ -221,6 +388,13 @@ def test_workflow_cost_aware_remediation_shadow_trace() -> None:
                 "event_type": "public_network_enabled",
                 "resource_id": "sa-1",
                 "correlation_id": "corr-cost",
+                "cost_annotation": {
+                    "state": "measured",
+                    "monthly_delta_usd": 42.5,
+                    "observed_at": "2026-09-30T00:00:00+00:00",
+                    "evidence_refs": ["cost:estimate:1"],
+                    "evidence_digests": ["sha256:" + "c" * 64],
+                },
             }
         )
     )
@@ -231,6 +405,9 @@ def test_workflow_cost_aware_remediation_shadow_trace() -> None:
     assert est.evidence_state == "measured"
     assert _cost_ceiling_disposition(est.monthly_delta_usd, ceiling_usd=50.0) == "under_ceiling"
     assert _cost_ceiling_disposition(est.monthly_delta_usd, ceiling_usd=40.0) == "requires_hil"
+    verdict = bus.messages_on("object.verdict")[0].payload
+    assert verdict["cost_annotation"]["state"] == "measured"
+    assert verdict["cost_annotation"]["estimate"] == {"monthly_delta": 42.5, "currency": "USD"}
     # Verdict must have been auto-executed by Thor and audited by Saga.
     action_runs = bus.messages_on("object.action-run")
     assert any(m.payload["state"] == "effect_pending" for m in action_runs)
@@ -243,6 +420,79 @@ def _cost_ceiling_disposition(monthly_delta_usd: float | None, *, ceiling_usd: f
     if monthly_delta_usd is None:
         return "cost_evidence_unavailable"
     return "requires_hil" if monthly_delta_usd > ceiling_usd else "under_ceiling"
+
+
+def _safeguards(idempotency_key: str) -> dict[str, object]:
+    return {
+        "stop_condition": "stop when independent failover verification is missing",
+        "tested_rollback_contract": "scripted:failback-tested",
+        "blast_radius_limit": {"scope": "resource", "max_targets": 1},
+        "dry_run_evidence": "declared_obligation",
+        "dry_run_receipt": "sha256:" + "1" * 64,
+        "logical_target_lock": "lock:resource:primary",
+        "stable_idempotency_key": idempotency_key,
+        "two_phase_audit_intent": "audit-intent:failover",
+    }
+
+
+def _failover_verdict(*, correlation_id: str) -> dict[str, Any]:
+    idempotency_key = f"idem:{correlation_id}"
+    return {
+        "producer_principal": "Forseti",
+        "correlation_id": correlation_id,
+        "idempotency_key": idempotency_key,
+        "action_type": "ops.failover-primary",
+        "risk_verdict": "hil",
+        "resolved_autonomy_ceiling": Autonomy.ENFORCE_HIL.value,
+        "resource_id": "resource:primary",
+        "rollback_contract": "scripted",
+        "quorum_required": 2,
+        "params": {
+            "target_resource_ref": "resource:primary",
+            "target_region": "eastus2",
+            "reason": "scheduled DR drill",
+            "recovery_time_budget_seconds": 300,
+        },
+        "safeguards": _safeguards(idempotency_key),
+        "workflow_action": {
+            "workflow_id": "dr-drill-orchestration",
+            "step_id": "dr_drill",
+        },
+    }
+
+
+def _approval_for_run(run: Any) -> dict[str, Any]:
+    return {
+        "producer_principal": "Var",
+        "kind": "action",
+        "state": "approved",
+        "correlation_id": run.correlation_id,
+        "idempotency_key": f"approval:{run.idempotency_key}",
+        "action_type": run.action_type,
+        "action_run_identity": action_run_identity_digest(run.to_dict()),
+        "action_idempotency_key": run.idempotency_key,
+        "resource_id": run.resource_id,
+        "rollback_contract": run.rollback_contract,
+        "approvers": ["one@example.com", "two@example.com"],
+    }
+
+
+def _effect_observation(run: Any) -> dict[str, Any]:
+    return {
+        "producer_principal": "Heimdall",
+        "schema_version": "1.0.0",
+        "event_type": "action.execution.effect_verified.v1",
+        "correlation_id": run.correlation_id,
+        "idempotency_key": f"effect:{run.idempotency_key}",
+        "action_id": run.action_id,
+        "action_type": run.action_type,
+        "resource_id": run.resource_id,
+        "action_idempotency_key": run.idempotency_key,
+        "params": run.params,
+        "effect_verification_ref": _DIGEST,
+        "execution_closure_ref": "sha256:" + "b" * 64,
+        "observed_at": (_NOW + timedelta(seconds=45)).isoformat(),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +557,38 @@ def test_workflow_predictive_scale_shadow_trace() -> None:
     assert arbitration_requests[0].payload["domains_in_conflict"] == ["capacity", "cost"]
     _assert_published_payloads_are_traceable(bus)
 
+    provider = LocalEventBus()
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic="fdai.events.predictive-scale",
+        governed_execution_selected=True,
+    )
+    runtime_freyr = runtime.agents["Freyr"]
+    assert isinstance(runtime_freyr, Freyr)
+    runtime_freyr.bind_utilization_sampler(
+        _Sampler(
+            (
+                UtilizationSample(
+                    resource_id="vm-recurring",
+                    utilization=0.91,
+                    correlation_id="predictive-scale-recurring",
+                    observed_at="2028-01-02T01:00:00+00:00",
+                ),
+            )
+        )
+    )
+
+    async def _drive_sampled_forecast() -> None:
+        await runtime_freyr.maintenance_tick()
+        await _run_until(runtime, lambda: bool(_published_payloads(provider, "object.verdict")))
+
+    asyncio.run(_drive_sampled_forecast())
+    (runtime_verdict,) = _published_payloads(provider, "object.verdict")
+    assert runtime_verdict["action_type"] == "ops.scale-out"
+    assert runtime_verdict["risk_verdict"] == "hil"
+    assert runtime_verdict["resolved_autonomy_ceiling"] == "shadow_only"
+    assert runtime_verdict["source_mode"] == "shadow"
+
 
 def _forecast_leads_reactive_baseline(
     forecast: dict[str, Any],
@@ -345,6 +627,83 @@ def test_workflow_dr_drill_orchestration_respects_blast_radius() -> None:
     assert bus.messages_on("object.chaos-experiment")[-1].payload["human_approval_required"] is True
     assert saga.audit_chain.entries[-1].topic == "object.chaos-experiment"
     _assert_published_payloads_are_traceable(bus)
+
+    scheduled_bus = InMemoryBus(registry=reg, isolate_handlers=False)
+    scheduled_loki = Loki(
+        bus=scheduled_bus,
+        state_store=InMemoryStateStore(),
+        clock=lambda: _NOW,
+        recurring_schedule=ChaosScheduleConfig(
+            schedule_id="weekly-dr",
+            cadence=timedelta(hours=1),
+            targets=("dc-shadow",),
+            causal_hypothesis_ref="hypothesis:dr",
+            refutation_query_ref="query:dr",
+            impact_envelope_id="impact:dr",
+            recovery_plan_id="recovery:dr",
+            dry_run_receipt="dry-run:dr",
+            start_at=_NOW - timedelta(hours=1),
+        ),
+    )
+    asyncio.run(scheduled_loki.maintenance_tick())
+    (scheduled_proposal,) = (
+        message.payload for message in scheduled_bus.messages_on("object.chaos-experiment")
+    )
+    assert scheduled_proposal["human_approval_required"] is True
+    assert scheduled_proposal["dry_run_receipt"] == "dry-run:dr"
+
+    executed: list[str] = []
+
+    async def executor(ctx: dict[str, Any]) -> bool:
+        executed.append(ctx["run"].correlation_id)
+        return True
+
+    async def audit(_run: Any) -> str:
+        return "audit:dr-drill"
+
+    async def failback(_command: dict[str, Any]) -> str:
+        return "failback:ready"
+
+    dr_bus = InMemoryBus(registry=reg)
+    thor = Thor(
+        bus=dr_bus,
+        executor=executor,
+        execution_audit_recorder=audit,
+        preflight_simulator=PassingPreflightSimulator(),
+        clock=lambda: _NOW,
+    )
+    vidar = Vidar(
+        bus=dr_bus,
+        executors={"scripted": failback},
+        state_store=InMemoryStateStore(),
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        clock=lambda: _NOW,
+    )
+    dr_bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)
+    dr_bus.subscribe("object.rollback", "Thor", thor.on_typed_message)
+    dr_bus.subscribe("object.recovery-effect-observation", "Thor", thor.on_typed_message)
+
+    run = asyncio.run(thor.dispatch_verdict(_failover_verdict(correlation_id="corr-dr-drill")))
+    assert run.state is ActionRunState.HIL_PENDING
+    asyncio.run(thor.on_typed_message("object.approval", _approval_for_run(run)))
+    assert run.state is ActionRunState.EFFECT_PENDING
+    assert executed == ["corr-dr-drill"]
+    decisions = [
+        message.payload
+        for message in dr_bus.messages_on("object.rollback")
+        if message.payload.get("kind") == DR_CONTRACT_KIND
+    ]
+    assert decisions[-1]["decision"] == "accepted"
+    asyncio.run(
+        dr_bus.publish("Heimdall", "object.recovery-effect-observation", _effect_observation(run))
+    )
+    assert run.state is ActionRunState.SUCCEEDED
+    outcomes = [
+        message.payload
+        for message in dr_bus.messages_on("object.rollback")
+        if message.payload.get("kind") == DR_OUTCOME_KIND
+    ]
+    assert outcomes[-1]["recovery_time_seconds"] == 45.0
 
 
 # ---------------------------------------------------------------------------
@@ -545,6 +904,64 @@ def test_workflow_handoff_capability_keeps_issue_open_without_promotion() -> Non
         mimir.promote("auto.route.capacity", source="handoff")
     assert saga.github.issues[fp].open is True
 
+    current = {"now": datetime(2031, 12, 31, 22, 0, tzinfo=UTC)}
+    close_saga = Saga(clock=lambda: current["now"])
+    close_norns = Norns(
+        promotion_threshold=99,
+        issue_close_quiet_window=timedelta(hours=1),
+        clock=lambda: current["now"],
+    )
+    close_mimir = Mimir(governance_state_store=InMemoryStateStore(), clock=lambda: current["now"])
+    close_bus = InMemoryBus(registry=reg)
+    close_saga.bind_bus(close_bus)
+    close_norns.bind_bus(close_bus)
+    close_mimir.bind_bus(close_bus)
+    close_saga.bind_issue_close_promotion_evidence_producer()
+    close_bus.subscribe("object.issue", "Norns", close_norns.on_typed_message)
+    close_bus.subscribe("object.rule-candidate", "Mimir", close_mimir.on_typed_message)
+    close_bus.subscribe("object.rule", "Saga", close_saga.on_typed_message)
+
+    handoff = handoff_event_payload(
+        session_id="session-close",
+        question="unknown closeable capability",
+        turn_index=0,
+        reason="no_route",
+        emitted_at=current["now"],
+    )
+    close_fp = str(handoff["problem_fingerprint"])
+    asyncio.run(close_saga.on_typed_message("object.handoff-escalation", handoff))
+    current["now"] += timedelta(hours=2)
+    asyncio.run(close_norns.maintenance_tick())
+    quiet_signal = close_bus.messages_on("object.rule-candidate")[-1].payload
+    assert quiet_signal["kind"] == "issue_close_eligibility_signal"
+    assert quiet_signal["closure_eligibility"]["grants_issue_authority"] is False
+    assert close_mimir.health()["maintenance"]["norns_issue_close_support_count"] == 1
+
+    current["now"] = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
+    close_mimir.bind_catalog_promotion_outcome_reader(
+        _PromotionReader(
+            (
+                MimirCatalogPromotionOutcome(
+                    problem_fingerprint=close_fp,
+                    promotion_pr="https://github.com/dotnetpower/fdai/pull/999",
+                    correlation_id="promotion-close",
+                    outcome="promoted",
+                    rule_id="rule.closeable",
+                    promoted_at=current["now"] - timedelta(hours=26),
+                ),
+            )
+        )
+    )
+    close_mimir.bind_regression_runner(
+        _RegressionRunner(started_at=current["now"] - timedelta(hours=25))
+    )
+    asyncio.run(close_mimir.maintenance_tick())
+    asyncio.run(close_saga.maintenance_tick())
+    assert close_saga.github.issues[close_fp].open is False
+    assert close_saga.github.issues[close_fp].closed_by_pr == (
+        "https://github.com/dotnetpower/fdai/pull/999"
+    )
+
 
 # ---------------------------------------------------------------------------
 # 7. Agent health degradation
@@ -679,6 +1096,26 @@ def test_workflow_rollback_rehearsal_blocks_overlapping_loki_targets() -> None:
     assert saga.audit_chain.entries[-1].topic == "object.chaos-experiment"
     _assert_published_payloads_are_traceable(bus)
 
+    rehearsal_bus = InMemoryBus(registry=reg)
+    vidar = Vidar(
+        bus=rehearsal_bus,
+        executors={"scripted": lambda _cmd: asyncio.sleep(0, result="rollback:unused")},
+        state_store=InMemoryStateStore(),
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        rollback_rehearsal_port=_RehearsalPort(),
+        rollback_rehearsal_cadence=timedelta(seconds=1),
+        clock=lambda: _NOW,
+    )
+    asyncio.run(vidar.maintenance_tick())
+    receipts = [
+        message.payload
+        for message in rehearsal_bus.messages_on("object.rollback")
+        if message.payload.get("kind") == REHEARSAL_KIND
+    ]
+    assert receipts[-1]["outcome"] == "passed"
+    assert receipts[-1]["receipt_digest"].startswith("sha256:")
+    assert vidar.health()["rollback_rehearsal"]["passed"] == 1
+
 
 # ---------------------------------------------------------------------------
 # 10. Retrospective what-if (judge-only replay)
@@ -711,6 +1148,55 @@ def test_workflow_retrospective_what_if_is_judge_only() -> None:
     assert overlay_a["risk_verdict"] == "hil"
     assert overlay_c["risk_verdict"] == "deny"
     assert overlay_a["action_runs"] == 0
+
+    bus = InMemoryBus(registry=load_pantheon())
+    action_semantics = ActionSemanticsCatalog(
+        irreversible_by_id={"remediate.disable-public-access": False},
+        rollback_by_id={"remediate.disable-public-access": "state_forward_only"},
+    )
+    forseti = Forseti(bus=bus, action_semantics=action_semantics)
+    asyncio.run(
+        forseti.judge(
+            {
+                "event_type": "public_network_enabled",
+                "resource_id": "sa-versioned-what-if",
+                "correlation_id": "what-if-source",
+            }
+        )
+    )
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.event",
+            {
+                "producer_principal": "Huginn",
+                "kind": "retrospective_what_if_request",
+                "correlation_id": "what-if-request",
+                "idempotency_key": "what-if-request",
+                "judgment_table": {
+                    "rule_match": {
+                        "public_network_enabled": "remediate.disable-public-access",
+                    },
+                    "risk_verdict": {
+                        "remediate.disable-public-access": "deny",
+                    },
+                    "source": "typed-retrospective-what-if-test",
+                },
+                "sample_limit": 4,
+            },
+        )
+    )
+    what_if_payloads = [
+        message.payload
+        for message in bus.messages_on("object.verdict")
+        if message.payload.get("kind") == "retrospective_what_if"
+    ]
+    assert what_if_payloads[-1]["what_if_contract"]["contract_version"] == (
+        "retrospective-what-if.v1"
+    )
+    assert what_if_payloads[-1]["disagreement_count"] == 1
+    assert what_if_payloads[-1]["resolved_autonomy_ceiling"] == "shadow_only"
+    assert what_if_payloads[-1]["outcomes"][0]["reason_codes"] == ["risk_verdict_changed"]
+    assert bus.messages_on("object.action-run") == []
 
 
 def _run_what_if_overlay(risk_verdict: str) -> dict[str, Any]:

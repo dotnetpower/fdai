@@ -43,6 +43,7 @@ and is promoted per-workflow after Wave 8 measures its KPIs.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | implemented | Recorded the implemented workflow steps from the I12 batch in the workflow registry, trace assertions, planned-agent exit conditions, and doc parity tests without changing any workflow mode. | `current change`; `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py`; `docs/roadmap/agents/agent-workflows.md`; `docs/roadmap/agents/agent-workflows-ko.md`; focused Wave 7, Pantheon doc parity, localization, roadmap, link, punctuation, readable-Hangul, and core-import checks. | Retain operational shadow duration, KPI baseline, policy-escape, and promotion evidence before any enforce-mode change. |
 | 2026-09-16 | implemented | Recorded one fail-closed verdict for every metadata workflow without treating implementation traces as operational measurements. Exact catalog and definition digests make a new or changed workflow fail the inventory gate until its verdict is reviewed again. | `current change`; `config/workflow-promotion-verdicts{,.schema}.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; focused checker tests passed 7 cases. | Retain the named runtime duration, KPI baseline, guard-regression, and policy-escape evidence before replacing any deferral. No workflow mode changed. |
 | 2026-08-20 | validated | Retained exact-source CI, Pages deployment, and live bilingual geometry evidence for the corrected workflow diagrams. Every one of the 24 deployed SVGs exposes a message body for every node, centers the sequence with zero delta, and has zero text overflow or node overlap; the English and Korean routes also have no page or diagram-host overflow at desktop, constrained-desktop, or mobile widths. | Commit `c22ea624b`; [CI run 32336843459](https://github.com/dotnetpower/fdai/actions/runs/32336843459); [Pages run 32336843527](https://github.com/dotnetpower/fdai/actions/runs/32336843527); live `1440x900`, `993x641`, and `390x844` checks. | None for the published sequence-diagram regression. Runtime promotion evidence remains separately open. |
 | 2026-08-20 | implemented | Corrected the published sequence presentation after live review found that every workflow collapsed into a narrow left-aligned actor chain, hid typed messages from the visible cards, and truncated return-arrow senders such as Njord. Sequence cards now expose bounded message bodies, center the ordered chain, and preserve complete participant aliases. | `current change`; twelve bilingual workflow specs and mirrored assets; 95 diagram compiler tests, typecheck, artifact freshness, 35-pair public migration, 10 focused site contracts, and direct EN/KO geometry checks passed with zero text overflow or node overlap. | Retain exact-source Pages deployment evidence before closing the visual regression. Runtime promotion evidence remains separately open. |
@@ -94,11 +95,14 @@ Thor (executor), Saga (auditor).
   measured signed estimate for the proposed action.
 - Current trace assertion `cost_ceiling_blocks_auto`: the focused trace
   verifies the ceiling rule that sends over-ceiling cost impact to HIL.
+- Current trace assertion `cost_annotation_attached_to_verdict`: Forseti
+  attaches bounded Njord cost evidence to the `object.verdict` payload.
 - Current trace assertion `terminal_action_run_audited`: the accepted auto
   verdict reaches Thor and Saga records the terminal `object.action-run`.
-- Planned exit condition: attach `cost_annotation.monthly_delta_usd` and
-  `cost_annotation.confidence` to the Forseti verdict before this workflow
-  can use the zero-missing-annotation promotion gate.
+- Planned exit condition: Heimdall must feed `object.drift` or
+  `object.anomaly` as the workflow initiator into the current Njord ->
+  Forseti -> Thor -> Saga trace before this workflow can claim initiator
+  coverage.
 
 **Promotion gate.** 14 days shadow; Njord cost forecast MAPE < 20% on
 this workflow's audit sample; zero missing cost_annotation on remediations.
@@ -134,8 +138,12 @@ predicts threshold breach within `fork_config.predictive_horizon`
 - Current trace assertion `arbitration_request_on_cost_conflict`: a Njord
   cost-block signal on the same resource creates exactly one Forseti
   arbitration request for the capacity/cost conflict.
-- Planned exit condition: Thor dispatch and effect observation remain
-  unavailable until a governed scale ActionType trace exists.
+- Current trace assertion `recurring_sample_maps_to_shadow_scale_verdict`:
+  Freyr recurring sampling publishes a capacity forecast that Forseti maps
+  to an `ops.scale-out` or `ops.scale-in` shadow/HIL verdict.
+- Planned exit condition: Thor must dispatch a governed scale ActionType
+  and retain independent effect observation before the workflow can claim
+  executable scale coverage.
 
 **Promotion gate.** 30 days shadow; Freyr forecast MAPE < 15% on this
 workflow's samples; false-positive scale rate < 5%.
@@ -155,8 +163,8 @@ and observability all still work.
 **Agents.** Loki (planner), Forseti (judge), Var (approver), Vidar (execution),
 Heimdall (observation), Norns (learning), Saga.
 
-**Current executable trace agents.** Loki, Saga.
-**Planned workflow agents.** Forseti, Var, Vidar, Heimdall, Norns.
+**Current executable trace agents.** Loki, Thor, Vidar, Saga.
+**Planned workflow agents.** Forseti, Var, Heimdall, Norns.
 
 ![3. DR drill orchestration. The main stages are proposed_action {dr_drill, scope, blast_radius}, verdict = hil (drills are always HIL), approval, verdict {execute_drill}, execute rollback / failover in shadow env, observe_request, observations, object.rollback {result, observations, recovery_time}, audit signal, compare to baseline, emit drift signal if MTTR degraded.](../../diagrams/generated/fdai-agent-workflows-03.en.svg)
 
@@ -165,11 +173,18 @@ Heimdall (observation), Norns (learning), Saga.
 - Current trace assertion `blast_radius_capped`: Loki caps a requested
   experiment to the configured blast radius and marks human approval as
   required.
+- Current trace assertion `recurring_scheduler_publishes_hil_drill_window`:
+  Loki's deterministic scheduler emits one complete always-HIL drill
+  proposal for a due window.
 - Current trace assertion `proposal_audited`: Saga audits the Loki
   `object.chaos-experiment` proposal.
-- Planned exit condition: the governed Forseti -> Var -> Vidar ->
-  Heimdall -> Norns path must report MTTR, compare the previous drill
-  baseline, and raise one candidate for any MTTR degradation above 20%.
+- Current trace assertion `vidar_dr_contract_gates_failover_recovery_time`:
+  Vidar accepts a typed DR failover contract, Thor waits for that contract
+  before executor I/O, and Vidar publishes a DR outcome with recovery time.
+- Planned exit condition: Forseti and Var must route the drill through a
+  governed judgment and human approval, Heimdall must publish the independent
+  observation, and Norns must compare the previous drill baseline and raise
+  one candidate for any MTTR degradation above 20%.
 
 **Promotion gate.** 3 successful drills in shadow; drill duration <
 declared budget; zero unplanned production side-effects (measured by
@@ -202,9 +217,6 @@ from Forseti's proposed verdict (approve on deny, reject on auto, etc.).
   Var-owned `object.approval` rejections that carry an override signal.
 - Current trace assertion `deduped_rule_candidate`: recurring decisions
   for the same action produce exactly one inert `RuleCandidate`.
-- Planned exit condition: the candidate evidence should retain the exact
-  override references needed for Mimir review, not only the aggregate
-  rejection count.
 
 **Promotion gate.** 60 days shadow; override-to-candidate conversion
 rate matches expected pattern (i.e., not every override becomes a
@@ -241,8 +253,9 @@ severity path), Var (admin notification delivery via ChatOps), Saga.
   sixth high-severity card for the same user in the rolling hour is held.
 - Current trace assertion `critical_pattern_pages_admin`: the critical
   multi-action pattern emits an admin card.
-- Planned exit condition: Odin critical escalation and Saga audit replay
-  join the workflow before the zero-false-negative gate can be evaluated.
+- Planned exit condition: Odin must publish the critical escalation path and
+  Saga must retain replayable audit evidence before the zero-false-negative
+  gate can be evaluated.
 
 **Promotion gate.** 30 days shadow; zero false negatives on injected
 critical patterns; false-positive rate on high < 5%.
@@ -275,9 +288,14 @@ Bragi (updated on capability delivery).
   per fingerprint per rolling window).
 - Current trace assertion `failed_promotion_keeps_issue_open`: a refused
   Mimir promotion leaves the Saga issue open.
-- Planned exit condition: auto-close is allowed only after reviewed
-  promotion evidence, a 24-hour clean regression interval, and a closing
-  comment that links the promoting PR.
+- Current trace assertion `norns_quiet_window_signal_is_inert`: Norns emits
+  an inert issue-close eligibility signal only after the quiet window and
+  never mutates the Saga issue.
+- Current trace assertion `promotion_evidence_closes_after_clean_window`:
+  Mimir promotion evidence plus a 24-hour clean regression interval lets
+  Saga close the issue with the promoting PR reference.
+- Planned exit condition: Bragi must deliver the closed capability in the
+  operator briefing so the workflow is visible after Saga closes the issue.
 
 **Promotion gate.** 90 days shadow; conversion rate (handoff ->
 promoted rule) baseline captured; false-close rate < 2%.
@@ -307,10 +325,10 @@ error rate, or KPI drift.
 
 - Current trace assertion `odin_arbitrates_degradation_priority`: Odin can
   arbitrate a health-degradation priority conflict deterministically.
-- Planned exit condition: Heimdall probes every agent at the declared
-  frequency, the degradation policy matches
-  [pantheon anti-patterns table](agent-pantheon.md#11-anti-patterns), and
-  Bragi delivers the operator briefing within 60 seconds.
+- Planned exit condition: Bragi must deliver the operator briefing within 60
+  seconds and Saga must retain the degradation audit while Heimdall probes
+  every agent at the declared frequency and the degradation policy matches
+  [pantheon anti-patterns table](agent-pantheon.md#11-anti-patterns).
 
 **Promotion gate.** 30 days shadow; every declared degradation policy
 tested by injected failure at least once; briefing latency p99 < 60s.
@@ -366,8 +384,8 @@ based on `fork_config.rollback_rehearsal_scope`.
 **Agents.** Loki (planner), Forseti (judge), Var (approver), Vidar (rehearser),
 Heimdall (observer), Saga.
 
-**Current executable trace agents.** Loki, Saga.
-**Planned workflow agents.** Forseti, Var, Vidar, Heimdall.
+**Current executable trace agents.** Loki, Vidar, Saga.
+**Planned workflow agents.** Forseti, Var, Heimdall.
 
 ![9. Rollback rehearsal. The main stages are proposed_action {rehearse_rollback, action_type_id}, verdict = hil (all rehearsals HIL), approval, verdict {execute}, apply mutation in shadow env, invoke rollback per rollback_contract, observe post-rollback state, state matches pre-mutation baseline?, audit {rehearsal_result, deviation}.](../../diagrams/generated/fdai-agent-workflows-09.en.svg)
 
@@ -377,9 +395,13 @@ Heimdall (observer), Saga.
   second proposal when the rehearsal blast-radius reservation is full.
 - Current trace assertion `proposal_audited`: Saga audits the accepted
   Loki rehearsal proposal.
-- Planned exit condition: Forseti, Var, Vidar, and Heimdall must execute
-  the rollback rehearsal, compare post-rollback state with the
-  pre-mutation baseline, and raise a candidate for any deviation.
+- Current trace assertion `vidar_records_non_mutating_rehearsal_receipt`:
+  Vidar records a bounded non-mutating rehearsal receipt for the bound
+  rollback contract.
+- Planned exit condition: Forseti and Var must route the rehearsal through
+  governed judgment and human approval, and Heimdall must compare
+  post-rollback state with the pre-mutation baseline and raise a candidate
+  for any deviation.
 
 **Promotion gate.** 3 successful rehearsals per ActionType before that
 type is eligible for enforce mode outside shadow. Rehearsal cadence
@@ -413,6 +435,9 @@ analysis), Mimir (rule evaluation), Bragi (report).
   same what-if verdict.
 - Current trace assertion `no_action_run_published`: the replay publishes
   no `object.action-run`.
+- Current trace assertion `versioned_what_if_disagreement_evidence_inert`:
+  Forseti publishes versioned retrospective what-if evidence with bounded
+  disagreement reasons and a `shadow_only` ceiling.
 - Planned exit condition: Bragi report generation, Norns delta analysis,
   and Mimir rule evaluation must consume the replay result before this is
   more than a judge-only what-if trace.
@@ -486,7 +511,8 @@ observer and does not execute the proposal.
 
 **Exit criteria.** Current trace assertion
 `control_loop_owner_approval_reaches_runner`: the raw control-loop proposal
-reaches the VM runner after Owner approval. Planned exit condition: the
+reaches the VM runner after Owner approval. Planned exit condition: Bragi must
+route the authoring translation into the scheduled proposal, and the
 scheduler-owned cron materialization, artifact recheck on every guest
 invocation, active `compute.vm` target binding, GPU capability check, retry
 idempotency, remote-cancel path, and terminal audit must all be present before
@@ -532,6 +558,9 @@ readiness suite also verifies malformed observations, Huginn replay
 deduplication, overlapping partial passes, Muninn stale-snapshot rejection,
 Saga audit, and Forseti demotion while the recorded readiness decision remains
 below the required ceiling.
+Planned exit condition: Bragi must route detection-readiness presentation into
+the operator-facing briefing before this workflow can claim operator
+presentation coverage.
 
 **Promotion gate.** 30 days shadow per target; zero false-ready snapshots;
 stale-detection p99 < 15 minutes.
