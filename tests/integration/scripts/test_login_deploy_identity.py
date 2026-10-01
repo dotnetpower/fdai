@@ -61,12 +61,27 @@ esac
     return calls
 
 
+def _fake_terraform(tmp_path: Path, version: str = "1.16.1") -> None:
+    binary = tmp_path / "terraform"
+    binary.write_text(
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == "version -json" ]] || exit 9
+printf '{{"terraform_version":"{version}"}}\\n'
+""",
+        encoding="ascii",
+    )
+    binary.chmod(0o755)
+
+
 def _run(
     tmp_path: Path,
     *,
     principal_id: str = _PRINCIPAL_ID,
+    terraform_version: str = "1.16.1",
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     calls = _fake_az(tmp_path)
+    _fake_terraform(tmp_path, terraform_version)
     runner_temp = tmp_path / "runner-temp"
     runner_temp.mkdir()
     github_env = tmp_path / "github-env"
@@ -109,6 +124,15 @@ def test_login_rejects_mismatched_token_oid(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "token oid does not match" in result.stderr
     assert "account get-access-token --resource-type arm" in calls
+
+
+def test_login_refuses_an_older_runner_terraform_before_azure_access(tmp_path: Path) -> None:
+    result, calls = _run(tmp_path, terraform_version="1.9.8")
+
+    assert result.returncode == 1
+    assert "has Terraform 1.9.8; protected workflows require 1.16.1 or later" in result.stderr
+    assert calls == ""
+    assert not (tmp_path / "runner-temp" / "fdai-deploy-azure").exists()
 
 
 def test_login_rejects_missing_identity_before_azure_access(tmp_path: Path) -> None:

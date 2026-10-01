@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 71fcddf3813bb0c235d887b7222be4103b964c54
+translation_source_sha: 3a3c813b23eba5936b2b307cbd089ef886a26d88
 translation_revised: 2026-10-01
 ---
 # 폐쇄망 배포
@@ -240,6 +240,12 @@ pinned Terraform binary 및 프로바이더 mirror, 정책 엔진 binary, softwa
 않습니다.
 서명된 번들에는 마이그레이션 중 카탈로그 구체화가 읽는 검토된 `config/agent-stewardship.yaml`과
 `config/architecture-review.yaml`도 들어 있습니다.
+
+패키지에 포함된 release 및 bundle 루트와 일치하는 로컬 비공개 키를 확인하려면
+`scripts/deployment/release/check-signing-key.py --key <path>`를 실행합니다. 이 스크립트는 지문과
+역할만 출력합니다. 일치하는 키에 대해서는 그 키를 받는 `build-standalone-deployment-kit.sh` 옵션인
+`--signing-key`, `--release-key` 또는 `--bundle-key`를 알려 줍니다. `fdai-up.sh`는 더 이상 서명 키를
+받지 않습니다.
 
 목표 폐쇄망 명령인 `fdaictl provision inspect`는 매니페스트를 파싱하기 전에 서명을 검증하고, 정확한
 CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하고, 모든 다이제스트를 스트리밍
