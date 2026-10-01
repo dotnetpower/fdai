@@ -1,8 +1,8 @@
 ---
 title: 콘솔 Operator API 프로덕션 배포
 translation_of: operator-api-prod.md
-translation_source_sha: be746ca1196cc81e49ac5d202c1a6a69d3ac984e
-translation_revised: 2026-09-07
+translation_source_sha: 4af05f1fbfff2622b6899ae6dbc62431c727e01e
+translation_revised: 2026-10-01
 ---
 # 콘솔 Operator API 프로덕션 배포
 
@@ -101,7 +101,7 @@ translation_revised: 2026-09-07
 |------|--------|------|
 | `FDAI_ENTRA_ISSUER` | `https://login.microsoftonline.com/<tenant>/v2.0` | v1 토큰이나 소버린 클라우드 대응. |
 | `FDAI_ENTRA_JWKS_URI` | 테넌트 디스커버리 엔드포인트 | 에어갭 클라우드 대응. |
-| `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | 비어있음 (same-origin) | 콤마로 구분된 출처 목록. bare `*` 원소는 이 팩토리가 `RUNTIME_ENV`와 무관하게 무조건 거부한다 - 크로스-오리진 배포는 콘솔 출처를 명시적으로 나열해야 한다. |
+| `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | 비어있음 (same-origin) | 콤마로 구분된 출처 목록. bare `*` 원소는 이 팩토리가 `RUNTIME_ENV`와 무관하게 무조건 거부한다 - 크로스-오리진 배포는 콘솔 출처를 명시적으로 나열해야 한다. 나열된 출처는 `Authorization`, `Content-Type`, `Idempotency-Key`, `If-Match`, `Last-Event-ID`, `X-Correlation-ID` 헤더를 보낼 수 있다. |
 | `FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS` | `20000` | 데이터베이스 작업에 `set_config('statement_timeout', ..., true)`로 트랜잭션 범위에서 적용합니다. |
 | `FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S` | `10` | TCP와 인증 연결 시간을 제한하여 사용할 수 없는 데이터베이스가 신속히 실패하도록 합니다. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | 비어 있음 | 의미 전송과 공유 실시간/에이전트 관찰 중계를 시작합니다. `:9093`의 Event Hubs Kafka 엔드포인트를 사용합니다. 값이 비어 있으면 두 SSE 경로는 런타임 근거를 날조하지 않고 `Awaiting source` 상태로 연결을 유지합니다. |

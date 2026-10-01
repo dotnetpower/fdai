@@ -100,7 +100,7 @@ Optional (defaults apply):
 |----------|---------|---------|
 | `FDAI_ENTRA_ISSUER` | `https://login.microsoftonline.com/<tenant>/v2.0` | Override for v1 tokens or sovereign clouds. |
 | `FDAI_ENTRA_JWKS_URI` | tenant discovery endpoint | Override for air-gapped clouds. |
-| `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | empty (same-origin) | Comma-separated origin list. A bare `*` element is rejected unconditionally by this factory (regardless of `RUNTIME_ENV`) - a cross-origin deploy MUST list the console origins explicitly. |
+| `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | empty (same-origin) | Comma-separated origin list. A bare `*` element is rejected unconditionally by this factory (regardless of `RUNTIME_ENV`) - a cross-origin deploy MUST list the console origins explicitly. Listed origins may send `Authorization`, `Content-Type`, `Idempotency-Key`, `If-Match`, `Last-Event-ID`, and `X-Correlation-ID`. |
 | `FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS` | `20000` | Applied transaction-locally with `set_config('statement_timeout', ..., true)` on database operations. |
 | `FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S` | `10` | Bounds the TCP and authentication handshake so an unavailable database fails promptly. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | empty | Starts the semantic transport and the shared Live/Agent observation relay. Uses the Event Hubs Kafka endpoint on `:9093`. An empty value leaves both SSE routes connected in `Awaiting source` without fabricating runtime evidence. |
