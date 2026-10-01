@@ -30,7 +30,6 @@ from fdai.core.conversation.intent_graph import (
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import (
-    _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
     SemanticPlanningService,
     _descriptors_for_judgment,
     _operational_frame_matches_accepted_judgment,
@@ -50,6 +49,9 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticOutputShape,
     SemanticPlanningDisposition,
     SemanticPlanningModelResponse,
+)
+from fdai.core.conversation.semantic_planning_preflight import (
+    SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
 )
 from fdai.core.conversation.semantic_resource_state_planning import (
     normalize_resource_state_proposal,
@@ -2837,8 +2839,8 @@ def test_unknown_judgment_preserves_complete_descriptor_fallback() -> None:
 
 
 def test_unaccepted_event_history_can_only_narrow_model_descriptors() -> None:
-    assert "query.resource_event_history" in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
-    assert "query.resource_health_inventory" not in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+    assert "query.resource_event_history" in SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+    assert "query.resource_health_inventory" not in SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
 
 
 @pytest.mark.parametrize("output_shape", ("ontology_manifest", "ontology_declaration"))
