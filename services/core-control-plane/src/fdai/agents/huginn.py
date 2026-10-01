@@ -680,8 +680,6 @@ class Huginn(Agent):
         """
         try:
             _validate_raw_ingress(raw)
-            if self._schema_learning is not None:
-                self._schema_learning.record(raw)
             if (
                 raw.get("event_type") in ALERT_NOISE_EVENT_TYPES
                 or raw.get("source") == "operator-alert-noise"
@@ -713,6 +711,8 @@ class Huginn(Agent):
                         f"operator_request_receipt_{safe_reason}",
                         field="operator_request_receipt",
                     ) from exc
+            if self._schema_learning is not None:
+                self._schema_learning.record_accepted(raw)
             key = self._ingress_key(raw)
             async with self._key_lock(key):
                 return await self._ingest_locked(raw, key=key)

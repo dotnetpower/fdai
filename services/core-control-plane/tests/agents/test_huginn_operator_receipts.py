@@ -238,6 +238,32 @@ async def test_schema_learning_publishes_inert_idempotent_evidence_without_norma
     ] == evidence
 
 
+async def test_schema_learning_ignores_rejected_operator_request_shapes() -> None:
+    now = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    bus = InMemoryBus(load_pantheon())
+    huginn = Huginn(
+        bus=bus,
+        state_store=InMemoryStateStore(),
+        schema_learning_enabled=True,
+        operator_request_receipt_gate=_gate(now, _Verifier(accepted=b"other")),
+        clock=lambda: now,
+    )
+    rejected = _request(now)
+    rejected["attacker_controlled_schema_probe"] = {"nested": True}
+
+    with pytest.raises(HuginnIngressRejected) as exc:
+        await huginn.ingest(rejected)
+    await huginn.maintenance_tick()
+
+    assert exc.value.reason_code == "operator_request_receipt_unverifiable"
+    assert [
+        message.payload
+        for message in bus.messages_on("object.event")
+        if message.payload.get("event_type") == "schema_cluster.evidence"
+    ] == []
+    assert huginn.health()["schema_learning"]["pending_fingerprints"] == 0
+
+
 async def test_schema_learning_state_stays_bounded_under_adversarial_inputs() -> None:
     learner = Huginn(state_store=InMemoryStateStore(), schema_learning_enabled=True)
     for index in range(200):

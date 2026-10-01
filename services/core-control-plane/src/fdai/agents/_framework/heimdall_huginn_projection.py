@@ -136,6 +136,7 @@ def recovery_effect_observation_record(
     }
     record["event_type"] = RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE
     record["correlation_id"] = str(payload.get("correlation_id") or "")
+    record["resource_id"] = str(payload.get("resource_id") or "")
     record["idempotency_key"] = stable_idempotency_key(
         "recovery-effect-observation",
         record.get("correlation_id"),
@@ -149,7 +150,6 @@ def recovery_effect_observation_record(
         record.get("evidence_digest"),
         record.get("observed_at") or record.get("event_time") or record.get("recorded_time"),
     )
-    record["resource_id"] = str(payload.get("resource_id") or "")
     return record
 
 

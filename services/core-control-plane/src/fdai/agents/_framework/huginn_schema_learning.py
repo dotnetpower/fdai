@@ -46,8 +46,8 @@ class HuginnSchemaLearningLedger:
         self._capacity = capacity
         self._pending: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
-    def record(self, raw: Mapping[str, Any]) -> None:
-        """Record only a bounded content-free fingerprint."""
+    def record_accepted(self, raw: Mapping[str, Any]) -> None:
+        """Record a bounded fingerprint after the event type's ingress gates pass."""
 
         source = str(raw.get("source") or "unknown")[:128]
         event_type = str(raw.get("event_type") or "generic")[:128]
@@ -75,6 +75,11 @@ class HuginnSchemaLearningLedger:
         self._pending.move_to_end(digest)
         while len(self._pending) > self._capacity:
             self._pending.popitem(last=False)
+
+    def record(self, raw: Mapping[str, Any]) -> None:
+        """Record accepted ingress; kept as a compatibility alias for local tests."""
+
+        self.record_accepted(raw)
 
     async def next_evidence(self) -> SchemaClusterEvidence | None:
         """Return one unpublished inert evidence item, idempotent across restarts."""

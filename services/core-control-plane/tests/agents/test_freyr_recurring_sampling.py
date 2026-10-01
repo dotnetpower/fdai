@@ -49,6 +49,18 @@ class _Sampler:
         return self.samples
 
 
+class _HangingSampler:
+    async def read_utilization_samples(
+        self,
+        *,
+        limit: int,
+        observed_at: datetime,
+    ) -> Sequence[UtilizationSample]:
+        del limit, observed_at
+        await asyncio.Event().wait()
+        return ()
+
+
 class _ScenarioGenerator:
     async def generate_scenarios(self, _design_ref: str) -> Sequence[ChaosScenarioCandidate]:
         return ()
@@ -128,6 +140,21 @@ async def test_freyr_unbound_sampler_records_visible_noop_health() -> None:
     assert freyr.behavior_snapshot()["capacity_sampling:unbound"] == 1
     assert health["status"] == "degraded"
     assert health["ingress"]["recurring_sampling"] == "disabled"
+
+
+async def test_freyr_recurring_sampling_timeout_is_visible_noop() -> None:
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    freyr = Freyr(
+        bus=bus,
+        clock=lambda: _NOW,
+        utilization_sampler=_HangingSampler(),
+        recurring_sample_timeout=timedelta(milliseconds=10),
+    )
+
+    await asyncio.wait_for(freyr.maintenance_tick(), timeout=1)
+
+    assert freyr.behavior_snapshot()["capacity_sampling:timeout"] == 1
+    assert bus.messages_on("object.capacity-forecast") == []
 
 
 def test_freyr_optional_sampler_unbound_does_not_degrade_bound_capacity_health() -> None:

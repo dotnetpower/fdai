@@ -426,6 +426,48 @@ def test_recovery_effect_observations_use_distinct_idempotency_for_distinct_evid
     assert len(keys) == 2
 
 
+def test_recovery_effect_observations_publish_once_per_distinct_resource() -> None:
+    provider = LocalEventBus()
+    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+
+    async def _drive() -> None:
+        for suffix in ("a", "b"):
+            await runtime.bridge.publish(
+                "Huginn",
+                "object.event",
+                {
+                    "event_type": RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE,
+                    "correlation_id": "corr-resource-effect",
+                    "idempotency_key": "same-resource-effect-raw-key",
+                    "resource_id": f"resource-distinct-effect-{suffix}",
+                    "attributes": {
+                        "action_id": "action-resource-effect",
+                        "action_type": "test.auto",
+                        "action_idempotency_key": "resource-effect-key",
+                        "params": {"replicas": 3},
+                        "effect_verification_ref": _EFFECT_REF,
+                        "execution_closure_ref": _CLOSURE_REF,
+                        "observed_at": "2026-09-30T00:00:00+00:00",
+                        "evidence_digest": "sha256:" + "d" * 64,
+                        "success": True,
+                    },
+                },
+            )
+        await _run_until(
+            runtime,
+            lambda: len(_published_payloads(provider, "object.recovery-effect-observation")) == 2,
+        )
+
+    asyncio.run(_drive())
+
+    observations = _published_payloads(provider, "object.recovery-effect-observation")
+    assert {payload["resource_id"] for payload in observations} == {
+        "resource-distinct-effect-a",
+        "resource-distinct-effect-b",
+    }
+    assert len({payload["idempotency_key"] for payload in observations}) == 2
+
+
 def _action_run_payload(state: ActionRunState = ActionRunState.EXECUTION_UNKNOWN) -> dict[str, Any]:
     run = ActionRun(
         correlation_id="rollback-ambiguous",

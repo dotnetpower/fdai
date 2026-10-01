@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -43,6 +44,7 @@ async def run_recurring_sampling(
     ingest: Callable[..., Awaitable[None]],
     record_behavior: Callable[[str, int], None],
     limit: int = MAX_RECURRING_SAMPLES,
+    timeout_seconds: float = 5.0,
 ) -> int:
     """Pull one bounded sampler batch and feed Freyr's existing ingestion path."""
 
@@ -51,12 +53,19 @@ async def run_recurring_sampling(
         return 0
     if limit < 1:
         raise ValueError("recurring sample limit MUST be positive")
+    if timeout_seconds <= 0:
+        raise ValueError("recurring sample timeout MUST be positive")
     bounded_limit = min(limit, MAX_RECURRING_SAMPLES)
     sampled_at = clock()
-    raw_samples = await sampler.read_utilization_samples(
-        limit=bounded_limit,
-        observed_at=sampled_at,
-    )
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            raw_samples = await sampler.read_utilization_samples(
+                limit=bounded_limit,
+                observed_at=sampled_at,
+            )
+    except TimeoutError:
+        record_behavior("capacity_sampling:timeout", 1)
+        return 0
     accepted = 0
     for index, sample in enumerate(tuple(raw_samples)[:bounded_limit]):
         normalized = _normalize_sample(sample, default_observed_at=sampled_at, index=index)

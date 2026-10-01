@@ -80,8 +80,11 @@ class Freyr(Agent):
         state_store: StateStore | None = None,
         utilization_sampler: CapacityUtilizationSampler | None = None,
         recurring_sample_limit: int = MAX_RECURRING_SAMPLES,
+        recurring_sample_timeout: timedelta = timedelta(seconds=5),
     ) -> None:
         super().__init__(spec=_FREYR)
+        if recurring_sample_timeout <= timedelta(0):
+            raise ValueError("recurring_sample_timeout MUST be positive")
         self.bus = bus
         self._alpha = smoothing_alpha
         self._up = scale_up_threshold
@@ -104,6 +107,7 @@ class Freyr(Agent):
         self._cost_evidence_lock = asyncio.Lock()
         self._utilization_sampler = utilization_sampler
         self._recurring_sample_limit = recurring_sample_limit
+        self._recurring_sample_timeout = recurring_sample_timeout
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -651,6 +655,7 @@ class Freyr(Agent):
             ingest=self.ingest_utilization,
             record_behavior=self.record_behavior,
             limit=self._recurring_sample_limit,
+            timeout_seconds=self._recurring_sample_timeout.total_seconds(),
         )
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
