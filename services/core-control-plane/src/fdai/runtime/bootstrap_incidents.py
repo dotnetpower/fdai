@@ -49,6 +49,7 @@ from fdai.delivery.notifications.local_binding import resolve_local_notification
 from fdai.runtime.aks_commerce import VerifiedIncidentResolver
 from fdai.runtime.delivery import _build_incident_notifier
 from fdai.runtime.notification_registry import build_notification_delivery_store
+from fdai.runtime.operator_request_receipt_gate import operator_request_receipt_gate
 from fdai.shared.contracts.models import IncidentState
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.state_store import StateStore
@@ -209,6 +210,7 @@ async def build_incident_runtime(
         request_topic=INCIDENT_CREATION_REQUEST_TOPIC,
         group_id=INCIDENT_CREATION_CONSUMER_GROUP,
         workflow=workflow,
+        receipt_gate=operator_request_receipt_gate(os.environ, state_store),
     )
 
     async def open_incident_candidate(candidate: dict[str, Any]) -> bool:

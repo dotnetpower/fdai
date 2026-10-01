@@ -73,7 +73,10 @@ from fdai.agents._framework.factory import (
     CostRuntimeBindings,
     instantiate_pantheon,
 )
-from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
+from fdai.agents._framework.huginn_operator_receipt import (
+    OperatorRequestReceiptGate,
+    ReservedOperatorRequestReceipt,
+)
 from fdai.agents._framework.introspection import agent_state_evidence_ref
 from fdai.agents._framework.muninn_investigation_strategy import (
     MuninnInvestigationStrategyCohortSink,
@@ -213,6 +216,7 @@ __all__ = [
     "Mimir",
     "Norns",
     "OperatorRequestReceiptGate",
+    "ReservedOperatorRequestReceipt",
     "PantheonBus",
     "InMemoryBus",
     "InMemoryAuditChain",

@@ -68,6 +68,37 @@ class OperatorRequestReceiptGate:
     async def verify(self, raw: Mapping[str, Any]) -> VerifiedOperatorRequestReceipt:
         """Verify exact binding, expiry, signature, and live replay state."""
 
+        receipt = self._verify_exact_receipt(raw, enforce_time=True)
+        replay_key = _replay_key(receipt)
+        existing = await self.state_store.read_state(replay_key)
+        if existing is not None:
+            raise ValueError("replayed")
+        return VerifiedOperatorRequestReceipt(receipt=receipt, replay_key=replay_key)
+
+    async def verify_or_committed(
+        self,
+        raw: Mapping[str, Any],
+    ) -> VerifiedOperatorRequestReceipt | None:
+        """Verify a receipt, returning ``None`` for an already-committed redelivery."""
+
+        receipt = self._verify_exact_receipt(raw, enforce_time=False)
+        replay_key = _replay_key(receipt)
+        existing = await self.state_store.read_state(replay_key)
+        if _is_committed_receipt(existing, receipt):
+            return None
+        now = self.clock().astimezone(UTC)
+        if now < receipt.issued_at or now >= receipt.expires_at:
+            raise ValueError("expired")
+        if existing is not None:
+            raise ValueError("replayed")
+        return VerifiedOperatorRequestReceipt(receipt=receipt, replay_key=replay_key)
+
+    def _verify_exact_receipt(
+        self,
+        raw: Mapping[str, Any],
+        *,
+        enforce_time: bool,
+    ) -> OperatorRequestReceipt:
         raw_receipt = raw.get("operator_request_receipt")
         if not isinstance(raw_receipt, Mapping):
             raise ValueError("missing")
@@ -106,9 +137,10 @@ class OperatorRequestReceiptGate:
             ).model_dump_json(exclude={"signature", "signature_alg"}),
         ):
             raise ValueError("mismatch")
-        now = self.clock().astimezone(UTC)
-        if now < receipt.issued_at or now >= receipt.expires_at:
-            raise ValueError("expired")
+        if enforce_time:
+            now = self.clock().astimezone(UTC)
+            if now < receipt.issued_at or now >= receipt.expires_at:
+                raise ValueError("expired")
         signing_bytes = operator_request_receipt_signing_bytes(expected)
         if self.trusted_producer_public_keys is not None:
             public_key = self.trusted_producer_public_keys.get(receipt.producer_service_identity)
@@ -126,11 +158,7 @@ class OperatorRequestReceiptGate:
             )
         if not verified:
             raise ValueError("unverifiable")
-        replay_key = _replay_key(receipt)
-        existing = await self.state_store.read_state(replay_key)
-        if existing is not None:
-            raise ValueError("replayed")
-        return VerifiedOperatorRequestReceipt(receipt=receipt, replay_key=replay_key)
+        return receipt
 
     async def reserve(
         self,
@@ -205,7 +233,7 @@ class OperatorRequestReceiptGate:
         existing = await self.state_store.read_state(reserved.verified.replay_key)
         if not _is_pending_reservation(existing, reserved.reservation_id):
             return False
-        return await self.state_store.delete_state(reserved.verified.replay_key)
+        return bool(await self.state_store.delete_state(reserved.verified.replay_key))
 
     async def commit(self, verified: VerifiedOperatorRequestReceipt) -> OperatorRequestReceipt:
         """Reserve and commit one verified receipt before a non-publication side effect."""
@@ -267,6 +295,19 @@ def _is_pending_reservation(row: Mapping[str, Any] | None, reservation_id: str) 
         and row.get("state") == "pending"
         and row.get("reservation_id") == reservation_id
         and row.get("revision") == 1
+    )
+
+
+def _is_committed_receipt(
+    row: Mapping[str, Any] | None,
+    receipt: OperatorRequestReceipt,
+) -> bool:
+    return (
+        row is not None
+        and row.get("kind") == "huginn.operator_request_receipt_replay_fence"
+        and row.get("state") == "committed"
+        and row.get("receipt_digest") == receipt.receipt_digest
+        and row.get("revision") == 2
     )
 
 

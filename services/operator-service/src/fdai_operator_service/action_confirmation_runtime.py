@@ -12,6 +12,8 @@ from fdai_service_contracts.action_intent import ActionIntentSource
 from fdai_service_contracts.incident_creation import (
     INCIDENT_CREATE_ACTION_TYPE,
     INCIDENT_CREATION_REQUEST_TOPIC,
+    attach_incident_creation_receipt,
+    incident_creation_receipt_event,
 )
 
 from fdai_operator_service.action_confirmation_source import (
@@ -78,9 +80,17 @@ class ActionConfirmationOutboxDrainer:
             if source is None:
                 raise ValueError("action confirmation source is unavailable")
             if body.get("action_type") == INCIDENT_CREATE_ACTION_TYPE:
+                if self.receipt_issuer is None:
+                    raise ActionConfirmationConfigurationError(
+                        "incident creation receipt issuer is unavailable"
+                    )
                 request = incident_creation_request_from_claim(
                     claim,
                     source_projection=source,
+                )
+                request = attach_incident_creation_receipt(
+                    request,
+                    self.receipt_issuer.issue(incident_creation_receipt_event(request)),
                 )
                 await self.publisher.publish(
                     self.incident_topic,
@@ -122,9 +132,11 @@ class ActionConfirmationOutboxDrainer:
                 claim_id=claim.claim_id,
             )
             return False
-        return await self.store.mark_action_proposal_published(
-            key=claim.key,
-            claim_id=claim.claim_id,
+        return bool(
+            await self.store.mark_action_proposal_published(
+                key=claim.key,
+                claim_id=claim.claim_id,
+            )
         )
 
 

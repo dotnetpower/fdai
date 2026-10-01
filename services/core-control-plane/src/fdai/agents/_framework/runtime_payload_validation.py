@@ -13,6 +13,11 @@ _EXECUTABLE_VERDICTS = frozenset({"auto", "hil"})
 _ROLLBACK_STATES = frozenset({"succeeded", "failed", "refused", "execution_unknown"})
 _DR_CONTRACT_DECISIONS = frozenset({"accepted", "held"})
 _REHEARSAL_OUTCOMES = frozenset({"passed", "failed", "held"})
+_MAX_BOUNDED_STRING = 512
+_RULE_KINDS = frozenset(
+    {"catalog_review_outcome", "handover_knowledge", "rule_promotion", "rule_state"}
+)
+_POLICY_KINDS = frozenset({"policy_promotion", "test_context_revision"})
 _VERDICT_EVIDENCE_KEYS = frozenset(
     {"arbitration", "change_assessment", "decision_case", "kind", "risk_verdict", "decision"}
 )
@@ -53,6 +58,18 @@ def default_payload_validator(topic: str, payload: Any) -> None:
     if topic == "object.rollback":
         _validate_rollback_payload(payload)
         return
+    if topic == "object.issue":
+        _validate_issue_payload(payload)
+        return
+    if topic == "object.audit-entry":
+        _validate_audit_entry_payload(payload)
+        return
+    if topic == "object.rule":
+        _validate_rule_payload(payload)
+        return
+    if topic == "object.policy":
+        _validate_policy_payload(payload)
+        return
 
 
 def _validate_verdict_payload(payload: dict[str, Any]) -> None:
@@ -79,6 +96,29 @@ def _require_non_empty_strings(payload: dict[str, Any], *fields: str) -> None:
     missing = [field for field in fields if not str(payload.get(field) or "").strip()]
     if missing:
         raise ValueError("payload missing required field(s): " + ", ".join(missing))
+    _require_bounded_strings(payload, *fields)
+
+
+def _require_bounded_strings(payload: dict[str, Any], *fields: str) -> None:
+    oversized = [
+        field
+        for field in fields
+        if isinstance(payload.get(field), str)
+        and len(str(payload.get(field))) > _MAX_BOUNDED_STRING
+    ]
+    if oversized:
+        raise ValueError("payload field(s) exceed bounded size: " + ", ".join(oversized))
+
+
+def _validate_owned_governance_envelope(payload: dict[str, Any], owner: str) -> None:
+    _require_non_empty_strings(
+        payload,
+        "producer_principal",
+        "correlation_id",
+        "idempotency_key",
+    )
+    if payload.get("producer_principal") != owner:
+        raise ValueError(f"payload producer_principal MUST be {owner}")
 
 
 def _validate_rollback_payload(payload: dict[str, Any]) -> None:
@@ -178,6 +218,74 @@ def _validate_rehearsal_payload(payload: dict[str, Any]) -> None:
         raise ValueError("rollback rehearsal outcome is invalid")
     if not str(payload.get("receipt_digest") or "").startswith("sha256:"):
         raise ValueError("rollback rehearsal receipt_digest is malformed")
+
+
+def _validate_issue_payload(payload: dict[str, Any]) -> None:
+    _validate_owned_governance_envelope(payload, "Saga")
+    _require_non_empty_strings(payload, "fingerprint")
+    issue_number = payload.get("issue_number")
+    if not isinstance(issue_number, int) or isinstance(issue_number, bool) or issue_number < 1:
+        raise ValueError("issue payload issue_number MUST be a positive integer")
+    if "created" in payload and not isinstance(payload.get("created"), bool):
+        raise ValueError("issue payload created MUST be boolean when present")
+    if "open" in payload and not isinstance(payload.get("open"), bool):
+        raise ValueError("issue payload open MUST be boolean when present")
+
+
+def _validate_audit_entry_payload(payload: dict[str, Any]) -> None:
+    _validate_owned_governance_envelope(payload, "Saga")
+    _require_bounded_strings(payload, "action_kind", "audited_topic", "kind")
+    audited_topic = str(payload.get("audited_topic") or "").strip()
+    action_kind = str(payload.get("action_kind") or "").strip()
+    kind = str(payload.get("kind") or "").strip()
+    if not audited_topic and not action_kind and not kind:
+        raise ValueError("audit-entry payload MUST carry audited_topic, action_kind, or kind")
+    if audited_topic and not audited_topic.startswith("object."):
+        raise ValueError("audit-entry payload audited_topic is invalid")
+
+
+def _validate_rule_payload(payload: dict[str, Any]) -> None:
+    _validate_owned_governance_envelope(payload, "Mimir")
+    kind = str(payload.get("kind") or "").strip()
+    if kind and kind not in _RULE_KINDS:
+        raise ValueError("rule payload kind is invalid")
+    if kind == "handover_knowledge":
+        if not isinstance(payload.get("knowledge"), dict):
+            raise ValueError("rule payload handover knowledge MUST be a mapping")
+        if (
+            payload.get("execution_authority") is not False
+            or payload.get("may_promote") is not False
+        ):
+            raise ValueError("rule payload handover knowledge MUST be non-authority")
+    elif kind == "catalog_review_outcome":
+        _require_non_empty_strings(payload, "candidate_digest", "package_digest", "outcome")
+        if payload.get("mode") != "shadow":
+            raise ValueError("rule payload catalog_review_outcome MUST remain shadow")
+    else:
+        _require_non_empty_strings(payload, "rule_id", "state")
+    if "grants_execution_authority" in payload and not isinstance(
+        payload.get("grants_execution_authority"),
+        bool,
+    ):
+        raise ValueError("rule payload grants_execution_authority MUST be boolean")
+
+
+def _validate_policy_payload(payload: dict[str, Any]) -> None:
+    _validate_owned_governance_envelope(payload, "Mimir")
+    kind = str(payload.get("kind") or "").strip()
+    if kind and kind not in _POLICY_KINDS:
+        raise ValueError("policy payload kind is invalid")
+    if kind == "policy_promotion":
+        _require_non_empty_strings(payload, "policy_id", "state")
+    elif kind == "test_context_revision":
+        _require_non_empty_strings(payload, "application")
+    else:
+        _require_non_empty_strings(payload, "policy_id")
+    if "grants_execution_authority" in payload and not isinstance(
+        payload.get("grants_execution_authority"),
+        bool,
+    ):
+        raise ValueError("policy payload grants_execution_authority MUST be boolean")
 
 
 __all__ = ["default_payload_validator"]
