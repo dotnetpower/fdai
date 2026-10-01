@@ -1,8 +1,8 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: ec35552f16fda5bd7a85aadcc0005ad863ef6026
-translation_revised: 2026-09-26
+translation_source_sha: 031ff4019abd208f90496caa80e54a69861f47a0
+translation_revised: 2026-10-01
 ---
 # 프리플라이트 능동 플랜 재조립 (정책 차단 요인에서 재렌더된 terraform으로)
 
@@ -24,38 +24,6 @@ shipped pure 루프는 **terraform 플랜을 능동적으로 재렌더**할 재�
 > 않습니다. 상류는 재조립 기계 장치와 제네릭 토글 카탈로그를 제공합니다. 포크가 특정
 > 가드레일 값과 소비자 배선을 공급합니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 범위가 제한된 수렴과 실패 시 차단되는 중단 조건 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/reassemble.py` 및 재조립 집중 테스트 | 수동 차단 요인, 반복 토글, 회귀, 반복 상한 및 재분석 예외는 모두 부분 결과를 적용하지 않고 중단합니다. |
-| 적용된 토글당 제안 하나 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py` 및 `test_reassembly_proposals.py` | 차단이 해소된 결과는 결정론적이고 멱등적인 제안 묶음을 생성하며, 상위 검토로 보낸 결과는 아무것도 제출하지 않습니다. |
-| ActionType, 데이터 전용 토글 모듈 및 참조 소비자 | implemented | `rule-catalog/action-types/remediate.apply-preflight-toggle.yaml` 및 `infra/modules/preflight-toggles/` | 이 산출물은 통제되는 작업과 하나의 참조 Terraform 소비 패턴을 정의합니다. |
-| 반복 수동 차단 요인 학습 기본 요소 | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_deployment_learning.py` 및 `services/core-control-plane/tests/agents/test_norns_preflight.py` | Norns는 호출자가 제공한 관측에서 비활성 후보를 생성하며 토글을 만들거나 승격하지 않습니다. |
-| 실제 트리거, 계획 렌더러, 파이프라인 연결, PR 및 감사 | in-progress | `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py` 및 `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py` | 게이트가 걸린 경계가 집중 통합 테스트에서 Huginn ingest와 Forseti 판정을 연결합니다. 실제 트리거, 계획 렌더러, PR 및 감사 경로를 연결하는 운영 조립은 없습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 순수 재조립 동작과 아직 조립되지 않은 전달 경로를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 재조립, 제안 및 Norns 집중 테스트 | 실제 shadow 경로를 조립하고 PR과 감사 근거를 보존해야 합니다. |
-| 2026-09-26 | in-progress | 제안 경계에 게이트를 걸었습니다. 분석기가 누적된 오버라이드를 다시 검증한 뒤에만 제안이 Huginn에 도달하며, 인그레스 이벤트 타입 `preflight_toggle_blocker` 덕분에 Forseti가 페이로드가 제공한 ActionType을 신뢰하지 않고 토글 ActionType을 바인딩합니다. | `current change`, `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`, `uv run pytest tests/core/deploy_preflight -q` 98개 통과 | 게이트가 걸린 경계를 런타임 조립 루트에서 실제 정책 발견 사항 트리거, PR 발행 및 감사 근거와 함께 조립해야 합니다. |
-| 2026-09-26 | in-progress | 남은 인수 전달 경계를 기록했습니다. 인그레스가 이 오퍼레이터 아닌 신호의 `params`를 버리므로, 조립된 실제 경로는 토글별 인수를 통제된 방식으로 실행기에 전달하는 과제를 남겨 둡니다. | `current change`, `services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py` | 게이트가 걸린 경계를 실제 트리거와 함께 조립하고 토글별 인수를 통제된 경로로 전달해야 합니다. |
-| 2026-09-26 | in-progress | 이 경계에서 예전 `rule_violation` 인그레스 봉투를 읽는 소비자가 더 이상 없으며 문서 앵커가 모두 해석됨을 검토에서 확인했습니다. | `current change`, `bash scripts/quality/repository/check-doc-links.sh` 결과 깨진 링크 0개 | 변동 없음: 게이트가 걸린 경계를 실제 트리거와 함께 조립하고 토글별 인수를 통제된 경로로 전달해야 합니다. |
-
-### 남은 작업
-
-- [ ] 실제 정책 발견 사항을 호출자 소유 계획 렌더러에 연결하고 생성된 모든 재정의를 같은 분석기가 다시 검증함을 입증합니다.
-- [x] `ProposalSink` 경계를 게시 전 게이트 뒤에서 Huginn ingest에 연결했습니다.
-  `tests/core/deploy_preflight/test_pre_publication_gate.py`의 집중 통합 테스트가 차단·에스컬레이션·
-  오래된 증거·범위 변경 패스는 파이프라인 이벤트를 발행하지 않고 PR도 열지 않으며, 해소된
-  패스는 `remediate.apply-preflight-toggle`로 판정되어 사람 검토로 보류됨을 입증합니다.
-- [ ] 그 게이트가 걸린 경계를 런타임 조립 루트에서 실제 정책 발견 사항 트리거와 함께 조립하고, 조립된 실행 근거를 남깁니다. 인그레스는 오퍼레이터가 아닌 신호의 `params`를 버리므로, 이 작업은 토글별 인수를 통제된 경로로 실행기에 전달하는 방법도 포함해야 합니다.
-- [ ] 토글마다 shadow tfvars 재정의 PR 하나를 발행하고 추가 전용 감사 의도, 최종 결과 및 테스트된 `pr_revert` 롤백 근거를 보존합니다.
-
 ## 왜 가능한가 (그리고 마법이 아닌가)
 
 레일은 이미 존재합니다. 능동 재조립은 그것들을 끝에서 끝까지 잇습니다:
@@ -276,3 +244,9 @@ Preflight 조립은 범위가 제한된 발견 사항 id, category, 근거 출�
 - [project-structure-ko.md](../architecture/project-structure-ko.md) - 실행기, 모듈 경계, infra 서브 모듈 패턴
 - [risk-classification-ko.md](../decisioning/risk-classification-ko.md) - 차단 발견 사항이 `hil`로 라우팅되는 방식
 - [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md) - 7개 안전조건, shadow-first, ActionType 계약
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/preflight-active-reassembly.md) |

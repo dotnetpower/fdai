@@ -1,8 +1,8 @@
 ---
 title: 콘솔 Operator API 프로덕션 배포
 translation_of: operator-api-prod.md
-translation_source_sha: be746ca1196cc81e49ac5d202c1a6a69d3ac984e
-translation_revised: 2026-09-07
+translation_source_sha: c5020320c2fa2e6334e4ccdd9806ac6007fe08f6
+translation_revised: 2026-10-01
 ---
 # 콘솔 Operator API 프로덕션 배포
 
@@ -15,30 +15,6 @@ translation_revised: 2026-09-07
 > **범위**: Tier B 참조 문서다. 전체 dev/prod 패리티 계약은
 > [dev-and-deploy-parity.md](dev-and-deploy-parity.md)에, 배포 토폴로지는
 > [deployment.md](deployment.md)에 있다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 독립 서비스 진입점 및 환경 검증 | implemented | `services/operator-service/src/fdai_operator_service/main.py`, `production.py`, `environment.py` 및 조립 테스트 | 서비스는 팩토리 하나를 소유하며 프로바이더 사용 전에 수신기, Entra, RBAC, CORS, 데이터베이스 및 의미 전송 조합을 검증합니다. |
-| Entra 인증 및 범위가 제한된 운영자 권한 부여 | implemented | `services/operator-service/src/fdai_operator_service/auth.py`, 경로 기능군 권한 부여 및 집중 서비스 테스트 | 사람 신원은 실행기 신원과 분리되며 와일드카드 CORS와 부분 의미 전송 구성은 실패 시 차단됩니다. |
-| PostgreSQL 읽기 및 기능군 저장소 | implemented | `postgres.py`, `postgres_family_store.py` 및 `test_operator_service_postgres.py` | DSN 정규화, 연결 한계, 역할 연결, 트랜잭션별 명령문 시간 제한 및 사용할 수 없는 변환 결과가 구현되어 있습니다. |
-| Kafka 의미 전송 및 실시간/에이전트 중계 | implemented | `adapters/`, `streaming/`, `test_semantic_kafka_adapter.py`, `test_semantic_turn_bridge.py` 및 `test_live_stream.py` | 로컬 평문 전송과 배포된 관리 신원 전송은 명시적인 실행 위치 선택으로 유지됩니다. 새 Live 구독자는 앞선 60초 동안 허용된 프로세스 내부 단계 프레임만 받습니다. |
-| 독립 배포된 Operator 서비스 | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 저장소 보관 가능한 실제 운영 근거가 독립 패키지 서비스, 마이그레이션 분기, 상태 검사 및 롤백 경계를 다룹니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-07 | implemented | 영속 이력 경계를 바꾸지 않고 새 Live 구독자를 위해 용량과 시간이 제한된 최근 단계 재생 및 검증된 최신 런타임 소스 표시를 추가했습니다. | `current change`; Live hub, Kafka 중계, 브라우저 hook 및 집중 테스트; Operator pytest 16개와 Console Vitest 22개를 통과했고 Ruff, mypy 및 Console typecheck를 통과했습니다. | 관리되는 런타임 검증은 별도입니다. Operator API를 다시 시작하면 재생 구간이 초기화되고 새로운 Huginn 관찰이 없으면 소스 준비 상태가 만료됩니다. |
-| 2026-08-14 | validated | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 사용 중단된 공동 호스팅 파사드 참조를 독립 Operator 서비스로 갱신했습니다. | 현재 변경, 집중 Operator 서비스 검사 및 독립 서비스 실제 운영 근거 매니페스트 | 서비스가 발전함에 따라 환경 계약, 서비스 테스트, 배포 작업 흐름 및 실제 운영 근거 매니페스트를 함께 갱신해야 합니다. |
-
-### 남은 작업
-
-- [x] 이 문서의 범위가 제한된 프로덕션 조립에는 남은 구현 작업이 없습니다. 집중 서비스 테스트와 `config/independent-service-live-evidence-manifest.json`이 현재 구현 및 운영 근거를 제공합니다.
-
 ## 한눈에 보는 설계
 
 - **서비스 소유 팩토리.** 배포된 프로세스는
@@ -176,6 +152,7 @@ uvicorn fdai_operator_service.main:create_app \
 
 | 알고 싶은 내용 | 읽을 문서 |
 |----------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/operator-api-prod.md) |
 | dev/prod 패리티 계약 | [dev-and-deploy-parity-ko.md](dev-and-deploy-parity-ko.md) |
 | 배포 토폴로지 | [deployment-ko.md](deployment-ko.md) |
 | RBAC + 신원 흐름 | [../interfaces/user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md) |

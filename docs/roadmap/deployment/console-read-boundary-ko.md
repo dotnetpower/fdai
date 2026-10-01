@@ -1,87 +1,14 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 93802f5e3f6b8c5a9099739f32b17811503cb147
-translation_revised: 2026-09-29
+translation_source_sha: 746bcf9d0fbb9bc070de99e38d1cf027f4c2c92b
+translation_revised: 2026-10-01
 ---
 # Console 읽기 경계
 
 이 문서는 FDAI Console의 로컬 및 배포 읽기 출처 계약을 소유합니다. 출처 선언, 인증,
 워크로드 근거 및 인벤토리 조회를 권위 있고 읽기 전용인 상태로 유지하며 Operator API에 실행기
 신원을 부여하지 않습니다.
-
-## 구현 상태
-테스트 맥락 선택지 엔드포인트는 배포 환경이 제공한 검토된 grant 위의 읽기 경계 projection입니다. grant registry가 없거나 오래되었거나 철회되었거나 모호하면 사용 불가를 반환하며 브라우저에서 사례 범위를 계산하지 않습니다.
-
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 모델 카탈로그 및 기존 T2 배포 연결 | implemented | `adapters/model_catalog.py`, `bind-existing-model.py`, 검색 및 연결 집중 테스트 | 설정 새로 고침은 관측된 Azure 모델 구성을 읽습니다. 로컬 T2 기본 모델 연결은 T1과 독립 검토 요건을 보존하며 메타데이터 준비 상태가 실제 추론 호출의 성공을 입증하지는 않습니다. |
-| 읽기 데이터 소스 선언 완전성 | validated | `fdai_operator_service/composition.py`, 집중 Operator 테스트 및 인증된 Console 53개 경로 전수 검사 | Console이 조회하는 모든 읽기 경로는 선언된 카탈로그, 감사 또는 영속 테이블 출처로 해석됩니다. 레코드가 없는 출처는 합성 성공 값 대신 명시적인 빈 근거 상태를 반환합니다. |
-| 카탈로그 기반 참조 변환 결과 | validated | `test_materialize_authoritative_catalogs.py`, 인증된 컨트롤, 기능, 승급, 워크플로 앱 및 담당 체계 로드 | 검토된 ActionType, Workflow, 컨트롤, 기능, 온보딩, 범위 및 담당 체계 선언이 런타임 또는 액션 근거를 만들지 않고 리비전이 있는 읽기 변환 결과에 도달합니다. |
-| WARA shadow 평가 변환 결과 | 구현됨 | `fdai_operator_service/composition.py`, WARA 변환 결과 및 워크플로 계열 테스트 | 로컬 및 배포 Operator 조립은 같은 고정 교차워크, shadow 토픽, 소비자 그룹 및 PostgreSQL 변환 결과를 읽습니다. 프로바이더 관측은 별도로 연결하기 전까지 사용할 수 없으며 합성 근거로 대체하지 않습니다. |
-| 대화 문서 다운로드 | 구현됨 | `fdai_operator_service/composition.py`, `document_export.py`, 집중 소유권 및 완전성 검사 | Operator 조립은 인증된 principal의 완전한 검증 semantic 변환 결과에서만 문서를 다시 생성합니다. Markdown은 private 및 non-cacheable 상태를 유지하며, 범위가 제한된 encoder를 사용할 수 있을 때만 PDF를 표시합니다. |
-| 사용 불가 화면 표현 | validated | 집중 Operator 및 Console 검사와 영향받는 패널의 인증 통과 | 제공되지 않는 route는 서버가 소유한 사유를 유지하며 패널은 날것 전송 상태나 존재하지 않는 구성 심볼을 노출하지 않습니다. |
-| 계정 신원 및 동일 테넌트 계정 선택 | 구현됨 | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; 집중 콘솔 계정 테스트(`11 passed`), typecheck 및 프로덕션 빌드 | 헤더 패널은 권한을 추가하지 않고 MSAL 신원과 서버가 검증한 역할을 표시합니다. 대화형 세션은 로그인 힌트 없이 Entra 계정 선택기를 열고 기존 시작 권한 확인 경계로 다시 진입할 수 있습니다. |
-| 로컬 운영자 신원 선택 | implemented | `config.ts`; `environment.py`; `prepare-operator-service-env.sh`; 집중 Console, Operator, 준비 및 HIL 경로 테스트 | 표준 준비는 비공개 Console 환경에 오래된 Azure CLI 인증 요청이 남아 있어도 Browser Entra를 선택합니다. 역할 상한이 고정된 Azure CLI principal을 사용하려면 준비 명령에 `--auth-mode azure-cli`를 명시하고 브라우저 및 API 확인 값을 함께 설정해야 합니다. HIL 경로는 검증된 `Approver` 또는 `Owner` 역할에만 전체 상세를 반환합니다. |
-| 기록된 Resource 상태 출처 | implemented | `test_operator_service_composition.py::test_recorded_state_route_and_source_are_common_to_both_venues`; [기록된 상태 근거](../../roadmap-implementation/interfaces/recorded-resource-state.md) | 목록, 탐색 및 일괄 상태 조회 경로는 두 실행 환경에서 같은 인벤토리 계열 저장소를 사용합니다. 출처를 구성했다고 해서 기록된 사실의 최신성이 입증되지는 않습니다. |
-| 워크플로 정의 카탈로그 읽기 | implemented | `postgres_workflow_definitions.py`; `family_adapters.py`; `operator_workflow_definition_read_20260929`; `test_workflow_definition_catalog.py`; `test_workflow_definition_catalog_postgres.py` | 두 실행 환경 모두 SELECT 전용 권한으로 Operator가 소유한 테이블을 직접 읽고, 인증된 principal 범위로 제한하며 실패 시 닫히는 재확인을 수행합니다. 아직 테이블을 채우는 writer가 없으며([#1655](https://github.com/dotnetpower/fdai/issues/1655)) 인증된 브라우저 전수 검사 증적도 보존되지 않았습니다. |
-| Python 작업 기능 보고 | implemented | `python_task_capability.py`; `test_python_task_capability.py`; Console `python-task.test.ts` 및 `workflow-builder.test.ts` | Operator는 Python 작업 담당 구성 요소나 VM 작업 실행기를 연결하지 않으므로 명시적인 사용 불가 상태를 보고합니다. 통제된 담당 구성 요소 연결은 남은 작업입니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
-|------|------|------|------|-----------|
-| 2026-09-29 | implemented | 영속 정의·바인딩 writer의 추적 이슈를 중복으로 닫은 [#1664](https://github.com/dotnetpower/fdai/issues/1664)에서 [#1655](https://github.com/dotnetpower/fdai/issues/1655)로 옮겼습니다. 읽기 경계 범위는 그대로입니다. | #1655의 이슈 범위 갱신; `current change`. | #1655에서 writer를 연결합니다. |
-| 2026-09-29 | implemented | HTTP `503`을 반환하던, 생산자가 없는 워크플로 빌더 읽기 두 개를 교체했습니다([#1655](https://github.com/dotnetpower/fdai/issues/1655)). 이제 `workflow-definition.list`는 새 SELECT 전용 권한으로 Operator가 소유한 정의 및 바인딩 테이블을 직접 읽고, 인증된 principal 범위로 제한하며 실패 시 닫히는 재확인을 수행합니다. `python-task.capabilities`는 조립 구성의 명시적인 사용 불가 보고를 반환하며, Console은 보고된 상태를 설명합니다. | `current change`; `postgres_workflow_definitions.py`, `python_task_capability.py`, `family_adapters.py`, `20260929_operator_workflow_definition_read.py` 및 Console `python-task.ts`와 `workflow-builder*`; 집중 Operator 테스트 40개, 모든 마이그레이션을 적용한 루프백 데이터베이스에서의 실제 PostgreSQL 권한 및 격리 테스트, principal 범위 변이 7개 제거. 운영 조립을 통한 경로 전수 검사는 두 경로 모두 `200`을 반환했고 principal별 Mine과 바인딩을 분리했으며, 토큰 없는 요청에는 `401`을 반환했습니다. | 표준 로컬 스택에서 인증된 브라우저 `/workflow-builder` 전수 검사를 보존합니다. [#1664](https://github.com/dotnetpower/fdai/issues/1664)에서 추적하는 writer와 통제된 Python 작업 담당 구성 요소를 연결합니다. |
-| 2026-09-21 | implemented | 보수적인 가용성 의미와 파사드 가져오기를 보존하면서 전체 읽기 출처 선언 레지스트리와 경로 계열 조립을 목적별 Operator 조립 모듈 뒤로 옮겼습니다. | `current change`, 집중 데이터 출처 테스트 10개와 전체 조립 테스트 120개 통과 및 선택적 PDF 테스트 1개 건너뜀, Ruff, strict mypy 및 Operator 경계 검사 통과. | 이 내부 소유권 분리에 남은 읽기 출처 또는 권한 작업은 없습니다. |
-| 2026-09-14 | implemented | Browser Entra 온톨로지 보증 스택이 Operator 및 Console 프로세스를 시작하기 전에 API와 Vite 플래그 쌍을 모두 해제하여 주변 CLI 인증 준비와 격리되도록 했습니다. | `current change`; `run_ontology_assurance.py`; 집중 보증 프로세스 사양 회귀 테스트. | 독립 통합 비평을 반복합니다. |
-| 2026-09-14 | implemented | 라이브 E2E 프런트엔드도 API 실행기와 동일하게 Vite CLI principal 값 두 개를 모두 해제하도록 하고, 제거된 기존 모듈 예시를 지원되는 실행기로 교체했습니다. | `current change`; `playwright.live.config.ts`; 집중 라이브 E2E 구성 테스트; 문서 검사. | 독립 통합 비평을 반복합니다. |
-| 2026-09-14 | implemented | 인증된 라이브 E2E Operator 실행기가 Browser Entra 테스트 애플리케이션을 만들기 전에 CLI principal 값 두 개를 모두 해제하도록 했습니다. 이제 Azure CLI로 준비된 로컬 환경의 남은 확인 값 때문에 라이브 E2E 시작이 실패하지 않습니다. | `current change`; `console/tests/live-e2e/operator_service.py`; 집중 실행기 파싱 회귀 테스트. | 독립 통합 비평을 반복합니다. |
-| 2026-09-14 | implemented | 지원되는 `tools.console` 실행기, 브라우저 복구 오류, CLI 안내 및 실행 가능한 워크플로 예시를 API 확인 값 쌍에 맞췄습니다. 집중 테스트는 이제 실행기 환경을 실제 Operator 파서로 검증합니다. | `current change`; `tools/console.py`; 집중 실행기 및 Operator 환경 테스트; 문서 검사. | 독립 통합 비평을 반복합니다. |
-| 2026-09-14 | implemented | 27개 작업 토폴로지, 명시적 Browser Entra 명령, 변경 불가능한 API 기대값 및 별도 Azure CLI 디버그 체인에 맞춰 정확한 VS Code 작업 영역 계약을 갱신했습니다. 필수 통합 게이트가 이제 강화된 실행 형태를 검사합니다. | `current change`; `test_vscode_workspace_performance.py`; 집중 작업 영역 계약 테스트 모음. | 독립 통합 비평을 반복합니다. |
-| 2026-09-14 | implemented | 각 모드 표식 및 생성 플래그 검사가 즉시 실패를 반환하도록 캐시 출력 검증을 수정했습니다. 이제 부분적으로 손상된 Operator 환경은 마지막 확인 줄만 일치한다는 이유로 검증을 통과할 수 없습니다. | `current change`; `prepare-console-full-stack.sh`; 전체 쌍 및 단일 플래그 손상 집중 테스트. | 정확한 VS Code 작업 토폴로지 계약을 조정합니다. |
-| 2026-09-14 | implemented | VS Code Operator 디버거 프로세스 자체를 로컬 Browser Entra에 고정하고 API CLI principal 플래그 두 개를 비활성화했습니다. 동시에 CLI 디버그 준비가 실행되어도 브라우저 모드 사전 실행 뒤 디버거 소유 API를 전환할 수 없습니다. | `current change`; `.vscode/launch.json`; 집중 작업 영역 실행 계약 테스트. | 독립 통합 비평을 반복합니다. |
-| 2026-09-14 | implemented | 인증에 민감한 자식 실행기에서 변경 가능한 표식 재읽기를 제거했습니다. 감독기는 하나의 기대 모드를 받아 준비된 표식을 한 번 검증하고 그 변경 불가능한 값을 모든 자식에 전달합니다. 표준 작업과 감시기는 Browser Entra를 전달하고 별도 디버그 작업은 Azure CLI를 전달합니다. | `current change`; 로컬 실행 스크립트와 VS Code 작업; 집중 감독기, 독립 실행형 실행기 및 작업 영역 작업 테스트. | 독립 통합 비평을 다시 실행합니다. |
-| 2026-09-14 | implemented | 생성 결과 변조 또는 오래된 수동 재작성으로부터 두 준비 캐시를 강화했습니다. 이제 캐시를 재사용하려면 모드 표식과 생성된 Operator 플래그 두 개가 요청 모드와 정확히 한 번 일치해야 합니다. | `current change`; `prepare-console-full-stack.sh`; 변경된 출력에 대한 집중 캐시 회귀 테스트. | 동시 준비 및 시작 전체에서 하나의 변경 불가능한 모드 값을 전달합니다. |
-| 2026-09-14 | implemented | 영속 CLI 인증 플래그 안내를 명시적 실행기 및 작업 명령으로 교체하고, 고정된 `Contributor` 상한과 승인 제한을 함께 설명했습니다. | `current change`; `DEVELOPING.md`; `console/README.md`; `user-rbac-and-identity.md`; 이중 언어 문서 검사. | 독립 통합 비평과 인증된 Browser Entra 검증을 완료합니다. |
-| 2026-09-14 | implemented | Reader에는 `count_only`를 반환하고 검증된 Approver 및 Owner principal에는 `full` 승인 상세를 반환하는 HTTP 권한 경계 회귀 테스트를 추가했습니다. 테스트는 권위 있는 읽기 모델에 전달하는 상세 조회 플래그도 검증합니다. | `current change`; `test_operator_service_composition.py::test_hil_queue_detail_level_follows_verified_operator_role`; 역할 사례 3개 통과. | 운영자 복구 안내와 최종 통합 검토를 완료합니다. |
-| 2026-09-14 | implemented | 요청된 운영자 인증 모드를 활성 서비스 환경 단계 캐시 식별자에 추가했습니다. 이제 모든 파일 입력이 같아도 모드를 전환하면 Operator 환경과 모드 표식을 다시 생성합니다. | `current change`; `prepare-console-full-stack.sh`; 두 모드의 집중 단계 캐시 테스트. | 승인 경로 권한 회귀 테스트를 추가하고 운영자 안내를 완성합니다. |
-| 2026-09-14 | implemented | 요청된 운영자 인증 모드를 기존 전체 스택 준비 캐시 식별자에 추가했습니다. Browser Entra와 Azure CLI 디버그 사이를 전환할 때 다른 모드의 전체 준비 결과를 재사용할 수 없습니다. | `current change`; `prepare-console-full-stack.sh`; 두 모드의 집중 기존 캐시 테스트. | 활성 단계별 서비스 환경 캐시도 같은 모드에 연결합니다. |
-| 2026-09-14 | implemented | 독립 실행형 전체 스택 웹 실행기에 범위가 제한된 `--auth-mode` 선택기를 추가하고 준비 단계에 전달했습니다. 인자를 생략하면 Browser Entra를 선택하며, Azure CLI 디버깅은 호출 시 모드를 명시해야 합니다. | `current change`; `start-console-web.sh`; 집중 실행기 인자 테스트. | 두 준비 캐시를 선택된 모드에 연결합니다. |
-| 2026-09-14 | implemented | 표준 VS Code 준비 명령에 `browser-entra`를 명시하고 `Contributor` 상한을 이름에 표시한 별도 Azure CLI 디버그 작업을 추가했습니다. 준비 진입점도 같은 범위가 제한된 모드를 검증하고 전달하므로 운영자가 디버그 경로를 선택하기 위해 숨겨진 Vite 재정의를 영속할 필요가 없습니다. | `current change`; `.vscode/tasks.json`; `prepare-console-full-stack.sh`; 집중 작업 영역 작업 및 준비 인자 테스트. | 독립 실행형 웹 실행기에도 같은 명시적 모드 선택기를 추가합니다. |
-| 2026-09-14 | implemented | 표준 VS Code 프런트엔드 디버그 구성을 Browser Entra에 고정하고 두 CLI principal 값을 비활성화했습니다. 이제 복합 실행이 오래된 비공개 Vite 신원 재정의를 상속하지 않습니다. | `current change`; `.vscode/launch.json`; 집중 작업 영역 실행 계약 테스트. | 표준 작업을 재사용하지 않고 명확한 이름의 CLI 디버그 준비 작업을 추가합니다. |
-| 2026-09-14 | implemented | 로컬 서비스를 fan-out하기 전에 스택 전체가 준비된 인증 모드를 검사하도록 했습니다. 모드가 없거나 잘못되면 일부 서비스만 기동하지 않고 모든 서비스를 중지된 상태로 유지합니다. | `current change`; `start-console-services.sh`; 집중 감독기 테스트. | 직접 VS Code 실행 경로도 같은 표준 Browser Entra 계약에 고정합니다. |
-| 2026-09-14 | implemented | Uvicorn을 시작하기 전에 생성된 API 활성화 값 쌍과 준비된 Console 인증 모드를 비교하는 Operator 프로세스 사전 검사를 추가했습니다. Browser Entra와 CLI principal이 섞인 스택은 이제 실행기 경계에서 중단됩니다. | `current change`; `run-console-service.sh`; 집중 Operator 재시작 테스트. | 형제 서비스를 시작하기 전에 스택 전체 사전 검사를 추가합니다. |
-| 2026-09-14 | implemented | 관리형 프런트엔드 프로세스를 준비된 Console 인증 모드 표식에 연결하고 두 Vite 활성화 값을 명시적으로 설정했습니다. 이제 오래된 `.env.local` 값 때문에 Vite가 다른 principal을 선택하지 않습니다. | `current change`; `run-console-service.sh`; 집중 로컬 Console 실행기 테스트. | 해당 Operator 프로세스 및 감독기 사전 검사를 추가합니다. |
-| 2026-09-14 | implemented | 브라우저가 로컬 Azure CLI principal을 사용해 MSAL을 우회하려면 Vite 활성화 값과 확인 값을 함께 설정하도록 했습니다. 이제 오래된 브라우저 환경 값 하나만 남아 있으면 신원을 바꾸는 대신 시작을 차단합니다. | `current change`; `console/src/config.ts`; `console/src/config.test.ts`; 집중 Console 구성 테스트. | 관리형 실행 경로를 준비된 모드에 연결하여 두 확인 값을 일관되게 설정합니다. |
-| 2026-09-14 | implemented | 로컬 Azure CLI principal이 Browser Entra를 대체하려면 API 활성화 값과 확인 값을 함께 설정하도록 했습니다. 이제 오래된 서버 환경 값 하나만 남아 있으면 시작이 실패합니다. | `current change`; `environment.py`; `prepare-operator-service-env.sh`; 집중 준비 및 Operator 구성 테스트. | 브라우저 경계에도 같은 실패 시 차단 확인 절차를 완성합니다. |
-| 2026-09-14 | implemented | Browser Entra를 결정적인 로컬 준비 기본값으로 지정하고 역할 상한이 고정된 Azure CLI principal을 명시적 준비 인자 뒤로 옮겼습니다. 오래된 `VITE_LOCAL_AZURE_CLI_AUTH=1` 값은 더 이상 준비된 Operator 신원을 바꾸지 않습니다. | `current change`; `scripts/deployment/local/prepare-operator-service-env.sh`; `tests/integration/scripts/test_prepare_operator_service_env.py`; 집중 테스트 5개 통과. | 실행 경로 전체의 모드 일관성을 완성하고 인증된 Browser Entra 승인 화면 검사를 보존합니다. |
-| 2026-09-12 | implemented | 카탈로그 변환 결과에 프로덕션 writer가 추가된 뒤 승격 게이트 출처를 정정했습니다. 이제 Operator는 모든 카탈로그 ActionType 행을 영속 승격 레지스트리와 결합하고, 레지스트리 레코드가 없을 때만 런타임과 같은 shadow 모드를 기본값으로 사용하며, 결합한 값을 응답 출처에 포함합니다. | `current change`; Operator 워크플로 계열 검사 40개와 집중 Console 승격 검사 6개 통과, Console 타입 검사 및 카탈로그 동등성 검사 통과. | 인증된 브라우저 근거를 보존하고 통제된 승인 전달 증적을 별도로 완료합니다. |
-| 2026-09-06 | implemented | 무시되던 설정 카탈로그 새로 고침 플래그를 주입된 읽기 전용 공급자에 연결하고 기존 T2 배포의 명시적 로컬 연결 기능을 추가했습니다. | `current change`; 집중 Python 테스트 70개와 Console 디코더 테스트 35개 통과. 인증된 설정 새로 고침에서 HTTP 200과 선택한 기존 기본 모델을 포함한 모델 버전 47개를 확인했으며 추론 요청은 보내지 않았습니다. | T1 답변 가용성을 누락된 T2 검토자와 분리하는 작업은 별도로 필요하며 모델 호출과 전체 다중 모델 정족수는 검증되지 않았습니다. |
-| 2026-09-01 | 구현됨 | 검증된 FDAI 역할, IAM 탐색, 로그아웃 및 동일 테넌트 Entra 계정 선택을 제공하는 접근 가능한 헤더 계정 패널을 추가했습니다. 중복 작업, 초기 번들 크기 및 모바일 탐색 겹침을 방지하도록 강화했습니다. | `current change`; `console/src/components/account-menu.tsx`; `console/src/components/account-menu.test.ts`; `console/src/auth.ts`; `console/src/auth.test.ts`; 집중 콘솔 테스트(`11 passed`), typecheck 및 프로덕션 빌드 통과 | 디렉터리 전환은 단일 테넌트 발급자 계약에 따라 계속 지원되지 않습니다. |
-| 2026-09-01 | 구현됨 | 읽기 전용 WARA 인벤토리 및 선택적 평가 변환 결과를 공유 로컬 및 배포 Operator 조립 경계에 연결했습니다. | `current change`, rebase된 구현의 WARA 변환 결과, 워크플로 계열, materializer 및 Console 모델 검사. | 런타임 검증을 주장하기 전에 별도로 승인된 다중 리소스 실제 Azure shadow 증적을 보존합니다. |
-| 2026-08-27 | implemented | 카탈로그, 감사, Process, 전달, 예측, 메모리, 스킬 출처, 보증, 준비도 및 구성 기준선 상태 변환 결과를 독립 Operator 서비스에 연결했습니다. Operator 역할에는 해당 변환 결과에 필요한 테이블 읽기 권한만 부여합니다. | `current change`, 집중 Operator 테스트, strict mypy, Ruff, 독립 서비스 검사, materializer 검사 및 인증된 53개 경로 브라우저 전수 검사. | 프로비저닝 진행 상황과 라이브 온보딩에는 외부 관찰 relay가 계속 필요합니다. Python 작업 작성에는 통제된 프로바이더가 계속 필요합니다. |
-| 2026-08-18 | implemented | `/kpi/promotion-gates`를 명시적으로 사용할 수 없는 읽기 소스로 선언했습니다. workflow 계열은 `promotion-gate.list` 투영을 읽지만 이를 쓰는 구성요소가 없어 모든 Overview와 Control assurance 로드에서 이 경로가 `503`을 반환했고 콘솔은 계속 요청했습니다. 부재를 선언하면 클라이언트가 단락하고 패널은 자신에 대한 사유를 제시합니다. 어느 방향으로도 gate 값을 합성하지 않습니다. | `current change`, operator 스위트 `406 passed, 1 skipped`, Ruff check와 format 통과. 측정: 로컬 저장소에는 `operator-projection:workflow:` 아래에 `rule.list`, `workflow.action-type-list`, `workflow.catalog`만 있고 `promotion-gate` 일치 행은 0개이며, 트리 전체에 해당 키의 writer가 없습니다. 선언된 경로를 비우는 변이 검증에서 두 개의 unavailable-source 테스트가 실패합니다. | promotion-gate 생산자가 도입되면 이 선언을 제거합니다. |
-| 2026-08-18 | validated | 이 focused owner가 Console 읽기 경계를 소유하도록 채택하고 현재 범위, 잔여 작업 및 규범적 읽기 계약을 초대형 동등성 문서에서 옮겼습니다. | `current change`; 이전 구현 전환 6개는 `dev-and-deploy-parity-ko.md`에 변경 없이 남아 있으며 focused 문서, 번역, route 및 크기 게이트가 통과합니다. | Operator API 권한을 넓히지 않고 아래의 관측 가능한 항목을 완료합니다. |
-| 2026-08-27 | implemented | 완전한 ontology instance projection을 불투명한 프로세스 로컬 selection token에 결속했습니다. Operator는 semantic turn이 이를 사용하기 전에 인증된 principal, 일반 role 범위, purpose, 정확한 release, source generation, completeness 및 id와 token이 일치하는지 확인하며 재시작, 위조 및 클라이언트 재계산 membership은 fail closed 됩니다. | `current change`, 집중 Operator/Core/Console 테스트, strict 타입 검사, Ruff 및 번역 게이트 통과 | 완전한 selection-token 경로에 대한 인증된 Browser receipt를 보존합니다. |
-| 2026-09-05 | implemented | 공통 기록 상태 경로를 일반 운영 변환 결과의 구성 여부가 아닌 인벤토리 계열 저장소에 연결해 선언했습니다. | `current change`; 로컬/배포 및 구성됨/미구성 출처 조립 사례 통과; [기록된 상태 근거](../../roadmap-implementation/interfaces/recorded-resource-state.md) | 기록 상태 출처 선언에 대한 인증된 브라우저 근거를 보존합니다. |
-
-### 잔여 작업
-
-- [ ] 프로비저닝 진행 상황과 라이브 온보딩 관찰 relay를 연결한 뒤, 관찰된 활동 없음과 relay 사용
-  불가를 구분하는 인증된 브라우저 증적을 보존합니다.
-- [ ] 통제된 Python 작업 작성 프로바이더를 연결하고 실행 권한 없음 기능 증적을 보존합니다.
-- [ ] 표준 로컬 전체 스택에서 `/workflow-builder`를 인증된 Browser Entra로 전수 검사하고
-  `/workflows/definitions`와 `/python-tasks/capabilities`가 HTTP `200`을 반환한 기록을 보존합니다.
-- [ ] [#1655](https://github.com/dotnetpower/fdai/issues/1655)에서 추적하는 정의 및 바인딩 writer를
-  연결한 뒤, 저장한 비공개 초안이 소유자의 Mine에만 표시되고 다른 principal의 그룹에는 표시되지
-  않음을 보여 줍니다.
-- [ ] 구성된 출처를 최신 관측으로 취급하지 않으면서 기록 상태 출처 선언과 사실별 근거 누락을
-  보여 주는 인증된 브라우저 증적을 보존합니다.
-
 ## 설계 개요
 
 Console은 각 선택적 읽기 전에 서버가 소유한 선언된 출처를 확인합니다. 누락되거나 승인되지 않은
@@ -230,6 +157,7 @@ internal-edge 및 출처 상한으로 구성된 같은 잘림 사유 vocabulary�
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/console-read-boundary.md) |
 | 나머지 로컬 및 배포 런타임 동등성 | [런타임 동등성](dev-and-deploy-parity-ko.md) |
 | Console 권한과 읽기 화면 | [Operator Console](../interfaces/operator-console-ko.md) |
 | 사람 신원과 App 역할 | [사용자 RBAC 및 신원](../interfaces/user-rbac-and-identity-ko.md) |

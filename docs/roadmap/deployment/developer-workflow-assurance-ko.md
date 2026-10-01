@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 73abe32262612674d0ae10b9892101bae95d3ef4
+translation_source_sha: 5f6f0b0c547992820387a5e48315af1190410fc5
 translation_revised: 2026-10-01
 ---
 
@@ -492,89 +492,6 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 - Terminal guard는 agent tool을 통해 실행되는 선언적 shell command string을 다룹니다. 임의로
   생성된 program의 동작까지 증명하려고 하지 않으며, 해당 program은 user request, code review 및
   clean-snapshot contract의 적용을 계속 받습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 공유 쓰기 및 hook | implemented | `developer_workflow_repository.py`, overlap 및 복구 분류 workflow 테스트 | 적용은 기존 hook에 남습니다. |
-| 검증 및 인계 | implemented | Versioned queue record, 제한된 지연 진단, handover schema v2, 최종 집중 테스트 48개 통과 | Window 불확실성과 malformed 상태를 fail-closed 처리합니다. |
-| Hermetic 검사 및 로컬 서비스 | implemented | Workflow 환경 preflight와 checkout 소유 서비스 준비 상태, 집중 workflow 테스트 | 진단은 서비스를 시작하거나 다시 시작하지 않습니다. |
-| 브라우저 및 편집기 부하 | implemented | 기존 집중 Playwright 진입점, 10-slot lease pool 및 profile 부하 통제 | 최종 비평에서 Medium 잔존이 없음을 검증해야 합니다. |
-| 원격 사전 검사 | implemented | `live_preflight/transport.py`, 집중 테스트 6개 | 읽기 시도는 최대 3회이며 영구 오류는 즉시 실패합니다. |
-| 10회 보증 | validated | 13개 라운드, 최종 독립 재검토 및 `d3f5257b9` 중앙 receipt | Low를 초과하는 잔존 발견 사항이 없습니다. |
-| 개발자 검증 권한 | implemented | `.githooks/post-commit`, `.githooks/pre-push`, `scripts/agent/design_context.py`, focused hook 및 dispatcher 테스트 | Commit과 push는 더 이상 로컬 queue receipt에 의존하지 않으며 CI가 push된 SHA의 integration을 소유합니다. |
-| 로컬 우선 검증과 후보 게시 | implemented | 집중 실행기, 경로, 지침, 선택기, 캐시, 변경 테스트 샤드, 대기열, 워크플로 및 Genesis 회귀 테스트와 정적 및 타입 검사 | 로컬 구조 검사 결과와 변경 테스트 샤드 통과는 내용과 실행 입력에 연결됩니다. 집중 게이트 재사용에는 검증된 깨끗한 입력과 최종 일치 확인이 필요합니다. 원격 근거는 독립적으로 유지합니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-12 | implemented | 범위를 제한한 로컬 구조 검사 재사용, 입력을 검증하는 집중 게이트 캐시, 그룹별 hook 검사, 지침과 CI 경로 정리 및 명시적 후보 게시를 완료했습니다. 최종 입력 변경은 수락하지 않으며 캐시 문맥이 불명확하거나 없으면 캐시 없이 실행합니다. | `current change`; 집중 실행기, 캐시, 대기열, 워크플로, Genesis, 경로, 지침, 텍스트 및 선택기 통합 집중 테스트 651개 통과; Ruff와 범위를 제한한 mypy 검사 통과. | 승인된 push 이후 비교 가능한 원격 지연 근거를 보관합니다. 로컬 결과는 배포 권한을 부여하지 않습니다. |
-| 2026-08-15 | in-progress | 개발 워크플로 보증 소유 문서를 도입하고 캠페인 범위를 제한했습니다. 이전 구현 출처는 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 나열된 기존 통제입니다. | 집중 라운드와 최종 잔존 위험 검토를 완료합니다. |
-| 2026-08-15 | in-progress | 독립 비평 후 CLI 계약, 제한된 근거 window, 실패 동작, 권한 분리 및 12회 순서를 정의해 설계를 수정했습니다. | 현재 변경, roadmap, 번역 및 punctuation 검사입니다. | 수락된 각 발견 사항을 구현하고 검증합니다. |
-| 2026-08-15 | implemented | 13개의 비평 및 hardening 라운드를 완료하고 재현 가능한 모든 Medium 이상 잔존 사항을 제거했습니다. | 현재 변경, 집중 Python 통제 테스트 163개, Playwright port-pool 테스트 6개, 최종 false-ready 테스트 48개, Ruff 및 최종 독립 검토입니다. | 통합 revision의 중앙 validation receipt를 기록합니다. |
-| 2026-08-15 | validated | 중앙 검증이 통합 구현 revision을 수락했습니다. | `validation_queue.py check-commit d3f5257b9`가 통과했습니다. | 이 제한된 캠페인에 남은 작업이 없습니다. |
-| 2026-08-15 | in-progress | 측정된 Top 20 잔존 캠페인을 시작했습니다. | 이슈 #118 및 잔존 캠페인 표의 기준선입니다. | 추가 비평 라운드 10개 이상과 중앙 검증을 완료합니다. |
-| 2026-08-15 | implemented | 순위 11부터 20까지 추가 비평 및 hardening 라운드 14개를 완료했습니다. | 현재 변경, 위 Top 20 보증 결과, focused tests, Ruff 및 strict mypy입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
-| 2026-08-15 | implemented | Validator scratch 소유권과 focused automation test 선택을 고정하는 review evidence 라운드 2개를 추가했습니다. | 현재 변경, validator 및 selector suite 테스트 85개 통과입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
-| 2026-08-15 | implemented | 실제 pre-tool dispatcher와 validator scratch symlink 경계의 integration-level 우회를 닫았습니다. | 현재 변경, dispatcher 및 guard 테스트 19개와 scratch ownership 테스트 2개 통과입니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
-| 2026-08-15 | implemented | Commit scope, approval comment, Git alias, config-env option form 및 symlink ancestor를 다루는 adversarial parser 라운드 4개를 닫았습니다. | 현재 변경, dispatcher 및 parser fixture 40개와 scratch ownership guard 3개 통과이며 독립 acceptance에서 Low를 초과하는 잔존 사항이 없었습니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
-| 2026-08-15 | validated | 중앙 검증이 최종 Top 20 구현과 assurance ledger revision을 수락했습니다. | `validation_queue.py check-commit 4a18ce982` 통과, 최종 focused join 테스트 221개 통과입니다. | 이슈 #118을 완료하고 project board를 동기화합니다. |
-| 2026-08-15 | in-progress | 세션 근거에서 36개 세션에 걸쳐 대기 불만 51건이 확인된 뒤 이슈 #122의 측정된 bounded-wait 캠페인을 시작했습니다. | 이슈 #122 및 bounded wait 캠페인 표의 기준선입니다. | Bounded 예산을 구현하고 비평 라운드 10개 이상을 완료합니다. |
-| 2026-08-15 | implemented | Assurance checkpoint를 전체 run configuration이 아니라 evidence identity에 바인딩해, per-run session id나 조정된 pacing, deadline, retry 노브가 완료된 turn을 폐기하지 않도록 했고 모든 보존 결과를 생성 실행에 귀속했습니다. | 현재 변경, console suite 1793개 통과 및 TypeScript 프로젝트 검사 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-15 | implemented | Checkpoint 바인딩에 대상 stack origin을 추가하고, 예산 소진으로 생긴 비결과를 영구 실패로 저장하지 않도록 했으며, 실행 예산 override를 선언된 봉투로 제한하고 재시도 집계를 보존 증거에서 유도했으며 보존 결과 형태를 검증하고 과장된 원장 행 6개를 정정했습니다. | 현재 변경, live-evidence Vitest 89개 통과 및 TypeScript 프로젝트 검사 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-15 | implemented | 정체된 질문 경계와 실행 예산 경계를 테스트된 정책으로 분리하고, checkpoint 읽기 경로에서 무시되던 결과 술어를 전달했으며, 예산으로 중단된 실행을 끝낸 질문을 공개하고 typecheck 게이트를 `console/tests`로 확장했습니다. 이로 인해 이 캐페인이 typecheck 밖 spec에 만든 실제 타입 파손을 발견해 수정했습니다. | 현재 변경, live-evidence Vitest 95개 통과, `npm run typecheck`가 `console/tests`를 포함해 통과합니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-15 | implemented | 앞 행을 정정합니다. 해당 변경은 Console typecheck script만 확장했고 강제되는 게이트는 확장하지 못했습니다. 이번 변경은 `run-operator-surfaces.sh`에서 `npm --prefix console run typecheck`를 실행하고, 만료된 시도가 실제로 잘린 경계를 공개하며, 해당 outcome을 `per_attempt_deadline_exceeded`로 이름을 바꾸고 일시적 turn 오류가 남은 시도를 사용하도록 합니다. | 현재 변경, live-evidence Vitest 98개 통과, 전체 Console suite 1802개 통과, `npm run typecheck` 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-15 | implemented | Cohort를 완주했지만 발행 전에 중단된 실행이 영원히 통과하지 못하고 checkpoint까지 잃던 재개 함정을 제거했습니다. 완전히 재개된 cohort는 `run_mode: resumed_replay`로 발행되고, 회수는 발행을 전제하며, 강제 게이트는 중복 애플리케이션 typecheck를 피해 tests project만 실행하고, 해당 게이트 행을 parity 테스트로 고정했으며 아티팩트는 정체된 질문을 별도로 집계합니다. | 현재 변경, live-evidence Vitest 및 typecheck-parity suite 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-15 | implemented | 앞 행이 열어 둔 재생 권한 구멍을 닫았습니다. Live 검증이 없는 실행은 `receipt_source: resumed_replay`로 발행되며 production-ready가 될 수 없고, 중단된 실행을 재생으로 잘못 표기하지 않습니다. 통과 기준이 읽는 모든 보존 필드를 검증하고, transport 재시도 집계 범위를 좁혔으며, checkpoint를 evidence identity로 키잉하고 아티팩트 schema를 올렸습니다. | 현재 변경, live-evidence Vitest 102개 통과, `npm run typecheck` 및 typecheck-parity 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-15 | implemented | 재개된 cohort가 자신이 보고하는 stack을 실제로 증명하도록 했습니다. Checkpoint만으로 완주한 실행은 마지막 질문을 live stack에 다시 물으며, 보존된 모든 답변은 동일한 ontology release와 principal manifest 세대를 서술해야 하므로 오래된 답변이 live turn 하나에 편승할 수 없습니다. | 커밋 `344c445b8`, bounded wait 캠페인 표의 16위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-15 | implemented | 그 live 증명을 반증 가능하게 만들었습니다. 재개 시 답변이 필요한 마지막 질문까지 tail을 풀고, live 권한은 ontology release에 바인딩된 답변 turn을 요구하며, 재발행된 세대는 live 답변으로 확인되어야 하고, 완주했으나 실패한 cohort는 checkpoint를 유지하며, 실행 예산이 자신의 preamble까지 포함하고, checkpoint 신뢰·통과·회수·경로 정책을 게이트되지 않은 spec에서 테스트되는 순수 함수로 옮겼습니다. | 커밋 `d9adeccb2`, bounded wait 캠페인 표의 17위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-15 | implemented | 재개된 cohort가 수렴하도록 했습니다. 검증된 turn만 재개하고, 답변이 필요한 질문 정확히 하나만 live 증명으로 풀며, preamble의 각 단계가 자체 경계를 갖고, 세대를 증명할 수 없는 선택은 거부하며, 보존된 locale·operation·attempt outcome을 통제된 값으로 검증합니다. | 커밋 `11635c075`, bounded wait 캠페인 표의 18위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-16 | implemented | 실제로 증명할 수 있는 증명 질문을 풀도록 했습니다. 푸는 질문은 이전 실행이 세대 digest와 함께 답한 마지막 질문이며, 완주한 cohort는 러너가 단언하는 outcome이 충족될 때만 checkpoint를 회수하고, 포기한 turn이 재사용 페이지에 인증 스트림을 남기지 않으며, 누락된 receipt를 원래의 transport outcome으로 보고하고, 보존 결과 타입을 러너와 공유합니다. | 커밋 `d9eed948d`, bounded wait 캠페인 표의 19위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-16 | implemented | 탐지된 모든 결함을 복구 가능하게 만들었습니다. 세대가 섞인 checkpoint는 영원히 거부되는 대신 폐기되고, checkpoint 파일을 바인딩 전체로 키잉해 번갈아 쓰는 revision이나 target stack이 각자의 재개 상태를 유지하며, 실행 컨텍스트를 재설정할 수 없는 페이지는 실행을 중단시키고, `console/scripts`를 typecheck project에 넣자 실제 타입 결함이 드러나 수정했습니다. | 커밋 `6c2f0848b`, bounded wait 캠페인 표의 20위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-16 | implemented | 실행되지 않던 게이트를 복구했습니다. `npm exec`가 호출자 디렉터리를 유지해 operator 게이트가 저장소 루트에서 `tsconfig.tests.json`을 요구하다 TS5058로 실패했고 `set -e` 아래에서 console build와 CLI 검사 두 개까지 함께 무너뜨렸습니다. 이제 게이트가 project를 저장소 루트 기준으로 지정하고 parity 테스트가 그 형태를 고정하며, 잘린 실행은 유효한 checkpoint를 유지하고, 실행 중 release 교체가 무효화한 turn만 정리하며, 앞뒤가 맞지 않는 통제된 거부는 실패하고, 부분 checkpoint 파일은 프로세스별 이름을 갖습니다. | 커밋 `1782464e4`, bounded wait 캠페인 표의 21위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-16 | implemented | 막힌 cohort가 자신을 재생하지 못하게 했습니다. 거부만 한 답변 필수 turn을 풀어 이후 실행이 다시 시도하게 하고, pacing 결함이나 checkpoint 쓰기 실패는 아티팩트 없이 빠져나가는 대신 통제된 중단 사유가 되며, parity 테스트가 호출 전체를 고정하고, 운영자가 지정한 checkpoint 경로를 다듬습니다. | 커밋 `ddf1e47f5`, bounded wait 캠페인 표의 22위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-16 | implemented | Pacing만이 아니라 질문 전체를 보호하도록 했습니다. Pacing과 질문 내 재시도 대기, turn이 하나의 중단 경로를 공유하므로 재시도 대기 중 페이지 결함이나 허용된 0 pacing 재정의 상황에서도 아티팩트가 남고, 예산으로 잘린 시도는 쓸 수 없는 reload를 소비하지 않으며, 예산 중단은 중단된 질문의 이름을 남깁니다. | 커밋 `62f68be0e`, bounded wait 캠페인 표의 23위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
-| 2026-08-16 | implemented | 24라운드가 assurance 러너 밖에서 찾아낸 대기를 제한했습니다. Container App health 폴링은 반복마다 진행 줄을 출력하고 자체 900초 deadline에서 실패하며, auto-pull은 `git fetch`와 `git pull --rebase`를 interval 아래로 제한하고 완료되지 못한 fetch를 보고하며, 재시도하는 모든 워크플로 다운로드가 누적 재시도 window를 선언하고, 재개된 cohort는 loop 전에 복원·잔여 개수를 출력합니다. | 현재 변경, 배포 워크플로·validation queue·게이트 parity 집중 테스트 71개 통과, 두 스크립트의 `bash -n`, `npm --prefix console run typecheck`, live-evidence Vitest 143개 통과입니다. | 24라운드의 findings 3건을 근거와 함께 기각했고 이슈 #122의 비평 라운드를 계속합니다. |
-| 2026-08-16 | implemented | Deadline이 전혀 없던 검증 단계 자체를 제한했습니다. 30분간 출력이 없거나 4시간 예산을 넘긴 단계는 프로세스 그룹 단위로 종료되고, 어떤 경계가 작동했는지와 함께 상태 124로 보고되며, 실패 지역화에서 제외되어 환경 정체가 커밋을 탓하지 않습니다. 또한 개발자에게 중간까지 진행된 rebase를 남길 수 있었던 24라운드의 `git pull --rebase` 처리를 정정해, 뒤처진 브랜치는 이미 fetch한 ref 위로 로컬 `merge --ff-only`로 전진하고, readiness 프로브는 재시도 window와 요청당 상한을 선언합니다. | 현재 변경, validation queue·배포 워크플로·게이트 parity 집중 테스트 73개 통과(정체된 단계와 예산 초과 단계를 종료하는 신규 watchdog 테스트 2개 포함), strict mypy, Ruff, 두 스크립트의 `bash -n`입니다. | 비평 라운드를 계속하고 이슈 #122의 exact 중앙 검증을 확보합니다. |
-| 2026-08-16 | implemented | 26라운드가 25라운드 변경에서 찾아낸 공유 상태와 지연 종료 위험을 제거했습니다. Auto-pull은 브랜치별 remote-tracking ref로 fetch해 그 ref를 기준으로 비교하고 전진하므로 같은 Git common directory의 동시 fetch가 비교 대상을 바꾸거나 무관한 ref로 브랜치를 전진시킬 수 없고, 단계 watchdog은 단계가 이미 종료했으면 종료 신호를 보내지 않으며 실제로 그 종료로 죽은 경우에만 만료를 인정합니다. | 현재 변경, validation queue 집중 테스트 44개 통과, strict mypy, Ruff, auto-pull 스크립트의 `bash -n`입니다. | 비평 라운드를 계속하고 이슈 #122의 exact 중앙 검증을 확보합니다. |
-| 2026-08-16 | implemented | 27라운드가 여전히 재현할 수 있던 마지막 대기를 닫았습니다. 검증기의 Git 헬퍼가 600초 경계를 선언해 단계 watchdog 밖의 어떤 검증기 단계도 문자 그대로 무한 대기하지 않고, roadmap 에이전트는 프로세스가 중단 불가 I/O에 걸린 경우 자신이 보낸 SIGKILL 뒤에 영원히 기다리지 않으며, auto-pull은 fetch timeout과 다른 이유의 fetch 실패를 구분합니다. 27라운드에서 Low를 넘는 재현 가능한 finding은 없었습니다. | 현재 변경, validation queue 집중 테스트 44개 통과, 변경된 두 모듈의 strict mypy, Ruff, auto-pull 스크립트의 `bash -n`입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
-| 2026-08-16 | implemented | 러너 기본값만 있던 자리에 예산을 선언했습니다. 보호된 Terraform job은 180분, 보호된 서비스 배포 job은 120분으로 제한하고, health 검증기는 자체 deadline 뒤에 실행하던 복구 검증과 readiness 경로 단계를 제한합니다. 28라운드 수용 검토는 assurance 러너, 검증 단계, auto-pull, health 검증, Azure preflight, 배포 워크플로, roadmap 에이전트 예산, Playwright 포트 풀 전반에서 Low를 넘는 재현 가능한 finding을 더 찾지 못했습니다. | 현재 변경, 배포 워크플로 집중 테스트 24개 통과, health 스크립트의 `bash -n`, 두 워크플로 문서의 YAML 파싱입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
-| 2026-08-16 | implemented | 29라운드는 28라운드가 선언한 예산을 각 job과 스크립트의 실제 최악 소요와 대조해, 느리지만 정상인 배포를 자르지 않고 그 위에 있음을 확인했고, `timeout` 래퍼가 `set -euo pipefail` 아래에서 종료 코드 전달을 보존하며 두 job 예산이 job 수준에서 유효한 YAML임을 확인했습니다. 캠페인 종료 조건을 충족합니다. Low를 넘는 재현 가능한 finding은 남아 있지 않습니다. | 현재 변경, 29라운드 확인 검토와 위 행들에 기록된 집중 테스트입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
-| 2026-08-16 | validated | 중앙 검증이 통합된 bounded wait revision을 수락했고 나가는 범위를 `origin/main`에 푸시했습니다. | Revision `85c5aadf4`에 대해 `validation_queue.py check-range origin/main..HEAD`가 통과했고, 푸시가 해당 exact 증적과 구조 증적을 재사용했습니다. | 이슈 #122를 완료하고 프로젝트 보드를 동기화합니다. |
-| 2026-08-17 | implemented | 집중 검사, 경로 예약, commit 범위, 구조 pre-push gate 및 SHA 기반 CI를 유지하면서 중앙 검증을 필수 개발 경로에서 제거했습니다. | `current change`, 이슈 #148, focused hook, dispatcher 및 constitution 테스트입니다. | 도입 후 CI 및 push 지연을 관찰하고 queue는 명시적 진단에만 사용합니다. |
-| 2026-09-12 | in-progress | 검증 단계를 정리하고 범위 없는 기본 검사를 제거했으며 번역 검사를 제한하고 암묵적인 전체 테스트 실행을 중단했습니다. 읽기 전용 기준선은 완료된 CI 12건의 265-391초(평균 337.2초)와 공급망 6건의 168-281초(평균 192.2초)를 포함합니다. 이는 워크플로 경과 시간이며 대기열 시간만 측정한 값이나 대기 비율 90%의 증명이 아닙니다. | `current change`; 선택기, 집중 실행기, 경로 및 텍스트 검사 테스트; 기준선 CI 실행 `34663201915`와 공급망 실행 `34663201914`. | 로컬 캐시 통합과 집중 검사를 완료하고, 승인된 push 이후에만 비교 가능한 실행을 측정합니다. |
-| 2026-09-29 | implemented | `dev discuss` 상태 확인과 캡처를 복구했습니다. #1418에서 소켓 경로를 줄인 뒤 실행기는 Core와 Operator 소켓을 전체 런타임 식별자로 `.fdai/r` 아래에 바인딩했지만, 명령은 여전히 `.fdai/runtime-diagnostics/<service>.sock`을 찾았으므로 프로브가 살아 있는데도 두 서비스를 사용할 수 없다고 보고했습니다. 이제 명령은 식별자로 바인딩된 최신 후보에게 어떤 서비스가 응답하는지 묻고 기존 경로도 유지합니다. Console 질문을 실행하는 동안 25초 Core 프로필을 캡처한 결과 23초 답변의 대부분이 모델 호출이었고, second reader가 선택자 호출마다 검토된 카탈로그 분할 리프 전체에서 비밀 값을 검사해 이벤트 루프에서 CPU 1.3초와 루프 지연 543ms를 쓰는 것을 찾았습니다. 이제 이 검사는 분할 다이제스트마다 한 번만 실행합니다. | 이전 명령에서 실패하는 `test_status_and_capture_find_an_identity_bound_launcher_socket`, `test_a_reviewed_catalog_shard_is_scanned_once_per_digest`, 두 서비스 모두 true인 실제 `dev-discuss status`, 다이제스트에 바인딩된 25초 캡처. | 없음. |
-| 2026-09-29 | implemented | 개발자가 질문이 왜 그렇게 이해되었는지 볼 수 있도록 `dev discuss`에 내용이 없는 의미 판단 추적을 추가했습니다. Core는 완료된 의미 턴마다 추적 하나를 50개 크기의 프로세스 로컬 버퍼에 보관합니다. 추적에는 라우팅, 각 판단 시도, 근거화 호출, 플래너가 직접 남기는 구조화된 판단 이벤트, 실행된 의도 그래프, 플래너 내부 사유가 포함된 결과, 단계를 가리키는 검토 신호가 들어 있습니다. 모델이 만든 토큰은 검토된 어휘에 속해야 하고, 배포 이름과 세션은 프로세스 로컬 별칭이 되며, 오프셋과 값은 프로세스를 벗어나지 않고, 추적이 없는 패킷은 스키마 1.0.0 전송 형식을 유지합니다. `dev-discuss explain`이 추적을 출력하고 `copilot-export`가 추적을 전달하며, 포함 검토 거부는 이제 포함되지 않은 닫힌 제약 역할만 기록합니다. 구현 전에 설계를 비평했고 발견 8건을 모두 수정했습니다. | `test_decision_traces.py`, `test_development_decisions.py`, `test_dev_discuss.py`의 explain 테스트, `test_an_uncovered_constraint_names_only_its_closed_roles_in_the_rejection_log`, 관련 대화 테스트 1,145개, 추적된 턴 20개를 포함한 실제 Console 실행 2회(거부된 추적 없음, 내보낸 패킷에 테넌트 이름이나 비ASCII 텍스트 없음), 가져온 검토 `sha256:f2be8aca0c1320734a0d781bb2ac4d2ef34cb0e597d5967dcce6774a90845ed0`. | 추적된 오해 패턴은 [추론 컴파일러 원장](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md)에 기록했습니다. |
-| 2026-09-29 | implemented | 로컬 컴파일 답변 라운드를 위해 컴파일된 답변 판단 이벤트를 확장했습니다. 거절된 컴파일은 통과하지 못한 선택 규칙 하나와 배치 수를 기록하고, 무효인 검토는 추출이 검토 역할을 할 수 없는 이유를 인용 없이 기록하며, 형식화된 해석 때문에 보류된 단어 기반 복구 계획은 자체 신호를 남기고, 마지막 form 패스는 닫힌 영역, 형식, 연산, 측정, 필터, 관계, 시간 값과 언급 및 목표 식별자로만 이루어진 내용 없는 형태를 기록합니다. | `test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it`, `test_semantic_reasoning_shape.py`, 거절 및 검토 사유 형식 테스트, 7~10라운드 실제 추적, 가져온 검토 `sha256:a566db4ef38ca7d46ccb47f99761a6496821395a6f0d9c46dae43ee9486df4cc`. | 남은 대화 공백은 [추론 컴파일러 원장](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md)에 기록했습니다. |
-| 2026-10-01 | in-progress | 잠금 파일과 소스가 바뀐 뒤 전체 검사 실행이 캐시된 통과 네 개를 0초 만에 반환한 문제(#1726)에 대해, 재사용하는 변경 테스트 샤드 통과를 구조 검사기의 내용 식별자에 연결하는 설계를 기록했습니다. 실행기 동작은 바꾸지 않았습니다. | `current change`, `docs/roadmap/deployment/developer-workflow-assurance.md`, `docs/roadmap/deployment/developer-workflow-assurance-ko.md` | 내용에 연결된 샤드 표식과 회귀 테스트를 구현합니다. |
-| 2026-10-01 | implemented | 내용에 연결된 변경 테스트 샤드 통과를 구현했습니다(#1726). 표식이 pytest 명령, `PYTHONPATH`, 샤드 번호만 기준으로 삼았기 때문에 소스, 테스트, `uv.lock`이 바뀐 뒤에도 전체 검사를 다시 실행하면 캐시된 통과를 보고했습니다. 이제 표식은 샤드 명령, 인터프리터, pytest, uv, 로캘 변수, 실행기 자체 상태를 제외한 추적 중인 파일과 무시되지 않은 미추적 작업 트리 파일 전체의 바이트, 바이트코드 캐시를 제외한 프로젝트 환경의 구조 검사기 설치 환경 다이제스트에 연결됩니다. 모든 샤드가 끝난 뒤 작업 트리가 각 파일의 상태 시각까지 그대로이고 환경도 그대로일 때만 통과를 기록하며, 식별자를 계산할 수 없으면 통과를 재사용하지 않습니다. | `current change`, `scripts/automation/run-changed-test-shards.py`, `scripts/automation/changed_test_inputs.py`, `scripts/automation/local_validation_inputs.py`, `tests/integration/scripts/test_changed_test_shards.py`, `tests/integration/scripts/test_tests_for_diff.py`, `tests/integration/scripts/test_local_validation_cache.py`. 새 소스, 테스트, 잠금 파일, 의존성, 인터프리터, 변수, 실행 중 변경, 되돌린 변경 사례는 이전 실행기에서 실패합니다. 실제 두 샤드 실행은 변경이 없을 때 두 통과를 모두 재사용했고 소스를 수정한 뒤에는 둘 다 다시 실행했습니다. | 샤드 통과 재사용에 남은 작업은 없습니다. |
-
-### 남은 작업
-
-- [x] #1726에 따라 `run-changed-test-shards.py`가 재사용하는 변경 테스트 샤드 통과를 구조 검사기의
-  내용 식별자(선택된 테스트와 소스, 잠금 파일, 설치 환경 다이제스트, pytest 명령)에 연결합니다. 종료
-  조건: 선택된 소스 파일이나 `uv.lock`을 수정하면 캐시가 적중하지 않고, 변경 없이 다시 실행하면 통과를
-  재사용함을 회귀 테스트로 보여 줍니다. 근거: `tests/integration/scripts/test_changed_test_shards.py`,
-  2026-10-01 이력 행에 기록했습니다.
-- [x] 집중 검사와 함께 13개의 독립 비평 라운드를 완료하고 수락 또는 기각된 발견 사항을 위에
-  기록했습니다.
-- [x] 중앙 검증이 통합 구현 revision `d3f5257b9`를 수락했습니다.
-- [x] 최종 독립 검토에서 Low를 초과하는 잔존 발견 사항이 없었습니다.
-- [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 22개를 완료했습니다.
-- [x] Top 20 revision `4a18ce982`를 통합하고 exact 중앙 validation receipt를 받았습니다.
-- [ ] 이슈 #118을 완료하고 project board를 동기화합니다.
-- [x] 이슈 #122의 bounded wait 캠페인 비평 라운드를 완료했으며, 28라운드 수용 검토에서 Low를 초과하는 재현 가능한 잔존 사항은 없었습니다.
-- [x] 중앙 검증이 bounded wait revision `85c5aadf4`를 수락했고 해당 범위를 푸시했습니다.
-- [x] 이슈 #148에서 일반 commit, push 및 agent-tool 경로의 자동 queue 등록과 commit별 receipt
-  요구를 제거했습니다.
-- [ ] 이슈 #122를 완료하고 프로젝트 보드를 동기화합니다.
-- [ ] 승인된 push 이후 동등한 CI 및 후보 게시 실행을 기준선과 비교하고 대기열, 준비,
-  실행 및 반복 작업 시간을 구분합니다.
-
 ## Bounded wait 캠페인
 
 이슈 [#122](https://github.com/dotnetpower/fdai/issues/122)는 처리 시간을 지배하는 긴 timeout,
@@ -661,6 +578,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/developer-workflow-assurance.md) |
 | 로컬 및 배포 런타임 동등성 | [런타임 동등성](dev-and-deploy-parity-ko.md) |
 | 저장소 검증 명령 | [스크립트 참조](../../../scripts/README.md) |
 | 배포 안전성 | [배포 사전 검사](deployment-preflight-ko.md) |
