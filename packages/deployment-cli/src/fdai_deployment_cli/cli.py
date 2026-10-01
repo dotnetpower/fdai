@@ -48,6 +48,11 @@ from fdai_deployment_cli.doctor import (
     doctor_json,
     inspect_tools,
 )
+from fdai_deployment_cli.entitlement_preflight import (
+    describe_entitlement_mode,
+    ensure_azure_session,
+    select_entitlement_mode,
+)
 from fdai_deployment_cli.entra_source import run_source_entra_operation
 from fdai_deployment_cli.license import (
     INSTALLATION_ENTITLEMENT_SCHEMA,
@@ -262,6 +267,13 @@ def _provision_azure(args: argparse.Namespace) -> int:
         raise ValueError("Foundation adoption requires both retained directories")
     if args.control_package is not None and args.offline_kit is None:
         raise ValueError("--control-package requires --offline-kit")
+    if not args.prepare_only:
+        entitlement_mode = select_entitlement_mode()
+        print(
+            f"fdaictl: entitlement: {describe_entitlement_mode(entitlement_mode)}",
+            file=sys.stderr,
+        )
+        ensure_azure_session()
     if args.source is not None:
         if catalog_review_profile.selected:
             raise ValueError(
@@ -284,7 +296,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 timeout_seconds=args.timeout_seconds,
                 approval_file=args.approval_file,
                 foundation_recovery_directory=args.foundation_recovery_directory,
-                interactive=False,
+                interactive=args.approval_file is None,
                 installation_options=(
                     InstallationOptions(
                         setup_cost_ceiling=args.setup_cost_ceiling,

@@ -356,7 +356,8 @@ def test_source_plan_pending_approval_is_not_cli_success(
         == 2
     )
     assert calls[0]["source_root"] == Path(".")
-    assert calls[0]["interactive"] is False
+    # Constitution Article 1: the invocation approves each checkpoint it shows.
+    assert calls[0]["interactive"] is (not approved)
     assert calls[0]["confirm_initial"] is (output == "text")
     assert (calls[0]["installation_options"] is None) is approved
     assert calls[0]["approval_file"] == (Path("/tmp/example-approval.json") if approved else None)

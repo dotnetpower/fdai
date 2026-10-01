@@ -41,15 +41,16 @@ to the enrolled host, plus source-runtime OCI image preparation. Connected deplo
 build a dedicated managed-host image.
 The public source command resumes these checkpoints using the shared private coordinator;
 new interactive source installations confirm settings at startup only; later stages and JSON
-execution never prompt. `--approval-file <path>` explicitly supplies an existing
-private human approval to the shared verifier. Without it, retained ambient approvals are ignored.
-The public command never opens an interactive checkpoint prompt itself, so `--approval-file` is the
-only way to advance past a checkpoint that returned review state. Produce that record with
-`scripts/deployment/azure/genesis_approval_prompt.py --status <work-dir>/foundation/status.json
---output <path>`, which reads the exact checkpoint the run reached and, under constitution Article
-1, treats the operator's invocation as approval of the evidence it prints. The record binds the
-authenticated operator and expires 30 minutes after issuance, so reissue it if a resume starts
-later.
+execution never prompt. Under constitution Article 1 the invocation approves each checkpoint it
+reaches: without `--approval-file`, the command runs
+`scripts/deployment/azure/genesis_approval_prompt.py` itself, which reads the exact checkpoint the
+run reached and records the operator's invocation as approval of the evidence it prints, and then
+continues to the next checkpoint. Foundation and runner-image plan contracts refuse every update,
+replacement, or deletion, so no Foundation checkpoint needs the typed confirmation that deleting or
+replacing an existing resource requires. `--approval-file <path>` remains an advanced input that
+supplies an existing exact record instead; retained ambient approvals are otherwise ignored. The
+record binds the authenticated operator and expires 30 minutes after issuance, so reissue it if a
+resume starts later.
 Resuming a run repeats its sealed intent. Cost and profile arguments belong to that intent, so a
 resume that omits or changes one is refused and names the differing fields rather than failing
 opaquely.
@@ -267,8 +268,9 @@ Source deployment follows the constitution's deployment distribution and is owne
 [One-Command Source Deployment](source-deployment.md): anyone with a clone runs one command, the
 command builds service images from the checkout into the deployment's own registry, and no key,
 signed kit, protected branch, CI result, published artifact, attestation, provenance, or SBOM is
-required or created. The interim `fdai-up.sh --source <checkout> --signing-key <key>` route still
-builds a signed kit and is scheduled for removal. The offline package keeps one signed package for
+required or created. `fdai-up.sh` builds and signs no kit: without a mode argument it deploys its
+own checkout, and it refuses the retired `--signing-key` option. The offline package keeps one
+signed package for
 an Azure VM without internet access.
 
 An existing `dev` AKS installation can update one service directly from a clean local checkout on
