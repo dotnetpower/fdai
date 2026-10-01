@@ -294,8 +294,8 @@ class SemanticJudgmentProposal(QueryContract):
         if self.ambiguous and self.document_evidence_mode is not SemanticDocumentEvidenceMode.NONE:
             raise ValueError("ambiguous semantic judgment MUST NOT request document evidence")
         if self.document_query is not None:
-            if self.schema_version != "1.2.0":
-                raise ValueError("semantic judgment document query requires schema 1.2.0")
+            if self.schema_version not in {"1.2.0", "1.3.0", "1.4.0"}:
+                raise ValueError("semantic judgment document query requires schema 1.2.0 or later")
             if (
                 self.ambiguous
                 or self.document_evidence_mode is SemanticDocumentEvidenceMode.NONE

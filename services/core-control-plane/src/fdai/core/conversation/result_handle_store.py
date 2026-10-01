@@ -272,16 +272,30 @@ def reauthorize_result_handle_rows(
     """Drop rows that a secured reread no longer authorizes."""
 
     readable = {row.model_dump_json() for row in readable_rows}
-    rows = tuple(row for row in handle.row_keys if row.model_dump_json() in readable)
+    kept = [index for index, row in enumerate(handle.row_keys) if row.model_dump_json() in readable]
+    rows = tuple(handle.row_keys[index] for index in kept)
     snapshot_rows = tuple(
         row for row in handle.snapshot_cells if row.row_key.model_dump_json() in readable
     )
-    return handle.model_copy(
-        update={
+    identities = (
+        tuple(handle.row_identities[index] for index in kept)
+        if handle.row_identities
+        else handle.row_identities
+    )
+    # Identities drop with their rows, and the result is validated like any stored handle.
+    return type(handle).model_validate(
+        {
+            **handle.model_dump(mode="python"),
             "row_keys": rows,
             "snapshot_cells": snapshot_rows,
             "rendered_order_digest": rendered_order_digest(rows),
-        }
+            "row_identities": identities,
+        },
+        context={
+            "allowed_snapshot_fields": {
+                cell.field_name for row in snapshot_rows for cell in row.cells
+            }
+        },
     )
 
 

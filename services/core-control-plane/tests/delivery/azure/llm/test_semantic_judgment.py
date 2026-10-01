@@ -663,3 +663,20 @@ def test_preflight_requests_topics_only_from_a_topic_defining_prompt() -> None:
     )
     topics = _preflight_proposal_schema(manifest("conversation-preflight-request-topics"))
     assert topics["properties"]["request_topics"]["maxItems"] == 3
+
+
+def test_a_disabled_field_leaves_no_unreferenced_schema_definitions() -> None:
+    active = _semantic_judgment_proposal_schema(intent_hardening_enabled=False)
+    with_form = _semantic_judgment_proposal_schema(
+        intent_hardening_enabled=False, question_form_enabled=True
+    )
+
+    def referenced(schema: dict[str, object]) -> set[str]:
+        text = json.dumps(schema)
+        return {name for name in schema.get("$defs", {}) if f'"#/$defs/{name}"' in text}
+
+    assert set(active.get("$defs", {})) == referenced(active)
+    assert "SemanticQuestionForm" not in active.get("$defs", {})
+    assert "SemanticQuestionForm" in with_form.get("$defs", {})
+    # The default-off request carries no question-form definitions at all.
+    assert len(json.dumps(active)) < len(json.dumps(with_form)) / 2

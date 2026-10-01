@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from fdai_service_contracts.ontology_query import OntologyQueryPlan, QueryNodeKind
 
 _IDENTITY_PROPERTIES = frozenset({"id", "name", "display_name"})
+# Every operator the plan verifier accepts that names one identity exactly.
+_IDENTITY_OPERATORS = frozenset({"equals", "in", "equals_ignore_case"})
 _IDENTITY_KEYS = frozenset(
     {
         "object_ids",
@@ -114,7 +116,7 @@ def _predicate_operands(value: Mapping[str, object]) -> tuple[str, ...]:
     property_name = value.get("property")
     operator = value.get("operator")
     found: list[str] = []
-    if property_name in _IDENTITY_PROPERTIES and operator in {"equals", "in"}:
+    if property_name in _IDENTITY_PROPERTIES and operator in _IDENTITY_OPERATORS:
         equals = value.get("equals")
         if isinstance(equals, str):
             found.append(equals)

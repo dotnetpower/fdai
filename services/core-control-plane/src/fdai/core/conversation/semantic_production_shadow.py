@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
@@ -21,6 +23,8 @@ from fdai.core.ontology_platform import QueryManifest
 from fdai.shared.providers.state_store import StateStore
 
 from .semantic_planning_models import SemanticPlanningOutcome
+
+_LOGGER = logging.getLogger(__name__)
 
 PRODUCTION_SHADOW_ABSENT = "form_absent"
 PRODUCTION_SHADOW_LINKED = "linked"
@@ -94,7 +98,8 @@ class StateStoreProductionShadowSink:
         self._store = store
 
     def write(self, record: ProductionShadowRecord) -> None:
-        key = f"semantic-production-shadow.{record.sample_id_digest}"
+        # One key per turn, so two turns with equal text never overwrite each other.
+        key = f"semantic-production-shadow.{record.sample_id_digest}.{uuid.uuid4().hex}"
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -154,16 +159,21 @@ def record_planned_shadow(
     receipt = getattr(judgment_decision, "receipt", None)
     if recorder is None or proposal is None or receipt is None:
         return
-    recorder.record(
-        utterance=utterance,
-        context=context,
-        proposal=proposal,
-        receipt=receipt,
-        manifest=manifest,
-        frame=frame,
-        plan=plan,
-        outcome=outcome,
-    )
+    try:
+        recorder.record(
+            utterance=utterance,
+            context=context,
+            proposal=proposal,
+            receipt=receipt,
+            manifest=manifest,
+            frame=frame,
+            plan=plan,
+            outcome=outcome,
+        )
+    except Exception as exc:  # noqa: BLE001 - the shadow must never change the answer
+        _LOGGER.warning(
+            "semantic_production_shadow_unrecorded", extra={"failure_type": type(exc).__name__}
+        )
 
 
 def production_shadow_record(

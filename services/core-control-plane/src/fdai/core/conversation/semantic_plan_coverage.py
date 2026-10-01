@@ -126,7 +126,8 @@ def narrower_plan_outcome(
         utterance, context = scope.utterance or utterance, scope.context or context
     if (
         (scope.enforced if scope is not None else enforce_when is not None)
-        and plan_source == "proposed"
+        # Document evidence appended to a model plan renames its source, not its operands.
+        and plan_source.split("+", 1)[0] == "proposed"
         and any(
             node.output_kind == "query.table" for node in plan.nodes if node.node_id in output_ids
         )

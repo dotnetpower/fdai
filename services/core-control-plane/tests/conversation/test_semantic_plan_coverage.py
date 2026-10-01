@@ -445,3 +445,30 @@ def test_a_slot_that_covered_a_restriction_must_restrict_the_plan(
 
     assert plan_uncovered_slot_roles(frame, _plan(applied)) == ()
     assert plan_uncovered_slot_roles(frame, _plan(ignored)) == (slot.role.value,)
+
+
+def test_a_model_plan_renamed_by_document_evidence_still_needs_sourced_identities() -> None:
+    plan = _plan(_objects({"property": "id", "operator": "equals", "equals": "vm-invented-07"}))
+
+    outcome = narrower_plan_outcome(
+        None,
+        None,
+        "proposed+governed_documents",
+        plan,
+        "sha256:" + "a" * 64,
+        utterance="What is the state of app-prod?",
+    )
+
+    assert outcome is not None and outcome.reason == "semantic_operand_without_source"
+
+
+def test_a_case_insensitive_identity_match_is_still_an_identity() -> None:
+    plan = _plan(
+        _objects({"property": "name", "operator": "equals_ignore_case", "equals": "prod-db-07"})
+    )
+
+    outcome = narrower_plan_outcome(
+        None, None, "proposed", plan, "sha256:" + "a" * 64, utterance="show app-prod"
+    )
+
+    assert outcome is not None and outcome.reason == "semantic_operand_without_source"

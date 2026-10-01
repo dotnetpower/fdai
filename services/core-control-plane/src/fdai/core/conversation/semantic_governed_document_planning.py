@@ -69,12 +69,15 @@ def apply_document_evidence_requirement(
             document_query = judgment.document_query
             if document_query is not None:
                 subjects += (_QUERY_PREFIX + document_query.binding_digest(utterance=utterance),)
-            elif judgment.schema_version == "1.2.0":
+            elif judgment.schema_version in {"1.2.0", "1.3.0", "1.4.0"}:
                 subjects += (_QUERY_UNAVAILABLE,)
+    # The accepted judgment's typed slots bind the frame, so plan coverage can enforce them.
+    slots = judgment.constraint_slots if judgment is not None else ()
     if (
         requirements == proposal.evidence_requirements
         and subjects == proposal.subject_constraints
         and document_query == proposal.document_query
+        and slots == proposal.constraint_slots
     ):
         return proposal, frame
     updated = SemanticFrameProposal.model_validate(
@@ -83,6 +86,7 @@ def apply_document_evidence_requirement(
             "evidence_requirements": requirements,
             "subject_constraints": subjects,
             "document_query": document_query,
+            "constraint_slots": slots,
         }
     )
     return updated, build_semantic_frame(updated, utterance=utterance, context=context)

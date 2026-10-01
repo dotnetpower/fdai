@@ -647,6 +647,25 @@ def _validate_prompt_manifest(
         raise ValueError("semantic judgment prompt manifest does not match its system prompt")
 
 
+def _prune_unreferenced_definitions(schema: dict[str, Any]) -> None:
+    """Drop definitions no remaining property references, so off fields cost no tokens."""
+
+    definitions = schema.get("$defs")
+    if not isinstance(definitions, dict):
+        return
+    reachable: set[str] = set()
+    pending = [{key: value for key, value in schema.items() if key != "$defs"}]
+    while pending:
+        text = json.dumps(pending.pop())
+        for name in definitions:
+            if name not in reachable and f'"#/$defs/{name}"' in text:
+                reachable.add(name)
+                pending.append(definitions[name])
+    for name in tuple(definitions):
+        if name not in reachable:
+            del definitions[name]
+
+
 def _validate_output_reserve(
     name: str,
     manifest: PromptReplayManifest | None,
@@ -720,6 +739,7 @@ def _semantic_judgment_proposal_schema(
             "type": "string",
             "const": _DOCUMENT_QUERY_LOCALE.validate_python(source_locale, strict=True),
         }
+    _prune_unreferenced_definitions(schema)
     schema_version.clear()
     schema_version["const"] = (
         "1.4.0"

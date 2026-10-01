@@ -162,6 +162,13 @@ Promotion is per operation family, through the promotion registry, in this order
 R10 removes lexical re-derivation and template renderers only from promoted paths, after replay
 equivalence and one stable rollback release.
 
+**Hardening note (2026-10-01):** Critique rounds tightened P1 and P2 before any promotion. A shadow
+record that fails to persist is logged and never changes the answer, and each record has its own
+key. The carried form stays out of the frame model's input, and a judgment at schema 1.3.0 or 1.4.0
+keeps its document query. The judgment schema sent to the model drops the definitions a disabled
+field no longer references. The direction cost receipt measures latency as a span, counts only
+settled usage, and counts a second reader only when a tie-break call was sent.
+
 ## P6 Secret detection decision
 
 Operator-typed text reaches models after identity masking, and pattern-based detection removes

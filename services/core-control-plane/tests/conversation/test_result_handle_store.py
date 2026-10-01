@@ -195,6 +195,16 @@ def test_secured_reread_drops_rows_the_principal_can_no_longer_read() -> None:
     assert reauthorized.rendered_order_digest == rendered_order_digest((second,))
 
 
+def test_reauthorization_drops_each_identity_with_its_row() -> None:
+    first, second = _row(1), _row(2)
+    handle = _handle(rows=(first, second)).model_copy(update={"row_identities": ("vm-1", "vm-2")})
+
+    reauthorized = reauthorize_result_handle_rows(handle, readable_rows=(second,))
+
+    assert reauthorized.row_keys == (second,)
+    assert reauthorized.row_identities == ("vm-2",)
+
+
 @pytest.mark.asyncio
 async def test_snapshot_cells_require_allowlisted_fields_on_load() -> None:
     store = _store()

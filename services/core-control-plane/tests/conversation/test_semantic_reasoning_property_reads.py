@@ -238,7 +238,7 @@ def test_a_property_lookup_projects_only_the_reviewed_path_of_the_bound_anchor()
         "properties.properties.zone_redundant",
     ]
     assert batch.frame.output_shape == "target_property_value"
-    assert batch.frame.measure_concepts == (_ZONE,)
+    assert batch.frame.measure_concepts == (_ZONE, "properties.properties.zone_redundant")
     assert batch.frame.evidence_requirements == ("property.inventory.86400",)
     assert _violations(admission, batch.plan) == ()
 
@@ -389,18 +389,18 @@ async def test_a_missing_property_value_is_stated_as_unknown() -> None:
 @pytest.mark.parametrize(
     ("outputs", "shape", "concepts"),
     [
-        ([{"rows": []}], "target_property_value", (_ZONE,)),
+        ([{"rows": []}], "target_property_value", (_ZONE, "properties.properties.x")),
         (
             [{"rows": [{"values": {"id": "a"}}, {"values": {"id": "b"}}]}],
             "target_property_value",
-            (_ZONE,),
+            (_ZONE, "properties.properties.x"),
         ),
         (
             [{"rows": [{"values": {"id": "a", "x.y": 1, "x.z": 2}}]}],
             "target_property_value",
-            (_ZONE,),
+            (_ZONE, "x.y"),
         ),
-        ([{"rows": [{"values": {"id": "a", "x.y": 1}}]}], "resource_list", (_ZONE,)),
+        ([{"rows": [{"values": {"id": "a", "x.y": 1}}]}], "resource_list", (_ZONE, "x.y")),
         ([{"rows": [{"values": {"id": "a", "x.y": 1}}]}], "target_property_value", ()),
     ],
 )
@@ -422,8 +422,36 @@ def test_a_long_property_value_is_named_not_cut() -> None:
         [{"rows": [{"values": values}]}],
         korean=False,
         output_shape="target_property_value",
-        measure_concepts=("security.network.rules",),
+        measure_concepts=("security.network.rules", "properties.properties.rules"),
     )
 
     assert answer is not None and "(see technical details)" in answer
     assert "x" * 500 not in answer
+
+
+def test_a_structured_value_dropped_from_answer_rows_is_named_not_replaced_by_the_type() -> None:
+    # Answer rows keep scalar fields only, so a list-valued property arrives without its field.
+    values = {"id": "a", "properties.name": "sql-app", "properties.type": "sql-database"}
+
+    answer = render_property_value_answer(
+        [{"rows": [{"values": values}]}],
+        korean=False,
+        output_shape="target_property_value",
+        measure_concepts=(
+            "observability.diagnostic.settings",
+            "properties.properties.diagnostic_settings",
+        ),
+    )
+
+    assert answer is not None
+    assert "observability.diagnostic.settings: a structured value" in answer
+    assert "observability.diagnostic.settings: sql-database" not in answer
+
+
+def test_a_missing_name_clarifies_before_any_provider_path_is_chosen() -> None:
+    missing = AnchorBindingReceipt((AnchorBinding("m1", AnchorOutcome.ABSENT),))
+
+    _admission, compilation = _compile(anchors=missing)
+
+    goal = compilation.goals[0]
+    assert "anchor_not_found:m1" in goal.reasons

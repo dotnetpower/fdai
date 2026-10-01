@@ -294,3 +294,20 @@ async def test_the_shadow_reserves_from_its_own_ledger_and_reports_a_hold() -> N
     assert not any(note.startswith(BUDGET_RESERVED_EXCEEDED) for note in within.notes)
     assert f"{BUDGET_RESERVED_EXCEEDED}:form" in held.notes
     assert turn_reservations._LEDGER.get() is None
+
+
+def test_every_shadow_stage_admits_every_call_the_shadow_can_reach() -> None:
+    from fdai.core.conversation.semantic_reasoning_direction import MAX_DIRECTION_QUESTIONS
+
+    plan = shadow_reservation_plan(form_passes=3, repairs_per_pass=1, concept_calls=16)
+    limits = {item.stage: item.max_calls for item in plan.stages}
+
+    assert turn_reservations.DIRECTION_QUESTIONS_PER_PASS == MAX_DIRECTION_QUESTIONS
+    # Four passes (three form passes and the review repair pass), each with a first reader
+    # and a tie-break per directional relation.
+    assert limits[TurnStage.DIRECTION_READER] == 4 * MAX_DIRECTION_QUESTIONS * 2
+    assert limits[TurnStage.BLIND_REVIEW] == 4
+    ledger = TurnReservationLedger(plan_capacity(plan), plan)
+    for _ in range(2 * 2):  # Two disputed relations: two first readers and two tie-breaks.
+        ledger.reserve(TurnStage.DIRECTION_READER)
+    assert ledger.holds == []

@@ -492,7 +492,7 @@ def _direction_cost(counting: _CountingModel) -> DirectionCostReceipt | None:
     ledger = current_ledger()
     if ledger is None:
         return None
-    return direction_cost_receipt(ledger, tiebreak_calls=counting.tiebreak_calls)
+    return direction_cost_receipt(ledger, counting.direction_calls, counting.tiebreak_calls)
 
 
 def _generation_drifted(pinned: tuple[str, ...], observed: tuple[str, ...]) -> bool:

@@ -58,3 +58,36 @@ def test_a_turn_without_a_direction_reader_records_no_cost() -> None:
     ledger = TurnReservationLedger(plan_capacity(ReservationPlan(())), ReservationPlan(()))
 
     assert direction_cost_receipt(ledger, tiebreak_calls=0) is None
+
+
+def test_the_receipt_measures_a_span_counts_settled_usage_and_sent_tiebreaks() -> None:
+    from fdai.core.conversation.turn_reservations import PlannedStage, StageCost, TurnStage
+
+    times = [0.0]
+
+    def clock() -> float:
+        return times[-1]
+
+    plan = ReservationPlan(
+        (PlannedStage(TurnStage.DIRECTION_READER, StageCost(1, 10, 10, 20.0), max_calls=4),)
+    )
+    ledger = TurnReservationLedger(plan_capacity(plan), plan, clock=clock)
+    first = ledger.reserve(TurnStage.DIRECTION_READER, StageCost(1, 5, 5))
+    second = ledger.reserve(TurnStage.DIRECTION_READER, StageCost(1, 5, 5))
+    # Two concurrent first readers: one from 0 to 2 seconds, the other from 0 to 3.
+    times.append(2.0)
+    ledger.reconcile(first, output_tokens=3)
+    times.append(3.0)
+    ledger.reconcile(second, output_tokens=4)
+    failed = ledger.reserve(TurnStage.DIRECTION_READER, StageCost(1, 5, 5))
+    ledger.fail(failed)
+
+    receipt = direction_cost_receipt(ledger, 2, 1)
+
+    assert receipt is not None
+    assert receipt.wall_ms == 3000  # The span, not the 5 seconds the calls add up to.
+    assert (receipt.output_tokens, receipt.input_bytes) == (7, 10)
+    assert (receipt.calls, receipt.unsettled_calls) == (3, 1)
+    # Two first readers and one tie-break attempt that never reserved a call.
+    assert direction_cost_receipt(ledger, 3, 1) is not None
+    assert direction_cost_receipt(ledger, 4, 1).readers == 1  # type: ignore[union-attr]

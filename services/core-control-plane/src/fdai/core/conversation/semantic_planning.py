@@ -397,7 +397,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                         model_observations.extend(grounding.observations)
                         accepted = settled_proposal(coverage, grounding.judgment)
                     judgment_decision = replace(judgment_decision, proposal=accepted)
-                    semantic_judgment = accepted.model_dump(mode="json")
+                    semantic_judgment = accepted.model_dump(mode="json", exclude={"question_form"})
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             judgment_proposal = (
                 judgment_decision.proposal if judgment_decision is not None else None

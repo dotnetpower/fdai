@@ -100,8 +100,8 @@ class PlannedStage:
     conditional: bool = False
 
     def __post_init__(self) -> None:
-        if not 1 <= self.max_calls <= 16 or self.worst.calls != 1:
-            raise ValueError("a planned stage reserves one call at a time, at most 16 times")
+        if not 1 <= self.max_calls <= 64 or self.worst.calls != 1:
+            raise ValueError("a planned stage reserves one call at a time, at most 64 times")
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,23 +244,39 @@ _READER_CALL = StageCost(1, 32 * 1024, 1024, 20.0)
 _PLANNER_CALL = StageCost(1, 96 * 1024, 4096, 20.0)
 
 
+# Each pass settles at most this many directional relations, each with a first reader and
+# at most one tie-break; it mirrors `semantic_reasoning_direction.MAX_DIRECTION_QUESTIONS`.
+DIRECTION_QUESTIONS_PER_PASS = 4
+# The blind review reads twice at most (once more without context) and re-extracts once.
+_REVIEW_CALLS = 4
+
+
 def shadow_reservation_plan(
     *, form_passes: int, repairs_per_pass: int, concept_calls: int
 ) -> ReservationPlan:
-    """Return the shadow's stages: its form passes and repairs, review, and readers."""
+    """Return the shadow's stages, each sized to every call the shadow can reach."""
 
+    passes = form_passes + 1  # The review repair pass runs the stages once more.
     form_calls = form_passes * (1 + repairs_per_pass) + 1
+    direction_calls = passes * DIRECTION_QUESTIONS_PER_PASS * 2
     return ReservationPlan(
         (
-            PlannedStage(TurnStage.FORM, _FORM_CALL, max_calls=min(form_calls, 16)),
-            PlannedStage(TurnStage.BLIND_REVIEW, _READER_CALL, max_calls=2, conditional=True),
+            PlannedStage(TurnStage.FORM, _FORM_CALL, max_calls=min(form_calls, 64)),
+            PlannedStage(
+                TurnStage.BLIND_REVIEW, _READER_CALL, max_calls=_REVIEW_CALLS, conditional=True
+            ),
             PlannedStage(
                 TurnStage.CONCEPT_CHOOSER,
                 _READER_CALL,
-                max_calls=max(min(concept_calls, 16), 1),
+                max_calls=max(min(concept_calls, 64), 1),
                 conditional=True,
             ),
-            PlannedStage(TurnStage.DIRECTION_READER, _READER_CALL, max_calls=3, conditional=True),
+            PlannedStage(
+                TurnStage.DIRECTION_READER,
+                _READER_CALL,
+                max_calls=min(direction_calls, 64),
+                conditional=True,
+            ),
             PlannedStage(TurnStage.AMBIGUITY_READER, _READER_CALL, max_calls=1, conditional=True),
         )
     )

@@ -74,15 +74,16 @@ def property_lookup(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return OperatorResult(unsupported=(binding.reason or "property_unreadable",))
     if len(binding.values) != 1:
         return OperatorResult(unsupported=("property_count_unsupported",))
+    # A missing or ambiguous name clarifies before any provider path is chosen.
+    anchor = anchor_node(f"{goal.id}-anchor", goal.subject, ctx, FUNCTION_ANCHOR_LIMIT)
+    if isinstance(anchor, OperatorResult):
+        return anchor
     anchor_binding = ctx.anchors.binding(goal.subject)
     resource_type = anchor_binding.resource_type if anchor_binding is not None else None
     readable = _readable_properties(ctx)
     field = property_field(binding.values[0], ctx.manifest.property_reads, resource_type, readable)
     if not field.startswith("properties."):
         return OperatorResult(unsupported=(field,))
-    anchor = anchor_node(f"{goal.id}-anchor", goal.subject, ctx, FUNCTION_ANCHOR_LIMIT)
-    if isinstance(anchor, OperatorResult):
-        return anchor
     project = OntologyQueryNode(
         node_id=f"{goal.id}-read",
         kind=QueryNodeKind.PROJECT,
@@ -98,8 +99,8 @@ def property_lookup(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         ctx,
         subjects=(RESOURCE_OBJECT_TYPE,),
         output_shape=SemanticOutputShape.TARGET_PROPERTY_VALUE,
-        # The grounded identity names the value; the renderer never reads a provider path.
-        measure_concepts=(binding.values[0],),
+        # The grounded identity labels the value, and the projected field says which one it is.
+        measure_concepts=(binding.values[0], field),
         evidence_requirements=(f"property.inventory.{seconds}",),
     )
     return OperatorResult(specs=(spec,), limitations=(f"{PROPERTY_SOURCE_LIMITATION}:{seconds}",))

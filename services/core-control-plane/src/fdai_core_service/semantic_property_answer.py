@@ -14,6 +14,7 @@ _SHAPE = "target_property_value"
 _TYPE_FIELD = "properties.type"
 _IDENTITY = frozenset({"id", "properties.name", _TYPE_FIELD})
 _MAX_VALUE_CHARS = 400
+_STRUCTURED = object()
 
 
 def render_property_value_answer(
@@ -25,7 +26,7 @@ def render_property_value_answer(
 ) -> str | None:
     """Return the property answer for one verified row, or ``None`` to defer."""
 
-    if output_shape != _SHAPE or len(outputs) != 1 or len(measure_concepts) != 1:
+    if output_shape != _SHAPE or len(outputs) != 1 or len(measure_concepts) != 2:
         return None
     rows = outputs[0].get("rows")
     if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], Mapping):
@@ -33,16 +34,20 @@ def render_property_value_answer(
     values = rows[0].get("values")
     if not isinstance(values, Mapping):
         return None
-    # The projection holds the identity fields plus the one field the lookup read; a read
-    # of the type itself has no other field.
-    fields = [key for key in values if isinstance(key, str) and key not in _IDENTITY]
-    if len(fields) > 1 or (not fields and _TYPE_FIELD not in values):
+    label, field = measure_concepts
+    if any(isinstance(key, str) and key not in _IDENTITY and key != field for key in values):
         return None
-    value = values[fields[0] if fields else _TYPE_FIELD]
-    label = measure_concepts[0]
+    # Answer rows keep scalar fields only, so a structured value is named, never replaced.
+    value = values.get(field, _STRUCTURED) if field != _TYPE_FIELD else values.get(field)
     name = _text(values.get("properties.name")) or _text(values.get("id")) or "-"
     heading = f"## {name}의 {label}" if korean else f"## {label} of {name}"
-    if value is None:
+    if value is _STRUCTURED:
+        line = (
+            f"- {label}: 구조화된 값이므로 기술 상세에서 확인할 수 있습니다."
+            if korean
+            else f"- {label}: a structured value, shown in technical details."
+        )
+    elif value is None:
         line = (
             "- 이 속성에는 기록된 값이 없어 알 수 없습니다."
             if korean

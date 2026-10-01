@@ -458,6 +458,100 @@ def test_production_shadow_records_linked_disposition_without_changing_plan() ->
     assert sink.records[0].compiled_plan_digest == on.plan.plan_digest
 
 
+class _FailingShadowSink:
+    def write(self, record: Any) -> None:
+        raise RuntimeError("state store unavailable")
+
+
+class _CapturingModel(_Model):
+    def propose_frame(self, **kwargs: Any) -> dict[str, object]:
+        self.frame_judgments = [
+            *getattr(self, "frame_judgments", []),
+            kwargs.get("semantic_judgment"),
+        ]
+        return super().propose_frame(**kwargs)
+
+
+def _carrying_judgment() -> _JudgmentBoundary:
+    return _JudgmentBoundary(
+        SemanticJudgmentProposal.model_validate(
+            {
+                "schema_version": "1.4.0",
+                "primary_intent": "query.contextual_resources",
+                "confidence": 0.94,
+                "ambiguous": False,
+                "action_subject": "none",
+                "question_form": _question_form(),
+            }
+        )
+    )
+
+
+def test_a_failing_shadow_sink_never_changes_the_planned_answer() -> None:
+    manifest, definition = _fixture()
+    recorder = ProductionShadowRecorder(
+        settings=ProductionShadowSettings(enabled=True, sample_key="test-sample"),
+        sink=_FailingShadowSink(),
+    )
+    arguments = {
+        "utterance": "resource current state",
+        "prior_turns": (),
+        "principal": Principal(id="operator", role=Role.READER),
+        "purpose": "operations-review",
+    }
+
+    off = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=_carrying_judgment(),
+    ).plan(**arguments)
+    on = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=_carrying_judgment(),
+        production_shadow=recorder,
+    ).plan(**arguments)
+
+    assert (on.disposition, on.reason) == (off.disposition, off.reason)
+    assert on.plan is not None and off.plan is not None
+    assert on.plan.plan_digest == off.plan.plan_digest
+
+
+def test_the_carried_form_never_reaches_the_frame_model() -> None:
+    manifest, definition = _fixture()
+    model = _CapturingModel(frame=_frame(), plan=_plan(definition))
+
+    _service(model, manifest, semantic_judgment=_carrying_judgment()).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    judgments = [item for item in model.frame_judgments if isinstance(item, dict)]
+    assert judgments and all("question_form" not in item for item in judgments)
+
+
+def test_the_state_store_sink_keys_every_turn_apart() -> None:
+    from fdai.core.conversation.semantic_production_shadow import StateStoreProductionShadowSink
+
+    class _Store:
+        def __init__(self) -> None:
+            self.keys: list[str] = []
+
+        async def write_state(self, key: str, value: object) -> None:
+            self.keys.append(key)
+
+    store = _Store()
+    sink = StateStoreProductionShadowSink(store)  # type: ignore[arg-type]
+    record = SimpleNamespace(sample_id_digest="sha256:" + "a" * 64, as_state=lambda: {})
+
+    sink.write(record)  # type: ignore[arg-type]
+    sink.write(record)  # type: ignore[arg-type]
+
+    assert len(set(store.keys)) == 2
+
+
 def test_missing_carried_form_records_form_absent_without_changing_plan() -> None:
     manifest, definition = _fixture()
     sink = InMemoryProductionShadowSink()
