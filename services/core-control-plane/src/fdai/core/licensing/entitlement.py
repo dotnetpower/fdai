@@ -20,7 +20,7 @@ may separately assert a composition-verified local issuer workstation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
 from typing import Final, Protocol
@@ -146,9 +146,20 @@ class LicenseEntitlementAuthority:
         if entitlement.status not in {LicenseStatus.ABSENT, LicenseStatus.EXPIRED}:
             return entitlement
         trial_entitlement = self.trial.resolve(now=now)
-        if not trial_entitlement.available_capability_ids:
-            return entitlement
-        return trial_entitlement
+        if trial_entitlement.available_capability_ids:
+            return trial_entitlement
+        if (
+            entitlement.status is LicenseStatus.ABSENT
+            and trial_entitlement.status is LicenseStatus.EXPIRED
+        ):
+            # An ended Trial explains a keyless installation better than an absent
+            # token. Availability stays the token path's read-only subset.
+            return replace(
+                entitlement,
+                status=LicenseStatus.EXPIRED,
+                reason=trial_entitlement.reason,
+            )
+        return entitlement
 
 
 def resolve_entitlement(

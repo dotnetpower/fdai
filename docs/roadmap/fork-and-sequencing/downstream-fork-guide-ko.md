@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 323d5b9a4ea698890168ab2433d811c659dafff3
+translation_source_sha: 7047928f31a098a717c96adafe37731db7b2335c
 translation_revised: 2026-10-01
 ---
 
@@ -169,7 +169,8 @@ promotion 또는 실행 권한을 선택할 수 없습니다.
 
 [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt)에 나열된 경로는 편집하지
 마세요. Core, composition, 공유 계약과 프로바이더, 에이전트, 기능 라이선싱 런타임 연결, 영속 Trial
-저장소와 활성화 작성자, trust 패키지, 스키마 및 저장소 지침의 definition은 업스트림이 소유합니다.
+저장소와 활성화 작성자, trust 패키지, Trial 만료 워터마크의 상태 게시자와 Operator 표시, 스키마 및
+저장소 지침의 definition은 업스트림이 소유합니다.
 포크는 자체 패키지에서 경계를 통해 구현, 카탈로그 항목 및 overlay를 추가합니다.
 
 [포크 커스터마이제이션 skill](../../../.github/skills/fork-customization/SKILL.md)을 결정 절차로

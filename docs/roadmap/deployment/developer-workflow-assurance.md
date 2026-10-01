@@ -41,6 +41,7 @@ The command reads existing Git-common-dir state and process metadata. It does no
 audit log, infer session ownership after a commit, or convert an unavailable diagnostic into a
 successful result.
 Core bootstrap retains the existing `runtime_settings_service_from_env` test seam while production startup reuses its runtime-owned `StateStore` for one settings snapshot. This compatibility path changes no diagnostic socket, execution venue, provider identity, or deployment authority.
+Core bootstrap also builds the license authority once and shares it between the execution gate and the entitlement-state publisher. The diagnostic channel neither reads nor changes that state, and a capture cannot hide the Console watermark.
 Consumer startup also binds the [context-selection shadow runner](../decisioning/context-selection-policy.md#shadow-evaluation-and-evidence) to that existing store and gives pending comparisons five seconds to finish before cancelling them and closing the store. This changes neither the developer diagnostic surface nor the active prompt selection.
 The Core manifest's deployed `fdai-operational-catalog-review` entry point runs outside the local diagnostic channel. Adding it changes no task-backed launcher, socket identity, capture scope, or developer validation authority. Local post-turn review mechanics tests may use loopback PostgreSQL and the in-memory event bus as evidence, but they are not deployed transport receipts or developer workflow authority.
 

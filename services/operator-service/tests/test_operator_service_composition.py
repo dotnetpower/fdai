@@ -796,6 +796,42 @@ def test_local_cli_mode_projects_profile_and_authorizes_reader_routes() -> None:
     assert audit.status_code == 200
 
 
+def test_the_assembled_app_stamps_only_authenticated_responses() -> None:
+    """No database is configured, so the missing state stamps not-activated."""
+
+    composition = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+        local_cli_identity_factory=_local_cli_identity,
+        local_cli_session_token_factory=lambda: "local-session-token",
+    )
+    client = TestClient(
+        create_app(
+            {
+                **BASE_ENV,
+                "RUNTIME_ENV": "dev",
+                LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
+                CORS_ORIGINS_ENV: "http://127.0.0.1:5273",
+            },
+            composition=composition,
+        ),
+        client=("127.0.0.1", 50000),
+    )
+    origin = {"Origin": "http://127.0.0.1:5273"}
+
+    profile = client.get("/local-auth/me", headers=origin)
+    audit = client.get("/audit", headers={**origin, "Authorization": "Bearer local-session-token"})
+    rejected = client.get("/audit", headers={**origin, "Authorization": "Bearer other-token"})
+
+    assert "x-fdai-entitlement" not in profile.headers
+    assert audit.status_code == 200
+    assert audit.headers["x-fdai-entitlement"] == "not-activated"
+    assert "x-fdai-entitlement" in audit.headers["access-control-expose-headers"].lower()
+    assert rejected.status_code == 401
+    assert "x-fdai-entitlement" not in rejected.headers
+
+
 def test_cors_preflight_allows_durable_sse_replay_header() -> None:
     composition = ProductionOperatorComposition(
         verifier_factory=lambda environment: _verify,

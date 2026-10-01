@@ -24,6 +24,7 @@ from fdai_operator_service.authentication_receipt import (
     live_authentication_receipt,
     local_authentication_receipt,
 )
+from fdai_operator_service.entitlement_stamp import mark_request_authenticated
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.local_auth import LocalAzureCliIdentity, resolve_azure_cli_identity
 
@@ -128,7 +129,13 @@ class OperatorAuthenticator:
 
         Verified delegated scopes allow an omitted optional ``idtyp`` claim.
         Explicit application identities retain the Reader-only workload gate.
+        A successful verification also marks the request for the entitlement stamp.
         """
+        identity = self._verified_identity(authorization_header)
+        mark_request_authenticated()
+        return identity
+
+    def _verified_identity(self, authorization_header: str | None) -> VerifiedOperatorIdentity:
         if self.local_principal is not None:
             expected = f"{_BEARER_PREFIX}{self.local_session_token}"
             if authorization_header is not None and hmac.compare_digest(

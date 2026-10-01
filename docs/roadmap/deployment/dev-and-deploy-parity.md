@@ -517,6 +517,12 @@ adapter remains under `delivery/azure/`. See
 
 The semantic authentication receipt reference follows the same parity rule: the Operator emits the optional content-free `authentication_receipt_ref` in `operator-core-request` 1.9.0 only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on. The setting defaults off, and with it off every envelope keeps its earlier version and bytes. Enable it only after a Core that accepts 1.9.0 is deployed. The reference grants no authority by itself. With the setting on, the Operator API and the channel edge retain the content-free receipt for each semantic request before they send the reference, and the verifier checks `case-history-read` against the receipt retained for that exact request. With it off, Pattern reads still fail closed.
 
+The Trial expiry watermark follows the same rule. Local and deployed Core both publish their
+resolved notice into their own `licensing_entitlement_state` row, and every Operator stamps it
+on authenticated responses the same way. A verified local issuer workstation publishes `none`;
+any other local checkout shows the same watermark as a deployment without an entitlement. No
+venue, test fake, or setting suppresses it.
+
 ## Deployer-Scoped LLM Provisioning
 
 Protected full plans that can change cognitive deployments run the resolver and seal its exact manifest for apply. Terraform creates each provider account only when that publisher has a resolved capability, so a partner-only result keeps Foundry and does not request Azure OpenAI account quota. A development-gateway targeted plan still resolves the current capability map to preserve existing dependencies. Completeness findings remain non-blocking because its target set contains no cognitive deployment.

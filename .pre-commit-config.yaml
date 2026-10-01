@@ -146,4 +146,4 @@ repos:
         # changes - the offline signature + content check is unnecessary on
         # commits that touch nothing under the surface. Fork mode hard-fails
         # on a surface edit; upstream is advisory (re-sign before release).
-        files: ^(services/core-control-plane/src/fdai/(core/|composition\.py|composition/|shared/providers/|shared/contracts/|agents/|runtime/licensing(_trial_activation)?\.py$|delivery/persistence/postgres_licensing_trial\.py$|delivery/trust/)|rule-catalog/schema/|\.github/instructions/|security/integrity/)
+        files: ^(services/core-control-plane/src/fdai/(core/|composition\.py|composition/|shared/providers/|shared/contracts/|agents/|runtime/licensing(_trial_activation|_state)?\.py$|delivery/persistence/postgres_licensing_(trial|entitlement_state)\.py$|delivery/trust/)|services/operator-service/src/fdai_operator_service/entitlement_stamp\.py$|rule-catalog/schema/|\.github/instructions/|security/integrity/)

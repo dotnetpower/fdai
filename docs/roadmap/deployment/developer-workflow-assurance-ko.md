@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 2554bf0e2a2346e3940d287acca6a0f55bdc9f59
+translation_source_sha: 63c37f942bf490567346336e6bc7f4d40de58c90
 translation_revised: 2026-10-01
 ---
 
@@ -48,6 +48,7 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 추가하거나, 커밋 후 세션 소유권을 추론하거나, 사용할 수 없는 진단을 성공 결과로 바꾸지
 않습니다.
 Core 초기화는 기존 `runtime_settings_service_from_env` 테스트 seam을 유지하면서 운영 시작에서는 런타임 소유 `StateStore`를 재사용해 설정 스냅샷 하나를 읽습니다. 이 호환 경로는 진단 소켓, 실행 위치, 프로바이더 신원 또는 배포 권한을 변경하지 않습니다.
+Core 초기화는 라이선스 판정기도 한 번만 만들어 실행 게이트와 사용권 상태 게시자가 함께 사용하게 합니다. 진단 채널은 이 상태를 읽거나 바꾸지 않으며, 캡처로 Console 워터마크를 숨길 수 없습니다.
 소비자를 시작할 때 같은 저장소에 [컨텍스트 선택 shadow 실행기](../decisioning/context-selection-policy-ko.md#shadow-평가-및-근거)를 연결합니다. 종료 시 진행 중인 비교 평가에 5초를 허용한 뒤 남은 작업을 취소하고 저장소를 닫습니다. 개발 진단 화면과 활성 프롬프트 선택은 변경하지 않습니다.
 Core manifest의 배포용 `fdai-operational-catalog-review` entry point는 로컬 진단 channel 밖에서 실행됩니다. 이 entry point 추가는 task-backed launcher, socket identity, capture scope 또는 개발 검증 권한을 변경하지 않습니다.
 
