@@ -92,6 +92,13 @@ binds. Conversation length, topic overlap, and earlier answers never imply a ref
 closed choice reads an ObjectType, so an incident mention grounds as the Incident ObjectType, not a
 Resource subtype.
 
+**Implementation note (2026-10-01):** The preflight router can't see a typed reference, so a
+thread dependency it guesses for a turn with an explicit operational or knowledge request is read as
+none before routing, and the reviewed family that the guess blocked now promotes. Contextual
+follow-ups, social continuity, and pending decisions keep their route. The type closed choice also
+offers every ObjectType other than Resource, so an incident word can ground as the Incident
+ObjectType, and such a choice never becomes a Resource subtype.
+
 **Exit:** the traced questions asked late in a 20-turn conversation reach the same verified answers
 as in a fresh one across two repeats.
 

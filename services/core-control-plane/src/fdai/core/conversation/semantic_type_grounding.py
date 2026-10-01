@@ -241,11 +241,21 @@ def type_selection_plan(
     descriptors: Sequence[Mapping[str, Any]],
     max_shard_bytes: int,
 ) -> ConceptSelectionPlan | None:
-    """Plan one presentation of every subtype candidate shard for these mentions."""
+    """Plan one presentation of every subtype candidate shard for these mentions.
 
-    catalog = concept_catalogs(descriptors).get(MentionDomain.RESOURCE_TYPE, ())
-    if not catalog:
+    The same closed choice offers every ObjectType other than Resource, so a word such as
+    incident can ground as the Incident ObjectType; such a choice names no Resource subtype,
+    and `with_grounded_types` binds only declared subtypes.
+    """
+
+    catalogs = concept_catalogs(descriptors)
+    subtypes = catalogs.get(MentionDomain.RESOURCE_TYPE, ())
+    if not subtypes:
         return None
+    others = tuple(
+        item for item in catalogs.get(MentionDomain.OBJECT_TYPE, ()) if item.values != ("Resource",)
+    )
+    catalog = (*subtypes, *others)
     try:
         shards = shard_catalog(MentionDomain.RESOURCE_TYPE, catalog, max_bytes=max_shard_bytes)
     except ValueError:

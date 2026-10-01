@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 커버리지 확장과 현재 경로 수렴
 translation_of: ontology-reasoning-coverage-expansion.md
-translation_source_sha: e4bf96efa778784d45409238894396fa1347fcaf
+translation_source_sha: 64104069aa258a4aa8c69ad8f785f4d32d043511
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 커버리지 확장과 현재 경로 수렴
@@ -90,6 +90,12 @@ shadow나 로컬에서 실행되는 컴파일러입니다. 현재 경로 수렴(
 인용할 때만 턴을 스레드 의존으로 다룹니다. 대화 길이, 주제 겹침, 이전 답변은 참조를 뜻하지 않습니다.
 같은 닫힌 선택이 ObjectType을 읽으므로, 인시던트 언급은 Resource 하위 유형이 아니라 Incident
 ObjectType으로 근거화됩니다.
+
+**구현 메모(2026-10-01):** preflight 라우터는 타입이 지정된 참조를 볼 수 없으므로, 명시적인 운영
+요청이나 지식 요청이 있는 턴에 라우터가 추정한 스레드 의존은 라우팅 전에 없음으로 읽히고, 그 추정 때문에
+막혔던 검토된 범주가 이제 승격됩니다. 맥락에 기댄 후속 질문, 사회적 대화 연속, 대기 중인 결정은 원래
+경로를 유지합니다. 유형 닫힌 선택은 Resource를 제외한 모든 ObjectType도 함께 제시하므로, 인시던트라는
+단어는 Incident ObjectType으로 근거화될 수 있고, 이런 선택은 Resource 하위 유형이 되지 않습니다.
 
 **종료 조건:** 20턴 대화 후반에 한 추적 질문이 두 번 반복하는 동안 새 대화에서와 같은 검증된 답변에
 도달합니다.
