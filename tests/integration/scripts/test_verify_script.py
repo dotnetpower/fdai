@@ -308,6 +308,7 @@ def test_dependency_bearing_python_gates_use_the_uv_environment_when_available()
         '"${python_runner[@]}" scripts/quality/repository/check-issue-lifecycle.py',
         '"${python_runner[@]}" scripts/governance/check-arb-readiness.py',
         '"${python_runner[@]}" scripts/quality/localization/check-derived-sources.py',
+        '"${python_runner[@]}" scripts/quality/architecture/generate-behavior-seeds.py --check',
     )
     assert all(invocation in script for invocation in expected_invocations)
     assert "managed_bash=(bash)" in script
