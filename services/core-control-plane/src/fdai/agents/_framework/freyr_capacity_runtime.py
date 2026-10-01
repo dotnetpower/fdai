@@ -220,6 +220,8 @@ class FreyrCapacityRuntimeMixin:
             latest = self._latest_observed_at.get(resource_id)
             if latest is not None and parsed_observed_at < latest:
                 self.record_behavior("capacity_sample:stale")
+                # A stale sample is terminal; completing its fence makes redelivery a duplicate.
+                await self._complete_sample(normalized_key, resource_id, observed_at)
                 return
             prev_value = self._smoothed.get(resource_id)
             prev = utilization if prev_value is None else prev_value

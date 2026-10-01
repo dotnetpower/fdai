@@ -285,10 +285,10 @@ class LokiExperimentRuntimeMixin:
     async def _publish_chaos_once(self, experiment_id: str, payload: dict[str, Any]) -> bool:
         async with self._publication_lock(experiment_id):
             if self._state_store is None:
-                return self.bus is None or await self._publish_proposal(
-                    "object.chaos-experiment",
-                    payload,
-                )
+                # Without a durable outbox, an unbound bus means the proposal never leaves Loki.
+                if self.bus is None:
+                    return False
+                return await self._publish_proposal("object.chaos-experiment", payload)
             outbox_key = f"{_CHAOS_OUTBOX_PREFIX}{_digest(experiment_id)}"
             existing = await self._state_store.read_state(outbox_key)
             if existing is not None:

@@ -7,8 +7,10 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.huginn_dedup import HuginnDedupJournal, request_digest
 from fdai.agents._framework.loki_reservations import LokiReservationJournal
+from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.freyr import Freyr
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
@@ -146,6 +148,7 @@ async def test_huginn_lock_map_is_bounded_when_oldest_lock_is_held() -> None:
 async def test_heimdall_publication_locks_are_reclaimed_and_fences_store_digests() -> None:
     store = InMemoryStateStore()
     heimdall = Heimdall(state_store=store)
+    heimdall.bind_bus(InMemoryBus(registry=load_pantheon(), handler_timeout=None))
     large_payload = {
         "producer_principal": "Heimdall",
         "correlation_id": "corr:large",
@@ -153,10 +156,11 @@ async def test_heimdall_publication_locks_are_reclaimed_and_fences_store_digests
         "blob": "x" * 10_000,
     }
 
-    assert await heimdall._publish_once("object.anomaly", large_payload) is False  # noqa: SLF001
+    assert await heimdall._publish_once("object.anomaly", large_payload) is True  # noqa: SLF001
 
     assert heimdall._publication_locks == {}  # noqa: SLF001
     (row,) = await store.read_states("pantheon/heimdall/publications/", limit=10)
+    assert row["state"] == "published"
     assert "payload" not in row
     assert row["payload_digest"].startswith("sha256:")
     assert "x" * 100 not in json.dumps(row)

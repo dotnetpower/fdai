@@ -62,6 +62,8 @@ _READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness/"
 _PENDING_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness-pending/"
 _PUBLICATION_PREFIX = "pantheon/heimdall/publications/"
 _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES = 8192
+# Accepted publications must fit one broker request with envelope headroom.
+_PUBLICATION_MAX_PAYLOAD_BYTES = 512 * 1024
 _PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
 _PUBLICATION_CAS_ATTEMPTS = 8
 _PUBLICATION_RECOVERY_LIMIT = 5_000
@@ -328,6 +330,9 @@ class HeimdallPublicationRuntimeMixin:
             raise ValueError("Heimdall publication requires an idempotency_key")
         publication_digest = hashlib.sha256(f"{topic}:{idempotency_key}".encode()).hexdigest()
         state_key = f"{_PUBLICATION_PREFIX}{publication_digest}"
+        if len(_canonical_payload_bytes(payload)) > _PUBLICATION_MAX_PAYLOAD_BYTES:
+            self.record_behavior("publication:payload_too_large")
+            raise ValueError("Heimdall publication payload exceeds the bounded outbox size")
         async with self._publication_lock(publication_digest):
             if self._state_store is not None:
                 existing = await self._state_store.read_state(state_key)
@@ -614,12 +619,7 @@ def _publication_row(
     revision: int,
     state: str,
 ) -> dict[str, Any]:
-    encoded = json.dumps(
-        payload,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode()
+    encoded = _canonical_payload_bytes(payload)
     row: dict[str, Any] = {
         "schema_version": "1.0.0",
         "revision": revision,
@@ -628,9 +628,19 @@ def _publication_row(
         "idempotency_key": idempotency_key,
         "payload_digest": "sha256:" + hashlib.sha256(encoded).hexdigest(),
     }
-    if len(encoded) <= _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES:
+    # Unpublished rows always keep the replay body; only published tombstones drop large bodies.
+    if state != "published" or len(encoded) <= _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES:
         row["payload"] = dict(payload)
     return row
+
+
+def _canonical_payload_bytes(payload: Mapping[str, Any]) -> bytes:
+    return json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
 
 
 __all__ = ["HeimdallPublicationRuntimeMixin"]

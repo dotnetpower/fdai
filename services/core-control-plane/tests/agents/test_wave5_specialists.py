@@ -708,6 +708,7 @@ def test_loki_release_targets_frees_slots() -> None:
 async def test_loki_maintenance_expires_stale_process_local_reservations() -> None:
     now = datetime(2028, 1, 2, tzinfo=UTC)
     loki = Loki(
+        bus=InMemoryBus(registry=load_pantheon()),
         blast_radius_cap=1,
         clock=lambda: now,
         reservation_ttl=timedelta(minutes=5),
@@ -804,7 +805,7 @@ async def test_loki_maintenance_expires_stale_durable_reservations() -> None:
 
 
 async def test_loki_keeps_reservation_for_failed_or_mismatched_closure() -> None:
-    loki = Loki(blast_radius_cap=1)
+    loki = Loki(bus=InMemoryBus(registry=load_pantheon()), blast_radius_cap=1)
     await loki.propose_experiment(
         experiment_id="experiment-1",
         action_type="tool.run-chaos-experiment",

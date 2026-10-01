@@ -319,7 +319,7 @@ async def test_loki_records_blast_radius_hold_and_publication_unavailable_cleanu
     assert "target:two" not in loki._in_flight_targets
     assert loki.behavior_snapshot()["chaos_proposal:publication_unavailable"] == 1
 
-    full = Loki(blast_radius_cap=1)
+    full = Loki(bus=_bus(), blast_radius_cap=1)
     await full.propose_experiment(
         experiment_id="experiment:three",
         action_type="tool.run-chaos-experiment",
@@ -416,3 +416,19 @@ async def test_heimdall_records_chaos_and_t2_publication_noops() -> None:
     assert behavior["chaos_experiment:publication_unavailable"] == 1
     assert behavior["t2_proposer:unavailable"] == 1
     assert behavior["incident_candidate_hook:unavailable"] == 1
+
+
+async def test_loki_without_bus_or_outbox_does_not_accept_a_chaos_proposal() -> None:
+    loki = Loki(blast_radius_cap=2)
+
+    proposal = await loki.propose_experiment(
+        experiment_id="experiment:unpublished",
+        action_type="tool.run-chaos-experiment",
+        targets=("target:unpublished",),
+        **_chaos_evidence(),
+    )
+
+    assert not proposal.accepted
+    assert proposal.reason == "publication_unavailable"
+    assert "target:unpublished" not in loki._in_flight_targets  # noqa: SLF001
+    assert loki.behavior_snapshot()["chaos_proposal:publication_unavailable"] == 1

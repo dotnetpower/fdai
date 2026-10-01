@@ -210,7 +210,7 @@ async def test_freyr_degrades_skips_missing_source_time_and_measures_outcomes() 
 
 
 async def test_loki_degrades_with_process_local_reservations_and_reports_experiment_kpis() -> None:
-    loki = Loki(blast_radius_cap=2, clock=lambda: NOW)
+    loki = Loki(bus=InMemoryBus(registry=load_pantheon()), blast_radius_cap=2, clock=lambda: NOW)
     evidence = {
         "causal_hypothesis_ref": "causal",
         "refutation_query_ref": "query",

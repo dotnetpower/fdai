@@ -258,6 +258,8 @@ class Njord(Agent):
                 latest_at = _parse_time(latest[1])
                 if latest_at is not None and sample.observed_at.astimezone(UTC) < latest_at:
                     self.record_behavior("cost_sample:stale")
+                    # A stale sample is terminal; completing its fence makes redelivery a duplicate.
+                    await self._complete_sample(normalized_key, sample, sample_digest=sample_digest)
                     return None
             try:
                 async with asyncio.timeout(_ADVISORY_TIMEOUT_SECONDS):
