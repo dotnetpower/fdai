@@ -17,7 +17,7 @@ compiler ledger with their progress notes; their earlier history stays in that l
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| P0 Model evidence view | not-started | Design only | The only evidence projection any model may read |
+| P0 Model evidence view | implemented | `current change`; [`model_evidence_view.py`](../../../services/core-control-plane/src/fdai/core/conversation/model_evidence_view.py); [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py); [`test_model_evidence_view.py`](../../../services/core-control-plane/tests/conversation/test_model_evidence_view.py); [`test_adaptive_runtime.py`](../../../services/core-control-plane/tests/conversation/test_adaptive_runtime.py); focused checks: `.venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/conversation/test_model_evidence_view.py services/core-control-plane/tests/conversation/test_adaptive_runtime.py`, `.venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/conversation` | Builder and adaptive evidence boundary are local and enforced. Owner approval for model families that may read the view remains open; proposed default is no model family reads it until approved. |
 | P1 Production shadow wiring | not-started | Local compiled answers and decision events only | Carry, reservation, linked records, and non-interference |
 | P2 Direction readers | not-started | The majority protocol runs locally | Production composition and the latency and cost receipt |
 | P3 Verified answer authoring | not-started | The partial claim verifier in [`semantic_reasoning_claims.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_claims.py) | The shared proposition schema, full V-CLAIM, and entailment review |
@@ -31,6 +31,7 @@ compiler ledger with their progress notes; their earlier history stays in that l
 |------|-------|--------|----------|-----------|
 | 2026-10-01 | in-progress | Recorded the design after an independent critique, moved fifteen open items here from the compiler ledger with their progress notes, and added the model evidence view, decision approval, and document split items. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program.md`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program-ko.md` | Wave 0: R0 baselines, the P6 decision, and P0. |
 | 2026-10-01 | in-progress | Recorded the P6 decision: pattern-based secret detection stays as defense in depth for the in-tenant model deployment, adopted under the Owner's instruction to implement all waves and revisable by the Owner. The encoded-shape regression suite passes against it. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program.md`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program-ko.md`; `pytest -q services/core-control-plane/tests/conversation/test_semantic_reasoning_masking.py` passed (262) | Wave 0: P0 and the R0 baselines. |
+| 2026-10-01 | implemented | Implemented the local P0 model evidence view builder and routed adaptive evidence reads through it instead of raw query tables. The view keeps only allowlisted cells, restricts link evidence to the reviewed link-evidence allowlist, suppresses hidden endpoints, and excludes provider bodies, handle metadata, and retained snapshot cells. | `current change`; `services/core-control-plane/src/fdai/core/conversation/model_evidence_view.py`; `services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py`; `services/core-control-plane/tests/conversation/test_model_evidence_view.py`; `services/core-control-plane/tests/conversation/test_adaptive_runtime.py`; focused checks listed in the P0 scope row pass. | Owner approval for model families that may read the view remains open. Proposed default: no model family reads the view until explicitly approved; the builder exists and is enforced at the adaptive evidence boundary. |
 
 ### Remaining work
 
@@ -109,10 +110,14 @@ compiler ledger with their progress notes; their earlier history stays in that l
   `test_a_released_reading_answers_a_clarified_question_only_with_one_reading`,
   `test_an_ambiguous_judgment_keeps_its_clarification_unless_one_reading_is_found`, and
   `test_the_third_family_reads_only_the_masked_question`; the three live rounds remain.
-- [ ] Build the `ModelEvidenceView` of P0 through the secured gateway, with the link-evidence
+- [x] Build the `ModelEvidenceView` of P0 through the secured gateway, with the link-evidence
   allowlist, hidden-endpoint suppression, and no provider bodies, handle metadata, or snapshot cells.
-  Exit: tests show that hidden endpoints and non-allowlisted fields never reach any model call, and
-  the Owner approves which model families may read the view.
+  Exit: tests show that hidden endpoints and non-allowlisted fields never reach any model call.
+  Evidence: `test_model_evidence_view_excludes_hidden_endpoints_and_unreviewed_fields` and
+  `test_adaptive_model_receives_model_evidence_view_not_raw_query_rows` pass in `current change`.
+- [ ] Record Owner approval for which model families may read the P0 `ModelEvidenceView`. Proposed
+  default: no model family reads the view until approved; local code provides the builder and
+  boundary enforcement only.
 - [ ] Record Owner approval or revision of the decisions listed in the result-handles,
   coverage-expansion, and promotion-program designs. Exit: each decision links its approval record.
 - [ ] After the first operation family is promoted, move the owner design's typed-only, causal

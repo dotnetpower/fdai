@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 65a06ef2cdebd56e655875a315974b3cc3ef3291
+translation_source_sha: b40a1b3ff92da9c9ab7de8352c2cc685b89b4b91
 translation_revised: 2026-10-01
 ---
 # FDAI Console 대화
@@ -13,6 +13,9 @@ Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니�
 의미 결과 핸들 참조는 Core가 발급한 불투명 토큰만 영속 턴과 함께 보관하고 다음 의미 요청에서
 최근 참조를 최대 네 개까지 돌려보냅니다. Operator에 행 본문을 노출하거나 사람 보고 경로를
 바꾸거나 Console 실행 권한을 부여하지 않습니다.
+적응형 답변 근거는 Core가 만든 허용 목록 기반 변환 결과인 `ModelEvidenceView`로 모델 경계를
+넘습니다. 원시 조회 표, 프로바이더 본문, 핸들, 보관된 스냅숏 셀은 답변 작성 또는 검토 모델
+호출에 들어가지 않습니다.
 
 운영 > 알림 품질은 다시 생성한 TypeScript 계약 뷰로 서명된 결과 `1.1.0`과 그 안의 공급자 중립 계획 `1.1.0`을 디코딩합니다.
 브라우저는 `direct_api`를 보존된 계약 메타데이터로만 표시합니다. 공급자 어댑터를 선택하거나

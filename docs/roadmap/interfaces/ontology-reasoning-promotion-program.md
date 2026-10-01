@@ -43,6 +43,9 @@ receives a `ModelEvidenceView` built by the secured gateway, never raw tables.
   metadata, and retained snapshot cells are excluded.
 - The view carries digests of the deployment scope, authority, temporal basis, completeness,
   release, and the verifier that built it, so a claim can cite exactly what the model saw.
+- Local implementation routes adaptive evidence reads through this view before model input. Until
+  the Owner approves model families for P0, the proposed default is that no model family may read
+  the view in production.
 
 **Exit:** tests show that hidden endpoints and non-allowlisted fields never reach any model call,
 and the Owner approves which model families may read the view.
