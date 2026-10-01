@@ -475,9 +475,11 @@ def test_a_reviewed_object_value_is_never_lifted_into_row_fields() -> None:
     row = _answer_row_values(
         {**_IDENTITY, field: {"name": "alice@contoso.com", "status": "/subscriptions/hidden/x"}}
     )
+    answer = _rendered({**_IDENTITY, field: {"name": "team-a"}}, field, "governance.resource.tags")
 
     assert row[field] == {"name": "<redacted>", "status": "<redacted>"}
     assert "name" not in row and "status" not in row
+    assert '{"name": "team-a"}' in answer
 
 
 def test_a_structured_value_too_large_to_show_says_so() -> None:
