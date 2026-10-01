@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 커버리지 확장과 현재 경로 수렴
 translation_of: ontology-reasoning-coverage-expansion.md
-translation_source_sha: 70b1470e81d7a02631ffaae2c2b5dd86bcd958fc
+translation_source_sha: 266e000eaf2aa5f5dfb991549a56bcd63d32fb95
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 커버리지 확장과 현재 경로 수렴
@@ -170,6 +170,9 @@ ObjectType으로 근거화됩니다.
 5. V-CLAIM을 통한 공개. `predictive_precedence` 등급은 확정된 원인이 아니라 등급이 붙은 가설로
    표시하며, [승격 프로그램](ontology-reasoning-promotion-program-ko.md#p3-검증된-답변-작성)의 검증된
    답변 작성 이전에는 어떤 가설도 공개하지 않습니다.
+로컬 구현은 인과 맥락에서 상태 전환 변화 지점을 읽고, 검토된 메커니즘 근거와 반박 집계를 바탕으로
+결정론적 인과 등급 증적을 계산합니다. `predictive_precedence` 미만에서는 여전히 인과 맥락으로
+표시하며 라이브 종료 조건을 주장하지 않습니다.
 
 **종료 조건:** 상태 변화에 대한 이유 질문이 변화 지점과 그 기간의 모든 작업을 나열합니다.
 `predictive_precedence` 미만에서 원인을 밝히는 답변이 없고, 한 번의 시간상 우연은 인과 맥락으로

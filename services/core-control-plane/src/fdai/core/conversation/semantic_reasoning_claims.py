@@ -28,6 +28,7 @@ from fdai_service_contracts.answer_claims import (
 
 from fdai.core.ontology_platform.query_values import QueryTable
 
+from .causal_grade_receipts import CausalGradeReceipt, supports_causal_hypothesis
 from .semantic_reasoning_claim_text import (
     NUMBER_QUALIFIERS,
     code_parts,
@@ -61,6 +62,7 @@ class GoalEvidence:
     required_limitations: tuple[str, ...] = ()
     authoritative_count: int | None = None
     causal_evidence: bool = False
+    causal_grade_receipts: tuple[CausalGradeReceipt, ...] = ()
     rendered_nodes: frozenset[str] = frozenset()
     possible_only: bool = False
 
@@ -215,7 +217,7 @@ def _goal_claim_violations(claim: AnswerClaim, goal: GoalEvidence) -> list[str]:
             violations.append(f"count_quantifier_mismatch:{claim.id}")
     elif claim.kind is ClaimKind.COUNT:
         violations.append(f"count_differs_from_authority:{claim.id}")
-    if claim.kind is ClaimKind.CAUSE_HYPOTHESIS and not goal.causal_evidence:
+    if claim.kind is ClaimKind.CAUSE_HYPOTHESIS and not _has_causal_grade(goal):
         violations.append(f"cause_without_causal_evidence:{claim.id}")
     if claim.kind is not ClaimKind.CAUSE_HYPOTHESIS and proposition.modality == "hypothesis":
         violations.append(f"hypothesis_outside_cause_claim:{claim.id}")
@@ -271,10 +273,16 @@ def _proposition_violations(claim: AnswerClaim, ctx: _Context) -> list[str]:
         ):
             violations.append(f"proposition_{field_name}_unbacked:{claim.id}")
     if proposition.causal_class != "none" and not any(
-        ctx.goals[ref.goal].causal_evidence for ref in claim.refs if ref.goal in ctx.goals
+        _has_causal_grade(ctx.goals[ref.goal]) for ref in claim.refs if ref.goal in ctx.goals
     ):
         violations.append(f"proposition_causal_class_unbacked:{claim.id}")
     return violations
+
+
+def _has_causal_grade(goal: GoalEvidence) -> bool:
+    return goal.causal_evidence or any(
+        supports_causal_hypothesis(receipt) for receipt in goal.causal_grade_receipts
+    )
 
 
 def _known_identity_values(ctx: _Context) -> set[str]:

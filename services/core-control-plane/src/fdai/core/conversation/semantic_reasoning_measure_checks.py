@@ -85,7 +85,9 @@ def expected_measure_arguments(
         if name == TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME:
             return {}
     if name == RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME:
-        if not is_state_history(goal) or lookback_seconds is None or evaluation_time is None:
+        if not is_state_history(goal) and goal.operation is not GoalOperation.EXPLAIN_CAUSE:
+            return None
+        if lookback_seconds is None or evaluation_time is None:
             return {"unexpected": True}
         return state_transition_arguments(evaluation_time, lookback_seconds)
     return None
