@@ -62,9 +62,7 @@ from .semantic_planning_cascade import (
     SemanticPlanningCascade,
     SemanticPlanningEscalationPolicy,
 )
-from .semantic_planning_frame import (
-    build_semantic_frame as _build_frame,
-)
+from .semantic_planning_frame import build_semantic_frame as _build_frame
 from .semantic_planning_frame_checks import (
     deterministic_pre_frame_outcome,
     deterministic_pre_frame_selection,
@@ -668,9 +666,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
-            prov = provenance_scope(coverage, bound_resource_context)
+            prov = provenance_scope(coverage, bound_resource_context, utterance, context)
             held = _npo(
-                ticket, coverage, plan_source, plan, manifest_digest, utterance, context, prov
+                ticket, coverage, plan_source, plan, manifest_digest, enforce_when=prov, frame=frame
             )
             if held is not None:
                 return preflight_router.finish(held)

@@ -12,6 +12,10 @@ Remaining E9 operators keep their missing-prerequisite decisions in a focused Co
 Metric window comparison planning is likewise isolated in a focused Core conversation helper: form fields carry the two windows, while the query runtime uses the existing metric comparison node and grants no execution authority.
 Current-path operand provenance checks stay in focused Core conversation helpers: model-proposed plan identities are accepted only from text, prior context, result handles, or server binding receipts, while server-built plans keep their existing authority boundary.
 Current-path relation and state-review convergence stays in the same Core conversation boundary: released relation plans come from the shared compiler, and independent state review compares closed meaning axes instead of facet text without adding Operator routes.
+Typed constraint slots are also isolated at the shared contract and Core conversation boundary. The
+service-contract SDK owns the versioned judgment and frame fields, while Core owns slot coverage,
+plan coverage, and default-off model-schema exposure; this adds no Operator route or execution
+authority.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.

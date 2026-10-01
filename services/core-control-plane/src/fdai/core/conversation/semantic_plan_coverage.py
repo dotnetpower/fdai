@@ -89,6 +89,10 @@ class BlindReading(Protocol):
     def settled_reading(self) -> ConstraintExtraction | None: ...
 
 
+class SlotBearingFrame(Protocol):
+    constraint_slots: tuple[Any, ...]
+
+
 def narrower_plan_outcome(
     ticket: PlanVeto | None,
     coverage: BlindReading | None,
@@ -99,6 +103,8 @@ def narrower_plan_outcome(
     context: Sequence[str] = (),
     enforce_when: object = True,
     identity_receipts: Sequence[IdentityBindingReceipt] = (),
+    *,
+    frame: SlotBearingFrame | None = None,
 ) -> SemanticPlanningOutcome | None:
     """Return the hold for a current-path plan that reads less than the question asks.
 
@@ -116,6 +122,8 @@ def narrower_plan_outcome(
     output_ids = set(getattr(plan, "output_node_ids", tuple(node.node_id for node in plan.nodes)))
     scope = enforce_when if isinstance(enforce_when, ProvenanceScope) else None
     receipts = (*identity_receipts, *(scope.receipts if scope is not None else ()))
+    if scope is not None:
+        utterance, context = scope.utterance or utterance, scope.context or context
     if (
         (scope.enforced if scope is not None else enforce_when is not None)
         and plan_source == "proposed"
@@ -146,7 +154,7 @@ def narrower_plan_outcome(
             manifest_digest=manifest_digest,
             hold_details=hold_details((f"answer_kind:{asked.value}",)),
         )
-    roles = plan_uncovered_roles(reading, plan)
+    roles = (*plan_uncovered_roles(reading, plan), *plan_uncovered_slot_roles(frame, plan))
     if not roles:
         return None
     _LOGGER.info(
@@ -191,6 +199,23 @@ def plan_uncovered_roles(
     if ConstraintRole.RELATES in roles and not any(_relational(node) for node in plan.nodes):
         uncovered.append(ConstraintRole.RELATES.value)
     return tuple(uncovered)
+
+
+def plan_uncovered_slot_roles(
+    frame: SlotBearingFrame | None, plan: OntologyQueryPlan
+) -> tuple[str, ...]:
+    if frame is None:
+        return ()
+    uncovered: list[str] = []
+    for slot in frame.constraint_slots:
+        if not slot.grounded:
+            continue
+        role = slot.role.value
+        if role == "group_by" and not any(_grouped(node) for node in plan.nodes):
+            uncovered.append(role)
+        elif role == "relation_path" and not any(_relational(node) for node in plan.nodes):
+            uncovered.append(role)
+    return tuple(dict.fromkeys(uncovered))
 
 
 def plan_answers_schema_for_instance(

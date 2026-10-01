@@ -90,6 +90,23 @@ def test_forbidden_actions_schema_requires_explicit_shadow_opt_in() -> None:
     assert "forbidden_actions" in shadow_strict["json_schema"]["schema"]["required"]
 
 
+def test_constraint_slots_schema_requires_explicit_shadow_opt_in() -> None:
+    active_schema = _semantic_judgment_proposal_schema(intent_hardening_enabled=False)
+    slot_schema = _semantic_judgment_proposal_schema(
+        intent_hardening_enabled=False,
+        constraint_slots_enabled=True,
+    )
+
+    assert "constraint_slots" not in active_schema["properties"]
+    assert "constraint_slots" in slot_schema["properties"]
+    assert active_schema["properties"]["schema_version"]["const"] == "1.0.0"
+    assert slot_schema["properties"]["schema_version"]["const"] == "1.3.0"
+    active_strict = _strict_response_format(active_schema, name="semantic-judgment")
+    slot_strict = _strict_response_format(slot_schema, name="semantic-judgment-slots")
+    assert "constraint_slots" not in active_strict["json_schema"]["schema"]["required"]
+    assert "constraint_slots" in slot_strict["json_schema"]["schema"]["required"]
+
+
 def test_config_rejects_output_above_profile_reserve() -> None:
     prompt = "Judge."
     manifest = PromptReplayManifest(

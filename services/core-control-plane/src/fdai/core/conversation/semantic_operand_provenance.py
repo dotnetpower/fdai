@@ -58,9 +58,13 @@ class ProvenanceScope:
 
     enforced: bool
     receipts: tuple[IdentityBindingReceipt, ...] = ()
+    utterance: str = ""
+    context: tuple[str, ...] = ()
 
 
-def provenance_scope(enforce_when: object, bound: object) -> ProvenanceScope:
+def provenance_scope(
+    enforce_when: object, bound: object, utterance: str = "", context: Sequence[str] = ()
+) -> ProvenanceScope:
     """Check operands under ``enforce_when``; a bound Console context grounds its own ids."""
 
     ids = getattr(bound, "resource_ids", None) or ()
@@ -73,6 +77,8 @@ def provenance_scope(enforce_when: object, bound: object) -> ProvenanceScope:
             for item in identities
             if isinstance(item, str) and item
         ),
+        utterance,
+        tuple(context),
     )
 
 

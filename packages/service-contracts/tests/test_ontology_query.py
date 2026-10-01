@@ -116,6 +116,45 @@ def test_problem_frame_and_plan_are_replay_stable_and_no_authority() -> None:
     assert OntologyQueryPlan.model_validate_json(plan.model_dump_json()) == plan
 
 
+def test_problem_frame_v11_carries_constraint_slots_without_changing_legacy_frames() -> None:
+    legacy = _frame()
+    slot = {
+        "role": "time_window",
+        "source_start": 5,
+        "source_end": 13,
+        "grounded": True,
+        "value": "PT24H",
+    }
+    temporal = {"baseline": {"days": 7}}
+    payload = {
+        "schema_version": "1.1.0",
+        "operation": "explain_change",
+        "subject_constraints": (),
+        "measure_concepts": (),
+        "temporal_scope": temporal,
+        "output_shape": "ranked_hypotheses",
+        "evidence_requirements": (),
+        "constraint_slots": [slot],
+        "unresolved_terms": (),
+        "input_digest": DIGEST_A,
+        "authority": "candidate_only",
+        "execution_authority": False,
+    }
+
+    frame = SemanticProblemFrame(
+        schema_version="1.1.0",
+        operation=SemanticOperation.EXPLAIN_CHANGE,
+        temporal_scope_json=canonical_json(temporal),
+        output_shape="ranked_hypotheses",
+        constraint_slots=(slot,),
+        input_digest=DIGEST_A,
+        frame_digest=content_digest(payload),
+    )
+
+    assert legacy.constraint_slots == ()
+    assert frame.constraint_slots[0].value == "PT24H"
+
+
 def test_scoped_metric_node_kind_round_trips_as_an_additive_contract() -> None:
     assert QueryNodeKind("metric_scope_series") is QueryNodeKind.METRIC_SCOPE_SERIES
 

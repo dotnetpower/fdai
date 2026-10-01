@@ -12,6 +12,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from fdai_service_contracts.semantic_slots import SemanticConstraintSlot
+
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _ID_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
 _MAX_JSON_BYTES = 65_536
@@ -145,13 +147,17 @@ def parse_json_object(value: str, *, field_name: str) -> dict[str, Any]:
 class SemanticProblemFrame(QueryContract):
     """Candidate-only semantic decomposition before object or provider lookup."""
 
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
     operation: SemanticOperation
     subject_constraints: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...] = ()
     measure_concepts: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...] = ()
     temporal_scope_json: Annotated[str, Field(min_length=2, max_length=_MAX_JSON_BYTES)] = "{}"
     output_shape: Annotated[str, Field(pattern=_ID_PATTERN)]
     evidence_requirements: tuple[Annotated[str, Field(pattern=_ID_PATTERN)], ...] = ()
+    constraint_slots: Annotated[
+        tuple[SemanticConstraintSlot, ...],
+        Field(max_length=16, exclude_if=lambda slots: not slots),
+    ] = ()
     unresolved_terms: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...] = ()
     investigation_intent_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)] | None = None
     input_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
@@ -170,7 +176,7 @@ class SemanticProblemFrame(QueryContract):
         ):
             if len(values) != len(set(values)):
                 raise ValueError(f"{name} MUST be unique")
-        body = {
+        body: dict[str, Any] = {
             "schema_version": self.schema_version,
             "operation": self.operation.value,
             "subject_constraints": self.subject_constraints,
@@ -185,6 +191,10 @@ class SemanticProblemFrame(QueryContract):
         }
         if self.investigation_intent_digest is not None:
             body["investigation_intent_digest"] = self.investigation_intent_digest
+        if self.constraint_slots:
+            body["constraint_slots"] = [
+                slot.model_dump(mode="json", exclude_none=True) for slot in self.constraint_slots
+            ]
         expected = content_digest(body)
         if self.frame_digest != expected:
             raise ValueError("semantic problem frame digest does not match its content")

@@ -29,6 +29,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
     SemanticTarget,
 )
+from fdai_service_contracts.semantic_slots import SemanticConstraintSlot
 
 from tests.conversation.test_semantic_judgment import _boundary, _proposal, _SequenceModel
 from tests.conversation.test_semantic_planning import (
@@ -508,6 +509,89 @@ def test_a_target_stretched_over_another_target_covers_no_restriction() -> None:
     uncovered = uncovered_constraint_spans(proposal, extraction, utterance)
 
     assert [utterance[span.start : span.end] for span in uncovered] == ["실행 중인"]
+
+
+def test_grounded_constraint_slots_cover_window_region_and_lifecycle_status() -> None:
+    utterance = "지난 24시간 동안 koreacentral의 열린 incident 보여줘"
+    extraction = resolve_extraction(
+        _reading(
+            utterance,
+            ("times", "지난 24시간 동안"),
+            ("restricts", "koreacentral"),
+            ("restricts", "열린"),
+            ("names", "incident"),
+        ),
+        utterance,
+    )
+    assert extraction is not None
+    proposal = SemanticJudgmentProposal(
+        schema_version="1.3.0",
+        primary_intent="query.incident.list",
+        confidence=0.94,
+        ambiguous=False,
+        action_subject="none",
+        constraint_slots=(
+            SemanticConstraintSlot(
+                role="time_window",
+                source_start=utterance.index("지난"),
+                source_end=utterance.index("동안") + len("동안"),
+                grounded=True,
+                value="PT24H",
+            ),
+            SemanticConstraintSlot(
+                role="location",
+                source_start=utterance.index("koreacentral"),
+                source_end=utterance.index("koreacentral") + len("koreacentral"),
+                grounded=True,
+                value="koreacentral",
+            ),
+            SemanticConstraintSlot(
+                role="lifecycle_status",
+                source_start=utterance.index("열린"),
+                source_end=utterance.index("열린") + len("열린"),
+                grounded=True,
+                value="incident.status.open",
+            ),
+        ),
+    )
+    legacy = proposal.model_copy(update={"schema_version": "1.0.0", "constraint_slots": ()})
+
+    assert uncovered_constraint_spans(proposal, extraction, utterance) == ()
+    assert [
+        utterance[span.start : span.end]
+        for span in uncovered_constraint_spans(legacy, extraction, utterance)
+    ] == [
+        "지난 24시간 동안",
+        "koreacentral",
+        "열린",
+    ]
+
+
+def test_ungrounded_constraint_slot_holds_with_a_typed_reason() -> None:
+    utterance = "mystery-region의 VM 보여줘"
+    coverage = _coverage(utterance, _reading(utterance, ("restricts", "mystery-region")))
+    proposal = SemanticJudgmentProposal(
+        schema_version="1.3.0",
+        primary_intent="query.contextual_resources",
+        confidence=0.94,
+        ambiguous=False,
+        action_subject="none",
+        constraint_slots=(
+            SemanticConstraintSlot(
+                role="location",
+                source_start=utterance.index("mystery-region"),
+                source_end=utterance.index("mystery-region") + len("mystery-region"),
+                grounded=False,
+                value="mystery-region",
+                unbound_reason="out_of_domain",
+            ),
+        ),
+    )
+
+    with pytest.raises(Exception) as raised:
+        coverage.check(proposal)
+
+    assert raised.value.roles == ("slot:location:out_of_domain",)
 
 
 @pytest.mark.parametrize(

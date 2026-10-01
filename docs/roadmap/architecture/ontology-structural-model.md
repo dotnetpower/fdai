@@ -38,6 +38,9 @@ Model-serving source availability uses a separate additive metadata list. Upgrad
 merge it with baseline sources, while older readers continue to consume only the baseline list.
 Current instance-detail consumers require explicit runtime-call and PostgreSQL-role source states.
 Omitting either state is an invalid projection, not evidence of availability or a measured zero.
+Semantic problem frames may carry typed constraint slots for time windows, locations, lifecycle
+states, grouping, relation paths, prior results, and ordinals. These slots are read-only planning
+constraints: they do not create ontology identities, provider facts, or execution authority.
 Additive identity fields use a fail-closed rollout boundary. A legacy Resource remains queryable,
 but consumers cannot project a new exact identity until every field required by that identity is
 present.
