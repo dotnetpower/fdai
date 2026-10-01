@@ -458,6 +458,72 @@ def test_production_shadow_records_linked_disposition_without_changing_plan() ->
     assert sink.records[0].compiled_plan_digest == on.plan.plan_digest
 
 
+@pytest.mark.parametrize("sample_percent", [0, 50, 100])
+def test_production_shadow_samples_deterministically_with_bounded_expiry(
+    sample_percent: int,
+) -> None:
+    manifest, definition = _fixture()
+    sink = InMemoryProductionShadowSink()
+    at = datetime(2026, 9, 28, tzinfo=UTC)
+    settings = ProductionShadowSettings(
+        enabled=True, sample_key="test-sample", sample_percent=sample_percent, ttl_seconds=60
+    )
+    recorder = ProductionShadowRecorder(settings=settings, sink=sink, clock=lambda: at)
+    arguments = {
+        "utterance": "resource current state",
+        "prior_turns": (),
+        "principal": Principal(id="operator", role=Role.READER),
+        "purpose": "operations-review",
+    }
+    service = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=_carrying_judgment(),
+        production_shadow=recorder,
+    )
+    first = service.plan(**arguments)
+    second = service.plan(**arguments)
+
+    digest = content_digest(
+        {"sample_key": "test-sample", "utterance": arguments["utterance"], "context": ()}
+    )
+    expected = int(digest.removeprefix("sha256:"), 16) % 100 < sample_percent
+    assert len(sink.records) == (2 if expected else 0)
+    assert (first.disposition, first.reason) == (second.disposition, second.reason)
+    if expected:
+        assert sink.records[0].sample_id_digest == sink.records[1].sample_id_digest == digest
+        assert sink.records[0].expires_at == at + timedelta(seconds=60)
+        assert sink.records[0].as_state()["expires_at"] == (at + timedelta(seconds=60)).isoformat()
+        assert sink.records[0].as_state()["execution_authority"] is False
+
+
+def test_production_shadow_is_off_by_default_and_rejects_invalid_sampling() -> None:
+    manifest, definition = _fixture()
+    sink = InMemoryProductionShadowSink()
+    recorder = ProductionShadowRecorder(settings=ProductionShadowSettings(), sink=sink)
+    result = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=_carrying_judgment(),
+        production_shadow=recorder,
+    ).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+    assert result.plan is not None
+    assert not sink.records
+    with pytest.raises(ValueError, match="percent"):
+        ProductionShadowSettings(enabled=True, sample_percent=101)
+    with pytest.raises(ValueError, match="percent"):
+        ProductionShadowSettings(enabled=True, sample_percent=50.5)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="TTL"):
+        ProductionShadowSettings(enabled=True, ttl_seconds=0)
+    with pytest.raises(ValueError, match="TTL"):
+        ProductionShadowSettings(enabled=True, ttl_seconds=0.5)  # type: ignore[arg-type]
+
+
 class _FailingShadowSink:
     def write(self, record: Any) -> None:
         raise RuntimeError("state store unavailable")

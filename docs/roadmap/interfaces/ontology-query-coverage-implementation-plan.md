@@ -136,6 +136,9 @@ query authority, or recovery permission.
 > verifier and executor handler map. Production composition binds PostgreSQL topology history from
 > a non-empty state-store DSN and binds metric/evidence handlers only when both a reviewed registry
 > and a non-noop provider are available; otherwise, those capabilities remain typed unavailable.
+> Reviewed provider-property paths are also scoped to their reviewed Resource types. A mixed-type
+> ObjectSet can project a path only when every selected type reviews it, and a bound property lookup
+> carries its exact Resource type into both compilation and semantic verification.
 > OQ-07 now projects current connected VNet peering records in the observed direction and private
 > endpoint attachments to their exact private-link service targets. Reverse peering still requires
 > an independent remote-VNet observation. It also projects `routes_to` only from explicit ARM

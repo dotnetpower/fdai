@@ -32,7 +32,7 @@ from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FU
 from fdai.core.ontology_platform.state_transitions import RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
 
 from . import semantic_reasoning_comparison_checks as comparison_checks
-from . import semantic_reasoning_property_reads as property_read_helpers
+from . import semantic_reasoning_property_reads as property_ops
 from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
@@ -148,10 +148,10 @@ def verify_goal_semantics(
     allowed = _allowed_operands(
         goal, admission=admission, concepts=concepts, anchors=anchors or AnchorBindingReceipt()
     )
-    readable_properties = property_read_helpers.readable_resource_properties(
+    readable_properties = property_ops.readable_resource_properties(
         tuple(dict(item) for item in descriptors)
     )
-    allowed.property_fields = property_read_helpers.expected_property_fields(
+    allowed.property_fields = property_ops.expected_property_fields(
         goal,
         admission=admission,
         concepts=concepts,
@@ -273,6 +273,8 @@ def _allowed_operands(
             anchor = anchors.binding(mention_id)
             if anchor is not None and anchor.outcome is AnchorOutcome.BOUND:
                 allowed.anchor_ids.add(str(anchor.object_id))
+                if property_ops.is_property_lookup(goal) and anchor.resource_type:
+                    allowed.type_sets.append(frozenset({anchor.resource_type}))
             continue
         concept = concepts.binding(mention_id)
         if concept is None or concept.outcome is not ConceptOutcome.ACCEPTED:
@@ -559,11 +561,13 @@ def _coverage_violations(
         required = frozenset({METRIC_READER})
         if functions != required:
             violations.append("sem_metric_read_differs")
-    if property_read_helpers.is_property_lookup(goal):
+    if property_ops.is_property_lookup(goal):
         required = None
         violations.extend(
-            property_read_helpers.property_read_violations(
-                plans, _expected_anchor_id(goal, anchors)
+            property_ops.property_read_violations(
+                plans,
+                property_ops.expected_anchor_id(goal, anchors),
+                property_ops.expected_anchor_type(goal, anchors),
             )
         )
     if is_health_lookup(goal) and functions != TARGET_HEALTH_FUNCTIONS:
@@ -600,7 +604,7 @@ def _coverage_violations(
             if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
         ):
             violations.append("sem_relation_reach_differs")
-        expected_anchor = _expected_anchor_id(goal, anchors)
+        expected_anchor = property_ops.expected_anchor_id(goal, anchors)
         if expected_anchor is None or _traversal_roots(plans) != {expected_anchor}:
             violations.append("sem_relation_anchor_differs")
     elif goal.level is GoalLevel.INSTANCE and any(
@@ -653,15 +657,6 @@ def _schema_violations(goal: FormGoal, functions: set[str], admission: FormAdmis
     if goal.measure is not None and goal.measure.group_by not in {GroupBy.NONE, GroupBy.TYPE}:
         violations.append("sem_schema_group_by_unread")
     return violations
-
-
-def _expected_anchor_id(goal: FormGoal, anchors: AnchorBindingReceipt) -> str | None:
-    relation = goal.relation
-    mention = relation.anchor if relation is not None and relation.anchor else goal.subject
-    binding = anchors.binding(mention) if mention is not None else None
-    if binding is None or binding.outcome is not AnchorOutcome.BOUND:
-        return None
-    return binding.object_id
 
 
 def _traversal_roots(plans: Sequence[OntologyQueryPlan]) -> set[str]:

@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, cast
 
 import pytest
 from fdai.core.conversation.model_evidence_view import model_evidence_view_from_tables
 from fdai.core.conversation.semantic_reasoning_claims import GoalEvidence, GoalEvidenceStatus
-from fdai.core.conversation.verified_answer_authoring import VerifiedAnswerAuthoringService
+from fdai.core.conversation.verified_answer_authoring import (
+    EntailmentClaimReview,
+    EntailmentReason,
+    EntailmentReview,
+    VerifiedAnswerAuthoringService,
+)
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai_service_contracts.answer_claims import ComposedAnswer
 from fdai_service_contracts.ontology_query import EvidenceAuthority
@@ -37,9 +43,9 @@ class _Author:
 @dataclass(slots=True)
 class _Reviewer:
     family: str
-    decisions: list[bool | None]
+    decisions: list[EntailmentReview | None]
 
-    async def review(self, *, answer: ComposedAnswer, evidence_view) -> bool | None:
+    async def review(self, *, answer: ComposedAnswer, evidence_view) -> EntailmentReview | None:
         del answer
         assert "resource_id" not in evidence_view.canonical_json()
         return self.decisions.pop(0)
@@ -72,6 +78,21 @@ def _answer(text: str = "It is running.") -> ComposedAnswer:
             ],
         }
     )
+
+
+def _review(reason: EntailmentReason | None = None) -> EntailmentReview:
+    return EntailmentReview((EntailmentClaimReview("c1", reason),))
+
+
+def _two_claim_answer() -> ComposedAnswer:
+    payload = _answer().model_dump()
+    payload["text"] = "It is running. It is running."
+    second = _answer().claims[0].model_dump()
+    second["id"] = "c2"
+    second["span"] = {"start": 15, "end": 29}
+    second["literals"][0]["span"] = {"start": 21, "end": 28}
+    payload["claims"] = [*payload["claims"], second]
+    return ComposedAnswer.model_validate(payload)
 
 
 def _evidence() -> tuple[GoalEvidence, ...]:
@@ -110,14 +131,14 @@ def test_author_and_reviewer_families_must_differ() -> None:
     with pytest.raises(ValueError, match="families"):
         VerifiedAnswerAuthoringService(
             author=_Author("same", [_answer()], []),
-            reviewer=_Reviewer("same", [True]),
+            reviewer=_Reviewer("same", [_review()]),
         )
 
 
 async def test_authoring_accepts_claims_only_after_vclaim_and_review() -> None:
     service = VerifiedAnswerAuthoringService(
         author=_Author("author-family", [_answer()], []),
-        reviewer=_Reviewer("review-family", [True]),
+        reviewer=_Reviewer("review-family", [_review()]),
     )
 
     result = await service.author_answer(
@@ -137,7 +158,7 @@ async def test_authoring_retries_once_on_vclaim_or_review_failure_then_holds() -
     author = _Author("author-family", [bad, good], [])
     service = VerifiedAnswerAuthoringService(
         author=author,
-        reviewer=_Reviewer("review-family", [False]),
+        reviewer=_Reviewer("review-family", [_review(EntailmentReason.NOT_ENTAILED)]),
     )
 
     result = await service.author_answer(
@@ -183,3 +204,56 @@ async def test_an_unavailable_reviewer_holds_instead_of_passing_the_answer() -> 
     assert result.answer is None
     assert result.held_reason == "entailment_review_unavailable"
     assert result.verdict is not None and result.verdict.accepted
+
+
+async def test_reviewer_reasons_are_returned_to_author_for_one_retry() -> None:
+    author = _Author("author-family", [_two_claim_answer(), _two_claim_answer()], [])
+    service = VerifiedAnswerAuthoringService(
+        author=author,
+        reviewer=_Reviewer(
+            "review-family",
+            [
+                EntailmentReview(
+                    (
+                        EntailmentClaimReview("c1"),
+                        EntailmentClaimReview("c2", EntailmentReason.UNSUPPORTED_PHRASE),
+                    )
+                ),
+                EntailmentReview((EntailmentClaimReview("c1"), EntailmentClaimReview("c2"))),
+            ],
+        ),
+    )
+
+    result = await service.author_answer(
+        utterance="What is the state?", evidence_view=_view(), evidence=_evidence()
+    )
+
+    assert result.answer is not None
+    assert result.attempts == 2
+    assert author.retry_reasons == [(), ("entailment_unsupported_phrase:c2",)]
+
+
+@pytest.mark.parametrize(
+    "review",
+    [
+        EntailmentReview(()),
+        EntailmentReview((EntailmentClaimReview("other"),)),
+        EntailmentReview((EntailmentClaimReview("c1"), EntailmentClaimReview("c1"))),
+        EntailmentReview(cast(Any, None)),
+    ],
+)
+async def test_incomplete_or_mismatched_review_holds(
+    review: EntailmentReview,
+) -> None:
+    service = VerifiedAnswerAuthoringService(
+        author=_Author("author-family", [_answer()], []),
+        reviewer=_Reviewer("review-family", [review]),
+    )
+    result = await service.author_answer(
+        utterance="What is the state?", evidence_view=_view(), evidence=_evidence()
+    )
+    assert (result.answer, result.held_reason, result.attempts) == (
+        None,
+        "entailment_review_invalid",
+        1,
+    )

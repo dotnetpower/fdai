@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -9,6 +10,7 @@ import pytest
 from fdai.core.conversation.semantic_operand_provenance import (
     IdentityBindingReceipt,
     provenance_scope,
+    trusted_bound_context,
 )
 from fdai.core.conversation.semantic_plan_coverage import (
     narrower_plan_outcome,
@@ -196,6 +198,38 @@ def test_frame_slots_must_shape_the_verified_plan() -> None:
             ),
         )
         == ()
+    )
+
+
+def test_one_explicit_historical_snapshot_covers_a_point_in_time_slot() -> None:
+    evaluated_at = datetime(2026, 10, 1, tzinfo=UTC)
+    frame = SimpleNamespace(constraint_slots=(_slot("time_window", "2026-09-30T00:00:00Z"),))
+    historical = _plan(
+        _node(
+            "historical",
+            QueryNodeKind.TOPOLOGY_AT,
+            {"as_of": "2026-09-30T00:00:00Z"},
+        )
+    )
+    current = _plan(
+        _node(
+            "current",
+            QueryNodeKind.TOPOLOGY_AT,
+            {"as_of": "2026-10-01T00:00:00Z"},
+        )
+    )
+
+    assert plan_uncovered_slot_roles(frame, historical, evaluated_at=evaluated_at) == ()
+    assert plan_uncovered_slot_roles(frame, current, evaluated_at=evaluated_at) == ("time_window",)
+    range_frame = SimpleNamespace(constraint_slots=(_slot("time_window", "PT24H"),))
+    other_instant = SimpleNamespace(
+        constraint_slots=(_slot("time_window", "2026-09-29T00:00:00Z"),)
+    )
+    assert plan_uncovered_slot_roles(range_frame, historical, evaluated_at=evaluated_at) == (
+        "time_window",
+    )
+    assert plan_uncovered_slot_roles(other_instant, historical, evaluated_at=evaluated_at) == (
+        "time_window",
     )
 
 
@@ -402,6 +436,45 @@ def test_a_bound_console_resource_grounds_its_own_identities() -> None:
 
     assert held is not None and held.reason == "semantic_operand_without_source"
     assert grounded is None
+
+
+def test_server_bound_context_enforces_and_receipts_exact_identities_without_a_blind_read() -> None:
+    bound = SimpleNamespace(resource_ids=("/sub/vm-1",), resource_group_id="/sub/rg-1")
+
+    scope = provenance_scope(None, bound, "what is its state?")
+
+    assert scope.enforced is True
+    assert {(receipt.lookup, receipt.identity) for receipt in scope.receipts} == {
+        ("bound_resource_context", "/sub/vm-1"),
+        ("bound_resource_context", "/sub/rg-1"),
+    }
+
+
+def test_bound_context_receipts_require_current_server_bindings() -> None:
+    bound = SimpleNamespace(
+        principal_id="operator",
+        principal_scope_digest="scope-a",
+        ontology_release_digest="release-a",
+    )
+
+    assert (
+        trusted_bound_context(
+            bound,
+            principal_id="operator",
+            principal_scope_digest="scope-a",
+            ontology_release_digest="release-a",
+        )
+        is bound
+    )
+    assert (
+        trusted_bound_context(
+            bound,
+            principal_id="other",
+            principal_scope_digest="scope-a",
+            ontology_release_digest="release-a",
+        )
+        is None
+    )
 
 
 def _slot(role: str, value: str, **extra: Any) -> SemanticConstraintSlot:

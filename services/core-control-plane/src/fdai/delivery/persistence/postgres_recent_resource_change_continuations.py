@@ -46,23 +46,16 @@ class PostgresRecentResourceChangeContinuationStore(RecentResourceChangeContinua
                 ),
             )
 
-    async def get(self, continuation_ref: str) -> StoredRecentResourceChangeContinuation | None:
+    async def claim(self, continuation_ref: str) -> StoredRecentResourceChangeContinuation | None:
         async with await self._connect() as connection:
             cursor = await connection.execute(
-                "SELECT value FROM state_kv WHERE key=%s",
+                "DELETE FROM state_kv WHERE key=%s RETURNING value",
                 (_key(continuation_ref),),
             )
             row = await cursor.fetchone()
         if row is None:
             return None
         return decode_stored_continuation(_canonical_payload(row["value"]))
-
-    async def delete(self, continuation_ref: str) -> None:
-        async with await self._connect() as connection:
-            await connection.execute(
-                "DELETE FROM state_kv WHERE key=%s",
-                (_key(continuation_ref),),
-            )
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, object]]:
         connection = await psycopg.AsyncConnection.connect(

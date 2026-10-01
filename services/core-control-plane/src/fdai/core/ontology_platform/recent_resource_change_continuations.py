@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import secrets
@@ -69,9 +70,9 @@ class RecentResourceChangeContinuationStore(Protocol):
 
     async def put(self, record: StoredRecentResourceChangeContinuation) -> None: ...
 
-    async def get(self, continuation_ref: str) -> StoredRecentResourceChangeContinuation | None: ...
-
-    async def delete(self, continuation_ref: str) -> None: ...
+    async def claim(
+        self, continuation_ref: str
+    ) -> StoredRecentResourceChangeContinuation | None: ...
 
 
 class InMemoryRecentResourceChangeContinuationStore:
@@ -79,15 +80,14 @@ class InMemoryRecentResourceChangeContinuationStore:
 
     def __init__(self) -> None:
         self._records: dict[str, StoredRecentResourceChangeContinuation] = {}
+        self._lock = asyncio.Lock()
 
     async def put(self, record: StoredRecentResourceChangeContinuation) -> None:
         self._records[record.continuation_ref] = record
 
-    async def get(self, continuation_ref: str) -> StoredRecentResourceChangeContinuation | None:
-        return self._records.get(continuation_ref)
-
-    async def delete(self, continuation_ref: str) -> None:
-        self._records.pop(continuation_ref, None)
+    async def claim(self, continuation_ref: str) -> StoredRecentResourceChangeContinuation | None:
+        async with self._lock:
+            return self._records.pop(continuation_ref, None)
 
 
 class RecentResourceChangeContinuationIssuer:
@@ -146,7 +146,7 @@ class RecentResourceChangeContinuationIssuer:
         page_size: int | None,
         query_version_digest: str,
     ) -> RecentResourceChangeContinuationRequest:
-        record = await self._store.get(continuation_ref)
+        record = await self._store.claim(continuation_ref)
         if record is None:
             raise ContinuationInvalidError
         continuation = record.continuation
@@ -205,7 +205,6 @@ class RecentResourceChangeContinuationIssuer:
                 cursor_subject_ref=str(cursor.last_subject_ref),
             )
         )
-        await self._store.delete(previous_ref)
         return continuation_ref
 
     def _continuation(

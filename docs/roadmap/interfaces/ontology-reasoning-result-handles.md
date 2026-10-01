@@ -128,6 +128,10 @@ was observed, so the answer states its source and the semantic's reviewed freshn
 that needs fresher evidence than the inventory freshness ceiling holds as
 `property_freshness_unestablished`. A missing value is stated as unknown, and the goal status
 `UNKNOWN_INCOMPLETE` is assigned with the verified answer authoring of the promotion program.
+The compiled anchor now carries its exact Resource type into the selector and V-SEM allowlist, so a
+path reviewed for one type cannot be reused by another type even when both provider bags contain the
+same key. Nested masking treats `connectionString` as connection material but keeps reviewed status
+fields such as `privateEndpointConnectionStatus` visible.
 
 **Exit:** a property lookup on one named resource answers with the exact value, and a property
 without a reviewed semantic holds with its typed reason.
@@ -171,6 +175,8 @@ WHERE effective_at < :last_effective_at
   opaque reference.
 - Every page is reauthorized. A mismatch in any bound field, or expiry, returns a typed
   `continuation_invalid`, never a silently different population.
+- Resolving a continuation reference is an atomic claim. An in-memory lock and PostgreSQL
+  `DELETE ... RETURNING` ensure concurrent requests for one reference let exactly one page proceed.
 - Tests on a real loopback PostgreSQL cover several observations per Resource, timestamp ties,
   rows recorded after the cutoff, and a changed page size.
 

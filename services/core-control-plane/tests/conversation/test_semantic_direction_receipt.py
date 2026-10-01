@@ -91,3 +91,58 @@ def test_the_receipt_measures_a_span_counts_settled_usage_and_sent_tiebreaks() -
     # Two first readers and one tie-break attempt that never reserved a call.
     assert direction_cost_receipt(ledger, 3, 1) is not None
     assert direction_cost_receipt(ledger, 4, 1).readers == 1  # type: ignore[union-attr]
+
+
+def test_the_receipt_uses_actual_usage_when_a_reader_overruns() -> None:
+    from fdai.core.conversation.turn_reservations import PlannedStage, StageCost, TurnStage
+
+    times = [0.0]
+    plan = ReservationPlan(
+        (PlannedStage(TurnStage.DIRECTION_READER, StageCost(1, 10, 5, 1.0), max_calls=1),)
+    )
+    ledger = TurnReservationLedger(plan_capacity(plan), plan, clock=lambda: times[-1])
+    record = ledger.reserve(TurnStage.DIRECTION_READER, StageCost(1, 4, 3))
+    times.append(2.0)
+    ledger.reconcile(record, output_tokens=8)
+
+    receipt = direction_cost_receipt(ledger, direction_calls=1)
+
+    assert receipt is not None
+    assert (receipt.input_bytes, receipt.output_tokens, receipt.wall_ms) == (4, 8, 2000)
+
+
+def test_a_failover_first_call_counts_as_one_reader() -> None:
+    from fdai.core.conversation.turn_reservations import PlannedStage, StageCost, TurnStage
+
+    plan = ReservationPlan(
+        (PlannedStage(TurnStage.DIRECTION_READER, StageCost(1, 10, 5), max_calls=1),)
+    )
+    ledger = TurnReservationLedger(plan_capacity(plan), plan)
+    record = ledger.reserve(TurnStage.DIRECTION_READER, StageCost(1, 4, 3))
+    ledger.reconcile(record, output_tokens=2)
+
+    receipt = direction_cost_receipt(ledger, direction_calls=1, tiebreak_calls=1)
+
+    assert receipt is not None
+    assert receipt.readers == 1
+
+
+def test_a_failed_first_call_remains_inside_the_reader_wall_span() -> None:
+    from fdai.core.conversation.turn_reservations import PlannedStage, StageCost, TurnStage
+
+    times = [0.0]
+    plan = ReservationPlan(
+        (PlannedStage(TurnStage.DIRECTION_READER, StageCost(1, 10, 5, 5.0), max_calls=2),)
+    )
+    ledger = TurnReservationLedger(plan_capacity(plan), plan, clock=lambda: times[-1])
+    failed = ledger.reserve(TurnStage.DIRECTION_READER, StageCost(1, 4, 3))
+    times.append(2.0)
+    ledger.fail(failed)
+    replacement = ledger.reserve(TurnStage.DIRECTION_READER, StageCost(1, 4, 3))
+    times.append(5.0)
+    ledger.reconcile(replacement, output_tokens=2)
+
+    receipt = direction_cost_receipt(ledger, direction_calls=2)
+
+    assert receipt is not None
+    assert (receipt.readers, receipt.wall_ms, receipt.unsettled_calls) == (1, 5000, 1)

@@ -11,6 +11,11 @@ Container-kind lineage grouping stays split between Core conversation compilatio
 Remaining E9 operators keep their missing-prerequisite decisions in a focused Core conversation helper, so unsupported rank, aggregate, comparison, version, evidence, diagnose, and path rows do not fall back to another operation's plan.
 Metric window comparison planning is likewise isolated in a focused Core conversation helper: form fields carry the two windows, while the query runtime uses the existing metric comparison node and grants no execution authority.
 Current-path operand provenance checks stay in focused Core conversation helpers: model-proposed plan identities are accepted only from text, prior context, result handles, or server binding receipts, while server-built plans keep their existing authority boundary.
+Residual reasoning hardening keeps server identity, plan coverage, and reviewed provider-property
+authorization in focused Core helpers. Bound context receipts are accepted only after principal,
+scope, and ontology-release checks; a provider path is available only when every selected Resource
+type has reviewed that path. Recent-change continuation storage claims one opaque reference
+atomically, while the conversation layer remains read-only and grants no execution authority.
 Current-path relation and state-review convergence stays in the same Core conversation boundary: released relation plans come from the shared compiler, and independent state review compares closed meaning axes instead of facet text without adding Operator routes.
 Typed constraint slots are also isolated at the shared contract and Core conversation boundary. The
 service-contract SDK owns the versioned judgment and frame fields, while Core owns slot coverage,

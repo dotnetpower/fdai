@@ -20,7 +20,18 @@ _PROVIDER_PREFIX = "properties.properties."
 _MAX_STRUCTURED_CHARS = 4_000
 _REDACTED = "<redacted>"
 # Nested keys whose values are secrets or connection material, matched inside the key name.
-_SENSITIVE_KEY_PARTS = ("password", "secret", "token", "credential", "connection", "key")
+_SENSITIVE_KEY_PARTS = ("password", "secret", "token", "credential", "cookie", "key", "sas")
+_CONNECTION_MATERIAL_KEYS = {
+    "connection",
+    "connectionconfig",
+    "connectionconfiguration",
+    "connectiondetails",
+    "connectionendpoint",
+    "connectioninfo",
+    "connectionstring",
+    "connectionuri",
+    "connectionurl",
+}
 
 
 def render_property_value_answer(
@@ -124,7 +135,11 @@ def _redacted(field: str, value: object, redact: Callable[[str, object], object]
 
 
 def _sensitive_key(key: str) -> bool:
-    folded = key.casefold()
+    folded = key.casefold().replace("_", "").replace("-", "")
+    if folded in _CONNECTION_MATERIAL_KEYS or (
+        "connection" in folded and not folded.endswith(("connectionstatus", "connectionstate"))
+    ):
+        return True
     return any(part in folded for part in _SENSITIVE_KEY_PARTS)
 
 
