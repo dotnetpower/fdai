@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
@@ -53,6 +52,7 @@ from .conversation_preflight import (
     preflight_selects_general_knowledge,
 )
 from .intent_graph import build_intent_graph_evidence, resolve_execution_authority
+from .model_evidence_view import adaptive_model_evidence_content
 from .semantic_governed_document_planning import document_evidence_mode
 from .semantic_planning import SemanticPlanningService
 from .semantic_planning_cascade import NO_T2_ESCALATION_POLICY, SemanticPlanningEscalationPolicy
@@ -290,30 +290,19 @@ class SemanticConversationRuntime:
                 if degraded_optional_document and result.planning.plan is not None
                 else set()
             )
-            values: list[object] = []
-            refs: list[str] = []
-            authorities: list[EvidenceAuthority] = []
-            for node_id in result.execution.output_node_ids:
-                if node_id in document_output_ids:
-                    continue
-                node = result.execution.results.get(node_id)
-                if node is None:
-                    return AdaptiveEvidence(status="unavailable", limitation="missing_query_output")
-                value = node.value
-                values.append(
-                    json.loads(value.canonical_json()) if isinstance(value, QueryTable) else value
-                )
-                refs.extend(node.evidence_refs)
-                if node.authority is not None:
-                    authorities.append(node.authority)
-                authorities.extend(node.authority_inputs)
             try:
-                content = json.dumps(values, ensure_ascii=False, allow_nan=False)
+                evidence_content = adaptive_model_evidence_content(
+                    result.execution,
+                    plan=result.planning.plan,
+                    document_output_ids=document_output_ids,
+                )
             except (TypeError, ValueError):
                 return AdaptiveEvidence(
                     status="unavailable", limitation="unsupported_evidence_shape"
                 )
-            references = tuple(dict.fromkeys(refs))
+            if isinstance(evidence_content, str):
+                return AdaptiveEvidence(status="unavailable", limitation=evidence_content)
+            content, references, authorities = evidence_content
             if (
                 len(content) > 12000
                 or len(references) > 12
