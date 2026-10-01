@@ -50,6 +50,7 @@ from .semantic_reasoning_handles import (
     reference_mention,
     starts_from_reference,
 )
+from .semantic_reasoning_lineage_counts import lineage_count_goal
 from .semantic_reasoning_measure_reads import health_lookup, state_history
 from .semantic_reasoning_measures import stated_measure
 from .semantic_reasoning_metrics import METRIC_READER, metric_read
@@ -307,6 +308,12 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     group = group_by(goal, ctx)
     if isinstance(group, OperatorResult):
         return group
+    if (
+        goal.effective_operation is GoalOperation.COUNT
+        and len(group) == 1
+        and group[0].startswith("lineage.nearest_container:")
+    ):
+        return lineage_count_goal(goal, ctx, selector, predicates, group)
     prefix = goal.id
     if not scopes:
         node = object_set_node(

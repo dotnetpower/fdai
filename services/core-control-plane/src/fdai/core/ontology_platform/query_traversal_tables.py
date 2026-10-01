@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 
 from fdai.shared.ontology.acl import ProjectionRequest
 
-from .models import ObjectSetDefinition, RelationshipTraversalDefinition
+from .models import ObjectPredicate, ObjectSetDefinition, RelationshipTraversalDefinition
 from .object_sets import object_matches_predicates
 from .query_execution import QueryNodeHeldError
 from .query_gateway import SecuredObjectSetQueryGateway, SecuredObjectSetQueryResult
@@ -60,6 +61,81 @@ def relationship_traversal_table(
         direction=direction,
         max_depth=max_depth,
     )
+
+
+def relationship_lineage_table(
+    secured: SecuredObjectSetQueryResult,
+    *,
+    root_ids: tuple[str, ...],
+    link_type: str,
+    direction: str,
+    max_depth: int = 1,
+    endpoint_predicates: tuple[ObjectPredicate, ...] = (),
+) -> QueryTable:
+    """Return lineage candidates reached from every root through one LinkType."""
+
+    graph = secured.materialization.graph
+    if secured.receipt.source_generation is None:
+        raise QueryNodeHeldError("relationship_traversal_source_generation_missing")
+    records = {record.id: record for record in graph.objects}
+    rows: dict[tuple[str, str], tuple[int, tuple[str, ...]]] = {}
+    for root_id in root_ids:
+        frontier: dict[str, tuple[str, ...]] = {root_id: (root_id,)}
+        reached: set[str] = {root_id}
+        for depth in range(1, max_depth + 1):
+            next_frontier: dict[str, tuple[str, ...]] = {}
+            for link in graph.links:
+                if link.link_type != link_type:
+                    continue
+                if direction in {"outgoing", "both"} and link.from_id in frontier:
+                    _add_path(next_frontier, link.to_id, (*frontier[link.from_id], link.to_id))
+                if direction in {"incoming", "both"} and link.to_id in frontier:
+                    _add_path(next_frontier, link.from_id, (*frontier[link.to_id], link.from_id))
+            frontier = {
+                member_id: path
+                for member_id, path in next_frontier.items()
+                if member_id not in reached
+            }
+            reached.update(frontier)
+            for member_id, path in sorted(frontier.items()):
+                record = records.get(member_id)
+                if record is None or not object_matches_predicates(
+                    record.properties, endpoint_predicates
+                ):
+                    continue
+                key = (member_id, root_id)
+                current = rows.get(key)
+                if current is None or (depth, path) < current:
+                    rows[key] = (depth, path)
+            if not frontier:
+                break
+    return replace(
+        secured_query_table(secured),
+        rows=tuple(
+            QueryRow.from_values(
+                f"lineage:{root_id}:{member_id}",
+                {
+                    "member_id": member_id,
+                    "root_id": root_id,
+                    "depth": depth,
+                    "path_evidence": json.dumps(
+                        list(path),
+                        allow_nan=False,
+                        ensure_ascii=True,
+                        separators=(",", ":"),
+                    ),
+                    "source_generation": secured.receipt.source_generation,
+                },
+            )
+            for (member_id, root_id), (depth, path) in sorted(rows.items())
+        ),
+    )
+
+
+def _add_path(paths: dict[str, tuple[str, ...]], member_id: str, path: tuple[str, ...]) -> None:
+    current = paths.get(member_id)
+    if current is None or path < current:
+        paths[member_id] = path
 
 
 async def traversal_endpoints(
@@ -123,4 +199,9 @@ def _row_properties(row: QueryRow) -> Mapping[str, object]:
     return properties if isinstance(properties, Mapping) else {}
 
 
-__all__ = ["relationship_traversal_table", "secured_query_table", "traversal_endpoints"]
+__all__ = [
+    "relationship_lineage_table",
+    "relationship_traversal_table",
+    "secured_query_table",
+    "traversal_endpoints",
+]

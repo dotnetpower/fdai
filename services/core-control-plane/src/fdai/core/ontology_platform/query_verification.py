@@ -363,6 +363,8 @@ class OntologyQueryPlanVerifier:
         else:
             raise ValueError("relationship traversal source MUST be a secured query table")
         definition = RelationshipTraversalDefinition.model_validate(arguments)
+        if definition.emit_lineage and source.kind is not QueryNodeKind.OBJECT_SET:
+            raise ValueError("lineage traversal source MUST be a secured object set")
         if source_selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
             raise ValueError("relationship traversal source MUST select one ObjectType")
         if definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:

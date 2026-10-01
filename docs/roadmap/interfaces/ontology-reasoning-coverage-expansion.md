@@ -159,7 +159,9 @@ many VMs per resource group" needs the nearest ancestor of one kind.
   equal the members read.
 - **Verify:** V-SEM requires the lineage grouping whenever the form names a container kind.
 - **Implementation note:** The local compiler represents the lineage grouping as a reviewed
-  aggregate operation over typed lineage rows; it remains shadow/local until promoted.
+  aggregate operation over typed lineage rows. It reads the named container roots, asks secured
+  `contains` traversal to emit lineage rows, filters reached members by the stated subject kind,
+  and then aggregates the lineage rows. It remains shadow/local until promoted.
 
 **Exit:** exact gold tests pass for direct, indirect, and equal-nearest roots, and the traced
 per-group count answers with one count per resource group instead of a hold.
