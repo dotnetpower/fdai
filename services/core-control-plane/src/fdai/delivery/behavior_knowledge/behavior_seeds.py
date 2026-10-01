@@ -413,7 +413,10 @@ SEEDS: tuple[Seed, ...] = (
             "같은 상관관계에 대해 롤백을 두 번 실행하지 않습니다.",
         ),
         (
-            _code("agents/vidar.py", "Vidar.rollback"),
+            _code(
+                "agents/_framework/vidar_rollback_runtime.py",
+                "VidarRollbackRuntimeMixin.rollback",
+            ),
             _test("agents/test_wave3_pipeline.py", "test_thor_triggers_vidar_rollback_on_failure"),
             _test(
                 "agents/test_wave3_pipeline.py", "test_vidar_rollback_is_idempotent_per_correlation"

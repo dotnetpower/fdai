@@ -246,13 +246,13 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "9b763b6713d13236dd9d7407373d8df1f32aa5c780513d7ccc60702c6646856c",
+      "source_manifest_hash": "42b5365a0382343e765f6a530cfb41e87b6c44489900de6d3eea0cda9a7a2076",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "21f68d326387481512300b14e641354a4a90be99",
-          "line_end": 1146,
-          "line_start": 1107,
+          "blob_sha": "743cd43971889b2479aad0d76f6026d45fb6d0df",
+          "line_end": 1194,
+          "line_start": 1155,
           "path": "services/core-control-plane/src/fdai/agents/saga.py",
           "source_kind": "code",
           "symbol": "Saga.escalate_to_github_issue"
@@ -480,13 +480,13 @@
         "Can an approver approve their own action?",
         "자기 액션을 스스로 승인할 수 있나요?"
       ],
-      "source_manifest_hash": "9dea93423ec0bdc2f99f7085335b1bd64a40ed11409572042a37691582ec34d6",
+      "source_manifest_hash": "3396d6b684d59a477c8ba13006e00ec51c057679e19dfdc91a2e934f12b3e900",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "29d369af7ea5c0e140ec7ca34700a15a8c1ba890",
-          "line_end": 357,
-          "line_start": 335,
+          "blob_sha": "f9faa1d59d87ed074cb2553f8c6811ad3b5098ba",
+          "line_end": 370,
+          "line_start": 348,
           "path": "services/core-control-plane/src/fdai/agents/var.py",
           "source_kind": "code",
           "symbol": "Var.decide"
@@ -840,16 +840,16 @@
         "How does Vidar handle rollback?",
         "Vidar는 롤백을 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "b264c51c83c350b5d4228698ef275d0dcd89f35dd95ad0d96480c868253e8ea7",
+      "source_manifest_hash": "0044fdc1be157565fc10861aab67ff1fac9f453d6a5b64e5536f9c4cc0c06346",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "52d79205ae2d0f3ae3f70712cdc7ce9ad5fbfcd5",
-          "line_end": 579,
-          "line_start": 557,
-          "path": "services/core-control-plane/src/fdai/agents/vidar.py",
+          "blob_sha": "5999d780442ca5bd3f22c25a4a3ae3622b818384",
+          "line_end": 62,
+          "line_start": 40,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/vidar_rollback_runtime.py",
           "source_kind": "code",
-          "symbol": "Vidar.rollback"
+          "symbol": "VidarRollbackRuntimeMixin.rollback"
         },
         {
           "authority_role": "verification",
