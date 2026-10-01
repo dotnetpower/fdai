@@ -38,11 +38,16 @@ cross-agent workflow has an independent rollout record in
 | O7 operational-promotion evidence measurement | implemented | [`operational_promotion.py`](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion.py), [`operational_promotion_evidence.py`](../../../services/core-control-plane/src/fdai/delivery/measurement/operational_promotion_evidence.py), [`test_operational_promotion_evidence.py`](../../../services/core-control-plane/tests/delivery/test_operational_promotion_evidence.py) | The runner consumes manifest-bound immutable batches and fails closed on missing causal, unit, recurrence, or policy-escape evidence. No runtime producer currently materializes the complete live batches. |
 | Live operational KPI validation and actual enforce promotion | in-progress | [Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md), [Goals and Metrics](../architecture/goals-and-metrics.md) | Measurement and observation consumers exist, but no complete retained live-shadow cohort, operational promotion receipt, independent review, or actual pantheon enforce promotion is evidenced by this plan. |
 | Observation-first learned and predicted output boundary | implemented | `agents/_framework/{advisory_verdicts,forseti_learned_outputs,thor_persistence,action_run_identity}.py`; `StateStoreActionRunStore.reserve_correlation`; `core/control_loop/_learned_reuse.py`; `runtime/{control_loop,bootstrap_pantheon}.py`; `test_learned_output_profile_boundary.py`; `test_learned_output_arbitration_gate.py`; `test_learned_output_durable_gate.py`; `test_learned_reuse_profile_boundary.py`; `test_bootstrap_pantheon_product_selection.py` | Without the `governed-execution` product add-on, forecasts, Freyr capacity arbitration, and T1 reuse of learned patterns produce ActionType-free advisory evidence that Thor ignores. A settled advisory arbitration holds later observed signals on its correlation from automatic execution, including after a Core restart or gate eviction, through Thor's durable non-action correlation claim. Selecting the add-on reopens the existing gates with one deliberate restriction: a forecast-derived action Verdict without an exact `mode: enforce` is capped at `shadow_only`. The selection comes only from the product profile; T2 proposals are outside this row. |
+| Phase-2 execution receipts and failover contracts | implemented | `agents/{thor.py,vidar.py}`; `_framework/{thor_preflight,thor_execution,vidar_dr,vidar_rehearsal}.py`; `test_wave7_workflows.py`; `test_thor_durable.py` | Thor records exact-identity pre-flight simulation receipts for high-risk and obligation-only runs before executor I/O. Vidar accepts or holds DR failover contracts and records bounded rollback rehearsal receipts. |
+| Phase-2 learning and governance loops | implemented | `agents/{huginn.py,bragi.py,mimir.py,norns.py}`; `_framework/{huginn_schema_learning,bragi_intent_training,norns_issue_close_support}.py`; `test_mimir_issue_close_evidence.py`; `test_wave7_workflows.py`; `test_runtime.py` | Signed operator-request receipts, schema-cluster evidence, shadow-only Bragi intent-training evidence, Mimir promotion/deprecation evidence, and Norns quiet-window eligibility remain inert unless a reviewed activation or Saga-owned close path consumes them. |
+| Phase-2 specialist sampling and scenario generation | implemented | `agents/{freyr.py,loki.py}`; `_framework/{capacity_utilization,loki_scheduling,loki_adversarial}.py`; `test_sensing_specialist_contracts.py`; `test_loki_recurring_scheduler.py`; `test_loki_adversarial_generation.py` | Freyr samples through an injected read-only sampler and emits capacity forecasts or shadow/HIL scale proposals. Loki schedules always-HIL proposals or holds and can generate inert adversarial scenario candidates through an unbound-by-default off-path port. |
+| Phase-2 replay, cost, and backlog controls | implemented | `agents/{forseti.py,odin.py,muninn.py,thor.py}`; `_framework/{forseti_what_if,thor_persistence}.py`; `test_forseti_retrospective_what_if.py`; `test_wave7_workflows.py`; `muninn.py` compaction regressions | Cost annotations stay explicit across Forseti, Odin, and Thor; retrospective what-if replay is inert; Muninn publication outbox compaction and provider replay evidence bound retained state. Durable poison-halt storage remains opt-in. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | implemented | Documented the phase-2 Agent Pantheon capabilities: pre-flight receipts, DR contracts, signed operator-request receipts, schema learning, intent-training evidence, Mimir and Norns issue-close support, Freyr/Loki specialist loops, poison-halt clear semantics, cost annotations, multi-target batch semantics, and Muninn compaction. | `current change`; `docs/roadmap/agents/agent-pantheon*.md`; `docs/roadmap/agents/agent-pantheon-implementation*.md`; `docs/roadmap-implementation/agents/agent-pantheon.md`; focused checks listed in the final report. | Bind and validate the remaining production ports and live/deployment evidence listed below. |
 | 2026-09-29 | implemented | Thor, Heimdall, Mimir, and Forseti now record the independent verifier's explicit rejection class and cite its rejection record while keeping their roles, owned objects, and topics. Thor's test-context dispatch hold sets the `ActionRun` outcome and `evidence_rejection_ref` on `object.action-run`; Heimdall excludes scoring in `ForecastOutcome` `1.2.0` on `object.forecast-outcome`; Mimir appends a `test_context.transition_refused` audit entry and publishes no `object.policy`; Forseti's held verdict carries `evidence_rejection_ref`. Only `unavailable` keeps each generic reason, issuance stays a bounded provider call, and no execution or promotion authority changes. | `current change`; `agents/_framework/{thor_execution,thor_action_run,thor_persistence,forseti_judgment}.py`; `tests/agents/test_operational_evidence_owner_records.py`; see the [independent operational evidence ledger](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md) | Purposes without a bound verifier readback still reach these agents only as `unavailable`. |
 | 2026-09-28 | implemented | Closed the residual default-profile paths by which learned patterns and predictions became action proposals, gated on the existing `governed-execution` product add-on. The control-loop builder passes `RuntimeProductSelection.governed_execution` to the control loop, and Pantheon composition passes the control loop's value to Forseti, so no second selection input exists. Without the add-on, Forseti answers forecasts and capacity-fed arbitration with ActionType-free Verdicts and builds no decision options or kinetic proposals from a prediction, and the control loop stops T1 learned reuse before it builds an Action. Every settled advisory arbitration marks its correlation unresolved as the governed path does, publishes one Verdict under a per-correlation lock, and Thor holds the correlation durably with a terminal non-action claim in its ActionRun store, so a later Verdict on it is refused after a restart or gate eviction as a reused correlation is refused on the governed path; no ActionRun, approval, or executor call results. With the add-on, the existing gates run with one deliberate restriction: an action Verdict derived from a forecast without an exact `mode: enforce` is capped at `shadow_only`. Roles, topics, and `PANTHEON_SPECS` are unchanged. | `current change`; 50 cases in `test_learned_output_profile_boundary.py`, `test_learned_output_arbitration_gate.py`, `test_learned_output_durable_gate.py`, `test_learned_reuse_profile_boundary.py`, and `test_bootstrap_pantheon_product_selection.py`, a mutation check for each gate, the unresolved mark, the publication retry and lock, the durable hold, and both composition hand-offs, and the governed-path arbitration, decision-case, specialist, and T1 wire tests updated to select the add-on through the product profile; framework layout, Ruff, and strict mypy passed. | Review T2, anomaly-action, alert-noise, and other learned-evidence consumers. No live validation was performed. |
 | 2026-09-27 | in-progress | Integrated a trusted-source-verified full-authority development envelope through the real Forseti, Var, Thor, and Vidar typed path while preserving fixed roles and topics. Original and effective quorum remain distinct, and replay identity includes the exact grant only for the selected profile. | `current change`; 723 focused authority, bus, replay, and adjacent cases passed; layout, Ruff, and strict typing checks passed. | Implement and bind the authoritative deployment source, then retain governed runtime receipts. No live validation was performed. |
@@ -115,6 +120,13 @@ cross-agent workflow has an independent rollout record in
   [learned and predicted output boundary](#learned-and-predicted-output-boundary), then close or
   record each path with a focused test. This is a follow-up hardening item for the closed
   [issue #1541](https://github.com/dotnetpower/fdai/issues/1541).
+- [ ] Bind production readers and runners for Mimir promotion evidence, Freyr utilization sampling,
+  Loki recurring schedules and adversarial generation, and Bragi reviewed activation; record
+  focused runtime evidence for each bound port.
+- [ ] Port Forseti retrospective what-if retained-input replay to durable storage and record a
+  restart-safe regression for replayed inputs.
+- [ ] Decide whether durable ordered-poison-halt storage should be enabled in production, then
+  record either the bound storage evidence or the explicit opt-in decision.
 
 ## Design at a glance
 
@@ -377,6 +389,97 @@ server-owned channel: `ingress` for authenticated service producers and `convers
 in-process proposal entry point. Huginn never copies unowned authority fields such as
 caller-supplied initiator, ActionType, or params from raw ingress, and Forseti's RBAC denies unknown
 initiators before a verdict can form.
+
+### Phase-2 capability mechanics
+
+These mechanics extend the fixed roles without adding new role bindings or default execution
+authority.
+
+#### Pre-flight simulation and receipts
+
+`ThorPreflightSimulator` supplies bounded read-only simulation before high-risk or obligation-only
+executor I/O. A passing receipt records schema version, ActionRun identity, ActionType, target,
+parameter digest, simulator identity/version, outcome, timestamps, reason, and receipt digest.
+Thor uses the receipt digest as `dry_run_receipt`; unbound, failed, timeout, error, or mutating
+simulation fails closed before executor I/O.
+
+#### DR failover contract and rollback rehearsal
+
+Vidar accepts or holds `dr_failover_contract` decisions on the exact ActionRun identity before Thor
+continues `ops.failover-primary`. Held decisions and injected-clock timeouts deny the run. The
+rollback rehearsal port is dry-run-only; unbound ports record visible no-op evidence, while bound
+ports produce digest-bound rehearsal receipts and DR readiness facts.
+
+#### Issue-close promotion evidence and governed Mimir maintenance
+
+Mimir polls rule sources, runs regression evidence, and records deprecation candidates through
+injected read-only ports. A reviewed promotion can emit at most one Saga issue-close promotion
+evidence record for its fingerprint, promotion PR, and correlation. Pending publication replays
+with the same key, and recurrence after the clean start requires a new reviewed promotion.
+
+#### Norns quiet-window eligibility
+
+Norns publishes inert quiet-window close eligibility on `object.rule-candidate`. It never mutates
+issues. Saga remains the issue closer and waits for Mimir promotion evidence plus the clean
+recurrence window before closing.
+
+#### Operator-request receipts and schema learning
+
+Raw-ingress `operator_request` events carry a signed receipt binding the idempotency key,
+correlation id, initiator, ActionType, canonical params digest, resource id, producer identity, and
+validity window. Huginn rejects missing, expired, replayed, mismatched, unverifiable, or
+unknown-producer receipts. Schema learning records bounded content-free fingerprints on the hot
+path and publishes inert `schema_cluster.evidence` during maintenance.
+
+#### Freyr sampling and Loki scheduling/adversarial generation
+
+Freyr samples utilization through an injected read-only sampler. If unbound, the sampler reports a
+visible no-op rather than a degraded runtime. Forecasts remain advisory unless the governed
+advisory-to-verdict path emits shadow/HIL proposals through Forseti.
+
+Loki's deterministic recurring scheduler emits one complete always-HIL chaos proposal per due
+window or a visible hold. Its adversarial scenario generator is an injected off-path port with no
+default binding; accepted candidates are inert and regression-gated against the frozen corpus.
+
+#### Poison-halt clear surface and publication replay evidence
+
+Ordered poison halts clear only through the Owner-only Operator route that durably accepts a request
+on the logical `fdai.operator.ordered-poison-halt.clear.v1` topic multiplexed over the shared
+pantheon-object transport. Core validates topic, group, agent, halt revision/digest, retained DLQ
+parked-record key, offset, and digest before an audited compare-and-swap clear resumes the
+consumer. Durable halt storage remains opt-in.
+
+Provider-harness restart replay tests cover Bragi, Var final approval, Saga audit outbox, Muninn,
+Mimir, Heimdall, and Odin publication replay. Real broker evidence remains a deployment-owned
+validation step.
+
+#### Forseti what-if and cost annotations
+
+Forseti retrospective what-if replay is judge-only and inert. It compares retained judgment inputs
+through a versioned contract and publishes disagreement evidence without changing authority.
+Executable and advisory Verdicts and ArbitrationRequests carry bounded `cost_annotation` evidence
+or an explicit unavailable state; Odin preserves it and Thor stores it as non-identity metadata.
+
+#### Bragi intent-training loop
+
+Bragi records shadow-only intent-training evidence from bounded, consent-filtered, digest-only
+verified routing outcomes. Candidate evaluation is off-path, deterministic, regression-gated, and
+audited. It never changes routing authority; reviewed activation remains a separate binding.
+
+#### Multi-target batches
+
+A multi-target Verdict with an explicit bounded target list creates one rollup `ActionRun` and one
+independent per-target `ActionRun`. Attempts have stable identities, resource locks, idempotency
+keys, safeguards, pre-flight/audit/executor/effect paths, and target-scoped Vidar rollback. The
+rollup records counts, failed and rolled-back target digests, terminal rules, and the durable
+bounded target list so approval after restart binds the same set. Single-target runs keep unchanged
+identity and payloads.
+
+#### Muninn compaction
+
+Muninn compacts its publication outbox every 64 published rows and on maintenance, bounded within
+64 rows of the 5,000-row retention window. The in-memory StateStore test double snapshots only
+touched rows for audited-write rollback.
 
 ### Assembly and lifecycle
 

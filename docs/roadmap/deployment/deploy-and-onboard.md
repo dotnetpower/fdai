@@ -563,6 +563,11 @@ required baseline, not observations from the signed-in tenant.
 - Secrets go through Key Vault refs, never plain env; a secret in plain env fails the CI
   secret-scan gate.
 - Per-environment values differ; the same image reads them from the injected environment.
+- Terraform creates deployment-owned operator-request receipt signing seed secrets for Core and
+  Operator in Key Vault and exports only their secret ids and producer ids. The deploy workflow
+  hydrates those references into service tfvars. Operator receives only its own seed. Core receives
+  its own seed plus the Operator seed, derives trusted producer public keys at startup, and signs
+  only as `core-control-plane`; Core remains the verifier inside the trusted computing base.
 
 ## Event Source Subscription
 
@@ -575,6 +580,7 @@ wiring is stable.
 | Change | Activity Log (resource-write / delete), Change Analysis, Resource Health | Push into the canonical Event Hubs Kafka ingress; Huginn owns real-time discovery normalization and the Inventory sync job reconciles the full graph |
 | DR / Chaos | Resource Health, backup vault events, PostgreSQL / SQL replication-lag metrics, restore-rehearsal outcomes | Diagnostic Settings + scheduled Container Apps Job probes → Kafka topic (`fdai.dr.events`) |
 | FinOps | cost anomaly alerts, budget alerts, Advisor cost recommendations | Cost Management pull → Kafka topic (`fdai.finops.events`); anomaly alerts fan in through the same Diagnostic-Settings path |
+| Operator safety control | Ordered poison-halt clear requests | Operator writes the logical `fdai.operator.ordered-poison-halt.clear.v1` topic on the shared pantheon-object transport; Core validates the parked-record evidence before resuming a halted ordered consumer |
 
 Every event is stamped with an **idempotency key at ingress** so a replay is a no-op; DLQs
 MUST be reachable and covered by the [alert-routing contract](../operations/operating-and-verification.md#alert-routing)

@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 1115a3ff8f128e23d525f9f2563725012f377719
-translation_revised: 2026-09-22
+translation_source_sha: 664605021249e67e8f420c864faa3f6bf4f3e29a
+translation_revised: 2026-10-01
 ---
 # AKS 진단 근거 플레인
 
@@ -337,6 +337,9 @@ Terraform은 정확한 각 클러스터 ARM 범위에서 인벤토리 신원에 
 token을 전달하지 않습니다. 별도 Terraform deployer 역할은 구성된 안정 실행기 UAMI principal을
 사용하며 인증된 principal이 다르면 계획을 중단합니다. 실행기 호스트를 다시 만들어도 AKS 관찰
 권한이 다른 principal로 바뀌지 않습니다.
+Terraform은 AKS 진단 리소스 옆에 operator-request receipt용 Key Vault signing-seed secret을
+추가할 수 있습니다. 이 secret은 AKS 근거 reader, Kubernetes 진단 범위 또는 runtime 실행
+권한을 확장하지 않습니다.
 
 ## 상한과 실패 동작
 

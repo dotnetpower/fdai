@@ -40,8 +40,8 @@ _EXPECTED_PRIMARY_BEHAVIOR_EN = {
         "a core causal-hypothesis projection, not another bus topic; no executor role"
     ),
     "Huginn": (
-        "ingest_event, normalize_change; planned schema-learning seam - exit: bounded "
-        "off-path schema clusters publish inert evidence without changing hot-path normalization"
+        "ingest_event, normalize_change; verifies signed operator-request receipts and "
+        "publishes inert schema-cluster evidence off path"
     ),
     "Heimdall": (
         "detect_anomaly, detect_drift, forecast, close_forecast_outcome, "
@@ -50,38 +50,35 @@ _EXPECTED_PRIMARY_BEHAVIOR_EN = {
         "validate_rule_generation, notify_admin_privilege_violation"
     ),
     "Vidar": (
-        "perform_rollback; planned dr_failover - exit: typed DR failover request has "
-        "authority, audit, rollback, and effect-verification contract"
+        "perform_rollback; accepts or holds DR failover contracts and records rollback "
+        "rehearsal receipts"
     ),
     "Var": "approve_action, reject_action",
     "Bragi": (
-        "translate_intent; planned intent-classifier retraining - exit: model-quality "
-        "training contract, bounded evidence corpus, regression/promotion gate, and audit evidence"
+        "translate_intent; records shadow-only intent-training evidence with reviewed "
+        "activation required"
     ),
     "Saga": (
         "append_audit (normalize missing trace), escalate_to_github_issue; issue auto-close "
         "waits for Mimir promotion evidence and a clean 24 h recurrence window"
     ),
     "Mimir": (
-        "promote_rule, revoke_rule, build_rule_generation; planned recurring "
-        "polling/regression/deprecation - exit: scheduled maintenance records bounded "
-        "no-op or audit evidence"
+        "promote_rule, revoke_rule, build_rule_generation; polls rule sources and records "
+        "regression-backed promotion and deprecation evidence"
     ),
     "Muninn": "index_state, snapshot_state, seal_case_history",
     "Norns": (
-        "propose_rule_candidate, analyze_case_history; planned close_issue signal - exit: "
-        "Norns emits inert closure eligibility for Saga-owned issue closure without mutating issues"
+        "propose_rule_candidate, analyze_case_history; emits inert quiet-window close_issue "
+        "eligibility without mutating issues"
     ),
     "Njord": "propose_cost_action; retains the separate `Budget` graph lifecycle",
     "Freyr": (
-        "forecast capacity from bounded samples and propose shadow-only graduation; planned "
-        "recurring sampling and scale proposal - exit: scheduler emits bounded forecasts and "
-        "only shadow/HIL scale proposals"
+        "forecasts capacity from bounded samples and emits shadow/HIL scale proposals "
+        "through Forseti"
     ),
     "Loki": (
-        "validate schedule-triggered experiment requests and publish resilience-score "
-        "candidates; planned recurring scheduling - exit: deterministic scheduler emits "
-        "complete always-HIL proposals or visible no-op holds"
+        "schedules always-HIL chaos proposals or visible holds and generates inert "
+        "adversarial scenario candidates off path"
     ),
 }
 

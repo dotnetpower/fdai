@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 0a86ec6280f59fe268ca3660ee8bc8ca2cf9c24c
-translation_revised: 2026-09-30
+translation_source_sha: 4de702508d5daa8f5a4fe2dfcb9a79cb4f2a24f4
+translation_revised: 2026-10-01
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -563,6 +563,11 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 - 시크릿은 Key Vault refs로, 절대 plain env가 아님; plain env의 시크릿은 CI secret-scan 게이트
   실패.
 - 환경별 값이 다름; 같은 이미지가 주입된 환경에서 값을 읽음.
+- Terraform은 Core와 Operator용 deployment-owned operator-request receipt signing seed
+  secret을 Key Vault에 만들고 secret id와 producer id만 내보냅니다. Deploy workflow는 이 참조를
+  service tfvars로 hydrate합니다. Operator는 자기 seed만 받고, Core는 자기 seed와 Operator seed를
+  받아 startup에서 trusted producer public key를 파생하며 `core-control-plane`으로만 서명합니다.
+  Core는 trusted computing base 안의 verifier로 남습니다.
 
 ## 이벤트 소스 구독
 
@@ -574,6 +579,7 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 | 변경 | Activity Log (resource-write / 삭제), 변경 Analysis, Resource Health | 정본 Event Hubs Kafka 유입으로 push하며 Huginn이 실시간 발견 정규화를 소유하고 인벤토리 sync 작업이 전체 그래프를 조정합니다. |
 | DR / Chaos | Resource Health, 백업 금고 이벤트, PostgreSQL / SQL replication-lag 메트릭, restore-rehearsal 결과 | Diagnostic Settings + 스케줄 Container Apps 작업 프로브 → Kafka 토픽 (`fdai.dr.events`) |
 | FinOps | 비용 이상 알림, 예산 알림, Advisor 비용 권고 | 비용 관리 pull → Kafka 토픽 (`fdai.finops.events`); 이상 알림은 같은 Diagnostic-Settings 경로로 fan in |
+| Operator 안전 제어 | Ordered poison-halt clear 요청 | Operator가 shared pantheon-object transport의 logical `fdai.operator.ordered-poison-halt.clear.v1` topic에 씁니다. Core는 halted ordered consumer를 재개하기 전에 parked-record 근거를 검증합니다. |
 
 모든 이벤트는 유입에서 **멱등성 키가 스탬프** 되어 리플레이는 no-op; DLQ는 도달 가능
 해야 하며 어디에서든 강제 적용이 활성화되기 전에

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 14843f94dd88606dbf533d846cb4baf9955e93e9
-translation_revised: 2026-09-30
+translation_source_sha: 68e218d3dc678c92cdd6bbee44af1870860e8256
+translation_revised: 2026-10-01
 ---
 # 에이전트 판테온
 
@@ -177,18 +177,18 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Odin | Master 플래너 | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | 응답자 | 2 | ActionRun | 통제된 작업마다 하나의 `ActionRun`을 전달하고 수명 주기 상태를 기록합니다. ActionType을 직접 소유하지 않습니다 - §7.1 참조 | no |
 | Forseti | Judge | 2 | Verdict, SecurityEvent, ArbitrationRequest, ProspectiveLineage | 판정과 정확한 실행 전 prospective lineage를 생성합니다. 근거가 있는 RCA는 별도 bus topic이 아니라 core causal-hypothesis projection으로 유지됩니다. 실행기 역할은 없습니다. | yes (T2 abstain 시만) |
-| Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change; planned schema-learning 경계 - exit: 범위가 제한된 off-path schema cluster가 hot-path 정규화를 바꾸지 않고 비활성 근거를 게시합니다 | no |
+| Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change; 서명된 operator-request 증적을 검증하고 off-path에서 비활성 schema-cluster 근거를 게시합니다 | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, relay_recovery_effect_observation, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
-| Vidar | 복구 | 2 | Rollback | perform_rollback; planned dr_failover - exit: 타입 지정 DR failover 요청이 권한, 감사, 롤백, 효과 검증 계약을 가집니다 | no |
+| Vidar | 복구 | 2 | Rollback | perform_rollback; DR failover 계약을 수락하거나 보류하고 rollback rehearsal 증적을 기록합니다 | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
-| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; planned intent-classifier retraining - exit: 모델 품질 학습 계약, 범위가 제한된 근거 corpus, 회귀/승격 gate, 감사 근거를 구현합니다 | yes (translator 만) |
+| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; shadow 전용 intent-training 근거를 기록하며 활성화에는 별도 검토가 필요합니다 | yes (translator 만) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 추적 정규화), escalate_to_github_issue; issue auto-close는 Mimir 승격 근거와 깨끗한 24시간 재발 없음 구간을 기다립니다 | no |
-| Mimir | Rule 담당자 | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; planned recurring polling/regression/deprecation - exit: 예약 유지 관리가 범위가 제한된 no-op 또는 감사 근거를 기록합니다 | no |
+| Mimir | Rule 담당자 | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; rule source를 polling하고 회귀 기반 승격 및 deprecation 근거를 기록합니다 | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
-| Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history; planned close_issue signal - exit: Norns가 이슈를 변경하지 않고 Saga 소유 이슈 종료를 위한 비활성 적격성 신호를 냅니다 | yes (off-path 배치 만) |
+| Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history; 이슈를 변경하지 않고 비활성 quiet-window close_issue 적격성을 냅니다 | yes (off-path 배치 만) |
 | Njord | 비용 | 1 | CostAnomaly | propose_cost_action을 수행하고 별도 `Budget` graph lifecycle을 유지합니다. | no |
-| Freyr | 용량 | 1 | CapacityForecast, CapacityGraduationRecommendation | 범위가 제한된 표본으로 용량을 예측하고 shadow-only 전환을 권고합니다. planned recurring sampling and scale proposal - exit: 스케줄러가 범위가 제한된 forecast와 shadow/HIL scale proposal만 냅니다 | no |
-| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule-triggered experiment 요청을 검증하고 resilience-score 후보를 게시합니다. planned recurring scheduling - exit: 결정론적 스케줄러가 완전한 always-HIL 제안 또는 보이는 no-op hold를 냅니다 | no |
+| Freyr | 용량 | 1 | CapacityForecast, CapacityGraduationRecommendation | 범위가 제한된 표본으로 용량을 예측하고 Forseti를 통해 shadow/HIL scale proposal을 냅니다 | no |
+| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | always-HIL chaos 제안 또는 보이는 hold를 예약하고 비활성 adversarial scenario 후보를 off-path에서 생성합니다 | no |
 
 Heimdall은 결정론적 예측 에피소드 평가와 종결의 책임자이며 비공개 `heimdall_forecast.py`와 `heimdall_alert_window.py`가 계산과 범위가 제한된 에피소드/경고 구간 기록을 소유합니다.
 반복 이벤트의 권위 있는 이상 징후를 게시한 뒤 선택적 `incident_candidate_hook`이 정규화된 리소스, 이벤트 타입, 상관관계, 최대 심각도, 사유 코드, 모든 급증 근거 키를 조립 소유 `IncidentLifecycleWorkflow`로 보냅니다.
@@ -216,20 +216,20 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 | 에이전트 | R (recurring) | E (이벤트) | M (meta) | X-agent |
 |-------|---------------|-----------|----------|---------|
 | Odin | 주간 portfolio 리뷰, priority-policy 튜닝 | Forseti 신호 에 arbitrate_domain_conflict | portfolio 결과 점수 self-audit | 7 (에이전트 상태), 2 (Predictive 규모) tie-break |
-| Thor | execution-path 상태 검사, retry-strategy 캐시 예열 | 판정 전달, 롤백 트리거, rate-limit 강제 | planned pre-flight simulation for high-risk actions - exit: Thor가 high-risk non-shadow executor I/O 전에 범위가 제한된 simulation receipt를 기록합니다 | 1 (Cost-aware 교정), 2 (Predictive 규모), 11 (준비 상태), 12 (Scheduled Python) |
-| Forseti | rule-cache 리프레시, 판정 coherence self-test | 이벤트 판단 (T0/T1/T2), domain_conflict 발행, SecurityEvent 발행 | novelty 표류 감지 (T0 vs T2 mix); planned retrospective what-if batch - exit: 범위가 제한된 보존 판단 입력을 versioned what-if 계약으로 replay하고 disagreement 근거를 기록합니다 | 1, 2, 5 (Security 에스컬레이션), 8 (Judgment coherence), 11, 12 |
-| Huginn | 출처 상태 검사, 발견 커서/backpressure 검사, dedup 구간 유지 | Event 및 정규화된 변경 정규화 + dedup + correlate + publish | planned adaptive schema learning - exit: 범위가 제한된 off-path schema cluster가 hot-path 정규화를 바꾸지 않고 비활성 근거를 게시합니다 | 모든 워크플로우에 피드 |
+| Thor | execution-path 상태 검사, retry-strategy 캐시 예열 | 판정 전달, 롤백 트리거, rate-limit 강제 | 고위험 및 의무 전용 경로에서 executor I/O 전에 pre-flight simulation 증적을 기록합니다 | 1 (Cost-aware 교정), 2 (Predictive 규모), 11 (준비 상태), 12 (Scheduled Python) |
+| Forseti | rule-cache 리프레시, 판정 coherence self-test | 이벤트 판단 (T0/T1/T2), domain_conflict 발행, SecurityEvent 발행 | novelty 표류 감지; 보존된 judgment what-if replay가 비활성 불일치 근거와 범위가 제한된 cost annotation을 기록합니다 | 1, 2, 5 (Security 에스컬레이션), 8 (Judgment coherence), 11, 12 |
+| Huginn | 출처 상태 검사, 발견 커서/backpressure 검사, dedup 구간 유지 | 서명된 operator request를 포함해 Event 및 정규화된 변경 정규화 + dedup + correlate + publish | adaptive schema learning이 off-path 비활성 schema-cluster 근거를 게시합니다 | 모든 워크플로우에 피드 |
 | Heimdall | anomaly 기준선 업데이트, 예측 리프레시, 발견 최신성/커버리지 탐색, T2 제안자 상태 증적 reduction, external-actor 리스트 리프레시, agent-health 탐색 | anomaly detect, 표류 detect, 최종 제안자 exhaustion correlate, 발견 성능 저하 correlate, SecurityEvent correlate, notify_admin | multi-signal 다신호 상관 | 1, 2, 3 (DR 훈련), 5, 7 (에이전트 상태), 9 (Rollback 예행 연습) |
-| Vidar | rollback-path 검증, DR 준비 상태 점수, recovery-time SLI | perform_rollback; planned dr_failover - exit: 타입 지정 DR failover 요청이 권한, 감사, 롤백, 효과 검증 계약을 가집니다 | planned rollback rehearsal (shadow) - exit: Vidar가 bound rollback 계약에 대한 범위가 제한된 비변경 rehearsal receipt를 기록합니다 | 3, 9 |
+| Vidar | rollback-path 검증, DR 준비 상태 점수, recovery-time SLI | perform_rollback; recovery-time 결과와 함께 DR failover 계약을 수락하거나 보류합니다 | 주입된 dry-run-only port로 shadow rollback rehearsal 증적을 기록합니다 | 3, 9 |
 | Var | 승인 SLA 모니터, 승인자 가용성 tracking | HIL 카드 제시, 정족수 강제, 시간 초과 / 에스컬레이션 | 승인 출처 이력 기록 | 4 (재정의 -> 발견), 5, 11, 12 |
-| Bragi | 만료 세션 정리, UserPreference 인덱스 리프레시 | NL 라우팅, multi-agent 집계, NL 렌더링 | planned intent-classifier retraining - exit: 모델 품질 학습 계약, 범위가 제한된 근거 corpus, 회귀/승격 gate, 감사 근거를 구현합니다 | 7, 10 (Retrospective what-if), 12 |
+| Bragi | 만료 세션 정리, UserPreference 인덱스 리프레시 | NL 라우팅, multi-agent 집계, NL 렌더링 | 감사 근거와 검토된 활성화 경계를 갖춘 shadow 전용 intent-training 루프 | 7, 10 (Retrospective what-if), 12 |
 | Saga | audit-chain 무결성 self-check, Mimir 승격 근거로 gated되는 issue-close 검사, 지문 인덱스 compaction | 덧붙이기 AuditEntry, escalate_to_github_issue, 재생 for reconstruction | 감사 체인 tamper 감지 | 모든 워크플로우 (감사) |
-| Mimir | planned rule-source polling, regression suite, deprecation cycle - exit: scheduled maintenance가 범위가 제한된 no-op 또는 감사 근거를 기록합니다 | 룰 promote / 철회, cache-invalidation broadcast | freshness-score, stale-rule 감지 | 4, 6 (인계 -> 기능), 8, 11 |
+| Mimir | 주입된 읽기 전용 port를 통한 rule-source polling, regression suite, deprecation cycle | 룰 promote / 철회, cache-invalidation broadcast | freshness-score, stale-rule 감지, issue-close 승격 근거 | 4, 6 (인계 -> 기능), 8, 11 |
 | Muninn | 스냅샷 교대, RAG 인덱스 재구축, 캐시 제거, case-history 보존 | Forseti 를 위한 맥락 fetch, 변경할 수 없는 변경 개정 번호 저장, Bragi 를 위한 상태 조회, 보존 틱 적용 | trending-query pre-warm, 온톨로지 교차 검증 | 판단을 touch 하는 모든 워크플로우 지원 |
-| Norns | 시간당 배치 감사 분석, 스트리밍 pattern 추출 | pattern 신호, RuleCandidate publish; planned close_issue signal - exit: Norns가 이슈를 변경하지 않고 Saga 소유 이슈 종료를 위한 비활성 적격성 신호를 냅니다 | 모델 성능 표류 감지 | 4, 6, 8 (Judgment coherence), 10 |
+| Norns | 시간당 배치 감사 분석, 스트리밍 pattern 추출 | pattern 신호, RuleCandidate publish, `object.rule-candidate`의 비활성 quiet-window close_issue 적격성 | 모델 성능 표류 감지 | 4, 6, 8 (Judgment coherence), 10 |
 | Njord | 비용 인제스트 (daily), 예산 모니터, 비용 forecasting | 범위가 제한된 비용 샘플 -> anomaly, 시작할 때 수락된 보존 완료 USD 기준선을 복원하되 과거 finding은 다시 게시하지 않음, 예산 breach 경보, cost-advisor 조회 | RI / SP 최적화 제안 | 1, 2 |
-| Freyr | planned recurring utilization sampling plus implemented capacity forecasting and sizing analysis - exit: 스케줄러가 범위가 제한된 forecast와 shadow/HIL scale proposal만 냅니다 | 범위가 제한된 사용률 샘플 -> 예측, 용량 advisor 조회; planned scale proposal - exit: governed advisory-to-verdict path가 shadow/HIL 제안을 냅니다 | 다차원 용량 (CPU + IOPS + net + mem) | 2, 3 |
-| Loki | planned chaos-experiment scheduling plus implemented resilience-score refresh - exit: 결정론적 스케줄러가 완전한 always-HIL 제안 또는 보이는 no-op hold를 냅니다 | 범위가 제한된 예약 트리거 -> 항상-HIL 실험 제안, 범위가 제한된 정규화 score Event -> 검증된 cross-vertical 후보, blast-radius 계산 | planned adversarial scenario generation - exit: 범위가 제한된 off-path 설계, 회귀, 감사 계약을 구현합니다. 현재 LLM binding은 없습니다 | 3, 9 |
+| Freyr | 주입된 읽기 전용 sampler를 통한 반복 사용률 표본 추출과 용량 예측 및 sizing 분석 | 범위가 제한된 사용률 샘플 -> 예측, 용량 advisor 조회; 통제된 advisory-to-verdict 경로가 shadow/HIL 제안을 냅니다 | 다차원 용량 (CPU + IOPS + net + mem) | 2, 3 |
+| Loki | 결정론적 반복 chaos 예약과 resilience-score refresh | 범위가 제한된 예약 트리거 -> always-HIL 실험 제안 또는 보이는 hold, 범위가 제한된 정규화 score Event -> 검증된 cross-vertical 후보, blast-radius 계산 | off-path adversarial scenario generation은 범위가 제한되고 회귀로 검증되며 감사되고 비활성이며 기본 바인딩이 없습니다 | 3, 9 |
 
 ### 4.2 Per-agent KPI (성공과 성능 저하 신호)
 
@@ -316,7 +316,7 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 | Forseti 판정 coherence | T0 (SQL) + T1 (임베딩) | 과거 판정 는 구조화된 감사 로그 |
 | Var assisted 결정 | T0 (링크 유사 사례) + T2 (요약, off-path) | 카드는 요약 carry; 사람이 결정 |
 | Huginn 스키마 학습 | T1 (배치 clustering) + T2 for 승격 | 실시간 정규화는 T0 유지 |
-| Loki adversarial | planned (현재 LLM binding 없음) | exit: 범위가 제한된 off-path 설계, 회귀, 감사 계약을 구현합니다. 실행은 결정론적이고 HIL-gated 상태를 유지합니다 |
+| Loki adversarial | T1/T2 off-path only | 범위가 제한된 off-path 설계, 회귀, 감사 계약을 구현했으며 기본 binding은 없습니다. 실행은 결정론적이고 HIL-gated 상태를 유지합니다 |
 
 명시된 LLM 호출 경계는 Bragi 변환, Forseti T2 판단 보류, Norns의 응답 경로 밖 배치입니다. 다른 주요 실행 경로에 LLM 호출을 추가하면 이 정책을 위반합니다.
 
@@ -595,8 +595,8 @@ I/O는 설정된 경우 Thor의 실행 전 Saga 감사 receipt도 요구합니�
 과거 결정을 재구성할 뿐 다시 실행하지 않습니다.
 `approval_expires_at`은 `ActionRun`의 timestamp입니다. 만료는 별도 `expired` 상태가 아니라 만료
 근거가 있는 rejected run으로 표현됩니다. `auto`는 verdict/risk 어휘이고 `ActionRun` 상태가
-아닙니다. `paused`, `compensated`, `ActionAttempt`, 시도별 rollup, Saga 시도 감사는 §7.4의 exit
-condition이 충족될 때까지 planned-only 개념입니다.
+아닙니다. Multi-target rollup 및 target-attempt 세부 정보는 §7.4의 추가 배치 metadata이며 lifecycle
+state를 추가하지 않습니다.
 리소스가 활성 run 또는 승인 대기 run에 이미 점유되어 있거나, 다른 작업이 같은 상관관계를 다른 멱등성 키로 재사용하려고 하면 Thor는 보이는 최종 `ActionRun` 차단 결과를 기록합니다. 이 경우는 더 이상 dead-letter 큐로 조용히 사라지지 않습니다.
 Thor는 실행 전이 전에 verdict 위험 어휘와 정족수 필드도 검증합니다. 알 수 없는 위험 단어나
 잘못된 정족수 값은 범위가 제한된 동작 근거를 가진 보이는 비실행 차단 결과가 됩니다.
@@ -608,8 +608,8 @@ no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 �
 세 개의 검증 지점, 모두 결정론적:
 
 1. **제안 시.** 시작 주체가 `argument_schema` 준수를 확인하며 레지스트리는 잘못된 제안을 거부합니다.
-2. **판정 시.** Forseti가 스키마와 정책을 다시 확인하고, 예행 실행 보호 장치가 상위 what-if 또는 예행 실행 증적을 인용하는지, 아니면 선언된 의무뿐인지 표시하며, 실패하면 `deny` 또는 `hil`로 낮춥니다.
-3. **실행 시.** Verdict, `ActionRun`, Approval, 감사에서 매개 변수를 바꾸지 않으며 Thor가 변경 전에 재검증하여 대상 상태 경합을 확인합니다.
+2. **판정 시.** Forseti가 스키마와 정책을 다시 확인하고, 예행 실행 보호 장치가 상위 what-if 또는 예행 실행 증적을 인용하는지 표시하며, 실패하면 `deny` 또는 `hil`로 낮춥니다.
+3. **실행 시.** Verdict, `ActionRun`, Approval, 감사에서 매개 변수를 바꾸지 않으며, wire로 전달된 고위험 또는 의무 전용 실행에서는 Thor가 감사 의도와 executor I/O 전에 신원이 정확한 최신 pre-flight simulation 증적을 기록하거나 재사용합니다.
 
 구현된 수명 주기 안정 신원은 안정적인 게시 payload에서 파생되는 `action_run_identity()`입니다.
 `idempotency_key`는 같은 작업 재게시를 위한 executor no-op 키로 남습니다. 같은 키로 다시
@@ -619,11 +619,12 @@ no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 �
 
 ### 7.4 영향 범위 와 배치 시맨틱
 
-구현된 모델은 하나의 `resource_id`에 대해 하나의 `ActionRun`을 게시합니다. Multi-target 배치
-시맨틱은 계획되어 있으며 리소스별 순서나 rollback 격리를 우회하지 않는 것이 좋습니다.
-[구현 계획](agent-pantheon-implementation-ko.md#영향-범위와-배치-시맨틱)의 배치 종료 조건이
-완료되기 전까지 `blast_radius > 1`인 ActionType은 검토로 보류하거나 별도 single-resource
-run으로 나누는 것이 좋습니다.
+명시적이고 범위가 제한된 target list가 있는 multi-target Verdict는 `target-set:<digest>`를
+사용하는 rollup `ActionRun` 하나와 대상별 독립 `ActionRun` 하나씩을 만듭니다. 각 대상은
+자체 resource lock, idempotency key, 보호 장치, pre-flight/audit/executor/effect 경로, Vidar
+rollback을 유지합니다. Rollup은 타입이 지정된 count, 실패 및 rollback 대상 digest, 종료 규칙,
+영속된 범위 제한 target list를 기록하며, 알 수 없거나 한도를 넘는 target set은 보이게
+보류하고 시도를 만들지 않습니다.
 
 ### 7.5 Rollback 계약과 irreversibility
 
@@ -636,6 +637,9 @@ run으로 나누는 것이 좋습니다.
 | `tool.run-chaos-experiment` | `scripted` | false |
 
 `irreversible: true` 작업에는 일반적으로 HIL, 서로 다른 승인자 2명 이상, 자기 승인 금지가 필요하며 Forseti가 `quorum_required: 2`를 첨부하고 Var가 적용합니다. 명시적으로 주입한 전권 개발 프로필만 예외이며, 현재 인증된 Owner 한 명이 정확한 작업과 보호 장치를 확인한 뒤 개발 환경의 유효 정족수를 충족할 수 있습니다. Var는 다른 사람을 만들어 내지 않고 원래 정족수와 유효 정족수를 모두 기록하며, Thor와 Vidar는 실행 또는 롤백 전에 같은 프로필, 확인, 작업 신원, 별도 실행기, 만료, 영속 감사, 잠금, 멱등성 및 관찰자 결속을 다시 검증합니다. 에이전트 역할과 토픽은 바뀌지 않으며 프로필 범위 승격은 프로덕션 준비 상태를 입증하지 않습니다.
+`ops.failover-primary`에서는 Thor가 pre-flight, 감사 의도 또는 executor I/O 전에 정확한
+`dr_failover_contract`를 Vidar가 수락할 때까지 `approved` 상태에서 영속적으로 기다립니다.
+계약 보류나 timeout은 실행을 보이게 거부하며 재시작 뒤에도 같은 대기를 재개합니다.
 정족수 계산, 승인 재조회, 자율성 상한, 중재 판정 및 `execution_unknown` 종료의 런타임
 방식은 [구현 계획](agent-pantheon-implementation-ko.md#롤백-정족수와-복구-결정)에 명시합니다.
 
@@ -658,7 +662,7 @@ Conversational 포트는 기본적으로 읽기 전용입니다. `allow_action_p
 액션 재진입은 호출자가 액션 가능 역할을 제공하고 의미 경로가 ActionType에 필요한 대상을
 연결한 경우에만 진행합니다. 누락된 역할이나 읽기 전용 역할은 제안 생성 전에 멈추며, 연결되지
 않은 대상은 파이프라인에 들어가지 않고 명확화로 보류합니다. 제안 싱크는 수락, 중복 제거, 사용
-불가 결과를 구분해 보고합니다. 정확한 제안 싱크, 운영자 RBAC, 위조 방어, 원시 유입 한도 및
+불가 결과를 구분해 보고합니다. 정확한 제안 싱크, 운영자 RBAC, 서명된 operator-request 증적 검사, 원시 유입 한도 및
 계보 전달은
 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#대화형-액션-재진입)을 따릅니다.
 
@@ -687,14 +691,14 @@ LLM 호출은 기본값이 아닌 기능입니다. 모든 에이전트가 자체
 | Heimdall | no | no | yes (현지화되고 다이제스트로 검증해 인용한 observer 상태와 결정론적 LLM 금지 경계) |
 | Vidar | no | no | yes (현지화되고 다이제스트로 검증해 인용한 복구 상태와 hard-dependency fail-closed 경계) |
 | Var | no | no | yes (현지화되고 다이제스트로 검증해 인용한 HIL 상태와 현재 사람, 기본 no-self-approval, 정확한 개발 프로필, 공개 계약 모델 경계) |
-| Bragi | yes (번역 및 진단 표시 전용) | no | yes (현지화되고 다이제스트로 검증해 인용한 translator-only 라우팅 상태) |
+| Bragi | yes (번역 및 진단 표시 전용) | yes (intent-training evaluator, shadow 전용) | yes (현지화되고 다이제스트로 검증해 인용한 translator-only 라우팅 상태) |
 | Saga | no | no | yes (현지화되고 다이제스트로 검증해 인용한 감사 상태와 추가 전용 hard-dependency 경계) |
 | Mimir | no | no | yes (현지화되고 다이제스트로 검증해 인용한 rule 상태와 품질·shadow·검토 PR 경계) |
 | Muninn | no | no | yes (현지화되고 다이제스트로 검증해 인용한 시간 인식 memory 상태와 신선도·권한 경계) |
 | Norns | no | yes (배치 발견) | yes (현지화되고 다이제스트로 검증해 인용한 pattern 상태와 off-path·비활성 승격 경계) |
 | Njord | no | no | yes (현지화되고 다이제스트로 검증해 인용한 scope-safe 자문 상태와 실행 금지 경계) |
 | Freyr | no | no | yes (현지화되고 다이제스트로 검증해 인용한 resource-safe 자문 상태와 실행 금지 경계) |
-| Loki | no | no | yes (현지화되고 다이제스트로 검증해 인용한 target-safe chaos 상태와 HIL·복구 경계) |
+| Loki | no | yes (adversarial generator, 기본 바인딩 없음) | yes (현지화되고 다이제스트로 검증해 인용한 target-safe chaos 상태와 HIL·복구 경계) |
 
 모든 대화 포트는 불변 `AgentSpec`과 소유 사실로 결정론적인 자체 상태 설명을 표시할 수 있습니다.
 운영자 대화 진입점은 검증된 로캘을 `PantheonRuntime`과 Bragi를 거쳐 각 턴의 프롬프트 상황에 전달하며, 로캘이 없거나 유효하지 않으면 영어로 대체합니다.

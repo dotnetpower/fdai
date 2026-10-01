@@ -366,6 +366,10 @@ Neither T1 discussion nor T2 synthesis may issue or change:
 Action intent returns `requires_typed_pipeline`. The typed pub/sub path remains the only machine
 authority path, and only the correlation trace crosses the two ports.
 
+Bragi may record shadow-only intent-training evidence from reviewed routing corrections. That
+evidence stays diagnostic until a separate reviewed activation path is bound; it does not change
+routing authority, deliberation admission, or the verified semantic judgment boundary.
+
 ## Three-round hardening evidence
 
 Each round used a 10-point exit rubric. A round scores one point for each required property and

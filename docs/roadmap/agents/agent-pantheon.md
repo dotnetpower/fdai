@@ -177,18 +177,18 @@ operations / interface), `3` = governance staff.
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | Responder | 2 | ActionRun | dispatches one `ActionRun` per governed action, records lifecycle state, and owns no ActionType directly - see §7.1 | no |
 | Forseti | Judge | 2 | Verdict, SecurityEvent, ArbitrationRequest, ProspectiveLineage | produces verdicts and exact pre-execution prospective lineage; grounded RCA remains a core causal-hypothesis projection, not another bus topic; no executor role | yes (T2 abstain only) |
-| Huginn | Event Collector / Real-time Resource Discovery | 2 | Event, Change | ingest_event, normalize_change; planned schema-learning seam - exit: bounded off-path schema clusters publish inert evidence without changing hot-path normalization | no |
+| Huginn | Event Collector / Real-time Resource Discovery | 2 | Event, Change | ingest_event, normalize_change; verifies signed operator-request receipts and publishes inert schema-cluster evidence off path | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | detect_anomaly, detect_drift, forecast, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, relay_recovery_effect_observation, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
-| Vidar | Recovery | 2 | Rollback | perform_rollback; planned dr_failover - exit: typed DR failover request has authority, audit, rollback, and effect-verification contract | no |
+| Vidar | Recovery | 2 | Rollback | perform_rollback; accepts or holds DR failover contracts and records rollback rehearsal receipts | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
-| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; planned intent-classifier retraining - exit: model-quality training contract, bounded evidence corpus, regression/promotion gate, and audit evidence | yes (translator only) |
+| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; records shadow-only intent-training evidence with reviewed activation required | yes (translator only) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (normalize missing trace), escalate_to_github_issue; issue auto-close waits for Mimir promotion evidence and a clean 24 h recurrence window | no |
-| Mimir | Rule Steward | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; planned recurring polling/regression/deprecation - exit: scheduled maintenance records bounded no-op or audit evidence | no |
+| Mimir | Rule Steward | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; polls rule sources and records regression-backed promotion and deprecation evidence | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
-| Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history; planned close_issue signal - exit: Norns emits inert closure eligibility for Saga-owned issue closure without mutating issues | yes (off-path batch only) |
+| Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history; emits inert quiet-window close_issue eligibility without mutating issues | yes (off-path batch only) |
 | Njord | Cost | 1 | CostAnomaly | propose_cost_action; retains the separate `Budget` graph lifecycle | no |
-| Freyr | Capacity | 1 | CapacityForecast, CapacityGraduationRecommendation | forecast capacity from bounded samples and propose shadow-only graduation; planned recurring sampling and scale proposal - exit: scheduler emits bounded forecasts and only shadow/HIL scale proposals | no |
-| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | validate schedule-triggered experiment requests and publish resilience-score candidates; planned recurring scheduling - exit: deterministic scheduler emits complete always-HIL proposals or visible no-op holds | no |
+| Freyr | Capacity | 1 | CapacityForecast, CapacityGraduationRecommendation | forecasts capacity from bounded samples and emits shadow/HIL scale proposals through Forseti | no |
+| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedules always-HIL chaos proposals or visible holds and generates inert adversarial scenario candidates off path | no |
 
 Heimdall remains accountable for deterministic forecast episode evaluation and closure; private `heimdall_forecast.py` and `heimdall_alert_window.py` own calculation and bounded episode/alert-window bookkeeping.
 After an authoritative repeated-event anomaly, the optional `incident_candidate_hook` sends normalized resource, event type, correlation, worst severity, reason code, and all burst evidence keys to composition-owned `IncidentLifecycleWorkflow`.
@@ -216,20 +216,20 @@ Every agent performs four task categories: **R**ecurring (scheduled), **E**vent 
 | Agent | R (recurring) | E (event) | M (meta) | X-agent |
 |-------|---------------|-----------|----------|---------|
 | Odin | weekly portfolio review, priority-policy tuning | arbitrate_domain_conflict on Forseti signal | portfolio outcome score self-audit | 7 (Agent health), tie-break for 2 (Predictive scale) |
-| Thor | execution-path health check, retry-strategy cache warmup | verdict dispatch, rollback trigger, rate-limit enforce | planned pre-flight simulation for high-risk actions - exit: Thor records a bounded simulation receipt before any high-risk non-shadow executor I/O | 1 (Cost-aware remediation), 2 (Predictive scale), 11 (Readiness), 12 (Scheduled Python) |
-| Forseti | rule-cache refresh, verdict coherence self-test | judge event (T0/T1/T2), emit domain_conflict, emit SecurityEvent | novelty drift detection (T0 vs T2 mix); planned retrospective what-if batch - exit: bounded retained judgment inputs replay through a versioned what-if contract and record disagreement evidence | 1, 2, 5 (Security escalation), 8 (Judgment coherence), 11, 12 |
-| Huginn | source health check, discovery cursor/backpressure check, dedup window maintenance | normalize + dedup + correlate + publish Events and normalized Changes | planned adaptive schema learning - exit: bounded off-path schema clusters publish inert evidence without changing hot-path normalization | feeds every workflow |
+| Thor | execution-path health check, retry-strategy cache warmup | verdict dispatch, rollback trigger, rate-limit enforce | high-risk and obligation-only pre-flight simulation receipts before executor I/O | 1 (Cost-aware remediation), 2 (Predictive scale), 11 (Readiness), 12 (Scheduled Python) |
+| Forseti | rule-cache refresh, verdict coherence self-test | judge event (T0/T1/T2), emit domain_conflict, emit SecurityEvent | novelty drift detection; retained judgment what-if replay with inert disagreement evidence and bounded cost annotations | 1, 2, 5 (Security escalation), 8 (Judgment coherence), 11, 12 |
+| Huginn | source health check, discovery cursor/backpressure check, dedup window maintenance | normalize + dedup + correlate + publish Events and normalized Changes, including signed operator requests | adaptive schema learning publishes inert schema-cluster evidence off path | feeds every workflow |
 | Heimdall | anomaly baseline update, forecast refresh, discovery freshness/coverage probe, T2 proposer health receipt reduction, external-actor list refresh, agent-health probe | anomaly detect, drift detect, terminal proposer exhaustion correlate, discovery degradation correlate, SecurityEvent correlate, notify_admin | multi-signal cross-correlation | 1, 2, 3 (DR drill), 5, 7 (Agent health), 9 (Rollback rehearsal) |
-| Vidar | rollback-path validation, DR readiness score, recovery-time SLI | perform_rollback; planned dr_failover - exit: typed DR failover request has authority, audit, rollback, and effect-verification contract | planned rollback rehearsal (shadow) - exit: Vidar records bounded non-mutating rehearsal receipts for bound rollback contracts | 3, 9 |
+| Vidar | rollback-path validation, DR readiness score, recovery-time SLI | perform_rollback; accept or hold DR failover contracts with recovery-time outcome | shadow rollback rehearsal receipts through injected dry-run-only ports | 3, 9 |
 | Var | approval SLA monitor, approver availability tracking | present HIL card, enforce quorum, timeout / escalation | approval provenance record | 4 (Override -> Discovery), 5, 11, 12 |
-| Bragi | expired-session cleanup, UserPreference index refresh | NL routing, multi-agent aggregation, NL rendering | planned intent-classifier retraining - exit: model-quality training contract, bounded evidence corpus, regression/promotion gate, and audit evidence | 7, 10 (Retrospective what-if), 12 |
+| Bragi | expired-session cleanup, UserPreference index refresh | NL routing, multi-agent aggregation, NL rendering | shadow-only intent-training loop with audited evidence and reviewed activation boundary | 7, 10 (Retrospective what-if), 12 |
 | Saga | audit-chain integrity self-check, issue-close scan gated by Mimir promotion evidence, fingerprint index compaction | append AuditEntry, escalate_to_github_issue, replay for reconstruction | audit chain tamper detection | every workflow (audit) |
-| Mimir | planned rule-source polling, regression suite, deprecation cycle - exit: scheduled maintenance records bounded no-op or audit evidence | promote / revoke rule, cache-invalidation broadcast | freshness-score, stale-rule detection | 4, 6 (Handoff -> Capability), 8, 11 |
+| Mimir | rule-source polling, regression suite, deprecation cycle through injected read-only ports | promote / revoke rule, cache-invalidation broadcast | freshness-score, stale-rule detection, issue-close promotion evidence | 4, 6 (Handoff -> Capability), 8, 11 |
 | Muninn | snapshot rotation, RAG index rebuild, cache eviction, case-history retention | context fetch for Forseti, immutable Change revision storage, state query for Bragi, retention tick apply | trending-query pre-warm, ontology cross-check | supports every judgment-touching workflow |
-| Norns | hourly batch audit analysis, streaming pattern extraction | pattern signal, RuleCandidate publish; planned close_issue signal - exit: Norns emits inert closure eligibility for Saga-owned issue closure without mutating issues | model performance drift detection | 4, 6, 8 (Judgment coherence), 10 |
+| Norns | hourly batch audit analysis, streaming pattern extraction | pattern signal, RuleCandidate publish, inert quiet-window close_issue eligibility on `object.rule-candidate` | model performance drift detection | 4, 6, 8 (Judgment coherence), 10 |
 | Njord | cost ingestion (daily), budget monitor, cost forecasting | bounded cost sample -> anomaly; restore accepted retained complete USD baselines at startup without republishing historical findings; budget breach alert; cost-advisor query | RI / SP optimization proposals | 1, 2 |
-| Freyr | planned recurring utilization sampling plus implemented capacity forecasting and sizing analysis - exit: scheduler emits bounded forecasts and only shadow/HIL scale proposals | bounded utilization sample -> forecast; capacity advisor query; planned scale proposal - exit: governed advisory-to-verdict path emits shadow/HIL proposals | multi-dimensional capacity (CPU + IOPS + net + mem) | 2, 3 |
-| Loki | planned chaos-experiment scheduling plus implemented resilience-score refresh - exit: deterministic scheduler emits complete always-HIL proposals or visible no-op holds | bounded schedule trigger -> always-HIL experiment proposal; bounded normalized score Event -> validated cross-vertical candidate; blast-radius calc | planned adversarial scenario generation - exit: bounded off-path design, regression, and audit contract is implemented; no LLM binding exists today | 3, 9 |
+| Freyr | recurring utilization sampling through injected read-only sampler plus capacity forecasting and sizing analysis | bounded utilization sample -> forecast; capacity advisor query; governed advisory-to-verdict path emits shadow/HIL proposals | multi-dimensional capacity (CPU + IOPS + net + mem) | 2, 3 |
+| Loki | deterministic recurring chaos scheduling plus resilience-score refresh | bounded schedule trigger -> always-HIL experiment proposal or visible hold; bounded normalized score Event -> validated cross-vertical candidate; blast-radius calc | off-path adversarial scenario generation is bounded, regression-gated, audited, inert, and unbound by default | 3, 9 |
 
 ### 4.2 Per-agent KPI (success and degradation signals)
 
@@ -315,7 +315,7 @@ Not every predictive or adaptive task needs an LLM. These §4.1 task tiers preve
 | Forseti verdict coherence | T0 (SQL) + T1 (embedding) | past verdicts are structured audit log |
 | Var assisted decision | T0 (linked similar cases) + T2 (summary, off-path) | card carries summary; humans decide |
 | Huginn schema learning | T1 (batch clustering) + T2 for promotion | real-time normalization stays T0 |
-| Loki adversarial | planned (no LLM binding today) | exit: bounded off-path design, regression, and audit contract is implemented; execution remains deterministic and HIL-gated |
+| Loki adversarial | T1/T2 off-path only | bounded off-path design, regression, and audit contract are implemented with no default binding; execution remains deterministic and HIL-gated |
 
 The declared LLM invocation boundaries remain Bragi translation, Forseti T2 abstention, and Norns off-path batches; adding another hot-path LLM invocation violates this policy.
 
@@ -605,8 +605,8 @@ configured. Shadow terminal success is non-mutating and closes through Saga's po
 re-executes.
 `approval_expires_at` is a timestamp on `ActionRun`; expiry is represented by a rejected run with
 expiry evidence rather than a separate `expired` state. `auto` is a verdict/risk vocabulary,
-not an `ActionRun` state. `paused`, `compensated`, `ActionAttempt`, per-attempt rollup, and Saga
-attempt audit are planned-only concepts until §7.4's exit condition is met.
+not an `ActionRun` state. Multi-target rollup and target-attempt details are additive batch
+metadata under §7.4; they do not add lifecycle states.
 Thor records visible terminal `ActionRun` rejections when a resource is already held by an active or
 approval-parked run, or when a second action tries to reuse a correlation with a different
 idempotency key. Those cases no longer disappear into a dead-letter queue.
@@ -622,8 +622,8 @@ action consumers.
 Three validation checks, all deterministic:
 
 1. **At propose.** Initiator asserts `argument_schema` conformance; the registry rejects malformed proposals.
-2. **At verdict.** Forseti repeats schema and policy checks and marks whether the dry-run safeguard cites an upstream what-if or dry-run receipt or only a declared obligation; failure lowers the verdict to `deny` or `hil`.
-3. **At execute.** Verdict, `ActionRun`, Approval, and audit preserve unchanged parameters; Thor revalidates before mutation to catch target-state races.
+2. **At verdict.** Forseti repeats schema and policy checks and marks whether the dry-run safeguard cites an upstream what-if or dry-run receipt; failure lowers the verdict to `deny` or `hil`.
+3. **At execute.** Verdict, `ActionRun`, Approval, and audit preserve unchanged parameters; for wire-delivered high-risk or obligation-only runs, Thor records or reuses a fresh exact-identity pre-flight simulation receipt before audit intent and executor I/O.
 
 The implemented lifecycle-stable identity is `action_run_identity()`, derived from the stable
 publication payload. `idempotency_key` remains the executor no-op key for same-action
@@ -633,11 +633,11 @@ specified in the [implementation plan](agent-pantheon-implementation.md#paramete
 
 ### 7.4 Impact scope and batch semantics
 
-The implemented model publishes one `ActionRun` for one `resource_id`; multi-target batch semantics
-are planned and should not bypass per-resource ordering or rollback isolation. Until the batch exit
-condition in the [implementation plan](agent-pantheon-implementation.md#impact-scope-and-batch-semantics)
-lands, an ActionType with `blast_radius > 1` should be held for review or decomposed into separate
-single-resource runs.
+A multi-target Verdict with an explicit bounded target list creates one rollup `ActionRun` using
+`target-set:<digest>` plus one independent per-target `ActionRun`. Each target keeps its own
+resource lock, idempotency key, safeguards, pre-flight/audit/executor/effect path, and Vidar
+rollback. The rollup records typed counts, failed and rolled-back target digests, terminal rules,
+and the durable bounded target list; unknown or over-limit sets hold visibly and create no attempts.
 
 ### 7.5 Rollback contracts and irreversibility
 
@@ -650,6 +650,9 @@ Every ActionType, including irreversible actions, declares a live `rollback_cont
 | `tool.run-chaos-experiment` | `scripted` | false |
 
 An `irreversible: true` action normally requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it. The only exception is an explicitly injected full-authority development profile with one currently authenticated Owner and exact action safeguards. Var records original and effective quorum without inventing another person; Thor and Vidar revalidate the same profile, confirmation, action identity, distinct executor, expiry, durable audit, lock, idempotency, and observer before execution or rollback. Roles and topics stay fixed, and profile-scoped promotion never establishes production readiness.
+For `ops.failover-primary`, Thor durably waits in `approved` for Vidar to accept the exact
+`dr_failover_contract` before pre-flight, audit intent, or executor I/O. A held contract or timeout
+denies the run visibly and restart resumes the same wait.
 The runtime mechanics for quorum derivation, approval readback, autonomy ceilings, arbitration
 verdicts, and `execution_unknown` closure are specified in the
 [implementation plan](agent-pantheon-implementation.md#rollback-quorum-and-recovery-decisions).
@@ -674,7 +677,7 @@ Action re-entry fails closed unless the caller supplies an action-capable role a
 route binds the target required by the ActionType. Missing or read-only roles stop before proposal
 construction, and unbound targets hold as clarification rather than entering the pipeline. Proposal
 sinks report accepted, deduplicated, or unavailable outcomes separately. The exact proposal sink,
-operator RBAC, spoofing defense, raw-ingress bounds, and lineage propagation are specified in
+operator RBAC, signed operator-request receipt checks, raw-ingress bounds, and lineage propagation are specified in
 the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#conversational-action-re-entry).
 
 ### 7.8 Fork override boundaries
@@ -704,14 +707,14 @@ LLM invocation is a capability, not a default: all agents can use their bindings
 | Heimdall | no | no | yes (localized, digest-verified and cited observer state plus deterministic no-LLM boundaries) |
 | Vidar | no | no | yes (localized, digest-verified and cited recovery state plus hard-dependency fail-closed boundaries) |
 | Var | no | no | yes (localized, digest-verified and cited HIL state plus current-human, default no-self-approval, exact development-profile, and public contract-model boundaries) |
-| Bragi | yes (translator and diagnostic presenter only) | no | yes (localized, digest-verified and cited translator-only routing state) |
+| Bragi | yes (translator and diagnostic presenter only) | yes (intent-training evaluator, shadow-only) | yes (localized, digest-verified and cited translator-only routing state) |
 | Saga | no | no | yes (localized, digest-verified and cited audit state plus append-only hard-dependency boundaries) |
 | Mimir | no | no | yes (localized, digest-verified and cited rule state plus quality/shadow/reviewed-PR boundaries) |
 | Muninn | no | no | yes (localized, digest-verified and cited temporal memory state plus freshness/authority boundaries) |
 | Norns | no | yes (batch discovery) | yes (localized, digest-verified and cited pattern state plus off-path/inert-promotion boundaries) |
 | Njord | no | no | yes (localized, digest-verified and cited scope-safe advisory state plus non-execution boundaries) |
 | Freyr | no | no | yes (localized, digest-verified and cited resource-safe advisory state plus non-execution boundaries) |
-| Loki | no | no | yes (localized, digest-verified and cited target-safe chaos state plus HIL/recovery boundaries) |
+| Loki | no | yes (adversarial generator, no default binding) | yes (localized, digest-verified and cited target-safe chaos state plus HIL/recovery boundaries) |
 
 Every conversational port can render deterministic introspection from immutable `AgentSpec` and owned facts.
 Operator conversation entry points carry the validated locale through `PantheonRuntime` and Bragi into each turn's prompt situation, falling back to English when absent or invalid.

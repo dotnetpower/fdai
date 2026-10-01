@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 3e8849dc6394183ef96cc19011ec91256d2c19e8
-translation_revised: 2026-09-29
+translation_source_sha: 42e94d47aec66a868de46963b6878bf5dfd8a1d9
+translation_revised: 2026-10-01
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -74,6 +74,7 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 | 감지 에피소드와 검증된 복구 연결 | implemented | `fdai/runtime/bootstrap_incidents.py`, `tests/runtime/test_bootstrap_incidents.py` | 수명 주기가 실제 Incident를 반환한 뒤 런타임은 감지 에피소드의 Action 멱등성 키를 해당 ID에 원자적으로 연결합니다. 독립 효과 종결은 리소스, 신호 및 상관관계를 검증하고 합법적인 Incident 전이만 따르며 같은 리소스의 이후 에피소드를 종결할 수 없습니다. |
 | 오퍼레이터 확인 인시던트 수명 주기 및 조사 기본 기능 | implemented | `fdai/core/incident/workflow.py`, `fdai/core/investigation/coordinator.py`, `tests/core/incident/test_incident_workflow.py`, `tests/core/investigation/test_coordinator.py` | 범위가 제한된 기본 기능이 존재하고 집중 검사를 통과합니다. |
 | 오퍼레이터 확인 인시던트 생성 전송 | implemented | `fdai_service_contracts.incident_creation`, Core 의미 기반 초안 변환 결과 및 인시던트 생성 소비자, Operator 확인 경로, 원본 확인기 및 보낼 편지함 브리지, 집중 교차 서비스 테스트 | 브라우저는 공개 초안 필드 네 개를 제출합니다. Operator는 principal 소유 원본을 다시 읽고 권한 없는 요청을 전용 인시던트 토픽에 게시합니다. Core는 감사되는 인시던트 하나를 생성하거나 재사용합니다. |
+| 서명된 action confirmation 및 poison-halt clear | implemented | `fdai_operator_service/action_confirmation_runtime.py`, `fdai_operator_service/operator_request_receipt.py`, `fdai_operator_service/bus_poison_halt_clear.py`, 집중 Operator route 테스트 | Action confirmation은 범위가 제한된 서명된 operator-request 증적을 첨부합니다. Owner-only poison-halt clear route는 Core 검증을 위한 수락을 대기열에 넣으며, Core가 parked-record 근거를 검증하기 전에는 완료를 주장하지 않습니다. |
 | 런타임 작업 격리 | implemented | `fdai/runtime/bootstrap_tasks.py`, 집중 HIL 부하 제어, 런타임 구성 및 부트스트랩 검사 | 인시던트 생성과 채널 독립 승인 만료 처리는 별도의 감독 작업으로 실행됩니다. 어느 작업도 다른 작업에 승인 또는 실행 권한을 부여하지 않습니다. |
 | Assurance Twin 시작 조립 격리 | implemented | `fdai/runtime/bootstrap_core.py`, Assurance Twin 생산자 및 시작 조립 검사 | Core 시작 조립은 Heimdall의 읽기 전용 자세 생산자도 구성합니다. 이 생산자는 별도의 인벤토리, Rule, 정책, 원본 및 작성기 보호 경계를 사용하며 Operator가 확인한 인시던트 요청, 감사, 승인 또는 실행 경로를 변경하지 않습니다. |
 | 통합 오퍼레이터 SRE 작업 및 진행 상황 계약 | in-progress | `fdai/core/incident/sre_request.py`, `fdai/shared/providers/operator_request.py`, 프로세스 내부 집중 Core 검사 | 프로세스 내부 조정기는 인시던트와 조사 작업 동작을 입증합니다. 배포된 관리 리소스 의미 기반 작업 확인에는 독립적으로 검토된 원본과 요청부터 감사까지의 증적이 더 필요합니다. |

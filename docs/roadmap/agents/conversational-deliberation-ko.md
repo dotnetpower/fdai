@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 437a265c500e78fd8400054756a5d39d6a4ec14c
-translation_revised: 2026-09-30
+translation_source_sha: 4c5ddbe65b3ad87cb3be306184beac69963cfa47
+translation_revised: 2026-10-01
 ---
 # 판테온 대화형 숙의
 
@@ -357,6 +357,10 @@ T1 discussion과 T2 종합은 다음을 발행하거나 변경할 수 없습니�
 
 액션 의도는 `requires_typed_pipeline`을 반환합니다. 타입이 지정된 pub/sub 경로만 머신 권한
 경로로 유지되며 두 포트 사이에는 상관관계 추적만 전달됩니다.
+
+Bragi는 검토된 routing correction에서 shadow 전용 intent-training 근거를 기록할 수 있습니다.
+이 근거는 별도 검토 activation 경로가 바인딩될 때까지 진단용으로만 유지되며, routing 권한,
+deliberation admission 또는 검증된 semantic judgment 경계를 바꾸지 않습니다.
 
 ## 3라운드 하드닝 근거
 

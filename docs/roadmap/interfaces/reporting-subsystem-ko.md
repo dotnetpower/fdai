@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 271c8ff3948af31dbc1d85f88892fcad2b117731
-translation_revised: 2026-09-30
+translation_source_sha: d74f4e78dab320f64e831a2de17205ac51394f6d
+translation_revised: 2026-10-01
 ---
 # 리포팅 서브시스템
 
@@ -594,6 +594,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | Core 계약, 레지스트리, engine, widget 및 기본 format | implemented | `services/core-control-plane/src/fdai/core/reporting/`; `services/core-control-plane/tests/core/reporting/` | Focused 테스트는 카탈로그 로딩, 한도, 치환, widget별 격리, 데이터 원본 계약, widget, format 및 hardening safeguard를 다룹니다. |
 | 선언형 report 카탈로그 및 스키마 | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting 카탈로그 테스트 | 검토된 YAML report와 기능 메타데이터가 범위가 제한된 스키마를 통해 로드됩니다. |
 | Operator API 읽기 경로 및 Console Reports 보기 | validated | `fdai_operator_service/reporting/incident_rca_projection.py`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator 및 Console 테스트 | 인증된 GET-only inventory, registry, audit-backed Incident RCA rendering 및 Console presentation이 변경 권한 없이 통과했습니다. |
+| Operator route-family 조립 경계 | implemented | `fdai_operator_service/composition_routes.py`; focused Operator route-count 및 family 테스트 | 현재 route-family count에는 reporting 밖의 service-owned route가 포함됩니다. 이 route는 reporting widget, 데이터 원본, report format 또는 쓰기 권한을 만들지 않습니다. |
 | 측정된 카오스 적용 결과 | implemented | `fdai/delivery/chaos/enforce_report.py`; `fdai_operator_service/reporting/chaos_results_projection.py`; `20260921_operator_chaos_report_read.py`; 가져오기, 변환 결과 및 마이그레이션 focused 테스트 | 엄격한 가져오기는 관측용 `report_signal` 레코드를 보존하고 Operator 역할은 필터링된 보안 장벽 보기만 읽습니다. 컨트롤 루프 권한 레코드는 만들지 않습니다. |
 | 권위 있는 데이터 원본 연결 및 운영 최신성 | in-progress | Reporting 데이터 원본 어댑터 및 출처 묶음 | 어댑터는 있지만 각 배포가 권위 있는 프로바이더를 연결하고 최신성, 사용 불가, 시간 초과 및 부분 widget 근거를 보존해야 합니다. |
 | 선택적 PDF format 및 RCA dossier delivery | validated | `fdai_operator_service/reporting/pdf_format.py`; Operator operations 경로; `console/src/routes/reports.tsx`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator 및 Console 테스트 | 인증된 Browser Entra가 catalog와 registry 일치, redacted 묶음 및 38809-byte PDF를 검증하면서 공백을 보존하고 새 분석을 추가하지 않았습니다. |

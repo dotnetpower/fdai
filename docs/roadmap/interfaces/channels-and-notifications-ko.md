@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 57ba5cbdbdda2788b897388a820401f79f1f8380
-translation_revised: 2026-09-29
+translation_source_sha: 2e3b752c75144900277472fa31c34aaf502aa10f
+translation_revised: 2026-10-01
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -524,7 +524,7 @@ matrix:
 | 채널 | 노트 |
 |------|------|
 | **Teams** | A1에 Adaptive Cards를 사용하고 OAuth 범위를 최소로 유지합니다(`ChannelMessage.Send.Group` + 봇 신호). SSO + OBO는 [user-rbac-and-identity-ko.md §10.4](user-rbac-and-identity-ko.md#104-chatops-teams-사인인)를 따릅니다. **`aw-*` Entra 보안 그룹이 뒷받침하는 그룹 연결 팀**에 `FDAI_TEAMS_APPROVAL_TEAM_ID`, `FDAI_TEAMS_APPROVAL_CHANNEL_ID`, HTTPS `FDAI_TEAMS_APPROVAL_ACTIVITY_URL`, 전용 `FDAI_TEAMS_BOT_MI_CLIENT_ID`를 함께 구성합니다. Core는 실행 신원이 아닌 이 Bot 신원으로 전송하고 `teams:<team-id>:<channel-id>` 대상을 카드에 넣으며 Operator는 같은 값을 검증합니다. Incoming Webhook은 `Action.Execute` 콜백을 전달할 수 없으므로 A1에서 지원되지 않습니다. 수신기에는 `FDAI_TEAMS_APPLICATION_ID`, `FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON`, `FDAI_TEAMS_JWKS_URL`, `FDAI_TEAMS_PRINCIPAL_MAP_JSON`, 공유 콜백 시크릿, 구성된 HIL 결정 토픽과 영속 outbox도 필요하며 모든 입력이 갖춰질 때까지 Teams A1은 닫혀 있습니다. |
-| **Slack** | A2/A3와 범위가 제한된 A1 단추에 Block Kit을 사용합니다. `chat:write` 게시에는 `FDAI_SLACK_APPROVAL_API_URL`(정확한 `https://slack.com/api/chat.postMessage` URL), `FDAI_SLACK_APPROVAL_CHANNEL_ID`, 보호된 `FDAI_SLACK_APPROVAL_BOT_TOKEN`이 필요합니다. Slack 전용 아웃바운드 구성에는 Teams 봇 신원이 필요하지 않습니다. 게시하거나 단추를 누르는 것만으로는 승인되지 않습니다. 서명된 상호작용 수신기에는 구성된 작업 영역, 사용자 ID와 OID의 매핑, 승인된 Console 출처 한 곳이 필요합니다. 브라우저 결정에는 새로 로그인한 시각을 담은 서명된 Entra API 토큰 `auth_time`이 필요합니다. 연결 정보가 없으면 결정을 보류하며 실제 환경의 클릭부터 결정까지의 증적은 여전히 필요합니다. |
+| **Slack** | A2/A3와 범위가 제한된 A1 단추에 Block Kit을 사용합니다. `chat:write` 게시에는 `FDAI_SLACK_APPROVAL_API_URL`(정확한 `https://slack.com/api/chat.postMessage` URL), `FDAI_SLACK_APPROVAL_CHANNEL_ID`, 보호된 `FDAI_SLACK_APPROVAL_BOT_TOKEN`이 필요합니다. Slack 전용 아웃바운드 구성에는 Teams 봇 신원이 필요하지 않습니다. 게시하거나 단추를 누르는 것만으로는 승인되지 않습니다. 서명된 상호작용 수신기에는 구성된 작업 영역, 사용자 ID와 OID의 매핑, 승인된 Console 출처 한 곳이 필요합니다. 브라우저 결정에는 새로 로그인한 시각을 담은 서명된 Entra API 토큰 `auth_time`이 필요합니다. Core는 Slack A1 request outbox를 report/review outbox와 별도로 감독하므로 전달 재시도가 승인으로 바뀔 수 없습니다. 연결 정보가 없으면 결정을 보류하며 실제 환경의 클릭부터 결정까지의 증적은 여전히 필요합니다. |
 | **이메일** | Azure Communication Services 이메일을 통한 send-only 채널입니다. 승인 링크는 포함하지 않고 다이제스트와 알림만 전달합니다. 어댑터는 모든 메시지에 `plainText`를 보내고 `notice_kind=opened`일 때 범위가 제한된 HTML을 추가합니다. 인시던트 템플릿은 인시던트 id, 상태, 심각도, opened 시간, 집계 구성원 개수, 배정 상태, `audit_id` 및 HTTPS Console 링크만 사용합니다. 상관관계 키, 리소스 페이로드, 행위자 신원 또는 free-form 사유는 렌더링하지 않습니다. Terraform은 Azure-managed 발신자 도메인과 Communication Services 리소스에 범위가 제한된 전용 알림 managed 신원을 프로비저닝합니다. `FDAI_CONSOLE_BASE_URL`이 Console 출처를 제공하며, 값이 없거나 완성된 링크가 absolute HTTPS가 아니면 렌더러는 CTA를 생략합니다. 어댑터는 단기 `https://communication.azure.com/.default` 토큰을 요청하고 프로바이더 연산이 `Succeeded`가 될 때까지 기다린 후 프로바이더 메시지 id를 기록합니다. Settings > Integrations는 합성 자리 표시자만 사용하는 인증된 GET으로 동일한 렌더러를 가져옵니다. 권장 수신자는 `aw-approvers` / `aw-owners`를 미러링하는 **Entra 동적 분배 그룹**입니다. |
 | **범용 웹훅** | HMAC-SHA256 서명, 단조 타임스탬프, 단발 nonce. Receiver 실패는 절대 블록 안 함; 코어가 어댑터 정책대로 재시도 후 이동. |
 | **PagerDuty / Opsgenie** | Dedup 키 = observability 상관 id 이므로 버스트가 접힘. 런북 URL은 모든 알림에 필수. |

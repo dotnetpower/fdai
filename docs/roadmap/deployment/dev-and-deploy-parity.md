@@ -328,6 +328,10 @@ changed, expired, or replayed receipts fail before mutation. An ARM
 long-running operation remains `submitted`; only the executor can resolve its server-owned status
 URL through the original idempotency key. A stale pending claim is recovered with ETag
 compare-and-swap after its bounded timeout instead of remaining blocked indefinitely.
+Local preparation also creates mode-0600 local-only operator-request receipt signing seeds for Core
+and Operator when deployment Key Vault bindings are absent. The generated values stay under
+`.fdai/`, are not copied into docs or manifests, and mirror the deployed producer split without
+granting either service the other's signing identity.
 Repeated identical plans return the same unconsumed receipt. A consumed or expired plan needs a
 new idempotency key. ARM throttling honors a bounded `Retry-After` for at most three attempts, while
 mutation `5xx` responses remain ambiguous and aren't automatically repeated.
