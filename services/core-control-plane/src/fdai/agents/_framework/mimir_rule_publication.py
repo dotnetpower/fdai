@@ -305,9 +305,6 @@ class MimirRulePublicationMixin(_AgentMixinBase):
         }
         if topic == "object.policy":
             payload["policy_id"] = promotion.rule_id
-        if self.bus is None:
-            self.record_behavior("promotion:publication_transport_unavailable")
-            return
         if not await self._checkpoint_rule_publication(
             topic=topic,
             payload=payload,
@@ -315,6 +312,9 @@ class MimirRulePublicationMixin(_AgentMixinBase):
         ):
             self._published_promotion_keys.add(idempotency_key)
             self.record_behavior("promotion:publication_duplicate")
+            return
+        if self.bus is None:
+            self.record_behavior("promotion:publication_transport_unavailable")
             return
         try:
             published = await self._publish_claimed_rule_publication(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import InMemoryAuditChain, InMemoryGithubIssueAdapter
@@ -226,6 +227,91 @@ async def test_bragi_publication_outbox_reclaims_stale_publishing_after_restart(
         "handoff-stale"
     )
     assert (await store.read_state(key))["status"] == "published"
+
+
+@pytest.mark.parametrize(
+    ("topic", "payload", "expected_idempotency_key", "expected_audited_topic"),
+    [
+        (
+            "object.policy",
+            {
+                "producer_principal": "Mimir",
+                "kind": "test_context_revision",
+                "correlation_id": "context-command-1",
+                "idempotency_key": "test-context:application-1",
+                "application": {
+                    "command_digest": "sha256:" + "1" * 64,
+                    "actor_id": "operator-one",
+                    "request_key": "context-command-1",
+                    "context_id": "context-1",
+                    "access_scope_digest": "a" * 64,
+                    "target_ref": "resource-1",
+                    "policy_revision": "policy:1",
+                    "revision": 1,
+                    "state": "proposed",
+                    "context_digest": "sha256:" + "2" * 64,
+                },
+                "execution_authority": False,
+            },
+            "test-context-application:sha256:" + "1" * 64,
+            "object.policy",
+        ),
+        (
+            "object.prospective-lineage",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "lineage-1",
+                "idempotency_key": "lineage:1",
+                "id": "lineage-1",
+                "proposal_id": "proposal-1",
+                "subgraph_digest": "sha256:" + "3" * 64,
+            },
+            "prospective-lineage-seal:lineage-1",
+            "object.prospective-lineage",
+        ),
+        (
+            "object.approval",
+            {
+                "producer_principal": "Var",
+                "kind": "shadow_outcome_review",
+                "correlation_id": "shadow-review-1",
+                "idempotency_key": "shadow-review:1",
+                "operator_reviewed": True,
+                "operator_agreed": False,
+                "policy_escape": False,
+                "action_type": "ops.restart-service",
+                "shadow_observation_id": "shadow-observation-1",
+                "observed_at": "2028-01-02T00:00:00+00:00",
+            },
+            "shadow-review:1",
+            "object.approval",
+        ),
+    ],
+)
+async def test_saga_derived_audit_entries_recover_from_outbox_after_broker_failure(
+    topic: str,
+    payload: dict[str, object],
+    expected_idempotency_key: str,
+    expected_audited_topic: str,
+) -> None:
+    store = InMemoryStateStore()
+    failing_bus = _FailOnceAuditBus(fail_correlation_id=str(payload["correlation_id"]))
+    saga = Saga(audit_chain=InMemoryAuditChain(), durable_state_store=store)
+    saga.bind_bus(failing_bus)
+
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        await saga.on_typed_message(topic, dict(payload))
+
+    bus = _bus()
+    restarted = Saga(audit_chain=InMemoryAuditChain(), durable_state_store=store)
+    restarted.bind_bus(bus)
+
+    assert await restarted.recover_audit_outbox() == 1
+    messages = bus.messages_on("object.audit-entry")
+    assert len(messages) == 1
+    assert messages[0].payload["idempotency_key"] == expected_idempotency_key
+    assert messages[0].payload["audited_topic"] == expected_audited_topic
+    assert await restarted.recover_audit_outbox() == 0
 
 
 async def test_saga_audit_outbox_republishes_after_restart() -> None:

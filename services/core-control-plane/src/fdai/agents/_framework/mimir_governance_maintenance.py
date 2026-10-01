@@ -418,9 +418,6 @@ class MimirGovernanceMaintenanceMixin(_AgentMixinBase):
             ),
             "grants_issue_close_authority": False,
         }
-        if self.bus is None:
-            self.record_behavior("promotion_evidence:transport_unavailable")
-            return False
         if not await self._checkpoint_rule_publication(
             topic="object.rule",
             payload=payload,
@@ -428,6 +425,9 @@ class MimirGovernanceMaintenanceMixin(_AgentMixinBase):
         ):
             self._published_issue_close_evidence.add(idempotency_key)
             self.record_behavior("promotion_evidence:duplicate")
+            return False
+        if self.bus is None:
+            self.record_behavior("promotion_evidence:transport_unavailable")
             return False
         if not await self._publish_claimed_rule_publication(
             topic="object.rule",

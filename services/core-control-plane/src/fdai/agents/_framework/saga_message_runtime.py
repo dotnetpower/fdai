@@ -257,16 +257,12 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
             await self._record_issue_close_eligibility(payload)
             await self._republish_catalog_review_outcome(payload, correlation_id)
         if topic == "object.policy" and payload.get("kind") == "test_context_revision":
-            if principal != "Mimir" or self.bus is None:
-                raise ValueError(
-                    "context application requires Mimir policy and Saga audit transport"
-                )
+            if principal != "Mimir":
+                raise ValueError("context application requires Mimir policy")
             application = TestContextApplication.model_validate(payload.get("application"))
             if application.request_key != correlation_id:
                 raise ValueError("context application correlation mismatch")
-            await self.bus.publish(
-                "Saga",
-                "object.audit-entry",
+            await self._publish_audit_entry_with_outbox(
                 {
                     "kind": "test_context_application",
                     "audited_topic": "object.policy",
@@ -289,8 +285,6 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
-        if self.bus is None:
-            raise RuntimeError("Saga prospective-lineage audit bus is unavailable")
         lineage_id = str(payload.get("id") or "")
         subgraph_digest = str(payload.get("subgraph_digest") or "")
         if (
@@ -300,9 +294,7 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
             or not subgraph_digest
         ):
             raise ValueError("prospective-lineage audit payload is invalid")
-        await self.bus.publish(
-            "Saga",
-            "object.audit-entry",
+        await self._publish_audit_entry_with_outbox(
             {
                 "producer_principal": "Saga",
                 "correlation_id": correlation_id,
@@ -420,7 +412,7 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
-        if self.bus is None or not correlation_id:
+        if not correlation_id:
             return
         if (
             payload.get("producer_principal") != "Var"
@@ -432,9 +424,7 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
             or not str(payload.get("observed_at") or "")
         ):
             raise ValueError("shadow outcome review approval is malformed")
-        await self.bus.publish(
-            "Saga",
-            "object.audit-entry",
+        await self._publish_audit_entry_with_outbox(
             {
                 "producer_principal": "Saga",
                 "correlation_id": correlation_id,
