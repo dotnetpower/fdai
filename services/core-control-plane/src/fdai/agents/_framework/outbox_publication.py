@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -35,6 +35,14 @@ def publish_timeout_seconds(lease: timedelta) -> float:
 
 def new_publication_claim_owner(agent_name: str) -> str:
     return f"{agent_name}:{uuid4().hex}"
+
+
+def claim_matches(row: Mapping[str, Any], claim: PublicationClaim) -> bool:
+    """Return whether a stored outbox row still carries this exact publication claim."""
+    return (
+        str(row.get("claim_owner") or "") == claim.owner
+        and str(row.get("claimed_at") or "") == claim.claimed_at
+    )
 
 
 async def await_bounded_publication[T](awaitable: Awaitable[T], *, lease: timedelta) -> T:
@@ -81,6 +89,7 @@ __all__ = [
     "PublicationClaim",
     "await_bounded_publication",
     "claim_expired",
+    "claim_matches",
     "new_publication_claim_owner",
     "publish_claimed_outbox",
     "publish_timeout_seconds",

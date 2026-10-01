@@ -73,7 +73,6 @@ _USER_PREFERENCE_INDEX_PREFIX = f"{_BRAGI_STATE_PREFIX}/user-preference-index/"
 _USER_PREFERENCE_INDEX_SCAN_LIMIT = 1_000
 _TURN_OUTBOX_PENDING_SCAN_LIMIT = 5_000
 _TURN_OUTBOX_TOMBSTONE_RETENTION = 1_024
-_TURN_OUTBOX_CLAIM_LEASE = timedelta(minutes=5)
 
 #: A proposal sink accepts one raw operator ActionProposal and hands it to the
 #: typed pipeline (the composition root wires this to ``Huginn.ingest`` - the

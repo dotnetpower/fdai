@@ -3,14 +3,15 @@
 
 from __future__ import annotations
 
-import asyncio
+import hashlib
+import json
 from collections.abc import Mapping
-from datetime import timedelta
 from typing import Any
 
 from fdai.agents._framework.bragi_models import ConversationSession, Turn
 from fdai.agents._framework.bragi_publication import turn_event_payload
 from fdai.agents._framework.bragi_runtime_helpers import (
+    _TURN_OUTBOX_CLAIM_LEASE,
     _payload_digest,
     _preference_from_index_row,
     _published_turn_outbox_tombstone,
@@ -18,7 +19,12 @@ from fdai.agents._framework.bragi_runtime_helpers import (
     _turn_claim_expired,
     _turn_outbox_key,
 )
-from fdai.agents._framework.outbox_publication import await_bounded_publication
+from fdai.agents._framework.outbox_publication import (
+    PublicationClaim,
+    claim_matches,
+    new_publication_claim_owner,
+    publish_claimed_outbox,
+)
 from fdai.shared.providers.state_store import StateStore
 
 _BRAGI_STATE_PREFIX = "pantheon/bragi"
@@ -26,7 +32,7 @@ _USER_PREFERENCE_INDEX_PREFIX = f"{_BRAGI_STATE_PREFIX}/user-preference-index/"
 _USER_PREFERENCE_INDEX_SCAN_LIMIT = 1_000
 _TURN_OUTBOX_PENDING_SCAN_LIMIT = 5_000
 _TURN_OUTBOX_TOMBSTONE_RETENTION = 1_024
-_TURN_OUTBOX_CLAIM_LEASE = timedelta(minutes=5)
+_TURN_OUTBOX_MAINTENANCE_PAGE = 16
 _MAX_PROGRESS_KEYS = 5_000
 _DURABLE_PROGRESS_RETENTION = _MAX_PROGRESS_KEYS
 _MAX_PROGRESS_STEPS = 64
@@ -40,20 +46,23 @@ class BragiTurnRuntimeMixin:
     _last_preference_index_refresh: dict[str, Any] | None
 
     async def _publish_turn(self, payload: dict[str, Any]) -> None:
-        if self.bus is None:
+        bus = self.bus
+        if bus is None:
             self.record_behavior("turn:publication_pending")
             return
-        if not await self._claim_turn_publication(payload):
-            return
-        try:
-            await await_bounded_publication(
-                self.bus.publish("Bragi", "object.turn", payload),
-                lease=_TURN_OUTBOX_CLAIM_LEASE,
-            )
-            await asyncio.shield(self._mark_turn_published(payload))
-        except Exception:
-            await self._reset_turn_publication_pending(payload)
-            raise
+        await self._publish_claimed_turn(bus, payload)
+
+    async def _publish_claimed_turn(self, bus: Any, payload: dict[str, Any]) -> bool:
+        claim = await self._claim_turn_publication(payload)
+        return await publish_claimed_outbox(
+            claim,
+            publish=lambda: bus.publish("Bragi", "object.turn", payload),
+            mark_published=lambda active_claim: self._mark_turn_published(payload, active_claim),
+            release=lambda active_claim: self._reset_turn_publication_pending(
+                payload, active_claim
+            ),
+            lease=_TURN_OUTBOX_CLAIM_LEASE,
+        )
 
     async def _reserve_turn_index(self, session_id: str, session: ConversationSession) -> int:
         if self._state_store is None:
@@ -144,9 +153,12 @@ class BragiTurnRuntimeMixin:
         self._turn_outbox_pending += 1
         return payload
 
-    async def _claim_turn_publication(self, payload: Mapping[str, Any]) -> bool:
+    async def _claim_turn_publication(self, payload: Mapping[str, Any]) -> PublicationClaim | None:
         if self._state_store is None:
-            return True
+            return PublicationClaim(
+                owner=new_publication_claim_owner(self.spec.name),
+                claimed_at=self._clock().isoformat(),
+            )
         key = _turn_outbox_key(str(payload["session_ref"]), int(payload["turn_index"]))
         for _attempt in range(16):
             stored = await self._state_store.read_state(key)
@@ -154,33 +166,39 @@ class BragiTurnRuntimeMixin:
                 raise RuntimeError("Bragi turn outbox row disappeared before publication")
             status = stored.get("status")
             if status == "published":
-                return False
+                return None
             now = self._clock()
             if status == "publishing" and not _turn_claim_expired(stored, now):
-                return False
+                return None
             revision = int(stored.get("revision", 1))
+            claimed_at = now.isoformat()
+            claim_owner = new_publication_claim_owner(self.spec.name)
             advanced = await self._state_store.compare_and_set_state(
                 key,
                 {
                     **dict(stored),
                     "status": "publishing",
                     "revision": revision + 1,
-                    "claim_owner": self.spec.name,
-                    "claimed_at": now.isoformat(),
+                    "claim_owner": claim_owner,
+                    "claimed_at": claimed_at,
                 },
                 expected_revision=revision,
             )
             if advanced:
-                return True
+                return PublicationClaim(owner=claim_owner, claimed_at=claimed_at)
         raise RuntimeError("Bragi turn publication claim CAS retry limit exceeded")
 
-    async def _reset_turn_publication_pending(self, payload: Mapping[str, Any]) -> None:
+    async def _reset_turn_publication_pending(
+        self, payload: Mapping[str, Any], claim: PublicationClaim
+    ) -> None:
         if self._state_store is None:
             return
         key = _turn_outbox_key(str(payload["session_ref"]), int(payload["turn_index"]))
         for _attempt in range(16):
             stored = await self._state_store.read_state(key)
-            if stored is None or stored.get("status") == "published":
+            if stored is None or stored.get("status") != "publishing":
+                return
+            if not claim_matches(stored, claim):
                 return
             revision = int(stored.get("revision", 1))
             advanced = await self._state_store.compare_and_set_state(
@@ -198,14 +216,18 @@ class BragiTurnRuntimeMixin:
                 return
         raise RuntimeError("Bragi turn publication release CAS retry limit exceeded")
 
-    async def _mark_turn_published(self, payload: Mapping[str, Any]) -> None:
+    async def _mark_turn_published(
+        self, payload: Mapping[str, Any], claim: PublicationClaim
+    ) -> bool:
         if self._state_store is None:
-            return
+            return True
         key = _turn_outbox_key(str(payload["session_ref"]), int(payload["turn_index"]))
         for _attempt in range(16):
             stored = await self._state_store.read_state(key)
             if stored is None or stored.get("status") == "published":
-                return
+                return False
+            if not claim_matches(stored, claim):
+                return False
             revision = int(stored.get("revision", 1))
             advanced = await self._state_store.compare_and_set_state(
                 key,
@@ -215,7 +237,7 @@ class BragiTurnRuntimeMixin:
             if advanced:
                 await self._compact_turn_outbox_tombstones()
                 self._turn_outbox_pending = max(0, self._turn_outbox_pending - 1)
-                return
+                return True
         raise RuntimeError("Bragi turn publication CAS retry limit exceeded")
 
     async def _compact_turn_outbox_tombstones(self) -> None:
@@ -245,43 +267,80 @@ class BragiTurnRuntimeMixin:
                     -_MAX_PROGRESS_STEPS:
                 ]
                 progress += 1
+        published = await self._drive_turn_outbox(limit=_TURN_OUTBOX_PENDING_SCAN_LIMIT)
+        recovered_publications = await self.recover_bragi_publications()
+        return progress, published + recovered_publications
+
+    async def _drive_turn_outbox(self, *, limit: int) -> int:
+        """Publish pending or lease-expired turn rows, deferring each failed or malformed row."""
+
+        store = self._state_store
+        bus = self.bus
+        if store is None or bus is None:
+            return 0
+        prefix = f"{_BRAGI_STATE_PREFIX}/turn-outbox/"
         published = 0
-        if self.bus is not None:
-            pending_rows, pending_total = await self._state_store.read_state_page(
-                f"{_BRAGI_STATE_PREFIX}/turn-outbox/",
-                limit=_TURN_OUTBOX_PENDING_SCAN_LIMIT,
-                field="status",
-                value="pending",
+        attempted = 0
+        attempted_keys: set[str] = set()
+        while attempted < limit:
+            remaining = limit - attempted
+            pending_rows, pending_total = await store.read_state_page(
+                prefix, limit=remaining, field="status", value="pending"
             )
-            publishing_rows, publishing_total = await self._state_store.read_state_page(
-                f"{_BRAGI_STATE_PREFIX}/turn-outbox/",
-                limit=_TURN_OUTBOX_PENDING_SCAN_LIMIT,
-                field="status",
-                value="publishing",
+            publishing_rows, publishing_total = await store.read_state_page(
+                prefix, limit=remaining, field="status", value="publishing"
             )
             self._turn_outbox_pending = pending_total + publishing_total
             rows = (*pending_rows, *publishing_rows)
-            for row in reversed(rows[:_TURN_OUTBOX_PENDING_SCAN_LIMIT]):
+            if not rows:
+                break
+            progress = 0
+            for row in reversed(rows[:remaining]):
                 payload = row.get("payload")
-                if not isinstance(payload, Mapping):
-                    raise RuntimeError("Bragi turn outbox row is malformed")
-                if await self._claim_turn_publication(payload):
-                    try:
-                        await await_bounded_publication(
-                            self.bus.publish("Bragi", "object.turn", dict(payload)),
-                            lease=_TURN_OUTBOX_CLAIM_LEASE,
-                        )
-                        await asyncio.shield(self._mark_turn_published(payload))
-                    except Exception:
-                        await self._reset_turn_publication_pending(payload)
-                        raise
-                    published += 1
-        recovered_publications = await self.recover_bragi_publications()
-        self._turn_outbox_pending = max(0, self._turn_outbox_pending - published)
-        return progress, published + recovered_publications
+                if (
+                    not isinstance(payload, Mapping)
+                    or not isinstance(payload.get("session_ref"), str)
+                    or not isinstance(payload.get("turn_index"), int)
+                    or isinstance(payload.get("turn_index"), bool)
+                ):
+                    row_key = (
+                        "invalid:"
+                        + hashlib.sha256(
+                            json.dumps(row, sort_keys=True, default=str).encode()
+                        ).hexdigest()
+                    )
+                    if row_key not in attempted_keys:
+                        attempted_keys.add(row_key)
+                        attempted += 1
+                        self.record_behavior("turn_outbox:recovery_invalid_row")
+                    continue
+                outbox_key = _turn_outbox_key(
+                    str(payload["session_ref"]), int(payload["turn_index"])
+                )
+                if outbox_key in attempted_keys:
+                    continue
+                attempted_keys.add(outbox_key)
+                attempted += 1
+                try:
+                    if await self._publish_claimed_turn(bus, dict(payload)):
+                        published += 1
+                        progress += 1
+                except Exception:
+                    self.record_behavior("turn_outbox:recovery_publish_failed")
+                    continue
+            if progress == 0:
+                break
+        if self._turn_outbox_pending > 0 and attempted >= limit:
+            self.record_behavior("turn_outbox:recovery_deferred")
+        return published
 
     async def maintenance_tick(self) -> None:
         await super().maintenance_tick()
+        try:
+            await self._drive_turn_outbox(limit=_TURN_OUTBOX_MAINTENANCE_PAGE)
+            await self.recover_bragi_publications(limit=_TURN_OUTBOX_MAINTENANCE_PAGE)
+        except Exception:
+            self.record_behavior("publication_outbox:maintenance_recovery_failed")
         refreshed = await self.refresh_user_preference_index()
         if refreshed:
             self.record_behavior("maintenance_tick:user_preference_index_refreshed", refreshed)

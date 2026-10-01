@@ -14,6 +14,7 @@ from fdai.agents._framework.adapters import (
 )
 from fdai.agents._framework.bragi_publication import handoff_event_payload
 from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.outbox_publication import PublicationClaim
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.bragi import Bragi
 from fdai.agents.saga import Saga
@@ -182,10 +183,10 @@ async def test_bragi_turn_publish_marks_outbox_when_cancelled_during_receipt() -
     release_mark = asyncio.Event()
     original = bragi._mark_turn_published  # noqa: SLF001
 
-    async def slow_mark(payload: Mapping[str, Any]) -> None:
+    async def slow_mark(payload: Mapping[str, Any], claim: PublicationClaim) -> bool:
         mark_started.set()
         await release_mark.wait()
-        await original(payload)
+        return await original(payload, claim)
 
     bragi._mark_turn_published = slow_mark  # type: ignore[method-assign]  # noqa: SLF001
     task = asyncio.create_task(
