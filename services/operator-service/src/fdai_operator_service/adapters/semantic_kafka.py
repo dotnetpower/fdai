@@ -40,6 +40,7 @@ from fdai_operator_service.contract_codecs import (
     CORE_REQUEST_PRODUCER_V17,
     CORE_REQUEST_PRODUCER_V18,
     CORE_REQUEST_PRODUCER_V19,
+    CORE_REQUEST_PRODUCER_V110,
 )
 
 MAX_SEMANTIC_MESSAGE_BYTES = 1_000_000
@@ -280,7 +281,9 @@ class OperatorSemanticKafkaBus:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
         request_codec = (
-            CORE_REQUEST_PRODUCER_V19
+            CORE_REQUEST_PRODUCER_V110
+            if payload.get("schema_version") == "1.10.0"
+            else CORE_REQUEST_PRODUCER_V19
             if payload.get("schema_version") == "1.9.0"
             else CORE_REQUEST_PRODUCER_V18
             if payload.get("schema_version") == "1.8.0"

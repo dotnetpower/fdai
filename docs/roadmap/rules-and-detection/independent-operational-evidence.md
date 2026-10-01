@@ -27,6 +27,9 @@ source named by a typed locator, recomputes the consumer's digest, proves comple
 freshness, and principal authorization, and writes an admission or a typed rejection to a store only it can
 write. Owners read admissions through the unchanged `admit` method and record every rejection class
 explicitly; only `unavailable` keeps today's generic hold.
+Semantic result-handle references are content-free conversation continuity records on the
+Operator/Core semantic transport. They do not admit operational evidence, satisfy verifier
+readbacks, or grant execution authority.
 
 ## Current state and gap
 

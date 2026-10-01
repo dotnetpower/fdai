@@ -17,6 +17,8 @@ product control plane or its execution authority.
 
 ## Design at a glance
 The test-context choice route uses the same Operator route-family assembly as other local diagnostic surfaces. Adding it changes no developer workflow socket, validation queue behavior, or local execution authority.
+Semantic result-handle storage and replay use the ordinary Operator/Core semantic request path.
+They add no developer workflow socket, validation queue behavior, or local execution authority.
 
 
 FDAI uses one read-only developer workflow diagnostic surface across local scripts. The surface

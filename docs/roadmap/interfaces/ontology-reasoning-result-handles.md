@@ -22,6 +22,9 @@ words. A continuation is server-side state for the rest of a read that one answe
 list every row across answers with exact accounting. Both stay read-only and bind the deployment,
 principal, conversation, purpose, and manifest. Every row is read again through the secured gateway,
 and a reference that can't bind returns one typed clarification.
+The H2 local implementation keeps handle bodies encrypted in Core storage and lets Operator persist
+only opaque references on durable semantic turns. The semantic request and projection schemas carry
+those references additively and grant no read, approval, or execution authority.
 
 | Package | Delivers | Depends on |
 |---------|----------|------------|

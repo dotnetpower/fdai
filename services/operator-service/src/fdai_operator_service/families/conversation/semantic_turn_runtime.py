@@ -9,13 +9,13 @@ import logging
 import sys
 from collections import OrderedDict, deque
 from collections.abc import AsyncIterator, Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
 from fdai_operator_service.adaptive_relationship import AdaptiveRelationshipResolution
-from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V17
+from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V18
 from fdai_operator_service.families.conversation import post_turn_review as ptrq
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
@@ -32,6 +32,9 @@ from fdai_operator_service.families.conversation.contracts import (
     StreamEvent,
 )
 from fdai_operator_service.families.conversation.document_export import ConversationDocumentExporter
+from fdai_operator_service.families.conversation.result_handles import (
+    build_envelope_with_result_handles,
+)
 from fdai_operator_service.families.conversation.semantic_document_presentation import (
     apply_document_answer as _apply_document_answer,
 )
@@ -651,7 +654,7 @@ class SemanticTurnProjectionConsumer:
         The recomputed ``evidence_digest`` and ``projection_id`` must equal what Core committed,
         so a result, manifest, receipt, or payload changed after Core published is never rendered.
         """
-        decoded = CORE_PROJECTION_CONSUMER_V17.decode_mapping(payload)
+        decoded = CORE_PROJECTION_CONSUMER_V18.decode_mapping(payload)
         violation = semantic_projection_commitment_violation(decoded)
         if violation is not None:
             raise ValueError(f"semantic projection commitment is invalid: {violation}")
@@ -659,7 +662,7 @@ class SemanticTurnProjectionConsumer:
 
     async def consume_local_hold(self, projection: Mapping[str, object]) -> StoredSemanticResult:
         """Persist a held projection that this Operator built, which carries no Core commitment."""
-        decoded = CORE_PROJECTION_CONSUMER_V17.decode_mapping(projection)
+        decoded = CORE_PROJECTION_CONSUMER_V18.decode_mapping(projection)
         if decoded.get("status") != SemanticTurnDisposition.HELD.value:
             raise ValueError("an Operator-built semantic projection MUST be held")
         return await self._project(decoded)
@@ -895,24 +898,13 @@ class SemanticTurnBridge:
             relationship_proof=relationship.proof,
             relationship_unknown_reason=relationship.reason,
         )
-        continuation = await self._store.latest_semantic_investigation_continuation(
-            principal_id=proposal.scope.subject_id,
-            session_id=semantic.session_id,
+        proposal, envelope = await build_envelope_with_result_handles(
+            builder=self._builder,
+            store=self._store,
+            proposal=proposal,
+            semantic=semantic,
+            relationship=relationship,
         )
-        if continuation is not None:
-            proposal = replace(
-                proposal,
-                body={
-                    **proposal.body,
-                    "turn_sequence": continuation.source_turn_sequence + 1,
-                },
-            )
-            envelope = self._builder.build(
-                proposal,
-                investigation_continuation=continuation,
-                relationship_proof=relationship.proof,
-                relationship_unknown_reason=relationship.reason,
-            )
         source_request_id = _source_request_id(proposal.body.get("source_request_id"))
         if source_request_id == envelope["request_id"]:
             raise ConversationBoundaryError(
