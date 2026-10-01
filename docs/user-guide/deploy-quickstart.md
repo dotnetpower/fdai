@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 70a54cd3e9b5d9f65c9041c616f19af000fd1348 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fa493c7a1f499e59649708839904b9e7e4921dd5 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 70a54cd3e9b5d9f65c9041c616f19af000fd1348 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 295328e581b19dd44268c7bf5c6a196f91aa8d00 }]
 ---
 
 # Deploy Quickstart
@@ -36,13 +36,12 @@ GitHub Actions tests the repository. It is not part of either deployment path.
 > **Current status:** The one-command source deployment is still being completed, as its
 > [implementation ledger](../roadmap-implementation/deployment/source-deployment.md) records:
 >
-> - A keyless run creates the Foundation and then stops with
->   `prebuilt_runtime_artifacts_required` before the application stage.
-> - No deployment step starts the Trial yet, so an installation without a token stays
->   observation-only.
-> - Core verifies licenses with the upstream integrity key, but with
->   `secrets/integrity-signing-key.pem` the deployment still issues a 30-day token instead of the
->   installation entitlement, and the expiry watermark doesn't exist yet.
+> - A source run creates the Foundation and then stops with
+>   `prebuilt_runtime_artifacts_required` before the application stage. The image stage that
+>   builds the service images in your registry exists, but the source route doesn't run it yet.
+> - The AKS application stage starts the 30-day Trial, or installs the installation entitlement
+>   when `secrets/integrity-signing-key.pem` is present, and the Console shows the expiry
+>   watermark. A source run doesn't reach that stage yet.
 > - Until those items close, a holder of the offline-package signing key reaches the application
 >   stage only by building the signed offline package and passing `--offline-kit`.
 
