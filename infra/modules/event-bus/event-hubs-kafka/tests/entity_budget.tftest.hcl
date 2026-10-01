@@ -13,11 +13,7 @@ run "standard_accepts_ten_entities" {
       "fdai.finops.events",
       "fdai.pantheon.objects",
     ]
-    auxiliary_topics = [
-      "fdai.hil.decisions",
-      "fdai.pipeline.stages",
-      "fdai.operator.ordered-poison-halt.clear.v1",
-    ]
+    auxiliary_topics = ["fdai.hil.decisions", "fdai.pipeline.stages"]
   }
 }
 
@@ -35,11 +31,7 @@ run "standard_rejects_more_than_ten_entities" {
       "fdai.pantheon.objects",
       "operator.semantic-turn.requests",
     ]
-    auxiliary_topics = [
-      "fdai.hil.decisions",
-      "fdai.pipeline.stages",
-      "fdai.operator.ordered-poison-halt.clear.v1",
-    ]
+    auxiliary_topics = ["fdai.hil.decisions", "fdai.pipeline.stages"]
   }
 
   expect_failures = [azurerm_eventhub_namespace.primary]

@@ -283,7 +283,6 @@ output "contributor_core_service_tfvars" {
       hil_decisions               = local.event_auxiliary_topics[0]
       inventory_raw               = local.inventory_raw_topic
       pipeline_stages             = local.event_auxiliary_topics[1]
-      ordered_poison_halt_clear   = local.ordered_poison_halt_clear_topic
       startup_probe               = local.startup_probe_topic
       semantic_requests           = local.semantic_turn_request_topic
       semantic_projections        = local.semantic_turn_projection_topic

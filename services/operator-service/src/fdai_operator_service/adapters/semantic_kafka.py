@@ -19,6 +19,7 @@ from fdai_service_contracts.assignment_transport import (
     ASSIGNMENT_PROJECTION_TOPIC,
     ASSIGNMENT_REQUEST_TOPIC,
 )
+from fdai_service_contracts.bus_poison_halt_clear import ORDERED_POISON_HALT_CLEAR_TOPIC
 from fdai_service_contracts.framework_assessment import FRAMEWORK_ASSESSMENT_TOPIC
 from fdai_service_contracts.incident_creation import INCIDENT_CREATION_REQUEST_TOPIC
 from fdai_service_contracts.incident_intervention import (
@@ -78,6 +79,7 @@ class OperatorSemanticKafkaConfig:
     notification_receipt_topic: str | None = None
     incident_creation_topic: str = INCIDENT_CREATION_REQUEST_TOPIC
     incident_intervention_topic: str = INCIDENT_INTERVENTION_REQUEST_TOPIC
+    ordered_poison_halt_clear_topic: str = ORDERED_POISON_HALT_CLEAR_TOPIC
     assignment_request_topic: str = ASSIGNMENT_REQUEST_TOPIC
     assignment_projection_topic: str = ASSIGNMENT_PROJECTION_TOPIC
     rule_activation_request_topic: str = RULE_ACTIVATION_REQUEST_TOPIC
@@ -185,6 +187,11 @@ class OperatorSemanticKafkaConfig:
             occupied=configured_topics,
             error_message="Incident intervention topic MUST be distinct and valid",
         )
+        _require_distinct_topic(
+            self.ordered_poison_halt_clear_topic,
+            occupied=configured_topics,
+            error_message="ordered poison halt clear topic MUST be distinct and valid",
+        )
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if not self.dlq_suffix:
@@ -270,6 +277,7 @@ class OperatorSemanticKafkaBus:
             allowed.add(self._config.notification_receipt_topic)
         allowed.add(self._config.incident_creation_topic)
         allowed.add(self._config.incident_intervention_topic)
+        allowed.add(self._config.ordered_poison_halt_clear_topic)
         allowed.add(self._config.alert_quality_topic + self._config.dlq_suffix)
         allowed.add(self._config.assignment_request_topic)
         allowed.add(self._config.rule_activation_request_topic)
