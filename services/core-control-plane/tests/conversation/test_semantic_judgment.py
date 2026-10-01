@@ -286,6 +286,32 @@ def test_resource_state_judgment_holds_when_review_finds_an_omitted_facet() -> N
     assert result.receipt.reason_code == "semantic_judgment_review_conflict"
 
 
+def test_resource_state_review_compares_closed_axes_not_facet_synonyms() -> None:
+    primary = _Model(
+        _proposal(
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["resource_collection", "list", "current_state"],
+        )
+    )
+    reviewer = _Model(
+        _proposal(
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["resource_collection", "list", "state"],
+        )
+    )
+
+    result = _boundary(primary, reviewer).judge(
+        utterance="Show running resources.",
+        context=(),
+        capabilities=({"intent": "query.resource_state_inventory"},),
+    )
+
+    assert result.accepted is True
+    assert result.receipt.reason_code == "accepted_independent_review"
+
+
 def test_resource_state_judgment_review_preserves_forbidden_actions() -> None:
     primary = _Model(
         _proposal(
