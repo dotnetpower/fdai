@@ -216,7 +216,7 @@ def plan_uncovered_slot_roles(
             uncovered.append(role)
         elif role == "relation_path" and not any(_relational(node) for node in plan.nodes):
             uncovered.append(role)
-        elif role == "time_window" and not any(_windowed(node.arguments) for node in plan.nodes):
+        elif role == "time_window" and not _windowed_plan(plan):
             uncovered.append(role)
         elif role in _VALUE_SLOT_PROPERTIES and not any(
             _restricts(node, _VALUE_SLOT_PROPERTIES[role], str(slot.value)) for node in plan.nodes
@@ -242,16 +242,35 @@ _WINDOW_ARGUMENTS = frozenset(
         "end",
         "before_as_of",
         "after_as_of",
-        "as_of",
     }
 )
 
 
-def _windowed(arguments: Mapping[str, Any]) -> bool:
-    nested = arguments.get("arguments")
-    return bool(_WINDOW_ARGUMENTS & set(arguments)) or (
-        isinstance(nested, Mapping) and bool(_WINDOW_ARGUMENTS & set(nested))
-    )
+def _windowed_plan(plan: OntologyQueryPlan) -> bool:
+    """Return whether the plan reads a time window rather than one point in time.
+
+    A single ``as_of`` is a cutoff, and the server stamps one on every ObjectSet,
+    traversal, and path node, so it never applies a window. Two distinct point-in-time
+    reads (a topology or configuration snapshot pair) do.
+    """
+
+    points: set[str] = set()
+    for node in plan.nodes:
+        arguments = node.arguments
+        nested = arguments.get("arguments")
+        if _WINDOW_ARGUMENTS & set(arguments) or (
+            isinstance(nested, Mapping) and _WINDOW_ARGUMENTS & set(nested)
+        ):
+            return True
+        if node.kind is QueryNodeKind.TOPOLOGY_AT and isinstance(arguments.get("as_of"), str):
+            points.add(arguments["as_of"])
+        elif (
+            node.kind is QueryNodeKind.FUNCTION
+            and isinstance(nested, Mapping)
+            and isinstance(nested.get("as_of"), str)
+        ):
+            points.add(nested["as_of"])
+    return len(points) >= 2
 
 
 def _restricts(node: OntologyQueryNode, properties: frozenset[str], value: str) -> bool:

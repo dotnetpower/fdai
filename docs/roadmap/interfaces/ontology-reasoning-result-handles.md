@@ -120,12 +120,14 @@ carry today.
 provider path per resource type. The manifest digest binds these reads, and they're offered only when
 the principal can read the Resource provider bag. A resource type with more than one reviewed path for
 a semantic is left out. The anchor binding records the bound Resource's type, so the lookup projects
-exactly that type's reviewed path, and the structural verifier admits a projection inside a readable
-object property only. The inventory doesn't record when a single property was observed, so the answer
-states its source and the semantic's reviewed freshness bound. A semantic that needs fresher evidence
-than the inventory freshness ceiling holds as `property_freshness_unestablished`. A missing value is
-stated as unknown, and the goal status `UNKNOWN_INCOMPLETE` is assigned with the verified answer
-authoring of the promotion program.
+exactly that type's reviewed path. The structural verifier admits a read inside the Resource provider
+bag only at a reviewed path from the manifest, so a model-proposed plan can't project an unreviewed
+provider field. A structured value is shown once, redacted and bounded, and its keys never become
+answer row fields that would skip that redaction. The inventory doesn't record when a single property
+was observed, so the answer states its source and the semantic's reviewed freshness bound. A semantic
+that needs fresher evidence than the inventory freshness ceiling holds as
+`property_freshness_unestablished`. A missing value is stated as unknown, and the goal status
+`UNKNOWN_INCOMPLETE` is assigned with the verified answer authoring of the promotion program.
 
 **Exit:** a property lookup on one named resource answers with the exact value, and a property
 without a reviewed semantic holds with its typed reason.

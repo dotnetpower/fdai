@@ -155,6 +155,67 @@ def test_invalid_carried_question_form_is_absent_and_keeps_judgment_accepted() -
     assert result.receipt.reason_code == "accepted"
 
 
+_INVALID_FORM = {"schema_version": "1.4.0", "question_form": {"mentions": (), "goals": ()}}
+
+
+def test_invalid_carried_form_does_not_disable_bound_subject_recovery() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.incident_evidence",
+                requested_facets=["compare", "recurrence_supported"],
+                targets=[
+                    {
+                        "kind": "object_type",
+                        "value": "retained incident evidence",
+                        "canonical_value": "not a canonical identity",
+                        "source_start": 0,
+                        "source_end": 7,
+                    }
+                ],
+                **_INVALID_FORM,
+            )
+        )
+    ).judge(
+        utterance="Compare retained incident evidence for recurrence.",
+        context=(),
+        capabilities=({"kind": "object_type", "name": "Incident"},),
+        allow_escalation=False,
+        bound_subject_types=("Incident",),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.targets == ()
+    assert result.proposal.question_form is None
+
+
+def test_invalid_carried_form_does_not_disable_safe_trace_recovery() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.ontology_relationships",
+                targets=[],
+                requested_facets=["resource_type", "signal_type", "action_type", "trace"],
+                ambiguous=True,
+                alternatives=["current_finding"],
+                unresolved_terms=["current_finding_state"],
+                clarification=None,
+                **_INVALID_FORM,
+            )
+        )
+    ).judge(
+        utterance="Trace the governed ontology declarations.",
+        context=(),
+        capabilities=(),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.question_form is None
+    assert result.receipt.reason_code == "accepted_safe_trace_hold"
+
+
 @pytest.mark.parametrize(
     "facets",
     (

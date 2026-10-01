@@ -118,7 +118,12 @@ def apply_required_document_evidence(
         if not value.startswith(_REQUIREMENT_PREFIX)
     )
     updated = proposal.model_copy(update={"evidence_requirements": (*retained, requirement)})
-    return updated, build_semantic_frame(updated, utterance=utterance, context=context)
+    return updated, build_semantic_frame(
+        updated,
+        utterance=utterance,
+        context=context,
+        investigation_intent_digest=frame.investigation_intent_digest,
+    )
 
 
 def compile_governed_document_plan(

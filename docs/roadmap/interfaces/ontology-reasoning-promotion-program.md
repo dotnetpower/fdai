@@ -76,8 +76,9 @@ records stay an experiment.
 Local implementation carries the closed form on the judgment contract under schema `1.4.0`, exposes
 it to the judgment model only behind a default-off setting, and records linked content-free
 dispositions through an injected production-shadow sink. Missing or invalid forms record
-`form_absent` without changing the answer path. The sampled production window remains live
-promotion evidence.
+`form_absent` without changing the answer path. Every judgment recovery path validates the carried
+form the same way, so an invalid form can't disable a recovery that accepts the same judgment
+without it. The sampled production window remains live promotion evidence.
 
 **Exit:** a linked disposition for every eligible turn over a sampled production window, and replay
 equivalence with the shadow on and off.

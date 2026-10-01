@@ -678,7 +678,7 @@ def _recover_bound_subject_proposal(
         return None
     candidate = _canonicalize_machine_tokens({**raw, "targets": []})
     try:
-        proposal = SemanticJudgmentProposal.model_validate(candidate)
+        proposal = validate_non_interfering_carried_form(candidate)
         proposal = capability_normalization.normalize_primary_intent(
             proposal,
             capabilities=capabilities,
@@ -721,7 +721,7 @@ def _recover_safe_ontology_trace_proposal(
         }
     )
     try:
-        proposal = SemanticJudgmentProposal.model_validate(candidate)
+        proposal = validate_non_interfering_carried_form(candidate)
         proposal = grounding.ground_unique_source_spans(
             proposal,
             utterance=utterance,

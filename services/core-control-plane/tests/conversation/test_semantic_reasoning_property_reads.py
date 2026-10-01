@@ -470,6 +470,16 @@ def test_an_empty_structured_value_reads_as_none_and_nested_identities_redact() 
     assert "/subscriptions/hidden" not in redacted and "<redacted>" in redacted
 
 
+def test_a_reviewed_object_value_is_never_lifted_into_row_fields() -> None:
+    field = "properties.properties.tags"
+    row = _answer_row_values(
+        {**_IDENTITY, field: {"name": "alice@contoso.com", "status": "/subscriptions/hidden/x"}}
+    )
+
+    assert row[field] == {"name": "<redacted>", "status": "<redacted>"}
+    assert "name" not in row and "status" not in row
+
+
 def test_a_structured_value_too_large_to_show_says_so() -> None:
     large = [{"name": f"setting-{index}", "category": "x" * 40} for index in range(200)]
 

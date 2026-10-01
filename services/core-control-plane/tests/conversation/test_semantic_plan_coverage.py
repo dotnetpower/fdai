@@ -474,22 +474,73 @@ def test_a_case_insensitive_identity_match_is_still_an_identity() -> None:
     assert outcome is not None and outcome.reason == "semantic_operand_without_source"
 
 
-@pytest.mark.parametrize(
-    "arguments",
-    [
-        {"before_as_of": "2026-10-01T00:00:00Z", "after_as_of": "2026-10-01T01:00:00Z"},
-        {"as_of": "2026-10-01T00:00:00Z"},
-    ],
-)
-def test_an_as_of_window_applies_a_time_slot(arguments: dict[str, str]) -> None:
-    frame = SimpleNamespace(constraint_slots=(_slot("time_window", "PT1H"),))
-    node = _node(
-        "diff",
+_AT_BEFORE = "2026-10-01T00:00:00Z"
+_AT_AFTER = "2026-10-01T01:00:00Z"
+
+
+def _snapshot(node_id: str, as_of: str) -> OntologyQueryNode:
+    return _node(
+        node_id,
         QueryNodeKind.FUNCTION,
-        {"function_name": "query.resource_configuration_changes", "arguments": arguments},
+        {
+            "function_name": "query.resource_configuration_snapshot",
+            "arguments": {"as_of": as_of, "known_at": _AT_AFTER},
+        },
     )
 
-    assert plan_uncovered_slot_roles(frame, _plan(node)) == ()
+
+@pytest.mark.parametrize(
+    "nodes",
+    [
+        (
+            _node(
+                "diff",
+                QueryNodeKind.FUNCTION,
+                {
+                    "function_name": "query.resource_configuration_changes",
+                    "arguments": {"before_as_of": _AT_BEFORE, "after_as_of": _AT_AFTER},
+                },
+            ),
+        ),
+        (_snapshot("before", _AT_BEFORE), _snapshot("after", _AT_AFTER)),
+        (
+            _node("then", QueryNodeKind.TOPOLOGY_AT, {"as_of": _AT_BEFORE, "known_at": _AT_AFTER}),
+            _node("now", QueryNodeKind.TOPOLOGY_AT, {"as_of": _AT_AFTER, "known_at": _AT_AFTER}),
+        ),
+    ],
+)
+def test_a_point_in_time_pair_applies_a_time_slot(nodes: tuple[OntologyQueryNode, ...]) -> None:
+    frame = SimpleNamespace(constraint_slots=(_slot("time_window", "PT1H"),))
+
+    assert plan_uncovered_slot_roles(frame, _plan(*nodes)) == ()
+
+
+@pytest.mark.parametrize(
+    "nodes",
+    [
+        (_snapshot("now", _AT_AFTER),),
+        (_snapshot("a", _AT_AFTER), _snapshot("b", _AT_AFTER)),
+        (
+            _node(
+                "objects",
+                QueryNodeKind.OBJECT_SET,
+                {"definition": {"selector": {"kind": "object_type", "name": "Resource"}}},
+            ),
+            _node(
+                "deps",
+                QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+                {"link_type": "depends_on", "as_of": _AT_AFTER},
+            ),
+            _node("path", QueryNodeKind.TYPED_PATH, {"as_of": _AT_BEFORE}),
+        ),
+    ],
+)
+def test_a_single_cutoff_does_not_apply_a_time_slot(nodes: tuple[OntologyQueryNode, ...]) -> None:
+    """The server stamps a current cutoff on traversals and paths; that is no window."""
+
+    frame = SimpleNamespace(constraint_slots=(_slot("time_window", "PT24H"),))
+
+    assert plan_uncovered_slot_roles(frame, _plan(*nodes)) == ("time_window",)
 
 
 def test_an_invented_identity_in_a_traversal_endpoint_or_metric_read_is_held() -> None:

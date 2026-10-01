@@ -56,7 +56,10 @@ minor-version pins for the judgment and frame records. The production judgment s
 slots behind a default-off setting, so active model prompts keep their current output schema until
 the slot reader is calibrated. Local checks prove grounded slots cover the traced window, region,
 and incident-status restrictions, ungrounded slots hold with a typed reason, and grouped or
-relational frame slots must be represented by the verified plan.
+relational frame slots must be represented by the verified plan. A time-window slot is covered only
+by an explicit window argument or by two distinct point-in-time reads, such as a snapshot pair. The
+single cutoff that the server stamps on every ObjectSet, traversal, and path read never counts as a
+window.
 
 **Exit:** zero uncovered-constraint holds for the traced window, region, and incident-status
 questions across two repeats.

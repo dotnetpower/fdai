@@ -112,7 +112,11 @@ from .semantic_instance_candidates import project_instance_candidates, render_in
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
 from .semantic_ontology_answers import render_ontology_schema_answer
 from .semantic_presentation_semantics import project_presentation_semantics
-from .semantic_property_answer import render_property_value_answer, reviewed_structured_cells
+from .semantic_property_answer import (
+    liftable_mappings,
+    render_property_value_answer,
+    reviewed_structured_cells,
+)
 from .semantic_reading_holds import reading_hold_answer
 from .semantic_relationship_projection import (
     project_ontology_relationships,
@@ -3155,9 +3159,7 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         projected["redaction_applied"] = displayed_text != original_text
     current: list[Mapping[str, object]] = [values]
     for _depth in range(2):
-        nested = [
-            value for item in current for value in item.values() if isinstance(value, Mapping)
-        ]
+        nested = [value for item in current for value in liftable_mappings(item)]
         for item in nested:
             for field in _ANSWER_ROW_LIFTED_FIELDS:
                 value = item.get(field)

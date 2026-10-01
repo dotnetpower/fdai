@@ -94,6 +94,20 @@ def reviewed_structured_cells(
     return cells
 
 
+def liftable_mappings(item: Mapping[str, object]) -> list[Mapping[str, object]]:
+    """Return the nested mappings an answer row may lift scalar fields from.
+
+    A reviewed property's value is shown once, redacted, as its own cell, so its keys
+    never become row fields that would skip that redaction.
+    """
+
+    return [
+        value
+        for key, value in item.items()
+        if isinstance(value, Mapping) and not str(key).startswith(_PROVIDER_PREFIX)
+    ]
+
+
 def _redacted(field: str, value: object, redact: Callable[[str, object], object]) -> object:
     if isinstance(value, Mapping):
         return {
@@ -131,4 +145,4 @@ def _display(value: object, *, korean: bool) -> str:
     return text.replace("\r", " ").replace("\n", " ")
 
 
-__all__ = ["render_property_value_answer", "reviewed_structured_cells"]
+__all__ = ["liftable_mappings", "render_property_value_answer", "reviewed_structured_cells"]

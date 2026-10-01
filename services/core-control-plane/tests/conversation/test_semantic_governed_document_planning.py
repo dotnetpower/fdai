@@ -9,6 +9,7 @@ import pytest
 from fdai.core.conversation.semantic_governed_document_planning import (
     append_governed_document_plan,
     apply_document_evidence_requirement,
+    apply_required_document_evidence,
     compile_governed_document_plan,
     document_evidence_mode,
 )
@@ -630,5 +631,9 @@ def test_a_rebuilt_frame_keeps_its_investigation_identity() -> None:
         utterance=UTTERANCE,
         context=(),
     )
+    _required, forced = apply_required_document_evidence(
+        proposal, frame, utterance=UTTERANCE, context=()
+    )
 
     assert rebuilt.investigation_intent_digest == intent
+    assert forced.investigation_intent_digest == intent
