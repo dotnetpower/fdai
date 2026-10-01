@@ -42,8 +42,14 @@ compiler ledger with their progress notes; their earlier history stays in that l
   function binding production-faithful in the harness, and record baseline L1, L2, and Azure SRE
   Agent parity receipts. The cohort, two locked holdouts, the fixture graph, and L2 tests exist;
   retained L1 receipts and the parity baseline do not.
+  Status 2026-10-01: blocked on live evidence. The retained L1 receipts need repeated live model
+  rounds, and the Azure SRE Agent parity baseline needs the Owner's browser session through the
+  `sre-agent-parity` skill; no local action remains.
 - [ ] Configure the direction reader's reasoning-model deployment in production composition, with
   its latency and cost measured per directional turn.
+  Progress 2026-10-01: `FDAI_SEMANTIC_PRODUCTION_SHADOW=1` binds the direction and tiebreak readers
+  in production composition without compiled answers, and every shadow turn records a direction
+  cost receipt. Enabling the setting on a deployment and the sampled latency and cost window remain.
 - [ ] Complete R3 through R8 with the exit evidence in the owner delivery-round table, including
   shadow wiring with a turn reservation, per-type holdout accuracy, reviewed trait and path grammar
   catalog changes, traversal root lineage, the location property, the link-evidence allowlist, a
@@ -53,6 +59,10 @@ compiler ledger with their progress notes; their earlier history stays in that l
   The form must first travel in the judgment call, and the wiring must meet the conditions in the
   owner design's production shadow wiring paragraph; fresh anchor-read cutoffs and structured
   cancellation are done.
+  Progress 2026-10-01: P1 carries the closed form in the judgment call (schema 1.4.0, default off),
+  records a content-free linked disposition per eligible turn, treats a missing or invalid form as
+  `form_absent` with an unchanged answer, and passes the module-boundary and replay-equivalence
+  tests; the shadow reserves from its own E5 ledger. A sampled production window remains.
 - [x] Add an answer author that emits claims, a full proposition contract for V-CLAIM, and an
   independent entailment review that regenerates or holds an answer, with zero escapes on an
   adversarial claim suite. Evidence: `current change`; `test_answer_claims.py`,
@@ -60,17 +70,21 @@ compiler ledger with their progress notes; their earlier history stays in that l
   The live R8 holdout with zero V-CLAIM escapes remains open below.
 - [ ] Complete the R8 live holdout for verified answer authoring: zero V-CLAIM escapes and zero
   entailment-review escapes on the R8 holdout under approved model-family bindings.
+  Status 2026-10-01: blocked on live evidence and on the Owner approval of model families below.
 - [ ] Hold zero released wrong answers, a compiled and released answer whose executed rows differ
   from the gold rows, in every L1 round. The review-tightening row recorded three before its fixes
   and zero after them, and the two-reader review row recorded one from concept grounding; keep the
   metric in every round and treat any occurrence as a defect. Since the kind-grounding row the metric
   also counts a released answer where the gold expects none and a function answer whose calls differ
   from the gold form's compile, which earlier status-only counts missed.
+  Status 2026-10-01: measured only in live L1 rounds, which this change did not run.
 - [ ] Recover live L1 coverage from 84 of 120 runs toward the 108 recorded before the review, without
   a released over-compilation: schema goals given type filters of another domain, restating words
   such as declared that the extractor names as restrictions, extractor quotes that reach past the
   named thing, reach words left out of relation cues, and particles quoted inside resource names.
   Exit: at least 105 of 120 across two repeated rounds with zero released over-compilation.
+  Status 2026-10-01: blocked on live L1 rounds; the local fixes for particles inside resource
+  names now also cover current-path operand provenance (`test_an_identity_quoted_with_particles_or_spaces_is_not_invented`).
 - [x] Record an Owner decision that either replaces best-effort pattern detection of secrets in
   operator-typed model input with a reviewed detector, or accepts it as defense in depth for the
   in-tenant model deployment. Exit: the decision is linked here, and the encoded-shape regression
@@ -81,8 +95,10 @@ compiler ledger with their progress notes; their earlier history stays in that l
   2026-10-01 P6 row.
 - [ ] Complete R9: record one promotion receipt and one SRE Agent parity receipt per operation
   family, and retire frame and plan prompts only for promoted families.
+  Status 2026-10-01: blocked until production shadow windows and live parity receipts exist.
 - [ ] Complete R10: remove lexical re-derivation and template renderers from promoted paths after
   replay equivalence and one stable rollback release.
+  Status 2026-10-01: blocked until a family is promoted and one stable rollback release exists.
 - [ ] Before promoting any operation family in R9, record the coverage-lane exits that gate it in
   the [coverage ledger](ontology-reasoning-coverage.md).
 - [ ] Verify coverage on the compiled plan instead of only the judgment: every hard, measure, group,
@@ -95,6 +111,10 @@ compiler ledger with their progress notes; their earlier history stays in that l
   `semantic_plan_constraint_uncovered`; `test_semantic_plan_coverage.py` and
   `test_a_stated_grouping_or_relation_holds_a_plan_that_reads_only_a_list` pass. A restriction
   such as a region is checked only through the form reading, and the exit needs a live traced round.
+  Progress 2026-10-01: a grounded location, lifecycle, property, or time slot that covers a stated
+  restriction now holds the turn unless the plan applies it
+  (`test_a_slot_that_covered_a_restriction_must_restrict_the_plan`), beside the existing grouping
+  and relation checks. The traced live questions remain.
 - [ ] Treat a clarification or ambiguous judgment as terminal on the current path: the frame model may
   not reinterpret the utterance without the judgment and its coverage review. Exit: the traced
   incident and ordinal follow-up questions return a clarification, never a verified unrelated list.
