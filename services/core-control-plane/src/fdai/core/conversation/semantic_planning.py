@@ -53,7 +53,7 @@ from .semantic_judgment_coverage import (
     start_coverage,
 )
 from .semantic_judgment_review import promoted_state_collection
-from .semantic_plan_coverage import narrower_plan_outcome
+from .semantic_plan_coverage import narrower_plan_outcome as _npo
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
@@ -256,7 +256,6 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
             preflight_intent = _preflight_descriptor_intent(preflight_router.effective_result)
-            # A resource collection is typed by the capability-aware judgment: the preflight
             # router can omit a stated constraint, and a router reading is not semantic authority.
             promoted_preflight = (
                 preflight_operational_judgment(
@@ -676,7 +675,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
-            held = narrower_plan_outcome(ticket, coverage, plan_source, plan, manifest_digest)
+            held = _npo(
+                ticket, coverage, plan_source, plan, manifest_digest, utterance, context, coverage
+            )
             if held is not None:
                 return preflight_router.finish(held)
             if frame.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES:
