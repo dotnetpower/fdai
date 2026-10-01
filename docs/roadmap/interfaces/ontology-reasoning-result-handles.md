@@ -139,6 +139,11 @@ The local H4 implementation also covers state lookup follow-ups such as "what is
 second one" over the newest stored handle. It loads only the newest opaque reference, maps the row
 key back through a secured gateway reread at the current cutoff, and never binds from wording alone.
 
+**Implementation note (2026-10-01):** Result handles now store the exact shown row identities inside
+the Core-only sealed body. H4 rereads those identities with a bounded `id in` predicate and still
+checks that each row identity hashes to the digest-only row key; older handles without identities
+fall back to the bounded scan path.
+
 **Exit:** the traced ordinal SKU follow-up answers with the exact property value.
 
 ## H5 Change continuation

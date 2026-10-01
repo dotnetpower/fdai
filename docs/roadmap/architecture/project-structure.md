@@ -16,6 +16,9 @@ Typed constraint slots are also isolated at the shared contract and Core convers
 service-contract SDK owns the versioned judgment and frame fields, while Core owns slot coverage,
 plan coverage, and default-off model-schema exposure; this adds no Operator route or execution
 authority.
+Result-handle identity hardening follows the same split: service contracts carry the additive
+handle-body field and generated wire views, while Core alone writes and rereads the sealed row
+identities through secured ontology queries; Operator and Console still see only opaque references.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.

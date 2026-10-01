@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from fdai_service_contracts.ontology_query import content_digest
-from fdai_service_contracts.reasoning_handles import ResultHandleRef, TypedRowKey
+from fdai_service_contracts.reasoning_handles import ResultHandle, ResultHandleRef, TypedRowKey
 
 from fdai.core.conversation.result_handle_store import (
     ResultHandleBinding,
@@ -15,6 +15,8 @@ from fdai.core.conversation.result_handle_store import (
     ResultHandleStore,
 )
 from fdai.core.ontology_platform import (
+    ObjectPredicate,
+    ObjectPredicateOperator,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
@@ -86,7 +88,7 @@ async def bind_stored_references(
     source_generation: str | None = None
     if loaded.status is ResultHandleGetStatus.BOUND and handle is not None:
         row_map, source_generation = await _authorized_row_map(
-            handle.row_keys,
+            handle,
             gateway=gateway,
             projection_request=projection_request,
             purpose=purpose,
@@ -161,16 +163,26 @@ def _bind_one(
 
 
 async def _authorized_row_map(
-    row_keys: tuple[TypedRowKey, ...],
+    handle: ResultHandle,
     *,
     gateway: SecuredObjectSetQueryGateway,
     projection_request: ProjectionRequest,
     purpose: str,
     as_of: datetime | Callable[[], datetime],
 ) -> tuple[dict[str, tuple[str, str | None]], str | None]:
+    row_keys = handle.row_keys
     if not row_keys:
         return {}, None
     expected = {key.model_dump_json(): key for key in row_keys}
+    if handle.row_identities:
+        return await _authorized_identity_row_map(
+            handle,
+            expected=expected,
+            gateway=gateway,
+            projection_request=projection_request,
+            purpose=purpose,
+            as_of=as_of,
+        )
     try:
         secured = await gateway.materialize(
             ObjectSetDefinition(
@@ -189,21 +201,71 @@ async def _authorized_row_map(
     mapped: dict[str, tuple[str, str | None]] = {}
     for record in secured.materialization.graph.objects:
         kind = record.properties.get("type")
-        candidates = (
-            TypedRowKey(
-                row_type="semantic_query_row",
-                row_digest=content_digest({"row_id": record.id}),
-            ),
-            TypedRowKey(
-                row_type="semantic_query_row",
-                row_digest=content_digest({"node_id": "resources", "row_id": record.id}),
-            ),
-        )
-        for candidate in candidates:
+        for candidate in _candidate_row_keys(record.id):
             dumped = candidate.model_dump_json()
             if dumped in expected:
                 mapped[dumped] = (record.id, kind if isinstance(kind, str) else None)
     return mapped, secured.receipt.source_generation
+
+
+async def _authorized_identity_row_map(
+    handle: ResultHandle,
+    *,
+    expected: dict[str, TypedRowKey],
+    gateway: SecuredObjectSetQueryGateway,
+    projection_request: ProjectionRequest,
+    purpose: str,
+    as_of: datetime | Callable[[], datetime],
+) -> tuple[dict[str, tuple[str, str | None]], str | None]:
+    try:
+        secured = await gateway.materialize(
+            ObjectSetDefinition(
+                selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name=_RESOURCE),
+                predicates=(
+                    ObjectPredicate(
+                        property="id",
+                        operator=ObjectPredicateOperator.IN,
+                        values=handle.row_identities,
+                    ),
+                ),
+                as_of=as_of() if callable(as_of) else as_of,
+                purpose=purpose,
+                limit=len(handle.row_identities),
+                include_relationships=False,
+            ),
+            projection_request=projection_request,
+        )
+    except UnsupportedObjectSetAsOfError:
+        return {}, None
+    if secured.receipt.truncated:
+        return {}, secured.receipt.source_generation
+    readable = {record.id: record for record in secured.materialization.graph.objects}
+    mapped: dict[str, tuple[str, str | None]] = {}
+    for row_key, identity in zip(handle.row_keys, handle.row_identities, strict=True):
+        record = readable.get(identity)
+        dumped = row_key.model_dump_json()
+        if record is None or dumped not in expected:
+            continue
+        if dumped not in {
+            candidate.model_dump_json() for candidate in _candidate_row_keys(identity)
+        }:
+            continue
+        kind = record.properties.get("type")
+        mapped[dumped] = (record.id, kind if isinstance(kind, str) else None)
+    return mapped, secured.receipt.source_generation
+
+
+def _candidate_row_keys(object_id: str) -> tuple[TypedRowKey, TypedRowKey]:
+    return (
+        TypedRowKey(
+            row_type="semantic_query_row",
+            row_digest=content_digest({"row_id": object_id}),
+        ),
+        TypedRowKey(
+            row_type="semantic_query_row",
+            row_digest=content_digest({"node_id": "resources", "row_id": object_id}),
+        ),
+    )
 
 
 def _outcome_for_status(status: ResultHandleGetStatus) -> ReferenceOutcome:

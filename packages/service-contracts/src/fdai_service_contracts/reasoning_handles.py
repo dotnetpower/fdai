@@ -14,10 +14,10 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 from fdai_service_contracts.compatibility import CompatibilityError, SemVer
 from fdai_service_contracts.ontology_query import QueryContract, canonical_json
 
-SchemaVersion = Literal["1.0", "1.1"]
+SchemaVersion = Literal["1.1", "1.2"]
 
-CURRENT_REASONING_HANDLE_SCHEMA_VERSION: Literal["1.1"] = "1.1"
-PREVIOUS_REASONING_HANDLE_SCHEMA_VERSION: Literal["1.0"] = "1.0"
+CURRENT_REASONING_HANDLE_SCHEMA_VERSION: Literal["1.2"] = "1.2"
+PREVIOUS_REASONING_HANDLE_SCHEMA_VERSION: Literal["1.1"] = "1.1"
 SUPPORTED_REASONING_HANDLE_SCHEMA_VERSIONS = (
     PREVIOUS_REASONING_HANDLE_SCHEMA_VERSION,
     CURRENT_REASONING_HANDLE_SCHEMA_VERSION,
@@ -26,7 +26,7 @@ SUPPORTED_RESULT_HANDLE_KEY_VERSIONS = ("result-handle-key-v1",)
 MAX_RESULT_HANDLE_ROWS = 1_000
 
 _CURRENT_MAJOR = 1
-_CURRENT_MINOR = 1
+_CURRENT_MINOR = 2
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _MACHINE_TOKEN_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
 _OPAQUE_REF_PATTERN = re.compile(r"^[A-Za-z0-9_-]{32,128}$")
@@ -159,6 +159,10 @@ class ResultHandle(QueryContract):
     manifest_digest: Digest
     rendered_order_digest: Digest
     row_keys: Annotated[tuple[TypedRowKey, ...], Field(max_length=MAX_RESULT_HANDLE_ROWS)] = ()
+    row_identities: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=512)], ...],
+        Field(max_length=MAX_RESULT_HANDLE_ROWS),
+    ] = ()
     sort: tuple[SortTerm, ...] = ()
     page: PageDescriptor
     truncated: bool
@@ -170,6 +174,11 @@ class ResultHandle(QueryContract):
         row_identities = tuple(canonical_json(row) for row in row_tokens)
         if len(row_identities) != len(set(row_identities)):
             raise ValueError("result handle row_keys MUST be unique")
+        if self.row_identities:
+            if len(self.row_identities) != len(self.row_keys):
+                raise ValueError("result handle row_identities MUST match row_keys")
+            if len(self.row_identities) != len(set(self.row_identities)):
+                raise ValueError("result handle row_identities MUST be unique")
 
         snapshot_row_identities = tuple(
             canonical_json(row.row_key.model_dump(mode="json")) for row in self.snapshot_cells

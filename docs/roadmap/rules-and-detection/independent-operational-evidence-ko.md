@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: f5a20b2f37cb308fd71a91d61aa20788bcd6dc3b
+translation_source_sha: 0c89243c6af6b9bb19362bea41ecdb2fa2fc9be7
 translation_revised: 2026-10-01
 ---
 # 독립 운영 근거 발급
@@ -31,6 +31,8 @@ translation_revised: 2026-10-01
 유지합니다.
 의미 결과 핸들 참조는 Operator/Core 의미 전송의 본문 없는 대화 연속성 레코드입니다. 운영 근거를
 수락하거나 검증기 재확인을 충족하거나 실행 권한을 부여하지 않습니다.
+봉인된 Core 전용 행 신원은 후속 읽기의 재인가 피연산자일 뿐이며, 검증기 출처 산출물, 수락 기록 또는
+증명 자료가 아닙니다.
 
 ## 현재 상태와 공백
 

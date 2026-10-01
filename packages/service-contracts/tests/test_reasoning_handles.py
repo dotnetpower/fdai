@@ -183,13 +183,13 @@ def test_pushdown_request_union_allows_aggregate_or_typed_path_only() -> None:
 
 def test_n_and_n_minus_one_decode_are_supported() -> None:
     current = _handle_ref()
-    previous_payload = {**current.model_dump(mode="json"), "schema_version": "1.0"}
+    previous_payload = {**current.model_dump(mode="json"), "schema_version": "1.1"}
 
     assert decode_reasoning_record(ResultHandleRef, encode_reasoning_record(current)) == current
-    assert decode_reasoning_record(ResultHandleRef, previous_payload).schema_version == "1.0"
+    assert decode_reasoning_record(ResultHandleRef, previous_payload).schema_version == "1.1"
 
 
-@pytest.mark.parametrize("version", ["0.9", "1.2", "2.0", "1.1.0", None])
+@pytest.mark.parametrize("version", ["1.0", "1.3", "2.0", "1.2.0", None])
 def test_unsupported_versions_fail_with_stable_code(version) -> None:
     payload = {**_handle_ref().model_dump(mode="json"), "schema_version": version}
 
@@ -211,10 +211,10 @@ def test_unknown_key_version_fails_with_stable_code() -> None:
 @pytest.mark.parametrize(
     ("readers", "expected"),
     [
-        ((("1.0",), ("1.0", "1.1")), "1.0"),
-        ((("1.0", "1.1"), ("1.1",)), "1.1"),
-        ((("1.0",), ("1.0",)), "1.0"),
-        ((("1.1",), ("1.0", "1.1")), "1.1"),
+        ((("1.1",), ("1.1", "1.2")), "1.1"),
+        ((("1.1", "1.2"), ("1.2",)), "1.2"),
+        ((("1.1",), ("1.1",)), "1.1"),
+        ((("1.2",), ("1.1", "1.2")), "1.2"),
     ],
 )
 def test_writer_negotiation_handles_rolling_upgrade_and_rollback(
@@ -226,7 +226,7 @@ def test_writer_negotiation_handles_rolling_upgrade_and_rollback(
 
 def test_writer_negotiation_rejects_no_common_supported_version() -> None:
     with pytest.raises(ReasoningHandleCodecError) as exc_info:
-        negotiate_write_version((("1.0",), ("1.2",)))
+        negotiate_write_version((("1.1",), ("1.3",)))
 
     assert exc_info.value.code is ReasoningHandleErrorCode.INCOMPATIBLE_READER_VERSIONS
 
@@ -278,6 +278,37 @@ def test_row_keys_are_bounded_and_unique() -> None:
     )
     with pytest.raises(ValidationError):
         _result_handle(row_keys=too_many)
+
+
+def test_row_identities_are_optional_but_match_row_keys_when_present() -> None:
+    rows = (_row(1), _row(2))
+    handle = ResultHandle.model_validate(
+        {**_result_handle(row_keys=rows).model_dump(mode="json"), "row_identities": ("a", "b")},
+        context={"allowed_snapshot_fields": {"sku"}},
+    )
+
+    assert handle.schema_version == "1.2"
+    assert handle.row_identities == ("a", "b")
+    assert (
+        ResultHandle.model_validate(
+            {**_result_handle(row_keys=rows).model_dump(mode="json"), "schema_version": "1.1"},
+            context={"allowed_snapshot_fields": {"sku"}},
+        ).row_identities
+        == ()
+    )
+    with pytest.raises(ValidationError, match="row_identities"):
+        ResultHandle.model_validate(
+            {**_result_handle(row_keys=rows).model_dump(mode="json"), "row_identities": ("a",)},
+            context={"allowed_snapshot_fields": {"sku"}},
+        )
+    with pytest.raises(ValidationError, match="row_identities"):
+        ResultHandle.model_validate(
+            {
+                **_result_handle(row_keys=rows).model_dump(mode="json"),
+                "row_identities": ("a", "a"),
+            },
+            context={"allowed_snapshot_fields": {"sku"}},
+        )
 
 
 def test_snapshot_cells_are_restricted_to_validation_allowlist() -> None:

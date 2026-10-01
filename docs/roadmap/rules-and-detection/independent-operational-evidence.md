@@ -30,6 +30,8 @@ explicitly; only `unavailable` keeps today's generic hold.
 Semantic result-handle references are content-free conversation continuity records on the
 Operator/Core semantic transport. They do not admit operational evidence, satisfy verifier
 readbacks, or grant execution authority.
+Their sealed Core-only row identities are reauthorization operands for follow-up reads only; they
+are not verifier source artifacts, admissions, or proof material.
 
 ## Current state and gap
 
