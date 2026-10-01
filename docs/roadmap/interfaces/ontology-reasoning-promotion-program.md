@@ -73,6 +73,11 @@ records stay an experiment.
 - **Non-interference:** The shadow has no data path into answer composition, and a module-boundary
   test enforces it. Replaying the same request and snapshot inputs with the shadow on and off
   yields identical answer digests.
+Local implementation carries the closed form on the judgment contract under schema `1.4.0`, exposes
+it to the judgment model only behind a default-off setting, and records linked content-free
+dispositions through an injected production-shadow sink. Missing or invalid forms record
+`form_absent` without changing the answer path. The sampled production window remains live
+promotion evidence.
 
 **Exit:** a linked disposition for every eligible turn over a sampled production window, and replay
 equivalence with the shadow on and off.
@@ -94,9 +99,9 @@ two-reader turns.
 
 **Implementation note (2026-10-01):** Every shadow turn now carries a content-free direction cost
 receipt, and logs it as `semantic_direction_cost`. The receipt counts one or two readers, with the
-calls, input bytes, output tokens, and wall time that the turn's reservation ledger reconciled. The
-readers bind today only with compiled answers, which run only in the local venue, so they reach
-production composition with the production shadow setting of P1.
+calls, input bytes, output tokens, and wall time that the turn's reservation ledger reconciled.
+Production composition also binds the direction reader and third-family tiebreaker when the P1
+production shadow setting is on, but keeps compiled answers disabled outside the local venue.
 
 **Exit:** both readers run in the production composition, and a latency and cost receipt covers a
 sampled production window for each turn type.

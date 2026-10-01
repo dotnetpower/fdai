@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 0758e567ed7fa2d62afab5512cfdc94a7e4ee5ef
+translation_source_sha: 750a6eb57fc4dfa8fb70cfa3d81dea2029030ae8
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 컴파일러
@@ -74,7 +74,7 @@ translation_revised: 2026-10-01
 
 ## 질문 논리 형식
 
-`SemanticQuestionForm` 버전 `1.0.0`은 `SemanticJudgmentProposal` 스키마 `1.3.0`의 추가 필드
+`SemanticQuestionForm` 버전 `1.0.0`은 `SemanticJudgmentProposal` 스키마 `1.4.0`의 추가 필드
 `question_form`으로 전달됩니다. 모든 필드는 닫힌 열거형, 범위가 제한된 정수, 언급 참조, 또는 인용한
 구절과 그 출현 순번 중 하나이며, Core가 인용을 정확한 원문 구간에 결속합니다. 모델은 FunctionType,
 LinkType, ObjectType 피연산자, 인스턴스 값을 절대 제공하지 않습니다.

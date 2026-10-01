@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4d550d7837dafea84e373d6a29211d6790435195
+translation_source_sha: 4c47c343d326c01f410829c42600b640c2529a09
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -18,6 +18,10 @@ Metric window comparison 계획도 전용 Core 대화 helper에 격리됩니다.
 타입 제약 슬롯도 공유 계약과 Core 대화 경계에 격리됩니다. 서비스 계약 SDK는 버전이 지정된 판단 및
 frame 필드를 소유하고, Core는 슬롯 커버리지, plan 커버리지, 기본적으로 꺼진 모델 스키마 노출을
 소유합니다. 이 변경은 Operator route나 실행 권한을 추가하지 않습니다.
+프로덕션 shadow 추론도 같은 분리를 따릅니다. 서비스 계약 SDK는 전달되는 `SemanticQuestionForm`을
+소유하고, Core는 내용 없는 shadow 처리 결과와 비간섭 검사를 소유하며, 조립은 기본적으로 꺼진 프로덕션
+shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 변경은 Operator route를 추가하지 않으며
+로컬 환경 밖에서 컴파일된 답변을 사용할 수 있게 만들지 않습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

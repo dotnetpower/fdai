@@ -131,6 +131,30 @@ def test_complete_manifest_list_skips_schema_repair(kind: str) -> None:
     assert result.proposal.requested_facets == (f"{kind}_types", "readable")
 
 
+def test_invalid_carried_question_form_is_absent_and_keeps_judgment_accepted() -> None:
+    primary = _Model(
+        _proposal(
+            schema_version="1.4.0",
+            question_form={
+                "mentions": (),
+                "goals": (),
+            },
+        )
+    )
+
+    result = _boundary(primary).judge(
+        utterance="Show api-example budget status.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "cost_breakdown"},),
+        allow_escalation=False,
+    )
+
+    assert result.accepted
+    assert result.proposal is not None
+    assert result.proposal.question_form is None
+    assert result.receipt.reason_code == "accepted"
+
+
 @pytest.mark.parametrize(
     "facets",
     (

@@ -16,6 +16,10 @@ Typed constraint slots are also isolated at the shared contract and Core convers
 service-contract SDK owns the versioned judgment and frame fields, while Core owns slot coverage,
 plan coverage, and default-off model-schema exposure; this adds no Operator route or execution
 authority.
+Production shadow reasoning follows the same split: the service-contract SDK owns the carried
+`SemanticQuestionForm`, Core owns content-free shadow dispositions and non-interference checks, and
+composition binds direction readers only when the default-off production shadow setting is enabled.
+This does not add Operator routes or make compiled answers available outside the local venue.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.

@@ -53,6 +53,11 @@ from fdai.core.conversation.semantic_planning_models import (
 from fdai.core.conversation.semantic_planning_preflight import (
     SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
 )
+from fdai.core.conversation.semantic_production_shadow import (
+    InMemoryProductionShadowSink,
+    ProductionShadowRecorder,
+    ProductionShadowSettings,
+)
 from fdai.core.conversation.semantic_resource_state_planning import (
     normalize_resource_state_proposal,
     resource_collection_definition,
@@ -261,6 +266,7 @@ def _service(
     inventory_query_language: InventoryQueryLanguageRegistry | None = None,
     metric_concepts: tuple[str, ...] = (),
     semantic_judgment: Any = None,
+    production_shadow: ProductionShadowRecorder | None = None,
 ) -> SemanticPlanningService:
     return SemanticPlanningService(
         model=model,
@@ -276,6 +282,7 @@ def _service(
         inventory_query_language=inventory_query_language,
         metric_concepts=metric_concepts,
         semantic_judgment=semantic_judgment,
+        production_shadow=production_shadow,
     )
 
 
@@ -292,6 +299,10 @@ class _JudgmentBoundary:
         )
 
     def judge(self, **_kwargs: Any) -> Any:
+        proposal_digest = self._proposal.proposal_digest
+        input_digest = content_digest({"utterance": _kwargs["utterance"]})
+        context_digest = content_digest({"context": _kwargs["context"]})
+        capability_digest = content_digest({"capabilities": _kwargs["capabilities"]})
         return SimpleNamespace(
             accepted=True,
             observations=(),
@@ -299,6 +310,12 @@ class _JudgmentBoundary:
             receipt=SimpleNamespace(
                 disposition=SimpleNamespace(value="accepted"),
                 tier=SimpleNamespace(value="t1"),
+                input_digest=input_digest,
+                context_digest=context_digest,
+                capability_digest=capability_digest,
+                proposal_digest=proposal_digest,
+                prompt_digest=DIGEST,
+                model_config_digest=DIGEST,
             ),
         )
 
@@ -341,6 +358,30 @@ def _resource_collection_judgment(
     )
 
 
+def _question_form() -> dict[str, object]:
+    return {
+        "mentions": (
+            {
+                "id": "m1",
+                "form": "name",
+                "domain": "instance",
+                "span": {"start": 0, "end": 8},
+            },
+        ),
+        "goals": (
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "lookup",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "confidence": 0.94,
+                "cue": {"start": 9, "end": 13},
+            },
+        ),
+    }
+
+
 def test_whole_turn_model_proposal_becomes_verified_server_owned_plan() -> None:
     manifest, definition = _fixture()
     model = _Model(frame=_frame(), plan=_plan(definition))
@@ -362,6 +403,104 @@ def test_whole_turn_model_proposal_becomes_verified_server_owned_plan() -> None:
     assert outcome.intent_graph.goals[0].arguments["definition"]["purpose"] == "operations-review"
     assert model.utterance.startswith("현재")
     assert manifest.descriptors[0]["name"] == "Resource"
+
+
+def test_production_shadow_records_linked_disposition_without_changing_plan() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+    sink = InMemoryProductionShadowSink()
+    recorder = ProductionShadowRecorder(
+        settings=ProductionShadowSettings(enabled=True, sample_key="test-sample"),
+        sink=sink,
+    )
+    judgment = _JudgmentBoundary(
+        SemanticJudgmentProposal.model_validate(
+            {
+                "schema_version": "1.4.0",
+                "primary_intent": "query.contextual_resources",
+                "confidence": 0.94,
+                "ambiguous": False,
+                "action_subject": "none",
+                "question_form": _question_form(),
+            }
+        )
+    )
+
+    off = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=judgment,
+    ).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+    on = _service(
+        model,
+        manifest,
+        semantic_judgment=judgment,
+        production_shadow=recorder,
+    ).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert off.plan is not None and on.plan is not None
+    assert content_digest({"plan": off.plan.plan_digest, "reason": off.reason}) == content_digest(
+        {"plan": on.plan.plan_digest, "reason": on.reason}
+    )
+    assert len(sink.records) == 1
+    assert sink.records[0].disposition == "linked"
+    assert sink.records[0].carried_form_digest is not None
+    assert sink.records[0].compiled_plan_digest == on.plan.plan_digest
+
+
+def test_missing_carried_form_records_form_absent_without_changing_plan() -> None:
+    manifest, definition = _fixture()
+    sink = InMemoryProductionShadowSink()
+    recorder = ProductionShadowRecorder(
+        settings=ProductionShadowSettings(enabled=True, sample_key="test-sample"),
+        sink=sink,
+    )
+    judgment = _JudgmentBoundary(
+        SemanticJudgmentProposal(
+            primary_intent="query.contextual_resources",
+            confidence=0.94,
+            ambiguous=False,
+            action_subject="none",
+        )
+    )
+
+    outcome = _service(
+        _Model(frame=_frame(), plan=_plan(definition)),
+        manifest,
+        semantic_judgment=judgment,
+        production_shadow=recorder,
+    ).plan(
+        utterance="resource current state",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert len(sink.records) == 1
+    assert sink.records[0].disposition == "form_absent"
+    assert sink.records[0].carried_form_digest is None
+
+
+def test_production_shadow_has_no_answer_composition_import_path() -> None:
+    answer_modules = (
+        REPO_ROOT
+        / "services/core-control-plane/src/fdai/core/conversation/semantic_compiled_answers.py",
+        REPO_ROOT / "services/core-control-plane/src/fdai/delivery/azure/llm/adaptive_answer.py",
+    )
+
+    for path in answer_modules:
+        assert "semantic_production_shadow" not in path.read_text(encoding="utf-8")
 
 
 def test_planning_model_observations_cover_frame_and_plan_calls() -> None:

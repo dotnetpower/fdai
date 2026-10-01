@@ -69,7 +69,7 @@ and contract gaps; [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#
 
 ## Question logical form
 
-`SemanticQuestionForm` version `1.0.0` travels as the additive `question_form` field of `SemanticJudgmentProposal` schema `1.3.0`. Every field is a
+`SemanticQuestionForm` version `1.0.0` travels as the additive `question_form` field of `SemanticJudgmentProposal` schema `1.4.0`. Every field is a
 closed enum, a bounded integer, a mention reference, or a quoted phrase with its occurrence number, which Core binds to an exact span. The model never
 supplies a FunctionType, LinkType, ObjectType operand, or instance value.
 
