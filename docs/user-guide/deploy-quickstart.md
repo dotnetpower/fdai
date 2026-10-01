@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d6e1dbc074561f87ee8fa7b3e45bb9f5f29297d3 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fa493c7a1f499e59649708839904b9e7e4921dd5 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 70a54cd3e9b5d9f65c9041c616f19af000fd1348 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fa493c7a1f499e59649708839904b9e7e4921dd5 }]
 ---
 
 # Deploy Quickstart
@@ -38,16 +38,13 @@ GitHub Actions tests the repository. It is not part of either deployment path.
 >
 > - A keyless run creates the Foundation and then stops with
 >   `prebuilt_runtime_artifacts_required` before the application stage.
-> - Source-mode checkpoints advance only with `--approval-file`, which
->   `scripts/deployment/azure/genesis_approval_prompt.py` produces.
 > - No deployment step starts the Trial yet, so an installation without a token stays
 >   observation-only.
 > - Core verifies licenses with the upstream integrity key, but with
 >   `secrets/integrity-signing-key.pem` the deployment still issues a 30-day token instead of the
 >   installation entitlement, and the expiry watermark doesn't exist yet.
 > - Until those items close, a holder of the offline-package signing key reaches the application
->   stage only through the interim `fdai-up.sh --source . --signing-key <path>` route, which still
->   builds a signed kit and will be removed.
+>   stage only by building the signed offline package and passing `--offline-kit`.
 
 ## Deploy from a clone
 
@@ -319,8 +316,8 @@ The following tools are not public tenant deployment entry points:
   one-command source deployment.
 - `fdaictl provision azure --online` acquires a published release kit. It is not one of the two
   installation paths and is scheduled for removal.
-- `fdai-up.sh --source . --signing-key <path>` is the interim key-holder route described in
-  Current status. It still builds a signed kit and is scheduled for removal.
+- `fdai-up.sh` refuses the retired `--signing-key` option and never builds a kit. Build the signed
+  offline package separately and pass `--offline-kit` instead.
 - Deployment workflows under `.github/workflows/` are repository CI, release, and historical
   automation. They are not supported tenant installers.
 - Direct Terraform execution is an expert integration boundary and must preserve the same plan,

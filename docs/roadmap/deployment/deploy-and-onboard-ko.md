@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: d6e1dbc074561f87ee8fa7b3e45bb9f5f29297d3
+translation_source_sha: 70a54cd3e9b5d9f65c9041c616f19af000fd1348
 translation_revised: 2026-10-01
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -194,8 +194,8 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 - [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 [단일 명령 소스 배포](source-deployment-ko.md)입니다. 어떤 clone이든 키 없이 배포하며, 무결성 서명 키가 없으면 영속 30일 Trial을, 사용할 수 있는 `secrets/integrity-signing-key.pem`이 있으면 전체 설치 사용권을 선택합니다. 독립적인 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
   명령 실행이 표시하는 각 계획을 승인하고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
-  임시 경로인 `--source <checkout> --signing-key <key>`는 여전히 서명된 키트를 빌드하며 [소스 배포 원장](../../roadmap-implementation/deployment/source-deployment.md)에 따라 제거될 예정입니다. 선택한 checkout이 실행 전체를 소유합니다. 해당 checkout의 잠긴 환경을 준비하고 그 안에서 키트를 빌드하며 배포 CLI도 거기에서 실행하므로, 다른 clone에서 호출해도 호출한 쪽 리비전이 대신 들어갈 수 없습니다. 이미 그 checkout이 키트를 결정하므로 `--online`이나 `--offline-kit`를 함께 지정하면 전달하지 않고 거부합니다.
-- [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드나 배포가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. `--scan secrets`는 clone에 전체 사용권을 선택하는 `license-issuer` 키가 있는지 보여 줍니다. 개발 프로필은 오프라인 패키지의 완전 키트와 번들 역할에 서명자 하나를 고정하며, 라이선스 발급자는 별도 키입니다.
+  모드 인자가 없으면 어느 작업 디렉터리에서든 자기 checkout을 배포하고, Azure 호출 전에 `secrets/integrity-signing-key.pem`으로 사용권을 선택하며, Azure CLI 세션이 없으면 `az login`을 시작하고, 키트를 빌드하거나 서명하지 않습니다. 폐기된 `--signing-key` 옵션은 거부하며, 소스 빌드가 완성되기 전에 애플리케이션 단계가 필요한 키 보유자는 서명된 오프라인 패키지를 빌드해 `--offline-kit`로 전달합니다.
+- [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드나 배포가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. `--scan secrets`는 clone에 전체 사용권을 선택하는 업스트림 `integrity` 키가 있는지 보여 줍니다. 개발 프로필은 오프라인 패키지의 완전 키트와 번들 역할에 서명자 하나를 고정하며, 라이선싱은 무결성 키를 사용합니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.

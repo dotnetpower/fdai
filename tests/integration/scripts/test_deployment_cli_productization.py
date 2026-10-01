@@ -6,6 +6,7 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
@@ -113,11 +114,17 @@ def test_wrapper_passes_source_mode_through_without_forcing_online(tmp_path: Pat
     ]
 
 
-def test_wrapper_requires_source_for_contributor_signing_key(tmp_path: Path) -> None:
-    completed, observed = _run_wrapper(tmp_path, "--signing-key", str(tmp_path / "key.pem"))
+@pytest.mark.parametrize(
+    "arguments",
+    [("--signing-key", "key.pem"), ("--source", ".", "--signing-key=key.pem")],
+)
+def test_wrapper_refuses_the_retired_signing_key_option(
+    tmp_path: Path, arguments: tuple[str, ...]
+) -> None:
+    completed, observed = _run_wrapper(tmp_path, *arguments)
 
     assert completed.returncode == 64
-    assert "--source" in completed.stderr
+    assert "--signing-key was removed" in completed.stderr
     assert not observed.exists()
 
 

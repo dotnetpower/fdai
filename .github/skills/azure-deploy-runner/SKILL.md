@@ -42,11 +42,11 @@ Current status: the keyless source run stops after Foundation handoff with
 [source deployment ledger](../../../docs/roadmap-implementation/deployment/source-deployment.md)
 closes its application work packages. Licenses already verify against the upstream integrity key,
 but a key holder still receives a 30-day token rather than the installation entitlement, and no
-watermark exists yet. Until then, a holder of the offline-package signing key can
-reach the application stage only through the interim
-`fdai-up.sh --source . --signing-key <path>` route, which still builds a signed kit and is
-scheduled for removal. Report that limitation instead of presenting the interim route as the
-source path.
+watermark exists yet. The bare command deploys its own checkout, approves each Foundation
+checkpoint it shows, and refuses the retired `--signing-key` option. Until the application work
+packages close, a holder of the offline-package signing key reaches the application stage only by
+building the signed offline package and passing `--offline-kit`. Report that limitation instead of
+presenting the offline package as the source path.
 
 ## Offline package
 
