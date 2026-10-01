@@ -134,12 +134,12 @@ def _build_route_families(
     authorizer = OperatorFamilyAuthorizer(authenticator)
     report_pdf_encoder = optional_pdf_report_encoder()
     role_group_ids = {role.value: group_id for role, group_id in environment.group_ids.items()}
+    poison_halt_clear_receipt_issuer = _operator_request_receipt_issuer(environment)
     if store is None:
         unavailable_conversation = UnavailableConversationAdapters()
         unavailable_workflow = UnavailableWorkflowAdapters()
         unavailable_operations = UnavailableOperationsAdapters()
         unavailable_cost = UnavailableCostGovernanceReader()
-        poison_halt_clear_receipt_issuer = _operator_request_receipt_issuer(environment)
         routes = OperatorRouteFamilies(
             conversation=ConversationFamilyDependencies(
                 authorizer=authorizer,

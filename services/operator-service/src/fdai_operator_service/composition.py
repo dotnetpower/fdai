@@ -344,16 +344,22 @@ class ProductionOperatorComposition:
         )
         event_topic = environment.values.get("KAFKA_TOPIC_EVENTS", "").strip() or None
         operator_request_receipt_issuer = _operator_request_receipt_issuer(environment)
-        action_confirmation_bridge = (
-            ActionConfirmationBridge(
+        action_confirmation_required = (
+            family_store is not None and semantic_bus is not None and event_topic is not None
+        )
+        action_confirmation_bridge = None
+        if (
+            family_store is not None
+            and semantic_bus is not None
+            and event_topic is not None
+            and operator_request_receipt_issuer is not None
+        ):
+            action_confirmation_bridge = ActionConfirmationBridge(
                 store=family_store,
                 publisher=semantic_bus,
                 topic=event_topic,
                 receipt_issuer=operator_request_receipt_issuer,
             )
-            if family_store is not None and semantic_bus is not None and event_topic is not None
-            else None
-        )
         incident_intervention_bridge = (
             IncidentInterventionBridge(
                 store=family_store,
@@ -489,6 +495,7 @@ class ProductionOperatorComposition:
                 rule_activation_notice_bridge=rule_activation_notice_bridge,
                 test_context_bridge=test_context_bridge,
                 observer_proposal_bridge=observer_proposal_bridge,
+                action_confirmation_required=action_confirmation_required,
             ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
@@ -740,6 +747,7 @@ def _readiness_probe(
     alert_quality_bridge: AlertQualityBridge | None = None,
     test_context_bridge: TestContextBridge | None = None,
     observer_proposal_bridge: ObserverProposalBridge | None = None,
+    action_confirmation_required: bool = False,
 ) -> ReadinessProbe:
     if store is None:
         return _unavailable
@@ -747,6 +755,8 @@ def _readiness_probe(
         return store.probe_readiness
 
     async def probe() -> bool:
+        if action_confirmation_required and action_confirmation_bridge is None:
+            return False
         return (
             await store.probe_readiness()
             and await bus.probe_readiness()

@@ -55,3 +55,19 @@ def test_operator_request_receipt_seeds_follow_key_vault_secret_pattern() -> Non
     assert "FDAI_OPERATOR_REQUEST_TRUSTED_PRODUCER_KEYS_JSON" not in _SERVICE_MAIN
     assert 'name = "FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED"' in _OPERATOR_SERVICE_MAIN
     assert 'name = "FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID"' in _OPERATOR_SERVICE_MAIN
+    assert (
+        "core_signing_seed_secret_id     = "
+        "azurerm_key_vault_secret.operator_request_core_signing_seed.resource_versionless_id"
+    ) in _PLATFORM_OUTPUTS
+    assert (
+        "operator_signing_seed_secret_id = "
+        "azurerm_key_vault_secret.operator_request_operator_signing_seed.resource_versionless_id"
+    ) in _PLATFORM_OUTPUTS
+    assert (
+        "core_signing_seed_secret_id     = "
+        "azurerm_key_vault_secret.operator_request_core_signing_seed.id"
+    ) not in _PLATFORM_OUTPUTS
+    assert (
+        "operator_signing_seed_secret_id = "
+        "azurerm_key_vault_secret.operator_request_operator_signing_seed.id"
+    ) not in _PLATFORM_OUTPUTS

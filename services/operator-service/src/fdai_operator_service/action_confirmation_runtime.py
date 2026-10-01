@@ -37,6 +37,10 @@ class ActionEventPublisher(Protocol):
     ) -> object: ...
 
 
+class ActionConfirmationConfigurationError(RuntimeError):
+    """Raised when authority-bearing operator_request publication is unsigned."""
+
+
 @dataclass(frozen=True, slots=True)
 class ActionConfirmationOutboxDrainer:
     """Lease and publish action confirmations with retry-safe CAS closure."""
@@ -84,6 +88,10 @@ class ActionConfirmationOutboxDrainer:
                     request.model_dump(mode="json"),
                 )
             else:
+                if self.receipt_issuer is None:
+                    raise ActionConfirmationConfigurationError(
+                        "action confirmation receipt issuer is unavailable"
+                    )
                 event = _action_event(
                     claim.payload,
                     principal_id=claim.principal_id,
@@ -96,6 +104,16 @@ class ActionConfirmationOutboxDrainer:
                 key=claim.key,
                 claim_id=claim.claim_id,
                 reason_code="invalid_semantic_action_source",
+            )
+            return False
+        except ActionConfirmationConfigurationError:
+            _LOGGER.warning(
+                "action_confirmation_receipt_issuer_unavailable",
+                extra={"proposal_key": claim.key},
+            )
+            await self.store.release_action_proposal_claim(
+                key=claim.key,
+                claim_id=claim.claim_id,
             )
             return False
         except Exception:  # noqa: BLE001 - transient store or transport failure remains retryable
@@ -222,6 +240,7 @@ def _action_event(
 
 __all__ = [
     "ActionConfirmationBridge",
+    "ActionConfirmationConfigurationError",
     "ActionConfirmationOutboxDrainer",
     "ActionEventPublisher",
     "validate_action_confirmation_source",
