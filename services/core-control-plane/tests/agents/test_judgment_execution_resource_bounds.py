@@ -6,9 +6,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from fdai.agents import vidar as vidar_module
 from fdai.agents._framework import action_run_identity as identity_module
 from fdai.agents._framework import thor_action_run as thor_action_run_module
+from fdai.agents._framework import vidar_rollback_records as vidar_records_module
 from fdai.agents._framework.action_run_identity import (
     action_run_identity_digest,
     approval_matches_action_run,
@@ -229,14 +229,14 @@ async def test_vidar_duplicate_terminal_replay_skips_rollback_command_copy(
         return "rollback:resource-bound"
 
     deepcopy_calls = 0
-    original_deepcopy = vidar_module.deepcopy
+    original_deepcopy = vidar_records_module.deepcopy
 
     def counting_deepcopy(value: Any) -> Any:
         nonlocal deepcopy_calls
         deepcopy_calls += 1
         return original_deepcopy(value)
 
-    monkeypatch.setattr(vidar_module, "deepcopy", counting_deepcopy)
+    monkeypatch.setattr(vidar_records_module, "deepcopy", counting_deepcopy)
     vidar = Vidar(
         executors={"state_forward_only": executor},
         allow_process_local_rollback=True,

@@ -1,12 +1,17 @@
+# mypy: disable-error-code="attr-defined,no-any-return,var-annotated,has-type"
 """Deterministic, authority-free state transitions for Norns learners."""
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.agents._framework.action_semantics import outcome_result
+from fdai.agents._framework.adapters import canonical_json_digest
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.core.operational_learning import (
     OperatingPatternCompiler,
@@ -16,6 +21,7 @@ from fdai.core.operational_learning import (
     ShadowDwellLedger,
     ShadowDwellObservation,
 )
+from fdai.shared.providers.state_store import StateStore
 
 _ADVERSE_RESULTS = frozenset({"rollback", "failure", "reverted"})
 _SUCCESS_RESULTS = frozenset({"success", "applied", "ok"})
@@ -388,3 +394,248 @@ __all__ = [
     "retain_shadow_dwell",
     "shadow_dwell_evidence",
 ]
+
+
+_MAX_TRACKED = 50_000
+_LEARNING_STATE_KEY = "pantheon/norns/learning-state"
+_LEARNING_STATE_PREFIX = "pantheon/norns/learning-state-deltas"
+_LEARNING_STATE_PAGE = 128
+_LEARNING_BUCKETS = (
+    "outcomes",
+    "outcome_proposed",
+    "counted_correlations",
+    "approval_counts",
+    "approval_proposed",
+    "counted_approvals",
+    "forecast_error_counts",
+    "forecast_error_proposed",
+    "counted_case_revisions",
+    "post_turn_hint_proposed",
+)
+
+
+class NornsCapacityError(RuntimeError):
+    """Pending proposals are saturated; the caller must retry or dead-letter."""
+
+
+class NornsLearningStateMixin:
+    """Persist deterministic learner counters and idempotency fences."""
+
+    async def recover_learning_state(self) -> int:
+        """Restore durable learner counters and idempotency fences once."""
+        if self._learning_state_recovered:
+            return 0
+        self._learning_state_recovered = True
+        store = self._learning_state_store
+        if store is None:
+            return 0
+        row = await store.read_state(_LEARNING_STATE_KEY)
+        restored = 0
+        if row is not None:
+            self._load_learning_state(row)
+            restored += 1
+        for bucket in _LEARNING_BUCKETS:
+            offset = 0
+            while True:
+                rows, _total = await store.read_state_page(
+                    f"{_LEARNING_STATE_PREFIX}/{bucket}/",
+                    limit=_LEARNING_STATE_PAGE,
+                    offset=offset,
+                )
+                if not rows:
+                    break
+                for delta in rows:
+                    self._load_learning_delta(delta)
+                    restored += 1
+                offset += len(rows)
+        return 1 if restored else 0
+
+    async def _ensure_learning_state(self) -> None:
+        await self.recover_learning_state()
+
+    async def _persist_learning_state(self) -> None:
+        store = self._learning_state_store
+        if store is None:
+            return
+        dirty = self._learning_dirty
+        if not dirty:
+            return
+        self._learning_dirty = {}
+        for bucket, keys in dirty.items():
+            for item_key in keys:
+                await self._persist_learning_delta(store, bucket, item_key)
+            await store.delete_states_beyond(
+                f"{_LEARNING_STATE_PREFIX}/{bucket}/",
+                retain_newest=_MAX_TRACKED,
+            )
+
+    async def _persist_learning_delta(
+        self,
+        store: StateStore,
+        bucket: str,
+        item_key: str,
+    ) -> None:
+        value = self._learning_value(bucket, item_key)
+        if value is None:
+            return
+        state_key = (
+            f"{_LEARNING_STATE_PREFIX}/{bucket}/{hashlib.sha256(item_key.encode()).hexdigest()}"
+        )
+        current = await store.read_state(state_key)
+        revision = int(current.get("revision", 0)) if current is not None else 0
+        record = {
+            "kind": "norns_learning_state_delta",
+            "revision": revision + 1,
+            "bucket": bucket,
+            "item_key": item_key,
+            "value": value,
+        }
+        audit = {
+            "kind": "norns_learning_state_delta",
+            "principal": "Norns",
+            "bucket": bucket,
+            "item_key_digest": hashlib.sha256(item_key.encode()).hexdigest(),
+            "revision": revision + 1,
+            "grants_authority": False,
+        }
+        if current is None:
+            if await store.write_state_with_audit_if_absent(state_key, record, audit):
+                return
+            current = await store.read_state(state_key)
+            revision = int(current.get("revision", 0)) if current is not None else 0
+            record["revision"] = revision + 1
+            audit["revision"] = revision + 1
+        if not await store.compare_and_set_state_with_audit(
+            state_key,
+            record,
+            expected_revision=revision,
+            audit_entry=audit,
+        ):
+            self.record_behavior("learning_state:cas_conflict")
+            raise RuntimeError("Norns learning state delta CAS did not converge")
+
+    def _load_learning_state(self, row: Mapping[str, Any]) -> None:
+        self._restore_counter_dict(self._outcomes, row.get("outcomes"), nested=True)
+        self._restore_set(self._outcome_proposed, row.get("outcome_proposed"))
+        self._restore_set(self._counted_correlations, row.get("counted_correlations"))
+        self._restore_counter_dict(self._approval_counts, row.get("approval_counts"), nested=True)
+        self._restore_set(self._approval_proposed, row.get("approval_proposed"))
+        self._restore_set(self._counted_approvals, row.get("counted_approvals"))
+        self._restore_counter_dict(
+            self._forecast_error_counts,
+            row.get("forecast_error_counts"),
+            nested=False,
+        )
+        self._restore_set(self._forecast_error_proposed, row.get("forecast_error_proposed"))
+        self._restore_set(self._counted_case_revisions, row.get("counted_case_revisions"))
+        self._restore_set(self._post_turn_hint_proposed, row.get("post_turn_hint_proposed"))
+
+    def _load_learning_delta(self, row: Mapping[str, Any]) -> None:
+        if row.get("kind") != "norns_learning_state_delta":
+            raise ValueError("Norns durable learner delta kind is invalid")
+        bucket = str(row.get("bucket") or "")
+        item_key = str(row.get("item_key") or "")
+        if bucket not in _LEARNING_BUCKETS or not item_key:
+            raise ValueError("Norns durable learner delta identity is invalid")
+        value = row.get("value")
+        if bucket == "outcomes":
+            if not isinstance(value, Mapping):
+                raise ValueError("Norns durable outcome delta is invalid")
+            self._outcomes.set(item_key, {str(name): int(count) for name, count in value.items()})
+        elif bucket == "approval_counts":
+            if not isinstance(value, Mapping):
+                raise ValueError("Norns durable approval delta is invalid")
+            self._approval_counts.set(
+                item_key, {str(name): int(count) for name, count in value.items()}
+            )
+        elif bucket == "forecast_error_counts":
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError("Norns durable forecast delta is invalid")
+            self._forecast_error_counts.set(item_key, int(value))
+        elif isinstance(value, bool) and value:
+            self._learning_set(bucket).add(item_key)
+        else:
+            raise ValueError("Norns durable learner set delta is invalid")
+
+    def _learning_value(self, bucket: str, item_key: str) -> object | None:
+        if bucket == "outcomes":
+            return self._outcomes.get(item_key)
+        if bucket == "approval_counts":
+            return self._approval_counts.get(item_key)
+        if bucket == "forecast_error_counts":
+            return self._forecast_error_counts.get(item_key)
+        return True if item_key in self._learning_set(bucket) else None
+
+    def _learning_set(self, bucket: str) -> BoundedLruSet[str]:
+        return {
+            "outcome_proposed": self._outcome_proposed,
+            "counted_correlations": self._counted_correlations,
+            "approval_proposed": self._approval_proposed,
+            "counted_approvals": self._counted_approvals,
+            "forecast_error_proposed": self._forecast_error_proposed,
+            "counted_case_revisions": self._counted_case_revisions,
+            "post_turn_hint_proposed": self._post_turn_hint_proposed,
+        }[bucket]
+
+    def _mark_learning_dirty(self, bucket: str, item_key: str) -> None:
+        if bucket not in _LEARNING_BUCKETS or not item_key:
+            return
+        self._learning_dirty.setdefault(bucket, set()).add(item_key)
+
+    @staticmethod
+    def _restore_set(target: BoundedLruSet[str], values: object) -> None:
+        if values is None:
+            return
+        if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
+            raise ValueError("Norns durable learner set is invalid")
+        for item in values:
+            target.add(item)
+
+    @staticmethod
+    def _restore_counter_dict(
+        target: BoundedLruDict[str, Any],
+        values: object,
+        *,
+        nested: bool,
+    ) -> None:
+        if values is None:
+            return
+        if not isinstance(values, Mapping):
+            raise ValueError("Norns durable learner counter is invalid")
+        for key, value in values.items():
+            if not isinstance(key, str):
+                raise ValueError("Norns durable learner counter key is invalid")
+            if nested:
+                if not isinstance(value, Mapping):
+                    raise ValueError("Norns durable nested learner counter is invalid")
+                target.set(key, {str(name): int(count) for name, count in value.items()})
+            else:
+                target.set(key, int(value))
+
+    def _append_candidate(self, candidate: dict[str, Any]) -> None:
+        self._ensure_pending_capacity()
+        self.pending_candidates.append(candidate)
+        self._index_pending_candidate(candidate)
+
+    def _ensure_pending_capacity(self) -> None:
+        if len(self.pending_candidates) >= self._max_pending_candidates:
+            raise NornsCapacityError("Norns pending candidate capacity exhausted")
+
+    def _record_candidate_terminal(self, candidate: Mapping[str, Any], outcome: str) -> None:
+        if outcome not in self._candidate_terminal_counts:
+            return
+        try:
+            identity = canonical_json_digest(candidate)
+        except (TypeError, ValueError):
+            identity = content_digest({"candidate_identity": "non_json", "outcome": outcome})
+        if identity in self._candidate_terminal_ids:
+            return
+        self._candidate_terminal_ids.add(identity)
+        self._candidate_terminal_counts[outcome] += 1
+
+    def observe_pattern_validation(self, *, valid: bool) -> None:
+        """Record a bounded pattern validation outcome for KPI reporting."""
+
+        key = "valid" if valid else "false"
+        self._pattern_validation_counts[key] += 1
+        self.record_behavior(f"pattern_validation:{key}")
