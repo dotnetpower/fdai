@@ -418,6 +418,12 @@ per call. Preparation also has a 120-second ceiling inside that same monotonic d
 Calls are counted before dispatch, including failed calls; content-free call counters expose
 progress. Explicit deadline checks reject late returns from non-yielding providers.
 
+The production vector store also checks absolute deadlines after provider and storage returns.
+Document calls share the remaining build budget; cached reads and query embeddings cannot return
+expired results. Candidate retrieval separately enforces its shorter five-second boundary after
+embedding, ranking and current-graph authorization. An expired storage write may have persisted
+an inert artifact; timeout is not proof of rollback and cannot be reported as successful completion.
+
 Current source is checked before document embedding and again before calibration. Embedding
 space, model version and dimension must match the frozen generation before and after every call.
 Calibration failure prevents holdout. Provider errors, including 429/503 and timeouts, stop the
