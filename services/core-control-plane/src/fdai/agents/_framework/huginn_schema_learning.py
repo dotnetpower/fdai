@@ -87,20 +87,59 @@ class HuginnSchemaLearningLedger:
         for digest, payload in list(self._pending.items()):
             state_key = _STATE_PREFIX + digest
             if self._state_store is not None:
+                existing = await self._state_store.read_state(state_key)
+                if isinstance(existing, Mapping):
+                    if existing.get("state") == "published":
+                        del self._pending[digest]
+                        continue
+                    stored_payload = existing.get("payload")
+                    if isinstance(stored_payload, Mapping):
+                        return SchemaClusterEvidence(
+                            payload=dict(stored_payload),
+                            state_key=state_key,
+                        )
                 created = await self._state_store.write_state_if_absent(
                     state_key,
                     {
                         "schema_version": "1.0.0",
-                        "kind": "huginn.schema_cluster_published",
+                        "kind": "huginn.schema_cluster_publication",
+                        "state": "pending",
                         "schema_fingerprint_digest": digest,
+                        "payload": dict(payload),
                     },
                 )
                 if not created:
-                    del self._pending[digest]
                     continue
-            del self._pending[digest]
             return SchemaClusterEvidence(payload=dict(payload), state_key=state_key)
+        if self._state_store is not None:
+            for record in await self._state_store.read_states(_STATE_PREFIX, limit=self._capacity):
+                if record.get("state") != "pending":
+                    continue
+                stored_payload = record.get("payload")
+                durable_digest = record.get("schema_fingerprint_digest")
+                if not isinstance(stored_payload, Mapping) or not isinstance(durable_digest, str):
+                    continue
+                return SchemaClusterEvidence(
+                    payload=dict(stored_payload),
+                    state_key=_STATE_PREFIX + durable_digest,
+                )
         return None
+
+    async def mark_published(self, evidence: SchemaClusterEvidence) -> None:
+        """Record successful publication and remove the retryable pending item."""
+
+        digest = str(evidence.payload.get("schema_fingerprint_digest") or "")
+        if self._state_store is not None:
+            await self._state_store.write_state(
+                evidence.state_key,
+                {
+                    "schema_version": "1.0.0",
+                    "kind": "huginn.schema_cluster_publication",
+                    "state": "published",
+                    "schema_fingerprint_digest": digest,
+                },
+            )
+        self._pending.pop(digest, None)
 
     def pending_count(self) -> int:
         """Return bounded pending fingerprints for health and tests."""

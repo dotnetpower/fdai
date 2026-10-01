@@ -596,6 +596,57 @@ def test_vidar_holds_dr_failover_when_failback_executor_is_unbound() -> None:
     assert holds[-1]["reason"] == "failback_executor_unbound"
 
 
+def test_vidar_pending_dr_contract_republishes_after_bus_returns() -> None:
+    store = InMemoryStateStore()
+    payload = {
+        "producer_principal": "Thor",
+        "state": "approved",
+        "correlation_id": "corr-dr-pending",
+        "idempotency_key": "run:dr-pending",
+        "action_run_identity": "sha256:" + "1" * 64,
+        "action_type": "ops.failover-primary",
+        "resource_id": "resource:primary",
+        "rollback_contract": "scripted",
+        "quorum_required": 2,
+        "params": {
+            "target_resource_ref": "resource:primary",
+            "target_region": "eastus2",
+            "reason": "incident classified failover",
+        },
+    }
+    first = Vidar(
+        state_store=store,
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        action_executors={("ops.failover-primary", "scripted"): lambda _ctx: True},
+        clock=lambda: _NOW,
+    )
+
+    asyncio.run(first.on_typed_message("object.action-run", dict(payload)))
+
+    assert first.behavior_snapshot()["publication:unavailable"] == 1
+    assert first.behavior_snapshot()["dr_failover_contract_publication_unavailable:accepted"] == 1
+    assert first.behavior_snapshot().get("dr_failover_contract:accepted", 0) == 0
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Vidar(
+        bus=bus,
+        state_store=store,
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        action_executors={("ops.failover-primary", "scripted"): lambda _ctx: True},
+        clock=lambda: _NOW,
+    )
+    asyncio.run(restarted.on_typed_message("object.action-run", dict(payload)))
+
+    contracts = [
+        msg.payload
+        for msg in bus.messages_on("object.rollback")
+        if msg.payload.get("kind") == DR_CONTRACT_KIND
+    ]
+    assert len(contracts) == 1
+    assert contracts[0]["decision"] == "accepted"
+    assert restarted.behavior_snapshot()["dr_failover_contract:accepted"] == 1
+
+
 class _RehearsalPort:
     def __init__(self, outcome: str) -> None:
         self.outcome = outcome

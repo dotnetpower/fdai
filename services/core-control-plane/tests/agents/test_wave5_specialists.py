@@ -730,7 +730,11 @@ async def test_loki_maintenance_expires_stale_process_local_reservations() -> No
 
 async def test_loki_durable_reservations_survive_restart_and_release_on_safe_closure() -> None:
     store = InMemoryStateStore()
-    first = Loki(blast_radius_cap=1, state_store=store)
+    first = Loki(
+        bus=InMemoryBus(registry=load_pantheon()),
+        blast_radius_cap=1,
+        state_store=store,
+    )
     proposal = await first.propose_experiment(
         experiment_id="experiment-1",
         action_type="tool.run-chaos-experiment",
@@ -739,7 +743,11 @@ async def test_loki_durable_reservations_survive_restart_and_release_on_safe_clo
     )
     assert proposal.accepted
 
-    restarted = Loki(blast_radius_cap=1, state_store=store)
+    restarted = Loki(
+        bus=InMemoryBus(registry=load_pantheon()),
+        blast_radius_cap=1,
+        state_store=store,
+    )
     assert await restarted.rehydrate() == 1
     blocked = await restarted.propose_experiment(
         experiment_id="experiment-2",
@@ -771,6 +779,7 @@ async def test_loki_maintenance_expires_stale_durable_reservations() -> None:
     now = datetime(2028, 1, 2, tzinfo=UTC)
     store = InMemoryStateStore()
     first = Loki(
+        bus=InMemoryBus(registry=load_pantheon()),
         blast_radius_cap=1,
         state_store=store,
         clock=lambda: now,
@@ -786,6 +795,7 @@ async def test_loki_maintenance_expires_stale_durable_reservations() -> None:
 
     now = now + timedelta(minutes=6)
     restarted = Loki(
+        bus=InMemoryBus(registry=load_pantheon()),
         blast_radius_cap=1,
         state_store=store,
         clock=lambda: now,
@@ -839,8 +849,8 @@ async def test_loki_keeps_reservation_for_failed_or_mismatched_closure() -> None
 
 async def test_loki_cross_replica_reservations_share_one_blast_radius() -> None:
     store = InMemoryStateStore()
-    first = Loki(blast_radius_cap=1, state_store=store)
-    second = Loki(blast_radius_cap=1, state_store=store)
+    first = Loki(bus=InMemoryBus(registry=load_pantheon()), blast_radius_cap=1, state_store=store)
+    second = Loki(bus=InMemoryBus(registry=load_pantheon()), blast_radius_cap=1, state_store=store)
 
     proposals = await asyncio.gather(
         first.propose_experiment(
@@ -866,7 +876,7 @@ async def test_loki_cross_replica_reservations_share_one_blast_radius() -> None:
 
 async def test_loki_exact_replay_reuses_partial_reservation() -> None:
     store = InMemoryStateStore()
-    loki = Loki(blast_radius_cap=1, state_store=store)
+    loki = Loki(bus=InMemoryBus(registry=load_pantheon()), blast_radius_cap=1, state_store=store)
 
     first = await loki.propose_experiment(
         experiment_id="experiment-1",

@@ -477,6 +477,10 @@ async def test_partial_publication_retries_only_unfinished_candidate_leg() -> No
         )
     assert len(bus.messages_on("object.pattern")) == 1
     assert not bus.messages_on("object.rule-candidate")
+    health = norns.health()
+    assert health["candidate_delivery"]["terminal_counts"]["rate_limited"] == 0
+    assert health["candidate_delivery"]["pending_candidates"] == 1
+    assert norns.behavior_snapshot()["rule_candidate_deferred:rate_limited"] == 1
 
     assert await norns.flush_candidates() == 1
     assert len(bus.messages_on("object.pattern")) == 1

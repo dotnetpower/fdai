@@ -85,6 +85,7 @@ async def test_huginn_latency_and_dedup_accuracy_use_observed_denominators() -> 
         NOW + timedelta(milliseconds=70),
     ]
     huginn = Huginn(
+        bus=InMemoryBus(registry=load_pantheon()),
         state_store=store,
         discovery_projector=projector,
         clock=_clock(*times),
@@ -93,12 +94,14 @@ async def test_huginn_latency_and_dedup_accuracy_use_observed_denominators() -> 
     assert await huginn.ingest(_event("one", inventory=True)) is not None
     assert await huginn.ingest(_event("two", inventory=True)) is not None
     restarted = Huginn(
+        bus=InMemoryBus(registry=load_pantheon()),
         state_store=store,
         discovery_projector=projector,
         clock=_clock(*times),
     )
     assert await restarted.ingest(_event("two", inventory=True)) is None
     collision_probe = Huginn(
+        bus=InMemoryBus(registry=load_pantheon()),
         state_store=store,
         discovery_projector=projector,
         clock=_clock(*times),

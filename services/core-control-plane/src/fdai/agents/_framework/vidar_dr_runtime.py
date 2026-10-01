@@ -128,12 +128,25 @@ class VidarDrRuntimeMixin:
             identity = str(decision.get("action_run_identity") or "")
             if identity:
                 self._dr_contract_decisions.set(identity, dict(decision))
-                await self._persist_dr_contract_decision(identity, decision)
-        await self._publish_typed_rollback_event(decision)
+                stored = await self._read_dr_contract_decision_record(identity)
+                if stored is not None and stored.get("published") is True:
+                    self.record_behavior("dr_failover_contract:duplicate")
+                    return
+                await self._persist_dr_contract_decision(identity, decision, published=False)
+        published = await self._publish_typed_rollback_event(decision)
+        if not published:
+            self.record_behavior(
+                f"dr_failover_contract_publication_unavailable:{decision['decision']}"
+            )
+            return
+        if decision.get("decision") == "accepted":
+            identity = str(decision.get("action_run_identity") or "")
+            if identity:
+                await self._persist_dr_contract_decision(identity, decision, published=True)
         self.record_behavior(f"dr_failover_contract:{decision['decision']}")
 
     async def _persist_dr_contract_decision(
-        self, identity: str, decision: Mapping[str, Any]
+        self, identity: str, decision: Mapping[str, Any], *, published: bool
     ) -> None:
         if self._state_store is None:
             return
@@ -144,6 +157,7 @@ class VidarDrRuntimeMixin:
                 "revision": 1,
                 "action_run_identity": identity,
                 "decision": dict(decision),
+                "published": published,
                 "recorded_at": _clock_now(self._clock).isoformat(),
             },
         )
@@ -153,10 +167,8 @@ class VidarDrRuntimeMixin:
         )
 
     async def _read_dr_contract_decision(self, identity: str) -> dict[str, object] | None:
-        if self._state_store is None or not identity:
-            return None
-        stored = await self._state_store.read_state(_dr_contract_decision_key(identity))
-        if not isinstance(stored, Mapping):
+        stored = await self._read_dr_contract_decision_record(identity)
+        if stored is None:
             return None
         decision = stored.get("decision")
         if not isinstance(decision, Mapping) or decision.get("decision") != "accepted":
@@ -164,6 +176,14 @@ class VidarDrRuntimeMixin:
         recovered = dict(decision)
         self._dr_contract_decisions.set(identity, recovered)
         return recovered
+
+    async def _read_dr_contract_decision_record(self, identity: str) -> dict[str, object] | None:
+        if self._state_store is None or not identity:
+            return None
+        stored = await self._state_store.read_state(_dr_contract_decision_key(identity))
+        if not isinstance(stored, Mapping):
+            return None
+        return dict(stored)
 
     async def _publish_dr_outcome(self, outcome: dict[str, Any]) -> None:
         identity = str(outcome.get("action_run_identity") or "")

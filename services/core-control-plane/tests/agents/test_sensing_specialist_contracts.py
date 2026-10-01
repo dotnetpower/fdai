@@ -19,6 +19,7 @@ from fdai.shared.providers.cost_governance import (
     CostAnalysisSample,
     CostAnomalyAdvisory,
 )
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 NOW = datetime(2028, 1, 2, tzinfo=UTC)
 
@@ -432,3 +433,31 @@ async def test_loki_without_bus_or_outbox_does_not_accept_a_chaos_proposal() -> 
     assert proposal.reason == "publication_unavailable"
     assert "target:unpublished" not in loki._in_flight_targets  # noqa: SLF001
     assert loki.behavior_snapshot()["chaos_proposal:publication_unavailable"] == 1
+
+
+async def test_loki_durable_no_bus_keeps_pending_outbox_without_accepting() -> None:
+    store = InMemoryStateStore()
+    loki = Loki(state_store=store, blast_radius_cap=2)
+
+    proposal = await loki.propose_experiment(
+        experiment_id="experiment:durable-unpublished",
+        action_type="tool.run-chaos-experiment",
+        targets=("target:durable-unpublished",),
+        **_chaos_evidence(),
+    )
+
+    assert not proposal.accepted
+    assert proposal.reason == "publication_unavailable"
+    assert "target:durable-unpublished" not in loki._in_flight_targets  # noqa: SLF001
+
+    restarted_bus = _bus()
+    restarted = Loki(bus=restarted_bus, state_store=store, blast_radius_cap=2)
+    replayed = await restarted.propose_experiment(
+        experiment_id="experiment:durable-unpublished",
+        action_type="tool.run-chaos-experiment",
+        targets=("target:durable-unpublished",),
+        **_chaos_evidence(),
+    )
+
+    assert replayed.accepted
+    assert len(restarted_bus.messages_on("object.chaos-experiment")) == 1

@@ -152,6 +152,23 @@ class _FailTerminalSaveStore(_FakeActionRunStore):
         await super().save(run)
 
 
+class _CrashAfterTerminalClaimStore(_FakeActionRunStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.crashed = False
+
+    async def save(self, run: ActionRun) -> None:
+        self.saved[run.correlation_id] = ActionRun.from_dict(run.to_dict())
+        if (
+            run.state is ActionRunState.SUCCEEDED
+            and run.terminal_publication_claim is not None
+            and not run.terminal_published
+            and not self.crashed
+        ):
+            self.crashed = True
+            raise RuntimeError("injected crash after terminal publication claim")
+
+
 class _PreflightSimulator:
     def __init__(self, outcome: thor_preflight.PreflightOutcome = "passed") -> None:
         self.outcome = outcome
@@ -1421,6 +1438,35 @@ def test_terminal_publish_failure_remains_durable_for_restart_replay() -> None:
     assert restored == 1
     assert store.saved == {}
     assert any(payload["state"] == "succeeded" for payload in bus.payloads)
+
+
+def test_terminal_claim_crash_replays_once_before_finalization() -> None:
+    store = _CrashAfterTerminalClaimStore()
+    bus = _FailTerminalPublishBus()
+    bus.fail_terminal_once = False
+    thor = Thor(bus=bus, state_store=store)
+
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+    assert run.state is ActionRunState.EFFECT_PENDING
+    with pytest.raises(RuntimeError, match="injected crash after terminal publication claim"):
+        asyncio.run(
+            thor.on_typed_message(
+                "object.recovery-effect-observation", _effect_observation_for_run(run)
+            )
+        )
+
+    saved = store.saved[_proposal().correlation_id]
+    assert saved.state is ActionRunState.SUCCEEDED
+    assert saved.terminal_publication_claim is not None
+    assert saved.terminal_published is False
+    assert [payload for payload in bus.payloads if payload["state"] == "succeeded"] == []
+
+    restarted = Thor(bus=bus, state_store=store)
+    assert asyncio.run(restarted.rehydrate()) == 1
+
+    terminal_payloads = [payload for payload in bus.payloads if payload["state"] == "succeeded"]
+    assert len(terminal_payloads) == 1
+    assert store.saved == {}
 
 
 def test_terminal_save_failure_retains_resource_lock() -> None:

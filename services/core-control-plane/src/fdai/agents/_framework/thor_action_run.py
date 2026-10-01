@@ -79,6 +79,7 @@ class ActionRun:
     target_count: int | None = None
     batch_rollup: dict[str, Any] | None = None
     terminal_published: bool = False
+    terminal_publication_claim: dict[str, str] | None = None
     resource_claimed: bool = False
     history: list[ActionRunState] = field(default_factory=list)
     _action_run_identity: str | None = field(default=None, init=False, repr=False, compare=False)
@@ -293,6 +294,7 @@ class ActionRun:
                 else {}
             ),
             "terminal_published": self.terminal_published,
+            "terminal_publication_claim": deepcopy(self.terminal_publication_claim),
             "resource_claimed": self.resource_claimed,
             "history": [state.value for state in self.history],
         }
@@ -422,6 +424,20 @@ class ActionRun:
                 else None
             ),
             terminal_published=bool(data.get("terminal_published", False)),
+            terminal_publication_claim=(
+                {
+                    "owner": str(data["terminal_publication_claim"]["owner"]),
+                    "claimed_at": str(data["terminal_publication_claim"]["claimed_at"]),
+                    "lease_expires_at": str(data["terminal_publication_claim"]["lease_expires_at"]),
+                    "terminal_at": str(data["terminal_publication_claim"]["terminal_at"]),
+                }
+                if isinstance(data.get("terminal_publication_claim"), Mapping)
+                and isinstance(data["terminal_publication_claim"].get("owner"), str)
+                and isinstance(data["terminal_publication_claim"].get("claimed_at"), str)
+                and isinstance(data["terminal_publication_claim"].get("lease_expires_at"), str)
+                and isinstance(data["terminal_publication_claim"].get("terminal_at"), str)
+                else None
+            ),
             resource_claimed=bool(data.get("resource_claimed", False)),
         )
         run.history = [ActionRunState(state) for state in data.get("history", [])]

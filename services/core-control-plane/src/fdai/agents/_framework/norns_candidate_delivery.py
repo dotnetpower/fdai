@@ -454,8 +454,7 @@ class NornsCandidateDeliveryMixin:
         if self.bus is None:
             return False
         if not self._proposal_rate_limiter().allow():
-            self._record_candidate_terminal(candidate, "rate_limited")
-            self.record_behavior("rate_limit_exceeded")
+            self.record_behavior("rule_candidate_deferred:rate_limited")
             return False
         await self.bus.publish(self.spec.name, "object.rule-candidate", payload)
         mark_task = asyncio.create_task(

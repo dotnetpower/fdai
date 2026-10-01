@@ -336,7 +336,7 @@ class LokiExperimentRuntimeMixin:
                     },
                 )
             if self.bus is None:
-                return True
+                return False
             if not await self._publish_proposal("object.chaos-experiment", payload):
                 return False
             await self._state_store.write_state(

@@ -225,6 +225,29 @@ async def test_huginn_retries_receipt_when_publish_fails_before_durable_checkpoi
     assert len(bus.messages_on("object.event")) == 1
 
 
+async def test_huginn_durable_no_bus_keeps_ingress_and_receipt_retryable() -> None:
+    now = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    gate = _gate(now)
+    huginn = Huginn(
+        state_store=store,
+        operator_request_receipt_gate=gate,
+        clock=lambda: now,
+    )
+
+    assert await huginn.ingest(_request(now)) is not None
+    assert await huginn._dedup_journal.published_keys() == ()  # noqa: SLF001
+    assert huginn.behavior_snapshot()["ingress_publication:unavailable"] == 1
+
+    bus = InMemoryBus(load_pantheon())
+    huginn.bind_bus(bus)
+    normalized = await huginn.ingest(_request(now))
+
+    assert normalized is not None
+    assert len(bus.messages_on("object.event")) == 1
+    assert await huginn._dedup_journal.published_keys() == ("operator-request:one",)  # noqa: SLF001
+
+
 async def test_huginn_rejects_operator_request_when_receipt_reservation_fails_before_publish() -> (
     None
 ):
@@ -361,6 +384,37 @@ async def test_schema_learning_publishes_inert_idempotent_evidence_without_norma
         for message in bus.messages_on("object.event")
         if message.payload.get("event_type") == "schema_cluster.evidence"
     ] == evidence
+
+
+async def test_schema_learning_publish_failure_leaves_evidence_retryable() -> None:
+    now = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    bus = _FailFirstPublishBus()
+    bus.failures_remaining = 0
+    raw = {
+        "idempotency_key": "event-one",
+        "correlation_id": "corr-one",
+        "event_type": "inventory.resource_changed",
+        "source": "provider",
+        "resource_id": "resource-one",
+        "attributes": {"status": "ready"},
+    }
+    learner = Huginn(bus=bus, state_store=store, schema_learning_enabled=True, clock=lambda: now)
+
+    await learner.ingest(dict(raw))
+    bus.failures_remaining = 1
+    with pytest.raises(RuntimeError, match="transient broker failure"):
+        await learner.maintenance_tick()
+    assert learner.health()["schema_learning"]["pending_fingerprints"] == 1
+
+    await learner.maintenance_tick()
+    evidence = [
+        message.payload
+        for message in bus.messages_on("object.event")
+        if message.payload.get("event_type") == "schema_cluster.evidence"
+    ]
+    assert len(evidence) == 1
+    assert learner.health()["schema_learning"]["pending_fingerprints"] == 0
 
 
 async def test_schema_learning_ignores_rejected_operator_request_shapes() -> None:

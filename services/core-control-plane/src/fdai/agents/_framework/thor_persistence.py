@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from fdai.agents._framework.action_run_identity import durable_correlation_reservation
@@ -16,11 +16,16 @@ from fdai.agents._framework.action_run_state import (
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.advisory_verdicts import is_advisory_arbitration_verdict
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.outbox_publication import (
+    PublicationClaim,
+    new_publication_claim_owner,
+)
 from fdai.agents._framework.thor_action_run import ActionRun, ActionRunStore
 from fdai.agents._framework.thor_effect_verification import effect_publication_fields
 from fdai.shared.contracts.models import Autonomy
 
 _TIMESTAMPED_ACTION_RUN_STATES = _TERMINAL_STATES | frozenset({ActionRunState.FAILED})
+_TERMINAL_PUBLICATION_LEASE = timedelta(minutes=5)
 
 
 class ThorPersistenceHost(Protocol):
@@ -283,12 +288,26 @@ def find_active_run(host: ThorPersistenceHost, resource_id: str) -> ActionRun | 
 async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
     """Write through one transition before publishing the owned ActionRun event."""
     terminal_state = run.state in _TERMINAL_STATES
-    claimed_terminal_publication = (
-        terminal_state and host.bus is not None and not run.terminal_published
-    )
+    claim: PublicationClaim | None = None
+    claimed_terminal_publication = False
     already_terminal_published = terminal_state and run.terminal_published
-    if claimed_terminal_publication:
-        run.terminal_published = True
+    if terminal_state and host.bus is not None and not run.terminal_published:
+        terminal_now = host._now()
+        existing_claim = _terminal_claim(run)
+        claim = existing_claim or PublicationClaim(
+            owner=new_publication_claim_owner("Thor"),
+            claimed_at=terminal_now.isoformat(),
+        )
+        terminal_at = _terminal_claim_timestamp(run) or terminal_now.isoformat().replace(
+            "+00:00", "Z"
+        )
+        run.terminal_publication_claim = {
+            "owner": claim.owner,
+            "claimed_at": claim.claimed_at,
+            "lease_expires_at": (terminal_now + _TERMINAL_PUBLICATION_LEASE).isoformat(),
+            "terminal_at": terminal_at,
+        }
+        claimed_terminal_publication = existing_claim is None
     if host._state_store is not None:
         await host._state_store.save(run)
     evict_terminal_overflow(host)
@@ -331,12 +350,14 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
     if run.evidence_rejection_ref is not None:
         payload["evidence_rejection_ref"] = run.evidence_rejection_ref
     if run.state in _TIMESTAMPED_ACTION_RUN_STATES:
-        payload["terminal_at"] = host._now().isoformat().replace("+00:00", "Z")
+        payload["terminal_at"] = _terminal_claim_timestamp(run) or host._now().isoformat().replace(
+            "+00:00", "Z"
+        )
     try:
         await host.bus.publish("Thor", "object.action-run", payload)
     except Exception:
-        if claimed_terminal_publication:
-            run.terminal_published = False
+        if claim is not None:
+            run.terminal_publication_claim = None
             if host._state_store is not None:
                 await host._state_store.save(run)
         raise
@@ -346,6 +367,7 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
 
 async def _checkpoint_terminal_publication(host: ThorPersistenceHost, run: ActionRun) -> None:
     run.terminal_published = True
+    run.terminal_publication_claim = None
     if host._state_store is not None:
         await host._state_store.save(run)
     if not run.resource_claimed:
@@ -386,6 +408,39 @@ async def release_resource_claim(host: ThorPersistenceHost, run: ActionRun) -> N
             await delete_terminal_state(host, run)
     else:
         host.record_behavior("execution_resource_claim:retained")
+
+
+def _terminal_claim(run: ActionRun) -> PublicationClaim | None:
+    raw_claim = run.terminal_publication_claim
+    if not isinstance(raw_claim, Mapping):
+        return None
+    owner = raw_claim.get("owner")
+    claimed_at = raw_claim.get("claimed_at")
+    if not isinstance(owner, str) or not owner or not isinstance(claimed_at, str) or not claimed_at:
+        return None
+    try:
+        parsed = datetime.fromisoformat(claimed_at)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return PublicationClaim(owner=owner, claimed_at=claimed_at)
+
+
+def _terminal_claim_timestamp(run: ActionRun) -> str | None:
+    raw_claim = run.terminal_publication_claim
+    if not isinstance(raw_claim, Mapping):
+        return None
+    terminal_at = raw_claim.get("terminal_at")
+    if not isinstance(terminal_at, str) or not terminal_at:
+        return None
+    try:
+        parsed = datetime.fromisoformat(terminal_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return terminal_at
 
 
 __all__ = [

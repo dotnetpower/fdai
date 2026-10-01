@@ -58,6 +58,7 @@ _ACTION_RUN_RESTART_CHECKPOINT_FIELDS = {
     "shadow_mode",
     "target_set",
     "terminal_published",
+    "terminal_publication_claim",
 }
 
 # Distinctive one-key envelope used to round-trip a non-dict value through

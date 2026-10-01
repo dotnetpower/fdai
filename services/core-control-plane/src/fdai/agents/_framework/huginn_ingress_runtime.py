@@ -244,6 +244,7 @@ class HuginnIngressMixin:
             self.record_behavior("maintenance:schema_learning_idle")
             return
         await self.bus.publish("Huginn", "object.event", evidence.payload)
+        await self._schema_learning.mark_published(evidence)
         self.record_behavior("maintenance:schema_cluster_evidence_published")
 
     async def ingest_operator_proposal(self, proposal: dict[str, Any]) -> dict[str, Any] | None:
@@ -491,17 +492,12 @@ class HuginnIngressMixin:
                     published_topics=published_topics,
                 )
             elif self._dedup_journal is not None:
-                await self._dedup_journal.mark_published(
-                    idempotency_key=key,
-                    request_digest=raw_request_digest,
-                    topic="object.event",
-                )
-                if change_projection is not None:
-                    await self._dedup_journal.mark_published(
-                        idempotency_key=key,
-                        request_digest=raw_request_digest,
-                        topic="object.change",
-                    )
+                if reserved_operator_receipt is not None:
+                    if self._operator_request_receipt_gate is None:
+                        raise HuginnIngressRejected("operator_request_receipt_unbound")
+                    await self._operator_request_receipt_gate.release(reserved_operator_receipt)
+                self.record_behavior("ingress_publication:unavailable")
+                return payload
             if self._dedup_journal is not None:
                 complete_task = asyncio.create_task(
                     self._dedup_journal.complete(

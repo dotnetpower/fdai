@@ -25,12 +25,14 @@ from fdai.agents._framework.thor_dispatch_validation import (
     missing_wire_safeguards,
 )
 from fdai.agents._framework.topics import stable_idempotency_key
+from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.vidar import Vidar
 from fdai.core.executor.safeguards import SEVEN_SAFEGUARDS
 from fdai.core.workflow.recovery_effect_ingress import RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.local.event_bus import LocalEventBus
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _RAW_TOPIC = "fdai.events.r10j"
 _EFFECT_REF = "sha256:" + "b" * 64
@@ -598,11 +600,15 @@ class _AcceptingBus:
 class _CheckpointFailStore:
     def __init__(self) -> None:
         self.saved: dict[str, ActionRun] = {}
-        self.save_calls = 0
+        self.failures_remaining = 1
 
     async def save(self, run: ActionRun) -> None:
-        self.save_calls += 1
-        if self.save_calls > 1 and run.state in {ActionRunState.SUCCEEDED}:
+        if (
+            run.state is ActionRunState.SUCCEEDED
+            and run.terminal_published
+            and self.failures_remaining
+        ):
+            self.failures_remaining -= 1
             raise RuntimeError("checkpoint failed")
         self.saved[run.correlation_id] = ActionRun.from_dict(deepcopy(run.to_dict()))
 
@@ -613,7 +619,7 @@ class _CheckpointFailStore:
         self.saved.pop(correlation_id, None)
 
 
-def test_terminal_publish_checkpoint_failure_does_not_republish_after_restart() -> None:
+def test_terminal_checkpoint_failure_republishes_identical_payload_after_restart() -> None:
     store = _CheckpointFailStore()
     bus = _AcceptingBus()
     thor = Thor(bus=bus, state_store=store)
@@ -637,12 +643,26 @@ def test_terminal_publish_checkpoint_failure_does_not_republish_after_restart() 
         asyncio.run(thor._emit_action_run(run))
 
     assert len(bus.payloads) == 1
-    assert store.saved[run.correlation_id].terminal_published is True
+    assert store.saved[run.correlation_id].terminal_published is False
+    assert store.saved[run.correlation_id].terminal_publication_claim is not None
 
     restarted = Thor(bus=bus, state_store=store)
     asyncio.run(restarted.rehydrate())
 
-    assert len(bus.payloads) == 1
+    assert len(bus.payloads) == 2
+    assert bus.payloads[1] == bus.payloads[0]
+
+    saga = Saga(durable_state_store=InMemoryStateStore())
+    asyncio.run(saga.on_typed_message("object.action-run", dict(bus.payloads[0])))
+    asyncio.run(saga.on_typed_message("object.action-run", dict(bus.payloads[1])))
+
+    action_entries = [
+        entry
+        for entry in saga.audit_chain.entries
+        if entry.topic == "object.action-run" and entry.correlation_id == "checkpoint-terminal"
+    ]
+    assert len(action_entries) == 2
+    assert len({entry.payload_digest for entry in action_entries}) == 1
 
 
 def test_stable_recovery_effect_key_helper_distinguishes_payload_identity() -> None:
