@@ -18,6 +18,12 @@ from fdai_service_contracts.ontology_query import (
 
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
 
+from .semantic_causal_context import (
+    CAUSE_CONTEXT_SHAPE,
+    CAUSE_NOT_ESTABLISHED,
+    CHANGE_ACTIVITY_FUNCTION,
+    causal_context_result,
+)
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_admission import restated_relation, restates_filter
 from .semantic_reasoning_anchoring import anchored_relation
@@ -61,7 +67,6 @@ from .semantic_reasoning_nodes import (
     containment_side,
     count_node,
     declared_maximum,
-    declared_measures,
     endpoint_predicates,
     function_declared,
     group_by,
@@ -80,12 +85,8 @@ from .semantic_reasoning_schema import schema_goal
 
 MAX_SIDES_PER_BATCH = 3
 # Compiler-only output shapes, rendered as verified evidence tables with reviewed notices.
-CAUSE_CONTEXT_SHAPE = "cause_context"
 CHANGE_ACTIVITY_SHAPE = "change_activity"
-CAUSE_NOT_ESTABLISHED = "cause.not_established"
 IMPACT_POSSIBLE_ONLY = "impact.possible_not_observed"
-CURRENT_STATE_FUNCTION = "query.resource_current_state"
-CHANGE_ACTIVITY_FUNCTION = "query.resource_change_activity"
 RECENT_CHANGES_FUNCTION = "query.recent_resource_changes"
 EVENT_HISTORY_FUNCTION = "query.resource_event_history"
 # Every reviewed event family; the form has no narrower event kind to state.
@@ -665,43 +666,9 @@ def _cause_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if isinstance(window, str):
         return OperatorResult(unsupported=(window,))
     seconds, limitation, requirement = window
-    for name in (CURRENT_STATE_FUNCTION, CHANGE_ACTIVITY_FUNCTION):
-        if not function_declared(ctx, name):
-            return OperatorResult(unsupported=(f"function_unavailable:{name}",))
-    anchor = anchor_node(f"{goal.id}-anchor", goal.subject, ctx, FUNCTION_ANCHOR_LIMIT)
-    if isinstance(anchor, OperatorResult):
-        return anchor
-    reads = tuple(
-        OntologyQueryNode(
-            node_id=f"{goal.id}-{suffix}",
-            kind=QueryNodeKind.FUNCTION,
-            depends_on=(anchor.node_id,),
-            arguments_json=canonical_json(
-                {
-                    "function_name": name,
-                    "arguments": arguments,
-                    "dependency_arguments": {anchor.node_id: "query_result"},
-                }
-            ),
-            output_kind="query.table",
-        )
-        for suffix, name, arguments in (
-            ("state", CURRENT_STATE_FUNCTION, {}),
-            ("activity", CHANGE_ACTIVITY_FUNCTION, {"lookback_seconds": seconds}),
-        )
+    return causal_context_result(
+        goal, ctx, seconds=seconds, limitation=limitation, requirement=requirement
     )
-    spec = plan_spec(
-        goal,
-        (anchor, *reads),
-        tuple(node.node_id for node in reads),
-        ctx,
-        subjects=(RESOURCE_OBJECT_TYPE,),
-        output_shape=CAUSE_CONTEXT_SHAPE,
-        # The state reader's declared fields lead the answer table, before its receipt fields.
-        measure_concepts=declared_measures(ctx, CURRENT_STATE_FUNCTION),
-        evidence_requirements=(CAUSE_NOT_ESTABLISHED, requirement),
-    )
-    return OperatorResult(specs=(spec,), limitations=("cause_not_established", limitation))
 
 
 def _stated_window(goal: FormGoal, ctx: CompileContext) -> tuple[int, str, str] | str:

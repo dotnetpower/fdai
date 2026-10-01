@@ -104,7 +104,11 @@ _REQUIRED_FUNCTIONS: Mapping[tuple[GoalLevel, GoalOperation], frozenset[str]] = 
     (GoalLevel.INSTANCE, GoalOperation.LOOKUP): frozenset({"query.resource_current_state"}),
     (GoalLevel.INSTANCE, GoalOperation.HISTORY): frozenset({"query.resource_change_activity"}),
     (GoalLevel.INSTANCE, GoalOperation.EXPLAIN_CAUSE): frozenset(
-        {"query.resource_current_state", "query.resource_change_activity"}
+        {
+            "query.resource_current_state",
+            "query.resource_state_transitions",
+            "query.resource_change_activity",
+        }
     ),
     (GoalLevel.SCHEMA, GoalOperation.DESCRIBE_SCHEMA): frozenset(
         {"query.ontology_declaration", "query.ontology_relationships"}
@@ -213,7 +217,6 @@ class _Allowed:
         self.health_concepts: set[str] = set()
         self.metric_concepts: set[str] = set()
         self.regions: set[str] = set()
-        # The exact projection a property lookup must read, recomputed from its bindings.
         self.property_fields: tuple[str, ...] | None = None
         self.relation_object_type = False
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
@@ -555,7 +558,6 @@ def _coverage_violations(
         and goal.measure is not None
         and goal.measure.kind is MeasureKind.METRIC
     ):
-        # A metric is read only by the metric reader, never answered as a current state.
         required = frozenset({METRIC_READER})
         if functions != required:
             violations.append("sem_metric_read_differs")

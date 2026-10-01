@@ -185,6 +185,9 @@ operations, and never names a cause.
 5. Release through V-CLAIM. A `predictive_precedence` grade renders a graded hypothesis, never a
    definitive cause, and no hypothesis releases before the verified answer authoring in the
    [Promotion Program](ontology-reasoning-promotion-program.md#p3-verified-answer-authoring).
+Local implementation now reads state-transition change points in causal context and computes a
+deterministic causal-grade receipt from reviewed mechanism evidence and refutation accounting. It
+still renders causal context below `predictive_precedence` and does not claim the live exit.
 
 **Exit:** a why question about a state change lists the change point and every operation in its
 window. No answer states a cause below `predictive_precedence`, and a single temporal coincidence

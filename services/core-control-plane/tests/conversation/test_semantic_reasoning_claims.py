@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from fdai.core.conversation.causal_grade_receipts import causal_grade_receipt
 from fdai.core.conversation.semantic_reasoning_claims import (
     ComposedAnswer,
     GoalEvidence,
@@ -207,6 +208,66 @@ def test_negative_and_causal_claims_need_closed_population_and_causal_evidence()
 
     assert "negative_claim_without_closed_population:c1" in violations
     assert "cause_without_causal_evidence:c2" in violations
+
+
+def test_causal_claim_requires_predictive_precedence_grade_receipt() -> None:
+    from tests.conversation.test_causal_grade_receipts import _mechanism
+
+    text = "The deployment is a predictive hypothesis."
+    answer = ComposedAnswer.model_validate(
+        {
+            "text": text,
+            "claims": [
+                {
+                    "id": "c1",
+                    "kind": "cause_hypothesis",
+                    "span": {"start": 0, "end": len(text)},
+                    "refs": [{"goal": "g1", "node": "causal"}],
+                    "proposition": {
+                        "modality": "hypothesis",
+                        "causal_class": "causal_hypothesis",
+                    },
+                }
+            ],
+        }
+    )
+    association = causal_grade_receipt(
+        mechanism=_mechanism(),
+        repeated_sample_count=1,
+        reverse_direction_checked=True,
+        confounder_checked=True,
+        complete_windows=True,
+        mechanism_evidence_refs=("evidence:mechanism",),
+        refutation_refs=("evidence:refutation",),
+    )
+    predictive = causal_grade_receipt(
+        mechanism=_mechanism(),
+        repeated_sample_count=3,
+        reverse_direction_checked=True,
+        confounder_checked=True,
+        complete_windows=True,
+        mechanism_evidence_refs=("evidence:mechanism",),
+        refutation_refs=("evidence:refutation",),
+    )
+
+    below = _verdict(
+        answer,
+        _evidence(
+            causal_grade_receipts=(association,),
+            tables={"causal": QueryTable(rows=(), complete=True)},
+        ),
+    )
+    accepted = _verdict(
+        answer,
+        _evidence(
+            causal_grade_receipts=(predictive,),
+            tables={"causal": QueryTable(rows=(), complete=True)},
+        ),
+    )
+
+    assert "cause_without_causal_evidence:c1" in below
+    assert "proposition_causal_class_unbacked:c1" in below
+    assert accepted == ()
 
 
 def test_required_limitations_and_unavailable_goals_are_enforced() -> None:
