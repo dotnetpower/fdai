@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 960ceb34ca4b175ec89a7c70aa8fa3eb21b93336
+translation_source_sha: b7699f76e25933927d7a8893cc6135b293339271
 translation_revised: 2026-10-01
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -292,6 +292,7 @@ Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타�
 커서를 읽을 수 있지만, 이 커서는 보고 체계 상태, 승인 근거, 경로 지정 또는 권한에 들어갈 수
 없습니다. Core wheel 인벤토리에 전용 인벤토리 매니페스트 도우미를 포함해도 보고 체계 의존성이
 생기지 않습니다. 유일한 비코드 구성원인, 라이선스를 검증하는 업스트림 무결성 공개 키도 보고 체계
+의존성이 아닙니다. wheel의 런타임 모듈 인벤토리에 새로 포함된 런타임 Trial 활성화 작성자도 보고 체계
 의존성이 아닙니다.
 Operator 인시던트 주의 및 observer 배포 projection 회귀 테스트는 각각 Operator 서비스 테스트
 묶음에 정확히 한 번만 속하며, 이 테스트 소유권은 report-line 런타임 경로를 추가하지 않습니다.

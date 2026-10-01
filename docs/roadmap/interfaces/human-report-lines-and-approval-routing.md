@@ -300,7 +300,8 @@ worker extracts candidates but cannot approve them. Its shared PostgreSQL store 
 generation-bound inventory invalidation cursor, but that cursor cannot enter report-line state,
 approval evidence, routing, or authority. The Core wheel inventory may include the dedicated
 inventory-manifest helper without making it a report-line dependency. Its only non-code member,
-the packaged upstream integrity public key that verifies licenses, is not one either.
+the packaged upstream integrity public key that verifies licenses, is not one either, and neither
+is the runtime Trial activation writer that the wheel's runtime-module inventory now lists.
 The Operator incident-attention and observer-deployment projection regressions each belong to the
 Operator service suite exactly once; this test ownership does not add a report-line runtime path.
 A control-plane Deployment Preflight toggle signal reaches Forseti without an ActionType, because

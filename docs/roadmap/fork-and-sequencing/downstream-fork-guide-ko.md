@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 1b29285627f945f739458b37656fc4f5fca81d5f
+translation_source_sha: bc44617cd6e732d13b492101093652f968edeadd
 translation_revised: 2026-10-01
 ---
 
@@ -93,8 +93,8 @@ repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 �
 기록을 보존해야 합니다. 다른 설치에 바인딩된 기록을 제공하는 포크는 어떤 권한도 받지 못하며,
 런타임 적용은
 포크가 제공하는 검사가 아니라 공용 라이선스 사용권 판정기를 통해 이뤄집니다. 영속 Trial
-저장소는 이미 있으며, 배포 중 초기화와 Core 구성은
-[소스 배포](../deployment/source-deployment-ko.md)의 남은 과제입니다.
+저장소, 그 Core 구성, 고정 시각 활성화 작성자는 이미 있으며, 설치 바인딩 제공과 배포 중 그
+작성자 호출은 [소스 배포](../deployment/source-deployment-ko.md)의 남은 과제입니다.
 
 선택적 버티컬 패키지도 포크 경계와 독립적입니다. 예를 들어
 [`fdai-cost-governance`](../architecture/finops-package-architecture-ko.md)는 검토된 업스트림
@@ -165,9 +165,9 @@ promotion 또는 실행 권한을 선택할 수 없습니다.
 ## 3. 유일한 강한 규칙
 
 [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt)에 나열된 경로는 편집하지
-마세요. Core, composition, 공유 계약과 프로바이더, 에이전트, 기능 라이선싱 런타임 연결과 trust
-패키지, 스키마 및 저장소 지침의 definition은 업스트림이 소유합니다. 포크는 자체 패키지에서 경계를
-통해 구현, 카탈로그 항목 및 overlay를 추가합니다.
+마세요. Core, composition, 공유 계약과 프로바이더, 에이전트, 기능 라이선싱 런타임 연결, 영속 Trial
+저장소와 활성화 작성자, trust 패키지, 스키마 및 저장소 지침의 definition은 업스트림이 소유합니다.
+포크는 자체 패키지에서 경계를 통해 구현, 카탈로그 항목 및 overlay를 추가합니다.
 
 [포크 커스터마이제이션 skill](../../../.github/skills/fork-customization/SKILL.md)을 결정 절차로
 사용하세요. 경계가 없으면 업스트림 이슈를 열거나 포크 로컬 wrapper를 조립합니다. Definition을

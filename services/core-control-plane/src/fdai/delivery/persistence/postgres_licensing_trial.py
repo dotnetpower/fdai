@@ -16,6 +16,7 @@ which the resolver treats as no capability; it never means "activate now on read
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any
@@ -135,3 +136,54 @@ def _record(row: tuple[Any, ...]) -> TrialRecord:
 
     installation, deployment, activated, observed, revision, blocked = row
     return TrialRecord(installation, deployment, activated, observed, int(revision), bool(blocked))
+
+
+Connect = Callable[..., Awaitable[Any]]
+
+
+class PostgresTrialStore:
+    """`TrialStore` that commits one compare-and-set observation per call.
+
+    `LicenseEntitlementAuthority.resolve` is synchronous, so every caller runs it
+    off the event loop; the execution gate uses a worker thread. Each call opens its
+    own short-lived loop and connection there. Called on a thread that already runs
+    an event loop, it raises, and the resolver treats that as unavailable storage.
+    """
+
+    def __init__(
+        self,
+        *,
+        dsn: str,
+        statement_timeout_ms: int = 5_000,
+        connect_timeout_s: int = 5,
+        connect: Connect | None = None,
+    ) -> None:
+        if not dsn.strip():
+            raise ValueError("Trial storage requires a state-store DSN")
+        if statement_timeout_ms <= 0 or connect_timeout_s <= 0:
+            raise ValueError("Trial storage timeouts must be positive")
+        self._dsn = dsn
+        self._statement_timeout_ms = int(statement_timeout_ms)
+        self._connect_timeout_s = int(connect_timeout_s)
+        self._connect: Connect = connect or psycopg.AsyncConnection.connect
+
+    def observe(self, *, now: datetime) -> TrialRecord | None:
+        """Observe the Trial at ``now`` and return the committed record."""
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self._observe(now))
+        raise RuntimeError("Trial storage must be observed off the event loop")
+
+    async def _observe(self, now: datetime) -> TrialRecord | None:
+        connection = await self._connect(self._dsn, connect_timeout=self._connect_timeout_s)
+        async with connection, connection.transaction():
+            return await observe_trial(
+                connection=connection,
+                set_statement_timeout=self._set_statement_timeout,
+                now=now,
+            )
+
+    async def _set_statement_timeout(self, connection: psycopg.AsyncConnection[Any]) -> None:
+        await connection.execute(f"SET LOCAL statement_timeout = {self._statement_timeout_ms}")

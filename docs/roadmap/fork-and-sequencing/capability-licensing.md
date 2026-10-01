@@ -59,9 +59,14 @@ and unreachable storage each deny rather than grant. Missing or inconsistent ret
 never open a new window: the runtime denies, and only a deployment run re-creates a missing record
 at its anchored activation time.
 
-The store commits observations with a compare-and-set on the complete previous revision. Writing
-the first record at installation time and consulting the store from Core composition are still
-open, so a keyless installation remains observation-only until both land.
+The store commits observations with a compare-and-set on the complete previous revision. Core
+composition consults it whenever the deployment supplies `FDAI_INSTALLATION_BINDING`,
+`FDAI_LICENSE_DEPLOYMENT_BINDING`, and the state-store DSN. Each acting decision observes the store
+in a worker thread, away from Core's event loop, and an invalid or incomplete binding composes no
+Trial. The writer `python -m fdai.runtime.licensing_trial_activation` opens the window at the
+supplied anchored time, keeps a retained record unchanged, and refuses a record bound to another
+installation. Supplying the installation binding and invoking that writer during deployment
+bootstrap are still open, so a keyless installation remains observation-only until both land.
 
 The [key-holder installation entitlement](#key-holder-installation-entitlement) removes the Trial
 restriction for one installation; the signed-token 30-day ceiling stays for every token that
@@ -298,6 +303,7 @@ expiration itself does not require one.
 | Status, binding, current-time entitlement resolution | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
 | Runtime signature and local issuer-key verification | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py`, verifying against the packaged `upstream-signing-key.pub` |
 | Runtime Trial binding | `services/core-control-plane/src/fdai/runtime/licensing.py` |
+| Durable Trial store and anchored activation writer | `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py` |
 | Final shared execution ceiling | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | Issuing and self-verification (release-only) | `scripts/deployment/release/issue-license.py`, using Ed25519 from the pinned cryptography dependency and exclusive mode-`0600` output creation |
 | Offline verification for any operator | `fdaictl license inspect`, using the deployment CLI's independent Ed25519 verifier |
@@ -309,7 +315,8 @@ and never imports a crypto backend, a transport, or `fdai.delivery`
 
 Core and the deployment CLI each package a byte-identical copy of
 `security/integrity/upstream-signing-key.pub`, and tests pin both copies to it. The runtime licensing
-binding and the `fdai/delivery/trust/` package, including that copy, belong to the signed framework
+binding, the durable Trial store and its activation writer, and the `fdai/delivery/trust/` package,
+including that copy, belong to the signed framework
 surface.
 
 ## Verifying it in this repository

@@ -24,8 +24,11 @@ services/core-control-plane/src/fdai/shared/providers/
 services/core-control-plane/src/fdai/shared/contracts/
 services/core-control-plane/src/fdai/agents/
 # Capability licensing: the runtime binding, the trust verifier, and the packaged
-# upstream integrity public key that verifies every license and entitlement.
+# upstream integrity public key that verifies every license and entitlement, plus
+# the durable Trial store adapter and the one writer that opens a Trial window.
 services/core-control-plane/src/fdai/runtime/licensing.py
+services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py
+services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py
 services/core-control-plane/src/fdai/delivery/trust/
 rule-catalog/schema/
 .github/instructions/
