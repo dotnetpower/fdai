@@ -89,6 +89,10 @@ Delivery's `ontology_evaluation_execution.py` encloses isolated diagnostic prepa
 calibration/holdout runner in one counted call and deadline budget. It verifies frozen source and
 embedding identities and retains bounded failure evidence. The caller supplies live authorization,
 target attestation and isolated storage; the helper grants no qualification or activation authority.
+The adjacent `ontology_evaluation_evidence.py` owns exclusive private JSONL retention for diagnostics.
+Execution records call intent before dispatch and flushes completed stages before proceeding.
+Persistence failure stops further calls; retained results remain separate from qualification,
+agent-owned generation activation and runtime pointers.
 The existing schema-repair policy recognizes a complete canonical single-kind manifest list before repair; catalog-owned prompt profiles propose that shape without raw-language routing or new authority.
 Document and operational reads keep their independent evidence authorities and exact source scope. Core's frame gate also requires an accepted matching schema intent when judgment was evaluated; a rejected judgment cannot resume through a model-authored declaration list or detail frame.
 Core defines the bounded `query.ontology_instance_candidates` contract with explicit object read sets and authenticated invocation context. Delivery supplies the audited current-index reader and reauthorizes candidate facts against the current graph. The focused `semantic_query_instance_candidates.py` binder shares one source-derived declaration between default release and semantic catalog construction. Bootstrap injects the same controlled-model workers into Pantheon and supervises bounded off-path reconciliation. Missing embedding-space/model-version identity keeps the index unavailable; unqualified semantic ranking remains closed while exact-ID reads retain current graph checks. Candidate output is non-exhaustive and cannot establish absence or execution authority.

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fdai.delivery.catalog_search.ontology_evaluation_evidence import OntologyEvaluationEvidence
 from fdai.delivery.catalog_search.ontology_evaluation_execution import (
     OntologyRetrievalExecutionAbortedError,
     OntologyRetrievalExecutionBudget,
@@ -46,6 +47,7 @@ async def _execute(
     budget: OntologyRetrievalExecutionBudget = _BUDGET,
     expected: str | None = None,
     clock: Callable[[], datetime] | None = None,
+    evidence: OntologyEvaluationEvidence | None = None,
 ) -> OntologyRetrievalExecutionReport:
     return await execute_ontology_retrieval_campaign(
         expected_binding_digest=expected or _plan(harness).binding_digest,
@@ -62,6 +64,7 @@ async def _execute(
         embedder=embedder,
         clock=(lambda: harness.clock.now) if clock is None else clock,
         budget=budget,
+        evidence=evidence,
     )
 
 
