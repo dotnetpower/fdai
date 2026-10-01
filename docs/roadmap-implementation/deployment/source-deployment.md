@@ -13,9 +13,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Keyless source Foundation and managed-host handoff | implemented | `source_azure.py`, `source_foundation.py`, `source_genesis.py`, and the focused source tests and 2026-09-29 live `foundation-apply` row in the [CLI ledger](installable-deployment-cli.md) | Source mode reaches a verified Foundation handoff without any key, then stops with `prebuilt_runtime_artifacts_required` and directs the operator to a signed kit. |
 | Service image build into the deployment registry | not-started | Owner contract only | `azd-up.sh` builds only Core with `az acr build` for the Container Apps public development path, and `source_image_build.py` builds one selected `dev` service. No five-service source build stage exists in the coordinator. |
 | Package-free application continuation | not-started | Owner contract; `source_azure.py` returns `prebuilt_runtime_artifacts_required` | The application stage still consumes kit images, the provider mirror, support wheels, and the Console archive. |
-| Keyless Trial initialization by deployment | not-started | Trial storage and resolver in the [licensing ledger](../fork-and-sequencing/capability-licensing.md) | No deployment step writes the first record, no installation identifier exists, and Core composition does not consult the Trial store, so a keyless installation stays observation-only. |
-| Key-holder installation entitlement | not-started | `license_issue.py` and `azd-up.sh` issue a 30-day `fdai.license.v1` token bound to the image digest | The no-expiry, installation-bound entitlement is defined in the licensing owner but not implemented. |
-| Workstation entitlement-mode selection | in-progress | `license_issue.discover_license_signing_key`; `scripts/deployment/release/check-signing-key.py` | Discovery also reads `FDAI_LICENSE_SIGNING_KEY_FILE` and `~/.config/fdai/license-signing-key.pem`, and an unusable key fails during the application stage instead of before the first Azure effect. |
+| Keyless Trial initialization by deployment | not-started | Trial storage and resolver in the [licensing ledger](../fork-and-sequencing/capability-licensing.md) | No deployment step writes the first record, no installation identifier or anchored creation time exists, and Core composition does not consult the Trial store, so a keyless installation stays observation-only. |
+| Key-holder installation entitlement | not-started | `license_issue.py` and `azd-up.sh` issue a 30-day `fdai.license.v1` token bound to the image digest | The no-expiry, installation-bound entitlement signed with the integrity key is defined in the licensing owner but not implemented. Core still packages the separate `delivery/trust/license-signing-key.pub`, and the runtime licensing binding is outside the signed framework surface. |
+| Workstation entitlement-mode selection | in-progress | `license_issue.discover_license_signing_key`; `scripts/deployment/release/check-signing-key.py` | The Owner selected `secrets/integrity-signing-key.pem` as the only licensing key, but discovery still reads `secrets/license-signing-key.pem`, `FDAI_LICENSE_SIGNING_KEY_FILE`, and `~/.config/fdai/license-signing-key.pem`, the key scan reports no integrity role, and an unusable key fails during the application stage instead of before the first Azure effect. |
+| Trial expiry watermark | not-started | Owner contract only | No Core entitlement-state publication, Operator response stamp, or Console overlay exists, and no watermark path is on the signed framework surface. |
 | Source installation acceptance and teardown | not-started | None | No keyless or key-holder new-subscription receipt and no guarded source-installation teardown exist. |
 
 ### Implementation history
@@ -24,18 +25,21 @@ and resumable work while the roadmap owner remains focused on normative design.
 |------|-------|--------|----------|-----------|
 | 2026-10-01 | in-progress | Adopted the ledger with the owner contract after Constitution Article 1 opened the source path to anyone with a clone: no key selects a durable 30-day Trial, the dedicated license key selects a full installation entitlement, and the path builds images in the deployment instead of a signed kit. Earlier source-path provenance stays in the CLI, runtime, Genesis, and licensing ledgers and was not copied. Their kit, appliance, publication, and tenant-build-removal items were superseded and replaced by the ordered plan below. | `current change`; `docs/roadmap/deployment/source-deployment.md`; `docs/roadmap/architecture/fdai-constitution.md`; scope rows above cite the current source | Complete the work packages below in order. |
 | 2026-10-01 | in-progress | Added the per-checkpoint approval gate to WP1. `source_azure.py` stops at the runner-image, Foundation apply, runner enrollment, and Foundation state checkpoints for a separate prompt, or returns for an explicit approval file, while Article 1 lets the invocation approve the plan it shows and confirms only deletion or replacement. | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/source_azure.py` | Implement WP1 with the approval change. |
+| 2026-10-01 | in-progress | Applied three Owner decisions to the plan through a Constitution Article 1 amendment. The deployment is one command line that also clones the checkout. `secrets/integrity-signing-key.pem` replaces the separate license key pair as the only licensing key. An ended Trial or any other licensing denial shows a persistent Console watermark that no setting, data change, or redeployment hides, whose code joins the signed framework surface. WP1, WP4, and WP5 absorb the key and anchoring changes, and WP9 adds the watermark. | `current change`; owner and [licensing owner](../../roadmap/fork-and-sequencing/capability-licensing.md#trial-expiry-watermark); `check-signing-key.py --scan secrets` reports no integrity role today | Implement WP1 to WP5 and WP9, then retain WP6 receipts. |
 
 ### Remaining work
 
 - [ ] **WP1 - One entry point.** Make bare `fdai-up.sh` select `fdaictl provision azure --source`
   for its own checkout, remove the wrapper's kit build and `--signing-key` option, and select the
-  entitlement mode on the workstation before the first Azure effect. Limit key discovery to
-  `secrets/license-signing-key.pem` and the explicit `--license-signing-key` option. Let the
-  invocation approve each plan it shows by binding the exact plan digest internally, and keep one
-  typed confirmation only for deleting or replacing an existing resource, replacing the
-  per-checkpoint prompts and the noninteractive `--approval-file` requirement. Exit: wrapper
-  and CLI tests prove that no argument set builds or signs a kit, the bare command reaches source
-  mode, a run that deletes or replaces nothing advances through every checkpoint without an
+  entitlement mode on the workstation before the first Azure effect. Read only the fixed
+  `secrets/integrity-signing-key.pem`, report its integrity role in `check-signing-key.py`, and
+  start the interactive `az login` when no Azure CLI session exists, so the one-line
+  `git clone ... && fdai/scripts/deployment/azure/fdai-up.sh --region <region>` works from any
+  directory. Let the invocation approve each plan it shows by binding the exact plan digest
+  internally, and keep one typed confirmation only for deleting or replacing an existing resource,
+  replacing the per-checkpoint prompts and the noninteractive `--approval-file` requirement. Exit:
+  wrapper and CLI tests prove that no argument set builds or signs a kit, the bare command reaches
+  source mode, a run that deletes or replaces nothing advances through every checkpoint without an
   approval file, and an unusable present key stops with a fixed reason before any Azure call.
 - [ ] **WP2 - Source build stage.** Build the five baseline service images from the pinned
   snapshot with the deployment registry's build service, import pinned dependency images, and read
@@ -48,21 +52,27 @@ and resumable work while the roadmap owner remains focused on normative design.
   `prebuilt_runtime_artifacts_required` redirect. Exit: the source route reaches application
   apply, migrations, catalogs, health, and the second-plan check in focused tests without a kit
   path.
-- [ ] **WP4 - Keyless Trial activation.** Add a Terraform-owned installation identifier, pass the
-  installation and deployment digests to Core, initialize the Trial record during database
-  bootstrap only when none exists, and wire the Trial resolver into Core composition. Exit: focused
-  tests prove first-run initialization, rerun and upgrade without renewal, missing-record denial,
-  and expiry that blocks acting work while observation continues.
-- [ ] **WP5 - Key-holder installation entitlement.** Implement the versioned installation
-  entitlement in the [licensing owner](../../roadmap/fork-and-sequencing/capability-licensing.md#key-holder-installation-entitlement),
+- [ ] **WP4 - Keyless Trial activation.** Add a Terraform-owned installation identifier and
+  creation time, pass the installation and deployment digests to Core, initialize the Trial record
+  during database bootstrap at that anchored creation time only when none exists, and wire the
+  Trial resolver into Core composition. Exit: focused tests prove first-run initialization, rerun
+  and upgrade without renewal, a deleted record re-created with its original activation time,
+  missing-record denial, and expiry that blocks acting work while observation continues.
+- [ ] **WP5 - Integrity-key licensing.** Make the upstream integrity key the only licensing key:
+  Core packages `security/integrity/upstream-signing-key.pub` as its verification key, issuance
+  and the issuer-workstation check read only `secrets/integrity-signing-key.pem`, the separate
+  license key pair and the fork verifier override are removed, and the runtime licensing binding,
+  trust verifier, and packaged key join the signed framework surface. Implement the versioned
+  installation entitlement in the [licensing owner](../../roadmap/fork-and-sequencing/capability-licensing.md#key-holder-installation-entitlement),
   issue it on the workstation, and store it through the existing digest-derived Key Vault file
   input. Exit: issuer, Core, and inspector tests prove exact binding, misbinding, unchanged v1
-  30-day rejection, and no key material in any output.
+  30-day rejection, no key material in any output, and that a signed integrity manifest never
+  verifies as a token or entitlement and the reverse.
 - [ ] **WP6 - Acceptance receipts.** From a clean checkout, retain one keyless and one key-holder
   new-subscription `fdai-up.sh` receipt, each with five service digests tagged `sha-<commit>`,
   migrations, health, entitlement mode, Trial end date when applicable, and a second zero-change
   plan. Add a rerun receipt proving the Trial was not renewed and a key-holder rerun that switches
-  an existing Trial installation to full entitlement.
+  an existing Trial installation to full entitlement and removes the watermark.
 - [ ] **WP7 - Guarded teardown.** Add a source-installation teardown that removes only resources the
   installation owns after one typed confirmation and reads back their absence. Exit: focused tests
   and one live teardown receipt.
@@ -70,3 +80,13 @@ and resumable work while the roadmap owner remains focused on normative design.
   source-mode signed-kit adoption redirect, decide whether `azd-up.sh` is retired or kept as a
   Core-only diagnostic, and update the quickstart and skill. Exit: CLI help and tests expose only
   `--source` and `--offline-kit`, and the documentation names no third installation path.
+- [ ] **WP9 - Trial expiry watermark.** Publish the Core-resolved entitlement state with its
+  observation time, stamp every authenticated Operator API response with the latest state, and
+  render the [watermark](../../roadmap/fork-and-sequencing/capability-licensing.md#trial-expiry-watermark)
+  on every Console route in English and Korean, treating a missing or stale state as not activated.
+  Add the watermark component, the Operator stamp, and their state contract to the signed
+  framework surface. Exit: focused Core, Operator, and Console tests with a controlled clock prove
+  the watermark for an ended Trial, a missing record, a rejected token, and a stale state; its
+  absence for an active Trial and a full entitlement; that no configuration, environment,
+  database, role, or preference value hides it; and a Playwright check shows it above dialogs
+  without blocking input.

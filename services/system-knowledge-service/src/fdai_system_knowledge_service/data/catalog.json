@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:3244230f330b45686d5e7be918fdaab9fa4e5b410b00669041bf48855e455cd2",
+  "catalog_digest": "sha256:c10b91c9e3253a7c3dbd8d5d67399204dba46d05c3fa5d55279b085bbe322ad1",
   "execution_authority": false,
-  "generated_at": "2026-10-01T01:45:45.300080Z",
+  "generated_at": "2026-10-01T03:53:03.066372Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,13 +21,13 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:b737c63cb9f8e7748630c78ea1a3325a2f5fd7c9fe166a07e038a78e387be9e6",
+      "record_digest": "sha256:08a976932f0af17e3ee3ea36b99c8d06f0666e1468ceb2c6601b0c39702e095a",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "47877312dbb01c90cdaebfca546db2be52fc0f22",
-          "line_end": 117,
-          "line_start": 117,
+          "blob_sha": "7b8d0546f3e9f7cfbc91c76075a30dfff9d7295a",
+          "line_end": 123,
+          "line_start": 123,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 3: Agent-driven authority"
@@ -235,13 +235,13 @@
         "What accuracy does FDAI guarantee?",
         "FDAI는 어떤 정확성을 보장하나요?"
       ],
-      "record_digest": "sha256:2cd99b68d96cd634f12f63838607c83a0c5b5f40d30e0b15090a9d621780cffa",
+      "record_digest": "sha256:67c7ac3ef2ff35334e5bf4c6239b5204b982e202c22d75b59d5c3c171f9a1b1f",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "47877312dbb01c90cdaebfca546db2be52fc0f22",
-          "line_end": 90,
-          "line_start": 90,
+          "blob_sha": "7b8d0546f3e9f7cfbc91c76075a30dfff9d7295a",
+          "line_end": 96,
+          "line_start": 96,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 2: Contract-conformant accuracy"

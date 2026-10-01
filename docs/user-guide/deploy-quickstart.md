@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
-description: Deploy FDAI to your own Azure subscription from a clone with one command, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 431d79b756e004b5594b26b8352f0af4f8622e29 }, { source: docs/roadmap/deployment/source-deployment.md, sha: cff95102415eb787b1d26c08fc3d5387ab3619a2 }]
+description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 3a0128a9df77de6e3d40aafeaff8ad2d34acf651 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fa493c7a1f499e59649708839904b9e7e4921dd5 }]
 ---
 
 # Deploy Quickstart
@@ -9,9 +9,10 @@ derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 431
 > **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 You can deploy FDAI to your own Azure subscription from a clone of the repository with one command
-after one interactive Azure sign-in. You don't need a key, a signed kit, a published release, or
-any GitHub setup. Without a license key, the installation runs a 30-day Trial. With the dedicated
-license key in your clone's `secrets/` directory, it receives a full entitlement.
+line after one interactive Azure sign-in. You don't need a key, a signed kit, a published release,
+or any GitHub setup. Without the upstream integrity signing key, the installation runs a 30-day
+Trial and shows an expiry watermark after it ends. With that key at
+`secrets/integrity-signing-key.pem` in your clone, it receives a full entitlement.
 
 Terraform remains the infrastructure source of truth. The deployment command builds the service
 images from your clone in your own registry, shows each plan it applies, moves private data-plane
@@ -27,7 +28,7 @@ Review this read scope in the plan.
 
 | Environment | Start with | What you need |
 |-------------|------------|---------------|
-| Any Azure subscription you can sign in to | Clone the repository, run `az login`, then run `scripts/deployment/azure/fdai-up.sh --region <region>` | A clone. No key, kit, or release |
+| Any Azure subscription you can sign in to | Run `az login`, then one line: `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region <region>` | Nothing else. No key, kit, or release |
 | An Azure VM without internet access | Run `fdaictl provision azure --offline-kit <package>` on that VM | One signed offline package from a key holder |
 
 GitHub Actions tests the repository. It is not part of either deployment path.
@@ -41,6 +42,9 @@ GitHub Actions tests the repository. It is not part of either deployment path.
 >   `scripts/deployment/azure/genesis_approval_prompt.py` produces.
 > - No deployment step starts the Trial yet, so an installation without a token stays
 >   observation-only.
+> - Core still verifies licenses with the separate license key pair, so
+>   `secrets/integrity-signing-key.pem` doesn't select full entitlement yet, and the expiry
+>   watermark doesn't exist yet.
 > - Until those items close, a holder of the offline-package signing key reaches the application
 >   stage only through the interim `fdai-up.sh --source . --signing-key <path>` route, which still
 >   builds a signed kit and will be removed.
@@ -129,14 +133,16 @@ Invalid commands, incomplete arguments, and conflicting artifact sources still r
 
 ### Run the deployment
 
-Run the command from your clone and choose the Azure region:
+Sign in, then run one line that clones the repository and starts the deployment in your chosen
+Azure region:
 
 ```bash
 az login
-scripts/deployment/azure/fdai-up.sh --region koreacentral
+git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region koreacentral
 ```
 
-The wrapper prepares your clone's locked environment and runs
+If you already have a clone, run `scripts/deployment/azure/fdai-up.sh --region koreacentral` from
+its root instead. The wrapper prepares your clone's locked environment and runs
 `fdaictl provision azure --source .` with your options. With an installed CLI, you can run that
 command directly from the clone. The activity stream appears automatically in an interactive
 terminal; add `--progress plain` for line-oriented logs. The private work directory must be outside
@@ -236,23 +242,28 @@ The command selects the entitlement once, on your workstation, before it changes
 
 | Your clone | Your installation | After 30 days |
 |------------|-------------------|---------------|
-| No `secrets/license-signing-key.pem` | Starts one 30-day Trial at first activation | New acting work is blocked; observation, diagnosis, audit, and export continue |
-| The dedicated license key at `secrets/license-signing-key.pem` | Receives a full entitlement bound to this installation | No change |
+| No `secrets/integrity-signing-key.pem` | Starts one 30-day Trial at first activation | New acting work is blocked and an expiry watermark appears; observation, diagnosis, audit, and export continue |
+| The upstream integrity signing key at `secrets/integrity-signing-key.pem` | Receives a full entitlement bound to this installation | No change |
 | A key file that is not usable | Nothing; the command stops before any Azure change | Not applicable |
 
-To check which role each key under `secrets/` satisfies without printing key material, run:
-
-```bash
-python3 scripts/deployment/release/check-signing-key.py --scan secrets
-```
-
-Only the `license-issuer` role selects full entitlement, and the key file must be owner-only
-(`chmod 600`). The offline-package signing key and the integrity key never do. The key never leaves
-your workstation; only the signed entitlement is stored in your Key Vault. Rerunning the command
-never renews a Trial, and a later run with the key upgrades a Trial installation in place.
+The command checks the key before it changes anything. The key file must be owner-only
+(`chmod 600`) and match the committed `security/integrity/upstream-signing-key.pub`; the
+offline-package signing key never selects full entitlement. The key never leaves your workstation;
+only the signed entitlement is stored in your Key Vault. Rerunning the command never renews a
+Trial, even if its record was deleted, and a later run with the key upgrades a Trial installation
+in place.
 
 Entitlement only makes capabilities available. Runtime promotion, risk checks, and human approval
 remain independent controls.
+
+### When the Trial ends
+
+After 30 days, FDAI keeps observing, diagnosing, auditing, and exporting, but new acting work is
+blocked. Every Console page then shows a watermark in the lower-right corner stating that the
+evaluation period has expired, similar to an operating system that isn't activated. You can't
+dismiss the watermark, and no setting, data change, or redeployment turns it off. Only a full
+entitlement removes it, which requires rerunning the deployment with the upstream integrity
+signing key present.
 
 ## Deploy from a signed offline package
 

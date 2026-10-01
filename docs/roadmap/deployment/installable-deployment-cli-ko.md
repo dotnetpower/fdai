@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: f557067f8fa2a15002c2611ce49938a3a45eec89
+translation_source_sha: 3bb8dfaa901df1bc9fa262d10f4c1f17ea3f38f5
 translation_revised: 2026-10-01
 ---
 
@@ -612,8 +612,8 @@ HTTP 상태, 연결 실패, 로컬 경로 충돌, 권한, 저장 공간 부족�
 
 어떤 서명 키도 설치 필수 조건이 아닙니다. 명령은
 [소스 배포](source-deployment-ko.md#사용권-선택)가 정의하는 대로 Azure에 영향을 주기 전에 작업
-스테이션에서 사용권 모드를 선택합니다. 전용 라이선스 키가 없으면 영속 Trial이고, 사용할 수
-있는 키가 있으면 전체 설치 사용권입니다. 사전 발급된 토큰 파일은 고급 입력인
+스테이션에서 사용권 모드를 선택합니다. 무결성 서명 키가 없으면 영속 Trial이고, 사용할 수
+있는 `secrets/integrity-signing-key.pem`이 있으면 전체 설치 사용권입니다. 사전 발급된 토큰 파일은 고급 입력인
 `--trial-token`으로 계속 사용할 수 있습니다. 배포가 Trial을 초기화하기 전까지 토큰이 없는 설치는
 라이선스 비밀을 만들지 않고 관찰 전용으로 시작합니다. 재개한 설치에서 토큰 입력을 생략해도
 이전에 설치한 토큰이 폐기되지는 않습니다. 작업 권한이 없으면 Core는 관찰하고 보고할 수

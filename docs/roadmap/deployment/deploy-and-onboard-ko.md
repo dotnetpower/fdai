@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 431d79b756e004b5594b26b8352f0af4f8622e29
+translation_source_sha: 3a0128a9df77de6e3d40aafeaff8ad2d34acf651
 translation_revised: 2026-10-01
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -192,7 +192,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 다음 고객 독립적 도구를 사용해 두 배포 경로를 반복 실행할 수 있습니다.
 
-- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 [단일 명령 소스 배포](source-deployment-ko.md)입니다. 어떤 clone이든 키 없이 배포하며, 전용 라이선스 키가 없으면 영속 30일 Trial을, 사용할 수 있는 `secrets/license-signing-key.pem`이 있으면 전체 설치 사용권을 선택합니다. 독립적인 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 [단일 명령 소스 배포](source-deployment-ko.md)입니다. 어떤 clone이든 키 없이 배포하며, 무결성 서명 키가 없으면 영속 30일 Trial을, 사용할 수 있는 `secrets/integrity-signing-key.pem`이 있으면 전체 설치 사용권을 선택합니다. 독립적인 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
   명령 실행이 표시하는 각 계획을 승인하고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
   임시 경로인 `--source <checkout> --signing-key <key>`는 여전히 서명된 키트를 빌드하며 [소스 배포 원장](../../roadmap-implementation/deployment/source-deployment.md)에 따라 제거될 예정입니다. 선택한 checkout이 실행 전체를 소유합니다. 해당 checkout의 잠긴 환경을 준비하고 그 안에서 키트를 빌드하며 배포 CLI도 거기에서 실행하므로, 다른 clone에서 호출해도 호출한 쪽 리비전이 대신 들어갈 수 없습니다. 이미 그 checkout이 키트를 결정하므로 `--online`이나 `--offline-kit`를 함께 지정하면 전달하지 않고 거부합니다.
 - [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드나 배포가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. `--scan secrets`는 clone에 전체 사용권을 선택하는 `license-issuer` 키가 있는지 보여 줍니다. 개발 프로필은 오프라인 패키지의 완전 키트와 번들 역할에 서명자 하나를 고정하며, 라이선스 발급자는 별도 키입니다.

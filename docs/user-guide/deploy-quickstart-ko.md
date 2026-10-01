@@ -1,8 +1,8 @@
 ---
 title: 배포 빠른 시작
-description: clone에서 명령 하나로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
+description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: af16d4f5969a0c8a5f5b96c75aed77707d67ceef
+translation_source_sha: eebb80e2337a7ff1c7eb3ef1cd4d1139e9eb993f
 translation_revised: 2026-10-01
 ---
 
@@ -10,10 +10,10 @@ translation_revised: 2026-10-01
 
 > **배포 방식:** [헌법](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
-한 번의 대화형 Azure 로그인 뒤 저장소 clone에서 명령 하나로 FDAI를 자신의 Azure 구독에
-배포할 수 있습니다. 키, 서명된 키트, 게시된 릴리스, GitHub 설정은 필요하지 않습니다. 라이선스
-키가 없으면 설치는 30일 Trial로 동작합니다. clone의 `secrets/` 디렉터리에 전용 라이선스 키가
-있으면 전체 사용권을 받습니다.
+한 번의 대화형 Azure 로그인 뒤 저장소 clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에
+배포할 수 있습니다. 키, 서명된 키트, 게시된 릴리스, GitHub 설정은 필요하지 않습니다. 업스트림
+무결성 서명 키가 없으면 설치는 30일 Trial로 동작하고 Trial이 끝나면 만료 워터마크를 표시합니다.
+clone의 `secrets/integrity-signing-key.pem`에 그 키가 있으면 전체 사용권을 받습니다.
 
 Terraform은 인프라 단일 기준으로 유지됩니다. 배포 명령은 clone에서 서비스 이미지를 자신의
 레지스트리에 빌드하고, 적용하는 각 계획을 표시하고, 비공개 데이터 플레인 작업을 Virtual Network
@@ -28,7 +28,7 @@ Kubernetes 객체를 읽을 수 있으며 Core, Operator 또는 Thor에는 이 �
 
 | 환경 | 시작 방법 | 필요한 것 |
 |------|-----------|-----------|
-| 로그인할 수 있는 모든 Azure 구독 | 저장소를 clone하고 `az login`을 실행한 뒤 `scripts/deployment/azure/fdai-up.sh --region <region>` 실행 | clone 하나. 키, 키트, 릴리스는 필요 없음 |
+| 로그인할 수 있는 모든 Azure 구독 | `az login`을 실행한 뒤 한 줄 실행: `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region <region>` | 다른 것은 필요 없음. 키, 키트, 릴리스도 필요 없음 |
 | 인터넷에 연결되지 않은 Azure VM | 그 VM에서 `fdaictl provision azure --offline-kit <package>` 실행 | 키 보유자가 만든 서명된 오프라인 패키지 하나 |
 
 GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에도 포함되지 않습니다.
@@ -41,6 +41,8 @@ GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에�
 > - 소스 모드 체크포인트는 `scripts/deployment/azure/genesis_approval_prompt.py`가 만드는
 >   `--approval-file`로만 진행합니다.
 > - 아직 어떤 배포 단계도 Trial을 시작하지 않으므로 토큰이 없는 설치는 관찰 전용으로 남습니다.
+> - Core는 아직 별도 라이선스 키 쌍으로 라이선스를 검증하므로 `secrets/integrity-signing-key.pem`은
+>   아직 전체 사용권을 선택하지 않으며, 만료 워터마크도 아직 없습니다.
 > - 이 항목들이 완료될 때까지 오프라인 패키지 서명 키 보유자는 서명된 키트를 여전히 빌드하는
 >   임시 경로 `fdai-up.sh --source . --signing-key <path>`로만 애플리케이션 단계에 도달하며, 이
 >   경로는 제거될 예정입니다.
@@ -128,14 +130,15 @@ Linux에서는 보통 `~/.local/bin`입니다. 이후에는 복제한 디렉터�
 
 ### 배포 실행
 
-clone에서 명령을 실행하고 Azure 리전을 선택합니다.
+로그인한 뒤 저장소를 clone하고 선택한 Azure 리전에 배포를 시작하는 한 줄을 실행합니다.
 
 ```bash
 az login
-scripts/deployment/azure/fdai-up.sh --region koreacentral
+git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region koreacentral
 ```
 
-래퍼는 clone의 잠긴 환경을 준비하고 지정한 옵션으로 `fdaictl provision azure --source .`를
+이미 clone이 있다면 그 루트에서 `scripts/deployment/azure/fdai-up.sh --region koreacentral`을 대신
+실행합니다. 래퍼는 clone의 잠긴 환경을 준비하고 지정한 옵션으로 `fdaictl provision azure --source .`를
 실행합니다. CLI를 설치했다면 clone에서 그 명령을 직접 실행할 수 있습니다. 대화형 터미널에서는
 활동 내역이 자동으로 표시되며, 줄 단위 로그가 필요하면 `--progress plain`을 추가합니다. 비공개
 작업 디렉터리는 clone 밖에 있어야 합니다.
@@ -231,23 +234,26 @@ Managed Host는 Foundation이 소유한 원격 애플리케이션 백엔드에 �
 
 | clone 상태 | 설치 결과 | 30일 이후 |
 |------------|-----------|-----------|
-| `secrets/license-signing-key.pem` 없음 | 첫 활성화 때 30일 Trial 하나를 시작 | 새 변경 작업은 차단되고 관찰, 진단, 감사, 내보내기는 계속됨 |
-| `secrets/license-signing-key.pem`에 전용 라이선스 키 있음 | 이 설치에 바인딩된 전체 사용권을 받음 | 변화 없음 |
+| `secrets/integrity-signing-key.pem` 없음 | 첫 활성화 때 30일 Trial 하나를 시작 | 새 변경 작업은 차단되고 만료 워터마크가 나타나며, 관찰, 진단, 감사, 내보내기는 계속됨 |
+| `secrets/integrity-signing-key.pem`에 업스트림 무결성 서명 키 있음 | 이 설치에 바인딩된 전체 사용권을 받음 | 변화 없음 |
 | 사용할 수 없는 키 파일 | 없음. Azure를 바꾸기 전에 명령이 멈춤 | 해당 없음 |
 
-키 자료를 출력하지 않고 `secrets/` 아래 각 키가 충족하는 역할을 확인하려면 다음을 실행합니다.
-
-```bash
-python3 scripts/deployment/release/check-signing-key.py --scan secrets
-```
-
-`license-issuer` 역할만 전체 사용권을 선택하며 키 파일은 소유자 전용(`chmod 600`)이어야 합니다.
-오프라인 패키지 서명 키와 무결성 키는 전체 사용권을 선택하지 않습니다. 키는 작업 스테이션을
-떠나지 않으며 서명된 사용권만 Key Vault에 저장됩니다. 명령을 다시 실행해도 Trial은 갱신되지
-않으며, 나중에 키를 두고 실행하면 Trial 설치를 그대로 전체 사용권으로 올립니다.
+명령은 무엇이든 바꾸기 전에 키를 확인합니다. 키 파일은 소유자 전용(`chmod 600`)이어야 하고
+커밋된 `security/integrity/upstream-signing-key.pub`와 일치해야 합니다. 오프라인 패키지 서명 키는
+전체 사용권을 선택하지 않습니다. 키는 작업 스테이션을 떠나지 않으며 서명된 사용권만 Key Vault에
+저장됩니다. Trial 기록이 삭제되었더라도 명령을 다시 실행해 Trial이 갱신되지는 않으며, 나중에
+키를 두고 실행하면 Trial 설치를 그대로 전체 사용권으로 올립니다.
 
 사용권은 기능을 사용 가능하게 만들 뿐입니다. 런타임 승격, 위험 검사, 사람 승인은 계속
 독립적인 제어입니다.
+
+### Trial이 끝나면
+
+30일이 지나면 FDAI는 관찰, 진단, 감사, 내보내기를 계속하지만 새 변경 작업은 차단합니다.
+그때부터 모든 Console 페이지는 정품 인증되지 않은 운영 체제처럼 오른쪽 아래 모서리에 평가
+기간이 만료되었다는 워터마크를 표시합니다. 워터마크는 닫을 수 없으며 설정, 데이터 변경, 재배포로
+끌 수도 없습니다. 전체 사용권만 워터마크를 없애며, 그러려면 업스트림 무결성 서명 키가 있는
+상태에서 배포를 다시 실행해야 합니다.
 
 ## 서명된 오프라인 패키지로 배포
 

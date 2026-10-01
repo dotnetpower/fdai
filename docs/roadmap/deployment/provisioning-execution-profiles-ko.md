@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: d8a86d786b4080c6f1beee4c467d29a7b00b03ed
+translation_source_sha: 7aa945e8ccb5f1cc8df5de677858ba7292a9c93a
 translation_revised: 2026-10-01
 ---
 # 프로비저닝 실행 프로파일
@@ -117,7 +117,9 @@ Foundation이 실행기 VNet의 Blob 영역 링크를 이미 소유하면 집중
 신원 및 전송 실패에는 고정된 진단 메시지를 사용하며 원시 OS 및 자식 프로세스 예외의 명령
 인자나 경로를 출력하지 않습니다. 효과 결과가 불명확하면 여전히 보존된 상태를 검토해야 합니다.
 
-명령은 명시적 옵션 또는 문서화된 사용자 구성 경로에서 운영자 소유 mode-`0600` license issuer
+목표 동작은 [소스 배포](source-deployment-ko.md#사용권-선택)가 정의하는 대로
+`secrets/integrity-signing-key.pem`으로 사용권 모드를 선택하는 것입니다. 그전까지 명령은
+명시적 옵션 또는 문서화된 사용자 구성 경로에서 운영자 소유 mode-`0600` license issuer
 key를 찾습니다. 키가 있으면 키를 복사하지 않고 배포 및 이미지에 연결된 token을 발급합니다.
 미리 발급된 Trial token을 제공하면 같은 검증 및 전달 경로를 사용합니다. 둘 다 없으면 license
 secret을 만들지 않고 관찰 전용 모드로 배포를 완료합니다. Token은 Bastion 표준 입력으로

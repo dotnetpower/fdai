@@ -132,7 +132,9 @@ budget and checks expiry after I/O. The underlying tunnel retains its own bounde
 Identity and transport failures use fixed diagnostics; raw OS and subprocess exceptions never
 render command arguments or paths. Unknown effect outcomes still require retained-state review.
 
-The command discovers an operator-held mode-`0600` license issuer key from an explicit option or the
+The target selects the entitlement mode from `secrets/integrity-signing-key.pem`, as
+[source deployment](source-deployment.md#entitlement-selection) defines. Until that lands, the
+command discovers an operator-held mode-`0600` license issuer key from an explicit option or the
 documented user configuration path. When the key exists, it issues a deployment- and image-bound
 token without copying the key. A supplied pre-issued Trial token follows the same verification and
 transfer path. When neither is present, deployment completes in observation-only mode without

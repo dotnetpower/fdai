@@ -614,12 +614,12 @@ A control-only repair can reuse a verified kit through a [signed deployment-cont
 
 No signing key is an installation prerequisite. The command selects the entitlement mode on the
 workstation before any Azure effect, as [source deployment](source-deployment.md#entitlement-selection)
-defines: no dedicated license key means the durable Trial, and a usable key means a full
-installation entitlement. A pre-issued token file remains an advanced `--trial-token` input. Until
-the Trial is initialized by deployment, an installation without a token starts observation-only
-without creating a license secret. Omitting a token on a resumed installation does not revoke one
-previously installed. Without action authority, the Core can observe and report but cannot execute
-managed-resource actions.
+defines: no integrity signing key means the durable Trial, and a usable
+`secrets/integrity-signing-key.pem` means a full installation entitlement. A pre-issued token file
+remains an advanced `--trial-token` input. Until the Trial is initialized by deployment, an
+installation without a token starts observation-only without creating a license secret. Omitting a
+token on a resumed installation does not revoke one previously installed. Without action
+authority, the Core can observe and report but cannot execute managed-resource actions.
 
 A token never grants deployment or runtime authority by itself. Promotion state, risk policy,
 human approval, executor identity, and effect verification remain separate controls.

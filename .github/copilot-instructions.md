@@ -103,9 +103,9 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    post-validation phase. Local checks are preflight, not complete GitHub Actions parity; CI-only
    jobs and the exact pushed-SHA environment remain authoritative. FDAI installation follows only the
    two [deployment distribution](../docs/roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)
-   paths: a one-command source deployment from any local checkout, which runs a 30-day Trial unless
-   the dedicated license key selects full entitlement, or a signed offline package. Neither requires
-   a protected branch, CI result, published artifact, or attestation.
+   paths: a one-line source deployment from any local checkout, which runs a 30-day Trial unless
+   the upstream integrity signing key selects full entitlement, or a signed offline package. Neither
+   requires a protected branch, CI result, published artifact, or attestation.
    Explicit deployment authorization permits entering the applicable deployment path. Delivery authorization never
    selects a tenant, subscription, environment, or exact Terraform plan and never supplies a secret.
    For coding-session operations, an authenticated Owner's explicit request for a development action
