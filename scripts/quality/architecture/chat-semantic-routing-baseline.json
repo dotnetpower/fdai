@@ -191,6 +191,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/agents/_framework/forseti_quality_runtime.py",
+      "disposition": "retain",
+      "owner": "pantheon-introspection",
+      "reason": "Retains exact action identifiers and structured semantic intent tokens for read-only judgment projection.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/agents/_framework/runtime_conversation.py",
       "disposition": "retain",
       "owner": "pantheon-runtime",
@@ -202,13 +209,6 @@
       "disposition": "retain",
       "owner": "bragi-conversation",
       "reason": "Retains exact ownership validation and bounded projection of model-selected canonical tool ids.",
-      "issue": 252
-    },
-    {
-      "path": "services/core-control-plane/src/fdai/agents/forseti.py",
-      "disposition": "retain",
-      "owner": "pantheon-introspection",
-      "reason": "Retains exact action identifiers and structured semantic intent tokens for read-only judgment projection.",
       "issue": 252
     },
     {

@@ -214,7 +214,8 @@ projection. That value remains separate from the stable principal id and cannot 
 evidence, source identity, or authorization decisions.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
 The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
-It creates no runtime-call witness, graph edge, provider observation, or execution authority.
+The Owner-only ordered poison-halt clear request uses the same allowlisted logical-topic multiplexing.
+Neither request creates a runtime-call witness, graph edge, provider observation, or execution authority.
 
 Protected service deployment first consumes the platform-owned runtime-call binding. After an
 Operator state migration disables the legacy platform module, that output can be absent while both

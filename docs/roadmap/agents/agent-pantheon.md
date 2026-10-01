@@ -47,11 +47,7 @@ The org chart shows reporting lines; this diagram shows data flow. Sensing and s
 Var and Saga preserve stable document HIL idempotency, and Saga persists gated and terminal audit. Cloud-reference packages require independent Var approval even with a valid signature; see [Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md).
 Workflow requests preserve bounded `workflow_action` lineage, including a positive attempt number, through Huginn, Forseti, and Thor. Thor preserves an action identifier only when the Verdict supplies one, never invents it from correlation, and uses an authority-free `_framework` helper for bounded ActionRun lineage validation.
 A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan. Forseti resolves it through an injected source and preserves the same Verdict-to-ActionRun path after strict validation. Lineage and proposals provide attribution and evidence only, never change quorum, mode, judgment, approval, or execution authority. Norns proposes to Mimir; Odin arbitrates conflicts before judgment.
-Var approval, Vidar recovery, Saga handoff, and Norns learning also preserve durable idempotency and restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
-Bragi-owned handoff escalation and post-turn review publications are retained in a durable outbox
-before broker publication. Recovery republishes the same idempotency key and marks the row
-published only after the broker publish returns, so conversational delivery never reports success
-from an uncommitted publication.
+Var approval, Vidar recovery, Saga handoff, Norns learning, and Bragi handoff and post-turn review publications also preserve durable idempotency and restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
 
 Registered `AnomalyActionSource` bindings resolve exact Heimdall signals into current, inert
 action candidates for Forseti. Incoming action arguments and human-initiator claims are replaced,
@@ -602,20 +598,17 @@ Terminal `ActionRun` publications are audited by Saga after Thor publishes the t
 enforce-mode executor I/O additionally requires Thor's pre-execution Saga audit receipt when
 configured. Shadow terminal success is non-mutating and closes through Saga's post-publication
 `object.audit-entry` path. Audit replay is judge-only: Saga reconstructs past decisions, never
-re-executes.
-`approval_expires_at` is a timestamp on `ActionRun`; expiry is represented by a rejected run with
-expiry evidence rather than a separate `expired` state. `auto` is a verdict/risk vocabulary,
-not an `ActionRun` state. Multi-target rollup and target-attempt details are additive batch
-metadata under §7.4; they do not add lifecycle states.
-Thor records visible terminal `ActionRun` rejections when a resource is already held by an active or
-approval-parked run, or when a second action tries to reuse a correlation with a different
-idempotency key. Those cases no longer disappear into a dead-letter queue.
-Thor also validates verdict risk vocabulary and quorum fields before any execution transition.
-Unknown risk words or malformed quorum values become visible non-executing rejections with
-bounded behavior evidence.
-Heimdall refuses to publish an Anomaly without the required correlation identity. The observer
-records the missing-correlation no-op instead of letting uncorrelated evidence reach incident or
-action consumers.
+re-executes. `approval_expires_at` is a timestamp on `ActionRun`; expiry is represented by a
+rejected run with expiry evidence rather than a separate `expired` state. `auto` is a verdict/risk
+vocabulary, not an `ActionRun` state. Multi-target rollup and target-attempt details are additive
+batch metadata under §7.4; they do not add lifecycle states. Thor records visible terminal
+`ActionRun` rejections when a resource is already held by an active or approval-parked run, or when
+a second action tries to reuse a correlation with a different idempotency key. Those cases no longer
+disappear into a dead-letter queue. Thor also validates verdict risk vocabulary and quorum fields
+before any execution transition. Unknown risk words or malformed quorum values become visible
+non-executing rejections with bounded behavior evidence. Heimdall refuses to publish an Anomaly
+without the required correlation identity. The observer records the missing-correlation no-op
+instead of letting uncorrelated evidence reach incident or action consumers.
 
 ### 7.3 Parameter validation and idempotency
 

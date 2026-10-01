@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 423805c2074a63ac7ae6e74b77715d87a192ab17
+translation_source_sha: 848766beb3f1f6d1b44635e8250d3fc8a046f774
 translation_revised: 2026-10-01
 ---
 # 에이전트 판테온
@@ -51,10 +51,7 @@ Thor(운영)와 Forseti(판단)가 Odin에게 보고합니다. 거버넌스 담�
 Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 게이트 및 최종 감사를 영속화합니다. 클라우드 참조 패키지도 유효한 서명과 별개로 독립 Var 승인을 요구합니다. [클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 Verdict가 제공한 작업 식별자만 보존하고 상관관계에서 만들어 내지 않으며 권한이 없는 `_framework` 도우미로 범위가 제한된 ActionRun 계보를 검증합니다.
 전달 계층의 생성기는 하나의 완전한 운영 계획에 대한 선택적인 인자 결속 실행 제안을 저장합니다. Forseti는 주입된 원본으로 이를 해석하고 엄격한 검증 뒤 같은 Verdict-to-ActionRun 경로를 유지합니다. 계보와 제안은 귀속 및 근거만 제공하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다. Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
-Var 승인, Vidar 복구, Saga 인계, Norns 학습도 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)에 따라 영속 멱등성과 재시작 상태를 보존합니다.
-Bragi가 소유한 인계 에스컬레이션과 턴 이후 검토 게시는 broker 게시 전에 영속 보낼 편지함에
-보존됩니다. 복구는 같은 멱등성 키로 다시 게시하고 broker publish가 반환된 뒤에만 행을 게시
-완료로 표시하므로, 대화 전달은 확정되지 않은 게시를 성공으로 보고하지 않습니다.
+Var 승인, Vidar 복구, Saga 인계, Norns 학습, Bragi의 인계 에스컬레이션과 턴 이후 검토 게시도 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)에 따라 영속 멱등성과 재시작 상태를 보존합니다.
 
 등록된 `AnomalyActionSource`는 정확한 Heimdall 신호를 조회해 Forseti에 최신의 비활성 작업
 후보를 제공합니다. 입력된 작업 인자와 사람 요청자 주장은 신뢰하지 않고 교체합니다.
