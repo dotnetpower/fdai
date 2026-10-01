@@ -10,7 +10,10 @@ from typing import Any
 import pytest
 from fdai_deployment_cli import standalone_trial_activation as activation
 from fdai_deployment_cli.contracts import canonical_digest
-from fdai_deployment_cli.standalone_catalog_checkpoint import run_post_application_checkpoints
+from fdai_deployment_cli.standalone_catalog_checkpoint import (
+    PostApplicationReceipts,
+    run_post_application_checkpoints,
+)
 
 _INSTALLATION = "1" * 64
 _ANCHOR = "2026-09-01T08:30:00Z"
@@ -222,3 +225,13 @@ def test_aks_opens_the_trial_before_the_initial_inventory(
     expected = ["activate-trial"] if activated else []
     assert calls == [*expected, "initial-inventory", "catalog-review"]
     assert (receipts.trial_activation is not None) is activated
+    assert receipts.trial_open is activated
+
+
+@pytest.mark.parametrize("closed", ["window_ended", "clock_blocked"])
+def test_an_ended_or_untrusted_trial_window_is_not_reported_open(closed: str) -> None:
+    trial = {"window_ended": False, "clock_blocked": False, closed: True}
+
+    receipts = PostApplicationReceipts(inventory={}, catalog_review={}, trial_activation=trial)
+
+    assert receipts.trial_open is False

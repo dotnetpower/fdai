@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 5306e28fabf89afd5de58233122aded59d03707c
+translation_source_sha: dd51d6d004649d49424e6a09c6e76a8d69c87491
 translation_revised: 2026-10-01
 ---
 # 런타임 배포 프로파일
@@ -627,6 +627,16 @@ Core에 `FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제�
 Core Trial 작성자를 한 번 실행하고 digest로 묶인 영수증을 기록합니다. 작성자는 기존 기간을 그대로
 유지하므로, 키 없는 설치는 최초 적용 시점에 시작된 30일 기간을 계속 유지합니다
 ([기능 라이선싱](../fork-and-sequencing/capability-licensing-ko.md#영속적인-무키-trial-목표)).
+배포 영수증은 다시 읽은 기간이 신뢰할 수 있는 시계 기준으로 열려 있을 때만
+`license_mode=trial`을 보고합니다.
+
+배포 운영자가 업스트림 무결성 서명 키를 보유하면 배포 바인딩 단계가 설치 바인딩도 함께
+반환합니다. 그러면 기능 단계는 30일 토큰 대신, 해당 설치와 배포에 묶인 만료 없는 설치
+자격을 발급합니다. 관리 호스트는 이 자격을 검증하고, 고정된 `fdai-capability-license` Key
+Vault 비밀에 기록한 뒤 다시 읽어 확인합니다. AKS Core는 이 값을 CSI로 마운트된
+`FDAI_LICENSE_TOKEN` 비밀 환경 변수로 받습니다. Core ID는 이미 해당 볼트를 읽을 수 있으므로
+새 역할이 필요하지 않습니다. Container Apps의 키 보유자는 이미지에 묶인 30일 토큰을 계속
+사용합니다.
 
 ## 배포 페이로드
 

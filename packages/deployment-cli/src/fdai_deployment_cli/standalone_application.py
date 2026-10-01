@@ -29,17 +29,12 @@ from fdai_deployment_cli.deadline_transport import DeadlineTransport
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, archive_verified_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
-from fdai_deployment_cli.license import inspect_license
-from fdai_deployment_cli.license_issue import (
-    discover_license_signing_key,
-    issue_deployment_license,
-)
+from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.target import compute_target_binding
-from fdai_deployment_cli.trust_roots import license_public_key_pem
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SSH_USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
@@ -294,9 +289,11 @@ def deploy_standalone_application(
             timeout=300,
         )
         deployment_binding = str(binding_receipt.get("deployment_binding", ""))
+        installation_binding = str(binding_receipt.get("installation_binding", ""))
         if (
             binding_receipt.get("terraform_name_verified") is not True
             or re.fullmatch(r"[0-9a-f]{64}", deployment_binding) is None
+            or re.fullmatch(r"[0-9a-f]{64}", installation_binding) is None
         ):
             raise ValueError("standalone deployment binding is not verified")
         begin_stage("images")
@@ -359,10 +356,12 @@ def deploy_standalone_application(
                 tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
             _require_receipt(database_receipt, "database")
         begin_stage("capability")
+        aks = selected_runtime.runtime_platform.value == "aks"
         token = _license_token(
             trial_token=trial_token,
             image_digest=core_digest,
             deployment_binding=deployment_binding,
+            installation_binding=installation_binding if aks else None,
             work_ref=work_ref,
         )
         license_mode = "observation-only"
@@ -377,6 +376,7 @@ def deploy_standalone_application(
                     core_digest,
                     "--deployment-binding",
                     deployment_binding,
+                    *(("--installation-binding", installation_binding) if aks else ()),
                 ),
                 timeout=300,
                 input_text=token,
@@ -389,7 +389,11 @@ def deploy_standalone_application(
                 raise ValueError("standalone license installation was not verified")
             license_mode = "licensed"
         else:
-            progress_detail("Observation-only mode; no license secret is installed")
+            progress_detail(
+                "No capability token; the keyless Trial opens after the application deploys"
+                if aks
+                else "Observation-only mode; no license secret is installed"
+            )
         begin_stage("migration")
         progress_detail("Running database migrations and materializing catalogs")
         migration_receipt = _remote_json(
@@ -464,6 +468,8 @@ def deploy_standalone_application(
         )
         initial_inventory = post_application.inventory
         catalog_review = post_application.catalog_review
+        if license_mode == "observation-only" and post_application.trial_open:
+            license_mode = "trial"
         begin_stage("verification")
         progress_detail("Checking service health and a second zero-change Terraform plan")
         verification = _remote_json(
@@ -711,37 +717,6 @@ def _wait_for_approval_input(timeout_seconds: int) -> None:
         raise ValueError("standalone approval input is unavailable") from None
     if not readable:
         raise TimeoutError("standalone approval input timed out; no approval was granted")
-
-
-def _license_token(
-    *,
-    trial_token: Path | None,
-    image_digest: str,
-    deployment_binding: str,
-    work_ref: str,
-) -> str | None:
-    """Return a verified license token or keep an unlicensed deployment observation-only."""
-
-    issuer = discover_license_signing_key()
-    if issuer is not None:
-        return issue_deployment_license(
-            private_key=issuer,
-            image_digest=image_digest,
-            deployment_binding=deployment_binding,
-            license_id=f"lic-{work_ref}",
-        )
-    token_path = trial_token
-    if token_path is None:
-        return None
-    path = token_path if token_path.is_absolute() else Path.cwd() / token_path
-    token = read_private_bytes(path, max_bytes=8192).decode("ascii")
-    inspect_license(
-        token,
-        public_key_pem=license_public_key_pem(),
-        expected_image_digest=image_digest,
-        expected_tenant_binding=deployment_binding,
-    )
-    return token
 
 
 def _require_receipt(value: dict[str, Any], stage: str) -> None:

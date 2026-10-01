@@ -862,7 +862,7 @@ def test_deployment_binding_uses_terraform_core_app_name(
 
     def terraform_output(infra: Path, name: str) -> str:
         observed.append((infra, name))
-        return "ca-fdai-dev-wus2-core"
+        return {"installation_binding": "1" * 64, "core_app_name": "ca-fdai-dev-wus2-core"}[name]
 
     monkeypatch.setattr(standalone_host, "_terraform_output", terraform_output)
     monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
@@ -872,8 +872,12 @@ def test_deployment_binding_uses_terraform_core_app_name(
         (f"{context['tenant_id']}\0{context['subscription_id']}\0ca-fdai-dev-wus2-core").encode()
     ).hexdigest()
     assert result["deployment_binding"] == expected
+    assert result["installation_binding"] == "1" * 64
     assert result["terraform_name_verified"] is True
-    assert observed == [(tmp_path / "infra", "core_app_name")]
+    assert observed == [
+        (tmp_path / "infra", "installation_binding"),
+        (tmp_path / "infra", "core_app_name"),
+    ]
 
 
 def test_application_state_adoption_pushes_once_and_verifies(

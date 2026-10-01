@@ -25,7 +25,7 @@ from fdai_deployment_cli.license import (
     inspect_installation_entitlement,
     inspect_license,
 )
-from fdai_deployment_cli.private_output import write_private_output
+from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.trust_roots import license_public_key_pem
 
 _ISSUER_KEY = Path("secrets/integrity-signing-key.pem")
@@ -88,6 +88,48 @@ def write_license_token(path: Path, token: str) -> None:
 
     inspect_license(token, public_key_pem=license_public_key_pem())
     write_private_output(path, token)
+
+
+def deployment_license_token(
+    *,
+    trial_token: Path | None,
+    image_digest: str,
+    deployment_binding: str,
+    work_ref: str,
+    installation_binding: str | None = None,
+) -> str | None:
+    """Return the key holder's grant, a verified supplied token, or None for observation-only.
+
+    A key holder whose runtime supplies an installation binding receives the no-expiry
+    installation entitlement; otherwise the key holder keeps the 30-day v1 token.
+    """
+
+    issuer = discover_license_signing_key()
+    if issuer is not None and installation_binding is not None:
+        return issue_installation_entitlement(
+            private_key=issuer,
+            entitlement_id=f"ent-{work_ref}",
+            installation_binding=installation_binding,
+            deployment_binding=deployment_binding,
+        )
+    if issuer is not None:
+        return issue_deployment_license(
+            private_key=issuer,
+            image_digest=image_digest,
+            deployment_binding=deployment_binding,
+            license_id=f"lic-{work_ref}",
+        )
+    if trial_token is None:
+        return None
+    path = trial_token if trial_token.is_absolute() else Path.cwd() / trial_token
+    token = read_private_bytes(path, max_bytes=8192).decode("ascii")
+    inspect_license(
+        token,
+        public_key_pem=license_public_key_pem(),
+        expected_image_digest=image_digest,
+        expected_tenant_binding=deployment_binding,
+    )
+    return token
 
 
 def issue_installation_entitlement(

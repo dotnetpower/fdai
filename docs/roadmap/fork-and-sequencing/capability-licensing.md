@@ -164,8 +164,10 @@ tokens issued to other operators.
 - It grants the complete shipped catalog of the expected distribution.
 - It requires exact installation and deployment binding digests and carries no image digest and
   no `not_after`, so upgrades and restarts keep it valid.
-- It travels like a token: a Key Vault file input under a digest-derived secret name, bound by
-  Core at startup.
+- It travels like a token: the managed host writes it to the fixed `fdai-capability-license` Key
+  Vault secret, reads the exact version back, and Core reads it from `FDAI_LICENSE_TOKEN` at
+  startup. A fixed name keeps one secret reference and one read scope; Key Vault versions keep
+  the history.
 - Any binding mismatch resolves to `misbound`, and the v1 30-day ceiling stays unchanged for
   every token that leaves the key holder's own installations.
 
@@ -175,8 +177,10 @@ is acceptable only because it is useless outside the installation it binds.
 The contract, Core resolution through the shared license authority, workstation issuance, and
 `fdaictl license inspect` support are implemented. Core reads the document from the existing
 license-token input and binds `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`.
-Issuing it during deployment and delivering it through the Key Vault file input remain open, so a
-key-holder deployment still receives the 30-day v1 token until that wiring lands.
+On AKS, a key-holder deployment issues the entitlement during the capability stage and AKS Core
+receives it as a CSI-mounted secret environment. Container Apps Core does not receive the
+installation binding yet, so a Container Apps key-holder deployment still receives the 30-day v1
+token.
 
 ## The token
 
