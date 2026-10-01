@@ -380,6 +380,46 @@ Foundation execution, workload activation, Trial enforcement, and live acceptanc
 readiness remains false until all selected services, identities, migrations, transport, jobs,
 Console authentication, cleanup, and second zero-change plans have been independently verified.
 
+### Source image stage
+
+**Initial design:** Build the runtime images on the managed host from the transferred snapshot with
+a local container engine, then import them like kit archives.
+
+**Critique:** The source path promises no container engine. A host-side build duplicates the
+registry's own build service, and an imported archive digest proves only that bytes moved, not
+which registry run produced them.
+
+**Revised design:** `source_image_stage.run_source_image_stage` drives the deployment registry's
+build service with only Azure CLI and one verified snapshot of one commit:
+
+- A malformed commit, snapshot digest, subscription, or registry name, or a missing service
+  Dockerfile, stops before any call. The registry must exist in the exact subscription in the
+  `Succeeded` state. A missing registry, or a subscription where Azure Container Registry Tasks is
+  not allowed, stops with `source_image_builder_unavailable` before any effect and never falls back
+  to another image source.
+- Before the first effect, an immutable claim binds the commit, snapshot digest, subscription,
+  registry, service list, and dependency pins. A claim or receipt for different inputs stops with
+  `source_image_stage_inputs_changed`.
+- The five baseline services build in canonical order with `az acr build`, tagged `sha-<commit>`.
+  Each digest comes from the run record's output image for exactly that repository, tag, and
+  registry. ClamAV and pgvector are imported with `az acr import` by the digests that the offline
+  kit builder also pins.
+- Every image is read back by digest and by its commit tag, and any mismatch stops with
+  `source_image_build_failed`. Only then does the private receipt bind the seven digests, with
+  `operator-selected-source` provenance, `release_signature_verified=false`, and
+  `deployment_ready=false`.
+- A completed receipt whose own digest verifies permits verification only; an edited receipt stops
+  with `source_image_stage_inputs_changed`. An interrupted stage keeps its claim and repeats
+  its builds on the next run. That rewrites only the stage's own commit tags, and deployment always
+  uses read-back digests.
+- The stage writes only its claim and receipt: no kit, signature, SBOM, provenance statement, or
+  attestation. Command output never reaches its error text.
+
+The stage needs only Azure CLI and the snapshot, so the application continuation can run it on the
+workstation against the clean checkout or on the managed host against the transferred snapshot. It
+runs after the platform apply creates the registry and before any service apply. That continuation
+is not connected yet, so a source run still stops at the application boundary.
+
 ## Operator experience
 
 Install the signed offline Python package with standard tools:
