@@ -16,7 +16,6 @@ import {
   readLocalAuthBypass,
 } from "./local-auth-session";
 import { Shell } from "./components/shell";
-import { EntitlementWatermark } from "./components/entitlement-watermark";
 import { PanelErrorBoundary } from "./components/panel-error-boundary";
 import { ErrorState, PageHeader } from "./components/ui";
 import { setChatAuth } from "./deck/auth";
@@ -70,6 +69,11 @@ interface BackgroundRoute {
 const DeferredCommandDeck = lazy(async () => {
   const module = await import("./deck/deferred-command-deck");
   return { default: module.DeferredCommandDeck };
+});
+
+const EntitlementWatermark = lazy(async () => {
+  const module = await import("./components/entitlement-watermark");
+  return { default: module.EntitlementWatermark };
 });
 
 const SettingsOverlay = lazy(async () => {
@@ -541,7 +545,9 @@ export function App() {
       >
         <DeferredCommandDeck client={client} routeLabel={backgroundPanel.label} />
       </Suspense>
-      <EntitlementWatermark probe={() => client.dataSources()} />
+      <Suspense fallback={null}>
+        <EntitlementWatermark probe={() => client.dataSources()} />
+      </Suspense>
     </ViewContextProvider>
   );
 }

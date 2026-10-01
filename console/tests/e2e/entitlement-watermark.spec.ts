@@ -128,12 +128,16 @@ test("a missing stamp shows the notice after the first-stamp wait", async ({ pag
   await page.clock.install();
   await serveOperator(page, () => null);
   const firstResponse = page.waitForResponse((response) => isProbe(response));
+  // The shell loads the watermark lazily; its first-stamp wait starts when it mounts.
+  const watermarkModule = page.waitForResponse((response) => (
+    response.url().includes("/components/entitlement-watermark")
+  ));
   await page.goto("/labs");
-  await firstResponse;
+  await Promise.all([firstResponse, watermarkModule]);
 
   const watermark = page.locator(".entitlement-watermark");
   await expect(watermark).toHaveCount(0);
-  await page.clock.runFor(10_000);
+  await page.clock.runFor(11_000);
   await expect(watermark).toContainText(NOT_ACTIVATED);
 });
 
