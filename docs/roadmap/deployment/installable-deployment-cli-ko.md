@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: ba276edc27b17dea2400768bd22b4166aa252384
+translation_source_sha: 98f2eb442d5112cf461deb82e2ec025544f569a9
 translation_revised: 2026-10-01
 ---
 
@@ -66,7 +66,8 @@ GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으�
 종료 코드 `2`를 반환하며, 용량 차단은 `3`을 반환합니다. `--prepare-only`는 Azure를 호출하지
 않습니다. `--preflight-only`는 현재 사용자 대상, SKU 제한, x64 아키텍처, 호스트 암호화,
 필수 가용 영역, 자동 확장 최대치와 동시 33퍼센트 추가 노드를 포함한 계열 및 전체 할당량을
-조회합니다. 용량을 예약하거나 Foundation 자원까지 계산하지는 않습니다. 별도의 소스 작업
+조회합니다. `postgres-flex` 프로파일은 지역 PostgreSQL Flexible Server 카탈로그가 PostgreSQL 16을
+제공하는지도 확인합니다. 용량을 예약하거나 Foundation 자원까지 계산하지는 않습니다. 별도의 소스 작업
 디렉터리는 기존 키트 실행 상태를 인수하지 않습니다.
 
 초기 확인 후에는 제한된 공개 가격 조회로 AKS 컴퓨트 부분 비용을 검토하고 Foundation 계획을

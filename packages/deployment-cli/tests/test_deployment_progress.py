@@ -312,6 +312,11 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
     )
     monkeypatch.setattr(standalone_deploy, "acquire_deployment_kit", lambda **_kwargs: kit)
     monkeypatch.setattr(standalone_deploy, "_current_operator_object_id", lambda: "0" * 36)
+    monkeypatch.setattr(
+        standalone_deploy,
+        "inspect_aks_target",
+        lambda **_kwargs: {"state": "feasible", "blockers": []},
+    )
 
     def configure_identity(**_kwargs):
         print("Original identity review remains visible")
