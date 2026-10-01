@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: abd6c799d2457d7bb25e695a0d91632d6e2184c7
+translation_source_sha: c6ab635bcd2486cee8e802fcebe9cf9ac485e2b6
 translation_revised: 2026-10-01
 ---
 
@@ -302,7 +302,9 @@ extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비�
 | 배포 | 정확한 소스, digest, 출처, 승인, 정책 및 최신 근거 | 로컬 캐시는 배포 권한을 부여하지 않습니다. 취약점 근거가 오래되면 같은 digest를 다시 검사할 수 있습니다. |
 
 의존성 잠금 파일 변경은 작업 worktree의 자체 가상 환경처럼 그 잠금 파일로 동기화한 환경에서
-검증합니다. 공유 개발 환경에는 아직 이전 버전이 설치되어 있기 때문입니다.
+검증합니다. 공유 개발 환경에는 아직 이전 버전이 설치되어 있기 때문입니다. 전이 의존성의 보안
+업데이트라면 그 환경에서 해당 패키지나 그 패키지에 직접 의존하는 패키지를 사용하는 저장소 코드의
+집중 테스트를 실행합니다.
 
 로컬 구조 검사기는 전체 내용과 실행 문맥이 일치할 때만 선택적 검증기와 push hook 사이에서
 성공한 결과를 재사용합니다. 더 좁은 의존성 범위가 입증되지 않은 검사는 추적 중인 전체
@@ -314,9 +316,15 @@ extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비�
 이력 검사는 리비전과 참조에도 연결됩니다. 입력이 바뀌면 묶음을 수락하지 않습니다.
 무결성과 외부 근거 검사는 캐시하지 않으며 CI는 자체 실행 환경을 유지합니다.
 `tests-for-diff.sh --run` 뒤의 변경 테스트 실행기도 같은 규칙을 따릅니다. 샤드 통과 결과는
-구조 검사기가 계산하는 내용 식별자, 즉 선택된 테스트와 소스 파일, 잠금 파일, 설치된 환경
-다이제스트, 정확한 pytest 명령이 같을 때만 재사용합니다. 명령만 기록한 이전 표식을 포함해 다른
-식별자로 기록된 통과 결과는 다시 실행합니다.
+하나의 내용 식별자가 같을 때만 재사용합니다. 이 식별자는 선택된 테스트, 해당 소스, 잠금 파일을
+포함한 추적 중인 파일과 무시되지 않은 미추적 작업 트리 파일 전체의 바이트, `uv run`이 선택하는
+프로젝트 환경에 대해 구조 검사기가 계산하되 테스트가 쓰는 바이트코드 캐시는 제외한 설치 환경
+다이제스트, 정확한 pytest 명령, 그리고 인터프리터, pytest, uv, 로캘 변수로 이루어집니다. 명령만
+기록한 이전 표식을 포함해 다른 식별자로 기록된 통과 결과는 다시 실행합니다. 모든 샤드가 끝난 뒤
+작업 트리가 각 파일의 상태 시각까지 그대로이고 환경도 그대로일 때만 통과를 기록합니다. 따라서 실행
+중에 되돌린 작업 트리 변경이나 실행 중에 `uv run`이 동기화한 환경이 있으면 다음 실행까지 아무것도
+기록하지 않습니다.
+식별자를 계산할 수 없으면 재사용하지 않습니다.
 
 문서 변경은 실제로 검토한 번역 파일의 SHA만 갱신합니다. 커버리지 후보 선택에는 기존
 보고서를 참고할 수 있으며, 모듈 하나를 다루는 작업은 전체 기준선 대신 그 모듈을 측정합니다.
@@ -502,7 +510,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 원격 사전 검사 | implemented | `live_preflight/transport.py`, 집중 테스트 6개 | 읽기 시도는 최대 3회이며 영구 오류는 즉시 실패합니다. |
 | 10회 보증 | validated | 13개 라운드, 최종 독립 재검토 및 `d3f5257b9` 중앙 receipt | Low를 초과하는 잔존 발견 사항이 없습니다. |
 | 개발자 검증 권한 | implemented | `.githooks/post-commit`, `.githooks/pre-push`, `scripts/agent/design_context.py`, focused hook 및 dispatcher 테스트 | Commit과 push는 더 이상 로컬 queue receipt에 의존하지 않으며 CI가 push된 SHA의 integration을 소유합니다. |
-| 로컬 우선 검증과 후보 게시 | implemented | 집중 실행기, 경로, 지침, 선택기, 캐시, 대기열, 워크플로 및 Genesis 회귀 테스트와 정적 및 타입 검사 | 로컬 구조 검사 결과는 내용과 실행 입력에 연결됩니다. 집중 게이트 재사용에는 검증된 깨끗한 입력과 최종 일치 확인이 필요합니다. 원격 근거는 독립적으로 유지합니다. |
+| 로컬 우선 검증과 후보 게시 | implemented | 집중 실행기, 경로, 지침, 선택기, 캐시, 변경 테스트 샤드, 대기열, 워크플로 및 Genesis 회귀 테스트와 정적 및 타입 검사 | 로컬 구조 검사 결과와 변경 테스트 샤드 통과는 내용과 실행 입력에 연결됩니다. 집중 게이트 재사용에는 검증된 깨끗한 입력과 최종 일치 확인이 필요합니다. 원격 근거는 독립적으로 유지합니다. |
 
 ### 구현 이력
 
@@ -546,18 +554,16 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-09-29 | implemented | `dev discuss` 상태 확인과 캡처를 복구했습니다. #1418에서 소켓 경로를 줄인 뒤 실행기는 Core와 Operator 소켓을 전체 런타임 식별자로 `.fdai/r` 아래에 바인딩했지만, 명령은 여전히 `.fdai/runtime-diagnostics/<service>.sock`을 찾았으므로 프로브가 살아 있는데도 두 서비스를 사용할 수 없다고 보고했습니다. 이제 명령은 식별자로 바인딩된 최신 후보에게 어떤 서비스가 응답하는지 묻고 기존 경로도 유지합니다. Console 질문을 실행하는 동안 25초 Core 프로필을 캡처한 결과 23초 답변의 대부분이 모델 호출이었고, second reader가 선택자 호출마다 검토된 카탈로그 분할 리프 전체에서 비밀 값을 검사해 이벤트 루프에서 CPU 1.3초와 루프 지연 543ms를 쓰는 것을 찾았습니다. 이제 이 검사는 분할 다이제스트마다 한 번만 실행합니다. | 이전 명령에서 실패하는 `test_status_and_capture_find_an_identity_bound_launcher_socket`, `test_a_reviewed_catalog_shard_is_scanned_once_per_digest`, 두 서비스 모두 true인 실제 `dev-discuss status`, 다이제스트에 바인딩된 25초 캡처. | 없음. |
 | 2026-09-29 | implemented | 개발자가 질문이 왜 그렇게 이해되었는지 볼 수 있도록 `dev discuss`에 내용이 없는 의미 판단 추적을 추가했습니다. Core는 완료된 의미 턴마다 추적 하나를 50개 크기의 프로세스 로컬 버퍼에 보관합니다. 추적에는 라우팅, 각 판단 시도, 근거화 호출, 플래너가 직접 남기는 구조화된 판단 이벤트, 실행된 의도 그래프, 플래너 내부 사유가 포함된 결과, 단계를 가리키는 검토 신호가 들어 있습니다. 모델이 만든 토큰은 검토된 어휘에 속해야 하고, 배포 이름과 세션은 프로세스 로컬 별칭이 되며, 오프셋과 값은 프로세스를 벗어나지 않고, 추적이 없는 패킷은 스키마 1.0.0 전송 형식을 유지합니다. `dev-discuss explain`이 추적을 출력하고 `copilot-export`가 추적을 전달하며, 포함 검토 거부는 이제 포함되지 않은 닫힌 제약 역할만 기록합니다. 구현 전에 설계를 비평했고 발견 8건을 모두 수정했습니다. | `test_decision_traces.py`, `test_development_decisions.py`, `test_dev_discuss.py`의 explain 테스트, `test_an_uncovered_constraint_names_only_its_closed_roles_in_the_rejection_log`, 관련 대화 테스트 1,145개, 추적된 턴 20개를 포함한 실제 Console 실행 2회(거부된 추적 없음, 내보낸 패킷에 테넌트 이름이나 비ASCII 텍스트 없음), 가져온 검토 `sha256:f2be8aca0c1320734a0d781bb2ac4d2ef34cb0e597d5967dcce6774a90845ed0`. | 추적된 오해 패턴은 [추론 컴파일러 원장](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md)에 기록했습니다. |
 | 2026-09-29 | implemented | 로컬 컴파일 답변 라운드를 위해 컴파일된 답변 판단 이벤트를 확장했습니다. 거절된 컴파일은 통과하지 못한 선택 규칙 하나와 배치 수를 기록하고, 무효인 검토는 추출이 검토 역할을 할 수 없는 이유를 인용 없이 기록하며, 형식화된 해석 때문에 보류된 단어 기반 복구 계획은 자체 신호를 남기고, 마지막 form 패스는 닫힌 영역, 형식, 연산, 측정, 필터, 관계, 시간 값과 언급 및 목표 식별자로만 이루어진 내용 없는 형태를 기록합니다. | `test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it`, `test_semantic_reasoning_shape.py`, 거절 및 검토 사유 형식 테스트, 7~10라운드 실제 추적, 가져온 검토 `sha256:a566db4ef38ca7d46ccb47f99761a6496821395a6f0d9c46dae43ee9486df4cc`. | 남은 대화 공백은 [추론 컴파일러 원장](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md)에 기록했습니다. |
-| 2026-10-01 | implemented | 변경 테스트 샤드 통과 marker를 선택된 테스트, 추적된 Python source fallback, lock-file dependency digest, installed environment digest, 정확한 pytest command, 샤드 index 및 count에 바인딩했습니다. 기존 command-only marker, 누락된 입력, 불일치는 이제 cached pass를 보고하지 않고 샤드를 실행합니다. | `current change`; `scripts/automation/run-changed-test-shards.py`; `tests/integration/scripts/test_changed_test_shards.py`; `.venv/bin/python -m pytest -q --no-cov tests/integration/scripts/test_changed_test_shards.py tests/integration/scripts/test_genesis_identity_executor_context.py`; ruff, roadmap tracking, translation, punctuation 및 design-impact 검사. | #1726 범위에 남은 작업은 없습니다. |
+| 2026-10-01 | in-progress | 잠금 파일과 소스가 바뀐 뒤 전체 검사 실행이 캐시된 통과 네 개를 0초 만에 반환한 문제(#1726)에 대해, 재사용하는 변경 테스트 샤드 통과를 구조 검사기의 내용 식별자에 연결하는 설계를 기록했습니다. 실행기 동작은 바꾸지 않았습니다. | `current change`, `docs/roadmap/deployment/developer-workflow-assurance.md`, `docs/roadmap/deployment/developer-workflow-assurance-ko.md` | 내용에 연결된 샤드 표식과 회귀 테스트를 구현합니다. |
+| 2026-10-01 | implemented | 내용에 연결된 변경 테스트 샤드 통과를 구현했습니다(#1726). 표식이 pytest 명령, `PYTHONPATH`, 샤드 번호만 기준으로 삼았기 때문에 소스, 테스트, `uv.lock`이 바뀐 뒤에도 전체 검사를 다시 실행하면 캐시된 통과를 보고했습니다. 이제 표식은 샤드 명령, 인터프리터, pytest, uv, 로캘 변수, 실행기 자체 상태를 제외한 추적 중인 파일과 무시되지 않은 미추적 작업 트리 파일 전체의 바이트, 바이트코드 캐시를 제외한 프로젝트 환경의 구조 검사기 설치 환경 다이제스트에 연결됩니다. 모든 샤드가 끝난 뒤 작업 트리가 각 파일의 상태 시각까지 그대로이고 환경도 그대로일 때만 통과를 기록하며, 식별자를 계산할 수 없으면 통과를 재사용하지 않습니다. | `current change`, `scripts/automation/run-changed-test-shards.py`, `scripts/automation/changed_test_inputs.py`, `scripts/automation/local_validation_inputs.py`, `tests/integration/scripts/test_changed_test_shards.py`, `tests/integration/scripts/test_tests_for_diff.py`, `tests/integration/scripts/test_local_validation_cache.py`. 새 소스, 테스트, 잠금 파일, 의존성, 인터프리터, 변수, 실행 중 변경, 되돌린 변경 사례는 이전 실행기에서 실패합니다. 실제 두 샤드 실행은 변경이 없을 때 두 통과를 모두 재사용했고 소스를 수정한 뒤에는 둘 다 다시 실행했습니다. | 샤드 통과 재사용에 남은 작업은 없습니다. |
 
 ### 남은 작업
 
-- [x] #1726에 따라 `run-changed-test-shards.py`의 재사용되는 changed-test shard pass를 structural
-  runner의 content identity(선택된 테스트와 source, lock file, installed environment digest 및
-  pytest command)에 바인딩했습니다. Exit: 선택된 source file 또는 `uv.lock`을 수정하면 cache miss가
-  발생하고 변경 없는 재실행은 pass를 재사용한다는 regression test가 있습니다. Evidence:
-  `tests/integration/scripts/test_changed_test_shards.py::test_changed_source_file_invalidates_shard_pass`,
-  `tests/integration/scripts/test_changed_test_shards.py::test_changed_lock_file_invalidates_shard_pass`,
-  `tests/integration/scripts/test_changed_test_shards.py::test_legacy_command_only_marker_does_not_reuse_shard_pass`,
-  `tests/integration/scripts/test_changed_test_shards.py::test_unchanged_rerun_reuses_shard_pass`.
+- [x] #1726에 따라 `run-changed-test-shards.py`가 재사용하는 변경 테스트 샤드 통과를 구조 검사기의
+  내용 식별자(선택된 테스트와 소스, 잠금 파일, 설치 환경 다이제스트, pytest 명령)에 연결합니다. 종료
+  조건: 선택된 소스 파일이나 `uv.lock`을 수정하면 캐시가 적중하지 않고, 변경 없이 다시 실행하면 통과를
+  재사용함을 회귀 테스트로 보여 줍니다. 근거: `tests/integration/scripts/test_changed_test_shards.py`,
+  2026-10-01 이력 행에 기록했습니다.
 - [x] 집중 검사와 함께 13개의 독립 비평 라운드를 완료하고 수락 또는 기각된 발견 사항을 위에
   기록했습니다.
 - [x] 중앙 검증이 통합 구현 revision `d3f5257b9`를 수락했습니다.

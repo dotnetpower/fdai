@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Run changed pytest targets in checkpointed deterministic file shards."""
+"""Run changed pytest targets in checkpointed deterministic file shards.
+
+A shard pass marker binds the shard command, the content of every tracked and
+untracked, non-ignored working-tree file, and the installed project environment.
+A pass is reused only while all of them are unchanged. A run records no pass when
+its inputs changed before every shard finished, or when a working-tree change was
+reverted while the shards ran.
+"""
 
 from __future__ import annotations
 
@@ -18,12 +25,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.automation.local_validation_inputs import (  # noqa: E402
-    dependency_digest,
-    digest,
-    git,
-    installed_digest,
-)
+from scripts.automation.changed_test_inputs import InputIdentity, input_identity  # noqa: E402
+
+# Interpreter, pytest, uv, locale, and shard variables change what a shard runs.
+_BOUND_PREFIXES = ("PYTHON", "PYTEST_", "UV_", "FDAI_PYTEST_SHARD_")
+_BOUND_NAMES = frozenset({"LANG", "LC_ALL", "TZ"})
 
 
 @dataclass(frozen=True)
@@ -34,81 +40,6 @@ class ShardResult:
     status: int
     duration_seconds: float
     cached: bool
-
-
-def _workspace_file_digest(root: Path, relative: str) -> str:
-    path = root / relative
-    if not path.exists() and not path.is_symlink():
-        raise ValueError(f"validation input is missing: {relative}")
-    if path.is_symlink():
-        value: object = {"kind": "symlink", "target": os.readlink(path)}
-    elif path.is_file():
-        value = {
-            "kind": "file",
-            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-        }
-    else:
-        raise ValueError(f"validation input is not a regular file: {relative}")
-    return digest(value)
-
-
-def _tracked_python_sources(root: Path) -> dict[str, str]:
-    files: dict[str, str] = {}
-    for raw_path in git(root, "ls-files", "-z", "--", "*.py").split(b"\0"):
-        if not raw_path:
-            continue
-        relative = os.fsdecode(raw_path)
-        files[relative] = _workspace_file_digest(root, relative)
-    if not files:
-        raise ValueError("tracked Python source tree is empty")
-    return files
-
-
-def _selected_test_files(root: Path, tests: list[str]) -> dict[str, str]:
-    selected: dict[str, str] = {}
-    for item in tests:
-        relative = item.split("::", 1)[0]
-        path = root / relative
-        if path.is_dir():
-            for raw_path in git(root, "ls-files", "-z", "--", relative).split(b"\0"):
-                if raw_path:
-                    nested = os.fsdecode(raw_path)
-                    selected[nested] = _workspace_file_digest(root, nested)
-        else:
-            selected[relative] = _workspace_file_digest(root, relative)
-    if not selected:
-        raise ValueError("selected test inputs are empty")
-    return selected
-
-
-def _workspace_identity(root: Path, tests: list[str]) -> str:
-    dependency_inputs = {
-        relative: _workspace_file_digest(root, relative)
-        for relative in ("pyproject.toml", "uv.lock")
-    }
-    return digest(
-        {
-            "schema_version": 1,
-            "scope": "changed-test-shard-workspace",
-            "selected_tests": _selected_test_files(root, tests),
-            "python_sources": _tracked_python_sources(root),
-            "dependency": dependency_digest(dependency_inputs),
-            "installed": installed_digest(root / ".venv"),
-        }
-    )
-
-
-def _try_workspace_identity(root: Path, tests: list[str]) -> str | None:
-    try:
-        return _workspace_identity(root, tests)
-    except (OSError, ValueError, subprocess.SubprocessError) as error:
-        detail = str(error).strip() or "no details"
-        print(
-            "changed-test-shards: cache=unavailable "
-            f"reason={type(error).__name__}: {detail}; shard will run",
-            file=sys.stderr,
-        )
-        return None
 
 
 def _atomic_json(path: Path, payload: object) -> None:
@@ -134,16 +65,17 @@ def _clean_environment() -> dict[str, str]:
     return environment
 
 
-def _command_digest(command: list[str], environment: dict[str, str]) -> str:
-    return digest(
-        {
-            "command": command,
-            "environment": {
-                name: environment.get(name, "")
-                for name in ("PYTHONPATH", "FDAI_PYTEST_SHARD_COUNT", "FDAI_PYTEST_SHARD_INDEX")
-            },
-        }
-    )
+def _pass_digest(command: list[str], environment: dict[str, str], inputs: tuple[str, str]) -> str:
+    bound = {
+        "command": command,
+        "environment": {
+            name: value
+            for name, value in environment.items()
+            if name in _BOUND_NAMES or name.startswith(_BOUND_PREFIXES)
+        },
+        "inputs": list(inputs),
+    }
+    return hashlib.sha256(json.dumps(bound, sort_keys=True).encode()).hexdigest()
 
 
 def _shard_basetemp(cache_root: Path, index: int) -> Path:
@@ -153,16 +85,14 @@ def _shard_basetemp(cache_root: Path, index: int) -> Path:
     return Path(tempfile.gettempdir()) / "fdai-pytest-shards" / identity / f"shard-{index}"
 
 
-def _run_shard(
+def _shard_command(
     *,
     index: int,
     count: int,
     tests: list[str],
     cache_root: Path,
-    result_root: Path,
     environment: dict[str, str],
-    workspace_identity: str | None = None,
-) -> tuple[ShardResult, str]:
+) -> tuple[list[str], dict[str, str]]:
     cache_dir = cache_root / f"shard-{index}"
     basetemp = _shard_basetemp(cache_root, index)
     command = [
@@ -186,31 +116,36 @@ def _run_shard(
         shard_environment["FDAI_PYTEST_SHARD_COUNT"] = str(count)
         shard_environment["FDAI_PYTEST_SHARD_INDEX"] = str(index)
     command.extend(tests)
-    command_digest = _command_digest(command, shard_environment)
-    shard_identity = (
-        digest(
-            {
-                "schema_version": 1,
-                "scope": "changed-test-shard-pass",
-                "workspace": workspace_identity,
-                "command": command_digest,
-                "shard_index": index,
-                "shard_count": count,
-            }
-        )
-        if workspace_identity is not None
-        else None
-    )
-    marker = result_root / f"shard-{index}.pass"
-    try:
-        if (
-            shard_identity is not None
-            and marker.read_text(encoding="utf-8").strip() == shard_identity
-        ):
-            return ShardResult(index, 0, 0.0, True), ""
-    except OSError:
-        pass
+    return command, shard_environment
 
+
+def _run_shard(
+    *,
+    index: int,
+    count: int,
+    tests: list[str],
+    cache_root: Path,
+    result_root: Path,
+    environment: dict[str, str],
+    inputs: InputIdentity | None,
+) -> tuple[ShardResult, str]:
+    command, shard_environment = _shard_command(
+        index=index,
+        count=count,
+        tests=tests,
+        cache_root=cache_root,
+        environment=environment,
+    )
+    if inputs is not None:
+        marker = result_root / f"shard-{index}.pass"
+        try:
+            recorded = marker.read_text(encoding="utf-8").strip()
+        except OSError:
+            recorded = ""
+        if recorded == _pass_digest(command, shard_environment, inputs.bound):
+            return ShardResult(index, 0, 0.0, True), ""
+
+    basetemp = _shard_basetemp(cache_root, index)
     shutil.rmtree(basetemp, ignore_errors=True)
     basetemp.parent.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
@@ -223,11 +158,44 @@ def _run_shard(
         check=False,
     )
     duration = round(time.monotonic() - started, 3)
-    if completed.returncode in {0, 5} and shard_identity is not None:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text(shard_identity + "\n", encoding="utf-8")
     output = completed.stdout + completed.stderr
     return ShardResult(index, completed.returncode, duration, False), output
+
+
+def _record_passes(
+    *,
+    results: list[ShardResult],
+    count: int,
+    tests: list[str],
+    cache_root: Path,
+    result_root: Path,
+    environment: dict[str, str],
+    inputs: InputIdentity | None,
+    settled: InputIdentity | None,
+) -> None:
+    """Record fresh passes only when every input stayed unchanged while they ran.
+
+    When `uv run` synchronizes the environment during a run, the environment
+    identity changes and no pass is recorded; the next run starts from the
+    synchronized environment and can record one.
+    """
+
+    if inputs is None or settled != inputs:
+        return
+    for result in results:
+        if result.cached or result.status not in {0, 5}:
+            continue
+        command, shard_environment = _shard_command(
+            index=result.index,
+            count=count,
+            tests=tests,
+            cache_root=cache_root,
+            environment=environment,
+        )
+        marker = result_root / f"shard-{result.index}.pass"
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        digest = _pass_digest(command, shard_environment, inputs.bound)
+        marker.write_text(digest + "\n", encoding="utf-8")
 
 
 def _run_integration(
@@ -304,8 +272,9 @@ def run(
     """Run all non-integration shards and optional integration tests."""
     environment = _clean_environment()
     database_url = os.environ.get("FDAI_DATABASE_URL", "")
-    workspace_identity = _try_workspace_identity(Path.cwd(), tests)
     started = time.monotonic()
+    runner_state = (cache_root, result_root)
+    inputs = input_identity(environment, runner_state)
     with ThreadPoolExecutor(max_workers=shard_count) as executor:
         futures = [
             executor.submit(
@@ -316,12 +285,25 @@ def run(
                 cache_root=cache_root,
                 result_root=result_root,
                 environment=environment,
-                workspace_identity=workspace_identity,
+                inputs=inputs,
             )
             for index in range(1, shard_count + 1)
         ]
         completed = [future.result() for future in futures]
     results = [item[0] for item in completed]
+    if inputs is not None and any(
+        not result.cached and result.status in {0, 5} for result in results
+    ):
+        _record_passes(
+            results=results,
+            count=shard_count,
+            tests=tests,
+            cache_root=cache_root,
+            result_root=result_root,
+            environment=environment,
+            inputs=inputs,
+            settled=input_identity(environment, runner_state),
+        )
     for result, output in completed:
         print(
             "changed-test-shards: "

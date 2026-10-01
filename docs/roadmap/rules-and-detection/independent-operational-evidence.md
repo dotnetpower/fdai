@@ -365,7 +365,9 @@ Local deterministic checks run without a live model, Azure service, or remote da
   Loopback PostgreSQL writer and reader roles prove Core can't create either record and replay is idempotent. An
   unlabeled removal or narrowing still retires records, and routine rotation doesn't.
 - **Regression baseline.** Existing decision-evidence tests, such as `core/readiness/test_decision_evidence.py`,
-  and each consumer's focused tests under `services/core-control-plane/tests/` keep passing.
+  each consumer's focused tests under `services/core-control-plane/tests/`, and the Operator composition tests that
+  keep the semantic authentication receipt reference off by default keep passing. That Operator test module also
+  checks the service distribution, such as the optional PDF renderer range, which carries no evidence authority.
 
 These checks validate mechanics only and never count as operational qualification. The connected handoff runs
 only after separate explicit authorization, on a selected non-production target, with the same source revision:

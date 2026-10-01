@@ -1,11 +1,12 @@
-"""Regression tests for parallel changed-test shard isolation."""
+"""Regression tests for parallel changed-test shard isolation and pass reuse."""
 
 from __future__ import annotations
 
 import importlib.util
-import shutil
+import json
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 
@@ -13,6 +14,7 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT_PATH = _REPO_ROOT / "scripts" / "automation" / "run-changed-test-shards.py"
+_TESTS = ["tests/test_module.py"]
 
 
 @pytest.fixture(scope="module")
@@ -24,6 +26,271 @@ def shard_runner() -> ModuleType:
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _git(root: Path, *arguments: str) -> None:
+    subprocess.run(  # noqa: S603 - fixed git plumbing in a temporary repository
+        ["git", *arguments],  # noqa: S607 - git resolves from the test PATH
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+
+
+@pytest.fixture
+def checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    root = tmp_path / "checkout"
+    (root / "src").mkdir(parents=True)
+    (root / "tests").mkdir()
+    (root / "src" / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (root / "tests" / "test_module.py").write_text("def test_value(): pass\n", encoding="utf-8")
+    (root / "uv.lock").write_text("version = 1\n", encoding="utf-8")
+    (root / ".gitignore").write_text(".pytest_cache/\n", encoding="utf-8")
+    _git(root, "init", "--quiet")
+    _git(root, "add", ".")
+    _git(
+        root,
+        "-c",
+        "user.email=tests@example.com",
+        "-c",
+        "user.name=FDAI Tests",
+        "commit",
+        "--quiet",
+        "-m",
+        "fixture",
+    )
+    venv = tmp_path / "venv"
+    distribution = venv / "lib" / "python3.13" / "site-packages" / "example-1.0.dist-info"
+    distribution.mkdir(parents=True)
+    (venv / "bin").mkdir()
+    (venv / "bin" / "python").write_text("interpreter\n", encoding="utf-8")
+    (venv / "pyvenv.cfg").write_text("version_info = 3.13\n", encoding="utf-8")
+    (distribution / "RECORD").write_text("example/__init__.py,sha256=a,1\n", encoding="utf-8")
+    monkeypatch.chdir(root)
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(venv))
+    return root
+
+
+def _fake_pytest(
+    shard_runner: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    during_first_run: Callable[[], None] | None = None,
+) -> list[list[str]]:
+    real_run = subprocess.run
+    runs: list[list[str]] = []
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if argv[0] != "uv":
+            return real_run(argv, **kwargs)  # type: ignore[call-overload,no-any-return]
+        runs.append(list(argv))
+        if during_first_run is not None and len(runs) == 1:
+            during_first_run()
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    monkeypatch.setattr(shard_runner.subprocess, "run", run)
+    return runs
+
+
+def _run_cached(shard_runner: ModuleType, state: Path) -> bool:
+    status = shard_runner.run(
+        tests=_TESTS,
+        shard_count=1,
+        cache_root=state / "cache",
+        result_root=state / "results",
+        integration=False,
+    )
+    assert status == 0
+    summary = json.loads((state / "results" / "summary.json").read_text(encoding="utf-8"))
+    return bool(summary["shards"][0]["cached"])
+
+
+def test_unchanged_rerun_reuses_the_recorded_pass(
+    shard_runner: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout: Path,
+) -> None:
+    runs = _fake_pytest(shard_runner, monkeypatch)
+    state = checkout / ".pytest_cache"
+
+    assert _run_cached(shard_runner, state) is False
+    assert _run_cached(shard_runner, state) is True
+    assert len(runs) == 1
+
+
+def _append(path: str) -> Callable[[Path], None]:
+    def edit(root: Path) -> None:
+        target = root / path
+        target.write_text(target.read_text(encoding="utf-8") + "# changed\n", encoding="utf-8")
+
+    return edit
+
+
+def _record_change(root: Path) -> None:
+    record = next(root.parent.joinpath("venv").rglob("RECORD"))
+    record.write_text("example/__init__.py,sha256=b,1\n", encoding="utf-8")
+
+
+def _interpreter_change(root: Path) -> None:
+    root.parent.joinpath("venv", "bin", "python").write_text("patched\n", encoding="utf-8")
+
+
+def _new_module(root: Path) -> None:
+    (root / "src" / "added.py").write_text("ADDED = True\n", encoding="utf-8")
+
+
+def _deleted_source(root: Path) -> None:
+    (root / "src" / "module.py").unlink()
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        _append("src/module.py"),
+        _append("tests/test_module.py"),
+        _append("uv.lock"),
+        _new_module,
+        _deleted_source,
+        _record_change,
+        _interpreter_change,
+    ],
+    ids=[
+        "source",
+        "selected-test",
+        "lock-file",
+        "untracked-source",
+        "deleted-source",
+        "installed-distribution",
+        "interpreter",
+    ],
+)
+def test_input_change_invalidates_the_recorded_pass(
+    shard_runner: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout: Path,
+    change: Callable[[Path], None],
+) -> None:
+    runs = _fake_pytest(shard_runner, monkeypatch)
+    state = checkout / ".pytest_cache"
+    assert _run_cached(shard_runner, state) is False
+
+    change(checkout)
+
+    assert _run_cached(shard_runner, state) is False
+    assert _run_cached(shard_runner, state) is True
+    assert len(runs) == 2
+
+
+def test_interpreter_variable_change_invalidates_the_recorded_pass(
+    shard_runner: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout: Path,
+) -> None:
+    runs = _fake_pytest(shard_runner, monkeypatch)
+    state = checkout / ".pytest_cache"
+    assert _run_cached(shard_runner, state) is False
+
+    monkeypatch.setenv("PYTEST_ADDOPTS", "--strict-markers")
+
+    assert _run_cached(shard_runner, state) is False
+    assert _run_cached(shard_runner, state) is True
+    assert len(runs) == 2
+
+
+def _prepare_environment(root: Path) -> None:
+    prepared = root.parent / "prepared-venv"
+    (prepared / "bin").mkdir(parents=True)
+    (prepared / "bin" / "python").write_text("interpreter\n", encoding="utf-8")
+
+
+def _install_distribution(root: Path) -> None:
+    site_packages = root.parent / "venv" / "lib" / "python3.13" / "site-packages"
+    distribution = site_packages / "weasyprint-70.0.dist-info"
+    distribution.mkdir()
+    (distribution / "RECORD").write_text("weasyprint/__init__.py,sha256=c,1\n", encoding="utf-8")
+
+
+def _revert_source(root: Path) -> None:
+    source = root / "src" / "module.py"
+    original = source.read_text(encoding="utf-8")
+    source.write_text("VALUE = 2\n", encoding="utf-8")
+    source.write_text(original, encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        _append("src/module.py"),
+        _revert_source,
+        _install_distribution,
+        _prepare_environment,
+    ],
+    ids=["source", "reverted-source", "installed-distribution", "prepared-environment"],
+)
+def test_change_while_running_records_no_pass(
+    shard_runner: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout: Path,
+    change: Callable[[Path], None],
+) -> None:
+    if change is _prepare_environment:
+        monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(checkout.parent / "prepared-venv"))
+    runs = _fake_pytest(shard_runner, monkeypatch, during_first_run=lambda: change(checkout))
+    state = checkout / ".pytest_cache"
+
+    assert _run_cached(shard_runner, state) is False
+    assert not (state / "results" / "shard-1.pass").exists()
+    assert _run_cached(shard_runner, state) is False
+    assert _run_cached(shard_runner, state) is True
+    assert len(runs) == 2
+
+
+def test_bytecode_written_while_running_keeps_the_pass(
+    shard_runner: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout: Path,
+) -> None:
+    def write_bytecode() -> None:
+        cache = checkout.parent / "venv" / "lib" / "python3.13" / "site-packages" / "__pycache__"
+        cache.mkdir()
+        (cache / "example.cpython-313.pyc").write_bytes(b"bytecode")
+
+    runs = _fake_pytest(shard_runner, monkeypatch, during_first_run=write_bytecode)
+    state = checkout / ".pytest_cache"
+
+    assert _run_cached(shard_runner, state) is False
+    assert _run_cached(shard_runner, state) is True
+    assert len(runs) == 1
+
+
+def test_runner_state_inside_the_checkout_is_not_an_input(
+    shard_runner: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout: Path,
+) -> None:
+    runs = _fake_pytest(shard_runner, monkeypatch)
+    state = checkout / "runner-state"
+
+    assert _run_cached(shard_runner, state) is False
+    assert _run_cached(shard_runner, state) is True
+    assert len(runs) == 1
+
+
+def test_unavailable_input_identity_never_reuses_a_pass(
+    shard_runner: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "not-a-checkout"
+    outside.mkdir()
+    monkeypatch.chdir(outside)
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+    runs = _fake_pytest(shard_runner, monkeypatch)
+    state = outside / "state"
+
+    assert _run_cached(shard_runner, state) is False
+    assert _run_cached(shard_runner, state) is False
+    assert not (state / "results" / "shard-1.pass").exists()
+    assert len(runs) == 2
 
 
 def test_parallel_shard_uses_clean_isolated_basetemp(
@@ -52,179 +319,12 @@ def test_parallel_shard_uses_clean_isolated_basetemp(
         cache_root=cache_root,
         result_root=tmp_path / "results",
         environment={"PYTHONPATH": ""},
+        inputs=None,
     )
 
     assert result.status == 0
     assert output == ""
     assert f"--basetemp={basetemp}" in observed
-
-
-def _write_minimal_changed_test_repo(root: Path) -> None:
-    (root / "src").mkdir()
-    (root / "tests").mkdir()
-    (root / "pyproject.toml").write_text('[project]\nname = "example"\n', encoding="utf-8")
-    (root / "uv.lock").write_text("version = 1\n", encoding="utf-8")
-    (root / "src" / "example.py").write_text("VALUE = 1\n", encoding="utf-8")
-    (root / "tests" / "test_example.py").write_text(
-        "from src.example import VALUE\n\ndef test_example():\n    assert VALUE == 1\n",
-        encoding="utf-8",
-    )
-    git = shutil.which("git")
-    assert git is not None
-    subprocess.run([git, "init"], cwd=root, check=True, capture_output=True)  # noqa: S603
-    subprocess.run([git, "add", "."], cwd=root, check=True, capture_output=True)  # noqa: S603
-
-
-def _patch_shard_run(
-    shard_runner: ModuleType,
-    monkeypatch: pytest.MonkeyPatch,
-) -> list[list[str]]:
-    calls: list[list[str]] = []
-    real_run = subprocess.run
-
-    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        if argv[:1] == ["git"]:
-            return real_run(argv, **kwargs)
-        del kwargs
-        calls.append(argv)
-        return subprocess.CompletedProcess(argv, 0, "", "")
-
-    monkeypatch.setattr(shard_runner.subprocess, "run", run)
-    monkeypatch.setattr(shard_runner, "installed_digest", lambda path: f"installed:{path.name}")
-    return calls
-
-
-def _run_identity_checked_shard(
-    shard_runner: ModuleType,
-    *,
-    root: Path,
-    cache_root: Path,
-    result_root: Path,
-) -> tuple[object, str]:
-    tests = ["tests/test_example.py"]
-    workspace_identity = shard_runner._workspace_identity(root, tests)
-    return shard_runner._run_shard(
-        index=1,
-        count=1,
-        tests=tests,
-        cache_root=cache_root,
-        result_root=result_root,
-        environment={"PYTHONPATH": ""},
-        workspace_identity=workspace_identity,
-    )
-
-
-def test_changed_source_file_invalidates_shard_pass(
-    shard_runner: ModuleType,
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    _write_minimal_changed_test_repo(tmp_path)
-    monkeypatch.chdir(tmp_path)
-    calls = _patch_shard_run(shard_runner, monkeypatch)
-    cache_root = tmp_path / "cache"
-    result_root = tmp_path / "results"
-
-    _run_identity_checked_shard(
-        shard_runner,
-        root=tmp_path,
-        cache_root=cache_root,
-        result_root=result_root,
-    )
-    (tmp_path / "src" / "example.py").write_text("VALUE = 2\n", encoding="utf-8")
-    result, _ = _run_identity_checked_shard(
-        shard_runner,
-        root=tmp_path,
-        cache_root=cache_root,
-        result_root=result_root,
-    )
-
-    assert len(calls) == 2
-    assert result.cached is False
-
-
-def test_changed_lock_file_invalidates_shard_pass(
-    shard_runner: ModuleType,
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    _write_minimal_changed_test_repo(tmp_path)
-    monkeypatch.chdir(tmp_path)
-    calls = _patch_shard_run(shard_runner, monkeypatch)
-    cache_root = tmp_path / "cache"
-    result_root = tmp_path / "results"
-
-    _run_identity_checked_shard(
-        shard_runner,
-        root=tmp_path,
-        cache_root=cache_root,
-        result_root=result_root,
-    )
-    (tmp_path / "uv.lock").write_text("version = 2\n", encoding="utf-8")
-    result, _ = _run_identity_checked_shard(
-        shard_runner,
-        root=tmp_path,
-        cache_root=cache_root,
-        result_root=result_root,
-    )
-
-    assert len(calls) == 2
-    assert result.cached is False
-
-
-def test_legacy_command_only_marker_does_not_reuse_shard_pass(
-    shard_runner: ModuleType,
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    _write_minimal_changed_test_repo(tmp_path)
-    monkeypatch.chdir(tmp_path)
-    calls = _patch_shard_run(shard_runner, monkeypatch)
-    result_root = tmp_path / "results"
-    result_root.mkdir()
-    (result_root / "shard-1.pass").write_text("legacy-command-only-digest\n", encoding="utf-8")
-
-    result, _ = _run_identity_checked_shard(
-        shard_runner,
-        root=tmp_path,
-        cache_root=tmp_path / "cache",
-        result_root=result_root,
-    )
-
-    assert len(calls) == 1
-    assert result.cached is False
-    assert (result_root / "shard-1.pass").read_text(encoding="utf-8").strip() != (
-        "legacy-command-only-digest"
-    )
-
-
-def test_unchanged_rerun_reuses_shard_pass(
-    shard_runner: ModuleType,
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    _write_minimal_changed_test_repo(tmp_path)
-    monkeypatch.chdir(tmp_path)
-    calls = _patch_shard_run(shard_runner, monkeypatch)
-    cache_root = tmp_path / "cache"
-    result_root = tmp_path / "results"
-
-    first, _ = _run_identity_checked_shard(
-        shard_runner,
-        root=tmp_path,
-        cache_root=cache_root,
-        result_root=result_root,
-    )
-    second, _ = _run_identity_checked_shard(
-        shard_runner,
-        root=tmp_path,
-        cache_root=cache_root,
-        result_root=result_root,
-    )
-
-    assert first.cached is False
-    assert second.cached is True
-    assert len(calls) == 1
 
 
 def test_parallel_shard_creates_basetemp_parent(
@@ -249,6 +349,7 @@ def test_parallel_shard_creates_basetemp_parent(
         cache_root=cache_root,
         result_root=tmp_path / "results",
         environment={"PYTHONPATH": ""},
+        inputs=None,
     )
 
     assert result.status == 0

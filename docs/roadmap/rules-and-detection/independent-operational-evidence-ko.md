@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: f5a20b2f37cb308fd71a91d61aa20788bcd6dc3b
+translation_source_sha: 1e3bee840c2c04bae5073bdff774ed3b7ee65b1f
 translation_revised: 2026-10-01
 ---
 # 독립 운영 근거 발급
@@ -366,8 +366,10 @@ shadow로 내려가지만 발급 장애는 해당 목적만 `unavailable`로 만
   `outcome`이 거부하는 이전 거부 기록, 위조된 응답 본문 이후의 재조회를 검사합니다. 루프백 PostgreSQL의 작성자
   역할과 읽기 역할로 Core가 두 기록 모두 만들 수 없고 재생이 멱등임을 증명합니다. 이름표 없는 제거나 축소도
   기록을 폐기하고, 일상적 교체는 폐기하지 않음을 확인합니다.
-- **회귀 기준선.** `core/readiness/test_decision_evidence.py` 같은 기존 의사결정 근거 테스트와
-  `services/core-control-plane/tests/` 아래 각 소비자의 집중 테스트가 계속 통과합니다.
+- **회귀 기준선.** `core/readiness/test_decision_evidence.py` 같은 기존 의사결정 근거 테스트,
+  `services/core-control-plane/tests/` 아래 각 소비자의 집중 테스트, semantic 인증 증적 참조를 기본적으로
+  꺼 두는 Operator 조립 테스트가 계속 통과합니다. 이 Operator 테스트 모듈은 선택적 PDF 렌더러 버전 범위
+  같은 서비스 배포판 구성도 검사하며, 이 검사는 근거 권한을 갖지 않습니다.
 
 이 검사는 동작 방식만 검증하며 운영 자격 검증으로 인정하지 않습니다. 연결 환경 인계는 별도의 명시적 승인
 후에만, 선택한 비운영 대상에서, 같은 소스 개정으로 실행합니다.

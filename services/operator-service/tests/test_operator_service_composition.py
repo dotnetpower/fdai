@@ -557,7 +557,7 @@ def test_service_distribution_has_no_fdai_runtime_dependency() -> None:
     dependencies = project["dependencies"]
     assert "fdai-service-contracts==0.1.0" in dependencies
     assert not any(dependency.startswith("weasyprint") for dependency in dependencies)
-    assert project["optional-dependencies"]["pdf-report"] == ["weasyprint>=66,<70"]
+    assert project["optional-dependencies"]["pdf-report"] == ["weasyprint>=70,<71"]
     assert not any(
         dependency == "fdai" or dependency.startswith(("fdai[", "fdai==", "fdai>=", "fdai<"))
         for dependency in dependencies
