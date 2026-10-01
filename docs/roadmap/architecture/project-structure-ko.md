@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ed547b1561a05d9e126ea712217d937e5630f194
+translation_source_sha: 6edd84e4fb7acc2bb576f46014b236107e2ae563
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -21,6 +21,10 @@ frame 필드를 소유하고, Core는 슬롯 커버리지, plan 커버리지, �
 결과 핸들 신원 강화도 같은 분리를 따릅니다. 서비스 계약은 핸들 본문의 추가 필드와 생성된 wire view를
 담당하고, Core만 봉인된 행 신원을 쓰고 보안 온톨로지 query로 다시 읽습니다. Operator와 Console은 계속
 불투명 참조만 봅니다.
+프로덕션 shadow 추론도 같은 분리를 따릅니다. 서비스 계약 SDK는 전달되는 `SemanticQuestionForm`을
+소유하고, Core는 내용 없는 shadow 처리 결과와 비간섭 검사를 소유하며, 조립은 기본적으로 꺼진 프로덕션
+shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 변경은 Operator route를 추가하지 않으며
+로컬 환경 밖에서 컴파일된 답변을 사용할 수 있게 만들지 않습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

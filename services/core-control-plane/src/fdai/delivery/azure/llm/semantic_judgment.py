@@ -74,6 +74,7 @@ class AzureOpenAISemanticJudgmentModelConfig:
     max_tokens: int = 2_048
     intent_hardening_enabled: bool = False
     constraint_slots_enabled: bool = False
+    question_form_enabled: bool = False
     system_prompt_assembler: PromptAssembler | None = None
 
     def __post_init__(self) -> None:
@@ -212,6 +213,7 @@ class AzureOpenAISemanticJudgmentModel:
         proposal_schema = _semantic_judgment_proposal_schema(
             intent_hardening_enabled=self._config.intent_hardening_enabled,
             constraint_slots_enabled=self._config.constraint_slots_enabled,
+            question_form_enabled=self._config.question_form_enabled,
             document_query_enabled=_document_query_prompt_enabled(prompt_manifest)
             and any(
                 capability.get("kind") == "function_type"
@@ -686,6 +688,7 @@ def _semantic_judgment_proposal_schema(
     intent_hardening_enabled: bool,
     document_query_enabled: bool = False,
     constraint_slots_enabled: bool = False,
+    question_form_enabled: bool = False,
     source_locale: str | None = None,
 ) -> dict[str, Any]:
     """Add retrieval terms only to the existing document-capable judgment call.
@@ -707,6 +710,8 @@ def _semantic_judgment_proposal_schema(
         properties.pop("forbidden_actions", None)
     if not constraint_slots_enabled:
         properties.pop("constraint_slots", None)
+    if not question_form_enabled:
+        properties.pop("question_form", None)
     if not document_query_enabled:
         properties.pop("document_query", None)
         schema.get("$defs", {}).pop("DocumentRetrievalQuery", None)
@@ -717,7 +722,9 @@ def _semantic_judgment_proposal_schema(
         }
     schema_version.clear()
     schema_version["const"] = (
-        "1.3.0"
+        "1.4.0"
+        if question_form_enabled
+        else "1.3.0"
         if constraint_slots_enabled
         else "1.2.0"
         if document_query_enabled

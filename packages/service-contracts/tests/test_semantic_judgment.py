@@ -14,6 +14,27 @@ from fdai_service_contracts.semantic_judgment import (
 )
 
 _DIGEST = "sha256:" + "a" * 64
+_QUESTION_FORM = {
+    "mentions": (
+        {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "span": {"start": 0, "end": 6},
+        },
+    ),
+    "goals": (
+        {
+            "id": "g1",
+            "level": "instance",
+            "operation": "lookup",
+            "subject": "m1",
+            "subject_scope": "anchor",
+            "confidence": 0.94,
+            "cue": {"start": 7, "end": 12},
+        },
+    ),
+}
 
 
 def _proposal() -> SemanticJudgmentProposal:
@@ -153,6 +174,31 @@ def test_constraint_slots_require_v13_and_legacy_payloads_keep_current_behavior(
     assert legacy.constraint_slots == ()
     with pytest.raises(ValidationError, match="schema 1.3.0"):
         SemanticJudgmentProposal.model_validate({**payload, "schema_version": "1.2.0"})
+
+
+def test_question_form_requires_v14_and_legacy_payloads_keep_current_behavior() -> None:
+    payload = {
+        "schema_version": "1.4.0",
+        "primary_intent": "resource.health",
+        "confidence": 0.94,
+        "ambiguous": False,
+        "action_subject": "none",
+        "question_form": _QUESTION_FORM,
+    }
+
+    proposal = SemanticJudgmentProposal.model_validate(payload)
+    legacy = SemanticJudgmentProposal(
+        primary_intent="resource.health",
+        confidence=0.94,
+        ambiguous=False,
+        action_subject="none",
+    )
+
+    assert proposal.question_form is not None
+    assert proposal.question_form.digest.startswith("sha256:")
+    assert legacy.question_form is None
+    with pytest.raises(ValidationError, match="schema 1.4.0"):
+        SemanticJudgmentProposal.model_validate({**payload, "schema_version": "1.3.0"})
 
 
 def test_ambiguous_proposal_requires_one_question() -> None:

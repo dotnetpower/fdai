@@ -95,13 +95,8 @@ from .semantic_planning_models import (
     SemanticPlanningOutcome,
 )
 from .semantic_planning_plan_dispatch import PlanDispatchResult, dispatch_semantic_plan
-from .semantic_planning_preflight import (
-    DIRECT_RESPONSE_PROFILE,
-    SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
-)
-from .semantic_planning_preflight import (
-    preflight_descriptor_intent as _preflight_descriptor_intent,
-)
+from .semantic_planning_preflight import DIRECT_RESPONSE_PROFILE, SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+from .semantic_planning_preflight import preflight_descriptor_intent as _preflight_descriptor_intent
 from .semantic_planning_preflight_router import PreflightDirectResponseRouter
 from .semantic_planning_preflight_service import SemanticPlanningPreflightMixin
 from .semantic_planning_specialized_plans import (
@@ -119,6 +114,7 @@ from .semantic_planning_support import (
     judgment_clarification_outcome,
     log_judgment_posture,
 )
+from .semantic_production_shadow import ProductionShadowRecorder, record_planned_shadow
 from .semantic_resource_state_planning import resource_condition_intents_grounded
 from .semantic_test_context import test_context_capability, test_context_planning_outcome
 from .semantic_type_grounding import ResourceTypeGrounding
@@ -148,11 +144,13 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
         type_grounding: ResourceTypeGrounding | None = None,
         coverage_review: JudgmentCoverageReview | None = None,
         compiled_answers: CompiledAnswerPath | None = None,
+        production_shadow: ProductionShadowRecorder | None = None,
     ) -> None:
         self._manifests = manifests
         self._type_grounding = type_grounding
         self._coverage_review = coverage_review
         self._compiled_answers = compiled_answers
+        self._production_shadow = production_shadow
         self._verifier = verifier
         self._selector = descriptor_selector or CompleteManifestSelector()
         self._semantic_judgment = semantic_judgment
@@ -335,6 +333,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                         observations=judgment_result.observations,
                         accepted=judgment_result.accepted,
                         uncovered_roles=getattr(judgment_result, "uncovered_roles", ()),
+                        receipt=judgment_result.receipt,
                     )
                 model_observations.extend(judgment_decision.observations)
                 if judgment_decision.reason_code in {
@@ -694,17 +693,22 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                 plan=plan,
                 confidence=proposal.confidence,
             )
-            return preflight_router.finish(
-                _outcome(
-                    SemanticPlanningDisposition.PLANNED,
-                    "semantic_plan_verified",
-                    manifest_digest=manifest.manifest_digest,
-                    frame=frame,
-                    plan=plan,
-                    intent_graph=graph,
-                    investigation_intent=investigation_intent,
-                )
+            outcome = _outcome(
+                SemanticPlanningDisposition.PLANNED,
+                "semantic_plan_verified",
+                manifest_digest=manifest.manifest_digest,
+                frame=frame,
+                plan=plan,
+                intent_graph=graph,
+                investigation_intent=investigation_intent,
             )
+            shadow_args = dict(
+                utterance=utterance, context=context, manifest=manifest, frame=frame, plan=plan
+            )
+            record_planned_shadow(
+                self._production_shadow, judgment_decision, outcome=outcome, **shadow_args
+            )
+            return preflight_router.finish(outcome)
         except PermissionError:
             return preflight_router.finish(
                 _outcome(

@@ -19,6 +19,10 @@ authority.
 Result-handle identity hardening follows the same split: service contracts carry the additive
 handle-body field and generated wire views, while Core alone writes and rereads the sealed row
 identities through secured ontology queries; Operator and Console still see only opaque references.
+Production shadow reasoning follows the same split: the service-contract SDK owns the carried
+`SemanticQuestionForm`, Core owns content-free shadow dispositions and non-interference checks, and
+composition binds direction readers only when the default-off production shadow setting is enabled.
+This does not add Operator routes or make compiled answers available outside the local venue.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
