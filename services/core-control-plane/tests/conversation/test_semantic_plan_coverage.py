@@ -520,6 +520,7 @@ def test_a_point_in_time_pair_applies_a_time_slot(nodes: tuple[OntologyQueryNode
     [
         (_snapshot("now", _AT_AFTER),),
         (_snapshot("a", _AT_AFTER), _snapshot("b", _AT_AFTER)),
+        (_snapshot("a", _AT_AFTER), _snapshot("b", "2026-10-01T01:00:00.000+00:00")),
         (
             _node(
                 "objects",

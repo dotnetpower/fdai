@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fdai_service_contracts.ontology_query import (
@@ -254,7 +255,7 @@ def _windowed_plan(plan: OntologyQueryPlan) -> bool:
     reads (a topology or configuration snapshot pair) do.
     """
 
-    points: set[str] = set()
+    points: set[datetime] = set()
     for node in plan.nodes:
         arguments = node.arguments
         nested = arguments.get("arguments")
@@ -262,15 +263,26 @@ def _windowed_plan(plan: OntologyQueryPlan) -> bool:
             isinstance(nested, Mapping) and _WINDOW_ARGUMENTS & set(nested)
         ):
             return True
-        if node.kind is QueryNodeKind.TOPOLOGY_AT and isinstance(arguments.get("as_of"), str):
-            points.add(arguments["as_of"])
-        elif (
-            node.kind is QueryNodeKind.FUNCTION
-            and isinstance(nested, Mapping)
-            and isinstance(nested.get("as_of"), str)
-        ):
-            points.add(nested["as_of"])
+        point = None
+        if node.kind is QueryNodeKind.TOPOLOGY_AT:
+            point = _instant(arguments.get("as_of"))
+        elif node.kind is QueryNodeKind.FUNCTION and isinstance(nested, Mapping):
+            point = _instant(nested.get("as_of"))
+        if point is not None:
+            points.add(point)
     return len(points) >= 2
+
+
+def _instant(value: object) -> datetime | None:
+    """Parse one aware timestamp, so one instant written two ways is one point."""
+
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed.astimezone(UTC) if parsed.tzinfo is not None else None
 
 
 def _restricts(node: OntologyQueryNode, properties: frozenset[str], value: str) -> bool:
