@@ -327,6 +327,10 @@ Every write-class tool call (`simulate_change` in enforce mode - disallowed toda
    and mirrored by the RiskGate role axis
    ([execution-model.md § 2.5](../decisioning/execution-model.md#25-axis-f---role-rbac)).
 
+A compiled property answer shows only a reviewed Property value. A structured value keeps its
+nested secret, credential, connection, and key material and any address redacted, in the answer and
+in technical details alike.
+
 ### 7.3 BreakGlass request receipt
 
 The current `ActivateBreakGlassTool` result contains `activated_at`, `expires_at`, a redacted reason, `pager_receipt`, and `audit_id`. Its

@@ -103,6 +103,13 @@ def _node_operands(kind: QueryNodeKind, value: Mapping[str, object]) -> tuple[st
             for predicate in definition.get("predicates", ()):
                 if isinstance(predicate, Mapping):
                     found.extend(_predicate_operands(predicate))
+    elif kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
+        predicates = value.get("endpoint_predicates")
+        for predicate in predicates if isinstance(predicates, list) else ():
+            if isinstance(predicate, Mapping):
+                found.extend(_predicate_operands(predicate))
+    elif kind in {QueryNodeKind.METRIC_SERIES, QueryNodeKind.METRIC_SCOPE_SERIES}:
+        found.extend(_identity_values(value.get("resource_id")))
     elif kind is QueryNodeKind.FUNCTION:
         arguments = value.get("arguments")
         if isinstance(arguments, Mapping):

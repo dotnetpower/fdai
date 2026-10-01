@@ -485,3 +485,34 @@ def test_a_missing_name_clarifies_before_any_provider_path_is_chosen() -> None:
 
     goal = compilation.goals[0]
     assert "anchor_not_found:m1" in goal.reasons
+
+
+def test_nested_secrets_and_addresses_never_reach_a_structured_answer() -> None:
+    answer = _rendered(
+        {
+            **_IDENTITY,
+            _SETTINGS_FIELD: [
+                {"name": "to-law", "adminPassword": "Hunter2!", "owner": "alice@contoso.com"}
+            ],
+        },
+        _SETTINGS_FIELD,
+        _SETTINGS,
+    )
+
+    assert "to-law" in answer
+    assert "Hunter2!" not in answer and "alice@contoso.com" not in answer
+
+
+def test_the_verifier_admits_only_reviewed_provider_paths() -> None:
+    _admission, plan = _plan()
+    manifest = production_manifest()
+    reviewed = ["id", "properties.name", "properties.properties.zone_redundant"]
+    unreviewed = ["id", "properties.name", "properties.properties.os_profile.admin_password"]
+
+    assert plan_verifier().verify(_with_fields(plan, reviewed), manifest=manifest)
+    with pytest.raises(ValueError, match="absent from dependency output schema"):
+        plan_verifier().verify(_with_fields(plan, unreviewed), manifest=manifest)
+    with pytest.raises(ValueError, match="absent from dependency output schema"):
+        plan_verifier().verify(
+            _with_fields(plan, ["id", "properties.properties.os_profile"]), manifest=manifest
+        )

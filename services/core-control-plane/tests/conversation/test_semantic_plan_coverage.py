@@ -472,3 +472,40 @@ def test_a_case_insensitive_identity_match_is_still_an_identity() -> None:
     )
 
     assert outcome is not None and outcome.reason == "semantic_operand_without_source"
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"before_as_of": "2026-10-01T00:00:00Z", "after_as_of": "2026-10-01T01:00:00Z"},
+        {"as_of": "2026-10-01T00:00:00Z"},
+    ],
+)
+def test_an_as_of_window_applies_a_time_slot(arguments: dict[str, str]) -> None:
+    frame = SimpleNamespace(constraint_slots=(_slot("time_window", "PT1H"),))
+    node = _node(
+        "diff",
+        QueryNodeKind.FUNCTION,
+        {"function_name": "query.resource_configuration_changes", "arguments": arguments},
+    )
+
+    assert plan_uncovered_slot_roles(frame, _plan(node)) == ()
+
+
+def test_an_invented_identity_in_a_traversal_endpoint_or_metric_read_is_held() -> None:
+    traversal = _node(
+        "deps",
+        QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        {
+            "endpoint_predicates": [
+                {"property": "name", "operator": "equals", "equals": "prod-db-07"}
+            ]
+        },
+    )
+    metric = _node("cpu", QueryNodeKind.METRIC_SCOPE_SERIES, {"resource_id": "vm-invented-9"})
+
+    for node in (traversal, metric):
+        outcome = narrower_plan_outcome(
+            None, None, "proposed", _plan(node), "sha256:" + "a" * 64, utterance="show app-prod"
+        )
+        assert outcome is not None and outcome.reason == "semantic_operand_without_source"

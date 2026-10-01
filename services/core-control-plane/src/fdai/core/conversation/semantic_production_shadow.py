@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
 import uuid
 from collections.abc import Mapping
@@ -92,20 +93,31 @@ class InMemoryProductionShadowSink:
 
 
 class StateStoreProductionShadowSink:
-    """Persist records through the shared StateStore seam from a sync caller."""
+    """Hand each record to the service's own event loop, never blocking the planner.
 
-    def __init__(self, store: StateStore) -> None:
+    The shared state store belongs to one loop, so a write is scheduled there and not
+    awaited; a failed write is logged without content and never reaches the answer.
+    """
+
+    def __init__(self, store: StateStore, owner_loop: asyncio.AbstractEventLoop) -> None:
         self._store = store
+        self._owner_loop = owner_loop
 
     def write(self, record: ProductionShadowRecord) -> None:
         # One key per turn, so two turns with equal text never overwrite each other.
         key = f"semantic-production-shadow.{record.sample_id_digest}.{uuid.uuid4().hex}"
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            asyncio.run(self._store.write_state(key, record.as_state()))
-            return
-        raise RuntimeError("StateStoreProductionShadowSink requires an async handoff outside loops")
+        future = asyncio.run_coroutine_threadsafe(
+            self._store.write_state(key, record.as_state()), self._owner_loop
+        )
+        future.add_done_callback(_log_failed_write)
+
+
+def _log_failed_write(future: concurrent.futures.Future[None]) -> None:
+    if not future.cancelled() and future.exception() is not None:
+        _LOGGER.warning(
+            "semantic_production_shadow_unrecorded",
+            extra={"failure_type": type(future.exception()).__name__},
+        )
 
 
 @dataclass(frozen=True, slots=True)

@@ -25,7 +25,9 @@ composition binds direction readers only when the default-off production shadow 
 This does not add Operator routes or make compiled answers available outside the local venue.
 Hardening keeps that split: a shadow record that fails to persist is logged and never changes the
 planned answer, the carried form never reaches the frame model, and the judgment's typed slots bind
-the frame so plan coverage can enforce them.
+the frame so plan coverage can enforce them. The state-store sink schedules each record on the
+service's own event loop without blocking, a rebuilt frame keeps its investigation identity, and
+operand provenance also reads traversal endpoints and metric resource ids.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.

@@ -107,10 +107,18 @@ class OntologyQueryPlanVerifier:
             (str(item["kind"]), str(item["name"])): item for item in manifest.descriptors
         }
         nodes_by_id: dict[str, OntologyQueryNode] = {}
+        # Only a reviewed Property path may be read inside the Resource provider bag.
+        reviewed = frozenset(
+            f"properties.properties.{path}"
+            for read in manifest.property_reads
+            for _kind, path in read.paths
+        )
         for node in plan.nodes:
             if node.kind not in self._available_kinds:
                 raise ValueError(f"query node kind {node.kind.value!r} is unavailable")
-            self._verify_node(node, nodes_by_id=nodes_by_id, descriptors=descriptors)
+            self._verify_node(
+                node, nodes_by_id=nodes_by_id, descriptors=descriptors, reviewed_nested=reviewed
+            )
             nodes_by_id[node.node_id] = node
         missing_outputs = set(plan.output_node_ids) - nodes_by_id.keys()
         if missing_outputs:
@@ -123,6 +131,7 @@ class OntologyQueryPlanVerifier:
         *,
         nodes_by_id: Mapping[str, OntologyQueryNode],
         descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+        reviewed_nested: frozenset[str] = frozenset(),
     ) -> None:
         arguments = node.arguments
         if node.kind in _TABLE_KINDS and node.output_kind != "query.table":
@@ -201,7 +210,7 @@ class OntologyQueryPlanVerifier:
                 fields=normalized,
                 nodes_by_id=nodes_by_id,
                 descriptors=descriptors,
-                nested_objects=True,
+                reviewed_nested=reviewed_nested,
             )
             return
         if node.kind is QueryNodeKind.AGGREGATE:
@@ -585,7 +594,7 @@ class OntologyQueryPlanVerifier:
         fields: tuple[str, ...],
         nodes_by_id: Mapping[str, OntologyQueryNode],
         descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
-        nested_objects: bool = False,
+        reviewed_nested: frozenset[str] = frozenset(),
     ) -> None:
         dependency = nodes_by_id[node.depends_on[0]]
         available_fields = OntologyQueryPlanVerifier._table_fields(
@@ -595,14 +604,10 @@ class OntologyQueryPlanVerifier:
         )
         if available_fields is None:
             return
-        # A projection may read inside a readable object property of the object set it
-        # reads directly; the whole object is already readable, so no access widens.
-        roots = _object_property_roots(dependency, descriptors) if nested_objects else frozenset()
-        if any(
-            field not in available_fields
-            and not any(field.startswith(f"{root}.") for root in roots)
-            for field in fields
-        ):
+        # A projection reads inside the readable provider bag of the Resource set it reads
+        # directly only at a reviewed Property path, never at any other provider field.
+        nested = reviewed_nested if _reads_resources(dependency, available_fields) else frozenset()
+        if any(field not in available_fields and field not in nested for field in fields):
             raise ValueError("aggregate field is absent from dependency output schema")
 
     @staticmethod
@@ -663,22 +668,15 @@ class OntologyQueryPlanVerifier:
             raise ValueError("query table node dependencies MUST output query.table")
 
 
-def _object_property_roots(
-    node: OntologyQueryNode, descriptors: Mapping[tuple[str, str], Mapping[str, Any]]
-) -> frozenset[str]:
-    """Return the readable object-typed property fields of one object type selection."""
+def _reads_resources(node: OntologyQueryNode, available_fields: frozenset[str]) -> bool:
+    """Return whether the node selects Resource objects whose provider bag is readable."""
 
-    if node.kind is not QueryNodeKind.OBJECT_SET:
-        return frozenset()
+    if node.kind is not QueryNodeKind.OBJECT_SET or "properties.properties" not in available_fields:
+        return False
     definition = ObjectSetDefinition.model_validate(node.arguments["definition"])
-    if definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
-        return frozenset()
-    descriptor = descriptors[("object", definition.selector.name)]
-    readable = cast_mapping(descriptor.get("properties"))
-    return frozenset(
-        f"properties.{name}"
-        for name, schema in readable.items()
-        if isinstance(schema, Mapping) and schema.get("type") == "object"
+    return (
+        definition.selector.kind is ObjectSelectorKind.OBJECT_TYPE
+        and definition.selector.name == "Resource"
     )
 
 

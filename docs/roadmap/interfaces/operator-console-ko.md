@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 123e30b99b34511ae1238895bdf27788078942de
+translation_source_sha: 00765fa375204915f9c4ab079a3b39bf87c54502
 translation_revised: 2026-10-01
 ---
 # FDAI Console 대화
@@ -324,6 +324,9 @@ focused 소유자 문서로 이동했습니다: [operator-console-runtime-model-
    [user-rbac-and-identity.md § 2](user-rbac-and-identity-ko.md#2-롤-모델-4-tier--break-glass)
    에 정의되고 RiskGate 역할 축
    ([execution-model.md § 2.5](../decisioning/execution-model-ko.md#25-axis-f---role-rbac))가 mirror.
+
+컴파일된 속성 답변은 검토된 Property 값만 보여 줍니다. 구조화된 값은 중첩된 비밀, 자격 증명, 연결,
+키 정보와 주소를 답변과 기술 상세 모두에서 가린 채로 유지합니다.
 
 ### 7.3 BreakGlass 요청 증적
 

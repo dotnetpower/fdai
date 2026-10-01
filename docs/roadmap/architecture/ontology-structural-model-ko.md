@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 150213369de6e87e03bf0a069ff6ea31ed9d24d5
+translation_source_sha: 46a56cb4522ef6fc448a72f486031e4dea10ffa2
 translation_revised: 2026-10-01
 ---
 # 온톨로지 구조 모델
@@ -297,10 +297,10 @@ Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인�
 
 쿼리 매니페스트는 `rule-catalog/vocabulary/property-semantics.yaml`의 검토된 Property 의미도 담으며,
 각 의미에는 리소스 유형별 제공자 경로가 하나씩 있습니다. 이 정보는 매니페스트 다이제스트에 묶이고,
-principal이 Resource 제공자 속성 묶음을 읽을 수 있을 때만 제공됩니다. `project` 노드는 자신이 직접
-읽는 ObjectSet의 읽을 수 있는 객체 속성 안쪽 필드, 예를 들어 제공자 속성 묶음의 검토된 경로 하나를
-지정할 수 있습니다. principal이 이미 읽을 수 있는 객체의 안쪽을 읽으므로 접근 범위는 넓어지지 않으며,
-그 밖의 투영 필드는 여전히 선언된 읽기 가능 속성이어야 합니다.
+principal이 Resource 제공자 속성 묶음을 읽을 수 있을 때만 제공됩니다. Resource ObjectSet에 대한
+`project` 노드는 매니페스트가 제공하는 검토된 Property 경로에서만 제공자 속성 묶음 안쪽 필드를 지정할
+수 있습니다. 그 밖의 제공자 필드는 중첩 여부와 관계없이 투영할 수 없으며, 나머지 투영 필드는 여전히
+선언된 읽기 가능 속성이어야 합니다.
 
 리소스 상태 조회는 카탈로그에 선언된 상태 개념과 정확하고 범위가 제한된 리소스 집합만 받습니다.
 구체적인 상태 개념은 일반 관측 상태 표시자보다 우선합니다. 비어 있거나 불완전한 결과는 행 개수와

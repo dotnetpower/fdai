@@ -291,10 +291,9 @@ so a state stated on that type stays typed unsupported.
 The query manifest also carries the reviewed Property semantics of
 `rule-catalog/vocabulary/property-semantics.yaml`, each with one provider path per resource type,
 bound by the manifest digest and offered only when the principal can read the Resource provider
-bag. A `project` node may name a field inside a readable object property of the ObjectSet it reads
-directly, such as one reviewed path in the provider bag. Reading inside an object the principal can
-already read widens no access, and every other projected field still has to be a declared readable
-property.
+bag. A `project` node over a Resource ObjectSet may name a field inside the provider bag only at a
+reviewed Property path that the manifest offers. Any other provider field, nested or not, can't be
+projected, and every other projected field still has to be a declared readable property.
 
 Resource-state queries accept only catalog-declared state concepts and exact bounded resource
 collections. A concrete state concept takes precedence over the generic observed-state sentinel.

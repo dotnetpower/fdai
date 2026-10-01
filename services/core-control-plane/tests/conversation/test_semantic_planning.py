@@ -532,24 +532,41 @@ def test_the_carried_form_never_reaches_the_frame_model() -> None:
     assert judgments and all("question_form" not in item for item in judgments)
 
 
-def test_the_state_store_sink_keys_every_turn_apart() -> None:
+def test_the_state_store_sink_writes_on_its_own_loop_and_keys_every_turn_apart(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import asyncio
+    import threading
+
     from fdai.core.conversation.semantic_production_shadow import StateStoreProductionShadowSink
 
     class _Store:
-        def __init__(self) -> None:
+        def __init__(self, *, fail: bool = False) -> None:
             self.keys: list[str] = []
+            self.fail = fail
 
         async def write_state(self, key: str, value: object) -> None:
+            if self.fail:
+                raise RuntimeError("state store unavailable")
             self.keys.append(key)
 
-    store = _Store()
-    sink = StateStoreProductionShadowSink(store)  # type: ignore[arg-type]
-    record = SimpleNamespace(sample_id_digest="sha256:" + "a" * 64, as_state=lambda: {})
-
-    sink.write(record)  # type: ignore[arg-type]
-    sink.write(record)  # type: ignore[arg-type]
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+    try:
+        store, failing = _Store(), _Store(fail=True)
+        record = SimpleNamespace(sample_id_digest="sha256:" + "a" * 64, as_state=lambda: {})
+        StateStoreProductionShadowSink(store, loop).write(record)  # type: ignore[arg-type]
+        StateStoreProductionShadowSink(store, loop).write(record)  # type: ignore[arg-type]
+        StateStoreProductionShadowSink(failing, loop).write(record)  # type: ignore[arg-type]
+        asyncio.run_coroutine_threadsafe(asyncio.sleep(0.05), loop).result(timeout=5)
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(timeout=5)
+        loop.close()
 
     assert len(set(store.keys)) == 2
+    assert any(item.message == "semantic_production_shadow_unrecorded" for item in caplog.records)
 
 
 def test_missing_carried_form_records_form_absent_without_changing_plan() -> None:

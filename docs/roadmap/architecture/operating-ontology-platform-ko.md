@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 13ed98fa67a68179630131e959567af633e7ee0b
-translation_revised: 2026-09-29
+translation_source_sha: 049ad7432a5ed80aa1bceccbcfca3ef03965962f
+translation_revised: 2026-10-01
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -250,7 +250,8 @@ semantic 함수 레지스트리는 조합 후 함수 이름과 권한의 변경�
 조건식, named-link 탐색, 결정론적 정렬, `as_of` 기준 시점, 최신성, 용도, hard
 결과 한도를 지원합니다. Free-form Cypher, SPARQL, SQL 또는 모델 텍스트를 받지 않습니다. 모든
 구체화는 release 다이제스트, 기준 시점, 출처 watermark, 잘림 사유, 민감정보 제거 요약을
-기록합니다.
+기록합니다. Resource에 대한 투영은 매니페스트가 제공하는 검토된 Property 경로에서만 제공자 속성 묶음
+안쪽을 읽으므로, 그 밖의 제공자 필드는 계획의 출력에 들어가지 않습니다.
 
 현재 instance-store 계약에는 historical 관측 API가 없습니다. 따라서 secured 게이트웨이는
 trusted evaluation 기준 시점과 최대 5초로 명시적으로 구성한 skew 안의 `as_of`만 허용합니다. 이 범위를

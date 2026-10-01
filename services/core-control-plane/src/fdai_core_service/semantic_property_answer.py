@@ -18,6 +18,9 @@ _STRUCTURED = object()
 # A reviewed property projection keys its value under the provider bag; nothing else does.
 _PROVIDER_PREFIX = "properties.properties."
 _MAX_STRUCTURED_CHARS = 4_000
+_REDACTED = "<redacted>"
+# Nested keys whose values are secrets or connection material, matched inside the key name.
+_SENSITIVE_KEY_PARTS = ("password", "secret", "token", "credential", "connection", "key")
 
 
 def render_property_value_answer(
@@ -93,10 +96,22 @@ def reviewed_structured_cells(
 
 def _redacted(field: str, value: object, redact: Callable[[str, object], object]) -> object:
     if isinstance(value, Mapping):
-        return {str(key): _redacted(str(key), item, redact) for key, item in value.items()}
+        return {
+            str(key): _REDACTED if _sensitive_key(str(key)) else _redacted(str(key), item, redact)
+            for key, item in value.items()
+        }
     if isinstance(value, list | tuple):
         return [_redacted(field, item, redact) for item in value]
-    return redact(field, value)
+    scalar = redact(field, value)
+    # An address inside a reviewed value names a person, so it never reaches an answer.
+    if isinstance(scalar, str) and "@" in scalar and "." in scalar.rsplit("@", 1)[-1]:
+        return _REDACTED
+    return scalar
+
+
+def _sensitive_key(key: str) -> bool:
+    folded = key.casefold()
+    return any(part in folded for part in _SENSITIVE_KEY_PARTS)
 
 
 def _text(value: object) -> str | None:

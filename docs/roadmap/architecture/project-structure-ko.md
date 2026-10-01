@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3dcb18d0abd39a2e7fb704ce8e2ef9e454915354
+translation_source_sha: d8ef3263416172c264249673d196f0649a154d9c
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -26,7 +26,9 @@ frame 필드를 소유하고, Core는 슬롯 커버리지, plan 커버리지, �
 shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 변경은 Operator route를 추가하지 않으며
 로컬 환경 밖에서 컴파일된 답변을 사용할 수 있게 만들지 않습니다. 강화 작업도 이 분리를 유지합니다.
 저장하지 못한 shadow 기록은 로그로만 남고 계획된 답변을 바꾸지 않으며, 전달된 형식은 frame 모델에
-도달하지 않고, 판단의 타입 슬롯은 frame에 바인딩되어 plan 커버리지가 이를 적용할 수 있습니다.
+도달하지 않고, 판단의 타입 슬롯은 frame에 바인딩되어 plan 커버리지가 이를 적용할 수 있습니다. 상태 저장소 싱크는 기록마다 서비스 자체의
+이벤트 루프에 막힘 없이 예약하고, 다시 만든 frame은 조사 식별자를 유지하며, 피연산자 출처 검사는
+탐색 끝점과 메트릭 리소스 ID도 읽습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

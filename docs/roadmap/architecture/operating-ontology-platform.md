@@ -249,7 +249,8 @@ An `ObjectSetDefinition` selects objects by concrete type or semantic interface.
 property predicates, named-link traversal, deterministic ordering, an `as_of` cutoff, freshness,
 purpose, and a hard result limit. It does not accept free-form Cypher, SPARQL, SQL, or model text.
 Every materialization records the release digest, cutoff, source watermarks, truncation reason,
-and redaction summary.
+and redaction summary. A projection over Resources reads inside the provider bag only at a reviewed
+Property path that the manifest offers, so no other provider field reaches a plan's output.
 
 The current instance-store contract has no historical observation API. The secured gateway
 therefore accepts `as_of` only at the trusted evaluation cutoff, with an explicitly configured

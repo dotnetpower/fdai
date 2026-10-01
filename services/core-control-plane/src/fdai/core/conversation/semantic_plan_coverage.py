@@ -233,7 +233,17 @@ _VALUE_SLOT_PROPERTIES: Mapping[str, frozenset[str]] = {
     "property_predicate": frozenset(),
 }
 _WINDOW_ARGUMENTS = frozenset(
-    {"lookback_seconds", "window_seconds", "start_at", "end_at", "start", "end"}
+    {
+        "lookback_seconds",
+        "window_seconds",
+        "start_at",
+        "end_at",
+        "start",
+        "end",
+        "before_as_of",
+        "after_as_of",
+        "as_of",
+    }
 )
 
 
