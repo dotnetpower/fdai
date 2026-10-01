@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
@@ -39,21 +40,49 @@ def unproven_identity_operands(
 ) -> tuple[str, ...]:
     """Return identity literals that are not grounded in text, context, handle, or receipt."""
 
-    allowed = set(_identity_spans(utterance))
-    for item in context:
-        allowed.update(_identity_spans(item))
-    allowed.update(receipt.identity for receipt in receipts)
+    texts = (utterance, *context)
+    receipted = {receipt.identity for receipt in receipts}
     found = sorted(
         {operand for node in plan.nodes for operand in _node_operands(node.kind, node.arguments)}
     )
-    return tuple(operand for operand in found if operand not in allowed)
-
-
-def _identity_spans(text: str) -> tuple[str, ...]:
-    # This is not meaning extraction: it only accepts exact literal presence for a plan operand.
     return tuple(
-        token.strip(".,;:!?()[]{}\"'") for token in text.split() if token.strip(".,;:!?()[]{}\"'")
+        operand
+        for operand in found
+        if operand not in receipted and not any(_literally_present(operand, item) for item in texts)
     )
+
+
+@dataclass(frozen=True, slots=True)
+class ProvenanceScope:
+    """Whether a plan's identity operands are checked, and the receipts that ground them."""
+
+    enforced: bool
+    receipts: tuple[IdentityBindingReceipt, ...] = ()
+
+
+def provenance_scope(enforce_when: object, bound: object) -> ProvenanceScope:
+    """Check operands under ``enforce_when``; a bound Console context grounds its own ids."""
+
+    ids = getattr(bound, "resource_ids", None) or ()
+    group = getattr(bound, "resource_group_id", None)
+    identities = (*ids, *((group,) if isinstance(group, str) and group else ()))
+    return ProvenanceScope(
+        enforce_when is not None,
+        tuple(
+            IdentityBindingReceipt("bound_resource_context", "bound_resource_context", item)
+            for item in identities
+            if isinstance(item, str) and item
+        ),
+    )
+
+
+def _literally_present(operand: str, text: str) -> bool:
+    # Not meaning extraction: the operand must occur as written, bounded on both sides by
+    # anything but an identifier character, so a Korean particle after a name still counts.
+    if not operand.strip():
+        return False
+    pattern = rf"(?<![A-Za-z0-9_.\-]){re.escape(operand)}(?![A-Za-z0-9_\-]|\.[A-Za-z0-9])"
+    return re.search(pattern, text, flags=re.IGNORECASE) is not None
 
 
 def _node_operands(kind: QueryNodeKind, value: Mapping[str, object]) -> tuple[str, ...]:
@@ -97,4 +126,9 @@ def _identity_values(value: object) -> tuple[str, ...]:
     return ()
 
 
-__all__ = ["IdentityBindingReceipt", "unproven_identity_operands"]
+__all__ = [
+    "IdentityBindingReceipt",
+    "ProvenanceScope",
+    "provenance_scope",
+    "unproven_identity_operands",
+]

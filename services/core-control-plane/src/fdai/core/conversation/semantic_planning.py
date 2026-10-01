@@ -53,6 +53,7 @@ from .semantic_judgment_coverage import (
     start_coverage,
 )
 from .semantic_judgment_review import promoted_state_collection
+from .semantic_operand_provenance import provenance_scope
 from .semantic_plan_coverage import narrower_plan_outcome as _npo
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
@@ -98,6 +99,7 @@ from .semantic_planning_models import (
 from .semantic_planning_plan_dispatch import PlanDispatchResult, dispatch_semantic_plan
 from .semantic_planning_preflight import (
     DIRECT_RESPONSE_PROFILE,
+    SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
 )
 from .semantic_planning_preflight import (
     preflight_descriptor_intent as _preflight_descriptor_intent,
@@ -125,15 +127,6 @@ from .semantic_type_grounding import ResourceTypeGrounding
 from .session import Principal, Turn
 
 _LOGGER = logging.getLogger(__name__)
-
-
-_SAFE_UNACCEPTED_DESCRIPTOR_INTENTS = frozenset(
-    {
-        "query.gateway_diagnostic_evidence",
-        "query.resource_configuration_changes",
-        "query.resource_event_history",
-    }
-)
 
 
 class SemanticPlanningService(SemanticPlanningPreflightMixin):
@@ -369,7 +362,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                 if judgment_decision.proposal is not None and (
                     judgment_decision.accepted
                     or judgment_decision.proposal.primary_intent
-                    in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+                    in SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
                 ):
                     descriptors = _narrowed_descriptors(
                         manifest_descriptors,
@@ -675,8 +668,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
+            prov = provenance_scope(coverage, bound_resource_context)
             held = _npo(
-                ticket, coverage, plan_source, plan, manifest_digest, utterance, context, coverage
+                ticket, coverage, plan_source, plan, manifest_digest, utterance, context, prov
             )
             if held is not None:
                 return preflight_router.finish(held)

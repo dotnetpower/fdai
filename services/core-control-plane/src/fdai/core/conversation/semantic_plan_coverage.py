@@ -23,7 +23,11 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
 )
 
-from .semantic_operand_provenance import IdentityBindingReceipt, unproven_identity_operands
+from .semantic_operand_provenance import (
+    IdentityBindingReceipt,
+    ProvenanceScope,
+    unproven_identity_operands,
+)
 from .semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
@@ -110,15 +114,17 @@ def narrower_plan_outcome(
     if vetoed is not None:
         return vetoed
     output_ids = set(getattr(plan, "output_node_ids", tuple(node.node_id for node in plan.nodes)))
+    scope = enforce_when if isinstance(enforce_when, ProvenanceScope) else None
+    receipts = (*identity_receipts, *(scope.receipts if scope is not None else ()))
     if (
-        enforce_when is not None
+        (scope.enforced if scope is not None else enforce_when is not None)
         and plan_source == "proposed"
         and any(
             node.output_kind == "query.table" for node in plan.nodes if node.node_id in output_ids
         )
     ):
         unproven = unproven_identity_operands(
-            plan, utterance=utterance, context=context, receipts=identity_receipts
+            plan, utterance=utterance, context=context, receipts=receipts
         )
         if unproven:
             return _outcome(

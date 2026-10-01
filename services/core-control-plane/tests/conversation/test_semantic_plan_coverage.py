@@ -6,7 +6,10 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from fdai.core.conversation.semantic_operand_provenance import IdentityBindingReceipt
+from fdai.core.conversation.semantic_operand_provenance import (
+    IdentityBindingReceipt,
+    provenance_scope,
+)
 from fdai.core.conversation.semantic_plan_coverage import (
     narrower_plan_outcome,
     plan_answers_schema_for_instance,
@@ -284,3 +287,75 @@ def test_identity_operands_may_come_from_receipts_context_or_prior_turns() -> No
         )
         is None
     )
+
+
+@pytest.mark.parametrize(
+    ("operand", "utterance"),
+    [
+        # A Korean particle written right after a name still quotes the name.
+        ("vm-app-01", "vm-app-01의 상태는?"),
+        ("vm-app-01", "VM-APP-01에서 무슨 일이 있었어?"),
+        # A multi-word name is quoted as written.
+        ("prod storage", "show the prod storage account"),
+    ],
+)
+def test_an_identity_quoted_with_particles_or_spaces_is_not_invented(
+    operand: str, utterance: str
+) -> None:
+    plan = _plan(_objects({"property": "name", "operator": "equals", "equals": operand}))
+
+    assert (
+        narrower_plan_outcome(
+            None, None, "proposed", plan, "sha256:" + "a" * 64, utterance=utterance
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("operand", "utterance"),
+    [
+        # Part of a longer identifier is not that identifier.
+        ("vm-app-0", "vm-app-01의 상태는?"),
+        ("app", "show app-prod"),
+        ("prod", "show app.prod.example"),
+    ],
+)
+def test_part_of_a_longer_identifier_is_still_invented(operand: str, utterance: str) -> None:
+    plan = _plan(_objects({"property": "name", "operator": "equals", "equals": operand}))
+
+    outcome = narrower_plan_outcome(
+        None, None, "proposed", plan, "sha256:" + "a" * 64, utterance=utterance
+    )
+
+    assert outcome is not None and outcome.reason == "semantic_operand_without_source"
+
+
+def test_a_bound_console_resource_grounds_its_own_identities() -> None:
+    plan = _plan(_objects({"property": "id", "operator": "equals", "equals": "/sub/vm-1"}))
+    bound = SimpleNamespace(resource_ids=("/sub/vm-1",), resource_group_id=None)
+    coverage = SimpleNamespace(settled_reading=lambda: None)
+
+    held = narrower_plan_outcome(
+        None,
+        cast(Any, coverage),
+        "proposed",
+        plan,
+        "sha256:" + "a" * 64,
+        "what is its state?",
+        (),
+        provenance_scope(coverage, None),
+    )
+    grounded = narrower_plan_outcome(
+        None,
+        cast(Any, coverage),
+        "proposed",
+        plan,
+        "sha256:" + "a" * 64,
+        "what is its state?",
+        (),
+        provenance_scope(coverage, bound),
+    )
+
+    assert held is not None and held.reason == "semantic_operand_without_source"
+    assert grounded is None
