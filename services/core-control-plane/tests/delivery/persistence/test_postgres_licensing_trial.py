@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 from fdai.core.licensing.trial import TrialRecord
 from fdai.delivery.persistence.postgres_licensing_trial import (
+    PostgresTrialStore,
     activate_trial_once,
     observe_trial,
     read_trial_record,
@@ -227,3 +228,101 @@ async def test_a_losing_writer_adopts_the_winning_record() -> None:
     assert later is not None
     assert later.revision == 5
     assert later.last_observed_at == _NOW + timedelta(hours=3)
+
+
+class _Transaction:
+    async def __aenter__(self) -> None:
+        return None
+
+    async def __aexit__(self, *exception: object) -> None:
+        return None
+
+
+class _SessionConnection(_Connection):
+    """A fake connection with the session surface `PostgresTrialStore` uses."""
+
+    def __init__(self, row: tuple[Any, ...] | None = None) -> None:
+        super().__init__(row)
+        self.statements: list[str] = []
+        self.transactions = 0
+        self.closed = False
+
+    async def __aenter__(self) -> _SessionConnection:
+        return self
+
+    async def __aexit__(self, *exception: object) -> None:
+        self.closed = True
+
+    def transaction(self) -> _Transaction:
+        self.transactions += 1
+        return _Transaction()
+
+    async def execute(self, statement: str) -> None:
+        self.statements.append(statement)
+
+
+_DSN = "postgresql://fdai@db.invalid/fdai"
+
+
+def _store(
+    connection: _SessionConnection, calls: list[tuple[str, dict[str, object]]]
+) -> PostgresTrialStore:
+    async def connect(dsn: str, **options: object) -> _SessionConnection:
+        calls.append((dsn, options))
+        return connection
+
+    return PostgresTrialStore(
+        dsn=_DSN, statement_timeout_ms=1234, connect_timeout_s=7, connect=connect
+    )
+
+
+def test_the_store_commits_one_bounded_observation_per_call() -> None:
+    connection = _SessionConnection(_row())
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    record = _store(connection, calls).observe(now=_NOW + timedelta(hours=1))
+
+    assert record is not None
+    assert record.revision == 2
+    assert calls == [(_DSN, {"connect_timeout": 7})]
+    assert connection.transactions == 1
+    assert connection.closed is True
+    assert connection.statements
+    assert set(connection.statements) == {"SET LOCAL statement_timeout = 1234"}
+
+
+def test_the_store_reports_an_unactivated_installation_without_writing() -> None:
+    connection = _SessionConnection()
+
+    record = _store(connection, []).observe(now=_NOW)
+
+    assert record is None
+    assert connection.inserts == 0
+    assert connection.row is None
+
+
+@pytest.mark.asyncio
+async def test_the_store_refuses_to_block_an_event_loop() -> None:
+    connection = _SessionConnection(_row())
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    with pytest.raises(RuntimeError, match="off the event loop"):
+        _store(connection, calls).observe(now=_NOW)
+
+    assert calls == []
+    assert connection.row == _row()
+
+
+@pytest.mark.parametrize(
+    ("dsn", "statement_timeout_ms", "connect_timeout_s"),
+    [(" ", 1, 1), (_DSN, 0, 1), (_DSN, 1, 0)],
+)
+def test_the_store_requires_a_dsn_and_positive_timeouts(
+    dsn: str, statement_timeout_ms: int, connect_timeout_s: int
+) -> None:
+    with pytest.raises(ValueError):
+        PostgresTrialStore(
+            dsn=dsn,
+            statement_timeout_ms=statement_timeout_ms,
+            connect_timeout_s=connect_timeout_s,
+        )

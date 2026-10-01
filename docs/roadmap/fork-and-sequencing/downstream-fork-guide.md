@@ -82,13 +82,16 @@ The one-command source deployment and its keyless Trial apply equally to upstrea
 A fork marker, clean checkout, or artifact signature never grants entitlement or starts a new
 Trial. Only the upstream integrity signing key on the installing workstation selects the
 [installation entitlement](capability-licensing.md#key-holder-installation-entitlement), and every
-distribution verifies entitlements against the packaged upstream integrity public key. The Trial
+distribution verifies entitlements against the packaged upstream integrity public key. An
+installation entitlement grants nothing outside the exact distribution, installation, and
+deployment digests it carries, so a fork cannot reuse one from another installation. The Trial
 check, the [expiry watermark](capability-licensing.md#trial-expiry-watermark), and that key belong
 to the framework surface, so a fork must not edit, hide, or replace them. Preserve the
 installation-bound record across upgrades: a fork that supplies a record bound to another
 installation receives no capability, and runtime enforcement resolves through the shared license
-entitlement authority rather than any fork-supplied check. Durable Trial storage exists;
-initializing it during deployment and composing it into Core remain open in
+entitlement authority rather than any fork-supplied check. Durable Trial storage, its Core
+composition, and its anchored activation writer exist; supplying the installation binding and
+invoking that writer during deployment remain open in
 [Source Deployment](../deployment/source-deployment.md).
 
 An optional vertical package is also independent from the fork boundary. For example,
@@ -163,8 +166,9 @@ Do these before your first `git commit` on the fork.
 
 Never edit a path listed in
 [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt). Definitions under core,
-composition, shared contracts and providers, agents, the capability-licensing runtime binding and
-trust package, schemas, and repository instructions are upstream-owned. A fork adds
+composition, shared contracts and providers, agents, the capability-licensing runtime binding,
+durable Trial store and activation writer, and trust package, schemas, and repository instructions
+are upstream-owned. A fork adds
 implementations, catalog entries, and overlays through the seams in its own package.
 
 Use the [Fork Customization skill](../../../.github/skills/fork-customization/SKILL.md) as the

@@ -132,6 +132,19 @@ def parse_license_token(token: str) -> tuple[LicenseClaims, bytes, bytes]:
     Parsing never establishes trust. The caller MUST verify the signature over
     the returned document before acting on the claims.
     """
+    document, signature = decode_signed_envelope(token)
+    claims = _claims_from_document(document)
+    if claims.canonical_document() != document:
+        raise LicenseTokenError("license document is not canonically encoded")
+    return claims, document, signature
+
+
+def decode_signed_envelope(token: str) -> tuple[bytes, bytes]:
+    """Split one signed token into its document bytes and detached signature.
+
+    Every FDAI signed-token schema shares this envelope. It checks only the
+    envelope and establishes no trust; each schema keeps its own strict parser.
+    """
     if not token or len(token) > _MAX_TOKEN_CHARS:
         raise LicenseTokenError("license token is empty or exceeds the supported length")
     parts = token.split(".")
@@ -141,10 +154,7 @@ def parse_license_token(token: str) -> tuple[LicenseClaims, bytes, bytes]:
     signature = _b64decode(parts[1], "signature")
     if len(signature) != _SIGNATURE_BYTES:
         raise LicenseTokenError("license signature MUST be 64 bytes")
-    claims = _claims_from_document(document)
-    if claims.canonical_document() != document:
-        raise LicenseTokenError("license document is not canonically encoded")
-    return claims, document, signature
+    return document, signature
 
 
 def _claims_from_document(document: bytes) -> LicenseClaims:
@@ -238,6 +248,7 @@ __all__ = [
     "LICENSE_SCHEMA",
     "LicenseClaims",
     "LicenseTokenError",
+    "decode_signed_envelope",
     "encode_license_token",
     "parse_license_token",
 ]

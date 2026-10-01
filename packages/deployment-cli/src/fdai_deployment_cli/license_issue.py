@@ -20,7 +20,11 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from fdai_deployment_cli.contracts import canonical_bytes
-from fdai_deployment_cli.license import inspect_license
+from fdai_deployment_cli.license import (
+    INSTALLATION_ENTITLEMENT_SCHEMA,
+    inspect_installation_entitlement,
+    inspect_license,
+)
 from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.trust_roots import license_public_key_pem
 
@@ -84,6 +88,40 @@ def write_license_token(path: Path, token: str) -> None:
 
     inspect_license(token, public_key_pem=license_public_key_pem())
     write_private_output(path, token)
+
+
+def issue_installation_entitlement(
+    *,
+    private_key: Path,
+    entitlement_id: str,
+    installation_binding: str,
+    deployment_binding: str,
+) -> str:
+    """Issue and reverify one no-expiry, complete-catalog grant for one installation.
+
+    The document carries no image digest and no validity window, so upgrades and
+    restarts keep it valid; its exact installation and deployment digests are its
+    only limit, and it is useless anywhere else.
+    """
+
+    payload: dict[str, object] = {
+        "schema_version": INSTALLATION_ENTITLEMENT_SCHEMA,
+        "entitlement_id": entitlement_id,
+        "distribution_id": "fdai-upstream",
+        "installation_binding": installation_binding,
+        "deployment_binding": deployment_binding,
+        "issued_at": _moment(datetime.now(UTC).replace(microsecond=0)),
+    }
+    document = canonical_bytes(payload)
+    key = _read_private_key(private_key)
+    token = f"{_encode(document)}.{_encode(key.sign(document))}"
+    inspect_installation_entitlement(
+        token,
+        public_key_pem=license_public_key_pem(),
+        expected_installation_binding=installation_binding,
+        expected_deployment_binding=deployment_binding,
+    )
+    return token
 
 
 def _read_private_key(path: Path) -> Ed25519PrivateKey:

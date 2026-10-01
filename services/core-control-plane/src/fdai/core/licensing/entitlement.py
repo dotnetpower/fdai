@@ -26,6 +26,12 @@ from enum import StrEnum
 from typing import Final, Protocol
 
 from fdai.core.capability_catalog.catalog import CapabilityCatalog, SideEffectClass
+from fdai.core.licensing.installation_entitlement import (
+    INSTALLATION_ENTITLEMENT_SCHEMA,
+    InstallationEntitlementClaims,
+    parse_installation_entitlement,
+    signed_document_schema,
+)
 from fdai.core.licensing.token import LicenseClaims, LicenseTokenError, parse_license_token
 
 
@@ -65,6 +71,7 @@ class DeploymentBinding:
     distribution_id: str | None = None
     image_digest: str | None = None
     tenant_binding: str | None = None
+    installation_binding: str | None = None
 
 
 UNBOUND: Final = DeploymentBinding()
@@ -168,24 +175,17 @@ def resolve_entitlement(
             available_capability_ids=_all_ids(catalog),
             reason="no license token is configured; the upstream catalog applies",
         )
+    if signed_document_schema(token) == INSTALLATION_ENTITLEMENT_SCHEMA:
+        return _resolve_installation_entitlement(
+            catalog=catalog, token=token, verifier=verifier, binding=binding
+        )
     try:
         claims, document, signature = parse_license_token(token)
     except LicenseTokenError as exc:
         return _degraded(catalog, LicenseStatus.UNTRUSTED, f"license token is malformed: {exc}")
-    try:
-        verified = verifier.verify(document, signature)
-    except Exception:  # noqa: BLE001 - a broken verifier degrades, it never crashes the runtime
-        return _degraded(
-            catalog,
-            LicenseStatus.UNTRUSTED,
-            "license signature could not be checked",
-        )
-    if not verified:
-        return _degraded(
-            catalog,
-            LicenseStatus.UNTRUSTED,
-            "license signature does not verify against the packaged public key",
-        )
+    failure = _signature_failure(catalog, verifier, document, signature)
+    if failure is not None:
+        return failure
     if now < claims.not_before:
         return _degraded(
             catalog,
@@ -211,6 +211,78 @@ def resolve_entitlement(
         license_id=claims.license_id,
         not_after=claims.not_after,
     )
+
+
+def _signature_failure(
+    catalog: CapabilityCatalog,
+    verifier: LicenseVerifier,
+    document: bytes,
+    signature: bytes,
+) -> Entitlement | None:
+    try:
+        verified = verifier.verify(document, signature)
+    except Exception:  # noqa: BLE001 - a broken verifier degrades, it never crashes the runtime
+        return _degraded(
+            catalog,
+            LicenseStatus.UNTRUSTED,
+            "license signature could not be checked",
+        )
+    if not verified:
+        return _degraded(
+            catalog,
+            LicenseStatus.UNTRUSTED,
+            "license signature does not verify against the packaged public key",
+        )
+    return None
+
+
+def _resolve_installation_entitlement(
+    *,
+    catalog: CapabilityCatalog,
+    token: str,
+    verifier: LicenseVerifier,
+    binding: DeploymentBinding,
+) -> Entitlement:
+    """Grant the complete catalog only to the exact installation the document binds.
+
+    The entitlement has no validity window, so its bindings are its only limit. Each
+    must match exactly; a runtime that cannot assert one is misbound, never trusted.
+    """
+    try:
+        claims, document, signature = parse_installation_entitlement(token)
+    except LicenseTokenError as exc:
+        return _degraded(
+            catalog, LicenseStatus.UNTRUSTED, f"installation entitlement is malformed: {exc}"
+        )
+    failure = _signature_failure(catalog, verifier, document, signature)
+    if failure is not None:
+        return failure
+    mismatch = _installation_mismatch(claims, binding)
+    if mismatch is not None:
+        return Entitlement(
+            status=LicenseStatus.MISBOUND,
+            available_capability_ids=_read_only_ids(catalog),
+            reason=mismatch,
+            license_id=claims.entitlement_id,
+        )
+    return Entitlement(
+        status=LicenseStatus.ACTIVE,
+        available_capability_ids=_all_ids(catalog),
+        reason="installation entitlement grants the complete catalog",
+        license_id=claims.entitlement_id,
+    )
+
+
+def _installation_mismatch(
+    claims: InstallationEntitlementClaims, binding: DeploymentBinding
+) -> str | None:
+    if claims.distribution_id != binding.distribution_id:
+        return "installation entitlement is bound to a different distribution"
+    if claims.installation_binding != binding.installation_binding:
+        return "installation entitlement is bound to a different installation"
+    if claims.deployment_binding != binding.tenant_binding:
+        return "installation entitlement is bound to a different deployment"
+    return None
 
 
 def _binding_mismatch(claims: LicenseClaims, binding: DeploymentBinding) -> str | None:

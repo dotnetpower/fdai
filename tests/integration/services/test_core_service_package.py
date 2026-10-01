@@ -113,6 +113,7 @@ EXPECTED_RUNTIME_MODULES = {
     "isolated_executor_client.py",
     "isolated_executor_receipt_journal.py",
     "licensing.py",
+    "licensing_trial_activation.py",
     "metric_semantic_catalog.py",
     "notification_direct_line.py",
     "notification_registry.py",

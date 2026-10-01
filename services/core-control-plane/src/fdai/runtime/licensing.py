@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import dataclasses
 import logging
+import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,6 +16,8 @@ from fdai.core.licensing import (
     LicenseEntitlementAuthority,
     LicenseVerifier,
 )
+from fdai.core.licensing.trial_entitlement import TrialEntitlementResolver
+from fdai.delivery.persistence.postgres_licensing_trial import PostgresTrialStore
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.trust import (
     Ed25519LicenseVerifier,
@@ -26,6 +30,7 @@ from fdai.shared.providers.state_store import StateStore
 _LOGGER = logging.getLogger("fdai.startup")
 _ISSUER_PRIVATE_KEY = Path("secrets/integrity-signing-key.pem")
 _DEFAULT_DISTRIBUTION_ID = "fdai-upstream"
+_BINDING = re.compile(r"[0-9a-f]{64}")
 
 
 class _UnavailableLicenseVerifier:
@@ -100,11 +105,17 @@ def build_runtime_license_authority(
             distribution_id=distribution_id,
             image_digest=_optional_value(environment.get("FDAI_LICENSE_IMAGE_DIGEST")),
             tenant_binding=_optional_value(environment.get("FDAI_LICENSE_DEPLOYMENT_BINDING")),
+            installation_binding=_optional_value(environment.get("FDAI_INSTALLATION_BINDING")),
         ),
         require_license=True,
         issuer_workstation=issuer_workstation,
+        trial=_trial_resolver(catalog=catalog, environment=environment),
     )
-    entitlement = authority.resolve(now=evaluated_at or datetime.now(tz=UTC))
+    # The startup log reports the token decision only: the Trial store must not be
+    # observed on the event loop that is starting the runtime.
+    entitlement = dataclasses.replace(authority, trial=None).resolve(
+        now=evaluated_at or datetime.now(tz=UTC)
+    )
     _LOGGER.info(
         "license_entitlement_resolved",
         extra={
@@ -114,9 +125,43 @@ def build_runtime_license_authority(
                 entitlement.not_after.isoformat() if entitlement.not_after is not None else None
             ),
             "available_capability_count": len(entitlement.available_capability_ids),
+            "trial_configured": authority.trial is not None,
         },
     )
     return authority
+
+
+def _trial_resolver(
+    *, catalog: CapabilityCatalog, environment: Mapping[str, str]
+) -> TrialEntitlementResolver | None:
+    """Bind the durable Trial when the deployment supplies its installation bindings."""
+
+    installation = _optional_value(environment.get("FDAI_INSTALLATION_BINDING"))
+    deployment = _optional_value(environment.get("FDAI_LICENSE_DEPLOYMENT_BINDING"))
+    if installation is None:
+        return None
+    if (
+        _BINDING.fullmatch(installation) is None
+        or deployment is None
+        or _BINDING.fullmatch(deployment) is None
+    ):
+        _LOGGER.warning("license_trial_unbound", extra={"reason": "binding_invalid"})
+        return None
+    dsn = _optional_value(environment.get("FDAI_STATE_STORE_DSN"))
+    if dsn is None:
+        _LOGGER.warning("license_trial_unbound", extra={"reason": "state_store_unconfigured"})
+        return None
+    return TrialEntitlementResolver(
+        catalog=catalog,
+        store=PostgresTrialStore(dsn=dsn),
+        installation_binding=installation,
+        deployment_binding=deployment,
+        on_storage_error=_log_trial_storage_error,
+    )
+
+
+def _log_trial_storage_error(error: Exception) -> None:
+    _LOGGER.warning("license_trial_storage_unavailable", extra={"error_type": type(error).__name__})
 
 
 def gate_execution(

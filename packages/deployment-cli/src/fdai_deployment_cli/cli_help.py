@@ -93,6 +93,7 @@ _ARGUMENT_HELP = {
     "--token": "Path to the private capability-token file, never the token value",
     "--image-digest": "Optional expected runtime image SHA-256 binding",
     "--tenant-binding": "Optional expected deployment binding digest",
+    "--installation-binding": "Expected installation binding digest for an installation entitlement",
     "--run-id": "Run identifier for the local simulation journal",
     "--journal": "Path to the local hash-chained simulation journal",
     "--simulate": "Required for guided rehearsal; never starts a live deployment",
