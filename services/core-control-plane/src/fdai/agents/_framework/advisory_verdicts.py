@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.shared.contracts.models import Autonomy
 
 #: Reason recorded when learned or predicted input would otherwise reach an action path but the
@@ -24,7 +25,9 @@ GOVERNED_EXECUTION_UNSELECTED_REASON = "governed_execution_unselected"
 NON_ACTION_VERDICT_REASONS: frozenset[str] = frozenset(
     {
         "anomaly_action_unavailable",
+        "arbitration_owner_unavailable",
         "no_rule_match",
+        "retrospective_what_if_evidence",
         GOVERNED_EXECUTION_UNSELECTED_REASON,
     }
 )
@@ -47,9 +50,10 @@ def is_advisory_arbitration_verdict(verdict: Mapping[str, Any]) -> bool:
 def advisory_verdict(
     *,
     correlation_id: str,
-    idempotency_key: str,
+    idempotency_key: str = "",
     resource_id: str,
     advisory_source: str,
+    arbitration_outcome: str = "",
 ) -> dict[str, Any]:
     """Build the action-free Verdict for learned or predicted input without the add-on.
 
@@ -60,7 +64,14 @@ def advisory_verdict(
     return {
         "producer_principal": "Forseti",
         "correlation_id": correlation_id,
-        "idempotency_key": idempotency_key,
+        "idempotency_key": idempotency_key
+        or stable_idempotency_key(
+            "forseti-advisory-verdict",
+            correlation_id,
+            advisory_source,
+            resource_id,
+            arbitration_outcome,
+        ),
         "resource_id": resource_id,
         "action_type": "",
         "risk_verdict": "hil",

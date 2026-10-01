@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: d24ceff74f0ad2ae38128df0541d188d42e480af
+translation_source_sha: 98ca7e59f3f055b1cfad8c1f860fe4d5d1440c49
 translation_revised: 2026-10-01
 ---
 # 독립 운영 근거 발급
@@ -405,6 +405,10 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   결과와 `evidence_rejection_ref`를 설정합니다. Heimdall은 점수 산정과 조각 보존 중 어느 쪽이 거부되었든
   `ForecastOutcome` 스키마 `1.2.0`의 `operational_evidence_*` 유형과 `operational-evidence-rejection:` 근거 참조로
   점수 산정을 제외합니다. T1 사유 코드와 Pattern 읽기의 거부도 유형을 밝히고 기록을 인용합니다.
+- **Forseti 판단 표.** Forseti는 규칙 및 위험 결과를 주입 가능한 digest가 찍힌 판단 표에서
+  읽고, 결정론적 결정마다 표 digest와 안정적인 결정 키를 기록합니다. `auto` 결정은 상한일 뿐입니다.
+  거버넌스가 적용된 되돌릴 수 있는 `ActionType` 의미가 없거나, 작업을 알 수 없거나, 필요한 정족수가
+  `>= 2`이거나, 일치한 규칙이 retired 또는 revoked이면 Forseti는 사람 승인(`hil`)으로 낮춥니다.
 - **검증기.** `core/operational_evidence/issuance.py`와 `proofs.py`는 레지스트리 항목과 자체 재확인으로 근거 증적, 다섯 증명,
   묶음을 만들고 `DecisionEvidenceReadinessGate`로 평가한 뒤 발급 기록 하나 또는 거부 기록 하나를 작성합니다.
   `separation.py`는 독립 principal과 같은 검증기 principal을 거부하며, `delivery/operational_evidence_server.py`는

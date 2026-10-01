@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
+from fdai.agents._framework import thor_preflight
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.provider_adapters import StateStoreActionRunStore
 from fdai.agents._framework.registry import load_pantheon
@@ -57,6 +59,24 @@ def _rollback_for_run(
     }
 
 
+def _effect_observation_for_run(run: ActionRun) -> dict[str, object]:
+    return {
+        "producer_principal": "Heimdall",
+        "schema_version": "1.0.0",
+        "event_type": "action.execution.effect_verified.v1",
+        "correlation_id": run.correlation_id,
+        "idempotency_key": f"effect:{run.idempotency_key}",
+        "resource_id": run.resource_id,
+        "action_id": run.action_id,
+        "action_type": run.action_type,
+        "action_idempotency_key": run.idempotency_key,
+        "params": run.params,
+        "effect_verification_ref": "sha256:" + "a" * 64,
+        "execution_closure_ref": "sha256:" + "b" * 64,
+        "observed_at": "2026-09-17T00:00:00+00:00",
+    }
+
+
 class _FakeActionRunStore:
     """Minimal in-memory ActionRunStore double."""
 
@@ -73,6 +93,14 @@ class _FakeActionRunStore:
     async def delete(self, correlation_id: str) -> None:
         self.deleted.append(correlation_id)
         self.saved.pop(correlation_id, None)
+
+    async def discard_unpublished(self, run: ActionRun) -> bool:
+        self.deleted.append(run.correlation_id)
+        return self.saved.pop(run.correlation_id, None) is not None
+
+    async def abandon_unpublished_resource_claim(self, run: ActionRun) -> bool:
+        del run
+        return True
 
 
 class _FailTerminalPublishBus:
@@ -94,11 +122,87 @@ class _FailTerminalPublishBus:
         self.payloads.append(payload)
 
 
+class _FailInitialPublishBus:
+    def __init__(self) -> None:
+        self.fail_initial_once = True
+        self.payloads: list[dict[str, object]] = []
+
+    async def publish(
+        self,
+        principal: str,
+        topic: str,
+        payload: dict[str, object],
+    ) -> None:
+        assert principal == "Thor"
+        assert topic == "object.action-run"
+        if payload.get("state") == "verdicted" and self.fail_initial_once:
+            self.fail_initial_once = False
+            raise RuntimeError("injected initial publish failure")
+        self.payloads.append(payload)
+
+
+class _FailInitialPublishOnceBus(_FailInitialPublishBus):
+    pass
+
+
 class _FailTerminalSaveStore(_FakeActionRunStore):
     async def save(self, run: ActionRun) -> None:
         if run.state is ActionRunState.SUCCEEDED:
             raise RuntimeError("injected terminal save failure")
         await super().save(run)
+
+
+class _CrashAfterTerminalClaimStore(_FakeActionRunStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.crashed = False
+
+    async def save(self, run: ActionRun) -> None:
+        self.saved[run.correlation_id] = ActionRun.from_dict(run.to_dict())
+        if (
+            run.state is ActionRunState.SUCCEEDED
+            and run.terminal_publication_claim is not None
+            and not run.terminal_published
+            and not self.crashed
+        ):
+            self.crashed = True
+            raise RuntimeError("injected crash after terminal publication claim")
+
+
+class _PreflightSimulator:
+    def __init__(self, outcome: thor_preflight.PreflightOutcome = "passed") -> None:
+        self.outcome = outcome
+        self.calls: list[str] = []
+
+    async def simulate(self, run: ActionRun) -> thor_preflight.PreflightSimulationResult:
+        self.calls.append(run.action_run_identity())
+        return thor_preflight.PreflightSimulationResult(
+            outcome=self.outcome,
+            simulator_id="test-preflight",
+            simulator_version="1",
+            reason="test result",
+        )
+
+
+def _safeguards(*, dry_run_evidence: str = "upstream_receipt") -> dict[str, object]:
+    return {
+        "stop_condition": "stop when postcondition is met",
+        "tested_rollback_contract": "state_forward_only:test",
+        "blast_radius_limit": {"max_targets": 1},
+        "dry_run_receipt": "sha256:" + "1" * 64,
+        "dry_run_evidence": dry_run_evidence,
+        "logical_target_lock": "target-lock:resource",
+        "stable_idempotency_key": "stable-action-key",
+        "two_phase_audit_intent": "audit-intent:test",
+    }
+
+
+def _safe_semantics(*, irreversible: bool = False) -> ActionSemanticsCatalog:
+    action_type = _proposal().plan.action_type_ref.name
+    return ActionSemanticsCatalog(
+        irreversible_by_id={action_type: irreversible},
+        rollback_by_id={action_type: "state_forward_only"},
+    )
 
 
 async def test_thor_terminalizes_only_exact_independently_verified_action_run() -> None:
@@ -239,7 +343,7 @@ def _verdict() -> dict[str, object]:
         "resolved_autonomy_ceiling": "enforce_auto",
         "resource_id": proposal.target_resource_ref,
         "params": proposal.arguments(),
-        "quorum_required": 2,
+        "quorum_required": 1,
         "decision_case": _decision_case(),
         "kinetic_proposal": proposal.model_dump(mode="json"),
     }
@@ -252,7 +356,7 @@ def test_thor_preserves_valid_kinetic_proposal_without_raising_authority() -> No
     run = asyncio.run(thor.dispatch_verdict(_verdict()))
 
     assert run.verdict == "auto"
-    assert run.quorum_required == 2
+    assert run.quorum_required == 1
     assert run.shadow_mode is True
     assert run.kinetic_proposal == _proposal().model_dump(mode="json")
     executor.assert_not_awaited()
@@ -428,11 +532,336 @@ def test_thor_executes_only_after_pre_execution_audit_receipt() -> None:
 
     run = asyncio.run(thor.dispatch_verdict(_verdict()))
 
-    assert run.state is ActionRunState.SUCCEEDED
+    assert run.state is ActionRunState.EFFECT_PENDING
     assert run.outcome == "command_accepted_verification_pending"
     assert run.execution_audit_receipt == "audit-receipt-1"
     recorder.assert_awaited_once_with(run)
     executor.assert_awaited_once()
+
+
+def test_declared_dry_run_obligation_gets_preflight_receipt_before_executor_io() -> None:
+    order: list[str] = []
+
+    async def _execute(context: dict[str, object]) -> bool:
+        run = context["run"]
+        assert isinstance(run, ActionRun)
+        order.append(f"execute:{run.dry_run_receipt}")
+        return True
+
+    class _OrderedPreflight(_PreflightSimulator):
+        async def simulate(self, run: ActionRun) -> thor_preflight.PreflightSimulationResult:
+            order.append(f"simulate:{run.action_run_identity()}")
+            return await super().simulate(run)
+
+    simulator = _OrderedPreflight()
+    thor = Thor(
+        executor=_execute,
+        preflight_simulator=simulator,
+        action_semantics_catalog=_safe_semantics(),
+    )
+    verdict = _verdict()
+    verdict["producer_principal"] = "Forseti"
+    verdict["idempotency_key"] = "verdict-with-declared-obligation"
+    verdict["safeguards"] = _safeguards(dry_run_evidence="declared_obligation")
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+
+    assert run.state is ActionRunState.EFFECT_PENDING
+    assert simulator.calls == [run.action_run_identity()]
+    assert run.dry_run_evidence == "thor_preflight_simulation"
+    assert run.dry_run_receipt == run.preflight_simulation_receipt["receipt_digest"]
+    assert run.preflight_simulation_receipt["action_run_identity"] == run.action_run_identity()
+    assert run.preflight_simulation_receipt["action_type"] == run.action_type
+    assert run.preflight_simulation_receipt["target"] == run.resource_id
+    assert order == [
+        f"simulate:{run.action_run_identity()}",
+        f"execute:{run.dry_run_receipt}",
+    ]
+    assert thor.behavior_snapshot()["preflight:passed"] == 1
+
+
+def test_high_risk_upstream_receipt_is_resimulated_for_target_state_drift() -> None:
+    executor = AsyncMock(return_value=True)
+    simulator = _PreflightSimulator()
+    thor = Thor(
+        executor=executor,
+        preflight_simulator=simulator,
+        action_semantics_catalog=_safe_semantics(irreversible=True),
+    )
+    verdict = _verdict()
+    verdict["risk_verdict"] = "hil"
+    verdict["resolved_autonomy_ceiling"] = "enforce_hil"
+    verdict["producer_principal"] = "Forseti"
+    verdict["idempotency_key"] = "verdict-with-upstream-receipt"
+    verdict["safeguards"] = _safeguards(dry_run_evidence="upstream_receipt")
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+    asyncio.run(thor.on_typed_message("object.approval", _approval_for_run(run)))
+
+    assert run.state is ActionRunState.EFFECT_PENDING
+    assert simulator.calls == [run.action_run_identity()]
+    assert run.dry_run_evidence == "thor_preflight_simulation"
+    executor.assert_awaited_once()
+
+
+def test_high_risk_unbound_preflight_fails_closed_without_executor_io() -> None:
+    executor = AsyncMock(return_value=True)
+    thor = Thor(executor=executor, action_semantics_catalog=_safe_semantics(irreversible=True))
+    verdict = _verdict()
+    verdict["risk_verdict"] = "hil"
+    verdict["resolved_autonomy_ceiling"] = "enforce_hil"
+    verdict["producer_principal"] = "Forseti"
+    verdict["idempotency_key"] = "verdict-without-preflight"
+    verdict["safeguards"] = _safeguards()
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+    asyncio.run(thor.on_typed_message("object.approval", _approval_for_run(run)))
+
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.outcome == "preflight_unavailable"
+    executor.assert_not_awaited()
+    assert thor.behavior_snapshot()["preflight:unavailable"] == 1
+
+
+def test_failed_preflight_denies_before_executor_io() -> None:
+    executor = AsyncMock(return_value=True)
+    simulator = _PreflightSimulator(outcome="failed")
+    thor = Thor(
+        executor=executor,
+        preflight_simulator=simulator,
+        action_semantics_catalog=_safe_semantics(irreversible=True),
+    )
+    verdict = _verdict()
+    verdict["risk_verdict"] = "hil"
+    verdict["resolved_autonomy_ceiling"] = "enforce_hil"
+    verdict["producer_principal"] = "Forseti"
+    verdict["idempotency_key"] = "verdict-failed-preflight"
+    verdict["safeguards"] = _safeguards()
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+    asyncio.run(thor.on_typed_message("object.approval", _approval_for_run(run)))
+
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.outcome == "preflight_failed"
+    assert run.preflight_simulation_receipt["outcome"] == "failed"
+    executor.assert_not_awaited()
+    assert thor.behavior_snapshot()["preflight:failed"] == 1
+
+
+def test_fresh_stored_preflight_receipt_reuses_exact_action_run_identity() -> None:
+    now = datetime(2026, 9, 17, tzinfo=UTC)
+    store = _FakeActionRunStore()
+    run = ActionRun(
+        correlation_id="preflight-replay",
+        action_type=_proposal().plan.action_type_ref.name,
+        resource_id="workload-a",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        params={"replica_count": 3},
+        resolved_autonomy_ceiling=Autonomy.ENFORCE_AUTO,
+        dry_run_evidence="declared_obligation",
+        dry_run_receipt="forseti-dry-run-obligation:preflight-replay",
+        preflight_required=True,
+    )
+    run.preflight_simulation_receipt = thor_preflight.build_receipt(
+        run=run,
+        result=thor_preflight.PreflightSimulationResult(
+            outcome="passed",
+            simulator_id="test-preflight",
+            simulator_version="1",
+            reason="cached",
+        ),
+        started_at=now,
+        completed_at=now,
+    )
+    asyncio.run(store.save(run))
+    executor = AsyncMock(return_value=True)
+    simulator = _PreflightSimulator()
+    thor = Thor(
+        state_store=store,
+        executor=executor,
+        preflight_simulator=simulator,
+        clock=lambda: now + timedelta(seconds=30),
+        action_semantics_catalog=_safe_semantics(),
+    )
+
+    restored = asyncio.run(thor.rehydrate())
+
+    assert restored == 1
+    assert run.state is ActionRunState.EFFECT_PENDING
+    assert simulator.calls == []
+    executor.assert_awaited_once()
+    assert thor.behavior_snapshot()["preflight:reused"] == 1
+
+
+def test_future_stored_preflight_receipt_is_resimulated_before_executor_io() -> None:
+    now = datetime(2026, 9, 17, tzinfo=UTC)
+    run = ActionRun(
+        correlation_id="preflight-future",
+        action_type=_proposal().plan.action_type_ref.name,
+        resource_id="workload-a",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        params={"replica_count": 3},
+        resolved_autonomy_ceiling=Autonomy.ENFORCE_AUTO,
+        dry_run_evidence="declared_obligation",
+        dry_run_receipt="forseti-dry-run-obligation:preflight-future",
+        preflight_required=True,
+    )
+    run.preflight_simulation_receipt = thor_preflight.build_receipt(
+        run=run,
+        result=thor_preflight.PreflightSimulationResult(
+            outcome="passed",
+            simulator_id="test-preflight",
+            simulator_version="1",
+            reason="future",
+        ),
+        started_at=now + timedelta(days=1),
+        completed_at=now + timedelta(days=1, seconds=1),
+    )
+    assert not thor_preflight.receipt_is_fresh(
+        run.preflight_simulation_receipt,
+        run=run,
+        now=now,
+        ttl_seconds=300,
+    )
+    store = _FakeActionRunStore()
+    asyncio.run(store.save(run))
+    executor = AsyncMock(return_value=True)
+    simulator = _PreflightSimulator()
+    thor = Thor(
+        state_store=store,
+        executor=executor,
+        preflight_simulator=simulator,
+        clock=lambda: now,
+        action_semantics_catalog=_safe_semantics(),
+    )
+
+    asyncio.run(thor.rehydrate())
+
+    assert simulator.calls == [run.action_run_identity()]
+    executor.assert_awaited_once()
+    assert thor.behavior_snapshot()["preflight:passed"] == 1
+
+
+def test_mutating_preflight_simulator_cannot_change_live_run_or_receipt() -> None:
+    executor = AsyncMock(return_value=True)
+    seen_params: list[dict[str, object]] = []
+
+    class _MutatingCopySimulator:
+        async def simulate(self, run: ActionRun) -> thor_preflight.PreflightSimulationResult:
+            run.params["replica_count"] = 99
+            run.resource_id = "mutated-target"
+            return thor_preflight.PreflightSimulationResult(
+                outcome="passed",
+                simulator_id="mutating-copy",
+                simulator_version="1",
+                reason="mutated its copy",
+            )
+
+    async def _execute(context: dict[str, object]) -> bool:
+        run = context["run"]
+        assert isinstance(run, ActionRun)
+        seen_params.append(dict(run.params))
+        return True
+
+    thor = Thor(
+        executor=_execute,
+        preflight_simulator=_MutatingCopySimulator(),
+        action_semantics_catalog=_safe_semantics(irreversible=True),
+    )
+    verdict = _verdict()
+    verdict["producer_principal"] = "Forseti"
+    verdict["idempotency_key"] = "mutating-copy"
+    verdict["safeguards"] = _safeguards()
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+    asyncio.run(thor.on_typed_message("object.approval", _approval_for_run(run)))
+
+    assert run.state is ActionRunState.EFFECT_PENDING
+    assert run.resource_id == verdict["resource_id"]
+    assert run.params == verdict["params"]
+    assert seen_params == [verdict["params"]]
+    assert run.preflight_simulation_receipt["target"] == verdict["resource_id"]
+    executor.assert_not_awaited()
+
+
+def test_live_identity_mutation_during_preflight_fails_closed() -> None:
+    executor = AsyncMock(return_value=True)
+    live: dict[str, ActionRun] = {}
+
+    class _MutatingLiveSimulator:
+        async def simulate(self, _run: ActionRun) -> thor_preflight.PreflightSimulationResult:
+            live["run"].params["replica_count"] = 99
+            return thor_preflight.PreflightSimulationResult(
+                outcome="passed",
+                simulator_id="mutating-live",
+                simulator_version="1",
+            )
+
+    thor = Thor(
+        executor=executor,
+        preflight_simulator=_MutatingLiveSimulator(),
+        action_semantics_catalog=_safe_semantics(irreversible=True),
+    )
+    verdict = _verdict()
+    verdict["producer_principal"] = "Forseti"
+    verdict["idempotency_key"] = "mutating-live"
+    verdict["safeguards"] = _safeguards()
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+    live["run"] = run
+    asyncio.run(thor.on_typed_message("object.approval", _approval_for_run(run)))
+
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.outcome == "preflight_error"
+    executor.assert_not_awaited()
+
+
+def test_corrupted_stored_preflight_receipt_is_not_reused() -> None:
+    now = datetime(2026, 9, 17, tzinfo=UTC)
+    run = ActionRun(
+        correlation_id="preflight-corrupt",
+        action_type=_proposal().plan.action_type_ref.name,
+        resource_id="workload-a",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        params={"replica_count": 3},
+        resolved_autonomy_ceiling=Autonomy.ENFORCE_AUTO,
+        dry_run_evidence="declared_obligation",
+        dry_run_receipt="forseti-dry-run-obligation:preflight-corrupt",
+        preflight_required=True,
+    )
+    receipt = thor_preflight.build_receipt(
+        run=run,
+        result=thor_preflight.PreflightSimulationResult(
+            outcome="passed",
+            simulator_id="test-preflight",
+            simulator_version="1",
+        ),
+        started_at=now,
+        completed_at=now,
+    )
+    receipt["reason"] = "tampered"
+    run.preflight_simulation_receipt = receipt
+    store = _FakeActionRunStore()
+    asyncio.run(store.save(run))
+    simulator = _PreflightSimulator()
+    thor = Thor(
+        state_store=store,
+        executor=AsyncMock(return_value=True),
+        preflight_simulator=simulator,
+        clock=lambda: now + timedelta(seconds=30),
+        action_semantics_catalog=_safe_semantics(),
+    )
+
+    asyncio.run(thor.rehydrate())
+
+    assert simulator.calls == [run.action_run_identity()]
+    assert run.preflight_simulation_receipt["receipt_digest"] == thor_preflight.digest(
+        run.preflight_simulation_receipt
+    )
+    assert thor.behavior_snapshot()["preflight:passed"] == 1
 
 
 def test_concurrent_duplicate_verdict_invokes_executor_once() -> None:
@@ -444,7 +873,7 @@ def test_concurrent_duplicate_verdict_invokes_executor_once() -> None:
         await asyncio.sleep(0.01)
         return True
 
-    thor = Thor(executor=_execute)
+    thor = Thor(executor=_execute, preflight_simulator=_PreflightSimulator())
 
     async def _run() -> tuple[ActionRun, ActionRun]:
         return tuple(await asyncio.gather(*(thor.dispatch_verdict(_verdict()) for _ in range(2))))
@@ -481,7 +910,7 @@ def test_approval_and_verdict_redelivery_share_correlation_lock() -> None:
         await asyncio.sleep(0.01)
         return True
 
-    thor = Thor(executor=_execute)
+    thor = Thor(executor=_execute, preflight_simulator=_PreflightSimulator())
     verdict = _verdict()
     verdict["risk_verdict"] = "hil"
     verdict["resolved_autonomy_ceiling"] = "enforce_hil"
@@ -498,7 +927,7 @@ def test_approval_and_verdict_redelivery_share_correlation_lock() -> None:
 
     asyncio.run(_race())
 
-    assert run.state is ActionRunState.SUCCEEDED
+    assert run.state is ActionRunState.EFFECT_PENDING
     assert calls == 1
 
 
@@ -659,7 +1088,7 @@ def test_legacy_verdict_without_kinetic_proposal_is_unchanged() -> None:
         )
     )
 
-    assert run.state is ActionRunState.SUCCEEDED
+    assert run.state is ActionRunState.EFFECT_PENDING
     assert run.kinetic_proposal is None
     executor.assert_awaited_once()
 
@@ -686,7 +1115,7 @@ def test_executor_exception_outcome_omits_sensitive_message() -> None:
     assert run.outcome == "executor_error:RuntimeError"
 
 
-def test_thor_deletes_terminal_run_from_store() -> None:
+def test_thor_keeps_terminal_run_pending_until_bus_publish() -> None:
     store = _FakeActionRunStore()
     thor = Thor(state_store=store, shadow_by_default=True)
 
@@ -702,7 +1131,7 @@ def test_thor_deletes_terminal_run_from_store() -> None:
 
     run = asyncio.run(_dispatch())
     assert run.state == ActionRunState.SUCCEEDED  # shadow success is terminal
-    assert "c" in store.deleted  # terminal run removed from the durable store
+    assert "c" not in store.deleted  # terminal publication remains pending without a bus
 
 
 def test_thor_persists_in_flight_hil_run() -> None:
@@ -819,6 +1248,7 @@ def test_rehydrated_execution_is_bounded_by_executor_timeout() -> None:
         state_store=store,
         executor=_hang,
         executor_timeout_seconds=0.01,
+        preflight_simulator=_PreflightSimulator(),
     )
 
     restored = asyncio.run(thor.rehydrate())
@@ -908,13 +1338,97 @@ def test_later_successful_rollback_closes_prior_rollback_failure() -> None:
     assert str(run.resource_id) not in thor._resource_locks  # noqa: SLF001
 
 
+def test_initial_action_run_publish_failure_releases_lock_and_redelivery_succeeds() -> None:
+    bus = _FailInitialPublishBus()
+    thor = Thor(bus=bus)
+
+    with pytest.raises(RuntimeError, match="injected initial publish failure"):
+        asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    resource_id = _proposal().target_resource_ref
+    assert resource_id not in thor._resource_locks  # noqa: SLF001
+    assert thor.action_runs == {}
+    assert thor._idempotency_runs == {}  # noqa: SLF001
+
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    assert run.state is ActionRunState.EFFECT_PENDING
+    assert thor.behavior_snapshot().get("dispatch:lock_contention", 0) == 0
+    assert [payload["state"] for payload in bus.payloads] == [
+        "verdicted",
+        "executing",
+        "effect_pending",
+    ]
+
+
+def test_discard_unpublished_keeps_mismatched_durable_row() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreActionRunStore(store=state)
+    run = ActionRun(
+        correlation_id="discard-mismatch",
+        action_type="ops.restart-service",
+        resource_id="vm-mismatch",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        idempotency_key="discard-mismatch-key",
+    )
+
+    asyncio.run(store.save(run))
+    advanced = dict(asyncio.run(state.read_state("thor:run|discard-mismatch")) or {})
+    advanced["state"] = ActionRunState.EXECUTING.value
+    advanced["revision"] = 1
+    asyncio.run(state.write_state("thor:run|discard-mismatch", advanced))
+
+    assert asyncio.run(store.discard_unpublished(run)) is False
+    assert asyncio.run(state.read_state("thor:run|discard-mismatch")) == advanced
+
+
+def test_enforce_auto_initial_publish_failure_abandons_claim_and_redelivery_executes_once() -> None:
+    state = InMemoryStateStore()
+    bus = _FailInitialPublishOnceBus()
+    executions: list[str] = []
+
+    async def executor(context: dict[str, object]) -> bool:
+        run = context["run"]
+        assert isinstance(run, ActionRun)
+        executions.append(run.correlation_id)
+        return True
+
+    thor = Thor(
+        bus=bus,
+        executor=executor,
+        state_store=StateStoreActionRunStore(store=state),
+        shadow_by_default=False,
+    )
+
+    with pytest.raises(RuntimeError, match="injected initial publish failure"):
+        asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    resource_id = _proposal().target_resource_ref
+    assert executions == []
+    assert resource_id not in thor._resource_locks  # noqa: SLF001
+    assert thor.action_runs == {}
+
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    assert executions == [run.correlation_id]
+    assert run.state is ActionRunState.EFFECT_PENDING
+    assert run.resource_claimed is True
+
+
 def test_terminal_publish_failure_remains_durable_for_restart_replay() -> None:
     store = _FakeActionRunStore()
     bus = _FailTerminalPublishBus()
     thor = Thor(bus=bus, state_store=store)
 
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+    assert run.state is ActionRunState.EFFECT_PENDING
     with pytest.raises(RuntimeError, match="injected terminal publish failure"):
-        asyncio.run(thor.dispatch_verdict(_verdict()))
+        asyncio.run(
+            thor.on_typed_message(
+                "object.recovery-effect-observation", _effect_observation_for_run(run)
+            )
+        )
 
     assert store.saved[_proposal().correlation_id].state is ActionRunState.SUCCEEDED
 
@@ -926,12 +1440,47 @@ def test_terminal_publish_failure_remains_durable_for_restart_replay() -> None:
     assert any(payload["state"] == "succeeded" for payload in bus.payloads)
 
 
+def test_terminal_claim_crash_replays_once_before_finalization() -> None:
+    store = _CrashAfterTerminalClaimStore()
+    bus = _FailTerminalPublishBus()
+    bus.fail_terminal_once = False
+    thor = Thor(bus=bus, state_store=store)
+
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+    assert run.state is ActionRunState.EFFECT_PENDING
+    with pytest.raises(RuntimeError, match="injected crash after terminal publication claim"):
+        asyncio.run(
+            thor.on_typed_message(
+                "object.recovery-effect-observation", _effect_observation_for_run(run)
+            )
+        )
+
+    saved = store.saved[_proposal().correlation_id]
+    assert saved.state is ActionRunState.SUCCEEDED
+    assert saved.terminal_publication_claim is not None
+    assert saved.terminal_published is False
+    assert [payload for payload in bus.payloads if payload["state"] == "succeeded"] == []
+
+    restarted = Thor(bus=bus, state_store=store)
+    assert asyncio.run(restarted.rehydrate()) == 1
+
+    terminal_payloads = [payload for payload in bus.payloads if payload["state"] == "succeeded"]
+    assert len(terminal_payloads) == 1
+    assert store.saved == {}
+
+
 def test_terminal_save_failure_retains_resource_lock() -> None:
     store = _FailTerminalSaveStore()
     thor = Thor(state_store=store)
 
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+    assert run.state is ActionRunState.EFFECT_PENDING
     with pytest.raises(RuntimeError, match="injected terminal save failure"):
-        asyncio.run(thor.dispatch_verdict(_verdict()))
+        asyncio.run(
+            thor.on_typed_message(
+                "object.recovery-effect-observation", _effect_observation_for_run(run)
+            )
+        )
 
     assert _proposal().target_resource_ref in thor._resource_locks  # noqa: SLF001
 
@@ -1000,12 +1549,23 @@ def test_concurrent_new_correlations_cannot_bypass_terminal_resource_fence() -> 
 
     first_run, second_run = asyncio.run(_run())
 
-    assert calls == 2
+    assert calls == 1
     assert max_active == 1
     assert {first_run.correlation_id, second_run.correlation_id} == {
         "new-correlation-1",
         "new-correlation-2",
     }
+    states = {
+        first_run.correlation_id: first_run.state,
+        second_run.correlation_id: second_run.state,
+    }
+    outcomes = {
+        first_run.correlation_id: first_run.outcome,
+        second_run.correlation_id: second_run.outcome,
+    }
+    assert ActionRunState.EFFECT_PENDING in states.values()
+    assert ActionRunState.DENY_DROPPED in states.values()
+    assert "resource_active_action_run_contention" in outcomes.values()
 
 
 def test_statestore_action_run_store_round_trip() -> None:
@@ -1284,7 +1844,7 @@ def test_atomic_correlation_claim_precedes_cross_replica_resource_claims() -> No
             value="claimed",
         )
     )
-    assert claimed_total == 0
+    assert claimed_total == 1
 
 
 def test_exact_duplicate_dispatch_does_not_sweep_unrelated_resource_claims() -> None:

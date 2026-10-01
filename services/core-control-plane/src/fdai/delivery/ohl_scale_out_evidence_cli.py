@@ -15,6 +15,10 @@ import httpx
 
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.operator_request_receipt import (
+    CoreOperatorRequestReceiptIssuer,
+    core_operator_request_receipt_issuer_from_env,
+)
 from fdai.shared.providers.event_bus import EventBus, PublishReceipt
 
 _LOGGER = logging.getLogger("fdai.ohl_scale_out_evidence")
@@ -73,17 +77,20 @@ class OhlScaleOutProposalConfig:
             raise ValueError("FDAI_OHL_BASELINE_CAPACITY MUST be in [0, 999]")
 
 
-def build_scale_out_proposal(config: OhlScaleOutProposalConfig) -> dict[str, object]:
+def build_scale_out_proposal(
+    config: OhlScaleOutProposalConfig,
+    receipt_issuer: CoreOperatorRequestReceiptIssuer | None = None,
+) -> dict[str, object]:
     """Build the exact raw operator request consumed by ``EventIngest``."""
     idempotency_key = f"ohl-scale-out:{config.campaign_id}"
-    return {
+    payload = {
         "idempotency_key": idempotency_key,
         "correlation_id": idempotency_key,
         "initiator_principal": config.initiator_principal,
         "operator_initiated": True,
         "action_type": "ops.scale-out",
         "resource_id": config.target_resource_id,
-        "resource_type": "Microsoft.Compute/virtualMachineScaleSets",
+        "resource_type": "Microsoft.Compute.virtualMachineScaleSets",
         "event_type": "operator_request",
         "params": {
             "target_resource_ref": config.target_resource_id,
@@ -91,17 +98,19 @@ def build_scale_out_proposal(config: OhlScaleOutProposalConfig) -> dict[str, obj
             "reason": _REASON,
         },
     }
+    return receipt_issuer.attach(payload) if receipt_issuer is not None else payload
 
 
 async def publish_scale_out_proposal(
     config: OhlScaleOutProposalConfig,
     event_bus: EventBus,
+    receipt_issuer: CoreOperatorRequestReceiptIssuer | None = None,
 ) -> PublishReceipt:
     """Publish one proposal with target-scoped partition ordering."""
     return await event_bus.publish(
         config.topic,
         config.target_resource_id,
-        build_scale_out_proposal(config),
+        build_scale_out_proposal(config, receipt_issuer),
     )
 
 
@@ -119,7 +128,11 @@ async def _run() -> int:
             ),
         )
         try:
-            await publish_scale_out_proposal(config, bus)
+            await publish_scale_out_proposal(
+                config,
+                bus,
+                core_operator_request_receipt_issuer_from_env(os.environ),
+            )
         finally:
             await bus.close()
     _LOGGER.info(

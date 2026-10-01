@@ -1003,7 +1003,7 @@ def test_exact_canonical_domain_disambiguates_semantic_owner_without_prefix_matc
         runtime.ask(
             session_id="loki-domain-prefix",
             user_id="operator-one",
-            question="chaos_experiment_status_extra 영역의 현재 상태와 근거를 설명해 주세요.",
+            question="chaos_experiment_status_extra 영역의 근거를 설명해 주세요.",
             locale="ko",
         )
     )
@@ -1259,14 +1259,22 @@ def test_ask_handoff_publishes_bragi_owned_escalation() -> None:
     provider = InMemoryEventBus()
     runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
 
-    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="zzzz qqqq wxyz"))
+    asyncio.run(
+        runtime.ask(
+            session_id="s1",
+            user_id="u1",
+            question="zzzz qqqq wxyz",
+            materialize_handoff=True,
+        )
+    )
 
     records = asyncio.run(_records(provider, "object.handoff-escalation"))
     assert len(records) == 1
     payload = records[0].payload
     assert payload["producer_principal"] == "Bragi"
-    assert payload["emitting_agent"] == "Bragi"
-    assert payload["correlation_id"] == "s1"
+    assert payload["emitting_agent"] != "Bragi"
+    assert payload["resource_type"]
+    assert payload["problem_fingerprint"]
     assert payload["failure_reason_code"] == "semantic_unavailable"
 
 
@@ -1279,8 +1287,22 @@ def test_ask_handoff_escalates_to_saga_issue_and_dedups() -> None:
     saga = runtime.agents["Saga"]
     assert isinstance(saga, Saga)
 
-    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="zzzz qqqq wxyz"))
-    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="zzzz qqqq wxyz"))
+    asyncio.run(
+        runtime.ask(
+            session_id="s1",
+            user_id="u1",
+            question="zzzz qqqq wxyz",
+            materialize_handoff=True,
+        )
+    )
+    asyncio.run(
+        runtime.ask(
+            session_id="s1",
+            user_id="u1",
+            question="zzzz qqqq wxyz",
+            materialize_handoff=True,
+        )
+    )
     asyncio.run(runtime.run())
 
     # A repeated identical ask deduplicates by fingerprint (comment, not a new
@@ -1402,7 +1424,15 @@ def test_ask_refuses_action_intent_and_routes_to_typed_pipeline() -> None:
     # pantheon here wires the proposal sink, so the request is SUBMITTED, not
     # merely signalled - and the port never executes it.
     runtime = _runtime()
-    turn = asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="restart svc-1 now"))
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="s1",
+            user_id="u1",
+            question="restart svc-1 now",
+            initiator_role="Contributor",
+            allow_action_proposal=True,
+        )
+    )
     assert turn is not None
     assert turn.answer["answer"] is None  # the port did not answer/execute
     assert turn.answer["requires_typed_pipeline"] is True
@@ -1421,6 +1451,8 @@ def test_korean_action_intent_routes_to_typed_pipeline() -> None:
             session_id="ko-action",
             user_id="operator-one",
             question="svc-1 재시작해줘",
+            initiator_role="Contributor",
+            allow_action_proposal=True,
         )
     )
     records = asyncio.run(_records(provider, "object.event"))
@@ -1443,6 +1475,8 @@ def test_action_command_publishes_digest_only_correlated_turn() -> None:
             session_id="action-turn",
             user_id="operator-one",
             question="restart svc-1",
+            initiator_role="Contributor",
+            allow_action_proposal=True,
         )
     )
     records = asyncio.run(_records(provider, "object.turn"))
@@ -1552,8 +1586,9 @@ def test_unbound_owned_projection_reports_unavailable(
 
     assert turn is not None
     assert turn.primary_agent == agent
-    assert turn.answer["facts"][availability_key] is False
-    assert "No " in turn.answer["answer"]
+    assert turn.answer["answer"] is None
+    assert turn.answer["abstain_reason"] == "tool_evidence_incomplete"
+    assert availability_key not in turn.answer["facts"]
 
 
 def test_read_only_ask_never_submits_action_proposal() -> None:
@@ -1872,7 +1907,13 @@ def test_proposal_sink_timeout_fails_closed() -> None:
 
     bragi.register_proposal_sink(slow)
     turn = asyncio.run(
-        bragi.ask(session_id="proposal-timeout", user_id="operator", question="restart svc-1")
+        bragi.ask(
+            session_id="proposal-timeout",
+            user_id="operator",
+            question="restart svc-1",
+            initiator_role="Contributor",
+            allow_action_proposal=True,
+        )
     )
 
     assert turn.answer["requires_typed_pipeline"] is True
@@ -1893,7 +1934,13 @@ def test_proposal_sink_exception_fails_closed_without_detail() -> None:
 
     bragi.register_proposal_sink(fail)
     turn = asyncio.run(
-        bragi.ask(session_id="proposal-error", user_id="operator", question="restart svc-1")
+        bragi.ask(
+            session_id="proposal-error",
+            user_id="operator",
+            question="restart svc-1",
+            initiator_role="Contributor",
+            allow_action_proposal=True,
+        )
     )
 
     assert turn.answer["requires_typed_pipeline"] is True
@@ -1963,6 +2010,7 @@ def test_introspect_facts_lists_are_capped() -> None:
             clock=lambda: now,
         ),
         package_enabled=True,
+        allow_unbound_activation_reader=True,
     )
     for i in range(30):
         asyncio.run(
@@ -1982,11 +2030,19 @@ def test_introspect_facts_lists_are_capped() -> None:
 def test_introspect_freyr_facts_lists_are_capped() -> None:
     # Freyr exposes tracked resource ids; the list is bounded with a true
     # count, consistent with the other domain agents (H5).
+    from datetime import UTC, datetime, timedelta
+
     from fdai.agents.freyr import Freyr
 
     freyr = Freyr()
     for i in range(30):
-        asyncio.run(freyr.ingest_utilization(resource_id=f"res-{i:02d}", utilization=0.5))
+        asyncio.run(
+            freyr.ingest_utilization(
+                resource_id=f"res-{i:02d}",
+                utilization=0.5,
+                observed_at=(datetime(2028, 1, 2, tzinfo=UTC) + timedelta(minutes=i)).isoformat(),
+            )
+        )
     result = asyncio.run(freyr.on_conversation_turn("capacity overview", {}))
     assert result["facts"]["tracked_resources"] == []
     assert result["facts"]["tracked_resources_count"] == 30

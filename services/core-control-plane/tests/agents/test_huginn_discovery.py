@@ -119,12 +119,11 @@ def test_discovery_dedup_eviction_allows_old_key_redelivery() -> None:
 def test_health_exposes_unobserved_discovery_signals() -> None:
     health = Huginn().health()
 
-    assert health["discovery"] == {
-        "projection": "not_bound",
-        "cursor": "not_observed",
-        "backpressure": "not_observed",
-        "source_health": "not_observed",
-    }
+    assert health["discovery"]["projection"] == "not_bound"
+    assert health["discovery"]["cursor"]["value"] is None
+    assert health["discovery"]["cursor"]["evidence_state"] == "not_connected"
+    assert health["discovery"]["backpressure"]["value"] is None
+    assert health["discovery"]["source_health"]["value"] is None
 
 
 async def test_durable_dedup_recovers_pending_publication_after_lease_expiry() -> None:
@@ -187,10 +186,10 @@ async def test_durable_dedup_rejects_live_cross_replica_claim() -> None:
 
 async def test_durable_dedup_rehydrates_completed_key() -> None:
     store = InMemoryStateStore()
-    first = Huginn(state_store=store)
+    first = Huginn(bus=InMemoryBus(registry=load_pantheon()), state_store=store)
     assert await first.ingest(_canonical_event()) is not None
 
-    restarted = Huginn(state_store=store)
+    restarted = Huginn(bus=InMemoryBus(registry=load_pantheon()), state_store=store)
     assert await restarted.rehydrate() == 1
     assert await restarted.ingest(_canonical_event()) is None
 
@@ -198,19 +197,29 @@ async def test_durable_dedup_rehydrates_completed_key() -> None:
 async def test_durable_dedup_does_not_audit_mechanical_delivery_checkpoints() -> None:
     store = InMemoryStateStore()
 
-    assert await Huginn(state_store=store).ingest(_canonical_event()) is not None
+    assert (
+        await Huginn(bus=InMemoryBus(registry=load_pantheon()), state_store=store).ingest(
+            _canonical_event()
+        )
+        is not None
+    )
 
     assert tuple(store.audit_entries) == ()
 
 
 async def test_durable_dedup_rejects_idempotency_payload_collision() -> None:
     store = InMemoryStateStore()
-    assert await Huginn(state_store=store).ingest(_canonical_event()) is not None
+    assert (
+        await Huginn(bus=InMemoryBus(registry=load_pantheon()), state_store=store).ingest(
+            _canonical_event()
+        )
+        is not None
+    )
     changed = _canonical_event()
     changed["resource_ref"] = "resource-2"
 
     with pytest.raises(ValueError, match="collides with another raw request"):
-        await Huginn(state_store=store).ingest(changed)
+        await Huginn(bus=InMemoryBus(registry=load_pantheon()), state_store=store).ingest(changed)
 
 
 async def test_durable_dedup_migrates_and_compacts_legacy_journal() -> None:
@@ -248,7 +257,11 @@ async def test_durable_dedup_migrates_and_compacts_legacy_journal() -> None:
             },
         },
     )
-    migrated = Huginn(state_store=store, dedup_capacity=2)
+    migrated = Huginn(
+        bus=InMemoryBus(registry=load_pantheon()),
+        state_store=store,
+        dedup_capacity=2,
+    )
 
     assert await migrated.rehydrate() == 2
     legacy = await store.read_state("pantheon/huginn/ingress-dedup")
@@ -260,6 +273,10 @@ async def test_durable_dedup_migrates_and_compacts_legacy_journal() -> None:
     third["event_id"] = "00000000-0000-0000-0000-000000000004"
     assert await migrated.ingest(third) is not None
 
-    restarted = Huginn(state_store=store, dedup_capacity=2)
+    restarted = Huginn(
+        bus=InMemoryBus(registry=load_pantheon()),
+        state_store=store,
+        dedup_capacity=2,
+    )
     assert await restarted.rehydrate() == 2
     assert await restarted.ingest(first) is not None

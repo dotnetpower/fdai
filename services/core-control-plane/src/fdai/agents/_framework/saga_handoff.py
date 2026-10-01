@@ -13,12 +13,17 @@ _CLAIM_BUCKET = "handoff_escalation_claims"
 _CHECKPOINT_BUCKET = "handoff_escalation_mutations"
 _RECEIPT_BUCKET = "handoff_escalation_receipts"
 _STATE_PREFIX = "pantheon/saga/handoff"
+_COMPLETION_RECEIPT_RETENTION = 1_024
 
 
 class LocalHandoffStateStore(Protocol):
     def get(self, bucket: str, key: str) -> Any | None: ...
 
     def put(self, bucket: str, key: str, value: Any) -> None: ...
+
+    def delete(self, bucket: str, key: str) -> None: ...
+
+    def scan(self, bucket: str) -> Mapping[str, Any]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +52,7 @@ class HandoffIssueCheckpoint:
     def to_state(self) -> dict[str, Any]:
         return {
             "schema_version": "1.0.0",
+            "revision": 1,
             "fingerprint": self.fingerprint,
             "correlation_id": self.correlation_id,
             "issue_number": self.issue_number,
@@ -63,8 +69,12 @@ class HandoffIssueCheckpoint:
         created = value.get("created")
         audit_recorded = value.get("audit_recorded")
         published = value.get("published")
+        revision = value.get("revision", 1)
         if (
             value.get("schema_version") != "1.0.0"
+            or not isinstance(revision, int)
+            or isinstance(revision, bool)
+            or revision < 1
             or not isinstance(value.get("fingerprint"), str)
             or not value["fingerprint"]
             or not isinstance(value.get("correlation_id"), str)
@@ -217,17 +227,72 @@ class SagaHandoffJournal:
             raise ValueError("handoff mutation checkpoint is malformed")
         return stored
 
+    async def pending_publications(self) -> tuple[tuple[str, HandoffIssueCheckpoint], ...]:
+        """Return checkpoints that still need the Saga-owned issue publication."""
+        pending: list[tuple[str, HandoffIssueCheckpoint]] = []
+        if self._durable is not None:
+            rows, _total = await self._durable.read_state_page(
+                _STATE_PREFIX,
+                limit=1_024,
+                field="published",
+                value="false",
+            )
+            for row in rows:
+                escalation_id = str(row.get("escalation_id") or "")
+                checkpoint = HandoffIssueCheckpoint.from_state(row)
+                pending.append((escalation_id or checkpoint.fingerprint, checkpoint))
+            return tuple(reversed(pending))
+        for escalation_id, stored in self._local.scan(_CHECKPOINT_BUCKET).items():
+            if not isinstance(stored, HandoffIssueCheckpoint):
+                raise ValueError("handoff mutation checkpoint is malformed")
+            if not stored.published:
+                pending.append((str(escalation_id), stored))
+        return tuple(pending)
+
     async def write_checkpoint(
         self,
         escalation_id: str,
         checkpoint: HandoffIssueCheckpoint,
     ) -> None:
         if self._durable is not None:
-            await self._durable.write_state(
-                _state_key(escalation_id, "checkpoint"),
-                checkpoint.to_state(),
-            )
+            key = _state_key(escalation_id, "checkpoint")
+            next_state = checkpoint.to_state()
+            next_state["escalation_id"] = escalation_id
+            for _attempt in range(16):
+                stored = await self._durable.read_state(key)
+                if stored is None:
+                    await self._durable.write_state(key, next_state)
+                    return
+                current = HandoffIssueCheckpoint.from_state(stored)
+                if (
+                    current.fingerprint != checkpoint.fingerprint
+                    or current.correlation_id != checkpoint.correlation_id
+                    or current.issue_number != checkpoint.issue_number
+                    or current.created != checkpoint.created
+                    or current.occurrence_count != checkpoint.occurrence_count
+                ):
+                    raise RuntimeError("handoff checkpoint identity collision")
+                if (current.audit_recorded and not checkpoint.audit_recorded) or (
+                    current.published and not checkpoint.published
+                ):
+                    return
+                revision = int(stored.get("revision", 1))
+                next_state["revision"] = revision + 1
+                advanced = await self._durable.compare_and_set_state(
+                    key,
+                    next_state,
+                    expected_revision=revision,
+                )
+                if advanced:
+                    return
+            raise RuntimeError("handoff checkpoint CAS retry limit exceeded")
         else:
+            local_current = self._local.get(_CHECKPOINT_BUCKET, escalation_id)
+            if isinstance(local_current, HandoffIssueCheckpoint) and (
+                (local_current.audit_recorded and not checkpoint.audit_recorded)
+                or (local_current.published and not checkpoint.published)
+            ):
+                raise RuntimeError("handoff checkpoint write would regress durable state")
             self._local.put(_CHECKPOINT_BUCKET, escalation_id, checkpoint)
 
     async def complete(
@@ -250,8 +315,14 @@ class SagaHandoffJournal:
                 stored = await self._durable.read_state(key)
                 if stored != receipt:
                     raise RuntimeError("handoff completion receipt collision")
+            await self._durable.delete_states_beyond(
+                _STATE_PREFIX,
+                retain_newest=_COMPLETION_RECEIPT_RETENTION,
+            )
         else:
             self._local.put(_RECEIPT_BUCKET, escalation_id, receipt)
+            self._local.delete(_CLAIM_BUCKET, escalation_id)
+            self._local.delete(_CHECKPOINT_BUCKET, escalation_id)
 
 
 def _state_key(escalation_id: str, suffix: str) -> str:

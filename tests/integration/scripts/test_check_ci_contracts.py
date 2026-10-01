@@ -1295,6 +1295,38 @@ def test_frozen_scenario_gate_targets_the_service_owned_directory() -> None:
     assert "check-frozen-scenario-additions.py" in workflow
 
 
+def test_frozen_scenario_modifications_reject_changed_or_added_frozen_artifacts() -> None:
+    module = _load_frozen_scenario_module()
+    root = "services/core-control-plane/tests/scenarios"
+    changed = [
+        f"{root}/cross-objective/v2026.07-sre.json",
+        f"{root}/cross-objective/schema.json",
+        f"{root}/test_v2026_07_replay.py",
+        f"{root}/v2026.09/sre.example.json",
+    ]
+    added = [
+        f"{root}/enrichment/v2026.09/sre.extra.json",
+        f"{root}/v2026.12/sre.example.json",
+        f"{root}/operational-learning/v1/case.json",
+    ]
+    frozen_versions = {"v2026.07", "v2026.09"}
+
+    violations = module.find_frozen_modifications(changed, added, frozen_versions.__contains__)
+
+    assert violations == [
+        f"{root}/cross-objective/v2026.07-sre.json",
+        f"{root}/enrichment/v2026.09/sre.extra.json",
+        f"{root}/v2026.09/sre.example.json",
+    ]
+
+
+def test_verify_runs_the_frozen_scenario_gate_for_base_ranges() -> None:
+    verify = (_REPO_ROOT / "scripts" / "verify.sh").read_text(encoding="utf-8")
+
+    assert 'if [[ "$DIFF_RANGE" == *...HEAD ]]; then' in verify
+    assert 'check-frozen-scenario-additions.py --base-sha "${DIFF_RANGE%...HEAD}"' in verify
+
+
 def test_frozen_scenario_additions_reject_orphan_version_without_atomic_manifest() -> None:
     module = _load_frozen_scenario_module()
     paths, documents = _new_frozen_version_fixture()

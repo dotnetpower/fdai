@@ -164,10 +164,14 @@ class ConversationSituation:
             raise ValueError("conversation locale MUST be a supported locale")
         if self.requester is not None and _AGENT_NAME.fullmatch(self.requester) is None:
             raise ValueError("conversation requester MUST be a bounded agent name")
+        if self.requester is not None and not _is_pantheon_agent(self.requester):
+            raise ValueError("conversation requester MUST be a known pantheon agent")
         if self.requester is not None and self.audience != _AUDIENCE_PEER:
             raise ValueError("conversation requester is valid only for a peer audience")
         if self.handoff_owner is not None and _AGENT_NAME.fullmatch(self.handoff_owner) is None:
             raise ValueError("conversation handoff owner MUST be a bounded agent name")
+        if self.handoff_owner is not None and not _is_pantheon_agent(self.handoff_owner):
+            raise ValueError("conversation handoff owner MUST be a known pantheon agent")
         if self.tool_id is not None and _TOOL_ID.fullmatch(self.tool_id) is None:
             raise ValueError("conversation tool id MUST be a bounded ASCII identifier")
         if self.tool_fact_keys and self.tool_id is None:
@@ -565,6 +569,12 @@ def _known_agent(raw: Any, known_agents: Collection[str]) -> str | None:
     if raw not in known_agents:
         return None
     return raw
+
+
+def _is_pantheon_agent(value: str) -> bool:
+    from fdai.agents._framework.pantheon import PANTHEON_NAMES
+
+    return value in PANTHEON_NAMES
 
 
 __all__ = [

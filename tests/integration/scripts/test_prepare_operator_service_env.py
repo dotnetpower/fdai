@@ -55,6 +55,10 @@ def _repo(tmp_path: Path, *, semantic: str, local_azure_cli_auth: str | None = N
         "FDAI_DATABASE_URL=postgresql://example.invalid/fdai\n"
         "FDAI_STATE_STORE_DSN=postgresql://example.invalid/fdai"
         "?options=-c%20role%3Dfdai_core\n"
+        "FDAI_OPERATOR_REQUEST_CORE_SIGNING_SEED=core-local-seed\n"
+        "FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED=operator-local-seed\n"
+        "FDAI_OPERATOR_REQUEST_CORE_PRODUCER_ID=core-control-plane\n"
+        "FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER_ID=operator-service\n"
         "RUNTIME_ENV=dev\n"
         f"{semantic_values}",
         encoding="utf-8",
@@ -101,6 +105,20 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
     assert set(pseudonym_key) <= set("0123456789abcdef")
     assert key_file.stat().st_mode & 0o777 == 0o600
     assert f"FDAI_COST_PSEUDONYM_KEY={pseudonym_key}\n" in rendered
+    assert "FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED=operator-local-seed\n" in rendered
+    assert "FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID=operator-service\n" in rendered
+    assert "FDAI_OPERATOR_REQUEST_CORE_SIGNING_SEED=" not in rendered
+    assert "FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED=" not in rendered
+    assert "FDAI_OPERATOR_REQUEST_CORE_PRODUCER_ID=" not in rendered
+    assert "FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER_ID=" not in rendered
+    assert sorted(
+        line.split("=", 1)[0]
+        for line in rendered.splitlines()
+        if line.startswith("FDAI_OPERATOR_REQUEST_")
+    ) == [
+        "FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED",
+        "FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID",
+    ]
     assert pseudonym_key not in completed.stdout
     assert pseudonym_key not in completed.stderr
     assert "FDAI_STATE_STORE_DSN=" not in rendered

@@ -140,8 +140,9 @@ async def test_event_bus_subscribe_returns_publish_order(
     bus = event_bus_harness.bus
     topic = event_bus_harness.topic("change-events")
     group = event_bus_harness.group("group-a")
+    # Ordering is guaranteed per key (partition), not across keys on a multi-partition topic.
     for i in range(3):
-        await bus.publish(topic, f"key-{i}", {"n": i})
+        await bus.publish(topic, "ordered-key", {"n": i})
     got = [
         int(envelope.payload["n"])
         for envelope in await event_bus_harness.collect(topic, group, expected_count=3)

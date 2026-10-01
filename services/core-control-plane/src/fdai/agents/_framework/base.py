@@ -9,14 +9,18 @@ is the immutable declaration read by the registry - see
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import logging
 import re
-from collections import Counter
+from asyncio import CancelledError
+from collections import Counter, deque
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.cancellation import run_cancellation_safe_critical_section
 from fdai.agents._framework.conversation_prompt import (
     MAX_CHARTER_PROMPT_CHARS,
     MAX_ROLE_DIRECTIVE_CHARS,
@@ -33,10 +37,12 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capability_sentence,
 )
+from fdai.agents._framework.proposal_budget import reserve_proposal_budget
 from fdai.agents._framework.topics import topic_for_object_type
 
 if TYPE_CHECKING:
     from fdai.agents._framework.bus import PantheonBus
+    from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
 
@@ -52,6 +58,7 @@ _MAX_CONVERSATION_TOOLS = 16
 _MAX_TOOL_EXAMPLES = 4
 _MAX_TOOL_EXAMPLE_CHARS = 256
 _MAX_TOOL_PURPOSE_CHARS = 160
+_MAX_PROPOSAL_QUEUE = 100
 _TOOL_ID = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 _CHARTER_VERSION = re.compile(r"^v[1-9][0-9]*$")
 _FACT_KEY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -255,6 +262,8 @@ class AgentSpec:
             f"publishes={','.join(self.publishes) or 'none'}; "
             f"subscribes={','.join(self.subscribes) or 'none'}; "
             f"executes={','.join(self.executes) or 'none'}; "
+            "lifecycle_roles=judge:Forseti,approver:Var,executor:Thor,"
+            "auditor:Saga,rollback:Vidar; "
             f"initiates={','.join(self.initiates) or 'none'}; "
             f"question_domains={','.join(self.question_domains) or 'none'}; "
             f"llm={llm_policy}; "
@@ -333,6 +342,11 @@ class Agent:
         # :meth:`behavior_snapshot` and :meth:`health`, and merged into
         # ``PantheonRuntime.health()`` per agent.
         self._behavior: Counter[str] = Counter()
+        self._proposal_queue: deque[tuple[str, dict[str, Any]]] = deque(maxlen=_MAX_PROPOSAL_QUEUE)
+        self._proposal_overflow_auditor: (
+            Callable[[str, str, dict[str, Any]], Awaitable[None] | None] | None
+        ) = None
+        self._proposal_queue_managed_externally = False
 
     def record_behavior(self, key: str, count: int = 1) -> None:
         """Increment the measurable-behavior counter for ``key``.
@@ -368,7 +382,8 @@ class Agent:
             # A measurement counter never decreases; a non-positive count is a
             # caller mistake, ignored (best-effort observability never raises).
             return
-        if key not in counter and len(counter) >= _MAX_BEHAVIOR_KEYS:
+        overflow_needed = key not in counter and key != _BEHAVIOR_OVERFLOW_KEY
+        if overflow_needed and len(counter) >= _MAX_BEHAVIOR_KEYS - 1:
             counter[_BEHAVIOR_OVERFLOW_KEY] += count
             return
         counter[key] += count
@@ -397,9 +412,20 @@ class Agent:
         if limiter is None:
             from fdai.agents._framework.rate_limiter import RateLimiter
 
-            limiter = RateLimiter.from_limits(self.spec.rate_limits)
+            limiter = RateLimiter.from_limits(
+                self.spec.rate_limits,
+                state_store=getattr(self, "_proposal_rate_limit_state_store", None),
+                scope=self.spec.name,
+            )
             self._proposal_limiter = limiter
         return limiter
+
+    def bind_proposal_rate_limit_state_store(self, state_store: StateStore) -> None:
+        """Bind durable proposal budget state before the first proposal."""
+
+        if getattr(self, "_proposal_limiter", None) is not None:
+            raise RuntimeError("proposal rate limiter is already initialized")
+        self._proposal_rate_limit_state_store = state_store
 
     async def _publish_proposal(self, topic: str, payload: dict[str, Any]) -> bool:
         """Publish a discretionary proposal, honoring the agent's ``rate_limits``.
@@ -408,9 +434,17 @@ class Agent:
         an agent's discretionary emissions; a malfunctioning or compromised
         agent could flood them. When the per-minute / per-hour budget
         (:class:`AgentSpec.rate_limits`, ``agent-pantheon.md`` 7.9) is
-        exhausted, the proposal is NOT published and the drop is recorded as
-        ``rate_limit_exceeded`` so the spike surfaces in health / KPI. Returns
-        ``True`` when published, ``False`` when rate-limited or bus-less.
+        exhausted, the proposal is NOT published in that call and the pressure
+        is recorded as ``rate_limit_exceeded`` so the spike surfaces in health /
+        KPI. Agents that do not already own a durable pending-proposal list keep
+        a bounded FIFO queue here. ``maintenance_tick`` flushes that queue
+        through this same single-writer publish path, in order, and still
+        spends the sliding-window budget. Returns ``True`` when published in
+        this call, ``False`` when queued, rate-limited, or bus-less.
+
+        Queue overflow is fail-visible: the dropped proposal is counted and, if
+        runtime composition bound an auditor, appended through that callback
+        without importing another pantheon member.
 
         Safety-critical emissions (verdicts, action runs, approvals, audit
         entries) are NOT proposals and MUST NOT go through this path - they
@@ -420,15 +454,119 @@ class Agent:
         bus = getattr(self, "bus", None)
         if bus is None:
             return False
-        if not self._proposal_rate_limiter().allow():
+        reservation = await reserve_proposal_budget(self._proposal_rate_limiter())
+        if reservation is None:
             self.record_behavior("rate_limit_exceeded")
+            if not getattr(self, "_proposal_queue_managed_externally", False):
+                await self._queue_rate_limited_proposal(topic, payload)
             _LOG.warning(
                 "proposal_rate_limited",
                 extra={"agent": self.spec.name, "topic": topic},
             )
             return False
-        await bus.publish(self.spec.name, topic, payload)
+        try:
+            await run_cancellation_safe_critical_section(
+                self._publish_reserved_proposal(topic, payload, reservation)
+            )
+        except CancelledError:
+            raise
+        except Exception:
+            await reservation.release()
+            raise
         return True
+
+    async def _publish_reserved_proposal(
+        self,
+        topic: str,
+        payload: dict[str, Any],
+        reservation: Any,
+    ) -> None:
+        bus = getattr(self, "bus", None)
+        if bus is None:
+            await reservation.release()
+            self.record_behavior("rate_limit_flush_transport_unavailable")
+            return
+        await bus.publish(self.spec.name, topic, payload)
+        await reservation.commit()
+
+    def bind_rate_limit_overflow_auditor(
+        self,
+        callback: Callable[[str, str, dict[str, Any]], Awaitable[None] | None],
+    ) -> None:
+        """Bind a runtime-owned overflow audit callback.
+
+        The base class deliberately knows nothing about Saga. The runtime may
+        bind a callback supplied by Saga (or a test double) so overflow is
+        append-only audited without cross-member imports.
+        """
+        self._proposal_overflow_auditor = callback
+
+    async def _queue_rate_limited_proposal(self, topic: str, payload: dict[str, Any]) -> None:
+        queue = getattr(self, "_proposal_queue", None)
+        if queue is None:
+            queue = deque(maxlen=_MAX_PROPOSAL_QUEUE)
+            self._proposal_queue = queue
+        maxlen = queue.maxlen or _MAX_PROPOSAL_QUEUE
+        if len(queue) >= maxlen:
+            self.record_behavior("rate_limit_overflow")
+            auditor = getattr(self, "_proposal_overflow_auditor", None)
+            if auditor is not None:
+                result = auditor(self.spec.name, topic, dict(payload))
+                if inspect.isawaitable(result):
+                    await result
+            return
+        queue.append((topic, dict(payload)))
+        self.record_behavior("rate_limit_queued")
+
+    async def flush_rate_limited_proposals(self) -> int:
+        """Flush queued discretionary proposals in FIFO order.
+
+        Flush stops on the first still-rate-limited item so ordering is
+        preserved and a later proposal cannot overtake an earlier poison or
+        exhausted-budget item.
+        """
+        queue = getattr(self, "_proposal_queue", None)
+        if not queue:
+            return 0
+        published = 0
+        while queue:
+            topic, payload = queue[0]
+            reservation = await reserve_proposal_budget(self._proposal_rate_limiter())
+            if reservation is None:
+                self.record_behavior("rate_limit_flush_deferred")
+                break
+            bus = getattr(self, "bus", None)
+            if bus is None:
+                await reservation.release()
+                self.record_behavior("rate_limit_flush_transport_unavailable")
+                break
+            try:
+                await run_cancellation_safe_critical_section(
+                    self._flush_reserved_proposal(topic, payload, reservation, queue)
+                )
+            except CancelledError:
+                raise
+            except Exception:
+                await reservation.release()
+                raise
+            published += 1
+        return published
+
+    async def _flush_reserved_proposal(
+        self,
+        topic: str,
+        payload: dict[str, Any],
+        reservation: Any,
+        queue: deque[tuple[str, dict[str, Any]]],
+    ) -> None:
+        bus = getattr(self, "bus", None)
+        if bus is None:
+            await reservation.release()
+            self.record_behavior("rate_limit_flush_transport_unavailable")
+            return
+        await bus.publish(self.spec.name, topic, payload)
+        await reservation.commit()
+        queue.popleft()
 
     def bind_bus(self, bus: PantheonBus) -> None:
         """Bind the typed pub/sub port.
@@ -445,9 +583,20 @@ class Agent:
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         """Handle a message from a typed topic this agent subscribes to.
 
-        Wave 1 stubs default to a no-op. Behavior lands in later waves.
+        A subscribed default handler is a wiring defect, not a success. The
+        base records a stable counter so the message is visible in health
+        snapshots while preserving the legacy no-op return contract for stubs.
         """
+        self.record_behavior("typed_message:unhandled")
         return None
+
+    async def maintenance_tick(self) -> None:
+        """Run cheap periodic maintenance isolated by the runtime.
+
+        Default maintenance only drains this agent's rate-limited proposal
+        queue. Subclasses may extend with cheap, non-resource-mutating work.
+        """
+        await self.flush_rate_limited_proposals()
 
     # --- conversational port (LLM-backed NL Q&A) -----------------------
 
@@ -632,10 +781,7 @@ def _project_tool_result(
         return IntrospectionResult.abstain("no_tool_data", facts=facts)
     scoped_values = [facts[key] for key in tool.fact_keys if key in facts]
     if scoped_values and all(value is False or value is None for value in scoped_values):
-        return IntrospectionResult(
-            answer=f"{tool.purpose} No owned data is currently available.",
-            facts=facts,
-        )
+        return IntrospectionResult.abstain("no_tool_data", facts=facts)
     return IntrospectionResult(
         answer=f"{tool.purpose} {result.answer}",
         facts=facts,

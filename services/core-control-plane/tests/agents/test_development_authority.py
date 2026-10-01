@@ -29,6 +29,7 @@ from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from jsonschema import Draft202012Validator
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
 from tests.contracts.test_development_authority import (
     NOW,
     _binding,
@@ -41,10 +42,12 @@ from tests.core.risk_gate.test_development_authority import _action
 
 
 def _verdict(*, evidence: dict[str, object] | None) -> dict[str, object]:
+    action_key = "stable-action-one"
     return {
         "producer_principal": "Forseti",
         "correlation_id": "correlation:one",
-        "idempotency_key": "stable-action-one",
+        "idempotency_key": action_key,
+        "action_idempotency_key": action_key,
         "action_id": "action:one",
         "action_type": "ops.restart-service",
         "resource_id": "resource:one",
@@ -54,6 +57,15 @@ def _verdict(*, evidence: dict[str, object] | None) -> dict[str, object]:
         "initiator_principal": "human:owner",
         "rollback_contract": "scripted",
         "params": {"restart": True},
+        "safeguards": {
+            "stop_condition": "effect verified",
+            "tested_rollback_contract": "scripted:test",
+            "blast_radius_limit": {"scope": "resource", "max_targets": 1},
+            "dry_run_receipt": "sha256:" + "1" * 64,
+            "logical_target_lock": "resource:one",
+            "stable_idempotency_key": action_key,
+            "two_phase_audit_intent": "audit-intent:test",
+        },
         **({"development_authority": evidence} if evidence is not None else {}),
     }
 
@@ -183,10 +195,12 @@ async def test_composed_forseti_bus_path_carries_verified_authority_to_execution
         rollback_executors={"scripted": rollback},
         vidar_state_store=state,
         var_state_store=state,
+        forseti_state_store=state,
         approver_authorizer=lambda _principal, _action: True,
         operator_rbac={profile.owner_principal: frozenset({action.name})},
         execution_resource_lock=_DistributedLock(),
         action_types=(action,),
+        thor_preflight_simulator=PassingPreflightSimulator(),
         development_authority=DevelopmentRuntimeBindings(
             profile=profile,
             executor_principal=profile.executor_principal,
@@ -258,7 +272,7 @@ async def test_composed_forseti_bus_path_carries_verified_authority_to_execution
         decision="approve",
     )
     assert approval is not None
-    assert run.state is ActionRunState.SUCCEEDED
+    assert run.state is ActionRunState.EFFECT_PENDING
     assert executed == [run.correlation_id]
 
 
@@ -279,6 +293,7 @@ async def test_var_and_thor_preserve_original_quorum_without_fabricating_people(
         execution_audit_recorder=_audit,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     assert run.state is ActionRunState.HIL_PENDING
@@ -306,7 +321,7 @@ async def test_var_and_thor_preserve_original_quorum_without_fabricating_people(
     assert approval["effective_quorum_required"] == 1
 
     await thor.on_typed_message("object.approval", approval)
-    assert run.state is ActionRunState.SUCCEEDED
+    assert run.state is ActionRunState.EFFECT_PENDING
     assert executed == [run.correlation_id]
 
 
@@ -321,7 +336,8 @@ async def test_non_owner_and_wrong_executor_fail_closed() -> None:
     denied = await wrong_executor.dispatch_verdict(_verdict(evidence=evidence))
     assert denied.state is ActionRunState.DENY_DROPPED
     substituted_idempotency = _verdict(evidence=evidence)
-    substituted_idempotency["idempotency_key"] = "substituted-key"
+    substituted_idempotency["action_idempotency_key"] = "substituted-key"
+    substituted_idempotency["safeguards"]["stable_idempotency_key"] = "substituted-key"  # type: ignore[index]
     denied_substitution = await Thor(
         development_profile=profile,
         development_executor_principal=profile.executor_principal,
@@ -338,6 +354,7 @@ async def test_non_owner_and_wrong_executor_fail_closed() -> None:
         execution_audit_recorder=_audit,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     var = Var(
@@ -367,6 +384,7 @@ async def test_var_durable_journal_records_original_and_effective_quorum() -> No
         execution_audit_recorder=_audit,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     store = InMemoryStateStore()
@@ -416,6 +434,7 @@ async def test_missing_execution_audit_blocks_before_executor_io() -> None:
         clock=lambda: NOW,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     var = Var(
@@ -494,6 +513,7 @@ async def test_vidar_revalidates_same_action_identity_before_rollback() -> None:
         execution_audit_recorder=_audit,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     var = Var(
@@ -523,12 +543,14 @@ async def test_vidar_revalidates_same_action_identity_before_rollback() -> None:
         development_executor_principal=profile.executor_principal,
         development_binding_source=source,
         clock=lambda: NOW,
+        allow_process_local_rollback=True,
     )
-    record = await vidar.rollback(run.to_dict())
+    record = await vidar.rollback(_action_run_payload(run))
     assert record is not None
     assert record.state == "succeeded"
 
     substituted = run.to_dict()
+    substituted["producer_principal"] = "Thor"
     substituted["params"] = {"restart": False}
     with pytest.raises(ValueError, match="malformed"):
         await vidar.rollback(substituted)

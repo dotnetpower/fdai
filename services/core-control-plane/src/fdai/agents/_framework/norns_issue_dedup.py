@@ -19,6 +19,8 @@ from fdai.shared.providers.state_store import StateStore
 _OPERATION_PREFIX = "pantheon/norns/issue-learning/operations"
 _FINGERPRINT_PREFIX = "pantheon/norns/issue-learning/fingerprints"
 _MAX_CAS_ATTEMPTS = 16
+_RECOVERY_PAGE_SIZE = 128
+_MAX_FINGERPRINT_OPERATION_DIGESTS = 128
 _CANDIDATE_STATES = frozenset({"collecting", "pending", "delivered"})
 
 
@@ -47,6 +49,10 @@ class NornsIssueDeduplicator:
         payload: Mapping[str, Any],
     ) -> None:
         """Apply or resume one fingerprint operation without losing its count."""
+        fingerprint = payload.get("fingerprint")
+        if not isinstance(fingerprint, str) or not fingerprint:
+            state.record_behavior("fingerprint:invalid")
+            return
         if self._state_store is None:
             if self._claim_local(payload):
                 observe_fingerprint(state, payload)
@@ -90,80 +96,102 @@ class NornsIssueDeduplicator:
         if store is None:
             return 0
         pending_from_operations = 0
-        for index in range(self._recovery_limit + 1):
-            row = await store.find_state(
+        recovered_operations = 0
+        while recovered_operations <= self._recovery_limit:
+            rows, _total = await store.read_state_page(
                 f"{_OPERATION_PREFIX}/",
+                limit=min(_RECOVERY_PAGE_SIZE, self._recovery_limit - recovered_operations + 1),
+                offset=0,
                 field="status",
                 value="pending",
             )
-            if row is None:
+            if not rows:
                 break
-            if index == self._recovery_limit:
-                raise RuntimeError("pending issue learning operation recovery capacity exceeded")
-            operation_digest, fingerprint, _status = _operation_identity_from_state(row)
-            application = await self._apply_fingerprint_operation(
-                operation_digest=operation_digest,
-                fingerprint=fingerprint,
-                promotion_threshold=state._promotion_threshold,
-            )
-            apply_fingerprint_count(
-                state,
-                fingerprint,
-                application.occurrence_count,
-                propose=application.candidate_state == "pending",
-            )
-            if (
-                application.candidate_state == "pending"
-                and self._pending_completions.get(fingerprint) is None
-            ):
-                self._pending_completions.set(fingerprint, application.state_key)
-                pending_from_operations += 1
-            await store.write_state(
-                f"{_OPERATION_PREFIX}/{operation_digest}",
-                _operation_state(
+            for row in rows:
+                if recovered_operations == self._recovery_limit:
+                    raise RuntimeError(
+                        "pending issue learning operation recovery capacity exceeded"
+                    )
+                operation_digest, fingerprint, _status = _operation_identity_from_state(row)
+                application = await self._apply_fingerprint_operation(
                     operation_digest=operation_digest,
                     fingerprint=fingerprint,
-                    status="applied",
-                    revision=2,
-                ),
-            )
+                    promotion_threshold=state._promotion_threshold,
+                )
+                apply_fingerprint_count(
+                    state,
+                    fingerprint,
+                    application.occurrence_count,
+                    propose=application.candidate_state == "pending",
+                )
+                if (
+                    application.candidate_state == "pending"
+                    and self._pending_completions.get(fingerprint) is None
+                ):
+                    self._pending_completions.set(fingerprint, application.state_key)
+                    pending_from_operations += 1
+                await store.write_state(
+                    f"{_OPERATION_PREFIX}/{operation_digest}",
+                    _operation_state(
+                        operation_digest=operation_digest,
+                        fingerprint=fingerprint,
+                        status="applied",
+                        revision=2,
+                    ),
+                )
+                recovered_operations += 1
 
-        row = await store.find_state(
-            f"{_FINGERPRINT_PREFIX}/",
-            field="candidate_state",
-            value="pending",
-        )
-        if row is None:
-            return pending_from_operations
-        recovered_fingerprint = row.get("fingerprint")
-        threshold = row.get("promotion_threshold")
-        if (
-            not isinstance(recovered_fingerprint, str)
-            or not isinstance(threshold, int)
-            or isinstance(threshold, bool)
-        ):
-            raise RuntimeError("stored issue learning fingerprint state is malformed")
-        if self._pending_completions.get(recovered_fingerprint) is not None:
-            return pending_from_operations
-        state_key = (
-            f"{_FINGERPRINT_PREFIX}/"
-            f"{hashlib.sha256(recovered_fingerprint.encode('utf-8')).hexdigest()}"
-        )
-        application = _application_from_state(
-            row,
-            state_key=state_key,
-            fingerprint=recovered_fingerprint,
-            promotion_threshold=state._promotion_threshold,
-            operation_counted=False,
-        )
-        apply_fingerprint_count(
-            state,
-            recovered_fingerprint,
-            application.occurrence_count,
-            propose=True,
-        )
-        self._pending_completions.set(recovered_fingerprint, state_key)
-        return pending_from_operations + 1
+        recovered_fingerprints = 0
+        offset = 0
+        while pending_from_operations + recovered_fingerprints <= self._recovery_limit:
+            rows, _total = await store.read_state_page(
+                f"{_FINGERPRINT_PREFIX}/",
+                limit=min(
+                    _RECOVERY_PAGE_SIZE,
+                    self._recovery_limit - pending_from_operations - recovered_fingerprints + 1,
+                ),
+                offset=offset,
+                field="candidate_state",
+                value="pending",
+            )
+            if not rows:
+                return pending_from_operations + recovered_fingerprints
+            for row in rows:
+                if pending_from_operations + recovered_fingerprints == self._recovery_limit:
+                    state.record_behavior("issue_learning_recovery:fingerprint_deferred")
+                    return pending_from_operations + recovered_fingerprints
+                recovered_fingerprint = row.get("fingerprint")
+                threshold = row.get("promotion_threshold")
+                if (
+                    not isinstance(recovered_fingerprint, str)
+                    or not isinstance(threshold, int)
+                    or isinstance(threshold, bool)
+                ):
+                    raise RuntimeError("stored issue learning fingerprint state is malformed")
+                if self._pending_completions.get(recovered_fingerprint) is not None:
+                    continue
+                state_key = (
+                    f"{_FINGERPRINT_PREFIX}/"
+                    f"{hashlib.sha256(recovered_fingerprint.encode('utf-8')).hexdigest()}"
+                )
+                application = _application_from_state(
+                    row,
+                    state_key=state_key,
+                    fingerprint=recovered_fingerprint,
+                    promotion_threshold=state._promotion_threshold,
+                    operation_counted=False,
+                )
+                apply_fingerprint_count(
+                    state,
+                    recovered_fingerprint,
+                    application.occurrence_count,
+                    propose=True,
+                )
+                self._pending_completions.set(recovered_fingerprint, state_key)
+                recovered_fingerprints += 1
+            offset += len(rows)
+        state.record_behavior("issue_learning_recovery:fingerprint_deferred")
+        return pending_from_operations + recovered_fingerprints
 
     def _claim_local(self, payload: Mapping[str, Any]) -> bool:
         operation_id = payload.get("idempotency_key")
@@ -222,6 +250,17 @@ class NornsIssueDeduplicator:
                 operation_digest=operation_digest,
                 fingerprint=fingerprint,
             )
+            _claim_digest, _claim_fingerprint, claim_status = _operation_identity_from_state(
+                stored_claim
+            )
+            if claim_status == "applied":
+                return (
+                    await self._read_fingerprint_application(
+                        fingerprint=fingerprint,
+                        promotion_threshold=promotion_threshold,
+                    ),
+                    True,
+                )
 
         application = await self._apply_fingerprint_operation(
             operation_digest=operation_digest,
@@ -261,6 +300,7 @@ class NornsIssueDeduplicator:
                     fingerprint=fingerprint,
                     promotion_threshold=promotion_threshold,
                     operation_digests=operations,
+                    occurrence_count=1,
                     candidate_state=("pending" if promotion_threshold == 1 else "collecting"),
                 )
                 created = await store.write_state_with_audit_if_absent(
@@ -296,16 +336,18 @@ class NornsIssueDeduplicator:
             if current.candidate_state != "collecting":
                 return current
 
-            next_operations = tuple(sorted((*operation_digests, operation_digest)))
+            next_count = current.occurrence_count + 1
+            next_operations = (*operation_digests, operation_digest)[
+                -min(promotion_threshold, _MAX_FINGERPRINT_OPERATION_DIGESTS) :
+            ]
             next_revision = int(stored["revision"]) + 1
             value = _fingerprint_state(
                 revision=next_revision,
                 fingerprint=fingerprint,
                 promotion_threshold=promotion_threshold,
                 operation_digests=next_operations,
-                candidate_state=(
-                    "pending" if len(next_operations) >= promotion_threshold else "collecting"
-                ),
+                occurrence_count=next_count,
+                candidate_state=("pending" if next_count >= promotion_threshold else "collecting"),
             )
             advanced = await store.compare_and_set_state_with_audit(
                 state_key,
@@ -327,6 +369,35 @@ class NornsIssueDeduplicator:
                     operation_counted=True,
                 )
         raise RuntimeError("issue learning fingerprint CAS retry limit exceeded")
+
+    async def _read_fingerprint_application(
+        self,
+        *,
+        fingerprint: str,
+        promotion_threshold: int,
+    ) -> _FingerprintApplication:
+        if self._state_store is None:
+            raise RuntimeError("durable issue learning requires a StateStore")
+        state_key = (
+            f"{_FINGERPRINT_PREFIX}/{hashlib.sha256(fingerprint.encode('utf-8')).hexdigest()}"
+        )
+        stored = await self._state_store.read_state(state_key)
+        if stored is None:
+            return _FingerprintApplication(
+                state_key=state_key,
+                fingerprint=fingerprint,
+                promotion_threshold=promotion_threshold,
+                occurrence_count=0,
+                candidate_state="collecting",
+                operation_counted=False,
+            )
+        return _application_from_state(
+            stored,
+            state_key=state_key,
+            fingerprint=fingerprint,
+            promotion_threshold=promotion_threshold,
+            operation_counted=False,
+        )
 
     async def _mark_candidate_delivered(
         self,
@@ -362,6 +433,7 @@ class NornsIssueDeduplicator:
                 fingerprint=fingerprint,
                 promotion_threshold=threshold,
                 operation_digests=operation_digests,
+                occurrence_count=current.occurrence_count,
                 candidate_state="delivered",
             )
             advanced = await store.compare_and_set_state_with_audit(
@@ -458,6 +530,7 @@ def _fingerprint_state(
     fingerprint: str,
     promotion_threshold: int,
     operation_digests: tuple[str, ...],
+    occurrence_count: int,
     candidate_state: str,
 ) -> dict[str, Any]:
     return {
@@ -466,7 +539,7 @@ def _fingerprint_state(
         "fingerprint": fingerprint,
         "promotion_threshold": promotion_threshold,
         "operation_digests": list(operation_digests),
-        "occurrence_count": len(operation_digests),
+        "occurrence_count": occurrence_count,
         "candidate_state": candidate_state,
     }
 
@@ -481,7 +554,9 @@ def _application_from_state(
 ) -> _FingerprintApplication:
     revision = value.get("revision")
     operations = value.get("operation_digests")
+    occurrence_count = value.get("occurrence_count")
     candidate_state = value.get("candidate_state")
+    max_operation_digests = min(promotion_threshold, _MAX_FINGERPRINT_OPERATION_DIGESTS)
     if (
         value.get("schema_version") != "1.0.0"
         or not isinstance(revision, int)
@@ -491,18 +566,20 @@ def _application_from_state(
         or value.get("promotion_threshold") != promotion_threshold
         or not isinstance(operations, list)
         or not operations
-        or len(operations) > promotion_threshold
+        or len(operations) > max_operation_digests
+        or not isinstance(occurrence_count, int)
+        or isinstance(occurrence_count, bool)
+        or occurrence_count < len(operations)
         or any(
             not isinstance(item, str)
             or len(item) != 64
             or any(character not in "0123456789abcdef" for character in item)
             for item in operations
         )
-        or operations != sorted(set(operations))
-        or value.get("occurrence_count") != len(operations)
+        or len(operations) != len(set(operations))
         or candidate_state not in _CANDIDATE_STATES
-        or (candidate_state == "collecting" and len(operations) >= promotion_threshold)
-        or (candidate_state in {"pending", "delivered"} and len(operations) != promotion_threshold)
+        or (candidate_state == "collecting" and occurrence_count >= promotion_threshold)
+        or (candidate_state in {"pending", "delivered"} and occurrence_count < promotion_threshold)
     ):
         raise RuntimeError("stored issue learning fingerprint state is malformed")
     canonical = _fingerprint_state(
@@ -510,6 +587,7 @@ def _application_from_state(
         fingerprint=fingerprint,
         promotion_threshold=promotion_threshold,
         operation_digests=tuple(str(item) for item in operations),
+        occurrence_count=occurrence_count,
         candidate_state=str(candidate_state),
     )
     if dict(value) != canonical:
@@ -518,7 +596,7 @@ def _application_from_state(
         state_key=state_key,
         fingerprint=fingerprint,
         promotion_threshold=promotion_threshold,
-        occurrence_count=len(operations),
+        occurrence_count=occurrence_count,
         candidate_state=str(candidate_state),
         operation_counted=operation_counted,
     )

@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import InMemoryAuditChain
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
@@ -88,10 +89,17 @@ def _wire(
 ) -> tuple[InMemoryBus, InMemoryAuditChain, Thor]:
     bus = InMemoryBus(load_pantheon())
     audit = InMemoryAuditChain()
+    scenario = _scenario()
+    action_ids = {str(candidate["action_type"]) for candidate in scenario["candidates"]}
+    action_semantics = ActionSemanticsCatalog(
+        irreversible_by_id={action_id: False for action_id in action_ids},
+        rollback_by_id={action_id: "state_forward_only" for action_id in action_ids},
+    )
     forseti = Forseti(
         bus=bus,
         operational_context=_FrozenContext(),  # type: ignore[arg-type]
         cross_vertical_timeout_seconds=timeout,
+        action_semantics=action_semantics,
     )
     odin = Odin(bus=bus, vertical_precedence=InitialVerticalPrecedence())
     saga = Saga(audit_chain=audit)
@@ -101,6 +109,7 @@ def _wire(
         executor=executor,
         execution_audit_recorder=execution_audit_recorder,
         require_execution_audit=require_execution_audit,
+        action_semantics_catalog=action_semantics,
     )
 
     for topic in ("object.resilience-score", "object.drift", "object.cost-anomaly"):
@@ -306,8 +315,19 @@ async def test_failed_thor_execution_rolls_back_once_through_vidar() -> None:
         return "rollback:phase3-0001"
 
     bus = InMemoryBus(load_pantheon())
-    thor = Thor(bus=bus, executor=_executor)
-    vidar = Vidar(bus=bus, executors={"state_forward_only": _rollback})
+    thor = Thor(
+        bus=bus,
+        executor=_executor,
+        action_semantics_catalog=ActionSemanticsCatalog(
+            irreversible_by_id={"ops.restart-service": False},
+            rollback_by_id={"ops.restart-service": "state_forward_only"},
+        ),
+    )
+    vidar = Vidar(
+        bus=bus,
+        executors={"state_forward_only": _rollback},
+        allow_process_local_rollback=True,
+    )
     saga = Saga(audit_chain=InMemoryAuditChain())
     bus.subscribe("object.verdict", "Thor", thor.on_typed_message)
     bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)
@@ -327,6 +347,18 @@ async def test_failed_thor_execution_rolls_back_once_through_vidar() -> None:
             "reason": "rule_match",
             "resolved_autonomy_ceiling": "enforce_auto",
             "rollback_contract": "state_forward_only",
+            "safeguards": {
+                "stop_condition": "ops.restart-service:effect_verified",
+                "tested_rollback_contract": "state_forward_only:declared",
+                "blast_radius_limit": {
+                    "scope": "resource",
+                    "resource_id": "resource://example/shared-workload-1",
+                },
+                "dry_run_receipt": "sha256:" + "1" * 64,
+                "logical_target_lock": "resource://example/shared-workload-1",
+                "stable_idempotency_key": "phase3-rollback-0001",
+                "two_phase_audit_intent": "audit-intent:phase3-rollback-0001",
+            },
         },
     )
 

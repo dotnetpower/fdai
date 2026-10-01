@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from fdai_service_contracts.compatibility import canonical_digest
 from fdai_service_contracts.operator import OperatorPrincipalKind, OperatorRole
+from fdai_service_contracts.operator_request_receipt import OperatorRequestReceipt
 
 INCIDENT_CREATION_REQUEST_TOPIC = "operator.incident-creation.requests"
 INCIDENT_CREATION_CONSUMER_GROUP = "core-incident-creation-v1"
@@ -130,6 +131,7 @@ class IncidentCreationRequest(IncidentCreationContract):
     target_ref: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     confirmed_at: datetime
     request_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    operator_request_receipt: OperatorRequestReceipt | None = None
     accountable_agent: Literal["Saga"] = "Saga"
     execution_authority: Literal[False] = False
 
@@ -216,7 +218,61 @@ def incident_creation_target_ref(target: str) -> str:
 def incident_creation_request_digest(request: IncidentCreationRequest) -> str:
     """Return the canonical digest excluding only the request digest field."""
 
-    return canonical_digest(request.model_dump(mode="json", exclude={"request_digest"}))
+    return canonical_digest(
+        request.model_dump(
+            mode="json",
+            exclude={"request_digest", "operator_request_receipt"},
+        )
+    )
+
+
+def incident_creation_receipt_event(request: IncidentCreationRequest) -> dict[str, object]:
+    """Return the exact Operator request material covered by its signed receipt."""
+
+    event: dict[str, object] = {
+        "idempotency_key": request.idempotency_key,
+        "correlation_id": request.session_id,
+        "initiator_principal": request.principal_id,
+        "action_type": request.action_type,
+        "resource_id": request.target_ref,
+        "event_type": "operator_incident_creation",
+        "params": {
+            "schema_version": request.schema_version,
+            "request_id": request.request_id,
+            "source_request_id": request.source_request_id,
+            "source_projection_id": request.source_projection_id,
+            "principal_id": request.principal_id,
+            "principal_roles": [role.value for role in request.principal_roles],
+            "principal_kind": request.principal_kind.value,
+            "session_id": request.session_id,
+            "arguments": request.arguments.model_dump(mode="json"),
+            "source_input_digest": request.source_input_digest,
+            "draft_digest": request.draft_digest,
+            "draft_expires_at": request.draft_expires_at.isoformat(),
+            "target_ref": request.target_ref,
+            "confirmed_at": request.confirmed_at.isoformat(),
+            "request_digest": request.request_digest,
+            "accountable_agent": request.accountable_agent,
+            "execution_authority": request.execution_authority,
+        },
+    }
+    if request.operator_request_receipt is not None:
+        event["operator_request_receipt"] = request.operator_request_receipt.model_dump(mode="json")
+    return event
+
+
+def attach_incident_creation_receipt(
+    request: IncidentCreationRequest,
+    receipt: OperatorRequestReceipt,
+) -> IncidentCreationRequest:
+    """Attach one signed Operator receipt without changing the request digest."""
+
+    return IncidentCreationRequest.model_validate(
+        {
+            **request.model_dump(mode="json"),
+            "operator_request_receipt": receipt.model_dump(mode="json"),
+        }
+    )
 
 
 def build_incident_creation_request(
@@ -256,6 +312,7 @@ def build_incident_creation_request(
         target_ref=target_ref,
         confirmed_at=confirmed_at,
         request_digest="sha256:" + "0" * 64,
+        operator_request_receipt=None,
         accountable_agent="Saga",
         execution_authority=False,
     )
@@ -274,6 +331,7 @@ def build_incident_creation_request(
         target_ref=target_ref,
         confirmed_at=confirmed_at,
         request_digest=incident_creation_request_digest(prototype),
+        operator_request_receipt=None,
     )
 
 
@@ -288,9 +346,11 @@ __all__ = [
     "IncidentCreationIntent",
     "IncidentCreationRequest",
     "IncidentCreationSeverity",
+    "attach_incident_creation_receipt",
     "build_incident_creation_draft",
     "build_incident_creation_request",
     "incident_creation_draft_digest",
+    "incident_creation_receipt_event",
     "incident_creation_request_digest",
     "incident_creation_target_ref",
 ]

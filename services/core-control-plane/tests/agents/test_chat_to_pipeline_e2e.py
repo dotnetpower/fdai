@@ -14,19 +14,27 @@ The bus dispatches synchronously, so the whole chain resolves inside
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
-from fdai.agents.huginn import Huginn
+from fdai.agents.huginn import Huginn, HuginnIngressRejected
 from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.var import Var
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
+)
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.operator_request_receipt import (
+    OperatorRequestReceipt,
+    operator_request_receipt_body_from_event,
+    operator_request_receipt_signing_bytes,
 )
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentTier
 
@@ -41,6 +49,7 @@ _ACTION_SEMANTICS = ActionSemanticsCatalog(
     },
     rollback_by_id={},
 )
+_NOW = datetime(2028, 1, 2, tzinfo=UTC)
 
 
 class _ActionJudgmentModel:
@@ -120,6 +129,21 @@ def _semantic_boundary() -> SemanticJudgmentBoundary:
     )
 
 
+def _thor_action_run(**overrides: object) -> dict[str, object]:
+    correlation_id = str(overrides.get("correlation_id") or "c-hil")
+    payload: dict[str, object] = {
+        "producer_principal": "Thor",
+        "correlation_id": correlation_id,
+        "idempotency_key": f"action-run:{correlation_id}",
+        "action_type": "ops.restart-service",
+        "resource_id": "resource-1",
+        "state": "hil_pending",
+        "quorum_required": 1,
+    }
+    payload.update(overrides)
+    return payload
+
+
 class _Harness:
     def __init__(self) -> None:
         reg = load_pantheon()
@@ -135,15 +159,19 @@ class _Harness:
         )
         # Shadow-first: mirror the runtime default so an 'auto' verdict is
         # judged-and-logged, never a live mutation, until an explicit promotion.
-        self.thor = Thor(bus=self.bus, shadow_by_default=True)
-        self.var = Var(bus=self.bus)
+        self.thor = Thor(
+            bus=self.bus,
+            shadow_by_default=True,
+            action_semantics_catalog=_ACTION_SEMANTICS,
+        )
+        self.var = Var(bus=self.bus, action_semantics=_ACTION_SEMANTICS)
         self.bragi = Bragi(
             semantic_judgment=_semantic_boundary(),
             action_type_names=("ops.restart-service", "remediate.enable-encryption"),
         )
         # Wire the conversational-port entry: Bragi submits proposals through
         # Huginn (sole writer of object.event). Bragi never publishes / executes.
-        self.bragi.register_proposal_sink(self.huginn.ingest)
+        self.bragi.register_proposal_sink(self.huginn.ingest_operator_proposal)
         self.bus.subscribe("object.event", "Forseti", self.forseti.on_typed_message)
         self.bus.subscribe("object.verdict", "Thor", self.thor.on_typed_message)
         self.bus.subscribe("object.verdict", "Bragi", self.bragi.on_typed_message)
@@ -151,9 +179,15 @@ class _Harness:
         self.bus.subscribe("object.action-run", "Bragi", self.bragi.on_typed_message)
         self.bus.subscribe("object.approval", "Thor", self.thor.on_typed_message)
 
-    def ask(self, question: str, *, user: str = _OPERATOR, role: str | None = None):
+    def ask(self, question: str, *, user: str = _OPERATOR, role: str | None = "Contributor"):
         return asyncio.run(
-            self.bragi.ask(session_id="s1", user_id=user, question=question, initiator_role=role)
+            self.bragi.ask(
+                session_id="s1",
+                user_id=user,
+                question=question,
+                initiator_role=role,
+                allow_action_proposal=True,
+            )
         )
 
     def bragi_published(self) -> list:
@@ -169,6 +203,10 @@ def test_auto_action_submitted_judged_and_shadow_executed() -> None:
     assert answer["submitted"] is True
     assert answer["action_type"] == "ops.restart-service"
     corr = answer["correlation_id"]
+    event = h.bus.messages_on("object.event")[0].payload
+    assert event["initiator_principal"] == _OPERATOR
+    assert event["operator_initiated"] is True
+    assert event["action_type"] == "ops.restart-service"
 
     # Forseti judged auto; Thor executed in shadow (judged-and-logged only).
     run = h.thor.action_runs[corr]
@@ -312,6 +350,41 @@ def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
 
 
+class _ReceiptVerifier:
+    def verify_operator_request_receipt(
+        self,
+        *,
+        receipt: OperatorRequestReceipt,
+        signing_bytes: bytes,
+    ) -> bool:
+        return receipt.signature_bytes() == b"sig:" + signing_bytes[:16]
+
+
+def _operator_receipt_event(event: dict[str, object]) -> dict[str, object]:
+    body = operator_request_receipt_body_from_event(
+        event,
+        producer_service_identity="operator-service",
+        issued_at=_NOW,
+        expires_at=_NOW + timedelta(minutes=5),
+    )
+    event["operator_request_receipt"] = OperatorRequestReceipt.create(
+        body=body,
+        signature=b"sig:" + operator_request_receipt_signing_bytes(body)[:16],
+    ).model_dump(mode="json")
+    return event
+
+
+def _receipt_huginn(bus: InMemoryBus) -> Huginn:
+    return Huginn(
+        bus=bus,
+        operator_request_receipt_gate=OperatorRequestReceiptGate(
+            verifier=_ReceiptVerifier(),
+            state_store=InMemoryStateStore(),
+            clock=lambda: _NOW,
+        ),
+    )
+
+
 def test_forged_external_signal_cannot_carry_operator_fields() -> None:
     # An external / rule-fired signal on the ingress topic that includes
     # operator-proposal keys must NOT have them honored: only an explicit
@@ -336,30 +409,35 @@ def test_forged_external_signal_cannot_carry_operator_fields() -> None:
     assert "operator_initiated" not in published
 
 
-def test_operator_request_honors_operator_fields_with_strict_bool() -> None:
+def test_raw_operator_request_keeps_validated_operator_fields_with_ingress_channel() -> None:
     bus = _bus()
-    huginn = Huginn(bus=bus)
+    huginn = _receipt_huginn(bus)
     asyncio.run(
         huginn.ingest(
-            {
-                "id": "evt-op",
-                "correlation_id": "c-op",
-                "event_type": "operator_request",
-                "initiator_principal": "operator@example.com",
-                "action_type": "ops.restart-service",
-                # A forged truthy string must be coerced to a strict bool.
-                "operator_initiated": "false",
-                "workflow_action": {
-                    "process_id": "process-1",
-                    "step_id": "restart",
-                    "proposal_ref": "proposal-1",
-                },
-            }
+            _operator_receipt_event(
+                {
+                    "idempotency_key": "evt-op",
+                    "correlation_id": "c-op",
+                    "event_type": "operator_request",
+                    "resource_id": "resource:service/api",
+                    "initiator_principal": "operator@example.com",
+                    "action_type": "ops.restart-service",
+                    # A forged truthy string must be coerced to a strict bool.
+                    "operator_initiated": "false",
+                    "workflow_action": {
+                        "process_id": "process-1",
+                        "step_id": "restart",
+                        "proposal_ref": "proposal-1",
+                    },
+                }
+            )
         )
     )
     published = bus.messages_on("object.event")[0].payload
     assert published["action_type"] == "ops.restart-service"
     assert published["operator_initiated"] is False
+    assert published["initiator_principal"] == "operator@example.com"
+    assert published["operator_request_channel"] == "ingress"
     assert published["workflow_action"]["process_id"] == "process-1"
 
 
@@ -380,7 +458,7 @@ def test_forseti_operator_fail_closed_requires_strict_true() -> None:
         )
     )
     verdicts = bus.messages_on("object.verdict")
-    assert verdicts[0].payload["risk_verdict"] == "auto"
+    assert verdicts[0].payload["risk_verdict"] == "hil"
     assert bus.messages_on("object.security-event") == []
 
 
@@ -415,12 +493,11 @@ def test_var_rejects_blank_approver_and_trims_self_approval() -> None:
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
-            {
-                "correlation_id": "c-hil",
-                "action_type": "ops.failover-primary",
-                "state": "hil_pending",
-                "initiator_principal": "operator@example.com",
-            },
+            _thor_action_run(
+                correlation_id="c-hil",
+                action_type="ops.failover-primary",
+                initiator_principal="operator@example.com",
+            ),
         )
     )
     # A blank approver is refused.
@@ -462,17 +539,16 @@ def test_thor_dispatch_verdict_is_idempotent_per_correlation() -> None:
 
 def test_var_clamps_quorum_to_a_floor_of_one() -> None:
     bus = _bus()
-    var = Var(bus=bus)
+    var = Var(bus=bus, action_semantics=_ACTION_SEMANTICS)
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
-            {
-                "correlation_id": "c-q",
-                "action_type": "ops.restart-service",
-                "state": "hil_pending",
-                "quorum_required": 0,  # forged / malformed downgrade
-                "initiator_principal": "op@example.com",
-            },
+            _thor_action_run(
+                correlation_id="c-q",
+                action_type="ops.restart-service",
+                quorum_required=0,  # forged / malformed downgrade
+                initiator_principal="op@example.com",
+            ),
         )
     )
     assert var._pending["c-q"].quorum_required == 1
@@ -484,37 +560,36 @@ def test_var_clamps_quorum_to_a_floor_of_one() -> None:
 def test_huginn_bounds_oversized_ingress_fields() -> None:
     bus = _bus()
     huginn = Huginn(bus=bus)
-    asyncio.run(
-        huginn.ingest(
-            {
-                "id": "e-big",
-                "event_type": "operator_request",
-                "action_type": "x" * 5_000,
-                "initiator_principal": "op@example.com",
-                "operator_initiated": True,
-                "resource_id": "r" * 5_000,
-            }
+    with pytest.raises(HuginnIngressRejected) as exc:
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "id": "e-big",
+                    "event_type": "operator_request",
+                    "action_type": "x" * 5_000,
+                    "initiator_principal": "op@example.com",
+                    "operator_initiated": True,
+                    "resource_id": "r" * 5_000,
+                }
+            )
         )
-    )
-    payload = bus.messages_on("object.event")[0].payload
-    assert len(payload["action_type"]) <= 512
-    assert len(payload["resource_id"]) <= 512
+    assert exc.value.reason_code == "invalid_string"
+    assert bus.messages_on("object.event") == []
 
 
 def test_var_pending_map_is_bounded() -> None:
     bus = _bus()
-    var = Var(bus=bus)
+    var = Var(bus=bus, action_semantics=_ACTION_SEMANTICS)
     var._MAX_PENDING = 2  # instance override of the class cap
     for i in range(5):
         asyncio.run(
             var.on_typed_message(
                 "object.action-run",
-                {
-                    "correlation_id": f"c-{i}",
-                    "action_type": "ops.restart-service",
-                    "state": "hil_pending",
-                    "initiator_principal": "op@example.com",
-                },
+                _thor_action_run(
+                    correlation_id=f"c-{i}",
+                    action_type="ops.restart-service",
+                    initiator_principal="op@example.com",
+                ),
             )
         )
     assert len(var._pending) == 2
@@ -522,8 +597,12 @@ def test_var_pending_map_is_bounded() -> None:
 
 def test_bragi_progress_map_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     from fdai.agents import bragi as bragi_mod
+    from fdai.agents._framework import bragi_conversation_runtime as conversation_mod
+    from fdai.agents._framework import bragi_turn_runtime as turn_mod
 
     monkeypatch.setattr(bragi_mod, "_MAX_PROGRESS_KEYS", 2)
+    monkeypatch.setattr(conversation_mod, "_MAX_PROGRESS_KEYS", 2)
+    monkeypatch.setattr(turn_mod, "_MAX_PROGRESS_KEYS", 2)
     b = Bragi()
     for i in range(5):
         asyncio.run(
@@ -561,9 +640,9 @@ def test_bragi_progress_list_length_is_bounded() -> None:
 
 
 def test_bragi_session_map_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
-    from fdai.agents import bragi as bragi_mod
+    from fdai.agents._framework import bragi_ask_runtime
 
-    monkeypatch.setattr(bragi_mod, "_MAX_SESSIONS", 2)
+    monkeypatch.setattr(bragi_ask_runtime, "_MAX_SESSIONS", 2)
     b = Bragi()
     for i in range(5):
         asyncio.run(b.ask(session_id=f"s-{i}", user_id="u", question="what is the action status"))

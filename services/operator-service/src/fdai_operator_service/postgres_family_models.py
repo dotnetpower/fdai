@@ -72,6 +72,16 @@ class ReportLineContactProposalClaim:
 
 
 @dataclass(frozen=True, slots=True)
+class PoisonHaltClearProposalClaim:
+    """One lease-fenced ordered-poison-halt clear request awaiting publication."""
+
+    key: str
+    claim_id: str
+    payload: Mapping[str, object]
+    attempt: int
+
+
+@dataclass(frozen=True, slots=True)
 class ReadInvestigationProposalClaim:
     """One lease-fenced read proposal awaiting versioned Core publication."""
 

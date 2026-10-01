@@ -7,7 +7,7 @@ import os
 import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from fdai_service_contracts import (
@@ -60,6 +60,9 @@ from fdai_operator_service.composition_lifecycle import (
 from fdai_operator_service.composition_lifecycle import (
     compose_application_lifecycle,
 )
+from fdai_operator_service.composition_readiness import (
+    readiness_probe as _readiness_probe,
+)
 from fdai_operator_service.composition_routes import (
     COST_PSEUDONYM_KEY_ENV,
     REFERENCE_PANEL_ROUTES,
@@ -104,6 +107,10 @@ from fdai_operator_service.observer_deployment_projection import (
     ObserverProposalReader,
     PostgresObserverProjectionStore,
 )
+from fdai_operator_service.operator_request_receipt import (
+    OperatorRequestReceiptIssuer,
+    SeedOperatorRequestReceiptSigner,
+)
 from fdai_operator_service.outbox_runtime import (
     ActionConfirmationBridge,
     AlertQualityBridge,
@@ -143,6 +150,22 @@ from fdai_operator_service.runtime import OperatorRuntime
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _operator_request_receipt_issuer(
+    environment: OperatorEnvironment,
+) -> OperatorRequestReceiptIssuer | None:
+    if (
+        environment.operator_request_operator_signing_seed is None
+        or environment.operator_request_receipt_producer_id is None
+    ):
+        return None
+    return OperatorRequestReceiptIssuer(
+        signer=SeedOperatorRequestReceiptSigner(environment.operator_request_operator_signing_seed),
+        producer_service_identity=environment.operator_request_receipt_producer_id,
+        clock=lambda: datetime.now(UTC),
+        lifetime=timedelta(seconds=environment.operator_request_receipt_ttl_seconds),
+    )
 
 
 def _agent_state_key(event: LiveStreamEvent) -> str | None:
@@ -323,15 +346,23 @@ class ProductionOperatorComposition:
             else None
         )
         event_topic = environment.values.get("KAFKA_TOPIC_EVENTS", "").strip() or None
-        action_confirmation_bridge = (
-            ActionConfirmationBridge(
+        operator_request_receipt_issuer = _operator_request_receipt_issuer(environment)
+        action_confirmation_required = (
+            family_store is not None and semantic_bus is not None and event_topic is not None
+        )
+        action_confirmation_bridge = None
+        if (
+            family_store is not None
+            and semantic_bus is not None
+            and event_topic is not None
+            and operator_request_receipt_issuer is not None
+        ):
+            action_confirmation_bridge = ActionConfirmationBridge(
                 store=family_store,
                 publisher=semantic_bus,
                 topic=event_topic,
+                receipt_issuer=operator_request_receipt_issuer,
             )
-            if family_store is not None and semantic_bus is not None and event_topic is not None
-            else None
-        )
         incident_intervention_bridge = (
             IncidentInterventionBridge(
                 store=family_store,
@@ -467,6 +498,7 @@ class ProductionOperatorComposition:
                 rule_activation_notice_bridge=rule_activation_notice_bridge,
                 test_context_bridge=test_context_bridge,
                 observer_proposal_bridge=observer_proposal_bridge,
+                action_confirmation_required=action_confirmation_required,
             ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
@@ -699,89 +731,21 @@ def _build_live_stage_relay(
     )
 
 
-def _readiness_probe(
-    store: PostgresFamilyStore | None,
-    bus: OperatorSemanticKafkaBus | None,
-    bridge: SemanticTurnBridge | None,
-    read_investigation_bridge: ReadInvestigationBridge | None,
-    background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
-    wara_assessment_projection_bridge: WaraAssessmentProjectionBridge | None,
-    framework_assessment_projection_bridge: FrameworkAssessmentProjectionBridge | None,
-    read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
-    action_confirmation_bridge: ActionConfirmationBridge | None,
-    incident_intervention_bridge: IncidentInterventionBridge | None,
-    azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
-    live_stage_relay: LiveStageKafkaRelay | None,
-    hil_decision_outbox_bridge: HilDecisionOutboxBridge | None = None,
-    assignment_notice_bridge: AssignmentNoticeBridge | None = None,
-    rule_activation_notice_bridge: RuleActivationNoticeBridge | None = None,
-    alert_quality_bridge: AlertQualityBridge | None = None,
-    test_context_bridge: TestContextBridge | None = None,
-    observer_proposal_bridge: ObserverProposalBridge | None = None,
-) -> ReadinessProbe:
-    if store is None:
-        return _unavailable
-    if bus is None:
-        return store.probe_readiness
-
-    async def probe() -> bool:
-        return (
-            await store.probe_readiness()
-            and await bus.probe_readiness()
-            and (bridge is None or bridge.workers_ready())
-            and (read_investigation_bridge is None or read_investigation_bridge.workers_ready())
-            and (
-                background_task_projection_bridge is None
-                or background_task_projection_bridge.workers_ready()
-            )
-            and (
-                wara_assessment_projection_bridge is None
-                or wara_assessment_projection_bridge.workers_ready()
-            )
-            and (
-                framework_assessment_projection_bridge is None
-                or framework_assessment_projection_bridge.workers_ready()
-            )
-            and (
-                read_investigation_completion_bridge is None
-                or read_investigation_completion_bridge.workers_ready()
-            )
-            and (action_confirmation_bridge is None or action_confirmation_bridge.workers_ready())
-            and (
-                incident_intervention_bridge is None or incident_intervention_bridge.workers_ready()
-            )
-            and (
-                azure_monitor_webhook_bridge is None or azure_monitor_webhook_bridge.workers_ready()
-            )
-            and (live_stage_relay is None or live_stage_relay.readiness())
-            and (hil_decision_outbox_bridge is None or hil_decision_outbox_bridge.workers_ready())
-            and (alert_quality_bridge is None or alert_quality_bridge.workers_ready())
-            and (test_context_bridge is None or test_context_bridge.workers_ready())
-            and (assignment_notice_bridge is None or assignment_notice_bridge.workers_ready())
-            and (
-                rule_activation_notice_bridge is None
-                or rule_activation_notice_bridge.workers_ready()
-            )
-            and (observer_proposal_bridge is None or observer_proposal_bridge.workers_ready())
-        )
-
-    return probe
-
-
-async def _unavailable() -> bool:
-    return False
-
-
 __all__ = [
     "COST_PSEUDONYM_KEY_ENV",
     "HIL_SIGNING_SECRET_ENV",
+    "AlertQualityBridge",
+    "AssignmentNoticeBridge",
+    "HilDecisionOutboxBridge",
     "OperatorComposition",
     "ProductionOperatorComposition",
     "REFERENCE_PANEL_ROUTES",
+    "RuleActivationNoticeBridge",
     "TokenVerifierFactory",
     "WEBHOOK_SIGNING_SECRET_ENV",
     "_CompositeLifecycle",
     "_OwnedHttpClient",
     "_application_lifecycle",
+    "_readiness_probe",
     "compose_application_lifecycle",
 ]

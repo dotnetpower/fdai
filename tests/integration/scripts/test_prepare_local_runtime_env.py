@@ -299,6 +299,18 @@ def test_prepares_local_transport_without_copying_stale_transport(
         )
     elif local_kubernetes_binding_mode == "subscription":
         expected_prefix.append("FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY=1")
+    core_seed_file = repo / ".fdai/local-operator-request-core-signing-seed"
+    operator_seed_file = repo / ".fdai/local-operator-request-operator-signing-seed"
+    core_seed = core_seed_file.read_text(encoding="ascii").strip()
+    operator_seed = operator_seed_file.read_text(encoding="ascii").strip()
+    assert stat.S_IMODE(core_seed_file.stat().st_mode) == 0o600
+    assert stat.S_IMODE(operator_seed_file.stat().st_mode) == 0o600
+    assert len(core_seed) >= 43
+    assert len(operator_seed) >= 43
+    assert core_seed not in completed.stdout
+    assert core_seed not in completed.stderr
+    assert operator_seed not in completed.stdout
+    assert operator_seed not in completed.stderr
     assert values == [
         *expected_prefix,
         "AZURE_TENANT_ID=00000000-0000-0000-0000-000000000002",
@@ -341,10 +353,39 @@ def test_prepares_local_transport_without_copying_stale_transport(
         "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-a-core",
         "FDAI_PANTHEON_CONSUMER_GROUP_PREFIX=fdai-local-developer-a-pantheon",
         "FDAI_OPERATOR_API_CONSUMER_INSTANCE=fdai-local-developer-a-operator-api",
+        f"FDAI_OPERATOR_REQUEST_CORE_SIGNING_SEED={core_seed}",
+        f"FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED={operator_seed}",
+        "FDAI_OPERATOR_REQUEST_CORE_PRODUCER_ID=core-control-plane",
+        "FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER_ID=operator-service",
         "FDAI_AZURE_READER_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000001",
         "FDAI_AZURE_READER_RESOURCE_GROUPS=rg-example",
         "FDAI_MONITOR_WORKSPACE_ID=00000000-0000-0000-0000-000000000003",
     ]
+    second = subprocess.run(  # noqa: S603 - resolved binary with test-controlled arguments
+        [_BASH, str(_SCRIPT), str(output)],
+        check=True,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": str(az),
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-a",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
+            "FDAI_LOCAL_KUBERNETES_LIFECYCLE": (
+                "0" if local_kubernetes_binding_mode == "disabled" else "1"
+            ),
+            "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1",
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert core_seed_file.read_text(encoding="ascii").strip() == core_seed
+    assert operator_seed_file.read_text(encoding="ascii").strip() == operator_seed
+    assert core_seed not in second.stdout
+    assert core_seed not in second.stderr
+    assert operator_seed not in second.stdout
+    assert operator_seed not in second.stderr
     assert "provider-access-must-not-run" not in completed.stderr
     if local_vision_state in {"invalid", "core-incompatible"}:
         assert "ignored invalid local vision model artifact" in completed.stderr

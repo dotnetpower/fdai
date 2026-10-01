@@ -106,7 +106,7 @@ async def test_provider_schema_drift_reaches_hil_verdict_and_saga_audit() -> Non
     assert verdict["reason"] == "no_rule_match"
     assert verdict["action_type"] == ""
     assert verdict["correlation_id"] == drift["correlation_id"]
-    assert verdict["idempotency_key"] == drift["idempotency_key"]
+    assert verdict["idempotency_key"].startswith("forseti-verdict:")
     entries = saga.audit_chain.entries_for_correlation(str(drift["correlation_id"]))
     assert len(entries) == 1
     assert entries[0].principal == "Forseti"

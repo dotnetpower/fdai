@@ -196,6 +196,29 @@ def test_the_relay_refuses_a_record_huginn_did_not_normalize() -> None:
     assert recovery_effect_observation_record({**normalized, "attributes": None}) is None
 
 
+def test_recovery_effect_idempotency_key_uses_published_resource_id() -> None:
+    normalized = {
+        "producer_principal": "Huginn",
+        "correlation_id": "correlation-recovery-1",
+        "resource_id": "resource:example/rg/recovery-a",
+        "attributes": _observation_attributes(),
+    }
+
+    first = recovery_effect_observation_record(normalized)
+    second = recovery_effect_observation_record(
+        {
+            **normalized,
+            "resource_id": "resource:example/rg/recovery-b",
+        }
+    )
+
+    assert first is not None
+    assert second is not None
+    assert first["resource_id"] == "resource:example/rg/recovery-a"
+    assert second["resource_id"] == "resource:example/rg/recovery-b"
+    assert first["idempotency_key"] != second["idempotency_key"]
+
+
 def test_no_peer_principal_can_inject_a_claim_onto_the_ingress_topic() -> None:
     """`object.event` has a single writer, so a claim can enter only via Huginn."""
 

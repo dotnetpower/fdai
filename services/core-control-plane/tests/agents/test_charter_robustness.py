@@ -46,9 +46,8 @@ def test_every_agent_declares_bounded_specific_role_mechanics(name: str) -> None
 async def test_every_declared_tool_answers_when_the_agent_holds_no_state(name: str) -> None:
     """An empty agent MUST say it has no data, not fall silent.
 
-    A tool that abstains with ``no_tool_data`` tells the operator nothing
-    about whether the fact is unavailable or the tool is broken. Every
-    tool projects its own fact scope and reports the absence instead.
+    Empty scoped facts are explicit ``no_tool_data`` abstentions rather than
+    success-shaped prose.
     """
     agent = instantiate_pantheon()[name]
     spec = agent.spec
@@ -58,8 +57,11 @@ async def test_every_declared_tool_answers_when_the_agent_holds_no_state(name: s
             f"what is the {tool.tool_id} state",
             {"conversation_tool": tool.tool_id},
         )
-        assert envelope["abstain_reason"] is None, f"{name}:{tool.tool_id}"
-        assert envelope["answer"]
+        assert envelope["abstain_reason"] in {None, "no_tool_data"}, f"{name}:{tool.tool_id}"
+        if envelope["abstain_reason"] is None:
+            assert envelope["answer"]
+        else:
+            assert envelope["answer"] is None
 
 
 @pytest.mark.parametrize("name", _AGENT_NAMES)

@@ -81,6 +81,25 @@ class _CaseHistory:
         return self.available
 
 
+_GENERIC_REVIEW_REPOSITORY = "https://git.example.com/fdai/control-plane"
+
+
+def _reviewed_ref(marker: str = "1", *, repository: str = _GENERIC_REVIEW_REPOSITORY) -> str:
+    return f"{repository}/pull/{marker}"
+
+
+def _reviewed_promotion_ref(
+    marker: str = "1",
+    *,
+    repository: str = _GENERIC_REVIEW_REPOSITORY,
+) -> str:
+    return f"catalog-pr:{_reviewed_ref(marker, repository=repository)}@sha256:{'a' * 64}"
+
+
+def _reviewed_commit_ref() -> str:
+    return f"catalog-commit:{'b' * 40}@sha256:{'c' * 64}"
+
+
 @pytest.mark.parametrize("review_ref", ["", " review:1", "review:\n1"])
 def test_publication_receipt_rejects_unsafe_review_ref(review_ref: str) -> None:
     with pytest.raises(ValueError, match="printable ASCII"):
@@ -342,6 +361,137 @@ def test_operational_rule_namespace_never_allows_direct_promotion() -> None:
 
     with pytest.raises(ValueError, match="reviewed catalog PR"):
         mimir.promote("learned.operational.evicted-candidate", source="manual")
+
+
+@pytest.mark.parametrize(
+    "reviewed_change_ref",
+    [
+        "not-a-pr",
+        "catalog-pr:r1",
+        "pr:1",
+        f"catalog-pr:https://user@git.example.com/fdai/control-plane/pull/1@sha256:{'a' * 64}",
+        "catalog-pr:https://git.example.com/fdai/control-plane/pull/1?tab=files@sha256:" + "a" * 64,
+        "catalog-pr:https://git.example.com/fdai/control-plane/pull/1#discussion@sha256:"
+        + "a" * 64,
+        f"catalog-pr:http://git.example.com/fdai/control-plane/pull/1@sha256:{'a' * 64}",
+        "catalog-pr:https://git.example.com/fdai/control-plane/extra/pull/1@sha256:" + "a" * 64,
+    ],
+)
+def test_direct_promotion_rejects_unstructured_review_reference(
+    reviewed_change_ref: str,
+) -> None:
+    mimir = Mimir()
+
+    with pytest.raises(ValueError, match="reviewed catalog-as-code PR or commit reference"):
+        mimir.promote("static.rule", source="manual", reviewed_change_ref=reviewed_change_ref)
+
+    assert mimir.status("static.rule") is None
+    assert mimir.behavior_snapshot()["promotion:invalid_reviewed_change_ref"] == 1
+
+
+@pytest.mark.parametrize(
+    "reviewed_change_ref",
+    [_reviewed_promotion_ref(), _reviewed_commit_ref()],
+)
+def test_direct_promotion_accepts_structured_review_reference(
+    reviewed_change_ref: str,
+) -> None:
+    mimir = Mimir()
+
+    promotion = mimir.promote(
+        "static.rule",
+        source="manual",
+        reviewed_change_ref=reviewed_change_ref,
+    )
+
+    assert promotion.state == "enforce"
+    assert mimir.status("static.rule") == promotion
+    assert mimir.behavior_snapshot()["promotion:publication_transport_unavailable"] == 1
+
+
+def test_direct_promotion_enforces_bound_repository_allowlist() -> None:
+    allowed_ref = _reviewed_promotion_ref(
+        repository="https://git.example.com/fdai/control-plane",
+    )
+    rejected_ref = _reviewed_promotion_ref(
+        repository="https://review.example.org/fork/control-plane",
+    )
+    mimir = Mimir(reviewed_repository_prefixes=("https://git.example.com/fdai/control-plane",))
+
+    promotion = mimir.promote(
+        "static.rule",
+        source="manual",
+        reviewed_change_ref=allowed_ref,
+    )
+
+    assert promotion.state == "enforce"
+    with pytest.raises(ValueError, match="reviewed catalog-as-code PR or commit reference"):
+        mimir.promote(
+            "static.rule.other",
+            source="manual",
+            reviewed_change_ref=rejected_ref,
+        )
+
+
+def test_direct_promotion_rejects_malformed_repository_allowlist() -> None:
+    with pytest.raises(ValueError, match="structural HTTPS repo URL"):
+        Mimir(reviewed_repository_prefixes=("https://user@git.example.com/fdai/control-plane",))
+
+
+def test_direct_promotion_publishes_owned_rule_record_idempotently() -> None:
+    mimir, bus, _ = _mimir()
+    reviewed_change_ref = _reviewed_promotion_ref()
+
+    mimir.promote("static.rule", source="manual", reviewed_change_ref=reviewed_change_ref)
+    mimir.promote("static.rule", source="manual", reviewed_change_ref=reviewed_change_ref)
+
+    messages = bus.messages_on("object.rule")
+    assert len(messages) == 1
+    payload = messages[0].payload
+    assert payload["producer_principal"] == "Mimir"
+    assert payload["kind"] == "rule_promotion"
+    assert payload["rule_id"] == "static.rule"
+    assert payload["state"] == "enforce"
+    assert payload["reviewed_change_ref"] == reviewed_change_ref
+    assert payload["reviewed_package_digest"] == "a" * 64
+    assert payload["correlation_id"]
+    assert payload["idempotency_key"].startswith("mimir-promotion:")
+
+
+def test_direct_revoke_publishes_owned_rule_record() -> None:
+    mimir, bus, _ = _mimir()
+    mimir.promote(
+        "static.rule",
+        source="manual",
+        reviewed_change_ref=_reviewed_promotion_ref(),
+    )
+
+    mimir.revoke("static.rule")
+
+    messages = bus.messages_on("object.rule")
+    assert [message.payload["state"] for message in messages] == ["enforce", "retired"]
+    assert messages[-1].payload["producer_principal"] == "Mimir"
+    assert messages[-1].payload["correlation_id"]
+    assert messages[-1].payload["idempotency_key"].startswith("mimir-promotion:")
+
+
+def test_direct_policy_promotion_publishes_owned_policy_record() -> None:
+    mimir, bus, _ = _mimir()
+    reviewed_change_ref = _reviewed_promotion_ref()
+
+    mimir.promote(
+        "policy.security.baseline",
+        source="policy",
+        reviewed_change_ref=reviewed_change_ref,
+    )
+
+    messages = bus.messages_on("object.policy")
+    assert len(messages) == 1
+    assert messages[0].payload["producer_principal"] == "Mimir"
+    assert messages[0].payload["kind"] == "policy_promotion"
+    assert messages[0].payload["policy_id"] == "policy.security.baseline"
+    assert messages[0].payload["correlation_id"]
+    assert messages[0].payload["idempotency_key"].startswith("mimir-promotion:")
 
 
 async def test_failed_catalog_check_quarantines_candidate() -> None:

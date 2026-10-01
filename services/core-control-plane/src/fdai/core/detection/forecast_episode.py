@@ -100,6 +100,13 @@ class ForecastEpisodeStore(Protocol):
         error: str,
     ) -> None: ...
 
+    async def enqueue_publication(
+        self,
+        item: ForecastPublicationOutboxItem,
+        *,
+        available_at: datetime,
+    ) -> bool: ...
+
 
 @dataclass(frozen=True, slots=True)
 class ForecastEpisode:

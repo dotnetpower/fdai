@@ -52,7 +52,11 @@ class ActionSemanticsCatalog:
         )
 
     def irreversible(self, action_type_id: str) -> bool:
-        return self.irreversible_by_id.get(action_type_id, False)
+        # An actionless verdict names no mutation, so it has nothing to reverse.
+        # Any named ActionType missing from the catalog fails closed.
+        if not action_type_id.strip():
+            return False
+        return self.irreversible_by_id.get(action_type_id, True)
 
     def rollback_contract(self, action_type_id: str) -> str:
         return self.rollback_by_id.get(action_type_id, "state_forward_only")

@@ -33,6 +33,7 @@ from fdai.delivery.alert_noise_direct_api import (
     AlertUnavailableDirectApiExecutionPort,
     UnavailableAlertDirectApiExecutor,
 )
+from fdai.delivery.operator_request_receipt import CoreOperatorRequestReceiptIssuer
 from fdai.runtime.delivery import _build_direct_api_executor, _build_tool_executor
 from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
 from fdai.runtime.safeguard_isolated_executor import (
@@ -186,6 +187,7 @@ def build_workflow_action_dispatcher(
     event_bus: EventBus | None,
     topic: str,
     workflows_present: bool,
+    receipt_issuer: CoreOperatorRequestReceiptIssuer | None = None,
 ) -> WorkflowActionDispatcher | None:
     """Return the event-bus workflow action dispatcher, or refuse in production.
 
@@ -194,7 +196,11 @@ def build_workflow_action_dispatcher(
     """
 
     dispatcher = (
-        EventBusWorkflowActionDispatcher(event_bus=event_bus, topic=topic)
+        EventBusWorkflowActionDispatcher(
+            event_bus=event_bus,
+            topic=topic,
+            receipt_issuer=receipt_issuer,
+        )
         if event_bus is not None
         else None
     )

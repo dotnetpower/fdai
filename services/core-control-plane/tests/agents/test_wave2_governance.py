@@ -16,6 +16,7 @@ from fdai.agents._framework.adapters import (
 )
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns, NornsCapacityError
@@ -40,6 +41,19 @@ from tests.core.rule_semantic_generation.test_ledger import _result
 # ---------------------------------------------------------------------------
 
 
+def _action_run_payload(**overrides: object) -> dict[str, object]:
+    correlation_id = str(overrides["correlation_id"]) if "correlation_id" in overrides else "c"
+    payload: dict[str, object] = {
+        "producer_principal": "Thor",
+        "correlation_id": correlation_id,
+        "idempotency_key": f"action-run:{correlation_id}",
+        "resource_id": "resource-1",
+        "action_type": "remediate.z",
+    }
+    payload.update(overrides)
+    return payload
+
+
 def test_saga_audit_chain_appends_hash_linked_entries() -> None:
     saga = Saga()
     asyncio.run(
@@ -55,11 +69,7 @@ def test_saga_audit_chain_appends_hash_linked_entries() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {
-                "producer_principal": "Thor",
-                "correlation_id": "corr-1",
-                "state": "succeeded",
-            },
+            _action_run_payload(correlation_id="corr-1", state="succeeded"),
         )
     )
     assert len(saga.audit_chain.entries) == 2
@@ -661,13 +671,15 @@ def test_saga_replay_returns_ordered_slice_for_correlation() -> None:
         asyncio.run(
             saga.on_typed_message(
                 "object.action-run",
-                {"producer_principal": "Thor", "correlation_id": "keep", "seq": i},
+                _action_run_payload(
+                    correlation_id="keep", idempotency_key=f"action-run:keep:{i}", seq=i
+                ),
             )
         )
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {"producer_principal": "Thor", "correlation_id": "other", "seq": 99},
+            _action_run_payload(correlation_id="other", seq=99),
         )
     )
     slice_entries = saga.replay_for_correlation("keep")
@@ -691,13 +703,14 @@ def test_saga_escalate_renders_context_lines_in_issue_body() -> None:
             intent_category="cost_query_failed",
             failure_reason_code="no_owned_data",
             correlation_id="corr-ctx",
-            context={"resource_id": "vm-9", "region": "koreacentral"},
+            context={"trace_ref": "trace://ctx", "payload_digest": "sha256:" + "a" * 64},
         )
     )
     body = saga.github.issues[fp].body
-    # Context items are rendered as sorted bullet lines in the issue body.
-    assert "- region: koreacentral" in body
-    assert "- resource_id: vm-9" in body
+    # Only bounded hash/ref context items are rendered in the issue body.
+    assert "- payload_digest: sha256:" in body
+    assert "- trace_ref: trace://ctx" in body
+    assert "koreacentral" not in body
 
 
 def test_saga_introspect_scoped_and_general() -> None:
@@ -706,7 +719,9 @@ def test_saga_introspect_scoped_and_general() -> None:
         asyncio.run(
             saga.on_typed_message(
                 "object.action-run",
-                {"producer_principal": "Thor", "correlation_id": "keep", "seq": i},
+                _action_run_payload(
+                    correlation_id="keep", idempotency_key=f"action-run:introspect:{i}", seq=i
+                ),
             )
         )
 
@@ -739,12 +754,28 @@ def test_muninn_indexes_conversation_turns() -> None:
     asyncio.run(
         muninn.on_typed_message(
             "object.turn",
-            {"turn_id": "t1", "question": "hi", "answer": "hello"},
+            {
+                "producer_principal": "Bragi",
+                "turn_id": "t1",
+                "correlation_id": "corr-t1",
+                "idempotency_key": "turn:t1",
+                "principal_scope": "sha256:"
+                "2bd806c97f0e00af1a1fc3328fa763a9269723c8db8fac4f93af71db186d6e90",
+                "question_ref": "question-ref",
+                "question_sha256": "a" * 64,
+                "answer_ref": "answer-ref",
+                "answer_sha256": "b" * 64,
+                "question": "hi",
+                "answer": "hello",
+            },
         )
     )
-    stored = muninn.get_context("conversation_turns", "t1")
+    stored = muninn.get_context("conversation_turns", "t1", requester_user_id="alice")
     assert stored is not None
-    assert stored["question"] == "hi"
+    assert stored["question_ref"] == "question-ref"
+    assert stored["question_sha256"] == "a" * 64
+    assert "question" not in stored
+    assert "answer" not in stored
 
 
 def test_muninn_requests_index_after_saga_sealed_document_admit() -> None:
@@ -835,7 +866,7 @@ def test_muninn_ignores_turn_without_id_and_other_topics() -> None:
     muninn = Muninn()
     # A turn payload with no id (neither turn_id nor id) is a no-op: nothing
     # is stored, so the conversation_turns bucket never materializes.
-    asyncio.run(muninn.on_typed_message("object.turn", {"question": "hi"}))
+    asyncio.run(muninn.on_typed_message("object.turn", {"producer_principal": "Bragi"}))
     # An unrelated topic is ignored entirely.
     asyncio.run(muninn.on_typed_message("object.verdict", {"turn_id": "t9"}))
     assert muninn.get_context("conversation_turns", "t9") is None
@@ -873,6 +904,24 @@ def _mimir_with_bus() -> Mimir:
     mimir = Mimir()
     mimir.bind_bus(InMemoryBus(registry=load_pantheon()))
     return mimir
+
+
+def _activation_result_payload(
+    result: RuleGenerationActivationResultEvent,
+) -> dict[str, object]:
+    payload = result.model_dump(mode="json")
+    payload["producer_principal"] = "Mimir"
+    return payload
+
+
+async def _retain_activation_command(
+    store: InMemoryStateStore,
+    result: RuleGenerationActivationResultEvent,
+) -> None:
+    await store.write_state(
+        f"mimir:rule-generation-activation-command:{result.command.validation_result.idempotency_key}",
+        result.command.model_dump(mode="json"),
+    )
 
 
 async def test_mimir_rule_generation_command_requires_bound_binder() -> None:
@@ -943,11 +992,13 @@ async def test_mimir_rule_generation_result_never_invokes_activation_binder() ->
     mimir.bind_rule_generation_activation_binder(
         cast(RuleGenerationActivationBinder, type("Binder", (), {"handle": handle})())
     )
-    mimir.bind_rule_generation_state_store(InMemoryStateStore())
+    store = InMemoryStateStore()
+    mimir.bind_rule_generation_state_store(store)
 
+    await _retain_activation_command(store, result)
     await mimir.on_typed_message(
         RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
-        result.model_dump(mode="json"),
+        _activation_result_payload(result),
     )
 
     handle.assert_not_awaited()
@@ -958,10 +1009,11 @@ async def test_mimir_records_rule_generation_result_as_no_authority_projection()
     mimir = Mimir()
     mimir.bind_rule_generation_state_store(store)
     result = _result()
+    await _retain_activation_command(store, result)
 
     await mimir.on_typed_message(
         RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
-        result.model_dump(mode="json"),
+        _activation_result_payload(result),
     )
 
     receipt = await store.read_state(
@@ -978,7 +1030,8 @@ async def test_mimir_records_rule_generation_result_as_no_authority_projection()
 async def test_mimir_rule_generation_result_redelivery_is_restart_safe() -> None:
     store = InMemoryStateStore()
     result = _result()
-    payload = result.model_dump(mode="json")
+    payload = _activation_result_payload(result)
+    await _retain_activation_command(store, result)
     first = Mimir()
     first.bind_rule_generation_state_store(store)
 
@@ -1001,6 +1054,7 @@ async def test_mimir_rejects_rule_generation_result_idempotency_conflict() -> No
     mimir = Mimir()
     mimir.bind_rule_generation_state_store(store)
     result = _result()
+    await _retain_activation_command(store, result)
     conflicting = RuleGenerationActivationResultEvent.create(
         command=result.command,
         status=result.status,
@@ -1009,19 +1063,19 @@ async def test_mimir_rejects_rule_generation_result_idempotency_conflict() -> No
 
     await mimir.on_typed_message(
         RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
-        result.model_dump(mode="json"),
+        _activation_result_payload(result),
     )
     with pytest.raises(ValueError, match="idempotency conflict"):
         await mimir.on_typed_message(
             RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
-            conflicting.model_dump(mode="json"),
+            _activation_result_payload(conflicting),
         )
     assert len(tuple(store.audit_entries)) == 1
 
 
 async def test_mimir_rejects_malformed_or_unbound_rule_generation_result() -> None:
     result = _result()
-    malformed = result.model_dump(mode="json")
+    malformed = _activation_result_payload(result)
     malformed["result_digest"] = "sha256:" + "0" * 64
     store = InMemoryStateStore()
     mimir = Mimir()
@@ -1032,7 +1086,7 @@ async def test_mimir_rejects_malformed_or_unbound_rule_generation_result() -> No
     with pytest.raises(RuntimeError, match="receipt store is unavailable"):
         await Mimir().on_typed_message(
             RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
-            result.model_dump(mode="json"),
+            _activation_result_payload(result),
         )
     assert len(tuple(store.audit_entries)) == 0
 
@@ -1057,6 +1111,8 @@ def test_mimir_accepts_and_drains_rule_candidates() -> None:
         mimir.on_typed_message(
             "object.rule-candidate",
             {
+                "producer_principal": "Norns",
+                "correlation_id": "candidate-storage-public-deny-1",
                 "idempotency_key": "candidate:storage-public-deny:1",
                 "target_rule_id": "storage.public.deny",
                 "proposal_kind": "new",
@@ -1069,7 +1125,12 @@ def test_mimir_accepts_and_drains_rule_candidates() -> None:
     )
     assert len(mimir.pending_candidates()) == 1
     assert len(mimir.promotion_ready_candidates()) == 1
-    mimir.promote("storage.public.deny", source="handoff")
+    mimir.promote(
+        "storage.public.deny",
+        source="handoff",
+        reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+        + "a" * 64,
+    )
     status = mimir.status("storage.public.deny")
     assert status is not None
     assert status.state == "enforce"
@@ -1084,6 +1145,8 @@ def test_mimir_quarantines_ungrounded_candidate() -> None:
         mimir.on_typed_message(
             "object.rule-candidate",
             {
+                "producer_principal": "Norns",
+                "correlation_id": "candidate-r1-ungrounded-1",
                 "idempotency_key": "candidate:r1:ungrounded:1",
                 "target_rule_id": "r1",
                 "proposal_kind": "new",
@@ -1103,6 +1166,8 @@ def test_mimir_quarantines_missing_provenance() -> None:
         mimir.on_typed_message(
             "object.rule-candidate",
             {
+                "producer_principal": "Norns",
+                "correlation_id": "candidate-r1-missing-provenance-1",
                 "idempotency_key": "candidate:r1:missing-provenance:1",
                 "target_rule_id": "r1",
                 "proposal_kind": "new",
@@ -1129,6 +1194,8 @@ def test_mimir_quarantine_is_bounded_against_poisoning_flood() -> None:
                 "object.rule-candidate",
                 # No provenance -> guard rejects -> quarantined.
                 {
+                    "producer_principal": "Norns",
+                    "correlation_id": f"candidate-r{i}",
                     "idempotency_key": f"candidate:r{i}:poisoning:1",
                     "target_rule_id": f"r{i}",
                     "proposal_kind": "new",
@@ -1141,7 +1208,12 @@ def test_mimir_quarantine_is_bounded_against_poisoning_flood() -> None:
 
 def test_mimir_revoke_flips_state_to_retired() -> None:
     mimir = Mimir()
-    mimir.promote("r1", source="manual")
+    mimir.promote(
+        "r1",
+        source="manual",
+        reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+        + "a" * 64,
+    )
     mimir.revoke("r1")
     assert mimir.status("r1").state == "retired"
 
@@ -1153,9 +1225,21 @@ def test_mimir_revoke_flips_state_to_retired() -> None:
 
 def test_norns_proposes_candidate_after_threshold() -> None:
     norns = Norns(promotion_threshold=3)
-    payload = {"fingerprint": "abc123"}
-    for _ in range(3):
-        asyncio.run(norns.on_typed_message("object.issue", payload))
+    payload = {
+        "producer_principal": "Saga",
+        "fingerprint": "abc123",
+    }
+    for index in range(3):
+        asyncio.run(
+            norns.on_typed_message(
+                "object.issue",
+                payload
+                | {
+                    "correlation_id": f"issue-fp-abc123-{index}",
+                    "idempotency_key": f"issue-fp-abc123-{index}",
+                },
+            )
+        )
     assert norns.occurrences("abc123") == 3
     assert len(norns.pending_candidates) == 1
     assert norns.pending_candidates[0]["evidence"]["fingerprint"] == "abc123"
@@ -1163,9 +1247,21 @@ def test_norns_proposes_candidate_after_threshold() -> None:
 
 def test_norns_dedups_candidate_proposals() -> None:
     norns = Norns(promotion_threshold=2)
-    payload = {"fingerprint": "same-fp"}
-    for _ in range(5):
-        asyncio.run(norns.on_typed_message("object.issue", payload))
+    payload = {
+        "producer_principal": "Saga",
+        "fingerprint": "same-fp",
+    }
+    for index in range(5):
+        asyncio.run(
+            norns.on_typed_message(
+                "object.issue",
+                payload
+                | {
+                    "correlation_id": f"issue-fp-same-{index}",
+                    "idempotency_key": f"issue-fp-same-{index}",
+                },
+            )
+        )
     # Threshold crossed once, proposal must not repeat.
     assert len(norns.pending_candidates) == 1
 
@@ -1173,7 +1269,9 @@ def test_norns_dedups_candidate_proposals() -> None:
 def test_norns_dedups_replayed_issue_operation_before_counting() -> None:
     norns = Norns(promotion_threshold=2)
     replay = {
+        "producer_principal": "Saga",
         "fingerprint": "replayed-fingerprint",
+        "correlation_id": "handoff:one-operation",
         "idempotency_key": "handoff:one-operation",
     }
 
@@ -1188,7 +1286,9 @@ def test_norns_dedups_replayed_issue_operation_before_counting() -> None:
 def test_norns_durable_issue_dedup_survives_restart() -> None:
     store = InMemoryStateStore()
     payload = {
+        "producer_principal": "Saga",
         "fingerprint": "durable-fingerprint",
+        "correlation_id": "handoff:durable-operation",
         "idempotency_key": "handoff:durable-operation",
     }
     first = Norns(promotion_threshold=2, issue_state_store=store)
@@ -1230,7 +1330,9 @@ def test_norns_resumes_claim_interrupted_before_fingerprint_apply() -> None:
 
     store = _FailFirstFingerprintApply()
     payload = {
+        "producer_principal": "Saga",
         "fingerprint": "interrupted-fingerprint",
+        "correlation_id": "handoff:interrupted-operation",
         "idempotency_key": "handoff:interrupted-operation",
     }
 
@@ -1278,7 +1380,9 @@ def test_norns_startup_recovers_pending_operation_without_redelivery() -> None:
 
     store = _FailFirstFingerprintApply()
     payload = {
+        "producer_principal": "Saga",
         "fingerprint": "startup-operation-fingerprint",
+        "correlation_id": "handoff:startup-operation",
         "idempotency_key": "handoff:startup-operation",
     }
     with pytest.raises(RuntimeError, match="fingerprint apply interrupted"):
@@ -1298,7 +1402,9 @@ def test_norns_startup_recovers_pending_operation_without_redelivery() -> None:
 def test_norns_rebuilds_pending_candidate_after_restart() -> None:
     store = InMemoryStateStore()
     payload = {
+        "producer_principal": "Saga",
         "fingerprint": "pending-candidate-fingerprint",
+        "correlation_id": "handoff:pending-candidate-operation",
         "idempotency_key": "handoff:pending-candidate-operation",
     }
     first = Norns(promotion_threshold=1, issue_state_store=store)
@@ -1316,10 +1422,13 @@ def test_norns_does_not_rebuild_delivered_candidate_after_restart() -> None:
     store = InMemoryStateStore()
     bus = InMemoryBus(registry=load_pantheon())
     payload = {
+        "producer_principal": "Saga",
         "fingerprint": "delivered-candidate-fingerprint",
+        "correlation_id": "handoff:delivered-candidate-operation",
         "idempotency_key": "handoff:delivered-candidate-operation",
     }
     first = Norns(promotion_threshold=1, issue_state_store=store)
+    first.bind_candidate_publication_gate(lambda: True)
     first.bind_bus(bus)
     asyncio.run(first.on_typed_message("object.issue", dict(payload)))
     assert len(bus.messages_on("object.rule-candidate")) == 1
@@ -1336,7 +1445,9 @@ def test_norns_public_flush_completes_durable_candidate_delivery() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     enabled = [False]
     payload = {
+        "producer_principal": "Saga",
         "fingerprint": "batch-flush-fingerprint",
+        "correlation_id": "handoff:batch-flush-operation",
         "idempotency_key": "handoff:batch-flush-operation",
     }
     norns = Norns(promotion_threshold=1, issue_state_store=store)
@@ -1361,7 +1472,9 @@ def test_norns_public_flush_recovers_candidates_behind_blocked_head() -> None:
             seed.on_typed_message(
                 "object.issue",
                 {
+                    "producer_principal": "Saga",
                     "fingerprint": f"blocked-fingerprint-{cohort}",
+                    "correlation_id": f"handoff:blocked-{cohort}",
                     "idempotency_key": f"handoff:blocked-{cohort}",
                 },
             )
@@ -1373,9 +1486,9 @@ def test_norns_public_flush_recovers_candidates_behind_blocked_head() -> None:
     restarted = Norns(promotion_threshold=1, issue_state_store=store)
     restarted.bind_bus(bus)
     restarted.bind_candidate_publication_gate(lambda: enabled[0])
-    assert asyncio.run(restarted.recover_issue_learning()) == 1
+    assert asyncio.run(restarted.recover_issue_learning()) == 2
     assert asyncio.run(restarted.flush_candidates()) == 0
-    assert len(restarted.pending_candidates) == 1
+    assert len(restarted.pending_candidates) == 2
 
     enabled[0] = True
     assert asyncio.run(restarted.flush_candidates()) == 2
@@ -1414,7 +1527,9 @@ def test_norns_saturated_recovery_does_not_deliver_an_unpublished_candidate() ->
                 ).on_typed_message(
                     "object.issue",
                     {
+                        "producer_principal": "Saga",
                         "fingerprint": fingerprint,
+                        "correlation_id": f"handoff:saturated-{index}",
                         "idempotency_key": f"handoff:saturated-{index}",
                     },
                 )
@@ -1427,6 +1542,7 @@ def test_norns_saturated_recovery_does_not_deliver_an_unpublished_candidate() ->
         max_pending_candidates=1,
         issue_state_store=store,
     )
+    restarted.bind_candidate_publication_gate(lambda: True)
     restarted.bind_bus(bus)
 
     with pytest.raises(NornsCapacityError, match="capacity exhausted"):
@@ -1461,7 +1577,9 @@ def test_norns_durable_issue_operation_rejects_fingerprint_collision() -> None:
         norns.on_typed_message(
             "object.issue",
             {
+                "producer_principal": "Saga",
                 "fingerprint": "first-fingerprint",
+                "correlation_id": "handoff:colliding-operation",
                 "idempotency_key": "handoff:colliding-operation",
             },
         )
@@ -1472,7 +1590,9 @@ def test_norns_durable_issue_operation_rejects_fingerprint_collision() -> None:
             norns.on_typed_message(
                 "object.issue",
                 {
+                    "producer_principal": "Saga",
                     "fingerprint": "different-fingerprint",
+                    "correlation_id": "handoff:colliding-operation",
                     "idempotency_key": "handoff:colliding-operation",
                 },
             )
@@ -1565,6 +1685,11 @@ def test_end_to_end_handoff_flow_via_bus() -> None:
                 {
                     "producer_principal": "Saga",
                     "correlation_id": f"corr-{i}",
+                    "idempotency_key": stable_idempotency_key(
+                        "issue",
+                        fp,
+                        f"corr-{i}",
+                    ),
                     "fingerprint": fp,
                 },
             )
@@ -1580,6 +1705,11 @@ def test_end_to_end_handoff_flow_via_bus() -> None:
             {
                 "producer_principal": "Norns",
                 "correlation_id": "corr-cand",
+                "idempotency_key": stable_idempotency_key(
+                    "rule-candidate",
+                    "corr-cand",
+                    norns.pending_candidates[0],
+                ),
                 **norns.pending_candidates[0],
                 "target_rule_id": "auto-generated",
             },
@@ -1605,12 +1735,22 @@ def test_norns_publishes_candidate_to_mimir_when_bus_bound() -> None:
     bus = InMemoryBus(registry=reg)
     norns = Norns(promotion_threshold=2)
     mimir = Mimir()
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     bus.subscribe("object.rule-candidate", "Mimir", mimir.on_typed_message)
 
-    payload = {"fingerprint": "fp-loop"}
-    for _ in range(2):
-        asyncio.run(norns.on_typed_message("object.issue", payload))
+    payload = {"producer_principal": "Saga", "fingerprint": "fp-loop"}
+    for index in range(2):
+        asyncio.run(
+            norns.on_typed_message(
+                "object.issue",
+                payload
+                | {
+                    "correlation_id": f"fp-loop-{index}",
+                    "idempotency_key": f"fp-loop-{index}",
+                },
+            )
+        )
 
     # Norns formed one candidate and published it; a published candidate is
     # dropped from the buffer, so pending_candidates is empty afterwards.
@@ -1627,15 +1767,36 @@ def test_norns_flush_is_idempotent_and_no_op_without_bus() -> None:
     bus = InMemoryBus(registry=reg)
     # Bus-less: flush publishes nothing and does not raise.
     busless = Norns(promotion_threshold=1)
-    asyncio.run(busless.on_typed_message("object.issue", {"fingerprint": "fp-a"}))
+    asyncio.run(
+        busless.on_typed_message(
+            "object.issue",
+            {
+                "producer_principal": "Saga",
+                "fingerprint": "fp-a",
+                "correlation_id": "fp-a-1",
+                "idempotency_key": "fp-a-1",
+            },
+        )
+    )
     assert len(busless.pending_candidates) == 1  # candidate formed, not published
     assert asyncio.run(busless.flush_candidates()) == 0
 
     # Bus bound: the candidate is published once; a re-flush republishes
     # nothing (cursor), so Mimir's flood guard never sees a duplicate.
     norns = Norns(promotion_threshold=1)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
-    asyncio.run(norns.on_typed_message("object.issue", {"fingerprint": "fp-b"}))
+    asyncio.run(
+        norns.on_typed_message(
+            "object.issue",
+            {
+                "producer_principal": "Saga",
+                "fingerprint": "fp-b",
+                "correlation_id": "fp-b-1",
+                "idempotency_key": "fp-b-1",
+            },
+        )
+    )
     assert len(bus.messages_on("object.rule-candidate")) == 1
     assert asyncio.run(norns.flush_candidates()) == 0
     assert len(bus.messages_on("object.rule-candidate")) == 1
@@ -1657,6 +1818,7 @@ def test_norns_throttles_candidate_publication_at_the_rate_limit() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     norns = Norns(promotion_threshold=1)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     clock = _FakeClock()
     # Inject a tiny, clock-controlled budget: 2 proposals/minute.
@@ -1666,7 +1828,17 @@ def test_norns_throttles_candidate_publication_at_the_rate_limit() -> None:
     # dropped from the buffer, the third is over the per-minute budget and
     # stays queued (throttled, not lost).
     for i in range(3):
-        asyncio.run(norns.on_typed_message("object.issue", {"fingerprint": f"fp-{i}"}))
+        asyncio.run(
+            norns.on_typed_message(
+                "object.issue",
+                {
+                    "producer_principal": "Saga",
+                    "fingerprint": f"fp-{i}",
+                    "correlation_id": f"fp-rate-{i}",
+                    "idempotency_key": f"fp-rate-{i}",
+                },
+            )
+        )
     assert len(norns.pending_candidates) == 1
     assert len(bus.messages_on("object.rule-candidate")) == 2
     assert norns.behavior_snapshot().get("rate_limit_exceeded") == 1
@@ -1684,11 +1856,22 @@ def test_norns_pending_buffer_drops_published_candidates() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     norns = Norns(promotion_threshold=1)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     # Ten distinct candidates, all within the default 20/min budget -> every
     # one publishes and is dropped from the buffer.
     for i in range(10):
-        asyncio.run(norns.on_typed_message("object.issue", {"fingerprint": f"fp-{i}"}))
+        asyncio.run(
+            norns.on_typed_message(
+                "object.issue",
+                {
+                    "producer_principal": "Saga",
+                    "fingerprint": f"fp-{i}",
+                    "correlation_id": f"fp-publish-{i}",
+                    "idempotency_key": f"fp-publish-{i}",
+                },
+            )
+        )
     assert len(bus.messages_on("object.rule-candidate")) == 10
     assert norns.pending_candidates == []
 
@@ -1703,6 +1886,7 @@ def test_saga_escalate_publishes_object_issue_and_feeds_fingerprint_loop() -> No
     saga = Saga()
     saga.bind_bus(bus)
     norns = Norns(promotion_threshold=2)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     mimir = Mimir()
     bus.subscribe("object.issue", "Norns", norns.on_typed_message)
@@ -1740,16 +1924,30 @@ def test_saga_escalate_publishes_object_issue_and_feeds_fingerprint_loop() -> No
 
 
 def _run_outcomes(norns: Norns, target: str, *, rollbacks: int, successes: int) -> None:
-    for _ in range(rollbacks):
+    for index in range(rollbacks):
         asyncio.run(
             norns.on_typed_message(
-                "object.audit-entry", {"action_type": target, "result": "rollback"}
+                "object.audit-entry",
+                {
+                    "producer_principal": "Saga",
+                    "action_type": target,
+                    "result": "rollback",
+                    "correlation_id": f"{target}:rollback:{index}",
+                    "idempotency_key": f"{target}:rollback:{index}",
+                },
             )
         )
-    for _ in range(successes):
+    for index in range(successes):
         asyncio.run(
             norns.on_typed_message(
-                "object.audit-entry", {"action_type": target, "result": "success"}
+                "object.audit-entry",
+                {
+                    "producer_principal": "Saga",
+                    "action_type": target,
+                    "result": "success",
+                    "correlation_id": f"{target}:success:{index}",
+                    "idempotency_key": f"{target}:success:{index}",
+                },
             )
         )
 
@@ -1841,9 +2039,11 @@ def test_norns_proposes_revision_after_recurring_rejections() -> None:
             norns.on_typed_message(
                 "object.approval",
                 {
+                    "producer_principal": "Var",
                     "action_type": "remediate.enable-encryption",
                     "state": "rejected",
                     "correlation_id": f"c-{i}",
+                    "idempotency_key": f"approval:c-{i}",
                 },
             )
         )
@@ -1866,9 +2066,11 @@ def test_norns_approvals_alone_propose_nothing() -> None:
             norns.on_typed_message(
                 "object.approval",
                 {
+                    "producer_principal": "Var",
                     "action_type": "ops.restart-service",
                     "state": "approved",
                     "correlation_id": f"a-{i}",
+                    "idempotency_key": f"approval:a-{i}",
                 },
             )
         )
@@ -1885,9 +2087,11 @@ def test_norns_dedups_approval_per_correlation() -> None:
             norns.on_typed_message(
                 "object.approval",
                 {
+                    "producer_principal": "Var",
                     "action_type": "remediate.delete-storage",
                     "state": "rejected",
                     "correlation_id": "dup",
+                    "idempotency_key": "approval:dup",
                 },
             )
         )
@@ -1897,9 +2101,11 @@ def test_norns_dedups_approval_per_correlation() -> None:
         norns.on_typed_message(
             "object.approval",
             {
+                "producer_principal": "Var",
                 "action_type": "remediate.delete-storage",
                 "state": "rejected",
                 "correlation_id": "distinct",
+                "idempotency_key": "approval:distinct",
             },
         )
     )
@@ -1913,10 +2119,29 @@ def test_norns_dedups_approval_per_correlation() -> None:
 def test_norns_fingerprint_learner_still_isolated() -> None:
     """Outcome/override learners do not perturb the fingerprint learner."""
     norns = Norns(promotion_threshold=3)
-    for _ in range(3):
-        asyncio.run(norns.on_typed_message("object.issue", {"fingerprint": "fp-x"}))
+    for index in range(3):
+        asyncio.run(
+            norns.on_typed_message(
+                "object.issue",
+                {
+                    "producer_principal": "Saga",
+                    "fingerprint": "fp-x",
+                    "correlation_id": f"issue-fp-x-{index}",
+                    "idempotency_key": f"issue-fp-x-{index}",
+                },
+            )
+        )
     asyncio.run(
-        norns.on_typed_message("object.audit-entry", {"action_type": "a", "result": "success"})
+        norns.on_typed_message(
+            "object.audit-entry",
+            {
+                "producer_principal": "Saga",
+                "action_type": "a",
+                "result": "success",
+                "correlation_id": "audit-a-success",
+                "idempotency_key": "audit-a-success",
+            },
+        )
     )
     new_rules = [c for c in norns.pending_candidates if c["proposal_kind"] == "new"]
     assert len(new_rules) == 1
@@ -1927,16 +2152,30 @@ def test_norns_outcome_learner_normalizes_action_run_state() -> None:
     ``result``) still scores: rolled_back / failed -> adverse, succeeded ->
     success."""
     norns = Norns(min_outcome_samples=10, rollback_alarm_rate=0.2)
-    for _ in range(4):
+    for index in range(4):
         asyncio.run(
             norns.on_typed_message(
-                "object.audit-entry", {"action_type": "remediate.z", "state": "rolled_back"}
+                "object.audit-entry",
+                {
+                    "producer_principal": "Saga",
+                    "action_type": "remediate.z",
+                    "state": "rolled_back",
+                    "correlation_id": f"remediate-z-rollback-{index}",
+                    "idempotency_key": f"remediate-z-rollback-{index}",
+                },
             )
         )
-    for _ in range(6):
+    for index in range(6):
         asyncio.run(
             norns.on_typed_message(
-                "object.audit-entry", {"action_type": "remediate.z", "state": "succeeded"}
+                "object.audit-entry",
+                {
+                    "producer_principal": "Saga",
+                    "action_type": "remediate.z",
+                    "state": "succeeded",
+                    "correlation_id": f"remediate-z-success-{index}",
+                    "idempotency_key": f"remediate-z-success-{index}",
+                },
             )
         )
     proposals = [
@@ -1953,9 +2192,11 @@ def test_norns_counts_distinct_action_targets_under_one_correlation() -> None:
             norns.on_typed_message(
                 "object.audit-entry",
                 {
+                    "producer_principal": "Saga",
                     "action_type": action_type,
                     "state": "rolled_back",
                     "correlation_id": "shared-correlation",
+                    "idempotency_key": f"shared-correlation:{action_type}",
                 },
             )
         )
@@ -1989,7 +2230,7 @@ def test_saga_republishes_terminal_action_outcome() -> None:
         asyncio.run(
             saga.on_typed_message(
                 "object.action-run",
-                {"action_type": "remediate.z", "state": state, "correlation_id": "c"},
+                _action_run_payload(state=state),
             )
         )
         entries = bus.messages_on("object.audit-entry")
@@ -2007,12 +2248,7 @@ def test_saga_prefers_direct_result_over_unmappable_state() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {
-                "action_type": "remediate.z",
-                "result": "rollback",
-                "state": "some_future_state",
-                "correlation_id": "c",
-            },
+            _action_run_payload(result="rollback", state="some_future_state"),
         )
     )
     entries = bus.messages_on("object.audit-entry")
@@ -2028,12 +2264,7 @@ def test_saga_ignores_non_canonical_direct_result() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {
-                "action_type": "remediate.z",
-                "result": "banana",
-                "state": "succeeded",
-                "correlation_id": "c",
-            },
+            _action_run_payload(result="banana", state="succeeded"),
         )
     )
     entries = bus.messages_on("object.audit-entry")
@@ -2047,12 +2278,15 @@ def test_saga_does_not_republish_intermediate_or_untyped_state() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {"action_type": "remediate.z", "state": "executing", "correlation_id": "c"},
+            _action_run_payload(state="executing"),
         )
     )
     # Terminal but no action_type -> nothing to attribute.
     asyncio.run(
-        saga.on_typed_message("object.action-run", {"state": "succeeded", "correlation_id": "c"})
+        saga.on_typed_message(
+            "object.action-run",
+            _action_run_payload(state="succeeded", action_type=""),
+        )
     )
     assert bus.messages_on("object.audit-entry") == []
 
@@ -2063,7 +2297,8 @@ def test_saga_skips_republish_on_empty_correlation() -> None:
     saga, bus = _saga_on_bus()
     asyncio.run(
         saga.on_typed_message(
-            "object.action-run", {"action_type": "a", "state": "failed", "correlation_id": ""}
+            "object.action-run",
+            _action_run_payload(action_type="a", state="failed", correlation_id=""),
         )
     )
     assert bus.messages_on("object.audit-entry") == []
@@ -2078,9 +2313,8 @@ def test_saga_self_loop_guard_skips_already_republished_record() -> None:
         saga.on_typed_message(
             "object.action-run",
             {
-                "action_type": "a",
+                **_action_run_payload(action_type="a", state="failed"),
                 "state": "failed",
-                "correlation_id": "c",
                 "audited_topic": "object.action-run",
             },
         )
@@ -2093,7 +2327,7 @@ def test_saga_republishes_shadow_flag() -> None:
     asyncio.run(
         saga.on_typed_message(
             "object.action-run",
-            {"action_type": "a", "state": "succeeded", "correlation_id": "c", "shadow_mode": True},
+            _action_run_payload(action_type="a", state="succeeded", shadow_mode=True),
         )
     )
     entries = bus.messages_on("object.audit-entry")
@@ -2109,7 +2343,14 @@ def test_norns_skips_shadow_outcomes() -> None:
     asyncio.run(
         norns.on_typed_message(
             "object.audit-entry",
-            {"action_type": "a", "result": "rollback", "correlation_id": "c", "shadow_mode": True},
+            {
+                "producer_principal": "Saga",
+                "action_type": "a",
+                "result": "rollback",
+                "correlation_id": "c",
+                "idempotency_key": "audit-c",
+                "shadow_mode": True,
+            },
         )
     )
     assert norns.pending_candidates == []
@@ -2117,7 +2358,13 @@ def test_norns_skips_shadow_outcomes() -> None:
     asyncio.run(
         norns.on_typed_message(
             "object.audit-entry",
-            {"action_type": "a", "result": "rollback", "correlation_id": "d"},
+            {
+                "producer_principal": "Saga",
+                "action_type": "a",
+                "result": "rollback",
+                "correlation_id": "d",
+                "idempotency_key": "audit-d",
+            },
         )
     )
     assert any(c["proposal_kind"] == "threshold_adjustment" for c in norns.pending_candidates)
@@ -2138,14 +2385,22 @@ def test_saga_audit_entry_drives_norns_outcome_learning() -> None:
             asyncio.run(
                 saga.on_typed_message(
                     "object.action-run",
-                    {"action_type": "remediate.z", "state": state, "correlation_id": f"f{i}"},
+                    _action_run_payload(
+                        correlation_id=f"f{i}",
+                        idempotency_key=f"action-run:f{i}:{state}",
+                        state=state,
+                    ),
                 )
             )
     for i in range(6):
         asyncio.run(
             saga.on_typed_message(
                 "object.action-run",
-                {"action_type": "remediate.z", "state": "succeeded", "correlation_id": f"s{i}"},
+                _action_run_payload(
+                    correlation_id=f"s{i}",
+                    idempotency_key=f"action-run:s{i}",
+                    state="succeeded",
+                ),
             )
         )
 
@@ -2165,14 +2420,26 @@ def test_norns_dedups_outcome_per_correlation() -> None:
         asyncio.run(
             norns.on_typed_message(
                 "object.audit-entry",
-                {"action_type": "a", "result": result, "correlation_id": "same"},
+                {
+                    "producer_principal": "Saga",
+                    "action_type": "a",
+                    "result": result,
+                    "correlation_id": "same",
+                    "idempotency_key": f"audit-same-{result}",
+                },
             )
         )
     # One success, distinct correlation.
     asyncio.run(
         norns.on_typed_message(
             "object.audit-entry",
-            {"action_type": "a", "result": "success", "correlation_id": "other"},
+            {
+                "producer_principal": "Saga",
+                "action_type": "a",
+                "result": "success",
+                "correlation_id": "other",
+                "idempotency_key": "audit-other",
+            },
         )
     )
     # Deduped: 1 adverse + 1 success = 0.5 rollback rate (NOT 2 adverse / 3 = 0.67).

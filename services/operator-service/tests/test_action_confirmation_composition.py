@@ -14,6 +14,8 @@ from fdai_operator_service.environment import (
     DATABASE_URL_ENV,
     GROUP_ENV,
     KAFKA_BOOTSTRAP_SERVERS_ENV,
+    OPERATOR_REQUEST_OPERATOR_SIGNING_SEED_ENV,
+    OPERATOR_REQUEST_RECEIPT_PRODUCER_ID_ENV,
     SEMANTIC_PHYSICAL_TOPIC_ENV,
     SEMANTIC_PROJECTION_TOPIC_ENV,
     SEMANTIC_REQUEST_TOPIC_ENV,
@@ -32,6 +34,8 @@ _BASE_ENV = {
     "FDAI_EXECUTION_VENUE": "local",
     DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
     DATABASE_ROLE_ENV: "fdai_operator",
+    OPERATOR_REQUEST_OPERATOR_SIGNING_SEED_ENV: "A" * 43,
+    OPERATOR_REQUEST_RECEIPT_PRODUCER_ID_ENV: "operator-service",
 }
 
 
@@ -72,8 +76,16 @@ def test_production_composition_binds_action_confirmation_to_core_event_topic(
             return object()
 
     class _Bridge:
-        def __init__(self, *, store: object, publisher: object, topic: str) -> None:
+        def __init__(
+            self,
+            *,
+            store: object,
+            publisher: object,
+            topic: str,
+            receipt_issuer: object | None = None,
+        ) -> None:
             action_captured.append((store, publisher, topic))
+            assert receipt_issuer is not None
 
         def workers_ready(self) -> bool:
             return True
@@ -116,3 +128,69 @@ def test_production_composition_binds_action_confirmation_to_core_event_topic(
     assert topic == "fdai.events"
     assert intervention_captured == [(store, publisher)]
     assert runtime.lifecycle is not None
+
+
+async def test_production_composition_does_not_bind_action_confirmation_without_receipt_issuer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    action_captured: list[tuple[object, object, str]] = []
+
+    class _Bus:
+        def __init__(self, *, config: Any, credential: Any) -> None:
+            del config, credential
+
+        async def start(self) -> None:
+            return None
+
+        async def aclose(self) -> None:
+            return None
+
+        async def probe_readiness(self) -> bool:
+            return True
+
+        def subscribe(self, topic: str, group_id: str) -> Any:
+            del topic, group_id
+            raise AssertionError("consumer is not started during composition")
+
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            del topic, key, payload
+            return object()
+
+    class _Bridge:
+        def __init__(
+            self,
+            *,
+            store: object,
+            publisher: object,
+            topic: str,
+            receipt_issuer: object | None = None,
+        ) -> None:
+            del receipt_issuer
+            action_captured.append((store, publisher, topic))
+
+    monkeypatch.setattr(composition_module, "OperatorSemanticKafkaBus", _Bus)
+    monkeypatch.setattr(composition_module, "ActionConfirmationBridge", _Bridge)
+
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda _environment: _verify,
+    ).build_runtime(
+        {
+            key: value
+            for key, value in _BASE_ENV.items()
+            if key
+            not in {
+                OPERATOR_REQUEST_OPERATOR_SIGNING_SEED_ENV,
+                OPERATOR_REQUEST_RECEIPT_PRODUCER_ID_ENV,
+            }
+        }
+    )
+
+    assert action_captured == []
+    assert runtime.lifecycle is not None
+    assert runtime.readiness_probe is not None
+    assert await runtime.readiness_probe() is False

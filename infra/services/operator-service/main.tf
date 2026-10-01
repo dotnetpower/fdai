@@ -6,6 +6,7 @@ module "operator_service" {
   image                          = var.image
   identity                       = var.identity
   runtime_call_evidence          = var.runtime_call_evidence
+  operator_request_receipts      = var.operator_request_receipts
   event_topics                   = var.event_topics
   database                       = var.database
   health                         = var.health

@@ -42,6 +42,8 @@ def configure_authority_agents(
     approver_authorizer: ApproverAuthorizer | None,
     var_state_store: StateStore | None,
     rollback_executors: Mapping[str, RollbackExecutor] | None,
+    action_rollback_executors: Mapping[tuple[str, str], RollbackExecutor] | None,
+    rollback_contracts_by_action_type: Mapping[str, str] | None,
     vidar_state_store: StateStore | None,
     development: DevelopmentRuntimeBindings | None,
 ) -> None:
@@ -61,10 +63,17 @@ def configure_authority_agents(
                 development.binding_source if development is not None else None
             ),
         )
-    if rollback_executors is not None or vidar_state_store is not None or profile is not None:
+    if (
+        rollback_executors is not None
+        or action_rollback_executors is not None
+        or vidar_state_store is not None
+        or profile is not None
+    ):
         agents["Vidar"] = Vidar(
             executors=rollback_executors,
+            action_executors=action_rollback_executors,
             state_store=vidar_state_store,
+            rollback_contracts_by_action_type=rollback_contracts_by_action_type,
             development_profile=profile,
             development_executor_principal=executor,
             development_binding_source=(

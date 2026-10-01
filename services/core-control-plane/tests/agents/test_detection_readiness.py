@@ -206,6 +206,7 @@ def test_forseti_records_readiness_without_creating_a_verdict() -> None:
         forseti.on_typed_message(
             "object.drift",
             {
+                "producer_principal": "Heimdall",
                 "kind": "detection_readiness",
                 "resource_id": "cluster/example",
                 "decision": "partial",
@@ -240,6 +241,7 @@ def test_forseti_demotes_auto_event_under_readiness_ceiling() -> None:
         forseti.on_typed_message(
             "object.drift",
             {
+                "producer_principal": "Heimdall",
                 "kind": "detection_readiness",
                 "resource_id": "cluster/example",
                 "decision": "ready",
@@ -252,9 +254,11 @@ def test_forseti_demotes_auto_event_under_readiness_ceiling() -> None:
         forseti.on_typed_message(
             "object.event",
             {
+                "producer_principal": "Huginn",
                 "event_type": "restart_needed",
                 "resource_id": "cluster/example",
                 "correlation_id": "pod-failure-1",
+                "idempotency_key": "pod-failure-1:key",
             },
         )
     )

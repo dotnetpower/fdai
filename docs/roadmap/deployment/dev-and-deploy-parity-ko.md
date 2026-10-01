@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 06106bc0e62db0e0b7287c49b4454f2fae0d1490
+translation_source_sha: 7b018189da68b6ea1f99b493dcddd9ced7852c7b
 translation_revised: 2026-10-01
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -320,6 +320,11 @@ reader-identity ARM GET으로 대상을 확인하고 해당 증적을 비공개 
 소비합니다. 호출자가 주장한 증적, 변경된 페이로드, 만료되거나 재생된 증적은 변경 전에 실패합니다. ARM long-running 연산은 `submitted` 상태로 유지되며 실행기만 원래 멱등성 키를 통해 서버가 소유한 상태 URL을 조회할 수
 있습니다. Stale pending 점유는 계속 차단된 상태로 남지 않고 범위가 제한된 시간 초과 이후 ETag compare-and-swap으로 복구됩니다. 동일한 계획을 반복하면 소비되지 않은 같은 증적을 반환합니다. 소비되거나 만료된 계획은 새
 멱등성 키가 필요합니다. ARM throttling은 최대 3회까지 범위가 제한된 `Retry-After`를 따르며 변경 `5xx` 응답은 결과가 모호한할 수 있으므로 자동으로 반복하지 않습니다.
+
+배포 Key Vault binding이 없을 때 로컬 준비는 Core와 Operator용 mode-0600 local-only
+operator-request receipt signing seed도 만듭니다. 생성 값은 `.fdai/` 아래에 머무르며 docs나
+manifest에 복사하지 않습니다. 배포된 producer 분리를 미러링하지만 어느 service에도 다른
+service의 signing identity를 부여하지 않습니다.
 
 동일한 read-investigation 배선이 범위가 제한된 Azure subscription-health 프로바이더를 구성합니다. 기본값은 resource-group 허용 목록이며, interactive 로컬은 권위 있는 인벤토리가 전체 구독을 이미 읽으므로 서버가 소유한 `subscription` 모드와 1,000개 리소스 상한을 선택하고 배포는 적절한 범위의 읽기 담당 신원으로 의도적으로 연결하지 않으면 `resource_groups`를 유지합니다.
 브라우저와 모델 입력은 모드를 변경할 수 없습니다. 로컬 factory는 read-investigation 배선이 있을 때만

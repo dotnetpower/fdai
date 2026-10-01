@@ -45,7 +45,7 @@ def _producer_topics() -> set[str]:
             ):
                 topic_index = 0 if call.func.attr == "_publish_proposal" else 1
                 if (
-                    call.func.attr not in {"publish", "_publish_proposal"}
+                    call.func.attr not in {"publish", "_publish_proposal", "_publish_with_outbox"}
                     or len(call.args) <= topic_index
                 ):
                     continue
@@ -109,9 +109,9 @@ def test_hard_dependency_agents_are_saga_and_vidar() -> None:
     assert HARD_DEPENDENCY_AGENTS == {"Saga", "Vidar"}
 
 
-def test_llm_hot_path_allowlist_is_bragi_forseti_norns() -> None:
+def test_llm_hot_path_allowlist_excludes_off_path_norns() -> None:
     # docs/roadmap/agents/agent-pantheon.md \u00a78
-    assert LLM_HOT_PATH_ALLOWLIST == {"Bragi", "Forseti", "Norns"}
+    assert LLM_HOT_PATH_ALLOWLIST == {"Bragi", "Forseti"}
 
 
 def test_registry_loads_cleanly() -> None:
@@ -189,12 +189,20 @@ def test_registry_lookup_owner_of_topic() -> None:
 
 def test_publish_authorization_accepts_owner() -> None:
     reg = load_pantheon()
-    # Owner is allowed
-    reg.assert_can_publish("Thor", "object.action-run")
-    reg.assert_can_publish("Forseti", "object.verdict")
-    reg.assert_can_publish("Saga", "object.audit-entry")
-    reg.assert_can_publish("Bragi", "object.handoff-escalation")
-    reg.assert_can_publish("Heimdall", "object.retrieval-validation")
+    expected_owner_by_topic = {
+        "object.action-run": "Thor",
+        "object.verdict": "Forseti",
+        "object.audit-entry": "Saga",
+        "object.handoff-escalation": "Bragi",
+        "object.retrieval-validation": "Heimdall",
+    }
+    for topic, owner in expected_owner_by_topic.items():
+        assert reg.owner_of_topic(topic) == owner
+        reg.assert_can_publish(owner, topic)
+
+    reg._owner_of_topic["object.action-run"] = "Loki"  # type: ignore[attr-defined]
+    with pytest.raises(PantheonRegistryError, match="not the owner"):
+        reg.assert_can_publish("Thor", "object.action-run")
 
 
 def test_publish_authorization_rejects_non_owner() -> None:

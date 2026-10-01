@@ -281,6 +281,7 @@ async def test_forged_retention_tick_does_not_run_deletion() -> None:
     await muninn.on_typed_message(
         "object.event",
         {
+            "producer_principal": "Mallory",
             "event_id": "case-history-retention:forged",
             "idempotency_key": "case-history-retention:forged",
             "correlation_id": "case-history-retention:forged",
@@ -290,7 +291,7 @@ async def test_forged_retention_tick_does_not_run_deletion() -> None:
     )
     assert record.storage_ref is not None
     assert await artifacts.get(record.storage_ref) is not None
-    assert muninn.behavior_snapshot()["case_history:retention_invalid"] == 1
+    assert muninn.behavior_snapshot()["case_history:retention_invalid_producer"] == 1
 
 
 async def test_duplicate_outcome_does_not_double_count_learning() -> None:

@@ -12,6 +12,10 @@ from dataclasses import dataclass
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
+from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
+from fdai.agents._framework.loki_adversarial import ChaosScenarioGenerator
+from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
@@ -122,6 +126,7 @@ def configured_forseti(
     development_executor_principal: str | None = None,
     development_action_types: dict[str, RegisteredDevelopmentAction] | None = None,
     governed_execution_selected: bool = False,
+    state_store: StateStore | None = None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding.
 
@@ -146,6 +151,7 @@ def configured_forseti(
             development_binding_source,
             development_executor_principal,
             development_action_types,
+            state_store,
         )
     ):
         return None
@@ -166,11 +172,13 @@ def configured_forseti(
         development_executor_principal=development_executor_principal,
         development_action_types=development_action_types,
         governed_execution_selected=governed_execution_selected,
+        state_store=state_store,
     )
 
 
 def configured_njord(
     bindings: CostRuntimeBindings,
+    state_store: StateStore | None = None,
 ) -> Njord:
     """Build Njord with optional package-neutral Cost Governance bindings."""
 
@@ -180,28 +188,53 @@ def configured_njord(
         package_enabled=bindings.package_enabled,
         budget_data_available=bindings.budget_data_available,
         initial_samples=bindings.initial_samples,
+        state_store=state_store,
     )
 
 
 def configured_freyr(
     graduation_controller: CapacityGraduationController | None,
+    state_store: StateStore | None = None,
+    utilization_sampler: CapacityUtilizationSampler | None = None,
 ) -> Freyr:
     """Build Freyr with the reviewed graduation controller."""
 
-    return Freyr(graduation_controller=graduation_controller)
+    return Freyr(
+        graduation_controller=graduation_controller,
+        state_store=state_store,
+        utilization_sampler=utilization_sampler,
+    )
 
 
 def configured_huginn(
     discovery_projector: DiscoveryProjector | None,
     state_store: StateStore | None,
+    operator_request_receipt_gate: OperatorRequestReceiptGate | None = None,
+    schema_learning_enabled: bool = False,
 ) -> Huginn:
     """Build Huginn with durable deduplication and optional discovery projection."""
-    return Huginn(discovery_projector=discovery_projector, state_store=state_store)
+    return Huginn(
+        discovery_projector=discovery_projector,
+        state_store=state_store,
+        operator_request_receipt_gate=operator_request_receipt_gate,
+        schema_learning_enabled=schema_learning_enabled,
+    )
 
 
-def configured_loki(state_store: StateStore | None) -> Loki:
+def configured_loki(
+    state_store: StateStore | None,
+    *,
+    recurring_schedule: ChaosScheduleConfig | None = None,
+    scenario_generator: ChaosScenarioGenerator | None = None,
+    scenario_corpus: tuple[ChaosScheduleConfig, ...] = (),
+) -> Loki:
     """Build Loki with the optional durable proposal-reservation store."""
-    return Loki(state_store=state_store)
+    return Loki(
+        state_store=state_store,
+        recurring_schedule=recurring_schedule,
+        scenario_generator=scenario_generator,
+        scenario_corpus=scenario_corpus,
+    )
 
 
 __all__ = [

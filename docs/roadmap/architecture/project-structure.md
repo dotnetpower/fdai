@@ -186,7 +186,10 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
 - **core is portable**: it MUST NOT import any cloud SDK directly. Cloud specifics enter
   only through the CSP-neutral interfaces in `shared/providers/`, whose implementations live
   in `delivery/` and `infra/` and are injected at composition time. This keeps a second cloud
-  a matter of adding an adapter, never editing `core/`.
+  a matter of adding an adapter, never editing `core/`. The process-local
+  `shared/providers/local/event_bus.py` keeps broker-like retention: it bounds each topic's
+  replayable window, lets a late consumer group replay that window, and never compacts a record
+  that a subscribed group has not consumed yet.
 - **allowed imports**: `shared/` imports nothing from `core/`; `core/` may import only
   `shared/` contracts, providers, telemetry, and config; `delivery/` may compose `core/` and
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`

@@ -108,27 +108,53 @@ async def gather_tools(
 
     plans: tuple[ConversationToolPlan, ...] = ()
     results: list[AgentToolResult] = []
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + PREFETCH_BUDGET_SECONDS
     try:
-        async with asyncio.timeout(PREFETCH_BUDGET_SECONDS):
+        async with asyncio.timeout(max(0.0, deadline - loop.time())):
             plans = await plan_tools(question, semantic=semantic, agents=agents, limit=limit)
-            if require_unique_top and len(plans) > 1 and plans[0].score == plans[1].score:
-                return ToolGatherResult(
-                    plans=plans,
-                    results=(),
-                    timed_out=False,
-                    ambiguous=True,
-                )
-            selected = plans[:execute_limit] if execute_limit is not None else plans
-            for plan in selected:
-                results.append(
-                    await registry.invoke(
-                        agent_name=plan.agent,
-                        tool_id=plan.tool_id,
-                        question=question,
-                        trace_ref=trace_ref,
-                    )
-                )
     except TimeoutError:
+        _LOG.warning(
+            "pantheon_tool_prefetch_budget_exhausted",
+            extra={"completed": len(results), "planned": len(plans)},
+        )
+        return ToolGatherResult(plans=plans, results=tuple(results), timed_out=True)
+    if require_unique_top and len(plans) > 1 and plans[0].score == plans[1].score:
+        return ToolGatherResult(
+            plans=plans,
+            results=(),
+            timed_out=False,
+            ambiguous=True,
+        )
+    selected = plans[:execute_limit] if execute_limit is not None else plans
+    tasks = [
+        asyncio.create_task(
+            registry.invoke(
+                agent_name=plan.agent,
+                tool_id=plan.tool_id,
+                question=question,
+                trace_ref=trace_ref,
+            ),
+            name=f"pantheon-tool-prefetch.{plan.agent}.{plan.tool_id}",
+        )
+        for plan in selected
+    ]
+    if not tasks:
+        return ToolGatherResult(plans=plans, results=(), timed_out=False)
+    done, pending = await asyncio.wait(tasks, timeout=max(0.0, deadline - loop.time()))
+    for task in pending:
+        task.cancel()
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+    ordered_results: list[AgentToolResult] = []
+    for task in tasks:
+        if task in done and not task.cancelled():
+            try:
+                ordered_results.append(task.result())
+            except Exception:  # noqa: BLE001 - failed supplementary evidence is omitted
+                _LOG.warning("pantheon_tool_prefetch_tool_failed", exc_info=True)
+    results.extend(ordered_results)
+    if pending:
         _LOG.warning(
             "pantheon_tool_prefetch_budget_exhausted",
             extra={"completed": len(results), "planned": len(plans)},

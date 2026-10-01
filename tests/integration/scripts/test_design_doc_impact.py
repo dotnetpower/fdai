@@ -240,6 +240,27 @@ def test_generated_system_knowledge_catalog_needs_no_duplicate_design_update() -
     assert failures == []
 
 
+def test_generated_semantic_intent_coverage_needs_no_duplicate_design_update() -> None:
+    """The coverage inventory only re-digests its sources; the sources own the design."""
+    module = _load_module()
+    manifest = {
+        "routes": [
+            {
+                "id": "semantic-coverage",
+                "paths": ["eval/golden-dataset/semantic-intent-coverage.json"],
+                "docs_update": ["docs/semantic-coverage.md"],
+            }
+        ]
+    }
+
+    failures = module.missing_doc_updates(
+        {"eval/golden-dataset/semantic-intent-coverage.json"},
+        manifest,
+    )
+
+    assert failures == []
+
+
 def test_question_bank_source_change_still_requires_design_update() -> None:
     module = _load_module()
     manifest = {

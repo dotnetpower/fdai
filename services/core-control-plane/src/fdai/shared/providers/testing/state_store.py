@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from threading import Lock
 from typing import Any
@@ -95,6 +96,13 @@ def _approval_guard_matches(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _KeySnapshot:
+    keys: tuple[str, ...]
+    previous: dict[str, Mapping[str, Any]]
+    order: list[str] | None
+
+
 class InMemoryStateStore(StateStore):
     """Dict-backed :class:`StateStore` with a genuine audit hash-chain.
 
@@ -176,13 +184,13 @@ class InMemoryStateStore(StateStore):
         with self._lock:
             if key in self._state:
                 return False
-            state_before = deepcopy(self._state)
+            snapshot = self._snapshot_keys_locked(key)
             audit_length_before = len(self._audit)
             try:
                 self._write_locked(key, value)
                 self._append_audit_locked(audit_entry)
             except Exception:
-                self._state = state_before
+                self._restore_keys_locked(snapshot)
                 del self._audit[audit_length_before:]
                 raise
             return True
@@ -200,13 +208,13 @@ class InMemoryStateStore(StateStore):
             current_revision = existing.get("revision", 0) if existing is not None else 0
             if current_revision != expected_revision:
                 return False
-            state_before = deepcopy(self._state)
+            snapshot = self._snapshot_keys_locked(key)
             audit_length_before = len(self._audit)
             try:
                 self._write_locked(key, value)
                 self._append_audit_locked(audit_entry)
             except Exception:
-                self._state = state_before
+                self._restore_keys_locked(snapshot)
                 del self._audit[audit_length_before:]
                 raise
             return True
@@ -240,14 +248,14 @@ class InMemoryStateStore(StateStore):
                     return False
                 if fresh_until.tzinfo is None or fresh_until <= datetime.now(UTC):
                     return False
-            state_before = deepcopy(self._state)
+            snapshot = self._snapshot_keys_locked(source_key, target_key)
             audit_length_before = len(self._audit)
             try:
                 self._write_locked(source_key, source_value)
                 self._write_locked(target_key, target_value)
                 self._append_audit_locked(audit_entry)
             except Exception:
-                self._state = state_before
+                self._restore_keys_locked(snapshot)
                 del self._audit[audit_length_before:]
                 raise
             return True
@@ -274,7 +282,7 @@ class InMemoryStateStore(StateStore):
                 or target.get("revision", 0) != expected_target_revision
             ):
                 return False
-            state_before = deepcopy(self._state)
+            snapshot = self._snapshot_keys_locked(source_key, target_key)
             audit_length_before = len(self._audit)
             try:
                 self._write_locked(source_key, source_value)
@@ -282,7 +290,7 @@ class InMemoryStateStore(StateStore):
                     self._write_locked(target_key, target_value)
                 self._append_audit_locked(audit_entry)
             except Exception:
-                self._state = state_before
+                self._restore_keys_locked(snapshot)
                 del self._audit[audit_length_before:]
                 raise
             return True
@@ -330,16 +338,36 @@ class InMemoryStateStore(StateStore):
                 or admission_valid_until <= linearized_at
             ):
                 return False
-            state_before = deepcopy(self._state)
+            snapshot = self._snapshot_keys_locked(key)
             audit_length_before = len(self._audit)
             try:
                 self._write_locked(key, value)
                 self._append_audit_locked(audit_entry)
             except Exception:
-                self._state = state_before
+                self._restore_keys_locked(snapshot)
                 del self._audit[audit_length_before:]
                 raise
             return True
+
+    def _snapshot_keys_locked(self, *keys: str) -> _KeySnapshot:
+        """Capture only the rows an audited write may touch.
+
+        Copying the whole store before every audited write made each write O(store size);
+        restoring the touched rows and, only when a row already existed, the prior order is
+        enough for all-or-nothing semantics.
+        """
+        previous = {key: self._state[key] for key in keys if key in self._state}
+        order = list(self._state) if previous else None
+        return _KeySnapshot(keys=keys, previous=previous, order=order)
+
+    def _restore_keys_locked(self, snapshot: _KeySnapshot) -> None:
+        for key in snapshot.keys:
+            if key in snapshot.previous:
+                self._state[key] = snapshot.previous[key]
+            else:
+                self._state.pop(key, None)
+        if snapshot.order is not None:
+            self._state = {key: self._state[key] for key in snapshot.order}
 
     def _write_locked(self, key: str, value: Mapping[str, Any]) -> None:
         """Store ``key`` as the most recently written row.
@@ -402,6 +430,12 @@ class InMemoryStateStore(StateStore):
             for key in expired:
                 del self._state[key]
         return len(expired)
+
+    async def delete_state(self, key: str) -> bool:
+        if not key:
+            raise ValueError("key MUST be non-empty")
+        with self._lock:
+            return self._state.pop(key, None) is not None
 
     async def read_state_page(
         self,

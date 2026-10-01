@@ -22,10 +22,12 @@ The baseline is the composition floor, not the whole prompt. Each turn composes 
 the baseline plus the situational layers that the turn selects. See
 [Situational prompt composition](#situational-prompt-composition).
 
-`PantheonRuntime.deliberate` provides the explicit discussion API. It requires T1 semantic
-participant selection and runs one primary position plus peer critiques. A deterministic answer
-evaluation compares bounded high-signal facts for the same identity. Only a verified conflict can
-admit the optional composition-bound T2 synthesizer.
+`PantheonRuntime.deliberate` provides the explicit discussion API. It reuses the verified semantic
+route for the turn, forwards the validated operator locale to each participant, and runs one
+primary position plus peer critiques. A deterministic answer evaluation compares bounded
+high-signal facts for the same identity. Only a verified conflict can admit the optional
+composition-bound T2 synthesizer, and every T2 synthesis remains bounded by budget, timeout, output
+size, and sensitivity checks.
 
 Explicit Conversation Assurance campaigns use the same public Bragi boundary. The content-free
 trace records the effective prompt digest for each successful participant. A T2 trace includes a
@@ -35,10 +37,10 @@ promotion authority.
 
 Fixed T2 census cases can also supply bounded, server-owned `fixed_assurance_facts` to the
 deterministic T1 answer evaluator. This input makes the reviewed conflict scenario reproducible
-without inferring a conflict from question text. It is limited to the built-in assurance census,
-does not replace participant answers or evidence references, and is not operational evidence.
-Ordinary deliberation and private external corpora continue to derive T1 signals only from
-agent-owned facts.
+without inferring a conflict from question text. It is limited to internal built-in assurance
+scenarios, does not replace participant answers or evidence references, and is not operational
+evidence. Ordinary deliberation and private external corpora continue to derive T1 signals only
+from agent-owned facts.
 
 ## Situational prompt composition
 
@@ -364,6 +366,10 @@ Neither T1 discussion nor T2 synthesis may issue or change:
 Action intent returns `requires_typed_pipeline`. The typed pub/sub path remains the only machine
 authority path, and only the correlation trace crosses the two ports.
 
+Bragi may record shadow-only intent-training evidence from reviewed routing corrections. That
+evidence stays diagnostic until a separate reviewed activation path is bound; it does not change
+routing authority, deliberation admission, or the verified semantic judgment boundary.
+
 ## Three-round hardening evidence
 
 Each round used a 10-point exit rubric. A round scores one point for each required property and
@@ -488,6 +494,7 @@ model identity for diagnosis without attributing the deterministic fallback answ
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-30 | implemented | Documented the Round 5 conversational port behavior that reuses the verified semantic route, forwards locale, bounds T2 synthesis, and limits fixed assurance facts to internal scenarios. | `current change`; `services/core-control-plane/tests/agents/test_conversation_port_boundaries.py`; `services/core-control-plane/tests/agents/test_conversation_tool_fact_contract.py`; `services/core-control-plane/tests/agents/test_bragi_session_handoff_reentry.py`. | Live-model conversation qualification stays out of scope for local evidence. |
 | 2026-09-19 | implemented | Separated semantic routing identity from terminal answer authorship and retained rejected-model identity only for bounded diagnosis. | `current change`; focused Wave 4, Pantheon assurance, and presentation tests passed within the 468-test slice; Ruff and strict mypy passed. | Retain a future unique live case whose independent semantic reviews are valid before claiming assurance success. |
 | 2026-09-03 | implemented | Added explicit function-backed collection semantics to the versioned judgment prompt and deterministic typed-frame reuse. | `current change`; semantic judgment prompt registry and focused semantic planning checks. | Retain a bilingual authenticated runtime receipt for the five Console starter questions. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Classified the tested charter, prompt, T1, and guarded T2 seams as implemented without treating deterministic tests as operational validation. | Current change; source listed in the scope table and the focused command below (`6 passed in 0.11s`). | Bind and exercise a concrete metered T2 synthesizer, invoke the discussion path through an approved runtime boundary, and record governed runtime evidence. |

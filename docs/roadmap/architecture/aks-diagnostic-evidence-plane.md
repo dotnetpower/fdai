@@ -349,6 +349,9 @@ Terraform assigns the inventory identity Reader access to every exact cluster AR
 no bearer token. The separate Terraform deployer roles use the configured stable runner UAMI
 principal, and planning stops when the authenticated principal differs. Recreating the runner host
 can't redirect AKS observation authority.
+Terraform may add Key Vault signing-seed secrets for operator-request receipts beside AKS
+diagnostic resources. Those secrets do not expand the AKS evidence reader, Kubernetes diagnostic
+coverage, or runtime execution authority.
 
 ## Bounds and failure behavior
 

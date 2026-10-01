@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: e8ea66578b41c6692cc17c81bbd064a8ad83fe2a
-translation_revised: 2026-09-30
+translation_source_sha: f7df42b9d68e32f58428046518527612c9e36dd4
+translation_revised: 2026-10-01
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -389,6 +389,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-01 | implemented | Operator composition이 service-owned route를 추가하는 동안 narrator preference route assembly를 preference 소유자 안에 유지했습니다. Settings projection은 계속 sanitized 상태이며 `personalizes_t2_bindings`는 false로 남습니다. | `current change`; `fdai_operator_service/composition_routes.py`; focused Operator route-count 근거. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 보존합니다. |
 | 2026-09-27 | implemented | 비공개 SQLAlchemy DSN을 psycopg fixture 형식으로 내부 정규화한 뒤 서비스 소유 loopback PostgreSQL 검증 데이터베이스에서 개정 번호로 제한된 서술기 선호 설정 쓰기, 감사 기록 및 재시작 readback을 검증했습니다. | `current change`; 준비된 로컬 검증 데이터베이스에서 `test_narrator_preference_commits_with_audit_and_survives_new_connection` 통과, PR #1458의 소스 및 required CI 근거는 변경되지 않았습니다. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 별도로 보존합니다. |
 | 2026-09-27 | in-progress | 서술기 선호 설정의 구현 경로만 자체 설계 문서에 연결하면서 공유 파일에 적용되는 기존 경로와 문서 소유 요건은 모두 유지했습니다. 선호 설정 동작과 실행 권한이 없는 경계는 바뀌지 않았습니다. | `current change`; `scripts/lib/design-routes.json`; 집중 Operator, 경로 및 영속성 검사 305개 통과(선택적 PDF 검사와 실제 PostgreSQL 검사 각 1개 건너뜀); `check-design-routes.py`, 스테이징된 `check-design-doc-impact.py`, 로드맵 및 지역화 검사 통과. 승인된 로컬 전용 PostgreSQL DSN은 이 세션에서 가려져 있습니다. | 승인된 로컬 전용 DSN을 사용할 수 있을 때 실제 PostgreSQL 재시작 및 동시 쓰기 비교 및 교환을 검증하고, 배포 시작 및 지연 시간 증적을 별도로 보존합니다. |
 | 2026-09-26 | in-progress | 인증된 principal별 서술기 선호 설정 경로를 시작 시 다이제스트로 고정된 선택과 원자적 제안/상태 개정 번호 비교 및 교환에 연결했습니다. 제거된 배포의 저장된 선택은 보존하고 실효 선택만 `Auto`로 되돌립니다. 공개 설정 응답은 정제된 형태를 유지하며 T2 연결을 개인화하지 않습니다. | `current change`; `postgres_iam_configuration.py`, `model_lifecycle_startup.py`, IAM 조립 및 집중 선호 설정 검사; `uv run pytest -q --no-cov services/operator-service/tests/test_operator_service_composition.py services/operator-service/tests/test_narrator_preference_persistence.py services/operator-service/tests/test_narrator_preferences.py services/operator-service/tests/test_operator_service_postgres.py services/operator-service/tests/test_operator_iam_family.py tests/integration/services/test_narrator_preference_postgres.py` (305개 통과, 선택적 PDF 검사와 `FDAI_ASSIGNMENT_TEST_DSN`이 없는 PostgreSQL 검사 각 1개 건너뜀); Ruff와 strict mypy 통과. | 지원되는 로컬 PostgreSQL 환경에서 실제 재시작 조회와 동시 쓰기 비교 및 교환을 검증하고, 배포 시작 출처와 런타임 지연 시간의 정확한 근거를 보존합니다. |

@@ -42,9 +42,18 @@ def test_norns_consensus_holds_ungrounded_or_autonomy_raising_candidates(
 async def test_norns_publishes_one_unanimous_consensus_result() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     norns = Norns(promotion_threshold=1)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
 
-    await norns.on_typed_message("object.issue", {"fingerprint": "fp-consensus"})
+    await norns.on_typed_message(
+        "object.issue",
+        {
+            "producer_principal": "Saga",
+            "fingerprint": "fp-consensus",
+            "correlation_id": "fp-consensus-1",
+            "idempotency_key": "fp-consensus-1",
+        },
+    )
 
     messages = bus.messages_on("object.rule-candidate")
     assert len(messages) == 1
@@ -71,7 +80,15 @@ async def test_norns_publication_gate_preserves_candidate_until_enabled() -> Non
         norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
 
-    await norns.on_typed_message("object.issue", {"fingerprint": "fp-governed"})
+    await norns.on_typed_message(
+        "object.issue",
+        {
+            "producer_principal": "Saga",
+            "fingerprint": "fp-governed",
+            "correlation_id": "fp-governed-1",
+            "idempotency_key": "fp-governed-1",
+        },
+    )
 
     assert bus.messages_on("object.rule-candidate") == []
     assert len(norns.pending_candidates) == 1
@@ -86,6 +103,7 @@ async def test_norns_publication_gate_preserves_candidate_until_enabled() -> Non
 async def test_norns_holds_candidate_when_one_perspective_disagrees() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     norns = Norns()
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     hint = RuleCandidateHint(
         proposal_kind="promotion",
@@ -122,9 +140,25 @@ async def test_norns_holds_candidate_when_one_perspective_disagrees() -> None:
 async def test_norns_capacity_backpressure_does_not_mutate_new_fingerprint() -> None:
     norns = Norns(promotion_threshold=1, max_pending_candidates=1)
 
-    await norns.on_typed_message("object.issue", {"fingerprint": "fp-one"})
+    await norns.on_typed_message(
+        "object.issue",
+        {
+            "producer_principal": "Saga",
+            "fingerprint": "fp-one",
+            "correlation_id": "fp-one-1",
+            "idempotency_key": "fp-one-1",
+        },
+    )
     with pytest.raises(NornsCapacityError, match="capacity exhausted"):
-        await norns.on_typed_message("object.issue", {"fingerprint": "fp-two"})
+        await norns.on_typed_message(
+            "object.issue",
+            {
+                "producer_principal": "Saga",
+                "fingerprint": "fp-two",
+                "correlation_id": "fp-two-1",
+                "idempotency_key": "fp-two-1",
+            },
+        )
 
     assert norns.occurrences("fp-one") == 1
     assert norns.occurrences("fp-two") == 0

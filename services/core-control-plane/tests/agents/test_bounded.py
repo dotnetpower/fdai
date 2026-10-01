@@ -91,7 +91,13 @@ def test_norns_counted_correlations_is_bounded() -> None:
         asyncio.run(
             norns.on_typed_message(
                 "object.audit-entry",
-                {"action_type": "a", "result": "success", "correlation_id": f"c{i}"},
+                {
+                    "producer_principal": "Saga",
+                    "action_type": "a",
+                    "result": "success",
+                    "correlation_id": f"c{i}",
+                    "idempotency_key": f"c{i}",
+                },
             )
         )
     assert len(norns._counted_correlations) == 200  # noqa: SLF001

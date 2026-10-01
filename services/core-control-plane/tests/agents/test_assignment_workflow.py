@@ -194,8 +194,12 @@ async def test_unaudited_owner_decision_cannot_skip_saga(owner):
             "reason": "command_validated",
         },
     }
-    with pytest.raises(ValueError, match="Saga"):
+    if owner == "Var":
         await runtime.agents[owner].on_typed_message("object.audit-entry", payload)
+        assert runtime.agents[owner].behavior_snapshot()["typed_message:rejected_owner"] == 1
+    else:
+        with pytest.raises(ValueError, match="Saga"):
+            await runtime.agents[owner].on_typed_message("object.audit-entry", payload)
     assert not await processor.cases.store.read_states("human_assignment:case:", limit=5)
 
 

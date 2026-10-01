@@ -45,6 +45,16 @@ variable "runtime_call_evidence" {
   default = {}
 }
 
+variable "operator_request_receipts" {
+  type = object({
+    core_signing_seed_secret_id     = optional(string, "")
+    operator_signing_seed_secret_id = optional(string, "")
+    core_producer_id                = optional(string, "core-control-plane")
+    operator_producer_id            = optional(string, "operator-service")
+  })
+  default = {}
+}
+
 variable "rca_reader_identity" {
   type = object({
     resource_id = optional(string, "")

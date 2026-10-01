@@ -1,23 +1,4 @@
-"""Bridge from pantheon dispatch to the ``EventBus`` provider Protocol.
-
-The pantheon in-memory bus (:mod:`fdai.agents.bus`) is a
-sync-dispatch tool that runs subscribers inline for tests. Production
-runs against the real ``EventBus`` Protocol
-(:class:`~fdai.shared.providers.event_bus.EventBus`) - Kafka-wire on
-Event Hubs or an alternate broker.
-
-This module gives the pantheon a Protocol-compatible bridge:
-
-- :class:`EventBusBridge` accepts a `PantheonRegistry` + a real
-  `EventBus` provider, enforces single-writer publish, injects
-  ``producer_principal`` into every published payload, and exposes a
-  ``run()`` coroutine that consumes registered subscribers via the
-  provider's async iterator.
-
-Idempotency: the pantheon agents already dedup on ``idempotency_key``;
-the bridge does not add extra dedup. At-least-once delivery is the
-underlying Kafka guarantee.
-"""
+"""Bridge pantheon dispatch to the async ``EventBus`` provider Protocol."""
 
 from __future__ import annotations
 
@@ -27,19 +8,34 @@ import random
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any
 
+from fdai.agents._framework.bus_bridge_observer import (
+    AgentHandlerObserver,
+    AgentHandlerPhase,
+    notify_handler_observer,
+)
 from fdai.agents._framework.bus_metrics import BridgeMetrics
+from fdai.agents._framework.bus_poison_halt import (
+    is_ordered_halted,
+    persist_ordered_halt,
+)
+from fdai.agents._framework.bus_poison_resume import (
+    clear_ordered_poison_halt,
+    consumer_id_for_group,
+    resume_ordered_consumer,
+)
 from fdai.agents._framework.registry import PantheonRegistry
 from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
     MUTATION_TOPICS,
     OWNED_OBJECT_TOPICS,
     missing_mutation_envelope_fields,
+    normalize_owned_object_envelope,
     partition_key_for,
 )
-from fdai.shared.providers.event_bus import EventBus, PublishReceipt
+from fdai.shared.providers.event_bus import EventBus, EventPublishNotAttemptedError, PublishReceipt
+from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
 
@@ -47,41 +43,13 @@ Payload = Mapping[str, object]
 Handler = Callable[[str, dict[str, object]], Awaitable[None]]
 PayloadValidator = Callable[[str, Mapping[str, object]], None]
 ConsumerStateObserver = Callable[[str, str, str], None]
+DEFAULT_REDRIVE_BATCH_SIZE = 100
 """Optional publish-side contract check (topic, payload) -> None; raises on
 an invalid payload. Wire a ContractValidator-backed callable here to reject
 a malformed record at the publish boundary (fail closed)."""
 
 
-class AgentHandlerPhase(StrEnum):
-    """Lifecycle phase for one observed agent message delivery."""
-
-    STARTED = "started"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class AgentHandlerObserver(Protocol):
-    """Best-effort observer for actual Pantheon handler execution."""
-
-    async def observe(
-        self,
-        *,
-        agent: str,
-        topic: str,
-        phase: AgentHandlerPhase,
-        payload: Mapping[str, object],
-        error_type: str | None = None,
-    ) -> None: ...
-
-
 def _assert_known_topic(topic: str, agent_name: str) -> None:
-    """Reject an ``object.*`` subscription targeting an unregistered topic.
-
-    A typo'd object topic (``object.verdit``) subscribes successfully but
-    never receives a record - a silent dead seam. Non-object topics (the
-    raw ingress topic, an alternate stream) are not pantheon object topics,
-    so they are exempt from this check.
-    """
     if topic.startswith("object.") and topic not in OWNED_OBJECT_TOPICS:
         _LOG.error(
             "pantheon_subscribe_unknown_topic",
@@ -92,11 +60,7 @@ def _assert_known_topic(topic: str, agent_name: str) -> None:
 
 @dataclass
 class EventBusBridge:
-    """Adapter that lets pantheon agents talk to a real ``EventBus``.
-    Substitute wherever tests use :class:`fdai.agents._framework.bus.InMemoryBus`
-    at the composition root. The public surface intentionally mirrors
-    :class:`InMemoryBus` so agent code stays unchanged.
-    """
+    """Adapter that lets pantheon agents talk to a real ``EventBus``."""
 
     provider: EventBus
     registry: PantheonRegistry
@@ -109,17 +73,27 @@ class EventBusBridge:
     handler_retry_backoff: float = 0.05
     halt_ordered_topic_on_poison: bool = True
     handler_timeout: float | None = 60.0
+    handler_timeouts: Mapping[str, float | None] = field(default_factory=dict)
+    handler_observer_timeout: float | None = 1.0
     dead_letter_max_retries: int = 2
     dead_letter_retry_backoff: float = 0.25
+    dead_letter_timeout: float | None = 5.0
     payload_validator: PayloadValidator | None = None
     handler_observer: AgentHandlerObserver | None = None
     consumer_state_observer: ConsumerStateObserver | None = None
+    halt_state_store: StateStore | None = None
+    redrive_batch_size: int = DEFAULT_REDRIVE_BATCH_SIZE
     _subs: dict[str, list[tuple[str, Handler]]] = field(default_factory=lambda: defaultdict(list))
     _tasks: list[asyncio.Task[None]] = field(default_factory=list)
     _consumer_states: dict[str, str] = field(default_factory=dict)
+    _consumer_delivery_counts: dict[str, int] = field(default_factory=dict)
+    _consumer_last_delivery_at: dict[str, float] = field(default_factory=dict)
     _handler_observer_failures: dict[tuple[str, str, AgentHandlerPhase], int] = field(
         default_factory=dict
     )
+    _halted_ordered_topics: set[str] = field(default_factory=set)
+    _validation_dlq_keys: set[tuple[str, int | None, str]] = field(default_factory=set)
+    _intentional_stop: bool = False
     metrics: BridgeMetrics = field(default_factory=BridgeMetrics)
 
     # ---- pantheon-style API --------------------------------------------
@@ -128,9 +102,6 @@ class EventBusBridge:
         _assert_known_topic(topic, agent_name)
         existing = self._subs[topic]
         if any(name == agent_name and h == handler for name, h in existing):
-            # A duplicate (topic, agent, handler) registration would spin up
-            # a second consumer group and double-deliver every record to the
-            # same handler. Skip it - the first registration stands.
             _LOG.warning(
                 "pantheon_duplicate_subscription",
                 extra={"topic": topic, "agent": agent_name},
@@ -139,37 +110,49 @@ class EventBusBridge:
         existing.append((agent_name, handler))
 
     def snapshot(self) -> dict[str, object]:
-        """Return a health snapshot (metrics + live consumer count)."""
         live = sum(1 for t in self._tasks if not t.done())
-        terminal_states = {"gave_up", "halted"}
+        unavailable_states = {"gave_up", "halted"}
         unavailable_agents = sorted(
             {
                 consumer_id.split(":", 1)[0]
                 for consumer_id, state in self._consumer_states.items()
-                if state in terminal_states
+                if state in unavailable_states
             }
+            | set(self.metrics.degraded_handler_agents())
+        )
+        degraded_consumers = {
+            consumer_id: state
+            for consumer_id, state in sorted(self._consumer_states.items())
+            if state in unavailable_states | {"restarting"}
+        }
+        health_failures = self.metrics.health_failures()
+        stopped = self._intentional_stop
+        status = (
+            "degraded"
+            if unavailable_agents or health_failures
+            else "stopped"
+            if stopped
+            else "healthy"
         )
         return {
             "subscriptions": sum(len(v) for v in self._subs.values()),
             "consumers_live": live,
             "consumer_states": dict(sorted(self._consumer_states.items())),
+            "degraded_consumer_states": degraded_consumers,
+            "consumer_deliveries": dict(sorted(self._consumer_delivery_counts.items())),
+            "consumer_last_delivery_at": dict(sorted(self._consumer_last_delivery_at.items())),
             "unavailable_agents": unavailable_agents,
-            "status": "degraded" if unavailable_agents else "healthy",
+            "status": status,
+            "health_failures": list(health_failures),
+            "health_window": {"scope": "process", "threshold": 1},
             "metrics": self.metrics.as_dict(),
+            "recent_rejected_edges": list(self.metrics.recent_rejections()),
         }
 
-    async def publish(
-        self,
-        principal: str,
-        topic: str,
-        payload: Payload,
-    ) -> PublishReceipt:
+    async def publish(self, principal: str, topic: str, payload: Payload) -> PublishReceipt:
         self.registry.assert_can_publish(principal, topic)
         enriched = dict(payload)
         enriched["producer_principal"] = principal
-        # Keep a domain contract's schema_version intact. The transport
-        # version has its own field so a rolling upgrade cannot rewrite a
-        # payload such as ForecastOutcome schema "1.0.0" into integer 1.
         enriched.setdefault("schema_version", ENVELOPE_SCHEMA_VERSION)
         enriched["envelope_schema_version"] = ENVELOPE_SCHEMA_VERSION
         self._check_envelope(topic, enriched, principal)
@@ -181,6 +164,12 @@ class EventBusBridge:
             except Exception as exc:  # noqa: BLE001 - reject malformed record
                 self.metrics.schema_violations += 1
                 self.metrics.publish_errors += 1
+                self.metrics.record_rejection(
+                    topic=topic,
+                    principal=principal,
+                    reason=f"publish schema violation: {type(exc).__name__}",
+                    payload=enriched,
+                )
                 _LOG.warning(
                     "pantheon_payload_schema_violation",
                     extra={
@@ -192,21 +181,19 @@ class EventBusBridge:
                 raise
         key = partition_key_for(topic, enriched)
         if not key:
-            # An empty key collapses Kafka partitioning (loss of
-            # per-resource ordering). Surface it rather than silently
-            # round-robining the record.
             self.metrics.empty_partition_keys += 1
             _LOG.warning(
                 "pantheon_empty_partition_key",
                 extra={"topic": topic, "principal": principal},
             )
             if topic in MUTATION_TOPICS:
-                # Fail toward safety: a mutation record with no resource key
-                # would round-robin across partitions, so two concurrent
-                # mutations on the same resource could interleave (the
-                # per-resource mutex is gone). Refuse the publish rather than
-                # emit an unserialized mutation.
                 self.metrics.publish_errors += 1
+                self.metrics.record_rejection(
+                    topic=topic,
+                    principal=principal,
+                    reason="empty mutation partition key",
+                    payload=enriched,
+                )
                 raise ValueError(
                     f"refusing to publish mutation topic {topic!r} with an empty "
                     "partition key (no resource_id / correlation_id) - per-resource "
@@ -227,16 +214,31 @@ class EventBusBridge:
         return receipt
 
     def _check_envelope(self, topic: str, payload: Mapping[str, object], principal: str) -> None:
-        """Count shared-envelope gaps and reject incomplete mutations.
-
-        The wire contract (agent-pantheon.md 6.1) says every message carries
-        ``correlation_id`` and ``idempotency_key``. A missing field is a
-        data-quality signal - it breaks correlation (tracing) or dedup
-        (at-least-once safety) downstream - so it is counted and warned
-        here rather than silently accepted. Mutation records fail closed
-        because missing correlation, resource ordering, or idempotency can
-        turn at-least-once delivery into an unsafe duplicate or reorder.
-        """
+        mutable_payload = payload if isinstance(payload, dict) else dict(payload)
+        invalid = list(normalize_owned_object_envelope(topic, mutable_payload))
+        if topic in MUTATION_TOPICS and not str(mutable_payload.get("resource_id", "")).strip():
+            invalid.append("resource_id")
+        if invalid:
+            self.metrics.invalid_envelope_fields += len(invalid)
+            self.metrics.publish_errors += 1
+            if "correlation_id" in invalid:
+                self.metrics.missing_correlation_id += 1
+            if "idempotency_key" in invalid:
+                self.metrics.missing_idempotency_key += 1
+            if "resource_id" in invalid:
+                self.metrics.missing_resource_id += 1
+            self.metrics.record_rejection(
+                topic=topic,
+                principal=principal,
+                reason="invalid envelope fields: " + ",".join(invalid),
+                payload=mutable_payload,
+            )
+            fields = ", ".join(invalid)
+            raise ValueError(
+                f"refusing to publish owned object topic {topic!r}: invalid required "
+                f"envelope field(s): {fields}"
+            )
+        payload = mutable_payload
         missing = missing_mutation_envelope_fields(topic, payload)
         if not str(payload.get("correlation_id", "")).strip():
             self.metrics.missing_correlation_id += 1
@@ -258,6 +260,12 @@ class EventBusBridge:
             )
         if missing:
             self.metrics.publish_errors += 1
+            self.metrics.record_rejection(
+                topic=topic,
+                principal=principal,
+                reason="missing mutation fields: " + ",".join(missing),
+                payload=payload if isinstance(payload, dict) else dict(payload),
+            )
             fields = ", ".join(missing)
             raise ValueError(
                 f"refusing to publish mutation topic {topic!r}: missing required "
@@ -267,33 +275,30 @@ class EventBusBridge:
     # ---- consumer loop -------------------------------------------------
 
     async def run(self) -> None:
-        """Start one background task per (topic, subscriber) pair.
-
-        Each subscriber uses a distinct consumer group so multiple
-        pantheon agents can consume the same topic without stealing each
-        other's records (Kafka semantics: same group = load-balance;
-        distinct group = fan-out).
-
-        Blast-radius isolation: consumers are gathered with
-        ``return_exceptions=True`` so a single crashed consumer never
-        cancels its siblings. Each crash is counted and logged in
-        :meth:`_consume`; this method surfaces only a summary.
-        """
         if self._tasks:
             raise RuntimeError("EventBusBridge.run() is already running; call stop() first")
+        self._intentional_stop = False
         for topic, subs in self._subs.items():
+            agent_topic_counts: dict[str, int] = defaultdict(int)
+            agent_topic_totals: dict[str, int] = defaultdict(int)
+            for agent_name, _handler in subs:
+                agent_topic_totals[agent_name] += 1
             for agent_name, handler in subs:
-                group_id = f"{self.consumer_group_prefix}.{agent_name}"
-                consumer_id = f"{agent_name}:{topic}"
-                self._consumer_states[consumer_id] = "starting"
+                agent_topic_counts[agent_name] += 1
+                ordinal = agent_topic_counts[agent_name]
+                total = agent_topic_totals[agent_name]
+                group_id = self._consumer_group_id(agent_name, topic, ordinal, total)
+                consumer_id = self._consumer_id(agent_name, topic, ordinal, total)
+                self._consumer_states[consumer_id] = "idle"
                 task = asyncio.create_task(
                     self._consume(
+                        agent_name=agent_name,
                         topic=topic,
                         group_id=group_id,
                         consumer_id=consumer_id,
                         handler=handler,
                     ),
-                    name=f"pantheon-consumer.{agent_name}.{topic}",
+                    name=f"pantheon-consumer.{consumer_id}",
                 )
                 self._tasks.append(task)
         self.metrics.consumers_started = len(self._tasks)
@@ -312,15 +317,12 @@ class EventBusBridge:
                     result, asyncio.CancelledError
                 ):
                     crashed += 1
-                    # Log each crashing consumer distinctly so an operator
-                    # can identify *which* topic wedged. A bare aggregate
-                    # count buries the root cause under a summary.
                     _LOG.error(
                         "pantheon_bridge_consumer_crashed",
                         extra={
                             "task_name": task.get_name(),
                             "error_type": type(result).__name__,
-                            "error": str(result),
+                            "failure_code": "consumer_crashed",
                         },
                     )
             if crashed:
@@ -329,10 +331,10 @@ class EventBusBridge:
                     extra={"crashed": crashed, "total": len(results)},
                 )
         finally:
-            # Ensure no orphan tasks remain even if one crashes.
             await self.stop()
 
     async def stop(self) -> None:
+        self._intentional_stop = True
         tracked = tuple(self._tasks)
         for task in tracked:
             if not task.done():
@@ -361,97 +363,137 @@ class EventBusBridge:
     async def _consume(
         self,
         *,
+        agent_name: str,
         topic: str,
         group_id: str,
         consumer_id: str,
         handler: Handler,
     ) -> None:
-        # Self-healing: a subscribe-loop crash restarts THIS consumer with
-        # exponential backoff (blast-radius isolation keeps siblings
-        # running; self-healing brings a crashed subscription back rather
-        # than leaving it permanently dead). After max_consumer_restarts
-        # the consumer gives up - counted + logged - without touching the
-        # rest of the pantheon.
         attempt = 0
         while True:
+            halted = topic in self._halted_ordered_topics or (
+                topic in MUTATION_TOPICS
+                and await is_ordered_halted(self.halt_state_store, group_id=group_id, topic=topic)
+            )
+            if halted:
+                self._mark_consumer_terminal(consumer_id, "halted")
+                return
             stream = self.provider.subscribe(topic, group_id)
             try:
                 self._consumer_states[consumer_id] = "connecting"
+                self._consumer_states[consumer_id] = "idle"
                 async for envelope in stream:
+                    if topic in self._halted_ordered_topics:
+                        self._mark_consumer_terminal(consumer_id, "halted")
+                        return
                     self._consumer_states[consumer_id] = "running"
-                    if not self._producer_authorized(topic, envelope.payload):
-                        # Consumer-side single-writer check: a record whose
-                        # producer_principal is not the topic owner is an
-                        # impostor (a compromised or buggy producer that got
-                        # past publish-side auth on another path). Do NOT
-                        # hand it to a subscriber - route it to the DLQ and
-                        # move on. Publish-side auth is not enough on its
-                        # own: the consumer trusts the wire, so it must
-                        # re-verify the wire.
+                    try:
+                        self._validate_inbound_payload(topic, envelope.payload)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:  # noqa: BLE001 - malformed wire record
+                        self.metrics.record_rejection(
+                            topic=topic,
+                            group_id=group_id,
+                            reason=f"inbound validation failed: {type(exc).__name__}",
+                            payload=dict(envelope.payload),
+                            offset=envelope.offset,
+                        )
                         await self._safe_dead_letter(
+                            agent_name=agent_name,
                             group_id=group_id,
                             topic=topic,
                             envelope=envelope,
-                            reason=(
-                                "producer_principal "
-                                f"{envelope.payload.get('producer_principal')!r} "
-                                f"is not the owner of {topic!r}"
-                            ),
+                            reason=f"inbound validation failed: {type(exc).__name__}",
+                            validation_dedupe=True,
                         )
                         continue
                     try:
-                        await self._notify_handler_observer(
-                            agent=group_id.rsplit(".", 1)[-1],
+                        await notify_handler_observer(
+                            self,
+                            agent=agent_name,
                             topic=topic,
                             phase=AgentHandlerPhase.STARTED,
                             payload=envelope.payload,
                         )
                         await self._deliver(topic, handler, envelope.payload)
-                        await self._notify_handler_observer(
-                            agent=group_id.rsplit(".", 1)[-1],
+                        await notify_handler_observer(
+                            self,
+                            agent=agent_name,
                             topic=topic,
                             phase=AgentHandlerPhase.COMPLETED,
                             payload=envelope.payload,
                         )
                         self.metrics.delivered += 1
-                        attempt = 0  # progress resets the backoff window
+                        self.metrics.record_handler_result(agent_name, failed=False)
+                        self._consumer_delivery_counts[consumer_id] = (
+                            self._consumer_delivery_counts.get(consumer_id, 0) + 1
+                        )
+                        self._consumer_last_delivery_at[consumer_id] = (
+                            asyncio.get_running_loop().time()
+                        )
+                        self._consumer_states[consumer_id] = "idle"
+                        attempt = 0
                     except asyncio.CancelledError:
                         raise
                     except Exception as exc:  # noqa: BLE001 - route to DLQ, keep loop alive
-                        await self._notify_handler_observer(
-                            agent=group_id.rsplit(".", 1)[-1],
+                        if isinstance(exc, EventPublishNotAttemptedError):
+                            raise
+                        await notify_handler_observer(
+                            self,
+                            agent=agent_name,
                             topic=topic,
                             phase=AgentHandlerPhase.FAILED,
                             payload=envelope.payload,
                             error_type=type(exc).__name__,
                         )
                         self.metrics.handler_errors += 1
+                        self.metrics.record_handler_result(agent_name, failed=True)
                         _LOG.warning(
                             "pantheon_handler_error",
                             extra={
                                 "group_id": group_id,
                                 "topic": topic,
                                 "offset": envelope.offset,
-                                "error": str(exc),
+                                "error_type": type(exc).__name__,
+                                "failure_code": "handler_error",
                             },
                         )
-                        await self._safe_dead_letter(
-                            group_id=group_id,
-                            topic=topic,
-                            envelope=envelope,
-                            reason=f"handler error: {type(exc).__name__}",
-                        )
+                        dead_letter_failed = False
+                        try:
+                            await self._safe_dead_letter(
+                                agent_name=agent_name,
+                                group_id=group_id,
+                                topic=topic,
+                                envelope=envelope,
+                                reason=f"handler error: {type(exc).__name__}",
+                            )
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception as dlq_exc:  # noqa: BLE001 - ordered topics must halt
+                            dead_letter_failed = True
+                            _LOG.error(
+                                "pantheon_dead_letter_terminal_failure",
+                                extra={
+                                    "group_id": group_id,
+                                    "topic": topic,
+                                    "offset": envelope.offset,
+                                    "error_type": type(dlq_exc).__name__,
+                                },
+                            )
                         if self.halt_ordered_topic_on_poison and topic in MUTATION_TOPICS:
-                            # Ordering preservation for a per-resource
-                            # mutation stream: continuing past a poison
-                            # record would let a LATER mutation on the same
-                            # resource apply while an EARLIER one was only
-                            # dead-lettered - an ordering violation the
-                            # per-resource partition mutex exists to prevent.
-                            # Halt this consumer so an operator intervenes;
-                            # siblings (other topics) keep running.
                             self.metrics.ordered_poison_halts += 1
+                            self._halted_ordered_topics.add(topic)
+                            await persist_ordered_halt(
+                                self.halt_state_store,
+                                consumer_id=consumer_id,
+                                topic=topic,
+                                group_id=group_id,
+                                offset=int(envelope.offset or 0),
+                                key=envelope.key,
+                            )
                             self._mark_consumer_terminal(consumer_id, "halted")
+                            self._mark_topic_consumers_terminal(topic, "halted")
                             _LOG.error(
                                 "pantheon_ordered_topic_halted",
                                 extra={
@@ -461,6 +503,8 @@ class EventBusBridge:
                                 },
                             )
                             return
+                        if dead_letter_failed:
+                            raise
                 # Iterator ended normally (finite in-memory drain): done.
                 self._consumer_states[consumer_id] = "stopped"
                 return
@@ -487,11 +531,6 @@ class EventBusBridge:
                     self.restart_backoff_base * (2 ** (attempt - 1)),
                     self.restart_backoff_max,
                 )
-                # Full jitter (AWS-style): spread simultaneous restarts so a
-                # broker outage that crashes many consumers at once does not
-                # produce a synchronized retry storm on recovery. Jitter is
-                # non-security (retry timing, not entropy), so ``random`` is
-                # fine.
                 backoff = random.uniform(0.0, backoff)  # noqa: S311 - retry jitter, not crypto
                 self.metrics.consumers_restarted += 1
                 _LOG.warning(
@@ -504,64 +543,10 @@ class EventBusBridge:
                     },
                 )
                 await asyncio.sleep(backoff)
-                # loop: re-subscribe, resuming from the committed offset.
             finally:
-                # Close here so the provider tears the broker connection down
-                # inside this task rather than at interpreter finalization.
                 aclose = getattr(stream, "aclose", None)
                 if aclose is not None:
                     await aclose()
-
-    async def _notify_handler_observer(
-        self,
-        *,
-        agent: str,
-        topic: str,
-        phase: AgentHandlerPhase,
-        payload: Payload,
-        error_type: str | None = None,
-    ) -> None:
-        observer = self.handler_observer
-        if observer is None:
-            return
-        # The observer projects Pantheon agents only; framework principals have no lane.
-        if agent not in self.registry.names():
-            return
-        failure_key = (agent, topic, phase)
-        try:
-            await observer.observe(
-                agent=agent,
-                topic=topic,
-                phase=phase,
-                payload=payload,
-                error_type=error_type,
-            )
-            failure_count = self._handler_observer_failures.pop(failure_key, 0)
-            if failure_count:
-                _LOG.info(
-                    "pantheon_handler_observer_recovered",
-                    extra={
-                        "agent": agent,
-                        "topic": topic,
-                        "phase": phase.value,
-                        "failure_count": failure_count,
-                    },
-                )
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - observation must not break delivery
-            self._handler_observer_failures[failure_key] = (
-                self._handler_observer_failures.get(failure_key, 0) + 1
-            )
-            _LOG.warning(
-                "pantheon_handler_observer_failed",
-                extra={
-                    "agent": agent,
-                    "topic": topic,
-                    "phase": phase.value,
-                    "error_type": type(exc).__name__,
-                },
-            )
 
     def _mark_consumer_terminal(self, consumer_id: str, state: str) -> None:
         self._consumer_states[consumer_id] = state
@@ -582,15 +567,25 @@ class EventBusBridge:
                 },
             )
 
-    def _producer_authorized(self, topic: str, payload: Payload) -> bool:
-        """Consumer-side single-writer check.
+    async def clear_ordered_poison_halt(self, *, topic: str, agent_name: str) -> bool:
+        return await clear_ordered_poison_halt(self, topic=topic, agent_name=agent_name)
 
-        Returns ``True`` when the record may be delivered. A topic with no
-        declared owner (the raw ingress topic, or an alternate stream) is
-        not a pantheon object topic, so there is nothing to verify against -
-        allow it. An owned topic requires its declared principal; a missing or
-        mismatched ``producer_principal`` is rejected and counted.
-        """
+    def resume_ordered_consumer_after_clear(
+        self,
+        *,
+        topic: str,
+        agent_name: str,
+        group_id: str | None = None,
+    ) -> bool:
+        consumer_id = consumer_id_for_group(
+            self, agent_name=agent_name, topic=topic, group_id=group_id
+        )
+        if self._consumer_states.get(consumer_id) not in {"halted", "cleared"}:
+            return False
+        self._consumer_states[consumer_id] = "cleared"
+        return resume_ordered_consumer(self, topic=topic, agent_name=agent_name, group_id=group_id)
+
+    def _producer_authorized(self, topic: str, payload: Payload) -> bool:
         owner = self.registry.owner_of_topic(topic)
         if owner is None:
             return True
@@ -604,25 +599,23 @@ class EventBusBridge:
             return False
         return True
 
-    async def _deliver(self, topic: str, handler: Handler, payload: Payload) -> None:
-        """Invoke ``handler`` with bounded in-place retry before giving up.
+    def _validate_inbound_payload(self, topic: str, payload: Payload) -> None:
+        if not self._producer_authorized(topic, payload):
+            raise ValueError(
+                "producer_principal "
+                f"{payload.get('producer_principal')!r} is not the owner of {topic!r}"
+            )
+        self._check_envelope(topic, payload, str(payload.get("producer_principal", "")))
+        if self.payload_validator is not None:
+            self.payload_validator(topic, payload)
 
-        A transient handler failure (a brief backend blip) should not
-        immediately dead-letter a good record. ``handler_max_retries``
-        (default 0 - retry disabled) retries the handler with a short
-        backoff; the final failure propagates so the caller routes it to
-        the DLQ. Each retry is counted so retry pressure is observable.
-        """
+    async def _deliver(self, topic: str, handler: Handler, payload: Payload) -> None:
         last_exc: Exception
         for attempt in range(self.handler_max_retries + 1):
             try:
-                if self.handler_timeout is not None:
-                    # A handler that never returns (a stuck backend call, a
-                    # deadlock) would wedge the whole consumer - alive but
-                    # delivering nothing. Bound it: a timeout is treated as a
-                    # handler failure (retry / DLQ), keeping the subscription
-                    # making progress.
-                    await asyncio.wait_for(handler(topic, dict(payload)), self.handler_timeout)
+                timeout = self.handler_timeouts.get(topic, self.handler_timeout)
+                if timeout is not None:
+                    await asyncio.wait_for(handler(topic, dict(payload)), timeout)
                 else:
                     await handler(topic, dict(payload))
                 return
@@ -633,43 +626,92 @@ class EventBusBridge:
                 if attempt < self.handler_max_retries:
                     self.metrics.handler_retries += 1
                     await asyncio.sleep(self.handler_retry_backoff * (2**attempt))
-        # Loop exhausted without a successful return: re-raise the final
-        # failure so the caller routes the record to the DLQ.
         raise last_exc
+
+    async def _notify_handler_observer(
+        self,
+        *,
+        agent: str,
+        topic: str,
+        phase: AgentHandlerPhase,
+        payload: Payload,
+        error_type: str | None = None,
+    ) -> None:
+        await notify_handler_observer(
+            self,
+            agent=agent,
+            topic=topic,
+            phase=phase,
+            payload=payload,
+            error_type=error_type,
+        )
+
+    def _consumer_group_id(self, agent: str, topic: str, ordinal: int, total: int) -> str:
+        if total == 1:
+            return f"{self.consumer_group_prefix}.{agent}"
+        safe_topic = topic.replace(".", "-")
+        return f"{self.consumer_group_prefix}.{agent}.{safe_topic}.{ordinal}"
+
+    def _consumer_id(self, agent: str, topic: str, ordinal: int, total: int) -> str:
+        return f"{agent}:{topic}" if total == 1 else f"{agent}:{topic}#{ordinal}"
+
+    def _mark_topic_consumers_terminal(self, topic: str, state: str) -> None:
+        marker = f":{topic}"
+        for consumer_id in tuple(self._consumer_states):
+            if marker in consumer_id:
+                self._mark_consumer_terminal(consumer_id, state)
 
     async def _safe_dead_letter(
         self,
         *,
+        agent_name: str | None = None,
         group_id: str,
         topic: str,
         envelope: Any,
         reason: str,
+        validation_dedupe: bool = False,
     ) -> None:
-        """Route a poison record to the DLQ with bounded retry.
-
-        A persistent DLQ failure propagates so the owning consumer restarts
-        without silently advancing beyond a record that was never parked.
-        """
+        dedupe_key = (topic, envelope.offset, envelope.key)
+        if validation_dedupe and dedupe_key in self._validation_dlq_keys:
+            return
+        resolved_agent_name = agent_name or group_id.rsplit(".", 1)[-1]
         await self._dead_letter_payload(
+            agent_name=resolved_agent_name,
             group_id=group_id,
             topic=topic,
             key=envelope.key,
             payload=envelope.payload,
             reason=reason,
+            offset=envelope.offset,
         )
+        if validation_dedupe:
+            self._validation_dlq_keys.add(dedupe_key)
 
     async def _dead_letter_payload(
         self,
         *,
+        agent_name: str,
         group_id: str,
         topic: str,
         key: str,
         payload: Payload,
         reason: str,
+        offset: int | None = None,
     ) -> None:
+        dlq_payload = dict(payload)
+        dlq_payload["__fdai_dlq_metadata__"] = {
+            "consumer_group": group_id,
+            "agent": agent_name,
+            "topic": topic,
+            "offset": offset,
+        }
         for attempt in range(self.dead_letter_max_retries + 1):
             try:
-                await self.provider.dead_letter(topic, key, payload, reason=reason)
+                dead_letter = self.provider.dead_letter(topic, key, dlq_payload, reason=reason)
+                if self.dead_letter_timeout is None:
+                    await dead_letter
+                else:
+                    await asyncio.wait_for(dead_letter, self.dead_letter_timeout)
                 self.metrics.dead_lettered += 1
                 return
             except asyncio.CancelledError:
@@ -692,22 +734,11 @@ class EventBusBridge:
         group_id: str | None = None,
         max_records: int | None = None,
     ) -> dict[str, int]:
-        """Reprocess dead-lettered records for ``topic`` (operator tool).
-
-        The DLQ is write-only on the hot path - a poison record parks in
-        ``<topic>.dlq`` and stays there. This is the deliberate,
-        operator-driven redrive: after the root cause is fixed, it reads
-        ``<topic>.dlq`` under a fresh consumer group, unwraps each record to
-        its original payload, and re-delivers it to ``handler``. A record
-        that fails again is re-dead-lettered (never lost). Returns
-        ``{"redriven": n, "failed": m}``.
-
-        This is NOT part of the perpetual consumer loop - it is invoked
-        explicitly (a CLI / admin action) so a redrive is always a
-        conscious decision, never automatic.
-        """
         if max_records is not None and max_records <= 0:
             raise ValueError("max_records MUST be greater than zero when provided")
+        limit = max_records if max_records is not None else self.redrive_batch_size
+        if limit <= 0:
+            raise ValueError("redrive_batch_size MUST be greater than zero")
         dlq_topic = f"{topic}.dlq"
         gid = group_id or f"{self.consumer_group_prefix}.redrive.{topic}"
         redriven = 0
@@ -733,13 +764,15 @@ class EventBusBridge:
                 except Exception as exc:  # noqa: BLE001 - re-park a still-failing record
                     failed += 1
                     await self._dead_letter_payload(
+                        agent_name=gid.rsplit(".", 1)[-1],
                         group_id=gid,
                         topic=topic,
                         key=envelope.key,
                         payload=payload,
                         reason=f"redrive failed: {type(exc).__name__}",
+                        offset=envelope.offset,
                     )
-                if max_records is not None and (redriven + failed) >= max_records:
+                if (redriven + failed) >= limit:
                     break
         finally:
             aclose = getattr(dlq_stream, "aclose", None)
@@ -752,4 +785,10 @@ class EventBusBridge:
         return {"redriven": redriven, "failed": failed}
 
 
-__all__ = ["EventBusBridge", "BridgeMetrics"]
+__all__ = [
+    "AgentHandlerObserver",
+    "AgentHandlerPhase",
+    "BridgeMetrics",
+    "DEFAULT_REDRIVE_BATCH_SIZE",
+    "EventBusBridge",
+]

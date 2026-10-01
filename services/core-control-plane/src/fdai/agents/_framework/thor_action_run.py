@@ -12,6 +12,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from pydantic import ValidationError
 
 from fdai.agents._framework import action_run_lineage
+from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.action_run_lineage import (
     bounded_operational_context,
     optional_datetime,
@@ -52,19 +53,42 @@ class ActionRun:
     rollback_ref: str | None = None
     decision_case: dict[str, Any] | None = None
     operational_context: dict[str, Any] | None = None
+    cost_annotation: dict[str, Any] | None = None
     test_context_guard: TestContextDispatchBinding | None = None
     evidence_rejection_ref: str | None = None
     workflow_action: dict[str, Any] | None = None
     kinetic_proposal: dict[str, Any] | None = None
     prospective_lineage: dict[str, Any] | None = None
+    dry_run_evidence: str | None = None
+    dry_run_receipt: str | None = None
+    preflight_simulation_receipt: dict[str, Any] | None = None
+    preflight_required: bool = False
     execution_audit_receipt: str | None = None
+    dr_failover_contract_decision: dict[str, Any] | None = None
     effect_verification_ref: str | None = None
     execution_closure_ref: str | None = None
     effect_verified_at: datetime | None = None
+    effect_verification_expires_at: datetime | None = None
     approval_expires_at: datetime | None = None
+    batch_role: Literal["rollup", "attempt"] | None = None
+    attempt_id: str | None = None
+    rollup_correlation_id: str | None = None
+    rollup_action_run_identity: str | None = None
+    target_set_digest: str | None = None
+    target_set: tuple[str, ...] | None = None
+    target_count: int | None = None
+    batch_rollup: dict[str, Any] | None = None
     terminal_published: bool = False
+    terminal_publication_claim: dict[str, str] | None = None
     resource_claimed: bool = False
     history: list[ActionRunState] = field(default_factory=list)
+    _action_run_identity: str | None = field(default=None, init=False, repr=False, compare=False)
+    _publication_identity_payload: dict[str, Any] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         action_run_lineage.validate_action_run_lineage(self.action_id, self.workflow_action)
@@ -92,10 +116,122 @@ class ActionRun:
             or _REJECTION_REF.fullmatch(self.evidence_rejection_ref) is None
         ):
             raise ValueError("ActionRun evidence rejection reference MUST be a SHA-256 digest")
+        if self.batch_role not in {None, "rollup", "attempt"}:
+            raise ValueError("ActionRun batch role is invalid")
+        if self.target_count is not None and (
+            isinstance(self.target_count, bool) or self.target_count < 1
+        ):
+            raise ValueError("ActionRun target count is invalid")
+        if self.target_set is not None and (
+            not self.target_set
+            or len(self.target_set) > 64
+            or any(not isinstance(target, str) or not target for target in self.target_set)
+        ):
+            raise ValueError("ActionRun target set is invalid")
 
     def transition(self, new_state: ActionRunState) -> None:
         self.history.append(self.state)
         self.state = new_state
+
+    def action_run_identity(self) -> str:
+        """Return the cached identity digest for lifecycle-stable fields."""
+
+        payload = self.publication_identity_payload()
+        if self._action_run_identity is None:
+            self._action_run_identity = action_run_identity_digest(payload)
+        return self._action_run_identity
+
+    def publication_identity_payload(self) -> dict[str, Any]:
+        """Return the transition-stable ActionRun payload fields.
+
+        The cache is revalidated by equality on every read, so a changed stable field
+        rebuilds the payload and identity instead of letting an approval, rollback, or
+        publication bind content the run no longer carries.
+        """
+
+        cached = self._publication_identity_payload
+        if cached is not None and not self._stable_fields_match(cached):
+            self._publication_identity_payload = None
+            self._action_run_identity = None
+        if self._publication_identity_payload is None:
+            payload = {
+                "action_idempotency_key": self.idempotency_key,
+                "action_type": self.action_type,
+                "correlation_id": self.correlation_id,
+                "decision_case": self.decision_case,
+                "development_authority": deepcopy(self.development_authority),
+                "effective_quorum_required": self.effective_quorum_required,
+                "initiator_principal": self.initiator_principal,
+                "kinetic_proposal": deepcopy(self.kinetic_proposal),
+                "operational_context": deepcopy(self.operational_context),
+                "original_quorum_required": self.original_quorum_required,
+                "params": deepcopy(self.params),
+                "prospective_lineage": deepcopy(self.prospective_lineage),
+                "quorum_required": self.quorum_required,
+                "resource_id": self.resource_id,
+                "rollback_contract": self.rollback_contract,
+                "verdict": self.verdict,
+                "workflow_action": deepcopy(self.workflow_action),
+            }
+            if self.action_id is not None:
+                payload["action_id"] = self.action_id
+            payload.update(self._batch_identity_fields())
+            self._publication_identity_payload = payload
+        return self._publication_identity_payload
+
+    def _batch_identity_fields(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if self.batch_role is not None:
+            payload["batch_role"] = self.batch_role
+        if self.attempt_id is not None:
+            payload["attempt_id"] = self.attempt_id
+        if self.rollup_correlation_id is not None:
+            payload["rollup_correlation_id"] = self.rollup_correlation_id
+        if self.rollup_action_run_identity is not None:
+            payload["rollup_action_run_identity"] = self.rollup_action_run_identity
+        if self.target_set_digest is not None:
+            payload["target_set_digest"] = self.target_set_digest
+        if self.target_set is not None:
+            payload["target_set"] = list(self.target_set)
+        if self.target_count is not None:
+            payload["target_count"] = self.target_count
+        return payload
+
+    def _stable_fields_match(self, payload: dict[str, Any]) -> bool:
+        return (
+            payload["action_idempotency_key"] == self.idempotency_key
+            and payload["action_type"] == self.action_type
+            and payload["correlation_id"] == self.correlation_id
+            and payload["decision_case"] == self.decision_case
+            and payload["development_authority"] == self.development_authority
+            and payload["effective_quorum_required"] == self.effective_quorum_required
+            and payload["initiator_principal"] == self.initiator_principal
+            and payload["kinetic_proposal"] == self.kinetic_proposal
+            and payload["operational_context"] == self.operational_context
+            and payload["original_quorum_required"] == self.original_quorum_required
+            and payload["params"] == self.params
+            and payload["prospective_lineage"] == self.prospective_lineage
+            and payload["quorum_required"] == self.quorum_required
+            and payload["resource_id"] == self.resource_id
+            and payload["rollback_contract"] == self.rollback_contract
+            and payload["verdict"] == self.verdict
+            and payload["workflow_action"] == self.workflow_action
+            and payload.get("action_id") == self.action_id
+            and {
+                key: payload[key]
+                for key in (
+                    "batch_role",
+                    "attempt_id",
+                    "rollup_correlation_id",
+                    "rollup_action_run_identity",
+                    "target_set_digest",
+                    "target_set",
+                    "target_count",
+                )
+                if key in payload
+            }
+            == self._batch_identity_fields()
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for a durable :class:`ActionRunStore` backend."""
@@ -120,6 +256,7 @@ class ActionRun:
             "rollback_ref": self.rollback_ref,
             "decision_case": self.decision_case,
             "operational_context": deepcopy(self.operational_context),
+            "cost_annotation": deepcopy(self.cost_annotation),
             **(
                 {"test_context_guard": self.test_context_guard.model_dump(mode="json")}
                 if self.test_context_guard is not None
@@ -133,14 +270,31 @@ class ActionRun:
             "workflow_action": deepcopy(self.workflow_action),
             "kinetic_proposal": deepcopy(self.kinetic_proposal),
             "prospective_lineage": deepcopy(self.prospective_lineage),
+            "dry_run_evidence": self.dry_run_evidence,
+            "dry_run_receipt": self.dry_run_receipt,
+            "preflight_simulation_receipt": deepcopy(self.preflight_simulation_receipt),
+            "preflight_required": self.preflight_required,
             "execution_audit_receipt": self.execution_audit_receipt,
+            "dr_failover_contract_decision": deepcopy(self.dr_failover_contract_decision),
             **effect_verification_mapping(self),
+            "effect_verification_expires_at": (
+                self.effect_verification_expires_at.isoformat()
+                if self.effect_verification_expires_at is not None
+                else None
+            ),
             "approval_expires_at": (
                 self.approval_expires_at.isoformat()
                 if self.approval_expires_at is not None
                 else None
             ),
-            "terminal_published": False,
+            **self._batch_identity_fields(),
+            **(
+                {"batch_rollup": deepcopy(self.batch_rollup)}
+                if self.batch_rollup is not None
+                else {}
+            ),
+            "terminal_published": self.terminal_published,
+            "terminal_publication_claim": deepcopy(self.terminal_publication_claim),
             "resource_claimed": self.resource_claimed,
             "history": [state.value for state in self.history],
         }
@@ -187,6 +341,11 @@ class ActionRun:
             rollback_ref=data.get("rollback_ref"),
             decision_case=action_run_lineage.bounded_decision_case(data.get("decision_case")),
             operational_context=operational_context,
+            cost_annotation=(
+                deepcopy(dict(data["cost_annotation"]))
+                if isinstance(data.get("cost_annotation"), Mapping)
+                else None
+            ),
             test_context_guard=(
                 TestContextDispatchBinding.model_validate(data["test_context_guard"])
                 if data.get("test_context_guard") is not None
@@ -196,16 +355,89 @@ class ActionRun:
             workflow_action=action_run_lineage.bounded_workflow_action(data.get("workflow_action")),
             kinetic_proposal=durable_kinetic_proposal(data.get("kinetic_proposal")),
             prospective_lineage=durable_prospective_lineage(data.get("prospective_lineage")),
+            dry_run_evidence=action_run_lineage.optional_bounded_text(
+                data.get("dry_run_evidence"),
+                field_name="dry_run_evidence",
+            ),
+            dry_run_receipt=action_run_lineage.optional_bounded_text(
+                data.get("dry_run_receipt"),
+                field_name="dry_run_receipt",
+            ),
+            preflight_simulation_receipt=(
+                deepcopy(dict(data["preflight_simulation_receipt"]))
+                if isinstance(data.get("preflight_simulation_receipt"), Mapping)
+                else None
+            ),
+            preflight_required=bool(data.get("preflight_required", False)),
             execution_audit_receipt=action_run_lineage.optional_bounded_text(
                 data.get("execution_audit_receipt"),
                 field_name="execution_audit_receipt",
             ),
+            dr_failover_contract_decision=(
+                deepcopy(dict(data["dr_failover_contract_decision"]))
+                if isinstance(data.get("dr_failover_contract_decision"), Mapping)
+                else None
+            ),
             **durable_effect_verification(data),
+            effect_verification_expires_at=optional_datetime(
+                data.get("effect_verification_expires_at"),
+                field_name="effect_verification_expires_at",
+            ),
             approval_expires_at=optional_datetime(
                 data.get("approval_expires_at"),
                 field_name="approval_expires_at",
             ),
+            batch_role=(
+                data["batch_role"] if data.get("batch_role") in {"rollup", "attempt"} else None
+            ),
+            attempt_id=action_run_lineage.optional_bounded_text(
+                data.get("attempt_id"),
+                field_name="attempt_id",
+            ),
+            rollup_correlation_id=action_run_lineage.optional_bounded_text(
+                data.get("rollup_correlation_id"),
+                field_name="rollup_correlation_id",
+            ),
+            rollup_action_run_identity=action_run_lineage.optional_bounded_text(
+                data.get("rollup_action_run_identity"),
+                field_name="rollup_action_run_identity",
+            ),
+            target_set_digest=action_run_lineage.optional_bounded_text(
+                data.get("target_set_digest"),
+                field_name="target_set_digest",
+            ),
+            target_set=(
+                tuple(str(target) for target in data["target_set"])
+                if isinstance(data.get("target_set"), list)
+                and all(isinstance(target, str) for target in data["target_set"])
+                else None
+            ),
+            target_count=(
+                int(data["target_count"])
+                if isinstance(data.get("target_count"), int)
+                and not isinstance(data.get("target_count"), bool)
+                else None
+            ),
+            batch_rollup=(
+                deepcopy(dict(data["batch_rollup"]))
+                if isinstance(data.get("batch_rollup"), Mapping)
+                else None
+            ),
             terminal_published=bool(data.get("terminal_published", False)),
+            terminal_publication_claim=(
+                {
+                    "owner": str(data["terminal_publication_claim"]["owner"]),
+                    "claimed_at": str(data["terminal_publication_claim"]["claimed_at"]),
+                    "lease_expires_at": str(data["terminal_publication_claim"]["lease_expires_at"]),
+                    "terminal_at": str(data["terminal_publication_claim"]["terminal_at"]),
+                }
+                if isinstance(data.get("terminal_publication_claim"), Mapping)
+                and isinstance(data["terminal_publication_claim"].get("owner"), str)
+                and isinstance(data["terminal_publication_claim"].get("claimed_at"), str)
+                and isinstance(data["terminal_publication_claim"].get("lease_expires_at"), str)
+                and isinstance(data["terminal_publication_claim"].get("terminal_at"), str)
+                else None
+            ),
             resource_claimed=bool(data.get("resource_claimed", False)),
         )
         run.history = [ActionRunState(state) for state in data.get("history", [])]
@@ -222,6 +454,10 @@ class ActionRunStore(Protocol):
     async def load_active(self) -> list[ActionRun]: ...
 
     async def delete(self, correlation_id: str) -> None: ...
+
+    async def discard_unpublished(self, run: ActionRun) -> bool: ...
+
+    async def abandon_unpublished_resource_claim(self, run: ActionRun) -> bool: ...
 
     async def claim_resource(
         self,

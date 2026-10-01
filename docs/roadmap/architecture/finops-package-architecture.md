@@ -441,6 +441,14 @@ cost and cannot increase authority. The complete ontology traversal, agent seque
 recovery order, effect settlement, and learning loop are defined in
 [FinOps Autonomous Operations](finops-autonomous-operations.md).
 
+Cost and capacity specialists consume only Huginn-validated timing and identity. They prefer
+`occurred_at`, then trusted `ingested_at`, and treat the event-envelope `resource_id` as
+authoritative; an attribute copy is accepted only when it matches the envelope. Conflicting
+resource identities are rejected with visible behavior evidence. Njord fails closed when no
+activation reader is bound, Freyr attaches Njord cost evidence to capacity recommendations only
+when it is fresh and correlated to the graduation scope, and each specialist reports its ingress
+state and rejection counters in health.
+
 ## Compatibility and rollback
 
 The migration uses an overlap period rather than a flag-day import change:

@@ -8,14 +8,26 @@ import inspect
 import json
 import logging
 from collections.abc import Awaitable, Callable, Coroutine, Mapping
+from typing import Any
 
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAMES
+from fdai.agents._framework.thor_preflight import ThorPreflightSimulator
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRun, ActionRunStore, Thor
 from fdai.shared.providers.resource_lock import ResourceLock
 
 _LOG = logging.getLogger(__name__)
+_ROLLBACK_CONTRACTS_WITHOUT_EXECUTOR = frozenset(
+    {
+        "irreversible",
+        "not_applicable",
+        "not-applicable",
+        "not_required",
+        "none",
+    }
+)
 
 
 def validate_disabled_agents(disabled_agents: frozenset[str] | None) -> frozenset[str]:
@@ -47,11 +59,16 @@ def validate_enforce_bindings(
     has_executor: bool,
     has_state_store: bool,
     saga: Saga | None,
-    has_rollback: bool,
+    rollback_executors: Mapping[str, object] | None,
+    action_rollback_executors: Mapping[tuple[str, str], object] | None,
+    action_semantics: ActionSemanticsCatalog | None,
     has_vidar_state_store: bool,
     has_var_state_store: bool,
+    has_forseti_state_store: bool,
     has_approver_authorizer: bool,
     resource_lock: ResourceLock | None,
+    has_action_semantics: bool,
+    has_preflight_simulator: bool,
 ) -> None:
     """Reject enforce mode until every durable safety binding is present."""
 
@@ -64,22 +81,72 @@ def validate_enforce_bindings(
         missing.append("thor_state_store")
     if saga is None or not saga.durable_audit:
         missing.append("durable_saga")
-    if not has_rollback:
-        missing.append("rollback_executors")
+    missing.extend(
+        _missing_rollback_executor_bindings(
+            action_semantics=action_semantics,
+            rollback_executors=rollback_executors,
+            action_rollback_executors=action_rollback_executors,
+        )
+    )
     if not has_vidar_state_store:
         missing.append("vidar_state_store")
     if not has_var_state_store:
         missing.append("var_state_store")
+    if not has_forseti_state_store:
+        missing.append("forseti_state_store")
     if not has_approver_authorizer:
         missing.append("approver_authorizer")
     if resource_lock is None:
         missing.append("execution_resource_lock")
     elif not resource_lock.distributed:
         missing.append("distributed_execution_resource_lock")
+    if not has_action_semantics:
+        missing.append("action_type_catalog")
+    if not has_preflight_simulator:
+        missing.append("thor_preflight_simulator")
     if missing:
         raise ValueError(
             "pantheon enforce mode requires explicit durable safety bindings: " + ", ".join(missing)
         )
+
+
+def _missing_rollback_executor_bindings(
+    *,
+    action_semantics: ActionSemanticsCatalog | None,
+    rollback_executors: Mapping[str, object] | None,
+    action_rollback_executors: Mapping[tuple[str, str], object] | None,
+) -> list[str]:
+    if action_semantics is None:
+        return ["rollback_executors"]
+    generic_contracts = frozenset(str(contract) for contract in (rollback_executors or {}))
+    action_pairs = frozenset(
+        (str(action_type), str(contract))
+        for action_type, contract in (action_rollback_executors or {})
+    )
+    missing = [
+        f"rollback_executors[{action_type}:{contract}]"
+        for action_type, contract in _rollback_executor_requirements(action_semantics)
+        if contract not in generic_contracts and (action_type, contract) not in action_pairs
+    ]
+    if not missing and not generic_contracts and not action_pairs:
+        return ["rollback_executors"]
+    return missing
+
+
+def _rollback_executor_requirements(
+    action_semantics: ActionSemanticsCatalog,
+) -> tuple[tuple[str, str], ...]:
+    requirements: list[tuple[str, str]] = []
+    for action_type, contract in action_semantics.rollback_by_id.items():
+        normalized_contract = str(contract).strip()
+        if not normalized_contract:
+            continue
+        if normalized_contract in _ROLLBACK_CONTRACTS_WITHOUT_EXECUTOR:
+            continue
+        if action_semantics.irreversible(action_type):
+            continue
+        requirements.append((action_type, normalized_contract))
+    return tuple(sorted(requirements))
 
 
 def bind_execution_audit(*, thor: Thor, saga: Saga | None, enforce: bool) -> None:
@@ -134,6 +201,7 @@ def configure_thor_execution(
     saga: Saga | None,
     enforce: bool,
     human_access_bound: bool,
+    preflight_simulator: ThorPreflightSimulator | None = None,
 ) -> None:
     """Bind explicit execution/audit/lock seams while keeping unrelated unbound actions denied."""
     if executor is not None:
@@ -145,19 +213,141 @@ def configure_thor_execution(
         thor.set_state_store(state_store)
     bind_execution_audit(thor=thor, saga=saga, enforce=enforce)
     thor.set_execution_resource_lock(resource_lock, required=enforce)
+    thor.set_preflight_simulator(preflight_simulator)
 
 
-async def maintain_agents(agents: Mapping[str, Agent], interval: float) -> None:
-    """Expire bounded HIL waits while the Pantheon runtime is active."""
+async def maintain_agents(
+    agents: Mapping[str, Agent],
+    interval: float,
+    *,
+    tick_timeout: float = 5.0,
+    max_in_flight: int | None = None,
+) -> None:
+    """Run isolated per-agent maintenance while consumers stay active.
 
+    A maintenance tick is cheap, bounded, and side-effect constrained to each
+    agent's own framework state: Thor expires HIL waits, the base agent drains
+    its proposal queue, Saga verifies its local chain, and Norns flushes inert
+    candidates. Ticks run concurrently and never block the event-bus consumers.
+    One timeout or exception increments that agent's behavior counter and does
+    not cancel sibling ticks.
+    """
+
+    in_flight: dict[tuple[str, str], asyncio.Task[Any]] = {}
+    in_flight_limit = max_in_flight if max_in_flight is not None else max(1, len(agents) * 2)
+    if in_flight_limit < 1:
+        raise ValueError("max_in_flight MUST be >= 1")
     while True:
         await asyncio.sleep(interval)
-        thor = agents.get("Thor")
-        if isinstance(thor, Thor):
-            try:
-                await thor.expire_pending_approvals()
-            except Exception:  # noqa: BLE001 - one failed expiry must not stop later safety ticks
-                _LOG.exception("pantheon_hil_expiry_failed")
+        tasks = [
+            asyncio.create_task(
+                _run_agent_maintenance(agent, tick_timeout, in_flight, in_flight_limit),
+                name=f"pantheon-maintenance.{name}",
+            )
+            for name, agent in agents.items()
+        ]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def _run_agent_maintenance(
+    agent: Agent,
+    tick_timeout: float,
+    in_flight: dict[tuple[str, str], asyncio.Task[Any]] | None = None,
+    in_flight_limit: int = 1,
+) -> None:
+    in_flight = in_flight if in_flight is not None else {}
+    try:
+        if isinstance(agent, Thor):
+            if not await _run_maintenance_step(
+                agent,
+                agent.expire_pending_approvals(),
+                tick_timeout,
+                in_flight,
+                in_flight_limit,
+                step="expire_pending_approvals",
+            ):
+                return
+        if not await _run_maintenance_step(
+            agent,
+            agent.maintenance_tick(),
+            tick_timeout,
+            in_flight,
+            in_flight_limit,
+            step="maintenance_tick",
+        ):
+            return
+        agent.record_behavior("maintenance_tick:completed")
+    except Exception:  # noqa: BLE001 - one failed tick must not stop later safety ticks
+        agent.record_behavior("maintenance_tick:failed")
+        _LOG.exception("pantheon_agent_maintenance_failed", extra={"agent": agent.spec.name})
+
+
+async def _run_maintenance_step(
+    agent: Agent,
+    operation: Awaitable[Any],
+    tick_timeout: float,
+    in_flight: dict[tuple[str, str], asyncio.Task[Any]],
+    in_flight_limit: int,
+    *,
+    step: str,
+) -> bool:
+    """Run one maintenance step with a deadline that does not cancel commits."""
+
+    key = (agent.spec.name, step)
+    existing = in_flight.get(key)
+    if existing is not None and not existing.done():
+        agent.record_behavior("maintenance_tick:skipped_in_flight")
+        _close_unscheduled(operation)
+        return False
+    if len([task for task in in_flight.values() if not task.done()]) >= in_flight_limit:
+        agent.record_behavior("maintenance_tick:skipped_capacity")
+        _close_unscheduled(operation)
+        return False
+    task: asyncio.Future[Any] = asyncio.ensure_future(operation)
+    if isinstance(task, asyncio.Task):
+        task.set_name(f"pantheon-maintenance.{agent.spec.name}.{step}")
+        in_flight[key] = task
+    try:
+        await asyncio.wait_for(asyncio.shield(task), tick_timeout)
+        in_flight.pop(key, None)
+        return True
+    except TimeoutError:
+        agent.record_behavior("maintenance_tick:timeout")
+        _LOG.warning(
+            "pantheon_agent_maintenance_timeout",
+            extra={"agent": agent.spec.name, "step": step},
+        )
+        task.add_done_callback(
+            lambda done: _observe_timed_out_maintenance(agent, step, done, in_flight)
+        )
+        return False
+    except Exception:
+        in_flight.pop(key, None)
+        raise
+
+
+def _observe_timed_out_maintenance(
+    agent: Agent,
+    step: str,
+    task: asyncio.Future[Any],
+    in_flight: dict[tuple[str, str], asyncio.Task[Any]],
+) -> None:
+    in_flight.pop((agent.spec.name, step), None)
+    try:
+        task.result()
+    except Exception:  # noqa: BLE001 - late failure is observability only
+        agent.record_behavior("maintenance_tick:late_failed")
+        _LOG.exception(
+            "pantheon_agent_maintenance_late_failed",
+            extra={"agent": agent.spec.name, "step": step},
+        )
+
+
+def _close_unscheduled(operation: Awaitable[Any]) -> None:
+    close = getattr(operation, "close", None)
+    if callable(close):
+        close()
 
 
 async def run_with_maintenance(

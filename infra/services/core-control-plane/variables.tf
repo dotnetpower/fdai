@@ -84,6 +84,17 @@ variable "runtime_call_evidence" {
     )
     error_message = "runtime_call_evidence must be empty or contain distinct exact Container App Resource IDs."
   }
+
+  variable "operator_request_receipts" {
+    description = "Seed secret references and producer ids for authenticated raw operator_request ingress."
+    type = object({
+      core_signing_seed_secret_id     = optional(string, "")
+      operator_signing_seed_secret_id = optional(string, "")
+      core_producer_id                = optional(string, "core-control-plane")
+      operator_producer_id            = optional(string, "operator-service")
+    })
+    default = {}
+  }
 }
 
 variable "rca_reader_identity" {

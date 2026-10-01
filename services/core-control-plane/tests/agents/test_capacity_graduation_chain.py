@@ -64,7 +64,8 @@ async def test_capacity_graduation_stays_shadow_through_forseti_and_thor() -> No
             "idempotency_key": "capacity:one",
             "event_id": "event:capacity:one",
             "event_type": "specialist.capacity_graduation_evidence",
-            "detected_at": NOW.isoformat(),
+            "occurred_at": NOW.isoformat(),
+            "ingested_at": NOW.isoformat(),
             "resource_id": "resource:example",
             "attributes": {
                 "transition": "aks_or_cell",
@@ -104,7 +105,8 @@ async def test_capacity_graduation_holds_without_njord_cost_evidence() -> None:
             "idempotency_key": "capacity:missing-cost",
             "event_id": "event:capacity:missing-cost",
             "event_type": "specialist.capacity_graduation_evidence",
-            "detected_at": NOW.isoformat(),
+            "occurred_at": NOW.isoformat(),
+            "ingested_at": NOW.isoformat(),
             "resource_id": "resource:example",
             "attributes": {
                 "transition": "dedicated_vector_store",

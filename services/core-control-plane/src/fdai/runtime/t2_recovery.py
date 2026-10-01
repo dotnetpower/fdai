@@ -289,10 +289,40 @@ def bind_t2_recovery_observer(
     return observer
 
 
+def build_t2_recovery_maintenance(
+    *,
+    proposer: object,
+    store: StateStore,
+    ingress: T2RecoveryIngress,
+    state_store_dsn: str | None,
+) -> T2RecoveryMaintenance | None:
+    """Bind recovery maintenance with the legacy reader only for a configured state DSN."""
+
+    recovery_observer = bind_t2_recovery_observer(proposer=proposer, store=store, ingress=ingress)
+    if recovery_observer is None:
+        return None
+    legacy_reader = None
+    legacy_state_store_dsn = (state_store_dsn or "").strip()
+    if legacy_state_store_dsn:
+        from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
+        from fdai.delivery.persistence.postgres_t2_recovery import (
+            PostgresT2RecoveryLegacyReader,
+        )
+
+        legacy_reader = PostgresT2RecoveryLegacyReader(
+            config=PostgresStateStoreConfig(dsn=legacy_state_store_dsn)
+        )
+    return T2RecoveryMaintenance(
+        observer=recovery_observer,
+        legacy_reader=legacy_reader,
+    )
+
+
 __all__ = [
     "DurableT2RecoveryObserver",
     "T2RecoveryIngress",
     "T2RecoveryLegacyReader",
     "T2RecoveryMaintenance",
     "bind_t2_recovery_observer",
+    "build_t2_recovery_maintenance",
 ]

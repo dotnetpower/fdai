@@ -2,24 +2,30 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import json
 from collections.abc import Mapping
-from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import datetime, timedelta
 from typing import Any, Protocol
 
-from fdai.agents._framework.action_run_identity import (
-    action_run_identity_digest,
-    durable_correlation_reservation,
-)
+from fdai.agents._framework.action_run_identity import durable_correlation_reservation
 from fdai.agents._framework.action_run_state import (
     TERMINAL_ACTION_RUN_STATES as _TERMINAL_STATES,
 )
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.advisory_verdicts import is_advisory_arbitration_verdict
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.outbox_publication import (
+    PublicationClaim,
+    new_publication_claim_owner,
+)
 from fdai.agents._framework.thor_action_run import ActionRun, ActionRunStore
 from fdai.agents._framework.thor_effect_verification import effect_publication_fields
 from fdai.shared.contracts.models import Autonomy
+
+_TIMESTAMPED_ACTION_RUN_STATES = _TERMINAL_STATES | frozenset({ActionRunState.FAILED})
+_TERMINAL_PUBLICATION_LEASE = timedelta(minutes=5)
 
 
 class ThorPersistenceHost(Protocol):
@@ -83,8 +89,23 @@ async def rehydrate(host: ThorPersistenceHost) -> int:
         if run.state in _TERMINAL_STATES:
             host.action_runs[run.correlation_id] = run
             host._idempotency_runs[run.idempotency_key] = run
-            await emit_action_run(host, run)
+            if not run.terminal_published:
+                await emit_action_run(host, run)
+            if not run.terminal_published:
+                continue
             await finalize_terminal_replay(host, run)
+            continue
+        if not _valid_batch_target_set(run):
+            run.transition(ActionRunState.DENY_DROPPED)
+            run.outcome = "batch_target_set_digest_mismatch"
+            run.shadow_mode = True
+            host.action_runs[run.correlation_id] = run
+            host._idempotency_runs[run.idempotency_key] = run
+            if run.resource_id:
+                host._resource_locks.add(str(run.resource_id))
+            await _publish_rehydrate_hold_without_save(host, run)
+            release_lock(host, run.resource_id)
+            host.record_behavior("batch_target_set:digest_mismatch")
             continue
         if run.resource_claimed and run.state in {
             ActionRunState.VERDICTED,
@@ -107,9 +128,11 @@ async def rehydrate(host: ThorPersistenceHost) -> int:
         ):
             if not run.resource_claimed:
                 run.outcome = "resource_claim_contended_after_restart"
+                run.shadow_mode = True
                 host.action_runs[run.correlation_id] = run
                 host._idempotency_runs[run.idempotency_key] = run
                 host._resource_locks.add(str(run.resource_id))
+                await emit_action_run(host, run)
                 continue
             if run.state is not ActionRunState.EXECUTION_UNKNOWN:
                 run.transition(ActionRunState.EXECUTION_UNKNOWN)
@@ -124,6 +147,22 @@ async def rehydrate(host: ThorPersistenceHost) -> int:
             run.transition(ActionRunState.EXECUTION_UNKNOWN)
             run.outcome = "execution_state_unknown_after_restart"
             run.shadow_mode = True
+        if (
+            run.state is ActionRunState.HIL_PENDING
+            and run.approval_expires_at is not None
+            and host._now() >= run.approval_expires_at
+        ):
+            run.transition(ActionRunState.REJECTED)
+            run.outcome = "approval_expired"
+            host.action_runs[run.correlation_id] = run
+            host._idempotency_runs[run.idempotency_key] = run
+            if run.resource_id:
+                host._resource_locks.add(str(run.resource_id))
+            await emit_action_run(host, run)
+            await release_resource_claim(host, run)
+            release_lock(host, run.resource_id)
+            host.record_behavior("approval:expired")
+            continue
         if run.resolved_autonomy_ceiling is Autonomy.SHADOW_ONLY:
             run.shadow_mode = True
         host.action_runs[run.correlation_id] = run
@@ -132,6 +171,53 @@ async def rehydrate(host: ThorPersistenceHost) -> int:
             host._resource_locks.add(str(run.resource_id))
         await resume_rehydrated(host, run)
     return len(active)
+
+
+def _valid_batch_target_set(run: ActionRun) -> bool:
+    if run.batch_role != "rollup":
+        return True
+    if run.target_set is None or run.target_set_digest is None:
+        return False
+    encoded = json.dumps(
+        list(run.target_set),
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest() == run.target_set_digest
+
+
+async def _publish_rehydrate_hold_without_save(host: ThorPersistenceHost, run: ActionRun) -> None:
+    if host.bus is None:
+        return
+    payload = {
+        **run.publication_identity_payload(),
+        "producer_principal": "Thor",
+        "idempotency_key": f"{run.correlation_id}:{run.state.value}",
+        "state": run.state.value,
+        "shadow_mode": run.shadow_mode,
+        "resolved_autonomy_ceiling": run.resolved_autonomy_ceiling.value,
+        "outcome": run.outcome,
+        "rollback_ref": run.rollback_ref,
+        "dry_run_evidence": run.dry_run_evidence,
+        "dry_run_receipt": run.dry_run_receipt,
+        "preflight_simulation_receipt": run.preflight_simulation_receipt,
+        "preflight_required": run.preflight_required,
+        "execution_audit_receipt": run.execution_audit_receipt,
+        "cost_annotation": run.cost_annotation,
+        **({"batch_rollup": run.batch_rollup} if run.batch_rollup is not None else {}),
+        "approval_expires_at": (
+            run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
+        ),
+        "effect_verification_expires_at": (
+            run.effect_verification_expires_at.isoformat()
+            if run.effect_verification_expires_at is not None
+            else None
+        ),
+        "action_run_identity": run.action_run_identity(),
+        "terminal_at": host._now().isoformat().replace("+00:00", "Z"),
+    }
+    await host.bus.publish("Thor", "object.action-run", payload)
 
 
 async def resume_rehydrated(host: ThorPersistenceHost, run: ActionRun) -> None:
@@ -185,8 +271,6 @@ def evict_terminal_overflow(host: ThorPersistenceHost) -> None:
             and run.terminal_published
         ):
             del host.action_runs[correlation_id]
-            if host._idempotency_runs.get(run.idempotency_key) is run:
-                del host._idempotency_runs[run.idempotency_key]
             overflow -= 1
 
 
@@ -203,62 +287,91 @@ def find_active_run(host: ThorPersistenceHost, resource_id: str) -> ActionRun | 
 
 async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
     """Write through one transition before publishing the owned ActionRun event."""
+    terminal_state = run.state in _TERMINAL_STATES
+    claim: PublicationClaim | None = None
+    claimed_terminal_publication = False
+    already_terminal_published = terminal_state and run.terminal_published
+    if terminal_state and host.bus is not None and not run.terminal_published:
+        terminal_now = host._now()
+        existing_claim = _terminal_claim(run)
+        claim = existing_claim or PublicationClaim(
+            owner=new_publication_claim_owner("Thor"),
+            claimed_at=terminal_now.isoformat(),
+        )
+        terminal_at = _terminal_claim_timestamp(run) or terminal_now.isoformat().replace(
+            "+00:00", "Z"
+        )
+        run.terminal_publication_claim = {
+            "owner": claim.owner,
+            "claimed_at": claim.claimed_at,
+            "lease_expires_at": (terminal_now + _TERMINAL_PUBLICATION_LEASE).isoformat(),
+            "terminal_at": terminal_at,
+        }
+        claimed_terminal_publication = existing_claim is None
     if host._state_store is not None:
         await host._state_store.save(run)
     evict_terminal_overflow(host)
+    if already_terminal_published and not claimed_terminal_publication:
+        host.record_behavior("action_run:duplicate_publication_suppressed")
+        return
     if host.bus is None:
-        if (
-            host._state_store is not None
-            and run.state in _TERMINAL_STATES
-            and not run.resource_claimed
-        ):
-            await host._state_store.delete(run.correlation_id)
         if run.state in _TERMINAL_STATES:
-            run.terminal_published = True
+            if host._state_store is None:
+                run.terminal_published = True
+            host.record_behavior("action_run:terminal_publication_pending")
         return
     payload = {
+        **run.publication_identity_payload(),
         "producer_principal": "Thor",
-        "correlation_id": run.correlation_id,
         "idempotency_key": f"{run.correlation_id}:{run.state.value}",
-        "action_idempotency_key": run.idempotency_key,
-        "action_type": run.action_type,
-        "resource_id": run.resource_id,
         "state": run.state.value,
         "shadow_mode": run.shadow_mode,
         "resolved_autonomy_ceiling": run.resolved_autonomy_ceiling.value,
         "outcome": run.outcome,
         **effect_publication_fields(run),
-        "verdict": run.verdict,
-        "params": deepcopy(run.params),
-        "quorum_required": run.quorum_required,
-        "original_quorum_required": run.original_quorum_required,
-        "effective_quorum_required": run.effective_quorum_required,
-        "development_authority": deepcopy(run.development_authority),
-        "initiator_principal": run.initiator_principal,
-        "rollback_contract": run.rollback_contract,
         "rollback_ref": run.rollback_ref,
-        "decision_case": run.decision_case,
-        "operational_context": deepcopy(run.operational_context),
-        "workflow_action": deepcopy(run.workflow_action),
-        "kinetic_proposal": deepcopy(run.kinetic_proposal),
-        "prospective_lineage": deepcopy(run.prospective_lineage),
+        "dry_run_evidence": run.dry_run_evidence,
+        "dry_run_receipt": run.dry_run_receipt,
+        "preflight_simulation_receipt": run.preflight_simulation_receipt,
+        "preflight_required": run.preflight_required,
         "execution_audit_receipt": run.execution_audit_receipt,
+        "cost_annotation": run.cost_annotation,
+        **({"batch_rollup": run.batch_rollup} if run.batch_rollup is not None else {}),
         "approval_expires_at": (
             run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
         ),
+        "effect_verification_expires_at": (
+            run.effect_verification_expires_at.isoformat()
+            if run.effect_verification_expires_at is not None
+            else None
+        ),
+        "action_run_identity": run.action_run_identity(),
     }
-    if run.action_id is not None:
-        payload["action_id"] = run.action_id
     if run.evidence_rejection_ref is not None:
         payload["evidence_rejection_ref"] = run.evidence_rejection_ref
-    payload["action_run_identity"] = action_run_identity_digest(payload)
-    if run.state in _TERMINAL_STATES:
-        payload["terminal_at"] = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
-    await host.bus.publish("Thor", "object.action-run", payload)
-    if run.state in _TERMINAL_STATES:
-        run.terminal_published = True
-        if not run.resource_claimed:
-            await delete_terminal_state(host, run)
+    if run.state in _TIMESTAMPED_ACTION_RUN_STATES:
+        payload["terminal_at"] = _terminal_claim_timestamp(run) or host._now().isoformat().replace(
+            "+00:00", "Z"
+        )
+    try:
+        await host.bus.publish("Thor", "object.action-run", payload)
+    except Exception:
+        if claim is not None:
+            run.terminal_publication_claim = None
+            if host._state_store is not None:
+                await host._state_store.save(run)
+        raise
+    if terminal_state:
+        await asyncio.shield(_checkpoint_terminal_publication(host, run))
+
+
+async def _checkpoint_terminal_publication(host: ThorPersistenceHost, run: ActionRun) -> None:
+    run.terminal_published = True
+    run.terminal_publication_claim = None
+    if host._state_store is not None:
+        await host._state_store.save(run)
+    if not run.resource_claimed:
+        await delete_terminal_state(host, run)
 
 
 async def delete_terminal_state(host: ThorPersistenceHost, run: ActionRun) -> None:
@@ -267,7 +380,9 @@ async def delete_terminal_state(host: ThorPersistenceHost, run: ActionRun) -> No
 
 
 async def finalize_terminal_replay(host: ThorPersistenceHost, run: ActionRun) -> None:
-    if run.state is ActionRunState.ROLLBACK_FAILED:
+    if run.state in {ActionRunState.ROLLBACK_FAILED, ActionRunState.ROLLBACK_REFUSED}:
+        await release_resource_claim(host, run)
+        release_lock(host, run.resource_id)
         return
     await release_resource_claim(host, run)
     if run.resource_claimed:
@@ -287,11 +402,45 @@ async def release_resource_claim(host: ThorPersistenceHost, run: ActionRun) -> N
         if not callable(refresh) or not await refresh(run):
             host.record_behavior("execution_resource_claim:refresh_failed")
             return
-        await delete_terminal_state(host, run)
     if await release(str(run.resource_id), run.correlation_id):
         run.resource_claimed = False
+        if run.state in _TERMINAL_STATES and run.terminal_published:
+            await delete_terminal_state(host, run)
     else:
         host.record_behavior("execution_resource_claim:retained")
+
+
+def _terminal_claim(run: ActionRun) -> PublicationClaim | None:
+    raw_claim = run.terminal_publication_claim
+    if not isinstance(raw_claim, Mapping):
+        return None
+    owner = raw_claim.get("owner")
+    claimed_at = raw_claim.get("claimed_at")
+    if not isinstance(owner, str) or not owner or not isinstance(claimed_at, str) or not claimed_at:
+        return None
+    try:
+        parsed = datetime.fromisoformat(claimed_at)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return PublicationClaim(owner=owner, claimed_at=claimed_at)
+
+
+def _terminal_claim_timestamp(run: ActionRun) -> str | None:
+    raw_claim = run.terminal_publication_claim
+    if not isinstance(raw_claim, Mapping):
+        return None
+    terminal_at = raw_claim.get("terminal_at")
+    if not isinstance(terminal_at, str) or not terminal_at:
+        return None
+    try:
+        parsed = datetime.fromisoformat(terminal_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return terminal_at
 
 
 __all__ = [

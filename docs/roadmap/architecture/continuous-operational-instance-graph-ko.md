@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: cc4899add8e11ebbec1c82c58231b1fc4683bd18
-translation_revised: 2026-10-01
+translation_source_sha: 6368d204fa5891212dff1f47421092b710043b95
+translation_revised: 2026-10-02
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -224,7 +224,8 @@ PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 �
 수 없습니다.
 Operator 수명 주기는 전용 보낼 편지함 수명 주기 facade와 재시도 가능한 작업자를 통해 영속 Incident 개입 요청도 게시할 수 있습니다.
 어댑터는 해당 논리 토픽을 명시적으로 허용 목록에 등록하고 설정된 물리 전송 계층을 통해 다중화합니다.
-런타임 호출 증표, 그래프 edge, 프로바이더 관측 또는 실행 권한은 만들지 않습니다.
+Owner 전용 ordered poison-halt clear 요청도 같은 허용 목록 기반 논리 토픽 다중화를 사용합니다.
+두 요청 모두 런타임 호출 증표, 그래프 edge, 프로바이더 관측 또는 실행 권한을 만들지 않습니다.
 
 보호된 서비스 배포는 먼저 플랫폼이 소유한 런타임 호출 바인딩을 사용합니다. Operator 상태
 이행으로 기존 플랫폼 모듈이 비활성화되면 두 Container App이 계속 배포되어 있어도 해당 출력이

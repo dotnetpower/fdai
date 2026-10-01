@@ -8,6 +8,11 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 from fdai.agents._framework import action_run_lineage
 from fdai.agents._framework.action_run_state import ActionRunState
+from fdai.core.workflow.recovery_effect_ingress import RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE
+
+_SUPPORTED_EFFECT_EVENT_TYPES = frozenset(
+    {"action.execution.effect_verified.v1", RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE}
+)
 
 if TYPE_CHECKING:
     from fdai.agents.thor import ActionRun
@@ -101,25 +106,32 @@ class ThorEffectVerificationMixin:
 
     async def _handle_effect_observation(self, observation: dict[str, Any]) -> None:
         """Terminalize only the exact ActionRun named by a Heimdall verified-effect event."""
-        if observation.get("event_type") != "action.execution.effect_verified.v1":
+        if observation.get("event_type") not in _SUPPORTED_EFFECT_EVENT_TYPES:
+            self.record_behavior("effect_observation:ignored_event_type")
             return
-        if (
-            observation.get("producer_principal") != "Heimdall"
-            or observation.get("schema_version") != "1.0.0"
-        ):
+        if observation.get("producer_principal") != "Heimdall" or observation.get(
+            "schema_version"
+        ) not in {"1.0.0", 1}:
             raise ValueError("ActionRun effect verification requires Heimdall evidence")
         correlation = str(observation.get("correlation_id") or "")
         run = self.action_runs.get(correlation)
         if run is None:
+            self.record_behavior("effect_observation:unknown_run")
+            return
+        exact_identity = (
+            observation.get("action_id") == run.action_id
+            and observation.get("action_type") == run.action_type
+            and observation.get("resource_id") == run.resource_id
+            and observation.get("action_idempotency_key") == run.idempotency_key
+            and observation.get("params") == run.params
+        )
+        if run.state is ActionRunState.SUCCEEDED and exact_identity:
+            self.record_behavior("effect_observation:duplicate_verified")
             return
         if (
-            observation.get("action_id") != run.action_id
-            or observation.get("action_type") != run.action_type
-            or observation.get("resource_id") != run.resource_id
-            or observation.get("action_idempotency_key") != run.idempotency_key
-            or observation.get("params") != run.params
+            not exact_identity
             or run.shadow_mode
-            or run.state not in {ActionRunState.EXECUTION_UNKNOWN, ActionRunState.SUCCEEDED}
+            or run.state not in {ActionRunState.EXECUTION_UNKNOWN, ActionRunState.EFFECT_PENDING}
         ):
             raise ValueError("verified effect does not match the exact ActionRun")
         effect_ref = action_run_lineage.optional_bounded_text(
@@ -148,17 +160,14 @@ class ThorEffectVerificationMixin:
             or run.effect_verified_at != verified_at
         ):
             raise ValueError("ActionRun already binds different effect verification")
-        if run.state is ActionRunState.SUCCEEDED:
-            return
         run.effect_verification_ref = effect_ref
         run.execution_closure_ref = closure_ref
         run.effect_verified_at = verified_at
         run.outcome = "independent_effect_verified"
-        if run.state is ActionRunState.EXECUTION_UNKNOWN:
-            run.transition(ActionRunState.SUCCEEDED)
+        run.transition(ActionRunState.SUCCEEDED)
+        self.record_behavior("execution:independent_effect_verified")
         await self._emit_action_run(run)
         await self._finalize_terminal_replay(run)
-        self.record_behavior("execution:independent_effect_verified")
 
 
 __all__ = [

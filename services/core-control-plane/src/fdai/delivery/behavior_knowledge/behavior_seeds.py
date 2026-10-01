@@ -156,7 +156,10 @@ SEEDS: tuple[Seed, ...] = (
             "종료에는 별도 해결 기능 승격과 회귀 검증 구간이 필요합니다.",
         ),
         (
-            _code("agents/saga.py", "Saga.escalate_to_github_issue"),
+            _code(
+                "agents/_framework/saga_issue_runtime.py",
+                "SagaIssueRuntimeMixin.escalate_to_github_issue",
+            ),
             _test(
                 "agents/test_wave2_governance.py",
                 "test_saga_issue_dedup_creates_once_and_appends_comment_on_repeat",
@@ -413,7 +416,10 @@ SEEDS: tuple[Seed, ...] = (
             "같은 상관관계에 대해 롤백을 두 번 실행하지 않습니다.",
         ),
         (
-            _code("agents/vidar.py", "Vidar.rollback"),
+            _code(
+                "agents/_framework/vidar_rollback_runtime.py",
+                "VidarRollbackRuntimeMixin.rollback",
+            ),
             _test("agents/test_wave3_pipeline.py", "test_thor_triggers_vidar_rollback_on_failure"),
             _test(
                 "agents/test_wave3_pipeline.py", "test_vidar_rollback_is_idempotent_per_correlation"
@@ -443,7 +449,7 @@ SEEDS: tuple[Seed, ...] = (
             "소유자가 불분명하면 권한을 만들지 않고 기권합니다.",
         ),
         (
-            _code("agents/bragi.py", "Bragi.ask"),
+            _code("agents/_framework/bragi_ask_runtime.py", "BragiAskRuntimeMixin.ask"),
             _test(
                 "agents/test_conversational_port.py",
                 "test_ask_refuses_action_intent_and_routes_to_typed_pipeline",

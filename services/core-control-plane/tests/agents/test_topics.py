@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
 from fdai.agents._framework.topics import (
     OWNED_OBJECT_TOPICS,
     partition_key_for,
+    stable_idempotency_key,
     topic_for_object_type,
 )
 
@@ -36,13 +38,13 @@ def test_partition_key_mutation_prefers_resource_id() -> None:
     assert key == "rg-1/vm-1"
 
 
-def test_partition_key_mutation_falls_back_to_correlation() -> None:
-    # data-quality edge case: mutation topic missing resource_id
+def test_partition_key_mutation_requires_resource_envelope_key() -> None:
+    # Mutation publishes fail closed before this helper when resource_id is empty.
     key = partition_key_for(
         "object.action-run",
         {"correlation_id": "corr-only"},
     )
-    assert key == "corr-only"
+    assert key == ""
 
 
 def test_partition_key_correlation_topic_uses_correlation_id() -> None:
@@ -59,3 +61,23 @@ def test_partition_key_unknown_topic_defaults_to_correlation() -> None:
         {"correlation_id": "fallback"},
     )
     assert key == "fallback"
+
+
+def test_stable_idempotency_key_is_deterministic_and_distinguishes_inputs() -> None:
+    first = stable_idempotency_key("cost-anomaly", "scope-1", 200.0, {"b": 1, "a": 2})
+    again = stable_idempotency_key("cost-anomaly", "scope-1", 200.0, {"a": 2, "b": 1})
+    other = stable_idempotency_key("cost-anomaly", "scope-1", 201.0, {"a": 2, "b": 1})
+
+    assert first == again
+    assert first != other
+    assert first.startswith("cost-anomaly:")
+    assert len(first.split(":", 1)[1]) == 32
+
+
+def test_stable_idempotency_key_rejects_unstable_input() -> None:
+    with pytest.raises(ValueError):
+        stable_idempotency_key(" ", "x")
+    with pytest.raises(TypeError):
+        stable_idempotency_key("kind", {1, 2})
+    with pytest.raises(ValueError):
+        stable_idempotency_key("kind", float("nan"))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import cast
@@ -17,6 +18,10 @@ from fdai_operator_service.families.conversation import (
 from fdai_operator_service.incident_creation_confirmation import (
     IncidentCreationConfirmationService,
     incident_creation_request_from_claim,
+)
+from fdai_operator_service.operator_request_receipt import (
+    OperatorRequestReceiptIssuer,
+    SeedOperatorRequestReceiptSigner,
 )
 from fdai_operator_service.postgres_family_store import (
     ActionProposalClaim,
@@ -37,6 +42,7 @@ NOW = datetime(2026, 9, 16, 2, 5, tzinfo=UTC)
 DIGEST = "sha256:" + "a" * 64
 REQUEST_ID = str(uuid5(NAMESPACE_URL, "fdai.test.incident-creation.request"))
 PROJECTION_ID = str(uuid5(NAMESPACE_URL, "fdai.test.incident-creation.projection"))
+SEED = base64.urlsafe_b64encode(bytes(range(32))).decode("ascii").rstrip("=")
 
 
 def _draft() -> IncidentCreationDraft:
@@ -89,6 +95,7 @@ class _Store:
         self.stored: StoredProposal | None = None
         self.marked: list[tuple[str, str]] = []
         self.rejected: list[tuple[str, str, str]] = []
+        self.released: list[tuple[str, str]] = []
 
     async def read_semantic_action_draft_by_key(self, **kwargs: object):
         assert self.source is not None
@@ -166,7 +173,12 @@ class _Store:
         self.rejected.append((key, claim_id, reason_code))
         return True
 
-    async def release_action_proposal_claim(self, **_kwargs: object) -> bool:
+    async def release_action_proposal_claim(self, **kwargs: object) -> bool:
+        key = kwargs["key"]
+        claim_id = kwargs["claim_id"]
+        assert isinstance(key, str)
+        assert isinstance(claim_id, str)
+        self.released.append((key, claim_id))
         return True
 
 
@@ -182,6 +194,14 @@ class _Publisher:
     ) -> object:
         self.messages.append((topic, key, dict(payload)))
         return object()
+
+
+def _receipt_issuer() -> OperatorRequestReceiptIssuer:
+    return OperatorRequestReceiptIssuer(
+        signer=SeedOperatorRequestReceiptSigner(SEED),
+        producer_service_identity="operator-service",
+        clock=lambda: NOW,
+    )
 
 
 async def test_confirmation_reloads_and_persists_the_exact_server_draft() -> None:
@@ -293,6 +313,7 @@ async def test_drainer_publishes_versioned_incident_request_to_dedicated_topic()
         store=cast(PostgresFamilyStore, store),
         publisher=publisher,
         topic="fdai.events",
+        receipt_issuer=_receipt_issuer(),
     )
 
     assert await drainer.run_once() is True
@@ -302,9 +323,49 @@ async def test_drainer_publishes_versioned_incident_request_to_dedicated_topic()
     request = IncidentCreationRequest.model_validate(payload)
     assert key == request.target_ref
     assert request.arguments.target == "service-api"
+    assert request.operator_request_receipt is not None
+    assert request.operator_request_receipt.producer_service_identity == "operator-service"
     assert request.execution_authority is False
     assert store.marked == [("operator-proposal:conversation:draft-one", "claim-one")]
     assert store.rejected == []
+    assert store.released == []
+
+
+async def test_incident_drainer_without_receipt_issuer_releases_claim_without_publish() -> None:
+    source = _source()
+    draft = _draft()
+    store = _Store(source)
+    store.claim = ActionProposalClaim(
+        key="operator-proposal:conversation:draft-one",
+        claim_id="claim-one",
+        principal_id="operator-one",
+        payload={
+            "idempotency_key": "draft-one",
+            "principal_roles": ["Contributor"],
+            "principal_kind": "human",
+            "body": {
+                **_body().model_dump(mode="json"),
+                "request_id": REQUEST_ID,
+                "projection_id": PROJECTION_ID,
+                "incident_creation_draft": draft.model_dump(mode="json"),
+            },
+        },
+        accepted_at=(NOW + timedelta(minutes=1)).isoformat(),
+        attempt=1,
+    )
+    publisher = _Publisher()
+    drainer = ActionConfirmationOutboxDrainer(
+        store=cast(PostgresFamilyStore, store),
+        publisher=publisher,
+        topic="fdai.events",
+    )
+
+    assert await drainer.run_once() is False
+
+    assert publisher.messages == []
+    assert store.marked == []
+    assert store.rejected == []
+    assert store.released == [("operator-proposal:conversation:draft-one", "claim-one")]
 
 
 def test_drainer_uses_the_exact_durable_acceptance_time() -> None:

@@ -38,6 +38,17 @@ def introspect(
         "total_runs": len(runs),
         "active_runs": len(active),
         "shadow_forced": shadow_forced,
+        "correlation_id": None,
+        "action_type": None,
+        "resource_id": None,
+        "state": None,
+        "state_history": [],
+        "verdict": None,
+        "quorum_required": None,
+        "outcome": None,
+        "shadow_mode": None,
+        "rollback_contract": None,
+        "rollback_ref": None,
     }
     selectors = list(runs) + [run.resource_id for run in runs.values() if run.resource_id]
     keys = set(mentioned(question, selectors))

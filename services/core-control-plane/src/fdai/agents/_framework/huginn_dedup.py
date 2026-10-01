@@ -15,10 +15,12 @@ from fdai.shared.providers.state_store import StateStore
 
 _LEGACY_STATE_KEY = "pantheon/huginn/ingress-dedup"
 _SHARD_PREFIX = _LEGACY_STATE_KEY + "/shard-"
+_TERMINAL_PREFIX = _LEGACY_STATE_KEY + "/terminal/"
 _MAX_SHARDS = 64
 _MAX_CAS_ATTEMPTS = 8
 _DEFAULT_LEASE = timedelta(seconds=60)
 _MAX_LEASE = timedelta(minutes=5)
+_TERMINAL_RETENTION_MULTIPLIER = 4
 
 
 class HuginnClaimInProgressError(RuntimeError):
@@ -30,6 +32,7 @@ class HuginnIngressClaim:
     payload: dict[str, Any]
     change_projection: dict[str, Any] | None
     duplicate: bool = False
+    published_topics: frozenset[str] = frozenset()
 
 
 class HuginnDedupJournal:
@@ -53,27 +56,55 @@ class HuginnDedupJournal:
         self._claim_lease = claim_lease
         self._owner_token = uuid4().hex
         self._shard_count = min(_MAX_SHARDS, capacity)
+        self._terminal_retention = max(capacity + 1, capacity * _TERMINAL_RETENTION_MULTIPLIER)
         self._migration_lock = asyncio.Lock()
         self._migration_complete = False
 
     async def published_keys(self) -> tuple[str, ...]:
-        """Return completed keys in oldest-to-newest sequence order."""
+        """Return completed keys in oldest-to-newest retention order.
+
+        Durable terminal receipts are retained for four process dedup windows. That
+        bounds state-store growth while preserving completed-key duplicate fences for
+        the supported redelivery window after a shard entry ages out.
+        """
         await self._ensure_migrated()
-        states = await asyncio.gather(
-            *(self._store.read_state(self._shard_key(index)) for index in range(self._shard_count))
+        rows = await self._store.read_states(
+            _TERMINAL_PREFIX,
+            limit=self._terminal_retention,
         )
-        entries: dict[str, dict[str, Any]] = {}
-        for index, state in enumerate(states):
-            _, stored_capacity, _, shard_entries = _decode(state)
-            self._validate_capacity(stored_capacity, expected=self._shard_capacity(index))
-            entries.update(shard_entries)
-        return tuple(
-            key
-            for key, entry in sorted(
-                entries.items(), key=lambda item: (int(item[1]["sequence"]), item[0])
+        retained_from_terminal = tuple(
+            str(row["idempotency_key"])
+            for row in reversed(rows)
+            if row.get("status") == "published" and isinstance(row.get("idempotency_key"), str)
+        )
+        if len(retained_from_terminal) < self._capacity:
+            states = await asyncio.gather(
+                *(
+                    self._store.read_state(self._shard_key(index))
+                    for index in range(self._shard_count)
+                )
             )
-            if entry["status"] == "published"
-        )
+            entries: dict[str, dict[str, Any]] = {}
+            for index, state in enumerate(states):
+                _, stored_capacity, _, shard_entries = _decode(state)
+                self._validate_capacity(stored_capacity, expected=self._shard_capacity(index))
+                entries.update(shard_entries)
+            retained: list[str] = []
+            remaining = {
+                key: int(entry["sequence"])
+                for key, entry in entries.items()
+                if entry["status"] == "published"
+            }
+            while remaining:
+                key, _sequence = min(remaining.items(), key=lambda item: (item[1], item[0]))
+                retained.append(key)
+                del remaining[key]
+            for key in retained_from_terminal:
+                if key in retained:
+                    retained.remove(key)
+                retained.append(key)
+            return tuple(retained[-self._capacity :])
+        return retained_from_terminal[-self._capacity :]
 
     async def claim(
         self,
@@ -85,6 +116,10 @@ class HuginnDedupJournal:
     ) -> HuginnIngressClaim:
         """Claim one key or return its completed duplicate disposition."""
         await self._ensure_migrated()
+        terminal = await self._store.read_state(_terminal_key(idempotency_key))
+        if terminal is not None:
+            _validate_request(terminal, request_digest=request_digest)
+            return HuginnIngressClaim(payload={}, change_projection=None, duplicate=True)
         shard_index = self._shard_index(idempotency_key)
         state_key = self._shard_key(shard_index)
         capacity = self._shard_capacity(shard_index)
@@ -129,17 +164,18 @@ class HuginnDedupJournal:
 
             next_entries = dict(entries)
             if len(next_entries) >= capacity:
-                evictable = sorted(
+                evictable = min(
                     (
-                        (key, entry)
+                        (key, int(entry["sequence"]))
                         for key, entry in next_entries.items()
                         if entry["status"] == "published"
                     ),
-                    key=lambda item: int(item[1]["sequence"]),
+                    key=lambda item: item[1],
+                    default=None,
                 )
-                if not evictable:
+                if evictable is None:
                     raise RuntimeError("Huginn dedup journal has no completed entry to evict")
-                del next_entries[evictable[0][0]]
+                del next_entries[evictable[0]]
             normalized_payload = _json_mapping(payload, field="payload")
             normalized_change = (
                 _json_mapping(change_projection, field="change_projection")
@@ -167,9 +203,29 @@ class HuginnDedupJournal:
                 return _claim_from_entry(entry)
         raise RuntimeError("Huginn dedup claim contention exceeded the bounded retry limit")
 
-    async def complete(self, *, idempotency_key: str, request_digest: str) -> None:
+    async def complete(
+        self,
+        *,
+        idempotency_key: str,
+        request_digest: str,
+        require_published_topics: bool = False,
+    ) -> None:
         """Checkpoint successful publication without retaining the payload body."""
         await self._ensure_migrated()
+        await self._store.write_state(
+            _terminal_key(idempotency_key),
+            {
+                "schema_version": "1.0.0",
+                "revision": 1,
+                "idempotency_key": idempotency_key,
+                "request_digest": request_digest,
+                "status": "published",
+            },
+        )
+        await self._store.delete_states_beyond(
+            _TERMINAL_PREFIX,
+            retain_newest=self._terminal_retention,
+        )
         shard_index = self._shard_index(idempotency_key)
         state_key = self._shard_key(shard_index)
         capacity = self._shard_capacity(shard_index)
@@ -185,6 +241,12 @@ class HuginnDedupJournal:
                 return
             if existing["owner_token"] != self._owner_token:
                 raise HuginnClaimInProgressError("Huginn ingress claim belongs to another replica")
+            published_topics = set(_published_topics(existing))
+            required_topics = {"object.event"}
+            if existing.get("change_projection") is not None:
+                required_topics.add("object.change")
+            if require_published_topics and not required_topics.issubset(published_topics):
+                raise RuntimeError("Huginn ingress publication legs are incomplete")
             completed = {
                 "request_digest": request_digest,
                 "status": "published",
@@ -193,6 +255,7 @@ class HuginnDedupJournal:
                 "sequence": existing["sequence"],
                 "payload": None,
                 "change_projection": None,
+                "published_topics": sorted(required_topics),
             }
             if await self._advance(
                 state_key=state_key,
@@ -204,6 +267,50 @@ class HuginnDedupJournal:
             ):
                 return
         raise RuntimeError("Huginn dedup completion contention exceeded the bounded retry limit")
+
+    async def mark_published(
+        self,
+        *,
+        idempotency_key: str,
+        request_digest: str,
+        topic: str,
+    ) -> None:
+        """Durably record one downstream publication leg for retry resume."""
+        if topic not in {"object.event", "object.change"}:
+            raise ValueError("Huginn publication topic is unsupported")
+        await self._ensure_migrated()
+        shard_index = self._shard_index(idempotency_key)
+        state_key = self._shard_key(shard_index)
+        capacity = self._shard_capacity(shard_index)
+        for _ in range(_MAX_CAS_ATTEMPTS):
+            current = await self._store.read_state(state_key)
+            revision, stored_capacity, next_sequence, entries = _decode(current)
+            self._validate_capacity(stored_capacity, expected=capacity)
+            existing = entries.get(idempotency_key)
+            if existing is None:
+                raise RuntimeError("Huginn ingress claim disappeared before publication marker")
+            _validate_request(existing, request_digest=request_digest)
+            if existing["status"] == "published":
+                return
+            if existing["owner_token"] != self._owner_token:
+                raise HuginnClaimInProgressError("Huginn ingress claim belongs to another replica")
+            if topic == "object.change" and existing.get("change_projection") is None:
+                raise ValueError("Huginn change publication marker has no change payload")
+            published_topics = set(_published_topics(existing))
+            if topic in published_topics:
+                return
+            published_topics.add(topic)
+            marked = {**existing, "published_topics": sorted(published_topics)}
+            if await self._advance(
+                state_key=state_key,
+                current=current,
+                revision=revision,
+                capacity=capacity,
+                next_sequence=next_sequence,
+                entries={**entries, idempotency_key: marked},
+            ):
+                return
+        raise RuntimeError("Huginn publication marker contention exceeded the bounded retry limit")
 
     async def _advance(
         self,
@@ -361,6 +468,11 @@ def request_digest(raw: Mapping[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
+def _terminal_key(idempotency_key: str) -> str:
+    digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
+    return f"{_TERMINAL_PREFIX}{digest}"
+
+
 def _decode(
     record: Mapping[str, Any] | None,
 ) -> tuple[int, int | None, int, dict[str, dict[str, Any]]]:
@@ -409,6 +521,7 @@ def _decode(
             ):
                 raise ValueError("Huginn pending dedup entry is malformed")
             _parse_time(entry["lease_expires_at"])
+            _published_topics(entry)
         elif any(
             (
                 entry.get("owner_token") != "",
@@ -434,7 +547,7 @@ def _encode(
         "revision": revision,
         "capacity": capacity,
         "next_sequence": next_sequence,
-        "entries": {key: dict(entries[key]) for key in sorted(entries)},
+        "entries": {key: dict(entry) for key, entry in entries.items()},
     }
 
 
@@ -444,7 +557,25 @@ def _claim_from_entry(entry: Mapping[str, Any]) -> HuginnIngressClaim:
     change = (
         _json_mapping(raw_change, field="change_projection") if raw_change is not None else None
     )
-    return HuginnIngressClaim(payload=payload, change_projection=change)
+    return HuginnIngressClaim(
+        payload=payload,
+        change_projection=change,
+        published_topics=frozenset(_published_topics(entry)),
+    )
+
+
+def _published_topics(entry: Mapping[str, Any]) -> tuple[str, ...]:
+    raw_topics = entry.get("published_topics", ())
+    if raw_topics in (None, ()):
+        return ()
+    if not isinstance(raw_topics, list | tuple):
+        raise ValueError("Huginn published topic markers are malformed")
+    topics: list[str] = []
+    for topic in raw_topics:
+        if topic not in {"object.event", "object.change"} or topic in topics:
+            raise ValueError("Huginn published topic marker is invalid")
+        topics.append(topic)
+    return tuple(topics)
 
 
 def _validate_request(entry: Mapping[str, Any], *, request_digest: str) -> None:

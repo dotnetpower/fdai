@@ -24,6 +24,7 @@ module "core_control_plane" {
   startup_readiness                   = var.startup_readiness
   llm                                 = var.llm
   runtime_call_evidence               = var.runtime_call_evidence
+  operator_request_receipts           = var.operator_request_receipts
   observation_context                 = var.observation_context
   governed_rca                        = var.governed_rca
   configuration_drift                 = var.configuration_drift

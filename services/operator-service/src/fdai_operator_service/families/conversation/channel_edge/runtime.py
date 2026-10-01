@@ -29,7 +29,7 @@ from fdai_operator_service.families.conversation.channel_edge.teams_ingress impo
 from fdai_operator_service.families.conversation.channel_edge.worker import (
     ChannelDeliveryWorker,
 )
-from fdai_operator_service.routes import SecurityHeadersMiddleware
+from fdai_operator_service.route_middleware import SecurityHeadersMiddleware
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request

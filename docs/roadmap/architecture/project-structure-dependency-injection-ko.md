@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 27eb3832946892b39c15392a86ff6ccfd842ce8b
+translation_source_sha: 112615e7bf777dc5efe2dd3f10890010102684c1
 translation_revised: 2026-10-01
 ---
 
@@ -198,6 +198,24 @@ Terraform 계획은 검토 입력이 아닙니다.
 
 공유 `MetricProviderError` 계약은 범위가 제한된 실패 메타데이터를 소유합니다. Azure 전송 계층이 실패를 분류하고 Analyzer가 식별자를 제거합니다.
 [메트릭 진단 계약](aks-diagnostic-evidence-plane-ko.md#안전한-메트릭-실패-진단)은 기존 공급자와 빈 결과의 동작을 유지하며, 실패 시 안전한 쪽으로 처리를 중단합니다.
+
+로컬 개발 `EventBus`는 모든 기록을 무기한 보존하지 않고 토픽별 범위가 제한된 재생 구간을
+유지합니다. 압축은 알려진 모든 구독 그룹이 해당 기록 이후로 진행한 뒤에만 기록을 제거하므로,
+느린 구독 그룹은 아직 소비하지 않은 트래픽을 잃지 않습니다. 나중에 구독한 그룹은 보존된 구간에서
+시작하며 그 범위 안에 아직 남아 있는 기록을 재생합니다.
+
+Pantheon 조립은 소유자 로컬 복구를 위한 선택적 영속 `StateStore` 경계를 노출합니다.
+`forseti_state_store`, `bragi_state_store`, `odin_state_store`,
+`proposal_rate_limit_state_store`, `ordered_poison_halt_state_store`, `heimdall_state_store`,
+`njord_state_store`, `freyr_state_store`가 그 경계입니다. 프로덕션은 거버넌스 및 전문
+에이전트 저장소를 인시던트 감사 저장소에 연결하지만, ordered poison halt는 운영자가 지울 수
+있는 표면이 생길 때까지 명시적 선택으로 유지합니다. 이 경계는 고정된 에이전트 소유자를 보존하며
+판단, 승인, 실행, 감사 또는 게시 권한을 추가하지 않습니다.
+
+`services/core-control-plane/src/fdai/agents/_framework/runtime.py`는 계속 `PantheonRuntime`
+조립 경계입니다. 읽기 전용 대화 포트 파사드는 비공개
+`services/core-control-plane/src/fdai/agents/_framework/runtime_conversation.py` 도우미에 위임되어
+런타임 경계를 작게 유지하면서 공개 가져오기 표면이나 새 권한 경로를 만들지 않습니다.
 
 시작 준비 상태의 프로바이더 중립 실행 예산, 탐색 시간 제한 및 파생 근거 수명은 `core/readiness`가
 소유합니다. 런타임은 범위가 제한된 새로 고침을 예약하고 기존 만료 시점에 처리를 닫으며, Thor가

@@ -15,7 +15,7 @@ from fdai.agents._framework.ontology_index import (
     owned_context_index_handler,
 )
 from fdai.agents.heimdall import Heimdall
-from fdai.agents.huginn import Huginn
+from fdai.agents.huginn import Huginn, HuginnIngressRejectedError
 from fdai.agents.mimir import Mimir
 from fdai.core.human_assignment.execution_ports import HumanAccessAgentBindings
 from fdai.core.rule_semantic_generation import (
@@ -32,6 +32,21 @@ RECOVERY_EFFECT_OBSERVER_PRINCIPAL = "recovery-effect-observer"
 
 RECOVERY_EFFECT_OBSERVATION_TOPIC = "object.recovery-effect-observation"
 """Heimdall-owned topic the independent recovery observation intake reads."""
+
+POISON_HALT_CLEAR_PRINCIPAL = "ordered-poison-halt-clear"
+"""Framework consumer identity for Operator-requested ordered poison halt clears."""
+
+CONDITIONAL_RULE_GENERATION_COMMAND_SUBSCRIPTIONS = (
+    (RULE_GENERATION_ACTIVATION_COMMAND_TOPIC, "Mimir"),
+    (RULE_GENERATION_ACTIVATION_RESULT_TOPIC, "Mimir"),
+)
+"""Non-object command topics Mimir subscribes when rule-generation activation is bound.
+
+These topics are mechanical rule-generation commands rather than pantheon
+owned-object topics, so they intentionally stay out of ``AgentSpec.subscribes``.
+Runtime subscription parity tests account for them only when their optional
+bindings are present.
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +69,8 @@ def build_ingress_handler(
     async def _ingress(_topic: str, payload: dict[str, Any]) -> None:
         try:
             await agent.ingest(payload)
-        except ValueError as exc:
+        except HuginnIngressRejectedError as exc:
+            agent.record_behavior(f"runtime_raw_ingress_rejected:{exc.reason_code}")
             on_unkeyed(exc)
 
     return _ingress
@@ -142,9 +158,11 @@ def bind_recovery_effect_observation(
 
 
 __all__ = [
+    "CONDITIONAL_RULE_GENERATION_COMMAND_SUBSCRIPTIONS",
     "ContextIndexWorkerBindings",
     "RECOVERY_EFFECT_OBSERVATION_TOPIC",
     "RECOVERY_EFFECT_OBSERVER_PRINCIPAL",
+    "POISON_HALT_CLEAR_PRINCIPAL",
     "RuleGenerationWorkerBindings",
     "bind_recovery_effect_observation",
     "bind_runtime_subscriptions",

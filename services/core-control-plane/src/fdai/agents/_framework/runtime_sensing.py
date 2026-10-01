@@ -13,6 +13,7 @@ from fdai.agents.heimdall import (
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
+from fdai.shared.providers.state_store import StateStore
 
 
 def configure_heimdall(
@@ -29,6 +30,7 @@ def configure_heimdall(
     forecast_store: ForecastEpisodeStore | None,
     operational_evidence_hook: OperationalEvidenceHook | None,
     action_observation_hook: ActionObservationHook | None,
+    state_store: StateStore | None,
 ) -> None:
     if (forecast_evaluator is None) != (forecast_closer is None) or (
         forecast_evaluator is None
@@ -46,6 +48,7 @@ def configure_heimdall(
         forecast_store=forecast_store,
         operational_evidence_hook=operational_evidence_hook,
         action_observation_hook=action_observation_hook,
+        state_store=state_store,
     )
 
 

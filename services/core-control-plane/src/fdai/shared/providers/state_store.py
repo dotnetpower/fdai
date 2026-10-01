@@ -202,6 +202,15 @@ class StateStore(Protocol):
         """
         ...
 
+    async def delete_state(self, key: str) -> bool:
+        """Delete one exact tracked-state row when a retention policy owns the key.
+
+        This primitive is for expiry of non-authority rows whose audit summary is
+        retained elsewhere. Callers MUST pass a complete key they own, never a
+        prefix, and MUST NOT use this to erase audit entries or authority records.
+        """
+        ...
+
     async def read_state_page(
         self,
         prefix: str,

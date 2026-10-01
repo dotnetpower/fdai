@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections import defaultdict
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field
@@ -50,6 +51,14 @@ class InMemoryAuditChain:
 
     entries: list[AuditEntry] = field(default_factory=list)
     durable: bool = False
+    _sealed_head_hash: str = "0" * 64
+    _sealed_length: int = 0
+    _verified_head_hash: str = "0" * 64
+    _verified_length: int = 0
+    _correlation_index: dict[str, list[AuditEntry]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    last_verify_visit_count: int = 0
 
     def append(
         self,
@@ -82,12 +91,22 @@ class InMemoryAuditChain:
             payload_digest=payload_digest,
         )
         self.entries.append(entry)
+        self._sealed_head_hash = entry.entry_hash
+        self._sealed_length = len(self.entries)
+        self._correlation_index[correlation_id].append(entry)
         return entry
 
-    def verify(self) -> None:
-        """Walk the chain and raise on any broken link."""
-        prev = "0" * 64
-        for i, entry in enumerate(self.entries):
+    def verify(self, *, full: bool = False) -> None:
+        """Verify the new suffix by default, or the whole chain for audits."""
+        if full:
+            prev = "0" * 64
+            start = 0
+        else:
+            prev = self._verified_head_hash
+            start = self._verified_length
+        visited = 0
+        for i, entry in enumerate(self.entries[start:], start=start):
+            visited += 1
             if entry.seq != i:
                 raise AuditChainError(f"seq mismatch at index {i}: {entry.seq!r}")
             if entry.prev_hash != prev:
@@ -107,9 +126,19 @@ class InMemoryAuditChain:
             if recomputed != entry.entry_hash:
                 raise AuditChainError(f"entry hash mismatch at seq {i}")
             prev = entry.entry_hash
+        self.last_verify_visit_count = visited
+        if len(self.entries) != self._sealed_length:
+            raise AuditChainError(
+                f"chain length mismatch: got {len(self.entries)!r}, "
+                f"expected {self._sealed_length!r}"
+            )
+        if prev != self._sealed_head_hash:
+            raise AuditChainError("chain head mismatch")
+        self._verified_length = len(self.entries)
+        self._verified_head_hash = prev
 
     def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]:
-        return [e for e in self.entries if e.correlation_id == correlation_id]
+        return list(self._correlation_index.get(correlation_id, ()))
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +181,7 @@ class GitHubIssue:
     fingerprint: str
     title: str
     body: str
+    labels: list[str] = field(default_factory=list)
     comments: list[str] = field(default_factory=list)
     open: bool = True
     closed_by_pr: str | None = None
@@ -167,6 +197,7 @@ class IssueTrackerAdapter(Protocol):
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool] | Awaitable[tuple[GitHubIssue, bool]]: ...
 
     def close(
@@ -188,6 +219,7 @@ class IdempotentIssueTrackerAdapter(IssueTrackerAdapter, Protocol):
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool] | Awaitable[tuple[GitHubIssue, bool]]:
         """Replay one result, and reject an operation id/content collision."""
         ...
@@ -214,9 +246,12 @@ class InMemoryGithubIssueAdapter:
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool]:
         existing = self.issues.get(fingerprint)
         if existing is not None and existing.open:
+            existing.body = body
+            existing.labels = list(labels)
             existing.comments.append(body)
             return existing, False
         number = self.next_number
@@ -226,6 +261,7 @@ class InMemoryGithubIssueAdapter:
             fingerprint=fingerprint,
             title=title,
             body=body,
+            labels=list(labels),
         )
         self.issues[fingerprint] = issue
         return issue, True
@@ -237,6 +273,7 @@ class InMemoryGithubIssueAdapter:
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool]:
         """Return one atomic idempotent mutation result per operation id."""
         if not operation_id:
@@ -251,6 +288,7 @@ class InMemoryGithubIssueAdapter:
             fingerprint=fingerprint,
             title=title,
             body=body,
+            labels=labels,
         )
         self.operation_results[operation_id] = (
             fingerprint,
@@ -316,9 +354,63 @@ class InMemoryAdminChannel:
 # ---------------------------------------------------------------------------
 
 
+def canonical_json_payload(obj: Any) -> str:
+    """Return strict canonical JSON for audit evidence.
+
+    The normalizer accepts JSON-native values plus Mapping and tuple/list containers.
+    Non-string Mapping keys, non-finite numbers, and arbitrary objects are rejected
+    instead of being stringified into process-dependent reprs.
+    """
+
+    return json.dumps(
+        _canonical_json_value(obj),
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def canonical_json_digest(obj: Any) -> str:
+    """Stable SHA-256 over :func:`canonical_json_payload`."""
+
+    return hashlib.sha256(canonical_json_payload(obj).encode("utf-8")).hexdigest()
+
+
+def _canonical_json_value(obj: Any) -> Any:
+    if obj is None or isinstance(obj, str | bool):
+        return obj
+    if isinstance(obj, int) and not isinstance(obj, bool):
+        return obj
+    if isinstance(obj, float):
+        if not math.isfinite(obj):
+            raise ValueError("canonical JSON numbers MUST be finite")
+        return obj
+    if isinstance(obj, Mapping):
+        normalized: dict[str, Any] = {}
+        for key, value in obj.items():
+            if not isinstance(key, str):
+                raise TypeError("canonical JSON object keys MUST be strings")
+            normalized[key] = _canonical_json_value(value)
+        return normalized
+    if isinstance(obj, tuple | list):
+        return [_canonical_json_value(value) for value in obj]
+    raise TypeError(f"object of type {type(obj).__name__} is not canonical JSON")
+
+
 def _digest(obj: Any) -> str:
-    """Stable JSON-based SHA256 digest, used for audit chain integrity."""
-    payload = json.dumps(obj, sort_keys=True, default=str, ensure_ascii=True)
+    """Stable strict-JSON SHA256 digest, used for audit chain integrity.
+
+    Audit-chain replay predates the compact evidence helper, so JSON-native
+    payloads keep the historical byte form (sorted keys, default separators,
+    ASCII) while still rejecting non-JSON values and non-finite numbers.
+    """
+    payload = json.dumps(
+        _canonical_json_value(obj),
+        allow_nan=False,
+        ensure_ascii=True,
+        sort_keys=True,
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -327,6 +419,8 @@ __all__ = [
     "AdminNotificationAdapter",
     "AuditChainError",
     "AuditEntry",
+    "canonical_json_digest",
+    "canonical_json_payload",
     "GitHubIssue",
     "InMemoryAdminChannel",
     "InMemoryAuditChain",

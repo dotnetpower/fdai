@@ -22,6 +22,8 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
+
 _RAW_TOPIC = "fdai.events"
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _ACTION_TYPES = tuple(
@@ -30,6 +32,14 @@ _ACTION_TYPES = tuple(
         schema_registry=PackageResourceSchemaRegistry(),
     )
 )
+
+
+def _rollback_executors(registry: T2RouteRegistry) -> dict[str, object]:
+    return {
+        action_type.rollback_contract.value: registry.rollback
+        for action_type in _ACTION_TYPES
+        if not action_type.irreversible
+    }
 
 
 class _DistributedTestLock(ResourceLockManager):
@@ -157,6 +167,12 @@ async def _drive_approved(
                 approver="approver@example.com",
                 decision="approve",
             )
+            if var.pending_tickets():
+                await var.decide(
+                    "corr-t2-recovery",
+                    approver="second-approver@example.com",
+                    decision="approve",
+                )
             break
     for _ in range(3000):
         await asyncio.sleep(0)
@@ -185,7 +201,7 @@ def test_terminal_proposer_failure_reaches_real_hil_chain() -> None:
     assert isinstance(var, Var)
     assert heimdall.behavior_snapshot().get("t2_proposer:unavailable") == 1
     assert runtime.shadow_decisions["verdict:hil"] >= 1
-    assert runtime.shadow_decisions["action_run:hil_pending"] >= 1
+    assert runtime.shadow_decisions["shadow_action_run:hil_pending"] >= 1
     assert var.behavior_snapshot().get("ticket_pending") == 1
     assert var.pending_tickets()[0].params == {
         "target_resource_ref": "control-plane:t2-proposer",
@@ -241,11 +257,13 @@ def test_approved_failure_switches_persistent_route_through_thor() -> None:
         thor_executor=registry.execute,
         thor_state_store=StateStoreActionRunStore(store),
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
-        rollback_executors={"state_forward_only": registry.rollback},
+        rollback_executors=_rollback_executors(registry),
         vidar_state_store=store,
         var_state_store=store,
+        forseti_state_store=store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
+        thor_preflight_simulator=PassingPreflightSimulator(),
     )
 
     asyncio.run(
@@ -254,12 +272,12 @@ def test_approved_failure_switches_persistent_route_through_thor() -> None:
             provider,
             registry,
             expected_route="secondary",
-            expected_action_state="succeeded",
+            expected_action_state="effect_pending",
         )
     )
 
     assert asyncio.run(registry.preferred_route(("primary", "secondary"))) == "secondary"
-    assert runtime.shadow_decisions["action_run:succeeded"] >= 1
+    assert runtime.shadow_decisions["action_run:effect_pending"] >= 1
 
 
 def test_vidar_restores_route_when_thor_verification_fails() -> None:
@@ -279,11 +297,13 @@ def test_vidar_restores_route_when_thor_verification_fails() -> None:
         thor_executor=switch_then_fail,
         thor_state_store=StateStoreActionRunStore(store),
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
-        rollback_executors={"state_forward_only": registry.rollback},
+        rollback_executors=_rollback_executors(registry),
         vidar_state_store=store,
         var_state_store=store,
+        forseti_state_store=store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
+        thor_preflight_simulator=PassingPreflightSimulator(),
     )
 
     asyncio.run(

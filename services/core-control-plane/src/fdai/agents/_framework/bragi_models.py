@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 
@@ -31,8 +32,14 @@ class Turn:
 class ConversationSession:
     session_id: str
     user_id: str
+    created_at: datetime | None = None
+    last_active_at: datetime | None = None
+    ended_at: datetime | None = None
+    generation: int = 1
     turns: list[Turn] = field(default_factory=list)
     conversation_published: bool = False
+    conversation_publication_inflight: bool = False
+    next_turn_index: int = 0
 
 
 __all__ = ["ConversationSession", "RoutingDecision", "Turn"]

@@ -12,16 +12,17 @@ from uuid import UUID
 import pytest
 from fdai.agents import PantheonRuntime
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionCandidate
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
-from fdai.agents.huginn import Huginn
+from fdai.agents.huginn import Huginn, HuginnIngressRejected
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.agents.var import Var
-from fdai.agents.vidar import RollbackClaimInProgressError, Vidar
+from fdai.agents.vidar import Vidar
 from fdai.shared.contracts.models import Autonomy, IncidentSeverity
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
@@ -59,6 +60,23 @@ def _rollback_for_run(
         "state": state,
         "rollback_ref": rollback_ref,
     }
+
+
+def _restart_semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={
+            "ops.restart-service": False,
+            "remediate.disable-public-access": False,
+            "remediate.delete-storage": False,
+            "remediate.enable-encryption": False,
+        },
+        rollback_by_id={
+            "ops.restart-service": "state_forward_only",
+            "remediate.disable-public-access": "state_forward_only",
+            "remediate.delete-storage": "state_forward_only",
+            "remediate.enable-encryption": "state_forward_only",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +306,7 @@ def test_huginn_preserves_a_valid_source_event_time() -> None:
 def test_huginn_rejects_a_malformed_source_event_time() -> None:
     huginn = Huginn()
 
-    with pytest.raises(ValueError, match="detected_at MUST be RFC 3339"):
+    with pytest.raises(HuginnIngressRejected) as exc:
         asyncio.run(
             huginn.ingest(
                 {
@@ -299,23 +317,25 @@ def test_huginn_rejects_a_malformed_source_event_time() -> None:
                 }
             )
         )
+    assert exc.value.reason_code == "timestamp_not_rfc3339"
 
 
 def test_huginn_rejects_a_source_time_after_ingestion() -> None:
     huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0, tzinfo=UTC))
 
-    with pytest.raises(ValueError, match="after trusted ingestion time"):
+    with pytest.raises(HuginnIngressRejected) as exc:
         asyncio.run(
             huginn.ingest(
                 {
                     "id": "evt-time-1",
                     "resource_id": "vm-1",
                     "event_type": "cpu_spike",
-                    "detected_at": "2026-09-14T02:00:01Z",
+                    "detected_at": "2026-09-14T02:10:01Z",
                     "ingested_at": "2099-01-01T00:00:00Z",
                 }
             )
         )
+    assert exc.value.reason_code == "timestamp_future"
 
 
 def test_huginn_rejects_a_naive_ingestion_clock() -> None:
@@ -340,23 +360,20 @@ def test_huginn_bounds_pathological_attributes() -> None:
     from fdai.agents.huginn import _MAX_ATTR_KEYS, _MAX_FIELD_CHARS
 
     huginn = Huginn()
-    payload = asyncio.run(
-        huginn.ingest(
-            {
-                "id": "evt-huge",
-                "event_type": "generic",
-                "attributes": {
-                    **{f"k{i}": "v" for i in range(_MAX_ATTR_KEYS + 100)},
-                    "big": "x" * (_MAX_FIELD_CHARS + 1000),
-                },
-            }
+    with pytest.raises(HuginnIngressRejected) as exc:
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "id": "evt-huge",
+                    "event_type": "generic",
+                    "attributes": {
+                        **{f"k{i}": "v" for i in range(_MAX_ATTR_KEYS + 100)},
+                        "big": "x" * (_MAX_FIELD_CHARS + 1000),
+                    },
+                }
+            )
         )
-    )
-    assert payload is not None
-    attrs = payload["attributes"]
-    assert len(attrs) == _MAX_ATTR_KEYS
-    # Any surviving string value is truncated to the field cap.
-    assert all(len(v) <= _MAX_FIELD_CHARS for v in attrs.values() if isinstance(v, str))
+    assert exc.value.reason_code == "raw_object_too_large"
 
 
 def test_huginn_publishes_on_bound_bus() -> None:
@@ -378,10 +395,37 @@ def test_huginn_publishes_on_bound_bus() -> None:
     assert events[0].principal == "Huginn"
 
 
-def test_huginn_requires_stable_key() -> None:
+def test_huginn_derives_stable_key_when_source_omits_one() -> None:
     huginn = Huginn()
-    with pytest.raises(ValueError, match="missing idempotency_key"):
-        asyncio.run(huginn.ingest({"resource_id": "r"}))
+    normalized = asyncio.run(
+        huginn.ingest(
+            {
+                "source": "test-source",
+                "resource_id": "r",
+                "event_type": "public_network_enabled",
+                "attributes": {"signal": "one"},
+            }
+        )
+    )
+
+    assert normalized is not None
+    assert normalized["idempotency_key"].startswith("huginn-event:")
+
+
+def test_huginn_raises_dedicated_rejection_for_malformed_event_time() -> None:
+    huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0, 1, tzinfo=UTC))
+    with pytest.raises(HuginnIngressRejected) as exc:
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "source": "test-source",
+                    "resource_id": "r",
+                    "event_type": "public_network_enabled",
+                    "occurred_at": "not-a-time",
+                }
+            )
+        )
+    assert exc.value.reason_code == "timestamp_not_rfc3339"
 
 
 # ---------------------------------------------------------------------------
@@ -714,11 +758,12 @@ def test_heimdall_security_severity_critical_on_pattern() -> None:
 def test_forseti_emits_verdict_auto_on_rule_match() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    f = Forseti(bus=bus)
+    f = Forseti(bus=bus, action_semantics=_restart_semantics())
     asyncio.run(
         f.on_typed_message(
             "object.event",
             {
+                "producer_principal": "Huginn",
                 "event_type": "public_network_enabled",
                 "resource_id": "sa-1",
                 "correlation_id": "c",
@@ -730,7 +775,7 @@ def test_forseti_emits_verdict_auto_on_rule_match() -> None:
     assert len(verdicts) == 1
     assert verdicts[0].payload["risk_verdict"] == "auto"
     assert verdicts[0].payload["action_type"] == "remediate.disable-public-access"
-    assert verdicts[0].payload["idempotency_key"] == "event-1"
+    assert verdicts[0].payload["idempotency_key"].startswith("forseti-verdict:")
 
 
 def test_forseti_emits_document_admission_without_action_type() -> None:
@@ -810,7 +855,7 @@ def test_heimdall_emits_content_free_document_safety_signal() -> None:
 def test_forseti_admits_clear_document_safety_signal() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_restart_semantics())
     asyncio.run(
         forseti.on_typed_message(
             "object.anomaly",
@@ -883,7 +928,7 @@ def test_forseti_routes_authoritative_document_to_hil() -> None:
 def test_var_document_hil_blocks_uploader_and_emits_reviewer_approval() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    var = Var(bus=bus)
+    var = Var(bus=bus, action_semantics=_restart_semantics())
     asyncio.run(
         var.on_typed_message(
             "object.audit-entry",
@@ -923,7 +968,8 @@ def test_var_document_hil_blocks_uploader_and_emits_reviewer_approval() -> None:
     assert approval["kind"] == "document_ingestion"
     assert approval["state"] == "approved"
     assert approval["document_id"] == "doc-hil"
-    assert approval["idempotency_key"] == "document.inspected:version-hil"
+    assert str(approval["idempotency_key"]).startswith("approval-final:")
+    assert approval["action_idempotency_key"] == "document.inspected:version-hil"
 
 
 def test_thor_ignores_document_approval() -> None:
@@ -956,6 +1002,7 @@ def test_forseti_rbac_deny_emits_security_event() -> None:
         f.on_typed_message(
             "object.event",
             {
+                "producer_principal": "Huginn",
                 "event_type": "public_network_enabled",
                 "resource_id": "sa-1",
                 "correlation_id": "c",
@@ -981,9 +1028,11 @@ def test_forseti_unconfigured_rbac_grants_no_operator_authority() -> None:
         f.on_typed_message(
             "object.event",
             {
+                "producer_principal": "Huginn",
                 "event_type": "public_network_enabled",
                 "resource_id": "service-1",
                 "correlation_id": "unconfigured-rbac",
+                "idempotency_key": "unconfigured-rbac:key",
                 "initiator_principal": "operator@example.com",
                 "operator_initiated": True,
             },
@@ -1028,7 +1077,7 @@ def test_forseti_uses_stable_idempotency_when_correlation_is_null() -> None:
 
     assert verdict is not None
     assert verdict["correlation_id"] == "inventory-delta:stable"
-    assert verdict["idempotency_key"] == "inventory-delta:stable"
+    assert verdict["idempotency_key"].startswith("forseti-verdict:")
     assert verdict["risk_verdict"] == "hil"
     assert verdict["resolved_autonomy_ceiling"] == Autonomy.SHADOW_ONLY.value
     published = bus.messages_on("object.verdict")
@@ -1065,6 +1114,7 @@ def test_thor_ignores_repeated_actionless_triage_verdicts() -> None:
             await thor.on_typed_message(
                 "object.verdict",
                 {
+                    "producer_principal": "Forseti",
                     "correlation_id": correlation_id,
                     "idempotency_key": correlation_id,
                     "resource_id": "resource-1",
@@ -1082,7 +1132,7 @@ def test_thor_ignores_repeated_actionless_triage_verdicts() -> None:
 
 
 def test_forseti_cost_spike_has_no_placeholder_remediation() -> None:
-    f = Forseti(bus=None)
+    f = Forseti(bus=None, action_semantics=_restart_semantics())
 
     verdict = asyncio.run(
         f.judge(
@@ -1130,9 +1180,9 @@ def test_forseti_judge_without_bus_returns_verdict_and_no_publish() -> None:
     f = Forseti(bus=None)
     verdict = asyncio.run(f.judge({"action_type": "ops.restart-service", "correlation_id": "c-nb"}))
     # No bus wired: the verdict is still computed and returned (reason
-    # rule_match, risk auto) even though nothing is published.
+    # rule_match, HIL without a catalog) even though nothing is published.
     assert verdict is not None
-    assert verdict["risk_verdict"] == "auto"
+    assert verdict["risk_verdict"] == "hil"
     assert verdict["reason"] == "rule_match"
 
 
@@ -1183,6 +1233,7 @@ def test_forseti_conflicting_domain_signals_raise_weighted_arbitration() -> None
         f.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "weighted-arbitration",
                 "resource_id": "vm-7",
                 "recommendation": "scale_down",
@@ -1194,6 +1245,7 @@ def test_forseti_conflicting_domain_signals_raise_weighted_arbitration() -> None
         f.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "weighted-arbitration",
                 "resource_id": "vm-7",
                 "recommendation": "scale_up",
@@ -1215,10 +1267,10 @@ def test_forseti_records_arbitration_decision() -> None:
     asyncio.run(
         f.on_typed_message(
             "object.arbitration-decision",
-            {"correlation_id": "c-arb", "winning_domain": "capacity"},
+            {"producer_principal": "Odin", "correlation_id": "c-arb", "winning_domain": "capacity"},
         )
     )
-    assert f.arbitrations["c-arb"] == "capacity"
+    assert "c-arb" not in f.arbitrations
 
 
 def test_forseti_introspect_reports_verdict_tables() -> None:
@@ -1239,6 +1291,7 @@ def test_forseti_signal_impact_falls_back_on_non_numeric_fields() -> None:
         f.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "fallback-impact",
                 "resource_id": "vm-8",
                 "recommendation": "scale_down",
@@ -1251,6 +1304,7 @@ def test_forseti_signal_impact_falls_back_on_non_numeric_fields() -> None:
         f.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "resource_id": "vm-8",
                 "correlation_id": "fallback-impact",
                 "recommendation": "scale_up",
@@ -1326,7 +1380,7 @@ def test_thor_hil_verdict_waits_for_approval_then_executes() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     thor = Thor(bus=bus)
-    var = Var(bus=bus)
+    var = Var(bus=bus, action_semantics=_restart_semantics())
     bus.subscribe("object.action-run", "Var", var.on_typed_message)
     bus.subscribe("object.approval", "Thor", thor.on_typed_message)
 
@@ -1344,7 +1398,7 @@ def test_thor_hil_verdict_waits_for_approval_then_executes() -> None:
     assert thor.action_runs["c-hil"].state == ActionRunState.HIL_PENDING
     # Operator approves
     asyncio.run(var.decide("c-hil", approver="operator@example.com", decision="approve"))
-    assert thor.action_runs["c-hil"].state == ActionRunState.SUCCEEDED
+    assert thor.action_runs["c-hil"].state == ActionRunState.EFFECT_PENDING
 
 
 def test_thor_duplicate_approval_does_not_re_execute() -> None:
@@ -1373,12 +1427,12 @@ def test_thor_duplicate_approval_does_not_re_execute() -> None:
     )
     approval = _approval_for_run(run)
     asyncio.run(thor._handle_approval(dict(approval)))  # noqa: SLF001
-    assert thor.action_runs["c-dup-appr"].state == ActionRunState.SUCCEEDED
+    assert thor.action_runs["c-dup-appr"].state == ActionRunState.EFFECT_PENDING
     assert calls["n"] == 1
     # Redeliver the same approval -> idempotent no-op, executor not called again.
     asyncio.run(thor._handle_approval(dict(approval)))  # noqa: SLF001
     assert calls["n"] == 1
-    assert thor.action_runs["c-dup-appr"].state == ActionRunState.SUCCEEDED
+    assert thor.action_runs["c-dup-appr"].state == ActionRunState.EFFECT_PENDING
 
 
 def test_thor_rejects_stale_approval_for_reused_correlation() -> None:
@@ -1434,20 +1488,21 @@ def test_thor_rejects_live_correlation_reuse() -> None:
         )
     )
 
-    with pytest.raises(ValueError, match="correlation cannot be reused"):
-        asyncio.run(
-            thor.dispatch_verdict(
-                {
-                    "correlation_id": previous.correlation_id,
-                    "idempotency_key": "generation-current",
-                    "action_type": "remediate.delete-storage",
-                    "risk_verdict": "hil",
-                    "resource_id": "storage-current",
-                }
-            )
+    rejected = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": previous.correlation_id,
+                "idempotency_key": "generation-current",
+                "action_type": "remediate.delete-storage",
+                "risk_verdict": "hil",
+                "resource_id": "storage-current",
+            }
         )
+    )
 
     assert thor.action_runs[previous.correlation_id] is previous
+    assert rejected.state is ActionRunState.DENY_DROPPED
+    assert rejected.outcome == "correlation_reuse_rejected"
     assert thor.behavior_snapshot()["dispatch:correlation_reuse_rejected"] == 1
 
 
@@ -1531,8 +1586,8 @@ def test_thor_releases_lock_when_lifecycle_emit_fails() -> None:
                 }
             )
         )
-    # Lock released despite the failure -> the resource is not deadlocked.
     assert thor.health()["locked_resources"] == 0
+    assert "c-boom" not in thor.action_runs
     assert "vm-boom" not in thor._resource_locks  # noqa: SLF001
 
 
@@ -1567,7 +1622,11 @@ def test_thor_triggers_vidar_rollback_on_failure() -> None:
         return f"rollback:{action_run['correlation_id']}"
 
     thor = Thor(bus=bus, executor=failing)
-    vidar = Vidar(bus=bus, executors={"state_forward_only": rollback_executor})
+    vidar = Vidar(
+        bus=bus,
+        executors={"state_forward_only": rollback_executor},
+        allow_process_local_rollback=True,
+    )
     bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)
     bus.subscribe("object.rollback", "Thor", thor.on_typed_message)
 
@@ -1590,7 +1649,7 @@ def test_thor_triggers_vidar_rollback_on_failure() -> None:
     assert rollbacks[0].payload["state"] == "succeeded"
 
 
-def test_vidar_missing_executor_fails_closed_and_retains_thor_lock() -> None:
+def test_vidar_missing_executor_fails_closed_and_releases_thor_lock() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
 
@@ -1615,15 +1674,17 @@ def test_vidar_missing_executor_fails_closed_and_retains_thor_lock() -> None:
         )
     )
 
-    assert run.state == ActionRunState.ROLLBACK_FAILED
+    assert run.state == ActionRunState.DENY_DROPPED
+    assert run.outcome == "dr_failover_contract_held:failback_executor_unbound"
     assert run.rollback_ref is None
-    assert "db-1" in thor._resource_locks
+    assert "db-1" not in thor._resource_locks
     rollback = bus.messages_on("object.rollback")[0].payload
-    assert rollback["state"] == "failed"
-    assert rollback["contract"] == "scripted"
+    assert rollback["kind"] == "dr_failover_contract"
+    assert rollback["decision"] == "held"
+    assert rollback["reason"] == "failback_executor_unbound"
 
 
-def test_vidar_blank_receipt_fails_closed_and_retains_thor_lock() -> None:
+def test_vidar_blank_receipt_fails_closed_and_releases_thor_lock() -> None:
     bus = InMemoryBus(registry=load_pantheon())
 
     async def failing(_ctx):
@@ -1636,6 +1697,7 @@ def test_vidar_blank_receipt_fails_closed_and_retains_thor_lock() -> None:
     vidar = Vidar(
         bus=bus,
         executors={"state_forward_only": blank_rollback_receipt},
+        allow_process_local_rollback=True,
     )
     bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)
     bus.subscribe("object.rollback", "Thor", thor.on_typed_message)
@@ -1654,7 +1716,7 @@ def test_vidar_blank_receipt_fails_closed_and_retains_thor_lock() -> None:
 
     assert run.state == ActionRunState.ROLLBACK_FAILED
     assert run.rollback_ref is None
-    assert "vm-blank-rollback" in thor._resource_locks
+    assert "vm-blank-rollback" not in thor._resource_locks
     rollback = bus.messages_on("object.rollback")[0].payload
     assert rollback["state"] == "failed"
     assert rollback["rollback_ref"] is None
@@ -1690,7 +1752,7 @@ def test_thor_rejects_blank_succeeded_rollback_receipt() -> None:
     assert run.state == ActionRunState.ROLLBACK_FAILED
     assert run.outcome == "rollback_failed"
     assert run.rollback_ref is None
-    assert "vm-forged-blank-rollback" in thor._resource_locks
+    assert "vm-forged-blank-rollback" not in thor._resource_locks
 
 
 def test_vidar_rollback_is_idempotent_per_correlation() -> None:
@@ -1701,6 +1763,7 @@ def test_vidar_rollback_is_idempotent_per_correlation() -> None:
     bus = InMemoryBus(registry=reg)
     vidar = Vidar(bus=bus)
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-dup",
         "action_type": "remediate.delete-storage",
         "resource_id": "sa-1",
@@ -1737,8 +1800,13 @@ def test_vidar_retries_publication_without_repeating_rollback() -> None:
         return "rollback:c-publish-retry"
 
     bus = _FlakyRollbackBus()
-    vidar = Vidar(bus=bus, executors={"state_forward_only": rollback_executor})
+    vidar = Vidar(
+        bus=bus,
+        executors={"state_forward_only": rollback_executor},
+        allow_process_local_rollback=True,
+    )
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-publish-retry",
         "action_type": "ops.restart-service",
         "resource_id": "vm-3",
@@ -1770,6 +1838,7 @@ def test_vidar_replays_durable_terminal_result_after_restart() -> None:
 
     store = InMemoryStateStore()
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-durable-restart",
         "action_type": "ops.restart-service",
         "resource_id": "vm-3",
@@ -1807,6 +1876,7 @@ def test_vidar_isolates_changed_rollback_command_inputs() -> None:
 
     store = InMemoryStateStore()
     original = {
+        "producer_principal": "Thor",
         "correlation_id": "c-command-identity",
         "action_type": "ops.restore-database",
         "action_id": "action-1",
@@ -1906,6 +1976,7 @@ def test_vidar_rejects_noncanonical_durable_terminal_state(
 
     store = InMemoryStateStore()
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-malformed-terminal",
         "action_type": "ops.restart-service",
         "resource_id": "vm-3",
@@ -1960,6 +2031,7 @@ def test_vidar_marks_interrupted_durable_claim_execution_unknown() -> None:
 
     store = InMemoryStateStore()
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-interrupted-claim",
         "action_type": "ops.failover-primary",
         "resource_id": "db-1",
@@ -2023,6 +2095,7 @@ def test_vidar_keeps_another_live_replica_claim_retryable() -> None:
             claim_lease=timedelta(minutes=1),
         )
         failed = {
+            "producer_principal": "Thor",
             "correlation_id": "c-live-claim",
             "action_type": "ops.restart-service",
             "resource_id": "vm-3",
@@ -2030,11 +2103,8 @@ def test_vidar_keeps_another_live_replica_claim_retryable() -> None:
         }
         owner_task = asyncio.create_task(first.rollback(dict(failed)))
         await entered.wait()
-        with pytest.raises(
-            RollbackClaimInProgressError,
-            match="rollback claim remains active until",
-        ):
-            await second.rollback(dict(failed))
+        assert await second.rollback(dict(failed)) is None
+        assert second.behavior_snapshot()["rollback:claim_in_progress"] == 1
         release.set()
         owner_result = await owner_task
         return owner_result, calls
@@ -2063,6 +2133,7 @@ def test_vidar_serializes_concurrent_rollback_delivery() -> None:
         state_store=InMemoryStateStore(),
     )
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-concurrent",
         "action_type": "ops.restart-service",
         "resource_id": "vm-3",
@@ -2098,18 +2169,19 @@ def test_thor_per_resource_mutex_prevents_concurrent_runs() -> None:
             }
         )
     )
-    # A distinct action is not acknowledged or discarded while the resource is held.
-    with pytest.raises(RuntimeError, match="active ActionRun"):
-        asyncio.run(
-            thor.dispatch_verdict(
-                {
-                    "correlation_id": "c2",
-                    "action_type": "ops.restart-service",
-                    "risk_verdict": "auto",
-                    "resource_id": "vm-lock",
-                }
-            )
+    # A distinct action is rejected visibly while the resource is held.
+    rejected = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "c2",
+                "action_type": "ops.restart-service",
+                "risk_verdict": "auto",
+                "resource_id": "vm-lock",
+            }
         )
+    )
+    assert rejected.state is ActionRunState.DENY_DROPPED
+    assert rejected.outcome == "resource_active_action_run_contention"
 
 
 def test_var_quorum_two_approvers_required() -> None:
@@ -2121,7 +2193,9 @@ def test_var_quorum_two_approvers_required() -> None:
         var.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "c",
+                "idempotency_key": "action-run:c",
                 "action_type": "remediate.delete-storage",
                 "resource_id": "sa-1",
                 "state": "hil_pending",
@@ -2146,8 +2220,11 @@ def test_var_rejects_self_approval_twice() -> None:
         var.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "c",
+                "idempotency_key": "action-run:c",
                 "action_type": "x",
+                "resource_id": "resource-1",
                 "state": "hil_pending",
                 "quorum_required": 2,
             },
@@ -2167,10 +2244,16 @@ def _var_with_pending(
     state_store=None,  # noqa: ANN001
 ) -> Var:
     reg = load_pantheon()
-    var = Var(bus=InMemoryBus(registry=reg), state_store=state_store)
+    var = Var(
+        bus=InMemoryBus(registry=reg),
+        state_store=state_store,
+        action_semantics=_restart_semantics(),
+    )
     payload: dict[str, object] = {
+        "producer_principal": "Thor",
         "correlation_id": correlation,
         "action_type": "remediate.delete-storage",
+        "resource_id": "resource-1",
         "state": "hil_pending",
         "quorum_required": quorum,
         "idempotency_key": idempotency_key,
@@ -2181,7 +2264,7 @@ def _var_with_pending(
     return var
 
 
-def test_var_preserves_action_run_idempotency_key_on_approval() -> None:
+def test_var_preserves_action_run_idempotency_key_separately_from_final_approval_key() -> None:
     var = _var_with_pending(
         "c-idempotency",
         idempotency_key="c-idempotency:hil_pending",
@@ -2196,10 +2279,12 @@ def test_var_preserves_action_run_idempotency_key_on_approval() -> None:
     )
 
     assert approval is not None
-    assert approval["idempotency_key"] == "c-idempotency:hil_pending"
+    assert str(approval["idempotency_key"]).startswith("approval-final:")
+    assert approval["action_idempotency_key"] == "c-idempotency:hil_pending"
     assert var.bus is not None
     published = var.bus.messages_on("object.approval")  # type: ignore[union-attr]
-    assert published[0].payload["idempotency_key"] == "c-idempotency:hil_pending"
+    assert str(published[0].payload["idempotency_key"]).startswith("approval-final:")
+    assert published[0].payload["action_idempotency_key"] == "c-idempotency:hil_pending"
 
 
 def test_var_retries_stored_final_approval_after_publication_failure() -> None:
@@ -2223,14 +2308,16 @@ def test_var_retries_stored_final_approval_after_publication_failure() -> None:
 
     store = InMemoryStateStore()
     bus = _FailOnceApprovalBus()
-    var = Var(bus=bus, state_store=store)
+    var = Var(bus=bus, state_store=store, action_semantics=_restart_semantics())
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "c-approval-retry",
                 "idempotency_key": "c-approval-retry:hil_pending",
                 "action_type": "ops.restart-service",
+                "resource_id": "resource-1",
                 "state": "hil_pending",
             },
         )
@@ -2279,7 +2366,7 @@ def test_var_replays_final_approval_after_restart() -> None:
     assert finalized is not None
 
     bus = InMemoryBus(registry=load_pantheon())
-    restarted = Var(bus=bus, state_store=store)
+    restarted = Var(bus=bus, state_store=store, action_semantics=_restart_semantics())
     assert asyncio.run(restarted.recover_approvals()) == (0, 1)
     assert len(bus.messages_on("object.approval")) == 1
 
@@ -2289,12 +2376,14 @@ def test_var_rejects_durable_correlation_reuse() -> None:
 
     store = InMemoryStateStore()
     correlation = "c-var-reused-correlation"
-    first = Var(state_store=store)
+    first = Var(state_store=store, action_semantics=_restart_semantics())
     asyncio.run(
         first.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": correlation,
+                "idempotency_key": "action-run:old",
                 "action_type": "ops.restart-service",
                 "resource_id": "vm-old",
                 "state": "hil_pending",
@@ -2310,12 +2399,14 @@ def test_var_rejects_durable_correlation_reuse() -> None:
     )
     assert old_approval is not None
 
-    restarted = Var(state_store=store)
+    restarted = Var(state_store=store, action_semantics=_restart_semantics())
     asyncio.run(
         restarted.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": correlation,
+                "idempotency_key": "action-run:current",
                 "action_type": "remediate.delete-storage",
                 "resource_id": "storage-current",
                 "state": "hil_pending",
@@ -2323,16 +2414,15 @@ def test_var_rejects_durable_correlation_reuse() -> None:
         )
     )
     assert restarted.pending_tickets() == ()
-    assert (
-        asyncio.run(
-            restarted.decide(
-                correlation,
-                approver="reviewer-b@example.com",
-                decision="approve",
-            )
+    refusal = asyncio.run(
+        restarted.decide(
+            correlation,
+            approver="reviewer-b@example.com",
+            decision="approve",
         )
-        is None
     )
+    assert refusal is not None
+    assert refusal["reason"] == "missing_ticket"
     assert restarted.behavior_snapshot()["ticket_identity_conflict"] == 1
 
 
@@ -2419,6 +2509,53 @@ def test_var_recovers_unpublished_final_without_repeated_human_decision() -> Non
     assert len(published) == 1
     assert published[0].payload["correlation_id"] == "c-approval-outbox"
     assert published[0].payload["approvers"] == ["reviewer@example.com"]
+
+
+def test_var_recovers_stale_publishing_final_without_repeated_human_decision() -> None:
+    from fdai.agents._framework.var_decisions import final_approval_record
+    from fdai.agents._framework.var_ticket_identity import (
+        approval_action_identity,
+        approval_state_key,
+    )
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    first = _var_with_pending("c-approval-stale-publishing", state_store=store)
+    first.bus = None
+    finalized = asyncio.run(
+        first.decide(
+            "c-approval-stale-publishing",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+    assert finalized is not None
+    action_run_identity = approval_action_identity(finalized)
+    key = approval_state_key("c-approval-stale-publishing", "final", action_run_identity)
+    stored = asyncio.run(store.read_state(key))
+    assert stored is not None
+    asyncio.run(
+        store.write_state(
+            key,
+            final_approval_record(
+                finalized,
+                publication_status="publishing",
+                revision=int(stored["revision"]) + 1,
+                claim_owner="old-var",
+                claimed_at="",
+            ),
+        )
+    )
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Var(bus=bus, state_store=store)
+    recovered = asyncio.run(restarted.recover_approvals())
+
+    assert recovered == (0, 1)
+    published = bus.messages_on("object.approval")
+    assert len(published) == 1
+    assert published[0].payload["idempotency_key"] == finalized["idempotency_key"]
+    assert asyncio.run(store.read_state(key))["publication_status"] == "published"
 
 
 def test_var_recovers_terminal_decision_before_final_checkpoint() -> None:
@@ -2510,8 +2647,10 @@ def test_var_combines_quorum_across_replicas() -> None:
         first = Var(state_store=store)
         second = Var(state_store=store)
         ticket = {
+            "producer_principal": "Thor",
             "correlation_id": "c-quorum-replicas",
             "action_type": "remediate.delete-storage",
+            "resource_id": "resource-1",
             "state": "hil_pending",
             "quorum_required": 2,
             "idempotency_key": "action-run:hil-pending",
@@ -2605,7 +2744,9 @@ def test_var_serializes_concurrent_final_approvals() -> None:
 
     finalized = first or second
     assert finalized is not None
-    assert (first is None) is not (second is None)
+    assert (first.get("reason") == "missing_ticket") is not (
+        second.get("reason") == "missing_ticket"
+    )
     assert finalized["approvers"] == ["first@example.com"]
     assert var.bus is not None
     assert len(var.bus.messages_on("object.approval")) == 1  # type: ignore[union-attr]
@@ -2613,14 +2754,16 @@ def test_var_serializes_concurrent_final_approvals() -> None:
 
 @pytest.mark.parametrize("idempotency_key", [" ", 7])
 def test_var_rejects_invalid_action_run_idempotency_key(idempotency_key: object) -> None:
-    var = Var(bus=None)
+    var = Var(bus=None, action_semantics=_restart_semantics())
 
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "c-invalid-idempotency",
                 "action_type": "ops.restart-service",
+                "resource_id": "resource-1",
                 "state": "hil_pending",
                 "idempotency_key": idempotency_key,
             },
@@ -2660,15 +2803,18 @@ def test_var_reject_flow_emits_rejected_approval() -> None:
     assert result is not None
     assert result["state"] == "rejected"
     # The ticket is consumed, so a second decide finds nothing.
-    assert asyncio.run(var.decide("c-hil", approver="b@example.com", decision="approve")) is None
+    refusal = asyncio.run(var.decide("c-hil", approver="b@example.com", decision="approve"))
+    assert refusal is not None
+    assert refusal["reason"] == "missing_ticket"
 
 
 def test_var_decide_unknown_correlation_returns_none() -> None:
     var = _var_with_pending()
-    assert (
-        asyncio.run(var.decide("does-not-exist", approver="a@example.com", decision="approve"))
-        is None
+    refusal = asyncio.run(
+        var.decide("does-not-exist", approver="a@example.com", decision="approve")
     )
+    assert refusal is not None
+    assert refusal["reason"] == "missing_ticket"
 
 
 def test_var_ingest_rejects_a_reused_correlation_with_new_identity() -> None:
@@ -2678,16 +2824,43 @@ def test_var_ingest_rejects_a_reused_correlation_with_new_identity() -> None:
         var.on_typed_message("object.verdict", {"correlation_id": "z", "state": "hil_pending"})
     )
     # Right topic but not hil_pending is ignored.
-    asyncio.run(var.on_typed_message("object.action-run", {"correlation_id": "z", "state": "auto"}))
+    asyncio.run(
+        var.on_typed_message(
+            "object.action-run",
+            {
+                "producer_principal": "Thor",
+                "correlation_id": "z",
+                "idempotency_key": "action-run:z",
+                "resource_id": "resource-z",
+                "state": "auto",
+            },
+        )
+    )
     # Empty correlation is ignored.
     asyncio.run(
-        var.on_typed_message("object.action-run", {"correlation_id": "", "state": "hil_pending"})
+        var.on_typed_message(
+            "object.action-run",
+            {
+                "producer_principal": "Thor",
+                "correlation_id": "",
+                "idempotency_key": "action-run:empty",
+                "resource_id": "resource-empty",
+                "state": "hil_pending",
+            },
+        )
     )
     # A different ActionRun cannot reuse an already claimed correlation.
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
-            {"correlation_id": "c-dup", "action_type": "other", "state": "hil_pending"},
+            {
+                "producer_principal": "Thor",
+                "correlation_id": "c-dup",
+                "idempotency_key": "action-run:c-dup-new",
+                "resource_id": "resource-new",
+                "action_type": "other",
+                "state": "hil_pending",
+            },
         )
     )
     tickets = {t.correlation_id for t in var.pending_tickets()}
@@ -2696,15 +2869,17 @@ def test_var_ingest_rejects_a_reused_correlation_with_new_identity() -> None:
     assert var.behavior_snapshot()["ticket_identity_conflict"] == 1
 
 
-def test_var_quorum_met_without_bus_still_consumes_ticket() -> None:
-    # bus=None: the approval is not published but the ticket still
-    # resolves and is removed from the pending queue.
+def test_var_quorum_met_without_bus_keeps_ticket_pending_for_publication() -> None:
+    # bus=None: the final approval is durable/in-memory, but the ticket stays
+    # pending until transport is bound so a success-shaped unpublished approval
+    # cannot vanish.
     var = _var_with_pending("c-nobus", quorum=1)
     var.bus = None
     result = asyncio.run(var.decide("c-nobus", approver="a@example.com", decision="approve"))
     assert result is not None
     assert result["state"] == "approved"
-    assert var.pending_tickets() == ()
+    assert var.pending_tickets()[0].correlation_id == "c-nobus"
+    assert var.behavior_snapshot()["publication:unavailable"] == 1
 
 
 def test_var_bind_bus_late_binds_the_publisher() -> None:
@@ -2765,7 +2940,7 @@ def test_end_to_end_shadow_verdict_loop() -> None:
     bus = InMemoryBus(registry=reg)
     huginn = Huginn(bus=bus)
     heimdall = Heimdall(bus=bus, rate_threshold=3)
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_restart_semantics())
     thor = Thor(bus=bus)
     vidar = Vidar(bus=bus)
     saga = Saga()
@@ -2802,8 +2977,8 @@ def test_end_to_end_shadow_verdict_loop() -> None:
 
     # Every event that has a rule match must yield exactly one verdict.
     assert len(verdicts) == 100
-    # Every verdict must produce (at least) verdicted/executing/succeeded states.
-    assert len(action_runs) >= 300
+    # Every shadow verdict must produce visible verdicted and succeeded states.
+    assert len(action_runs) >= 200
     # Zero policy escapes: no state == 'failed' or 'deny_dropped'
     escaped = [a for a in action_runs if a.payload["state"] in ("failed", "deny_dropped")]
     assert escaped == []

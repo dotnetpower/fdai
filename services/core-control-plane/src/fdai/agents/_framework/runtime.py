@@ -5,11 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Any
-
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.agents._framework import architecture_review_runtime as arb_runtime
 from fdai.agents._framework import assignment_wiring as assignment_runtime
@@ -17,31 +16,37 @@ from fdai.agents._framework import execution_safety, factory, runtime_health, ru
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bragi_intent_training import IntentTrainingEvaluator
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
 from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings, bind_catalog_review
-from fdai.agents._framework.conversation_tools import (
-    AgentConversationToolRegistry,
-    AgentToolResult,
-)
+from fdai.agents._framework.conversation_tools import AgentConversationToolRegistry
 from fdai.agents._framework.deliberation import T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
+from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
+from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.kpi import KpiCollector
+from fdai.agents._framework.loki_adversarial import ChaosScenarioGenerator
+from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
+from fdai.agents._framework.mimir_maintenance import (
+    MimirCatalogPromotionOutcomeReader,
+    MimirRegressionRunner,
+    MimirRuleDeprecationReader,
+    MimirRuleSourcePoller,
+)
 from fdai.agents._framework.pantheon import (
     HARD_DEPENDENCY_AGENTS,
     PANTHEON_NAMES,
     PANTHEON_SPECS,
 )
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
+from fdai.agents._framework.runtime_conversation import RuntimeConversationPort
+from fdai.agents._framework.runtime_payload_validation import default_payload_validator
+from fdai.agents._framework.runtime_poison_clear import bind_ordered_poison_halt_clear
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter, SemanticRouterConfig
+from fdai.agents._framework.thor_preflight import ThorPreflightSimulator
 from fdai.agents._framework.tool_answer import answer_from_owned_tools
-from fdai.agents._framework.tool_planner import (
-    MAX_TOOL_PLANS,
-    ConversationToolPlan,
-    plan_conversation_tools,
-)
-from fdai.agents._framework.tool_prefetch import prefetch_tools
 from fdai.agents._framework.tool_semantic import SemanticToolPlanner
-from fdai.agents.bragi import Bragi, RoutingDecision, Turn
+from fdai.agents.bragi import Bragi
 from fdai.agents.heimdall import (
     ActionObservationHook,
     Heimdall,
@@ -50,6 +55,7 @@ from fdai.agents.heimdall import (
     ReadInvestigationHook,
 )
 from fdai.agents.huginn import DiscoveryProjector, Huginn
+from fdai.agents.mimir import Mimir
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
@@ -90,6 +96,8 @@ from fdai.shared.providers.state_store import StateStore
 from . import development_authority_runtime as development_runtime
 from . import runtime_sensing
 from .runtime_operational_agents import (
+    bind_bragi_intent_training_evaluator,
+    bind_durable_governance_stores,
     bind_operational_agents,
     rehydrate_operational_agents,
 )
@@ -98,10 +106,11 @@ _LOG = logging.getLogger(__name__)
 _INGRESS_PRINCIPAL = "Huginn"
 _DEFAULT_GROUP_PREFIX = "fdai-pantheon"
 _OBSERVER_PRINCIPAL = "runtime-observer"
+RecoveryEffectObserver = Callable[[str, dict[str, Any]], Awaitable[None]]
 
 
 @dataclass
-class PantheonRuntime:
+class PantheonRuntime(RuntimeConversationPort):
     """Live wiring of the 15 pantheon agents over an ``EventBus`` provider."""
 
     bridge: EventBusBridge
@@ -119,6 +128,7 @@ class PantheonRuntime:
     _conversation_tools: AgentConversationToolRegistry | None = None
     _semantic_tool_planner: SemanticToolPlanner | None = None
     _continuity_failures: dict[str, str] = field(default_factory=dict)
+    _context_index_workers: runtime_subscriptions.ContextIndexWorkerBindings | None = None
 
     @classmethod
     def build(
@@ -133,6 +143,11 @@ class PantheonRuntime:
         saga: Saga | None = None,
         muninn_state_store: StateStore | None = None,
         huginn_state_store: StateStore | None = None,
+        operator_request_receipt_gate: OperatorRequestReceiptGate | None = None,
+        huginn_schema_learning_enabled: bool = False,
+        heimdall_state_store: StateStore | None = None,
+        njord_state_store: StateStore | None = None,
+        freyr_state_store: StateStore | None = None,
         loki_state_store: StateStore | None = None,
         evidence_conflict_sink: EvidenceConflictSink | None = None,
         rule_generation_workers: runtime_subscriptions.RuleGenerationWorkerBindings | None = None,
@@ -143,10 +158,18 @@ class PantheonRuntime:
         divergence: ShadowDivergenceLedger | None = None,
         kpi_collector: KpiCollector | None = None,
         thor_executor: ActionExecutor | None = None,
+        thor_preflight_simulator: ThorPreflightSimulator | None = None,
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
+        action_rollback_executors: dict[tuple[str, str], RollbackExecutor] | None = None,
         vidar_state_store: StateStore | None = None,
         var_state_store: StateStore | None = None,
+        forseti_state_store: StateStore | None = None,
+        bragi_state_store: StateStore | None = None,
+        odin_state_store: StateStore | None = None,
+        proposal_rate_limit_state_store: StateStore | None = None,
+        ordered_poison_halt_state_store: StateStore | None = None,
+        ordered_poison_halt_clear_ttl_seconds: int = 300,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
         development_authority: development_runtime.DevelopmentRuntimeBindings | None = None,
@@ -177,6 +200,10 @@ class PantheonRuntime:
         prospective_lineage_materializer: ProspectiveLineageMaterializer | None = None,
         change_assessor: ChangeAssessmentService | None = None,
         catalog_review: CatalogReviewBindings | None = None,
+        mimir_promotion_outcome_reader: MimirCatalogPromotionOutcomeReader | None = None,
+        mimir_regression_runner: MimirRegressionRunner | None = None,
+        mimir_rule_source_poller: MimirRuleSourcePoller | None = None,
+        mimir_rule_deprecation_reader: MimirRuleDeprecationReader | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
         forecast_closer: ForecastClosureCoordinator | None = None,
@@ -185,6 +212,7 @@ class PantheonRuntime:
         case_deletion_days: int = 60,
         action_types: tuple[OntologyActionType, ...] = (),
         handler_observer: AgentHandlerObserver | None = None,
+        recovery_effect_observer: RecoveryEffectObserver | None = None,
         conversation_semantic_judgment: SemanticJudgmentBoundary | None = None,
         conversation_embedding_model: EmbeddingModel | None = None,
         conversation_t2_synthesizer: T2ConversationSynthesizer | None = None,
@@ -193,37 +221,44 @@ class PantheonRuntime:
         conversation_pricing: PricingTable | None = None,
         conversation_metering: MeteringSink | None = None,
         conversation_t2_model_key: str = "",
+        conversation_intent_training_evaluator: IntentTrainingEvaluator | None = None,
         semantic_router_config: SemanticRouterConfig | None = None,
         conversation_tool_timeout_seconds: float = 5.0,
         cost_runtime: factory.CostRuntimeBindings = factory.DEFAULT_COST_RUNTIME_BINDINGS,
         capacity_graduation_controller: CapacityGraduationController | None = None,
+        freyr_utilization_sampler: CapacityUtilizationSampler | None = None,
+        loki_recurring_schedule: ChaosScheduleConfig | None = None,
+        loki_scenario_generator: ChaosScenarioGenerator | None = None,
+        loki_scenario_corpus: tuple[ChaosScheduleConfig, ...] = (),
         assignment_workflow: assignment_runtime.AssignmentWorkflowBindings | None = None,
     ) -> PantheonRuntime:
-        """Wire the fixed pantheon to ``provider`` with shadow-safe defaults.
-
-        A partial runtime cannot disable the Saga or Vidar hard dependencies.
-        """
         if not raw_event_topic or not raw_event_topic.strip():
             raise ValueError("raw_event_topic MUST be a non-empty topic name")
 
         human_access = assignment_workflow.human_access if assignment_workflow is not None else None
         human_access_bound = human_access is not None and human_access.execution_bound
+        action_semantics = (
+            ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
+        )
         execution_safety.validate_enforce_bindings(
             enforce=enforce or development_authority is not None,
             has_executor=thor_executor is not None or human_access_bound,
             has_state_store=thor_state_store is not None,
             saga=saga,
-            has_rollback=bool(rollback_executors) or human_access_bound,
+            rollback_executors=rollback_executors,
+            action_rollback_executors=action_rollback_executors,
+            action_semantics=action_semantics,
             has_vidar_state_store=vidar_state_store is not None,
             has_var_state_store=var_state_store is not None,
+            has_forseti_state_store=forseti_state_store is not None,
             has_approver_authorizer=(
                 approver_authorizer is not None or development_authority is not None
             ),
             resource_lock=execution_resource_lock,
+            has_action_semantics=bool(action_types),
+            has_preflight_simulator=thor_preflight_simulator is not None,
         )
-
         disabled = execution_safety.validate_disabled_agents(disabled_agents)
-
         reg = registry or load_pantheon()
         bridge = EventBusBridge(
             provider=provider,
@@ -231,15 +266,37 @@ class PantheonRuntime:
             consumer_group_prefix=consumer_group_prefix,
             handler_max_retries=2,
             handler_observer=handler_observer,
+            halt_state_store=ordered_poison_halt_state_store,
+            payload_validator=default_payload_validator,
+        )
+        bind_ordered_poison_halt_clear(
+            bridge=bridge,
+            provider=provider,
+            state_store=ordered_poison_halt_state_store,
+            consumer_group_prefix=consumer_group_prefix,
+            operator_request_receipt_gate=operator_request_receipt_gate,
+            request_ttl=timedelta(seconds=ordered_poison_halt_clear_ttl_seconds),
         )
         instantiated = factory.instantiate_pantheon()
-        instantiated["Huginn"] = factory.configured_huginn(discovery_projector, huginn_state_store)
-        instantiated["Loki"] = factory.configured_loki(loki_state_store)
+        instantiated["Huginn"] = factory.configured_huginn(
+            discovery_projector,
+            huginn_state_store,
+            operator_request_receipt_gate=operator_request_receipt_gate,
+            schema_learning_enabled=huginn_schema_learning_enabled,
+        )
+        instantiated["Loki"] = factory.configured_loki(
+            loki_state_store,
+            recurring_schedule=loki_recurring_schedule,
+            scenario_generator=loki_scenario_generator,
+            scenario_corpus=loki_scenario_corpus,
+        )
         bind_catalog_review(instantiated, catalog_review)
         if (
             conversation_semantic_judgment is not None
             or conversation_embedding_model is not None
             or conversation_t2_synthesizer is not None
+            or bragi_state_store is not None
+            or conversation_intent_training_evaluator is not None
         ):
             instantiated["Bragi"] = Bragi(
                 semantic_judgment=conversation_semantic_judgment,
@@ -259,9 +316,20 @@ class PantheonRuntime:
                 pricing=conversation_pricing,
                 metering=conversation_metering,
                 t2_model_key=conversation_t2_model_key,
+                state_store=bragi_state_store,
             )
-        action_semantics = (
-            ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
+        bind_durable_governance_stores(
+            instantiated,
+            odin_state_store=odin_state_store,
+            proposal_rate_limit_state_store=proposal_rate_limit_state_store,
+        )
+        rollback_contracts_by_action_type = (
+            {
+                action_type.name: action_semantics.rollback_contract(action_type.name)
+                for action_type in action_types
+            }
+            if action_semantics is not None
+            else None
         )
         bind_operational_agents(
             instantiated,
@@ -288,10 +356,14 @@ class PantheonRuntime:
             prospective_lineage_finalizer=prospective_lineage_finalizer,
             change_assessor=change_assessor,
             cost_runtime=cost_runtime,
+            njord_state_store=njord_state_store,
             capacity_graduation_controller=capacity_graduation_controller,
+            freyr_state_store=freyr_state_store,
+            freyr_utilization_sampler=freyr_utilization_sampler,
             development=development_authority,
             action_types=action_types,
             governed_execution_selected=governed_execution_selected,
+            forseti_state_store=forseti_state_store,
         )
         runtime_sensing.configure_heimdall(
             instantiated,
@@ -306,17 +378,44 @@ class PantheonRuntime:
             forecast_store=forecast_store,
             operational_evidence_hook=operational_evidence_hook,
             action_observation_hook=heimdall_action_observation_hook,
+            state_store=heimdall_state_store,
         )
         development_runtime.configure_authority_agents(
             instantiated,
             approver_authorizer=approver_authorizer,
             var_state_store=var_state_store,
             rollback_executors=rollback_executors,
+            action_rollback_executors=action_rollback_executors,
+            rollback_contracts_by_action_type=rollback_contracts_by_action_type,
             vidar_state_store=vidar_state_store,
             development=development_authority,
         )
+        maybe_var = instantiated.get("Var")
+        if maybe_var is not None and hasattr(maybe_var, "bind_action_semantics"):
+            maybe_var.bind_action_semantics(action_semantics)
         if saga is not None:
             instantiated["Saga"] = saga
+        maybe_mimir = instantiated.get("Mimir")
+        if isinstance(maybe_mimir, Mimir):
+            if mimir_promotion_outcome_reader is not None:
+                maybe_mimir.bind_catalog_promotion_outcome_reader(mimir_promotion_outcome_reader)
+            if mimir_regression_runner is not None:
+                maybe_mimir.bind_regression_runner(mimir_regression_runner)
+            if mimir_rule_source_poller is not None:
+                maybe_mimir.bind_rule_source_poller(mimir_rule_source_poller)
+            if mimir_rule_deprecation_reader is not None:
+                maybe_mimir.bind_rule_deprecation_reader(mimir_rule_deprecation_reader)
+        maybe_saga = instantiated.get("Saga")
+        if (
+            mimir_promotion_outcome_reader is not None
+            and mimir_regression_runner is not None
+            and isinstance(maybe_saga, Saga)
+        ):
+            maybe_saga.bind_issue_close_promotion_evidence_producer()
+        if context_index_workers is not None and not getattr(
+            instantiated["Saga"], "durable_audit", False
+        ):
+            raise RuntimeError("ontology ContextIndex requires durable Saga audit")
         assignment_runtime.bind_assignment_workflow(instantiated, assignment_workflow)
         heimdall = instantiated["Heimdall"]
         if read_investigation_hook is not None and isinstance(heimdall, Heimdall):
@@ -343,7 +442,6 @@ class PantheonRuntime:
                 return await incident_candidate_hook(candidate)
 
             heimdall.register_incident_candidate(observe_and_open)
-
         # Only explicit promotion permits Thor enforce; parallel P1 dispatch could double-mutate.
         thor = instantiated["Thor"]
         if isinstance(thor, Thor):
@@ -356,12 +454,17 @@ class PantheonRuntime:
                 saga=saga,
                 enforce=enforce,
                 human_access_bound=human_access_bound,
+                preflight_simulator=thor_preflight_simulator,
             )
-
         agents = {n: a for n, a in instantiated.items() if n not in disabled}
+        overflow_auditor: Saga | None = saga
+        saga_agent = agents.get("Saga")
+        if overflow_auditor is None and isinstance(saga_agent, Saga):
+            overflow_auditor = saga_agent
         for agent in agents.values():
             agent.bind_bus(bridge)
-
+            if overflow_auditor is not None:
+                agent.bind_rate_limit_overflow_auditor(overflow_auditor.record_rate_limit_overflow)
         subscription_count = runtime_subscriptions.bind_runtime_subscriptions(
             bridge=bridge,
             instantiated=instantiated,
@@ -373,6 +476,10 @@ class PantheonRuntime:
             human_access=assignment_workflow.human_access
             if assignment_workflow is not None
             else None,
+        )
+        subscription_count += runtime_subscriptions.bind_recovery_effect_observation(
+            bridge,
+            recovery_effect_observer,
         )
 
         conversation_tools = AgentConversationToolRegistry(
@@ -386,7 +493,6 @@ class PantheonRuntime:
             else None
         )
 
-        # Wire Bragi to every active agent's read-only conversational handler.
         bragi_ref: Bragi | None = None
         maybe_bragi = agents.get("Bragi")
         if isinstance(maybe_bragi, Bragi):
@@ -404,23 +510,14 @@ class PantheonRuntime:
                     question=question,
                     trace_ref=trace_ref,
                     registry=conversation_tools,
-                    # Bragi has already selected and confidence-gated the
-                    # owner, so meaning chooses only among that owner's
-                    # read tools. This is not the global ranker deciding
-                    # whether the system owns the question.
                     semantic=semantic_tool_planner,
                 )
 
             bragi_ref.register_tool_answer(answer_with_owned_tools)
-            # Conversational-port re-entry (agent-pantheon.md 7.7): an operator
-            # command routes into the typed pipeline through Huginn (the sole
-            # writer of object.event). Bragi builds the ActionProposal and
-            # submits it here - it never calls an executor. Absent when Huginn
-            # is disabled (ingress off), in which case an action request falls
-            # back to the requires_typed_pipeline signal.
+            bind_bragi_intent_training_evaluator(agents, conversation_intent_training_evaluator)
             maybe_huginn = agents.get(_INGRESS_PRINCIPAL)
             if isinstance(maybe_huginn, Huginn):
-                bragi_ref.register_proposal_sink(maybe_huginn.ingest)
+                bragi_ref.register_proposal_sink(maybe_huginn.ingest_operator_proposal)
 
         huginn_active = _INGRESS_PRINCIPAL in agents
         runtime = cls(
@@ -436,13 +533,13 @@ class PantheonRuntime:
             _bragi=bragi_ref,
             _conversation_tools=conversation_tools,
             _semantic_tool_planner=semantic_tool_planner,
+            _context_index_workers=context_index_workers,
         )
 
         runtime_health.bind_availability_probe(
             agents, disabled=runtime.disabled, continuity_failures=runtime._continuity_failures
         )
 
-        # Huginn has no subscription, so disabled Huginn leaves ingress idle.
         if huginn_active:
             bridge.subscribe(
                 raw_event_topic,
@@ -455,7 +552,6 @@ class PantheonRuntime:
         else:
             _LOG.warning("pantheon_ingress_disabled_no_huginn")
 
-        # A distinct observer group tallies shadow and terminal states.
         bridge.subscribe("object.verdict", _OBSERVER_PRINCIPAL, runtime._observe_verdict)
         bridge.subscribe("object.action-run", _OBSERVER_PRINCIPAL, runtime._observe_action_run)
         arb_runtime.bind_architecture_review_observer(
@@ -500,207 +596,19 @@ class PantheonRuntime:
                 if self._semantic_tool_planner is not None:
                     await self._semantic_tool_planner.stop()
 
-    async def ask(
-        self,
-        *,
-        session_id: str,
-        user_id: str,
-        question: str,
-        locale: str = "en",
-        initiator_role: str | None = None,
-        allow_action_proposal: bool = True,
-        materialize_handoff: bool = True,
-    ) -> Turn | None:
-        """Operator conversational-port entry point.
-
-        Routes a natural-language question through Bragi to the right
-        primary agent, tracking a per-user session (Bragi enforces the
-        no-cross-user invariant). Returns ``None`` when Bragi is disabled
-        (the conversational port is off). Distinct from the typed
-        pub/sub port: a conversational request that wants an action must
-        re-enter the typed pipeline, never bypass it.
-
-        ``initiator_role`` (the console session's Entra role) drives the entry
-        RBAC gate for an action command - a Reader cannot submit an action.
-        ``locale`` is forwarded to the server-owned prompt composition.
-        Read-only channel adapters disable ``allow_action_proposal`` and
-        ``materialize_handoff`` so the narrator can contribute evidence without
-        creating a proposal or a discovery issue behind that channel's back.
-        """
-        if self._bragi is None:
-            return None
-        turn = await self._bragi.ask(
-            session_id=session_id,
-            user_id=user_id,
-            question=question,
-            locale=locale,
-            initiator_role=initiator_role,
-            allow_action_proposal=allow_action_proposal,
-            materialize_handoff=materialize_handoff,
-        )
-        return turn
-
-    def route_conversation(
-        self,
-        judgment: SemanticJudgmentProposal,
-    ) -> RoutingDecision | None:
-        """Project one verified judgment without exposing agent instances."""
-        if self._bragi is None:
-            return None
-        return self._bragi.route(judgment)
-
     async def ingest_raw_event(self, payload: dict[str, Any]) -> dict[str, Any] | None:
         huginn = self.agents.get(_INGRESS_PRINCIPAL)
         if not isinstance(huginn, Huginn):
             raise RuntimeError("Pantheon raw ingress requires active Huginn")
         return await huginn.ingest(payload)
 
-    def should_delegate_conversation(
-        self,
-        question: str,
-        view_context: dict[str, Any],
-    ) -> bool:
-        """Return Bragi's current-screen versus agent-owned scope decision."""
-        if self._bragi is None:
-            return False
-        return self._bragi.should_delegate(question, view_context)
-
-    async def contribute_conversation(
-        self,
-        agent_name: str,
-        question: str,
-        *,
-        requester: str = "Bragi",
-    ) -> dict[str, Any] | None:
-        """Collect one read-only contribution through Bragi's A2A boundary."""
-        if self._bragi is None:
-            return None
-        return await self._bragi.introspect_agent(
-            agent_name,
-            question,
-            requester=requester,
-            context={"answer_planning": "shadow", "nested_round": False},
-        )
-
-    async def introspect(
-        self,
-        agent_name: str,
-        question: str,
-        *,
-        requester: str,
-        correlation_id: str = "",
-    ) -> dict[str, Any] | None:
-        """Route one read-only agent-to-agent question through Bragi.
-
-        Commands re-enter the typed pipeline. ``correlation_id`` keeps the
-        answer on the shared trace, and a disabled Bragi returns ``None``.
-        """
-        if self._bragi is None:
-            return None
-        return await self._bragi.introspect_agent(
-            agent_name,
-            question,
-            requester=requester,
-            context={"correlation_id": correlation_id} if correlation_id else None,
-        )
-
-    async def deliberate(
-        self,
-        *,
-        question: str,
-        requester: str,
-        correlation_id: str = "",
-        reuse_semantic_route: bool = True,
-        fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
-    ) -> dict[str, Any]:
-        """Run bounded read-only T1/T2 discussion through Bragi."""
-        if self._bragi is None:
-            return {
-                "status": "abstain",
-                "reason": "conversational_port_unavailable",
-                "authority": "presentation_only",
-                "rounds": [],
-                "trace_ref": correlation_id,
-            }
-        return await self._bragi.deliberate(
-            question=question,
-            requester=requester,
-            correlation_id=correlation_id,
-            reuse_semantic_route=reuse_semantic_route,
-            fixed_assurance_facts=fixed_assurance_facts,
-        )
-
-    def plan_conversation_tools(
-        self,
-        requested_tool_ids: Sequence[str],
-        *,
-        agents: Sequence[str] = (),
-        limit: int = MAX_TOOL_PLANS,
-    ) -> tuple[ConversationToolPlan, ...]:
-        """Validate exact model-selected owned read tool ids.
-
-        Deterministic and side-effect free, so a caller may show the plan
-        before spending anything on it.
-        """
-        return plan_conversation_tools(requested_tool_ids, agents=agents, limit=limit)
-
-    async def prefetch_conversation_tools(
-        self,
-        question: str,
-        *,
-        agents: Sequence[str] = (),
-        limit: int = MAX_TOOL_PLANS,
-        trace_ref: str = "",
-    ) -> tuple[AgentToolResult, ...]:
-        """Run the tools this question asks for and return their results.
-
-        Bounded in count, depth, per-dispatch time, and total time. Never
-        raises for a tool that fails: a prefetch is supplementary
-        evidence, so an abstain or a timeout leaves the answering turn
-        untouched. See :mod:`fdai.agents._framework.tool_prefetch`.
-        """
-        registry = self._conversation_tools
-        if registry is None:
-            return ()
-        return await prefetch_tools(
-            question,
-            registry=registry,
-            semantic=self._semantic_tool_planner,
-            agents=agents,
-            limit=limit,
-            trace_ref=trace_ref,
-        )
-
-    async def invoke_conversation_tool(
-        self,
-        *,
-        agent_name: str,
-        tool_id: str,
-        question: str,
-        trace_ref: str = "",
-    ) -> AgentToolResult:
-        """Invoke one exact-owner read tool through the agent's guarded port."""
-        registry = self._conversation_tools
-        if registry is None:
-            raise RuntimeError("agent conversation tool registry is unavailable")
-        return await registry.invoke(
-            agent_name=agent_name,
-            tool_id=tool_id,
-            question=question,
-            trace_ref=trace_ref,
-        )
-
     async def _rehydrate(self) -> None:
-        """Restore durable agent work before consumers start."""
-        await rehydrate_operational_agents(self.agents)
+        await rehydrate_operational_agents(
+            self.agents,
+            context_index_workers=self._context_index_workers,
+        )
 
     def health(self) -> dict[str, Any]:
-        """Return a health snapshot (agents, mode, bridge metrics).
-
-        Includes a per-agent ``agent_health`` map so Heimdall's probe (and
-        the KPI collectors) can see individual agent state - active
-        ActionRuns, dedup pressure, etc. - not just bridge-level counters.
-        """
         snap = self.bridge.snapshot()
         agent_health = runtime_health.snapshot_agent_health(self.agents)
         runtime_health.report_agent_kpis(self.kpi_collector, agent_health)
@@ -716,13 +624,45 @@ class PantheonRuntime:
             for consumer, state in self._continuity_failures.items()
             if consumer.split(":", 1)[0] in HARD_DEPENDENCY_AGENTS
         }
+        unavailable_sources: dict[str, set[str]] = {}
+        for agent_name in self.disabled:
+            unavailable_sources.setdefault(agent_name, set()).add("disabled")
+        for consumer in self._continuity_failures:
+            agent_name = consumer.split(":", 1)[0]
+            unavailable_sources.setdefault(agent_name, set()).add("continuity_failure")
+        bridge_unavailable = snap.get("unavailable_agents", [])
+        if isinstance(bridge_unavailable, list):
+            for agent_name in bridge_unavailable:
+                if isinstance(agent_name, str):
+                    unavailable_sources.setdefault(agent_name, set()).add("bridge_snapshot")
+        for name, item in agent_health.items():
+            if item.get("status") == "error":
+                unavailable_sources.setdefault(name, set()).add("health_probe")
+            learning = item.get("learning")
+            if (
+                name == "Norns"
+                and isinstance(learning, dict)
+                and isinstance(learning.get("post_turn_review"), dict)
+                and learning["post_turn_review"].get("status") == "unavailable"
+                and isinstance(item.get("behavior"), dict)
+                and item["behavior"].get("post_turn_review_unavailable", 0)
+            ):
+                unavailable_sources.setdefault(name, set()).add("post_turn_review_unbound")
         unavailable_agents = {
             *runtime_health.derive_unavailable_agents(
                 disabled=self.disabled, continuity_failures=self._continuity_failures
             ),
             *(name for name, item in agent_health.items() if item.get("status") == "error"),
+            *(
+                name
+                for name in unavailable_sources
+                if name in runtime_health.AGENT_DEGRADATION_POLICIES
+            ),
         }
-        degradation = runtime_health.evaluate_degradation(unavailable_agents)
+        degradation = runtime_health.evaluate_degradation(
+            unavailable_agents,
+            unavailable_sources=unavailable_sources,
+        )
         if degradation.blocks_mutation:
             thor = self.agents.get("Thor")
             if isinstance(thor, Thor):
@@ -753,6 +693,9 @@ class PantheonRuntime:
         }
 
     def _observe_consumer_state(self, agent: str, topic: str, state: str) -> None:
+        if state == "stopped":
+            self._continuity_failures.pop(f"{agent}:{topic}", None)
+            return
         if agent not in PANTHEON_NAMES:
             arb_runtime.handle_architecture_review_consumer_state(
                 self.architecture_review_trace_observer,
@@ -776,7 +719,10 @@ class PantheonRuntime:
     async def _heartbeat(self, interval: float) -> None:
         while True:
             await asyncio.sleep(interval)
-            _LOG.info("pantheon_heartbeat", extra=self.health())
+            _LOG.info(
+                "pantheon_heartbeat",
+                extra=runtime_health.heartbeat_log_summary(self.health()),
+            )
 
     async def _observe_verdict(self, _topic: str, payload: dict[str, Any]) -> None:
         risk = str(payload.get("risk_verdict", "unknown"))
@@ -785,13 +731,15 @@ class PantheonRuntime:
             self.divergence.record_pantheon(str(payload.get("correlation_id", "")), risk)
 
     async def _observe_action_run(self, _topic: str, payload: dict[str, Any]) -> None:
-        self.shadow_decisions[f"action_run:{payload.get('state', 'unknown')}"] += 1
+        state = str(payload.get("state", "unknown"))
+        prefix = "shadow_action_run" if payload.get("shadow_mode") is True else "action_run"
+        self.shadow_decisions[f"{prefix}:{state}"] += 1
 
     def _record_ingress_drop(self, error: ValueError) -> None:
         self._ingress_dropped += 1
         _LOG.warning(
             "pantheon_ingress_unkeyed_event",
-            extra={"error": str(error), "raw_event_topic": self.raw_event_topic},
+            extra={"error_type": type(error).__name__, "raw_event_topic": self.raw_event_topic},
         )
 
 

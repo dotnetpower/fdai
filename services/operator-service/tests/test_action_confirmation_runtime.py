@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 
 import pytest
 from fdai_operator_service.action_confirmation_runtime import (
     ActionConfirmationOutboxDrainer,
 )
+from fdai_operator_service.operator_request_receipt import OperatorRequestReceiptIssuer
 from fdai_operator_service.postgres_family_store import (
     ActionProposalClaim,
     PostgresFamilyStore,
@@ -148,13 +150,44 @@ class _Publisher:
         return object()
 
 
-async def test_drainer_publishes_flat_operator_request_then_acknowledges() -> None:
+class _Signer:
+    def sign_operator_request_receipt(self, signing_bytes: bytes) -> bytes:
+        return b"signed:" + signing_bytes[:8]
+
+
+def _receipt_issuer() -> OperatorRequestReceiptIssuer:
+    return OperatorRequestReceiptIssuer(
+        signer=_Signer(),
+        producer_service_identity="operator-service",
+        clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+    )
+
+
+async def test_drainer_leaves_operator_request_retryable_without_receipt_issuer() -> None:
     store = _Store(_claim())
     publisher = _Publisher()
     drainer = ActionConfirmationOutboxDrainer(
         store=store,  # type: ignore[arg-type]
         publisher=publisher,
         topic="object.event",
+    )
+
+    assert await drainer.run_once() is False
+
+    assert publisher.published == []
+    assert store.marked == []
+    assert store.released == [("operator:proposal:conversation:one", "claim-one")]
+    assert store.rejected == []
+
+
+async def test_drainer_publishes_signed_flat_operator_request_then_acknowledges() -> None:
+    store = _Store(_claim())
+    publisher = _Publisher()
+    drainer = ActionConfirmationOutboxDrainer(
+        store=store,  # type: ignore[arg-type]
+        publisher=publisher,
+        topic="object.event",
+        receipt_issuer=_receipt_issuer(),
     )
 
     assert await drainer.run_once() is True
@@ -165,9 +198,30 @@ async def test_drainer_publishes_flat_operator_request_then_acknowledges() -> No
     assert event["initiator_principal"] == "operator-one"
     assert event["resource_id"] == "resource:service/api"
     assert event["ontology_intent"] == _intent()
+    assert "operator_request_receipt" in event
     assert store.marked == [("operator:proposal:conversation:one", "claim-one")]
     assert store.released == []
     assert store.rejected == []
+
+
+async def test_drainer_attaches_signed_operator_request_receipt() -> None:
+    store = _Store(_claim())
+    publisher = _Publisher()
+    drainer = ActionConfirmationOutboxDrainer(
+        store=store,  # type: ignore[arg-type]
+        publisher=publisher,
+        topic="object.event",
+        receipt_issuer=_receipt_issuer(),
+    )
+
+    assert await drainer.run_once() is True
+
+    event = publisher.published[0][2]
+    receipt = event["operator_request_receipt"]
+    assert isinstance(receipt, dict)
+    assert receipt["producer_service_identity"] == "operator-service"
+    assert receipt["initiator_principal"] == "operator-one"
+    assert receipt["action_type"] == "ops.scale-out"
 
 
 async def test_drainer_releases_transport_failure_for_retry() -> None:
@@ -176,6 +230,7 @@ async def test_drainer_releases_transport_failure_for_retry() -> None:
         store=store,  # type: ignore[arg-type]
         publisher=_Publisher(fail=True),
         topic="object.event",
+        receipt_issuer=_receipt_issuer(),
     )
 
     assert await drainer.run_once() is False
@@ -190,6 +245,7 @@ async def test_drainer_rejects_principal_mismatch_without_publish() -> None:
         store=store,  # type: ignore[arg-type]
         publisher=publisher,
         topic="object.event",
+        receipt_issuer=_receipt_issuer(),
     )
 
     assert await drainer.run_once() is False

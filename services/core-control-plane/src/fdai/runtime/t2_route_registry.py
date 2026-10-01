@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Final
 
+from fdai.agents import ActionRun, PreflightSimulationResult
 from fdai.shared.providers.state_store import StateStore
 
 _ROUTE_STATE_KEY: Final = "t2-recovery:route:proposer"
@@ -49,31 +50,20 @@ class T2RouteRegistry:
         """Thor adapter: switch to the alternate route with durable CAS and audit."""
 
         run = context.get("run")
-        if getattr(run, "action_type", None) != _ROUTE_ACTION:
+        if not isinstance(run, ActionRun):
             return False
-        correlation_id = str(getattr(run, "correlation_id", ""))
-        action_id = str(getattr(run, "action_id", "") or "") or None
-        workflow_action = _workflow_action(getattr(run, "workflow_action", None))
-        resource_id = str(getattr(run, "resource_id", "") or "")
-        if not correlation_id or resource_id != "control-plane:t2-proposer":
+        check = await self.validate_switch(run)
+        if not check.passed:
             return False
-        params = getattr(run, "params", None)
-        if not isinstance(params, Mapping):
-            return False
-        state = await self._store.read_state(_ROUTE_STATE_KEY)
+        correlation_id = run.correlation_id
+        action_id = str(run.action_id or "") or None
+        workflow_action = _workflow_action(run.workflow_action)
+        params = run.params
+        state = check.state
         if state is not None and state.get("change_correlation_id") == correlation_id:
             return True
-        active_route = self._active_route(state)
-        prior_route = str(params.get("prior_route_ref") or "")
+        active_route = check.active_route
         target_route = str(params.get("target_route_ref") or "")
-        if (
-            str(params.get("target_resource_ref") or "") != resource_id
-            or prior_route != active_route
-            or target_route not in self._routes
-            or target_route == active_route
-            or not str(params.get("reason_code") or "")
-        ):
-            return False
         changed_at = self._timestamp()
         if state is None:
             changed = await self._store.write_state_with_audit_if_absent(
@@ -130,6 +120,41 @@ class T2RouteRegistry:
             and current.get("active_route") == target_route
             and current.get("change_correlation_id") == correlation_id
         )
+
+    async def validate_switch(self, run: ActionRun) -> _RouteSwitchValidation:
+        """Read-only validation used by execution and pre-flight simulation."""
+
+        if run.action_type != _ROUTE_ACTION:
+            return _RouteSwitchValidation(False, "action_type_mismatch")
+        correlation_id = run.correlation_id
+        resource_id = str(run.resource_id or "")
+        if not correlation_id:
+            return _RouteSwitchValidation(False, "missing_correlation")
+        if resource_id != "control-plane:t2-proposer":
+            return _RouteSwitchValidation(False, "resource_mismatch")
+        params = run.params
+        if not isinstance(params, Mapping):
+            return _RouteSwitchValidation(False, "params_malformed")
+        try:
+            state = await self._store.read_state(_ROUTE_STATE_KEY)
+        except Exception:
+            return _RouteSwitchValidation(False, "state_unavailable")
+        if state is not None and state.get("change_correlation_id") == correlation_id:
+            return _RouteSwitchValidation(True, "already_applied", state, self._active_route(state))
+        active_route = self._active_route(state)
+        prior_route = str(params.get("prior_route_ref") or "")
+        target_route = str(params.get("target_route_ref") or "")
+        if str(params.get("target_resource_ref") or "") != resource_id:
+            return _RouteSwitchValidation(False, "target_resource_mismatch", state, active_route)
+        if prior_route != active_route:
+            return _RouteSwitchValidation(False, "prior_route_mismatch", state, active_route)
+        if target_route not in self._routes:
+            return _RouteSwitchValidation(False, "target_route_unknown", state, active_route)
+        if target_route == active_route:
+            return _RouteSwitchValidation(False, "target_route_unchanged", state, active_route)
+        if not str(params.get("reason_code") or ""):
+            return _RouteSwitchValidation(False, "reason_missing", state, active_route)
+        return _RouteSwitchValidation(True, "passed", state, active_route)
 
     async def rollback(self, action_run: dict[str, Any]) -> str | None:
         """Vidar adapter: restore only the route changed by this failed run."""
@@ -248,6 +273,22 @@ class T2RouteRegistry:
         return value.isoformat()
 
 
+class T2RoutePreflightSimulator:
+    """Read-only Thor pre-flight simulator for T2 proposer route switches."""
+
+    def __init__(self, registry: T2RouteRegistry) -> None:
+        self._registry = registry
+
+    async def simulate(self, run: ActionRun) -> PreflightSimulationResult:
+        check = await self._registry.validate_switch(run)
+        return PreflightSimulationResult(
+            outcome="passed" if check.passed else "failed",
+            simulator_id="t2-route-registry",
+            simulator_version="1",
+            reason=check.reason,
+        )
+
+
 def _revision(state: Mapping[str, Any]) -> int:
     revision = int(state.get("revision") or 0)
     if revision < 1:
@@ -257,6 +298,22 @@ def _revision(state: Mapping[str, Any]) -> int:
 
 def _workflow_action(value: object) -> dict[str, object] | None:
     return {str(key): item for key, item in value.items()} if isinstance(value, Mapping) else None
+
+
+class _RouteSwitchValidation:
+    __slots__ = ("active_route", "passed", "reason", "state")
+
+    def __init__(
+        self,
+        passed: bool,
+        reason: str,
+        state: Mapping[str, Any] | None = None,
+        active_route: str = "",
+    ) -> None:
+        self.passed = passed
+        self.reason = reason
+        self.state = state
+        self.active_route = active_route
 
 
 def bind_t2_route_selector(*, proposer: object, registry: T2RouteRegistry) -> bool:
@@ -269,4 +326,4 @@ def bind_t2_route_selector(*, proposer: object, registry: T2RouteRegistry) -> bo
     return True
 
 
-__all__ = ["T2RouteRegistry", "bind_t2_route_selector"]
+__all__ = ["T2RoutePreflightSimulator", "T2RouteRegistry", "bind_t2_route_selector"]
