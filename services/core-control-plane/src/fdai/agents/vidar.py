@@ -41,8 +41,10 @@ from fdai.shared.providers.state_store import StateStore
 
 _ROLLBACK_STATE_PREFIX = "pantheon/vidar/rollback"
 _DR_CONTRACT_DECISION_PREFIX = "pantheon/vidar/dr-contract-decisions/"
+_REHEARSAL_STATE_PREFIX = "pantheon/vidar/rehearsal/"
 _DEFAULT_CLAIM_LEASE = timedelta(minutes=5)
 _MAX_CLAIM_LEASE = timedelta(hours=1)
+_DEFAULT_REHEARSAL_TIMEOUT_SECONDS = 30.0
 _MAX_ROLLBACK_REF_LENGTH = 2_048
 _ROLLBACK_COMMAND_FIELDS = (
     "correlation_id",
@@ -155,6 +157,7 @@ class Vidar(Agent):
         allow_process_local_rollback: bool = False,
         rollback_rehearsal_port: RollbackRehearsalPort | None = None,
         rollback_rehearsal_cadence: timedelta = timedelta(days=30),
+        rollback_rehearsal_timeout_seconds: float = _DEFAULT_REHEARSAL_TIMEOUT_SECONDS,
         max_rehearsals_per_tick: int = 16,
     ) -> None:
         if claim_lease <= timedelta(0) or claim_lease > _MAX_CLAIM_LEASE:
@@ -163,6 +166,8 @@ class Vidar(Agent):
             raise ValueError("rollback_executor_timeout_seconds MUST be positive")
         if rollback_rehearsal_cadence <= timedelta(0):
             raise ValueError("rollback_rehearsal_cadence MUST be positive")
+        if rollback_rehearsal_timeout_seconds <= 0:
+            raise ValueError("rollback_rehearsal_timeout_seconds MUST be positive")
         if max_rehearsals_per_tick < 1 or max_rehearsals_per_tick > 128:
             raise ValueError("max_rehearsals_per_tick MUST be between 1 and 128")
         if rollback_contracts_by_action_type is not None and (
@@ -189,6 +194,7 @@ class Vidar(Agent):
         self._development_binding_source = development_binding_source
         self._rollback_rehearsal_port = rollback_rehearsal_port
         self._rollback_rehearsal_cadence = rollback_rehearsal_cadence
+        self._rollback_rehearsal_timeout_seconds = rollback_rehearsal_timeout_seconds
         self._max_rehearsals_per_tick = max_rehearsals_per_tick
         self._claim_lease = claim_lease
         self._rollback_executor_timeout_seconds = (
@@ -405,9 +411,12 @@ class Vidar(Agent):
         if identity and self._dr_outcomes.get(identity) == outcome:
             self.record_behavior("dr_failover_outcome:duplicate")
             return
+        published = await self._publish_typed_rollback_event(outcome)
+        if not published:
+            self.record_behavior("dr_failover_outcome:publication_unavailable")
+            return
         if identity:
             self._dr_outcomes.set(identity, dict(outcome))
-        await self._publish_typed_rollback_event(outcome)
         self.record_behavior("dr_failover_outcome:published")
 
     async def _publish_typed_rollback_event(self, payload: dict[str, Any]) -> bool:
@@ -450,8 +459,19 @@ class Vidar(Agent):
                 recorded_at=now,
             )
         try:
-            result = await self._rollback_rehearsal_port.rehearse(
-                vidar_rehearsal.command(action_type=action_type, contract=contract)
+            async with asyncio.timeout(self._rollback_rehearsal_timeout_seconds):
+                result = await self._rollback_rehearsal_port.rehearse(
+                    vidar_rehearsal.command(action_type=action_type, contract=contract)
+                )
+        except TimeoutError:
+            self.record_behavior("rollback_rehearsal:timeout")
+            return vidar_rehearsal.build_receipt(
+                action_type=action_type,
+                contract=contract,
+                outcome="held",
+                reason="rehearsal_port_timeout",
+                recorded_at=now,
+                rehearsal_version="1.0.0",
             )
         except Exception as exc:  # noqa: BLE001 - provider boundary; rehearsal lowers readiness
             self.record_behavior("rollback_rehearsal:failed")
@@ -480,6 +500,46 @@ class Vidar(Agent):
         if self._state_store is None:
             return
         await self._state_store.write_state(vidar_rehearsal.durable_key(receipt), dict(receipt))
+        await self._state_store.delete_states_beyond(
+            _REHEARSAL_STATE_PREFIX,
+            retain_newest=self._MAX_RECORDS,
+        )
+
+    async def _rehydrate_rehearsal_receipts(self) -> int:
+        if self._state_store is None:
+            return 0
+        rows, total = await self._state_store.read_state_page(
+            _REHEARSAL_STATE_PREFIX,
+            limit=self._MAX_RECORDS,
+        )
+        if total > self._MAX_RECORDS:
+            self.record_behavior("rollback_rehearsal:rehydrate_overflow")
+        seen: set[str] = set()
+        restored = 0
+        for row in rows:
+            action_type = str(row.get("action_type") or "")
+            contract = str(row.get("rollback_contract") or "")
+            receipt_digest = str(row.get("receipt_digest") or "")
+            if (
+                not action_type
+                or len(action_type) > 256
+                or not contract
+                or len(contract) > 128
+                or action_type in seen
+                or row.get("kind") != vidar_rehearsal.REHEARSAL_KIND
+                or receipt_digest != vidar_rehearsal.digest(row)
+            ):
+                continue
+            recorded_at = _parse_rollback_timestamp(row.get("recorded_at"))
+            self._rehearsal_receipts.set(action_type, dict(row))
+            if recorded_at is not None:
+                self._last_rehearsal_by_action_type.set(action_type, recorded_at)
+            seen.add(action_type)
+            restored += 1
+        if restored:
+            self._apply_rehearsal_readiness()
+            self.record_behavior("rollback_rehearsal:rehydrated", restored)
+        return restored
 
     def _apply_rehearsal_readiness(self) -> None:
         receipts = [receipt for _, receipt in self._rehearsal_receipts.items()]
@@ -890,14 +950,8 @@ class Vidar(Agent):
         cache_key = (rec.correlation_id, rec.action_run_identity)
         if cache_key in self._published_rollbacks or cache_key in self._rollback_publication_claims:
             return False
-        receipt = {
-            "correlation_id": rec.correlation_id,
-            "action_run_identity": rec.action_run_identity,
-            "idempotency_key": _rollback_idempotency_key(rec),
-            "state": rec.state,
-            "status": "publishing",
-            "owner_token": self._owner_token,
-        }
+        now = _clock_now(self._clock)
+        receipt = self._rollback_publication_receipt(rec, status="publishing", now=now)
         if self._state_store is not None:
             key = _rollback_state_key(
                 rec.correlation_id,
@@ -907,11 +961,43 @@ class Vidar(Agent):
             created = await self._state_store.write_state_if_absent(key, receipt)
             if not created:
                 stored = await self._state_store.read_state(key)
-                published_receipt = {**receipt, "status": "published"}
-                if stored == published_receipt:
+                if _rollback_publication_receipt_matches(
+                    stored,
+                    rec,
+                    status="published",
+                ):
                     self._published_rollbacks.add(cache_key)
                     return False
-                if stored != receipt:
+                if _rollback_publication_receipt_matches(stored, rec, status="publishing"):
+                    owner = str(stored.get("owner_token") or "") if stored is not None else ""
+                    lease_expires_at = (
+                        _parse_rollback_timestamp(stored.get("lease_expires_at"))
+                        if stored is not None
+                        else None
+                    )
+                    if (
+                        owner != self._owner_token
+                        and lease_expires_at is not None
+                        and now < lease_expires_at
+                    ):
+                        self.record_behavior("rollback_publication:claim_live")
+                        return False
+                    expected_revision = int(stored.get("revision", 0)) if stored is not None else 0
+                    takeover_receipt = {
+                        **receipt,
+                        "revision": expected_revision + 1,
+                        "previous_owner_token": owner,
+                    }
+                    if await self._state_store.compare_and_set_state(
+                        key,
+                        takeover_receipt,
+                        expected_revision=expected_revision,
+                    ):
+                        self.record_behavior("rollback_publication:claim_reclaimed")
+                    else:
+                        self.record_behavior("rollback_publication:claim_raced")
+                        return False
+                else:
                     raise RuntimeError("rollback publication receipt collision")
         self._rollback_publication_claims.add(cache_key)
         return True
@@ -920,6 +1006,7 @@ class Vidar(Agent):
         """Publish terminal rollback records that completed before a bus was available."""
         if self._state_store is None:
             return 0
+        await self._rehydrate_rehearsal_receipts()
         rows, total = await self._state_store.read_state_page(
             _ROLLBACK_STATE_PREFIX,
             limit=self._MAX_RECORDS,
@@ -931,16 +1018,19 @@ class Vidar(Agent):
         recovered = 0
         pending = 0
         for row in rows:
-            rec = _rollback_record_from_state(row)
-            if await self._rollback_was_published(rec.correlation_id, rec.action_run_identity):
-                continue
-            pending += 1
-            self._remember_rollback(
-                rec,
-                request_digest=str(row.get("request_digest") or ""),
-            )
-            if await self._publish_rollback_once(rec):
-                recovered += 1
+            try:
+                rec = _rollback_record_from_state(row)
+                if await self._rollback_was_published(rec.correlation_id, rec.action_run_identity):
+                    continue
+                pending += 1
+                self._remember_rollback(
+                    rec,
+                    request_digest=str(row.get("request_digest") or ""),
+                )
+                if await self._publish_rollback_once(rec):
+                    recovered += 1
+            except Exception:  # noqa: BLE001 - one corrupt row must not block recovery
+                self.record_behavior("rollback_recovery:row_failed")
         self._durable_publication_pending = pending - recovered
         return recovered
 
@@ -970,14 +1060,11 @@ class Vidar(Agent):
         return True
 
     async def _mark_rollback_published(self, rec: RollbackRecord) -> None:
-        receipt = {
-            "correlation_id": rec.correlation_id,
-            "action_run_identity": rec.action_run_identity,
-            "idempotency_key": _rollback_idempotency_key(rec),
-            "state": rec.state,
-            "status": "published",
-            "owner_token": self._owner_token,
-        }
+        receipt = self._rollback_publication_receipt(
+            rec,
+            status="published",
+            now=_clock_now(self._clock),
+        )
         if self._state_store is not None:
             key = _rollback_state_key(
                 rec.correlation_id,
@@ -987,12 +1074,49 @@ class Vidar(Agent):
             created = await self._state_store.write_state_if_absent(key, receipt)
             if not created:
                 stored = await self._state_store.read_state(key)
-                publishing_receipt = {**receipt, "status": "publishing"}
-                if stored == publishing_receipt:
-                    await self._state_store.write_state(key, receipt)
-                elif stored != receipt:
+                if _rollback_publication_receipt_matches(stored, rec, status="publishing"):
+                    owner = str(stored.get("owner_token") or "") if stored is not None else ""
+                    if owner != self._owner_token:
+                        raise RuntimeError("rollback publication receipt collision")
+                    expected_revision = int(stored.get("revision", 0)) if stored is not None else 0
+                    await self._state_store.write_state(
+                        key,
+                        {
+                            **dict(stored or {}),
+                            **receipt,
+                            "revision": expected_revision + 1,
+                            "published_at": _clock_now(self._clock).isoformat(),
+                        },
+                    )
+                elif not _rollback_publication_receipt_matches(
+                    stored,
+                    rec,
+                    status="published",
+                ):
                     raise RuntimeError("rollback publication receipt collision")
         self._published_rollbacks.add((rec.correlation_id, rec.action_run_identity))
+
+    def _rollback_publication_receipt(
+        self,
+        rec: RollbackRecord,
+        *,
+        status: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        receipt: dict[str, object] = {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "correlation_id": rec.correlation_id,
+            "action_run_identity": rec.action_run_identity,
+            "idempotency_key": _rollback_idempotency_key(rec),
+            "state": rec.state,
+            "status": status,
+            "owner_token": self._owner_token,
+        }
+        if status == "publishing":
+            receipt["claimed_at"] = now.isoformat()
+            receipt["lease_expires_at"] = (now + self._claim_lease).isoformat()
+        return receipt
 
     async def _publish_rollback(self, rec: RollbackRecord) -> bool:
         if self.bus is None:
@@ -1380,6 +1504,35 @@ def _parse_lease_expiry(value: str) -> datetime:
     if parsed_expiry.tzinfo is None or parsed_expiry.utcoffset() is None:
         raise RuntimeError("stored rollback state lease expiry MUST include timezone")
     return parsed_expiry.astimezone(UTC)
+
+
+def _parse_rollback_timestamp(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(UTC)
+
+
+def _rollback_publication_receipt_matches(
+    stored: Mapping[str, Any] | None,
+    rec: RollbackRecord,
+    *,
+    status: str,
+) -> bool:
+    if stored is None:
+        return False
+    return (
+        stored.get("correlation_id") == rec.correlation_id
+        and stored.get("action_run_identity") == rec.action_run_identity
+        and stored.get("idempotency_key") == _rollback_idempotency_key(rec)
+        and stored.get("state") == rec.state
+        and stored.get("status") == status
+    )
 
 
 def _rollback_record_from_state(stored: Mapping[str, Any]) -> RollbackRecord:

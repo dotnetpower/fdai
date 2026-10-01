@@ -13,7 +13,7 @@ from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.thor_action_run import ActionRun
 from fdai.agents.forseti import Forseti
 from fdai.agents.thor import Thor
-from fdai.agents.vidar import Vidar
+from fdai.agents.vidar import Vidar, _rollback_state_key
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -222,6 +222,98 @@ async def test_vidar_startup_recovers_unpublished_terminal_rollback() -> None:
     assert recovered == 1
     assert calls == 1
     assert bus.messages_on("object.rollback")[-1].payload["state"] == "succeeded"
+
+
+async def test_vidar_startup_reclaims_stale_rollback_publication_claim() -> None:
+    state = InMemoryStateStore()
+    now = _NOW
+
+    async def rollback(_command: dict[str, Any]) -> str:
+        return "rollback:ok"
+
+    action = _thor_action_run(_run("corr-vidar-stale"))
+    original = Vidar(executors={"state_forward_only": rollback}, state_store=state)
+    rec = await original.rollback(action)
+    assert rec is not None
+    publication_idempotency_key = (
+        f"{rec.correlation_id}:{rec.action_run_identity[7:19]}:rollback:succeeded"
+    )
+    publication_key = _rollback_state_key(
+        rec.correlation_id,
+        "published",
+        rec.action_run_identity,
+    )
+    await state.write_state(
+        publication_key,
+        {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "correlation_id": rec.correlation_id,
+            "action_run_identity": rec.action_run_identity,
+            "idempotency_key": publication_idempotency_key,
+            "state": rec.state,
+            "status": "publishing",
+            "owner_token": "a" * 32,
+            "claimed_at": (now - timedelta(minutes=10)).isoformat(),
+            "lease_expires_at": (now - timedelta(minutes=5)).isoformat(),
+        },
+    )
+
+    bus = _bus()
+    restarted = Vidar(
+        bus=bus,
+        executors={"state_forward_only": rollback},
+        state_store=state,
+        clock=lambda: now,
+    )
+    recovered = await restarted.recover_rollbacks()
+
+    assert recovered == 1
+    assert bus.messages_on("object.rollback")[-1].payload["idempotency_key"] == (
+        publication_idempotency_key
+    )
+    stored = await state.read_state(publication_key)
+    assert stored is not None
+    assert stored["status"] == "published"
+    assert restarted.behavior_snapshot()["rollback_publication:claim_reclaimed"] == 1
+
+
+async def test_vidar_startup_leaves_live_rollback_publication_claim() -> None:
+    state = InMemoryStateStore()
+    now = _NOW
+
+    async def rollback(_command: dict[str, Any]) -> str:
+        return "rollback:ok"
+
+    action = _thor_action_run(_run("corr-vidar-live"))
+    original = Vidar(executors={"state_forward_only": rollback}, state_store=state)
+    rec = await original.rollback(action)
+    assert rec is not None
+    publication_idempotency_key = (
+        f"{rec.correlation_id}:{rec.action_run_identity[7:19]}:rollback:succeeded"
+    )
+    await state.write_state(
+        _rollback_state_key(rec.correlation_id, "published", rec.action_run_identity),
+        {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "correlation_id": rec.correlation_id,
+            "action_run_identity": rec.action_run_identity,
+            "idempotency_key": publication_idempotency_key,
+            "state": rec.state,
+            "status": "publishing",
+            "owner_token": "b" * 32,
+            "claimed_at": now.isoformat(),
+            "lease_expires_at": (now + timedelta(minutes=5)).isoformat(),
+        },
+    )
+
+    bus = _bus()
+    restarted = Vidar(bus=bus, state_store=state, clock=lambda: now)
+
+    assert await restarted.recover_rollbacks() == 0
+    assert bus.messages_on("object.rollback") == []
+    assert restarted.behavior_snapshot()["rollback_publication:claim_live"] == 1
 
 
 async def test_vidar_process_local_terminal_fence_survives_lru_eviction() -> None:

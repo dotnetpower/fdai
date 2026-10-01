@@ -646,6 +646,56 @@ def test_fresh_stored_preflight_receipt_reuses_exact_action_run_identity() -> No
     assert thor.behavior_snapshot()["preflight:reused"] == 1
 
 
+def test_future_stored_preflight_receipt_is_resimulated_before_executor_io() -> None:
+    now = datetime(2026, 9, 17, tzinfo=UTC)
+    run = ActionRun(
+        correlation_id="preflight-future",
+        action_type=_proposal().plan.action_type_ref.name,
+        resource_id="workload-a",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        params={"replica_count": 3},
+        resolved_autonomy_ceiling=Autonomy.ENFORCE_AUTO,
+        dry_run_evidence="declared_obligation",
+        dry_run_receipt="forseti-dry-run-obligation:preflight-future",
+        preflight_required=True,
+    )
+    run.preflight_simulation_receipt = thor_preflight.build_receipt(
+        run=run,
+        result=thor_preflight.PreflightSimulationResult(
+            outcome="passed",
+            simulator_id="test-preflight",
+            simulator_version="1",
+            reason="future",
+        ),
+        started_at=now + timedelta(days=1),
+        completed_at=now + timedelta(days=1, seconds=1),
+    )
+    assert not thor_preflight.receipt_is_fresh(
+        run.preflight_simulation_receipt,
+        run=run,
+        now=now,
+        ttl_seconds=300,
+    )
+    store = _FakeActionRunStore()
+    asyncio.run(store.save(run))
+    executor = AsyncMock(return_value=True)
+    simulator = _PreflightSimulator()
+    thor = Thor(
+        state_store=store,
+        executor=executor,
+        preflight_simulator=simulator,
+        clock=lambda: now,
+        action_semantics_catalog=_safe_semantics(),
+    )
+
+    asyncio.run(thor.rehydrate())
+
+    assert simulator.calls == [run.action_run_identity()]
+    executor.assert_awaited_once()
+    assert thor.behavior_snapshot()["preflight:passed"] == 1
+
+
 def test_mutating_preflight_simulator_cannot_change_live_run_or_receipt() -> None:
     executor = AsyncMock(return_value=True)
     seen_params: list[dict[str, object]] = []

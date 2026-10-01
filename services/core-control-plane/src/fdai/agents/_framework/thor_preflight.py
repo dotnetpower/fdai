@@ -16,6 +16,7 @@ _MAX_REASON_CHARS = 256
 _MAX_SIMULATOR_ID_CHARS = 128
 _MAX_SIMULATOR_VERSION_CHARS = 64
 _DIGEST_PREFIX = "sha256:"
+_MAX_FUTURE_SKEW = timedelta(seconds=5)
 
 PreflightOutcome = Literal["passed", "failed"]
 
@@ -98,7 +99,14 @@ def receipt_is_fresh(
     if receipt is None or ttl_seconds < 1:
         return False
     completed_at = _parse_timestamp(receipt.get("completed_at"))
+    started_at = _parse_timestamp(receipt.get("started_at"))
     receipt_digest = receipt.get("receipt_digest")
+    if completed_at is None or started_at is None:
+        return False
+    if started_at > completed_at:
+        return False
+    if completed_at - now > _MAX_FUTURE_SKEW or started_at - now > _MAX_FUTURE_SKEW:
+        return False
     return (
         receipt.get("schema_version") == "1.0.0"
         and receipt.get("outcome") == "passed"
@@ -108,7 +116,6 @@ def receipt_is_fresh(
         and receipt.get("action_type") == run.action_type
         and receipt.get("target") == run.resource_id
         and receipt.get("params_digest") == params_digest(run.params)
-        and completed_at is not None
         and now - completed_at <= timedelta(seconds=ttl_seconds)
     )
 

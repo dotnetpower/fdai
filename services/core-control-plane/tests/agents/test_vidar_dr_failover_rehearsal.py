@@ -499,6 +499,70 @@ def test_vidar_dr_failover_outcome_uses_persisted_contract_after_restart() -> No
     assert restarted.health()["mttr_samples"]["count"] == 1
 
 
+def test_vidar_dr_outcome_retry_after_broker_publish_failure() -> None:
+    class _FailOnceOutcomeBus(InMemoryBus):
+        def __init__(self) -> None:
+            super().__init__(registry=load_pantheon())
+            self.failed = False
+
+        async def publish(
+            self,
+            principal: str,
+            topic: str,
+            payload: dict[str, object],
+        ) -> None:
+            if payload.get("kind") == DR_OUTCOME_KIND and not self.failed:
+                self.failed = True
+                raise RuntimeError("injected DR outcome publish failure")
+            await super().publish(principal, topic, payload)
+
+    bus = _FailOnceOutcomeBus()
+    vidar = Vidar(bus=bus, clock=lambda: _NOW)
+    outcome = {
+        "producer_principal": "Vidar",
+        "kind": DR_OUTCOME_KIND,
+        "correlation_id": "corr-dr-retry",
+        "idempotency_key": "dr-outcome:retry",
+        "action_run_identity": "sha256:" + "1" * 64,
+        "action_type": "ops.failover-primary",
+        "resource_id": "resource:primary",
+        "recovery_time_seconds": 45.0,
+    }
+
+    try:
+        asyncio.run(vidar._publish_dr_outcome(dict(outcome)))  # noqa: SLF001
+    except RuntimeError:
+        pass
+    asyncio.run(vidar._publish_dr_outcome(dict(outcome)))  # noqa: SLF001
+
+    outcomes = [
+        msg.payload
+        for msg in bus.messages_on("object.rollback")
+        if msg.payload.get("kind") == DR_OUTCOME_KIND
+    ]
+    assert len(outcomes) == 1
+    assert {
+        key: outcomes[0][key]
+        for key in (
+            "kind",
+            "correlation_id",
+            "idempotency_key",
+            "action_run_identity",
+            "recovery_time_seconds",
+        )
+    } == {
+        key: outcome[key]
+        for key in (
+            "kind",
+            "correlation_id",
+            "idempotency_key",
+            "action_run_identity",
+            "recovery_time_seconds",
+        )
+    }
+    assert vidar.health()["mttr_samples"]["count"] == 1
+
+
 def test_vidar_holds_dr_failover_when_failback_executor_is_unbound() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     executed: list[str] = []
@@ -544,6 +608,12 @@ class _RehearsalPort:
             "reason": f"rehearsal_{self.outcome}",
             "rehearsal_version": "1.0.0",
         }
+
+
+class _HangingRehearsalPort:
+    async def rehearse(self, _command: dict[str, Any]) -> dict[str, str]:
+        await asyncio.Event().wait()
+        return {"outcome": "passed"}
 
 
 def test_vidar_records_bounded_non_mutating_rehearsal_receipts() -> None:
@@ -595,6 +665,58 @@ def test_vidar_rehearsal_failure_lowers_readiness_without_authority_change() -> 
     asyncio.run(vidar.maintenance_tick())
 
     health = vidar.health()
+    assert health["rollback_rehearsal"]["failed"] == 1
+    assert health["dr_readiness_score"]["evidence_state"] == "measured_with_rehearsal_failures"
+    assert health["dr_readiness_score"]["coverage_ratio"] == 0.0
+
+
+def test_vidar_rehearsal_timeout_records_visible_hold() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    vidar = Vidar(
+        bus=bus,
+        executors={"scripted": lambda _cmd: asyncio.sleep(0, result="rollback:unused")},
+        state_store=InMemoryStateStore(),
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        rollback_rehearsal_port=_HangingRehearsalPort(),
+        rollback_rehearsal_cadence=timedelta(seconds=1),
+        rollback_rehearsal_timeout_seconds=0.01,
+        clock=lambda: _NOW,
+    )
+
+    asyncio.run(vidar.maintenance_tick())
+
+    receipts = [
+        msg.payload
+        for msg in bus.messages_on("object.rollback")
+        if msg.payload.get("kind") == REHEARSAL_KIND
+    ]
+    assert receipts[0]["outcome"] == "held"
+    assert receipts[0]["reason"] == "rehearsal_port_timeout"
+    assert vidar.behavior_snapshot()["rollback_rehearsal:timeout"] == 1
+    assert vidar.health()["rollback_rehearsal"]["evidence_state"] == "unbound"
+
+
+def test_vidar_rehydrates_durable_rehearsal_receipts_into_health() -> None:
+    store = InMemoryStateStore()
+    first = Vidar(
+        executors={"scripted": lambda _cmd: asyncio.sleep(0, result="rollback:unused")},
+        state_store=store,
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        rollback_rehearsal_port=_RehearsalPort("failed"),
+        rollback_rehearsal_cadence=timedelta(days=30),
+        clock=lambda: _NOW,
+    )
+    asyncio.run(first.maintenance_tick())
+
+    restarted = Vidar(
+        state_store=store,
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        rollback_rehearsal_cadence=timedelta(days=30),
+        clock=lambda: _NOW + timedelta(days=1),
+    )
+    asyncio.run(restarted.recover_rollbacks())
+
+    health = restarted.health()
     assert health["rollback_rehearsal"]["failed"] == 1
     assert health["dr_readiness_score"]["evidence_state"] == "measured_with_rehearsal_failures"
     assert health["dr_readiness_score"]["coverage_ratio"] == 0.0
