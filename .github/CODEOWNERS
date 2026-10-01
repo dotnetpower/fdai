@@ -24,6 +24,8 @@
 /services/core-control-plane/src/fdai/shared/providers/      @dotnetpower/fdai-owners
 /services/core-control-plane/src/fdai/shared/contracts/      @dotnetpower/fdai-owners
 /services/core-control-plane/src/fdai/agents/                @dotnetpower/fdai-owners
+/services/core-control-plane/src/fdai/runtime/licensing.py   @dotnetpower/fdai-owners
+/services/core-control-plane/src/fdai/delivery/trust/        @dotnetpower/fdai-owners
 /rule-catalog/schema/            @dotnetpower/fdai-owners
 /.github/instructions/           @dotnetpower/fdai-owners
 /.github/hooks/                  @dotnetpower/fdai-owners

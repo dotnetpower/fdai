@@ -31,9 +31,9 @@ def deployment_release_channel() -> str:
 
 
 def license_public_key_pem() -> bytes:
-    """Return the runtime capability-license verification key."""
+    """Return the upstream integrity public key, the only license verification key."""
 
-    return _read("license-signing-key.pub")
+    return _read("upstream-signing-key.pub")
 
 
 def _read(name: str) -> bytes:

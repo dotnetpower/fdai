@@ -64,11 +64,13 @@ def _key_pair() -> tuple[bytes, bytes]:
     )
 
 
-def _write_checkout(root: Path, private_key_pem: bytes) -> None:
+def _write_checkout(
+    root: Path, private_key_pem: bytes, name: str = "integrity-signing-key.pem"
+) -> None:
     (root / ".git").mkdir()
     secrets = root / "secrets"
     secrets.mkdir()
-    private_path = secrets / "license-signing-key.pem"
+    private_path = secrets / name
     private_path.write_bytes(private_key_pem)
     private_path.chmod(0o600)
 
@@ -112,6 +114,21 @@ def test_local_checkout_without_issuer_key_is_observation_only(tmp_path: Path) -
     assert entitlement.status is LicenseStatus.ABSENT
     assert entitlement.available_capability_ids == {"observability.resource-discovery"}
     assert authority.binding.distribution_id == "fdai-upstream"
+
+
+def test_retired_license_key_path_grants_no_issuer_exception(tmp_path: Path) -> None:
+    private_pem, public_pem = _key_pair()
+    _write_checkout(tmp_path, private_pem, name="license-signing-key.pem")
+
+    authority = licensing.build_runtime_license_authority(
+        catalog=_catalog(),
+        environment={"FDAI_EXECUTION_VENUE": "local"},
+        root=tmp_path,
+        public_key_pem=public_pem,
+        evaluated_at=_NOW,
+    )
+
+    assert authority.resolve(now=_NOW).status is LicenseStatus.ABSENT
 
 
 def test_downstream_distribution_identity_is_owned_by_composition(tmp_path: Path) -> None:

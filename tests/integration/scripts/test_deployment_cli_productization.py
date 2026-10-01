@@ -133,8 +133,9 @@ def test_development_artifact_root_is_shared_but_separate_from_other_trust_domai
     bundle = _public_key_bytes(trust / "deployment-bundle-root.pub")
 
     assert release == bundle
-    assert release != _public_key_bytes(trust / "license-signing-key.pub")
-    assert release != _public_key_bytes(ROOT / "security/integrity/upstream-signing-key.pub")
+    integrity = ROOT / "security/integrity/upstream-signing-key.pub"
+    assert (trust / "upstream-signing-key.pub").read_bytes() == integrity.read_bytes()
+    assert release != _public_key_bytes(integrity)
 
 
 def test_release_scripts_use_the_installable_distribution() -> None:

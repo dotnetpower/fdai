@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: dc914c9a05118ee54cb9845ccb5648749a7326f2
+translation_source_sha: 1b29285627f945f739458b37656fc4f5fca81d5f
 translation_revised: 2026-10-01
 ---
 
@@ -165,14 +165,16 @@ promotion 또는 실행 권한을 선택할 수 없습니다.
 ## 3. 유일한 강한 규칙
 
 [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt)에 나열된 경로는 편집하지
-마세요. Core, composition, 공유 계약과 프로바이더, 에이전트, 스키마 및 저장소 지침의
-definition은 업스트림이 소유합니다. 포크는 자체 패키지에서 경계를 통해 구현, 카탈로그 항목 및
-overlay를 추가합니다.
+마세요. Core, composition, 공유 계약과 프로바이더, 에이전트, 기능 라이선싱 런타임 연결과 trust
+패키지, 스키마 및 저장소 지침의 definition은 업스트림이 소유합니다. 포크는 자체 패키지에서 경계를
+통해 구현, 카탈로그 항목 및 overlay를 추가합니다.
 
 [포크 커스터마이제이션 skill](../../../.github/skills/fork-customization/SKILL.md)을 결정 절차로
 사용하세요. 경계가 없으면 업스트림 이슈를 열거나 포크 로컬 wrapper를 조립합니다. Definition을
 patch하지 마세요. `check-protected-paths.sh`는 포크 모드에서 이 경계를 강제하고 서명된 무결성
-manifest는 오프라인 framework-surface drift를 탐지합니다.
+manifest는 오프라인 framework-surface drift를 탐지합니다. 같은 업스트림 키가 라이선스에도
+서명하므로, 검사기는 정확한 매니페스트 형태만 받아들이고 다른 서명 문서는 어느 모드에서든
+거부합니다.
 
 체크아웃을 언제든 오프라인으로 검증하세요:
 

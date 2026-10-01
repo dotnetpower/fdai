@@ -47,5 +47,5 @@ def test_core_injects_only_a_key_vault_reference_and_binding_digests() -> None:
         in _MODULE_MAIN
     )
     assert 'name = "FDAI_LICENSE_TOKEN", value =' not in _MODULE_MAIN
-    assert "license-signing-key.pem" not in _MODULE_MAIN
+    assert "integrity-signing-key.pem" not in _MODULE_MAIN
     assert "FDAI_REQUIRE_LICENSE" not in _MODULE_MAIN

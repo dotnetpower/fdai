@@ -118,8 +118,7 @@ below passes:
   packages as its only license verification key.
 
 **Owner decision (2026-10-01).** The upstream integrity signing key is the only licensing key and
-replaces the separate license key pair, which the code still uses until
-[source deployment WP5](../../roadmap-implementation/deployment/source-deployment.md) lands. One
+replaces the separate license key pair. One
 compromise domain now covers framework integrity and licensing: the key holder can re-sign the
 framework surface and issue every token and entitlement, and a key rotation requires re-issuing
 all of them. Domain separation keeps each signature to one purpose: the integrity verifier accepts
@@ -297,15 +296,21 @@ expiration itself does not require one.
 |---------|----------|
 | Token contract, validation, canonical bytes | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
 | Status, binding, current-time entitlement resolution | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
-| Runtime signature and local issuer-key verification | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
+| Runtime signature and local issuer-key verification | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py`, verifying against the packaged `upstream-signing-key.pub` |
 | Runtime Trial binding | `services/core-control-plane/src/fdai/runtime/licensing.py` |
 | Final shared execution ceiling | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | Issuing and self-verification (release-only) | `scripts/deployment/release/issue-license.py`, using Ed25519 from the pinned cryptography dependency and exclusive mode-`0600` output creation |
 | Offline verification for any operator | `fdaictl license inspect`, using the deployment CLI's independent Ed25519 verifier |
+| Manifest-only integrity verification | `scripts/integrity/check-integrity.sh`, which rejects any other signed document shape in every mode |
 
 The split matches the extension and skill trust seams: `core/` declares a `LicenseVerifier` Protocol
 and never imports a crypto backend, a transport, or `fdai.delivery`
 ([project-structure.md](../architecture/project-structure.md#module-boundaries)).
+
+Core and the deployment CLI each package a byte-identical copy of
+`security/integrity/upstream-signing-key.pub`, and tests pin both copies to it. The runtime licensing
+binding and the `fdai/delivery/trust/` package, including that copy, belong to the signed framework
+surface.
 
 ## Verifying it in this repository
 
@@ -319,20 +324,17 @@ uv run python scripts/deployment/release/issue-license.py \
   --output /tmp/license.token
 uv run python -m fdai.deployment_cli license inspect \
   --token /tmp/license.token \
-  --public-key services/core-control-plane/src/fdai/delivery/trust/license-signing-key.pub \
+  --public-key security/integrity/upstream-signing-key.pub \
   --output json
 ```
 
 `issue-license.py` re-verifies its own output against the supplied public key before printing, so a
-rotated signing key fails at issue time rather than at the customer site. It accepts the private key
-only as a current-UID mode-`0600` regular file and reads both keys through a nonblocking, no-follow,
-65536-byte boundary. Its defaults are the fixed issuer key, packaged public key, and 30-day validity;
-an explicit public key remains available for rotation verification. `license inspect` reports status
-and non-secret metadata only; it never echoes the token, the document, or the signature.
-
-These commands still use the separate license key pair. After source deployment WP5, the issuer
-key is `secrets/integrity-signing-key.pem` and the public key is
-`security/integrity/upstream-signing-key.pub`.
+rotated signing key fails at issue time rather than at the customer site. It reads only the fixed
+`secrets/integrity-signing-key.pem`, as a current-UID mode-`0600` regular file, and reads both keys
+through a nonblocking, no-follow, 65536-byte boundary. Its defaults are the packaged public key and
+30-day validity; an explicit public key remains available for rotation verification. `license
+inspect` reports status and non-secret metadata only; it never echoes the token, the document, or
+the signature.
 
 Automated coverage lives in `services/core-control-plane/tests/core/licensing/` for the contract and degradation table, and in
 `tests/integration/scripts/test_issue_license.py` for a real issue-then-verify path including tampering, a wrong

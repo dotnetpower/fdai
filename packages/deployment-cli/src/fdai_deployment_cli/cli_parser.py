@@ -302,12 +302,6 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         help="Override the online kit URL on an approved HTTPS release host",
     )
     advanced.add_argument(
-        "--license-signing-key",
-        type=Path,
-        metavar="PATH",
-        help="Maintainer-only private issuer key file; not an adopter prerequisite",
-    )
-    advanced.add_argument(
         "--control-package",
         type=Path,
         metavar="PATH",

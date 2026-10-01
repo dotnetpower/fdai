@@ -87,15 +87,54 @@ else
 fi
 
 # ---- 2. content (hash every surface file; detect edits/adds/deletes) -------
+# The same key signs license tokens and entitlements, so a valid signature alone
+# does not prove the document is a manifest. Any other signed shape fails closed
+# in every mode (exit 3 from the checker below).
 content_report="$(
   python3 - "$MANIFEST" <<'PY'
-import hashlib, json, subprocess, sys
+import hashlib, json, re, subprocess, sys
 from pathlib import Path
 
 manifest_path = Path(sys.argv[1])
-manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-surface = manifest.get("surface", [])
-recorded = manifest.get("files", {})
+try:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+except (UnicodeDecodeError, json.JSONDecodeError):
+    manifest = None
+
+
+def shape_error(value: object) -> str | None:
+    if not isinstance(value, dict) or set(value) != {
+        "version", "algorithm", "file_count", "files", "generated_at", "surface"
+    }:
+        return "signed document does not have the integrity manifest fields"
+    surface, files = value["surface"], value["files"]
+    if type(value["version"]) is not int or value["version"] != 1:
+        return "manifest version is not supported"
+    if value["algorithm"] != "sha256" or not isinstance(value["generated_at"], str):
+        return "manifest algorithm or generation time is invalid"
+    if not isinstance(surface, list) or not surface or not all(
+        isinstance(entry, str) and entry for entry in surface
+    ):
+        return "manifest surface is empty or invalid"
+    if not isinstance(files, dict) or not files or type(value["file_count"]) is not int:
+        return "manifest files are empty or invalid"
+    if value["file_count"] != len(files):
+        return "manifest file_count does not match its files"
+    for rel, digest in files.items():
+        inside = any(
+            rel.startswith(entry) if entry.endswith("/") else rel == entry for entry in surface
+        )
+        if not inside or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            return "manifest records a file outside its surface or an invalid digest"
+    return None
+
+
+problem = shape_error(manifest)
+if problem is not None:
+    print(f"SHAPE\t{problem}")
+    sys.exit(3)
+surface = manifest["surface"]
+recorded = manifest["files"]
 
 
 def matches(path: str) -> bool:
@@ -136,6 +175,18 @@ for label, items in (("MODIFIED", mismatched), ("MISSING", missing), ("ADDED", a
 PY
 )"
 py_rc=$?
+if [ "$py_rc" -eq 3 ]; then
+  {
+    echo ""
+    echo "=============================================================="
+    echo " FAIL - the signed document is not an integrity manifest"
+    echo "=============================================================="
+    printf '%s\n' "$content_report" | sed 's/^/  /'
+    echo "  A signature made for another FDAI document never attests the"
+    echo "  framework surface. This is never acceptable in any mode."
+  } >&2
+  exit 1
+fi
 if [ "$py_rc" -ne 0 ]; then
   echo "check-integrity: ERROR - content check failed to run." >&2
   echo "$content_report" >&2
