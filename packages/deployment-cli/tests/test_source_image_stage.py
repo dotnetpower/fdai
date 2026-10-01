@@ -257,6 +257,26 @@ def test_a_completed_receipt_still_requires_the_images_to_read_back(
     assert stopped.value.reason_code == FAILED
 
 
+def test_an_edited_receipt_is_refused_instead_of_trusted(
+    snapshot: SourceImageSnapshot, work_dir: Path
+) -> None:
+    registry = FakeRegistry()
+    run_source_image_stage(snapshot=snapshot, target=TARGET, builder=registry, work_dir=work_dir)
+    receipt_path = work_dir / f"source-images-{COMMIT}.receipt.json"
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["provenance"] = "signed-release"
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    registry.calls.clear()
+
+    with pytest.raises(SourceImageStageStopped) as stopped:
+        run_source_image_stage(
+            snapshot=snapshot, target=TARGET, builder=registry, work_dir=work_dir
+        )
+
+    assert stopped.value.reason_code == CHANGED
+    assert registry.calls == []
+
+
 def test_a_work_directory_for_other_inputs_is_refused(
     snapshot: SourceImageSnapshot, work_dir: Path
 ) -> None:

@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 7481389c8b467cc6cdce017f3f58810d5afb45ca
+translation_source_sha: ba276edc27b17dea2400768bd22b4166aa252384
 translation_revised: 2026-10-01
 ---
 
@@ -404,7 +404,8 @@ Console 인증, 정리, 두 번째 계획의 변경 없음이 독립적으로 �
   `source_image_build_failed`로 멈춥니다. 그런 뒤에야 비공개 영수증이 일곱 개의 다이제스트를
   `operator-selected-source` 출처, `release_signature_verified=false`,
   `deployment_ready=false`와 함께 묶습니다.
-- 완료된 영수증은 검증만 허용합니다. 중단된 단계는 클레임을 유지한 채 다음 실행에서
+- 자체 다이제스트가 검증되는 완료된 영수증은 검증만 허용하며, 수정된 영수증은
+  `source_image_stage_inputs_changed`로 멈춥니다. 중단된 단계는 클레임을 유지한 채 다음 실행에서
   빌드를 다시 합니다. 이때 바뀌는 것은 이 단계가 만든 커밋 태그뿐이며, 배포는 항상 다시 읽은
   다이제스트를 사용합니다.
 - 이 단계는 클레임과 영수증만 기록하며 키트, 서명, SBOM, provenance 문서, attestation을

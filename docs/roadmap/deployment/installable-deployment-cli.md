@@ -408,7 +408,8 @@ build service with only Azure CLI and one verified snapshot of one commit:
   `source_image_build_failed`. Only then does the private receipt bind the seven digests, with
   `operator-selected-source` provenance, `release_signature_verified=false`, and
   `deployment_ready=false`.
-- A completed receipt permits verification only. An interrupted stage keeps its claim and repeats
+- A completed receipt whose own digest verifies permits verification only; an edited receipt stops
+  with `source_image_stage_inputs_changed`. An interrupted stage keeps its claim and repeats
   its builds on the next run. That rewrites only the stage's own commit tags, and deployment always
   uses read-back digests.
 - The stage writes only its claim and receipt: no kit, signature, SBOM, provenance statement, or

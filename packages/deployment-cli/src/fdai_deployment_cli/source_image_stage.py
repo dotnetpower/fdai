@@ -124,7 +124,10 @@ def run_source_image_stage(
     claim_path = work_dir / f"source-images-{snapshot.commit}.claim.json"
     if receipt_path.exists():
         existing = _load(receipt_path)
-        if existing.get("claim_digest") != claim["claim_digest"]:
+        unsigned = {key: value for key, value in existing.items() if key != "receipt_digest"}
+        if existing.get("claim_digest") != claim["claim_digest"] or existing.get(
+            "receipt_digest"
+        ) != canonical_digest(unsigned):
             raise SourceImageStageStopped(CHANGED)
         _read_back(builder, target, snapshot.commit, _digests(existing))
         return existing
