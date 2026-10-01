@@ -22,3 +22,16 @@ def _restore_process_umask() -> Iterator[None]:
         yield
     finally:
         os.umask(previous)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_workstation_preflight(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep provision tests away from the real Azure CLI session and checkout key.
+
+    Tests of the preflight itself call ``entitlement_preflight`` directly or restore
+    the real functions on ``cli`` explicitly.
+    """
+    from fdai_deployment_cli import cli
+
+    monkeypatch.setattr(cli, "select_entitlement_mode", lambda: "trial")
+    monkeypatch.setattr(cli, "ensure_azure_session", lambda **_kwargs: None)

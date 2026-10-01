@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 795e0c74244c18e17d015678cc886f8924c96b66
+translation_source_sha: 5c58ce4c086ae682a41d4b6c8b50d2dd832043b5
 translation_revised: 2026-10-01
 ---
 
@@ -38,14 +38,11 @@ GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에�
 >
 > - 키 없는 실행은 Foundation을 만든 뒤 애플리케이션 단계 전에
 >   `prebuilt_runtime_artifacts_required`로 멈춥니다.
-> - 소스 모드 체크포인트는 `scripts/deployment/azure/genesis_approval_prompt.py`가 만드는
->   `--approval-file`로만 진행합니다.
 > - 아직 어떤 배포 단계도 Trial을 시작하지 않으므로 토큰이 없는 설치는 관찰 전용으로 남습니다.
 > - Core는 업스트림 무결성 키로 라이선스를 검증하지만, `secrets/integrity-signing-key.pem`이 있어도 배포는 아직
 >   설치 사용권 대신 30일 토큰을 발급하며, 만료 워터마크도 아직 없습니다.
-> - 이 항목들이 완료될 때까지 오프라인 패키지 서명 키 보유자는 서명된 키트를 여전히 빌드하는
->   임시 경로 `fdai-up.sh --source . --signing-key <path>`로만 애플리케이션 단계에 도달하며, 이
->   경로는 제거될 예정입니다.
+> - 이 항목들이 완료될 때까지 오프라인 패키지 서명 키 보유자는 서명된 오프라인 패키지를
+>   빌드해 `--offline-kit`로 전달해야만 애플리케이션 단계에 도달합니다.
 
 ## Clone에서 배포
 
@@ -309,8 +306,8 @@ Azure 관리 및 데이터 평면 엔드포인트는 Azure 네트워크 경로�
   배포가 아닙니다.
 - `fdaictl provision azure --online`은 게시된 릴리스 키트를 가져옵니다. 두 설치 방식에 속하지
   않으며 제거될 예정입니다.
-- `fdai-up.sh --source . --signing-key <path>`는 현재 상태에서 설명한 키 보유자용 임시
-  경로입니다. 여전히 서명된 키트를 빌드하며 제거될 예정입니다.
+- `fdai-up.sh`는 폐기된 `--signing-key` 옵션을 거부하며 키트를 빌드하지 않습니다. 서명된 오프라인
+  패키지는 따로 빌드해 `--offline-kit`로 전달합니다.
 - `.github/workflows/` 아래 배포 workflow는 저장소 CI, release 및 과거 자동화입니다. 대상 환경
   설치 프로그램으로 지원되지 않습니다.
 - Terraform 직접 실행은 전문가 통합 경계입니다. 동일한 계획, 승인, 신원, rollback 및 검증

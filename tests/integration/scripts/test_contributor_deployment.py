@@ -846,7 +846,6 @@ def _run_contributor_up(
     recorder = tmp_path / "recorded"
     recorder.touch()
     invoker = _contributor_checkout(tmp_path / "invoker", recorder=recorder)
-    selected = _contributor_checkout(tmp_path / "selected", recorder=recorder)
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     _write_executable(
@@ -856,49 +855,57 @@ printf 'uv=%s\\n' "$*" >> "{recorder}"
 exit 0
 """,
     )
-    key = tmp_path / "signing-key.pem"
-    key.write_text("key\n", encoding="ascii")
-    key.chmod(0o600)
-    completed = subprocess.run(  # noqa: S603 - isolated checkouts and fake tools
-        [
-            _BASH,
-            str(invoker / "scripts/deployment/azure/fdai-up.sh"),
-            "--source",
-            str(selected),
-            "--signing-key",
-            str(key),
-            *arguments,
-        ],
-        env={
-            **os.environ,
-            "PATH": f"{fake_bin}:{os.environ['PATH']}",
-            "FDAI_CONTRIBUTOR_BUILD_DIR": str(tmp_path / "build"),
-        },
+    completed = subprocess.run(  # noqa: S603 - isolated checkout and fake tools
+        [_BASH, str(invoker / "scripts/deployment/azure/fdai-up.sh"), *arguments],
+        cwd=tmp_path,
+        env={**os.environ, "PATH": f"{fake_bin}:{os.environ['PATH']}"},
         capture_output=True,
         text=True,
         check=False,
     )
-    return completed, recorder, selected
+    return completed, recorder, invoker
 
 
-def test_contributor_build_uses_the_selected_checkout_not_the_invoking_repository(
+def test_bare_command_deploys_its_own_checkout_without_building_a_kit(
     tmp_path: Path,
 ) -> None:
-    completed, recorder, selected = _run_contributor_up(tmp_path)
+    completed, recorder, invoker = _run_contributor_up(tmp_path, "--region", "koreacentral")
 
     assert completed.returncode == 0, completed.stderr
     recorded = recorder.read_text(encoding="ascii")
-    assert f"build-root={selected}" in recorded
-    assert f"--python {selected}/.venv/bin/python" in recorded
-    assert f"--project {selected}/packages/deployment-cli" in recorded
+    assert (
+        f"uv=run --frozen --isolated --python {invoker}/.venv/bin/python "
+        f"--project {invoker}/packages/deployment-cli "
+        f"fdaictl provision azure --source {invoker} --region koreacentral"
+    ) in recorded
+    assert "build-root=" not in recorded
 
 
-def test_contributor_source_deployment_refuses_a_conflicting_kit_selection(
-    tmp_path: Path,
+@pytest.mark.parametrize("arguments", [("--offline-kit", "package.tar.gz"), ("--source", ".")])
+def test_explicit_mode_is_forwarded_unchanged(tmp_path: Path, arguments: tuple[str, ...]) -> None:
+    completed, recorder, invoker = _run_contributor_up(tmp_path, *arguments)
+
+    assert completed.returncode == 0, completed.stderr
+    recorded = recorder.read_text(encoding="ascii")
+    assert f"fdaictl provision azure {' '.join(arguments)}\n" in recorded
+    assert f"--source {invoker}" not in recorded
+    assert "build-root=" not in recorded
+
+
+@pytest.mark.parametrize("flag", [("--signing-key", "key.pem"), ("--signing-key=key.pem",)])
+def test_retired_signing_key_option_is_refused_without_building(
+    tmp_path: Path, flag: tuple[str, ...]
 ) -> None:
-    other = tmp_path / "other.tar.gz"
-    completed, recorder, _ = _run_contributor_up(tmp_path, "--offline-kit", str(other))
+    completed, recorder, _ = _run_contributor_up(tmp_path, "--source", ".", *flag)
 
     assert completed.returncode == 64
-    assert "builds its own kit" in completed.stderr
-    assert "build-root=" not in recorder.read_text(encoding="ascii")
+    assert "--signing-key was removed" in completed.stderr
+    assert recorder.read_text(encoding="ascii") == ""
+
+
+def test_wrapper_never_invokes_the_kit_builder() -> None:
+    source = _FDAI_UP.read_text(encoding="utf-8")
+
+    assert "build-standalone-deployment-kit.sh --" not in source
+    assert '--signing-key "' not in source
+    assert "--online" in source
