@@ -9,7 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| One entry point and coordinator | in-progress | `scripts/deployment/azure/fdai-up.sh`; `packages/deployment-cli/src/fdai_deployment_cli/source_deploy.py`; `source_azure.py`; `tests/integration/scripts/test_contributor_deployment.py` | Without arguments the wrapper selects `--online` release-kit acquisition. `--source` reaches source mode, and `--signing-key` builds and signs a complete kit before an `--offline-kit` run. The target makes the bare command select source mode and never build a kit. |
+| One entry point and coordinator | in-progress | `scripts/deployment/azure/fdai-up.sh`; `packages/deployment-cli/src/fdai_deployment_cli/source_deploy.py`; `source_azure.py`; `tests/integration/scripts/test_contributor_deployment.py` | Without arguments the wrapper selects `--online` release-kit acquisition. `--source` reaches source mode, and `--signing-key` builds and signs a complete kit before an `--offline-kit` run. Source mode also stops at four Foundation checkpoints for a separate `genesis_approval_prompt.py` prompt, or for an explicit `--approval-file` when noninteractive, which Article 1 does not allow. The target makes the bare command select source mode and never build a kit. |
 | Keyless source Foundation and managed-host handoff | implemented | `source_azure.py`, `source_foundation.py`, `source_genesis.py`, and the focused source tests and 2026-09-29 live `foundation-apply` row in the [CLI ledger](installable-deployment-cli.md) | Source mode reaches a verified Foundation handoff without any key, then stops with `prebuilt_runtime_artifacts_required` and directs the operator to a signed kit. |
 | Service image build into the deployment registry | not-started | Owner contract only | `azd-up.sh` builds only Core with `az acr build` for the Container Apps public development path, and `source_image_build.py` builds one selected `dev` service. No five-service source build stage exists in the coordinator. |
 | Package-free application continuation | not-started | Owner contract; `source_azure.py` returns `prebuilt_runtime_artifacts_required` | The application stage still consumes kit images, the provider mirror, support wheels, and the Console archive. |
@@ -23,15 +23,20 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-10-01 | in-progress | Adopted the ledger with the owner contract after Constitution Article 1 opened the source path to anyone with a clone: no key selects a durable 30-day Trial, the dedicated license key selects a full installation entitlement, and the path builds images in the deployment instead of a signed kit. Earlier source-path provenance stays in the CLI, runtime, Genesis, and licensing ledgers and was not copied. Their kit, appliance, publication, and tenant-build-removal items were superseded and replaced by the ordered plan below. | `current change`; `docs/roadmap/deployment/source-deployment.md`; `docs/roadmap/architecture/fdai-constitution.md`; scope rows above cite the current source | Complete the work packages below in order. |
+| 2026-10-01 | in-progress | Added the per-checkpoint approval gate to WP1. `source_azure.py` stops at the runner-image, Foundation apply, runner enrollment, and Foundation state checkpoints for a separate prompt, or returns for an explicit approval file, while Article 1 lets the invocation approve the plan it shows and confirms only deletion or replacement. | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/source_azure.py` | Implement WP1 with the approval change. |
 
 ### Remaining work
 
 - [ ] **WP1 - One entry point.** Make bare `fdai-up.sh` select `fdaictl provision azure --source`
   for its own checkout, remove the wrapper's kit build and `--signing-key` option, and select the
   entitlement mode on the workstation before the first Azure effect. Limit key discovery to
-  `secrets/license-signing-key.pem` and the explicit `--license-signing-key` option. Exit: wrapper
+  `secrets/license-signing-key.pem` and the explicit `--license-signing-key` option. Let the
+  invocation approve each plan it shows by binding the exact plan digest internally, and keep one
+  typed confirmation only for deleting or replacing an existing resource, replacing the
+  per-checkpoint prompts and the noninteractive `--approval-file` requirement. Exit: wrapper
   and CLI tests prove that no argument set builds or signs a kit, the bare command reaches source
-  mode, and an unusable present key stops with a fixed reason before any Azure call.
+  mode, a run that deletes or replaces nothing advances through every checkpoint without an
+  approval file, and an unusable present key stops with a fixed reason before any Azure call.
 - [ ] **WP2 - Source build stage.** Build the five baseline service images from the pinned
   snapshot with the deployment registry's build service, import pinned dependency images, and read
   back every digest. Stop before any service apply when the build service is unavailable. Exit:
