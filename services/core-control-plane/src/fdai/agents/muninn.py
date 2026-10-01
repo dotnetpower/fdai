@@ -85,6 +85,8 @@ _MAX_OPERATING_PATTERN_CASES = 100
 _MAX_CONVERSATION_PROJECTIONS = 50_000
 _CONVERSATION_PROJECTION_RECOVERY_PAGE = 128
 _PUBLICATION_OUTBOX_RETAIN = 5_000
+# Compaction runs every N published rows (and on maintenance) so a publish costs O(1) amortized.
+_PUBLICATION_COMPACTION_INTERVAL = 64
 _PUBLICATION_CAS_ATTEMPTS = 8
 _PROJECTION_PREFIX = "pantheon/muninn/conversation-projections"
 _OPERATIONAL_OUTBOX_PREFIX = "pantheon/muninn/operational-outbox"
@@ -151,6 +153,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             _PUBLICATION_OUTBOX_RETAIN
         )
         self._publication_outbox_last_failure: dict[str, Any] | None = None
+        self._publications_since_compaction = 0
 
     def bind_assignment_materializer(
         self,
@@ -898,10 +901,9 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
                 },
             ):
                 self._publication_outbox_claimed_at.pop(key, None)
-                await store.delete_states_beyond(
-                    _OPERATIONAL_OUTBOX_PREFIX + "/",
-                    retain_newest=_PUBLICATION_OUTBOX_RETAIN,
-                )
+                self._publications_since_compaction += 1
+                if self._publications_since_compaction >= _PUBLICATION_COMPACTION_INTERVAL:
+                    await self._compact_publication_outbox()
                 return
             self.record_behavior("publication_outbox:cas_retry")
             self._publication_outbox_last_failure = {
@@ -934,6 +936,21 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             await mark_task
             raise
         return True
+
+    async def _compact_publication_outbox(self) -> None:
+        store = self._durable_state_store
+        if store is None:
+            return
+        await store.delete_states_beyond(
+            _OPERATIONAL_OUTBOX_PREFIX + "/",
+            retain_newest=_PUBLICATION_OUTBOX_RETAIN,
+        )
+        self._publications_since_compaction = 0
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        if self._publications_since_compaction:
+            await self._compact_publication_outbox()
 
     async def recover_operational_publications(self, *, limit: int = 100) -> int:
         """Republish durable operational outbox rows left pending before startup."""

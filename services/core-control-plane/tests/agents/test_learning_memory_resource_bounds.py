@@ -273,6 +273,9 @@ async def test_muninn_outbox_compacts_and_bounds_cas_retries() -> None:
         await muninn._claim_publication(key, payload)
         await muninn._mark_publication_published(key, payload)
     _rows, total = await durable.read_state_page("pantheon/muninn/operational-outbox/", limit=6000)
+    assert 5_000 <= total < 5_000 + 64
+    await muninn.maintenance_tick()
+    _rows, total = await durable.read_state_page("pantheon/muninn/operational-outbox/", limit=6000)
     assert total == 5_000
 
     losing = _LosingCasStore()
