@@ -71,6 +71,11 @@ const DeferredCommandDeck = lazy(async () => {
   return { default: module.DeferredCommandDeck };
 });
 
+const EntitlementWatermark = lazy(async () => {
+  const module = await import("./components/entitlement-watermark");
+  return { default: module.EntitlementWatermark };
+});
+
 const SettingsOverlay = lazy(async () => {
   const module = await import("./components/settings-overlay");
   return { default: module.SettingsOverlay };
@@ -539,6 +544,9 @@ export function App() {
         )}
       >
         <DeferredCommandDeck client={client} routeLabel={backgroundPanel.label} />
+        {/* The watermark shares this deferred boundary: it stays out of the entry bundle
+            while every top-level lazy surface keeps a visible loading boundary. */}
+        <EntitlementWatermark probe={() => client.dataSources()} />
       </Suspense>
     </ViewContextProvider>
   );

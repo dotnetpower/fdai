@@ -30,6 +30,8 @@
 /services/core-control-plane/src/fdai/runtime/licensing_state.py   @dotnetpower/fdai-owners
 /services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py   @dotnetpower/fdai-owners
 /services/operator-service/src/fdai_operator_service/entitlement_stamp.py   @dotnetpower/fdai-owners
+/console/src/entitlement-state.ts   @dotnetpower/fdai-owners
+/console/src/components/entitlement-watermark.tsx   @dotnetpower/fdai-owners
 /services/core-control-plane/src/fdai/delivery/trust/        @dotnetpower/fdai-owners
 /rule-catalog/schema/            @dotnetpower/fdai-owners
 /.github/instructions/           @dotnetpower/fdai-owners

@@ -525,6 +525,11 @@ Split into focused owner documents:
 Authenticated semantic turns may carry a content-free authentication receipt reference in `operator-core-request` 1.9.0 only when the default-off Operator setting `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on; the reference never reaches the browser as authority, and see [13.12](operator-console-wire-contracts.md#1312-semantic-turn-authentication-receipt-reference) for the rollout order. With the setting on, the Operator retains that receipt for the exact request before it publishes the turn, so the verifier can check `case-history-read` against it. A retention failure fails the turn instead of sending a reference that Core cannot resolve.
 Every response to a bearer-authenticated request also carries the `X-FDAI-Entitlement` stamp
 that the Console watermark reads; see [13.13](operator-console-wire-contracts.md#1313-entitlement-stamp-response-header).
+The shared Operator transport records that stamp from every response, including errors, and every
+authenticated view mounts one watermark that refreshes it through the data-source read. The
+watermark shows in the lower-right corner unless the latest stamp is a recent `none`, as the
+[Trial expiry watermark](../fork-and-sequencing/capability-licensing.md#entitlement-state-transport)
+design defines.
 
 ## 14. MCP delivery and managed catalog
 
