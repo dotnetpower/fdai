@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 커버리지 확장과 현재 경로 수렴
 translation_of: ontology-reasoning-coverage-expansion.md
-translation_source_sha: edb691703198d7c1aa3767075d0568cabdcd4171
+translation_source_sha: 43e722a1f2942fded88e7cf54df6f9e757ca719e
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 커버리지 확장과 현재 경로 수렴
@@ -150,7 +150,8 @@ ObjectType으로 근거화됩니다.
   `ambiguous_membership` 합계로 셉니다. 따라서 그룹 개수와 그 합계를 더하면 읽은 구성원 수와 같습니다.
 - **검증:** 형식이 컨테이너 종류를 밝히면 V-SEM이 계보 그룹화를 요구합니다.
 - **구현 참고:** 로컬 컴파일러는 타입이 지정된 계보 행 위의 검토된 aggregate 연산으로 계보 그룹화를
-  표현합니다. 승격 전까지 shadow/local 범위에 머뭅니다.
+  표현합니다. 이름이 지정된 컨테이너 루트를 읽고, 보안 `contains` 탐색에 계보 행 방출을 요청하며, 도달한
+  구성원을 명시된 주체 종류로 필터링한 뒤 계보 행을 집계합니다. 승격 전까지 shadow/local 범위에 머뭅니다.
 
 **종료 조건:** 직접 루트, 간접 루트, 같은 거리의 가장 가까운 루트에 대한 정확한 정답 테스트가 통과하고,
 추적된 그룹별 개수 질문이 보류 대신 리소스 그룹마다 개수 하나로 답합니다.

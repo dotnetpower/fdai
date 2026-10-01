@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6edd84e4fb7acc2bb576f46014b236107e2ae563
+translation_source_sha: 680429ea5b23752e71aba9d07c08ff7998037e35
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -10,7 +10,7 @@ translation_revised: 2026-10-01
 작업 흐름 작성 커밋은 자체 감사 테이블과 서비스 마이그레이션 소유권 항목을 가진 전용 Operator PostgreSQL 모듈에 위임됩니다. 제품군 facade는 커밋된 초안 또는 바인딩 요청만 라우팅하며 여전히 실행기, 게시 또는 승격 권한을 부여하지 않습니다.
 최근 Resource 변경 이어 읽기는 Core의 온톨로지 플랫폼과 persistence 모듈 안에 남습니다. Operator는 불투명 참조를 전달하는 route만 노출하고, Core가 이어 읽기 본문, keyset cursor, 만료, 재권한 확인 및 PostgreSQL 저장을 소유합니다.
 연속 all-kinds 관계 이어 읽기는 이미 검증된 계획 묶음 위의 shadow 전용 상태로 Core 대화 모듈에 남습니다. Operator route나 기본 답변 동작은 추가하지 않습니다.
-컨테이너 종류 계보 그룹화는 Core 대화 컴파일과 일반 온톨로지 query aggregate handler가 나누어 소유합니다. 컴파일러는 검토된 컨테이너 종류를 선택하고, 실행기는 새 권한 없이 가장 가까운 루트 개수와 `ambiguous_membership`을 계산합니다.
+컨테이너 종류 계보 그룹화는 Core 대화 컴파일과 일반 온톨로지 query handler가 나누어 소유합니다. 컴파일러는 검토된 컨테이너 종류를 선택하고, 보안 traversal은 타입 지정 계보 행을 내보내며, aggregate handler는 새 권한 없이 가장 가까운 루트 개수와 `ambiguous_membership`을 계산합니다.
 남은 E9 연산자는 전용 Core 대화 helper에 누락된 선행 조건 결정을 보존하므로, 지원되지 않는 rank, aggregate, comparison, version, evidence, diagnose 및 path 행은 다른 연산의 계획으로 fallback하지 않습니다.
 Metric window comparison 계획도 전용 Core 대화 helper에 격리됩니다. 형식 필드는 두 기간을 전달하고, query runtime은 기존 metric comparison node를 사용하며 실행 권한은 부여하지 않습니다.
 현재 경로의 피연산자 출처 검사는 전용 Core 대화 helper에 남습니다. 모델이 제안한 계획의 신원은 텍스트, 이전 문맥, 결과 핸들 또는 서버 바인딩 증적에서만 수락되며, 서버가 만든 계획은 기존 권한 경계를 유지합니다.

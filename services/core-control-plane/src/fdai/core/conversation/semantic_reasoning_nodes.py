@@ -386,6 +386,8 @@ def traversal_node(
     side: RelationSide,
     predicates: Sequence[Mapping[str, Any]],
     ctx: CompileContext,
+    *,
+    emit_lineage: bool = False,
 ) -> OntologyQueryNode:
     arguments: dict[str, Any] = {
         "selector": {"kind": "object_type", "name": side.endpoint_type},
@@ -398,6 +400,8 @@ def traversal_node(
     }
     if predicates:
         arguments["endpoint_predicates"] = [dict(item) for item in predicates]
+    if emit_lineage:
+        arguments["emit_lineage"] = True
     return OntologyQueryNode(
         node_id=node_id,
         kind=QueryNodeKind.RELATIONSHIP_TRAVERSAL,

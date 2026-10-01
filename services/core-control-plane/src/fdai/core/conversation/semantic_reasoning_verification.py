@@ -61,6 +61,7 @@ from .semantic_reasoning_form import (
 )
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
 from .semantic_reasoning_lifecycle import parse_lifecycle
+from .semantic_reasoning_lineage_counts import lineage_traversal_violations
 from .semantic_reasoning_measure_checks import (
     expected_measure_arguments,
     is_health_lookup,
@@ -210,6 +211,7 @@ class _Allowed:
         self.anchor_ids: set[str] = set()
         self.fragments: set[str] = set()
         self.type_sets: list[frozenset[str]] = []
+        self.container_types: set[str] = set()
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.state_concepts: set[str] = set()
@@ -295,6 +297,19 @@ def _allowed_operands(
         elif mention.domain is MentionDomain.REGION and role is FilterRole.REGION:
             allowed.regions.update(concept.values)
     measure = goal.measure
+    if (
+        measure is not None
+        and measure.group_by is GroupBy.CONTAINER
+        and measure.mention is not None
+    ):
+        mention = admission.form.mention(measure.mention)
+        concept = concepts.binding(measure.mention)
+        if (
+            mention.domain in {MentionDomain.RESOURCE_TYPE, MentionDomain.RESOURCE_CLASS}
+            and concept is not None
+            and concept.outcome is ConceptOutcome.ACCEPTED
+        ):
+            allowed.container_types.update(concept.values)
     if measure is not None and measure.kind is MeasureKind.METRIC and measure.mention is not None:
         mention = admission.form.mention(measure.mention)
         concept = concepts.binding(measure.mention)
@@ -369,7 +384,7 @@ def _predicate_violations(
         elif prop == "name" and operator == "contains":
             permitted = allowed.fragments
         elif prop == "type" and operator in {"equals", "in"}:
-            permitted = set(allowed.required_types)
+            permitted = set(allowed.required_types) | allowed.container_types
         elif prop == "location" and operator in {"equals", "in"}:
             permitted = allowed.regions
         elif prop == "type" and operator == "not_equals":
@@ -527,6 +542,7 @@ def _coverage_violations(
         )
     ):
         violations.append("sem_group_by_mismatch")
+    violations.extend(lineage_traversal_violations(lineage_group=lineage_group, plans=plans))
     functions = {
         name for plan in plans for node in plan.nodes if (name := function_name(node)) is not None
     }
