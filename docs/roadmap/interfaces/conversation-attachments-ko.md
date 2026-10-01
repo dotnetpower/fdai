@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 42cbad504ae365b3896fba01669e3395674ef387
-translation_revised: 2026-09-30
+translation_source_sha: e429a6a9bd7f1eb9412c53a8216d7c9a4ed157ea
+translation_revised: 2026-10-01
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -22,6 +22,8 @@ title: 대화 첨부파일
 
 파일 출처는 채널마다 다릅니다. 안전성, 저장소, 용도, 인용, 보존 및 감사는
 동일합니다.
+생성된 의미 보증 인벤토리는 대화 추론 경계와 공유합니다. 따라서 추론 강화가 원본 다이제스트를
+갱신할 수 있지만, 첨부파일 허용, 문서 인용, 담당 라우팅 또는 채널 권한은 바꾸지 않습니다.
 
 ## 구현 상태
 
