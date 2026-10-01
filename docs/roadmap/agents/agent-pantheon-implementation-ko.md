@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 09f5839e16a5d38ef31e56102bc33301f6f90f69
+translation_source_sha: 3a61b2b5fc568081a3d4ee1a9580072a2267a73d
 translation_revised: 2026-10-02
 ---
 
@@ -507,6 +507,13 @@ runtime degraded가 아니라 보이는 no-op을 보고합니다. Sampler 호출
 `capacity_sampling:timeout`을 기록합니다. Freyr와 Njord는 오래된 표본의 중복 차단 장치를
 완료하므로, 다시 전달된 오래된 표본은 재처리되지 않고 중복으로 처리됩니다. Forecast는 governed advisory-to-verdict
 경로가 Forseti를 통해 shadow/HIL proposal을 낼 때까지 자문 근거로 유지됩니다.
+Njord는 기본 proposal 큐 대신 범위가 제한된 영속 cost-anomaly 보낼 편지함을 소유합니다. Rate-limit에
+걸렸거나 bus가 없는 anomaly는 accepted-sample 차단 장치를 열어 둔 채 pending으로 영속화됩니다.
+다시 전달되어도 재분석하거나 다시 게시하지 않으며, 유지 관리 작업이 proposal 예산 안에서 가장
+오래된 pending 행부터 다시 게시한 뒤 차단 장치를 완료합니다. 압축은 pending 행을 삭제하지 않고,
+보낼 편지함이 가득 차면 `cost_anomaly:outbox_full`로 보고합니다. 런타임 bootstrap은 Njord를 incident
+감사 저장소에 연결하며, 상태 저장소가 없는 조립은 재시작 시 사라지는 범위가 제한된 process-local
+보낼 편지함을 유지합니다.
 
 Loki는 예약과 게시 전에 chaos 제안 근거를 검증합니다. 불완전한 제안은 검토 대상으로 보류하고,
 대상 잘림은 명시적으로 기록하며, 완전한 제안만 Heimdall 관측을 위해
@@ -541,6 +548,9 @@ halt compare-and-swap을 수행한 다음 차단 장치를 확정합니다. Clea
 예약을 해제해 같은 서명 요청을 다시 시도할 수 있고, clear 뒤 확정에 실패하면 halt는 해제된
 상태로 `applied_but_unfinalized`를 보고합니다. DLQ 근거 검색을 제한 시간과 레코드 수로 제한하며,
 해제된 ordinal consumer group만 재개합니다. 거부된 clear는 감사되고 조회할 수 있으며 집계됩니다.
+런타임 clear 바인딩은 영속 halt가 더 이상 유지되지 않으면 `applied_but_unfinalized`를 포함해 중단된
+소비자를 재개하고, 그 결과를 따로 집계하며, 재개에 실패하면 clear 요청 소비자를 멈추지 않고 보이는
+거부 기록과 상태 카운터로 남깁니다.
 
 Provider-harness restart replay 검사는 Bragi, Var final approval, Saga audit outbox, Muninn,
 Mimir, Heimdall, Odin publication replay를 다룹니다. 영속 publication replay와 Odin 재전달에 대한
@@ -703,7 +713,9 @@ Thor는 모든 프로필에서 이 사유를 가진 ActionType 없는 판정을 
 런타임 비율 한도 적용은 고정 버킷이 아니라 슬라이딩 윈도를 사용하므로 경계 시점 버스트가
 유효 비율을 두 배로 만들지 않습니다. 초과 제안은 범위가 제한된 큐에 넣고 큐가 넘치면
 `rate_limit_exceeded` 감사 항목과 함께 폐기하여 Saga와 Norns가 에이전트 버스트의 원인을 학습하도록
-합니다.
+합니다. Loki chaos 제안, Norns 규칙 후보, Njord cost anomaly는 이 process-local 큐를 거치지 않습니다.
+각 에이전트가 이를 영속 대기 제안으로 유지하므로, rate-limit에 걸린 해당 제안은 재시작 시 사라지지
+않고 영속 상태에서 다시 시도됩니다.
 
 상태와 KPI 스냅샷은 측정된 값과 사용할 수 없는 근거를 구분합니다. 누락, stale, incomplete,
 degraded sample은 `value: null`과 근거 상태 및 성능 저하 사실을 함께 렌더링합니다. 승격 gate는

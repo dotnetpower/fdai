@@ -515,6 +515,13 @@ visible no-op rather than a degraded runtime. A sampler call is bounded by a tim
 `capacity_sampling:timeout`. Freyr and Njord complete the duplicate fence of a stale sample, so a
 redelivered stale sample is a duplicate rather than reprocessed work. Forecasts remain advisory unless the governed advisory-to-verdict path
 emits shadow/HIL proposals through Forseti.
+Njord owns a bounded durable cost-anomaly outbox instead of the base proposal queue. A rate-limited
+or bus-less anomaly is persisted as pending with its accepted-sample fence left open; redelivery
+neither re-analyzes nor republishes it, and maintenance re-drives pending rows oldest first within
+the proposal budget before completing the fence. Compaction never deletes a pending row, and a full
+outbox is reported as `cost_anomaly:outbox_full`. Runtime bootstrap binds Njord to the incident audit
+store; a composition without a state store keeps a bounded process-local outbox that a restart
+loses.
 
 Loki validates chaos proposal evidence before reservation and publication. Incomplete proposals
 stay held for review, target truncation is recorded explicitly, and only complete proposals publish
@@ -549,7 +556,10 @@ the receipt replay fence, performs the audited halt compare-and-swap, and then f
 a failed or mismatched clear releases the reservation so the same signed request can be retried,
 and a finalize failure after the clear reports `applied_but_unfinalized` with the halt cleared. It
 bounds DLQ evidence scans by timeout and record count and resumes only the cleared ordinal consumer
-group. Rejected clears are audited, queryable, and counted.
+group. Rejected clears are audited, queryable, and counted. The runtime clear binding resumes the
+halted consumer whenever the durable halt is no longer held, including `applied_but_unfinalized`,
+counts that outcome separately, and records a failed resume as a visible rejection and health
+counter instead of stopping the clear-request consumer.
 
 Provider-harness restart replay tests cover Bragi, Var final approval, Saga audit outbox, Muninn,
 Mimir, Heimdall, and Odin publication replay. The real provider matrix for durable publication
@@ -715,7 +725,10 @@ mode.
 
 Runtime rate-limit enforcement uses a sliding window, not a fixed bucket, so boundary bursts do not
 double the effective rate. Excess proposals enter a bounded queue; overflow is dropped with a
-`rate_limit_exceeded` audit entry for Saga and Norns to learn why the agent burst.
+`rate_limit_exceeded` audit entry for Saga and Norns to learn why the agent burst. Loki chaos
+proposals, Norns rule candidates, and Njord cost anomalies bypass that process-local queue: each
+agent keeps them as durable pending proposals, so a rate-limited proposal of those kinds is retried
+from durable state rather than lost on restart.
 
 Health and KPI snapshots distinguish measured values from unavailable evidence. Missing,
 stale, incomplete, or degraded samples render `value: null` with an evidence state and degradation
