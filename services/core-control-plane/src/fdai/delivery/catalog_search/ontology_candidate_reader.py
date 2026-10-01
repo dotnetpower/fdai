@@ -238,3 +238,22 @@ class OntologyInstanceCandidateReader:
             if principal_scope_digest is None or scope[0] == principal_scope_digest:
                 self._prepared.pop(scope, None)
                 self._preparing.pop(scope, None)
+
+    def validate_evaluation_binding(
+        self,
+        *,
+        staged: OntologyStagedProjection,
+        manifest: QueryManifest,
+        generation_digest: str,
+        ranking_policy: CatalogRankingPolicy,
+    ) -> None:
+        """Check frozen diagnostic inputs without preparing or enabling this reader."""
+        prepared = self._prepared.get(_scope_key(manifest))
+        if (
+            prepared is None
+            or prepared.staged != staged
+            or prepared.manifest_digest != manifest.manifest_digest
+            or prepared.generation.generation_digest != generation_digest
+            or self._policy != ranking_policy
+        ):
+            raise ValueError("ontology evaluation reader binding changed")
