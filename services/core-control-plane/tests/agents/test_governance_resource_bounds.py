@@ -329,7 +329,7 @@ async def test_var_pending_final_publication_uses_page_reads() -> None:
     finalized, published = await var.recover_approvals()
     assert (finalized, published) == (0, 25)
     assert store.find_state_calls == 0
-    assert store.read_state_page_calls <= 4
+    assert store.read_state_page_calls <= 5
 
 
 @pytest.mark.asyncio

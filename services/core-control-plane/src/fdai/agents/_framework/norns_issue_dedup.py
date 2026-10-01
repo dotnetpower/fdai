@@ -97,12 +97,11 @@ class NornsIssueDeduplicator:
             return 0
         pending_from_operations = 0
         recovered_operations = 0
-        offset = 0
         while recovered_operations <= self._recovery_limit:
             rows, _total = await store.read_state_page(
                 f"{_OPERATION_PREFIX}/",
                 limit=min(_RECOVERY_PAGE_SIZE, self._recovery_limit - recovered_operations + 1),
-                offset=offset,
+                offset=0,
                 field="status",
                 value="pending",
             )
@@ -141,7 +140,6 @@ class NornsIssueDeduplicator:
                     ),
                 )
                 recovered_operations += 1
-            offset += len(rows)
 
         recovered_fingerprints = 0
         offset = 0

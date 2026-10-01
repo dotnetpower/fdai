@@ -22,6 +22,7 @@ from fdai.shared.providers.user_context import UserPreferenceRecord
 
 from .bragi_models import ConversationSession, Turn
 from .introspection import canonical_json
+from .outbox_publication import await_bounded_publication, claim_expired
 
 _BRAGI_PUBLICATION_OUTBOX_PREFIX = "pantheon/bragi/publication-outbox/"
 _BRAGI_PUBLICATION_OUTBOX_SCAN_LIMIT = 5_000
@@ -362,7 +363,10 @@ class BragiPublicationMixin:
         ):
             return True
         try:
-            await bus.publish("Bragi", "object.post-turn-review", payload)
+            await await_bounded_publication(
+                bus.publish("Bragi", "object.post-turn-review", payload),
+                lease=_BRAGI_PUBLICATION_CLAIM_LEASE,
+            )
         except Exception:
             if state_store is not None:
                 await _reset_publication_pending(state_store, payload)
@@ -387,7 +391,10 @@ class BragiPublicationMixin:
         ):
             return True
         try:
-            await bus.publish("Bragi", "object.handoff-escalation", payload)
+            await await_bounded_publication(
+                bus.publish("Bragi", "object.handoff-escalation", payload),
+                lease=_BRAGI_PUBLICATION_CLAIM_LEASE,
+            )
         except Exception:
             if state_store is not None:
                 await _reset_publication_pending(state_store, payload)
@@ -423,14 +430,12 @@ class BragiPublicationMixin:
             if not isinstance(payload, Mapping):
                 raise RuntimeError("Bragi publication outbox row is malformed")
             if await _claim_publication(state_store, payload, now=self._publication_now()):
-                publish_task = asyncio.create_task(bus.publish("Bragi", topic, dict(payload)))
                 try:
-                    await asyncio.shield(publish_task)
+                    await await_bounded_publication(
+                        bus.publish("Bragi", topic, dict(payload)),
+                        lease=_BRAGI_PUBLICATION_CLAIM_LEASE,
+                    )
                     await asyncio.shield(_mark_publication_published(state_store, payload))
-                except asyncio.CancelledError:
-                    await asyncio.shield(publish_task)
-                    await asyncio.shield(_mark_publication_published(state_store, payload))
-                    raise
                 except Exception:
                     await _reset_publication_pending(state_store, payload)
                     raise
@@ -556,13 +561,8 @@ async def _reset_publication_pending(state_store: Any, payload: Mapping[str, Any
 
 
 def _publication_claim_expired(row: Mapping[str, Any], now: datetime) -> bool:
-    claimed_at = row.get("claimed_at")
-    if not isinstance(claimed_at, str) or not claimed_at:
-        return True
-    try:
-        parsed = datetime.fromisoformat(claimed_at)
-    except ValueError:
-        return True
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        return True
-    return now - parsed >= _BRAGI_PUBLICATION_CLAIM_LEASE
+    return claim_expired(
+        claimed_at=row.get("claimed_at"),
+        now=now,
+        lease=_BRAGI_PUBLICATION_CLAIM_LEASE,
+    )

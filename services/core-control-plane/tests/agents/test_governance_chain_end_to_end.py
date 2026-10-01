@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
+from fdai.agents._framework import bragi_publication as bragi_publication_module
 from fdai.agents._framework.adapters import InMemoryGithubIssueAdapter, InMemoryStateStore
+from fdai.agents._framework.bragi_publication import _publication_key
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
@@ -314,6 +317,59 @@ def test_bragi_post_turn_review_outbox_recovers_once_to_norns() -> None:
     assert len(coordinator.reviews) == 1
     assert asyncio.run(restarted.recover_bragi_publications()) == 0
     assert len(coordinator.reviews) == 1
+
+
+@pytest.mark.asyncio
+async def test_bragi_publication_timeout_releases_claim_before_recovery(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    class SlowBus(InMemoryBus):
+        def __init__(self) -> None:
+            super().__init__(registry=load_pantheon(), isolate_handlers=False)
+            self.accepted = 0
+            self.cancelled = 0
+
+        async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
+            if topic == "object.handoff-escalation":
+                try:
+                    await asyncio.sleep(60)
+                except asyncio.CancelledError:
+                    self.cancelled += 1
+                    raise
+                self.accepted += 1
+                return
+            await super().publish(principal, topic, payload)
+
+    monkeypatch.setattr(
+        bragi_publication_module,
+        "_BRAGI_PUBLICATION_CLAIM_LEASE",
+        timedelta(milliseconds=2),
+    )
+    store = DurableStateStore()
+    payload = {
+        "producer_principal": "Bragi",
+        "correlation_id": "handoff-slow-timeout",
+        "idempotency_key": "handoff:slow-timeout",
+        "reason": "operator_handoff",
+    }
+    bragi = Bragi(state_store=store)
+    slow_bus = SlowBus()
+    bragi.bind_bus(slow_bus)
+
+    with pytest.raises(TimeoutError):
+        await bragi.publish_handoff_event(payload)
+
+    key = _publication_key(payload)
+    assert slow_bus.accepted == 0
+    assert slow_bus.cancelled == 1
+    assert (await store.read_state(key))["status"] == "pending"
+    recovered = Bragi(state_store=store)
+    bus = _bus()
+    recovered.bind_bus(bus)
+
+    assert await recovered.recover_bragi_publications() == 1
+    assert len(bus.messages_on("object.handoff-escalation")) == 1
+    assert bus.messages_on("object.handoff-escalation")[0].payload["idempotency_key"] == (
+        "handoff:slow-timeout"
+    )
 
 
 def test_default_runtime_reports_unbound_post_turn_review_learning_degradation() -> None:

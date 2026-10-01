@@ -16,7 +16,11 @@ from fdai.agents._framework.mimir_maintenance import (
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.state_store_issue_tracker import StateStoreIssueTrackerAdapter
-from fdai.agents.mimir import Mimir
+from fdai.agents.mimir import (
+    Mimir,
+    _issue_close_evidence_idempotency_key,
+    _rule_publication_key,
+)
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -344,6 +348,65 @@ async def test_saga_cancels_mimir_close_when_fingerprint_recurs_after_clean_star
     assert saga.github.issues[fingerprint].open is True
     assert saga.behavior_snapshot()["issue_close:recurrence_after_clean"] == 1
     assert runner.calls == 1
+
+
+async def test_mimir_retries_pending_issue_close_evidence_publication() -> None:
+    now = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    mimir = Mimir(governance_state_store=store, clock=lambda: now)
+    bus = InMemoryBus(registry=load_pantheon())
+    mimir.bind_bus(bus)
+    reader = _PromotionReader()
+    outcome = MimirCatalogPromotionOutcome(
+        problem_fingerprint="fp-pending-publication",
+        promotion_pr="https://github.com/dotnetpower/fdai/pull/1002",
+        correlation_id="promotion-pending-publication",
+        outcome="promoted",
+        rule_id="rule.pending.publication",
+        promoted_at=now - timedelta(hours=26),
+    )
+    reader.outcomes.append(outcome)
+    mimir.bind_catalog_promotion_outcome_reader(reader)
+    mimir.bind_regression_runner(_RegressionRunner(started_at=now - timedelta(hours=25)))
+    idempotency_key = _issue_close_evidence_idempotency_key(outcome)
+    payload = {
+        "producer_principal": "Mimir",
+        "kind": "catalog_review_outcome",
+        "correlation_id": outcome.correlation_id,
+        "idempotency_key": idempotency_key,
+        "outcome": outcome.outcome,
+        "problem_fingerprint": outcome.problem_fingerprint,
+        "fingerprint": outcome.problem_fingerprint,
+        "promotion_pr": outcome.promotion_pr,
+        "clean_regression_started_at": (now - timedelta(hours=25)).isoformat(),
+        "rule_id": outcome.rule_id,
+        "candidate_digest": outcome.candidate_digest,
+        "package_digest": outcome.package_digest,
+        "review_ref": outcome.review_ref,
+        "norns_issue_close_support": None,
+        "grants_issue_close_authority": False,
+    }
+    await store.write_state(
+        _rule_publication_key(idempotency_key),
+        {
+            "kind": "mimir_rule_publication",
+            "revision": 1,
+            "status": "pending",
+            "topic": "object.rule",
+            "idempotency_key": idempotency_key,
+            "correlation_id": outcome.correlation_id,
+            "payload": payload,
+        },
+    )
+
+    await mimir.maintenance_tick()
+
+    assert len(bus.messages_on("object.rule")) == 1
+    assert bus.messages_on("object.rule")[0].payload["idempotency_key"] == idempotency_key
+    assert (await store.read_state(_rule_publication_key(idempotency_key)))["status"] == (
+        "published"
+    )
+    assert "promotion_evidence:duplicate" not in mimir.behavior_snapshot()
 
 
 async def test_norns_inert_eligibility_alone_never_closes_or_mutates_issues() -> None:

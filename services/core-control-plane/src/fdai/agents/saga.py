@@ -195,6 +195,10 @@ class Saga(Agent, HandoverKnowledgeMixin):
                     await asyncio.shield(publish_task)
                     await asyncio.shield(self._mark_audit_outbox_published(dict(payload)))
                     raise
+                except Exception:
+                    await self._release_audit_outbox_publication_claim(dict(payload))
+                    self.record_behavior("audit_outbox:recovery_publish_failed")
+                    continue
                 published += 1
         self._last_audit_outbox_recovered = published
         self._audit_outbox_pending = max(0, self._audit_outbox_pending - published)

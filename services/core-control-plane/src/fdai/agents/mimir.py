@@ -1364,7 +1364,13 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         store = self._governance_state_store
         if store is None:
             return False
-        return await store.read_state(_rule_publication_key(idempotency_key)) is not None
+        stored = await store.read_state(_rule_publication_key(idempotency_key))
+        if stored is None:
+            return False
+        if stored.get("status") == "published":
+            self._published_issue_close_evidence.add(idempotency_key)
+            return True
+        return False
 
     def _record_norns_issue_close_support(self, payload: Mapping[str, Any]) -> bool:
         support = norns_issue_close_support(payload)

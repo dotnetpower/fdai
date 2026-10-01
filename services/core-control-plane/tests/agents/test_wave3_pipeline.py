@@ -2511,6 +2511,53 @@ def test_var_recovers_unpublished_final_without_repeated_human_decision() -> Non
     assert published[0].payload["approvers"] == ["reviewer@example.com"]
 
 
+def test_var_recovers_stale_publishing_final_without_repeated_human_decision() -> None:
+    from fdai.agents._framework.var_decisions import final_approval_record
+    from fdai.agents._framework.var_ticket_identity import (
+        approval_action_identity,
+        approval_state_key,
+    )
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    first = _var_with_pending("c-approval-stale-publishing", state_store=store)
+    first.bus = None
+    finalized = asyncio.run(
+        first.decide(
+            "c-approval-stale-publishing",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+    assert finalized is not None
+    action_run_identity = approval_action_identity(finalized)
+    key = approval_state_key("c-approval-stale-publishing", "final", action_run_identity)
+    stored = asyncio.run(store.read_state(key))
+    assert stored is not None
+    asyncio.run(
+        store.write_state(
+            key,
+            final_approval_record(
+                finalized,
+                publication_status="publishing",
+                revision=int(stored["revision"]) + 1,
+                claim_owner="old-var",
+                claimed_at="",
+            ),
+        )
+    )
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Var(bus=bus, state_store=store)
+    recovered = asyncio.run(restarted.recover_approvals())
+
+    assert recovered == (0, 1)
+    published = bus.messages_on("object.approval")
+    assert len(published) == 1
+    assert published[0].payload["idempotency_key"] == finalized["idempotency_key"]
+    assert asyncio.run(store.read_state(key))["publication_status"] == "published"
+
+
 def test_var_recovers_terminal_decision_before_final_checkpoint() -> None:
     from fdai.shared.providers.testing.state_store import InMemoryStateStore
 

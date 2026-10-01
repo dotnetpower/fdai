@@ -488,8 +488,8 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             return finalized, 0
         published = 0
         for pending_approval in await self._pending_final_approvals_page(limit=self._MAX_PENDING):
-            await self._publish_final_approval(pending_approval)
-            published += 1
+            if await self._publish_final_approval(pending_approval) is not None:
+                published += 1
         return finalized, published
 
     async def rehydrate_pending_work(self) -> tuple[int, int]:
@@ -622,11 +622,14 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
                     action_run_identity,
                 )
             return deepcopy(approval)
-        if not await _claim_approval_publication(
+        claim = await _claim_approval_publication(
             store=self._state_store,
             approval=approval,
             published_cache=self._published_approvals,
-        ):
+            owner=self.spec.name,
+            now=self._clock(),
+        )
+        if claim is None:
             return None
         publish_task = asyncio.create_task(
             self.bus.publish("Var", "object.approval", deepcopy(approval))
@@ -642,6 +645,7 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             await _release_approval_publication_claim(
                 store=self._state_store,
                 approval=approval,
+                claim=claim,
             )
             raise
         _remove_pending_ticket(
@@ -724,14 +728,20 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
     async def _pending_final_approvals_page(self, *, limit: int) -> list[dict[str, Any]]:
         if self._state_store is None:
             return []
-        rows, _total = await self._state_store.read_state_page(
+        pending_rows, _pending_total = await self._state_store.read_state_page(
             f"{APPROVAL_STATE_PREFIX}/",
             limit=limit,
             field="publication_status",
             value="pending",
         )
+        publishing_rows, _publishing_total = await self._state_store.read_state_page(
+            f"{APPROVAL_STATE_PREFIX}/",
+            limit=limit,
+            field="publication_status",
+            value="publishing",
+        )
         approvals: list[dict[str, Any]] = []
-        for stored in reversed(rows):
+        for stored in reversed((*pending_rows, *publishing_rows)[:limit]):
             correlation_id = str(stored.get("correlation_id") or "")
             approval, _published = validate_final_record(stored, correlation_id)
             approvals.append(approval)

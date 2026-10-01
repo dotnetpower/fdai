@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from fdai.agents._framework.mimir_catalog_journal import MimirCatalogReviewJournal
+from fdai.agents._framework.norns_issue_dedup import _operation_state
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
@@ -331,6 +333,36 @@ async def test_norns_issue_learning_recovery_pages_and_fingerprint_rows_stay_bou
     await recovered.recover_issue_learning()
     assert store.find_state_calls == 0
     assert max(store.read_state_page_limits) <= 128
+
+
+async def test_norns_issue_learning_recovery_does_not_skip_shifted_pending_rows() -> None:
+    store = _CountingStore()
+    for index in range(260):
+        operation_id = f"issue-op-shift-{index}"
+        operation_digest = hashlib.sha256(operation_id.encode("utf-8")).hexdigest()
+        await store.write_state(
+            f"pantheon/norns/issue-learning/operations/{operation_digest}",
+            _operation_state(
+                operation_digest=operation_digest,
+                fingerprint=f"fp-{index}",
+                status="pending",
+                revision=1,
+            ),
+        )
+
+    recovered = Norns(issue_state_store=store, promotion_threshold=10_000)
+    assert await recovered.recover_issue_learning() == 0
+    pending_rows, pending_total = await store.read_state_page(
+        "pantheon/norns/issue-learning/operations/",
+        limit=300,
+        field="status",
+        value="pending",
+    )
+
+    assert pending_rows == ()
+    assert pending_total == 0
+    assert store.find_state_calls == 0
+    assert max(store.read_state_page_limits) <= 300
 
 
 async def test_norns_issue_learning_recovery_restores_all_pending_fingerprints() -> None:

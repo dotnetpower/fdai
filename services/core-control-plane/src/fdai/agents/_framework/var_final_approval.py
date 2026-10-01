@@ -4,13 +4,24 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any
 
+from fdai.agents._framework.outbox_publication import claim_expired
 from fdai.agents._framework.var_decisions import final_approval_record
 from fdai.agents._framework.var_ticket_identity import (
     approval_action_identity,
     approval_state_key,
 )
+
+_APPROVAL_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalPublicationClaim:
+    owner: str
+    claimed_at: str
 
 
 def validate_final_approval(
@@ -57,6 +68,8 @@ def validate_final_record(
         approval,
         publication_status=str(status),
         revision=revision,
+        claim_owner=str(stored.get("claim_owner") or ""),
+        claimed_at=str(stored.get("claimed_at") or ""),
     )
     if dict(stored) != canonical:
         raise RuntimeError("stored final approval record is malformed")
@@ -68,14 +81,16 @@ async def claim_approval_publication(
     store: Any | None,
     approval: Mapping[str, Any],
     published_cache: set[tuple[str, str]] | Any,
-) -> bool:
+    owner: str,
+    now: datetime,
+) -> ApprovalPublicationClaim | None:
     correlation_id = str(approval["correlation_id"])
     action_run_identity = approval_action_identity(approval)
     cache_key = (correlation_id, action_run_identity or "non-action")
     if cache_key in published_cache:
-        return False
+        return None
     if store is None:
-        return True
+        return ApprovalPublicationClaim(owner=owner, claimed_at=now.isoformat())
     key = approval_state_key(correlation_id, "final", action_run_identity)
     for _attempt in range(16):
         stored = await store.read_state(key)
@@ -86,16 +101,23 @@ async def claim_approval_publication(
             raise RuntimeError("approval publication receipt collision")
         if published:
             published_cache.add(cache_key)
-            return False
-        if stored.get("publication_status") == "publishing":
-            return False
+            return None
+        if stored.get("publication_status") == "publishing" and not claim_expired(
+            claimed_at=stored.get("claimed_at"),
+            now=now,
+            lease=_APPROVAL_PUBLICATION_CLAIM_LEASE,
+        ):
+            return None
         revision = int(stored["revision"])
+        claimed_at = now.isoformat()
         advanced = await store.compare_and_set_state_with_audit(
             key,
             final_approval_record(
                 stored_approval,
                 publication_status="publishing",
                 revision=revision + 1,
+                claim_owner=owner,
+                claimed_at=claimed_at,
             ),
             expected_revision=revision,
             audit_entry={
@@ -107,7 +129,7 @@ async def claim_approval_publication(
             },
         )
         if advanced:
-            return True
+            return ApprovalPublicationClaim(owner=owner, claimed_at=claimed_at)
     raise RuntimeError("approval publication claim CAS retry limit exceeded")
 
 
@@ -115,6 +137,7 @@ async def release_approval_publication_claim(
     *,
     store: Any | None,
     approval: Mapping[str, Any],
+    claim: ApprovalPublicationClaim,
 ) -> None:
     if store is None:
         return
@@ -124,6 +147,11 @@ async def release_approval_publication_claim(
     for _attempt in range(16):
         stored = await store.read_state(key)
         if stored is None or stored.get("publication_status") != "publishing":
+            return
+        if (
+            str(stored.get("claim_owner") or "") != claim.owner
+            or str(stored.get("claimed_at") or "") != claim.claimed_at
+        ):
             return
         stored_approval, _published = validate_final_record(stored, correlation_id)
         if stored_approval != dict(approval):
@@ -149,6 +177,7 @@ def _valid_optional_quorum(value: object) -> bool:
 
 __all__ = [
     "claim_approval_publication",
+    "ApprovalPublicationClaim",
     "release_approval_publication_claim",
     "validate_final_approval",
     "validate_final_record",

@@ -22,6 +22,23 @@ def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
 
 
+class _FailOnceAuditBus(InMemoryBus):
+    def __init__(self, *, fail_correlation_id: str) -> None:
+        super().__init__(registry=load_pantheon())
+        self.fail_correlation_id = fail_correlation_id
+        self.failed = False
+
+    async def publish(self, principal: str, topic: str, payload: dict[str, object]) -> None:
+        if (
+            topic == "object.audit-entry"
+            and payload.get("correlation_id") == self.fail_correlation_id
+            and not self.failed
+        ):
+            self.failed = True
+            raise RuntimeError("broker unavailable")
+        await super().publish(principal, topic, payload)  # type: ignore[arg-type]
+
+
 def _semantics() -> ActionSemanticsCatalog:
     return ActionSemanticsCatalog(
         irreversible_by_id={"ops.restart-service": False},
@@ -264,6 +281,44 @@ async def test_saga_audit_outbox_reclaims_stale_publishing_after_restart() -> No
     assert await restarted.recover_audit_outbox() == 1
     assert bus.messages_on("object.audit-entry")[0].payload["correlation_id"] == "corr-stale"
     assert (await store.read_state(key))["status"] == "published"
+
+
+async def test_saga_audit_outbox_recovery_releases_failed_claim_and_continues() -> None:
+    store = InMemoryStateStore()
+    for correlation_id in ("corr-fail-release", "corr-continue"):
+        saga = Saga(audit_chain=InMemoryAuditChain(), durable_state_store=store)
+        await saga.on_typed_message(
+            "object.action-run",
+            {
+                "producer_principal": "Thor",
+                "correlation_id": correlation_id,
+                "idempotency_key": f"run:{correlation_id}",
+                "state": "succeeded",
+                "action_type": "ops.restart-service",
+                "resource_id": "resource-1",
+                "terminal_at": "2028-01-02T00:00:00+00:00",
+            },
+        )
+    rows, _total = await store.read_state_page("pantheon/saga/audit-outbox/", limit=10)
+    keys_by_correlation = {
+        str(row["payload"]["correlation_id"]): _audit_outbox_key(row["payload"]) for row in rows
+    }
+    restarted = Saga(audit_chain=InMemoryAuditChain(), durable_state_store=store)
+    bus = _FailOnceAuditBus(fail_correlation_id="corr-fail-release")
+    restarted.bind_bus(bus)
+
+    assert await restarted.recover_audit_outbox() == 1
+    assert len(bus.messages_on("object.audit-entry")) == 1
+    assert (await store.read_state(keys_by_correlation["corr-fail-release"]))["status"] == "pending"
+    assert (await store.read_state(keys_by_correlation["corr-continue"]))["status"] == "published"
+    retry_bus = _bus()
+    retry = Saga(audit_chain=InMemoryAuditChain(), durable_state_store=store)
+    retry.bind_bus(retry_bus)
+
+    assert await retry.recover_audit_outbox() == 1
+    assert retry_bus.messages_on("object.audit-entry")[0].payload["correlation_id"] == (
+        "corr-fail-release"
+    )
 
 
 async def test_saga_handoff_checkpoint_cas_rejects_regression() -> None:

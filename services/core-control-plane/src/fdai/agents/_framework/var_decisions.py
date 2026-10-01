@@ -715,9 +715,11 @@ def final_approval_record(
     *,
     publication_status: str,
     revision: int,
+    claim_owner: str = "",
+    claimed_at: str = "",
 ) -> dict[str, Any]:
     """Wrap a final approval with durable outbox state."""
-    return {
+    record = {
         "schema_version": "1.0.0",
         "record_kind": "final_approval",
         "revision": revision,
@@ -725,6 +727,10 @@ def final_approval_record(
         "publication_status": publication_status,
         "approval": deepcopy(dict(approval)),
     }
+    if claim_owner or claimed_at:
+        record["claim_owner"] = claim_owner
+        record["claimed_at"] = claimed_at
+    return record
 
 
 __all__ = [

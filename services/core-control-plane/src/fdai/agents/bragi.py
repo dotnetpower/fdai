@@ -59,6 +59,10 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     durable_evidence_refs,
 )
+from fdai.agents._framework.outbox_publication import (
+    await_bounded_publication,
+    claim_expired,
+)
 from fdai.agents._framework.pantheon import _BRAGI, PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.agents._framework.role_answers import bragi_role_answer
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
@@ -1062,14 +1066,12 @@ class Bragi(BragiPublicationMixin, Agent):
             return
         if not await self._claim_turn_publication(payload):
             return
-        publish_task = asyncio.create_task(self.bus.publish("Bragi", "object.turn", payload))
         try:
-            await asyncio.shield(publish_task)
+            await await_bounded_publication(
+                self.bus.publish("Bragi", "object.turn", payload),
+                lease=_TURN_OUTBOX_CLAIM_LEASE,
+            )
             await asyncio.shield(self._mark_turn_published(payload))
-        except asyncio.CancelledError:
-            await asyncio.shield(publish_task)
-            await asyncio.shield(self._mark_turn_published(payload))
-            raise
         except Exception:
             await self._reset_turn_publication_pending(payload)
             raise
@@ -1285,15 +1287,14 @@ class Bragi(BragiPublicationMixin, Agent):
                 if not isinstance(payload, Mapping):
                     raise RuntimeError("Bragi turn outbox row is malformed")
                 if await self._claim_turn_publication(payload):
-                    publish_task = asyncio.create_task(
-                        self.bus.publish("Bragi", "object.turn", dict(payload))
-                    )
                     try:
-                        await asyncio.shield(publish_task)
+                        await await_bounded_publication(
+                            self.bus.publish("Bragi", "object.turn", dict(payload)),
+                            lease=_TURN_OUTBOX_CLAIM_LEASE,
+                        )
                         await asyncio.shield(self._mark_turn_published(payload))
-                    except asyncio.CancelledError:
-                        await asyncio.shield(publish_task)
-                        await asyncio.shield(self._mark_turn_published(payload))
+                    except Exception:
+                        await self._reset_turn_publication_pending(payload)
                         raise
                     published += 1
         recovered_publications = await self.recover_bragi_publications()
@@ -1618,16 +1619,11 @@ def _turn_outbox_key(session_ref: str, turn_index: int, generation: int | None =
 
 
 def _turn_claim_expired(row: Mapping[str, Any], now: datetime) -> bool:
-    claimed_at = row.get("claimed_at")
-    if not isinstance(claimed_at, str) or not claimed_at:
-        return True
-    try:
-        parsed = datetime.fromisoformat(claimed_at)
-    except ValueError:
-        return True
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        return True
-    return now - parsed >= _TURN_OUTBOX_CLAIM_LEASE
+    return claim_expired(
+        claimed_at=row.get("claimed_at"),
+        now=now,
+        lease=_TURN_OUTBOX_CLAIM_LEASE,
+    )
 
 
 def _published_turn_outbox_tombstone(stored: Mapping[str, Any], *, revision: int) -> dict[str, Any]:
