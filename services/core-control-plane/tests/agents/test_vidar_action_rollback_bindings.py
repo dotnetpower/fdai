@@ -50,3 +50,21 @@ def test_vidar_refuses_known_action_without_matching_rollback_executor() -> None
     assert record.action_type == "ops.scale-out"
     assert "no rollback executor registered" in record.notes
     assert called == []
+
+
+def test_vidar_health_accepts_action_specific_rollback_executor_bindings() -> None:
+    async def route_rollback(_command: dict[str, object]) -> str:
+        return "route:rollback"
+
+    vidar = Vidar(
+        action_executors={("ops.scale-out", "state_forward_only"): route_rollback},
+        rollback_contracts_by_action_type={"ops.scale-out": "state_forward_only"},
+        state_store=InMemoryStateStore(),
+    )
+
+    asyncio.run(vidar.maintenance_tick())
+
+    health = vidar.health()
+    assert health["status"] == "ok"
+    assert health["rollback_executor_bound"] is True
+    assert health["rollback_path_validation"]["paths"]["ops.scale-out"]["ready"] is True

@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
 from fdai.agents._framework.registry import load_pantheon
-from fdai.agents.loki import ChaosProposal, Loki
+from fdai.agents.loki import _MAX_HELD_PROPOSALS, _SCHEDULED_PREFIX, ChaosProposal, Loki
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 10, 1, 2, 0, tzinfo=UTC)
@@ -183,3 +183,26 @@ async def test_loki_recurring_scheduler_records_hold_when_blast_radius_is_full()
 
     assert len(bus.messages_on("object.chaos-experiment")) == 1
     assert loki.behavior_snapshot()["chaos_scheduler:blast_radius_full"] == 1
+
+
+async def test_loki_recurring_scheduler_compacts_durable_window_rows() -> None:
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    store = InMemoryStateStore()
+    current = _NOW
+    loki = Loki(
+        bus=bus,
+        state_store=store,
+        clock=lambda: current,
+        recurring_schedule=_complete_schedule(schedule_id="retained-windows"),
+    )
+
+    for _index in range(_MAX_HELD_PROPOSALS + 4):
+        await loki.maintenance_tick()
+        current += timedelta(hours=1)
+
+    rows, total = await store.read_state_page(
+        _SCHEDULED_PREFIX,
+        limit=_MAX_HELD_PROPOSALS + 10,
+    )
+    assert total == _MAX_HELD_PROPOSALS
+    assert len(rows) == _MAX_HELD_PROPOSALS

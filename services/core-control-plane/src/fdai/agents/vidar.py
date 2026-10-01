@@ -40,6 +40,7 @@ from fdai.shared.providers.development_authority import DevelopmentAuthorityBind
 from fdai.shared.providers.state_store import StateStore
 
 _ROLLBACK_STATE_PREFIX = "pantheon/vidar/rollback"
+_DR_CONTRACT_DECISION_PREFIX = "pantheon/vidar/dr-contract-decisions/"
 _DEFAULT_CLAIM_LEASE = timedelta(minutes=5)
 _MAX_CLAIM_LEASE = timedelta(hours=1)
 _MAX_ROLLBACK_REF_LENGTH = 2_048
@@ -332,6 +333,8 @@ class Vidar(Agent):
         if state == "succeeded" and payload.get("effect_verification_ref") is not None:
             identity = str(payload.get("action_run_identity") or "")
             accepted = self._dr_contract_decisions.get(identity)
+            if accepted is None:
+                accepted = await self._read_dr_contract_decision(identity)
             outcome = vidar_dr.build_outcome(
                 payload,
                 accepted_decision=accepted or {},
@@ -360,8 +363,42 @@ class Vidar(Agent):
             identity = str(decision.get("action_run_identity") or "")
             if identity:
                 self._dr_contract_decisions.set(identity, dict(decision))
+                await self._persist_dr_contract_decision(identity, decision)
         await self._publish_typed_rollback_event(decision)
         self.record_behavior(f"dr_failover_contract:{decision['decision']}")
+
+    async def _persist_dr_contract_decision(
+        self, identity: str, decision: Mapping[str, Any]
+    ) -> None:
+        if self._state_store is None:
+            return
+        await self._state_store.write_state(
+            _dr_contract_decision_key(identity),
+            {
+                "schema_version": "1.0.0",
+                "revision": 1,
+                "action_run_identity": identity,
+                "decision": dict(decision),
+                "recorded_at": _clock_now(self._clock).isoformat(),
+            },
+        )
+        await self._state_store.delete_states_beyond(
+            _DR_CONTRACT_DECISION_PREFIX,
+            retain_newest=self._MAX_RECORDS,
+        )
+
+    async def _read_dr_contract_decision(self, identity: str) -> dict[str, object] | None:
+        if self._state_store is None or not identity:
+            return None
+        stored = await self._state_store.read_state(_dr_contract_decision_key(identity))
+        if not isinstance(stored, Mapping):
+            return None
+        decision = stored.get("decision")
+        if not isinstance(decision, Mapping) or decision.get("decision") != "accepted":
+            return None
+        recovered = dict(decision)
+        self._dr_contract_decisions.set(identity, recovered)
+        return recovered
 
     async def _publish_dr_outcome(self, outcome: dict[str, Any]) -> None:
         identity = str(outcome.get("action_run_identity") or "")
@@ -1018,7 +1055,8 @@ class Vidar(Agent):
             path_failure_numerator = validation_failures
             path_failure_denominator = len(terminal_records)
         durable_ready = self._state_store is not None or self._allow_process_local_rollback
-        executor_ready = bool(self._executors)
+        action_specific_ready = bool(readiness_validated) and not bool(readiness_missing)
+        executor_ready = bool(self._executors) or action_specific_ready
         status = "ok" if durable_ready and executor_ready else "degraded"
         return {
             "agent": self.spec.name,
@@ -1161,6 +1199,11 @@ def _rollback_state_key(
     digest = hashlib.sha256(correlation_id.encode("utf-8")).hexdigest()
     identity_scope = action_run_identity.removeprefix("sha256:")
     return f"{_ROLLBACK_STATE_PREFIX}/{digest}/{identity_scope}/{suffix}"
+
+
+def _dr_contract_decision_key(action_run_identity: str) -> str:
+    digest = hashlib.sha256(action_run_identity.encode("utf-8")).hexdigest()
+    return f"{_DR_CONTRACT_DECISION_PREFIX}{digest}"
 
 
 def _rollback_request_digest(action_run: Mapping[str, Any], *, contract: str) -> str:

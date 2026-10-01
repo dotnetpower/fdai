@@ -52,6 +52,7 @@ _AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
 # Published outbox tombstones retain only digests long enough to suppress
 # duplicate redelivery across restarts while keeping prefix scans bounded.
 _AUDIT_OUTBOX_TOMBSTONE_RETENTION = 1_024
+_AUDIT_OUTBOX_CLAIM_LEASE = timedelta(minutes=5)
 _FORECAST_AUDIT_FENCE_SIZE = 10_000
 _MAX_FINGERPRINT_INDEX = 50_000
 _FINGERPRINT_RETENTION = 10_000
@@ -164,15 +165,22 @@ class Saga(Agent, HandoverKnowledgeMixin):
 
         if self._durable_state_store is None or self.bus is None:
             return 0
-        rows, _total = await self._durable_state_store.read_state_page(
+        pending_rows, pending_total = await self._durable_state_store.read_state_page(
             _AUDIT_OUTBOX_PREFIX,
             limit=_AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
             field="status",
             value="pending",
         )
-        self._audit_outbox_pending = _total
+        publishing_rows, publishing_total = await self._durable_state_store.read_state_page(
+            _AUDIT_OUTBOX_PREFIX,
+            limit=_AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
+            field="status",
+            value="publishing",
+        )
+        self._audit_outbox_pending = pending_total + publishing_total
         published = 0
-        for row in reversed(rows):
+        rows = (*pending_rows, *publishing_rows)
+        for row in reversed(rows[:_AUDIT_OUTBOX_PENDING_SCAN_LIMIT]):
             payload = row.get("payload")
             if not isinstance(payload, Mapping):
                 raise RuntimeError("Saga audit outbox row is malformed")
@@ -276,12 +284,21 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 raise RuntimeError("Saga audit outbox row disappeared")
             if stored.get("status") == "published":
                 return False
-            if stored.get("status") == "publishing":
+            now = self._clock()
+            if stored.get("status") == "publishing" and not _audit_outbox_claim_expired(
+                stored, now
+            ):
                 return False
             revision = int(stored.get("revision", 1))
             advanced = await self._durable_state_store.compare_and_set_state(
                 key,
-                {**dict(stored), "status": "publishing", "revision": revision + 1},
+                {
+                    **dict(stored),
+                    "status": "publishing",
+                    "revision": revision + 1,
+                    "claim_owner": self.spec.name,
+                    "claimed_at": now.isoformat(),
+                },
                 expected_revision=revision,
             )
             if advanced:
@@ -318,7 +335,13 @@ class Saga(Agent, HandoverKnowledgeMixin):
             revision = int(stored.get("revision", 1))
             advanced = await self._durable_state_store.compare_and_set_state(
                 key,
-                {**dict(stored), "status": "pending", "revision": revision + 1},
+                {
+                    **dict(stored),
+                    "status": "pending",
+                    "revision": revision + 1,
+                    "claim_owner": "",
+                    "claimed_at": "",
+                },
                 expected_revision=revision,
             )
             if advanced:
@@ -1799,6 +1822,19 @@ def _published_audit_outbox_tombstone(
 
 def _payload_digest(payload: Mapping[str, Any]) -> str:
     return f"sha256:{canonical_json_digest(payload)}"
+
+
+def _audit_outbox_claim_expired(row: Mapping[str, Any], now: datetime) -> bool:
+    claimed_at = row.get("claimed_at")
+    if not isinstance(claimed_at, str) or not claimed_at:
+        return True
+    try:
+        parsed = datetime.fromisoformat(claimed_at)
+    except ValueError:
+        return True
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return True
+    return now - parsed >= _AUDIT_OUTBOX_CLAIM_LEASE
 
 
 def _fingerprint_key(fingerprint: str) -> str:

@@ -14,7 +14,13 @@ from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.forseti import Forseti
-from fdai.agents.freyr import Freyr
+from fdai.agents.freyr import (
+    _COST_PREFIX,
+    _MAX_COST_EVIDENCE,
+    _MAX_TRACKED_RESOURCES,
+    _RESOURCE_PREFIX,
+    Freyr,
+)
 from fdai.agents.loki import Loki
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -155,6 +161,43 @@ async def test_freyr_recurring_sampling_timeout_is_visible_noop() -> None:
 
     assert freyr.behavior_snapshot()["capacity_sampling:timeout"] == 1
     assert bus.messages_on("object.capacity-forecast") == []
+
+
+async def test_freyr_compacts_durable_capacity_projection_rows() -> None:
+    store = InMemoryStateStore()
+    freyr = Freyr(state_store=store)
+
+    for index in range(_MAX_TRACKED_RESOURCES + 4):
+        await freyr.ingest_utilization(
+            resource_id=f"resource-{index}",
+            utilization=0.5,
+            correlation_id=f"corr-resource-{index}",
+            observed_at=(_NOW + timedelta(seconds=index)).isoformat(),
+            sample_key=f"sample-{index}",
+        )
+    resource_rows, resource_total = await store.read_state_page(
+        _RESOURCE_PREFIX,
+        limit=_MAX_TRACKED_RESOURCES + 10,
+    )
+
+    for index in range(_MAX_COST_EVIDENCE + 4):
+        await freyr._retain_cost_evidence(
+            {
+                "target_ref": f"target-{index}",
+                "evidence_ref": f"cost-evidence-{index}",
+                "correlation_id": f"corr-cost-{index}",
+                "observed_at": (_NOW + timedelta(seconds=index)).isoformat(),
+            }
+        )
+    cost_rows, cost_total = await store.read_state_page(
+        _COST_PREFIX,
+        limit=_MAX_COST_EVIDENCE + 10,
+    )
+
+    assert resource_total == _MAX_TRACKED_RESOURCES
+    assert len(resource_rows) == _MAX_TRACKED_RESOURCES
+    assert cost_total == _MAX_COST_EVIDENCE
+    assert len(cost_rows) == _MAX_COST_EVIDENCE
 
 
 def test_freyr_optional_sampler_unbound_does_not_degrade_bound_capacity_health() -> None:

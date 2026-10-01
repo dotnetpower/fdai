@@ -431,6 +431,74 @@ def test_vidar_dr_failover_requires_contract_audit_rollback_and_effect_verificat
     assert vidar.health()["mttr_samples"]["count"] == 1
 
 
+def test_vidar_dr_failover_outcome_uses_persisted_contract_after_restart() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    store = InMemoryStateStore()
+
+    async def executor(_ctx: dict[str, Any]) -> bool:
+        return True
+
+    async def audit(_run: Any) -> str:
+        return "audit:restart-dr"
+
+    async def failback(_command: dict[str, Any]) -> str:
+        return "failback:ready"
+
+    thor = Thor(
+        bus=bus,
+        executor=executor,
+        execution_audit_recorder=audit,
+        preflight_simulator=_PassingPreflight(),
+    )
+    vidar = Vidar(
+        bus=bus,
+        executors={"scripted": failback},
+        state_store=store,
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        clock=lambda: _NOW,
+    )
+    bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)
+    bus.subscribe("object.rollback", "Thor", thor.on_typed_message)
+
+    run = asyncio.run(thor.dispatch_verdict(_failover_verdict(correlation_id="corr-restart-dr")))
+    asyncio.run(thor.on_typed_message("object.approval", _approval_for_run(run)))
+    assert [
+        msg.payload
+        for msg in bus.messages_on("object.rollback")
+        if msg.payload.get("kind") == DR_CONTRACT_KIND
+    ][-1]["decision"] == "accepted"
+
+    restarted = Vidar(
+        bus=bus,
+        executors={"scripted": failback},
+        state_store=store,
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        clock=lambda: _NOW + timedelta(seconds=45),
+    )
+    asyncio.run(
+        restarted.on_typed_message(
+            "object.action-run",
+            {
+                **run.to_dict(),
+                "producer_principal": "Thor",
+                "state": "succeeded",
+                "action_run_identity": action_run_identity_digest(run.to_dict()),
+                "effect_verification_ref": _EFFECT_REF,
+                "observed_at": (_NOW + timedelta(seconds=45)).isoformat(),
+            },
+        )
+    )
+
+    outcomes = [
+        msg.payload
+        for msg in bus.messages_on("object.rollback")
+        if msg.payload.get("kind") == DR_OUTCOME_KIND
+    ]
+    assert outcomes[-1]["action_run_identity"] == action_run_identity_digest(run.to_dict())
+    assert outcomes[-1]["recovery_time_seconds"] == 45.0
+    assert restarted.health()["mttr_samples"]["count"] == 1
+
+
 def test_vidar_holds_dr_failover_when_failback_executor_is_unbound() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     executed: list[str] = []

@@ -3,15 +3,16 @@ from __future__ import annotations
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import InMemoryAuditChain, InMemoryGithubIssueAdapter
+from fdai.agents._framework.bragi_publication import _publication_key
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.provider_adapters import StateStoreAuditChainAdapter
 from fdai.agents._framework.rate_limiter import RateLimiter
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.saga_handoff import HandoffIssueCheckpoint, SagaHandoffJournal
-from fdai.agents.bragi import Bragi
+from fdai.agents.bragi import Bragi, _turn_outbox_key
 from fdai.agents.odin import Odin
-from fdai.agents.saga import Saga
+from fdai.agents.saga import Saga, _audit_outbox_key
 from fdai.agents.var import Var
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -160,6 +161,56 @@ async def test_bragi_turn_index_outbox_and_progress_recover_after_restart() -> N
     assert [message.payload["turn_index"] for message in bus.messages_on("object.turn")] == [0, 1]
 
 
+async def test_bragi_turn_outbox_reclaims_stale_publishing_after_restart() -> None:
+    store = InMemoryStateStore()
+    bragi = Bragi(state_store=store)
+    await bragi.ask(session_id="session-stale", user_id="operator", question="unknown one")
+    rows, _total = await store.read_state_page("pantheon/bragi/turn-outbox/", limit=1)
+    payload = dict(rows[0]["payload"])
+    key = _turn_outbox_key(str(payload["session_ref"]), int(payload["turn_index"]))
+    await store.write_state(
+        key,
+        {**dict(rows[0]), "status": "publishing", "revision": 2, "claimed_at": ""},
+    )
+
+    bus = _bus()
+    restarted = Bragi(state_store=store)
+    restarted.bind_bus(bus)
+
+    assert await restarted.recover_state() == (0, 1)
+    assert bus.messages_on("object.turn")[0].payload["turn_index"] == 0
+    assert (await store.read_state(key))["status"] == "published"
+
+
+async def test_bragi_publication_outbox_reclaims_stale_publishing_after_restart() -> None:
+    store = InMemoryStateStore()
+    payload = {
+        "producer_principal": "Bragi",
+        "correlation_id": "handoff-stale",
+        "idempotency_key": "handoff:stale",
+        "reason": "operator_handoff",
+    }
+    bragi = Bragi(state_store=store)
+    assert await bragi.publish_handoff_event(dict(payload)) is False
+    key = _publication_key(payload)
+    stored = await store.read_state(key)
+    assert stored is not None
+    await store.write_state(
+        key,
+        {**dict(stored), "status": "publishing", "revision": 2, "claimed_at": ""},
+    )
+
+    bus = _bus()
+    restarted = Bragi(state_store=store)
+    restarted.bind_bus(bus)
+
+    assert await restarted.recover_bragi_publications() == 1
+    assert bus.messages_on("object.handoff-escalation")[0].payload["correlation_id"] == (
+        "handoff-stale"
+    )
+    assert (await store.read_state(key))["status"] == "published"
+
+
 async def test_saga_audit_outbox_republishes_after_restart() -> None:
     store = InMemoryStateStore()
     saga = Saga(audit_chain=InMemoryAuditChain(), durable_state_store=store)
@@ -181,6 +232,38 @@ async def test_saga_audit_outbox_republishes_after_restart() -> None:
     restarted.bind_bus(bus)
     assert await restarted.recover_audit_outbox() == 1
     assert bus.messages_on("object.audit-entry")[0].payload["audited_topic"] == "object.action-run"
+
+
+async def test_saga_audit_outbox_reclaims_stale_publishing_after_restart() -> None:
+    store = InMemoryStateStore()
+    saga = Saga(audit_chain=InMemoryAuditChain(), durable_state_store=store)
+    await saga.on_typed_message(
+        "object.action-run",
+        {
+            "producer_principal": "Thor",
+            "correlation_id": "corr-stale",
+            "idempotency_key": "run:corr-stale",
+            "state": "succeeded",
+            "action_type": "ops.restart-service",
+            "resource_id": "resource-1",
+            "terminal_at": "2028-01-02T00:00:00+00:00",
+        },
+    )
+    rows, _total = await store.read_state_page("pantheon/saga/audit-outbox/", limit=1)
+    payload = dict(rows[0]["payload"])
+    key = _audit_outbox_key(payload)
+    await store.write_state(
+        key,
+        {**dict(rows[0]), "status": "publishing", "revision": 2, "claimed_at": ""},
+    )
+
+    bus = _bus()
+    restarted = Saga(audit_chain=InMemoryAuditChain(), durable_state_store=store)
+    restarted.bind_bus(bus)
+
+    assert await restarted.recover_audit_outbox() == 1
+    assert bus.messages_on("object.audit-entry")[0].payload["correlation_id"] == "corr-stale"
+    assert (await store.read_state(key))["status"] == "published"
 
 
 async def test_saga_handoff_checkpoint_cas_rejects_regression() -> None:

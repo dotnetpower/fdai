@@ -333,6 +333,30 @@ async def test_norns_issue_learning_recovery_pages_and_fingerprint_rows_stay_bou
     assert max(store.read_state_page_limits) <= 128
 
 
+async def test_norns_issue_learning_recovery_restores_all_pending_fingerprints() -> None:
+    store = _CountingStore()
+    norns = Norns(issue_state_store=store, promotion_threshold=2)
+    for fingerprint in ("fp-a", "fp-b"):
+        for index in range(2):
+            await norns._issue_deduplicator.observe(
+                norns,
+                {
+                    "idempotency_key": f"issue-op-{fingerprint}-{index}",
+                    "fingerprint": fingerprint,
+                },
+            )
+
+    recovered = Norns(issue_state_store=store, promotion_threshold=2)
+    await recovered.recover_issue_learning()
+
+    pending = {
+        candidate["evidence"]["fingerprint"]
+        for candidate in recovered.pending_candidates
+        if isinstance(candidate.get("evidence"), Mapping)
+    }
+    assert pending == {"fp-a", "fp-b"}
+
+
 class _FakeOperationalJournal:
     def __init__(self) -> None:
         self.offsets: list[int] = []

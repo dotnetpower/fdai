@@ -298,6 +298,10 @@ class Freyr(Agent):
                         "correlation_id": correlation_id,
                     },
                 )
+                await self._state_store.delete_states_beyond(
+                    _COST_PREFIX,
+                    retain_newest=_MAX_COST_EVIDENCE,
+                )
             for stale_target in stale_targets:
                 self._cost_evidence.pop(stale_target, None)
             if oldest_over_cap is not None:
@@ -520,6 +524,10 @@ class Freyr(Agent):
                 "samples": list(history[-_MAX_SAMPLES:]),
                 "latest_observed_at": observed_at.astimezone(UTC).isoformat(),
             },
+        )
+        await self._state_store.delete_states_beyond(
+            _RESOURCE_PREFIX,
+            retain_newest=_MAX_TRACKED_RESOURCES,
         )
 
     def _normalize_observed_at(self, observed_at: str) -> str:

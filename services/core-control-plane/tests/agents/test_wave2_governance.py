@@ -1486,9 +1486,9 @@ def test_norns_public_flush_recovers_candidates_behind_blocked_head() -> None:
     restarted = Norns(promotion_threshold=1, issue_state_store=store)
     restarted.bind_bus(bus)
     restarted.bind_candidate_publication_gate(lambda: enabled[0])
-    assert asyncio.run(restarted.recover_issue_learning()) == 1
+    assert asyncio.run(restarted.recover_issue_learning()) == 2
     assert asyncio.run(restarted.flush_candidates()) == 0
-    assert len(restarted.pending_candidates) == 1
+    assert len(restarted.pending_candidates) == 2
 
     enabled[0] = True
     assert asyncio.run(restarted.flush_candidates()) == 2

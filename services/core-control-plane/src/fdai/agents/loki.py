@@ -610,6 +610,17 @@ class Loki(Agent):
                 self.record_behavior("chaos_reservation:expired", len(expired_targets))
         await self._hold_stale_claimed_schedule_windows()
         await self._run_recurring_schedule()
+        await self._compact_scheduled_windows()
+
+    async def _compact_scheduled_windows(self) -> None:
+        if self._state_store is None:
+            return
+        deleted = await self._state_store.delete_states_beyond(
+            _SCHEDULED_PREFIX,
+            retain_newest=_MAX_HELD_PROPOSALS,
+        )
+        if deleted:
+            self.record_behavior("chaos_scheduler:scheduled_windows_compacted", deleted)
 
     async def _hold_stale_claimed_schedule_windows(self) -> None:
         state_store = self._state_store

@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai_service_contracts.post_turn_review import (
@@ -26,6 +26,7 @@ from .introspection import canonical_json
 _BRAGI_PUBLICATION_OUTBOX_PREFIX = "pantheon/bragi/publication-outbox/"
 _BRAGI_PUBLICATION_OUTBOX_SCAN_LIMIT = 5_000
 _BRAGI_PUBLICATION_TOMBSTONE_RETENTION = 1_024
+_BRAGI_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
 
 
 def conversation_event_payload(
@@ -285,6 +286,14 @@ def handoff_event_payload(
 class BragiPublicationMixin:
     """Typed publication methods shared by Bragi's operator and A2A paths."""
 
+    def _publication_now(self) -> datetime:
+        clock = getattr(self, "_clock", None)
+        if callable(clock):
+            value = clock()
+            if isinstance(value, datetime):
+                return value
+        raise RuntimeError("Bragi publication outbox requires an injected clock")
+
     async def _publish_conversation(
         self, session: ConversationSession, *, status: str = "active"
     ) -> bool:
@@ -348,7 +357,9 @@ class BragiPublicationMixin:
             )
         if bus is None:
             return False
-        if state_store is not None and not await _claim_publication(state_store, payload):
+        if state_store is not None and not await _claim_publication(
+            state_store, payload, now=self._publication_now()
+        ):
             return True
         try:
             await bus.publish("Bragi", "object.post-turn-review", payload)
@@ -371,7 +382,9 @@ class BragiPublicationMixin:
             )
         if bus is None:
             return False
-        if state_store is not None and not await _claim_publication(state_store, payload):
+        if state_store is not None and not await _claim_publication(
+            state_store, payload, now=self._publication_now()
+        ):
             return True
         try:
             await bus.publish("Bragi", "object.handoff-escalation", payload)
@@ -388,21 +401,28 @@ class BragiPublicationMixin:
         state_store = getattr(self, "_state_store", None)
         if bus is None or state_store is None:
             return 0
-        rows, _total = await state_store.read_state_page(
+        pending_rows, _pending_total = await state_store.read_state_page(
             _BRAGI_PUBLICATION_OUTBOX_PREFIX,
             limit=_BRAGI_PUBLICATION_OUTBOX_SCAN_LIMIT,
             field="status",
             value="pending",
         )
+        publishing_rows, _publishing_total = await state_store.read_state_page(
+            _BRAGI_PUBLICATION_OUTBOX_PREFIX,
+            limit=_BRAGI_PUBLICATION_OUTBOX_SCAN_LIMIT,
+            field="status",
+            value="publishing",
+        )
         published = 0
-        for row in reversed(rows):
+        rows = (*pending_rows, *publishing_rows)
+        for row in reversed(rows[:_BRAGI_PUBLICATION_OUTBOX_SCAN_LIMIT]):
             topic = str(row.get("topic") or "")
             payload = row.get("payload")
             if topic not in {"object.handoff-escalation", "object.post-turn-review"}:
                 raise RuntimeError("Bragi publication outbox topic is invalid")
             if not isinstance(payload, Mapping):
                 raise RuntimeError("Bragi publication outbox row is malformed")
-            if await _claim_publication(state_store, payload):
+            if await _claim_publication(state_store, payload, now=self._publication_now()):
                 publish_task = asyncio.create_task(bus.publish("Bragi", topic, dict(payload)))
                 try:
                     await asyncio.shield(publish_task)
@@ -455,7 +475,9 @@ async def _checkpoint_publication(
         raise RuntimeError("Bragi publication outbox idempotency collision")
 
 
-async def _claim_publication(state_store: Any, payload: Mapping[str, Any]) -> bool:
+async def _claim_publication(
+    state_store: Any, payload: Mapping[str, Any], *, now: datetime
+) -> bool:
     key = _publication_key(payload)
     for _attempt in range(16):
         stored = await state_store.read_state(key)
@@ -463,12 +485,18 @@ async def _claim_publication(state_store: Any, payload: Mapping[str, Any]) -> bo
             raise RuntimeError("Bragi publication outbox row disappeared")
         if stored.get("status") == "published":
             return False
-        if stored.get("status") == "publishing":
+        if stored.get("status") == "publishing" and not _publication_claim_expired(stored, now):
             return False
         revision = int(stored.get("revision", 1))
         if await state_store.compare_and_set_state(
             key,
-            {**dict(stored), "status": "publishing", "revision": revision + 1},
+            {
+                **dict(stored),
+                "status": "publishing",
+                "revision": revision + 1,
+                "claim_owner": "Bragi",
+                "claimed_at": now.isoformat(),
+            },
             expected_revision=revision,
         ):
             return True
@@ -514,8 +542,27 @@ async def _reset_publication_pending(state_store: Any, payload: Mapping[str, Any
         revision = int(stored.get("revision", 1))
         if await state_store.compare_and_set_state(
             key,
-            {**dict(stored), "status": "pending", "revision": revision + 1},
+            {
+                **dict(stored),
+                "status": "pending",
+                "revision": revision + 1,
+                "claim_owner": "",
+                "claimed_at": "",
+            },
             expected_revision=revision,
         ):
             return
     raise RuntimeError("Bragi publication reset CAS retry limit exceeded")
+
+
+def _publication_claim_expired(row: Mapping[str, Any], now: datetime) -> bool:
+    claimed_at = row.get("claimed_at")
+    if not isinstance(claimed_at, str) or not claimed_at:
+        return True
+    try:
+        parsed = datetime.fromisoformat(claimed_at)
+    except ValueError:
+        return True
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return True
+    return now - parsed >= _BRAGI_PUBLICATION_CLAIM_LEASE
