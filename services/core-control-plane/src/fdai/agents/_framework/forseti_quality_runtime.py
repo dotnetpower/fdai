@@ -210,8 +210,6 @@ class ForsetiQualityRuntimeMixin:
         if not new_keys:
             self.record_behavior("retrospective_what_if:duplicate")
             return
-        for key in new_keys:
-            self._published_what_if_inputs.add(key)
         payload = {
             **batch.payload,
             "idempotency_key": stable_idempotency_key(
@@ -224,7 +222,7 @@ class ForsetiQualityRuntimeMixin:
         }
         outcomes = payload["outcomes"]
         disagreement_count = int(payload["disagreement_count"])
-        self._last_retrospective_what_if = {
+        measured_state = {
             "evidence_state": "measured",
             "sample_size": len(outcomes),
             "disagreements": disagreement_count,
@@ -232,11 +230,28 @@ class ForsetiQualityRuntimeMixin:
             "what_if_judgment_table_digest": what_if_table.digest,
             "unit": "count",
         }
+        if self.bus is None:
+            self._last_retrospective_what_if = {
+                **measured_state,
+                "evidence_state": "publication_unavailable",
+            }
+            self.record_behavior("retrospective_what_if:publication_unavailable")
+            return
+        try:
+            await self.bus.publish("Forseti", "object.verdict", payload)
+        except Exception:
+            self._last_retrospective_what_if = {
+                **measured_state,
+                "evidence_state": "publication_failed",
+            }
+            self.record_behavior("retrospective_what_if:publication_failed")
+            raise
+        for key in new_keys:
+            self._published_what_if_inputs.add(key)
+        self._last_retrospective_what_if = measured_state
         self.record_behavior("retrospective_what_if:published")
         if disagreement_count:
             self.record_behavior("retrospective_what_if:disagreement", disagreement_count)
-        if self.bus is not None:
-            await self.bus.publish("Forseti", "object.verdict", payload)
 
     def _run_verdict_coherence_self_test(self) -> None:
         disagreements = 0

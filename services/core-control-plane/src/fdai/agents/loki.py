@@ -216,8 +216,10 @@ class Loki(
         for candidate in candidates:
             result = validate_candidate(candidate, frozen_corpus=self._scenario_corpus)
             payload = audit_payload(candidate, design_ref=design_ref, result=result)
-            if self.bus is not None:
-                await self._publish_proposal("object.chaos-experiment", payload)
+            if self.bus is None:
+                self.record_behavior("adversarial_scenario:publication_unavailable")
+                continue
+            await self._publish_proposal("object.chaos-experiment", payload)
             if result == "accepted":
                 self._scenario_corpus[frozen_corpus_key(candidate.schedule)] = candidate.schedule
                 accepted += 1

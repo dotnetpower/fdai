@@ -99,6 +99,31 @@ async def test_loki_adversarial_generation_accepts_only_inert_regression_passing
     assert loki.behavior_snapshot()["adversarial_scenario:weakened_coverage"] == 1
 
 
+async def test_loki_adversarial_generation_without_bus_does_not_accept_or_persist_candidate() -> (
+    None
+):
+    store = InMemoryStateStore()
+    accepted = ChaosScenarioCandidate(
+        scenario_id="accepted",
+        schedule=_schedule("accepted", ("target-c",)),
+        evidence_refs=("evidence:accepted",),
+    )
+    loki = Loki(
+        bus=None,
+        state_store=store,
+        clock=lambda: _NOW,
+        scenario_generator=_Generator((accepted,)),
+    )
+
+    accepted_count = await loki.run_adversarial_generation(
+        design_ref="design:chaos-hardening",
+    )
+
+    assert accepted_count == 0
+    assert loki.behavior_snapshot()["adversarial_scenario:publication_unavailable"] == 1
+    assert await store.read_states("pantheon/loki/adversarial-scenarios/", limit=10) == ()
+
+
 async def test_loki_hot_path_never_invokes_adversarial_generator() -> None:
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     loki = Loki(

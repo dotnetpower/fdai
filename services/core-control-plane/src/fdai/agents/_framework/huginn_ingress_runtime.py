@@ -525,12 +525,8 @@ class HuginnIngressMixin:
             try:
                 await self._operator_request_receipt_gate.finalize(reserved_operator_receipt)
             except ValueError as exc:
-                reason = str(exc) or "invalid"
-                safe_reason = reason if reason in {"expired", "replayed"} else "invalid"
-                raise HuginnIngressRejected(
-                    f"operator_request_receipt_{safe_reason}",
-                    field="operator_request_receipt",
-                ) from exc
+                del exc
+                self.record_behavior("operator_request_receipt:applied_but_unfinalized")
         self._remember_key(key)
         self._record_latency(self._event_latency_seconds, processing_started_at)
         if publish_cancelled:

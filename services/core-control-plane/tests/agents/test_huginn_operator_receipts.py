@@ -51,6 +51,31 @@ class _FailFirstPublishBus(InMemoryBus):
         await super().publish(principal, topic, payload)
 
 
+class _AdvanceClockAfterPublishBus(InMemoryBus):
+    def __init__(self, *, advance: Any) -> None:
+        super().__init__(load_pantheon())
+        self._advance = advance
+
+    async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
+        await super().publish(principal, topic, payload)
+        self._advance()
+
+
+class _DeleteReceiptFenceAfterPublishBus(InMemoryBus):
+    def __init__(self, *, store: InMemoryStateStore) -> None:
+        super().__init__(load_pantheon())
+        self._store = store
+
+    async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
+        await super().publish(principal, topic, payload)
+        keys = await self._store.read_state_keys(
+            "pantheon/huginn/operator-request-receipts/",
+            limit=10,
+        )
+        assert len(keys) == 1
+        assert await self._store.delete_state(keys[0])
+
+
 class _ReserveExpiredGate:
     async def verify(self, raw: Mapping[str, Any]) -> object:
         receipt = OperatorRequestReceipt.model_validate(raw["operator_request_receipt"])
@@ -109,6 +134,58 @@ def _gate(now: datetime, verifier: _Verifier | None = None) -> OperatorRequestRe
         state_store=InMemoryStateStore(),
         clock=lambda: now,
     )
+
+
+async def test_huginn_commits_own_receipt_reservation_after_publish_exceeds_finalize_skew() -> None:
+    initial = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    current = initial
+
+    def clock() -> datetime:
+        return current
+
+    def advance_past_finalize_skew() -> None:
+        nonlocal current
+        current = initial + timedelta(minutes=8)
+
+    store = InMemoryStateStore()
+    gate = OperatorRequestReceiptGate(
+        verifier=_Verifier(),
+        state_store=store,
+        clock=clock,
+    )
+    bus = _AdvanceClockAfterPublishBus(advance=advance_past_finalize_skew)
+    huginn = Huginn(bus=bus, operator_request_receipt_gate=gate, clock=clock)
+
+    normalized = await huginn.ingest(_request(initial))
+
+    assert normalized is not None
+    assert len(bus.messages_on("object.event")) == 1
+    rows = await store.read_states("pantheon/huginn/operator-request-receipts/", limit=10)
+    assert len(rows) == 1
+    assert rows[0]["state"] == "committed"
+    assert (
+        huginn.behavior_snapshot().get("raw_ingress_rejected:operator_request_receipt_expired")
+        is None
+    )
+
+
+async def test_huginn_reports_unfinalized_when_receipt_fence_lost_after_publish() -> None:
+    now = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    gate = OperatorRequestReceiptGate(
+        verifier=_Verifier(),
+        state_store=store,
+        clock=lambda: now,
+    )
+    bus = _DeleteReceiptFenceAfterPublishBus(store=store)
+    huginn = Huginn(bus=bus, operator_request_receipt_gate=gate, clock=lambda: now)
+
+    normalized = await huginn.ingest(_request(now))
+
+    assert normalized is not None
+    assert len(bus.messages_on("object.event")) == 1
+    assert huginn.behavior_snapshot()["operator_request_receipt:applied_but_unfinalized"] == 1
+    assert await store.read_states("pantheon/huginn/operator-request-receipts/", limit=10) == ()
 
 
 async def test_huginn_accepts_only_authenticated_ingress_receipt_before_publish() -> None:

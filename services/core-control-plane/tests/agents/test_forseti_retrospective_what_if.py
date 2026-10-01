@@ -6,10 +6,25 @@ import asyncio
 from collections.abc import Callable
 from typing import Any
 
+import pytest
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents.forseti import Forseti
 from fdai.shared.providers.local.event_bus import LocalEventBus
 
 _RAW_TOPIC = "fdai.events.what-if-test"
+
+
+class _FailOnceWhatIfBus:
+    def __init__(self) -> None:
+        self.failures_remaining = 1
+        self.published: list[tuple[str, str, dict[str, Any]]] = []
+
+    async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.verdict" and payload.get("kind") == "retrospective_what_if":
+            if self.failures_remaining:
+                self.failures_remaining -= 1
+                raise RuntimeError("transient verdict publish failure")
+        self.published.append((principal, topic, payload))
 
 
 async def _run_until(
@@ -52,6 +67,49 @@ def _consumer_committed(
     group_id = f"{runtime.bridge.consumer_group_prefix}.{agent}"
     end_offset = provider._base_offsets.get(topic, 0) + len(provider._records.get(topic, ()))
     return end_offset > 0 and provider._offsets.get((topic, group_id), 0) >= end_offset
+
+
+async def test_retrospective_what_if_publish_failure_stays_retryable_until_success() -> None:
+    bus = _FailOnceWhatIfBus()
+    forseti = Forseti(bus=bus)
+    await forseti.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-what-if",
+            "correlation_id": "corr-original",
+        }
+    )
+    request = {
+        "kind": "retrospective_what_if_request",
+        "event_type": "retrospective.what_if.request",
+        "producer_principal": "Huginn",
+        "correlation_id": "corr-what-if",
+        "idempotency_key": "what-if-request-1",
+        "resource_id": "resource-what-if",
+        "judgment_table": {
+            "source": "focused-test-overlay",
+            "rule_match": {"unknown_signal": "remediate.disable-public-access"},
+            "risk_verdict": {"remediate.disable-public-access": "auto"},
+        },
+        "sample_limit": 4,
+    }
+
+    with pytest.raises(RuntimeError, match="transient verdict publish failure"):
+        await forseti.on_typed_message("object.event", request)
+    assert forseti.behavior_snapshot()["retrospective_what_if:publication_failed"] == 1
+
+    await forseti.on_typed_message("object.event", request)
+    await forseti.on_typed_message("object.event", {**request, "idempotency_key": "retry-2"})
+
+    what_if = [
+        payload
+        for _principal, topic, payload in bus.published
+        if topic == "object.verdict" and payload.get("kind") == "retrospective_what_if"
+    ]
+    assert len(what_if) == 1
+    behavior = forseti.behavior_snapshot()
+    assert behavior["retrospective_what_if:published"] == 1
+    assert behavior["retrospective_what_if:duplicate"] == 1
 
 
 def test_retrospective_what_if_publishes_inert_disagreement_on_async_bus() -> None:

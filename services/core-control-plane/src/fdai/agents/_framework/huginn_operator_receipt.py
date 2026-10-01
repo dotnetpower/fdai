@@ -206,12 +206,10 @@ class OperatorRequestReceiptGate:
         """Commit one pending replay fence after publication is durably checkpointed."""
 
         receipt = reserved.verified.receipt
-        now = self.clock().astimezone(UTC)
         existing = await self.state_store.read_state(reserved.verified.replay_key)
         if not _is_pending_reservation(existing, reserved.reservation_id):
             raise ValueError("replayed")
-        if now >= receipt.expires_at + self.clock_skew:
-            raise ValueError("expired")
+        now = self.clock().astimezone(UTC)
         finalized = {
             **dict(existing or {}),
             "state": "committed",
@@ -224,7 +222,6 @@ class OperatorRequestReceiptGate:
             expected_revision=1,
         ):
             raise ValueError("replayed")
-        await self.cleanup_expired()
         return receipt
 
     async def release(self, reserved: ReservedOperatorRequestReceipt) -> bool:
