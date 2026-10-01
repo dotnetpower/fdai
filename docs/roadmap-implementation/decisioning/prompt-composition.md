@@ -56,12 +56,14 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-14 | implemented | Hardened external source delivery with strict ETag validation and redacted credential-provider failures while preserving quarantine and disabled-first prompt eligibility. | `current change`; focused skill-source adapter tests `28 passed`. | Scheduled composition and governed lifecycle evidence remain open. |
 | 2026-08-14 | in-progress | Added the upstream second-approval evidence the fork-first channel depends on: a bounded approval window, a replay-safe entry identity derived from the approval, and exhaustive no-self-approval coverage. | `current change`; [`hil_pipeline.py`](../../../services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py), [`test_hil_pipeline.py`](../../../services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py); focused operator-memory and bridge checks passed 76 cases; strict mypy and task-scoped Ruff passed. | Build the fork-first channel that invokes the materializer, then enable the pipeline slice. |
 | 2026-09-29 | in-progress | Recorded why the state-inventory availability, exact-Resource change attribution, and web-snippet items stay open: each changes live conversation reasoning or the T2 tool manifest, and this owner accepts such changes only after a measured model-backed A/B, which this campaign did not run. | `current change`; the remaining-work items below. | Run an authorized model-backed A/B for each change before promotion. |
+| 2026-10-01 | in-progress | Confirmed the promoted dynamic judgment and topic preflight in the authenticated local Console (#1548). A Browser Entra turn with model trace capture recorded eight model calls. Preflight used `active.conversation-preflight` (profile digest `sha256:aebaa6b2...`) as a dynamic system prompt: base `conversation-preflight` v9 plus three selected packs, 10,022 of 12,288 system tokens. Judgment used `active.semantic-judgment` (`sha256:daffb38d...`): base `semantic-judgment-core` v2 plus four of its fourteen conditional packs, 10,890 of 32,768 system tokens. | Standard local full stack in Browser Entra mode, started from `main` `c0525a1657`; the two unpublished local commits in that checkout change no prompt or conversation code. Run record and per-call prompt manifests in the Console model trace. | This turn ended in a clarification before the frame and plan calls, so the dynamic frame and plan profiles were not exercised in the Console; answer quality is tracked by the reasoning program. |
 
 ### Remaining work
 
 - [x] Promote the dynamic semantic judgment and topic preflight profiles on recorded A/B evidence.
-- [ ] Validate the promoted dynamic judgment in the authenticated local Console
-  ([#1548](https://github.com/dotnetpower/fdai/issues/1548) tracks this last exit criterion).
+- [x] Validate the promoted dynamic judgment in the authenticated local Console
+  ([#1548](https://github.com/dotnetpower/fdai/issues/1548)); the 2026-10-01 history row records the
+  per-call prompt manifests.
 - [ ] Keep state-inventory answers available when the required independent T2 review is
   unavailable, or report that dependency explicitly instead of a generic unavailable hold. Like
   every change to live conversation reasoning here, acceptance needs a measured model-backed A/B.
