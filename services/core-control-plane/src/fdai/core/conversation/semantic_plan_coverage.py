@@ -215,7 +215,64 @@ def plan_uncovered_slot_roles(
             uncovered.append(role)
         elif role == "relation_path" and not any(_relational(node) for node in plan.nodes):
             uncovered.append(role)
+        elif role == "time_window" and not any(_windowed(node.arguments) for node in plan.nodes):
+            uncovered.append(role)
+        elif role in _VALUE_SLOT_PROPERTIES and not any(
+            _restricts(node, _VALUE_SLOT_PROPERTIES[role], str(slot.value)) for node in plan.nodes
+        ):
+            # A slot that covered a stated restriction must restrict the plan the same way.
+            uncovered.append(role)
     return tuple(dict.fromkeys(uncovered))
+
+
+# Properties a value slot restricts; an empty set accepts any property carrying the value.
+_VALUE_SLOT_PROPERTIES: Mapping[str, frozenset[str]] = {
+    "location": frozenset({"location"}),
+    "lifecycle_status": frozenset({"status", "state"}),
+    "property_predicate": frozenset(),
+}
+_WINDOW_ARGUMENTS = frozenset(
+    {"lookback_seconds", "window_seconds", "start_at", "end_at", "start", "end"}
+)
+
+
+def _windowed(arguments: Mapping[str, Any]) -> bool:
+    nested = arguments.get("arguments")
+    return bool(_WINDOW_ARGUMENTS & set(arguments)) or (
+        isinstance(nested, Mapping) and bool(_WINDOW_ARGUMENTS & set(nested))
+    )
+
+
+def _restricts(node: OntologyQueryNode, properties: frozenset[str], value: str) -> bool:
+    """Return whether the node restricts by ``value``, in a predicate or a function argument."""
+
+    arguments = node.arguments
+    definition = arguments.get("definition")
+    predicates = [
+        *(definition.get("predicates") or () if isinstance(definition, Mapping) else ()),
+        *(arguments.get("endpoint_predicates") or ()),
+    ]
+    for item in predicates:
+        if not isinstance(item, Mapping):
+            continue
+        if properties and item.get("property") not in properties:
+            continue
+        if _carries(item.get("equals"), value) or _carries(item.get("values"), value):
+            return True
+    nested = arguments.get("arguments")
+    return (
+        node.kind is QueryNodeKind.FUNCTION
+        and isinstance(nested, Mapping)
+        and any(_carries(item, value) for item in nested.values())
+    )
+
+
+def _carries(candidate: object, value: str) -> bool:
+    if isinstance(candidate, str):
+        return candidate.casefold() == value.casefold()
+    if isinstance(candidate, list | tuple):
+        return any(_carries(item, value) for item in candidate)
+    return False
 
 
 def plan_answers_schema_for_instance(

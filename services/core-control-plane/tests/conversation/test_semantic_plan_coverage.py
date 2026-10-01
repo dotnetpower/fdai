@@ -402,3 +402,46 @@ def test_a_bound_console_resource_grounds_its_own_identities() -> None:
 
     assert held is not None and held.reason == "semantic_operand_without_source"
     assert grounded is None
+
+
+def _slot(role: str, value: str, **extra: Any) -> SemanticConstraintSlot:
+    return SemanticConstraintSlot(
+        role=role, source_start=0, source_end=5, grounded=True, value=value, **extra
+    )
+
+
+@pytest.mark.parametrize(
+    ("slot", "applied", "ignored"),
+    [
+        (_slot("location", "koreacentral"), _objects(_TYPE, _REGION), _objects(_TYPE)),
+        (
+            _slot("lifecycle_status", "resolved", object_type="Incident"),
+            _objects({"property": "status", "operator": "equals", "equals": "resolved"}),
+            _objects(_TYPE),
+        ),
+        (
+            _slot("property_predicate", "Standard"),
+            _objects({"property": "sku", "operator": "equals", "equals": "standard"}),
+            _objects(_TYPE),
+        ),
+        (
+            _slot("time_window", "PT24H"),
+            _node(
+                "changes",
+                QueryNodeKind.FUNCTION,
+                {
+                    "function_name": "query.recent_resource_changes",
+                    "arguments": {"lookback_seconds": 86400},
+                },
+            ),
+            _objects(_TYPE),
+        ),
+    ],
+)
+def test_a_slot_that_covered_a_restriction_must_restrict_the_plan(
+    slot: SemanticConstraintSlot, applied: OntologyQueryNode, ignored: OntologyQueryNode
+) -> None:
+    frame = SimpleNamespace(constraint_slots=(slot,))
+
+    assert plan_uncovered_slot_roles(frame, _plan(applied)) == ()
+    assert plan_uncovered_slot_roles(frame, _plan(ignored)) == (slot.role.value,)
