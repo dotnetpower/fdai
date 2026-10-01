@@ -80,6 +80,7 @@ from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedback
 from fdai.agents._framework.pantheon import _NORNS
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.role_answers import norns_role_answer
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.case_history import CaseHistoryAnalyzer, CaseHistoryMaterializer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.learning import (
@@ -159,6 +160,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         operational_state_store: StateStore | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         operational_case_max_age: timedelta = timedelta(days=90),
+        issue_close_quiet_window: timedelta = timedelta(hours=24),
         clock: Callable[[], datetime] | None = None,
         provider_timeout_seconds: float = _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
     ) -> None:  # Fail fast on misconfiguration: a non-positive threshold or a
@@ -181,6 +183,8 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             raise ValueError("max_pending_candidates MUST be >= 1")
         if operational_case_max_age <= timedelta(0):
             raise ValueError("operational_case_max_age MUST be positive")
+        if issue_close_quiet_window <= timedelta(0):
+            raise ValueError("issue_close_quiet_window MUST be positive")
         if provider_timeout_seconds <= 0:
             raise ValueError("Norns provider timeout MUST be positive")
         super().__init__(spec=_NORNS)
@@ -258,6 +262,9 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         self._operating_pattern_compiler = operating_pattern_compiler or OperatingPatternCompiler()
         self._operational_case_max_age = operational_case_max_age
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._issue_close_quiet_window = issue_close_quiet_window
+        self._fingerprint_last_seen: BoundedLruDict[str, datetime] = BoundedLruDict(_MAX_TRACKED)
+        self._issue_close_quiet_episodes: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._operating_pattern_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._pattern_publications: dict[str, dict[str, Any]] = {}
         self._candidate_terminal_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
@@ -329,6 +336,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             fingerprint = str(payload.get("fingerprint") or "")
             await self._issue_deduplicator.observe(self, payload)
             if fingerprint:
+                self._fingerprint_last_seen.set(fingerprint, self._clock())
                 self.record_behavior("issue_learning:observed")
                 if self.occurrences(fingerprint) < self._promotion_threshold:
                     self.record_behavior("issue_learning:collecting")
@@ -653,6 +661,58 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         published = await self.flush_candidates()
         if published:
             self.record_behavior("maintenance_tick:candidates_flushed", published)
+        quiet_published = await self._publish_issue_close_quiet_eligibility()
+        if quiet_published:
+            self.record_behavior(
+                "maintenance_tick:issue_close_quiet_eligibility_published",
+                quiet_published,
+            )
+
+    async def _publish_issue_close_quiet_eligibility(self) -> int:
+        if self.bus is None:
+            self.record_behavior("issue_close_quiet_eligibility:transport_unavailable")
+            return 0
+        now = self._clock()
+        published = 0
+        for fingerprint, last_seen in tuple(self._fingerprint_last_seen.items()):
+            count = self.occurrences(fingerprint)
+            if count <= 0 or now - last_seen < self._issue_close_quiet_window:
+                continue
+            episode_key = stable_idempotency_key(
+                "norns-issue-close-quiet-episode",
+                fingerprint,
+                str(count),
+                last_seen.isoformat(),
+            )
+            if episode_key in self._issue_close_quiet_episodes:
+                continue
+            self._issue_close_quiet_episodes.add(episode_key)
+            await self.bus.publish(
+                "Norns",
+                "object.rule-candidate",
+                {
+                    "kind": "issue_close_eligibility_signal",
+                    "source_signal": "issue_close_quiet_window",
+                    "correlation_id": episode_key,
+                    "idempotency_key": stable_idempotency_key(
+                        "norns-issue-close-eligibility",
+                        episode_key,
+                    ),
+                    "fingerprint": fingerprint,
+                    "closure_eligibility": {
+                        "fingerprint": fingerprint,
+                        "occurrence_count": count,
+                        "last_seen_at": last_seen.isoformat(),
+                        "quiet_window_seconds": int(self._issue_close_quiet_window.total_seconds()),
+                        "inert": True,
+                        "grants_issue_authority": False,
+                    },
+                    "proposed_by": "Norns",
+                    "proposal_kind": "inert_issue_close_support",
+                },
+            )
+            published += 1
+        return published
 
     # ---- 1. fingerprint aggregator ------------------------------------
 

@@ -128,6 +128,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self._issue_close_eligibility: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
             _MAX_FINGERPRINT_INDEX
         )
+        self._issue_close_promotion_evidence_producer_bound = False
         self._handoff_locks: dict[str, _RefCountedLock] = {}
         self.github = github or InMemoryGithubIssueAdapter()
         self._clock = clock
@@ -141,6 +142,11 @@ class Saga(Agent, HandoverKnowledgeMixin):
     def durable_audit(self) -> bool:
         """Return whether the configured audit chain survives restart."""
         return bool(getattr(self.audit_chain, "durable", False))
+
+    def bind_issue_close_promotion_evidence_producer(self) -> None:
+        """Record that Mimir's producer seam is bound; Saga still owns closure."""
+
+        self._issue_close_promotion_evidence_producer_bound = True
 
     async def rehydrate_issue_tracker(self) -> int:
         """Restore a durable issue projection when the adapter supports it."""
@@ -1465,7 +1471,12 @@ class Saga(Agent, HandoverKnowledgeMixin):
             "issue_auto_close": (
                 "evidence_available"
                 if self._issue_close_eligibility
+                else "awaiting_promotion_evidence"
+                if self._issue_close_promotion_evidence_producer_bound
                 else "awaiting_promotion_evidence_producer"
+            ),
+            "issue_auto_close_producer_bound": (
+                self._issue_close_promotion_evidence_producer_bound
             ),
             "issue_auto_close_evidence_count": len(self._issue_close_eligibility),
             "kpis": {"audit_chain_integrity_rate": integrity_kpi},

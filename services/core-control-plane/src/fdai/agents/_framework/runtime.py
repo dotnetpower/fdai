@@ -21,6 +21,12 @@ from fdai.agents._framework.conversation_tools import AgentConversationToolRegis
 from fdai.agents._framework.deliberation import T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.kpi import KpiCollector
+from fdai.agents._framework.mimir_maintenance import (
+    MimirCatalogPromotionOutcomeReader,
+    MimirRegressionRunner,
+    MimirRuleDeprecationReader,
+    MimirRuleSourcePoller,
+)
 from fdai.agents._framework.pantheon import (
     HARD_DEPENDENCY_AGENTS,
     PANTHEON_NAMES,
@@ -41,6 +47,7 @@ from fdai.agents.heimdall import (
     ReadInvestigationHook,
 )
 from fdai.agents.huginn import DiscoveryProjector, Huginn
+from fdai.agents.mimir import Mimir
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
@@ -183,6 +190,10 @@ class PantheonRuntime(RuntimeConversationPort):
         prospective_lineage_materializer: ProspectiveLineageMaterializer | None = None,
         change_assessor: ChangeAssessmentService | None = None,
         catalog_review: CatalogReviewBindings | None = None,
+        mimir_promotion_outcome_reader: MimirCatalogPromotionOutcomeReader | None = None,
+        mimir_regression_runner: MimirRegressionRunner | None = None,
+        mimir_rule_source_poller: MimirRuleSourcePoller | None = None,
+        mimir_rule_deprecation_reader: MimirRuleDeprecationReader | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
         forecast_closer: ForecastClosureCoordinator | None = None,
@@ -336,6 +347,23 @@ class PantheonRuntime(RuntimeConversationPort):
             maybe_var.bind_action_semantics(action_semantics)
         if saga is not None:
             instantiated["Saga"] = saga
+        maybe_mimir = instantiated.get("Mimir")
+        if isinstance(maybe_mimir, Mimir):
+            if mimir_promotion_outcome_reader is not None:
+                maybe_mimir.bind_catalog_promotion_outcome_reader(mimir_promotion_outcome_reader)
+            if mimir_regression_runner is not None:
+                maybe_mimir.bind_regression_runner(mimir_regression_runner)
+            if mimir_rule_source_poller is not None:
+                maybe_mimir.bind_rule_source_poller(mimir_rule_source_poller)
+            if mimir_rule_deprecation_reader is not None:
+                maybe_mimir.bind_rule_deprecation_reader(mimir_rule_deprecation_reader)
+        maybe_saga = instantiated.get("Saga")
+        if (
+            mimir_promotion_outcome_reader is not None
+            and mimir_regression_runner is not None
+            and isinstance(maybe_saga, Saga)
+        ):
+            maybe_saga.bind_issue_close_promotion_evidence_producer()
         if context_index_workers is not None and not getattr(
             instantiated["Saga"], "durable_audit", False
         ):

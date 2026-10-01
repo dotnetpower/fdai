@@ -33,6 +33,17 @@ from fdai.agents._framework.mimir_catalog_recovery import (
     MimirCatalogReviewMixin,
 )
 from fdai.agents._framework.mimir_context import MimirContextMixin
+from fdai.agents._framework.mimir_maintenance import (
+    MimirCatalogPromotionOutcome,
+    MimirCatalogPromotionOutcomeReader,
+    MimirDeprecationCandidate,
+    MimirRegressionRunner,
+    MimirRuleDeprecationReader,
+    MimirRuleSourcePoller,
+    norns_issue_close_support,
+    promotion_outcome_is_authoritative,
+    regression_result_is_clean,
+)
 from fdai.agents._framework.pantheon import _MIMIR
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.operational_learning import (
@@ -73,6 +84,7 @@ _GOVERNANCE_RECOVERY_PAGE = 128
 _RULE_GENERATION_RECEIPT_RETAIN = 5_000
 _MAX_PROMOTION_PERSIST_QUEUE = 1_024
 _MAX_PROMOTION_PERSIST_ATTEMPTS = 8
+_MAX_MAINTENANCE_RECORDS = 128
 _OPERATIONAL_RULE_PREFIX = "learned.operational."
 _RULE_GENERATION_RECEIPT_PREFIX = "mimir:rule-generation-activation-result:"
 _RULE_GENERATION_VALIDATION_PREFIX = "mimir:rule-generation-validation-result:"
@@ -81,6 +93,7 @@ _GOVERNANCE_PREFIX = "pantheon/mimir/governance"
 _RULE_STATE_PREFIX = f"{_GOVERNANCE_PREFIX}/rules"
 _ISSUE_FINGERPRINT_PREFIX = f"{_GOVERNANCE_PREFIX}/issue-fingerprints"
 _RULE_PUBLICATION_PREFIX = f"{_GOVERNANCE_PREFIX}/rule-publications"
+_DEPRECATION_CANDIDATE_PREFIX = f"{_GOVERNANCE_PREFIX}/deprecation-candidates"
 _DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 _REVIEWED_REPOSITORY_PREFIX = re.compile(
     r"^https://(?P<host>[A-Za-z0-9.-]{1,253})/"
@@ -116,6 +129,15 @@ def _issue_fingerprint_key(fingerprint: str) -> str:
 
 def _rule_publication_key(idempotency_key: str) -> str:
     return f"{_RULE_PUBLICATION_PREFIX}/{idempotency_key}"
+
+
+def _issue_close_evidence_idempotency_key(outcome: MimirCatalogPromotionOutcome) -> str:
+    return stable_idempotency_key(
+        "mimir-issue-close-promotion-evidence",
+        outcome.problem_fingerprint,
+        outcome.promotion_pr,
+        outcome.correlation_id,
+    )
 
 
 def _reviewed_package_digest(
@@ -260,6 +282,28 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         self._catalog_draft_rule_ids: BoundedLruSet[str] = BoundedLruSet(max_review_packages)
         self._promotion_pass_count = 0
         self._promotion_fail_count = 0
+        self._promotion_outcome_reader: MimirCatalogPromotionOutcomeReader | None = None
+        self._regression_runner: MimirRegressionRunner | None = None
+        self._rule_source_poller: MimirRuleSourcePoller | None = None
+        self._rule_deprecation_reader: MimirRuleDeprecationReader | None = None
+        self._norns_issue_close_support: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_ISSUE_FINGERPRINTS
+        )
+        self._published_issue_close_evidence: BoundedLruSet[str] = BoundedLruSet(
+            _MAX_PROMOTION_PERSIST_QUEUE
+        )
+        self._last_rule_source_poll: dict[str, Any] = {
+            "status": "unbound",
+            "outcome": "bounded_noop",
+        }
+        self._last_regression_suite: dict[str, Any] = {
+            "status": "unbound",
+            "outcome": "bounded_noop",
+        }
+        self._last_deprecation_cycle: dict[str, Any] = {
+            "status": "unbound",
+            "outcome": "bounded_noop",
+        }
 
     def bind_rule_generation_build_handler(
         self,
@@ -295,6 +339,37 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         self._governance_state_store = store
         self._catalog_governance_store.bind(store)
 
+    def bind_catalog_promotion_outcome_reader(
+        self,
+        reader: MimirCatalogPromotionOutcomeReader,
+    ) -> None:
+        """Bind the read-only reviewed catalog outcome source."""
+
+        if self._promotion_outcome_reader is not None:
+            raise RuntimeError("Mimir catalog promotion outcome reader is already bound")
+        self._promotion_outcome_reader = reader
+
+    def bind_regression_runner(self, runner: MimirRegressionRunner) -> None:
+        """Bind the read-only regression suite used for clean-window evidence."""
+
+        if self._regression_runner is not None:
+            raise RuntimeError("Mimir regression runner is already bound")
+        self._regression_runner = runner
+
+    def bind_rule_source_poller(self, poller: MimirRuleSourcePoller) -> None:
+        """Bind the read-only rule source poller."""
+
+        if self._rule_source_poller is not None:
+            raise RuntimeError("Mimir rule source poller is already bound")
+        self._rule_source_poller = poller
+
+    def bind_rule_deprecation_reader(self, reader: MimirRuleDeprecationReader) -> None:
+        """Bind the read-only rule deprecation evidence source."""
+
+        if self._rule_deprecation_reader is not None:
+            raise RuntimeError("Mimir rule deprecation reader is already bound")
+        self._rule_deprecation_reader = reader
+
     async def recover_governance_state(self) -> int:
         """Restore durable rule, issue, investigation, and quarantine projections."""
         store = self._governance_state_store
@@ -318,6 +393,8 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         if topic == "object.issue":
             await self._handle_issue(payload)
         elif topic == "object.rule-candidate":
+            if self._record_norns_issue_close_support(payload):
+                return
             if await self._handover_message(topic, payload):
                 return
             lock_key = str(payload.get("idempotency_key") or payload.get("correlation_id") or "")
@@ -430,6 +507,8 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             await self.bus.publish("Mimir", topic, dict(payload))
             await self._mark_rule_publication_published(idempotency_key)
             self._published_promotion_keys.add(idempotency_key)
+            if payload.get("kind") == "catalog_review_outcome":
+                self._published_issue_close_evidence.add(idempotency_key)
             published += 1
         if published:
             self.record_behavior("promotion:publication_recovered", published)
@@ -1031,6 +1110,270 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
     def status(self, rule_id: str) -> RulePromotion | None:
         return self._promotions.get(rule_id)
 
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        await self._poll_rule_sources()
+        await self._publish_issue_close_promotion_evidence()
+        await self._record_deprecation_cycle()
+
+    async def _poll_rule_sources(self) -> None:
+        poller = self._rule_source_poller
+        if poller is None:
+            self._last_rule_source_poll = {
+                "status": "unbound",
+                "outcome": "bounded_noop",
+                "checked": 0,
+            }
+            self.record_behavior("maintenance:rule_source_poll_unbound")
+            return
+        try:
+            async with asyncio.timeout(self._provider_timeout_seconds):
+                result = await poller.poll_rule_sources(
+                    limit=_MAX_MAINTENANCE_RECORDS,
+                    now=self._clock(),
+                )
+        except TimeoutError:
+            self._last_rule_source_poll = {
+                "status": "timeout",
+                "outcome": "bounded_noop",
+                "checked": 0,
+            }
+            self.record_behavior("maintenance:rule_source_poll_timeout")
+            return
+        except Exception:
+            self._last_rule_source_poll = {
+                "status": "failed",
+                "outcome": "bounded_noop",
+                "checked": 0,
+            }
+            self.record_behavior("maintenance:rule_source_poll_failed")
+            return
+        self._last_rule_source_poll = {
+            "status": "measured",
+            "outcome": "audit_evidence",
+            "checked": result.checked,
+            "changed": result.changed,
+            "evidence_ref": result.evidence_ref,
+        }
+        self.record_behavior("maintenance:rule_source_polled")
+
+    async def _publish_issue_close_promotion_evidence(self) -> None:
+        reader = self._promotion_outcome_reader
+        runner = self._regression_runner
+        if reader is None or runner is None:
+            self._last_regression_suite = {
+                "status": "unbound",
+                "outcome": "bounded_noop",
+                "promotion_reader_bound": reader is not None,
+                "regression_runner_bound": runner is not None,
+            }
+            self.record_behavior("maintenance:promotion_evidence_unbound")
+            return
+        try:
+            async with asyncio.timeout(self._provider_timeout_seconds):
+                outcomes = await reader.read_promotion_outcomes(
+                    limit=_MAX_MAINTENANCE_RECORDS,
+                    now=self._clock(),
+                )
+        except TimeoutError:
+            self._last_regression_suite = {
+                "status": "timeout",
+                "outcome": "bounded_noop",
+                "promotion_outcomes": 0,
+                "regressions_attempted": 0,
+                "evidence_published": 0,
+            }
+            self.record_behavior("maintenance:promotion_outcome_reader_timeout")
+            return
+        except Exception:
+            self._last_regression_suite = {
+                "status": "failed",
+                "outcome": "bounded_noop",
+                "promotion_outcomes": 0,
+                "regressions_attempted": 0,
+                "evidence_published": 0,
+            }
+            self.record_behavior("maintenance:promotion_outcome_reader_failed")
+            return
+        attempted = 0
+        published = 0
+        for outcome in outcomes[:_MAX_MAINTENANCE_RECORDS]:
+            if not promotion_outcome_is_authoritative(outcome):
+                self.record_behavior("promotion_evidence:invalid_outcome")
+                continue
+            idempotency_key = _issue_close_evidence_idempotency_key(outcome)
+            if await self._rule_publication_exists(idempotency_key):
+                self._published_issue_close_evidence.add(idempotency_key)
+                self.record_behavior("promotion_evidence:duplicate")
+                continue
+            attempted += 1
+            try:
+                async with asyncio.timeout(self._provider_timeout_seconds):
+                    result = await runner.run_regression(outcome, now=self._clock())
+            except TimeoutError:
+                self.record_behavior("promotion_evidence:regression_timeout")
+                continue
+            except Exception:
+                self.record_behavior("promotion_evidence:regression_failed")
+                continue
+            if not regression_result_is_clean(result):
+                self.record_behavior("promotion_evidence:regression_not_clean")
+                continue
+            if await self._publish_issue_close_evidence(outcome, result.started_at.isoformat()):
+                published += 1
+        self._last_regression_suite = {
+            "status": "measured",
+            "outcome": "audit_evidence",
+            "promotion_outcomes": len(outcomes),
+            "regressions_attempted": attempted,
+            "evidence_published": published,
+        }
+
+    async def _publish_issue_close_evidence(
+        self,
+        outcome: MimirCatalogPromotionOutcome,
+        clean_regression_started_at: str,
+    ) -> bool:
+        idempotency_key = _issue_close_evidence_idempotency_key(outcome)
+        if idempotency_key in self._published_issue_close_evidence:
+            self.record_behavior("promotion_evidence:duplicate")
+            return False
+        payload = {
+            "producer_principal": "Mimir",
+            "kind": "catalog_review_outcome",
+            "correlation_id": outcome.correlation_id,
+            "idempotency_key": idempotency_key,
+            "outcome": outcome.outcome,
+            "problem_fingerprint": outcome.problem_fingerprint,
+            "fingerprint": outcome.problem_fingerprint,
+            "promotion_pr": outcome.promotion_pr,
+            "clean_regression_started_at": clean_regression_started_at,
+            "rule_id": outcome.rule_id,
+            "candidate_digest": outcome.candidate_digest,
+            "package_digest": outcome.package_digest,
+            "review_ref": outcome.review_ref,
+            "norns_issue_close_support": self._norns_issue_close_support.get(
+                outcome.problem_fingerprint
+            ),
+            "grants_issue_close_authority": False,
+        }
+        if self.bus is None:
+            self.record_behavior("promotion_evidence:transport_unavailable")
+            return False
+        if not await self._checkpoint_rule_publication(
+            topic="object.rule",
+            payload=payload,
+            idempotency_key=idempotency_key,
+        ):
+            self._published_issue_close_evidence.add(idempotency_key)
+            self.record_behavior("promotion_evidence:duplicate")
+            return False
+        await self.bus.publish("Mimir", "object.rule", payload)
+        await self._mark_rule_publication_published(idempotency_key)
+        self._published_issue_close_evidence.add(idempotency_key)
+        self.record_behavior("promotion_evidence:published")
+        return True
+
+    async def _record_deprecation_cycle(self) -> None:
+        reader = self._rule_deprecation_reader
+        if reader is None:
+            self._last_deprecation_cycle = {
+                "status": "unbound",
+                "outcome": "bounded_noop",
+                "candidates": 0,
+            }
+            self.record_behavior("maintenance:deprecation_cycle_unbound")
+            return
+        try:
+            async with asyncio.timeout(self._provider_timeout_seconds):
+                candidates = await reader.stale_or_retired_rules(
+                    limit=_MAX_MAINTENANCE_RECORDS,
+                    now=self._clock(),
+                )
+        except TimeoutError:
+            self._last_deprecation_cycle = {
+                "status": "timeout",
+                "outcome": "bounded_noop",
+                "candidates": 0,
+            }
+            self.record_behavior("maintenance:deprecation_cycle_timeout")
+            return
+        except Exception:
+            self._last_deprecation_cycle = {
+                "status": "failed",
+                "outcome": "bounded_noop",
+                "candidates": 0,
+            }
+            self.record_behavior("maintenance:deprecation_cycle_failed")
+            return
+        retained = 0
+        for candidate in candidates[:_MAX_MAINTENANCE_RECORDS]:
+            try:
+                await self._persist_deprecation_candidate(candidate)
+            except Exception:
+                self.record_behavior("deprecation_cycle:candidate_failed")
+                continue
+            retained += 1
+        self._last_deprecation_cycle = {
+            "status": "measured",
+            "outcome": "audit_evidence",
+            "candidates": retained,
+        }
+        self.record_behavior("maintenance:deprecation_cycle_recorded")
+
+    async def _persist_deprecation_candidate(self, candidate: MimirDeprecationCandidate) -> None:
+        store = self._governance_state_store
+        if store is None:
+            self.record_behavior("deprecation_cycle:process_local")
+            return
+        candidate_key = stable_idempotency_key(
+            "mimir-rule-deprecation",
+            candidate.rule_id,
+            candidate.reason,
+        )
+        key = f"{_DEPRECATION_CANDIDATE_PREFIX}/{candidate_key}"
+        await store.write_state_with_audit_if_absent(
+            key,
+            {
+                "kind": "mimir_rule_deprecation_candidate",
+                "revision": 1,
+                "rule_id": candidate.rule_id,
+                "reason": candidate.reason,
+                "evidence_ref": candidate.evidence_ref,
+                "observed_at": candidate.observed_at.isoformat(),
+                "catalog_mutated": False,
+                "grants_authority": False,
+            },
+            {
+                "kind": "mimir_rule_deprecation_candidate_recorded",
+                "principal": "Mimir",
+                "rule_id": candidate.rule_id,
+                "reason": candidate.reason,
+                "evidence_ref": candidate.evidence_ref,
+                "grants_authority": False,
+            },
+        )
+        await store.delete_states_beyond(
+            f"{_DEPRECATION_CANDIDATE_PREFIX}/",
+            retain_newest=_MAX_MAINTENANCE_RECORDS,
+        )
+
+    async def _rule_publication_exists(self, idempotency_key: str) -> bool:
+        if idempotency_key in self._published_issue_close_evidence:
+            return True
+        store = self._governance_state_store
+        if store is None:
+            return False
+        return await store.read_state(_rule_publication_key(idempotency_key)) is not None
+
+    def _record_norns_issue_close_support(self, payload: Mapping[str, Any]) -> bool:
+        support = norns_issue_close_support(payload)
+        if support is None:
+            return False
+        self._norns_issue_close_support.set(str(support["fingerprint"]), support)
+        self.record_behavior("norns_issue_close_support:recorded")
+        return True
+
     def health(self) -> dict[str, Any]:
         durable_governance = self._governance_state_store is not None
         stale_rules = sum(1 for promotion in self._promotions.values() if not promotion.updated_at)
@@ -1057,6 +1400,12 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
                 "pending_candidates": len(self._pending_candidates),
                 "quarantined_candidates": len(self._quarantined_candidates),
                 "review_packages": len(self._catalog_review_packages),
+            },
+            "maintenance": {
+                "rule_source_poll": self._last_rule_source_poll,
+                "regression_suite": self._last_regression_suite,
+                "deprecation_cycle": self._last_deprecation_cycle,
+                "norns_issue_close_support_count": len(self._norns_issue_close_support),
             },
             "kpis": {
                 "rule_freshness_score": _ratio_kpi(
