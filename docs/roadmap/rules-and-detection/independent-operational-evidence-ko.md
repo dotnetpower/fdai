@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 42a3607b8d2ee247fd6ac5c35872039197254927
+translation_source_sha: d24ceff74f0ad2ae38128df0541d188d42e480af
 translation_revised: 2026-10-01
 ---
 # 독립 운영 근거 발급
@@ -79,6 +79,8 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준이며, 그 밖의 
   보존하게 될 본문 없는 인증 증적을 읽습니다. 여기에는 발급자, 대상, 테넌트 digest, subject, principal 종류,
   초과(overage) 없음 표시가 붙은 정확한 그룹 id, 토큰 식별자 digest, 발급 및 만료 시각, 확인된 역할, 역할 매핑
   개정이 담깁니다. 토큰은 보관하지 않고, 로컬 CLI 세션의 증적은 `local-loopback`이며, 이 증적은 선행 조건입니다.
+  검증에 성공하면 요청에 사용권 표시용 표식도 남기지만, 이 표식은 증적에 필드를 더하지 않고
+  권한도 부여하지 않습니다.
 
 ## 발급 경로와 증명 형식
 

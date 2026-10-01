@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 448d6b946bfa5bac5b2f2c3fc56d6ccfae7f26ce
+translation_source_sha: 9718e58ae5ea5560c8a5ee972c2a849ef518e4ce
 translation_revised: 2026-10-01
 ---
 # FDAI Console 대화
@@ -519,6 +519,9 @@ focused 소유자 문서로 분리했습니다:
 - [operator-console-view-snapshot-ko.md](operator-console-view-snapshot-ko.md) - self-describing 화면 계약(13.4).
 - [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록, 교정 이력, 카탈로그를 재사용하는 대기/적용 상태, 제한된 HTTP `202` 재조회, 권한을 부여하지 않는 Huginn-to-Saga 지침 감사 경로(13.5).
 인증된 의미 턴은 기본값이 꺼진 Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 인증 영수증 참조를 담을 수 있습니다. 이 참조는 브라우저에 권한으로 전달되지 않으며, 배포 순서는 [13.12](operator-console-wire-contracts-ko.md#1312-의미-턴-인증-영수증-참조)를 참고하십시오. 설정을 켜면 Operator는 턴을 게시하기 전에 바로 그 요청의 영수증을 보존하므로 검증기가 이 영수증으로 `case-history-read`를 확인할 수 있습니다. 보존에 실패하면 Core가 해소할 수 없는 참조를 보내지 않고 턴을 실패로 처리합니다.
+베어러 인증된 요청의 모든 응답에는 Console 워터마크가 읽는 `X-FDAI-Entitlement` 표시도
+포함됩니다. [13.13](operator-console-wire-contracts-ko.md#1313-사용권-표시-응답-헤더)을
+참고하십시오.
 
 ## 14. MCP 전달 및 managed 카탈로그
 

@@ -91,6 +91,7 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
         if stage == "binding":
             return {
                 "deployment_binding": "a" * 64,
+                "installation_binding": "c" * 64,
                 "terraform_name_verified": True,
             }
         if arguments[0] == "recover-apply":

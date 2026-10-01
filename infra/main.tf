@@ -105,6 +105,21 @@ resource "terraform_data" "deploy_runner_identity_fence" {
   }
 }
 
+# Terraform state owns the installation identity and first-apply time, so a rerun or upgrade
+# re-reads them and never opens a new Trial window.
+resource "terraform_data" "installation" {
+  input = timestamp()
+
+  lifecycle {
+    ignore_changes = [input]
+  }
+}
+
+locals {
+  installation_binding    = sha256("fdai-installation:${terraform_data.installation.id}")
+  installation_created_at = terraform_data.installation.output
+}
+
 locals {
   env_suffix                         = var.env == "" ? "" : "-${var.env}"
   region_suffix                      = var.region_short == "" ? "" : "-${var.region_short}"

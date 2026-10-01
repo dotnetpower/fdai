@@ -90,8 +90,8 @@ to the framework surface, so a fork must not edit, hide, or replace them. Preser
 installation-bound record across upgrades: a fork that supplies a record bound to another
 installation receives no capability, and runtime enforcement resolves through the shared license
 entitlement authority rather than any fork-supplied check. Durable Trial storage, its Core
-composition, and its anchored activation writer exist; supplying the installation binding and
-invoking that writer during deployment remain open in
+composition, its anchored activation writer, its AKS source-deployment wiring, and AKS
+key-holder entitlement issuance exist; the Container Apps runtime's binding input remains open in
 [Source Deployment](../deployment/source-deployment.md).
 
 An optional vertical package is also independent from the fork boundary. For example,
@@ -167,7 +167,8 @@ Do these before your first `git commit` on the fork.
 Never edit a path listed in
 [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt). Definitions under core,
 composition, shared contracts and providers, agents, the capability-licensing runtime binding,
-durable Trial store and activation writer, and trust package, schemas, and repository instructions
+durable Trial store and activation writer, and trust package, the Trial expiry watermark's state
+publisher and Operator stamp, schemas, and repository instructions
 are upstream-owned. A fork adds
 implementations, catalog entries, and overlays through the seams in its own package.
 

@@ -125,6 +125,7 @@ def test_an_expired_window_blocks_new_acting_work() -> None:
     entitlement = _resolver(store).resolve(now=expired)
 
     assert entitlement.available_capability_ids == frozenset()
+    assert entitlement.status is LicenseStatus.EXPIRED
     assert "window has ended" in entitlement.reason
 
 
@@ -270,3 +271,23 @@ def test_an_authority_without_a_trial_is_unchanged() -> None:
     # Read-only capability is unconditional; only acting capability is licensed.
     available = authority.resolve(now=_NOW).available_capability_ids
     assert available == {"cost.metering"}
+
+
+def test_an_ended_trial_explains_a_keyless_installation_as_expired() -> None:
+    """The watermark needs to know the evaluation ended, not only that no token exists."""
+
+    expired = _NOW + TRIAL_DURATION
+    store = _Store(_record(activated_at=_NOW, last_observed_at=expired))
+
+    entitlement = _authority(_resolver(store)).resolve(now=expired)  # type: ignore[attr-defined]
+
+    assert entitlement.status is LicenseStatus.EXPIRED
+    assert "window has ended" in entitlement.reason
+    assert entitlement.available_capability_ids == {"cost.metering"}
+
+
+def test_an_unactivated_keyless_installation_stays_absent() -> None:
+    entitlement = _authority(_resolver(_Store(None))).resolve(now=_NOW)  # type: ignore[attr-defined]
+
+    assert entitlement.status is LicenseStatus.ABSENT
+    assert entitlement.available_capability_ids == {"cost.metering"}

@@ -523,6 +523,8 @@ Split into focused owner documents:
 - [operator-console-view-snapshot.md](operator-console-view-snapshot.md) - the self-describing screen contract (13.4).
 - [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster, fix history, catalog-reused queued/applied status, bounded HTTP `202` revalidation, and the no-authority Huginn-to-Saga guidance audit path (13.5).
 Authenticated semantic turns may carry a content-free authentication receipt reference in `operator-core-request` 1.9.0 only when the default-off Operator setting `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on; the reference never reaches the browser as authority, and see [13.12](operator-console-wire-contracts.md#1312-semantic-turn-authentication-receipt-reference) for the rollout order. With the setting on, the Operator retains that receipt for the exact request before it publishes the turn, so the verifier can check `case-history-read` against it. A retention failure fails the turn instead of sending a reference that Core cannot resolve.
+Every response to a bearer-authenticated request also carries the `X-FDAI-Entitlement` stamp
+that the Console watermark reads; see [13.13](operator-console-wire-contracts.md#1313-entitlement-stamp-response-header).
 
 ## 14. MCP delivery and managed catalog
 

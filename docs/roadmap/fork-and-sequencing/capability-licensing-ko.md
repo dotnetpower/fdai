@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 445474bdaa95b255ea8c709ac9bccd9535f57ba8
+translation_source_sha: 25d1d616481f5f2b9abfda67ccedb93a36806107
 translation_revised: 2026-10-01
 ---
 # 기능 라이선싱
@@ -63,8 +63,10 @@ Trial은 없거나 만료된 토큰을 대신할 뿐, 거부·오바인딩·아�
 행위 판정마다 Core 이벤트 루프가 아닌 작업자 스레드에서 저장소를 관측하며, 바인딩이 잘못되었거나
 불완전하면 Trial을 조립하지 않습니다. 작성자 `python -m fdai.runtime.licensing_trial_activation`은
 전달받은 고정 시각으로 기간을 열고, 기존 기록은 그대로 유지하며, 다른 설치에 바인딩된 기록은
-거부합니다. 설치 바인딩을 제공하는 단계와 배포 부트스트랩에서 이 작성자를 호출하는 단계는 아직
-남아 있으므로, 두 단계가 구현될 때까지 키 없는 설치는 관찰 전용으로 남습니다.
+거부합니다. AKS 소스 배포는 두 바인딩을 Core에 제공하고, 재실행이나 업그레이드로 바뀌지 않는
+Terraform 상태의 식별자와 최초 적용 시각에 설치를 고정하며, 애플리케이션 적용 후 초기 인벤토리
+전에 이 작성자를 실행합니다. Container Apps 런타임은 아직 바인딩을 제공하지 않으므로, 키 없는
+Container Apps 설치는 관찰 전용으로 남습니다.
 
 [키 보유자 설치 사용권](#키-보유자-설치-사용권)은 설치 하나에 대해 Trial 제한을 해제합니다.
 다른 운영자에게 전달되는 모든 토큰에는 서명 토큰의 30일 상한이 계속 적용됩니다. 서명된 오프라인
@@ -99,6 +101,34 @@ Trial을 해제합니다. 발급자 개인 키는 배포 환경에 전달하지 
 
 워터마크는 가용성 안내입니다. 권한을 부여하거나 제거하지 않으며, 워터마크가 없다고 해서 무엇이
 증명되지도 않습니다. 모든 변경 요청은 여전히 공유 실행 상한이 결정합니다.
+
+### 사용권 상태 전달
+
+**초기 설계.** Operator가 Trial 기록과 자신이 가진 토큰 사본으로 사용권을 다시 해석합니다.
+
+**비판.** 그러면 라이선스 판정기가 Core 밖에 중복됩니다. Operator에는 토큰, 바인딩, 발급자
+워크스테이션 증명이 모두 없으므로 두 판정기의 결론이 달라질 수 있습니다. 또한
+[데이터 소유권 매트릭스](../architecture/service-graduation-and-ownership-ko.md#데이터-소유권-매트릭스)가
+Core에만 허용한 Trial 기록 읽기 권한을 두 번째 주체가 갖게 됩니다.
+
+**수정된 설계.** Core가 하나의 안내 값을 도출하고, 다른 계층은 그 값을 전달하기만 합니다.
+
+- Core는 해석한 사용권에 `operations.typed-mutation`이 있으면 `none`, 토큰이나 Trial 기간이
+  만료되었으면 `evaluation-ended`, 그 밖에는 `not-activated`를 도출합니다. 따라서 끝난 Trial은
+  Trial의 사유와 함께 `expired`로 해석되며, 읽기 전용 카탈로그는 계속 사용할 수 있습니다.
+- Core는 시작할 때와 60초마다 이벤트 루프 밖에서 사용권을 해석하고, 안내 값과 관측 시각을
+  Core가 소유한 단일 행 테이블 `licensing_entitlement_state`에 기록합니다. 기록은 관측 시각을
+  과거로 되돌리지 않습니다. 이 행은 Core만 쓰며, Operator 역할은 `SELECT` 권한만 받습니다.
+- Operator는 이 행을 최대 15초에 한 번 읽습니다. 베어러 인증을 통과한 요청의 모든 응답에 안내
+  값을 `X-FDAI-Entitlement`로 표시하며, CORS는 이 헤더를 Console에 노출합니다. 행이 없거나,
+  형식이 잘못되었거나, 읽을 수 없거나, 관측 시각이 Operator 시계와 5분 넘게 차이 나면
+  `not-activated`를 표시합니다.
+- Console은 공유 Operator 전송 계층의 모든 응답에서 표시 값을 기록하고, 60초마다 인증된 읽기로
+  값을 갱신합니다. 최신 표시 값이 `none`이고 5분이 지나지 않은 동안에만 워터마크를 숨깁니다.
+  첫 표시 값이 도착하기 전에는 최대 10초까지 기다립니다.
+
+Core 밖에서 행을 수정하는 것은 영속 상태 변조이며, [정직한 한계](#정직한-한계)가 이미 범위에서
+제외합니다. 워터마크 표시 여부를 정하는 설정이나 구성 값은 없습니다.
 
 ## 발급자 워크스테이션 예외
 
@@ -155,8 +185,9 @@ Trial을 해제합니다. 발급자 개인 키는 배포 환경에 전달하지 
 - 예상 배포판이 배포하는 카탈로그 전체를 부여합니다.
 - 정확한 설치 및 배포 바인딩 다이제스트를 요구하고 이미지 digest와 `not_after`를 담지 않으므로,
   업그레이드와 재시작 뒤에도 유효합니다.
-- 토큰처럼 다이제스트에서 파생한 비밀 이름으로 Key Vault 파일 입력을 통해 이동하고, Core가 시작할
-  때 바인딩합니다.
+- 토큰처럼 이동합니다. 관리 호스트가 고정된 `fdai-capability-license` Key Vault 비밀에 기록하고
+  정확한 버전을 다시 읽어 확인하며, Core는 시작할 때 `FDAI_LICENSE_TOKEN`에서 읽습니다. 고정
+  이름은 비밀 참조와 읽기 범위를 하나로 유지하고, 이력은 Key Vault 버전이 보관합니다.
 - 바인딩이 하나라도 다르면 `misbound`로 해석하며, 키 보유자 자신의 설치를 벗어나는 모든 토큰에는
   v1 30일 상한이 그대로 적용됩니다.
 
@@ -165,8 +196,10 @@ Trial을 해제합니다. 발급자 개인 키는 배포 환경에 전달하지 
 
 계약, 공용 라이선스 판정기를 통한 Core 해석, 작업 스테이션 발급, `fdaictl license inspect` 지원은
 구현되었습니다. Core는 기존 라이선스 토큰 입력에서 문서를 읽고 `FDAI_INSTALLATION_BINDING`과
-`FDAI_LICENSE_DEPLOYMENT_BINDING`을 바인딩합니다. 배포 중 발급과 Key Vault 파일 입력을 통한 전달은
-아직 남아 있으므로, 그 연결이 구현될 때까지 키 보유자 배포는 30일 v1 토큰을 받습니다.
+`FDAI_LICENSE_DEPLOYMENT_BINDING`을 바인딩합니다. AKS에서는 키 보유자 배포가 기능 단계에서
+사용권을 발급하고, AKS Core는 이를 CSI로 마운트된 비밀 환경 변수로 받습니다. Container Apps
+Core는 아직 설치 바인딩을 받지 않으므로, Container Apps 키 보유자 배포는 여전히 30일 v1 토큰을
+받습니다.
 
 ## 토큰
 
@@ -259,7 +292,7 @@ License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 �
 | `active` 설치 사용권(목표) | 서명 검증 통과, 두 설치 바인딩 일치, 기간 없음 | 배포된 카탈로그 전체 |
 | `absent` | 토큰 미설정 및 발급자 워크스테이션 증명 없음 | 배포된 런타임에서 읽기 전용 |
 | `untrusted` | 형식 오류 토큰, 비정규 토큰, packaged 키가 거부한 서명, 또는 실행되지 못한 검증기 | 읽기 전용 |
-| `not-yet-valid` / `expired` | 유효 기간 밖 | 읽기 전용 |
+| `not-yet-valid` / `expired` | 토큰 유효 기간 밖, 또는 `expired`의 경우 Trial 기간이 끝난 무키 설치 | 읽기 전용 |
 | `misbound` | 배포판 신원, 이미지 다이제스트 또는 배포 연결 불일치 | 읽기 전용 |
 
 변경 기능을 보류하는 모든 상태는 [Trial 만료 워터마크](#trial-만료-워터마크)를 표시합니다.
@@ -298,6 +331,8 @@ PR 기반, 직접 API 및 도구 호출 작업 경로는 모두 카탈로그 기
 | 런타임 서명 및 로컬 발급자 키 검증 | 패키지에 포함된 `upstream-signing-key.pub`로 검증하는 `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
 | 런타임 Trial 연결 | `services/core-control-plane/src/fdai/runtime/licensing.py` |
 | 영속 Trial 저장소 및 고정 시각 활성화 작성자 | `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py` |
+| 워터마크 안내 값, 상태 게시자, 기록기 | `services/core-control-plane/src/fdai/core/licensing/entitlement_notice.py`, `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py` |
+| Operator 응답 표시 | `services/operator-service/src/fdai_operator_service/entitlement_stamp.py` |
 | 최종 공유 실행 상한 | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | 발급 및 자체 검증 (release 전용) | 고정된 cryptography 의존성의 Ed25519와 배타적 mode-`0600` 출력 생성을 사용하는 `scripts/deployment/release/issue-license.py` |
 | 모든 운영자를 위한 오프라인 검증 | 배포 CLI의 독립 Ed25519 검증기를 사용하는 `fdaictl license inspect` |
@@ -309,8 +344,8 @@ crypto 백엔드, 전송 계층, `fdai.delivery`를 가져오기하지 않습니
 
 Core와 배포 CLI는 각각 `security/integrity/upstream-signing-key.pub`와 바이트까지 같은 사본을
 패키지에 포함하며, 테스트가 두 사본을 모두 원본에 고정합니다. 런타임 라이선싱 연결, 영속 Trial
-저장소와 그 활성화 작성자, 그 사본을 포함한 `fdai/delivery/trust/` 패키지는 서명된 프레임워크
-표면에 속합니다.
+저장소와 그 활성화 작성자, 워터마크의 상태 게시자와 기록기, Operator 표시, 그 사본을 포함한
+`fdai/delivery/trust/` 패키지는 서명된 프레임워크 표면에 속합니다.
 
 ## 이 리포지토리에서 검증하기
 

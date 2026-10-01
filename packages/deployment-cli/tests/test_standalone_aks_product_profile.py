@@ -113,9 +113,10 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
     monkeypatch.setattr(
         standalone_host,
         "_terraform_output",
-        lambda _infra, name: (
-            "console.azurestaticapps.net" if name == "console_default_hostname" else name
-        ),
+        lambda _infra, name: {
+            "console_default_hostname": "console.azurestaticapps.net",
+            "cluster_name": "aks-fdai-dev",
+        }.get(name, name),
     )
     monkeypatch.setattr(standalone_host, "_terraform_json_output", json_output)
     monkeypatch.setattr(

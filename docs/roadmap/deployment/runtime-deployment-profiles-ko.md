@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 12021ee13e61bf540d5e85aacfa92cb532500416
+translation_source_sha: 0a49d4db37394d945fcb7bf2bb2d2ea6671b71e8
 translation_revised: 2026-10-01
 ---
 # 런타임 배포 프로파일
@@ -619,6 +619,29 @@ anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드
 Console이 추가적인 `summary=true`를 보내더라도 이전 Operator는 기존 페이지 묶음을 반환하며, 새
 Operator는 이 활성화 설정이 있을 때만 원장 전체 요약을 계산하므로 Incident, Agent Activity, Trace 및
 선택적 비용 패키지 경로가 이 조회 비용을 이어받지 않습니다.
+
+AKS에서는 substrate root의 `terraform_data.installation` 고정점이 설치 식별자와 최초 적용 시각을
+Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 애플리케이션 단계는
+Core에 `FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제공합니다. 애플리케이션
+적용 후 초기 인벤토리 전에, 관리 호스트의 `activate-trial` 단계는 Key Vault 상태 저장소 DSN으로
+Core Trial 작성자를 한 번 실행하고 digest로 묶인 영수증을 기록합니다. 작성자는 기존 기간을 그대로
+유지하므로, 키 없는 설치는 최초 적용 시점에 시작된 30일 기간을 계속 유지합니다
+([기능 라이선싱](../fork-and-sequencing/capability-licensing-ko.md#영속적인-무키-trial-목표)).
+배포 영수증은 다시 읽은 기간이 신뢰할 수 있는 시계 기준으로 열려 있을 때만
+`license_mode=trial`을 보고합니다.
+
+배포 운영자가 업스트림 무결성 서명 키를 보유하면 배포 바인딩 단계가 설치 바인딩도 함께
+반환합니다. 그러면 기능 단계는 30일 토큰 대신, 해당 설치와 배포에 묶인 만료 없는 설치
+자격을 발급합니다. 관리 호스트는 이 자격을 검증하고, 고정된 `fdai-capability-license` Key
+Vault 비밀에 기록한 뒤 다시 읽어 확인합니다. AKS Core는 이 값을 CSI로 마운트된
+`FDAI_LICENSE_TOKEN` 비밀 환경 변수로 받습니다. Core ID는 이미 해당 볼트를 읽을 수 있으므로
+새 역할이 필요하지 않습니다. Container Apps의 키 보유자는 이미지에 묶인 30일 토큰을 계속
+사용합니다.
+
+모든 런타임 프로필에서 Core는 상태 저장소 DSN을 통해 [워터마크 안내 값](../fork-and-sequencing/capability-licensing-ko.md#사용권-상태-전달)을
+Core가 소유한 `licensing_entitlement_state` 행에 게시합니다. Core 마이그레이션 브랜치가 이 행을
+만들고, Operator 브랜치가 Operator 역할에 이 행의 `SELECT` 권한을 부여하며, Operator는 인증된
+응답에 이 안내 값을 표시합니다.
 
 ## 배포 페이로드
 
