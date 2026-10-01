@@ -13,7 +13,7 @@ import time
 from collections import Counter, deque
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog, is_irreversible
@@ -68,6 +68,12 @@ from fdai.agents._framework.introspection import (
     mentioned,
     semantic_intents,
 )
+from fdai.agents._framework.outbox_publication import (
+    PublicationClaim,
+    claim_expired,
+    new_publication_claim_owner,
+    publish_claimed_outbox,
+)
 from fdai.agents._framework.pantheon import _HEIMDALL
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.role_answers import heimdall_role_answer
@@ -116,6 +122,10 @@ _READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness/"
 _PENDING_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness-pending/"
 _PUBLICATION_PREFIX = "pantheon/heimdall/publications/"
 _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES = 8192
+_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
+_PUBLICATION_CAS_ATTEMPTS = 8
+_PUBLICATION_RECOVERY_LIMIT = 5_000
+_PUBLICATION_MAINTENANCE_PAGE = 16
 _RULE_VALIDATION_TIMEOUT_SECONDS = 5.0
 _FULL_SNAPSHOT_LIMIT = 128
 _MAX_KPI_SAMPLES = 512
@@ -693,73 +703,258 @@ class Heimdall(
                 )
             if self.bus is None:
                 return False
-            publish_cancelled = False
-            publish_task = asyncio.create_task(self.bus.publish("Heimdall", topic, payload))
-            try:
-                await asyncio.shield(publish_task)
-            except asyncio.CancelledError:
-                await publish_task
-                self.record_behavior("publication:publish_cancelled")
-                publish_cancelled = True
-            if self._state_store is not None:
-                complete_task = asyncio.create_task(
-                    self._state_store.write_state(
-                        state_key,
-                        _publication_row(
-                            topic=topic,
-                            idempotency_key=idempotency_key,
-                            payload=payload,
-                            revision=2,
-                            state="published",
-                        ),
-                    )
-                )
-                try:
-                    await asyncio.shield(complete_task)
-                except asyncio.CancelledError:
-                    await complete_task
-                    self.record_behavior("publication:completion_cancelled")
-                    publish_cancelled = True
-            if publish_cancelled:
-                raise asyncio.CancelledError
-            return True
+            bus = self.bus
+            claim = await self._claim_publication(state_key, topic, idempotency_key, payload)
+            return await publish_claimed_outbox(
+                claim,
+                publish=lambda: bus.publish("Heimdall", topic, payload),
+                mark_published=lambda active_claim: self._mark_publication_published(
+                    state_key,
+                    topic,
+                    idempotency_key,
+                    payload,
+                    active_claim,
+                ),
+                release=lambda active_claim: self._release_publication_claim(
+                    state_key,
+                    payload,
+                    active_claim,
+                ),
+                lease=_PUBLICATION_CLAIM_LEASE,
+            )
 
-    async def recover_publications(self, *, limit: int = 100) -> int:
+    async def recover_publications(self, *, limit: int = _PUBLICATION_RECOVERY_LIMIT) -> int:
         """Republish durable Heimdall publication intents left pending at restart."""
 
         if self._state_store is None or self.bus is None:
             return 0
-        rows, _total = await self._state_store.read_state_page(
-            _PUBLICATION_PREFIX,
-            limit=limit,
-            field="state",
-            value="pending",
-        )
+        bus = self.bus
         recovered = 0
-        for row in reversed(rows):
-            topic = str(row.get("topic") or "")
-            payload = row.get("payload")
-            if topic not in {
-                "object.anomaly",
-                "object.drift",
-                "object.evidence-conflict",
-                "object.recovery-effect-observation",
-                "object.retrieval-validation",
-            } or not isinstance(payload, dict):
-                raise RuntimeError("Heimdall publication row is malformed")
-            await self.bus.publish("Heimdall", topic, dict(payload))
-            idempotency_key = str(row.get("idempotency_key") or "")
-            publication_digest = hashlib.sha256(f"{topic}:{idempotency_key}".encode()).hexdigest()
-            await self._state_store.write_state(
-                f"{_PUBLICATION_PREFIX}{publication_digest}",
-                {
-                    **dict(row),
-                    "revision": int(row.get("revision", 1)) + 1,
-                    "state": "published",
-                },
+        attempted = 0
+        attempted_keys: set[str] = set()
+        while attempted < limit:
+            remaining = limit - attempted
+            pending_rows, _pending_total = await self._state_store.read_state_page(
+                _PUBLICATION_PREFIX,
+                limit=remaining,
+                field="state",
+                value="pending",
             )
-            recovered += 1
+            publishing_rows, _publishing_total = await self._state_store.read_state_page(
+                _PUBLICATION_PREFIX,
+                limit=remaining,
+                field="state",
+                value="publishing",
+            )
+            rows = (*pending_rows, *publishing_rows)
+            if not rows:
+                break
+            progress = 0
+            for row in reversed(rows[:remaining]):
+                topic = str(row.get("topic") or "")
+                payload = row.get("payload")
+                if topic not in {
+                    "object.anomaly",
+                    "object.drift",
+                    "object.evidence-conflict",
+                    "object.recovery-effect-observation",
+                    "object.retrieval-validation",
+                } or not isinstance(payload, dict):
+                    self.record_behavior("publication:recovery_invalid_row")
+                    attempted += 1
+                    continue
+                idempotency_key = str(row.get("idempotency_key") or "")
+                publication_digest = hashlib.sha256(
+                    f"{topic}:{idempotency_key}".encode()
+                ).hexdigest()
+                state_key = f"{_PUBLICATION_PREFIX}{publication_digest}"
+                if state_key in attempted_keys:
+                    continue
+                attempted_keys.add(state_key)
+                attempted += 1
+                claim = await self._claim_publication(state_key, topic, idempotency_key, payload)
+                recovered_payload = dict(payload)
+
+                async def mark_recovered(
+                    active_claim: PublicationClaim,
+                    *,
+                    state_key: str = state_key,
+                    topic: str = topic,
+                    idempotency_key: str = idempotency_key,
+                    payload: dict[str, Any] = recovered_payload,
+                ) -> bool:
+                    return await self._mark_publication_published(
+                        state_key,
+                        topic,
+                        idempotency_key,
+                        payload,
+                        active_claim,
+                    )
+
+                async def release_recovered(
+                    active_claim: PublicationClaim,
+                    *,
+                    state_key: str = state_key,
+                    payload: dict[str, Any] = recovered_payload,
+                ) -> None:
+                    await self._release_publication_claim(
+                        state_key,
+                        payload,
+                        active_claim,
+                    )
+
+                async def publish_recovered(
+                    *,
+                    topic: str = topic,
+                    payload: dict[str, Any] = recovered_payload,
+                ) -> None:
+                    await bus.publish("Heimdall", topic, payload)
+
+                try:
+                    if await publish_claimed_outbox(
+                        claim,
+                        publish=publish_recovered,
+                        mark_published=mark_recovered,
+                        release=release_recovered,
+                        lease=_PUBLICATION_CLAIM_LEASE,
+                    ):
+                        recovered += 1
+                        progress += 1
+                except Exception:
+                    self.record_behavior("publication:recovery_publish_failed")
+                    continue
+            if progress == 0:
+                break
         return recovered
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        try:
+            await self.recover_publications(limit=_PUBLICATION_MAINTENANCE_PAGE)
+        except Exception:
+            self.record_behavior("publication:maintenance_recovery_failed")
+
+    async def _claim_publication(
+        self,
+        state_key: str,
+        topic: str,
+        idempotency_key: str,
+        payload: Mapping[str, Any],
+    ) -> PublicationClaim | None:
+        if self._state_store is None:
+            return PublicationClaim(
+                owner=new_publication_claim_owner(self.spec.name),
+                claimed_at=self._forecast_clock().isoformat(),
+            )
+        for attempt in range(_PUBLICATION_CAS_ATTEMPTS):
+            stored = await self._state_store.read_state(state_key)
+            if stored is None:
+                raise RuntimeError("Heimdall publication row disappeared")
+            if stored.get("state") == "published":
+                return None
+            if stored.get("topic") != topic or stored.get("idempotency_key") != idempotency_key:
+                raise RuntimeError("Heimdall publication row is malformed")
+            if stored.get("payload") != dict(payload):
+                raise RuntimeError("Heimdall publication payload identity conflict")
+            now = self._forecast_clock()
+            if stored.get("state") == "publishing" and not claim_expired(
+                claimed_at=stored.get("claimed_at"),
+                now=now,
+                lease=_PUBLICATION_CLAIM_LEASE,
+            ):
+                return None
+            if stored.get("state") not in {"pending", "publishing"}:
+                raise RuntimeError("Heimdall publication row is malformed")
+            revision = int(stored.get("revision", 1))
+            claimed_at = now.isoformat()
+            claim_owner = new_publication_claim_owner(self.spec.name)
+            advanced = await self._state_store.compare_and_set_state(
+                state_key,
+                {
+                    **dict(stored),
+                    "revision": revision + 1,
+                    "state": "publishing",
+                    "claim_owner": claim_owner,
+                    "claimed_at": claimed_at,
+                },
+                expected_revision=revision,
+            )
+            if advanced:
+                return PublicationClaim(owner=claim_owner, claimed_at=claimed_at)
+            await asyncio.sleep(0 if attempt == 0 else min(0.001 * attempt, 0.01))
+        raise RuntimeError("Heimdall publication claim CAS retry limit exceeded")
+
+    async def _mark_publication_published(
+        self,
+        state_key: str,
+        topic: str,
+        idempotency_key: str,
+        payload: Mapping[str, Any],
+        claim: PublicationClaim,
+    ) -> bool:
+        if self._state_store is None:
+            return True
+        for attempt in range(_PUBLICATION_CAS_ATTEMPTS):
+            stored = await self._state_store.read_state(state_key)
+            if stored is None or stored.get("state") == "published":
+                return False
+            if (
+                str(stored.get("claim_owner") or "") != claim.owner
+                or str(stored.get("claimed_at") or "") != claim.claimed_at
+            ):
+                return False
+            revision = int(stored.get("revision", 1))
+            advanced = await self._state_store.compare_and_set_state(
+                state_key,
+                _publication_row(
+                    topic=topic,
+                    idempotency_key=idempotency_key,
+                    payload=payload,
+                    revision=revision + 1,
+                    state="published",
+                ),
+                expected_revision=revision,
+            )
+            if advanced:
+                return True
+            await asyncio.sleep(0 if attempt == 0 else min(0.001 * attempt, 0.01))
+        raise RuntimeError("Heimdall publication mark CAS retry limit exceeded")
+
+    async def _release_publication_claim(
+        self,
+        state_key: str,
+        payload: Mapping[str, Any],
+        claim: PublicationClaim,
+    ) -> None:
+        if self._state_store is None:
+            return
+        for attempt in range(_PUBLICATION_CAS_ATTEMPTS):
+            stored = await self._state_store.read_state(state_key)
+            if stored is None or stored.get("state") != "publishing":
+                return
+            if stored.get("payload") != dict(payload):
+                raise RuntimeError("Heimdall publication payload identity conflict")
+            if (
+                str(stored.get("claim_owner") or "") != claim.owner
+                or str(stored.get("claimed_at") or "") != claim.claimed_at
+            ):
+                return
+            revision = int(stored.get("revision", 1))
+            advanced = await self._state_store.compare_and_set_state(
+                state_key,
+                {
+                    **dict(stored),
+                    "revision": revision + 1,
+                    "state": "pending",
+                    "claim_owner": "",
+                    "claimed_at": "",
+                },
+                expected_revision=revision,
+            )
+            if advanced:
+                return
+            await asyncio.sleep(0 if attempt == 0 else min(0.001 * attempt, 0.01))
+        raise RuntimeError("Heimdall publication release CAS retry limit exceeded")
 
     async def _persist_state(self) -> None:
         if self._state_store is None:

@@ -33,6 +33,12 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.muninn_patterns import MuninnPatternReadMixin
+from fdai.agents._framework.outbox_publication import (
+    PublicationClaim,
+    claim_expired,
+    new_publication_claim_owner,
+    publish_claimed_outbox,
+)
 from fdai.agents._framework.pantheon import _MUNINN
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.topics import stable_idempotency_key
@@ -88,6 +94,8 @@ _PUBLICATION_OUTBOX_RETAIN = 5_000
 # Compaction runs every N published rows (and on maintenance) so a publish costs O(1) amortized.
 _PUBLICATION_COMPACTION_INTERVAL = 64
 _PUBLICATION_CAS_ATTEMPTS = 8
+_PUBLICATION_CLAIM_LEASE = timedelta(minutes=5)
+_PUBLICATION_MAINTENANCE_PAGE = 16
 _PROJECTION_PREFIX = "pantheon/muninn/conversation-projections"
 _OPERATIONAL_OUTBOX_PREFIX = "pantheon/muninn/operational-outbox"
 _DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
@@ -819,7 +827,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         key: str,
         topic: str | dict[str, Any],
         payload: dict[str, Any] | None = None,
-    ) -> bool:
+    ) -> PublicationClaim | None:
         if payload is None:
             if not isinstance(topic, dict):
                 raise ValueError("Muninn publication payload is invalid")
@@ -832,7 +840,10 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             raise ValueError("Muninn publication topic is invalid")
         store = self._durable_state_store
         if store is None:
-            return True
+            return PublicationClaim(
+                owner=new_publication_claim_owner(self.spec.name),
+                claimed_at=self._case_history_clock().isoformat(),
+            )
         idempotency_key = str(actual_payload.get("idempotency_key") or "")
         correlation_id = str(actual_payload.get("correlation_id") or "")
         if not idempotency_key or not correlation_id:
@@ -848,46 +859,93 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "payload": dict(actual_payload),
             "payload_digest": _payload_digest(actual_payload),
         }
-        created = await store.write_state_with_audit_if_absent(
+        await store.write_state_with_audit_if_absent(
             key,
             record,
             {
-                "kind": "muninn_publication_claimed",
+                "kind": "muninn_publication_checkpointed",
                 "principal": "Muninn",
                 "idempotency_key": idempotency_key,
                 "correlation_id": correlation_id,
                 "grants_authority": False,
             },
         )
-        if created:
-            self._publication_outbox_claimed_at.set(key, self._case_history_clock().isoformat())
-            return True
-        existing = await store.read_state(key)
-        if existing is None or existing.get("payload_digest") != record["payload_digest"]:
-            raise ValueError("Muninn publication outbox identity conflict")
-        if existing.get("topic") != actual_topic or existing.get("payload") != actual_payload:
-            raise ValueError("Muninn publication outbox identity conflict")
-        if existing.get("state") == "published":
-            return False
-        if existing.get("state") == "pending":
-            self._publication_outbox_claimed_at.set(key, self._case_history_clock().isoformat())
-            return True
-        raise ValueError("Muninn publication outbox state is invalid")
+        for attempt in range(_PUBLICATION_CAS_ATTEMPTS):
+            existing = await store.read_state(key)
+            if existing is None or existing.get("payload_digest") != record["payload_digest"]:
+                raise ValueError("Muninn publication outbox identity conflict")
+            if existing.get("topic") != actual_topic or existing.get("payload") != actual_payload:
+                raise ValueError("Muninn publication outbox identity conflict")
+            if existing.get("state") == "published":
+                return None
+            now = self._case_history_clock()
+            if existing.get("state") == "publishing" and not claim_expired(
+                claimed_at=existing.get("claimed_at"),
+                now=now,
+                lease=_PUBLICATION_CLAIM_LEASE,
+            ):
+                return None
+            if existing.get("state") not in {"pending", "publishing"}:
+                raise ValueError("Muninn publication outbox state is invalid")
+            revision = int(existing.get("revision", 0))
+            claimed_at = now.isoformat()
+            claim_owner = new_publication_claim_owner(self.spec.name)
+            updated = {
+                **dict(existing),
+                "revision": revision + 1,
+                "state": "publishing",
+                "claim_owner": claim_owner,
+                "claimed_at": claimed_at,
+            }
+            if await store.compare_and_set_state_with_audit(
+                key,
+                updated,
+                expected_revision=revision,
+                audit_entry={
+                    "kind": "muninn_publication_claimed",
+                    "principal": "Muninn",
+                    "idempotency_key": idempotency_key,
+                    "correlation_id": correlation_id,
+                    "grants_authority": False,
+                },
+            ):
+                self._publication_outbox_claimed_at.set(key, claimed_at)
+                return PublicationClaim(owner=claim_owner, claimed_at=claimed_at)
+            self.record_behavior("publication_outbox:cas_retry")
+            await asyncio.sleep(0 if attempt == 0 else min(0.001 * attempt, 0.01))
+        self.record_behavior("publication_outbox:cas_exhausted")
+        raise RuntimeError("Muninn publication outbox CAS did not converge")
 
-    async def _mark_publication_published(self, key: str, payload: dict[str, Any]) -> None:
+    async def _mark_publication_published(
+        self,
+        key: str,
+        payload: dict[str, Any],
+        claim: PublicationClaim,
+    ) -> bool:
         store = self._durable_state_store
         if store is None:
-            return
+            return True
         for attempt in range(_PUBLICATION_CAS_ATTEMPTS):
             current = await store.read_state(key)
             if current is None or current.get("payload_digest") != _payload_digest(payload):
                 raise ValueError("Muninn publication outbox identity conflict")
             if current.get("state") == "published":
-                return
-            if current.get("state") != "pending":
+                return False
+            if current.get("state") != "publishing":
                 raise ValueError("Muninn publication outbox state is invalid")
+            if (
+                str(current.get("claim_owner") or "") != claim.owner
+                or str(current.get("claimed_at") or "") != claim.claimed_at
+            ):
+                return False
             revision = int(current.get("revision", 0))
-            updated = {**dict(current), "revision": revision + 1, "state": "published"}
+            updated = {
+                **dict(current),
+                "revision": revision + 1,
+                "state": "published",
+                "claim_owner": "",
+                "claimed_at": "",
+            }
             if await store.compare_and_set_state_with_audit(
                 key,
                 updated,
@@ -904,7 +962,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
                 self._publications_since_compaction += 1
                 if self._publications_since_compaction >= _PUBLICATION_COMPACTION_INTERVAL:
                     await self._compact_publication_outbox()
-                return
+                return True
             self.record_behavior("publication_outbox:cas_retry")
             self._publication_outbox_last_failure = {
                 "reason": "cas_retry",
@@ -918,6 +976,44 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         }
         raise RuntimeError("Muninn publication outbox CAS did not converge")
 
+    async def _release_publication_claim(
+        self,
+        key: str,
+        payload: dict[str, Any],
+        claim: PublicationClaim,
+    ) -> None:
+        store = self._durable_state_store
+        if store is None:
+            return
+        for attempt in range(_PUBLICATION_CAS_ATTEMPTS):
+            current = await store.read_state(key)
+            if current is None or current.get("state") != "publishing":
+                return
+            if current.get("payload_digest") != _payload_digest(payload):
+                raise ValueError("Muninn publication outbox identity conflict")
+            if (
+                str(current.get("claim_owner") or "") != claim.owner
+                or str(current.get("claimed_at") or "") != claim.claimed_at
+            ):
+                return
+            revision = int(current.get("revision", 0))
+            updated = {
+                **dict(current),
+                "revision": revision + 1,
+                "state": "pending",
+                "claim_owner": "",
+                "claimed_at": "",
+            }
+            if await store.compare_and_set_state(
+                key,
+                updated,
+                expected_revision=revision,
+            ):
+                self._publication_outbox_claimed_at.pop(key, None)
+                return
+            await asyncio.sleep(0 if attempt == 0 else min(0.001 * attempt, 0.01))
+        raise RuntimeError("Muninn publication outbox release CAS did not converge")
+
     async def _publish_with_outbox(
         self,
         outbox_key: str,
@@ -926,16 +1022,19 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
     ) -> bool:
         if self.bus is None:
             return False
-        if not await self._claim_publication(outbox_key, topic, payload):
-            return False
-        await self.bus.publish("Muninn", topic, payload)
-        mark_task = asyncio.create_task(self._mark_publication_published(outbox_key, payload))
-        try:
-            await asyncio.shield(mark_task)
-        except asyncio.CancelledError:
-            await mark_task
-            raise
-        return True
+        bus = self.bus
+        claim = await self._claim_publication(outbox_key, topic, payload)
+        return await publish_claimed_outbox(
+            claim,
+            publish=lambda: bus.publish("Muninn", topic, payload),
+            mark_published=lambda active_claim: self._mark_publication_published(
+                outbox_key, payload, active_claim
+            ),
+            release=lambda active_claim: self._release_publication_claim(
+                outbox_key, payload, active_claim
+            ),
+            lease=_PUBLICATION_CLAIM_LEASE,
+        )
 
     async def _compact_publication_outbox(self) -> None:
         store = self._durable_state_store
@@ -949,37 +1048,59 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
 
     async def maintenance_tick(self) -> None:
         await super().maintenance_tick()
+        await self.recover_operational_publications(limit=_PUBLICATION_MAINTENANCE_PAGE)
         if self._publications_since_compaction:
             await self._compact_publication_outbox()
 
-    async def recover_operational_publications(self, *, limit: int = 100) -> int:
+    async def recover_operational_publications(
+        self,
+        *,
+        limit: int = _PUBLICATION_OUTBOX_RETAIN,
+    ) -> int:
         """Republish durable operational outbox rows left pending before startup."""
         store = self._durable_state_store
         if store is None or self.bus is None:
             return 0
-        rows, _next_cursor = await store.read_state_page(
-            _OPERATIONAL_OUTBOX_PREFIX + "/",
-            limit=limit,
-            field="state",
-            value="pending",
-        )
         published = 0
-        for row in rows:
-            topic = row.get("topic")
-            payload = row.get("payload")
-            if topic not in {"object.context-index", "object.state-snapshot"} or not isinstance(
-                payload, dict
-            ):
-                self.record_behavior("publication_outbox:invalid")
-                continue
-            await self.bus.publish("Muninn", topic, dict(payload))
-            await self._mark_publication_published(
-                self._outbox_key_for_recovery(row),
-                dict(payload),
+        attempted = 0
+        while attempted < limit:
+            remaining = limit - attempted
+            pending_rows, _pending_total = await store.read_state_page(
+                _OPERATIONAL_OUTBOX_PREFIX + "/",
+                limit=remaining,
+                field="state",
+                value="pending",
             )
-            published += 1
+            publishing_rows, _publishing_total = await store.read_state_page(
+                _OPERATIONAL_OUTBOX_PREFIX + "/",
+                limit=remaining,
+                field="state",
+                value="publishing",
+            )
+            rows = (*pending_rows, *publishing_rows)
+            if not rows:
+                break
+            progress = 0
+            for row in rows[:remaining]:
+                topic = row.get("topic")
+                payload = row.get("payload")
+                if topic not in {"object.context-index", "object.state-snapshot"} or not isinstance(
+                    payload, dict
+                ):
+                    self.record_behavior("publication_outbox:invalid")
+                    attempted += 1
+                    continue
+                outbox_key = self._outbox_key_for_recovery(row)
+                attempted += 1
+                if await self._publish_with_outbox(outbox_key, str(topic), dict(payload)):
+                    published += 1
+                    progress += 1
+            if progress == 0:
+                break
         if published:
             self.record_behavior("publication_outbox:recovered", published)
+        if attempted >= limit:
+            self.record_behavior("publication_outbox:recovery_deferred")
         return published
 
     def _outbox_key_for_recovery(self, row: Mapping[str, Any]) -> str:
@@ -1303,7 +1424,7 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
                     if isinstance(key, str)
                     and key.startswith(_OPERATIONAL_OUTBOX_PREFIX + "/")
                     and isinstance(value, Mapping)
-                    and value.get("state") == "pending"
+                    and value.get("state") in {"pending", "publishing"}
                 ),
             )
         if oldest is None:

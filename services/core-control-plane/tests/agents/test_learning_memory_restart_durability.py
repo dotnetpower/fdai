@@ -138,14 +138,15 @@ async def test_muninn_publication_outbox_suppresses_redelivery_after_restart() -
     }
 
     first = Muninn(durable_state_store=store)
-    assert await first._claim_publication("outbox:test", payload) is True
+    first_claim = await first._claim_publication("outbox:test", payload)
+    assert first_claim is not None
 
     restarted = Muninn(durable_state_store=store)
-    assert await restarted._claim_publication("outbox:test", payload) is True
-    await restarted._mark_publication_published("outbox:test", payload)
+    assert await restarted._claim_publication("outbox:test", payload) is None
+    await first._mark_publication_published("outbox:test", payload, first_claim)
 
     completed = Muninn(durable_state_store=store)
-    assert await completed._claim_publication("outbox:test", payload) is False
+    assert await completed._claim_publication("outbox:test", payload) is None
 
 
 async def test_norns_outcome_approval_forecast_and_hint_state_rehydrates() -> None:

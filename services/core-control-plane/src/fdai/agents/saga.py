@@ -35,6 +35,12 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     mentioned,
 )
+from fdai.agents._framework.outbox_publication import (
+    PublicationClaim,
+    claim_expired,
+    new_publication_claim_owner,
+    publish_claimed_outbox,
+)
 from fdai.agents._framework.pantheon import _SAGA
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.saga_handoff import (
@@ -49,6 +55,7 @@ _AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
 _FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
 _ISSUE_CLOSE_ELIGIBILITY_PREFIX = "pantheon/saga/issue-close-eligibility/"
 _AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
+_AUDIT_OUTBOX_MAINTENANCE_PAGE = 16
 # Published outbox tombstones retain only digests long enough to suppress
 # duplicate redelivery across restarts while keeping prefix scans bounded.
 _AUDIT_OUTBOX_TOMBSTONE_RETENTION = 1_024
@@ -160,46 +167,55 @@ class Saga(Agent, HandoverKnowledgeMixin):
         restored = rehydrate()
         return int(await restored if inspect.isawaitable(restored) else restored)
 
-    async def recover_audit_outbox(self) -> int:
+    async def recover_audit_outbox(self, *, limit: int = _AUDIT_OUTBOX_PENDING_SCAN_LIMIT) -> int:
         """Republish durable audit-entry intents left unpublished by a crash."""
 
         if self._durable_state_store is None or self.bus is None:
             return 0
-        pending_rows, pending_total = await self._durable_state_store.read_state_page(
-            _AUDIT_OUTBOX_PREFIX,
-            limit=_AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
-            field="status",
-            value="pending",
-        )
-        publishing_rows, publishing_total = await self._durable_state_store.read_state_page(
-            _AUDIT_OUTBOX_PREFIX,
-            limit=_AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
-            field="status",
-            value="publishing",
-        )
-        self._audit_outbox_pending = pending_total + publishing_total
         published = 0
-        rows = (*pending_rows, *publishing_rows)
-        for row in reversed(rows[:_AUDIT_OUTBOX_PENDING_SCAN_LIMIT]):
-            payload = row.get("payload")
-            if not isinstance(payload, Mapping):
-                raise RuntimeError("Saga audit outbox row is malformed")
-            if await self._claim_audit_outbox_publication(dict(payload)):
-                publish_task = asyncio.create_task(
-                    self.bus.publish("Saga", "object.audit-entry", dict(payload))
-                )
+        attempted = 0
+        attempted_keys: set[str] = set()
+        while attempted < limit:
+            remaining = limit - attempted
+            pending_rows, pending_total = await self._durable_state_store.read_state_page(
+                _AUDIT_OUTBOX_PREFIX,
+                limit=remaining,
+                field="status",
+                value="pending",
+            )
+            publishing_rows, publishing_total = await self._durable_state_store.read_state_page(
+                _AUDIT_OUTBOX_PREFIX,
+                limit=remaining,
+                field="status",
+                value="publishing",
+            )
+            self._audit_outbox_pending = pending_total + publishing_total
+            rows = (*pending_rows, *publishing_rows)
+            if not rows:
+                break
+            progress = 0
+            for row in reversed(rows[:remaining]):
+                payload = row.get("payload")
+                if not isinstance(payload, Mapping):
+                    self.record_behavior("audit_outbox:recovery_invalid_row")
+                    attempted += 1
+                    continue
+                outbox_key = _audit_outbox_key(payload)
+                if outbox_key in attempted_keys:
+                    continue
+                attempted_keys.add(outbox_key)
+                attempted += 1
                 try:
-                    await asyncio.shield(publish_task)
-                    await asyncio.shield(self._mark_audit_outbox_published(dict(payload)))
-                except asyncio.CancelledError:
-                    await asyncio.shield(publish_task)
-                    await asyncio.shield(self._mark_audit_outbox_published(dict(payload)))
-                    raise
+                    if await self._publish_claimed_audit_outbox(dict(payload)):
+                        published += 1
+                        progress += 1
                 except Exception:
-                    await self._release_audit_outbox_publication_claim(dict(payload))
                     self.record_behavior("audit_outbox:recovery_publish_failed")
                     continue
-                published += 1
+            if progress == 0:
+                break
+        if self._audit_outbox_pending > published:
+            self.record_behavior("audit_outbox:recovery_deferred")
         self._last_audit_outbox_recovered = published
         self._audit_outbox_pending = max(0, self._audit_outbox_pending - published)
         return published
@@ -232,19 +248,25 @@ class Saga(Agent, HandoverKnowledgeMixin):
         if self.bus is None:
             self.record_behavior("audit_outbox:publication_pending")
             return
-        if not await self._claim_audit_outbox_publication(payload):
-            return
-        publish_task = asyncio.create_task(self.bus.publish("Saga", "object.audit-entry", payload))
-        try:
-            await asyncio.shield(publish_task)
-            await asyncio.shield(self._mark_audit_outbox_published(payload))
-        except asyncio.CancelledError:
-            await asyncio.shield(publish_task)
-            await asyncio.shield(self._mark_audit_outbox_published(payload))
-            raise
-        except Exception:
-            await self._release_audit_outbox_publication_claim(payload)
-            raise
+        await self._publish_claimed_audit_outbox(payload)
+
+    async def _publish_claimed_audit_outbox(self, payload: dict[str, Any]) -> bool:
+        bus = self.bus
+        if bus is None:
+            self.record_behavior("audit_outbox:publication_pending")
+            return False
+        claim = await self._claim_audit_outbox_publication(payload)
+        return await publish_claimed_outbox(
+            claim,
+            publish=lambda: bus.publish("Saga", "object.audit-entry", payload),
+            mark_published=lambda active_claim: self._mark_audit_outbox_published(
+                payload, active_claim
+            ),
+            release=lambda active_claim: self._release_audit_outbox_publication_claim(
+                payload, active_claim
+            ),
+            lease=_AUDIT_OUTBOX_CLAIM_LEASE,
+        )
 
     async def _checkpoint_audit_outbox(self, payload: Mapping[str, Any]) -> None:
         if self._durable_state_store is None:
@@ -278,45 +300,62 @@ class Saga(Agent, HandoverKnowledgeMixin):
         if stored.get("payload") != record["payload"]:
             raise RuntimeError("Saga audit outbox idempotency collision")
 
-    async def _claim_audit_outbox_publication(self, payload: Mapping[str, Any]) -> bool:
+    async def _claim_audit_outbox_publication(
+        self,
+        payload: Mapping[str, Any],
+    ) -> PublicationClaim | None:
         if self._durable_state_store is None:
-            return True
+            return PublicationClaim(
+                owner=new_publication_claim_owner(self.spec.name),
+                claimed_at=self._clock().isoformat(),
+            )
         key = _audit_outbox_key(payload)
         for _attempt in range(16):
             stored = await self._durable_state_store.read_state(key)
             if stored is None:
                 raise RuntimeError("Saga audit outbox row disappeared")
             if stored.get("status") == "published":
-                return False
+                return None
             now = self._clock()
             if stored.get("status") == "publishing" and not _audit_outbox_claim_expired(
                 stored, now
             ):
-                return False
+                return None
             revision = int(stored.get("revision", 1))
+            claimed_at = now.isoformat()
+            claim_owner = new_publication_claim_owner(self.spec.name)
             advanced = await self._durable_state_store.compare_and_set_state(
                 key,
                 {
                     **dict(stored),
                     "status": "publishing",
                     "revision": revision + 1,
-                    "claim_owner": self.spec.name,
-                    "claimed_at": now.isoformat(),
+                    "claim_owner": claim_owner,
+                    "claimed_at": claimed_at,
                 },
                 expected_revision=revision,
             )
             if advanced:
-                return True
+                return PublicationClaim(owner=claim_owner, claimed_at=claimed_at)
         raise RuntimeError("Saga audit outbox publication claim CAS retry limit exceeded")
 
-    async def _mark_audit_outbox_published(self, payload: Mapping[str, Any]) -> None:
+    async def _mark_audit_outbox_published(
+        self,
+        payload: Mapping[str, Any],
+        claim: PublicationClaim,
+    ) -> bool:
         if self._durable_state_store is None:
-            return
+            return True
         key = _audit_outbox_key(payload)
         for _attempt in range(16):
             stored = await self._durable_state_store.read_state(key)
             if stored is None or stored.get("status") == "published":
-                return
+                return False
+            if (
+                str(stored.get("claim_owner") or "") != claim.owner
+                or str(stored.get("claimed_at") or "") != claim.claimed_at
+            ):
+                return False
             revision = int(stored.get("revision", 1))
             advanced = await self._durable_state_store.compare_and_set_state(
                 key,
@@ -325,16 +364,25 @@ class Saga(Agent, HandoverKnowledgeMixin):
             )
             if advanced:
                 await self._compact_audit_outbox_tombstones()
-                return
+                return True
         raise RuntimeError("Saga audit outbox publication CAS retry limit exceeded")
 
-    async def _release_audit_outbox_publication_claim(self, payload: Mapping[str, Any]) -> None:
+    async def _release_audit_outbox_publication_claim(
+        self,
+        payload: Mapping[str, Any],
+        claim: PublicationClaim,
+    ) -> None:
         if self._durable_state_store is None:
             return
         key = _audit_outbox_key(payload)
         for _attempt in range(16):
             stored = await self._durable_state_store.read_state(key)
             if stored is None or stored.get("status") != "publishing":
+                return
+            if (
+                str(stored.get("claim_owner") or "") != claim.owner
+                or str(stored.get("claimed_at") or "") != claim.claimed_at
+            ):
                 return
             revision = int(stored.get("revision", 1))
             advanced = await self._durable_state_store.compare_and_set_state(
@@ -1534,6 +1582,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
 
     async def maintenance_tick(self) -> None:
         await super().maintenance_tick()
+        await self.recover_audit_outbox(limit=_AUDIT_OUTBOX_MAINTENANCE_PAGE)
         verify = getattr(self.audit_chain, "verify", None)
         if callable(verify):
             verify()
@@ -1829,16 +1878,11 @@ def _payload_digest(payload: Mapping[str, Any]) -> str:
 
 
 def _audit_outbox_claim_expired(row: Mapping[str, Any], now: datetime) -> bool:
-    claimed_at = row.get("claimed_at")
-    if not isinstance(claimed_at, str) or not claimed_at:
-        return True
-    try:
-        parsed = datetime.fromisoformat(claimed_at)
-    except ValueError:
-        return True
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        return True
-    return now - parsed >= _AUDIT_OUTBOX_CLAIM_LEASE
+    return claim_expired(
+        claimed_at=row.get("claimed_at"),
+        now=now,
+        lease=_AUDIT_OUTBOX_CLAIM_LEASE,
+    )
 
 
 def _fingerprint_key(fingerprint: str) -> str:

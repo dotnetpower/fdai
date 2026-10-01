@@ -97,6 +97,10 @@ class _CountingStore(InMemoryStateStore):
 
 
 class _LosingCasStore(_CountingStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.force_cas_failure = False
+
     async def compare_and_set_state_with_audit(
         self,
         key: str,
@@ -106,6 +110,13 @@ class _LosingCasStore(_CountingStore):
         audit_entry: Mapping[str, Any],
     ) -> bool:
         self.cas_calls += 1
+        if not self.force_cas_failure:
+            return await super().compare_and_set_state_with_audit(
+                key,
+                value,
+                expected_revision=expected_revision,
+                audit_entry=audit_entry,
+            )
         return False
 
 
@@ -272,8 +283,9 @@ async def test_muninn_outbox_compacts_and_bounds_cas_retries() -> None:
     for index in range(5_010):
         payload = {"idempotency_key": f"id-{index}", "correlation_id": "corr"}
         key = f"pantheon/muninn/operational-outbox/test/{index}"
-        await muninn._claim_publication(key, payload)
-        await muninn._mark_publication_published(key, payload)
+        claim = await muninn._claim_publication(key, payload)
+        assert claim is not None
+        await muninn._mark_publication_published(key, payload, claim)
     _rows, total = await durable.read_state_page("pantheon/muninn/operational-outbox/", limit=6000)
     assert 5_000 <= total < 5_000 + 64
     await muninn.maintenance_tick()
@@ -282,14 +294,18 @@ async def test_muninn_outbox_compacts_and_bounds_cas_retries() -> None:
 
     losing = _LosingCasStore()
     muninn_losing = Muninn(durable_state_store=losing)
-    await muninn_losing._claim_publication(
+    claim = await muninn_losing._claim_publication(
         "pantheon/muninn/operational-outbox/test/losing",
         {"idempotency_key": "losing", "correlation_id": "corr"},
     )
+    assert claim is not None
+    losing.force_cas_failure = True
+    losing.cas_calls = 0
     with pytest.raises(RuntimeError, match="CAS did not converge"):
         await muninn_losing._mark_publication_published(
             "pantheon/muninn/operational-outbox/test/losing",
             {"idempotency_key": "losing", "correlation_id": "corr"},
+            claim,
         )
     assert losing.cas_calls == 8
 

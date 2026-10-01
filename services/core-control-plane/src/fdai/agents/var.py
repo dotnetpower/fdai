@@ -19,6 +19,10 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult
+from fdai.agents._framework.outbox_publication import (
+    new_publication_claim_owner,
+    publish_claimed_outbox,
+)
 from fdai.agents._framework.pantheon import _VAR
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.thor_dispatch_validation import bounded_params
@@ -36,13 +40,17 @@ from fdai.agents._framework.var_development_authority import (
 )
 from fdai.agents._framework.var_document_hil import ingest_document_hil
 from fdai.agents._framework.var_final_approval import (
+    _APPROVAL_PUBLICATION_CLAIM_LEASE,
+    ApprovalPublicationClaim,
+    approval_was_published,
+    mark_approval_published,
+    validate_final_record,
+)
+from fdai.agents._framework.var_final_approval import (
     claim_approval_publication as _claim_approval_publication,
 )
 from fdai.agents._framework.var_final_approval import (
     release_approval_publication_claim as _release_approval_publication_claim,
-)
-from fdai.agents._framework.var_final_approval import (
-    validate_final_record,
 )
 from fdai.agents._framework.var_health import health as _var_health
 from fdai.agents._framework.var_introspection import evidence_available as _var_evidence_available
@@ -97,6 +105,7 @@ ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReviewMixin, Agent):
     _MAX_PENDING = 5_000
     _MAX_CARDS = 5_000
+    _PUBLICATION_MAINTENANCE_PAGE = 16
 
     def __init__(
         self,
@@ -148,6 +157,10 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
         self._action_correlation_identities: BoundedLruDict[str, str] = BoundedLruDict(
             self._MAX_PENDING
         )
+        self._active_publication_claims: dict[
+            tuple[str, str],
+            ApprovalPublicationClaim,
+        ] = {}
         self._action_semantics = action_semantics
 
     def bind_bus(self, bus: PantheonBus) -> None:
@@ -460,7 +473,7 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             return await self._publish_final_approval(final_approval)
         return None
 
-    async def recover_approvals(self) -> tuple[int, int]:
+    async def recover_approvals(self, *, publication_limit: int | None = None) -> tuple[int, int]:
         """Finalize terminal decisions and publish pending finals at startup."""
         await self.rehydrate_pending_work()
         finalized = 0
@@ -487,10 +500,18 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
         if self.bus is None or self._state_store is None:
             return finalized, 0
         published = 0
-        for pending_approval in await self._pending_final_approvals_page(limit=self._MAX_PENDING):
+        limit = publication_limit or self._MAX_PENDING
+        for pending_approval in await self._pending_final_approvals_page(limit=limit):
             if await self._publish_final_approval(pending_approval) is not None:
                 published += 1
         return finalized, published
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        try:
+            await self.recover_approvals(publication_limit=self._PUBLICATION_MAINTENANCE_PAGE)
+        except Exception:
+            self.record_behavior("publication:maintenance_recovery_failed")
 
     async def rehydrate_pending_work(self) -> tuple[int, int]:
         if self._state_store is None:
@@ -596,7 +617,12 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
     ) -> dict[str, Any] | None:
         correlation_id = str(approval["correlation_id"])
         action_run_identity = _approval_action_identity(approval)
-        if await self._approval_was_published(correlation_id, action_run_identity):
+        if await approval_was_published(
+            store=self._state_store,
+            published_cache=self._published_approvals,
+            correlation_id=correlation_id,
+            action_run_identity=action_run_identity,
+        ):
             _remove_pending_ticket(
                 self._pending,
                 correlation_id,
@@ -622,32 +648,35 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
                     action_run_identity,
                 )
             return deepcopy(approval)
+        bus = self.bus
         claim = await _claim_approval_publication(
             store=self._state_store,
             approval=approval,
             published_cache=self._published_approvals,
-            owner=self.spec.name,
+            owner=new_publication_claim_owner(self.spec.name),
             now=self._clock(),
         )
         if claim is None:
             return None
-        publish_task = asyncio.create_task(
-            self.bus.publish("Var", "object.approval", deepcopy(approval))
-        )
         try:
-            await asyncio.shield(publish_task)
-            await asyncio.shield(self._mark_approval_published(approval))
-        except asyncio.CancelledError:
-            await asyncio.shield(publish_task)
-            await asyncio.shield(self._mark_approval_published(approval))
-            raise
-        except Exception:
-            await _release_approval_publication_claim(
-                store=self._state_store,
-                approval=approval,
-                claim=claim,
+            marked = await publish_claimed_outbox(
+                claim,
+                publish=lambda: bus.publish("Var", "object.approval", deepcopy(approval)),
+                mark_published=lambda active_claim: self._mark_current_approval_published(
+                    approval,
+                    active_claim,
+                ),
+                release=lambda active_claim: _release_approval_publication_claim(
+                    store=self._state_store,
+                    approval=approval,
+                    claim=active_claim,
+                ),
+                lease=_APPROVAL_PUBLICATION_CLAIM_LEASE,
             )
+        except Exception:
             raise
+        if not marked:
+            return None
         _remove_pending_ticket(
             self._pending,
             correlation_id,
@@ -660,66 +689,32 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
         )
         return deepcopy(approval)
 
-    async def _approval_was_published(
+    async def _mark_current_approval_published(
         self,
-        correlation_id: str,
-        action_run_identity: str | None,
+        approval: Mapping[str, Any],
+        claim: ApprovalPublicationClaim,
     ) -> bool:
-        cache_key = _approval_cache_key(correlation_id, action_run_identity)
-        if cache_key in self._published_approvals:
-            return True
-        if self._state_store is None:
-            return False
-        stored = await self._state_store.read_state(
-            _approval_state_key(correlation_id, "final", action_run_identity)
-        )
-        if stored is None:
-            return False
-        _approval, published = validate_final_record(stored, correlation_id)
-        if not published:
-            return False
-        if _approval_action_identity(_approval) != action_run_identity:
-            raise RuntimeError("stored final approval identity does not match its key")
-        self._published_approvals.add(cache_key)
-        return True
-
-    async def _mark_approval_published(self, approval: Mapping[str, Any]) -> None:
         correlation_id = str(approval["correlation_id"])
         action_run_identity = _approval_action_identity(approval)
         cache_key = _approval_cache_key(correlation_id, action_run_identity)
-        if self._state_store is not None:
-            key = _approval_state_key(correlation_id, "final", action_run_identity)
-            for _attempt in range(16):
-                stored = await self._state_store.read_state(key)
-                if stored is None:
-                    raise RuntimeError("approval final record disappeared before publication")
-                stored_approval, published = validate_final_record(stored, correlation_id)
-                if stored_approval != dict(approval):
-                    raise RuntimeError("approval publication receipt collision")
-                if published:
-                    break
-                revision = int(stored["revision"])
-                advanced = await self._state_store.compare_and_set_state_with_audit(
-                    key,
-                    final_approval_record(
-                        stored_approval,
-                        publication_status="published",
-                        revision=revision + 1,
-                    ),
-                    expected_revision=revision,
-                    audit_entry={
-                        "actor": "Var",
-                        "action_kind": "approval.published",
-                        "correlation_id": correlation_id,
-                        "idempotency_key": str(approval["idempotency_key"]),
-                        "state": str(approval["state"]),
-                    },
-                )
-                if advanced:
-                    break
-            else:
-                raise RuntimeError("approval publication CAS retry limit exceeded")
-        self._published_approvals.add(cache_key)
+        self._active_publication_claims[cache_key] = claim
+        try:
+            return await self._mark_approval_published(approval)
+        finally:
+            self._active_publication_claims.pop(cache_key, None)
+
+    async def _mark_approval_published(self, approval: Mapping[str, Any]) -> bool:
+        correlation_id = str(approval["correlation_id"])
+        action_run_identity = _approval_action_identity(approval)
+        claim = self._active_publication_claims[
+            _approval_cache_key(correlation_id, action_run_identity)
+        ]
+        return await mark_approval_published(
+            store=self._state_store,
+            published_cache=self._published_approvals,
+            approval=approval,
+            claim=claim,
+        )
 
     async def _next_pending_final_approval(self) -> dict[str, Any] | None:
         approvals = await self._pending_final_approvals_page(limit=1)

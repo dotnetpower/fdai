@@ -108,6 +108,12 @@ async def rehydrate_operational_agents(
         restored = await heimdall.rehydrate()
         if restored:
             _LOG.info("pantheon_heimdall_rehydrated", extra={"records": restored})
+        published = await heimdall.recover_publications()
+        if published:
+            _LOG.info(
+                "pantheon_heimdall_publications_recovered",
+                extra={"published": published},
+            )
     njord = agents.get("Njord")
     if isinstance(njord, Njord):
         restored = await njord.rehydrate()

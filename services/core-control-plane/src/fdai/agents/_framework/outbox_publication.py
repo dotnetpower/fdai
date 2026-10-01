@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable
+import contextlib
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
+from uuid import uuid4
+
+
+@dataclass(frozen=True, slots=True)
+class PublicationClaim:
+    owner: str
+    claimed_at: str
 
 
 def claim_expired(*, claimed_at: object, now: datetime, lease: timedelta) -> bool:
@@ -23,9 +33,55 @@ def publish_timeout_seconds(lease: timedelta) -> float:
     return max(0.001, lease.total_seconds() / 2)
 
 
+def new_publication_claim_owner(agent_name: str) -> str:
+    return f"{agent_name}:{uuid4().hex}"
+
+
 async def await_bounded_publication[T](awaitable: Awaitable[T], *, lease: timedelta) -> T:
-    async with asyncio.timeout(publish_timeout_seconds(lease)):
-        return await awaitable
+    task = asyncio.ensure_future(awaitable)
+    try:
+        done, _pending = await asyncio.wait({task}, timeout=publish_timeout_seconds(lease))
+    except asyncio.CancelledError:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        raise
+    if not done:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        raise TimeoutError("outbox publication timed out before claim lease expiry")
+    return task.result()
 
 
-__all__ = ["await_bounded_publication", "claim_expired", "publish_timeout_seconds"]
+async def publish_claimed_outbox[TClaim](
+    claim: TClaim | None,
+    *,
+    publish: Callable[[], Awaitable[Any]],
+    mark_published: Callable[[TClaim], Awaitable[bool | None]],
+    release: Callable[[TClaim], Awaitable[None]],
+    lease: timedelta,
+) -> bool:
+    if claim is None:
+        return False
+    try:
+        await await_bounded_publication(publish(), lease=lease)
+        marked = await asyncio.shield(mark_published(claim))
+    except asyncio.CancelledError:
+        if (task := asyncio.current_task()) is not None and not task.cancelling():
+            await release(claim)
+        raise
+    except Exception:
+        await release(claim)
+        raise
+    return marked is not False
+
+
+__all__ = [
+    "PublicationClaim",
+    "await_bounded_publication",
+    "claim_expired",
+    "new_publication_claim_owner",
+    "publish_claimed_outbox",
+    "publish_timeout_seconds",
+]
