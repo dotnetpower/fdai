@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import httpx
 from fdai_service_contracts import OperatorReadModel
 
@@ -53,6 +55,10 @@ from fdai_operator_service.iam_composition import (
     build_unavailable_iam_bindings,
 )
 from fdai_operator_service.model_lifecycle_composition import OperatorResolvedModelsRevisionOwner
+from fdai_operator_service.operator_request_receipt import (
+    OperatorRequestReceiptIssuer,
+    SeedOperatorRequestReceiptSigner,
+)
 from fdai_operator_service.postgres_cost_governance import (
     PostgresCostGovernanceConfig,
     PostgresCostGovernanceReader,
@@ -77,6 +83,23 @@ from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReaderConfig,
 )
 from fdai_operator_service.test_context_choices import TestContextChoiceSource
+
+
+def _operator_request_receipt_issuer(
+    environment: OperatorEnvironment,
+) -> OperatorRequestReceiptIssuer | None:
+    if (
+        environment.operator_request_operator_signing_seed is None
+        or environment.operator_request_receipt_producer_id is None
+    ):
+        return None
+    return OperatorRequestReceiptIssuer(
+        signer=SeedOperatorRequestReceiptSigner(environment.operator_request_operator_signing_seed),
+        producer_service_identity=environment.operator_request_receipt_producer_id,
+        clock=lambda: datetime.now(UTC),
+        lifetime=timedelta(seconds=environment.operator_request_receipt_ttl_seconds),
+    )
+
 
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
 COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
@@ -304,7 +327,11 @@ def _build_route_families(
             ),
         ),
         poison_halt_clear=(
-            OrderedPoisonHaltClearService(store=store, publisher=semantic_bus)
+            OrderedPoisonHaltClearService(
+                store=store,
+                publisher=semantic_bus,
+                receipt_issuer=_operator_request_receipt_issuer(environment),
+            )
             if semantic_bus is not None
             else None
         ),

@@ -15,6 +15,7 @@ from fdai_operator_service.family_adapters import (
 )
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.iam_composition import build_unavailable_iam_bindings
+from fdai_operator_service.operator_request_receipt import OperatorRequestReceiptIssuer
 from fdai_operator_service.routes import OperatorRouteFamilies, build_operator_app
 from fdai_operator_service.streaming import LiveStreamHub
 from fdai_service_contracts.bus_poison_halt_clear import ORDERED_POISON_HALT_CLEAR_TOPIC
@@ -65,6 +66,11 @@ class _Publisher:
         return object()
 
 
+class _Signer:
+    def sign_operator_request_receipt(self, signing_bytes: bytes) -> bytes:
+        return b"signed:" + signing_bytes[:16]
+
+
 def _body() -> dict[str, object]:
     return {
         "group_id": "fdai-pantheon.Vidar",
@@ -104,6 +110,40 @@ async def test_clear_acceptance_requires_owner_and_publishes_versioned_request()
     assert publisher.published[0][0] == ORDERED_POISON_HALT_CLEAR_TOPIC
     assert publisher.published[0][1] == "clear-key"
     assert store.proposals[0][0] == "bus.ordered-poison-halt.clear"
+
+
+@pytest.mark.asyncio
+async def test_clear_acceptance_attaches_signed_exact_request_receipt() -> None:
+    store = _Store()
+    publisher = _Publisher()
+    service = OrderedPoisonHaltClearService(
+        store=store,
+        publisher=publisher,
+        clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        receipt_issuer=OperatorRequestReceiptIssuer(
+            signer=_Signer(),
+            producer_service_identity="operator-service",
+            clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        ),
+    )
+    principal = OperatorPrincipal(
+        subject_id="owner-one",
+        roles=frozenset({OperatorRole.OWNER}),
+        principal_kind=OperatorPrincipalKind.HUMAN,
+    )
+
+    await service.accept(
+        principal=principal,
+        idempotency_key="clear-key",
+        body=_body(),
+    )
+
+    payload = publisher.published[0][2]
+    receipt = payload["operator_request_receipt"]
+    assert isinstance(receipt, Mapping)
+    assert receipt["producer_service_identity"] == "operator-service"
+    assert receipt["initiator_principal"] == "owner-one"
+    assert receipt["action_type"] == "bus.ordered-poison-halt.clear"
 
 
 @pytest.mark.asyncio

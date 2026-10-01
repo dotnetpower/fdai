@@ -11,8 +11,11 @@ from typing import Protocol
 from fdai_service_contracts.bus_poison_halt_clear import (
     ORDERED_POISON_HALT_CLEAR_TOPIC,
     OrderedPoisonHaltClearRequest,
+    ordered_poison_halt_clear_receipt_event,
 )
 from fdai_service_contracts.operator import OperatorPrincipal, OperatorPrincipalKind, OperatorRole
+
+from fdai_operator_service.operator_request_receipt import OperatorRequestReceiptIssuer
 
 
 class PoisonHaltProposalStore(Protocol):
@@ -52,6 +55,7 @@ class OrderedPoisonHaltClearService:
     store: PoisonHaltProposalStore
     publisher: PoisonHaltClearPublisher
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    receipt_issuer: OperatorRequestReceiptIssuer | None = None
 
     async def accept(
         self,
@@ -77,6 +81,10 @@ class OrderedPoisonHaltClearService:
             }
         )
         payload = request.model_dump(mode="json")
+        if self.receipt_issuer is not None:
+            payload["operator_request_receipt"] = self.receipt_issuer.issue(
+                ordered_poison_halt_clear_receipt_event(payload)
+            ).model_dump(mode="json")
         stored = await self.store.append_proposal(
             family="operations",
             operation="bus.ordered-poison-halt.clear",

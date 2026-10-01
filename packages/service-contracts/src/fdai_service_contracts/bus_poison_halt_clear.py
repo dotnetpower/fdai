@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 
@@ -32,6 +33,7 @@ class OrderedPoisonHaltClearRequest(ContractBase):
     parked_record_key: Annotated[str, Field(min_length=1, max_length=512)]
     parked_record_offset: int | None = None
     parked_record_digest: Digest
+    operator_request_receipt: Mapping[str, Any] | None = None
 
     @field_validator("requested_at")
     @classmethod
@@ -53,7 +55,30 @@ class OrderedPoisonHaltClearRequest(ContractBase):
         return self
 
 
+def ordered_poison_halt_clear_receipt_event(
+    request: OrderedPoisonHaltClearRequest | Mapping[str, Any],
+) -> dict[str, object]:
+    """Return the flat receipt event that signs the exact clear authority fields."""
+
+    payload = (
+        request.model_dump(mode="json", exclude={"operator_request_receipt"})
+        if isinstance(request, OrderedPoisonHaltClearRequest)
+        else {
+            key: value for key, value in dict(request).items() if key != "operator_request_receipt"
+        }
+    )
+    return {
+        "idempotency_key": payload.get("idempotency_key"),
+        "correlation_id": payload.get("request_id"),
+        "initiator_principal": payload.get("principal_id"),
+        "action_type": "bus.ordered-poison-halt.clear",
+        "resource_id": f"{payload.get('group_id')}:{payload.get('topic')}",
+        "params": payload,
+    }
+
+
 __all__ = [
     "ORDERED_POISON_HALT_CLEAR_TOPIC",
     "OrderedPoisonHaltClearRequest",
+    "ordered_poison_halt_clear_receipt_event",
 ]

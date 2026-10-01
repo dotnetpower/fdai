@@ -108,6 +108,8 @@ async def clear_ordered_halt_with_evidence(
         return False
     if halt_record_digest(stored) != expected_halt_digest:
         return False
+    if not _parked_evidence_matches_halt(stored, parked_record_evidence):
+        return False
     cleared = {
         **dict(stored),
         "status": "cleared",
@@ -152,3 +154,21 @@ def _existing_clear_matches(
 ) -> bool:
     existing = stored.get("clear_evidence")
     return isinstance(existing, Mapping) and dict(existing) == dict(parked_record_evidence)
+
+
+def _parked_evidence_matches_halt(
+    stored: Mapping[str, Any],
+    parked_record_evidence: Mapping[str, Any],
+) -> bool:
+    if parked_record_evidence.get("parked_record_key") != stored.get("partition_key"):
+        return False
+    if parked_record_evidence.get("parked_record_offset") != stored.get("offset"):
+        return False
+    metadata = parked_record_evidence.get("parked_record_metadata")
+    if not isinstance(metadata, Mapping):
+        return False
+    return (
+        metadata.get("consumer_group") == stored.get("group_id")
+        and metadata.get("topic") == stored.get("topic")
+        and metadata.get("offset") == stored.get("offset")
+    )
