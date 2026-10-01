@@ -16,6 +16,7 @@ from fdai_service_contracts.compatibility import canonical_digest
 from fdai_service_contracts.executor_models import ContractBase, Digest
 
 _MAX_RECEIPT_LIFETIME = timedelta(minutes=15)
+_WORKFLOW_ACTION_ABSENT_SENTINEL = "__fdai_operator_request_workflow_action_absent__"
 
 
 _RECEIPT_SCHEMA_VERSION = Literal["1.0.0", "1.1.0"]
@@ -110,9 +111,11 @@ def canonical_params_digest(params: Mapping[str, Any] | None) -> str:
 
 
 def canonical_workflow_action_digest(workflow_action: Mapping[str, Any] | None) -> str:
-    """Return the stable digest for optional workflow lineage."""
+    """Return the stable digest for optional workflow lineage presence and content."""
 
-    return canonical_digest(dict(workflow_action or {}))
+    if workflow_action is None:
+        return canonical_digest({"presence": _WORKFLOW_ACTION_ABSENT_SENTINEL})
+    return canonical_digest({"presence": "present", "workflow_action": dict(workflow_action)})
 
 
 def operator_request_receipt_digest(body: OperatorRequestReceiptBody) -> str:

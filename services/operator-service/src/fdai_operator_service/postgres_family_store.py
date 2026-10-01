@@ -69,6 +69,7 @@ from fdai_operator_service.postgres_family_models import (
     ActionProposalClaim,
     HilDecisionProposalClaim,
     IncidentInterventionProposalClaim,
+    PoisonHaltClearProposalClaim,
     PostgresFamilyStoreUnavailableError,
     PostgresProcessNotVisibleError,
     PostgresProposalConflictError,
@@ -1844,24 +1845,96 @@ class PostgresFamilyStore:
     async def mark_poison_halt_clear_published(self, *, idempotency_key: str) -> bool:
         """Close one ordered-poison-halt clear proposal after broker acceptance."""
 
+        claim = await self.claim_poison_halt_clear_proposal(
+            idempotency_key=idempotency_key,
+            worker_id="operator-poison-halt-clear-legacy",
+            lease_seconds=120,
+        )
+        if claim is None:
+            return False
+        return await self.mark_poison_halt_clear_claim_published(
+            key=claim.key,
+            claim_id=claim.claim_id,
+        )
+
+    async def claim_poison_halt_clear_proposal(
+        self,
+        *,
+        idempotency_key: str,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> PoisonHaltClearProposalClaim | None:
+        """Lease one exact pending or expired ordered-poison-halt clear proposal."""
+
+        _bounded_component("worker_id", worker_id)
+        if not idempotency_key.strip() or len(idempotency_key) > 512:
+            raise ValueError("idempotency_key MUST be a bounded non-empty string")
+        if not 1 <= lease_seconds <= 300:
+            raise ValueError("lease_seconds MUST be in [1, 300]")
+        claim_id = str(uuid4())
         key = _proposal_key("operations", idempotency_key)
         rows = await self._fetch_all(
             """
-            UPDATE state_kv
-               SET value = value || jsonb_build_object(
-                   'dispatch_status', 'published',
-                   'published_at', NOW()
+            UPDATE state_kv AS proposal
+               SET value = proposal.value || jsonb_build_object(
+                   'dispatch_status', 'claimed',
+                   'claim_id', %(claim_id)s::text,
+                   'claim_worker_id', %(worker_id)s::text,
+                   'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s),
+                   'attempt', COALESCE((proposal.value ->> 'attempt')::integer, 0) + 1
                ),
                    updated_at = NOW()
-             WHERE key = %(key)s
+             WHERE proposal.key = %(key)s
                AND value ->> 'family' = 'operations'
                AND value ->> 'operation' = 'bus.ordered-poison-halt.clear'
-               AND value ->> 'dispatch_status' IN ('pending', 'claimed')
-         RETURNING value
+               AND (
+                    value ->> 'dispatch_status' = 'pending'
+                    OR (
+                        value ->> 'dispatch_status' = 'claimed'
+                        AND (value ->> 'claim_expires_at')::timestamptz <= NOW()
+                    )
+               )
+         RETURNING proposal.key, proposal.value
             """,
-            {"key": key},
+            {
+                "claim_id": claim_id,
+                "key": key,
+                "worker_id": worker_id,
+                "lease_seconds": lease_seconds,
+            },
         )
-        return bool(rows)
+        if not rows:
+            return None
+        value = _json_object(rows[0].get("value"), label="poison halt clear proposal claim")
+        payload = value.get("payload")
+        attempt = value.get("attempt")
+        if (
+            not isinstance(payload, Mapping)
+            or not isinstance(attempt, int)
+            or isinstance(attempt, bool)
+        ):
+            raise PostgresFamilyStoreUnavailable("poison halt clear proposal claim is malformed")
+        return PoisonHaltClearProposalClaim(
+            key=key,
+            claim_id=str(value.get("claim_id") or claim_id),
+            payload=dict(payload),
+            attempt=attempt,
+        )
+
+    async def mark_poison_halt_clear_claim_published(
+        self,
+        *,
+        key: str,
+        claim_id: str,
+    ) -> bool:
+        """Close one active poison-halt clear claim after broker acceptance."""
+
+        return await self.mark_proposal_published(key=key, claim_id=claim_id)
+
+    async def release_poison_halt_clear_claim(self, *, key: str, claim_id: str) -> bool:
+        """Release one active poison-halt clear claim for bounded transport retry."""
+
+        return await self.release_proposal_claim(key=key, claim_id=claim_id)
 
     async def append_guarded_workflow_transition_proposal(
         self,
@@ -3414,6 +3487,29 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
 
     async def mark_poison_halt_clear_published(self, *, idempotency_key: str) -> bool:
         del idempotency_key
+        raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
+
+    async def claim_poison_halt_clear_proposal(
+        self,
+        *,
+        idempotency_key: str,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> PoisonHaltClearProposalClaim | None:
+        del idempotency_key, worker_id, lease_seconds
+        raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
+
+    async def mark_poison_halt_clear_claim_published(
+        self,
+        *,
+        key: str,
+        claim_id: str,
+    ) -> bool:
+        del key, claim_id
+        raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
+
+    async def release_poison_halt_clear_claim(self, *, key: str, claim_id: str) -> bool:
+        del key, claim_id
         raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
 
     async def append_revisioned_proposal(

@@ -51,6 +51,15 @@ class _FailFirstPublishBus(InMemoryBus):
         await super().publish(principal, topic, payload)
 
 
+class _ReserveExpiredGate:
+    async def verify(self, raw: Mapping[str, Any]) -> object:
+        receipt = OperatorRequestReceipt.model_validate(raw["operator_request_receipt"])
+        return type("Verified", (), {"receipt": receipt, "replay_key": "replay-key"})()
+
+    async def reserve(self, _verified: object) -> object:
+        raise ValueError("expired")
+
+
 _CORE_SEED = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 _OPERATOR_SEED = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE"
 
@@ -216,6 +225,24 @@ async def test_huginn_retries_receipt_when_publish_fails_before_durable_checkpoi
     assert len(bus.messages_on("object.event")) == 1
 
 
+async def test_huginn_rejects_operator_request_when_receipt_reservation_fails_before_publish() -> (
+    None
+):
+    now = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    bus = InMemoryBus(load_pantheon())
+    huginn = Huginn(
+        bus=bus,
+        operator_request_receipt_gate=_ReserveExpiredGate(),  # type: ignore[arg-type]
+        clock=lambda: now,
+    )
+
+    with pytest.raises(HuginnIngressRejected) as exc:
+        await huginn.ingest(_request(now))
+
+    assert exc.value.reason_code == "operator_request_receipt_expired"
+    assert bus.messages_on("object.event") == []
+
+
 async def test_huginn_rejects_mutated_workflow_action_lineage() -> None:
     now = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
     request = _request(now)
@@ -235,6 +262,18 @@ async def test_huginn_rejects_mutated_workflow_action_lineage() -> None:
     }
 
     assert await Huginn(operator_request_receipt_gate=_gate(now), clock=lambda: now).ingest(request)
+    with pytest.raises(HuginnIngressRejected) as exc:
+        await Huginn(operator_request_receipt_gate=_gate(now), clock=lambda: now).ingest(mutated)
+
+    assert exc.value.reason_code == "operator_request_receipt_mismatch"
+
+
+async def test_huginn_rejects_absent_to_empty_workflow_action_mutation() -> None:
+    now = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+    request = _request(now)
+    mutated = dict(request)
+    mutated["workflow_action"] = {}
+
     with pytest.raises(HuginnIngressRejected) as exc:
         await Huginn(operator_request_receipt_gate=_gate(now), clock=lambda: now).ingest(mutated)
 

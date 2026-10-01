@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -33,38 +34,72 @@ class _Stored:
     record: Mapping[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class _Claim:
+    key: str
+    claim_id: str
+    payload: Mapping[str, object]
+    attempt: int
+
+
 class _Store:
-    def __init__(self) -> None:
+    def __init__(self, *, fail_mark: bool = False) -> None:
         self.proposals: list[tuple[str, str, Mapping[str, object]]] = []
+        self.records: dict[str, dict[str, object]] = {}
+        self.released: list[str] = []
+        self.fail_mark = fail_mark
+        self._lock = asyncio.Lock()
 
     async def append_proposal(self, **kwargs: object) -> object:
-        existing = next(
-            (
-                proposal
-                for proposal in self.proposals
-                if proposal[1] == str(kwargs["idempotency_key"])
-            ),
-            None,
-        )
-        if existing is not None:
-            return _Stored(
-                duplicate=True,
-                record={
-                    "dispatch_status": "published" if len(self.published) else "pending",
-                    "payload": existing[2],
-                },
+        async with self._lock:
+            key = f"operator-proposal:operations:{kwargs['idempotency_key']}"
+            existing = self.records.get(key)
+            if existing is not None:
+                return _Stored(duplicate=True, record=dict(existing))
+            record = {
+                "family": kwargs["family"],
+                "operation": kwargs["operation"],
+                "idempotency_key": kwargs["idempotency_key"],
+                "dispatch_status": "pending",
+                "payload": kwargs["payload"],
+            }
+            self.records[key] = record
+            self.proposals.append(
+                (
+                    str(kwargs["operation"]),
+                    str(kwargs["idempotency_key"]),
+                    kwargs["payload"],  # type: ignore[arg-type]
+                )
             )
-        self.proposals.append(
-            (
-                str(kwargs["operation"]),
-                str(kwargs["idempotency_key"]),
-                kwargs["payload"],  # type: ignore[arg-type]
+            return _Stored(duplicate=False, record=dict(record))
+
+    async def claim_poison_halt_clear_proposal(
+        self,
+        *,
+        idempotency_key: str,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> object | None:
+        del worker_id, lease_seconds
+        async with self._lock:
+            key = f"operator-proposal:operations:{idempotency_key}"
+            record = self.records.get(key)
+            if record is None or record["dispatch_status"] != "pending":
+                return None
+            attempt = int(record.get("attempt", 0)) + 1
+            record.update(
+                {
+                    "dispatch_status": "claimed",
+                    "claim_id": f"claim-{attempt}",
+                    "attempt": attempt,
+                }
             )
-        )
-        return _Stored(
-            duplicate=False,
-            record={"dispatch_status": "pending", "payload": kwargs["payload"]},  # type: ignore[dict-item]
-        )
+            return _Claim(
+                key=key,
+                claim_id=str(record["claim_id"]),
+                payload=record["payload"],  # type: ignore[arg-type]
+                attempt=attempt,
+            )
 
     @property
     def published(self) -> set[str]:
@@ -72,11 +107,34 @@ class _Store:
             self._published: set[str] = set()
         return self._published
 
-    async def mark_poison_halt_clear_published(self, *, idempotency_key: str) -> bool:
-        if not any(proposal[1] == idempotency_key for proposal in self.proposals):
+    async def mark_poison_halt_clear_claim_published(self, *, key: str, claim_id: str) -> bool:
+        if self.fail_mark:
             return False
-        self.published.add(idempotency_key)
-        return True
+        async with self._lock:
+            record = self.records.get(key)
+            if (
+                record is None
+                or record.get("dispatch_status") != "claimed"
+                or record.get("claim_id") != claim_id
+            ):
+                return False
+            record["dispatch_status"] = "published"
+            self.published.add(str(record["idempotency_key"]))
+            return True
+
+    async def release_poison_halt_clear_claim(self, *, key: str, claim_id: str) -> bool:
+        async with self._lock:
+            record = self.records.get(key)
+            if (
+                record is None
+                or record.get("dispatch_status") != "claimed"
+                or record.get("claim_id") != claim_id
+            ):
+                return False
+            record["dispatch_status"] = "pending"
+            record.pop("claim_id", None)
+            self.released.append(key)
+            return True
 
 
 class _Publisher:
@@ -90,6 +148,18 @@ class _Publisher:
             raise RuntimeError("broker unavailable")
         self.published.append((topic, key, payload))
         return object()
+
+
+class _BlockingPublisher(_Publisher):
+    def __init__(self) -> None:
+        super().__init__()
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> object:
+        self.entered.set()
+        await self.release.wait()
+        return await super().publish(topic, key, payload)
 
 
 class _Signer:
@@ -423,3 +493,65 @@ async def test_clear_retry_republishes_when_first_publish_fails_before_send() ->
     assert len(publisher.published) == 1
     assert publisher.published[0][1] == "clear-key"
     assert "clear-key" in store.published
+
+
+@pytest.mark.asyncio
+async def test_clear_concurrent_accept_claims_once_before_publishing() -> None:
+    store = _Store()
+    publisher = _BlockingPublisher()
+    service = OrderedPoisonHaltClearService(
+        store=store,
+        publisher=publisher,
+        clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        receipt_issuer=OperatorRequestReceiptIssuer(
+            signer=_Signer(),
+            producer_service_identity="operator-service",
+            clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        ),
+    )
+    principal = OperatorPrincipal(
+        subject_id="owner-one",
+        roles=frozenset({OperatorRole.OWNER}),
+        principal_kind=OperatorPrincipalKind.HUMAN,
+    )
+
+    first = asyncio.create_task(
+        service.accept(principal=principal, idempotency_key="clear-key", body=_body())
+    )
+    await publisher.entered.wait()
+    second = await service.accept(principal=principal, idempotency_key="clear-key", body=_body())
+    publisher.release.set()
+    first_result = await first
+
+    assert first_result.accepted is True
+    assert second.accepted is True
+    assert len(store.proposals) == 1
+    assert len(publisher.published) == 1
+
+
+@pytest.mark.asyncio
+async def test_clear_retry_after_mark_failure_does_not_republish_live_claim() -> None:
+    store = _Store(fail_mark=True)
+    publisher = _Publisher()
+    service = OrderedPoisonHaltClearService(
+        store=store,
+        publisher=publisher,
+        clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        receipt_issuer=OperatorRequestReceiptIssuer(
+            signer=_Signer(),
+            producer_service_identity="operator-service",
+            clock=lambda: datetime(2026, 10, 1, tzinfo=UTC),
+        ),
+    )
+    principal = OperatorPrincipal(
+        subject_id="owner-one",
+        roles=frozenset({OperatorRole.OWNER}),
+        principal_kind=OperatorPrincipalKind.HUMAN,
+    )
+
+    with pytest.raises(RuntimeError, match="publication state was not recorded"):
+        await service.accept(principal=principal, idempotency_key="clear-key", body=_body())
+    replay = await service.accept(principal=principal, idempotency_key="clear-key", body=_body())
+
+    assert replay.accepted is True
+    assert len(publisher.published) == 1

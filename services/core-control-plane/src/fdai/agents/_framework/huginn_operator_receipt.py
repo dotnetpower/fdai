@@ -7,6 +7,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
+from uuid import uuid4
 
 from fdai_service_contracts.operator_request_receipt import (
     OperatorRequestReceipt,
@@ -42,6 +43,14 @@ class VerifiedOperatorRequestReceipt:
 
     receipt: OperatorRequestReceipt
     replay_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReservedOperatorRequestReceipt:
+    """Durable pending replay fence held by one publish attempt."""
+
+    verified: VerifiedOperatorRequestReceipt
+    reservation_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,31 +132,85 @@ class OperatorRequestReceiptGate:
             raise ValueError("replayed")
         return VerifiedOperatorRequestReceipt(receipt=receipt, replay_key=replay_key)
 
-    async def commit(self, verified: VerifiedOperatorRequestReceipt) -> OperatorRequestReceipt:
-        """Durably fence one verified receipt after the caller's safe checkpoint."""
+    async def reserve(
+        self,
+        verified: VerifiedOperatorRequestReceipt,
+    ) -> ReservedOperatorRequestReceipt:
+        """Durably reserve one verified receipt before authority-bearing publication."""
 
         receipt = verified.receipt
         await self.cleanup_expired()
         now = self.clock().astimezone(UTC)
-        if now >= receipt.expires_at + self.clock_skew:
+        if now >= receipt.expires_at:
             raise ValueError("expired")
+        reservation_id = str(uuid4())
         created = await self.state_store.write_state_if_absent(
             verified.replay_key,
             {
                 "schema_version": "1.0.0",
                 "kind": "huginn.operator_request_receipt_replay_fence",
+                "state": "pending",
                 "replay_key": verified.replay_key,
+                "reservation_id": reservation_id,
                 "receipt_digest": receipt.receipt_digest,
                 "producer_service_identity": receipt.producer_service_identity,
                 "issued_at": receipt.issued_at.isoformat(),
                 "expires_at": receipt.expires_at.isoformat(),
-                "committed_at": now.isoformat(),
+                "reserved_at": now.isoformat(),
+                "revision": 1,
             },
         )
         if not created:
+            existing = await self.state_store.read_state(verified.replay_key)
+            if _expired(existing or {}, now=now, skew=self.clock_skew):
+                await self.state_store.delete_state(verified.replay_key)
+                return await self.reserve(verified)
+            raise ValueError("replayed")
+        return ReservedOperatorRequestReceipt(
+            verified=verified,
+            reservation_id=reservation_id,
+        )
+
+    async def finalize(
+        self,
+        reserved: ReservedOperatorRequestReceipt,
+    ) -> OperatorRequestReceipt:
+        """Commit one pending replay fence after publication is durably checkpointed."""
+
+        receipt = reserved.verified.receipt
+        now = self.clock().astimezone(UTC)
+        existing = await self.state_store.read_state(reserved.verified.replay_key)
+        if not _is_pending_reservation(existing, reserved.reservation_id):
+            raise ValueError("replayed")
+        if now >= receipt.expires_at + self.clock_skew:
+            raise ValueError("expired")
+        finalized = {
+            **dict(existing or {}),
+            "state": "committed",
+            "committed_at": now.isoformat(),
+            "revision": 2,
+        }
+        if not await self.state_store.compare_and_set_state(
+            reserved.verified.replay_key,
+            finalized,
+            expected_revision=1,
+        ):
             raise ValueError("replayed")
         await self.cleanup_expired()
         return receipt
+
+    async def release(self, reserved: ReservedOperatorRequestReceipt) -> bool:
+        """Release one pending reservation after publication fails before visibility."""
+
+        existing = await self.state_store.read_state(reserved.verified.replay_key)
+        if not _is_pending_reservation(existing, reserved.reservation_id):
+            return False
+        return await self.state_store.delete_state(reserved.verified.replay_key)
+
+    async def commit(self, verified: VerifiedOperatorRequestReceipt) -> OperatorRequestReceipt:
+        """Reserve and commit one verified receipt before a non-publication side effect."""
+
+        return await self.finalize(await self.reserve(verified))
 
     async def cleanup_expired(self) -> int:
         """Compact expired replay rows and retain a bounded audit summary."""
@@ -197,6 +260,16 @@ def _expired(row: Mapping[str, Any], *, now: datetime, skew: timedelta) -> bool:
     return expires_at.astimezone(UTC) + skew <= now
 
 
+def _is_pending_reservation(row: Mapping[str, Any] | None, reservation_id: str) -> bool:
+    return (
+        row is not None
+        and row.get("kind") == "huginn.operator_request_receipt_replay_fence"
+        and row.get("state") == "pending"
+        and row.get("reservation_id") == reservation_id
+        and row.get("revision") == 1
+    )
+
+
 def _replay_key(receipt: OperatorRequestReceipt) -> str:
     expires_at = receipt.expires_at.astimezone(UTC)
     expiry_token = expires_at.strftime("%Y%m%dT%H%M%S.%fZ")
@@ -206,5 +279,6 @@ def _replay_key(receipt: OperatorRequestReceipt) -> str:
 __all__ = [
     "OperatorRequestReceiptGate",
     "OperatorRequestReceiptVerifier",
+    "ReservedOperatorRequestReceipt",
     "VerifiedOperatorRequestReceipt",
 ]

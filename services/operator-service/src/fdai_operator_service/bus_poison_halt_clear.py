@@ -32,8 +32,27 @@ class PoisonHaltProposalStore(Protocol):
         accepted_at: datetime | None = None,
     ) -> object: ...
 
-    async def mark_poison_halt_clear_published(self, *, idempotency_key: str) -> bool:
-        """Mark one poison-halt clear proposal after broker acceptance."""
+    async def claim_poison_halt_clear_proposal(
+        self,
+        *,
+        idempotency_key: str,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> object | None:
+        """Claim one clear proposal before broker publication."""
+        ...
+
+    async def mark_poison_halt_clear_claim_published(
+        self,
+        *,
+        key: str,
+        claim_id: str,
+    ) -> bool:
+        """Mark one claimed clear proposal after broker acceptance."""
+        ...
+
+    async def release_poison_halt_clear_claim(self, *, key: str, claim_id: str) -> bool:
+        """Release one claimed clear proposal after transport failure."""
         ...
 
 
@@ -60,6 +79,8 @@ class OrderedPoisonHaltClearService:
     publisher: PoisonHaltClearPublisher
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
     receipt_issuer: OperatorRequestReceiptIssuer | None = None
+    worker_id: str = "operator-poison-halt-clear-inline"
+    lease_seconds: int = 120
 
     async def accept(
         self,
@@ -98,16 +119,36 @@ class OrderedPoisonHaltClearService:
             payload=payload,
             accepted_at=accepted_at,
         )
-        stored_payload = _stored_payload(stored) or payload
-        dispatch_status = _stored_dispatch_status(stored)
-        if dispatch_status != "published":
-            await self.publisher.publish(
-                ORDERED_POISON_HALT_CLEAR_TOPIC,
-                request.idempotency_key,
-                stored_payload,
+        if _stored_dispatch_status(stored) != "published":
+            claim = await self.store.claim_poison_halt_clear_proposal(
+                idempotency_key=idempotency_key,
+                worker_id=self.worker_id,
+                lease_seconds=self.lease_seconds,
             )
-            marked = await self.store.mark_poison_halt_clear_published(
-                idempotency_key=idempotency_key
+            if claim is None:
+                return OrderedPoisonHaltClearAcceptance(
+                    accepted=True,
+                    request_id=request.request_id,
+                    topic=ORDERED_POISON_HALT_CLEAR_TOPIC,
+                )
+            claim_key = _claim_key(claim)
+            claim_id = _claim_id(claim)
+            stored_payload = _claim_payload(claim)
+            try:
+                await self.publisher.publish(
+                    ORDERED_POISON_HALT_CLEAR_TOPIC,
+                    request.idempotency_key,
+                    stored_payload,
+                )
+            except Exception:
+                await self.store.release_poison_halt_clear_claim(
+                    key=claim_key,
+                    claim_id=claim_id,
+                )
+                raise
+            marked = await self.store.mark_poison_halt_clear_claim_published(
+                key=claim_key,
+                claim_id=claim_id,
             )
             if not marked:
                 raise RuntimeError("ordered poison halt clear publication state was not recorded")
@@ -123,20 +164,33 @@ def _request_id(principal_id: str, idempotency_key: str) -> str:
     return f"ordered-poison-halt-clear:{digest}"
 
 
-def _stored_payload(stored: object) -> Mapping[str, object] | None:
-    record = getattr(stored, "record", None)
-    if not isinstance(record, Mapping):
-        return None
-    payload = record.get("payload")
-    return payload if isinstance(payload, Mapping) else None
-
-
 def _stored_dispatch_status(stored: object) -> str:
     record = getattr(stored, "record", None)
     if not isinstance(record, Mapping):
         return ""
     status = record.get("dispatch_status")
     return status if isinstance(status, str) else ""
+
+
+def _claim_key(claim: object) -> str:
+    key = getattr(claim, "key", None)
+    if not isinstance(key, str) or not key:
+        raise RuntimeError("ordered poison halt clear claim is malformed")
+    return key
+
+
+def _claim_id(claim: object) -> str:
+    claim_id = getattr(claim, "claim_id", None)
+    if not isinstance(claim_id, str) or not claim_id:
+        raise RuntimeError("ordered poison halt clear claim is malformed")
+    return claim_id
+
+
+def _claim_payload(claim: object) -> Mapping[str, object]:
+    payload = getattr(claim, "payload", None)
+    if not isinstance(payload, Mapping):
+        raise RuntimeError("ordered poison halt clear claim is malformed")
+    return payload
 
 
 __all__ = [

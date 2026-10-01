@@ -68,6 +68,10 @@ def test_operator_request_receipt_binds_workflow_action_lineage() -> None:
     )
 
 
+def test_operator_request_receipt_distinguishes_absent_and_empty_workflow_lineage() -> None:
+    assert canonical_workflow_action_digest(None) != canonical_workflow_action_digest({})
+
+
 def test_operator_request_receipt_v1_0_remains_compatible_without_workflow_lineage() -> None:
     now = datetime(2026, 10, 1, tzinfo=UTC)
 

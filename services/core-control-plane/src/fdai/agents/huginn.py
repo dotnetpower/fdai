@@ -27,6 +27,7 @@ from fdai.agents._framework.huginn_dedup import (
 )
 from fdai.agents._framework.huginn_operator_receipt import (
     OperatorRequestReceiptGate,
+    ReservedOperatorRequestReceipt,
     VerifiedOperatorRequestReceipt,
 )
 from fdai.agents._framework.huginn_schema_learning import HuginnSchemaLearningLedger
@@ -787,6 +788,7 @@ class Huginn(Agent):
             self._seen_keys.move_to_end(key)
             self.record_behavior("deduped")
             return None
+        reserved_operator_receipt: ReservedOperatorRequestReceipt | None = None
         processing_started_at = self._clock()
         ingested_at = processing_started_at
         if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
@@ -945,6 +947,20 @@ class Huginn(Agent):
             published_topics = claim.published_topics
         else:
             published_topics = frozenset()
+        if verified_operator_receipt is not None:
+            if self._operator_request_receipt_gate is None:
+                raise HuginnIngressRejected("operator_request_receipt_unbound")
+            try:
+                reserved_operator_receipt = await self._operator_request_receipt_gate.reserve(
+                    verified_operator_receipt
+                )
+            except ValueError as exc:
+                reason = str(exc) or "invalid"
+                safe_reason = reason if reason in {"expired", "replayed"} else "invalid"
+                raise HuginnIngressRejected(
+                    f"operator_request_receipt_{safe_reason}",
+                    field="operator_request_receipt",
+                ) from exc
         # Measurable behaviour: the sensing layer's ingest / dedup rates, so a
         # scenario can see an ingress flood (the flooding concern one layer up
         # from the judge). Recorded on the decision to emit, before publish.
@@ -968,45 +984,53 @@ class Huginn(Agent):
                 self.record_behavior("discovery_projection_failed")
                 raise
         publish_cancelled = False
-        if self.bus is not None:
-            publish_cancelled = await self._publish_event_change(
-                payload,
-                change_projection,
-                idempotency_key=key,
-                request_digest=raw_request_digest,
-                published_topics=published_topics,
-            )
-        elif self._dedup_journal is not None:
-            await self._dedup_journal.mark_published(
-                idempotency_key=key,
-                request_digest=raw_request_digest,
-                topic="object.event",
-            )
-            if change_projection is not None:
+        try:
+            if self.bus is not None:
+                publish_cancelled = await self._publish_event_change(
+                    payload,
+                    change_projection,
+                    idempotency_key=key,
+                    request_digest=raw_request_digest,
+                    published_topics=published_topics,
+                )
+            elif self._dedup_journal is not None:
                 await self._dedup_journal.mark_published(
                     idempotency_key=key,
                     request_digest=raw_request_digest,
-                    topic="object.change",
+                    topic="object.event",
                 )
-        if self._dedup_journal is not None:
-            complete_task = asyncio.create_task(
-                self._dedup_journal.complete(
-                    idempotency_key=key,
-                    request_digest=raw_request_digest,
-                    require_published_topics=self.bus is not None,
+                if change_projection is not None:
+                    await self._dedup_journal.mark_published(
+                        idempotency_key=key,
+                        request_digest=raw_request_digest,
+                        topic="object.change",
+                    )
+            if self._dedup_journal is not None:
+                complete_task = asyncio.create_task(
+                    self._dedup_journal.complete(
+                        idempotency_key=key,
+                        request_digest=raw_request_digest,
+                        require_published_topics=self.bus is not None,
+                    )
                 )
-            )
-            try:
-                await asyncio.shield(complete_task)
-            except asyncio.CancelledError:
-                await complete_task
-                self.record_behavior("dedup_completion:cancelled")
-                publish_cancelled = True
-        if verified_operator_receipt is not None:
+                try:
+                    await asyncio.shield(complete_task)
+                except asyncio.CancelledError:
+                    await complete_task
+                    self.record_behavior("dedup_completion:cancelled")
+                    publish_cancelled = True
+        except Exception:
+            if (
+                reserved_operator_receipt is not None
+                and self._operator_request_receipt_gate is not None
+            ):
+                await self._operator_request_receipt_gate.release(reserved_operator_receipt)
+            raise
+        if reserved_operator_receipt is not None:
             if self._operator_request_receipt_gate is None:
                 raise HuginnIngressRejected("operator_request_receipt_unbound")
             try:
-                await self._operator_request_receipt_gate.commit(verified_operator_receipt)
+                await self._operator_request_receipt_gate.finalize(reserved_operator_receipt)
             except ValueError as exc:
                 reason = str(exc) or "invalid"
                 safe_reason = reason if reason in {"expired", "replayed"} else "invalid"
