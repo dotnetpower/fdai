@@ -491,16 +491,33 @@ def _coverage_violations(
         node for plan in plans for node in plan.nodes if node.node_id in plan.output_node_ids
     ]
     if goal.effective_operation is GoalOperation.COUNT and not all(
-        node.kind is QueryNodeKind.AGGREGATE and node.arguments.get("operation") == "count"
+        node.kind is QueryNodeKind.AGGREGATE
+        and node.arguments.get("operation") in {"count", "count_by_nearest_container"}
         for node in outputs
     ):
         violations.append("sem_count_not_aggregated")
-    grouped = GROUP_BY_FIELDS.get(goal.measure.group_by) if goal.measure is not None else None
+    lineage_group = (
+        goal.measure is not None
+        and goal.measure.group_by is GroupBy.CONTAINER
+        and goal.measure.mention is not None
+    )
+    grouped = (
+        None
+        if lineage_group
+        else GROUP_BY_FIELDS.get(goal.measure.group_by)
+        if goal.measure is not None
+        else None
+    )
     if (
         goal.level is GoalLevel.INSTANCE
         and goal.effective_operation is GoalOperation.COUNT
         and any(
-            node.arguments.get("group_by", []) != ([grouped] if grouped else []) for node in outputs
+            (
+                node.arguments.get("operation") != "count_by_nearest_container"
+                if lineage_group
+                else node.arguments.get("group_by", []) != ([grouped] if grouped else [])
+            )
+            for node in outputs
         )
     ):
         violations.append("sem_group_by_mismatch")

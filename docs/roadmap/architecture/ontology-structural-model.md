@@ -28,6 +28,7 @@ Workflow authoring records remain outside ontology identity. Saved private draft
 ![Design at a glance. The main stages are Resource, ResourceType, ResourceClass, Query, Exploratory traversal, Ordered typed path, LinkType, Forward and reverse roles, Semantic traits.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.en.svg)
 
 The model separates exact identity, aggregation, behavior, language, topology hints, query execution, and presentation. Each concern has one canonical representation and one bounded consumer contract.
+Nearest-container lineage grouping is an aggregate over typed lineage rows: equal-depth nearest roots are excluded from every group and reported through `ambiguous_membership`, so grouped counts reconcile to the members read.
 Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence metadata for one collection scope and does not replace Resource or link identity.
 An optional recorded `serving` fact is presentation evidence for one exact data-plane target. It
 does not add an ontology type, relationship, or authority edge and never replaces operational,

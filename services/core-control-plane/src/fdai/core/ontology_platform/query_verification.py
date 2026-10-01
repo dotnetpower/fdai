@@ -207,10 +207,15 @@ class OntologyQueryPlanVerifier:
             self._verify_table_dependencies(node, nodes_by_id=nodes_by_id, minimum=1, expected=1)
             _verify_keys(
                 arguments,
-                allowed={"operation", "field", "group_by", "limit"},
+                allowed={"operation", "field", "group_by", "limit", "container_kind"},
                 required={"operation"},
             )
             operation = arguments["operation"]
+            if operation == "count_by_nearest_container":
+                container = arguments.get("container_kind")
+                if not isinstance(container, str) or not container:
+                    raise ValueError("lineage aggregate requires a container_kind")
+                return
             if operation not in {"count", "sum", "minimum", "maximum", "average"}:
                 raise ValueError("aggregate operation is unsupported")
             if operation == "count":

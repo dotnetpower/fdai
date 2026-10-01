@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 3752263f781879788cd8aea5fa5e136b13039f03
-translation_revised: 2026-09-30
+translation_source_sha: e88a55f6c23ad18a36d42980fb17388584862b8e
+translation_revised: 2026-10-01
 ---
 # 온톨로지 구조 모델
 
@@ -35,6 +35,7 @@ translation_revised: 2026-09-30
 
 이 모델은 정확한 아이덴티티, 집계, 동작, 언어, 토폴로지 힌트, 쿼리 실행, 표현을 분리합니다.
 각 관심사는 하나의 표준 표현과 범위가 제한된 소비자 계약을 가집니다.
+가장 가까운 컨테이너 계보 그룹화는 타입이 지정된 계보 행 위의 aggregate입니다. 같은 깊이의 가장 가까운 루트가 여럿인 구성원은 모든 그룹에서 제외하고 `ambiguous_membership`으로 보고하므로, 그룹 개수는 읽은 구성원 수와 맞게 정산됩니다.
 변환 출처 가용성은 `(source, scope_digest)`로 한정됩니다. 이 튜플은 수집 범위 하나의 근거
 메타데이터이며 Resource 또는 링크 신원을 대체하지 않습니다.
 선택적인 기록 `serving` 사실은 하나의 정확한 데이터 플레인 대상에 대한 표시 근거입니다. 새로운
