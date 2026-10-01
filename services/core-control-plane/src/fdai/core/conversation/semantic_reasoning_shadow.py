@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Literal, Protocol
@@ -21,6 +21,7 @@ from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
 from .semantic_reasoning_admission import (
     AdmissionDisposition,
+    FormAdmission,
     SpanAccounting,
     admit_question_form,
 )
@@ -44,6 +45,7 @@ from .semantic_reasoning_direction import (
 from .semantic_reasoning_form import SemanticQuestionForm
 from .semantic_reasoning_handles import (
     HandleScope,
+    ReferenceReceipt,
     ResultSetHandle,
     bind_references,
     reference_anchors,
@@ -267,6 +269,8 @@ async def run_reasoning_shadow(
     account_spans: bool = True,
     handles: tuple[ResultSetHandle, ...] = (),
     handle_scope: HandleScope | None = None,
+    stored_reference_binder: Callable[[FormAdmission], Awaitable[ReferenceReceipt | None]]
+    | None = None,
 ) -> ReasoningShadowObservation:
     """Run successive bounded form passes and compile each admitted pass."""
 
@@ -295,6 +299,7 @@ async def run_reasoning_shadow(
         "default_lookback_seconds": default_lookback_seconds,
         "handles": handles,
         "handle_scope": handle_scope,
+        "stored_reference_binder": stored_reference_binder,
     }
     admitted_forms: list[SemanticQuestionForm] = []
     # The snapshot generation the turn's first anchor reads saw; continuations must match it.
@@ -607,9 +612,17 @@ async def _run_pass(
         sorted({item.source_generation for item in anchors.bindings if item.source_generation})
     )
     arguments = dict(compile_args)
-    references = bind_references(
-        admission, arguments.pop("handles", ()), arguments.pop("handle_scope", None)
+    stored_reference_binder = arguments.pop("stored_reference_binder", None)
+    references = (
+        await stored_reference_binder(admission) if stored_reference_binder is not None else None
     )
+    if references is None:
+        references = bind_references(
+            admission, arguments.pop("handles", ()), arguments.pop("handle_scope", None)
+        )
+    else:
+        arguments.pop("handles", ())
+        arguments.pop("handle_scope", None)
     anchors = reference_anchors(anchors, references)
     compilation = compile_question_form(
         admission,

@@ -22,6 +22,7 @@ from fdai_service_contracts.semantic_judgment import (
 from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
 
+from fdai.core.conversation.semantic_stored_result_handles import StoredReferenceContext
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
@@ -199,6 +200,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
         required_document_evidence: bool = False,
+        stored_reference_context: StoredReferenceContext | None = None,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
 
@@ -245,6 +247,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                     verifier=self._verifier,
                     principal=principal,
                     purpose=purpose,
+                    stored_reference_context=stored_reference_context,
                 )
             selected = self._selector.select(
                 utterance=utterance,

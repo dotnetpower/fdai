@@ -14,7 +14,8 @@ Recent Resource change continuations add only an Operator read route that forwar
 Core bootstrap keeps the assembled runtime data model and human-approval registry binding in focused modules. Incident consumers, supervised tasks, logical topics, durable acceptance, and the Operator/Core authority split remain unchanged.
 Semantic result-handle references are additive no-authority fields on the semantic request and
 projection contracts. Operator stores and replays only the opaque reference; Core remains the only
-reader of encrypted handle bodies.
+reader of encrypted handle bodies. Ordinal follow-ups over those references reauthorize rows in
+Core before anchoring a read and do not change the Operator/Core authority split.
 
 Observer setup uses a separate `observer-proposal-projection` schema and
 `core.observer-deployment.projections` logical topic on the existing transport. Operator owns the

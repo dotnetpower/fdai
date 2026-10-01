@@ -30,6 +30,7 @@ from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
 from fdai.core.conversation.semantic_runtime import optional_document_evidence_degraded
+from fdai.core.conversation.semantic_stored_result_handles import StoredReferenceContext
 from fdai.core.conversation.session import Principal, Turn
 from fdai.core.conversation.work_progress import (
     WorkProgressRecorder,
@@ -238,6 +239,7 @@ class SemanticTurnRuntime(Protocol):
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         document_context: SemanticDocumentContext | None = None,
+        stored_reference_context: StoredReferenceContext | None = None,
     ) -> RuntimeSemanticTurnResult: ...
 
 
@@ -849,6 +851,17 @@ class SemanticTurnProcessor:
             cancelled=runtime_cancelled,
             bound_incident=_bound_incident(request),
             bound_investigation_continuation=_bound_investigation_continuation(request),
+            stored_reference_context=(
+                StoredReferenceContext(
+                    request.session_id,
+                    request.recent_result_handles,
+                    self._result_handle_store,
+                )
+                if self._result_handles_enabled
+                and self._result_handle_store is not None
+                and request.recent_result_handles
+                else None
+            ),
             **runtime_kwargs,
         )
 
