@@ -18,7 +18,7 @@ from .ontology_candidate_authorization import (
 )
 from .ontology_snapshot_store import OntologyGenerationSnapshotStore, OntologyStagedProjection
 from .ontology_snapshot_validation import OntologySnapshotValidation
-from .ontology_vector_store import OntologyVectorSnapshotStore
+from .ontology_vector_store import OntologyVectorSnapshotStore, _check_deadline
 from .ranking import CatalogRankingPolicy, rank_documents
 
 
@@ -187,6 +187,7 @@ class OntologyInstanceCandidateReader:
             or prepared.principal_scope_digest != manifest.coverage_receipt.principal_scope_digest
         ):
             raise ValueError("ontology candidate generation is not prepared for the current scope")
+        deadline = asyncio.get_running_loop().time() + 5
         async with asyncio.timeout(5):
             exact = tuple(
                 document
@@ -198,7 +199,9 @@ class OntologyInstanceCandidateReader:
             else:
                 if not self._semantic_search_available:
                     raise ValueError("ontology instance semantic ranking is not qualified")
+                _check_deadline(deadline)
                 vector = await self._vectors.embed_query(query, generation=prepared.generation)
+                _check_deadline(deadline)
                 ranked = tuple(
                     (score, document)
                     for score, document, _components in rank_documents(
@@ -208,6 +211,7 @@ class OntologyInstanceCandidateReader:
                         query_vector=vector,
                     )
                 )
+            _check_deadline(deadline)
             selected = tuple(document for _score, document in ranked[:limit])
             authorized = (
                 await reauthorize_ontology_candidates(
@@ -220,6 +224,7 @@ class OntologyInstanceCandidateReader:
                 if selected
                 else None
             )
+            _check_deadline(deadline)
             if self._prepared.get(scope) is not prepared:
                 raise ValueError("ontology candidate query was invalidated")
             return OntologyCandidateSearchResult(
