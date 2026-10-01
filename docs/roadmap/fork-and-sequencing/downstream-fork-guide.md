@@ -90,8 +90,8 @@ to the framework surface, so a fork must not edit, hide, or replace them. Preser
 installation-bound record across upgrades: a fork that supplies a record bound to another
 installation receives no capability, and runtime enforcement resolves through the shared license
 entitlement authority rather than any fork-supplied check. Durable Trial storage, its Core
-composition, its anchored activation writer, and its AKS source-deployment wiring exist; the
-Container Apps runtime's binding input remains open in
+composition, its anchored activation writer, its AKS source-deployment wiring, and AKS
+key-holder entitlement issuance exist; the Container Apps runtime's binding input remains open in
 [Source Deployment](../deployment/source-deployment.md).
 
 An optional vertical package is also independent from the fork boundary. For example,

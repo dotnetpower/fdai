@@ -51,7 +51,6 @@ from fdai_deployment_cli.aks_workload_jobs import (
 )
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
-from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.oci_archive import validate_oci_archive
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import (
@@ -72,6 +71,10 @@ from fdai_deployment_cli.standalone_aks_inventory import (
     run_initial_aks_inventory as _initial_aks_inventory,
 )
 from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
+from fdai_deployment_cli.standalone_license_installation import (
+    aks_license_environment,
+    install_license,
+)
 from fdai_deployment_cli.standalone_trial_activation import (
     activate_trial,
     deployment_binding_digest,
@@ -156,7 +159,6 @@ from fdai_deployment_cli.standalone_terraform_environment import (
     terraform_configuration as _terraform_configuration,
 )
 from fdai_deployment_cli.target import compute_target_binding
-from fdai_deployment_cli.trust_roots import license_public_key_pem
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
@@ -298,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
     license_command = subcommands.add_parser("install-license")
     license_command.add_argument("--image-digest", required=True)
     license_command.add_argument("--deployment-binding", required=True)
+    license_command.add_argument("--installation-binding", default=None)
     license_command.set_defaults(handler=_install_license)
 
     verify = subcommands.add_parser("verify")
@@ -937,6 +940,8 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             semantic_topics=semantic_topics,
         )
     )
+    license_environment, license_secrets = aks_license_environment(application_values)
+    core_environment.update(license_environment)
     operator_environment = (
         aks_operator_environment(
             application_values=application_values,
@@ -956,6 +961,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             substrate_outputs["application_insights_secret_name"]
         ),
         "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+        **license_secrets,
     }
     refs = _mapping(context.get("image_refs"), "runtime image references")
     workloads = {
@@ -3231,103 +3237,7 @@ def _activate_trial(_args: argparse.Namespace, work_dir: Path) -> dict[str, obje
 
 
 def _install_license(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
-    context = _private_json(work_dir / "context.json", "standalone host context")
-    _managed_identity_login_from_context(context, work_dir)
-    token = sys.stdin.read(8193)
-    if len(token) > 8192 or token != token.strip():
-        raise ValueError("license token stdin is invalid")
-    inspect_license(
-        token,
-        public_key_pem=license_public_key_pem(),
-        expected_image_digest=args.image_digest,
-        expected_tenant_binding=args.deployment_binding,
-    )
-    token_digest = hashlib.sha256(token.encode("ascii")).hexdigest()
-    infra = Path(str(context["infra"]))
-    vault_uri = _terraform_output(infra, "key_vault_uri")
-    vault_name = _vault_name(vault_uri)
-    result = subprocess.run(
-        (
-            "az",
-            "keyvault",
-            "secret",
-            "set",
-            "--vault-name",
-            vault_name,
-            "--name",
-            "fdai-capability-license",
-            "--file",
-            "/dev/stdin",
-            "--encoding",
-            "utf-8",
-            "--query",
-            "id",
-            "--output",
-            "tsv",
-            "--only-show-errors",
-        ),
-        input=token,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    token = ""
-    if result.returncode != 0:
-        raise ValueError("license token Key Vault installation failed")
-    versioned_secret_id = result.stdout.strip()
-    match = re.fullmatch(
-        rf"https://{re.escape(vault_name)}[.]vault[.]azure[.]net/secrets/"
-        r"fdai-capability-license/([0-9a-f]{32})",
-        versioned_secret_id,
-    )
-    if match is None:
-        raise ValueError("license token Key Vault readback is invalid")
-    readback = _capture(
-        (
-            "az",
-            "keyvault",
-            "secret",
-            "show",
-            "--id",
-            versioned_secret_id,
-            "--query",
-            "value",
-            "--output",
-            "tsv",
-            "--only-show-errors",
-        ),
-        cwd=work_dir,
-        timeout=120,
-        reason="license token Key Vault content readback failed",
-    ).strip()
-    inspect_license(
-        readback,
-        public_key_pem=license_public_key_pem(),
-        expected_image_digest=args.image_digest,
-        expected_tenant_binding=args.deployment_binding,
-    )
-    if hashlib.sha256(readback.encode("ascii")).hexdigest() != token_digest:
-        raise ValueError("license token Key Vault content differs")
-    secret_id = versioned_secret_id.rsplit("/", 1)[0]
-    values = _private_json(work_dir / "application.auto.tfvars.json", "application variables")
-    values["license"] = {
-        "token_secret_id": secret_id,
-        "image_digest": args.image_digest,
-        "deployment_digest": args.deployment_binding,
-        "token_revision": hashlib.sha256(
-            f"{args.image_digest}:{args.deployment_binding}".encode()
-        ).hexdigest(),
-    }
-    _replace_private_json(work_dir / "application.auto.tfvars.json", values)
-    return {
-        "schema_version": "fdai.standalone-license-installation.v1",
-        "state": "installed",
-        "secret_metadata_verified": True,
-        "secret_content_verified": True,
-        "mutation_performed": True,
-        "subscription_ready": False,
-    }
+    return install_license(args, work_dir, login=_managed_identity_login_from_context)
 
 
 def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
@@ -4053,6 +3963,7 @@ def _deployment_binding(_args: argparse.Namespace, work_dir: Path) -> dict[str, 
         raise ValueError("deployment binding requires verified substrate")
     context = _private_json(work_dir / "context.json", "standalone host context")
     _managed_identity_login_from_context(context, work_dir)
+    installation_binding = _terraform_output(Path(str(context["infra"])), "installation_binding")
     if _runtime_platform(context) == "aks":
         _activate_terraform_stage("runtime", context, work_dir)
         runtime_name = _terraform_output(Path(str(context["runtime_infra"])), "cluster_name")
@@ -4063,6 +3974,7 @@ def _deployment_binding(_args: argparse.Namespace, work_dir: Path) -> dict[str, 
         "schema_version": "fdai.standalone-deployment-binding.v1",
         "state": "verified",
         "deployment_binding": deployment_binding,
+        "installation_binding": installation_binding,
         "terraform_name_verified": True,
         "mutation_performed": False,
         "subscription_ready": False,

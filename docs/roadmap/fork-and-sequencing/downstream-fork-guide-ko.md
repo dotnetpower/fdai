@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 2dc3e5e519637d30ca421d02b835537793c9f8c0
+translation_source_sha: 323d5b9a4ea698890168ab2433d811c659dafff3
 translation_revised: 2026-10-01
 ---
 
@@ -95,7 +95,8 @@ repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 �
 기록을 보존해야 합니다. 다른 설치에 바인딩된 기록을 제공하는 포크는 어떤 권한도 받지 못하며,
 런타임 적용은
 포크가 제공하는 검사가 아니라 공용 라이선스 사용권 판정기를 통해 이뤄집니다. 영속 Trial
-저장소, 그 Core 구성, 고정 시각 활성화 작성자, AKS 소스 배포 연결은 이미 있으며, Container Apps
+저장소, 그 Core 구성, 고정 시각 활성화 작성자, AKS 소스 배포 연결, AKS 키 보유자 사용권 발급은
+이미 있으며, Container Apps
 런타임의 바인딩 입력은 [소스 배포](../deployment/source-deployment-ko.md)의 남은 과제입니다.
 
 선택적 버티컬 패키지도 포크 경계와 독립적입니다. 예를 들어

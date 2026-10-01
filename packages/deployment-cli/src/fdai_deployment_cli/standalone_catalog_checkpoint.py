@@ -19,6 +19,13 @@ class PostApplicationReceipts:
     catalog_review: dict[str, Any]
     trial_activation: dict[str, Any] | None = None
 
+    @property
+    def trial_open(self) -> bool:
+        """Whether the read-back Trial window is open under a trusted clock."""
+
+        trial = self.trial_activation
+        return trial is not None and not trial["window_ended"] and not trial["clock_blocked"]
+
 
 def run_post_application_checkpoints(
     tunnel: Any,

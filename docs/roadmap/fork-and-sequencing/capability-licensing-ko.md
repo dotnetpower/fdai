@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: af6a2ca5cc0d4eddc3cf2251f18db11f77eb5045
+translation_source_sha: 3b497a3a699057c557032337e41fa956d059a31d
 translation_revised: 2026-10-01
 ---
 # 기능 라이선싱
@@ -157,8 +157,9 @@ Trial을 해제합니다. 발급자 개인 키는 배포 환경에 전달하지 
 - 예상 배포판이 배포하는 카탈로그 전체를 부여합니다.
 - 정확한 설치 및 배포 바인딩 다이제스트를 요구하고 이미지 digest와 `not_after`를 담지 않으므로,
   업그레이드와 재시작 뒤에도 유효합니다.
-- 토큰처럼 다이제스트에서 파생한 비밀 이름으로 Key Vault 파일 입력을 통해 이동하고, Core가 시작할
-  때 바인딩합니다.
+- 토큰처럼 이동합니다. 관리 호스트가 고정된 `fdai-capability-license` Key Vault 비밀에 기록하고
+  정확한 버전을 다시 읽어 확인하며, Core는 시작할 때 `FDAI_LICENSE_TOKEN`에서 읽습니다. 고정
+  이름은 비밀 참조와 읽기 범위를 하나로 유지하고, 이력은 Key Vault 버전이 보관합니다.
 - 바인딩이 하나라도 다르면 `misbound`로 해석하며, 키 보유자 자신의 설치를 벗어나는 모든 토큰에는
   v1 30일 상한이 그대로 적용됩니다.
 
@@ -167,8 +168,10 @@ Trial을 해제합니다. 발급자 개인 키는 배포 환경에 전달하지 
 
 계약, 공용 라이선스 판정기를 통한 Core 해석, 작업 스테이션 발급, `fdaictl license inspect` 지원은
 구현되었습니다. Core는 기존 라이선스 토큰 입력에서 문서를 읽고 `FDAI_INSTALLATION_BINDING`과
-`FDAI_LICENSE_DEPLOYMENT_BINDING`을 바인딩합니다. 배포 중 발급과 Key Vault 파일 입력을 통한 전달은
-아직 남아 있으므로, 그 연결이 구현될 때까지 키 보유자 배포는 30일 v1 토큰을 받습니다.
+`FDAI_LICENSE_DEPLOYMENT_BINDING`을 바인딩합니다. AKS에서는 키 보유자 배포가 기능 단계에서
+사용권을 발급하고, AKS Core는 이를 CSI로 마운트된 비밀 환경 변수로 받습니다. Container Apps
+Core는 아직 설치 바인딩을 받지 않으므로, Container Apps 키 보유자 배포는 여전히 30일 v1 토큰을
+받습니다.
 
 ## 토큰
 
