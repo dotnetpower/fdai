@@ -317,6 +317,15 @@ async def _load_record(
         )
     except (InvalidTag, ValueError):
         return ResultHandleGetResult(ResultHandleGetStatus.UNAVAILABLE)
+    # The sealed body binds too, so stored metadata relabeled to another scope never binds.
+    if (
+        handle.deployment_scope_digest != binding.deployment_scope_digest
+        or handle.principal_digest != binding.principal_digest
+        or handle.conversation_id != binding.conversation_id
+        or handle.purpose != binding.purpose
+        or handle.manifest_digest != binding.manifest_digest
+    ):
+        return ResultHandleGetResult(ResultHandleGetStatus.FOREIGN)
     return ResultHandleGetResult(ResultHandleGetStatus.BOUND, handle)
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -119,6 +120,32 @@ async def test_cross_binding_fields_return_foreign(updates: dict[str, object]) -
     ref = await store.put(_handle(), issued_at=NOW, expires_at=NOW + timedelta(minutes=15))
 
     loaded = await store.get(ref, binding=_binding(**updates), allowed_snapshot_fields={"name"})
+
+    assert loaded.status is ResultHandleGetStatus.FOREIGN
+    assert loaded.handle is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "relabel",
+    [
+        {"conversation_id": "conversation-2"},
+        {"principal_digest": "sha256:" + "0" * 64},
+        {"deployment_scope_digest": "sha256:" + "1" * 64},
+        {"purpose": "other-purpose"},
+        {"manifest_digest": "sha256:" + "2" * 64},
+    ],
+)
+async def test_relabeled_stored_metadata_never_binds_the_sealed_body(
+    relabel: dict[str, object],
+) -> None:
+    store = _store()
+    ref = await store.put(_handle(), issued_at=NOW, expires_at=NOW + timedelta(minutes=15))
+    # Someone with storage access moves the sealed body under another scope's metadata.
+    record = store._records[ref.handle_ref]
+    store._records[ref.handle_ref] = replace(record, **relabel)  # type: ignore[arg-type]
+
+    loaded = await store.get(ref, binding=_binding(**relabel), allowed_snapshot_fields={"name"})
 
     assert loaded.status is ResultHandleGetStatus.FOREIGN
     assert loaded.handle is None
