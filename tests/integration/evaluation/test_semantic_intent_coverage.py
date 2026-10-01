@@ -53,7 +53,7 @@ def test_semantic_intent_inventory_exposes_complete_topic_denominators() -> None
     assert len(topics["question_bank_domains"]) == 7
     assert len(topics["golden_categories"]) == 12
     assert len(topics["pantheon_question_domains"]) == 47
-    assert len(topics["ontology_query_functions"]) == 38
+    assert len(topics["ontology_query_functions"]) == 39
     assert len({item["agent"] for item in topics["pantheon_question_domains"]}) == 15
     assert all(item["coverage_state"] == "unmapped" for item in topics["pantheon_question_domains"])
     functions = {item["topic_id"]: item for item in topics["ontology_query_functions"]}
@@ -62,8 +62,8 @@ def test_semantic_intent_inventory_exposes_complete_topic_denominators() -> None
     assert functions["query.resource_event_history"]["intent_contract_case_count"] == 2
     assert payload["coverage_metrics"]["ontology_query_function_any_contract_coverage"] == {
         "covered": 12,
-        "total": 38,
-        "rate": 12 / 38,
+        "total": 39,
+        "rate": 12 / 39,
     }
 
 

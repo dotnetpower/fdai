@@ -14,6 +14,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticDiscourseMode,
     SemanticJudgmentDisposition,
     SemanticJudgmentProposal,
+    SemanticJudgmentReceipt,
     SemanticJudgmentTier,
 )
 from pydantic import ValidationError
@@ -41,6 +42,7 @@ class _JudgmentDecision:
     observations: tuple[SemanticJudgmentObservation, ...] = ()
     accepted: bool = False
     uncovered_roles: tuple[str, ...] = ()
+    receipt: SemanticJudgmentReceipt | None = None
 
     @property
     def role_details(self) -> tuple[str, ...]:

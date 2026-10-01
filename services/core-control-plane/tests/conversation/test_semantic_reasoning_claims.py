@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from fdai.core.conversation.causal_grade_receipts import causal_grade_receipt
 from fdai.core.conversation.semantic_reasoning_claims import (
     ComposedAnswer,
     GoalEvidence,
@@ -209,6 +210,68 @@ def test_negative_and_causal_claims_need_closed_population_and_causal_evidence()
     assert "cause_without_causal_evidence:c2" in violations
 
 
+def test_causal_claim_requires_predictive_precedence_grade_receipt() -> None:
+    from tests.conversation.test_causal_grade_receipts import _mechanism
+
+    text = "The deployment is a predictive hypothesis."
+    answer = ComposedAnswer.model_validate(
+        {
+            "text": text,
+            "claims": [
+                {
+                    "id": "c1",
+                    "kind": "cause_hypothesis",
+                    "span": {"start": 0, "end": len(text)},
+                    "refs": [{"goal": "g1", "node": "causal"}],
+                    "proposition": {
+                        "modality": "hypothesis",
+                        "causal_class": "causal_hypothesis",
+                    },
+                }
+            ],
+        }
+    )
+    association = causal_grade_receipt(
+        mechanism=_mechanism(),
+        repeated_sample_count=1,
+        reverse_direction_checked=True,
+        confounder_checked=True,
+        complete_windows=True,
+        mechanism_evidence_refs=("evidence:mechanism",),
+        refutation_refs=("evidence:refutation",),
+        refutation_reads_run=_mechanism().refutation_reads,
+    )
+    predictive = causal_grade_receipt(
+        mechanism=_mechanism(),
+        repeated_sample_count=3,
+        reverse_direction_checked=True,
+        confounder_checked=True,
+        complete_windows=True,
+        mechanism_evidence_refs=("evidence:mechanism",),
+        refutation_refs=("evidence:refutation",),
+        refutation_reads_run=_mechanism().refutation_reads,
+    )
+
+    below = _verdict(
+        answer,
+        _evidence(
+            causal_grade_receipts=(association,),
+            tables={"causal": QueryTable(rows=(), complete=True)},
+        ),
+    )
+    accepted = _verdict(
+        answer,
+        _evidence(
+            causal_grade_receipts=(predictive,),
+            tables={"causal": QueryTable(rows=(), complete=True)},
+        ),
+    )
+
+    assert "cause_without_causal_evidence:c1" in below
+    assert "proposition_causal_class_unbacked:c1" in below
+    assert accepted == ()
+
+
 def test_required_limitations_and_unavailable_goals_are_enforced() -> None:
     text = "It depends on kv-app and sql-app."
     answer = _answer(text=text)
@@ -248,6 +311,98 @@ def test_possible_impact_cannot_be_stated_as_observed() -> None:
     violations = _verdict(_answer(text=text), _evidence(possible_only=True))
 
     assert "impact_stated_as_observed:c1" in violations
+
+
+def test_proposition_fields_must_be_backed_by_cited_evidence() -> None:
+    text = "The cost is 12 USD in UTC."
+    table = QueryTable(
+        rows=(
+            QueryRow.from_values(
+                "r1",
+                {
+                    "id": "resource-1",
+                    "properties": {"name": "aks-prod-01"},
+                    "cost": 12,
+                    "unit": "currency",
+                    "currency": "USD",
+                    "temporal_basis": "window",
+                    "time_zone": "UTC",
+                },
+            ),
+        ),
+        complete=True,
+    )
+    base_claim = {
+        "id": "c1",
+        "kind": "fact",
+        "span": {"start": 0, "end": len(text)},
+        "refs": [
+            {"goal": "g1", "node": "cost", "row": "r1", "field": "cost"},
+            {"goal": "g1", "node": "cost", "row": "r1", "field": "unit"},
+            {"goal": "g1", "node": "cost", "row": "r1", "field": "currency"},
+            {"goal": "g1", "node": "cost", "row": "r1", "field": "temporal_basis"},
+            {"goal": "g1", "node": "cost", "row": "r1", "field": "time_zone"},
+        ],
+        "literals": [
+            {
+                "span": {"start": text.index("12"), "end": text.index("12") + 2},
+                "value": 12,
+                "ref": {"goal": "g1", "node": "cost", "row": "r1", "field": "cost"},
+            }
+        ],
+        "rows": ["r1"],
+    }
+    accepted = ComposedAnswer.model_validate(
+        {
+            "text": text,
+            "claims": [
+                base_claim
+                | {
+                    "proposition": {
+                        "subject": "resource-1",
+                        "predicate": "cost",
+                        "object": "aks-prod-01",
+                        "value": 12,
+                        "unit": "currency",
+                        "currency": "USD",
+                        "temporal_basis": "window",
+                        "time_zone": "UTC",
+                    }
+                }
+            ],
+        }
+    )
+    swapped = ComposedAnswer.model_validate(
+        {
+            "text": text,
+            "claims": [
+                base_claim
+                | {
+                    "proposition": {
+                        "subject": "resource-2",
+                        "predicate": "spend",
+                        "value": 13,
+                        "unit": "currency",
+                        "currency": "EUR",
+                        "temporal_basis": "current",
+                    }
+                }
+            ],
+        }
+    )
+    evidence = GoalEvidence(
+        goal_id="g1",
+        status=GoalEvidenceStatus.VERIFIED,
+        tables={"cost": table},
+    )
+
+    assert _verdict(accepted, evidence) == ()
+    violations = _verdict(swapped, evidence)
+    assert "proposition_subject_unresolved:c1" in violations
+    assert "proposition_predicate_unbacked:c1" in violations
+    assert "proposition_value_mismatch:c1" in violations
+    assert "proposition_currency_unbacked:c1" in violations
+    assert "proposition_temporal_basis_unbacked:c1" in violations
 
 
 def test_a_restatement_may_repeat_only_what_the_operator_wrote() -> None:

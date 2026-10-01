@@ -15,7 +15,7 @@ from fdai.core.conversation.semantic_planning_models import (
 from fdai.core.conversation.session import Principal, Role, Turn
 from fdai_service_contracts import OperatorRole, SemanticTurnRequest
 
-from .contract_codecs import OPERATOR_REQUEST_CONSUMER_V19
+from .contract_codecs import OPERATOR_REQUEST_CONSUMER_V110
 
 _ROLE_ORDER = (
     OperatorRole.READER,
@@ -47,7 +47,7 @@ def decode_request(
 ) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
     """Decode one semantic request envelope and validate its temporal bindings."""
     try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V19.decode_mapping(payload)
+        envelope = OPERATOR_REQUEST_CONSUMER_V110.decode_mapping(payload)
         if envelope.get("request_kind") != "semantic_query":
             raise SemanticTurnRejectedError("semantic_request_kind_required")
         semantic_turn = envelope.get("semantic_turn")

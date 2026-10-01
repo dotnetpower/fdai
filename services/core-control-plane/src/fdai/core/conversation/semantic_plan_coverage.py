@@ -14,7 +14,8 @@ history, or cause of an instance that the blind reading says the question asks.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fdai_service_contracts.ontology_query import (
@@ -23,6 +24,11 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
 )
 
+from .semantic_operand_provenance import (
+    IdentityBindingReceipt,
+    ProvenanceScope,
+    unproven_identity_operands,
+)
 from .semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
@@ -35,6 +41,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PLAN_CONSTRAINT_UNCOVERED = "semantic_plan_constraint_uncovered"
 PLAN_READING_UNVERIFIED = "semantic_reading_unverified"
+PLAN_OPERAND_WITHOUT_SOURCE = "semantic_operand_without_source"
 # Declaration reads answer what the ontology declares, never what an instance is or did.
 _DECLARATION_READERS = frozenset(
     {"query.manifest", "query.ontology_declaration", "query.ontology_relationships"}
@@ -83,12 +90,22 @@ class BlindReading(Protocol):
     def settled_reading(self) -> ConstraintExtraction | None: ...
 
 
+class SlotBearingFrame(Protocol):
+    constraint_slots: tuple[Any, ...]
+
+
 def narrower_plan_outcome(
     ticket: PlanVeto | None,
     coverage: BlindReading | None,
     plan_source: str,
     plan: OntologyQueryPlan,
     manifest_digest: str,
+    utterance: str = "",
+    context: Sequence[str] = (),
+    enforce_when: object = True,
+    identity_receipts: Sequence[IdentityBindingReceipt] = (),
+    *,
+    frame: SlotBearingFrame | None = None,
 ) -> SemanticPlanningOutcome | None:
     """Return the hold for a current-path plan that reads less than the question asks.
 
@@ -103,6 +120,29 @@ def narrower_plan_outcome(
     )
     if vetoed is not None:
         return vetoed
+    output_ids = set(getattr(plan, "output_node_ids", tuple(node.node_id for node in plan.nodes)))
+    scope = enforce_when if isinstance(enforce_when, ProvenanceScope) else None
+    receipts = (*identity_receipts, *(scope.receipts if scope is not None else ()))
+    if scope is not None:
+        utterance, context = scope.utterance or utterance, scope.context or context
+    if (
+        (scope.enforced if scope is not None else enforce_when is not None)
+        # Document evidence appended to a model plan renames its source, not its operands.
+        and plan_source.split("+", 1)[0] == "proposed"
+        and any(
+            node.output_kind == "query.table" for node in plan.nodes if node.node_id in output_ids
+        )
+    ):
+        unproven = unproven_identity_operands(
+            plan, utterance=utterance, context=context, receipts=receipts
+        )
+        if unproven:
+            return _outcome(
+                SemanticPlanningDisposition.UNAVAILABLE,
+                PLAN_OPERAND_WITHOUT_SOURCE,
+                manifest_digest=manifest_digest,
+                hold_details=hold_details(("identity:unproven",)),
+            )
     reading = coverage.settled_reading() if coverage is not None else None
     asked = plan_answers_schema_for_instance(reading, plan)
     if asked is not None:
@@ -116,7 +156,7 @@ def narrower_plan_outcome(
             manifest_digest=manifest_digest,
             hold_details=hold_details((f"answer_kind:{asked.value}",)),
         )
-    roles = plan_uncovered_roles(reading, plan)
+    roles = (*plan_uncovered_roles(reading, plan), *plan_uncovered_slot_roles(frame, plan))
     if not roles:
         return None
     _LOGGER.info(
@@ -161,6 +201,120 @@ def plan_uncovered_roles(
     if ConstraintRole.RELATES in roles and not any(_relational(node) for node in plan.nodes):
         uncovered.append(ConstraintRole.RELATES.value)
     return tuple(uncovered)
+
+
+def plan_uncovered_slot_roles(
+    frame: SlotBearingFrame | None, plan: OntologyQueryPlan
+) -> tuple[str, ...]:
+    if frame is None:
+        return ()
+    uncovered: list[str] = []
+    for slot in frame.constraint_slots:
+        if not slot.grounded:
+            continue
+        role = slot.role.value
+        if role == "group_by" and not any(_grouped(node) for node in plan.nodes):
+            uncovered.append(role)
+        elif role == "relation_path" and not any(_relational(node) for node in plan.nodes):
+            uncovered.append(role)
+        elif role == "time_window" and not _windowed_plan(plan):
+            uncovered.append(role)
+        elif role in _VALUE_SLOT_PROPERTIES and not any(
+            _restricts(node, _VALUE_SLOT_PROPERTIES[role], str(slot.value)) for node in plan.nodes
+        ):
+            # A slot that covered a stated restriction must restrict the plan the same way.
+            uncovered.append(role)
+    return tuple(dict.fromkeys(uncovered))
+
+
+# Properties a value slot restricts; an empty set accepts any property carrying the value.
+_VALUE_SLOT_PROPERTIES: Mapping[str, frozenset[str]] = {
+    "location": frozenset({"location"}),
+    "lifecycle_status": frozenset({"status", "state"}),
+    "property_predicate": frozenset(),
+}
+_WINDOW_ARGUMENTS = frozenset(
+    {
+        "lookback_seconds",
+        "window_seconds",
+        "start_at",
+        "end_at",
+        "start",
+        "end",
+        "before_as_of",
+        "after_as_of",
+    }
+)
+
+
+def _windowed_plan(plan: OntologyQueryPlan) -> bool:
+    """Return whether the plan reads a time window rather than one point in time.
+
+    A single ``as_of`` is a cutoff, and the server stamps one on every ObjectSet,
+    traversal, and path node, so it never applies a window. Two distinct point-in-time
+    reads (a topology or configuration snapshot pair) do.
+    """
+
+    points: set[datetime] = set()
+    for node in plan.nodes:
+        arguments = node.arguments
+        nested = arguments.get("arguments")
+        if _WINDOW_ARGUMENTS & set(arguments) or (
+            isinstance(nested, Mapping) and _WINDOW_ARGUMENTS & set(nested)
+        ):
+            return True
+        point = None
+        if node.kind is QueryNodeKind.TOPOLOGY_AT:
+            point = _instant(arguments.get("as_of"))
+        elif node.kind is QueryNodeKind.FUNCTION and isinstance(nested, Mapping):
+            point = _instant(nested.get("as_of"))
+        if point is not None:
+            points.add(point)
+    return len(points) >= 2
+
+
+def _instant(value: object) -> datetime | None:
+    """Parse one aware timestamp, so one instant written two ways is one point."""
+
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+        return parsed.astimezone(UTC) if parsed.tzinfo is not None else None
+    except (ValueError, OverflowError):
+        return None
+
+
+def _restricts(node: OntologyQueryNode, properties: frozenset[str], value: str) -> bool:
+    """Return whether the node restricts by ``value``, in a predicate or a function argument."""
+
+    arguments = node.arguments
+    definition = arguments.get("definition")
+    predicates = [
+        *(definition.get("predicates") or () if isinstance(definition, Mapping) else ()),
+        *(arguments.get("endpoint_predicates") or ()),
+    ]
+    for item in predicates:
+        if not isinstance(item, Mapping):
+            continue
+        if properties and item.get("property") not in properties:
+            continue
+        if _carries(item.get("equals"), value) or _carries(item.get("values"), value):
+            return True
+    nested = arguments.get("arguments")
+    return (
+        node.kind is QueryNodeKind.FUNCTION
+        and isinstance(nested, Mapping)
+        and any(_carries(item, value) for item in nested.values())
+    )
+
+
+def _carries(candidate: object, value: str) -> bool:
+    if isinstance(candidate, str):
+        return candidate.casefold() == value.casefold()
+    if isinstance(candidate, list | tuple):
+        return any(_carries(item, value) for item in candidate)
+    return False
 
 
 def plan_answers_schema_for_instance(

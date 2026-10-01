@@ -26,6 +26,7 @@ from fdai_service_contracts.ontology_query import (
     content_digest,
 )
 from fdai_service_contracts.operator import OperatorPrincipalKind, OperatorRole
+from fdai_service_contracts.reasoning_handles import ResultHandleRef
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 BoundedId = Annotated[str, Field(min_length=1, max_length=256)]
@@ -476,6 +477,10 @@ class SemanticTurnRequest(QueryContract):
     bound_context: SemanticBoundContext | None = None
     investigation_continuation: SemanticInvestigationContinuation | None = None
     document_context: SemanticDocumentContext | None = None
+    recent_result_handles: Annotated[
+        tuple[ResultHandleRef, ...],
+        Field(max_length=4, exclude_if=lambda refs: not refs),
+    ] = ()
     prior_turns: Annotated[tuple[SemanticPriorTurn, ...], Field(max_length=12)] = ()
     planning_profile: SemanticPlanningProfile = SemanticPlanningProfile.INTERACTIVE
     conversation_model_tier: SemanticConversationModelTier | None = None
@@ -500,6 +505,12 @@ class SemanticTurnRequest(QueryContract):
             or self.document_context.conversation_ref != self.session_id
         ):
             raise ValueError("semantic document context MUST match request principal and session")
+        handle_refs = tuple(ref.handle_ref for ref in self.recent_result_handles)
+        if len(handle_refs) != len(set(handle_refs)):
+            raise ValueError("recent result handle refs MUST be unique")
+        issued_at = tuple(ref.issued_at for ref in self.recent_result_handles)
+        if issued_at != tuple(sorted(issued_at, reverse=True)):
+            raise ValueError("recent result handles MUST be newest first")
         return self
 
 
@@ -679,6 +690,7 @@ class SemanticTurnResult(QueryContract):
     direct_response_intent: SemanticDirectResponseIntent | None = None
     adaptive_answer: AdaptiveAnswer | None = None
     assurance_observation: SemanticAssuranceObservation | None = None
+    result_handle_ref: ResultHandleRef | None = None
     execution_authority: Literal[False] = False
 
     @model_validator(mode="after")
@@ -711,6 +723,11 @@ class SemanticTurnResult(QueryContract):
             or self.answer is None
         ):
             raise ValueError("answered semantic results MUST carry complete verified evidence")
+        if (
+            self.result_handle_ref is not None
+            and self.disposition is not SemanticTurnDisposition.ANSWERED
+        ):
+            raise ValueError("result handles may be issued only with answered semantic results")
         direct_response = self.disposition is SemanticTurnDisposition.DIRECT_RESPONSE
         advisory_response = self.disposition is SemanticTurnDisposition.ADVISORY_RESPONSE
         if advisory_response and self.adaptive_answer is None:

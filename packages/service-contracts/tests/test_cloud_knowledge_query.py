@@ -160,6 +160,11 @@ def test_nonnull_document_query_requires_additive_proposal_version(version: str)
         _proposal(schema_version=version)
 
 
+@pytest.mark.parametrize("version", ("1.2.0", "1.3.0", "1.4.0"))
+def test_every_minor_from_1_2_keeps_the_document_query(version: str) -> None:
+    assert _proposal(schema_version=version).document_query == _query()
+
+
 def test_v12_retains_forbidden_actions_and_can_report_missing_transformation() -> None:
     proposal = _proposal(
         forbidden_actions=[

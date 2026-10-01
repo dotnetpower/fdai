@@ -17,6 +17,8 @@ product control plane or its execution authority.
 
 ## Design at a glance
 The test-context choice route uses the same Operator route-family assembly as other local diagnostic surfaces. Adding it changes no developer workflow socket, validation queue behavior, or local execution authority.
+Semantic result-handle storage and replay use the ordinary Operator/Core semantic request path.
+They add no developer workflow socket, validation queue behavior, or local execution authority.
 
 
 FDAI uses one read-only developer workflow diagnostic surface across local scripts. The surface
@@ -306,7 +308,8 @@ those sources. Service manifests remain authoritative for runtime images and pac
 
 A dependency lock change is validated in an environment synced from that lock, such as a task
 worktree's own virtual environment, because the shared development environment still holds the
-previous versions.
+previous versions. For a transitive security update, that validation runs the focused tests of the
+repository code that uses the package or the packages that depend on it directly.
 
 The local structural runner can reuse successful results across the optional validator and push
 hook only when its complete content and execution context match. Gates without a proven narrower

@@ -151,6 +151,7 @@ class RelationshipTraversalDefinition(ContractBase):
     endpoint_predicates: tuple[ObjectPredicate, ...] = Field(
         default=(), max_length=_MAX_PREDICATES, exclude_if=lambda value: not value
     )
+    emit_lineage: bool = Field(default=False, exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def _bounded_traversal(self) -> RelationshipTraversalDefinition:

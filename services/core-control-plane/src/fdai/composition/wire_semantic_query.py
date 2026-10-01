@@ -17,6 +17,7 @@ from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.conversation.semantic_manifest import (
     CatalogQueryManifestProvider,
     ConceptVocabularies,
+    planner_metric_concepts,
     semantic_principal_scope_digest,
 )
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
@@ -92,12 +93,10 @@ from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
 )
 from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
-    KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
     kubernetes_pod_recovery_function,
 )
 from fdai.core.ontology_platform.kubernetes_rollout_queries import (
     KUBERNETES_ROLLOUT_FUNCTION_NAME,
-    KUBERNETES_ROLLOUT_SYMPTOM_CONCEPT,
     kubernetes_rollout_function,
 )
 from fdai.core.ontology_platform.latency_recovery_evidence import (
@@ -682,7 +681,9 @@ def build_semantic_query_runtime(
             functions=function_types,
             bound_function_names=tuple(function_registry.binding_authorities),
             property_values=property_values,
-            vocabularies=ConceptVocabularies(metric_registry, inventory_query_language),
+            vocabularies=ConceptVocabularies(
+                metric_registry, inventory_query_language, ontology_catalog.property_semantics
+            ),
         ),
         verifier=OntologyQueryPlanVerifier(
             available_kinds=available_kinds,
@@ -692,15 +693,7 @@ def build_semantic_query_runtime(
             ),
         ),
         descriptor_selector=ManifestDescriptorIndex(),
-        metric_concepts=tuple(
-            sorted(
-                {
-                    KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
-                    KUBERNETES_ROLLOUT_SYMPTOM_CONCEPT,
-                    *(metric_registry.definitions if metric_registry is not None else ()),
-                }
-            )
-        ),
+        metric_concepts=planner_metric_concepts(metric_registry),
         inventory_query_language=inventory_query_language,
         resource_freshness_seconds=resource_freshness_seconds,
         **planner_arguments(second_reader, gateway, purpose, evaluation_cutoff),

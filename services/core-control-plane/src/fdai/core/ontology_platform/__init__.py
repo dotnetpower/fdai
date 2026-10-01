@@ -90,7 +90,7 @@ from .query_handlers import (
     ProjectNodeHandler,
     SetOperationNodeHandler,
 )
-from .query_manifest import QueryManifest, build_query_manifest
+from .query_manifest import QueryManifest, ReviewedPropertyRead, build_query_manifest
 from .query_metric_handlers import (
     METRIC_ARGUMENT_SCHEMAS,
     EvidenceJoinNodeHandler,
@@ -231,6 +231,7 @@ __all__ = [
     "ObjectTraversal",
     "OntologyInstancePathDefinition",
     "RelationshipTraversalDefinition",
+    "ReviewedPropertyRead",
     "TypedPathDefinition",
     "TypedPathStep",
     "MutationEffect",

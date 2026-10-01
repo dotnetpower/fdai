@@ -1657,9 +1657,13 @@ def test_a_why_question_compiles_to_causal_context_that_names_no_cause() -> None
         for node in batch.plan.nodes
         if node.kind.value == "function"
     ]
-    # The effect as observed now and the operations recorded before it, nothing ranked.
-    assert functions == ["query.resource_current_state", "query.resource_change_activity"]
-    assert len(batch.plan.output_node_ids) == 2
+    # The effect as observed now, state-transition change points, and recorded operations.
+    assert functions == [
+        "query.resource_current_state",
+        "query.resource_state_transitions",
+        "query.resource_change_activity",
+    ]
+    assert len(batch.plan.output_node_ids) == 3
     assert batch.frame.output_shape == "cause_context"
     assert batch.frame.evidence_requirements == ("cause.not_established", "window.default.86400")
     assert goal.limitations == ("cause_not_established", "default_window_applied:86400")

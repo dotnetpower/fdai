@@ -43,6 +43,7 @@ def requires_independent_review(proposal: SemanticJudgmentProposal) -> bool:
 
 
 _STATE_COLLECTION_KINDS = frozenset({*_STATE_TARGET_KINDS, "resource_type_filter"})
+_STATE_FACET_ALIASES = frozenset({"current_state", "state", "resource_collection", "list"})
 
 
 def promoted_state_collection(proposal: SemanticJudgmentProposal) -> SemanticJudgmentProposal:
@@ -92,6 +93,8 @@ def _signature(proposal: SemanticJudgmentProposal) -> tuple[object, ...]:
             for target in values
         )
 
+    if proposal.primary_intent == "query.resource_state_inventory":
+        return _state_signature(proposal, targets(proposal.forbidden_actions))
     return (
         proposal.primary_intent,
         frozenset(proposal.secondary_intents),
@@ -108,6 +111,55 @@ def _signature(proposal: SemanticJudgmentProposal) -> tuple[object, ...]:
         proposal.action_posture,
         proposal.action_subject,
     )
+
+
+def _state_signature(
+    proposal: SemanticJudgmentProposal,
+    forbidden_actions: frozenset[tuple[object, ...]],
+) -> tuple[object, ...]:
+    """Return the closed state-reading axes independent readers must agree on."""
+
+    return (
+        proposal.primary_intent,
+        frozenset(proposal.secondary_intents),
+        _state_target_axes(proposal.targets),
+        forbidden_actions,
+        _state_facet_axes(proposal.requested_facets),
+        frozenset(proposal.alternatives),
+        frozenset(proposal.unresolved_terms),
+        proposal.document_evidence_mode,
+        None
+        if proposal.document_query is None
+        else content_digest(proposal.document_query.model_dump(mode="json")),
+        proposal.discourse_mode,
+        proposal.action_posture,
+        proposal.action_subject,
+    )
+
+
+def _state_target_axes(values: Sequence[Any]) -> frozenset[tuple[object, ...]]:
+    axes: set[tuple[object, ...]] = set()
+    for target in values:
+        if target.kind in _STATE_TARGET_KINDS:
+            polarity = "exclude" if target.kind == "resource_state_exclusion_filter" else "include"
+            axes.add(("state", polarity, target.canonical_value or target.value))
+        elif target.kind == "resource_type_filter":
+            axes.add(("resource_type", target.canonical_value or target.value))
+        else:
+            axes.add((target.kind, target.canonical_value or target.value))
+    return frozenset(axes)
+
+
+def _state_facet_axes(values: Sequence[str]) -> frozenset[tuple[str, str]]:
+    axes: set[tuple[str, str]] = {("answer", "count" if "count" in values else "list")}
+    for value in values:
+        if value in _STATE_FACET_ALIASES or value == "count":
+            continue
+        if value in RESOURCE_STATE_MEASURE_CONCEPTS:
+            axes.add(("state", value))
+        else:
+            axes.add(("facet", value))
+    return frozenset(axes)
 
 
 __all__ = [

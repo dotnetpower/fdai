@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+from fdai.core.conversation.intent_graph import build_intent_graph
 from fdai.core.conversation.semantic_judgment_coverage import UNCOVERED_CONSTRAINT_CODE
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import (
@@ -32,6 +33,10 @@ from tests.conversation.test_semantic_planning import (
     _ManifestProvider,
     _Model,
     _typed_fixture,
+)
+from tests.conversation.test_semantic_reasoning_compiler import (
+    _compile_bound,
+    _relation_form,
 )
 
 _UTTERANCE = "VM 목록 보여줘"
@@ -171,6 +176,43 @@ def test_a_released_compilation_answers_before_the_frame_model_runs() -> None:
     assert path.ticket.consumed and not path.ticket.cancelled
     assert [item.model for item in outcome.model_observations] == ["form-model"]
     assert path.starts[0]["utterance"] == _UTTERANCE
+
+
+async def test_released_relation_compilation_answers_on_current_path() -> None:
+    utterance = "Which resources depend on sql-app?"
+    compilation = await _compile_bound(
+        utterance,
+        _relation_form(
+            utterance,
+            anchor="sql-app",
+            sense="dependency",
+            position="target",
+            cue="depend on",
+        ),
+    )
+    goal = compilation.goals[0]
+    batch = goal.batches[0]
+    released = SemanticPlanningOutcome(
+        disposition=SemanticPlanningDisposition.PLANNED,
+        reason="semantic_plan_verified",
+        manifest_digest=batch.plan.ontology_release_digest,
+        frame=batch.frame,
+        plan=batch.plan,
+        intent_graph=build_intent_graph(
+            frame=batch.frame,
+            plan=batch.plan,
+            confidence=goal.confidence or 0.0,
+        ),
+    )
+    path = _Path(released)
+    outcome, model = _plan(
+        _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted()), path
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is batch.plan
+    assert any(node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL for node in batch.plan.nodes)
+    assert model.frame_calls == 0 and model.plan_calls == 0
 
 
 def test_a_released_compilation_replaces_an_uncovered_constraint_hold() -> None:

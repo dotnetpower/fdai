@@ -18,6 +18,7 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
+from fdai_service_contracts.semantic_slots import SemanticConstraintSlot
 from fdai_service_contracts.semantic_turn import (
     SemanticDirectResponseIntent,
     context_selection_digest,
@@ -218,6 +219,7 @@ class SemanticOutputShape(StrEnum):
     TARGET_ERROR_ACTIVITY_CORRELATION = "target_error_activity_correlation"
     TARGET_HEALTH_ASSESSMENT = "target_health_assessment"
     TARGET_INGRESS_CONFIGURATION = "target_ingress_configuration"
+    TARGET_PROPERTY_VALUE = "target_property_value"
     TARGET_RESOURCE_METRIC = "target_resource_metric"
     TARGET_RESOURCE_METRIC_SERIES = "target_resource_metric_series"
     TEMPORAL_COMPARISON = "temporal_comparison"
@@ -239,6 +241,9 @@ class SemanticFrameProposal(_Proposal):
     evidence_requirements: tuple[
         Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")], ...
     ] = Field(default=(), max_length=32)
+    constraint_slots: SkipJsonSchema[tuple[SemanticConstraintSlot, ...]] = Field(
+        default=(), max_length=16, exclude_if=lambda slots: not slots
+    )
     document_query: SkipJsonSchema[DocumentRetrievalQuery | None] = Field(
         default=None,
         exclude_if=lambda query: query is None,

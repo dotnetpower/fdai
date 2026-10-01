@@ -7,11 +7,14 @@ import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, cast
 
 from fdai.core.conversation.adaptive_service import AdaptiveBudgetTelemetry
 from fdai.core.conversation.intent_graph import resolve_execution_authority
+from fdai.core.conversation.result_handle_store import (
+    ResultHandleStore,
+)
 from fdai.core.conversation.semantic_investigation import InvestigationEntityRole
 from fdai.core.conversation.semantic_planning_cascade import (
     AGGRESSIVE_T2_ESCALATION_POLICY,
@@ -27,6 +30,7 @@ from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
 from fdai.core.conversation.semantic_runtime import optional_document_evidence_degraded
+from fdai.core.conversation.semantic_stored_result_handles import StoredReferenceContext
 from fdai.core.conversation.session import Principal, Turn
 from fdai.core.conversation.work_progress import (
     WorkProgressRecorder,
@@ -90,6 +94,7 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V14,
     OPERATOR_PROJECTION_PRODUCER_V16,
     OPERATOR_PROJECTION_PRODUCER_V17,
+    OPERATOR_PROJECTION_PRODUCER_V18,
 )
 from .development_decisions import observe_semantic_decision, record_decision_observations
 from .semantic_answer_presentation import (
@@ -107,12 +112,21 @@ from .semantic_instance_candidates import project_instance_candidates, render_in
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
 from .semantic_ontology_answers import render_ontology_schema_answer
 from .semantic_presentation_semantics import project_presentation_semantics
+from .semantic_property_answer import (
+    liftable_mappings,
+    render_property_value_answer,
+    reviewed_structured_cells,
+)
 from .semantic_reading_holds import reading_hold_answer
 from .semantic_relationship_projection import (
     project_ontology_relationships,
     render_ontology_relationship_answer,
 )
 from .semantic_resource_change_answer import render_resource_change_answer
+from .semantic_result_handle_projection import (
+    result_handle_from_technical_details,
+    stored_reference_arguments,
+)
 from .semantic_service_health_answer import (
     render_service_health_answer as _render_service_health_answer,
 )
@@ -233,6 +247,7 @@ class SemanticTurnRuntime(Protocol):
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         document_context: SemanticDocumentContext | None = None,
+        stored_reference_context: StoredReferenceContext | None = None,
     ) -> RuntimeSemanticTurnResult: ...
 
 
@@ -315,12 +330,19 @@ class SemanticTurnProcessor:
         runtime_settings: RuntimeSettingsReader | None = None,
         runtime_readiness: SemanticRuntimeReadiness | None = None,
         context_selection_shadow: SemanticContextShadow | None = None,
+        result_handle_store: ResultHandleStore | None = None,
+        result_handles_enabled: bool = False,
+        result_handle_ttl_seconds: int = 900,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
             raise ValueError("semantic turn purpose MUST be non-empty")
         if not isinstance(answer_continuity_enabled, bool):
             raise ValueError("answer_continuity_enabled MUST be a boolean")
+        if not isinstance(result_handles_enabled, bool):
+            raise ValueError("result_handles_enabled MUST be a boolean")
+        if not 60 <= result_handle_ttl_seconds <= 86_400:
+            raise ValueError("result_handle_ttl_seconds MUST be in [60, 86400]")
         self._runtime = runtime
         self._results = results
         self._purpose = purpose
@@ -330,6 +352,9 @@ class SemanticTurnProcessor:
         self._runtime_settings = runtime_settings
         self._runtime_readiness = runtime_readiness
         self._context_selection_shadow = context_selection_shadow
+        self._result_handle_store = result_handle_store
+        self._result_handles_enabled = result_handles_enabled
+        self._result_handle_ttl_seconds = result_handle_ttl_seconds
         self._now = now or (lambda: datetime.now(UTC))
 
     def bind_pantheon_assurance(self, runtime: PantheonAssuranceRuntime) -> None:
@@ -766,6 +791,7 @@ class SemanticTurnProcessor:
                 result=result,
                 extensions=extensions,
             )
+            result = await self._with_result_handle_ref(request, result, extensions)
             return self._with_answer_continuity(request, result), _with_work_progress(
                 extensions,
                 recorder,
@@ -816,6 +842,11 @@ class SemanticTurnProcessor:
             runtime_kwargs["conversation_model_tier"] = request.conversation_model_tier
         if request.document_context is not None:
             runtime_kwargs["document_context"] = request.document_context
+        runtime_kwargs.update(
+            stored_reference_arguments(
+                request, enabled=self._result_handles_enabled, store=self._result_handle_store
+            )
+        )
         prior_turns = _prior_turns(request, requested_at=requested_at)
         if self._context_selection_shadow is not None:
             await self._context_selection_shadow.schedule(
@@ -898,6 +929,7 @@ class SemanticTurnProcessor:
                 _terminal_result(request, "held", "operational_evidence_unavailable"),
                 None,
             )
+
         try:
             projected = await reader.read(
                 principal_ref=request.principal.subject_id,
@@ -925,6 +957,37 @@ class SemanticTurnProcessor:
             extensions,
             _SemanticProjectionExtensions(operational_evidence=evidence),
         )
+
+    async def _with_result_handle_ref(
+        self,
+        request: SemanticTurnRequest,
+        result: ContractSemanticTurnResult,
+        extensions: _SemanticProjectionExtensions | None,
+    ) -> ContractSemanticTurnResult:
+        store = self._result_handle_store
+        if (
+            store is None
+            or not self._result_handles_enabled
+            or result.disposition is not SemanticTurnDisposition.ANSWERED
+            or result.result_handle_ref is not None
+            or extensions is None
+            or extensions.technical_details is None
+        ):
+            return result
+        handle = result_handle_from_technical_details(
+            request,
+            result,
+            technical_details=extensions.technical_details,
+        )
+        if handle is None:
+            return result
+        issued_at = _aware_utc(self._now(), field="semantic processor clock")
+        reference = await store.put(
+            handle,
+            issued_at=issued_at,
+            expires_at=issued_at + timedelta(seconds=self._result_handle_ttl_seconds),
+        )
+        return result.model_copy(update={"result_handle_ref": reference})
 
     def _projection(
         self,
@@ -1004,7 +1067,9 @@ class SemanticTurnProcessor:
             )
         projection = {
             "schema_version": (
-                "1.7.0"
+                "1.8.0"
+                if result.result_handle_ref is not None
+                else "1.7.0"
                 if request.document_context is not None
                 else "1.6.0"
                 if result.adaptive_answer is not None
@@ -1038,7 +1103,9 @@ class SemanticTurnProcessor:
             if encoded_size > MAX_WIRE_BYTES:
                 raise _OperationalEvidenceWireBudgetExceededError
         codec = (
-            OPERATOR_PROJECTION_PRODUCER_V17
+            OPERATOR_PROJECTION_PRODUCER_V18
+            if projection["schema_version"] == "1.8.0"
+            else OPERATOR_PROJECTION_PRODUCER_V17
             if projection["schema_version"] == "1.7.0"
             else OPERATOR_PROJECTION_PRODUCER_V16
             if projection["schema_version"] == "1.6.0"
@@ -3067,6 +3134,7 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         for field, value in values.items()
         if isinstance(field, str) and field and not isinstance(value, Mapping | list)
     }
+    projected.update(reviewed_structured_cells(values, redact=_redact_answer_scalar))
     if values.get("record_kind") == "excerpt" and values.get("cloud_source") is not None:
         from fdai_service_contracts.cloud_knowledge import CloudSourceEvidence
 
@@ -3091,9 +3159,7 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         projected["redaction_applied"] = displayed_text != original_text
     current: list[Mapping[str, object]] = [values]
     for _depth in range(2):
-        nested = [
-            value for item in current for value in item.values() if isinstance(value, Mapping)
-        ]
+        nested = [value for item in current for value in liftable_mappings(item)]
         for item in nested:
             for field in _ANSWER_ROW_LIFTED_FIELDS:
                 value = item.get(field)
@@ -3405,6 +3471,11 @@ def _render_general_query_answer(
     )
     if impact_answer is not None:
         return impact_answer
+    property_answer = render_property_value_answer(
+        outputs, korean=korean, output_shape=output_shape, measure_concepts=measure_concepts
+    )
+    if property_answer is not None:
+        return property_answer
     resource_list_answer = _render_resource_list_answer(
         outputs,
         korean=korean,
@@ -4732,7 +4803,10 @@ def _render_health_query_answer(
         return None
     output = outputs[0]
     rows = output.get("rows")
-    if output.get("node_id") != "target-health-assessment" or not isinstance(rows, list):
+    # The current path names the node exactly; a compiled plan prefixes it with its goal.
+    if not str(output.get("node_id") or "").endswith("target-health-assessment") or not (
+        isinstance(rows, list)
+    ):
         return None
     if len(rows) != 1 or not isinstance(rows[0], Mapping):
         return None
@@ -5571,6 +5645,7 @@ def _answer_output(
     rows: list[dict[str, object]],
     evidence_refs: Sequence[str],
 ) -> dict[str, object]:
+    continuation_ref = _recent_change_continuation_ref(table)
     return {
         "node_id": node_id,
         "evidence_refs": list(evidence_refs),
@@ -5582,7 +5657,16 @@ def _answer_output(
         "display_truncated": len(rows) < len(table.rows),
         # The exact count a source holds beyond its read bound, when the reader counted it.
         **({"source_total_rows": table.total_rows} if table.total_rows is not None else {}),
+        **({"continuation_ref": continuation_ref} if continuation_ref is not None else {}),
     }
+
+
+def _recent_change_continuation_ref(table: QueryTable) -> str | None:
+    prefix = "recent-resource-change-continuation:"
+    if table.source_generation is None or not table.source_generation.startswith(prefix):
+        return None
+    value = table.source_generation.removeprefix(prefix)
+    return value if 32 <= len(value) <= 128 else None
 
 
 def _answer_json(outputs: list[dict[str, object]]) -> str:
@@ -5793,6 +5877,8 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
         return OPERATOR_PROJECTION_PRODUCER_V16.encode(loaded)
     if loaded.get("schema_version") == "1.7.0":
         return OPERATOR_PROJECTION_PRODUCER_V17.encode(loaded)
+    if loaded.get("schema_version") == "1.8.0":
+        return OPERATOR_PROJECTION_PRODUCER_V18.encode(loaded)
     return OPERATOR_PROJECTION_PRODUCER_V14.encode(loaded)
 
 

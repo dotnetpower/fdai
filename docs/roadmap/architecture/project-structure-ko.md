@@ -1,13 +1,34 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 670db6780aa4a97ebd92dbbb4a6e2fff81fa99e4
+translation_source_sha: d8ef3263416172c264249673d196f0649a154d9c
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. 조립 패키지는 서명된 스킬을 서명된 스킬 번들보다 먼저 다시 만들고, 두 후보가 모두 검증된 뒤에만 읽기 전용 공개 스냅샷 두 개를 게시하는 비활성 시작 도우미도 제공합니다. Core 시작은 신뢰 아티팩트 저장소와 배포가 제공하는 신뢰 루트가 조립되기 전까지 이 도우미를 호출하지 않습니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 워크플로 카탈로그 로드는 신호 트리거가 관찰 `SignalType` 레지스트리로 해석되었는지, 요청/명령 워크플로 트리거 어휘로 해석되었는지도 기록합니다. 이는 계약 메타데이터일 뿐이며 새 런타임 권한 경로를 추가하지 않습니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요. 공유 `fdai_service_contracts.post_turn_review` 모듈은 versioned cross-service wire seam입니다. Operator composition은 post-turn review 요청을 발행하고 Core Bragi만 review 묶음을 발행하므로 검토, 라우팅, 소유권은 Core와 Pantheon에 남습니다.
 
 작업 흐름 작성 커밋은 자체 감사 테이블과 서비스 마이그레이션 소유권 항목을 가진 전용 Operator PostgreSQL 모듈에 위임됩니다. 제품군 facade는 커밋된 초안 또는 바인딩 요청만 라우팅하며 여전히 실행기, 게시 또는 승격 권한을 부여하지 않습니다.
+최근 Resource 변경 이어 읽기는 Core의 온톨로지 플랫폼과 persistence 모듈 안에 남습니다. Operator는 불투명 참조를 전달하는 route만 노출하고, Core가 이어 읽기 본문, keyset cursor, 만료, 재권한 확인 및 PostgreSQL 저장을 소유합니다.
+연속 all-kinds 관계 이어 읽기는 이미 검증된 계획 묶음 위의 shadow 전용 상태로 Core 대화 모듈에 남습니다. Operator route나 기본 답변 동작은 추가하지 않습니다.
+컨테이너 종류 계보 그룹화는 Core 대화 컴파일과 일반 온톨로지 query handler가 나누어 소유합니다. 컴파일러는 검토된 컨테이너 종류를 선택하고, 보안 traversal은 타입 지정 계보 행을 내보내며, aggregate handler는 새 권한 없이 가장 가까운 루트 개수와 `ambiguous_membership`을 계산합니다.
+남은 E9 연산자는 전용 Core 대화 helper에 누락된 선행 조건 결정을 보존하므로, 지원되지 않는 rank, aggregate, comparison, version, evidence, diagnose 및 path 행은 다른 연산의 계획으로 fallback하지 않습니다.
+Metric window comparison 계획도 전용 Core 대화 helper에 격리됩니다. 형식 필드는 두 기간을 전달하고, query runtime은 기존 metric comparison node를 사용하며 실행 권한은 부여하지 않습니다.
+현재 경로의 피연산자 출처 검사는 전용 Core 대화 helper에 남습니다. 모델이 제안한 계획의 신원은 텍스트, 이전 문맥, 결과 핸들 또는 서버 바인딩 증적에서만 수락되며, 서버가 만든 계획은 기존 권한 경계를 유지합니다.
+현재 경로 관계와 상태 검토 수렴도 같은 Core 대화 경계에 남습니다. 공개된 관계 계획은 공유 컴파일러에서 나오며, 독립 상태 검토는 Operator route를 추가하지 않고 facet 텍스트 대신 닫힌 의미 축을 비교합니다.
+타입 제약 슬롯도 공유 계약과 Core 대화 경계에 격리됩니다. 서비스 계약 SDK는 버전이 지정된 판단 및
+frame 필드를 소유하고, Core는 슬롯 커버리지, plan 커버리지, 기본적으로 꺼진 모델 스키마 노출을
+소유합니다. 이 변경은 Operator route나 실행 권한을 추가하지 않습니다.
+결과 핸들 신원 강화도 같은 분리를 따릅니다. 서비스 계약은 핸들 본문의 추가 필드와 생성된 wire view를
+담당하고, Core만 봉인된 행 신원을 쓰고 보안 온톨로지 query로 다시 읽습니다. Operator와 Console은 계속
+불투명 참조만 봅니다.
+프로덕션 shadow 추론도 같은 분리를 따릅니다. 서비스 계약 SDK는 전달되는 `SemanticQuestionForm`을
+소유하고, Core는 내용 없는 shadow 처리 결과와 비간섭 검사를 소유하며, 조립은 기본적으로 꺼진 프로덕션
+shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 변경은 Operator route를 추가하지 않으며
+로컬 환경 밖에서 컴파일된 답변을 사용할 수 있게 만들지 않습니다. 강화 작업도 이 분리를 유지합니다.
+저장하지 못한 shadow 기록은 로그로만 남고 계획된 답변을 바꾸지 않으며, 전달된 형식은 frame 모델에
+도달하지 않고, 판단의 타입 슬롯은 frame에 바인딩되어 plan 커버리지가 이를 적용할 수 있습니다. 상태 저장소 싱크는 기록마다 서비스 자체의
+이벤트 루프에 막힘 없이 예약하고, 다시 만든 frame은 조사 식별자를 유지하며, 피연산자 출처 검사는
+탐색 끝점과 메트릭 리소스 ID도 읽습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
@@ -29,6 +50,8 @@ Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적�
 이 분리는 서비스, 신원, 데이터 소유자, wire 계약 또는 권한을 바꾸지 않습니다. 범위가 제한된 의미 후보 선택은 크기가 큰 서술자 축을 생략하고 기능 byte 한도에 맞는 순위 접두사를 보존하며 요청을 실패시키지 않습니다.
 Core package는 배포된 `fdai-operational-catalog-review` entry point를 소유합니다. 기존 durable Pantheon, Saga audit 및 GitHub App delivery adapter를 Core runtime 경계 안에서 조립하며 새 service, executor identity, catalog 활성화, merge 또는 관리 리소스 권한을 추가하지 않습니다. Core package는 `fdai.delivery.automation_blueprint_tick_cli` binding도 소유하며, PostgreSQL blueprint evidence, candidate, proposal, audit 및 scheduler store를 아직 배포가 예약하지 않은 하나의 inert 일회성 tick으로 조립하되 Operator route나 tick에 관리 리소스 executor identity를 부여하지 않습니다.
 Core는 활성 Rule 세대 교체를 쓰기 전용 장벽 뒤에 두고, 완결된 결정은 동시 읽기 임대를 공유합니다. 따라서 결정 하나는 세대 하나만 사용하면서 서로 다른 리소스의 처리를 직렬화하지 않습니다. 목적별 모듈은 이 장벽, 의미 사전 판정, 이벤트 버스 payload 코덱, 조립된 런타임 모델, 사람 승인 레지스트리 연결 및 카탈로그 로더를 소유하며 공개 파사드는 기존 가져오기와 권한 경계를 보존합니다. `runtime/control_loop.py` 파사드는 초기화와 집중 테스트를 위해 기존 카탈로그 로더 이름을 명시적으로 다시 내보냅니다. Core wheel 인벤토리와 서비스 테스트 묶음 매니페스트는 새 런타임 모듈 및 Rule 활성화 테스트마다 하나의 소유 배포판을 지정하며 5개 서비스 경계나 System Knowledge 후보를 변경하지 않습니다. 목적별 `runtime/causal_bindings.py` 소유자는 배포의 범위가 제한된 시계열에 런타임 온톨로지 저장소 위의 Forseti `CausalHypothesis` 투영과 Thor ActionRun 영수증용 `delivery/persistence/state_store_causal_receipts.py` 확인기를 연결하며, 인과 개정은 근거로만 남습니다.
+대화 인과 맥락도 같은 근거 전용 경계를 사용합니다. 상태 전환 변화 지점, 활동, 인과 등급 증적을 읽을
+수 있지만 이후 P3와 승격 근거 없이는 원인을 지목하거나 복구 권한을 부여할 수 없습니다.
 Operator의 삽입 전용 인증 영수증 테이블은 Operator 역할만 쓰며, 검증기 역할에 권한을 준 Core 소유 고정 매개변수 출처 함수로만 읽습니다. 따라서 Core 롤백은 역할보다 이 함수를 먼저 삭제하며, 어떤 Operator 객체도 검증기 역할에 의존하지 않습니다. 계약 호환성 매니페스트는 `operator-core-request` 1.9.0을 협상하며, Operator는 기본값이 꺼진 설정 뒤에서만 이를 보냅니다. 이 설정을 켜면 Operator API와 채널 edge는 의미 outbox를 `families/conversation/semantic_authentication_receipts.py`로 감싸고, 참조를 게시하기 전에 요청마다 영수증 다이제스트와 요청 id를 키로 영수증을 보존합니다.
 공유 Operator 계열 어댑터 파사드는 이제 workflow 영속 처리와 호환 내보내기를 유지합니다.
 대화 영속 처리, 운영 변환 결과와 webhook 처리 및 순수 workflow 카탈로그 렌더링은 각각 목적별
@@ -227,7 +250,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `core/conversation/semantic_judgment_assembly.py`는 preflight 주제 키를 만들며 포함 누락이 있으면
   전체 프롬프트로 한 번 다시 판단합니다. `semantic_judgment_bounds.py`는 판단 입력 한도를 담고,
   `semantic_planning_assembly.py`는 planning 어댑터가 쓰는 frame 의도 키, plan 형태 키, frame 결과
-  키와 plan 기술자 선택을 만듭니다. membership planning은 Korean pluralized VM wording처럼 조사가 붙은 검토된 term이 그룹 anchor를 밀어내지 못하도록 group-only subject에서 member filter를 근거화합니다. shadow 전용 `core/conversation/semantic_reasoning_*.py` 모듈은 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)의 닫힌 질문 형식, 발화 구간 회계와, 추출된 제한을 다른 제약과 합친 언급과 두 번째 제약을 담은 ObjectType이나 선언 종류 언급은 한 번의 복구로 나누고 여전히 합쳐진 형식은 보류하며, 어떤 목표도 추출기가 밝힌 닫힌 답의 종류에 답하지 못하는 형식, 인스턴스 목표 옆에 인용되지 않은 `declares` 단어, 추출된 리터럴과 인용이 일치하지 않는 이름 조각, 단서나 조사로만 나타낸 제외, 비교, 순서도 보류하는 다른 모델 계열의 블라인드 제약 검토와, 역할이 다투어지면 구체적으로 일치하는 두 답이 필요하도록 방향 있는 모든 관계를 컴파일 전에 다른 계열의 블라인드 reader들로 확정하는 판정을 포함한 수용, 스키마가 정규화한 값을 기준으로 비교하고 파싱되지 않은 제안에서 비교하는 모든 필드가 닫힌 스키마의 형태를 지키지 않으면 안전하게 거부하고, 빠진 인용은 어떤 목표도 인용하지 않은 타입 시간 재진술일 때만 허용하며 진술된 피연산자와 경쟁 해석, 남은 목표 신호를 모두 유지하는 위반마다 어긴 계약 규칙을 밝히고, 비교 전에 앞선 언급의 ID를 돌려주며, 회계만 어긴 제안은 모든 목표를 같게 읽었지만 쓸 수 없는 복구 대신 검토에 맡기는 한 번으로 제한된 형식 복구, 검토된 ObjectType 설명을 레이블로 보고, 검토된 지표와 Resource Health 개념은 매니페스트가 그 reader를 바인딩한 동안에만 보고, 다른 ObjectType의 검토된 수명 주기 값은 상태 카탈로그에서 보며, 두 선택자가 모두 고른 값만 바인딩하고, 밝힌 ObjectType 또는 리소스 유형 카탈로그에서 실패한 인스턴스 컬렉션 주어는 형제 종류 카탈로그로 다시 시도하는 서로 다른 모델 계열의 블라인드 선택자 두 개에 의한 개념 선택, 대소문자를 구분하지 않고 이름을 비교하고, 게이트웨이 시계로 조회하며, 수집 범위가 불완전할 때는 검증된 일치 하나를 유일성이 입증되지 않았다고 밝힌 경우에만 바인딩하고, 어떤 복구도 조회 키 인용을 바꾸지 못하는 앵커 바인딩, 지시 표현이나 순서 표현을 같은 대화에서 표시된 행에만 바인딩하는 후속 결과 핸들, 상호적인 LinkType을 양쪽 모두 읽는 관계와 연산 컴파일, 단어를 나누는 언급을 거부하고 목표의 범위를 다시 말할 뿐인 전이적 포함 관계는 받아들이는 수용, 독립적인 V-SEM, V-PROV, V-LEVEL, V-CLAIM 검증, 검토된 ASCII 선언 식별자만 주어 타입으로 받는 커버리지와 보증 projection, 커버리지 증적, 이어지는 패스를 첫 앵커 스냅숏에 고정하는 다이제스트 전용 shadow 실행기, release된 해석이 판단의 명확화 요청보다 먼저 답할 수 있는지를 혼자 정하는 세 번째 모델 계열의 닫힌 모호성 reader를 담당하고, `core/ontology_platform/resource_health_values.py`는 현재 경로와 매니페스트가 함께 읽는 검토된 Resource Health 그룹을 만들며, `core/conversation/semantic_plan_coverage.py`는 더 넓은 해석이나 밝힌 그룹 기준, 관계를 필터 목록만 읽는 현재 경로의 계획으로, 인스턴스에 대한 답변 종류를 온톨로지 선언만 읽는 계획으로 답하지 못하게 보류하며, `fdai_core_service/semantic_reading_holds.py`는 타입이 지정된 각 해석 보류에 검토된 두 언어 안내를 붙이고, `delivery/azure/llm/identity_masking.py`는 정확한 식별자를 불투명한 자리 표시자로만 형식 모델에 보내며, `core/ontology_platform/query_traversal_tables.py`는 탐색 끝점을 거르고 정확한 출력 증적을 발급하며, 리소스 그룹 구성원 조회는 대소문자를 무시한 정확한 이름으로 그룹을 결속한 뒤 `contains`를 탐색합니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
+  키와 plan 기술자 선택을 만듭니다. membership planning은 Korean pluralized VM wording처럼 조사가 붙은 검토된 term이 그룹 anchor를 밀어내지 못하도록 group-only subject에서 member filter를 근거화합니다. shadow 전용 `core/conversation/semantic_reasoning_*.py` 모듈은 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)의 닫힌 질문 형식, 발화 구간 회계와, 추출된 제한을 다른 제약과 합친 언급과 두 번째 제약을 담은 ObjectType이나 선언 종류 언급은 한 번의 복구로 나누고 여전히 합쳐진 형식은 보류하며, 어떤 목표도 추출기가 밝힌 닫힌 답의 종류에 답하지 못하는 형식, 인스턴스 목표 옆에 인용되지 않은 `declares` 단어, 추출된 리터럴과 인용이 일치하지 않는 이름 조각, 단서나 조사로만 나타낸 제외, 비교, 순서도 보류하는 다른 모델 계열의 블라인드 제약 검토와, 역할이 다투어지면 구체적으로 일치하는 두 답이 필요하도록 방향 있는 모든 관계를 컴파일 전에 다른 계열의 블라인드 reader들로 확정하는 판정을 포함한 수용, 스키마가 정규화한 값을 기준으로 비교하고 파싱되지 않은 제안에서 비교하는 모든 필드가 닫힌 스키마의 형태를 지키지 않으면 안전하게 거부하고, 빠진 인용은 어떤 목표도 인용하지 않은 타입 시간 재진술일 때만 허용하며 진술된 피연산자와 경쟁 해석, 남은 목표 신호를 모두 유지하는 위반마다 어긴 계약 규칙을 밝히고, 비교 전에 앞선 언급의 ID를 돌려주며, 회계만 어긴 제안은 모든 목표를 같게 읽었지만 쓸 수 없는 복구 대신 검토에 맡기는 한 번으로 제한된 형식 복구, 검토된 ObjectType 설명을 레이블로 보고, 검토된 지표와 Resource Health 개념은 매니페스트가 그 reader를 바인딩한 동안에만 보고, 다른 ObjectType의 검토된 수명 주기 값은 상태 카탈로그에서 보며, 두 선택자가 모두 고른 값만 바인딩하고, 밝힌 ObjectType 또는 리소스 유형 카탈로그에서 실패한 인스턴스 컬렉션 주어는 형제 종류 카탈로그로 다시 시도하는 서로 다른 모델 계열의 블라인드 선택자 두 개에 의한 개념 선택, 대소문자를 구분하지 않고 이름을 비교하고, 게이트웨이 시계로 조회하며, 수집 범위가 불완전할 때는 검증된 일치 하나를 유일성이 입증되지 않았다고 밝힌 경우에만 바인딩하고, 어떤 복구도 조회 키 인용을 바꾸지 못하는 앵커 바인딩, 지시 표현이나 순서 표현을 같은 대화에서 표시된 행에만 바인딩하는 후속 결과 핸들, 상호적인 LinkType을 양쪽 모두 읽는 관계와 연산 컴파일, 단어를 나누는 언급을 거부하고 목표의 범위를 다시 말할 뿐인 전이적 포함 관계는 받아들이는 수용, 독립적인 V-SEM, V-PROV, V-LEVEL, V-CLAIM 검증, 검토된 ASCII 선언 식별자만 주어 타입으로 받는 커버리지와 보증 projection, 커버리지 증적, 이어지는 패스를 첫 앵커 스냅숏에 고정하는 다이제스트 전용 shadow 실행기, release된 해석이 판단의 명확화 요청보다 먼저 답할 수 있는지를 혼자 정하는 세 번째 모델 계열의 닫힌 모호성 reader를 담당하고, `core/ontology_platform/resource_health_values.py`는 현재 경로와 매니페스트가 함께 읽는 검토된 Resource Health 그룹을 만들고, `core/conversation/semantic_target_health.py`는 두 경로가 함께 계획하는 검토된 단일 대상 상태 이상 평가 모양 하나를 담으며, `core/conversation/semantic_reasoning_measure_reads.py`와 `semantic_reasoning_measure_checks.py`는 상태 이상 조회와 상태 이력을 컴파일하고 독립적으로 검증하고, `core/conversation/conversation_preflight_boundary.py`는 명시적인 독립 질문에 라우터가 추정한 스레드 의존을 없음으로 읽고, `core/conversation/semantic_direction_receipt.py`는 shadow 턴마다 방향 판독기에 든 비용을 판독기 수별로 기록하고, `core/conversation/turn_reservations.py`는 공유 모델 호출 관문에서 턴 단계마다 최악의 경우를 예약해 어떤 단계도 뒤 단계의 예산을 쓰지 못하게 하고, `core/conversation/semantic_reasoning_property_reads.py`는 바인딩된 리소스 하나의 검토된 속성 하나에 대한 조회를 그 검토된 제공자 경로의 투영으로 컴파일하고 검증하며, `fdai_core_service/semantic_property_answer.py`는 그 값을 정확히 그대로 렌더링하고, `composition/semantic_query_value_domains.py`는 투영이 정식 상태 열거형을 기록하는 모든 ObjectType의 검토된 수명 주기 도메인을 선언하며, `core/conversation/semantic_plan_coverage.py`는 더 넓은 해석이나 밝힌 그룹 기준, 관계를 필터 목록만 읽는 현재 경로의 계획으로, 인스턴스에 대한 답변 종류를 온톨로지 선언만 읽는 계획으로 답하지 못하게 보류하며, `fdai_core_service/semantic_reading_holds.py`는 타입이 지정된 각 해석 보류에 검토된 두 언어 안내를 붙이고, `delivery/azure/llm/identity_masking.py`는 정확한 식별자를 불투명한 자리 표시자로만 형식 모델에 보내며, `core/ontology_platform/query_traversal_tables.py`는 탐색 끝점을 거르고 정확한 출력 증적을 발급하며, 리소스 그룹 구성원 조회는 대소문자를 무시한 정확한 이름으로 그룹을 결속한 뒤 `contains`를 탐색합니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
   근거화하므로 모델이 제안한 정규 값을 버립니다.
   `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
   실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.
@@ -521,6 +544,11 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 ## 의존성 주입을 통한 커스터마이제이션
 
 전체 경계 카탈로그와 구성 규칙은 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
+Core 결과 핸들 저장소도 같은 규칙을 따릅니다. `ResultHandleStore`는 Core 조립에서 주입되며, 인메모리 로컬 구현과 PostgreSQL 구현은 암호화된 핸들 본문을 Core 소유로 유지하고 Operator에는 불투명 참조만 영속화하게 합니다. 해당 참조의 서수 후속 질문 바인딩은 기본적으로 꺼진 compiled-answer shadow 경로 안에 머물며 실행 권한을 추가하지 않습니다.
+Core `ModelEvidenceView` 빌더도 읽기 전용 대화 경계입니다. 적응형 모델 근거 읽기는 원시 조회 표,
+프로바이더 본문, 핸들 또는 보관된 스냅숏 셀이 아니라 허용 목록이 적용된 변환 결과만 받습니다.
+검증된 답변 작성은 공유된 권한 없는 명제 계약과 기본값이 꺼진 작성자/검토자 포트를 사용하며, 승격된
+바인딩이 켜기 전까지 현재 답변 경로를 바꾸지 않습니다.
 
 ## 컨트롤 루프 배선
 
@@ -599,7 +627,9 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   이미지에 설치되지 않는 `pdf-report`, `azure-mcp` 같은 선택적 extra도 lock 수준에서 같은
   규칙을 따릅니다. 공개된 보안 권고는 패치된 릴리스를 lock에 고정해 해결합니다. 매니페스트
   범위가 그 릴리스를 제외하면 루트와 서비스 매니페스트를 함께 옮기고, 새 릴리스에 맞춰야 하는
-  어댑터 코드와 집중 테스트도 함께 갱신합니다.
+  어댑터 코드와 집중 테스트도 함께 갱신합니다. 취약점 데이터베이스가 갱신되면 바뀌지 않은 lock도
+  이미지 검사에서 실패할 수 있습니다. 이때는 패치된 릴리스를 lock에 고정하는 변경으로 해결하고, 그
+  패키지를 사용하는 코드의 집중 테스트와 선택된 이미지의 검사로 검증합니다.
 - `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
@@ -608,8 +638,9 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   없으면 해당 기능이 안전하게 차단됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격
   권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를
   유지합니다. 경계에 따라 적용되는 최소 계약은 [패키지 보증](package-assurance-ko.md)에서 정의합니다.
-- 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합, 선택적인 정확한 대상 `serving` 경로 및 범위가 제한된 사용 불가 사유 토큰을 소유합니다. Azure delivery는 기존 `MetricProvider` 경계를 통해 수동적인 서비스 응답 근거를 제공하고 해당 메타데이터는 온톨로지 변환 허용 목록을 통과해 유지됩니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
+- 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `answer_claims.py`는 검증된 답변 작성자, V-CLAIM, 함의 검토자가 공유하는 권한 없는 명제 스키마를 소유합니다. `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합, 선택적인 정확한 대상 `serving` 경로 및 범위가 제한된 사용 불가 사유 토큰을 소유합니다. Azure delivery는 기존 `MetricProvider` 경계를 통해 수동적인 서비스 응답 근거를 제공하고 해당 메타데이터는 온톨로지 변환 허용 목록을 통과해 유지됩니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
   `operational_activity.py`는 버전이 지정되고 권한을 부여하지 않는 Agent Activity 수명 주기 근거를 소유합니다. 버전 `1.3.0`은 안정적인 활동 신원을 전환 멱등성과 분리하고 기계 처리에 안전한 사유 코드를 요구합니다. `runtime_call.py`는 인증된 런타임 호출 변환 결과에서 사용하는 정확한 호출자 및 대상 Resource 참조와 권한을 부여하지 않는 근거 메타데이터를 소유합니다. Core 조립은 정확한 release, 세대, 범위, 최신성 및 독립 검증기 검사를 통과한 뒤에만 인벤토리를 보강할 수 있습니다. `operator.py`는 `AuditPageProjection`을 추가 기능으로, `AuditQuery.include_summary`를 명시적인 활성화 설정으로 유지합니다. 페이지 전용 읽기가 기본이며 감사 작업 영역만 보존 범위 수치와 무결성 관측을 요청하고, 어느 변환 결과도 승인, 변경 또는 실행 권한을 부여하지 않습니다.
+  `reasoning_handles.py`는 Core 전용 결과 핸들, 근거 매니페스트, 집계 및 타입 지정 경로 pushdown, 조회 연속 작업 계약 레코드를 소유합니다. 이들은 rollout에 안전한 N/N-1 스키마 규칙을 가진 읽기 전용 서비스 계약이며, 그 자체로 Core 또는 Operator 런타임 동작을 연결하지 않습니다.
   [커넥터와 관측 계약](aks-outbound-connector-ko.md)은 권한 없이 범위, 시각, 역할을 검증합니다. Core는 인벤토리 반영 권한을 바꾸지 않고 스냅샷, 서명된 사전 점검, 감사된 추천과 근거에 따른 설정 제안 억제를 소유합니다. Operator는 유효기간이 제한된 이벤트를 소비해 Console용 순서 보장 읽기 데이터를 자체 저장합니다. `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용

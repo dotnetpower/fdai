@@ -69,12 +69,20 @@ def apply_document_evidence_requirement(
             document_query = judgment.document_query
             if document_query is not None:
                 subjects += (_QUERY_PREFIX + document_query.binding_digest(utterance=utterance),)
-            elif judgment.schema_version == "1.2.0":
+            elif judgment.schema_version == "1.2.0" or (
+                # Later minors offer the query only with its own setting; a strict reply
+                # then always states the field, so only an offered field can be missing.
+                judgment.schema_version in {"1.3.0", "1.4.0"}
+                and "document_query" in judgment.model_fields_set
+            ):
                 subjects += (_QUERY_UNAVAILABLE,)
+    # The accepted judgment's typed slots bind the frame, so plan coverage can enforce them.
+    slots = judgment.constraint_slots if judgment is not None else ()
     if (
         requirements == proposal.evidence_requirements
         and subjects == proposal.subject_constraints
         and document_query == proposal.document_query
+        and slots == proposal.constraint_slots
     ):
         return proposal, frame
     updated = SemanticFrameProposal.model_validate(
@@ -83,9 +91,15 @@ def apply_document_evidence_requirement(
             "evidence_requirements": requirements,
             "subject_constraints": subjects,
             "document_query": document_query,
+            "constraint_slots": slots,
         }
     )
-    return updated, build_semantic_frame(updated, utterance=utterance, context=context)
+    return updated, build_semantic_frame(
+        updated,
+        utterance=utterance,
+        context=context,
+        investigation_intent_digest=frame.investigation_intent_digest,
+    )
 
 
 def apply_required_document_evidence(
@@ -104,7 +118,12 @@ def apply_required_document_evidence(
         if not value.startswith(_REQUIREMENT_PREFIX)
     )
     updated = proposal.model_copy(update={"evidence_requirements": (*retained, requirement)})
-    return updated, build_semantic_frame(updated, utterance=utterance, context=context)
+    return updated, build_semantic_frame(
+        updated,
+        utterance=utterance,
+        context=context,
+        investigation_intent_digest=frame.investigation_intent_digest,
+    )
 
 
 def compile_governed_document_plan(

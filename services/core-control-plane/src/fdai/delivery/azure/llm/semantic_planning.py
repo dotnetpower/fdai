@@ -35,6 +35,7 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticFrameProposal,
     SemanticPlanningModelResponse,
 )
+from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.prompts import PromptAssembler, estimate_chat_request_tokens, estimate_prompt_tokens
 from fdai.core.prompts.types import (
     LayerRef,
@@ -561,6 +562,7 @@ class AzureOpenAISemanticPlanningModel:
                             ),
                             request=body,
                             output_tokens=self._config.max_tokens,
+                            stage=operation,
                         )
                         if response.status_code == 429:
                             response.raise_for_status()
@@ -604,6 +606,8 @@ class AzureOpenAISemanticPlanningModel:
                             )
                     raise RuntimeError("semantic planning retry loop exhausted")
             except Exception as exc:  # noqa: BLE001 - bounded fallback hides provider details
+                if isinstance(exc, TurnReservationHeldError):
+                    return None  # Every candidate would hold; the ledger names the stage.
                 if stop_scoped_provider_retry():
                     _LOGGER.warning(
                         "adaptive_query_provider_attempt_ended",

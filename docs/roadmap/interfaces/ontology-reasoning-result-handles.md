@@ -22,6 +22,9 @@ words. A continuation is server-side state for the rest of a read that one answe
 list every row across answers with exact accounting. Both stay read-only and bind the deployment,
 principal, conversation, purpose, and manifest. Every row is read again through the secured gateway,
 and a reference that can't bind returns one typed clarification.
+The H2 local implementation keeps handle bodies encrypted in Core storage and lets Operator persist
+only opaque references on durable semantic turns. The semantic request and projection schemas carry
+those references additively and grant no read, approval, or execution authority.
 
 | Package | Delivers | Depends on |
 |---------|----------|------------|
@@ -113,6 +116,19 @@ carry today.
 - **Answer:** The value states its source, observation time, and freshness. A stale or missing
   value is `UNKNOWN_INCOMPLETE`.
 
+**Implementation note (2026-10-01):** The manifest carries each reviewed Property semantic with one
+provider path per resource type. The manifest digest binds these reads, and they're offered only when
+the principal can read the Resource provider bag. A resource type with more than one reviewed path for
+a semantic is left out. The anchor binding records the bound Resource's type, so the lookup projects
+exactly that type's reviewed path. The structural verifier admits a read inside the Resource provider
+bag only at a reviewed path from the manifest, so a model-proposed plan can't project an unreviewed
+provider field. A structured value is shown once, redacted and bounded, and its keys never become
+answer row fields that would skip that redaction. The inventory doesn't record when a single property
+was observed, so the answer states its source and the semantic's reviewed freshness bound. A semantic
+that needs fresher evidence than the inventory freshness ceiling holds as
+`property_freshness_unestablished`. A missing value is stated as unknown, and the goal status
+`UNKNOWN_INCOMPLETE` is assigned with the verified answer authoring of the promotion program.
+
 **Exit:** a property lookup on one named resource answers with the exact value, and a property
 without a reviewed semantic holds with its typed reason.
 
@@ -121,6 +137,14 @@ without a reviewed semantic holds with its typed reason.
 An ordinal or anaphor binds to a row of a stored handle (H2), and a property measure (H3) can then
 read that row. "What is the SKU of the second one" becomes a property lookup anchored on the handle's
 second row after reauthorization.
+The local H4 implementation also covers state lookup follow-ups such as "what is the state of the
+second one" over the newest stored handle. It loads only the newest opaque reference, maps the row
+key back through a secured gateway reread at the current cutoff, and never binds from wording alone.
+
+**Implementation note (2026-10-01):** Result handles now store the exact shown row identities inside
+the Core-only sealed body. H4 rereads those identities with a bounded `id in` predicate and still
+checks that each row identity hashes to the digest-only row key; older handles without identities
+fall back to the bounded scan path.
 
 **Exit:** the traced ordinal SKU follow-up answers with the exact property value.
 
@@ -139,6 +163,8 @@ WHERE effective_at < :last_effective_at
 
 - The remaining count comes from the same derived relation under the same cutoff, and the answer
   claims completeness only on the last page.
+- The implementation stores the raw seek key only in Core-owned continuation state; decision events
+  and Operator traffic carry only the opaque reference and digests.
 - Core stores the continuation state: deployment scope, principal digest, conversation, purpose,
   the admitted goal and plan digests, the manifest digest, the query-version digest, the window,
   the cutoff, the ordering, the cursor, the page size, and `expires_at`. The client holds only an
@@ -160,6 +186,8 @@ records `remaining_batches`, the next batch descriptor, and a digest of the endp
 listed, not a row count, because later batches haven't run. The answer lists each reached endpoint
 with its LinkType and states how many batches remain. A generation change ends the continuation as
 incomplete, as the shadow runner does today.
+The local implementation keeps this default-off in the shadow path until promotion wires the live
+answer behavior.
 
 **Exit:** the traced connected-resources question lists every reached endpoint with its LinkType
 across the successive plans.

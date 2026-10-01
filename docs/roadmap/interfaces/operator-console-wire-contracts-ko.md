@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 511674a134f221d2ccf21f3b36852dfe53dd83c9
-translation_revised: 2026-09-30
+translation_source_sha: ea25deeca7423d7a1e76b402b80fe58c840795ec
+translation_revised: 2026-10-01
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -13,7 +13,11 @@ translation_revised: 2026-09-30
 테스트 맥락 선택지는 전용 인증 읽기 계약입니다. 검토된 범위와 정책 선택지 및 출처 개정을 반환하며, 수명 주기 쓰기는 계속 기존 제안, 검토, 철회 경로를 사용하고 `execution_authority=false`를 유지합니다.
 
 Core가 감독하는 인스턴스 인덱스 조정은 Incident 생성 및 전송과 분리됩니다. 접수는 모델 인자나 인덱스 레코드가 아닌 인증된 Function 호출 문맥에서만 이뤄집니다. 후보 준비와 정확한 ID 조회는 Incident를 생성하거나 변경을 승인하거나 의미 전송 계약의 실행 권한 없음 원칙을 바꿀 수 없습니다. 전용 최종 변환은 principal, release, 검색어, 결과 다이제스트, 호출 근거 및 후보 집계를 검증합니다. 식별자/타입/수정 버전 행만 표시하고 전체 목록이나 실행 권한이 아니라는 안내를 두 언어로 제공합니다. 후보 0개는 부재를 입증하지 않으며 원시 속성은 제외합니다.
+최근 Resource 변경 이어 읽기는 불투명 continuation reference를 전달하는 Operator 읽기 route만 추가합니다. Operator는 참조를 해독하거나 이어 읽기 본문을 읽지 않으며, Core가 재권한 확인과 타입이 지정된 `continuation_invalid` 결과를 계속 담당합니다.
 Core 초기화는 조립된 런타임 데이터 모델과 사람 승인 레지스트리 연결을 목적별 모듈에 유지합니다. Incident consumer, 감독 작업, 논리 토픽, 영속 수락 및 Operator/Core 권한 분리는 변경되지 않습니다.
+의미 결과 핸들 참조는 의미 요청과 변환 계약의 권한 없는 추가 필드입니다. Operator는 불투명
+참조만 저장하고 재생하며, 암호화된 핸들 본문은 Core만 읽습니다. 이 참조의 서수 후속 질문은
+읽기를 앵커링하기 전에 Core에서 행을 다시 권한 확인하며 Operator/Core 권한 분리를 바꾸지 않습니다.
 
 관측 구성은 기존 전송에서 별도의 `observer-proposal-projection` 스키마와
 `core.observer-deployment.projections` 논리 토픽을 사용합니다. Operator가 순서 보장된
@@ -129,6 +133,10 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 제약 역할이나 원자 범주를 밝히는 검토된 두 언어 안내이고 운영자의 단어는 담지 않으며, Console은 각 코드를 다시
 묻기나 지원되지 않음 안내로 보여 줍니다. `reason_code`는 크기가 제한된 소문자 코드로 유지되므로 wire 스키마는
 바뀌지 않습니다.
+컴파일된 단일 대상 상태 이상 답변은 현재 경로와 같은 검토된 평가 렌더링을 쓰며, `answer`는 검토된 두 언어
+안내로 평가의 고정 기간을 다시 밝힙니다. wire 스키마는 바뀌지 않습니다. 컴파일된 속성 조회는
+바인딩된 리소스의 검토된 값 하나를 렌더링하고 없는 값은 알 수 없음으로 밝히며, `answer`는 검토된
+두 언어 안내로 값의 인벤토리 출처와 검토된 최신성 기준을 밝힙니다. wire 스키마는 바뀌지 않습니다.
 동시 의미 기반 요청은 하나의 영속 처리 claim을 공유합니다. 대기자는 lease가 만료되면 claim을
 다시 시도하므로 실패한 소유자가 요청을 외부 기한까지 멈추게 할 수 없습니다. 대기 중 결과
 저장소가 실패하면 명시적인 보류 변환 결과를 반환합니다.

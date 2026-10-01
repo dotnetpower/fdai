@@ -13,6 +13,7 @@ from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai.core.ontology_platform.recent_resource_changes import (
     RECENT_RESOURCE_CHANGES_FUNCTION_NAME,
     RecentResourceChange,
+    RecentResourceChangePageRead,
     RecentResourceChangeRead,
     recent_resource_changes_function,
     recent_resource_changes_function_type,
@@ -44,6 +45,14 @@ class _Reader:
 
     async def read_recent_resource_changes(self, **_arguments: Any) -> RecentResourceChangeRead:
         return self._read
+
+    async def read_recent_resource_change_page(
+        self, **_arguments: Any
+    ) -> RecentResourceChangePageRead:
+        return RecentResourceChangePageRead((), True, 0, None)
+
+    def query_version_digest(self) -> str:
+        return "sha256:" + ("a" * 64)
 
 
 async def _evaluate(read: RecentResourceChangeRead) -> dict[str, Any]:
@@ -78,6 +87,28 @@ async def test_a_cut_read_keeps_the_exact_total_through_the_query_table() -> Non
     assert RECENT_RESOURCE_CHANGES_FUNCTION_NAME == "query.recent_resource_changes"
     schema = recent_resource_changes_function_type().output_schema["properties"]
     assert schema["total_rows"] == {"type": "integer", "minimum": 0}
+
+
+async def test_unknown_continuation_returns_typed_invalid() -> None:
+    declaration = recent_resource_changes_function_type()
+    release = build_ontology_release(function_types=(declaration,))
+    evaluate = recent_resource_changes_function(
+        release,
+        reader=_Reader(RecentResourceChangeRead((), True)),
+    )
+    result = await evaluate(
+        {
+            "continuation_ref": "opaque-reference-that-does-not-exist-123456",
+            "limit": 20,
+        },
+        FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=("operations-review",),
+        ),
+    )
+
+    assert result == {"disposition": "held", "reason_code": "continuation_invalid"}
 
 
 def test_a_table_total_never_undercounts_its_rows_or_contradicts_completeness() -> None:
