@@ -246,20 +246,20 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "d02405e703ef8ac2364b3a6339218d01671db45a8a12ccf6fefb67cd0822416b",
+      "source_manifest_hash": "1c45326c8aa085d33f765953c70b50cb564b3827e77bfedcf1e4081dc9deb9b5",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "cfd3088d392bba5320f3e6f6926cd13152a95c8e",
-          "line_end": 1119,
-          "line_start": 1080,
+          "blob_sha": "7366a16962d235a5122ea1982b735ac698ae0efd",
+          "line_end": 1142,
+          "line_start": 1103,
           "path": "services/core-control-plane/src/fdai/agents/saga.py",
           "source_kind": "code",
           "symbol": "Saga.escalate_to_github_issue"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "71289889efb1d22ad6016e1e61222610c3546140",
+          "blob_sha": "d4571489b3f42edae8c70f5c81f5504999cd50fb",
           "line_end": 211,
           "line_start": 177,
           "path": "services/core-control-plane/tests/agents/test_wave2_governance.py",
@@ -840,13 +840,13 @@
         "How does Vidar handle rollback?",
         "Vidar는 롤백을 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "a6d6d7939e606c9ddaab65c8e5ce73da472691af84e406c38aa99b0af9ccc38b",
+      "source_manifest_hash": "44d34adcb2ba4e27f82195d7ca82546c2119005344b0276d957cf105a2b16b01",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "942fd5d396814c6483ac9acd4fcd0f769b9e2ef4",
-          "line_end": 482,
-          "line_start": 460,
+          "blob_sha": "6365ed2e2bd132140d116abada011defbb58f8d6",
+          "line_end": 519,
+          "line_start": 497,
           "path": "services/core-control-plane/src/fdai/agents/vidar.py",
           "source_kind": "code",
           "symbol": "Vidar.rollback"
@@ -921,13 +921,13 @@
         "Can Bragi execute a command?",
         "Bragi는 명령을 직접 실행하나요?"
       ],
-      "source_manifest_hash": "e1598568a11394c15b76787d50e8147081e0860c422072d4d458946ef4b3b314",
+      "source_manifest_hash": "9651f4efa0bd6da72c2b5dc38d055f98f6b5cf3a44023daa17a01b146a88155a",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "1a3b03809cfadefbdadc64ceee7f8d4887f2a982",
-          "line_end": 1056,
-          "line_start": 730,
+          "blob_sha": "c856bb159d3962162164b640eaeb52a558785547",
+          "line_end": 1057,
+          "line_start": 731,
           "path": "services/core-control-plane/src/fdai/agents/bragi.py",
           "source_kind": "code",
           "symbol": "Bragi.ask"
