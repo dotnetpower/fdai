@@ -22,6 +22,8 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
+
 _RAW_TOPIC = "fdai.events"
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _ACTION_TYPES = tuple(
@@ -253,6 +255,7 @@ def test_approved_failure_switches_persistent_route_through_thor() -> None:
         forseti_state_store=store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
+        thor_preflight_simulator=PassingPreflightSimulator(),
     )
 
     asyncio.run(
@@ -292,6 +295,7 @@ def test_vidar_restores_route_when_thor_verification_fails() -> None:
         forseti_state_store=store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
+        thor_preflight_simulator=PassingPreflightSimulator(),
     )
 
     asyncio.run(

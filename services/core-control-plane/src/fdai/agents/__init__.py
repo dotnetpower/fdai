@@ -109,6 +109,12 @@ from fdai.agents._framework.semantic_routing import SemanticRouterConfig
 from fdai.agents._framework.state_store_issue_tracker import (
     StateStoreIssueTrackerAdapter,
 )
+from fdai.agents._framework.thor_action_run import ActionRun
+from fdai.agents._framework.thor_preflight import (
+    CompositeThorPreflightSimulator,
+    PreflightSimulationResult,
+    ThorPreflightSimulator,
+)
 from fdai.agents._framework.tool_planner import (
     MAX_TOOL_PLANS,
     ConversationToolPlan,
@@ -161,6 +167,7 @@ __all__ = [
     "request_context_index",
     "recover_context_index_publications",
     "ActionSemanticsCatalog",
+    "ActionRun",
     "AssignmentWorkflowBindings",
     "Agent",
     "Forseti",
@@ -188,6 +195,7 @@ __all__ = [
     "ConversationCharter",
     "ConversationSituation",
     "ConversationTool",
+    "CompositeThorPreflightSimulator",
     "CostRuntimeBindings",
     "DEFAULT_COST_RUNTIME_BINDINGS",
     "DevelopmentRuntimeBindings",
@@ -209,6 +217,7 @@ __all__ = [
     "PantheonRegistry",
     "PantheonRuntime",
     "PromptAuditResult",
+    "PreflightSimulationResult",
     "RECOVERY_EFFECT_OBSERVATION_TOPIC",
     "RECOVERY_EFFECT_OBSERVER_PRINCIPAL",
     "RuleGenerationWorkerBindings",
@@ -220,6 +229,7 @@ __all__ = [
     "StateStoreIssueTrackerAdapter",
     "SynthesisOutcome",
     "T2ConversationSynthesizer",
+    "ThorPreflightSimulator",
     "bind_recovery_effect_observation",
     "plan_conversation_tools",
     "request_rule_generation",

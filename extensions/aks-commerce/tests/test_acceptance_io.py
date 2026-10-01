@@ -49,6 +49,7 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from tests.agents.preflight_helpers import PassingPreflightSimulator
 from tests.core.executor.test_direct_api_executor import _action as _direct_action
 from tests.core.executor.test_executor import _rule
 from tests.core.executor.test_safeguard_lifecycle_coordinator import _NOW, _coordinator
@@ -78,6 +79,7 @@ from fdai_aks_commerce.acceptance_material import (
     AcceptanceDispatchMaterial,
     StoredAcceptanceDispatchMaterials,
 )
+from fdai_aks_commerce.acceptance_preflight import AcceptancePreflightSimulator
 from fdai_aks_commerce.acceptance_preparation import PreparedAcceptanceSource
 from fdai_aks_commerce.acceptance_receipts import (
     RECEIPT_PREFIX,
@@ -124,6 +126,131 @@ def _acceptance_rule():
             ),
         }
     )
+
+
+class _PreflightSource:
+    def __init__(self, candidate: AnomalyActionCandidate | None) -> None:
+        self.intent = _intent()
+        self._candidate = candidate
+
+    async def resolve(self, *, event_type: str, resource_ref: str) -> AnomalyActionCandidate | None:
+        if event_type != ACCEPTANCE_SIGNAL or resource_ref != self.intent.resource_ref:
+            return None
+        return self._candidate
+
+
+def _scale_action(*, action_id: str = "00000000-0000-0000-0000-000000000010") -> Action:
+    return _direct_action(
+        action_id=action_id,
+        target=_intent().resource_ref,
+        mode=Mode.ENFORCE,
+        citing_rules=(_acceptance_rule().id,),
+        params={"target_resource_ref": _intent().resource_ref, "replica_count": 1},
+    ).model_copy(update={"action_type": "ops.scale-out", "operation": Operation.SCALE})
+
+
+def _candidate_for_action(action: Action) -> AnomalyActionCandidate:
+    arguments_json = json.dumps(action.params, sort_keys=True, separators=(",", ":"))
+    return AnomalyActionCandidate(
+        event_type=ACCEPTANCE_SIGNAL,
+        resource_ref=_intent().resource_ref,
+        action_type="ops.scale-out",
+        arguments_json=arguments_json,
+        evidence_ref="sha256:" + "d" * 64,
+        observed_at=NOW,
+        expires_at=NOW + timedelta(seconds=30),
+    )
+
+
+async def test_acceptance_preflight_passes_without_durable_write() -> None:
+    store = InMemoryStateStore()
+    action = _scale_action()
+    material = AcceptanceDispatchMaterial(
+        action.model_dump_json(),
+        "corr-acceptance",
+        "acceptance-key",
+    )
+    authority_calls: list[str] = []
+
+    async def read_material(action_id: str) -> AcceptanceDispatchMaterial | None:
+        assert action_id == str(action.action_id)
+        return material
+
+    async def check_authority(checked: Action, _context: dict[str, Any]) -> None:
+        authority_calls.append(str(checked.action_id))
+
+    simulator = AcceptancePreflightSimulator(
+        guard=AcceptanceGuardedExecutor(
+            source=_PreflightSource(_candidate_for_action(action)),
+            execute=lambda _context: _never_execute(),
+            clock=lambda: NOW,
+        ),
+        read_material=read_material,
+        check_authority=check_authority,
+    )
+    run = ActionRun(
+        correlation_id="corr-acceptance",
+        action_type="ops.scale-out",
+        resource_id=_intent().resource_ref,
+        state=ActionRunState.APPROVED,
+        verdict="hil",
+        action_id=str(action.action_id),
+        idempotency_key="acceptance-key",
+        params=dict(action.params),
+        resolved_autonomy_ceiling=Autonomy.ENFORCE_HIL,
+    )
+
+    result = await simulator.simulate(run)
+
+    assert result.outcome == "passed"
+    assert authority_calls == [str(action.action_id)]
+    assert store.audit_entries == ()
+
+
+async def _never_execute() -> bool:
+    raise AssertionError("acceptance preflight must not execute")
+
+
+async def test_acceptance_preflight_mismatch_fails_without_durable_write() -> None:
+    store = InMemoryStateStore()
+    action = _scale_action()
+
+    async def read_material(_action_id: str) -> AcceptanceDispatchMaterial | None:
+        return AcceptanceDispatchMaterial(
+            action.model_dump_json(),
+            "corr-acceptance",
+            "acceptance-key",
+        )
+
+    async def check_authority(_action: Action, _context: dict[str, Any]) -> None:
+        raise AssertionError("authority should not run after evidence mismatch")
+
+    simulator = AcceptancePreflightSimulator(
+        guard=AcceptanceGuardedExecutor(
+            source=_PreflightSource(None),
+            execute=lambda _context: _never_execute(),
+            clock=lambda: NOW,
+        ),
+        read_material=read_material,
+        check_authority=check_authority,
+    )
+    run = ActionRun(
+        correlation_id="corr-acceptance",
+        action_type="ops.scale-out",
+        resource_id=_intent().resource_ref,
+        state=ActionRunState.APPROVED,
+        verdict="hil",
+        action_id=str(action.action_id),
+        idempotency_key="acceptance-key",
+        params=dict(action.params),
+        resolved_autonomy_ceiling=Autonomy.ENFORCE_HIL,
+    )
+
+    result = await simulator.simulate(run)
+
+    assert result.outcome == "failed"
+    assert result.reason == "validation_failed"
+    assert store.audit_entries == ()
 
 
 async def _receipt() -> tuple[
@@ -527,6 +654,7 @@ async def test_signed_observation_survives_store_reconstruction_and_replay(
             source=source, execute=external_effect, clock=lambda: current_time[0]
         ),
         saga_available=dispatch_state != "audit_down",
+        preflight_simulator=PassingPreflightSimulator(),
     )
     thor.set_shadow(dispatch_state == "shadow")
     var = Var(bus=agent_bus, state_store=store)

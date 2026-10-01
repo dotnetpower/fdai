@@ -20,6 +20,8 @@ from fdai.agents.vidar import Vidar
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
+
 
 def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
@@ -134,6 +136,7 @@ def test_thor_rejects_approval_without_var_durable_readback() -> None:
         action_semantics_catalog=_reversible_semantics(),
         approval_state_store=store,
         approver_authorizer=lambda _principal, _action_type: True,
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = asyncio.run(
         thor.dispatch_verdict(
@@ -171,6 +174,7 @@ def test_thor_readback_accepts_var_approval_while_its_publication_claim_is_in_fl
             action_semantics_catalog=_reversible_semantics(),
             approval_state_store=store,
             approver_authorizer=lambda _principal, _action_type: True,
+            preflight_simulator=PassingPreflightSimulator(),
         )
         var = Var(bus=bus, state_store=store, action_semantics=_reversible_semantics())
         bus.subscribe("object.action-run", "Var", var.on_typed_message)

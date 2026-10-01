@@ -17,6 +17,8 @@ from fdai.agents.vidar import RollbackRecord, Vidar, _rollback_state_key
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
+
 _NOW = datetime(2026, 9, 30, 12, 0, tzinfo=UTC)
 
 
@@ -131,7 +133,12 @@ async def test_thor_resource_contention_is_visible_while_executor_blocks() -> No
         await release.wait()
         return True
 
-    thor = Thor(bus=_bus(), executor=executor, action_semantics_catalog=_semantics())
+    thor = Thor(
+        bus=_bus(),
+        executor=executor,
+        action_semantics_catalog=_semantics(),
+        preflight_simulator=PassingPreflightSimulator(),
+    )
     first = asyncio.create_task(thor.dispatch_verdict(_auto_verdict("corr-1", "resource-1")))
     await asyncio.wait_for(started.wait(), timeout=1)
 
@@ -155,7 +162,12 @@ async def test_thor_duplicate_approval_does_not_wait_for_executor() -> None:
         await release.wait()
         return True
 
-    thor = Thor(bus=_bus(), executor=executor, action_semantics_catalog=_semantics())
+    thor = Thor(
+        bus=_bus(),
+        executor=executor,
+        action_semantics_catalog=_semantics(),
+        preflight_simulator=PassingPreflightSimulator(),
+    )
     run = await thor.dispatch_verdict(
         {**_auto_verdict("corr-hil", "resource-hil"), "risk_verdict": "hil"}
     )

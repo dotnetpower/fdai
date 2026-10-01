@@ -13,6 +13,7 @@ from typing import Any, cast
 import httpx
 
 from fdai.agents import (
+    CompositeThorPreflightSimulator,
     ContextIndexWorkerBindings,
     Heimdall,
     Norns,
@@ -21,6 +22,7 @@ from fdai.agents import (
     SemanticRouterConfig,
     ShadowDivergenceLedger,
     StateStoreActionRunStore,
+    ThorPreflightSimulator,
 )
 from fdai.agents.vidar import RollbackExecutor
 from fdai.composition import Container
@@ -96,7 +98,11 @@ from fdai.runtime.post_turn_review import (
 from fdai.runtime.providers import _build_resource_lock
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
-from fdai.runtime.t2_route_registry import T2RouteRegistry, bind_t2_route_selector
+from fdai.runtime.t2_route_registry import (
+    T2RoutePreflightSimulator,
+    T2RouteRegistry,
+    bind_t2_route_selector,
+)
 from fdai.runtime.test_context_projection import TestContextApplicationPublisher
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
@@ -404,6 +410,18 @@ async def initialize_pantheon(
     rollback_executors: dict[str, RollbackExecutor] | None = (
         {"state_forward_only": t2_route_registry.rollback} if thor_mutation_bound else None
     )
+    thor_preflight_simulators: dict[str, ThorPreflightSimulator] = {}
+    if thor_mutation_bound:
+        thor_preflight_simulators["ops.switch-t2-proposer-route"] = T2RoutePreflightSimulator(
+            t2_route_registry
+        )
+    if acceptance_bindings is not None:
+        thor_preflight_simulators["ops.scale-out"] = acceptance_bindings.preflight_simulator
+    thor_preflight_simulator = (
+        CompositeThorPreflightSimulator(thor_preflight_simulators)
+        if thor_preflight_simulators
+        else None
+    )
     execution_resource_lock = _build_resource_lock(config.environment) if pantheon_enforce else None
     thor_safety_readiness = config.build_mutation_dependency_readiness(
         saga=config.runtime_saga,
@@ -498,6 +516,7 @@ async def initialize_pantheon(
         if acceptance_bindings is not None
         else None,
         thor_state_store=StateStoreActionRunStore(config.incident_audit_store),
+        thor_preflight_simulator=thor_preflight_simulator,
         rollback_executors=rollback_executors,
         vidar_state_store=config.incident_audit_store,
         var_state_store=config.incident_audit_store,

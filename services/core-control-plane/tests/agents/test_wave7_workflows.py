@@ -39,6 +39,8 @@ from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 from fdai.shared.providers.cost_governance import SignedCostEffectEstimate
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
+
 _DOCSTRING_WORKFLOW_COUNT = 13
 
 
@@ -202,7 +204,11 @@ def test_workflow_cost_aware_remediation_shadow_trace() -> None:
         advisory_provider=cost_provider,
         package_enabled=True,
     )
-    thor = Thor(bus=bus, action_semantics_catalog=semantics)
+    thor = Thor(
+        bus=bus,
+        action_semantics_catalog=semantics,
+        preflight_simulator=PassingPreflightSimulator(),
+    )
     saga = Saga()
     for terminal in ("object.verdict", "object.action-run"):
         bus.subscribe(terminal, "Saga", saga.on_typed_message)

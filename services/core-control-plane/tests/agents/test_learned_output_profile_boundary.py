@@ -27,6 +27,7 @@ from fdai.agents.var import Var
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
 from tests.agents.test_decision_case_e2e import AT, _context_store, _source_freshness_payload
 from tests.agents.test_wave5_specialists import _ingest, _njord
 from tests.product_selection import governed_execution_selection
@@ -80,6 +81,7 @@ def _wired(
         executor=executor,
         clock=lambda: _NOW,
         action_semantics_catalog=_known_action_semantics(),
+        preflight_simulator=PassingPreflightSimulator(),
     )
     bus.subscribe("object.verdict", "Thor", thor.on_typed_message)
     if with_odin:

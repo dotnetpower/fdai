@@ -58,6 +58,10 @@ class ActionRun:
     workflow_action: dict[str, Any] | None = None
     kinetic_proposal: dict[str, Any] | None = None
     prospective_lineage: dict[str, Any] | None = None
+    dry_run_evidence: str | None = None
+    dry_run_receipt: str | None = None
+    preflight_simulation_receipt: dict[str, Any] | None = None
+    preflight_required: bool = False
     execution_audit_receipt: str | None = None
     effect_verification_ref: str | None = None
     execution_closure_ref: str | None = None
@@ -209,6 +213,10 @@ class ActionRun:
             "workflow_action": deepcopy(self.workflow_action),
             "kinetic_proposal": deepcopy(self.kinetic_proposal),
             "prospective_lineage": deepcopy(self.prospective_lineage),
+            "dry_run_evidence": self.dry_run_evidence,
+            "dry_run_receipt": self.dry_run_receipt,
+            "preflight_simulation_receipt": deepcopy(self.preflight_simulation_receipt),
+            "preflight_required": self.preflight_required,
             "execution_audit_receipt": self.execution_audit_receipt,
             **effect_verification_mapping(self),
             "effect_verification_expires_at": (
@@ -277,6 +285,20 @@ class ActionRun:
             workflow_action=action_run_lineage.bounded_workflow_action(data.get("workflow_action")),
             kinetic_proposal=durable_kinetic_proposal(data.get("kinetic_proposal")),
             prospective_lineage=durable_prospective_lineage(data.get("prospective_lineage")),
+            dry_run_evidence=action_run_lineage.optional_bounded_text(
+                data.get("dry_run_evidence"),
+                field_name="dry_run_evidence",
+            ),
+            dry_run_receipt=action_run_lineage.optional_bounded_text(
+                data.get("dry_run_receipt"),
+                field_name="dry_run_receipt",
+            ),
+            preflight_simulation_receipt=(
+                deepcopy(dict(data["preflight_simulation_receipt"]))
+                if isinstance(data.get("preflight_simulation_receipt"), Mapping)
+                else None
+            ),
+            preflight_required=bool(data.get("preflight_required", False)),
             execution_audit_receipt=action_run_lineage.optional_bounded_text(
                 data.get("execution_audit_receipt"),
                 field_name="execution_audit_receipt",

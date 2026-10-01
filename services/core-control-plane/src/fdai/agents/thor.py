@@ -26,6 +26,7 @@ from fdai.agents._framework import (
     thor_execution,
     thor_introspection,
     thor_persistence,
+    thor_preflight,
 )
 from fdai.agents._framework.action_run_identity import (
     approval_matches_action_run,
@@ -170,6 +171,9 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         effect_verification_timeout_seconds: int = 3_600,
         executor_timeout_seconds: float = 300.0,
         execution_audit_timeout_seconds: float = 30.0,
+        preflight_timeout_seconds: float = 5.0,
+        preflight_receipt_ttl_seconds: int = 300,
+        preflight_simulator: thor_preflight.ThorPreflightSimulator | None = None,
         clock: Callable[[], datetime] | None = None,
         execution_resource_lock: ResourceLock | None = None,
         require_execution_resource_lock: bool = False,
@@ -192,6 +196,10 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             raise ValueError("executor_timeout_seconds MUST be > 0")
         if execution_audit_timeout_seconds <= 0:
             raise ValueError("execution_audit_timeout_seconds MUST be > 0")
+        if preflight_timeout_seconds <= 0:
+            raise ValueError("preflight_timeout_seconds MUST be > 0")
+        if isinstance(preflight_receipt_ttl_seconds, bool) or preflight_receipt_ttl_seconds < 1:
+            raise ValueError("preflight_receipt_ttl_seconds MUST be a positive integer")
         super().__init__(spec=_THOR)
         self.bus = bus
         self._executor = executor or _default_executor
@@ -207,6 +215,9 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self._effect_verification_timeout_seconds = effect_verification_timeout_seconds
         self._executor_timeout_seconds = executor_timeout_seconds
         self._execution_audit_timeout_seconds = execution_audit_timeout_seconds
+        self._preflight_timeout_seconds = preflight_timeout_seconds
+        self._preflight_receipt_ttl_seconds = preflight_receipt_ttl_seconds
+        self._preflight_simulator = preflight_simulator
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._execution_resource_lock = execution_resource_lock
         self._require_execution_resource_lock = (
@@ -286,6 +297,14 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         """Bind ActionType-derived execution semantics for quorum rechecks."""
 
         self._action_semantics = catalog
+
+    def set_preflight_simulator(
+        self,
+        simulator: thor_preflight.ThorPreflightSimulator | None,
+    ) -> None:
+        """Bind Thor's provider-neutral pre-flight simulator."""
+
+        self._preflight_simulator = simulator
 
     def set_approval_readback(
         self,
@@ -371,6 +390,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             "execution_resource_lock_bound": self._execution_resource_lock is not None,
             "execution_resource_lock_required": self._require_execution_resource_lock,
             "action_semantics_bound": self._action_semantics is not None,
+            "preflight_simulator_bound": self._preflight_simulator is not None,
             "saga_available": "Saga" not in unavailable,
             "vidar_available": "Vidar" not in unavailable,
             "shadow_forced": self._shadow_by_default or bool(unavailable),
@@ -426,6 +446,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                     "evidence_state": "not_observed",
                     "executor_bound": False,
                     "action_semantics_bound": self._action_semantics is not None,
+                    "preflight_simulator_bound": self._preflight_simulator is not None,
                 },
             ),
             "execution_outcomes": {
@@ -441,6 +462,15 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             },
             "kpis": kpis,
             "behavior": self.behavior_snapshot(),
+            "preflight": {
+                "simulator_bound": self._preflight_simulator is not None,
+                "receipt_ttl_seconds": self._preflight_receipt_ttl_seconds,
+                "outcome_counts": {
+                    key.removeprefix("preflight:"): value
+                    for key, value in self.behavior_snapshot().items()
+                    if key.startswith("preflight:")
+                },
+            },
         }
 
     # ---- typed port ----------------------------------------------------
@@ -710,6 +740,18 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             or not (self._saga_available and self._vidar_available)
         )
         wire_safeguard_required = verdict.get("producer_principal") is not None
+        dry_run_evidence = None
+        dry_run_receipt = None
+        safeguards = verdict.get("safeguards")
+        if isinstance(safeguards, Mapping):
+            dry_run_evidence = str(safeguards.get("dry_run_evidence") or "").strip() or None
+            raw_dry_run = safeguards.get("dry_run_receipt") or verdict.get("dry_run_receipt")
+            dry_run_receipt = str(raw_dry_run).strip() if raw_dry_run is not None else None
+            if dry_run_receipt and dry_run_evidence is None:
+                dry_run_evidence = "upstream_receipt"
+        elif verdict.get("dry_run_receipt") is not None:
+            dry_run_evidence = "upstream_receipt"
+            dry_run_receipt = str(verdict.get("dry_run_receipt")).strip()
         if risk_verdict in {"auto", "hil"} and wire_safeguard_required:
             missing_safeguards = _missing_wire_safeguards(verdict)
             if missing_safeguards:
@@ -817,6 +859,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 if prospective_lineage is not None
                 else None
             ),
+            dry_run_evidence=dry_run_evidence,
+            dry_run_receipt=dry_run_receipt,
             approval_expires_at=(
                 min(
                     self._now() + timedelta(seconds=self._hil_timeout_seconds),
@@ -827,6 +871,10 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 if risk_verdict == "hil"
                 else None
             ),
+        )
+        run.preflight_required = wire_safeguard_required and (
+            dry_run_evidence == "declared_obligation"
+            or thor_preflight.high_risk(run, self._action_semantics)
         )
         claim_status, existing = await resolve_correlation_claim(self._state_store, run)
         if claim_status in {"execution_completed", "correlation_completed"}:

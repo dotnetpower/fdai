@@ -36,6 +36,7 @@ from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents._framework.runtime_conversation import RuntimeConversationPort
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter, SemanticRouterConfig
 from fdai.agents._framework.thor_dispatch_validation import missing_wire_safeguards
+from fdai.agents._framework.thor_preflight import ThorPreflightSimulator
 from fdai.agents._framework.tool_answer import answer_from_owned_tools
 from fdai.agents._framework.tool_semantic import SemanticToolPlanner
 from fdai.agents.bragi import Bragi
@@ -151,6 +152,7 @@ class PantheonRuntime(RuntimeConversationPort):
         divergence: ShadowDivergenceLedger | None = None,
         kpi_collector: KpiCollector | None = None,
         thor_executor: ActionExecutor | None = None,
+        thor_preflight_simulator: ThorPreflightSimulator | None = None,
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
         vidar_state_store: StateStore | None = None,
@@ -236,6 +238,7 @@ class PantheonRuntime(RuntimeConversationPort):
             ),
             resource_lock=execution_resource_lock,
             has_action_semantics=bool(action_types),
+            has_preflight_simulator=thor_preflight_simulator is not None,
         )
         disabled = execution_safety.validate_disabled_agents(disabled_agents)
         reg = registry or load_pantheon()
@@ -406,6 +409,7 @@ class PantheonRuntime(RuntimeConversationPort):
                 saga=saga,
                 enforce=enforce,
                 human_access_bound=human_access_bound,
+                preflight_simulator=thor_preflight_simulator,
             )
         agents = {n: a for n, a in instantiated.items() if n not in disabled}
         overflow_auditor: Saga | None = saga

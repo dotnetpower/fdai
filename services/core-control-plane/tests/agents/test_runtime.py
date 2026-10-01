@@ -75,6 +75,7 @@ from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
 from tests.core.rule_semantic_generation.test_activation import _command, _CountingIndex
 
 
@@ -985,6 +986,7 @@ def test_enforce_true_disables_forced_shadow() -> None:
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
         action_types=_action_types(),
+        thor_preflight_simulator=PassingPreflightSimulator(),
     )
     assert runtime.enforce is True
     thor = runtime.agents["Thor"]
@@ -1159,6 +1161,21 @@ def test_injected_saga_replaces_the_default() -> None:
                 "var_state_store": InMemoryStateStore(),
             },
             "forseti_state_store",
+        ),
+        (
+            {
+                "thor_executor": lambda _: None,
+                "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
+                "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
+                "rollback_executors": {"state_forward_only": lambda _: None},
+                "vidar_state_store": InMemoryStateStore(),
+                "var_state_store": InMemoryStateStore(),
+                "forseti_state_store": InMemoryStateStore(),
+                "approver_authorizer": lambda _principal, _action_type: True,
+                "execution_resource_lock": _DistributedTestLock(),
+                "action_types": _action_types(),
+            },
+            "thor_preflight_simulator",
         ),
     ],
 )

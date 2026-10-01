@@ -29,6 +29,7 @@ from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from jsonschema import Draft202012Validator
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
 from tests.contracts.test_development_authority import (
     NOW,
     _binding,
@@ -199,6 +200,7 @@ async def test_composed_forseti_bus_path_carries_verified_authority_to_execution
         operator_rbac={profile.owner_principal: frozenset({action.name})},
         execution_resource_lock=_DistributedLock(),
         action_types=(action,),
+        thor_preflight_simulator=PassingPreflightSimulator(),
         development_authority=DevelopmentRuntimeBindings(
             profile=profile,
             executor_principal=profile.executor_principal,
@@ -291,6 +293,7 @@ async def test_var_and_thor_preserve_original_quorum_without_fabricating_people(
         execution_audit_recorder=_audit,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     assert run.state is ActionRunState.HIL_PENDING
@@ -351,6 +354,7 @@ async def test_non_owner_and_wrong_executor_fail_closed() -> None:
         execution_audit_recorder=_audit,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     var = Var(
@@ -380,6 +384,7 @@ async def test_var_durable_journal_records_original_and_effective_quorum() -> No
         execution_audit_recorder=_audit,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     store = InMemoryStateStore()
@@ -429,6 +434,7 @@ async def test_missing_execution_audit_blocks_before_executor_io() -> None:
         clock=lambda: NOW,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     var = Var(
@@ -507,6 +513,7 @@ async def test_vidar_revalidates_same_action_identity_before_rollback() -> None:
         execution_audit_recorder=_audit,
         execution_resource_lock=ResourceLockManager(),
         state_store=_ActionRunStore(),  # type: ignore[arg-type]
+        preflight_simulator=PassingPreflightSimulator(),
     )
     run = await thor.dispatch_verdict(_verdict(evidence=evidence))
     var = Var(

@@ -12,6 +12,7 @@ from typing import Any
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAMES
+from fdai.agents._framework.thor_preflight import ThorPreflightSimulator
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRun, ActionRunStore, Thor
 from fdai.shared.providers.resource_lock import ResourceLock
@@ -55,6 +56,7 @@ def validate_enforce_bindings(
     has_approver_authorizer: bool,
     resource_lock: ResourceLock | None,
     has_action_semantics: bool,
+    has_preflight_simulator: bool,
 ) -> None:
     """Reject enforce mode until every durable safety binding is present."""
 
@@ -83,6 +85,8 @@ def validate_enforce_bindings(
         missing.append("distributed_execution_resource_lock")
     if not has_action_semantics:
         missing.append("action_type_catalog")
+    if not has_preflight_simulator:
+        missing.append("thor_preflight_simulator")
     if missing:
         raise ValueError(
             "pantheon enforce mode requires explicit durable safety bindings: " + ", ".join(missing)
@@ -141,6 +145,7 @@ def configure_thor_execution(
     saga: Saga | None,
     enforce: bool,
     human_access_bound: bool,
+    preflight_simulator: ThorPreflightSimulator | None = None,
 ) -> None:
     """Bind explicit execution/audit/lock seams while keeping unrelated unbound actions denied."""
     if executor is not None:
@@ -152,6 +157,7 @@ def configure_thor_execution(
         thor.set_state_store(state_store)
     bind_execution_audit(thor=thor, saga=saga, enforce=enforce)
     thor.set_execution_resource_lock(resource_lock, required=enforce)
+    thor.set_preflight_simulator(preflight_simulator)
 
 
 async def maintain_agents(
