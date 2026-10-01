@@ -129,6 +129,8 @@ many VMs per resource group" needs the nearest ancestor of one kind.
   and counted in a separate `ambiguous_membership` total, so the group counts plus that total
   equal the members read.
 - **Verify:** V-SEM requires the lineage grouping whenever the form names a container kind.
+- **Implementation note:** The local compiler represents the lineage grouping as a reviewed
+  aggregate operation over typed lineage rows; it remains shadow/local until promoted.
 
 **Exit:** exact gold tests pass for direct, indirect, and equal-nearest roots, and the traced
 per-group count answers with one count per resource group instead of a hold.

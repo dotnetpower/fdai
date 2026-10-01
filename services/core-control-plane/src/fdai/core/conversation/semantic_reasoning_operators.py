@@ -272,6 +272,11 @@ def _restates_measure(goal: FormGoal, measure: FormMeasure, ctx: CompileContext)
     ):
         return True
     domain = ctx.mention(str(measure.mention)).domain
+    if measure.group_by is GroupBy.CONTAINER and domain in {
+        MentionDomain.OBJECT_TYPE,
+        *RESOURCE_TYPE_DOMAINS,
+    }:
+        return True
     return domain.value == measure.kind.value and domain in _MEASURE_DOMAINS
 
 
@@ -290,7 +295,7 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     scopes = [item for item in goal.filters if item.role is FilterRole.SCOPE]
     if len(scopes) > 1:
         return OperatorResult(unsupported=("multiple_scopes_unsupported",))
-    group = group_by(goal)
+    group = group_by(goal, ctx)
     if isinstance(group, OperatorResult):
         return group
     prefix = goal.id
@@ -353,7 +358,7 @@ def _relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     predicates, failure = endpoint_predicates(goal, ctx, extra_types=anchored.subject_types)
     if failure is not None:
         return failure
-    group = group_by(goal)
+    group = group_by(goal, ctx)
     if isinstance(group, OperatorResult):
         return group
     selection = select_relation_sides(
