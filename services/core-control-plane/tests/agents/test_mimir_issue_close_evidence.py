@@ -15,6 +15,7 @@ from fdai.agents._framework.mimir_maintenance import (
 )
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents._framework.state_store_issue_tracker import StateStoreIssueTrackerAdapter
 from fdai.agents.mimir import Mimir
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
@@ -244,6 +245,55 @@ async def test_mimir_promotion_evidence_waits_when_regression_window_is_short() 
 
     assert saga.github.issues[fingerprint].open is True
     assert "maintenance_tick:issue_close_scan_closed" not in saga.behavior_snapshot()
+
+
+async def test_saga_rehydrates_issue_close_eligibility_after_restart() -> None:
+    now = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    first = Saga(
+        durable_state_store=store,
+        github=StateStoreIssueTrackerAdapter(store),
+        clock=lambda: now,
+    )
+    first.bind_bus(InMemoryBus(registry=load_pantheon()))
+    first.bind_issue_close_promotion_evidence_producer()
+    handoff = handoff_event_payload(
+        session_id="session-restart-close",
+        question="unknown restart close",
+        turn_index=0,
+        reason="no_route",
+        emitted_at=now - timedelta(hours=48),
+    )
+    fingerprint = str(handoff["problem_fingerprint"])
+    await first.on_typed_message("object.handoff-escalation", handoff)
+    await first.on_typed_message(
+        "object.rule",
+        {
+            "producer_principal": "Mimir",
+            "kind": "catalog_review_outcome",
+            "problem_fingerprint": fingerprint,
+            "promotion_pr": "https://github.com/dotnetpower/fdai/pull/1100",
+            "clean_regression_started_at": (now - timedelta(hours=25)).isoformat(),
+            "outcome": "promoted",
+            "correlation_id": "promotion-restart",
+        },
+    )
+
+    restarted = Saga(
+        durable_state_store=store,
+        github=StateStoreIssueTrackerAdapter(store),
+        clock=lambda: now,
+    )
+    restarted.bind_issue_close_promotion_evidence_producer()
+
+    assert await restarted.scan_issue_closures() == 1
+    assert restarted.github.issues[fingerprint].open is False
+    assert restarted.github.issues[fingerprint].closed_by_pr == (
+        "https://github.com/dotnetpower/fdai/pull/1100"
+    )
+    health = restarted.health()
+    assert health["issue_auto_close"] == "evidence_available"
+    assert health["issue_auto_close_last_recovered"] == 1
 
 
 async def test_saga_cancels_mimir_close_when_fingerprint_recurs_after_clean_start() -> None:

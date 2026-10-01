@@ -332,6 +332,7 @@ def build_recovery_bindings(
             read_material=materials.read,
             check_authority=authority,
         ),
+        rollback_executors={},
         observe=observer.handle,
         resolve=observer.resolve_incident,
     )

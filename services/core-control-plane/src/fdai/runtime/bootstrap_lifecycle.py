@@ -331,11 +331,16 @@ def build_mutation_dependency_readiness(
     *,
     saga: Saga,
     rollback_executors: Mapping[str, RollbackExecutor] | None,
+    action_rollback_executors: Mapping[tuple[str, str], RollbackExecutor] | None = None,
 ) -> MutationDependencyReadiness:
     """Project existing Saga and Vidar bindings into mutation readiness evidence."""
     return MutationDependencyReadiness(
         saga_audit_durable=saga.durable_audit,
-        vidar_recovery_contracts=frozenset(rollback_executors or ()),
+        vidar_recovery_contracts=frozenset(rollback_executors or ())
+        | frozenset(
+            f"{action_type}:{contract}"
+            for action_type, contract in (action_rollback_executors or ())
+        ),
     )
 
 

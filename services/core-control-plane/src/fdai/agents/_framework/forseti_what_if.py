@@ -60,7 +60,9 @@ def build_what_if_batch(
             original_verdict=original_verdict,
             what_if_verdict=what_if_verdict,
         )
-        idempotency_keys.append("|".join((CONTRACT_VERSION, what_if_table.digest, input_digest)))
+        idempotency_keys.append(
+            "|".join((CONTRACT_VERSION, correlation_id, what_if_table.digest, input_digest))
+        )
         outcomes.append(
             {
                 "input_digest": input_digest,

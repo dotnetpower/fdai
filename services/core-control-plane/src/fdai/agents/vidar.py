@@ -142,6 +142,7 @@ class Vidar(Agent):
         *,
         bus: PantheonBus | None = None,
         executors: Mapping[str, RollbackExecutor] | None = None,
+        action_executors: Mapping[tuple[str, str], RollbackExecutor] | None = None,
         state_store: StateStore | None = None,
         clock: Callable[[], datetime] | None = None,
         claim_lease: timedelta = _DEFAULT_CLAIM_LEASE,
@@ -177,6 +178,7 @@ class Vidar(Agent):
         super().__init__(spec=_VIDAR)
         self.bus = bus
         self._executors = dict(executors or {})
+        self._action_executors = dict(action_executors or {})
         self._rollback_contracts_by_action_type = dict(rollback_contracts_by_action_type or {})
         self._state_store = state_store
         self._allow_process_local_rollback = allow_process_local_rollback
@@ -261,7 +263,7 @@ class Vidar(Agent):
         missing = 0
         self._rollback_path_validations = BoundedLruDict(self._MAX_RECORDS)
         for action_type, contract in sorted(self._rollback_contracts_by_action_type.items()):
-            executor_bound = contract in self._executors
+            executor_bound = self._rollback_executor(action_type, contract) is not None
             ready = executor_bound and durable_ready
             if ready:
                 validated += 1
@@ -350,7 +352,8 @@ class Vidar(Agent):
 
     def _dr_failback_executor_bound(self, payload: Mapping[str, Any]) -> bool:
         contract = str(payload.get("rollback_contract") or "scripted")
-        return contract in self._executors
+        action_type = str(payload.get("action_type") or "")
+        return self._rollback_executor(action_type, contract) is not None
 
     async def _publish_dr_contract_decision(self, decision: dict[str, Any]) -> None:
         if decision.get("decision") == "accepted":
@@ -746,7 +749,8 @@ class Vidar(Agent):
         action_run_identity: str,
     ) -> RollbackRecord:
         contract = str(action_run.get("rollback_contract", "state_forward_only"))
-        executor = self._executors.get(contract)
+        action_type = str(action_run.get("action_type") or "")
+        executor = self._rollback_executor(action_type, contract)
         state = "failed"
         notes = f"no rollback executor registered for contract {contract}"
         rollback_ref: str | None = None
@@ -779,6 +783,14 @@ class Vidar(Agent):
             rollback_ref=rollback_ref,
         )
         return rec
+
+    def _rollback_executor(self, action_type: str, contract: str) -> RollbackExecutor | None:
+        action_executor = self._action_executors.get((action_type, contract))
+        if action_executor is not None:
+            return action_executor
+        if self._action_executors and action_type in self._rollback_contracts_by_action_type:
+            return None
+        return self._executors.get(contract)
 
     def _remember_rollback(
         self,

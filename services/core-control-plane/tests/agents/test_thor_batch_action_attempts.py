@@ -6,11 +6,13 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from fdai.agents._framework import thor_batch
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.provider_adapters import StateStoreActionRunStore
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents._framework.thor_action_run import ActionRun
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.vidar import Vidar
@@ -86,6 +88,46 @@ async def _run_until(
 
 def _payloads(provider: LocalEventBus, topic: str) -> list[dict[str, Any]]:
     return [dict(payload) for _key, payload in provider._records.get(topic, [])]
+
+
+def test_batch_rollup_rejected_attempt_is_not_reported_as_rolled_back() -> None:
+    rollup = ActionRun(
+        correlation_id="batch-refused",
+        action_type="test.batch",
+        resource_id="target-set:test",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        batch_role="rollup",
+    )
+    succeeded = ActionRun(
+        correlation_id="attempt-ok",
+        action_type="test.batch",
+        resource_id="resource-a",
+        state=ActionRunState.SUCCEEDED,
+        verdict="auto",
+        batch_role="attempt",
+        rollup_correlation_id=rollup.correlation_id,
+    )
+    rejected = ActionRun(
+        correlation_id="attempt-rejected",
+        action_type="test.batch",
+        resource_id="resource-b",
+        state=ActionRunState.REJECTED,
+        verdict="auto",
+        batch_role="attempt",
+        rollup_correlation_id=rollup.correlation_id,
+    )
+
+    thor_batch.refresh_rollup(rollup, (succeeded, rejected))
+
+    assert rollup.state is ActionRunState.ROLLBACK_FAILED
+    assert rollup.outcome == "batch_refused_attempt"
+    assert rollup.batch_rollup is not None
+    assert rollup.batch_rollup["succeeded"] == 1
+    assert rollup.batch_rollup["rejected"] == 1
+    assert rollup.batch_rollup["deny_dropped"] == 0
+    assert rollup.batch_rollup["rolled_back"] == 0
+    assert rollup.batch_rollup["terminal_state_rule"] == "mixed_success_and_refused_attempt"
 
 
 def _approval_for_run(run: Any) -> dict[str, Any]:

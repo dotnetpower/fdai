@@ -47,6 +47,7 @@ from fdai.shared.providers.state_store import StateStore
 _FINGERPRINT_BUCKET = "issue_fingerprint_index"
 _AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
 _FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
+_ISSUE_CLOSE_ELIGIBILITY_PREFIX = "pantheon/saga/issue-close-eligibility/"
 _AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
 # Published outbox tombstones retain only digests long enough to suppress
 # duplicate redelivery across restarts while keeping prefix scans bounded.
@@ -129,6 +130,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
             _MAX_FINGERPRINT_INDEX
         )
         self._issue_close_promotion_evidence_producer_bound = False
+        self._issue_close_eligibility_rehydrated = False
+        self._last_issue_close_eligibility_recovered = 0
         self._handoff_locks: dict[str, _RefCountedLock] = {}
         self.github = github or InMemoryGithubIssueAdapter()
         self._clock = clock
@@ -442,7 +445,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         if topic == "object.forecast-outcome":
             await self._republish_forecast_outcome(payload, correlation_id)
         if topic == "object.rule" and payload.get("kind") == "catalog_review_outcome":
-            self._record_issue_close_eligibility(payload)
+            await self._record_issue_close_eligibility(payload)
             await self._republish_catalog_review_outcome(payload, correlation_id)
         if topic == "object.policy" and payload.get("kind") == "test_context_revision":
             if principal != "Mimir" or self.bus is None:
@@ -537,7 +540,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
             },
         )
 
-    def _record_issue_close_eligibility(self, payload: Mapping[str, Any]) -> None:
+    async def _record_issue_close_eligibility(self, payload: Mapping[str, Any]) -> None:
         fingerprint = str(payload.get("problem_fingerprint") or payload.get("fingerprint") or "")
         promotion_pr = str(payload.get("promotion_pr") or payload.get("promotion_pr_url") or "")
         clean_started = str(
@@ -567,7 +570,41 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self.state_store.data[_ISSUE_CLOSE_ELIGIBILITY_BUCKET] = dict(
             self._issue_close_eligibility.items()
         )
+        if self._durable_state_store is not None:
+            await self._durable_state_store.write_state(
+                _issue_close_eligibility_key(fingerprint),
+                evidence,
+            )
+            await self._durable_state_store.delete_states_beyond(
+                _ISSUE_CLOSE_ELIGIBILITY_PREFIX,
+                retain_newest=_MAX_FINGERPRINT_INDEX,
+            )
         self.record_behavior("issue_close:evidence_recorded")
+
+    async def rehydrate_issue_close_eligibility(self) -> int:
+        if self._durable_state_store is None:
+            self._issue_close_eligibility_rehydrated = True
+            self._last_issue_close_eligibility_recovered = 0
+            return 0
+        rows = await self._durable_state_store.read_states(
+            _ISSUE_CLOSE_ELIGIBILITY_PREFIX,
+            limit=_MAX_FINGERPRINT_INDEX,
+        )
+        recovered = 0
+        for row in reversed(rows):
+            fingerprint = str(row.get("fingerprint") or "")
+            if not fingerprint:
+                continue
+            self._issue_close_eligibility.set(fingerprint, dict(row))
+            recovered += 1
+        self.state_store.data[_ISSUE_CLOSE_ELIGIBILITY_BUCKET] = dict(
+            self._issue_close_eligibility.items()
+        )
+        self._issue_close_eligibility_rehydrated = True
+        self._last_issue_close_eligibility_recovered = recovered
+        if recovered:
+            self.record_behavior("issue_close:evidence_rehydrated", recovered)
+        return recovered
 
     async def _republish_shadow_review(
         self,
@@ -1394,6 +1431,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self._put_fingerprint_index(fingerprint, state)
 
     async def scan_issue_closures(self) -> int:
+        if not self._issue_close_eligibility_rehydrated:
+            await self.rehydrate_issue_close_eligibility()
+        await self.rehydrate_issue_tracker()
         closed = 0
         now = self._clock()
         for fingerprint, evidence in tuple(self._issue_close_eligibility.items()):
@@ -1533,6 +1573,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
             "issue_auto_close": (
                 "evidence_available"
                 if self._issue_close_eligibility
+                else "durable_evidence_rehydrated_empty"
+                if self._issue_close_eligibility_rehydrated
+                and self._last_issue_close_eligibility_recovered == 0
                 else "awaiting_promotion_evidence"
                 if self._issue_close_promotion_evidence_producer_bound
                 else "awaiting_promotion_evidence_producer"
@@ -1541,6 +1584,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 self._issue_close_promotion_evidence_producer_bound
             ),
             "issue_auto_close_evidence_count": len(self._issue_close_eligibility),
+            "issue_auto_close_last_recovered": self._last_issue_close_eligibility_recovered,
             "kpis": {"audit_chain_integrity_rate": integrity_kpi},
             "behavior": self.behavior_snapshot(),
         }
@@ -1760,6 +1804,11 @@ def _payload_digest(payload: Mapping[str, Any]) -> str:
 def _fingerprint_key(fingerprint: str) -> str:
     digest = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()
     return f"{_FINGERPRINT_PREFIX}{digest}"
+
+
+def _issue_close_eligibility_key(fingerprint: str) -> str:
+    digest = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()
+    return f"{_ISSUE_CLOSE_ELIGIBILITY_PREFIX}{digest}"
 
 
 def _issue_close_evidence_is_eligible(evidence: Mapping[str, Any], *, now: datetime) -> bool:

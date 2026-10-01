@@ -151,3 +151,64 @@ def test_retrospective_what_if_is_idempotent_per_input_digest() -> None:
     ]
     assert len(what_if) == 1
     assert runtime.agents["Forseti"].behavior_snapshot()["retrospective_what_if:duplicate"] == 1
+
+
+def test_retrospective_what_if_answers_distinct_operator_correlations() -> None:
+    runtime, provider = _runtime()
+    forseti = runtime.agents["Forseti"]
+
+    async def _drive() -> None:
+        await forseti.judge(
+            {
+                "event_type": "unknown_signal",
+                "resource_id": "resource-what-if",
+                "correlation_id": "corr-original",
+            }
+        )
+        request = {
+            "kind": "retrospective_what_if_request",
+            "event_type": "retrospective.what_if.request",
+            "idempotency_key": "what-if-request",
+            "resource_id": "resource-what-if",
+            "judgment_table": {
+                "source": "focused-test-overlay",
+                "rule_match": {"unknown_signal": "remediate.disable-public-access"},
+                "risk_verdict": {"remediate.disable-public-access": "auto"},
+            },
+            "sample_limit": 4,
+        }
+        await runtime.bridge.publish(
+            "Huginn",
+            "object.event",
+            {**request, "correlation_id": "corr-what-if-a"},
+        )
+        await runtime.bridge.publish(
+            "Huginn",
+            "object.event",
+            {**request, "correlation_id": "corr-what-if-b", "idempotency_key": "what-if-b"},
+        )
+        await _run_until(
+            runtime,
+            lambda: (
+                sum(
+                    1
+                    for payload in _payloads(provider, "object.verdict")
+                    if payload.get("kind") == "retrospective_what_if"
+                )
+                == 2
+                and _consumer_committed(runtime, provider, "object.verdict", "Thor")
+            ),
+        )
+
+    asyncio.run(_drive())
+
+    what_if = [
+        payload
+        for payload in _payloads(provider, "object.verdict")
+        if payload.get("kind") == "retrospective_what_if"
+    ]
+    assert {payload["correlation_id"] for payload in what_if} == {
+        "corr-what-if-a",
+        "corr-what-if-b",
+    }
+    assert _payloads(provider, "object.action-run") == []

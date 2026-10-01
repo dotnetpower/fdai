@@ -220,12 +220,16 @@ def refresh_rollup(rollup: ActionRun, attempts: tuple[ActionRun, ...]) -> None:
     rolled_back = states.get(ActionRunState.ROLLED_BACK.value, 0)
     rollback_failed = states.get(ActionRunState.ROLLBACK_FAILED.value, 0)
     rollback_refused = states.get(ActionRunState.ROLLBACK_REFUSED.value, 0)
+    rejected = states.get(ActionRunState.REJECTED.value, 0)
+    deny_dropped = states.get(ActionRunState.DENY_DROPPED.value, 0)
     failed = states.get(ActionRunState.FAILED.value, 0)
     execution_unknown = states.get(ActionRunState.EXECUTION_UNKNOWN.value, 0)
     terminal_rule = "pending_attempts"
     if terminal:
         if succeeded == total:
             terminal_rule = "all_attempts_succeeded"
+        elif rejected or deny_dropped:
+            terminal_rule = "mixed_success_and_refused_attempt"
         elif rollback_failed or rollback_refused or failed or execution_unknown:
             terminal_rule = "unrecovered_attempt_failure"
         else:
@@ -236,6 +240,8 @@ def refresh_rollup(rollup: ActionRun, attempts: tuple[ActionRun, ...]) -> None:
         "states": states,
         "succeeded": succeeded,
         "failed": failed,
+        "rejected": rejected,
+        "deny_dropped": deny_dropped,
         "rolled_back": rolled_back,
         "rollback_failed": rollback_failed,
         "rollback_refused": rollback_refused,
@@ -258,6 +264,9 @@ def refresh_rollup(rollup: ActionRun, attempts: tuple[ActionRun, ...]) -> None:
         elif terminal_rule == "mixed_success_and_target_rollback":
             rollup.transition(ActionRunState.ROLLED_BACK)
             rollup.outcome = "batch_mixed_outcome"
+        elif terminal_rule == "mixed_success_and_refused_attempt":
+            rollup.transition(ActionRunState.ROLLBACK_FAILED)
+            rollup.outcome = "batch_refused_attempt"
         else:
             rollup.transition(ActionRunState.ROLLBACK_FAILED)
             rollup.outcome = "batch_failed"

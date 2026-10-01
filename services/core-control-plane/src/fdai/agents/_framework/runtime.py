@@ -161,6 +161,7 @@ class PantheonRuntime(RuntimeConversationPort):
         thor_preflight_simulator: ThorPreflightSimulator | None = None,
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
+        action_rollback_executors: dict[tuple[str, str], RollbackExecutor] | None = None,
         vidar_state_store: StateStore | None = None,
         var_state_store: StateStore | None = None,
         forseti_state_store: StateStore | None = None,
@@ -241,7 +242,9 @@ class PantheonRuntime(RuntimeConversationPort):
             has_executor=thor_executor is not None or human_access_bound,
             has_state_store=thor_state_store is not None,
             saga=saga,
-            has_rollback=bool(rollback_executors) or human_access_bound,
+            has_rollback=bool(rollback_executors)
+            or bool(action_rollback_executors)
+            or human_access_bound,
             has_vidar_state_store=vidar_state_store is not None,
             has_var_state_store=var_state_store is not None,
             has_forseti_state_store=forseti_state_store is not None,
@@ -320,6 +323,14 @@ class PantheonRuntime(RuntimeConversationPort):
         action_semantics = (
             ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
         )
+        rollback_contracts_by_action_type = (
+            {
+                action_type.name: action_semantics.rollback_contract(action_type.name)
+                for action_type in action_types
+            }
+            if action_semantics is not None
+            else None
+        )
         bind_operational_agents(
             instantiated,
             scenario_coverage_aggregator=scenario_coverage_aggregator,
@@ -374,6 +385,8 @@ class PantheonRuntime(RuntimeConversationPort):
             approver_authorizer=approver_authorizer,
             var_state_store=var_state_store,
             rollback_executors=rollback_executors,
+            action_rollback_executors=action_rollback_executors,
+            rollback_contracts_by_action_type=rollback_contracts_by_action_type,
             vidar_state_store=vidar_state_store,
             development=development_authority,
         )

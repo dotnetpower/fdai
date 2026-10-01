@@ -463,15 +463,28 @@ async def initialize_pantheon(
         fallback=t2_route_registry.execute if thor_mutation_bound else None,
         resolve_verified_incident=config.resolve_verified_incident,
     )
+    action_rollback_executors: dict[tuple[str, str], RollbackExecutor] = {}
+    if thor_mutation_bound:
+        action_rollback_executors[("ops.switch-t2-proposer-route", "state_forward_only")] = (
+            t2_route_registry.rollback
+        )
+    if acceptance_bindings is not None:
+        action_rollback_executors.update(acceptance_bindings.rollback_executors)
     rollback_executors: dict[str, RollbackExecutor] | None = (
-        {"state_forward_only": t2_route_registry.rollback} if thor_mutation_bound else None
+        {"state_forward_only": t2_route_registry.rollback}
+        if thor_mutation_bound and not acceptance_bindings
+        else None
     )
     thor_preflight_simulators: dict[str, ThorPreflightSimulator] = {}
     if thor_mutation_bound:
         thor_preflight_simulators["ops.switch-t2-proposer-route"] = T2RoutePreflightSimulator(
             t2_route_registry
         )
-    if acceptance_bindings is not None:
+    acceptance_scale_out_recovery_bound = (
+        "ops.scale-out",
+        "state_forward_only",
+    ) in action_rollback_executors
+    if acceptance_bindings is not None and acceptance_scale_out_recovery_bound:
         thor_preflight_simulators["ops.scale-out"] = acceptance_bindings.preflight_simulator
     thor_preflight_simulator = (
         CompositeThorPreflightSimulator(thor_preflight_simulators)
@@ -482,6 +495,7 @@ async def initialize_pantheon(
     thor_safety_readiness = config.build_mutation_dependency_readiness(
         saga=config.runtime_saga,
         rollback_executors=rollback_executors,
+        action_rollback_executors=action_rollback_executors or None,
     )
     human_access = (
         config.assignment_workflow.human_access if config.assignment_workflow is not None else None
@@ -563,7 +577,7 @@ async def initialize_pantheon(
         governed_execution_selected=config.control_loop.governed_execution_selected,
         thor_executor=(
             acceptance_bindings.execute
-            if acceptance_bindings is not None
+            if acceptance_bindings is not None and acceptance_scale_out_recovery_bound
             else t2_route_registry.execute
             if thor_mutation_bound
             else None
@@ -574,6 +588,7 @@ async def initialize_pantheon(
         thor_state_store=StateStoreActionRunStore(config.incident_audit_store),
         thor_preflight_simulator=thor_preflight_simulator,
         rollback_executors=rollback_executors,
+        action_rollback_executors=action_rollback_executors or None,
         vidar_state_store=config.incident_audit_store,
         var_state_store=config.incident_audit_store,
         forseti_state_store=config.incident_audit_store,
