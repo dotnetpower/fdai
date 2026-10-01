@@ -637,6 +637,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     license_inspect.add_argument("--public-key", type=Path, required=True)
     license_inspect.add_argument("--image-digest", default=None)
     license_inspect.add_argument("--tenant-binding", default=None)
+    license_inspect.add_argument("--installation-binding", default=None, metavar="DIGEST")
     license_inspect.add_argument("--output", choices=("text", "json"), default="text")
     license_inspect.set_defaults(handler=handlers["license_inspect"])
 

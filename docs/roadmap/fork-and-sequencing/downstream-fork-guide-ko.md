@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: bc44617cd6e732d13b492101093652f968edeadd
+translation_source_sha: a77288f0f2120f3a2a042589fa23923467d8a3f3
 translation_revised: 2026-10-01
 ---
 
@@ -87,7 +87,9 @@ repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 �
 변경 없는 체크아웃, 산출물 서명은 사용권을 부여하거나 새 Trial을 시작하지 않습니다. 설치하는
 작업 스테이션에 있는 업스트림 무결성 서명 키만
 [설치 사용권](capability-licensing-ko.md#키-보유자-설치-사용권)을 선택하며, 모든 배포판은
-패키지에 포함된 업스트림 무결성 공개 키로 사용권을 검증합니다. Trial 검사,
+패키지에 포함된 업스트림 무결성 공개 키로 사용권을 검증합니다. 설치 사용권은 문서에 담긴
+배포판, 설치, 배포 digest와 정확히 일치하는 곳에서만 권한을 주므로, 포크는 다른 설치의 사용권을
+재사용할 수 없습니다. Trial 검사,
 [만료 워터마크](capability-licensing-ko.md#trial-만료-워터마크), 그 키는 프레임워크 표면에
 속하므로 포크는 이를 수정하거나 숨기거나 바꾸면 안 됩니다. 업그레이드할 때 설치에 연결된
 기록을 보존해야 합니다. 다른 설치에 바인딩된 기록을 제공하는 포크는 어떤 권한도 받지 못하며,

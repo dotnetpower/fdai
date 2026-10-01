@@ -492,7 +492,7 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl bundle verify` | Inspect an optional deployment bundle | No |
 | `fdaictl offline prepare` | Prepare a local deployment payload; not required for Python package installation | No |
 | `fdaictl offline install-support` | Install optional migration support from local wheels | No |
-| `fdaictl license inspect` | Verify a capability token without a network call | No |
+| `fdaictl license inspect` | Verify a capability token, or an installation entitlement against both exact bindings, without a network call | No |
 
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.

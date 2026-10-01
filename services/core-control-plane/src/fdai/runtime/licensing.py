@@ -105,6 +105,7 @@ def build_runtime_license_authority(
             distribution_id=distribution_id,
             image_digest=_optional_value(environment.get("FDAI_LICENSE_IMAGE_DIGEST")),
             tenant_binding=_optional_value(environment.get("FDAI_LICENSE_DEPLOYMENT_BINDING")),
+            installation_binding=_optional_value(environment.get("FDAI_INSTALLATION_BINDING")),
         ),
         require_license=True,
         issuer_workstation=issuer_workstation,

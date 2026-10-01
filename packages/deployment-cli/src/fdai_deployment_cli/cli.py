@@ -49,7 +49,12 @@ from fdai_deployment_cli.doctor import (
     inspect_tools,
 )
 from fdai_deployment_cli.entra_source import run_source_entra_operation
-from fdai_deployment_cli.license import inspect_license
+from fdai_deployment_cli.license import (
+    INSTALLATION_ENTITLEMENT_SCHEMA,
+    inspect_installation_entitlement,
+    inspect_license,
+    signed_token_schema,
+)
 from fdai_deployment_cli.offline_prepare import prepare_offline_release
 from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.profile import load_profile, write_profile
@@ -630,9 +635,24 @@ def _bundle_verify(args: argparse.Namespace) -> int:
 
 
 def _license_inspect(args: argparse.Namespace) -> int:
+    token = _read_private_license_token(args.token)
+    public_key_pem = _read_public_key(args.public_key)
+    if signed_token_schema(token) == INSTALLATION_ENTITLEMENT_SCHEMA:
+        if args.installation_binding is None or args.tenant_binding is None:
+            raise ValueError(
+                "an installation entitlement requires --installation-binding and --tenant-binding"
+            )
+        entitlement = inspect_installation_entitlement(
+            token,
+            public_key_pem=public_key_pem,
+            expected_installation_binding=args.installation_binding,
+            expected_deployment_binding=args.tenant_binding,
+        )
+        print(entitlement.to_json() if args.output == "json" else "active")
+        return 0
     result = inspect_license(
-        _read_private_license_token(args.token),
-        public_key_pem=_read_public_key(args.public_key),
+        token,
+        public_key_pem=public_key_pem,
         expected_image_digest=args.image_digest,
         expected_tenant_binding=args.tenant_binding,
     )

@@ -169,6 +169,12 @@ tokens issued to other operators.
 The entitlement has no revocation path other than replacing the deployment's secret reference. It
 is acceptable only because it is useless outside the installation it binds.
 
+The contract, Core resolution through the shared license authority, workstation issuance, and
+`fdaictl license inspect` support are implemented. Core reads the document from the existing
+license-token input and binds `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`.
+Issuing it during deployment and delivering it through the Key Vault file input remain open, so a
+key-holder deployment still receives the 30-day v1 token until that wiring lands.
+
 ## The token
 
 The token is `base64url(canonical-document) "." base64url(signature)` - a single ASCII string that
@@ -300,6 +306,7 @@ expiration itself does not require one.
 | Concern | Location |
 |---------|----------|
 | Token contract, validation, canonical bytes | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
+| Installation entitlement contract | `services/core-control-plane/src/fdai/core/licensing/installation_entitlement.py` (crypto-free) |
 | Status, binding, current-time entitlement resolution | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
 | Runtime signature and local issuer-key verification | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py`, verifying against the packaged `upstream-signing-key.pub` |
 | Runtime Trial binding | `services/core-control-plane/src/fdai/runtime/licensing.py` |

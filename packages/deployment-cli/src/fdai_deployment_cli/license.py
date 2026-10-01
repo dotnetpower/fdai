@@ -143,6 +143,110 @@ def inspect_license(
     )
 
 
+INSTALLATION_ENTITLEMENT_SCHEMA = "fdai.installation-entitlement.v1"
+_ENTITLEMENT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "entitlement_id",
+        "distribution_id",
+        "installation_binding",
+        "deployment_binding",
+        "issued_at",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class InstallationEntitlementInspection:
+    """Sanitized result for an exactly bound installation entitlement."""
+
+    entitlement_id: str
+    distribution_id: str
+    issued_at: str
+
+    def to_json(self) -> str:
+        """Return stable JSON without the bearer token or either binding digest."""
+
+        return json.dumps(
+            {
+                "schema_version": "fdai.installation-entitlement-inspection.v1",
+                "entitlement_id": self.entitlement_id,
+                "distribution_id": self.distribution_id,
+                "issued_at": self.issued_at,
+                "complete_catalog": True,
+                "expires": False,
+                "active": True,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+
+def signed_token_schema(token: str) -> str | None:
+    """Return the schema a token's document declares, without establishing trust."""
+
+    parts = token.split(".")
+    if len(parts) != 2 or len(token) > 8192:
+        return None
+    try:
+        payload = json.loads(_decode(parts[0], "document"))
+    except (LicenseInspectionError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    schema = payload.get("schema_version") if isinstance(payload, dict) else None
+    return schema if isinstance(schema, str) else None
+
+
+def inspect_installation_entitlement(
+    token: str,
+    *,
+    public_key_pem: bytes,
+    expected_installation_binding: str,
+    expected_deployment_binding: str,
+) -> InstallationEntitlementInspection:
+    """Verify one installation entitlement against the exact bindings it must carry."""
+
+    for label, expected in (
+        ("installation binding", expected_installation_binding),
+        ("deployment binding", expected_deployment_binding),
+    ):
+        if _DIGEST.fullmatch(expected) is None:
+            raise LicenseInspectionError(f"expected {label} MUST be a lowercase SHA-256")
+    if not token or len(token) > 8192:
+        raise LicenseInspectionError("entitlement is empty or exceeds its size limit")
+    parts = token.split(".")
+    if len(parts) != 2:
+        raise LicenseInspectionError("entitlement MUST contain document and signature")
+    document = _decode(parts[0], "document")
+    signature = _decode(parts[1], "signature")
+    if len(signature) != 64:
+        raise LicenseInspectionError("entitlement signature MUST be 64 bytes")
+    _verify(public_key_pem, document, signature)
+    payload = load_json_object(document, label="entitlement document", max_bytes=2048)
+    if (
+        set(payload) != _ENTITLEMENT_FIELDS
+        or payload["schema_version"] != INSTALLATION_ENTITLEMENT_SCHEMA
+    ):
+        raise LicenseInspectionError("entitlement document schema does not match")
+    if canonical_bytes(payload) != document:
+        raise LicenseInspectionError("entitlement document is not canonical")
+    entitlement_id = _text(payload, "entitlement_id")
+    distribution_id = _text(payload, "distribution_id")
+    if _ID.fullmatch(entitlement_id) is None or _ID.fullmatch(distribution_id) is None:
+        raise LicenseInspectionError("entitlement identifiers MUST be lowercase stable identifiers")
+    issued_at = _moment(payload, "issued_at")
+    if _text(payload, "issued_at") != _canonical_moment(issued_at):
+        raise LicenseInspectionError("entitlement issued_at is not canonically encoded")
+    if _text(payload, "installation_binding") != expected_installation_binding:
+        raise LicenseInspectionError("entitlement installation binding does not match")
+    if _text(payload, "deployment_binding") != expected_deployment_binding:
+        raise LicenseInspectionError("entitlement deployment binding does not match")
+    return InstallationEntitlementInspection(
+        entitlement_id=entitlement_id,
+        distribution_id=distribution_id,
+        issued_at=issued_at.isoformat(),
+    )
+
+
 def _decode(value: str, label: str) -> bytes:
     if _B64URL.fullmatch(value) is None:
         raise LicenseInspectionError(f"license {label} is not canonical base64url")

@@ -82,7 +82,9 @@ The one-command source deployment and its keyless Trial apply equally to upstrea
 A fork marker, clean checkout, or artifact signature never grants entitlement or starts a new
 Trial. Only the upstream integrity signing key on the installing workstation selects the
 [installation entitlement](capability-licensing.md#key-holder-installation-entitlement), and every
-distribution verifies entitlements against the packaged upstream integrity public key. The Trial
+distribution verifies entitlements against the packaged upstream integrity public key. An
+installation entitlement grants nothing outside the exact distribution, installation, and
+deployment digests it carries, so a fork cannot reuse one from another installation. The Trial
 check, the [expiry watermark](capability-licensing.md#trial-expiry-watermark), and that key belong
 to the framework surface, so a fork must not edit, hide, or replace them. Preserve the
 installation-bound record across upgrades: a fork that supplies a record bound to another

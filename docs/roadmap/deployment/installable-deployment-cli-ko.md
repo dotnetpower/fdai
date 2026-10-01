@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: da894804bc25d96dedc3ec770ed7347c05e22b35
+translation_source_sha: 535b44e8aaa480f1f03035dbf8f48e4d468991fb
 translation_revised: 2026-10-01
 ---
 
@@ -489,7 +489,7 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 | `fdaictl bundle verify` | 선택적 배포 묶음 점검 | 아니요 |
 | `fdaictl offline prepare` | 로컬 배포 페이로드 준비. Python 패키지 설치에는 필요하지 않음 | 아니요 |
 | `fdaictl offline install-support` | 로컬 wheel에서 선택적 마이그레이션 지원 설치 | 아니요 |
-| `fdaictl license inspect` | 네트워크 호출 없이 기능 토큰 검증 | 아니요 |
+| `fdaictl license inspect` | 네트워크 호출 없이 기능 토큰을 검증하거나, 설치 사용권을 두 정확한 바인딩으로 검증 | 아니요 |
 
 공개 CLI는 `deploy plan`, `deploy apply` 또는 `deploy status`를 등록하지 않습니다. 이 명령들은
 이전에 GitHub workflow를 dispatch했으며 standalone 배포 계약에 포함되지 않습니다. 실제

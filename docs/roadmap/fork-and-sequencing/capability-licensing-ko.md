@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: c2a244568f0bb30e4ee7fa3325c4eaee5eb3bde9
+translation_source_sha: 445474bdaa95b255ea8c709ac9bccd9535f57ba8
 translation_revised: 2026-10-01
 ---
 # 기능 라이선싱
@@ -163,6 +163,11 @@ Trial을 해제합니다. 발급자 개인 키는 배포 환경에 전달하지 
 이 사용권은 배포의 비밀 참조를 교체하는 것 외에 철회 경로가 없습니다. 사용권이 바인딩한 설치
 밖에서는 쓸모가 없기 때문에만 허용됩니다.
 
+계약, 공용 라이선스 판정기를 통한 Core 해석, 작업 스테이션 발급, `fdaictl license inspect` 지원은
+구현되었습니다. Core는 기존 라이선스 토큰 입력에서 문서를 읽고 `FDAI_INSTALLATION_BINDING`과
+`FDAI_LICENSE_DEPLOYMENT_BINDING`을 바인딩합니다. 배포 중 발급과 Key Vault 파일 입력을 통한 전달은
+아직 남아 있으므로, 그 연결이 구현될 때까지 키 보유자 배포는 30일 v1 토큰을 받습니다.
+
 ## 토큰
 
 토큰은 `base64url(canonical-document) "." base64url(signature)`입니다. 환경변수, Container Apps
@@ -288,6 +293,7 @@ PR 기반, 직접 API 및 도구 호출 작업 경로는 모두 카탈로그 기
 | 관심사 | 위치 |
 |--------|------|
 | 토큰 계약, 검증, 정본 바이트 | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
+| 설치 사용권 계약 | `services/core-control-plane/src/fdai/core/licensing/installation_entitlement.py` (crypto-free) |
 | 상태, 연결, 현재 시각 기준 권한 해석 | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
 | 런타임 서명 및 로컬 발급자 키 검증 | 패키지에 포함된 `upstream-signing-key.pub`로 검증하는 `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
 | 런타임 Trial 연결 | `services/core-control-plane/src/fdai/runtime/licensing.py` |
