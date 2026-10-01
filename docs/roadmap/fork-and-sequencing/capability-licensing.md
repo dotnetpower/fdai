@@ -107,6 +107,39 @@ desktop operating system, the Console then shows a persistent watermark on every
 The watermark is an availability notice. It neither grants nor removes authority, and its absence
 proves nothing: the shared execution ceiling still decides every acting request.
 
+### Entitlement state transport
+
+**Initial design.** Let the Operator re-resolve the entitlement from the Trial record and its own
+copy of the token.
+
+**Critique.** That duplicates the license authority outside Core. The Operator holds neither the
+token, the bindings, nor the issuer-workstation proof, so two resolvers could disagree, and the
+Trial record would gain a second reader that the
+[data ownership matrix](../architecture/service-graduation-and-ownership.md#data-ownership-matrix)
+reserves for Core.
+
+**Revised design.** Core derives one notice, and every other layer only carries it:
+
+- Core derives `none` when the resolved entitlement includes `operations.typed-mutation`,
+  `evaluation-ended` when the token or the Trial window has expired, and `not-activated`
+  otherwise. An ended Trial therefore resolves to `expired` with the Trial's reason, while the
+  read-only catalog stays available.
+- At startup and every 60 seconds, Core resolves the entitlement off its event loop and upserts the
+  notice with its observation time into the Core-owned singleton `licensing_entitlement_state`.
+  A write never moves the observation time backward. Core alone writes the row, and the Operator
+  role receives `SELECT` only.
+- The Operator reads the row at most once every 15 seconds. It stamps the notice as
+  `X-FDAI-Entitlement` on every response to a request that passed bearer authentication, and CORS
+  exposes that header to the Console. A missing, malformed, or unreadable row, or one observed more
+  than five minutes away from the Operator clock, stamps `not-activated`.
+- The Console records the stamp from every shared Operator transport response and refreshes it
+  with an authenticated read every 60 seconds. It hides the watermark only while the latest stamp
+  is `none` and less than five minutes old. Before the first stamp arrives, it waits at most
+  10 seconds.
+
+A row edited outside Core is persistent-state tampering, which the [honest limits](#honest-limits)
+already exclude. No setting or configuration value decides whether the watermark shows.
+
 ## Issuer workstation exception
 
 **Initial design.** Treat the presence of any private-key file under `secrets/` as proof that the
@@ -276,7 +309,7 @@ diagnosed. The operator-facing reason stays generic and never echoes verifier ex
 | `active` installation entitlement (target) | signature verifies and both installation bindings match; no window applies | the complete shipped catalog |
 | `absent` | no token configured and no issuer-workstation proof | read-only in the shipped runtime |
 | `untrusted` | malformed token, a non-canonical token, a signature the packaged key rejects, or a verifier that cannot run | read-only |
-| `not-yet-valid` / `expired` | outside the validity window | read-only |
+| `not-yet-valid` / `expired` | outside the token's validity window, or, for `expired`, a keyless installation whose Trial window ended | read-only |
 | `misbound` | distribution identity, image digest, or deployment binding does not match | read-only |
 
 Every status that withholds the acting capability shows the
@@ -318,6 +351,8 @@ expiration itself does not require one.
 | Runtime signature and local issuer-key verification | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py`, verifying against the packaged `upstream-signing-key.pub` |
 | Runtime Trial binding | `services/core-control-plane/src/fdai/runtime/licensing.py` |
 | Durable Trial store and anchored activation writer | `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py` |
+| Watermark notice, state publisher, and its writer | `services/core-control-plane/src/fdai/core/licensing/entitlement_notice.py`, `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py` |
+| Operator response stamp | `services/operator-service/src/fdai_operator_service/entitlement_stamp.py` |
 | Final shared execution ceiling | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | Issuing and self-verification (release-only) | `scripts/deployment/release/issue-license.py`, using Ed25519 from the pinned cryptography dependency and exclusive mode-`0600` output creation |
 | Offline verification for any operator | `fdaictl license inspect`, using the deployment CLI's independent Ed25519 verifier |
@@ -329,9 +364,9 @@ and never imports a crypto backend, a transport, or `fdai.delivery`
 
 Core and the deployment CLI each package a byte-identical copy of
 `security/integrity/upstream-signing-key.pub`, and tests pin both copies to it. The runtime licensing
-binding, the durable Trial store and its activation writer, and the `fdai/delivery/trust/` package,
-including that copy, belong to the signed framework
-surface.
+binding, the durable Trial store and its activation writer, the watermark's state publisher and
+writer, the Operator stamp, and the `fdai/delivery/trust/` package, including that copy, belong to
+the signed framework surface.
 
 ## Verifying it in this repository
 

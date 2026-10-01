@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 3b497a3a699057c557032337e41fa956d059a31d
+translation_source_sha: 25d1d616481f5f2b9abfda67ccedb93a36806107
 translation_revised: 2026-10-01
 ---
 # 기능 라이선싱
@@ -101,6 +101,34 @@ Trial을 해제합니다. 발급자 개인 키는 배포 환경에 전달하지 
 
 워터마크는 가용성 안내입니다. 권한을 부여하거나 제거하지 않으며, 워터마크가 없다고 해서 무엇이
 증명되지도 않습니다. 모든 변경 요청은 여전히 공유 실행 상한이 결정합니다.
+
+### 사용권 상태 전달
+
+**초기 설계.** Operator가 Trial 기록과 자신이 가진 토큰 사본으로 사용권을 다시 해석합니다.
+
+**비판.** 그러면 라이선스 판정기가 Core 밖에 중복됩니다. Operator에는 토큰, 바인딩, 발급자
+워크스테이션 증명이 모두 없으므로 두 판정기의 결론이 달라질 수 있습니다. 또한
+[데이터 소유권 매트릭스](../architecture/service-graduation-and-ownership-ko.md#데이터-소유권-매트릭스)가
+Core에만 허용한 Trial 기록 읽기 권한을 두 번째 주체가 갖게 됩니다.
+
+**수정된 설계.** Core가 하나의 안내 값을 도출하고, 다른 계층은 그 값을 전달하기만 합니다.
+
+- Core는 해석한 사용권에 `operations.typed-mutation`이 있으면 `none`, 토큰이나 Trial 기간이
+  만료되었으면 `evaluation-ended`, 그 밖에는 `not-activated`를 도출합니다. 따라서 끝난 Trial은
+  Trial의 사유와 함께 `expired`로 해석되며, 읽기 전용 카탈로그는 계속 사용할 수 있습니다.
+- Core는 시작할 때와 60초마다 이벤트 루프 밖에서 사용권을 해석하고, 안내 값과 관측 시각을
+  Core가 소유한 단일 행 테이블 `licensing_entitlement_state`에 기록합니다. 기록은 관측 시각을
+  과거로 되돌리지 않습니다. 이 행은 Core만 쓰며, Operator 역할은 `SELECT` 권한만 받습니다.
+- Operator는 이 행을 최대 15초에 한 번 읽습니다. 베어러 인증을 통과한 요청의 모든 응답에 안내
+  값을 `X-FDAI-Entitlement`로 표시하며, CORS는 이 헤더를 Console에 노출합니다. 행이 없거나,
+  형식이 잘못되었거나, 읽을 수 없거나, 관측 시각이 Operator 시계와 5분 넘게 차이 나면
+  `not-activated`를 표시합니다.
+- Console은 공유 Operator 전송 계층의 모든 응답에서 표시 값을 기록하고, 60초마다 인증된 읽기로
+  값을 갱신합니다. 최신 표시 값이 `none`이고 5분이 지나지 않은 동안에만 워터마크를 숨깁니다.
+  첫 표시 값이 도착하기 전에는 최대 10초까지 기다립니다.
+
+Core 밖에서 행을 수정하는 것은 영속 상태 변조이며, [정직한 한계](#정직한-한계)가 이미 범위에서
+제외합니다. 워터마크 표시 여부를 정하는 설정이나 구성 값은 없습니다.
 
 ## 발급자 워크스테이션 예외
 
@@ -264,7 +292,7 @@ License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 �
 | `active` 설치 사용권(목표) | 서명 검증 통과, 두 설치 바인딩 일치, 기간 없음 | 배포된 카탈로그 전체 |
 | `absent` | 토큰 미설정 및 발급자 워크스테이션 증명 없음 | 배포된 런타임에서 읽기 전용 |
 | `untrusted` | 형식 오류 토큰, 비정규 토큰, packaged 키가 거부한 서명, 또는 실행되지 못한 검증기 | 읽기 전용 |
-| `not-yet-valid` / `expired` | 유효 기간 밖 | 읽기 전용 |
+| `not-yet-valid` / `expired` | 토큰 유효 기간 밖, 또는 `expired`의 경우 Trial 기간이 끝난 무키 설치 | 읽기 전용 |
 | `misbound` | 배포판 신원, 이미지 다이제스트 또는 배포 연결 불일치 | 읽기 전용 |
 
 변경 기능을 보류하는 모든 상태는 [Trial 만료 워터마크](#trial-만료-워터마크)를 표시합니다.
@@ -303,6 +331,8 @@ PR 기반, 직접 API 및 도구 호출 작업 경로는 모두 카탈로그 기
 | 런타임 서명 및 로컬 발급자 키 검증 | 패키지에 포함된 `upstream-signing-key.pub`로 검증하는 `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
 | 런타임 Trial 연결 | `services/core-control-plane/src/fdai/runtime/licensing.py` |
 | 영속 Trial 저장소 및 고정 시각 활성화 작성자 | `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py` |
+| 워터마크 안내 값, 상태 게시자, 기록기 | `services/core-control-plane/src/fdai/core/licensing/entitlement_notice.py`, `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py` |
+| Operator 응답 표시 | `services/operator-service/src/fdai_operator_service/entitlement_stamp.py` |
 | 최종 공유 실행 상한 | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | 발급 및 자체 검증 (release 전용) | 고정된 cryptography 의존성의 Ed25519와 배타적 mode-`0600` 출력 생성을 사용하는 `scripts/deployment/release/issue-license.py` |
 | 모든 운영자를 위한 오프라인 검증 | 배포 CLI의 독립 Ed25519 검증기를 사용하는 `fdaictl license inspect` |
@@ -314,8 +344,8 @@ crypto 백엔드, 전송 계층, `fdai.delivery`를 가져오기하지 않습니
 
 Core와 배포 CLI는 각각 `security/integrity/upstream-signing-key.pub`와 바이트까지 같은 사본을
 패키지에 포함하며, 테스트가 두 사본을 모두 원본에 고정합니다. 런타임 라이선싱 연결, 영속 Trial
-저장소와 그 활성화 작성자, 그 사본을 포함한 `fdai/delivery/trust/` 패키지는 서명된 프레임워크
-표면에 속합니다.
+저장소와 그 활성화 작성자, 워터마크의 상태 게시자와 기록기, Operator 표시, 그 사본을 포함한
+`fdai/delivery/trust/` 패키지는 서명된 프레임워크 표면에 속합니다.
 
 ## 이 리포지토리에서 검증하기
 

@@ -637,6 +637,11 @@ back. AKS Core receives it as the CSI-mounted `FDAI_LICENSE_TOKEN` secret enviro
 identity already reads that vault, so no new role is needed. Container Apps key holders keep the
 image-bound 30-day token.
 
+In every runtime profile, Core publishes its [watermark notice](../fork-and-sequencing/capability-licensing.md#entitlement-state-transport)
+into the Core-owned `licensing_entitlement_state` row through the state-store DSN. The Core
+migration branch creates that row, the Operator branch grants the Operator role `SELECT` on it,
+and the Operator stamps the notice on authenticated responses.
+
 ## Deployment payloads
 
 The installed Python package does not contain runtime payloads. A selected deployment provides the

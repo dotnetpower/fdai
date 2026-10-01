@@ -78,6 +78,8 @@ The verifier authenticates sources without retaining tokens:
   that `OperatorAuthenticator` in `services/operator-service/src/fdai_operator_service/auth.py` would retain on token
   verification: issuer, audience, tenant digest, subject, principal kind, exact group ids with a no-overage flag,
   token-id digest, issue and expiry time, roles, and role-mapping revision, with no token; local CLI receipts are `local-loopback`.
+  A successful verification also marks the request for the entitlement stamp; that mark adds no
+  field to the receipt and grants no authority.
 
 ## Issuance path and proof format
 

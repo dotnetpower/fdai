@@ -16,6 +16,7 @@ CORS_ALLOW_HEADERS: Final = (
 )
 CORS_EXPOSE_HEADERS: Final = (
     "X-FDAI-Artifact-SHA256",
+    "X-FDAI-Entitlement",
     "X-FDAI-Expected-Rows",
     "X-FDAI-Included-Rows",
     "X-FDAI-Local-Session",

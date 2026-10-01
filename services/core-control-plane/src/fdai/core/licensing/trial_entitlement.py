@@ -74,7 +74,7 @@ class TrialEntitlementResolver:
         if status is TrialStatus.CLOCK_BLOCKED:
             return _denied("Trial observed a clock regression and stays denied")
         if status is TrialStatus.EXPIRED:
-            return _denied("Trial window has ended")
+            return _denied("Trial window has ended", status=LicenseStatus.EXPIRED)
         if record.last_observed_at < now:
             # The store must commit an observation at or after `now` before acting, so a
             # replica cannot act on a stale read that predates an expiry another wrote.
@@ -88,11 +88,15 @@ class TrialEntitlementResolver:
         )
 
 
-def _denied(reason: str) -> Entitlement:
-    """Deny every capability while preserving observation-only operation."""
+def _denied(reason: str, *, status: LicenseStatus = LicenseStatus.ABSENT) -> Entitlement:
+    """Deny every capability while preserving observation-only operation.
+
+    An ended window reports ``expired`` so the watermark can say that the evaluation
+    ended; every other denial reports ``absent``.
+    """
 
     return Entitlement(
-        status=LicenseStatus.ABSENT,
+        status=status,
         available_capability_ids=frozenset(),
         reason=reason,
     )

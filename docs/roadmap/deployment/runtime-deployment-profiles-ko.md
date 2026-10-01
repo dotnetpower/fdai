@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: dd51d6d004649d49424e6a09c6e76a8d69c87491
+translation_source_sha: 0a49d4db37394d945fcb7bf2bb2d2ea6671b71e8
 translation_revised: 2026-10-01
 ---
 # 런타임 배포 프로파일
@@ -637,6 +637,11 @@ Vault 비밀에 기록한 뒤 다시 읽어 확인합니다. AKS Core는 이 값
 `FDAI_LICENSE_TOKEN` 비밀 환경 변수로 받습니다. Core ID는 이미 해당 볼트를 읽을 수 있으므로
 새 역할이 필요하지 않습니다. Container Apps의 키 보유자는 이미지에 묶인 30일 토큰을 계속
 사용합니다.
+
+모든 런타임 프로필에서 Core는 상태 저장소 DSN을 통해 [워터마크 안내 값](../fork-and-sequencing/capability-licensing-ko.md#사용권-상태-전달)을
+Core가 소유한 `licensing_entitlement_state` 행에 게시합니다. Core 마이그레이션 브랜치가 이 행을
+만들고, Operator 브랜치가 Operator 역할에 이 행의 `SELECT` 권한을 부여하며, Operator는 인증된
+응답에 이 안내 값을 표시합니다.
 
 ## 배포 페이로드
 

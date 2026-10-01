@@ -58,6 +58,7 @@ from fdai_operator_service.browser_evidence_filters import (
 )
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.cors_policy import CORS_ALLOW_HEADERS, CORS_EXPOSE_HEADERS
+from fdai_operator_service.entitlement_stamp import EntitlementStamp, EntitlementStampMiddleware
 from fdai_operator_service.families.aks_commerce import (
     AKS_COMMERCE_ROUTE_MANIFEST,
     AksCommerceFamilyDependencies,
@@ -234,6 +235,7 @@ def build_operator_app(
     local_cli_profile: Mapping[str, object] | None = None,
     local_cli_session_token: str | None = None,
     lifecycle: ApplicationLifecycle | None = None,
+    entitlement_stamp: EntitlementStamp | None = None,
 ) -> Starlette:
     """Build the complete Operator API without executor or FDAI imports."""
     incident_attention_poller = IncidentAttentionPoller(read_model)
@@ -574,7 +576,10 @@ def build_operator_app(
     )
     routes = [*local_auth_routes, *minimal_routes, *family_routes]
     _validate_registered_routes(routes, ownership)
-    middleware: list[Middleware] = [Middleware(SecurityHeadersMiddleware)]
+    middleware: list[Middleware] = [
+        Middleware(SecurityHeadersMiddleware),
+        Middleware(EntitlementStampMiddleware, stamp=entitlement_stamp or EntitlementStamp(None)),
+    ]
     if local_cli_profile is not None:
         middleware.append(Middleware(LoopbackOnlyMiddleware, allowed_origins=cors_allow_origins))
     if cors_allow_origins:

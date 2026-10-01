@@ -91,6 +91,7 @@ class RuntimeTaskConfiguration:
     ontology_index_runtime: OntologyIndexRuntime | None = None
     assurance_twin_publishers: tuple[Any, ...] = ()
     assurance_twin_writers: tuple[Any, ...] = ()
+    entitlement_state_publisher: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -757,6 +758,14 @@ async def run_runtime_tasks(
             handover_knowledge_lifecycle_task,
             operating_intent_revalidation_task,
             t1_mini_probe_task,
+            (
+                asyncio.create_task(
+                    config.entitlement_state_publisher.run(config.stop),
+                    name="license-entitlement-state",
+                )
+                if config.entitlement_state_publisher is not None
+                else None
+            ),
         ),
     )
 

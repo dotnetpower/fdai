@@ -240,6 +240,16 @@
         "report_signal"
       ],
       "provider_rollback": "blocked-until-operator-chaos-report-read-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_entitlement_state_read_20261001",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_licensing_entitlement_state_20261001",
+      "schema_prerequisites": [
+        "licensing_entitlement_state"
+      ],
+      "provider_rollback": "blocked-until-operator-entitlement-state-read-rollback"
     }
   ],
   "legacy_inventory": {
@@ -251,6 +261,7 @@
     "core-control-plane": [
       "handover_semantic_package",
       "licensing_trial",
+      "licensing_entitlement_state",
       "operator_assignment_receipt",
       "operator_rule_activation_receipt",
       "operational_evidence_admission",
@@ -480,6 +491,7 @@
     "core-control-plane": [
       "handover_semantic_package",
       "licensing_trial",
+      "licensing_entitlement_state",
       "operational_evidence_admission",
       "operational_evidence_authentication",
       "operational_evidence_bundle",
