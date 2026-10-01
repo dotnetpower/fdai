@@ -115,8 +115,12 @@ def dependency_digest(files: dict[str, str]) -> str:
     )
 
 
-def installed_digest(root: Path) -> str:
-    """Hash actual installed bytes, interpreter targets, modes, and file membership."""
+def installed_digest(root: Path, *, skip_bytecode: bool = False) -> str:
+    """Hash actual installed bytes, interpreter targets, modes, and file membership.
+
+    ``skip_bytecode`` omits ``__pycache__`` entries, which the interpreter writes
+    while tests run in a shared development environment.
+    """
     if not (root / "bin/python").is_file():
         raise ValueError("validation Python environment is missing")
     files = {}
@@ -124,6 +128,8 @@ def installed_digest(root: Path) -> str:
         if path.is_dir():
             if path.is_symlink() and not path.resolve().is_relative_to(root.resolve()):
                 raise ValueError("installed directory escapes the verified environment")
+            continue
+        if skip_bytecode and "__pycache__" in path.relative_to(root).parts:
             continue
         files[path.relative_to(root).as_posix()] = (
             stat.S_IMODE(path.stat().st_mode),

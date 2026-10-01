@@ -155,6 +155,22 @@ def test_environment_identity_verifies_installed_content(tmp_path: Path) -> None
     assert inputs.installed_digest(venv) != before
 
 
+def test_environment_identity_can_omit_bytecode_caches(tmp_path: Path) -> None:
+    venv = tmp_path / "venv"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin" / "python").write_bytes(b"interpreter")
+    (venv / "package.py").write_bytes(b"original")
+    before = inputs.installed_digest(venv)
+    without_bytecode = inputs.installed_digest(venv, skip_bytecode=True)
+    (venv / "__pycache__").mkdir()
+    (venv / "__pycache__" / "package.cpython-313.pyc").write_bytes(b"bytecode")
+
+    assert inputs.installed_digest(venv) != before
+    assert inputs.installed_digest(venv, skip_bytecode=True) == without_bytecode
+    (venv / "package.py").write_bytes(b"modified")
+    assert inputs.installed_digest(venv, skip_bytecode=True) != without_bytecode
+
+
 def test_installed_directory_cannot_hide_external_inputs(tmp_path: Path) -> None:
     venv = tmp_path / "venv"
     (venv / "bin").mkdir(parents=True)

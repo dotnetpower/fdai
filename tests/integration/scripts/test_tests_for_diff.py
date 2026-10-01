@@ -819,6 +819,11 @@ def test_run_parallelizes_broad_non_integration_selection(git_repo: Path) -> Non
     bin_dir = git_repo / "bin"
     bin_dir.mkdir()
     args_file = git_repo / "uv-args.txt"
+    # The fake uv log changes while shards run, so it must not be a working-tree test input.
+    exclude = git_repo / ".git" / "info" / "exclude"
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    with exclude.open("a", encoding="utf-8") as handle:
+        handle.write("uv-args.txt\n")
     shard_dir = git_repo / "changed-test-shards"
     cache_dir = git_repo / "changed-test-cache"
     fake_uv = bin_dir / "uv"
@@ -835,6 +840,8 @@ def test_run_parallelizes_broad_non_integration_selection(git_repo: Path) -> Non
         "FDAI_CHANGED_TEST_SHARD_DIR": str(shard_dir),
         "FDAI_CHANGED_TEST_CACHE_DIR": str(cache_dir),
         "FDAI_PYTEST_MAX_WORKERS": "4",
+        # Keep the pass identity hermetic: the fake uv never prepares this environment.
+        "UV_PROJECT_ENVIRONMENT": str(git_repo / "missing-environment"),
     }
 
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)

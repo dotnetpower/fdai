@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Run changed pytest targets in checkpointed deterministic file shards."""
+"""Run changed pytest targets in checkpointed deterministic file shards.
+
+A shard pass marker binds the shard command, the content of every tracked and
+untracked, non-ignored working-tree file, and the installed project environment.
+A pass is reused only while all of them are unchanged. A run records no pass when
+its inputs changed before every shard finished, or when a working-tree change was
+reverted while the shards ran.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +22,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from scripts.automation.changed_test_inputs import InputIdentity, input_identity  # noqa: E402
+
+# Interpreter, pytest, uv, locale, and shard variables change what a shard runs.
+_BOUND_PREFIXES = ("PYTHON", "PYTEST_", "UV_", "FDAI_PYTEST_SHARD_")
+_BOUND_NAMES = frozenset({"LANG", "LC_ALL", "TZ"})
 
 
 @dataclass(frozen=True)
@@ -50,13 +65,17 @@ def _clean_environment() -> dict[str, str]:
     return environment
 
 
-def _command_digest(command: list[str], environment: dict[str, str]) -> str:
-    digest = hashlib.sha256()
-    digest.update(json.dumps(command, separators=(",", ":")).encode())
-    for name in ("PYTHONPATH", "FDAI_PYTEST_SHARD_COUNT", "FDAI_PYTEST_SHARD_INDEX"):
-        digest.update(name.encode())
-        digest.update(environment.get(name, "").encode())
-    return digest.hexdigest()
+def _pass_digest(command: list[str], environment: dict[str, str], inputs: tuple[str, str]) -> str:
+    bound = {
+        "command": command,
+        "environment": {
+            name: value
+            for name, value in environment.items()
+            if name in _BOUND_NAMES or name.startswith(_BOUND_PREFIXES)
+        },
+        "inputs": list(inputs),
+    }
+    return hashlib.sha256(json.dumps(bound, sort_keys=True).encode()).hexdigest()
 
 
 def _shard_basetemp(cache_root: Path, index: int) -> Path:
@@ -66,15 +85,14 @@ def _shard_basetemp(cache_root: Path, index: int) -> Path:
     return Path(tempfile.gettempdir()) / "fdai-pytest-shards" / identity / f"shard-{index}"
 
 
-def _run_shard(
+def _shard_command(
     *,
     index: int,
     count: int,
     tests: list[str],
     cache_root: Path,
-    result_root: Path,
     environment: dict[str, str],
-) -> tuple[ShardResult, str]:
+) -> tuple[list[str], dict[str, str]]:
     cache_dir = cache_root / f"shard-{index}"
     basetemp = _shard_basetemp(cache_root, index)
     command = [
@@ -98,14 +116,36 @@ def _run_shard(
         shard_environment["FDAI_PYTEST_SHARD_COUNT"] = str(count)
         shard_environment["FDAI_PYTEST_SHARD_INDEX"] = str(index)
     command.extend(tests)
-    command_digest = _command_digest(command, shard_environment)
-    marker = result_root / f"shard-{index}.pass"
-    try:
-        if marker.read_text(encoding="utf-8").strip() == command_digest:
-            return ShardResult(index, 0, 0.0, True), ""
-    except OSError:
-        pass
+    return command, shard_environment
 
+
+def _run_shard(
+    *,
+    index: int,
+    count: int,
+    tests: list[str],
+    cache_root: Path,
+    result_root: Path,
+    environment: dict[str, str],
+    inputs: InputIdentity | None,
+) -> tuple[ShardResult, str]:
+    command, shard_environment = _shard_command(
+        index=index,
+        count=count,
+        tests=tests,
+        cache_root=cache_root,
+        environment=environment,
+    )
+    if inputs is not None:
+        marker = result_root / f"shard-{index}.pass"
+        try:
+            recorded = marker.read_text(encoding="utf-8").strip()
+        except OSError:
+            recorded = ""
+        if recorded == _pass_digest(command, shard_environment, inputs.bound):
+            return ShardResult(index, 0, 0.0, True), ""
+
+    basetemp = _shard_basetemp(cache_root, index)
     shutil.rmtree(basetemp, ignore_errors=True)
     basetemp.parent.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
@@ -118,11 +158,44 @@ def _run_shard(
         check=False,
     )
     duration = round(time.monotonic() - started, 3)
-    if completed.returncode in {0, 5}:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text(command_digest + "\n", encoding="utf-8")
     output = completed.stdout + completed.stderr
     return ShardResult(index, completed.returncode, duration, False), output
+
+
+def _record_passes(
+    *,
+    results: list[ShardResult],
+    count: int,
+    tests: list[str],
+    cache_root: Path,
+    result_root: Path,
+    environment: dict[str, str],
+    inputs: InputIdentity | None,
+    settled: InputIdentity | None,
+) -> None:
+    """Record fresh passes only when every input stayed unchanged while they ran.
+
+    When `uv run` synchronizes the environment during a run, the environment
+    identity changes and no pass is recorded; the next run starts from the
+    synchronized environment and can record one.
+    """
+
+    if inputs is None or settled != inputs:
+        return
+    for result in results:
+        if result.cached or result.status not in {0, 5}:
+            continue
+        command, shard_environment = _shard_command(
+            index=result.index,
+            count=count,
+            tests=tests,
+            cache_root=cache_root,
+            environment=environment,
+        )
+        marker = result_root / f"shard-{result.index}.pass"
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        digest = _pass_digest(command, shard_environment, inputs.bound)
+        marker.write_text(digest + "\n", encoding="utf-8")
 
 
 def _run_integration(
@@ -200,6 +273,8 @@ def run(
     environment = _clean_environment()
     database_url = os.environ.get("FDAI_DATABASE_URL", "")
     started = time.monotonic()
+    runner_state = (cache_root, result_root)
+    inputs = input_identity(environment, runner_state)
     with ThreadPoolExecutor(max_workers=shard_count) as executor:
         futures = [
             executor.submit(
@@ -210,11 +285,25 @@ def run(
                 cache_root=cache_root,
                 result_root=result_root,
                 environment=environment,
+                inputs=inputs,
             )
             for index in range(1, shard_count + 1)
         ]
         completed = [future.result() for future in futures]
     results = [item[0] for item in completed]
+    if inputs is not None and any(
+        not result.cached and result.status in {0, 5} for result in results
+    ):
+        _record_passes(
+            results=results,
+            count=shard_count,
+            tests=tests,
+            cache_root=cache_root,
+            result_root=result_root,
+            environment=environment,
+            inputs=inputs,
+            settled=input_identity(environment, runner_state),
+        )
     for result, output in completed:
         print(
             "changed-test-shards: "
