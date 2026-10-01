@@ -423,6 +423,9 @@ space, model version and dimension must match the frozen generation before and a
 Calibration failure prevents holdout. Provider errors, including 429/503 and timeouts, stop the
 attempt without retry. Aborts retain call counts and any completed calibration or partial
 measurement evidence without raw provider errors; parent cancellation propagates.
+Serialize diagnostic dataclasses with Pydantic JSON mode, not `json.dumps(asdict(report))`:
+source-validation receipts contain aware timestamps. Persist and round-trip the complete report,
+including failed calibration and its absent holdout, before treating it as retained evidence.
 
 This path neither discovers credentials nor authorizes live execution. Before supplying a live
 adapter, obtain fresh bounded approval and attest the actual target binding. The caller owns

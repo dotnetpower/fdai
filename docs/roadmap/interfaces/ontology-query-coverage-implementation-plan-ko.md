@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 3051cc8c59bf00ed3b13e99f8ceb5484eb3948bc
+translation_source_sha: f5fa2ccd543c83fc2fa588bf811938df7382533c
 translation_revised: 2026-10-01
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -430,6 +430,10 @@ write-attempt 근거를 조회하며 DNS, 경로, firewall, 자격 증명 및 �
 않습니다. 429/503과 시간 초과를 포함한 제공자 오류는 재시도 없이 해당 실행을 중단합니다.
 중단 결과는 원시 제공자 오류를 노출하지 않고 호출 횟수, 완료된 보정 평가와 부분 측정 근거를
 보존합니다. 상위 작업의 취소도 그대로 전달합니다.
+진단 데이터 클래스는 `json.dumps(asdict(report))`가 아니라 Pydantic의 JSON 모드로
+직렬화합니다. 원본 검증 증적에는 시간대가 포함된 시각이 있기 때문입니다. 보존된 근거로
+인정하기 전에 실패한 보정 평가와 실행되지 않은 홀드아웃까지 전체 보고서를 저장하고
+다시 읽어 원래 내용과 일치하는지 검증합니다.
 
 이 경로는 자격 증명을 자동으로 찾거나 실제 실행을 승인하지 않습니다. 실제 어댑터를
 제공하기 전에 범위가 제한된 새 승인을 받고 실제 대상 연결을 확인하세요. 저장소 격리와

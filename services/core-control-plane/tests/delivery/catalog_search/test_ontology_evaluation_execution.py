@@ -1,9 +1,11 @@
 """One bounded diagnostic includes document preparation without enabling runtime search."""
 
 import asyncio
+import json
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
 
 import httpx
 import pytest
@@ -15,6 +17,7 @@ from fdai.delivery.catalog_search.ontology_evaluation_execution import (
     execute_ontology_retrieval_campaign,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from pydantic import TypeAdapter
 from tests.delivery.catalog_search.test_ontology_evaluation import _POLICY, _TYPES, _cases
 from tests.delivery.catalog_search.test_ontology_evaluation_campaign import _calibration, _plan
 from tests.delivery.catalog_search.test_ontology_evaluation_runner import (
@@ -73,6 +76,31 @@ async def test_counts_document_and_query_calls_without_production_authority() ->
     assert report.production_qualification is report.execution_authority is False
     assert report.campaign.production_qualification is False
     assert harness.embedder.calls == 0
+
+
+@pytest.mark.parametrize("calibration_passes", [True, False])
+async def test_execution_report_json_retains_dated_evidence_and_failure(
+    tmp_path: Path, calibration_passes: bool
+) -> None:
+    harness = await _harness()
+    embedder = _BoundEmbedder()
+    embedder.wrong = not calibration_passes
+    report = await _execute(harness, embedder)
+    adapter = TypeAdapter(OntologyRetrievalExecutionReport)
+    path = tmp_path / "diagnostic.json"
+    path.write_bytes(adapter.dump_json(report))
+    encoded = json.loads(path.read_bytes())
+    assert encoded["production_qualification"] is False
+    assert encoded["execution_authority"] is False
+    assert isinstance(
+        encoded["campaign"]["calibration"]["source_validations"][0]["checked_at"], str
+    )
+    restored = adapter.validate_json(path.read_bytes())
+    assert restored == report
+    assert restored.campaign.digest == report.campaign.digest
+    assert restored.campaign.passed is calibration_passes
+    assert (restored.campaign.holdout is not None) is calibration_passes
+    assert restored.embedding_calls == (32 if calibration_passes else 12)
 
 
 @pytest.mark.parametrize("invalid", ["binding", "call-budget", "model", "space", "dimension"])
