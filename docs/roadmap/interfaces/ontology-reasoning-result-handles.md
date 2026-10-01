@@ -165,6 +165,8 @@ records `remaining_batches`, the next batch descriptor, and a digest of the endp
 listed, not a row count, because later batches haven't run. The answer lists each reached endpoint
 with its LinkType and states how many batches remain. A generation change ends the continuation as
 incomplete, as the shadow runner does today.
+The local implementation keeps this default-off in the shadow path until promotion wires the live
+answer behavior.
 
 **Exit:** the traced connected-resources question lists every reached endpoint with its LinkType
 across the successive plans.

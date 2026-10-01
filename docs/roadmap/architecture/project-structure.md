@@ -6,6 +6,7 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 
 Workflow authoring commits are delegated to a focused Operator PostgreSQL module with its own audit table and service-migration ownership entry; the family facade only routes the committed draft or binding request and still grants no executor, publication, or promotion authority.
 Recent Resource change continuations stay inside Core's ontology platform and persistence modules: Operator exposes only an opaque forwarding route, while Core owns the continuation body, keyset cursor, expiry, reauthorization, and PostgreSQL storage.
+Successive all-kinds relation continuations stay in Core conversation modules as shadow-only state over already verified plan batches; they grant no Operator route or default answer behavior.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.

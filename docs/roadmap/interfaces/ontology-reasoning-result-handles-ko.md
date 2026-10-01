@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 결과 핸들과 이어 읽기
 translation_of: ontology-reasoning-result-handles.md
-translation_source_sha: 5b469b1d8c61d76bf7a06eb040363a64fa2a96e9
+translation_source_sha: b8e0c880dc806b488ed8a33e266629e3b50c985d
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 결과 핸들과 이어 읽기
@@ -159,6 +159,7 @@ WHERE effective_at < :last_effective_at
 묶음 서술자, 이미 나열한 엔드포인트의 다이제스트를 기록합니다. 뒤의 묶음은 아직 실행되지 않았기
 때문입니다. 답변은 도달한 각 엔드포인트를 LinkType과 함께 나열하고 남은 묶음 수를 밝힙니다. 세대가
 바뀌면 지금의 shadow 실행기처럼 이어 읽기를 불완전으로 끝냅니다.
+로컬 구현은 promotion이 실제 답변 동작을 연결할 때까지 이를 shadow 경로의 기본 비활성 상태로 유지합니다.
 
 **종료 조건:** 추적된 연결 리소스 질문이 연속 계획에 걸쳐 도달한 모든 엔드포인트를 LinkType과 함께
 나열합니다.
