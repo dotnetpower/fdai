@@ -17,6 +17,7 @@ from fdai.rule_catalog.schema.inventory_query_language import (
 )
 
 from .semantic_impact_planning import service_impact_query_sides
+from .semantic_judgment_question_form import validate_non_interfering_carried_form
 from .semantic_target_identity import exact_target_from_constraints
 
 _INTENT_ID_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
@@ -298,7 +299,7 @@ def _exact_judgment_target(
 ) -> tuple[str, str] | None:
     if isinstance(judgment, Mapping):
         try:
-            judgment = SemanticJudgmentProposal.model_validate(judgment)
+            judgment = validate_non_interfering_carried_form(judgment)
         except ValueError:
             return None
     if judgment is None or judgment.ambiguous:

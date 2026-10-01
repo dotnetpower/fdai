@@ -541,6 +541,24 @@ def _goal_shape_failures(goal: FormGoal, form: SemanticQuestionForm) -> list[str
         failures.append(f"measure_required:{goal.id}")
     if goal.operation is GoalOperation.HISTORY and goal.time.kind is TimeKind.FUTURE:
         failures.append(f"history_future_time:{goal.id}")
+    if goal.operation is GoalOperation.COMPARE_ENTITIES:
+        counterpart = form.mention(goal.counterpart) if goal.counterpart is not None else None
+        if counterpart is None:
+            failures.append(f"counterpart_missing:{goal.id}")
+        elif (
+            counterpart.domain is not MentionDomain.INSTANCE
+            or counterpart.form not in _ANCHOR_FORMS
+        ):
+            failures.append(f"counterpart_domain:{goal.id}")
+    if (
+        goal.operation is GoalOperation.COMPARE_WINDOWS
+        and goal.time.kind is not TimeKind.TWO_WINDOWS
+    ):
+        failures.append(f"two_windows_required:{goal.id}")
+    if goal.operation is GoalOperation.RANK and (
+        goal.measure is None or goal.measure.order is None
+    ):
+        failures.append(f"order_required:{goal.id}")
     if goal.operation is GoalOperation.DESCRIBE_SCHEMA and goal.level is not GoalLevel.SCHEMA:
         failures.append(f"describe_schema_level:{goal.id}")
     if goal.subject_scope is SubjectScope.GOAL_OUTPUT and not goal.depends_on:

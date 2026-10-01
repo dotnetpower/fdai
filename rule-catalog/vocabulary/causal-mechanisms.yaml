@@ -1,0 +1,13 @@
+schema_version: "1.0"
+mechanisms:
+  - id: deployment_precedes_state_change
+    required_evidence:
+      - complete_state_transition_window
+      - complete_activity_window
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+      - confounder_check
+    refutation_reads:
+      - unchanged_peer_activity_window
+      - same_effect_without_candidate_operation

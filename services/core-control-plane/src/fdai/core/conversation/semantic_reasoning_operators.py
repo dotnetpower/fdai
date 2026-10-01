@@ -18,9 +18,16 @@ from fdai_service_contracts.ontology_query import (
 
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
 
+from .semantic_causal_context import (
+    CAUSE_CONTEXT_SHAPE,
+    CAUSE_NOT_ESTABLISHED,
+    CHANGE_ACTIVITY_FUNCTION,
+    causal_context_result,
+)
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_admission import restated_relation, restates_filter
 from .semantic_reasoning_anchoring import anchored_relation
+from .semantic_reasoning_comparisons import comparison_goal
 from .semantic_reasoning_form import (
     DurationUnit,
     FilterRole,
@@ -43,6 +50,8 @@ from .semantic_reasoning_handles import (
     reference_mention,
     starts_from_reference,
 )
+from .semantic_reasoning_lineage_counts import lineage_count_goal
+from .semantic_reasoning_measure_reads import health_lookup, state_history
 from .semantic_reasoning_measures import stated_measure
 from .semantic_reasoning_metrics import METRIC_READER, metric_read
 from .semantic_reasoning_nodes import (
@@ -59,7 +68,6 @@ from .semantic_reasoning_nodes import (
     containment_side,
     count_node,
     declared_maximum,
-    declared_measures,
     endpoint_predicates,
     function_declared,
     group_by,
@@ -71,17 +79,15 @@ from .semantic_reasoning_nodes import (
     traversal_node,
     union_tree,
 )
+from .semantic_reasoning_property_reads import property_lookup
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
+from .semantic_reasoning_remaining_operators import remaining_operator_result
 from .semantic_reasoning_schema import schema_goal
 
 MAX_SIDES_PER_BATCH = 3
 # Compiler-only output shapes, rendered as verified evidence tables with reviewed notices.
-CAUSE_CONTEXT_SHAPE = "cause_context"
 CHANGE_ACTIVITY_SHAPE = "change_activity"
-CAUSE_NOT_ESTABLISHED = "cause.not_established"
 IMPACT_POSSIBLE_ONLY = "impact.possible_not_observed"
-CURRENT_STATE_FUNCTION = "query.resource_current_state"
-CHANGE_ACTIVITY_FUNCTION = "query.resource_change_activity"
 RECENT_CHANGES_FUNCTION = "query.recent_resource_changes"
 EVENT_HISTORY_FUNCTION = "query.resource_event_history"
 # Every reviewed event family; the form has no narrower event kind to state.
@@ -103,7 +109,9 @@ _UNIT_SECONDS = {
     DurationUnit.WEEK: 604_800,
 }
 _CURRENT_TIMES = frozenset({TimeKind.CURRENT, TimeKind.UNSPECIFIED})
-_MEASURE_DOMAINS = frozenset({MentionDomain.STATE, MentionDomain.HEALTH, MentionDomain.METRIC})
+_MEASURE_DOMAINS = frozenset(
+    {MentionDomain.STATE, MentionDomain.HEALTH, MentionDomain.METRIC, MentionDomain.PROPERTY}
+)
 _RELATION_READS = frozenset(
     {GoalOperation.SELECT, GoalOperation.TRAVERSE, GoalOperation.IMPACT, GoalOperation.COUNT}
 )
@@ -121,6 +129,12 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         goal.want is Want.CAUSE and goal.effective_operation is not GoalOperation.EXPLAIN_CAUSE
     ):
         return OperatorResult(unsupported=(f"want_unsupported:{goal.want.value}",))
+    comparison = comparison_goal(goal, ctx)
+    if comparison is not None:
+        return comparison
+    remaining = remaining_operator_result(goal)
+    if remaining is not None:
+        return remaining
     compiled = _SCHEMA_OPERATIONS if goal.level is GoalLevel.SCHEMA else _INSTANCE_OPERATIONS
     if goal.effective_operation not in compiled:
         return OperatorResult(
@@ -196,8 +210,10 @@ _SCHEMA_OPERATIONS = frozenset(
 # Measure kinds each compiled operation reads; any other measure atom is not dropped silently.
 _READ_MEASURES: dict[GoalOperation, frozenset[MeasureKind]] = {
     GoalOperation.COUNT: frozenset({MeasureKind.COUNT}),
-    GoalOperation.LOOKUP: frozenset({MeasureKind.STATE, MeasureKind.METRIC}),
-    GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE, MeasureKind.EVENT}),
+    GoalOperation.LOOKUP: frozenset(
+        {MeasureKind.STATE, MeasureKind.METRIC, MeasureKind.HEALTH, MeasureKind.PROPERTY}
+    ),
+    GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE, MeasureKind.EVENT, MeasureKind.STATE}),
     GoalOperation.EXPLAIN_CAUSE: frozenset({MeasureKind.STATE, MeasureKind.CHANGE}),
     GoalOperation.SELECT: frozenset(),
     GoalOperation.TRAVERSE: frozenset(),
@@ -266,6 +282,11 @@ def _restates_measure(goal: FormGoal, measure: FormMeasure, ctx: CompileContext)
     ):
         return True
     domain = ctx.mention(str(measure.mention)).domain
+    if measure.group_by is GroupBy.CONTAINER and domain in {
+        MentionDomain.OBJECT_TYPE,
+        *RESOURCE_TYPE_DOMAINS,
+    }:
+        return True
     return domain.value == measure.kind.value and domain in _MEASURE_DOMAINS
 
 
@@ -284,9 +305,15 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     scopes = [item for item in goal.filters if item.role is FilterRole.SCOPE]
     if len(scopes) > 1:
         return OperatorResult(unsupported=("multiple_scopes_unsupported",))
-    group = group_by(goal)
+    group = group_by(goal, ctx)
     if isinstance(group, OperatorResult):
         return group
+    if (
+        goal.effective_operation is GoalOperation.COUNT
+        and len(group) == 1
+        and group[0].startswith("lineage.nearest_container:")
+    ):
+        return lineage_count_goal(goal, ctx, selector, predicates, group)
     prefix = goal.id
     if not scopes:
         node = object_set_node(
@@ -347,7 +374,7 @@ def _relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     predicates, failure = endpoint_predicates(goal, ctx, extra_types=anchored.subject_types)
     if failure is not None:
         return failure
-    group = group_by(goal)
+    group = group_by(goal, ctx)
     if isinstance(group, OperatorResult):
         return group
     selection = select_relation_sides(
@@ -492,6 +519,10 @@ def _lookup_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return _metric_lookup(goal, ctx)
     if goal.time.kind not in _CURRENT_TIMES:
         return OperatorResult(unsupported=(f"time_unsupported:{goal.time.kind.value}",))
+    if goal.measure.kind is MeasureKind.HEALTH:
+        return health_lookup(goal, ctx)
+    if goal.measure.kind is MeasureKind.PROPERTY:
+        return property_lookup(goal, ctx)
     if goal.measure.kind is not MeasureKind.STATE:
         return OperatorResult(unsupported=(f"measure_unsupported:{goal.measure.kind.value}",))
     return _anchored_function(
@@ -544,6 +575,8 @@ def _history_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         if kind is not MeasureKind.CHANGE:
             return OperatorResult(unsupported=(f"collection_history_unsupported:{kind.value}",))
         result = _recent_changes(goal, ctx, seconds, requirement)
+    elif kind is MeasureKind.STATE:
+        result = state_history(goal, ctx, seconds, requirement)
     elif kind is MeasureKind.EVENT:
         maximum = declared_maximum(ctx, EVENT_HISTORY_FUNCTION, "lookback_seconds")
         if maximum is not None and seconds > maximum:
@@ -640,43 +673,9 @@ def _cause_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if isinstance(window, str):
         return OperatorResult(unsupported=(window,))
     seconds, limitation, requirement = window
-    for name in (CURRENT_STATE_FUNCTION, CHANGE_ACTIVITY_FUNCTION):
-        if not function_declared(ctx, name):
-            return OperatorResult(unsupported=(f"function_unavailable:{name}",))
-    anchor = anchor_node(f"{goal.id}-anchor", goal.subject, ctx, FUNCTION_ANCHOR_LIMIT)
-    if isinstance(anchor, OperatorResult):
-        return anchor
-    reads = tuple(
-        OntologyQueryNode(
-            node_id=f"{goal.id}-{suffix}",
-            kind=QueryNodeKind.FUNCTION,
-            depends_on=(anchor.node_id,),
-            arguments_json=canonical_json(
-                {
-                    "function_name": name,
-                    "arguments": arguments,
-                    "dependency_arguments": {anchor.node_id: "query_result"},
-                }
-            ),
-            output_kind="query.table",
-        )
-        for suffix, name, arguments in (
-            ("state", CURRENT_STATE_FUNCTION, {}),
-            ("activity", CHANGE_ACTIVITY_FUNCTION, {"lookback_seconds": seconds}),
-        )
+    return causal_context_result(
+        goal, ctx, seconds=seconds, limitation=limitation, requirement=requirement
     )
-    spec = plan_spec(
-        goal,
-        (anchor, *reads),
-        tuple(node.node_id for node in reads),
-        ctx,
-        subjects=(RESOURCE_OBJECT_TYPE,),
-        output_shape=CAUSE_CONTEXT_SHAPE,
-        # The state reader's declared fields lead the answer table, before its receipt fields.
-        measure_concepts=declared_measures(ctx, CURRENT_STATE_FUNCTION),
-        evidence_requirements=(CAUSE_NOT_ESTABLISHED, requirement),
-    )
-    return OperatorResult(specs=(spec,), limitations=("cause_not_established", limitation))
 
 
 def _stated_window(goal: FormGoal, ctx: CompileContext) -> tuple[int, str, str] | str:

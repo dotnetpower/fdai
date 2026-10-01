@@ -8,10 +8,15 @@ vocabulary to that property.
 
 from __future__ import annotations
 
+from enum import StrEnum
+
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
+from fdai.core.rca.hypothesis import CausalHypothesisStatus
+from fdai.core.recovery.models import RecoveryPlanStatus
 from fdai.rule_catalog.schema.provider_region import ProviderRegionRegistry
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.shared.contracts.models import IncidentState
+from fdai.shared.providers.process_runtime import ProcessStatus
 
 _RESOURCE_OBJECT_TYPE = "Resource"
 _RESOURCE_TYPE_PROPERTY = "type"
@@ -91,21 +96,31 @@ def resource_location_value_domains(
     )
 
 
-def incident_lifecycle_value_domains() -> tuple[PropertyValueDomain, ...]:
-    """Return the `Incident.status` lifecycle domain the Incident projection writes."""
+# Each ObjectType whose projection writes a canonical status enum, with that enum.
+_LIFECYCLE_ENUMS: tuple[tuple[str, type[StrEnum]], ...] = (
+    ("CausalHypothesis", CausalHypothesisStatus),
+    ("Incident", IncidentState),
+    ("Process", ProcessStatus),
+    ("RecoveryPlan", RecoveryPlanStatus),
+)
 
-    return (
+
+def lifecycle_value_domains() -> tuple[PropertyValueDomain, ...]:
+    """Return the reviewed `status` lifecycle domain of every projected ObjectType."""
+
+    return tuple(
         PropertyValueDomain(
-            object_type="Incident",
+            object_type=object_type,
             property_name="status",
-            values=tuple(sorted(item.value for item in IncidentState)),
+            values=tuple(sorted(item.value for item in enum)),
             lifecycle_state=True,
-        ),
+        )
+        for object_type, enum in _LIFECYCLE_ENUMS
     )
 
 
 __all__ = [
-    "incident_lifecycle_value_domains",
+    "lifecycle_value_domains",
     "resource_location_value_domains",
     "resource_type_value_domains",
 ]

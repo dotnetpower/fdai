@@ -37,6 +37,7 @@ from .query_gateway import (
 )
 from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
 from .query_traversal_tables import (
+    relationship_lineage_table,
     relationship_traversal_table,
     secured_query_table,
     traversal_endpoints,
@@ -153,11 +154,21 @@ class SecuredRelationshipTraversalNodeHandler:
             raise TypeError("relationship traversal dependency MUST be a QueryTable")
         if not dependency.complete:
             raise QueryNodeHeldError("entity_resolution_incomplete")
-        if not dependency.rows:
-            raise QueryNodeHeldError("entity_resolution_empty")
-        if len(dependency.rows) != 1:
-            raise QueryNodeHeldError("entity_resolution_ambiguous")
         traversal = RelationshipTraversalDefinition.model_validate(node.arguments)
+        if not traversal.emit_lineage and len(dependency.rows) != 1:
+            reason = ("entity_resolution_ambiguous", "entity_resolution_empty")[not dependency.rows]
+            raise QueryNodeHeldError(reason)
+        elif not dependency.rows:
+            table = QueryTable(
+                rows=(), complete=True, source_generation=dependency.source_generation
+            )
+            return QueryNodeResult(
+                value=table,
+                evidence_refs=_evidence_refs(dependencies)
+                + (f"ontology-query-table:{table.digest}",),
+                authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+            )
+        root_ids = tuple(row.row_id for row in dependency.rows)
         definition = ObjectSetDefinition(
             selector=traversal.selector,
             traversal=ObjectTraversal(
@@ -165,7 +176,7 @@ class SecuredRelationshipTraversalNodeHandler:
                 direction=traversal.direction,
                 max_depth=traversal.max_depth,
             ),
-            root_ids=(dependency.rows[0].row_id,),
+            root_ids=root_ids,
             as_of=traversal.as_of,
             purpose=traversal.purpose,
             limit=traversal.limit,
@@ -188,28 +199,39 @@ class SecuredRelationshipTraversalNodeHandler:
                 secured,
                 provider=self._decision_evidence,
             )
-        table, output_refs = await traversal_endpoints(
-            relationship_traversal_table(
+        if traversal.emit_lineage:
+            table = relationship_lineage_table(
                 secured,
-                root_ids=(dependency.rows[0].row_id,),
+                root_ids=root_ids,
                 link_type=traversal.link_types[0],
                 direction=traversal.direction,
                 max_depth=traversal.max_depth,
-            ),
-            traversal,
-            secured,
-            gateway=self._gateway,
-            request=self._request,
-            issue=(
-                partial(
-                    _issue_secured_result,
-                    self._receipt_authority,
-                    provider=self._decision_evidence,
-                )
-                if self._receipt_authority is not None
-                else None
-            ),
-        )
+                endpoint_predicates=traversal.endpoint_predicates,
+            )
+            output_refs: tuple[str, ...] = ()
+        else:
+            table, output_refs = await traversal_endpoints(
+                relationship_traversal_table(
+                    secured,
+                    root_ids=root_ids,
+                    link_type=traversal.link_types[0],
+                    direction=traversal.direction,
+                    max_depth=traversal.max_depth,
+                ),
+                traversal,
+                secured,
+                gateway=self._gateway,
+                request=self._request,
+                issue=(
+                    partial(
+                        _issue_secured_result,
+                        self._receipt_authority,
+                        provider=self._decision_evidence,
+                    )
+                    if self._receipt_authority is not None
+                    else None
+                ),
+            )
         return QueryNodeResult(
             value=table,
             evidence_refs=_evidence_refs(dependencies)

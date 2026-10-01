@@ -10,7 +10,12 @@ title: Operator Console - Data and Wire Contracts
 Test-context choices are a dedicated authenticated read contract. They return reviewed scope and policy choices plus a source revision, and lifecycle writes still use the existing proposal, review, and revocation routes with `execution_authority=false`.
 
 Core's supervised instance-index reconciliation is separate from Incident creation and transport. Enrollment comes only from authenticated Function invocation context, not model arguments or index records. Candidate preparation and exact-ID reads cannot create an Incident, approve a change, or alter the semantic wire's no-execution-authority contract. The dedicated terminal projection verifies principal, release, query, result digest, invocation evidence, and candidate accounting. It displays only identity/type/revision rows with bilingual non-exhaustive and no-authority notices; zero candidates never establish absence and raw properties stay excluded.
+Recent Resource change continuations add only an Operator read route that forwards an opaque continuation reference; Operator does not decode the reference or read the continuation body, and Core remains responsible for reauthorization and typed `continuation_invalid` outcomes.
 Core bootstrap keeps the assembled runtime data model and human-approval registry binding in focused modules. Incident consumers, supervised tasks, logical topics, durable acceptance, and the Operator/Core authority split remain unchanged.
+Semantic result-handle references are additive no-authority fields on the semantic request and
+projection contracts. Operator stores and replays only the opaque reference; Core remains the only
+reader of encrypted handle bodies. Ordinal follow-ups over those references reauthorize rows in
+Core before anchoring a read and do not change the Operator/Core authority split.
 
 Observer setup uses a separate `observer-proposal-projection` schema and
 `core.observer-deployment.projections` logical topic on the existing transport. Operator owns the
@@ -136,6 +141,11 @@ A read held on its reading keeps its typed `reason_code`, such as `semantic_cons
 Its `answer` is a reviewed bilingual notice that names the closed constraint roles or atom categories
 the planner recorded, never operator words, and the Console maps each code to a restate or unsupported
 prompt. The `reason_code` stays a bounded lowercase code, so the wire schema is unchanged.
+A compiled single-target health answer uses the same reviewed assessment rendering as the current
+path, and its `answer` restates the assessment's fixed window through a reviewed bilingual notice;
+the wire schema is unchanged. A compiled property lookup renders the one reviewed value of its bound
+Resource, states a missing value as unknown, and its `answer` states the value's inventory source and
+reviewed freshness bound through a reviewed bilingual notice; the wire schema is unchanged.
 Concurrent semantic requests share one durable processing claim. A waiter retries the claim after
 its lease expires, so a failed owner cannot strand the request until its outer deadline. A result
 store failure while waiting returns an explicit held projection.
@@ -528,6 +538,8 @@ The Operator emits the optional content-free `authentication_receipt_ref` in `op
 | 2026-09-16 | implemented | Preserved generic action-confirmation lifetime behavior, required exact typed Incident arguments and session identity, and bound both semantic request and result rows to the authenticated principal. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; focused Incident confirmation, generic action, and PostgreSQL query regressions. | Exact-head protected CI and the authenticated request-to-`incident.open` runtime receipt remain pending; no execution authority changed. |
 | 2026-09-16 | implemented | Added a generation-bound inventory invalidation cursor to the shared PostgreSQL read context. Incident drafts, source revalidation, proposal storage, publication, lifecycle ownership, and execution authority are unchanged. | `current change`; 153 focused Operator inventory-state and replay tests plus strict mypy and Ruff. | No Operator-initiated Incident wire behavior changed. |
 | 2026-09-30 | implemented | Kept typed reading-hold reason codes on the semantic terminal instead of the generic evidence hold or unsupported code, with a reviewed bilingual notice that names the closed constraint roles or atom categories, and mapped those codes to restate or unsupported prompts in the Console. The `reason_code` field keeps its bounded pattern, so no wire schema version changes. | `current change`; `services/core-control-plane/src/fdai_core_service/semantic_reading_holds.py`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; `console/src/deck/verification-presentation.ts`; `test_semantic_turn_processor.py` and `verification-presentation.test.ts` passed | Retain an authenticated held terminal that shows a typed reading hold after deployment. |
+| 2026-10-01 | implemented | A compiled single-target health answer renders through the current path's reviewed assessment renderer, which now accepts the goal-prefixed node id, and restates its fixed window through a reviewed bilingual notice; the wire schema is unchanged. | `current change`; `services/core-control-plane/src/fdai_core_service/{semantic_turn_processor,semantic_verified_rows}.py`; `test_semantic_reasoning_measure_reads.py` | None for this change. |
+| 2026-10-01 | implemented | A compiled property lookup renders the exact reviewed value of its bound Resource, states a missing value as unknown, and restates the value's inventory source and reviewed freshness bound through a reviewed bilingual notice; the wire schema is unchanged. | `current change`; `services/core-control-plane/src/fdai_core_service/{semantic_property_answer,semantic_verified_rows,semantic_turn_processor}.py`; `test_semantic_reasoning_property_reads.py` | None for this change. |
 
 ### Remaining work
 

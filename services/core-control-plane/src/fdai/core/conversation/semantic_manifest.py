@@ -8,11 +8,18 @@ from dataclasses import dataclass
 from fdai_service_contracts import canonical_ordinary_role
 from fdai_service_contracts.ontology_query import content_digest
 
-from fdai.core.ontology_platform import QueryManifest, build_query_manifest
+from fdai.core.ontology_platform import QueryManifest, ReviewedPropertyRead, build_query_manifest
+from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
+    KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
+)
+from fdai.core.ontology_platform.kubernetes_rollout_queries import (
+    KUBERNETES_ROLLOUT_SYMPTOM_CONCEPT,
+)
 from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.core.ontology_platform.resource_health_values import resource_health_state_values
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
+from fdai.rule_catalog.schema.property_semantic import PropertySemanticRegistry
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyActionType,
@@ -39,6 +46,7 @@ class ConceptVocabularies:
 
     metric_registry: MetricSemanticRegistry | None = None
     inventory_query_language: InventoryQueryLanguageRegistry | None = None
+    property_semantics: PropertySemanticRegistry | None = None
 
     def metric_labels(self) -> dict[str, str]:
         registry = self.metric_registry
@@ -55,6 +63,47 @@ class ConceptVocabularies:
         except ValueError:
             # A vocabulary without Resource Health groups offers no health concepts.
             return {}
+
+    def property_reads(self) -> tuple[ReviewedPropertyRead, ...]:
+        """Return each reviewed semantic with the one provider path per resource type.
+
+        A resource type with more than one reviewed path for a semantic, such as one per
+        provider, can't say which one a Resource carries, so that type is left out.
+        """
+
+        registry = self.property_semantics
+        if registry is None:
+            return ()
+        reads: list[ReviewedPropertyRead] = []
+        for semantic in registry.semantics:
+            by_type: dict[str, list[str]] = {}
+            for item in semantic.equivalent_provider_paths:
+                by_type.setdefault(item.resource_type, []).append(item.path)
+            paths = tuple(
+                sorted((kind, found[0]) for kind, found in by_type.items() if len(found) == 1)
+            )
+            if paths:
+                reads.append(
+                    ReviewedPropertyRead(
+                        semantic_id=semantic.semantic_id,
+                        value_type=semantic.value_type.value,
+                        unit=semantic.canonical_unit,
+                        max_age_seconds=semantic.freshness.max_age_seconds,
+                        paths=paths,
+                    )
+                )
+        return tuple(reads)
+
+
+def planner_metric_concepts(registry: MetricSemanticRegistry | None) -> tuple[str, ...]:
+    """Return the symptom concepts and reviewed metric concepts the planner may bind."""
+
+    reviewed = registry.definitions if registry is not None else ()
+    return tuple(
+        sorted(
+            {KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT, KUBERNETES_ROLLOUT_SYMPTOM_CONCEPT, *reviewed}
+        )
+    )
 
 
 class CatalogQueryManifestProvider:
@@ -84,6 +133,7 @@ class CatalogQueryManifestProvider:
         vocabulary = vocabularies or ConceptVocabularies()
         self._metric_labels: Mapping[str, str] = vocabulary.metric_labels()
         self._health_labels: Mapping[str, tuple[str, ...]] = vocabulary.health_labels()
+        self._property_reads = vocabulary.property_reads()
         self._bound_function_names = (
             None if bound_function_names is None else tuple(bound_function_names)
         )
@@ -110,6 +160,7 @@ class CatalogQueryManifestProvider:
             property_values=self._property_values,
             metric_labels=self._metric_labels,
             health_labels=self._health_labels,
+            property_reads=self._property_reads,
         )
 
 
@@ -129,5 +180,6 @@ def semantic_principal_scope_digest(*, principal: Principal, purpose: str) -> st
 __all__ = [
     "CatalogQueryManifestProvider",
     "ConceptVocabularies",
+    "planner_metric_concepts",
     "semantic_principal_scope_digest",
 ]

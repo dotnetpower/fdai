@@ -91,6 +91,10 @@ _WINDOW_NOTICES = {
         "조회 기간: 질문의 표현에서 판단한 최근 {span}",
         "Read window: the last {span}, as judged from the question's wording.",
     ),
+    "fixed": (
+        "조회 기간: 상태 이상 평가의 검토된 고정 기간인 최근 {span}",
+        "Read window: the last {span}, the reviewed fixed window of the health assessment.",
+    ),
 }
 _CAUSE_NOTICE = (
     "원인은 확정하지 않았습니다. 아래는 현재 상태와 조회 기간에 기록된 작업이며, "
@@ -113,6 +117,17 @@ _UNIQUENESS_NOTICE = (
     "This resource was matched by name while the inventory was incomplete, so another "
     "resource with the same name may not be reflected yet.",
 )
+# A property value states where it came from and the freshness its reviewed meaning needs.
+_PROPERTY_NOTICE = (
+    "값 출처: 이 리소스의 인벤토리 기록입니다. 개별 속성을 관측한 시각은 기록되지 않으며, "
+    "이 속성의 검토된 최신성 기준은 {span}입니다.",
+    "Value source: this resource's inventory record. The time a single property was "
+    "observed isn't recorded, and the reviewed freshness bound for this property is {span}.",
+)
+_COMPARED_NOTICE = (
+    "비교한 기간: 최근 {recent}와 그 직전 {earlier}",
+    "Compared windows: the last {recent}, and the {earlier} just before it.",
+)
 _FIXED_NOTICES = {
     "cause.not_established": _CAUSE_NOTICE,
     "impact.possible_not_observed": _IMPACT_NOTICE,
@@ -129,6 +144,19 @@ def with_stated_notices(answer: str, requirements: tuple[str, ...], *, locale: s
         fixed = _FIXED_NOTICES.get(requirement)
         if fixed is not None:
             notices.append(fixed[0] if korean else fixed[1])
+            continue
+        compared = requirement.removeprefix("window.compared.").split(".")
+        if requirement.startswith("window.compared.") and len(compared) == 2:
+            if all(part.isdigit() for part in compared):
+                earlier, recent = (_window_span(int(part), korean=korean) for part in compared)
+                text = _COMPARED_NOTICE[0] if korean else _COMPARED_NOTICE[1]
+                notices.append(text.format(earlier=earlier, recent=recent))
+            continue
+        bound = requirement.removeprefix("property.inventory.")
+        if bound != requirement:
+            if bound.isdigit():
+                text = _PROPERTY_NOTICE[0] if korean else _PROPERTY_NOTICE[1]
+                notices.append(text.format(span=_window_span(int(bound), korean=korean)))
             continue
         kind, _, seconds = requirement.removeprefix("window.").partition(".")
         templates = _WINDOW_NOTICES.get(kind) if requirement.startswith("window.") else None

@@ -6,6 +6,7 @@ graph uses generic, customer-free names.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -14,10 +15,11 @@ from typing import Any
 import yaml
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
 from fdai.composition.semantic_query_value_domains import (
-    incident_lifecycle_value_domains,
+    lifecycle_value_domains,
     resource_location_value_domains,
     resource_type_value_domains,
 )
+from fdai.core.conversation.semantic_manifest import ConceptVocabularies
 from fdai.core.conversation.semantic_reasoning_admission import (
     FormAdmission,
     SpanAccounting,
@@ -44,6 +46,7 @@ from fdai.core.ontology_platform import (
     AggregateNodeHandler,
     OntologyQueryPlanExecutor,
     OntologyQueryPlanVerifier,
+    ProjectNodeHandler,
     QueryManifest,
     SetOperationNodeHandler,
 )
@@ -52,6 +55,7 @@ from fdai.core.ontology_platform.object_sets import ObjectSetService
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.core.ontology_platform.query_manifest import build_query_manifest
+from fdai.core.ontology_platform.query_metric_handlers import METRIC_ARGUMENT_SCHEMAS
 from fdai.core.ontology_platform.query_source_handlers import (
     SecuredObjectSetNodeHandler,
     SecuredRelationshipTraversalNodeHandler,
@@ -154,6 +158,10 @@ def production_manifest(
         ),
         metric_labels=dict(metric_labels),
         health_labels=dict(health_labels),
+        # Reviewed Property semantics, offered as in production composition.
+        property_reads=ConceptVocabularies(
+            property_semantics=catalog.property_semantics
+        ).property_reads(),
         property_values=(
             *resource_type_value_domains(registry),
             *resource_location_value_domains(
@@ -165,7 +173,7 @@ def production_manifest(
                     )
                 )
             ),
-            *incident_lifecycle_value_domains(),
+            *lifecycle_value_domains(),
         ),
     )
 
@@ -180,8 +188,31 @@ def plan_verifier() -> OntologyQueryPlanVerifier:
             QueryNodeKind.FUNCTION,
             QueryNodeKind.UNION,
             QueryNodeKind.AGGREGATE,
-        )
+            QueryNodeKind.PROJECT,
+            QueryNodeKind.METRIC_SCOPE_SERIES,
+            QueryNodeKind.METRIC_COMPARISON,
+        ),
+        # Metric reads are verified against the reviewed registry, as in production.
+        reviewed_metric_concepts=reviewed_metric_concepts(),
+        extension_argument_schemas={
+            QueryNodeKind.METRIC_SCOPE_SERIES: METRIC_ARGUMENT_SCHEMAS[
+                QueryNodeKind.METRIC_SCOPE_SERIES
+            ],
+            QueryNodeKind.METRIC_COMPARISON: METRIC_ARGUMENT_SCHEMAS[
+                QueryNodeKind.METRIC_COMPARISON
+            ],
+        },
     )
+
+
+@lru_cache(maxsize=1)
+def reviewed_metric_concepts() -> tuple[str, ...]:
+    from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
+
+    registry = load_metric_semantic_registry(
+        ROOT / "rule-catalog" / "vocabulary" / "metric-semantics.yaml"
+    )
+    return tuple(sorted(registry.definitions))
 
 
 def admitted(
@@ -224,7 +255,11 @@ def span(utterance: str, text: str) -> dict[str, int]:
     return {"start": start, "end": start + len(text)}
 
 
-async def fixture_gateway() -> SecuredObjectSetQueryGateway:
+async def fixture_gateway(
+    provider_properties: Mapping[str, Mapping[str, Any]] | None = None,
+) -> SecuredObjectSetQueryGateway:
+    """Return the fixture graph; ``provider_properties`` adds provider bags by identity."""
+
     catalog = production_catalog()
     resource = next(item for item in catalog.object_types if item.name == RESOURCE)
     links = tuple(
@@ -242,6 +277,8 @@ async def fixture_gateway() -> SecuredObjectSetQueryGateway:
         properties: dict[str, Any] = {"id": identity, "name": name, "type": resource_type}
         if parent is not None:
             properties["parent_id"] = _provider_path(parent)
+        if provider_properties and identity in provider_properties:
+            properties["properties"] = dict(provider_properties[identity])
         await store.upsert_object(
             OntologyObjectRecord(id=identity, object_type="Resource", properties=properties)
         )
@@ -293,6 +330,7 @@ async def execute(plan: OntologyQueryPlan, gateway: SecuredObjectSetQueryGateway
             ),
             QueryNodeKind.UNION: SetOperationNodeHandler("union"),
             QueryNodeKind.AGGREGATE: AggregateNodeHandler(),
+            QueryNodeKind.PROJECT: ProjectNodeHandler(),
         },
         now=lambda: NOW,
     )

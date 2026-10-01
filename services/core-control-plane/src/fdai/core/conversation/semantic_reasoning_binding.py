@@ -74,6 +74,8 @@ class AnchorBinding:
     # False when one object matched but incomplete source coverage cannot prove that no
     # other object carries the same text; the answer then states that limitation.
     uniqueness_proven: bool = True
+    # The bound Resource's type, read with its identity; it selects reviewed provider paths.
+    resource_type: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +99,7 @@ class AnchorBindingReceipt:
                     "source_generation": item.source_generation,
                     "reason": item.reason,
                     **({} if item.uniqueness_proven else {"uniqueness_proven": False}),
+                    **({"resource_type": item.resource_type} if item.resource_type else {}),
                 }
                 for item in self.bindings
             ]
@@ -147,6 +150,8 @@ def anchor_mentions(admission: FormAdmission) -> tuple[str, ...]:
         cited.extend(item.mention for item in goal.filters if item.role is FilterRole.SCOPE)
         if goal.relation is not None and goal.relation.anchor is not None:
             cited.append(goal.relation.anchor)
+        if goal.counterpart is not None:
+            cited.append(goal.counterpart)
         if goal.subject is not None:
             cited.append(goal.subject)
     return tuple(
@@ -208,7 +213,7 @@ class GatewayAnchorResolver:
     async def resolve(
         self, mention_id: str, text: str, extensions: tuple[str, ...] = ()
     ) -> AnchorBinding:
-        found: dict[str, None] = {}
+        found: dict[str, str | None] = {}
         longer: set[str] = set()
         source_complete = True
         truncated = False
@@ -252,7 +257,8 @@ class GatewayAnchorResolver:
             if secured.receipt.source_generation is not None:
                 generations.add(secured.receipt.source_generation)
             for record in secured.materialization.graph.objects:
-                found[record.id] = None
+                kind = record.properties.get("type")
+                found[record.id] = kind if isinstance(kind, str) else None
             if predicate.operator is ObjectPredicateOperator.IN:
                 longer = {record.id for record in secured.materialization.graph.objects}
         generation = next(iter(generations)) if len(generations) == 1 else None
@@ -292,6 +298,7 @@ class GatewayAnchorResolver:
             object_id=identities[0],
             source_generation=generation,
             uniqueness_proven=source_complete,
+            resource_type=found[identities[0]],
         )
 
 

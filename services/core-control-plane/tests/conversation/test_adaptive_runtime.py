@@ -27,6 +27,7 @@ from fdai.core.conversation.semantic_runtime import (
 )
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryNodeResult
+from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai_service_contracts.ontology_query import (
     EvidenceAuthority,
     OntologyQueryNode,
@@ -216,6 +217,70 @@ async def test_adaptive_example_uses_verified_query_runtime_without_widening_aut
     assert reads == ["resources"]
     assert (query_model.frame_calls, query_model.plan_calls) == (1, 1)
     assert "canary" in result.adaptive_answer.answer
+
+
+async def test_adaptive_model_receives_model_evidence_view_not_raw_query_rows() -> None:
+    manifest, definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=query_plan(definition))
+    model = AnswerModel(
+        plan=answer_plan(example=True),
+        answer={
+            "sections": [
+                {"goal_id": "explain", "text": "Canary shifts gradually."},
+                {"goal_id": "example", "text": "The evidence view is bounded."},
+            ]
+        },
+        review={**_review(), "supported_goal_ids": ["explain", "example"]},
+    )
+
+    async def handler(
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        assert dependencies == {}
+        return QueryNodeResult(
+            value=QueryTable(
+                rows=(
+                    QueryRow.from_values(
+                        node.node_id,
+                        {
+                            "name": "visible-name",
+                            "status": "running",
+                            "resource_id": "hidden-resource-id",
+                            "provider_body": {"raw": "do-not-send"},
+                            "handle_ref": "OpaqueHandleRef0123456789abcdefABCDEF",
+                        },
+                    ),
+                ),
+                complete=True,
+            ),
+            evidence_refs=("inventory:verified-example",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(query_model, manifest),
+        executor=OntologyQueryPlanExecutor(
+            handlers={QueryNodeKind.OBJECT_SET: handler}, now=lambda: NOW
+        ),
+        adaptive_service=answer_service(model),
+    )
+
+    result = await runtime.handle(
+        utterance="Compare deployment strategies with an environment example.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+    )
+
+    answer_payload = next(call["payload"] for call in model.calls if call["stage"] == "answer")
+    evidence = answer_payload["evidence"]["example"]  # type: ignore[index]
+    content = evidence["content"]  # type: ignore[index]
+    assert result.disposition == "advisory_response"
+    assert "schema_version" in content
+    assert "visible-name" in content
+    assert "hidden-resource-id" not in content
+    assert "provider_body" not in content
+    assert "handle_ref" not in content
 
 
 async def test_general_explanation_does_not_require_query_planning_or_a_provider_read() -> None:

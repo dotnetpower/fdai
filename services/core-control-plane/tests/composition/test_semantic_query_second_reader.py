@@ -133,3 +133,20 @@ def test_a_deployed_venue_or_an_invalid_path_keeps_only_the_second_reader(
     assert fallback is not None
     assert fallback.compiled_answers is None
     assert fallback.type_grounding is not None and fallback.coverage_review is not None
+
+
+def test_production_shadow_binds_direction_readers_without_compiled_answers(
+    monkeypatch: pytest.MonkeyPatch, owner_loop: asyncio.AbstractEventLoop
+) -> None:
+    monkeypatch.setenv("FDAI_SEMANTIC_SECOND_READER", "1")
+    monkeypatch.setenv("FDAI_SEMANTIC_PRODUCTION_SHADOW", "1")
+    monkeypatch.setenv("FDAI_EXECUTION_VENUE", "deployed")
+
+    reader = _build(owner_loop)
+
+    assert reader is not None and reader.compiled_answers is None
+    config = reader.type_grounding._chooser._config  # noqa: SLF001
+    assert [target.deployment for target in config.direction_candidates] == ["narrator-gpt-5-mini"]
+    assert config.direction_system_prompt
+    assert [target.deployment for target in config.ambiguity_candidates] == ["narrator-gpt-5-mini"]
+    assert config.ambiguity_system_prompt

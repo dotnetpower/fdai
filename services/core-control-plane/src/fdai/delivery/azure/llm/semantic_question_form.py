@@ -39,6 +39,7 @@ from fdai.core.conversation.semantic_reasoning_proposal import (
 )
 from fdai.core.conversation.semantic_reasoning_repair import FormRepair
 from fdai.core.conversation.semantic_reasoning_review import extraction_schema
+from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.identity_masking import IdentityMask
@@ -583,6 +584,7 @@ class AzureOpenAIQuestionFormModel:
                         ),
                         request=body,
                         output_tokens=max_tokens,
+                        stage=name,
                     )
                     response.raise_for_status()
                     payload, content, usage = _content_object(response)
@@ -606,6 +608,8 @@ class AzureOpenAIQuestionFormModel:
                         )
                     return payload
             except Exception as exc:  # noqa: BLE001 - bounded candidate failover
+                if isinstance(exc, TurnReservationHeldError):
+                    return None  # Every candidate would hold; the ledger names the stage.
                 if stop_scoped_provider_retry():
                     _LOGGER.warning(
                         "question_form_provider_attempt_ended",

@@ -22,13 +22,13 @@
     },
     "ontology_query_function_any_contract_coverage": {
       "covered": 12,
-      "rate": 0.3157894736842105,
-      "total": 38
+      "rate": 0.3076923076923077,
+      "total": 39
     },
     "ontology_query_function_golden_coverage": {
       "covered": 7,
-      "rate": 0.18421052631578946,
-      "total": 38
+      "rate": 0.1794871794871795,
+      "total": 39
     },
     "paired_model_case_coverage": {
       "covered": 0,
@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:fac84ac78583ef90e07439edb92253086b69574f95cec2b86244026c51dde8ab",
+  "inventory_digest": "sha256:f9f756a919f19e9bb189449b299ce4fae413c73ca36d3ec9c15ead7df9b4ce80",
   "metric_contract": {
     "ambiguity": [
       {
@@ -954,7 +954,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:aefebf6e35865a6dddadc33eb491c72bf40b2c8e5bd78f0019f5575e352e7835",
     "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fe9a5288e009fdf4dac438717e0ac3128a0e4caac4885b870604e732591d9aec",
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:4c191e51be8e6515a3508b97ae9e157c3761430cd29f63b78722f09ad9240020",
-    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:379ed28a65300b72a062dc46f8b3726dd2bc7a0cf57a19f3207ba9905c579240",
+    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:51ea6320bc67656a66a84a0d5ae8f6b7fa36196929ffc812d487327a95022daf",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:618e049ecfc064c3dcc3972c1508dd1d0a7d48def7e8e1ab4411777f3d260299",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:2a5a515d0ebb49a4389df1ff662e99f3afbd234efaa613c92a722dc91d31795f"
   },
@@ -1135,6 +1135,12 @@
         "golden_expectation_count": 0,
         "intent_contract_case_count": 0,
         "topic_id": "query.recent_resource_changes"
+      },
+      {
+        "coverage_state": "missing_case",
+        "golden_expectation_count": 0,
+        "intent_contract_case_count": 0,
+        "topic_id": "query.recent_resource_changes.page"
       },
       {
         "coverage_state": "reviewed_golden",

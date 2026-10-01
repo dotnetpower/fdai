@@ -135,7 +135,7 @@ class ConversationPreflightBoundary:
             else:
                 raw = response
             try:
-                proposal = ConversationPreflightProposal.model_validate(raw)
+                proposal = without_unbound_thread(ConversationPreflightProposal.model_validate(raw))
             except (TypeError, ValueError, ValidationError) as exc:
                 repair = _repair_instruction(exc)
                 if repair is not None and attempt + 1 < _MAX_SCHEMA_ATTEMPTS:
@@ -217,6 +217,34 @@ class ConversationPreflightBoundary:
             observations=(observation,) if observation is not None else (),
             attempted=True,
         )
+
+
+# A route guess from wording; only a typed reference that binds makes a turn thread-dependent.
+_GUESSED_THREAD = frozenset({ContextDependency.ACTIVE_THREAD, ContextDependency.AMBIGUOUS})
+
+
+def without_unbound_thread(
+    proposal: ConversationPreflightProposal,
+) -> ConversationPreflightProposal:
+    """Read a standalone question as standalone, however long the conversation is.
+
+    The router can't see a typed reference, so a thread dependency it guesses for a turn
+    that states its own operational or knowledge request never narrows the route; social
+    turns and contextual follow-ups keep the guess, which routes them as before.
+    """
+
+    explicit = (
+        proposal.operational_signal is OperationalSignal.EXPLICIT
+        or proposal.knowledge_signal is GeneralKnowledgeSignal.EXPLICIT
+    )
+    if proposal.context_dependency not in _GUESSED_THREAD or not explicit:
+        return proposal
+    try:
+        return ConversationPreflightProposal.model_validate(
+            {**proposal.model_dump(mode="json"), "context_dependency": ContextDependency.NONE}
+        )
+    except ValidationError:
+        return proposal
 
 
 def preflight_selects_general_knowledge(

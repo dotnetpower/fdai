@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: b5ce7330a019a6ef80248716a9e5db3095fd5980
+translation_source_sha: 00765fa375204915f9c4ab079a3b39bf87c54502
 translation_revised: 2026-10-01
 ---
 # FDAI Console 대화
@@ -10,6 +10,16 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 
 
 Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니다. 비공개 초안과 바인딩은 영속 리비전을 포함하고 요청 principal 의 Mine 또는 My automations projection 에만 나타나며, Built-in 정의는 계속 카탈로그에서 시드되고 읽기 전용으로 유지됩니다.
+의미 결과 핸들 참조는 Core가 발급한 불투명 토큰만 영속 턴과 함께 보관하고 다음 의미 요청에서
+최근 참조를 최대 네 개까지 돌려보냅니다. Operator에 행 본문을 노출하거나 사람 보고 경로를
+바꾸거나 Console 실행 권한을 부여하지 않습니다.
+생성된 계약 view가 롤아웃에 안전한 핸들 참조 스키마 버전을 추가할 수는 있지만, 브라우저와 Operator는
+여전히 행 신원, 행 본문 또는 모델에 보이는 핸들 payload를 받지 않습니다.
+적응형 답변 근거는 Core가 만든 허용 목록 기반 변환 결과인 `ModelEvidenceView`로 모델 경계를
+넘습니다. 원시 조회 표, 프로바이더 본문, 핸들, 보관된 스냅숏 셀은 답변 작성 또는 검토 모델
+호출에 들어가지 않습니다.
+검증된 답변 작성은 공유 명제 계약과 기본값이 꺼진 작성자/검토자 포트를 Core 뒤에 추가합니다.
+승격되기 전까지 Console 답변은 현재 검증된 경로를 계속 사용합니다.
 
 운영 > 알림 품질은 다시 생성한 TypeScript 계약 뷰로 서명된 결과 `1.1.0`과 그 안의 공급자 중립 계획 `1.1.0`을 디코딩합니다.
 브라우저는 `direct_api`를 보존된 계약 메타데이터로만 표시합니다. 공급자 어댑터를 선택하거나
@@ -314,6 +324,9 @@ focused 소유자 문서로 이동했습니다: [operator-console-runtime-model-
    [user-rbac-and-identity.md § 2](user-rbac-and-identity-ko.md#2-롤-모델-4-tier--break-glass)
    에 정의되고 RiskGate 역할 축
    ([execution-model.md § 2.5](../decisioning/execution-model-ko.md#25-axis-f---role-rbac))가 mirror.
+
+컴파일된 속성 답변은 검토된 Property 값만 보여 줍니다. 구조화된 값은 중첩된 비밀, 자격 증명, 연결,
+키 정보와 주소를 답변과 기술 상세 모두에서 가린 채로 유지합니다.
 
 ### 7.3 BreakGlass 요청 증적
 

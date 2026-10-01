@@ -32,6 +32,14 @@ DIRECT_RESPONSE_PROFILE = {
 }
 
 PREFLIGHT_DIRECT_CONFIDENCE = 0.9
+# Reviewed descriptor intents a planner may read even when the judgment wasn't accepted.
+SAFE_UNACCEPTED_DESCRIPTOR_INTENTS = frozenset(
+    {
+        "query.gateway_diagnostic_evidence",
+        "query.resource_configuration_changes",
+        "query.resource_event_history",
+    }
+)
 _PREFLIGHT_OPERATIONAL_INTENTS = {
     OperationalPreflightFamily.INVENTORY_DOCUMENT: "create.document",
     OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES: (
@@ -73,5 +81,6 @@ def preflight_descriptor_intent(result: ConversationPreflightResult | None) -> s
 __all__ = [
     "DIRECT_RESPONSE_PROFILE",
     "PREFLIGHT_DIRECT_CONFIDENCE",
+    "SAFE_UNACCEPTED_DESCRIPTOR_INTENTS",
     "preflight_descriptor_intent",
 ]

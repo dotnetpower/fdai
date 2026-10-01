@@ -33,15 +33,12 @@ from .conversation_preflight import (
     SocialResponseNarratorResult,
 )
 from .model_observation import ConversationModelObservation, ConversationModelResponse
-from .semantic_judgment_bounds import (
-    bounded_capabilities as _bounded_capabilities,
-)
-from .semantic_judgment_bounds import (
-    bounded_context as _bounded_context,
-)
+from .semantic_judgment_bounds import bounded_capabilities as _bounded_capabilities
+from .semantic_judgment_bounds import bounded_context as _bounded_context
 from .semantic_judgment_bounds import (
     bounded_direct_response_profile as _bounded_direct_response_profile,
 )
+from .semantic_judgment_question_form import validate_non_interfering_carried_form
 
 _MAX_UTTERANCE_CHARS = 32_000
 _MAX_SCHEMA_ATTEMPTS_PER_BINDING = 3
@@ -304,7 +301,7 @@ class SemanticJudgmentBoundary:
                     binding is self._primary and schema_repair_policy.names_schema_family(raw)
                 )
                 try:
-                    proposal = SemanticJudgmentProposal.model_validate(
+                    proposal = validate_non_interfering_carried_form(
                         _canonicalize_machine_tokens(raw)
                     )
                     proposal = grounding.ground_unique_source_spans(
@@ -681,7 +678,7 @@ def _recover_bound_subject_proposal(
         return None
     candidate = _canonicalize_machine_tokens({**raw, "targets": []})
     try:
-        proposal = SemanticJudgmentProposal.model_validate(candidate)
+        proposal = validate_non_interfering_carried_form(candidate)
         proposal = capability_normalization.normalize_primary_intent(
             proposal,
             capabilities=capabilities,
@@ -724,7 +721,7 @@ def _recover_safe_ontology_trace_proposal(
         }
     )
     try:
-        proposal = SemanticJudgmentProposal.model_validate(candidate)
+        proposal = validate_non_interfering_carried_form(candidate)
         proposal = grounding.ground_unique_source_spans(
             proposal,
             utterance=utterance,

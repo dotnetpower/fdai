@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from fdai.core.conversation import semantic_reasoning_form as form_module
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptShard
 from fdai.core.conversation.semantic_reasoning_form import SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_kinds import eligible_kind_mentions
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_shadow import ShadowBudget, run_reasoning_shadow
+from fdai_service_contracts import semantic_question_form as form_module
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,

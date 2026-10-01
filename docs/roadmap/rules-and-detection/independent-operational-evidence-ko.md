@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: f8cb1f977c101c2a44161d1e6b17600723997cd9
+translation_source_sha: 42a3607b8d2ee247fd6ac5c35872039197254927
 translation_revised: 2026-10-01
 ---
 # 독립 운영 근거 발급
@@ -29,6 +29,10 @@ translation_revised: 2026-10-01
 자신만 쓸 수 있는 저장소에 검증 증적이나 유형이 지정된 거부 기록을 씁니다. 소유자는 변경되지 않은 `admit`
 메서드로 검증 증적을 읽고 모든 거부 유형을 명시적으로 기록하며, `unavailable`일 때만 현재의 일반 보류를
 유지합니다.
+의미 결과 핸들 참조는 Operator/Core 의미 전송의 본문 없는 대화 연속성 레코드입니다. 운영 근거를
+수락하거나 검증기 재확인을 충족하거나 실행 권한을 부여하지 않습니다.
+봉인된 Core 전용 행 신원은 후속 읽기의 재인가 피연산자일 뿐이며, 검증기 출처 산출물, 수락 기록 또는
+증명 자료가 아닙니다.
 
 ## 현재 상태와 공백
 

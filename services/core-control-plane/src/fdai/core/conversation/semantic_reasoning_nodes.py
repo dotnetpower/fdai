@@ -386,6 +386,8 @@ def traversal_node(
     side: RelationSide,
     predicates: Sequence[Mapping[str, Any]],
     ctx: CompileContext,
+    *,
+    emit_lineage: bool = False,
 ) -> OntologyQueryNode:
     arguments: dict[str, Any] = {
         "selector": {"kind": "object_type", "name": side.endpoint_type},
@@ -398,6 +400,8 @@ def traversal_node(
     }
     if predicates:
         arguments["endpoint_predicates"] = [dict(item) for item in predicates]
+    if emit_lineage:
+        arguments["emit_lineage"] = True
     return OntologyQueryNode(
         node_id=node_id,
         kind=QueryNodeKind.RELATIONSHIP_TRAVERSAL,
@@ -408,9 +412,17 @@ def traversal_node(
 
 
 def count_node(node_id: str, source_id: str, group: list[str]) -> OntologyQueryNode:
-    arguments: dict[str, Any] = {"operation": "count"}
+    arguments: dict[str, Any] = (
+        {
+            "operation": "count_by_nearest_container",
+            "container_kind": group[0].split(":", 1)[1],
+        }
+        if len(group) == 1 and group[0].startswith("lineage.nearest_container:")
+        else {"operation": "count"}
+    )
     if group:
-        arguments["group_by"] = group
+        if arguments["operation"] == "count":
+            arguments["group_by"] = group
     return OntologyQueryNode(
         node_id=node_id,
         kind=QueryNodeKind.AGGREGATE,
@@ -424,9 +436,19 @@ def count_node(node_id: str, source_id: str, group: list[str]) -> OntologyQueryN
 GROUP_BY_FIELDS = {GroupBy.TYPE: "properties.type", GroupBy.CONTAINER: "properties.parent_id"}
 
 
-def group_by(goal: FormGoal) -> list[str] | OperatorResult:
+def group_by(goal: FormGoal, ctx: CompileContext) -> list[str] | OperatorResult:
     if goal.measure is None or goal.measure.group_by is GroupBy.NONE:
         return []
+    if goal.measure.group_by is GroupBy.CONTAINER and goal.measure.mention is not None:
+        mention = ctx.mention(goal.measure.mention)
+        if mention.domain not in {MentionDomain.OBJECT_TYPE, *RESOURCE_TYPE_DOMAINS}:
+            return OperatorResult(unsupported=("container_group_kind_domain_unsupported",))
+        values, failure = concept_values(goal.measure.mention, ctx)
+        if failure is not None:
+            return failure
+        if len(values) != 1:
+            return OperatorResult(unsupported=("container_group_kind_ambiguous",))
+        return [f"lineage.nearest_container:{values[0]}"]
     field = GROUP_BY_FIELDS.get(goal.measure.group_by)
     if field is not None:
         return [field]

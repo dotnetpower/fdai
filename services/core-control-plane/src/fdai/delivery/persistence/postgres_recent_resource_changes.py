@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -14,6 +16,8 @@ from fdai.core.ontology_platform.recent_resource_changes import (
     ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
     ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
     RecentResourceChange,
+    RecentResourceChangePageCursor,
+    RecentResourceChangePageRead,
     RecentResourceChangeRead,
 )
 
@@ -61,11 +65,33 @@ _NEWEST_CHANGE_SQL = (
     "ORDER BY subject_ref, effective_at DESC, recorded_at DESC, "
     "source_event_id DESC, content_digest DESC"
 )
+_ORDERING_SQL = "ORDER BY effective_at DESC, subject_ref ASC"
+_PAGE_SEEK_SQL = "WHERE effective_at < %s OR (effective_at = %s AND subject_ref > %s) "
+_FIRST_PAGE_SQL = (
+    "SELECT * FROM (" + _NEWEST_CHANGE_SQL + ") AS newest " + _ORDERING_SQL + " LIMIT %s"  # noqa: S608 - module constants
+)
+_CONTINUATION_PAGE_SQL = (
+    "SELECT * FROM ("  # noqa: S608 - module constants
+    + _NEWEST_CHANGE_SQL
+    + ") AS newest "
+    + _PAGE_SEEK_SQL
+    + _ORDERING_SQL
+    + " LIMIT %s"
+)
+_CONTINUATION_REMAINING_SQL = (
+    "SELECT count(*) AS remaining FROM ("  # noqa: S608 - module constants
+    + _NEWEST_CHANGE_SQL
+    + ") AS newest "
+    + _PAGE_SEEK_SQL
+)
 
 
 class PostgresRecentResourceChangeReader:
     def __init__(self, *, config: PostgresRecentResourceChangeReaderConfig) -> None:
         self._config = config
+
+    def query_version_digest(self) -> str:
+        return _query_version_digest(self._config.scope_refs)
 
     async def read_recent_resource_changes(
         self,
@@ -100,8 +126,7 @@ class PostgresRecentResourceChangeReader:
                 known_at,
             )
             cursor = await connection.execute(
-                "SELECT * FROM (" + _NEWEST_CHANGE_SQL + ") AS newest "  # noqa: S608 - module constant
-                "ORDER BY effective_at DESC, subject_ref LIMIT %s",
+                _FIRST_PAGE_SQL,  # noqa: S608 - module constant
                 (*window, limit + 1),
             )
             rows = await cursor.fetchall()
@@ -134,6 +159,95 @@ class PostgresRecentResourceChangeReader:
                 else "resource_change_coverage_unverified"
             ),
             total=total if total is not None and total > limit else None,
+        )
+
+    async def read_recent_resource_change_page(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        known_at: datetime,
+        page_size: int,
+        cursor: RecentResourceChangePageCursor,
+    ) -> RecentResourceChangePageRead:
+        _validate_page_read(start_at, end_at, known_at, page_size, cursor)
+        if not self._config.scope_refs:
+            return RecentResourceChangePageRead(
+                (),
+                False,
+                0,
+                None,
+                "resource_change_coverage_unverified",
+            )
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as connection:
+            await connection.set_isolation_level(IsolationLevel.REPEATABLE_READ)
+            await connection.set_read_only(True)
+            await connection.execute(
+                "SELECT set_config('statement_timeout', %s, true)",
+                (str(self._config.statement_timeout_ms),),
+            )
+            window = (
+                ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
+                ["full", "tombstone"],
+                ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
+                ["partial", "change_hint", "tombstone"],
+                list(self._config.scope_refs),
+                start_at,
+                end_at,
+                known_at,
+            )
+            seek = (cursor.last_effective_at, cursor.last_effective_at, cursor.last_subject_ref)
+            page_result = await connection.execute(
+                _CONTINUATION_PAGE_SQL,  # noqa: S608 - module constant
+                (*window, *seek, page_size + 1),
+            )
+            rows = await page_result.fetchall()
+            source_complete = await _cursor_coverage_complete(
+                connection,
+                scope_refs=self._config.scope_refs,
+                required_at=end_at - timedelta(seconds=self._config.cursor_freshness_seconds),
+                window_start_at=start_at,
+                known_at=known_at,
+            )
+            retained = rows[:page_size]
+            next_cursor = (
+                RecentResourceChangePageCursor(
+                    last_effective_at=retained[-1]["effective_at"].astimezone(UTC),
+                    last_subject_ref=str(retained[-1]["subject_ref"]),
+                )
+                if retained
+                else None
+            )
+            remaining = 0
+            if next_cursor is not None:
+                remaining_result = await connection.execute(
+                    _CONTINUATION_REMAINING_SQL,  # noqa: S608 - module constant
+                    (
+                        *window,
+                        next_cursor.last_effective_at,
+                        next_cursor.last_effective_at,
+                        next_cursor.last_subject_ref,
+                    ),
+                )
+                remaining_row = await remaining_result.fetchone()
+                remaining = int(remaining_row["remaining"]) if remaining_row is not None else 0
+        truncated = remaining > 0
+        return RecentResourceChangePageRead(
+            tuple(_change(row) for row in retained),
+            source_complete and not truncated,
+            remaining if source_complete else 0,
+            next_cursor if source_complete and truncated else None,
+            (
+                "result_limit"
+                if truncated
+                else None
+                if source_complete
+                else "resource_change_coverage_unverified"
+            ),
         )
 
 
@@ -281,6 +395,50 @@ def _validate_read(
         raise ValueError("recent Resource change times are not causally ordered")
     if not 1 <= limit <= 20:
         raise ValueError("recent Resource change limit MUST be in [1, 20]")
+
+
+def _validate_page_read(
+    start_at: datetime,
+    end_at: datetime,
+    known_at: datetime,
+    page_size: int,
+    cursor: RecentResourceChangePageCursor,
+) -> None:
+    _validate_read(start_at, end_at, known_at, page_size)
+    if (
+        cursor.last_effective_at.tzinfo is None
+        or cursor.last_effective_at.utcoffset() is None
+        or not start_at <= cursor.last_effective_at <= end_at
+        or not cursor.last_subject_ref
+        or len(cursor.last_subject_ref) > 512
+    ):
+        raise ValueError("recent Resource change continuation cursor is invalid")
+
+
+def _query_version_digest(scope_refs: tuple[str, ...]) -> str:
+    payload = {
+        "newest_sql": _NEWEST_CHANGE_SQL,
+        "ordering_sql": _ORDERING_SQL,
+        "page_seek_sql": _PAGE_SEEK_SQL,
+        "source_filters": {
+            "arg": {
+                "source_identity": ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
+                "observation_kind": ["full", "tombstone"],
+            },
+            "activity_log": {
+                "source_identity": ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
+                "observation_kind": ["partial", "change_hint", "tombstone"],
+                "operation_required": True,
+            },
+            "scope_refs": list(scope_refs),
+        },
+    }
+    return (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(payload, allow_nan=False, separators=(",", ":"), sort_keys=True).encode()
+        ).hexdigest()
+    )
 
 
 __all__ = [

@@ -12,6 +12,7 @@ from typing import Any, Literal, cast
 
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind
 
+from .lineage_grouping import count_by_nearest_container
 from .query_execution import QueryNodeHeldError, QueryNodeResult
 from .query_values import QueryRow, QueryTable, combine_incompleteness
 
@@ -159,6 +160,11 @@ class AggregateNodeHandler:
     ) -> QueryNodeResult:
         table = _single_table(node, dependencies)
         operation = node.arguments.get("operation")
+        if operation == "count_by_nearest_container":
+            return _table_result(
+                count_by_nearest_container(table, limit=_limit(node.arguments)),
+                dependencies,
+            )
         if operation not in {"count", "sum", "minimum", "maximum", "average"}:
             raise ValueError("aggregate operation is unsupported")
         field_raw = node.arguments.get("field")

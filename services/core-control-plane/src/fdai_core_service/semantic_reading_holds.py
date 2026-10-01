@@ -17,6 +17,7 @@ READING_HOLD_REASONS = frozenset(
         "semantic_judgment_review_conflict",
         "semantic_judgment_review_unavailable",
         "semantic_plan_constraint_uncovered",
+        "semantic_operand_without_source",
         "semantic_reading_ambiguous",
         "semantic_reading_continuation_required",
         "semantic_reading_limited",
@@ -50,6 +51,12 @@ _NOTICES: dict[str, tuple[str, str]] = {
         "질문보다 넓은 범위로 답하지 않았습니다.",
         "The request was held because the verified read plan does not read the stated "
         "{detail}. FDAI did not answer a broader question than the one asked.",
+    ),
+    "semantic_operand_without_source": (
+        "조회 계획의 식별자가 질문, 이전 결과, 신뢰된 문맥 또는 바인딩 증적에 없어 "
+        "요청을 보류했습니다.",
+        "The request was held because a query-plan identity was not grounded in the question, "
+        "prior results, trusted context, or a binding receipt.",
     ),
     "semantic_judgment_review_conflict": (
         "질문을 독립적으로 읽은 두 결과가 서로 달라 요청을 보류했습니다.",
