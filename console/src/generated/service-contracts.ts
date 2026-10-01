@@ -801,7 +801,7 @@ export interface CoreOperatorProjectionV1_8_0SemanticResultAdaptiveAnswer {
 }
 
 export interface CoreOperatorProjectionV1_8_0SemanticResultResultHandleRef {
-  readonly schema_version: "1.0" | "1.1";
+  readonly schema_version: "1.1" | "1.2";
   readonly handle_ref: string;
   readonly key_version: string;
   readonly issued_at: string;
@@ -1050,7 +1050,7 @@ export interface OperatorCoreRequestV1_10_0SemanticDocumentContext {
 }
 
 export interface OperatorCoreRequestV1_10_0SemanticTurnRecentResultHandlesItem {
-  readonly schema_version: "1.0" | "1.1";
+  readonly schema_version: "1.1" | "1.2";
   readonly handle_ref: string;
   readonly key_version: string;
   readonly issued_at: string;

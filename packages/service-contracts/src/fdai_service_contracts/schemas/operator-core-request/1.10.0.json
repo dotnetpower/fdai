@@ -474,8 +474,8 @@
               "schema_version": {
                 "type": "string",
                 "enum": [
-                  "1.0",
-                  "1.1"
+                  "1.1",
+                  "1.2"
                 ]
               },
               "handle_ref": {

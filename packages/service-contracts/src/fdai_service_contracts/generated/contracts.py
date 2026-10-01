@@ -808,7 +808,7 @@ class CoreOperatorProjectionV1_8_0SemanticResultAdaptiveAnswer(TypedDict):
 
 
 class CoreOperatorProjectionV1_8_0SemanticResultResultHandleRef(TypedDict):
-    schema_version: Literal['1.0', '1.1']
+    schema_version: Literal['1.1', '1.2']
     handle_ref: str
     key_version: str
     issued_at: str
@@ -1057,7 +1057,7 @@ class OperatorCoreRequestV1_10_0SemanticDocumentContext(TypedDict):
 
 
 class OperatorCoreRequestV1_10_0SemanticTurnRecentResultHandlesItem(TypedDict):
-    schema_version: Literal['1.0', '1.1']
+    schema_version: Literal['1.1', '1.2']
     handle_ref: str
     key_version: str
     issued_at: str

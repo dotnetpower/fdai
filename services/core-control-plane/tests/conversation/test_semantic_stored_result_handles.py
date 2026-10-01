@@ -15,11 +15,20 @@ from fdai.core.conversation.semantic_reasoning_compiler import GoalStatus, compi
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain
 from fdai.core.conversation.semantic_reasoning_handles import reference_anchors
 from fdai.core.conversation.semantic_stored_result_handles import bind_stored_references
+from fdai.core.ontology_platform import ObjectSetService
+from fdai.core.ontology_platform.interfaces import compile_interfaces
+from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.ontology.acl import ProjectionRequest
+from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 from fdai_core_service.semantic_property_answer import render_property_value_answer
+from fdai_core_service.semantic_result_handle_projection import result_handle_from_technical_details
+from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnRequest
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.reasoning_handles import PageDescriptor, ResultHandle, TypedRowKey
+from fdai_service_contracts.semantic_turn import SemanticTurnResult
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,
@@ -31,6 +40,7 @@ from tests.conversation.semantic_reasoning_support import (
     fixture_anchors,
     fixture_gateway,
     plan_verifier,
+    production_catalog,
     production_manifest,
     span,
 )
@@ -147,7 +157,12 @@ async def test_ordinal_follow_up_binds_second_stored_handle_row_as_state_lookup_
 
 
 async def _stored_references(
-    admission: object, row_ids: tuple[str, ...], gateway: object
+    admission: object,
+    row_ids: tuple[str, ...],
+    gateway: object,
+    *,
+    row_identities: tuple[str, ...] = (),
+    schema_version: str | None = None,
 ) -> tuple[object, object]:
     manifest = production_manifest()
     store = InMemoryResultHandleStore(
@@ -159,6 +174,7 @@ async def _stored_references(
     row_keys = tuple(_row_key(item) for item in row_ids)
     handle = ResultHandle.model_validate(
         {
+            **({"schema_version": schema_version} if schema_version is not None else {}),
             "deployment_scope_digest": manifest.release_digest,
             "principal_digest": manifest.manifest_digest,
             "conversation_id": "session-a",
@@ -166,6 +182,7 @@ async def _stored_references(
             "manifest_digest": manifest.manifest_digest,
             "rendered_order_digest": rendered_order_digest(row_keys),
             "row_keys": row_keys,
+            **({"row_identities": row_identities} if row_identities else {}),
             "page": PageDescriptor(page_number=1, page_size=len(row_keys)),
             "truncated": False,
         },
@@ -194,6 +211,147 @@ async def _stored_references(
     )
     assert references is not None
     return references, reference_anchors(await fixture_anchors(admission), references)  # type: ignore[arg-type]
+
+
+async def _large_gateway(count: int = 1_001) -> SecuredObjectSetQueryGateway:
+    catalog = production_catalog()
+    resource = next(item for item in catalog.object_types if item.name == "Resource")
+    store = InMemoryOntologyInstanceStore(
+        object_types=(resource,),
+        link_types=(),
+        source_complete=True,
+        source_generation="large-generation",
+    )
+    for index in range(count):
+        identity = f"resource-{index:04d}"
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=identity,
+                object_type="Resource",
+                properties={"id": identity, "name": identity, "type": "compute.vm"},
+            )
+        )
+    service = ObjectSetService(
+        store=store,
+        interfaces=compile_interfaces(interfaces=(), implementations=(), object_types=(resource,)),
+        object_type_names=frozenset({resource.name}),
+    )
+    return SecuredObjectSetQueryGateway(
+        service=service,
+        object_types={resource.name: resource},
+        ontology_release=build_ontology_release(object_types=(resource,), link_types=()),
+        evaluation_cutoff=lambda: NOW,
+        graph_completeness=lambda: _complete_graph(),
+        max_as_of_skew=timedelta(seconds=5),
+    )
+
+
+async def _complete_graph() -> bool:
+    return True
+
+
+async def test_ordinal_follow_up_rereads_exact_handle_identities_in_large_inventory() -> None:
+    utterance, form = _state_lookup_form()
+    admission = admitted(form, utterance)
+    identities = tuple(f"resource-{index:04d}" for index in range(250))
+    references, anchors = await _stored_references(
+        admission,
+        identities,
+        await _large_gateway(),
+        row_identities=identities,
+    )
+
+    assert references.binding("m1").row_ids == ("resource-0001",)  # type: ignore[union-attr]
+    assert anchors.binding("m1").object_id == "resource-0001"  # type: ignore[union-attr]
+
+
+async def test_tampered_handle_identity_digest_mismatch_does_not_bind() -> None:
+    utterance, form = _state_lookup_form()
+    admission = admitted(form, utterance)
+    references, anchors = await _stored_references(
+        admission,
+        ("vm-1", "aks-1"),
+        await fixture_gateway(),
+        row_identities=("vm-1", "sql-1"),
+    )
+
+    assert references.binding("m1").outcome.value == "unavailable"  # type: ignore[union-attr]
+    assert anchors.binding("m1") is None
+
+
+async def test_handle_identity_that_is_no_longer_readable_does_not_bind() -> None:
+    utterance, form = _state_lookup_form()
+    admission = admitted(form, utterance)
+    references, anchors = await _stored_references(
+        admission,
+        ("vm-1", "missing-readable-resource"),
+        await fixture_gateway(),
+        row_identities=("vm-1", "missing-readable-resource"),
+    )
+
+    assert references.binding("m1").outcome.value == "unavailable"  # type: ignore[union-attr]
+    assert anchors.binding("m1") is None
+
+
+async def test_old_handle_record_without_identities_still_uses_scan_fallback() -> None:
+    utterance, form = _state_lookup_form()
+    admission = admitted(form, utterance)
+    references, anchors = await _stored_references(
+        admission,
+        ("vm-1", "aks-1"),
+        await fixture_gateway(),
+        schema_version="1.1",
+    )
+
+    assert references.binding("m1").row_ids == ("aks-1",)  # type: ignore[union-attr]
+    assert anchors.binding("m1").object_id == "aks-1"  # type: ignore[union-attr]
+
+
+def test_result_handle_projection_keeps_core_only_row_identities() -> None:
+    request = SemanticTurnRequest(
+        principal={"subject_id": "operator", "roles": ["Reader"]},
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=1,
+        purpose=PURPOSE,
+        locale="en",
+        utterance="show resources",
+        deadline_at=NOW + timedelta(seconds=30),
+    )
+    result = SemanticTurnResult(
+        disposition=SemanticTurnDisposition.ANSWERED,
+        reason_code="semantic_plan_verified",
+        semantic_route="verified_query_plan",
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=1,
+        ontology_release_digest=production_manifest().release_digest,
+        principal_manifest_digest=production_manifest().manifest_digest,
+        plan_digest="sha256:" + "1" * 64,
+        execution_receipt_digest="sha256:" + "2" * 64,
+        evidence_refs=("evidence:1",),
+        checks_completed=1,
+        checks_total=1,
+        answer="Verified answer.",
+    )
+    handle = result_handle_from_technical_details(
+        request,
+        result,
+        technical_details={
+            "outputs": [
+                {
+                    "node_id": "resources",
+                    "rows": [
+                        {"row_id": "vm-1", "values": {"name": "vm-app-01"}},
+                        {"row_id": "aks-1", "values": {"name": "aks-prod-01"}},
+                    ],
+                }
+            ]
+        },
+    )
+
+    assert handle is not None
+    assert handle.row_identities == ("vm-1", "aks-1")
 
 
 async def test_an_ordinal_property_follow_up_answers_the_exact_value_of_the_stored_row() -> None:

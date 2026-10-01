@@ -52,13 +52,20 @@ def result_handle_from_technical_details(
     ):
         return None
     row_keys: list[TypedRowKey] = []
+    row_identities: list[str] = []
     snapshot_rows: list[SnapshotRow] = []
     for output in outputs:
         if isinstance(output, Mapping):
-            _append_output_rows(output, row_keys=row_keys, snapshot_rows=snapshot_rows)
+            _append_output_rows(
+                output,
+                row_keys=row_keys,
+                row_identities=row_identities,
+                snapshot_rows=snapshot_rows,
+            )
     if not row_keys:
         return None
     ordered = tuple(row_keys[:1000])
+    ordered_identities = tuple(row_identities[:1000])
     ordered_json = {item.model_dump_json() for item in ordered}
     return ResultHandle.model_validate(
         {
@@ -69,6 +76,7 @@ def result_handle_from_technical_details(
             "manifest_digest": result.principal_manifest_digest,
             "rendered_order_digest": rendered_order_digest(ordered),
             "row_keys": ordered,
+            "row_identities": ordered_identities,
             "sort": (SortTerm(field_name="rendered_order", direction=SortDirection.ASC),),
             "page": PageDescriptor(page_number=1, page_size=len(ordered)),
             "truncated": len(row_keys) > len(ordered),
@@ -84,6 +92,7 @@ def _append_output_rows(
     output: Mapping[str, object],
     *,
     row_keys: list[TypedRowKey],
+    row_identities: list[str],
     snapshot_rows: list[SnapshotRow],
 ) -> None:
     node_id = output.get("node_id")
@@ -102,6 +111,7 @@ def _append_output_rows(
             row_digest=content_digest({"row_id": row_id}),
         )
         row_keys.append(key)
+        row_identities.append(row_id)
         cells = tuple(
             SnapshotCell(field_name=field, value_digest=content_digest({"value": value}))
             for field, value in values.items()
