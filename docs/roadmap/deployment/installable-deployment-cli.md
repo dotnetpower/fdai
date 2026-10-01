@@ -544,7 +544,8 @@ separate checker identifies a candidate key before a build consumes it: it repor
 roots' fingerprints, the roles a candidate satisfies, and the unmet custody requirements, and it
 emits no key material so it stays safe to run wherever the key might be. Both build refusals name
 it. The development profile pins one signer for the complete-kit and bundle roles, so one file
-satisfies `--signing-key`; the license issuer stays a separate key. The build shares a three-hour
+satisfies `--signing-key`; licensing uses the separate upstream integrity key, which the checker
+reports as the `integrity` role. The build shares a three-hour
 total budget with per-stage and
 no-progress deadlines. Nested supervisors forward
 cancellation with shorter cleanup grace than their parent. Success requires a valid archive checksum
@@ -616,7 +617,9 @@ A control-only repair can reuse a verified kit through a [signed deployment-cont
 No signing key is an installation prerequisite. The command selects the entitlement mode on the
 workstation before any Azure effect, as [source deployment](source-deployment.md#entitlement-selection)
 defines: no integrity signing key means the durable Trial, and a usable
-`secrets/integrity-signing-key.pem` means a full installation entitlement. A pre-issued token file
+`secrets/integrity-signing-key.pem` means a full installation entitlement. That fixed path in the
+working checkout is the only issuer key the CLI reads; no option, environment variable, or home
+directory path selects another one. A pre-issued token file
 remains an advanced `--trial-token` input. Until the Trial is initialized by deployment, an
 installation without a token starts observation-only without creating a license secret. Omitting a
 token on a resumed installation does not revoke one previously installed. Without action
