@@ -15,6 +15,7 @@ from fdai.agents._framework import execution_safety, factory, runtime_health, ru
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bragi_intent_training import IntentTrainingEvaluator
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
 from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings, bind_catalog_review
 from fdai.agents._framework.conversation_tools import AgentConversationToolRegistry
@@ -94,6 +95,7 @@ from fdai.shared.providers.state_store import StateStore
 from . import development_authority_runtime as development_runtime
 from . import runtime_sensing
 from .runtime_operational_agents import (
+    bind_bragi_intent_training_evaluator,
     bind_durable_governance_stores,
     bind_operational_agents,
     rehydrate_operational_agents,
@@ -220,6 +222,7 @@ class PantheonRuntime(RuntimeConversationPort):
         conversation_pricing: PricingTable | None = None,
         conversation_metering: MeteringSink | None = None,
         conversation_t2_model_key: str = "",
+        conversation_intent_training_evaluator: IntentTrainingEvaluator | None = None,
         semantic_router_config: SemanticRouterConfig | None = None,
         conversation_tool_timeout_seconds: float = 5.0,
         cost_runtime: factory.CostRuntimeBindings = factory.DEFAULT_COST_RUNTIME_BINDINGS,
@@ -287,6 +290,7 @@ class PantheonRuntime(RuntimeConversationPort):
             or conversation_embedding_model is not None
             or conversation_t2_synthesizer is not None
             or bragi_state_store is not None
+            or conversation_intent_training_evaluator is not None
         ):
             instantiated["Bragi"] = Bragi(
                 semantic_judgment=conversation_semantic_judgment,
@@ -497,6 +501,7 @@ class PantheonRuntime(RuntimeConversationPort):
                 )
 
             bragi_ref.register_tool_answer(answer_with_owned_tools)
+            bind_bragi_intent_training_evaluator(agents, conversation_intent_training_evaluator)
             maybe_huginn = agents.get(_INGRESS_PRINCIPAL)
             if isinstance(maybe_huginn, Huginn):
                 bragi_ref.register_proposal_sink(maybe_huginn.ingest_operator_proposal)

@@ -29,6 +29,14 @@ from fdai.agents._framework.bragi_contributors import (
     normalize_responder_answer,
 )
 from fdai.agents._framework.bragi_diagnostics import attach_pantheon_diagnostics
+from fdai.agents._framework.bragi_intent_training import (
+    IntentTrainingEvaluator,
+    IntentTrainingEvidence,
+    IntentTrainingRun,
+    ReviewedIntentTrainingPromotion,
+    build_unbound_training_payload,
+    evaluate_training_contract,
+)
 from fdai.agents._framework.bragi_models import ConversationSession, RoutingDecision, Turn
 from fdai.agents._framework.bragi_progress import append_submitted, evict_oldest, record_progress
 from fdai.agents._framework.bragi_proposal import build_action_proposal
@@ -54,6 +62,7 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _BRAGI, PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.agents._framework.role_answers import bragi_role_answer
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
@@ -63,6 +72,8 @@ from fdai.shared.providers.user_context import UserPreferenceRecord
 
 _LOG = logging.getLogger(__name__)
 _BRAGI_STATE_PREFIX = "pantheon/bragi"
+_INTENT_TRAINING_EVIDENCE_PREFIX = f"{_BRAGI_STATE_PREFIX}/intent-training/"
+_INTENT_TRAINING_EVIDENCE_RETENTION = 1_024
 _USER_PREFERENCE_INDEX_PREFIX = f"{_BRAGI_STATE_PREFIX}/user-preference-index/"
 _USER_PREFERENCE_INDEX_SCAN_LIMIT = 1_000
 _TURN_OUTBOX_PENDING_SCAN_LIMIT = 5_000
@@ -151,6 +162,13 @@ class Bragi(BragiPublicationMixin, Agent):
         self._semantic_judgment_timeout_seconds = semantic_judgment_timeout_seconds
         self._action_type_names = frozenset(action_type_names)
         self._semantic_router = semantic_router
+        self._intent_training_evaluator: IntentTrainingEvaluator | None = None
+        self._last_intent_training: dict[str, Any] | None = None
+        self._last_intent_training_retention: dict[str, Any] = {
+            "evidence_state": "not_configured",
+            "retained": False,
+            "reason": "state_store_unbound",
+        }
         self._responder_timeout_seconds = responder_timeout_seconds
         self._proposal_timeout_seconds = proposal_timeout_seconds
         self._deliberator = ConversationDeliberator(
@@ -201,6 +219,151 @@ class Bragi(BragiPublicationMixin, Agent):
         if self._tool_answer is not None:
             raise ValueError("tool answer dispatcher already registered")
         self._tool_answer = fn
+
+    def register_intent_training_evaluator(self, evaluator: IntentTrainingEvaluator) -> None:
+        """Bind Bragi's off-path deterministic intent-training evaluator."""
+
+        if self._intent_training_evaluator is not None:
+            raise ValueError("intent training evaluator already registered")
+        self._intent_training_evaluator = evaluator
+
+    async def run_intent_training(
+        self,
+        corpus: Collection[IntentTrainingEvidence],
+        *,
+        reviewed_promotion: ReviewedIntentTrainingPromotion | None = None,
+    ) -> IntentTrainingRun:
+        """Evaluate one inert Bragi intent-classifier candidate off the hot path.
+
+        The run publishes Bragi-owned model-quality evidence and never replaces
+        the runtime semantic judgment, routing table, owner selection, or typed
+        pipeline authority.
+        """
+
+        if self._intent_training_evaluator is None:
+            payload = build_unbound_training_payload(reason="training_evaluator_unbound")
+            retention = await self._retain_intent_training_evidence(payload)
+            published = await self._publish_intent_training_evidence(payload)
+            self.record_behavior("intent_training:no_op_unbound")
+            self._last_intent_training = {
+                "status": "no_op",
+                "reason": "training_evaluator_unbound",
+                "published": published,
+                "audit_evidence_retained": retention["retained"],
+            }
+            return IntentTrainingRun(
+                run_id=str(payload["id"]),
+                payload=payload,
+                candidate_revision=None,
+                gate_passed=False,
+                published=published,
+            )
+        payload, candidate, gate_passed = evaluate_training_contract(
+            tuple(corpus),
+            evaluator=self._intent_training_evaluator,
+            reviewed_promotion=reviewed_promotion,
+        )
+        retention = await self._retain_intent_training_evidence(payload)
+        published = await self._publish_intent_training_evidence(payload)
+        gate_status = str(payload["stages"]["regression_gate"]["status"])
+        promotion_status = str(payload["stages"]["promotion_decision"]["status"])
+        self.record_behavior(f"intent_training:gate_{gate_status}")
+        self.record_behavior(f"intent_training:promotion_{promotion_status}")
+        self._last_intent_training = {
+            "status": promotion_status,
+            "gate_status": gate_status,
+            "published": published,
+            "candidate_digest": candidate.get("candidate_digest")
+            if candidate is not None
+            else None,
+            "audit_evidence_retained": retention["retained"],
+            "runtime_routing_authority_changed": False,
+        }
+        return IntentTrainingRun(
+            run_id=str(payload["id"]),
+            payload=payload,
+            candidate_revision=candidate,
+            gate_passed=gate_passed,
+            published=published,
+        )
+
+    async def _publish_intent_training_evidence(self, payload: dict[str, Any]) -> bool:
+        bus = self.bus
+        if bus is None:
+            self.record_behavior("intent_training:publication_unavailable")
+            return False
+        await bus.publish("Bragi", "object.post-turn-review", payload)
+        return True
+
+    async def _retain_intent_training_evidence(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        if self._state_store is None:
+            retention = {
+                "evidence_state": "not_configured",
+                "retained": False,
+                "reason": "state_store_unbound",
+            }
+            self._last_intent_training_retention = retention
+            self.record_behavior("intent_training:evidence_not_retained")
+            return retention
+        contract_version = str(payload.get("contract_version") or "")
+        corpus_digest = str(payload.get("corpus_digest") or "")
+        candidate_digest = str(payload.get("candidate_digest") or "")
+        stages = payload.get("stages")
+        if not contract_version or not corpus_digest or not candidate_digest:
+            raise RuntimeError("intent training evidence requires contract and lineage digests")
+        if not isinstance(stages, Mapping):
+            raise RuntimeError("intent training evidence requires stage mapping")
+        created = 0
+        for stage_name, raw_stage in stages.items():
+            if not isinstance(raw_stage, Mapping):
+                raise RuntimeError("intent training stage MUST be a mapping")
+            stage = str(stage_name)
+            key = _intent_training_stage_key(
+                contract_version=contract_version,
+                corpus_digest=corpus_digest,
+                candidate_digest=candidate_digest,
+                stage=stage,
+            )
+            value = {
+                "kind": "bragi_intent_training_stage",
+                "revision": 1,
+                "contract_version": contract_version,
+                "corpus_digest": corpus_digest,
+                "candidate_digest": candidate_digest,
+                "stage": stage,
+                "stage_status": str(raw_stage.get("status") or ""),
+                "run_id": str(payload.get("id") or ""),
+                "stage_payload": dict(raw_stage),
+                "routes_runtime_traffic": False,
+                "grants_action_authority": False,
+            }
+            audit = {
+                "kind": "bragi_intent_training_stage_recorded",
+                "principal": "Bragi",
+                "contract_version": contract_version,
+                "corpus_digest": corpus_digest,
+                "candidate_digest": candidate_digest,
+                "stage": stage,
+                "stage_status": str(raw_stage.get("status") or ""),
+                "routes_runtime_traffic": False,
+                "grants_action_authority": False,
+            }
+            if await self._state_store.write_state_with_audit_if_absent(key, value, audit):
+                created += 1
+        await self._state_store.delete_states_beyond(
+            _INTENT_TRAINING_EVIDENCE_PREFIX,
+            retain_newest=_INTENT_TRAINING_EVIDENCE_RETENTION,
+        )
+        retention = {
+            "evidence_state": "retained",
+            "retained": True,
+            "created_records": created,
+            "stage_records": len(stages),
+            "retention_limit": _INTENT_TRAINING_EVIDENCE_RETENTION,
+        }
+        self._last_intent_training_retention = retention
+        self.record_behavior("intent_training:evidence_retained", created or 1)
+        return retention
 
     async def _call_responder(
         self,
@@ -1259,6 +1422,18 @@ class Bragi(BragiPublicationMixin, Agent):
             "active_sessions": len(self._sessions),
             "pending_turn_outbox": self._turn_outbox_pending,
             "last_preference_index_refresh": self._last_preference_index_refresh,
+            "intent_training": {
+                "mode": "off_path_shadow",
+                "status": "enabled"
+                if self._intent_training_evaluator is not None
+                else "unavailable",
+                "warning": None
+                if self._intent_training_evaluator is not None
+                else "intent_training_evaluator_unbound",
+                "evidence_retention": self._last_intent_training_retention,
+                "last_run": self._last_intent_training,
+                "runtime_routing_authority": False,
+            },
             "handoff_publication": {
                 "materialized": materialized,
                 "failed": failed,
@@ -1375,6 +1550,23 @@ def _resource_type_from_proposal(judgment: SemanticJudgmentProposal | None) -> s
 
 def _session_sequence_key(session_id: str) -> str:
     return f"{_BRAGI_STATE_PREFIX}/session/{_session_digest(session_id)}/sequence"
+
+
+def _intent_training_stage_key(
+    *,
+    contract_version: str,
+    corpus_digest: str,
+    candidate_digest: str,
+    stage: str,
+) -> str:
+    key = stable_idempotency_key(
+        "bragi-intent-training-stage",
+        contract_version,
+        corpus_digest,
+        candidate_digest,
+        stage,
+    )
+    return f"{_INTENT_TRAINING_EVIDENCE_PREFIX}{key}"
 
 
 def _turn_outbox_key(session_ref: str, turn_index: int, generation: int | None = None) -> str:

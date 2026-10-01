@@ -9,6 +9,7 @@ from fdai.agents._framework import factory
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bragi_intent_training import IntentTrainingEvaluator
 from fdai.agents._framework.development_authority_runtime import DevelopmentRuntimeBindings
 from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.ontology_index import (
@@ -56,6 +57,19 @@ from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
 _MAX_NORNS_STARTUP_RECOVERY = 5_000
+
+
+def bind_bragi_intent_training_evaluator(
+    agents: dict[str, Agent],
+    evaluator: IntentTrainingEvaluator | None,
+) -> None:
+    """Bind Bragi's optional off-path training evaluator at composition time."""
+
+    if evaluator is None:
+        return
+    bragi = agents.get("Bragi")
+    if isinstance(bragi, Bragi):
+        bragi.register_intent_training_evaluator(evaluator)
 
 
 async def rehydrate_operational_agents(
@@ -353,4 +367,4 @@ def bind_durable_governance_stores(
             agent.bind_proposal_rate_limit_state_store(proposal_rate_limit_state_store)
 
 
-__all__ = ["bind_operational_agents"]
+__all__ = ["bind_bragi_intent_training_evaluator", "bind_operational_agents"]

@@ -30,6 +30,7 @@ from fdai.agents._framework.provider_adapters import (
 )
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.runtime_subscriptions import RuleGenerationWorkerBindings
+from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
@@ -873,6 +874,30 @@ class _PostTurnCoordinator:
     async def review(self, review_input: PostTurnReviewInput) -> object:
         self.inputs.append(review_input)
         return object()
+
+
+class _IntentTrainingEvaluator:
+    def evaluate(
+        self,
+        *,
+        baseline_revision: object,
+        candidate_revision: object,
+        holdout_cases: object,
+    ) -> tuple[object, ...]:
+        del baseline_revision, candidate_revision, holdout_cases
+        return ()
+
+
+def test_runtime_injects_intent_training_evaluator_into_bragi() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        conversation_intent_training_evaluator=_IntentTrainingEvaluator(),
+    )
+    bragi = runtime.agents["Bragi"]
+
+    assert isinstance(bragi, Bragi)
+    assert bragi.health()["intent_training"]["status"] == "enabled"
 
 
 def test_runtime_injects_post_turn_review_into_norns() -> None:
