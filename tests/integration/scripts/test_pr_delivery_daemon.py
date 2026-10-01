@@ -67,6 +67,10 @@ class FakeRunner:
         self.remote_sha_after_push: str | None = None
         self.fetch_failures = 0
         self.pushes = 0
+        self.base_contains_head = False
+        self.head_tree = "1" * 40
+        self.base_tree = "2" * 40
+        self.remote_reads: deque[str] | None = None
 
     def __call__(
         self,
@@ -90,6 +94,10 @@ class FakeRunner:
             return support.CommandResult(0, f"{self.head}\n", "")
         if args == ("git", "rev-parse", "refs/remotes/origin/main"):
             return support.CommandResult(0, f"{_B}\n", "")
+        if args == ("git", "rev-parse", "HEAD^{tree}"):
+            return support.CommandResult(0, f"{self.head_tree}\n", "")
+        if args == ("git", "rev-parse", "refs/remotes/origin/main^{tree}"):
+            return support.CommandResult(0, f"{self.base_tree}\n", "")
         if args == ("git", "worktree", "list", "--porcelain"):
             return support.CommandResult(
                 0,
@@ -120,12 +128,17 @@ class FakeRunner:
             self.pushes += 1
             return support.CommandResult(0, "", "")
         if args[:2] == ("git", "ls-remote"):
+            if self.remote_reads:
+                remote = self.remote_reads.popleft()
+                return support.CommandResult(0, f"{remote}\t{args[-1]}\n" if remote else "", "")
             remote_sha = (
                 self.remote_sha_after_push
                 if self.pushes and self.remote_sha_after_push is not None
                 else self.remote_sha or self.head
             )
             return support.CommandResult(0, f"{remote_sha}\t{args[-1]}\n", "")
+        if args[:4] == ("git", "merge-base", "--is-ancestor", "HEAD"):
+            return support.CommandResult(0 if self.base_contains_head else 1, "", "")
         if args[:3] == ("git", "merge-base", "--is-ancestor"):
             return support.CommandResult(0, "", "")
         if args[:3] == ("gh", "pr", "view"):
@@ -368,7 +381,7 @@ def test_daemon_tolerates_only_bounded_delayed_head_snapshots_after_push(
         for command in fake.commands
         if command == ("git", "ls-remote", "origin", "refs/heads/feat/example")
     ]
-    assert len(waiting_states) == delayed_observations + 2
+    assert len(waiting_states) == delayed_observations + 3
     state = support.read_state(coordinator.paths.state)
     assert state is not None
     assert state["phase"] == "merged"
@@ -480,6 +493,52 @@ def test_delayed_head_tolerance_rechecks_local_remote_and_clean_state(
 
     with pytest.raises(support.DeliveryError, match=message):
         coordinator._verify_identity(support.snapshot(_payload()))
+
+
+@pytest.mark.parametrize("carried", ["squashed-tree", "merged-head"])
+def test_daemon_never_resyncs_a_base_that_already_carries_its_merge(
+    tmp_path: Path,
+    carried: str,
+) -> None:
+    fake = FakeRunner(
+        tmp_path,
+        [
+            _payload(merge_state="BEHIND"),
+            _payload(state="MERGED", merge_commit=_C),
+        ],
+    )
+    if carried == "squashed-tree":
+        fake.base_tree = fake.head_tree
+    else:
+        fake.base_contains_head = True
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+
+    assert coordinator.run() == 0
+
+    assert not any(command[:3] == ("git", "merge", "--no-edit") for command in fake.commands)
+    assert not any(command[:2] == ("git", "push") for command in fake.commands)
+    state = support.read_state(coordinator.paths.state)
+    assert state is not None
+    assert state["phase"] == "merged"
+
+
+def test_daemon_does_not_recreate_a_deleted_topic_branch(tmp_path: Path) -> None:
+    fake = FakeRunner(
+        tmp_path,
+        [
+            _payload(merge_state="BEHIND"),
+            _payload(state="MERGED", merge_commit=_C),
+        ],
+    )
+    fake.remote_reads = deque([_A, ""])
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+
+    assert coordinator.run() == 0
+
+    assert not any(command[:3] == ("git", "merge", "--no-edit") for command in fake.commands)
+    assert not any(command[:2] == ("git", "push") for command in fake.commands)
 
 
 def test_daemon_aborts_a_conflicting_local_base_merge(tmp_path: Path) -> None:
