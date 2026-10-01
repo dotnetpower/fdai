@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c2c0ebb889936346395b0c50584cc6d308fa5279
+translation_source_sha: deb8b821f7db503cf2bdd9b22490f6453452bafb
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -14,6 +14,7 @@ translation_revised: 2026-10-01
 남은 E9 연산자는 전용 Core 대화 helper에 누락된 선행 조건 결정을 보존하므로, 지원되지 않는 rank, aggregate, comparison, version, evidence, diagnose 및 path 행은 다른 연산의 계획으로 fallback하지 않습니다.
 Metric window comparison 계획도 전용 Core 대화 helper에 격리됩니다. 형식 필드는 두 기간을 전달하고, query runtime은 기존 metric comparison node를 사용하며 실행 권한은 부여하지 않습니다.
 현재 경로의 피연산자 출처 검사는 전용 Core 대화 helper에 남습니다. 모델이 제안한 계획의 신원은 텍스트, 이전 문맥, 결과 핸들 또는 서버 바인딩 증적에서만 수락되며, 서버가 만든 계획은 기존 권한 경계를 유지합니다.
+현재 경로 관계와 상태 검토 수렴도 같은 Core 대화 경계에 남습니다. 공개된 관계 계획은 공유 컴파일러에서 나오며, 독립 상태 검토는 Operator route를 추가하지 않고 facet 텍스트 대신 닫힌 의미 축을 비교합니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

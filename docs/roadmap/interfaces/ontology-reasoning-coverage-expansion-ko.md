@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 커버리지 확장과 현재 경로 수렴
 translation_of: ontology-reasoning-coverage-expansion.md
-translation_source_sha: 0aab08f76e4b4f0f80607d596e0150458ce63ddb
+translation_source_sha: 0ebdc24b52c6e853074097fcd657567dd91622e8
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 커버리지 확장과 현재 경로 수렴
@@ -81,6 +81,10 @@ shadow나 로컬에서 실행되는 컴파일러입니다. 현재 경로 수렴(
 갖춘 공유 관계 컴파일러로 컴파일합니다. 그러면 T2 상태 검토는 facet 토큰 대신 ObjectType, 상태 개념,
 극성, 시간 기준 같은 닫힌 의미 축을 비교합니다. 따라서 온톨로지가 답할 수 있는 해석이 두 판독자가
 다른 단어를 썼다는 이유로 보류되지 않습니다.
+
+**구현 메모(2026-10-01):** 현재 경로는 frame 모델에 요청하기 전에 공개된 form 경로 관계 컴파일
+결과를 소비하므로, V-SEM 검증을 통과한 관계 계획은 공유 컴파일러를 통해 답합니다. 독립 상태 검토는
+facet 표기가 아니라 닫힌 축으로 Resource 상태 해석을 비교합니다.
 
 **종료 조건:** 추적된 관계와 상태 검토 질문이 현재 경로에서 답하고, V-SEM이 현재 경로가 내보내는 모든
 관계 계획을 수락합니다.

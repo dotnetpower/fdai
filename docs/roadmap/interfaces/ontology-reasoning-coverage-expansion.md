@@ -82,6 +82,11 @@ instead of the frame builders. The T2 state review then compares closed meaning 
 ObjectType, the state concept, the polarity, and the time basis, instead of facet tokens, so a
 reading the ontology can answer isn't held because two readers used different words.
 
+**Implementation note (2026-10-01):** The current path consumes released form-path relation
+compilations before it asks the frame model, so V-SEM-verified relation plans answer through the
+shared compiler. The independent state review compares Resource state readings by closed axes
+instead of facet spellings.
+
 **Exit:** the traced relation and state-review questions answer on the current path, and V-SEM
 accepts every relation plan it releases.
 
