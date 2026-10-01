@@ -2518,7 +2518,7 @@
         "g1": {
           "status": "unsupported",
           "reasons": [
-            "operation_unsupported:path"
+            "path_grammar_unavailable"
           ]
         }
       }
@@ -2568,7 +2568,7 @@
         "g1": {
           "status": "unsupported",
           "reasons": [
-            "operation_unsupported:path"
+            "path_grammar_unavailable"
           ]
         }
       }
