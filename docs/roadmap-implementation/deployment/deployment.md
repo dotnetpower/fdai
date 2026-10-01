@@ -33,6 +33,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | in-progress | Retargeted retained-state adoption to the amended Constitution Article 1: the keyless one-command source deployment, not a published signed kit, now carries the adoption revision. | `current change`; [source deployment owner](../../roadmap/deployment/source-deployment.md) and [ledger](source-deployment.md) | Run the adoption through the source deployment after WP3. |
 | 2026-09-13 | implemented | Added a no-delete recovery path that stages one verified failed public-development state for the Foundation-managed remote application backend. The managed host rejects a nonempty backend, records a claim before the single state push, verifies exact readback, and resumes through monotonic lineage and serial checks. Canonical region naming and Terraform-derived license binding remove workstation naming guesses. | `current change`; focused deployment CLI tests, strict typing, Genesis integration tests, and an actual retained-state staging check with 98 managed instances and only the two resource-group owner addresses removed | Publish a signed kit from the merged revision, run the exact adoption from the managed host, review zero-destroy plans, and retain application convergence and second-plan zero-change evidence. |
 | 2026-09-13 | implemented | Allowed one standard isolated-Executor update to materialize the default-off legacy-unbound transition binding required by the safeguard rollout. The plan guard accepts only absent-to-`0`; authority widening, replay, and unrelated runtime drift remain denied, and the previous revision remains the rollback boundary. | `current change`; `guard_plan.py`; focused service-deploy regression tests. | Publish the guard change, rebuild the exact Core and isolated-Executor images, and retain protected plan/apply evidence on one pinned revision. |
 | 2026-09-12 | implemented | Bound provider-schema-only plan, apply, resume, and status to either supported active Core image profile. The `provider-cost` request subtype selects the Cost Governance distribution without another workflow input, while provider evidence takes precedence over package-only observations and remains tied to exact image, healthy baseline, durable generation, and conditional agent review. Provider-catalog changes now select both Core image profiles for packaging checks. | `current change`; deployment CLI, request validator, plan/apply evidence builders, protected workflow, image selector, and focused regressions | Merge and publish one exact Cost Governance candidate, deploy it through the independent Core service path, then retain the zero-destroy provider plan, exact apply, and durable evidence for Issue #290. |
@@ -95,9 +96,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
-- [ ] Publish a signed kit from the merged application-state adoption revision, use it to adopt the
-  verified retained state without deleting Azure resources, and retain zero-destroy application
-  plans, convergence, service health, and second-plan zero-change evidence.
+- [ ] Run the keyless one-command source deployment from the merged application-state adoption
+  revision, use it to adopt the verified retained state without deleting Azure resources, and
+  retain zero-destroy application plans, convergence, service health, and second-plan zero-change
+  evidence.
 - [ ] Retain one repository-safe public fresh-subscription receipt for the exact clean revision,
   reviewed previews, temporary-access cleanup, Core health, canary, initial inventory, and second-run no-change plan.
 - [x] Candidate-only publication, targeted PR packaging, and Genesis caller compatibility pass

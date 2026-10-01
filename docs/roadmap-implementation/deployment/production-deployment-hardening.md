@@ -27,6 +27,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | in-progress | Removed the stale resource-lock copy of the production receipt item that the inline-status migration copied from the owner, keeping the unlocked teardown profile, and retargeted the image-builder item to the amended Constitution Article 1: a source deployment builds images in the deployment registry, and a signed offline package carries prebuilt images. | `current change`; [source deployment owner](../../roadmap/deployment/source-deployment.md) | Retain the production receipt and the image-path proof. |
 | 2026-09-29 | validated | Retained the protected scenario-lab apply evidence for the AKS Store Demo. Plan-only [run 36478938558](https://github.com/dotnetpower/fdai/actions/runs/36478938558) and protected apply [run 36479158812](https://github.com/dotnetpower/fdai/actions/runs/36479158812) at `e975511992b1a113c365a6b654ec892b72665a97` both reported `0 create, 0 update, 0 delete or replace` and `0 import, 0 scope-case replacement`. The apply prepared the digest-pinned Store Demo and retained a readback with verdict `verified`. Every workload was ready, including three `order-service` replicas; every running image matched its pinned digest; the deterministic `cloudapp.azure.com` hostname resolved to the Load Balancer address with HTTP 200 health; and Store Admin stayed a `ClusterIP` service without external ingress. The run then returned AKS to `Stopped` and the stress VM to deallocated and revoked its bounded grant. | Readback artifact `sre-demo-lab-store-demo-36479158812-1`, verified outside the repository. Read-only `az` after the run showed AKS `Stopped`, the stress VM deallocated, MySQL `Ready` and no temporary grant. The delivery history is in the [AKS commerce ledger](../operations/aks-commerce-business-scenario.md). | None for the Store Demo workload; the fault sweep stays with #1207. |
 | 2026-09-17 | implemented | Bound scenario-lab Terraform provider and backend authentication explicitly to the verified deploy runner Managed Identity. A candidate slot had completed the identity fence but Terraform interpreted its Azure CLI Managed Identity session as unsupported CLI user authentication. `ARM_USE_MSI=true` and the exact deployment client ID now remove that runner-local ambiguity without changing Azure authority. | Failed plan `35176312572`; `current change`; `.github/workflows/sre-demo-lab.yml`; focused workflow and scenario-lab checks | Publish the binding and resume the exact `aks-store-demo` recovery plan. |
 | 2026-09-17 | implemented | Bound the commerce scenario-lab to the exact dedicated cluster name `aks-store-demo` after operator review found the prior generic SRE lab name ambiguous. The workload preparation still consumes only the Terraform output for that new cluster and cannot select an existing FDAI or shared AKS target. | `current change`; `infra/scenario-lab/aks.tf`; focused Terraform and scenario-lab contracts | Destroy the partial old-name lab state, publish this naming boundary, then create and verify the new dedicated cluster. |
@@ -89,8 +90,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Retain an exact-revision protected production plan and apply receipt proving the unlocked
     teardown profile, private networking, PostgreSQL durability, trusted image digest, notifications,
     monitoring, and the cost budget together, including one blocked negative plan.
-- [ ] Remove tenant-side service and deployment-host image builders, require the prebuilt signed
-    release manifest, and prove production deployment invokes no image build or capture tool.
+- [ ] Prove production deployment builds service images only in the deployment registry from the
+    deployed source revision, or verifies the prebuilt images of a signed offline package, and
+    invokes no workstation or host image build or capture tool.
 - [ ] Retain a protected non-production destroy and exact-name recreation receipt for Key Vault,
     Cognitive Services, Log Analytics, and the resource group.
 - [ ] After green required CI, retain zero-unrelated-destroy UAMI role-migration plans and one
@@ -112,6 +114,3 @@ and resumable work while the roadmap owner remains focused on normative design.
     private before any fault sweep. Done in protected apply
     [run 36479158812](https://github.com/dotnetpower/fdai/actions/runs/36479158812), which retained
     a verified Store Demo readback and returned AKS to `Stopped`.
-- [ ] Retain an exact-revision protected production plan and apply receipt proving resource locks,
-  private networking, PostgreSQL durability, trusted image digest, notifications, monitoring, and
-  the cost budget together, including one blocked negative plan.

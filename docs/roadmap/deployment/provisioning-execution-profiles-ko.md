@@ -1,12 +1,12 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 788fb5c966a993a40f391b8c95ffb45a97b64e86
+translation_source_sha: d8a86d786b4080c6f1beee4c467d29a7b00b03ed
 translation_revised: 2026-10-01
 ---
 # 프로비저닝 실행 프로파일
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 기여자 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 계획된 `fdaictl` 배포판이 프로비저닝 호스트, connectivity 모드, 명령 전송 계층, 접근 경로를
 선택하는 방법을 정의합니다. 또한 Terraform이 infrastructure 또는 역할 배정을 변경하기

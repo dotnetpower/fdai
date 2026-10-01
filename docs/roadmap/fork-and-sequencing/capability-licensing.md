@@ -34,8 +34,9 @@ store.
 
 ## Durable keyless Trial target
 
-The connected source deployment will initialize one 30-day Trial at first activation through an
-authenticated deployment writer. Its installation and deployment bindings are independent from
+The [one-command source deployment](../deployment/source-deployment.md) will initialize one 30-day
+Trial at first activation through an authenticated deployment writer during database bootstrap.
+Its installation and deployment bindings are independent from
 the source revision and image digest, so an ordinary upgrade or restart cannot renew the Trial.
 The activation time never changes. Every durable observation advances a revision and the
 last-observed UTC time; a clock regression creates a persistent blocked state, not another Trial.
@@ -55,13 +56,15 @@ installation, a detected clock regression, an observation older than the moment 
 and unreachable storage each deny rather than grant. Missing or inconsistent retained records
 never authorize reinitialization.
 
-Persistence remains separate: the store that commits observations with a compare-and-set on the
-complete previous revision, and initializes the record at installation time, is still open.
+The store commits observations with a compare-and-set on the complete previous revision. Writing
+the first record at installation time and consulting the store from Core composition are still
+open, so a keyless installation remains observation-only until both land.
 
-A future versioned entitlement can remove the Trial restriction; the current signed-token
-30-day ceiling remains unchanged until that contract is implemented. A signed deployment kit
-authenticates artifacts, not usage rights. It removes Trial only when it carries a separately
-valid entitlement. Publisher private keys never enter the deployment. A source owner who also
+The [key-holder installation entitlement](#key-holder-installation-entitlement) removes the Trial
+restriction for one installation; the signed-token 30-day ceiling stays for every token that
+travels to another operator. A signed offline package authenticates artifacts, not usage rights.
+It removes Trial only when a separately valid entitlement accompanies it. Publisher private keys
+never enter the deployment. A source owner who also
 controls all persistent state can remove these checks; this offline mechanism does not claim
 tamper-proof enforcement or global reinstall detection.
 
@@ -94,6 +97,35 @@ mismatched private-key material grants no exception and does not stop observatio
 This proves possession of the dedicated key, not attachment to immutable physical hardware. Copying
 the key copies issuer status. A later hardware-backed key design can strengthen that custody boundary
 without changing the signed token contract.
+
+## Key-holder installation entitlement
+
+The issuer-workstation exception covers only a local runtime. A key holder who deploys to Azure
+needs the same full availability in a venue that must never read the private key.
+
+**Initial design.** Issue the existing 30-day full-catalog token on every key-holder deployment.
+
+**Critique.** The key holder's own installation then falls back to read-only 30 days after the
+last deployment, which is a Trial under another name. Binding the image digest also makes every
+upgrade depend on a new issuance, and a longer v1 window would weaken the ceiling that protects
+tokens issued to other operators.
+
+**Revised design.** Deployment tooling issues a separately versioned installation entitlement:
+
+- It is issued only on a workstation that passes the same dedicated-key checks as the issuer
+  exception. The runtime still never opens a private key.
+- A new `schema_version` keeps the document domain-separated from the v1 token, and the same
+  license key signs it.
+- It grants the complete shipped catalog of the expected distribution.
+- It requires exact installation and deployment binding digests and carries no image digest and
+  no `not_after`, so upgrades and restarts keep it valid.
+- It travels like a token: a Key Vault file input under a digest-derived secret name, bound by
+  Core at startup.
+- Any binding mismatch resolves to `misbound`, and the v1 30-day ceiling stays unchanged for
+  every token that leaves the key holder's own installations.
+
+The entitlement has no revocation path other than replacing the deployment's secret reference. It
+is acceptable only because it is useless outside the installation it binds.
 
 ## The token
 
@@ -185,6 +217,7 @@ diagnosed. The operator-facing reason stays generic and never echoes verifier ex
 |--------|-------|--------------|
 | `issuer-workstation` | local source checkout proves possession of the dedicated matching private key | full catalog; any configured token is ignored |
 | `active` | signature verifies, inside the window, bindings match | listed capabilities that exist in the catalog, plus every read-only capability |
+| `active` installation entitlement (target) | signature verifies and both installation bindings match; no window applies | the complete shipped catalog |
 | `absent` | no token configured and no issuer-workstation proof | read-only in the shipped runtime |
 | `untrusted` | malformed token, a non-canonical token, a signature the packaged key rejects, or a verifier that cannot run | read-only |
 | `not-yet-valid` / `expired` | outside the validity window | read-only |
@@ -282,3 +315,4 @@ The enforceable part is therefore the distribution channel, not the binary:
 | Capability bundles, extensions, and their trust checks | [project-structure.md](../architecture/project-structure.md#capability-bundles) |
 | Secret handling and network boundaries | [security-and-identity.md](../architecture/security-and-identity.md) |
 | Delivering an image and kit into a closed network | [disconnected-deployment.md](../deployment/disconnected-deployment.md) |
+| How a deployment selects Trial or full entitlement | [source-deployment.md](../deployment/source-deployment.md) |

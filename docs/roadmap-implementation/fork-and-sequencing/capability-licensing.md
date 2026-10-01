@@ -17,11 +17,13 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Shared Thor execution ceiling | implemented | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py`; `test_licensing_gate.py`; `test_thor_execution_port.py` | PR-native, direct-API, and tool-call paths share one current-time gate across normal dispatch and human-approval resume. Denials stay terminal and secret-free when audit persistence fails, and mark that failure in the returned context. |
 | Azure token delivery contract | implemented | independent Core Terraform `license` input; `azd-up.sh`; `test_capability_license_binding.py`; `test_contributor_deployment.py`; Terraform validation | Token values move file-to-Key-Vault and never enter Terraform. Each token uses its full-digest-derived secret name, interrupted tfvars generation is resumable, and the public path auto-issues only on the issuer workstation; otherwise it deploys Trial. No live Azure receipt exists. |
 | Operator status and proactive renewal warning | not-started | Owner design only | Startup and denied-action logs exist, but no authenticated status projection, Console badge, or pre-expiry notification is implemented. |
+| Key-holder installation entitlement | not-started | Owner design: [installation entitlement](../../roadmap/fork-and-sequencing/capability-licensing.md#key-holder-installation-entitlement) | Deployment still issues a 30-day image-bound `fdai.license.v1` token. The versioned no-expiry document, its Core resolution, issuer, and inspector support are not implemented. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | in-progress | Designed the key-holder installation entitlement after Constitution Article 1 let anyone deploy from source: no license key selects the durable Trial, and the dedicated key selects a versioned, installation-bound entitlement without the v1 30-day window. The source deployment owner now drives Trial initialization and entitlement issuance, so protected-workflow issuance is superseded. Corrected the owner's stale statement that Trial persistence was still open, and split the first two remaining items into their completed storage and resolver parts and the open composition part. | `current change`; owner and [source deployment](../../roadmap/deployment/source-deployment.md) design; `uv run pytest -q --no-cov services/core-control-plane/tests/core/licensing tests/integration/scripts/test_issue_license.py services/core-control-plane/tests/delivery/persistence/test_postgres_licensing_trial.py` passed 78 cases | Wire the Trial store into Core composition, initialize it during deployment, and implement the installation entitlement. |
 | 2026-09-29 | in-progress | Added durable Trial storage so the window survives restarts and upgrades without restarting. Two races are settled by the schema rather than by caller discipline: a fixed-value primary key means a racing installer inserts nothing and reads the first window, and a revision predicate means a replica holding a stale read updates zero rows and adopts the winner. A trigger makes `activated_at`, both bindings, and clock denial immutable, and revision must advance, so no write path can extend or reset a window. Core receives no DELETE. | `current change`; `20260929_core_licensing_trial.py`; `test_postgres_licensing_trial.py` adds 7 cases covering absence, activation, a second activation keeping the first window, observation advance, observing an absent record never activating one, sticky clock denial, and a losing writer adopting the winner; the compare-and-set case fails against an unconditional-write variant; 71 licensing and storage cases; Ruff and strict mypy | Wire the store into composition, then retain live first-use and post-expiry evidence. |
 | 2026-09-29 | in-progress | Connected the inert Trial record to entitlement. A `TrialEntitlementResolver` decides only from a committed installation-bound record, and `LicenseEntitlementAuthority` consults it when a token grants no acting capability, so all execution paths inherit one answer through the existing gate. A Trial substitutes for an absent or lapsed token and never rescues a rejected, misbound, or not-yet-valid one; read-only capability stays unconditional. Storage failure denies rather than granting. | `current change`; `test_trial_entitlement.py` adds 14 cases covering an active grant, unactivated absence, misbinding on either digest, expiry without restart, clock regression, stale observation, unreachable storage, naive-clock refusal, restart not renewing, and the authority wiring; the two wiring cases fail before the change; 64 licensing cases, Ruff, strict mypy | Implement `TrialStore` with compare-and-set persistence and installation-time activation, then retain live first-use and post-expiry evidence. |
 | 2026-09-14 | in-progress | Added the inert durable Trial record and transition model without weakening existing signed-token validation or automatically opening runtime capabilities. | Current change; 12 focused tests cover exact expiry, restart, clock rollback, malformed records and UTC bounds; Ruff and strict mypy pass. | Persist and independently re-read the record, bind every runtime path, add concurrency and restart acceptance, then implement separately versioned full entitlement activation. |
@@ -32,15 +34,23 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
-- [ ] Add migration-owned atomic Trial initialization and observation with exact installation binding,
-	compare-and-set revisions, missing-record denial, and concurrent replica/restart tests.
-- [ ] Bind Trial resolution immediately before each existing execution gate without changing approval,
-	promotion, RBAC, recovery or audit authority; prove expired Trial cannot grant new acting work.
+- [x] Persist the Trial record with compare-and-set observation, immutable activation and bindings,
+	missing-record denial, and concurrent-writer convergence. Evidence: the 2026-09-29 storage row,
+	`20260929_core_licensing_trial.py`, and `test_postgres_licensing_trial.py`.
+- [x] Resolve Trial through the shared license authority so every execution path inherits one
+	answer and an expired Trial grants no new acting work. Evidence: the 2026-09-29 resolver row and
+	`test_trial_entitlement.py`.
+- [ ] Construct the Trial store and resolver in Core runtime composition with the deployment-supplied
+	installation and deployment digests, and prove with focused runtime tests that a keyless Core
+	becomes acting-capable only while a committed Trial record is active. Tracked as WP4 in the
+	[source deployment ledger](../deployment/source-deployment.md).
+- [ ] Implement the versioned installation entitlement in the token contract, Core resolution,
+	issuer, and `fdaictl license inspect`, with binding, misbinding, unchanged v1 30-day rejection,
+	and secret-free output tests. Tracked as WP5 in the source deployment ledger.
 - [ ] Deliver and read back initial Trial state through the source deployment scripts without a publisher
 	key; retain first-use and expired-run evidence before calling keyless Trial operational.
 - [ ] Retain one governed Azure sequence proving keyless Trial, active bound token, post-`not_after` denial without restart, renewed-token revision, and unchanged promotion/RBAC/risk/approval ceilings.
 - [ ] Expose authenticated, secret-free license status and pre-expiry warning projections, with Console localization and no token or key material.
-- [ ] Add protected-workflow issuance and renewal automation that verifies and materializes the existing versionless Key Vault license object, then retain an exact-plan apply receipt.
 - [ ] Evaluate hardware-backed issuer custody if physical-device binding is required; the current file key proves possession and can be copied.
 - [ ] Define and test a deterministic ActionType-to-license-capability mapping before offering selective acting licenses; the current Thor ceiling intentionally requires the single `operations.typed-mutation` capability.
 - [ ] Add a trusted-time or rollback-detection design and a falsifying clock-regression test if the deployed threat model must resist host wall-clock rollback.

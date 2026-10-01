@@ -3074,6 +3074,32 @@
       ]
     },
     {
+      "id": "source-deployment",
+      "paths": [
+        "docs/roadmap/deployment/source-deployment*.md",
+        "docs/roadmap-implementation/deployment/source-deployment.md",
+        "scripts/deployment/azure/fdai-up.sh",
+        "packages/deployment-cli/src/fdai_deployment_cli/source_azure.py",
+        "packages/deployment-cli/tests/test_source_azure.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/deployment/source-deployment.md",
+        "docs/roadmap/fork-and-sequencing/capability-licensing.md",
+        "docs/roadmap/deployment/installable-deployment-cli.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/source-deployment.md",
+        "docs/roadmap-implementation/deployment/source-deployment.md"
+      ],
+      "validate": [
+        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_source_azure.py",
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "cost-governance-package",
       "paths": [
         "config/cost-governance-package-inventory.json",

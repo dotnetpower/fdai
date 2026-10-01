@@ -31,6 +31,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-09-26 | in-progress | Closed the verdict coverage gap found in review: a warning-only report and a clean shadow report both publish a shadow-first proposal, and both paths are now asserted. | `current change`; `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py`; focused `uv run pytest tests/core/deploy_preflight -q` passed 105 tests. | Unchanged: compose the gate on the live control-loop path, add the durable profile refresh, and add the GitHub Checks publisher. |
 | 2026-09-26 | in-progress | Added a delivery-side pre-PR refresh wrapper and sanitized GitHub Checks adapter using existing provider seams, without granting either execution or approval authority. | `current change`; `services/core-control-plane/src/fdai/delivery/deploy_preflight/pr_publication.py`, `services/core-control-plane/src/fdai/delivery/github/preflight_checks.py`, and focused delivery tests (`uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_preflight_pr_publication.py services/core-control-plane/tests/delivery/test_github_preflight_checks.py`, 30 passed). | Compose a trusted live refresh and fence source-base drift, bind Checks after PR creation, carry governed toggle arguments, and add durable profile invalidation and operational evidence. |
 | 2026-09-27 | implemented | Added a restartable, compare-and-set environment-profile refresh task and wired the recovery Inventory-delta cursor fence to invalidate its durable record before cursor advance. A fresh record is read from the shared store rather than trusting process-local cache state; a concurrent delta or expired lease cannot publish an old probe result. | `current change`; `services/core-control-plane/src/fdai/delivery/deploy_preflight/environment_profile_refresh.py`, `delivery/inventory_delta.py`, `delivery/inventory_change_acceleration.py`, `tests/delivery/test_environment_profile_refresh.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_environment_profile_refresh.py services/core-control-plane/tests/delivery/test_inventory_delta.py` (45 passed). | Bind a trusted read-only profile builder and scheduled refresh at runtime; the control-loop PR gate, Checks delivery, and governed operational evidence remain separate. |
+| 2026-10-01 | in-progress | Removed four stale remaining items that the inline-status migration copied from the owner: a truncated duplicate of the completed root-consumer item and open copies of the profile refresh, pre-publication analyzer, and Checks adapter items that the ledger already records as complete. | `current change`; this ledger's 2026-09-26 and 2026-09-27 rows | Unchanged: compose the gate on the live control-loop path and bind the PR refresh and Checks adapter at runtime. |
 
 ### Remaining work
 
@@ -51,10 +52,3 @@ and resumable work while the roadmap owner remains focused on normative design.
   re-render/re-plan callback; fence source-base drift between refresh and provider commit, carry
   per-toggle arguments through governed ingress, and record a composed run with fresh report
   and exact head revision.
-- [x] Keep the generic upstream root free of fork-owned resource consumers and ship a reusable
-
-- [ ] Add a durable environment-profile refresh task with Inventory-delta invalidation and pass restart and expiry tests.
-
-- [ ] Invoke the analyzer before remediation-PR publication, lower blocking findings to human review, and prove with an integration test that no PR opens on a blocked report.
-
-- [ ] Publish the sanitized report through a GitHub Checks adapter and retain a focused contract test for redaction and failed delivery.

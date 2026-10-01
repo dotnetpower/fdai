@@ -1,12 +1,12 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: b447be29e4ba685ea1a7acd9d60df26c99f79a97
+translation_source_sha: 5f157eae8f3dfaa70a1aac84cdf5199dcc08f434
 translation_revised: 2026-10-01
 ---
 # 운영 배포 강화
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 기여자 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 런타임 계약을 바꾸지 않고 FDAI 개발 자세를 강화하는 운영 전용 배포 제어를
 정의합니다. 해체 동작, 내구성, 비공개 네트워킹, 신뢰할 수 있는 이미지, 알림 대상,

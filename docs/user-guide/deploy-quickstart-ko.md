@@ -1,40 +1,49 @@
 ---
 title: 배포 빠른 시작
-description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
+description: clone에서 명령 하나로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: ead13087a263d182b34b45f7ad25b0a2fddddb22
-translation_revised: 2026-09-30
+translation_source_sha: af16d4f5969a0c8a5f5b96c75aed77707d67ceef
+translation_revised: 2026-10-01
 ---
 
 # 배포 빠른 시작
 
-> **배포 방식:** [헌법](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)은 기여자 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
-한 번의 대화형 Azure 로그인으로 FDAI를 Azure 구독에 배포할 수 있습니다. 대상 환경 배포는
-로컬 `fdaictl` 조정기와 대상 Virtual Network 내부의 Managed Host에서 실행됩니다. GitHub
-Actions, 저장소 변수, 저장소 비밀 또는 GitHub runner를 사용하지 않습니다.
+한 번의 대화형 Azure 로그인 뒤 저장소 clone에서 명령 하나로 FDAI를 자신의 Azure 구독에
+배포할 수 있습니다. 키, 서명된 키트, 게시된 릴리스, GitHub 설정은 필요하지 않습니다. 라이선스
+키가 없으면 설치는 30일 Trial로 동작합니다. clone의 `secrets/` 디렉터리에 전용 라이선스 키가
+있으면 전체 사용권을 받습니다.
 
-Terraform은 인프라 단일 기준으로 유지됩니다. 배포 명령은 서명된 release를 검증하고, 승인할
-정확한 계획을 표시하고, 비공개 데이터 플레인 작업을 Virtual Network 내부로 옮기고, 배포
-준비 상태를 보고하기 전에 애플리케이션 결과를 검증합니다.
+Terraform은 인프라 단일 기준으로 유지됩니다. 배포 명령은 clone에서 서비스 이미지를 자신의
+레지스트리에 빌드하고, 적용하는 각 계획을 표시하고, 비공개 데이터 플레인 작업을 Virtual Network
+내부로 옮기고, 배포 준비 상태를 보고하기 전에 애플리케이션 결과를 검증합니다.
 
 기본적으로 계획은 전용 인벤토리 Managed Identity에 구독 범위 AKS Cluster User 및 RBAC
 Reader 역할을 부여합니다. 그러면 인벤토리 작업은 현재 및 이후 생성된 AKS 클러스터를 찾고
 Kubernetes 객체를 읽을 수 있으며 Core, Operator 또는 Thor에는 이 역할을 부여하지 않습니다.
-승인하기 전에 정확한 계획에서 이 읽기 범위를 검토하세요.
+계획에서 이 읽기 범위를 검토하세요.
 
 ## 배포 경로 선택
 
-| 환경 | 시작 방법 | 산출물 원본 |
-|------|-----------|-------------|
-| 연결된 Azure 환경 | 저장소를 복제하고 `fdaictl`을 설치한 뒤 `az login`, `fdaictl provision azure --online` 순서로 실행 | 버전이 지정된 서명된 release 키트 |
-| 공개 산출물 송신이 없는 환경 | digest로 고정된 FDAI 배포 어플라이언스를 적재하고 이미지 진입점 실행 | 어플라이언스 이미지에 포함된 완전한 서명 키트 |
+| 환경 | 시작 방법 | 필요한 것 |
+|------|-----------|-----------|
+| 로그인할 수 있는 모든 Azure 구독 | 저장소를 clone하고 `az login`을 실행한 뒤 `scripts/deployment/azure/fdai-up.sh --region <region>` 실행 | clone 하나. 키, 키트, 릴리스는 필요 없음 |
+| 인터넷에 연결되지 않은 Azure VM | 그 VM에서 `fdaictl provision azure --offline-kit <package>` 실행 | 키 보유자가 만든 서명된 오프라인 패키지 하나 |
 
-GitHub Actions는 release를 빌드, 테스트, 서명 및 게시하는 데 사용할 수 있습니다. 대상 환경
-배포 경로에는 포함되지 않습니다.
+GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에도 포함되지 않습니다.
 
-연결된 배포는 정확한 Marketplace Ubuntu 버전으로 Managed Host를 부팅하고 Foundation에서
-고정된 도구 체인을 설치합니다. 전용 호스트 이미지를 먼저 만들 필요가 없습니다.
+> **현재 상태:** 단일 명령 소스 배포는 아직 완성되는 중이며,
+> [구현 원장](../roadmap-implementation/deployment/source-deployment.md)이 다음 상태를 기록합니다.
+>
+> - 키 없는 실행은 Foundation을 만든 뒤 애플리케이션 단계 전에
+>   `prebuilt_runtime_artifacts_required`로 멈춥니다.
+> - 소스 모드 체크포인트는 `scripts/deployment/azure/genesis_approval_prompt.py`가 만드는
+>   `--approval-file`로만 진행합니다.
+> - 아직 어떤 배포 단계도 Trial을 시작하지 않으므로 토큰이 없는 설치는 관찰 전용으로 남습니다.
+> - 이 항목들이 완료될 때까지 오프라인 패키지 서명 키 보유자는 서명된 키트를 여전히 빌드하는
+>   임시 경로 `fdai-up.sh --source . --signing-key <path>`로만 애플리케이션 단계에 도달하며, 이
+>   경로는 제거될 예정입니다.
 
 ## Clone에서 배포
 
@@ -45,13 +54,17 @@ GitHub Actions는 release를 빌드, 테스트, 서명 및 게시하는 데 사�
 - Bash, `git`, Azure CLI, `uv`가 설치된 Linux x86-64 워크스테이션. Windows에서는 WSL2를
   사용하고 해당 도구를 Linux 안에 설치합니다.
 - Python 3.13 또는 `uv`가 이를 다운로드할 수 있는 권한. 최초 설치에는 구성된 Python 패키지
-  인덱스와, 필요한 경우 Python 배포 호스트에 접근할 수 있어야 합니다. 이 설치 절차는 연결된
-  환경용이며, 산출물 오프라인 배포에는 어플라이언스 경로를 사용합니다.
+  인덱스와, 필요한 경우 Python 배포 호스트에 접근할 수 있어야 합니다. 이 절차는 연결된 환경용이며,
+  인터넷에 연결되지 않은 Azure VM에서는 서명된 오프라인 패키지를 사용합니다.
+- Console 추가 기능을 선택한 경우에만 Node.js와 npm
 - 선택한 구독에서 Foundation 리소스를 만들고 문서화된 배포 역할을 할당할 수 있는 Azure 신원
 - 선택한 Azure 리전에서 필요한 리소스 형식의 사용 가능한 용량
 - 의도한 구독을 선택한 대화형 Azure 세션
 
 ### 명령을 한 번 설치
+
+이 단계는 선택 사항입니다. `fdai-up.sh` 래퍼는 아무것도 설치하지 않고 clone에서 실행됩니다. 같은
+조정기를 어느 디렉터리에서나 실행하려는 경우에만 `fdaictl`을 설치합니다.
 
 저장소를 복제하는 것만으로 셸 명령이 자동 등록되지는 않습니다. 복제한 저장소 루트에서 로컬
 배포 CLI를 사용자 소유의 격리된 `uv` 도구 환경에 설치합니다.
@@ -115,94 +128,50 @@ Linux에서는 보통 `~/.local/bin`입니다. 이후에는 복제한 디렉터�
 
 ### 배포 실행
 
-소스 모드 개발 미리 보기는 로컬 준비부터 실행합니다.
-
-```bash
-fdaictl provision azure --source . --runtime aks --prepare-only
-```
-
-Azure 로그인 후 `--preflight-only`를 대신 지정하면 리소스를 변경하지 않고 AKS SKU와
-할당량을 점검합니다. 두 옵션을 모두 생략하면 Foundation 흐름을 시작합니다. 새 대화형 소스
-실행은 시작할 때만 설치 설정을 보여주고 확인을 요청합니다. 별도의 구축 예상 비용 한도는
-`--setup-cost-ceiling <USD>`로 지정하거나 초기 검토 중 입력합니다. Console은
-`--console-access public-https-entra` 또는 `private-https-entra`로 선택하고, 필요하면
-`--allow-dedicated-identities`와 `--cleanup-temporary-resources`를 명시합니다. 서비스와
-데이터는 유지합니다. 이 설정만으로 리소스를 배포하거나 정확한 계획의 승인 권한을 얻지 않습니다.
-
-비공개 초기 확인은 최초 유효 기간 안에서 소스, 대상, 런타임, 예산과 옵션이 모두 같을 때만
-재사용합니다. 설정이 바뀌거나 만료되면 다시 묻지 않고 중단합니다. 새로운 JSON 및 비TTY
-실행은 입력을 읽지 않고 `initial_confirmation_required`를 반환합니다. 이후 소스 실행
-단계에서는 묻지 않습니다. 초기 권한 하나로 전체 실행을 완료하려면 작업별 제한적 권한
-어댑터가 필요하며 현재 미리 보기에는 아직 구현되지 않았습니다.
-
-이미 승인된 정확한 체크포인트를 재개하려면 초기 범위 옵션을 생략하고 같은 명령에
-`--approval-file <private-exact-approval.json>`을 추가합니다. 승인은 현재 소스, 실행 기록,
-사람 신원, 정확한 체크포인트 근거와 일치해야 하며 만료되지 않아야 합니다. 명령은 승인 범위
-안에서 계속 진행합니다. 새 승인이 필요하면 입력을 기다리거나 승인을 만들지 않고 검토 상태와
-종료 코드 `2`를 반환합니다. 보존된 승인을 암묵적으로 선택하지 않습니다. 이 미리 보기는 아직
-애플리케이션이나 영속적인 30일 Trial을 활성화하지 않습니다.
-준비나 사전 점검의 성공은 애플리케이션 배포 완료를 뜻하지 않습니다. 소스 모드는 완전한
-키트를 다운로드하거나 발급자 키를 요구하지 않으며, 작업 디렉터리는 선택한 체크아웃 밖에 둡니다.
-
-다음 서명 키트 경로는 별도로 유지합니다.
-
-설치 후에는 어느 디렉터리에서든 다음 명령을 실행하고 Azure 리전을 선택합니다.
+clone에서 명령을 실행하고 Azure 리전을 선택합니다.
 
 ```bash
 az login
-fdaictl provision azure --online --region koreacentral
+scripts/deployment/azure/fdai-up.sh --region koreacentral
 ```
 
-대화형 터미널에서는 활동 내역이 자동으로 표시됩니다. 줄 단위 로그가 필요하면
-`--progress plain`을 추가합니다. 산출물 원본은 `--online` 또는 `--offline-kit <path>` 중 하나를
-명시합니다. 명령을 영구 설치하지 않으려면 기존 복제본의 래퍼를 사용할 수 있습니다.
-
-```bash
-bash scripts/deployment/azure/fdai-up.sh --region koreacentral
-```
-
-게시된 키트 대신 checkout에서 전부 빌드하려면 `--source <checkout> --signing-key <key>`를
-추가합니다. 그 checkout이 실행 전체를 소유하므로 배포하려는 리비전에서 실행해야 합니다. 이미
-checkout이 아티팩트를 결정하므로 `--online`이나 `--offline-kit`를 함께 지정하면 래퍼가
-거부합니다.
-
-빌드가 키를 사용하기 전에 먼저 키를 식별할 수 있습니다. 이 명령은 지문과 보관 상태만 출력하며 키
-자체는 출력하지 않습니다.
-
-```bash
-python3 scripts/deployment/release/check-signing-key.py --key secrets/<키파일>.pem
-```
-
-키 하나가 완전 키트와 번들 역할을 모두 담당합니다. 키 파일은 소유자 전용(`chmod 600`)이어야 합니다.
-
-두 명령은 같은 조정기를 사용합니다. CLI를 설치하거나 갱신해도 서명된 배포 키트가 갱신되지는
-않습니다. Genesis 스크립트는 복제본이 아니라 검증된 릴리스에서 가져옵니다. 키트 내부 코드의
-수정에는 수정된 서명 키트가 필요하며, 추출된 파일을 직접 수정하거나 검증을 끄면 안 됩니다.
-명령 등록 성공은 배포 성공의 근거가 아닙니다.
+래퍼는 clone의 잠긴 환경을 준비하고 지정한 옵션으로 `fdaictl provision azure --source .`를
+실행합니다. CLI를 설치했다면 clone에서 그 명령을 직접 실행할 수 있습니다. 대화형 터미널에서는
+활동 내역이 자동으로 표시되며, 줄 단위 로그가 필요하면 `--progress plain`을 추가합니다. 비공개
+작업 디렉터리는 clone 밖에 있어야 합니다.
 
 조정기는 재개할 수 있는 단일 프로세스에서 다음 작업을 수행합니다.
 
 1. 명령줄 비밀로 값을 받지 않고 Azure CLI에서 활성 tenant와 subscription을 읽습니다.
-2. 버전이 지정된 완전한 배포 키트 하나를 다운로드하고 검증하거나 보존된 키트를 다시 검증합니다.
-3. 정책, 할당량, provider 및 대상을 읽기 전용으로 검사합니다.
-4. 정확한 Foundation 계획을 표시하고 명시적 승인을 기다립니다.
-5. 비공개 상태 경계, Virtual Network, Bastion 액세스, 배포 신원 및 Managed Host를 만듭니다.
-6. 검증된 키트를 해당 호스트로 전달하고 Managed Identity로 비공개 Terraform 작업을 실행합니다.
-7. 서명된 서비스 이미지를 가져오고, 마이그레이션을 적용하고, Entra를 구성하고,
-   애플리케이션을 배포합니다.
+2. clone의 깨끗하게 커밋된 스냅샷 하나를 고정합니다.
+3. clone의 `secrets/` 디렉터리를 보고 Trial 또는 전체 사용권 모드를 선택합니다.
+4. 정책, 할당량, provider 및 대상을 읽기 전용으로 검사합니다.
+5. Foundation 계획을 표시하고 적용합니다. 비공개 상태 경계, Virtual Network, Bastion 액세스,
+   배포 신원 및 Managed Host를 만듭니다.
+6. 스냅샷에서 서비스 이미지를 자신의 레지스트리에 빌드하고 그 digest를 다시 읽습니다.
+7. 마이그레이션과 카탈로그를 적용하고, Trial을 시작하거나 전체 사용권을 저장하고, 선택한 경우
+   Entra를 구성한 뒤 애플리케이션을 digest로 배포합니다.
 8. 이미지 digest, 마이그레이션과 카탈로그 상태, 서비스 상태 및 두 번째 변경 없음 계획을
    검증합니다.
 
-명령은 응답이 없다고 승인한 것으로 해석하지 않습니다. 적용 결과가 불분명하면 같은 명령을 다시
-실행할 때 적용을 반복하지 않고 검증 전용 복구를 수행합니다.
+명령 실행이 그 명령이 표시하는 각 계획을 승인합니다. 기존 리소스를 삭제하거나 교체할 때만
+추가로 한 번 입력해 확인해야 합니다. 명령은 응답이 없다고 승인한 것으로 해석하지 않습니다.
+적용 결과가 불분명하면 같은 명령을 다시 실행할 때 적용을 반복하지 않고 검증 전용 복구를
+수행합니다. 나중에 명령을 다시 실행하면 현재 clone으로 같은 설치를 업그레이드합니다.
 
-새 이미지 계획 전에 Genesis는 전체 지역 VM 카탈로그를 읽고 합산 할당량 안에서 호환되는
-비공개 빌더, 검증기, Foundation 호스트 크기를 선택합니다. 이미지 VM은 관리형 OS 디스크를
-사용하며 호스트에는 이미지를 담을 수 있는 임시 ResourceDisk가 필요합니다. 정확한 선택은
-승인 전에 봉인하며 적용 중에는 바꾸지 않습니다. 호환되는 조합이 없으면 보고된 제한, 하드웨어
-요건, 할당량을 검토하세요. 기존 적용 시작 기록이 있으면 검증만 재개합니다. 이 검사는 해당
-선택 기능이 포함된 서명 키트가 필요합니다. 체크아웃 변경은 이전 키트를 갱신하지 않으며,
-추출한 서명 키트 파일을 직접 편집하는 방식은 지원되지 않습니다.
+먼저 가능성을 확인하려면 Azure 접근 없이 스냅샷만 고정하는 `--prepare-only`나 리소스를 바꾸지
+않고 AKS SKU와 할당량을 읽는 `--preflight-only`를 추가합니다. 준비나 사전 점검의 성공은
+애플리케이션 배포 완료를 뜻하지 않습니다.
+
+새 대화형 실행은 시작할 때 한 번 설치 설정을 보여 줍니다. 구축 예상 비용 한도는
+`--setup-cost-ceiling <USD>`로 지정하거나 그 검토 중에 입력합니다. 선택적 화면은 `--add-on`으로,
+선택적 관찰 출처는 `--observation-source`로 고르며, 기본값은 헤드리스 관찰 우선 프로파일입니다.
+이 설정만으로 리소스를 배포하지는 않습니다.
+
+Foundation 계획 전에 Genesis는 지역 VM 카탈로그를 읽고 할당량 안에서 호환되는 Managed Host
+크기를 선택합니다. 선택은 승인 전에 봉인하며 적용 중에는 바꾸지 않습니다. 호환되는 크기가
+없으면 보고된 제한, 하드웨어 요건, 할당량을 검토하세요. 기존 적용 시작 기록이 있으면 검증만
+재개합니다.
 
 Foundation 계획은 먼저 비공개 로컬 백엔드를 사용합니다. 정확한 마이그레이션 아카이브만
 증명된 호스트에서 서명된 원격 백엔드 예제를 활성화하며, 마이그레이션 승인과 재확인은 필수입니다.
@@ -217,6 +186,9 @@ Foundation 계획은 먼저 비공개 로컬 백엔드를 사용합니다. 정�
 트리나 provider 미러를 다시 만들지 않고 임시 파일을 제거합니다.
 
 ### 검증된 공개 개발 배포 복구
+
+이 복구 경로는 `azd-up.sh` 공개 개발 bootstrap의 상태를 채택하며, 제거될 예정인 기존 릴리스 키트
+획득 경로를 여전히 사용합니다.
 
 기여자 배포가 실패한 적용 이후 검증된 `fdai.contributor-recovery.v1` 증적을 생성한 경우에만
 애플리케이션 상태 채택을 사용하세요. 채택 지원이 포함된 정확한 서명 키트 개정 번호에서 다음
@@ -253,55 +225,57 @@ Managed Host는 Foundation이 소유한 원격 애플리케이션 백엔드에 �
 채택 오류를 해결하기 위해 기존 Azure 리소스나 원래 로컬 상태를 삭제하지 마세요. 작업
 디렉터리를 보존하고 유지된 claim 또는 receipt로 실패한 경계를 확인하세요.
 
-### 키트 획득에 실패한 경우
+### Trial과 전체 사용권
 
-온라인 재시도는 보존된 키트 파일을 교체하지 않고 다시 검증합니다. 모든 서명, 정확한 파일
-목록, 다이제스트, 런타임 이미지, 번들 연결을 다시 확인합니다. 다운로드 파일이 있다는
-이유만으로 신뢰할 수 있거나 최신인 릴리스로 간주하지 않습니다. 기존 실행 복사본, 실행 상태,
-SSH 키, 계획, 승인은 보존합니다.
+명령은 Azure에서 무엇인가를 바꾸기 전에 작업 스테이션에서 사용권을 한 번 선택합니다.
 
-| 오류 유형 | 확인 또는 조치 |
-|-----------|----------------|
-| `HTTP 404` | 선택한 CLI 버전과 플랫폼에 해당하는 완전한 키트가 게시되어 있는지 확인합니다. Azure 로그인은 GitHub 릴리스를 게시하거나 인증하지 않습니다. |
-| `HTTP 401` 또는 `HTTP 403` | 릴리스 접근 권한과 네트워크 정책을 확인합니다. 토큰을 URL이나 명령줄에 넣지 마세요. |
-| `HTTP 429`, `HTTP 503`, 연결 실패 또는 시간 초과 | 이번 시도를 중단합니다. 다시 명시적으로 시도하기 전에 릴리스 호스트의 DNS, HTTPS, 프록시, TLS 신뢰를 확인하며 인증서 검증을 끄지 않습니다. |
-| 로컬 경로 충돌, 권한 거부 또는 저장 공간 부족 | 배포 작업 디렉터리를 보존합니다. 이전 CLI는 잠금 기반 설치 절차로 갱신하고, 실행 근거를 삭제하지 않은 채 해당 로컬 접근 또는 저장 공간 문제를 해결합니다. |
-| 보존된 원본 불일치, 서명 실패 또는 불완전한 내용 | 중단하고 선택한 원본과 보존된 입력을 검토합니다. CLI는 서명된 파일을 덮어쓰거나 고치지 않으며, 몰래 원본을 바꾸거나 검증을 건너뛰지 않습니다. |
+| clone 상태 | 설치 결과 | 30일 이후 |
+|------------|-----------|-----------|
+| `secrets/license-signing-key.pem` 없음 | 첫 활성화 때 30일 Trial 하나를 시작 | 새 변경 작업은 차단되고 관찰, 진단, 감사, 내보내기는 계속됨 |
+| `secrets/license-signing-key.pem`에 전용 라이선스 키 있음 | 이 설치에 바인딩된 전체 사용권을 받음 | 변화 없음 |
+| 사용할 수 없는 키 파일 | 없음. Azure를 바꾸기 전에 명령이 멈춤 | 해당 없음 |
 
-기본 버전별 원본은 요청 원본 기록이 없는 이전 캐시도 다시 검증할 수 있습니다. 다른
-`--online-url`은 이 캐시를 사용할 수 없습니다. 기록이 생기면 해당 작업 디렉터리의 요청
-원본은 고정됩니다. 재검증은 더 새로운 릴리스를 가져오거나 서명된 키트의 스크립트를 바꾸지
-않습니다. 키트 내부 코드의 수정에는 여전히 수정된 서명 릴리스가 필요합니다.
+키 자료를 출력하지 않고 `secrets/` 아래 각 키가 충족하는 역할을 확인하려면 다음을 실행합니다.
 
-### 기능 모드
+```bash
+python3 scripts/deployment/release/check-signing-key.py --scan secrets
+```
 
-배포에 연결된 기능 토큰이 없는 설치는 관찰 전용 모드로 시작합니다. 관리 대상 리소스를 변경할
-권한이 없지만 배포 자체는 완료된 상태입니다. 검증된 토큰을 제공하면 토큰에 선언된 기능만 사용할
-수 있습니다. 런타임 승격, 위험 검사 및 사람 승인은 계속 독립적인 제어입니다.
+`license-issuer` 역할만 전체 사용권을 선택하며 키 파일은 소유자 전용(`chmod 600`)이어야 합니다.
+오프라인 패키지 서명 키와 무결성 키는 전체 사용권을 선택하지 않습니다. 키는 작업 스테이션을
+떠나지 않으며 서명된 사용권만 Key Vault에 저장됩니다. 명령을 다시 실행해도 Trial은 갱신되지
+않으며, 나중에 키를 두고 실행하면 Trial 설치를 그대로 전체 사용권으로 올립니다.
 
-## 어플라이언스 이미지에서 배포
+사용권은 기능을 사용 가능하게 만들 뿐입니다. 런타임 승격, 위험 검사, 사람 승인은 계속
+독립적인 제어입니다.
 
-대상 네트워크에서 GitHub, PyPI, 공개 Terraform 레지스트리 또는 공개 컨테이너 레지스트리에
-연결할 수 없으면 배포 어플라이언스를 사용하세요. release 담당자는 다음 항목을 포함하는 하나의
-서명된 OCI 아카이브를 제공합니다.
+## 서명된 오프라인 패키지로 배포
 
-- `fdaictl`과 잠긴 Python 의존성
-- 서명된 Terraform 배포 번들
-- Terraform, OPA 및 완전한 provider 미러
-- 필요한 모든 FDAI 서비스 및 의존성 OCI 이미지
-- Console, 마이그레이션 및 배포 지원 산출물
-- SBOM, provenance, 매니페스트 및 서명 레코드
+대상 Azure VM이 GitHub, PyPI, 공개 Terraform 레지스트리 또는 공개 컨테이너 레지스트리에
+연결할 수 없으면 오프라인 패키지를 사용하세요. 키 보유자는 배포 CLI와 그 wheel, Terraform
+구성, Terraform과 provider 미러, `kubectl`과 `kubelogin`, 모든 서비스 및 의존성 이미지,
+Console, 마이그레이션 지원을 담은 서명된 패키지 하나를 만듭니다.
 
-승인된 호스트에서 OCI 호환 컨테이너 도구로 이미지를 적재하세요. 이미지 진입점은 대화형 Azure
-로그인 또는 자체 Managed Identity를 사용하고 포함된 키트로 동일한 standalone 조정기를
-실행합니다. 공개 산출물 대체 경로는 지원되지 않습니다.
+```bash
+scripts/deployment/release/build-standalone-deployment-kit.sh \
+  --out <private-output-directory> --signing-key <package-signing-key>
+```
 
-새 비공개 구독에서는 최소 Foundation bootstrap이 Bastion으로 연결할 수 있는 호스트를 먼저
-만들 수 있습니다. 완전한 애플리케이션 계획과 적용은 대상 네트워크 내부의 배포 어플라이언스에서
-계속 실행됩니다.
+패키지를 Azure VM으로 복사하고 [연결이 끊긴 배포](../roadmap/deployment/disconnected-deployment-ko.md)에
+설명된 대로 서명된 wheelhouse에서 `fdaictl`을 설치한 뒤 다음을 실행합니다.
+
+```bash
+fdaictl provision azure --offline-kit <fdai-deployment-kit.tar.gz> --region <azure-region>
+```
+
+명령은 파일을 사용하기 전에 패키지의 분리형 Ed25519 서명과 모든 checksum을 검증합니다.
+패키지만으로 충분하며 다운로드, 공개 레지스트리, 패키지 인덱스, 빌드가 필요하지 않습니다.
+Azure 관리 및 데이터 평면 엔드포인트는 Azure 네트워크 경로로 계속 도달할 수 있어야 합니다.
+패키지 서명 키는 산출물을 인증할 뿐 사용 권한을 뜻하지 않으므로, 별도로 발급한 사용권을
+제공하지 않으면 오프라인 설치는 30일 Trial로 동작합니다.
 
 > Azure 관리 플레인 경로가 없는 네트워크에서는 Azure 리소스를 배포할 수 없습니다. 해당
-> 프로필에서 어플라이언스는 산출물을 검증하고 준비할 수 있지만 배포 준비 상태를 보고할 수 없습니다.
+> 프로필에서는 패키지를 검증하고 준비할 수 있지만 명령은 배포 준비 상태를 보고할 수 없습니다.
 
 ## 결과 이해
 
@@ -325,7 +299,12 @@ SSH 키, 계획, 승인은 보존합니다.
 다음 도구는 공개 대상 환경 배포 진입점이 아닙니다.
 
 - `genesis-up.sh`는 저수준 Foundation 진단 및 복구 도구입니다.
-- `azd-up.sh`는 기여자 전용 공개 개발 bootstrap입니다.
+- `azd-up.sh`는 Container Apps에 Core만 배포하는 공개 개발 bootstrap입니다. 단일 명령 소스
+  배포가 아닙니다.
+- `fdaictl provision azure --online`은 게시된 릴리스 키트를 가져옵니다. 두 설치 방식에 속하지
+  않으며 제거될 예정입니다.
+- `fdai-up.sh --source . --signing-key <path>`는 현재 상태에서 설명한 키 보유자용 임시
+  경로입니다. 여전히 서명된 키트를 빌드하며 제거될 예정입니다.
 - `.github/workflows/` 아래 배포 workflow는 저장소 CI, release 및 과거 자동화입니다. 대상 환경
   설치 프로그램으로 지원되지 않습니다.
 - Terraform 직접 실행은 전문가 통합 경계입니다. 동일한 계획, 승인, 신원, rollback 및 검증
@@ -335,7 +314,8 @@ SSH 키, 계획, 승인은 보존합니다.
 
 | 알아볼 내용 | 참조 문서 |
 |------------|-----------|
+| 단일 명령 소스 배포와 사용권 | [단일 명령 소스 배포](../roadmap/deployment/source-deployment-ko.md) |
 | 전체 배포 토폴로지 | [배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md) |
 | 연결 및 폐쇄망 실행 프로필 | [프로비저닝 실행 프로필](../roadmap/deployment/provisioning-execution-profiles-ko.md) |
-| 어플라이언스와 오프라인 신뢰 경계 | [연결이 끊긴 배포](../roadmap/deployment/disconnected-deployment-ko.md) |
+| 서명된 오프라인 패키지와 신뢰 경계 | [연결이 끊긴 배포](../roadmap/deployment/disconnected-deployment-ko.md) |
 | 완료되지 않은 실행 이후 복구 | [배포 복구](../runbooks/deployment-recovery-ko.md) |

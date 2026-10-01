@@ -29,6 +29,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | in-progress | Removed two duplicate remaining items that the inline-status migration copied from the owner. The signed offline package is now the only disconnected installation path under the amended Constitution Article 1, alongside the keyless source deployment. | `current change`; [source deployment owner](../../roadmap/deployment/source-deployment.md) | Unchanged: validate Azure deployment separately and run the complete installation from one Azure VM without internet access. |
 | 2026-09-28 | implemented | The signed deployment bundle now includes `config/agent-stewardship.yaml` and `config/architecture-review.yaml`. Without them, the live contributor run applied every service migration and then failed catalog materialization on the managed host. | `current change`; a bundle-shaped tree produces all 17 catalog snapshots; bundle tests pass | Retain the live contributor receipt through #1008. |
 | 2026-09-28 | in-progress | Recorded the single-VM no-internet execution residual from constitution Article 1. The signed offline package already installs through `fdaictl provision azure --offline-kit`, but Foundation still creates a separate managed host that bootstraps its toolchain online, and the operator VM needs the Azure CLI. | #461 rescoped; code inspection of `genesis_prepare_inputs.py` bootstrap modes | Make the no-internet VM the execution host and ship the Azure CLI in the package. |
 | 2026-09-28 | implemented | Added the signed deployment-control package: a control-only repair reuses the verified kit runtime payload and replaces only the managed-host CLI after signature, file-set, digest, and remote-digest checks. | `current change`; `packages/deployment-cli/tests/test_control_package.py` (8 passed); 1957 deployment CLI tests | Live use is tracked by #461. |
@@ -66,7 +67,3 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Run the complete installation from one Azure VM without internet access. That VM is the
   execution host, the package supplies the Azure CLI, and no separate internet-bootstrapped
   Foundation host is used.
-- [x] The signed Python wheelhouse verifies and installs without network access.
-
-- [ ] Prove the Azure deployment path separately, including exact plans, rollback, health, and
-  cleanup. It is not a package completion criterion.
