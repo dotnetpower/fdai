@@ -187,10 +187,16 @@ def focused_access_targets(context: dict[str, object]) -> tuple[str, ...]:
 def substrate_targets(context: dict[str, object]) -> tuple[str, ...]:
     if database_placement(context) == "postgres-flex":
         return _SUBSTRATE_TARGETS
+    # -target keeps every configuration dependency even at count 0, so the ingestion DSN
+    # secrets and their readers would plan the Flexible Server through module.state_store.
     excluded = {
         "module.state_store",
         "module.postgres_public_mode_private_endpoint",
         "azurerm_key_vault_secret.state_store_dsn",
+        "azurerm_key_vault_secret.ingestion_api_dsn",
+        "azurerm_key_vault_secret.ingestion_worker_dsn",
+        "azurerm_role_assignment.ingestion_api_kv_secrets_user",
+        "azurerm_role_assignment.ingestion_worker_kv_secrets_user",
         "azurerm_role_assignment.inventory_kv_secrets_user",
         "azurerm_role_assignment.operator_api_kv_secrets_user",
         "azurerm_role_assignment.isolated_executor_kv_secrets_user",
