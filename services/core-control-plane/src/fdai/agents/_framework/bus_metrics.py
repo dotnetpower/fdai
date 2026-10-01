@@ -42,6 +42,8 @@ class BridgeMetrics:
     producer_principal_mismatch: int = 0
     ordered_poison_halts: int = 0
     ordered_poison_clear_rejections: int = 0
+    ordered_poison_clear_applied_unfinalized: int = 0
+    ordered_poison_clear_resume_failures: int = 0
     schema_violations: int = 0
     duplicate_deliveries: int = 0
     _handler_windows: dict[str, deque[bool]] = field(default_factory=dict)
@@ -96,6 +98,7 @@ class BridgeMetrics:
             "producer_principal_mismatch",
             "ordered_poison_halts",
             "ordered_poison_clear_rejections",
+            "ordered_poison_clear_resume_failures",
             "schema_violations",
         )
         return tuple(name for name in watched if counters[name] > 0)
@@ -121,6 +124,10 @@ class BridgeMetrics:
             "producer_principal_mismatch": self.producer_principal_mismatch,
             "ordered_poison_halts": self.ordered_poison_halts,
             "ordered_poison_clear_rejections": self.ordered_poison_clear_rejections,
+            "ordered_poison_clear_applied_unfinalized": (
+                self.ordered_poison_clear_applied_unfinalized
+            ),
+            "ordered_poison_clear_resume_failures": self.ordered_poison_clear_resume_failures,
             "schema_violations": self.schema_violations,
             "duplicate_deliveries": self.duplicate_deliveries,
         }

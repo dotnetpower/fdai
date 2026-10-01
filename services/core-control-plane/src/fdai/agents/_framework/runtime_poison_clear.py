@@ -46,13 +46,26 @@ def bind_ordered_poison_halt_clear(
         payload: dict[str, object],
     ) -> None:
         result = await poison_clear.handle(request_topic, payload)
-        if result.status == "cleared":
+        if result.status == "applied_but_unfinalized":
+            bridge.metrics.ordered_poison_clear_applied_unfinalized += 1
+        if not result.halted:
             group_id = str(payload.get("group_id") or "")
-            bridge.resume_ordered_consumer_after_clear(
-                topic=str(payload.get("topic") or ""),
-                agent_name=str(payload.get("agent_name") or ""),
-                group_id=group_id or None,
-            )
+            topic = str(payload.get("topic") or "")
+            try:
+                bridge.resume_ordered_consumer_after_clear(
+                    topic=topic,
+                    agent_name=str(payload.get("agent_name") or ""),
+                    group_id=group_id or None,
+                )
+            except Exception as exc:  # noqa: BLE001 - clear consumer must stay alive
+                bridge.metrics.ordered_poison_clear_resume_failures += 1
+                bridge.metrics.record_rejection(
+                    topic=topic,
+                    reason=f"ordered poison halt clear resume failed: {type(exc).__name__}",
+                    payload=payload,
+                    principal=POISON_HALT_CLEAR_PRINCIPAL,
+                    group_id=group_id,
+                )
         elif result.status == "rejected":
             bridge.metrics.ordered_poison_clear_rejections += 1
             bridge.metrics.record_rejection(

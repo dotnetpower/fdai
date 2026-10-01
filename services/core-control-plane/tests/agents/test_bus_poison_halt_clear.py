@@ -71,6 +71,21 @@ class _CommitFailingReceiptGate:
         raise ValueError("expired")
 
 
+class _FinalizeFailingReceiptGate:
+    async def verify(self, raw: Mapping[str, Any]) -> Any:
+        receipt = OperatorRequestReceipt.model_validate(raw["operator_request_receipt"])
+        return type("Verified", (), {"receipt": receipt, "replay_key": "replay-key"})()
+
+    async def reserve(self, _verified: Any) -> Any:
+        return object()
+
+    async def finalize(self, _reservation: Any) -> None:
+        raise ValueError("store unavailable")
+
+    async def release(self, _reservation: Any) -> None:
+        return None
+
+
 class _NeverDlqBus(InMemoryEventBus):
     def subscribe(self, topic: str, group_id: str) -> Any:
         if topic.endswith(".dlq"):
@@ -197,6 +212,165 @@ async def test_ordered_poison_halt_clear_retains_evidence_and_resumes_consumer()
         "action-run-key",
     ]
     assert [delivery["correlation_id"] for delivery in deliveries] == ["corr-one", "corr-one"]
+
+
+@pytest.mark.asyncio
+async def test_runtime_poison_clear_resumes_applied_but_unfinalized_consumer() -> None:
+    bus = InMemoryEventBus()
+    store = InMemoryStateStore()
+    bridge = EventBusBridge(provider=bus, registry=load_pantheon(), halt_state_store=store)
+    resume_calls: list[tuple[str, str, str | None]] = []
+
+    async def handler(_topic: str, _payload: dict[str, object]) -> None:
+        return None
+
+    def record_resume(*, topic: str, agent_name: str, group_id: str | None = None) -> bool:
+        resume_calls.append((topic, agent_name, group_id))
+        return True
+
+    bridge.subscribe(_TOPIC, _AGENT, handler)
+    bridge.resume_ordered_consumer_after_clear = record_resume  # type: ignore[method-assign]
+    bind_ordered_poison_halt_clear(
+        bridge=bridge,
+        provider=bus,
+        state_store=store,
+        consumer_group_prefix="fdai-pantheon",
+        operator_request_receipt_gate=_FinalizeFailingReceiptGate(),  # type: ignore[arg-type]
+        clock=lambda: _NOW,
+    )
+    halt = {
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "status": "halted",
+        "consumer_id": f"{_AGENT}:{_TOPIC}",
+        "group_id": _GROUP,
+        "topic": _TOPIC,
+        "partition_key": "resource-one",
+        "offset": 0,
+    }
+    halt["halt_record_digest"] = halt_record_digest(halt)
+    await store.write_state(halt_key(_GROUP, _TOPIC), halt)
+    parked = {
+        "payload": _action_run_payload(),
+        "__fdai_dlq_metadata__": {
+            "consumer_group": _GROUP,
+            "agent": _AGENT,
+            "topic": _TOPIC,
+            "offset": 0,
+        },
+    }
+    await bus.dead_letter(_TOPIC, "resource-one", parked, reason="handler error")
+    dlq = [envelope async for envelope in bus.subscribe(f"{_TOPIC}.dlq", "dlq-evidence")]
+    request = {
+        "request_id": "clear-applied-unfinalized-runtime",
+        "idempotency_key": "clear-applied-unfinalized-runtime",
+        "requested_at": _NOW,
+        "principal_id": "owner-one",
+        "principal_kind": OperatorPrincipalKind.HUMAN,
+        "principal_roles": (OperatorRole.OWNER,),
+        "group_id": _GROUP,
+        "agent_name": _AGENT,
+        "topic": _TOPIC,
+        "halt_revision": 1,
+        "halt_record_digest": halt_record_digest(halt),
+        "parked_record_topic": f"{_TOPIC}.dlq",
+        "parked_record_key": dlq[0].key,
+        "parked_record_offset": dlq[0].offset,
+        "parked_record_digest": canonical_digest(dict(dlq[0].payload)),
+    }
+    clear_handler = bridge._subs[ORDERED_POISON_HALT_CLEAR_TOPIC][0][1]
+
+    await clear_handler(ORDERED_POISON_HALT_CLEAR_TOPIC, _signed_clear_request(request))
+
+    assert resume_calls == [(_TOPIC, _AGENT, _GROUP)]
+    assert bridge.metrics.ordered_poison_clear_applied_unfinalized == 1
+    assert bridge.metrics.ordered_poison_clear_rejections == 0
+    outcome = await store.read_state(
+        ordered_poison_halt_clear_outcome_key("clear-applied-unfinalized-runtime")
+    )
+    assert outcome is not None
+    assert outcome["status"] == "applied_but_unfinalized"
+
+
+@pytest.mark.asyncio
+async def test_runtime_poison_clear_records_resume_failure_without_crashing() -> None:
+    bus = InMemoryEventBus()
+    store = InMemoryStateStore()
+    bridge = EventBusBridge(provider=bus, registry=load_pantheon(), halt_state_store=store)
+
+    async def handler(_topic: str, _payload: dict[str, object]) -> None:
+        return None
+
+    def fail_resume(*, topic: str, agent_name: str, group_id: str | None = None) -> bool:
+        del topic, agent_name, group_id
+        raise RuntimeError("consumer restart unavailable")
+
+    bridge.subscribe(_TOPIC, _AGENT, handler)
+    bridge.resume_ordered_consumer_after_clear = fail_resume  # type: ignore[method-assign]
+    bind_ordered_poison_halt_clear(
+        bridge=bridge,
+        provider=bus,
+        state_store=store,
+        consumer_group_prefix="fdai-pantheon",
+        operator_request_receipt_gate=_receipt_gate(store),
+        clock=lambda: _NOW,
+    )
+    halt = {
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "status": "halted",
+        "consumer_id": f"{_AGENT}:{_TOPIC}",
+        "group_id": _GROUP,
+        "topic": _TOPIC,
+        "partition_key": "resource-one",
+        "offset": 0,
+    }
+    halt["halt_record_digest"] = halt_record_digest(halt)
+    await store.write_state(halt_key(_GROUP, _TOPIC), halt)
+    parked = {
+        "payload": _action_run_payload(),
+        "__fdai_dlq_metadata__": {
+            "consumer_group": _GROUP,
+            "agent": _AGENT,
+            "topic": _TOPIC,
+            "offset": 0,
+        },
+    }
+    await bus.dead_letter(_TOPIC, "resource-one", parked, reason="handler error")
+    dlq = [envelope async for envelope in bus.subscribe(f"{_TOPIC}.dlq", "dlq-evidence")]
+    request = {
+        "request_id": "clear-resume-fails-runtime",
+        "idempotency_key": "clear-resume-fails-runtime",
+        "requested_at": _NOW,
+        "principal_id": "owner-one",
+        "principal_kind": OperatorPrincipalKind.HUMAN,
+        "principal_roles": (OperatorRole.OWNER,),
+        "group_id": _GROUP,
+        "agent_name": _AGENT,
+        "topic": _TOPIC,
+        "halt_revision": 1,
+        "halt_record_digest": halt_record_digest(halt),
+        "parked_record_topic": f"{_TOPIC}.dlq",
+        "parked_record_key": dlq[0].key,
+        "parked_record_offset": dlq[0].offset,
+        "parked_record_digest": canonical_digest(dict(dlq[0].payload)),
+    }
+    clear_handler = bridge._subs[ORDERED_POISON_HALT_CLEAR_TOPIC][0][1]
+
+    await clear_handler(ORDERED_POISON_HALT_CLEAR_TOPIC, _signed_clear_request(request))
+
+    assert bridge.metrics.ordered_poison_clear_resume_failures == 1
+    assert bridge.metrics.ordered_poison_clear_rejections == 0
+    assert bridge.metrics.recent_rejections()[-1] == {
+        "topic": _TOPIC,
+        "reason": "ordered poison halt clear resume failed: RuntimeError",
+        "principal": "ordered-poison-halt-clear",
+        "consumer_group": _GROUP,
+        "offset": None,
+        "correlation_id": "",
+        "idempotency_key": "clear-resume-fails-runtime",
+        "producer_principal": "",
+    }
 
 
 @pytest.mark.asyncio

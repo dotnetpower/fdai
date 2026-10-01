@@ -8,7 +8,9 @@ from pathlib import Path
 
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.factory import CostRuntimeBindings
+from fdai.agents._framework.njord_cost_outbox import COST_ANOMALY_OUTBOX_PREFIX
 from fdai.agents._framework.pantheon import PANTHEON_NAMES
+from fdai.agents._framework.rate_limiter import RateLimiter
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.njord import Njord
@@ -17,6 +19,7 @@ from fdai.shared.providers.cost_governance import (
     CostAnomalyAdvisory,
     CostPackageActivation,
 )
+from fdai.shared.providers.testing import InMemoryStateStore
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 _NOW = datetime(2028, 1, 2, tzinfo=UTC)
@@ -56,6 +59,17 @@ class Activation:
     async def read_cost_activation(self, package_id: str):
         self.calls += 1
         return self.snapshot
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.value = 0.0
+
+    def now(self) -> float:
+        return self.value
+
+    def advance(self, seconds: float) -> None:
+        self.value += seconds
 
 
 def _snapshot(
@@ -101,6 +115,23 @@ def _event(observed_at: datetime, *, activation_revision: int = 2) -> dict[str, 
             "completeness": 1.0,
             "ontology_release_digest": _RELEASE,
         },
+    }
+
+
+def _sample_kwargs(
+    suffix: str,
+    *,
+    observed_at: datetime = _NOW,
+) -> dict[str, object]:
+    return {
+        "scope": f"scope-{suffix}",
+        "amount_usd": 200.0,
+        "correlation_id": f"cost:{suffix}",
+        "resource_id": f"resource-{suffix}",
+        "observed_at": observed_at.isoformat(),
+        "source_authority": "azure-cost-management-focus",
+        "completeness": 1.0,
+        "ontology_release_digest": _RELEASE,
     }
 
 
@@ -160,6 +191,212 @@ def test_enabled_sample_is_analyzed_and_only_njord_publishes_finding() -> None:
     messages = bus.messages_on("object.cost-anomaly")
     assert len(messages) == 1 and messages[0].principal == "Njord"
     assert registry.get("Njord").owns == ("CostAnomaly",)
+
+
+def test_rate_limited_cost_anomaly_redrives_from_durable_outbox() -> None:
+    async def run() -> None:
+        registry = load_pantheon()
+        bus = InMemoryBus(registry=registry)
+        store = InMemoryStateStore()
+        advisory = Advisory()
+        clock = _Clock()
+        limiter = RateLimiter(per_minute=1, per_hour=100, now=clock.now)
+        assert limiter.allow()
+        njord = Njord(
+            bus=bus,
+            advisory_provider=advisory,
+            activation_reader=Activation(_snapshot(enabled=True)),
+            package_enabled=True,
+            state_store=store,
+        )
+        njord._proposal_limiter = limiter  # type: ignore[attr-defined]
+        sample = _sample_kwargs("rate-limited")
+
+        first = await njord.ingest_cost_sample(**sample)
+
+        assert first is None
+        assert bus.messages_on("object.cost-anomaly") == []
+        behavior = njord.behavior_snapshot()
+        assert behavior["rate_limit_exceeded"] == 1
+        assert behavior["cost_anomaly:publication_pending"] == 1
+        assert "rate_limit_queued" not in behavior
+        pending = await store.read_states("pantheon/njord/accepted-samples/", limit=10)
+        assert len(pending) == 1
+        assert pending[0]["state"] == "pending"
+        outbox = await store.read_states(COST_ANOMALY_OUTBOX_PREFIX, limit=10)
+        assert len(outbox) == 1
+        assert outbox[0]["state"] == "pending"
+        stored_payload = outbox[0]["payload"]
+        assert isinstance(stored_payload, dict)
+        assert bus.messages_on("object.cost-anomaly") == []
+
+        clock.advance(61)
+        await njord.maintenance_tick()
+
+        messages = bus.messages_on("object.cost-anomaly")
+        assert len(messages) == 1
+        assert messages[0].payload["id"] == stored_payload["id"]
+        assert messages[0].payload["idempotency_key"] == stored_payload["idempotency_key"]
+        published = await store.read_states(COST_ANOMALY_OUTBOX_PREFIX, limit=10)
+        assert len(published) == 1
+        assert published[0]["state"] == "published"
+        completed = await store.read_states("pantheon/njord/accepted-samples/", limit=10)
+        assert len(completed) == 1
+        assert completed[0]["state"] == "completed"
+        assert advisory.calls == 1
+        assert njord.behavior_snapshot()["cost_anomaly:redriven"] == 1
+
+        redelivery = await njord.ingest_cost_sample(**sample)
+
+        assert redelivery is None
+        assert len(bus.messages_on("object.cost-anomaly")) == 1
+        assert advisory.calls == 1
+
+    asyncio.run(run())
+
+
+def test_rate_limited_cost_anomaly_survives_restart_until_maintenance_redrive() -> None:
+    async def run() -> None:
+        registry = load_pantheon()
+        bus = InMemoryBus(registry=registry)
+        store = InMemoryStateStore()
+        advisory = Advisory()
+        limiter = RateLimiter(per_minute=1, per_hour=100, now=lambda: 0.0)
+        assert limiter.allow()
+        first = Njord(
+            bus=bus,
+            advisory_provider=advisory,
+            activation_reader=Activation(_snapshot(enabled=True)),
+            package_enabled=True,
+            state_store=store,
+        )
+        first._proposal_limiter = limiter  # type: ignore[attr-defined]
+
+        assert await first.ingest_cost_sample(**_sample_kwargs("restart")) is None
+        assert advisory.calls == 1
+        assert bus.messages_on("object.cost-anomaly") == []
+
+        restarted_advisory = Advisory()
+        restarted = Njord(
+            bus=bus,
+            advisory_provider=restarted_advisory,
+            activation_reader=Activation(_snapshot(enabled=True)),
+            package_enabled=True,
+            state_store=store,
+        )
+        assert await restarted.rehydrate() == 1
+
+        await restarted.maintenance_tick()
+
+        assert restarted_advisory.calls == 0
+        assert len(bus.messages_on("object.cost-anomaly")) == 1
+        outbox = await store.read_states(COST_ANOMALY_OUTBOX_PREFIX, limit=10)
+        assert outbox[0]["state"] == "published"
+        accepted = await store.read_states("pantheon/njord/accepted-samples/", limit=10)
+        assert accepted[0]["state"] == "completed"
+
+    asyncio.run(run())
+
+
+def test_redelivery_while_cost_anomaly_outbox_pending_does_not_reanalyze() -> None:
+    async def run() -> None:
+        bus = InMemoryBus(registry=load_pantheon())
+        store = InMemoryStateStore()
+        advisory = Advisory()
+        limiter = RateLimiter(per_minute=1, per_hour=100, now=lambda: 0.0)
+        assert limiter.allow()
+        njord = Njord(
+            bus=bus,
+            advisory_provider=advisory,
+            activation_reader=Activation(_snapshot(enabled=True)),
+            package_enabled=True,
+            state_store=store,
+        )
+        njord._proposal_limiter = limiter  # type: ignore[attr-defined]
+        sample = _sample_kwargs("pending-redelivery")
+
+        assert await njord.ingest_cost_sample(**sample) is None
+        assert await njord.ingest_cost_sample(**sample) is None
+
+        assert advisory.calls == 1
+        assert bus.messages_on("object.cost-anomaly") == []
+        snapshot = njord.behavior_snapshot()
+        assert snapshot["cost_anomaly:publication_pending"] == 1
+        assert snapshot["cost_sample:publication_pending"] == 1
+
+    asyncio.run(run())
+
+
+def test_accepted_sample_compaction_preserves_pending_cost_anomaly_outbox() -> None:
+    async def run() -> None:
+        bus = InMemoryBus(registry=load_pantheon())
+        store = InMemoryStateStore()
+        limiter = RateLimiter(per_minute=1, per_hour=100, now=lambda: 0.0)
+        assert limiter.allow()
+        njord = Njord(
+            bus=bus,
+            advisory_provider=Advisory(),
+            activation_reader=Activation(_snapshot(enabled=True)),
+            package_enabled=True,
+            state_store=store,
+        )
+        njord._proposal_limiter = limiter  # type: ignore[attr-defined]
+
+        assert await njord.ingest_cost_sample(**_sample_kwargs("compaction-pending")) is None
+        for index in range(2055):
+            sample = CostAnalysisSample(
+                scope_id=f"completed-{index}",
+                resource_id=f"completed-{index}",
+                amount_usd=Decimal("10"),
+                correlation_id=f"completed:{index}",
+                observed_at=_NOW + timedelta(seconds=index + 1),
+                source_authority="azure-cost-management-focus",
+                completeness=Decimal("1"),
+                ontology_release_digest=_RELEASE,
+            )
+            await njord._complete_sample(
+                f"completed-key-{index}", sample, sample_digest=f"d{index}"
+            )
+
+        outbox = await store.read_states(COST_ANOMALY_OUTBOX_PREFIX, limit=10)
+        assert len(outbox) == 1
+        assert outbox[0]["state"] == "pending"
+        accepted = await store.read_states("pantheon/njord/accepted-samples/", limit=3000)
+        assert len(accepted) == 2048
+
+    asyncio.run(run())
+
+
+def test_in_memory_cost_anomaly_outbox_redrives_and_reports_overflow() -> None:
+    async def run() -> None:
+        bus = InMemoryBus(registry=load_pantheon())
+        advisory = Advisory()
+        clock = _Clock()
+        limiter = RateLimiter(per_minute=1, per_hour=100, now=clock.now)
+        assert limiter.allow()
+        njord = Njord(
+            bus=bus,
+            advisory_provider=advisory,
+            activation_reader=Activation(_snapshot(enabled=True)),
+            package_enabled=True,
+            cost_anomaly_outbox_max_pending=1,
+        )
+        njord._proposal_limiter = limiter  # type: ignore[attr-defined]
+
+        assert await njord.ingest_cost_sample(**_sample_kwargs("memory-one")) is None
+        assert await njord.ingest_cost_sample(**_sample_kwargs("memory-two")) is None
+        assert bus.messages_on("object.cost-anomaly") == []
+        snapshot = njord.behavior_snapshot()
+        assert snapshot["cost_anomaly:publication_pending"] == 1
+        assert snapshot["cost_anomaly:outbox_full"] == 1
+
+        clock.advance(61)
+        await njord.maintenance_tick()
+
+        assert len(bus.messages_on("object.cost-anomaly")) == 1
+        assert njord.behavior_snapshot()["cost_anomaly:redriven"] == 1
+
+    asyncio.run(run())
 
 
 def test_broker_accepted_sample_drains_after_disable_but_new_sample_is_ignored() -> None:

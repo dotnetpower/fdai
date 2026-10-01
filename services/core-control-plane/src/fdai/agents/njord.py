@@ -12,7 +12,6 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
@@ -22,6 +21,13 @@ from fdai.agents._framework.introspection import (
     mentioned,
     semantic_intents,
 )
+from fdai.agents._framework.njord_cost_outbox import (
+    ACCEPTED_COST_SAMPLE_PREFIX,
+    CostAnomalyOutbox,
+    CostAnomalyOutboxMixin,
+    accepted_cost_sample_key,
+)
+from fdai.agents._framework.njord_cost_payload import cost_anomaly_payload
 from fdai.agents._framework.pantheon import _NJORD
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.specialist_ingress import (
@@ -30,11 +36,9 @@ from fdai.agents._framework.specialist_ingress import (
     parse_cost_sample,
 )
 from fdai.agents._framework.topics import stable_idempotency_key
-from fdai.core.ontology_platform.functions import ontology_function_digest
 from fdai.shared.providers.cost_governance import (
     CostAdvisoryProvider,
     CostAnalysisSample,
-    CostAnomalyAdvisory,
     CostPackageActivationReader,
 )
 from fdai.shared.providers.state_store import StateStore
@@ -42,8 +46,11 @@ from fdai.shared.providers.state_store import StateStore
 _PACKAGE_ID = "cost-governance"
 _MAX_TRACKED_SCOPES = 512
 _SAMPLE_PREFIX = "pantheon/njord/cost-samples/"
-_ACCEPTED_PREFIX = "pantheon/njord/accepted-samples/"
+_ACCEPTED_PREFIX = ACCEPTED_COST_SAMPLE_PREFIX
 _ADVISORY_TIMEOUT_SECONDS = 5.0
+_MAX_COST_ANOMALY_OUTBOX_PENDING = 512
+_MAX_COST_ANOMALY_OUTBOX_REDRIVE = 16
+_MAX_COST_ANOMALY_OUTBOX_PUBLISHED = _MAX_TRACKED_SCOPES * 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +62,7 @@ class CostEstimate:
     reason: str = ""
 
 
-class Njord(Agent):
+class Njord(CostAnomalyOutboxMixin):
     """Cost ingress shell; package providers own every calculation."""
 
     def __init__(
@@ -69,6 +76,7 @@ class Njord(Agent):
         budget_data_available: bool = False,
         initial_samples: Sequence[CostAnalysisSample] = (),
         state_store: StateStore | None = None,
+        cost_anomaly_outbox_max_pending: int = _MAX_COST_ANOMALY_OUTBOX_PENDING,
     ) -> None:
         super().__init__(spec=_NJORD)
         self.bus = bus
@@ -88,6 +96,14 @@ class Njord(Agent):
         self._realized_savings_usd: list[float] = []
         self._budget_breach_hits = 0
         self._budget_breach_misses = 0
+        self._proposal_queue_managed_externally = True
+        self._accepted_sample_retain_limit = _MAX_TRACKED_SCOPES * 4
+        self._cost_anomaly_outbox_redrive_limit = _MAX_COST_ANOMALY_OUTBOX_REDRIVE
+        self._cost_anomaly_outbox = CostAnomalyOutbox(
+            state_store=state_store,
+            max_pending=cost_anomaly_outbox_max_pending,
+            retain_published=_MAX_COST_ANOMALY_OUTBOX_PUBLISHED,
+        )
         for sample in initial_samples:
             self._remember_initial_sample(sample)
 
@@ -272,63 +288,17 @@ class Njord(Agent):
                 await self._complete_sample(normalized_key, sample, sample_digest=sample_digest)
                 self.record_behavior("cost_sample:no_finding")
                 return None
-            payload = self._cost_anomaly_payload(finding, sample)
-            await self._publish_proposal("object.cost-anomaly", payload)
+            payload = cost_anomaly_payload(finding, sample)
+            if not await self._publish_proposal("object.cost-anomaly", payload):
+                await self._store_pending_cost_anomaly(
+                    normalized_key,
+                    sample,
+                    sample_digest=sample_digest,
+                    payload=payload,
+                )
+                return None
             await self._complete_sample(normalized_key, sample, sample_digest=sample_digest)
             return payload
-
-    def _cost_anomaly_payload(
-        self,
-        finding: CostAnomalyAdvisory,
-        sample: CostAnalysisSample,
-    ) -> dict[str, Any]:
-        anomaly_material = {
-            "target_ref": finding.resource_id,
-            "scope": finding.scope_id,
-            "amount_usd": float(finding.amount_usd),
-            "baseline_usd": float(finding.baseline_usd),
-            "ratio": float(finding.ratio),
-            "observed_at": finding.observed_at.isoformat(),
-            "source_authority_ref": sample.source_authority,
-        }
-        anomaly_digest = ontology_function_digest(anomaly_material)
-        anomaly_suffix = anomaly_digest.removeprefix("sha256:")
-        payload = {
-            "id": f"cost-anomaly:{anomaly_suffix}",
-            "producer_principal": "Njord",
-            "correlation_id": finding.correlation_id,
-            "idempotency_key": stable_idempotency_key(
-                "cost-anomaly",
-                finding.correlation_id,
-                finding.scope_id,
-                finding.resource_id,
-                finding.observed_at.isoformat(),
-                anomaly_digest,
-            ),
-            "scope": finding.scope_id,
-            "resource_id": finding.resource_id,
-            "target_ref": finding.resource_id,
-            "amount_usd": float(finding.amount_usd),
-            "baseline_usd": float(finding.baseline_usd),
-            "ratio": float(finding.ratio),
-            "variance": float(finding.amount_usd - finding.baseline_usd),
-            "impact": float(finding.impact),
-            "recommendation": finding.recommendation,
-            "action_arguments": (
-                {
-                    "target_resource_ref": finding.resource_id,
-                    "reason": "Cost anomaly supports the reviewed scale-down candidate.",
-                }
-                if finding.recommendation == "scale_down"
-                else None
-            ),
-            "observed_at": finding.observed_at.isoformat(),
-            "detected_at": finding.observed_at.isoformat(),
-            "evidence_ref": f"cost-anomaly-evidence:{anomaly_suffix}",
-            "source_authority_ref": sample.source_authority,
-            "synthetic": False,
-        }
-        return payload
 
     def _remember_initial_sample(self, sample: CostAnalysisSample) -> None:
         if len(self._latest) >= _MAX_TRACKED_SCOPES and sample.scope_id not in self._latest:
@@ -345,6 +315,16 @@ class Njord(Agent):
         *,
         sample_digest: str,
     ) -> bool:
+        outbox = await self._cost_anomaly_outbox.read(sample_key)
+        if outbox is not None:
+            if outbox.sample_digest == sample_digest and outbox.state == "pending":
+                self.record_behavior("cost_sample:publication_pending")
+                return False
+            if outbox.sample_digest == sample_digest and outbox.state == "published":
+                self.record_behavior("cost_sample:duplicate")
+                return False
+            self.record_behavior("cost_sample:key_collision")
+            return True
         if sample_key in self._accepted_sample_keys and self._state_store is None:
             if self._accepted_sample_digests.get(sample_key) == sample_digest:
                 self.record_behavior("cost_sample:duplicate")
@@ -387,29 +367,12 @@ class Njord(Agent):
         *,
         sample_digest: str,
     ) -> None:
-        if self._state_store is not None:
-            await self._state_store.write_state(
-                _accepted_key(sample_key),
-                {
-                    "schema_version": "1.0.0",
-                    "revision": 2,
-                    "state": "completed",
-                    "sample_key": sample_key,
-                    "sample_digest": sample_digest,
-                    "scope_id": sample.scope_id,
-                    "observed_at": sample.observed_at.astimezone(UTC).isoformat(),
-                },
-            )
-        self._accepted_sample_keys.add(sample_key)
-        self._accepted_sample_digests[sample_key] = sample_digest
-        self._accepted_sample_digests.move_to_end(sample_key)
-        while len(self._accepted_sample_digests) > _MAX_TRACKED_SCOPES * 4:
-            self._accepted_sample_digests.popitem(last=False)
-        if self._state_store is not None:
-            await self._state_store.delete_states_beyond(
-                _ACCEPTED_PREFIX,
-                retain_newest=_MAX_TRACKED_SCOPES * 4,
-            )
+        await self._complete_sample_projection(
+            sample_key=sample_key,
+            sample_digest=sample_digest,
+            scope_id=sample.scope_id,
+            observed_at=sample.observed_at.astimezone(UTC).isoformat(),
+        )
 
     async def _remember_sample(self, sample: CostAnalysisSample) -> None:
         evicted: str | None = None
@@ -790,7 +753,7 @@ def _sample_digest(sample: CostAnalysisSample) -> str:
 
 
 def _accepted_key(sample_key: str) -> str:
-    return f"{_ACCEPTED_PREFIX}{_digest(sample_key)}"
+    return accepted_cost_sample_key(sample_key)
 
 
 def _digest(value: str) -> str:
