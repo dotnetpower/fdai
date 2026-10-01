@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import inspect
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from typing import Any, Protocol
 
 from fdai.agents._framework.adapters import (
     AuditEntry,
+    canonical_json_digest,
 )
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.topics import stable_idempotency_key
@@ -19,6 +21,7 @@ _FINGERPRINT_BUCKET = "issue_fingerprint_index"
 _AUDIT_OUTBOX_PREFIX = "pantheon/saga/audit-outbox/"
 _FINGERPRINT_PREFIX = "pantheon/saga/issue-fingerprint/"
 _ISSUE_CLOSE_ELIGIBILITY_PREFIX = "pantheon/saga/issue-close-eligibility/"
+_ISSUE_CLOSE_CHECKPOINT_PREFIX = "pantheon/saga/issue-close-checkpoint/"
 _AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
 _AUDIT_OUTBOX_MAINTENANCE_PAGE = 16
 # Published outbox tombstones retain only digests long enough to suppress
@@ -30,6 +33,9 @@ _MAX_FINGERPRINT_INDEX = 50_000
 _FINGERPRINT_RETENTION = 10_000
 _ISSUE_CLOSE_CLEAN_WINDOW = timedelta(hours=24)
 _ISSUE_CLOSE_ELIGIBILITY_BUCKET = "issue_close_eligibility"
+_ISSUE_CLOSE_CHECKPOINT_PAGE = 128
+_ISSUE_CLOSE_CHECKPOINT_RETENTION = 1_024
+_ISSUE_CLOSE_CHECKPOINT_CAS_RETRIES = 16
 _MAX_HANDOFF_CONTEXT_ITEMS = 8
 _MAX_HANDOFF_CONTEXT_VALUE_CHARS = 256
 _HANDOFF_CONTEXT_KEYS = frozenset(
@@ -89,7 +95,7 @@ class SagaIssueMaintenanceMixin:
         if not self._issue_close_eligibility_rehydrated:
             await self.rehydrate_issue_close_eligibility()
         await self.rehydrate_issue_tracker()
-        closed = 0
+        closed = int(await self._recover_issue_close_checkpoints())
         now = self._clock()
         for fingerprint, evidence in tuple(self._issue_close_eligibility.items()):
             if not _issue_close_evidence_is_eligible(evidence, now=now):
@@ -102,17 +108,11 @@ class SagaIssueMaintenanceMixin:
                 self.record_behavior("issue_close:recurrence_after_clean")
                 continue
             issue = self.github.issues.get(fingerprint)
-            if issue is None or not issue.open:
+            if issue is None:
                 continue
-            fingerprint_state = await self._current_fingerprint_state(fingerprint)
-            if fingerprint_state is None:
-                self.record_behavior("issue_close:missing_fingerprint_state")
-                continue
-            if _fingerprint_recurred_since_clean(fingerprint_state, evidence):
-                self.record_behavior("issue_close:recurrence_after_clean")
+            if not issue.open:
                 continue
             closed_by_pr = str(evidence["promotion_pr"])
-            await self.close_issue(fingerprint=fingerprint, closed_by_pr=closed_by_pr)
             correlation_id = str(evidence["correlation_id"])
             idempotency_key = stable_idempotency_key(
                 "issue-auto-close",
@@ -120,35 +120,332 @@ class SagaIssueMaintenanceMixin:
                 closed_by_pr,
                 correlation_id,
             )
-            await self._append_audit(
-                principal="Saga",
-                topic="object.issue",
+            checkpoint = await self._issue_close_checkpoint(
+                fingerprint=fingerprint,
+                issue_number=issue.number,
+                closed_by_pr=closed_by_pr,
                 correlation_id=correlation_id,
-                payload={
-                    "producer_principal": "Saga",
-                    "kind": "issue_auto_close",
-                    "correlation_id": correlation_id,
-                    "idempotency_key": idempotency_key,
-                    "fingerprint": fingerprint,
-                    "issue_number": issue.number,
-                    "closed_by_pr": closed_by_pr,
-                    "mimir_promotion_recorded_at": evidence["promotion_recorded_at"],
-                    "clean_regression_started_at": evidence["clean_regression_started_at"],
-                    "execution_authority": False,
-                },
+                idempotency_key=idempotency_key,
+                evidence=evidence,
             )
-            if self.bus is not None:
-                await self._publish_issue(
-                    fingerprint=fingerprint,
-                    issue_number=issue.number,
-                    created=False,
-                    correlation_id=correlation_id,
-                    operation_id=idempotency_key,
-                )
-            closed += 1
+            if await self._advance_issue_close_checkpoint(checkpoint):
+                closed += 1
         if closed:
             self.record_behavior("maintenance_tick:issue_close_scan_closed", closed)
         return closed
+
+    async def _issue_close_checkpoint(
+        self: Any,
+        *,
+        fingerprint: str,
+        issue_number: int,
+        closed_by_pr: str,
+        correlation_id: str,
+        idempotency_key: str,
+        evidence: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        record = {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "status": "pending",
+            "checkpoint_key": _issue_close_checkpoint_key(fingerprint, idempotency_key),
+            "fingerprint": fingerprint,
+            "issue_number": issue_number,
+            "closed_by_pr": closed_by_pr,
+            "correlation_id": correlation_id,
+            "idempotency_key": idempotency_key,
+            "eligibility_evidence": dict(evidence),
+            "intent_audited": False,
+            "external_closed": False,
+            "terminal_audited": False,
+            "published": False,
+            "completed": False,
+        }
+        if self._durable_state_store is None:
+            self.record_behavior("issue_close:no_durable_checkpoint")
+            return record
+        key = _issue_close_checkpoint_key(fingerprint, idempotency_key)
+        await self._durable_state_store.write_state_if_absent(key, record)
+        stored = await self._durable_state_store.read_state(key)
+        if not isinstance(stored, Mapping):
+            raise RuntimeError("Saga issue-close checkpoint disappeared after creation")
+        return dict(stored)
+
+    async def _recover_issue_close_checkpoints(self: Any) -> int:
+        if self._durable_state_store is None:
+            return 0
+        recovered = 0
+        while recovered < _MAX_FINGERPRINT_INDEX:
+            rows, _total = await self._durable_state_store.read_state_page(
+                _ISSUE_CLOSE_CHECKPOINT_PREFIX,
+                limit=min(_ISSUE_CLOSE_CHECKPOINT_PAGE, _MAX_FINGERPRINT_INDEX - recovered),
+                field="status",
+                value="pending",
+            )
+            if not rows:
+                break
+            for row in reversed(rows):
+                if await self._advance_issue_close_checkpoint(dict(row)):
+                    recovered += 1
+        await self._compact_issue_close_checkpoints()
+        if recovered:
+            self.record_behavior("issue_close:checkpoint_recovered", recovered)
+        return recovered
+
+    async def _advance_issue_close_checkpoint(self: Any, checkpoint: dict[str, Any]) -> bool:
+        for _attempt in range(_ISSUE_CLOSE_CHECKPOINT_CAS_RETRIES):
+            completed, checkpoint, retry = await self._advance_issue_close_checkpoint_once(
+                checkpoint
+            )
+            if not retry:
+                return bool(completed)
+        raise RuntimeError("Saga issue-close checkpoint CAS retry limit exceeded")
+
+    async def _advance_issue_close_checkpoint_once(
+        self: Any,
+        checkpoint: dict[str, Any],
+    ) -> tuple[bool, dict[str, Any], bool]:
+        fingerprint = str(checkpoint.get("fingerprint") or "")
+        issue_number = _positive_int(checkpoint.get("issue_number"))
+        closed_by_pr = str(checkpoint.get("closed_by_pr") or "")
+        correlation_id = str(checkpoint.get("correlation_id") or "")
+        idempotency_key = str(checkpoint.get("idempotency_key") or "")
+        evidence = checkpoint.get("eligibility_evidence")
+        if (
+            not fingerprint
+            or issue_number is None
+            or not closed_by_pr
+            or not correlation_id
+            or not idempotency_key
+            or not isinstance(evidence, Mapping)
+        ):
+            self.record_behavior("issue_close:checkpoint_invalid")
+            return False, checkpoint, False
+        if not checkpoint.get("intent_audited"):
+            await self._append_issue_close_audit(
+                fingerprint=fingerprint,
+                issue_number=issue_number,
+                closed_by_pr=closed_by_pr,
+                correlation_id=correlation_id,
+                idempotency_key=idempotency_key,
+                evidence=evidence,
+                kind="issue_auto_close_intent",
+            )
+            checkpoint, stored = await self._store_issue_close_checkpoint(
+                checkpoint,
+                {"intent_audited": True},
+            )
+            if not stored:
+                return False, checkpoint, True
+        if not checkpoint.get("external_closed"):
+            current_state = await self._current_fingerprint_state(fingerprint)
+            if current_state is None or _fingerprint_recurred_since_clean(current_state, evidence):
+                await self._append_issue_close_cancelled_audit(
+                    fingerprint=fingerprint,
+                    issue_number=issue_number,
+                    closed_by_pr=closed_by_pr,
+                    correlation_id=correlation_id,
+                    idempotency_key=idempotency_key,
+                    evidence=evidence,
+                    reason=(
+                        "missing_fingerprint_state"
+                        if current_state is None
+                        else "recurrence_after_clean"
+                    ),
+                )
+                checkpoint, stored = await self._store_issue_close_checkpoint(
+                    checkpoint,
+                    {
+                        "status": "cancelled",
+                        "completed": True,
+                        "cancelled": True,
+                        "cancel_reason": (
+                            "missing_fingerprint_state"
+                            if current_state is None
+                            else "recurrence_after_clean"
+                        ),
+                    },
+                )
+                if not stored:
+                    return False, checkpoint, True
+                self.record_behavior("issue_close:cancelled_recurrence")
+                return False, checkpoint, False
+            issue = self.github.issues.get(fingerprint)
+            if issue is not None and issue.open:
+                await self.close_issue(fingerprint=fingerprint, closed_by_pr=closed_by_pr)
+            checkpoint, stored = await self._store_issue_close_checkpoint(
+                checkpoint,
+                {"external_closed": True},
+            )
+            if not stored:
+                return False, checkpoint, True
+        if not checkpoint.get("terminal_audited"):
+            await self._append_issue_close_audit(
+                fingerprint=fingerprint,
+                issue_number=issue_number,
+                closed_by_pr=closed_by_pr,
+                correlation_id=correlation_id,
+                idempotency_key=idempotency_key,
+                evidence=evidence,
+                kind="issue_auto_close",
+            )
+            checkpoint, stored = await self._store_issue_close_checkpoint(
+                checkpoint,
+                {"terminal_audited": True},
+            )
+            if not stored:
+                return False, checkpoint, True
+        if not checkpoint.get("published"):
+            if self.bus is None:
+                self.record_behavior("issue_close:publication_pending")
+                return False, checkpoint, False
+            await self._publish_issue(
+                fingerprint=fingerprint,
+                issue_number=issue_number,
+                created=False,
+                correlation_id=correlation_id,
+                operation_id=idempotency_key,
+                extra={
+                    "kind": "issue_auto_close",
+                    "closed_by_pr": closed_by_pr,
+                    "execution_authority": False,
+                },
+            )
+            checkpoint, stored = await self._store_issue_close_checkpoint(
+                checkpoint,
+                {"published": True},
+            )
+            if not stored:
+                return False, checkpoint, True
+        checkpoint, stored = await self._store_issue_close_checkpoint(
+            checkpoint,
+            {"completed": True, "status": "complete"},
+        )
+        if not stored:
+            return False, checkpoint, True
+        await self._compact_issue_close_checkpoints()
+        return True, checkpoint, False
+
+    async def _append_issue_close_audit(
+        self: Any,
+        *,
+        fingerprint: str,
+        issue_number: int,
+        closed_by_pr: str,
+        correlation_id: str,
+        idempotency_key: str,
+        evidence: Mapping[str, Any],
+        kind: str,
+    ) -> None:
+        payload = {
+            "producer_principal": "Saga",
+            "kind": kind,
+            "correlation_id": correlation_id,
+            "idempotency_key": idempotency_key,
+            "fingerprint": fingerprint,
+            "issue_number": issue_number,
+            "closed_by_pr": closed_by_pr,
+            "mimir_promotion_recorded_at": evidence.get("promotion_recorded_at"),
+            "clean_regression_started_at": evidence.get("clean_regression_started_at"),
+            "execution_authority": False,
+        }
+        if _audit_payload_exists(self.audit_chain.entries_for_correlation(correlation_id), payload):
+            return
+        await self._append_audit(
+            principal="Saga",
+            topic="object.issue",
+            correlation_id=correlation_id,
+            payload=payload,
+        )
+
+    async def _append_issue_close_cancelled_audit(
+        self: Any,
+        *,
+        fingerprint: str,
+        issue_number: int,
+        closed_by_pr: str,
+        correlation_id: str,
+        idempotency_key: str,
+        evidence: Mapping[str, Any],
+        reason: str,
+    ) -> None:
+        payload = {
+            "producer_principal": "Saga",
+            "kind": "issue_auto_close_cancelled",
+            "correlation_id": correlation_id,
+            "idempotency_key": stable_idempotency_key(
+                "issue-auto-close-cancelled",
+                idempotency_key,
+            ),
+            "source_idempotency_key": idempotency_key,
+            "fingerprint": fingerprint,
+            "issue_number": issue_number,
+            "closed_by_pr": closed_by_pr,
+            "cancel_reason": reason,
+            "mimir_promotion_recorded_at": evidence.get("promotion_recorded_at"),
+            "clean_regression_started_at": evidence.get("clean_regression_started_at"),
+            "execution_authority": False,
+        }
+        if _audit_payload_exists(self.audit_chain.entries_for_correlation(correlation_id), payload):
+            return
+        await self._append_audit(
+            principal="Saga",
+            topic="object.issue",
+            correlation_id=correlation_id,
+            payload=payload,
+        )
+
+    async def _store_issue_close_checkpoint(
+        self: Any,
+        checkpoint: dict[str, Any],
+        updates: Mapping[str, Any],
+    ) -> tuple[dict[str, Any], bool]:
+        current_revision = int(checkpoint.get("revision", 1))
+        updated = {
+            **checkpoint,
+            **dict(updates),
+            "revision": current_revision + 1,
+        }
+        if self._durable_state_store is None:
+            return updated, True
+        key = _issue_close_checkpoint_key(
+            str(checkpoint["fingerprint"]),
+            str(checkpoint["idempotency_key"]),
+        )
+        stored = await self._durable_state_store.compare_and_set_state(
+            key,
+            updated,
+            expected_revision=current_revision,
+        )
+        if stored:
+            return updated, True
+        latest = await self._durable_state_store.read_state(key)
+        if not isinstance(latest, Mapping):
+            raise RuntimeError("Saga issue-close checkpoint disappeared during transition")
+        return dict(latest), False
+
+    async def _compact_issue_close_checkpoints(self: Any) -> int:
+        if self._durable_state_store is None:
+            return 0
+        rows, total = await self._durable_state_store.read_state_page(
+            _ISSUE_CLOSE_CHECKPOINT_PREFIX,
+            limit=_ISSUE_CLOSE_CHECKPOINT_PAGE,
+            offset=_ISSUE_CLOSE_CHECKPOINT_RETENTION,
+            field="status",
+            value="complete",
+        )
+        deleted = 0
+        for row in rows:
+            key = str(row.get("checkpoint_key") or "")
+            if key.startswith(
+                _ISSUE_CLOSE_CHECKPOINT_PREFIX
+            ) and await self._durable_state_store.delete_state(key):
+                deleted += 1
+        if total > _ISSUE_CLOSE_CHECKPOINT_RETENTION + _ISSUE_CLOSE_CHECKPOINT_PAGE:
+            self.record_behavior("issue_close:checkpoint_compaction_deferred")
+        if deleted:
+            self.record_behavior("issue_close:checkpoint_compacted", deleted)
+        return deleted
 
     async def _current_fingerprint_state(self: Any, fingerprint: str) -> dict[str, Any] | None:
         durable = await self._load_durable_fingerprint(fingerprint)
@@ -288,6 +585,25 @@ def _fingerprint_recurred_since_clean(
     if last_seen.tzinfo is None:
         last_seen = last_seen.replace(tzinfo=UTC)
     return occurrence_count > 1 and last_seen > clean_started
+
+
+def _issue_close_checkpoint_key(fingerprint: str, idempotency_key: str) -> str:
+    digest = hashlib.sha256(f"{fingerprint}\0{idempotency_key}".encode()).hexdigest()
+    return f"{_ISSUE_CLOSE_CHECKPOINT_PREFIX}{digest}"
+
+
+def _positive_int(value: object) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        return None
+    return value
+
+
+def _audit_payload_exists(entries: list[AuditEntry], payload: Mapping[str, Any]) -> bool:
+    try:
+        digest = canonical_json_digest(payload)
+    except (TypeError, ValueError):
+        return False
+    return any(entry.payload_digest == digest for entry in entries)
 
 
 __all__ = ["SagaIssueMaintenanceMixin"]

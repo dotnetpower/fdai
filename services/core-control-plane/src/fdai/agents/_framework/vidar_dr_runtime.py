@@ -157,12 +157,12 @@ class VidarDrRuntimeMixin:
             last = self._last_rehearsal_by_action_type.get(action_type)
             if last is not None and now - last < self._rollback_rehearsal_cadence:
                 continue
-            receipt = await self._rehearse_contract(action_type, contract, now=now)
-            self._rehearsal_receipts.set(action_type, receipt)
-            self._last_rehearsal_by_action_type.set(action_type, now)
-            await self._persist_rehearsal_receipt(receipt)
-            await self._publish_typed_rollback_event(receipt)
-            ran += 1
+            receipt = await self._unpublished_rehearsal_receipt(action_type)
+            if receipt is None:
+                receipt = await self._rehearse_contract(action_type, contract, now=now)
+                await self._persist_rehearsal_receipt(receipt, published=False)
+            if await self._publish_rehearsal_receipt(receipt):
+                ran += 1
         if ran:
             self._apply_rehearsal_readiness()
 
@@ -218,14 +218,56 @@ class VidarDrRuntimeMixin:
             rehearsal_version=str(result.get("rehearsal_version") or "1.0.0"),
         )
 
-    async def _persist_rehearsal_receipt(self, receipt: Mapping[str, Any]) -> None:
+    async def _publish_rehearsal_receipt(self, receipt: Mapping[str, Any]) -> bool:
+        published = await self._publish_typed_rollback_event(dict(receipt))
+        if not published:
+            self.record_behavior("rollback_rehearsal:publication_unavailable")
+            return False
+        await self._persist_rehearsal_receipt(receipt, published=True)
+        action_type = str(receipt.get("action_type") or "")
+        recorded_at = _parse_rollback_timestamp(receipt.get("recorded_at"))
+        if action_type:
+            self._rehearsal_receipts.set(action_type, dict(receipt))
+            if recorded_at is not None:
+                self._last_rehearsal_by_action_type.set(action_type, recorded_at)
+        return True
+
+    async def _persist_rehearsal_receipt(
+        self,
+        receipt: Mapping[str, Any],
+        *,
+        published: bool,
+    ) -> None:
         if self._state_store is None:
             return
-        await self._state_store.write_state(vidar_rehearsal.durable_key(receipt), dict(receipt))
+        stored = await self._state_store.read_state(vidar_rehearsal.durable_key(receipt))
+        revision = int(stored.get("revision", 0)) + 1 if isinstance(stored, Mapping) else 1
+        await self._state_store.write_state(
+            vidar_rehearsal.durable_key(receipt),
+            {
+                **dict(receipt),
+                "revision": revision,
+                "published": published,
+            },
+        )
         await self._state_store.delete_states_beyond(
             _REHEARSAL_STATE_PREFIX,
             retain_newest=self._MAX_RECORDS,
         )
+
+    async def _unpublished_rehearsal_receipt(self, action_type: str) -> dict[str, Any] | None:
+        if self._state_store is None:
+            return None
+        rows, _total = await self._state_store.read_state_page(
+            _REHEARSAL_STATE_PREFIX,
+            limit=self._MAX_RECORDS,
+            field="published",
+            value="false",
+        )
+        for row in rows:
+            if row.get("action_type") == action_type and self._rehearsal_row_valid(row):
+                return dict(row)
+        return None
 
     async def _rehydrate_rehearsal_receipts(self) -> int:
         if self._state_store is None:
@@ -239,18 +281,15 @@ class VidarDrRuntimeMixin:
         seen: set[str] = set()
         restored = 0
         for row in rows:
+            if not self._rehearsal_row_valid(row):
+                continue
             action_type = str(row.get("action_type") or "")
-            contract = str(row.get("rollback_contract") or "")
-            receipt_digest = str(row.get("receipt_digest") or "")
-            if (
-                not action_type
-                or len(action_type) > 256
-                or not contract
-                or len(contract) > 128
-                or action_type in seen
-                or row.get("kind") != vidar_rehearsal.REHEARSAL_KIND
-                or receipt_digest != vidar_rehearsal.digest(row)
-            ):
+            if action_type in seen:
+                continue
+            if row.get("published") is not True:
+                if await self._publish_rehearsal_receipt(row):
+                    restored += 1
+                seen.add(action_type)
                 continue
             recorded_at = _parse_rollback_timestamp(row.get("recorded_at"))
             self._rehearsal_receipts.set(action_type, dict(row))
@@ -262,6 +301,19 @@ class VidarDrRuntimeMixin:
             self._apply_rehearsal_readiness()
             self.record_behavior("rollback_rehearsal:rehydrated", restored)
         return restored
+
+    def _rehearsal_row_valid(self, row: Mapping[str, Any]) -> bool:
+        action_type = str(row.get("action_type") or "")
+        contract = str(row.get("rollback_contract") or "")
+        receipt_digest = str(row.get("receipt_digest") or "")
+        return (
+            bool(action_type)
+            and len(action_type) <= 256
+            and bool(contract)
+            and len(contract) <= 128
+            and row.get("kind") == vidar_rehearsal.REHEARSAL_KIND
+            and receipt_digest == vidar_rehearsal.digest(row)
+        )
 
     def _apply_rehearsal_readiness(self) -> None:
         receipts = [receipt for _, receipt in self._rehearsal_receipts.items()]

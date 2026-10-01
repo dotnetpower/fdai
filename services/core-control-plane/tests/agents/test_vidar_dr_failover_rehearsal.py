@@ -616,6 +616,23 @@ class _HangingRehearsalPort:
         return {"outcome": "passed"}
 
 
+class _FailOnceRehearsalBus(InMemoryBus):
+    def __init__(self) -> None:
+        super().__init__(registry=load_pantheon())
+        self.failed = False
+
+    async def publish(
+        self,
+        principal: str,
+        topic: str,
+        payload: dict[str, object],
+    ) -> None:
+        if payload.get("kind") == REHEARSAL_KIND and not self.failed:
+            self.failed = True
+            raise RuntimeError("injected rehearsal publish failure")
+        await super().publish(principal, topic, payload)
+
+
 def test_vidar_records_bounded_non_mutating_rehearsal_receipts() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     port = _RehearsalPort("passed")
@@ -648,6 +665,78 @@ def test_vidar_records_bounded_non_mutating_rehearsal_receipts() -> None:
     assert receipts[0]["outcome"] == "passed"
     assert receipts[0]["receipt_digest"].startswith("sha256:")
     assert vidar.health()["rollback_rehearsal"]["passed"] == 1
+
+
+def test_vidar_retries_unpublished_rehearsal_without_waiting_for_cadence() -> None:
+    bus = _FailOnceRehearsalBus()
+    port = _RehearsalPort("passed")
+    store = InMemoryStateStore()
+    vidar = Vidar(
+        bus=bus,
+        executors={"scripted": lambda _cmd: asyncio.sleep(0, result="rollback:unused")},
+        state_store=store,
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        rollback_rehearsal_port=port,
+        rollback_rehearsal_cadence=timedelta(days=30),
+        clock=lambda: _NOW,
+    )
+
+    try:
+        asyncio.run(vidar.maintenance_tick())
+    except RuntimeError:
+        pass
+    asyncio.run(vidar.maintenance_tick())
+
+    assert len(port.commands) == 1
+    receipts = [
+        msg.payload
+        for msg in bus.messages_on("object.rollback")
+        if msg.payload.get("kind") == REHEARSAL_KIND
+    ]
+    assert len(receipts) == 1
+    rows = asyncio.run(store.read_states("pantheon/vidar/rehearsal/", limit=10))
+    assert len(rows) == 1
+    assert rows[0]["published"] is True
+    assert vidar.health()["rollback_rehearsal"]["passed"] == 1
+
+
+def test_vidar_rehydrates_and_publishes_unpublished_rehearsal_receipt() -> None:
+    failing_bus = _FailOnceRehearsalBus()
+    port = _RehearsalPort("passed")
+    store = InMemoryStateStore()
+    first = Vidar(
+        bus=failing_bus,
+        executors={"scripted": lambda _cmd: asyncio.sleep(0, result="rollback:unused")},
+        state_store=store,
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        rollback_rehearsal_port=port,
+        rollback_rehearsal_cadence=timedelta(days=30),
+        clock=lambda: _NOW,
+    )
+    try:
+        asyncio.run(first.maintenance_tick())
+    except RuntimeError:
+        pass
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Vidar(
+        bus=bus,
+        state_store=store,
+        rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},
+        rollback_rehearsal_cadence=timedelta(days=30),
+        clock=lambda: _NOW + timedelta(days=1),
+    )
+
+    asyncio.run(restarted.recover_rollbacks())
+
+    receipts = [
+        msg.payload
+        for msg in bus.messages_on("object.rollback")
+        if msg.payload.get("kind") == REHEARSAL_KIND
+    ]
+    assert len(receipts) == 1
+    assert receipts[0]["recorded_at"] == _NOW.isoformat()
+    assert restarted.health()["rollback_rehearsal"]["passed"] == 1
 
 
 def test_vidar_rehearsal_failure_lowers_readiness_without_authority_change() -> None:
@@ -699,6 +788,7 @@ def test_vidar_rehearsal_timeout_records_visible_hold() -> None:
 def test_vidar_rehydrates_durable_rehearsal_receipts_into_health() -> None:
     store = InMemoryStateStore()
     first = Vidar(
+        bus=InMemoryBus(registry=load_pantheon()),
         executors={"scripted": lambda _cmd: asyncio.sleep(0, result="rollback:unused")},
         state_store=store,
         rollback_contracts_by_action_type={"ops.failover-primary": "scripted"},

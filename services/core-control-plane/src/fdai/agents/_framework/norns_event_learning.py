@@ -340,7 +340,12 @@ class NornsEventLearningMixin:
             )
 
     async def _observe_post_turn_review(self, payload: dict[str, Any]) -> None:
-        if payload.get("kind") != "post_turn_review":
+        kind = str(payload.get("kind") or "")
+        if kind == "bragi_intent_training_evidence":
+            self.record_behavior("post_turn_review:intent_training_evidence_observed")
+            return
+        if kind != "post_turn_review":
+            self.record_behavior("post_turn_review:unsupported_kind")
             return
         if self._post_turn_review is None:
             self.record_behavior("post_turn_review_unavailable")

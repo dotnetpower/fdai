@@ -114,6 +114,24 @@ async def test_norns_post_turn_reviews_are_idempotent() -> None:
     assert norns.behavior_snapshot()["post_turn_review_duplicate"] == 1
 
 
+async def test_norns_records_unsupported_post_turn_kind_without_learning() -> None:
+    coordinator = _PostTurnCoordinator()
+    norns = Norns(post_turn_review=coordinator)  # type: ignore[arg-type]
+
+    await norns.on_typed_message(
+        "object.post-turn-review",
+        {
+            "producer_principal": "Bragi",
+            "kind": "unexpected_post_turn_evidence",
+            "correlation_id": "unexpected-kind-1",
+            "idempotency_key": "unexpected-kind-1",
+        },
+    )
+
+    assert coordinator.inputs == []
+    assert norns.behavior_snapshot()["post_turn_review:unsupported_kind"] == 1
+
+
 def test_norns_outcome_evidence_counts_as_conversation_evidence() -> None:
     norns = Norns()
     norns._outcomes.set("ops.restart-service", {"total": 1, "rollback": 1})  # noqa: SLF001

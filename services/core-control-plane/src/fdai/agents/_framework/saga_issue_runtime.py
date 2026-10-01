@@ -408,21 +408,21 @@ class SagaIssueRuntimeMixin:
         created: bool,
         correlation_id: str,
         operation_id: str,
+        extra: Mapping[str, Any] | None = None,
     ) -> None:
         if self.bus is None:
             return
-        await self.bus.publish(
-            "Saga",
-            "object.issue",
-            {
-                "producer_principal": "Saga",
-                "correlation_id": correlation_id,
-                "idempotency_key": operation_id,
-                "fingerprint": fingerprint,
-                "issue_number": issue_number,
-                "created": created,
-            },
-        )
+        payload = {
+            "producer_principal": "Saga",
+            "correlation_id": correlation_id,
+            "idempotency_key": operation_id,
+            "fingerprint": fingerprint,
+            "issue_number": issue_number,
+            "created": created,
+        }
+        if extra is not None:
+            payload.update(extra)
+        await self.bus.publish("Saga", "object.issue", payload)
 
 
 def _bounded_handoff_context(raw: Mapping[str, Any] | object | None) -> dict[str, str]:

@@ -122,7 +122,7 @@ async def test_unbound_intent_training_is_visible_no_op_without_degrading_bragi(
     assert message.payload["kind"] == "bragi_intent_training_evidence"
 
 
-async def test_intent_training_gate_promotes_shadow_only_and_norns_ignores_new_kind() -> None:
+async def test_intent_training_gate_promotes_shadow_only_and_norns_records_new_kind() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     bragi = Bragi()
     bragi.bind_bus(bus)
@@ -184,6 +184,7 @@ async def test_intent_training_gate_promotes_shadow_only_and_norns_ignores_new_k
     assert evaluator.calls[0][0]["revision"] == "runtime-current"
     assert norns.behavior_snapshot().get("post_turn_review_completed") is None
     assert norns.behavior_snapshot().get("post_turn_review_unavailable") is None
+    assert norns.behavior_snapshot()["post_turn_review:intent_training_evidence_observed"] == 1
 
 
 async def test_intent_training_retains_each_stage_with_audit_idempotently() -> None:

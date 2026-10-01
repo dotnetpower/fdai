@@ -5,6 +5,9 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
+from fdai.agents._framework import saga_issue_maintenance as saga_issue_maintenance_module
+from fdai.agents._framework.adapters import InMemoryAuditChain
 from fdai.agents._framework.bragi_publication import handoff_event_payload
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.mimir_maintenance import (
@@ -117,6 +120,49 @@ class _SlowDeprecationReader:
 class _FailingBus(InMemoryBus):
     async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
         raise RuntimeError("broker unavailable")
+
+
+class _FailingIssuePublicationBus(InMemoryBus):
+    async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
+        if principal == "Saga" and topic == "object.issue" and payload.get("created") is False:
+            raise RuntimeError("issue publication unavailable")
+        await super().publish(principal, topic, payload)
+
+
+class _CheckpointCasRaceStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.raced = False
+
+    async def compare_and_set_state(
+        self,
+        key: str,
+        value: dict[str, Any],
+        *,
+        expected_revision: int,
+    ) -> bool:
+        if (
+            key.startswith("pantheon/saga/issue-close-checkpoint/")
+            and value.get("terminal_audited") is True
+            and not self.raced
+        ):
+            self.raced = True
+            await super().compare_and_set_state(
+                key,
+                {
+                    **value,
+                    "revision": expected_revision + 1,
+                    "external_closed": True,
+                    "terminal_audited": True,
+                },
+                expected_revision=expected_revision,
+            )
+            return False
+        return await super().compare_and_set_state(
+            key,
+            value,
+            expected_revision=expected_revision,
+        )
 
 
 class _RuleSourcePoller:
@@ -288,6 +334,7 @@ async def test_saga_rehydrates_issue_close_eligibility_after_restart() -> None:
         github=StateStoreIssueTrackerAdapter(store),
         clock=lambda: now,
     )
+    restarted.bind_bus(InMemoryBus(registry=load_pantheon()))
     restarted.bind_issue_close_promotion_evidence_producer()
 
     assert await restarted.scan_issue_closures() == 1
@@ -298,6 +345,260 @@ async def test_saga_rehydrates_issue_close_eligibility_after_restart() -> None:
     health = restarted.health()
     assert health["issue_auto_close"] == "evidence_available"
     assert health["issue_auto_close_last_recovered"] == 1
+
+
+async def test_saga_resumes_closed_issue_checkpoint_after_publication_failure() -> None:
+    now = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    audit_chain = InMemoryAuditChain()
+    failing_bus = _FailingIssuePublicationBus(registry=load_pantheon())
+    first = Saga(
+        audit_chain=audit_chain,
+        durable_state_store=store,
+        github=StateStoreIssueTrackerAdapter(store),
+        clock=lambda: now,
+    )
+    first.bind_bus(failing_bus)
+    first.bind_issue_close_promotion_evidence_producer()
+    handoff = handoff_event_payload(
+        session_id="session-close-publish-failure",
+        question="unknown close publish failure",
+        turn_index=0,
+        reason="no_route",
+        emitted_at=now - timedelta(hours=48),
+    )
+    fingerprint = str(handoff["problem_fingerprint"])
+    await first.on_typed_message("object.handoff-escalation", handoff)
+    await first.on_typed_message(
+        "object.rule",
+        {
+            "producer_principal": "Mimir",
+            "kind": "catalog_review_outcome",
+            "problem_fingerprint": fingerprint,
+            "promotion_pr": "https://github.com/dotnetpower/fdai/pull/1101",
+            "clean_regression_started_at": (now - timedelta(hours=25)).isoformat(),
+            "outcome": "promoted",
+            "correlation_id": "promotion-close-publish-failure",
+        },
+    )
+
+    try:
+        await first.scan_issue_closures()
+    except RuntimeError:
+        pass
+
+    assert first.github.issues[fingerprint].open is False
+    rows = await store.read_states("pantheon/saga/issue-close-checkpoint/", limit=10)
+    assert len(rows) == 1
+    assert rows[0]["external_closed"] is True
+    assert rows[0]["published"] is False
+    assert rows[0]["completed"] is False
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Saga(
+        audit_chain=audit_chain,
+        durable_state_store=store,
+        github=StateStoreIssueTrackerAdapter(store),
+        clock=lambda: now,
+    )
+    restarted.bind_bus(bus)
+    restarted.bind_issue_close_promotion_evidence_producer()
+
+    assert await restarted.scan_issue_closures() == 1
+    messages = bus.messages_on("object.issue")
+    assert len(messages) == 1
+    assert messages[0].payload["fingerprint"] == fingerprint
+    assert messages[0].payload["idempotency_key"] == rows[0]["idempotency_key"]
+    assert await restarted.scan_issue_closures() == 0
+    assert len(bus.messages_on("object.issue")) == 1
+
+
+async def test_saga_cancels_issue_close_when_recurrence_appears_after_intent_audit() -> None:
+    now = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    audit_chain = InMemoryAuditChain()
+    saga = Saga(
+        audit_chain=audit_chain,
+        durable_state_store=store,
+        github=StateStoreIssueTrackerAdapter(store),
+        clock=lambda: now,
+    )
+    saga.bind_bus(InMemoryBus(registry=load_pantheon()))
+    saga.bind_issue_close_promotion_evidence_producer()
+    handoff = handoff_event_payload(
+        session_id="session-close-toctou",
+        question="unknown toctou",
+        turn_index=0,
+        reason="no_route",
+        emitted_at=now - timedelta(hours=48),
+    )
+    fingerprint = str(handoff["problem_fingerprint"])
+    await saga.on_typed_message("object.handoff-escalation", handoff)
+    await saga.on_typed_message(
+        "object.rule",
+        {
+            "producer_principal": "Mimir",
+            "kind": "catalog_review_outcome",
+            "problem_fingerprint": fingerprint,
+            "promotion_pr": "https://github.com/dotnetpower/fdai/pull/1102",
+            "clean_regression_started_at": (now - timedelta(hours=25)).isoformat(),
+            "outcome": "promoted",
+            "correlation_id": "promotion-close-toctou",
+        },
+    )
+    original_append = saga._append_issue_close_audit  # noqa: SLF001
+    injected = False
+
+    async def append_with_recurrence(**kwargs: Any) -> None:
+        nonlocal injected
+        await original_append(**kwargs)
+        if kwargs.get("kind") != "issue_auto_close_intent" or injected:
+            return
+        injected = True
+        keys = await store.read_state_keys("pantheon/saga/issue-fingerprint/", limit=10)
+        assert len(keys) == 1
+        current = await store.read_state(keys[0])
+        assert current is not None
+        await store.write_state(
+            keys[0],
+            {
+                **dict(current),
+                "revision": int(current.get("revision", 1)) + 1,
+                "occurrence_count": 2,
+                "last_seen": now.isoformat(),
+                "last_correlation_id": "handoff-recurred-after-intent",
+            },
+        )
+
+    saga._append_issue_close_audit = append_with_recurrence  # type: ignore[method-assign]  # noqa: SLF001
+
+    assert await saga.scan_issue_closures() == 0
+
+    assert saga.github.issues[fingerprint].open is True
+    rows = await store.read_states("pantheon/saga/issue-close-checkpoint/", limit=10)
+    assert len(rows) == 1
+    assert rows[0]["status"] == "cancelled"
+    assert rows[0]["cancel_reason"] == "recurrence_after_clean"
+    assert saga.behavior_snapshot()["issue_close:cancelled_recurrence"] == 1
+    audit_kinds = {
+        entry.payload_digest
+        for entry in audit_chain.entries_for_correlation("promotion-close-toctou")
+    }
+    assert len(audit_kinds) == 3
+
+
+async def test_saga_checkpoint_transition_retries_after_cas_loss() -> None:
+    now = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
+    store = _CheckpointCasRaceStore()
+    saga = Saga(
+        durable_state_store=store,
+        github=StateStoreIssueTrackerAdapter(store),
+        clock=lambda: now,
+    )
+    saga.bind_bus(InMemoryBus(registry=load_pantheon()))
+    saga.bind_issue_close_promotion_evidence_producer()
+    handoff = handoff_event_payload(
+        session_id="session-close-cas",
+        question="unknown cas",
+        turn_index=0,
+        reason="no_route",
+        emitted_at=now - timedelta(hours=48),
+    )
+    fingerprint = str(handoff["problem_fingerprint"])
+    await saga.on_typed_message("object.handoff-escalation", handoff)
+    await saga.on_typed_message(
+        "object.rule",
+        {
+            "producer_principal": "Mimir",
+            "kind": "catalog_review_outcome",
+            "problem_fingerprint": fingerprint,
+            "promotion_pr": "https://github.com/dotnetpower/fdai/pull/1103",
+            "clean_regression_started_at": (now - timedelta(hours=25)).isoformat(),
+            "outcome": "promoted",
+            "correlation_id": "promotion-close-cas",
+        },
+    )
+
+    assert await saga.scan_issue_closures() == 1
+
+    rows = await store.read_states("pantheon/saga/issue-close-checkpoint/", limit=10)
+    assert len(rows) == 1
+    assert rows[0]["status"] == "complete"
+    assert rows[0]["intent_audited"] is True
+    assert rows[0]["external_closed"] is True
+    assert rows[0]["terminal_audited"] is True
+    assert rows[0]["published"] is True
+    assert store.raced is True
+
+
+async def test_saga_recovers_pending_checkpoint_after_completed_window_and_compacts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(saga_issue_maintenance_module, "_ISSUE_CLOSE_CHECKPOINT_PAGE", 2)
+    monkeypatch.setattr(saga_issue_maintenance_module, "_ISSUE_CLOSE_CHECKPOINT_RETENTION", 2)
+    now = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    pending_idempotency_key = "issue-auto-close:pending"
+    pending_key = saga_issue_maintenance_module._issue_close_checkpoint_key(  # noqa: SLF001
+        "pending-fingerprint",
+        pending_idempotency_key,
+    )
+    for index in range(3):
+        await store.write_state(
+            f"pantheon/saga/issue-close-checkpoint/complete-{index}",
+            {
+                "schema_version": "1.0.0",
+                "revision": 1,
+                "status": "complete",
+                "checkpoint_key": f"pantheon/saga/issue-close-checkpoint/complete-{index}",
+                "fingerprint": f"completed-{index}",
+                "idempotency_key": f"completed-{index}",
+                "completed": True,
+            },
+        )
+    await store.write_state(
+        pending_key,
+        {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "status": "pending",
+            "checkpoint_key": pending_key,
+            "fingerprint": "pending-fingerprint",
+            "issue_number": 42,
+            "closed_by_pr": "https://github.com/dotnetpower/fdai/pull/1104",
+            "correlation_id": "promotion-pending-behind-complete",
+            "idempotency_key": pending_idempotency_key,
+            "eligibility_evidence": {
+                "fingerprint": "pending-fingerprint",
+                "promotion_pr": "https://github.com/dotnetpower/fdai/pull/1104",
+                "clean_regression_started_at": (now - timedelta(hours=25)).isoformat(),
+                "promotion_recorded_at": (now - timedelta(hours=25)).isoformat(),
+                "correlation_id": "promotion-pending-behind-complete",
+            },
+            "intent_audited": True,
+            "external_closed": True,
+            "terminal_audited": True,
+            "published": False,
+            "completed": False,
+        },
+    )
+    saga = Saga(durable_state_store=store, clock=lambda: now)
+    bus = InMemoryBus(registry=load_pantheon())
+    saga.bind_bus(bus)
+
+    assert await saga.scan_issue_closures() == 1
+
+    messages = bus.messages_on("object.issue")
+    assert len(messages) == 1
+    assert messages[0].payload["fingerprint"] == "pending-fingerprint"
+    completed_rows, completed_total = await store.read_state_page(
+        "pantheon/saga/issue-close-checkpoint/",
+        limit=10,
+        field="status",
+        value="complete",
+    )
+    assert completed_total <= 2
+    assert all(row["status"] == "complete" for row in completed_rows)
 
 
 async def test_saga_cancels_mimir_close_when_fingerprint_recurs_after_clean_start() -> None:
