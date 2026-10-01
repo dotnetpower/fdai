@@ -116,6 +116,7 @@ from .semantic_planning_support import (
 )
 from .semantic_production_shadow import ProductionShadowRecorder, record_planned_shadow
 from .semantic_resource_state_planning import resource_condition_intents_grounded
+from .semantic_slot_grounding import reground_constraint_slots
 from .semantic_test_context import test_context_capability, test_context_planning_outcome
 from .semantic_type_grounding import ResourceTypeGrounding
 from .session import Principal, Turn
@@ -384,6 +385,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                     )
                 if judgment_decision.accepted and judgment_decision.proposal is not None:
                     accepted = promoted_state_collection(judgment_decision.proposal)
+                    accepted = reground_constraint_slots(accepted, manifest=manifest)
                     if self._type_grounding is not None:
                         grounding = self._type_grounding.ground(
                             utterance=utterance,
@@ -665,8 +667,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
-            prov = provenance_scope(coverage, bound_resource_context, utterance, context)
-            held = _npo(
+            prov = provenance_scope(coverage, dispatch_result.bound_context, utterance, context)
+            _pc = partial(_npo, evaluated_at=dispatch_result.evaluated_at)
+            held = _pc(
                 ticket, coverage, plan_source, plan, manifest_digest, enforce_when=prov, frame=frame
             )
             if held is not None:

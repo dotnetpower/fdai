@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Protocol
 
 from fdai_service_contracts.answer_claims import ComposedAnswer
@@ -39,9 +40,26 @@ class VerifiedAnswerReviewer(Protocol):
         *,
         answer: ComposedAnswer,
         evidence_view: ModelEvidenceView,
-    ) -> bool | None:
-        """Return whether every claim follows from its evidence; ``None`` when unavailable."""
+    ) -> EntailmentReview | None:
+        """Return one typed finding per claim; ``None`` when unavailable."""
         ...
+
+
+class EntailmentReason(StrEnum):
+    NOT_ENTAILED = "not_entailed"
+    EVIDENCE_MISMATCH = "evidence_mismatch"
+    UNSUPPORTED_PHRASE = "unsupported_phrase"
+
+
+@dataclass(frozen=True, slots=True)
+class EntailmentClaimReview:
+    claim_id: str
+    reason: EntailmentReason | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EntailmentReview:
+    claims: tuple[EntailmentClaimReview, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,13 +118,40 @@ class VerifiedAnswerAuthoringService:
                 return VerifiedAnswerAuthoringResult(
                     None, verdict, "entailment_review_unavailable", attempt
                 )
-            if reviewed:
+            if not _valid_review(reviewed, answer):
+                return VerifiedAnswerAuthoringResult(
+                    None, verdict, "entailment_review_invalid", attempt
+                )
+            rejected = tuple(
+                f"entailment_{item.reason.value}:{item.claim_id}"
+                for item in reviewed.claims
+                if item.reason is not None
+            )
+            if not rejected:
                 return VerifiedAnswerAuthoringResult(answer, verdict, attempts=attempt)
-            retry_reasons, held = ("entailment_rejected",), "verified_answer_review_rejected"
+            retry_reasons, held = rejected, "verified_answer_review_rejected"
         return VerifiedAnswerAuthoringResult(None, last_verdict, held, 2)
 
 
+def _valid_review(reviewed: object, answer: ComposedAnswer) -> bool:
+    if not isinstance(reviewed, EntailmentReview) or not isinstance(reviewed.claims, tuple):
+        return False
+    if any(
+        not isinstance(item, EntailmentClaimReview)
+        or not isinstance(item.claim_id, str)
+        or (item.reason is not None and not isinstance(item.reason, EntailmentReason))
+        for item in reviewed.claims
+    ):
+        return False
+    return len(reviewed.claims) == len(answer.claims) and {
+        item.claim_id for item in reviewed.claims
+    } == {claim.id for claim in answer.claims}
+
+
 __all__ = [
+    "EntailmentClaimReview",
+    "EntailmentReason",
+    "EntailmentReview",
     "VerifiedAnswerAuthor",
     "VerifiedAnswerAuthoringResult",
     "VerifiedAnswerAuthoringService",

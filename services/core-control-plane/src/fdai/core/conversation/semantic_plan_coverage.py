@@ -106,6 +106,7 @@ def narrower_plan_outcome(
     identity_receipts: Sequence[IdentityBindingReceipt] = (),
     *,
     frame: SlotBearingFrame | None = None,
+    evaluated_at: datetime | None = None,
 ) -> SemanticPlanningOutcome | None:
     """Return the hold for a current-path plan that reads less than the question asks.
 
@@ -156,7 +157,10 @@ def narrower_plan_outcome(
             manifest_digest=manifest_digest,
             hold_details=hold_details((f"answer_kind:{asked.value}",)),
         )
-    roles = (*plan_uncovered_roles(reading, plan), *plan_uncovered_slot_roles(frame, plan))
+    roles = (
+        *plan_uncovered_roles(reading, plan),
+        *plan_uncovered_slot_roles(frame, plan, evaluated_at=evaluated_at),
+    )
     if not roles:
         return None
     _LOGGER.info(
@@ -204,7 +208,10 @@ def plan_uncovered_roles(
 
 
 def plan_uncovered_slot_roles(
-    frame: SlotBearingFrame | None, plan: OntologyQueryPlan
+    frame: SlotBearingFrame | None,
+    plan: OntologyQueryPlan,
+    *,
+    evaluated_at: datetime | None = None,
 ) -> tuple[str, ...]:
     if frame is None:
         return ()
@@ -217,7 +224,11 @@ def plan_uncovered_slot_roles(
             uncovered.append(role)
         elif role == "relation_path" and not any(_relational(node) for node in plan.nodes):
             uncovered.append(role)
-        elif role == "time_window" and not _windowed_plan(plan):
+        elif role == "time_window" and not _windowed_plan(
+            plan,
+            evaluated_at=evaluated_at,
+            point_in_time=_instant(getattr(slot, "value", None)),
+        ):
             uncovered.append(role)
         elif role in _VALUE_SLOT_PROPERTIES and not any(
             _restricts(node, _VALUE_SLOT_PROPERTIES[role], str(slot.value)) for node in plan.nodes
@@ -247,7 +258,12 @@ _WINDOW_ARGUMENTS = frozenset(
 )
 
 
-def _windowed_plan(plan: OntologyQueryPlan) -> bool:
+def _windowed_plan(
+    plan: OntologyQueryPlan,
+    *,
+    evaluated_at: datetime | None = None,
+    point_in_time: datetime | None = None,
+) -> bool:
     """Return whether the plan reads a time window rather than one point in time.
 
     A single ``as_of`` is a cutoff, and the server stamps one on every ObjectSet,
@@ -270,7 +286,14 @@ def _windowed_plan(plan: OntologyQueryPlan) -> bool:
             point = _instant(nested.get("as_of"))
         if point is not None:
             points.add(point)
-    return len(points) >= 2
+    if len(points) >= 2:
+        return True
+    return (
+        evaluated_at is not None
+        and point_in_time is not None
+        and point_in_time in points
+        and point_in_time < evaluated_at.astimezone(UTC)
+    )
 
 
 def _instant(value: object) -> datetime | None:

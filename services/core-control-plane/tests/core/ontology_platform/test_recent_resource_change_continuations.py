@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -120,3 +121,39 @@ async def test_continuation_invalidates_foreign_principal_version_and_expiry() -
             page_size=20,
             query_version_digest=DIGEST,
         )
+
+
+@pytest.mark.asyncio
+async def test_concurrent_requests_can_claim_a_continuation_only_once() -> None:
+    store = InMemoryRecentResourceChangeContinuationStore()
+    issuer = RecentResourceChangeContinuationIssuer(
+        store=store,
+        binding=_binding(),
+        clock=lambda: NOW,
+    )
+    continuation_ref = await issuer.issue(
+        context=_context(),
+        start_at=NOW - timedelta(days=1),
+        end_at=NOW,
+        known_at=NOW,
+        query_version_digest=DIGEST,
+        page_size=20,
+        cursor=_Cursor(NOW - timedelta(minutes=1), "resource-020"),
+        remaining_rows=7,
+    )
+
+    results = await asyncio.gather(
+        *(
+            issuer.request(
+                continuation_ref=continuation_ref,
+                context=_context(),
+                page_size=20,
+                query_version_digest=DIGEST,
+            )
+            for _ in range(2)
+        ),
+        return_exceptions=True,
+    )
+
+    assert sum(isinstance(result, ContinuationInvalidError) for result in results) == 1
+    assert sum(not isinstance(result, Exception) for result in results) == 1

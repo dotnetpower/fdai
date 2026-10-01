@@ -52,6 +52,7 @@ from .semantic_manifest_planning import (
     compile_ontology_manifest_plan,
 )
 from .semantic_mysql_pressure_planning import compile_mysql_pressure_plan
+from .semantic_operand_provenance import trusted_bound_context
 from .semantic_planning_cascade import SemanticPlanningCascade, SemanticPlanningEscalationPolicy
 from .semantic_planning_models import (
     BoundIncident,
@@ -105,6 +106,8 @@ class PlanDispatchResult:
     investigation_intent: VerifiedInvestigationIntent | None
     plan: OntologyQueryPlan
     plan_source: str
+    evaluated_at: datetime
+    bound_context: BoundResourceContext | None
 
 
 def _is_temporal_comparison(frame: Any) -> bool:
@@ -147,6 +150,12 @@ def dispatch_semantic_plan(
     evaluation_time = now()
     if evaluation_time.tzinfo is None:
         raise ValueError("semantic planning evaluation time MUST be timezone-aware")
+    trusted_bound = trusted_bound_context(
+        bound_resource_context,
+        principal_id=principal.id,
+        principal_scope_digest=manifest.coverage_receipt.principal_scope_digest,
+        ontology_release_digest=manifest.release_digest,
+    )
     if frame.output_shape == SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST:
         plan = (
             compile_contextual_resource_plan(
@@ -159,13 +168,7 @@ def dispatch_semantic_plan(
                 purpose=purpose,
                 bound_context=bound_resource_context,
             )
-            if (
-                bound_resource_context is not None
-                and bound_resource_context.principal_id == principal.id
-                and bound_resource_context.ontology_release_digest == manifest.release_digest
-                and bound_resource_context.principal_scope_digest
-                == manifest.coverage_receipt.principal_scope_digest
-            )
+            if trusted_bound is not None
             else None
         )
         if plan is None:
@@ -762,6 +765,8 @@ def dispatch_semantic_plan(
         investigation_intent=investigation_intent,
         plan=plan,
         plan_source=plan_source,
+        evaluated_at=evaluation_time,
+        bound_context=trusted_bound,
     )
 
 

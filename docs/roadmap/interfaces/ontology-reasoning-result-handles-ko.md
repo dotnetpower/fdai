@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 결과 핸들과 이어 읽기
 translation_of: ontology-reasoning-result-handles.md
-translation_source_sha: 6031fbbe4391d9aa5ab8da2aadd946cb4a038117
+translation_source_sha: 908bbda535ff46ca38f456d9a7aac8dbcac686e2
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 결과 핸들과 이어 읽기
@@ -125,6 +125,10 @@ Resource 제공자 속성 묶음 안쪽의 읽기를 매니페스트의 검토�
 않으므로, 답변은 출처와 그 의미의 검토된 최신성 기준을 밝힙니다. 인벤토리 최신성 상한보다 더 새로운
 근거가 필요한 의미는 `property_freshness_unestablished`로 보류됩니다. 없는 값은 알 수 없음으로
 밝히며, 목표 상태 `UNKNOWN_INCOMPLETE`는 승격 프로그램의 검증된 답변 작성과 함께 부여됩니다.
+컴파일된 앵커는 이제 정확한 Resource 유형을 선택자와 V-SEM 허용 목록에 전달합니다. 따라서 제공자
+속성 묶음에 같은 키가 있더라도 한 유형에 대해 검토된 경로를 다른 유형에서 다시 사용할 수 없습니다.
+중첩 마스킹은 `connectionString`을 연결 정보로 처리하지만,
+`privateEndpointConnectionStatus` 같은 검토된 상태 필드는 계속 표시합니다.
 
 **종료 조건:** 이름 붙은 리소스 하나에 대한 속성 조회가 정확한 값으로 답하고, 검토된 의미가 없는
 속성은 타입이 지정된 이유와 함께 보류됩니다.
@@ -164,6 +168,8 @@ WHERE effective_at < :last_effective_at
   페이지 크기, `expires_at`이 들어갑니다. 클라이언트는 불투명 참조만 갖습니다.
 - 모든 페이지를 다시 인가합니다. 결속된 필드가 하나라도 다르거나 만료되면 타입이 지정된
   `continuation_invalid`를 돌려주며, 조용히 다른 집합을 읽지 않습니다.
+- 이어 읽기 참조 해석은 원자적 선점입니다. 메모리 저장소의 잠금과 PostgreSQL의
+  `DELETE ... RETURNING`이 같은 참조의 동시 요청 중 정확히 한 페이지만 진행하게 합니다.
 - 실제 loopback PostgreSQL 테스트는 Resource마다 여러 관측, 같은 시각의 동점, 기준 시각 뒤에 기록된
   행, 바뀐 페이지 크기를 다룹니다.
 

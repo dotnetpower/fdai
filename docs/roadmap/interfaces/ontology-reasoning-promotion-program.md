@@ -78,7 +78,9 @@ it to the judgment model only behind a default-off setting, and records linked c
 dispositions through an injected production-shadow sink. Missing or invalid forms record
 `form_absent` without changing the answer path. Every judgment recovery path validates the carried
 form the same way, so an invalid form can't disable a recovery that accepts the same judgment
-without it. The sampled production window remains live promotion evidence.
+without it. Records now carry a bounded expiry and deterministic percentage sampling over the keyed
+sample digest. Sampling remains default-off with the shadow and never changes the answer path. The
+sampled production window remains live promotion evidence.
 
 **Exit:** a linked disposition for every eligible turn over a sampled production window, and replay
 equivalence with the shadow on and off.
@@ -101,6 +103,8 @@ two-reader turns.
 **Implementation note (2026-10-01):** Every shadow turn now carries a content-free direction cost
 receipt, and logs it as `semantic_direction_cost`. The receipt counts one or two readers, with the
 calls, input bytes, output tokens, and wall time that the turn's reservation ledger reconciled.
+An overrun records the actual reconciled usage rather than its reserved ceiling, and failover of a
+first reader remains one reader unless a tiebreak call was actually sent.
 Production composition also binds the direction reader and third-family tiebreaker when the P1
 production shadow setting is on, but keeps compiled answers disabled outside the local venue.
 
@@ -127,7 +131,9 @@ statuses and typed limitations, and returns structured claims, as the owner desi
    negated, swapped, off-by-one, and causal-overreach claims.
 Local implementation provides the shared proposition contract, default-off author and reviewer
 ports, and the deterministic adversarial V-CLAIM suite. Production model-family bindings and the
-R8 live holdout remain promotion evidence, not local proof.
+R8 live holdout remain promotion evidence, not local proof. The reviewer returns one typed result
+per claim. Rejected claim ids and reasons feed the single retry, while missing, duplicate, unknown,
+or malformed claim results hold the answer.
 
 **Exit:** zero escapes on the adversarial claim suite, and zero V-CLAIM escapes in the R8 holdout.
 

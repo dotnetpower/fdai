@@ -73,7 +73,7 @@ def provenance_scope(
     group = getattr(bound, "resource_group_id", None)
     identities = (*ids, *((group,) if isinstance(group, str) and group else ()))
     return ProvenanceScope(
-        enforce_when is not None,
+        enforce_when is not None or bool(identities),
         tuple(
             IdentityBindingReceipt("bound_resource_context", "bound_resource_context", item)
             for item in identities
@@ -81,6 +81,25 @@ def provenance_scope(
         ),
         utterance,
         tuple(context),
+    )
+
+
+def trusted_bound_context[BoundT](
+    bound: BoundT | None,
+    *,
+    principal_id: str,
+    principal_scope_digest: str,
+    ontology_release_digest: str,
+) -> BoundT | None:
+    """Return a server context only when all current request bindings match."""
+
+    return (
+        bound
+        if bound is not None
+        and getattr(bound, "principal_id", None) == principal_id
+        and getattr(bound, "principal_scope_digest", None) == principal_scope_digest
+        and getattr(bound, "ontology_release_digest", None) == ontology_release_digest
+        else None
     )
 
 
@@ -145,5 +164,6 @@ __all__ = [
     "IdentityBindingReceipt",
     "ProvenanceScope",
     "provenance_scope",
+    "trusted_bound_context",
     "unproven_identity_operands",
 ]

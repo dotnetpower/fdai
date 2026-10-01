@@ -60,6 +60,11 @@ relational frame slots must be represented by the verified plan. A time-window s
 by an explicit window argument or by two distinct point-in-time reads, such as a snapshot pair. The
 single cutoff that the server stamps on every ObjectSet, traversal, and path read never counts as a
 window.
+Core now revalidates model-proposed location and lifecycle slot values against the exact manifest's
+closed concept catalogs before planning. A label or other non-canonical value becomes an unbound
+`out_of_domain` slot and follows the existing typed hold. One explicit historical snapshot satisfies
+a point-in-time slot only when its instant is earlier than the evaluation cutoff; a current cutoff
+still does not satisfy a window.
 
 **Exit:** zero uncovered-constraint holds for the traced window, region, and incident-status
 questions across two repeats.
@@ -79,6 +84,9 @@ of an exact name binding also reach model plans legitimately.
   kind.
 - The local implementation applies this check at the current-path hold seam for model-proposed
   operational plans, while server-built plans remain covered by their own deterministic builders.
+  A server-bound resource context now activates provenance enforcement even when no blind coverage
+  reader ran, and contributes typed receipts for each exact bound Resource or resource-group
+  identity at the planning call site.
 
 **Exit:** zero invented identity literals and zero schema answers to instance targets on the
 cohort and the holdout.
