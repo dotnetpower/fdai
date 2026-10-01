@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from fdai.core.conversation.result_handle_store import rendered_order_digest
+from fdai.core.conversation.result_handle_store import ResultHandleStore, rendered_order_digest
+from fdai.core.conversation.semantic_stored_result_handles import StoredReferenceContext
 from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnRequest
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.reasoning_handles import (
@@ -110,4 +111,15 @@ def _append_output_rows(
             snapshot_rows.append(SnapshotRow(row_key=key, cells=cells))
 
 
-__all__ = ["result_handle_from_technical_details"]
+def stored_reference_arguments(
+    request: SemanticTurnRequest, *, enabled: bool, store: ResultHandleStore | None
+) -> dict[str, StoredReferenceContext]:
+    """Return the runtime keyword carrying stored references, only when handles are on."""
+
+    if not (enabled and store is not None and request.recent_result_handles):
+        return {}
+    context = StoredReferenceContext(request.session_id, request.recent_result_handles, store)
+    return {"stored_reference_context": context}
+
+
+__all__ = ["result_handle_from_technical_details", "stored_reference_arguments"]

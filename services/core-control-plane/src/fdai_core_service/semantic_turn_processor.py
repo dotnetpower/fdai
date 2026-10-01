@@ -119,7 +119,10 @@ from .semantic_relationship_projection import (
     render_ontology_relationship_answer,
 )
 from .semantic_resource_change_answer import render_resource_change_answer
-from .semantic_result_handle_projection import result_handle_from_technical_details
+from .semantic_result_handle_projection import (
+    result_handle_from_technical_details,
+    stored_reference_arguments,
+)
 from .semantic_service_health_answer import (
     render_service_health_answer as _render_service_health_answer,
 )
@@ -835,6 +838,11 @@ class SemanticTurnProcessor:
             runtime_kwargs["conversation_model_tier"] = request.conversation_model_tier
         if request.document_context is not None:
             runtime_kwargs["document_context"] = request.document_context
+        runtime_kwargs.update(
+            stored_reference_arguments(
+                request, enabled=self._result_handles_enabled, store=self._result_handle_store
+            )
+        )
         prior_turns = _prior_turns(request, requested_at=requested_at)
         if self._context_selection_shadow is not None:
             await self._context_selection_shadow.schedule(
@@ -852,17 +860,6 @@ class SemanticTurnProcessor:
             cancelled=runtime_cancelled,
             bound_incident=_bound_incident(request),
             bound_investigation_continuation=_bound_investigation_continuation(request),
-            stored_reference_context=(
-                StoredReferenceContext(
-                    request.session_id,
-                    request.recent_result_handles,
-                    self._result_handle_store,
-                )
-                if self._result_handles_enabled
-                and self._result_handle_store is not None
-                and request.recent_result_handles
-                else None
-            ),
             **runtime_kwargs,
         )
 
