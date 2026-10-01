@@ -6,7 +6,7 @@ import asyncio
 import logging
 import math
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Literal
 
@@ -25,6 +25,11 @@ from .ontology_evaluation_campaign import (
     prepare_ontology_retrieval_campaign,
     run_ontology_retrieval_campaign,
 )
+from .ontology_evaluation_evidence import (
+    OntologyEvaluationEvidence,
+    OntologyEvaluationEvidenceError,
+)
+from .ontology_evaluation_runner import OntologyRetrievalEvaluationReport
 from .ontology_snapshot_store import OntologyGenerationSnapshotStore
 from .ontology_snapshot_validation import validate_snapshot_against_current_graph
 from .ontology_vector_store import OntologyVectorSnapshotStore
@@ -93,8 +98,10 @@ class _BudgetedEmbedder:
         build: SemanticGenerationBuild,
         budget: OntologyRetrievalExecutionBudget,
         deadline: float,
+        evidence: OntologyEvaluationEvidence | None = None,
     ) -> None:
         self._embedder, self._budget = embedder, budget
+        self._evidence = evidence
         self.deadline = deadline
         self._identity = (
             build.metadata.embedding_space_id,
@@ -121,6 +128,9 @@ class _BudgetedEmbedder:
             self.deadline,
             asyncio.get_running_loop().time() + self._budget.call_timeout_seconds,
         )
+        if self._evidence is not None:
+            self._evidence.record("embedding_call_intent", {"call_index": self.calls + 1})
+        _check_deadline(deadline)
         self.calls += 1
         _LOGGER.info("ontology_evaluation_embedding_started", extra={"call_index": self.calls})
         async with asyncio.timeout_at(deadline):
@@ -151,6 +161,7 @@ async def execute_ontology_retrieval_campaign(
     embedder: Embedder,
     clock: Callable[[], datetime],
     budget: OntologyRetrievalExecutionBudget,
+    evidence: OntologyEvaluationEvidence | None = None,
 ) -> OntologyRetrievalExecutionReport:
     """Prepare and measure one frozen corpus through isolated, caller-owned storage.
 
@@ -159,6 +170,8 @@ async def execute_ontology_retrieval_campaign(
     pointer, publishes an owner event, or retries. Preparation has a 120-second ceiling
     inside the same total deadline used by calibration and holdout. Provider calls are
     counted before dispatch, including failures. Parent cancellation propagates.
+    Supply an open evidence writer for live diagnostics; it records call intent before
+    dispatch and persists stage/terminal reports here, not in a later session-only writer.
     """
     started = asyncio.get_running_loop().time()
     deadline = started + budget.total_timeout_seconds
@@ -177,7 +190,16 @@ async def execute_ontology_retrieval_campaign(
     if plan.embedding_call_upper_bound > budget.max_embedding_calls:
         raise ValueError("ontology campaign exceeds the embedding call budget")
     preparation_deadline = min(deadline, started + 120)
-    bounded = _BudgetedEmbedder(embedder, build=build, budget=budget, deadline=preparation_deadline)
+    bounded = _BudgetedEmbedder(
+        embedder, build=build, budget=budget, deadline=preparation_deadline, evidence=evidence
+    )
+    if evidence is not None:
+        evidence.record("started", {"plan": asdict(plan), "budget": asdict(budget)})
+
+    def record_stage(report: OntologyRetrievalEvaluationReport) -> None:
+        if evidence is not None:
+            evidence.record("stage", {"report": asdict(report), "report_digest": report.digest})
+
     stage: Literal["preparation", "measurement"] = "preparation"
     completed_campaign: OntologyRetrievalCampaignReport | None = None
     try:
@@ -257,11 +279,24 @@ async def execute_ontology_retrieval_campaign(
             total_timeout_seconds=remaining,
             query_timeout_seconds=min(budget.call_timeout_seconds, remaining),
             deadline=deadline,
+            record_stage=record_stage,
         )
         completed_campaign = report
         _check_deadline(deadline)
         bounded.validate_identity()
     except OntologyRetrievalCampaignAbortedError as failure:
+        if evidence is not None:
+            evidence.record(
+                "aborted",
+                {
+                    "binding_digest": plan.binding_digest,
+                    "stage": stage,
+                    "embedding_calls": bounded.calls,
+                    "campaign_stage": failure.stage,
+                    "calibration": asdict(failure.calibration) if failure.calibration else None,
+                    "completed": [asdict(item) for item in failure.completed],
+                },
+            )
         raise OntologyRetrievalExecutionAbortedError(
             binding_digest=plan.binding_digest,
             stage=stage,
@@ -269,12 +304,42 @@ async def execute_ontology_retrieval_campaign(
             campaign_failure=failure,
         ) from None
     except (ValueError, PermissionError, TimeoutError):
+        if evidence is not None:
+            evidence.record(
+                "aborted",
+                {
+                    "binding_digest": plan.binding_digest,
+                    "stage": stage,
+                    "embedding_calls": bounded.calls,
+                    "completed_campaign": (
+                        asdict(completed_campaign) if completed_campaign is not None else None
+                    ),
+                },
+            )
         raise OntologyRetrievalExecutionAbortedError(
             binding_digest=plan.binding_digest,
             stage=stage,
             embedding_calls=bounded.calls,
             completed_campaign=completed_campaign,
         ) from None
-    return OntologyRetrievalExecutionReport(
+    except asyncio.CancelledError as cancelled:
+        if evidence is not None:
+            try:
+                evidence.record(
+                    "cancelled",
+                    {
+                        "binding_digest": plan.binding_digest,
+                        "stage": stage,
+                        "embedding_calls": bounded.calls,
+                    },
+                )
+            except OntologyEvaluationEvidenceError as failure:
+                cancelled.add_note("ontology cancellation evidence could not be retained")
+                raise cancelled from failure
+        raise
+    result = OntologyRetrievalExecutionReport(
         report, budget, bounded.calls, asyncio.get_running_loop().time() - started
     )
+    if evidence is not None:
+        evidence.record("completed", {"report": asdict(result), "campaign_digest": report.digest})
+    return result

@@ -171,12 +171,14 @@ async def run_ontology_retrieval_campaign(
     total_timeout_seconds: float,
     query_timeout_seconds: float,
     deadline: float | None = None,
+    record_stage: Callable[[OntologyRetrievalEvaluationReport], None] | None = None,
 ) -> OntologyRetrievalCampaignReport:
     """Measure one prepared generation, stopping before holdout on any calibration failure.
 
     Both stages share one monotonic deadline, policy and current-source checks. Preparation
     and document embedding are outside this deadline and need separately bounded authority.
     An enclosing absolute deadline can only shorten the local timeout.
+    If supplied, stage recording must succeed before the next stage can begin.
     Callers must obtain live authorization before supplying a real embedder. Nothing here
     performs a retry, policy adjustment, production qualification or runtime activation.
     """
@@ -226,10 +228,14 @@ async def run_ontology_retrieval_campaign(
         calibration = await measure(
             calibration_cases, plan.calibration_binding_digest, "calibration"
         )
+        if record_stage is not None:
+            record_stage(calibration)
         if not calibration.passed:
             return OntologyRetrievalCampaignReport(plan.binding_digest, calibration, None)
         stage = "holdout"
         holdout = await measure(holdout_cases, plan.holdout_binding_digest, "holdout")
+        if record_stage is not None:
+            record_stage(holdout)
     except OntologyRetrievalEvaluationAbortedError as failure:
         raise OntologyRetrievalCampaignAbortedError(
             plan.binding_digest, stage, calibration, failure

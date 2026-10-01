@@ -427,6 +427,23 @@ Serialize diagnostic dataclasses with Pydantic JSON mode, not `json.dumps(asdict
 source-validation receipts contain aware timestamps. Persist and round-trip the complete report,
 including failed calibration and its absent holdout, before treating it as retained evidence.
 
+For a live diagnostic, open the delivery-owned `OntologyEvaluationEvidence` context manager on
+a new file in a caller-owned private local directory and pass it as `evidence` to execution.
+Supply the attested source commit; the writer checks its format, not checkout identity.
+Exclusive mode-0600 creation rejects existing files and symlink destinations. The append-only
+JSONL stream records the frozen plan and budget, call intent before dispatch, each complete stage,
+and the terminal report or bounded abort. Calibration is flushed before holdout can start.
+Records use Pydantic JSON mode and `fsync`; capacity is bounded to 4 MiB per record, 16 MiB per
+attempt and 134 records. Recording failures stop execution rather than fall back to unrecorded
+calls. Cancellation propagates even if its receipt fails, with an explicit persistence error.
+
+Call intent is not proof of dispatch: expiry or interruption can occur between recording and
+the provider call. Use terminal call counts when available. Preserve complete earlier lines after
+an interrupted tail; no terminal record means incomplete execution. A completed report may still
+contain failed calibration or holdout and never grants production qualification or activation.
+Local-only callers may omit the writer; a session-only final serializer is not sufficient for live
+evidence retention. Never append a new attempt to an existing record or reconstruct missing metrics.
+
 This path neither discovers credentials nor authorizes live execution. Before supplying a live
 adapter, obtain fresh bounded approval and attest the actual target binding. The caller owns
 storage isolation and cleanup. Results remain diagnostic with `production_qualification=false`;
