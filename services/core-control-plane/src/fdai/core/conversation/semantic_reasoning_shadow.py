@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, cast
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
@@ -65,6 +66,12 @@ from .semantic_reasoning_review_repair import (
     review_repair,
 )
 from .semantic_reasoning_shape import form_shape
+from .turn_reservations import (
+    TurnReservationLedger,
+    bind_turn_reservations,
+    plan_capacity,
+    shadow_reservation_plan,
+)
 
 MAX_FORM_PASSES = 3
 
@@ -251,6 +258,29 @@ class _CountingModel:
         return await self._inner.check_direction(**kwargs)
 
 
+def _with_shadow_reservations[**P](
+    run: Callable[P, Awaitable[ReasoningShadowObservation]],
+) -> Callable[P, Awaitable[ReasoningShadowObservation]]:
+    """Run the shadow under its own reservation ledger, never the answer's budget."""
+
+    @functools.wraps(run)
+    async def reserved(*args: P.args, **kwargs: P.kwargs) -> ReasoningShadowObservation:
+        limits = cast(ShadowBudget | None, kwargs.get("budget")) or ShadowBudget()
+        plan = shadow_reservation_plan(
+            form_passes=limits.max_form_passes,
+            repairs_per_pass=limits.repairs_per_pass,
+            concept_calls=limits.max_concept_calls,
+        )
+        ledger = TurnReservationLedger(plan_capacity(plan), plan)
+        async with bind_turn_reservations(ledger):
+            observation = await run(*args, **kwargs)
+        held = tuple(dict.fromkeys(ledger.holds))
+        return replace(observation, notes=(*observation.notes, *held)) if held else observation
+
+    return reserved
+
+
+@_with_shadow_reservations
 async def run_reasoning_shadow(
     *,
     model: QuestionFormModel,

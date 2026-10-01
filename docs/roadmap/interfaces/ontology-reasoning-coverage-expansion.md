@@ -109,6 +109,14 @@ frame call runs. Each path gets a reservation plan that follows the
 - A stage that can't reserve returns the typed `budget_reserved_exceeded` hold before any call. A
   failed reservation stays recorded, and actual usage is reconciled after each stage.
 
+**Implementation note (2026-10-01):** `turn_reservations.py` holds the ledger, the reviewed
+current-path and shadow plans, and the stage labels the model adapters already record. Every
+physical request reserves at the shared provider choke point, and a held stage stops candidate
+failover before any request is sent. The shadow binds its own ledger, sized from its pass, repair,
+and concept limits, and reports a hold as a typed note. The current path's plan is defined but isn't
+bound in production yet, because its per-call worst cases need a calibration round over live
+request sizes. Read rows and priced cost are reserved dimensions that no caller charges yet.
+
 **Exit:** tests cover exact budget boundaries, cancellation, and continuations, and the traced
 schema and change-window questions record no judgment token-budget or adaptive budget-exceeded
 event.

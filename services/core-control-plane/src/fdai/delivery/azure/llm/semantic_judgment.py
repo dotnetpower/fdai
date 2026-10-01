@@ -30,6 +30,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
     SemanticJudgmentObservation,
 )
+from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.prompts import PromptAssembler, PromptReplayManifest, estimate_chat_request_tokens
 from fdai.core.prompts.types import PromptLayer
 from fdai.delivery.azure.llm.completion_body import completion_body_params
@@ -528,6 +529,7 @@ class AzureOpenAISemanticJudgmentModel:
                         ),
                         request=body,
                         output_tokens=max_tokens,
+                        stage=call_kind,
                     )
                     response.raise_for_status()
                     proposal, response_content, usage = _response_mapping(response)
@@ -552,6 +554,8 @@ class AzureOpenAISemanticJudgmentModel:
                         observation=observation,
                     )
             except Exception as exc:  # noqa: BLE001 - bounded candidate failover
+                if isinstance(exc, TurnReservationHeldError):
+                    return None  # Every candidate would hold; the ledger names the stage.
                 if stop_scoped_provider_retry():
                     _LOGGER.warning(
                         "adaptive_judgment_provider_attempt_ended",
