@@ -11,7 +11,8 @@ import json
 from collections.abc import Mapping, Sequence
 
 _SHAPE = "target_property_value"
-_IDENTITY = frozenset({"id", "properties.name", "properties.type"})
+_TYPE_FIELD = "properties.type"
+_IDENTITY = frozenset({"id", "properties.name", _TYPE_FIELD})
 _MAX_VALUE_CHARS = 400
 
 
@@ -35,9 +36,9 @@ def render_property_value_answer(
     # The projection holds the identity fields plus the one field the lookup read; a read
     # of the type itself has no other field.
     fields = [key for key in values if isinstance(key, str) and key not in _IDENTITY]
-    if len(fields) > 1 or (not fields and "properties.type" not in values):
+    if len(fields) > 1 or (not fields and _TYPE_FIELD not in values):
         return None
-    value = values[fields[0] if fields else "properties.type"]
+    value = values[fields[0] if fields else _TYPE_FIELD]
     label = measure_concepts[0]
     name = _text(values.get("properties.name")) or _text(values.get("id")) or "-"
     heading = f"## {name}의 {label}" if korean else f"## {label} of {name}"
@@ -49,7 +50,7 @@ def render_property_value_answer(
         )
     else:
         line = f"- {label}: {_display(value, korean=korean)}"
-    kind = _text(values.get("properties.type"))
+    kind = _text(values.get(_TYPE_FIELD))
     lines = [heading, "", line]
     if kind:
         lines.append(f"- 리소스 유형: {kind}" if korean else f"- Resource type: {kind}")
