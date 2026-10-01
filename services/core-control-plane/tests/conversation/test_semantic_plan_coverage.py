@@ -11,6 +11,7 @@ from fdai.core.conversation.semantic_plan_coverage import (
     plan_answers_schema_for_instance,
     plan_reads_only_a_list,
     plan_uncovered_roles,
+    plan_uncovered_slot_roles,
 )
 from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
 from fdai.core.conversation.semantic_reasoning_form import SourceSpan
@@ -21,6 +22,7 @@ from fdai.core.conversation.semantic_reasoning_review import (
     ExtractedConstraint,
 )
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind, canonical_json
+from fdai_service_contracts.semantic_slots import SemanticConstraintSlot
 
 
 def _node(node_id: str, kind: QueryNodeKind, arguments: dict[str, Any]) -> OntologyQueryNode:
@@ -150,6 +152,47 @@ def test_a_stated_grouping_or_relation_must_shape_the_plan() -> None:
     # Without a blind reading, or with only a restriction, nothing is held here.
     assert plan_uncovered_roles(None, listed) == ()
     assert plan_uncovered_roles(_reading(ConstraintRole.RESTRICTS), listed) == ()
+
+
+def test_frame_slots_must_shape_the_verified_plan() -> None:
+    frame = SimpleNamespace(
+        constraint_slots=(
+            SemanticConstraintSlot(
+                role="group_by",
+                source_start=0,
+                source_end=5,
+                grounded=True,
+                value="ObjectType",
+            ),
+            SemanticConstraintSlot(
+                role="relation_path",
+                source_start=6,
+                source_end=13,
+                grounded=True,
+                value="depends_on",
+            ),
+        )
+    )
+
+    assert plan_uncovered_slot_roles(frame, _plan(_objects(_TYPE))) == (
+        "group_by",
+        "relation_path",
+    )
+    assert (
+        plan_uncovered_slot_roles(
+            frame,
+            _plan(
+                _objects(_TYPE),
+                _node(
+                    "grouped", QueryNodeKind.AGGREGATE, {"operation": "count", "group_by": ["x"]}
+                ),
+                _node(
+                    "depends", QueryNodeKind.RELATIONSHIP_TRAVERSAL, {"link_types": ["depends_on"]}
+                ),
+            ),
+        )
+        == ()
+    )
 
 
 def _asking(kind: AnswerKind | None) -> ConstraintExtraction:

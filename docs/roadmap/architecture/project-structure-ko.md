@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: bd198be3a6c94181e256ca10a872191fdf39b07f
+translation_source_sha: 3c5f6c2e575b14cbdd67677a7af6b1ec963f9465
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -13,6 +13,9 @@ translation_revised: 2026-10-01
 컨테이너 종류 계보 그룹화는 Core 대화 컴파일과 일반 온톨로지 query aggregate handler가 나누어 소유합니다. 컴파일러는 검토된 컨테이너 종류를 선택하고, 실행기는 새 권한 없이 가장 가까운 루트 개수와 `ambiguous_membership`을 계산합니다.
 남은 E9 연산자는 전용 Core 대화 helper에 누락된 선행 조건 결정을 보존하므로, 지원되지 않는 rank, aggregate, comparison, version, evidence, diagnose 및 path 행은 다른 연산의 계획으로 fallback하지 않습니다.
 Metric window comparison 계획도 전용 Core 대화 helper에 격리됩니다. 형식 필드는 두 기간을 전달하고, query runtime은 기존 metric comparison node를 사용하며 실행 권한은 부여하지 않습니다.
+타입 제약 슬롯도 공유 계약과 Core 대화 경계에 격리됩니다. 서비스 계약 SDK는 버전이 지정된 판단 및
+frame 필드를 소유하고, Core는 슬롯 커버리지, plan 커버리지, 기본적으로 꺼진 모델 스키마 노출을
+소유합니다. 이 변경은 Operator route나 실행 권한을 추가하지 않습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

@@ -18,6 +18,7 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
+from fdai_service_contracts.semantic_slots import SemanticConstraintSlot
 from fdai_service_contracts.semantic_turn import (
     SemanticDirectResponseIntent,
     context_selection_digest,
@@ -240,6 +241,9 @@ class SemanticFrameProposal(_Proposal):
     evidence_requirements: tuple[
         Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")], ...
     ] = Field(default=(), max_length=32)
+    constraint_slots: SkipJsonSchema[tuple[SemanticConstraintSlot, ...]] = Field(
+        default=(), max_length=16, exclude_if=lambda slots: not slots
+    )
     document_query: SkipJsonSchema[DocumentRetrievalQuery | None] = Field(
         default=None,
         exclude_if=lambda query: query is None,

@@ -141,6 +141,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
     SemanticTarget,
 )
+from fdai_service_contracts.semantic_slots import SemanticConstraintSlot
 from pydantic import ValidationError
 
 DIGEST = "sha256:" + ("a" * 64)
@@ -3278,6 +3279,35 @@ def test_gateway_judgment_binds_past_hour_to_frame_window() -> None:
     )
     assert rejected == proposal
     assert rejected_frame == frame
+
+
+def test_slot_bearing_frame_uses_minor_version_and_preserves_slotless_schema() -> None:
+    slot = SemanticConstraintSlot(
+        role="time_window",
+        source_start=0,
+        source_end=8,
+        grounded=True,
+        value="PT24H",
+    )
+    legacy = build_semantic_frame(
+        SemanticFrameProposal.model_validate(
+            _frame(temporal_scope={}, output_shape="contextual_resource_list")
+        ),
+        utterance="List incidents.",
+        context=(),
+    )
+    frame = build_semantic_frame(
+        SemanticFrameProposal.model_validate(
+            _frame(temporal_scope={}, output_shape="contextual_resource_list")
+            | {"constraint_slots": (slot,)}
+        ),
+        utterance="24 hours incidents.",
+        context=(),
+    )
+
+    assert legacy.schema_version == "1.0.0"
+    assert frame.schema_version == "1.1.0"
+    assert frame.constraint_slots == (slot,)
 
 
 def test_gateway_judgment_replaces_model_substituted_root() -> None:

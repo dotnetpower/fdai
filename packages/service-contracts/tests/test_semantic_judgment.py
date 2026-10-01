@@ -123,6 +123,38 @@ def test_v1_proposal_rejects_forbidden_actions() -> None:
         )
 
 
+def test_constraint_slots_require_v13_and_legacy_payloads_keep_current_behavior() -> None:
+    payload = {
+        "schema_version": "1.3.0",
+        "primary_intent": "resource.health",
+        "confidence": 0.94,
+        "ambiguous": False,
+        "action_subject": "none",
+        "constraint_slots": (
+            {
+                "role": "time_window",
+                "source_start": 5,
+                "source_end": 13,
+                "grounded": True,
+                "value": "PT24H",
+            },
+        ),
+    }
+
+    proposal = SemanticJudgmentProposal.model_validate(payload)
+    legacy = SemanticJudgmentProposal(
+        primary_intent="resource.health",
+        confidence=0.94,
+        ambiguous=False,
+        action_subject="none",
+    )
+
+    assert proposal.constraint_slots[0].value == "PT24H"
+    assert legacy.constraint_slots == ()
+    with pytest.raises(ValidationError, match="schema 1.3.0"):
+        SemanticJudgmentProposal.model_validate({**payload, "schema_version": "1.2.0"})
+
+
 def test_ambiguous_proposal_requires_one_question() -> None:
     proposal = SemanticJudgmentProposal(
         primary_intent="resource.status",

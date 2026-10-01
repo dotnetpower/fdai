@@ -51,6 +51,13 @@ a restriction that the blind reading found: a 24-hour window, a region, and an i
 - Both contracts gain a minor version with the rollout-safe version rules of
   [H1](ontology-reasoning-result-handles.md#h1-contracts). An older payload keeps today's behavior.
 
+**Implementation note (2026-10-01):** The service contracts now define typed constraint slots and
+minor-version pins for the judgment and frame records. The production judgment schema only exposes
+slots behind a default-off setting, so active model prompts keep their current output schema until
+the slot reader is calibrated. Local checks prove grounded slots cover the traced window, region,
+and incident-status restrictions, ungrounded slots hold with a typed reason, and grouped or
+relational frame slots must be represented by the verified plan.
+
 **Exit:** zero uncovered-constraint holds for the traced window, region, and incident-status
 questions across two repeats.
 

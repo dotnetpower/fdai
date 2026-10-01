@@ -44,6 +44,12 @@ HARD_ROLES = frozenset(
         ConstraintRole.TIMES,
     }
 )
+_SLOT_ROLES = {
+    ConstraintRole.TIMES: "time_window",
+    ConstraintRole.RESTRICTS: {"location", "property_predicate", "lifecycle_status"},
+    ConstraintRole.GROUPS: "group_by",
+    ConstraintRole.RELATES: "relation_path",
+}
 
 
 class ConstraintExtractorModel(Protocol):
@@ -97,6 +103,13 @@ class JudgmentCoverage:
         extraction = self.reading()
         if extraction is None:
             return
+        unbound = tuple(slot for slot in proposal.constraint_slots if not slot.grounded)
+        if unbound:
+            raise UncoveredConstraintError(
+                tuple(SourceSpan(start=slot.source_start, end=slot.source_end) for slot in unbound),
+                utterance=self.utterance,
+                roles=tuple(f"slot:{slot.role.value}:{slot.unbound_reason}" for slot in unbound),
+            )
         uncovered = uncovered_constraint_spans(proposal, extraction, self.utterance)
         if uncovered:
             required = tuple(
@@ -231,6 +244,7 @@ def uncovered_constraint_spans(
         constraint.quote
         for constraint in extraction.constraints
         if constraint.role in HARD_ROLES
+        and not _slot_covers(proposal, constraint.role, constraint.quote)
         and not any(
             _shares_meaning(utterance, constraint.quote, start, end)
             # "only", "not", or "만" is quoted alone but binds the operand it touches.
@@ -278,6 +292,22 @@ def _copied_spans(proposal: SemanticJudgmentProposal) -> tuple[tuple[int, int], 
         span
         for span in spans
         if not any(other != span and span[0] <= other[0] and other[1] <= span[1] for other in spans)
+    )
+
+
+def _slot_covers(
+    proposal: SemanticJudgmentProposal, role: ConstraintRole, quote: SourceSpan
+) -> bool:
+    expected = _SLOT_ROLES.get(role)
+    if expected is None:
+        return False
+    expected_roles = expected if isinstance(expected, set) else {expected}
+    return any(
+        slot.grounded
+        and slot.role.value in expected_roles
+        and slot.source_start <= quote.start
+        and quote.end <= slot.source_end
+        for slot in proposal.constraint_slots
     )
 
 
