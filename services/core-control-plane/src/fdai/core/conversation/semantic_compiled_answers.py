@@ -15,7 +15,7 @@ import time
 from collections.abc import Callable, Mapping, MutableSequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
 from fdai_service_contracts.ontology_query import (
     OntologyQueryPlan,
@@ -418,11 +418,8 @@ class CompiledAnswerPath:
                 if reader is None:
                     return None
                 async with bind_adaptive_model_budget(collector):
-                    return cast(
-                        Mapping[str, Any] | None,
-                        await reader.check_ambiguity(
-                            utterance=utterance, context=context, locale=locale
-                        ),
+                    return await reader.check_ambiguity(
+                        utterance=utterance, context=context, locale=locale
                     )
 
             return asyncio.run_coroutine_threadsafe(ask(), self._owner_loop)

@@ -7,7 +7,7 @@ import json
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 from fdai_service_contracts.ontology_query import canonical_json
 from fdai_service_contracts.reasoning_handles import (
@@ -251,7 +251,7 @@ class RecentResourceChangeContinuationIssuer:
 
 def _principal_digest(context: FunctionInvocationContext) -> str:
     if context.principal_scope_digest is not None:
-        return cast(str, context.principal_scope_digest)
+        return context.principal_scope_digest
     return _digest({"principal_ref": context.principal_ref, "purposes": context.purposes})
 
 
@@ -284,15 +284,12 @@ def _aware_utc(value: datetime) -> datetime:
 def encode_stored_continuation(record: StoredRecentResourceChangeContinuation) -> str:
     """Return canonical JSON for a continuation store record."""
 
-    return cast(
-        str,
-        canonical_json(
-            {
-                "continuation_ref": record.continuation_ref,
-                "continuation": record.continuation.model_dump(mode="json"),
-                "cursor_subject_ref": record.cursor_subject_ref,
-            }
-        ),
+    return canonical_json(
+        {
+            "continuation_ref": record.continuation_ref,
+            "continuation": record.continuation.model_dump(mode="json"),
+            "cursor_subject_ref": record.cursor_subject_ref,
+        }
     )
 
 

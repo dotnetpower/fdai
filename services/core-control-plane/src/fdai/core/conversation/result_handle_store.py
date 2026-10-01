@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Protocol, cast
+from typing import Annotated, Protocol
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -261,7 +261,7 @@ class InMemoryResultHandleStore:
 def rendered_order_digest(row_keys: tuple[TypedRowKey, ...]) -> str:
     """Digest the rows in the exact rendered order."""
 
-    return cast(str, content_digest([row.model_dump(mode="json") for row in row_keys]))
+    return content_digest([row.model_dump(mode="json") for row in row_keys])
 
 
 def reauthorize_result_handle_rows(

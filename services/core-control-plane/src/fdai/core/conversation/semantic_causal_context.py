@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind, canonical_json
 
-from .semantic_reasoning_form import FormGoal
-from .semantic_reasoning_measure_reads import (
+from fdai.core.ontology_platform.state_transitions import (
     RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
-    state_transition_arguments,
 )
+
+from .semantic_reasoning_form import FormGoal
+from .semantic_reasoning_measure_reads import state_transition_arguments
 from .semantic_reasoning_nodes import (
     FUNCTION_ANCHOR_LIMIT,
     RESOURCE_OBJECT_TYPE,
@@ -41,6 +42,8 @@ def causal_context_result(
 ) -> OperatorResult:
     """Read current state, state-transition change points, and full activity context."""
 
+    if goal.subject is None:
+        return OperatorResult(unsupported=("anchor_missing",))
     for name in CAUSAL_CONTEXT_FUNCTIONS:
         if not function_declared(ctx, name):
             return OperatorResult(unsupported=(f"function_unavailable:{name}",))

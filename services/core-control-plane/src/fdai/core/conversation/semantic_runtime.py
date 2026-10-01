@@ -68,6 +68,7 @@ from .semantic_runtime_cancellation import (
     _run_planning_with_cancellation,
     _run_preflight_with_cancellation,
 )
+from .semantic_stored_result_handles import StoredReferenceContext
 from .session import Principal, Turn
 from .work_progress import publish_work_progress_pin
 
@@ -213,7 +214,7 @@ class SemanticConversationRuntime:
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_model_tier: SemanticConversationModelTier | None = None,
         document_context: SemanticDocumentContext | None = None,
-        stored_reference_context: object | None = None,
+        stored_reference_context: StoredReferenceContext | None = None,
         progress_observer: QueryProgressObserver | None = None,
         target_agent: str = "Bragi",
         relationship: Mapping[str, object] | None = None,
@@ -509,7 +510,7 @@ class SemanticConversationRuntime:
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_model_tier: SemanticConversationModelTier | None = None,
         document_context: SemanticDocumentContext | None = None,
-        stored_reference_context: object | None = None,
+        stored_reference_context: StoredReferenceContext | None = None,
         progress_observer: QueryProgressObserver | None = None,
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,

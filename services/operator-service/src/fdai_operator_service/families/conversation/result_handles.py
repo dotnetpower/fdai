@@ -41,8 +41,11 @@ class SemanticContinuationReader(Protocol):
 
 
 class RelationshipResolutionLike(Protocol):
-    proof: AdaptiveRelationshipProof | None
-    reason: AdaptiveRelationshipUnknownReason | None
+    @property
+    def proof(self) -> AdaptiveRelationshipProof | None: ...
+
+    @property
+    def reason(self) -> AdaptiveRelationshipUnknownReason | None: ...
 
 
 async def latest_result_handle_refs(

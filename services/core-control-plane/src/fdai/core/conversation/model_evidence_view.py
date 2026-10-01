@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 from fdai_service_contracts.ontology_query import (
     EvidenceAuthority,
@@ -91,7 +91,7 @@ class ModelEvidenceView:
         }
 
     def canonical_json(self) -> str:
-        return cast(str, canonical_json(self.as_payload()))
+        return canonical_json(self.as_payload())
 
 
 def model_evidence_view_from_tables(
