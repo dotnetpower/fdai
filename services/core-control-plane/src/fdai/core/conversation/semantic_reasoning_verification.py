@@ -66,6 +66,7 @@ from .semantic_reasoning_measure_checks import (
     is_health_lookup,
     is_state_history,
     metric_scope_violations,
+    window_matches,
 )
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
 from .semantic_reasoning_relations import SENSE_TRAITS
@@ -416,7 +417,7 @@ def _function_violations(
             lookback is None
             or limit is None
             or evaluation_time is None
-            or not _window_matches(static, lookback, limit, evaluation_time)
+            or not window_matches(static, lookback, limit, evaluation_time)
         ):
             return [f"prov_function_arguments:{node.node_id}"]
         return []
@@ -448,25 +449,6 @@ def _function_violations(
     if expected is None or dict(static) != dict(expected):
         return [f"prov_function_arguments:{node.node_id}"]
     return []
-
-
-def _window_matches(
-    arguments: Mapping[str, Any], lookback: int, limit: int, evaluation_time: datetime
-) -> bool:
-    """Return whether an absolute window ends at the trusted clock and spans the lookback."""
-
-    if set(arguments) != {"start_at", "end_at", "known_at", "limit"} or arguments["limit"] != limit:
-        return False
-    try:
-        start, end, known = (
-            datetime.fromisoformat(str(arguments[key]))
-            for key in ("start_at", "end_at", "known_at")
-        )
-    except ValueError:
-        return False
-    if any(item.tzinfo is None for item in (start, end, known)):
-        return False
-    return end == known == evaluation_time and (end - start).total_seconds() == lookback
 
 
 def _declared_maximum(

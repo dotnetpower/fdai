@@ -7,6 +7,7 @@ different state history is rejected even though the compiler never emits one.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
@@ -93,7 +94,27 @@ def expected_measure_arguments(
     return None
 
 
+def window_matches(
+    arguments: Mapping[str, Any], lookback: int, limit: int, evaluation_time: datetime
+) -> bool:
+    """Return whether an absolute window ends at the trusted clock and spans the lookback."""
+
+    if set(arguments) != {"start_at", "end_at", "known_at", "limit"} or arguments["limit"] != limit:
+        return False
+    try:
+        start, end, known = (
+            datetime.fromisoformat(str(arguments[key]))
+            for key in ("start_at", "end_at", "known_at")
+        )
+    except ValueError:
+        return False
+    if any(item.tzinfo is None for item in (start, end, known)):
+        return False
+    return end == known == evaluation_time and (end - start).total_seconds() == lookback
+
+
 __all__ = [
+    "window_matches",
     "expected_measure_arguments",
     "is_health_lookup",
     "is_state_history",
