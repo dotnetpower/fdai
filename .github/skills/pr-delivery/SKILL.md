@@ -146,7 +146,10 @@ credential providers.
 The coordinator may:
 
 - Observe only the pinned PR every 30-300 seconds for at most two hours.
-- Merge the latest named base locally when GitHub reports `BEHIND`.
+- Merge the latest named base locally when GitHub reports `BEHIND`. It skips the merge and push
+  when the fetched base already contains the topic head or its exact tree, or when the remote topic
+  branch no longer matches the verified head. GitHub can still report `BEHIND` right after it merges
+  the PR and deletes the branch, and pushing then would recreate the branch.
 - Push the exact local topic branch without force and verify the remote SHA.
 - Restore the repository's existing protected auto-merge method.
 - Verify that the reported merge commit is contained by the remote base.
