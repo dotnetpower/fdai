@@ -168,7 +168,7 @@ Never edit a path listed in
 [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt). Definitions under core,
 composition, shared contracts and providers, agents, the capability-licensing runtime binding,
 durable Trial store and activation writer, and trust package, the Trial expiry watermark's state
-publisher and Operator stamp, schemas, and repository instructions
+publisher, Operator stamp, and Console watermark, schemas, and repository instructions
 are upstream-owned. A fork adds
 implementations, catalog entries, and overlays through the seams in its own package.
 

@@ -16,6 +16,7 @@ import {
   readLocalAuthBypass,
 } from "./local-auth-session";
 import { Shell } from "./components/shell";
+import { EntitlementWatermark } from "./components/entitlement-watermark";
 import { PanelErrorBoundary } from "./components/panel-error-boundary";
 import { ErrorState, PageHeader } from "./components/ui";
 import { setChatAuth } from "./deck/auth";
@@ -540,6 +541,7 @@ export function App() {
       >
         <DeferredCommandDeck client={client} routeLabel={backgroundPanel.label} />
       </Suspense>
+      <EntitlementWatermark probe={() => client.dataSources()} />
     </ViewContextProvider>
   );
 }
