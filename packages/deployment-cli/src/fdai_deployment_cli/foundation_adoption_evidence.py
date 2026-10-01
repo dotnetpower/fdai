@@ -172,7 +172,6 @@ def verify_foundation_chain(
     ):
         raise ValueError("recovered Foundation handoff context is invalid")
     expected_records = (
-        (recovery, "fdai.foundation-recovery-receipt.v1", "verified"),
         (enrollment, "fdai.genesis-runner-enrollment-receipt.v1", "attested"),
         (
             state_receipt,
@@ -185,6 +184,14 @@ def verify_foundation_chain(
         record.get("schema_version") != schema or record.get("state") != state
         for record, schema, state in expected_records
     ):
+        raise ValueError("Foundation adoption evidence is not terminal")
+    # A Foundation reaches this point either by ordinary apply or by a governed recovery.
+    # Both produce a terminal receipt over the same chain, so accept each exact pair and
+    # nothing else; an in-progress or unknown receipt still stops adoption.
+    if (recovery.get("schema_version"), recovery.get("state")) not in {
+        ("fdai.foundation-recovery-receipt.v1", "verified"),
+        ("fdai.genesis-foundation-apply-receipt.v1", "applied"),
+    }:
         raise ValueError("Foundation adoption evidence is not terminal")
     if any(
         record.get("source_commit") != foundation_source_commit

@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 3bb8dfaa901df1bc9fa262d10f4c1f17ea3f38f5
+translation_source_sha: cc5ec6a464f59e614f2d5498a815408136554485
 translation_revised: 2026-10-01
 ---
 
@@ -109,6 +109,7 @@ Managed Host가 초기 구성 산출물을 내려받을 수 없는 아티팩트 
 **새 소스 설치에서는 대체됨:** 헌법 제1조는 대상 환경에서의 빌드를 소스 경로 자체로 정하며, 그 출처는 release 신뢰가 아니라 [소스 배포](source-deployment-ko.md)가 정의하는 `operator-selected-source`입니다. 아래의 서명 키트 채택은 오프라인 패키지로 계속하는 복구된 Foundation에만 남습니다.
 채택 경로는 정확한 인계 및 접근 근거만 준비하고 무효과 증적을 기록합니다. 로컬 조정기는 완전한
 근거 연결을 보존하고, 관리 호스트는 준비 전에 기존 인계 다이제스트와 서로 다른 현재 키트 및 런타임 다이제스트를 독립적으로 검증합니다. 두 경로 모두 Foundation 적용, 등록, 이행 또는 상태 소유권을 반복하지 않습니다. 저장소 설정 채택은 애플리케이션 계획 전에 5개 기본 서비스의 다이제스트 고정 참조를 모두 보존합니다. 애플리케이션 계획, 승인 및 선택적 카탈로그 검토 체크포인트는 별도로 유지합니다.
+이 근거의 최종 Foundation 증적은 검증된 복구 증적이거나 일반 Foundation 적용의 `applied` 증적입니다. 따라서 정상적으로 적용된 Foundation은 복구 절차를 거치지 않고 계속 진행합니다. 진행 중인 적용을 포함해 그 밖의 스키마와 상태 조합은 채택을 중단합니다.
 
 ### 애플리케이션 그룹 충돌 복구
 
