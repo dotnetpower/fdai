@@ -196,6 +196,13 @@ class AzureOpenAISemanticJudgmentModel:
             "utterance": utterance,
             "context": context,
             "capabilities": capabilities,
+            "capability_encoding": {
+                "object_property_identity": {
+                    "object_type_field": "name",
+                    "property_names_field": "property_names",
+                    "separator": ".",
+                }
+            },
             "locale": locale,
             "direct_response_profile": direct_response_profile,
             "direct_response_profile_digest": direct_response_profile_digest,

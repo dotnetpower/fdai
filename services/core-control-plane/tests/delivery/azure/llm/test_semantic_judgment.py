@@ -588,10 +588,12 @@ def test_assembler_must_match_the_complete_configured_prompt() -> None:
 async def test_judgment_transmits_the_route_selected_prompt_and_manifest() -> None:
     assembler = _dynamic_assembler()
     systems: list[str] = []
+    payloads: list[dict[str, object]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         systems.append(body["messages"][0]["content"])
+        payloads.append(json.loads(body["messages"][-1]["content"])["untrusted_input"])
         return httpx.Response(503, request=request)
 
     class _Identity:
@@ -623,7 +625,9 @@ async def test_judgment_transmits_the_route_selected_prompt_and_manifest() -> No
         arguments = {
             "utterance": "List the virtual machines",
             "context": (),
-            "capabilities": (),
+            "capabilities": (
+                {"kind": "object_type", "name": "Resource", "property_names": ["id", "name"]},
+            ),
             "locale": "en",
             "direct_response_profile": {"identity": "Bragi"},
             "direct_response_profile_digest": "sha256:" + ("a" * 64),
@@ -639,6 +643,18 @@ async def test_judgment_transmits_the_route_selected_prompt_and_manifest() -> No
     assert model.supports_prompt_assembly
     assert systems[0] == "core guidance.\n\ninventory guidance."
     assert systems[-1] == complete.system_text
+    assert len(payloads) == 2
+    for payload in payloads:
+        assert payload["capabilities"] == [
+            {"kind": "object_type", "name": "Resource", "property_names": ["id", "name"]}
+        ]
+        assert payload["capability_encoding"] == {
+            "object_property_identity": {
+                "object_type_field": "name",
+                "property_names_field": "property_names",
+                "separator": ".",
+            }
+        }
 
 
 def test_preflight_requests_topics_only_from_a_topic_defining_prompt() -> None:
