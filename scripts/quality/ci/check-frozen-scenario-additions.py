@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Require new frozen scenario-set versions to land as one complete inventory."""
+"""Keep frozen scenario-set versions immutable and admit new versions atomically."""
 
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import subprocess
 from collections.abc import Callable, Iterable
@@ -11,6 +12,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 SCENARIO_ROOT = PurePosixPath("services/core-control-plane/tests/scenarios")
+# Git pathspec globs relative to SCENARIO_ROOT; `*` also matches `/`, as in CI.
+FROZEN_PATTERNS = (
+    "v*/*.json",
+    "enrichment/v*/*.json",
+    "manifests/v*.json",
+    "cross-objective/v*.json",
+)
 
 
 def _version_for_path(path: str) -> str | None:
@@ -28,6 +36,36 @@ def _version_for_path(path: str) -> str | None:
     if len(parts) >= 2 and parts[0].startswith("v"):
         return parts[0]
     return None
+
+
+def is_frozen_artifact(path: str) -> bool:
+    """Return whether a path belongs to a frozen scenario-set version."""
+    candidate = PurePosixPath(path)
+    try:
+        relative = candidate.relative_to(SCENARIO_ROOT).as_posix()
+    except ValueError:
+        return False
+    return any(fnmatch.fnmatchcase(relative, pattern) for pattern in FROZEN_PATTERNS)
+
+
+def find_frozen_modifications(
+    changed_paths: Iterable[str],
+    added_paths: Iterable[str],
+    manifest_on_base: Callable[[str], bool],
+) -> list[str]:
+    """Return frozen artifacts that a change modifies, deletes, or adds to a frozen version.
+
+    `changed_paths` are modified, deleted, renamed, or type-changed paths. An added path
+    violates the freeze only when its version's manifest already exists on the base.
+    """
+    violations = {path for path in changed_paths if is_frozen_artifact(path)}
+    for path in added_paths:
+        if not is_frozen_artifact(path):
+            continue
+        version = _version_for_path(path)
+        if version is not None and manifest_on_base(version):
+            violations.add(path)
+    return sorted(violations)
 
 
 def _duplicate_values(values: list[str]) -> set[str]:
@@ -178,6 +216,31 @@ def main() -> int:
         "--",
         root,
     )
+    changed_paths = _git_lines(
+        "diff",
+        "--name-only",
+        "--diff-filter=MDRT",
+        f"{args.base_sha}...HEAD",
+        "--",
+        root,
+    )
+
+    def manifest_on_base(version: str) -> bool:
+        manifest = f"{root}/manifests/{version}.json"
+        result = subprocess.run(
+            ["git", "cat-file", "-e", f"{args.base_sha}:{manifest}"],
+            check=False,
+            capture_output=True,
+        )
+        return result.returncode == 0
+
+    modified = find_frozen_modifications(changed_paths, added_paths, manifest_on_base)
+    if modified:
+        print("Frozen scenario files modified or deleted:")
+        for path in modified:
+            print(f"  - {path}")
+        print("Frozen versions are immutable - create a new version directory instead.")
+        return 1
     corpus_paths = _git_lines("ls-tree", "-r", "--name-only", "HEAD", "--", root)
     errors = validate_new_version_inventory(added_paths, corpus_paths, _load_json)
     if errors:
