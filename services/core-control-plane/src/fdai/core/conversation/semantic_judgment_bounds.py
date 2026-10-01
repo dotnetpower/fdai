@@ -7,6 +7,8 @@ from typing import Any
 
 from fdai_service_contracts.ontology_query import canonical_json
 
+from .semantic_judgment_capabilities import property_canonical_values
+
 _MAX_CONTEXT_ITEMS = 8
 _MAX_CONTEXT_CHARS = 12_000
 _MAX_CAPABILITIES = 512
@@ -34,6 +36,8 @@ def bounded_capabilities(
     selected = tuple(dict(item) for item in capabilities)
     if len(canonical_json(list(selected)).encode()) > _MAX_CAPABILITY_BYTES:
         raise ValueError("semantic judgment capabilities exceed their byte bound")
+    for capability in selected:
+        property_canonical_values(capability)
     return selected
 
 

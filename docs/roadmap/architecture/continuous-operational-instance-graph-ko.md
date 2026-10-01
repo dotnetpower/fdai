@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 02732a796130d6b591f791ed5bc90a3d1ae760c0
-translation_revised: 2026-10-01
+translation_source_sha: 6368d204fa5891212dff1f47421092b710043b95
+translation_revised: 2026-10-02
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -11,7 +11,11 @@ Operator post-turn review 큐는 최종 semantic projection을 completed-turn �
 
 이 문서는 클라우드 리소스 인스턴스, 관계, 관측 상태를 FDAI 온톨로지에서 최신으로
 유지하는 런타임 계약을 소유합니다. 수집은 지속적이며 부하를 고려하고, 원시 이력은 타입이
-지정된 rollup과 검증된 archive를 거쳐 활성 데이터 플레인의 크기를 제한합니다. principal 범위 의미 후보는 크기가 큰 축을 생략하고 byte 한도 안의 순위 접두사를 보존하며, 생성된 적용 범위는 검토된 모든 온톨로지 플랫폼 원본 다이제스트를 산출물에 결속한 정확한 카탈로그 함수 분모를 사용합니다.
+지정된 rollup과 검증된 archive를 거쳐 활성 데이터 플레인의 크기를 제한합니다. principal 범위의
+의미 기능은 ObjectType별 무손실 표현으로 모든 선언 식별자와 읽을 수 있는 속성 이름을
+보존합니다. 전체 변환 결과가 한도를 넘으면 속성 집합이나 순위 목록의 뒷부분을 버리지 않고
+보류합니다. 생성된 적용 범위는 검토된 모든 온톨로지 플랫폼 원본 다이제스트를 산출물에 결속한
+정확한 카탈로그 함수 분모를 사용합니다.
 
 [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 경보, 수신 대상 및 전달 근거를
 별도의 비공개 기록으로 보존합니다. 이 기록이나 범위 연결로 인벤토리 세대를 승격하거나 관측된

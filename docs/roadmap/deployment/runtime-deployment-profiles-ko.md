@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0a49d4db37394d945fcb7bf2bb2d2ea6671b71e8
+translation_source_sha: 49be027d3fd76f383e61267f5116a6944c0c6106
 translation_revised: 2026-10-01
 ---
 # 런타임 배포 프로파일
@@ -547,7 +547,12 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 카탈로그를 한 번 조회하고 정확한 이름의 Azure CLI projection을 사용하여 서로 다른 선택 SKU만
 직렬화한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화, 제품군별 quota 및 전체
 quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
-프로바이더 읽기를 재시도하지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
+프로바이더 읽기를 재시도하지 않습니다. `postgres-flex` 프로파일은 지역 PostgreSQL Flexible Server
+카탈로그도 한 번 읽고, PostgreSQL 16을 제공하지 않으면 차단합니다. 해당 지역에서 프로비저닝이
+제한된 구독은 오류 대신 빈 버전 목록을 받으므로 사전 검증은 `postgres_flex_region_restricted`를
+보고합니다. 증거가 없거나 형식이 잘못된 경우에도 차단합니다. 서명된 offline 패키지는 새 AKS
+설치의 첫 Azure 변경 전에 이 사전 검증을 실행합니다. 재개한 설치는 이 검증을 건너뛰므로 설치가
+이미 사용하는 노드가 자체 quota 판단에 포함되지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
 할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 연결은 관리되는 클러스터 리소스에 의존하지 않고 인증된 구독 및 검토된 배포 입력에서 정확한 클러스터 Resource ID를 재구성하므로, 모니터링 전용 플랜이 관련 없는 클러스터 변경을 포함할 수 없습니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다. 애플리케이션 원격 분석에는 Core의 Python Azure Monitor OpenTelemetry Distro를 사용합니다. 공유 기반 구성은 workspace 기반 Application Insights 연결 문자열을 Key Vault 비밀로 저장하고, Core 워크로드 신원에만 이 비밀의 읽기 권한을 부여하며, 별도 상태를 사용하는 AKS 렌더러에는 비밀 이름만 전달합니다. Key Vault CSI는 값을 `APPLICATIONINSIGHTS_CONNECTION_STRING`으로 주입합니다. Core는 비밀이 있을 때만 이 내보내기를 선택하며, `OTEL_EXPORTER_OTLP_ENDPOINT`를 동시에 설정하면 원격 분석을 중복 전송하지 않고 시작을 차단합니다. Application Insights 비밀이 없으면 로컬 프로파일과 명시적인 벤더 중립 OTLP 프로파일은 기존 내보내기를 유지합니다. AKS 워크로드 재확인은 배포된 각 컨테이너가 보존된 워크로드 계약이 요구하는 비밀 기반 환경 바인딩을 정확히 선언하는지 검증합니다. 따라서 `APPLICATIONINSIGHTS_CONNECTION_STRING`을 포함해 바인딩을 외부에서 제거하거나 추가하면 정상 롤아웃으로 보고하지 않고 차단합니다. 이 재확인은 `kubectl get --raw`가 반환하는 형식화된 컬렉션과 `kubectl get --output json`이 반환하는 일반 `v1.List`를 모두 읽되, 일반 형태는 모든 항목이 기대하는 단수 kind를 선언할 때만 허용합니다. 실행 중인 컨테이너의 이미지 신원은 정확한 `imageID` digest로 증명합니다. 컨테이너 런타임이 `image` 필드에 로컬 config digest를 보고할 수 있기 때문입니다. 저장소 전체 CI는 루트 테스트 수집이 Core 소유 원격 분석 어댑터를 가져올 수 있도록 `azure-monitor-opentelemetry`를 루트 `dev` 추가 의존성에만 미러링합니다. 런타임 의존성 소유자는 계속 Core 서비스 매니페스트이며 저장소 루트는 설치할 수 없는 상태를 유지합니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
@@ -593,6 +598,13 @@ Managed Identity에 구독 `Reader`만 부여합니다. 데이터 플레인 역�
 CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하는 인증서를 사용한 TLS가 필요합니다.
 사용자 노드 최소 4개는 이 프로파일의 스케줄 가능성을 위한 값이며,
 데이터베이스 고가용성, 백업 또는 특정 시점 복구를 의미하지 않습니다.
+
+클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN만 기록합니다. AKS 문서 수집이 읽는 역할별
+DSN은 아직 기록하지 않습니다. 읽기 전용 Console을 선택하면 이 수집이 켜지므로, #1762에서 해당
+DSN을 추가할 때까지 `postgres-aks`는 Console 추가 기능을 거부합니다. 기반 구성 플랜도 수집 DSN
+비밀과 그 읽기 역할을 제외합니다. Terraform `-target`은 count가 0인 대상이라도 구성 의존성을 모두
+유지하므로, 이 항목이 하나라도 포함되면 `module.state_store`를 통해 Flexible Server가 플랜에
+들어가기 때문입니다.
 
 Key Vault DSN에는 별도의 고정 만료일을 두지 않습니다. 자격 증명을 교체하려면 데이터베이스와
 워크로드를 함께 갱신해야 합니다. 비밀 값만 만료시키면 데이터베이스 자격 증명은 바뀌지 않은 채

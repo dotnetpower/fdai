@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 9718e58ae5ea5560c8a5ee972c2a849ef518e4ce
+translation_source_sha: 7e9d395d4f4c82a1a5173ea6f13ed4e32bb09b9d
 translation_revised: 2026-10-01
 ---
 # FDAI Console 대화
@@ -521,7 +521,11 @@ focused 소유자 문서로 분리했습니다:
 인증된 의미 턴은 기본값이 꺼진 Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 인증 영수증 참조를 담을 수 있습니다. 이 참조는 브라우저에 권한으로 전달되지 않으며, 배포 순서는 [13.12](operator-console-wire-contracts-ko.md#1312-의미-턴-인증-영수증-참조)를 참고하십시오. 설정을 켜면 Operator는 턴을 게시하기 전에 바로 그 요청의 영수증을 보존하므로 검증기가 이 영수증으로 `case-history-read`를 확인할 수 있습니다. 보존에 실패하면 Core가 해소할 수 없는 참조를 보내지 않고 턴을 실패로 처리합니다.
 베어러 인증된 요청의 모든 응답에는 Console 워터마크가 읽는 `X-FDAI-Entitlement` 표시도
 포함됩니다. [13.13](operator-console-wire-contracts-ko.md#1313-사용권-표시-응답-헤더)을
-참고하십시오.
+참고하십시오. 공유 Operator 전송 계층은 오류를 포함한 모든 응답에서 이 표시 값을 기록하고, 인증된
+모든 화면은 데이터 원본 읽기로 값을 갱신하는 워터마크 하나를 마운트합니다. 최신 표시 값이
+최근의 `none`이 아니면 워터마크는 오른쪽 아래에 표시되며, 자세한 동작은
+[Trial 만료 워터마크](../fork-and-sequencing/capability-licensing-ko.md#사용권-상태-전달) 설계를
+따릅니다.
 
 ## 14. MCP 전달 및 managed 카탈로그
 

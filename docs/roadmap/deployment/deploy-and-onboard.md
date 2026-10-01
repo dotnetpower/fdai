@@ -213,6 +213,10 @@ These customer-agnostic helpers keep both deployment routes repeatable:
   recovery. Genesis instead sends registration material through SSH standard input over Bastion.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh) verifies the size and ephemeral placement; [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) guards environment destroy.
   Both fail closed on unsafe runner storage or deallocation without changing the ops hub or state account.
+- [`check-runner-terraform.sh`](../../../scripts/deployment/azure/check-runner-terraform.sh) runs
+  inside the shared `login-deploy-identity.sh` helper before its first Azure call. It refuses a
+  protected workflow on any runner whose Terraform is older than the validated 1.16.1. That includes
+  a Genesis-image runner, which still pins Terraform 1.9.8.
 
 #### Production hardening knobs
 

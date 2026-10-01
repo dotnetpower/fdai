@@ -10,6 +10,8 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticTarget,
 )
 
+from .semantic_judgment_capabilities import property_canonical_values
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -481,6 +483,9 @@ def normalize_unsupplied_time_canonical_values(
         for value in values
         if isinstance(value, str)
     }
+    supplied.update(
+        value for capability in capabilities for value in property_canonical_values(capability)
+    )
     targets = tuple(
         (
             target.model_copy(update={"canonical_value": None})
@@ -593,6 +598,7 @@ def validate_capability_grounding(
     for capability in capabilities:
         kind = capability.get("kind")
         name = capability.get("name")
+        allowed_canonical_values.update(property_canonical_values(capability))
         if isinstance(name, str):
             allowed_canonical_values.add(name)
             if isinstance(kind, str):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import subprocess
+from pathlib import Path
 from dataclasses import replace
 
 import pytest
@@ -39,6 +40,24 @@ def _inputs():
         for name in ("standardDASv5Family", "cores")
     ]
     return {"profile": profile, "region": "eastus", "skus": skus, "usage": usage}
+
+
+def _postgres_capabilities(*versions: str, reason: str | None = None) -> list[dict[str, object]]:
+    offered = versions or ("15", "16", "17")
+    return [
+        {
+            "name": "FlexibleServerCapabilities",
+            "reason": reason,
+            "restricted": None,
+            "supportedServerVersions": [{"name": version, "reason": None} for version in offered],
+        }
+    ]
+
+
+_RESTRICTED = (
+    "Subscriptions are restricted from provisioning in this region. "
+    "Please choose a different region."
+)
 
 
 def test_quota_includes_both_pools_maximum_and_surge() -> None:
@@ -159,6 +178,8 @@ def test_preflight_serializes_exact_selected_skus_from_one_catalog_read(monkeypa
         elif command[1:3] == ("vm", "list-skus"):
             assert command[command.index("--query") + 1] == ("[?name=='Standard_D4as_v5']")
             stdout = json.dumps(inputs["skus"]).encode()
+        elif command[1:4] == ("postgres", "flexible-server", "list-skus"):
+            stdout = json.dumps(_postgres_capabilities()).encode()
         else:
             assert command[1:3] == ("vm", "list-usage")
             stdout = json.dumps(inputs["usage"]).encode()
@@ -176,7 +197,10 @@ def test_preflight_serializes_exact_selected_skus_from_one_catalog_read(monkeypa
     assert len(sku_calls) == 1
     assert "--size" not in sku_calls[0]
     assert "--query" in sku_calls[0]
-    assert calls[-1][1:3] == ("vm", "list-usage")
+    assert [command[1:3] for command in calls[-2:]] == [
+        ("vm", "list-usage"),
+        ("postgres", "flexible-server"),
+    ]
 
 
 def test_distinct_overlapping_sku_names_use_one_exact_query(monkeypatch) -> None:
@@ -203,6 +227,8 @@ def test_distinct_overlapping_sku_names_use_one_exact_query(monkeypatch) -> None
                 row["name"] = name
                 rows.append(row)
             stdout = json.dumps(rows).encode()
+        elif command[1:4] == ("postgres", "flexible-server", "list-skus"):
+            stdout = json.dumps(_postgres_capabilities()).encode()
         else:
             stdout = json.dumps(inputs["usage"]).encode()
         return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"")
@@ -216,3 +242,116 @@ def test_distinct_overlapping_sku_names_use_one_exact_query(monkeypatch) -> None
 
     assert result["state"] == "feasible"
     assert queries == ["[?name=='Standard_D4' || name=='Standard_D4_v2']"]
+
+
+def test_offered_postgres_major_version_passes() -> None:
+    result = aks_preflight.assess_postgres_flex_region(_postgres_capabilities())
+
+    assert result["blockers"] == []
+    assert result["required_version"] == "16"
+    assert result["offered_versions"] == ["15", "16", "17"]
+
+
+def test_restricted_postgres_region_blocks_with_a_specific_reason() -> None:
+    # A restricted subscription gets an empty catalog and a reason instead of an error.
+    observation = _postgres_capabilities(reason=_RESTRICTED)
+    observation[0]["supportedServerVersions"] = []
+
+    result = aks_preflight.assess_postgres_flex_region(observation)
+
+    assert result["blockers"] == ["postgres_flex_region_restricted"]
+    assert result["offered_versions"] == []
+    assert "reason" not in result
+
+
+def test_missing_postgres_major_version_blocks() -> None:
+    result = aks_preflight.assess_postgres_flex_region(_postgres_capabilities("14", "15"))
+
+    assert result["blockers"] == ["postgres_flex_version_unavailable"]
+
+
+@pytest.mark.parametrize(
+    "observation",
+    [
+        None,
+        {},
+        [],
+        ["FlexibleServerCapabilities"],
+        [{"name": "FlexibleServerCapabilities"}],
+        [{"supportedServerVersions": "16"}],
+    ],
+)
+def test_incomplete_postgres_evidence_blocks(observation: object) -> None:
+    result = aks_preflight.assess_postgres_flex_region(observation)
+
+    assert result["blockers"] == ["postgres_flex_evidence_incomplete"]
+
+
+def test_required_postgres_version_matches_the_state_store_module() -> None:
+    variables = (
+        Path(__file__).resolve().parents[3] / "infra/modules/state-store/postgres-flex/variables.tf"
+    ).read_text(encoding="utf-8")
+    block = variables.split('variable "postgres_version"', 1)[1].split("\n}", 1)[0]
+
+    assert f'default     = "{aks_preflight.POSTGRES_FLEX_MAJOR_VERSION}"' in block
+
+
+def _provider(calls: list[tuple[str, ...]], postgres: list[dict[str, object]]):
+    inputs = _inputs()
+
+    def provider(command, **_kwargs):
+        calls.append(command)
+        if command[1:3] == ("account", "show"):
+            stdout = (
+                b'{"id":"00000000-0000-0000-0000-000000000000",'
+                b'"tenantId":"00000000-0000-0000-0000-000000000000",'
+                b'"state":"Enabled","userType":"user"}'
+            )
+        elif command[1:3] == ("vm", "list-skus"):
+            stdout = json.dumps(inputs["skus"]).encode()
+        elif command[1:4] == ("postgres", "flexible-server", "list-skus"):
+            assert command[command.index("--location") + 1] == "eastus"
+            stdout = json.dumps(postgres).encode()
+        else:
+            stdout = json.dumps(inputs["usage"]).encode()
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"")
+
+    return provider
+
+
+def test_restricted_postgres_region_blocks_an_otherwise_feasible_aks_target(
+    monkeypatch,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+    restricted = _postgres_capabilities(reason=_RESTRICTED)
+    restricted[0]["supportedServerVersions"] = []
+    monkeypatch.setattr(aks_preflight.subprocess, "run", _provider(calls, restricted))
+
+    result = aks_preflight.inspect_aks_target(profile=_inputs()["profile"], region="eastus")
+
+    assert result["state"] == "blocked"
+    assert result["blockers"] == ["postgres_flex_region_restricted"]
+    assert result["database"] == {
+        "placement": "postgres-flex",
+        "required_version": "16",
+        "offered_versions": [],
+        "blockers": ["postgres_flex_region_restricted"],
+    }
+    assert result["mutation_performed"] is False
+
+
+def test_postgres_aks_profile_does_not_read_the_flexible_server_catalog(monkeypatch) -> None:
+    calls: list[tuple[str, ...]] = []
+    monkeypatch.setattr(aks_preflight.subprocess, "run", _provider(calls, []))
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="aks",
+        database_placement="postgres-aks",
+        system_node_sku="Standard_D4as_v5",
+        user_node_min_count=4,
+    )
+
+    result = aks_preflight.inspect_aks_target(profile=profile, region="eastus")
+
+    assert result["state"] == "feasible"
+    assert "database" not in result
+    assert all(command[1] != "postgres" for command in calls)

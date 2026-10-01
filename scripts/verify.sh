@@ -314,7 +314,7 @@ run_gate_scoped "behavior-seeds" '^(\.github/instructions/|rule-catalog/vocabula
 # Upstream: advisory (edits are legitimate; re-sign before release, rc 0).
 # Fork: hard fail on any edit/add under the signed surface (rc 1). Skipped
 # loudly when any signed artifact is missing.
-run_gate_scoped "framework-integrity" '^(services/core-control-plane/src/fdai/(core/|agents/|composition|shared/(contracts|providers)/|runtime/licensing(_trial_activation|_state)?\.py$|delivery/persistence/postgres_licensing_(trial|entitlement_state)\.py$|delivery/trust/)|services/operator-service/src/fdai_operator_service/entitlement_stamp\.py$|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
+run_gate_scoped "framework-integrity" '^(services/core-control-plane/src/fdai/(core/|agents/|composition|shared/(contracts|providers)/|runtime/licensing(_trial_activation|_state)?\.py$|delivery/persistence/postgres_licensing_(trial|entitlement_state)\.py$|delivery/trust/)|services/operator-service/src/fdai_operator_service/entitlement_stamp\.py$|console/src/(entitlement-state\.ts|components/entitlement-watermark\.tsx)$|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
 
 # ---- pytest and whole-repository gates (opt-in) -----------------------------
 

@@ -239,6 +239,11 @@ The manifest is minted from the staged tree, so
 it cannot attest to content the verifier would reject, and the release private key never enters the
 kit.
 
+To identify which local private key matches the packaged release and bundle roots, run
+`scripts/deployment/release/check-signing-key.py --key <path>`. It prints only fingerprints and
+roles. A match names the `build-standalone-deployment-kit.sh` option that accepts the key:
+`--signing-key`, `--release-key`, or `--bundle-key`. `fdai-up.sh` no longer accepts a signing key.
+
 The target disconnected command, `fdaictl provision inspect`, verifies the signature before parsing the
 manifest, binds the exact CLI and platform version, rejects symlinks and extra files, and streams
 every digest. Presence is never trust: an unverified kit stays `candidate`, and rejected content is

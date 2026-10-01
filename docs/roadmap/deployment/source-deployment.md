@@ -10,9 +10,12 @@ artifacts it may and may not create, and how it selects a 30-day Trial or a full
 owns the first installation path in
 [Constitution Article 1](../architecture/fdai-constitution.md#article-1-purpose-and-scope).
 
-> **Status:** This is the target contract. Today a keyless source run stops after the verified
-> Foundation handoff with `prebuilt_runtime_artifacts_required`, and no deployment step initializes
-> the durable Trial. The [implementation ledger](../../roadmap-implementation/deployment/source-deployment.md)
+> **Status:** This is the target contract. Today a source run still stops after the verified
+> Foundation handoff with `prebuilt_runtime_artifacts_required`. The AKS application stage that it
+> will continue into already initializes the durable Trial and installs a key holder's
+> entitlement, the Console renders the expiry watermark, and the image stage that builds the
+> service images in the deployment registry exists but is not yet connected. The
+> [implementation ledger](../../roadmap-implementation/deployment/source-deployment.md)
 > records the current state and the ordered remaining work.
 >
 > **Scope:** Runtime and provisioning topology, Trial and token semantics, and the signed offline
@@ -136,7 +139,8 @@ deployment-control package, signed wheelhouse, runtime release manifest, applian
 image, SBOM, provenance or attestation statement, TUF metadata, or published release or image. It
 never requires a protected branch, CI result, public GHCR package, or maintainer. The signed
 offline package in [Disconnected Deployment](disconnected-deployment.md) is the only installation
-artifact that FDAI signs.
+artifact that FDAI signs. [Installable Deployment CLI](installable-deployment-cli.md#source-image-stage)
+owns the image stage's claim, readback, and recovery rules.
 
 ## Stage order
 
@@ -160,9 +164,10 @@ and no-repeated-ambiguous-apply rules in
 
 ## Honest limits
 
-- **Tamper-evident, not tamper-proof:** The Trial check and the watermark belong to the signed
-  framework surface. Removing either requires modifying signed code, which verification against
-  the upstream-signed manifest exposes, but nothing stops an operator who controls the source and
+- **Tamper-evident, not tamper-proof:** The Trial check and the watermark's decision and rendering
+  belong to the signed framework surface, so changing them requires modifying signed code, which
+  verification against the upstream-signed manifest exposes. The Console shell that mounts the
+  watermark is ordinary Console code, and nothing stops an operator who controls the source and
   runtime from running modified code. The Trial is an evaluation boundary, not copy protection.
 - **No reinstall detection:** Tearing down an installation and deploying a new one starts a new
   Trial. FDAI runs no global activation service.

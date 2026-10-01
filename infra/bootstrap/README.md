@@ -171,7 +171,8 @@ Protected workflows authenticate with
 `az login --identity --client-id "$DEPLOY_RUNNER_CLIENT_ID"`. The shared login helper verifies the
 configured tenant and subscription, then requires the ARM token `oid` to equal
 `DEPLOY_RUNNER_PRINCIPAL_ID`. Missing or mismatched coordinates stop before state or provider work.
-No cloud credentials are stored on the box.
+Before it signs in, the helper runs `check-runner-terraform.sh`, which refuses a runner whose
+Terraform is older than the validated 1.16.1. No cloud credentials are stored on the box.
 
 The default runner uses an ephemeral OS disk on `ResourceDisk`. Keep the VM allocated because a
 deallocate, redeploy, or host move resets the OS and GitHub registration. The bootstrap plan rejects

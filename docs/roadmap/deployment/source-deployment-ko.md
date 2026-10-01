@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: fa493c7a1f499e59649708839904b9e7e4921dd5
+translation_source_sha: 295328e581b19dd44268c7bf5c6a196f91aa8d00
 translation_revised: 2026-10-01
 ---
 
@@ -13,9 +13,11 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 [헌법 제1조](../architecture/fdai-constitution-ko.md#제1조-목적과-범위)의 첫 번째 설치
 방식을 이 문서가 소유합니다.
 
-> **상태:** 이 문서는 목표 계약입니다. 현재 키 없는 소스 실행은 검증된 Foundation 인계 뒤
-> `prebuilt_runtime_artifacts_required`로 멈추며, 어떤 배포 단계도 영속 Trial을 초기화하지
-> 않습니다. [구현 원장](../../roadmap-implementation/deployment/source-deployment.md)이 현재 상태와
+> **상태:** 이 문서는 목표 계약입니다. 현재 소스 실행은 여전히 검증된 Foundation 인계 뒤
+> `prebuilt_runtime_artifacts_required`로 멈춥니다. 이어서 들어갈 AKS 애플리케이션 단계는 이미
+> 영속 Trial을 초기화하고 키 보유자의 사용권을 설치하며, Console은 만료 워터마크를 표시합니다.
+> 배포 레지스트리에서 서비스 이미지를 빌드하는 이미지 단계도 있지만 아직 연결되지 않았습니다.
+> [구현 원장](../../roadmap-implementation/deployment/source-deployment.md)이 현재 상태와
 > 순서가 정해진 남은 작업을 기록합니다.
 >
 > **범위:** 런타임과 프로비저닝 토폴로지, Trial과 토큰의 의미, 서명된 오프라인 패키지는
@@ -134,7 +136,9 @@ Trial이 끝나면 Core는 재시작 없이 다음 결정부터 새 변경 작�
 릴리스 매니페스트, 어플라이언스, runner나 호스트 이미지, SBOM, provenance나 attestation 문서,
 TUF 메타데이터, 게시된 릴리스나 이미지를 결코 만들지 않습니다. 보호 브랜치, CI 결과, 공개 GHCR
 패키지, 유지 관리자도 요구하지 않습니다. FDAI가 서명하는 설치 산출물은
-[연결 끊긴 배포](disconnected-deployment-ko.md)의 서명된 오프라인 패키지뿐입니다.
+[연결 끊긴 배포](disconnected-deployment-ko.md)의 서명된 오프라인 패키지뿐입니다. 이미지 단계의
+클레임, 다시 읽기, 복구 규칙은 [설치형 배포 CLI](installable-deployment-cli-ko.md#소스-이미지-단계)가
+소유합니다.
 
 ## 단계 순서
 
@@ -158,10 +162,11 @@ TUF 메타데이터, 게시된 릴리스나 이미지를 결코 만들지 않습
 
 ## 정직한 한계
 
-- **변조는 드러나지만 막지는 못함:** Trial 검사와 워터마크는 서명된 프레임워크 표면에 속합니다.
-  둘 중 하나를 제거하려면 서명된 코드를 수정해야 하고 업스트림이 서명한 매니페스트로 검증하면
-  그 수정이 드러나지만, 소스와 런타임을 통제하는 운영자가 수정된 코드를 실행하는 것을 막을
-  방법은 없습니다. Trial은 평가 경계이지 복제 방지 장치가 아닙니다.
+- **변조는 드러나지만 막지는 못함:** Trial 검사와 워터마크의 판정 및 렌더링은 서명된 프레임워크
+  표면에 속하므로, 이를 바꾸려면 서명된 코드를 수정해야 하고 업스트림이 서명한 매니페스트로
+  검증하면 그 수정이 드러납니다. 워터마크를 마운트하는 Console 셸은 일반 Console 코드이며,
+  소스와 런타임을 통제하는 운영자가 수정된 코드를 실행하는 것을 막을 방법은 없습니다.
+  Trial은 평가 경계이지 복제 방지 장치가 아닙니다.
 - **재설치 탐지 없음:** 설치를 해체하고 새로 배포하면 새 Trial이 시작됩니다. FDAI는 전역 활성화
   서비스를 운영하지 않습니다.
 - **빌더 가용성:** 원격 이미지 빌드에는 대상 구독의 레지스트리 빌드 서비스가 필요합니다. 그

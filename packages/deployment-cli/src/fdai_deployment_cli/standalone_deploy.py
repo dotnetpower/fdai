@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from fdai_deployment_cli.aks_preflight import inspect_aks_target
 from fdai_deployment_cli.application_state_adoption import (
     ApplicationStateAdoption,
     stage_application_state_adoption,
@@ -163,6 +164,12 @@ def deploy_azure_foundation(
     )
     if adopted is not None:
         return adopted
+    if (
+        selected_runtime.runtime_platform.value == "aks"
+        and adoption is None
+        and not (work_dir / "run" / "status.json").exists()
+    ):
+        _require_feasible_new_aks_target(selected_runtime, region=region, deadline=deadline)
     begin_stage("discovery")
     progress_detail("Discovering image, storage name, and non-overlapping networks")
     scripts = kit.bundle_root / "scripts/deployment/azure"
@@ -351,6 +358,28 @@ def deploy_azure_foundation(
             raise TimeoutError("standalone Foundation approval prompt timed out") from exc
         if prompt.returncode != 0:
             raise ValueError("standalone Foundation approval was not granted")
+
+
+def _require_feasible_new_aks_target(
+    profile: RuntimeDeploymentProfile,
+    *,
+    region: str,
+    deadline: DeploymentDeadline,
+) -> None:
+    """Stop a new AKS installation before its first Azure change when the target is infeasible."""
+
+    progress_detail("Checking AKS capacity and database availability before the first Azure change")
+    preflight = inspect_aks_target(
+        profile=profile, region=region, timeout_seconds=deadline.remaining(180)
+    )
+    if preflight.get("state") != "feasible":
+        blockers = preflight.get("blockers")
+        names = (
+            ", ".join(str(item) for item in blockers)
+            if isinstance(blockers, list) and blockers
+            else "unknown"
+        )
+        raise ValueError(f"standalone AKS preflight blocked a new installation: {names}")
 
 
 def active_azure_target() -> ActiveAzureTarget:

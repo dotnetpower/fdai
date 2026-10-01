@@ -50,7 +50,9 @@ _PROPOSAL_KEPT = frozenset(
 
 
 class SemanticJudgmentModel(Protocol):
-    """Propose candidate-only structured meaning without authority."""
+    """Candidate-only meaning; preserve complete legacy ``canonical_values`` and ObjectType
+    ``property_names`` domains, expanding the latter as ``name + "." + property_name``.
+    """
 
     def judge(
         self,

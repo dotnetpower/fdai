@@ -132,10 +132,16 @@ reserves for Core.
   `X-FDAI-Entitlement` on every response to a request that passed bearer authentication, and CORS
   exposes that header to the Console. A missing, malformed, or unreadable row, or one observed more
   than five minutes away from the Operator clock, stamps `not-activated`.
-- The Console records the stamp from every shared Operator transport response and refreshes it
-  with an authenticated read every 60 seconds. It hides the watermark only while the latest stamp
-  is `none` and less than five minutes old. Before the first stamp arrives, it waits at most
-  10 seconds.
+- The Console records the stamp from every shared Operator transport response, including error
+  responses, and refreshes it with an authenticated data-source read when an authenticated view
+  opens, every 60 seconds, and whenever the tab becomes visible again. An unstamped response leaves
+  the previous stamp to age. The Console hides the watermark only while the latest stamp is `none`
+  and less than five minutes old by the browser's monotonic clock. Before the first stamp arrives,
+  it waits at most 10 seconds.
+- The Console renders the notice as a manual popover in the browser's top layer, so no z-index
+  covers it, and raises it again whenever a modal dialog opens or a view enters or leaves
+  fullscreen. It has no role that changes its meaning, announces through a polite live region, and
+  passes pointer input through.
 
 A row edited outside Core is persistent-state tampering, which the [honest limits](#honest-limits)
 already exclude. No setting or configuration value decides whether the watermark shows.
@@ -353,6 +359,7 @@ expiration itself does not require one.
 | Durable Trial store and anchored activation writer | `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py` |
 | Watermark notice, state publisher, and its writer | `services/core-control-plane/src/fdai/core/licensing/entitlement_notice.py`, `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py` |
 | Operator response stamp | `services/operator-service/src/fdai_operator_service/entitlement_stamp.py` |
+| Console watermark state and rendering | `console/src/entitlement-state.ts`, `console/src/components/entitlement-watermark.tsx`; mounted by `console/src/app.tsx` and fed by `console/src/api-transport.ts` |
 | Final shared execution ceiling | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | Issuing and self-verification (release-only) | `scripts/deployment/release/issue-license.py`, using Ed25519 from the pinned cryptography dependency and exclusive mode-`0600` output creation |
 | Offline verification for any operator | `fdaictl license inspect`, using the deployment CLI's independent Ed25519 verifier |
@@ -365,8 +372,8 @@ and never imports a crypto backend, a transport, or `fdai.delivery`
 Core and the deployment CLI each package a byte-identical copy of
 `security/integrity/upstream-signing-key.pub`, and tests pin both copies to it. The runtime licensing
 binding, the durable Trial store and its activation writer, the watermark's state publisher and
-writer, the Operator stamp, and the `fdai/delivery/trust/` package, including that copy, belong to
-the signed framework surface.
+writer, the Operator stamp, the Console watermark's state contract and component, and the
+`fdai/delivery/trust/` package, including that copy, belong to the signed framework surface.
 
 ## Verifying it in this repository
 
@@ -402,9 +409,13 @@ Signature verification is **tamper-evident, not tamper-proof**, exactly as recor
 framework-surface manifest. A customer who receives an image controls its runtime and can remove the
 check; obfuscation only changes how long that takes.
 
-The Trial and its watermark share that limit. Removing either requires changing signed
-framework-surface code, which only verification against the upstream-signed manifest exposes. FDAI
-does not claim to stop an operator who controls the source and runtime from running modified code.
+The Trial and its watermark share that limit. Changing the Trial check or the watermark's decision,
+text, or rendering requires changing signed framework-surface code, which only verification against
+the upstream-signed manifest exposes. The Console shell that mounts the watermark and the shared
+transport that records its stamp are ordinary Console code. Dropping the stamp hook still shows the
+watermark because no stamp arrives, but a shell rebuilt without the mount is a source modification
+outside the signed files. FDAI does not claim to stop an operator who controls the source and
+runtime from running modified code.
 
 The enforceable part is therefore the distribution channel, not the binary:
 

@@ -4,6 +4,7 @@ import hashlib
 import inspect
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -1355,6 +1356,81 @@ def test_postgres_aks_substrate_excludes_flexible_server() -> None:
     assert "azurerm_role_assignment.inventory_kv_secrets_user" not in targets
     assert "module.event_bus" in targets
     assert "module.key_vault" in targets
+
+
+_ROOT_BLOCK = re.compile(r'^(resource|data) "([a-z0-9_]+)" "([a-z0-9_]+)"|^module "([a-z0-9_]+)"')
+_LOCAL_NAME = re.compile(r"^  ([a-z0-9_]+)\s*=")
+_ROOT_REFERENCE = re.compile(
+    r"\b(module\.[a-z0-9_]+|local\.[a-z0-9_]+|data\.[a-z0-9_]+\.[a-z0-9_]+"
+    r"|[a-z0-9]+_[a-z0-9_]+\.[a-z0-9_]+)"
+)
+
+
+def _root_configuration_graph() -> dict[str, set[str]]:
+    """Map each root-module block or local to the root addresses its configuration references."""
+
+    graph: dict[str, set[str]] = {}
+    infra = Path(__file__).resolve().parents[3] / "infra"
+    for path in sorted(infra.glob("*.tf")):
+        node: str | None = None
+        in_locals = False
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line[:1].isalpha():
+                block = _ROOT_BLOCK.match(line)
+                in_locals = line.startswith("locals")
+                if block is None:
+                    node = None
+                elif block.group(4):
+                    node = f"module.{block.group(4)}"
+                else:
+                    prefix = "data." if block.group(1) == "data" else ""
+                    node = f"{prefix}{block.group(2)}.{block.group(3)}"
+                if node is not None:
+                    graph.setdefault(node, set())
+                continue
+            local = _LOCAL_NAME.match(line) if in_locals else None
+            if local is not None:
+                node = f"local.{local.group(1)}"
+                graph.setdefault(node, set())
+            if node is not None:
+                graph[node].update(_ROOT_REFERENCE.findall(line.split("#", 1)[0]))
+    return graph
+
+
+def _root_address(target: str) -> str:
+    if target.startswith("module."):
+        return "module." + re.split(r"[.\[]", target.removeprefix("module."), maxsplit=1)[0]
+    return target.split("[", 1)[0]
+
+
+def _configuration_closure(graph: dict[str, set[str]], targets: tuple[str, ...]) -> set[str]:
+    pending = [_root_address(target) for target in targets]
+    seen: set[str] = set()
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        pending.extend(reference for reference in graph.get(current, ()) if reference in graph)
+    return seen
+
+
+def test_postgres_aks_substrate_configuration_never_reaches_the_flexible_server() -> None:
+    # Terraform -target keeps every configuration dependency of a target, even at count 0.
+    graph = _root_configuration_graph()
+    placements = {
+        placement: _configuration_closure(
+            graph,
+            standalone_stage_targets.substrate_targets(
+                {"runtime_profile": {"runtime_platform": "aks", "database_placement": placement}}
+            ),
+        )
+        for placement in ("postgres-flex", "postgres-aks")
+    }
+
+    assert "module.state_store" in placements["postgres-flex"]
+    assert "module.state_store" not in placements["postgres-aks"]
+    assert "module.key_vault" in placements["postgres-aks"]
 
 
 def test_aks_substrate_includes_application_insights_secret_binding() -> None:
