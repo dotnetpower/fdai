@@ -74,6 +74,9 @@ durable delivery, and the Teams Workflows webhook binding are owned by
   full-authority development confirmation. Only the FDAI Console decision route can attach one, as a
   token-free fresh-sign-in attestation that the HIL decision payload carries to Core for
   revalidation; Slack and Teams decisions never carry it.
+- Core's runtime task supervision runs the license entitlement-state publisher as its own
+  background task beside the channel outbox tasks. It sends no channel message, and a slow or
+  failed publication cannot delay Slack, Teams, or notification delivery.
 
 ## 3. Categories (A1-A4)
 

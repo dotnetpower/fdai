@@ -483,6 +483,15 @@ fields before its receipt fields.
 
 The Operator emits the optional content-free `authentication_receipt_ref` in `operator-core-request` 1.9.0 only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on. The setting defaults off, and with it off every envelope keeps its earlier version and bytes. Enable it only after a Core that accepts 1.9.0 is deployed. The reference grants no authority by itself. With the setting on, the Operator API and the channel edge retain the content-free receipt for each semantic request before they send the reference, and the verifier checks `case-history-read` against the receipt retained for that exact request. With it off, Pattern reads still fail closed.
 
+### 13.13 Entitlement stamp response header
+
+Every Operator response to a request whose bearer credential verified carries
+`X-FDAI-Entitlement` with one of `none`, `evaluation-ended`, or `not-activated`, and CORS exposes it
+to the Console. The value is Core's [Trial expiry watermark](../fork-and-sequencing/capability-licensing.md#entitlement-state-transport)
+notice. A missing, malformed, unreadable, or stale notice is stamped `not-activated`, an
+unauthenticated response carries no stamp, and a route cannot replace it. The header is an
+availability notice and grants no authority.
+
 ## Implementation status
 
 ### Implementation scope

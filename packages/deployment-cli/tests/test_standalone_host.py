@@ -862,7 +862,7 @@ def test_deployment_binding_uses_terraform_core_app_name(
 
     def terraform_output(infra: Path, name: str) -> str:
         observed.append((infra, name))
-        return "ca-fdai-dev-wus2-core"
+        return {"installation_binding": "1" * 64, "core_app_name": "ca-fdai-dev-wus2-core"}[name]
 
     monkeypatch.setattr(standalone_host, "_terraform_output", terraform_output)
     monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
@@ -872,8 +872,12 @@ def test_deployment_binding_uses_terraform_core_app_name(
         (f"{context['tenant_id']}\0{context['subscription_id']}\0ca-fdai-dev-wus2-core").encode()
     ).hexdigest()
     assert result["deployment_binding"] == expected
+    assert result["installation_binding"] == "1" * 64
     assert result["terraform_name_verified"] is True
-    assert observed == [(tmp_path / "infra", "core_app_name")]
+    assert observed == [
+        (tmp_path / "infra", "installation_binding"),
+        (tmp_path / "infra", "core_app_name"),
+    ]
 
 
 def test_application_state_adoption_pushes_once_and_verifies(
@@ -1838,9 +1842,10 @@ def test_prepare_aks_application_requires_core_semantic_environment(
     monkeypatch.setattr(
         standalone_host,
         "_terraform_output",
-        lambda _infra, name: (
-            "console.azurestaticapps.net" if name == "console_default_hostname" else name
-        ),
+        lambda _infra, name: {
+            "console_default_hostname": "console.azurestaticapps.net",
+            "cluster_name": "aks-fdai-dev",
+        }.get(name, name),
     )
     monkeypatch.setattr(standalone_host, "_terraform_json_output", json_output)
     monkeypatch.setattr(
@@ -3526,6 +3531,9 @@ def test_aks_runtime_configuration_binds_consumer_scoped_dsns_and_roles() -> Non
     source = Path(standalone_host.__file__).read_text(encoding="utf-8")
 
     assert '"FDAI_START_CONSUMER": "1"' in source
+    assert '"FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"])' in source
+    assert '"FDAI_LICENSE_DEPLOYMENT_BINDING": deployment_binding' in source
+    assert "deployment_binding=deployment_binding" in source
     assert '{"FDAI_DATABASE_URL": "fdai-ingestion-api-dsn"}' in source
     assert '{"FDAI_DATABASE_URL": "fdai-ingestion-worker-dsn"}' in source
     targets = standalone_stage_targets.substrate_targets(

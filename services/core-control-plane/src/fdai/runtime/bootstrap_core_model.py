@@ -103,6 +103,7 @@ class CoreRuntime:
     task_workers: TaskWorkerRuntimeBinding | None = None
     assurance_twin_publishers: tuple[Any, ...] = ()
     assurance_twin_writers: tuple[Any, ...] = ()
+    entitlement_state_publisher: Any = None
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -155,6 +156,7 @@ class CoreRuntime:
             human_access_reconciliation=self.human_access_reconciliation,
             assurance_twin_publishers=self.assurance_twin_publishers,
             assurance_twin_writers=self.assurance_twin_writers,
+            entitlement_state_publisher=self.entitlement_state_publisher,
         )
 
 

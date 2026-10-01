@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:c10b91c9e3253a7c3dbd8d5d67399204dba46d05c3fa5d55279b085bbe322ad1",
+  "catalog_digest": "sha256:202fa98db70acf9f7ca03dda48cc414d57d0940a67fdc46108ab5a1b0f8dce58",
   "execution_authority": false,
-  "generated_at": "2026-10-01T03:53:03.066372Z",
+  "generated_at": "2026-10-01T10:53:13.773261Z",
   "records": [
     {
       "designed_behavior": [
@@ -448,8 +448,17 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:42f0074abbe0c3302cdf0ca947b981d1344fb7a75c8af787ee2281f29fc76cac",
+      "record_digest": "sha256:64b6160952e643a7abca983106efe693f5d023e2e00809fdf3945a8abe8f9bf9",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "2c5a6e7b9bb1f6324287ac8a544caa8f396452dd",
+          "line_end": 110,
+          "line_start": 110,
+          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
+          "source_kind": "doc",
+          "symbol": "Graduation scorecard"
+        },
         {
           "authority_role": "design",
           "blob_sha": "abb146564b07cb5f66047b5df5976411b8a4f376",
@@ -458,15 +467,6 @@
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "c6725a2c903ca29ddbc2ba5c53d723a2dbf6fa36",
-          "line_end": 110,
-          "line_start": 110,
-          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
-          "source_kind": "doc",
-          "symbol": "Graduation scorecard"
         }
       ],
       "status": "in_progress",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "4e9264c926b922192566ca18a112528de1d2eb45"
+  "source_revision": "a2fd58bf7f1f05b2070639481d0d9db0c541f7ef"
 }

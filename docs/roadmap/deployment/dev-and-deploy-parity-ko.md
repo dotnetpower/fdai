@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 09192abe36e7ebc6eb6bb28faa8250a936118a64
-translation_revised: 2026-09-30
+translation_source_sha: 06106bc0e62db0e0b7287c49b4454f2fae0d1490
+translation_revised: 2026-10-01
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -518,6 +518,12 @@ auto-open도 비활성화하므로 결정론적 동등성 테스트가 Azure CLI
 [거버넌스 적용 실행 백엔드](../interfaces/execution-backends-ko.md)를 참조하세요.
 
 의미 인증 영수증 참조도 같은 동등성 규칙을 따릅니다. Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 선택적 `authentication_receipt_ref`를 보냅니다. 이 설정의 기본값은 꺼짐이며, 꺼져 있으면 모든 envelope는 이전 버전과 바이트를 그대로 유지합니다. 1.9.0을 받는 Core를 먼저 배포한 뒤에만 켜십시오. 이 참조 자체는 권한을 부여하지 않습니다. 설정을 켜면 Operator API와 채널 edge는 참조를 보내기 전에 의미 요청마다 콘텐츠가 없는 영수증을 보존하고, 검증기는 바로 그 요청에 보존된 영수증으로 `case-history-read`를 확인합니다. 설정이 꺼져 있으면 Pattern 읽기는 계속 실패 시 차단됩니다.
+
+Trial 만료 워터마크도 같은 규칙을 따릅니다. 로컬과 배포된 Core는 모두 해석한 안내 값을
+각자의 `licensing_entitlement_state` 행에 게시하고, 모든 Operator는 인증된 응답에 같은 방식으로
+이 값을 표시합니다. 검증된 로컬 발급자 워크스테이션은 `none`을 게시하며, 그 밖의 로컬
+체크아웃은 사용권이 없는 배포와 같은 워터마크를 표시합니다. 어떤 실행 장소, 테스트 대역,
+설정도 워터마크를 숨기지 않습니다.
 
 ## 배포자-스코프 LLM 프로비저닝
 

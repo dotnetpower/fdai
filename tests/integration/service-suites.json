@@ -106,6 +106,7 @@
           "services/operator-service/tests/test_dashboard_aggregation.py",
           "services/operator-service/tests/test_dashboard_source.py",
           "services/operator-service/tests/test_detection_lifecycle_projection.py",
+          "services/operator-service/tests/test_entitlement_stamp.py",
           "services/operator-service/tests/test_entra_directory.py",
           "services/operator-service/tests/test_hil_teams_callback.py",
           "services/operator-service/tests/test_handover_command_guard.py",

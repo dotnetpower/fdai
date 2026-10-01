@@ -30,5 +30,10 @@ services/core-control-plane/src/fdai/runtime/licensing.py
 services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py
 services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py
 services/core-control-plane/src/fdai/delivery/trust/
+# Trial expiry watermark: Core's entitlement-state publisher and its single writer,
+# and the Operator stamp that carries the notice to every authenticated response.
+services/core-control-plane/src/fdai/runtime/licensing_state.py
+services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py
+services/operator-service/src/fdai_operator_service/entitlement_stamp.py
 rule-catalog/schema/
 .github/instructions/

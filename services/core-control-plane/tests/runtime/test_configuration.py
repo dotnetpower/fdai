@@ -115,7 +115,11 @@ def test_runtime_bootstrap_reuses_one_settings_snapshot_for_llm_and_core() -> No
 
     assert "runtime_values=runtime_values" in llm_call
     assert "runtime_values_snapshot=runtime_values" in core_call
-    assert "license_authority=build_runtime_license_authority(" in core_call
+    # One authority serves both the execution gate and the watermark publisher.
+    assert bootstrap.count("build_runtime_license_authority(") == 1
+    assert "license_authority=license_authority" in core_call
+    publisher_call = core_call.split("build_entitlement_state_publisher(", 1)[1]
+    assert "authority=license_authority" in publisher_call
     assert "runtime_values_snapshot" not in drift_call
 
 

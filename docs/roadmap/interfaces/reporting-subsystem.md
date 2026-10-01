@@ -509,6 +509,8 @@ route.
 - **Explicit I/O boundaries**. Default provider-backed datasources wrap approved seams
   (`AuditReader`, `MetricProvider`, `LogQueryProvider`, `ReportFeed`, ontology/process stores).
   Local `filesystem_manifest` and `callable` adapters are opt-in, bounded, read-only registrations.
+  The migration ownership manifest also registers Core-owned tables such as
+  `licensing_entitlement_state` that no shipped datasource wraps, so no shipped report reads them.
 - **`core/` never imports `delivery/`**. The audit adapter takes a
   narrow duck-typed Protocol so the composition wire-up stays one-way
   (guarded by [`scripts/quality/architecture/check-core-imports.sh`](../../../scripts/quality/architecture/check-core-imports.sh)).

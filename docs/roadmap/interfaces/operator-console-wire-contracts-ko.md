@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: ea25deeca7423d7a1e76b402b80fe58c840795ec
+translation_source_sha: 8f1884a599b78b69a3059c8a2c87567c41d10689
 translation_revised: 2026-10-01
 ---
 
@@ -456,6 +456,15 @@ Operator는 스트림마다 첫 조회 `activity`보다 먼저 이 이벤트를 
 ### 13.12 의미 턴 인증 영수증 참조
 
 Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 선택적 `authentication_receipt_ref`를 보냅니다. 이 설정의 기본값은 꺼짐이며, 꺼져 있으면 모든 envelope는 이전 버전과 바이트를 그대로 유지합니다. 1.9.0을 받는 Core를 먼저 배포한 뒤에만 켜십시오. 이 참조 자체는 권한을 부여하지 않습니다. 설정을 켜면 Operator API와 채널 edge는 참조를 보내기 전에 의미 요청마다 콘텐츠가 없는 영수증을 보존하고, 검증기는 바로 그 요청에 보존된 영수증으로 `case-history-read`를 확인합니다. 설정이 꺼져 있으면 Pattern 읽기는 계속 실패 시 차단됩니다.
+
+### 13.13 사용권 표시 응답 헤더
+
+베어러 자격 증명이 검증된 요청에 대한 모든 Operator 응답은 `none`, `evaluation-ended`,
+`not-activated` 중 하나를 `X-FDAI-Entitlement`로 담으며, CORS는 이 헤더를 Console에 노출합니다.
+이 값은 Core의 [Trial 만료 워터마크](../fork-and-sequencing/capability-licensing-ko.md#사용권-상태-전달)
+안내 값입니다. 안내 값이 없거나, 형식이 잘못되었거나, 읽을 수 없거나, 오래되면
+`not-activated`를 표시합니다. 인증되지 않은 응답에는 표시가 없으며, 라우트는 이 표시를 바꿀 수
+없습니다. 이 헤더는 가용성 안내이며 권한을 부여하지 않습니다.
 
 ## 구현 상태
 

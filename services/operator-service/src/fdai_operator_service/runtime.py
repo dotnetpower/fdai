@@ -10,6 +10,7 @@ from fdai_service_contracts import OperatorReadModel, ReadDataSource
 
 from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.contracts import ApplicationLifecycle, AsgiApplication, ReadinessProbe
+from fdai_operator_service.entitlement_stamp import EntitlementStamp, PostgresEntitlementStateSource
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.routes import OperatorRouteFamilies, build_operator_app
 from fdai_operator_service.streaming import LiveStreamHub
@@ -65,4 +66,9 @@ class OperatorRuntime:
             local_cli_profile=self.local_cli_profile,
             local_cli_session_token=self.local_cli_session_token,
             lifecycle=self.lifecycle,
+            entitlement_stamp=EntitlementStamp(
+                PostgresEntitlementStateSource(self.environment.database_url)
+                if self.environment.database_url is not None
+                else None
+            ),
         )
