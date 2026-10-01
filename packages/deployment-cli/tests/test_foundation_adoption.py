@@ -325,3 +325,98 @@ def test_foundation_adoption_receipt_rejects_another_kit(tmp_path: Path) -> None
             kit_manifest_digest="e" * 64,
             runtime_release_digest="f" * 64,
         )
+
+
+def _swap_recovery_receipt(recovery: Path, **fields: object) -> None:
+    """Rewrite the terminal Foundation receipt and re-bind the dependent chain.
+
+    Changing the receipt changes its digest, so enrollment and state handoff must be
+    re-pointed at it. Otherwise the chain check fires first and the test would never
+    reach the terminal-pair decision it is about.
+    """
+
+    def _load(name: str) -> dict[str, object]:
+        return load_json_object(
+            (recovery / name).read_bytes(), label="retained Foundation evidence"
+        )
+
+    record = _load("recovery-apply-receipt.json")
+    record.pop("receipt_digest", None)
+    record.update(fields)
+    raw = _receipt(record)
+    _write(recovery / "recovery-apply-receipt.json", raw)
+    digest = load_json_object(raw, label="terminal Foundation receipt")["receipt_digest"]
+
+    enrollment = _load("runner-enrollment-receipt.json")
+    enrollment.pop("receipt_digest", None)
+    enrollment["foundation_receipt_digest"] = digest
+    enrollment_raw = _receipt(enrollment)
+    _write(recovery / "runner-enrollment-receipt.json", enrollment_raw)
+    enrollment_digest = load_json_object(enrollment_raw, label="enrollment receipt")[
+        "receipt_digest"
+    ]
+
+    state = _load("foundation-state-handoff-receipt.json")
+    state.pop("receipt_digest", None)
+    state["foundation_receipt_digest"] = digest
+    state["enrollment_receipt_digest"] = enrollment_digest
+    _write(recovery / "foundation-state-handoff-receipt.json", _receipt(state))
+
+
+def test_an_ordinary_apply_receipt_is_accepted_for_adoption(tmp_path: Path) -> None:
+    """A Foundation that completed normally must continue without a recovery detour."""
+
+    foundation, recovery = _inputs(tmp_path)
+    _swap_recovery_receipt(
+        recovery,
+        schema_version="fdai.genesis-foundation-apply-receipt.v1",
+        state="applied",
+    )
+
+    adoption = stage_recovered_foundation(
+        foundation_directory=foundation,
+        recovery_directory=recovery,
+        destination=tmp_path / "destination",
+        application_source_commit=APPLICATION_SOURCE,
+        kit_manifest_digest="e" * 64,
+        runtime_release_digest="f" * 64,
+        tenant_id=TENANT,
+        subscription_id=SUBSCRIPTION,
+        region=REGION,
+        monthly_cost_ceiling=2000,
+    )
+
+    assert adoption.receipt["state"] == "adopted"
+    assert adoption.receipt["no_effect_adoption"] is True
+
+
+@pytest.mark.parametrize(
+    ("schema_version", "state"),
+    [
+        ("fdai.genesis-foundation-apply-receipt.v1", "applying"),
+        ("fdai.foundation-recovery-receipt.v1", "applied"),
+        ("fdai.genesis-foundation-state-handoff-receipt.v1", "verified"),
+        ("fdai.unknown-receipt.v1", "verified"),
+    ],
+)
+def test_a_non_terminal_or_mismatched_receipt_is_refused(
+    tmp_path: Path, schema_version: str, state: str
+) -> None:
+    """Only the two exact terminal pairs adopt; a crossed pair must not."""
+
+    foundation, recovery = _inputs(tmp_path)
+    _swap_recovery_receipt(recovery, schema_version=schema_version, state=state)
+
+    with pytest.raises(ValueError, match="not terminal"):
+        stage_recovered_foundation(
+            foundation_directory=foundation,
+            recovery_directory=recovery,
+            destination=tmp_path / "destination",
+            application_source_commit=APPLICATION_SOURCE,
+            kit_manifest_digest="e" * 64,
+            runtime_release_digest="f" * 64,
+            tenant_id=TENANT,
+            subscription_id=SUBSCRIPTION,
+            region=REGION,
+            monthly_cost_ceiling=2000,
+        )
