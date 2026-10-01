@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -13,6 +12,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
 )
+from fdai.core.conversation.semantic_judgment_capabilities import property_canonical_values
 from fdai.core.conversation.semantic_planning_judgment import (
     _descriptors_for_operational_intent,
     _semantic_judgment_capabilities,
@@ -257,17 +257,18 @@ def test_judgment_capability_projection_preserves_only_reviewed_semantics() -> N
         {
             "kind": "object_type",
             "name": "Resource",
-            "canonical_values": ["Resource", "Resource.name", "Resource.type"],
+            "property_names": ["name", "type"],
         },
         {"kind": "function_type", "name": "query.unreviewed"},
     )
+    assert property_canonical_values(capabilities[1]) == ("Resource.name", "Resource.type")
 
 
-def test_judgment_capability_projection_omits_oversized_semantic_axes() -> None:
+def test_judgment_capability_projection_preserves_large_property_axis() -> None:
     measures = [f"measure.{index}" for index in range(33)]
     properties = {f"property_{index}": {} for index in range(33)}
 
-    assert _semantic_judgment_capabilities(
+    capabilities = _semantic_judgment_capabilities(
         (
             {
                 "kind": "function",
@@ -280,13 +281,21 @@ def test_judgment_capability_projection_omits_oversized_semantic_axes() -> None:
                 "properties": properties,
             },
         )
-    ) == (
+    )
+    assert capabilities == (
         {"kind": "function_type", "name": "query.large"},
-        {"kind": "object_type", "name": "LargeObject"},
+        {
+            "kind": "object_type",
+            "name": "LargeObject",
+            "property_names": sorted(properties),
+        },
+    )
+    assert property_canonical_values(capabilities[1]) == tuple(
+        f"LargeObject.{name}" for name in sorted(properties)
     )
 
 
-def test_judgment_capability_projection_preserves_ranked_prefix_within_byte_cap() -> None:
+def test_judgment_capability_projection_rejects_partial_ranked_prefix() -> None:
     descriptors = (
         {
             "kind": "function",
@@ -303,20 +312,8 @@ def test_judgment_capability_projection_preserves_ranked_prefix_within_byte_cap(
         ),
     )
 
-    capabilities = _semantic_judgment_capabilities(descriptors)
-    encoded = json.dumps(
-        capabilities,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-
-    assert len(encoded) <= 32 * 1024
-    assert len(capabilities) < len(descriptors)
-    assert capabilities[0]["name"] == "query.resource_event_history"
-    assert [item["name"] for item in capabilities] == [
-        item["name"] for item in descriptors[: len(capabilities)]
-    ]
+    with pytest.raises(ValueError, match="capability projection exceeds its byte bound"):
+        _semantic_judgment_capabilities(descriptors)
 
 
 def test_resource_event_history_narrows_frame_descriptors_after_judgment() -> None:
