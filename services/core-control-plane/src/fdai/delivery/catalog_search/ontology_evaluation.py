@@ -111,19 +111,13 @@ def prepare_ontology_retrieval_evaluation(
     if any(type_counts[item] < floor for item in required_object_types):
         raise ValueError("ontology evaluation corpus is below the per-type sample floor")
 
-    identities = tuple(item.case_id for item in cases)
+    _validate_evaluation_cases(cases, objects, evaluation_policy.top_k)
     digests = tuple(query_digest(item.query) for item in cases)
-    if len(set(identities)) != len(identities) or len(set(digests)) != len(digests):
-        raise ValueError("ontology evaluation case ids and canonical queries must be unique")
     if set(digests).intersection(query_digest(item) for item in calibration_queries):
         raise ValueError("ontology held-out queries must not occur in calibration data")
     counts: Counter[tuple[str, bool]] = Counter()
     targets: dict[tuple[str, str], set[str]] = {}
     for case in cases:
-        if any(item not in objects for item in case.expected_document_ids):
-            raise ValueError("ontology evaluation oracle must resolve to actual instance documents")
-        if len(case.expected_document_ids) > evaluation_policy.top_k:
-            raise ValueError("ontology evaluation oracle exceeds the frozen retrieval limit")
         counts[case.cohort, bool(case.expected_document_ids)] += 1
         if case.cohort.endswith("-positive"):
             locale = case.cohort.split("-", 1)[0]
@@ -169,6 +163,22 @@ def prepare_ontology_retrieval_evaluation(
         query_count=len(cases),
         embedding_call_upper_bound=len(build.documents) + len(cases),
     )
+
+
+def _validate_evaluation_cases(
+    cases: Sequence[OntologyRetrievalEvaluationCase], objects: dict[str, str], top_k: int
+) -> None:
+    if not 1 <= len(cases) <= 10_000:
+        raise ValueError("ontology evaluation dataset must be bounded")
+    identities = tuple(item.case_id for item in cases)
+    digests = tuple(query_digest(item.query) for item in cases)
+    if len(set(identities)) != len(identities) or len(set(digests)) != len(digests):
+        raise ValueError("ontology evaluation case ids and canonical queries must be unique")
+    for case in cases:
+        if any(item not in objects for item in case.expected_document_ids):
+            raise ValueError("ontology evaluation oracle must resolve to actual instance documents")
+        if len(case.expected_document_ids) > top_k:
+            raise ValueError("ontology evaluation oracle exceeds the frozen retrieval limit")
 
 
 def _instance_types(build: SemanticGenerationBuild, manifest: QueryManifest) -> dict[str, str]:

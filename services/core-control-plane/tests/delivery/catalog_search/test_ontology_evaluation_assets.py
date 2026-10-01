@@ -9,7 +9,9 @@ from fdai.core.ontology_platform import build_query_manifest
 from fdai.delivery.catalog_search.generation import build_ontology_semantic_generation
 from fdai.delivery.catalog_search.ontology_evaluation import (
     OntologyRetrievalEvaluationCase,
-    prepare_ontology_retrieval_evaluation,
+)
+from fdai.delivery.catalog_search.ontology_evaluation_campaign import (
+    prepare_ontology_retrieval_campaign,
 )
 from fdai.delivery.catalog_search.ranking import CatalogRankingPolicy
 from fdai.rule_catalog.schema.object_type import load_object_type_from_mapping
@@ -97,19 +99,19 @@ def test_authored_dataset_uses_real_declarations_and_separate_frozen_questions()
     }
     for case in (*calibration_cases, *heldout_cases):
         assert set(case.expected_document_ids) <= object_ids
-    plan = prepare_ontology_retrieval_evaluation(
+    plan = prepare_ontology_retrieval_campaign(
         build=build,
         manifest=manifest,
-        cases=heldout_cases,
-        calibration_queries=tuple(item.query for item in calibration_cases),
+        holdout_cases=heldout_cases,
+        calibration_cases=calibration_cases,
         ranking_policy=CatalogRankingPolicy(**calibration["candidate_ranking_policy"]),
         evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
             calibration["evaluation_policy"]
         ),
         required_object_types=names,
     )
-    assert plan.document_count == 28
-    assert plan.embedding_call_upper_bound + len(calibration_cases) == 116
+    assert len(build.documents) == 28
+    assert plan.embedding_call_upper_bound == 116
     assert 116 <= calibration["limits"]["embedding_calls"] == 128
     assert calibration["limits"]["total_seconds"] == 600
     assert calibration["limits"]["embedding_call_seconds"] == 5

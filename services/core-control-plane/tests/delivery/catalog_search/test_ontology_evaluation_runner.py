@@ -7,17 +7,25 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fdai.core.ontology_platform import QueryManifest
 from fdai.core.ontology_platform.interfaces import compile_interfaces
 from fdai.core.ontology_platform.object_sets import ObjectSetService
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.delivery.catalog_search.generation import SemanticGenerationBuild
 from fdai.delivery.catalog_search.ontology_candidate_reader import OntologyInstanceCandidateReader
-from fdai.delivery.catalog_search.ontology_evaluation import prepare_ontology_retrieval_evaluation
+from fdai.delivery.catalog_search.ontology_evaluation import (
+    OntologyRetrievalEvaluationCase,
+    prepare_ontology_retrieval_evaluation,
+)
 from fdai.delivery.catalog_search.ontology_evaluation_runner import (
     OntologyRetrievalEvaluationAbortedError,
     OntologyRetrievalEvaluationReport,
     run_ontology_retrieval_evaluation,
 )
-from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyGenerationSnapshotStore
+from fdai.delivery.catalog_search.ontology_snapshot_store import (
+    OntologyGenerationSnapshotStore,
+    OntologyStagedProjection,
+)
 from fdai.delivery.catalog_search.ontology_snapshot_validation import (
     validate_snapshot_against_current_graph,
 )
@@ -45,6 +53,9 @@ class _Embedder:
     stall = False
     wrong = False
 
+    def __init__(self, extra_cases: tuple[OntologyRetrievalEvaluationCase, ...] = ()) -> None:
+        self.cases = (*_cases(), *extra_cases)
+
     async def embed(self, text: str) -> tuple[float, ...]:
         self.calls += 1
         if self.calls == self.fail_on_call:
@@ -60,7 +71,7 @@ class _Embedder:
                 else ids[0]
             )
         else:
-            case = next(item for item in _cases() if item.query == text)
+            case = next(item for item in self.cases if item.query == text)
             selected = case.expected_document_ids[0] if case.expected_document_ids else None
             if self.wrong:
                 selected = None
@@ -83,9 +94,19 @@ class _Harness:
     store: InMemoryOntologyInstanceStore
     reader: OntologyInstanceCandidateReader
     clock: _Clock
+    build: SemanticGenerationBuild
+    manifest: QueryManifest
+    gateway: SecuredObjectSetQueryGateway
+    snapshots: OntologyGenerationSnapshotStore
+    staged: OntologyStagedProjection
 
 
-async def _harness(*, semantic_available: bool = True, empty_last: bool = False) -> _Harness:
+async def _harness(
+    *,
+    semantic_available: bool = True,
+    empty_last: bool = False,
+    extra_cases: tuple[OntologyRetrievalEvaluationCase, ...] = (),
+) -> _Harness:
     manifest = _manifest()
     clock = _Clock()
     cases = _cases()
@@ -137,7 +158,7 @@ async def _harness(*, semantic_available: bool = True, empty_last: bool = False)
         source_projection_digest=staged.source_projection_digest,
     )
     assert build is not None
-    embedder = _Embedder()
+    embedder = _Embedder(extra_cases)
     vectors = OntologyVectorSnapshotStore(
         state,
         embedder=embedder,
@@ -207,7 +228,9 @@ async def _harness(*, semantic_available: bool = True, empty_last: bool = False)
             query_timeout_seconds=timeout,
         )
 
-    return _Harness(run, embedder, store, reader, clock)
+    return _Harness(
+        run, embedder, store, reader, clock, build, manifest, gateway, snapshots, staged
+    )
 
 
 async def test_measures_real_reader_without_qualifying_synthetic_vectors() -> None:

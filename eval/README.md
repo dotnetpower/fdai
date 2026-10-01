@@ -31,6 +31,18 @@ below the proposed 128-call ceiling. These assets grant no live-call permission.
 representativeness against the intended operating scope, observed model binding and fresh bounded
 authorization remain prerequisites; a failed calibration must not open the holdout run.
 
+The [campaign runner](../services/core-control-plane/src/fdai/delivery/catalog_search/ontology_evaluation_campaign.py)
+now enforces this order against a prepared candidate reader. Admission freezes both ordered
+datasets, calibration labels, model/document generation and policies before the first query.
+Calibration uses the same metric thresholds but cannot satisfy the holdout's cohort or sample
+floors. A failed calibration returns no holdout report. Provider errors, source/policy drift and
+timeouts stop the attempt without retries and preserve completed diagnostic evidence.
+
+Both query stages share one monotonic total deadline, with per-query deadlines capped at five
+seconds. Document preparation and embedding happen before this runner and need their own bounded
+authorization; a live driver still needs an enclosing budget covering all 116 planned calls and
+preparation time. Stage-labelled reports remain diagnostic and cannot enable runtime search.
+
 ## Testing
 
 Run the focused static contract check from the repository root:
@@ -50,4 +62,11 @@ without any model or provider calls:
 
 ```bash
 uv run pytest -q --no-cov services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_assets.py
+```
+
+Verify calibration sequencing and stop conditions through the actual reader with deterministic
+test-only vectors:
+
+```bash
+uv run pytest -q --no-cov services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_campaign.py services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_runner.py
 ```

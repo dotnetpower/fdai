@@ -48,6 +48,7 @@ class OntologyRetrievalEvaluationReport:
     source_validations: tuple[OntologySnapshotValidation, OntologySnapshotValidation]
     cohort_metrics: tuple[CohortMetric, ...]
     failure_codes: tuple[str, ...]
+    stage: Literal["calibration", "holdout"] = "holdout"
     production_qualification: Literal[False] = field(default=False, init=False)
     execution_authority: Literal[False] = field(default=False, init=False)
 
@@ -98,15 +99,7 @@ async def run_ontology_retrieval_evaluation(
     candidate still traverses the reader's current graph authorization. Provider
     unavailability, drift or timeout aborts the attempt; parent cancellation propagates.
     """
-    if (
-        any(
-            isinstance(value, bool) or not math.isfinite(value)
-            for value in (total_timeout_seconds, query_timeout_seconds)
-        )
-        or not 0 < query_timeout_seconds <= min(total_timeout_seconds, 5)
-        or total_timeout_seconds > 7200
-    ):
-        raise ValueError("ontology evaluation requires bounded total and per-query deadlines")
+    _validate_deadlines(total_timeout_seconds, query_timeout_seconds)
     cases = tuple(cases)
     plan = prepare_ontology_retrieval_evaluation(
         build=build,
@@ -119,12 +112,66 @@ async def run_ontology_retrieval_evaluation(
     )
     if plan.binding_digest != expected_binding_digest:
         raise ValueError("ontology evaluation frozen input binding changed")
+    return await _measure_ontology_retrieval_cases(
+        binding_digest=plan.binding_digest,
+        build=build,
+        manifest=manifest,
+        cases=cases,
+        ranking_policy=ranking_policy,
+        evaluation_policy=evaluation_policy,
+        reader=reader,
+        snapshots=snapshots,
+        staged=staged,
+        gateway=gateway,
+        clock=clock,
+        deadline=asyncio.get_running_loop().time() + total_timeout_seconds,
+        query_timeout_seconds=query_timeout_seconds,
+        stage="holdout",
+    )
+
+
+def _validate_deadlines(total_timeout_seconds: float, query_timeout_seconds: float) -> None:
+    if (
+        any(
+            isinstance(value, bool) or not math.isfinite(value)
+            for value in (total_timeout_seconds, query_timeout_seconds)
+        )
+        or not 0 < query_timeout_seconds <= min(total_timeout_seconds, 5)
+        or total_timeout_seconds > 7200
+    ):
+        raise ValueError("ontology evaluation requires bounded total and per-query deadlines")
+
+
+async def _measure_ontology_retrieval_cases(
+    *,
+    binding_digest: str,
+    build: SemanticGenerationBuild,
+    manifest: QueryManifest,
+    cases: tuple[OntologyRetrievalEvaluationCase, ...],
+    ranking_policy: CatalogRankingPolicy,
+    evaluation_policy: RetrievalEvaluationPolicy,
+    reader: OntologyInstanceCandidateReader,
+    snapshots: OntologyGenerationSnapshotStore,
+    staged: OntologyStagedProjection,
+    gateway: SecuredObjectSetQueryGateway,
+    clock: Callable[[], datetime],
+    deadline: float,
+    query_timeout_seconds: float,
+    stage: Literal["calibration", "holdout"],
+) -> OntologyRetrievalEvaluationReport:
+    """Measure already admitted inputs, sharing the caller's absolute campaign deadline."""
     measurements: list[OntologyRetrievalMeasurement] = []
     observed: dict[tuple[str, str], list[float]] = defaultdict(list)
 
+    def check_deadline(bound: float = deadline) -> None:
+        if asyncio.get_running_loop().time() >= bound:
+            raise TimeoutError("ontology evaluation deadline expired")
+
     async def validate_source() -> OntologySnapshotValidation:
-        async with asyncio.timeout(min(total_timeout_seconds, 120)):
-            return await validate_snapshot_against_current_graph(
+        check_deadline()
+        source_deadline = min(deadline, asyncio.get_running_loop().time() + 120)
+        async with asyncio.timeout(120):
+            validation = await validate_snapshot_against_current_graph(
                 snapshots=snapshots,
                 staged=staged,
                 gateway=gateway,
@@ -135,16 +182,22 @@ async def run_ontology_retrieval_evaluation(
                 embedding_dimension=build.metadata.embedding_dimension,
                 validator_id="offline-evaluation-source-check",
             )
+        check_deadline(source_deadline)
+        return validation
 
     try:
-        async with asyncio.timeout(total_timeout_seconds):
+        async with asyncio.timeout_at(deadline):
             source_before = await validate_source()
             for case in cases:
+                check_deadline()
                 reader.validate_evaluation_binding(
                     staged=staged,
                     manifest=manifest,
-                    generation_digest=plan.generation_digest,
+                    generation_digest=build.metadata.generation_digest,
                     ranking_policy=ranking_policy,
+                )
+                query_deadline = min(
+                    deadline, asyncio.get_running_loop().time() + query_timeout_seconds
                 )
                 async with asyncio.timeout(query_timeout_seconds):
                     result = await reader.search(
@@ -155,6 +208,7 @@ async def run_ontology_retrieval_evaluation(
                         as_of=clock(),
                         limit=evaluation_policy.top_k,
                     )
+                check_deadline(query_deadline)
                 retrieved = tuple(item[0] for item in result.scores)
                 result_digest = content_digest(
                     {
@@ -195,9 +249,7 @@ async def run_ontology_retrieval_evaluation(
                     observed[case.cohort, "no-match-precision"].append(float(not retrieved))
             source_after = await validate_source()
     except (ValueError, PermissionError, TimeoutError):
-        raise OntologyRetrievalEvaluationAbortedError(
-            plan.binding_digest, tuple(measurements)
-        ) from None
+        raise OntologyRetrievalEvaluationAbortedError(binding_digest, tuple(measurements)) from None
     metrics = tuple(
         CohortMetric(cohort, metric, sum(values) / len(values), len(values))
         for (cohort, metric), values in sorted(observed.items())
@@ -208,7 +260,7 @@ async def run_ontology_retrieval_evaluation(
         "no-match-precision": evaluation_policy.min_no_match_precision,
     }
     return OntologyRetrievalEvaluationReport(
-        binding_digest=plan.binding_digest,
+        binding_digest=binding_digest,
         measurements=tuple(measurements),
         source_validations=(source_before, source_after),
         cohort_metrics=metrics,
@@ -219,4 +271,5 @@ async def run_ontology_retrieval_evaluation(
                 if item.value < thresholds[item.metric]
             )
         ),
+        stage=stage,
     )
