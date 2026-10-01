@@ -6,8 +6,9 @@ import asyncio
 import concurrent.futures
 import logging
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from fdai_service_contracts.ontology_query import (
@@ -31,16 +32,26 @@ PRODUCTION_SHADOW_ABSENT = "form_absent"
 PRODUCTION_SHADOW_LINKED = "linked"
 
 
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 @dataclass(frozen=True, slots=True)
 class ProductionShadowSettings:
     """Typed default-off switch and stable sampling namespace."""
 
     enabled: bool = False
     sample_key: str = "semantic-production-shadow"
+    sample_percent: int = 100
+    ttl_seconds: int = 86400
 
     def __post_init__(self) -> None:
         if not self.sample_key.strip() or len(self.sample_key) > 128:
             raise ValueError("production shadow sample key MUST be non-empty and bounded")
+        if type(self.sample_percent) is not int or not 0 <= self.sample_percent <= 100:
+            raise ValueError("production shadow sample percent MUST be between 0 and 100")
+        if type(self.ttl_seconds) is not int or not 0 < self.ttl_seconds <= 30 * 86400:
+            raise ValueError("production shadow TTL MUST be between 1 second and 30 days")
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +69,7 @@ class ProductionShadowRecord:
     frame_digest: str
     compiled_plan_digest: str
     answer_output_digest: str
+    expires_at: datetime
     execution_authority: bool = False
 
     def as_state(self) -> dict[str, object]:
@@ -73,6 +85,7 @@ class ProductionShadowRecord:
             "frame_digest": self.frame_digest,
             "compiled_plan_digest": self.compiled_plan_digest,
             "answer_output_digest": self.answer_output_digest,
+            "expires_at": self.expires_at.isoformat(),
             "execution_authority": False,
         }
 
@@ -126,6 +139,7 @@ class ProductionShadowRecorder:
 
     settings: ProductionShadowSettings
     sink: ProductionShadowSink
+    clock: Callable[[], datetime] = _utc_now
 
     def record(
         self,
@@ -141,8 +155,15 @@ class ProductionShadowRecorder:
     ) -> ProductionShadowRecord | None:
         if not self.settings.enabled:
             return None
+        sample_id_digest = _sample_digest(self.settings.sample_key, utterance, context)
+        if int(sample_id_digest.removeprefix("sha256:"), 16) % 100 >= self.settings.sample_percent:
+            return None
+        now = self.clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("production shadow clock MUST be timezone-aware")
         record = production_shadow_record(
-            sample_key=self.settings.sample_key,
+            sample_id_digest=sample_id_digest,
+            expires_at=now + timedelta(seconds=self.settings.ttl_seconds),
             utterance=utterance,
             context=context,
             proposal=proposal,
@@ -190,7 +211,8 @@ def record_planned_shadow(
 
 def production_shadow_record(
     *,
-    sample_key: str,
+    sample_id_digest: str,
+    expires_at: datetime,
     utterance: str,
     context: tuple[str, ...],
     proposal: SemanticJudgmentProposal,
@@ -203,9 +225,7 @@ def production_shadow_record(
     carried = proposal.question_form
     return ProductionShadowRecord(
         disposition=PRODUCTION_SHADOW_LINKED if carried is not None else PRODUCTION_SHADOW_ABSENT,
-        sample_id_digest=content_digest(
-            {"sample_key": sample_key, "utterance": utterance, "context": context}
-        ),
+        sample_id_digest=sample_id_digest,
         judgment_request_digest=content_digest(
             {
                 "input_digest": receipt.input_digest,
@@ -227,7 +247,12 @@ def production_shadow_record(
         frame_digest=frame.frame_digest,
         compiled_plan_digest=plan.plan_digest,
         answer_output_digest=content_digest(_outcome_digest_payload(outcome)),
+        expires_at=expires_at,
     )
+
+
+def _sample_digest(sample_key: str, utterance: str, context: tuple[str, ...]) -> str:
+    return content_digest({"sample_key": sample_key, "utterance": utterance, "context": context})
 
 
 def _outcome_digest_payload(outcome: SemanticPlanningOutcome) -> Mapping[str, object]:

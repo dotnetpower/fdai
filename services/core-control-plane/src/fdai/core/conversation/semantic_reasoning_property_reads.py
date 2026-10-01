@@ -21,7 +21,7 @@ from fdai.core.ontology_platform import ReviewedPropertyRead
 
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_admission import FormAdmission
-from .semantic_reasoning_binding import AnchorBindingReceipt
+from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
 from .semantic_reasoning_form import FormGoal, GoalOperation, MeasureKind, MentionDomain
 from .semantic_reasoning_nodes import (
@@ -84,6 +84,15 @@ def property_lookup(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     field = property_field(binding.values[0], ctx.manifest.property_reads, resource_type, readable)
     if not field.startswith("properties."):
         return OperatorResult(unsupported=(field,))
+    if resource_type is not None:
+        definition = dict(anchor.arguments["definition"])
+        definition["predicates"] = [
+            *definition["predicates"],
+            {"property": "type", "operator": "equals", "equals": resource_type},
+        ]
+        anchor = anchor.model_copy(
+            update={"arguments_json": canonical_json({"definition": definition})}
+        )
     project = OntologyQueryNode(
         node_id=f"{goal.id}-read",
         kind=QueryNodeKind.PROJECT,
@@ -124,7 +133,7 @@ def property_field(
         return "property_freshness_unestablished"
     if resource_type is None:
         return "property_type_unbound"
-    path = dict(read.paths).get(resource_type)
+    path = next((path for kind, path in read.paths if kind == resource_type), None)
     if path is None:
         return "property_type_unsupported"
     return f"properties.{_PROVIDER_BAG}.{path}"
@@ -171,8 +180,26 @@ def expected_property_fields(
     return projected_fields(field, readable) if field.startswith("properties.") else None
 
 
+def expected_anchor_type(goal: FormGoal, anchors: AnchorBindingReceipt) -> str | None:
+    relation = goal.relation
+    mention = relation.anchor if relation is not None and relation.anchor else goal.subject
+    binding = anchors.binding(mention) if mention is not None else None
+    return binding.resource_type if binding is not None else None
+
+
+def expected_anchor_id(goal: FormGoal, anchors: AnchorBindingReceipt) -> str | None:
+    relation = goal.relation
+    mention = relation.anchor if relation is not None and relation.anchor else goal.subject
+    binding = anchors.binding(mention) if mention is not None else None
+    if binding is None or binding.outcome is not AnchorOutcome.BOUND:
+        return None
+    return binding.object_id
+
+
 def property_read_violations(
-    plans: Sequence[OntologyQueryPlan], expected_anchor: str | None
+    plans: Sequence[OntologyQueryPlan],
+    expected_anchor: str | None,
+    expected_type: str | None,
 ) -> list[str]:
     """V-SEM: a property lookup reads only one projection over its exact anchor read."""
 
@@ -191,9 +218,26 @@ def property_read_violations(
         if source is not None and source.kind is QueryNodeKind.OBJECT_SET
         else None
     )
-    anchored = expected_anchor is not None and predicates == [
-        {"property": "id", "operator": "equals", "equals": expected_anchor}
+    expected = [
+        {"property": "id", "operator": "equals", "equals": expected_anchor},
+        *(
+            [{"property": "type", "operator": "equals", "equals": expected_type}]
+            if expected_type is not None
+            else []
+        ),
     ]
+    anchored = (
+        expected_anchor is not None
+        and predicates is not None
+        and all(item in predicates for item in expected)
+        and len(predicates) == len(expected)
+        and all(
+            isinstance(item, dict)
+            and item.get("property") in {"id", "type"}
+            and item.get("operator") == "equals"
+            for item in predicates
+        )
+    )
     return [] if anchored and len(nodes) == 2 else ["sem_property_read_missing"]
 
 

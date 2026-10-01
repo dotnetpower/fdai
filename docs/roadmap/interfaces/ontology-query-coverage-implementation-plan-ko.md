@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 60c6e0b4c65f864e87f98ba056c508e3e4c8dc67
+translation_source_sha: f4d23c983a7f3cd7b094723096d33af5d755f5d0
 translation_revised: 2026-10-01
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -146,6 +146,9 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > 의존성 출력 종류와 ObjectSet, Project, Order 및 집합 연산 의존성을 통해 전파된 집계 필드,
 > 함수 스키마 및 등록된 확장 스키마를 검사합니다. Temporal, metric-series 및
 > evidence-join 핸들러는 이제 검증기와 실행기가 공유하는 핸들러 맵에 포함됩니다. 운영 조립은
+> 검토된 프로바이더 속성 경로도 검토된 Resource 유형으로 범위를 제한합니다. 혼합 유형 ObjectSet은
+> 선택된 모든 유형이 경로를 검토한 경우에만 해당 경로를 projection할 수 있으며, 결속된 속성 조회는
+> 정확한 Resource 유형을 컴파일과 의미 검증에 모두 전달합니다.
 > 비어 있지 않은 state-store DSN에서 PostgreSQL 토폴로지 이력을 연결하고 검토된 레지스트리와
 > no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. 그렇지 않으면
 > 해당 기능은 타입이 지정된 사용 불가 상태로 유지됩니다.

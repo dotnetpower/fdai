@@ -140,6 +140,8 @@ class StageReservation:
     request: StageCost
     started: float
     status: str = "reserved"
+    actual: StageCost | None = None
+    ended_at: float | None = None
 
 
 @dataclass(slots=True)
@@ -198,9 +200,11 @@ class TurnReservationLedger:
 
         if record.status != "reserved":
             raise ValueError("a reservation is reconciled or failed once")
-        elapsed = max(self.clock() - record.started, 0.0)
+        record.ended_at = self.clock()
+        elapsed = max(record.ended_at - record.started, 0.0)
         tokens = output_tokens if output_tokens is not None else record.request.output_tokens
         actual = replace(record.request, output_tokens=tokens, wall_seconds=elapsed)
+        record.actual = actual
         overrun = not actual.fits(record.charged)
         record.charged = _at_least(actual, record.charged) if overrun else actual
         record.status = "overrun" if overrun else "reconciled"
@@ -209,6 +213,7 @@ class TurnReservationLedger:
         """Keep a failed call's whole reservation charged."""
 
         if record.status == "reserved":
+            record.ended_at = self.clock()
             record.status = "failed"
 
     def cancel(self) -> None:

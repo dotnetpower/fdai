@@ -229,7 +229,8 @@ def test_a_property_lookup_projects_only_the_reviewed_path_of_the_bound_anchor()
     anchor, project = batch.plan.nodes
     assert anchor.kind is QueryNodeKind.OBJECT_SET
     assert anchor.arguments["definition"]["predicates"] == [
-        {"property": "id", "operator": "equals", "equals": "sql-1"}
+        {"property": "id", "operator": "equals", "equals": "sql-1"},
+        {"property": "type", "operator": "equals", "equals": "sql-database"},
     ]
     assert project.kind is QueryNodeKind.PROJECT
     assert project.arguments["fields"] == [
@@ -515,6 +516,34 @@ def test_nested_secrets_and_addresses_never_reach_a_structured_answer() -> None:
     assert "Hunter2!" not in answer and "alice@contoso.com" not in answer
 
 
+def test_nested_connection_status_is_preserved_but_connection_material_is_redacted() -> None:
+    answer = _rendered(
+        {
+            **_IDENTITY,
+            _SETTINGS_FIELD: {
+                "privateEndpointConnectionStatus": "Approved",
+                "dbConnection": "Server=db;User=operator;Password=Hunter2!",
+                "connection_uri": "postgres://operator:secret@db",
+                "connectionString": "Server=db;Password=Hunter2!",
+                "sas": "sv=2023-01-01&sig=SHARED_SECRET",
+                "cookie": "session=SECRET",
+                "apiKey": "secret-key",
+            },
+        },
+        _SETTINGS_FIELD,
+        _SETTINGS,
+    )
+
+    assert "privateEndpointConnectionStatus" in answer
+    assert "Approved" in answer
+    assert "Server=db;User=operator;Password=Hunter2!" not in answer
+    assert "postgres://operator:secret@db" not in answer
+    assert "Server=db;Password=Hunter2!" not in answer
+    assert "sv=2023-01-01&sig=SHARED_SECRET" not in answer
+    assert "session=SECRET" not in answer
+    assert "secret-key" not in answer
+
+
 def test_the_verifier_admits_only_reviewed_provider_paths() -> None:
     _admission, plan = _plan()
     manifest = production_manifest()
@@ -527,4 +556,94 @@ def test_the_verifier_admits_only_reviewed_provider_paths() -> None:
     with pytest.raises(ValueError, match="absent from dependency output schema"):
         plan_verifier().verify(
             _with_fields(plan, ["id", "properties.properties.os_profile"]), manifest=manifest
+        )
+
+
+def test_a_reviewed_provider_path_cannot_cross_resource_types() -> None:
+    admission, plan = _plan()
+    wrong_type = _with_nodes(
+        plan,
+        (
+            plan.nodes[0].model_copy(
+                update={
+                    "arguments_json": canonical_json(
+                        {
+                            "definition": {
+                                **plan.nodes[0].arguments["definition"],
+                                "predicates": [
+                                    {"property": "id", "operator": "equals", "equals": "sql-1"},
+                                    {
+                                        "property": "type",
+                                        "operator": "equals",
+                                        "equals": "compute.vm",
+                                    },
+                                ],
+                            }
+                        }
+                    )
+                }
+            ),
+            plan.nodes[1],
+        ),
+    )
+
+    with pytest.raises(ValueError, match="absent from dependency output schema"):
+        plan_verifier().verify(
+            _with_fields(
+                wrong_type,
+                ["id", "properties.name", "properties.properties.zone_redundant"],
+            ),
+            manifest=production_manifest(),
+        )
+
+
+def test_a_reviewed_provider_path_requires_every_in_selected_type_to_be_reviewed() -> None:
+    _admission, plan = _plan()
+    selected_types = _with_nodes(
+        plan,
+        (
+            plan.nodes[0].model_copy(
+                update={
+                    "arguments_json": canonical_json(
+                        {
+                            "definition": {
+                                **plan.nodes[0].arguments["definition"],
+                                "predicates": [
+                                    {"property": "id", "operator": "equals", "equals": "sql-1"},
+                                    {
+                                        "property": "type",
+                                        "operator": "in",
+                                        "values": ["sql-database"],
+                                    },
+                                ],
+                            }
+                        }
+                    )
+                }
+            ),
+            plan.nodes[1],
+        ),
+    )
+
+    assert plan_verifier().verify(
+        _with_fields(
+            selected_types,
+            ["id", "properties.name", "properties.properties.zone_redundant"],
+        ),
+        manifest=production_manifest(),
+    )
+    mixed_types = selected_types.nodes[0].model_copy(
+        update={
+            "arguments_json": selected_types.nodes[0].arguments_json.replace(
+                '["sql-database"]', '["compute.vm","sql-database"]'
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="absent from dependency output schema"):
+        plan_verifier().verify(
+            _with_fields(
+                _with_nodes(selected_types, (mixed_types, selected_types.nodes[1])),
+                ["id", "properties.name", "properties.properties.zone_redundant"],
+            ),
+            manifest=production_manifest(),
         )

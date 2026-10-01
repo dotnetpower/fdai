@@ -41,19 +41,19 @@ def direction_cost_receipt(
     records = [item for item in ledger.records if item.stage is TurnStage.DIRECTION_READER]
     if not records:
         return None
-    settled = [item for item in records if item.status in {"reconciled", "overrun"}]
+    settled = [
+        item
+        for item in records
+        if item.status in {"reconciled", "overrun"} and item.actual is not None
+    ]
     first_calls = max(direction_calls - tiebreak_calls, 0)
-    span = (
-        max(item.started + item.charged.wall_seconds for item in settled)
-        - min(item.started for item in settled)
-        if settled
-        else 0.0
-    )
+    ended = [item.ended_at for item in records if item.ended_at is not None]
+    span = max(ended) - min(item.started for item in records) if ended else 0.0
     receipt = DirectionCostReceipt(
-        readers=2 if tiebreak_calls and len(records) > first_calls else 1,
+        readers=2 if first_calls and tiebreak_calls and len(records) > first_calls else 1,
         calls=len(records),
-        input_bytes=sum(item.charged.input_bytes for item in settled),
-        output_tokens=sum(item.charged.output_tokens for item in settled),
+        input_bytes=sum(item.actual.input_bytes for item in settled if item.actual is not None),
+        output_tokens=sum(item.actual.output_tokens for item in settled if item.actual is not None),
         wall_ms=int(span * 1000),
         unsettled_calls=len(records) - len(settled),
     )

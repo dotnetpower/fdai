@@ -24,6 +24,7 @@ from .models import (
 )
 from .property_values import declared_property_values
 from .query_manifest import QueryManifest
+from .query_property_review import reviewed_fields_for_resource_set, reviewed_property_paths
 
 _EXACT_VALUE_OPERATORS = {
     ObjectPredicateOperator.EQUALS,
@@ -107,12 +108,7 @@ class OntologyQueryPlanVerifier:
             (str(item["kind"]), str(item["name"])): item for item in manifest.descriptors
         }
         nodes_by_id: dict[str, OntologyQueryNode] = {}
-        # Only a reviewed Property path may be read inside the Resource provider bag.
-        reviewed = frozenset(
-            f"properties.properties.{path}"
-            for read in manifest.property_reads
-            for _kind, path in read.paths
-        )
+        reviewed = reviewed_property_paths(manifest.property_reads)
         for node in plan.nodes:
             if node.kind not in self._available_kinds:
                 raise ValueError(f"query node kind {node.kind.value!r} is unavailable")
@@ -131,7 +127,7 @@ class OntologyQueryPlanVerifier:
         *,
         nodes_by_id: Mapping[str, OntologyQueryNode],
         descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
-        reviewed_nested: frozenset[str] = frozenset(),
+        reviewed_nested: Mapping[str, frozenset[str]] | None = None,
     ) -> None:
         arguments = node.arguments
         if node.kind in _TABLE_KINDS and node.output_kind != "query.table":
@@ -210,7 +206,7 @@ class OntologyQueryPlanVerifier:
                 fields=normalized,
                 nodes_by_id=nodes_by_id,
                 descriptors=descriptors,
-                reviewed_nested=reviewed_nested,
+                reviewed_nested=reviewed_nested or {},
             )
             return
         if node.kind is QueryNodeKind.AGGREGATE:
@@ -594,7 +590,7 @@ class OntologyQueryPlanVerifier:
         fields: tuple[str, ...],
         nodes_by_id: Mapping[str, OntologyQueryNode],
         descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
-        reviewed_nested: frozenset[str] = frozenset(),
+        reviewed_nested: Mapping[str, frozenset[str]] | None = None,
     ) -> None:
         dependency = nodes_by_id[node.depends_on[0]]
         available_fields = OntologyQueryPlanVerifier._table_fields(
@@ -606,7 +602,11 @@ class OntologyQueryPlanVerifier:
             return
         # A projection reads inside the readable provider bag of the Resource set it reads
         # directly only at a reviewed Property path, never at any other provider field.
-        nested = reviewed_nested if _reads_resources(dependency, available_fields) else frozenset()
+        nested = (
+            reviewed_fields_for_resource_set(dependency, reviewed_nested or {})
+            if _reads_resources(dependency, available_fields)
+            else {}
+        )
         if any(field not in available_fields and field not in nested for field in fields):
             raise ValueError("aggregate field is absent from dependency output schema")
 

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2e366e38692ed4763b69bb5f4998edd9eca0c4e0
+translation_source_sha: 533b9c7105c467fdd3b38209cb53653707758593
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -14,6 +14,11 @@ translation_revised: 2026-10-01
 남은 E9 연산자는 전용 Core 대화 helper에 누락된 선행 조건 결정을 보존하므로, 지원되지 않는 rank, aggregate, comparison, version, evidence, diagnose 및 path 행은 다른 연산의 계획으로 fallback하지 않습니다.
 Metric window comparison 계획도 전용 Core 대화 helper에 격리됩니다. 형식 필드는 두 기간을 전달하고, query runtime은 기존 metric comparison node를 사용하며 실행 권한은 부여하지 않습니다.
 현재 경로의 피연산자 출처 검사는 전용 Core 대화 helper에 남습니다. 모델이 제안한 계획의 신원은 텍스트, 이전 문맥, 결과 핸들 또는 서버 바인딩 증적에서만 수락되며, 서버가 만든 계획은 기존 권한 경계를 유지합니다.
+잔여 추론 강화도 서버 신원, 계획 커버리지 및 검토된 프로바이더 속성 권한을 전용 Core helper에
+유지합니다. 결속된 문맥 증적은 principal, 범위 및 온톨로지 release를 확인한 뒤에만 수락하며,
+선택된 모든 Resource 유형이 경로를 검토한 경우에만 프로바이더 경로를 사용할 수 있습니다.
+최근 변경 이어 읽기 저장소는 불투명 참조 하나를 원자적으로 선점하고, 대화 계층은 계속 읽기
+전용이며 실행 권한을 부여하지 않습니다.
 현재 경로 관계와 상태 검토 수렴도 같은 Core 대화 경계에 남습니다. 공개된 관계 계획은 공유 컴파일러에서 나오며, 독립 상태 검토는 Operator route를 추가하지 않고 facet 텍스트 대신 닫힌 의미 축을 비교합니다.
 타입 제약 슬롯도 공유 계약과 Core 대화 경계에 격리됩니다. 서비스 계약 SDK는 버전이 지정된 판단 및
 frame 필드를 소유하고, Core는 슬롯 커버리지, plan 커버리지, 기본적으로 꺼진 모델 스키마 노출을
