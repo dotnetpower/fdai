@@ -37,9 +37,9 @@ class _Author:
 @dataclass(slots=True)
 class _Reviewer:
     family: str
-    decisions: list[bool]
+    decisions: list[bool | None]
 
-    async def review(self, *, answer: ComposedAnswer, evidence_view) -> bool:
+    async def review(self, *, answer: ComposedAnswer, evidence_view) -> bool | None:
         del answer
         assert "resource_id" not in evidence_view.canonical_json()
         return self.decisions.pop(0)
@@ -150,3 +150,36 @@ async def test_authoring_retries_once_on_vclaim_or_review_failure_then_holds() -
     assert result.held_reason == "verified_answer_review_rejected"
     assert result.attempts == 2
     assert author.retry_reasons[1]
+
+
+async def test_two_claim_rejections_hold_with_the_claim_reason() -> None:
+    bad = _answer("It is stopped.")
+    service = VerifiedAnswerAuthoringService(
+        author=_Author("author-family", [bad, bad], []),
+        reviewer=_Reviewer("review-family", []),
+    )
+
+    result = await service.author_answer(
+        utterance="What is the state?", evidence_view=_view(), evidence=_evidence()
+    )
+
+    assert (result.answer, result.held_reason, result.attempts) == (
+        None,
+        "verified_answer_claims_rejected",
+        2,
+    )
+
+
+async def test_an_unavailable_reviewer_holds_instead_of_passing_the_answer() -> None:
+    service = VerifiedAnswerAuthoringService(
+        author=_Author("author-family", [_answer()], []),
+        reviewer=_Reviewer("review-family", [None]),
+    )
+
+    result = await service.author_answer(
+        utterance="What is the state?", evidence_view=_view(), evidence=_evidence()
+    )
+
+    assert result.answer is None
+    assert result.held_reason == "entailment_review_unavailable"
+    assert result.verdict is not None and result.verdict.accepted

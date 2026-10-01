@@ -39,7 +39,9 @@ class VerifiedAnswerReviewer(Protocol):
         *,
         answer: ComposedAnswer,
         evidence_view: ModelEvidenceView,
-    ) -> bool: ...
+    ) -> bool | None:
+        """Return whether every claim follows from its evidence; ``None`` when unavailable."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +73,7 @@ class VerifiedAnswerAuthoringService:
     ) -> VerifiedAnswerAuthoringResult:
         retry_reasons: tuple[str, ...] = ()
         last_verdict: ClaimVerdict | None = None
+        held = "verified_answer_review_rejected"
         for attempt in (1, 2):
             answer = await self._author.author(
                 utterance=utterance,
@@ -89,14 +92,18 @@ class VerifiedAnswerAuthoringService:
             )
             last_verdict = verdict
             if not verdict.accepted:
-                retry_reasons = verdict.violations
+                retry_reasons, held = verdict.violations, "verified_answer_claims_rejected"
                 continue
-            if await self._reviewer.review(answer=answer, evidence_view=evidence_view):
+            reviewed = await self._reviewer.review(answer=answer, evidence_view=evidence_view)
+            if reviewed is None:
+                # No reviewer reading is not a pass; the answer holds with the evidence view.
+                return VerifiedAnswerAuthoringResult(
+                    None, verdict, "entailment_review_unavailable", attempt
+                )
+            if reviewed:
                 return VerifiedAnswerAuthoringResult(answer, verdict, attempts=attempt)
-            retry_reasons = ("entailment_rejected",)
-        return VerifiedAnswerAuthoringResult(
-            None, last_verdict, "verified_answer_review_rejected", 2
-        )
+            retry_reasons, held = ("entailment_rejected",), "verified_answer_review_rejected"
+        return VerifiedAnswerAuthoringResult(None, last_verdict, held, 2)
 
 
 __all__ = [
