@@ -1,0 +1,105 @@
+"""Loki recurring chaos scheduler regressions."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
+from fdai.agents._framework.registry import load_pantheon
+from fdai.agents.loki import Loki
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+_NOW = datetime(2026, 10, 1, 2, 0, tzinfo=UTC)
+
+
+def _complete_schedule(*, schedule_id: str = "weekly-dr") -> ChaosScheduleConfig:
+    return ChaosScheduleConfig(
+        schedule_id=schedule_id,
+        cadence=timedelta(hours=1),
+        targets=("resource-chaos",),
+        causal_hypothesis_ref="hypothesis:latency-cascade",
+        refutation_query_ref="query:no-cascade",
+        impact_envelope_id="impact:bounded",
+        recovery_plan_id="recovery:ready",
+        dry_run_receipt="dry-run:ok",
+        start_at=_NOW - timedelta(hours=2),
+    )
+
+
+async def test_loki_recurring_scheduler_publishes_one_always_hil_window() -> None:
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    store = InMemoryStateStore()
+    loki = Loki(
+        bus=bus,
+        state_store=store,
+        clock=lambda: _NOW,
+        recurring_schedule=_complete_schedule(),
+    )
+
+    await loki.maintenance_tick()
+    await loki.maintenance_tick()
+
+    (proposal,) = (message.payload for message in bus.messages_on("object.chaos-experiment"))
+    assert proposal["action_type"] == "tool.run-chaos-experiment"
+    assert proposal["targets"] == ["resource-chaos"]
+    assert proposal["human_approval_required"] is True
+    assert proposal["dry_run_receipt"] == "dry-run:ok"
+    assert loki.behavior_snapshot()["chaos_scheduler:published"] == 1
+    assert loki.behavior_snapshot()["chaos_scheduler:duplicate_window"] == 1
+
+
+async def test_loki_recurring_scheduler_holds_incomplete_or_unbound_state() -> None:
+    loki = Loki(clock=lambda: _NOW)
+
+    await loki.maintenance_tick()
+
+    assert loki.behavior_snapshot()["chaos_scheduler:unbound"] == 1
+    health = loki.health()
+    assert health["ingress"]["recurring_scheduler"] == "disabled"
+
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    incomplete = Loki(
+        bus=bus,
+        state_store=InMemoryStateStore(),
+        clock=lambda: _NOW,
+        recurring_schedule=ChaosScheduleConfig(
+            schedule_id="incomplete",
+            cadence=timedelta(hours=1),
+            targets=("resource-chaos",),
+            start_at=_NOW - timedelta(hours=1),
+        ),
+    )
+
+    await incomplete.maintenance_tick()
+
+    assert bus.messages_on("object.chaos-experiment") == []
+    assert incomplete.behavior_snapshot()["chaos_scheduler:incomplete_evidence"] == 1
+
+
+async def test_loki_recurring_scheduler_records_hold_when_blast_radius_is_full() -> None:
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    loki = Loki(
+        bus=bus,
+        blast_radius_cap=1,
+        state_store=InMemoryStateStore(),
+        clock=lambda: _NOW,
+        recurring_schedule=_complete_schedule(schedule_id="blocked-window"),
+    )
+    first = await loki.propose_experiment(
+        experiment_id="already-running",
+        action_type="tool.run-chaos-experiment",
+        targets=("resource-chaos",),
+        correlation_id="already-running",
+        causal_hypothesis_ref="hypothesis:existing",
+        refutation_query_ref="query:existing",
+        impact_envelope_id="impact:existing",
+        recovery_plan_id="recovery:existing",
+        dry_run_receipt="dry-run:existing",
+    )
+    assert first.accepted
+
+    await loki.maintenance_tick()
+
+    assert len(bus.messages_on("object.chaos-experiment")) == 1
+    assert loki.behavior_snapshot()["chaos_scheduler:blast_radius_full"] == 1

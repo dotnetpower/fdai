@@ -10,6 +10,7 @@ from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.development_authority_runtime import DevelopmentRuntimeBindings
+from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.ontology_index import (
     ContextIndexWorkerBindings,
     recover_context_index_publications,
@@ -234,6 +235,7 @@ def bind_operational_agents(
     njord_state_store: StateStore | None,
     capacity_graduation_controller: CapacityGraduationController | None,
     freyr_state_store: StateStore | None,
+    freyr_utilization_sampler: CapacityUtilizationSampler | None = None,
     test_context_source: TestContextSource | None = None,
     test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
     anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
@@ -330,6 +332,7 @@ def bind_operational_agents(
     agents["Freyr"] = factory.configured_freyr(
         capacity_graduation_controller,
         state_store=freyr_state_store,
+        utilization_sampler=freyr_utilization_sampler,
     )
 
 

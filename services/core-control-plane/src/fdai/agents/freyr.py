@@ -18,6 +18,11 @@ from typing import Any
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.freyr_sampling import (
+    MAX_RECURRING_SAMPLES,
+    CapacityUtilizationSampler,
+    run_recurring_sampling,
+)
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
@@ -73,6 +78,8 @@ class Freyr(Agent):
         graduation_controller: CapacityGraduationController | None = None,
         clock: Callable[[], datetime] | None = None,
         state_store: StateStore | None = None,
+        utilization_sampler: CapacityUtilizationSampler | None = None,
+        recurring_sample_limit: int = MAX_RECURRING_SAMPLES,
     ) -> None:
         super().__init__(spec=_FREYR)
         self.bus = bus
@@ -95,9 +102,14 @@ class Freyr(Agent):
         self._resource_locks: dict[str, asyncio.Lock] = {}
         self._resource_lock_refs: dict[str, int] = {}
         self._cost_evidence_lock = asyncio.Lock()
+        self._utilization_sampler = utilization_sampler
+        self._recurring_sample_limit = recurring_sample_limit
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    def bind_utilization_sampler(self, sampler: CapacityUtilizationSampler | None) -> None:
+        self._utilization_sampler = sampler
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.cost-anomaly":
@@ -571,16 +583,20 @@ class Freyr(Agent):
     def health(self) -> dict[str, Any]:
         durable_state = "durable" if self._state_store is not None else "process_local"
         controller_bound = self._graduation_controller is not None
+        sampler_bound = self._utilization_sampler is not None
         status = "ok" if controller_bound and self._state_store is not None else "degraded"
         return {
             "agent": "Freyr",
             "status": status,
             "ingress": {
                 "capacity_sample": "active",
+                "recurring_sampling": "active" if sampler_bound else "disabled",
                 "capacity_graduation": ("active" if controller_bound else "disabled"),
                 "reason": (
-                    "graduation_controller_bound"
-                    if controller_bound
+                    "sampler_and_graduation_bound"
+                    if controller_bound and sampler_bound
+                    else "utilization_sampler_unbound"
+                    if not sampler_bound
                     else "graduation_controller_unbound"
                 ),
             },
@@ -626,6 +642,16 @@ class Freyr(Agent):
             },
             "behavior": self.behavior_snapshot(),
         }
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        await run_recurring_sampling(
+            sampler=self._utilization_sampler,
+            clock=self._clock,
+            ingest=self.ingest_utilization,
+            record_behavior=self.record_behavior,
+            limit=self._recurring_sample_limit,
+        )
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {

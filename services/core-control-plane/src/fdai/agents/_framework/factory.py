@@ -12,7 +12,10 @@ from dataclasses import dataclass
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
+from fdai.agents._framework.loki_adversarial import ChaosScenarioGenerator
+from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
@@ -192,10 +195,15 @@ def configured_njord(
 def configured_freyr(
     graduation_controller: CapacityGraduationController | None,
     state_store: StateStore | None = None,
+    utilization_sampler: CapacityUtilizationSampler | None = None,
 ) -> Freyr:
     """Build Freyr with the reviewed graduation controller."""
 
-    return Freyr(graduation_controller=graduation_controller, state_store=state_store)
+    return Freyr(
+        graduation_controller=graduation_controller,
+        state_store=state_store,
+        utilization_sampler=utilization_sampler,
+    )
 
 
 def configured_huginn(
@@ -213,9 +221,20 @@ def configured_huginn(
     )
 
 
-def configured_loki(state_store: StateStore | None) -> Loki:
+def configured_loki(
+    state_store: StateStore | None,
+    *,
+    recurring_schedule: ChaosScheduleConfig | None = None,
+    scenario_generator: ChaosScenarioGenerator | None = None,
+    scenario_corpus: tuple[ChaosScheduleConfig, ...] = (),
+) -> Loki:
     """Build Loki with the optional durable proposal-reservation store."""
-    return Loki(state_store=state_store)
+    return Loki(
+        state_store=state_store,
+        recurring_schedule=recurring_schedule,
+        scenario_generator=scenario_generator,
+        scenario_corpus=scenario_corpus,
+    )
 
 
 __all__ = [

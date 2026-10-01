@@ -436,7 +436,9 @@ class Forseti(
         elif topic == "object.cost-anomaly":
             await self._ingest_domain_signal("cost", payload)
         elif topic == "object.capacity-forecast":
-            await self._ingest_domain_signal("capacity", payload)
+            arbitration = await self._ingest_domain_signal("capacity", payload)
+            if arbitration is None:
+                await self._judge_capacity_forecast(payload)
         elif topic == "object.capacity-graduation-recommendation":
             await self._judge_capacity_graduation(payload)
         elif topic == "object.arbitration-decision":

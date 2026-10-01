@@ -24,6 +24,10 @@ PREDICTION_ADVICE_DOMAINS: frozenset[str] = frozenset({"capacity"})
 
 _FORECAST_SOURCE = "forecast"
 _CAPACITY_FORECAST_SOURCE = "capacity_forecast"
+_CAPACITY_ACTIONS = {
+    "scale_up": "ops.scale-out",
+    "scale_down": "ops.scale-in",
+}
 
 
 class ForsetiLearnedOutputMixin:
@@ -70,6 +74,27 @@ class ForsetiLearnedOutputMixin:
         if await self.maybe_request_arbitration(forecast) is not None:
             return None
         return await self.judge(forecast, source_mode=mode)
+
+    async def _judge_capacity_forecast(
+        self,
+        forecast: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Judge Freyr's capacity forecast without bypassing the learned-output gate."""
+
+        recommendation = str(forecast.get("recommendation") or "")
+        action_type = _CAPACITY_ACTIONS.get(recommendation)
+        if action_type is None:
+            return await self._publish_learned_output_advisory(
+                forecast,
+                advisory_source=_CAPACITY_FORECAST_SOURCE,
+            )
+        judged = dict(forecast)
+        judged["action_type"] = action_type
+        raw_arguments = forecast.get("action_arguments")
+        if isinstance(raw_arguments, Mapping):
+            judged["params"] = dict(raw_arguments)
+        judged["event_type"] = "capacity_forecast_threshold"
+        return await self._judge_forecast(judged)
 
     def _mark_advisory_arbitration(self, correlation_id: str, advice: Mapping[str, str]) -> bool:
         """Mark a default-profile arbitration fed by a prediction and report whether it is one.

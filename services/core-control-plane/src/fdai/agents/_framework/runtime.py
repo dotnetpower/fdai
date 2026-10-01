@@ -20,8 +20,11 @@ from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings, 
 from fdai.agents._framework.conversation_tools import AgentConversationToolRegistry
 from fdai.agents._framework.deliberation import T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
+from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.kpi import KpiCollector
+from fdai.agents._framework.loki_adversarial import ChaosScenarioGenerator
+from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
 from fdai.agents._framework.mimir_maintenance import (
     MimirCatalogPromotionOutcomeReader,
     MimirRegressionRunner,
@@ -220,6 +223,10 @@ class PantheonRuntime(RuntimeConversationPort):
         conversation_tool_timeout_seconds: float = 5.0,
         cost_runtime: factory.CostRuntimeBindings = factory.DEFAULT_COST_RUNTIME_BINDINGS,
         capacity_graduation_controller: CapacityGraduationController | None = None,
+        freyr_utilization_sampler: CapacityUtilizationSampler | None = None,
+        loki_recurring_schedule: ChaosScheduleConfig | None = None,
+        loki_scenario_generator: ChaosScenarioGenerator | None = None,
+        loki_scenario_corpus: tuple[ChaosScheduleConfig, ...] = (),
         assignment_workflow: assignment_runtime.AssignmentWorkflowBindings | None = None,
     ) -> PantheonRuntime:
         if not raw_event_topic or not raw_event_topic.strip():
@@ -261,7 +268,12 @@ class PantheonRuntime(RuntimeConversationPort):
             operator_request_receipt_gate=operator_request_receipt_gate,
             schema_learning_enabled=huginn_schema_learning_enabled,
         )
-        instantiated["Loki"] = factory.configured_loki(loki_state_store)
+        instantiated["Loki"] = factory.configured_loki(
+            loki_state_store,
+            recurring_schedule=loki_recurring_schedule,
+            scenario_generator=loki_scenario_generator,
+            scenario_corpus=loki_scenario_corpus,
+        )
         bind_catalog_review(instantiated, catalog_review)
         if (
             conversation_semantic_judgment is not None
@@ -325,6 +337,7 @@ class PantheonRuntime(RuntimeConversationPort):
             njord_state_store=njord_state_store,
             capacity_graduation_controller=capacity_graduation_controller,
             freyr_state_store=freyr_state_store,
+            freyr_utilization_sampler=freyr_utilization_sampler,
             development=development_authority,
             action_types=action_types,
             governed_execution_selected=governed_execution_selected,

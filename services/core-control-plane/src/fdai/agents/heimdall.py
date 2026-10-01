@@ -598,6 +598,10 @@ class Heimdall(
         self.record_behavior("rule_generation_validation:published")
 
     async def _observe_chaos_experiment(self, proposal: dict[str, Any]) -> None:
+        kind = str(proposal.get("kind") or "chaos_experiment_proposal")
+        if kind != "chaos_experiment_proposal":
+            self.record_behavior("chaos_experiment:ignored_non_proposal_kind")
+            return
         experiment_id = str(proposal.get("experiment_id") or "")
         action_type = str(proposal.get("action_type") or "")
         raw_targets = proposal.get("targets")

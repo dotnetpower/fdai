@@ -29,10 +29,23 @@ from fdai.agents._framework.introspection import (
     mentioned,
     semantic_intents,
 )
+from fdai.agents._framework.loki_adversarial import (
+    MAX_GENERATED_SCENARIOS,
+    ChaosScenarioGenerator,
+    audit_payload,
+    frozen_corpus_key,
+    validate_candidate,
+)
 from fdai.agents._framework.loki_reservations import LokiReservationJournal
 from fdai.agents._framework.loki_resilience import (
     RESILIENCE_SCORE_EVENT,
     resilience_score_candidate,
+)
+from fdai.agents._framework.loki_scheduling import (
+    ChaosScheduleConfig,
+    DueChaosWindow,
+    due_window,
+    window_key,
 )
 from fdai.agents._framework.pantheon import _LOKI
 from fdai.agents._framework.producer_auth import require_topic_owner
@@ -63,6 +76,8 @@ _DEFAULT_RESERVATION_TTL = timedelta(minutes=30)
 _CHAOS_OUTBOX_PREFIX = "pantheon/loki/chaos-outbox/"
 _HELD_PREFIX = "pantheon/loki/held-proposals/"
 _RESILIENCE_PREFIX = "pantheon/loki/resilience-scores/"
+_SCHEDULED_PREFIX = "pantheon/loki/scheduled-chaos/"
+_ADVERSARIAL_PREFIX = "pantheon/loki/adversarial-scenarios/"
 _MAX_CHAOS_TARGETS = 32
 _MAX_CHAOS_IDENTIFIER_CHARS = 512
 
@@ -99,6 +114,9 @@ class Loki(Agent):
         state_store: StateStore | None = None,
         clock: Callable[[], datetime] | None = None,
         reservation_ttl: timedelta = _DEFAULT_RESERVATION_TTL,
+        recurring_schedule: ChaosScheduleConfig | None = None,
+        scenario_generator: ChaosScenarioGenerator | None = None,
+        scenario_corpus: tuple[ChaosScheduleConfig, ...] = (),
     ) -> None:
         super().__init__(spec=_LOKI)
         if reservation_ttl <= timedelta(0):
@@ -125,9 +143,18 @@ class Loki(Agent):
         self._reservation_lock = asyncio.Lock()
         self._publication_locks: dict[str, asyncio.Lock] = {}
         self._publication_lock_refs: dict[str, int] = {}
+        self._recurring_schedule = recurring_schedule
+        self._scenario_generator = scenario_generator
+        self._scenario_corpus = {frozen_corpus_key(item): item for item in scenario_corpus}
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    def bind_recurring_schedule(self, schedule: ChaosScheduleConfig | None) -> None:
+        self._recurring_schedule = schedule
+
+    def bind_scenario_generator(self, generator: ChaosScenarioGenerator | None) -> None:
+        self._scenario_generator = generator
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.action-run":
@@ -566,7 +593,6 @@ class Loki(Agent):
                 if expired.targets:
                     self._in_flight_targets = set(expired.occupied)
                     self.record_behavior("chaos_reservation:expired", len(expired.targets))
-                return
             expired_experiments = [
                 experiment_id
                 for experiment_id, reservation in self._reservations.items()
@@ -574,16 +600,138 @@ class Loki(Agent):
                 and experiment_id not in self._publishing_experiments
             ]
             if not expired_experiments:
-                return
-            expired_targets: list[str] = []
-            for experiment_id in expired_experiments:
-                reservation = self._reservations.pop(experiment_id)
-                expired_targets.extend(reservation.targets)
-            self._release_targets(tuple(expired_targets))
-            self.record_behavior("chaos_reservation:expired", len(expired_targets))
+                pass
+            else:
+                expired_targets: list[str] = []
+                for experiment_id in expired_experiments:
+                    reservation = self._reservations.pop(experiment_id)
+                    expired_targets.extend(reservation.targets)
+                self._release_targets(tuple(expired_targets))
+                self.record_behavior("chaos_reservation:expired", len(expired_targets))
+        await self._run_recurring_schedule()
+
+    async def _run_recurring_schedule(self) -> None:
+        schedule = self._recurring_schedule
+        if schedule is None:
+            await self._record_scheduler_hold("unbound")
+            return
+        if self._state_store is None:
+            await self._record_scheduler_hold("scheduler_state_unbound")
+            return
+        due = due_window(schedule, now=self._now())
+        if isinstance(due, str):
+            await self._record_scheduler_hold(due)
+            return
+        key = f"{_SCHEDULED_PREFIX}{window_key(due)}"
+        created = await self._state_store.write_state_if_absent(
+            key,
+            {
+                "schema_version": "1.0.0",
+                "revision": 1,
+                "state": "claimed",
+                "schedule_id": due.schedule_id,
+                "window_start": due.window_start.isoformat(),
+                "experiment_id": due.experiment_id,
+            },
+        )
+        if not created:
+            self.record_behavior("chaos_scheduler:duplicate_window")
+            return
+        proposal = await self.propose_experiment(
+            experiment_id=due.experiment_id,
+            action_type=due.action_type,
+            targets=due.targets,
+            correlation_id=due.correlation_id,
+            causal_hypothesis_ref=due.causal_hypothesis_ref,
+            refutation_query_ref=due.refutation_query_ref,
+            impact_envelope_id=due.impact_envelope_id,
+            recovery_plan_id=due.recovery_plan_id,
+            dry_run_receipt=due.dry_run_receipt,
+        )
+        if proposal.accepted:
+            await self._state_store.write_state(
+                key,
+                {
+                    "schema_version": "1.0.0",
+                    "revision": 2,
+                    "state": "published",
+                    "schedule_id": due.schedule_id,
+                    "window_start": due.window_start.isoformat(),
+                    "experiment_id": due.experiment_id,
+                },
+            )
+            self.record_behavior("chaos_scheduler:published")
+            return
+        await self._state_store.write_state(
+            key,
+            {
+                "schema_version": "1.0.0",
+                "revision": 2,
+                "state": "held",
+                "reason": proposal.reason,
+                "schedule_id": due.schedule_id,
+                "window_start": due.window_start.isoformat(),
+                "experiment_id": due.experiment_id,
+            },
+        )
+        await self._record_scheduler_hold(proposal.reason, due=due)
+
+    async def _record_scheduler_hold(
+        self,
+        reason: str,
+        *,
+        due: DueChaosWindow | None = None,
+    ) -> None:
+        proposal = ChaosProposal(
+            experiment_id=due.experiment_id if due is not None else "",
+            action_type=due.action_type if due is not None else "",
+            targets=(),
+            accepted=False,
+            reason=f"scheduler_{reason}",
+            requested_target_count=len(due.targets) if due is not None else 0,
+        )
+        self._held_proposals.append(proposal)
+        await self._persist_held_proposal(proposal)
+        self.record_behavior(f"chaos_scheduler:{reason}")
+
+    async def run_adversarial_generation(self, *, design_ref: str) -> int:
+        """Run the explicitly invoked off-path generator and retain inert candidates."""
+
+        if self._scenario_generator is None:
+            self.record_behavior("adversarial_scenario:generator_unbound")
+            return 0
+        candidates = tuple(await self._scenario_generator.generate_scenarios(design_ref))[
+            :MAX_GENERATED_SCENARIOS
+        ]
+        accepted = 0
+        for candidate in candidates:
+            result = validate_candidate(candidate, frozen_corpus=self._scenario_corpus)
+            payload = audit_payload(candidate, design_ref=design_ref, result=result)
+            if self.bus is not None:
+                await self._publish_proposal("object.chaos-experiment", payload)
+            if result == "accepted":
+                self._scenario_corpus[frozen_corpus_key(candidate.schedule)] = candidate.schedule
+                accepted += 1
+                if self._state_store is not None:
+                    await self._state_store.write_state(
+                        f"{_ADVERSARIAL_PREFIX}{_digest(candidate.scenario_id)}",
+                        {
+                            "schema_version": "1.0.0",
+                            "revision": 1,
+                            "scenario_id": candidate.scenario_id,
+                            "schedule_id": candidate.schedule.schedule_id,
+                            "state": "accepted_inert",
+                            "design_ref": design_ref,
+                        },
+                    )
+            self.record_behavior(f"adversarial_scenario:{result}")
+        if not candidates:
+            self.record_behavior("adversarial_scenario:empty")
+        return accepted
 
     def health(self) -> dict[str, Any]:
         durable = self._reservation_journal is not None
+        scheduler_bound = self._recurring_schedule is not None and self._state_store is not None
         oldest_age = None
         if self._reservations:
             now = self._now()
@@ -599,8 +747,16 @@ class Loki(Agent):
             "status": "ok" if durable else "degraded",
             "ingress": {
                 "chaos_schedule": "active",
+                "recurring_scheduler": "active" if scheduler_bound else "disabled",
                 "resilience_score": "active",
-                "reason": "event_subscriptions_bound_by_runtime",
+                "adversarial_generator": (
+                    "bound" if self._scenario_generator is not None else "unbound"
+                ),
+                "reason": (
+                    "event_subscriptions_and_scheduler_bound"
+                    if scheduler_bound
+                    else "recurring_scheduler_unbound"
+                ),
             },
             "reservation": {
                 "durability": "durable"
