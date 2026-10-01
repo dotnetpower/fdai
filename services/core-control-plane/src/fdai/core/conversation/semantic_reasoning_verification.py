@@ -31,6 +31,8 @@ from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 from fdai.core.ontology_platform.state_transitions import RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
 
+from . import semantic_reasoning_comparison_checks as comparison_checks
+from . import semantic_reasoning_property_reads as property_read_helpers
 from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
@@ -66,12 +68,6 @@ from .semantic_reasoning_measure_checks import (
     metric_scope_violations,
 )
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
-from .semantic_reasoning_property_reads import (
-    expected_property_fields,
-    is_property_lookup,
-    property_read_violations,
-    readable_resource_properties,
-)
 from .semantic_reasoning_relations import SENSE_TRAITS
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 from .semantic_target_health import TARGET_HEALTH_FUNCTIONS
@@ -146,19 +142,20 @@ def verify_goal_semantics(
     allowed = _allowed_operands(
         goal, admission=admission, concepts=concepts, anchors=anchors or AnchorBindingReceipt()
     )
-    allowed.property_fields = expected_property_fields(
+    readable_properties = property_read_helpers.readable_resource_properties(
+        tuple(dict(item) for item in descriptors)
+    )
+    allowed.property_fields = property_read_helpers.expected_property_fields(
         goal,
         admission=admission,
         concepts=concepts,
         anchors=anchors or AnchorBindingReceipt(),
         reads=property_reads,
-        readable=readable_resource_properties(tuple(dict(item) for item in descriptors)),
+        readable=readable_properties,
     )
     reference_id = reference_mention(admission, goal.id)
     reference = (references or ReferenceReceipt()).binding(reference_id)
     if reference is not None and reference.bound:
-        # Re-derived from the form: only one row that starts the read anchors it, and the
-        # traversal-root check verifies that anchor; any other reference narrows the read.
         if not (_read_starts_at(goal, reference.mention_id) and len(reference.row_ids) == 1):
             allowed.prior_rows = reference.row_ids
     for node in nodes:
@@ -172,12 +169,11 @@ def verify_goal_semantics(
             goal, plans, allowed, descriptors, admission, anchors or AnchorBindingReceipt()
         )
     )
+    violations.extend(comparison_checks.comparison_coverage_violations(goal, plans))
     return tuple(dict.fromkeys(violations))
 
 
 def _read_starts_at(goal: FormGoal, mention_id: str) -> bool:
-    """Return whether the goal's read starts at the mention rather than narrowing to it."""
-
     if goal.relation is not None:
         anchor = goal.relation.anchor if goal.relation.anchor is not None else goal.subject
         return anchor == mention_id
@@ -335,7 +331,11 @@ def _operand_violations(
     if node.kind in {QueryNodeKind.AGGREGATE, QueryNodeKind.UNION}:
         return []
     if node.kind is QueryNodeKind.METRIC_SCOPE_SERIES:
+        if goal.effective_operation is GoalOperation.COMPARE_WINDOWS:
+            return comparison_checks.comparison_operand_violations(node, goal)
         return metric_scope_violations(node, goal, evaluation_time)
+    if node.kind is QueryNodeKind.METRIC_COMPARISON:
+        return comparison_checks.comparison_operand_violations(node, goal)
     if node.kind is QueryNodeKind.PROJECT:
         fields = list(allowed.property_fields or ()) or None
         return [] if arguments.get("fields") == fields else [f"prov_property:{node.node_id}"]
@@ -559,12 +559,14 @@ def _coverage_violations(
         required = frozenset({METRIC_READER})
         if functions != required:
             violations.append("sem_metric_read_differs")
-    if is_property_lookup(goal):
-        # A property is read only as the projection of its anchor, never as a state.
+    if property_read_helpers.is_property_lookup(goal):
         required = None
-        violations.extend(property_read_violations(plans, _expected_anchor_id(goal, anchors)))
+        violations.extend(
+            property_read_helpers.property_read_violations(
+                plans, _expected_anchor_id(goal, anchors)
+            )
+        )
     if is_health_lookup(goal) and functions != TARGET_HEALTH_FUNCTIONS:
-        # Health is read only through the reviewed assessment, never as a current state.
         violations.append("sem_health_read_differs")
     if required is not None and functions.isdisjoint(required):
         violations.append("sem_operation_read_missing")

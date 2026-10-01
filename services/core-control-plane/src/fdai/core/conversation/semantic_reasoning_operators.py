@@ -21,6 +21,7 @@ from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_ME
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_admission import restated_relation, restates_filter
 from .semantic_reasoning_anchoring import anchored_relation
+from .semantic_reasoning_comparisons import comparison_goal
 from .semantic_reasoning_form import (
     DurationUnit,
     FilterRole,
@@ -126,6 +127,9 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         goal.want is Want.CAUSE and goal.effective_operation is not GoalOperation.EXPLAIN_CAUSE
     ):
         return OperatorResult(unsupported=(f"want_unsupported:{goal.want.value}",))
+    comparison = comparison_goal(goal, ctx)
+    if comparison is not None:
+        return comparison
     remaining = remaining_operator_result(goal)
     if remaining is not None:
         return remaining

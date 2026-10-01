@@ -163,6 +163,11 @@ class GroupBy(StrEnum):
     NONE = "none"
 
 
+class OrderDirection(StrEnum):
+    ASCENDING = "ascending"
+    DESCENDING = "descending"
+
+
 class TimeKind(StrEnum):
     CURRENT = "current"
     WINDOW = "window"
@@ -277,10 +282,17 @@ class FormRelation(_FormModel):
         return None
 
 
+class FormOrder(_FormModel):
+    direction: OrderDirection
+    limit: int = Field(default=10, ge=1, le=50)
+    cue: SourceSpan | None = None
+
+
 class FormMeasure(_FormModel):
     kind: MeasureKind
     group_by: GroupBy = GroupBy.NONE
     mention: Annotated[str, Field(pattern=_MENTION_ID)] | None = None
+    order: FormOrder | None = None
     cue: SourceSpan | None = None
 
 
@@ -314,6 +326,7 @@ class TemporalValue(_FormModel):
 class FormTime(_FormModel):
     kind: TimeKind = TimeKind.CURRENT
     value: TemporalValue | None = None
+    windows: Annotated[tuple[TemporalValue, ...], Field(max_length=2)] = ()
     cue: SourceSpan | None = None
 
     @model_validator(mode="after")
@@ -323,6 +336,10 @@ class FormTime(_FormModel):
             raise ValueError("windowed and as-of time need a typed value and a cue span")
         if not needs_value and self.value is not None:
             raise ValueError("only windowed and as-of time carry a typed value")
+        if self.kind is TimeKind.TWO_WINDOWS and (len(self.windows) != 2 or self.cue is None):
+            raise ValueError("two-window time needs two typed windows and a cue span")
+        if self.kind is not TimeKind.TWO_WINDOWS and self.windows:
+            raise ValueError("only two-window time carries two typed windows")
         return self
 
 
@@ -332,6 +349,7 @@ class FormGoal(_FormModel):
     operation: GoalOperation
     subject: Annotated[str, Field(pattern=_MENTION_ID)] | None = None
     subject_scope: SubjectScope
+    counterpart: Annotated[str, Field(pattern=_MENTION_ID)] | None = None
     filters: Annotated[tuple[FormFilter, ...], Field(max_length=8)] = ()
     relation: FormRelation | None = None
     measure: FormMeasure | None = None
@@ -427,6 +445,8 @@ class SemanticQuestionForm(_FormModel):
             if not set(goal.depends_on) <= set(goal_ids):
                 raise ValueError("form goals MAY depend only on earlier goals")
             cited = {goal.subject} if goal.subject is not None else set()
+            if goal.counterpart is not None:
+                cited.add(goal.counterpart)
             cited.update(item.mention for item in goal.filters)
             if goal.relation is not None:
                 cited.update(
@@ -491,6 +511,12 @@ class SemanticQuestionForm(_FormModel):
                 spans.append(goal.time.cue)
             if goal.measure is not None and goal.measure.cue is not None:
                 spans.append(goal.measure.cue)
+            if (
+                goal.measure is not None
+                and goal.measure.order is not None
+                and goal.measure.order.cue is not None
+            ):
+                spans.append(goal.measure.order.cue)
         spans.extend(self.unsupported_constraints)
         if context:
             spans.extend(self.context)
@@ -503,6 +529,8 @@ class SemanticQuestionForm(_FormModel):
         for goal in self.goals:
             if goal.subject is not None:
                 cited.add(goal.subject)
+            if goal.counterpart is not None:
+                cited.add(goal.counterpart)
             cited.update(item.mention for item in goal.filters)
             if goal.relation is not None:
                 cited.update(

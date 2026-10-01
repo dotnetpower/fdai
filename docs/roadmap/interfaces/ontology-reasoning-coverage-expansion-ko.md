@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 커버리지 확장과 현재 경로 수렴
 translation_of: ontology-reasoning-coverage-expansion.md
-translation_source_sha: 3aa3a9d3c5503459b3a78020d1c9baf6d49874f0
+translation_source_sha: 5372cea3c7ca76a53cd0409bfb215892ca042a4d
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 커버리지 확장과 현재 경로 수렴
@@ -174,6 +174,9 @@ ObjectType으로 근거화됩니다.
 선행 조건이 갖춰질 때만 컴파일됩니다. 그전에는 이유를 유지하며, 다른 작업의 계획을 빌리지 않습니다.
 로컬 구현은 커버리지 증적의 누락된 선행 조건 이유를 더 정확하게 만듭니다. 검토된 정렬, 집계, 비교,
 이력, 근거, 진단, 경로 또는 특성 선행 조건이 생기기 전까지 새 셀을 컴파일하지 않습니다.
+E9b는 첫 컴파일 셀을 추가합니다. 한 검토된 metric의 `compare_windows`가 타입이 지정된 두 기간과
+기존 metric comparison node를 사용합니다. Rank와 개수가 아닌 aggregate, compare-entities는 검토된
+정렬 및 집계 메타데이터와 정렬된 답변 형태가 생길 때까지 타입이 지정된 선행 조건 이유를 유지합니다.
 
 | 작업이나 의미 | 선행 조건 | 컴파일 결과 |
 |---------------|-----------|-------------|

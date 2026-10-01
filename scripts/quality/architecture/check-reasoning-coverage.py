@@ -100,6 +100,7 @@ def _receipt() -> dict[str, object]:
             QueryNodeKind.AGGREGATE,
             QueryNodeKind.PROJECT,
             QueryNodeKind.METRIC_SCOPE_SERIES,
+            QueryNodeKind.METRIC_COMPARISON,
         ),
         reviewed_metric_concepts=tuple(
             sorted(
@@ -111,7 +112,10 @@ def _receipt() -> dict[str, object]:
         extension_argument_schemas={
             QueryNodeKind.METRIC_SCOPE_SERIES: METRIC_ARGUMENT_SCHEMAS[
                 QueryNodeKind.METRIC_SCOPE_SERIES
-            ]
+            ],
+            QueryNodeKind.METRIC_COMPARISON: METRIC_ARGUMENT_SCHEMAS[
+                QueryNodeKind.METRIC_COMPARISON
+            ],
         },
     )
     receipt = reasoning_coverage_receipt(

@@ -150,6 +150,8 @@ def anchor_mentions(admission: FormAdmission) -> tuple[str, ...]:
         cited.extend(item.mention for item in goal.filters if item.role is FilterRole.SCOPE)
         if goal.relation is not None and goal.relation.anchor is not None:
             cited.append(goal.relation.anchor)
+        if goal.counterpart is not None:
+            cited.append(goal.counterpart)
         if goal.subject is not None:
             cited.append(goal.subject)
     return tuple(

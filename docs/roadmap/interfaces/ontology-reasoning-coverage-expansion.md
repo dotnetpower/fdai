@@ -183,6 +183,10 @@ another operation's plan.
 The local implementation tightens those missing-prerequisite reasons in the coverage receipt; it
 does not compile new cells until the reviewed order, aggregation, comparison, history, evidence,
 diagnosis, path, or trait prerequisite exists.
+E9b adds the first such compiled cell: `compare_windows` over one reviewed metric uses two typed
+windows and the existing metric comparison node. Rank/non-count aggregate and compare-entities keep
+typed prerequisite reasons until their reviewed order/aggregation metadata and aligned answer shape
+exist.
 
 | Operation or sense | Prerequisite | Compiles to |
 |--------------------|--------------|-------------|

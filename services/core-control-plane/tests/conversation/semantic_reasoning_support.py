@@ -190,13 +190,17 @@ def plan_verifier() -> OntologyQueryPlanVerifier:
             QueryNodeKind.AGGREGATE,
             QueryNodeKind.PROJECT,
             QueryNodeKind.METRIC_SCOPE_SERIES,
+            QueryNodeKind.METRIC_COMPARISON,
         ),
         # Metric reads are verified against the reviewed registry, as in production.
         reviewed_metric_concepts=reviewed_metric_concepts(),
         extension_argument_schemas={
             QueryNodeKind.METRIC_SCOPE_SERIES: METRIC_ARGUMENT_SCHEMAS[
                 QueryNodeKind.METRIC_SCOPE_SERIES
-            ]
+            ],
+            QueryNodeKind.METRIC_COMPARISON: METRIC_ARGUMENT_SCHEMAS[
+                QueryNodeKind.METRIC_COMPARISON
+            ],
         },
     )
 
