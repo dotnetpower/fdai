@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 6541f6841a776a53b6155d1a68ed97cf17430237
+translation_source_sha: 0c49b9baf865a793ad7d28c4a26d4bcb5e242cf4
 translation_revised: 2026-10-01
 ---
 
@@ -133,7 +133,9 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 묻기나 지원되지 않음 안내로 보여 줍니다. `reason_code`는 크기가 제한된 소문자 코드로 유지되므로 wire 스키마는
 바뀌지 않습니다.
 컴파일된 단일 대상 상태 이상 답변은 현재 경로와 같은 검토된 평가 렌더링을 쓰며, `answer`는 검토된 두 언어
-안내로 평가의 고정 기간을 다시 밝힙니다. wire 스키마는 바뀌지 않습니다.
+안내로 평가의 고정 기간을 다시 밝힙니다. wire 스키마는 바뀌지 않습니다. 컴파일된 속성 조회는
+바인딩된 리소스의 검토된 값 하나를 렌더링하고 없는 값은 알 수 없음으로 밝히며, `answer`는 검토된
+두 언어 안내로 값의 인벤토리 출처와 검토된 최신성 기준을 밝힙니다. wire 스키마는 바뀌지 않습니다.
 동시 의미 기반 요청은 하나의 영속 처리 claim을 공유합니다. 대기자는 lease가 만료되면 claim을
 다시 시도하므로 실패한 소유자가 요청을 외부 기한까지 멈추게 할 수 없습니다. 대기 중 결과
 저장소가 실패하면 명시적인 보류 변환 결과를 반환합니다.

@@ -116,6 +116,17 @@ carry today.
 - **Answer:** The value states its source, observation time, and freshness. A stale or missing
   value is `UNKNOWN_INCOMPLETE`.
 
+**Implementation note (2026-10-01):** The manifest carries each reviewed Property semantic with one
+provider path per resource type. The manifest digest binds these reads, and they're offered only when
+the principal can read the Resource provider bag. A resource type with more than one reviewed path for
+a semantic is left out. The anchor binding records the bound Resource's type, so the lookup projects
+exactly that type's reviewed path, and the structural verifier admits a projection inside a readable
+object property only. The inventory doesn't record when a single property was observed, so the answer
+states its source and the semantic's reviewed freshness bound. A semantic that needs fresher evidence
+than the inventory freshness ceiling holds as `property_freshness_unestablished`. A missing value is
+stated as unknown, and the goal status `UNKNOWN_INCOMPLETE` is assigned with the verified answer
+authoring of the promotion program.
+
 **Exit:** a property lookup on one named resource answers with the exact value, and a property
 without a reviewed semantic holds with its typed reason.
 

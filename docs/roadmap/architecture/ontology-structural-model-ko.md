@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 3752263f781879788cd8aea5fa5e136b13039f03
-translation_revised: 2026-09-30
+translation_source_sha: 320103576bc74bfb8bc0f075102c6b46cee078da
+translation_revised: 2026-10-01
 ---
 # 온톨로지 구조 모델
 
@@ -283,8 +283,17 @@ Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인�
 값 도메인은 자신의 속성을 해당 ObjectType의 검토된 수명 주기 상태로 표시할 수도 있습니다.
 `Incident.status`가 첫 번째 도메인이며, 그 값은 Incident 투영이 기록하는 정식 Incident 수명 주기
 상태입니다. 발화에 나온 수명 주기 상태는 이 값에 대한 닫힌 선택으로 근거를 확인하고, 그 ObjectType에
-대한 정확한 조건으로만 읽습니다. 다른 ObjectType의 `status` 속성에는 아직 검토된 수명 주기 도메인이
-없으므로, 그 유형에 밝힌 상태는 타입이 지정된 지원되지 않음으로 남습니다.
+대한 정확한 조건으로만 읽습니다. `Process.status`, `RecoveryPlan.status`, `CausalHypothesis.status`도
+같은 규칙을 따르며, 각각 자신의 투영이 기록하는 열거형에 고정됩니다. 다른 ObjectType의 `status`
+속성에는 아직 검토된 수명 주기 도메인이 없으므로, 그 유형에 밝힌 상태는 타입이 지정된 지원되지
+않음으로 남습니다.
+
+쿼리 매니페스트는 `rule-catalog/vocabulary/property-semantics.yaml`의 검토된 Property 의미도 담으며,
+각 의미에는 리소스 유형별 제공자 경로가 하나씩 있습니다. 이 정보는 매니페스트 다이제스트에 묶이고,
+principal이 Resource 제공자 속성 묶음을 읽을 수 있을 때만 제공됩니다. `project` 노드는 자신이 직접
+읽는 ObjectSet의 읽을 수 있는 객체 속성 안쪽 필드, 예를 들어 제공자 속성 묶음의 검토된 경로 하나를
+지정할 수 있습니다. principal이 이미 읽을 수 있는 객체의 안쪽을 읽으므로 접근 범위는 넓어지지 않으며,
+그 밖의 투영 필드는 여전히 선언된 읽기 가능 속성이어야 합니다.
 
 리소스 상태 조회는 카탈로그에 선언된 상태 개념과 정확하고 범위가 제한된 리소스 집합만 받습니다.
 구체적인 상태 개념은 일반 관측 상태 표시자보다 우선합니다. 비어 있거나 불완전한 결과는 행 개수와

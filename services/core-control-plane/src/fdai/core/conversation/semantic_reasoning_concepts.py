@@ -17,6 +17,7 @@ from typing import Any
 
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.core.ontology_platform import ReviewedPropertyRead
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_FUNCTION_NAME,
     RESOURCE_STATE_MEASURE_CONCEPTS,
@@ -126,6 +127,7 @@ def concept_catalogs(
     object_labels: Mapping[str, str] | None = None,
     metric_labels: Mapping[str, str] | None = None,
     health_labels: Mapping[str, Sequence[str]] | None = None,
+    property_reads: Sequence[ReviewedPropertyRead] = (),
 ) -> dict[MentionDomain, tuple[ConceptCandidate, ...]]:
     """Return complete candidate catalogs for the domains the manifest declares.
 
@@ -133,8 +135,9 @@ def concept_catalogs(
     label, so a chooser can tell Resource from ResourceType by meaning. ``metric_labels``
     holds the reviewed metric concepts the bound metric reader accepts, each with its
     reviewed description. ``health_labels`` holds the reviewed Resource Health concepts the
-    bound health reader accepts, each with the provider states it groups. A label is
-    context for the chooser, never a lookup key.
+    bound health reader accepts, each with the provider states it groups. ``property_reads``
+    holds the reviewed Property semantics a property measure may read. A label is context
+    for the chooser, never a lookup key.
     """
 
     described = object_labels or {}
@@ -177,7 +180,50 @@ def concept_catalogs(
     regions = _region_candidates(descriptors)
     if regions:
         catalogs[MentionDomain.REGION] = regions
+    properties = _property_candidates(descriptors, property_reads)
+    if properties:
+        catalogs[MentionDomain.PROPERTY] = properties
     return catalogs
+
+
+def _property_candidates(
+    descriptors: Sequence[Mapping[str, Any]], reads: Sequence[ReviewedPropertyRead]
+) -> tuple[ConceptCandidate, ...]:
+    """Return the readable Resource properties with a declared domain or reviewed semantic."""
+
+    resource = next(
+        (
+            item
+            for item in descriptors
+            if item.get("kind") == "object" and item.get("name") == _RESOURCE_OBJECT_TYPE
+        ),
+        None,
+    )
+    properties = resource.get("properties") if isinstance(resource, Mapping) else None
+    if not isinstance(properties, Mapping):
+        return ()
+    declared = tuple(
+        ConceptCandidate(
+            f"property:{_RESOURCE_OBJECT_TYPE}.{name}",
+            (f"{_RESOURCE_OBJECT_TYPE}.{name}",),
+            (name,),
+        )
+        for name, domain in sorted(properties.items())
+        if isinstance(domain, Mapping) and isinstance(domain.get("values"), list)
+    )
+    reviewed = tuple(
+        ConceptCandidate(
+            f"property:{read.semantic_id}",
+            (read.semantic_id,),
+            (
+                read.semantic_id,
+                *((read.unit,) if read.unit else ()),
+                *(f"{kind}.{path}" for kind, path in read.paths),
+            ),
+        )
+        for read in sorted(reads, key=lambda item: item.semantic_id)
+    )
+    return (*declared, *reviewed)
 
 
 def _region_candidates(descriptors: Sequence[Mapping[str, Any]]) -> tuple[ConceptCandidate, ...]:

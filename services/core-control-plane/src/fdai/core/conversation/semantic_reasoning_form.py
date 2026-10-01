@@ -45,6 +45,7 @@ class MentionDomain(StrEnum):
     METRIC = "metric"
     REGION = "region"
     DECLARATION_KIND = "declaration_kind"
+    PROPERTY = "property"
 
 
 class GoalLevel(StrEnum):
@@ -152,6 +153,7 @@ class MeasureKind(StrEnum):
     EVENT = "event"
     FORECAST = "forecast"
     COST = "cost"
+    PROPERTY = "property"
 
 
 class GroupBy(StrEnum):

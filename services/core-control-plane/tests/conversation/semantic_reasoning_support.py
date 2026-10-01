@@ -6,6 +6,7 @@ graph uses generic, customer-free names.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -18,6 +19,7 @@ from fdai.composition.semantic_query_value_domains import (
     resource_location_value_domains,
     resource_type_value_domains,
 )
+from fdai.core.conversation.semantic_manifest import ConceptVocabularies
 from fdai.core.conversation.semantic_reasoning_admission import (
     FormAdmission,
     SpanAccounting,
@@ -44,6 +46,7 @@ from fdai.core.ontology_platform import (
     AggregateNodeHandler,
     OntologyQueryPlanExecutor,
     OntologyQueryPlanVerifier,
+    ProjectNodeHandler,
     QueryManifest,
     SetOperationNodeHandler,
 )
@@ -155,6 +158,10 @@ def production_manifest(
         ),
         metric_labels=dict(metric_labels),
         health_labels=dict(health_labels),
+        # Reviewed Property semantics, offered as in production composition.
+        property_reads=ConceptVocabularies(
+            property_semantics=catalog.property_semantics
+        ).property_reads(),
         property_values=(
             *resource_type_value_domains(registry),
             *resource_location_value_domains(
@@ -181,6 +188,7 @@ def plan_verifier() -> OntologyQueryPlanVerifier:
             QueryNodeKind.FUNCTION,
             QueryNodeKind.UNION,
             QueryNodeKind.AGGREGATE,
+            QueryNodeKind.PROJECT,
             QueryNodeKind.METRIC_SCOPE_SERIES,
         ),
         # Metric reads are verified against the reviewed registry, as in production.
@@ -243,7 +251,11 @@ def span(utterance: str, text: str) -> dict[str, int]:
     return {"start": start, "end": start + len(text)}
 
 
-async def fixture_gateway() -> SecuredObjectSetQueryGateway:
+async def fixture_gateway(
+    provider_properties: Mapping[str, Mapping[str, Any]] | None = None,
+) -> SecuredObjectSetQueryGateway:
+    """Return the fixture graph; ``provider_properties`` adds provider bags by identity."""
+
     catalog = production_catalog()
     resource = next(item for item in catalog.object_types if item.name == RESOURCE)
     links = tuple(
@@ -261,6 +273,8 @@ async def fixture_gateway() -> SecuredObjectSetQueryGateway:
         properties: dict[str, Any] = {"id": identity, "name": name, "type": resource_type}
         if parent is not None:
             properties["parent_id"] = _provider_path(parent)
+        if provider_properties and identity in provider_properties:
+            properties["properties"] = dict(provider_properties[identity])
         await store.upsert_object(
             OntologyObjectRecord(id=identity, object_type="Resource", properties=properties)
         )
@@ -312,6 +326,7 @@ async def execute(plan: OntologyQueryPlan, gateway: SecuredObjectSetQueryGateway
             ),
             QueryNodeKind.UNION: SetOperationNodeHandler("union"),
             QueryNodeKind.AGGREGATE: AggregateNodeHandler(),
+            QueryNodeKind.PROJECT: ProjectNodeHandler(),
         },
         now=lambda: NOW,
     )

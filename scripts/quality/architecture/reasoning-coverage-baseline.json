@@ -1,5 +1,5 @@
 {
-  "cells": 433,
+  "cells": 435,
   "compiled_cells": [
     "instance.count.attachment.attached.one_hop",
     "instance.count.attachment.either.one_hop",
@@ -59,6 +59,7 @@
     "instance.impact.dependency.dependency.one_hop",
     "instance.impact.implied",
     "instance.lookup.health",
+    "instance.lookup.property.bound",
     "instance.lookup.state",
     "instance.select.attachment.attached.one_hop",
     "instance.select.attachment.either.one_hop",
@@ -179,6 +180,7 @@
     "operation_unsupported:rank": 1,
     "operation_unsupported:verify_evidence": 1,
     "prior_result_multiple_anchors_unsupported": 1,
+    "property_mention_required": 1,
     "relation_not_transitive": 63,
     "relation_required:g1": 3,
     "relation_sense_unmapped:authorization": 20,
@@ -195,9 +197,9 @@
     "want_unsupported:verification": 1
   },
   "status_counts": {
-    "compiled": 153,
+    "compiled": 154,
     "inadmissible": 8,
-    "unsupported": 272
+    "unsupported": 273
   },
   "version": 1
 }

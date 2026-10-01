@@ -111,6 +111,7 @@ from .semantic_instance_candidates import project_instance_candidates, render_in
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
 from .semantic_ontology_answers import render_ontology_schema_answer
 from .semantic_presentation_semantics import project_presentation_semantics
+from .semantic_property_answer import render_property_value_answer
 from .semantic_reading_holds import reading_hold_answer
 from .semantic_relationship_projection import (
     project_ontology_relationships,
@@ -3457,6 +3458,11 @@ def _render_general_query_answer(
     )
     if impact_answer is not None:
         return impact_answer
+    property_answer = render_property_value_answer(
+        outputs, korean=korean, output_shape=output_shape, measure_concepts=measure_concepts
+    )
+    if property_answer is not None:
+        return property_answer
     resource_list_answer = _render_resource_list_answer(
         outputs,
         korean=korean,

@@ -181,6 +181,7 @@ def compile_question_form(
                 anchors=ctx.anchors,
                 references=ctx.references,
                 evaluation_time=evaluation_time,
+                property_reads=manifest.property_reads,
             )
         )
         outcomes[goal.id] = (

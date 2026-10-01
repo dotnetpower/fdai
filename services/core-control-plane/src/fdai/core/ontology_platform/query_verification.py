@@ -201,6 +201,7 @@ class OntologyQueryPlanVerifier:
                 fields=normalized,
                 nodes_by_id=nodes_by_id,
                 descriptors=descriptors,
+                nested_objects=True,
             )
             return
         if node.kind is QueryNodeKind.AGGREGATE:
@@ -577,6 +578,7 @@ class OntologyQueryPlanVerifier:
         fields: tuple[str, ...],
         nodes_by_id: Mapping[str, OntologyQueryNode],
         descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+        nested_objects: bool = False,
     ) -> None:
         dependency = nodes_by_id[node.depends_on[0]]
         available_fields = OntologyQueryPlanVerifier._table_fields(
@@ -586,7 +588,14 @@ class OntologyQueryPlanVerifier:
         )
         if available_fields is None:
             return
-        if any(field not in available_fields for field in fields):
+        # A projection may read inside a readable object property of the object set it
+        # reads directly; the whole object is already readable, so no access widens.
+        roots = _object_property_roots(dependency, descriptors) if nested_objects else frozenset()
+        if any(
+            field not in available_fields
+            and not any(field.startswith(f"{root}.") for root in roots)
+            for field in fields
+        ):
             raise ValueError("aggregate field is absent from dependency output schema")
 
     @staticmethod
@@ -645,6 +654,25 @@ class OntologyQueryPlanVerifier:
             raise ValueError("query table node has an invalid dependency count")
         if any(nodes_by_id[item].output_kind != "query.table" for item in node.depends_on):
             raise ValueError("query table node dependencies MUST output query.table")
+
+
+def _object_property_roots(
+    node: OntologyQueryNode, descriptors: Mapping[tuple[str, str], Mapping[str, Any]]
+) -> frozenset[str]:
+    """Return the readable object-typed property fields of one object type selection."""
+
+    if node.kind is not QueryNodeKind.OBJECT_SET:
+        return frozenset()
+    definition = ObjectSetDefinition.model_validate(node.arguments["definition"])
+    if definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
+        return frozenset()
+    descriptor = descriptors[("object", definition.selector.name)]
+    readable = cast_mapping(descriptor.get("properties"))
+    return frozenset(
+        f"properties.{name}"
+        for name, schema in readable.items()
+        if isinstance(schema, Mapping) and schema.get("type") == "object"
+    )
 
 
 def _metric_interval(arguments: Mapping[str, Any]) -> None:

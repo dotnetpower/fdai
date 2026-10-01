@@ -72,6 +72,7 @@ from .semantic_reasoning_nodes import (
     traversal_node,
     union_tree,
 )
+from .semantic_reasoning_property_reads import property_lookup
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_reasoning_schema import schema_goal
 
@@ -104,7 +105,9 @@ _UNIT_SECONDS = {
     DurationUnit.WEEK: 604_800,
 }
 _CURRENT_TIMES = frozenset({TimeKind.CURRENT, TimeKind.UNSPECIFIED})
-_MEASURE_DOMAINS = frozenset({MentionDomain.STATE, MentionDomain.HEALTH, MentionDomain.METRIC})
+_MEASURE_DOMAINS = frozenset(
+    {MentionDomain.STATE, MentionDomain.HEALTH, MentionDomain.METRIC, MentionDomain.PROPERTY}
+)
 _RELATION_READS = frozenset(
     {GoalOperation.SELECT, GoalOperation.TRAVERSE, GoalOperation.IMPACT, GoalOperation.COUNT}
 )
@@ -197,7 +200,9 @@ _SCHEMA_OPERATIONS = frozenset(
 # Measure kinds each compiled operation reads; any other measure atom is not dropped silently.
 _READ_MEASURES: dict[GoalOperation, frozenset[MeasureKind]] = {
     GoalOperation.COUNT: frozenset({MeasureKind.COUNT}),
-    GoalOperation.LOOKUP: frozenset({MeasureKind.STATE, MeasureKind.METRIC, MeasureKind.HEALTH}),
+    GoalOperation.LOOKUP: frozenset(
+        {MeasureKind.STATE, MeasureKind.METRIC, MeasureKind.HEALTH, MeasureKind.PROPERTY}
+    ),
     GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE, MeasureKind.EVENT, MeasureKind.STATE}),
     GoalOperation.EXPLAIN_CAUSE: frozenset({MeasureKind.STATE, MeasureKind.CHANGE}),
     GoalOperation.SELECT: frozenset(),
@@ -495,6 +500,8 @@ def _lookup_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return OperatorResult(unsupported=(f"time_unsupported:{goal.time.kind.value}",))
     if goal.measure.kind is MeasureKind.HEALTH:
         return health_lookup(goal, ctx)
+    if goal.measure.kind is MeasureKind.PROPERTY:
+        return property_lookup(goal, ctx)
     if goal.measure.kind is not MeasureKind.STATE:
         return OperatorResult(unsupported=(f"measure_unsupported:{goal.measure.kind.value}",))
     return _anchored_function(

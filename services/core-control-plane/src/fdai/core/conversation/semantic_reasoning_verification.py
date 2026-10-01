@@ -25,6 +25,7 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
 )
 
+from fdai.core.ontology_platform import ReviewedPropertyRead
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
@@ -65,6 +66,12 @@ from .semantic_reasoning_measure_checks import (
     metric_scope_violations,
 )
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
+from .semantic_reasoning_property_reads import (
+    expected_property_fields,
+    is_property_lookup,
+    property_read_violations,
+    readable_resource_properties,
+)
 from .semantic_reasoning_relations import SENSE_TRAITS
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 from .semantic_target_health import TARGET_HEALTH_FUNCTIONS
@@ -125,6 +132,7 @@ def verify_goal_semantics(
     anchors: AnchorBindingReceipt | None = None,
     references: ReferenceReceipt | None = None,
     evaluation_time: datetime | None = None,
+    property_reads: tuple[ReviewedPropertyRead, ...] = (),
 ) -> tuple[str, ...]:
     """Return every V-SEM, V-PROV, and V-LEVEL violation for one goal.
 
@@ -137,6 +145,14 @@ def verify_goal_semantics(
     violations = [*_level_violations(goal, nodes)]
     allowed = _allowed_operands(
         goal, admission=admission, concepts=concepts, anchors=anchors or AnchorBindingReceipt()
+    )
+    allowed.property_fields = expected_property_fields(
+        goal,
+        admission=admission,
+        concepts=concepts,
+        anchors=anchors or AnchorBindingReceipt(),
+        reads=property_reads,
+        readable=readable_resource_properties(tuple(dict(item) for item in descriptors)),
     )
     reference_id = reference_mention(admission, goal.id)
     reference = (references or ReferenceReceipt()).binding(reference_id)
@@ -201,6 +217,8 @@ class _Allowed:
         self.health_concepts: set[str] = set()
         self.metric_concepts: set[str] = set()
         self.regions: set[str] = set()
+        # The exact projection a property lookup must read, recomputed from its bindings.
+        self.property_fields: tuple[str, ...] | None = None
         self.relation_object_type = False
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
         self.prior_rows: tuple[str, ...] = ()
@@ -318,6 +336,9 @@ def _operand_violations(
         return []
     if node.kind is QueryNodeKind.METRIC_SCOPE_SERIES:
         return metric_scope_violations(node, goal, evaluation_time)
+    if node.kind is QueryNodeKind.PROJECT:
+        fields = list(allowed.property_fields or ()) or None
+        return [] if arguments.get("fields") == fields else [f"prov_property:{node.node_id}"]
     return [f"prov_unexpected_node:{node.node_id}:{node.kind.value}"]
 
 
@@ -521,6 +542,10 @@ def _coverage_violations(
         required = frozenset({METRIC_READER})
         if functions != required:
             violations.append("sem_metric_read_differs")
+    if is_property_lookup(goal):
+        # A property is read only as the projection of its anchor, never as a state.
+        required = None
+        violations.extend(property_read_violations(plans, _expected_anchor_id(goal, anchors)))
     if is_health_lookup(goal) and functions != TARGET_HEALTH_FUNCTIONS:
         # Health is read only through the reviewed assessment, never as a current state.
         violations.append("sem_health_read_differs")

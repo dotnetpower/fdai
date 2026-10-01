@@ -276,8 +276,18 @@ the display names are context for the choosing model, never a lookup table.
 A value domain may also mark its property as the reviewed lifecycle state of its ObjectType.
 `Incident.status` is the first such domain: its values are the canonical Incident lifecycle states
 that the Incident projection writes. A stated lifecycle state is grounded by closed choice over those
-values and read only as an exact predicate on that ObjectType. Another ObjectType's `status` property
-has no reviewed lifecycle domain yet, so a state stated on that type stays typed unsupported.
+values and read only as an exact predicate on that ObjectType. `Process.status`,
+`RecoveryPlan.status`, and `CausalHypothesis.status` follow the same rule, each pinned to the enum
+its projection writes. Another ObjectType's `status` property has no reviewed lifecycle domain yet,
+so a state stated on that type stays typed unsupported.
+
+The query manifest also carries the reviewed Property semantics of
+`rule-catalog/vocabulary/property-semantics.yaml`, each with one provider path per resource type,
+bound by the manifest digest and offered only when the principal can read the Resource provider
+bag. A `project` node may name a field inside a readable object property of the ObjectSet it reads
+directly, such as one reviewed path in the provider bag. Reading inside an object the principal can
+already read widens no access, and every other projected field still has to be a declared readable
+property.
 
 Resource-state queries accept only catalog-declared state concepts and exact bounded resource
 collections. A concrete state concept takes precedence over the generic observed-state sentinel.

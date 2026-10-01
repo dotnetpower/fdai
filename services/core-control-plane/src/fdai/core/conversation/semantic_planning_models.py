@@ -218,6 +218,7 @@ class SemanticOutputShape(StrEnum):
     TARGET_ERROR_ACTIVITY_CORRELATION = "target_error_activity_correlation"
     TARGET_HEALTH_ASSESSMENT = "target_health_assessment"
     TARGET_INGRESS_CONFIGURATION = "target_ingress_configuration"
+    TARGET_PROPERTY_VALUE = "target_property_value"
     TARGET_RESOURCE_METRIC = "target_resource_metric"
     TARGET_RESOURCE_METRIC_SERIES = "target_resource_metric_series"
     TEMPORAL_COMPARISON = "temporal_comparison"

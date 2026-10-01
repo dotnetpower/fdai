@@ -283,6 +283,7 @@ async def run_reasoning_shadow(
         object_labels=dict(manifest.object_labels),
         metric_labels=dict(manifest.metric_labels),
         health_labels=dict(manifest.health_labels),
+        property_reads=manifest.property_reads,
     )
     pending = False
     notes: list[str] = []

@@ -26,6 +26,7 @@ from fdai.composition.semantic_query_instance_candidates import (  # noqa: E402
 from fdai.composition.semantic_query_value_domains import (  # noqa: E402
     resource_type_value_domains,
 )
+from fdai.core.conversation.semantic_manifest import ConceptVocabularies  # noqa: E402
 from fdai.core.conversation.semantic_reasoning_coverage import (  # noqa: E402
     reasoning_coverage_receipt,
 )
@@ -84,6 +85,9 @@ def _receipt() -> dict[str, object]:
         functions=functions,
         bound_function_names=tuple(function.name for function in functions),
         property_values=resource_type_value_domains(registry),
+        property_reads=ConceptVocabularies(
+            property_semantics=catalog.property_semantics
+        ).property_reads(),
     )
     verifier = OntologyQueryPlanVerifier(
         available_kinds=(
@@ -94,6 +98,7 @@ def _receipt() -> dict[str, object]:
             QueryNodeKind.FUNCTION,
             QueryNodeKind.UNION,
             QueryNodeKind.AGGREGATE,
+            QueryNodeKind.PROJECT,
             QueryNodeKind.METRIC_SCOPE_SERIES,
         ),
         reviewed_metric_concepts=tuple(

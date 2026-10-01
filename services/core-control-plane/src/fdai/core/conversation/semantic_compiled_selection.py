@@ -101,6 +101,7 @@ _STATED_LIMITATIONS = {
     "cause_not_established": "cause.not_established",
     "possible_impact_not_observed": "impact.possible_not_observed",
     "anchor_uniqueness_unproven": "anchor.uniqueness_unproven",
+    "property_source_inventory": "property.inventory",
 }
 
 

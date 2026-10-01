@@ -82,7 +82,10 @@ _CONCEPT_VALUES = {
     MentionDomain.STATE: ("resource_state.running",),
     MentionDomain.HEALTH: ("resource_health.unhealthy",),
     MentionDomain.REGION: ("koreacentral",),
+    MentionDomain.PROPERTY: ("retention.backup.days",),
 }
+# Every synthetic anchor is a PostgreSQL server, a type with a reviewed backup retention path.
+_ANCHOR_TYPE = "postgresql-server"
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +167,12 @@ def reasoning_coverage_receipt(
         )
         anchors = AnchorBindingReceipt(
             tuple(
-                AnchorBinding(item, AnchorOutcome.BOUND, object_id=f"object-{item}")
+                AnchorBinding(
+                    item,
+                    AnchorOutcome.BOUND,
+                    object_id=f"object-{item}",
+                    resource_type=_ANCHOR_TYPE,
+                )
                 for item in anchor_mentions(admission)
             )
         )
@@ -260,6 +268,10 @@ def _cells() -> Iterator[tuple[str, dict[str, Any]]]:
             f"instance.lookup.{measure.value}",
             _form("lookup", subject="anchor", measure=measure.value),
         )
+    yield (
+        "instance.lookup.property.bound",
+        _form("lookup", subject="anchor", measure="property", measure_domain="property"),
+    )
     for history_measure in ("none", "change", "event", "state"):
         for time in TimeKind:
             yield (
@@ -329,6 +341,7 @@ def _form(
     relation: dict[str, Any] | None = None,
     filter_role: str = "none",
     measure: str | None = None,
+    measure_domain: str | None = None,
     time: TimeKind = TimeKind.CURRENT,
     want: str = "fact",
     object_anchor: bool = False,
@@ -375,6 +388,10 @@ def _form(
         goal["filters"] = [{"role": filter_role, "mention": mention_id}]
     if measure is not None and measure != "none":
         goal["measure"] = {"kind": measure}
+        if measure_domain is not None:
+            mention_id = f"m{len(mentions) + 1}"
+            mentions.append(_mention(mention_id, "concept", measure_domain, "concept-c"))
+            goal["measure"]["mention"] = mention_id
     goal["time"] = _time(time)
     return {"mentions": mentions, "goals": [goal]}
 
