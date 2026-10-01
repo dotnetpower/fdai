@@ -842,6 +842,48 @@ async def test_mimir_port_timeouts_and_regression_exceptions_are_isolated() -> N
     assert timeout_mimir.health()["maintenance"]["regression_suite"]["status"] == "timeout"
 
 
+async def test_norns_quiet_window_support_retries_after_a_failed_publish() -> None:
+    current = datetime(2032, 1, 2, tzinfo=UTC)
+    norns = Norns(
+        promotion_threshold=99,
+        issue_close_quiet_window=timedelta(hours=1),
+        clock=lambda: current,
+    )
+
+    class _FailOnceBus(InMemoryBus):
+        def __init__(self) -> None:
+            super().__init__(registry=load_pantheon())
+            self.failures = 1
+
+        async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
+            if topic == "object.rule-candidate" and self.failures:
+                self.failures -= 1
+                raise RuntimeError("broker unavailable")
+            await super().publish(principal, topic, payload)
+
+    bus = _FailOnceBus()
+    norns.bind_bus(bus)
+    await norns.on_typed_message(
+        "object.issue",
+        {
+            "producer_principal": "Saga",
+            "fingerprint": "fp-quiet-retry",
+            "correlation_id": "issue-retry-1",
+            "idempotency_key": "issue-retry-1",
+        },
+    )
+    current += timedelta(hours=2)
+
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        await norns._publish_issue_close_quiet_eligibility()  # noqa: SLF001
+    assert await norns._publish_issue_close_quiet_eligibility() == 1  # noqa: SLF001
+    assert await norns._publish_issue_close_quiet_eligibility() == 0  # noqa: SLF001
+
+    messages = bus.messages_on("object.rule-candidate")
+    assert len(messages) == 1
+    assert messages[0].payload["fingerprint"] == "fp-quiet-retry"
+
+
 async def test_norns_quiet_window_support_is_once_per_episode() -> None:
     current = datetime(2032, 1, 2, tzinfo=UTC)
     norns = Norns(

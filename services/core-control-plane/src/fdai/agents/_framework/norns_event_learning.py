@@ -527,7 +527,6 @@ class NornsEventLearningMixin:
             )
             if episode_key in self._issue_close_quiet_episodes:
                 continue
-            self._issue_close_quiet_episodes.add(episode_key)
             await self.bus.publish(
                 "Norns",
                 "object.rule-candidate",
@@ -552,6 +551,8 @@ class NornsEventLearningMixin:
                     "proposal_kind": "inert_issue_close_support",
                 },
             )
+            # Mark the episode only after broker acceptance so a failed publish stays retryable.
+            self._issue_close_quiet_episodes.add(episode_key)
             published += 1
         return published
 
