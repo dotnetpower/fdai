@@ -7,6 +7,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import uuid4
 
 from fdai_service_contracts.bus_poison_halt_clear import (
     OrderedPoisonHaltClearRequest,
@@ -101,33 +102,50 @@ class OrderedPoisonHaltClearProcessor:
                 reason="receipt_verifier_unbound",
             )
         try:
-            await self.operator_request_receipt_gate.commit(receipt_verification)
+            receipt_reservation = await self.operator_request_receipt_gate.reserve(
+                receipt_verification
+            )
         except ValueError as exc:
             reason = f"receipt_{_safe_reason(str(exc))}"
             await self._record_rejected_outcome(request, reason)
             return OrderedPoisonHaltClearResult("rejected", halted=True, reason=reason)
-        cleared = await clear_ordered_halt_with_evidence(
-            self.halt_state_store,
-            group_id=request.group_id,
-            topic=request.topic,
-            expected_revision=request.halt_revision,
-            expected_halt_digest=request.halt_record_digest,
-            parked_record_evidence=evidence,
-            audit_entry={
-                "schema_version": "1.0.0",
-                "agent": "Saga",
-                "event_type": "ordered_poison_halt_clear",
-                "request_id": request.request_id,
-                "idempotency_key": request.idempotency_key,
-                "principal_id": request.principal_id,
-                "group_id": request.group_id,
-                "topic": request.topic,
-                "evidence_digest": canonical_digest(evidence),
-            },
-        )
+        try:
+            cleared = await clear_ordered_halt_with_evidence(
+                self.halt_state_store,
+                group_id=request.group_id,
+                topic=request.topic,
+                expected_revision=request.halt_revision,
+                expected_halt_digest=request.halt_record_digest,
+                parked_record_evidence=evidence,
+                audit_entry={
+                    "schema_version": "1.0.0",
+                    "agent": "Saga",
+                    "event_type": "ordered_poison_halt_clear",
+                    "request_id": request.request_id,
+                    "idempotency_key": request.idempotency_key,
+                    "principal_id": request.principal_id,
+                    "group_id": request.group_id,
+                    "topic": request.topic,
+                    "evidence_digest": canonical_digest(evidence),
+                },
+            )
+        except RuntimeError:
+            await self.operator_request_receipt_gate.release(receipt_reservation)
+            raise
         if not cleared:
+            await self.operator_request_receipt_gate.release(receipt_reservation)
             await self._record_rejected_outcome(request, "halt_mismatch")
             return OrderedPoisonHaltClearResult("rejected", halted=True, reason="halt_mismatch")
+        try:
+            await self.operator_request_receipt_gate.finalize(receipt_reservation)
+        except ValueError as exc:
+            reason = f"receipt_finalize_{_safe_reason(str(exc))}"
+            await self._record_applied_unfinalized_outcome(request, reason)
+            return OrderedPoisonHaltClearResult(
+                "applied_but_unfinalized",
+                halted=False,
+                reason=reason,
+            )
         return OrderedPoisonHaltClearResult("cleared", halted=False)
 
     async def _verify_operator_receipt(
@@ -208,11 +226,49 @@ class OrderedPoisonHaltClearProcessor:
             }
         )
 
+    async def _record_applied_unfinalized_outcome(
+        self,
+        request: OrderedPoisonHaltClearRequest,
+        reason: str,
+    ) -> None:
+        observed_at = self.clock().astimezone(UTC)
+        outcome = {
+            "schema_version": "1.0.0",
+            "kind": "ordered_poison_halt_clear_outcome",
+            "status": "applied_but_unfinalized",
+            "reason": reason,
+            "request_id": request.request_id,
+            "idempotency_key": request.idempotency_key,
+            "group_id": request.group_id,
+            "topic": request.topic,
+            "halt_revision": request.halt_revision,
+            "halt_record_digest": request.halt_record_digest,
+            "requested_at": request.requested_at.isoformat(),
+            "observed_at": observed_at.isoformat(),
+        }
+        key = ordered_poison_halt_clear_outcome_key(request.request_id)
+        await self.audit_store.write_state(key, outcome)
+        await self.audit_store.append_audit_entry(
+            {
+                "schema_version": "1.0.0",
+                "agent": "Saga",
+                "event_type": "ordered_poison_halt_clear_applied_but_unfinalized",
+                "request_id": request.request_id,
+                "idempotency_key": request.idempotency_key,
+                "group_id": request.group_id,
+                "topic": request.topic,
+                "reason": reason,
+                "evidence_digest": canonical_digest(outcome),
+            }
+        )
+
     async def _find_parked_record(
         self,
         request: OrderedPoisonHaltClearRequest,
     ) -> Mapping[str, Any] | None:
-        group = f"{self.consumer_group_prefix}.clear-evidence.{request.idempotency_key}"
+        group = (
+            f"{self.consumer_group_prefix}.clear-evidence.{request.idempotency_key}.{uuid4().hex}"
+        )
         stream = self.bus.subscribe(request.parked_record_topic, group)
         try:
             try:

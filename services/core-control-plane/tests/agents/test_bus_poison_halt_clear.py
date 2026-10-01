@@ -67,7 +67,7 @@ class _CommitFailingReceiptGate:
         receipt = OperatorRequestReceipt.model_validate(raw["operator_request_receipt"])
         return type("Verified", (), {"receipt": receipt, "replay_key": "replay-key"})()
 
-    async def commit(self, _verified: Any) -> OperatorRequestReceipt:
+    async def reserve(self, _verified: Any) -> Any:
         raise ValueError("expired")
 
 

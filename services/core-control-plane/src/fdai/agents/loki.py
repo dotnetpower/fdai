@@ -145,6 +145,7 @@ class Loki(
         self._recurring_schedule = recurring_schedule
         self._scenario_generator = scenario_generator
         self._scenario_corpus = {frozen_corpus_key(item): item for item in scenario_corpus}
+        self._proposal_queue_managed_externally = True
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -219,7 +220,9 @@ class Loki(
             if self.bus is None:
                 self.record_behavior("adversarial_scenario:publication_unavailable")
                 continue
-            await self._publish_proposal("object.chaos-experiment", payload)
+            if not await self._publish_proposal("object.chaos-experiment", payload):
+                self.record_behavior("adversarial_scenario:audit_unpublished")
+                continue
             if result == "accepted":
                 self._scenario_corpus[frozen_corpus_key(candidate.schedule)] = candidate.schedule
                 accepted += 1
