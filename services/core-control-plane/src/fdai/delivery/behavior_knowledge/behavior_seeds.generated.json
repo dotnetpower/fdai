@@ -246,11 +246,11 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "e3fde3fee2bf0fdbc9830091bfdb82dc514d10b223e1b5d869194c63d0fcc9a1",
+      "source_manifest_hash": "e3688d71651726ec3b92d3396adb7b8f276bebfc48fa0e1652a815e44ffd5be5",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "97fd083ec4994d38d85034e6723ba5ab5934458d",
+          "blob_sha": "8044f0eb9e6254b16e5bd14aa1884f90f1f5dad0",
           "line_end": 120,
           "line_start": 81,
           "path": "services/core-control-plane/src/fdai/agents/_framework/saga_issue_runtime.py",
@@ -840,7 +840,7 @@
         "How does Vidar handle rollback?",
         "Vidar는 롤백을 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "0044fdc1be157565fc10861aab67ff1fac9f453d6a5b64e5536f9c4cc0c06346",
+      "source_manifest_hash": "08ca1dc45f603218a28c8b9cae414d71025d387f1eacd9130242f209bbc28a90",
       "sources": [
         {
           "authority_role": "implementation",
@@ -853,7 +853,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "760fe46fa1baa63abfdceb302fd4e95a13602323",
+          "blob_sha": "c0c33274986775f47bbb47d31855b26c734fc23c",
           "line_end": 1649,
           "line_start": 1614,
           "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",
@@ -862,7 +862,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "760fe46fa1baa63abfdceb302fd4e95a13602323",
+          "blob_sha": "c0c33274986775f47bbb47d31855b26c734fc23c",
           "line_end": 1776,
           "line_start": 1758,
           "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",

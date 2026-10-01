@@ -47,6 +47,7 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | implemented | Closed the fifth critique round. Saga issue auto-close became a checkpointed two-phase flow with a recurrence re-check and cancellation audit; a failed first ActionRun publication rolls back the unpublished run and its exact resource claim; enforce startup validates per-`(ActionType, rollback_contract)` coverage; `object.rollback` records are schema-validated; Vidar rehearsal cadence waits for publication; Bragi outboxes are claim-fenced; Heimdall keeps large replay payloads; and Loki, Freyr, and Njord no longer report unpublished or stale work as complete. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `test_bragi_outbox_fencing.py`, `test_heimdall_large_publication.py`, `test_stale_sample_fences.py`, `test_mimir_issue_close_evidence.py`, `test_vidar_dr_failover_rehearsal.py`, `test_thor_durable.py`, `test_runtime.py`, `test_governance_authority.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4463 passed, 1 skipped. | Bind and validate the remaining production ports and live or deployment evidence listed below. |
 | 2026-10-01 | implemented | Hardened the phase-2 Agent Pantheon capabilities through repeated critique rounds: signed, fence-ordered ordered-poison-halt clears; receipt schema `1.1.0` with presence-aware workflow lineage and pending-then-final replay fences; token-fenced durable publication outboxes with bounded publish, paged recovery, per-row deferral, and maintenance re-drive; per-ActionType rollback readiness; batch refusal accounting; bounded specialist sampling and recoverable Loki windows; and exact-key `delete_state` retention. Oversized members moved into `_framework` capability modules without behavior change. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `services/operator-service/src/fdai_operator_service/**`; `services/core-control-plane/tests/agents/test_outbox_publication_hardening.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4407 passed, 1 skipped; real provider matrix on loopback Redpanda and PostgreSQL passed twice. | Bind and validate the remaining production ports and live or deployment evidence listed below. |
 | 2026-10-01 | implemented | Documented the phase-2 Agent Pantheon capabilities: pre-flight receipts, DR contracts, signed operator-request receipts, schema learning, intent-training evidence, Mimir and Norns issue-close support, Freyr/Loki specialist loops, poison-halt clear semantics, cost annotations, multi-target batch semantics, and Muninn compaction. | `current change`; `docs/roadmap/agents/agent-pantheon*.md`; `docs/roadmap/agents/agent-pantheon-implementation*.md`; `docs/roadmap-implementation/agents/agent-pantheon.md`; focused checks listed in the final report. | Bind and validate the remaining production ports and live/deployment evidence listed below. |
 | 2026-09-29 | implemented | Thor, Heimdall, Mimir, and Forseti now record the independent verifier's explicit rejection class and cite its rejection record while keeping their roles, owned objects, and topics. Thor's test-context dispatch hold sets the `ActionRun` outcome and `evidence_rejection_ref` on `object.action-run`; Heimdall excludes scoring in `ForecastOutcome` `1.2.0` on `object.forecast-outcome`; Mimir appends a `test_context.transition_refused` audit entry and publishes no `object.policy`; Forseti's held verdict carries `evidence_rejection_ref`. Only `unavailable` keeps each generic reason, issuance stays a bounded provider call, and no execution or promotion authority changes. | `current change`; `agents/_framework/{thor_execution,thor_action_run,thor_persistence,forseti_judgment}.py`; `tests/agents/test_operational_evidence_owner_records.py`; see the [independent operational evidence ledger](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md) | Purposes without a bound verifier readback still reach these agents only as `unavailable`. |
@@ -188,7 +189,9 @@ cap and republishes them with their original idempotency keys and payloads. A ro
 publish, or a malformed row, is recorded and deferred instead of aborting startup, and bounded
 maintenance re-drives deferred rows. Var final approvals, Saga audit entries, Muninn operational
 publications, Heimdall observation publications, Mimir rule and policy publications, and Bragi
-publication outboxes follow this contract.
+publication outboxes follow this contract. Unpublished rows always keep their full replay payload;
+Heimdall drops bodies above 8 KiB only from published tombstones and rejects a publication above
+512 KiB before it writes any checkpoint.
 
 #### Tier, approval, and command identity
 
@@ -265,8 +268,14 @@ The `dry_run_evidence` safeguard field states where the dry-run safeguard comes 
 `upstream_receipt` cites a what-if or dry-run receipt carried by the triggering event.
 `declared_obligation` is a deterministic obligation identity, not proof that a dry-run ran. Thor
 counts each non-shadow dispatch that relies on an obligation as `dispatch:dry_run_obligation_only`.
-Core executor paths that call `evaluate_pre_dispatch` compute their own dry-run receipt; a Thor
-pre-flight simulation receipt remains planned work.
+Core executor paths that call `evaluate_pre_dispatch` compute their own dry-run receipt; Thor's
+pre-flight simulator supplies the receipt for high-risk or obligation-only dispatch, as described in
+[Pre-flight simulation and receipts](#pre-flight-simulation-and-receipts).
+
+A failed first `object.action-run` publication is not a lifecycle handoff. Thor removes the
+unpublished run, abandons an exact unpublished resource claim on the enforce `auto` path, and
+releases the resource lock, so a redelivered verdict retries with the same idempotency key. A
+durable row that no longer matches the failed attempt is left intact and counted.
 
 #### Impact scope and batch semantics
 
@@ -305,9 +314,11 @@ through the rollback contract or a visible `rollback_refused` state when the req
 rollback preconditions are missing. Thor releases or fences the resource lock after failed or
 refused rollback so the stuck run remains visible without holding the resource indefinitely.
 
-When action-specific rollback bindings exist, rollback readiness is validated per
-`(ActionType, rollback_contract)` pair. A contract name alone does not prove that a bound executor
-can recover a different ActionType. For example, the AKS acceptance `ops.scale-out` executor is bound
+Rollback readiness is validated per `(ActionType, rollback_contract)` pair. Before startup,
+enforce composition derives every executable pair from the bound ActionType semantics catalog and
+requires either a generic executor for that contract or an exact action-specific executor;
+irreversible and no-executor contracts are exempt. A contract name alone does not prove that a
+bound executor can recover a different ActionType. For example, the AKS acceptance `ops.scale-out` executor is bound
 for non-shadow execution only when its matching `state_forward_only` rollback adapter is supplied.
 
 #### Arbitration, narration, audit, and specialist replay
@@ -429,7 +440,9 @@ simulation fails closed before executor I/O.
 Vidar accepts or holds `dr_failover_contract` decisions on the exact ActionRun identity before Thor
 continues `ops.failover-primary`. Held decisions and injected-clock timeouts deny the run. The
 rollback rehearsal port is dry-run-only; unbound ports record visible no-op evidence, while bound
-ports produce digest-bound rehearsal receipts and DR readiness facts.
+ports produce digest-bound rehearsal receipts and DR readiness facts. A rehearsal completes its
+cadence only after the receipt is published on `object.rollback`; recovery republishes a persisted
+unpublished receipt with its original identity.
 
 #### Issue-close promotion evidence and governed Mimir maintenance
 
@@ -443,7 +456,11 @@ with the same key, and recurrence after the clean start requires a new reviewed 
 Norns publishes inert quiet-window close eligibility on `object.rule-candidate`. It never mutates
 issues. Saga remains the issue closer and waits for Mimir promotion evidence plus the clean
 recurrence window before closing. Saga keeps issue-close eligibility in bounded durable state and
-rehydrates it before any close scan.
+rehydrates it before any close scan. Each auto-close is a durable checkpoint advanced by revision
+compare-and-swap: an `issue_auto_close_intent` audit, a recurrence re-check immediately before the
+idempotent external close, the terminal `issue_auto_close` audit, `object.issue` publication, and
+completion. A recurrence cancels the close with a terminal `issue_auto_close_cancelled` audit.
+Recovery pages pending checkpoints, including ones whose issue is already closed.
 
 #### Operator-request receipts and schema learning
 
@@ -467,13 +484,15 @@ Schema-cluster evidence is recorded only after the event-type authorization gate
 
 Freyr samples utilization through an injected read-only sampler. If unbound, the sampler reports a
 visible no-op rather than a degraded runtime. A sampler call is bounded by a timeout that records
-`capacity_sampling:timeout`. Forecasts remain advisory unless the governed advisory-to-verdict path
+`capacity_sampling:timeout`. Freyr and Njord complete the duplicate fence of a stale sample, so a
+redelivered stale sample is a duplicate rather than reprocessed work. Forecasts remain advisory unless the governed advisory-to-verdict path
 emits shadow/HIL proposals through Forseti.
 
 Loki's deterministic recurring scheduler emits one complete always-HIL chaos proposal per due
 window or a visible hold. A claimed window is either recovered after restart or held with a bounded
-reason, never silently skipped. Its adversarial scenario generator is an injected off-path port with
-no default binding; accepted candidates are inert and regression-gated against the frozen corpus.
+reason, never silently skipped. Without a durable outbox and a bus, a proposal is
+`publication_unavailable` and releases its reservation. Its adversarial scenario generator is an
+injected off-path port with no default binding; accepted candidates are inert and regression-gated against the frozen corpus.
 Heimdall's recovery-effect observation key includes the published resource id, so observations for
 different resources in one correlation never collapse into one key.
 
@@ -514,7 +533,9 @@ or an explicit unavailable state; Odin preserves it and Thor stores it as non-id
 
 Bragi records shadow-only intent-training evidence from bounded, consent-filtered, digest-only
 verified routing outcomes. Candidate evaluation is off-path, deterministic, regression-gated, and
-audited. It never changes routing authority; reviewed activation remains a separate binding.
+audited. It never changes routing authority; reviewed activation remains a separate binding. Norns
+records this evidence, and any other non-review kind on `object.post-turn-review`, as an observable
+non-learning outcome; only `kind: post_turn_review` enters learner review.
 
 #### Multi-target batches
 

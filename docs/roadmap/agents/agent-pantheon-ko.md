@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 68e218d3dc678c92cdd6bbee44af1870860e8256
+translation_source_sha: 423805c2074a63ac7ae6e74b77715d87a192ab17
 translation_revised: 2026-10-01
 ---
 # 에이전트 판테온
@@ -362,7 +362,7 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 브리지가 이미 소유권을 검사했더라도 producer가 없거나 소유자가 아니면 상태를 바꾸기 전에
 차단하고 거부된 전달로 계산합니다. live 브리지와 redrive 경로는 같은 소유자, 묶음, payload
 검증을 적용하며, 런타임 조립은 기본적으로 권한 payload 검증기를 연결하므로 잘못된
-`object.verdict`, `object.approval`, `object.action-run` 레코드는 처리기에 도달하지 않습니다.
+`object.verdict`, `object.approval`, `object.action-run`, `object.rollback` 레코드는 처리기에 도달하지 않습니다.
 각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
 런타임 조립은 에이전트별 소비자 모드를 선택적으로 사용할 수 있습니다. 이 모드에서는 에이전트 그룹마다 하나의 물리 소비자가 broker 스트림을 읽고 논리 `object.*` 토픽을 로컬에서 라우팅합니다. 기본값은 `(topic, agent)` 쌍마다 소비자를 유지합니다. 두 모드 모두 핸들러 전달 전에 같은 소유자, 묶음, poison, 재시도 검사를 보존합니다.
 한 에이전트가 같은 토픽에 서로 다른 핸들러를 연결하면 런타임은 핸들러마다 결정론적 소비자
