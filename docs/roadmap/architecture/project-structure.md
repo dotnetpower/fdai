@@ -8,6 +8,7 @@ Workflow authoring commits are delegated to a focused Operator PostgreSQL module
 Recent Resource change continuations stay inside Core's ontology platform and persistence modules: Operator exposes only an opaque forwarding route, while Core owns the continuation body, keyset cursor, expiry, reauthorization, and PostgreSQL storage.
 Successive all-kinds relation continuations stay in Core conversation modules as shadow-only state over already verified plan batches; they grant no Operator route or default answer behavior.
 Container-kind lineage grouping stays split between Core conversation compilation and the generic ontology query aggregate handler: the compiler selects the reviewed container kind, while the executor computes nearest-root counts and `ambiguous_membership` without adding authority.
+Remaining E9 operators keep their missing-prerequisite decisions in a focused Core conversation helper, so unsupported rank, aggregate, comparison, version, evidence, diagnose, and path rows do not fall back to another operation's plan.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.

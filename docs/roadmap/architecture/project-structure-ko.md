@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4ebce7646ea6ec59deb5313d768ea4e646ea9637
+translation_source_sha: 7dfb81c3a0942b2c6367444d6254d6a0ad8304b6
 translation_revised: 2026-10-01
 ---
 # 프로젝트 구조
@@ -11,6 +11,7 @@ translation_revised: 2026-10-01
 최근 Resource 변경 이어 읽기는 Core의 온톨로지 플랫폼과 persistence 모듈 안에 남습니다. Operator는 불투명 참조를 전달하는 route만 노출하고, Core가 이어 읽기 본문, keyset cursor, 만료, 재권한 확인 및 PostgreSQL 저장을 소유합니다.
 연속 all-kinds 관계 이어 읽기는 이미 검증된 계획 묶음 위의 shadow 전용 상태로 Core 대화 모듈에 남습니다. Operator route나 기본 답변 동작은 추가하지 않습니다.
 컨테이너 종류 계보 그룹화는 Core 대화 컴파일과 일반 온톨로지 query aggregate handler가 나누어 소유합니다. 컴파일러는 검토된 컨테이너 종류를 선택하고, 실행기는 새 권한 없이 가장 가까운 루트 개수와 `ambiguous_membership`을 계산합니다.
+남은 E9 연산자는 전용 Core 대화 helper에 누락된 선행 조건 결정을 보존하므로, 지원되지 않는 rank, aggregate, comparison, version, evidence, diagnose 및 path 행은 다른 연산의 계획으로 fallback하지 않습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

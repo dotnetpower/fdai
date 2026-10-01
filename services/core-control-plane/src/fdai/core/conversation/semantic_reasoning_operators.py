@@ -74,6 +74,7 @@ from .semantic_reasoning_nodes import (
 )
 from .semantic_reasoning_property_reads import property_lookup
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
+from .semantic_reasoning_remaining_operators import remaining_operator_result
 from .semantic_reasoning_schema import schema_goal
 
 MAX_SIDES_PER_BATCH = 3
@@ -125,6 +126,9 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         goal.want is Want.CAUSE and goal.effective_operation is not GoalOperation.EXPLAIN_CAUSE
     ):
         return OperatorResult(unsupported=(f"want_unsupported:{goal.want.value}",))
+    remaining = remaining_operator_result(goal)
+    if remaining is not None:
+        return remaining
     compiled = _SCHEMA_OPERATIONS if goal.level is GoalLevel.SCHEMA else _INSTANCE_OPERATIONS
     if goal.effective_operation not in compiled:
         return OperatorResult(

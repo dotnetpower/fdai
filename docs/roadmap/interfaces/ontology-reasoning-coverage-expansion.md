@@ -180,6 +180,9 @@ stays causal context.
 The coverage receipt still returns typed unsupported reasons for these operations and senses. Each
 one compiles only when its prerequisite exists. Until then it keeps the reason, and none borrows
 another operation's plan.
+The local implementation tightens those missing-prerequisite reasons in the coverage receipt; it
+does not compile new cells until the reviewed order, aggregation, comparison, history, evidence,
+diagnosis, path, or trait prerequisite exists.
 
 | Operation or sense | Prerequisite | Compiles to |
 |--------------------|--------------|-------------|
