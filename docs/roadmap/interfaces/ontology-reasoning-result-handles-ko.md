@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 결과 핸들과 이어 읽기
 translation_of: ontology-reasoning-result-handles.md
-translation_source_sha: 3c878f45c1bc0f6941f79be008e8e5b1d6dd7077
+translation_source_sha: 64008c30fa1a9f2d661f39a4d418ec8bc29ac7d7
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 결과 핸들과 이어 읽기
@@ -135,6 +135,8 @@ WHERE effective_at < :last_effective_at
 
 - 남은 개수는 같은 기준 시각의 같은 파생 관계에서 세며, 답변은 마지막 페이지에서만 완전하다고
   밝힙니다.
+- 구현은 원시 탐색 키를 Core 소유 이어 읽기 상태에만 저장합니다. 결정 이벤트와 Operator 트래픽은
+  불투명 참조와 다이제스트만 전달합니다.
 - Core는 이어 읽기 상태를 저장합니다. 상태에는 배포 범위, principal 다이제스트, 대화, 목적, 수용된
   목표와 계획 다이제스트, 매니페스트 다이제스트, 조회 버전 다이제스트, 기간, 기준 시각, 정렬, 커서,
   페이지 크기, `expires_at`이 들어갑니다. 클라이언트는 불투명 참조만 갖습니다.

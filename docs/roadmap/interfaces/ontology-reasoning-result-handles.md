@@ -139,6 +139,8 @@ WHERE effective_at < :last_effective_at
 
 - The remaining count comes from the same derived relation under the same cutoff, and the answer
   claims completeness only on the last page.
+- The implementation stores the raw seek key only in Core-owned continuation state; decision events
+  and Operator traffic carry only the opaque reference and digests.
 - Core stores the continuation state: deployment scope, principal digest, conversation, purpose,
   the admitted goal and plan digests, the manifest digest, the query-version digest, the window,
   the cutoff, the ordering, the cursor, the page size, and `expires_at`. The client holds only an

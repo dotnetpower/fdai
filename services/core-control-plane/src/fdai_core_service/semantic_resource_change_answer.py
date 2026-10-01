@@ -84,12 +84,21 @@ def render_resource_change_answer(
         and source_total > listed + unresolved
     ):
         remaining = source_total - listed - unresolved
+        continuation_ref = output.get("continuation_ref")
         lines.append(
             f"- 이 기간에 변경된 리소스 {source_total}개 중 {remaining}개는 목록에 없습니다."
             if korean
             else f"- {remaining} of the {source_total} changed resources in this window "
             "are not listed."
         )
+        if isinstance(continuation_ref, str) and continuation_ref:
+            lines.append(
+                f"- 계속하려면 continuation reference "
+                f"`{inline_code(continuation_ref)}`를 사용하세요."
+                if korean
+                else f"- To continue, request the next page with continuation reference "
+                f"`{inline_code(continuation_ref)}`."
+            )
     lines.append(
         f"- 원본 완전성: {completeness_text(complete, korean=True)}"
         if korean
