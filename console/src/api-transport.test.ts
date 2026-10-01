@@ -8,6 +8,7 @@ import {
   OperatorApiError,
   OperatorApiTransport,
 } from "./api-transport";
+import { EntitlementStampStore } from "./entitlement-state";
 
 const config: ConsoleConfig = {
   operatorApiBaseUrl: "http://127.0.0.1:8010",
@@ -234,5 +235,50 @@ describe("Operator API authentication boundary", () => {
 
     await expectation;
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Operator entitlement stamp", () => {
+  function stamped(status: number, notice: string | null): Response {
+    const headers = new Headers({ "content-type": "application/json" });
+    if (notice !== null) headers.set("X-FDAI-Entitlement", notice);
+    const body = status < 400 ? { ok: true } : { error: { status, message: "denied" } };
+    return new Response(JSON.stringify(body), { status, headers });
+  }
+
+  test("records the stamp from a successful read and a write", async () => {
+    const entitlementStamps = new EntitlementStampStore(() => 7);
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(stamped(200, "none"))
+      .mockResolvedValueOnce(stamped(200, "evaluation-ended")));
+    const transport = new OperatorApiTransport(config, auth(), { entitlementStamps });
+
+    await transport.getJson("/kpi");
+    expect(entitlementStamps.latest()).toEqual({ notice: "none", receivedAt: 7 });
+    await transport.postJson("/write", {}, "key-1");
+    expect(entitlementStamps.latest()).toEqual({ notice: "evaluation-ended", receivedAt: 7 });
+  });
+
+  test("records the stamp before an error response throws", async () => {
+    const entitlementStamps = new EntitlementStampStore(() => 1);
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(stamped(503, "not-activated"))
+      .mockResolvedValueOnce(stamped(409, "evaluation-ended")));
+    const transport = new OperatorApiTransport(config, auth(), { entitlementStamps });
+
+    await expect(transport.getJson("/kpi")).rejects.toMatchObject({ status: 503 });
+    expect(entitlementStamps.latest()?.notice).toBe("not-activated");
+    await expect(transport.postJson("/write", {}, "key-2")).rejects.toMatchObject({ status: 409 });
+    expect(entitlementStamps.latest()?.notice).toBe("evaluation-ended");
+  });
+
+  test("leaves the latest stamp unchanged for an unstamped response", async () => {
+    const entitlementStamps = new EntitlementStampStore(() => 2);
+    entitlementStamps.record("none");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(stamped(401, null)));
+    const transport = new OperatorApiTransport(config, auth(), { entitlementStamps });
+
+    await expect(transport.getJson("/kpi")).rejects.toMatchObject({ status: 401 });
+    expect(entitlementStamps.latest()).toEqual({ notice: "none", receivedAt: 2 });
   });
 });
