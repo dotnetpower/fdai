@@ -65,7 +65,8 @@ execution and durable Trial activation are not yet connected. A plan
 returns exit code `2` for review, not deployment success; a capacity blocker returns `3`.
 `--prepare-only` makes no Azure call. `--preflight-only` reads the current human target, SKU
 restrictions, x64 architecture, host encryption, required zones and shared-family/total quota at
-autoscaler maximum plus simultaneous 33-percent surge. It neither reserves capacity nor accounts
+autoscaler maximum plus simultaneous 33-percent surge. A `postgres-flex` profile also requires the
+regional PostgreSQL Flexible Server catalog to offer PostgreSQL 16. It neither reserves capacity nor accounts
 for the Foundation graph. The distinct source work directory never adopts a kit run.
 
 After initial confirmation, a bounded public-price read adds an explicit partial AKS compute

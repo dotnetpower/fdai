@@ -7,12 +7,15 @@ import math
 import re
 import subprocess
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.target import compute_target_binding
+
+# Major version created by infra/modules/state-store/postgres-flex; a parity test keeps them equal.
+POSTGRES_FLEX_MAJOR_VERSION = "16"
 
 
 def inspect_aks_target(
@@ -24,8 +27,9 @@ def inspect_aks_target(
     """Inspect the current human target once, returning sanitized feasibility evidence.
 
     Quota covers both pools at autoscaler maximum plus simultaneous 33-percent surge,
-    not Foundation or other future resources. The report never claims full readiness,
-    reserves capacity, logs target IDs, or retries a failed provider call.
+    not Foundation or other future resources. A ``postgres-flex`` profile also requires the
+    regional Flexible Server catalog to offer the deployed major version. The report never
+    claims full readiness, reserves capacity, logs target IDs, or retries a failed provider call.
     """
     if profile.runtime_platform.value != "aks" or re.fullmatch(r"[a-z][a-z0-9]+", region) is None:
         raise ValueError("AKS preflight requires an AKS profile and valid region")
@@ -54,6 +58,30 @@ def inspect_aks_target(
         ("vm", "list-usage", "--subscription", subscription, "--location", region), deadline
     )
     assessment = assess_aks_capacity(profile=profile, region=region, skus=skus, usage=usage)
+    if profile.database_placement.value == "postgres-flex":
+        capabilities = _json(
+            (
+                "postgres",
+                "flexible-server",
+                "list-skus",
+                "--subscription",
+                subscription,
+                "--location",
+                region,
+            ),
+            deadline,
+        )
+        database = assess_postgres_flex_region(capabilities)
+        blockers = sorted(
+            {str(item) for item in cast(list[object], assessment["blockers"])}
+            | {str(item) for item in cast(list[object], database["blockers"])}
+        )
+        assessment = {
+            **assessment,
+            "state": "blocked" if blockers else "feasible",
+            "blockers": blockers,
+            "database": database,
+        }
     result = {
         "schema_version": "fdai.aks-capacity-preflight.v1",
         "target_binding": target_binding,
@@ -220,6 +248,51 @@ def assess_aks_capacity(
         "pools": pools,
         "quotas": quotas,
     }
+
+
+def assess_postgres_flex_region(
+    observation: object,
+    *,
+    required_version: str = POSTGRES_FLEX_MAJOR_VERSION,
+) -> dict[str, object]:
+    """Require the regional Flexible Server catalog to offer the deployed major version.
+
+    A subscription restricted from a region receives an empty version list and a reason
+    instead of an error, so the server create fails only after the Foundation and part of
+    the substrate exist. Missing or malformed evidence blocks like an unavailable version.
+    """
+    evidence: dict[str, object] = {
+        "placement": "postgres-flex",
+        "required_version": required_version,
+        "offered_versions": [],
+    }
+    if (
+        not isinstance(observation, list)
+        or not observation
+        or not all(isinstance(entry, dict) for entry in observation)
+    ):
+        return {**evidence, "blockers": ["postgres_flex_evidence_incomplete"]}
+    offered: set[str] = set()
+    restricted = False
+    for capability in observation:
+        versions = capability.get("supportedServerVersions")
+        if not isinstance(versions, list):
+            return {**evidence, "blockers": ["postgres_flex_evidence_incomplete"]}
+        offered.update(
+            entry["name"]
+            for entry in versions
+            if isinstance(entry, dict) and isinstance(entry.get("name"), str)
+        )
+        reason = capability.get("reason")
+        restricted = restricted or (isinstance(reason, str) and bool(reason.strip()))
+    blockers: list[str] = []
+    if required_version not in offered:
+        blockers.append(
+            "postgres_flex_region_restricted"
+            if restricted and not offered
+            else "postgres_flex_version_unavailable"
+        )
+    return {**evidence, "offered_versions": sorted(offered), "blockers": blockers}
 
 
 def _quota_integer(value: object) -> int | None:
