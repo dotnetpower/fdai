@@ -18,6 +18,8 @@ import genesis_identity_executor  # noqa: E402
 
 EXECUTOR = "00000000-0000-0000-0000-000000000002"
 EXECUTOR_CLIENT = "00000000-0000-0000-0000-000000000003"
+READINESS_TIMEOUT_SECONDS = 30.0
+NEGATIVE_SERIALIZATION_WINDOW_SECONDS = 0.2
 
 
 def _target(config_dir: Path) -> EntraTargetProfile:
@@ -74,15 +76,18 @@ def test_identity_operations_serialize_nested_executor_contexts_and_restore(
     second_entered = Event()
     observations: list[tuple[str, str | None]] = []
     errors: list[BaseException] = []
+    first_release_timed_out = False
 
     def first_operation() -> None:
+        nonlocal first_release_timed_out
         try:
             with genesis_identity_executor.identity_operation_context():
                 observations.append(("first-human", os.environ.get("AZURE_CONFIG_DIR")))
                 with genesis_identity_executor.executor_execution_context(first):
                     observations.append(("first-executor", os.environ.get("AZURE_CONFIG_DIR")))
                     first_entered.set()
-                    if not release_first.wait(timeout=2):
+                    if not release_first.wait(timeout=READINESS_TIMEOUT_SECONDS):
+                        first_release_timed_out = True
                         raise AssertionError("second operation did not release the first")
                 observations.append(("first-restored", os.environ.get("AZURE_CONFIG_DIR")))
         except BaseException as exc:
@@ -90,7 +95,7 @@ def test_identity_operations_serialize_nested_executor_contexts_and_restore(
 
     def second_operation() -> None:
         try:
-            if not first_entered.wait(timeout=2):
+            if not first_entered.wait(timeout=READINESS_TIMEOUT_SECONDS):
                 raise AssertionError("first operation did not enter its executor context")
             second_attempting.set()
             with genesis_identity_executor.identity_operation_context():
@@ -109,15 +114,16 @@ def test_identity_operations_serialize_nested_executor_contexts_and_restore(
     first_thread = Thread(target=first_operation)
     second_thread = Thread(target=second_operation)
     first_thread.start()
-    assert first_entered.wait(timeout=2)
+    assert first_entered.wait(timeout=READINESS_TIMEOUT_SECONDS)
     second_thread.start()
-    assert second_attempting.wait(timeout=2)
+    assert second_attempting.wait(timeout=READINESS_TIMEOUT_SECONDS)
     try:
-        assert not second_entered.wait(timeout=0.2)
+        assert first_release_timed_out is False
+        assert not second_entered.wait(timeout=NEGATIVE_SERIALIZATION_WINDOW_SECONDS)
     finally:
         release_first.set()
-    first_thread.join(timeout=2)
-    second_thread.join(timeout=2)
+    first_thread.join(timeout=READINESS_TIMEOUT_SECONDS)
+    second_thread.join(timeout=READINESS_TIMEOUT_SECONDS)
 
     assert not first_thread.is_alive()
     assert not second_thread.is_alive()

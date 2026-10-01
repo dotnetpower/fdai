@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 85f91282f899fadcc096d785e5d259dd2aadbe1c
+translation_source_sha: a70dc8d77e7032ec8cc2e29dd6ea67400240477a
 translation_revised: 2026-10-01
 ---
 
@@ -544,9 +544,18 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-09-29 | implemented | `dev discuss` 상태 확인과 캡처를 복구했습니다. #1418에서 소켓 경로를 줄인 뒤 실행기는 Core와 Operator 소켓을 전체 런타임 식별자로 `.fdai/r` 아래에 바인딩했지만, 명령은 여전히 `.fdai/runtime-diagnostics/<service>.sock`을 찾았으므로 프로브가 살아 있는데도 두 서비스를 사용할 수 없다고 보고했습니다. 이제 명령은 식별자로 바인딩된 최신 후보에게 어떤 서비스가 응답하는지 묻고 기존 경로도 유지합니다. Console 질문을 실행하는 동안 25초 Core 프로필을 캡처한 결과 23초 답변의 대부분이 모델 호출이었고, second reader가 선택자 호출마다 검토된 카탈로그 분할 리프 전체에서 비밀 값을 검사해 이벤트 루프에서 CPU 1.3초와 루프 지연 543ms를 쓰는 것을 찾았습니다. 이제 이 검사는 분할 다이제스트마다 한 번만 실행합니다. | 이전 명령에서 실패하는 `test_status_and_capture_find_an_identity_bound_launcher_socket`, `test_a_reviewed_catalog_shard_is_scanned_once_per_digest`, 두 서비스 모두 true인 실제 `dev-discuss status`, 다이제스트에 바인딩된 25초 캡처. | 없음. |
 | 2026-09-29 | implemented | 개발자가 질문이 왜 그렇게 이해되었는지 볼 수 있도록 `dev discuss`에 내용이 없는 의미 판단 추적을 추가했습니다. Core는 완료된 의미 턴마다 추적 하나를 50개 크기의 프로세스 로컬 버퍼에 보관합니다. 추적에는 라우팅, 각 판단 시도, 근거화 호출, 플래너가 직접 남기는 구조화된 판단 이벤트, 실행된 의도 그래프, 플래너 내부 사유가 포함된 결과, 단계를 가리키는 검토 신호가 들어 있습니다. 모델이 만든 토큰은 검토된 어휘에 속해야 하고, 배포 이름과 세션은 프로세스 로컬 별칭이 되며, 오프셋과 값은 프로세스를 벗어나지 않고, 추적이 없는 패킷은 스키마 1.0.0 전송 형식을 유지합니다. `dev-discuss explain`이 추적을 출력하고 `copilot-export`가 추적을 전달하며, 포함 검토 거부는 이제 포함되지 않은 닫힌 제약 역할만 기록합니다. 구현 전에 설계를 비평했고 발견 8건을 모두 수정했습니다. | `test_decision_traces.py`, `test_development_decisions.py`, `test_dev_discuss.py`의 explain 테스트, `test_an_uncovered_constraint_names_only_its_closed_roles_in_the_rejection_log`, 관련 대화 테스트 1,145개, 추적된 턴 20개를 포함한 실제 Console 실행 2회(거부된 추적 없음, 내보낸 패킷에 테넌트 이름이나 비ASCII 텍스트 없음), 가져온 검토 `sha256:f2be8aca0c1320734a0d781bb2ac4d2ef34cb0e597d5967dcce6774a90845ed0`. | 추적된 오해 패턴은 [추론 컴파일러 원장](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md)에 기록했습니다. |
 | 2026-09-29 | implemented | 로컬 컴파일 답변 라운드를 위해 컴파일된 답변 판단 이벤트를 확장했습니다. 거절된 컴파일은 통과하지 못한 선택 규칙 하나와 배치 수를 기록하고, 무효인 검토는 추출이 검토 역할을 할 수 없는 이유를 인용 없이 기록하며, 형식화된 해석 때문에 보류된 단어 기반 복구 계획은 자체 신호를 남기고, 마지막 form 패스는 닫힌 영역, 형식, 연산, 측정, 필터, 관계, 시간 값과 언급 및 목표 식별자로만 이루어진 내용 없는 형태를 기록합니다. | `test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it`, `test_semantic_reasoning_shape.py`, 거절 및 검토 사유 형식 테스트, 7~10라운드 실제 추적, 가져온 검토 `sha256:a566db4ef38ca7d46ccb47f99761a6496821395a6f0d9c46dae43ee9486df4cc`. | 남은 대화 공백은 [추론 컴파일러 원장](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md)에 기록했습니다. |
+| 2026-10-01 | implemented | 변경 테스트 샤드 통과 marker를 선택된 테스트, 추적된 Python source fallback, lock-file dependency digest, installed environment digest, 정확한 pytest command, 샤드 index 및 count에 바인딩했습니다. 기존 command-only marker, 누락된 입력, 불일치는 이제 cached pass를 보고하지 않고 샤드를 실행합니다. | `current change`; `scripts/automation/run-changed-test-shards.py`; `tests/integration/scripts/test_changed_test_shards.py`; `.venv/bin/python -m pytest -q --no-cov tests/integration/scripts/test_changed_test_shards.py tests/integration/scripts/test_genesis_identity_executor_context.py`; ruff, roadmap tracking, translation, punctuation 및 design-impact 검사. | #1726 범위에 남은 작업은 없습니다. |
 
 ### 남은 작업
 
+- [x] #1726에 따라 `run-changed-test-shards.py`의 재사용되는 changed-test shard pass를 structural
+  runner의 content identity(선택된 테스트와 source, lock file, installed environment digest 및
+  pytest command)에 바인딩했습니다. Exit: 선택된 source file 또는 `uv.lock`을 수정하면 cache miss가
+  발생하고 변경 없는 재실행은 pass를 재사용한다는 regression test가 있습니다. Evidence:
+  `tests/integration/scripts/test_changed_test_shards.py::test_changed_source_file_invalidates_shard_pass`,
+  `tests/integration/scripts/test_changed_test_shards.py::test_changed_lock_file_invalidates_shard_pass`,
+  `tests/integration/scripts/test_changed_test_shards.py::test_legacy_command_only_marker_does_not_reuse_shard_pass`,
+  `tests/integration/scripts/test_changed_test_shards.py::test_unchanged_rerun_reuses_shard_pass`.
 - [x] 집중 검사와 함께 13개의 독립 비평 라운드를 완료하고 수락 또는 기각된 발견 사항을 위에
   기록했습니다.
 - [x] 중앙 검증이 통합 구현 revision `d3f5257b9`를 수락했습니다.
