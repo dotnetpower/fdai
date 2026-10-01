@@ -1,18 +1,18 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Typed event and durability runtime mixin for Forseti."""
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from datetime import datetime
-from typing import Any
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
 
 from fdai.agents._framework import forseti_durability
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.cross_vertical_candidates import is_cross_vertical_candidate
-from fdai.agents._framework.forseti_arbitration import _MAX_RESOURCES
+from fdai.agents._framework.forseti_constants import _MAX_RESOURCES
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.architecture_review import ArchitectureReviewObservation
@@ -21,6 +21,14 @@ from fdai.core.impact_analysis import (
     ChangeGraphEvidenceReceipt,
     change_graph_evidence_from_snapshot,
 )
+from fdai.shared.contracts.models import Mode
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.bus import PantheonBus
+    from fdai.agents._framework.forseti_decision_helpers import ChangeAssessor
+    from fdai.core.architecture_review import OntologyArchitectureReviewLoop
+    from fdai.core.operational_context import OperationalContextMaterializer
+    from fdai.shared.providers.state_store import StateStore
 
 
 def _rule_revision(value: object) -> int | None:
@@ -68,6 +76,76 @@ def _rule_state_is_newer(
 
 class ForsetiRuntimeEventsMixin:
     """Handle typed inputs and persisted rule/advice state."""
+
+    bus: PantheonBus | None
+    _architecture_review_loop: OntologyArchitectureReviewLoop | None
+    _architecture_review_timeout_seconds: float
+    _change_assessor: ChangeAssessor | None
+    _change_assessment_timeout_seconds: float
+    _operational_context: OperationalContextMaterializer | None
+    _rule_state: BoundedLruDict[str, dict[str, str]]
+    _forseti_state_store: StateStore | None
+    _detection_readiness: BoundedLruDict[str, dict[str, str]]
+    _rule_staleness_started_at: datetime
+    _last_owner_rule_update_at: datetime | None
+    _rule_staleness_window: timedelta
+
+    if TYPE_CHECKING:
+
+        async def _handover_message(self, topic: str, payload: dict[str, Any]) -> bool: ...
+
+        async def _assignment_message(self, topic: str, payload: dict[str, Any]) -> bool: ...
+
+        async def _alert_noise_message(self, topic: str, payload: dict[str, Any]) -> bool: ...
+
+        async def _ingest_cross_vertical_candidate(
+            self,
+            topic: str,
+            payload: dict[str, Any],
+        ) -> None: ...
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        async def _record_detection_readiness(self, payload: dict[str, Any]) -> None: ...
+
+        async def _run_retrospective_what_if(self, request: Mapping[str, Any]) -> None: ...
+
+        async def judge_document_ingestion(self, event: dict[str, Any]) -> dict[str, Any]: ...
+
+        async def judge_document_safety(self, signal: dict[str, Any]) -> dict[str, Any]: ...
+
+        async def _judge_forecast(self, forecast: dict[str, Any]) -> dict[str, Any] | None: ...
+
+        async def maybe_request_arbitration(
+            self,
+            event: dict[str, Any],
+        ) -> dict[str, Any] | None: ...
+
+        async def judge(
+            self,
+            event: dict[str, Any],
+            *,
+            source_mode: Mode | None = None,
+        ) -> dict[str, Any] | None: ...
+
+        async def _ingest_domain_signal(
+            self,
+            topic: str,
+            payload: dict[str, Any],
+        ) -> dict[str, Any] | None: ...
+
+        async def _judge_capacity_forecast(
+            self,
+            forecast: dict[str, Any],
+        ) -> dict[str, Any] | None: ...
+
+        async def _record_arbitration(self, decision: dict[str, Any]) -> None: ...
+
+        def _now(self) -> datetime: ...
+
+        def _run_verdict_coherence_self_test(self) -> None: ...
+
+        def _refresh_novelty_drift_signal(self) -> None: ...
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if await self._handover_message(topic, payload):
@@ -397,7 +475,9 @@ class ForsetiRuntimeEventsMixin:
         return restored
 
     async def maintenance_tick(self) -> None:
-        await super().maintenance_tick()
+        maintenance_tick = getattr(super(), "maintenance_tick", None)
+        if maintenance_tick is not None:
+            await maintenance_tick()
         reference = self._last_owner_rule_update_at or self._rule_staleness_started_at
         stale = self._now() - reference > self._rule_staleness_window
         self._rule_cache_stale = stale

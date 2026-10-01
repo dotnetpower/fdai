@@ -12,11 +12,11 @@ from enum import StrEnum
 from typing import Any, Final
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bragi_constants import _MAX_QUESTION_CHARS
 from fdai.agents._framework.introspection import agent_state_evidence_ref, durable_evidence_refs
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 
-_MAX_QUESTION_CHARS = 2_000
 _MAX_TRACE_REF_CHARS = 256
 _MAX_OUTPUT_BYTES = 65_536
 _MAX_EVIDENCE_REFS = 20

@@ -26,8 +26,35 @@ from fdai.agents._framework.loki_adversarial import (
     frozen_corpus_key,
     validate_candidate,
 )
-from fdai.agents._framework.loki_experiment_runtime import (
+from fdai.agents._framework.loki_constants import (
+    _CHAOS_EVIDENCE_FIELDS as _CHAOS_EVIDENCE_FIELDS,
+)
+from fdai.agents._framework.loki_constants import (
+    _CHAOS_OUTBOX_PREFIX as _CHAOS_OUTBOX_PREFIX,
+)
+from fdai.agents._framework.loki_constants import (
+    _DEFAULT_RESERVATION_TTL as _DEFAULT_RESERVATION_TTL,
+)
+from fdai.agents._framework.loki_constants import (
+    _HELD_PREFIX as _HELD_PREFIX,
+)
+from fdai.agents._framework.loki_constants import (
+    _MAX_CHAOS_IDENTIFIER_CHARS as _MAX_CHAOS_IDENTIFIER_CHARS,
+)
+from fdai.agents._framework.loki_constants import (
+    _MAX_CHAOS_TARGETS as _MAX_CHAOS_TARGETS,
+)
+from fdai.agents._framework.loki_constants import (
     _MAX_HELD_PROPOSALS as _MAX_HELD_PROPOSALS,
+)
+from fdai.agents._framework.loki_constants import (
+    _MAX_RESILIENCE_SCORES as _MAX_RESILIENCE_SCORES,
+)
+from fdai.agents._framework.loki_constants import (
+    _RESILIENCE_PREFIX as _RESILIENCE_PREFIX,
+)
+from fdai.agents._framework.loki_constants import (
+    _SAFE_CLOSURE_STATES as _SAFE_CLOSURE_STATES,
 )
 from fdai.agents._framework.loki_experiment_runtime import (
     LokiExperimentRuntimeMixin,
@@ -67,22 +94,7 @@ from fdai.shared.providers.state_store import StateStore
 #: so a bounded ring is sufficient and stops an unbounded leak on a
 #: long-running chaos scheduler.
 _MAX_PROPOSALS = 1_000
-_MAX_RESILIENCE_SCORES = 512
-_SAFE_CLOSURE_STATES = frozenset({"succeeded", "rejected", "deny_dropped", "rolled_back"})
-_CHAOS_EVIDENCE_FIELDS = (
-    "causal_hypothesis_ref",
-    "refutation_query_ref",
-    "impact_envelope_id",
-    "recovery_plan_id",
-    "dry_run_receipt",
-)
-_DEFAULT_RESERVATION_TTL = timedelta(minutes=30)
-_CHAOS_OUTBOX_PREFIX = "pantheon/loki/chaos-outbox/"
-_HELD_PREFIX = "pantheon/loki/held-proposals/"
-_RESILIENCE_PREFIX = "pantheon/loki/resilience-scores/"
 _ADVERSARIAL_PREFIX = "pantheon/loki/adversarial-scenarios/"
-_MAX_CHAOS_TARGETS = 32
-_MAX_CHAOS_IDENTIFIER_CHARS = 512
 
 
 class Loki(

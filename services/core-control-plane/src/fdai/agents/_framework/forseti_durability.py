@@ -14,10 +14,10 @@ from fdai.agents._framework.forseti_arbitration_contract import (
 from fdai.agents._framework.forseti_arbitration_contract import (
     remember_arbitration_winner as _remember_winner,
 )
+from fdai.agents._framework.forseti_constants import _MAX_RESOURCES
 from fdai.agents._framework.runtime_health import AGENT_DEGRADATION_POLICIES, evaluate_degradation
 from fdai.core.operational_context import SourceFreshness
 
-_MAX_RESOURCES = 10_000
 _RECOVERY_PAGE_SIZE = 1_000
 
 

@@ -58,6 +58,15 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.norns_candidate_delivery import NornsCandidateDeliveryMixin
 from fdai.agents._framework.norns_consensus import NornsConsensus
+from fdai.agents._framework.norns_constants import (
+    _DEFAULT_PROVIDER_TIMEOUT_SECONDS as _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.norns_constants import (
+    _MAX_POST_TURN_BODY_BYTES as _MAX_POST_TURN_BODY_BYTES,
+)
+from fdai.agents._framework.norns_constants import (
+    _MAX_TRACKED as _MAX_TRACKED,
+)
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
 from fdai.agents._framework.norns_event_learning import NornsEventLearningMixin
 from fdai.agents._framework.norns_issue_dedup import NornsIssueDeduplicator
@@ -97,10 +106,7 @@ from fdai.shared.providers.state_store import StateStore
 
 # LRU cap on the per-event / per-fingerprint maps a long-lived learner keeps,
 # so they cannot grow without bound over the process lifetime.
-_MAX_TRACKED = 50_000
 _MAX_PENDING_CANDIDATES = 5_000
-_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
-_MAX_POST_TURN_BODY_BYTES = 64 * 1024
 _CANDIDATE_TERMINAL_OUTCOMES = (
     "published",
     "held",

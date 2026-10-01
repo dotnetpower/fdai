@@ -1,12 +1,12 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Approval, rollback, and DR failover mixin for Thor."""
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+from weakref import WeakValueDictionary
 
 from fdai.agents._framework import vidar_dr
 from fdai.agents._framework.action_run_identity import (
@@ -19,13 +19,65 @@ from fdai.agents._framework.action_run_state import (
 )
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.approval_readback import read_current_action_approval
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.producer_auth import require_topic_owner
-from fdai.agents._framework.thor_action_run import ActionRun
+from fdai.agents._framework.thor_action_run import ActionRun, ActionRunStore
+from fdai.agents._framework.thor_effect_verification import ThorEffectVerificationMixin
 from fdai.agents._framework.thor_locks import _ReentrantAsyncLock
+from fdai.shared.contracts.models import FullAuthorityDevelopmentProfile
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
+from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.agents.thor import ApproverAuthorizer, OwnerAuthorizer
 
 
 class ThorRecoveryMixin:
     """Handle Var approvals, Vidar rollbacks, and DR contract decisions."""
+
+    _correlation_locks: WeakValueDictionary[str, _ReentrantAsyncLock]
+    action_runs: dict[str, ActionRun]
+    _approval_state_store: StateStore | None
+    _approver_authorizer: ApproverAuthorizer | None
+    _development_profile: FullAuthorityDevelopmentProfile | None
+    _development_executor_principal: str | None
+    _development_binding_source: DevelopmentAuthorityBindingSource | None
+    _owner_authorizer: OwnerAuthorizer | None
+    _clock: Callable[[], datetime]
+    _dr_failover_contract_decisions: BoundedLruDict[str, dict[str, object]]
+    _state_store: ActionRunStore | None
+
+    if TYPE_CHECKING:
+
+        def _batch_has_attempts(self, rollup_id: str) -> bool: ...
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        async def _execute_batch_rollup(
+            self,
+            rollup: ActionRun,
+            *,
+            targets: tuple[str, ...] | None = None,
+            verdict: Mapping[str, Any] | None = None,
+        ) -> None: ...
+
+        async def _execute(self, run: ActionRun) -> None: ...
+
+        def _validate_development_approval(
+            self, run: ActionRun, approval: Mapping[str, Any]
+        ) -> None: ...
+
+        async def _emit_action_run(self, run: ActionRun) -> None: ...
+
+        async def _finalize_terminal_replay(self, run: ActionRun) -> None: ...
+
+        def _release_lock(self, resource_id: object) -> None: ...
+
+        async def _claim_execution_resource(self, run: ActionRun) -> bool: ...
+
+        async def _release_resource_claim(self, run: ActionRun) -> None: ...
+
+        async def _refresh_batch_rollup(self, rollup_correlation_id: str) -> None: ...
 
     async def _handle_approval(self, approval: dict[str, Any]) -> None:
         correlation = str(approval.get("correlation_id", ""))
@@ -302,7 +354,10 @@ class ThorRecoveryMixin:
 
     async def _handle_effect_observation(self, observation: dict[str, Any]) -> None:
         correlation = str(observation.get("correlation_id") or "")
-        await super()._handle_effect_observation(observation)
+        await ThorEffectVerificationMixin._handle_effect_observation(
+            cast(ThorEffectVerificationMixin, self),
+            observation,
+        )
         run = self.action_runs.get(correlation)
         if run is not None and run.rollup_correlation_id is not None:
             await self._refresh_batch_rollup(run.rollup_correlation_id)

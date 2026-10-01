@@ -1,15 +1,27 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Chaos experiment proposal and publication mixin for Loki."""
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections import deque
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import timedelta
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.loki_constants import (
+    _CHAOS_EVIDENCE_FIELDS,
+    _CHAOS_OUTBOX_PREFIX,
+    _HELD_PREFIX,
+    _MAX_CHAOS_IDENTIFIER_CHARS,
+    _MAX_CHAOS_TARGETS,
+    _MAX_HELD_PROPOSALS,
+    _MAX_RESILIENCE_SCORES,
+    _RESILIENCE_PREFIX,
+    _SAFE_CLOSURE_STATES,
+)
+from fdai.agents._framework.loki_reservations import LokiReservationJournal
 from fdai.agents._framework.loki_runtime_records import (
     ChaosProposal,
     _parse_time,
@@ -18,27 +30,38 @@ from fdai.agents._framework.loki_runtime_records import (
 from fdai.agents._framework.loki_schedule_runtime import _proposal_from_record
 from fdai.agents._framework.specialist_ingress import CHAOS_ACTION_TYPES
 from fdai.agents._framework.topics import stable_idempotency_key
+from fdai.shared.providers.state_store import StateStore
 
-_CHAOS_EVIDENCE_FIELDS = (
-    "causal_hypothesis_ref",
-    "refutation_query_ref",
-    "impact_envelope_id",
-    "recovery_plan_id",
-    "dry_run_receipt",
-)
-_CHAOS_OUTBOX_PREFIX = "pantheon/loki/chaos-outbox/"
-_HELD_PREFIX = "pantheon/loki/held-proposals/"
-_RESILIENCE_PREFIX = "pantheon/loki/resilience-scores/"
-_SAFE_CLOSURE_STATES = frozenset({"succeeded", "rejected", "deny_dropped", "rolled_back"})
-_MAX_HELD_PROPOSALS = 256
-_MAX_RESILIENCE_SCORES = 512
-_DEFAULT_RESERVATION_TTL = timedelta(minutes=30)
-_MAX_CHAOS_TARGETS = 32
-_MAX_CHAOS_IDENTIFIER_CHARS = 512
+if TYPE_CHECKING:
+    from fdai.agents._framework.bus import PantheonBus
 
 
 class LokiExperimentRuntimeMixin:
     """Propose bounded chaos experiments without execution authority."""
+
+    _reservation_journal: LokiReservationJournal | None
+    _state_store: StateStore | None
+    _held_proposals: deque[ChaosProposal]
+    proposals: deque[ChaosProposal]
+    _reservation_lock: asyncio.Lock
+    _cap: int
+    _blast_radius_attempts: int
+    _blast_radius_adherent_attempts: int
+    _reservations: dict[str, _Reservation]
+    _publishing_experiments: set[str]
+    bus: PantheonBus | None
+    _resilience_experiment_scores: dict[str, dict[str, float]]
+    _publication_lock_refs: dict[str, int]
+    _publication_locks: dict[str, asyncio.Lock]
+    _resilience_scores: dict[str, tuple[float, str]]
+
+    if TYPE_CHECKING:
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        def _now(self) -> datetime: ...
+
+        async def _publish_proposal(self, topic: str, payload: dict[str, Any]) -> bool: ...
 
     async def rehydrate(self) -> int:
         """Restore durable target reservations and advisory projections before consumers start."""
@@ -288,7 +311,8 @@ class LokiExperimentRuntimeMixin:
                 # Without a durable outbox, an unbound bus means the proposal never leaves Loki.
                 if self.bus is None:
                     return False
-                return await self._publish_proposal("object.chaos-experiment", payload)
+                published: bool = await self._publish_proposal("object.chaos-experiment", payload)
+                return published
             outbox_key = f"{_CHAOS_OUTBOX_PREFIX}{_digest(experiment_id)}"
             existing = await self._state_store.read_state(outbox_key)
             if existing is not None:

@@ -25,10 +25,10 @@ from fdai.agents._framework.cross_vertical_candidates import (
     CrossVerticalCandidateAccumulator,
 )
 from fdai.agents._framework.forseti_arbitration import (
-    _MAX_RESOURCES,
     ForsetiArbitrationMixin,
     _DecisionProjection,
 )
+from fdai.agents._framework.forseti_constants import _MAX_RESOURCES as _MAX_RESOURCES
 from fdai.agents._framework.forseti_decision_helpers import (
     ChangeAssessor,
 )

@@ -1,20 +1,44 @@
-# mypy: disable-error-code="attr-defined,misc"
 """Health and conversational introspection mixin for Vidar."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
     capability_facts,
 )
-from fdai.agents._framework.vidar_rollback_records import _kpi_ratio
+from fdai.agents._framework.vidar_rollback_records import (
+    RollbackExecutor,
+    RollbackRecord,
+    _kpi_ratio,
+)
+from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import AgentSpec
 
 
 class VidarObservabilityMixin:
     """Expose recovery state without adding execution or judgment authority."""
+
+    _state_store: StateStore | None
+    records: list[RollbackRecord]
+    _published_rollbacks: BoundedLruSet[tuple[str, str]]
+    _rehearsal_receipts: BoundedLruDict[str, dict[str, object]]
+    _dr_outcomes: BoundedLruDict[str, dict[str, object]]
+    _last_dr_readiness: dict[str, object]
+    _allow_process_local_rollback: bool
+    _executors: dict[str, RollbackExecutor]
+    spec: AgentSpec
+    _durable_publication_pending: int
+    _rollback_path_validations: BoundedLruDict[str, dict[str, object]]
+
+    if TYPE_CHECKING:
+
+        def behavior_snapshot(self) -> dict[str, int]: ...
 
     def health(self) -> dict[str, Any]:
         durability = "durable" if self._state_store is not None else "process_local"

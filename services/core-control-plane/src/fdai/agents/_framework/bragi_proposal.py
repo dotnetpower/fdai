@@ -9,11 +9,11 @@ from typing import Any
 
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from fdai.agents._framework.bragi_constants import _MAX_QUESTION_CHARS
 from fdai.agents._framework.bragi_routing import action_from_semantic_judgment
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.rbac.roles import Capability, Role, has_capability
 
-_MAX_QUESTION_CHARS = 2_000
 _MAX_RESOURCE_CHARS = 200
 _MAX_SESSION_CHARS = 200
 _ROLE_BY_NAME: dict[str, Role] = {role.value.lower(): role for role in Role}

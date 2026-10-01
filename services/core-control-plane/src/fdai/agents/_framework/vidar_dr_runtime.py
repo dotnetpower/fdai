@@ -1,26 +1,63 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc"
 """DR contract and rollback rehearsal mixin for Vidar."""
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
-from datetime import datetime
-from typing import Any
+from collections.abc import Callable, Mapping
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework import vidar_dr, vidar_rehearsal
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.vidar_rollback_records import (
     _DR_CONTRACT_DECISION_PREFIX,
     _REHEARSAL_STATE_PREFIX,
+    RollbackExecutor,
+    RollbackRecord,
+    RollbackRehearsalPort,
     _clock_now,
     _dr_contract_decision_key,
     _parse_rollback_timestamp,
 )
+from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.bus import PantheonBus
 
 
 class VidarDrRuntimeMixin:
     """Handle DR failover decisions and dry-run rehearsal receipts."""
+
+    _clock: Callable[[], datetime]
+    _dr_contract_decisions: BoundedLruDict[str, dict[str, object]]
+    _rollback_path_validations: BoundedLruDict[str, dict[str, object]]
+    _state_store: StateStore | None
+    _MAX_RECORDS: int
+    _dr_outcomes: BoundedLruDict[str, dict[str, object]]
+    bus: PantheonBus | None
+    _rollback_contracts_by_action_type: dict[str, str]
+    _max_rehearsals_per_tick: int
+    _last_rehearsal_by_action_type: BoundedLruDict[str, datetime]
+    _rollback_rehearsal_cadence: timedelta
+    _rollback_rehearsal_port: RollbackRehearsalPort | None
+    _rollback_rehearsal_timeout_seconds: float
+    _rehearsal_receipts: BoundedLruDict[str, dict[str, object]]
+    _last_dr_readiness: dict[str, object]
+
+    if TYPE_CHECKING:
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord | None: ...
+
+        def _validate_rollback_paths(self) -> None: ...
+
+        def _rollback_executor(
+            self,
+            action_type: str,
+            contract: str,
+        ) -> RollbackExecutor | None: ...
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         # Vidar reacts on failed and ambiguous ActionRuns.

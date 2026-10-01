@@ -1,30 +1,45 @@
-# mypy: disable-error-code="attr-defined,arg-type,misc,no-any-return"
 """Typed-message learning handlers for Norns."""
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Callable, Mapping
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any, cast
 
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
+from fdai.agents._framework.norns_candidate_delivery import _IssueDeduplicator
 from fdai.agents._framework.norns_case_history import operational_case_cohort_is_current
+from fdai.agents._framework.norns_constants import _MAX_POST_TURN_BODY_BYTES
 from fdai.agents._framework.norns_learning import (
     NornsCapacityError,
+    NornsLearningState,
     observe_operational_case_cohort,
 )
+from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.topics import stable_idempotency_key
-from fdai.core.learning import RuleCandidateHint, review_input_from_mapping
+from fdai.core.case_history import CaseHistoryAnalyzer, CaseHistoryMaterializer
+from fdai.core.learning import (
+    PostTurnReviewCoordinator,
+    PostTurnReviewInput,
+    RuleCandidateHint,
+    review_input_from_mapping,
+)
 from fdai.core.operational_learning import (
+    InvestigationStrategyCandidateCompiler,
     InvestigationStrategyComparisonEvidence,
     InvestigationStrategyCompilationDisposition,
+    OperatingPatternCompiler,
+    ShadowDwellLedger,
 )
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 
-_MAX_POST_TURN_BODY_BYTES = 64 * 1024
+if TYPE_CHECKING:
+    from fdai.agents._framework.bus import PantheonBus
 
 
 def _forecast_case_behavior_key(label: str) -> str:
@@ -39,6 +54,75 @@ def _forecast_case_behavior_key(label: str) -> str:
 
 class NornsEventLearningMixin:
     """Handle Norns-owned typed learning events and inert candidate creation."""
+
+    _learning_lock: asyncio.Lock
+    pending_candidates: list[dict[str, Any]]
+    _max_pending_candidates: int
+    _issue_deduplicator: _IssueDeduplicator
+    _fingerprint_last_seen: BoundedLruDict[str, datetime]
+    _clock: Callable[[], datetime]
+    _promotion_threshold: int
+    _provider_timeout_seconds: float
+    _semantic_feedback: NornsSemanticFeedbackLearning
+    _investigation_strategy_compiler: InvestigationStrategyCandidateCompiler
+    _investigation_strategy_candidate_ids: BoundedLruSet[str]
+    _forecast_error_counts: BoundedLruDict[str, int]
+    _forecast_error_threshold: int
+    _counted_case_revisions: BoundedLruSet[str]
+    _forecast_error_proposed: BoundedLruSet[str]
+    _case_history_analyzer: CaseHistoryAnalyzer | None
+    _forecast_analysis_lock: asyncio.Lock
+    _post_turn_review: PostTurnReviewCoordinator | None
+    _reviewed_post_turn_reviews: BoundedLruSet[str]
+    bus: PantheonBus | None
+    _issue_close_quiet_window: timedelta
+    _issue_close_quiet_episodes: BoundedLruSet[str]
+    _case_history_materializer: CaseHistoryMaterializer | None
+    _operating_pattern_compiler: OperatingPatternCompiler
+    _operational_case_max_age: timedelta
+    _operating_pattern_ids: BoundedLruSet[str]
+    _pattern_publications: dict[str, dict[str, Any]]
+    _shadow_dwell: ShadowDwellLedger
+    _min_outcome_samples: int
+    _counted_shadow_outcomes: BoundedLruSet[str]
+    _fingerprint_counter: BoundedLruDict[str, int]
+    _override_counter: BoundedLruDict[str, int]
+    _override_proposed: BoundedLruSet[str]
+    _override_retire_threshold: int
+    _proposed: BoundedLruSet[str]
+    _rejection_revise_threshold: int
+    _rollback_alarm_rate: float
+
+    if TYPE_CHECKING:
+
+        async def _handover_message(self, topic: str, payload: dict[str, Any]) -> bool: ...
+
+        async def _ensure_learning_state(self) -> None: ...
+
+        async def _persist_learning_state(self) -> None: ...
+
+        async def _flush_candidates_unlocked(self) -> int: ...
+
+        def _append_candidate(self, candidate: dict[str, Any]) -> None: ...
+
+        def _ensure_pending_capacity(self) -> None: ...
+
+        def _mark_learning_dirty(self, bucket: str, item_key: str) -> None: ...
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        def occurrences(self, fingerprint: str) -> int: ...
+
+        def _observe_outcome(self, payload: dict[str, Any]) -> None: ...
+
+        def _observe_approval(self, payload: dict[str, Any]) -> None: ...
+
+        async def retain_operational_candidate(
+            self,
+            pattern_id: str,
+        ) -> None: ...
+
+        async def flush_candidates(self) -> int: ...
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.post-turn-review":
@@ -121,7 +205,9 @@ class NornsEventLearningMixin:
                     cohort_current = False
                     self.record_behavior("operational_case_cohort_source_timeout")
                 if cohort_current:
-                    operational_pattern_id = observe_operational_case_cohort(self, payload)
+                    operational_pattern_id = observe_operational_case_cohort(
+                        cast(NornsLearningState, self), payload
+                    )
                     if operational_pattern_id is not None:
                         await self.retain_operational_candidate(operational_pattern_id)
             elif payload.get("kind") == "investigation_strategy_comparison_cohort":
@@ -376,7 +462,7 @@ class NornsEventLearningMixin:
         self,
         payload: Mapping[str, Any],
         raw: Mapping[str, Any],
-        review_input: Any,
+        review_input: PostTurnReviewInput,
     ) -> bool:
         if not any(
             body is not None for body in (review_input.operator_body, review_input.assistant_body)
@@ -410,7 +496,9 @@ class NornsEventLearningMixin:
         return await self._issue_deduplicator.recover(self)
 
     async def maintenance_tick(self) -> None:
-        await super().maintenance_tick()
+        maintenance_tick = getattr(super(), "maintenance_tick", None)
+        if maintenance_tick is not None:
+            await maintenance_tick()
         published = await self.flush_candidates()
         if published:
             self.record_behavior("maintenance_tick:candidates_flushed", published)

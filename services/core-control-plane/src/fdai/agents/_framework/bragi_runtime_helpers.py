@@ -5,23 +5,24 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from fdai.agents._framework.bragi_constants import (
+    _BRAGI_STATE_PREFIX,
+    _INTENT_TRAINING_EVIDENCE_PREFIX,
+    _MAX_QUESTION_CHARS,
+    _MAX_SESSION_TURNS,
+    _TURN_OUTBOX_CLAIM_LEASE,
+    _TURN_OUTBOX_TOMBSTONE_RETENTION,
+)
 from fdai.agents._framework.bragi_models import ConversationSession, Turn
 from fdai.agents._framework.introspection import durable_evidence_refs
 from fdai.agents._framework.outbox_publication import claim_expired
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.shared.providers.user_context import UserPreferenceRecord
-
-_BRAGI_STATE_PREFIX = "pantheon/bragi"
-_INTENT_TRAINING_EVIDENCE_PREFIX = f"{_BRAGI_STATE_PREFIX}/intent-training/"
-_MAX_SESSION_TURNS = 100
-_MAX_QUESTION_CHARS = 2_000
-_TURN_OUTBOX_TOMBSTONE_RETENTION = 1_024
-_TURN_OUTBOX_CLAIM_LEASE = timedelta(minutes=5)
 
 
 def _validate_question(question: str) -> None:

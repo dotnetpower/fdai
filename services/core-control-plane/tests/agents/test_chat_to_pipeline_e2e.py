@@ -597,8 +597,12 @@ def test_var_pending_map_is_bounded() -> None:
 
 def test_bragi_progress_map_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     from fdai.agents import bragi as bragi_mod
+    from fdai.agents._framework import bragi_conversation_runtime as conversation_mod
+    from fdai.agents._framework import bragi_turn_runtime as turn_mod
 
     monkeypatch.setattr(bragi_mod, "_MAX_PROGRESS_KEYS", 2)
+    monkeypatch.setattr(conversation_mod, "_MAX_PROGRESS_KEYS", 2)
+    monkeypatch.setattr(turn_mod, "_MAX_PROGRESS_KEYS", 2)
     b = Bragi()
     for i in range(5):
         asyncio.run(

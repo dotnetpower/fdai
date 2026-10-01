@@ -1,11 +1,14 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Health, retrospective quality, and introspection mixin for Forseti."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Callable, Iterable, Mapping
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
+from fdai.agents._framework.forseti_judgment import JudgmentTable
 from fdai.agents._framework.forseti_telemetry_introspection import telemetry_recipe_facts
 from fdai.agents._framework.forseti_what_if import (
     MAX_WHAT_IF_SAMPLES,
@@ -22,6 +25,11 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.role_answers import forseti_role_answer
 from fdai.agents._framework.topics import stable_idempotency_key
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import AgentSpec
+    from fdai.agents._framework.bus import PantheonBus
+    from fdai.core.architecture_review import OntologyArchitectureReviewLoop
 
 
 def _ratio_kpi(numerator: int, denominator: int, *, unit: str = "ratio") -> dict[str, object]:
@@ -44,6 +52,29 @@ def _ratio_kpi(numerator: int, denominator: int, *, unit: str = "ratio") -> dict
 
 class ForsetiQualityRuntimeMixin:
     """Report Forseti health and run bounded retrospective checks."""
+
+    arbitrations: dict[str, str]
+    _detection_readiness: BoundedLruDict[str, dict[str, str]]
+    _unresolved_arbitrations: BoundedLruDict[str, dict[str, Any]]
+    _agent_availability: Callable[[], Iterable[str]] | None
+    _no_rule_folds: BoundedLruDict[str, int]
+    _rule_cache_stale: bool
+    _judgment_table: JudgmentTable
+    _action_semantics: ActionSemanticsCatalog | None
+    _architecture_review_loop: OntologyArchitectureReviewLoop | None
+    _rule_state: BoundedLruDict[str, dict[str, str]]
+    _rule_staleness_window: timedelta
+    _last_owner_rule_update_at: datetime | None
+    _verdict_quality_samples: BoundedLruDict[str, dict[str, str]]
+    _published_what_if_inputs: BoundedLruSet[str]
+    bus: PantheonBus | None
+    spec: AgentSpec
+
+    if TYPE_CHECKING:
+
+        def behavior_snapshot(self) -> dict[str, int]: ...
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
 
     _last_verdict_coherence: dict[str, object]
     _last_novelty_drift: dict[str, object]

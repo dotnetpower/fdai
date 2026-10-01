@@ -9,6 +9,7 @@ import re
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
+from fdai.agents._framework.bragi_constants import _MAX_ANSWER_CHARS
 from fdai.agents._framework.introspection import (
     REQUIRES_TYPED_PIPELINE,
     agent_state_evidence_ref,
@@ -20,7 +21,6 @@ from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 
 AnswerFn = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
 _MAX_RESPONSE_BYTES = 64 * 1024
-_MAX_ANSWER_CHARS = 16_000
 _IDENTITY_KEYS = ("resource_id", "scope_ref", "id", "correlation_id")
 _HIGH_SIGNAL_KEYS = ("state", "status", "verdict", "mode", "health", "outcome")
 _MAX_CONFLICTS = 8

@@ -44,6 +44,9 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _HUGINN
 from fdai.shared.providers.state_store import StateStore
 
+_AlertNoisePayload = Mapping[str, Any]
+_AlertNoiseVerifier = Callable[[_AlertNoisePayload], object]
+
 
 class Huginn(HuginnIngressMixin, Agent):
     """Wave-3 Huginn: normalize + dedup + publish."""
@@ -68,7 +71,7 @@ class Huginn(HuginnIngressMixin, Agent):
             raise ValueError("dedup_capacity MUST be >= 1")
         self._dedup_capacity = dedup_capacity
         self._discovery_projector = discovery_projector
-        self._alert_noise_verifier: Callable[[Mapping[str, Any]], object] | None = None
+        self._alert_noise_verifier: _AlertNoiseVerifier | None = None
         self._operator_request_receipt_gate = operator_request_receipt_gate
         self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
         self._dedup_journal = (
@@ -103,7 +106,7 @@ class Huginn(HuginnIngressMixin, Agent):
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
-    def bind_alert_noise_verifier(self, verifier: Callable[[Mapping[str, Any]], object]) -> None:
+    def bind_alert_noise_verifier(self, verifier: _AlertNoiseVerifier) -> None:
         """Bind deterministic authentication before alert requests can reserve a dedup key."""
         if self._alert_noise_verifier is not None:
             raise RuntimeError("alert ingress verifier is already bound")

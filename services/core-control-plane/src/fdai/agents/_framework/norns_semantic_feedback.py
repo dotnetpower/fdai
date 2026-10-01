@@ -5,13 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from fdai.agents._framework.bounded import BoundedLruSet
+from fdai.agents._framework.norns_constants import _MAX_TRACKED
 from fdai.rule_catalog.schema.rule_semantic_feedback import (
     SemanticFeedbackCandidateSink,
     build_feedback_candidate,
     query_failure_evidence_from_mapping,
 )
-
-_MAX_TRACKED = 50_000
 
 
 class NornsSemanticFeedbackLearning:

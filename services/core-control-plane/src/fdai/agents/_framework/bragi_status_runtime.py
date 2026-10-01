@@ -1,12 +1,12 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Handoff, health, and introspection mixin for Bragi."""
 
 from __future__ import annotations
 
 import hashlib
 import logging
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Callable, Mapping
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.bragi_models import ConversationSession, Turn
 from fdai.agents._framework.bragi_publication import handoff_event_payload
@@ -19,11 +19,33 @@ from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.role_answers import bragi_role_answer
 from fdai.shared.providers.state_store import StateStore
 
-_LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger("fdai.agents.bragi")
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import AgentSpec
+    from fdai.agents._framework.bragi_intent_training import IntentTrainingEvaluator
 
 
 class BragiStatusRuntimeMixin:
     """Publish handoff outcomes and report Bragi state."""
+
+    _clock: Callable[[], datetime]
+    _sessions: dict[str, ConversationSession]
+    spec: AgentSpec
+    _turn_outbox_pending: int
+    _last_preference_index_refresh: dict[str, Any] | None
+    _intent_training_evaluator: IntentTrainingEvaluator | None
+    _last_intent_training_retention: dict[str, Any]
+    _last_intent_training: dict[str, Any] | None
+    _a2a_turn_indexes: dict[tuple[str, str], int]
+
+    if TYPE_CHECKING:
+
+        async def publish_handoff_event(self, payload: dict[str, Any]) -> bool: ...
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        def behavior_snapshot(self) -> dict[str, int]: ...
 
     _state_store: StateStore | None
 

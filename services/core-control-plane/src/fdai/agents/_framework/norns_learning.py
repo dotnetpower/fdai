@@ -1,4 +1,3 @@
-# mypy: disable-error-code="attr-defined,no-any-return,var-annotated,has-type"
 """Deterministic, authority-free state transitions for Norns learners."""
 
 from __future__ import annotations
@@ -6,13 +5,14 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.agents._framework.action_semantics import outcome_result
 from fdai.agents._framework.adapters import canonical_json_digest
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
+from fdai.agents._framework.norns_constants import _MAX_TRACKED
 from fdai.core.operational_learning import (
     OperatingPatternCompiler,
     PatternCase,
@@ -396,7 +396,6 @@ __all__ = [
 ]
 
 
-_MAX_TRACKED = 50_000
 _LEARNING_STATE_KEY = "pantheon/norns/learning-state"
 _LEARNING_STATE_PREFIX = "pantheon/norns/learning-state-deltas"
 _LEARNING_STATE_PAGE = 128
@@ -420,6 +419,31 @@ class NornsCapacityError(RuntimeError):
 
 class NornsLearningStateMixin:
     """Persist deterministic learner counters and idempotency fences."""
+
+    _learning_state_store: StateStore | None
+    _learning_state_recovered: bool
+    _learning_dirty: dict[str, set[str]]
+    _outcomes: BoundedLruDict[str, dict[str, int]]
+    _outcome_proposed: BoundedLruSet[str]
+    _counted_correlations: BoundedLruSet[str]
+    _approval_counts: BoundedLruDict[str, dict[str, int]]
+    _approval_proposed: BoundedLruSet[str]
+    _counted_approvals: BoundedLruSet[str]
+    _forecast_error_counts: BoundedLruDict[str, int]
+    _forecast_error_proposed: BoundedLruSet[str]
+    _counted_case_revisions: BoundedLruSet[str]
+    _post_turn_hint_proposed: BoundedLruSet[str]
+    pending_candidates: list[dict[str, Any]]
+    _max_pending_candidates: int
+    _candidate_terminal_counts: dict[str, int]
+    _candidate_terminal_ids: BoundedLruSet[str]
+    _pattern_validation_counts: dict[str, int]
+
+    if TYPE_CHECKING:
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        def _index_pending_candidate(self, candidate: dict[str, Any]) -> None: ...
 
     async def recover_learning_state(self) -> int:
         """Restore durable learner counters and idempotency fences once."""

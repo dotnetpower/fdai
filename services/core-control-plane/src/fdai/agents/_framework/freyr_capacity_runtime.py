@@ -1,27 +1,35 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Capacity sampling and persistence mixin for Freyr."""
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections.abc import AsyncIterator
+from collections import OrderedDict
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
+from fdai.agents._framework.freyr_constants import (
+    _ACCEPTED_PREFIX,
+    _COST_EVIDENCE_MAX_AGE,
+    _COST_PREFIX,
+    _MAX_COST_EVIDENCE,
+    _MAX_RETAINED_IDENTIFIER_CHARS,
+    _MAX_TRACKED_RESOURCES,
+    _RESOURCE_PREFIX,
+)
 from fdai.agents._framework.specialist_ingress import parse_capacity_graduation_evidence
 from fdai.agents._framework.topics import stable_idempotency_key
+from fdai.core.capacity import CapacityGraduationController
+from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.bus import PantheonBus
 
 _MAX_SAMPLES = 512
-_MAX_TRACKED_RESOURCES = 512
-_MAX_COST_EVIDENCE = 512
-_COST_EVIDENCE_MAX_AGE = timedelta(hours=1)
-_RESOURCE_PREFIX = "pantheon/freyr/capacity-resources/"
-_ACCEPTED_PREFIX = "pantheon/freyr/accepted-samples/"
-_COST_PREFIX = "pantheon/freyr/cost-evidence/"
-_MAX_RETAINED_IDENTIFIER_CHARS = 128
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +42,29 @@ class SizingRecommendation:
 
 class FreyrCapacityRuntimeMixin:
     """Retain capacity samples and produce advisory forecasts."""
+
+    _state_store: StateStore | None
+    _smoothed: BoundedLruDict[str, float]
+    _samples: BoundedLruDict[str, list[float]]
+    _latest_observed_at: dict[str, datetime]
+    _accepted_sample_keys: BoundedLruSet[str]
+    _cost_evidence: OrderedDict[str, tuple[str, datetime, str]]
+    _graduation_controller: CapacityGraduationController | None
+    _clock: Callable[[], datetime]
+    _cost_evidence_lock: asyncio.Lock
+    _alpha: float
+    bus: PantheonBus | None
+    _source_time_missing_samples: int
+    _resource_lock_refs: dict[str, int]
+    _resource_locks: dict[str, asyncio.Lock]
+    _up: float
+    _down: float
+
+    if TYPE_CHECKING:
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        async def _publish_proposal(self, topic: str, payload: dict[str, Any]) -> bool: ...
 
     async def rehydrate(self) -> int:
         """Restore forecast smoothing, sample tails, duplicate fences, and cost evidence."""

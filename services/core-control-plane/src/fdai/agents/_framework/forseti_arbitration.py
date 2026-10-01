@@ -37,6 +37,7 @@ from fdai.agents._framework.forseti_arbitration_contract import (
 from fdai.agents._framework.forseti_arbitration_planning import (
     finalize_planning_projection as _finalize_planning_projection,
 )
+from fdai.agents._framework.forseti_constants import _MAX_RESOURCES
 from fdai.agents._framework.forseti_cost_annotation import (
     cost_annotation_for_arbitration as _cost_annotation_for_arbitration,
 )
@@ -85,7 +86,6 @@ from fdai.core.operational_planning.prospective_lineage import (
 
 _LOGGER = logging.getLogger(__name__)
 
-_MAX_RESOURCES = 10_000
 _DecisionProjection = DomainDecisionProjection | SpecialistPlanningProjection
 
 

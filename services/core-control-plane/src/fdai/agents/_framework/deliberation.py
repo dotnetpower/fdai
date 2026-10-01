@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fdai.agents._framework.base import AgentSpec
+from fdai.agents._framework.bragi_constants import _MAX_ANSWER_CHARS, _MAX_QUESTION_CHARS
 from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.deliberation_evaluation import (
     DeliberationSignal,
@@ -33,8 +34,6 @@ from fdai.core.metering.sink import MeteringSink
 from fdai.core.metering.usage import TokenUsage
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 
-_MAX_QUESTION_CHARS = 2_000
-_MAX_ANSWER_CHARS = 16_000
 _MAX_CLAIMS = 3
 _MAX_PARTICIPANTS = 3
 _MAX_T2_CONCLUSION_CHARS = 4_000

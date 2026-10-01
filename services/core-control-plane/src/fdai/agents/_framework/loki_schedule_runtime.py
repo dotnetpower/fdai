@@ -1,27 +1,69 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Recurring chaos schedule mixin for Loki."""
 
 from __future__ import annotations
 
+import asyncio
+from collections import deque
 from collections.abc import Mapping
-from datetime import datetime
-from typing import Any
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
-from fdai.agents._framework.loki_runtime_records import ChaosProposal, _parse_time
-from fdai.agents._framework.loki_scheduling import DueChaosWindow, due_window, window_key
+from fdai.agents._framework.loki_constants import _MAX_HELD_PROPOSALS
+from fdai.agents._framework.loki_reservations import LokiReservationJournal
+from fdai.agents._framework.loki_runtime_records import ChaosProposal, _parse_time, _Reservation
+from fdai.agents._framework.loki_scheduling import (
+    ChaosScheduleConfig,
+    DueChaosWindow,
+    due_window,
+    window_key,
+)
 from fdai.agents._framework.specialist_ingress import CHAOS_ACTION_TYPES
 from fdai.agents._framework.topics import stable_idempotency_key
+from fdai.shared.providers.state_store import StateStore
 
-_HELD_PREFIX = "pantheon/loki/held-proposals/"
 _SCHEDULED_PREFIX = "pantheon/loki/scheduled-chaos/"
-_MAX_HELD_PROPOSALS = 256
 
 
 class LokiScheduleRuntimeMixin:
     """Claim, recover, and compact scheduled chaos windows."""
 
+    _reservation_ttl: timedelta
+    _reservation_lock: asyncio.Lock
+    _reservation_journal: LokiReservationJournal | None
+    _reservations: dict[str, _Reservation]
+    _publishing_experiments: set[str]
+    _state_store: StateStore | None
+    _recurring_schedule: ChaosScheduleConfig | None
+    _held_proposals: deque[ChaosProposal]
+
+    if TYPE_CHECKING:
+
+        def _now(self) -> datetime: ...
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        def _release_targets(self, targets: tuple[str, ...]) -> None: ...
+
+        async def propose_experiment(
+            self,
+            *,
+            experiment_id: str,
+            action_type: str,
+            targets: tuple[str, ...],
+            correlation_id: str = "",
+            causal_hypothesis_ref: str = "",
+            refutation_query_ref: str = "",
+            impact_envelope_id: str = "",
+            recovery_plan_id: str = "",
+            dry_run_receipt: str = "",
+        ) -> ChaosProposal: ...
+
+        async def _persist_held_proposal(self, proposal: ChaosProposal) -> None: ...
+
     async def maintenance_tick(self) -> None:
-        await super().maintenance_tick()
+        maintenance_tick = getattr(super(), "maintenance_tick", None)
+        if maintenance_tick is not None:
+            await maintenance_tick()
         cutoff = self._now() - self._reservation_ttl
         async with self._reservation_lock:
             if self._reservation_journal is not None:

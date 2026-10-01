@@ -12,6 +12,7 @@ from fdai.agents._framework.adapters import canonical_json_digest
 from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.norns_case_history import operational_candidate_cases_are_current
 from fdai.agents._framework.norns_consensus import NornsConsensus
+from fdai.agents._framework.norns_constants import _DEFAULT_PROVIDER_TIMEOUT_SECONDS
 from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.core.operational_learning import ShadowDwellLedger
 from fdai.shared.providers.state_store import StateStore
@@ -22,7 +23,6 @@ _TERMINAL = frozenset({"held", "invalidated", "published"})
 _MAX_EMPTY_RECOVERY_PAGES = 16
 _MAX_SOURCE_SCRUB_RECORDS = 50_000
 _RECOVERY_BUDGET_SECONDS = 5.0
-_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 
 
 class _IssueDeduplicator(Protocol):

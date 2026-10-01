@@ -1,17 +1,28 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Durable turn and preference state mixin for Bragi."""
 
 from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Callable, Mapping
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.bragi_constants import (
+    _BRAGI_STATE_PREFIX,
+    _MAX_CONTRIBUTORS,
+    _MAX_PROGRESS_KEYS,
+    _MAX_PROGRESS_STEPS,
+    _TURN_OUTBOX_CLAIM_LEASE,
+    _TURN_OUTBOX_MAINTENANCE_PAGE,
+    _TURN_OUTBOX_PENDING_SCAN_LIMIT,
+    _TURN_OUTBOX_TOMBSTONE_RETENTION,
+    _USER_PREFERENCE_INDEX_PREFIX,
+    _USER_PREFERENCE_INDEX_SCAN_LIMIT,
+)
 from fdai.agents._framework.bragi_models import ConversationSession, Turn
 from fdai.agents._framework.bragi_publication import turn_event_payload
 from fdai.agents._framework.bragi_runtime_helpers import (
-    _TURN_OUTBOX_CLAIM_LEASE,
     _payload_digest,
     _preference_from_index_row,
     _published_turn_outbox_tombstone,
@@ -27,20 +38,28 @@ from fdai.agents._framework.outbox_publication import (
 )
 from fdai.shared.providers.state_store import StateStore
 
-_BRAGI_STATE_PREFIX = "pantheon/bragi"
-_USER_PREFERENCE_INDEX_PREFIX = f"{_BRAGI_STATE_PREFIX}/user-preference-index/"
-_USER_PREFERENCE_INDEX_SCAN_LIMIT = 1_000
-_TURN_OUTBOX_PENDING_SCAN_LIMIT = 5_000
-_TURN_OUTBOX_TOMBSTONE_RETENTION = 1_024
-_TURN_OUTBOX_MAINTENANCE_PAGE = 16
-_MAX_PROGRESS_KEYS = 5_000
-_DURABLE_PROGRESS_RETENTION = _MAX_PROGRESS_KEYS
-_MAX_PROGRESS_STEPS = 64
-_MAX_CONTRIBUTORS = 2
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import AgentSpec
+    from fdai.agents._framework.bus import PantheonBus
+    from fdai.shared.providers.user_context import UserPreferenceRecord
 
 
 class BragiTurnRuntimeMixin:
     """Checkpoint and replay Bragi turn publication state."""
+
+    bus: PantheonBus | None
+    spec: AgentSpec
+    _clock: Callable[[], datetime]
+    _progress: dict[str, list[dict[str, Any]]]
+    _turn_outbox_pending: int
+
+    if TYPE_CHECKING:
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        async def recover_bragi_publications(self, *, limit: int = 100) -> int: ...
+
+        async def publish_user_preference(self, preference: UserPreferenceRecord) -> bool: ...
 
     _state_store: StateStore | None
     _last_preference_index_refresh: dict[str, Any] | None
@@ -52,7 +71,7 @@ class BragiTurnRuntimeMixin:
             return
         await self._publish_claimed_turn(bus, payload)
 
-    async def _publish_claimed_turn(self, bus: Any, payload: dict[str, Any]) -> bool:
+    async def _publish_claimed_turn(self, bus: PantheonBus, payload: dict[str, Any]) -> bool:
         claim = await self._claim_turn_publication(payload)
         return await publish_claimed_outbox(
             claim,
@@ -335,7 +354,9 @@ class BragiTurnRuntimeMixin:
         return published
 
     async def maintenance_tick(self) -> None:
-        await super().maintenance_tick()
+        maintenance_tick = getattr(super(), "maintenance_tick", None)
+        if maintenance_tick is not None:
+            await maintenance_tick()
         try:
             await self._drive_turn_outbox(limit=_TURN_OUTBOX_MAINTENANCE_PAGE)
             await self.recover_bragi_publications(limit=_TURN_OUTBOX_MAINTENANCE_PAGE)

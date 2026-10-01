@@ -1,9 +1,10 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Health and introspection mixin for Loki."""
 
 from __future__ import annotations
 
-from typing import Any
+from collections import deque
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -12,10 +13,39 @@ from fdai.agents._framework.introspection import (
     mentioned,
     semantic_intents,
 )
+from fdai.agents._framework.loki_adversarial import ChaosScenarioGenerator
+from fdai.agents._framework.loki_reservations import LokiReservationJournal
+from fdai.agents._framework.loki_runtime_records import ChaosProposal, _Reservation
+from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
+from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import AgentSpec
 
 
 class LokiStatusRuntimeMixin:
     """Report Loki evidence and conversational facts."""
+
+    _reservation_journal: LokiReservationJournal | None
+    _recurring_schedule: ChaosScheduleConfig | None
+    _state_store: StateStore | None
+    _reservations: dict[str, _Reservation]
+    _scenario_generator: ChaosScenarioGenerator | None
+    _cap: int
+    _in_flight_targets: set[str]
+    _held_proposals: deque[ChaosProposal]
+    _blast_radius_adherent_attempts: int
+    _blast_radius_attempts: int
+    proposals: deque[ChaosProposal]
+    _resilience_experiment_scores: dict[str, dict[str, float]]
+    _resilience_scores: dict[str, tuple[float, str]]
+    spec: AgentSpec
+
+    if TYPE_CHECKING:
+
+        def _now(self) -> datetime: ...
+
+        def behavior_snapshot(self) -> dict[str, int]: ...
 
     def health(self) -> dict[str, Any]:
         durable = self._reservation_journal is not None

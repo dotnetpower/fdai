@@ -1,14 +1,14 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc"
 """Rollback execution, durable claims, and publication mixin for Vidar."""
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
-from datetime import datetime
-from typing import Any
+from collections.abc import Callable, Mapping
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.action_run_identity import validate_action_run_identity
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.development_authority import admit_development_authority
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.vidar_rollback_records import (
@@ -32,10 +32,43 @@ from fdai.agents._framework.vidar_rollback_records import (
     _RollbackLockEntry,
     _validate_rollback_state_identity,
 )
+from fdai.shared.contracts.models import FullAuthorityDevelopmentProfile
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
+from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.bus import PantheonBus
 
 
 class VidarRollbackRuntimeMixin:
     """Execute rollback commands while preserving Vidar's recovery boundary."""
+
+    _rollback_locks: dict[tuple[str, str], _RollbackLockEntry]
+    _development_profile: FullAuthorityDevelopmentProfile | None
+    _development_binding_source: DevelopmentAuthorityBindingSource | None
+    _development_executor_principal: str | None
+    _clock: Callable[[], datetime]
+    _rollback_results: BoundedLruDict[tuple[str, str], _CachedRollback]
+    _process_local_terminal_fences: BoundedLruDict[tuple[str, str], str]
+    _state_store: StateStore | None
+    _allow_process_local_rollback: bool
+    _claim_lease: timedelta
+    _owner_token: str
+    _rollback_executor_timeout_seconds: float
+    _action_executors: dict[tuple[str, str], RollbackExecutor]
+    _rollback_contracts_by_action_type: dict[str, str]
+    _executors: dict[str, RollbackExecutor]
+    records: list[RollbackRecord]
+    _MAX_RECORDS: int
+    bus: PantheonBus | None
+    _rollback_publication_claims: set[tuple[str, str]]
+    _published_rollbacks: BoundedLruSet[tuple[str, str]]
+
+    if TYPE_CHECKING:
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        async def _rehydrate_rehearsal_receipts(self) -> int: ...
 
     async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord | None:
         if require_topic_owner(

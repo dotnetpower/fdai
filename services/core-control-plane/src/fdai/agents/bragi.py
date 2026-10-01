@@ -12,15 +12,60 @@ import hashlib
 import logging
 import math
 from collections.abc import Awaitable, Callable, Collection, Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bragi_ask_runtime import (
+    BragiAskRuntimeMixin,
+)
+from fdai.agents._framework.bragi_constants import (
+    _BRAGI_STATE_PREFIX as _BRAGI_STATE_PREFIX,
+)
+from fdai.agents._framework.bragi_constants import (
+    _CONTRIBUTOR_TIMEOUT_SECONDS as _CONTRIBUTOR_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.bragi_constants import (
+    _DURABLE_PROGRESS_RETENTION as _DURABLE_PROGRESS_RETENTION,
+)
+from fdai.agents._framework.bragi_constants import (
+    _INTENT_TRAINING_EVIDENCE_PREFIX as _INTENT_TRAINING_EVIDENCE_PREFIX,
+)
+from fdai.agents._framework.bragi_constants import (
+    _INTENT_TRAINING_EVIDENCE_RETENTION as _INTENT_TRAINING_EVIDENCE_RETENTION,
+)
+from fdai.agents._framework.bragi_constants import (
+    _MAX_CONTRIBUTORS as _MAX_CONTRIBUTORS,
+)
+from fdai.agents._framework.bragi_constants import (
+    _MAX_PROGRESS_KEYS as _MAX_PROGRESS_KEYS,
+)
+from fdai.agents._framework.bragi_constants import (
+    _MAX_PROGRESS_STEPS as _MAX_PROGRESS_STEPS,
+)
+from fdai.agents._framework.bragi_constants import (
+    _MAX_QUESTION_CHARS as _MAX_QUESTION_CHARS,
+)
+from fdai.agents._framework.bragi_constants import (
+    _MAX_SESSION_TURNS as _MAX_SESSION_TURNS,
+)
+from fdai.agents._framework.bragi_constants import (
     _MAX_SESSIONS as _MAX_SESSIONS,
 )
-from fdai.agents._framework.bragi_ask_runtime import (
-    BragiAskRuntimeMixin,
+from fdai.agents._framework.bragi_constants import (
+    _SESSION_INACTIVITY_LIMIT as _SESSION_INACTIVITY_LIMIT,
+)
+from fdai.agents._framework.bragi_constants import (
+    _TURN_OUTBOX_PENDING_SCAN_LIMIT as _TURN_OUTBOX_PENDING_SCAN_LIMIT,
+)
+from fdai.agents._framework.bragi_constants import (
+    _TURN_OUTBOX_TOMBSTONE_RETENTION as _TURN_OUTBOX_TOMBSTONE_RETENTION,
+)
+from fdai.agents._framework.bragi_constants import (
+    _USER_PREFERENCE_INDEX_PREFIX as _USER_PREFERENCE_INDEX_PREFIX,
+)
+from fdai.agents._framework.bragi_constants import (
+    _USER_PREFERENCE_INDEX_SCAN_LIMIT as _USER_PREFERENCE_INDEX_SCAN_LIMIT,
 )
 from fdai.agents._framework.bragi_contributors import (
     AnswerFn,
@@ -66,21 +111,17 @@ from fdai.core.metering.sink import MeteringSink
 from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
-_BRAGI_STATE_PREFIX = "pantheon/bragi"
-_INTENT_TRAINING_EVIDENCE_PREFIX = f"{_BRAGI_STATE_PREFIX}/intent-training/"
-_INTENT_TRAINING_EVIDENCE_RETENTION = 1_024
-_USER_PREFERENCE_INDEX_PREFIX = f"{_BRAGI_STATE_PREFIX}/user-preference-index/"
-_USER_PREFERENCE_INDEX_SCAN_LIMIT = 1_000
-_TURN_OUTBOX_PENDING_SCAN_LIMIT = 5_000
-_TURN_OUTBOX_TOMBSTONE_RETENTION = 1_024
 
 #: A proposal sink accepts one raw operator ActionProposal and hands it to the
 #: typed pipeline (the composition root wires this to ``Huginn.ingest`` - the
 #: sole writer of ``object.event``). Returns the normalized event payload, or
 #: ``None`` when the collector deduplicated it. Bragi NEVER calls an executor
 #: (agent-pantheon.md 7.7); it only submits through this sink.
-ProposalSink = Callable[[dict[str, Any]], Awaitable[dict[str, Any] | None]]
-ToolAnswerFn = Callable[[str, str, str], Awaitable[dict[str, Any] | None]]
+_JsonPayload = dict[str, Any]
+_ProposalSinkResult = _JsonPayload | None
+ProposalSink = Callable[[_JsonPayload], Awaitable[_ProposalSinkResult]]
+_ToolAnswerResult = _JsonPayload | None
+ToolAnswerFn = Callable[[str, str, str], Awaitable[_ToolAnswerResult]]
 
 #: Deterministic verb -> ActionType mapping for operator conversational
 #: requests (Wave 4, LLM-free). The verb is the leading imperative token that
@@ -90,21 +131,13 @@ ToolAnswerFn = Callable[[str, str, str], Awaitable[dict[str, Any] | None]]
 #: in-memory maps a long-lived Bragi accumulates, so a conversational port that
 #: runs for weeks cannot leak one entry per session / correlation forever or let
 #: one large value bloat the pipeline + audit.
-_MAX_SESSION_TURNS = 100
-_MAX_QUESTION_CHARS = 2_000
-_MAX_PROGRESS_KEYS = 5_000
-_DURABLE_PROGRESS_RETENTION = _MAX_PROGRESS_KEYS
 #: Cap on progress steps retained per correlation. A pipeline has a handful of
 #: lifecycle states, but at-least-once redelivery (or a chatty retry) could
 #: append without limit, so the per-correlation list is bounded too - not just
 #: the key count.
-_MAX_PROGRESS_STEPS = 64
-_MAX_CONTRIBUTORS = 2
-_CONTRIBUTOR_TIMEOUT_SECONDS = 1.2
 _RESPONDER_TIMEOUT_SECONDS = 2.0
 _PROPOSAL_TIMEOUT_SECONDS = 5.0
 _SEMANTIC_JUDGMENT_TIMEOUT_SECONDS = 2.0
-_SESSION_INACTIVITY_LIMIT = timedelta(minutes=30)
 
 
 #: Entry RBAC gate for execute-class conversational requests. A console

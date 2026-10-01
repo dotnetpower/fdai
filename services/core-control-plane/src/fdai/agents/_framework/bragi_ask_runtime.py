@@ -1,16 +1,26 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Operator ask orchestration mixin for Bragi."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
-from typing import Any
+from collections.abc import Callable
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentDisposition
+from fdai_service_contracts.semantic_judgment import (
+    SemanticJudgmentDisposition,
+    SemanticJudgmentProposal,
+)
 
+from fdai.agents._framework.bragi_constants import (
+    _CONTRIBUTOR_TIMEOUT_SECONDS,
+    _MAX_CONTRIBUTORS,
+    _MAX_SESSIONS,
+    _SESSION_INACTIVITY_LIMIT,
+)
 from fdai.agents._framework.bragi_contributors import (
+    AnswerFn,
     ask_contributors,
     evidence_conflicts,
     normalize_responder_answer,
@@ -28,15 +38,89 @@ from fdai.agents._framework.bragi_runtime_helpers import (
     _validate_tool_answer_envelope,
 )
 
-_MAX_SESSIONS = 1_000
-_MAX_CONTRIBUTORS = 2
-_CONTRIBUTOR_TIMEOUT_SECONDS = 1.2
-_SESSION_INACTIVITY_LIMIT = timedelta(minutes=30)
-_LOG = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from fdai.agents.bragi import ToolAnswerFn
+
+_LOG = logging.getLogger("fdai.agents.bragi")
 
 
 class BragiAskRuntimeMixin:
     """Handle one bounded operator question."""
+
+    _session_locks: dict[str, asyncio.Lock]
+    _clock: Callable[[], datetime]
+    _sessions: dict[str, ConversationSession]
+    _tool_answer: ToolAnswerFn | None
+    _agent_responders: dict[str, AnswerFn]
+
+    if TYPE_CHECKING:
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        async def _reserve_turn_index(
+            self,
+            session_id: str,
+            session: ConversationSession,
+        ) -> int: ...
+
+        async def _publish_conversation(
+            self,
+            session: ConversationSession,
+            *,
+            status: str = "active",
+        ) -> bool: ...
+
+        async def _judge_async(
+            self,
+            question: str,
+            *,
+            context: tuple[str, ...],
+        ) -> tuple[Any | None, str]: ...
+
+        async def submit_action_proposal(
+            self,
+            *,
+            session_id: str,
+            user_id: str,
+            question: str,
+            judgment: SemanticJudgmentProposal,
+            initiator_role: str | None = None,
+        ) -> dict[str, Any]: ...
+
+        async def _checkpoint_turn_payload(
+            self,
+            *,
+            session: ConversationSession,
+            turn: Turn,
+        ) -> dict[str, Any]: ...
+
+        async def _publish_turn(self, payload: dict[str, Any]) -> None: ...
+
+        def route(
+            self,
+            judgment: SemanticJudgmentProposal,
+            *,
+            question: str | None = None,
+        ) -> RoutingDecision: ...
+
+        async def _call_responder(
+            self,
+            agent_name: str,
+            question: str,
+            context: dict[str, Any],
+        ) -> tuple[dict[str, Any] | None, str | None]: ...
+
+        async def _publish_handoff(
+            self,
+            *,
+            session_id: str,
+            question: str,
+            turn_index: int,
+            intent_category: str,
+            resource_type: str,
+            primary_agent: str,
+            failure_reason_code: str,
+        ) -> str: ...
 
     async def ask(
         self,

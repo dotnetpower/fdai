@@ -1,24 +1,24 @@
-# mypy: disable-error-code="attr-defined,no-any-return,misc"
 """Ingress runtime mixin for Huginn."""
 
 from __future__ import annotations
 
 import asyncio
-from collections import deque
-from collections.abc import AsyncIterator, Mapping
+from collections import OrderedDict, deque
+from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fdai_service_contracts.alert_noise_wire import ALERT_NOISE_EVENT_TYPES, SignedAlertCommand
 
-from fdai.agents._framework.huginn_dedup import request_digest
+from fdai.agents._framework.huginn_dedup import HuginnDedupJournal, request_digest
 from fdai.agents._framework.huginn_ingress_helpers import (
     _DISCOVERY_PROJECTOR_TIMEOUT_SECONDS,
     _MAX_FIELD_CHARS,
     _TRACE_CONTINUITY_EVENT,
     _TRACE_CONTINUITY_FIELDS,
     _UNOWNED_AUTHORITY_FIELDS,
+    DiscoveryProjector,
     HuginnIngressRejected,
     HuginnIngressRejectedError,
     _bound,
@@ -39,15 +39,48 @@ from fdai.agents._framework.huginn_ingress_helpers import (
     _validated_operator_request_fields,
 )
 from fdai.agents._framework.huginn_operator_receipt import (
+    OperatorRequestReceiptGate,
     ReservedOperatorRequestReceipt,
     VerifiedOperatorRequestReceipt,
 )
+from fdai.agents._framework.huginn_schema_learning import HuginnSchemaLearningLedger
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.case_history import OperationalCaseInput
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.bus import PantheonBus
+
+
+_AlertNoisePayload = Mapping[str, Any]
+_AlertNoiseVerifier = Callable[[_AlertNoisePayload], object]
 
 
 class HuginnIngressMixin:
     """Normalize raw source signals into Huginn-owned Event and Change objects."""
+
+    _dedup_journal: HuginnDedupJournal | None
+    _last_checkpoint_read_at: datetime | None
+    _clock: Callable[[], datetime]
+    _discovery_projector: DiscoveryProjector | None
+    _operator_request_receipt_gate: OperatorRequestReceiptGate | None
+    _schema_learning: HuginnSchemaLearningLedger | None
+    _seen_keys: OrderedDict[str, None]
+    _dedup_capacity: int
+    _operational_case_errors: deque[str]
+    _event_latency_seconds: deque[float]
+    _discovery_latency_seconds: deque[float]
+    _alert_noise_verifier: _AlertNoiseVerifier | None
+    bus: PantheonBus | None
+    _dedup_collision_decisions: int
+    _dedup_correct_decisions: int
+    _ingress_lock_refs: dict[str, int]
+    _ingress_locks: OrderedDict[str, asyncio.Lock]
+
+    if TYPE_CHECKING:
+
+        def behavior_snapshot(self) -> dict[str, int]: ...
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
 
     def health(self) -> dict[str, Any]:
         """Expose ingress / dedup state for Heimdall's probe."""
@@ -197,7 +230,9 @@ class HuginnIngressMixin:
             raise
 
     async def maintenance_tick(self) -> None:
-        await super().maintenance_tick()
+        maintenance_tick = getattr(super(), "maintenance_tick", None)
+        if maintenance_tick is not None:
+            await maintenance_tick()
         if self._schema_learning is None:
             self.record_behavior("maintenance:schema_learning_unbound")
             return

@@ -22,6 +22,27 @@ from fdai.agents._framework.freyr_capacity_runtime import (
     FreyrCapacityRuntimeMixin,
     SizingRecommendation,
 )
+from fdai.agents._framework.freyr_constants import (
+    _ACCEPTED_PREFIX as _ACCEPTED_PREFIX,
+)
+from fdai.agents._framework.freyr_constants import (
+    _COST_EVIDENCE_MAX_AGE as _COST_EVIDENCE_MAX_AGE,
+)
+from fdai.agents._framework.freyr_constants import (
+    _COST_PREFIX as _COST_PREFIX,
+)
+from fdai.agents._framework.freyr_constants import (
+    _MAX_COST_EVIDENCE as _MAX_COST_EVIDENCE,
+)
+from fdai.agents._framework.freyr_constants import (
+    _MAX_RETAINED_IDENTIFIER_CHARS as _MAX_RETAINED_IDENTIFIER_CHARS,
+)
+from fdai.agents._framework.freyr_constants import (
+    _MAX_TRACKED_RESOURCES as _MAX_TRACKED_RESOURCES,
+)
+from fdai.agents._framework.freyr_constants import (
+    _RESOURCE_PREFIX as _RESOURCE_PREFIX,
+)
 from fdai.agents._framework.freyr_sampling import (
     MAX_RECURRING_SAMPLES,
     CapacityUtilizationSampler,
@@ -38,20 +59,12 @@ from fdai.agents._framework.specialist_ingress import (
 from fdai.core.capacity import CapacityGraduationController
 from fdai.shared.providers.state_store import StateStore
 
+
 #: Hard cap on retained per-resource utilization samples. The EWMA forecast
 #: lives in ``_smoothed``; ``_samples`` is only read for its last value, its
 #: length (the >= 3 scale_down guard), and the introspection count - so
 #: trimming older samples is behavior-preserving and bounds memory on a
 #: long-lived capacity watcher.
-_MAX_TRACKED_RESOURCES = 512
-_MAX_COST_EVIDENCE = 512
-_COST_EVIDENCE_MAX_AGE = timedelta(hours=1)
-_RESOURCE_PREFIX = "pantheon/freyr/capacity-resources/"
-_ACCEPTED_PREFIX = "pantheon/freyr/accepted-samples/"
-_COST_PREFIX = "pantheon/freyr/cost-evidence/"
-_MAX_RETAINED_IDENTIFIER_CHARS = 128
-
-
 class Freyr(
     FreyrCapacityRuntimeMixin,
     FreyrStatusRuntimeMixin,

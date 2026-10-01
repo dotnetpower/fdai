@@ -1,4 +1,3 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Dispatch and batch lifecycle mixin for Thor."""
 
 from __future__ import annotations
@@ -6,8 +5,9 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from copy import deepcopy
-from datetime import timedelta
-from typing import Any
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
+from weakref import WeakValueDictionary
 
 from fdai.agents._framework import (
     action_run_lineage,
@@ -26,6 +26,7 @@ from fdai.agents._framework.action_run_state import (
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.thor_action_run import (
     ActionRun,
+    ActionRunStore,
 )
 from fdai.agents._framework.thor_action_run import (
     kinetic_proposal as _kinetic_proposal,
@@ -41,8 +42,12 @@ from fdai.agents._framework.thor_execution import (
     ExecutionResourceUnavailableError as _ExecutionResourceUnavailableError,
 )
 from fdai.agents._framework.thor_locks import _ReentrantAsyncLock
-from fdai.core.operational_context.test_context_dispatch import TestContextDispatchBinding
+from fdai.core.operational_context.test_context_dispatch import (
+    TestContextDispatchBinding,
+    TestContextDispatchGuard,
+)
 from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.resource_lock import ResourceLock
 
 _resolved_autonomy_ceiling = thor_dispatch_validation.resolved_autonomy_ceiling
 _selected_action_matches = thor_dispatch_validation.selected_action_matches
@@ -50,6 +55,10 @@ _bounded_params = thor_dispatch_validation.bounded_params
 _missing_wire_safeguards = thor_dispatch_validation.missing_wire_safeguards
 _dry_run_obligation_only = thor_dispatch_validation.dry_run_obligation_only
 _ACCEPTED_RISK_VERDICTS = frozenset({"auto", "hil", "deny", "shadow"})
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.thor_development_authority import DevelopmentVerdictAuthority
+    from fdai.agents.thor import ActionExecutor, ExecutionAuditRecorder
 
 
 def _positive_quorum(value: object) -> int:
@@ -66,6 +75,75 @@ def _positive_quorum(value: object) -> int:
 
 class ThorDispatchMixin:
     """Dispatch verdicts and multi-target batches without judging them."""
+
+    _correlation_locks: WeakValueDictionary[str, _ReentrantAsyncLock]
+    _resource_dispatch_locks: WeakValueDictionary[str, asyncio.Lock]
+    action_runs: dict[str, ActionRun]
+    _batch_rollup_targets: dict[str, tuple[str, ...]]
+    _batch_rollup_verdicts: dict[str, dict[str, Any]]
+    _idempotency_runs: dict[str, ActionRun]
+    _resource_locks: set[str]
+    _saga_available: bool
+    _vidar_available: bool
+    _action_semantics: action_semantics.ActionSemanticsCatalog | None
+    _hil_timeout_seconds: int
+    _state_store: ActionRunStore | None
+    _batch_attempt_rollups: dict[str, str]
+    _batch_rollup_attempts: dict[str, tuple[str, ...]]
+    _executor: ActionExecutor
+    _executor_timeout_seconds: float
+    _effect_verification_timeout_seconds: int
+    _execution_audit_timeout_seconds: float
+    _execution_audit_recorder: ExecutionAuditRecorder | None
+    _require_execution_audit: bool
+    _preflight_simulator: thor_preflight.ThorPreflightSimulator | None
+    _preflight_timeout_seconds: float
+    _preflight_receipt_ttl_seconds: int
+    _execution_resource_lock: ResourceLock | None
+    _require_execution_resource_lock: bool
+    _test_context_dispatch_guard: TestContextDispatchGuard | None
+
+    if TYPE_CHECKING:
+
+        async def _execute(self, run: ActionRun) -> None: ...
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        async def _emit_action_run(self, run: ActionRun) -> None: ...
+
+        async def _resume_rehydrated(self, run: ActionRun) -> None: ...
+
+        async def _finalize_terminal_replay(self, run: ActionRun) -> None: ...
+
+        def _find_active_run(self, resource_id: str) -> ActionRun | None: ...
+
+        def _must_shadow(self) -> bool: ...
+
+        def _admit_development_verdict(
+            self,
+            *,
+            evidence: object,
+            action: Mapping[str, Any],
+            risk_verdict: str,
+            original_quorum: int,
+            effective_quorum: int,
+        ) -> DevelopmentVerdictAuthority: ...
+
+        def _now(self) -> datetime: ...
+
+        def _release_lock(self, resource_id: object) -> None: ...
+
+        def _unavailable_dependencies(self) -> frozenset[str]: ...
+
+        def _approver_unavailable(self) -> bool: ...
+
+        async def _release_resource_claim(self, run: ActionRun) -> None: ...
+
+        async def _wait_for_dr_failover_contract(self, run: ActionRun) -> bool: ...
+
+        def _revalidate_development_authority(self, run: ActionRun) -> None: ...
+
+        async def _handle_effect_observation(self, observation: dict[str, Any]) -> None: ...
 
     async def dispatch_verdict(self, verdict: dict[str, Any]) -> ActionRun:
         """Serialize duplicate delivery for one correlation before dispatch."""
@@ -241,12 +319,8 @@ class ThorDispatchMixin:
                 outcome="triage_action_unavailable",
             )
 
-        # Idempotency: at-least-once delivery means the same verdict can arrive
-        # twice. Keying the run by correlation is not enough - a re-delivery
-        # after the first run terminated (lock released) would start a SECOND
-        # run and re-execute. Return the existing run for a correlation we have
-        # already dispatched, so a duplicate verdict is a no-op (defense in
-        # depth with the event idempotency_key dedup at ingress).
+        # Idempotency: at-least-once redelivery after a terminated run would
+        # re-execute unless an already dispatched correlation is a no-op.
         raw_idempotency_key = verdict.get("idempotency_key")
         if (
             not isinstance(raw_idempotency_key, str) or not raw_idempotency_key.strip()
@@ -284,7 +358,8 @@ class ThorDispatchMixin:
         existing_by_idempotency = self._idempotency_runs.get(action_idempotency_key)
         if existing_by_idempotency is not None:
             self.record_behavior("dispatch:idempotent_duplicate")
-            return existing_by_idempotency
+            existing_idempotency_run: ActionRun = existing_by_idempotency
+            return existing_idempotency_run
 
         # Per-resource mutex: refuse to start a new run while another is
         # active on the same resource. Second dispatcher waits for the
@@ -348,11 +423,8 @@ class ThorDispatchMixin:
             elif not shadow_mode and _dry_run_obligation_only(verdict):
                 self.record_behavior("dispatch:dry_run_obligation_only")
 
-        # Propagate the approval quorum the judge set (2 for irreversible
-        # actions, agent-pantheon.md 4.6). Floor at 1 so a forged / malformed
-        # verdict can never yield a zero-or-negative quorum that would let an
-        # action execute with no approver; Thor MUST NOT hard-code 1 and drop
-        # the judge's two-approver requirement.
+        # Propagate the judge's quorum. Floor at 1 so a malformed verdict cannot
+        # execute with no approver or drop a two-approver requirement.
         try:
             required_quorum = (
                 action_semantics.quorum_for(action_type, self._action_semantics)
@@ -484,7 +556,8 @@ class ThorDispatchMixin:
             if existing is None:
                 raise RuntimeError("Thor active correlation has no ActionRun")
             self.record_behavior("dispatch:idempotent_duplicate")
-            return existing
+            existing_run: ActionRun = existing
+            return existing_run
         self.action_runs[correlation] = run
         self._idempotency_runs[run.idempotency_key] = run
         if resource_id:

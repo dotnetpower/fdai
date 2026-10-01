@@ -56,7 +56,8 @@ from fdai.shared.providers.development_authority import DevelopmentAuthorityBind
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
-ActionExecutor = Callable[[dict[str, Any]], Awaitable[bool]]
+_ActionPayload = dict[str, Any]
+ActionExecutor = Callable[[_ActionPayload], Awaitable[bool]]
 """Callable that mutates the target and returns True on success."""
 
 ExecutionAuditRecorder = Callable[["ActionRun"], Awaitable[str]]
@@ -490,7 +491,7 @@ class Thor(
 
     # ---- helpers -------------------------------------------------------
 
-    def _release_lock(self, resource_id: Any) -> None:
+    def _release_lock(self, resource_id: object) -> None:
         thor_persistence.release_lock(self, resource_id)
 
     def _evict_terminal_overflow(self) -> None:

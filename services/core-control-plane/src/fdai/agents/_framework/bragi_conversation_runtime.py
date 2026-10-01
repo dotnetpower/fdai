@@ -1,4 +1,3 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Conversation routing and deliberation mixin for Bragi."""
 
 from __future__ import annotations
@@ -6,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
-from fdai.agents._framework.bragi_contributors import normalize_responder_answer
+from fdai.agents._framework.bragi_constants import _MAX_CONTRIBUTORS, _MAX_PROGRESS_KEYS
+from fdai.agents._framework.bragi_contributors import AnswerFn, normalize_responder_answer
 from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.bragi_progress import append_submitted
 from fdai.agents._framework.bragi_proposal import build_action_proposal
@@ -21,13 +21,51 @@ from fdai.agents._framework.bragi_runtime_helpers import (
 )
 from fdai.agents._framework.pantheon import PANTHEON_NAMES
 
-_LOG = logging.getLogger(__name__)
-_MAX_PROGRESS_KEYS = 5_000
-_MAX_CONTRIBUTORS = 2
+_LOG = logging.getLogger("fdai.agents.bragi")
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.deliberation import ConversationDeliberator
+    from fdai.agents.bragi import ProposalSink
+    from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 
 
 class BragiConversationRuntimeMixin:
     """Route operator turns and deliberation without executor authority."""
+
+    _agent_responders: dict[str, AnswerFn]
+    _responder_timeout_seconds: float
+    _semantic_judgment: SemanticJudgmentBoundary | None
+    _action_type_names: frozenset[str]
+    _semantic_judgment_timeout_seconds: float
+    _proposal_sink: ProposalSink | None
+    _proposal_timeout_seconds: float
+    _progress: dict[str, list[dict[str, Any]]]
+    _deliberator: ConversationDeliberator
+
+    if TYPE_CHECKING:
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        async def _publish_denied_proposal(
+            self,
+            *,
+            status: Mapping[str, Any],
+            user_id: str,
+            reason: str,
+            error_type: str,
+        ) -> None: ...
+
+        async def _publish_a2a_turn(
+            self,
+            *,
+            requester: str,
+            target_agent: str,
+            question: str,
+            response: dict[str, Any],
+            turn_index: int,
+        ) -> None: ...
+
+        def _next_a2a_turn_index(self, requester: str, target_agent: str) -> int: ...
 
     async def _call_responder(
         self,
@@ -281,7 +319,7 @@ class BragiConversationRuntimeMixin:
                 "reason": "requires_typed_pipeline",
                 "requires_typed_pipeline": True,
             }
-        return await self._deliberator.deliberate(
+        deliberation: dict[str, Any] = await self._deliberator.deliberate(
             question=question,
             requester=requester,
             correlation_id=correlation_id,
@@ -290,6 +328,7 @@ class BragiConversationRuntimeMixin:
             fixed_assurance_facts=fixed_assurance_facts,
             fixed_assurance_scenario_id=fixed_assurance_scenario_id,
         )
+        return deliberation
 
     def route(
         self, judgment: SemanticJudgmentProposal, *, question: str | None = None

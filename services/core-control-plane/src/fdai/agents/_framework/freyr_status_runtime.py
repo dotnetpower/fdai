@@ -1,10 +1,12 @@
-# mypy: disable-error-code="attr-defined,arg-type,no-any-return,misc,has-type"
 """Forecast outcome, health, and introspection mixin for Freyr."""
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.freyr_sampling import run_recurring_sampling
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -12,10 +14,51 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     mentioned,
 )
+from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.agents._framework.base import AgentSpec
+    from fdai.agents._framework.freyr_capacity_runtime import SizingRecommendation
+    from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
+    from fdai.core.capacity import CapacityGraduationController
 
 
 class FreyrStatusRuntimeMixin:
     """Report Freyr evidence and maintain recurring sampling."""
+
+    _forecast_errors: list[float]
+    _provisioning_observations: int
+    _over_provisioned: int
+    _under_provisioned: int
+    _samples: BoundedLruDict[str, list[float]]
+    _state_store: StateStore | None
+    _graduation_controller: CapacityGraduationController | None
+    _utilization_sampler: CapacityUtilizationSampler | None
+    _source_time_missing_samples: int
+    _clock: Callable[[], datetime]
+    _recurring_sample_limit: int
+    _recurring_sample_timeout: timedelta
+    spec: AgentSpec
+    _up: float
+    _down: float
+
+    if TYPE_CHECKING:
+
+        def behavior_snapshot(self) -> dict[str, int]: ...
+
+        async def ingest_utilization(
+            self,
+            *,
+            resource_id: str,
+            utilization: float,
+            correlation_id: str = "",
+            observed_at: str = "",
+            sample_key: str = "",
+        ) -> None: ...
+
+        def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+        def sizing_advice(self, resource_id: str) -> SizingRecommendation: ...
 
     def record_capacity_forecast_outcome(
         self,
@@ -110,7 +153,9 @@ class FreyrStatusRuntimeMixin:
         }
 
     async def maintenance_tick(self) -> None:
-        await super().maintenance_tick()
+        maintenance_tick = getattr(super(), "maintenance_tick", None)
+        if maintenance_tick is not None:
+            await maintenance_tick()
         await run_recurring_sampling(
             sampler=self._utilization_sampler,
             clock=self._clock,
