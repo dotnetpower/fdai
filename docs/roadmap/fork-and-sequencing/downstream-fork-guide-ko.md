@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 66bf1defd4bdac83fdce4d11c894c166dc9ae295
-translation_revised: 2026-09-26
+translation_source_sha: dc914c9a05118ee54cb9845ccb5648749a7326f2
+translation_revised: 2026-10-01
 ---
 
 # 다운스트림 포크 가이드
@@ -83,12 +83,18 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 업스트림도 직접 deploy할 수 있습니다. `.fdai-fork`, `FDAI_FORK`, `git config fdai.fork true`는
 repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 기준으로 분기하면 안 됩니다.
 
-연결된 소스 배포와 무키 Trial 목표는 업스트림과 포크에 동일하게 적용합니다. 포크 표시,
-변경 없는 체크아웃, 산출물 서명은 사용권을 부여하거나 새 Trial을 시작하지 않습니다.
-업그레이드할 때 설치에 연결된 기록을 보존해야 합니다. 다른 설치에 바인딩된 기록을 제공하는
-포크는 어떤 권한도 받지 못하며, 런타임 적용은 포크가 제공하는 검사가 아니라 공용 라이선스
-사용권 판정기를 통해 이뤄집니다. 원자적인 저장은
-[기능 라이선싱](capability-licensing-ko.md#영속적인-무키-trial-목표)의 별도 구현 과제로 남아 있습니다.
+단일 명령 소스 배포와 그 무키 Trial은 업스트림과 포크에 동일하게 적용합니다. 포크 표시,
+변경 없는 체크아웃, 산출물 서명은 사용권을 부여하거나 새 Trial을 시작하지 않습니다. 설치하는
+작업 스테이션에 있는 업스트림 무결성 서명 키만
+[설치 사용권](capability-licensing-ko.md#키-보유자-설치-사용권)을 선택하며, 모든 배포판은
+패키지에 포함된 업스트림 무결성 공개 키로 사용권을 검증합니다. Trial 검사,
+[만료 워터마크](capability-licensing-ko.md#trial-만료-워터마크), 그 키는 프레임워크 표면에
+속하므로 포크는 이를 수정하거나 숨기거나 바꾸면 안 됩니다. 업그레이드할 때 설치에 연결된
+기록을 보존해야 합니다. 다른 설치에 바인딩된 기록을 제공하는 포크는 어떤 권한도 받지 못하며,
+런타임 적용은
+포크가 제공하는 검사가 아니라 공용 라이선스 사용권 판정기를 통해 이뤄집니다. 영속 Trial
+저장소는 이미 있으며, 배포 중 초기화와 Core 구성은
+[소스 배포](../deployment/source-deployment-ko.md)의 남은 과제입니다.
 
 선택적 버티컬 패키지도 포크 경계와 독립적입니다. 예를 들어
 [`fdai-cost-governance`](../architecture/finops-package-architecture-ko.md)는 검토된 업스트림
@@ -407,7 +413,8 @@ git push origin main
   기능을 회수할 수 없으므로, 포크는 운영자가 무엇을 볼 수 있는지는
   전혀 막지 않으면서 무엇을 할 수 있는지만 통제할 수 있습니다. 토큰은 이미지 다이제스트나
   배포에 연결하십시오. 연결 없는 토큰은 그것을 읽을 수 있는 누구에게나 동작합니다. 포크는 조립 단계에서
-  고정 예상 `distribution_id`와 `LicenseVerifier`를 제공하며 환경 값으로 토큰 이름을 바꿀 수 없습니다.
+  고정 예상 `distribution_id`만 제공하며, 검증은 항상 패키지에 포함된 업스트림 무결성 공개 키를
+  사용하고 환경 값으로 토큰 이름을 바꿀 수 없습니다.
   Core와 `fdaictl`은 경과 UTC 시간 30일을 넘는 서명 기간을 거부하고 릴리스 발급과 점검은 각각 독립 Ed25519 검증
   경로를 사용합니다. 발급은 새 비공개 출력에만 쓰고 기존 토큰 파일을 교체하지 않습니다.
   release 키 입력은 크기가 제한된 비차단 일반 파일이며, 비공개 키는 현재 UID가 소유하고 mode

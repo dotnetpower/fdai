@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 604a8201459154812fd369039e22e0b74e46ccd4
+translation_source_sha: ccc69ee6cabdb093ef4d8ca5733a786318be7b8f
 translation_revised: 2026-10-01
 ---
 # FDAI 로드맵
@@ -107,6 +107,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 20d | [disconnected-deployment-ko.md](deployment/disconnected-deployment-ko.md) | 공용 egress 없는 네트워크 배포: 네트워크 프로파일, 내부 mirror, 서명된 offline 키트, 저하된 증거 대체 경로, 남은 air-gap 공백 |
 | 20e | [network-connectivity-matrix-ko.md](deployment/network-connectivity-matrix-ko.md) | 시나리오별 DNS, IP, 프로토콜, 포트, 비공개 영역, PTU, APIM 및 차단 경로 동작 |
 | 20f | [runtime-deployment-profiles-ko.md](deployment/runtime-deployment-profiles-ko.md) | 신규 설치의 Container Apps 또는 AKS 선택, 노드 하한, 데이터베이스 배치, 분리된 상태, 서명된 키트 실행 |
+| 20g | [source-deployment-ko.md](deployment/source-deployment-ko.md) | 클론에서 실행하는 단일 명령 소스 배포: 레지스트리 이미지 빌드, 패키지 없는 연속 실행, 키가 없을 때의 30일 Trial, 키 보유자 설치 사용권 |
 | 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / 평가를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
 | 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 범위 RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
 | 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 신원, 오퍼레이터 시작 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 강제 적용, 로컬/deployed 동등성 |

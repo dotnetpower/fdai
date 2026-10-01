@@ -1,39 +1,53 @@
 ---
 title: Deploy Quickstart
-description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 0a86ec6280f59fe268ca3660ee8bc8ca2cf9c24c }]
+description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 3a0128a9df77de6e3d40aafeaff8ad2d34acf651 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fa493c7a1f499e59649708839904b9e7e4921dd5 }]
 ---
 
 # Deploy Quickstart
 
-> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
-You can deploy FDAI to an Azure subscription after one interactive Azure sign-in. Tenant
-deployment runs from the local `fdaictl` coordinator and a managed host inside the target virtual
-network. It does not use GitHub Actions, repository variables, repository secrets, or a GitHub
-runner.
+You can deploy FDAI to your own Azure subscription from a clone of the repository with one command
+line after one interactive Azure sign-in. You don't need a key, a signed kit, a published release,
+or any GitHub setup. Without the upstream integrity signing key, the installation runs a 30-day
+Trial and shows an expiry watermark after it ends. With that key at
+`secrets/integrity-signing-key.pem` in your clone, it receives a full entitlement.
 
-Terraform remains the infrastructure source of truth. The deployment command verifies a signed
-release, shows each exact plan for approval, moves private data-plane work into the virtual network,
-and verifies the resulting application before it reports deployment readiness.
+Terraform remains the infrastructure source of truth. The deployment command builds the service
+images from your clone in your own registry, shows each plan it applies, moves private data-plane
+work into the virtual network, and verifies the resulting application before it reports deployment
+readiness.
 
 By default, the plan gives the dedicated inventory Managed Identity subscription-scoped AKS
 Cluster User and RBAC Reader roles. The inventory Job can then discover current and future AKS
 clusters and read their Kubernetes objects without giving Core, Operator, or Thor those roles.
-Review this read scope in the exact plan before approval.
+Review this read scope in the plan.
 
 ## Choose a deployment path
 
-| Environment | Start with | Artifact source |
-|-------------|------------|-----------------|
-| Connected Azure environment | Clone the repository, install `fdaictl`, run `az login`, then run `fdaictl provision azure --online` | Versioned signed release kit |
-| No public artifact egress | Load a digest-pinned FDAI deployment appliance and run its entry point | Complete signed kit embedded in the appliance image |
+| Environment | Start with | What you need |
+|-------------|------------|---------------|
+| Any Azure subscription you can sign in to | Run `az login`, then one line: `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region <region>` | Nothing else. No key, kit, or release |
+| An Azure VM without internet access | Run `fdaictl provision azure --offline-kit <package>` on that VM | One signed offline package from a key holder |
 
-GitHub Actions can build, test, sign, and publish a release. It is not part of either tenant
-deployment path.
+GitHub Actions tests the repository. It is not part of either deployment path.
 
-Connected deployment boots the managed host from an exact Marketplace Ubuntu version and installs
-the pinned toolchain during Foundation. You don't need to build a dedicated host image first.
+> **Current status:** The one-command source deployment is still being completed, as its
+> [implementation ledger](../roadmap-implementation/deployment/source-deployment.md) records:
+>
+> - A keyless run creates the Foundation and then stops with
+>   `prebuilt_runtime_artifacts_required` before the application stage.
+> - Source-mode checkpoints advance only with `--approval-file`, which
+>   `scripts/deployment/azure/genesis_approval_prompt.py` produces.
+> - No deployment step starts the Trial yet, so an installation without a token stays
+>   observation-only.
+> - Core still verifies licenses with the separate license key pair, so
+>   `secrets/integrity-signing-key.pem` doesn't select full entitlement yet, and the expiry
+>   watermark doesn't exist yet.
+> - Until those items close, a holder of the offline-package signing key reaches the application
+>   stage only through the interim `fdai-up.sh --source . --signing-key <path>` route, which still
+>   builds a signed kit and will be removed.
 
 ## Deploy from a clone
 
@@ -44,14 +58,18 @@ Before you start, confirm the following requirements:
 - A Linux x86-64 workstation with Bash, `git`, Azure CLI, and `uv`. Windows users can use WSL2
   with these tools installed inside Linux.
 - Python 3.13, or permission for `uv` to download it. Initial installation needs access to the
-  configured Python package index and, if needed, the Python distribution host. This installation
-  procedure is for connected environments; use the appliance path for artifact-offline deployment.
+  configured Python package index and, if needed, the Python distribution host. This procedure is
+  for connected environments; use the signed offline package on an Azure VM without internet access.
+- Node.js and npm, only when you select the Console add-on.
 - An Azure identity that can create the Foundation resources and assign the documented deployment
   roles in the selected subscription.
 - Capacity in the selected Azure region for the required resource types.
 - An interactive Azure session for the intended subscription.
 
 ### Install the command once
+
+This step is optional. The `fdai-up.sh` wrapper runs from your clone without installing anything;
+install `fdaictl` only when you want to run the same coordinator from any directory.
 
 Cloning the repository does not automatically register shell commands. From the cloned repository
 root, install the local deployment CLI into a user-owned, isolated `uv` tool environment:
@@ -115,98 +133,55 @@ Invalid commands, incomplete arguments, and conflicting artifact sources still r
 
 ### Run the deployment
 
-For the source-mode development preview, start with local preparation:
-
-```bash
-fdaictl provision azure --source . --runtime aks --prepare-only
-```
-
-After Azure sign-in, `--preflight-only` instead checks AKS SKU and quota feasibility without
-resource mutation. Omit both flags to start the Foundation flow. A new interactive source run
-shows installation settings and asks for confirmation at startup only. Supply a separate setup
-estimate ceiling with `--setup-cost-ceiling <USD>` or enter it during that initial review.
-Use `--console-access public-https-entra` or `private-https-entra`, and explicitly select
-`--allow-dedicated-identities` and `--cleanup-temporary-resources` when intended. Services and data
-stay retained. These settings do not deploy resources or grant exact-plan approval by themselves.
-
-The private initial confirmation is reused only with the same source, target, runtime, budgets and
-options before its original expiry. Changed or expired settings stop without another question.
-JSON and non-TTY fresh runs return `initial_confirmation_required` without reading input. No later
-source execution stage prompts. Full execution from one startup authorization still requires the
-bounded per-effect authorization adapters; the preview does not implement them yet.
-
-To resume an already approved exact checkpoint, omit initial-scope options and add
-`--approval-file <private-exact-approval.json>` to the same command. The approval must match the
-current source, run, human and exact checkpoint evidence and must not be expired. The command
-continues within that approval; a new approval requirement returns review state and exit code `2`
-without waiting for input or creating approval. Retained approvals are never selected implicitly.
-This preview does not yet activate the
-application or durable 30-day Trial. A successful preparation or preflight is not a deployed
-application. Source mode does not download a complete
-kit or require a publisher key, and its work directory must be outside the selected checkout.
-
-The following signed-kit path remains separate:
-
-After installation, run this from any directory and choose the Azure region:
+Sign in, then run one line that clones the repository and starts the deployment in your chosen
+Azure region:
 
 ```bash
 az login
-fdaictl provision azure --online --region koreacentral
+git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region koreacentral
 ```
 
-The activity stream appears automatically in an interactive terminal. Add `--progress plain` for
-line-oriented logs. Select exactly one artifact source: `--online` or `--offline-kit <path>`.
-If you prefer not to install a persistent command, the original checkout wrapper remains available:
-
-```bash
-bash scripts/deployment/azure/fdai-up.sh --region koreacentral
-```
-
-To build everything from a checkout instead of using a published kit, add
-`--source <checkout> --signing-key <key>`. That checkout owns the whole run, so run it against the
-revision you intend to deploy. Because the checkout already determines the artifacts, the wrapper
-refuses a simultaneous `--online` or `--offline-kit` selection.
-
-To confirm a key before the build uses it, identify it first. The command prints fingerprints and
-custody status, never key material:
-
-```bash
-python3 scripts/deployment/release/check-signing-key.py --key secrets/<your-key>.pem
-```
-
-One key covers both the complete-kit and bundle roles. The key file must be owner-only (`chmod 600`).
-
-Both commands use the same coordinator. Installing or updating the CLI does not update the signed
-deployment kit: its Genesis scripts come from the verified release, not your clone. A kit-owned fix
-needs a corrected signed kit; never edit extracted kit files or disable verification. Successful
-command registration is not evidence of successful deployment.
+If you already have a clone, run `scripts/deployment/azure/fdai-up.sh --region koreacentral` from
+its root instead. The wrapper prepares your clone's locked environment and runs
+`fdaictl provision azure --source .` with your options. With an installed CLI, you can run that
+command directly from the clone. The activity stream appears automatically in an interactive
+terminal; add `--progress plain` for line-oriented logs. The private work directory must be outside
+your clone.
 
 The coordinator performs the following operations in one resumable process:
 
 1. Reads the active tenant and subscription from Azure CLI without accepting either value as a
    command-line secret.
-2. Downloads and verifies one versioned complete deployment kit, or revalidates the retained kit.
-3. Runs read-only policy, quota, provider, and target checks.
-4. Displays the exact Foundation plan and waits for explicit approval.
-5. Creates the private state boundary, virtual network, Bastion access, deployment identity, and
-   managed deployment host.
-6. Transfers the verified kit to that host and runs private Terraform operations with its managed
-   identity.
-7. Imports the signed service images, applies migrations, configures Entra, and deploys the
-   application.
+2. Pins one clean committed snapshot of your clone.
+3. Selects the Trial or full entitlement mode from your clone's `secrets/` directory.
+4. Runs read-only policy, quota, provider, and target checks.
+5. Shows and applies the Foundation plan: the private state boundary, virtual network, Bastion
+   access, deployment identity, and managed deployment host.
+6. Builds the service images from the snapshot in your registry and reads back their digests.
+7. Applies migrations and catalogs, starts the Trial or stores the full entitlement, configures
+   Entra when selected, and deploys the application by digest.
 8. Verifies image digests, migration and catalog state, service health, and a second zero-change
    plan.
 
-The command never interprets silence as approval. If an apply result is ambiguous, rerunning the
-same command performs verification-only recovery rather than repeating the apply.
+Your invocation approves each plan the command shows. Deleting or replacing an existing resource
+requires one extra typed confirmation. The command never interprets silence as approval. If an
+apply result is ambiguous, rerunning the same command performs verification-only recovery rather
+than repeating the apply. Rerunning the command later upgrades the same installation from your
+current clone.
 
-Before a new image plan, Genesis reads the complete regional VM catalog and chooses compatible
-private builder, verifier, and Foundation host sizes within one combined quota budget. Image VMs
-use managed OS disks; the host needs an ephemeral ResourceDisk that fits the image. The exact
-choices are sealed before approval and never changed during apply. If no compatible set is
-available, review the reported restrictions, hardware requirements, and quota; existing claims
-still resume verification only. These checks require a signed kit containing the selection support.
-Checkout changes do not update an older kit, and editing extracted signed kit files is unsupported.
+To check feasibility first, add `--prepare-only` to pin the snapshot without Azure access, or
+`--preflight-only` to read AKS SKU and quota feasibility without changing resources. A successful
+preparation or preflight is not a deployed application.
+
+A new interactive run shows the installation settings once at startup. Supply a setup estimate
+ceiling with `--setup-cost-ceiling <USD>` or enter it during that review. Select optional surfaces
+with `--add-on` and optional observation sources with `--observation-source`; the default is the
+headless observation-first profile. These settings do not deploy resources by themselves.
+
+Before the Foundation plan, Genesis reads the regional VM catalog and chooses a compatible managed
+host size within the quota budget. The choice is sealed before approval and never changed during
+apply. If no compatible size is available, review the reported restrictions, hardware
+requirements, and quota; existing claims still resume verification only.
 
 Foundation plans first use a private local backend. Only the exact migration archive activates the
 signed remote-backend example for the attested host; migration approval and readback remain mandatory.
@@ -221,6 +196,9 @@ protected state blob directly with Azure CLI, matches it to the retained authori
 removes its temporary files without rebuilding the deleted Terraform work tree or provider mirror.
 
 ### Recover a verified public development deployment
+
+This recovery path adopts state from the `azd-up.sh` public development bootstrap and still runs
+through the legacy release-kit acquisition, which is scheduled for removal.
 
 Use application-state adoption only when the contributor deployment has already produced a verified
 `fdai.contributor-recovery.v1` receipt after a failed apply. Run the command from the exact signed kit
@@ -258,56 +236,62 @@ replacement action.
 Don't delete the existing Azure resources or the original local state to resolve an adoption error.
 Keep the work directory and use the retained claim or receipt to determine the failed boundary.
 
-### If kit acquisition fails
+### Trial and full entitlement
 
-An online retry revalidates retained kit files instead of replacing them. Every signature, exact
-file set, digest, runtime image, and bundle binding is checked again. A cached download is not a
-trusted or current release merely because the file exists. Existing execution copies, run state,
-SSH keys, plans, and approvals are preserved.
+The command selects the entitlement once, on your workstation, before it changes anything in Azure:
 
-| Error category | Check or action |
-|----------------|-----------------|
-| `HTTP 404` | Confirm that the selected CLI version and platform have a published complete kit. Azure login does not publish or authenticate a GitHub release. |
-| `HTTP 401` or `HTTP 403` | Review release access and network policy. Do not put a token in the URL or command line. |
-| `HTTP 429`, `HTTP 503`, connection failure, or timeout | Stop this attempt. Review release-host DNS, HTTPS, proxy, and TLS trust before another explicit attempt; never disable certificate verification. |
-| Local destination conflict, permission denial, or full storage | Preserve the deployment work directory. Update an older CLI using the locked installation procedure, or correct the specific local access/storage problem without deleting run evidence. |
-| Retained source differs, signature fails, or content is incomplete | Stop and review the selected source and retained inputs. The CLI does not overwrite or repair signed files, silently switch sources, or skip validation. |
+| Your clone | Your installation | After 30 days |
+|------------|-------------------|---------------|
+| No `secrets/integrity-signing-key.pem` | Starts one 30-day Trial at first activation | New acting work is blocked and an expiry watermark appears; observation, diagnosis, audit, and export continue |
+| The upstream integrity signing key at `secrets/integrity-signing-key.pem` | Receives a full entitlement bound to this installation | No change |
+| A key file that is not usable | Nothing; the command stops before any Azure change | Not applicable |
 
-The default versioned source can revalidate a legacy cache without a source-request record.
-A different `--online-url` cannot borrow that cache. Once recorded, the requested source stays
-fixed for that work directory. Revalidation does not fetch a newer release or alter scripts inside
-the signed kit; a kit-owned fix still needs a corrected signed release.
+The command checks the key before it changes anything. The key file must be owner-only
+(`chmod 600`) and match the committed `security/integrity/upstream-signing-key.pub`; the
+offline-package signing key never selects full entitlement. The key never leaves your workstation;
+only the signed entitlement is stored in your Key Vault. Rerunning the command never renews a
+Trial, even if its record was deleted, and a later run with the key upgrades a Trial installation
+in place.
 
-### Capability mode
+Entitlement only makes capabilities available. Runtime promotion, risk checks, and human approval
+remain independent controls.
 
-An installation without a deployment-bound capability token starts in observation-only mode. This
-is a complete deployment with no managed-resource action authority. Supplying a verified token can
-enable only its declared capabilities; runtime promotion, risk checks, and human approval remain
-independent controls.
+### When the Trial ends
 
-## Deploy from an appliance image
+After 30 days, FDAI keeps observing, diagnosing, auditing, and exporting, but new acting work is
+blocked. Every Console page then shows a watermark in the lower-right corner stating that the
+evaluation period has expired, similar to an operating system that isn't activated. You can't
+dismiss the watermark, and no setting, data change, or redeployment turns it off. Only a full
+entitlement removes it, which requires rerunning the deployment with the upstream integrity
+signing key present.
 
-Use the deployment appliance when the target network cannot reach GitHub, PyPI, the public
-Terraform registry, or a public container registry. The release owner supplies one signed OCI
-archive containing:
+## Deploy from a signed offline package
 
-- `fdaictl` and its locked Python dependencies;
-- the signed Terraform deployment bundle;
-- Terraform, OPA, and the complete provider mirror;
-- every required FDAI service and dependency OCI image;
-- Console, migration, and deployment-support artifacts;
-- SBOM, provenance, manifest, and signature records.
+Use the offline package when the target Azure VM can't reach GitHub, PyPI, the public Terraform
+registry, or a public container registry. A key holder builds one signed package that contains the
+deployment CLI and its wheels, the Terraform configuration, Terraform and its provider mirror,
+`kubectl` and `kubelogin`, every service and dependency image, the Console, and migration support:
 
-Load the image with an OCI-compatible container tool on an approved host. The image entry point
-uses interactive Azure sign-in or its managed identity and invokes the same standalone coordinator
-with the embedded kit. Public artifact fallback is not supported.
+```bash
+scripts/deployment/release/build-standalone-deployment-kit.sh \
+  --out <private-output-directory> --signing-key <package-signing-key>
+```
 
-For a new private subscription, a minimal Foundation bootstrap can create the Bastion-reachable
-host first. The complete application plan and apply still run from the deployment appliance inside
-the target network.
+Copy the package to the Azure VM, install `fdaictl` from its signed wheelhouse as described in
+[Disconnected Deployment](../roadmap/deployment/disconnected-deployment.md), and run:
+
+```bash
+fdaictl provision azure --offline-kit <fdai-deployment-kit.tar.gz> --region <azure-region>
+```
+
+The command verifies the package's detached Ed25519 signature and every checksum before it uses
+any file. The package alone is sufficient: no download, public registry, package index, or build
+is needed. Azure management and data-plane endpoints must stay reachable through Azure network
+paths. The package signing key authenticates artifacts, not usage rights, so an offline
+installation runs the 30-day Trial unless a separately issued entitlement is supplied.
 
 > A network with no Azure management-plane route cannot deploy Azure resources. In that profile,
-> the appliance can verify and prepare its artifacts but cannot report deployment readiness.
+> the package can be verified and prepared, but the command cannot report deployment readiness.
 
 ## Understand the result
 
@@ -331,7 +315,12 @@ verification and any required recovery are complete.
 The following tools are not public tenant deployment entry points:
 
 - `genesis-up.sh` is a low-level Foundation diagnostic and recovery tool.
-- `azd-up.sh` is a contributor-only public development bootstrap.
+- `azd-up.sh` is a Core-only public development bootstrap on Container Apps. It is not the
+  one-command source deployment.
+- `fdaictl provision azure --online` acquires a published release kit. It is not one of the two
+  installation paths and is scheduled for removal.
+- `fdai-up.sh --source . --signing-key <path>` is the interim key-holder route described in
+  Current status. It still builds a signed kit and is scheduled for removal.
 - Deployment workflows under `.github/workflows/` are repository CI, release, and historical
   automation. They are not supported tenant installers.
 - Direct Terraform execution is an expert integration boundary and must preserve the same plan,
@@ -341,7 +330,8 @@ The following tools are not public tenant deployment entry points:
 
 | To learn about | Read |
 |----------------|------|
+| One-command source deployment and entitlement | [One-Command Source Deployment](../roadmap/deployment/source-deployment.md) |
 | Complete deployment topology | [Deploy and Onboard](../roadmap/deployment/deploy-and-onboard.md) |
 | Connected and disconnected execution profiles | [Provisioning Execution Profiles](../roadmap/deployment/provisioning-execution-profiles.md) |
-| Appliance and offline trust boundaries | [Disconnected Deployment](../roadmap/deployment/disconnected-deployment.md) |
+| Signed offline package and trust boundaries | [Disconnected Deployment](../roadmap/deployment/disconnected-deployment.md) |
 | Recovery after an incomplete run | [Deployment Recovery](../runbooks/deployment-recovery.md) |

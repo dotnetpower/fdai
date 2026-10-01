@@ -1,8 +1,8 @@
 ---
 title: 컨트롤 플레인 재해 복구
 translation_of: control-plane-disaster-recovery.md
-translation_source_sha: de9449d252b61f7c970024658964a835373c8b98
-translation_revised: 2026-09-09
+translation_source_sha: a49bc6fd5835b50ca0c13b78d5ff255b6dff36ef
+translation_revised: 2026-10-01
 ---
 
 # 컨트롤 플레인 재해 복구
@@ -14,40 +14,6 @@ translation_revised: 2026-09-09
 > **범위:** 업스트림은 재사용 가능한 복구 계약을 정의합니다. 다운스트림 배포는 지역, numeric
 > 복구 지점 목표(RPO)와 복구 시간 목표(RTO), 신원, 리소스 참조,
 > 소유자, 승인 및 측정된 훈련 근거를 제공합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 변경할 수 없는 복구 계획, 적법한 전환 집약기 및 측정 결과 계약 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_plan.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_plan.py` | 버전, 승인 분리, 복구 epoch, 적법한 전환, 중단 동작, 독립 관측, 데이터 무결성 및 계획에 결속된 측정 RPO/RTO에 집중 테스트가 있습니다. |
-| 영속 compare-and-set 조정 및 감사 저장 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_coordinator.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py` | 동일 요청 재전달, 쓰기 충돌, 개정 검사 및 상태와 감사의 원자적 쓰기가 구현되어 있습니다. |
-| 선택형 데이터베이스 복원 훈련 및 검증기 | implemented | `services/core-control-plane/src/fdai/delivery/db_dr_drill_cli.py`, `delivery/azure/db_dr_restore.py`, `delivery/db_dr_postgres.py`, `infra/modules/compute/container-apps/dr_drill_job.tf` 및 DR 훈련 집중 테스트 | 전달 계층 소유 작업이 Azure 복원, 범위가 제한된 PostgreSQL 무결성 및 smoke 검사, 정리, 영속 감사를 조립하고 Core는 프로바이더 중립으로 유지합니다. 작업은 기본적으로 dry-run이며 전용 비실행기 신원을 사용합니다. 소스와 테스트만으로 실제 기반 환경 훈련 완료를 입증하지는 않습니다. |
-| 프로바이더 중립 지역 shadow 순서 | implemented | `services/core-control-plane/src/fdai/shared/providers/control_plane_recovery.py`, `services/core-control-plane/src/fdai/core/verticals/resilience/shadow_recovery.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py` | fake 프로바이더가 효과 적용 없이 순서, 이전 epoch 거부, 실패 중단, 단일 쓰기 담당 동작, 범위가 제한된 재생 입력 및 failback 전제조건을 입증합니다. |
-| 지역 프로바이더 어댑터 및 이벤트 데이터 연속성 | not-started | `docs/runbooks/control-plane-failover.md` | 프로비저닝, fencing, 이벤트 재생, 트래픽 전환 또는 failback을 연결하는 배포 프로바이더가 없고 실제 기반 환경의 이벤트 연속성 근거도 없습니다. |
-| 단일 프로세스 예약 실행 | implemented | `infra/modules/compute/container-apps/*_job.tf`; `tests/integration/infra/test_scheduled_job_concurrency.py` | 예약된 모든 Container Apps Job이 `replica_completion_count`와 `parallelism`을 `1`로 고정하고, 모든 Job이 정확히 한 종류의 트리거만 선언하므로 한 번의 tick은 정확히 한 프로세스에서 실행됩니다. 스케줄 블록이 파싱되지 않거나 값이 완화되거나 두 번째 트리거가 선언되면 집중 검사가 실패합니다. |
-| 측정된 지역 장애 조치 및 failback | not-started | `docs/runbooks/control-plane-failover.md` | 승인된 RPO/RTO, 이전 epoch fencing, 이벤트 완전성, 트래픽 전환 및 failback을 입증하는 통제된 훈련 증적이 저장소에 없습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-09 | implemented | 하나의 계획 개정 번호와 복구 epoch를 인과 순서에 맞는 스냅샷, 장애, 활성화 및 검증 시각에 연결하는 프로바이더 중립 복구 결과 측정을 추가했습니다. 완료하려면 독립 관측 경로, 검증된 데이터 무결성 및 계획에서 승인한 목표 이내의 달성 RPO/RTO가 필요합니다. | `current change`; `recovery_plan.py`; `test_recovery_plan.py`; `test_v2026_10_outcomes.py`; 집중 복구 및 시나리오 검사. | 실제 기반 환경의 통제된 훈련 증적을 보존합니다. 로컬 계약은 완료된 지역 훈련을 주장하지 않습니다. |
-| 2026-08-31 | implemented | 선택형 데이터베이스 복원 작업을 완전한 전달 계층 소유 Azure 및 PostgreSQL 검증 경로에 연결하고 신원을 실행기와 분리했습니다. 부분 복원과 정리 실패는 명시적으로 유지되며 완전한 dry-run 구성은 프로바이더 요청을 만들지 않습니다. | `current change`; 전달 어댑터와 CLI, 루트 및 compute Terraform, 복원, 무결성, CLI, 검증기 및 인프라 집중 검사. | 측정된 RPO/RTO와 검증된 정리를 포함한 통제된 실제 기반 DB-DR 증적 하나를 보존합니다. |
-| 2026-09-01 | implemented | 장애 복구 런북의 적용 예시에 정제된 계획 메타데이터에서 가져오는 필수 `--plan-expires-at` 인수를 추가했습니다. | `current change`; 장애 복구 런북 EN/KO. | 잔여 작업 변경 없음. |
-| 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 테스트된 복구 동작과 지역 배포 및 운영 근거를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 복구 계획 및 조정기 집중 테스트 | 지역 프로바이더 경로를 조립하고 실행한 뒤 통제된 장애 조치 및 failback 근거를 보존해야 합니다. |
-| 2026-08-15 | implemented | 검토 가능한 Terraform 구성으로 예약 실행을 단일 프로세스로 제한하고 예약된 모든 Job에 대한 집중 동시성 검사를 추가했습니다. | `current change`; `tests/integration/infra/test_scheduled_job_concurrency.py`; `pytest tests/integration/infra/test_scheduled_job_concurrency.py` (24 passed). | 프로세스 간 실험 예약, 조립된 지역 경로, 통제된 훈련 증적은 남아 있습니다. |
-| 2026-08-24 | implemented | 프로바이더 중립 지역 작업 계약과 순수 shadow 조정기를 추가했습니다. 이전 epoch, 실패한 증적, 안전하지 않은 쓰기 담당 상태 또는 누락된 failback 전제조건이 있으면 중단합니다. | `current change`; `control_plane_recovery.py`; `shadow_recovery.py`; `test_recovery_plan_shadow.py`; `python -m pytest -q --no-cov services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py` (10 passed). | 배포 프로바이더를 연결하고 실제 기반 환경의 이벤트 연속성을 입증하며 통제된 장애 조치 및 failback 증적을 보존해야 합니다. |
-
-### 남은 작업
-
-- [x] 프로바이더 중립 지역 작업을 정의하고 순서, 범위가 제한된 재생, 이전 epoch, 실패 중단, 단일 쓰기 담당 동작 및 failback 전제조건을 검증하는 집중 fake 프로바이더 shadow 순서 테스트를 통과합니다.
-- [ ] 프로비저닝, 기본 지역 fencing, 이벤트 복구, 트래픽 전환 및 failback을 배포 프로바이더로 연결한 뒤 두 번째 쓰기 담당이 활성화되지 않았음을 입증하는 실제 기반 환경 shadow 증적을 보존합니다.
-- [x] 검토 가능한 Terraform 구성으로 배포된 스케줄러를 한 번의 실행당 단일 프로세스로 제한했으며, 예약된 Job이 `replica_completion_count`나 `parallelism`을 완화하거나 두 번째 트리거를 추가하면 `tests/integration/infra/test_scheduled_job_concurrency.py`가 실패합니다.
-- [ ] 예약된 tick을 둘 이상의 프로세스에서 실행하기 전에 프로세스 간 실험 예약을 입증합니다.
-- [ ] 승인된 RPO/RTO와 달성값, 이벤트 누락, 이전 epoch 거부, 트래픽 전환, 롤백 또는 failback 및 정리를 기록한 저장소 보관 가능 통제 훈련 증적 하나를 남깁니다.
-
 ## 설계 요약
 
 FDAI는 쓰기 권한을 가진 복구 epoch가 정확히 하나인 active-passive regional 모델을
@@ -257,6 +223,7 @@ Reliability 소유자가 numeric 목표를 승인하고 완전한 isolated 복�
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/control-plane-disaster-recovery.md) |
 | Regional 장애 조치 및 failback 절차 | [컨트롤 플레인 장애 조치 런북](../../runbooks/control-plane-failover-ko.md) |
 | 단일 지역 배포와 release 롤백 | [배포](deployment-ko.md) |
 | 예약된 워크로드 DR과 데이터베이스 복원 훈련 | [단계 3 integrated 루프](../phases/phase-3-integrated-loop-ko.md) |

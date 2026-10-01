@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 0a86ec6280f59fe268ca3660ee8bc8ca2cf9c24c
-translation_revised: 2026-09-30
+translation_source_sha: 3a0128a9df77de6e3d40aafeaff8ad2d34acf651
+translation_revised: 2026-10-01
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -192,10 +192,10 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 다음 고객 독립적 도구를 사용해 두 배포 경로를 반복 실행할 수 있습니다.
 
-- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev` 단일 명령 경로입니다. 버전이 지정된 서명 키트 하나를 검증하며 독립적인 아티팩트 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
-  현재의 각 계획을 승인받고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
-  기여자 소스 배포는 `--source <checkout> --signing-key <key>`를 추가합니다. 선택한 checkout이 실행 전체를 소유합니다. 해당 checkout의 잠긴 환경을 준비하고 그 안에서 키트를 빌드하며 배포 CLI도 거기에서 실행하므로, 다른 clone에서 호출해도 호출한 쪽 리비전이 대신 들어갈 수 없습니다. 이미 그 checkout이 키트를 결정하므로 `--online`이나 `--offline-kit`를 함께 지정하면 전달하지 않고 거부합니다.
-- [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 키트 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. 개발 프로필은 완전 키트와 번들 역할에 서명자 하나를 고정하므로 파일 하나로 `--signing-key`를 충족하며, 라이선스 발급자는 별도 키입니다.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 [단일 명령 소스 배포](source-deployment-ko.md)입니다. 어떤 clone이든 키 없이 배포하며, 무결성 서명 키가 없으면 영속 30일 Trial을, 사용할 수 있는 `secrets/integrity-signing-key.pem`이 있으면 전체 설치 사용권을 선택합니다. 독립적인 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
+  명령 실행이 표시하는 각 계획을 승인하고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
+  임시 경로인 `--source <checkout> --signing-key <key>`는 여전히 서명된 키트를 빌드하며 [소스 배포 원장](../../roadmap-implementation/deployment/source-deployment.md)에 따라 제거될 예정입니다. 선택한 checkout이 실행 전체를 소유합니다. 해당 checkout의 잠긴 환경을 준비하고 그 안에서 키트를 빌드하며 배포 CLI도 거기에서 실행하므로, 다른 clone에서 호출해도 호출한 쪽 리비전이 대신 들어갈 수 없습니다. 이미 그 checkout이 키트를 결정하므로 `--online`이나 `--offline-kit`를 함께 지정하면 전달하지 않고 거부합니다.
+- [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드나 배포가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. `--scan secrets`는 clone에 전체 사용권을 선택하는 `license-issuer` 키가 있는지 보여 줍니다. 개발 프로필은 오프라인 패키지의 완전 키트와 번들 역할에 서명자 하나를 고정하며, 라이선스 발급자는 별도 키입니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
@@ -241,9 +241,10 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   Terraform은 기본 Event 허브 이름을 `event_bus_topics`로, 단계, 승인, 인벤토리 유입
   auxiliary 이름을 `event_bus_auxiliary_topics`로 제공해 로컬 런타임 준비가 provision된 토픽만 연결합니다.
 - **진입 명령**: `fdaictl provision azure`는 `infra/` HCL 모듈의 Terraform을 조정합니다.
-  환경 값은 source control 밖에 유지합니다. Standalone 조정기는 `서명 키트 검증 -> 대상 검사
-  -> 정확한 Foundation 계획 및 승인 -> Managed Host 적용 -> 정확한 애플리케이션 계획 및 승인
-  -> 배포 후 검사` 순서로 실행합니다. Terraform은 실행 엔진이자 인프라 단일 기준입니다.
+  환경 값은 source control 밖에 유지합니다. 소스 모드의 Standalone 조정기는 `소스 스냅샷 고정
+  -> 대상 검사 -> Foundation 계획 및 적용 -> 배포 레지스트리에서 이미지 빌드 -> 애플리케이션 계획 및
+  적용 -> 배포 후 검사` 순서로 실행하며, `--offline-kit`에서는 먼저 서명된 패키지를 검증합니다.
+  Terraform은 실행 엔진이자 인프라 단일 기준입니다.
 - 대상 환경 배포 전송 계층은 항상 `manual`입니다. 활성 Azure 사용자가 정확한 계획을 승인하고,
   Managed Host는 별도 workload identity로 계획을 실행합니다. 저장소 변수, 저장소 비밀,
   GitHub Environment, workflow dispatch 또는 GitHub runner는 참여하지 않습니다.

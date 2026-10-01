@@ -32,6 +32,7 @@ resumable work while the roadmap owner remains focused on the normative zero-to-
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-01 | in-progress | Retargeted the application and packaging receipts to the amended Constitution Article 1. The first application plan, apply, initial inventory, and second zero-change plan now come from the keyless one-command source deployment rather than a protected workflow, and the provider-mirror and complete-kit receipt now belongs only to the signed offline package. | `current change`; [source deployment owner](../../roadmap/deployment/source-deployment.md) and [ledger](source-deployment.md) | Retain the source-deployment receipts after source deployment WP3 and WP6. |
 | 2026-09-29 | implemented | Foundation now also binds the runner's observed guest patch selection, and declares it in configuration. Resuming the live `eastus` handoff proved the state migration had already succeeded (`mutation_performed: true`, remote `dev.tfstate` present) and that only the remote zero-change plan failed. Binding the public IP tags reduced it from `4 to add, 0 to change, 4 to destroy` to `0 to add, 1 to change`, leaving `bypass_platform_safety_checks_on_user_schedule_enabled = true -> false`: the tenant enforces `AutomaticByPlatform` patching and the VM resource declared no patch attributes, so the runner could never converge either. `runner_patch_mode` and `runner_bypass_platform_safety_checks` now carry the observed selection, and a safety bypass without platform patching is refused. | `current change`; 4 new cases in `tests/integration/scripts/test_genesis_foundation_apply.py` covering platform patching bound, image-default recording no bypass, an unsupported mode refused and a bypass without platform patching refused, all failing before the change; 15 module cases; Ruff, `terraform fmt`; the live remote plan then reported `No changes. Your infrastructure matches the configuration.` with exit status 0 | Complete the handoff receipt, then application, migrations and verification, and retain their receipts through #1008. |
 | 2026-09-29 | implemented | A failed state handoff no longer blocks every later attempt. The remote work id is derived from the Foundation and enrollment receipts, so a retry reuses the same remote archive and work directory; the preflight required both to be absent and offered no way to reach that state, so one failed migration left the installation permanently stuck even after the local claim was released. A released claim now clears transient remote work through the remote program's own `cleanup` and re-checks absence. Only that program may remove them, its completion marker is required, and a remnant surviving cleanup still stops the run. | `current change`; 4 new cases in `tests/integration/scripts/test_genesis_foundation_state.py` covering a clean runner left untouched, abandoned work cleared, a failed cleanup reporting the remote cause, and a surviving remnant refusing, all failing before the change; 38 module cases; Ruff check and format | Resume the retained `fdaix` eastus handoff from the fixed revision, then complete application, migrations and verification and retain their receipts through #1008. |
 | 2026-09-29 | implemented | Carried the observed public IP tags into the state-handoff archive and made a refused remote migration diagnosable. After the apply fix, a live `eastus` run reached `foundation-apply` applied with `zero_change_verified: true` and completed runner enrollment, then failed state handoff with only `Foundation remote state handoff did not complete`. The runner repeats the zero-change plan, so it diverged on the same policy-assigned tags, and the message named no cause. The archive now carries the bound tags, and the refusal reports the remote exit status, completion-marker presence, any recognized status token, and the remote program's own prefixed diagnostic without forwarding raw remote output. | `current change`; 4 new cases in `tests/integration/scripts/test_genesis_foundation_state.py` covering the reported cause, prefix-only forwarding, a missing diagnostic and a recognized token, all failing before the change; 45 handoff and apply cases; Ruff check and format; the improved message revealed the live cause as `Foundation remote plan is not zero-change` | Clear the retained remote work from the failed attempt, then complete handoff, application, and verification and retain their receipts through #1008. |
@@ -105,8 +106,9 @@ resumable work while the roadmap owner remains focused on the normative zero-to-
 
 - [x] Connect the local `private-runner` route to bounded exact-evidence approval files and prove
   that another stage, changed digest, expired approval, or post-claim retry grants no new effect.
-- [ ] Retain the first request-bound protected application plan, exact apply, initial inventory
-  execution, and second zero-change plan produced by `fdai-up.sh` on the merged revision.
+- [ ] Retain the first application plan, exact apply, initial inventory execution, and second
+  zero-change plan produced by the keyless one-command source deployment ([source deployment](source-deployment.md)
+  WP6).
 - [ ] Extend the implemented P1 bootstrap classification to policy, quota, network, and complete
   application current-state preflight, then retain a no-mutation live receipt.
 - [ ] Retain P2 Foundation Azure evidence for exact apply, Bastion enrollment, remote-state
@@ -114,15 +116,16 @@ resumable work while the roadmap owner remains focused on the normative zero-to-
   no-change on one approved revision.
 - [ ] Complete P3 application reconciliation, conflict/import handling, resource-manifest closure,
   and zero-unrelated-destroy evidence through the protected runner.
-- [ ] Retain actual nine-root provider-mirror and complete signed-kit evidence, then a cache-free
-  packaged-CLI foundation-to-platform handoff rehearsal; fake Terraform staging checks are not that receipt.
+- [ ] Retain actual nine-root provider-mirror and complete signed offline-package evidence, then a
+  cache-free packaged-CLI foundation-to-platform handoff rehearsal; fake Terraform staging checks
+  are not that receipt.
 - [ ] Complete P4 with a versioned database bootstrap manifest and runtime-principal readback of
   migration heads, roles, extensions, ontology release, catalogs, defaults, and shadow-only state.
 - [ ] Complete P5 Azure adapters for region ranking, quota recheck, private keyless bindings, and
   quantitative live probes on top of the implemented local capacity contract.
 - [x] Complete P6 durable provider progress publication plus Operator and Console integration on
   top of the implemented run totals and full-subscription closure contract.
-- [ ] Complete P7 and retain an exact-revision protected new-subscription receipt plus a second-run
-  no-change receipt before marking the lifecycle validated.
+- [ ] Complete P7 and retain an exact-revision new-subscription receipt from the source deployment
+  plus a second-run no-change receipt before marking the lifecycle validated.
 - [ ] Collect Azure-backed evidence for the controls that require a real subscription, private
   endpoints, managed identities, quota, database readback, and complete inventory observation.

@@ -63,16 +63,29 @@ venue-parity gap means binding the real source rather than manufacturing its out
 **Deployment distribution.** FDAI supports exactly two ways to install itself, and each requires only
 what this paragraph lists:
 
-1. *Contributor source deployment.* A contributor who clones the repository, signs in with
-   `az login`, and holds the development signing private key can deploy every FDAI resource to their
-   own subscription with one command. The command builds what it needs from the checkout, including
-   service images. It requires no protected branch, CI result, published artifact, prebuilt
-   package, appliance, attestation, provenance, SBOM, or maintainer involvement.
+1. *Source deployment.* Anyone who clones the repository and signs in with `az login` can deploy
+   every FDAI resource to their own subscription with one command line. The command builds what it
+   needs from the checkout, including service images, inside the deployment's own resources. It
+   requires no signing key, signed kit or package, protected branch, CI result, published artifact,
+   appliance, attestation, provenance, SBOM, or maintainer involvement, and it creates none of
+   those artifacts. When the upstream integrity signing private key is in the checkout's ignored
+   `secrets/` directory, the command uses it to issue a full entitlement bound to that
+   installation, and the key never leaves the workstation.
 2. *Offline package.* A key holder builds one signed offline package that contains every artifact
    needed to configure all FDAI resources. On an Azure VM without internet access, that package alone
    is sufficient: no download, public registry, package index, or build is needed, while Azure
    management and data-plane endpoints stay reachable through Azure network paths. The only package
    guarantee is one detached Ed25519 signature over its checksum list.
+
+An installation without a separately issued entitlement runs one 30-day Trial from its first
+activation; redeployment, upgrade, restart, and loss of the Trial record never renew it. Whenever
+licensing withholds acting capability, including after the Trial ends, every Console view shows a
+persistent watermark stating that the evaluation has expired or that FDAI is not activated. No
+configuration, data change, redeployment, role, or customization seam hides it. Its code belongs to
+the signed framework surface, so removing it requires modifying signed code, which verification
+against the upstream integrity signature exposes. FDAI makes that tampering evident, not
+impossible. Entitlement and Trial change only capability availability, never the authority that
+Articles 7 and 8 govern.
 
 Installation tooling adds no other gate. The operator's invocation approves the plan it shows;
 only deleting or replacing an existing resource needs an explicit extra confirmation. Articles 7

@@ -193,10 +193,10 @@ The preflight, source precedence, coverage, and stale-retention contract is owne
 
 These customer-agnostic helpers keep both deployment routes repeatable:
 
-- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh) is the one-command private `dev` path after `az login`. It verifies one versioned signed kit and uses bounded concurrency for independent artifact preparation, read-only discovery, provider requests, and policy-probe siblings.
-  It prompts for each current exact plan, configures Foundation and tenant bindings, and applies through the manual managed host before requiring a zero-change plan. Approval, apply, cleanup, state, and handoff boundaries remain serial. GitHub repository configuration and workflow dispatch are not part of this path.
-  Contributor source deployment adds `--source <checkout> --signing-key <key>`. The selected checkout owns the whole run: its locked environment is prepared, the kit is built inside it, and the deployment CLI is driven from it, so an invocation from another clone cannot substitute the invoking revision. Because that checkout already determines the kit, a simultaneous `--online` or `--offline-kit` selection is refused rather than forwarded.
-- [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py) identifies a candidate private key before a build consumes it. It reports the packaged roots' fingerprints, which roles a candidate satisfies, and the owner-only custody the kit build requires. It prints no key material, so it is safe to run on any machine that may hold the key. The development profile pins one signer for both the complete-kit and bundle roles, so a single file satisfies `--signing-key`; the license issuer is a separate key.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh) is the [one-command source deployment](source-deployment.md) after `az login`. Any clone deploys without a key: no integrity signing key selects the durable 30-day Trial, and a usable `secrets/integrity-signing-key.pem` selects a full installation entitlement. It uses bounded concurrency for independent preparation, read-only discovery, provider requests, and policy-probe siblings.
+  The invocation approves each plan it shows, configures Foundation and tenant bindings, and applies through the manual managed host before requiring a zero-change plan. Approval, apply, cleanup, state, and handoff boundaries remain serial. GitHub repository configuration and workflow dispatch are not part of this path.
+  The interim `--source <checkout> --signing-key <key>` route still builds a signed kit and is scheduled for removal by the [source deployment ledger](../../roadmap-implementation/deployment/source-deployment.md). The selected checkout owns the whole run: its locked environment is prepared, the kit is built inside it, and the deployment CLI is driven from it, so an invocation from another clone cannot substitute the invoking revision. Because that checkout already determines the kit, a simultaneous `--online` or `--offline-kit` selection is refused rather than forwarded.
+- [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py) identifies a candidate private key before a build or deployment consumes it. It reports the packaged roots' fingerprints, which roles a candidate satisfies, and the owner-only custody the build requires. It prints no key material, so it is safe to run on any machine that may hold the key. `--scan secrets` shows whether a clone holds the `license-issuer` key that selects full entitlement. The development profile pins one signer for both the complete-kit and bundle roles of the offline package; the license issuer is a separate key.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) retains the lower-level 15-stage
   Foundation route. Claims resume verification only and Foundation never implies readiness.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure CLI and `azd` entry points to the approved subscription and tenant pair before mutation; Genesis verifies region availability through the exact subscription-bound ARM locations endpoint without changing the active CLI selection, and policy-probe cleanup parses multi-value TSV as ordered lines before proving absence.
@@ -239,9 +239,10 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
   `event_bus_topics` and auxiliary stage, approval, and inventory-ingress names through
   `event_bus_auxiliary_topics` so local runtime preparation binds only provisioned topics.
 - **Entry command**: `fdaictl provision azure` coordinates Terraform against the `infra/` HCL
-  modules. Environment values stay outside source control. The standalone coordinator runs
-  `verify signed kit -> inspect target -> exact Foundation plan and approval -> managed-host apply
-  -> exact application plan and approval -> post-provision checks`. Terraform remains the execution
+  modules. Environment values stay outside source control. In source mode the standalone
+  coordinator runs `pin source snapshot -> inspect target -> Foundation plan and apply ->
+  build images in the deployment registry -> application plan and apply -> post-provision checks`;
+  with `--offline-kit` it first verifies the signed package. Terraform remains the execution
   engine and infrastructure source of truth.
 - Tenant deployment transport is always `manual`. The active Azure user approves exact plans, and
   the managed host executes them with a distinct workload identity. No repository variable,
