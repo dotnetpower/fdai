@@ -67,6 +67,8 @@ of an exact name binding also reach model plans legitimately.
   `semantic_operand_without_source` otherwise.
 - The instance-versus-schema half already holds a declaration-only plan for an instance answer
   kind.
+- The local implementation applies this check at the current-path hold seam for model-proposed
+  operational plans, while server-built plans remain covered by their own deterministic builders.
 
 **Exit:** zero invented identity literals and zero schema answers to instance targets on the
 cohort and the holdout.

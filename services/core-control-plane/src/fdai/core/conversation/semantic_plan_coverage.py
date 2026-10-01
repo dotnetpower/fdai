@@ -14,7 +14,7 @@ history, or cause of an instance that the blind reading says the question asks.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, Protocol
 
 from fdai_service_contracts.ontology_query import (
@@ -23,6 +23,7 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
 )
 
+from .semantic_operand_provenance import IdentityBindingReceipt, unproven_identity_operands
 from .semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
@@ -35,6 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PLAN_CONSTRAINT_UNCOVERED = "semantic_plan_constraint_uncovered"
 PLAN_READING_UNVERIFIED = "semantic_reading_unverified"
+PLAN_OPERAND_WITHOUT_SOURCE = "semantic_operand_without_source"
 # Declaration reads answer what the ontology declares, never what an instance is or did.
 _DECLARATION_READERS = frozenset(
     {"query.manifest", "query.ontology_declaration", "query.ontology_relationships"}
@@ -89,6 +91,10 @@ def narrower_plan_outcome(
     plan_source: str,
     plan: OntologyQueryPlan,
     manifest_digest: str,
+    utterance: str = "",
+    context: Sequence[str] = (),
+    enforce_when: object = True,
+    identity_receipts: Sequence[IdentityBindingReceipt] = (),
 ) -> SemanticPlanningOutcome | None:
     """Return the hold for a current-path plan that reads less than the question asks.
 
@@ -103,6 +109,24 @@ def narrower_plan_outcome(
     )
     if vetoed is not None:
         return vetoed
+    output_ids = set(getattr(plan, "output_node_ids", tuple(node.node_id for node in plan.nodes)))
+    if (
+        enforce_when is not None
+        and plan_source == "proposed"
+        and any(
+            node.output_kind == "query.table" for node in plan.nodes if node.node_id in output_ids
+        )
+    ):
+        unproven = unproven_identity_operands(
+            plan, utterance=utterance, context=context, receipts=identity_receipts
+        )
+        if unproven:
+            return _outcome(
+                SemanticPlanningDisposition.UNAVAILABLE,
+                PLAN_OPERAND_WITHOUT_SOURCE,
+                manifest_digest=manifest_digest,
+                hold_details=hold_details(("identity:unproven",)),
+            )
     reading = coverage.settled_reading() if coverage is not None else None
     asked = plan_answers_schema_for_instance(reading, plan)
     if asked is not None:

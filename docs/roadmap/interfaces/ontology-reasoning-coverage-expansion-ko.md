@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 커버리지 확장과 현재 경로 수렴
 translation_of: ontology-reasoning-coverage-expansion.md
-translation_source_sha: e31420c5e3ca9238a8fb7b7a6844f147378f2f1a
+translation_source_sha: 0aab08f76e4b4f0f80607d596e0150458ce63ddb
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 커버리지 확장과 현재 경로 수렴
@@ -68,6 +68,8 @@ shadow나 로컬에서 실행되는 컴파일러입니다. 현재 경로 수렴(
   받습니다. 그렇지 않으면 턴을 `semantic_operand_without_source`로 보류합니다.
 - 인스턴스와 스키마를 구분하는 나머지 절반은 이미 인스턴스에 대한 답변 종류에 선언만 읽는 계획을
   보류합니다.
+- 로컬 구현은 현재 경로의 hold seam에서 모델이 제안한 운영 계획에 이 검사를 적용합니다. 서버가 만든
+  계획은 각 결정론적 builder의 기존 경계로 계속 검증됩니다.
 
 **종료 조건:** 코호트와 홀드아웃에서 지어낸 식별자 리터럴이 0건이고, 인스턴스 대상에 대한 스키마
 답변이 0건입니다.

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from fdai.core.conversation.semantic_operand_provenance import IdentityBindingReceipt
 from fdai.core.conversation.semantic_plan_coverage import (
     narrower_plan_outcome,
     plan_answers_schema_for_instance,
@@ -210,3 +211,76 @@ def test_a_schema_answer_to_an_instance_question_holds_as_an_unverified_reading(
     assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
     assert outcome.reason == "semantic_reading_unverified"
     assert outcome.hold_details == ("answer_kind:state",)
+
+
+def test_a_model_plan_with_an_invented_identity_literal_holds() -> None:
+    plan = _plan(_objects({"property": "id", "operator": "equals", "equals": "invented-id"}))
+
+    outcome = narrower_plan_outcome(
+        None,
+        None,
+        "proposed",
+        plan,
+        "sha256:" + "a" * 64,
+        utterance="What is the state of app-prod?",
+    )
+
+    assert outcome is not None
+    assert outcome.reason == "semantic_operand_without_source"
+
+    named = _plan(_objects({"property": "name", "operator": "equals", "equals": "other-app"}))
+    named_outcome = narrower_plan_outcome(
+        None,
+        None,
+        "proposed",
+        named,
+        "sha256:" + "a" * 64,
+        utterance="What is the state of app-prod?",
+    )
+    assert named_outcome is not None
+    assert named_outcome.reason == "semantic_operand_without_source"
+
+
+def test_identity_operands_may_come_from_receipts_context_or_prior_turns() -> None:
+    plan = _plan(_objects({"property": "id", "operator": "equals", "equals": "server-id"}))
+    receipt = IdentityBindingReceipt(
+        source="server_binding",
+        lookup="exact_resource_name",
+        identity="server-id",
+        span=(21, 29),
+    )
+
+    assert (
+        narrower_plan_outcome(
+            None,
+            None,
+            "proposed",
+            plan,
+            "sha256:" + "a" * 64,
+            utterance="What is the state of app-prod?",
+            identity_receipts=(receipt,),
+        )
+        is None
+    )
+    assert (
+        narrower_plan_outcome(
+            None,
+            None,
+            "proposed",
+            plan,
+            "sha256:" + "a" * 64,
+            identity_receipts=(IdentityBindingReceipt("result_handle", "handle_row", "server-id"),),
+        )
+        is None
+    )
+    assert (
+        narrower_plan_outcome(
+            None,
+            None,
+            "proposed",
+            plan,
+            "sha256:" + "a" * 64,
+            context=("server-id was shown in the prior turn",),
+        )
+        is None
+    )
