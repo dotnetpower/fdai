@@ -1,0 +1,83 @@
+id: fdai-roadmap-interfaces-ontology-reasoning-promotion-program-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Sequencing
+    description: FDAI flow for Sequencing.
+    alt: "Sequencing. The main stages are Wave 0: R0 baselines, P6 decision, P0 evidence view, Wave 1: H1 contracts, H3
+      property lookup, E5 reservation, E7 readers and domains, Wave 2: H2 handle store, E1 slots, E6 lineage, H5 change
+      continuation, Wave 3: H4 ordinals, E2 provenance, E3 relations, E4 routing, H6 plans, E9 operators, Wave 4: P1
+      shadow, P2 readers, P3 verified answers, then E8 hypotheses, Wave 5: final evidence, P5 promotion, then removal."
+  ko:
+    title: 진행 순서
+    description: 진행 순서에 대한 FDAI 흐름입니다.
+    alt: "진행 순서. 주요 단계는 0단계: R0 기준선, P6 결정, P0 근거 보기, 1단계: H1 계약, H3 속성 조회, E5 예약, E7 reader와 도메인, 2단계: H2 핸들 저장소, E1 슬롯, E6
+      계보, H5 변경 이어 읽기, 3단계: H4 서수, E2 출처, E3 관계, E4 라우팅, H6 계획, E9 연산자, 4단계: P1 shadow, P2 판독기, P3 검증된 답변, 이후 E8 가설,
+      5단계: 최종 근거, P5 승격, 이후 제거입니다."
+canvas:
+  width: 900
+  height: 540
+  direction: RIGHT
+groups: []
+nodes:
+  - id: w0
+    kind: process
+    shape: card
+    label:
+      en: "Wave 0: R0 baselines, P6 decision, P0 evidence view"
+      ko: "0단계: R0 기준선, P6 결정, P0 근거 보기"
+  - id: w1
+    kind: process
+    shape: card
+    label:
+      en: "Wave 1: H1 contracts, H3 property lookup, E5 reservation, E7 readers and domains"
+      ko: "1단계: H1 계약, H3 속성 조회, E5 예약, E7 reader와 도메인"
+  - id: w2
+    kind: process
+    shape: card
+    label:
+      en: "Wave 2: H2 handle store, E1 slots, E6 lineage, H5 change continuation"
+      ko: "2단계: H2 핸들 저장소, E1 슬롯, E6 계보, H5 변경 이어 읽기"
+  - id: w3
+    kind: process
+    shape: card
+    label:
+      en: "Wave 3: H4 ordinals, E2 provenance, E3 relations, E4 routing, H6 plans, E9 operators"
+      ko: "3단계: H4 서수, E2 출처, E3 관계, E4 라우팅, H6 계획, E9 연산자"
+  - id: w4
+    kind: process
+    shape: card
+    label:
+      en: "Wave 4: P1 shadow, P2 readers, P3 verified answers, then E8 hypotheses"
+      ko: "4단계: P1 shadow, P2 판독기, P3 검증된 답변, 이후 E8 가설"
+  - id: w5
+    kind: process
+    shape: card
+    label:
+      en: "Wave 5: final evidence, P5 promotion, then removal"
+      ko: "5단계: 최종 근거, P5 승격, 이후 제거"
+edges:
+  - id: flow-01
+    from: w0
+    to: w1
+    kind: request
+  - id: flow-02
+    from: w1
+    to: w2
+    kind: request
+  - id: flow-03
+    from: w2
+    to: w3
+    kind: request
+  - id: flow-04
+    from: w3
+    to: w4
+    kind: request
+  - id: flow-05
+    from: w4
+    to: w5
+    kind: request
