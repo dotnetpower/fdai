@@ -115,3 +115,15 @@ def _lineage(member: str, root: str, depth: int) -> QueryRow:
             "source_generation": "fixture-generation",
         },
     )
+
+
+def test_a_container_kind_with_no_members_counts_zero_groups_instead_of_failing() -> None:
+    from fdai.core.ontology_platform.lineage_grouping import count_by_nearest_container
+    from fdai.core.ontology_platform.query_values import QueryTable
+
+    grouped = count_by_nearest_container(
+        QueryTable(rows=(), complete=True, source_generation="generation-1"), limit=10
+    )
+
+    assert grouped.rows == () and grouped.complete is True
+    assert grouped.source_generation == "generation-1"

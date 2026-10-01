@@ -25,6 +25,15 @@ def count_by_nearest_container(table: QueryTable, *, limit: int) -> QueryTable:
         candidate = _candidate(row.values)
         candidates.setdefault(candidate.member_id, []).append(candidate)
         generations.add(candidate.source_generation)
+    if not candidates:
+        # No member reached a container of the kind, so every group count is zero.
+        return QueryTable(
+            rows=(),
+            complete=table.complete,
+            truncation_reason=table.truncation_reason,
+            numeric_fields=("value", "ambiguous_membership"),
+            source_generation=table.source_generation,
+        )
     if len(generations) != 1:
         raise ValueError("lineage grouping requires exactly one source generation")
     grouped: dict[str, int] = {}
