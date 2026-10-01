@@ -47,7 +47,16 @@ _ACTION_RUN_STATE_RANK = {
     ActionRunState.ROLLBACK_REFUSED: 8,
     ActionRunState.ROLLED_BACK: 9,
 }
-_ACTION_RUN_RESTART_CHECKPOINT_FIELDS = {"history", "outcome", "shadow_mode", "terminal_published"}
+_ACTION_RUN_RESTART_CHECKPOINT_FIELDS = {
+    "dr_failover_contract_decision",
+    "dry_run_evidence",
+    "dry_run_receipt",
+    "history",
+    "outcome",
+    "preflight_simulation_receipt",
+    "shadow_mode",
+    "terminal_published",
+}
 
 # Distinctive one-key envelope used to round-trip a non-dict value through
 # the Mapping-only StateStore contract. Using a reserved sentinel key (not

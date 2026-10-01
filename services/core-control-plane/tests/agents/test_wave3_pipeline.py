@@ -1674,12 +1674,14 @@ def test_vidar_missing_executor_fails_closed_and_releases_thor_lock() -> None:
         )
     )
 
-    assert run.state == ActionRunState.ROLLBACK_REFUSED
+    assert run.state == ActionRunState.DENY_DROPPED
+    assert run.outcome == "dr_failover_contract_held:failback_executor_unbound"
     assert run.rollback_ref is None
     assert "db-1" not in thor._resource_locks
     rollback = bus.messages_on("object.rollback")[0].payload
-    assert rollback["state"] == "refused"
-    assert rollback["contract"] == "scripted"
+    assert rollback["kind"] == "dr_failover_contract"
+    assert rollback["decision"] == "held"
+    assert rollback["reason"] == "failback_executor_unbound"
 
 
 def test_vidar_blank_receipt_fails_closed_and_releases_thor_lock() -> None:

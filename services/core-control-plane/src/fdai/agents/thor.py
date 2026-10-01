@@ -27,6 +27,7 @@ from fdai.agents._framework import (
     thor_introspection,
     thor_persistence,
     thor_preflight,
+    vidar_dr,
 )
 from fdai.agents._framework.action_run_identity import (
     approval_matches_action_run,
@@ -236,15 +237,19 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self.action_runs: dict[str, ActionRun] = {}
         self._idempotency_runs: dict[str, ActionRun] = {}
         self._resource_locks: set[str] = set()
+        # FIFO-cap terminal history; active runs retain resource mutex and approval lookups.
+        self._max_retained_runs = 10_000
         self._retry_strategy_cache: BoundedLruDict[str, dict[str, object]] = BoundedLruDict(8)
+        self._dr_failover_contract_decisions: BoundedLruDict[
+            str,
+            dict[str, object],
+        ] = BoundedLruDict(self._max_retained_runs)
         self._correlation_locks: WeakValueDictionary[str, _ReentrantAsyncLock] = (
             WeakValueDictionary()
         )
         self._resource_dispatch_locks: WeakValueDictionary[str, asyncio.Lock] = (
             WeakValueDictionary()
         )
-        # FIFO-cap terminal history; active runs retain resource mutex and approval lookups.
-        self._max_retained_runs = 10_000
         if self._state_store is not None:
             self.set_state_store(self._state_store)
 
@@ -1089,6 +1094,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                     self._release_lock(run.resource_id)
                     return None
             run.transition(ActionRunState.APPROVED)
+            if vidar_dr.is_failover_action_type(run.action_type):
+                await self._emit_action_run(run)
             return run
         else:
             if not run.resource_claimed and not await self._claim_execution_resource(run):
@@ -1147,7 +1154,28 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                     run.outcome = "effect_verification_expired"
                     await self._emit_action_run(run)
                     self.record_behavior("effect_verification:expired")
-        return len(expired) + len(expired_effects)
+        expired_dr_contracts = [
+            run
+            for run in self.action_runs.values()
+            if run.state is ActionRunState.APPROVED
+            and vidar_dr.is_failover_action_type(run.action_type)
+            and run.outcome == "dr_failover_contract_pending"
+            and (run.approval_expires_at is None or self._now() >= run.approval_expires_at)
+        ]
+        for run in expired_dr_contracts:
+            lock = self._correlation_locks.setdefault(
+                run.correlation_id,
+                _ReentrantAsyncLock(),
+            )
+            async with lock:
+                if (
+                    run.state is ActionRunState.APPROVED
+                    and run.outcome == "dr_failover_contract_pending"
+                    and (run.approval_expires_at is None or self._now() >= run.approval_expires_at)
+                ):
+                    await self._deny_dr_failover_contract(run, "dr_failover_contract_timeout")
+                    self.record_behavior("dr_failover_contract:timeout")
+        return len(expired) + len(expired_effects) + len(expired_dr_contracts)
 
     async def _expire_approval(self, run: ActionRun) -> None:
         await asyncio.shield(self._expire_approval_critical(run))
@@ -1192,6 +1220,15 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             rollback,
             behavior="rollback:rejected_owner",
         ):
+            return
+        if rollback.get("kind") == vidar_dr.DR_CONTRACT_KIND:
+            await self._handle_dr_failover_contract_decision(rollback)
+            return
+        if rollback.get("kind") == vidar_dr.DR_OUTCOME_KIND:
+            self.record_behavior("dr_failover_outcome:observed")
+            return
+        if rollback.get("kind") == "rollback_rehearsal_receipt":
+            self.record_behavior("rollback_rehearsal:observed")
             return
         run = self.action_runs.get(correlation)
         if run is not None:
@@ -1239,6 +1276,92 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self.record_behavior(run.outcome)
         await self._release_resource_claim(run)
         self._release_lock(run.resource_id)
+
+    async def _handle_dr_failover_contract_decision(self, decision: Mapping[str, Any]) -> None:
+        identity = decision.get("action_run_identity")
+        if not isinstance(identity, str):
+            self.record_behavior("dr_failover_contract:invalid")
+            return
+        run = self._find_run_by_identity(identity)
+        if run is None:
+            self._dr_failover_contract_decisions.set(identity, dict(decision))
+            self.record_behavior("dr_failover_contract:unknown_run")
+            return
+        if run.state in _TERMINAL_STATES or run.state in {
+            ActionRunState.EXECUTING,
+            ActionRunState.EFFECT_PENDING,
+        }:
+            self.record_behavior("dr_failover_contract:late_ignored")
+            return
+        if decision.get("decision") == "held" and decision.get("reason") == "approval_required":
+            self.record_behavior("dr_failover_contract:awaiting_approval")
+            return
+        if run.state in {ActionRunState.VERDICTED, ActionRunState.HIL_PENDING}:
+            self.record_behavior("dr_failover_contract:awaiting_approval")
+            return
+        self._dr_failover_contract_decisions.set(identity, dict(decision))
+        self.record_behavior(f"dr_failover_contract:{decision.get('decision') or 'unknown'}")
+        run.dr_failover_contract_decision = dict(decision)
+        if self._state_store is not None:
+            await self._state_store.save(run)
+        if decision.get("decision") == "held":
+            await self._deny_dr_failover_contract(
+                run,
+                f"dr_failover_contract_held:{vidar_dr.decision_hold_reason(decision)}",
+            )
+            return
+        if (
+            run.state is ActionRunState.APPROVED
+            and run.outcome == "dr_failover_contract_pending"
+            and vidar_dr.decision_allows_executor_io(decision)
+        ):
+            run.outcome = None
+            await self._execute(run)
+
+    async def _wait_for_dr_failover_contract(self, run: ActionRun) -> bool:
+        if not vidar_dr.is_failover_action_type(run.action_type) or run.shadow_mode:
+            return False
+        decision = run.dr_failover_contract_decision or self._dr_failover_contract_decisions.get(
+            run.action_run_identity()
+        )
+        if vidar_dr.decision_allows_executor_io(decision):
+            run.dr_failover_contract_decision = dict(decision or {})
+            return False
+        if (
+            decision is not None
+            and decision.get("decision") == "held"
+            and decision.get("reason") != "approval_required"
+        ):
+            await self._deny_dr_failover_contract(
+                run,
+                f"dr_failover_contract_held:{vidar_dr.decision_hold_reason(decision)}",
+            )
+            return True
+        if run.approval_expires_at is not None and self._now() >= run.approval_expires_at:
+            await self._deny_dr_failover_contract(run, "dr_failover_contract_timeout")
+            self.record_behavior("dr_failover_contract:timeout")
+            return True
+        if run.state is not ActionRunState.APPROVED:
+            run.transition(ActionRunState.APPROVED)
+        run.outcome = "dr_failover_contract_pending"
+        await self._emit_action_run(run)
+        self.record_behavior("dr_failover_contract:waiting")
+        return True
+
+    async def _deny_dr_failover_contract(self, run: ActionRun, outcome: str) -> None:
+        if run.state in _TERMINAL_STATES:
+            return
+        run.transition(ActionRunState.DENY_DROPPED)
+        run.outcome = outcome
+        await self._emit_action_run(run)
+        await self._release_resource_claim(run)
+        self._release_lock(run.resource_id)
+
+    def _find_run_by_identity(self, identity: str) -> ActionRun | None:
+        for run in self.action_runs.values():
+            if run.action_run_identity() == identity:
+                return run
+        return None
 
     # ---- helpers -------------------------------------------------------
 

@@ -63,6 +63,7 @@ class ActionRun:
     preflight_simulation_receipt: dict[str, Any] | None = None
     preflight_required: bool = False
     execution_audit_receipt: str | None = None
+    dr_failover_contract_decision: dict[str, Any] | None = None
     effect_verification_ref: str | None = None
     execution_closure_ref: str | None = None
     effect_verified_at: datetime | None = None
@@ -218,6 +219,7 @@ class ActionRun:
             "preflight_simulation_receipt": deepcopy(self.preflight_simulation_receipt),
             "preflight_required": self.preflight_required,
             "execution_audit_receipt": self.execution_audit_receipt,
+            "dr_failover_contract_decision": deepcopy(self.dr_failover_contract_decision),
             **effect_verification_mapping(self),
             "effect_verification_expires_at": (
                 self.effect_verification_expires_at.isoformat()
@@ -302,6 +304,11 @@ class ActionRun:
             execution_audit_receipt=action_run_lineage.optional_bounded_text(
                 data.get("execution_audit_receipt"),
                 field_name="execution_audit_receipt",
+            ),
+            dr_failover_contract_decision=(
+                deepcopy(dict(data["dr_failover_contract_decision"]))
+                if isinstance(data.get("dr_failover_contract_decision"), Mapping)
+                else None
             ),
             **durable_effect_verification(data),
             effect_verification_expires_at=optional_datetime(

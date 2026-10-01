@@ -8,7 +8,7 @@ from copy import deepcopy
 from datetime import timedelta
 from typing import Any, Protocol
 
-from fdai.agents._framework import thor_preflight
+from fdai.agents._framework import thor_preflight, vidar_dr
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.thor_action_run import ActionRun, ActionRunStore
 from fdai.core.executor.safeguards import resource_lock_key
@@ -40,6 +40,8 @@ class ThorExecutionHost(Protocol):
     _test_context_dispatch_guard: TestContextDispatchGuard | None
 
     def _must_shadow(self) -> bool: ...
+
+    async def _wait_for_dr_failover_contract(self, run: ActionRun) -> bool: ...
 
     def _revalidate_development_authority(self, run: ActionRun) -> None: ...
 
@@ -87,12 +89,16 @@ async def execute(host: ThorExecutionHost, run: ActionRun) -> None:
             host.record_behavior("executed:shadow")
             release_run_lock = True
             return
+        if await host._wait_for_dr_failover_contract(run):
+            return
         if await preflight_blocks_execution(host, run):
             await host._emit_action_run(run)
             await host._release_resource_claim(run)
             release_run_lock = True
             return
-        if not run.shadow_mode and host._require_execution_audit:
+        if not run.shadow_mode and (
+            host._require_execution_audit or vidar_dr.is_failover_action_type(run.action_type)
+        ):
             recorder = host._execution_audit_recorder
             if recorder is None:
                 run.transition(ActionRunState.DENY_DROPPED)

@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from fdai.agents._framework import vidar_dr, vidar_rehearsal
 from fdai.agents._framework.action_run_identity import (
     is_action_run_identity,
     validate_action_run_identity,
@@ -106,6 +107,7 @@ class RollbackRecord:
 
 
 RollbackExecutor = Callable[[dict[str, Any]], Awaitable[str | None]]
+RollbackRehearsalPort = vidar_rehearsal.RollbackRehearsalPort
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,11 +151,18 @@ class Vidar(Agent):
         development_executor_principal: str | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
         allow_process_local_rollback: bool = False,
+        rollback_rehearsal_port: RollbackRehearsalPort | None = None,
+        rollback_rehearsal_cadence: timedelta = timedelta(days=30),
+        max_rehearsals_per_tick: int = 16,
     ) -> None:
         if claim_lease <= timedelta(0) or claim_lease > _MAX_CLAIM_LEASE:
             raise ValueError("claim_lease MUST be greater than zero and at most one hour")
         if rollback_executor_timeout_seconds is not None and rollback_executor_timeout_seconds <= 0:
             raise ValueError("rollback_executor_timeout_seconds MUST be positive")
+        if rollback_rehearsal_cadence <= timedelta(0):
+            raise ValueError("rollback_rehearsal_cadence MUST be positive")
+        if max_rehearsals_per_tick < 1 or max_rehearsals_per_tick > 128:
+            raise ValueError("max_rehearsals_per_tick MUST be between 1 and 128")
         if rollback_contracts_by_action_type is not None and (
             len(rollback_contracts_by_action_type) > self._MAX_RECORDS
             or any(
@@ -175,6 +184,9 @@ class Vidar(Agent):
         self._development_profile = development_profile
         self._development_executor_principal = development_executor_principal
         self._development_binding_source = development_binding_source
+        self._rollback_rehearsal_port = rollback_rehearsal_port
+        self._rollback_rehearsal_cadence = rollback_rehearsal_cadence
+        self._max_rehearsals_per_tick = max_rehearsals_per_tick
         self._claim_lease = claim_lease
         self._rollback_executor_timeout_seconds = (
             rollback_executor_timeout_seconds
@@ -202,6 +214,18 @@ class Vidar(Agent):
         self._rollback_path_validations: BoundedLruDict[str, dict[str, object]] = BoundedLruDict(
             self._MAX_RECORDS
         )
+        self._dr_contract_decisions: BoundedLruDict[str, dict[str, object]] = BoundedLruDict(
+            self._MAX_RECORDS
+        )
+        self._dr_outcomes: BoundedLruDict[str, dict[str, object]] = BoundedLruDict(
+            self._MAX_RECORDS
+        )
+        self._rehearsal_receipts: BoundedLruDict[str, dict[str, object]] = BoundedLruDict(
+            self._MAX_RECORDS
+        )
+        self._last_rehearsal_by_action_type: BoundedLruDict[str, datetime] = BoundedLruDict(
+            self._MAX_RECORDS
+        )
         self._last_dr_readiness: dict[str, object] = {
             "evidence_state": "not_observed",
             "coverage_ratio": None,
@@ -218,6 +242,7 @@ class Vidar(Agent):
     async def maintenance_tick(self) -> None:
         await super().maintenance_tick()
         self._validate_rollback_paths()
+        await self._run_rollback_rehearsals()
 
     def bind_rollback_contracts(self, contracts_by_action_type: Mapping[str, str]) -> None:
         if len(contracts_by_action_type) > self._MAX_RECORDS or any(
@@ -278,6 +303,8 @@ class Vidar(Agent):
             behavior="rollback:rejected_owner",
         ):
             return
+        if vidar_dr.is_failover_action_type(payload.get("action_type")):
+            await self._handle_dr_failover_action_run(payload)
         if payload.get("state") not in {"failed", "execution_unknown"}:
             self.record_behavior("action_run:ignored")
             return
@@ -285,6 +312,147 @@ class Vidar(Agent):
             await self.rollback(payload)
         except ValueError:
             self.record_behavior("rollback:action_identity_mismatch")
+
+    async def _handle_dr_failover_action_run(self, payload: dict[str, Any]) -> None:
+        state = str(payload.get("state") or "")
+        if state in {"verdicted", "hil_pending", "approved"}:
+            decision = vidar_dr.build_contract_decision(
+                payload,
+                contract_ready=self._dr_contract_ready(payload),
+                failback_executor_bound=self._dr_failback_executor_bound(payload),
+                now=_clock_now(self._clock),
+            )
+            if decision is None:
+                self.record_behavior("dr_failover_contract:invalid")
+                return
+            await self._publish_dr_contract_decision(decision)
+            return
+        if state == "succeeded" and payload.get("effect_verification_ref") is not None:
+            identity = str(payload.get("action_run_identity") or "")
+            accepted = self._dr_contract_decisions.get(identity)
+            outcome = vidar_dr.build_outcome(
+                payload,
+                accepted_decision=accepted or {},
+                now=_clock_now(self._clock),
+            )
+            if outcome is None:
+                self.record_behavior("dr_failover_outcome:unbound")
+                return
+            await self._publish_dr_outcome(outcome)
+
+    def _dr_contract_ready(self, payload: Mapping[str, Any]) -> bool:
+        action_type = str(payload.get("action_type") or "")
+        validation = self._rollback_path_validations.get(action_type)
+        if validation is None:
+            self._validate_rollback_paths()
+            validation = self._rollback_path_validations.get(action_type)
+        return bool(validation and validation.get("ready"))
+
+    def _dr_failback_executor_bound(self, payload: Mapping[str, Any]) -> bool:
+        contract = str(payload.get("rollback_contract") or "scripted")
+        return contract in self._executors
+
+    async def _publish_dr_contract_decision(self, decision: dict[str, Any]) -> None:
+        if decision.get("decision") == "accepted":
+            identity = str(decision.get("action_run_identity") or "")
+            if identity:
+                self._dr_contract_decisions.set(identity, dict(decision))
+        await self._publish_typed_rollback_event(decision)
+        self.record_behavior(f"dr_failover_contract:{decision['decision']}")
+
+    async def _publish_dr_outcome(self, outcome: dict[str, Any]) -> None:
+        identity = str(outcome.get("action_run_identity") or "")
+        if identity and self._dr_outcomes.get(identity) == outcome:
+            self.record_behavior("dr_failover_outcome:duplicate")
+            return
+        if identity:
+            self._dr_outcomes.set(identity, dict(outcome))
+        await self._publish_typed_rollback_event(outcome)
+        self.record_behavior("dr_failover_outcome:published")
+
+    async def _publish_typed_rollback_event(self, payload: dict[str, Any]) -> bool:
+        if self.bus is None:
+            self.record_behavior("publication:unavailable")
+            return False
+        await self.bus.publish("Vidar", "object.rollback", payload)
+        return True
+
+    async def _run_rollback_rehearsals(self) -> None:
+        now = _clock_now(self._clock)
+        ran = 0
+        for action_type, contract in sorted(self._rollback_contracts_by_action_type.items()):
+            if ran >= self._max_rehearsals_per_tick:
+                break
+            last = self._last_rehearsal_by_action_type.get(action_type)
+            if last is not None and now - last < self._rollback_rehearsal_cadence:
+                continue
+            receipt = await self._rehearse_contract(action_type, contract, now=now)
+            self._rehearsal_receipts.set(action_type, receipt)
+            self._last_rehearsal_by_action_type.set(action_type, now)
+            await self._persist_rehearsal_receipt(receipt)
+            await self._publish_typed_rollback_event(receipt)
+            ran += 1
+        if ran:
+            self._apply_rehearsal_readiness()
+
+    async def _rehearse_contract(
+        self,
+        action_type: str,
+        contract: str,
+        *,
+        now: datetime,
+    ) -> dict[str, Any]:
+        if self._rollback_rehearsal_port is None:
+            self.record_behavior("rollback_rehearsal:unbound")
+            return vidar_rehearsal.unbound_receipt(
+                action_type=action_type,
+                contract=contract,
+                recorded_at=now,
+            )
+        try:
+            result = await self._rollback_rehearsal_port.rehearse(
+                vidar_rehearsal.command(action_type=action_type, contract=contract)
+            )
+        except Exception as exc:  # noqa: BLE001 - provider boundary; rehearsal lowers readiness
+            self.record_behavior("rollback_rehearsal:failed")
+            return vidar_rehearsal.build_receipt(
+                action_type=action_type,
+                contract=contract,
+                outcome="failed",
+                reason=f"rehearsal_port_raised_{type(exc).__name__}",
+                recorded_at=now,
+                rehearsal_version="1.0.0",
+            )
+        outcome: vidar_rehearsal.RehearsalOutcome = (
+            "passed" if result.get("outcome") == "passed" else "failed"
+        )
+        self.record_behavior(f"rollback_rehearsal:{outcome}")
+        return vidar_rehearsal.build_receipt(
+            action_type=action_type,
+            contract=contract,
+            outcome=outcome,
+            reason=str(result.get("reason") or outcome),
+            recorded_at=now,
+            rehearsal_version=str(result.get("rehearsal_version") or "1.0.0"),
+        )
+
+    async def _persist_rehearsal_receipt(self, receipt: Mapping[str, Any]) -> None:
+        if self._state_store is None:
+            return
+        await self._state_store.write_state(vidar_rehearsal.durable_key(receipt), dict(receipt))
+
+    def _apply_rehearsal_readiness(self) -> None:
+        receipts = [receipt for _, receipt in self._rehearsal_receipts.items()]
+        failures = sum(1 for receipt in receipts if receipt.get("outcome") == "failed")
+        held = sum(1 for receipt in receipts if receipt.get("outcome") == "held")
+        if failures:
+            self._last_dr_readiness["evidence_state"] = "measured_with_rehearsal_failures"
+            self._last_dr_readiness["coverage_ratio"] = 0.0
+            self._last_dr_readiness["rehearsal_failures"] = failures
+        elif held:
+            self._last_dr_readiness["rehearsal_evidence_state"] = "unbound"
+        else:
+            self._last_dr_readiness["rehearsal_evidence_state"] = "measured"
 
     async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord | None:
         if require_topic_owner(
@@ -815,6 +983,16 @@ class Vidar(Agent):
             for rec in terminal_records
             if rec.state == "failed" and "validation" in rec.notes.lower()
         )
+        rehearsal_receipts = [receipt for _, receipt in self._rehearsal_receipts.items()]
+        rehearsal_passed = sum(1 for rec in rehearsal_receipts if rec.get("outcome") == "passed")
+        rehearsal_failed = sum(1 for rec in rehearsal_receipts if rec.get("outcome") == "failed")
+        rehearsal_held = sum(1 for rec in rehearsal_receipts if rec.get("outcome") == "held")
+        dr_outcomes = [outcome for _, outcome in self._dr_outcomes.items()]
+        mttr_samples = [
+            sample.get("recovery_time_seconds")
+            for sample in dr_outcomes
+            if isinstance(sample.get("recovery_time_seconds"), int | float)
+        ]
         readiness_validated = self._last_dr_readiness.get("validated_action_types", 0)
         readiness_missing = self._last_dr_readiness.get("missing_action_types", 0)
         if not isinstance(readiness_validated, int):
@@ -846,6 +1024,19 @@ class Vidar(Agent):
                 "paths": dict(self._rollback_path_validations.items()),
             },
             "dr_readiness_score": dict(self._last_dr_readiness),
+            "rollback_rehearsal": {
+                "evidence_state": (
+                    "unbound"
+                    if rehearsal_held and not rehearsal_passed
+                    else "measured"
+                    if rehearsal_receipts
+                    else "not_observed"
+                ),
+                "receipts": len(rehearsal_receipts),
+                "passed": rehearsal_passed,
+                "failed": rehearsal_failed,
+                "held": rehearsal_held,
+            },
             "rollback_outcomes": {
                 "attempts": len(terminal_records),
                 "succeeded": succeeded,
@@ -857,9 +1048,9 @@ class Vidar(Agent):
                 "validation_failures": validation_failures,
             },
             "mttr_samples": {
-                "count": 0,
+                "count": len(mttr_samples),
                 "unit": "seconds",
-                "evidence_state": "not_observed",
+                "evidence_state": "measured" if mttr_samples else "not_observed",
             },
             "kpis": {
                 "rollback_success_rate": _kpi_ratio(succeeded, len(terminal_records)),
