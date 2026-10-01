@@ -222,6 +222,7 @@
           "services/operator-service/tests/test_operator_postgres_replay.py",
           "services/operator-service/tests/test_development_diagnostics.py",
           "services/operator-service/tests/test_operator_service_composition.py",
+          "services/operator-service/tests/test_operator_cors_preflight.py",
           "services/operator-service/tests/test_operator_service_full_composition.py",
           "services/operator-service/tests/test_operator_service_postgres.py",
           "services/operator-service/tests/test_operator_signal_shutdown.py",

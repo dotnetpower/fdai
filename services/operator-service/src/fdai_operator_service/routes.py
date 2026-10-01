@@ -57,6 +57,7 @@ from fdai_operator_service.browser_evidence_filters import (
     parse_browser_evidence_workspace_query,
 )
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
+from fdai_operator_service.cors_policy import CORS_ALLOW_HEADERS, CORS_EXPOSE_HEADERS
 from fdai_operator_service.families.aks_commerce import (
     AKS_COMMERCE_ROUTE_MANIFEST,
     AksCommerceFamilyDependencies,
@@ -582,19 +583,8 @@ def build_operator_app(
                 CORSMiddleware,
                 allow_origins=list(cors_allow_origins),
                 allow_methods=["GET", "POST", "PUT", "DELETE"],
-                allow_headers=[
-                    "Authorization",
-                    "Content-Type",
-                    "Idempotency-Key",
-                    "Last-Event-ID",
-                    "X-Correlation-ID",
-                ],
-                expose_headers=[
-                    "X-FDAI-Artifact-SHA256",
-                    "X-FDAI-Expected-Rows",
-                    "X-FDAI-Included-Rows",
-                    "X-FDAI-Local-Session",
-                ],
+                allow_headers=list(CORS_ALLOW_HEADERS),
+                expose_headers=list(CORS_EXPOSE_HEADERS),
             )
         )
 
