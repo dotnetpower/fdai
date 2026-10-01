@@ -239,6 +239,7 @@ def test_causal_claim_requires_predictive_precedence_grade_receipt() -> None:
         complete_windows=True,
         mechanism_evidence_refs=("evidence:mechanism",),
         refutation_refs=("evidence:refutation",),
+        refutation_reads_run=_mechanism().refutation_reads,
     )
     predictive = causal_grade_receipt(
         mechanism=_mechanism(),
@@ -248,6 +249,7 @@ def test_causal_claim_requires_predictive_precedence_grade_receipt() -> None:
         complete_windows=True,
         mechanism_evidence_refs=("evidence:mechanism",),
         refutation_refs=("evidence:refutation",),
+        refutation_reads_run=_mechanism().refutation_reads,
     )
 
     below = _verdict(

@@ -8,6 +8,18 @@ from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.shared.contracts.models import CausalEvidenceGrade
 
+# Required evidence the receipt's own checks prove; any other required item must be named
+# as present, so a mechanism never grades on evidence nobody read.
+_CHECKED_EVIDENCE = frozenset(
+    {
+        "complete_activity_window",
+        "complete_state_transition_window",
+        "confounder_check",
+        "mechanism_operation_evidence",
+        "repeated_samples",
+        "reverse_direction_check",
+    }
+)
 _GRADE_RANK = {
     CausalEvidenceGrade.ASSOCIATION: 0,
     CausalEvidenceGrade.PREDICTIVE_PRECEDENCE: 1,
@@ -49,6 +61,9 @@ class CausalGradeReceipt:
     refutation_refs: tuple[str, ...]
     missing_refutation_reads: tuple[str, ...]
     receipt_digest: str
+    # Refutation reads neither run nor reported missing, and reads that refuted the mechanism.
+    unaccounted_refutation_reads: tuple[str, ...] = ()
+    refuted_reads: tuple[str, ...] = ()
 
 
 def causal_grade_receipt(
@@ -61,12 +76,24 @@ def causal_grade_receipt(
     mechanism_evidence_refs: tuple[str, ...],
     refutation_refs: tuple[str, ...],
     missing_refutation_reads: tuple[str, ...] = (),
+    refutation_reads_run: tuple[str, ...] = (),
+    refuted_reads: tuple[str, ...] = (),
+    present_evidence: tuple[str, ...] = (),
 ) -> CausalGradeReceipt:
-    """Grade support only when every E8 precondition is present."""
+    """Grade support only when every E8 precondition is present.
+
+    Every refutation read the mechanism names is either run, with or without refuting
+    the mechanism, or reported missing; a read that refutes it, a missing one, or one
+    left unaccounted keeps the grade at association.
+    """
 
     support = tuple(sorted(set(mechanism_evidence_refs)))
     refutations = tuple(sorted(set(refutation_refs)))
     missing = tuple(sorted(set(missing_refutation_reads)))
+    refuted = tuple(sorted(set(refuted_reads)))
+    accounted = set(refutation_reads_run) | set(missing)
+    unaccounted = tuple(sorted(set(mechanism.refutation_reads) - accounted))
+    unproven = set(mechanism.required_evidence) - _CHECKED_EVIDENCE - set(present_evidence)
     if repeated_sample_count < 1:
         raise ValueError("causal grade repeated_sample_count MUST be positive")
     grade = (
@@ -78,6 +105,9 @@ def causal_grade_receipt(
         and support
         and refutations
         and not missing
+        and not unaccounted
+        and not refuted
+        and not unproven
         else CausalEvidenceGrade.ASSOCIATION
     )
     body = {
@@ -90,6 +120,8 @@ def causal_grade_receipt(
         "mechanism_evidence_refs": support,
         "refutation_refs": refutations,
         "missing_refutation_reads": missing,
+        "unaccounted_refutation_reads": unaccounted,
+        "refuted_reads": refuted,
     }
     return CausalGradeReceipt(
         mechanism_id=mechanism.mechanism_id,
@@ -102,6 +134,8 @@ def causal_grade_receipt(
         refutation_refs=refutations,
         missing_refutation_reads=missing,
         receipt_digest=content_digest(body),
+        unaccounted_refutation_reads=unaccounted,
+        refuted_reads=refuted,
     )
 
 
