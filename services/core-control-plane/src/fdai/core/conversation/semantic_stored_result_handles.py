@@ -82,7 +82,7 @@ async def bind_stored_references(
     )
     outcome = _outcome_for_status(loaded.status)
     handle = loaded.handle
-    row_map: dict[str, str] = {}
+    row_map: dict[str, tuple[str, str | None]] = {}
     source_generation: str | None = None
     if loaded.status is ResultHandleGetStatus.BOUND and handle is not None:
         row_map, source_generation = await _authorized_row_map(
@@ -118,7 +118,7 @@ def _bind_one(
     *,
     handle_ref: str,
     row_keys: tuple[TypedRowKey, ...],
-    row_map: dict[str, str],
+    row_map: dict[str, tuple[str, str | None]],
     fallback: ReferenceOutcome,
     source_generation: str | None,
 ) -> ReferenceBinding:
@@ -143,11 +143,12 @@ def _bind_one(
                 mention_id, ReferenceOutcome.OUT_OF_RANGE, form, handle_id=handle_ref
             )
         selected = row_keys[index]
-    object_id = row_map.get(selected.model_dump_json())
-    if object_id is None:
+    row = row_map.get(selected.model_dump_json())
+    if row is None:
         return ReferenceBinding(
             mention_id, ReferenceOutcome.UNAVAILABLE, form, handle_id=handle_ref
         )
+    object_id, resource_type = row
     return ReferenceBinding(
         mention_id,
         ReferenceOutcome.BOUND,
@@ -155,6 +156,7 @@ def _bind_one(
         row_ids=(object_id,),
         handle_id=handle_ref,
         source_generation=source_generation,
+        resource_type=resource_type,
     )
 
 
@@ -165,7 +167,7 @@ async def _authorized_row_map(
     projection_request: ProjectionRequest,
     purpose: str,
     as_of: datetime | Callable[[], datetime],
-) -> tuple[dict[str, str], str | None]:
+) -> tuple[dict[str, tuple[str, str | None]], str | None]:
     if not row_keys:
         return {}, None
     expected = {key.model_dump_json(): key for key in row_keys}
@@ -184,8 +186,9 @@ async def _authorized_row_map(
         return {}, None
     if secured.receipt.truncated:
         return {}, secured.receipt.source_generation
-    mapped: dict[str, str] = {}
+    mapped: dict[str, tuple[str, str | None]] = {}
     for record in secured.materialization.graph.objects:
+        kind = record.properties.get("type")
         candidates = (
             TypedRowKey(
                 row_type="semantic_query_row",
@@ -199,7 +202,7 @@ async def _authorized_row_map(
         for candidate in candidates:
             dumped = candidate.model_dump_json()
             if dumped in expected:
-                mapped[dumped] = record.id
+                mapped[dumped] = (record.id, kind if isinstance(kind, str) else None)
     return mapped, secured.receipt.source_generation
 
 

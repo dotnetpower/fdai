@@ -96,6 +96,8 @@ class ReferenceBinding:
     handle_id: str | None = None
     truncated: bool = False
     source_generation: str | None = None
+    # The reauthorized row's Resource type, when the binder reread it; never from words.
+    resource_type: str | None = None
 
     @property
     def bound(self) -> bool:
@@ -219,6 +221,7 @@ def reference_anchors(
             AnchorOutcome.BOUND,
             object_id=item.row_ids[0],
             source_generation=item.source_generation,
+            resource_type=item.resource_type,
         )
         for item in references.bindings
         if item.bound and len(item.row_ids) == 1 and anchors.binding(item.mention_id) is None
