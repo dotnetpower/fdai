@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 승격 프로그램
 translation_of: ontology-reasoning-promotion-program.md
-translation_source_sha: e66ea994c30810405177c0f72aff4f2932c83f84
+translation_source_sha: f73d0257fbcf64561372388885fc1b8b77364dac
 translation_revised: 2026-10-01
 ---
 # 온톨로지 추론 승격 프로그램
@@ -105,6 +105,8 @@ Bragi의 T1 작성자는 상위 설계의 [답변 작성](ontology-reasoning-com
    답변을 보류합니다.
 4. **적대적 스위트:** 명제 필드마다, 완전성 검사마다 테스트 클래스 하나를 두고, 부정, 뒤바뀜, 하나 차이,
    인과 과장 주장을 더합니다.
+로컬 구현은 공유 명제 계약, 기본값이 꺼진 작성자 및 검토자 포트, 결정론적 적대 V-CLAIM 스위트를
+제공합니다. 프로덕션 모델 계열 바인딩과 R8 라이브 홀드아웃은 로컬 증명이 아니라 승격 근거로 남습니다.
 
 **종료 조건:** 적대적 주장 스위트에서 통과해 버린 주장이 0건이고, R8 홀드아웃에서 V-CLAIM을 빠져나간
 주장이 0건입니다.
