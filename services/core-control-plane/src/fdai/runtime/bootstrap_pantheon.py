@@ -4,39 +4,25 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass, replace
+from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-import httpx
-from fdai_service_contracts.operator_request_receipt import operator_request_public_key_from_seed
-
 from fdai.agents import (
-    CompositeThorPreflightSimulator,
-    ContextIndexWorkerBindings,
     Heimdall,
     Norns,
-    OperatorRequestReceiptGate,
     PantheonRuntime,
-    Saga,
-    SemanticRouterConfig,
     ShadowDivergenceLedger,
     StateStoreActionRunStore,
-    ThorPreflightSimulator,
 )
-from fdai.agents.vidar import RollbackExecutor
-from fdai.composition import Container
 from fdai.composition.cost_governance_activation import build_cost_runtime_bindings
 from fdai.composition.operational_evidence_binding import build_test_context_command_handler
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
-from fdai.core.control_loop import ControlLoop
-from fdai.core.executor import MutationDependencyReadiness
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
-from fdai.core.ontology_platform import EffectReconciliationRequestSink
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context_dispatch import TestContextDispatchGuard
 from fdai.core.operational_context.test_context_lifecycle import GovernedTestContextStore
@@ -55,11 +41,6 @@ from fdai.delivery.agent_activity import (
 )
 from fdai.delivery.evidence_conflict import StateStoreEvidenceConflictProjection
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
-from fdai.delivery.operator_request_receipt import (
-    CORE_OPERATOR_REQUEST_PRODUCER_ID,
-    CORE_OPERATOR_REQUEST_PRODUCER_ID_ENV,
-    CORE_OPERATOR_REQUEST_SIGNING_SEED_ENV,
-)
 from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
@@ -72,17 +53,19 @@ from fdai.delivery.prospective_lineage import (
     StateStoreProspectiveLineageMaterializer,
 )
 from fdai.delivery.repo_assets import repo_asset_root
-from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.rule_catalog.schema.capacity_graduation_policy import load_capacity_graduation_policy
 from fdai.runtime.aks_commerce import (
     ActionObservation,
-    VerifiedIncidentResolver,
     bind_acceptance_effect_resolution,
     build_acceptance_runtime_bindings,
     chain_acceptance_observer,
 )
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
-from fdai.runtime.bootstrap_bindings import RuleGenerationRuntimeBinding
+from fdai.runtime.bootstrap_pantheon_models import (
+    PantheonInitialization,
+    PantheonInitializationResult,
+)
+from fdai.runtime.bootstrap_thor_bindings import build_thor_execution_bindings
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
     build_case_history_runtime,
@@ -94,6 +77,9 @@ from fdai.runtime.forecast_learning import (
     forecast_history_collector_from_environment,
 )
 from fdai.runtime.operational_catalog_review import build_operational_catalog_review_bindings
+from fdai.runtime.operator_request_receipt_gate import (
+    operator_request_receipt_gate as _operator_request_receipt_gate,
+)
 from fdai.runtime.pantheon_inputs import pantheon_development_bindings
 from fdai.runtime.pantheon_inputs import pantheon_heartbeat as _pantheon_heartbeat
 from fdai.runtime.post_turn_review import (
@@ -104,69 +90,20 @@ from fdai.runtime.post_turn_review import (
 )
 from fdai.runtime.providers import _build_resource_lock
 from fdai.runtime.readiness import RuntimeReadinessState
-from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
 from fdai.runtime.t2_route_registry import (
-    T2RoutePreflightSimulator,
     T2RouteRegistry,
     bind_t2_route_selector,
 )
 from fdai.runtime.test_context_projection import TestContextApplicationPublisher
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
-from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.state_store import StateStore
-from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
-OPERATOR_REQUEST_OPERATOR_TRUST_SEED_ENV = "FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED"
-OPERATOR_REQUEST_OPERATOR_PRODUCER_ID_ENV = "FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER_ID"
 HUGINN_SCHEMA_LEARNING_ENABLED_ENV = "FDAI_HUGINN_SCHEMA_LEARNING_ENABLED"
-
-
-def _operator_request_receipt_gate(
-    environment: Mapping[str, str],
-    state_store: StateStore,
-) -> OperatorRequestReceiptGate | None:
-    core_seed = environment.get(CORE_OPERATOR_REQUEST_SIGNING_SEED_ENV, "").strip()
-    operator_seed = environment.get(OPERATOR_REQUEST_OPERATOR_TRUST_SEED_ENV, "").strip()
-    if not core_seed and not operator_seed:
-        return None
-    if not core_seed or not operator_seed:
-        raise RuntimeError(
-            "operator request receipt verification requires both Core and Operator seeds"
-        )
-    core_producer = environment.get(
-        CORE_OPERATOR_REQUEST_PRODUCER_ID_ENV,
-        CORE_OPERATOR_REQUEST_PRODUCER_ID,
-    ).strip()
-    operator_producer = environment.get(
-        OPERATOR_REQUEST_OPERATOR_PRODUCER_ID_ENV,
-        "operator-service",
-    ).strip()
-    if core_producer != CORE_OPERATOR_REQUEST_PRODUCER_ID:
-        raise RuntimeError("Core operator_request receipts MUST sign as core-control-plane")
-    if not operator_producer or operator_producer == core_producer:
-        raise RuntimeError("Operator request receipt producer ids MUST be distinct")
-    trusted_keys = {
-        core_producer: operator_request_public_key_from_seed(core_seed),
-        operator_producer: operator_request_public_key_from_seed(operator_seed),
-    }
-    return OperatorRequestReceiptGate(
-        verifier=_UnboundOperatorReceiptVerifier(),
-        state_store=state_store,
-        clock=lambda: datetime.now(UTC),
-        trusted_producer_public_keys=trusted_keys,
-    )
 
 
 def _boolean_env(environment: Mapping[str, str], key: str) -> bool:
     return environment.get(key, "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-class _UnboundOperatorReceiptVerifier:
-    def verify_operator_request_receipt(self, *, receipt: object, signing_bytes: bytes) -> bool:
-        del receipt, signing_bytes
-        return False
 
 
 async def _bind_post_turn_learning(
@@ -186,56 +123,6 @@ async def _bind_post_turn_learning(
         lambda: sum(pantheon_runtime.shadow_decisions.values())
     )
     return await discovery_activation.evaluate()
-
-
-@dataclass(frozen=True, slots=True)
-class PantheonInitialization:
-    """Inputs required to bind the optional Pantheon overlay."""
-
-    container: Container
-    http_client: httpx.AsyncClient | None
-    identity: WorkloadIdentity | None
-    bus: EventBus
-    incident_audit_store: StateStore
-    startup_readiness: RuntimeReadinessState
-    runtime_saga: Saga
-    runtime_values: dict[str, object]
-    runtime_settings: RuntimeSettingsService
-    discovery_activation: DiscoveryActivationRuntime
-    control_loop: ControlLoop
-    rule_generation_reconciliation: RuleGenerationReconciliation | None
-    rule_generation_binding: RuleGenerationRuntimeBinding
-    open_incident_candidate: Callable[[dict[str, Any]], Awaitable[bool]]
-    resolve_verified_incident: VerifiedIncidentResolver
-    read_investigation_hook: Any
-    runtime_symptom_index: Any
-    stage_topic: str
-    environment: Mapping[str, str]
-    build_runtime_workload_identity: Callable[..., WorkloadIdentity]
-    build_operator_memory_store: Callable[[], Any]
-    build_inventory_delta_projector: Callable[[], Any]
-    runtime_positive_integer: Callable[[dict[str, object], str], int]
-    build_mutation_dependency_readiness: Callable[..., MutationDependencyReadiness]
-    semantic_router_config_from_env: Callable[[], SemanticRouterConfig]
-    assignment_workflow: Any = None
-    effect_request_sink: EffectReconciliationRequestSink | None = None
-    context_index_workers: ContextIndexWorkerBindings | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class PantheonInitializationResult:
-    """Pantheon resources retained by task supervision and ordered cleanup."""
-
-    runtime: PantheonRuntime | None = None
-    agent_introspection_server: Any = None
-    runtime_state_publisher: AgentRuntimeStatePublisher | None = None
-    heartbeat: float | None = None
-    divergence_ledger: ShadowDivergenceLedger | None = None
-    case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None = None
-    t2_recovery_maintenance: Any = None
-    discovery_activation: DiscoveryActivationRuntime | None = None
-    alert_noise_handler: Any = None
-    post_turn_review_request_consumer: PostTurnReviewRequestConsumer | None = None
 
 
 def _pantheon_enforce_enabled(
@@ -463,34 +350,15 @@ async def initialize_pantheon(
         fallback=t2_route_registry.execute if thor_mutation_bound else None,
         resolve_verified_incident=config.resolve_verified_incident,
     )
-    action_rollback_executors: dict[tuple[str, str], RollbackExecutor] = {}
-    if thor_mutation_bound:
-        action_rollback_executors[("ops.switch-t2-proposer-route", "state_forward_only")] = (
-            t2_route_registry.rollback
-        )
-    if acceptance_bindings is not None:
-        action_rollback_executors.update(acceptance_bindings.rollback_executors)
-    rollback_executors: dict[str, RollbackExecutor] | None = (
-        {"state_forward_only": t2_route_registry.rollback}
-        if thor_mutation_bound and not acceptance_bindings
-        else None
+    thor_bindings = build_thor_execution_bindings(
+        thor_mutation_bound=thor_mutation_bound,
+        t2_route_registry=t2_route_registry,
+        acceptance_bindings=acceptance_bindings,
     )
-    thor_preflight_simulators: dict[str, ThorPreflightSimulator] = {}
-    if thor_mutation_bound:
-        thor_preflight_simulators["ops.switch-t2-proposer-route"] = T2RoutePreflightSimulator(
-            t2_route_registry
-        )
-    acceptance_scale_out_recovery_bound = (
-        "ops.scale-out",
-        "state_forward_only",
-    ) in action_rollback_executors
-    if acceptance_bindings is not None and acceptance_scale_out_recovery_bound:
-        thor_preflight_simulators["ops.scale-out"] = acceptance_bindings.preflight_simulator
-    thor_preflight_simulator = (
-        CompositeThorPreflightSimulator(thor_preflight_simulators)
-        if thor_preflight_simulators
-        else None
-    )
+    action_rollback_executors = thor_bindings.action_rollback_executors
+    rollback_executors = thor_bindings.rollback_executors
+    thor_preflight_simulator = thor_bindings.preflight_simulator
+    acceptance_scale_out_recovery_bound = thor_bindings.acceptance_scale_out_recovery_bound
     execution_resource_lock = _build_resource_lock(config.environment) if pantheon_enforce else None
     thor_safety_readiness = config.build_mutation_dependency_readiness(
         saga=config.runtime_saga,
@@ -809,30 +677,14 @@ async def initialize_pantheon(
             )
         )
     )
-    from fdai.runtime.t2_recovery import T2RecoveryMaintenance, bind_t2_recovery_observer
+    from fdai.runtime.t2_recovery import build_t2_recovery_maintenance
 
-    recovery_observer = bind_t2_recovery_observer(
+    t2_recovery_maintenance = build_t2_recovery_maintenance(
         proposer=t2_proposer,
         store=config.incident_audit_store,
         ingress=pantheon_runtime.ingest_raw_event,
+        state_store_dsn=state_store_dsn,
     )
-    t2_recovery_maintenance: T2RecoveryMaintenance | None = None
-    if recovery_observer is not None:
-        legacy_reader = None
-        legacy_state_store_dsn = (state_store_dsn or "").strip()
-        if legacy_state_store_dsn:
-            from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
-            from fdai.delivery.persistence.postgres_t2_recovery import (
-                PostgresT2RecoveryLegacyReader,
-            )
-
-            legacy_reader = PostgresT2RecoveryLegacyReader(
-                config=PostgresStateStoreConfig(dsn=legacy_state_store_dsn)
-            )
-        t2_recovery_maintenance = T2RecoveryMaintenance(
-            observer=recovery_observer,
-            legacy_reader=legacy_reader,
-        )
     from fdai.delivery.agent_introspection_bus import (
         EventBusAgentIntrospectionServer,
         agent_introspection_server_group_id,

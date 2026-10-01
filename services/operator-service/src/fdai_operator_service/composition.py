@@ -60,6 +60,9 @@ from fdai_operator_service.composition_lifecycle import (
 from fdai_operator_service.composition_lifecycle import (
     compose_application_lifecycle,
 )
+from fdai_operator_service.composition_readiness import (
+    readiness_probe as _readiness_probe,
+)
 from fdai_operator_service.composition_routes import (
     COST_PSEUDONYM_KEY_ENV,
     REFERENCE_PANEL_ROUTES,
@@ -728,92 +731,21 @@ def _build_live_stage_relay(
     )
 
 
-def _readiness_probe(
-    store: PostgresFamilyStore | None,
-    bus: OperatorSemanticKafkaBus | None,
-    bridge: SemanticTurnBridge | None,
-    read_investigation_bridge: ReadInvestigationBridge | None,
-    background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
-    wara_assessment_projection_bridge: WaraAssessmentProjectionBridge | None,
-    framework_assessment_projection_bridge: FrameworkAssessmentProjectionBridge | None,
-    read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
-    action_confirmation_bridge: ActionConfirmationBridge | None,
-    incident_intervention_bridge: IncidentInterventionBridge | None,
-    azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
-    live_stage_relay: LiveStageKafkaRelay | None,
-    hil_decision_outbox_bridge: HilDecisionOutboxBridge | None = None,
-    assignment_notice_bridge: AssignmentNoticeBridge | None = None,
-    rule_activation_notice_bridge: RuleActivationNoticeBridge | None = None,
-    alert_quality_bridge: AlertQualityBridge | None = None,
-    test_context_bridge: TestContextBridge | None = None,
-    observer_proposal_bridge: ObserverProposalBridge | None = None,
-    action_confirmation_required: bool = False,
-) -> ReadinessProbe:
-    if store is None:
-        return _unavailable
-    if bus is None:
-        return store.probe_readiness
-
-    async def probe() -> bool:
-        if action_confirmation_required and action_confirmation_bridge is None:
-            return False
-        return (
-            await store.probe_readiness()
-            and await bus.probe_readiness()
-            and (bridge is None or bridge.workers_ready())
-            and (read_investigation_bridge is None or read_investigation_bridge.workers_ready())
-            and (
-                background_task_projection_bridge is None
-                or background_task_projection_bridge.workers_ready()
-            )
-            and (
-                wara_assessment_projection_bridge is None
-                or wara_assessment_projection_bridge.workers_ready()
-            )
-            and (
-                framework_assessment_projection_bridge is None
-                or framework_assessment_projection_bridge.workers_ready()
-            )
-            and (
-                read_investigation_completion_bridge is None
-                or read_investigation_completion_bridge.workers_ready()
-            )
-            and (action_confirmation_bridge is None or action_confirmation_bridge.workers_ready())
-            and (
-                incident_intervention_bridge is None or incident_intervention_bridge.workers_ready()
-            )
-            and (
-                azure_monitor_webhook_bridge is None or azure_monitor_webhook_bridge.workers_ready()
-            )
-            and (live_stage_relay is None or live_stage_relay.readiness())
-            and (hil_decision_outbox_bridge is None or hil_decision_outbox_bridge.workers_ready())
-            and (alert_quality_bridge is None or alert_quality_bridge.workers_ready())
-            and (test_context_bridge is None or test_context_bridge.workers_ready())
-            and (assignment_notice_bridge is None or assignment_notice_bridge.workers_ready())
-            and (
-                rule_activation_notice_bridge is None
-                or rule_activation_notice_bridge.workers_ready()
-            )
-            and (observer_proposal_bridge is None or observer_proposal_bridge.workers_ready())
-        )
-
-    return probe
-
-
-async def _unavailable() -> bool:
-    return False
-
-
 __all__ = [
     "COST_PSEUDONYM_KEY_ENV",
     "HIL_SIGNING_SECRET_ENV",
+    "AlertQualityBridge",
+    "AssignmentNoticeBridge",
+    "HilDecisionOutboxBridge",
     "OperatorComposition",
     "ProductionOperatorComposition",
     "REFERENCE_PANEL_ROUTES",
+    "RuleActivationNoticeBridge",
     "TokenVerifierFactory",
     "WEBHOOK_SIGNING_SECRET_ENV",
     "_CompositeLifecycle",
     "_OwnedHttpClient",
     "_application_lifecycle",
+    "_readiness_probe",
     "compose_application_lifecycle",
 ]

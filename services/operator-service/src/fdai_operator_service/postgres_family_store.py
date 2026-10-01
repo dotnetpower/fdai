@@ -99,6 +99,15 @@ from fdai_operator_service.postgres_family_projection import (
 from fdai_operator_service.postgres_family_projection import (
     stored_timestamp as _stored_timestamp,
 )
+from fdai_operator_service.postgres_proposal_claims import (
+    claim_incident_intervention_proposal as _claim_incident_intervention_proposal,
+)
+from fdai_operator_service.postgres_proposal_claims import (
+    claim_poison_halt_clear_proposal as _claim_poison_halt_clear_proposal,
+)
+from fdai_operator_service.postgres_proposal_claims import (
+    claim_read_investigation_proposal as _claim_read_investigation_proposal,
+)
 from fdai_operator_service.postgres_semantic_turn_store import (
     PostgresSemanticTurnRepository,
     SemanticTurnClaim,
@@ -1871,54 +1880,11 @@ class PostgresFamilyStore:
             raise ValueError("idempotency_key MUST be a bounded non-empty string")
         if not 1 <= lease_seconds <= 300:
             raise ValueError("lease_seconds MUST be in [1, 300]")
-        claim_id = str(uuid4())
-        key = _proposal_key("operations", idempotency_key)
-        rows = await self._fetch_all(
-            """
-            UPDATE state_kv AS proposal
-               SET value = proposal.value || jsonb_build_object(
-                   'dispatch_status', 'claimed',
-                   'claim_id', %(claim_id)s::text,
-                   'claim_worker_id', %(worker_id)s::text,
-                   'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s),
-                   'attempt', COALESCE((proposal.value ->> 'attempt')::integer, 0) + 1
-               ),
-                   updated_at = NOW()
-             WHERE proposal.key = %(key)s
-               AND value ->> 'family' = 'operations'
-               AND value ->> 'operation' = 'bus.ordered-poison-halt.clear'
-               AND (
-                    value ->> 'dispatch_status' = 'pending'
-                    OR (
-                        value ->> 'dispatch_status' = 'claimed'
-                        AND (value ->> 'claim_expires_at')::timestamptz <= NOW()
-                    )
-               )
-         RETURNING proposal.key, proposal.value
-            """,
-            {
-                "claim_id": claim_id,
-                "key": key,
-                "worker_id": worker_id,
-                "lease_seconds": lease_seconds,
-            },
-        )
-        if not rows:
-            return None
-        value = _json_object(rows[0].get("value"), label="poison halt clear proposal claim")
-        payload = value.get("payload")
-        attempt = value.get("attempt")
-        if (
-            not isinstance(payload, Mapping)
-            or not isinstance(attempt, int)
-            or isinstance(attempt, bool)
-        ):
-            raise PostgresFamilyStoreUnavailable("poison halt clear proposal claim is malformed")
-        return PoisonHaltClearProposalClaim(
-            key=key,
-            claim_id=str(value.get("claim_id") or claim_id),
-            payload=dict(payload),
-            attempt=attempt,
+        return await _claim_poison_halt_clear_proposal(
+            self._fetch_all,
+            key=_proposal_key("operations", idempotency_key),
+            worker_id=worker_id,
+            lease_seconds=lease_seconds,
         )
 
     async def mark_poison_halt_clear_claim_published(
@@ -2586,92 +2552,10 @@ class PostgresFamilyStore:
     ) -> ReadInvestigationProposalClaim | None:
         """Lease the oldest pending read-investigation proposal for publication."""
 
-        _bounded_component("worker_id", worker_id)
-        if not 1 <= lease_seconds <= 300:
-            raise ValueError("lease_seconds MUST be in [1, 300]")
-        claim_id = str(uuid4())
-        rows = await self._fetch_all(
-            """
-            WITH candidate AS (
-                SELECT key
-                  FROM state_kv
-                                 WHERE key LIKE %(proposal_prefix)s
-                   AND (
-                        (
-                            value ->> 'family' = 'operations'
-                            AND value ->> 'operation' = 'read_investigation.start'
-                        )
-                        OR (
-                            value ->> 'family' = 'conversation'
-                            AND value ->> 'operation' = 'background.cancel'
-                        )
-                   )
-                   AND (
-                        value ->> 'dispatch_status' = 'pending'
-                        OR (
-                            value ->> 'dispatch_status' = 'claimed'
-                            AND (value ->> 'claim_expires_at')::timestamptz <= NOW()
-                        )
-                   )
-                 ORDER BY COALESCE((value ->> 'attempt')::integer, 0),
-                          value ->> 'accepted_at', key
-                 FOR UPDATE SKIP LOCKED
-                 LIMIT 1
-            )
-            UPDATE state_kv AS proposal
-               SET value = proposal.value || jsonb_build_object(
-                   'dispatch_status', 'claimed',
-                   'claim_id', %(claim_id)s::text,
-                   'claim_worker_id', %(worker_id)s::text,
-                   'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s),
-                   'attempt', COALESCE((proposal.value ->> 'attempt')::integer, 0) + 1
-               ),
-                   updated_at = NOW()
-              FROM candidate
-             WHERE proposal.key = candidate.key
-         RETURNING proposal.key, proposal.value
-            """,
-            {
-                "claim_id": claim_id,
-                "proposal_prefix": "operator-proposal:%",
-                "worker_id": worker_id,
-                "lease_seconds": lease_seconds,
-            },
-        )
-        if not rows:
-            return None
-        key = rows[0].get("key")
-        value = _json_object(rows[0].get("value"), label="read investigation proposal claim")
-        proposal_id = value.get("proposal_id")
-        principal_id = value.get("principal_id")
-        idempotency_key = value.get("idempotency_key")
-        accepted_at = value.get("accepted_at")
-        payload = value.get("payload")
-        attempt = value.get("attempt")
-        if (
-            not isinstance(key, str)
-            or not isinstance(proposal_id, str)
-            or not isinstance(principal_id, str)
-            or not isinstance(idempotency_key, str)
-            or not isinstance(accepted_at, str)
-            or not isinstance(payload, Mapping)
-            or not isinstance(attempt, int)
-            or isinstance(attempt, bool)
-        ):
-            raise PostgresFamilyStoreUnavailable("read investigation proposal claim is malformed")
-        correlation_id = payload.get("correlation_id")
-        if correlation_id is not None and not isinstance(correlation_id, str):
-            raise PostgresFamilyStoreUnavailable("read investigation correlation is malformed")
-        return ReadInvestigationProposalClaim(
-            key=key,
-            claim_id=str(value.get("claim_id") or claim_id),
-            request_id=proposal_id,
-            principal_id=principal_id,
-            idempotency_key=idempotency_key,
-            correlation_id=correlation_id,
-            payload=dict(payload),
-            accepted_at=accepted_at,
-            attempt=attempt,
+        return await _claim_read_investigation_proposal(
+            self._fetch_all,
+            worker_id=worker_id,
+            lease_seconds=lease_seconds,
         )
 
     async def claim_alert_quality_proposal(self) -> tuple[str, str, Mapping[str, Any]] | None:
@@ -2709,83 +2593,10 @@ class PostgresFamilyStore:
     ) -> IncidentInterventionProposalClaim | None:
         """Lease the oldest pending Incident intervention for publication."""
 
-        _bounded_component("worker_id", worker_id)
-        if not 1 <= lease_seconds <= 300:
-            raise ValueError("lease_seconds MUST be in [1, 300]")
-        claim_id = str(uuid4())
-        rows = await self._fetch_all(
-            """
-            WITH candidate AS (
-                SELECT key
-                  FROM state_kv
-                 WHERE key LIKE %(proposal_prefix)s
-                   AND value ->> 'operation' = 'incident.intervention'
-                   AND (
-                        value ->> 'dispatch_status' = 'pending'
-                        OR (
-                            value ->> 'dispatch_status' = 'claimed'
-                            AND (value ->> 'claim_expires_at')::timestamptz <= NOW()
-                        )
-                   )
-                 ORDER BY COALESCE((value ->> 'attempt')::integer, 0),
-                          value ->> 'accepted_at', key
-                 FOR UPDATE SKIP LOCKED
-                 LIMIT 1
-            )
-            UPDATE state_kv AS proposal
-               SET value = proposal.value || jsonb_build_object(
-                   'dispatch_status', 'claimed',
-                   'claim_id', %(claim_id)s::text,
-                   'claim_worker_id', %(worker_id)s::text,
-                   'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s),
-                   'attempt', COALESCE((proposal.value ->> 'attempt')::integer, 0) + 1
-               ),
-                   updated_at = NOW()
-              FROM candidate
-             WHERE proposal.key = candidate.key
-         RETURNING proposal.key, proposal.value
-            """,
-            {
-                "claim_id": claim_id,
-                "proposal_prefix": "operator-proposal:%",
-                "worker_id": worker_id,
-                "lease_seconds": lease_seconds,
-            },
-        )
-        if not rows:
-            return None
-        key = rows[0].get("key")
-        value = _json_object(rows[0].get("value"), label="Incident intervention claim")
-        request_id = value.get("proposal_id")
-        principal_id = value.get("principal_id")
-        idempotency_key = value.get("idempotency_key")
-        accepted_at = value.get("accepted_at")
-        payload = value.get("payload")
-        attempt = value.get("attempt")
-        if (
-            not isinstance(key, str)
-            or not isinstance(request_id, str)
-            or not isinstance(principal_id, str)
-            or not isinstance(idempotency_key, str)
-            or not isinstance(accepted_at, str)
-            or not isinstance(payload, Mapping)
-            or not isinstance(attempt, int)
-            or isinstance(attempt, bool)
-        ):
-            raise PostgresFamilyStoreUnavailable("Incident intervention claim is malformed")
-        correlation_id = payload.get("correlation_id")
-        if not isinstance(correlation_id, str):
-            raise PostgresFamilyStoreUnavailable("Incident intervention correlation is malformed")
-        return IncidentInterventionProposalClaim(
-            key=key,
-            claim_id=str(value.get("claim_id") or claim_id),
-            request_id=request_id,
-            principal_id=principal_id,
-            idempotency_key=idempotency_key,
-            correlation_id=correlation_id,
-            payload=dict(payload),
-            accepted_at=accepted_at,
-            attempt=attempt,
+        return await _claim_incident_intervention_proposal(
+            self._fetch_all,
+            worker_id=worker_id,
+            lease_seconds=lease_seconds,
         )
 
     async def mark_proposal_published(self, *, key: str, claim_id: str) -> bool:
