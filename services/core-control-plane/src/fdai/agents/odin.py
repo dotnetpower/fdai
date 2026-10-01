@@ -103,6 +103,7 @@ class ArbitrationDecision:
     margin: float = 0.0
     escalate_hil: bool = False
     dispositions: dict[str, str] = field(default_factory=dict)
+    cost_annotation: dict[str, Any] = field(default_factory=dict)
 
 
 class Odin(Agent, HandoverKnowledgeMixin):
@@ -337,6 +338,11 @@ class Odin(Agent, HandoverKnowledgeMixin):
                 escalate_hil=False,
                 reason="initial_vertical_precedence",
             )
+        cost_annotation = (
+            dict(request["cost_annotation"])
+            if isinstance(request.get("cost_annotation"), Mapping)
+            else {}
+        )
         decision = ArbitrationDecision(
             correlation_id=correlation_id,
             winning_domain=outcome.winner,
@@ -350,6 +356,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
                 if outcome.escalate_hil
                 else {domain: "win" if domain == outcome.winner else "defer" for domain in domains}
             ),
+            cost_annotation=cost_annotation,
         )
         if not decision.correlation_id:
             self.record_behavior("arbitration:invalid_correlation")
@@ -424,6 +431,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
                 "margin": decision.margin,
                 "escalate_hil": decision.escalate_hil,
                 "dispositions": decision.dispositions,
+                "cost_annotation": dict(decision.cost_annotation),
                 "history_considered": history_considered,
             },
         )
@@ -612,6 +620,7 @@ def _decision_to_state(decision: ArbitrationDecision) -> dict[str, Any]:
         "margin": decision.margin,
         "escalate_hil": decision.escalate_hil,
         "dispositions": dict(decision.dispositions),
+        "cost_annotation": dict(decision.cost_annotation),
     }
 
 
@@ -631,6 +640,7 @@ def _decision_from_state(stored: Mapping[str, Any]) -> ArbitrationDecision:
         or not isinstance(value.get("dispositions"), Mapping)
     ):
         raise RuntimeError("durable arbitration decision is malformed")
+    cost_annotation = value.get("cost_annotation")
     return ArbitrationDecision(
         correlation_id=str(value["correlation_id"]),
         winning_domain=str(value["winning_domain"]),
@@ -640,6 +650,7 @@ def _decision_from_state(stored: Mapping[str, Any]) -> ArbitrationDecision:
         margin=float(value["margin"]),
         escalate_hil=bool(value["escalate_hil"]),
         dispositions={str(k): str(v) for k, v in value["dispositions"].items()},
+        cost_annotation=dict(cost_annotation) if isinstance(cost_annotation, Mapping) else {},
     )
 
 

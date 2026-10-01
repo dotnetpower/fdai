@@ -255,6 +255,7 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
         "preflight_simulation_receipt": run.preflight_simulation_receipt,
         "preflight_required": run.preflight_required,
         "execution_audit_receipt": run.execution_audit_receipt,
+        "cost_annotation": run.cost_annotation,
         "approval_expires_at": (
             run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
         ),

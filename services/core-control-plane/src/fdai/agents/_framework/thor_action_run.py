@@ -53,6 +53,7 @@ class ActionRun:
     rollback_ref: str | None = None
     decision_case: dict[str, Any] | None = None
     operational_context: dict[str, Any] | None = None
+    cost_annotation: dict[str, Any] | None = None
     test_context_guard: TestContextDispatchBinding | None = None
     evidence_rejection_ref: str | None = None
     workflow_action: dict[str, Any] | None = None
@@ -201,6 +202,7 @@ class ActionRun:
             "rollback_ref": self.rollback_ref,
             "decision_case": self.decision_case,
             "operational_context": deepcopy(self.operational_context),
+            "cost_annotation": deepcopy(self.cost_annotation),
             **(
                 {"test_context_guard": self.test_context_guard.model_dump(mode="json")}
                 if self.test_context_guard is not None
@@ -278,6 +280,11 @@ class ActionRun:
             rollback_ref=data.get("rollback_ref"),
             decision_case=action_run_lineage.bounded_decision_case(data.get("decision_case")),
             operational_context=operational_context,
+            cost_annotation=(
+                deepcopy(dict(data["cost_annotation"]))
+                if isinstance(data.get("cost_annotation"), Mapping)
+                else None
+            ),
             test_context_guard=(
                 TestContextDispatchBinding.model_validate(data["test_context_guard"])
                 if data.get("test_context_guard") is not None

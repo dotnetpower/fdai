@@ -27,6 +27,7 @@ NON_ACTION_VERDICT_REASONS: frozenset[str] = frozenset(
         "anomaly_action_unavailable",
         "arbitration_owner_unavailable",
         "no_rule_match",
+        "retrospective_what_if_evidence",
         GOVERNED_EXECUTION_UNSELECTED_REASON,
     }
 )

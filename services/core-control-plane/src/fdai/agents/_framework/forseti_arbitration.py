@@ -37,6 +37,9 @@ from fdai.agents._framework.forseti_arbitration_contract import (
 from fdai.agents._framework.forseti_arbitration_planning import (
     finalize_planning_projection as _finalize_planning_projection,
 )
+from fdai.agents._framework.forseti_cost_annotation import (
+    cost_annotation_for_arbitration as _cost_annotation_for_arbitration,
+)
 from fdai.agents._framework.forseti_cross_vertical_intake import (
     ingest_cross_vertical_candidate_locked,
 )
@@ -112,6 +115,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     _domain_correlation_ids: BoundedLruDict[str, dict[str, str]]
     _domain_source_freshness: BoundedLruDict[str, dict[str, tuple[SourceFreshness, ...]]]
     _domain_arguments: BoundedLruDict[str, dict[str, dict[str, object]]]
+    _domain_cost_annotations: BoundedLruDict[str, dict[str, Any]]
     _pending_decision_cases: BoundedLruDict[str, _DecisionProjection]
     _pending_change_assessments: BoundedLruDict[str, dict[str, Any]]
     _forseti_state_store: Any | None
@@ -262,6 +266,11 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             source_freshness=_source_freshness(event.get("source_freshness")),
             evidence_by_domain={item.domain: item for item in evidence},
             objective_conflicts=objective_conflicts,
+            cost_annotation=(
+                _cost_annotation_for_arbitration(event.get("cost_annotation"))
+                if isinstance(event.get("cost_annotation"), Mapping)
+                else None
+            ),
         )
 
     async def _ingest_domain_signal(
@@ -285,6 +294,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         domain_observed_at: dict[str, str] | None = None,
         domain_correlation_ids: dict[str, str] | None = None,
         domain_source_freshness: dict[str, tuple[SourceFreshness, ...]] | None = None,
+        cost_annotation: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not correlation_id or not str(resource_id or ""):
             raise ValueError("arbitration request identities MUST be non-empty")
@@ -306,6 +316,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             "source_correlations": domain_correlation_ids
             or {domain: correlation_id for domain in advice},
             "domain_observed_at": domain_observed_at or {},
+            "cost_annotation": _cost_annotation_for_arbitration(cost_annotation),
         }
         if domain_source_freshness:
             request["domain_source_freshness"] = {
@@ -548,6 +559,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 "losing_domains": decision.get("losing_domains") or [],
                 "margin": decision.get("margin"),
             },
+            "cost_annotation": _cost_annotation_for_arbitration(decision.get("cost_annotation")),
             "decision_case": _decision_case_mapping(
                 projection,
                 self._pending_change_assessments.pop(correlation_id, None),
@@ -668,6 +680,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             "risk_verdict": risk_verdict,
             "reason": reason,
             "arbitration": grounding,
+            "cost_annotation": _cost_annotation_for_arbitration(decision.get("cost_annotation")),
             "decision_case": (
                 _decision_case_mapping(projection, change_assessment)
                 if projection is not None

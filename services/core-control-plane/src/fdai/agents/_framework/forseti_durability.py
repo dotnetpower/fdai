@@ -171,6 +171,7 @@ async def persist_domain_advice(host: Any, resource_id: str, *, status: str = "p
                 for domain, values in (host._domain_source_freshness.get(resource_id) or {}).items()
             },
             "arguments": dict(host._domain_arguments.get(resource_id) or {}),
+            "cost_annotation": dict(host._domain_cost_annotations.get(resource_id) or {}),
             "recorded_at": host._test_context_clock().isoformat(),
         },
     )
@@ -320,6 +321,12 @@ async def _rehydrate_domain_advice(host: Any, store: Any) -> int:
                     for domain, values in arguments.items()
                     if isinstance(values, Mapping)
                 },
+            )
+        cost_annotation = row.get("cost_annotation")
+        if isinstance(cost_annotation, Mapping):
+            host._domain_cost_annotations.set(
+                resource_id,
+                {str(key): value for key, value in cost_annotation.items()},
             )
     return restored
 

@@ -18,6 +18,7 @@ from fdai.agents._framework.action_semantics import (
 from fdai.agents._framework.anomaly_action import AnomalyActionPreparer, AnomalyActionSource
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.forseti_cost_annotation import cost_annotation_from_event
 from fdai.agents._framework.forseti_decision_helpers import copy_change_assessment, source_freshness
 from fdai.agents._framework.forseti_rule_bindings import RISK_VERDICT, RULE_MATCH
 from fdai.agents._framework.forseti_safeguards import execution_safeguards
@@ -276,12 +277,16 @@ class ForsetiJudgmentMixin:
                 "reason": "anomaly_action_unavailable" if candidate_held else "no_rule_match",
                 "folded_count": folded,
                 "judgment_table_digest": self._judgment_table.digest,
+                "cost_annotation": cost_annotation_from_event(event),
                 "quorum_required": 1,
                 "initiator_principal": event.get("initiator_principal"),
             }
             if isinstance(event.get("action_id"), str) and event["action_id"]:
                 verdict["action_id"] = event["action_id"]
             copy_change_assessment(event, verdict)
+            remember = getattr(self, "_remember_verdict_for_quality", None)
+            if callable(remember):
+                remember(event, verdict)
             if self.bus is not None:
                 await self.bus.publish("Forseti", "object.verdict", verdict)
             return verdict
@@ -406,6 +411,7 @@ class ForsetiJudgmentMixin:
             ),
             "reason": reason,
             "judgment_table_digest": self._judgment_table.digest,
+            "cost_annotation": cost_annotation_from_event(event),
             "params": params,
             "detection_readiness": readiness,
             "quorum_required": quorum_for(action_type, self._action_semantics),

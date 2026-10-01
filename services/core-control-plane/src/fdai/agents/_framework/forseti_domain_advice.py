@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, cast
 
 from fdai.agents._framework import forseti_durability as _durability
+from fdai.agents._framework.forseti_cost_annotation import cost_annotation_from_event
 from fdai.agents._framework.forseti_decision_helpers import (
     is_conflict,
     signal_impact,
@@ -77,6 +78,8 @@ async def ingest_domain_signal(
         advice = {}
         host._domain_advice.set(resource_id, advice)
     advice[domain] = recommendation
+    if domain == "cost":
+        host._domain_cost_annotations.set(resource_id, cost_annotation_from_event(payload))
     impacts = host._domain_impact.get(resource_id)
     if impacts is None:
         impacts = {}
@@ -124,6 +127,7 @@ async def ingest_domain_signal(
         source_freshness=_merged_domain_freshness(
             host._domain_source_freshness.get(resource_id) or {}
         ),
+        cost_annotation=host._domain_cost_annotations.get(resource_id),
     )
     _clear_resource_advice(host, resource_id)
     await _durability.persist_domain_advice(host, resource_id, status="consumed")
@@ -137,6 +141,7 @@ def _clear_resource_advice(host: Any, resource_id: str) -> None:
     host._domain_arguments.pop(resource_id, None)
     host._domain_correlation_ids.pop(resource_id, None)
     host._domain_source_freshness.pop(resource_id, None)
+    host._domain_cost_annotations.pop(resource_id, None)
 
 
 def _domain_cutoff(value: str) -> datetime | None:

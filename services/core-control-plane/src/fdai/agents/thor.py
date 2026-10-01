@@ -848,6 +848,11 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             rollback_contract=rollback_contract,
             decision_case=decision_case,
             operational_context=operational_context,
+            cost_annotation=(
+                dict(verdict["cost_annotation"])
+                if isinstance(verdict.get("cost_annotation"), dict)
+                else None
+            ),
             test_context_guard=(
                 TestContextDispatchBinding.model_validate(verdict["test_context_guard"])
                 if verdict.get("test_context_guard") is not None
@@ -1004,6 +1009,11 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             outcome=outcome,
             initiator_principal=verdict.get("initiator_principal"),
             rollback_contract=str(verdict.get("rollback_contract", "state_forward_only")),
+            cost_annotation=(
+                dict(verdict["cost_annotation"])
+                if isinstance(verdict.get("cost_annotation"), dict)
+                else None
+            ),
         )
         if run.correlation_id not in self.action_runs:
             self.action_runs[run.correlation_id] = run

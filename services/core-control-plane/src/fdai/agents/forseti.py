@@ -22,7 +22,7 @@ from fdai.agents._framework.alert_noise_callbacks import ForsetiAlertNoiseMixin
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.assignment_workflow import AssignmentJudgmentMixin
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.bounded import BoundedLruDict
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.cross_vertical_candidates import (
     CrossVerticalCandidateAccumulator,
@@ -45,6 +45,11 @@ from fdai.agents._framework.forseti_judgment import (
     JudgmentTable,
 )
 from fdai.agents._framework.forseti_telemetry_introspection import telemetry_recipe_facts
+from fdai.agents._framework.forseti_what_if import (
+    MAX_WHAT_IF_SAMPLES,
+    build_what_if_batch,
+    judgment_table_from_request,
+)
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -58,6 +63,7 @@ from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.role_answers import forseti_role_answer
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.architecture_review import (
     ArchitectureReviewObservation,
     OntologyArchitectureReviewLoop,
@@ -315,6 +321,9 @@ class Forseti(
         self._domain_arguments: BoundedLruDict[str, dict[str, dict[str, object]]] = BoundedLruDict(
             _MAX_RESOURCES
         )
+        self._domain_cost_annotations: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
         self._pending_decision_cases: BoundedLruDict[str, _DecisionProjection] = BoundedLruDict(
             _MAX_RESOURCES
         )
@@ -341,6 +350,13 @@ class Forseti(
             "tier_mix": {"T0": 0, "T1": 0, "T2": 0},
             "t2_ratio": None,
             "unit": "ratio",
+        }
+        self._published_what_if_inputs: BoundedLruSet[str] = BoundedLruSet(_QUALITY_SAMPLE_LIMIT)
+        self._last_retrospective_what_if: dict[str, object] = {
+            "evidence_state": "not_requested",
+            "sample_size": 0,
+            "disagreements": 0,
+            "unit": "count",
         }
 
     def bind_bus(self, bus: PantheonBus) -> None:
@@ -416,6 +432,9 @@ class Forseti(
             return
         if topic == "object.drift" and payload.get("kind") == "detection_readiness":
             await self._record_detection_readiness(payload)
+            return
+        if topic == "object.event" and payload.get("kind") == "retrospective_what_if_request":
+            await self._run_retrospective_what_if(payload)
             return
         if payload.get("kind") == "document_ingestion":
             if topic == "object.event" and payload.get("event_type") == "document.received":
@@ -638,6 +657,7 @@ class Forseti(
             },
             "verdict_coherence_self_test": dict(self._last_verdict_coherence),
             "novelty_drift_signal": dict(self._last_novelty_drift),
+            "retrospective_what_if": dict(self._last_retrospective_what_if),
             "kpis": {
                 "t2_escalation_rate": _ratio_kpi(t2_escalations, verdicts),
                 "mixed_model_disagreement_rate": _ratio_kpi(model_disagreements, verdicts),
@@ -785,6 +805,72 @@ class Forseti(
                 "tier": tier,
             },
         )
+
+    async def _run_retrospective_what_if(self, request: Mapping[str, Any]) -> None:
+        what_if_table = judgment_table_from_request(request.get("judgment_table"))
+        correlation_id = str(request.get("correlation_id") or "")
+        if what_if_table is None or not correlation_id:
+            self._last_retrospective_what_if = {
+                "evidence_state": "invalid_request",
+                "sample_size": 0,
+                "disagreements": 0,
+                "unit": "count",
+            }
+            self.record_behavior("retrospective_what_if:invalid")
+            return
+        raw_limit = request.get("sample_limit", MAX_WHAT_IF_SAMPLES)
+        sample_limit = (
+            raw_limit if isinstance(raw_limit, int) and not isinstance(raw_limit, bool) else 1
+        )
+        batch = build_what_if_batch(
+            correlation_id=correlation_id,
+            active_table=self._judgment_table,
+            what_if_table=what_if_table,
+            retained_samples=self._verdict_quality_samples.items(),
+            sample_limit=sample_limit,
+        )
+        if batch is None:
+            self._last_retrospective_what_if = {
+                "evidence_state": "insufficient_sample",
+                "sample_size": 0,
+                "disagreements": 0,
+                "unit": "count",
+            }
+            self.record_behavior("retrospective_what_if:no_samples")
+            return
+        new_keys = tuple(
+            key for key in batch.idempotency_keys if key not in self._published_what_if_inputs
+        )
+        if not new_keys:
+            self.record_behavior("retrospective_what_if:duplicate")
+            return
+        for key in new_keys:
+            self._published_what_if_inputs.add(key)
+        payload = {
+            **batch.payload,
+            "idempotency_key": stable_idempotency_key(
+                "forseti-retrospective-what-if",
+                correlation_id,
+                self._judgment_table.digest,
+                what_if_table.digest,
+                new_keys,
+            ),
+        }
+        outcomes = payload["outcomes"]
+        disagreement_count = int(payload["disagreement_count"])
+        self._last_retrospective_what_if = {
+            "evidence_state": "measured",
+            "sample_size": len(outcomes),
+            "disagreements": disagreement_count,
+            "contract_version": payload["what_if_contract"]["contract_version"],
+            "what_if_judgment_table_digest": what_if_table.digest,
+            "unit": "count",
+        }
+        self.record_behavior("retrospective_what_if:published")
+        if disagreement_count:
+            self.record_behavior("retrospective_what_if:disagreement", disagreement_count)
+        if self.bus is not None:
+            await self.bus.publish("Forseti", "object.verdict", payload)
 
     def _run_verdict_coherence_self_test(self) -> None:
         disagreements = 0
