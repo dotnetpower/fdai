@@ -449,7 +449,7 @@ SEEDS: tuple[Seed, ...] = (
             "소유자가 불분명하면 권한을 만들지 않고 기권합니다.",
         ),
         (
-            _code("agents/bragi.py", "Bragi.ask"),
+            _code("agents/_framework/bragi_ask_runtime.py", "BragiAskRuntimeMixin.ask"),
             _test(
                 "agents/test_conversational_port.py",
                 "test_ask_refuses_action_intent_and_routes_to_typed_pipeline",

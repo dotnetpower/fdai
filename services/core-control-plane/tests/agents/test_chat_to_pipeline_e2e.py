@@ -636,9 +636,9 @@ def test_bragi_progress_list_length_is_bounded() -> None:
 
 
 def test_bragi_session_map_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
-    from fdai.agents import bragi as bragi_mod
+    from fdai.agents._framework import bragi_ask_runtime
 
-    monkeypatch.setattr(bragi_mod, "_MAX_SESSIONS", 2)
+    monkeypatch.setattr(bragi_ask_runtime, "_MAX_SESSIONS", 2)
     b = Bragi()
     for i in range(5):
         asyncio.run(b.ask(session_id=f"s-{i}", user_id="u", question="what is the action status"))
