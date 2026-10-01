@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 70a54cd3e9b5d9f65c9041c616f19af000fd1348
+translation_source_sha: dc41d9cda359893805c468d2422238f2520889c1
 translation_revised: 2026-10-01
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -215,6 +215,10 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   도구입니다. Genesis는 대신 Bastion을 통한 SSH 표준 입력으로만 등록 자료를 전달합니다.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh)는 크기와 임시 배치를 확인하고, [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh)는 환경 destroy를 보호합니다.
   두 도구 모두 ops 허브나 상태 계정을 변경하지 않고 안전하지 않은 실행기 저장소 또는 할당 해제를 차단합니다.
+- [`check-runner-terraform.sh`](../../../scripts/deployment/azure/check-runner-terraform.sh)는 공유
+  `login-deploy-identity.sh` 도우미 안에서 첫 Azure 호출 전에 실행됩니다. 실행기의 Terraform이
+  검증된 1.16.1보다 오래되었으면 보호된 워크플로를 거부합니다. 아직 Terraform 1.9.8을 고정하는
+  Genesis 이미지 실행기도 여기에 해당합니다.
 
 #### 프로덕션 하드닝 knob
 
