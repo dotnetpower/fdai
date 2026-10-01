@@ -48,6 +48,7 @@ def _compare_windows(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if maximum is None:
         return OperatorResult(unsupported=(f"function_unavailable:{METRIC_READER}",))
     windows: list[tuple[str, str]] = []
+    spans: list[int] = []
     end = ctx.evaluation_time.astimezone(UTC)
     for value in reversed(goal.time.windows):
         probe = goal.model_copy(
@@ -61,6 +62,7 @@ def _compare_windows(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         if isinstance(window, str):
             return OperatorResult(unsupported=(window,))
         seconds, _kind = window
+        spans.insert(0, seconds)
         start = end - timedelta(seconds=seconds)
         windows.insert(0, (start.isoformat(), end.isoformat()))
         end = start
@@ -86,6 +88,8 @@ def _compare_windows(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         arguments_json=canonical_json({}),
         output_kind="metric.comparison",
     )
+    # The answer names both windows read: the earlier one ends where the later one starts.
+    compared = f"{spans[0]}.{spans[1]}"
     return OperatorResult(
         specs=(
             plan_spec(
@@ -96,8 +100,10 @@ def _compare_windows(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
                 subjects=(RESOURCE_OBJECT_TYPE,),
                 output_shape="metric_comparison",
                 measure_concepts=(concepts[0],),
+                evidence_requirements=(f"window.compared.{compared}",),
             ),
-        )
+        ),
+        limitations=(f"comparison_windows:{compared}",),
     )
 
 

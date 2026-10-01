@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from fdai.core.conversation.semantic_reasoning_compiler import GoalStatus, compile_question_form
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain, RelationSense
+from fdai_core_service.semantic_verified_rows import with_stated_notices
 from fdai_service_contracts.ontology_query import QueryNodeKind
 
 from tests.conversation.semantic_reasoning_support import (
@@ -119,6 +120,11 @@ def test_compare_windows_compiles_two_metric_windows_and_comparison() -> None:
     (batch,) = goal.batches
     assert [node.kind for node in batch.plan.nodes].count(QueryNodeKind.METRIC_SCOPE_SERIES) == 2
     assert batch.plan.output_node_ids == ("g1-comparison",)
+    # The answer names both windows it compared, through a reviewed notice.
+    assert goal.limitations == ("comparison_windows:300.300",)
+    assert batch.frame.evidence_requirements == ("window.compared.300.300",)
+    answer = with_stated_notices("## CPU\nrows", batch.frame.evidence_requirements, locale="en-US")
+    assert "Compared windows: the last 5 minutes, and the 5 minutes just before it." in answer
 
 
 def _form(operation: str, *, measure: dict[str, object] | None = None) -> dict[str, object]:

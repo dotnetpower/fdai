@@ -124,6 +124,10 @@ _PROPERTY_NOTICE = (
     "Value source: this resource's inventory record. The time a single property was "
     "observed isn't recorded, and the reviewed freshness bound for this property is {span}.",
 )
+_COMPARED_NOTICE = (
+    "비교한 기간: 최근 {recent}와 그 직전 {earlier}",
+    "Compared windows: the last {recent}, and the {earlier} just before it.",
+)
 _FIXED_NOTICES = {
     "cause.not_established": _CAUSE_NOTICE,
     "impact.possible_not_observed": _IMPACT_NOTICE,
@@ -140,6 +144,13 @@ def with_stated_notices(answer: str, requirements: tuple[str, ...], *, locale: s
         fixed = _FIXED_NOTICES.get(requirement)
         if fixed is not None:
             notices.append(fixed[0] if korean else fixed[1])
+            continue
+        compared = requirement.removeprefix("window.compared.").split(".")
+        if requirement.startswith("window.compared.") and len(compared) == 2:
+            if all(part.isdigit() for part in compared):
+                earlier, recent = (_window_span(int(part), korean=korean) for part in compared)
+                text = _COMPARED_NOTICE[0] if korean else _COMPARED_NOTICE[1]
+                notices.append(text.format(earlier=earlier, recent=recent))
             continue
         bound = requirement.removeprefix("property.inventory.")
         if bound != requirement:

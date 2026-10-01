@@ -102,6 +102,7 @@ _STATED_LIMITATIONS = {
     "possible_impact_not_observed": "impact.possible_not_observed",
     "anchor_uniqueness_unproven": "anchor.uniqueness_unproven",
     "property_source_inventory": "property.inventory",
+    "comparison_windows": "window.compared",
 }
 
 
