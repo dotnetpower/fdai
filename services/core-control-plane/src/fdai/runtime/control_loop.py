@@ -66,6 +66,7 @@ from fdai.delivery.chatops.slack_request_outbox import DurableSlackApprovalChann
 from fdai.delivery.evidence_conflict import StateStoreEvidenceConflictProjection
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
 from fdai.delivery.kinetic_safety import ExistingProposalKineticSafetyWriter
+from fdai.delivery.operator_request_receipt import core_operator_request_receipt_issuer_from_env
 from fdai.delivery.persistence.state_store_preconditions import (
     StateStoreOpenActionEvidenceProvider,
 )
@@ -636,6 +637,7 @@ def _build_control_loop(
             event_bus=workflow_event_bus,
             topic=container.config.kafka.topic_events,
             workflows_present=bool(workflows),
+            receipt_issuer=core_operator_request_receipt_issuer_from_env(os.environ),
         )
         workflow_automation_holds = StateStoreAutomationHoldLedger(
             audit_store,

@@ -380,6 +380,16 @@ output "ohl_observation_context_binding" {
   } : {})
 }
 
+output "operator_request_receipt_binding" {
+  description = "Deployment-owned operator_request receipt signing seed secret references; trusted public keys are hydrated from these seeds by deployment tooling."
+  value = {
+    core_signing_seed_secret_id     = azurerm_key_vault_secret.operator_request_core_signing_seed.id
+    operator_signing_seed_secret_id = azurerm_key_vault_secret.operator_request_operator_signing_seed.id
+    core_producer_id                = "core-control-plane"
+    operator_producer_id            = "operator-service"
+  }
+}
+
 output "stewardship_gitops_binding" {
   description = "Deployment-owned review-only stewardship GitOps binding. Null when disabled."
   value = var.enable_stewardship_governance ? {

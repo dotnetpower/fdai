@@ -20,6 +20,7 @@ from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings, 
 from fdai.agents._framework.conversation_tools import AgentConversationToolRegistry
 from fdai.agents._framework.deliberation import T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
+from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.kpi import KpiCollector
 from fdai.agents._framework.mimir_maintenance import (
     MimirCatalogPromotionOutcomeReader,
@@ -139,6 +140,8 @@ class PantheonRuntime(RuntimeConversationPort):
         saga: Saga | None = None,
         muninn_state_store: StateStore | None = None,
         huginn_state_store: StateStore | None = None,
+        operator_request_receipt_gate: OperatorRequestReceiptGate | None = None,
+        huginn_schema_learning_enabled: bool = False,
         heimdall_state_store: StateStore | None = None,
         njord_state_store: StateStore | None = None,
         freyr_state_store: StateStore | None = None,
@@ -252,7 +255,12 @@ class PantheonRuntime(RuntimeConversationPort):
             payload_validator=_default_payload_validator,
         )
         instantiated = factory.instantiate_pantheon()
-        instantiated["Huginn"] = factory.configured_huginn(discovery_projector, huginn_state_store)
+        instantiated["Huginn"] = factory.configured_huginn(
+            discovery_projector,
+            huginn_state_store,
+            operator_request_receipt_gate=operator_request_receipt_gate,
+            schema_learning_enabled=huginn_schema_learning_enabled,
+        )
         instantiated["Loki"] = factory.configured_loki(loki_state_store)
         bind_catalog_review(instantiated, catalog_review)
         if (

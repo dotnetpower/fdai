@@ -11,12 +11,14 @@ from pathlib import Path
 from typing import Any, cast
 
 import httpx
+from fdai_service_contracts.operator_request_receipt import operator_request_public_key_from_seed
 
 from fdai.agents import (
     CompositeThorPreflightSimulator,
     ContextIndexWorkerBindings,
     Heimdall,
     Norns,
+    OperatorRequestReceiptGate,
     PantheonRuntime,
     Saga,
     SemanticRouterConfig,
@@ -53,6 +55,11 @@ from fdai.delivery.agent_activity import (
 )
 from fdai.delivery.evidence_conflict import StateStoreEvidenceConflictProjection
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
+from fdai.delivery.operator_request_receipt import (
+    CORE_OPERATOR_REQUEST_PRODUCER_ID,
+    CORE_OPERATOR_REQUEST_PRODUCER_ID_ENV,
+    CORE_OPERATOR_REQUEST_SIGNING_SEED_ENV,
+)
 from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
@@ -111,6 +118,55 @@ from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
+OPERATOR_REQUEST_OPERATOR_TRUST_SEED_ENV = "FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED"
+OPERATOR_REQUEST_OPERATOR_PRODUCER_ID_ENV = "FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER_ID"
+HUGINN_SCHEMA_LEARNING_ENABLED_ENV = "FDAI_HUGINN_SCHEMA_LEARNING_ENABLED"
+
+
+def _operator_request_receipt_gate(
+    environment: Mapping[str, str],
+    state_store: StateStore,
+) -> OperatorRequestReceiptGate | None:
+    core_seed = environment.get(CORE_OPERATOR_REQUEST_SIGNING_SEED_ENV, "").strip()
+    operator_seed = environment.get(OPERATOR_REQUEST_OPERATOR_TRUST_SEED_ENV, "").strip()
+    if not core_seed and not operator_seed:
+        return None
+    if not core_seed or not operator_seed:
+        raise RuntimeError(
+            "operator request receipt verification requires both Core and Operator seeds"
+        )
+    core_producer = environment.get(
+        CORE_OPERATOR_REQUEST_PRODUCER_ID_ENV,
+        CORE_OPERATOR_REQUEST_PRODUCER_ID,
+    ).strip()
+    operator_producer = environment.get(
+        OPERATOR_REQUEST_OPERATOR_PRODUCER_ID_ENV,
+        "operator-service",
+    ).strip()
+    if core_producer != CORE_OPERATOR_REQUEST_PRODUCER_ID:
+        raise RuntimeError("Core operator_request receipts MUST sign as core-control-plane")
+    if not operator_producer or operator_producer == core_producer:
+        raise RuntimeError("Operator request receipt producer ids MUST be distinct")
+    trusted_keys = {
+        core_producer: operator_request_public_key_from_seed(core_seed),
+        operator_producer: operator_request_public_key_from_seed(operator_seed),
+    }
+    return OperatorRequestReceiptGate(
+        verifier=_UnboundOperatorReceiptVerifier(),
+        state_store=state_store,
+        clock=lambda: datetime.now(UTC),
+        trusted_producer_public_keys=trusted_keys,
+    )
+
+
+def _boolean_env(environment: Mapping[str, str], key: str) -> bool:
+    return environment.get(key, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+class _UnboundOperatorReceiptVerifier:
+    def verify_operator_request_receipt(self, *, receipt: object, signing_bytes: bytes) -> bool:
+        del receipt, signing_bytes
+        return False
 
 
 async def _bind_post_turn_learning(
@@ -530,6 +586,14 @@ async def initialize_pantheon(
         saga=config.runtime_saga,
         muninn_state_store=config.incident_audit_store,
         huginn_state_store=config.incident_audit_store,
+        operator_request_receipt_gate=_operator_request_receipt_gate(
+            config.environment,
+            config.incident_audit_store,
+        ),
+        huginn_schema_learning_enabled=_boolean_env(
+            config.environment,
+            HUGINN_SCHEMA_LEARNING_ENABLED_ENV,
+        ),
         heimdall_state_store=config.incident_audit_store,
         njord_state_store=config.incident_audit_store,
         freyr_state_store=config.incident_audit_store,

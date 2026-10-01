@@ -72,7 +72,15 @@ def test_production_composition_binds_action_confirmation_to_core_event_topic(
             return object()
 
     class _Bridge:
-        def __init__(self, *, store: object, publisher: object, topic: str) -> None:
+        def __init__(
+            self,
+            *,
+            store: object,
+            publisher: object,
+            topic: str,
+            receipt_issuer: object | None = None,
+        ) -> None:
+            del receipt_issuer
             action_captured.append((store, publisher, topic))
 
         def workers_ready(self) -> bool:

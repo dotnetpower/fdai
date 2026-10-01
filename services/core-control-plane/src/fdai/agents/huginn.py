@@ -25,6 +25,8 @@ from fdai.agents._framework.huginn_dedup import (
     HuginnDedupJournal,
     request_digest,
 )
+from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
+from fdai.agents._framework.huginn_schema_learning import HuginnSchemaLearningLedger
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
@@ -520,6 +522,9 @@ class Huginn(Agent):
         state_store: StateStore | None = None,
         dedup_clock: Callable[[], datetime] | None = None,
         dedup_claim_lease: timedelta = timedelta(seconds=60),
+        operator_request_receipt_gate: OperatorRequestReceiptGate | None = None,
+        schema_learning_enabled: bool = False,
+        schema_learning_capacity: int = 128,
     ) -> None:
         super().__init__(spec=_HUGINN)
         self.bus = bus
@@ -528,6 +533,7 @@ class Huginn(Agent):
         self._dedup_capacity = dedup_capacity
         self._discovery_projector = discovery_projector
         self._alert_noise_verifier: Callable[[Mapping[str, Any]], object] | None = None
+        self._operator_request_receipt_gate = operator_request_receipt_gate
         self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
         self._dedup_journal = (
             HuginnDedupJournal(
@@ -549,6 +555,14 @@ class Huginn(Agent):
         self._dedup_correct_decisions = 0
         self._dedup_collision_decisions = 0
         self._last_checkpoint_read_at: datetime | None = None
+        self._schema_learning = (
+            HuginnSchemaLearningLedger(
+                state_store=state_store,
+                capacity=schema_learning_capacity,
+            )
+            if schema_learning_enabled
+            else None
+        )
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -614,6 +628,17 @@ class Huginn(Agent):
                 else None,
                 "last_checkpoint_age_seconds": checkpoint_age_seconds,
             },
+            "operator_request_receipts": {
+                "verification": "bound"
+                if self._operator_request_receipt_gate is not None
+                else "fail_closed_unbound",
+            },
+            "schema_learning": {
+                "status": "bound" if self._schema_learning is not None else "not_bound",
+                "pending_fingerprints": self._schema_learning.pending_count()
+                if self._schema_learning is not None
+                else 0,
+            },
             "dedup_size": len(self._seen_keys),
             "dedup_capacity": self._dedup_capacity,
             "operational_case_errors": list(self._operational_case_errors),
@@ -655,6 +680,8 @@ class Huginn(Agent):
         """
         try:
             _validate_raw_ingress(raw)
+            if self._schema_learning is not None:
+                self._schema_learning.record(raw)
             if (
                 raw.get("event_type") in ALERT_NOISE_EVENT_TYPES
                 or raw.get("source") == "operator-alert-noise"
@@ -662,6 +689,30 @@ class Huginn(Agent):
                 if self._alert_noise_verifier is None:
                     raise HuginnIngressRejected("alert_verifier_unavailable")
                 self._alert_noise_verifier(raw)
+            if raw.get("event_type") == "operator_request":
+                if self._operator_request_receipt_gate is None:
+                    raise HuginnIngressRejected("operator_request_receipt_unbound")
+                try:
+                    await self._operator_request_receipt_gate.verify(raw)
+                except ValueError as exc:
+                    reason = str(exc) or "invalid"
+                    safe_reason = (
+                        reason
+                        if reason
+                        in {
+                            "missing",
+                            "mismatch",
+                            "expired",
+                            "unverifiable",
+                            "replayed",
+                            "unknown_producer",
+                        }
+                        else "invalid"
+                    )
+                    raise HuginnIngressRejected(
+                        f"operator_request_receipt_{safe_reason}",
+                        field="operator_request_receipt",
+                    ) from exc
             key = self._ingress_key(raw)
             async with self._key_lock(key):
                 return await self._ingest_locked(raw, key=key)
@@ -670,6 +721,21 @@ class Huginn(Agent):
                 exc.payload_digest = _raw_payload_digest(raw)
             self.record_behavior(f"raw_ingress_rejected:{exc.reason_code}")
             raise
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        if self._schema_learning is None:
+            self.record_behavior("maintenance:schema_learning_unbound")
+            return
+        if self.bus is None:
+            self.record_behavior("maintenance:schema_learning_no_bus")
+            return
+        evidence = await self._schema_learning.next_evidence()
+        if evidence is None:
+            self.record_behavior("maintenance:schema_learning_idle")
+            return
+        await self.bus.publish("Huginn", "object.event", evidence.payload)
+        self.record_behavior("maintenance:schema_cluster_evidence_published")
 
     async def ingest_operator_proposal(self, proposal: dict[str, Any]) -> dict[str, Any] | None:
         """Normalize Bragi's authenticated in-process operator proposal."""

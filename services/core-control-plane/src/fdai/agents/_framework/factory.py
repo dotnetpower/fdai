@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
@@ -200,9 +201,16 @@ def configured_freyr(
 def configured_huginn(
     discovery_projector: DiscoveryProjector | None,
     state_store: StateStore | None,
+    operator_request_receipt_gate: OperatorRequestReceiptGate | None = None,
+    schema_learning_enabled: bool = False,
 ) -> Huginn:
     """Build Huginn with durable deduplication and optional discovery projection."""
-    return Huginn(discovery_projector=discovery_projector, state_store=state_store)
+    return Huginn(
+        discovery_projector=discovery_projector,
+        state_store=state_store,
+        operator_request_receipt_gate=operator_request_receipt_gate,
+        schema_learning_enabled=schema_learning_enabled,
+    )
 
 
 def configured_loki(state_store: StateStore | None) -> Loki:

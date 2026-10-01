@@ -16,6 +16,10 @@ module "container_app" {
     name                = "cost-pseudonym-key"
     identity            = var.identity.runtime_resource_id
     key_vault_secret_id = var.cost_pseudonym_key_secret_id
+    }], trimspace(var.operator_request_receipts.operator_signing_seed_secret_id) == "" ? [] : [{
+    name                = "operator-request-operator-signing-seed"
+    identity            = var.identity.runtime_resource_id
+    key_vault_secret_id = var.operator_request_receipts.operator_signing_seed_secret_id
     }], var.notification_receipt_secret_id == "" ? [] : [{
     name                = "notification-receipt-secret"
     identity            = var.identity.runtime_resource_id
@@ -64,6 +68,9 @@ module "container_app" {
     { name = "FDAI_RBAC_BREAK_GLASS_GROUP_ID", value = var.rbac.break_glass_group_id },
     { name = "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS", value = var.cors_allow_origins },
     { name = "FDAI_OPERATOR_SERVICE_PORT", value = tostring(var.health.port) },
+    ], trimspace(var.operator_request_receipts.operator_signing_seed_secret_id) == "" ? [] : [
+    { name = "FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED", secret_name = "operator-request-operator-signing-seed" },
+    { name = "FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID", value = var.operator_request_receipts.producer_id },
     ], trimspace(var.runtime_call_evidence.caller_resource_id) == "" ? [] : [
     { name = "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID", value = var.runtime_call_evidence.caller_resource_id },
     { name = "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID", value = var.runtime_call_evidence.target_resource_id },

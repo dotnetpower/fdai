@@ -14,10 +14,12 @@ The bus dispatches synchronously, so the whole chain resolves inside
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
@@ -27,6 +29,12 @@ from fdai.agents.var import Var
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
+)
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.operator_request_receipt import (
+    OperatorRequestReceipt,
+    operator_request_receipt_body_from_event,
+    operator_request_receipt_signing_bytes,
 )
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentTier
 
@@ -41,6 +49,7 @@ _ACTION_SEMANTICS = ActionSemanticsCatalog(
     },
     rollback_by_id={},
 )
+_NOW = datetime(2028, 1, 2, tzinfo=UTC)
 
 
 class _ActionJudgmentModel:
@@ -341,6 +350,41 @@ def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
 
 
+class _ReceiptVerifier:
+    def verify_operator_request_receipt(
+        self,
+        *,
+        receipt: OperatorRequestReceipt,
+        signing_bytes: bytes,
+    ) -> bool:
+        return receipt.signature_bytes() == b"sig:" + signing_bytes[:16]
+
+
+def _operator_receipt_event(event: dict[str, object]) -> dict[str, object]:
+    body = operator_request_receipt_body_from_event(
+        event,
+        producer_service_identity="operator-service",
+        issued_at=_NOW,
+        expires_at=_NOW + timedelta(minutes=5),
+    )
+    event["operator_request_receipt"] = OperatorRequestReceipt.create(
+        body=body,
+        signature=b"sig:" + operator_request_receipt_signing_bytes(body)[:16],
+    ).model_dump(mode="json")
+    return event
+
+
+def _receipt_huginn(bus: InMemoryBus) -> Huginn:
+    return Huginn(
+        bus=bus,
+        operator_request_receipt_gate=OperatorRequestReceiptGate(
+            verifier=_ReceiptVerifier(),
+            state_store=InMemoryStateStore(),
+            clock=lambda: _NOW,
+        ),
+    )
+
+
 def test_forged_external_signal_cannot_carry_operator_fields() -> None:
     # An external / rule-fired signal on the ingress topic that includes
     # operator-proposal keys must NOT have them honored: only an explicit
@@ -367,23 +411,26 @@ def test_forged_external_signal_cannot_carry_operator_fields() -> None:
 
 def test_raw_operator_request_keeps_validated_operator_fields_with_ingress_channel() -> None:
     bus = _bus()
-    huginn = Huginn(bus=bus)
+    huginn = _receipt_huginn(bus)
     asyncio.run(
         huginn.ingest(
-            {
-                "id": "evt-op",
-                "correlation_id": "c-op",
-                "event_type": "operator_request",
-                "initiator_principal": "operator@example.com",
-                "action_type": "ops.restart-service",
-                # A forged truthy string must be coerced to a strict bool.
-                "operator_initiated": "false",
-                "workflow_action": {
-                    "process_id": "process-1",
-                    "step_id": "restart",
-                    "proposal_ref": "proposal-1",
-                },
-            }
+            _operator_receipt_event(
+                {
+                    "idempotency_key": "evt-op",
+                    "correlation_id": "c-op",
+                    "event_type": "operator_request",
+                    "resource_id": "resource:service/api",
+                    "initiator_principal": "operator@example.com",
+                    "action_type": "ops.restart-service",
+                    # A forged truthy string must be coerced to a strict bool.
+                    "operator_initiated": "false",
+                    "workflow_action": {
+                        "process_id": "process-1",
+                        "step_id": "restart",
+                        "proposal_ref": "proposal-1",
+                    },
+                }
+            )
         )
     )
     published = bus.messages_on("object.event")[0].payload

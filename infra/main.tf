@@ -2621,6 +2621,36 @@ resource "azurerm_key_vault_secret" "ohl_observation_signing_seed" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
+resource "random_id" "operator_request_core_signing_seed" {
+  byte_length = 32
+}
+
+resource "azurerm_key_vault_secret" "operator_request_core_signing_seed" {
+  # checkov:skip=CKV_AZURE_41:This seed signs Core-originated operator_request ingress receipts and rotates only through coordinated producer-key rollover.
+  name         = "fdai-operator-request-core-signing-seed"
+  value        = sensitive(random_id.operator_request_core_signing_seed.b64_url)
+  key_vault_id = module.key_vault.id
+  content_type = "ed25519-seed-base64url"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+resource "random_id" "operator_request_operator_signing_seed" {
+  byte_length = 32
+}
+
+resource "azurerm_key_vault_secret" "operator_request_operator_signing_seed" {
+  # checkov:skip=CKV_AZURE_41:This seed signs Operator-service originated operator_request ingress receipts and rotates only through coordinated producer-key rollover.
+  name         = "fdai-operator-request-operator-signing-seed"
+  value        = sensitive(random_id.operator_request_operator_signing_seed.b64_url)
+  key_vault_id = module.key_vault.id
+  content_type = "ed25519-seed-base64url"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
 # -----------------------------------------------------------------------
 # Compute - Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------

@@ -7,7 +7,7 @@ import os
 import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from fdai_service_contracts import (
@@ -104,6 +104,10 @@ from fdai_operator_service.observer_deployment_projection import (
     ObserverProposalReader,
     PostgresObserverProjectionStore,
 )
+from fdai_operator_service.operator_request_receipt import (
+    OperatorRequestReceiptIssuer,
+    SeedOperatorRequestReceiptSigner,
+)
 from fdai_operator_service.outbox_runtime import (
     ActionConfirmationBridge,
     AlertQualityBridge,
@@ -143,6 +147,22 @@ from fdai_operator_service.runtime import OperatorRuntime
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _operator_request_receipt_issuer(
+    environment: OperatorEnvironment,
+) -> OperatorRequestReceiptIssuer | None:
+    if (
+        environment.operator_request_operator_signing_seed is None
+        or environment.operator_request_receipt_producer_id is None
+    ):
+        return None
+    return OperatorRequestReceiptIssuer(
+        signer=SeedOperatorRequestReceiptSigner(environment.operator_request_operator_signing_seed),
+        producer_service_identity=environment.operator_request_receipt_producer_id,
+        clock=lambda: datetime.now(UTC),
+        lifetime=timedelta(seconds=environment.operator_request_receipt_ttl_seconds),
+    )
 
 
 def _agent_state_key(event: LiveStreamEvent) -> str | None:
@@ -323,11 +343,13 @@ class ProductionOperatorComposition:
             else None
         )
         event_topic = environment.values.get("KAFKA_TOPIC_EVENTS", "").strip() or None
+        operator_request_receipt_issuer = _operator_request_receipt_issuer(environment)
         action_confirmation_bridge = (
             ActionConfirmationBridge(
                 store=family_store,
                 publisher=semantic_bus,
                 topic=event_topic,
+                receipt_issuer=operator_request_receipt_issuer,
             )
             if family_store is not None and semantic_bus is not None and event_topic is not None
             else None

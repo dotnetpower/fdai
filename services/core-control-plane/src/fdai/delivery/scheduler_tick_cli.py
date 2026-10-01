@@ -21,6 +21,7 @@ from fdai.core.scheduler.store import ScheduleStore
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.operator_request_receipt import core_operator_request_receipt_issuer_from_env
 from fdai.delivery.persistence.postgres_schedule_run_ledger import (
     PostgresScheduleRunLedger,
     PostgresScheduleRunLedgerConfig,
@@ -135,6 +136,7 @@ async def execute_scheduler_tick(
             event_bus=event_bus,
             run_ledger=run_ledger,
             topic=settings.topic,
+            receipt_issuer=core_operator_request_receipt_issuer_from_env(os.environ),
         ).run_once(now=observed_at)
 
 

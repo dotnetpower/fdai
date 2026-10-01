@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.loki_reservations import LokiReservationJournal
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime_subscriptions import build_ingress_handler
@@ -19,6 +20,11 @@ from fdai.core.capacity import CapacityGraduationController
 from fdai.rule_catalog.schema.capacity_graduation_policy import load_capacity_graduation_policy
 from fdai.shared.providers.cost_governance import CostAnalysisSample, CostAnomalyAdvisory
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.operator_request_receipt import (
+    OperatorRequestReceipt,
+    operator_request_receipt_body_from_event,
+    operator_request_receipt_signing_bytes,
+)
 
 NOW = datetime(2028, 1, 2, tzinfo=UTC)
 CHAOS_ACTION = "tool.run-chaos-experiment"
@@ -50,6 +56,16 @@ class CountingCostProvider:
         return None
 
 
+class _OperatorReceiptVerifier:
+    def verify_operator_request_receipt(
+        self,
+        *,
+        receipt: OperatorRequestReceipt,
+        signing_bytes: bytes,
+    ) -> bool:
+        return receipt.signature_bytes() == b"sig:" + signing_bytes[:16]
+
+
 def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
 
@@ -76,6 +92,33 @@ def _raw_event(**overrides: Any) -> dict[str, Any]:
     }
     event.update(overrides)
     return event
+
+
+def _authenticated_operator_event(**overrides: Any) -> dict[str, Any]:
+    event = _raw_event(event_type="operator_request", **overrides)
+    body = operator_request_receipt_body_from_event(
+        event,
+        producer_service_identity="operator-service",
+        issued_at=NOW,
+        expires_at=NOW + timedelta(minutes=5),
+    )
+    event["operator_request_receipt"] = OperatorRequestReceipt.create(
+        body=body,
+        signature=b"sig:" + operator_request_receipt_signing_bytes(body)[:16],
+    ).model_dump(mode="json")
+    return event
+
+
+def _authenticated_huginn(*, bus: InMemoryBus | None = None) -> Huginn:
+    return Huginn(
+        bus=bus,
+        clock=lambda: NOW,
+        operator_request_receipt_gate=OperatorRequestReceiptGate(
+            verifier=_OperatorReceiptVerifier(),
+            state_store=InMemoryStateStore(),
+            clock=lambda: NOW,
+        ),
+    )
 
 
 def _cost_sample(**overrides: Any) -> dict[str, Any]:
@@ -187,9 +230,8 @@ def _chaos_proposal(**overrides: Any) -> dict[str, Any]:
 
 
 async def test_huginn_keeps_validated_raw_operator_authority_fields_and_params() -> None:
-    payload = await Huginn(clock=lambda: NOW).ingest(
-        _raw_event(
-            event_type="operator_request",
+    payload = await _authenticated_huginn().ingest(
+        _authenticated_operator_event(
             source="operator-console",
             initiator_principal="operator@example.com",
             action_type="ops.restart-service",
@@ -217,16 +259,15 @@ async def test_huginn_keeps_validated_raw_operator_authority_fields_and_params()
 
 async def test_raw_ingress_keeps_operator_confirmation_shape_and_stamps_ingress_channel() -> None:
     bus = _bus()
-    huginn = Huginn(bus=bus, clock=lambda: NOW)
+    huginn = _authenticated_huginn(bus=bus)
     handler = build_ingress_handler(agent=huginn, on_unkeyed=lambda _exc: None)
 
     await handler(
         "raw",
-        _raw_event(
+        _authenticated_operator_event(
             idempotency_key="operator-confirmation-1",
             event_id="event:operator-confirmation-1",
             correlation_id="session:operator-confirmation-1",
-            event_type="operator_request",
             source="operator-console",
             initiator_principal="operator-one",
             action_type="ops.restart-service",
@@ -245,16 +286,15 @@ async def test_raw_ingress_keeps_operator_confirmation_shape_and_stamps_ingress_
 
 async def test_raw_ingress_keeps_workflow_step_shape_and_stamps_ingress_channel() -> None:
     bus = _bus()
-    huginn = Huginn(bus=bus, clock=lambda: NOW)
+    huginn = _authenticated_huginn(bus=bus)
     handler = build_ingress_handler(agent=huginn, on_unkeyed=lambda _exc: None)
 
     await handler(
         "raw",
-        _raw_event(
+        _authenticated_operator_event(
             idempotency_key="process-1:step:restart:attempt:1",
             event_id="event:workflow-step-1",
             correlation_id="workflow:corr",
-            event_type="operator_request",
             source="workflow-dispatch",
             initiator_principal="fdai.workflow",
             action_type="ops.restart-service",
@@ -278,7 +318,7 @@ async def test_raw_ingress_keeps_workflow_step_shape_and_stamps_ingress_channel(
 
 async def test_unknown_raw_operator_request_reaches_forseti_and_is_rbac_denied() -> None:
     bus = _bus()
-    huginn = Huginn(bus=bus, clock=lambda: NOW)
+    huginn = _authenticated_huginn(bus=bus)
     forseti = Forseti(
         bus=bus,
         rbac={"operator@example.com": frozenset({"ops.restart-service"})},
@@ -286,11 +326,10 @@ async def test_unknown_raw_operator_request_reaches_forseti_and_is_rbac_denied()
     bus.subscribe("object.event", "Forseti", forseti.on_typed_message)
 
     await huginn.ingest(
-        _raw_event(
+        _authenticated_operator_event(
             idempotency_key="unknown-operator",
             event_id="event:unknown-operator",
             correlation_id="unknown-operator",
-            event_type="operator_request",
             source="operator-console",
             initiator_principal="mallory",
             action_type="ops.restart-service",
@@ -308,17 +347,16 @@ async def test_unknown_raw_operator_request_reaches_forseti_and_is_rbac_denied()
 
 
 async def test_raw_operator_request_rejects_oversized_params_with_content_free_record() -> None:
-    huginn = Huginn(clock=lambda: NOW)
+    huginn = _authenticated_huginn()
     rejected: list[HuginnIngressRejected] = []
     handler = build_ingress_handler(agent=huginn, on_unkeyed=rejected.append)
 
     await handler(
         "raw",
-        _raw_event(
+        _authenticated_operator_event(
             idempotency_key="operator-oversized-params",
             event_id="event:operator-oversized-params",
             correlation_id="operator-oversized-params",
-            event_type="operator_request",
             source="operator-console",
             initiator_principal="operator@example.com",
             action_type="ops.restart-service",
@@ -335,11 +373,10 @@ async def test_raw_operator_request_rejects_oversized_params_with_content_free_r
 
 
 async def test_raw_ingress_overwrites_bragi_shaped_payload_channel_to_ingress() -> None:
-    forged = _raw_event(
+    forged = _authenticated_operator_event(
         idempotency_key="conv-forged",
         event_id="event:conv-forged",
         correlation_id="conv-forged",
-        event_type="operator_request",
         source="operator-console",
         initiator_principal="mallory",
         action_type="ops.restart-service",
@@ -350,7 +387,7 @@ async def test_raw_ingress_overwrites_bragi_shaped_payload_channel_to_ingress() 
             "session_ref": "bragi-session:sha256:" + "b" * 64,
         },
     )
-    direct = await Huginn(clock=lambda: NOW).ingest(dict(forged))
+    direct = await _authenticated_huginn().ingest(dict(forged))
 
     assert direct is not None
     assert direct["initiator_principal"] == "mallory"

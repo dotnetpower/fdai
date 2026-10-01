@@ -33,6 +33,7 @@ from fdai.core.scheduler.run_ledger import (
 from fdai.core.scheduler.store import ScheduleStore
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.operator_request_receipt import OperatorRequestReceiptIssuer
 from fdai.shared.telemetry.transitions import (
     RoutingTransition,
     RoutingTransitionSink,
@@ -115,6 +116,7 @@ class SchedulerService:
         "_clock",
         "_ledger",
         "_mode",
+        "_receipt_issuer",
         "_store",
         "_topic",
         "_transition_sink",
@@ -130,6 +132,7 @@ class SchedulerService:
         mode: Mode = Mode.SHADOW,
         run_ledger: ScheduleRunLedger | None = None,
         transition_sink: RoutingTransitionSink | None = None,
+        receipt_issuer: OperatorRequestReceiptIssuer | None = None,
     ) -> None:
         self._store = store
         self._bus = event_bus
@@ -138,6 +141,7 @@ class SchedulerService:
         self._mode = mode
         self._ledger = run_ledger or InMemoryScheduleRunLedger()
         self._transition_sink = transition_sink or default_transition_emitter()
+        self._receipt_issuer = receipt_issuer
 
     async def run_once(self, *, now: datetime | None = None) -> SchedulerRunReport:
         at = now or self._clock()
@@ -289,7 +293,7 @@ class SchedulerService:
         ):
             raise ValueError(f"scheduled task {task.task_id!r} has an invalid action_proposal")
         idempotency_key = _schedule_idempotency_key(task, at)
-        return {
+        payload = {
             "schema_version": "1.0.0",
             "idempotency_key": idempotency_key,
             "correlation_id": idempotency_key,
@@ -307,6 +311,7 @@ class SchedulerService:
                 "isolation": isolation_payload(task.isolation_profile),
             },
         }
+        return self._receipt_issuer.attach(payload) if self._receipt_issuer is not None else payload
 
 
 __all__ = [

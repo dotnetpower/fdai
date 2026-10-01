@@ -700,6 +700,7 @@ jobs:
               | jq -er '[.[] | select(. == "fdai.pantheon.objects")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical Pantheon-object topic") end'
           )"
           observation_context_binding="null"
+          operator_request_receipt_binding="null"
           rca_reader_identity_binding="null"
           runtime_call_evidence_binding="null"
           stewardship_gitops_binding="null"
@@ -755,6 +756,26 @@ jobs:
               )
             ' <<<"$rca_reader_identity_binding" >/dev/null || {
               echo "Platform state returned an invalid RCA reader identity." >&2
+              exit 1
+            }
+          fi
+          if [[ "$SERVICE" == "core-control-plane" || "$SERVICE" == "operator-service" ]]; then
+            operator_request_receipt_binding="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                output -json operator_request_receipt_binding 2>/dev/null || printf 'null\n'
+            )"
+            jq -e '
+              . == null or (
+                type == "object" and
+                keys == ["core_producer_id", "core_signing_seed_secret_id", "operator_producer_id", "operator_signing_seed_secret_id"] and
+                (.core_signing_seed_secret_id | test("^https://[^/]+/secrets/[^/]+$")) and
+                (.operator_signing_seed_secret_id | test("^https://[^/]+/secrets/[^/]+$")) and
+                (.core_producer_id | test("^[A-Za-z0-9_.:-]{1,128}$")) and
+                (.operator_producer_id | test("^[A-Za-z0-9_.:-]{1,128}$")) and
+                .core_producer_id != .operator_producer_id
+              )
+            ' <<<"$operator_request_receipt_binding" >/dev/null || {
+              echo "Platform state returned an invalid operator_request receipt binding." >&2
               exit 1
             }
           fi
@@ -943,6 +964,10 @@ jobs:
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --binding-json "$observation_context_binding" \
+            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_operator_request_receipts.py" \
+                --service "${{ inputs.service }}" \
+                --environment "${{ inputs.environment }}" \
+                --binding-json "$operator_request_receipt_binding" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_rca_reader_identity.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
