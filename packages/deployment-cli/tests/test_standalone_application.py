@@ -62,10 +62,9 @@ def test_residual_recovery_review_skips_ordinary_replanning(monkeypatch) -> None
 
 
 def test_missing_license_material_keeps_deployment_observation_only(monkeypatch) -> None:
-    monkeypatch.setattr(standalone_application, "discover_license_signing_key", lambda _key: None)
+    monkeypatch.setattr(standalone_application, "discover_license_signing_key", lambda: None)
 
     token = standalone_application._license_token(
-        key=None,
         trial_token=None,
         image_digest="a" * 64,
         deployment_binding="b" * 64,

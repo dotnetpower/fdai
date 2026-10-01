@@ -40,11 +40,23 @@ def _write_key(path: Path, key: Ed25519PrivateKey, *, mode: int = 0o600) -> Path
 def test_expected_roots_cover_every_packaged_role() -> None:
     roots = _module().expected_roots()
 
-    assert set(roots) == {"deployment-release", "deployment-bundle", "license-issuer"}
+    assert set(roots) == {"deployment-release", "deployment-bundle", "integrity"}
     assert all(len(value) == 64 for value in roots.values())
     # The development profile pins one signer for both complete-kit roles.
     assert roots["deployment-release"] == roots["deployment-bundle"]
-    assert roots["license-issuer"] != roots["deployment-release"]
+    assert roots["integrity"] != roots["deployment-release"]
+
+
+def test_integrity_role_is_the_only_license_verification_key() -> None:
+    from fdai_deployment_cli import trust_roots
+
+    module = _module()
+    integrity = (_ROOT / "security/integrity/upstream-signing-key.pub").read_bytes()
+
+    assert trust_roots.license_public_key_pem() == integrity
+    assert module.expected_roots()["integrity"] == module._fingerprint(
+        module._public_bytes(integrity)
+    )
 
 
 def test_unrelated_key_is_reported_as_no_match(tmp_path: Path, capsys) -> None:

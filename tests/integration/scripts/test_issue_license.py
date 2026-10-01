@@ -59,13 +59,12 @@ def test_license_main_writes_canonical_token_without_newline(
     public_key = tmp_path / "public.pem"
     public_key.write_bytes(b"public")
     output = tmp_path / "license.token"
+    monkeypatch.setattr(MODULE, "_ISSUER_PRIVATE_KEY", private_key)
     monkeypatch.setattr(MODULE, "issue_license", lambda **_kwargs: "abc.def")
 
     assert (
         MODULE.main(
             [
-                "--private-key",
-                str(private_key),
                 "--public-key",
                 str(public_key),
                 "--license-id",
@@ -146,13 +145,12 @@ def test_all_capabilities_uses_the_30_day_default(
         captured.update(kwargs)
         return "abc.def"
 
+    monkeypatch.setattr(MODULE, "_ISSUER_PRIVATE_KEY", private_key)
     monkeypatch.setattr(MODULE, "issue_license", capture_issue)
 
     assert (
         MODULE.main(
             [
-                "--private-key",
-                str(private_key),
                 "--public-key",
                 str(public_key),
                 "--license-id",
@@ -200,3 +198,19 @@ def test_full_catalog_token_is_real_and_expires_after_30_days() -> None:
 
     assert claims.not_after - claims.not_before == timedelta(days=30)
     assert "operations.typed-mutation" in claims.capability_ids
+
+
+def test_issuer_reads_only_the_fixed_upstream_integrity_key() -> None:
+    assert ROOT / "secrets/integrity-signing-key.pem" == MODULE._ISSUER_PRIVATE_KEY
+    with pytest.raises(SystemExit):
+        MODULE.main(
+            [
+                "--private-key",
+                "elsewhere.pem",
+                "--license-id",
+                "lic-test",
+                "--distribution-id",
+                "example-distribution",
+                "--all-capabilities",
+            ]
+        )

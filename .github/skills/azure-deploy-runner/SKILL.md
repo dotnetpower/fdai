@@ -40,8 +40,9 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 Current status: the keyless source run stops after Foundation handoff with
 `prebuilt_runtime_artifacts_required` until the
 [source deployment ledger](../../../docs/roadmap-implementation/deployment/source-deployment.md)
-closes its application work packages. The code still verifies licenses with the separate license
-key pair and has no watermark yet. Until then, a holder of the offline-package signing key can
+closes its application work packages. Licenses already verify against the upstream integrity key,
+but a key holder still receives a 30-day token rather than the installation entitlement, and no
+watermark exists yet. Until then, a holder of the offline-package signing key can
 reach the application stage only through the interim
 `fdai-up.sh --source . --signing-key <path>` route, which still builds a signed kit and is
 scheduled for removal. Report that limitation instead of presenting the interim route as the

@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: eebb80e2337a7ff1c7eb3ef1cd4d1139e9eb993f
+translation_source_sha: 795e0c74244c18e17d015678cc886f8924c96b66
 translation_revised: 2026-10-01
 ---
 
@@ -41,8 +41,8 @@ GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에�
 > - 소스 모드 체크포인트는 `scripts/deployment/azure/genesis_approval_prompt.py`가 만드는
 >   `--approval-file`로만 진행합니다.
 > - 아직 어떤 배포 단계도 Trial을 시작하지 않으므로 토큰이 없는 설치는 관찰 전용으로 남습니다.
-> - Core는 아직 별도 라이선스 키 쌍으로 라이선스를 검증하므로 `secrets/integrity-signing-key.pem`은
->   아직 전체 사용권을 선택하지 않으며, 만료 워터마크도 아직 없습니다.
+> - Core는 업스트림 무결성 키로 라이선스를 검증하지만, `secrets/integrity-signing-key.pem`이 있어도 배포는 아직
+>   설치 사용권 대신 30일 토큰을 발급하며, 만료 워터마크도 아직 없습니다.
 > - 이 항목들이 완료될 때까지 오프라인 패키지 서명 키 보유자는 서명된 키트를 여전히 빌드하는
 >   임시 경로 `fdai-up.sh --source . --signing-key <path>`로만 애플리케이션 단계에 도달하며, 이
 >   경로는 제거될 예정입니다.

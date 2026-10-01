@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 3a0128a9df77de6e3d40aafeaff8ad2d34acf651 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fa493c7a1f499e59649708839904b9e7e4921dd5 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d6e1dbc074561f87ee8fa7b3e45bb9f5f29297d3 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fa493c7a1f499e59649708839904b9e7e4921dd5 }]
 ---
 
 # Deploy Quickstart
@@ -42,9 +42,9 @@ GitHub Actions tests the repository. It is not part of either deployment path.
 >   `scripts/deployment/azure/genesis_approval_prompt.py` produces.
 > - No deployment step starts the Trial yet, so an installation without a token stays
 >   observation-only.
-> - Core still verifies licenses with the separate license key pair, so
->   `secrets/integrity-signing-key.pem` doesn't select full entitlement yet, and the expiry
->   watermark doesn't exist yet.
+> - Core verifies licenses with the upstream integrity key, but with
+>   `secrets/integrity-signing-key.pem` the deployment still issues a 30-day token instead of the
+>   installation entitlement, and the expiry watermark doesn't exist yet.
 > - Until those items close, a holder of the offline-package signing key reaches the application
 >   stage only through the interim `fdai-up.sh --source . --signing-key <path>` route, which still
 >   builds a signed kit and will be removed.

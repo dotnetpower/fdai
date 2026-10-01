@@ -163,14 +163,16 @@ Do these before your first `git commit` on the fork.
 
 Never edit a path listed in
 [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt). Definitions under core,
-composition, shared contracts and providers, agents, schemas, and repository instructions are
-upstream-owned. A fork adds implementations, catalog entries, and overlays through the seams in
-its own package.
+composition, shared contracts and providers, agents, the capability-licensing runtime binding and
+trust package, schemas, and repository instructions are upstream-owned. A fork adds
+implementations, catalog entries, and overlays through the seams in its own package.
 
 Use the [Fork Customization skill](../../../.github/skills/fork-customization/SKILL.md) as the
 decision procedure. If no seam exists, open an upstream issue or compose a fork-local wrapper. Do
 not patch the definition. `check-protected-paths.sh` enforces this boundary in fork mode, while the
-signed integrity manifest detects offline framework-surface drift.
+signed integrity manifest detects offline framework-surface drift. Because the same upstream key
+also signs licenses, the checker accepts only the exact manifest shape and rejects every other
+signed document in either mode.
 
 Verify a checkout offline at any time:
 

@@ -23,5 +23,9 @@ services/core-control-plane/src/fdai/composition/
 services/core-control-plane/src/fdai/shared/providers/
 services/core-control-plane/src/fdai/shared/contracts/
 services/core-control-plane/src/fdai/agents/
+# Capability licensing: the runtime binding, the trust verifier, and the packaged
+# upstream integrity public key that verifies every license and entitlement.
+services/core-control-plane/src/fdai/runtime/licensing.py
+services/core-control-plane/src/fdai/delivery/trust/
 rule-catalog/schema/
 .github/instructions/
