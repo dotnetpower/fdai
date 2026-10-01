@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -169,15 +170,21 @@ async def run_ontology_retrieval_campaign(
     clock: Callable[[], datetime],
     total_timeout_seconds: float,
     query_timeout_seconds: float,
+    deadline: float | None = None,
 ) -> OntologyRetrievalCampaignReport:
     """Measure one prepared generation, stopping before holdout on any calibration failure.
 
     Both stages share one monotonic deadline, policy and current-source checks. Preparation
     and document embedding are outside this deadline and need separately bounded authority.
+    An enclosing absolute deadline can only shorten the local timeout.
     Callers must obtain live authorization before supplying a real embedder. Nothing here
     performs a retry, policy adjustment, production qualification or runtime activation.
     """
     _validate_deadlines(total_timeout_seconds, query_timeout_seconds)
+    local_deadline = asyncio.get_running_loop().time() + total_timeout_seconds
+    if deadline is not None and not math.isfinite(deadline):
+        raise ValueError("ontology campaign requires a finite enclosing deadline")
+    deadline = local_deadline if deadline is None else min(deadline, local_deadline)
     calibration_cases, holdout_cases = tuple(calibration_cases), tuple(holdout_cases)
     plan = prepare_ontology_retrieval_campaign(
         build=build,
@@ -190,7 +197,6 @@ async def run_ontology_retrieval_campaign(
     )
     if plan.binding_digest != expected_binding_digest:
         raise ValueError("ontology campaign frozen input binding changed")
-    deadline = asyncio.get_running_loop().time() + total_timeout_seconds
 
     async def measure(
         cases: tuple[OntologyRetrievalEvaluationCase, ...],

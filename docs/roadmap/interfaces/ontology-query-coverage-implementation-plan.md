@@ -409,6 +409,27 @@ not exist or that the peering change caused the symptom.
 | Full vs incremental generation parity | Identical ordered document digests and retrieval cohort outcomes. |
 | Historical replay | Same cutoff resolves the same retained graph and evidence receipts. |
 
+### Bounded retrieval diagnostics
+
+The delivery-owned diagnostic execution path includes source staging and document embeddings
+before frozen calibration and holdout. Callers supply isolated storage, an exact frozen input
+binding and explicit limits: at most 128 embedding calls, 600 seconds overall and five seconds
+per call. Preparation also has a 120-second ceiling inside that same monotonic deadline.
+Calls are counted before dispatch, including failed calls; content-free call counters expose
+progress. Explicit deadline checks reject late returns from non-yielding providers.
+
+Current source is checked before document embedding and again before calibration. Embedding
+space, model version and dimension must match the frozen generation before and after every call.
+Calibration failure prevents holdout. Provider errors, including 429/503 and timeouts, stop the
+attempt without retry. Aborts retain call counts and any completed calibration or partial
+measurement evidence without raw provider errors; parent cancellation propagates.
+
+This path neither discovers credentials nor authorizes live execution. Before supplying a live
+adapter, obtain fresh bounded approval and attest the actual target binding. The caller owns
+storage isolation and cleanup. Results remain diagnostic with `production_qualification=false`;
+the path neither publishes owner events nor activates a runtime pointer. Independent label and
+representativeness review, real relevance qualification and governed activation remain separate.
+
 ## Twenty-round hardening record
 
 The first three landed slices were reviewed through 20 independent critique lenses covering

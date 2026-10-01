@@ -54,6 +54,7 @@ async def _run(
     expected: str | None = None,
     timeout: float = 1,
     query_timeout: float | None = None,
+    deadline: float | None = None,
 ) -> OntologyRetrievalCampaignReport:
     return await run_ontology_retrieval_campaign(
         expected_binding_digest=expected or _plan(harness).binding_digest,
@@ -71,6 +72,7 @@ async def _run(
         clock=lambda: harness.clock.now,
         total_timeout_seconds=timeout,
         query_timeout_seconds=timeout if query_timeout is None else query_timeout,
+        deadline=deadline,
     )
 
 
@@ -211,6 +213,22 @@ async def test_deadline_is_not_reset_for_holdout(monkeypatch: pytest.MonkeyPatch
     assert (await _run(harness)).passed
     assert len(deadlines) == 2
     assert deadlines[0] == deadlines[1]
+
+
+@pytest.mark.parametrize("deadline", [float("nan"), float("inf"), float("-inf")])
+async def test_nonfinite_enclosing_deadline_is_rejected_without_query(deadline: float) -> None:
+    harness = await _harness(extra_cases=_calibration())
+    with pytest.raises(ValueError, match="finite enclosing deadline"):
+        await _run(harness, deadline=deadline)
+    assert harness.embedder.calls == 0
+
+
+async def test_expired_enclosing_deadline_cannot_be_renewed_by_local_timeout() -> None:
+    harness = await _harness(extra_cases=_calibration())
+    with pytest.raises(OntologyRetrievalCampaignAbortedError) as failure:
+        await _run(harness, deadline=asyncio.get_running_loop().time() - 1)
+    assert failure.value.completed == ()
+    assert harness.embedder.calls == 0
 
 
 @pytest.mark.parametrize("total_timeout", [1, 3])
