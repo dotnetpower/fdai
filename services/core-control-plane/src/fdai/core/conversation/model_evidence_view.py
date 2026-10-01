@@ -187,12 +187,25 @@ def adaptive_model_evidence_content(
 
 
 def _allowed_cells(values: dict[str, Any]) -> dict[str, object]:
-    allowed = _LINK_EVIDENCE_ALLOWLIST if _is_link_row(values) else _CELL_ALLOWLIST
+    if _is_link_row(values):
+        return _scalar_cells(values, _LINK_EVIDENCE_ALLOWLIST)
+    cells = _scalar_cells(values, _CELL_ALLOWLIST)
+    # An ObjectSet row nests its readable properties; allowlisted scalars are lifted, and
+    # the provider bag inside them stays out because it is a provider body.
+    nested = values.get("properties")
+    if isinstance(nested, dict):
+        for key, value in _scalar_cells(nested, _CELL_ALLOWLIST).items():
+            cells.setdefault(key, value)
+    object_type = values.get("object_type")
+    if isinstance(object_type, str) and nested is not None:
+        cells["object_type"] = object_type
+    return cells
+
+
+def _scalar_cells(values: dict[str, Any], allowed: frozenset[str]) -> dict[str, object]:
     cells: dict[str, object] = {}
     for key, value in values.items():
-        if key not in allowed:
-            continue
-        if isinstance(value, (dict, list)):
+        if key not in allowed or isinstance(value, (dict, list)):
             continue
         try:
             json.dumps(value, allow_nan=False)

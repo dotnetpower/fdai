@@ -61,3 +61,42 @@ def test_model_evidence_view_excludes_hidden_endpoints_and_unreviewed_fields() -
     assert "visible-name" in encoded
     assert "server_inventory_graph" in encoded
     assert "inventory_graph" in encoded
+
+
+def test_an_object_set_row_lifts_reviewed_properties_but_never_the_provider_bag() -> None:
+    view = model_evidence_view_from_tables(
+        (
+            QueryTable(
+                rows=(
+                    QueryRow.from_values(
+                        "vm-1",
+                        {
+                            "id": "/subscriptions/hidden/vm-1",
+                            "object_type": "Resource",
+                            "properties": {
+                                "name": "vm-app-01",
+                                "type": "compute.vm",
+                                "location": "koreacentral",
+                                "parent_id": "/subscriptions/hidden/rg",
+                                "properties": {"admin_password": "do-not-send"},
+                            },
+                        },
+                    ),
+                ),
+                complete=True,
+            ),
+        ),
+        authorities=(EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+        release_digest=RELEASE_DIGEST,
+    )
+
+    (row,) = view.as_payload()["rows"]  # type: ignore[misc]
+    assert row["cells"] == {  # type: ignore[index]
+        "location": "koreacentral",
+        "name": "vm-app-01",
+        "object_type": "Resource",
+        "type": "compute.vm",
+    }
+    encoded = view.canonical_json()
+    assert "do-not-send" not in encoded
+    assert "/subscriptions/hidden" not in encoded
