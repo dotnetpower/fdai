@@ -222,6 +222,25 @@ class DeliveryDaemon:
         self._record("waiting_for_pr_head")
         return False
 
+    def _base_carries_head(self, base_ref: str) -> bool:
+        """Return whether the fetched base already contains the topic head or its exact tree.
+
+        Strict branch protection merges only an up-to-date head, so such a base moved
+        because this pull request merged, and there is nothing to synchronize.
+        """
+        contained = self.runner(
+            ("git", "merge-base", "--is-ancestor", "HEAD", base_ref),
+            self.config.worktree,
+            60,
+        )
+        if contained.returncode == 0:
+            return True
+        if contained.returncode != 1:
+            raise DeliveryError("could not compare the topic head with the base")
+        head_tree = git(self.runner, self.config, "rev-parse", "HEAD^{tree}")
+        base_tree = git(self.runner, self.config, "rev-parse", f"{base_ref}^{{tree}}")
+        return head_tree == base_tree
+
     def _sync_base(self, previous_pr_head: str) -> None:
         """Merge the latest base locally, push without force, and verify exact SHA."""
         self._record("syncing_base")
@@ -233,6 +252,13 @@ class DeliveryDaemon:
         )
         git(self.runner, self.config, "fetch", "--quiet", self.config.remote, refspec, timeout=120)
         base_ref = f"refs/remotes/{self.config.remote}/{self.config.base_branch}"
+        if self._base_carries_head(base_ref):
+            # GitHub can report BEHIND after this pull request merged; never recreate its branch.
+            self._record("base_carries_head")
+            return
+        if self._remote_topic_head() != git(self.runner, self.config, "rev-parse", "HEAD"):
+            self._record("topic_branch_changed")
+            return
         merge = self.runner(
             ("git", "merge", "--no-edit", base_ref),
             self.config.worktree,
