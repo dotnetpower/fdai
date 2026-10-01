@@ -10,6 +10,7 @@ packages under `benchmarks/`.
 |------|---------|
 | `golden-dataset/` | 280 English/Korean cloud-operations question pairs with 35 semantic, runtime-context, ontology traversal, evidence, limitation, and authority expectations. |
 | `ontology-reasoning/` | 60 English/Korean reasoning cases with gold closed question forms and reviewed outcomes on a generic fixture graph, for the [ontology reasoning compiler](../docs/roadmap/interfaces/ontology-reasoning-compiler.md). |
+| `ontology-retrieval/` | 24 synthetic instances across four current ObjectType schemas, 24 calibration questions, and 64 separately authored English/Korean holdout questions. Offline admission checks sample floors and frozen inputs; no live quality or production qualification is claimed. |
 
 Evaluation assets contain no customer observations, fixed operational answers, credentials, or
 execution authority. A runner should resolve each question against the exact principal-scoped
@@ -20,6 +21,15 @@ The golden dataset uses generic Azure resource-family and relationship shapes wi
 subscription identifiers, resource names, resource groups, endpoints, or provider payloads. Its
 runtime-context field distinguishes implemented incident binding and server scope from questions
 that must first clarify an exact target.
+
+The instance-retrieval diagnostic includes nearby service/workload distractors and Incident
+status/severity contrasts. Each language has positive, negative, ambiguous and adversarial cohorts;
+the held-out set requires four samples for each measured metric and four distinct positive targets
+per ObjectType. The candidate ranking policy is an unqualified hypothesis, not the runtime policy.
+Its 116-call plan includes 28 document embeddings, 24 calibration queries and 64 held-out queries,
+below the proposed 128-call ceiling. These assets grant no live-call permission. Independent review,
+representativeness against the intended operating scope, observed model binding and fresh bounded
+authorization remain prerequisites; a failed calibration must not open the holdout run.
 
 ## Testing
 
@@ -33,4 +43,11 @@ Check every reasoning gold form against its reviewed outcome and execute each co
 
 ```bash
 uv run pytest -q --no-cov services/core-control-plane/tests/conversation/test_semantic_reasoning_cohort.py
+```
+
+Validate the instance-retrieval data against current declarations and the offline admission gate,
+without any model or provider calls:
+
+```bash
+uv run pytest -q --no-cov services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_assets.py
 ```
