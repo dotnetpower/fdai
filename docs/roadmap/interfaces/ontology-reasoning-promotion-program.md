@@ -92,6 +92,12 @@ Production composition binds both readers through the resolved model manifest un
 budget. Each directional turn records latency and token cost, split between one-reader and
 two-reader turns.
 
+**Implementation note (2026-10-01):** Every shadow turn now carries a content-free direction cost
+receipt, and logs it as `semantic_direction_cost`. The receipt counts one or two readers, with the
+calls, input bytes, output tokens, and wall time that the turn's reservation ledger reconciled. The
+readers bind today only with compiled answers, which run only in the local venue, so they reach
+production composition with the production shadow setting of P1.
+
 **Exit:** both readers run in the production composition, and a latency and cost receipt covers a
 sampled production window for each turn type.
 

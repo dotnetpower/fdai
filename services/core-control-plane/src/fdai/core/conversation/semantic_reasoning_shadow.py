@@ -20,6 +20,7 @@ from typing import Any, Literal, Protocol, cast
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
+from .semantic_direction_receipt import DirectionCostReceipt, direction_cost_receipt
 from .semantic_reasoning_admission import (
     AdmissionDisposition,
     FormAdmission,
@@ -69,6 +70,7 @@ from .semantic_reasoning_shape import form_shape
 from .turn_reservations import (
     TurnReservationLedger,
     bind_turn_reservations,
+    current_ledger,
     plan_capacity,
     shadow_reservation_plan,
 )
@@ -191,6 +193,8 @@ class ReasoningShadowObservation:
     execution_authority: Literal[False] = False
     notes: tuple[str, ...] = field(default=())
     compilations: tuple[ReasoningCompilation, ...] = field(default=(), repr=False)
+    # Content-free cost of the turn's direction readers, split by reader count.
+    direction_cost: DirectionCostReceipt | None = None
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -236,6 +240,7 @@ class _CountingModel:
         self.concept_calls = 0
         self.review_calls = 0
         self.direction_calls = 0
+        self.tiebreak_calls = 0
 
     @property
     def calls(self) -> int:
@@ -255,6 +260,7 @@ class _CountingModel:
 
     async def check_direction(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.direction_calls += 1
+        self.tiebreak_calls += 1 if kwargs.get("tiebreak") else 0
         return await self._inner.check_direction(**kwargs)
 
 
@@ -473,12 +479,20 @@ async def run_reasoning_shadow(
             review_reasons=review.reasons if review is not None else (),
             notes=tuple(notes),
             compilations=tuple(compilations),
+            direction_cost=_direction_cost(counting),
         )
     finally:
         # A cancelled or failed turn never leaves the extraction's provider call running.
         if not extraction.done():
             extraction.cancel()
         await asyncio.gather(extraction, return_exceptions=True)
+
+
+def _direction_cost(counting: _CountingModel) -> DirectionCostReceipt | None:
+    ledger = current_ledger()
+    if ledger is None:
+        return None
+    return direction_cost_receipt(ledger, tiebreak_calls=counting.tiebreak_calls)
 
 
 def _generation_drifted(pinned: tuple[str, ...], observed: tuple[str, ...]) -> bool:

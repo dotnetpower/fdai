@@ -308,6 +308,12 @@ async def bind_turn_reservations(ledger: TurnReservationLedger) -> AsyncIterator
         ledger.cancel()
 
 
+def current_ledger() -> TurnReservationLedger | None:
+    """Return the ledger bound to this context, if any."""
+
+    return _LEDGER.get()
+
+
 def reserve_call(label: str, *, input_bytes: int, output_tokens: int) -> StageReservation | None:
     """Reserve one physical model request under the bound ledger, if one is bound."""
 
@@ -346,6 +352,7 @@ __all__ = [
     "TurnReservationLedger",
     "TurnStage",
     "bind_turn_reservations",
+    "current_ledger",
     "fail_call",
     "plan_capacity",
     "reconcile_call",
