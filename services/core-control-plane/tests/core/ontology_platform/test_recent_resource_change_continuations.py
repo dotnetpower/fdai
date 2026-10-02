@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
 from fdai.core.ontology_platform.functions import FunctionInvocationContext
@@ -11,6 +12,7 @@ from fdai.core.ontology_platform.recent_resource_change_continuations import (
     ContinuationInvalidError,
     InMemoryRecentResourceChangeContinuationStore,
     RecentResourceChangeContinuationIssuer,
+    RecentResourceChangeContinuationRequest,
 )
 
 NOW = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
@@ -157,3 +159,70 @@ async def test_concurrent_requests_can_claim_a_continuation_only_once() -> None:
 
     assert sum(isinstance(result, ContinuationInvalidError) for result in results) == 1
     assert sum(not isinstance(result, Exception) for result in results) == 1
+
+
+@pytest.mark.asyncio
+async def test_single_claim_winner_advances_to_one_successor_reference() -> None:
+    store = InMemoryRecentResourceChangeContinuationStore()
+    issuer = RecentResourceChangeContinuationIssuer(
+        store=store,
+        binding=_binding(),
+        clock=lambda: NOW,
+    )
+    continuation_ref = await issuer.issue(
+        context=_context(),
+        start_at=NOW - timedelta(days=1),
+        end_at=NOW,
+        known_at=NOW,
+        query_version_digest=DIGEST,
+        page_size=20,
+        cursor=_Cursor(NOW - timedelta(minutes=1), "resource-020"),
+        remaining_rows=7,
+    )
+
+    results = await asyncio.gather(
+        *(
+            issuer.request(
+                continuation_ref=continuation_ref,
+                context=_context(),
+                page_size=20,
+                query_version_digest=DIGEST,
+            )
+            for _ in range(2)
+        ),
+        return_exceptions=True,
+    )
+    (winner_result,) = [result for result in results if not isinstance(result, Exception)]
+    winner = cast(RecentResourceChangeContinuationRequest, winner_result)
+
+    successor_ref = await winner.issuer.advance(
+        previous_ref=winner.continuation_ref,
+        context=winner.context,
+        continuation=winner.continuation,
+        cursor=_Cursor(NOW - timedelta(minutes=2), "resource-021"),
+        remaining_rows=6,
+        page_size=20,
+    )
+
+    assert successor_ref != continuation_ref
+    with pytest.raises(ContinuationInvalidError):
+        await issuer.request(
+            continuation_ref=continuation_ref,
+            context=_context(),
+            page_size=20,
+            query_version_digest=DIGEST,
+        )
+    successor = await issuer.request(
+        continuation_ref=successor_ref,
+        context=_context(),
+        page_size=20,
+        query_version_digest=DIGEST,
+    )
+    assert successor.cursor_subject_ref == "resource-021"
+    with pytest.raises(ContinuationInvalidError):
+        await issuer.request(
+            continuation_ref=successor_ref,
+            context=_context(),
+            page_size=20,
+            query_version_digest=DIGEST,
+        )
