@@ -7,7 +7,10 @@ import re
 import shutil
 import subprocess
 import sys
+import importlib
 from pathlib import Path
+
+from fdai_service_contracts.product_profile import ProductAddOn
 
 from fdai_deployment_cli.aks_preflight import inspect_aks_target
 from fdai_deployment_cli.contracts import load_json_object
@@ -70,6 +73,7 @@ def plan_source_installation(
         monthly_cost_ceiling=monthly_cost_ceiling,
     )
     source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
+    _require_unique_entra_display_names(runtime_profile, source.root / "scripts/deployment/azure")
     preflight = inspect_aks_target(
         profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
     )
@@ -334,3 +338,27 @@ def _capture(
             "source planning stage failed; preserve private state and do not repeat effects"
         )
     return load_json_object(result.stdout, label="source planning result", max_bytes=1024 * 1024)
+
+
+def _require_unique_entra_display_names(
+    profile: RuntimeDeploymentProfile,
+    scripts: Path,
+) -> None:
+    product = profile.product_profile
+    if not (
+        product.selects(ProductAddOn.READ_ONLY_CONSOLE)
+        or product.selects(ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE)
+    ):
+        return
+    sys.path.insert(0, str(scripts))
+    try:
+        genesis_entra = importlib.import_module("genesis_entra")
+        check = getattr(genesis_entra, "check_unique_display_names", None)
+        if callable(check):
+            check()
+            return
+        plan_entra = getattr(genesis_entra, "plan_entra", None)
+        if callable(plan_entra):
+            plan_entra()
+    finally:
+        sys.path.remove(str(scripts))

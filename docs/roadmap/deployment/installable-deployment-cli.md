@@ -537,6 +537,19 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl offline install-support` | Install optional migration support from local wheels | No |
 | `fdaictl license inspect` | Verify a capability token, or an installation entitlement against both exact bindings, without a network call | No |
 
+### Entra display-name ambiguity preflight
+
+**Decision and critique:** Installations that select `read-only-console` or
+`enterprise-identity-governance` use one tenant-local shared set of Entra registrations and groups,
+resolved only by unique exact display name. Earlier alternatives would have guessed among duplicate
+registrations, generated installation-scoped names, or introduced an explicit binding file. Guessing
+can break a running Console, installation-scoped names would fork the shared tenant contract, and a
+binding file needs a separate owner-review flow. The revised contract therefore performs a read-only
+preflight before the first Azure effect: duplicate `fdai-api`, `fdai-console-spa`,
+`fdai-approval-bot`, or `aw-*` display names stop the run with a fixed ambiguity reason. The
+operator resolves the tenant by renaming or removing the extra registration, then reruns the same
+installation.
+
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.
 Live onboarding uses `provision azure`; `onboard guided` is simulation-only.

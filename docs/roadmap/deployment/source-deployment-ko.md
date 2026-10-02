@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 295328e581b19dd44268c7bf5c6a196f91aa8d00
-translation_revised: 2026-10-01
+translation_source_sha: a2a9a658fae16c4a729d04ea337eec2d8c00ab99
+translation_revised: 2026-10-02
 ---
 
 # 단일 명령 소스 배포
@@ -64,6 +64,12 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 숨길 수 없는 영구 만료 워터마크를 모든 Console 화면에 표시합니다. 소스 경로는 이미지를 배포
 안으로 직접 빌드하고 서명된 릴리스 산출물을 만들지 않습니다. 키가 있지만 사용할 수 없으면
 조용히 Trial을 선택하지 않고 첫 Azure 영향 전에 실행을 멈춥니다.
+
+소스 배포가 `read-only-console` 또는 `enterprise-identity-governance`를 선택하면 Foundation 준비
+전에 테넌트 로컬 Entra 표시 이름도 확인합니다. FDAI는 정확한 표시 이름으로 확인되는 테넌트
+로컬 공유 세트 하나에 바인딩됩니다. `fdai-*` 애플리케이션 또는 `aw-*` 그룹 이름이 중복되면
+소스 실행은 Azure에 어떤 영향도 주기 전에 고정된 모호성 이유로 멈춥니다. 명령은 추측하거나,
+설치 범위 이름을 만들거나, 검토되지 않은 바인딩 파일을 받지 않습니다.
 
 ## 명령 실행
 
