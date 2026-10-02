@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 8a91c45268472bf2b7aed5edd7b621e987398553
+translation_source_sha: ba5b8d18660993d3fda9c42c8bd7532aa9714e67
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -606,12 +606,12 @@ CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하�
 사용자 노드 최소 4개는 이 프로파일의 스케줄 가능성을 위한 값이며,
 데이터베이스 고가용성, 백업 또는 특정 시점 복구를 의미하지 않습니다.
 
-클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN만 기록합니다. AKS 문서 수집이 읽는 역할별
-DSN은 아직 기록하지 않습니다. 읽기 전용 Console을 선택하면 이 수집이 켜지므로, #1762에서 해당
-DSN을 추가할 때까지 `postgres-aks`는 Console 추가 기능을 거부합니다. 기반 구성 플랜도 수집 DSN
-비밀과 그 읽기 역할을 제외합니다. Terraform `-target`은 count가 0인 대상이라도 구성 의존성을 모두
-유지하므로, 이 항목이 하나라도 포함되면 `module.state_store`를 통해 Flexible Server가 플랜에
-들어가기 때문입니다.
+클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN과 AKS 문서 수집이 읽는 역할 범위
+`fdai-ingestion-api-dsn`, `fdai-ingestion-worker-dsn` 비밀을 기록합니다. 각 수집 비밀은 일치하는
+워크로드 신원에만 `Key Vault Secrets User`를 부여합니다. `postgres-aks`를 선택하면 기반 구성
+플랜은 여전히 Flexible Server 기반 수집 DSN 비밀과 그 읽기 역할을 제외합니다. Terraform
+`-target`은 count가 0인 대상이라도 구성 의존성을 모두 유지하므로, 루트 비밀이 포함되면
+`module.state_store`를 통해 Flexible Server가 플랜에 들어가기 때문입니다.
 
 Key Vault DSN에는 별도의 고정 만료일을 두지 않습니다. 자격 증명을 교체하려면 데이터베이스와
 워크로드를 함께 갱신해야 합니다. 비밀 값만 만료시키면 데이터베이스 자격 증명은 바뀌지 않은 채

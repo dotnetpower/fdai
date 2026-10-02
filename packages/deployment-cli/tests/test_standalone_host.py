@@ -3737,3 +3737,12 @@ def test_aks_runtime_configuration_binds_consumer_scoped_dsns_and_roles() -> Non
         "azurerm_role_assignment.ingestion_eventhubs_sender",
     ):
         assert address in targets
+
+
+def test_postgres_aks_database_stage_passes_ingestion_principals() -> None:
+    source = Path(standalone_host.__file__).read_text(encoding="utf-8")
+
+    assert '"ingestion_api_principal_id": str(ingestion_identity["principal_id"])' in source
+    assert (
+        '"ingestion_worker_principal_id": str(ingestion_worker_identity["principal_id"])' in source
+    )

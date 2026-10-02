@@ -23,6 +23,16 @@ variable "runtime_principal_ids" {
   type        = set(string)
 }
 
+variable "ingestion_api_principal_id" {
+  description = "Document Ingestion API workload identity principal id."
+  type        = string
+}
+
+variable "ingestion_worker_principal_id" {
+  description = "Document Processing Worker workload identity principal id."
+  type        = string
+}
+
 variable "namespace" {
   description = "Namespace dedicated to the compact non-production database."
   type        = string
