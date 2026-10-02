@@ -210,6 +210,23 @@ capture. Local development diagnostics retain bounded per-call durations and inp
 counts for grounding as well as their grouped summary; omitted call details are counted explicitly.
 Neither diagnostic capture nor a missing usage field manufactures token or billing evidence.
 
+### Bounded optimization evidence (2026-10-02)
+
+The first exact-source reevaluation on `e5c82e7e4f` made four fresh first-turn database list/count
+requests in English and Korean. Three answered with consistent verified claims and incomplete
+source evidence; the English count held on independent `resource_class` concept disagreement.
+No failed case was counted as success. The identical Korean list used 26,428 total tokens and
+10,535 ms server time versus the retained 49,105-token, 10,807 ms baseline.
+
+After bounded two-shard concurrency, the final source `66a49cb735` answered one additional list
+pair with 5/5 supported claims. Korean used 25,673 total tokens and 13,374 ms; English used
+26,405 tokens and 8,367 ms. The preceding serial English list took 14,141 ms. Input token
+reduction is supported by turn metadata, and content-free decision traces confirmed zero
+duplicate capability judgments. Korean wall time regressed, so no uniform speedup, monetary
+saving, latency distribution, or SLO qualification is claimed. Evidence snapshots changed over
+time and provider latency was not controlled. Final focused runtime checks passed 918 cases;
+Console accounting checks passed 66 cases. No provider failure was retried.
+
 ## Synthetic chat and prompt inspection
 
 The [adaptive response](../../../mocks/ui/deck-sources-v2.html) and
@@ -434,6 +451,7 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-02 | implemented | Completed certified typed-only read reuse, opaque complete catalog packing, recorded call metrics and bounded two-shard waves, then reevaluated four fixed cases and one final bilingual list pair. | `0cd7ab82c1`, `32833c7dea`; final measured source `66a49cb735`; [bounded results](#bounded-optimization-evidence-2026-10-02); 918 focused runtime and 66 Console accounting checks passed. | Korean end-to-end latency remains variable and the English count concept disagreement remains held. Retain a controlled paired cohort before claiming uniform speed, money or SLO improvement. |
 | 2026-10-02 | implemented | Removed unused typed-only legacy grounding, reused exact closed concept choices within one run, losslessly compacted complete catalog prompts, and separated elapsed/cumulative timing and input/output tokens in the work record. | `current change`; grounding, shadow, concept, masking, and compiled-answer cohort: 380 passed; Console performance projection: 11 passed; bilingual focused Playwright: 2 passed across 1440, 993, and 390 CSS pixel widths. | Retain an explicitly authorized same-source live comparison before claiming measured latency, billed-token, or cost improvement; no live model request or model setting change was made. |
 | 2026-10-01 | implemented | Kept narrator preference route assembly in the preference owner while Operator composition adds service-owned routes. The Settings projection remains sanitized and `personalizes_t2_bindings` stays false. | `current change`; `fdai_operator_service/composition_routes.py`; focused Operator route-count evidence. | Retain deployed startup-source and runtime timing receipts before raising this area to `validated`. |
 | 2026-09-27 | implemented | Verified the revision-fenced narrator preference write, audit record, and restart readback against the service-owned loopback PostgreSQL validation database after normalizing its private SQLAlchemy DSN for the psycopg fixture. | `current change`; `test_narrator_preference_commits_with_audit_and_survives_new_connection` passed against the prepared local validation database; PR #1458 source and required CI evidence remain unchanged. | Retain separate deployed startup-source and runtime timing receipts before raising this area to `validated`. |

@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 6469800036d82371602bd0669e27bf039dea2ec2
+translation_source_sha: 0be5395ed1b6a49d1b20abd48dbf46792372d4b5
 translation_revised: 2026-10-02
 ---
 # 서술기 라우팅과 지연 시간
@@ -202,6 +202,22 @@ Command Deck의 실행 기록은 서버 경과 시간과 모델 호출 누적 �
 진단은 근거화 합계와 함께 범위가 제한된 호출별 시간, 입력/출력 토큰 수를 보존하고,
 생략된 호출 상세 수를 명시적으로 집계합니다. 진단 수집이나 없는 사용량 필드가 토큰 또는
 청구 근거를 만들어내지는 않습니다.
+
+### 제한된 최적화 근거 (2026-10-02)
+
+첫 번째 실제 소스 재평가는 `e5c82e7e4f`에서 영문·한글 데이터베이스 목록·개수 질문 네 개를
+각각 새 대화의 첫 요청으로 수행했습니다. 세 요청은 일치하는 검증된 주장과 불완전한 출처
+근거로 답했고, 영문 개수 요청은 독립 판독기의 `resource_class` 개념 불일치로 보류했습니다.
+실패 사례를 성공으로 집계하지 않았습니다. 동일한 한글 목록은 전체 26,428토큰과 서버
+10,535ms를 사용했으며, 보존된 기준선은 49,105토큰과 10,807ms였습니다.
+
+제한된 두 샤드 동시 처리 뒤 최종 소스 `66a49cb735`는 목록 한 쌍을 추가로 수행해 5/5
+주장을 검증했습니다. 한글은 전체 25,673토큰과 13,374ms, 영문은 26,405토큰과 8,367ms를
+사용했습니다. 앞선 직렬 영문 목록은 14,141ms였습니다. 입력 토큰 감소는 턴 메타데이터가
+뒷받침하며, 본문 없는 결정 추적은 중복 기능 판단 0회를 확인했습니다. 한글 경과 시간은
+늘었으므로 일괄 속도 향상, 금액 절감, 지연 분포, SLO 검증을 주장하지 않습니다. 근거
+스냅샷은 시간에 따라 달라졌고 공급자 지연은 통제하지 않았습니다. 최종 집중 런타임 검사
+918개와 Console 계측 검사 66개가 통과했습니다. 공급자 실패를 재시도하지 않았습니다.
 
 ## 합성 대화 및 프롬프트 확인
 
@@ -424,6 +440,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-02 | implemented | 확인된 `typed_only` 읽기 재사용, 불투명한 전체 카탈로그 표현, 기록된 호출 계측, 제한된 두 샤드 동시 처리를 완료하고 고정 질문 네 개와 최종 이중 언어 목록 한 쌍을 재평가했습니다. | `0cd7ab82c1`, `32833c7dea`; 최종 측정 소스 `66a49cb735`; [제한된 결과](#제한된-최적화-근거-2026-10-02); 집중 런타임 918개와 Console 계측 66개 검사 통과. | 한글 전체 지연은 변동이 있고 영문 개수의 개념 불일치는 보류 상태입니다. 일괄 속도, 금액, SLO 개선을 주장하기 전에 통제된 전후 비교 집합을 보존합니다. |
 | 2026-10-02 | implemented | `typed_only`에서 사용하지 않는 기존 근거화를 제거하고, 한 처리 안에서 정확히 같은 닫힌 개념 선택을 재사용하며, 전체 카탈로그 프롬프트를 무손실 압축하고, 실행 기록에서 경과/누적 시간과 입력/출력 토큰을 분리했습니다. | `current change`; 근거화, 질문 구조, 개념, 마스킹, 컴파일 답변 검사 380개 통과; Console 성능 표시 검사 11개 통과; 이중 언어 집중 Playwright 시나리오 2개가 1440, 993, 390 CSS 픽셀 폭에서 통과했습니다. | 측정된 지연 시간, 청구 대상 토큰, 비용 개선을 주장하기 전에 명시적으로 승인된 동일 소스의 실제 비교를 보존합니다. 새 모델 요청이나 모델 설정 변경은 하지 않았습니다. |
 | 2026-10-01 | implemented | Operator composition이 service-owned route를 추가하는 동안 narrator preference route assembly를 preference 소유자 안에 유지했습니다. Settings projection은 계속 sanitized 상태이며 `personalizes_t2_bindings`는 false로 남습니다. | `current change`; `fdai_operator_service/composition_routes.py`; focused Operator route-count 근거. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 보존합니다. |
 | 2026-09-27 | implemented | 비공개 SQLAlchemy DSN을 psycopg fixture 형식으로 내부 정규화한 뒤 서비스 소유 loopback PostgreSQL 검증 데이터베이스에서 개정 번호로 제한된 서술기 선호 설정 쓰기, 감사 기록 및 재시작 readback을 검증했습니다. | `current change`; 준비된 로컬 검증 데이터베이스에서 `test_narrator_preference_commits_with_audit_and_survives_new_connection` 통과, PR #1458의 소스 및 required CI 근거는 변경되지 않았습니다. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 별도로 보존합니다. |
