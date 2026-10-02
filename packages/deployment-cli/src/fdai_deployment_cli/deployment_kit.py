@@ -127,6 +127,7 @@ def _acquire_deployment_kit(
     """Acquire under the work-directory lock and authenticate before returning any paths."""
 
     kit_root = work_dir / "kit"
+    retained_offline_kit_root: Path | None = None
     legacy_cache = False
     if online:
         default_url = default_online_kit_url()
@@ -157,6 +158,7 @@ def _acquire_deployment_kit(
             kit_root = source
         elif stat.S_ISREG(details.st_mode):
             if path_present(kit_root):
+                retained_offline_kit_root = kit_root
                 kit_root = Path(tempfile.mkdtemp(prefix="offline-source-", dir=work_dir)) / "kit"
             _extract_kit_archive(source, kit_root)
         else:
@@ -192,7 +194,26 @@ def _acquire_deployment_kit(
     materialized = work_dir / "verified"
     if path_present(materialized):
         progress_detail("Rechecking every retained verified artifact")
-        artifacts = verify_retained_artifacts(materialized, verification)
+        try:
+            artifacts = verify_retained_artifacts(materialized, verification)
+        except ValueError:
+            if retained_offline_kit_root is None:
+                raise
+            _rotate_retained_offline_snapshot(
+                work_dir=work_dir,
+                retained_kit_root=retained_offline_kit_root,
+                retained_materialized=materialized,
+                new_kit_root=kit_root,
+                new_verification=verification,
+            )
+            kit_root = work_dir / "kit"
+            progress_detail("Materializing verified artifacts from the new signed kit")
+            artifacts = materialize_verified_artifacts(
+                kit_root,
+                verification,
+                materialized,
+                include_all=True,
+            )
     else:
         progress_detail("Materializing verified artifacts")
         artifacts = materialize_verified_artifacts(
@@ -269,9 +290,13 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
         )
     if destination.exists() or destination.is_symlink():
         digest = _sha256_private_file(destination)
-        if _archive_binding(destination) != _expected_archive_binding(kit, digest):
-            raise ValueError("existing deployment kit transport archive is invalid")
-        return digest
+        binding = _archive_binding(destination)
+        if binding.get("archive_sha256") != digest:
+            raise ValueError("deployment kit transport binding is invalid")
+        if binding != _expected_archive_binding(kit, digest):
+            _rotate_transport_archive(destination, binding)
+        else:
+            return digest
     descriptor = os.open(
         destination,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -331,6 +356,101 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
         + "\n",
     )
     return digest
+
+
+def _rotate_retained_offline_snapshot(
+    *,
+    work_dir: Path,
+    retained_kit_root: Path,
+    retained_materialized: Path,
+    new_kit_root: Path,
+    new_verification: OfflineKitVerification,
+) -> None:
+    """Move a previously verified offline kit aside before accepting a newer kit."""
+
+    old_verification = verify_offline_kit(
+        retained_kit_root,
+        release_root_pem=deployment_release_root_pem(),
+        cli_version=__version__,
+        platform_tag=runtime_platform_tag(),
+    )
+    if (
+        old_verification.deployment_root_required
+        or path_present(retained_kit_root / ROOT_MANIFEST_NAME)
+        or path_present(retained_kit_root / ROOT_SIGNATURE_NAME)
+    ):
+        verify_root_manifest(
+            retained_kit_root,
+            release_root_pem=deployment_release_root_pem(),
+            expected_profile="offline",
+        )
+    verify_retained_artifacts(retained_materialized, old_verification)
+    if old_verification.manifest_digest == new_verification.manifest_digest:
+        raise ValueError(
+            "retained deployment kit snapshot differs or is incomplete; preserve it for review"
+        )
+    review = _unique_private_review_dir(
+        work_dir / "retained-kit-review",
+        f"{old_verification.manifest_digest[:16]}-to-{new_verification.manifest_digest[:16]}",
+    )
+    os.rename(retained_kit_root, review / "kit")
+    os.rename(retained_materialized, review / "verified")
+    write_private_output(
+        review / "rotation.json",
+        json.dumps(
+            {
+                "schema_version": "fdai.retained-kit-rotation.v1",
+                "previous_kit_manifest_digest": old_verification.manifest_digest,
+                "new_kit_manifest_digest": new_verification.manifest_digest,
+                "reason": "offline-kit-upgrade",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+    )
+    os.rename(new_kit_root, work_dir / "kit")
+
+
+def _rotate_transport_archive(destination: Path, binding: dict[str, str]) -> None:
+    """Preserve the previous managed-host transport archive before writing a new one."""
+
+    digest = binding["archive_sha256"]
+    review = _unique_private_review_dir(
+        destination.parent / "standalone-kit-review",
+        digest[:16],
+    )
+    sidecar = destination.with_suffix(destination.suffix + ".sha256")
+    os.rename(destination, review / destination.name)
+    os.rename(sidecar, review / sidecar.name)
+    write_private_output(
+        review / "rotation.json",
+        json.dumps(
+            {
+                "schema_version": "fdai.standalone-kit-transport-rotation.v1",
+                "previous_archive_sha256": digest,
+                "previous_kit_manifest_digest": binding["kit_manifest_digest"],
+                "previous_bundle_manifest_digest": binding["bundle_manifest_digest"],
+                "previous_runtime_release_digest": binding["runtime_release_digest"],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+    )
+
+
+def _unique_private_review_dir(root: Path, stem: str) -> Path:
+    root.mkdir(mode=0o700, exist_ok=True)
+    root.chmod(0o700)
+    for suffix in ("", *[f"-{index}" for index in range(1, 1000)]):
+        candidate = root / f"{stem}{suffix}"
+        try:
+            candidate.mkdir(mode=0o700)
+        except FileExistsError:
+            continue
+        return candidate
+    raise ValueError("retained deployment kit review directory is exhausted")
 
 
 def _download(url: str, destination: Path) -> None:

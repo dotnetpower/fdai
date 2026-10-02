@@ -5,6 +5,7 @@ import io
 import json
 import stat
 import subprocess
+import sys
 import tarfile
 from dataclasses import replace
 from pathlib import Path
@@ -12,6 +13,8 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_oci_archive import make_archive
 
 from fdai_deployment_cli import deployment_kit, offline_prepare, runtime_stage
@@ -299,8 +302,19 @@ def test_standalone_transport_archive_rechecks_signed_files(
         verified,
         verification=replace(verified.verification, manifest_digest="f" * 64),
     )
-    with pytest.raises(ValueError, match="transport archive is invalid"):
-        deployment_kit.archive_verified_kit(changed, archive)
+    changed_digest = deployment_kit.archive_verified_kit(changed, archive)
+    reviews = list((tmp_path / "standalone-kit-review").iterdir())
+    assert changed_digest == hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert len(reviews) == 1
+    assert (reviews[0] / "transport.tar.gz").is_file()
+    rotation = json.loads((reviews[0] / "rotation.json").read_text())
+    assert rotation["previous_archive_sha256"] == digest
+    assert (
+        json.loads((archive.with_suffix(archive.suffix + ".sha256")).read_text())[
+            "kit_manifest_digest"
+        ]
+        == "f" * 64
+    )
 
     (verified.root / ROOT_MANIFEST_NAME).unlink()
     incomplete_archive = tmp_path / "incomplete-transport.tar.gz"
