@@ -52,7 +52,12 @@ from fdai.core.operational_evidence.own_role_readback import (
     VerifierOwnRoleReadbackError,
     evaluate_verifier_own_roles,
 )
+from fdai.core.operational_evidence.readback.base import PurposeReadback
 from fdai.core.operational_evidence.readback.case_history_read import CaseHistoryReadback
+from fdai.core.operational_evidence.readback.forecast_history import (
+    ForecastHistorySliceReadback,
+    StateTransitionForecastHistorySliceSource,
+)
 from fdai.core.operational_evidence.readback.test_context_command import (
     OperatorTestContextCommandReadback,
 )
@@ -67,6 +72,7 @@ from fdai.delivery.azure.operational_evidence_roles import (
     AzureAuthorizationRoleAssignmentReader,
     build_azure_management_token_provider,
 )
+from fdai.delivery.forecast_history_configuration import parse_forecast_history_configuration
 from fdai.delivery.operational_evidence_caller_auth import (
     StaticJwksBearerTokenValidator,
     WorkloadCallerAuthenticator,
@@ -98,6 +104,10 @@ from fdai.delivery.persistence.postgres_operational_evidence_grants import (
 from fdai.delivery.persistence.postgres_operational_evidence_sources import (
     PostgresSemanticAuthenticationReceiptSource,
     PostgresTestContextEvidenceSources,
+)
+from fdai.delivery.persistence.postgres_state_transitions import (
+    PostgresStateTransitionStore,
+    PostgresStateTransitionStoreConfig,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -328,16 +338,44 @@ def build_verifier_workload(
     async def blocked() -> bool:
         return readiness.state != "ready"
 
+    readbacks: list[PurposeReadback] = [
+        CaseHistoryReadback(receipts=semantic_receipts),
+        OperatorTestContextCommandReadback(commands=sources),
+        ContextTransitionReadback(commands=sources, history=sources, audit=sources),
+        OperationalTestContextReadback(commands=sources, history=sources, audit=sources),
+    ]
+    forecast_sources = env.get("FDAI_FORECAST_HISTORY_SOURCES_JSON", "").strip()
+    forecast_producers = env.get("FDAI_FORECAST_HISTORY_PRODUCERS_JSON", "").strip()
+    if forecast_sources:
+        try:
+            forecast_configuration = parse_forecast_history_configuration(
+                bindings_json=forecast_sources,
+                producers_json=forecast_producers or None,
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                "operational evidence forecast history bindings are invalid"
+            ) from exc
+        readbacks.append(
+            ForecastHistorySliceReadback(
+                source=StateTransitionForecastHistorySliceSource(
+                    store=PostgresStateTransitionStore(
+                        config=PostgresStateTransitionStoreConfig(
+                            dsn=settings.verifier_dsn,
+                            statement_timeout_ms=1_000,
+                            connect_timeout_s=1,
+                        )
+                    ),
+                    bindings=forecast_configuration.bindings,
+                )
+            )
+        )
+
     engine = OperationalEvidenceVerifierEngine(
         identity=VerifierIdentity(verifier_id=VERIFIER_ID, verifier_version=VERIFIER_VERSION),
         history=lambda: history,
         anchors=anchors,
-        readbacks=(
-            CaseHistoryReadback(receipts=semantic_receipts),
-            OperatorTestContextCommandReadback(commands=sources),
-            ContextTransitionReadback(commands=sources, history=sources, audit=sources),
-            OperationalTestContextReadback(commands=sources, history=sources, audit=sources),
-        ),
+        readbacks=tuple(readbacks),
         writer=PostgresOperationalProofWriter(store),
         lineage=PostgresOperationalProofReader(store),
         clock=clock,
