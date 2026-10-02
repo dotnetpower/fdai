@@ -7,6 +7,12 @@ title: Operator Console - Data and Wire Contracts
 > Focused owner document extracted from [operator-console.md](operator-console.md) section 13 (13.1-13.3, 13.6-13.9).
 
 ## 13. Data + wire contracts
+
+The [common answer presentation](operator-console.md#common-answer-presentation) reuses existing
+answer text, verification, citation, and presentation-artifact fields. Source disclosure and
+original Markdown inspection do not add wire fields, requests, Incident confirmation, or
+execution authority; rejected content remains outside the display-authorized answer.
+
 Test-context choices are a dedicated authenticated read contract. They return reviewed scope and policy choices plus a source revision, and lifecycle writes still use the existing proposal, review, and revocation routes with `execution_authority=false`.
 
 Core's supervised instance-index reconciliation is separate from Incident creation and transport. Enrollment comes only from authenticated Function invocation context, not model arguments or index records. Candidate preparation and exact-ID reads cannot create an Incident, approve a change, or alter the semantic wire's no-execution-authority contract. The dedicated terminal projection verifies principal, release, query, result digest, invocation evidence, and candidate accounting. It displays only identity/type/revision rows with bilingual non-exhaustive and no-authority notices; zero candidates never establish absence and raw properties stay excluded.
