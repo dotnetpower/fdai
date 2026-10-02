@@ -33,6 +33,7 @@ def saved_command(
         "complete": True,
         "errored": False,
         "applyable": True,
+        "resource_changes": [],
     }
 
     def run(
@@ -96,6 +97,14 @@ def test_saved_plan_is_private_bound_and_verifiable_without_execution(
     assert (work / foundation_plan.PLAN_NAME).read_bytes() == _PLAN
     assert [command[1] for command in calls] == ["init", "plan", "show"]
     assert receipt["plan_digest"] == hashlib.sha256(_PLAN).hexdigest()
+    assert receipt["summary"]["action_counts"] == {
+        "create": 0,
+        "delete": 0,
+        "no-op": 0,
+        "read": 0,
+        "replace": 0,
+        "update": 0,
+    }
     context = receipt["context"]
     assert isinstance(context, dict)
     assert context["profile_digest"] == canonical_digest(profile.to_mapping())
