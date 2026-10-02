@@ -1098,6 +1098,49 @@ def test_a_schema_relation_with_one_sense_is_not_widened_to_every_link() -> None
     assert goal.reasons == ("schema_relation_sense_unsupported",)
 
 
+def test_a_collection_scope_relation_is_not_released_as_a_widened_traversal() -> None:
+    utterance = "Which resources receive traffic from agw-app?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "name",
+                "domain": "instance",
+                "span": span(utterance, "agw-app"),
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "resources"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "traverse",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "cue": span(utterance, "Which resources"),
+                "confidence": 0.95,
+                "relation": {
+                    "sense": "traffic",
+                    "anchor": "m1",
+                    "anchor_role": "sender",
+                    "result_role": "receiver",
+                    "cue": span(utterance, "receive traffic from"),
+                },
+            }
+        ],
+    }
+
+    goal = _compile(utterance, form, concepts(("m2", MentionDomain.RESOURCE_TYPE, ()))).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == ("relation_collection_anchor_unsupported",)
+
+
 def _schema_mention(utterance: str, mention_id: str, domain: str, text: str) -> dict[str, Any]:
     form = "name" if domain == "instance" else "concept"
     return {"id": mention_id, "form": form, "domain": domain, "span": span(utterance, text)}

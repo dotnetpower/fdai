@@ -21,6 +21,7 @@ from .semantic_reasoning_form import (
     RelationSense,
     SubjectPosition,
     SubjectRole,
+    SubjectScope,
 )
 from .semantic_reasoning_nodes import (
     RESOURCE_TYPE_DOMAINS,
@@ -63,6 +64,14 @@ def anchored_relation(goal: FormGoal, ctx: CompileContext) -> AnchoredRelation |
     if isinstance(restriction, OperatorResult):
         return restriction
     subject_types, endpoint_object_type = restriction
+    if (
+        relation is not None
+        and goal.subject_scope is SubjectScope.COLLECTION
+        and relation.sense is RelationSense.TRAFFIC
+        and not subject_types
+        and endpoint_object_type is None
+    ):
+        return OperatorResult(unsupported=("relation_collection_anchor_unsupported",))
     if relation is None or impact:
         return AnchoredRelation(
             anchor=anchor,
