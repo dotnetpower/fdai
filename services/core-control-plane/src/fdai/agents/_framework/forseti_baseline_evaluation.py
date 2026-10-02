@@ -12,7 +12,7 @@ import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 
 from fdai_service_contracts.baseline_evaluation import (
     BaselineEvaluationCompletion,
@@ -24,7 +24,6 @@ from fdai_service_contracts.baseline_evaluation import (
 
 from fdai.core.tiers.t0_deterministic import T0Engine
 from fdai.core.tiers.t0_deterministic.models import RegoEvaluationReceipt
-from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.shared.contracts.models import Rule
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.state_store import StateStore
@@ -48,9 +47,18 @@ BaselineEvaluationAuditBinder = Callable[
 ]
 
 
+class BaselineInventoryObservation(Protocol):
+    """Delivery-neutral view of one promoted inventory generation."""
+
+    generation: str
+    resources: tuple[ResourceRecord, ...]
+    complete: bool
+    recorded_at: datetime | None
+
+
 async def record_baseline_evaluation(
     *,
-    observation: PromotedInventoryObservation,
+    observation: BaselineInventoryObservation,
     engine: T0Engine,
     rules: tuple[Rule, ...],
     catalog_revision: str,
@@ -146,7 +154,7 @@ async def record_baseline_evaluation(
 
 async def _completion_record(
     *,
-    observation: PromotedInventoryObservation,
+    observation: BaselineInventoryObservation,
     catalog_revision: str,
     outcomes: tuple[BaselineEvaluationOutcome, ...],
     evaluated_at: datetime,
@@ -228,7 +236,7 @@ async def _write_outcome(state_store: StateStore, outcome: BaselineEvaluationOut
 
 def _validate_inputs(
     *,
-    observation: PromotedInventoryObservation,
+    observation: BaselineInventoryObservation,
     rules: tuple[Rule, ...],
     catalog_revision: str,
     evaluated_at: datetime,
@@ -255,7 +263,7 @@ def _validate_inputs(
 
 def _evaluation_receipt_identity(
     *,
-    observation: PromotedInventoryObservation,
+    observation: BaselineInventoryObservation,
     resource: ResourceRecord,
     rule: Rule,
     outcome: BaselineEvaluationTerminalOutcome,
@@ -277,7 +285,7 @@ def _evaluation_receipt_identity(
     return _bounded_ref("evaluation", digest), digest
 
 
-def _event_ref(*, observation: PromotedInventoryObservation, resource: ResourceRecord) -> str:
+def _event_ref(*, observation: BaselineInventoryObservation, resource: ResourceRecord) -> str:
     identity = observation.generation + ":" + resource.resource_id
     return f"baseline-evaluation:{_sha256_text(identity)}"
 
@@ -304,11 +312,11 @@ def _completion_key(completion: BaselineEvaluationCompletion) -> str:
     )
 
 
-def _generation_digest(observation: PromotedInventoryObservation) -> str:
+def _generation_digest(observation: BaselineInventoryObservation) -> str:
     return _digest_json({"generation": observation.generation})
 
 
-def _inventory_observation_digest(observation: PromotedInventoryObservation) -> str:
+def _inventory_observation_digest(observation: BaselineInventoryObservation) -> str:
     return _digest_json(
         {
             "generation": observation.generation,

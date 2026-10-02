@@ -32,6 +32,7 @@ from fdai.agents._framework.forseti_arbitration import (
 )
 from fdai.agents._framework.forseti_baseline_evaluation import (
     BaselineEvaluationAuditBinder,
+    BaselineInventoryObservation,
 )
 from fdai.agents._framework.forseti_baseline_evaluation import (
     record_baseline_evaluation as _record_baseline_evaluation,
@@ -84,7 +85,6 @@ from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineageFinalizer,
 )
 from fdai.core.tiers.t0_deterministic import T0Engine
-from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
     RegisteredDevelopmentAction,
@@ -310,7 +310,7 @@ class Forseti(
     async def evaluate_baseline_generation(
         self,
         *,
-        observation: PromotedInventoryObservation,
+        observation: BaselineInventoryObservation,
         engine: T0Engine,
         rules: tuple[Rule, ...],
         catalog_revision: str,

@@ -76,7 +76,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration.py": "22b73e22bba373144193e3770d2a07ba9ac5b7747cc8ba56686e6a00d93d7cd1",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration_contract.py": "85e331e8861ee9e24f8aacc093c18344591e1d5cb4d11747bed026d3ba3be079",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration_planning.py": "55f5e3f54de677cb80dfaef99a320b0c89af73315c491062fbe15219df6985d9",
-    "services/core-control-plane/src/fdai/agents/_framework/forseti_baseline_evaluation.py": "683f4935ef8dbe07d11a92674d552b10be32674e6a02728d18b49dede74fb3c3",
+    "services/core-control-plane/src/fdai/agents/_framework/forseti_baseline_evaluation.py": "ba5b838183512535c3b540c746e13415c60c7303ec4a1aa78d03e9359596da61",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_constants.py": "b793cd245eec1693996eb773a6beb74c7612fde0ff673eb47691eaee0ea56da5",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_cost_annotation.py": "b5711bd3be33dcdfef6c952ec720ce54b22e812f5b6e422f1d749a634987d8ca",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_cross_vertical_intake.py": "6cc4592ed7bc70a96972ac5b68f711e79aaff94ef2b33ae7abd62f2a22d161c6",
@@ -225,7 +225,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/vidar_rollback_runtime.py": "bc4cdcdc064a9c55353cdf6b01729734e0ab2fdf32672d995643cc69f27802f5",
     "services/core-control-plane/src/fdai/agents/_framework/workflows.py": "bb4f441afa0429809018d1a423ea1a6b591f7145dc0cb27368fb5a406cadc731",
     "services/core-control-plane/src/fdai/agents/bragi.py": "d05bb8d47d615d7af62006f90bcea0c8f5e72594e2ec506805dd0821056ac92e",
-    "services/core-control-plane/src/fdai/agents/forseti.py": "a2b37f07a3b3ab0ff0e037935bb3d566f02a41f80e5e20558e7d6778ff8080ee",
+    "services/core-control-plane/src/fdai/agents/forseti.py": "0ac2b913acfb3631ae640b02a5fe9b4eb588a12b2dcc14d5c527b0ceb8701d71",
     "services/core-control-plane/src/fdai/agents/freyr.py": "90afb05b0931ce380704184d8ebfead0c62bae13257250c4101ca2c205acb361",
     "services/core-control-plane/src/fdai/agents/heimdall.py": "0ead981c482c498751dd6c25257ad26fa325a54c58dd8283c87e44dc78965a9f",
     "services/core-control-plane/src/fdai/agents/huginn.py": "4251c8b7e13bf6221a95fae2b1fbc7af847bbb8d07d9a79f55cf1747491a274d",
@@ -1889,7 +1889,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204",
     "services/operator-service/src/fdai_operator_service/entitlement_stamp.py": "d94f5239a78fdda58caa06e5c41ac96c7cdc2e36368c8e3fe6f9adde4d7ab4f2"
   },
-  "generated_at": "2026-10-02T02:52:30Z",
+  "generated_at": "2026-10-02T02:56:39Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
