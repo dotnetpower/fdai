@@ -46,4 +46,5 @@ resource "azurerm_role_assignment" "executor_secrets_user" {
   scope                = azurerm_key_vault.primary.id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = var.executor_principal_id
+  principal_type       = "ServicePrincipal"
 }
