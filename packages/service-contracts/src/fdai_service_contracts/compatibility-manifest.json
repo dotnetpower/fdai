@@ -1,7 +1,10 @@
 {
   "manifest_version": "1.0.0",
   "policy": {
-    "release_labels": ["N-1", "N"],
+    "release_labels": [
+      "N-1",
+      "N"
+    ],
     "description": "Every directed wire edge classifies old-old, old-new, new-old, and new-new pairs; unsupported pairs require ordered rollout.",
     "transition_certified_contract_ids": [
       "operator-core-request",
@@ -23,8 +26,17 @@
       "supported_major": 1,
       "previous_contract_set_version": "1.0.0",
       "current_contract_set_version": "1.1.0",
-      "migration": {"from_version": "1.0.0", "to_version": "1.1.0"},
-      "rollback": {"from_version": "1.1.0", "to_version": "1.0.0", "requires_peer_versions": {"isolated-executor": "1.0.0"}}
+      "migration": {
+        "from_version": "1.0.0",
+        "to_version": "1.1.0"
+      },
+      "rollback": {
+        "from_version": "1.1.0",
+        "to_version": "1.0.0",
+        "requires_peer_versions": {
+          "isolated-executor": "1.0.0"
+        }
+      }
     },
     {
       "id": "operator-service",
@@ -35,8 +47,14 @@
       "supported_major": 1,
       "previous_contract_set_version": "1.0.0",
       "current_contract_set_version": "1.1.0",
-      "migration": {"from_version": "1.0.0", "to_version": "1.1.0"},
-      "rollback": {"from_version": "1.1.0", "to_version": "1.0.0"}
+      "migration": {
+        "from_version": "1.0.0",
+        "to_version": "1.1.0"
+      },
+      "rollback": {
+        "from_version": "1.1.0",
+        "to_version": "1.0.0"
+      }
     },
     {
       "id": "document-ingestion-api",
@@ -47,8 +65,14 @@
       "supported_major": 1,
       "previous_contract_set_version": "1.0.0",
       "current_contract_set_version": "1.1.0",
-      "migration": {"from_version": "1.0.0", "to_version": "1.1.0"},
-      "rollback": {"from_version": "1.1.0", "to_version": "1.0.0"}
+      "migration": {
+        "from_version": "1.0.0",
+        "to_version": "1.1.0"
+      },
+      "rollback": {
+        "from_version": "1.1.0",
+        "to_version": "1.0.0"
+      }
     },
     {
       "id": "document-processing-worker",
@@ -59,8 +83,14 @@
       "supported_major": 1,
       "previous_contract_set_version": "1.0.0",
       "current_contract_set_version": "1.1.0",
-      "migration": {"from_version": "1.0.0", "to_version": "1.1.0"},
-      "rollback": {"from_version": "1.1.0", "to_version": "1.0.0"}
+      "migration": {
+        "from_version": "1.0.0",
+        "to_version": "1.1.0"
+      },
+      "rollback": {
+        "from_version": "1.1.0",
+        "to_version": "1.0.0"
+      }
     },
     {
       "id": "isolated-executor",
@@ -71,8 +101,17 @@
       "supported_major": 1,
       "previous_contract_set_version": "1.0.0",
       "current_contract_set_version": "1.1.0",
-      "migration": {"from_version": "1.0.0", "to_version": "1.1.0", "requires_peer_versions": {"core-control-plane": "1.1.0"}},
-      "rollback": {"from_version": "1.1.0", "to_version": "1.0.0"}
+      "migration": {
+        "from_version": "1.0.0",
+        "to_version": "1.1.0",
+        "requires_peer_versions": {
+          "core-control-plane": "1.1.0"
+        }
+      },
+      "rollback": {
+        "from_version": "1.1.0",
+        "to_version": "1.0.0"
+      }
     }
   ],
   "contracts": [
@@ -84,12 +123,32 @@
       "compatibility_policy": "version-negotiated",
       "compatibility_notes": "Exact signed command 1.0.0; 0.0.0 is an offline unavailable-capability marker, never active traffic. Install both N peers before activation. Current Core readiness gates new requests; disable and reconcile accepted work before either rollback. No signed-record downgrade or deployed-transition certification is claimed.",
       "producer_schemas": {
-        "N-1": {"version": "0.0.0", "path": "schemas/alert-noise-command/0.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/alert-noise-command/1.0.0.json"}
+        "N-1": {
+          "version": "0.0.0",
+          "path": "schemas/alert-noise-command/0.0.0.json"
+        },
+        "N": {
+          "version": "1.0.0",
+          "path": "schemas/alert-noise-command/1.0.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
-      "producer_codecs": {"N-1": "fdai_operator_service.alert_quality_codecs:COMMAND_PRODUCER_UNAVAILABLE", "N": "fdai_operator_service.alert_quality_codecs:COMMAND_PRODUCER_V1"},
-      "consumer_codecs": {"N-1": "fdai.delivery.alert_noise_codecs:COMMAND_CONSUMER_UNAVAILABLE", "N": "fdai.delivery.alert_noise_codecs:COMMAND_CONSUMER_V1"},
+      "consumer_accepts": {
+        "N-1": [
+          "0.0.0"
+        ],
+        "N": [
+          "0.0.0",
+          "1.0.0"
+        ]
+      },
+      "producer_codecs": {
+        "N-1": "fdai_operator_service.alert_quality_codecs:COMMAND_PRODUCER_UNAVAILABLE",
+        "N": "fdai_operator_service.alert_quality_codecs:COMMAND_PRODUCER_V1"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai.delivery.alert_noise_codecs:COMMAND_CONSUMER_UNAVAILABLE",
+        "N": "fdai.delivery.alert_noise_codecs:COMMAND_CONSUMER_V1"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "command.request_ref",
@@ -108,12 +167,32 @@
       "compatibility_policy": "version-negotiated",
       "compatibility_notes": "Exact signed result 1.1.0 includes the provider-neutral plan 1.1.0; optional fields do not imply signature-compatible downgrade. The 0.0.0 marker is unavailable, not a result. Both N consumers precede activation; preserve durable accepted work and terminal reservations during rollback. The alert-specific 950000-byte bound does not widen generic service codecs or certify deployed transitions. Unreleased 1.0.0 durable records are authenticated read-only and retired, never accepted as current.",
       "producer_schemas": {
-        "N-1": {"version": "0.0.0", "path": "schemas/alert-noise-result/0.0.0.json"},
-        "N": {"version": "1.1.0", "path": "schemas/alert-noise-result/1.1.0.json"}
+        "N-1": {
+          "version": "0.0.0",
+          "path": "schemas/alert-noise-result/0.0.0.json"
+        },
+        "N": {
+          "version": "1.1.0",
+          "path": "schemas/alert-noise-result/1.1.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.1.0"]},
-      "producer_codecs": {"N-1": "fdai.delivery.alert_noise_codecs:RESULT_PRODUCER_UNAVAILABLE", "N": "fdai.delivery.alert_noise_codecs:RESULT_PRODUCER_V1"},
-      "consumer_codecs": {"N-1": "fdai_operator_service.alert_quality_codecs:RESULT_CONSUMER_UNAVAILABLE", "N": "fdai_operator_service.alert_quality_codecs:RESULT_CONSUMER_V1"},
+      "consumer_accepts": {
+        "N-1": [
+          "0.0.0"
+        ],
+        "N": [
+          "0.0.0",
+          "1.1.0"
+        ]
+      },
+      "producer_codecs": {
+        "N-1": "fdai.delivery.alert_noise_codecs:RESULT_PRODUCER_UNAVAILABLE",
+        "N": "fdai.delivery.alert_noise_codecs:RESULT_PRODUCER_V1"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_operator_service.alert_quality_codecs:RESULT_CONSUMER_UNAVAILABLE",
+        "N": "fdai_operator_service.alert_quality_codecs:RESULT_CONSUMER_V1"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "result.command.request_ref",
@@ -132,64 +211,36 @@
       "compatibility_policy": "version-negotiated",
       "compatibility_notes": "Exact signed readiness schema 1.0.0, fixed kind and at-most-120-second validity; no provider-health, promotion or execution claim. The offline 0.0.0 marker cannot establish readiness. Both N peers precede activation; rollback withdraws request availability without deleting accepted work. No deployed-transition certification is claimed.",
       "producer_schemas": {
-        "N-1": {"version": "0.0.0", "path": "schemas/alert-noise-readiness/0.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/alert-noise-readiness/1.0.0.json"}
+        "N-1": {
+          "version": "0.0.0",
+          "path": "schemas/alert-noise-readiness/0.0.0.json"
+        },
+        "N": {
+          "version": "1.0.0",
+          "path": "schemas/alert-noise-readiness/1.0.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
-      "producer_codecs": {"N-1": "fdai.delivery.alert_noise_codecs:READINESS_PRODUCER_UNAVAILABLE", "N": "fdai.delivery.alert_noise_codecs:READINESS_PRODUCER_V1"},
-      "consumer_codecs": {"N-1": "fdai_operator_service.alert_quality_codecs:READINESS_CONSUMER_UNAVAILABLE", "N": "fdai_operator_service.alert_quality_codecs:READINESS_CONSUMER_V1"},
+      "consumer_accepts": {
+        "N-1": [
+          "0.0.0"
+        ],
+        "N": [
+          "0.0.0",
+          "1.0.0"
+        ]
+      },
+      "producer_codecs": {
+        "N-1": "fdai.delivery.alert_noise_codecs:READINESS_PRODUCER_UNAVAILABLE",
+        "N": "fdai.delivery.alert_noise_codecs:READINESS_PRODUCER_V1"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_operator_service.alert_quality_codecs:READINESS_CONSUMER_UNAVAILABLE",
+        "N": "fdai_operator_service.alert_quality_codecs:READINESS_CONSUMER_V1"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "alert-noise:readiness",
         "idempotency_key_field": "signature",
-        "duplicate_policy": "deduplicate-by-idempotency-key",
-        "reorder_policy": "partition-sequence",
-        "normal_retention_days": 1,
-        "dlq_retention_days": 7
-      }
-    },
-    {
-      "id": "baseline-evaluation-outcome",
-      "owner": "core-control-plane",
-      "producer": "core-control-plane",
-      "consumer": "operator-service",
-      "compatibility_policy": "version-negotiated",
-      "compatibility_notes": "Exact terminal outcome schema 1.0.0 binds one complete inventory generation, Resource, active catalog revision, Rule revision, Forseti evaluation receipt, and Saga audit reference. The 0.0.0 marker is unavailable and cannot establish a denominator or zero count. Deploy accepting Operator consumers before Core producers emit 1.0.0 outcomes; rollback withdraws current evaluation production without deleting retained audit evidence.",
-      "producer_schemas": {
-        "N-1": {"version": "0.0.0", "path": "schemas/baseline-evaluation-outcome/0.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/baseline-evaluation-outcome/1.0.0.json"}
-      },
-      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
-      "producer_codecs": {"N-1": "fdai.delivery.baseline_evaluation_codecs:OUTCOME_PRODUCER_UNAVAILABLE", "N": "fdai.delivery.baseline_evaluation_codecs:OUTCOME_PRODUCER_V1"},
-      "consumer_codecs": {"N-1": "fdai_operator_service.baseline_evaluation_codecs:OUTCOME_CONSUMER_UNAVAILABLE", "N": "fdai_operator_service.baseline_evaluation_codecs:OUTCOME_CONSUMER_V1"},
-      "delivery": {
-        "guarantee": "at-least-once",
-        "partition_key_field": "outcome_digest",
-        "idempotency_key_field": "outcome_digest",
-        "duplicate_policy": "deduplicate-by-idempotency-key",
-        "reorder_policy": "partition-sequence",
-        "normal_retention_days": 1,
-        "dlq_retention_days": 7
-      }
-    },
-    {
-      "id": "baseline-evaluation-completion",
-      "owner": "core-control-plane",
-      "producer": "core-control-plane",
-      "consumer": "operator-service",
-      "compatibility_policy": "version-negotiated",
-      "compatibility_notes": "Exact completion schema 1.0.0 closes one inventory generation and active catalog revision only after the expected denominator matches compliant, violated, and abstained outcome counts and Saga audit evidence exists. The 0.0.0 marker is unavailable and cannot replace a prior complete summary. Deploy accepting Operator consumers before Core producers emit 1.0.0 completions; rollback preserves retained outcomes and prior complete projections.",
-      "producer_schemas": {
-        "N-1": {"version": "0.0.0", "path": "schemas/baseline-evaluation-completion/0.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/baseline-evaluation-completion/1.0.0.json"}
-      },
-      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
-      "producer_codecs": {"N-1": "fdai.delivery.baseline_evaluation_codecs:COMPLETION_PRODUCER_UNAVAILABLE", "N": "fdai.delivery.baseline_evaluation_codecs:COMPLETION_PRODUCER_V1"},
-      "consumer_codecs": {"N-1": "fdai_operator_service.baseline_evaluation_codecs:COMPLETION_CONSUMER_UNAVAILABLE", "N": "fdai_operator_service.baseline_evaluation_codecs:COMPLETION_CONSUMER_V1"},
-      "delivery": {
-        "guarantee": "at-least-once",
-        "partition_key_field": "completion_digest",
-        "idempotency_key_field": "completion_digest",
         "duplicate_policy": "deduplicate-by-idempotency-key",
         "reorder_policy": "partition-sequence",
         "normal_retention_days": 1,
@@ -204,13 +255,44 @@
       "compatibility_policy": "version-negotiated",
       "compatibility_notes": "Recent opaque result-handle references require schema 1.10.0 and are emitted only after Core consumers accept 1.10.0. Exact authentication receipt references require schema 1.9.0 and are emitted only when the Operator setting FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED is enabled after a Core consumer that accepts 1.9.0 is deployed. Exact authorized document context requires schema 1.8.0 and grants no execution authority. Operator-selected conversation model tiers require schema 1.7.0. Canonical dialogue targets, server-verified relationship proofs, and explicit relationship unknown reasons require schema 1.6.0. Requests without these extensions retain schema 1.5.0; older consumer-accepted schemas remain supported unchanged. The N->N-1 translator supports only generic non-semantic envelopes. Deploy accepting Core consumers before enabling 1.10.0 semantic producers; semantic requests have no lossless downgrade to 1.0.0.",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "schemas/operator-core-request/1.0.0.json"},
-        "N": {"version": "1.10.0", "path": "schemas/operator-core-request/1.10.0.json"}
+        "N-1": {
+          "version": "1.0.0",
+          "path": "schemas/operator-core-request/1.0.0.json"
+        },
+        "N": {
+          "version": "1.10.0",
+          "path": "schemas/operator-core-request/1.10.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0"]},
-      "translators": {"N->N-1": "fdai_service_contracts.translators:operator_core_request_1_2_to_1_0"},
-      "producer_codecs": {"N-1": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V1", "N": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V110"},
-      "consumer_codecs": {"N-1": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V1", "N": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V110"},
+      "consumer_accepts": {
+        "N-1": [
+          "1.0.0"
+        ],
+        "N": [
+          "1.0.0",
+          "1.1.0",
+          "1.2.0",
+          "1.3.0",
+          "1.4.0",
+          "1.5.0",
+          "1.6.0",
+          "1.7.0",
+          "1.8.0",
+          "1.9.0",
+          "1.10.0"
+        ]
+      },
+      "translators": {
+        "N->N-1": "fdai_service_contracts.translators:operator_core_request_1_2_to_1_0"
+      },
+      "producer_codecs": {
+        "N-1": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V1",
+        "N": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V110"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V1",
+        "N": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V110"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "resource_ref",
@@ -229,12 +311,32 @@
       "compatibility_policy": "version-negotiated",
       "compatibility_notes": "Release N adds internal attachment admission. The 0.0.0 N-1 sentinel represents unavailable capability only. Deploy the N ingestion consumer before enabling the N Operator producer; an active 1.0.0 request has no N-1 downgrade.",
       "producer_schemas": {
-        "N-1": {"version": "0.0.0", "path": "schemas/channel-attachment-admission/0.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/channel-attachment-admission/1.0.0.json"}
+        "N-1": {
+          "version": "0.0.0",
+          "path": "schemas/channel-attachment-admission/0.0.0.json"
+        },
+        "N": {
+          "version": "1.0.0",
+          "path": "schemas/channel-attachment-admission/1.0.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
-      "producer_codecs": {"N-1": "fdai_operator_service.contract_codecs:CHANNEL_ATTACHMENT_ADMISSION_PRODUCER_UNAVAILABLE", "N": "fdai_operator_service.contract_codecs:CHANNEL_ATTACHMENT_ADMISSION_PRODUCER_V1"},
-      "consumer_codecs": {"N-1": "fdai_ingestion_api_service.contract_codecs:CHANNEL_ATTACHMENT_ADMISSION_CONSUMER_UNAVAILABLE", "N": "fdai_ingestion_api_service.contract_codecs:CHANNEL_ATTACHMENT_ADMISSION_CONSUMER_V1"},
+      "consumer_accepts": {
+        "N-1": [
+          "0.0.0"
+        ],
+        "N": [
+          "0.0.0",
+          "1.0.0"
+        ]
+      },
+      "producer_codecs": {
+        "N-1": "fdai_operator_service.contract_codecs:CHANNEL_ATTACHMENT_ADMISSION_PRODUCER_UNAVAILABLE",
+        "N": "fdai_operator_service.contract_codecs:CHANNEL_ATTACHMENT_ADMISSION_PRODUCER_V1"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_ingestion_api_service.contract_codecs:CHANNEL_ATTACHMENT_ADMISSION_CONSUMER_UNAVAILABLE",
+        "N": "fdai_ingestion_api_service.contract_codecs:CHANNEL_ATTACHMENT_ADMISSION_CONSUMER_V1"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "handoff_id",
@@ -253,12 +355,32 @@
       "compatibility_policy": "version-negotiated",
       "compatibility_notes": "Release N returns admission, commit, and terminal receipts over the internal HTTPS response boundary. The 0.0.0 N-1 sentinel grants no capability. Deploy the N Operator consumer before enabling active receipt production; an active 1.0.0 receipt has no N-1 downgrade.",
       "producer_schemas": {
-        "N-1": {"version": "0.0.0", "path": "schemas/channel-attachment-receipt/0.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/channel-attachment-receipt/1.0.0.json"}
+        "N-1": {
+          "version": "0.0.0",
+          "path": "schemas/channel-attachment-receipt/0.0.0.json"
+        },
+        "N": {
+          "version": "1.0.0",
+          "path": "schemas/channel-attachment-receipt/1.0.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
-      "producer_codecs": {"N-1": "fdai_ingestion_api_service.contract_codecs:CHANNEL_ATTACHMENT_RECEIPT_PRODUCER_UNAVAILABLE", "N": "fdai_ingestion_api_service.contract_codecs:CHANNEL_ATTACHMENT_RECEIPT_PRODUCER_V1"},
-      "consumer_codecs": {"N-1": "fdai_operator_service.contract_codecs:CHANNEL_ATTACHMENT_RECEIPT_CONSUMER_UNAVAILABLE", "N": "fdai_operator_service.contract_codecs:CHANNEL_ATTACHMENT_RECEIPT_CONSUMER_V1"},
+      "consumer_accepts": {
+        "N-1": [
+          "0.0.0"
+        ],
+        "N": [
+          "0.0.0",
+          "1.0.0"
+        ]
+      },
+      "producer_codecs": {
+        "N-1": "fdai_ingestion_api_service.contract_codecs:CHANNEL_ATTACHMENT_RECEIPT_PRODUCER_UNAVAILABLE",
+        "N": "fdai_ingestion_api_service.contract_codecs:CHANNEL_ATTACHMENT_RECEIPT_PRODUCER_V1"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_operator_service.contract_codecs:CHANNEL_ATTACHMENT_RECEIPT_CONSUMER_UNAVAILABLE",
+        "N": "fdai_operator_service.contract_codecs:CHANNEL_ATTACHMENT_RECEIPT_CONSUMER_V1"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "handoff_id",
@@ -277,13 +399,41 @@
       "compatibility_policy": "version-negotiated",
       "compatibility_notes": "Opaque result-handle references require schema 1.8.0 and grant Operator no access to Core-owned handle bodies. Exact document-context terminal binding requires schema 1.7.0. Advisory responses and draft advisory attachments require schema 1.6.0. Conditional evidence constraints are not an additive-ignore-unknown contract. Closed consumers reject the new fields or dispositions, and neither path has a lossless downgrade. The N->N-1 translator supports only generic non-semantic envelopes. Ordinary projections retain schema 1.4.0. Deploy accepting Operator consumers before enabling 1.8.0 production.",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "schemas/core-operator-projection/1.0.0.json"},
-        "N": {"version": "1.8.0", "path": "schemas/core-operator-projection/1.8.0.json"}
+        "N-1": {
+          "version": "1.0.0",
+          "path": "schemas/core-operator-projection/1.0.0.json"
+        },
+        "N": {
+          "version": "1.8.0",
+          "path": "schemas/core-operator-projection/1.8.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.6.0", "1.7.0", "1.8.0"]},
-      "translators": {"N->N-1": "fdai_service_contracts.translators:core_operator_projection_1_2_to_1_0"},
-      "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:OPERATOR_PROJECTION_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:OPERATOR_PROJECTION_PRODUCER_V18"},
-      "consumer_codecs": {"N-1": "fdai_operator_service.contract_codecs:CORE_PROJECTION_CONSUMER_V1", "N": "fdai_operator_service.contract_codecs:CORE_PROJECTION_CONSUMER_V18"},
+      "consumer_accepts": {
+        "N-1": [
+          "1.0.0"
+        ],
+        "N": [
+          "1.0.0",
+          "1.1.0",
+          "1.2.0",
+          "1.3.0",
+          "1.4.0",
+          "1.6.0",
+          "1.7.0",
+          "1.8.0"
+        ]
+      },
+      "translators": {
+        "N->N-1": "fdai_service_contracts.translators:core_operator_projection_1_2_to_1_0"
+      },
+      "producer_codecs": {
+        "N-1": "fdai_core_service.contract_codecs:OPERATOR_PROJECTION_PRODUCER_V1",
+        "N": "fdai_core_service.contract_codecs:OPERATOR_PROJECTION_PRODUCER_V18"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_operator_service.contract_codecs:CORE_PROJECTION_CONSUMER_V1",
+        "N": "fdai_operator_service.contract_codecs:CORE_PROJECTION_CONSUMER_V18"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "correlation_id",
@@ -301,13 +451,35 @@
       "consumer": "document-processing-worker",
       "compatibility_policy": "additive-ignore-unknown",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "schemas/document-ingestion-activity/1.0.0.json"},
-        "N": {"version": "1.1.0", "path": "schemas/document-ingestion-activity/1.1.0.json"}
+        "N-1": {
+          "version": "1.0.0",
+          "path": "schemas/document-ingestion-activity/1.0.0.json"
+        },
+        "N": {
+          "version": "1.1.0",
+          "path": "schemas/document-ingestion-activity/1.1.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
-      "translators": {"N->N-1": "fdai_service_contracts.translators:document_ingestion_activity_1_1_to_1_0"},
-      "producer_codecs": {"N-1": "fdai_ingestion_api_service.contract_codecs:DOCUMENT_ACTIVITY_PRODUCER_V1", "N": "fdai_ingestion_api_service.contract_codecs:DOCUMENT_ACTIVITY_PRODUCER_V11"},
-      "consumer_codecs": {"N-1": "fdai_document_worker_service.contract_codecs:DOCUMENT_ACTIVITY_CONSUMER_V1", "N": "fdai_document_worker_service.contract_codecs:DOCUMENT_ACTIVITY_CONSUMER_V11"},
+      "consumer_accepts": {
+        "N-1": [
+          "1.0.0"
+        ],
+        "N": [
+          "1.0.0",
+          "1.1.0"
+        ]
+      },
+      "translators": {
+        "N->N-1": "fdai_service_contracts.translators:document_ingestion_activity_1_1_to_1_0"
+      },
+      "producer_codecs": {
+        "N-1": "fdai_ingestion_api_service.contract_codecs:DOCUMENT_ACTIVITY_PRODUCER_V1",
+        "N": "fdai_ingestion_api_service.contract_codecs:DOCUMENT_ACTIVITY_PRODUCER_V11"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_document_worker_service.contract_codecs:DOCUMENT_ACTIVITY_CONSUMER_V1",
+        "N": "fdai_document_worker_service.contract_codecs:DOCUMENT_ACTIVITY_CONSUMER_V11"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "upload_id",
@@ -325,12 +497,31 @@
       "consumer": "document-processing-worker",
       "compatibility_policy": "stable",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "schemas/document-worker-audit/1.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/document-worker-audit/1.0.0.json"}
+        "N-1": {
+          "version": "1.0.0",
+          "path": "schemas/document-worker-audit/1.0.0.json"
+        },
+        "N": {
+          "version": "1.0.0",
+          "path": "schemas/document-worker-audit/1.0.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
-      "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:DOCUMENT_AUDIT_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:DOCUMENT_AUDIT_PRODUCER_V11"},
-      "consumer_codecs": {"N-1": "fdai_document_worker_service.contract_codecs:DOCUMENT_AUDIT_CONSUMER_V1", "N": "fdai_document_worker_service.contract_codecs:DOCUMENT_AUDIT_CONSUMER_V11"},
+      "consumer_accepts": {
+        "N-1": [
+          "1.0.0"
+        ],
+        "N": [
+          "1.0.0"
+        ]
+      },
+      "producer_codecs": {
+        "N-1": "fdai_core_service.contract_codecs:DOCUMENT_AUDIT_PRODUCER_V1",
+        "N": "fdai_core_service.contract_codecs:DOCUMENT_AUDIT_PRODUCER_V11"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_document_worker_service.contract_codecs:DOCUMENT_AUDIT_CONSUMER_V1",
+        "N": "fdai_document_worker_service.contract_codecs:DOCUMENT_AUDIT_CONSUMER_V11"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "upload_id",
@@ -348,12 +539,31 @@
       "consumer": "document-processing-worker",
       "compatibility_policy": "stable",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "schemas/document-worker-index/1.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/document-worker-index/1.0.0.json"}
+        "N-1": {
+          "version": "1.0.0",
+          "path": "schemas/document-worker-index/1.0.0.json"
+        },
+        "N": {
+          "version": "1.0.0",
+          "path": "schemas/document-worker-index/1.0.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
-      "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:DOCUMENT_INDEX_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:DOCUMENT_INDEX_PRODUCER_V11"},
-      "consumer_codecs": {"N-1": "fdai_document_worker_service.contract_codecs:DOCUMENT_INDEX_CONSUMER_V1", "N": "fdai_document_worker_service.contract_codecs:DOCUMENT_INDEX_CONSUMER_V11"},
+      "consumer_accepts": {
+        "N-1": [
+          "1.0.0"
+        ],
+        "N": [
+          "1.0.0"
+        ]
+      },
+      "producer_codecs": {
+        "N-1": "fdai_core_service.contract_codecs:DOCUMENT_INDEX_PRODUCER_V1",
+        "N": "fdai_core_service.contract_codecs:DOCUMENT_INDEX_PRODUCER_V11"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_document_worker_service.contract_codecs:DOCUMENT_INDEX_CONSUMER_V1",
+        "N": "fdai_document_worker_service.contract_codecs:DOCUMENT_INDEX_CONSUMER_V11"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "upload_id",
@@ -371,12 +581,31 @@
       "consumer": "isolated-executor",
       "compatibility_policy": "stable",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "schemas/executor-command/1.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/executor-command/1.0.0.json"}
+        "N-1": {
+          "version": "1.0.0",
+          "path": "schemas/executor-command/1.0.0.json"
+        },
+        "N": {
+          "version": "1.0.0",
+          "path": "schemas/executor-command/1.0.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
-      "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:EXECUTOR_COMMAND_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:EXECUTOR_COMMAND_PRODUCER_V11"},
-      "consumer_codecs": {"N-1": "fdai_executor_service.contract_codecs:EXECUTOR_COMMAND_CONSUMER_V1", "N": "fdai_executor_service.contract_codecs:EXECUTOR_COMMAND_CONSUMER_V11"},
+      "consumer_accepts": {
+        "N-1": [
+          "1.0.0"
+        ],
+        "N": [
+          "1.0.0"
+        ]
+      },
+      "producer_codecs": {
+        "N-1": "fdai_core_service.contract_codecs:EXECUTOR_COMMAND_PRODUCER_V1",
+        "N": "fdai_core_service.contract_codecs:EXECUTOR_COMMAND_PRODUCER_V11"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_executor_service.contract_codecs:EXECUTOR_COMMAND_CONSUMER_V1",
+        "N": "fdai_executor_service.contract_codecs:EXECUTOR_COMMAND_CONSUMER_V11"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "partition_key",
@@ -394,12 +623,32 @@
       "consumer": "core-control-plane",
       "compatibility_policy": "version-negotiated",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "schemas/executor-receipt/1.0.0.json"},
-        "N": {"version": "1.1.0", "path": "schemas/executor-receipt/1.1.0.json"}
+        "N-1": {
+          "version": "1.0.0",
+          "path": "schemas/executor-receipt/1.0.0.json"
+        },
+        "N": {
+          "version": "1.1.0",
+          "path": "schemas/executor-receipt/1.1.0.json"
+        }
       },
-      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
-      "producer_codecs": {"N-1": "fdai_executor_service.contract_codecs:EXECUTOR_RECEIPT_PRODUCER_V1", "N": "fdai_executor_service.contract_codecs:EXECUTOR_RECEIPT_PRODUCER_V11"},
-      "consumer_codecs": {"N-1": "fdai_core_service.contract_codecs:EXECUTOR_RECEIPT_CONSUMER_V1", "N": "fdai_core_service.contract_codecs:EXECUTOR_RECEIPT_CONSUMER_V11"},
+      "consumer_accepts": {
+        "N-1": [
+          "1.0.0"
+        ],
+        "N": [
+          "1.0.0",
+          "1.1.0"
+        ]
+      },
+      "producer_codecs": {
+        "N-1": "fdai_executor_service.contract_codecs:EXECUTOR_RECEIPT_PRODUCER_V1",
+        "N": "fdai_executor_service.contract_codecs:EXECUTOR_RECEIPT_PRODUCER_V11"
+      },
+      "consumer_codecs": {
+        "N-1": "fdai_core_service.contract_codecs:EXECUTOR_RECEIPT_CONSUMER_V1",
+        "N": "fdai_core_service.contract_codecs:EXECUTOR_RECEIPT_CONSUMER_V11"
+      },
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "command_id",
@@ -417,12 +666,25 @@
       "producer": "operator-service",
       "consumer": "core-control-plane",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ],
       "unsupported_pairs": [
-        {"producer_release": "N", "consumer_release": "N-1", "reason": "active signed commands require the N Core consumer; no downgrade exists"}
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1",
+          "reason": "active signed commands require the N Core consumer; no downgrade exists"
+        }
       ]
     },
     {
@@ -430,12 +692,25 @@
       "producer": "core-control-plane",
       "consumer": "operator-service",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ],
       "unsupported_pairs": [
-        {"producer_release": "N", "consumer_release": "N-1", "reason": "active signed results require the N Operator consumer; no downgrade exists"}
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1",
+          "reason": "active signed results require the N Operator consumer; no downgrade exists"
+        }
       ]
     },
     {
@@ -443,12 +718,25 @@
       "producer": "core-control-plane",
       "consumer": "operator-service",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ],
       "unsupported_pairs": [
-        {"producer_release": "N", "consumer_release": "N-1", "reason": "signed readiness requires the N Operator consumer and never enables an old peer"}
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1",
+          "reason": "signed readiness requires the N Operator consumer and never enables an old peer"
+        }
       ]
     },
     {
@@ -456,10 +744,22 @@
       "producer": "operator-service",
       "consumer": "core-control-plane",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N-1"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ]
     },
     {
@@ -467,12 +767,25 @@
       "producer": "operator-service",
       "consumer": "document-ingestion-api",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ],
       "unsupported_pairs": [
-        {"producer_release": "N", "consumer_release": "N-1", "reason": "active attachment admission requires the N ingestion consumer before the N Operator producer is enabled"}
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1",
+          "reason": "active attachment admission requires the N ingestion consumer before the N Operator producer is enabled"
+        }
       ]
     },
     {
@@ -480,12 +793,25 @@
       "producer": "document-ingestion-api",
       "consumer": "operator-service",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ],
       "unsupported_pairs": [
-        {"producer_release": "N", "consumer_release": "N-1", "reason": "active attachment receipts require the N Operator consumer before the N ingestion producer is enabled"}
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1",
+          "reason": "active attachment receipts require the N Operator consumer before the N ingestion producer is enabled"
+        }
       ]
     },
     {
@@ -493,10 +819,22 @@
       "producer": "core-control-plane",
       "consumer": "operator-service",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N-1"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ]
     },
     {
@@ -504,10 +842,22 @@
       "producer": "document-ingestion-api",
       "consumer": "document-processing-worker",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N-1"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ]
     },
     {
@@ -515,10 +865,22 @@
       "producer": "core-control-plane",
       "consumer": "document-processing-worker",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N-1"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ]
     },
     {
@@ -526,10 +888,22 @@
       "producer": "core-control-plane",
       "consumer": "document-processing-worker",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N-1"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ]
     },
     {
@@ -537,10 +911,22 @@
       "producer": "core-control-plane",
       "consumer": "isolated-executor",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N-1"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ]
     },
     {
@@ -548,12 +934,25 @@
       "producer": "isolated-executor",
       "consumer": "core-control-plane",
       "supported_pairs": [
-        {"producer_release": "N-1", "consumer_release": "N-1"},
-        {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N"}
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N-1"
+        },
+        {
+          "producer_release": "N-1",
+          "consumer_release": "N"
+        },
+        {
+          "producer_release": "N",
+          "consumer_release": "N"
+        }
       ],
       "unsupported_pairs": [
-        {"producer_release": "N", "consumer_release": "N-1", "reason": "executor receipt 1.1.0 requires Core 1.1.0 before Executor 1.1.0"}
+        {
+          "producer_release": "N",
+          "consumer_release": "N-1",
+          "reason": "executor receipt 1.1.0 requires Core 1.1.0 before Executor 1.1.0"
+        }
       ]
     }
   ],
