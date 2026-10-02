@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 4bdbbeb3f5531168c2dcf28f2f22dec4642e5071
-translation_revised: 2026-09-29
+translation_source_sha: 1ce8800ef633958477381562804cc48f64bb785e
+translation_revised: 2026-10-02
 ---
 
 # 보안과 아이덴티티
@@ -277,8 +277,8 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
   관리/API 표면은 비공개 네트워킹 뒤에 있음.
 - **Egress는 allow-list 됨** - 요구된 클라우드 컨트롤 플레인과 모델 엔드포인트로; 유출과
   주입-주도 콜백을 억제하기 위해 아웃바운드는 기본 거부.
-- 레이어 아이덴티티는 네트워크 경계를 넘어 공유되지 않음; 읽기 전용 콘솔과 ChatOps는 실행기
-  아이덴티티를 절대 보유하지 않음
+- 레이어 아이덴티티는 네트워크 경계를 넘어 공유되지 않음; 선택적 정책 관리 추가 기능을 포함한
+  콘솔과 ChatOps는 실행기 아이덴티티를 절대 보유하지 않음
   ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
 
 ## 공급망 무결성
@@ -374,6 +374,10 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
 - 강제 적용로의 승격은 명시적, 액션별이며 **최소 shadow 기간과 표본 크기**, 임계 위 측정 정확도,
   shadow에서 **정책 위반 escape 0** 을 게이트로 함
   ([goals-and-metrics-ko.md](goals-and-metrics-ko.md)의 메트릭).
+- 권한 있는 설치 운영자는 게이트 통과 전에 기능을 승격할 수도 있음. 이 계획된 귀속 재정의는 그
+  시점의 게이트 상태를 기록하고, 모든 화면에 표시되며, 다른 곳에서 승격 증거로 인정되지 않음.
+  회귀 강등과 공급업체의 기능 회수가 이 재정의보다 우선함
+  ([운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md)).
 - 회귀는 자동으로 shadow로 강등; 모든 승격과 강등은 감사 엔트리를 씀.
 - Working-context 정책 후보는 액션 기능을 얻지 않고 같은 기능 권한을
   사용합니다. 비활성화된 상태로 설치되고 범위가 제한된 off-path 비교를 실행하며, 승격에는
@@ -390,7 +394,9 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
 ## 사람 승인 무결성
 
 - 승인과 실행은 별개 principal; **자기승인 없음**, 그리고 고-blast-radius 액션은 단일 승인자가
-  아니라 **정족수(멀티 승인자)** 필요.
+  아니라 **정족수(멀티 승인자)** 필요. 계획된 단독 운영자 프로덕션 프로필이 유일한 프로덕션
+  예외이며, 지정된 운영자 한 명이 승인하고 감사는 원래 정족수와 유효 정족수 1을 기록함
+  ([운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md)).
 - 승인자는 MFA/phishing-resistant 자격증명으로 인증; 각 승인은 특정 액션 + 멱등성 키에
   바인딩되어 **다른 액션에 대해 재생될 수 없음**.
 - **시간 초과는 실패 시 차단입니다**: 현재 승인 또는 유효한 기존 상시 승인이 없는 HIL 항목은

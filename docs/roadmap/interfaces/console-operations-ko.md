@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: a8bdee14cd6261d9cd63015200596b41eee5d009
-translation_revised: 2026-09-29
+translation_source_sha: 484f77c31c9ed8610f3ccd11895b1bcda3ec6e59
+translation_revised: 2026-10-02
 ---
 
 # 콘솔 운영
@@ -308,6 +308,7 @@ freshness_exceeded`, nullable `last_successful_watermark`, nullable bounded `ret
 | 접근 요청 | `AccessGrantRequest` 스키마와 권한 확인 작업 흐름 |
 | 프로세스 진행 | 참조된 `WorkflowDefinition`과 현재 `Process` 개정 번호가 정의한 전이 |
 | ActionType 요청 | `trigger_kind: operator_request` 또는 `both`인 기존 액션 인자 스키마 |
+| 승인 정책 또는 허용 정책 개정 제출 | Mimir가 검증하고 활성화하는 계획된 정책 개정 요청. [운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md)을 참조하세요. |
 
 `operator_request`는 ActionType 요청을 누가 시작했는지 나타냅니다. 제품명, API umbrella 또는 도메인
 스키마의 대체물이 아닙니다.

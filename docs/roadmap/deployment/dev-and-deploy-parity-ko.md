@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: b8e22581980b93626b44789815422d812f8e6fd3
+translation_source_sha: 82c50fe91b76bd1c91af08caa4d6efe2b5c51a99
 translation_revised: 2026-10-02
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -529,6 +529,10 @@ Trial 만료 워터마크도 같은 규칙을 따릅니다. 로컬과 배포된 
 이 값을 표시합니다. 검증된 로컬 발급자 워크스테이션은 `none`을 게시하며, 그 밖의 로컬
 체크아웃은 사용권이 없는 배포와 같은 워터마크를 표시합니다. 어떤 실행 장소, 테스트 대역,
 설정도 워터마크를 숨기지 않습니다.
+
+계획된 [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)도 같은 규칙을 따릅니다. 설치 경로는
+독립 축입니다. Hub 관리형 설치는 소스 설치나 오프라인 패키지 설치와 같은 권위 있는 소스, 계약,
+런타임 범위 증적을 바인딩하며, 수명 주기 에이전트는 컨트롤 플레인 동작을 바꾸지 않습니다.
 
 ## 배포자-스코프 LLM 프로비저닝
 

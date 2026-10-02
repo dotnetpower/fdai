@@ -1,19 +1,22 @@
 ---
 name: azure-deploy-runner
 description: |
-  FDAI installation to Azure through exactly two paths: a one-line source deployment from any
-  local checkout (30-day Trial and expiry watermark without the integrity signing key, full
-  entitlement with it), or a signed offline package on an Azure VM without internet. Load before
-  running `fdaictl provision azure`, `fdai-up.sh`, building an offline package, Terraform apply for
-  FDAI resources, or onboarding a new Azure target.
-version: 4.1.0
+  FDAI installation to Azure through its two implemented paths: a one-line source deployment from
+  any local checkout (30-day Trial and expiry watermark without the integrity signing key, full
+  entitlement with it), or a signed offline package on an Azure VM without internet. The third,
+  Hub-managed lifecycle path is designed but not implemented. Load before running `fdaictl
+  provision azure`, `fdai-up.sh`, building an offline package, Terraform apply for FDAI resources,
+  or onboarding a new Azure target.
+version: 4.2.0
 scope: repository
 ---
 
 # Azure Deployment
 
 The [constitution](../../../docs/roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)
-defines FDAI installation. There are two paths, and each needs only what is listed.
+defines FDAI installation. Two paths are implemented, and each needs only what is listed. The third,
+[Hub-managed lifecycle](../../../docs/roadmap/deployment/hub-managed-lifecycle.md), is design only;
+don't present it as an available deployment path.
 
 ## Source deployment
 

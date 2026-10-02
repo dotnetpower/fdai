@@ -1,8 +1,8 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 2ebb5bcd227483fe0cc833f94b432cd374999bb6
-translation_revised: 2026-09-29
+translation_source_sha: 0c344ec8e9cae2d8522f042126f9677804ea1432
+translation_revised: 2026-10-02
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
@@ -49,6 +49,10 @@ A3-E 경계가 계속 유효하고 에스컬레이션 기한이 지난 후 사�
 종료됩니다. [에스컬레이션 및 상시 권한](escalation-and-standing-authority-ko.md)을 참조하세요.
 
 ### 전권 개발 프로필
+
+계획된 단독 운영자 프로덕션 프로필은 이와 다른, 더 좁은 예외입니다. 이 프로필은 운영 설치 하나에서
+지정된 운영자 한 명이 승인과 정족수를 충족하게 하지만, 이 테이블의 위험 등급과 차단은 그대로
+유지합니다. [운영자 거버넌스 프로필](operator-governance-profiles-ko.md)을 참조하세요.
 
 이 프로필은 다른 위험 테이블 규칙이 아니라 별도의 개발 권한 축입니다. 테이블은 계속 기준
 판정을 계산하고 기록하지만, 만료되지 않은 정확한 프로필 결속과 유일한 Owner의 현재 승인이

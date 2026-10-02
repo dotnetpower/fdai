@@ -283,8 +283,8 @@ approved grant, and fresh effective-access evidence is required before the actio
   only. Management/API surfaces sit behind private networking.
 - **Egress is allow-listed** to required cloud control planes and model endpoints; default-deny
   outbound to contain exfiltration and injection-driven callbacks.
-- Layer identities are not shared across the network boundary; the read-only console and
-  ChatOps never hold the executor identity
+- Layer identities are not shared across the network boundary; the console, including its optional
+  policy-administration add-on, and ChatOps never hold the executor identity
   ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
 
 ## Supply-Chain Integrity
@@ -382,6 +382,10 @@ The PostgreSQL evidence provider follows these boundaries:
 - Promotion to enforce is explicit, per-action, and gated on a **minimum shadow duration and
   sample size**, measured accuracy above threshold, and **zero policy-violation escapes** in
   shadow (metrics defined in [goals-and-metrics.md](goals-and-metrics.md)).
+- An authorized installation operator may also promote a capability before its gate passes. This
+  planned attributed override records the gate status at that time, stays marked on every surface,
+  never counts as promotion evidence elsewhere, and yields to regression demotion and vendor
+  capability recall ([Operator Governance Profiles](../decisioning/operator-governance-profiles.md)).
 - Regressions demote back to shadow automatically; every promotion and demotion writes an
   audit entry.
 - Working-context policy candidates use the same capability authority without gaining action
@@ -399,7 +403,10 @@ The PostgreSQL evidence provider follows these boundaries:
 ## Human Approval Integrity
 
 - Approval and execution are distinct principals; **no self-approval**, and high-blast-radius
-  actions require **quorum (multi-approver)** rather than a single approver.
+  actions require **quorum (multi-approver)** rather than a single approver. The planned
+  single-operator production profile is the only production exception: one named operator may
+  approve, and the audit records the original quorum with an effective quorum of one
+  ([Operator Governance Profiles](../decisioning/operator-governance-profiles.md)).
 - Approvers authenticate with MFA/phishing-resistant credentials; each approval is bound to a
   specific action + idempotency key so it **cannot be replayed** against a different action.
 - **Timeout is fail-closed**: an HIL item without current approval or a valid pre-existing standing

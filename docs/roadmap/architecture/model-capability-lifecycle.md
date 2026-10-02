@@ -38,7 +38,8 @@ builder. Legacy files without `endpoint_bindings` keep the direct Azure OpenAI p
 
 APIM is a route and governance boundary, not a model publisher. The mixed-model quality gate still
 compares the publishers and families behind the gateway. Primary and secondary capabilities remain
-separate bindings even when they share an APIM hostname, and a same-publisher pair is still invalid.
+separate bindings even when they share an APIM hostname, and a same-publisher pair is still invalid unless the planned regulated-installation
+exception under the bootstrap invariants applies.
 
 Self-hosted endpoints are never discovered by scanning a virtual network or trusting `/v1/models`
 alone. They enter the candidate set through a publisher-keyed, domain-separated Ed25519 registration
@@ -211,7 +212,10 @@ this section shows the happy-path shape.
   to block it.
 - When both T2 reasoners resolve outside explicit `hil-only` mode,
   `t2.reasoner.primary.publisher` and `t2.reasoner.secondary.publisher` MUST differ.
-  A same-publisher pair is a hard resolver error.
+  A same-publisher pair is a hard resolver error. A planned exception applies only when a regulated
+  installation's model diversity policy selects `same-publisher-distinct-models`: the pair must
+  then use two different model families or versions on separate deployments, and every T2 decision
+  records the policy ([ADR-0003](decisions/0003-hub-managed-lifecycle-and-operator-governance.md)).
 - The resolved mapping records `{deployment, family, version, publisher}` per capability
   so the audit log can name the exact model that decided any case.
 
