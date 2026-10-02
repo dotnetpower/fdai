@@ -104,6 +104,13 @@ It requires a fresh exact `foundation-state` approval before writing a current-s
 That verifier then runs in `verify` mode. A later verified controller can reuse the completed repair only after revalidating the repair source and proving the verifier digest is unchanged. State comparison preserves exact lineage, resource identities, and non-transient content while allowing only one backend-migration serial increment and order-only `check_results` normalization. Refresh-only drift is accepted only when it keeps the same resource ID and its observed `after` value exactly matches the same address's no-op desired value; deferred or unclosed drift is blocked. After cleanup, reobservation transfers the current verified observer through the owner-only Bastion path, reads its digest back, and runs it under the managed identity. New authority records seal both normalized Terraform output and exact backend blob bytes; the observer downloads the protected blob through Azure CLI data-plane authorization, verifies its authority-bound digest and backend protection, then removes every transient file without restoring the old Terraform work tree or provider mirror. A completed legacy receipt that predates the blob digest remains valid through its original independent zero-change evidence, but no digest is invented and repeated blob reobservation begins only with the extended authority record. A partial base set, a different existing file, or changed readback blocks recovery.
 These adapters do not prove a completed deployment.
 
+`fdaictl provision azure --source <checkout> --teardown` is a source-only cleanup path. It derives
+one review from retained source intent, source preparation, Genesis marker, and verified Foundation
+handoff receipts. It can name only the application and operations resource groups proven by that
+evidence, binds them to the target binding and source run binding, requires one exact
+`--teardown-confirmation` value, and then reads back absence after deletion. If any ownership proof
+is missing or names an unproven resource, the command stops before any delete call.
+
 The source coordinator uses the private managed-host route and reads Foundation provider
 registrations and inherited policy without changing either. Policy visibility is not a compliance
 or deployment-success claim. An exclusive run lock covers checkpoints; exact approval remains
