@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 21c4d7c732fe91f4fbc20a25f3c755f1bd09db05
+translation_source_sha: a9d1b7835b9d8b743f838ea4ea194b3ad407409c
 translation_revised: 2026-10-02
 ---
 
@@ -724,6 +724,15 @@ Foundation 상태를 기준으로 더 새 키트의 Foundation 계획을 계산�
 권한, 전환 증적을 애플리케이션 계보에 묶고 `run/foundation-source-lineage.json`을 전진시킵니다.
 애플리케이션 계획은 기존 규칙을 유지합니다. 호출은 화면에 표시된 비파괴 정확 계획을 승인하고,
 기존 리소스를 삭제하거나 교체하는 계획은 명시적 추가 확인이 계속 필요합니다.
+
+**전송 개정:** 전환 helper는 실행마다 전송되고 전환 근거에 다이제스트로 묶입니다. 실행기 이미지의
+일부가 아니므로 helper 추가가 기존 설치의 실행기 이미지 교체를 의미하지 않습니다. 로컬 조정기는
+더 새 키트의 Foundation 루트, 공급자 미러, 모듈, 부트스트랩 지원 파일, 보존된 변수를 비공개
+아카이브로 묶고, 그 아카이브와 helper를 설치 자체의 Bastion 터널로 복사한 뒤, 보존된 실행기
+Managed Identity로 상태 권한이 기록한 기존 AzureRM 백엔드를 대상으로 helper를 실행합니다. helper는
+계획, 이미 검토된 계획의 1회 적용, 재읽기와 변경 없음 계획을 통한 검증, 임시 작업 정리만 할 수
+있습니다. 승인, 대상 선택, 모호한 적용 반복, 실행기 이미지 변경, 계보 전진은 할 수 없습니다. 이런
+결정은 제한된 근거가 돌아온 뒤 로컬 조정기가 계속 담당합니다.
 
 제어 코드만 수정한 경우 [서명된 배포 제어 패키지](disconnected-deployment-ko.md#배포-제어-패키지)로 검증된 키트를 재사용할 수 있습니다.
 

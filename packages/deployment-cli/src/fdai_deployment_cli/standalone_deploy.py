@@ -36,7 +36,7 @@ from fdai_deployment_cli.standalone_foundation_adoption import (
     deploy_with_adopted_foundation,
 )
 from fdai_deployment_cli.standalone_foundation_transition import (
-    default_transition_plan_runner,
+    default_transition_runner,
     run_foundation_transition,
 )
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
@@ -579,7 +579,7 @@ def _bind_application_to_foundation_lineage(
         subscription_id=subscription_id,
         region=region,
         monthly_cost_ceiling=monthly_cost_ceiling,
-        plan_runner=default_transition_plan_runner,
+        transition_runner=default_transition_runner,
     )
     return str(receipt["receipt_digest"])
 

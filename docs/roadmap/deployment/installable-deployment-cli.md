@@ -737,6 +737,17 @@ and transition receipts to the application lineage and advance `run/foundation-s
 Application plans keep the existing rule: the invocation approves the non-destructive exact plan it
 shows, and deleting or replacing an existing resource still needs the explicit extra confirmation.
 
+**Transport revision:** The transition helper is shipped per run and digest-bound in the transition
+evidence. It is not part of the runner image, so adding the helper does not imply a runner-image
+replacement for existing installations. The local coordinator packages the newer kit's Foundation
+root, provider mirror, modules, bootstrap support, and retained variables into a private archive,
+copies that archive and the helper over the installation's Bastion tunnel, and runs the helper under
+the retained runner Managed Identity against the existing AzureRM backend recorded by the state
+authority. The helper can plan, apply one already reviewed plan, verify by readback plus a
+zero-change plan, and clean up its transient work. It cannot approve, choose a target, repeat an
+ambiguous apply, change the runner image, or advance lineage; those remain local coordinator
+decisions after bounded evidence returns.
+
 A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
 ## Capability token behavior

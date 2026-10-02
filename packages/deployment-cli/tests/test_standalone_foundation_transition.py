@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -143,6 +144,8 @@ def test_legacy_expired_review_with_unchanged_inputs_uses_pure_continuation(
 ) -> None:
     kit = _kit(tmp_path)
     _review(tmp_path / "run/foundation-plan-attempt-2", expired=True, summary=False)
+    monkeypatch.setattr(transition, "_retained_bundle_root", lambda *_args: kit.bundle_root)
+    monkeypatch.setattr(transition, "_find_digest", lambda _root, expected: expected)
     monkeypatch.setattr(transition, "write_lineage_adoption_receipt", _adoption)
 
     receipt = transition.run_foundation_transition(
@@ -157,7 +160,7 @@ def test_legacy_expired_review_with_unchanged_inputs_uses_pure_continuation(
         subscription_id="00000000-0000-0000-0000-000000000002",
         region="westus3",
         monthly_cost_ceiling=1000,
-        plan_runner=lambda **_kwargs: pytest.fail("unchanged inputs must not plan"),
+        transition_runner=lambda **_kwargs: pytest.fail("unchanged inputs must not plan"),
     )
 
     assert receipt["receipt_digest"] == "4" * 64
@@ -171,23 +174,35 @@ def test_changed_inputs_run_transition_plan_with_newer_root_and_bind_zero_change
     old_bundle = tmp_path / "old-bundle"
     _write_tree(old_bundle, marker="")
     _review(tmp_path / "run/foundation-plan-attempt-2", expired=True, summary=False)
-    monkeypatch.setattr(transition, "_retained_kit_review", lambda _kit: tmp_path / "review")
-    monkeypatch.setattr(transition, "_extract_retained_bundle", lambda *_args: old_bundle)
+    monkeypatch.setattr(transition, "_retained_bundle_root", lambda *_args: old_bundle)
+    monkeypatch.setattr(transition, "_find_digest", lambda _root, expected: expected)
     monkeypatch.setattr(transition, "write_lineage_adoption_receipt", _adoption)
     invoked: dict[str, object] = {}
+    calls: list[str] = []
 
     def runner(**kwargs: object) -> dict[str, object]:
+        calls.append(str(kwargs["operation"]))
         decision = kwargs["decision"]
         assert isinstance(decision, transition.TransitionDecision)
         invoked["current_root"] = decision.current_inputs["terraform_root_digest"]
         invoked["retained_root"] = decision.retained_inputs["terraform_root_digest"]
-        _review(tmp_path / "run/foundation-plan-attempt-3", summary=True)
+        summary = _summary()
+        if kwargs["operation"] == "plan":
+            return {
+                "archive_digest": "a" * 64,
+                "helper_digest": "b" * 64,
+                "remote_state_digest": "e" * 64,
+                "plan_digest": "c" * 64,
+                "plan_json_digest": "d" * 64,
+                "summary": summary,
+                "zero_change_verified": True,
+            }
         return {
-            "plan_ref": "foundation-plan-attempt-3",
+            "receipt_digest": "0" * 64,
             "zero_change_verified": True,
             "mutation_performed": False,
             "remote_state_digest": "e" * 64,
-            "remote_plan_digest": "f" * 64,
+            "plan_json_digest": "f" * 64,
         }
 
     receipt = transition.run_foundation_transition(
@@ -202,13 +217,18 @@ def test_changed_inputs_run_transition_plan_with_newer_root_and_bind_zero_change
         subscription_id="00000000-0000-0000-0000-000000000002",
         region="westus3",
         monthly_cost_ceiling=1000,
-        plan_runner=runner,
+        transition_runner=runner,
     )
 
     assert invoked["current_root"] != invoked["retained_root"]
-    assert receipt["schema_version"] == "fdai.foundation-lineage-transition.v2"
-    assert receipt["zero_change_verified"] is True
-    assert receipt["mutation_performed"] is False
+    assert calls == ["plan", "apply"]
+    assert receipt["receipt_digest"] == "4" * 64
+    transition_receipt = json.loads(
+        (tmp_path / "run/foundation-lineage-transition-receipt.json").read_text()
+    )
+    assert transition_receipt["schema_version"] == "fdai.foundation-lineage-transition.v2"
+    assert transition_receipt["zero_change_verified"] is True
+    assert transition_receipt["mutation_performed"] is False
 
 
 def test_zero_change_verified_comes_from_remote_plan_result(
@@ -218,18 +238,27 @@ def test_zero_change_verified_comes_from_remote_plan_result(
     old_bundle = tmp_path / "old-bundle"
     _write_tree(old_bundle, marker="")
     _review(tmp_path / "run/foundation-plan-attempt-2", expired=True)
-    monkeypatch.setattr(transition, "_retained_kit_review", lambda _kit: tmp_path / "review")
-    monkeypatch.setattr(transition, "_extract_retained_bundle", lambda *_args: old_bundle)
+    monkeypatch.setattr(transition, "_retained_bundle_root", lambda *_args: old_bundle)
+    monkeypatch.setattr(transition, "_find_digest", lambda _root, expected: expected)
     monkeypatch.setattr(transition, "write_lineage_adoption_receipt", _adoption)
 
-    def runner(**_kwargs: object) -> dict[str, object]:
-        _review(tmp_path / "run/foundation-plan-attempt-3", summary=True)
+    def runner(**kwargs: object) -> dict[str, object]:
+        if kwargs["operation"] == "plan":
+            return {
+                "archive_digest": "a" * 64,
+                "helper_digest": "b" * 64,
+                "remote_state_digest": "e" * 64,
+                "plan_digest": "c" * 64,
+                "plan_json_digest": "d" * 64,
+                "summary": _summary(),
+                "zero_change_verified": False,
+            }
         return {
-            "plan_ref": "foundation-plan-attempt-3",
+            "receipt_digest": "0" * 64,
             "zero_change_verified": False,
             "mutation_performed": True,
             "remote_state_digest": "e" * 64,
-            "remote_plan_digest": "f" * 64,
+            "plan_json_digest": "f" * 64,
         }
 
     receipt = transition.run_foundation_transition(
@@ -244,11 +273,15 @@ def test_zero_change_verified_comes_from_remote_plan_result(
         subscription_id="00000000-0000-0000-0000-000000000002",
         region="westus3",
         monthly_cost_ceiling=1000,
-        plan_runner=runner,
+        transition_runner=runner,
     )
 
-    assert receipt["zero_change_verified"] is False
-    assert receipt["mutation_performed"] is True
+    transition_receipt = json.loads(
+        (tmp_path / "run/foundation-lineage-transition-receipt.json").read_text()
+    )
+    assert receipt["receipt_digest"] == "4" * 64
+    assert transition_receipt["zero_change_verified"] is False
+    assert transition_receipt["mutation_performed"] is True
 
 
 def test_destructive_transition_refuses_without_tty_confirmation(
@@ -273,29 +306,104 @@ def test_destructive_transition_accepts_exact_confirmation(
     transition.approve_transition_plan(tmp_path / "foundation-plan-attempt-3")
 
 
-def test_tampered_retained_snapshot_stops_before_transition(tmp_path: Path) -> None:
+def test_destructive_transition_does_not_apply_before_confirmation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kit = _kit(tmp_path, marker="changed")
+    old_bundle = tmp_path / "old-bundle"
+    _write_tree(old_bundle, marker="")
+    _review(tmp_path / "run/foundation-plan-attempt-2", expired=True)
+    monkeypatch.setattr(transition, "_retained_bundle_root", lambda *_args: old_bundle)
+    monkeypatch.setattr(transition, "_find_digest", lambda _root, expected: expected)
+    calls: list[str] = []
+
+    def runner(**kwargs: object) -> dict[str, object]:
+        calls.append(str(kwargs["operation"]))
+        if kwargs["operation"] != "plan":
+            pytest.fail("apply must not run before destructive confirmation")
+        return {
+            "archive_digest": "a" * 64,
+            "helper_digest": "b" * 64,
+            "remote_state_digest": "e" * 64,
+            "plan_digest": "c" * 64,
+            "plan_json_digest": "d" * 64,
+            "summary": _summary(delete=1),
+            "zero_change_verified": False,
+        }
+
+    with pytest.raises(ValueError, match="interactive terminal"):
+        transition.run_foundation_transition(
+            kit=kit,  # type: ignore[arg-type]
+            run_root=tmp_path / "run",
+            retained_plan_ref="foundation-plan-attempt-2",
+            transition_plan_ref=None,
+            application_source_commit="b" * 40,
+            kit_manifest_digest="1" * 64,
+            runtime_release_digest="3" * 64,
+            tenant_id="00000000-0000-0000-0000-000000000001",
+            subscription_id="00000000-0000-0000-0000-000000000002",
+            region="westus3",
+            monthly_cost_ceiling=1000,
+            transition_runner=runner,
+        )
+
+    assert calls == ["plan"]
+
+
+def test_unverifiable_retained_baseline_stops_before_transition(tmp_path: Path) -> None:
     kit = _kit(tmp_path, marker="changed")
     _review(tmp_path / "run/foundation-plan-attempt-2", expired=True)
-    review = kit.root.parent / "retained-kit-review/tampered"
-    (kit.root.parent / "retained-kit-review").mkdir(mode=0o700)
-    (review).mkdir(mode=0o700)
-    (review / "kit").mkdir(mode=0o700)
-    (review / "verified").mkdir(mode=0o700)
-    (review / "rotation.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "fdai.retained-kit-rotation.v1",
-                "previous_kit_manifest_digest": "0" * 64,
-                "new_kit_manifest_digest": kit.verification.manifest_digest,
-                "reason": "offline-kit-upgrade",
-            }
-        ),
-        encoding="utf-8",
-    )
 
-    with pytest.raises((PermissionError, ValueError)):
+    with pytest.raises(ValueError, match="foundation_transition_baseline_unverifiable"):
         transition.decide_foundation_transition(
             kit=kit,  # type: ignore[arg-type]
             run_root=tmp_path / "run",
             retained_plan_ref="foundation-plan-attempt-2",
         )
+
+
+def test_current_digest_computation_matches_foundation_plan_context(
+    tmp_path: Path,
+) -> None:
+    kit = _kit(tmp_path)
+    review = _review(tmp_path / "run/foundation-plan-attempt-2", expired=True)
+
+    digests = transition._current_input_digests(kit, review)  # noqa: SLF001
+
+    assert (
+        digests["provider_lock_digest"]
+        == hashlib.sha256(
+            (kit.bundle_root / "infra/genesis-foundation/.terraform.lock.hcl").read_bytes()
+        ).hexdigest()
+    )
+    assert (
+        digests["terraform_digest"]
+        == dict(kit.verification.file_digests)[kit.verification.terraform_binary]
+    )
+
+
+def _summary(delete: int = 0, replace: int = 0) -> dict[str, object]:
+    counts = {
+        "create": 1 if not delete and not replace else 0,
+        "update": 0,
+        "delete": delete,
+        "replace": replace,
+        "read": 0,
+        "no-op": 8,
+    }
+    summary: dict[str, object] = {
+        "schema_version": "fdai.foundation-transition-plan-summary.v1",
+        "action_counts": counts,
+        "resource_changes": [
+            {
+                "address": "azurerm_role_assignment.bootstrap",
+                "actions": ["delete", "create"]
+                if replace
+                else ["delete"]
+                if delete
+                else ["create"],
+            }
+        ],
+    }
+    summary["summary_digest"] = canonical_digest(summary)
+    return summary
