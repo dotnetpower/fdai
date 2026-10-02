@@ -227,9 +227,14 @@ def deploy_azure_foundation(
                 )
     finally:
         sys.path.remove(str(scripts))
+    # An offline kit upgrade continues the retained Foundation under the revision that created
+    # it; the newly verified kit remains the application source.
+    foundation_source = str(getattr(prepared, "foundation_source_commit", "") or kit.source_commit)
+    lineage_continuation = foundation_source != kit.source_commit
     source_evidence = json.dumps(
         {
             "source_commit": kit.source_commit,
+            "foundation_source_commit": foundation_source,
             "kit_manifest_digest": kit.verification.manifest_digest,
             "bundle_manifest_digest": kit.bundle_manifest_digest,
             "runtime_release_digest": kit.runtime.digest,
@@ -256,7 +261,7 @@ def deploy_azure_foundation(
             "--apply",
             "--allow-probe-resources",
             "--source-commit",
-            kit.source_commit,
+            foundation_source,
             "--work-dir",
             str(prepared.root),
             "--foundation-offline-kit",
@@ -308,7 +313,7 @@ def deploy_azure_foundation(
                         foundation_failure_summary(
                             status_path,
                             previous=previous_attempt,
-                            source_commit=kit.source_commit,
+                            source_commit=foundation_source,
                             run_binding=prepared.run_binding,
                         )
                     )
@@ -319,7 +324,7 @@ def deploy_azure_foundation(
         status = current_status(
             status_path,
             previous=previous_attempt,
-            source_commit=kit.source_commit,
+            source_commit=foundation_source,
             run_binding=prepared.run_binding,
         )
         completed_stages = status.get("completed_stages")
@@ -349,6 +354,13 @@ def deploy_azure_foundation(
             )
         if foundation_exit.returncode != 2:
             raise ValueError("standalone Foundation orchestration failed")
+        if lineage_continuation:
+            # A new Foundation plan computed from the newer kit must not be approved under the
+            # retained revision's lineage; continuation only verifies completed checkpoints.
+            raise ValueError(
+                "offline kit upgrade requires a completed Foundation and cannot approve a new "
+                "Foundation plan under its retained source lineage; inspect retained status"
+            )
         approval.unlink(missing_ok=True)
         try:
             with terminal_output("Review the exact Foundation plan", approval=True):
