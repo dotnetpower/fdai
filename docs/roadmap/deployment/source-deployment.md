@@ -35,6 +35,7 @@ owns the first installation path in
 | `secrets/integrity-signing-key.pem` | A full-catalog installation entitlement without expiry, bound to that installation |
 | After the Trial | Acting work is blocked, observation continues, and every Console view shows a persistent expiry watermark |
 | Approval | The invocation approves each plan it shows; deleting or replacing an existing resource needs one typed confirmation |
+| Teardown | Source teardown removes only resource groups proven by retained source intent, preparation, and Foundation handoff evidence, after one typed confirmation and absence readback |
 | Success | `deployment_ready=true` only after service health and a second zero-change plan |
 
 ## Design and critique
@@ -89,6 +90,17 @@ only the artifact input seam:
 
 Signed-kit adoption remains available only for recovered Foundations that explicitly continue with
 an offline package.
+
+**Guarded teardown revision:** Teardown originally could have reused Terraform destroy from the
+current work tree. That would be too broad for source deployment because retained state can be
+partial, recovered, or absent after a failed run. The source path instead derives a teardown review
+only from retained source evidence: the source intent, source preparation receipt, Genesis marker,
+and verified Foundation state handoff. The review names only the application and operations
+resource groups from that proof, binds them to the target binding and source run binding, requires
+one typed confirmation, deletes only those groups, and then reads back their absence. If any
+resource name, digest, target, source, or handoff field cannot be proven, teardown refuses before
+any delete call. A partial deletion returns a partial-failure receipt and keeps live teardown
+evidence open for operator review.
 
 ## Run the command
 
