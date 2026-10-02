@@ -152,4 +152,7 @@ def test_cleanup_incomplete_overrides_and_chains_setup_failure(
         )
 
     assert isinstance(captured.value.__cause__, ValueError)
-    assert str(captured.value.__cause__) == "standalone managed-host preparation failed"
+    assert (
+        str(captured.value.__cause__)
+        == "standalone managed-host preparation failed: step=clean-kit"
+    )

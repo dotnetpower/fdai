@@ -245,7 +245,9 @@ modules are explicit substrate targets because they are dependents of document s
 implicit dependencies of the storage module. When either focused axis is selected, a separately
 approved `access` plan first converges only the selected endpoints, DNS links, peering and deployer
 data roles. Read-only Key Vault and ADLS probes must then succeed before the ordinary substrate plan
-can create secrets, filesystems, or paths. An ambiguous access apply follows the same
+can create secrets, filesystems, or paths. A retained context may tighten either selector from
+`false` to `true` after partial-substrate readback proves the private posture; loosening `true` to
+`false` is rejected as a context mismatch. An ambiguous access apply follows the same
 verification-first and bounded residual rules as every other stage.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its

@@ -353,6 +353,45 @@ def test_prepare_persists_foundation_adoption_binding() -> None:
     assert '"document_storage_private_access": document_storage_private_access' in source
 
 
+def test_retained_private_access_accepts_partial_apply_tightening() -> None:
+    retained = {"key_vault_private_access": False, "document_storage_private_access": False}
+    retained_values: dict[str, object] = {}
+
+    assert (
+        standalone_stage_targets.reconcile_retained_private_access(
+            retained,
+            retained_values,
+            key_vault_private_access=True,
+            document_storage_private_access=False,
+        )
+        is True
+    )
+    assert retained["key_vault_private_access"] is True
+    assert retained_values["enable_aks_key_vault_private_access"] is True
+
+
+def test_retained_private_access_refuses_loosened_posture() -> None:
+    retained = {"key_vault_private_access": False, "document_storage_private_access": True}
+
+    with pytest.raises(ValueError, match="private-access posture loosened"):
+        standalone_stage_targets.reconcile_retained_private_access(
+            retained,
+            {},
+            key_vault_private_access=False,
+            document_storage_private_access=False,
+        )
+
+
+def test_prepare_records_private_access_transition_for_resume() -> None:
+    source = inspect.getsource(standalone_host._prepare)
+    helper = inspect.getsource(standalone_stage_targets.reconcile_retained_private_access)
+
+    assert '"private_access_posture_transition"' in helper
+    assert "_reconcile_retained_private_access(" in source
+    assert "enable_aks_key_vault_private_access" in helper
+    assert "enable_aks_document_storage_private_access" in helper
+
+
 def test_planned_key_vault_name_matches_terraform_contract() -> None:
     assert (
         standalone_host_values.planned_key_vault_name(
