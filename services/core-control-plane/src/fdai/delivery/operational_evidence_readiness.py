@@ -46,7 +46,9 @@ BOUND_READBACK_PURPOSES = frozenset(
         "case-history-read",
         "forecast-history-actions",
         "forecast-history-changes",
+        "forecast-history-excluded_windows",
         "forecast-history-resource_lifecycle",
+        "forecast-context",
         "operational-test-context",
         "operator-test-context-command",
         "test-context-transition",
@@ -55,18 +57,9 @@ BOUND_READBACK_PURPOSES = frozenset(
 READINESS_MAX_AGE = timedelta(seconds=120)
 READINESS_MAX_SKEW = timedelta(seconds=30)
 _SOURCE_LIMITATIONS = {
-    "forecast-history-excluded_windows": (
-        "no revisioned ChangeWindow history producer exists; current sources only expose "
-        "OntologyChangeWindowEvidenceProvider.is_active, OperatingIntentAdmission, and "
-        "OntologyInstanceStore current graph revisions"
-    ),
     "current-case-reuse": (
         "no retained CurrentCaseReuseSource exists for current inventory snapshot, Muninn "
         "case revision, safety receipts, and case/target grant coordinates"
-    ),
-    "forecast-context": (
-        "all four source-specific forecast-history admissions are required; "
-        "forecast-history-excluded_windows remains unavailable"
     ),
     "operational-test-observation": (
         "no verifier-identity Azure Monitor metric sample client and operating-scope "
@@ -74,8 +67,8 @@ _SOURCE_LIMITATIONS = {
     ),
 }
 _FORECAST_LIMITATION = (
-    "source-specific forecast readback is bound for actions, changes, and resource_lifecycle; "
-    "excluded_windows remains unavailable"
+    "source-specific forecast readback is bound for actions, changes, excluded_windows, "
+    "and resource_lifecycle"
 )
 _WRITER_NOT_READY = "verifier readiness with a writer-exclusive proof store is not observed"
 _READY = OperationalEvidenceVerifierState.READY

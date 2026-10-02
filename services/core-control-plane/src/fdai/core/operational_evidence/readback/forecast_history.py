@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
@@ -18,7 +19,7 @@ from ..rejections import ReadbackRejection, reject
 from .base import ReadbackContext, ReadbackFacts
 
 _R = OperationalEvidenceRejectionClass
-_BOUND_KINDS = frozenset({"actions", "changes", "resource_lifecycle"})
+_BOUND_KINDS = frozenset({"actions", "changes", "excluded_windows", "resource_lifecycle"})
 
 
 class ForecastHistorySliceSource(Protocol):
@@ -54,7 +55,7 @@ class StateTransitionForecastHistorySliceSource:
         binding = self._bindings.get((request.access_scope_digest, request.target_digest, kind))
         if binding is None:
             return None
-        stateful = kind == "resource_lifecycle"
+        stateful = kind in {"excluded_windows", "resource_lifecycle"}
         start_at = request.horizon_started_at - timedelta(
             seconds=binding.lookback_seconds if stateful else 0
         )
@@ -106,7 +107,7 @@ class StateTransitionForecastHistorySliceSource:
             refs.update(item.evidence_refs)
             if kind in {"actions", "changes"}:
                 interventions.add("state-transition:" + item.transition_id)
-        resource_deleted = False
+        active = False
         if stateful:
             ordered = sorted(
                 result.transitions,
@@ -128,7 +129,7 @@ class StateTransitionForecastHistorySliceSource:
             initial = prior[-1].to_state if prior else ordered[0].from_state
             if initial not in binding.to_states:
                 return None
-            resource_deleted = initial in binding.active_states or any(
+            active = initial in binding.active_states or any(
                 item.to_state in binding.active_states
                 for item in ordered
                 if item.effective_at > request.horizon_started_at
@@ -150,8 +151,8 @@ class StateTransitionForecastHistorySliceSource:
             ).removeprefix("sha256:"),
             evidence_refs=tuple(sorted(refs)),
             intervention_refs=tuple(sorted(interventions)),
-            resource_deleted=resource_deleted,
-            excluded_window=False,
+            resource_deleted=kind == "resource_lifecycle" and active,
+            excluded_window=kind == "excluded_windows" and active,
         )
 
 
@@ -202,6 +203,97 @@ class ForecastHistorySliceReadback:
         )
 
 
+class ForecastContextAggregateReadback:
+    """Issue aggregate forecast-context proof from the four source-specific slices."""
+
+    purposes = frozenset({"forecast-context"})
+
+    def __init__(self, *, source: ForecastHistorySliceSource) -> None:
+        self._source = source
+
+    async def read(self, context: ReadbackContext) -> ReadbackFacts | ReadbackRejection:
+        try:
+            request = _request_from_context(context)
+        except ValueError:
+            return reject(_R.PARTIAL, "forecast_locator_malformed")
+        slices: list[ForecastContextEvidence] = []
+        for kind in sorted(_BOUND_KINDS):
+            evidence = await self._source.read_slice(
+                purpose_id=f"forecast-history-{kind}", request=request
+            )
+            if evidence is None:
+                return reject(_R.PARTIAL, f"forecast_{kind}_coverage_unavailable")
+            slices.append(evidence)
+        aggregate = _aggregate_context(slices)
+        if aggregate.digest != context.request.lookup.evidence_digest.removeprefix("sha256:"):
+            return reject(_R.REPLAY_SUBSTITUTED, "evidence_mismatch")
+        if aggregate.access_scope_digest != context.access_scope_digest:
+            return reject(_R.CROSS_SCOPE, "scope_mismatch")
+        if aggregate.source_revision != context.request.lookup.source_revision:
+            return reject(_R.REPLAY_SUBSTITUTED, "source_revision_mismatch")
+        if not aggregate.complete:
+            return reject(_R.PARTIAL, "forecast_context_incomplete")
+        return ReadbackFacts(
+            evidence_digest=context.request.lookup.evidence_digest,
+            source_identity="core-control-plane.action-audit",
+            authentication={
+                "slice_count": len(slices),
+                "source_revision": aggregate.source_revision,
+            },
+            completeness={
+                "evidence_refs": list(aggregate.evidence_refs),
+                "intervention_refs": list(aggregate.intervention_refs),
+                "resource_deleted": aggregate.resource_deleted,
+                "excluded_window": aggregate.excluded_window,
+            },
+            conflict={"slice_conflicts": 0},
+            provenance={
+                "locator": dict(context.request.locator.coordinates),
+                "slices": [_json_evidence(item) for item in slices],
+                "aggregate": _json_evidence(aggregate),
+            },
+            event_at=aggregate.recorded_at,
+            evidence_cutoff=aggregate.recorded_at,
+            valid_until_cap=aggregate.valid_until,
+        )
+
+
+def _aggregate_context(sources: list[ForecastContextEvidence]) -> ForecastContextEvidence:
+    first = sources[0]
+    scope = (
+        first.access_scope_digest,
+        first.target_digest,
+        first.horizon_started_at,
+        first.horizon_ended_at,
+    )
+    for source in sources:
+        if (
+            source.access_scope_digest,
+            source.target_digest,
+            source.horizon_started_at,
+            source.horizon_ended_at,
+        ) != scope:
+            raise ValueError("forecast history source target or window mismatch")
+    return ForecastContextEvidence(
+        access_scope_digest=first.access_scope_digest,
+        target_digest=first.target_digest,
+        horizon_started_at=first.horizon_started_at,
+        horizon_ended_at=first.horizon_ended_at,
+        recorded_at=max(source.recorded_at for source in sources),
+        valid_until=min(source.valid_until for source in sources),
+        complete=all(source.complete for source in sources),
+        source_revision=hashlib.sha256(
+            "".join(source.digest for source in sources).encode()
+        ).hexdigest(),
+        evidence_refs=tuple(sorted({ref for source in sources for ref in source.evidence_refs})),
+        intervention_refs=tuple(
+            sorted({ref for source in sources for ref in source.intervention_refs})
+        ),
+        resource_deleted=any(source.resource_deleted for source in sources),
+        excluded_window=any(source.excluded_window for source in sources),
+    )
+
+
 def _request_from_context(context: ReadbackContext) -> ForecastContextRequest:
     coordinates = context.request.locator.coordinates
     return ForecastContextRequest(
@@ -229,8 +321,9 @@ def _kind_from_purpose(purpose_id: str) -> str:
 
 def _source_identity(kind: str) -> str:
     return {
-        "actions": "thor-saga.state-store-audit-chain",
+        "actions": "core-control-plane.action-audit",
         "changes": "inventory.observation-journal",
+        "excluded_windows": "core-control-plane.change-window-history",
         "resource_lifecycle": "inventory.incarnation-ledger",
     }.get(kind, "unavailable")
 
@@ -253,5 +346,6 @@ def _json_evidence(evidence: ForecastContextEvidence) -> Mapping[str, object]:
 __all__ = [
     "ForecastHistorySliceReadback",
     "ForecastHistorySliceSource",
+    "ForecastContextAggregateReadback",
     "StateTransitionForecastHistorySliceSource",
 ]

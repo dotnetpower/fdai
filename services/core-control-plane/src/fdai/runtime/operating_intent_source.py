@@ -56,6 +56,7 @@ from fdai.delivery.operating_model import (
     JsonOperatingIntentSourceProvider,
     JsonOperatingModelProviderConfig,
 )
+from fdai.runtime.change_window_history import record_change_window_history
 from fdai.runtime.operating_intent_binding import (
     OPERATING_INTENT_SOURCE_PATH_ENV,
     decode_operating_intent_manifest,
@@ -250,6 +251,12 @@ class OperatingIntentSourceRuntime:
 
         if self.state_store is None:
             return
+        await record_change_window_history(
+            self.state_store,
+            document.snapshot,
+            document_digest=self.binding.expected_sha256,
+            recorded_at=now,
+        )
         owned_object_ids = sorted(item.id for item in document.snapshot.objects)
         if len(owned_object_ids) > MAX_ADMITTED_OBJECT_IDS:
             await self._deny(
