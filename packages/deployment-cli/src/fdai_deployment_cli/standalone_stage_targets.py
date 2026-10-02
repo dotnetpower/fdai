@@ -172,6 +172,16 @@ def operation_targets(stage: str, context: dict[str, object], operation: str) ->
     return stage_targets(stage, context)
 
 
+def not_required_recovery(stage: str) -> dict[str, object]:
+    return {
+        "schema_version": "fdai.standalone-application-recovery.v1",
+        "state": "not-required",
+        "stage": stage,
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+
+
 def moved_state_targets(infra: Path) -> tuple[str, ...]:
     """Return `moved` source and destination addresses whose source is still in Terraform state.
 
@@ -218,6 +228,40 @@ def focused_private_access(context: dict[str, object]) -> bool:
     if type(key_vault) is not bool or type(document_storage) is not bool:
         raise ValueError("focused private-access context is invalid")
     return key_vault or document_storage
+
+
+def reconcile_retained_private_access(
+    retained: dict[str, object],
+    retained_values: dict[str, object],
+    key_vault_private_access: bool,
+    document_storage_private_access: bool,
+) -> bool:
+    changed = False
+    for key, variable, observed in (
+        (
+            "key_vault_private_access",
+            "enable_aks_key_vault_private_access",
+            key_vault_private_access,
+        ),
+        (
+            "document_storage_private_access",
+            "enable_aks_document_storage_private_access",
+            document_storage_private_access,
+        ),
+    ):
+        previous = retained.get(key)
+        if type(previous) is not bool:
+            raise ValueError("standalone host retained context differs")
+        if previous and not observed:
+            raise ValueError(f"standalone host retained private-access posture loosened: {key}")
+        tightened = previous or observed
+        if retained.get(key) is not tightened:
+            retained[key] = tightened
+            retained_values[variable] = tightened
+            changed = True
+    if changed:
+        retained["private_access_posture_transition"] = True
+    return changed
 
 
 def focused_access_targets(context: dict[str, object]) -> tuple[str, ...]:

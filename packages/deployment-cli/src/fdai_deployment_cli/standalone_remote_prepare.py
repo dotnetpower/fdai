@@ -139,19 +139,19 @@ def prepare_remote(
             ),
         )
         commands = (
-            (("rm", "-rf", "--", f"{remote_root}/kit"), 300),
-            (("tar", "-xzf", remote_archive, "-C", remote_root), 1800),
-            (("rm", "-rf", "--", f"{remote_root}/venv"), 300),
-            (("python3", "-m", "venv", f"{remote_root}/venv"), 300),
+            ("clean-kit", ("rm", "-rf", "--", f"{remote_root}/kit"), 300),
+            ("extract-kit", ("tar", "-xzf", remote_archive, "-C", remote_root), 1800),
+            ("clean-venv", ("rm", "-rf", "--", f"{remote_root}/venv"), 300),
+            ("create-venv", ("python3", "-m", "venv", f"{remote_root}/venv"), 300),
             *install_cli,
-            (("install", "-d", "-m", "0700", app_work), 60),
-            (prepare_arguments, 1800),
+            ("create-workdir", ("install", "-d", "-m", "0700", app_work), 60),
+            ("prepare", prepare_arguments, 1800),
         )
         setup = None
-        for command, limit in commands:
+        for step, command, limit in commands:
             setup = tunnel.ssh(command, timeout=min(limit, timeout_seconds))
             if setup.returncode != 0:
-                raise ValueError("standalone managed-host preparation failed")
+                raise ValueError(f"standalone managed-host preparation failed: step={step}")
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as setup_failure:
         try:
             _cleanup_catalog_review_staging(tunnel, remote_root=remote_root)
@@ -174,9 +174,10 @@ def prepare_remote(
     return {str(key): value for key, value in result.items()}
 
 
-def _kit_cli_installation(remote_root: str) -> tuple[tuple[tuple[str, ...], int], ...]:
+def _kit_cli_installation(remote_root: str) -> tuple[tuple[str, tuple[str, ...], int], ...]:
     return (
         (
+            "install-kit-cli",
             (
                 f"{remote_root}/venv/bin/pip",
                 "install",
@@ -193,7 +194,7 @@ def _kit_cli_installation(remote_root: str) -> tuple[tuple[tuple[str, ...], int]
 
 def _stage_control_package(
     tunnel: Any, remote_root: str, control_package: ControlPackage
-) -> tuple[tuple[tuple[str, ...], int], ...]:
+) -> tuple[tuple[str, tuple[str, ...], int], ...]:
     """Copy the locally verified wheelhouse and require the same bytes on the host."""
 
     remote_control = f"{remote_root}/control.tar.gz"
@@ -209,10 +210,11 @@ def _stage_control_package(
         raise ValueError("standalone control package digest differs")
     package = f"{control_root}/{PACKAGE_ROOT}"
     return (
-        (("rm", "-rf", "--", control_root), 120),
-        (("install", "-d", "-m", "0700", control_root), 60),
-        (("tar", "-xzf", remote_control, "-C", control_root), 300),
+        ("clean-control-package", ("rm", "-rf", "--", control_root), 120),
+        ("create-control-package-dir", ("install", "-d", "-m", "0700", control_root), 60),
+        ("extract-control-package", ("tar", "-xzf", remote_control, "-C", control_root), 300),
         (
+            "install-control-package",
             (
                 f"{remote_root}/venv/bin/pip",
                 "install",
