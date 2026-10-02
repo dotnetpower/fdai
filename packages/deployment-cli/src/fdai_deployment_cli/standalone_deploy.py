@@ -26,6 +26,7 @@ from fdai_deployment_cli.control_package import verify_control_package
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
+from fdai_deployment_cli.foundation_adoption import write_lineage_adoption_receipt
 from fdai_deployment_cli.foundation_failure import foundation_failure_summary
 from fdai_deployment_cli.foundation_output import foundation_output
 from fdai_deployment_cli.foundation_process import run_foundation_process
@@ -335,6 +336,16 @@ def deploy_azure_foundation(
             and "foundation-state" in completed_stages
         ):
             foundation = _foundation_result(kit, prepared, status)
+            lineage_receipt_digest = _bind_application_to_foundation_lineage(
+                kit=kit,
+                prepared=prepared,
+                status=status,
+                lineage_continuation=lineage_continuation,
+                tenant_id=target.tenant_id,
+                subscription_id=target.subscription_id,
+                region=region,
+                monthly_cost_ceiling=monthly_cost_ceiling,
+            )
             deadline.remaining()
             return complete_application(
                 kit=kit,
@@ -346,6 +357,7 @@ def deploy_azure_foundation(
                 trial_token=trial_token,
                 application_state_adoption=adoption,
                 foundation_state_receipt_digest=str(foundation["foundation_state_receipt_digest"]),
+                foundation_adoption_receipt_digest=lineage_receipt_digest,
                 catalog_review_profile=(
                     catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
                 ),
@@ -519,6 +531,51 @@ def _current_operator_object_id() -> str:
     if completed.returncode != 0 or _GUID.fullmatch(value) is None:
         raise ValueError("authenticated Azure operator object ID is unavailable")
     return value
+
+
+def _bind_application_to_foundation_lineage(
+    *,
+    kit: DeploymentKit,
+    prepared: Any,
+    status: dict[str, Any],
+    lineage_continuation: bool,
+    tenant_id: str,
+    subscription_id: str,
+    region: str,
+    monthly_cost_ceiling: int,
+) -> str | None:
+    """Give the managed host verified evidence that binds a retained Foundation to this kit."""
+
+    receipt_path = prepared.root / "foundation-adoption-receipt.json"
+    if not lineage_continuation:
+        if receipt_path.exists() or receipt_path.is_symlink():
+            retained = _private_json(receipt_path)
+            if retained.get("foundation_source_commit") == kit.source_commit:
+                # The kit is back at the Foundation's own revision, so no adoption applies.
+                review = prepared.root / "foundation-adoption-review"
+                _create_or_validate_private_directory(review)
+                receipt_path.rename(review / f"{str(retained.get('receipt_digest'))[:16]}.json")
+        return None
+    report = status.get("foundation_report")
+    plan = report.get("foundation_plan") if isinstance(report, dict) else None
+    plan_ref = plan.get("plan_ref") if isinstance(plan, dict) else None
+    if (
+        not isinstance(plan_ref, str)
+        or re.fullmatch(r"foundation-plan-attempt-[1-9][0-9]*", plan_ref) is None
+    ):
+        raise ValueError("retained Foundation plan reference is invalid")
+    receipt = write_lineage_adoption_receipt(
+        run_root=prepared.root,
+        plan_directory=prepared.root / plan_ref,
+        application_source_commit=kit.source_commit,
+        kit_manifest_digest=kit.verification.manifest_digest,
+        runtime_release_digest=kit.runtime.digest,
+        tenant_id=tenant_id,
+        subscription_id=subscription_id,
+        region=region,
+        monthly_cost_ceiling=monthly_cost_ceiling,
+    )
+    return str(receipt["receipt_digest"])
 
 
 def _foundation_result(

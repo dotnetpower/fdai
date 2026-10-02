@@ -316,11 +316,72 @@ def test_an_offline_upgrade_continues_the_foundation_under_its_retained_lineage(
     assert options["prompt_timeout"] is None
 
 
-def test_an_offline_upgrade_reaches_the_application_with_the_kit_source(coordinator):
+def test_an_offline_upgrade_reaches_the_application_with_the_kit_source(coordinator, monkeypatch):
     invoke, options, _clock = coordinator
     options.update(application=True, foundation_source_commit="f" * 40)
+    status = {
+        "current_stage": "application-plan",
+        "route": "private-runner",
+        "completed_stages": ["foundation-state"],
+        "foundation_report": {
+            "foundation_plan": {"plan_ref": "foundation-plan-attempt-2"},
+            "state_handoff": {"receipt_digest": "f" * 64},
+        },
+    }
+    monkeypatch.setattr(standalone_deploy, "current_status", lambda *_a, **_k: status)
+    written: dict[str, object] = {}
 
-    invoke(product_add_ons=("enterprise-identity-governance",))
+    def lineage(**kwargs):
+        written.update(kwargs)
+        return {"receipt_digest": "9" * 64}
+
+    monkeypatch.setattr(standalone_deploy, "write_lineage_adoption_receipt", lineage)
+
+    result = invoke(product_add_ons=("enterprise-identity-governance",))
 
     assert _source_argument(options) == "f" * 40
     assert options["application_timeout"] is not None
+    assert written["application_source_commit"] == "a" * 40
+    assert str(written["plan_directory"]).endswith("run/foundation-plan-attempt-2")
+    assert result["foundation_adoption_receipt_digest"] == "9" * 64
+
+
+def test_returning_to_the_foundation_revision_retires_a_lineage_receipt(tmp_path):
+    root = tmp_path / "run"
+    root.mkdir(mode=0o700)
+    receipt = root / "foundation-adoption-receipt.json"
+    receipt.write_text(
+        json.dumps({"foundation_source_commit": "a" * 40, "receipt_digest": "8" * 64}),
+        encoding="utf-8",
+    )
+    receipt.chmod(0o600)
+    kit = SimpleNamespace(source_commit="a" * 40)
+
+    digest = standalone_deploy._bind_application_to_foundation_lineage(
+        kit=kit,
+        prepared=SimpleNamespace(root=root),
+        status={},
+        lineage_continuation=False,
+        tenant_id="t",
+        subscription_id="s",
+        region="westus3",
+        monthly_cost_ceiling=2000,
+    )
+
+    assert digest is None
+    assert not receipt.exists()
+    assert (root / "foundation-adoption-review" / ("8" * 16 + ".json")).exists()
+
+
+def test_an_offline_upgrade_requires_an_exact_retained_plan_reference(tmp_path):
+    with pytest.raises(ValueError, match="plan reference is invalid"):
+        standalone_deploy._bind_application_to_foundation_lineage(
+            kit=SimpleNamespace(source_commit="a" * 40),
+            prepared=SimpleNamespace(root=tmp_path),
+            status={"foundation_report": {"foundation_plan": {"plan_ref": "../outside"}}},
+            lineage_continuation=True,
+            tenant_id="t",
+            subscription_id="s",
+            region="westus3",
+            monthly_cost_ceiling=2000,
+        )
