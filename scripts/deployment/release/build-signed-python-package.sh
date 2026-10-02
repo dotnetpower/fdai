@@ -39,6 +39,14 @@ python="$repo_root/.venv/bin/python"
   echo "build-signed-python-package: repository Python environment is required" >&2
   exit 3
 }
+"$python" - <<'PY'
+from __future__ import annotations
+
+import sys
+
+if sys.implementation.name != "cpython" or sys.version_info[:2] != (3, 12):
+    raise SystemExit("build-signed-python-package: release Python must be CPython 3.12")
+PY
 
 package="$out/package"
 wheels="$package/wheels"
