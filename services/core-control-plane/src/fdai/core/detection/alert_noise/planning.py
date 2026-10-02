@@ -52,6 +52,8 @@ def plan_alert_change(
             if processing.enabled:
                 if processing.action == "suppress":
                     raise AlertPlanHeld("overlapping_suppression")
+                if processing.action == "add":
+                    raise AlertPlanHeld("overlapping_add_rule")
                 effective_refs.update(processing.group_refs)
     if treatment.kind == "routing":
         if treatment.remove_group_ref not in rule.group_refs:
