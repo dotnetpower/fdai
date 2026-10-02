@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 7e9d395d4f4c82a1a5173ea6f13ed4e32bb09b9d
-translation_revised: 2026-10-01
+translation_source_sha: 13a492dc09ce12864a79e934c0a2605b2dd166e3
+translation_revised: 2026-10-02
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다. 모듈 분리 후에도 제안 claim 타입은 목적별 모델 소유자에 유지하고 공개 보증 파사드, 생성된 CQAS 인벤토리, 정본 시각 매핑을 보존하며 요청 또는 실행 권한은 바뀌지 않습니다. 파사드 가져오기 이름을 보존하는 런타임 카탈로그 로더 분리는 사람 보고 관계, 승인 경로, RBAC 또는 Console 요청 계약을 변경하지 않습니다. Rule 활성화 테스트를 소유 Core 및 Operator 서비스 테스트 묶음에 등록하는 변경은 테스트 선택만 바꾸며 보고 관계나 승인 권한을 부여하지 않습니다. Console 카탈로그나 deck 표현 계약 변경 뒤 질문은행과 CQAS 산출물을 다시 생성하는 작업은 원본 약속값만 갱신하며 질문 신원, 보고 권한 또는 대화 실행 권한을 바꾸지 않습니다.
@@ -14,7 +14,10 @@ Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니�
 최근 참조를 최대 네 개까지 돌려보냅니다. Operator에 행 본문을 노출하거나 사람 보고 경로를
 바꾸거나 Console 실행 권한을 부여하지 않습니다.
 생성된 계약 view가 롤아웃에 안전한 핸들 참조 스키마 버전을 추가할 수는 있지만, 브라우저와 Operator는
-여전히 행 신원, 행 본문 또는 모델에 보이는 핸들 payload를 받지 않습니다.
+여전히 행 신원, 행 본문 또는 모델에 보이는 핸들 payload를 받지 않습니다. 같은 생성된 view는 권한 없는
+기준선 평가 결과와 완료 기록도 노출하므로, Operator는 나중에 완전한 Core/Saga 근거에서만 현재 Rule
+점검 결과 요약을 수락할 수 있습니다. 해당 변환 결과가 생기기 전까지 Console은 요약을 계속 사용할 수
+없음으로 렌더링합니다.
 적응형 답변 근거는 Core가 만든 허용 목록 기반 변환 결과인 `ModelEvidenceView`로 모델 경계를
 넘습니다. 원시 조회 표, 프로바이더 본문, 핸들, 보관된 스냅숏 셀은 답변 작성 또는 검토 모델
 호출에 들어가지 않습니다.

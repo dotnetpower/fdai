@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: de2288061251356b2dedf642d601c1dbdcce2cab
+translation_source_sha: ee3b1525910e26589a46c5fac0a6eb20de64d732
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -48,7 +48,10 @@ Assurance Twin의 프로덕션 조립은 고정된 Pantheon 역할과 상태 저
 추가 사항은 서비스 간 스키마, 승인 또는 실행 경로를 변경하지 않습니다. Rule 세대 시각은 전용 UTC 시계를 사용하며, 재생,
 Action 생성, 전달 또는 효과 근거에 사용하는 주입된 컨트롤 루프 시계를 소비하지 않습니다.
 Core는 계약 하위 모듈이 아니라 공유 계약 파사드를 통해 Rule 및 제출 조건 형식을 확인하여
-저장소의 단방향 공개 가져오기 경계를 보존합니다.
+저장소의 단방향 공개 가져오기 경계를 보존합니다. 공유 service-contract SDK는 완전한 인벤토리 세대를
+위한 권한 없는 기준선 평가 터미널 기록도 소유합니다. 기록은 Rule별 결과와 세대별 완료를 담습니다. 이
+기록은 버전이 지정된 Core-to-Operator wire 표면만 추가하며, Forseti 판단, Saga 감사, Operator 변환
+결과 수락, Console 렌더링은 계속 별도 소유자에 남습니다.
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,

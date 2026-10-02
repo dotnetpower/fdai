@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 98ca7e59f3f055b1cfad8c1f860fe4d5d1440c49
-translation_revised: 2026-10-01
+translation_source_sha: 4c3ffa001801ecaa191cd951a251a14c4d25cf92
+translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
 
@@ -33,6 +33,9 @@ translation_revised: 2026-10-01
 수락하거나 검증기 재확인을 충족하거나 실행 권한을 부여하지 않습니다.
 봉인된 Core 전용 행 신원은 후속 읽기의 재인가 피연산자일 뿐이며, 검증기 출처 산출물, 수락 기록 또는
 증명 자료가 아닙니다.
+기준선 평가 터미널 기록도 같은 근거 경계를 사용합니다. Rule별 결과와 세대별 완료 계약은 Forseti 평가
+증적과 Saga 감사 기록을 참조할 수 있지만, 계약 자체는 독립 운영 근거를 발급하거나 검증기를 배포하거나
+실제 공급자 상태를 증명하지 않습니다.
 
 ## 현재 상태와 공백
 
