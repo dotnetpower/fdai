@@ -52,6 +52,9 @@ independent read admission is the revised gate. Input packing and shard batching
 the complete candidate population and existing budgets. Content-free per-call accounting
 must distinguish actual provider calls from reused results; live speed and token claims
 require an exact-source bounded before/after comparison.
+Each blind reader executes complete shards in waves of at most two concurrent calls, preserving
+ordered receipt accounting and the existing call budget. A failed or cancelled wave cancels and
+drains its other calls before the stage ends; finalists and bounded repairs retain their gates.
 
 ## Verified baseline
 

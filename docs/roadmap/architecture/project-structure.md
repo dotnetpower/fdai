@@ -48,6 +48,8 @@ only display measured timing and usage, without another writer, service, or auth
 The same typed-only boundary may reuse an independently certified direct read before legacy
 judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
 existing gates. Numeric call accounting adds no prompt capture or execution authority.
+Reader-local two-shard waves are read-only concurrency inside the same bounded turn; their
+cancellation drains outstanding work and adds no shared authority-bearing workflow state.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.

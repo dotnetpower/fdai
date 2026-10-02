@@ -273,6 +273,89 @@ async def test_primary_read_requires_explicit_blind_agreement(
     assert result.primary_read is eligible
 
 
+async def test_independent_shard_wave_overlaps_at_most_two_without_dropping_candidates() -> None:
+    from fdai.core.conversation.semantic_reasoning_shadow import _select_one
+
+    from tests.conversation.test_semantic_reasoning_concepts import _admission
+
+    barrier = asyncio.Event()
+    active = 0
+    peak = 0
+    seen: list[str] = []
+
+    async def choose(*, shard: ConceptShard, mentions: Any, **kwargs: Any) -> Any:
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        if active == 2:
+            barrier.set()
+        await barrier.wait()
+        seen.extend(candidate.id for candidate in shard.candidates)
+        active -= 1
+        return {
+            "shard_digest": shard.digest,
+            "choices": [{"mention": item["mention"], "candidate_ids": []} for item in mentions],
+        }
+
+    catalog = tuple(
+        ConceptCandidate(f"value:example.{index}", (f"example.{index}",), ("Type",))
+        for index in range(10)
+    )
+    await asyncio.wait_for(
+        _select_one(
+            SimpleNamespace(choose_concepts=choose),
+            admission=_admission(),
+            catalogs={MentionDomain.RESOURCE_TYPE: catalog},
+            utterance=_UTTERANCE,
+            max_calls=16,
+            max_shard_bytes=400,
+            second=False,
+        ),
+        timeout=2,
+    )
+    assert peak == 2
+    assert sorted(seen) == sorted(candidate.id for candidate in catalog)
+
+
+async def test_failed_shard_wave_cancels_and_drains_its_other_call() -> None:
+    from fdai.core.conversation.semantic_reasoning_shadow import _select_one
+
+    from tests.conversation.test_semantic_reasoning_concepts import _admission
+
+    started = asyncio.Event()
+    drained = False
+
+    async def choose(*, shard: ConceptShard, **kwargs: Any) -> Any:
+        nonlocal drained
+        if shard.index == 0:
+            await started.wait()
+            raise RuntimeError("synthetic provider stop")
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            drained = True
+
+    catalog = tuple(
+        ConceptCandidate(f"value:example.{index}", (f"example.{index}",), ("Type",))
+        for index in range(10)
+    )
+    with pytest.raises(RuntimeError, match="synthetic provider stop"):
+        await asyncio.wait_for(
+            _select_one(
+                SimpleNamespace(choose_concepts=choose),
+                admission=_admission(),
+                catalogs={MentionDomain.RESOURCE_TYPE: catalog},
+                utterance=_UTTERANCE,
+                max_calls=16,
+                max_shard_bytes=400,
+                second=False,
+            ),
+            timeout=2,
+        )
+    assert drained
+
+
 async def _run(model: _Model, *, account_spans: bool = False, **budget: Any) -> Any:
     """Run the shadow over the fixture; word accounting is off unless a test checks it."""
 

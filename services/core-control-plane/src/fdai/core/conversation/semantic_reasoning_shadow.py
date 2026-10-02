@@ -812,13 +812,23 @@ async def _select_one(
 
     answers: list[Mapping[str, Any] | None] = []
     retries = 0
-    for request in plan.requests:
-        answer = await choose(request)
-        # One bounded re-ask for a malformed shard answer; a second failure stays invalid.
-        if not shard_answer_valid(answer, request) and (len(plan.requests) + retries < max_calls):
-            retries += 1
-            answer = await choose(request)
-        answers.append(answer)
+    for offset in range(0, len(plan.requests), 2):
+        wave = plan.requests[offset : offset + 2]
+        tasks = [asyncio.create_task(choose(request)) for request in wave]
+        try:
+            results = await asyncio.gather(*tasks)
+        except BaseException:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+        for request, answer in zip(wave, results, strict=True):
+            if not shard_answer_valid(answer, request) and (
+                len(plan.requests) + retries < max_calls
+            ):
+                retries += 1
+                answer = await choose(request)
+            answers.append(answer)
     receipt = accept_concept_selection(plan, answers)
     receipt = replace(receipt, model_calls=receipt.model_calls + retries)
     runoff = runoff_requests(plan, receipt)
