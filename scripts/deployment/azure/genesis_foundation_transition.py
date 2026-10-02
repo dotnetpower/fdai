@@ -7,13 +7,17 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import stat
+import subprocess
 import tarfile
+from collections.abc import Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import genesis_foundation_apply as foundation_apply
 import genesis_foundation_state as foundation_state
+import genesis_foundation_state_archive as state_archive
 import genesis_foundation_state_contract as state_contract
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bundle import extract_bundle_archive, verify_bundle
@@ -30,6 +34,12 @@ CLAIM_NAME = "foundation-transition-claim.json"
 PLAN_RESULT_NAME = "foundation-transition-plan.json"
 RECEIPT_NAME = "foundation-transition-remote-receipt.json"
 _HELPER = "genesis_foundation_transition_remote.py"
+# Sibling bundle directories that the Foundation root reaches through ``../<name>``.
+FOUNDATION_SIBLINGS = ("bootstrap", "modules", "genesis-runner-image")
+_REMOTE_FAILURE = "Foundation transition remote operation failed"
+_REMOTE_REASON_PREFIX = "fdai-foundation-transition: "
+_SAFE_REMOTE_REASON = re.compile(r"[A-Za-z0-9 _.,:;()'\[\]/-]{1,200}")
+_GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -56,7 +66,14 @@ def main() -> int:
     args = _parser().parse_args()
     try:
         result = _execute(args)
-    except (OSError, ValueError, json.JSONDecodeError, tarfile.TarError) as exc:
+    except (
+        OSError,
+        RuntimeError,
+        ValueError,
+        json.JSONDecodeError,
+        subprocess.SubprocessError,
+        tarfile.TarError,
+    ) as exc:
         if args.output == "json":
             print(json.dumps({"state": "failed", "reason": str(exc)}, sort_keys=True))
         else:
@@ -97,13 +114,13 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
     validate_known_hosts(known_hosts)
     helper = _helper_source()
     helper_digest = hashlib.sha256(helper).hexdigest()
-    work_id = canonical_digest(
-        {
-            "foundation_receipt_digest": foundation["receipt_digest"],
-            "enrollment_receipt_digest": enrollment["receipt_digest"],
-            "application_source_commit": _kit_source_commit(args.offline_kit),
-            "helper_digest": helper_digest,
-        }
+    # Each local attempt owns a distinct remote work directory, so a retry never collides with
+    # the leftovers of an earlier failed or superseded attempt.
+    work_id = transition_work_id(
+        foundation_receipt_digest=str(foundation["receipt_digest"]),
+        enrollment_receipt_digest=str(enrollment["receipt_digest"]),
+        transition_ref=transition.name,
+        helper_digest=helper_digest,
     )
     archive = transition / f"foundation-transition-{work_id[:12]}.tar.gz"
     if args.mode == "plan":
@@ -302,9 +319,12 @@ def _run_remote(mode: object, **kwargs: object) -> dict[str, object]:
     remote_archive = (
         f"/home/{connection['username']}/.fdai-transfer-{work_id[:24]}-transition.tar.gz"
     )
-    remote_work = f"/home/{connection['username']}/.fdai-foundation-transition/{work_id[:24]}"
+    # The Bastion evidence boundary only releases files below ``~/.fdai-state-handoff/``.
+    remote_evidence = (
+        f"/home/{connection['username']}/.fdai-state-handoff/transition-{work_id[:24]}"
+    )
     remote_helper = f"/home/{connection['username']}/.fdai-transfer-{work_id[:24]}-transition.py"
-    remote_args = foundation_state._remote_arguments(
+    remote_args = transition_remote_arguments(
         archive=remote_archive,
         work_id=work_id,
         archive_digest=archive_digest,
@@ -312,7 +332,6 @@ def _run_remote(mode: object, **kwargs: object) -> dict[str, object]:
         state=state,
         runner=runner,
         ops=ops,
-        expected_state_digest="0" * 64,
     )
     host_alias = (
         "fdai-genesis-" + hashlib.sha256(connection["vm_id"].casefold().encode()).hexdigest()[:16]
@@ -367,18 +386,23 @@ def _run_remote(mode: object, **kwargs: object) -> dict[str, object]:
             marker_state = "plan_complete" if mode == "plan" else "verified"
             marker = f"foundation_transition_{marker_state} work_ref={work_id[:24]}"
             if result.returncode != 0 or marker not in result.stdout.splitlines():
-                raise ValueError("Foundation transition remote operation failed")
+                raise ValueError(remote_failure_reason(result))
             paths = {
-                "remote_plan": transition / f"transition-remote-plan-{work_id[:12]}.json",
-                "observation": transition / f"transition-observation-{work_id[:12]}.json",
+                "remote_plan": transition / f"transition-{mode}-remote-plan-{work_id[:12]}.json",
+                "observation": transition / f"transition-{mode}-observation-{work_id[:12]}.json",
             }
             remote_plan_name = "remote-plan.json" if mode == "plan" else "remote-zero-plan.json"
             remote_observation = (
                 "plan-observation.json" if mode == "plan" else "apply-observation.json"
             )
-            tunnel.copy_from(f"{remote_work}/{remote_plan_name}", paths["remote_plan"], timeout=300)
+            # A resumed verification fetches fresh evidence instead of trusting an older copy.
+            for path in paths.values():
+                _unlink_private(path)
             tunnel.copy_from(
-                f"{remote_work}/{remote_observation}", paths["observation"], timeout=120
+                f"{remote_evidence}/{remote_plan_name}", paths["remote_plan"], timeout=300
+            )
+            tunnel.copy_from(
+                f"{remote_evidence}/{remote_observation}", paths["observation"], timeout=120
             )
             return {
                 "remote_plan": paths["remote_plan"],
@@ -427,10 +451,11 @@ def _prepare_archive(
         archive_stage = stage / "archive"
         archive_stage.mkdir(mode=0o700)
         _copy_tree(extracted / "infra/genesis-foundation", archive_stage / "root")
-        for module in ("bootstrap", "modules"):
-            source = extracted / "infra" / module
+        _activate_remote_backend(archive_stage / "root")
+        for sibling in FOUNDATION_SIBLINGS:
+            source = extracted / "infra" / sibling
             if source.exists():
-                _copy_tree(source, archive_stage / module)
+                _copy_tree(source, archive_stage / sibling)
         _copy_tree(artifacts.provider_mirror, archive_stage / "mirror")
         write_private_bytes(
             archive_stage / "variables.auto.tfvars.json",
@@ -439,7 +464,7 @@ def _prepare_archive(
         files = _file_manifest(archive_stage)
         manifest: dict[str, object] = {
             "schema_version": "fdai.genesis-foundation-transition-archive.v1",
-            "source_commit": _kit_source_commit(args.offline_kit),
+            "kit_manifest_digest": verification.manifest_digest,
             "helper_digest": helper_digest,
             "files": files,
         }
@@ -525,10 +550,89 @@ def _helper_source() -> bytes:
         return stream.read(1024 * 1024 + 1)
 
 
-def _kit_source_commit(offline_kit: Path) -> str:
-    # The precise source commit is recorded in the transition receipt through the application kit.
-    del offline_kit
-    return "0" * 40
+def _activate_remote_backend(root: Path) -> None:
+    """Bind the transition to the migrated AzureRM state instead of an empty local state."""
+
+    if any(root.glob("terraform.tfstate*")):
+        raise ValueError("Foundation transition configuration contains a second state owner")
+    example = root / "backend.azurerm.tf.example"
+    if not example.is_file() or example.read_bytes() != state_archive._REMOTE_BACKEND:
+        raise ValueError("Foundation transition remote backend contract is missing or differs")
+    write_private_bytes(root / "backend.azurerm.tf", state_archive._REMOTE_BACKEND)
+
+
+def transition_work_id(
+    *,
+    foundation_receipt_digest: str,
+    enrollment_receipt_digest: str,
+    transition_ref: str,
+    helper_digest: str,
+) -> str:
+    """Return the remote work identity shared by one attempt's plan, apply, and verify."""
+
+    return canonical_digest(
+        {
+            "foundation_receipt_digest": foundation_receipt_digest,
+            "enrollment_receipt_digest": enrollment_receipt_digest,
+            "transition_ref": transition_ref,
+            "helper_digest": helper_digest,
+        }
+    )
+
+
+def transition_remote_arguments(
+    *,
+    archive: str,
+    work_id: str,
+    archive_digest: str,
+    handoff: Mapping[str, object],
+    state: Mapping[str, object],
+    runner: Mapping[str, object],
+    ops: Mapping[str, object],
+) -> tuple[str, ...]:
+    """Build exactly the options accepted by the transition helper's parser."""
+
+    required = foundation_state._required_text
+    return (
+        "--archive",
+        archive,
+        "--archive-digest",
+        archive_digest,
+        "--work-id",
+        work_id,
+        "--subscription-id",
+        required(handoff, "subscription_id"),
+        "--tenant-id",
+        required(handoff, "tenant_id"),
+        "--client-id",
+        required(runner, "client_id"),
+        "--principal-id",
+        required(runner, "principal_id"),
+        "--state-account-id",
+        required(state, "account_id"),
+        "--resource-group",
+        required(ops, "resource_group_name"),
+        "--account-name",
+        required(state, "account_name"),
+        "--container-name",
+        required(state, "container_name"),
+        "--backend-key",
+        required(state, "foundation_key"),
+    )
+
+
+def remote_failure_reason(result: subprocess.CompletedProcess[str]) -> str:
+    """Return a bounded, identifier-free reason for a failed remote helper invocation."""
+
+    if result.returncode == 2:
+        return f"{_REMOTE_FAILURE}: remote helper rejected its arguments"
+    for line in reversed((result.stderr or "").splitlines()):
+        if line.startswith(_REMOTE_REASON_PREFIX):
+            reason = _GUID.sub("redacted-id", line.removeprefix(_REMOTE_REASON_PREFIX).strip())
+            if _SAFE_REMOTE_REASON.fullmatch(reason) is not None:
+                return f"{_REMOTE_FAILURE}: {reason}"
+            break
+    return _REMOTE_FAILURE
 
 
 def _copy_tree(source: Path, destination: Path) -> None:

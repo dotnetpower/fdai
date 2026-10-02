@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: f596cba93878d497cffeb337c0d109d55a277df5
+translation_source_sha: 9f19efead9574466b81c5f9cfcbede81895d1f1e
 translation_revised: 2026-10-02
 ---
 
@@ -734,12 +734,28 @@ Foundation 상태를 기준으로 더 새 키트의 Foundation 계획을 계산�
 
 **전송 개정:** 전환 helper는 실행마다 전송되고 전환 근거에 다이제스트로 묶입니다. 실행기 이미지의
 일부가 아니므로 helper 추가가 기존 설치의 실행기 이미지 교체를 의미하지 않습니다. 로컬 조정기는
-더 새 키트의 Foundation 루트, 공급자 미러, 모듈, 부트스트랩 지원 파일, 보존된 변수를 비공개
-아카이브로 묶습니다. 보존된 변수는 보존된 계획이 검토한 정규화 다이제스트와 일치하는 Foundation 입력입니다. 예를 들어 실행기 이미지를 반영한 입력이 여기에 해당하며, 일치하는 후보가 없으면 전환은 `foundation_transition_variables_unverifiable`로 멈춥니다. 조정기는 그 아카이브와 helper를 Bastion 전송 접두사 아래로 설치 자체의 Bastion 터널을 통해 복사한 뒤, 보존된 실행기
-Managed Identity로 상태 권한이 기록한 기존 AzureRM 백엔드를 대상으로 helper를 실행합니다. helper는
+더 새 키트의 Foundation 루트, 공급자 미러, 모듈, 부트스트랩 지원 파일, 실행기 이미지 지원 파일,
+보존된 변수를 비공개 아카이브로 묶습니다. 보존된 변수는 보존된 계획이 검토한 정규화 다이제스트와
+일치하는 Foundation 입력입니다. 예를 들어 실행기 이미지를 반영한 입력이 여기에 해당하며, 일치하는
+후보가 없으면 전환은 `foundation_transition_variables_unverifiable`로 멈춥니다. 아카이브는 상태
+핸드오프와 같은 계약에 따라 Foundation 루트의 검증된 백엔드 예제로 AzureRM 백엔드를 활성화하고,
+로컬 상태가 남아 있는 루트는 거부합니다. 조정기는 그 아카이브와 helper를 Bastion 전송 접두사 아래로
+설치 자체의 Bastion 터널을 통해 복사한 뒤, 보존된 실행기 Managed Identity로 상태 권한이 기록한 기존
+AzureRM 백엔드를 대상으로 helper를 실행합니다. 이전된 상태 없이 계획하면 Foundation 전체를 다시
+만들자는 계획이 나오므로, helper는 비어 있거나 관리 리소스가 없는 원격 상태를 거부합니다. helper는
+각 계획 전에 읽기 전용 새로 고침으로 정확한 입력이 예측할 수 없는 정책 할당 값, 즉
+`FirstPartyUsage` 공용 IP 태그와 실행기 게스트 패치 선택을 바인딩합니다. Foundation 적용과 같은
+지원 값 규칙을 적용하므로, 적용 뒤 테넌트 정책이 만든 드리프트가 교체로 이어지지 않습니다. helper는
 계획, 이미 검토된 계획의 1회 적용, 재읽기와 변경 없음 계획을 통한 검증, 임시 작업 정리만 할 수
 있습니다. 승인, 대상 선택, 모호한 적용 반복, 실행기 이미지 변경, 계보 전진은 할 수 없습니다. 이런
 결정은 제한된 근거가 돌아온 뒤 로컬 조정기가 계속 담당합니다.
+
+전환 시도마다 별도의 원격 작업 디렉터리를 사용합니다. helper는 제한된 근거를 Bastion 근거 경계
+아래에 게시하고, 검증된 압축 해제 뒤 전송된 아카이브를 제거하며, 새 계획 전에 대체된 시도의 작업,
+전송 파일, 근거를 정리합니다. 조정기는 가장 최근에 클레임했거나 완료한 시도만 재개하며, 그 시도의
+검토가 현재 Foundation 입력을 기록한 경우에만 재개합니다. 다른 입력으로 완료된 시도는 새 계획으로
+대체되고, 다른 입력으로 중단된 적용은 `foundation_transition_interrupted_for_other_inputs`로
+멈춥니다. 실패한 원격 단계는 식별자 없이 제한된 이유를 보고합니다.
 
 제어 코드만 수정한 경우 [서명된 배포 제어 패키지](disconnected-deployment-ko.md#배포-제어-패키지)로 검증된 키트를 재사용할 수 있습니다.
 

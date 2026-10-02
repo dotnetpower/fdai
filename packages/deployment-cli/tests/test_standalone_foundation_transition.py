@@ -488,13 +488,15 @@ def test_claim_resume_uses_verify_without_replan_or_apply(
     _status(tmp_path / "run")
     selected = tmp_path / "run" / "foundation-variables-with-image.json"
     monkeypatch.setattr(transition, "retained_variables_file", lambda _run, _plan: selected)
-    attempt = tmp_path / "run/foundation-transition-attempt-1"
-    attempt.mkdir(mode=0o700)
-    transition._write_transition_review(attempt, _transport_plan(zero=False))  # noqa: SLF001
-    write_private_bytes(attempt / "foundation-transition-claim.json", b"{}\n")
     monkeypatch.setattr(transition, "_retained_bundle_root", lambda *_args: old_bundle)
     monkeypatch.setattr(transition, "_find_digest", lambda _root, expected: expected)
     monkeypatch.setattr(transition, "write_lineage_adoption_receipt", _adoption)
+    attempt = tmp_path / "run/foundation-transition-attempt-1"
+    attempt.mkdir(mode=0o700)
+    transition._write_transition_review(  # noqa: SLF001
+        attempt, _transport_plan(zero=False), _current_inputs(kit, tmp_path / "run")
+    )
+    write_private_bytes(attempt / "foundation-transition-claim.json", b"{}\n")
     calls: list[str] = []
 
     def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -692,3 +694,164 @@ def test_retained_variables_file_fails_closed_without_a_reviewed_match(tmp_path:
 
     with pytest.raises(ValueError, match="foundation_transition_variables_unverifiable"):
         transition.retained_variables_file(run, plan)
+
+
+def _current_inputs(kit: SimpleNamespace, run_root: Path) -> dict[str, str]:
+    return transition.decide_foundation_transition(
+        kit=kit,  # type: ignore[arg-type]
+        run_root=run_root,
+        retained_plan_ref="foundation-plan-attempt-2",
+    ).current_inputs
+
+
+def _other_inputs(current: dict[str, str]) -> dict[str, str]:
+    return {
+        key: ("f" * 64 if key == "terraform_root_digest" else value)
+        for key, value in current.items()
+    }
+
+
+def _prepared_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[SimpleNamespace, Path]:
+    kit = _kit(tmp_path, marker="changed")
+    old_bundle = tmp_path / "old-bundle"
+    _write_tree(old_bundle, marker="")
+    _review(tmp_path / "run/foundation-plan-attempt-2", expired=True)
+    _status(tmp_path / "run")
+    selected = tmp_path / "run" / "foundation-variables-with-image.json"
+    monkeypatch.setattr(transition, "retained_variables_file", lambda _run, _plan: selected)
+    monkeypatch.setattr(transition, "_retained_bundle_root", lambda *_args: old_bundle)
+    monkeypatch.setattr(transition, "_find_digest", lambda _root, expected: expected)
+    monkeypatch.setattr(transition, "write_lineage_adoption_receipt", _adoption)
+    return kit, tmp_path / "run"
+
+
+def _run_transition(
+    kit: SimpleNamespace, run_root: Path, *, transition_plan_ref: str | None = None
+) -> dict[str, object]:
+    return transition.run_foundation_transition(
+        kit=kit,  # type: ignore[arg-type]
+        run_root=run_root,
+        retained_plan_ref="foundation-plan-attempt-2",
+        transition_plan_ref=transition_plan_ref,
+        application_source_commit="b" * 40,
+        kit_manifest_digest="1" * 64,
+        runtime_release_digest="3" * 64,
+        tenant_id="00000000-0000-0000-0000-000000000001",
+        subscription_id="00000000-0000-0000-0000-000000000002",
+        region="westus3",
+        monthly_cost_ceiling=1000,
+    )
+
+
+def test_completed_attempt_for_other_inputs_is_superseded_by_a_new_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kit, run_root = _prepared_run(tmp_path, monkeypatch)
+    older = run_root / "foundation-transition-attempt-1"
+    older.mkdir(mode=0o700)
+    transition._write_transition_review(  # noqa: SLF001
+        older, _transport_plan(zero=True), _other_inputs(_current_inputs(kit, run_root))
+    )
+    write_private_bytes(older / "foundation-transition-remote-receipt.json", b"{}\n")
+    calls: list[tuple[str, str]] = []
+
+    def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        attempt = Path(command[command.index("--transition-directory") + 1]).name
+        calls.append((command[2], attempt))
+        if command[2] == "plan":
+            return subprocess.CompletedProcess(
+                command, 0, json.dumps(_transport_plan(zero=True)), ""
+            )
+        if command[2] == "verify":
+            return subprocess.CompletedProcess(command, 0, json.dumps(_transport_apply(False)), "")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(transition.subprocess, "run", run)
+
+    _run_transition(kit, run_root)
+
+    assert calls == [
+        ("plan", "foundation-transition-attempt-2"),
+        ("verify", "foundation-transition-attempt-2"),
+    ]
+
+
+def test_interrupted_apply_for_other_inputs_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kit, run_root = _prepared_run(tmp_path, monkeypatch)
+    older = run_root / "foundation-transition-attempt-1"
+    older.mkdir(mode=0o700)
+    transition._write_transition_review(  # noqa: SLF001
+        older, _transport_plan(zero=False), _other_inputs(_current_inputs(kit, run_root))
+    )
+    write_private_bytes(older / "foundation-transition-claim.json", b"{}\n")
+
+    def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise AssertionError(command)
+
+    monkeypatch.setattr(transition.subprocess, "run", run)
+
+    with pytest.raises(ValueError, match="foundation_transition_interrupted_for_other_inputs"):
+        _run_transition(kit, run_root)
+
+
+def test_explicit_attempt_for_other_inputs_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kit, run_root = _prepared_run(tmp_path, monkeypatch)
+    older = run_root / "foundation-transition-attempt-1"
+    older.mkdir(mode=0o700)
+    transition._write_transition_review(  # noqa: SLF001
+        older, _transport_plan(zero=True), _other_inputs(_current_inputs(kit, run_root))
+    )
+    write_private_bytes(older / "foundation-transition-remote-receipt.json", b"{}\n")
+
+    def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise AssertionError(command)
+
+    monkeypatch.setattr(transition.subprocess, "run", run)
+
+    with pytest.raises(ValueError, match="foundation_transition_attempt_inputs_differ"):
+        _run_transition(kit, run_root, transition_plan_ref="foundation-transition-attempt-1")
+
+
+def test_runner_failure_carries_the_bounded_transport_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kit, run_root = _prepared_run(tmp_path, monkeypatch)
+    guid = "00000000-0000-0000-0000-000000000009"
+
+    def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        reason = f"Foundation transition remote operation failed: lookup failed for {guid}"
+        return subprocess.CompletedProcess(
+            command, 3, json.dumps({"state": "failed", "reason": reason}), ""
+        )
+
+    monkeypatch.setattr(transition.subprocess, "run", run)
+
+    with pytest.raises(ValueError) as caught:
+        _run_transition(kit, run_root)
+
+    assert str(caught.value) == (
+        "Foundation transition remote operation failed: lookup failed for redacted-id"
+    )
+
+
+@pytest.mark.parametrize(
+    ("stdout", "expected"),
+    [
+        ("not json", "Foundation transition remote operation failed"),
+        (
+            json.dumps({"reason": 'token="secret"'}),
+            "Foundation transition remote operation failed",
+        ),
+        (
+            json.dumps({"reason": "runner SSH private key does not match the Foundation handoff"}),
+            "Foundation transition remote operation failed: "
+            "runner SSH private key does not match the Foundation handoff",
+        ),
+    ],
+)
+def test_runner_failure_reason_is_bounded(stdout: str, expected: str) -> None:
+    assert transition._runner_failure(stdout) == expected  # noqa: SLF001

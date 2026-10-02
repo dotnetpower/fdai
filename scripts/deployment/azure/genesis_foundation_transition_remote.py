@@ -18,6 +18,22 @@ from pathlib import Path, PurePosixPath
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+_WORK_REF = re.compile(r"[0-9a-f]{24}")
+# The state migration owns 24-hex work directories in the same handoff base; transition
+# evidence uses a distinct prefix so pruning never touches migration evidence.
+_EVIDENCE_BASE = ".fdai-state-handoff"
+_EVIDENCE_REF = re.compile(r"transition-[0-9a-f]{24}")
+# Mirrors genesis_foundation_apply._bind_observed_public_ip_tags: policy-assigned values that the
+# exact Foundation input cannot predict are bound from the applied state, within strict choices.
+_OBSERVED_VARIABLES = "observed.tfvars.json"
+_POLICY_TAGS = {"FirstPartyUsage": "/Unprivileged"}
+_PUBLIC_IPS = (
+    "module.bootstrap.azurerm_public_ip.bastion[0]",
+    "module.bootstrap.azurerm_public_ip.nat[0]",
+)
+_RUNNER_VM = "module.bootstrap.azurerm_linux_virtual_machine.runner[0]"
+_PATCH_MODES = ("ImageDefault", "AutomaticByPlatform")
+_TRANSITION_FILE = re.compile(r"\.fdai-transfer-[0-9a-f]{24}-transition\.(?:tar\.gz|py)")
 _AZURE_CLI = "/usr/bin/az"
 _TERRAFORM = "/usr/local/bin/terraform"
 _MAX_FILES = 4096
@@ -56,17 +72,21 @@ def main() -> int:
         work = base / args.work_id[:24]
         if args.mode == "cleanup":
             shutil.rmtree(work, ignore_errors=True)
+            shutil.rmtree(_evidence_directory(home, work.name), ignore_errors=True)
             args.archive.unlink(missing_ok=True)
             print(f"foundation_transition_cleanup_complete work_ref={args.work_id[:24]}")
             return 0
         if args.mode == "plan":
             if work.exists() or work.is_symlink():
                 raise ValueError("Foundation transition work already exists")
+            _prune_superseded(home, base, work_ref=work.name, archive=args.archive)
             work.mkdir(mode=0o700)
             digest = _extract_archive(args.archive, work)
             if digest != args.expected_archive_digest or digest != args.archive_digest:
                 raise ValueError("Foundation transition archive digest differs")
             _verify_tree(work)
+            # The verified extraction is the only copy later modes use.
+            args.archive.unlink(missing_ok=True)
         else:
             _require_directory(work)
             _verify_tree(work, migrated=True)
@@ -82,6 +102,7 @@ def main() -> int:
             reason="Foundation transition remote state pull failed",
             max_bytes=64 * 1024 * 1024,
         )
+        _require_managed_state(remote_state)
         _write_bytes(work / "remote-state.json", remote_state)
         if args.mode == "plan":
             result = _run_plan(root, work, environment, expect_zero=False)
@@ -94,6 +115,7 @@ def main() -> int:
                 zero_change=result.exit_code == 0,
                 mutation_performed=False,
             )
+            _publish_evidence(home, work, ("remote-plan.json", "plan-observation.json"))
             print(f"foundation_transition_plan_complete work_ref={args.work_id[:24]}")
             return 0
         if args.mode == "apply":
@@ -118,6 +140,7 @@ def main() -> int:
             reason="Foundation transition post-apply state pull failed",
             max_bytes=64 * 1024 * 1024,
         )
+        _require_managed_state(after_state)
         _write_bytes(work / "remote-state-after.json", after_state)
         result = _run_plan(root, work, environment, expect_zero=True)
         _write_observation(
@@ -129,6 +152,7 @@ def main() -> int:
             zero_change=True,
             mutation_performed=args.mode == "apply",
         )
+        _publish_evidence(home, work, ("remote-zero-plan.json", "apply-observation.json"))
         print(f"foundation_transition_verified work_ref={args.work_id[:24]}")
         return 0
     except (
@@ -149,9 +173,49 @@ class _PlanResult:
         self.plan_json = plan_json
 
 
+def _bind_refreshed_observations(root: Path, work: Path, environment: dict[str, str]) -> None:
+    """Bind policy-assigned values from a read-only refresh, never from a stale stored state.
+
+    A tenant policy can change a resource after the Foundation apply recorded it. A refresh-only
+    plan persists nothing, and its ``prior_state`` is the refreshed state.
+    """
+
+    refresh_plan = work / "refresh.tfplan"
+    completed = subprocess.run(
+        (
+            _TERRAFORM,
+            "plan",
+            "-refresh-only",
+            "-input=false",
+            "-no-color",
+            "-var-file=../variables.auto.tfvars.json",
+            f"-out={refresh_plan}",
+        ),
+        cwd=root,
+        env=environment,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=900,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise ValueError("Foundation transition refresh failed")
+    refreshed = _capture(
+        (_TERRAFORM, "show", "-json", str(refresh_plan)),
+        cwd=root,
+        env=environment,
+        timeout=180,
+        reason="Foundation transition refresh inspection failed",
+        max_bytes=64 * 1024 * 1024,
+    )
+    _write_json(work / _OBSERVED_VARIABLES, refreshed_policy_variables(refreshed))
+
+
 def _run_plan(
     root: Path, work: Path, environment: dict[str, str], *, expect_zero: bool
 ) -> _PlanResult:
+    _bind_refreshed_observations(root, work, environment)
     plan_path = work / ("remote-zero.tfplan" if expect_zero else "transition.tfplan")
     completed = subprocess.run(
         (
@@ -161,6 +225,7 @@ def _run_plan(
             "-no-color",
             "-detailed-exitcode",
             "-var-file=../variables.auto.tfvars.json",
+            f"-var-file=../{_OBSERVED_VARIABLES}",
             f"-out={plan_path}",
         ),
         cwd=root,
@@ -207,7 +272,7 @@ def _write_observation(
         "work_id": args.work_id,
         "archive_digest": args.archive_digest,
         "helper_digest": args.expected_helper_digest,
-        "remote_state_digest": hashlib.sha256(remote_state).hexdigest(),
+        "remote_state_digest": state_identity_digest(remote_state),
         "plan_json_digest": hashlib.sha256(plan_json).hexdigest(),
         "plan_digest": hashlib.sha256(plan_binary).hexdigest(),
         "zero_change_verified": zero_change,
@@ -229,6 +294,184 @@ def _validate(args: argparse.Namespace) -> None:
         raise ValueError("Foundation transition digest argument is invalid")
     if _GUID.fullmatch(args.subscription_id) is None or _GUID.fullmatch(args.tenant_id) is None:
         raise ValueError("Foundation transition target argument is invalid")
+
+
+def _prune_superseded(home: Path, base: Path, *, work_ref: str, archive: Path) -> None:
+    """Remove transition work and transfers that earlier attempts left behind.
+
+    A new plan runs only after every earlier attempt is superseded: the local coordinator resumes
+    an interrupted apply for the same inputs and refuses one for other inputs before planning.
+    """
+
+    for entry in base.iterdir():
+        if entry.name == work_ref or _WORK_REF.fullmatch(entry.name) is None:
+            continue
+        if entry.is_dir() and not entry.is_symlink():
+            shutil.rmtree(entry)
+    current = {archive.name, Path(__file__).name}
+    for entry in home.iterdir():
+        if entry.name in current or _TRANSITION_FILE.fullmatch(entry.name) is None:
+            continue
+        if entry.is_file() and not entry.is_symlink():
+            entry.unlink()
+    handoff = home / _EVIDENCE_BASE
+    if handoff.is_dir() and not handoff.is_symlink():
+        for entry in handoff.iterdir():
+            if (
+                entry.name == f"transition-{work_ref}"
+                or _EVIDENCE_REF.fullmatch(entry.name) is None
+            ):
+                continue
+            if entry.is_dir() and not entry.is_symlink():
+                shutil.rmtree(entry)
+
+
+def state_identity_digest(state: bytes) -> str:
+    """Digest the stored state identity, independent of Terraform's unordered check results."""
+
+    value = json.loads(state)
+    if not isinstance(value, dict):
+        raise ValueError("Foundation transition remote state is empty or invalid")
+    keys = ("version", "lineage", "serial", "resources", "outputs")
+    return _canonical_digest({key: value.get(key) for key in keys})
+
+
+def _require_managed_state(state: bytes) -> None:
+    """Refuse to plan against an absent backend, which would recreate the whole Foundation."""
+
+    try:
+        value = json.loads(state)
+    except ValueError as exc:
+        raise ValueError("Foundation transition remote state is empty or invalid") from exc
+    resources = value.get("resources") if isinstance(value, dict) else None
+    if (
+        not isinstance(value, dict)
+        or not isinstance(value.get("lineage"), str)
+        or not value["lineage"]
+        or not isinstance(resources, list)
+        or not any(isinstance(item, dict) and item.get("mode") == "managed" for item in resources)
+    ):
+        raise ValueError("Foundation transition remote state is empty or invalid")
+
+
+def _managed_instances(state: dict[str, object]) -> dict[str, dict[str, object]]:
+    resources = state.get("resources")
+    if not isinstance(resources, list):
+        raise ValueError("Foundation transition remote state is empty or invalid")
+    result: dict[str, dict[str, object]] = {}
+    for resource in resources:
+        if not isinstance(resource, dict) or resource.get("mode") != "managed":
+            continue
+        parts = [resource.get("module", ""), resource.get("type"), resource.get("name")]
+        if any(not isinstance(part, str) for part in parts) or not parts[1] or not parts[2]:
+            raise ValueError("Foundation transition remote state address is invalid")
+        prefix = ".".join(str(part) for part in parts if part)
+        instances = resource.get("instances")
+        if not isinstance(instances, list):
+            raise ValueError("Foundation transition remote state instances are invalid")
+        for instance in instances:
+            if (
+                not isinstance(instance, dict)
+                or instance.get("deposed")
+                or instance.get("status") not in (None, "ready")
+                or not isinstance(instance.get("attributes"), dict)
+            ):
+                raise ValueError(
+                    "Foundation transition remote state includes an incomplete instance"
+                )
+            index = instance.get("index_key")
+            address = prefix + (f"[{json.dumps(index)}]" if index is not None else "")
+            result[address] = instance["attributes"]
+    return result
+
+
+def observed_policy_variables(state_bytes: bytes) -> dict[str, object]:
+    """Select only supported policy-assigned values from a Terraform state document."""
+
+    value = json.loads(state_bytes)
+    if not isinstance(value, dict):
+        raise ValueError("Foundation transition remote state is empty or invalid")
+    return _select_policy_variables(_managed_instances(value))
+
+
+def refreshed_policy_variables(plan_bytes: bytes) -> dict[str, object]:
+    """Select supported policy-assigned values from a refresh-only plan's refreshed state."""
+
+    plan = json.loads(plan_bytes)
+    prior = plan.get("prior_state") if isinstance(plan, dict) else None
+    values = prior.get("values") if isinstance(prior, dict) else None
+    root = values.get("root_module") if isinstance(values, dict) else None
+    if not isinstance(root, dict):
+        raise ValueError("Foundation transition refreshed state is unavailable")
+    instances: dict[str, dict[str, object]] = {}
+    pending = [root]
+    while pending:
+        module = pending.pop()
+        for resource in module.get("resources", []) or []:
+            if not isinstance(resource, dict) or resource.get("mode") != "managed":
+                continue
+            address = resource.get("address")
+            attributes = resource.get("values")
+            if not isinstance(address, str) or not isinstance(attributes, dict):
+                raise ValueError("Foundation transition refreshed state is invalid")
+            instances[address] = attributes
+        children = module.get("child_modules", []) or []
+        if not isinstance(children, list) or any(not isinstance(item, dict) for item in children):
+            raise ValueError("Foundation transition refreshed state is invalid")
+        pending.extend(children)
+    if not instances:
+        raise ValueError("Foundation transition refreshed state is unavailable")
+    return _select_policy_variables(instances)
+
+
+def _select_policy_variables(instances: dict[str, dict[str, object]]) -> dict[str, object]:
+    observed: dict[str, object] = {}
+    present = [address for address in _PUBLIC_IPS if address in instances]
+    if present:
+        if len(present) != len(_PUBLIC_IPS):
+            raise ValueError("Foundation transition public IP policy evidence is incomplete")
+        tags = [instances[address].get("ip_tags") for address in sorted(_PUBLIC_IPS)]
+        tags = [{} if item is None else item for item in tags]
+        if tags[0] != tags[1] or tags[0] not in ({}, _POLICY_TAGS):
+            raise ValueError("Foundation transition public IP policy tags are unsupported")
+        if tags[0]:
+            observed["operations_public_ip_tags"] = dict(tags[0])
+    runner = instances.get(_RUNNER_VM)
+    mode = runner.get("patch_mode") if runner is not None else None
+    if runner is not None and mode is not None:
+        if not isinstance(mode, str) or mode not in _PATCH_MODES:
+            raise ValueError("Foundation transition runner guest patch mode is unsupported")
+        bypass = runner.get("bypass_platform_safety_checks_on_user_schedule_enabled")
+        if bypass is None:
+            bypass = False
+        if not isinstance(bypass, bool):
+            raise ValueError(
+                "Foundation transition runner platform-safety selection is unsupported"
+            )
+        if mode != "AutomaticByPlatform" and bypass:
+            raise ValueError(
+                "Foundation transition platform-safety bypass requires platform patching"
+            )
+        observed["runner_patch_mode"] = mode
+        observed["runner_bypass_platform_safety_checks"] = bypass
+    return observed
+
+
+def _evidence_directory(home: Path, work_ref: str) -> Path:
+    return home / _EVIDENCE_BASE / f"transition-{work_ref}"
+
+
+def _publish_evidence(home: Path, work: Path, names: tuple[str, ...]) -> None:
+    """Copy bounded evidence where the Bastion evidence boundary permits retrieval."""
+
+    base = home / _EVIDENCE_BASE
+    base.mkdir(mode=0o700, exist_ok=True)
+    _require_directory(base)
+    target = _evidence_directory(home, work.name)
+    target.mkdir(mode=0o700, exist_ok=True)
+    _require_directory(target)
+    for name in names:
+        _write_bytes(target / name, (work / name).read_bytes())
 
 
 def _extract_archive(archive: Path, destination: Path) -> str:
@@ -296,6 +539,8 @@ def _verify_tree(work: Path, *, migrated: bool = False) -> None:
             "plan-observation.json",
             "apply-observation.json",
             "offline.tfrc",
+            _OBSERVED_VARIABLES,
+            "refresh.tfplan",
         }:
             continue
         details = path.lstat()

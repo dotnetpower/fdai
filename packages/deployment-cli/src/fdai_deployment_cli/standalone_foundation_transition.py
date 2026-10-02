@@ -29,8 +29,13 @@ from fdai_deployment_cli.trust_roots import deployment_bundle_root_pem
 
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
+_GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+_SAFE_REASON = re.compile(r"[A-Za-z0-9 _.,:;()'\[\]/-]{1,320}")
 _PLAN_REF = re.compile(r"foundation-plan-attempt-[1-9][0-9]*")
 _TRANSITION_REF = re.compile(r"foundation-transition-attempt-[1-9][0-9]*")
+_CLAIM_NAME = "foundation-transition-claim.json"
+_REMOTE_RECEIPT_NAME = "foundation-transition-remote-receipt.json"
+_RUNNER_FAILURE = "Foundation transition remote operation failed"
 _ACTION_KEYS = frozenset({"create", "update", "delete", "replace", "read", "no-op"})
 _INPUT_KEYS = (
     "terraform_root_digest",
@@ -115,13 +120,15 @@ def run_foundation_transition(
             region=region,
             monthly_cost_ceiling=monthly_cost_ceiling,
         )
-    transition_ref = _select_transition_ref(run_root, transition_plan_ref)
+    transition_ref = _select_transition_ref(run_root, transition_plan_ref, decision.current_inputs)
     transition_dir = run_root / transition_ref
     transition_dir.mkdir(mode=0o700, exist_ok=True)
-    claim_exists = (transition_dir / "foundation-transition-claim.json").exists()
-    receipt_exists = (transition_dir / "foundation-transition-remote-receipt.json").exists()
+    claim_exists = (transition_dir / _CLAIM_NAME).exists()
+    receipt_exists = (transition_dir / _REMOTE_RECEIPT_NAME).exists()
     if claim_exists or receipt_exists:
         review = _load_review(transition_dir, require_summary=True)
+        if _review_inputs(review) != decision.current_inputs:
+            raise ValueError("foundation_transition_attempt_inputs_differ")
         plan_result = _plan_result_from_review(review)
     else:
         plan_result = runner(
@@ -132,7 +139,7 @@ def run_foundation_transition(
             transition_plan_ref=transition_ref,
             decision=decision,
         )
-        review = _write_transition_review(transition_dir, plan_result)
+        review = _write_transition_review(transition_dir, plan_result, decision.current_inputs)
     if not (claim_exists or receipt_exists):
         approve_transition_plan(transition_dir)
     operation = (
@@ -250,11 +257,29 @@ def default_transition_runner(**kwargs: object) -> dict[str, object]:
         )
     completed = subprocess.run(command, check=False, capture_output=True, text=True, timeout=14_415)
     if completed.returncode != 0:
-        raise ValueError("Foundation transition remote operation failed")
+        raise ValueError(_runner_failure(completed.stdout))
     value = json.loads(completed.stdout)
     if not isinstance(value, dict):
         raise ValueError("Foundation transition result is invalid")
     return {str(key): item for key, item in value.items()}
+
+
+def _runner_failure(stdout: str) -> str:
+    """Carry the transport's bounded, identifier-free reason into the coordinator failure."""
+
+    try:
+        value = json.loads(stdout)
+    except ValueError:
+        return _RUNNER_FAILURE
+    reason = value.get("reason") if isinstance(value, dict) else None
+    if not isinstance(reason, str):
+        return _RUNNER_FAILURE
+    reason = _GUID.sub("redacted-id", reason).strip()
+    if _SAFE_REASON.fullmatch(reason) is None or reason == _RUNNER_FAILURE:
+        return _RUNNER_FAILURE
+    if reason.startswith(f"{_RUNNER_FAILURE}: "):
+        return reason
+    return f"{_RUNNER_FAILURE}: {reason}"
 
 
 # Candidate Foundation inputs the orchestrator may have planned with: the runner-image
@@ -382,7 +407,9 @@ def _find_digest(root: Path, expected: str) -> str:
     raise ValueError("foundation_transition_baseline_unverifiable")
 
 
-def _write_transition_review(directory: Path, result: Mapping[str, object]) -> dict[str, object]:
+def _write_transition_review(
+    directory: Path, result: Mapping[str, object], current_inputs: Mapping[str, str]
+) -> dict[str, object]:
     summary = result.get("summary")
     if not isinstance(summary, dict):
         raise ValueError("Foundation transition plan summary is invalid")
@@ -395,6 +422,7 @@ def _write_transition_review(directory: Path, result: Mapping[str, object]) -> d
         "archive_digest": _required_digest(result, "archive_digest"),
         "helper_digest": _required_digest(result, "helper_digest"),
         "transport_review_digest": _required_digest(result, "review_digest"),
+        "current_input_digests": {key: str(current_inputs[key]) for key in _INPUT_KEYS},
         "summary": summary,
         "transport_zero_change_verified": result.get("zero_change_verified") is True,
         "mutation_performed": False,
@@ -511,9 +539,22 @@ def _validate_transition_review(review: Mapping[str, object]) -> None:
         "transport_review_digest",
     ):
         _required_digest(review, key)
+    if _review_inputs(review) is None:
+        raise ValueError("Foundation transition review inputs are invalid")
     _summary_counts(review)
     _summary_digest(review)
     _validate_review_digest(review)
+
+
+def _review_inputs(review: Mapping[str, object]) -> dict[str, str] | None:
+    value = review.get("current_input_digests")
+    if (
+        not isinstance(value, dict)
+        or set(value) != set(_INPUT_KEYS)
+        or any(not isinstance(item, str) or not item for item in value.values())
+    ):
+        return None
+    return {str(key): str(item) for key, item in value.items()}
 
 
 def _validate_review_digest(review: Mapping[str, object]) -> None:
@@ -593,7 +634,15 @@ def _next_transition_attempt(run_root: Path) -> int:
     return max(attempts, default=0) + 1
 
 
-def _select_transition_ref(run_root: Path, value: str | None) -> str:
+def _select_transition_ref(
+    run_root: Path, value: str | None, current_inputs: Mapping[str, str]
+) -> str:
+    """Resume only the newest attempt, and only for the current Foundation inputs.
+
+    A newer completed attempt supersedes every older one, so an older receipt never verifies a
+    later kit. An interrupted apply for other inputs fails closed instead of being replanned.
+    """
+
     if value is not None:
         return _transition_ref(value)
     attempts = sorted(
@@ -606,12 +655,15 @@ def _select_transition_ref(run_root: Path, value: str | None) -> str:
         reverse=True,
     )
     for attempt in attempts:
-        claim = attempt / "foundation-transition-claim.json"
-        remote_receipt = attempt / "foundation-transition-remote-receipt.json"
-        if claim.exists() and not remote_receipt.exists():
+        claim = (attempt / _CLAIM_NAME).exists()
+        remote_receipt = (attempt / _REMOTE_RECEIPT_NAME).exists()
+        if not claim and not remote_receipt:
+            continue
+        if _review_inputs(_load_review(attempt, require_summary=True)) == dict(current_inputs):
             return attempt.name
-        if remote_receipt.exists():
-            return attempt.name
+        if claim and not remote_receipt:
+            raise ValueError("foundation_transition_interrupted_for_other_inputs")
+        break
     return f"foundation-transition-attempt-{_next_transition_attempt(run_root)}"
 
 

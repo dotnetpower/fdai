@@ -747,13 +747,32 @@ shows, and deleting or replacing an existing resource still needs the explicit e
 **Transport revision:** The transition helper is shipped per run and digest-bound in the transition
 evidence. It is not part of the runner image, so adding the helper does not imply a runner-image
 replacement for existing installations. The local coordinator packages the newer kit's Foundation
-root, provider mirror, modules, bootstrap support, and retained variables into a private archive. The retained variables are the Foundation input whose normalized digest the retained plan reviewed, such as the runner-image materialization; when no candidate matches, the transition stops with `foundation_transition_variables_unverifiable`. The coordinator
-then copies that archive and the helper under the Bastion transfer prefix over the installation's Bastion tunnel, and runs the helper under
-the retained runner Managed Identity against the existing AzureRM backend recorded by the state
-authority. The helper can plan, apply one already reviewed plan, verify by readback plus a
-zero-change plan, and clean up its transient work. It cannot approve, choose a target, repeat an
-ambiguous apply, change the runner image, or advance lineage; those remain local coordinator
-decisions after bounded evidence returns.
+root, provider mirror, modules, bootstrap support, runner-image support files, and retained
+variables into a private archive. The retained variables are the Foundation input whose normalized
+digest the retained plan reviewed, such as the runner-image materialization; when no candidate
+matches, the transition stops with `foundation_transition_variables_unverifiable`. The archive
+activates the AzureRM backend from the Foundation root's verified backend example, the same
+contract the state handoff uses, and refuses a root that still carries a local state. The
+coordinator then copies that archive and the helper under the Bastion transfer prefix over the
+installation's Bastion tunnel, and runs the helper under the retained runner Managed Identity
+against the existing AzureRM backend recorded by the state authority. The helper refuses an empty
+or unmanaged remote state, because planning without the migrated state would propose recreating the
+whole Foundation. Before each plan, it binds the policy-assigned values that the exact input cannot
+predict, the `FirstPartyUsage` public IP tags and the runner guest patch selection, from a read-only
+refresh. It applies the same supported-value rules as the Foundation apply, so drift that a tenant
+policy introduced after the apply does not turn into a replacement. The helper can plan, apply one
+already reviewed plan, verify by readback plus a zero-change plan, and clean up its transient work.
+It cannot approve, choose a target, repeat an ambiguous apply, change the runner image, or advance
+lineage; those remain local coordinator decisions after bounded evidence returns.
+
+Each transition attempt owns a distinct remote work directory. The helper publishes its bounded
+evidence below the Bastion evidence boundary, removes the transferred archive after a verified
+extraction, and, before a new plan, prunes the work, transfers, and evidence of superseded attempts.
+The coordinator resumes only the newest claimed or completed attempt, and only when that attempt's
+review records the current Foundation inputs. A completed attempt for other inputs is superseded by
+a new plan; an interrupted apply for other inputs stops with
+`foundation_transition_interrupted_for_other_inputs`. A failed remote step reports a bounded reason
+without identifiers.
 
 A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
