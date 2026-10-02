@@ -52,15 +52,15 @@ variable "runtime_call_evidence" {
     )
     error_message = "runtime_call_evidence must be empty or contain distinct exact Container App Resource IDs."
   }
+}
 
-  variable "operator_request_receipts" {
-    description = "Operator-service seed secret and producer identity for authenticated raw operator_request ingress."
-    type = object({
-      operator_signing_seed_secret_id = optional(string, "")
-      producer_id                     = optional(string, "operator-service")
-    })
-    default = {}
-  }
+variable "operator_request_receipts" {
+  description = "Operator-service seed secret and producer identity for authenticated raw operator_request ingress."
+  type = object({
+    operator_signing_seed_secret_id = optional(string, "")
+    producer_id                     = optional(string, "operator-service")
+  })
+  default = {}
 }
 variable "channel_edge" {
   description = "Optional standalone public channel edge in the Operator distribution. Provider secrets and principal mappings are Key Vault references."

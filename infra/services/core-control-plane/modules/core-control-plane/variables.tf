@@ -96,6 +96,7 @@ variable "stewardship_gitops" {
   type = object({
     enabled                   = optional(bool, false)
     owner                     = optional(string, "")
+    workflow_tools_enforce    = optional(bool, false)
     repo                      = optional(string, "")
     auth_mode                 = optional(string, "")
     token_secret_id           = optional(string, "")
