@@ -1,5 +1,8 @@
 import type { PresentationArtifact, PresentationBlock } from "./backend-types";
-import { PresentationModuleView } from "./presentation-modules/registry";
+import {
+  PresentationModuleView,
+  presentationBlockStaysExpanded,
+} from "./presentation-modules/registry";
 import "./structured-reply.css";
 
 export function StructuredReply({ artifact }: { readonly artifact: PresentationArtifact }) {
@@ -35,10 +38,9 @@ function PresentationAssemblyView({
 }
 
 export function presentationBlockCanCollapse(block: PresentationBlock): boolean {
-  const critical = block.kind === "callout" && (
-    block.data.tone === "attention" || block.data.tone === "warning"
-  );
-  return block.collapsed && block.slotId !== "limitations" && !critical;
+  return block.collapsed
+    && block.slotId !== "limitations"
+    && !presentationBlockStaysExpanded(block);
 }
 
 function PresentationBlockView({ block }: { readonly block: PresentationBlock }) {

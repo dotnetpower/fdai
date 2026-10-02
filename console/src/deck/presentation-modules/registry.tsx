@@ -1,6 +1,6 @@
 import type { ComponentType } from "preact";
 import type { PresentationBlock } from "../backend-types";
-import { CalloutModule } from "./callout";
+import { CalloutModule, calloutRequiresAttention } from "./callout";
 import { ChartModule } from "./charts";
 import { EvidenceModule } from "./evidence";
 import { ListModule } from "./list";
@@ -17,11 +17,12 @@ interface PresentationModuleRegistration {
   readonly component: ComponentType<PresentationModuleProps>;
   readonly responsivePolicy: PresentationResponsivePolicy;
   readonly accessibilityFallback: PresentationAccessibilityFallback;
+  readonly staysExpanded?: (block: PresentationBlock) => boolean;
 }
 
 const REGISTRY: Readonly<Record<PresentationBlock["kind"], PresentationModuleRegistration>> = {
   summary: registration(SummaryModule, "reflow", "description-list"),
-  callout: registration(CalloutModule, "reflow", "ordered-list"),
+  callout: registration(CalloutModule, "reflow", "ordered-list", calloutRequiresAttention),
   table: registration(TableModule, "stack", "exact-table"),
   threshold_table: registration(TableModule, "stack", "exact-table"),
   list: registration(ListModule, "stack", "description-list"),
@@ -53,10 +54,20 @@ export function presentationModuleRegistration(kind: PresentationBlock["kind"]) 
   return REGISTRY[kind];
 }
 
+export function presentationBlockStaysExpanded(block: PresentationBlock): boolean {
+  return REGISTRY[block.kind].staysExpanded?.(block) ?? false;
+}
+
 function registration(
   component: ComponentType<PresentationModuleProps>,
   responsivePolicy: PresentationResponsivePolicy,
   accessibilityFallback: PresentationAccessibilityFallback,
+  staysExpanded?: (block: PresentationBlock) => boolean,
 ): PresentationModuleRegistration {
-  return { component, responsivePolicy, accessibilityFallback };
+  return {
+    component,
+    responsivePolicy,
+    accessibilityFallback,
+    ...(staysExpanded ? { staysExpanded } : {}),
+  };
 }
