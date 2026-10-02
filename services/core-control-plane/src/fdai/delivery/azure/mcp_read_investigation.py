@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import importlib
 import json
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
@@ -85,26 +86,25 @@ class StdioAzureMcpSessionFactory:
         self._environment = dict(environment or {})
 
     def __call__(self) -> AbstractAsyncContextManager[AzureMcpSession]:
-        from mcp import Client  # type: ignore[import-not-found]
-        from mcp.client.stdio import (  # type: ignore[import-not-found]
-            StdioServerParameters,
-            stdio_client,
-        )
-        from msmcp_azure import (  # type: ignore[import-not-found]
-            get_executable_path,
-        )
+        mcp_module = importlib.import_module("mcp")
+        stdio_module = importlib.import_module("mcp.client.stdio")
+        azure_module = importlib.import_module("msmcp_azure")
+        client_factory = cast(Any, mcp_module.Client)
+        stdio_parameters = cast(Any, stdio_module.StdioServerParameters)
+        stdio_client = cast(Any, stdio_module.stdio_client)
+        get_executable_path = cast(Callable[[], object], azure_module.get_executable_path)
 
         args = ["server", "start", "--mode", "all", "--read-only"]
         for namespace in self._config.namespaces:
             args.extend(("--namespace", namespace))
-        parameters = StdioServerParameters(
+        parameters = stdio_parameters(
             command=str(get_executable_path()),
             args=args,
             env=self._environment or None,
         )
         return cast(
             AbstractAsyncContextManager[AzureMcpSession],
-            Client(
+            client_factory(
                 stdio_client(parameters),
                 read_timeout_seconds=self._config.call_timeout_seconds,
             ),
