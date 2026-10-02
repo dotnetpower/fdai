@@ -34,14 +34,8 @@ from .semantic_reasoning_binding import AnchorResolver, bind_anchors
 from .semantic_reasoning_compiler import ReasoningCompilation, compile_question_form
 from .semantic_reasoning_concepts import (
     ConceptRequest,
-    ConceptSelectionReceipt,
     ConceptShard,
-    accept_concept_selection,
-    agree_concepts,
-    apply_runoff,
     concept_catalogs,
-    plan_concept_selection,
-    runoff_requests,
     shard_answer_valid,
 )
 from .semantic_reasoning_direction import (
@@ -70,6 +64,7 @@ from .semantic_reasoning_review_repair import (
     propose_review_repair,
     review_repair,
 )
+from .semantic_reasoning_selection import select_concepts
 from .semantic_reasoning_shape import form_shape
 from .turn_reservations import (
     TurnReservationLedger,
@@ -648,7 +643,7 @@ async def _run_pass(
         )
 
     def select(lane: Any, calls: int) -> Any:
-        return _select(
+        return select_concepts(
             model,
             admission=lane,
             catalogs=catalogs,
@@ -746,101 +741,6 @@ async def _run_pass(
         source_generations=generations,
     )
     return shadow_pass, goals, compilation, form
-
-
-async def _select(
-    model: QuestionFormModel,
-    *,
-    admission: Any,
-    catalogs: Any,
-    utterance: str,
-    max_calls: int,
-    max_shard_bytes: int,
-) -> ConceptSelectionReceipt:
-    """Ground every concept with two blind choosers of different model families.
-
-    Each chooser sees every planned shard and resolves its own runoff; a binding stands
-    only where both choose the same values, so no single reader grounds a concept.
-    """
-
-    primary, second = await asyncio.gather(
-        _select_one(
-            model,
-            admission=admission,
-            catalogs=catalogs,
-            utterance=utterance,
-            max_calls=max_calls // 2,
-            max_shard_bytes=max_shard_bytes,
-            second=False,
-        ),
-        _select_one(
-            model,
-            admission=admission,
-            catalogs=catalogs,
-            utterance=utterance,
-            max_calls=max_calls // 2,
-            max_shard_bytes=max_shard_bytes,
-            second=True,
-        ),
-    )
-    return agree_concepts(primary, second)
-
-
-async def _select_one(
-    model: QuestionFormModel,
-    *,
-    admission: Any,
-    catalogs: Any,
-    utterance: str,
-    max_calls: int,
-    max_shard_bytes: int,
-    second: bool,
-) -> ConceptSelectionReceipt:
-    """Present every planned shard to one chooser, then accept verified choices."""
-
-    plan = plan_concept_selection(
-        admission,
-        catalogs=catalogs,
-        max_model_calls=max_calls,
-        max_shard_bytes=max_shard_bytes,
-    )
-
-    async def choose(request: Any) -> Mapping[str, Any] | None:
-        return await model.choose_concepts(
-            utterance=utterance, mentions=request.mentions, shard=request.shard, second=second
-        )
-
-    async def choose_wave(requests: tuple[Any, ...]) -> list[Mapping[str, Any] | None]:
-        tasks = [asyncio.create_task(choose(request)) for request in requests]
-        try:
-            return list(await asyncio.gather(*tasks))
-        except BaseException:
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            raise
-
-    answers: list[Mapping[str, Any] | None] = []
-    retries = 0
-    for offset in range(0, len(plan.requests), 2):
-        wave = plan.requests[offset : offset + 2]
-        results = await choose_wave(wave)
-        for request, answer in zip(wave, results, strict=True):
-            if not shard_answer_valid(answer, request) and (
-                len(plan.requests) + retries < max_calls
-            ):
-                retries += 1
-                answer = await choose(request)
-            answers.append(answer)
-    receipt = accept_concept_selection(plan, answers)
-    receipt = replace(receipt, model_calls=receipt.model_calls + retries)
-    runoff = runoff_requests(plan, receipt)
-    if not runoff or receipt.model_calls + len(runoff) > max_calls:
-        return receipt
-    runoff_answers: list[Mapping[str, Any] | None] = []
-    for offset in range(0, len(runoff), 2):
-        runoff_answers.extend(await choose_wave(runoff[offset : offset + 2]))
-    return apply_runoff(receipt, runoff, runoff_answers)
 
 
 __all__ = [

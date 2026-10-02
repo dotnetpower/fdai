@@ -36,29 +36,6 @@ The compiler and verifier are mechanical Core components inside the Bragi-owned 
 calls, and publish nothing; Saga keeps the turn audit. A supported form replaces the capability-named intent and the model-authored frame and plan,
 and an unsupported form returns the exact missing atom and reason instead of the nearest capability.
 
-### Single-meaning read admission
-
-In the existing typed-only development path, a released read compilation may replace the
-parallel capability-named judgment only when the form proposer and its blind independent
-constraint reader both explicitly classify the request as a direct read. Missing, quoted,
-hypothetical, action-related, or disagreeing classifications retain the existing judgment
-path. Bound investigations, resource contexts, and required-document turns are excluded.
-Principal and purpose checks run before either path; fresh plan verification and all
-constraint, catalog, reference, and evidence checks remain mandatory.
-
-Critique rejected using preflight confidence as authority or simply consuming a compiled
-ticket earlier: neither proves discourse or preserves action-draft handling. Explicit
-independent read admission is the revised gate. Input packing and shard batching preserve
-the complete candidate population and existing budgets. Content-free per-call accounting
-must distinguish actual provider calls from reused results; live speed and token claims
-require an exact-source bounded before/after comparison.
-Each blind reader executes complete shards in waves of at most two concurrent calls, preserving
-ordered receipt accounting and the existing call budget. A failed or cancelled wave cancels and
-drains its other calls before the stage ends; finalists and bounded repairs retain their gates.
-Independent finalist runoffs use the same two-call waves only after their total fits the
-remaining reader budget. Answers retain request order and each mention's exact candidate
-boundary. This removes serial finalist waits without claiming measured end-to-end savings.
-
 ## Verified baseline
 
 The review traced one turn from `SemanticPlanningService.plan` in
@@ -249,21 +226,7 @@ chooser can tell Resource from ResourceType by meaning. FunctionTypes and Action
   per shard digest rather than for every chooser, shard, and retry, so presenting a complete catalog
   does not block the event loop.
 
-The runner may reuse a schema-valid choice only within one run and only for the identical
-utterance, mentions, original shard digest, and reader identity. The two blind readers never
-share cached answers; invalid or unavailable choices are not cached. The provider adapter
-losslessly packs every candidate under explicit column names while keeping original catalog
-hashes, safety checks, exhaustive receipts, and closed candidate-id schemas. Typed-only planning
-does not repeat legacy subtype grounding for a plan that mode never uses. These implementation
-optimizations do not relax admission, independent review, or fresh plan verification, and local
-tests do not establish a live speedup. [Timing and accounting](narrator-routing-and-latency.md#turn-local-grounding-work-reuse)
-records the measured-work boundary.
-
 ### Anchor binding
-Candidate references in model input are shard-local opaque positions. The adapter converts only
-presented references back to canonical candidate ids under the original shard digest and refuses
-foreign references. Shards account for their complete transmitted representation, including
-headers; every candidate remains represented once, and an oversized candidate holds the stage.
 
 An `identifier` or `name` mention with domain `instance` becomes an anchor. Binding is a two-phase protocol:
 
@@ -610,7 +573,9 @@ operational read can answer. The flag requires compiled answers and the local ex
 composition refuses to start when either is missing. The planner keeps its current order: the
 preflight, the judgment and its coverage review, verified denials, action-draft boundaries, and
 deterministic clarifications run first, then the judgment's own clarification, then the form path.
-None of those earlier stages answers a read. The only change is what happens after the form path:
+None of those earlier stages answers a read. Only a [single-meaning read](narrator-routing-and-latency.md#single-meaning-read-admission)
+that both blind readers classify as a direct read skips the judgment and answers from its released
+compilation. Otherwise, the only change is what happens after the form path:
 
 1. A released compilation that the selection rules accept answers the turn.
 2. Otherwise the form path's tagged decision ends the turn with a typed outcome. The turn never reaches

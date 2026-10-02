@@ -33,6 +33,7 @@ from .semantic_planning_models import (
     QueryPlanProposal,
     SemanticAdvisoryResponseIntent,
     SemanticDirectResponseIntent,
+    SemanticFrameProposal,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
@@ -461,6 +462,57 @@ def log_judgment_posture(logger: logging.Logger, judgment_decision: Any) -> None
                 if judgment_decision.proposal is not None
                 else ""
             ),
+        },
+    )
+
+
+def log_normalized_frame(
+    logger: logging.Logger, frame: SemanticProblemFrame, proposal: SemanticFrameProposal
+) -> None:
+    """Record the normalized frame's output shape, measure concepts, and temporal key shape."""
+
+    lookback_seconds = frame.temporal_scope.get("lookback_seconds")
+    normalized_measures = ",".join(sorted(frame.measure_concepts))
+    temporal_keys = ",".join(sorted(frame.temporal_scope))
+    temporal_kind = frame.temporal_scope.get("kind")
+    lookback_value = frame.temporal_scope.get("lookback")
+    window_value = frame.temporal_scope.get("window")
+    bounded_lookback_seconds = (
+        lookback_seconds
+        if isinstance(lookback_seconds, int) and not isinstance(lookback_seconds, bool)
+        else None
+    )
+    logger.info(
+        "semantic_planning_frame_normalized output_shape=%s measure_concepts=%s "
+        "temporal_keys=%s temporal_kind=%s lookback_seconds=%s "
+        "lookback_type=%s lookback_keys=%s window_type=%s window_keys=%s "
+        "clarification_count=%d",
+        frame.output_shape,
+        normalized_measures,
+        temporal_keys,
+        temporal_kind,
+        bounded_lookback_seconds,
+        type(lookback_value).__name__ if lookback_value is not None else None,
+        (
+            ",".join(sorted(lookback_value))
+            if isinstance(lookback_value, dict)
+            and all(isinstance(key, str) for key in lookback_value)
+            else ""
+        ),
+        type(window_value).__name__ if window_value is not None else None,
+        (
+            ",".join(sorted(window_value))
+            if isinstance(window_value, dict) and all(isinstance(key, str) for key in window_value)
+            else ""
+        ),
+        len(proposal.clarification_requirements),
+        extra={
+            "output_shape": frame.output_shape,
+            "measure_concepts": normalized_measures,
+            "temporal_keys": temporal_keys,
+            "temporal_kind": temporal_kind,
+            "lookback_seconds": bounded_lookback_seconds,
+            "clarification_count": len(proposal.clarification_requirements),
         },
     )
 

@@ -177,7 +177,19 @@ development process. Model transparency records every completed semantic judgmen
 model call with its measured duration and token usage when available. The end-to-end turn timing
 continues to include deterministic and provider work that is not a model call.
 
-### Turn-local grounding work reuse
+### Single-meaning read admission
+
+In the existing typed-only development path, a released read compilation may replace the
+parallel capability-named judgment only when the form proposer and its blind independent
+constraint reader both explicitly classify the request as a direct read. Missing, quoted,
+hypothetical, action-related, or disagreeing classifications retain the existing judgment
+path. Bound investigations, resource contexts, and required-document turns are excluded.
+Principal and purpose checks run before either path; fresh plan verification and all
+constraint, catalog, reference, and evidence checks remain mandatory. Critique rejected using
+preflight confidence as authority or simply consuming a compiled ticket earlier: neither proves
+discourse or preserves action-draft handling.
+
+### Turn-local semantic work optimization
 
 Typed-only planning skips legacy subtype grounding because that mode never consumes a legacy
 plan. The released question-form path still performs complete-catalog grounding, independent
@@ -195,6 +207,18 @@ columns. This lossless encoding removes repeated field names, not candidates or 
 scanning, shard hashes, exhaustive presentation receipts, and closed output schemas still use
 the original complete catalog. Local reconstruction and call-count tests prove these mechanics;
 they do not establish a live latency or billed-token reduction.
+
+Candidate references in model input are shard-local opaque positions. The adapter converts only
+presented references back to canonical candidate ids under the original shard digest and refuses
+foreign references. Shards account for their complete transmitted representation, including
+headers; every candidate remains represented once, and an oversized candidate holds the stage.
+
+Each blind reader executes complete shards in waves of at most two concurrent calls, preserving
+ordered receipt accounting and the existing call budget. A failed or cancelled wave cancels and
+drains its other calls before the stage ends; finalists and bounded repairs retain their gates.
+Independent finalist runoffs use the same two-call waves only after their total fits the
+remaining reader budget. Answers retain request order and each mention's exact candidate
+boundary. This removes serial finalist waits without claiming measured end-to-end savings.
 
 ### Operator timing and token accounting
 

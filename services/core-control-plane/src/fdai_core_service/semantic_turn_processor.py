@@ -1893,11 +1893,8 @@ def _semantic_model_extensions(
         )
         for key in usage_keys
     }
-    measured_usage = (
-        usage if any(observation.usage is not None for observation in observations) else None
-    )
-    if measured_usage is not None:
-        measured_usage["model_calls"] = len(observations)
+    measured = any(observation.usage is not None for observation in observations)
+    measured_usage = {**usage, "model_calls": len(observations)} if measured else None
     calls: list[dict[str, object]] = []
     latency_ms = 0
     for index, observation in enumerate(observations, start=1):
