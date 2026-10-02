@@ -8,6 +8,7 @@
   var DAY = "2026-09-28";
   var STUDY = document.body.getAttribute("data-study") === "adaptive" ? "adaptive" : "sources";
   var ADAPTIVE = STUDY === "adaptive";
+  var READABLE = document.body.getAttribute("data-sources-layout") === "readable";
   var ROUTE = ADAPTIVE ? "Inventory" : "Live cockpit";
   var QUESTION = ADAPTIVE
     ? "Compare the configuration in example-inventory.md with the live example-rg-app resource group."
@@ -149,9 +150,44 @@
   var GROUNDED_SOURCES = ["screen", "inventory", "rule", "policy", "verdict", "action", "promotion"];
   var GROUNDED_P2 = P2_SHADOW + P2_GATE + " The latest shadow evidence shows 14 days, 31 samples, 100% accuracy, and no escapes{promotion}.";
 
+  function sourcePresentation(retentionKey, posture, promotionKey, execution) {
+    var refs = [retentionKey, "rule"];
+    var retention = TOOLS[retentionKey].output.backup_retention_days;
+    var blocks = [];
+    if (execution) {
+      refs.push("verdict", "action");
+      blocks.push({ slot_id: "overview", kind: "summary", title: "Operational state", emphasis: "primary", collapsed: false, evidence_refs: [retentionKey, "rule", "verdict", "action"], data: { items: [
+        { label: "Backup retention", value: retention + " days / " + TOOLS.rule.output.parameters.min_retention_days + " required", tone: "attention" },
+        { label: "Mode", value: TOOLS.verdict.output.mode, tone: "neutral" },
+        { label: "Execution", value: "Not executed", tone: "neutral" },
+        { label: "After promotion", value: "Human approval required", tone: "neutral" }
+      ] } });
+    }
+    blocks.push({ slot_id: "metrics", kind: "threshold_table", title: "Backup retention", emphasis: "primary", collapsed: false, evidence_refs: [retentionKey, "rule"], data: {
+      columns: [{ key: "observed", label: "Observed" }, { key: "required", label: "Required" }, { key: "status", label: "Evidence state" }],
+      rows: [{ observed: retention === undefined ? "Unknown" : retention + " days", required: TOOLS.rule.output.parameters.min_retention_days + " days", status: posture }], status_key: "status"
+    } });
+    if (promotionKey) {
+      refs.push(promotionKey);
+      var observed = TOOLS[promotionKey].output;
+      var gate = TOOLS.action.output.promotion_gate;
+      blocks.push({ slot_id: "records", kind: "table", title: "Promotion requirements", emphasis: "secondary", collapsed: false, evidence_refs: ["action", promotionKey], data: {
+        columns: [{ key: "condition", label: "Condition" }, { key: "observed", label: "Observed" }, { key: "required", label: "Required" }, { key: "status", label: "Status" }],
+        rows: [
+          { condition: "Shadow days", observed: observed.shadow_days === undefined ? "Unknown" : String(observed.shadow_days), required: "At least " + gate.min_shadow_days, status: observed.shadow_days === undefined ? "Unknown" : "Not met" },
+          { condition: "Samples", observed: observed.samples === undefined ? "Unknown" : String(observed.samples), required: "At least " + gate.min_samples, status: observed.samples === undefined ? "Unknown" : "Not met" },
+          { condition: "Accuracy", observed: observed.accuracy === undefined ? "Unknown" : Math.round(observed.accuracy * 100) + "%", required: "At least " + Math.round(gate.min_accuracy * 100) + "%", status: observed.accuracy === undefined ? "Unknown" : "Met" },
+          { condition: "Policy escapes", observed: observed.policy_escapes === undefined ? "Unknown" : String(observed.policy_escapes), required: "At most " + gate.max_policy_escapes, status: observed.policy_escapes === undefined ? "Unknown" : "Met" }
+        ], status_key: "status"
+      } });
+    }
+    return { schema_version: 1, layout: "stack", blocks: blocks, evidence_refs: refs };
+  }
+
   var SCENARIOS = {
     grounded: {
       label: "Grounded",
+      presentation: sourcePresentation("inventory", "Below minimum", "promotion", true),
       unavailableSources: [],
       stages: GROUNDED_STAGES.concat([check("9 of 9 claims supported by 7 sources")]),
       sources: GROUNDED_SOURCES,
@@ -165,6 +201,7 @@
     },
     partial: {
       label: "Partial evidence",
+      presentation: sourcePresentation("inventory", "Below minimum", "promotionDown", true),
       unavailableSources: ["audit"],
       stages: GROUNDED_STAGES.slice(0, 6).concat([
         { label: "Read promotion evidence", detail: "Audit source unavailable: shadow history not read", phase: "Retrieve", emits: ["action", "promotionDown"], attention: true },
@@ -181,6 +218,7 @@
     },
     unavailable: {
       label: "Source unavailable",
+      presentation: sourcePresentation("inventoryDown", "Current state unknown", null, false),
       unavailableSources: ["inventory"],
       stages: [
         MAIN_INTENT,
@@ -204,6 +242,7 @@
     },
     conflict: {
       label: "Conflicting evidence",
+      presentation: sourcePresentation("inventoryNew", "Unresolved conflict", null, false),
       unavailableSources: [],
       stages: [
         MAIN_INTENT,
@@ -229,6 +268,7 @@
     },
     corrected: {
       label: "Corrected",
+      presentation: sourcePresentation("inventory", "Below minimum", "promotion", true),
       unavailableSources: [],
       stages: GROUNDED_STAGES.concat([check("9 of 10 claims supported; 1 unsupported sentence removed", true)]),
       sources: GROUNDED_SOURCES,
@@ -1053,6 +1093,10 @@
 
   function sourcesPanel(spec, turnId) {
     return h("div", { class: "cs-deck-sources", id: turnId + "-sources", hidden: true }, [
+      READABLE ? h("div", { class: "ds-evidence-heading" }, [
+        h("h3", { text: "Answer evidence" }),
+        h("button", { type: "button", class: "ds-evidence-return", "data-action": "return-answer", text: "Back to answer" })
+      ]) : null,
       h("ol", { class: "cs-deck-source-list", "aria-label": "Sources for this answer" }, spec.sources.map(function (key, index) {
         var source = SOURCES[key];
         var number = String(index + 1);
@@ -1064,6 +1108,8 @@
         var tool = TOOLS[key];
         var facts = [["Access", "Read-only"], ["Opens", pageLabel(source.href)]];
         if (tool) facts.unshift(["Read with", tool.tool]);
+        var displayTitles = { rule: "Point-in-time restore rule", policy: "Backup retention policy", action: "Enable backup protection" };
+        if (READABLE) facts.unshift(["Identifier", source.title]);
         return h("li", null, [
           h("button", {
             type: "button",
@@ -1076,10 +1122,13 @@
             h("span", { class: "cs-deck-source-num", "aria-hidden": "true", text: number }),
             h("span", { class: "cs-deck-kind", text: source.kind }),
             h("span", { class: "cs-deck-source-copy" }, spaced([
-              h("span", { class: "cs-deck-source-title", text: source.title }),
+              h("span", { class: "cs-deck-source-title", text: READABLE ? displayTitles[key] || source.title : source.title }),
               h("span", { class: "cs-deck-source-meta", text: source.meta })
             ])),
-            when
+            READABLE ? h("span", { class: "ds-source-stamp" }, [
+              h("span", { text: source.time ? "Observed" : source.unavailable ? "Status" : "Version" }), when
+            ]) : when,
+            READABLE ? h("span", { class: "ds-source-chevron", "aria-hidden": "true" }, [icon("chevron")]) : null
           ])),
           h("div", { class: "cs-deck-source-detail", id: detailId, hidden: true }, [
             h("dl", { class: "cs-deck-source-facts" }, facts.map(function (pair) {
@@ -1153,6 +1202,22 @@
       ]);
     }
     var unavailable = (SCENARIOS[mode] || SCENARIOS.grounded).unavailableSources;
+    if (READABLE) {
+      return h("details", { class: "ds-services" }, [
+        h("summary", null, [
+          h("span", { text: "Evidence services" }),
+          h("strong", { class: unavailable.length ? "ds-status-attention" : "", text: (READINESS.length - unavailable.length) + "/" + READINESS.length + " available" }),
+          unavailable.length ? h("span", { class: "ds-status-attention", text: unavailable.map(function (key) { return READINESS.find(function (item) { return item.key === key; }).label; }).join(", ") + " unavailable" }) : null
+        ]),
+        h("nav", { "aria-label": "Evidence services" }, [
+          h("ul", null, READINESS.map(function (source) {
+            var down = unavailable.indexOf(source.key) >= 0;
+            return h("li", null, [h("a", { href: source.href }, [source.label]), h("span", { class: down ? "ds-status-attention" : "", text: down ? "Unavailable" : "Available" })]);
+          })),
+          h("time", { datetime: DAY + "T10:41:04Z", text: "Observed: " + DAY + " 10:41:04 UTC" })
+        ])
+      ]);
+    }
     var items = READINESS.map(function (source) {
       var down = unavailable.indexOf(source.key) >= 0;
       return h("li", null, [h("a", {
@@ -1678,14 +1743,37 @@
   function finalizeTurn(spec, article, answer, turnId, offset, pendingRow, animate) {
     var prose = answer.querySelector(".cs-deck-prose");
     prose.textContent = "";
-    spec.answer.forEach(function (paragraph, index) {
-      var node = h("p");
-      renderInline(node, paragraph.text, spec, turnId, true);
-      prose.appendChild(node);
+    if (READABLE) {
+      answer.insertBefore(h("div", { class: "ds-answer-status" }, [
+        h("strong", { text: spec.verification.label === "Verified" ? "Claims supported" : spec.verification.label }),
+        h("span", { text: spec.verification.detail }),
+        h("span", { text: "Answer evidence, not execution verification" })
+      ]), prose);
+      var renderOptions = { citation: function (reference) {
+        if (spec.sources.indexOf(reference) < 0) return undefined;
+        return citation(reference, spec, turnId, true);
+      } };
+      if (spec.presentation) {
+        var structured = h("div", { class: "ds-answer-data" });
+        window.FDAIDeckAnswer.render(structured, { format: "json", content: spec.presentation, verification: mockVerification(spec.sources) }, renderOptions);
+        prose.appendChild(structured);
+      }
+      var markdownBody = h("div", { class: "ds-answer-markdown" });
+      window.FDAIDeckAnswer.render(markdownBody, { format: "markdown", content: answerMarkdown(spec) }, renderOptions);
+      prose.appendChild(markdownBody);
       (spec.notes || []).forEach(function (item) {
-        if (item.after === index) prose.appendChild(noteElement(item, spec, turnId, true));
+        prose.appendChild(noteElement(item, spec, turnId, true));
       });
-    });
+    } else {
+      spec.answer.forEach(function (paragraph, index) {
+        var node = h("p");
+        renderInline(node, paragraph.text, spec, turnId, true);
+        prose.appendChild(node);
+        (spec.notes || []).forEach(function (item) {
+          if (item.after === index) prose.appendChild(noteElement(item, spec, turnId, true));
+        });
+      });
+    }
     setAnswerState(article, spec.answerState, animate);
     var row = actionRow(spec, turnId);
     if (pendingRow && pendingRow.parentNode === article) pendingRow.replaceWith(row);
@@ -2078,12 +2166,17 @@
     var article = cite.closest(".cs-deck-agent-turn");
     var target = document.getElementById(cite.getAttribute("href").slice(1));
     if (!article || !target) return;
+    if (READABLE) {
+      article.sourceReturn = { cite: cite, scrollTop: transcript.scrollTop, pageScrollTop: window.scrollY, wasOpen: article.querySelector(".cs-deck-sources").hidden === false };
+      target.setAttribute("aria-expanded", "true");
+      document.getElementById(target.getAttribute("aria-controls")).hidden = false;
+    }
     setSources(article, true);
     article.querySelectorAll(".cs-deck-source.is-target").forEach(function (node) { node.classList.remove("is-target"); });
     target.classList.add("is-target");
     hideTip();
     target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
+    (READABLE ? target.parentElement : target).scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
     updateJump();
   }
 
@@ -2888,6 +2981,22 @@
     var action = target.getAttribute("data-action");
     if (action === "wave-toggle") {
       toggleWave(target);
+    } else if (action === "return-answer") {
+      var sourceArticle = target.closest(".cs-deck-agent-turn");
+      var origin = sourceArticle.sourceReturn;
+      if (!origin || !origin.wasOpen) setSources(sourceArticle, false);
+      if (origin && origin.cite.isConnected) {
+        transcript.scrollTop = origin.scrollTop;
+        window.scrollTo({ top: origin.pageScrollTop });
+        origin.cite.focus({ preventScroll: true });
+      } else {
+        var answerOrigin = sourceArticle.querySelector(".ds-answer-heading") || sourceArticle.querySelector(".cs-deck-answer");
+        answerOrigin.setAttribute("tabindex", "-1");
+        answerOrigin.focus({ preventScroll: true });
+        answerOrigin.scrollIntoView({ block: "start" });
+      }
+      sourceArticle.sourceReturn = null;
+      updateJump();
     } else if (action === "draft-remediation") {
       previewRequest(target, "Draft a remediation for these differences.",
         "Draft remediation is a separate request. FDAI rechecks the scope, the policy, and whether a typed draft is available before it prepares one, and nothing runs without approval. This preview stops here.");
@@ -2948,16 +3057,44 @@
   });
 
   document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && leave.open) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
+      if (READABLE) setSearchOpen(true);
       searchInput.focus();
       searchInput.select();
-    } else if (event.key === "Escape" && !tip.hidden) {
+    } else if (event.key === "Escape") {
       hideTip();
+      var services = readiness.querySelector(".ds-services[open]");
+      if (services) {
+        services.open = false;
+        services.querySelector("summary").focus({ preventScroll: true });
+      }
+      if (READABLE && header.getAttribute("data-search-open") === "true") {
+        setSearchOpen(false);
+        byId("ds-search-toggle").focus();
+      }
     }
   });
 
   window.addEventListener("resize", hideTip);
+
+  if (READABLE) document.addEventListener("click", function (event) {
+    var services = readiness.querySelector(".ds-services[open]");
+    if (services && !services.contains(event.target) && !leave.open) services.open = false;
+  });
+
+  if (READABLE) {
+    function updateReadableLayout() {
+      var chromeHeight = [header, readiness, composer, byId("ds-preview")].reduce(function (total, node) {
+        return total + node.getBoundingClientRect().height;
+      }, 0);
+      document.body.setAttribute("data-sources-overflow", chromeHeight + 184 > window.innerHeight ? "expanded" : "contained");
+    }
+    var layoutObserver = new ResizeObserver(updateReadableLayout);
+    window.addEventListener("resize", updateReadableLayout);
+    [header, readiness, composer, byId("ds-preview")].forEach(function (node) { layoutObserver.observe(node); });
+  }
 
   searchInput.addEventListener("input", function () {
     window.clearTimeout(search.timer);
@@ -2974,6 +3111,15 @@
 
   searchPrev.addEventListener("click", function () { moveSearch(-1); });
   searchNext.addEventListener("click", function () { moveSearch(1); });
+  function setSearchOpen(open) {
+    header.setAttribute("data-search-open", open ? "true" : "false");
+    byId("ds-search-toggle").setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  if (READABLE) byId("ds-search-toggle").addEventListener("click", function () {
+    var open = header.getAttribute("data-search-open") !== "true";
+    setSearchOpen(open);
+    if (open) searchInput.focus();
+  });
   byId("ds-new").addEventListener("click", newConversation);
   byId("ds-close").addEventListener("click", function () { setOpen(false); });
   reopen.addEventListener("click", function () { setOpen(true); });
@@ -3043,6 +3189,34 @@
   reducedMotion.addEventListener("change", function (event) { state.reduced = event.matches; });
 
   // ---------- Start ----------
+  function answerMarkdown(spec) {
+    return spec.answer.map(function (paragraph) { return paragraph.text; }).join("\n\n");
+  }
+
+  function mockVerification(references) {
+    return { status: "verified", authority: "synthetic-preview", checks_completed: 0, checks_total: 0, evidence_refs: references, reason_code: null };
+  }
+
+  if (READABLE) {
+    var previewFormat = "markdown";
+    function renderAnswerPreview() {
+      var example = SCENARIOS[state.scenario];
+      window.FDAIDeckAnswer.render(byId("ds-answer-output"), { format: previewFormat, content: byId("ds-answer-input").value, verification: mockVerification(example.sources) });
+      byId("ds-answer-input-status").textContent = "Synthetic preview; not operational verification";
+    }
+    function selectAnswerFormat(format) {
+      previewFormat = format;
+      var example = SCENARIOS[state.scenario];
+      byId("ds-answer-input").value = format === "markdown" ? answerMarkdown(example) : JSON.stringify(example.presentation, null, 2);
+      setPressed("data-answer-format", format);
+      renderAnswerPreview();
+    }
+    document.querySelectorAll("[data-answer-format]").forEach(function (button) {
+      button.addEventListener("click", function () { selectAnswerFormat(button.getAttribute("data-answer-format")); });
+    });
+    byId("ds-answer-render").addEventListener("click", renderAnswerPreview);
+    selectAnswerFormat("markdown");
+  }
   setPressed("data-scenario", state.scenario);
   setPressed("data-width", state.width);
   traceSwitch.checked = state.captureTrace;

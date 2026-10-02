@@ -1,4 +1,5 @@
 import type { RefObject } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import type { BackendHealth } from "./backend";
@@ -68,8 +69,24 @@ export function CommandDeckHeader({
   readonly onConversationModelTier: (tier: ConversationModelTier) => boolean;
   readonly closeLabel?: string;
 }) {
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchToggle = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const input = searchRef.current;
+    if (!input || !searchAvailable) return;
+    const showSearch = () => {
+      setSearchOpen(true);
+      requestAnimationFrame(() => {
+        input.focus();
+        input.select();
+      });
+    };
+    input.addEventListener("fdai-deck-search", showSearch);
+    return () => input.removeEventListener("fdai-deck-search", showSearch);
+  }, [searchAvailable, searchRef]);
+
   return (
-    <div class="deck-header cs-deck-workspace-header">
+    <div class="deck-header cs-deck-workspace-header" data-search-open={searchOpen ? "true" : "false"}>
       <div class="deck-header-title" onMouseDown={onFloatingDragStart}>
         <span class="deck-header-glyph" aria-hidden="true">
           <svg viewBox="0 0 16 16" width="14" height="14">
@@ -137,6 +154,14 @@ export function CommandDeckHeader({
             aria-label={t("deck.searchConversation")}
             onInput={(event) => onSearchInput((event.target as HTMLInputElement).value)}
             onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                onSearchInput("");
+                setSearchOpen(false);
+                searchToggle.current?.focus();
+                return;
+              }
               if (event.key === "Enter") {
                 event.preventDefault();
                 onMoveSearch(event.shiftKey ? -1 : 1);
@@ -164,10 +189,19 @@ export function CommandDeckHeader({
           >
             ↓
           </button>
-          <kbd>{navigator.platform.toLowerCase().includes("mac") ? "⌘K" : "Ctrl K"}</kbd>
         </div> : null}
       </div>
       <div class="deck-header-actions">
+        {searchAvailable ? (
+          <Tooltip content={t("deck.searchConversation")}>
+            <button type="button" class="deck-header-action deck-search-toggle" ref={searchToggle} aria-label={t("deck.searchConversation")} aria-expanded={searchOpen} onClick={() => {
+              setSearchOpen(!searchOpen);
+              if (!searchOpen) requestAnimationFrame(() => searchRef.current?.focus());
+            }}>
+              <span aria-hidden="true">⌕</span>
+            </button>
+          </Tooltip>
+        ) : null}
         {canStartNewConversation ? (
           <Tooltip content={t("deck.newConversation")}>
             <button

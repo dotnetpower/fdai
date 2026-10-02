@@ -227,6 +227,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
         event.preventDefault();
         if (openRef.current) {
           if (searchRef.current) {
+            searchRef.current.dispatchEvent(new Event("fdai-deck-search"));
             searchRef.current.focus();
             searchRef.current.select();
           } else {

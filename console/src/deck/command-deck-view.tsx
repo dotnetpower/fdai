@@ -286,6 +286,8 @@ export function CommandDeckView({
   const composer = (
     <DeckComposer
       centered={centeredEmptyState}
+      showJumpToLatest={showJumpToLatest}
+      onJumpToLatest={onJumpToLatest}
       routeLabel={contextLabel}
       contextMode={contextMode}
       snapshot={snapshot}
@@ -325,7 +327,7 @@ export function CommandDeckView({
 
       {open ? (
         <div
-          class={`deck-overlay cs-deck-surface cs-deck-workspace-shell deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}${centeredEmptyState ? " is-empty-conversation" : ""}`}
+          class={`deck-overlay cs-deck-surface cs-deck-workspace-shell cs-deck-conversation deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}${centeredEmptyState ? " is-empty-conversation" : ""}`}
           role={layoutMode === "workspace" ? "dialog" : "complementary"}
           aria-modal={layoutMode === "workspace" ? "true" : undefined}
           aria-label={t("deck.label")}
@@ -416,20 +418,8 @@ export function CommandDeckView({
               </>
             ) : null}
             <div class="deck-transcript-column cs-deck-transcript-column">
-              {showJumpToLatest ? (
-                <div class="deck-jump-slot">
-                  <button
-                    type="button"
-                    class="deck-jump"
-                    onClick={onJumpToLatest}
-                    aria-label={t("deck.jumpLatestMessage")}
-                  >
-                    <span aria-hidden="true">↓</span> {t("deck.jumpLatest")}
-                  </button>
-                </div>
-              ) : null}
               <section
-                class="deck-transcript"
+                class="deck-transcript cs-deck-transcript"
                 ref={scrollerRef}
                 aria-label={t("deck.conversation")}
                 role="log"
@@ -438,7 +428,7 @@ export function CommandDeckView({
                 aria-busy={pending}
                 onScroll={onTranscriptScroll}
               >
-              <div class={`deck-transcript-inner${centeredEmptyState ? " is-empty-conversation" : ""}`}>
+              <div class={`deck-transcript-inner cs-deck-transcript-inner${centeredEmptyState ? " is-empty-conversation" : ""}`}>
               {resumedAt ? (
                 <div class="deck-resume-banner" role="status">
                   <span>{t("deck.resumedConversation", {
@@ -557,8 +547,10 @@ type DeckComposerProps = Pick<CommandDeckViewProps,
   | "canAttachScreen"
   | "onAttachScreen"
   | "onRemoveScreen"
+  | "onJumpToLatest"
 > & {
   readonly centered: boolean;
+  readonly showJumpToLatest: boolean;
   readonly routeLabel: string;
   readonly handoverGoalId?: string;
   readonly handoverAgent?: string;
@@ -570,6 +562,8 @@ type DeckComposerProps = Pick<CommandDeckViewProps,
 
 function DeckComposer({
   centered,
+  showJumpToLatest,
+  onJumpToLatest,
   routeLabel,
   contextMode,
   snapshot,
@@ -608,9 +602,9 @@ function DeckComposer({
     >
       <BusyInputControls key={sessionKey} sessionId={busySessionId}
         draft={draft} turnActive={inFlight} onConfirmedSubmit={onBusySubmitted} />
-      {snapshot || canAttachScreen ? (
-        <div class="deck-composer-context">
-          <Tooltip content={snapshot ? t("deck.removeScreenHint") : t("deck.attachScreenHint")} placement="top">
+      {snapshot || canAttachScreen || showJumpToLatest ? (
+        <div class="deck-composer-context cs-deck-composer-context">
+          {snapshot || canAttachScreen ? <Tooltip content={snapshot ? t("deck.removeScreenHint") : t("deck.attachScreenHint")} placement="top">
             <button
               type="button"
               class="deck-context-control"
@@ -625,7 +619,12 @@ function DeckComposer({
                 : t("deck.attachScreen")}</span>
               <span aria-hidden="true">{snapshot ? "×" : "+"}</span>
             </button>
-          </Tooltip>
+          </Tooltip> : null}
+          {showJumpToLatest ? (
+            <button type="button" class="deck-jump cs-deck-jump" onClick={onJumpToLatest} aria-label={t("deck.jumpLatestMessage")}>
+              <span aria-hidden="true">↓</span> {t("deck.jumpLatest")}
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div class="deck-composer-inner cs-deck-composer-grid">

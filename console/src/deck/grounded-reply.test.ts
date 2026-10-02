@@ -120,6 +120,15 @@ describe("verificationLabel", () => {
 });
 
 describe("grounded reply presentation", () => {
+  it("routes citations to source disclosure and retains only display-authorized Markdown", () => {
+    const component = readFileSync(fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)), "utf8");
+    expect(component).toContain("onCitationSelect={selectCitation}");
+    expect(component).toContain("sourceReturn.current");
+    expect(component).toContain("origin.trigger.focus({ preventScroll: true })");
+    expect(component).toContain("<pre><code>{renderedText}</code></pre>");
+    expect(component).not.toContain("<pre><code>{text}</code></pre>");
+  });
+
   it("shows the signed-in account and server authority boundary on action drafts", () => {
     const component = readFileSync(
       fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),

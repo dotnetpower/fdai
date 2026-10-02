@@ -1,0 +1,55 @@
+.ds-common-answer {
+  min-width: 0;
+  color: var(--cs-text);
+  font: var(--cs-type-body-size)/var(--cs-type-body-line-height) var(--cs-font);
+  overflow-wrap: anywhere;
+}
+
+.ds-common-answer :is(h3, h4, h5) {
+  margin: 16px 0 8px;
+  font: 600 var(--cs-type-panel-title-size)/var(--cs-type-panel-title-line-height) var(--cs-font);
+}
+
+.ds-common-answer :is(p, ul, ol, blockquote) { margin: 8px 0 16px; }
+.ds-common-answer > :first-child { margin-top: 0; }
+.ds-common-answer li + li { margin-top: 4px; }
+.ds-common-answer a { color: var(--cs-steel); }
+.ds-common-answer a:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
+.ds-common-answer blockquote { padding: 8px 16px; background: var(--cs-shade); }
+.ds-common-answer hr { margin: 24px 0; border: 0; border-bottom: 1px solid var(--cs-hairline); }
+.ds-common-answer code { font-family: var(--cs-font-mono); overflow-wrap: anywhere; }
+.ds-common-answer pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.ds-answer-table { min-width: 0; margin: 12px 0 20px; }
+.ds-answer-table table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.ds-answer-table caption { padding-bottom: 8px; text-align: left; font-weight: 600; }
+.ds-answer-table :is(th, td) { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--cs-hairline); }
+.ds-answer-table thead th { color: var(--cs-deck-meta-text, var(--cs-text-soft)); font-weight: 500; }
+.ds-answer-code { margin: 12px 0 20px; padding: 12px; background: var(--cs-shade); border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); }
+.ds-answer-code figcaption { margin-bottom: 8px; font-size: var(--cs-type-label-size); color: var(--cs-deck-meta-text, var(--cs-text-soft)); }
+.ds-answer-block { margin: 0 0 20px; }
+.ds-answer-block-body dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; margin: 0; }
+.ds-answer-block-body dl > div { min-width: 0; }
+.ds-answer-block-body dt { font-size: var(--cs-type-label-size); color: var(--cs-deck-meta-text, var(--cs-text-soft)); }
+.ds-answer-block-body dd { margin: 0; font-weight: 600; }
+.ds-answer-block-body[data-tone="warning"],
+.ds-answer-block-body[data-tone="attention"],
+.ds-answer-block-body dd[data-tone="attention"],
+.ds-answer-block-body dd[data-tone="warning"] { color: var(--cs-deck-attention-text, var(--cs-text)); }
+.ds-answer-refs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.ds-answer-original { margin: 12px 0 20px; }
+.ds-common-answer summary { min-height: 34px; padding: 8px 0; box-sizing: border-box; cursor: pointer; font-weight: 600; }
+.ds-common-answer summary:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
+.ds-answer-input { width: 100%; min-height: 120px; box-sizing: border-box; resize: vertical; padding: 8px 12px; border: 1px solid var(--cs-deck-control-line); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); font: var(--cs-type-compact-size)/1.5 var(--cs-font-mono); }
+.ds-answer-input:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
+.ds-answer-preview { min-width: 0; padding-top: 16px; border-top: 1px solid var(--cs-hairline); }
+
+@container ds-workspace (max-width: 640px) {
+  .ds-answer-table table { table-layout: fixed; }
+  .ds-common-answer summary { min-height: 44px; }
+}
+
+@media (forced-colors: active) {
+  .ds-answer-input { border-color: ButtonText; }
+  .ds-common-answer :is(a, summary):focus-visible { outline-color: Highlight; }
+}

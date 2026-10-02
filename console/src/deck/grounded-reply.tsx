@@ -15,10 +15,11 @@
  */
 
 import { lazy, Suspense } from "preact/compat";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import type { AdaptiveAnswer } from "./adaptive-answer";
 import { AdaptiveAnswerSources } from "./adaptive-answer-sources";
+import { answerEvidenceText } from "./answer-evidence-i18n";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { getLocale, t, tForLocale } from "../i18n";
 import { routeHref } from "../router";
@@ -119,6 +120,10 @@ export function GroundedReply({
   const deckUser = getDeckUser();
   const draftAccount = deckUser?.username ?? deckUser?.name ?? deckUser?.accountId ?? null;
   const [open, setOpen] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<{ number: number } | null>(null);
+  const replyRef = useRef<HTMLDivElement>(null);
+  const sourceReturn = useRef<{ trigger: HTMLElement; container: HTMLElement | null; top: number; wasOpen: boolean } | null>(null);
+  const sourcePanelId = `${turnId}-sources`;
   const [copied, showCopied] = useTransientFlag(1500);
   const [draftState, setDraftState] = useState<"idle" | "submitting" | "done" | "cancelled">("idle");
   const [draftResult, setDraftResult] = useState<string | null>(null);
@@ -197,6 +202,37 @@ export function GroundedReply({
       : null,
   ]);
 
+  useEffect(() => {
+    if (!open || selectedSource === null) return;
+    const row = document.getElementById(`${sourcePanelId}-${selectedSource.number}`);
+    const details = row?.querySelector("details");
+    if (details) details.open = true;
+    row?.querySelector("summary")?.focus({ preventScroll: true });
+    row?.scrollIntoView({ block: "nearest" });
+  }, [open, selectedSource, sourcePanelId]);
+
+  const selectCitation = (number: number, trigger: HTMLElement) => {
+    if (!sources.some((item) => item.n === number)) return;
+    const container = replyRef.current?.closest<HTMLElement>(".deck-transcript") ?? null;
+    sourceReturn.current = { trigger, container, top: container?.scrollTop ?? 0, wasOpen: open };
+    setSelectedSource({ number });
+    setOpen(true);
+  };
+  const returnToAnswer = () => {
+    const origin = sourceReturn.current;
+    setSelectedSource(null);
+    if (!origin?.wasOpen) setOpen(false);
+    requestAnimationFrame(() => {
+      if (origin?.trigger.isConnected) {
+        if (origin.container) origin.container.scrollTop = origin.top;
+        origin.trigger.focus({ preventScroll: true });
+      } else {
+        replyRef.current?.querySelector<HTMLElement>(".deck-turn-body")?.focus();
+      }
+    });
+    sourceReturn.current = null;
+  };
+
   const copy = () => {
     void navigator.clipboard?.writeText(renderedText).then(
       () => {
@@ -216,7 +252,7 @@ export function GroundedReply({
   };
 
   return (
-    <div class="deck-gr">
+    <div class="deck-gr" ref={replyRef} data-sources-open={open ? "true" : "false"}>
       {answerPlanning && successfulPlanningAgents.length > 0 ? (
         <div class="deck-answer-plan">
           <span>
@@ -240,7 +276,12 @@ export function GroundedReply({
           ) : null}
         </div>
       ) : null}
-      <div class="deck-turn-body cs-deck-answer">
+      {!streaming && verification ? (
+        <div class="deck-answer-posture" data-issue={verificationIssue ?? "none"} role="status">
+          <strong>{renderedVerificationLabel}</strong>
+        </div>
+      ) : null}
+      <div class="deck-turn-body cs-deck-answer" tabIndex={-1}>
         {showAnswerState ? (
           <span class={`deck-answer-state is-${answerState}`} role="status">
             {t(`deck.answerState.${answerState}`)}
@@ -254,6 +295,7 @@ export function GroundedReply({
                   text={renderedText}
                   suppressCode={(codeArtifacts?.length ?? 0) > 0}
                   citeMarks={marks}
+                  onCitationSelect={selectCitation}
                 />
               </div>
             ) : null}
@@ -267,8 +309,12 @@ export function GroundedReply({
             streaming={streaming}
             suppressCode={!streaming && (codeArtifacts?.length ?? 0) > 0}
             citeMarks={marks}
+            onCitationSelect={selectCitation}
           />
         )}
+        {!streaming && renderedText.trim() ? (
+          <OriginalMarkdown renderedText={renderedText} />
+        ) : null}
       </div>
 
       {!streaming && adaptiveAnswer ? (
@@ -472,6 +518,7 @@ export function GroundedReply({
                   class="deck-gr-pill cs-deck-pill"
                   onClick={() => setOpen((v) => !v)}
                   aria-expanded={open}
+                  aria-controls={sourcePanelId}
                   aria-label={sourceButtonLabel}
                 >
                   <span class="deck-gr-check" aria-hidden="true">
@@ -507,9 +554,13 @@ export function GroundedReply({
       ) : null}
 
       {!streaming && open && sources.length > 0 ? (
-        <div class="deck-gr-panel">
-          <SourceDetail sources={sources} />
-        </div>
+        <section class="deck-gr-panel" id={sourcePanelId} aria-label={answerEvidenceText("answerEvidence")}>
+          <header class="deck-gr-panel-head">
+            <h4>{answerEvidenceText("answerEvidence")}</h4>
+            <button type="button" class="deck-gr-return" onClick={returnToAnswer}>{answerEvidenceText("returnToAnswer")}</button>
+          </header>
+          <SourceDetail sources={sources} panelId={sourcePanelId} selectedSource={selectedSource?.number ?? null} />
+        </section>
       ) : null}
     </div>
   );
@@ -719,24 +770,34 @@ function GroundingTrace({ stages }: { readonly stages: readonly TraceStage[] }) 
   );
 }
 
-/** Expanded "show sources" cards. Each grounding source renders as a typed card
- *  with a coloured category badge, a bold title, and its cited value - the
- *  clean presentation from the source-streaming mock. Every card is a real
- *  evidence entry or citation the backend returned; nothing is fabricated. */
-function SourceDetail({ sources }: { readonly sources: readonly GroundedSource[] }) {
+function OriginalMarkdown({ renderedText }: { readonly renderedText: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <details class="deck-answer-original" onToggle={(event) => setExpanded(event.currentTarget.open)}>
+      <summary>{answerEvidenceText("originalMarkdown")}</summary>
+      {expanded ? <pre><code>{renderedText}</code></pre> : null}
+    </details>
+  );
+}
+
+/** Source disclosures preserve the backend's evidence entries and citation values. */
+function SourceDetail({ sources, panelId, selectedSource }: { readonly sources: readonly GroundedSource[]; readonly panelId: string; readonly selectedSource: number | null }) {
   return (
     <ul class="deck-gr-list">
       {sources.map((source) => (
-        <li key={`${source.n}-${source.title}`} class="deck-src-row">
-          <span class={`deck-src-badge is-${source.tone}`} aria-hidden="true">
-            {source.badge}
-          </span>
-          <span class="deck-src-num" aria-hidden="true">{source.n}</span>
-          <span class="deck-src-text">
-            <span class="deck-src-title">{source.title}</span>
-            {source.meta ? <span class="deck-src-meta">{source.meta}</span> : null}
-            {source.path ? <span class="deck-src-path muted">{source.path}</span> : null}
-          </span>
+        <li key={`${source.n}-${source.title}`} class="deck-src-row" id={`${panelId}-${source.n}`} data-selected={source.n === selectedSource ? "true" : "false"}>
+          <details class="deck-src-detail">
+            <summary>
+              <span class="deck-src-num" aria-hidden="true">{source.n}</span>
+              <span class={`deck-src-badge is-${source.tone}`} aria-hidden="true">{source.badge}</span>
+              <span class="deck-src-title">{source.title}</span>
+              <span class="deck-src-chevron" aria-hidden="true" />
+            </summary>
+            <div class="deck-src-text">
+              {source.meta ? <span class="deck-src-meta">{source.meta}</span> : null}
+              {source.path ? <span class="deck-src-path muted">{source.path}</span> : null}
+            </div>
+          </details>
         </li>
       ))}
     </ul>
