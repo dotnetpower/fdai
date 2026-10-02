@@ -308,8 +308,8 @@ the lifecycle agent, and the Terraform stage keeps only platform resources.
 
 ## Example installations
 
-| | Customer A | Customer B | Customer C |
-|-|------------|------------|------------|
+| Setting | Customer A | Customer B | Customer C |
+|---------|------------|------------|------------|
 | Hub | Online or offline Target Hub in Korea Central | Central Hub cell in East US | Central Hub cell or Target Hub |
 | Channel | `RELEASE`, or a custom channel with manual promotion | `RELEASE_CANDIDATE` | `RELEASE` with range `>=1.4.0 <1.5.0` |
 | Windows | Weekly downtime window and nightly no-downtime window | Daily windows | As agreed |

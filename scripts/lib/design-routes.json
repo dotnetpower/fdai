@@ -3811,7 +3811,8 @@
       ],
       "validate": [
         "bash scripts/quality/localization/check-translations.sh {changed_paths}",
-        "scripts/quality/repository/check-doc-links.sh"
+        "scripts/quality/repository/check-doc-links.sh",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_translated_document_structure.py"
       ]
     },
     {

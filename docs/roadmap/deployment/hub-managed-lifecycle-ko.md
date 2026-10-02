@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: df59a999b09dbb947734e51567b1ee7fcb8f452d
+translation_source_sha: e6d1a568932234cb52d743340b01a7984734813b
 translation_revised: 2026-10-02
 ---
 # Hub 관리형 수명 주기
@@ -300,8 +300,8 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
 
 ## 설치 예시
 
-| | Customer A | Customer B | Customer C |
-|-|------------|------------|------------|
+| 항목 | Customer A | Customer B | Customer C |
+|------|------------|------------|------------|
 | Hub | Korea Central의 온라인 또는 오프라인 Target Hub | East US의 중앙 Hub cell | 중앙 Hub cell 또는 Target Hub |
 | 채널 | `RELEASE` 또는 수동으로 승격하는 사용자 지정 채널 | `RELEASE_CANDIDATE` | 범위가 `>=1.4.0 <1.5.0`인 `RELEASE` |
 | 구간 | 주간 다운타임 구간과 야간 무중단 구간 | 매일 구간 | 합의한 대로 |
