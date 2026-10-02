@@ -504,6 +504,14 @@ resource "azurerm_role_assignment" "operational_evidence_verifier_acr_pull" {
   principal_type       = "ServicePrincipal"
 }
 
+resource "azurerm_role_assignment" "operational_evidence_verifier_state_store_secret_reader" {
+  count                = var.enable_operational_evidence_verifier && var.state_store_kind == "postgres_flex" ? 1 : 0
+  scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.operational_evidence_verifier_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 locals {
   measurement_runners_enabled = (
     var.baseline_measurement_enabled ||

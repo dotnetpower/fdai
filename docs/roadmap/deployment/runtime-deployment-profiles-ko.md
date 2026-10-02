@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 69316ef037816410429c796bc7783d4e8ed9e6e9
+translation_source_sha: 614e7a6c20be701b7192b1f716e71b4908627ae1
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -349,9 +349,10 @@ root의 Event Hubs 시작 시간 설정을 받고, Core와 Operator는 substrate
 AKS 렌더러가 지정하는 모든 Key Vault secret이 substrate 대상 리소스, `postgres-aks` 데이터베이스
 root 또는 호스트가 작성하는 라이선스 secret 중 하나에서 오는지 확인합니다.
 
-선택적인 운영 근거 검증기는 자체 user-assigned Managed Identity를 사용하는 별도 내부 워크로드입니다.
-기본 5개 서비스 준비 상태 집합에 포함되지 않으며 실행기 신원을 받지 않습니다. 호출자 인증기, 실행기
-계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 시작합니다.
+선택적인 운영 근거 검증기는 배포 소유 고정값, 앵커, 호출자 토큰 검증, 작성자 정책, 역할 재확인 범위가
+있을 때만 자체 user-assigned Managed Identity를 쓰는 별도 내부 워크로드로 렌더링됩니다. 기본 5개 서비스
+준비 상태 집합에 포함되지 않고 실행기 신원을 받지 않으며, 루트는 이미지 pull과 정확한 DSN 시크릿 읽기만
+부여합니다. 시작은 여전히 호출자 인증기, 실행기 계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 진행됩니다.
 
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state

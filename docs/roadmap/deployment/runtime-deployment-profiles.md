@@ -384,10 +384,10 @@ the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod in
 digest-pinned ClamAV image as a replica-local TCP sidecar that starts `clamd` directly, because the image entrypoint changes database ownership and exits without root. Its root remains read-only and only the
 declared database, log, run and temporary paths receive size-limited `emptyDir` volumes. The restricted namespace requires `runAsNonRoot` at both Pod and container scope for workloads, init containers, sidecars, and scheduled jobs; a Pod-level setting alone does not satisfy admission. Core receives the shared-root Event Hubs startup timings, and Core and Operator read the `operator_request` receipt seeds through per-secret `Key Vault Secrets User` grants that the substrate stage creates. A structural test requires every Key Vault secret the AKS renderer names to come from a substrate-targeted resource, the `postgres-aks` database root, or the host-written license secret.
 
-The optional operational evidence verifier is a separate internal workload with its own user-assigned
-Managed Identity. It is not part of the baseline five-service readiness set, receives no executor
-identity, and starts only after its caller authenticator, executor-class anchor preflight, proof-store
-writer readback, and Azure own-role readback pass.
+The optional operational evidence verifier renders as a separate internal workload with its own user-assigned
+Managed Identity only when deployment-owned pins, anchors, caller-token validation, writer policy, and role-readback scopes are present.
+It is not part of the baseline five-service readiness set, receives no executor identity, and the root grants only image pull plus exact DSN-secret read.
+Startup still waits for the caller authenticator, executor-class anchor preflight, proof-store writer readback, and Azure own-role readback.
 
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active deadline,
 a retry limit, and bounded history. Manual jobs require a separate approval and are not perpetual desired-state resources.

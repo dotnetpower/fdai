@@ -15,16 +15,17 @@ from types import SimpleNamespace
 import pytest
 
 from fdai_deployment_cli import (
-    standalone_aks_nodepool_guard,
     aks_workload_jobs,
     runtime_support_installation,
     standalone_aks_inventory,
+    standalone_aks_nodepool_guard,
     standalone_application,
     standalone_catalog_review,
     standalone_checkpoint_failure,
     standalone_host,
     standalone_host_state,
     standalone_host_values,
+    standalone_operational_evidence,
     standalone_stage_targets,
     standalone_terraform_environment,
 )
@@ -2061,7 +2062,7 @@ def test_aks_kubeconfig_readback_rejects_wrong_authentication(
 
 def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
     digest = "a" * 64
-    workload = standalone_host._aks_workload(
+    workload = standalone_operational_evidence.aks_workload(
         "operator",
         {"operator-service": f"example.azurecr.io/operator-service@sha256:{digest}"},
         {"resource_id": "/identities/operator", "client_id": "operator-client"},
@@ -2358,7 +2359,7 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
 )
 def test_aks_workload_preserves_service_database_role(component, service, role) -> None:
     environment = {"RUNTIME_ENV": "dev", "FDAI_DATABASE_ROLE": "wrong-role", "PGOPTIONS": ""}
-    workload = standalone_host._aks_workload(
+    workload = standalone_operational_evidence.aks_workload(
         component,
         {service: f"example.com/{service}@sha256:{'a' * 64}"},
         {"resource_id": f"/identities/{component}", "client_id": f"{component}-client"},
@@ -2377,6 +2378,104 @@ def test_aks_workload_preserves_service_database_role(component, service, role) 
         "FDAI_DATABASE_ROLE": "wrong-role",
         "PGOPTIONS": "",
     }
+
+
+def _verifier_binding() -> dict[str, object]:
+    return {
+        "enabled": True,
+        "trust_registry_pin": "a" * 64,
+        "grant_registry_path": "/app/config/operational-evidence-grants.json",
+        "grant_registry_pin": "b" * 64,
+        "anchors_json": "{}",
+        "caller_token_issuer": "https://issuer.example.com/",
+        "caller_token_audience": "api://operational-evidence-verifier",
+        "caller_token_jwks_json": '{"keys":[]}',
+        "role_readback_scopes_json": '["/subscriptions/00000000-0000-0000-0000-000000000000"]',
+        "allowed_role_scopes_json": "{}",
+        "vertical_executor_principals_json": '["00000000-0000-0000-0000-000000000005"]',
+        "writer_members_json": '["fdai_operational_evidence_verifier"]',
+        "dev_gateway_executor_principal_id": "00000000-0000-0000-0000-000000000004",
+    }
+
+
+def test_aks_operational_evidence_verifier_workload_is_internal_and_identity_separated() -> None:
+    workload = standalone_operational_evidence.aks_operational_evidence_verifier_workload(
+        refs={"core-control-plane": f"example.com/fdai/core@sha256:{'a' * 64}"},
+        verifier_identity={
+            "resource_id": "/identities/verifier",
+            "client_id": "00000000-0000-0000-0000-000000000010",
+            "principal_id": "00000000-0000-0000-0000-000000000011",
+        },
+        core_identity={
+            "resource_id": "/identities/core",
+            "client_id": "00000000-0000-0000-0000-000000000020",
+            "principal_id": "00000000-0000-0000-0000-000000000021",
+        },
+        executor_identity={
+            "resource_id": "/identities/executor",
+            "client_id": "00000000-0000-0000-0000-000000000030",
+            "principal_id": "00000000-0000-0000-0000-000000000031",
+        },
+        deploy_runner_principal="00000000-0000-0000-0000-000000000040",
+        application_values={"env": "dev", "operational_evidence_verifier": _verifier_binding()},
+        postgres_fqdn="postgres.example.com",
+        postgres_database="fdai",
+    )
+
+    assert workload is not None
+    assert workload["component"] == "operational-evidence-verifier"
+    assert workload["command"] == ["python", "-m", "fdai.delivery.operational_evidence_server"]
+    assert workload["args"] == ["--host", "0.0.0.0", "--port", "8791"]
+    assert workload["external"] is False
+    assert workload["replicas"] == 1
+    assert workload["max_replicas"] == 1
+    assert workload["port"] == 8791
+    assert workload["readiness_path"] == "/v1/operational-evidence/readiness"
+    assert workload["secret_environment"] == {
+        "FDAI_OPERATIONAL_EVIDENCE_VERIFIER_DSN": "fdai-state-store-dsn"
+    }
+    environment = workload["environment"]
+    assert environment["FDAI_EXECUTION_VENUE"] == "deployed"
+    assert environment["FDAI_DATABASE_ROLE"] == "fdai_operational_evidence_verifier"
+    assert environment["FDAI_OPERATIONAL_EVIDENCE_CORE_EXECUTOR_PRINCIPAL_ID"] == (
+        "00000000-0000-0000-0000-000000000021"
+    )
+    assert environment["FDAI_OPERATIONAL_EVIDENCE_ISOLATED_EXECUTOR_PRINCIPAL_ID"] == (
+        "00000000-0000-0000-0000-000000000031"
+    )
+    assert json.loads(environment["FDAI_OPERATIONAL_EVIDENCE_EXECUTOR_PRINCIPALS_JSON"]) == [
+        "00000000-0000-0000-0000-000000000004",
+        "00000000-0000-0000-0000-000000000005",
+        "00000000-0000-0000-0000-000000000021",
+        "00000000-0000-0000-0000-000000000031",
+        "00000000-0000-0000-0000-000000000040",
+    ]
+
+
+def test_aks_operational_evidence_verifier_rejects_shared_identity() -> None:
+    with pytest.raises(ValueError, match="overlaps"):
+        standalone_operational_evidence.aks_operational_evidence_verifier_workload(
+            refs={"core-control-plane": f"example.com/fdai/core@sha256:{'a' * 64}"},
+            verifier_identity={
+                "resource_id": "/identities/verifier",
+                "client_id": "00000000-0000-0000-0000-000000000010",
+                "principal_id": "00000000-0000-0000-0000-000000000021",
+            },
+            core_identity={
+                "resource_id": "/identities/core",
+                "client_id": "00000000-0000-0000-0000-000000000020",
+                "principal_id": "00000000-0000-0000-0000-000000000021",
+            },
+            executor_identity={
+                "resource_id": "/identities/executor",
+                "client_id": "00000000-0000-0000-0000-000000000030",
+                "principal_id": "00000000-0000-0000-0000-000000000031",
+            },
+            deploy_runner_principal="00000000-0000-0000-0000-000000000040",
+            application_values={"env": "dev", "operational_evidence_verifier": _verifier_binding()},
+            postgres_fqdn="postgres.example.com",
+            postgres_database="fdai",
+        )
 
 
 @pytest.mark.parametrize(
@@ -2406,6 +2505,11 @@ def test_aks_application_readback_requires_complete_baseline(
         )
         if name != missing_service
     }
+    if missing_service is None:
+        expected["operational-evidence-verifier"] = {
+            "image": f"example.com/operational-evidence-verifier@sha256:{'a' * 64}",
+            "replicas": 1,
+        }
     observations: list[str] = []
     health_checks: list[dict[str, object]] = []
 

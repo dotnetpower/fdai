@@ -12,8 +12,10 @@ owners keep consuming them through the unchanged admission seam.
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
 > The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,
 > Operator authentication receipt, the three test-context readbacks, an unwired case-history
-> readback module, class-specific records in every consuming owner, and Settings readiness observation exist and pass local checks; see
-> [Implementation notes](#implementation-notes). No verifier workload is deployed, and forecast purposes without a bound source readback stay `unavailable`.
+> readback module, class-specific records in every consuming owner, Settings readiness observation, and
+> opt-in deployed verifier workload renderers exist and pass local checks; see
+> [Implementation notes](#implementation-notes). No connected deployed verifier start has been observed, and
+> forecast purposes without a bound source readback stay `unavailable`.
 >
 > **Agent boundary:** The pantheon remains exactly 15 agents. This design adds no agent or topic, changes no
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.
@@ -421,7 +423,12 @@ tracks what remains.
   readback before it can report `ready` or issue. `deployment_preflight.py` builds the executor-class anchor set, `operational_evidence_caller_auth.py`
   validates the short-lived caller token and discards it, and `own_role_readback.py` refuses partial readbacks,
   unresolved role definitions, identity mismatches, vault-wide secret access, other-secret access, or write/data-plane roles outside the exact rendered read scopes. Terraform
-  renders only internal ingress. The current caller authenticator consumes a deployment-supplied JWKS snapshot;
+  renders only internal ingress. The AKS standalone renderer can render the same verifier as a separate
+  internal workload only when deployment-owned registry pins, anchors, caller-token validation data, writer
+  membership policy, role-readback scopes, and a dedicated verifier identity are present. The root Terraform
+  stage creates that identity only when enabled, grants it image pull and the exact state-store DSN secret, and
+  uses `principal_type = "ServicePrincipal"` for those same-configuration Managed Identity role assignments.
+  The current caller authenticator consumes a deployment-supplied JWKS snapshot;
   an unknown `kid` is a clear authentication refusal until a later bounded JWKS refresh provider is added. The workload issues only under the exact
   binding of its own verifier version, so a routine rotation leaves an earlier workload and its retained admissions
   valid until they expire, while a revocation revision retires them. A replayed attempt returns its stored outcome,
@@ -465,6 +472,19 @@ tracks what remains.
   version, and reports every source the purpose declares as healthy after a bounded probe read; each failed
   prerequisite is named, configuration alone never makes a row available, and availability grants no authority.
   `delivery/operational_evidence_handoff_cli.py` runs the automatable connected-handoff stages and lists the owed drills.
+  After a separate connected-environment approval and with the workload's deployment-supplied environment loaded,
+  the coordinator runs:
+
+  ```bash
+  FDAI_OPERATIONAL_EVIDENCE_HANDOFF_AUTHORIZED=1 \
+    .venv/bin/python -m fdai.delivery.operational_evidence_handoff_cli run \
+    --venue connected \
+    --root /app
+  ```
+
+  This command produces a content-free handoff receipt and stops at the first missing identity, registry,
+  writer-readback, readiness, positive-issuance, negative-drill, or stop-condition observation. It is not
+  independent operational qualification; that stays with #1026.
 
 ## Non-goals
 

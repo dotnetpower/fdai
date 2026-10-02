@@ -237,6 +237,11 @@ output "runtime_identity_bindings" {
       client_id    = module.canary_identity.client_id
       principal_id = module.canary_identity.principal_id
     }
+    operational_evidence_verifier = var.enable_operational_evidence_verifier ? {
+      resource_id  = module.operational_evidence_verifier_identity[0].resource_id
+      client_id    = module.operational_evidence_verifier_identity[0].client_id
+      principal_id = module.operational_evidence_verifier_identity[0].principal_id
+    } : null
   }
 }
 
