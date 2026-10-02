@@ -168,8 +168,8 @@
         "idempotency_key_field": "outcome_digest",
         "duplicate_policy": "deduplicate-by-idempotency-key",
         "reorder_policy": "partition-sequence",
-        "normal_retention_days": 7,
-        "dlq_retention_days": 30
+        "normal_retention_days": 1,
+        "dlq_retention_days": 7
       }
     },
     {
@@ -192,8 +192,8 @@
         "idempotency_key_field": "completion_digest",
         "duplicate_policy": "deduplicate-by-idempotency-key",
         "reorder_policy": "partition-sequence",
-        "normal_retention_days": 7,
-        "dlq_retention_days": 30
+        "normal_retention_days": 1,
+        "dlq_retention_days": 7
       }
     },
     {
