@@ -263,14 +263,15 @@ Lookup: `observation_context_digest`, the scope, `operational-test-observation`,
 | Conflict | No conflicting sample, series, or health source |
 | Freshness policy | 300 seconds from the provider read |
 
-**Source assessment.** `core/operational_evidence/readback/test_observation.py` defines the verifier-side
-`OperationalTestObservationReadback`, and `delivery/azure/operational_evidence_readbacks.py` defines
-`AzureMonitorTestObservationProvider`. Those pieces are not enough to bind the purpose: the verifier workload in
-`delivery/operational_evidence_server.py` has no concrete Azure Monitor metric sample client, no
-`OperatingScopeObservationReader` that returns complete dependency-health coverage and protected-signal policy, and no
-deployment configuration that proves those reads run under the verifier identity. Until those three contracts exist,
-`operational-test-observation` remains fail-closed `unavailable`; the event payload and local-loopback samples are not
-substitutes for provider readback.
+**Source binding.** `core/operational_evidence/readback/test_observation.py` provides the verifier-side
+`OperationalTestObservationReadback`. The verifier workload binds it only in a deployed venue when deployment
+configuration supplies all three source contracts: a Log Analytics workspace, reviewed KQL metric templates, and
+reviewed operating-scope observation rows. `delivery/azure/operational_evidence_readbacks.py` wraps the verifier-owned
+Azure Monitor Logs metric provider with an exact-bin sample reader and pairs it with the reviewed operating-scope
+reader. The deployed verifier identity must carry `Monitoring Reader` on the configured resource-group scope; own-role
+readback keeps that role distinct from producer, reviewer, and executor identities before the purpose becomes
+available. Missing metric config, missing scope rows, a local-loopback source in a deployed venue, conflicting samples,
+incomplete dependency health, or a protected signal all fail closed with typed rejection classes.
 
 ### Forecast history source slices
 
@@ -526,15 +527,12 @@ tracks what remains.
   sources. A current context is admissible only when the transition admission it cites has the lookup rebuilt from
   that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
   retained record against its exact verifier binding and that binding's readiness under the current anchors. The
-  `forecast-history-actions`, `forecast-history-changes`, and `forecast-history-resource_lifecycle` purposes now read
-  real derived source rows from `operational_state_transition*`; the action producer reads Thor/Saga state-store audit
-  anchors and exact-target ActionRun payloads, while the other two producers use the `changes` and
-  `resource_lifecycle` sources that #1021 delivered. `forecast-history-excluded_windows` remains unavailable because
-  no revisioned `ChangeWindow` history producer exists. `forecast-context` stays unavailable until all four
-  source-specific forecast-history admissions exist for the same scope, target, and window.
-  `operational-test-observation` and
-  `current-case-reuse` remain unbound: the observation provider is not yet available under verifier identity, and
-  current reuse lacks independent inventory, Muninn, and safety-receipt sources. Case-history now has an insert-only
+  `forecast-history-actions`, `forecast-history-changes`, `forecast-history-excluded_windows`, and
+  `forecast-history-resource_lifecycle` purposes now read real derived source rows from
+  `operational_state_transition*`, and `forecast-context` is bound to the four source-specific slices.
+  `operational-test-observation` is bound in deployed verifier workloads when the verifier has `Monitoring Reader`,
+  Log Analytics metric templates, and reviewed operating-scope observation rows. `current-case-reuse` remains unbound:
+  current reuse lacks an independent retained inventory, Muninn, and safety-receipt source. Case-history now has an insert-only
   Operator semantic authentication receipt schema, `operator-core-request` `1.9.0` receipt reference, Core-to-Bragi
   reference propagation, and a bound exact readback module. The Operator setting
   `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` defaults off and may be enabled only after Core that accepts
