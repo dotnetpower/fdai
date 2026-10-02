@@ -1,11 +1,11 @@
 """Cross-schema drift guard between pydantic models and JSON Schemas.
 
-The JSON schemas are the source of truth
-(:file:`services/core-control-plane/src/fdai/shared/contracts/<domain>/schema.json`). The pydantic
-models are their hand-authored Python view. Whenever the two drift, the
-verifier (which re-checks against the JSON Schema) and the pydantic view
-(which the composition root uses at boundaries) disagree, and a
-supposedly-valid payload starts failing downstream for cryptic reasons.
+The JSON schemas are the source of truth. Most schemas live under
+``services/core-control-plane/src/fdai/shared/contracts/<domain>/schema.json``; schemas shared by
+independent services live under ``packages/service-contracts/src/fdai_service_contracts/schemas``.
+The pydantic models are their hand-authored Python view. Whenever the two drift, the verifier
+(which re-checks against the JSON Schema) and the pydantic view (which the composition root uses at
+boundaries) disagree, and a supposedly-valid payload starts failing downstream for cryptic reasons.
 
 This test pins the two views field-set-equal so a drift PR either updates
 both or fails loudly. Tracker: #18 G-4 hardening H10.
@@ -34,21 +34,28 @@ _CONTRACTS = (
     / "shared"
     / "contracts"
 )
+_SERVICE_CONTRACT_SCHEMAS = (
+    Path(__file__).resolve().parents[5]
+    / "packages"
+    / "service-contracts"
+    / "src"
+    / "fdai_service_contracts"
+    / "schemas"
+)
 
-# Pydantic name -> JSON Schema stem.
+# Pydantic name -> JSON Schema path.
 _PAIRS = {
-    "event": (Event, "event"),
-    "action": (Action, "action"),
-    "rule": (Rule, "rule"),
-    "incident": (Incident, "incident"),
-    "workflow": (Workflow, "workflow"),
+    "event": (Event, _CONTRACTS / "event" / "schema.json"),
+    "action": (Action, _CONTRACTS / "action" / "schema.json"),
+    "rule": (Rule, _CONTRACTS / "rule" / "schema.json"),
+    "incident": (Incident, _CONTRACTS / "incident" / "schema.json"),
+    "workflow": (Workflow, _SERVICE_CONTRACT_SCHEMAS / "workflow" / "1.0.0.json"),
 }
 
 
 @pytest.mark.parametrize("stem,pair", sorted(_PAIRS.items()))
-def test_pydantic_field_set_matches_json_schema(stem: str, pair: tuple[type, str]) -> None:
-    model_cls, schema_stem = pair
-    schema_path = _CONTRACTS / schema_stem / "schema.json"
+def test_pydantic_field_set_matches_json_schema(stem: str, pair: tuple[type, Path]) -> None:
+    model_cls, schema_path = pair
     schema = json.loads(schema_path.read_text())
 
     schema_props = set(schema.get("properties", {}).keys())
@@ -71,9 +78,8 @@ def test_pydantic_field_set_matches_json_schema(stem: str, pair: tuple[type, str
 
 
 @pytest.mark.parametrize("stem,pair", sorted(_PAIRS.items()))
-def test_json_schema_required_are_pydantic_required(stem: str, pair: tuple[type, str]) -> None:
-    model_cls, schema_stem = pair
-    schema_path = _CONTRACTS / schema_stem / "schema.json"
+def test_json_schema_required_are_pydantic_required(stem: str, pair: tuple[type, Path]) -> None:
+    model_cls, schema_path = pair
     schema = json.loads(schema_path.read_text())
 
     schema_required = set(schema.get("required", []))

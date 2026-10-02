@@ -497,3 +497,4 @@ The owner recorded these decisions on 2026-09-28 for exit criterion 1 of #1022:
 | Decision-critical evidence rules | [FDAI Constitution](../architecture/fdai-constitution.md) |
 | Agent ownership and topics | [Agent pantheon](../agents/agent-pantheon.md) |
 | Pinned deployment-owned sources | [Operating-intent source](../architecture/operating-intent-source.md) |
+| Shared Workflow validation contracts | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |

@@ -32,10 +32,24 @@ from fdai.rule_catalog.schema.workflow_trigger_event import (
 )
 from fdai.shared.contracts.models import (
     Mode,
+    PromotionGate,
+    Workflow,
     WorkflowStepKind,
     WorkflowTriggerSignalReferenceKind,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai_service_contracts.workflow_catalog import (
+    Mode as SharedMode,
+)
+from fdai_service_contracts.workflow_catalog import (
+    PromotionGate as SharedPromotionGate,
+)
+from fdai_service_contracts.workflow_catalog import (
+    Workflow as SharedWorkflow,
+)
+from fdai_service_contracts.workflow_catalog import (
+    WorkflowStepKind as SharedWorkflowStepKind,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
@@ -86,6 +100,13 @@ def _base_mapping() -> dict[str, Any]:
             {"id": "step_one", "action_type_ref": "remediate.tag-add"},
         ],
     }
+
+
+def test_core_imports_preserve_shared_workflow_identity() -> None:
+    assert Mode is SharedMode
+    assert WorkflowStepKind is SharedWorkflowStepKind
+    assert PromotionGate is SharedPromotionGate
+    assert Workflow is SharedWorkflow
 
 
 def test_shipped_workflows_load() -> None:

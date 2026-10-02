@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: a581a3fe6884dba330becdfbc9580897a6774f42
+translation_source_sha: a35a1228ca1a1ebf62a50dd0b9089af4a9faecba
 translation_revised: 2026-10-02
 ---
 
@@ -588,3 +588,4 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 로컬 및 배포 런타임 동등성 | [런타임 동등성](dev-and-deploy-parity-ko.md) |
 | 저장소 검증 명령 | [스크립트 참조](../../../scripts/README.md) |
 | 배포 안전성 | [배포 사전 검사](deployment-preflight-ko.md) |
+| 이미지 검사 및 패키지 핀 드리프트 | [런타임 배포 프로파일](runtime-deployment-profiles-ko.md) |

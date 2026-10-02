@@ -8,6 +8,17 @@ from dataclasses import asdict, dataclass
 from typing import cast
 
 from fdai_service_contracts import OperatorRole, RuleSearchProjection, rule_search_query_digest
+from fdai_service_contracts.schema import PackageResourceSchemaRegistry
+from fdai_service_contracts.workflow_catalog import (
+    WorkflowCatalogError,
+    WorkflowValidationContext,
+    load_workflow_from_mapping,
+    workflow_to_yaml,
+)
+from fdai_service_contracts.workflow_catalog.validation_context import (
+    WORKFLOW_VALIDATION_CONTEXT_PROJECTION_KEY,
+)
+from pydantic import ValidationError
 from starlette.exceptions import HTTPException
 
 from fdai_operator_service.context_selection_projection import (
@@ -86,6 +97,8 @@ class PostgresWorkflowAdapters:
         """Read a revisioned authoritative workflow projection."""
         joined_revision: str | None = None
         try:
+            if request.operation is WorkflowOperation.WORKFLOW_VALIDATE:
+                return await self._validate_workflow(request)
             if request.operation is WorkflowOperation.CONTEXT_SELECTION_COMPARISON_LIST:
                 return await self._read_context_selection_comparisons(request)
             if request.operation is WorkflowOperation.WORKFLOW_DEFINITION_LIST:
@@ -300,6 +313,67 @@ class PostgresWorkflowAdapters:
             ),
         )
 
+    async def _validate_workflow(self, request: WorkflowReadRequest) -> WorkflowReadResult:
+        """Validate a posted Workflow draft without reading Core or writing state."""
+
+        body = request.body or {}
+        projection_key = WORKFLOW_VALIDATION_CONTEXT_PROJECTION_KEY
+        try:
+            stored = await self.store.read_state(projection_key)
+            if stored is None:
+                return _workflow_validation_unavailable(
+                    "validation_context_unavailable",
+                    "Workflow validation context projection is unavailable",
+                    revision="unavailable",
+                )
+            revision = stored.get("_revision")
+            if not isinstance(revision, str) or not revision:
+                return _workflow_validation_unavailable(
+                    "validation_context_unavailable",
+                    "Workflow validation context projection has no revision",
+                    revision="unavailable",
+                )
+            context_payload = {key: value for key, value in stored.items() if key != "_revision"}
+            context = WorkflowValidationContext.model_validate(context_payload)
+            if revision != context.catalog_digest:
+                return _workflow_validation_unavailable(
+                    "validation_context_stale",
+                    "Workflow validation context projection is stale",
+                    revision=revision,
+                )
+        except (PostgresFamilyStoreUnavailable, ValidationError, ValueError, TypeError) as exc:
+            return _workflow_validation_unavailable(
+                "validation_context_unavailable",
+                f"Workflow validation context projection is unreadable: {exc}",
+                revision="unavailable",
+            )
+
+        try:
+            model = load_workflow_from_mapping(
+                body,
+                schema_registry=PackageResourceSchemaRegistry(),
+                action_type_names=set(context.action_type_names),
+                rule_ids=set(context.rule_ids),
+                signal_types=context.signal_types,
+                workflow_trigger_events=context.workflow_trigger_events,
+                origin="draft",
+            )
+        except WorkflowCatalogError as exc:
+            payload: JsonObject = {
+                "valid": False,
+                "issues": [{"key": issue.key, "message": issue.message} for issue in exc.issues],
+                "yaml_preview": None,
+            }
+        else:
+            payload = {"valid": True, "issues": [], "yaml_preview": workflow_to_yaml(model)}
+        return WorkflowReadResult(
+            payload=payload,
+            provenance=ProjectionProvenance(
+                source_ref=f"state_kv:{projection_key}",
+                revision=context.catalog_digest,
+            ),
+        )
+
     async def _read_context_selection_comparisons(
         self,
         request: WorkflowReadRequest,
@@ -414,7 +488,12 @@ class UnavailableWorkflowAdapters:
     """Fail every workflow route closed while preserving route registration."""
 
     async def read(self, request: WorkflowReadRequest) -> WorkflowReadResult:
-        del request
+        if request.operation is WorkflowOperation.WORKFLOW_VALIDATE:
+            return _workflow_validation_unavailable(
+                "validation_context_unavailable",
+                "Workflow validation context projection is unavailable",
+                revision="unavailable",
+            )
         raise HTTPException(status_code=503, detail="authoritative workflow store is unavailable")
 
     async def submit(self, proposal: WorkflowProposal) -> WorkflowProposalReceipt:
@@ -424,6 +503,25 @@ class UnavailableWorkflowAdapters:
     async def mutate(self, request: WorkflowMutationRequest) -> WorkflowMutationResult:
         del request
         raise HTTPException(status_code=503, detail="workflow authoring store is unavailable")
+
+
+def _workflow_validation_unavailable(
+    key: str,
+    message: str,
+    *,
+    revision: str,
+) -> WorkflowReadResult:
+    return WorkflowReadResult(
+        payload={
+            "valid": False,
+            "issues": [{"key": key, "message": message}],
+            "yaml_preview": None,
+        },
+        provenance=ProjectionProvenance(
+            source_ref=f"state_kv:{WORKFLOW_VALIDATION_CONTEXT_PROJECTION_KEY}",
+            revision=revision,
+        ),
+    )
 
 
 __all__ = [

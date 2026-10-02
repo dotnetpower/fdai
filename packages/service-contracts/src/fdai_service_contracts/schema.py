@@ -178,6 +178,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("test-context-choices", "1.0.0"): "schemas/test-context-choices/1.0.0.json",
     ("test-context-command", "1.0.0"): "schemas/test-context-command/1.0.0.json",
     ("test-context-draft", "1.0.0"): "schemas/test-context-draft/1.0.0.json",
+    ("workflow", "1.0.0"): "schemas/workflow/1.0.0.json",
 }
 
 
