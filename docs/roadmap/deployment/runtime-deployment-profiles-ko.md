@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ba5b8d18660993d3fda9c42c8bd7532aa9714e67
+translation_source_sha: f8cd9c236c86b543f3351fa59067a2387658fa74
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -246,7 +246,7 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 
 공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원, case-history 저장소 및 `postgres-flex`를 계속 소유합니다.
 Foundation은 구독 역할 할당을 Reader, Monitoring Reader, Cost Management Reader 역할과 서비스 주체로만 제한해 위임하며, 일치하는 Terraform 역할 할당은
-`principal_type = "ServicePrincipal"`을 선언해 위임한 역할 집합을 넓히지 않고 공급자 요청이 해당 조건을 충족하게 합니다. Case-history 콘텐츠의 활성, 삭제 예정,
+`principal_type = "ServicePrincipal"`을 선언해 위임한 역할 집합을 넓히지 않고 공급자 요청이 해당 조건을 충족하게 합니다. 같은 apply에서 만드는 관리 ID에 대한 역할 할당도 모두 `principal_type = "ServicePrincipal"`을 선언하므로, Entra ID가 새 ID를 아직 복제하는 중에도 Azure가 할당을 받아들입니다. 공개 개발 경로에서는 사용자가 배포 주체가 되므로 배포 주체의 할당에는 유형을 지정하지 않으며, `test_role_assignment_principal_type.py`가 이 규칙을 강제합니다. Case-history 콘텐츠의 활성, 삭제 예정,
 이전 버전 및 변경 피드 기간 기본값은 30일이며 운영 이력과 의사 결정 근거 메타데이터는 별도 일정을 유지합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원,
 네트워크 연결 및 클러스터 범위 Azure 역할 할당만 소유합니다.
 AKS는 공유 루트의 Key Vault 출력을 사용하고 substrate 재조회는 Terraform 상태가 소유한 `container_registry_id`가 가리키는 레지스트리를 선택하고, 이미지 참조에 사용한 workload 기반 레지스트리와 다르면 실패합니다. 대상 지정 적용이 기록하지 않은 루트 출력은 새로 고침 없는 비대상 계획에서 계획 값이 확정된 경우에만 읽으며, 확정되지 않은 값은 실패로 처리합니다. AKS substrate는 AKS 워크로드가 읽는 Console과 비용 가명 비밀도 적용하며, 선택 사항인 운영 이력 보관소는 상세 사설 네트워킹 이후에 제공합니다. 공개 AKS API 서버는 관리형 호스트의 운영 NAT 게이트웨이 주소만 허용합니다. 관리형 호스트 checkpoint는 세션 기본값과 관계없이 소유자 전용 umask로 상태를 만듭니다. 이미지 가져오기는 검증된 각 OCI 레이아웃을 대상 레지스트리 자격 증명 파일로만 복사합니다. 이름이 너무 긴 후보는

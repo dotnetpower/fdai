@@ -288,7 +288,7 @@ installation cannot switch platforms by changing one variable.
 
 The shared platform continues to own Event Hubs, Key Vault, Azure Container Registry, monitoring,
 workload identities, case-history storage, and `postgres-flex`. Foundation delegates subscription role assignment only for Reader, Monitoring Reader, and Cost Management Reader roles to service principals;
-matching Terraform resources set `principal_type = "ServicePrincipal"` so the provider request satisfies that condition without widening the delegated role set. Case-history content defaults its active, deletion-due,
+matching Terraform resources set `principal_type = "ServicePrincipal"` so the provider request satisfies that condition without widening the delegated role set. Every role assignment to a managed identity that the same apply creates sets `principal_type = "ServicePrincipal"` as well, so Azure accepts it while Entra ID still replicates the new identity; the deploy principal stays untyped because the public dev path supplies a user, and `test_role_assignment_principal_type.py` enforces the rule. Case-history content defaults its active, deletion-due,
 superseded-version, and change-feed periods to 30 days; operational-history and decision-evidence metadata keep their separate schedules. The AKS substrate state owns only the
 cluster, node pools, cluster identity, networking attachment, and cluster-scoped Azure role
 assignments.

@@ -43,7 +43,7 @@ domain code and assets. It does not create another control plane or move authori
 > Exact-signal anomaly sources and original Action preparation in the shared Forseti factory
 > likewise supply no package authority. Registration and durable human approval readback cannot
 > enable Cost Governance, change Njord's publisher ownership, or grant package data access.
-> Global Terraform roots can grant the dedicated inventory identity subscription-scoped AKS Cluster User and RBAC Reader roles for automatic read-only discovery. Those assignments and ephemeral cluster bindings are not Cost Governance package inputs and cannot activate its runtime, authorize a cost decision, or grant execution.
+> Global Terraform roots can grant the dedicated inventory identity subscription-scoped AKS Cluster User and RBAC Reader roles for automatic read-only discovery. Those assignments and ephemeral cluster bindings are not Cost Governance package inputs and cannot activate its runtime, authorize a cost decision, or grant execution. Like every role assignment to a managed identity created in the same apply, they declare `principal_type = "ServicePrincipal"`, which changes no granted role.
 > The same
 > boundary excludes the independent runtime-call evidence source flag, shared provider endpoint availability, and startup-probe RBAC state addresses from FinOps package inputs and authority.
 > Fixed Conversation Assurance scenario facts remain diagnostic-only inputs to the shared read-only Pantheon deliberation path; they cannot install, enable, configure, publish, or grant Cost Governance data access or action authority. Operator post-turn review publication is likewise outside Cost Governance package activation, Njord publication, cost data access, and action authority.
