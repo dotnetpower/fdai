@@ -46,6 +46,8 @@ def validate_plan_review(review: dict[str, Any], *, allow_expired: bool = False)
             _LEGACY_FIELDS | {"service_update"},
             _FIELDS,
             _FIELDS | {"service_update"},
+            _FIELDS | {"operation"},
+            _FIELDS | {"operation", "service_update"},
             _FIELDS | {"historical_reconciliation"},
             _FIELDS | {"residual_recovery"},
         )
@@ -81,6 +83,10 @@ def validate_plan_review(review: dict[str, Any], *, allow_expired: bool = False)
         or re.fullmatch(r"[0-9a-f]{40}", service_update["source_commit"]) is None
         or not isinstance(service_update.get("update_digest"), str)
         or re.fullmatch(r"[0-9a-f]{64}", service_update["update_digest"]) is None
+    ):
+        raise ValueError(_ERROR)
+    if "operation" in review and not _operation_matches_stage(
+        stage, review.get("operation"), service_update
     ):
         raise ValueError(_ERROR)
     historical_reconciliation = review.get("historical_reconciliation")
@@ -185,3 +191,19 @@ def validate_plan_review(review: dict[str, Any], *, allow_expired: bool = False)
     if review["review_digest"] != canonical_digest(document):
         raise ValueError(_ERROR)
     return stage, int(counts.get("delete", 0)) + int(counts.get("replace", 0))
+
+
+def _operation_matches_stage(stage: str, operation: object, service_update: object) -> bool:
+    """Bind the managed host's operation name to the reviewed stage or service update."""
+
+    if not isinstance(operation, str):
+        return False
+    if isinstance(service_update, dict):
+        service = str(service_update["service"])
+        return (
+            re.fullmatch(rf"service-update-{re.escape(service)}-[0-9a-f]{{12}}", operation)
+            is not None
+        )
+    if stage == "runtime":
+        return operation in {"runtime", "runtime-cluster"}
+    return operation == stage
