@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 51dd76f82bbec33d13b8713eff018a3d36ae004c
+translation_source_sha: 48dca775819ef8830e839faf53049f27131ad2f8
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -39,6 +39,8 @@ shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 �
 새 권한을 주지 않습니다.
 관계 방향 확인도 같은 Core 경계를 사용합니다. 블라인드 reader와의 불일치는 관계 역할을 바꾸는 대신
 컴파일 전에 보류하며, Operator 또는 문서 route는 참여하지 않습니다.
+스키마 선언 신원 검사도 Core 대화 컴파일 안에 남습니다. 근거화된 ObjectType이 명시된 스키마 주체와
+다른 스키마 읽기는 조회 계획을 release하기 전에 보류합니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

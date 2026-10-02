@@ -322,7 +322,9 @@ self-composable, depth at most five.
   read of the subject ObjectType's own LinkTypes in both directions, and a manifest count groups only
   by declaration kind. A LinkType subject scoped to one ObjectType, as in the LinkTypes in Workload,
   is the same read and compiles as that ObjectType's relationship read; any other kind scoped to an
-  ObjectType is unsupported. Any other schema relation, direction, counterpart, reach, anchor, or
+  ObjectType is unsupported. An ObjectType declaration read also requires the grounded ObjectType
+  identity to match the stated schema subject exactly, so concept drift reads a clarification instead
+  of another type's declaration. Any other schema relation, direction, counterpart, reach, anchor, or
   grouping returns a typed unsupported reason, and V-SEM rejects it independently.
 
 ### Follow-up references
