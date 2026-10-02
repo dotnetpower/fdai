@@ -32,6 +32,9 @@ runtime or database placement, node sizing, cost, host identity or exact-plan au
 cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;
 missing source support never selects a kit implicitly. See the [source boundary](installable-deployment-cli.md#explicit-source-recovery).
 Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set.
+Runtime Dockerfiles pin Alpine package versions for reproducible image builds, including the shared
+Core and Cost Governance images. Updating those pins is package maintenance only; it does not
+change the runtime profile, deployment authority, provider access, or product add-on selection.
 
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,
