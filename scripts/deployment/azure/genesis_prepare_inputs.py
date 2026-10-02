@@ -35,6 +35,7 @@ def foundation_values(
     evidence_directory: Path | None = None,
     create_runner_image: bool = True,
     workload: str = "fdai",
+    region_short: str | None = None,
 ) -> dict[str, object]:
     """Select required VM capacity before resolving image, name, and network inputs."""
 
@@ -132,7 +133,7 @@ def foundation_values(
         "target_binding": target_binding,
         "workload": workload,
         "region": region,
-        "region_short": azure_region_short_name(region),
+        "region_short": region_short or azure_region_short_name(region),
         "state_storage_account_name": account_name,
         "state_retention_days": 30,
         "ops_address_space": str(ops),

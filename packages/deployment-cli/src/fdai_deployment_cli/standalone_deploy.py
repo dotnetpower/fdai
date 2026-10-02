@@ -20,7 +20,7 @@ from fdai_deployment_cli.application_state_adoption import (
     ApplicationStateAdoption,
     stage_application_state_adoption,
 )
-from fdai_deployment_cli.azure_naming import azure_region_short_name
+from fdai_deployment_cli.azure_naming import selected_azure_region_short_name
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.control_package import verify_control_package
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
@@ -134,7 +134,13 @@ def deploy_azure_foundation(
         assert adopt_application_state is not None
         assert adopt_application_recovery is not None
         assert adopt_resolved_models is not None
-        region_short = azure_region_short_name(region)
+        region_short = selected_azure_region_short_name(
+            region=region,
+            subscription_id=target.subscription_id,
+            environment="dev",
+            workload="fdai",
+            retained_variables=work_dir / "run" / "foundation-variables.json",
+        )
         adoption = stage_application_state_adoption(
             source_state=adopt_application_state,
             recovery_receipt=adopt_application_recovery,
@@ -193,6 +199,13 @@ def deploy_azure_foundation(
             connectivity="online" if online else "offline",
             root=work_dir / "run",
             create_runner_image=create_runner_image,
+            region_short=selected_azure_region_short_name(
+                region=region,
+                subscription_id=target.subscription_id,
+                environment="dev",
+                workload="fdai",
+                retained_variables=work_dir / "run" / "foundation-variables.json",
+            ),
         )
         foundation_variables = prepared.variables
         if adopt_runner_image_receipt is not None:

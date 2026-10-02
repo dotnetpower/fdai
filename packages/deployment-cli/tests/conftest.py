@@ -35,3 +35,17 @@ def _isolate_workstation_preflight(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(cli, "select_entitlement_mode", lambda: "trial")
     monkeypatch.setattr(cli, "ensure_azure_session", lambda **_kwargs: None)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_standalone_region_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep standalone package tests from reading Azure resource groups."""
+
+    from fdai_deployment_cli import standalone_deploy
+    from fdai_deployment_cli.azure_naming import azure_region_short_name
+
+    monkeypatch.setattr(
+        standalone_deploy,
+        "selected_azure_region_short_name",
+        lambda **kwargs: azure_region_short_name(str(kwargs["region"])),
+    )

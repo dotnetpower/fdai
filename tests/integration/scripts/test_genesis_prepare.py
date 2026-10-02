@@ -40,11 +40,13 @@ def test_source_preparation_retains_inputs_without_publisher_keys(tmp_path, monk
         "active_azure_target",
         lambda: SimpleNamespace(tenant_id=TENANT, subscription_id=SUBSCRIPTION),
     )
+    monkeypatch.setattr(source_genesis, "selected_azure_region_short_name", lambda **_: "krc")
     discoveries = []
 
     def discover(**kwargs):
         discoveries.append(kwargs)
         assert kwargs["execution_transport"] == "manual"
+        assert kwargs["region_short"] == "krc"
         return _values(**kwargs)
 
     monkeypatch.setattr(source_genesis, "foundation_values", discover)
@@ -145,6 +147,7 @@ def test_source_advance_never_registers_or_applies_without_exact_approval(
         "active_azure_target",
         lambda: SimpleNamespace(tenant_id=TENANT, subscription_id=SUBSCRIPTION),
     )
+    monkeypatch.setattr(source_genesis, "selected_azure_region_short_name", lambda **_: "krc")
     monkeypatch.setattr(source_genesis, "foundation_values", _values)
     args = SimpleNamespace(
         source_commit=SOURCE,
