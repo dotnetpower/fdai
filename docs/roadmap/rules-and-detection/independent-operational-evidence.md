@@ -263,6 +263,15 @@ Lookup: `observation_context_digest`, the scope, `operational-test-observation`,
 | Conflict | No conflicting sample, series, or health source |
 | Freshness policy | 300 seconds from the provider read |
 
+**Source assessment.** `core/operational_evidence/readback/test_observation.py` defines the verifier-side
+`OperationalTestObservationReadback`, and `delivery/azure/operational_evidence_readbacks.py` defines
+`AzureMonitorTestObservationProvider`. Those pieces are not enough to bind the purpose: the verifier workload in
+`delivery/operational_evidence_server.py` has no concrete Azure Monitor metric sample client, no
+`OperatingScopeObservationReader` that returns complete dependency-health coverage and protected-signal policy, and no
+deployment configuration that proves those reads run under the verifier identity. Until those three contracts exist,
+`operational-test-observation` remains fail-closed `unavailable`; the event payload and local-loopback samples are not
+substitutes for provider readback.
+
 ### Forecast history source slices
 
 Consumer: Heimdall's `StateStoreForecastContextProvider._require_admission` in
@@ -370,6 +379,15 @@ similarity reuse) tier of Forseti's judgment, fed by `AzureCurrentReuseVerifier`
 | Completeness | A complete current graph generation for the target and a readable receipt for every safety result |
 | Conflict | No generation, case-revision, or receipt disagreement |
 | Freshness policy | 300 seconds from the snapshot observation, matching the current five-minute snapshot bound |
+
+**Source assessment.** `core/operational_evidence/readback/current_case_reuse.py` defines the verifier-side readback,
+and `delivery/azure/operational_evidence.py` defines `AzureCurrentReuseVerifier` for the live T1 (lightweight
+similarity reuse) path. The verifier readback still has no concrete `CurrentCaseReuseSource` in
+`delivery/operational_evidence_server.py`: the current Azure verifier recomputes a transient verification and requests
+evidence, but it does not retain a queryable record containing the current inventory snapshot, Muninn case revision,
+seven safety receipts, and the case/target grant coordinates. Until that retained source exists,
+`current-case-reuse` remains fail-closed `unavailable`. Copying Core `state_kv` rows into the verifier would not be an
+independent source.
 
 ## Fail-closed rejection matrix
 

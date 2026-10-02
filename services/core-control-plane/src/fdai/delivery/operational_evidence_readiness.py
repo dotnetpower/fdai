@@ -60,12 +60,18 @@ _SOURCE_LIMITATIONS = {
         "OntologyChangeWindowEvidenceProvider.is_active, OperatingIntentAdmission, and "
         "OntologyInstanceStore current graph revisions"
     ),
-    "current-case-reuse": "verifier-identity current-case provider readback is unavailable",
+    "current-case-reuse": (
+        "no retained CurrentCaseReuseSource exists for current inventory snapshot, Muninn "
+        "case revision, safety receipts, and case/target grant coordinates"
+    ),
     "forecast-context": (
         "all four source-specific forecast-history admissions are required; "
         "forecast-history-excluded_windows remains unavailable"
     ),
-    "operational-test-observation": "verifier-identity provider readback is unavailable",
+    "operational-test-observation": (
+        "no verifier-identity Azure Monitor metric sample client and operating-scope "
+        "observation reader are bound"
+    ),
 }
 _FORECAST_LIMITATION = (
     "source-specific forecast readback is bound for actions, changes, and resource_lifecycle; "
