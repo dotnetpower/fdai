@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: de2288061251356b2dedf642d601c1dbdcce2cab
+translation_source_sha: 3c370b1cfe193de0002c404c3fe952ea213695f7
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -523,7 +523,8 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 카탈로그 유틸리티, 배포 도우미, 일반 자동화는 각각 전용 디렉터리를 사용합니다. `tests/integration/scripts/`의 교차 배포 workflow 테스트는 이러한 도우미를 전송 계약으로 검증하며 온톨로지나 런타임 소유권을 옮기지 않습니다. 준비 상태를 기다리는 로컬 서비스 launcher는 runner를 시작하기 전에 신호 전달을 설정하고 준비 상태 probe와 runner를 모두 회수하므로 supervisor 종료 뒤에 분리된 서비스 group이 남지 않습니다.
 배치 규칙은 [scripts/README.md](../../../scripts/README.md)를 참조하세요. 배포되는 각 서비스는
 `infra/services/` 아래에 자체 Terraform 루트를 가지며, CI는 이 루트를 고정된 Terraform으로 오프라인
-초기화하고 검증합니다.
+초기화하고 검증합니다. `infra/` 전체에서 같은 apply가 만드는 관리 ID에 대한 역할 할당은
+`principal_type = "ServicePrincipal"`을 선언하며, `tests/integration/infra/test_role_assignment_principal_type.py`가 이를 강제합니다.
 
 `infra/scenario-lab/`은 선택형 배포 검증 루트이며 여섯 번째 런타임 서비스가 아닙니다. 실행기
 스크립트는 `scripts/deployment/scenario-lab/` 아래에 있고, 루트 `scenario-lab` Python extra에는

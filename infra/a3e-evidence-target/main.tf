@@ -194,10 +194,12 @@ resource "azurerm_role_assignment" "executor" {
   scope              = azurerm_linux_virtual_machine.target.id
   role_definition_id = azurerm_role_definition.executor.role_definition_resource_id
   principal_id       = azurerm_user_assigned_identity.executor.principal_id
+  principal_type     = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "observer" {
   scope                = azurerm_linux_virtual_machine.target.id
   role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.observer.principal_id
+  principal_type       = "ServicePrincipal"
 }

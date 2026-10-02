@@ -63,12 +63,14 @@ resource "azurerm_role_assignment" "cluster_network" {
   scope                = var.aks_subnet_id
   role_definition_name = "Network Contributor"
   principal_id         = azurerm_user_assigned_identity.cluster.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "cluster_api_network" {
   scope                = var.aks_api_server_subnet_id
   role_definition_name = "Network Contributor"
   principal_id         = azurerm_user_assigned_identity.cluster.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 #trivy:ignore:AZU-0065
@@ -245,4 +247,5 @@ resource "azurerm_role_assignment" "kubelet_acr_pull" {
   scope                = var.container_registry_id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_kubernetes_cluster.runtime.kubelet_identity[0].object_id
+  principal_type       = "ServicePrincipal"
 }

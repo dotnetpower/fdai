@@ -342,6 +342,7 @@ resource "azurerm_role_assignment" "runner_app_contributor" {
   scope                = local.deploy_runner_role_manifest.app_contributor.scope
   role_definition_name = local.deploy_runner_role_manifest.app_contributor.role_definition_name
   principal_id         = module.deploy_runner_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "runner_state_blob" {
@@ -349,6 +350,7 @@ resource "azurerm_role_assignment" "runner_state_blob" {
   scope                = local.deploy_runner_role_manifest.state_blob_data_contributor.scope
   role_definition_name = local.deploy_runner_role_manifest.state_blob_data_contributor.role_definition_name
   principal_id         = module.deploy_runner_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # Network Contributor on the ops RG so the runner's app apply can create the
@@ -359,6 +361,7 @@ resource "azurerm_role_assignment" "runner_ops_network" {
   scope                = local.deploy_runner_role_manifest.ops_network_contributor.scope
   role_definition_name = local.deploy_runner_role_manifest.ops_network_contributor.role_definition_name
   principal_id         = module.deploy_runner_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # User Access Administrator on the app RG so the runner can manage the role
@@ -370,6 +373,7 @@ resource "azurerm_role_assignment" "runner_app_uaa" {
   scope                = local.deploy_runner_role_manifest.app_user_access_administrator.scope
   role_definition_name = local.deploy_runner_role_manifest.app_user_access_administrator.role_definition_name
   principal_id         = module.deploy_runner_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # Realtime inventory is a subscription-scoped Event Grid subscription. Keep
@@ -381,6 +385,7 @@ resource "azurerm_role_assignment" "runner_eventgrid_contributor" {
   scope                = local.deploy_runner_role_manifest.subscription_eventgrid_contributor.scope
   role_definition_name = local.deploy_runner_role_manifest.subscription_eventgrid_contributor.role_definition_name
   principal_id         = module.deploy_runner_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # Model resolution checks this exact role on the target subscription before
@@ -392,6 +397,7 @@ resource "azurerm_role_assignment" "runner_cognitive_services_contributor" {
   scope                = local.deploy_runner_role_manifest.subscription_cognitive_services_contributor.scope
   role_definition_name = local.deploy_runner_role_manifest.subscription_cognitive_services_contributor.role_definition_name
   principal_id         = module.deploy_runner_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # The platform creates read-only inventory and RCA role assignments at subscription
@@ -404,6 +410,7 @@ resource "azurerm_role_assignment" "runner_subscription_reader" {
   scope                = local.deploy_runner_role_manifest.subscription_reader.scope
   role_definition_name = local.deploy_runner_role_manifest.subscription_reader.role_definition_name
   principal_id         = module.deploy_runner_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "runner_subscription_observation_role_delegate" {
@@ -412,6 +419,7 @@ resource "azurerm_role_assignment" "runner_subscription_observation_role_delegat
   scope                = local.deploy_runner_role_manifest.subscription_observation_role_delegate.scope
   role_definition_name = local.deploy_runner_role_manifest.subscription_observation_role_delegate.role_definition_name
   principal_id         = module.deploy_runner_identity.principal_id
+  principal_type       = "ServicePrincipal"
   condition_version    = "2.0"
   condition            = local.subscription_observation_role_condition
 }
