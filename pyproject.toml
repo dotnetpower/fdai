@@ -240,9 +240,6 @@ module = [
     "azure.identity.aio",
     "azure.monitor.opentelemetry",
     "kubernetes.utils.quantity",
-    "mcp",
-    "mcp.client.stdio",
-    "msmcp_azure",
 ]
 ignore_missing_imports = true
 

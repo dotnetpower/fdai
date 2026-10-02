@@ -85,9 +85,14 @@ class StdioAzureMcpSessionFactory:
         self._environment = dict(environment or {})
 
     def __call__(self) -> AbstractAsyncContextManager[AzureMcpSession]:
-        from mcp import Client
-        from mcp.client.stdio import StdioServerParameters, stdio_client
-        from msmcp_azure import get_executable_path
+        from mcp import Client  # type: ignore[import-not-found]
+        from mcp.client.stdio import (  # type: ignore[import-not-found]
+            StdioServerParameters,
+            stdio_client,
+        )
+        from msmcp_azure import (  # type: ignore[import-not-found]
+            get_executable_path,
+        )
 
         args = ["server", "start", "--mode", "all", "--read-only"]
         for namespace in self._config.namespaces:
