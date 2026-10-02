@@ -59,6 +59,10 @@ to `fdai`. Use a distinct token when canonical application or operations groups 
 The token is sealed into source preparation, retained variables, the run binding, and every exact
 Foundation plan. Repeat it unchanged on approval resume. It grants no ownership of existing
 resources and never authorizes deletion or adoption.
+The region suffix is selected by the same naming owner as the offline package path: retained
+Foundation variables keep their original token, a fresh work directory discovers one matching
+FDAI-owned installation token before planning, and only reviewed public-region tokens are used for
+new installs. An unknown or ambiguous token stops before Azure effects.
 Initial confirmation is separate from that approval. The coordinator advances within exact approval and returns review state when another
 checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
 execution and durable Trial activation are not yet connected. A plan
