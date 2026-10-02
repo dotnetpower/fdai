@@ -203,6 +203,44 @@ async def test_complete_outcomes_derive_authoritative_summary() -> None:
     assert result.provenance.revision == completion.completion_digest
 
 
+async def test_reordered_outcome_delivery_still_matches_completion() -> None:
+    outcomes = (
+        _outcome("rule:one", "resource:one", BaselineEvaluationTerminalOutcome.COMPLIANT),
+        _outcome("rule:two", "resource:one", BaselineEvaluationTerminalOutcome.VIOLATED),
+        _outcome("rule:one", "resource:two", BaselineEvaluationTerminalOutcome.VIOLATED),
+    )
+    completion = _completion(outcomes)
+
+    class SummaryStore:
+        async def read_state(self, key: str) -> None:
+            assert key == "operator-projection:workflow:rule.findings-summary"
+            return None
+
+        async def read_state_page(
+            self,
+            *,
+            prefix: str,
+            limit: int,
+            match_field: str | None = None,
+            match_value: str | None = None,
+        ) -> _Page:
+            del limit, match_field, match_value
+            if prefix == "baseline-evaluation:completions:":
+                return _Page((_Record("completion", completion.model_dump(mode="json")),))
+            if prefix == "baseline-evaluation:outcomes:":
+                return _Page(
+                    tuple(
+                        _Record(item.outcome_digest, item.model_dump(mode="json"))
+                        for item in reversed(outcomes)
+                    )
+                )
+            raise AssertionError(prefix)
+
+    result = await PostgresWorkflowAdapters(cast(Any, SummaryStore())).read(_request())
+
+    assert result.payload["counts"] == {"rule:one": 1, "rule:two": 1}
+
+
 async def test_empty_complete_inventory_derives_evaluated_zero_without_inference() -> None:
     completion = _completion(())
 
@@ -285,6 +323,21 @@ async def test_prior_complete_summary_is_admitted_without_recomputing() -> None:
 
         async def read_state_page(self, **kwargs: object) -> _Page:
             pytest.fail("stored complete summary must preserve prior projection")
+
+    result = await PostgresWorkflowAdapters(cast(Any, SummaryStore())).read(_request())
+
+    assert result.payload["evaluated"] is True
+    assert result.payload["counts"] == {"rule:one": 0}
+
+
+async def test_prior_complete_summary_survives_projection_source_failure() -> None:
+    class SummaryStore:
+        async def read_state(self, key: str) -> dict[str, object]:
+            assert key == "operator-projection:workflow:rule.findings-summary"
+            return _valid_stored_summary()
+
+        async def read_state_page(self, **kwargs: object) -> _Page:
+            raise AssertionError("projection source should not be reread")
 
     result = await PostgresWorkflowAdapters(cast(Any, SummaryStore())).read(_request())
 
