@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: a35a1228ca1a1ebf62a50dd0b9089af4a9faecba
+translation_source_sha: f2f8c513eb75b8a28360c405142e5274852307fb
 translation_revised: 2026-10-02
 ---
 
@@ -27,6 +27,9 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 이미지 스캔 결과를 해결하는 의존성 갱신은 패키지 유지보수입니다. 매니페스트와 lock을 갱신할 뿐이며 로컬 검증, 대기열 진단 또는 개발 도구를 권위 있는 근거로 만들지 않습니다.
 의미 결과 핸들 저장과 재생은 일반 Operator/Core 의미 요청 경로를 사용합니다. 개발자 워크플로
 소켓, 검증 대기열 동작 또는 로컬 실행 권한을 추가하지 않습니다.
+통제된 Chaos 프로바이더 작업 영역 패키지도 보호된 시나리오 랩 실행기를 위한 설치 산출물입니다.
+`uv sync --all-packages`에 추가하면 실행기가 명시적으로 패키지 집합을 요청할 때만 진입점을
+찾을 수 있습니다. 로컬 진단 소켓, 검증 대기열 동작 또는 개발자 워크플로 권한을 추가하지 않습니다.
 
 
 FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크플로 진단 표면을 사용합니다. 이
