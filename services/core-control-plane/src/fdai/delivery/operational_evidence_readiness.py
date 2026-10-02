@@ -44,6 +44,7 @@ from fdai.delivery.repo_assets import repo_asset_root
 BOUND_READBACK_PURPOSES = frozenset(
     {
         "case-history-read",
+        "current-case-reuse",
         "forecast-history-actions",
         "forecast-history-changes",
         "forecast-history-excluded_windows",
@@ -57,12 +58,7 @@ BOUND_READBACK_PURPOSES = frozenset(
 )
 READINESS_MAX_AGE = timedelta(seconds=120)
 READINESS_MAX_SKEW = timedelta(seconds=30)
-_SOURCE_LIMITATIONS = {
-    "current-case-reuse": (
-        "no retained CurrentCaseReuseSource exists for current inventory snapshot, Muninn "
-        "case revision, safety receipts, and case/target grant coordinates"
-    ),
-}
+_SOURCE_LIMITATIONS: dict[str, str] = {}
 _FORECAST_LIMITATION = (
     "source-specific forecast readback is bound for actions, changes, excluded_windows, "
     "and resource_lifecycle"

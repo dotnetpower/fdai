@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: df6bb9e53bbcd09c04d2e7c404e0961a5b885ac1
+translation_source_sha: cce70dbf9de6374a616cca4ec95124e00c5a1ad1
 translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
@@ -379,14 +379,13 @@ operating-intent 출처 개정과 일치하는 관측 범위 워터마크를 요
 | 충돌 | 세대, 사례 개정, 증적 사이에 불일치가 없음 |
 | 최신성 정책 | 스냅숏 관측 시점부터 300초이며, 현재의 5분 스냅숏 한도와 같음 |
 
-**출처 평가.** `core/operational_evidence/readback/current_case_reuse.py`는 검증기 쪽 readback을 정의하고,
+**출처 바인딩.** `core/operational_evidence/readback/current_case_reuse.py`는 검증기 쪽 readback을 정의하고,
 `delivery/azure/operational_evidence.py`는 실시간 T1(가벼운 유사성 재사용) 경로에 쓰는
-`AzureCurrentReuseVerifier`를 정의합니다. 하지만 검증기 readback에는 아직
-`delivery/operational_evidence_server.py`에 구체적인 `CurrentCaseReuseSource`가 없습니다. 현재 Azure verifier는
-일시적인 검증 결과를 다시 계산하고 근거를 요청하지만, 현재 인벤토리 스냅숏, Muninn 사례 개정, 일곱 가지 안전 증적,
-사례와 대상 권한 부여 좌표를 포함하는 조회 가능한 기록을 보관하지 않습니다. 그런 보존 출처가 생길 때까지
-`current-case-reuse`는 계속 fail-closed `unavailable`로 남습니다. Core `state_kv` 행을 검증기에 복사하는 방식은
-독립 출처가 아닙니다.
+`AzureCurrentReuseVerifier`를 정의합니다. 검증기는 이제 `current-case-reuse` 증적을 요청하기 전에 조회 가능한 출처
+행을 보존합니다. 이 행에는 다시 계산한 검증 결과, 현재 인벤토리 세대, Muninn 사례 참조, 일곱 가지 결정적 안전 증적
+참조, 사례와 대상 권한 부여 좌표가 포함됩니다. 검증기는 넓은 `state_kv` 접근 대신 고정 매개변수 함수로 이 행을
+읽습니다. 출처 행 누락, 잘못된 안전 증적, 세대 충돌, 사례 개정 불일치, 실패한 안전성 검토, 권한 부여 불일치는 모두
+유형화된 거부로 fail-closed 처리됩니다. Thor는 재사용된 사례가 실행 경로에 쓰이기 전에 여전히 다시 검증합니다.
 
 ## 실패 시 차단하는 거부 매트릭스
 
@@ -518,8 +517,8 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   `forecast-history-excluded_windows`, `forecast-history-resource_lifecycle` 목적은 이제
   `operational_state_transition*`의 실제 파생 출처 행을 읽고, `forecast-context`는 네 개의 출처별 이력에
   바인딩됩니다. `operational-test-observation`은 배포된 검증기 workload가 `Monitoring Reader`, Log Analytics metric
-  template, 검토된 운영 범위 관측 행을 모두 가질 때 바인딩됩니다. `current-case-reuse`는 아직 연결되지 않았습니다.
-  현재 재사용에는 독립적으로 보존된 인벤토리, Muninn, 안전 증적 출처가 없습니다.
+  template, 검토된 운영 범위 관측 행을 모두 가질 때 바인딩됩니다. `current-case-reuse`는 근거 발급 전에 인벤토리
+  세대, Muninn 사례 참조, 안전 증적, 권한 부여 좌표를 보존하는 현재 재사용 출처 행을 통해 바인딩됩니다.
   사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조,
   Core에서 Bragi로 이어지는 참조 전파, 연결된 정확한 재확인 모듈이 있습니다. Operator 설정
   `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을

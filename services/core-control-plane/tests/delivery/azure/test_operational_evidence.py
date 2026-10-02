@@ -21,9 +21,14 @@ from fdai.delivery.azure.operational_evidence_readbacks import (
     AzureMonitorTestObservationProvider,
     MetricProviderSampleClient,
 )
+from fdai.delivery.persistence.state_store_current_case_reuse import (
+    StateStoreCurrentCaseReuseRetainer,
+    StateStoreCurrentCaseReuseSource,
+)
 from fdai.shared.contracts.models import Event
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
+from fdai.shared.providers.testing import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 1, 1, tzinfo=UTC)
 _RESOURCE = (
@@ -288,6 +293,39 @@ async def test_current_reuse_adapter_requests_exact_independent_admission() -> N
         context=context,
     )
     assert result.decision_evidence.purpose_id == "current-case-reuse"
+
+
+async def test_current_reuse_verifier_retains_queryable_source_record() -> None:
+    class _Admission:
+        async def admit(self, **values):
+            return DecisionEvidenceAdmission(
+                receipt_digest="sha256:" + "8" * 64,
+                verification_bundle_digest="sha256:" + "9" * 64,
+                verified_at=_clock(),
+                valid_until=_clock() + timedelta(minutes=1),
+                **values,
+            )
+
+    store = InMemoryStateStore()
+    verifier = AzureCurrentReuseVerifier(
+        snapshots=_Snapshots(),
+        safety=_Safety(),
+        clock=_clock,
+        admission_provider=_Admission(),
+        source_retainer=StateStoreCurrentCaseReuseRetainer(store),
+    )
+    event, action, context = _event(), _action(), _context()
+
+    result = await verifier.verify(event=event, action=action, context=context)
+    retained = await StateStoreCurrentCaseReuseSource(store).current_reuse(
+        case_ref=context.case_ref,
+        resource_ref=_RESOURCE,
+        event_id=str(event.event_id),
+    )
+
+    assert retained is not None
+    assert retained["verification"]["graph_digest"] == result.graph_digest
+    assert len(retained["safety_receipts"]) == 7
 
 
 async def test_current_reuse_accepts_recent_cache_before_event_ingestion() -> None:

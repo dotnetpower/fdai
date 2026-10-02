@@ -54,6 +54,7 @@ from fdai.core.operational_evidence.own_role_readback import (
 )
 from fdai.core.operational_evidence.readback.base import PurposeReadback
 from fdai.core.operational_evidence.readback.case_history_read import CaseHistoryReadback
+from fdai.core.operational_evidence.readback.current_case_reuse import CurrentCaseReuseReadback
 from fdai.core.operational_evidence.readback.forecast_history import (
     ForecastContextAggregateReadback,
     ForecastHistorySliceReadback,
@@ -109,6 +110,7 @@ from fdai.delivery.operational_evidence_configuration import (
     string_list,
 )
 from fdai.delivery.operational_evidence_transport import ISSUANCE_PATH, READINESS_PATH
+from fdai.delivery.persistence.postgres_current_case_reuse import PostgresCurrentCaseReuseSource
 from fdai.delivery.persistence.postgres_operational_evidence import (
     VERIFIER_ROLE,
     PostgresOperationalEvidenceConfig,
@@ -290,6 +292,7 @@ def build_verifier_workload(
     )
     sources = PostgresTestContextEvidenceSources(store)
     semantic_receipts = PostgresSemanticAuthenticationReceiptSource(store)
+    current_case_reuse = PostgresCurrentCaseReuseSource(store)
     readiness = VerifierReadiness()
     members = string_list(settings.writer_members_json, label="writer members")
     caller = caller_authenticator or (
@@ -360,6 +363,7 @@ def build_verifier_workload(
         source_health = {
             **(await sources.source_health()),
             **(await semantic_receipts.source_health()),
+            **(await current_case_reuse.source_health()),
         }
         if observation_provider is not None:
             source_health[METRIC_SOURCE] = OperationalEvidenceSourceHealth.HEALTHY
@@ -378,6 +382,7 @@ def build_verifier_workload(
         OperatorTestContextCommandReadback(commands=sources),
         ContextTransitionReadback(commands=sources, history=sources, audit=sources),
         OperationalTestContextReadback(commands=sources, history=sources, audit=sources),
+        CurrentCaseReuseReadback(source=current_case_reuse),
     ]
     if observation_provider is not None:
         readbacks.append(OperationalTestObservationReadback(provider=observation_provider))

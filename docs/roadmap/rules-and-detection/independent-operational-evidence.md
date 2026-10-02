@@ -384,14 +384,14 @@ similarity reuse) tier of Forseti's judgment, fed by `AzureCurrentReuseVerifier`
 | Conflict | No generation, case-revision, or receipt disagreement |
 | Freshness policy | 300 seconds from the snapshot observation, matching the current five-minute snapshot bound |
 
-**Source assessment.** `core/operational_evidence/readback/current_case_reuse.py` defines the verifier-side readback,
-and `delivery/azure/operational_evidence.py` defines `AzureCurrentReuseVerifier` for the live T1 (lightweight
-similarity reuse) path. The verifier readback still has no concrete `CurrentCaseReuseSource` in
-`delivery/operational_evidence_server.py`: the current Azure verifier recomputes a transient verification and requests
-evidence, but it does not retain a queryable record containing the current inventory snapshot, Muninn case revision,
-seven safety receipts, and the case/target grant coordinates. Until that retained source exists,
-`current-case-reuse` remains fail-closed `unavailable`. Copying Core `state_kv` rows into the verifier would not be an
-independent source.
+**Source binding.** `core/operational_evidence/readback/current_case_reuse.py` defines the verifier-side readback, and
+`delivery/azure/operational_evidence.py` defines `AzureCurrentReuseVerifier` for the live T1 (lightweight similarity
+reuse) path. The verifier now retains a queryable source row before it requests the `current-case-reuse` admission. The
+row includes the recomputed verification, current inventory generation, Muninn case reference, seven deterministic
+safety receipt references, and the case/target grant coordinates. The verifier reads that row through a fixed-parameter
+function rather than broad `state_kv` access. Missing source rows, malformed safety receipts, generation conflicts,
+case-revision disagreement, failed safety checks, or grant mismatches fail closed with typed rejection classes. Thor
+still revalidates before any execution path can use a reused case.
 
 ## Fail-closed rejection matrix
 
@@ -531,8 +531,9 @@ tracks what remains.
   `forecast-history-resource_lifecycle` purposes now read real derived source rows from
   `operational_state_transition*`, and `forecast-context` is bound to the four source-specific slices.
   `operational-test-observation` is bound in deployed verifier workloads when the verifier has `Monitoring Reader`,
-  Log Analytics metric templates, and reviewed operating-scope observation rows. `current-case-reuse` remains unbound:
-  current reuse lacks an independent retained inventory, Muninn, and safety-receipt source. Case-history now has an insert-only
+  Log Analytics metric templates, and reviewed operating-scope observation rows. `current-case-reuse` is bound through
+  retained current-reuse source rows that capture the inventory generation, Muninn case reference, safety receipts, and
+  grant coordinates before evidence issuance. Case-history now has an insert-only
   Operator semantic authentication receipt schema, `operator-core-request` `1.9.0` receipt reference, Core-to-Bragi
   reference propagation, and a bound exact readback module. The Operator setting
   `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` defaults off and may be enabled only after Core that accepts
