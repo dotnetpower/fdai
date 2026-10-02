@@ -667,7 +667,7 @@ An online retry keeps the work directory and treats its retained kit as untruste
 the package-pinned release signature, compatibility, exact file set, all digests, runtime images,
 and bundle binding again before advancing. An existing materialized payload is reused only when it
 matches those verified files exactly; only the pinned `bin/` tools and Terraform are owner-executable. A new execution copy of the signed bundle avoids reusing
-Python bytecode, Terraform scratch files, or other residue from a previous execution copy.
+Python bytecode, Terraform scratch files, or other residue from a previous execution copy. The workstation coordinator removes its own execution copies when its process exits, after success or failure; no retained record references them, and the next retry makes a fresh copy. The managed host keeps its execution copy for every step of one run. After an application run converges, the coordinator prunes the transfer directories that earlier kits left on the managed host. A directory whose claims all have receipts is removed. A directory that still holds a claim without a receipt keeps its claims, receipts, reviews, plans, and migration evidence, and only its re-derivable kit, environments, provider data, and credential caches are removed. A pruning failure is reported and never fails the converged run.
 
 The cache records a digest of the requested artifact URL to reject an implicit source switch.
 This local record is not signature or remote-origin evidence. A legacy cache without this record

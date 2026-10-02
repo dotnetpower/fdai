@@ -37,6 +37,7 @@ from fdai_deployment_cli.standalone_console_publish import publish_verified_cons
 from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
+from fdai_deployment_cli.standalone_transfer_cleanup import cleanup_remote_transfers, remote_prune
 from fdai_deployment_cli.target import compute_target_binding
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -592,26 +593,17 @@ def deploy_standalone_application(
                 timeout_seconds=deadline.remaining(),
                 redirect_changed=redirect_changed,
             )
-        begin_stage("cleanup")
-        progress_detail("Removing transient transfers and verifying their absence")
         transient_paths = (
             (f"{remote_root}/source-transfer.tar", f"{remote_root}/source-receiver.pyz")
             if source_mode
             else (remote_archive,)
         )
-        cleanup = tunnel.ssh(("rm", "-f", "--", *transient_paths, remote_approval), timeout=300)
-        archive_absent = tunnel.ssh(("test", "!", "-e", transient_paths[0]), timeout=60)
-        receiver_absent = (
-            tunnel.ssh(("test", "!", "-e", transient_paths[1]), timeout=60)
-            if len(transient_paths) > 1
-            else archive_absent
+        cleanup_remote_transfers(
+            tunnel,
+            transient_paths=transient_paths,
+            remote_approval=remote_approval,
+            prune=lambda: remote_prune(tunnel, remote_root=remote_root, work_dir=app_work),
         )
-        approval_absent = tunnel.ssh(("test", "!", "-e", remote_approval), timeout=60)
-        if any(
-            result.returncode != 0
-            for result in (cleanup, archive_absent, receiver_absent, approval_absent)
-        ):
-            raise ValueError("standalone remote transient cleanup is incomplete")
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-terminal-receipt.v2",
         "state": "application-converged",
