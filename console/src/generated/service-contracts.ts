@@ -263,6 +263,60 @@ export interface AlertNoiseResultV1_1_0 {
   readonly signature: string;
 }
 
+export interface BaselineEvaluationCompletionV0_0_0 {
+  readonly schema_version: "0.0.0";
+  readonly capability: "unavailable";
+}
+
+export interface BaselineEvaluationCompletionV1_0_0 {
+  readonly schema_version?: "1.0.0";
+  readonly generation_id: string;
+  readonly generation_digest: string;
+  readonly inventory_observation_digest: string;
+  readonly catalog_revision: string;
+  readonly expected_denominator: number;
+  readonly compliant_count: number;
+  readonly violated_count: number;
+  readonly abstained_count: number;
+  readonly outcome_set_digest: string;
+  readonly completion_receipt_ref: string;
+  readonly completion_receipt_digest: string;
+  readonly saga_audit_ref: string;
+  readonly saga_audit_digest: string;
+  readonly completed_at: string;
+  readonly complete?: true;
+  readonly projection_authority?: false;
+  readonly execution_authority?: false;
+  readonly completion_digest: string;
+}
+
+export interface BaselineEvaluationOutcomeV0_0_0 {
+  readonly schema_version: "0.0.0";
+  readonly capability: "unavailable";
+}
+
+export interface BaselineEvaluationOutcomeV1_0_0 {
+  readonly schema_version?: "1.0.0";
+  readonly generation_id: string;
+  readonly generation_digest: string;
+  readonly inventory_observation_digest: string;
+  readonly resource_ref: string;
+  readonly resource_digest: string;
+  readonly catalog_revision: string;
+  readonly rule_ref: string;
+  readonly rule_revision: string;
+  readonly expected_denominator: number;
+  readonly outcome: "compliant" | "violated" | "abstained";
+  readonly reason_code?: string | null;
+  readonly evaluation_receipt_ref: string;
+  readonly evaluation_receipt_digest: string;
+  readonly saga_audit_ref: string;
+  readonly saga_audit_digest: string;
+  readonly evaluated_at: string;
+  readonly execution_authority?: false;
+  readonly outcome_digest: string;
+}
+
 export interface ChannelAttachmentAdmissionV0_0_0 {
   readonly schema_version: "0.0.0";
   readonly capability: "unavailable";
@@ -1704,6 +1758,10 @@ export type FdaiServiceContract =
   | AlertNoiseReadinessV1_0_0
   | AlertNoiseResultV0_0_0
   | AlertNoiseResultV1_1_0
+  | BaselineEvaluationCompletionV0_0_0
+  | BaselineEvaluationCompletionV1_0_0
+  | BaselineEvaluationOutcomeV0_0_0
+  | BaselineEvaluationOutcomeV1_0_0
   | ChannelAttachmentAdmissionV0_0_0
   | ChannelAttachmentAdmissionV1_0_0
   | ChannelAttachmentReceiptV0_0_0

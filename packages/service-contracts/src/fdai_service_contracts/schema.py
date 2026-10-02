@@ -17,6 +17,10 @@ from fdai_service_contracts.cluster_connector import (
     ConnectorRegistration,
     ConnectorWork,
 )
+from fdai_service_contracts.baseline_evaluation import (
+    BaselineEvaluationCompletion,
+    BaselineEvaluationOutcome,
+)
 from fdai_service_contracts.decision_evidence import DecisionCriticalEvidenceReceipt
 from fdai_service_contracts.decision_evidence_verification import (
     DecisionEvidenceVerificationBundle,
@@ -64,6 +68,22 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("observer-proposal-projection", "1.0.0"): "schemas/observer-proposal-projection/1.0.0.json",
     ("alert-noise-assessment", "1.0.0"): "schemas/alert-noise-assessment/1.0.0.json",
     ("alert-noise-evaluation", "1.0.0"): "schemas/alert-noise-evaluation/1.0.0.json",
+    (
+        "baseline-evaluation-completion",
+        "0.0.0",
+    ): "schemas/baseline-evaluation-completion/0.0.0.json",
+    (
+        "baseline-evaluation-completion",
+        "1.0.0",
+    ): "schemas/baseline-evaluation-completion/1.0.0.json",
+    (
+        "baseline-evaluation-outcome",
+        "0.0.0",
+    ): "schemas/baseline-evaluation-outcome/0.0.0.json",
+    (
+        "baseline-evaluation-outcome",
+        "1.0.0",
+    ): "schemas/baseline-evaluation-outcome/1.0.0.json",
     (
         "alert-noise-temporal-scenarios",
         "1.0.0",
@@ -281,6 +301,10 @@ class JsonSchemaContractValidator:
             if schema_name == "execution-safeguard-proof-bundle"
             else RuntimeScopeReceipt
             if schema_name == "runtime-scope-receipt"
+            else BaselineEvaluationCompletion
+            if schema_name == "baseline-evaluation-completion"
+            else BaselineEvaluationOutcome
+            if schema_name == "baseline-evaluation-outcome"
             else TestContextApplication
             if schema_name == "test-context-application"
             else TestContextCommand

@@ -269,6 +269,60 @@ class AlertNoiseResultV1_1_0(TypedDict):
     signature: str
 
 
+class BaselineEvaluationCompletionV0_0_0(TypedDict):
+    schema_version: Literal['0.0.0']
+    capability: Literal['unavailable']
+
+
+class BaselineEvaluationCompletionV1_0_0(TypedDict):
+    schema_version: NotRequired[Literal['1.0.0']]
+    generation_id: str
+    generation_digest: str
+    inventory_observation_digest: str
+    catalog_revision: str
+    expected_denominator: int
+    compliant_count: int
+    violated_count: int
+    abstained_count: int
+    outcome_set_digest: str
+    completion_receipt_ref: str
+    completion_receipt_digest: str
+    saga_audit_ref: str
+    saga_audit_digest: str
+    completed_at: str
+    complete: NotRequired[Literal[True]]
+    projection_authority: NotRequired[Literal[False]]
+    execution_authority: NotRequired[Literal[False]]
+    completion_digest: str
+
+
+class BaselineEvaluationOutcomeV0_0_0(TypedDict):
+    schema_version: Literal['0.0.0']
+    capability: Literal['unavailable']
+
+
+class BaselineEvaluationOutcomeV1_0_0(TypedDict):
+    schema_version: NotRequired[Literal['1.0.0']]
+    generation_id: str
+    generation_digest: str
+    inventory_observation_digest: str
+    resource_ref: str
+    resource_digest: str
+    catalog_revision: str
+    rule_ref: str
+    rule_revision: str
+    expected_denominator: int
+    outcome: Literal['compliant', 'violated', 'abstained']
+    reason_code: NotRequired[str | None]
+    evaluation_receipt_ref: str
+    evaluation_receipt_digest: str
+    saga_audit_ref: str
+    saga_audit_digest: str
+    evaluated_at: str
+    execution_authority: NotRequired[Literal[False]]
+    outcome_digest: str
+
+
 class ChannelAttachmentAdmissionV0_0_0(TypedDict):
     schema_version: Literal['0.0.0']
     capability: Literal['unavailable']
@@ -1710,6 +1764,10 @@ __all__ = (
     "AlertNoiseReadinessV1_0_0",
     "AlertNoiseResultV0_0_0",
     "AlertNoiseResultV1_1_0",
+    "BaselineEvaluationCompletionV0_0_0",
+    "BaselineEvaluationCompletionV1_0_0",
+    "BaselineEvaluationOutcomeV0_0_0",
+    "BaselineEvaluationOutcomeV1_0_0",
     "ChannelAttachmentAdmissionV0_0_0",
     "ChannelAttachmentAdmissionV1_0_0",
     "ChannelAttachmentReceiptV0_0_0",
