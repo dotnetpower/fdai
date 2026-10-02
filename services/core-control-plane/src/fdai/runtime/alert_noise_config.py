@@ -36,6 +36,8 @@ _WRITER_FIELDS = frozenset(
         "repository_ref",
         "repository_revision",
         "verification_trust_anchor_id",
+        "provider_conditional_updates",
+        "full_authority_development_scope",
         "principal_refs",
     }
 )
@@ -60,6 +62,8 @@ class AlertNoiseWriterConfig:
     repository_ref: str
     repository_revision: str
     verification_trust_anchor_id: str
+    provider_conditional_updates: bool
+    full_authority_development_scope: bool
     principal_refs: Mapping[str, str]
 
 
@@ -179,6 +183,12 @@ def _reference(value: object, pattern: re.Pattern[str] = _REF) -> str:
     return value
 
 
+def _bool(value: object) -> bool:
+    if type(value) is not bool:
+        raise ValueError("alert configuration boolean MUST be explicit")
+    return value
+
+
 def _oid(value: object) -> str:
     try:
         if type(value) is not str or len(value) != 36:
@@ -267,6 +277,8 @@ def _writers(
             verification_trust_anchor_id=_reference(
                 row["verification_trust_anchor_id"], _TRUST_ANCHOR
             ),
+            provider_conditional_updates=_bool(row["provider_conditional_updates"]),
+            full_authority_development_scope=_bool(row["full_authority_development_scope"]),
             principal_refs=MappingProxyType(identities),
         )
     return writers

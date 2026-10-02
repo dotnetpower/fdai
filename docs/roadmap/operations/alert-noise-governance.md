@@ -417,6 +417,11 @@ mailing-list overlap, protected alerts mislabeled informational, missing backup,
 outside scope, removal of FDAI ingress, overlapping suppression/add rules, API success without
 effect, expired approval, unsafe provider concurrency, late receipts, failed rollback, and telemetry
 loss mistaken for improvement. Runtime evidence stays separate from synthetic mechanical checks.
+The local code hardening for [#1589](https://github.com/dotnetpower/fdai/issues/1589) now covers
+the production two-human quorum, the development-profile one-Owner exception, the non-conditional
+provider writer hold, the scale fixture, and the full negative-case matrix. Live operational
+producers, the timed development pilot, authenticated accessibility, and production promotion
+thresholds remain separate evidence requirements before production readiness.
 
 ## 10. Design review decisions
 
