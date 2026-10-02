@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b1b715e16711b7dbd9ab6ce3569f3da1ca68a3a8
-translation_revised: 2026-10-02
+translation_source_sha: 8738f71f15c76b502a4ea368825768b723bbd5db
+translation_revised: 2026-10-03
 ---
 # 런타임 배포 프로파일
 
@@ -35,6 +35,9 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 스냅샷에서 `fdaictl`을 설치하며, 스냅샷의 Terraform 루트와 마이그레이션 지원을 사용합니다.
 공급자는 커밋된 lock 파일 기준으로 공개 레지스트리에서 직접 해석합니다. 이미지 참조는 배포
 레지스트리 빌드 단계가 끝난 뒤 다시 읽은 다이제스트로만 런타임 프로파일에 들어갑니다.
+호스트 준비는 호스트 하위 명령을 정확히 하나만 실행합니다. 서명된 키트에는 `prepare --kit`,
+소스 스냅샷에는 `prepare-source`를 사용합니다. 거부된 명령은 호스트가 이유를 기록하기 전에
+실패하므로, 집중 테스트가 두 모드 모두에서 조정기가 보내는 명령을 호스트 자체 파서로 해석합니다.
 두 프로파일 모두 읽기 측 리소스 계산을 위해 Core의 잠긴 Kubernetes 수량 도구를 패키징합니다. 이 의존성은 런타임을 선택하거나 Kubernetes 접근을 허용하거나 노드 적합성을 입증하거나 Cost Governance를 활성화하지 않습니다. 독립 배포 CLI는 별도 의존성 집합을 유지합니다. 런타임 Dockerfile의 Alpine 패키지 고정값 갱신은 패키지 유지보수일 뿐이며 런타임 프로파일, 배포 권한, 프로바이더 접근 또는 제품 추가 기능 선택을 바꾸지 않습니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
