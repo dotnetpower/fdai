@@ -28,9 +28,11 @@ from fdai_deployment_cli import (
     standalone_operational_evidence,
     standalone_stage_targets,
     standalone_terraform_environment,
+    source_application_inputs,
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.source_image_stage import UNAVAILABLE, SourceImageStageStopped
 from fdai_deployment_cli.standalone_review import validate_plan_review
 
 
@@ -123,6 +125,92 @@ def test_runtime_node_pool_readback_blocks_existing_pool_outside_state(
     assert error.value.reason_code == "aks_node_pool_exists_outside_state"
     assert "runtime" in error.value.excerpt
     assert "explicit Owner confirmation" in error.value.excerpt
+
+
+def test_source_image_stage_updates_context_before_application_prepare(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = {
+        "artifact_source": "operator-selected-source",
+        "source_snapshot": str(tmp_path / "source-snapshot"),
+        "source_snapshot_digest": "d" * 64,
+        "source_commit": "c" * 40,
+        "subscription_id": "00000000-0000-0000-0000-000000000000",
+        "registry_name": "crfdaiexample",
+        "registry_login_server": "crfdaiexample.azurecr.io",
+    }
+    (tmp_path / "substrate-receipt.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "context.json").write_text(json.dumps(context), encoding="utf-8")
+    (tmp_path / "context.json").chmod(0o600)
+    image_refs = {
+        "core-control-plane": "crfdaiexample.azurecr.io/core-control-plane@sha256:" + "a" * 64
+    }
+
+    monkeypatch.setattr(
+        standalone_host,
+        "_managed_identity_login_from_context",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        source_application_inputs,
+        "verify_source_snapshot",
+        lambda *_args, **_kwargs: {"source_commit": "c" * 40},
+    )
+    monkeypatch.setattr(
+        source_application_inputs,
+        "run_source_image_stage",
+        lambda **_kwargs: {
+            "receipt_digest": "b" * 64,
+            "image_digests": {"core-control-plane": "sha256:" + "a" * 64},
+            "image_refs": image_refs,
+        },
+    )
+
+    result = standalone_host._import_images(SimpleNamespace(), tmp_path)
+
+    assert result["schema_version"] == "fdai.source-image-import-receipt.v1"
+    assert result["provenance"] == "operator-selected-source"
+    assert result["release_signature_verified"] is False
+    retained = json.loads((tmp_path / "context.json").read_text(encoding="utf-8"))
+    assert retained["image_refs"] == image_refs
+
+
+def test_unavailable_source_image_builder_stops_before_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = {
+        "artifact_source": "operator-selected-source",
+        "source_snapshot": str(tmp_path / "source-snapshot"),
+        "source_snapshot_digest": "d" * 64,
+        "source_commit": "c" * 40,
+        "subscription_id": "00000000-0000-0000-0000-000000000000",
+        "registry_name": "crfdaiexample",
+        "registry_login_server": "crfdaiexample.azurecr.io",
+    }
+    (tmp_path / "substrate-receipt.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "context.json").write_text(json.dumps(context), encoding="utf-8")
+    (tmp_path / "context.json").chmod(0o600)
+
+    monkeypatch.setattr(
+        standalone_host,
+        "_managed_identity_login_from_context",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        source_application_inputs,
+        "verify_source_snapshot",
+        lambda *_args, **_kwargs: {"source_commit": "c" * 40},
+    )
+
+    def unavailable(**_kwargs):
+        raise SourceImageStageStopped(UNAVAILABLE)
+
+    monkeypatch.setattr(source_application_inputs, "run_source_image_stage", unavailable)
+
+    with pytest.raises(ValueError, match=UNAVAILABLE):
+        standalone_host._import_images(SimpleNamespace(), tmp_path)
+
+    assert not (tmp_path / "image-import-receipt.json").exists()
 
 
 def test_runtime_node_pool_readback_allows_absent_pool(

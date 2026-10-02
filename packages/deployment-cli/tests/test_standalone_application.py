@@ -8,7 +8,12 @@ from datetime import UTC, datetime
 
 import pytest
 
-from fdai_deployment_cli import license_issue, standalone_aks_inventory, standalone_application
+from fdai_deployment_cli import (
+    license_issue,
+    standalone_aks_inventory,
+    standalone_application,
+    standalone_console_publish,
+)
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.target import compute_target_binding
 
@@ -195,9 +200,9 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
         calls.append(("run", command, kwargs))
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(standalone_application, "extract_bundle_archive", extract)
-    monkeypatch.setattr(standalone_application, "configure_console", configure)
-    monkeypatch.setattr(standalone_application.subprocess, "run", run)
+    monkeypatch.setattr(standalone_console_publish, "extract_bundle_archive", extract)
+    monkeypatch.setattr(standalone_console_publish, "configure_console", configure)
+    monkeypatch.setattr(standalone_console_publish.subprocess, "run", run)
     tenant_id = "00000000-0000-0000-0000-000000000001"
     subscription_id = "00000000-0000-0000-0000-000000000002"
     spa_client_id = "00000000-0000-0000-0000-000000000003"
@@ -270,4 +275,4 @@ def test_console_archive_digest_rejects_unsigned_bytes(tmp_path) -> None:
     archive.write_bytes(b"substituted")
 
     with pytest.raises(ValueError, match="signed release"):
-        standalone_application._require_archive_digest(archive, "a" * 64)
+        standalone_console_publish._require_archive_digest(archive, "a" * 64)

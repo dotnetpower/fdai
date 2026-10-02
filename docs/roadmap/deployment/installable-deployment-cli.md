@@ -63,10 +63,11 @@ The region suffix is selected by the same naming owner as the offline package pa
 Foundation variables keep their original token, a fresh work directory discovers one matching
 FDAI-owned installation token before planning, and only reviewed public-region tokens are used for
 new installs. An unknown or ambiguous token stops before Azure effects.
-Initial confirmation is separate from that approval. The coordinator advances within exact approval and returns review state when another
-checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
-execution and durable Trial activation are not yet connected. A plan
-returns exit code `2` for review, not deployment success; a capacity blocker returns `3`.
+Initial confirmation is separate from that approval. The coordinator advances within exact
+approval and returns review state when another checkpoint needs authority; it does not create
+approval, read stdin or report success. After the verified Foundation handoff, source mode
+continues into the shared managed-host application sequence without a signed kit. A plan returns
+exit code `2` for review, not deployment success; a capacity blocker returns `3`.
 `--prepare-only` makes no Azure call. `--preflight-only` reads the current human target, SKU
 restrictions, x64 architecture, host encryption, required zones and shared-family/total quota at
 autoscaler maximum plus simultaneous 33-percent surge. A `postgres-flex` profile also requires the
@@ -107,9 +108,10 @@ The source coordinator uses the private managed-host route and reads Foundation 
 registrations and inherited policy without changing either. Policy visibility is not a compliance
 or deployment-success claim. An exclusive run lock covers checkpoints; exact approval remains
 separate, and output format or TTY presence grants no authority. Source, snapshot, human target,
-retained run, and published exact-source CI must match before effects. A source run stops after
-verified Foundation handoff and does not transfer application source or invoke Docker or Buildx
-for a new installation; the bounded single-service `dev` update remains separate.
+and retained run must match before effects. After verified Foundation handoff, the source path
+transfers the pinned source snapshot to the managed host, installs the deployment CLI from it, and
+builds images with Azure Container Registry Tasks rather than Docker or Buildx. The bounded
+single-service `dev` update remains separate.
 **Initial design:** build every runtime image during source provisioning. **Critique:** that makes the tenant an unsigned release builder. **Revised contract:** a complete signed kit uses `--adopt-foundation-directory` plus `--adopt-foundation-recovery` only after recovery, enrollment, state-authority, target, profile, host-key, cleanup, and zero-change verification.
 **Superseded for new source installations:** Constitution Article 1 makes the tenant-side build the source path itself, with `operator-selected-source` provenance rather than release trust, as [source deployment](source-deployment.md) defines. The signed-kit adoption below remains for recovered Foundations that continue with an offline package.
 Adoption stages exact handoff and access evidence and emits a no-effect receipt. The local coordinator retains the complete chain, and the managed host independently verifies the historical handoff digest plus the distinct current kit and runtime digests before preparation; neither repeats Foundation apply, enrollment, migration, or state ownership. Repository admission persists digest-pinned references for all five baseline services before application planning. Application plans, approvals, and the optional catalog review checkpoint remain separate.
@@ -422,8 +424,8 @@ build service with only Azure CLI and one verified snapshot of one commit:
 
 The stage needs only Azure CLI and the snapshot, so the application continuation can run it on the
 workstation against the clean checkout or on the managed host against the transferred snapshot. It
-runs after the platform apply creates the registry and before any service apply. That continuation
-is not connected yet, so a source run still stops at the application boundary.
+runs after the platform apply creates the registry and before any service apply. Source deployment
+now invokes it inside the shared application sequence and continues with the read-back digests.
 
 ## Operator experience
 
