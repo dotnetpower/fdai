@@ -2739,6 +2739,30 @@ resource "azurerm_key_vault_secret" "operator_request_operator_signing_seed" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
+# Core signs its own operator_request receipts and verifies Operator receipts from the
+# Operator seed; the Operator API signs with its seed. Each reader is scoped to one secret.
+resource "azurerm_role_assignment" "core_operator_request_core_seed_reader" {
+  scope                = azurerm_key_vault_secret.operator_request_core_signing_seed.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "core_operator_request_operator_seed_reader" {
+  scope                = azurerm_key_vault_secret.operator_request_operator_signing_seed.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "operator_api_operator_request_seed_reader" {
+  count                = var.enable_operator_api ? 1 : 0
+  scope                = azurerm_key_vault_secret.operator_request_operator_signing_seed.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.operator_api_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 # -----------------------------------------------------------------------
 # Compute - Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------

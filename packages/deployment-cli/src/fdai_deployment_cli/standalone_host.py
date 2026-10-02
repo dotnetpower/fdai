@@ -123,7 +123,11 @@ from fdai_deployment_cli.standalone_stage_targets import (
     focused_private_access as _focused_private_access,
 )
 from fdai_deployment_cli.standalone_stage_targets import stage_targets as _stage_targets
-from fdai_deployment_cli.standalone_host_values import aks_operator_environment
+from fdai_deployment_cli.standalone_host_values import (
+    AKS_CORE_STARTUP_READINESS,
+    aks_operator_environment,
+    aks_operator_request_receipts,
+)
 from fdai_deployment_cli.standalone_management_egress import management_egress_cidrs
 from fdai_deployment_cli.standalone_migration_evidence import verify_service_evidence
 from fdai_deployment_cli.standalone_host_values import (
@@ -873,6 +877,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             substrate, "catalog_review_gitops_binding"
         ),
         "installation_binding": _terraform_output(substrate, "installation_binding"),
+        "operator_request_receipts": _terraform_json_output(
+            substrate, "operator_request_receipt_binding"
+        ),
     }
     if _database_placement(context) == "postgres-flex":
         substrate_outputs.update(
@@ -960,6 +967,10 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             semantic_topics=semantic_topics,
         )
     )
+    receipt_core_env, receipt_core_secrets, receipt_operator_env, receipt_operator_secrets = (
+        aks_operator_request_receipts(substrate_outputs["operator_request_receipts"])
+    )
+    core_environment.update({**AKS_CORE_STARTUP_READINESS, **receipt_core_env})
     license_environment, license_secrets = aks_license_environment(application_values)
     core_environment.update(license_environment)
     operator_environment = (
@@ -981,6 +992,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             substrate_outputs["application_insights_secret_name"]
         ),
         "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+        **receipt_core_secrets,
         **license_secrets,
     }
     refs = _mapping(context.get("image_refs"), "runtime image references")
@@ -994,10 +1006,11 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             "operator",
             refs,
             operator_identity,
-            operator_environment,
+            {**operator_environment, **receipt_operator_env},
             {
                 "FDAI_DATABASE_URL": "fdai-state-store-dsn",
                 "FDAI_COST_PSEUDONYM_KEY": str(substrate_outputs["cost_pseudonym_key_secret_name"]),
+                **receipt_operator_secrets,
             },
             "/healthz",
             "/healthz",
@@ -3699,8 +3712,12 @@ def _aks_document_workloads(
             sidecars={
                 "clamav": {
                     "image": refs["clamav"],
+                    # The image entrypoint chowns its database and exits as non-root; start
+                    # clamd directly. The bundled signatures load in about 950 MiB.
+                    "command": ["clamd"],
+                    "args": ["--foreground=true"],
                     "cpu": "500m",
-                    "memory": "1Gi",
+                    "memory": "2Gi",
                     "port": 3310,
                     "run_as_user": 100,
                     "run_as_group": 101,
@@ -3716,6 +3733,7 @@ def _aks_document_workloads(
                     },
                     "writable_paths": {
                         "database": {"mount_path": "/var/lib/clamav", "size_limit": "1Gi"},
+                        "log": {"mount_path": "/var/log/clamav", "size_limit": "64Mi"},
                         "run": {"mount_path": "/run/clamav", "size_limit": "64Mi"},
                         "tmp": {"mount_path": "/tmp", "size_limit": "256Mi"},
                     },
