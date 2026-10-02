@@ -69,7 +69,6 @@ def test_source_plan_retains_distinct_provenance(foundation_command, monkeypatch
                 "complete": True,
                 "errored": False,
                 "applyable": True,
-                "resource_changes": [],
                 "variables": {key: {"value": value} for key, value in variables.items()},
             }
             kwargs["stdout"].write(json.dumps(projection).encode())
