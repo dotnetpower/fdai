@@ -58,6 +58,8 @@ def _environment(
                     "repository_ref": "repository:example",
                     "repository_revision": "commit:" + "b" * 40,
                     "verification_trust_anchor_id": "verification:test-only",
+                    "provider_conditional_updates": False,
+                    "full_authority_development_scope": False,
                     "principal_refs": {
                         subject: _requester(subject, scope["scope_ref"])
                         for subject in (_SUBJECT, _EXECUTOR, str(UUID(int=3)), str(UUID(int=4)))
@@ -90,6 +92,8 @@ def test_private_maps_use_exact_operator_identity_and_no_approval_fields() -> No
     assert writer.principal_refs[_SUBJECT] == _requester(_SUBJECT, writer.scope_ref)
     assert writer.executor_ref == writer.principal_refs[_EXECUTOR]
     assert writer.repository_revision == "commit:" + "b" * 40
+    assert writer.provider_conditional_updates is False
+    assert writer.full_authority_development_scope is False
     assert _SUBJECT not in repr(config) + repr(writer) + repr(config.scopes[writer.scope_ref])
     with pytest.raises(TypeError):
         config.requester_subjects["principal:other"] = _SUBJECT  # type: ignore[index]
@@ -111,6 +115,19 @@ def test_explicit_partial_configuration_is_not_absence(missing: str) -> None:
     environment = _environment()
     del environment[missing]
     with pytest.raises(ValueError, match="requires both"):
+        parse_alert_noise_config(environment)
+
+
+@pytest.mark.parametrize(
+    "field", ["provider_conditional_updates", "full_authority_development_scope"]
+)
+@pytest.mark.parametrize("value", [None, 0, "false"])
+def test_writer_capability_flags_are_explicit_booleans(field: str, value: object) -> None:
+    environment = _environment()
+    writers = json.loads(environment[WRITER_BINDINGS_ENV])
+    writers[0][field] = value
+    environment[WRITER_BINDINGS_ENV] = json.dumps(writers)
+    with pytest.raises(ValueError, match="boolean"):
         parse_alert_noise_config(environment)
 
 

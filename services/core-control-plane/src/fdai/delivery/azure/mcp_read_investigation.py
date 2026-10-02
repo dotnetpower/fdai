@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import importlib
 import json
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from fdai.shared.providers.read_investigation import (
     EvidenceFreshness,
@@ -85,21 +86,28 @@ class StdioAzureMcpSessionFactory:
         self._environment = dict(environment or {})
 
     def __call__(self) -> AbstractAsyncContextManager[AzureMcpSession]:
-        from mcp import Client
-        from mcp.client.stdio import StdioServerParameters, stdio_client
-        from msmcp_azure import get_executable_path  # type: ignore[import-untyped]
+        mcp_module = importlib.import_module("mcp")
+        stdio_module = importlib.import_module("mcp.client.stdio")
+        azure_module = importlib.import_module("msmcp_azure")
+        client_factory = cast(Any, mcp_module.Client)
+        stdio_parameters = cast(Any, stdio_module.StdioServerParameters)
+        stdio_client = cast(Any, stdio_module.stdio_client)
+        get_executable_path = cast(Callable[[], object], azure_module.get_executable_path)
 
         args = ["server", "start", "--mode", "all", "--read-only"]
         for namespace in self._config.namespaces:
             args.extend(("--namespace", namespace))
-        parameters = StdioServerParameters(
+        parameters = stdio_parameters(
             command=str(get_executable_path()),
             args=args,
             env=self._environment or None,
         )
-        return Client(
-            stdio_client(parameters),
-            read_timeout_seconds=self._config.call_timeout_seconds,
+        return cast(
+            AbstractAsyncContextManager[AzureMcpSession],
+            client_factory(
+                stdio_client(parameters),
+                read_timeout_seconds=self._config.call_timeout_seconds,
+            ),
         )
 
 

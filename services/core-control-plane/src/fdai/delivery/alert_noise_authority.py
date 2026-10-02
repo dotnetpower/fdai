@@ -75,6 +75,7 @@ class _AuthorityReader:
         tenant_ref: str,
         source_revision: str,
         clock: Callable[[], datetime],
+        allow_development_owner_quorum: bool = False,
     ) -> None:
         """Bind Core-owned records, current scoped private identities, and the verified registry."""
         self._scope = alert_scope_digest(tenant_ref=tenant_ref, scope_ref=scope_ref)
@@ -82,6 +83,7 @@ class _AuthorityReader:
             raise ValueError("alert authority source revision MUST be an explicit commit")
         self._store, self._admissions, self._promotions = store, admissions, promotion_registry
         self._principal_refs, self._revision, self._clock = principal_refs, source_revision, clock
+        self._allow_development_owner_quorum = allow_development_owner_quorum
         self._var = StateStoreWorkflowApprovalProvider(store=store)
 
     async def _read(
@@ -121,7 +123,11 @@ class _AuthorityReader:
                     forward = exact_alert_model(_ForwardRecord, proof.payload)
                     context, dispatch = forward, forward.dispatch
                     if context.approval_step_id != "approve_plan" or admission_reasons(
-                        plan, approvals=forward.approvals, evidence=dispatch, now=now
+                        plan,
+                        approvals=forward.approvals,
+                        evidence=dispatch,
+                        now=now,
+                        allow_development_owner_quorum=self._allow_development_owner_quorum,
                     ):
                         raise AlertExecutionHeld("alert_authority_forward_held")
                     promotion_digest = dispatch.promotion_digest
@@ -200,7 +206,11 @@ class _AuthorityReader:
                 proof.require_current(now=at)
                 if isinstance(dispatch, AlertDispatchEvidence):
                     if admission_reasons(
-                        plan, approvals=context.approvals, evidence=dispatch, now=at
+                        plan,
+                        approvals=context.approvals,
+                        evidence=dispatch,
+                        now=at,
+                        allow_development_owner_quorum=self._allow_development_owner_quorum,
                     ):
                         raise AlertExecutionHeld("alert_authority_forward_held")
                 elif (
@@ -258,7 +268,15 @@ class _AuthorityReader:
         end: datetime,
     ) -> tuple[str, datetime]:
         """Match exact opaque decisions to the real Var journal, never normalized aliases."""
-        return await _quorum(self, context, plan, executor, floor, end)
+        return await _quorum(
+            self,
+            context,
+            plan,
+            executor,
+            floor,
+            end,
+            allow_development_owner_quorum=self._allow_development_owner_quorum,
+        )
 
     def _identity_digest(
         self, plan: AlertChangePlan, executor: str, approvals: tuple[AlertApproval, ...]
@@ -368,6 +386,14 @@ class StateStoreAlertAuthorityReader(_AuthorityReader):
         if record is None or not isinstance(record.dispatch, AlertDispatchEvidence):
             raise AlertExecutionHeld("alert_authority_missing")
         return record.dispatch
+
+    def allows_development_single_owner_quorum(self, plan: AlertChangePlan) -> bool:
+        """Expose only the composition-selected development-profile quorum exception."""
+        return (
+            self._allow_development_owner_quorum
+            and alert_scope_digest(tenant_ref=plan.tenant_ref, scope_ref=plan.scope_ref)
+            == self._scope
+        )
 
 
 class StateStoreAlertRecoveryAuthorityReader(_AuthorityReader):

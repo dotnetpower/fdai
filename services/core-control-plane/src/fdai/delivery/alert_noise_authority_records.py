@@ -30,7 +30,7 @@ from fdai.shared.providers.remediation_pr import RemediationPr
 
 class _ApprovalContext(AlertContractBase):
     plan_digest: Digest
-    approvals: Annotated[tuple[AlertApproval, ...], Field(min_length=2, max_length=128)]
+    approvals: Annotated[tuple[AlertApproval, ...], Field(min_length=1, max_length=128)]
     process_id: Annotated[str, Field(min_length=1, max_length=512)]
     approval_step_id: Ref
     attempt: Annotated[int, Field(strict=True, ge=1, le=1_000_000)]
