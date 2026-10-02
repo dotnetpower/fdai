@@ -16,18 +16,21 @@ resource "azurerm_role_assignment" "acr_pull" {
   scope                = var.platform.acr_id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_user_assigned_identity.service.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "claim_writer" {
   scope                = azurerm_storage_container.claims.id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.service.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "principal_map_reader" {
   scope                = var.platform.key_vault_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_user_assigned_identity.service.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 locals {

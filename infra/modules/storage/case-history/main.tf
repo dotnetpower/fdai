@@ -86,6 +86,7 @@ resource "azurerm_role_assignment" "runtime_data_contributor" {
   scope                = azurerm_storage_account.case_history.id
   role_definition_name = var.runtime_role_definition_name
   principal_id         = var.runtime_principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_storage_container" "case_history" {

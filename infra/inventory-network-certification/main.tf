@@ -359,36 +359,42 @@ resource "azurerm_role_assignment" "campaign_resource_group_reader" {
   scope                = data.azurerm_resource_group.certification.id
   role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.campaign.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "campaign_acr_pull" {
   scope                = var.acr_id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_user_assigned_identity.campaign.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "verifier_acr_pull" {
   scope                = var.acr_id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_user_assigned_identity.verifier.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "campaign_receipt_writer" {
   scope                = azurerm_storage_account.receipts.id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.campaign.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "verifier_receipt_reader" {
   scope                = azurerm_storage_account.receipts.id
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = azurerm_user_assigned_identity.verifier.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "verifier_sandbox_reader" {
   scope                = data.azurerm_resource_group.certification.id
   role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.verifier.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_container_app_job" "migrate" {
