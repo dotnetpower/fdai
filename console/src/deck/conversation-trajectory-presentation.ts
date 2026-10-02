@@ -50,8 +50,9 @@ export function buildTrajectoryPresentation(
     ? trajectory.answer.modelTrace.calls.length + trajectory.answer.modelTrace.omitted_calls
     : 0;
   const budgetCalls = trajectory.turnBudget?.complete ? trajectory.turnBudget.model_calls.used : 0;
+  const accountedCalls = trajectory.answer.modelUsage?.model_calls;
   const modelCallCountRecorded = trajectory.answer.modelTrace !== undefined ||
-    trajectory.turnBudget?.complete === true;
+    trajectory.turnBudget?.complete === true || accountedCalls !== undefined;
   const modelBacked = trajectory.answer.source?.startsWith("llm:") === true;
   return {
     workProgress: workProgressPresentation(trajectory),
@@ -64,7 +65,7 @@ export function buildTrajectoryPresentation(
       answer: "completed",
     },
     modelCallCount: modelCallCountRecorded
-      ? Math.max(recordedModelCalls, budgetCalls) : modelBacked ? 1 : 0,
+      ? Math.max(recordedModelCalls, budgetCalls, accountedCalls ?? 0) : modelBacked ? 1 : 0,
     modelCallCountIsLowerBound: modelBacked && !modelCallCountRecorded,
     modelCallCountRecorded,
     ...(

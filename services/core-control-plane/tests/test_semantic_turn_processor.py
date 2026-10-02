@@ -4833,6 +4833,7 @@ async def test_direct_greeting_projects_measured_usage_and_opt_in_trace(
         "prompt_tokens": 12,
         "completion_tokens": 3,
         "total_tokens": 15,
+        "model_calls": 1,
     }
     if include_model_trace:
         trace = payload["model_trace"]

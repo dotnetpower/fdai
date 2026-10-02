@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 2145782864c8ef3a1d071933a65ff9b23a75daee
+translation_source_sha: 136d98f6c8e6a4923efa0b1902f189f9a7a76acc
 translation_revised: 2026-10-02
 ---
 
@@ -10,6 +10,10 @@ translation_revised: 2026-10-02
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+기존 숫자 `usage` 맵은 토큰 합계와 함께 `model_calls`를 포함할 수 있습니다. 이는 기록된
+대화 호출 계측이며, 상세 프롬프트 수집, 행동 권한, 독립 운영 근거가 아닙니다. 없는 값은
+사용 불가로 유지하며, 이전 소비자는 추가 숫자 키를 무시해도 답변 검증이나 Incident 처리를
+바꾸지 않습니다.
 
 [공통 답변 표시](operator-console-ko.md#공통-답변-표시)는 기존 답변 본문, 검증, 인용,
 표시 데이터 필드를 재사용합니다. 출처 상세와 원문 Markdown 보기는 전송 필드, 요청,
@@ -494,6 +498,10 @@ Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우�
 | 관리되는 계약 간 런타임 근거 | in-progress | Operator 및 Console focused 테스트 | 단위 및 통합 검사는 동작 방식을 입증하지만 callback, proposal, code 산출물, 온톨로지 및 영속 감사 화면을 잇는 인증 증적은 아닙니다. |
 
 ### 구현 이력
+이번 변경은 기본 숫자 사용량 맵에 기록된 모델 호출 수를 전달하면서 선택적 상세 추적의
+개인정보 경계를 유지합니다. 집중 Core 변환·Console 숫자 해석 검사를 통과했고, 작업 소유
+의미·진단 검사 916개가 통과했습니다. 실제 소스에 결속된 화면 측정은 아직 수행하지 않았으며,
+Incident 또는 실행 권한은 바뀌지 않았습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|

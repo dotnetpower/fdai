@@ -418,6 +418,7 @@ export interface ModelTrace {
 export interface ModelUsage {
   readonly prompt_tokens?: number;
   readonly completion_tokens?: number;
+  readonly model_calls?: number;
   readonly total_tokens: number;
 }
 

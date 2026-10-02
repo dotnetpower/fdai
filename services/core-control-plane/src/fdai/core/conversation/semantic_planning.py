@@ -95,7 +95,11 @@ from .semantic_planning_models import (
     SemanticPlanningOutcome,
 )
 from .semantic_planning_plan_dispatch import PlanDispatchResult, dispatch_semantic_plan
-from .semantic_planning_preflight import DIRECT_RESPONSE_PROFILE, SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+from .semantic_planning_preflight import (
+    DIRECT_RESPONSE_PROFILE,
+    SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
+    primary_read_candidate,
+)
 from .semantic_planning_preflight import preflight_descriptor_intent as _preflight_descriptor_intent
 from .semantic_planning_preflight_router import PreflightDirectResponseRouter
 from .semantic_planning_preflight_service import SemanticPlanningPreflightMixin
@@ -239,6 +243,17 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                     purpose=purpose,
                     stored_reference_context=stored_reference_context,
                 )
+            if (
+                ticket is not None
+                and ticket.typed_only
+                and primary_read_candidate(preflight_router.effective_result)
+            ):
+                primary = ticket.primary_read_outcome(
+                    manifest_digest=manifest_digest, observations=model_observations
+                )
+                if primary is not None:
+                    _LOGGER.info("semantic_planning_reused_primary_read")
+                    return preflight_router.finish(primary)
             selected = self._selector.select(
                 utterance=utterance,
                 manifest=manifest,

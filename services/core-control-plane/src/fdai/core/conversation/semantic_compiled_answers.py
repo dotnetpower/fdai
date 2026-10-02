@@ -144,6 +144,23 @@ class CompiledAnswerTicket:
             return None
         return self._answer(*selected, manifest_digest=manifest_digest)
 
+    def primary_read_outcome(
+        self, *, manifest_digest: str, observations: MutableSequence[Any]
+    ) -> SemanticPlanningOutcome | None:
+        """Reuse a typed-only direct read agreed by both blind readers, never their authority."""
+
+        if not self.typed_only:
+            return None
+        try:
+            observation = self._future.result(timeout=max(0.0, self._deadline - self._clock()))
+        except Exception:  # noqa: BLE001 - the ordinary consumer records the typed failure
+            self._select(observations)
+            return typed_only_outcome(self, manifest_digest=manifest_digest)
+        if not observation.primary_read:
+            return None
+        compiled = self.outcome(manifest_digest=manifest_digest, observations=observations)
+        return compiled or typed_only_outcome(self, manifest_digest=manifest_digest)
+
     def outcome_over_clarification(
         self,
         *,

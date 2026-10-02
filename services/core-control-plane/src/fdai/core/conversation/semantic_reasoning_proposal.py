@@ -11,7 +11,7 @@ from __future__ import annotations
 import copy
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ValidationError
 
@@ -19,6 +19,8 @@ from .semantic_reasoning_form import SemanticQuestionForm
 
 MAX_QUOTE_CHARS = 512
 MAX_OCCURRENCE = 16
+RequestKind = Literal["direct_read", "action", "quoted", "hypothetical", "unclear"]
+REQUEST_KINDS = ("direct_read", "action", "quoted", "hypothetical", "unclear")
 _QUOTED_SPAN_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -50,6 +52,7 @@ class FormResolution:
     form: SemanticQuestionForm | None
     reasons: tuple[str, ...]
     notes: tuple[str, ...] = ()
+    request_kind: RequestKind | None = None
 
 
 def question_form_proposal_schema() -> dict[str, Any]:
@@ -60,6 +63,12 @@ def question_form_proposal_schema() -> dict[str, Any]:
     if "SourceSpan" not in definitions:
         raise ValueError("question form schema has no SourceSpan definition")
     definitions["SourceSpan"] = copy.deepcopy(_QUOTED_SPAN_SCHEMA)
+    schema["properties"]["request_kind"] = {
+        "type": ["string", "null"],
+        "enum": [*REQUEST_KINDS, None],
+        "description": "Classify the actual request, not a quoted request or imagined action.",
+    }
+    schema["required"] = [*schema.get("required", ()), "request_kind"]
     return schema
 
 
@@ -72,6 +81,9 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
         return FormResolution(None, ("form_payload_invalid",))
     failures: list[str] = []
     notes: list[str] = []
+    request_kind = payload.pop("request_kind", None)
+    if request_kind is not None and request_kind not in REQUEST_KINDS:
+        return FormResolution(None, ("request_kind_invalid",))
     mentions = payload.get("mentions")
     goals = payload.get("goals")
     if not isinstance(mentions, list) or not isinstance(goals, list):
@@ -113,7 +125,9 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
         return FormResolution(None, tuple(dict.fromkeys(failures)), tuple(notes[:16]))
     measure_words_to_cue(mentions, goals)
     try:
-        return FormResolution(SemanticQuestionForm.model_validate(payload), ())
+        return FormResolution(
+            SemanticQuestionForm.model_validate(payload), (), request_kind=request_kind
+        )
     except ValidationError as exc:
         errors = exc.errors(include_input=False, include_url=False, include_context=False)
         fields = sorted({_path(error["loc"]) for error in errors})

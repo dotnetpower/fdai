@@ -237,6 +237,7 @@ describe("buildTrajectoryPresentation", () => {
         prompt_tokens: 1600,
         completion_tokens: 142,
         total_tokens: 1742,
+        model_calls: 6,
       },
     }));
 
@@ -244,6 +245,8 @@ describe("buildTrajectoryPresentation", () => {
     expect(result.totalTokens).toBe(1742);
     expect(result.inputTokens).toBe(1600);
     expect(result.outputTokens).toBe(142);
+    expect(result.modelCallCount).toBe(6);
+    expect(result.modelCallCountRecorded).toBe(true);
   });
 
   it("keeps missing usage distinct from measured zero", () => {

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ee6778373e1487aeb534cca7fab301e7099362e4
+translation_source_sha: d912799f761c129201e407c443bcab8a3a7ead44
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -46,6 +46,9 @@ shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 �
 정확한 입력과 판독기별로 분리된 캐시는 관측 상태, 인가 결정, 이전 요청의 의미를 저장하지
 않습니다. Azure 전달 계층은 무손실 카탈로그 프롬프트 표현을 소유하고, Operator와 Console은
 새 작성자, 서비스, 권한 경로 없이 측정된 시간과 사용량만 표시합니다.
+같은 `typed_only` 경계는 독립적으로 확인된 직접 읽기를 기존 판단 전에 재사용할 수 있습니다.
+행동, 인용, 가정, 결속된 문맥, 필수 문서 요청은 기존 검사를 유지합니다. 숫자 호출 계측은
+프롬프트 수집이나 실행 권한을 추가하지 않습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

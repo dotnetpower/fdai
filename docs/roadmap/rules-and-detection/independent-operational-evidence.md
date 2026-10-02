@@ -21,6 +21,9 @@ owners keep consuming them through the unchanged admission seam.
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.
 
 ## Design at a glance
+Conversation model-call counts, token usage, and local per-call timing are diagnostic metadata.
+They cannot issue an admission, replace any source readback, qualify operational evidence,
+or prove human authorization. Adding numeric usage telemetry leaves this verifier boundary unchanged.
 
 Eleven purpose ids across eight decision slices already require an exact `DecisionEvidenceAdmission` (a
 short-lived, no-authority eligibility record that exists only after five independent proofs), but nothing

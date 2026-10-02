@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: c47efc42ce6aaadfcb9ba42eb892d1e470073b22
+translation_source_sha: ae899b9b9d23594ff7e014ed4b68d6ae74cef899
 translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
@@ -22,6 +22,9 @@ translation_revised: 2026-10-02
 > 어떤 에이전트의 `owns`나 `subscribes`도 바꾸지 않으며, 실행 권한이나 승격 권한을 부여하지 않습니다.
 
 ## 설계 요약
+대화 모델 호출 수, 토큰 사용량, 로컬 호출별 시간은 진단 메타데이터입니다. 검증 증적을
+발급하거나 출처 재확인을 대체하거나 운영 근거를 입증하거나 사람의 인가를 증명할 수
+없습니다. 숫자 사용량 계측을 추가해도 이 검증기 경계는 바뀌지 않습니다.
 
 여덟 개 판단 영역에 걸친 목적 id 열한 개는 이미 정확한 `DecisionEvidenceAdmission`(다섯 가지 독립 증명을
 거친 뒤에만 생기는, 권한 없는 단기 적격성 기록)을 요구하지만 이를 발급하는 곳이 없습니다. 자체 워크로드

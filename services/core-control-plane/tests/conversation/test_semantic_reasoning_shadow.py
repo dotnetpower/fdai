@@ -246,6 +246,33 @@ async def test_unavailable_or_malformed_concept_choices_are_never_reused(answer:
     assert calls == [1, 1]
 
 
+@pytest.mark.parametrize(
+    ("proposed", "reviewed", "eligible"),
+    [
+        ("direct_read", "direct_read", True),
+        (None, "direct_read", False),
+        ("direct_read", None, False),
+        ("direct_read", "action", False),
+        ("quoted", "direct_read", False),
+        ("hypothetical", "hypothetical", False),
+    ],
+)
+async def test_primary_read_requires_explicit_blind_agreement(
+    proposed: str | None, reviewed: str | None, eligible: bool
+) -> None:
+    model = _Model(
+        [_quoted_form(request_kind=proposed)],
+        {"m2": ["group:compute-vm"]},
+        extraction={
+            "constraints": [{"quote": {"text": "How", "occurrence": 1}, "role": "asks"}],
+            "request_kind": reviewed,
+        },
+    )
+    result = await _run(model)
+    assert result.released
+    assert result.primary_read is eligible
+
+
 async def _run(model: _Model, *, account_spans: bool = False, **budget: Any) -> Any:
     """Run the shadow over the fixture; word accounting is off unless a test checks it."""
 
@@ -436,7 +463,10 @@ async def test_concept_request_losslessly_compacts_every_candidate() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured.update(json.loads(request.content))
-        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(answer)}}]})
+        encoded_answer = {**answer, "choices": [{"mention": "m1", "candidate_ids": ["c0"]}]}
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(encoded_answer)}}]}
+        )
 
     result = await _adapter(handler).choose_concepts(
         utterance="List example types",
@@ -447,10 +477,17 @@ async def test_concept_request_losslessly_compacts_every_candidate() -> None:
     payload = json.loads(captured["messages"][1]["content"])
     compact = payload["shard"]
     restored = {
-        **{key: value for key, value in compact.items() if key != "candidate_columns"},
+        **{
+            key: value
+            for key, value in compact.items()
+            if key not in {"candidate_columns", "candidate_id_encoding"}
+        },
         "candidates": [
-            dict(zip(compact["candidate_columns"], row, strict=True))
-            for row in compact["candidates"]
+            {
+                **dict(zip(compact["candidate_columns"], row, strict=True)),
+                "id": shard.candidates[index].id,
+            }
+            for index, row in enumerate(compact["candidates"])
         ],
     }
     assert restored == shard.payload()
@@ -462,7 +499,32 @@ async def test_concept_request_losslessly_compacts_every_candidate() -> None:
     assert len(encoded(compact)) < len(encoded(restored))
     choice_schema = captured["response_format"]["json_schema"]["schema"]
     allowed = choice_schema["properties"]["choices"]["items"]["properties"]["candidate_ids"]
-    assert set(allowed["items"]["enum"]) == {candidate.id for candidate in shard.candidates}
+    assert set(allowed["items"]["enum"]) == {f"c{index}" for index in range(len(shard.candidates))}
+
+
+@pytest.mark.parametrize("reference", ("c999", "value:compute.vm", 1))
+async def test_unknown_or_nonopaque_concept_reference_never_binds(reference: Any) -> None:
+    shard = ConceptShard(
+        MentionDomain.RESOURCE_TYPE,
+        0,
+        1,
+        (ConceptCandidate("value:compute.vm", ("compute.vm",), ("VM",)),),
+        "sha256:" + "a" * 64,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        answer = {
+            "shard_digest": shard.digest,
+            "choices": [{"mention": "m1", "candidate_ids": [reference]}],
+        }
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(answer)}}]})
+
+    assert (
+        await _adapter(handler).choose_concepts(
+            utterance="VMs", mentions=({"mention": "m1", "text": "VMs"},), shard=shard
+        )
+        is None
+    )
 
 
 async def test_adapter_returns_none_for_transport_or_malformed_output() -> None:

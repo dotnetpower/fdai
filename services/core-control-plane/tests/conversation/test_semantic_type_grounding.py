@@ -252,7 +252,7 @@ def test_injected_binding_is_limited_to_declared_values() -> None:
 def test_every_catalog_candidate_is_presented_exactly_once() -> None:
     manifest, _definition = _typed_fixture(groups=(_CONTAINER_APP_GROUP, _VM_GROUP))
 
-    plan = type_selection_plan((_PHRASE,), manifest.descriptors, max_shard_bytes=256)
+    plan = type_selection_plan((_PHRASE,), manifest.descriptors, max_shard_bytes=400)
 
     assert plan is not None
     presented = [

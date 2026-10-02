@@ -36,6 +36,23 @@ The compiler and verifier are mechanical Core components inside the Bragi-owned 
 calls, and publish nothing; Saga keeps the turn audit. A supported form replaces the capability-named intent and the model-authored frame and plan,
 and an unsupported form returns the exact missing atom and reason instead of the nearest capability.
 
+### Single-meaning read admission
+
+In the existing typed-only development path, a released read compilation may replace the
+parallel capability-named judgment only when the form proposer and its blind independent
+constraint reader both explicitly classify the request as a direct read. Missing, quoted,
+hypothetical, action-related, or disagreeing classifications retain the existing judgment
+path. Bound investigations, resource contexts, and required-document turns are excluded.
+Principal and purpose checks run before either path; fresh plan verification and all
+constraint, catalog, reference, and evidence checks remain mandatory.
+
+Critique rejected using preflight confidence as authority or simply consuming a compiled
+ticket earlier: neither proves discourse or preserves action-draft handling. Explicit
+independent read admission is the revised gate. Input packing and shard batching preserve
+the complete candidate population and existing budgets. Content-free per-call accounting
+must distinguish actual provider calls from reused results; live speed and token claims
+require an exact-source bounded before/after comparison.
+
 ## Verified baseline
 
 The review traced one turn from `SemanticPlanningService.plan` in
@@ -237,6 +254,10 @@ tests do not establish a live speedup. [Timing and accounting](narrator-routing-
 records the measured-work boundary.
 
 ### Anchor binding
+Candidate references in model input are shard-local opaque positions. The adapter converts only
+presented references back to canonical candidate ids under the original shard digest and refuses
+foreign references. Shards account for their complete transmitted representation, including
+headers; every candidate remains represented once, and an oversized candidate holds the stage.
 
 An `identifier` or `name` mention with domain `instance` becomes an anchor. Binding is a two-phase protocol:
 

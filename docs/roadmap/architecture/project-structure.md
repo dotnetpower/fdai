@@ -45,6 +45,9 @@ Question-form concept-choice reuse is owned by Core conversation processing and 
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or
 cross-turn meaning. Azure delivery owns lossless catalog prompt encoding; Operator and Console
 only display measured timing and usage, without another writer, service, or authority path.
+The same typed-only boundary may reuse an independently certified direct read before legacy
+judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
+existing gates. Numeric call accounting adds no prompt capture or execution authority.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.

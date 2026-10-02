@@ -199,6 +199,7 @@ class ReasoningShadowObservation:
     compilations: tuple[ReasoningCompilation, ...] = field(default=(), repr=False)
     # Content-free cost of the turn's direction readers, split by reader count.
     direction_cost: DirectionCostReceipt | None = None
+    primary_read: bool = False
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -246,6 +247,7 @@ class _CountingModel:
         self.direction_calls = 0
         self.tiebreak_calls = 0
         self._concept_choices: dict[str, Mapping[str, Any]] = {}
+        self.request_kinds: list[str | None] = []
 
     @property
     def calls(self) -> int:
@@ -253,7 +255,9 @@ class _CountingModel:
 
     async def propose_form(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.form_calls += 1
-        return await self._inner.propose_form(**kwargs)
+        answer = await self._inner.propose_form(**kwargs)
+        self.request_kinds.append(answer.get("request_kind") if answer is not None else None)
+        return answer
 
     async def choose_concepts(
         self,
@@ -507,6 +511,14 @@ async def run_reasoning_shadow(
             notes=tuple(notes),
             compilations=tuple(compilations),
             direction_cost=_direction_cost(counting),
+            primary_read=(
+                complete
+                and review is not None
+                and review.faithful
+                and review.primary_read
+                and bool(counting.request_kinds)
+                and all(kind == "direct_read" for kind in counting.request_kinds)
+            ),
         )
     finally:
         # A cancelled or failed turn never leaves the extraction's provider call running.

@@ -205,6 +205,10 @@ Input, output, and total tokens are displayed independently. A missing split sta
 never zero. Exact call counts use a captured trace, including omitted calls, or complete
 server-owned turn-budget accounting; an incomplete budget never becomes an exact count.
 These displays require no prompt-content capture, new model request, or execution authority.
+The existing numeric usage map also carries recorded model-call count without detailed trace
+capture. Local development diagnostics retain bounded per-call durations and input/output token
+counts for grounding as well as their grouped summary; omitted call details are counted explicitly.
+Neither diagnostic capture nor a missing usage field manufactures token or billing evidence.
 
 ## Synthetic chat and prompt inspection
 
