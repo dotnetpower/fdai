@@ -700,8 +700,10 @@ creating revision. The signed source evidence carries both the kit's `source_com
 retained `foundation_source_commit`, so source verification accepts exactly those two revisions.
 The continuation re-verifies completed Foundation checkpoints under the revision that created them,
 including the retained runner-image receipt, and already satisfied effects are recovered through
-their retained claims and independent readback instead of being repeated. It
-refuses to approve a new Foundation plan under the retained lineage, because a plan computed from
+their retained claims and independent readback instead of being repeated. The
+coordinator then rebuilds a no-effect Foundation adoption receipt from that retained, verified
+chain and binds it to the newer kit, so the managed host accepts the kit only through that
+evidence. It refuses to approve a new Foundation plan under the retained lineage, because a plan computed from
 the newer kit must not carry the older revision's provenance. A Foundation configuration change
 therefore needs a reviewed lineage transition, which isn't implemented yet. Application plans
 keep the existing rule: the invocation approves the non-destructive exact plan it shows, and
