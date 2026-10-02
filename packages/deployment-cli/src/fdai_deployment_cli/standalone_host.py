@@ -13,7 +13,6 @@ import stat
 import subprocess
 import sys
 import uuid
-from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
@@ -22,17 +21,11 @@ from urllib.parse import urlencode
 from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
 
 from fdai_deployment_cli import (
+    aks_readiness,
     catalog_review_profile,
     standalone_host_values,
     standalone_planned_outputs,
     standalone_terraform_environment,
-)
-from fdai_deployment_cli.standalone_aks_nodepool_guard import (
-    guard_existing_runtime_node_pools as _guard_existing_runtime_node_pools,
-)
-from fdai_deployment_cli.standalone_checkpoint_failure import (
-    failure_record as _failure_record,
-    terraform_failure as _terraform_failure,
 )
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli.aks_historical_reconciliation import (
@@ -40,7 +33,6 @@ from fdai_deployment_cli.aks_historical_reconciliation import (
     secret_binding_reordered,
     validate_reconciliation_plan,
 )
-from fdai_deployment_cli import aks_readiness
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
 )
@@ -64,10 +56,6 @@ from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
     legacy_runtime_profile_digest,
 )
-from fdai_deployment_cli.standalone_product_profile import (
-    context_selects_add_on as _selects_add_on,
-)
-from fdai_deployment_cli.standalone_product_profile import product_terraform_values
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
 )
@@ -77,14 +65,15 @@ from fdai_deployment_cli.standalone_aks_inventory import (
 from fdai_deployment_cli.standalone_aks_inventory import (
     run_initial_aks_inventory as _initial_aks_inventory,
 )
-from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
-from fdai_deployment_cli.standalone_license_installation import (
-    aks_license_environment,
-    install_license,
+from fdai_deployment_cli.standalone_aks_nodepool_guard import (
+    guard_existing_runtime_node_pools as _guard_existing_runtime_node_pools,
 )
-from fdai_deployment_cli.standalone_trial_activation import (
-    activate_trial,
-    deployment_binding_digest,
+from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
+from fdai_deployment_cli.standalone_checkpoint_failure import (
+    failure_record as _failure_record,
+)
+from fdai_deployment_cli.standalone_checkpoint_failure import (
+    terraform_failure as _terraform_failure,
 )
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
@@ -116,22 +105,11 @@ from fdai_deployment_cli.standalone_host_state import (
 from fdai_deployment_cli.standalone_host_state import (
     replace_private_json as _replace_private_json,
 )
-from fdai_deployment_cli.standalone_stage_targets import (
-    database_placement as _database_placement,
-    focused_private_access as _focused_private_access,
-    not_required_recovery as _not_required_recovery,
-    operation_targets as _operation_targets,
-    reconcile_retained_private_access as _reconcile_retained_private_access,
-    runtime_operation as _runtime_operation,
-    stage_targets as _stage_targets,
-)
 from fdai_deployment_cli.standalone_host_values import (
     AKS_CORE_STARTUP_READINESS,
     aks_operator_environment,
     aks_operator_request_receipts,
 )
-from fdai_deployment_cli.standalone_management_egress import management_egress_cidrs
-from fdai_deployment_cli.standalone_migration_evidence import verify_service_evidence
 from fdai_deployment_cli.standalone_host_values import (
     console_origin as _console_origin,
 )
@@ -150,6 +128,23 @@ from fdai_deployment_cli.standalone_host_values import (
 from fdai_deployment_cli.standalone_host_values import (
     vault_name as _vault_name,
 )
+from fdai_deployment_cli.standalone_license_installation import (
+    aks_license_environment,
+    install_license,
+)
+from fdai_deployment_cli.standalone_management_egress import management_egress_cidrs
+from fdai_deployment_cli.standalone_migration_evidence import verify_service_evidence
+from fdai_deployment_cli.standalone_operational_evidence import (
+    add_aks_operational_evidence_verifier_workload as _add_aks_operational_evidence_verifier_workload,
+)
+from fdai_deployment_cli.standalone_operational_evidence import aks_workload as _aks_workload
+from fdai_deployment_cli.standalone_operational_evidence import (
+    runtime_principal_ids_with_operational_evidence_verifier as _runtime_principal_ids,
+)
+from fdai_deployment_cli.standalone_product_profile import (
+    context_selects_add_on as _selects_add_on,
+)
+from fdai_deployment_cli.standalone_product_profile import product_terraform_values
 from fdai_deployment_cli.standalone_residual_apply import (
     apply_residual_plan as _apply_residual_plan,
 )
@@ -165,11 +160,36 @@ from fdai_deployment_cli.standalone_residual_apply import (
 from fdai_deployment_cli.standalone_residual_apply import (
     seal_terraform_plan as _seal_terraform_plan,
 )
+from fdai_deployment_cli.standalone_stage_targets import (
+    database_placement as _database_placement,
+)
+from fdai_deployment_cli.standalone_stage_targets import (
+    focused_private_access as _focused_private_access,
+)
+from fdai_deployment_cli.standalone_stage_targets import (
+    not_required_recovery as _not_required_recovery,
+)
+from fdai_deployment_cli.standalone_stage_targets import (
+    operation_targets as _operation_targets,
+)
+from fdai_deployment_cli.standalone_stage_targets import (
+    reconcile_retained_private_access as _reconcile_retained_private_access,
+)
+from fdai_deployment_cli.standalone_stage_targets import (
+    runtime_operation as _runtime_operation,
+)
+from fdai_deployment_cli.standalone_stage_targets import (
+    stage_targets as _stage_targets,
+)
 from fdai_deployment_cli.standalone_terraform_environment import (
     configure_terraform as _configure_terraform,
 )
 from fdai_deployment_cli.standalone_terraform_environment import (
     terraform_configuration as _terraform_configuration,
+)
+from fdai_deployment_cli.standalone_trial_activation import (
+    activate_trial,
+    deployment_binding_digest,
 )
 from fdai_deployment_cli.target import compute_target_binding
 
@@ -717,10 +737,7 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     identities = _terraform_json_output(substrate, "runtime_identity_bindings")
     if not isinstance(identities, dict):
         raise TypeError("AKS runtime identity output contract is invalid")
-    principals = {
-        str(_mapping(identities.get(name), f"{name} runtime identity")["principal_id"])
-        for name in ("core", "operator", "executor", "inventory")
-    }
+    principals = _runtime_principal_ids(identities, ("core", "operator", "executor", "inventory"))
     ingestion_identity = _mapping(identities.get("ingestion"), "ingestion runtime identity")
     ingestion_worker_identity = _mapping(
         identities.get("ingestion_worker"), "ingestion worker runtime identity"
@@ -884,6 +901,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "installation_binding": _terraform_output(substrate, "installation_binding"),
         "operator_request_receipts": _terraform_json_output(
             substrate, "operator_request_receipt_binding"
+        ),
+        "operational_evidence_verifier_identity": _terraform_json_output(
+            substrate, "operational_evidence_verifier_identity"
         ),
     }
     if _database_placement(context) == "postgres-flex":
@@ -1066,6 +1086,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
                 console_origin=console_origin,
             )
         )
+    _add_aks_operational_evidence_verifier_workload(
+        workloads,
+        refs=refs,
+        identities=identities,
+        substrate_outputs=substrate_outputs,
+        context=context,
+        application_values=application_values,
+    )
     for workload in workloads.values():
         workload["source_commit"] = context["source_commit"]
     job_preparation = _prepare_aks_scheduled_jobs(
@@ -1164,7 +1192,7 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
     selected = _mapping(workloads[service], f"AKS workload {service}")
     current_image = selected.get("image")
     if not isinstance(current_image, str):
-        raise ValueError("AKS service update current image is invalid")
+        raise TypeError("AKS service update current image is invalid")
     validate_update_request(
         service=service,
         image=str(args.image),
@@ -1519,7 +1547,7 @@ def _adopt_historical_aks_application(
         )
     )
     if not isinstance(remote_state, dict):
-        raise ValueError("historical AKS remote state readback is invalid")
+        raise TypeError("historical AKS remote state readback is invalid")
     if (
         remote_state.get("lineage") != baseline["state_lineage"]
         or type(remote_state.get("serial")) is not int
@@ -1530,7 +1558,7 @@ def _adopt_historical_aks_application(
         raise ValueError("historical AKS remote state differs from retained evidence")
     observed_live = json.loads(_capture_aks_deployments(context))
     if not isinstance(observed_live, dict):
-        raise ValueError("historical AKS live readback is invalid")
+        raise TypeError("historical AKS live readback is invalid")
     current_variables = reconciled_variables(
         state=state,
         variables=variables,
@@ -1571,7 +1599,7 @@ def _adopt_historical_aks_application(
         )
     )
     if not isinstance(current_plan_document, dict):
-        raise ValueError("historical AKS current plan projection is invalid")
+        raise TypeError("historical AKS current plan projection is invalid")
     if current_plan.returncode == 2:
         mutations = validate_reconciliation_plan(
             current_plan_document,
@@ -1822,7 +1850,7 @@ def _historical_state_workloads(resources: list[object]) -> dict[str, dict[str, 
         image = selected[0].get("image")
         source_commit = labels.get("fdai.io/source-commit")
         if not isinstance(image, str) or not isinstance(source_commit, str):
-            raise ValueError("historical AKS Terraform rollout identity is invalid")
+            raise TypeError("historical AKS Terraform rollout identity is invalid")
         result[name] = {"image": image, "source_commit": source_commit}
     if set(result) != set(AKS_SERVICES):
         raise ValueError("historical AKS Terraform workload inventory is incomplete")
@@ -2140,7 +2168,7 @@ def _validate_historical_reconciliation_plan(
         )
     )
     if not isinstance(document, dict):
-        raise ValueError("historical AKS reconciliation plan projection is invalid")
+        raise TypeError("historical AKS reconciliation plan projection is invalid")
     mutations = validate_reconciliation_plan(
         document,
         variables=_private_json(variables_path, "historical AKS reconciliation variables"),
@@ -3020,8 +3048,8 @@ def _validate_source_image_import_approval(
     ):
         raise ValueError("source service image import approval is invalid")
     try:
-        approved_at = datetime.fromisoformat(str(approval["approved_at"]).replace("Z", "+00:00"))
-        expires_at = datetime.fromisoformat(str(approval["expires_at"]).replace("Z", "+00:00"))
+        approved_at = datetime.fromisoformat(str(approval["approved_at"]))
+        expires_at = datetime.fromisoformat(str(approval["expires_at"]))
     except ValueError as exc:
         raise ValueError("source service image import approval is invalid") from exc
     now = datetime.now(UTC)
@@ -3609,73 +3637,6 @@ def _prepare_aks_kubeconfig(
         ] != [expected]:
             raise ValueError("AKS authentication does not match the managed host identity")
     return kubeconfig
-
-
-def _aks_workload(
-    component: str,
-    refs: dict[str, Any],
-    identity: dict[str, Any],
-    environment: Mapping[str, object],
-    secret_environment: Mapping[str, str],
-    readiness_path: str,
-    liveness_path: str,
-    *,
-    external: bool = False,
-    service_port: int | None = None,
-    fs_group: int | None = None,
-    additional_identities: dict[str, dict[str, Any]] | None = None,
-    sidecars: dict[str, dict[str, object]] | None = None,
-) -> dict[str, object]:
-    image_names = {
-        "core": "core-control-plane",
-        "operator": "operator-service",
-        "executor": "isolated-executor",
-        "ingestion": "document-ingestion-api",
-        "worker": "document-processing-worker",
-    }
-    image_name = image_names.get(component)
-    if image_name is None or not isinstance(refs.get(image_name), str):
-        raise ValueError(f"AKS {component} workload image is unavailable")
-    cpu, memory = {
-        "core": ("1000m", "2Gi"),
-        "operator": ("500m", "1Gi"),
-        "executor": ("500m", "1Gi"),
-        "ingestion": ("500m", "1Gi"),
-        "worker": ("500m", "1Gi"),
-    }[component]
-    runtime_environment = {name: str(value) for name, value in environment.items()}
-    runtime_environment["FDAI_EXECUTION_VENUE"] = "deployed"
-    database_role = {
-        "operator": "fdai_operator",
-        "executor": "fdai_executor",
-        "ingestion": "fdai_ingestion_api",
-        "worker": "fdai_ingestion_worker",
-    }.get(component)
-    if database_role is not None:
-        runtime_environment["FDAI_DATABASE_ROLE"] = database_role
-        runtime_environment["PGOPTIONS"] = f"-c role={database_role}"
-    return {
-        "component": component,
-        "image": refs[image_name],
-        "identity_resource_id": identity["resource_id"],
-        "identity_client_id": identity["client_id"],
-        "additional_identities": additional_identities or {},
-        "command": [],
-        "args": [],
-        "replicas": 2,
-        "max_replicas": 4,
-        "cpu": cpu,
-        "memory": memory,
-        "port": 8000,
-        "service_port": service_port,
-        "external": external,
-        "readiness_path": readiness_path,
-        "liveness_path": liveness_path,
-        "fs_group": fs_group,
-        "environment": runtime_environment,
-        "secret_environment": secret_environment,
-        "sidecars": sidecars or {},
-    }
 
 
 def _aks_document_workloads(

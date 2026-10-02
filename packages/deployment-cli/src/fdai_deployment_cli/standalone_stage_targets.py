@@ -24,6 +24,7 @@ _SUBSTRATE_TARGETS: Final = (
     "module.command_api_identity",
     "module.inventory_identity",
     "module.canary_identity",
+    "module.operational_evidence_verifier_identity",
     "module.operator_api_identity",
     "module.isolated_executor_identity",
     "module.ingestion_identity",
@@ -52,6 +53,8 @@ _SUBSTRATE_TARGETS: Final = (
     "azurerm_role_assignment.inventory_stage_sender",
     "azurerm_role_assignment.inventory_eventhubs_raw_sender",
     "azurerm_role_assignment.canary_eventhubs_sender",
+    "azurerm_role_assignment.operational_evidence_verifier_acr_pull",
+    "azurerm_role_assignment.operational_evidence_verifier_state_store_secret_reader",
     "azurerm_role_assignment.inventory_kv_secrets_user",
     "azurerm_role_assignment.operator_api_kv_secrets_user",
     "azurerm_role_assignment.isolated_executor_kv_secrets_user",
@@ -309,5 +312,6 @@ def substrate_targets(context: dict[str, object]) -> tuple[str, ...]:
         "azurerm_role_assignment.inventory_kv_secrets_user",
         "azurerm_role_assignment.operator_api_kv_secrets_user",
         "azurerm_role_assignment.isolated_executor_kv_secrets_user",
+        "azurerm_role_assignment.operational_evidence_verifier_state_store_secret_reader",
     }
     return tuple(target for target in _SUBSTRATE_TARGETS if target not in excluded)
