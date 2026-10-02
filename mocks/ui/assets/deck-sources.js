@@ -8,6 +8,7 @@
   var DAY = "2026-09-28";
   var STUDY = document.body.getAttribute("data-study") === "adaptive" ? "adaptive" : "sources";
   var ADAPTIVE = STUDY === "adaptive";
+  var READABLE = document.body.getAttribute("data-sources-layout") === "readable";
   var ROUTE = ADAPTIVE ? "Inventory" : "Live cockpit";
   var QUESTION = ADAPTIVE
     ? "Compare the configuration in example-inventory.md with the live example-rg-app resource group."
@@ -1053,6 +1054,10 @@
 
   function sourcesPanel(spec, turnId) {
     return h("div", { class: "cs-deck-sources", id: turnId + "-sources", hidden: true }, [
+      READABLE ? h("div", { class: "ds-evidence-heading" }, [
+        h("h3", { text: "Answer evidence" }),
+        h("button", { type: "button", class: "ds-evidence-return", "data-action": "return-answer", text: "Back to answer" })
+      ]) : null,
       h("ol", { class: "cs-deck-source-list", "aria-label": "Sources for this answer" }, spec.sources.map(function (key, index) {
         var source = SOURCES[key];
         var number = String(index + 1);
@@ -1064,6 +1069,8 @@
         var tool = TOOLS[key];
         var facts = [["Access", "Read-only"], ["Opens", pageLabel(source.href)]];
         if (tool) facts.unshift(["Read with", tool.tool]);
+        var displayTitles = { rule: "Point-in-time restore rule", policy: "Backup retention policy", action: "Enable backup protection" };
+        if (READABLE) facts.unshift(["Identifier", source.title]);
         return h("li", null, [
           h("button", {
             type: "button",
@@ -1076,10 +1083,13 @@
             h("span", { class: "cs-deck-source-num", "aria-hidden": "true", text: number }),
             h("span", { class: "cs-deck-kind", text: source.kind }),
             h("span", { class: "cs-deck-source-copy" }, spaced([
-              h("span", { class: "cs-deck-source-title", text: source.title }),
+              h("span", { class: "cs-deck-source-title", text: READABLE ? displayTitles[key] || source.title : source.title }),
               h("span", { class: "cs-deck-source-meta", text: source.meta })
             ])),
-            when
+            READABLE ? h("span", { class: "ds-source-stamp" }, [
+              h("span", { text: source.time ? "Observed" : source.unavailable ? "Status" : "Version" }), when
+            ]) : when,
+            READABLE ? h("span", { class: "ds-source-chevron", "aria-hidden": "true" }, [icon("chevron")]) : null
           ])),
           h("div", { class: "cs-deck-source-detail", id: detailId, hidden: true }, [
             h("dl", { class: "cs-deck-source-facts" }, facts.map(function (pair) {
@@ -1153,6 +1163,22 @@
       ]);
     }
     var unavailable = (SCENARIOS[mode] || SCENARIOS.grounded).unavailableSources;
+    if (READABLE) {
+      return h("details", { class: "ds-services" }, [
+        h("summary", null, [
+          h("span", { text: "Evidence services" }),
+          h("strong", { class: unavailable.length ? "ds-status-attention" : "", text: (READINESS.length - unavailable.length) + "/" + READINESS.length + " available" }),
+          unavailable.length ? h("span", { class: "ds-status-attention", text: unavailable.map(function (key) { return READINESS.find(function (item) { return item.key === key; }).label; }).join(", ") + " unavailable" }) : null
+        ]),
+        h("nav", { "aria-label": "Evidence services" }, [
+          h("ul", null, READINESS.map(function (source) {
+            var down = unavailable.indexOf(source.key) >= 0;
+            return h("li", null, [h("a", { href: source.href }, [source.label]), h("span", { class: down ? "ds-status-attention" : "", text: down ? "Unavailable" : "Available" })]);
+          })),
+          h("time", { datetime: DAY + "T10:41:04Z", text: "Observed: " + DAY + " 10:41:04 UTC" })
+        ])
+      ]);
+    }
     var items = READINESS.map(function (source) {
       var down = unavailable.indexOf(source.key) >= 0;
       return h("li", null, [h("a", {
@@ -1675,16 +1701,85 @@
     return row;
   }
 
+  function evidenceComparison(spec, turnId) {
+    var inventoryKey = spec.sources.indexOf("inventory") >= 0 ? "inventory" : spec.sources.indexOf("inventoryNew") >= 0 ? "inventoryNew" : null;
+    if (spec.sources.indexOf("rule") < 0) return null;
+    var current = inventoryKey ? TOOLS[inventoryKey].output.backup_retention_days + " days" : "Unknown";
+    return h("table", { class: "ds-comparison" }, [
+      h("caption", { text: "Backup retention" }),
+      h("thead", null, [h("tr", null, [h("th", { scope: "col", text: "Observed" }), h("th", { scope: "col", text: "Required" }), h("th", { scope: "col", text: "Evidence state" })])]),
+      h("tbody", null, [h("tr", null, [
+        h("td", null, [h("strong", { text: current }), citation(inventoryKey || "inventoryDown", spec, turnId, true)]),
+        h("td", null, [TOOLS.rule.output.parameters.min_retention_days + " days", citation("rule", spec, turnId, true)]),
+        h("td", { text: spec === SCENARIOS.conflict ? "Unresolved conflict" : inventoryKey ? "Below minimum" : "Current state unknown" })
+      ])])
+    ]);
+  }
+
+  function promotionComparison(spec, turnId) {
+    if (spec.sources.indexOf("action") < 0 || (spec.sources.indexOf("promotion") < 0 && spec.sources.indexOf("promotionDown") < 0)) return null;
+    var gate = TOOLS.action.output.promotion_gate;
+    var evidence = spec.sources.indexOf("promotion") >= 0 ? TOOLS.promotion.output : null;
+    var rows = [
+      ["Shadow days", evidence && evidence.shadow_days, gate.min_shadow_days, "minimum"],
+      ["Samples", evidence && evidence.samples, gate.min_samples, "minimum"],
+      ["Accuracy", evidence && evidence.accuracy, gate.min_accuracy, "minimum", "percent"],
+      ["Policy escapes", evidence && evidence.policy_escapes, gate.max_policy_escapes, "maximum"]
+    ];
+    function display(value, unit) { return unit === "percent" ? Math.round(value * 100) + "%" : String(value); }
+    return h("table", { class: "ds-comparison" }, [
+      h("caption", null, ["Promotion requirements ", citation("action", spec, turnId, true), citation(evidence ? "promotion" : "promotionDown", spec, turnId, true)]),
+      h("thead", null, [h("tr", null, ["Condition", "Observed", "Required", "Status"].map(function (label) { return h("th", { scope: "col", text: label }); }))]),
+      h("tbody", null, rows.map(function (row) {
+        var met = evidence && (row[3] === "maximum" ? row[1] <= row[2] : row[1] >= row[2]);
+        return h("tr", null, [h("th", { scope: "row", text: row[0] }), h("td", { text: evidence ? display(row[1], row[4]) : "Unknown" }),
+          h("td", { text: (row[3] === "maximum" ? "At most " : "At least ") + display(row[2], row[4]) }),
+          h("td", { class: !evidence || !met ? "ds-status-attention" : "", text: evidence ? met ? "Met" : "Not met" : "Unknown" })]);
+      }))
+    ]);
+  }
+
   function finalizeTurn(spec, article, answer, turnId, offset, pendingRow, animate) {
     var prose = answer.querySelector(".cs-deck-prose");
     prose.textContent = "";
+    var scenarioLayout = READABLE && Object.keys(SCENARIOS).some(function (key) { return spec === SCENARIOS[key]; });
+    if (scenarioLayout) {
+      answer.insertBefore(h("div", { class: "ds-answer-status" }, [
+        h("strong", { text: spec.verification.label === "Verified" ? "Claims supported" : spec.verification.label }),
+        h("span", { text: spec.verification.detail }),
+        h("span", { text: "Answer evidence, not execution verification" })
+      ]), prose);
+      if (spec.sources.indexOf("verdict") >= 0) prose.appendChild(h("dl", { class: "ds-execution-state" }, [
+        h("div", null, [h("dt", { text: "Backup retention" }), h("dd", null, [TOOLS.inventory.output.backup_retention_days + " days / " + TOOLS.rule.output.parameters.min_retention_days + " required", citation("inventory", spec, turnId, true), citation("rule", spec, turnId, true)])]),
+        h("div", null, [h("dt", { text: "Mode" }), h("dd", null, [TOOLS.verdict.output.mode, citation("verdict", spec, turnId, true)])]),
+        h("div", null, [h("dt", { text: "Execution" }), h("dd", { text: "Not executed" })]),
+        h("div", null, [h("dt", { text: "After promotion" }), h("dd", null, ["Human approval required", citation("action", spec, turnId, true)])])
+      ]));
+    }
     spec.answer.forEach(function (paragraph, index) {
+      var host = prose;
+      if (scenarioLayout) {
+        if (index === 2) {
+          host = h("details", { class: "ds-answer-detail" }, [h("summary", { text: "Approval and safeguards" })]);
+          prose.appendChild(host);
+        } else {
+          prose.appendChild(h("h3", { class: "ds-answer-heading", text: index === 0 ? "Finding" : "Execution and next steps" }));
+        }
+      }
       var node = h("p");
       renderInline(node, paragraph.text, spec, turnId, true);
-      prose.appendChild(node);
+      host.appendChild(node);
       (spec.notes || []).forEach(function (item) {
-        if (item.after === index) prose.appendChild(noteElement(item, spec, turnId, true));
+        if (item.after === index) host.appendChild(noteElement(item, spec, turnId, true));
       });
+      if (scenarioLayout && index === 0) {
+        var comparison = evidenceComparison(spec, turnId);
+        if (comparison) prose.appendChild(comparison);
+      }
+      if (scenarioLayout && index === 1) {
+        var promotion = promotionComparison(spec, turnId);
+        if (promotion) prose.appendChild(promotion);
+      }
     });
     setAnswerState(article, spec.answerState, animate);
     var row = actionRow(spec, turnId);
@@ -2078,12 +2173,17 @@
     var article = cite.closest(".cs-deck-agent-turn");
     var target = document.getElementById(cite.getAttribute("href").slice(1));
     if (!article || !target) return;
+    if (READABLE) {
+      article.sourceReturn = { cite: cite, scrollTop: transcript.scrollTop, pageScrollTop: window.scrollY, wasOpen: article.querySelector(".cs-deck-sources").hidden === false };
+      target.setAttribute("aria-expanded", "true");
+      document.getElementById(target.getAttribute("aria-controls")).hidden = false;
+    }
     setSources(article, true);
     article.querySelectorAll(".cs-deck-source.is-target").forEach(function (node) { node.classList.remove("is-target"); });
     target.classList.add("is-target");
     hideTip();
     target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
+    (READABLE ? target.parentElement : target).scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
     updateJump();
   }
 
@@ -2888,6 +2988,22 @@
     var action = target.getAttribute("data-action");
     if (action === "wave-toggle") {
       toggleWave(target);
+    } else if (action === "return-answer") {
+      var sourceArticle = target.closest(".cs-deck-agent-turn");
+      var origin = sourceArticle.sourceReturn;
+      if (!origin || !origin.wasOpen) setSources(sourceArticle, false);
+      if (origin && origin.cite.isConnected) {
+        transcript.scrollTop = origin.scrollTop;
+        window.scrollTo({ top: origin.pageScrollTop });
+        origin.cite.focus({ preventScroll: true });
+      } else {
+        var answerOrigin = sourceArticle.querySelector(".ds-answer-heading") || sourceArticle.querySelector(".cs-deck-answer");
+        answerOrigin.setAttribute("tabindex", "-1");
+        answerOrigin.focus({ preventScroll: true });
+        answerOrigin.scrollIntoView({ block: "start" });
+      }
+      sourceArticle.sourceReturn = null;
+      updateJump();
     } else if (action === "draft-remediation") {
       previewRequest(target, "Draft a remediation for these differences.",
         "Draft remediation is a separate request. FDAI rechecks the scope, the policy, and whether a typed draft is available before it prepares one, and nothing runs without approval. This preview stops here.");
@@ -2948,16 +3064,44 @@
   });
 
   document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && leave.open) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
+      if (READABLE) setSearchOpen(true);
       searchInput.focus();
       searchInput.select();
-    } else if (event.key === "Escape" && !tip.hidden) {
+    } else if (event.key === "Escape") {
       hideTip();
+      var services = readiness.querySelector(".ds-services[open]");
+      if (services) {
+        services.open = false;
+        services.querySelector("summary").focus({ preventScroll: true });
+      }
+      if (READABLE && header.getAttribute("data-search-open") === "true") {
+        setSearchOpen(false);
+        byId("ds-search-toggle").focus();
+      }
     }
   });
 
   window.addEventListener("resize", hideTip);
+
+  if (READABLE) document.addEventListener("click", function (event) {
+    var services = readiness.querySelector(".ds-services[open]");
+    if (services && !services.contains(event.target) && !leave.open) services.open = false;
+  });
+
+  if (READABLE) {
+    function updateReadableLayout() {
+      var chromeHeight = [header, readiness, composer, byId("ds-preview")].reduce(function (total, node) {
+        return total + node.getBoundingClientRect().height;
+      }, 0);
+      document.body.setAttribute("data-sources-overflow", chromeHeight + 184 > window.innerHeight ? "expanded" : "contained");
+    }
+    var layoutObserver = new ResizeObserver(updateReadableLayout);
+    window.addEventListener("resize", updateReadableLayout);
+    [header, readiness, composer, byId("ds-preview")].forEach(function (node) { layoutObserver.observe(node); });
+  }
 
   searchInput.addEventListener("input", function () {
     window.clearTimeout(search.timer);
@@ -2974,6 +3118,15 @@
 
   searchPrev.addEventListener("click", function () { moveSearch(-1); });
   searchNext.addEventListener("click", function () { moveSearch(1); });
+  function setSearchOpen(open) {
+    header.setAttribute("data-search-open", open ? "true" : "false");
+    byId("ds-search-toggle").setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  if (READABLE) byId("ds-search-toggle").addEventListener("click", function () {
+    var open = header.getAttribute("data-search-open") !== "true";
+    setSearchOpen(open);
+    if (open) searchInput.focus();
+  });
   byId("ds-new").addEventListener("click", newConversation);
   byId("ds-close").addEventListener("click", function () { setOpen(false); });
   reopen.addEventListener("click", function () { setOpen(true); });

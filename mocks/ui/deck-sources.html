@@ -7,11 +7,11 @@
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v4" />
   <link rel="stylesheet" href="../../ui/calm-slate-deck-conversation.css?v=conversation-v44" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <script src="assets/deck-sources.js?v=conversation-v44" defer></script>
-  <link rel="stylesheet" href="assets/deck-study.css?v=study-v2" />
+  <script src="assets/deck-sources.js?v=sources-readable-v3" defer></script>
+  <link rel="stylesheet" href="assets/deck-study.css?v=sources-readable-v3" />
   <link rel="stylesheet" href="assets/chat-current.css?v=11" />
 </head>
-<body data-preserve-page-title data-chat-theme="clear-neutral" data-chat-surface="current" data-deck-state="loading">
+<body data-preserve-page-title data-chat-theme="clear-neutral" data-chat-surface="current" data-deck-state="loading" data-sources-layout="readable">
   <main class="ds-page">
     <h1 class="cs-sr-only">Command deck sources</h1>
 
@@ -73,7 +73,7 @@
             <span class="ds-header-route">Live cockpit</span>
           </span>
         </div>
-        <div class="ds-search" role="search">
+        <div class="ds-search" id="ds-search-panel" role="search">
           <span class="ds-search-icon" aria-hidden="true">&#8981;</span>
           <input class="ds-search-input" id="ds-search" type="search" placeholder="Search turns..." aria-label="Search this conversation" autocomplete="off" />
           <span class="ds-search-count" id="ds-search-count" aria-live="polite"></span>
@@ -86,6 +86,9 @@
           <kbd class="ds-kbd">Ctrl K</kbd>
         </div>
         <div class="ds-header-actions">
+          <button type="button" class="ds-icon-button" id="ds-search-toggle" aria-label="Search conversation" aria-expanded="false" aria-controls="ds-search-panel" data-tip="Search conversation">
+            <span aria-hidden="true">&#8981;</span>
+          </button>
           <button type="button" class="ds-icon-button" id="ds-new" aria-label="New conversation" data-tip="New conversation">
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
           </button>
