@@ -505,7 +505,9 @@ path only after the deterministic pre-frame checks, and an ambiguous judgment's 
 [Review and hold refinements](#review-and-hold-refinements) finds one plausible reading. The path answers only when
 it is released and its single retained compilation holds exactly one goal compiled into one verified batch, with no continuation and no
 limitation. The planner then stamps the plan with the gateway's current cutoff, verifies it again, and answers from that compiled
-frame and plan instead of the judgment path's frame and plan stages. When the judgment leaves a stated constraint uncovered, such a
+frame and plan instead of the judgment path's frame and plan stages. A completed relation traversal whose terminal output table is
+empty is held as `semantic_relation_empty_unconfirmed`, because an empty relation result can mean unstable direction or concept
+grounding rather than an observed absence unless another typed guard confirms non-vacuity. When the judgment leaves a stated constraint uncovered, such a
 compilation may answer instead of the hold. Every other outcome leaves the current path to answer the turn: a typed unsupported
 reason, a clarification, a held review, a continuation, a timeout, or a provider failure. Ending or cancelling the turn cancels the
 path, and the owner loop drains its provider calls. The path emits one content-free decision event for every outcome, including a

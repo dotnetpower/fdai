@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 03599cb79bb81b8bb953f077aac3872a8eb052c9
+translation_source_sha: 309ef645a208977f5895d223344b5fa999e3dfc8
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -34,6 +34,9 @@ shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 �
 도달하지 않고, 판단의 타입 슬롯은 frame에 바인딩되어 plan 커버리지가 이를 적용할 수 있습니다. 상태 저장소 싱크는 기록마다 서비스 자체의
 이벤트 루프에 막힘 없이 예약하고, 다시 만든 frame은 조사 식별자를 유지하며, 피연산자 출처 검사는
 탐색 끝점과 메트릭 리소스 ID도 읽습니다.
+관계 실행 보류도 Core 대화 런타임 안에 남습니다. 컴파일된 계획의 빈 관계 탐색 출력은 독립 근거화가 빈
+관계 결과로 답할 수 있음을 확인할 때까지 타입이 지정된 근거 보류가 되며, Operator 또는 문서 route에
+새 권한을 주지 않습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

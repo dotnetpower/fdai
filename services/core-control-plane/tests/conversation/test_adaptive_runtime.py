@@ -7,6 +7,7 @@ import time
 from collections.abc import Mapping
 from threading import Event
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from fdai.core.conversation.adaptive_call_scope import run_scoped_model
@@ -19,19 +20,30 @@ from fdai.core.conversation.conversation_preflight import (
     OperationalSignal,
     SocialAct,
 )
+from fdai.core.conversation.intent_graph import build_intent_graph
 from fdai.core.conversation.semantic_planning_cascade import NO_T2_ESCALATION_POLICY
-from fdai.core.conversation.semantic_planning_models import SemanticPlanningOutcome
+from fdai.core.conversation.semantic_planning_models import (
+    SemanticPlanningDisposition,
+    SemanticPlanningOutcome,
+)
 from fdai.core.conversation.semantic_runtime import (
     SemanticConversationRuntime,
     _run_planning_with_cancellation,
 )
 from fdai.core.conversation.session import Principal, Role
-from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryNodeResult
+from fdai.core.ontology_platform import (
+    OntologyQueryPlanExecutor,
+    QueryNodeResult,
+)
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai_service_contracts.ontology_query import (
     EvidenceAuthority,
     OntologyQueryNode,
+    OntologyQueryPlan,
     QueryNodeKind,
+    SemanticOperation,
+    SemanticProblemFrame,
+    canonical_json,
     content_digest,
 )
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
@@ -65,6 +77,8 @@ from tests.conversation.test_semantic_planning import (
 )
 
 _MODEL_DIGEST = "sha256:" + ("a" * 64)
+_RELEASE_DIGEST = "sha256:" + ("b" * 64)
+_MANIFEST_DIGEST = "sha256:" + ("c" * 64)
 
 
 @pytest.mark.parametrize("cancel_mode", ["request", "parent"])
@@ -157,6 +171,175 @@ def _general_proposal(
     )
 
 
+class _FixedPlanner:
+    def __init__(self, outcome: SemanticPlanningOutcome) -> None:
+        self._outcome = outcome
+
+    def preflight(
+        self,
+        *,
+        utterance: str,
+        **_kwargs: Any,
+    ) -> ConversationPreflightResult:
+        proposal = ConversationPreflightProposal(
+            social_act=SocialAct.NONE,
+            operational_signal=OperationalSignal.EXPLICIT,
+            context_dependency=ContextDependency.NONE,
+            knowledge_signal=GeneralKnowledgeSignal.NONE,
+            confidence=0.99,
+        )
+        return ConversationPreflightResult(
+            proposal=proposal,
+            attempted=True,
+            input_digest=content_digest({"utterance": utterance}),
+            proposal_digest=content_digest(proposal.model_dump(mode="json")),
+            model_config_digest=_MODEL_DIGEST,
+            prompt_digest=_MODEL_DIGEST,
+            direct_response_profile_digest=_MODEL_DIGEST,
+        )
+
+    def plan(self, **_kwargs: Any) -> SemanticPlanningOutcome:
+        return self._outcome
+
+
+async def _run_relation_runtime(*, rows: tuple[QueryRow, ...]) -> Any:
+    frame = _relation_frame()
+    plan = _relation_plan(frame)
+    planning = SemanticPlanningOutcome(
+        disposition=SemanticPlanningDisposition.PLANNED,
+        reason="semantic_plan_verified",
+        manifest_digest=_MANIFEST_DIGEST,
+        frame=frame,
+        plan=plan,
+        intent_graph=build_intent_graph(frame=frame, plan=plan, confidence=0.93),
+    )
+
+    async def object_set_handler(
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        assert node.node_id == "anchor"
+        assert dependencies == {}
+        return QueryNodeResult(
+            value=QueryTable(
+                rows=(QueryRow.from_values("sql-1", {"name": "sql-app"}),),
+                complete=True,
+            ),
+            evidence_refs=("inventory:anchor",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
+
+    async def traversal_handler(
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        assert node.node_id == "related"
+        assert set(dependencies) == {"anchor"}
+        return QueryNodeResult(
+            value=QueryTable(rows=rows, complete=True),
+            evidence_refs=("inventory:relation",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
+
+    runtime = SemanticConversationRuntime(
+        planner=_FixedPlanner(planning),  # type: ignore[arg-type]
+        executor=OntologyQueryPlanExecutor(
+            handlers={
+                QueryNodeKind.OBJECT_SET: object_set_handler,
+                QueryNodeKind.RELATIONSHIP_TRAVERSAL: traversal_handler,
+            },
+            now=lambda: NOW,
+        ),
+    )
+    return await runtime.handle(
+        utterance="Which resources depend on sql-app?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+    )
+
+
+def _relation_frame() -> SemanticProblemFrame:
+    body = {
+        "schema_version": "1.0.0",
+        "operation": SemanticOperation.SELECT.value,
+        "subject_constraints": ("Resource",),
+        "measure_concepts": (),
+        "temporal_scope": {},
+        "output_shape": "resource_list",
+        "evidence_requirements": (),
+        "unresolved_terms": (),
+        "input_digest": _MODEL_DIGEST,
+        "authority": "candidate_only",
+        "execution_authority": False,
+    }
+    return SemanticProblemFrame(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("Resource",),
+        output_shape="resource_list",
+        input_digest=_MODEL_DIGEST,
+        frame_digest=content_digest(body),
+    )
+
+
+def _relation_plan(frame: SemanticProblemFrame) -> OntologyQueryPlan:
+    anchor = OntologyQueryNode(
+        node_id="anchor",
+        kind=QueryNodeKind.OBJECT_SET,
+        arguments_json=canonical_json(
+            {
+                "definition": {
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                    "predicates": [{"property": "id", "operator": "equals", "equals": "sql-1"}],
+                    "as_of": NOW.isoformat(),
+                    "purpose": "operations-review",
+                    "limit": 7,
+                    "include_relationships": False,
+                }
+            }
+        ),
+        output_kind="query.table",
+    )
+    traversal = OntologyQueryNode(
+        node_id="related",
+        kind=QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        depends_on=("anchor",),
+        arguments_json=canonical_json(
+            {
+                "selector": {"kind": "object_type", "name": "Resource"},
+                "link_types": ["depends_on"],
+                "direction": "incoming",
+                "max_depth": 1,
+                "endpoint_predicates": [],
+                "as_of": NOW.isoformat(),
+                "purpose": "operations-review",
+                "limit": 1000,
+            }
+        ),
+        output_kind="query.table",
+    )
+    body = {
+        "schema_version": "1.0.0",
+        "ontology_release_digest": _RELEASE_DIGEST,
+        "semantic_catalog_digest": _MANIFEST_DIGEST,
+        "problem_frame_digest": frame.frame_digest,
+        "purpose": "operations-review",
+        "caller_role": Role.READER.value,
+        "nodes": [anchor.model_dump(mode="json"), traversal.model_dump(mode="json")],
+        "output_node_ids": ("related",),
+        "execution_authority": False,
+    }
+    return OntologyQueryPlan(
+        ontology_release_digest=_RELEASE_DIGEST,
+        semantic_catalog_digest=_MANIFEST_DIGEST,
+        problem_frame_digest=frame.frame_digest,
+        purpose="operations-review",
+        caller_role=Role.READER.value,
+        nodes=(anchor, traversal),
+        output_node_ids=("related",),
+        plan_digest=content_digest(body),
+    )
+
+
 @pytest.mark.parametrize("available", [True, False])
 async def test_adaptive_example_uses_verified_query_runtime_without_widening_authority(
     available: bool,
@@ -217,6 +400,22 @@ async def test_adaptive_example_uses_verified_query_runtime_without_widening_aut
     assert reads == ["resources"]
     assert (query_model.frame_calls, query_model.plan_calls) == (1, 1)
     assert "canary" in result.adaptive_answer.answer
+
+
+async def test_runtime_holds_empty_relation_traversal_output() -> None:
+    result = await _run_relation_runtime(rows=())
+
+    assert result.disposition == "held"
+    assert result.reason == "semantic_relation_empty_unconfirmed"
+
+
+async def test_runtime_answers_non_empty_relation_traversal_output() -> None:
+    result = await _run_relation_runtime(
+        rows=(QueryRow.from_values("resource-1", {"name": "vm-app-01"}),)
+    )
+
+    assert result.disposition == "answered"
+    assert result.reason == "semantic_execution_completed"
 
 
 async def test_adaptive_model_receives_model_evidence_view_not_raw_query_rows() -> None:
