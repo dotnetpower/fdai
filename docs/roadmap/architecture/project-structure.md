@@ -33,6 +33,9 @@ planned answer, the carried form never reaches the frame model, and the judgment
 the frame so plan coverage can enforce them. The state-store sink schedules each record on the
 service's own event loop without blocking, a rebuilt frame keeps its investigation identity, and
 operand provenance also reads traversal endpoints and metric resource ids.
+Relation execution holds also stay inside Core conversation runtime: an empty relation traversal
+output from a compiled plan is a typed evidence hold until independent grounding confirms that an
+empty relation result is answerable, and Operator or document routes receive no new authority.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
