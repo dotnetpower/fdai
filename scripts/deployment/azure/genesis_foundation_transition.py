@@ -299,9 +299,11 @@ def _run_remote(mode: object, **kwargs: object) -> dict[str, object]:
         or not isinstance(helper_digest, str)
     ):
         raise TypeError("Foundation transition remote invocation context is invalid")
-    remote_archive = f"/home/{connection['username']}/.fdai-transition-{work_id[:24]}.tar.gz"
+    remote_archive = (
+        f"/home/{connection['username']}/.fdai-transfer-{work_id[:24]}-transition.tar.gz"
+    )
     remote_work = f"/home/{connection['username']}/.fdai-foundation-transition/{work_id[:24]}"
-    remote_helper = f"/home/{connection['username']}/.fdai-transition-{work_id[:24]}.py"
+    remote_helper = f"/home/{connection['username']}/.fdai-transfer-{work_id[:24]}-transition.py"
     remote_args = foundation_state._remote_arguments(
         archive=remote_archive,
         work_id=work_id,

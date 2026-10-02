@@ -67,6 +67,9 @@ class TransitionTunnel:
 
     def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
         del timeout
+        # Mirror genesis_bastion.BastionTunnel.copy_to: only transfer-prefixed destinations.
+        if not destination.startswith(f"/home/{self.username}/.fdai-transfer-"):
+            raise ValueError("Bastion remote destination is invalid")
         target = self._path(destination)
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         shutil.copyfile(source, target)

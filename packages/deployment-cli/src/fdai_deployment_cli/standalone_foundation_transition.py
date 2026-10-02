@@ -9,6 +9,7 @@ import select
 import stat
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -19,8 +20,11 @@ from fdai_deployment_cli.bundle import verify_bundle
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import DeploymentKit
 from fdai_deployment_cli.foundation_adoption import write_lineage_adoption_receipt
+from fdai_deployment_cli.foundation_input import snapshot_foundation_input
 from fdai_deployment_cli.foundation_plan import REVIEW_NAME
+from fdai_deployment_cli.plan_input import read_plan_input
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from fdai_deployment_cli.profile import load_profile
 from fdai_deployment_cli.trust_roots import deployment_bundle_root_pem
 
 _COMMIT = re.compile(r"[0-9a-f]{40}")
@@ -217,7 +221,7 @@ def default_transition_runner(**kwargs: object) -> dict[str, object]:
         "--profile",
         str(run_root / "profile.json"),
         "--variables-file",
-        str(run_root / "foundation-variables.json"),
+        str(retained_variables_file(run_root, run_root / retained_plan_ref)),
         "--offline-kit",
         str(kit.root),
         "--release-root",
@@ -251,6 +255,43 @@ def default_transition_runner(**kwargs: object) -> dict[str, object]:
     if not isinstance(value, dict):
         raise ValueError("Foundation transition result is invalid")
     return {str(key): item for key, item in value.items()}
+
+
+# Candidate Foundation inputs the orchestrator may have planned with: the runner-image
+# materialization, the adopted-runner-image materialization, and the plain prepared input.
+_VARIABLE_CANDIDATES = (
+    "foundation-variables-with-image.json",
+    "foundation-with-runner-image.json",
+    "foundation-variables.json",
+)
+
+
+def retained_variables_file(run_root: Path, retained_plan: Path) -> Path:
+    """Select the Foundation input whose normalized digest the retained plan reviewed."""
+
+    review = _load_review(retained_plan, allow_expired=True)
+    expected = _required_digest(_context(review), "variables_digest")
+    profile = load_profile(run_root / "profile.json")
+    for name in _VARIABLE_CANDIDATES:
+        candidate = run_root / name
+        if candidate.is_symlink() or not candidate.is_file():
+            continue
+        with tempfile.TemporaryDirectory(prefix="foundation-input-", dir=run_root) as raw:
+            snapshot = Path(raw) / "snapshot.json"
+            try:
+                snapshot_foundation_input(
+                    candidate,
+                    snapshot,
+                    expected_target_binding=profile.target_binding,
+                    expected_region=profile.region,
+                    expected_environment=profile.environment,
+                )
+                digest = canonical_digest(read_plan_input(snapshot))
+            except (OSError, ValueError):
+                continue
+        if digest == expected:
+            return candidate
+    raise ValueError("foundation_transition_variables_unverifiable")
 
 
 def _current_input_digests(

@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 3d0fd75904bee2517ad4860ee05625212c3beac1
+translation_source_sha: f596cba93878d497cffeb337c0d109d55a277df5
 translation_revised: 2026-10-02
 ---
 
@@ -735,7 +735,7 @@ Foundation 상태를 기준으로 더 새 키트의 Foundation 계획을 계산�
 **전송 개정:** 전환 helper는 실행마다 전송되고 전환 근거에 다이제스트로 묶입니다. 실행기 이미지의
 일부가 아니므로 helper 추가가 기존 설치의 실행기 이미지 교체를 의미하지 않습니다. 로컬 조정기는
 더 새 키트의 Foundation 루트, 공급자 미러, 모듈, 부트스트랩 지원 파일, 보존된 변수를 비공개
-아카이브로 묶고, 그 아카이브와 helper를 설치 자체의 Bastion 터널로 복사한 뒤, 보존된 실행기
+아카이브로 묶습니다. 보존된 변수는 보존된 계획이 검토한 정규화 다이제스트와 일치하는 Foundation 입력입니다. 예를 들어 실행기 이미지를 반영한 입력이 여기에 해당하며, 일치하는 후보가 없으면 전환은 `foundation_transition_variables_unverifiable`로 멈춥니다. 조정기는 그 아카이브와 helper를 Bastion 전송 접두사 아래로 설치 자체의 Bastion 터널을 통해 복사한 뒤, 보존된 실행기
 Managed Identity로 상태 권한이 기록한 기존 AzureRM 백엔드를 대상으로 helper를 실행합니다. helper는
 계획, 이미 검토된 계획의 1회 적용, 재읽기와 변경 없음 계획을 통한 검증, 임시 작업 정리만 할 수
 있습니다. 승인, 대상 선택, 모호한 적용 반복, 실행기 이미지 변경, 계보 전진은 할 수 없습니다. 이런

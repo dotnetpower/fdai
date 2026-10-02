@@ -394,12 +394,15 @@ def test_default_runner_zero_change_writes_receipt_then_continues(
     _write_tree(old_bundle, marker="")
     _review(tmp_path / "run/foundation-plan-attempt-2", expired=True)
     _status(tmp_path / "run")
+    selected = tmp_path / "run" / "foundation-variables-with-image.json"
+    monkeypatch.setattr(transition, "retained_variables_file", lambda _run, _plan: selected)
     monkeypatch.setattr(transition, "_retained_bundle_root", lambda *_args: old_bundle)
     monkeypatch.setattr(transition, "_find_digest", lambda _root, expected: expected)
     monkeypatch.setattr(transition, "write_lineage_adoption_receipt", _adoption)
     calls: list[str] = []
 
     def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert command[command.index("--variables-file") + 1] == str(selected)
         calls.append(command[2])
         if command[2] == "plan":
             return subprocess.CompletedProcess(
@@ -437,12 +440,15 @@ def test_default_runner_applies_with_transport_digest(
     _write_tree(old_bundle, marker="")
     _review(tmp_path / "run/foundation-plan-attempt-2", expired=True)
     _status(tmp_path / "run")
+    selected = tmp_path / "run" / "foundation-variables-with-image.json"
+    monkeypatch.setattr(transition, "retained_variables_file", lambda _run, _plan: selected)
     monkeypatch.setattr(transition, "_retained_bundle_root", lambda *_args: old_bundle)
     monkeypatch.setattr(transition, "_find_digest", lambda _root, expected: expected)
     monkeypatch.setattr(transition, "write_lineage_adoption_receipt", _adoption)
     observed: dict[str, str] = {}
 
     def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert command[command.index("--variables-file") + 1] == str(selected)
         if command[2] == "plan":
             return subprocess.CompletedProcess(
                 command, 0, json.dumps(_transport_plan(zero=False)), ""
@@ -480,6 +486,8 @@ def test_claim_resume_uses_verify_without_replan_or_apply(
     _write_tree(old_bundle, marker="")
     _review(tmp_path / "run/foundation-plan-attempt-2", expired=True)
     _status(tmp_path / "run")
+    selected = tmp_path / "run" / "foundation-variables-with-image.json"
+    monkeypatch.setattr(transition, "retained_variables_file", lambda _run, _plan: selected)
     attempt = tmp_path / "run/foundation-transition-attempt-1"
     attempt.mkdir(mode=0o700)
     transition._write_transition_review(attempt, _transport_plan(zero=False))  # noqa: SLF001
@@ -490,6 +498,7 @@ def test_claim_resume_uses_verify_without_replan_or_apply(
     calls: list[str] = []
 
     def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert command[command.index("--variables-file") + 1] == str(selected)
         calls.append(command[2])
         if command[2] == "verify":
             return subprocess.CompletedProcess(command, 0, json.dumps(_transport_apply(False)), "")
@@ -584,3 +593,102 @@ def _status(root: Path) -> None:
             }
         ).encode(),
     )
+
+
+_VARIABLE_TENANT = "00000000-0000-0000-0000-000000000000"
+_VARIABLE_SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
+
+
+def _variable_values(binding: str) -> dict[str, object]:
+    return {
+        "tenant_id": _VARIABLE_TENANT,
+        "subscription_id": _VARIABLE_SUBSCRIPTION,
+        "target_binding": binding,
+        "region": "koreacentral",
+        "workload": "example",
+        "region_short": "krc",
+        "state_storage_account_name": "examplestate",
+        "ops_address_space": "10.40.0.0/16",
+        "runner_subnet_prefix": "10.40.1.0/24",
+        "pe_subnet_prefix": "10.40.2.0/24",
+        "runner_ssh_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA==",
+        "runner_source_image_id": (
+            f"/subscriptions/{_VARIABLE_SUBSCRIPTION}/resourceGroups/example/"
+            "providers/Microsoft.Compute/images/example"
+        ),
+        "runner_bootstrap_mode": "offline",
+        "runner_marketplace_image_version": "",
+        "source_commit": "a" * 40,
+        "run_digest": "b" * 64,
+        "foundation_context_digest": "c" * 64,
+        "runner_image_toolchain_digest": "d" * 64,
+    }
+
+
+def _variables_run(tmp_path: Path) -> tuple[Path, Path, dict[str, object]]:
+    from fdai_deployment_cli.contracts import ProvisionProfile
+    from fdai_deployment_cli.foundation_input import snapshot_foundation_input
+    from fdai_deployment_cli.plan_input import read_plan_input
+    from fdai_deployment_cli.profile import write_profile
+    from fdai_deployment_cli.target import compute_target_binding
+
+    run = tmp_path / "run"
+    run.mkdir(mode=0o700)
+    binding = compute_target_binding(
+        tenant_id=_VARIABLE_TENANT, subscription_id=_VARIABLE_SUBSCRIPTION
+    )
+    write_profile(
+        run / "profile.json",
+        ProvisionProfile(
+            environment="dev",
+            region="koreacentral",
+            target_binding=binding,
+            connectivity="offline",
+            host="managed-vm",
+            transport="manual",
+            access_method="bastion",
+            shadow_only=True,
+            approval_quorum=1,
+            monthly_cost_ceiling=500,
+        ),
+    )
+    reviewed = _variable_values(binding)
+    plain = {**reviewed, "runner_source_image_id": reviewed["runner_source_image_id"] + "-plain"}
+    for name, values in (
+        ("foundation-variables-with-image.json", reviewed),
+        ("foundation-variables.json", plain),
+    ):
+        (run / name).write_text(json.dumps(values), encoding="utf-8")
+        (run / name).chmod(0o600)
+    snapshot = tmp_path / "reviewed-snapshot.json"
+    snapshot_foundation_input(
+        run / "foundation-variables-with-image.json",
+        snapshot,
+        expected_target_binding=binding,
+        expected_region="koreacentral",
+        expected_environment="dev",
+    )
+    plan = run / "foundation-plan-attempt-2"
+    _review(plan, expired=True)
+    review = json.loads((plan / "foundation-plan.json").read_text(encoding="utf-8"))
+    review["context"]["variables_digest"] = canonical_digest(read_plan_input(snapshot))
+    review.pop("review_digest")
+    review["review_digest"] = canonical_digest(review)
+    (plan / "foundation-plan.json").write_text(json.dumps(review), encoding="utf-8")
+    return run, plan, review
+
+
+def test_retained_variables_file_is_selected_by_the_reviewed_digest(tmp_path: Path) -> None:
+    run, plan, _review_value = _variables_run(tmp_path)
+
+    selected = transition.retained_variables_file(run, plan)
+
+    assert selected == run / "foundation-variables-with-image.json"
+
+
+def test_retained_variables_file_fails_closed_without_a_reviewed_match(tmp_path: Path) -> None:
+    run, plan, _review_value = _variables_run(tmp_path)
+    (run / "foundation-variables-with-image.json").unlink()
+
+    with pytest.raises(ValueError, match="foundation_transition_variables_unverifiable"):
+        transition.retained_variables_file(run, plan)
