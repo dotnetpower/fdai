@@ -7,14 +7,14 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "core_workflow_catalog_writer_20261002"
-down_revision: str | Sequence[str] | None = "core_licensing_entitlement_state_20261001"
+down_revision: str | Sequence[str] | None = "core_operational_evidence_forecast_sources_20261002"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 migration_owner = "core-control-plane"
 owned_tables: tuple[str, ...] = ()
 rollback = {
     "strategy": "revoke-core-workflow-catalog-writer",
-    "restores": "core_licensing_entitlement_state_20261001",
+    "restores": "core_operational_evidence_forecast_sources_20261002",
     "requires": "core-runtime-stopped",
 }
 
