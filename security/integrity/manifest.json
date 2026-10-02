@@ -582,7 +582,7 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_repair.py": "0794c73316728c33e2c4eac1d27d26e6e0737b5fda965c8a27b2756027fb8221",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_review.py": "02a8e880a481a1299672c88e72c35a40ec0835617e5dac2366f7b9df5f4bbbad",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_review_repair.py": "10c8584b5a3ab37cc419bd7218ddbac81af31929badf5485b56e767aedaadbda",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_schema.py": "93da39e1540a9a2ba1e988e0275062b638cbcb366b18e014c2ccf56643b436ec",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_schema.py": "af32653903dd3890834f4d066d07bb3843285df37780a98ec721f1354696b1b6",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_shadow.py": "a7a2bb1b8fff21b41b8dbb72546055ff45c69adde59f1295776547dc3d8f218e",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_shape.py": "ef99db376d4e7305d11b4cbf19ebc59ed35142b5a38e8d967fbbb1f18698eedb",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_verification.py": "783c7b9125680e865f0acba6334fd6dcf24546d000cd39cc7feb40a25db14fd9",
