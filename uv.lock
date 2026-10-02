@@ -21,6 +21,7 @@ members = [
     "fdai-document-processing-worker",
     "fdai-evaluation-sdk",
     "fdai-github-app-auth",
+    "fdai-governed-chaos-provider",
     "fdai-isolated-executor-service",
     "fdai-operator-service",
     "fdai-runtime-diagnostics",
@@ -1286,6 +1287,16 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
 ]
+
+[[package]]
+name = "fdai-governed-chaos-provider"
+source = { editable = "extensions/governed-chaos-provider" }
+dependencies = [
+    { name = "fdai-core-control-plane" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fdai-core-control-plane", editable = "services/core-control-plane" }]
 
 [[package]]
 name = "fdai-isolated-executor-service"
