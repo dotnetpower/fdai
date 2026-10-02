@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 02c003592ed85d76501dba7fa2317cc138bcfc0d
+translation_source_sha: 5236d328631ba6e1cd7b53df499a214988cde450
 translation_revised: 2026-10-02
 ---
 
@@ -283,6 +283,11 @@ Azure 관리 및 데이터 평면 엔드포인트는 Azure 네트워크 경로�
 
 > Azure 관리 플레인 경로가 없는 네트워크에서는 Azure 리소스를 배포할 수 없습니다. 해당
 > 프로필에서는 패키지를 검증하고 준비할 수 있지만 명령은 배포 준비 상태를 보고할 수 없습니다.
+
+기존 오프라인 설치를 업그레이드하려면 더 새 패키지와 설치 당시의 `--work-dir`로 같은 명령을
+다시 실행합니다. 명령은 더 새 패키지를 검증하고, 이전 패키지 스냅숏은 검토용으로 보존하며,
+기존 Foundation은 그것을 만든 리비전으로 이어서 실행합니다. 그런 다음 더 새 패키지로
+애플리케이션을 배포합니다. 이전 리비전으로는 새 Foundation 계획을 승인하지 않습니다.
 
 ## 결과 이해
 

@@ -246,7 +246,9 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
   modules. Environment values stay outside source control. In source mode the standalone
   coordinator runs `pin source snapshot -> inspect target -> Foundation plan and apply ->
   build images in the deployment registry -> application plan and apply -> post-provision checks`;
-  with `--offline-kit` it first verifies the signed package. Terraform remains the execution
+  with `--offline-kit` it first verifies the signed package. Rerunning an existing offline
+  installation's work directory with a newer package continues its Foundation under the retained
+  revision ([offline kit upgrade](installable-deployment-cli.md#offline-kit-upgrade-design-and-critique)). Terraform remains the execution
   engine and infrastructure source of truth.
 - Tenant deployment transport is always `manual`. The active Azure user approves exact plans, and
   the managed host executes them with a distinct workload identity. No repository variable,

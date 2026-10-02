@@ -694,11 +694,17 @@ is written, while an invalid archive remains blocked.
 Foundation continuity stays separate from application source selection. Existing offline
 Foundation variables keep their creating `source_commit`, runner SSH key, run binding, profile,
 and host keys. The current kit source becomes the application source and is recorded beside the
-Foundation lineage in `run/foundation-source-lineage.json`. A reviewed Foundation plan may proceed
-when it is non-destructive because the operator's invocation approves the exact plan shown.
-Deleting or replacing an existing resource still needs the existing explicit extra confirmation;
-without it the plan is refused before the effect. Already satisfied effects are recovered through
-their retained claims and independent readback instead of being repeated.
+Foundation lineage in `run/foundation-source-lineage.json`. The Foundation orchestration then runs
+under that retained lineage: its status, approvals, plan reviews, and receipts stay bound to the
+creating revision. The signed source evidence carries both the kit's `source_commit` and the
+retained `foundation_source_commit`, so source verification accepts exactly those two revisions.
+The continuation re-verifies completed Foundation checkpoints, and already satisfied effects are
+recovered through their retained claims and independent readback instead of being repeated. It
+refuses to approve a new Foundation plan under the retained lineage, because a plan computed from
+the newer kit must not carry the older revision's provenance. A Foundation configuration change
+therefore needs a reviewed lineage transition, which isn't implemented yet. Application plans
+keep the existing rule: the invocation approves the non-destructive exact plan it shows, and
+deleting or replacing an existing resource still needs the explicit extra confirmation.
 
 A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
