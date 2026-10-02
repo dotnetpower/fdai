@@ -24,7 +24,6 @@ from fdai_deployment_cli.private_output import (
     write_private_output,
 )
 from fdai_deployment_cli.profile import load_profile
-from fdai_deployment_cli.standalone_host_values import plan_summary
 
 PLAN_NAME = "foundation.tfplan"
 REVIEW_NAME = "foundation-plan.json"
@@ -157,7 +156,6 @@ def save_foundation_plan(
     projected = read_private_bytes(projection, max_bytes=_MAX_JSON_BYTES)
     details = load_json_object(projected, label="saved foundation plan", max_bytes=_MAX_JSON_BYTES)
     version = _validate_projection(details, variables)
-    summary = plan_summary(details)
     if read_private_bytes(plan, max_bytes=_MAX_PLAN_BYTES) != payload:
         raise ValueError("saved foundation plan changed during inspection")
     now = datetime.now(UTC).replace(microsecond=0)
@@ -168,7 +166,6 @@ def save_foundation_plan(
         "context": context,
         "plan_digest": hashlib.sha256(payload).hexdigest(),
         "plan_json_digest": hashlib.sha256(projected).hexdigest(),
-        "summary": summary,
         "terraform_version": version,
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(hours=1)).isoformat(),
@@ -198,7 +195,7 @@ def verify_foundation_plan(
     if _DIGEST.fullmatch(expected_review_digest) is None:
         raise ValueError("expected foundation review digest is invalid")
     receipt = load_json_object(
-        read_private_bytes(directory / REVIEW_NAME, max_bytes=1_048_576),
+        read_private_bytes(directory / REVIEW_NAME, max_bytes=65_536),
         label="foundation review",
     )
     expected_keys = {
@@ -207,16 +204,14 @@ def verify_foundation_plan(
         "context",
         "plan_digest",
         "plan_json_digest",
-        "summary",
         "terraform_version",
         "created_at",
         "expires_at",
         "review_digest",
         *_AUTHORITY,
     }
-    expected_legacy_keys = expected_keys - {"summary"}
     if (
-        set(receipt) not in (expected_keys, expected_legacy_keys)
+        set(receipt) != expected_keys
         or receipt["schema_version"] not in {_SCHEMA, _SOURCE_SCHEMA}
         or receipt["state"] != "review"
         or any(receipt[key] is not value for key, value in _AUTHORITY.items())
@@ -241,8 +236,6 @@ def verify_foundation_plan(
     payload = read_private_bytes(directory / PLAN_NAME, max_bytes=_MAX_PLAN_BYTES)
     if hashlib.sha256(payload).hexdigest() != receipt["plan_digest"]:
         raise ValueError("saved foundation plan digest does not match")
-    if "summary" in receipt:
-        _validate_plan_summary(receipt["summary"])
     return {
         "schema_version": "fdai.foundation-plan-integrity.v1",
         "state": "review",
@@ -281,52 +274,6 @@ def _validate_projection(details: dict[str, object], variables: dict[str, object
     ):
         raise ValueError("saved foundation plan does not match the normalized input")
     return version
-
-
-def _validate_plan_summary(value: object) -> None:
-    baseline = plan_summary({"resource_changes": []})
-    baseline_counts = baseline["action_counts"]
-    if (
-        not isinstance(value, dict)
-        or not isinstance(baseline_counts, dict)
-        or set(value) != set(baseline)
-    ):
-        raise ValueError("foundation review summary is invalid")
-    counts = value.get("action_counts")
-    types = value.get("resource_type_counts")
-    changes = value.get("resource_changes")
-    if (
-        not isinstance(counts, dict)
-        or set(counts) != set(baseline_counts)
-        or any(type(count) is not int or not 0 <= count <= 5000 for count in counts.values())
-        or not isinstance(types, dict)
-        or len(types) > 5000
-        or any(
-            not isinstance(name, str)
-            or re.fullmatch(r"[a-z][a-z0-9_]{0,127}", name) is None
-            or type(count) is not int
-            or not 0 <= count <= 5000
-            for name, count in types.items()
-        )
-        or not isinstance(changes, list)
-        or len(changes) > 5000
-    ):
-        raise ValueError("foundation review summary is invalid")
-    for change in changes:
-        actions = change.get("actions") if isinstance(change, dict) else None
-        address = change.get("address") if isinstance(change, dict) else None
-        if (
-            not isinstance(change, dict)
-            or set(change) != {"address", "actions"}
-            or not isinstance(address, str)
-            or not 0 < len(address) <= 512
-            or not address.isascii()
-            or not address.isprintable()
-            or not isinstance(actions, list)
-            or not actions
-            or any(not isinstance(action, str) or action not in counts for action in actions)
-        ):
-            raise ValueError("foundation review summary is invalid")
 
 
 def _validate_review_time(receipt: dict[str, object], *, require_unexpired: bool = True) -> None:

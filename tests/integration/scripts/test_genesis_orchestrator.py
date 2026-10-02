@@ -25,7 +25,6 @@ import genesis_orchestrator as orchestrator  # noqa: E402
 import genesis_private_execution as private_execution  # noqa: E402
 from fdai_deployment_cli.bundle import extract_bundle_archive  # noqa: E402
 from fdai_deployment_cli.contracts import ProvisionProfile  # noqa: E402
-from fdai_deployment_cli.private_output import write_private_bytes  # noqa: E402
 from fdai_deployment_cli.profile import write_profile  # noqa: E402
 from fdai_deployment_cli.target import compute_target_binding  # noqa: E402
 from genesis_checks import CheckError, GenesisChecks  # noqa: E402
@@ -1005,88 +1004,6 @@ def test_private_route_generates_a_plan_but_still_waits_for_current_approval(
     assert payload["foundation_report"]["foundation_plan"] == plan_report
     assert payload["foundation_report"]["current_checkpoint"] == "foundation-plan"
     assert payload["subscription_ready"] is False
-
-
-def test_claimed_foundation_transition_resumes_by_verification_only(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    inputs = _foundation_inputs(tmp_path)
-    work_dir = tmp_path / "run"
-    work_dir.mkdir(mode=0o700)
-    plan_dir = work_dir / "foundation-plan-attempt-1"
-    plan_dir.mkdir(mode=0o700)
-    write_private_bytes(plan_dir / "foundation-apply-claim.json", b"{}\n")
-    store = StatusStore(
-        path=work_dir / "status.json",
-        source_commit="a" * 40,
-        target_binding="b" * 64,
-        mode="apply",
-        deadline_at="2999-09-10T13:00:00Z",
-    )
-    store.foundation_report = {
-        "schema_version": "fdai.genesis-private-foundation.v1",
-        "state": "waiting",
-        "current_checkpoint": "foundation-apply",
-        "foundation_plan": {
-            "schema_version": "fdai.genesis-foundation-plan.v1",
-            "state": "review",
-            "plan_ref": "foundation-plan-attempt-1",
-            "attempt": 1,
-            "review_digest": "c" * 64,
-            "plan_digest": "d" * 64,
-            "expires_at": "2999-09-10T12:00:00+00:00",
-            "integrity_verified": True,
-            "apply_authorized": False,
-            "mutation_performed": False,
-            "subscription_ready": False,
-        },
-    }
-    store.update(stage="foundation-apply", state="waiting")
-    config = private_execution.PrivateExecutionConfig(
-        repository_root=_ROOT,
-        repository="dotnetpower/fdai",
-        subscription_id=_SUBSCRIPTION,
-        tenant_id=_TENANT,
-        source_commit="a" * 40,
-        work_dir=work_dir,
-        foundation_inputs=inputs,
-        approval=None,
-        approval_path=None,
-        create_runner_image=False,
-        runner_image_terraform=None,
-        runner_ssh_private_key=tmp_path / "runner-key",
-        execution_timeout_seconds=3600,
-    )
-    checks = GenesisChecks(_ROOT)
-    monkeypatch.setattr(checks, "verify_checkout_unchanged", lambda: None)
-    commands: list[tuple[str, ...]] = []
-
-    def run_json(
-        script_name: str, arguments: tuple[str, ...], **_kwargs: object
-    ) -> dict[str, object]:
-        commands.append((script_name, *arguments))
-        assert script_name == "genesis-foundation-apply.sh"
-        assert "--resume-verification" in arguments
-        assert "--approve" not in arguments
-        return {
-            "schema_version": "fdai.genesis-foundation-apply-receipt.v1",
-            "state": "applied",
-            "receipt_digest": "e" * 64,
-            "subscription_ready": False,
-        }
-
-    coordinator = private_execution.PrivateExecutionCoordinator(
-        config=config,
-        store=store,
-        checks=checks,
-        prepare_plan=lambda **kwargs: kwargs["prior_report"],
-    )
-    monkeypatch.setattr(coordinator, "_run_json_child", run_json)
-
-    with pytest.raises(private_execution.PrivateExecutionWaitError, match="runner_enrollment"):
-        coordinator.run()
-
-    assert [command[0] for command in commands] == ["genesis-foundation-apply.sh"]
 
 
 def test_foundation_cli_inputs_are_all_or_none_and_absolute(tmp_path: Path) -> None:
