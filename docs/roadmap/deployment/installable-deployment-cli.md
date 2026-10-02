@@ -436,7 +436,8 @@ python -m pip install --no-index --find-links wheels -r requirements.txt
 
 The 6.9 MB wheelhouse installs `fdaictl` without a source checkout or network call. Every shipped
 file except the signature pair is listed in `SHA256SUMS`, and workspace path dependencies ship as
-built wheels. Runtime images,
+built wheels. The control-package builder runs only under CPython 3.12 so binary wheels match the
+managed-host interpreter that installs the package. Runtime images,
 Terraform inputs, and other deployment payloads are selected later by the deployment command and
 are not Python package-installation requirements. No appliance image is produced,
 not a second package-certification path.
