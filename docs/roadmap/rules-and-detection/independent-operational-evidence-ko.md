@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 08c60d777c6e77ad4a87b4c026c84ad7cd2bf7ec
+translation_source_sha: e4ed027ad5c79437f77d1e3e2be8e3182f777c76
 translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
@@ -299,6 +299,27 @@ Saga, 검토자, 실행자가 되지 않습니다. 고정 매개변수 `SECURITY
 `forecast-action-audit-chain.v1` 개정에 바인딩하고, 검증기 역할에는 함수 `EXECUTE`만 부여합니다. Activity Log는
 교차 확인 준비 상태로 남습니다. `forecast-history-excluded_windows`는 revision이 있는 `ChangeWindow` 이력 생산자가
 생길 때까지 계속 사용할 수 없습니다.
+
+**설계 참고: `forecast-history-excluded_windows`.** 현재 권한 있는 `ChangeWindow` reader는 개정 이력 생산자가
+아니라 현재 상태 gate입니다. `core/risk_gate/ontology_preconditions.py`의
+`OntologyChangeWindowEvidenceProvider.is_active`는 투영된 구간이 한 시점에 활성인지 답합니다.
+`core/operational_context/operating_intent_admission.py`는 현재 인정된 operating-intent 출처 개정, digest, 세대,
+소유 객체 ID, 증명 나이를 기록하지만 각 `ChangeWindow`의 변경 이력을 보관하지 않습니다.
+`shared/providers/ontology_instance.py`는 현재 typed ontology graph와 객체 revision counter를 제공하지만
+`ChangeWindow` 정의의 append-only 유효 시간 이력을 제공하지 않습니다.
+`rule-catalog/vocabulary/object-types/ChangeWindow.yaml`의 어휘 항목은 immutable change-window revision을 설명하지만,
+그 revision을 제한된 대상 범위 출처로 저장하는 런타임 계약이나 테이블은 없습니다.
+
+**비평.** 현재 ontology graph나 최신 operating-intent admission을 과거 부재 증명으로 다루면 근거를 꾸며 내는
+결과가 됩니다. 철회되었거나 교체되었거나 미래에 기록된 구간을 놓치고, 현재 `included` 답을 forecast lookback 전체의
+완전한 관측 범위처럼 사용하게 됩니다. 안전한 생산자는 각 `ChangeWindow` 개정을 출처 개정, 대상과 범위, 유효 구간,
+기록 시각, 대체 관계, 완전한 워터마크와 함께 보관해야 합니다.
+
+**수정.** 따라서 `forecast-history-excluded_windows`는 계속 fail-closed `unavailable`로 남습니다. 누락된 계약은
+operating-intent 또는 ontology projection 출처가 소유하는 revision이 있는 `ChangeWindow` 이력 생산자입니다. 이
+생산자에는 전체 구간 완전성, 충돌 없는 개정, 최신성을 증명하고 실행 또는 promotion 권한을 부여하지 않는 검증기
+재조회가 필요합니다. `forecast-context`는 같은 범위, 대상, 구간에 대해 네 번째 출처별 검증 증적이 생길 때까지 계속
+사용할 수 없습니다.
 
 ### 예측 맥락 집계
 
