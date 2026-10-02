@@ -33,7 +33,7 @@ evidence is unavailable ([design](../interfaces/browser-evidence.md)).
 
 A workflow is catalog-as-code under
 [`rule-catalog/workflows/`](../../../rule-catalog/workflows), validated at load
-against [`shared/contracts/workflow/schema.json`](../../../services/core-control-plane/src/fdai/shared/contracts/workflow/schema.json)
+against [`fdai_service_contracts/schemas/workflow/1.0.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/workflow/1.0.0.json)
 and the `Workflow` pydantic model. All fields except `description` and
 `anti_scope` are required.
 
@@ -424,6 +424,37 @@ against the rule catalog, and it enforces the upstream shadow-default policy.
 The entry point loads the catalog at startup so a malformed workflow blocks
 boot rather than surfacing at first dispatch.
 
+### 7.1 Shared validation owner design
+
+The `Workflow` model, workflow enums, trigger registries, `PromotionGate`, JSON
+Schema, and pure `load_workflow_from_mapping` validator live in
+[`fdai_service_contracts.workflow_catalog`](../../../packages/service-contracts/src/fdai_service_contracts/workflow_catalog/).
+Core keeps the file-system catalog loader and YAML vocabulary loaders, then
+re-exports the moved classes from the historical modules so object identity is
+preserved. The Operator imports only the shared package. It does not import
+Core.
+
+Core materializes one revision-fenced validation-context projection,
+`operator-projection:workflow:workflow.validation-context`, next to the
+existing workflow palette and catalog projections. The projection carries the
+ActionType names, rule ids, signal-type registry, workflow-trigger-event
+registry, schema version, and catalog digest used to validate a posted draft.
+
+**Critique.** A second Operator-only copy of the model or schema would let the
+Console validate a draft that Core later rejects, and importing Core into the
+Operator would break the independent-service boundary. A generic materialized
+projection read is also insufficient because validation is computed from the
+posted draft and must not require a pre-existing per-draft projection.
+
+**Revision.** `POST /workflows/validate` is a dedicated Operator read handler.
+It parses a bounded JSON object, reads the validation-context projection, runs
+the shared validator, and returns the same `valid`, `issues`, and
+`yaml_preview` contract the catalog loader uses. Missing, stale, or unreadable
+validation context returns `200` with `valid: false` and a
+`validation_context_*` issue so the Console keeps Save disabled. Malformed
+request bodies remain `4xx`. The route writes no state and grants no
+authority.
+
 ## 8. Authoring surface (console workflow-builder)
 
 An operator authors a custom business process through the console's
@@ -519,9 +550,9 @@ chip / form-slot builders and the option-token grammar
 ([`workflow-builder.viz.ts`](../../../console/src/routes/workflow-builder.viz.ts)). The operator's own typed text is echoed as plain text
 (never through the markdown parser), and only the newest turn's chips stay interactive so a stale suggestion cannot corrupt a later stage.
 
-Three opt-in, Reader-gated Operator API routes back validation and browsing as pure
+Three Reader-gated Operator API routes back validation and browsing as pure
 projections that write no state (see
-[`workflow_authoring.py`](../../../services/operator-service/src/fdai_operator_service/)):
+[`workflow`](../../../services/operator-service/src/fdai_operator_service/families/workflow/)):
 
 - **`GET /workflows/catalog`** - the built-in Workflow catalog. A read-only
   projection of the loaded `Workflow` catalog carrying each workflow's full
@@ -535,16 +566,18 @@ projections that write no state (see
   what makes a step's `action_type_ref` resolvable at load time - the builder
   cannot invent an unknown reference.
 - **`POST /workflows/validate`** - a pure function that runs the same
-  [`load_workflow_from_mapping`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py)
+  [`load_workflow_from_mapping`](../../../packages/service-contracts/src/fdai_service_contracts/workflow_catalog/loader.py)
   the catalog loader uses (JSON Schema + the `Workflow` pydantic structural
-  invariants + `ActionType` / rule cross-reference), and returns the aggregated
-  issues plus a canonical YAML preview. It mutates nothing and creates no PR.
+  invariants + `ActionType` / rule / trigger cross-references), and returns the aggregated
+  issues plus a canonical YAML preview. It reads
+  `operator-projection:workflow:workflow.validation-context`, mutates nothing,
+  and creates no PR. If that context is missing, stale, or unreadable, the
+  route still returns `200` with `valid: false` and an explicit issue rather
+  than `503`.
 
-These routes are opt-in through
-[`OperatorApiConfig.workflow_authoring`](../../../services/operator-service/src/fdai_operator_service/)
-(a `WorkflowAuthoringConfig` carrying the loaded palette, built-in workflows,
-rule ids, and schema registry); unset upstream so the console stays minimal,
-wired in the local dev harness so the view renders out of the box.
+The catalog and palette are materialized from reviewed catalog snapshots. Draft
+validation is computed per request from the shared validator and the durable
+validation-context projection.
 
 The console keeps the privileged read-only invariant ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)):
 the palette and catalog are GETs through the GET-only `OperatorApiClient`, validation is pure, and saving writes only a principal-owned

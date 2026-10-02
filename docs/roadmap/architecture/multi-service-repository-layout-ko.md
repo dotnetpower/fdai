@@ -1,8 +1,8 @@
 ---
 title: 다중 서비스 저장소 레이아웃
 translation_of: multi-service-repository-layout.md
-translation_source_sha: e0f83d6b53da86e377de11bbfd0a101defd0615f
-translation_revised: 2026-09-27
+translation_source_sha: ac9f1c557a1e30c0b2ba0f46ce155ec5c12ad277
+translation_revised: 2026-10-02
 ---
 # 다중 서비스 저장소 레이아웃
 
@@ -112,7 +112,7 @@ fdai/
 │   │   │   ├── response-outcome/ # expected-versus-observed action effect outcome
 │   │   │   ├── rule/           # rule/schema.json
 │   │   │   ├── ontology/       # object/link/action 스키마; ObjectType은 lifecycle 기준 + provenance 선언 가능
-│   │   │   └── workflow/       # workflow/schema.json (프로세스 자동화 카탈로그)
+│   │   │   └── workflow/       # 호환성 재내보내기; 스키마는 packages/service-contracts에 있음
 │   │   ├── ontology/           # 런타임 온톨로지 헬퍼 (ACL, 감사 purposes, purpose taxonomy)
 │   │   ├── providers/          # OperatingModelProvider, 하위 호환 Distiller conformance 및 action-bound control-plane recovery approval verification을 포함한 CSP-중립 클라우드 provider interface (adapter가 구현)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,

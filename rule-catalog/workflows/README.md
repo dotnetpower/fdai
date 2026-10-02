@@ -4,7 +4,7 @@ Catalog-as-code business processes. Each YAML here is one `Workflow`: an
 ordered list of steps, every step referencing one ontology `ActionType`,
 plus a trigger, a promotion gate, and a default mode.
 
-- **Schema:** [`services/core-control-plane/src/fdai/shared/contracts/workflow/schema.json`](../../services/core-control-plane/src/fdai/shared/contracts/workflow/schema.json)
+- **Schema:** [`packages/service-contracts/src/fdai_service_contracts/schemas/workflow/1.0.0.json`](../../packages/service-contracts/src/fdai_service_contracts/schemas/workflow/1.0.0.json)
 - **Loader:** [`services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py`](../../services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py)
 - **Design:** [`docs/roadmap/decisioning/process-automation.md`](../../docs/roadmap/decisioning/process-automation.md)
 - **Reference workflows (prose + sequence diagrams):** [`docs/roadmap/agents/agent-workflows.md`](../../docs/roadmap/agents/agent-workflows.md)

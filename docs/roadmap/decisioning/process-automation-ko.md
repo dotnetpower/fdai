@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: a153095e99a4888695e88e23941445504289037f
-translation_revised: 2026-09-29
+translation_source_sha: 14073e9141c312b315c5bc158b2991184aa36d51
+translation_revised: 2026-10-02
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -36,7 +36,7 @@ translation_revised: 2026-09-29
 
 워크플로는 [`rule-catalog/workflows/`](../../../rule-catalog/workflows) 아래의
 catalog-as-code 이며, 로드 시
-[`shared/contracts/workflow/schema.json`](../../../services/core-control-plane/src/fdai/shared/contracts/workflow/schema.json)
+[`fdai_service_contracts/schemas/workflow/1.0.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/workflow/1.0.0.json)
 과 `Workflow` pydantic 모델에 대해 검증된다. `description` 과 `anti_scope` 를
 제외한 모든 필드는 필수다.
 
@@ -417,6 +417,32 @@ I/O + 검증이며, `ActionType` 및 ObjectType 로더를 미러한다. 실패 �
 shadow-default 정책을 강제한다. 엔트리 포인트는 시작 시 카탈로그를 로드하므로
 malformed 워크플로는 첫 전달 가 아니라 부팅을 막는다.
 
+### 7.1 공유 검증 소유자 설계
+
+`Workflow` 모델, 워크플로 enum, 트리거 레지스트리, `PromotionGate`, JSON 스키마,
+순수 `load_workflow_from_mapping` 검증기는
+[`fdai_service_contracts.workflow_catalog`](../../../packages/service-contracts/src/fdai_service_contracts/workflow_catalog/)
+에 둡니다. Core는 파일 시스템 카탈로그 로더와 YAML 어휘 로더를 유지하고, 기존 모듈에서
+이동된 클래스를 다시 내보내 객체 동일성을 보존합니다. Operator는 공유 패키지만 가져오며
+Core를 가져오지 않습니다.
+
+Core는 기존 워크플로 팔레트 및 카탈로그 변환 결과 옆에 리비전으로 고정된 검증 컨텍스트
+변환 결과 `operator-projection:workflow:workflow.validation-context` 하나를 물질화합니다.
+이 변환 결과는 게시된 초안을 검증하는 데 쓰는 ActionType 이름, 룰 id, signal-type
+레지스트리, workflow-trigger-event 레지스트리, 스키마 버전, 카탈로그 다이제스트를 담습니다.
+
+**비평.** Operator 전용 모델이나 스키마 사본을 하나 더 만들면 Console에서 통과한 초안을
+Core가 나중에 거부할 수 있습니다. Operator가 Core를 가져오면 독립 서비스 경계도 깨집니다.
+일반 materialized projection 읽기도 충분하지 않습니다. 검증은 게시된 초안에서 계산되며
+초안별 사전 생성 변환 결과를 요구해서는 안 됩니다.
+
+**개정.** `POST /workflows/validate`는 전용 Operator 읽기 처리기입니다. 범위가 제한된 JSON
+객체를 파싱하고, 검증 컨텍스트 변환 결과를 읽고, 공유 검증기를 실행한 뒤 카탈로그 로더와
+같은 `valid`, `issues`, `yaml_preview` 계약을 반환합니다. 검증 컨텍스트가 없거나 오래되었거나
+읽을 수 없으면 `200`과 `valid: false`, `validation_context_*` 이슈를 반환하여 Console의
+저장 기능을 비활성 상태로 유지합니다. 잘못된 요청 본문은 계속 `4xx`입니다. 이 라우트는
+상태를 쓰지 않고 권한을 부여하지 않습니다.
+
 ## 8. 저작 표면 (콘솔 workflow-builder)
 
 오퍼레이터는 YAML 을 기억으로 손수 쓰는 것도, 여러 섹션짜리 폼을 채우는 것도
@@ -511,9 +537,9 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
 오퍼레이터가 직접 친 텍스트는 (마크다운 파서를 거치지 않고) 평문으로 echo 되며,
 최신 턴의 칩만 인터랙티브해서 지난 제안이 이후 단계를 오염시킬 수 없다.
 
-세 개의 명시적 선택, Reader-gated Operator API 라우트가 검증 및 browse 를
-뒷받침합니다. 모두 상태를 쓰지 않는 pure 변환 결과 입니다 (see
-[`workflow_authoring.py`](../../../services/operator-service/src/fdai_operator_service/)):
+세 개의 Reader-gated Operator API 라우트가 검증 및 찾아보기를 뒷받침합니다. 모두 상태를
+쓰지 않는 순수 변환 결과입니다 (참조:
+[`workflow`](../../../services/operator-service/src/fdai_operator_service/families/workflow/)):
 
 - **`GET /workflows/catalog`** - 빌트인 작업 흐름 카탈로그. 로드된 `Workflow`
   카탈로그의 읽기 전용 변환 결과 으로 각 워크플로의 전체 내용 (트리거, 단계,
@@ -526,16 +552,15 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
   `action_type_ref` 를 부하 시점에 해석 가능하게 만든다 - 빌더는 알 수 없는
   참조를 만들어낼 수 없다.
 - **`POST /workflows/validate`** - 카탈로그 로더가 쓰는 것과 동일한
-  [`load_workflow_from_mapping`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py)
+  [`load_workflow_from_mapping`](../../../packages/service-contracts/src/fdai_service_contracts/workflow_catalog/loader.py)
   (JSON 스키마 + `Workflow` pydantic 구조 불변식 + `ActionType` / 룰
-  cross-reference) 을 실행하는 순수 함수이며, 집계된 이슈와 정본 YAML
-  미리보기를 반환한다. 아무것도 mutate 하지 않고 PR 도 만들지 않는다.
+  / 트리거 cross-reference) 을 실행하는 순수 함수이며, 집계된 이슈와 정본 YAML
+  미리보기를 반환합니다. `operator-projection:workflow:workflow.validation-context`를 읽고,
+  아무것도 변경하지 않으며 PR도 만들지 않습니다. 컨텍스트가 없거나 오래되었거나 읽을 수
+  없으면 `503` 대신 `200`, `valid: false`, 명시적 이슈를 반환합니다.
 
-세 라우트는
-[`OperatorApiConfig.workflow_authoring`](../../../services/operator-service/src/fdai_operator_service/)
-(로드된 팔레트, 빌트인 워크플로, 룰 id, 스키마 레지스트리 를 담은
-`WorkflowAuthoringConfig`) 를 통해 명시적 선택 이다; 업스트림 에선 unset 이라 콘솔이
-minimal 로 유지되고, 로컬 dev 하네스에는 배선되어 뷰가 곧바로 렌더된다.
+카탈로그와 팔레트는 검토된 카탈로그 스냅샷에서 물질화됩니다. 초안 검증은 요청마다 공유
+검증기와 영속 검증 컨텍스트 변환 결과에서 계산됩니다.
 
 Console 은 privileged 읽기 전용 불변식을 유지합니다
 ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
