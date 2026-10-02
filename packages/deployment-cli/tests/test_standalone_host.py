@@ -1327,6 +1327,100 @@ def test_claimed_apply_blocks_ordinary_replanning(
         standalone_host._plan(SimpleNamespace(stage="substrate", service=None), tmp_path)
 
 
+def _runtime_context(tmp_path: Path) -> dict[str, object]:
+    return {
+        "target_binding": "b" * 64,
+        "source_commit": "c" * 40,
+        "runtime_profile_digest": "d" * 64,
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+        "runtime_infra": str(tmp_path / "cluster"),
+    }
+
+
+def _runtime_plan_review(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    cluster_in_state: bool,
+) -> tuple[dict[str, object], tuple[str, ...]]:
+    (tmp_path / "substrate-receipt.json").write_text("{}", encoding="utf-8")
+    context = _runtime_context(tmp_path)
+    commands: list[tuple[str, ...]] = []
+
+    def private_json(path: Path, _label: str) -> dict[str, object]:
+        if path.name == "context.json":
+            return context
+        raise AssertionError(path.name)
+
+    def run(command: tuple[str, ...] | list[str], **_kwargs: object) -> None:
+        normalized = tuple(command)
+        commands.append(normalized)
+        output = next(value for value in normalized if value.startswith("-out="))
+        Path(output.removeprefix("-out=")).write_bytes(b"plan")
+
+    def state_list(command: tuple[str, ...], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ("terraform", "state", "list"):
+            return subprocess.CompletedProcess(
+                command,
+                0 if cluster_in_state else 1,
+                stdout="azurerm_kubernetes_cluster.runtime\n" if cluster_in_state else "",
+                stderr="",
+            )
+        raise AssertionError(command)
+
+    monkeypatch.setattr(standalone_host, "_private_json", private_json)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_stage_paths",
+        lambda *_: (tmp_path / "cluster", tmp_path / "runtime.auto.tfvars.json"),
+    )
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(standalone_host.subprocess, "run", state_list)
+    monkeypatch.setattr(standalone_host, "_run", run)
+    monkeypatch.setattr(standalone_host, "_seal_terraform_plan", lambda path: None)
+    monkeypatch.setattr(standalone_host, "_file_digest", lambda path: "a" * 64)
+    monkeypatch.setattr(standalone_host, "_guard_existing_runtime_node_pools", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_capture", lambda *_args, **_kwargs: "{}")
+    monkeypatch.setattr(
+        standalone_host,
+        "_plan_summary",
+        lambda _value: {"action_counts": {"create": 1}},
+    )
+    monkeypatch.setattr(standalone_host, "_replace_private_json", lambda _path, _value: None)
+
+    review = standalone_host._plan(SimpleNamespace(stage="runtime", service=None), tmp_path)
+
+    assert len(commands) == 1
+    return review, commands[0]
+
+
+def test_fresh_aks_runtime_plan_excludes_container_insights_association(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    review, command = _runtime_plan_review(tmp_path, monkeypatch, cluster_in_state=False)
+
+    targets = {
+        argument.removeprefix("-target=") for argument in command if argument.startswith("-target=")
+    }
+    assert review["operation"] == "runtime-cluster"
+    assert standalone_stage_targets.RUNTIME_CLUSTER_STATE_TARGET in targets
+    assert "azurerm_monitor_data_collection_rule.container_insights" in targets
+    assert standalone_stage_targets.CONTAINER_INSIGHTS_ASSOCIATION_TARGET not in targets
+
+
+def test_existing_aks_runtime_plan_remains_full_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    review, command = _runtime_plan_review(tmp_path, monkeypatch, cluster_in_state=True)
+
+    assert review["operation"] == "runtime"
+    assert not any(argument.startswith("-target=") for argument in command)
+
+
 def test_aks_stages_use_independent_roots_and_variables(tmp_path: Path) -> None:
     context = {
         "runtime_profile": {
