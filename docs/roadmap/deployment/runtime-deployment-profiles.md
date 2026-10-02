@@ -37,6 +37,10 @@ signed kit archive, installs `fdaictl` from that snapshot, uses Terraform roots 
 support from the snapshot, and resolves providers directly from public registries under the
 committed lock files. Image references still enter the runtime profile only as read-back digests
 after the deployment registry build stage completes.
+Host preparation runs exactly one host subcommand: `prepare --kit` for a signed kit and
+`prepare-source` for a source snapshot. A focused test parses the command the coordinator sends with
+the host's own parser in both modes, because a rejected command fails before the host records any
+reason.
 Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set. Runtime Dockerfile Alpine package pin updates are package maintenance only and do not change profiles, authority, provider access, or add-ons.
 
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
