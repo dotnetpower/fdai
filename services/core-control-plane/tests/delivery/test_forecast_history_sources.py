@@ -14,12 +14,20 @@ from fdai.delivery.forecast_history_sources import (
     FORECAST_ACTION_HISTORY_SOURCE_REVISION,
     FORECAST_CHANGE_HISTORY_SOURCE_IDENTITY,
     FORECAST_CHANGE_HISTORY_SOURCE_REVISION,
+    FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_IDENTITY,
+    FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_REVISION,
     FORECAST_LIFECYCLE_HISTORY_SOURCE_IDENTITY,
     FORECAST_LIFECYCLE_HISTORY_SOURCE_REVISION,
+    ChangeWindowHistorySource,
     IncarnationLifecycleHistorySource,
     JournalChangeHistorySource,
 )
 from fdai.delivery.integration_readiness import integration_projection
+from fdai.delivery.persistence.postgres_forecast_change_window_history import (
+    ChangeWindowHistoryCoverage,
+    ChangeWindowHistoryRead,
+    ChangeWindowHistoryRow,
+)
 from fdai.delivery.persistence.postgres_forecast_lifecycle_history import (
     LifecycleIncarnationRow,
     LifecycleLedgerRead,
@@ -39,15 +47,23 @@ ID_A, ID_B = "sha256:" + "1" * 64, "sha256:" + "2" * 64
 
 
 def history(kind: str, identity: str, revision: str, **values: object) -> ForecastHistoryBinding:
-    stateful = kind == "resource_lifecycle"
+    stateful = kind in {"excluded_windows", "resource_lifecycle"}
     return ForecastHistoryBinding.model_validate(
         {
             "kind": kind,
             "access_scope_digest": SCOPE,
             "target_ref": QUERY.subject_ref,
             "state_type": f"forecast.{kind}",
-            "to_states": ["deleted", "present"] if stateful else ["changed"],
-            "active_states": ["deleted"] if stateful else [],
+            "to_states": ["excluded", "included"]
+            if kind == "excluded_windows"
+            else ["deleted", "present"]
+            if stateful
+            else ["changed"],
+            "active_states": ["excluded"]
+            if kind == "excluded_windows"
+            else ["deleted"]
+            if stateful
+            else [],
             "source_identity": identity,
             "source_revision": revision,
             "freshness_seconds": 600,
@@ -89,6 +105,71 @@ async def test_journal_changes_keep_witness_provenance_and_incomplete_coverage()
     assert receipt.transition_count == 0 and not receipt.complete
     assert not store.keys
     assert receipt.limitation == "start_checkpoint_unverified"
+
+
+class ChangeWindows:
+    def __init__(
+        self, rows: tuple[ChangeWindowHistoryRow, ...], *, truncated: bool = False
+    ) -> None:
+        self.rows = rows
+        self.truncated = truncated
+
+    async def read_history(self, **_: object) -> ChangeWindowHistoryRead:
+        return ChangeWindowHistoryRead(
+            coverage=ChangeWindowHistoryCoverage(
+                source_revision="intent-rev-1",
+                document_digest="sha256:" + "1" * 64,
+                recorded_at=NOW,
+                window_count=len(self.rows),
+                watermark="change-window-history-watermark:1",
+                revision_refs=tuple(item.revision_ref for item in self.rows),
+            ),
+            rows=self.rows,
+            truncated=self.truncated,
+        )
+
+
+def change_window(start: int, end: int, *, identity: str = "window-1") -> ChangeWindowHistoryRow:
+    return ChangeWindowHistoryRow(
+        window_id=identity,
+        scope_ref=QUERY.subject_ref,
+        window_kind="maintenance",
+        status="active",
+        effective_from=QUERY.start_at + timedelta(minutes=start),
+        effective_to=QUERY.start_at + timedelta(minutes=end),
+        source_revision="intent-rev-1",
+        document_digest="sha256:" + "1" * 64,
+        recorded_at=NOW,
+        revision_ref="sha256:" + identity[-1] * 64,
+        supersedes_revision_ref=None,
+    )
+
+
+async def test_change_window_history_source_proves_excluded_window_chain() -> None:
+    source = ChangeWindowHistorySource(reader=ChangeWindows((change_window(10, 30),)))
+    read = await source.read(
+        subject_ref=QUERY.subject_ref, start_at=QUERY.start_at, end_at=QUERY.end_at, known_at=NOW
+    )
+    assert read.checkpoint.complete is True
+    assert read.checkpoint.initial_state == "closed"
+    assert [item.source_state for item in read.records] == ["open", "closed"]
+    store = MemoryStore()
+    producer = ForecastHistoryProducer(
+        binding=binding("excluded_windows", open="excluded", closed="included").model_copy(
+            update={"target_ref": QUERY.subject_ref}
+        ),
+        history=history(
+            "excluded_windows",
+            FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_IDENTITY,
+            FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_REVISION,
+        ),
+        source=source,
+        store=store,
+    )
+    receipt = await producer.produce(
+        ForecastContextRequest(SCOPE, producer.target_digest, QUERY.start_at, QUERY.end_at, NOW)
+    )
+    assert receipt.complete and receipt.transition_count == 3
 
 
 class Ledger:
@@ -200,7 +281,7 @@ def test_settings_row_uses_runtime_validation_and_never_reports_ready() -> None:
     assert {item["kind"]: item["bound"] for item in opted["sources"]} == {
         "actions": True,
         "changes": True,
-        "excluded_windows": False,
+        "excluded_windows": True,
         "resource_lifecycle": True,
     }
     assert {item["name"]: item["satisfied"] for item in opted["prerequisites"]} == {
@@ -260,14 +341,16 @@ def _configuration() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
             FORECAST_LIFECYCLE_HISTORY_SOURCE_IDENTITY,
             FORECAST_LIFECYCLE_HISTORY_SOURCE_REVISION,
         ),
-        {
-            **_mapping("resource_lifecycle", "source:windows", "revision-1"),
-            "kind": "excluded_windows",
-        },
+        _mapping(
+            "excluded_windows",
+            FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_IDENTITY,
+            FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_REVISION,
+        ),
     ]
     producers = [
         _producer("actions", {"succeeded": "changed", "failed": "changed"}),
         _producer("changes", {"full:upsert": "changed"}),
+        _producer("excluded_windows", {"open": "excluded", "closed": "included"}),
         _producer("resource_lifecycle", {"present": "present", "deleted": "deleted"}),
     ]
     return bindings, producers
@@ -281,7 +364,9 @@ def test_runtime_binds_only_reviewed_available_source_producers() -> None:
         producers_json=json.dumps(producers),
     )
     assert isinstance(collector, ProducingForecastHistoryCollector)
-    assert collector.bound_kinds() == frozenset({"actions", "changes", "resource_lifecycle"})
+    assert collector.bound_kinds() == frozenset(
+        {"actions", "changes", "excluded_windows", "resource_lifecycle"}
+    )
     environment = {"FDAI_FORECAST_HISTORY_SOURCES_JSON": json.dumps(bindings)}
     plain = forecast_history_collector_from_environment(
         dsn="postgresql://127.0.0.1/example", environment=environment
@@ -289,7 +374,6 @@ def test_runtime_binds_only_reviewed_available_source_producers() -> None:
     assert plain is not None and not isinstance(plain, ProducingForecastHistoryCollector)
     assert forecast_history_collector_from_environment(dsn=None, environment={}) is None
     failures = [
-        ([_producer("excluded_windows", {"open": "excluded"})], "unavailable"),
         ([{**producers[0], "target_ref": "other"}], "no reviewed collector mapping"),
         ([{**producers[0], "kind": "resource_lifecycle"}], "maps outside"),
     ]

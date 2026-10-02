@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 03d9600842f53802d679f49cf18b9f92a869840f
+translation_source_sha: b1b715e16711b7dbd9ab6ce3569f3da1ca68a3a8
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -357,7 +357,8 @@ root 또는 호스트가 작성하는 라이선스 secret 중 하나에서 오�
 선택적인 운영 근거 검증기는 배포 소유 고정값, 앵커, 호출자 토큰 검증, 작성자 정책, 역할 재확인 범위가
 있을 때만 자체 user-assigned Managed Identity를 쓰는 별도 내부 워크로드로 렌더링됩니다. 기본 5개 서비스
 준비 상태 집합에 포함되지 않고 실행기 신원을 받지 않으며, 루트는 이미지 pull과 정확한 DSN 시크릿 읽기만
-부여합니다. 시작은 여전히 호출자 인증기, 실행기 계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 진행됩니다.
+부여합니다. `operational-test-observation`이 구성된 경우 같은 전용 신원은 배포 resource group에 대한
+`Monitoring Reader`도 받아 Azure Monitor 읽기가 검증기 신원으로 실행되게 합니다. 시작은 여전히 호출자 인증기, 실행기 계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 진행됩니다.
 
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state

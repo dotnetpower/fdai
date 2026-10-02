@@ -53,6 +53,7 @@ _ALL_HEALTHY = {
     "azure.activity-log": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.action-audit": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.case-history": OperationalEvidenceSourceHealth.HEALTHY,
+    "core-control-plane.change-window-history": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.safety-receipts": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.test-context-store": OperationalEvidenceSourceHealth.HEALTHY,
     "deployment.case-scope-grants": OperationalEvidenceSourceHealth.HEALTHY,
@@ -60,6 +61,7 @@ _ALL_HEALTHY = {
     "inventory.observation-journal": OperationalEvidenceSourceHealth.HEALTHY,
     "inventory.current-snapshot": OperationalEvidenceSourceHealth.HEALTHY,
     "operating-scope.dependency-health": OperationalEvidenceSourceHealth.HEALTHY,
+    "operating-intent.source-revisions": OperationalEvidenceSourceHealth.HEALTHY,
     "operator-service.authentication-receipts": OperationalEvidenceSourceHealth.HEALTHY,
     "operator-service.test-context-outbox": OperationalEvidenceSourceHealth.HEALTHY,
 }

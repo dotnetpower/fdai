@@ -36,6 +36,7 @@ from fdai.delivery.azure.operational_evidence import (
     AzureReuseSafetyEvaluator,
     AzureTemporalCausalEvidenceProvider,
     AzureTemporalPolicy,
+    CurrentCaseReuseSourceRetainer,
 )
 from fdai.shared.contracts.models import OntologyActionType
 
@@ -67,6 +68,7 @@ def bind_azure_operational_evidence(
     reconciliation_artifact_resolver: ReconciliationArtifactResolver | None = None,
     action_observer_identity: str | None = None,
     action_observation_source_identity: str | None = None,
+    current_reuse_source_retainer: CurrentCaseReuseSourceRetainer | None = None,
 ) -> Container:
     """Bind read-only Azure evidence, including graph Dynamic when complete.
 
@@ -131,6 +133,7 @@ def bind_azure_operational_evidence(
             safety=safety,
             admission_provider=container.decision_evidence_admission_provider,
             evidence=container.operational_evidence_requester,
+            source_retainer=current_reuse_source_retainer,
         ),
         temporal_causal_evidence_provider=AzureTemporalCausalEvidenceProvider(
             snapshots=snapshots,

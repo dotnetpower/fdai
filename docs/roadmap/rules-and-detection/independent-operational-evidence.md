@@ -263,14 +263,15 @@ Lookup: `observation_context_digest`, the scope, `operational-test-observation`,
 | Conflict | No conflicting sample, series, or health source |
 | Freshness policy | 300 seconds from the provider read |
 
-**Source assessment.** `core/operational_evidence/readback/test_observation.py` defines the verifier-side
-`OperationalTestObservationReadback`, and `delivery/azure/operational_evidence_readbacks.py` defines
-`AzureMonitorTestObservationProvider`. Those pieces are not enough to bind the purpose: the verifier workload in
-`delivery/operational_evidence_server.py` has no concrete Azure Monitor metric sample client, no
-`OperatingScopeObservationReader` that returns complete dependency-health coverage and protected-signal policy, and no
-deployment configuration that proves those reads run under the verifier identity. Until those three contracts exist,
-`operational-test-observation` remains fail-closed `unavailable`; the event payload and local-loopback samples are not
-substitutes for provider readback.
+**Source binding.** `core/operational_evidence/readback/test_observation.py` provides the verifier-side
+`OperationalTestObservationReadback`. The verifier workload binds it only in a deployed venue when deployment
+configuration supplies all three source contracts: a Log Analytics workspace, reviewed KQL metric templates, and
+reviewed operating-scope observation rows. `delivery/azure/operational_evidence_readbacks.py` wraps the verifier-owned
+Azure Monitor Logs metric provider with an exact-bin sample reader and pairs it with the reviewed operating-scope
+reader. The deployed verifier identity must carry `Monitoring Reader` on the configured resource-group scope; own-role
+readback keeps that role distinct from producer, reviewer, and executor identities before the purpose becomes
+available. Missing metric config, missing scope rows, a local-loopback source in a deployed venue, conflicting samples,
+incomplete dependency health, or a protected signal all fail closed with typed rejection classes.
 
 ### Forecast history source slices
 
@@ -311,26 +312,29 @@ revision `forecast-action-audit-chain.v1`, uses only function `EXECUTE` for the 
 as corroborating readiness health. `forecast-history-excluded_windows` remains unavailable until a revisioned
 `ChangeWindow` history producer exists.
 
-**Design note: `forecast-history-excluded_windows`.** The current authoritative `ChangeWindow` readers are current-state
-gates, not revisioned history producers. `core/risk_gate/ontology_preconditions.py` exposes
-`OntologyChangeWindowEvidenceProvider.is_active`, which answers whether a projected window is active at one instant.
-`core/operational_context/operating_intent_admission.py` records the currently admitted operating-intent source
-revision, digest, generation, owned object ids, and proof age, but it does not retain per-window change history.
-`shared/providers/ontology_instance.py` exposes the current typed ontology graph and object revision counters; it does
-not provide an append-only, effective-time history for `ChangeWindow` definitions. The vocabulary entry
-`rule-catalog/vocabulary/object-types/ChangeWindow.yaml` describes immutable change-window revisions, but there is no
-runtime contract or table that stores those revisions as a bounded target-scoped source.
+**Design note: `forecast-history-excluded_windows`.** The existing operating-intent source remains the only authority for
+`ChangeWindow` objects. On each successful admission, that path records append-only history rows for every admitted
+`ChangeWindow` object under a deterministic key derived from the source revision and window id. Each row includes the
+window id, scope or target reference, status, window kind, effective interval, source revision, document digest, recorded
+time, a supersedes reference to the prior retained revision for that window when one exists, and a watermark for the
+whole admitted source document. A separate per-source coverage row records the source revision, document digest,
+validated time, object count, and watermark so the forecast producer can prove that the retained rows came from a
+complete admitted source, not from a partial current graph read.
 
-**Critique.** Treating the current ontology graph or the latest operating-intent admission as historical absence would
-fake evidence. It would miss withdrawn, replaced, and future-recorded windows and would let a current `included` answer
-stand in for complete coverage across the forecast lookback. A safe producer must instead retain each `ChangeWindow`
-revision with source revision, target/scope, effective interval, recorded time, supersession, and a complete watermark.
+**Critique.** Reusing `OntologyChangeWindowEvidenceProvider.is_active` or the latest ontology object revision would still
+fake history, because it can only answer current activity and cannot prove withdrawn, superseded, or absent windows
+across a forecast lookback. Writing history from a new owner would change authority. The safe seam is therefore the
+existing operating-intent admission path: it has already validated the pinned source, source digest, rollout generation,
+and owned object set. The history writer is read-only with respect to authority. It records evidence after the admission
+path succeeds, and a failure to retain history does not make the `ChangeWindow` authority more permissive.
 
-**Revision.** `forecast-history-excluded_windows` therefore remains fail-closed `unavailable`. The missing contract is a
-revisioned `ChangeWindow` history producer, owned by the operating-intent or ontology projection source, with a verifier
-readback that proves whole-window completeness, conflict-free revisions, and freshness without granting execution or
-promotion authority. `forecast-context` remains unavailable until that fourth source-specific admission exists for the
-same scope, target, and window.
+**Revision.** `forecast-history-excluded_windows` binds to source identity
+`fdai.operating_intent.change_window_history` revision `forecast-change-window-history.v1`. The source adapter reads the
+append-only retained history, requires a matching coverage watermark for the exact operating-intent source revision,
+derives a stateful included/excluded chain with an initial state, and fails closed on missing coverage, supersession
+conflicts, same-instant conflicting states, stale watermarks, or incomplete pages. Once this fourth slice is admitted,
+`forecast-context` can bind through the existing aggregate rule that requires all four source-specific admissions for
+the same scope, target, and window.
 
 ### Forecast context aggregate
 
@@ -380,14 +384,14 @@ similarity reuse) tier of Forseti's judgment, fed by `AzureCurrentReuseVerifier`
 | Conflict | No generation, case-revision, or receipt disagreement |
 | Freshness policy | 300 seconds from the snapshot observation, matching the current five-minute snapshot bound |
 
-**Source assessment.** `core/operational_evidence/readback/current_case_reuse.py` defines the verifier-side readback,
-and `delivery/azure/operational_evidence.py` defines `AzureCurrentReuseVerifier` for the live T1 (lightweight
-similarity reuse) path. The verifier readback still has no concrete `CurrentCaseReuseSource` in
-`delivery/operational_evidence_server.py`: the current Azure verifier recomputes a transient verification and requests
-evidence, but it does not retain a queryable record containing the current inventory snapshot, Muninn case revision,
-seven safety receipts, and the case/target grant coordinates. Until that retained source exists,
-`current-case-reuse` remains fail-closed `unavailable`. Copying Core `state_kv` rows into the verifier would not be an
-independent source.
+**Source binding.** `core/operational_evidence/readback/current_case_reuse.py` defines the verifier-side readback, and
+`delivery/azure/operational_evidence.py` defines `AzureCurrentReuseVerifier` for the live T1 (lightweight similarity
+reuse) path. The verifier now retains a queryable source row before it requests the `current-case-reuse` admission. The
+row includes the recomputed verification, current inventory generation, Muninn case reference, seven deterministic
+safety receipt references, and the case/target grant coordinates. The verifier reads that row through a fixed-parameter
+function rather than broad `state_kv` access. Missing source rows, malformed safety receipts, generation conflicts,
+case-revision disagreement, failed safety checks, or grant mismatches fail closed with typed rejection classes. Thor
+still revalidates before any execution path can use a reused case.
 
 ## Fail-closed rejection matrix
 
@@ -523,15 +527,13 @@ tracks what remains.
   sources. A current context is admissible only when the transition admission it cites has the lookup rebuilt from
   that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
   retained record against its exact verifier binding and that binding's readiness under the current anchors. The
-  `forecast-history-actions`, `forecast-history-changes`, and `forecast-history-resource_lifecycle` purposes now read
-  real derived source rows from `operational_state_transition*`; the action producer reads Thor/Saga state-store audit
-  anchors and exact-target ActionRun payloads, while the other two producers use the `changes` and
-  `resource_lifecycle` sources that #1021 delivered. `forecast-history-excluded_windows` remains unavailable because
-  no revisioned `ChangeWindow` history producer exists. `forecast-context` stays unavailable until all four
-  source-specific forecast-history admissions exist for the same scope, target, and window.
-  `operational-test-observation` and
-  `current-case-reuse` remain unbound: the observation provider is not yet available under verifier identity, and
-  current reuse lacks independent inventory, Muninn, and safety-receipt sources. Case-history now has an insert-only
+  `forecast-history-actions`, `forecast-history-changes`, `forecast-history-excluded_windows`, and
+  `forecast-history-resource_lifecycle` purposes now read real derived source rows from
+  `operational_state_transition*`, and `forecast-context` is bound to the four source-specific slices.
+  `operational-test-observation` is bound in deployed verifier workloads when the verifier has `Monitoring Reader`,
+  Log Analytics metric templates, and reviewed operating-scope observation rows. `current-case-reuse` is bound through
+  retained current-reuse source rows that capture the inventory generation, Muninn case reference, safety receipts, and
+  grant coordinates before evidence issuance. Case-history now has an insert-only
   Operator semantic authentication receipt schema, `operator-core-request` `1.9.0` receipt reference, Core-to-Bragi
   reference propagation, and a bound exact readback module. The Operator setting
   `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` defaults off and may be enabled only after Core that accepts

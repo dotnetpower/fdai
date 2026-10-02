@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 06571e03f117832be1985e821b25dcecbe2b347b
+translation_source_sha: 6528fd000a3dba15bbc03012e665caf429ee452b
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -588,6 +588,7 @@ Core `ModelEvidenceView` 빌더도 읽기 전용 대화 경계입니다. 적응�
 프로바이더 본문, 핸들 또는 보관된 스냅숏 셀이 아니라 허용 목록이 적용된 변환 결과만 받습니다.
 검증된 답변 작성은 공유된 권한 없는 명제 계약과 기본값이 꺼진 작성자/검토자 포트를 사용하며, 승격된
 바인딩이 켜기 전까지 현재 답변 경로를 바꾸지 않습니다.
+Azure operational 근거 조립은 기존 스냅숏, 안전성 검토, 메트릭, 가지, effect-model 이음매와 함께 보존 current-reuse 출처 writer를 주입할 수 있습니다. 이 writer는 `current-case-reuse`에 대한 검증기 읽기 근거만 기록하며 승인, 실행 또는 promotion 권한을 부여하지 않습니다.
 
 ## 컨트롤 루프 배선
 
