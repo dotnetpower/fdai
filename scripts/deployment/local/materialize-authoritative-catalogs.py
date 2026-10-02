@@ -75,6 +75,9 @@ from fdai.rule_catalog.schema.wara_evaluator_binding import (
     load_wara_evaluator_bindings,
 )
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
+from fdai.rule_catalog.schema.workflow_trigger_event import (
+    load_workflow_trigger_event_registry_from_mapping,
+)
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyRelease,
@@ -82,6 +85,10 @@ from fdai.shared.contracts.models import (
     Rule,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai_service_contracts.workflow_catalog import WorkflowValidationContext
+from fdai_service_contracts.workflow_catalog.validation_context import (
+    WORKFLOW_VALIDATION_CONTEXT_PROJECTION_KEY,
+)
 from psycopg.rows import dict_row
 
 RULE_LIST_KEY = "operator-projection:workflow:rule.list"
@@ -104,6 +111,7 @@ ONTOLOGY_EVIDENCE_HEALTH_KEY = "operator-projection:operations:ontology.evidence
 STEWARDSHIP_KEY = "operator-projection:operations:stewardship.coverage"
 ACTION_TYPE_LIST_KEY = "operator-projection:workflow:workflow.action-type-list"
 WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
+WORKFLOW_VALIDATION_CONTEXT_KEY = WORKFLOW_VALIDATION_CONTEXT_PROJECTION_KEY
 CATALOG_STATEMENT_TIMEOUT_MS = 300_000
 CATALOG_CONNECT_TIMEOUT_S = 60
 
@@ -126,6 +134,9 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
     )
     signal_types = load_signal_type_registry_from_mapping(
         _yaml_mapping(catalog_root / "vocabulary/signal-types.yaml")
+    )
+    workflow_trigger_events = load_workflow_trigger_event_registry_from_mapping(
+        _yaml_mapping(catalog_root / "vocabulary/workflow-trigger-events.yaml")
     )
     rules = load_rule_catalog(
         catalog_root / "catalog",
@@ -192,6 +203,8 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         schema_registry=registry,
         action_type_names={action.name for action in ontology.action_types},
         rule_ids={rule.id for rule in rules},
+        signal_types=signal_types,
+        workflow_trigger_events=workflow_trigger_events,
     )
     agent_documents = [
         {
@@ -255,6 +268,17 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         ACTION_TYPE_LIST_KEY: _revisioned(_action_type_palette(ontology.action_types)),
         WORKFLOW_CATALOG_KEY: _revisioned(_workflow_catalog(workflows, catalog_root=catalog_root)),
     }
+    snapshots[WORKFLOW_VALIDATION_CONTEXT_KEY] = _workflow_validation_context_snapshot(
+        action_type_names={action.name for action in ontology.action_types},
+        rule_ids={rule.id for rule in rules},
+        signal_types=signal_types,
+        workflow_trigger_events=workflow_trigger_events,
+        source_revisions=(
+            str(snapshots[ACTION_TYPE_LIST_KEY]["_revision"]),
+            str(snapshots[RULE_LIST_KEY]["_revision"]),
+            str(snapshots[WORKFLOW_CATALOG_KEY]["_revision"]),
+        ),
+    )
     snapshots.update(
         {
             key: _revisioned(_ontology_declaration_snapshot(ontology, topology=topology, role=role))
@@ -477,6 +501,46 @@ def _revisioned(payload: dict[str, object]) -> dict[str, object]:
         sort_keys=True,
     ).encode("utf-8")
     return {"_revision": "sha256:" + hashlib.sha256(encoded).hexdigest(), **payload}
+
+
+def _workflow_validation_context_snapshot(
+    *,
+    action_type_names: set[str],
+    rule_ids: set[str],
+    signal_types: Any,
+    workflow_trigger_events: Any,
+    source_revisions: tuple[str, str, str],
+) -> dict[str, object]:
+    catalog_revision = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(source_revisions, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        ).hexdigest()
+    )
+    payload_without_digest = {
+        "schema_version": "1.0.0",
+        "action_type_names": tuple(sorted(action_type_names)),
+        "rule_ids": tuple(sorted(rule_ids)),
+        "signal_types": signal_types.model_dump(mode="json"),
+        "workflow_trigger_events": workflow_trigger_events.model_dump(mode="json"),
+        "catalog_revision": catalog_revision,
+    }
+    digest = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                payload_without_digest,
+                allow_nan=False,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
+    context = WorkflowValidationContext.model_validate(
+        {**payload_without_digest, "catalog_digest": digest}
+    )
+    return {"_revision": digest, **context.model_dump(mode="json")}
 
 
 def _yaml_mapping(path: Path) -> Mapping[str, Any]:

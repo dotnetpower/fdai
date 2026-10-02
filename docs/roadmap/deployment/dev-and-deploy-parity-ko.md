@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: be2d7621f4e3f2836942555b299d68d96440b53f
+translation_source_sha: b8e22581980b93626b44789815422d812f8e6fd3
 translation_revised: 2026-10-02
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -586,3 +586,4 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/dev-and-deploy-parity.md) |
+| 로컬 및 배포된 Operator API가 쓰는 공유 Workflow 검증 컨텍스트 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |

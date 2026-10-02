@@ -583,3 +583,4 @@ Each work item MUST be provable at CI time:
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/deployment/dev-and-deploy-parity.md) |
+| Shared Workflow validation context used by local and deployed Operator API | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |

@@ -596,3 +596,4 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | Local and deployed runtime parity | [Runtime parity](dev-and-deploy-parity.md) |
 | Repository validation commands | [Scripts reference](../../../scripts/README.md) |
 | Deployment safety | [Deployment preflight](deployment-preflight.md) |
+| Image scan and package pin drift | [Runtime Deployment Profiles](runtime-deployment-profiles.md) |
