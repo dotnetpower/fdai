@@ -332,7 +332,9 @@ self-composable, depth at most five.
   read of the subject ObjectType's own LinkTypes in both directions, and a manifest count groups only
   by declaration kind. A LinkType subject scoped to one ObjectType, as in the LinkTypes in Workload,
   is the same read and compiles as that ObjectType's relationship read; any other kind scoped to an
-  ObjectType is unsupported. Any other schema relation, direction, counterpart, reach, anchor, or
+  ObjectType is unsupported. An ObjectType declaration read also requires the grounded ObjectType
+  identity to match the stated schema subject exactly, so concept drift reads a clarification instead
+  of another type's declaration. Any other schema relation, direction, counterpart, reach, anchor, or
   grouping returns a typed unsupported reason, and V-SEM rejects it independently.
 
 ### Follow-up references
@@ -515,7 +517,9 @@ path only after the deterministic pre-frame checks, and an ambiguous judgment's 
 [Review and hold refinements](#review-and-hold-refinements) finds one plausible reading. The path answers only when
 it is released and its single retained compilation holds exactly one goal compiled into one verified batch, with no continuation and no
 limitation. The planner then stamps the plan with the gateway's current cutoff, verifies it again, and answers from that compiled
-frame and plan instead of the judgment path's frame and plan stages. When the judgment leaves a stated constraint uncovered, such a
+frame and plan instead of the judgment path's frame and plan stages. A completed relation traversal whose terminal output table is
+empty is held as `semantic_relation_empty_unconfirmed`, because an empty relation result can mean unstable direction or concept
+grounding rather than an observed absence unless another typed guard confirms non-vacuity. When the judgment leaves a stated constraint uncovered, such a
 compilation may answer instead of the hold. Every other outcome leaves the current path to answer the turn: a typed unsupported
 reason, a clarification, a held review, a continuation, a timeout, or a provider failure. Ending or cancelling the turn cancels the
 path, and the owner loop drains its provider calls. The path emits one content-free decision event for every outcome, including a
@@ -657,14 +661,12 @@ family; code still reads no meaning from words.
 
 **Readings**
 
-- **Direction majority**: The proposer states both relation roles, and one blind reader of another
-  model family answers which role the named anchor plays. When that reading is clear and differs, a
-  third blind reader answers the same closed question. The third reader belongs to neither the first
-  reader's family nor the proposer's, because the proposer's role is already one vote; without such a
-  family, the dispute holds. Two agreeing concrete readings decide. Either the form stands, or its two roles swap to
-  the readers' reading and the form is admitted again. A mutual, unclear, or missing third reading
-  holds the turn. Settlement runs before compilation, so a swapped reading is compiled, reviewed, and
-  verified like any other.
+- **Direction confirmation**: The proposer states both relation roles, and one blind reader of
+  another model family answers which role the named anchor plays. The form stands only when the
+  reader confirms the proposer's role or reads a mutual relation whose reciprocal LinkType is read on
+  both sides. A differing, unclear, or missing reading holds the turn before compilation, because a
+  direction dispute can otherwise release an empty relation answer after the form matched the
+  question.
 - **Quote occurrence**: A mention whose stated occurrence lies inside another mention moves to the
   only occurrence of the same words that no other mention holds. When no such occurrence exists,
   admission rejects the overlap.
@@ -733,8 +735,8 @@ The design critique of this stage raised eight findings, five High and three Med
 
 | Critique finding | Revision |
 |------------------|----------|
-| A mutual or unclear third direction reading counted for the proposer | Only a concrete role joins a side; any other third reading holds |
-| The tie-break could reuse the proposer's model family | The tie-break family is neither the first reader's nor the proposer's; without one, the dispute holds |
+| A mutual or unclear direction reading counted for the proposer | Only a confirming or reciprocal reading stands; any differing, unclear, or missing reading holds |
+| The tie-break could reuse the proposer's model family | Removed the tie-break; a blind-reader dispute is an unstable direction and holds |
 | Moving a measure mention to its cue could erase a named resource | Only a concept mention moves; a thing named in a measure cue still needs a mention |
 | Reading a scope written as a value as a name could change its meaning | Removed; an anchor written as a value is resampled as a mislabel |
 | A released reading overrode a real ambiguity the judgment found | Removed; the judgment's clarification still wins until a closed ambiguity reader exists |

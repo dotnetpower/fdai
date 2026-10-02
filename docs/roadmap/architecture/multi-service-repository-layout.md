@@ -110,7 +110,7 @@ fdai/
 │   │   │   ├── response-outcome/ # expected-versus-observed action-effect outcome
 │   │   │   ├── rule/           # rule/schema.json
 │   │   │   ├── ontology/       # object/link/action schemas; ObjectType may declare lifecycle criteria + provenance
-│   │   │   └── workflow/       # workflow/schema.json (process-automation catalog)
+│   │   │   └── workflow/       # compatibility re-export; schema lives in packages/service-contracts
 │   │   ├── ontology/           # runtime ontology helpers (ACL, audit purposes, purpose taxonomy)
 │   │   ├── providers/          # CSP-neutral cloud provider interfaces, including OperatingModelProvider, backward-compatible Distiller conformance, and action-bound control-plane recovery approval verification (adapters implement them)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,

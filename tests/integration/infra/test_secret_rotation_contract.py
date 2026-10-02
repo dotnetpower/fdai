@@ -30,3 +30,21 @@ def test_aks_dsn_requires_coordinated_rotation_without_independent_expiry() -> N
     assert "checkov:skip=CKV_AZURE_41:Credential rotation requires coordinated" in block
     assert "azurerm_key_vault_secret.state_store_dsn.resource_versionless_id" in root
     assert "depends_on = [kubernetes_stateful_set_v1.postgres]" in block
+
+
+def test_postgres_aks_publishes_role_scoped_ingestion_dsns() -> None:
+    root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
+    variables = (ROOT / "infra/runtimes/aks/database/variables.tf").read_text(encoding="utf-8")
+
+    assert 'name         = "fdai-ingestion-api-dsn"' in root
+    assert 'name         = "fdai-ingestion-worker-dsn"' in root
+    assert "&options=-c%20role%3Dfdai_ingestion_api" in root
+    assert "&options=-c%20role%3Dfdai_ingestion_worker" in root
+    assert "azurerm_key_vault_secret.ingestion_api_dsn.resource_versionless_id" in root
+    assert "azurerm_key_vault_secret.ingestion_worker_dsn.resource_versionless_id" in root
+    assert 'resource "azurerm_role_assignment" "ingestion_api_secret_reader"' in root
+    assert "principal_id         = var.ingestion_api_principal_id" in root
+    assert 'resource "azurerm_role_assignment" "ingestion_worker_secret_reader"' in root
+    assert "principal_id         = var.ingestion_worker_principal_id" in root
+    assert 'variable "ingestion_api_principal_id"' in variables
+    assert 'variable "ingestion_worker_principal_id"' in variables

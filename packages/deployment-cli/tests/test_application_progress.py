@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import subprocess
 from types import SimpleNamespace
 
@@ -181,3 +182,32 @@ def test_remote_failure_never_renders_provider_payload(returncode, stdout) -> No
         application._remote_json(tunnel, "example", "example", ("verify",), timeout=10)
     assert "private-output" not in str(error.value)
     assert "not-json" not in str(error.value)
+
+
+def test_remote_failure_surfaces_bounded_structured_summary() -> None:
+    failure = {
+        "schema_version": "fdai.standalone-host-failure.v1",
+        "state": "failed",
+        "reason_code": "terraform_provider_error",
+        "provider_error_codes": ["OverconstrainedZonalAllocationRequest"],
+        "message_excerpt": "OverconstrainedZonalAllocationRequest. Use a different VM size.",
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+    tunnel = SimpleNamespace(
+        ssh=lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            [],
+            3,
+            stdout="",
+            stderr="raw provider payload\n" + json.dumps(failure),
+        )
+    )
+
+    with pytest.raises(ValueError) as error:
+        application._remote_json(tunnel, "example", "example", ("verify",), timeout=10)
+
+    message = str(error.value)
+    assert "reason_code=terraform_provider_error" in message
+    assert "OverconstrainedZonalAllocationRequest" in message
+    assert "Use a different VM size" in message
+    assert "raw provider payload" not in message

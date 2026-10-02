@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 49be027d3fd76f383e61267f5116a6944c0c6106
-translation_revised: 2026-10-01
+translation_source_sha: 614e7a6c20be701b7192b1f716e71b4908627ae1
+translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
 
@@ -30,11 +30,18 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 노드 크기·비용·호스트 신원·정확한 계획 승인은 검증하지 않습니다. 이 근거는 프로파일에 연결된
 계획을 대신할 수 없습니다. 지원 자료 설치에는 검증된 경로를 명시적으로 전달하며 소스 자료가
 없다고 kit를 자동 선택하지 않습니다. [소스 경계](installable-deployment-cli-ko.md#명시적-소스-복구)를 참고하세요.
-두 프로파일 모두 읽기 측 리소스 계산을 위해 Core의 잠긴 Kubernetes 수량 도구를 패키징합니다. 이 의존성은 런타임을 선택하거나 Kubernetes 접근을 허용하거나 노드 적합성을 입증하거나 Cost Governance를 활성화하지 않습니다. 독립 배포 CLI는 별도 의존성 집합을 유지합니다.
+두 프로파일 모두 읽기 측 리소스 계산을 위해 Core의 잠긴 Kubernetes 수량 도구를 패키징합니다. 이 의존성은 런타임을 선택하거나 Kubernetes 접근을 허용하거나 노드 적합성을 입증하거나 Cost Governance를 활성화하지 않습니다. 독립 배포 CLI는 별도 의존성 집합을 유지합니다. 런타임 Dockerfile의 Alpine 패키지 고정값 갱신은 패키지 유지보수일 뿐이며 런타임 프로파일, 배포 권한, 프로바이더 접근 또는 제품 추가 기능 선택을 바꾸지 않습니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을
 요청합니다. 재시도는 불확실한 효과를 검증할 수 있지만 선택을 바꾸거나 불명확한 적용을 반복할 수는 없습니다. 검증 전용 복구는 apply claim에 대한 첫 번째이자 유일한 암묵적 대응입니다. 새 zero-change plan과 권위 있는 재조회가 원 claim을 종결합니다. 갱신된 exact plan이 제한된 잔여 변경을 입증하면 조정기는 원 claim을 보존하고 원 claim·현재 state·target·source·runtime profile·잔여 이진 plan에 연결된 별도 residual review를 만듭니다. 한 번의 효과 전에 새 exact `<stage>-residual-apply` 승인과 새 residual claim이 필요하며 파괴적 잔여 변경에는 두 번째 확인을 유지합니다. Residual apply가 모호하면 검증만 허용하고 다른 residual apply를 만들 수 없습니다. 완료에는 계속 권위 있는 효과 재조회와 zero-change plan이 필요합니다. 존재하거나 symbolic link인 claim 경로는 검증된 복구 전까지 일반 재계획을 차단하며, 잘못된 보존 claim은 닫힌 상태로 실패합니다.
+
+runtime plan, apply, residual review 또는 residual apply를 진행하기 전에 Managed Host는 배포
+Managed Identity로 AKS agent pool을 다시 조회합니다. `runtime` 사용자 풀이 Azure에는 이미
+있지만 Terraform state에 `azurerm_kubernetes_cluster_node_pool.user` 주소가 없으면 실행은 어떤
+효과도 내기 전에 `aks_node_pool_exists_outside_state`로 멈춥니다. 메시지는 해당 풀 이름을
+표시하고, 제거에는 명시적인 Owner 확인이 필요하다고 설명합니다. 조정기는 그 풀을 자동으로
+삭제하거나 import하지 않습니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|
@@ -197,7 +204,7 @@ catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여
 프로비저닝 도구는 Docker, Buildx, ACR Tasks, 원격 빌더 또는 VM 이미지 캡처 없이 서명, 출처,
 소스 버전, 플랫폼 및 digest를 검증합니다. 복구된 Foundation이 release보다 이전 버전이면 로컬
 조정기는 완전한 근거 연결을 보존하고, 관리 호스트는 기존 인계 다이제스트를 서로 다른 현재 키트
-및 런타임 다이제스트에 독립적으로 결속합니다. 이 결속은 선택적 카탈로그 검토 체크포인트를 선택하거나 건너뛰거나 승인하지 않습니다. 최초 Host context는 정확한 Foundation adoption receipt digest를 영속화하고 retained-context retry마다 이를 재검증하므로, context가 자체 retry에 필요한 binding을 누락할 수 없습니다. AKS public baseline은 기본값으로 유지합니다. 권위 있는 재조회에서 정확한 기존 애플리케이션 Key Vault 또는 document storage account가 public-disabled 상태이고 Managed Host의 사용 가능한 경로가 없음을 확인하면 preparation은 대응하는 `enable_aks_key_vault_private_access` 또는 `enable_aks_document_storage_private_access` 복구 축만 선택합니다. 두 축은 검증된 runner VNet 좌표와 공유 애플리케이션-러너 peering을 요구하고 선택된 Key Vault 또는 document Blob/DFS endpoint와 DNS link만 만들며 private AKS, private PostgreSQL 또는 다른 서비스 private endpoint는 선택하지 않습니다. Residual Terraform plan은 계속 정확한 승인을 요구합니다. 선택기는 제한된 management-list JSON에서 provider가 평탄화한 값 또는 중첩 `properties.publicNetworkAccess`를 검증하고 리소스가 없으면 기본 경로를 유지하며 중복 또는 알 수 없는 shape는 닫힌 상태로 실패합니다. Blob과 DFS endpoint module은 document storage의 암묵적 dependency가 아니라 dependent이므로 명시적 substrate target입니다. 두 focused 축 중 하나라도 선택되면 별도로 승인한 `access` plan이 선택된 endpoint, DNS link, peering 및 deployer data role만 먼저 수렴합니다. 읽기 전용 Key Vault와 ADLS probe가 성공해야 일반 substrate plan이 secret, filesystem 또는 path를 만들 수 있습니다. 모호한 access apply에는 다른 stage와 같은 verification-first 및 제한된 residual 규칙을 적용합니다. 범위가 제한된 예외 하나는 적격 호스트가 기존의 정상
+및 런타임 다이제스트에 독립적으로 결속합니다. 이 결속은 선택적 카탈로그 검토 체크포인트를 선택하거나 건너뛰거나 승인하지 않습니다. 최초 Host context는 정확한 Foundation adoption receipt digest를 영속화하고 retained-context retry마다 이를 재검증하므로, context가 자체 retry에 필요한 binding을 누락할 수 없습니다. AKS public baseline은 기본값으로 유지합니다. 권위 있는 재조회에서 정확한 기존 애플리케이션 Key Vault 또는 document storage account가 public-disabled 상태이고 Managed Host의 사용 가능한 경로가 없음을 확인하면 preparation은 대응하는 `enable_aks_key_vault_private_access` 또는 `enable_aks_document_storage_private_access` 복구 축만 선택합니다. 두 축은 검증된 runner VNet 좌표와 공유 애플리케이션-러너 peering을 요구하고 선택된 Key Vault 또는 document Blob/DFS endpoint와 DNS link만 만들며 private AKS, private PostgreSQL 또는 다른 서비스 private endpoint는 선택하지 않습니다. Residual Terraform plan은 계속 정확한 승인을 요구합니다. 선택기는 제한된 management-list JSON에서 provider가 평탄화한 값 또는 중첩 `properties.publicNetworkAccess`를 검증하고 리소스가 없으면 기본 경로를 유지하며 중복 또는 알 수 없는 shape는 닫힌 상태로 실패합니다. Blob과 DFS endpoint module은 document storage의 암묵적 dependency가 아니라 dependent이므로 명시적 substrate target입니다. 두 focused 축 중 하나라도 선택되면 별도로 승인한 `access` plan이 선택된 endpoint, DNS link, peering 및 deployer data role만 먼저 수렴합니다. 읽기 전용 Key Vault와 ADLS probe가 성공해야 일반 substrate plan이 secret, filesystem 또는 path를 만들 수 있습니다. 부분 substrate 재조회가 비공개 상태를 증명하면 retained context는 selector를 `false`에서 `true`로만 강화할 수 있고, `true`에서 `false`로 완화하는 변경은 거부됩니다. 모호한 access apply에는 다른 stage와 같은 verification-first 및 제한된 residual 규칙을 적용합니다. 범위가 제한된 예외 하나는 적격 호스트가 기존의 정상
 `dev` AKS 설치에서 서비스 하나에 `fdaictl provision source-service-update`를 실행하도록
 허용합니다. 소스에서 빌드한 이미지는 release 신뢰가 아니라 운영자가 선택한 근거로 유지됩니다.
 현재 사람 승인이 Managed Identity 반입과 Deployment 전용 exact 계획을 통제하며, digest와 상태
@@ -239,7 +246,7 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 
 공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원, case-history 저장소 및 `postgres-flex`를 계속 소유합니다.
 Foundation은 구독 역할 할당을 Reader, Monitoring Reader, Cost Management Reader 역할과 서비스 주체로만 제한해 위임하며, 일치하는 Terraform 역할 할당은
-`principal_type = "ServicePrincipal"`을 선언해 위임한 역할 집합을 넓히지 않고 공급자 요청이 해당 조건을 충족하게 합니다. Case-history 콘텐츠의 활성, 삭제 예정,
+`principal_type = "ServicePrincipal"`을 선언해 위임한 역할 집합을 넓히지 않고 공급자 요청이 해당 조건을 충족하게 합니다. 같은 apply에서 만드는 관리 ID에 대한 역할 할당도 모두 `principal_type = "ServicePrincipal"`을 선언하므로, Entra ID가 새 ID를 아직 복제하는 중에도 Azure가 할당을 받아들입니다. 공개 개발 경로에서는 사용자가 배포 주체가 되므로 배포 주체의 할당에는 유형을 지정하지 않으며, `test_role_assignment_principal_type.py`가 이 규칙을 강제합니다. Case-history 콘텐츠의 활성, 삭제 예정,
 이전 버전 및 변경 피드 기간 기본값은 30일이며 운영 이력과 의사 결정 근거 메타데이터는 별도 일정을 유지합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원,
 네트워크 연결 및 클러스터 범위 Azure 역할 할당만 소유합니다.
 AKS는 공유 루트의 Key Vault 출력을 사용하고 substrate 재조회는 Terraform 상태가 소유한 `container_registry_id`가 가리키는 레지스트리를 선택하고, 이미지 참조에 사용한 workload 기반 레지스트리와 다르면 실패합니다. 대상 지정 적용이 기록하지 않은 루트 출력은 새로 고침 없는 비대상 계획에서 계획 값이 확정된 경우에만 읽으며, 확정되지 않은 값은 실패로 처리합니다. AKS substrate는 AKS 워크로드가 읽는 Console과 비용 가명 비밀도 적용하며, 선택 사항인 운영 이력 보관소는 상세 사설 네트워킹 이후에 제공합니다. 공개 AKS API 서버는 관리형 호스트의 운영 NAT 게이트웨이 주소만 허용합니다. 관리형 호스트 checkpoint는 세션 기본값과 관계없이 소유자 전용 umask로 상태를 만듭니다. 이미지 가져오기는 검증된 각 OCI 레이아웃을 대상 레지스트리 자격 증명 파일로만 복사합니다. 이름이 너무 긴 후보는
@@ -332,14 +339,20 @@ Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기
 5개 서비스 AKS 기본 구성은 embedding 배포를 요구하지 않는 lexical 문서 검색을 활성화합니다.
 Document API와 Worker는 서로 다른 워크로드 신원, 역할 범위 데이터베이스 DSN, 공유 ADLS 계정 및
 `fdai.pipeline.stages` 엔터티를 사용합니다. Worker Pod는 기존 digest 고정 ClamAV 이미지를
-replica-local TCP sidecar로 포함합니다. 루트는 읽기 전용으로 유지하고 선언된 데이터베이스, 실행 및
-임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다. restricted namespace에서는 워크로드,
-init container, sidecar, 예약 작업의 Pod와 container 범위 모두에 `runAsNonRoot`가 필요합니다.
-Pod 범위 설정만으로는 admission을 통과하지 못합니다.
+replica-local TCP sidecar로 포함하며, 이미지 entrypoint가 데이터베이스 소유자를 바꾸려다 root 권한
+없이 종료되므로 sidecar는 `clamd`를 직접 시작합니다. 루트는 읽기 전용으로 유지하고 선언된
+데이터베이스, 로그, 실행 및 임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다. restricted
+namespace에서는 워크로드, init container, sidecar, 예약 작업의 Pod와 container 범위 모두에
+`runAsNonRoot`가 필요합니다. Pod 범위 설정만으로는 admission을 통과하지 못합니다. Core는 공유
+root의 Event Hubs 시작 시간 설정을 받고, Core와 Operator는 substrate 단계가 만드는 secret 단위
+`Key Vault Secrets User` 권한으로 `operator_request` 영수증 seed를 읽습니다. 구조 테스트는
+AKS 렌더러가 지정하는 모든 Key Vault secret이 substrate 대상 리소스, `postgres-aks` 데이터베이스
+root 또는 호스트가 작성하는 라이선스 secret 중 하나에서 오는지 확인합니다.
 
-선택적인 운영 근거 검증기는 자체 user-assigned Managed Identity를 사용하는 별도 내부 워크로드입니다.
-기본 5개 서비스 준비 상태 집합에 포함되지 않으며 실행기 신원을 받지 않습니다. 호출자 인증기, 실행기
-계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 시작합니다.
+선택적인 운영 근거 검증기는 배포 소유 고정값, 앵커, 호출자 토큰 검증, 작성자 정책, 역할 재확인 범위가
+있을 때만 자체 user-assigned Managed Identity를 쓰는 별도 내부 워크로드로 렌더링됩니다. 기본 5개 서비스
+준비 상태 집합에 포함되지 않고 실행기 신원을 받지 않으며, 루트는 이미지 pull과 정확한 DSN 시크릿 읽기만
+부여합니다. 시작은 여전히 호출자 인증기, 실행기 계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 진행됩니다.
 
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state
@@ -599,12 +612,12 @@ CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하�
 사용자 노드 최소 4개는 이 프로파일의 스케줄 가능성을 위한 값이며,
 데이터베이스 고가용성, 백업 또는 특정 시점 복구를 의미하지 않습니다.
 
-클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN만 기록합니다. AKS 문서 수집이 읽는 역할별
-DSN은 아직 기록하지 않습니다. 읽기 전용 Console을 선택하면 이 수집이 켜지므로, #1762에서 해당
-DSN을 추가할 때까지 `postgres-aks`는 Console 추가 기능을 거부합니다. 기반 구성 플랜도 수집 DSN
-비밀과 그 읽기 역할을 제외합니다. Terraform `-target`은 count가 0인 대상이라도 구성 의존성을 모두
-유지하므로, 이 항목이 하나라도 포함되면 `module.state_store`를 통해 Flexible Server가 플랜에
-들어가기 때문입니다.
+클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN과 AKS 문서 수집이 읽는 역할 범위
+`fdai-ingestion-api-dsn`, `fdai-ingestion-worker-dsn` 비밀을 기록합니다. 각 수집 비밀은 일치하는
+워크로드 신원에만 `Key Vault Secrets User`를 부여합니다. `postgres-aks`를 선택하면 기반 구성
+플랜은 여전히 Flexible Server 기반 수집 DSN 비밀과 그 읽기 역할을 제외합니다. Terraform
+`-target`은 count가 0인 대상이라도 구성 의존성을 모두 유지하므로, 루트 비밀이 포함되면
+`module.state_store`를 통해 Flexible Server가 플랜에 들어가기 때문입니다.
 
 Key Vault DSN에는 별도의 고정 만료일을 두지 않습니다. 자격 증명을 교체하려면 데이터베이스와
 워크로드를 함께 갱신해야 합니다. 비밀 값만 만료시키면 데이터베이스 자격 증명은 바뀌지 않은 채
@@ -632,12 +645,17 @@ Console이 추가적인 `summary=true`를 보내더라도 이전 Operator는 기
 Operator는 이 활성화 설정이 있을 때만 원장 전체 요약을 계산하므로 Incident, Agent Activity, Trace 및
 선택적 비용 패키지 경로가 이 조회 비용을 이어받지 않습니다.
 
-AKS에서는 substrate root의 `terraform_data.installation` 고정점이 설치 식별자와 최초 적용 시각을
-Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 애플리케이션 단계는
-Core에 `FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제공합니다. 애플리케이션
-적용 후 초기 인벤토리 전에, 관리 호스트의 `activate-trial` 단계는 Key Vault 상태 저장소 DSN으로
-Core Trial 작성자를 한 번 실행하고 digest로 묶인 영수증을 기록합니다. 작성자는 기존 기간을 그대로
-유지하므로, 키 없는 설치는 최초 적용 시점에 시작된 30일 기간을 계속 유지합니다
+AKS에서는 substrate 단계가 대상으로 지정하는 `terraform_data.installation` 고정점이 설치 식별자와 최초 적용 시각을
+Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 런타임 단계는
+`azurerm_kubernetes_cluster.runtime`이 상태에 생긴 뒤에만 Container Insights 연결을 적용합니다.
+새 클러스터의 첫 검토는 이 연결을 제외한 모든 런타임 리소스를 대상으로 지정하고, 이어지는 두 번째
+일반 전체 루트 런타임 검토가 그 연결을 만듭니다. Terraform 구성은 여전히 클러스터 리소스에
+의존하지 않고 연결 대상 ID를 다시 구성합니다. 모니터링 전용 대상 지정 계획이 관리형 클러스터
+drift를 범위 안으로 끌어오지 않아야 하기 때문입니다. 애플리케이션 단계는 Core에
+`FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제공합니다. 애플리케이션 적용 후
+초기 인벤토리 전에, 관리 호스트의 `activate-trial` 단계는 Key Vault 상태 저장소 DSN으로 Core Trial
+작성자를 한 번 실행하고 digest로 묶인 영수증을 기록합니다. 작성자는 기존 기간을 그대로 유지하므로,
+키 없는 설치는 최초 적용 시점에 시작된 30일 기간을 계속 유지합니다
 ([기능 라이선싱](../fork-and-sequencing/capability-licensing-ko.md#영속적인-무키-trial-목표)).
 배포 영수증은 다시 읽은 기간이 신뢰할 수 있는 시계 기준으로 열려 있을 때만
 `license_mode=trial`을 보고합니다.

@@ -59,6 +59,7 @@ class PreparedGenesis:
     release_root: Path
     bundle_public_key: Path
     terraform: Path
+    foundation_source_commit: str = ""
 
 
 def prepare_genesis(
@@ -180,6 +181,7 @@ def prepare_genesis(
         variables=variables_path,
         ssh_private_key=ssh_key,
         source_commit=source_commit,
+        foundation_source_commit=source_commit,
         target_binding=target_binding,
         run_binding=run_binding,
         kit_manifest_digest=verification.manifest_digest,
@@ -200,6 +202,7 @@ def prepare_standalone_genesis(
     connectivity: str,
     root: Path,
     create_runner_image: bool = True,
+    region_short: str | None = None,
 ) -> PreparedGenesis:
     """Create target-bound inputs from an independently verified complete kit."""
 
@@ -248,9 +251,14 @@ def prepare_standalone_genesis(
     variables_path = root / "foundation-variables.json"
     if variables_path.exists():
         values = read_plan_input(variables_path)
-        if values.get("source_commit") != source_commit:
-            raise ValueError("existing Foundation variables use another source revision")
+        foundation_source_commit = values.get("source_commit")
+        if (
+            not isinstance(foundation_source_commit, str)
+            or _COMMIT.fullmatch(foundation_source_commit) is None
+        ):
+            raise ValueError("existing Foundation variables source revision is invalid")
     else:
+        foundation_source_commit = source_commit
         values = foundation_values(
             repository_root=deployment_kit.bundle_root,
             evidence_directory=root,
@@ -263,8 +271,16 @@ def prepare_standalone_genesis(
             ssh_public_key=read_private_bytes(ssh_public, max_bytes=16_384).decode("ascii").strip(),
             execution_transport="manual",
             create_runner_image=create_runner_image,
+            region_short=region_short,
         )
         write_plan_input(variables_path, values)
+    _write_source_lineage(
+        root / "foundation-source-lineage.json",
+        foundation_source_commit=foundation_source_commit,
+        application_source_commit=source_commit,
+        kit_manifest_digest=deployment_kit.verification.manifest_digest,
+        runtime_release_digest=deployment_kit.runtime.digest,
+    )
     check = root / ".foundation-variables-check.json"
     check.unlink(missing_ok=True)
     try:
@@ -291,6 +307,7 @@ def prepare_standalone_genesis(
         variables=variables_path,
         ssh_private_key=ssh_key,
         source_commit=source_commit,
+        foundation_source_commit=foundation_source_commit,
         target_binding=target_binding,
         run_binding=run_binding,
         kit_manifest_digest=deployment_kit.verification.manifest_digest,
@@ -308,6 +325,29 @@ def _standalone_run_binding(
     if create_runner_image:
         run_context += ":runner-image=true"
     return hashlib.sha256(run_context.encode()).hexdigest()
+
+
+def _write_source_lineage(
+    path: Path,
+    *,
+    foundation_source_commit: str,
+    application_source_commit: str,
+    kit_manifest_digest: str,
+    runtime_release_digest: str,
+) -> None:
+    payload = {
+        "schema_version": "fdai.standalone-foundation-source-lineage.v1",
+        "foundation_source_commit": foundation_source_commit,
+        "application_source_commit": application_source_commit,
+        "kit_manifest_digest": kit_manifest_digest,
+        "runtime_release_digest": runtime_release_digest,
+    }
+    content = json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+    if path.exists():
+        if read_private_bytes(path, max_bytes=4096).decode("utf-8") == content:
+            return
+        path.unlink()
+    write_private_output(path, content)
 
 
 def _ensure_kit(

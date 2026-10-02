@@ -144,7 +144,7 @@ def verify_foundation_chain(
         profile.environment != "dev"
         or profile.region != region
         or profile.target_binding != target_binding
-        or profile.connectivity != "online"
+        or profile.connectivity not in {"online", "offline"}
         or profile.host != "managed-vm"
         or profile.transport != "manual"
         or profile.access_method != "bastion"

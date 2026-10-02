@@ -68,6 +68,9 @@ class SchemaNotFoundError(LookupError):
 # One entry per shipped schema. The value is the resource path relative to
 # ``fdai.shared.contracts``. Only one version per schema is shipped at
 # v1.0.0 today; introducing v1.1.0 means adding an entry, not editing v1.0.0.
+_SERVICE_CONTRACT_SCHEMAS: dict[tuple[str, str], str] = {
+    ("workflow", "1.0.0"): "schemas/workflow/1.0.0.json",
+}
 _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("event", "1.0.0"): "event/schema.json",
     ("forecast-outcome", "1.0.0"): "forecast-outcome/schema.json",
@@ -79,7 +82,6 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("incident", "1.0.0"): "incident/schema.json",
     ("slo", "1.0.0"): "slo/schema.json",
     ("runbook", "1.0.0"): "runbook/schema.json",
-    ("workflow", "1.0.0"): "workflow/schema.json",
     ("profile", "1.0.0"): "profile/schema.json",
     ("document-worker-audit", "1.0.0"): "document-worker-audit/schema.json",
     ("document-worker-index", "1.0.0"): "document-worker-index/schema.json",
@@ -131,6 +133,21 @@ class PackageResourceSchemaRegistry:
         if cached is not None:
             return cached
 
+        service_rel = _SERVICE_CONTRACT_SCHEMAS.get((name, target_version))
+        if service_rel is not None:
+            raw = (
+                resources.files("fdai_service_contracts")
+                .joinpath(service_rel)
+                .read_text(encoding="utf-8")
+            )
+            loaded = json.loads(raw)
+            if not isinstance(loaded, dict):
+                raise SchemaNotFoundError(  # pragma: no cover - schema files are dicts
+                    f"schema {name!r} is not a JSON object"
+                )
+            self._cache[(name, target_version)] = loaded
+            return loaded
+
         rel = _PACKAGE_SCHEMAS.get((name, target_version))
         if rel is None:
             raise SchemaNotFoundError(f"unknown schema: name={name!r} version={target_version!r}")
@@ -145,10 +162,10 @@ class PackageResourceSchemaRegistry:
         return loaded
 
     def names(self) -> list[str]:
-        return sorted({n for (n, _v) in _PACKAGE_SCHEMAS})
+        return sorted({n for (n, _v) in (*_PACKAGE_SCHEMAS, *_SERVICE_CONTRACT_SCHEMAS)})
 
     def _latest_version(self, name: str) -> str | None:
-        versions = [v for (n, v) in _PACKAGE_SCHEMAS if n == name]
+        versions = [v for (n, v) in (*_PACKAGE_SCHEMAS, *_SERVICE_CONTRACT_SCHEMAS) if n == name]
         if not versions:
             return None
         return max(versions, key=_semver_key)

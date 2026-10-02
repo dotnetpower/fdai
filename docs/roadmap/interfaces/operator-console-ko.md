@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e7abc8598a670808e3bbdded2a7f20eb988ba831
+translation_source_sha: 6b4cf7af3ed6282f21f9d98288bd0a251e2ee80f
 translation_revised: 2026-10-02
 ---
 # FDAI Console 대화
@@ -14,7 +14,10 @@ Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니�
 최근 참조를 최대 네 개까지 돌려보냅니다. Operator에 행 본문을 노출하거나 사람 보고 경로를
 바꾸거나 Console 실행 권한을 부여하지 않습니다.
 생성된 계약 view가 롤아웃에 안전한 핸들 참조 스키마 버전을 추가할 수는 있지만, 브라우저와 Operator는
-여전히 행 신원, 행 본문 또는 모델에 보이는 핸들 payload를 받지 않습니다.
+여전히 행 신원, 행 본문 또는 모델에 보이는 핸들 payload를 받지 않습니다. Operator Rule 점검 결과
+요약은 이제 완전한 baseline-evaluation 완료 및 결과 기록에서만 평가된 Console 상태를 수락합니다.
+coverage가 없거나 부분적이면 계속 사용할 수 없음으로 렌더링하고, 저장된 완전한 요약은 더 새 세대가
+완료될 때까지 읽을 수 있습니다.
 적응형 답변 근거는 Core가 만든 허용 목록 기반 변환 결과인 `ModelEvidenceView`로 모델 경계를
 넘습니다. 원시 조회 표, 프로바이더 본문, 핸들, 보관된 스냅숏 셀은 답변 작성 또는 검토 모델
 호출에 들어가지 않습니다.

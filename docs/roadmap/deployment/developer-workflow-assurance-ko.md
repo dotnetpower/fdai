@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 63c37f942bf490567346336e6bc7f4d40de58c90
-translation_revised: 2026-10-01
+translation_source_sha: a35a1228ca1a1ebf62a50dd0b9089af4a9faecba
+translation_revised: 2026-10-02
 ---
 
 # 개발 워크플로 보증
@@ -24,6 +24,7 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 
 ## 설계 개요
 테스트 맥락 선택지 경로는 다른 로컬 진단 화면과 같은 Operator 경로 패밀리 조립 방식을 사용합니다. 이 추가는 개발자 워크플로 소켓, 검증 대기열 동작 또는 로컬 실행 권한을 변경하지 않습니다.
+이미지 스캔 결과를 해결하는 의존성 갱신은 패키지 유지보수입니다. 매니페스트와 lock을 갱신할 뿐이며 로컬 검증, 대기열 진단 또는 개발 도구를 권위 있는 근거로 만들지 않습니다.
 의미 결과 핸들 저장과 재생은 일반 Operator/Core 의미 요청 경로를 사용합니다. 개발자 워크플로
 소켓, 검증 대기열 동작 또는 로컬 실행 권한을 추가하지 않습니다.
 
@@ -587,3 +588,4 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 로컬 및 배포 런타임 동등성 | [런타임 동등성](dev-and-deploy-parity-ko.md) |
 | 저장소 검증 명령 | [스크립트 참조](../../../scripts/README.md) |
 | 배포 안전성 | [배포 사전 검사](deployment-preflight-ko.md) |
+| 이미지 검사 및 패키지 핀 드리프트 | [런타임 배포 프로파일](runtime-deployment-profiles-ko.md) |

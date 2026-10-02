@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b50013518b6af15dd97bfaa62d0cf971eac95a60
+translation_source_sha: ee6778373e1487aeb534cca7fab301e7099362e4
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -34,6 +34,13 @@ shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 �
 도달하지 않고, 판단의 타입 슬롯은 frame에 바인딩되어 plan 커버리지가 이를 적용할 수 있습니다. 상태 저장소 싱크는 기록마다 서비스 자체의
 이벤트 루프에 막힘 없이 예약하고, 다시 만든 frame은 조사 식별자를 유지하며, 피연산자 출처 검사는
 탐색 끝점과 메트릭 리소스 ID도 읽습니다.
+관계 실행 보류도 Core 대화 런타임 안에 남습니다. 컴파일된 계획의 빈 관계 탐색 출력은 독립 근거화가 빈
+관계 결과로 답할 수 있음을 확인할 때까지 타입이 지정된 근거 보류가 되며, Operator 또는 문서 route에
+새 권한을 주지 않습니다.
+관계 방향 확인도 같은 Core 경계를 사용합니다. 블라인드 reader와의 불일치는 관계 역할을 바꾸는 대신
+컴파일 전에 보류하며, Operator 또는 문서 route는 참여하지 않습니다.
+스키마 선언 신원 검사도 Core 대화 컴파일 안에 남습니다. 근거화된 ObjectType이 명시된 스키마 주체와
+다른 스키마 읽기는 조회 계획을 release하기 전에 보류합니다.
 
 질문 구조의 개념 선택 재사용은 Core 대화 처리가 소유하며 한 번의 처리가 끝나면 종료됩니다.
 정확한 입력과 판독기별로 분리된 캐시는 관측 상태, 인가 결정, 이전 요청의 의미를 저장하지
@@ -53,7 +60,10 @@ Assurance Twin의 프로덕션 조립은 고정된 Pantheon 역할과 상태 저
 추가 사항은 서비스 간 스키마, 승인 또는 실행 경로를 변경하지 않습니다. Rule 세대 시각은 전용 UTC 시계를 사용하며, 재생,
 Action 생성, 전달 또는 효과 근거에 사용하는 주입된 컨트롤 루프 시계를 소비하지 않습니다.
 Core는 계약 하위 모듈이 아니라 공유 계약 파사드를 통해 Rule 및 제출 조건 형식을 확인하여
-저장소의 단방향 공개 가져오기 경계를 보존합니다.
+저장소의 단방향 공개 가져오기 경계를 보존합니다. 공유 service-contract SDK는 완전한 인벤토리 세대를
+위한 권한 없는 기준선 평가 터미널 기록도 소유합니다. 기록은 Rule별 결과와 세대별 완료를 담습니다. 이
+기록은 버전이 지정된 Core-to-Operator wire 표면만 추가하며, Forseti 판단, Saga 감사, Operator 변환
+결과 수락, Console 렌더링은 계속 별도 소유자에 남습니다.
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,
@@ -187,6 +197,7 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
 ## 모듈 경계(모듈 Boundaries)
 [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)가 타입 지정 근거, 다시 생성한 Python 및 TypeScript 계약 뷰를 포함한 등록된 공급자 중립 계획/결과 `1.1.0` 스키마 및 Process를 소유합니다. Core는 일반 대체 경로보다 먼저 알림 전용 unavailable direct-API 경로를 등록하고 읽기 전용 보관 디코더로 미출시 `1.0.0` 레코드를 폐기하며 Terraform은 운영자가 로컬에서 사용하는 배포 도구일 뿐 런타임 권한을 제공하지 않습니다. 전용 Operator 조립은 요청 의존성과 감독되는 브리지 하나를 연결하며 공통 루트는 수명 주기만 소유합니다. 역할별 framework mixin은 에이전트 API와 인스턴스 격리를 보존합니다. 공유 수락 목록이 결정 검증을 고정합니다. 기존 검증 절차를 갖춘 생성기는 운영 증적을 재작성하지 않고 release 기반 소스 참조를 재평가하며, 소스 테스트와 생성 지식은 권한을 부여하지 않습니다. 공유 SDK는 기존 타입 모델에서 생성한 `test-context-draft`, `test-context-command`, `test-context-application` 버전 `1.0.0` 스키마를 제공합니다. 검증기는 모델의 필드 간 조건도 검사하며, 스키마에 맞는 레코드가 인증된 근거나 현재 권한이 되는 것은 아닙니다. 이 개별 등록만으로 브로커의 N/N-1 배포 전환이 검증되지는 않습니다. 통합 후 System Knowledge를 다시 생성하면 이 경계를 release 메타데이터로만 기록하며 전송 호환성이나 운영 검증 상태를 승격하지 않습니다. 예측 평가 제외 사유는 모델 facade가 공개하는 문자열 열거형이며 JSON 값과 기존 결과 전송 형식은 바뀌지 않습니다. 컨텍스트 변환 모듈은 Core wheel에 포함되고, Operator 컨텍스트 명령 테스트는 명시적인 서비스 검사 소유자를 가지며, DB 전용 테스트는 통합 검사에서 실행됩니다. 타입 검증 뒤에 근거 허용 여부를 평가하고, 상태를 바꾸지 않는 정확한 재생과 새로 허용된 쓰기를 구분합니다. 레코드 내용이 그대로여도 소유 문서의 줄 배치가 바뀌면 카탈로그 원본 해시를 갱신합니다.
+알림 과다 수신 관리의 권한 및 작성자 경계는 명시적인 조립 입력으로 유지합니다. 운영 및 공용 경보 변경은 권한이 있는 서로 다른 사람 두 명을 유지하고, Owner 한 명 정족수는 구성된 full-authority 개발 프로필 범위에서만 수락하며, 강제 조건부 업데이트가 없는 공급자 작성자는 관리되는 독점 작성자 증명이 결속되지 않으면 보류합니다.
 인시던트 생성 회귀 테스트는 Core 또는 Operator 서비스 테스트 묶음 하나에만 속합니다. Operator 인시던트 주의 및 observer 배포 projection 회귀 테스트도 하나의 명시적 서비스 테스트 묶음에만 속하며, 테스트 인벤토리 메타데이터는 런타임 소유권이나 권한을 바꾸지 않습니다. 생성된 question-bank 및 의미 기반 의도 커버리지 산출물은 결정적인 파생 산출물이며 카탈로그 문구가 바뀌면 의존 순서대로 다시 생성하므로, 다시 생성된 출처 해시가 중복 소유 문서 갱신을 요구하지 않고 검토된 원본 변경이 설계 영향을 가집니다.
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다. [AKS 토큰 교환](../deployment/runtime-deployment-profiles-ko.md#신원-및-secret)과 명시적으로 선언한 SDK/비동기 전송 의존성은 서비스가 소유하며 Core 도메인이나 공유 계약에 넣지 않습니다. Operator 자격 증명 테스트는 하나의 서비스 테스트 묶음에 명시적으로 속하며, 생성 함수는 기존 adapters 공개 모듈을 통해 조립 의존 경로 수를 유지합니다. `core/licensing/trial.py`의 Trial 기록 자체는 기능을 허용하지 않습니다. `core/licensing/trial_entitlement.py`가 확정된 설치 바인딩 기록을 사용권으로 바꾸는 유일한 지점이며, 공용 라이선스 판정기가 토큰이 행위 권한을 주지 않는 곳에서 이를 조회하므로 실행 경로는 자체 Trial 검사를 갖지 않습니다. `core/licensing/entitlement_notice.py`는 해석된 하나의 사용권에서 Console 워터마크 안내 값을 도출하고, `runtime/licensing_state.py`는 단일 기록기 `delivery/persistence/postgres_licensing_entitlement_state.py`를 통해 이를 게시하며, Operator의 `entitlement_stamp.py`는 인증된 응답에 이 값을 전달하기만 하므로 두 번째 판정기가 없습니다. crypto-free인 `core/licensing/installation_entitlement.py` 계약은 키 보유자의 설치 바인딩 권한이며, 공용 판정기는 서명 토큰을 선언된 스키마에 따라 하나의 엄격한 파서로 보내므로 v1 토큰, 사용권, 무결성 매니페스트는 서로의 것으로 검증되지 않습니다. Trial 관측은 저장소에 기록하므로 공용 실행 게이트는 작업자 스레드에서 사용권을 해석하고, 저장소는 이벤트 루프 스레드에서의 실행을 거부하므로 잘못 호출해도 Core를 막지 않고 거부로 끝납니다. 배포/영속 계층이 원자적 활성화를 소유합니다. `licensing_trial` 단일 행이 리비전 조건으로 관측을 기록하며 런타임은 보존 상태의 출처를 인증해야 합니다. 서비스가 소유하는 새 테이블은 소유권 manifest의 기록자 목록에 등록하며, legacy 마이그레이션 인벤토리는 서비스 분기 이전부터 있던 테이블을 기록하므로 사용하지 않습니다. 소스 출처는 CLI가 소유하며 사용 권한이나 release 서명이 아닙니다. Core 배포 단위는 Python Azure Monitor OpenTelemetry Distro 의존성을 소유합니다. 공유 원격 분석은 배포가 Key Vault 기반 `APPLICATIONINSIGHTS_CONNECTION_STRING`을 주입할 때만 이 내보내기를 선택하고, 명시적인 OTLP 엔드포인트를 동시에 설정하면 시작을 차단하며, 그 외에는 로컬 또는 벤더 중립 OTLP 프로바이더를 유지합니다. 이 시작 선택은 Core 도메인 모듈이나 공유 계약에 프로바이더 SDK를 추가하지 않으며, 연결 문자열은 소스, 로그 또는 일반 Terraform 출력에 들어가지 않습니다.
 Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다. 공유 계약은 가명 참조와 공개 메타데이터만 전달하며 키를 받거나 데이터 접근 권한 또는 작업 권한을 높이지 않습니다. [독립 운영 근거](../rules-and-detection/independent-operational-evidence-ko.md)는 에이전트가 아닌 검증기 엔진, 고정된 레지스트리, 재확인을 `core/operational_evidence/`에 두고 `shared/providers/`의 `OperationalEvidenceIssuer` 공급자 경로 뒤에 배치합니다. `composition/operational_evidence_binding.py`는 명시적인 배포 선택이 있을 때만 증명 저장소 조회기와 제한된 발급기를 연결하며 에이전트, 토픽, 권한을 추가하지 않습니다.
@@ -525,7 +536,10 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 
 리포지토리 자동화는 책임에 따라 `scripts/` 아래에 그룹화합니다. 루트 파일로는 레이아웃 README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이트, 무결성 도구, 거버넌스 검사,
 카탈로그 유틸리티, 배포 도우미, 일반 자동화는 각각 전용 디렉터리를 사용합니다. `tests/integration/scripts/`의 교차 배포 workflow 테스트는 이러한 도우미를 전송 계약으로 검증하며 온톨로지나 런타임 소유권을 옮기지 않습니다. 준비 상태를 기다리는 로컬 서비스 launcher는 runner를 시작하기 전에 신호 전달을 설정하고 준비 상태 probe와 runner를 모두 회수하므로 supervisor 종료 뒤에 분리된 서비스 group이 남지 않습니다.
-배치 규칙은 [scripts/README.md](../../../scripts/README.md)를 참조하세요.
+배치 규칙은 [scripts/README.md](../../../scripts/README.md)를 참조하세요. 배포되는 각 서비스는
+`infra/services/` 아래에 자체 Terraform 루트를 가지며, CI는 이 루트를 고정된 Terraform으로 오프라인
+초기화하고 검증합니다. `infra/` 전체에서 같은 apply가 만드는 관리 ID에 대한 역할 할당은
+`principal_type = "ServicePrincipal"`을 선언하며, `tests/integration/infra/test_role_assignment_principal_type.py`가 이를 강제합니다.
 
 `infra/scenario-lab/`은 선택형 배포 검증 루트이며 여섯 번째 런타임 서비스가 아닙니다. 실행기
 스크립트는 `scripts/deployment/scenario-lab/` 아래에 있고, 루트 `scenario-lab` Python extra에는
@@ -723,3 +737,5 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
 | 물리 서비스 및 패키지 소유권 | [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md) |
 | 런타임 및 패키지 도구 선택 | [기술 스택](tech-stack-ko.md) |
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/project-structure.md) |
+| 공유 Workflow 검증 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |
+| 이미지 및 패키지 핀 드리프트 처리 | [개발자 워크플로 보증](../deployment/developer-workflow-assurance-ko.md) |

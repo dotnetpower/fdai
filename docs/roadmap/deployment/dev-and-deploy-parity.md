@@ -572,6 +572,9 @@ Each work item MUST be provable at CI time:
   configured and bounded in-process EventBus/SSE otherwise, without recording/in-memory executors.
 - Terraform plan with `enable_llm=false` succeeds on a fresh subscription with only
   `Reader` role - proving the LLM module is truly opt-in.
+- Every `infra/services/*` root initializes offline and passes `terraform validate` with the
+  CI-pinned Terraform. These roots are deployed by `service-deploy.yml` and packaged in every
+  offline kit, so a configuration error fails in CI instead of during deployment.
 - Resolver dry-run against a recorded region catalog produces a stable
   `resolved-models.json` hash - proving idempotency.
 
@@ -580,3 +583,4 @@ Each work item MUST be provable at CI time:
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/deployment/dev-and-deploy-parity.md) |
+| Shared Workflow validation context used by local and deployed Operator API | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |

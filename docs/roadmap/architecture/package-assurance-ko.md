@@ -1,7 +1,7 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: c1e0849928948763123b09a083512a7675506e07
-translation_revised: 2026-10-01
+translation_source_sha: f11c7bc536fba033063a1d6460d7777d403b51aa
+translation_revised: 2026-10-02
 ---
 
 # 패키지 보증
@@ -51,6 +51,10 @@ scripts/deployment/release/build-signed-python-package.sh \
 빌더는 Deployment CLI wheel을 만들고 잠긴 런타임 의존성을 `wheels/`에 다운로드한 다음 정렬된
 checksum 목록 하나를 작성하고 서명해 tar 아카이브를 만듭니다. 서비스 이미지를 빌드하거나 Azure
 배포 payload를 조립하지 않습니다.
+
+빌더는 저장소의 CPython 3.12 환경에서 실행해야 합니다. 이 환경은 설치 단계에서 관리형 호스트가
+사용하는 인터프리터와 일치하므로, 컨트롤 패키지를 조립한 워크스테이션이 아니라 설치 대상 호스트에
+맞는 바이너리 wheel이 선택됩니다.
 
 서명 파일 두 개를 제외한 모든 포함 파일은 `SHA256SUMS`에 나열됩니다. `wheels/`에 wheel 파일이
 아닌 항목이 있으면 빌더가 실패합니다. 서비스 계약처럼 잠긴 workspace 경로 의존성은 인덱스

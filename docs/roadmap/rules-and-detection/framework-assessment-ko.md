@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 1cbe4c6ffda373d634319fd8a0a7452442d82ebb
-translation_revised: 2026-10-01
+translation_source_sha: e802c0aedf1d91e5712434c2c837228483c07089
+translation_revised: 2026-10-02
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -251,3 +251,4 @@ UTF-8이어야 합니다. 유효하지 않은 내용은 replacement 문자로 pr
 | Rule 할당 및 근거 거버넌스 | [Rule Governance](rule-governance-ko.md) |
 | 온톨로지 권한 경계 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
 | 읽기 전용 Operator 동작 | [FDAI Console 대화](../interfaces/operator-console-ko.md) |
+| 공유 Workflow 검증 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |

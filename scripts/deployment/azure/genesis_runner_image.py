@@ -424,14 +424,17 @@ def _apply(args: argparse.Namespace) -> int:
 def _verification_source_commit(
     checks: GenesisChecks, *, review: Mapping[str, object], effect_started: bool
 ) -> str:
-    source = (
-        checks.source_evidence.source_commit
-        if checks.source_evidence is not None
-        else str(review["source_commit"])
-    )
-    if not effect_started and source != review["source_commit"]:
+    reviewed = str(review["source_commit"])
+    evidence = checks.source_evidence
+    if evidence is None or reviewed == evidence.source_commit:
+        return reviewed
+    if effect_started and reviewed == getattr(evidence, "foundation_source_commit", ""):
+        # An offline kit upgrade re-verifies the retained effect under the revision that
+        # created it, so its exact receipt still matches the current readback.
+        return reviewed
+    if not effect_started:
         raise ValueError("runner image apply source does not match the signed verifier")
-    return source
+    return evidence.source_commit
 
 
 def _foundation_input(args: argparse.Namespace) -> int:

@@ -270,6 +270,26 @@ changed package requires a new prepared context. The deployment result reports t
 digest and version beside the kit source commit. The control package grants no approval, apply, or
 runtime authority.
 
+#### Upgrading an existing offline installation
+
+To continue an offline-package installation with a newer signed kit, rerun the same work
+directory:
+
+```bash
+scripts/deployment/azure/fdai-up.sh \
+  --offline-kit <newer-kit.tar.gz> \
+  --work-dir <existing-work-dir>
+```
+
+The coordinator verifies the newer kit, rotates the previous retained kit snapshot and
+managed-host transport archive into local review directories, and keeps the existing Foundation
+identity. Foundation variables keep the source revision that created the Foundation. The new kit
+source is recorded as the application revision, so application stages and managed-host work
+contexts pick up the new Terraform, runtime payloads, and CLI by kit manifest digest. A
+non-destructive Foundation plan is approved by the invocation that shows it. A plan that deletes
+or replaces an existing resource still requires the existing explicit extra confirmation before
+the effect.
+
 ### 5. Keep the rule catalog fresh without public egress
 
 The signed deployment bundle already carries the rule-catalog schema, the deployment profiles, and

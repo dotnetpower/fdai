@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -79,6 +80,11 @@ def _new_aks_installation(monkeypatch, tmp_path, preflight):
     )
     monkeypatch.setattr(standalone_deploy, "acquire_deployment_kit", lambda **_kwargs: object())
     monkeypatch.setattr(standalone_deploy, "deploy_with_adopted_foundation", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        standalone_deploy,
+        "selected_azure_region_short_name",
+        lambda **_kwargs: "wus2",
+    )
 
     def inspect(**kwargs):
         events.append(f"preflight:{kwargs['region']}")
@@ -134,6 +140,53 @@ def test_feasible_new_aks_installation_continues_to_discovery(monkeypatch, tmp_p
         invoke()
 
     assert events == ["stage:azure", "stage:kit", "preflight:westus2", "stage:discovery"]
+
+
+def test_identity_enabled_new_installation_checks_entra_before_discovery(
+    monkeypatch, tmp_path
+) -> None:
+    invoke, events = _new_aks_installation(
+        monkeypatch, tmp_path, {"state": "feasible", "blockers": []}
+    )
+    monkeypatch.setattr(
+        standalone_deploy,
+        "_require_unique_entra_display_names",
+        lambda *_args: events.append("entra-preflight"),
+    )
+    monkeypatch.setattr(
+        standalone_deploy,
+        "acquire_deployment_kit",
+        lambda **_kwargs: SimpleNamespace(bundle_root=tmp_path),
+    )
+
+    with pytest.raises(RuntimeError, match="stop-at-discovery"):
+        standalone_deploy.deploy_azure_foundation(
+            work_dir=tmp_path / "work-identity",
+            online=False,
+            offline_kit=tmp_path / "kit.tar.gz",
+            online_url=None,
+            region="westus2",
+            monthly_cost_ceiling=2000,
+            timeout_seconds=3600,
+            trial_token=None,
+            runtime_profile=standalone_deploy.RuntimeDeploymentProfile.create(
+                runtime_platform="aks",
+                database_placement="postgres-flex",
+                product_add_ons=(
+                    "read-only-console",
+                    "enterprise-identity-governance",
+                ),
+            ),
+        )
+
+    assert events == [
+        "stage:azure",
+        "stage:kit",
+        "entra-preflight",
+        "preflight:westus2",
+        "stage:discovery",
+    ]
+    assert invoke is not None
 
 
 def test_resumed_aks_installation_skips_the_new_installation_preflight(

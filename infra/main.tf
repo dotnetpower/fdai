@@ -448,6 +448,7 @@ resource "azurerm_role_assignment" "executor_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "deploy_runner_acr_push" {
@@ -500,6 +501,15 @@ resource "azurerm_role_assignment" "operational_evidence_verifier_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.operational_evidence_verifier_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "operational_evidence_verifier_state_store_secret_reader" {
+  count                = var.enable_operational_evidence_verifier && var.state_store_kind == "postgres_flex" ? 1 : 0
+  scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.operational_evidence_verifier_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 locals {
@@ -629,6 +639,7 @@ resource "azurerm_role_assignment" "isolated_executor_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.isolated_executor_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 module "dev_gateway_reader_identity" {
@@ -654,6 +665,7 @@ resource "azurerm_role_assignment" "dev_gateway_reader" {
   scope                = module.resource_group.id
   role_definition_name = "Reader"
   principal_id         = module.dev_gateway_reader_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "dev_gateway_executor_network" {
@@ -661,6 +673,7 @@ resource "azurerm_role_assignment" "dev_gateway_executor_network" {
   scope                = module.resource_group.id
   role_definition_name = "Network Contributor"
   principal_id         = module.dev_gateway_executor_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "dev_gateway_executor_vm" {
@@ -668,6 +681,7 @@ resource "azurerm_role_assignment" "dev_gateway_executor_vm" {
   scope                = module.resource_group.id
   role_definition_name = "Virtual Machine Contributor"
   principal_id         = module.dev_gateway_executor_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "dev_gateway_executor_tags" {
@@ -675,6 +689,7 @@ resource "azurerm_role_assignment" "dev_gateway_executor_tags" {
   scope                = module.resource_group.id
   role_definition_name = "Tag Contributor"
   principal_id         = module.dev_gateway_executor_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 module "ingestion_identity" {
@@ -718,6 +733,7 @@ resource "azurerm_role_assignment" "operator_api_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.operator_api_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "operator_channel_edge_acr_pull" {
@@ -725,6 +741,7 @@ resource "azurerm_role_assignment" "operator_channel_edge_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.operator_channel_edge_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # -----------------------------------------------------------------------
@@ -766,6 +783,7 @@ resource "azurerm_role_assignment" "notification_email_sender" {
   scope                = azurerm_communication_service.notifications[0].id
   role_definition_name = "Communication and Email Service Owner"
   principal_id         = module.notification_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 import {
@@ -813,6 +831,7 @@ resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.command_api_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "command_api_eventhubs_receiver" {
@@ -823,6 +842,7 @@ resource "azurerm_role_assignment" "command_api_eventhubs_receiver" {
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.command_api_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "operator_channel_edge_eventhubs_sender" {
@@ -830,6 +850,7 @@ resource "azurerm_role_assignment" "operator_channel_edge_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.semantic_turn_physical_topic]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.operator_channel_edge_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "operator_channel_edge_eventhubs_receiver" {
@@ -837,6 +858,7 @@ resource "azurerm_role_assignment" "operator_channel_edge_eventhubs_receiver" {
   scope                = module.event_bus.topic_ids[local.semantic_turn_physical_topic]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.operator_channel_edge_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "isolated_executor_command_receiver" {
@@ -844,6 +866,7 @@ resource "azurerm_role_assignment" "isolated_executor_command_receiver" {
   scope                = module.event_bus_auxiliary.topic_ids[local.executor_command_topic]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.isolated_executor_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "isolated_executor_receipt_sender" {
@@ -854,6 +877,7 @@ resource "azurerm_role_assignment" "isolated_executor_receipt_sender" {
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.isolated_executor_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "operator_api_reader" {
@@ -861,6 +885,7 @@ resource "azurerm_role_assignment" "operator_api_reader" {
   scope                = module.resource_group.id
   role_definition_name = "Reader"
   principal_id         = module.operator_api_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_acr_pull" {
@@ -868,6 +893,7 @@ resource "azurerm_role_assignment" "ingestion_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.ingestion_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_worker_acr_pull" {
@@ -875,6 +901,7 @@ resource "azurerm_role_assignment" "ingestion_worker_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.ingestion_worker_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_migration_acr_pull" {
@@ -882,6 +909,7 @@ resource "azurerm_role_assignment" "ingestion_migration_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.ingestion_migration_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_eventhubs_sender" {
@@ -889,6 +917,7 @@ resource "azurerm_role_assignment" "ingestion_eventhubs_sender" {
   scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.ingestion_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_worker_eventhubs_sender" {
@@ -896,6 +925,7 @@ resource "azurerm_role_assignment" "ingestion_worker_eventhubs_sender" {
   scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.ingestion_worker_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_eventhubs_receiver" {
@@ -903,6 +933,7 @@ resource "azurerm_role_assignment" "ingestion_eventhubs_receiver" {
   scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.ingestion_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # Keep the prior split-worker address until every deployment has retired its
@@ -912,6 +943,7 @@ resource "azurerm_role_assignment" "ingestion_worker_eventhubs_receiver" {
   scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.ingestion_worker_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_worker_pantheon_receiver" {
@@ -919,6 +951,7 @@ resource "azurerm_role_assignment" "ingestion_worker_pantheon_receiver" {
   scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.ingestion_worker_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_aks_eventhubs_sender" {
@@ -926,6 +959,7 @@ resource "azurerm_role_assignment" "ingestion_aks_eventhubs_sender" {
   scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.ingestion_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_worker_aks_eventhubs_receiver" {
@@ -933,6 +967,7 @@ resource "azurerm_role_assignment" "ingestion_worker_aks_eventhubs_receiver" {
   scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.ingestion_worker_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_ocr_user" {
@@ -942,6 +977,7 @@ resource "azurerm_role_assignment" "ingestion_ocr_user" {
   principal_id = var.ingestion_cohost_worker ? (
     module.ingestion_identity[0].principal_id
   ) : module.ingestion_worker_identity[0].principal_id
+  principal_type = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_reader" {
@@ -972,6 +1008,7 @@ resource "azurerm_role_assignment" "inventory_log_analytics_reader" {
   scope                = module.log_analytics.workspace_id
   role_definition_name = "Log Analytics Reader"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_cost_reader" {
@@ -986,6 +1023,7 @@ resource "azurerm_role_assignment" "inventory_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "measurement_acr_pull" {
@@ -993,6 +1031,7 @@ resource "azurerm_role_assignment" "measurement_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.measurement_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "scheduler_acr_pull" {
@@ -1000,6 +1039,7 @@ resource "azurerm_role_assignment" "scheduler_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.scheduler_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "dr_drill_acr_pull" {
@@ -1007,12 +1047,14 @@ resource "azurerm_role_assignment" "dr_drill_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.dr_drill_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
   # The substrate plan targets this address; include its bounded readback
   # prerequisite without widening the standalone coordinator's target list.
   depends_on = [azurerm_role_assignment.inventory_analyzer_eventhubs_receiver]
@@ -1022,6 +1064,7 @@ resource "azurerm_role_assignment" "inventory_analyzer_eventhubs_receiver" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_wara_sender" {
@@ -1029,6 +1072,7 @@ resource "azurerm_role_assignment" "inventory_wara_sender" {
   scope                = module.event_bus.topic_ids[local.semantic_turn_physical_topic]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "scheduler_eventhubs_sender" {
@@ -1036,18 +1080,21 @@ resource "azurerm_role_assignment" "scheduler_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.scheduler_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_stage_sender" {
   scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_eventhubs_raw_sender" {
   scope                = module.event_bus_auxiliary.auxiliary_topic_ids[local.inventory_raw_topic]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 locals {
@@ -1077,6 +1124,7 @@ resource "azurerm_role_assignment" "inventory_kubernetes_cluster_user_subscripti
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Azure Kubernetes Service Cluster User Role"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_kubernetes_reader_subscription" {
@@ -1084,6 +1132,7 @@ resource "azurerm_role_assignment" "inventory_kubernetes_reader_subscription" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Azure Kubernetes Service RBAC Reader"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_kubernetes_reader" {
@@ -1093,6 +1142,7 @@ resource "azurerm_role_assignment" "inventory_kubernetes_reader" {
   scope                = each.value
   role_definition_name = "Azure Kubernetes Service RBAC Reader"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 
   lifecycle {
     precondition {
@@ -1220,12 +1270,14 @@ resource "azurerm_role_assignment" "canary_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.canary_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "canary_eventhubs_sender" {
   scope                = module.event_bus_auxiliary.topic_ids[local.canary_topic]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.canary_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ohl_evidence_acr_pull" {
@@ -1233,6 +1285,7 @@ resource "azurerm_role_assignment" "ohl_evidence_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.ohl_evidence_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ohl_evidence_eventhubs_sender" {
@@ -1240,6 +1293,7 @@ resource "azurerm_role_assignment" "ohl_evidence_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.ohl_evidence_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # -----------------------------------------------------------------------
@@ -1391,6 +1445,7 @@ resource "azurerm_role_assignment" "inventory_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "measurement_kv_secrets_user" {
@@ -1398,6 +1453,7 @@ resource "azurerm_role_assignment" "measurement_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.measurement_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "scheduler_kv_secrets_user" {
@@ -1405,6 +1461,7 @@ resource "azurerm_role_assignment" "scheduler_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.scheduler_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "dr_drill_kv_secrets_user" {
@@ -1412,6 +1469,7 @@ resource "azurerm_role_assignment" "dr_drill_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.dr_drill_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "dr_drill_source_reader" {
@@ -1419,6 +1477,7 @@ resource "azurerm_role_assignment" "dr_drill_source_reader" {
   scope                = var.dr_drill_source_server_arm_id
   role_definition_name = "Reader"
   principal_id         = module.dr_drill_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "dr_drill_target_contributor" {
@@ -1426,6 +1485,7 @@ resource "azurerm_role_assignment" "dr_drill_target_contributor" {
   scope                = module.dr_drill_resource_group[0].id
   role_definition_name = "PostgreSQL Flexible Management Service Contributor"
   principal_id         = module.dr_drill_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "operator_api_kv_secrets_user" {
@@ -1433,6 +1493,7 @@ resource "azurerm_role_assignment" "operator_api_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.operator_api_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "operator_channel_edge_kv_secrets_user" {
@@ -1440,6 +1501,7 @@ resource "azurerm_role_assignment" "operator_channel_edge_kv_secrets_user" {
   scope                = each.value
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.operator_channel_edge_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "isolated_executor_kv_secrets_user" {
@@ -1447,6 +1509,7 @@ resource "azurerm_role_assignment" "isolated_executor_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.isolated_executor_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_kv_secrets_user" {
@@ -1454,6 +1517,7 @@ resource "azurerm_role_assignment" "ingestion_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.ingestion_cohost_dsn[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.ingestion_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_api_kv_secrets_user" {
@@ -1461,6 +1525,7 @@ resource "azurerm_role_assignment" "ingestion_api_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.ingestion_api_dsn[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.ingestion_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_worker_kv_secrets_user" {
@@ -1468,6 +1533,7 @@ resource "azurerm_role_assignment" "ingestion_worker_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.ingestion_worker_dsn[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.ingestion_worker_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_migration_kv_secrets_user" {
@@ -1475,6 +1541,7 @@ resource "azurerm_role_assignment" "ingestion_migration_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.ingestion_migration_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # -----------------------------------------------------------------------
@@ -1524,6 +1591,7 @@ resource "azurerm_role_assignment" "ingestion_document_data" {
   scope                = module.document_storage[0].id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = module.ingestion_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_worker_document_data" {
@@ -1531,6 +1599,7 @@ resource "azurerm_role_assignment" "ingestion_worker_document_data" {
   scope                = module.document_storage[0].id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = module.ingestion_worker_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # -----------------------------------------------------------------------
@@ -1625,6 +1694,7 @@ resource "azurerm_role_assignment" "decision_evidence_inventory_reader" {
   scope                = module.decision_evidence_storage[0].id
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # Key Vault private endpoint + private DNS (privatelink.vaultcore.azure.net).
@@ -1900,6 +1970,7 @@ resource "azurerm_role_assignment" "dev_gateway_storage_runtime" {
   scope                = azurerm_storage_account.dev_gateway[0].id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = module.dev_gateway_reader_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "dev_gateway_storage_host" {
@@ -1907,6 +1978,7 @@ resource "azurerm_role_assignment" "dev_gateway_storage_host" {
   scope                = azurerm_storage_account.dev_gateway[0].id
   role_definition_name = "Storage Blob Data Owner"
   principal_id         = module.dev_gateway_reader_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 module "dev_gateway_blob_private_endpoint" {
@@ -2337,6 +2409,7 @@ resource "azurerm_role_assignment" "executor_eventhubs_data_owner" {
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Owner"
   principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # -----------------------------------------------------------------------
@@ -2447,12 +2520,14 @@ resource "azurerm_role_assignment" "operator_cost_pseudonym_secret_reader" {
   scope                = azurerm_key_vault_secret.cost_pseudonym_key[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.operator_api_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "core_application_insights_secret_reader" {
   scope                = azurerm_key_vault_secret.application_insights_connection_string.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_key_vault_secret" "teams_workflow_endpoint" {
@@ -2475,6 +2550,7 @@ resource "azurerm_role_assignment" "teams_workflow_binding_secret_officer" {
   scope                = azurerm_key_vault_secret.teams_workflow_endpoint[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = module.teams_workflow_binding_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # The control plane may only read the saved endpoint, and only when a
@@ -2485,6 +2561,7 @@ resource "azurerm_role_assignment" "core_teams_notification_secret_reader" {
   scope                = azurerm_key_vault_secret.teams_workflow_endpoint[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "core_gitops_secret_reader" {
@@ -2492,6 +2569,7 @@ resource "azurerm_role_assignment" "core_gitops_secret_reader" {
   scope                = azurerm_key_vault_secret.gitops_token[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "core_github_app_private_key_reader" {
@@ -2499,6 +2577,7 @@ resource "azurerm_role_assignment" "core_github_app_private_key_reader" {
   scope                = azurerm_key_vault_secret.github_app_private_key[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_github_auth_secret_reader" {
@@ -2510,6 +2589,7 @@ resource "azurerm_role_assignment" "ingestion_github_auth_secret_reader" {
   )
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.ingestion_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "ingestion_github_webhook_secret_reader" {
@@ -2517,6 +2597,7 @@ resource "azurerm_role_assignment" "ingestion_github_webhook_secret_reader" {
   scope                = azurerm_key_vault_secret.github_webhook_secret[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.ingestion_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_key_vault_secret" "notification_receipt_secret" {
@@ -2664,6 +2745,30 @@ resource "azurerm_key_vault_secret" "operator_request_operator_signing_seed" {
   tags         = local.tags
 
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+# Core signs its own operator_request receipts and verifies Operator receipts from the
+# Operator seed; the Operator API signs with its seed. Each reader is scoped to one secret.
+resource "azurerm_role_assignment" "core_operator_request_core_seed_reader" {
+  scope                = azurerm_key_vault_secret.operator_request_core_signing_seed.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "core_operator_request_operator_seed_reader" {
+  scope                = azurerm_key_vault_secret.operator_request_operator_signing_seed.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "operator_api_operator_request_seed_reader" {
+  count                = var.enable_operator_api ? 1 : 0
+  scope                = azurerm_key_vault_secret.operator_request_operator_signing_seed.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.operator_api_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # -----------------------------------------------------------------------

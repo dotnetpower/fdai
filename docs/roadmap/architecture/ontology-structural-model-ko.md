@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 46a56cb4522ef6fc448a72f486031e4dea10ffa2
-translation_revised: 2026-10-01
+translation_source_sha: ee44e47d506c1f3bcb84b64213ac4c4f9dd6d874
+translation_revised: 2026-10-02
 ---
 # 온톨로지 구조 모델
 
@@ -576,3 +576,4 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | Interface, ObjectSet, 함수, exact release | [온톨로지 안전 인프라](operating-ontology-platform-ko.md) |
 | 연속 그래프 최신성과 완전성 | [연속 운영 인스턴스 그래프](continuous-operational-instance-graph-ko.md) |
 | 검증된 쿼리 커버리지와 전환 | [온톨로지 쿼리 커버리지 구현 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md) |
+| 공유 Workflow 검증 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |

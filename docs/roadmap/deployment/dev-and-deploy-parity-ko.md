@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 7b018189da68b6ea1f99b493dcddd9ced7852c7b
-translation_revised: 2026-10-01
+translation_source_sha: b8e22581980b93626b44789815422d812f8e6fd3
+translation_revised: 2026-10-02
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -575,6 +575,9 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
   없으면 범위가 제한된 프로세스 내 EventBus/SSE를 사용하며 recording/in-memory 실행기는 연결하지 않습니다.
 - `Reader` 롤만 있는 fresh 구독에서 `enable_llm=false` 로 Terraform 계획 성공 →
   LLM 모듈이 정말 명시적 선택 임을 증명.
+- 모든 `infra/services/*` 루트가 CI에 고정된 Terraform으로 오프라인 초기화와 `terraform validate`를
+  통과합니다. 이 루트들은 `service-deploy.yml`이 배포하고 모든 offline 키트에 포함되므로, 구성
+  오류가 배포 중이 아니라 CI에서 실패합니다.
 - 녹화된 리전 카탈로그에 대한 해석기 예행 실행이 고정된 `resolved-models.json` 해시 →
   멱등성 증명.
 
@@ -583,3 +586,4 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/dev-and-deploy-parity.md) |
+| 로컬 및 배포된 Operator API가 쓰는 공유 Workflow 검증 컨텍스트 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |

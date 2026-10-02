@@ -113,6 +113,26 @@ Pattern:
   suffix-free.
 - **instance** (`01`, `02`, ...) is added only when multiple copies exist in one env.
 
+### Region token design and critique
+
+**Initial design:** Derive unknown Azure region tokens by truncating the region name to five
+characters.
+
+**Critique:** Truncation is not a naming contract. It maps distinct public regions to the same
+token, such as `westus` and `westus3` both becoming `westu`, and can direct two installations in
+one subscription to the same resource groups. It also makes a new Azure region look supported
+without a reviewed token.
+
+**Revised contract:** New installations use only the reviewed Azure public-region token table in
+`azure_naming.py`. A region missing from that table fails before any Azure effect. Existing
+installations keep the token recorded in retained Foundation variables and profiles; a
+same-work-directory continuation never recomputes it from the new table. When a run starts without
+retained state, the coordinator performs read-only resource-group discovery for the same
+subscription, environment, workload, and Azure location before planning. It reuses the single
+matching token from FDAI-owned tags and names, or from the explicit `fdai:region-token` tag when
+future installations record it. Discovery fails closed when more than one candidate token exists.
+No automatic rename or migration is performed.
+
 The Operator API uses `operator-api` as its physical component. Its workload identity is named
 `id-<workload>[-<env>][-<region>]-operator-api`, and its Container App is named
 `ca-<workload>[-<env>][-<region>]-operator-api`. The legacy `readapi` token is valid only in
@@ -297,6 +317,7 @@ computed in Python.
 | `fdai:managed` | `true` | constant | **Ownership marker.** The single authoritative "FDAI provisioned this" flag. `az resource list --tag fdai:managed=true` enumerates exactly what FDAI owns - the basis for blast-radius scoping, cleanup/audit cross-checks, and cost attribution. |
 | `fdai:workload` | `fdai` | `var.workload` | Product/workload token; mirrors the CAF name token. |
 | `fdai:env` | `day-zero` / `dev` / `staging` / `prod` | `var.env` | Environment. `day-zero` is the unqualified deployment. |
+| `fdai:region-token` | reviewed short token such as `wus3`, or a retained legacy token such as `westu` | Foundation variables / Terraform input | Explicit naming token for future discovery. Older installations may lack this tag; discovery then parses FDAI-owned resource group names and fails closed on ambiguity. |
 | `fdai:layer` | `control-plane` / `ops-bootstrap` | per-config | Architectural layer - the app spoke (`infra/main.tf`) vs the ops/hub bootstrap (`infra/bootstrap`). |
 | `fdai:managed-by` | `terraform` | constant | Provisioning tool. |
 | `fdai:vertical` | `shared` / `resilience` / `change-safety` / `cost-governance` | `var.cost_vertical` (default `shared`) | AIOps vertical the resource's cost is attributed to. Cross-vertical control-plane infra stays `shared`; per-vertical resources (e.g. the three executor MIs) override this key. |

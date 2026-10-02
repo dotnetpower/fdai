@@ -581,3 +581,4 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Interfaces, ObjectSets, functions, and exact releases | [Ontology Safety Infrastructure](operating-ontology-platform.md) |
 | Continuous graph freshness and completeness | [Continuous Operational Instance Graph](continuous-operational-instance-graph.md) |
 | Verified query coverage and cutover | [Ontology Query Coverage Implementation Plan](../interfaces/ontology-query-coverage-implementation-plan.md) |
+| Shared Workflow validation contracts | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |

@@ -9,8 +9,8 @@ approval, promotion, source and recovery proofs must still exist at dispatch.
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Mapping
-from contextlib import AbstractAsyncContextManager
+from collections.abc import AsyncIterator, Callable, Mapping
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from datetime import UTC, datetime
 from types import MappingProxyType
 
@@ -23,6 +23,7 @@ from fdai_service_contracts.alert_noise_plan import (
 
 from fdai.core.detection.alert_noise.execution import (
     AlertActionExecution,
+    AlertAuthorityFence,
     AlertAuthorityLease,
     AlertExecutionHeld,
     AlertRecoveryAdmission,
@@ -100,6 +101,9 @@ class _ScopedAlertAuthority:
     async def dispatch_evidence(self, plan: AlertChangePlan) -> AlertDispatchEvidence:
         return await _for_scope(self._readers, plan).dispatch_evidence(plan)
 
+    def allows_development_single_owner_quorum(self, plan: AlertChangePlan) -> bool:
+        return _for_scope(self._readers, plan).allows_development_single_owner_quorum(plan)
+
 
 class _ScopedAlertRecoveryAuthority:
     """Route recovery to its own admitted record, never to forward approvals."""
@@ -119,7 +123,7 @@ class _ScopedAlertRecoveryAuthority:
 class _ScopedAlertAuthorityFence:
     """Select the plan's existing writer fence without a cross-scope fallback."""
 
-    def __init__(self, fences: Mapping[str, StateStoreAlertAuthorityFence]) -> None:
+    def __init__(self, fences: Mapping[str, AlertAuthorityFence]) -> None:
         self._fences = MappingProxyType(dict(fences))
 
     def hold(
@@ -130,6 +134,22 @@ class _ScopedAlertAuthorityFence:
         pr: RemediationPr,
     ) -> AbstractAsyncContextManager[AlertAuthorityLease]:
         return _for_scope(self._fences, plan).hold(action=action, plan=plan, pr=pr)
+
+
+class _UnavailableAlertAuthorityFence:
+    """Report a scoped writer-capability hold instead of a generic missing binding."""
+
+    @asynccontextmanager
+    async def hold(
+        self,
+        *,
+        action: Action,
+        plan: AlertChangePlan,
+        pr: RemediationPr,
+    ) -> AsyncIterator[AlertAuthorityLease]:
+        del action, plan, pr
+        raise AlertExecutionHeld("alert_provider_conditional_update_or_exclusive_writer_missing")
+        yield  # pragma: no cover - keeps this an async context manager
 
 
 def _postgres_lock_binding(
@@ -188,7 +208,7 @@ def build_alert_pr_execution_port(
     )
     authorities: dict[str, StateStoreAlertAuthorityReader] = {}
     recoveries: dict[str, StateStoreAlertRecoveryAuthorityReader] = {}
-    fences: dict[str, StateStoreAlertAuthorityFence] = {}
+    fences: dict[str, AlertAuthorityFence] = {}
     if config is not None and config.source_revision is not None and config.writers:
         registry = (
             promotion_registry
@@ -208,6 +228,7 @@ def build_alert_pr_execution_port(
                 tenant_ref=scope.tenant_ref,
                 source_revision=config.source_revision,
                 clock=clock,
+                allow_development_owner_quorum=writer.full_authority_development_scope,
             )
             recovery = StateStoreAlertRecoveryAuthorityReader(
                 store=audit_store,
@@ -220,7 +241,9 @@ def build_alert_pr_execution_port(
                 clock=clock,
             )
             authorities[scope_ref], recoveries[scope_ref] = authority, recovery
-            if lock_binding is not None:
+            if lock_binding is None and not writer.provider_conditional_updates:
+                fences[scope_ref] = _UnavailableAlertAuthorityFence()
+            elif lock_binding is not None:
                 lock, trust = lock_binding
                 fences[scope_ref] = StateStoreAlertAuthorityFence(
                     store=audit_store,

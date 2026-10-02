@@ -45,10 +45,10 @@ def test_effective_add_group_is_part_of_the_lock_manifest(
         semantics_complete=True,
     )
     evidence = evidence.model_copy(update={"processing_rules": (processing,)})
-    plan = plan_alert_change(
-        evidence, routing(), policy=NoisePolicy(), requester_ref="principal:r", now=now
-    )
-    assert {processing.ref, "group:new", "audience:new"}.issubset(plan.lock_refs)
+    with pytest.raises(AlertPlanHeld, match="overlapping_add_rule"):
+        plan_alert_change(
+            evidence, routing(), policy=NoisePolicy(), requester_ref="principal:r", now=now
+        )
 
 
 @pytest.mark.parametrize("missing", ["kind", "axis", "receipt", "receipt_expiry"])

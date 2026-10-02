@@ -1,54 +1,22 @@
-"""Strict catalog for Workflow signal triggers that are not T0 SignalTypes."""
+"""Strict catalog loader for Workflow trigger events."""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from enum import StrEnum
 from importlib import resources
-from typing import Annotated, Any
+from typing import Any
 
+from fdai_service_contracts.workflow_catalog import (
+    WorkflowTriggerEventEntry,
+    WorkflowTriggerEventRegistry,
+    WorkflowTriggerEventSemantics,
+)
 from jsonschema import Draft202012Validator
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import ValidationError
 
 _SCHEMA_PACKAGE = "fdai.rule_catalog.schema"
 _SCHEMA_FILE = "workflow_trigger_events.schema.json"
-
-
-class WorkflowTriggerEventSemantics(StrEnum):
-    """What a Workflow-only trigger event means.
-
-    ``observation`` covers an evidence object that starts a Workflow but is deliberately not a T0
-    ``SignalType``, so registering it here never widens T0 rule dispatch resolution.
-    """
-
-    REQUEST = "request"
-    COMMAND = "command"
-    OBSERVATION = "observation"
-
-
-class WorkflowTriggerEventEntry(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
-
-    id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)+$")]
-    semantics: WorkflowTriggerEventSemantics
-    description: Annotated[str, Field(min_length=1, max_length=512)]
-    owner: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)*$")]
-
-
-class WorkflowTriggerEventRegistry(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    schema_version: str
-    events: tuple[WorkflowTriggerEventEntry, ...]
-
-    def model_post_init(self, __context: Any) -> None:
-        ids = tuple(item.id for item in self.events)
-        if len(ids) != len(set(ids)):
-            raise ValueError("Workflow trigger event ids MUST be unique")
-
-    def ids(self) -> frozenset[str]:
-        return frozenset(item.id for item in self.events)
 
 
 class WorkflowTriggerEventRegistryError(ValueError):
