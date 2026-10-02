@@ -44,13 +44,6 @@
       "issue": 252
     },
     {
-      "path": "console/src/deck/command-deck-header.tsx",
-      "disposition": "retain",
-      "owner": "console-command-deck",
-      "reason": "Retains presentation-only label and control rendering without question classification.",
-      "issue": 252
-    },
-    {
       "path": "console/src/deck/command-deck-launcher.tsx",
       "disposition": "retain",
       "owner": "console-command-deck",

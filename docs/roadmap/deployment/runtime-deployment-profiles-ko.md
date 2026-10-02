@@ -1,11 +1,11 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 614e7a6c20be701b7192b1f716e71b4908627ae1
+translation_source_sha: 3ad4adc7c232e3046f77510e6cdf283c10ea0b45
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을 Azure Kubernetes Service(AKS)로 정의합니다. Azure Container Apps는 기존 설치를 위한 호환 프로파일로 계속 지원합니다. 이 선택은 서명된 `fdaictl` 프로비저닝 프로파일과 모든 정확한 Terraform 플랜에 포함됩니다.
 
@@ -345,7 +345,7 @@ replica-local TCP sidecar로 포함하며, 이미지 entrypoint가 데이터베�
 namespace에서는 워크로드, init container, sidecar, 예약 작업의 Pod와 container 범위 모두에
 `runAsNonRoot`가 필요합니다. Pod 범위 설정만으로는 admission을 통과하지 못합니다. Core는 공유
 root의 Event Hubs 시작 시간 설정을 받고, Core와 Operator는 substrate 단계가 만드는 secret 단위
-`Key Vault Secrets User` 권한으로 `operator_request` 영수증 seed를 읽습니다. 구조 테스트는
+`Key Vault Secrets User` 권한으로 `operator_request` 영수증 seed를 읽습니다. 렌더러는 공유 루트가 출력하는 버전 없는 Key Vault 리소스 ID에서 각 seed의 비밀 이름을 가져옵니다. 구조 테스트는
 AKS 렌더러가 지정하는 모든 Key Vault secret이 substrate 대상 리소스, `postgres-aks` 데이터베이스
 root 또는 호스트가 작성하는 라이선스 secret 중 하나에서 오는지 확인합니다.
 
@@ -649,7 +649,7 @@ AKS에서는 substrate 단계가 대상으로 지정하는 `terraform_data.insta
 Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 런타임 단계는
 `azurerm_kubernetes_cluster.runtime`이 상태에 생긴 뒤에만 Container Insights 연결을 적용합니다.
 새 클러스터의 첫 검토는 이 연결을 제외한 모든 런타임 리소스를 대상으로 지정하고, 이어지는 두 번째
-일반 전체 루트 런타임 검토가 그 연결을 만듭니다. Terraform 구성은 여전히 클러스터 리소스에
+일반 전체 루트 런타임 검토가 그 연결을 만듭니다. 일반 검토마다 관리 호스트의 `operation`을 기록합니다. 여기서는 `runtime-cluster` 또는 `runtime`이고, 그 밖에는 단계 이름이나 바인딩된 서비스 업데이트입니다. 컨트롤러는 이 값이 검토 단계와 일치할 때만 검토를 승인합니다. Terraform 구성은 여전히 클러스터 리소스에
 의존하지 않고 연결 대상 ID를 다시 구성합니다. 모니터링 전용 대상 지정 계획이 관리형 클러스터
 drift를 범위 안으로 끌어오지 않아야 하기 때문입니다. 애플리케이션 단계는 Core에
 `FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제공합니다. 애플리케이션 적용 후

@@ -465,7 +465,19 @@ tracks what remains.
   sources. A current context is admissible only when the transition admission it cites has the lookup rebuilt from
   that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
   retained record against its exact verifier binding and that binding's readiness under the current anchors. The
-  `operational-test-observation` and `current-case-reuse` remain unbound. The observation provider is not yet available under verifier identity. Case-history now has an insert-only Operator semantic authentication receipt schema, `operator-core-request` `1.9.0` receipt reference, Core-to-Bragi reference propagation, and a bound exact readback module. The Operator setting `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` defaults off and may be enabled only after Core that accepts `operator-core-request` `1.9.0` is deployed; when enabled, the Operator writes the content-free receipt before sending the reference so Core never receives an unresolved reference. Current reuse lacks independent inventory/Muninn/safety receipt sources. Forecast-history and forecast-context purposes also have no bound source readback.
+  `forecast-history-changes` and `forecast-history-resource_lifecycle` purposes now read their real derived
+  source rows from `operational_state_transition*`, using the `changes` and `resource_lifecycle` producers that
+  #1021 delivered. `forecast-history-actions` remains unavailable because no bounded target-scoped Thor/Saga action
+  audit reader exists, and `forecast-history-excluded_windows` remains unavailable because no revisioned
+  `ChangeWindow` history producer exists. `forecast-context` stays unavailable until all four source-specific
+  forecast-history admissions exist for the same scope, target, and window. `operational-test-observation` and
+  `current-case-reuse` remain unbound: the observation provider is not yet available under verifier identity, and
+  current reuse lacks independent inventory, Muninn, and safety-receipt sources. Case-history now has an insert-only
+  Operator semantic authentication receipt schema, `operator-core-request` `1.9.0` receipt reference, Core-to-Bragi
+  reference propagation, and a bound exact readback module. The Operator setting
+  `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` defaults off and may be enabled only after Core that accepts
+  `operator-core-request` `1.9.0` is deployed; when enabled, the Operator writes the content-free receipt before
+  sending the reference so Core never receives an unresolved reference.
 - **Shared grant validation.** The case-scope grant registry loader and authorization model are packaged in the shared service-contract SDK and re-exported by Core. Operator's test-context choice projection uses that same loader with a content pin instead of maintaining a parallel grant validator.
 - **Capability and handoff.** `delivery/operational_evidence_readiness.py` adds one Settings row per purpose. Runtime
   Settings materialization observes the verifier readiness endpoint once, through a bounded read that treats every

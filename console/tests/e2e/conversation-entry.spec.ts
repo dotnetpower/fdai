@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import answerEvidenceEn from "../../src/deck/i18n/answer-evidence.en.json" with { type: "json" };
+import answerEvidenceKo from "../../src/deck/i18n/answer-evidence.ko.json" with { type: "json" };
 import en from "../../src/i18n/messages.en.json" with { type: "json" };
 import ko from "../../src/i18n/messages.ko.json" with { type: "json" };
 
@@ -65,7 +67,10 @@ async function openConsole(
   return requests;
 }
 
-for (const [locale, catalog] of [["en", en], ["ko", ko]] as const) {
+for (const [locale, catalog, answerEvidence] of [
+  ["en", en, answerEvidenceEn],
+  ["ko", ko, answerEvidenceKo],
+] as const) {
   test(`separates elapsed time, cumulative models and input/output usage (${locale})`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
@@ -144,7 +149,7 @@ for (const [locale, catalog] of [["en", en], ["ko", ko]] as const) {
     await expect(page.locator(".deck-src-detail").first()).toHaveAttribute("open", "");
     await expect(page.locator(".deck-src-detail summary").first()).toBeFocused();
     await expect(page.locator(".deck-src-path")).toHaveText("inventory.snapshot");
-    await page.getByRole("button", { name: catalog.deck.grounded.returnToAnswer, exact: true }).click();
+    await page.getByRole("button", { name: answerEvidence.returnToAnswer, exact: true }).click();
     await expect(cite).toBeFocused();
     await expect(page.locator(".deck-gr-panel")).toHaveCount(0);
     expect(Math.abs(await page.locator(".deck-transcript").evaluate(node => node.scrollTop) - before)).toBeLessThanOrEqual(1);
@@ -178,7 +183,7 @@ for (const [locale, catalog] of [["en", en], ["ko", ko]] as const) {
       }));
       expect(geometry).toEqual({ fits: true, documentFits: true, clipped: [] });
       await page.screenshot({ path: testInfo.outputPath(`common-answer-${locale}-${viewport.width}.png`) });
-      await page.getByRole("button", { name: catalog.deck.grounded.returnToAnswer, exact: true }).click();
+      await page.getByRole("button", { name: answerEvidence.returnToAnswer, exact: true }).click();
     }
   });
 }

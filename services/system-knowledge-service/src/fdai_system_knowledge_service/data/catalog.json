@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:a231934dd2a5a33a3fe3795cd2b5cd25850f50cb586d887f54dddb6e26e63aec",
+  "catalog_digest": "sha256:28e8c4b38c2231c7d6124e3b087ccc86c65e306f19cedce922c0b9da7927d4e0",
   "execution_authority": false,
-  "generated_at": "2026-10-02T09:14:33.544711Z",
+  "generated_at": "2026-10-02T10:39:59.392826Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,13 +21,13 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:08a976932f0af17e3ee3ea36b99c8d06f0666e1468ceb2c6601b0c39702e095a",
+      "record_digest": "sha256:b5add0be22de48d15d0ba3cf1d846bf9ba802305762444897a6a1d9a818f202c",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "7b8d0546f3e9f7cfbc91c76075a30dfff9d7295a",
-          "line_end": 123,
-          "line_start": 123,
+          "blob_sha": "6e4db423739759b2e0ab92c18b5092a855ad58a8",
+          "line_end": 141,
+          "line_start": 141,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 3: Agent-driven authority"
@@ -235,13 +235,13 @@
         "What accuracy does FDAI guarantee?",
         "FDAI는 어떤 정확성을 보장하나요?"
       ],
-      "record_digest": "sha256:67c7ac3ef2ff35334e5bf4c6239b5204b982e202c22d75b59d5c3c171f9a1b1f",
+      "record_digest": "sha256:0368eed279944cdebeefb116f07c93eb4d443991d062e1bc2d1355be3f23d80f",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "7b8d0546f3e9f7cfbc91c76075a30dfff9d7295a",
-          "line_end": 96,
-          "line_start": 96,
+          "blob_sha": "6e4db423739759b2e0ab92c18b5092a855ad58a8",
+          "line_end": 114,
+          "line_start": 114,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 2: Contract-conformant accuracy"
@@ -413,13 +413,13 @@
         "How does FDAI route natural-language questions?",
         "FDAI는 자연어 질문을 어떻게 라우팅하나요?"
       ],
-      "record_digest": "sha256:931f4bde061b8f138b89ef2ceb6cb0a1db6ddb073d6846879333d8ce89fe4cd5",
+      "record_digest": "sha256:44c41524ce5c44e0ef6980edccca1dd0b93760526cfa5fb783fa766a9204b018",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "85c3584af45164fd966ea0d1f666194c5c7a6da7",
-          "line_end": 92,
-          "line_start": 92,
+          "blob_sha": "7fc18fd497285bd32901dccb34bf3c09d202f370",
+          "line_end": 97,
+          "line_start": 97,
           "path": ".github/instructions/architecture.instructions.md",
           "source_kind": "doc",
           "symbol": "Natural-language intent routing (MUST)"

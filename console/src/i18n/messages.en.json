@@ -2919,7 +2919,6 @@
       "deterministic": "deterministic"
     },
     "sourceReadiness": {
-      "servicesLabel": "Evidence services",
       "label": "Evidence sources",
       "loading": "Loading evidence-source readiness",
       "unavailable": "Evidence-source readiness is unavailable.",
@@ -3028,9 +3027,6 @@
       "sources": "sources",
       "traceLabel": "Retrieval trace",
       "sourceAria": "Source",
-      "answerEvidence": "Answer evidence",
-      "returnToAnswer": "Back to answer",
-      "originalMarkdown": "Original Markdown",
       "llmEscalation": "LLM escalation",
       "deterministicPath": "Deterministic processing",
       "deterministicAnswerer": "Deterministic answerer",

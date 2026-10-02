@@ -1,8 +1,8 @@
 ---
 title: 제품화 및 확장성 계획
 translation_of: productization-and-extensibility.md
-translation_source_sha: 4c47554eba7cd09657ff03777dab58222cf80ec8
-translation_revised: 2026-09-12
+translation_source_sha: 5ee9714c36c37b5be6c9170377e40a3abfc58e0d
+translation_revised: 2026-10-02
 ---
 # 제품화 및 확장성 계획
 
@@ -11,8 +11,9 @@ translation_revised: 2026-09-12
 conversational 채널, 기능 번들, 모델 라우팅, 예약, security 진단,
 developer 인터페이스를 아우르는 작업의 중앙 상태 매트릭스입니다.
 
-> **아키텍처 경계:** FDAI는 thin 읽기 전용 콘솔과 통제된 ChatOps를 사용하는 headless
-> cloud-operations 컨트롤 플레인으로 유지됩니다. 새 인터페이스는 실행기 신원을 받지 않으며
+> **아키텍처 경계:** FDAI는 thin 콘솔과 통제된 ChatOps를 사용하는 headless
+> cloud-operations 컨트롤 플레인으로 유지됩니다. 콘솔은 변환 결과를 읽으며, 선택적 정책 관리
+> 추가 기능은 정책 개정만 제출합니다. 새 인터페이스는 실행기 신원을 받지 않으며
 > 모든 변경은 타입이 지정된 trust-router, risk-gate, 승인, 실행기, 감사 경로로 다시 들어갑니다.
 >
 > **구현 초점:** Azure가 유일한 구현 cloud 대상으로 유지됩니다. 프로바이더 중립적인 계약은
@@ -69,7 +70,7 @@ Install과 진단은 단순해지고, 채널은 실행 권한 없이 bidirection
 
 | ID | 기능 | 의존성 | Exit 게이트 |
 |----|------------|--------|-----------|
-| P1-01 | 고정된, beta, 개발 release 채널 | P0-08 | 구현됨: 채널을 매니페스트에 서명하고 atomic mode-0600 업그레이드/롤백 상태가 구성 바이트를 보존하며 채널, CLI 범위, 버전, 다이제스트, 이력 mismatch를 차단 |
+| P1-01 | 고정된, beta, 개발 release 채널 | P0-08 | 구현됨: 채널을 매니페스트에 서명하고 atomic mode-0600 업그레이드/롤백 상태가 구성 바이트를 보존하며 채널, CLI 범위, 버전, 다이제스트, 이력 mismatch를 차단. Hub 경로를 위한 계획: [Lifecycle Release와 채널](../deployment/lifecycle-releases-and-channels-ko.md)에서 사용자 지정 채널과 함께 `DEV`, `RELEASE_CANDIDATE`, `RELEASE`로 이름 변경 |
 | P1-02 | Portable 백업 및 복원 | P0-08 | 구현됨: 결정론적 허용 목록 보관이 secret-provider 값 또는 Terraform 상태를 읽거나 내보내기하지 않고 검증된 구성, opaque 참조, 감사 해시 메타데이터, consented user 맥락을 복구 |
 | P1-03 | Guided 배포 onboarding | P0-02부터 P0-08 | 구현됨: 실패 시 차단 wizard가 로컬 적용 경로 없이 toolchain 및 대상 doctor, 비공개 구성, 실제 운영 preflight, plan-only 실행기 제출, 범위가 제한된 정제된 상태 post-check를 순서대로 실행 |
 | P1-04 | Rich Teams 및 Slack 스레드 행동 | P0-15 | 구현됨: 범위가 제한된 벤더 중립적인 mention 및 exclusive 스트림/편집/reaction 의도가 fixed Slack 및 Teams API로 대응되고 capability-off 경로는 originating 스레드를 텍스트로 보존하며 accepted 전송은 타입이 지정된 벤더 확인 응답을 반환 |
@@ -162,9 +163,13 @@ mount하고 영속 PostgreSQL 점유 저장소를 기본으로 사용합니다.
 - **Arbitrary dynamic 코드/플러그인 로딩:** 확장은 검토된 타입이 지정된 번들을 등록합니다.
   컨트롤 플레인 안에서 검토되지 않은 패키지를 download하고 실행하지 않습니다.
 - **서로 신뢰하지 않는 테넌트를 위한 shared 게이트웨이 하나:** 각 customer 포크와 배포가
-  자체 신원, 상태, 정책, 감사 경계를 유지합니다.
-- **Console-issued privileged 액션:** Console은 읽기 전용으로 유지됩니다. Command는 CLI, ChatOps,
-  PR 또는 인증된 제안 API로 들어와 standard 컨트롤 루프를 따릅니다.
+  자체 신원, 상태, 정책, 감사 경계를 유지합니다. Lifecycle Hub cell은 고객 하나만 담당하며
+  운영 트래픽이 아닌 수명 주기 메타데이터만 다룹니다
+  ([Hub 관리형 수명 주기](../deployment/hub-managed-lifecycle-ko.md)).
+- **Console-issued privileged 액션:** Console은 관리 대상 리소스에 대한 액션을 발행하지 않습니다.
+  Command는 CLI, ChatOps, PR 또는 인증된 제안 API로 들어와 standard 컨트롤 루프를 따릅니다.
+  선택적 정책 관리 추가 기능은 Mimir가 검증하는 정책 개정만 제출합니다
+  ([운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md)).
 
 ## 제공 순서
 

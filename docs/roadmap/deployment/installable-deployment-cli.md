@@ -4,7 +4,7 @@ title: Installable Deployment CLI
 
 # Installable Deployment CLI
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
 
 This document defines the public FDAI deployment command. Operators run one local coordinator
 after Azure sign-in, while Terraform apply and private data-plane work run on the managed host
@@ -700,8 +700,10 @@ creating revision. The signed source evidence carries both the kit's `source_com
 retained `foundation_source_commit`, so source verification accepts exactly those two revisions.
 The continuation re-verifies completed Foundation checkpoints under the revision that created them,
 including the retained runner-image receipt, and already satisfied effects are recovered through
-their retained claims and independent readback instead of being repeated. It
-refuses to approve a new Foundation plan under the retained lineage, because a plan computed from
+their retained claims and independent readback instead of being repeated. The
+coordinator then rebuilds a no-effect Foundation adoption receipt from that retained, verified
+chain and binds it to the newer kit, so the managed host accepts the kit only through that
+evidence. It refuses to approve a new Foundation plan under the retained lineage, because a plan computed from
 the newer kit must not carry the older revision's provenance. A Foundation configuration change
 therefore needs a reviewed lineage transition, which isn't implemented yet. Application plans
 keep the existing rule: the invocation approves the non-destructive exact plan it shows, and
@@ -727,10 +729,11 @@ human approval, executor identity, and effect verification remain separate contr
 
 ## Deployment appliance
 
-Removed. Constitution Article 1 defines exactly two installation paths, the one-command source
-deployment and a signed offline package, and states that installation tooling adds no other
-gate. An appliance image was a third packaging of the same kit, so its builder and runner are gone
-and no release step produces one.
+Removed. Constitution Article 1 defines exactly three installation paths: the one-command source
+deployment, a signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md),
+which is designed but not implemented. It also states that installation tooling adds no other
+gate. An appliance image was another packaging of the same kit rather than one of those paths, so
+its builder and runner are gone and no release step produces one.
 
 ## Result contract
 

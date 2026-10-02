@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import type { AdaptiveAnswer } from "./adaptive-answer";
 import { AdaptiveAnswerSources } from "./adaptive-answer-sources";
+import { answerEvidenceText } from "./answer-evidence-i18n";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { getLocale, t, tForLocale } from "../i18n";
 import { routeHref } from "../router";
@@ -553,10 +554,10 @@ export function GroundedReply({
       ) : null}
 
       {!streaming && open && sources.length > 0 ? (
-        <section class="deck-gr-panel" id={sourcePanelId} aria-label={t("deck.grounded.answerEvidence")}>
+        <section class="deck-gr-panel" id={sourcePanelId} aria-label={answerEvidenceText("answerEvidence")}>
           <header class="deck-gr-panel-head">
-            <h4>{t("deck.grounded.answerEvidence")}</h4>
-            <button type="button" class="deck-gr-return" onClick={returnToAnswer}>{t("deck.grounded.returnToAnswer")}</button>
+            <h4>{answerEvidenceText("answerEvidence")}</h4>
+            <button type="button" class="deck-gr-return" onClick={returnToAnswer}>{answerEvidenceText("returnToAnswer")}</button>
           </header>
           <SourceDetail sources={sources} panelId={sourcePanelId} selectedSource={selectedSource?.number ?? null} />
         </section>
@@ -773,7 +774,7 @@ function OriginalMarkdown({ renderedText }: { readonly renderedText: string }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <details class="deck-answer-original" onToggle={(event) => setExpanded(event.currentTarget.open)}>
-      <summary>{t("deck.grounded.originalMarkdown")}</summary>
+      <summary>{answerEvidenceText("originalMarkdown")}</summary>
       {expanded ? <pre><code>{renderedText}</code></pre> : null}
     </details>
   );

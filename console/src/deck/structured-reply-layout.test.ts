@@ -24,6 +24,17 @@ describe("adaptive structured reply layouts", () => {
     expect(presentationBlockCanCollapse({ ...block, data: { ...block.data, tone: "neutral" } })).toBe(false);
   });
 
+  test("keeps attention and warning callouts expanded in every slot", () => {
+    const block: PresentationBlock = {
+      slotId: "risk", kind: "callout", title: "Risk",
+      emphasis: "supporting", collapsed: true, evidenceRefs: ["evidence-1"],
+      data: { tone: "attention", lines: ["The error rate exceeds its threshold."] },
+    };
+    expect(presentationBlockCanCollapse(block)).toBe(false);
+    expect(presentationBlockCanCollapse({ ...block, data: { ...block.data, tone: "warning" } })).toBe(false);
+    expect(presentationBlockCanCollapse({ ...block, data: { ...block.data, tone: "neutral" } })).toBe(true);
+  });
+
   test("preserves explicit collapse hints for ordinary summary blocks", () => {
     const block: PresentationBlock = {
       slotId: "overview", kind: "summary", title: "Summary",

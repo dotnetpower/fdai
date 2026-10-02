@@ -122,6 +122,84 @@ def stage_recovered_foundation(
     )
     known_hosts = read_private_bytes(recovery_directory / "runner-known-hosts", max_bytes=262_144)
 
+    receipt = build_foundation_adoption_receipt(
+        profile=profile,
+        handoff=handoff,
+        recovery=recovery,
+        enrollment=enrollment,
+        state_receipt=state_receipt,
+        authority=authority,
+        known_hosts=known_hosts,
+        application_source_commit=application_source_commit,
+        kit_manifest_digest=kit_manifest_digest,
+        runtime_release_digest=runtime_release_digest,
+        tenant_id=tenant_id,
+        subscription_id=subscription_id,
+        region=region,
+        monthly_cost_ceiling=monthly_cost_ceiling,
+    )
+    target_binding = str(receipt["target_binding"])
+    adopted_run_binding = str(receipt["adopted_run_binding"])
+
+    staged = {
+        destination / "profile.json": profile_bytes,
+        destination / "runner_ed25519": private_key,
+        plan_directory / "foundation-private-handoff.json": handoff_bytes,
+        plan_directory / "runner-known-hosts": known_hosts,
+        evidence_directory / "recovery-apply-receipt.json": recovery_bytes,
+        evidence_directory / "runner-enrollment-receipt.json": enrollment_bytes,
+        evidence_directory / "foundation-state-handoff-receipt.json": state_bytes,
+        evidence_directory / "foundation-state-authority.json": authority_bytes,
+        destination / "foundation-adoption-receipt.json": canonical_bytes(receipt),
+    }
+    for path, content in staged.items():
+        _write_or_verify(path, content)
+
+    prepared = AdoptedGenesisContext(
+        root=destination,
+        profile=destination / "profile.json",
+        ssh_private_key=destination / "runner_ed25519",
+        source_commit=application_source_commit,
+        target_binding=target_binding,
+        run_binding=adopted_run_binding,
+        kit_manifest_digest=kit_manifest_digest,
+    )
+    status: dict[str, object] = {
+        "schema_version": "fdai.foundation-adoption-status.v1",
+        "state": "adopted",
+        "source_commit": application_source_commit,
+        "run_binding": adopted_run_binding,
+        "target_binding": target_binding,
+        "foundation_report": {
+            "foundation_plan": {"plan_ref": _PLAN_REF},
+            "state_handoff": {"receipt_digest": state_receipt["receipt_digest"]},
+        },
+        "mutation_performed": False,
+        "deployment_ready": False,
+        "subscription_ready": False,
+    }
+    return FoundationAdoption(prepared=prepared, status=status, receipt=receipt)
+
+
+def build_foundation_adoption_receipt(
+    *,
+    profile: ProvisionProfile,
+    handoff: dict[str, Any],
+    recovery: dict[str, Any],
+    enrollment: dict[str, Any],
+    state_receipt: dict[str, Any],
+    authority: dict[str, Any],
+    known_hosts: bytes,
+    application_source_commit: str,
+    kit_manifest_digest: str,
+    runtime_release_digest: str,
+    tenant_id: str,
+    subscription_id: str,
+    region: str,
+    monthly_cost_ceiling: int,
+) -> dict[str, object]:
+    """Verify one terminal Foundation chain and bind it to an application kit revision."""
+
     target_binding = compute_target_binding(
         tenant_id=tenant_id,
         subscription_id=subscription_id,
@@ -183,45 +261,88 @@ def stage_recovered_foundation(
         kit_manifest_digest=kit_manifest_digest,
         runtime_release_digest=runtime_release_digest,
     )
+    return receipt
 
-    staged = {
-        destination / "profile.json": profile_bytes,
-        destination / "runner_ed25519": private_key,
-        plan_directory / "foundation-private-handoff.json": handoff_bytes,
-        plan_directory / "runner-known-hosts": known_hosts,
-        evidence_directory / "recovery-apply-receipt.json": recovery_bytes,
-        evidence_directory / "runner-enrollment-receipt.json": enrollment_bytes,
-        evidence_directory / "foundation-state-handoff-receipt.json": state_bytes,
-        evidence_directory / "foundation-state-authority.json": authority_bytes,
-        destination / "foundation-adoption-receipt.json": canonical_bytes(receipt),
-    }
-    for path, content in staged.items():
-        _write_or_verify(path, content)
 
-    prepared = AdoptedGenesisContext(
-        root=destination,
-        profile=destination / "profile.json",
-        ssh_private_key=destination / "runner_ed25519",
-        source_commit=application_source_commit,
-        target_binding=target_binding,
-        run_binding=adopted_run_binding,
-        kit_manifest_digest=kit_manifest_digest,
+def write_lineage_adoption_receipt(
+    *,
+    run_root: Path,
+    plan_directory: Path,
+    application_source_commit: str,
+    kit_manifest_digest: str,
+    runtime_release_digest: str,
+    tenant_id: str,
+    subscription_id: str,
+    region: str,
+    monthly_cost_ceiling: int,
+) -> dict[str, object]:
+    """Bind a retained offline Foundation to a newer kit through no-effect adoption evidence.
+
+    An offline kit upgrade continues the Foundation in its original work directory. The
+    managed host accepts a kit from another revision only through this receipt, rebuilt
+    from the retained, independently verified Foundation chain. A receipt for another kit
+    is derived evidence and is superseded atomically.
+    """
+
+    _require_private_directory(run_root)
+    _require_private_directory(plan_directory)
+    profile = ProvisionProfile.from_mapping(
+        load_json_object(
+            read_private_bytes(run_root / "profile.json", max_bytes=65_536),
+            label="retained Foundation profile",
+        )
     )
-    status: dict[str, object] = {
-        "schema_version": "fdai.foundation-adoption-status.v1",
-        "state": "adopted",
-        "source_commit": application_source_commit,
-        "run_binding": adopted_run_binding,
-        "target_binding": target_binding,
-        "foundation_report": {
-            "foundation_plan": {"plan_ref": _PLAN_REF},
-            "state_handoff": {"receipt_digest": state_receipt["receipt_digest"]},
-        },
-        "mutation_performed": False,
-        "deployment_ready": False,
-        "subscription_ready": False,
-    }
-    return FoundationAdoption(prepared=prepared, status=status, receipt=receipt)
+    _handoff_bytes, handoff = _read_record(
+        plan_directory / "foundation-private-handoff.json",
+        label="retained Foundation handoff",
+    )
+    _apply_bytes, applied = _read_receipt(
+        plan_directory / "foundation-apply-receipt.json",
+        label="retained Foundation apply receipt",
+        digest_field="receipt_digest",
+    )
+    _enrollment_bytes, enrollment = _read_receipt(
+        plan_directory / "runner-enrollment-receipt.json",
+        label="retained Foundation enrollment receipt",
+        digest_field="receipt_digest",
+    )
+    _state_bytes, state_receipt = _read_receipt(
+        plan_directory / "foundation-state-handoff-receipt.json",
+        label="retained Foundation state handoff receipt",
+        digest_field="receipt_digest",
+    )
+    _authority_bytes, authority = _read_receipt(
+        plan_directory / "foundation-state-authority.json",
+        label="retained Foundation state authority",
+        digest_field="authority_digest",
+    )
+    known_hosts = read_private_bytes(plan_directory / "runner-known-hosts", max_bytes=262_144)
+    receipt = build_foundation_adoption_receipt(
+        profile=profile,
+        handoff=handoff,
+        recovery=applied,
+        enrollment=enrollment,
+        state_receipt=state_receipt,
+        authority=authority,
+        known_hosts=known_hosts,
+        application_source_commit=application_source_commit,
+        kit_manifest_digest=kit_manifest_digest,
+        runtime_release_digest=runtime_release_digest,
+        tenant_id=tenant_id,
+        subscription_id=subscription_id,
+        region=region,
+        monthly_cost_ceiling=monthly_cost_ceiling,
+    )
+    if receipt["foundation_source_commit"] == application_source_commit:
+        raise ValueError("a same-revision Foundation needs no lineage adoption")
+    path = run_root / "foundation-adoption-receipt.json"
+    content = canonical_bytes(receipt)
+    if path.exists() or path.is_symlink():
+        if read_private_bytes(path, max_bytes=1_048_576) == content:
+            return receipt
+        path.unlink()
+    write_private_bytes(path, content)
+    return receipt
 
 
 def _validate_inputs(

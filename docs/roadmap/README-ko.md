@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: ccc69ee6cabdb093ef4d8ca5733a786318be7b8f
-translation_revised: 2026-10-01
+translation_source_sha: cfc5f96bcf4c64e71a02663ed320c1e3e952151b
+translation_revised: 2026-10-02
 ---
 # FDAI 로드맵
 
@@ -108,6 +108,9 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 20e | [network-connectivity-matrix-ko.md](deployment/network-connectivity-matrix-ko.md) | 시나리오별 DNS, IP, 프로토콜, 포트, 비공개 영역, PTU, APIM 및 차단 경로 동작 |
 | 20f | [runtime-deployment-profiles-ko.md](deployment/runtime-deployment-profiles-ko.md) | 신규 설치의 Container Apps 또는 AKS 선택, 노드 하한, 데이터베이스 배치, 분리된 상태, 서명된 키트 실행 |
 | 20g | [source-deployment-ko.md](deployment/source-deployment-ko.md) | 클론에서 실행하는 단일 명령 소스 배포: 레지스트리 이미지 빌드, 패키지 없는 연속 실행, 키가 없을 때의 30일 Trial, 키 보유자 설치 사용권 |
+| 20h | [hub-managed-lifecycle-ko.md](deployment/hub-managed-lifecycle-ko.md) | 세 번째 설치 경로: Lifecycle Hub 배치, 설치 에이전트, Lifecycle Plan, 제약 조건, 드리프트, 고객 격리 |
+| 20i | [lifecycle-configuration-ko.md](deployment/lifecycle-configuration-ko.md) | 값 분류, 구성 계층, 고객 Git에서 만든 서명된 구성 패키지, 봉인된 식별자, 비밀 참조 |
+| 20j | [lifecycle-releases-and-channels-ko.md](deployment/lifecycle-releases-and-channels-ko.md) | Release 매니페스트, release channel, 자동 업그레이드, 회수, 카탈로그 무결성, 스키마 호환성, 업그레이드 번들 |
 | 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / 평가를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
 | 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 범위 RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
 | 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 신원, 오퍼레이터 시작 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 강제 적용, 로컬/deployed 동등성 |
@@ -131,6 +134,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 16a | [multi-channel-notification-delivery-ko.md](interfaces/multi-channel-notification-delivery-ko.md) | 활성화되고 설정된 모든 A2/A4 채널로의 fan-out 전달, 이름이 있는 채널 바인딩, 채널별 영속 전달, 부분 성공 결과, Teams Workflows 웹훅 바인딩 |
 | 17 | [risk-classification-ko.md](decisioning/risk-classification-ko.md) | auto vs HIL vs 거부 분류: 차원, 초기 규칙 표, 환경 감지 |
 | 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` 판정 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 계층 별 시간 감쇠 에스컬레이션 사다리(채널 대체 경로 과 구별), 상시 권한(사전 승인·묶음 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
+| 17c | [operator-governance-profiles-ko.md](decisioning/operator-governance-profiles-ko.md) | 단독 운영자 프로덕션 프로필, 귀속된 운영자 재정의 승격, FDAI Console의 정책 관리 |
 | 18 | [dev-and-deploy-parity-ko.md](deployment/dev-and-deploy-parity-ko.md) | 권위 있는 interactive 로컬/deployed 동등성, 명시적 고정본 프로파일, deployer-scoped LLM 게이트 |
 | 18a | [console-read-boundary-ko.md](deployment/console-read-boundary-ko.md) | 서버 소유 읽기 출처 선언, 로컬 인증, 워크로드 근거 및 범위가 제한된 인벤토리 조회 |
 | 19 | [operator-console-ko.md](interfaces/operator-console-ko.md) | CLI, Teams, Slack, web의 FDAI Console 대화, 도구별 RBAC, LLM 계층, 세션 영속성 |

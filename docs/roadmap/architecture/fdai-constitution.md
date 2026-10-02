@@ -60,8 +60,8 @@ unreachable, or unauthorized, and never as a substitute for a binding a venue fa
 Synthetic, fixture, seeded, or demo substitution remains prohibited in every venue, so closing a
 venue-parity gap means binding the real source rather than manufacturing its output.
 
-**Deployment distribution.** FDAI supports exactly two ways to install itself, and each requires only
-what this paragraph lists:
+**Deployment distribution.** FDAI supports exactly three ways to install and update itself. Each of
+the first two requires only what its item lists:
 
 1. *Source deployment.* Anyone who clones the repository and signs in with `az login` can deploy
    every FDAI resource to their own subscription with one command line. The command builds what it
@@ -76,6 +76,20 @@ what this paragraph lists:
    is sufficient: no download, public registry, package index, or build is needed, while Azure
    management and data-plane endpoints stay reachable through Azure network paths. The only package
    guarantee is one detached Ed25519 signature over its checksum list.
+3. *Hub-managed lifecycle.* A Lifecycle Hub keeps each enrolled installation on its subscribed
+   release channel and on the configuration revision that its customer approved. The Hub runs as
+   a per-customer cell of a central Hub or as a Target Hub inside the customer boundary, which
+   synchronizes the release catalog online or imports signed upgrade bundles offline. The Hub only
+   computes plans. Lifecycle components inside the installation verify vendor-signed Releases and
+   customer-signed configuration packages, render the exact change, apply it only inside the effect
+   envelope they derive from those signed inputs, and report lifecycle state. The Hub never holds a
+   customer secret, Azure credential, or operational data. An installation applies the newest
+   eligible Release of its channel automatically inside its maintenance windows, and a
+   configuration change takes effect only after the customer's approved change request.
+   Maintenance and suppression windows, version ranges, compatibility, artifact availability, and
+   data-residency constraints belong to this path and are not additional gates. An operator still
+   creates the Foundation with their own sign-in and enrolls the installation, and an offline site
+   installs its Target Hub and first Release from the signed offline package.
 
 An installation without a separately issued entitlement runs one 30-day Trial from its first
 activation; redeployment, upgrade, restart, and loss of the Trial record never renew it. Whenever
@@ -87,10 +101,14 @@ against the upstream integrity signature exposes. FDAI makes that tampering evid
 impossible. Entitlement and Trial change only capability availability, never the authority that
 Articles 7 and 8 govern.
 
-Installation tooling adds no other gate. The operator's invocation approves the plan it shows;
-only deleting or replacing an existing resource needs an explicit extra confirmation. Articles 7
-and 8 govern FDAI's own actions on managed resources, not the installation of FDAI. Secrets never
-enter the repository, logs, or command lines. A lower layer that adds another installation gate is
+Installation tooling adds no other gate. In the first two paths, the operator's invocation approves
+the plan it shows. In the Hub-managed lifecycle, the channel subscription and maintenance windows
+approve Release upgrades in advance, and the approved change request approves a configuration
+change. In every path, only deleting or replacing an existing resource needs an explicit extra
+confirmation. Articles 7 and 8 govern FDAI's own actions on managed resources, not the installation
+of FDAI. Lifecycle components are not pantheon agents and never act on customer-managed resources,
+and the operations loop only observes FDAI-owned resources. Secrets never enter the repository,
+logs, command lines, or a Lifecycle Hub. A lower layer that adds another installation gate is
 defective under Article 10.
 
 ## Article 2: Contract-conformant accuracy
@@ -134,9 +152,8 @@ Single-writer ownership and separation of duties are absolute:
 
 - Forseti judges, Var carries human approval, Thor alone executes, Saga audits, and Vidar recovers.
 - No system principal judges and executes, approves and executes, or grants authority to its own
-  executor identity. One human may hold requester and approver roles only under the
-  single-operator development rule in Article 8; Var and Thor remain distinct authenticated
-  principals.
+  executor identity. One human may hold requester and approver roles only under a
+  single-operator profile in Article 8; Var and Thor remain distinct authenticated principals.
 - Bragi translates between natural language and typed tools; it never judges, approves, or executes.
 - Saga and Vidar are hard dependencies for mutation. Their loss lowers capability to shadow or
   no-op and never fails open.
@@ -161,13 +178,20 @@ Control values are separated by responsibility:
 | Meaning, type, unit, range, and hard semantic bounds | versioned ontology and schemas |
 | Active thresholds, objectives, scope, and risk rules | versioned policy and configuration |
 | Candidate thresholds and learned patterns | inert learning records with provenance and confidence |
-| Promotion into active use | independently reviewed promotion registry |
+| Promotion into active use | promotion registry with reviewed gate evidence or an attributed operator override |
 | Current external state | authoritative inventory, telemetry, provider, and audit observations |
 
 Hard safety bounds are not adaptive. Governed policy thresholds may change inside declared bounds
 after evidence, validation, shadow evaluation, and promotion. Situation-specific values may be
 calculated at decision time only by an approved, versioned algorithm. Missing, stale, conflicting,
 or unproven context can only preserve or lower autonomy.
+
+An authorized operator may also author approval and admission policy directly through the governed
+Console policy-administration surface. Each edit becomes an immutable, digest-pinned, audited
+policy revision that applies only to decisions started after its activation. Core enforces hard
+safety bounds, the seven safeguards, A4 denial, tenant and identity boundaries, the separation of
+approver and executor, and every maximum that a Release declares for an ActionType independently of
+any revision, so a revision can relax installation policy only inside them.
 
 Every active, candidate, or calculated threshold records its semantic type, unit, scope, allowed
 range, exact version or digest, effective interval, evidence cutoff, algorithm or model version,
@@ -259,9 +283,13 @@ revision rather than holding a lock indefinitely. Pure A0 reads and explanations
 mutation rollback, dry-run, or a mutation lock, but still require authorization, bounded evidence,
 redaction, correlation, and audit according to their read contract. Independent effect
 verification is required before success can be reported. New capabilities begin
-in shadow mode. Promotion is explicit, per capability, evidence-gated, and independent of runtime,
-environment, enabled state, and fork status. A regression or unavailable hard dependency lowers
-authority automatically.
+in shadow mode. Promotion is explicit, per capability, and independent of runtime, environment,
+enabled state, and fork status. It is evidence-gated by default. An authorized installation
+operator may also promote a capability before its gate passes through an attributed operator
+override. The override records the gate result at that time, appears on every surface that shows
+the mode, and never counts as promotion evidence elsewhere. The seven safeguards and every
+per-execution check still apply. A regression, an unavailable hard dependency, or a vendor
+capability recall lowers authority automatically and takes precedence over an operator override.
 
 Inside the full-authority development profile in Article 8, disposable-resource recreation or
 teardown is a bounded recovery path. When a provider offers no what-if API, a typed no-preview
@@ -286,10 +314,23 @@ join, or translate the two enum families by their numeric suffix.
 | A3-E | `autonomy.a3_e` | execute a non-destructive, reversible emergency mitigation under valid standing human authorization |
 | A4 | `autonomy.a4` | deny prohibited, unapproved, unbounded, cross-tenant, or unverifiable action |
 
-Approval policy declares either a multi-operator profile or a single-operator development profile.
-The multi-operator profile keeps requester and approver identities distinct and counts only
-distinct humans toward quorum. The single-operator profile becomes a **full-authority development
-profile** only when all of these conditions hold:
+Approval policy declares a multi-operator profile, a single-operator production profile, or a
+single-operator development profile. The multi-operator profile keeps requester and approver
+identities distinct and counts only distinct humans toward quorum.
+
+The **single-operator production profile** serves an installation that one accountable human
+operates. When approval policy selects it for an exact installation and names that human, the
+operator may satisfy every requester, approver, reviewer, and quorum requirement there. The audit
+records the original requirement and an effective quorum of one without inventing identities. Each
+approval still requires fresh phishing-resistant authentication and explicit confirmation of the
+exact action, target, revision, scope, and dry-run digest. Risk classes, A4 denial, the seven
+safeguards, independent effect verification, and distinct approval and execution principals remain
+unchanged. Irreversible actions still require current approval for each execution and never
+qualify for standing authorization. A change into or out of this profile follows the governance
+rule of the profile that is active when the change is requested.
+
+The single-operator development profile becomes a **full-authority development profile** only when
+all of these conditions hold:
 
 - reviewed deployment configuration binds one exact test tenant, subscription, and optional
   resource-group set, classifies every bound resource as disposable development infrastructure,
@@ -313,14 +354,17 @@ No registered action category is categorically prohibited inside the bound test 
 remain recorded for replay but cannot deny solely by category. Unknown or malformed actions, scope
 escape, identity mismatch, expired approval, or missing audit, lock, and idempotency evidence remain
 ineligible because they do not describe an authorized test action. Development promotion changes
-only the profile-scoped registry and never proves production readiness. A deployment that does not
-explicitly select the profile uses the multi-operator rule.
+only the profile-scoped registry and never proves production readiness. A deployment that selects
+neither single-operator profile uses the multi-operator rule.
 
 Outside the full-authority development profile, A3-E is approval given in advance, not approval
 inferred from silence. It is valid only when all of these conditions hold:
 
-- at least two normalized, distinct humans approved it, including the accountable service owner and
-  an Owner-level authority; the requester and executor are ineligible approvers;
+- under the multi-operator profile, at least two normalized, distinct humans approved it, including
+  the accountable service owner and an Owner-level authority, and the requester and executor are
+  ineligible approvers; under the single-operator production profile, the named operator, holding
+  both roles, approved it after fresh authentication and explicit confirmation of the complete
+  authorization, and the executor remains ineligible;
 - the approval names the service, incident class, ActionTypes, scope, trigger, escalation deadline,
   impact envelope, stop conditions, rollback, validity interval, and current primary and backup responders;
 - the authorization is resource-group-equivalent or narrower and pins its own revision, policy
@@ -360,7 +404,9 @@ append-only journal. Ontology and console projections are rebuildable read model
 coordinate by sharing mutable Process state.
 
 A new or materially changed workflow begins in shadow mode and passes structural validation,
-simulation or dry-run, scenario regression, and explicit promotion. A promoted workflow instance
+simulation or dry-run, scenario regression, and explicit promotion. An attributed operator override
+under Article 7 may stand in for the simulation and regression evidence, never for structural
+validation. A promoted workflow instance
 may vary only declared parameters inside their active bounds. Changing a step, ActionType, guard,
 order, failure edge, or compensation creates a new immutable workflow version that returns to
 shadow; approved primitives do not make a new composition pre-approved.
@@ -384,14 +430,14 @@ purpose -> constitutional requirement -> ontology or schema -> policy -> agent r
 
 | Article | Detailed owners | Required verification evidence |
 |---------|-----------------|--------------------------------|
-| 001 | App Shape, Generic Scope | scope gates, provider-boundary tests, deployment status |
+| 001 | App Shape, Generic Scope, Hub-Managed Lifecycle | scope gates, provider-boundary tests, deployment status |
 | 002 | Goals and Metrics, Outcome Assurance | zero-threshold guards, outcome receipts, replay |
 | 003 | Agent Pantheon | role parity, topic ownership, concurrency, hard-dependency tests |
 | 004 | Operating Ontology, Rule Governance | schema, provenance, freshness, promotion, replay tests |
 | 005 | Domain owner documents in Article 5 | per-domain full-loop scenario and status evidence |
 | 006 | Agent Pantheon arbitration, Risk Classification | hard-constraint and arbitration property tests |
-| 007 | Security and Identity, Action Ontology | shadow, dry-run, lock, idempotency, rollback, audit tests |
-| 008 | Risk Classification, Escalation and Standing Authority | approval, expiry, handover, envelope, denial tests |
+| 007 | Security and Identity, Action Ontology, Operator Governance Profiles | shadow, dry-run, lock, idempotency, rollback, audit tests |
+| 008 | Risk Classification, Escalation and Standing Authority, Operator Governance Profiles | approval, expiry, handover, envelope, denial tests |
 | 009 | Process Automation, Workflow Control-Loop Integration | loader, version pinning, guard, compensation, promotion tests |
 | 010 | Design Routes, Constitution Checker | bilingual, link, route, traceability, and CI checks |
 
@@ -427,4 +473,7 @@ status and target metrics never amend the constitution.
 | Fixed agent responsibilities | [Agent Pantheon](../agents/agent-pantheon.md) |
 | Baseline risk decisions | [Risk Classification](../decisioning/risk-classification.md) |
 | Emergency delegated authority | [Escalation and Standing Authority](../decisioning/escalation-and-standing-authority.md) |
+| Approval profiles, operator promotion, and policy administration | [Operator Governance Profiles](../decisioning/operator-governance-profiles.md) |
+| Hub-managed installation lifecycle | [Hub-Managed Lifecycle](../deployment/hub-managed-lifecycle.md) |
+| Decision behind the third path and operator governance | [ADR-0003](decisions/0003-hub-managed-lifecycle-and-operator-governance.md) |
 | Governed workflow composition | [Process Automation](../decisioning/process-automation.md) |

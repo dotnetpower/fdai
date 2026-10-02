@@ -49,6 +49,11 @@ Silence without that Approval remains a no-op. See
 
 ### Full-authority development profile
 
+The planned single-operator production profile is a different, narrower exception. It lets one
+named operator satisfy approval and quorum in one production installation, but it keeps this
+table's risk classes and denials. See
+[Operator Governance Profiles](operator-governance-profiles.md).
+
 The profile is a separate development authority axis, not another risk-table rule. The table still
 computes and records the baseline decision, but an exact, unexpired profile binding plus the sole
 Owner's current approval may admit any registered action category inside its dedicated test scope.

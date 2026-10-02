@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { getLocale, t } from "../i18n";
 import { panelPath } from "../router";
+import { answerEvidenceText } from "./answer-evidence-i18n";
 import { presentationTimestamp } from "./presentation-value";
 import {
   deckSourceReadiness,
@@ -74,7 +75,7 @@ export function SourceReadinessStrip({ client }: { readonly client: OperatorApiC
   return (
     <details class="deck-source-readiness-disclosure">
       <summary>
-        <span>{t("deck.sourceReadiness.servicesLabel")}</span>
+        <span>{answerEvidenceText("evidenceServices")}</span>
         <strong>{readinessSummary(state.sources)}</strong>
       </summary>
       <nav class="deck-source-readiness" aria-label={t("deck.sourceReadiness.label")}>

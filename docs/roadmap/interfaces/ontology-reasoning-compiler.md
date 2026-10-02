@@ -316,6 +316,10 @@ self-composable, depth at most five.
   requires. Only an explicit request for every relationship admits `scope: all_kinds`, which reads
   a bounded one-hop neighborhood and presents edges grouped by LinkType role, never as one merged
   relation.
+- **Single-anchor starts**: A relation read starts from one bound anchor, a prior result narrowed to
+  one row, or a scoped subset anchored by a separate relation anchor. A collection-scope relation
+  that would otherwise traverse from a widened collection returns a typed unsupported reason before
+  it can release an empty answer.
 - **Feasibility**: When the compiled side is empty and the opposite side has edges, the answer
   states that fact as a limitation and never flips the direction.
 
@@ -357,9 +361,10 @@ self-composable, depth at most five.
   by declaration kind. A LinkType subject scoped to one ObjectType, as in the LinkTypes in Workload,
   is the same read and compiles as that ObjectType's relationship read; any other kind scoped to an
   ObjectType is unsupported. An ObjectType declaration read also requires the grounded ObjectType
-  identity to match the stated schema subject exactly, so concept drift reads a clarification instead
-  of another type's declaration. Any other schema relation, direction, counterpart, reach, anchor, or
-  grouping returns a typed unsupported reason, and V-SEM rejects it independently.
+  identity to match the stated schema subject exactly; if an over-quoted subject contains another
+  known ObjectType name, the read clarifies instead of answering with another type's declaration. Any
+  other schema relation, direction, counterpart, reach, anchor, or grouping returns a typed
+  unsupported reason, and V-SEM rejects it independently.
 
 ### Follow-up references
 

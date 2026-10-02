@@ -316,11 +316,13 @@ final status. Replay uses those exact inputs and never substitutes current provi
 | Upstream | Metamodel, resolver, validation, base capabilities, audit shape, provider Protocols. |
 | Downstream distribution | Additional capabilities, requirements, policy templates, mappings, adapters. |
 | Deployment configuration | Signed policy bundle reference, identity bindings, real scope ids. |
-| Runtime store | Observations, decisions, requests, grants, expiry and revocation receipts. |
+| Runtime store | Observations, decisions, requests, grants, expiry and revocation receipts, and planned Mimir-signed installation policy revisions. |
 
 A fork marker never selects authorization behavior. One downstream distribution can support many
 deployments with different signed policy bundles. Fork additions can add constraints but cannot
-redefine upstream capability ids or raise an upstream maximum.
+redefine upstream capability ids or raise an upstream maximum. A planned installation policy
+revision from FDAI Console follows the same rule, and Core still applies hard constraints after it
+([Operator Governance Profiles](operator-governance-profiles.md)).
 
 The shipped default does not enforce this gate. `Container.execution_authorization_evaluator`
 defaults to `None` and `execution_authorization_required` defaults to `False`, and the only code
