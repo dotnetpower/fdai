@@ -476,6 +476,70 @@ def test_schema_goal_holds_when_grounding_drifts_to_another_object_type() -> Non
     assert goal.reasons == ("schema_subject_identity_unconfirmed",)
 
 
+def test_schema_goal_holds_when_the_subject_drifts_to_the_objecttype_metatype() -> None:
+    utterance = "What does the Resource ObjectType declare?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, "ObjectType"),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "operation": "describe_schema",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "cue": span(utterance, "declare"),
+                "confidence": 0.95,
+            }
+        ],
+    }
+
+    goal = _compile(
+        utterance, form, concepts(("m1", MentionDomain.OBJECT_TYPE, ("ObjectType",)))
+    ).goals[0]
+
+    assert goal.status is GoalStatus.CLARIFY
+    assert goal.reasons == ("schema_subject_identity_unconfirmed",)
+
+
+def test_schema_goal_holds_when_an_overquoted_subject_drifts_to_resource_type() -> None:
+    utterance = "What does the Resource ObjectType declare?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, "Resource ObjectType"),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "operation": "describe_schema",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "cue": span(utterance, "declare"),
+                "confidence": 0.95,
+            }
+        ],
+    }
+
+    goal = _compile(
+        utterance, form, concepts(("m1", MentionDomain.OBJECT_TYPE, ("ResourceType",)))
+    ).goals[0]
+
+    assert goal.status is GoalStatus.CLARIFY
+    assert goal.reasons == ("schema_subject_identity_unconfirmed",)
+
+
 @pytest.mark.parametrize(
     ("form_update", "reason"),
     (
