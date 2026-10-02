@@ -72,6 +72,8 @@ def readiness_snapshot(env: dict[str, str], **overrides: object) -> dict[str, ob
             "operator-service.authentication-receipts": "healthy",
             "operator-service.test-context-outbox": "healthy",
             "azure-monitor.metrics": "healthy",
+            "azure.activity-log": "healthy",
+            "core-control-plane.action-audit": "healthy",
         },
         "probed_at": (NOW - timedelta(seconds=30)).isoformat(),
     }
@@ -114,8 +116,12 @@ def test_bound_purposes_become_available_only_with_observed_writer_exclusive_rea
     for row in ready.values():
         assert row["mode"] == "shadow" and row["authority_mode"] == "shadow"
         assert row["execution_authority"] is False and row["promotion_authority"] is False
+    assert ready["operational-evidence.forecast-history-actions"]["available"] is True
     assert ready["operational-evidence.forecast-history-changes"]["available"] is True
-    assert "#1021" in str(ready["operational-evidence.forecast-history-actions"]["reason"])
+    assert ready["operational-evidence.forecast-context"]["available"] is False
+    assert "excluded_windows remains unavailable" in str(
+        ready["operational-evidence.forecast-context"]["reason"]
+    )
     serialized = json.dumps(list(ready.values()))
     for value in (env["FDAI_STATE_STORE_DSN"], env["FDAI_OPERATIONAL_EVIDENCE_VERIFIER_URL"]):
         assert value not in serialized

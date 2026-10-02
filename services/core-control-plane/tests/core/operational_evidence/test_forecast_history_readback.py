@@ -158,11 +158,21 @@ async def test_forecast_history_rejects_replay_substituted_digest() -> None:
     assert rejection.rejection_class is OperationalEvidenceRejectionClass.REPLAY_SUBSTITUTED
 
 
-async def test_unimplemented_forecast_history_sources_remain_unavailable() -> None:
+async def test_bound_action_history_without_coverage_rejects_partial() -> None:
     store = MemoryStore()
     await _produce("changes", Source("changes", (record("c", "full:upsert", 5),)), store)
 
     status, rejection = await _issue("actions", "0" * 64, store)
+
+    assert status == OperationalEvidenceIssuanceStatus.REJECTED.value
+    assert rejection is not None
+    assert rejection.rejection_class is OperationalEvidenceRejectionClass.PARTIAL
+
+
+async def test_unimplemented_forecast_history_sources_remain_unavailable() -> None:
+    store = MemoryStore()
+
+    status, rejection = await _issue("excluded_windows", "0" * 64, store)
 
     assert status == OperationalEvidenceIssuanceStatus.UNAVAILABLE.value
     assert rejection is None

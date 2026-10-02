@@ -10,6 +10,8 @@ from fdai.core.detection.forecast_history_producer import ForecastHistoryProduce
 from fdai.delivery.forecast_change_history import ForecastChangeHistoryWitness
 from fdai.delivery.forecast_history_readiness import forecast_history_projection
 from fdai.delivery.forecast_history_sources import (
+    FORECAST_ACTION_HISTORY_SOURCE_IDENTITY,
+    FORECAST_ACTION_HISTORY_SOURCE_REVISION,
     FORECAST_CHANGE_HISTORY_SOURCE_IDENTITY,
     FORECAST_CHANGE_HISTORY_SOURCE_REVISION,
     FORECAST_LIFECYCLE_HISTORY_SOURCE_IDENTITY,
@@ -196,7 +198,7 @@ def test_settings_row_uses_runtime_validation_and_never_reports_ready() -> None:
     assert opted["scoring_authority"] is False and opted["execution_authority"] is False
     assert "secret" not in json.dumps(opted)
     assert {item["kind"]: item["bound"] for item in opted["sources"]} == {
-        "actions": False,
+        "actions": True,
         "changes": True,
         "excluded_windows": False,
         "resource_lifecycle": True,
@@ -244,6 +246,11 @@ def _producer(kind: str, mapping: dict[str, str]) -> dict[str, object]:
 def _configuration() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     bindings = [
         _mapping(
+            "actions",
+            FORECAST_ACTION_HISTORY_SOURCE_IDENTITY,
+            FORECAST_ACTION_HISTORY_SOURCE_REVISION,
+        ),
+        _mapping(
             "changes",
             FORECAST_CHANGE_HISTORY_SOURCE_IDENTITY,
             FORECAST_CHANGE_HISTORY_SOURCE_REVISION,
@@ -253,13 +260,13 @@ def _configuration() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
             FORECAST_LIFECYCLE_HISTORY_SOURCE_IDENTITY,
             FORECAST_LIFECYCLE_HISTORY_SOURCE_REVISION,
         ),
-        _mapping("actions", "source:actions", "revision-1"),
         {
             **_mapping("resource_lifecycle", "source:windows", "revision-1"),
             "kind": "excluded_windows",
         },
     ]
     producers = [
+        _producer("actions", {"succeeded": "changed", "failed": "changed"}),
         _producer("changes", {"full:upsert": "changed"}),
         _producer("resource_lifecycle", {"present": "present", "deleted": "deleted"}),
     ]
@@ -274,7 +281,7 @@ def test_runtime_binds_only_reviewed_available_source_producers() -> None:
         producers_json=json.dumps(producers),
     )
     assert isinstance(collector, ProducingForecastHistoryCollector)
-    assert collector.bound_kinds() == frozenset({"changes", "resource_lifecycle"})
+    assert collector.bound_kinds() == frozenset({"actions", "changes", "resource_lifecycle"})
     environment = {"FDAI_FORECAST_HISTORY_SOURCES_JSON": json.dumps(bindings)}
     plain = forecast_history_collector_from_environment(
         dsn="postgresql://127.0.0.1/example", environment=environment
@@ -282,7 +289,7 @@ def test_runtime_binds_only_reviewed_available_source_producers() -> None:
     assert plain is not None and not isinstance(plain, ProducingForecastHistoryCollector)
     assert forecast_history_collector_from_environment(dsn=None, environment={}) is None
     failures = [
-        ([_producer("actions", {"succeeded": "changed"})], "unavailable"),
+        ([_producer("excluded_windows", {"open": "excluded"})], "unavailable"),
         ([{**producers[0], "target_ref": "other"}], "no reviewed collector mapping"),
         ([{**producers[0], "kind": "resource_lifecycle"}], "maps outside"),
     ]
