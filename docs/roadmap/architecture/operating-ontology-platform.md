@@ -294,6 +294,8 @@ require the retained release to match the interpreting release; an unavailable r
 ObjectSet receipts retain authenticated principal scope through source, traversal, and function
 reads. Current scoped presentation receipts expire after the configured bounded window, which
 defaults to 90 seconds. Role and principal scope separate cache entries even for identical content.
+Opaque continuation references that page a read are single-use claims, and a successful page read
+issues at most one successor reference so concurrent callers cannot advance the same cursor twice.
 Query tables preserve source generation and explicit numeric-field metadata through pure algebra.
 Mixed generations hold, exact decimal aggregation does not use ambient precision, and numeric
 strings retain numeric ordering after projection. Missing optional values stay null, result bounds

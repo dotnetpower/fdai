@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 추론 결과 핸들과 이어 읽기
 translation_of: ontology-reasoning-result-handles.md
-translation_source_sha: 908bbda535ff46ca38f456d9a7aac8dbcac686e2
-translation_revised: 2026-10-01
+translation_source_sha: 0496e188cabf60f9ffd3ced66f4af26d1d81584d
+translation_revised: 2026-10-02
 ---
 # 온톨로지 추론 결과 핸들과 이어 읽기
 
@@ -170,6 +170,8 @@ WHERE effective_at < :last_effective_at
   `continuation_invalid`를 돌려주며, 조용히 다른 집합을 읽지 않습니다.
 - 이어 읽기 참조 해석은 원자적 선점입니다. 메모리 저장소의 잠금과 PostgreSQL의
   `DELETE ... RETURNING`이 같은 참조의 동시 요청 중 정확히 한 페이지만 진행하게 합니다.
+- 성공한 선점은 후속 참조 하나로만 진행합니다. 소비된 참조와 후속 참조는 각각 한 번만 사용할 수
+  있으므로 두 동시 요청이 같은 커서를 함께 전진시킬 수 없습니다.
 - 실제 loopback PostgreSQL 테스트는 Resource마다 여러 관측, 같은 시각의 동점, 기준 시각 뒤에 기록된
   행, 바뀐 페이지 크기를 다룹니다.
 

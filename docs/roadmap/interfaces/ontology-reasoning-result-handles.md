@@ -177,6 +177,8 @@ WHERE effective_at < :last_effective_at
   `continuation_invalid`, never a silently different population.
 - Resolving a continuation reference is an atomic claim. An in-memory lock and PostgreSQL
   `DELETE ... RETURNING` ensure concurrent requests for one reference let exactly one page proceed.
+- A successful claim advances to one successor reference. The consumed reference and the successor
+  reference are each single-use, so two concurrent requests cannot both advance the same cursor.
 - Tests on a real loopback PostgreSQL cover several observations per Resource, timestamp ties,
   rows recorded after the cutoff, and a changed page size.
 
