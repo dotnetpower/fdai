@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 3b68bf9566bf68bb6796c5000bf0cc68467b59bf
+translation_source_sha: 9791d6aa7358e87987b9e6447c202a73250ea0aa
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -649,7 +649,7 @@ AKS에서는 substrate 단계가 대상으로 지정하는 `terraform_data.insta
 Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 런타임 단계는
 `azurerm_kubernetes_cluster.runtime`이 상태에 생긴 뒤에만 Container Insights 연결을 적용합니다.
 새 클러스터의 첫 검토는 이 연결을 제외한 모든 런타임 리소스를 대상으로 지정하고, 이어지는 두 번째
-일반 전체 루트 런타임 검토가 그 연결을 만듭니다. Terraform 구성은 여전히 클러스터 리소스에
+일반 전체 루트 런타임 검토가 그 연결을 만듭니다. 일반 검토마다 관리 호스트의 `operation`을 기록합니다. 여기서는 `runtime-cluster` 또는 `runtime`이고, 그 밖에는 단계 이름이나 바인딩된 서비스 업데이트입니다. 컨트롤러는 이 값이 검토 단계와 일치할 때만 검토를 승인합니다. Terraform 구성은 여전히 클러스터 리소스에
 의존하지 않고 연결 대상 ID를 다시 구성합니다. 모니터링 전용 대상 지정 계획이 관리형 클러스터
 drift를 범위 안으로 끌어오지 않아야 하기 때문입니다. 애플리케이션 단계는 Core에
 `FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제공합니다. 애플리케이션 적용 후

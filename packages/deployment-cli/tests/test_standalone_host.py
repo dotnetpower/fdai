@@ -31,6 +31,7 @@ from fdai_deployment_cli import (
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.standalone_review import validate_plan_review
 
 
 def _runtime_support_artifacts(root: Path) -> tuple[Path, Path]:
@@ -1447,6 +1448,7 @@ def test_fresh_aks_runtime_plan_excludes_container_insights_association(
         argument.removeprefix("-target=") for argument in command if argument.startswith("-target=")
     }
     assert review["operation"] == "runtime-cluster"
+    assert validate_plan_review(review) == ("runtime", 0)
     assert standalone_stage_targets.RUNTIME_CLUSTER_STATE_TARGET in targets
     assert "azurerm_monitor_data_collection_rule.container_insights" in targets
     assert standalone_stage_targets.CONTAINER_INSIGHTS_ASSOCIATION_TARGET not in targets
@@ -1458,6 +1460,7 @@ def test_existing_aks_runtime_plan_remains_full_root(
     review, command = _runtime_plan_review(tmp_path, monkeypatch, cluster_in_state=True)
 
     assert review["operation"] == "runtime"
+    assert validate_plan_review(review) == ("runtime", 0)
     assert not any(argument.startswith("-target=") for argument in command)
 
 
