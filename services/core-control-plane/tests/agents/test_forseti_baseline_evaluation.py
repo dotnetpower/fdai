@@ -42,6 +42,12 @@ class _Evaluator:
         return self.results.get(rule.id)
 
 
+class _FailingEvaluator:
+    def evaluate(self, rule: Rule, resource_props: Mapping[str, Any]) -> PolicyResult:
+        del rule, resource_props
+        raise RuntimeError("OPA unavailable")
+
+
 async def _audit_binder(record: Mapping[str, Any]) -> BaselineEvaluationAuditReference:
     digest = (
         "sha256:"
@@ -220,6 +226,34 @@ async def test_stale_and_missing_evidence_abstain() -> None:
     assert completion.abstained_count == 2
     page, _total = await store.read_state_page(prefix=BASELINE_EVALUATION_OUTCOME_PREFIX, limit=10)
     assert {row["reason_code"] for row in page} == {"missing_evidence", "stale_evidence"}
+
+
+@pytest.mark.asyncio
+async def test_policy_evaluator_failure_abstains_without_losing_completion() -> None:
+    rule = _rule("rule.compliant")
+    store = InMemoryStateStore()
+
+    completion = await record_baseline_evaluation(
+        observation=_observation(
+            ResourceRecord(
+                resource_id="resource-one",
+                type="example.resource",
+                props={},
+                last_seen=NOW.isoformat(),
+            )
+        ),
+        engine=T0Engine(index=RuleIndex.build((rule,)), evaluator=_FailingEvaluator()),
+        rules=(rule,),
+        catalog_revision=CATALOG_A,
+        audit_binder=_audit_binder,
+        state_store=store,
+        evaluated_at=NOW,
+    )
+
+    assert completion.abstained_count == 1
+    page, _total = await store.read_state_page(prefix=BASELINE_EVALUATION_OUTCOME_PREFIX, limit=10)
+    assert page[0]["outcome"] == "abstained"
+    assert page[0]["reason_code"] == "unsupported_evidence"
 
 
 @pytest.mark.asyncio
