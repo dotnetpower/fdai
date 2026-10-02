@@ -3352,9 +3352,16 @@
     "trajectory": {
       "runRecord": "Run record",
       "title": "Observed process",
-      "summary": "{models} model calls / model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
-      "summaryTraceOff": "Model trace off / model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
-      "summaryTraceMissing": "Model trace not captured / model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
+      "summary": "{models} model calls / cumulative model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
+      "summaryTraceOff": "Model calls not recorded / cumulative model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
+      "summaryTraceMissing": "Model calls not recorded / cumulative model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
+      "performanceMetrics": "Time and token usage",
+      "serverElapsed": "Server elapsed time",
+      "observedElapsed": "Observed elapsed time",
+      "cumulativeModelTime": "Cumulative model time (parallel calls summed)",
+      "inputTokens": "Input tokens",
+      "outputTokens": "Output tokens",
+      "totalTokens": "Total tokens",
       "sequenceOnly": "causal sequence",
       "planSummary": "{count} goals / {mode}",
       "goalsLabel": "Planned intent goals",
@@ -3423,6 +3430,7 @@
         "model": "Model"
       },
       "timingPhase": {
+        "durable_queue": "Durable queue wait",
         "semantic_plan": "Semantic planning",
         "evidence": "Evidence resolution",
         "generation": "Answer generation",

@@ -8927,6 +8927,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-signals > div:last-child { padding-right: 0; }
 .deck-trajectory-signals dt { margin-bottom: 3px; color: var(--fg-muted); font-size: 12px; font-weight: 750; text-transform: uppercase; }
 .deck-trajectory-signals dd { min-width: 0; display: flex; align-items: baseline; gap: 6px; margin: 0; overflow-wrap: anywhere; color: var(--fg); font-size: 12px; line-height: 1.45; }
+.deck-trajectory-performance { row-gap: 10px; margin: 0 0 14px; }
+.deck-trajectory-performance dd::before { display: none; }
+.deck-trajectory-performance > div:nth-child(3n + 1) { padding-left: 0; border-left: 0; }
 .deck-execution-timeline { margin: 14px 0 0; padding-top: 11px; border-top: 1px solid var(--border); }
 .deck-execution-timeline > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .deck-execution-timeline > header h4 { margin: 0; font-size: .9375rem; }

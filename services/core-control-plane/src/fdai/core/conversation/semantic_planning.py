@@ -386,7 +386,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                 if judgment_decision.accepted and judgment_decision.proposal is not None:
                     accepted = promoted_state_collection(judgment_decision.proposal)
                     accepted = reground_constraint_slots(accepted, manifest=manifest)
-                    if self._type_grounding is not None:
+                    if self._type_grounding is not None and not (
+                        self._compiled_answers is not None and self._compiled_answers.typed_only
+                    ):
                         grounding = self._type_grounding.ground(
                             utterance=utterance,
                             judgment=accepted,

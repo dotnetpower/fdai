@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import copy
 import functools
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Literal, Protocol, cast
+
+from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
@@ -30,6 +33,7 @@ from .semantic_reasoning_admission import (
 from .semantic_reasoning_binding import AnchorResolver, bind_anchors
 from .semantic_reasoning_compiler import ReasoningCompilation, compile_question_form
 from .semantic_reasoning_concepts import (
+    ConceptRequest,
     ConceptSelectionReceipt,
     ConceptShard,
     accept_concept_selection,
@@ -241,6 +245,7 @@ class _CountingModel:
         self.review_calls = 0
         self.direction_calls = 0
         self.tiebreak_calls = 0
+        self._concept_choices: dict[str, Mapping[str, Any]] = {}
 
     @property
     def calls(self) -> int:
@@ -250,9 +255,31 @@ class _CountingModel:
         self.form_calls += 1
         return await self._inner.propose_form(**kwargs)
 
-    async def choose_concepts(self, **kwargs: Any) -> Mapping[str, Any] | None:
+    async def choose_concepts(
+        self,
+        *,
+        utterance: str,
+        mentions: tuple[dict[str, Any], ...],
+        shard: ConceptShard,
+        second: bool = False,
+    ) -> Mapping[str, Any] | None:
+        """Reuse only a closed choice by the same reader over identical turn inputs."""
+
+        key = content_digest(
+            {"utterance": utterance, "mentions": mentions, "shard": shard.digest, "second": second}
+        )
+        cached = self._concept_choices.get(key)
+        if cached is not None:
+            return copy.deepcopy(cached)
         self.concept_calls += 1
-        return await self._inner.choose_concepts(**kwargs)
+        answer = await self._inner.choose_concepts(
+            utterance=utterance, mentions=mentions, shard=shard, second=second
+        )
+        if answer is not None and shard_answer_valid(
+            answer, ConceptRequest(shard.domain, mentions, shard)
+        ):
+            self._concept_choices[key] = copy.deepcopy(answer)
+        return answer
 
     async def extract_constraints(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.review_calls += 1

@@ -326,7 +326,14 @@ class AzureOpenAIQuestionFormModel:
             "utterance": redact_text(utterance),
             "mentions": [_redacted(item) for item in mentions],
             "shard_digest": shard.digest,
-            "shard": shard_payload,
+            "shard": {
+                **shard_payload,
+                "candidate_columns": ["id", "values", "labels"],
+                "candidates": [
+                    [candidate.id, list(candidate.values), list(candidate.labels)]
+                    for candidate in shard.candidates
+                ],
+            },
         }
         return await self._complete(
             system_prompt=self._config.concept_system_prompt,

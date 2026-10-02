@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: f7df42b9d68e32f58428046518527612c9e36dd4
-translation_revised: 2026-10-01
+translation_source_sha: 6348603fc49fd04554945420d8ab67eea32e9e73
+translation_revised: 2026-10-02
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -169,6 +169,34 @@ Console 시작 질문에는 계약으로 검증된 함수 기반 질문만 표�
 않습니다. 모델 투명성은 완료된 모든 의미 판단, 프레임, 계획 모델 호출의 실측 처리 시간과 사용 가능한
 토큰 사용량을 기록합니다. 전체 턴 시간에는 모델 호출이 아닌 결정론적 작업과 provider 작업도 계속
 포함합니다.
+
+### 요청 내부 근거화 결과 재사용
+
+`typed_only` 계획은 기존 계획을 사용하지 않으므로 기존 하위 유형 근거화를 생략합니다.
+검증된 질문 구조 경로는 전체 카탈로그 근거화, 독립 검토, 현재 시점의 계획 검증을 계속
+수행합니다. 컴파일된 경로를 사용할 수 없으면 요청은 보류됩니다.
+
+한 번의 질문 구조 처리 안에서는 질문, 언급 데이터, 원본 샤드 해시, 판독기 구분이 모두
+정확히 같을 때만 스키마를 통과한 개념 선택을 재사용합니다. 기본 판독기와 독립 판독기의
+항목은 분리됩니다. 실패하거나 형식이 잘못된 선택은 저장하지 않고 반환값은 복사하며,
+처리가 끝나면 캐시도 사라집니다. 공급자 관찰, 리소스 상태, 인가 결정, 이전 요청의 의미는
+저장하지 않습니다. 호출 수는 캐시 조회가 아니라 실제 공급자 호출을 집계합니다.
+
+개념 프롬프트는 `id`, `values`, `labels` 열을 명시하고 모든 후보를 행으로 표현합니다.
+이 무손실 표현은 반복되는 필드 이름만 제거하며 후보나 문맥을 줄이지 않습니다. 안전성
+검사, 샤드 해시, 전체 후보 제시 증적, 닫힌 출력 스키마는 원본의 완전한 카탈로그를 계속
+사용합니다. 로컬 복원 및 호출 수 테스트는 이 동작을 입증하지만 실제 지연 시간이나
+청구 대상 토큰 감소를 입증하지는 않습니다.
+
+### 시간 및 토큰 사용량 표시
+
+Command Deck의 실행 기록은 서버 경과 시간과 모델 호출 누적 시간을 구분합니다. 병렬
+호출의 시간도 누적값에 합산되므로 서버 경과 시간보다 클 수 있습니다. 서버 시간이 없을
+때 사용하는 대화 기록의 관찰 구간에는 별도 표시를 유지합니다. 입력, 출력, 전체 토큰은
+각각 표시하며 분해값이 없으면 0이 아니라 미기록으로 표시합니다. 정확한 호출 수는
+생략된 호출을 포함하는 수집된 추적이나 완전한 서버 소유 턴 예산 기록에서 가져옵니다.
+불완전한 예산 기록은 정확한 호출 수로 표시하지 않습니다. 이 표시는 프롬프트 본문 수집,
+새 모델 요청, 실행 권한을 요구하지 않습니다.
 
 ## 합성 대화 및 프롬프트 확인
 
@@ -364,6 +392,8 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 요청 내부 근거화 재사용 및 무손실 카탈로그 프롬프트 | implemented | `semantic_planning.py`; `semantic_reasoning_shadow.py`; `semantic_question_form.py`; 집중 근거화, 컴파일러, 카탈로그 및 마스킹 테스트 | `typed_only` 계획은 사용하지 않는 기존 근거화를 생략합니다. 정확히 같은 입력에 대해 스키마를 통과한 동일 판독기의 개념 선택만 한 처리 안에서 재사용하며, 모든 카탈로그 후보와 독립 검토를 유지합니다. 실제 속도 향상이나 청구액 감소를 주장하지 않습니다. |
+| 대화 시간 및 사용량 표시 | implemented | `console/src/deck/conversation-trajectory-{presentation,view}.ts*`; `conversation-trajectory-presentation.test.ts`; `conversation-entry.spec.ts`의 이중 언어 성능 시나리오 | 서버 경과 시간, 모델 누적 시간, 입력/출력/전체 토큰, 기록된 호출 수를 구분합니다. 없는 측정값은 미기록으로 둡니다. 데스크톱, 좁은 데스크톱, 모바일 합성 검사가 통과했습니다. |
 | Core mini 라우팅 및 턴별 모델 선택 | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_latency.py`; `services/core-control-plane/src/fdai/composition/wire_t1_routing.py`; `wire_adaptive_conversation.py`; [집중 검사 근거](#로컬-mini-라우팅-근거-2026-09-06) | Python 229개 통과, PostgreSQL 사례 2개 실행 제외이며 명시적 활성화 구성 검사 6개도 추가로 통과했습니다. 검증된 mini 신원, 변경 불가능한 작성/검토 모델 선택 및 기존 T2/작업 품질 검사 연결을 유지합니다. |
 | Core가 관리하는 명시적 선택형 탐색 | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_probe.py`; `services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py`; 집중 TTFT 및 벤치마크 검사 | 고정 요청은 비어 있지 않은 첫 토큰과 전체 지연 시간을 따로 기록합니다. 명시적 벤치마크는 고정된 표본 및 동시성 상한에서 같은 요청을 재사용하고 용량을 변경하지 않으며 압력 또는 프로바이더 실패를 재시도하지 않습니다. |
 | 의미 처리 상태의 라우팅 변환 결과 및 Console 배지 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py`; `console/src/deck/backend-health.ts`; `console/src/deck/backend-health-presentation.ts`; 집중 Operator 및 Console 검사 | Operator는 범위가 제한된 TTFT 필드를 전체 지연 시간과 별도로 검증합니다. Console은 두 p50/p95 구간과 표본 개수를 표시하며 TTFT가 없거나 오래됐을 때 전체 지연 시간을 대신 사용하지 않습니다. 런타임 시각적 검증은 아직 불완전합니다. |
@@ -389,6 +419,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-02 | implemented | `typed_only`에서 사용하지 않는 기존 근거화를 제거하고, 한 처리 안에서 정확히 같은 닫힌 개념 선택을 재사용하며, 전체 카탈로그 프롬프트를 무손실 압축하고, 실행 기록에서 경과/누적 시간과 입력/출력 토큰을 분리했습니다. | `current change`; 근거화, 질문 구조, 개념, 마스킹, 컴파일 답변 검사 380개 통과; Console 성능 표시 검사 11개 통과; 이중 언어 집중 Playwright 시나리오 2개가 1440, 993, 390 CSS 픽셀 폭에서 통과했습니다. | 측정된 지연 시간, 청구 대상 토큰, 비용 개선을 주장하기 전에 명시적으로 승인된 동일 소스의 실제 비교를 보존합니다. 새 모델 요청이나 모델 설정 변경은 하지 않았습니다. |
 | 2026-10-01 | implemented | Operator composition이 service-owned route를 추가하는 동안 narrator preference route assembly를 preference 소유자 안에 유지했습니다. Settings projection은 계속 sanitized 상태이며 `personalizes_t2_bindings`는 false로 남습니다. | `current change`; `fdai_operator_service/composition_routes.py`; focused Operator route-count 근거. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 보존합니다. |
 | 2026-09-27 | implemented | 비공개 SQLAlchemy DSN을 psycopg fixture 형식으로 내부 정규화한 뒤 서비스 소유 loopback PostgreSQL 검증 데이터베이스에서 개정 번호로 제한된 서술기 선호 설정 쓰기, 감사 기록 및 재시작 readback을 검증했습니다. | `current change`; 준비된 로컬 검증 데이터베이스에서 `test_narrator_preference_commits_with_audit_and_survives_new_connection` 통과, PR #1458의 소스 및 required CI 근거는 변경되지 않았습니다. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 별도로 보존합니다. |
 | 2026-09-27 | in-progress | 서술기 선호 설정의 구현 경로만 자체 설계 문서에 연결하면서 공유 파일에 적용되는 기존 경로와 문서 소유 요건은 모두 유지했습니다. 선호 설정 동작과 실행 권한이 없는 경계는 바뀌지 않았습니다. | `current change`; `scripts/lib/design-routes.json`; 집중 Operator, 경로 및 영속성 검사 305개 통과(선택적 PDF 검사와 실제 PostgreSQL 검사 각 1개 건너뜀); `check-design-routes.py`, 스테이징된 `check-design-doc-impact.py`, 로드맵 및 지역화 검사 통과. 승인된 로컬 전용 PostgreSQL DSN은 이 세션에서 가려져 있습니다. | 승인된 로컬 전용 DSN을 사용할 수 있을 때 실제 PostgreSQL 재시작 및 동시 쓰기 비교 및 교환을 검증하고, 배포 시작 및 지연 시간 증적을 별도로 보존합니다. |
