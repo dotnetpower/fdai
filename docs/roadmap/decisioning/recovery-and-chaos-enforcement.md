@@ -290,6 +290,82 @@ the hold duration or its own read time, and the `detected` verdict keeps its cur
   independent recovery evidence collector, and a distributed logical-target lock. Upstream ships
   no provider, so an unbound checkout refuses enforcement with exit status 3 and a structured
   refusal report before substrate access.
+
+### Scenario-lab provider package design
+
+The scenario-lab binding is an optional installable extension package, `fdai-governed-chaos-provider`,
+under `extensions/governed-chaos-provider/`. It registers exactly one Python entry point:
+
+```toml
+[project.entry-points."fdai.governed_chaos"]
+catalog-scenario = "fdai_governed_chaos_provider:build_governed_chaos_bindings"
+```
+
+The package follows the fork-customization seam: Core owns the `GovernedChaosBindings` Protocol and
+the adapter; the extension supplies concrete collaborators through dependency injection. Installing
+the package makes the provider discoverable, but it does not enable a run, promote a scenario,
+grant approval, or select an Azure target. The protected scenario-lab workflow installs workspace
+packages only for an approved apply with `run_reference_sweep=true`, so plan-only runs still perform
+no live chaos work.
+
+**Initial design.** Bind every collaborator from deployment configuration and the existing durable
+state store:
+
+- `PostgresStateStore` is the Saga-audited run store and audit chain source.
+- `StateStoreActionPromotionRegistry` is the ActionType mode source. Missing or unverifiable
+  promotion returns `shadow`.
+- `ScenarioPromotionLedger` is loaded from a reviewed JSONL promotion-evidence file emitted by the
+  existing governed promotion path. The provider never writes this ledger and cannot promote a
+  scenario.
+- The Var approval verifier reads one bounded approval record from `StateStore` by approval
+  reference. It requires the exact scenario id, run id when present, target digests, approver ids,
+  initiator id, intent (`enforce` or `closure`), and an unexpired `Var` principal.
+- The run planner reads one prepared plan record from `StateStore`. The record supplies Vidar's
+  recovery plan, Heimdall's guard profile, dry-run receipt, causal and refutation references,
+  owner reference, and readiness booleans. The planner cannot assert promotion, approval, lock,
+  idempotency, or audit readiness.
+- The Thor recovery dispatcher consumes a pre-authorized recovery dispatch receipt from `StateStore`
+  for each recovery action and idempotency key. Dispatch acceptance alone is not success.
+- The independent recovery evidence collector reads fresh Heimdall probe observations from
+  `StateStore` after recovery. A missing probe or incomplete telemetry makes recovery unscorable.
+- `PostgresAdvisoryResourceLock` supplies the distributed logical-target lock.
+
+**Critique.** The initial design could still be misread as a provider-owned authority path if the
+extension accepted broad environment values, synthesized recovery dispatch receipts, or treated a
+pre-recorded dispatch receipt as recovery success. It also left the scenario-lab target selector
+implicit, which could let a protected runner carry the package but point at an unintended lab.
+
+**Revision.** The provider accepts only bounded references and immutable roots:
+
+- A single scenario-lab target binding id comes from the protected workflow input context and must
+  match the prepared plan record. Tenant, subscription, resource group, host name, and resource ids
+  remain in deployment variables or state-store records and are never committed.
+- The provider refuses construction when the promotion ledger path is absent, unreadable, or
+  malformed; the resulting CLI refusal occurs before substrate access.
+- Approval, plan, dispatch, and evidence records are read-only inputs. The provider appends no
+  promotion evidence and does not write a successful recovery outcome. `GovernedChaosRunner` records
+  success only after recovery dispatch succeeds and independent Heimdall evidence verifies all
+  postconditions.
+- The seven safeguards remain independently sourced: stop condition from the ActionType request,
+  tested rollback from the plan, blast-radius limit from the scenario and mutation-scope check,
+  successful dry run from the plan, logical-target lock from PostgreSQL advisory locks, stable
+  idempotency from `catalog_enforce_request`, and two-phase audit from the state-store run/audit
+  transitions.
+- Scenario eligibility continues to require both runtime catalog membership (`load_promoted`) and
+  the authoritative promotion ledger reaching `enforce_eligible`. The provider cannot move a
+  scenario from `collected` to `promoted`, and it cannot turn shadow evidence into enforcement.
+
+The exact operator handoff for #1207 is therefore:
+
+1. Promote only the selected `aks-pod-cpu-spike` catalog scenario through the existing governed
+   promotion path, retaining the JSONL evidence ledger and the ActionType promotion receipt.
+2. Dispatch the protected `sre-demo-lab` workflow on the exact protected `main` commit with
+   `action=plan`, review the refreshed plan, then dispatch `action=apply` with the same approved
+   commit, expiry, `run_reference_sweep=true`, `scenario_id=aks-pod-cpu-spike`, and the current
+   approval reference.
+3. Let the workflow run exactly one governed fault. Record the Store Demo storefront readback and
+   the governed recovery receipt. If recovery is unverified, keep the target locked until a
+   separate Var-approved closure records manual recovery.
 - **Targets:** Each run targets the canonical identity of the resource its `target_type` mutates:
   the VM for `vm` and the workload pods for `pod`, `disk`, and `dns`. Other target types are
   refused. Every factory-built injector declares the resources it mutates, and each target must be

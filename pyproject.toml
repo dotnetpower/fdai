@@ -121,6 +121,7 @@ fdai-benchmark-cybergym = { workspace = true }
 fdai-benchmark-sregym = { workspace = true }
 fdai-aks-commerce = { workspace = true }
 fdai-cost-governance = { workspace = true }
+fdai-governed-chaos-provider = { workspace = true }
 fdai-github-app-auth = { workspace = true }
 fdai-runtime-diagnostics = { workspace = true }
 fdai-service-contracts = { workspace = true }
@@ -139,6 +140,7 @@ members = [
     "extensions/code-assurance",
     "extensions/aks-commerce",
     "extensions/cost-governance",
+    "extensions/governed-chaos-provider",
     "packages/github-app-auth",
     "packages/runtime-diagnostics",
     "packages/service-contracts",
@@ -165,6 +167,7 @@ src = [
     "extensions/code-assurance/src",
     "extensions/aks-commerce/src",
     "extensions/cost-governance/src",
+    "extensions/governed-chaos-provider/src",
 ]
 # Mock/design assets and design experiments are not part of the shipped
 # monorepo; they live outside the lint gate on purpose.
