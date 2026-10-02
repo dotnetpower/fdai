@@ -81,6 +81,7 @@ from fdai_operator_service.workflow_catalog_projection import (
     _rule_catalog_payload,
     _rule_findings_summary_payload,
     _wara_catalog_payload,
+    derive_rule_findings_summary_payload,
     rule_activation_history_payload,
     rule_activation_status_payload,
 )
@@ -139,12 +140,18 @@ class PostgresWorkflowAdapters:
                 summary_key = "operator-projection:workflow:rule.findings-summary"
                 summary = await self.store.read_state(summary_key)
                 if summary is None:
-                    stored = await self.store.read_projection(
-                        family="workflow",
-                        operation=WorkflowOperation.RULE_LIST.value,
-                    )
-                    projection_key = "operator-projection:workflow:rule.list"
-                    payload = {"evaluated": False, "counts": {}}
+                    derived = await derive_rule_findings_summary_payload(self.store)
+                    if derived is None:
+                        stored = await self.store.read_projection(
+                            family="workflow",
+                            operation=WorkflowOperation.RULE_LIST.value,
+                        )
+                        projection_key = "operator-projection:workflow:rule.list"
+                        payload = {"evaluated": False, "counts": {}}
+                    else:
+                        stored = derived
+                        projection_key = summary_key
+                        payload = derived
                 else:
                     stored = summary
                     projection_key = summary_key

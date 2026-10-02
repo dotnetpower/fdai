@@ -10,6 +10,7 @@ from fdai_operator_service.workflow_rule_projection import (
     _promotion_gate_payload,
     _rule_catalog_payload,
     _rule_findings_summary_payload,
+    derive_rule_findings_summary_payload,
     rule_activation_history_payload,
     rule_activation_status_payload,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "_rule_catalog_payload",
     "_rule_findings_summary_payload",
     "_wara_catalog_payload",
+    "derive_rule_findings_summary_payload",
     "rule_activation_history_payload",
     "rule_activation_status_payload",
 ]
