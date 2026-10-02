@@ -109,6 +109,31 @@ def test_claimed_runner_recovery_accepts_a_new_signed_verifier() -> None:
     )
 
 
+def test_offline_upgrade_reverifies_a_retained_runner_under_its_lineage() -> None:
+    checks = SimpleNamespace(
+        source_evidence=SimpleNamespace(source_commit="b" * 40, foundation_source_commit="a" * 40)
+    )
+
+    # The receipt recorded the creating revision, so readback must verify under that revision.
+    assert (
+        command._verification_source_commit(
+            checks, review={"source_commit": "a" * 40}, effect_started=True
+        )
+        == "a" * 40
+    )
+
+
+def test_offline_upgrade_never_starts_a_runner_effect_under_its_lineage() -> None:
+    checks = SimpleNamespace(
+        source_evidence=SimpleNamespace(source_commit="b" * 40, foundation_source_commit="a" * 40)
+    )
+
+    with pytest.raises(ValueError, match="does not match"):
+        command._verification_source_commit(
+            checks, review={"source_commit": "a" * 40}, effect_started=False
+        )
+
+
 TENANT = "00000000-0000-0000-0000-000000000000"
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 BINDING = compute_target_binding(tenant_id=TENANT, subscription_id=SUBSCRIPTION)
