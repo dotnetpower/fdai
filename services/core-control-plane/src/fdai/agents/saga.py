@@ -22,6 +22,9 @@ from fdai.agents._framework.adapters import (
 )
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
+from fdai.agents._framework.forseti_baseline_evaluation import (
+    BaselineEvaluationAuditReference,
+)
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -190,6 +193,43 @@ class Saga(
 
     async def close_issue(self, *, fingerprint: str, closed_by_pr: str) -> None:
         await super().close_issue(fingerprint=fingerprint, closed_by_pr=closed_by_pr)
+
+    async def bind_baseline_evaluation_audit(
+        self, record: Mapping[str, Any]
+    ) -> BaselineEvaluationAuditReference:
+        """Append Saga-owned audit evidence for one baseline evaluation record."""
+
+        kind = record.get("kind")
+        if kind not in {"baseline_evaluation.outcome", "baseline_evaluation.completion"}:
+            raise ValueError("baseline evaluation audit record kind is invalid")
+        payload = {
+            "schema_version": "1.0.0",
+            "kind": kind,
+            "record": dict(record),
+            "recorded_at": self._clock().isoformat(),
+            "owner_agent": "Saga",
+            "execution_authority": False,
+        }
+        payload_digest = "sha256:" + canonical_json_digest(payload)
+        audit_ref = "audit:" + payload_digest[7:39]
+        audit_entry = {
+            "action_kind": "baseline_evaluation.audit_bound",
+            "audit_ref": audit_ref,
+            "audit_digest": payload_digest,
+            "payload": payload,
+            "execution_authority": False,
+        }
+        if self._durable_state_store is not None:
+            await self._durable_state_store.append_audit_entry(audit_entry)
+        appended = self.audit_chain.append(
+            principal="Saga",
+            topic="object.audit-entry",
+            correlation_id=audit_ref,
+            payload=audit_entry,
+        )
+        if inspect.isawaitable(appended):
+            await appended
+        return BaselineEvaluationAuditReference(ref=audit_ref, digest=payload_digest)
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Audit answers rest on chain entries; an empty chain proves nothing."""

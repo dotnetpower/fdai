@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 7171fdb5402af3eb73bc53a1fbb184dd0adf7d23
+translation_source_sha: ec7fb442d1adfa54b296b29f39698f11005ec691
 translation_revised: 2026-10-02
 ---
 
@@ -103,6 +103,12 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
 근거가 없거나 오래되었거나 지원되지 않으면 `abstained`가 됩니다. 비어 있는 완전한 세대는 분모
 0의 완료를 씁니다. 이 메서드는 결정론적 StateStore 기록을 쓰며 `AgentSpec`, 토픽 소유자, 구독,
 승인, 실행 또는 변환 결과 권한을 바꾸지 않습니다.
+
+Saga 조각은 이 바인더를 제공합니다. Saga는 baseline-evaluation 감사 항목을 추가 전용 체인과,
+연결된 경우 영속 감사 저장소에 추가한 뒤 Forseti가 각 결과 또는 완료 기록에 적는 안정적인 감사
+참조와 다이제스트를 반환합니다. 감사 payload에는 Forseti가 제공한 인벤토리 세대, Resource 신원,
+카탈로그 리비전, Rule 리비전, 평가 증적, 터미널 결과가 들어갑니다. Saga는 여전히 Rule 점검
+결과를 판단하거나 변환하지 않고, 재생 가능한 감사 근거만 바인딩합니다.
 
 ### 동결된 구성 기준선 점검
 
