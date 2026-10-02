@@ -202,6 +202,7 @@ def prepare_standalone_genesis(
     connectivity: str,
     root: Path,
     create_runner_image: bool = True,
+    region_short: str | None = None,
 ) -> PreparedGenesis:
     """Create target-bound inputs from an independently verified complete kit."""
 
@@ -270,6 +271,7 @@ def prepare_standalone_genesis(
             ssh_public_key=read_private_bytes(ssh_public, max_bytes=16_384).decode("ascii").strip(),
             execution_transport="manual",
             create_runner_image=create_runner_image,
+            region_short=region_short,
         )
         write_plan_input(variables_path, values)
     _write_source_lineage(

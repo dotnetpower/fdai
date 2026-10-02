@@ -80,6 +80,11 @@ def _new_aks_installation(monkeypatch, tmp_path, preflight):
     )
     monkeypatch.setattr(standalone_deploy, "acquire_deployment_kit", lambda **_kwargs: object())
     monkeypatch.setattr(standalone_deploy, "deploy_with_adopted_foundation", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        standalone_deploy,
+        "selected_azure_region_short_name",
+        lambda **_kwargs: "wus2",
+    )
 
     def inspect(**kwargs):
         events.append(f"preflight:{kwargs['region']}")
