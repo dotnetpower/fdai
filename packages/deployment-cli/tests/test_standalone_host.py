@@ -2299,6 +2299,13 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
         "mount_path": "/var/lib/clamav",
         "size_limit": "1Gi",
     }
+    # The image entrypoint chowns its database, which a non-root sidecar cannot do.
+    assert worker["sidecars"]["clamav"]["command"] == ["clamd"]
+    assert worker["sidecars"]["clamav"]["args"] == ["--foreground=true"]
+    assert worker["sidecars"]["clamav"]["memory"] == "2Gi"
+    assert {
+        path["mount_path"] for path in worker["sidecars"]["clamav"]["writable_paths"].values()
+    } >= {"/var/lib/clamav", "/var/log/clamav", "/tmp"}
 
 
 @pytest.mark.parametrize(
