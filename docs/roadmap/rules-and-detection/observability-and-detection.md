@@ -113,6 +113,14 @@ the inventory generation, resource identity, catalog revision, Rule revision, ev
 and terminal outcome supplied by Forseti. Saga still does not judge or project Rule findings; it
 only binds replayable audit evidence.
 
+The Operator projection slice admits a Rule findings summary only from a complete
+`BaselineEvaluationCompletion` plus every matching `BaselineEvaluationOutcome`. It counts only
+`violated` outcomes as current findings, keeps compliant and abstained Rule refs at zero so resolved
+findings disappear from the current count, and rejects truncated, mismatched, or partial coverage
+instead of inferring zero. A previously stored complete summary remains readable while a newer
+generation is incomplete or unavailable; absent authoritative records still render `evaluated:
+false`.
+
 ### Frozen configuration baseline checks
 
 Configuration drift is a T0 (deterministic rules) finding. A reviewed actual snapshot is frozen

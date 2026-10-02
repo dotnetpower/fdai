@@ -9,10 +9,10 @@ Semantic result-handle references persist only opaque Core-issued tokens with th
 return at most four recent references on the next semantic request. They do not expose row bodies to
 Operator, change human-report routing, or grant Console execution authority.
 Generated contract views may add rollout-safe handle-reference schema versions, but the browser and
-Operator still receive no row identity, row body, or model-visible handle payload. The same generated
-view now exposes the authority-free baseline evaluation outcome and completion records so the
-Operator can later admit a current Rule findings summary only from complete Core/Saga evidence; the
-Console still renders the summary unavailable until that projection exists.
+Operator still receive no row identity, row body, or model-visible handle payload. The Operator Rule
+findings summary now admits evaluated Console status only from complete baseline-evaluation
+completion and outcome records. Missing or partial coverage still renders unavailable, while a
+stored complete summary remains readable until a newer generation completes.
 Adaptive answer evidence crosses the model boundary as `ModelEvidenceView`, a Core-built
 allowlisted projection. Raw query tables, provider bodies, handles, and retained snapshot cells do
 not reach answer-authoring or review model calls.

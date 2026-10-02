@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: ec7fb442d1adfa54b296b29f39698f11005ec691
+translation_source_sha: dc2e97ac1a8b121d952146370c0fb0a191078611
 translation_revised: 2026-10-02
 ---
 
@@ -109,6 +109,13 @@ Saga 조각은 이 바인더를 제공합니다. Saga는 baseline-evaluation 감
 참조와 다이제스트를 반환합니다. 감사 payload에는 Forseti가 제공한 인벤토리 세대, Resource 신원,
 카탈로그 리비전, Rule 리비전, 평가 증적, 터미널 결과가 들어갑니다. Saga는 여전히 Rule 점검
 결과를 판단하거나 변환하지 않고, 재생 가능한 감사 근거만 바인딩합니다.
+
+Operator 변환 결과 조각은 완전한 `BaselineEvaluationCompletion`과 일치하는 모든
+`BaselineEvaluationOutcome`이 있을 때만 Rule 점검 결과 요약을 수락합니다. 현재 점검 결과로는
+`violated` 결과만 계산하고 compliant 및 abstained Rule 참조는 0으로 유지하므로 해결된 발견 사항은
+현재 개수에서 사라집니다. 잘렸거나, 일치하지 않거나, 부분적인 coverage는 0으로 추론하지 않고
+거부합니다. 이전에 저장된 완전한 요약은 더 새 세대가 불완전하거나 사용할 수 없어도 계속 읽을 수
+있으며, 권위 있는 기록이 없으면 계속 `evaluated: false`로 렌더링합니다.
 
 ### 동결된 구성 기준선 점검
 
