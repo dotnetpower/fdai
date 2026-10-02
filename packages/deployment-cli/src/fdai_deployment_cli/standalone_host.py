@@ -119,7 +119,9 @@ from fdai_deployment_cli.standalone_host_state import (
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
     focused_private_access as _focused_private_access,
+    not_required_recovery as _not_required_recovery,
     operation_targets as _operation_targets,
+    reconcile_retained_private_access as _reconcile_retained_private_access,
     runtime_operation as _runtime_operation,
     stage_targets as _stage_targets,
 )
@@ -185,7 +187,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m fdai_deployment_cli.standalone_host")
     parser.add_argument("--work-dir", type=Path, required=True)
     subcommands = parser.add_subparsers(required=True)
-
     source_runtime = subcommands.add_parser("verify-source-runtime")
     source_runtime.add_argument("--source-snapshot", type=Path, required=True)
     source_runtime.add_argument("--snapshot-digest", required=True)
@@ -453,6 +454,10 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         if not retained_context.exists() or not retained_variables.exists():
             raise ValueError("standalone host preparation is incomplete")
         retained = _private_json(retained_context, "standalone host context")
+        retained_values = _private_json(retained_variables, "standalone host Terraform variables")
+        posture_changed = _reconcile_retained_private_access(
+            retained, retained_values, key_vault_private_access, document_storage_private_access
+        )
         if (
             retained.get("subscription_id") != foundation.subscription_id
             or retained.get("tenant_id") != foundation.tenant_id
@@ -463,14 +468,14 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("application_state_adoption_digest", "") != adoption_digest
             or retained.get("catalog_review_profile_digest") != catalog_profile.profile_digest
             or retained.get("initial_inventory_binding") != initial_inventory_binding
-            or retained.get("key_vault_private_access") is not key_vault_private_access
             or retained.get("key_vault_name") != key_vault_name
-            or retained.get("document_storage_private_access")
-            is not document_storage_private_access
             or retained.get("document_storage_account_name") != document_storage_account_name
             or not _runtime_profile_matches(retained, runtime_profile)
         ):
             raise ValueError("standalone host retained context differs")
+        if posture_changed:
+            _replace_private_json(retained_context, retained)
+            _replace_private_json(retained_variables, retained_values)
         foundation.adoption.require_context(retained)
         _terraform_init(work_dir, retained)
         if adoption is not None:
@@ -2651,16 +2656,6 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     recovery_receipt["receipt_digest"] = canonical_digest(recovery_receipt)
     _replace_private_json(receipt_path, recovery_receipt)
     return recovery_receipt
-
-
-def _not_required_recovery(stage: str) -> dict[str, object]:
-    return {
-        "schema_version": "fdai.standalone-application-recovery.v1",
-        "state": "not-required",
-        "stage": stage,
-        "mutation_performed": False,
-        "subscription_ready": False,
-    }
 
 
 def _recover_historical_aks_reconciliation(
