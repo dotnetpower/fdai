@@ -29,6 +29,14 @@ def test_focused_access_converges_before_substrate() -> None:
     assert 'stage="access"' in source
 
 
+def test_runtime_cluster_phase_is_followed_by_runtime_association_review() -> None:
+    source = inspect.getsource(standalone_application.deploy_standalone_application)
+
+    assert "for runtime_phase in range(2)" in source
+    assert 'runtime_receipt.get("operation") != "runtime-cluster"' in source
+    assert "Planning Container Insights association after AKS cluster creation" in source
+
+
 def test_recovered_state_rejects_destructive_plan_before_approval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -40,7 +48,9 @@ def test_recovered_state_rejects_destructive_plan_before_approval(
         standalone_application._require_nondestructive_adoption_plan({})
 
 
-def test_residual_recovery_review_skips_ordinary_replanning(monkeypatch) -> None:
+def test_residual_recovery_review_skips_ordinary_replanning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     review = {"residual_recovery": {"operation": "substrate-residual"}}
     monkeypatch.setattr(
         standalone_application,

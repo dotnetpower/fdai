@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 763e0b980ffa8bccc4b002b5bc998ec5c3da41ea
+translation_source_sha: f4e7b3fcd3de7a517c1847087a1f23770bc71a66
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -640,11 +640,16 @@ Operator는 이 활성화 설정이 있을 때만 원장 전체 요약을 계산
 선택적 비용 패키지 경로가 이 조회 비용을 이어받지 않습니다.
 
 AKS에서는 substrate 단계가 대상으로 지정하는 `terraform_data.installation` 고정점이 설치 식별자와 최초 적용 시각을
-Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 애플리케이션 단계는
-Core에 `FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제공합니다. 애플리케이션
-적용 후 초기 인벤토리 전에, 관리 호스트의 `activate-trial` 단계는 Key Vault 상태 저장소 DSN으로
-Core Trial 작성자를 한 번 실행하고 digest로 묶인 영수증을 기록합니다. 작성자는 기존 기간을 그대로
-유지하므로, 키 없는 설치는 최초 적용 시점에 시작된 30일 기간을 계속 유지합니다
+Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 런타임 단계는
+`azurerm_kubernetes_cluster.runtime`이 상태에 생긴 뒤에만 Container Insights 연결을 적용합니다.
+새 클러스터의 첫 검토는 이 연결을 제외한 모든 런타임 리소스를 대상으로 지정하고, 이어지는 두 번째
+일반 전체 루트 런타임 검토가 그 연결을 만듭니다. Terraform 구성은 여전히 클러스터 리소스에
+의존하지 않고 연결 대상 ID를 다시 구성합니다. 모니터링 전용 대상 지정 계획이 관리형 클러스터
+drift를 범위 안으로 끌어오지 않아야 하기 때문입니다. 애플리케이션 단계는 Core에
+`FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제공합니다. 애플리케이션 적용 후
+초기 인벤토리 전에, 관리 호스트의 `activate-trial` 단계는 Key Vault 상태 저장소 DSN으로 Core Trial
+작성자를 한 번 실행하고 digest로 묶인 영수증을 기록합니다. 작성자는 기존 기간을 그대로 유지하므로,
+키 없는 설치는 최초 적용 시점에 시작된 30일 기간을 계속 유지합니다
 ([기능 라이선싱](../fork-and-sequencing/capability-licensing-ko.md#영속적인-무키-trial-목표)).
 배포 영수증은 다시 읽은 기간이 신뢰할 수 있는 시계 기준으로 열려 있을 때만
 `license_mode=trial`을 보고합니다.

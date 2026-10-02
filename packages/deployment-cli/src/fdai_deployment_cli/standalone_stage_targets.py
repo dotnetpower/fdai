@@ -80,6 +80,26 @@ _SUBSTRATE_TARGETS: Final = (
     "azurerm_key_vault_secret.cost_pseudonym_key",
     "azurerm_role_assignment.operator_cost_pseudonym_secret_reader",
 )
+CONTAINER_INSIGHTS_ASSOCIATION_TARGET: Final = (
+    "azurerm_monitor_data_collection_rule_association.container_insights"
+)
+RUNTIME_CLUSTER_STATE_TARGET: Final = "azurerm_kubernetes_cluster.runtime"
+_AKS_RUNTIME_TARGETS: Final = (
+    "azurerm_public_ip.egress",
+    "azurerm_nat_gateway.egress",
+    "azurerm_nat_gateway_public_ip_association.egress",
+    "azurerm_subnet_nat_gateway_association.egress",
+    "azurerm_user_assigned_identity.cluster",
+    "azurerm_role_assignment.cluster_network",
+    "azurerm_role_assignment.cluster_api_network",
+    RUNTIME_CLUSTER_STATE_TARGET,
+    "azurerm_monitor_data_collection_rule.container_insights",
+    CONTAINER_INSIGHTS_ASSOCIATION_TARGET,
+    "azurerm_kubernetes_cluster_node_pool.user",
+    "azurerm_role_assignment.managed_host_cluster_user",
+    "azurerm_role_assignment.managed_host_cluster_admin",
+    "azurerm_role_assignment.kubelet_acr_pull",
+)
 
 
 def database_placement(context: dict[str, object]) -> str:
@@ -107,6 +127,42 @@ def stage_targets(stage: str, context: dict[str, object]) -> tuple[str, ...]:
     infra = context.get("infra")
     moved = moved_state_targets(Path(infra)) if isinstance(infra, str) else ()
     return base + tuple(target for target in moved if target not in base)
+
+
+def fresh_aks_runtime_targets() -> tuple[str, ...]:
+    """Return the first fresh-runtime target set without the Container Insights association."""
+
+    return tuple(
+        target for target in _AKS_RUNTIME_TARGETS if target != CONTAINER_INSIGHTS_ASSOCIATION_TARGET
+    )
+
+
+def runtime_operation(work_dir: Path, infra: Path) -> str:
+    if (work_dir / "runtime-cluster-review.json").exists() and not (
+        work_dir / "runtime-cluster-receipt.json"
+    ).exists():
+        return "runtime-cluster"
+    if terraform_state_contains(infra, RUNTIME_CLUSTER_STATE_TARGET):
+        return "runtime"
+    return "runtime-cluster"
+
+
+def terraform_state_contains(infra: Path, address: str) -> bool:
+    completed = subprocess.run(
+        ("terraform", "state", "list", address),
+        cwd=infra,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    return completed.returncode == 0 and address in completed.stdout.splitlines()
+
+
+def operation_targets(stage: str, context: dict[str, object], operation: str) -> tuple[str, ...]:
+    if operation == "runtime-cluster":
+        return fresh_aks_runtime_targets()
+    return stage_targets(stage, context)
 
 
 def moved_state_targets(infra: Path) -> tuple[str, ...]:

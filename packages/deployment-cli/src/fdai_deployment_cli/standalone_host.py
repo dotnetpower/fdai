@@ -122,6 +122,12 @@ from fdai_deployment_cli.standalone_stage_targets import (
 from fdai_deployment_cli.standalone_stage_targets import (
     focused_private_access as _focused_private_access,
 )
+from fdai_deployment_cli.standalone_stage_targets import (
+    operation_targets as _operation_targets,
+)
+from fdai_deployment_cli.standalone_stage_targets import (
+    runtime_operation as _runtime_operation,
+)
 from fdai_deployment_cli.standalone_stage_targets import stage_targets as _stage_targets
 from fdai_deployment_cli.standalone_host_values import aks_operator_environment
 from fdai_deployment_cli.standalone_management_egress import management_egress_cidrs
@@ -2243,15 +2249,24 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     )
     if reconciliation is not None:
         raise ValueError("historical AKS reconciliation requires its retained exact review")
+    if not (stage == "runtime" and update is None):
+        claim_path = work_dir / f"{operation}-claim.json"
+        receipt_path = work_dir / f"{operation}-receipt.json"
+        if (claim_path.exists() or claim_path.is_symlink()) and not (
+            receipt_path.exists() or receipt_path.is_symlink()
+        ):
+            raise ValueError("claimed standalone apply requires verification-only recovery")
+    _managed_identity_login_from_context(context, work_dir)
+    infra, variables = _stage_paths(stage, context, work_dir)
+    _activate_terraform_stage(stage, context, work_dir)
+    if stage == "runtime" and update is None:
+        operation = _runtime_operation(work_dir, infra)
     claim_path = work_dir / f"{operation}-claim.json"
     receipt_path = work_dir / f"{operation}-receipt.json"
     if (claim_path.exists() or claim_path.is_symlink()) and not (
         receipt_path.exists() or receipt_path.is_symlink()
     ):
         raise ValueError("claimed standalone apply requires verification-only recovery")
-    _managed_identity_login_from_context(context, work_dir)
-    infra, variables = _stage_paths(stage, context, work_dir)
-    _activate_terraform_stage(stage, context, work_dir)
     plan_path = work_dir / f"{operation}.tfplan"
     plan_path.unlink(missing_ok=True)
     command = [
@@ -2262,7 +2277,7 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         f"-var-file={variables}",
         f"-out={plan_path}",
     ]
-    command.extend(f"-target={target}" for target in _stage_targets(stage, context))
+    command.extend(f"-target={target}" for target in _operation_targets(stage, context, operation))
     if update is not None:
         command.append(f"-target={_service_update_target(str(update['service']))}")
     if stage == "runtime":
@@ -2290,6 +2305,7 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "runtime_platform": _mapping(context.get("runtime_profile"), "runtime deployment profile")[
             "runtime_platform"
         ],
+        "operation": operation,
         "summary": summary,
         "expires_at": _moment(datetime.now(UTC) + timedelta(hours=1)),
         "mutation_performed": False,
@@ -2314,6 +2330,13 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         service=service,
         update=update,
     )
+    if stage == "runtime" and update is None:
+        operation = (
+            "runtime-cluster"
+            if (work_dir / "runtime-cluster-review.json").exists()
+            and not (work_dir / "runtime-cluster-receipt.json").exists()
+            else "runtime"
+        )
     review = _private_json(work_dir / f"{operation}-review.json", "standalone plan review")
     if update is not None and review.get("service_update") != _service_update_review(update):
         raise ValueError("AKS service update review differs from the prepared operation")
@@ -2343,6 +2366,7 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     claim = {
         "schema_version": "fdai.standalone-application-claim.v1",
         "stage": stage,
+        "operation": operation,
         "plan_digest": review["plan_digest"],
         "approval_digest": canonical_digest(approval),
         "idempotency_key": canonical_digest(
@@ -2380,10 +2404,11 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         if reconciliation is not None
         else None
     )
-    receipt: dict[str, object] = {
+    recovery_receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-apply-receipt.v1",
         "state": "applied",
         "stage": stage,
+        "operation": operation,
         "plan_digest": review["plan_digest"],
         "runtime_profile_digest": _runtime_profile_digest(context),
         "claim_digest": canonical_digest(claim),
@@ -2392,11 +2417,11 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "subscription_ready": False,
     }
     if update is not None:
-        receipt["service_update"] = _service_update_review(update)
-        receipt["peer_state_unchanged_verified"] = True
-        receipt["terraform_zero_change_verified"] = True
+        recovery_receipt["service_update"] = _service_update_review(update)
+        recovery_receipt["peer_state_unchanged_verified"] = True
+        recovery_receipt["terraform_zero_change_verified"] = True
     if reconciliation is not None and reconciliation_evidence is not None:
-        receipt.update(
+        recovery_receipt.update(
             {
                 "schema_version": "fdai.historical-aks-reconciliation-receipt.v1",
                 "operation": operation,
@@ -2406,9 +2431,9 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
                 **reconciliation_evidence,
             }
         )
-    receipt["receipt_digest"] = canonical_digest(receipt)
-    _replace_private_json(receipt_path, receipt)
-    return receipt
+    recovery_receipt["receipt_digest"] = canonical_digest(recovery_receipt)
+    _replace_private_json(receipt_path, recovery_receipt)
+    return recovery_receipt
 
 
 def _apply_residual(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
@@ -2475,11 +2500,27 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
         service=service,
         update=update,
     )
+    if (
+        stage == "runtime"
+        and update is None
+        and (work_dir / "runtime-cluster-claim.json").exists()
+        and not (work_dir / "runtime-cluster-receipt.json").exists()
+    ):
+        operation = "runtime-cluster"
     receipt_path = work_dir / f"{operation}-receipt.json"
     if receipt_path.exists():
         if reconciliation is not None:
             return _historical_reconciliation_receipt(work_dir, context, reconciliation)
-        return _private_json(receipt_path, "standalone apply receipt")
+        receipt = _private_json(receipt_path, "standalone apply receipt")
+        if receipt.get("operation") == "runtime-cluster":
+            return {
+                "schema_version": "fdai.standalone-application-recovery.v1",
+                "state": "not-required",
+                "stage": stage,
+                "mutation_performed": False,
+                "subscription_ready": False,
+            }
+        return receipt
     claim_path = work_dir / f"{operation}-claim.json"
     if not claim_path.exists():
         return {
@@ -2507,7 +2548,21 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     _managed_identity_login_from_context(context, work_dir)
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
-    targets = _stage_targets(stage, context)
+    if stage == "runtime" and update is None:
+        operation = _runtime_operation(work_dir, infra)
+        receipt_path = work_dir / f"{operation}-receipt.json"
+        if receipt_path.exists():
+            retained_receipt = _private_json(receipt_path, "standalone apply receipt")
+            if retained_receipt.get("operation") == "runtime-cluster":
+                return {
+                    "schema_version": "fdai.standalone-application-recovery.v1",
+                    "state": "not-required",
+                    "stage": stage,
+                    "mutation_performed": False,
+                    "subscription_ready": False,
+                }
+            return retained_receipt
+    targets = _operation_targets(stage, context, operation)
     if stage == "runtime":
         _guard_existing_runtime_node_pools(context, work_dir)
     if reconciliation is not None:
@@ -2577,7 +2632,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
         if reconciliation is not None
         else None
     )
-    receipt: dict[str, object] = {
+    recovery_receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-apply-receipt.v1",
         "state": "applied",
         "stage": stage,
@@ -2590,11 +2645,11 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
         "subscription_ready": False,
     }
     if update is not None:
-        receipt["service_update"] = _service_update_review(update)
-        receipt["peer_state_unchanged_verified"] = True
-        receipt["terraform_zero_change_verified"] = True
+        recovery_receipt["service_update"] = _service_update_review(update)
+        recovery_receipt["peer_state_unchanged_verified"] = True
+        recovery_receipt["terraform_zero_change_verified"] = True
     if reconciliation is not None and reconciliation_evidence is not None:
-        receipt.update(
+        recovery_receipt.update(
             {
                 "schema_version": "fdai.historical-aks-reconciliation-receipt.v1",
                 "operation": operation,
@@ -2604,9 +2659,9 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
                 **reconciliation_evidence,
             }
         )
-    receipt["receipt_digest"] = canonical_digest(receipt)
-    _replace_private_json(receipt_path, receipt)
-    return receipt
+    recovery_receipt["receipt_digest"] = canonical_digest(recovery_receipt)
+    _replace_private_json(receipt_path, recovery_receipt)
+    return recovery_receipt
 
 
 def _recover_historical_aks_reconciliation(
