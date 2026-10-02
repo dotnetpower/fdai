@@ -1,8 +1,8 @@
 ---
 title: Recovery 및 chaos enforcement
 translation_of: recovery-and-chaos-enforcement.md
-translation_source_sha: e5bbf0f7cb3665c5102a20010746c8d133e6b0cf
-translation_revised: 2026-09-29
+translation_source_sha: 59b5dff8ecb3af31d6b27d70b9ffb53c6e0bffb8
+translation_revised: 2026-10-02
 ---
 # 복구 및 chaos 적용
 
@@ -295,6 +295,76 @@ chaos 도구의 `GovernedChaosExecution` 연결 지점을 구현한 `GovernedCha
   디스패처, 독립 복구 근거 수집기, 분산 논리 대상 잠금을 지정합니다. 업스트림은 프로바이더를
   제공하지 않으므로 바인딩이 없는 체크아웃은 기반 환경에 접근하기 전에 종료 상태 3과 구조화된 거부
   보고서로 적용 모드를 거부합니다.
+
+### 시나리오 랩 프로바이더 패키지 설계
+
+시나리오 랩 바인딩은 `extensions/governed-chaos-provider/` 아래의 선택 설치형 확장 패키지
+`fdai-governed-chaos-provider`입니다. 이 패키지는 Python 진입점 하나만 등록합니다.
+
+```toml
+[project.entry-points."fdai.governed_chaos"]
+catalog-scenario = "fdai_governed_chaos_provider:build_governed_chaos_bindings"
+```
+
+패키지는 fork-customization 연결 지점을 따릅니다. Core는 `GovernedChaosBindings` Protocol과
+어댑터를 소유하고, 확장은 의존성 주입으로 구체 협력자를 제공합니다. 패키지를 설치하면
+프로바이더를 찾을 수 있을 뿐이며, 실행을 활성화하거나 시나리오를 승격하거나 승인을 부여하거나
+Azure 대상을 선택하지 않습니다. 보호된 시나리오 랩 워크플로는 승인된 apply에서
+`run_reference_sweep=true`일 때만 작업 영역 패키지를 설치하므로 plan-only 실행은 실제 chaos
+작업을 수행하지 않습니다.
+
+**초기 설계.** 모든 협력자는 배포 구성과 기존 영속 상태 저장소에서 바인딩합니다.
+
+- `PostgresStateStore`는 Saga 감사가 붙은 실행 저장소와 감사 체인 출처입니다.
+- `StateStoreActionPromotionRegistry`는 ActionType 모드 출처입니다. 승격이 없거나 검증할 수
+  없으면 `shadow`를 반환합니다.
+- `ScenarioPromotionLedger`는 기존 통제된 승격 경로가 만든 검토된 JSONL 승격 근거 파일에서
+  로드합니다. 프로바이더는 이 원장에 쓰지 않으며 시나리오를 승격할 수 없습니다.
+- Var 승인 검증기는 승인 참조로 `StateStore`에서 범위가 제한된 승인 기록 하나를 읽습니다.
+  정확한 시나리오 id, 가능한 경우 실행 id, 대상 digest, 승인자 id, 개시자 id, 의도
+  (`enforce` 또는 `closure`), 만료되지 않은 `Var` principal을 요구합니다.
+- 실행 계획기는 `StateStore`에서 준비된 계획 기록 하나를 읽습니다. 이 기록은 Vidar 복구 계획,
+  Heimdall guard 프로필, dry-run 증적, 인과 및 반박 참조, 소유자 참조, 준비 상태 boolean을
+  제공합니다. 계획기는 승격, 승인, 잠금, 멱등성, 감사 준비 상태를 주장할 수 없습니다.
+- Thor 복구 디스패처는 각 복구 작업과 멱등성 키에 대해 `StateStore`에서 사전 승인된 복구
+  전달 증적을 소비합니다. 전달 수락만으로는 성공이 아닙니다.
+- 독립 복구 근거 수집기는 복구 뒤 `StateStore`에서 최신 Heimdall probe 관측을 읽습니다.
+  probe가 없거나 원격 분석이 불완전하면 복구는 채점할 수 없습니다.
+- `PostgresAdvisoryResourceLock`은 분산 논리 대상 잠금을 제공합니다.
+
+**비판.** 초기 설계는 확장이 넓은 환경 값을 받아들이거나, 복구 전달 증적을 만들어 내거나,
+미리 기록된 전달 증적을 복구 성공으로 취급하면 프로바이더가 권한 경로를 소유한다고 오해될 수
+있습니다. 또한 시나리오 랩 대상 선택기가 암시적이어서 보호된 실행기에 패키지가 설치되었지만
+의도하지 않은 랩을 가리킬 위험이 남았습니다.
+
+**수정.** 프로바이더는 범위가 제한된 참조와 불변 루트만 받아들입니다.
+
+- 하나의 시나리오 랩 대상 바인딩 id는 보호된 워크플로 입력 컨텍스트에서 오며 준비된 계획 기록과
+  일치해야 합니다. 테넌트, 구독, 리소스 그룹, 호스트 이름, 리소스 id는 배포 변수 또는 상태
+  저장소 기록에 남고 커밋하지 않습니다.
+- 승격 원장 경로가 없거나 읽을 수 없거나 형식이 잘못되면 프로바이더 구성을 거부합니다. 따라서
+  CLI 거부는 기반 환경 접근 전에 발생합니다.
+- 승인, 계획, 전달, 근거 기록은 읽기 전용 입력입니다. 프로바이더는 승격 근거를 추가하지 않고
+  성공한 복구 결과를 쓰지 않습니다. `GovernedChaosRunner`는 복구 전달이 성공하고 독립 Heimdall
+  근거가 모든 사후 조건을 검증한 뒤에만 성공을 기록합니다.
+- 7개 안전장치는 서로 독립된 출처를 유지합니다. 중지 조건은 ActionType 요청에서, 검증된 롤백은
+  계획에서, 영향 범위 제한은 시나리오와 변경 범위 검사에서, 성공한 dry run은 계획에서, 논리적
+  대상 잠금은 PostgreSQL advisory lock에서, 안정적인 멱등성은 `catalog_enforce_request`에서,
+  2단계 감사는 상태 저장소 실행 및 감사 전이에서 옵니다.
+- 시나리오 적격성은 런타임 카탈로그 포함(`load_promoted`)과 권위 있는 승격 원장이
+  `enforce_eligible`에 도달했음을 모두 요구합니다. 프로바이더는 시나리오를 `collected`에서
+  `promoted`로 옮길 수 없고, shadow 근거를 적용 모드로 바꿀 수 없습니다.
+
+#1207의 정확한 오퍼레이터 인계는 다음과 같습니다.
+
+1. 기존 통제된 승격 경로로 선택된 `aks-pod-cpu-spike` 카탈로그 시나리오만 승격하고 JSONL 근거
+   원장과 ActionType 승격 증적을 보존합니다.
+2. 정확한 보호된 `main` 커밋으로 보호된 `sre-demo-lab` 워크플로를 `action=plan`으로 실행해
+   새 plan을 검토한 뒤, 같은 승인 커밋, 만료 시각, `run_reference_sweep=true`,
+   `scenario_id=aks-pod-cpu-spike`, 현재 승인 참조로 `action=apply`를 실행합니다.
+3. 워크플로가 통제된 fault 하나만 실행하게 합니다. Store Demo 스토어프런트 확인 결과와 통제된 복구
+   증적을 기록합니다. 복구가 검증되지 않으면 별도의 Var 승인 종료 기록이 수동 복구를 남길 때까지
+   대상을 잠근 상태로 둡니다.
 - **대상:** 각 실행은 `target_type`이 변경하는 리소스의 정규 식별자를 대상으로 합니다. `vm`은 VM,
   `pod`, `disk`, `dns`는 워크로드 pod입니다. 다른 대상 형식은 거부합니다. 팩터리가 만드는 모든
   injector는 자신이 변경하는 리소스를 선언하며, 각 대상은 그 대상의 주입이 변경하는 리소스 하나와
