@@ -98,6 +98,14 @@ completion record proves the expected denominator for the active generation and 
 If a later catalog revision appears, the prior complete summary remains visible as prior evidence
 until the new revision has its own complete denominator; it is never treated as current evaluation.
 
+The first runtime slice keeps that separation. Forseti exposes a typed method for one complete
+inventory generation. It evaluates each eligible Resource with the active T0 engine and writes one
+terminal outcome per cited Rule only after an injected Saga audit binder returns the audit reference
+the shared contract requires. Missing, stale, or unsupported evidence becomes `abstained`. An empty
+complete generation writes a zero-denominator completion. The method writes deterministic StateStore
+records and changes no `AgentSpec`, topic owner, subscription, approval, execution, or projection
+authority.
+
 ### Frozen configuration baseline checks
 
 Configuration drift is a T0 (deterministic rules) finding. A reviewed actual snapshot is frozen
