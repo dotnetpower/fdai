@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 5dcbf07d8610672381102f8a4f14bb91c78e015a
+translation_source_sha: 7171fdb5402af3eb73bc53a1fbb184dd0adf7d23
 translation_revised: 2026-10-02
 ---
 
@@ -96,6 +96,13 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
 기록이 활성 세대와 카탈로그 리비전의 예상 분모를 증명한 뒤에만 현재의 사용할 수 없음 요약을
 대체할 수 있습니다. 이후 카탈로그 리비전이 나타나면 새 리비전에 자체 완전한 분모가 생길 때까지
 이전의 완전한 요약은 이전 근거로 계속 보이며, 현재 평가로 취급되지 않습니다.
+
+첫 번째 런타임 조각도 이 분리를 유지합니다. Forseti는 하나의 완전한 인벤토리 세대에 대한 타입
+지정 메서드를 노출합니다. 활성 T0 엔진으로 각 적격 Resource를 평가하고, 주입된 Saga 감사
+바인더가 공유 계약이 요구하는 감사 참조를 반환한 뒤에만 인용된 Rule마다 터미널 결과를 씁니다.
+근거가 없거나 오래되었거나 지원되지 않으면 `abstained`가 됩니다. 비어 있는 완전한 세대는 분모
+0의 완료를 씁니다. 이 메서드는 결정론적 StateStore 기록을 쓰며 `AgentSpec`, 토픽 소유자, 구독,
+승인, 실행 또는 변환 결과 권한을 바꾸지 않습니다.
 
 ### 동결된 구성 기준선 점검
 
