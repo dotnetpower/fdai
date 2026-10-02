@@ -137,7 +137,6 @@ def prepare_remote(
             "fdai_deployment_cli.standalone_host",
             "--work-dir",
             app_work,
-            "prepare",
             *(
                 (
                     "prepare-source",
