@@ -33,6 +33,7 @@ resource "azurerm_role_assignment" "commerce_servicebus_sender" {
   scope                = azurerm_servicebus_namespace.commerce[0].id
   role_definition_name = "Azure Service Bus Data Sender"
   principal_id         = azurerm_user_assigned_identity.commerce[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "commerce_servicebus_receiver" {
@@ -41,6 +42,7 @@ resource "azurerm_role_assignment" "commerce_servicebus_receiver" {
   scope                = azurerm_servicebus_namespace.commerce[0].id
   role_definition_name = "Azure Service Bus Data Receiver"
   principal_id         = azurerm_user_assigned_identity.commerce[0].principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_private_dns_zone" "commerce_servicebus" {
