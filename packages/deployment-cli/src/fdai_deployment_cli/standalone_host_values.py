@@ -235,7 +235,9 @@ AKS_CORE_STARTUP_READINESS: dict[str, str] = {
 }
 
 _KEY_VAULT_SECRET_ID = re.compile(
-    r"https://[A-Za-z0-9-]{3,24}\.vault\.[a-z0-9.]+/secrets/([A-Za-z0-9-]{1,127})"
+    r"/subscriptions/[^/]+/resourceGroups/[^/]+/providers/"
+    r"Microsoft[.]KeyVault/vaults/[A-Za-z0-9-]{3,24}/secrets/([A-Za-z0-9-]{1,127})",
+    re.IGNORECASE,
 )
 
 

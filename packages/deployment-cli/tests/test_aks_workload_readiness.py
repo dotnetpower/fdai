@@ -20,14 +20,13 @@ from fdai_deployment_cli.standalone_host_values import (
 )
 
 _INFRA = Path(__file__).resolve().parents[3] / "infra"
+_VAULT = (
+    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai-dev"
+    "/providers/Microsoft.KeyVault/vaults/kv-fdai-dev-wus3/secrets/"
+)
 _BINDING = {
-    "core_signing_seed_secret_id": (
-        "https://kv-fdai-dev-wus3.vault.azure.net/secrets/fdai-operator-request-core-signing-seed"
-    ),
-    "operator_signing_seed_secret_id": (
-        "https://kv-fdai-dev-wus3.vault.azure.net/secrets/"
-        "fdai-operator-request-operator-signing-seed"
-    ),
+    "core_signing_seed_secret_id": _VAULT + "fdai-operator-request-core-signing-seed",
+    "operator_signing_seed_secret_id": _VAULT + "fdai-operator-request-operator-signing-seed",
     "core_producer_id": "core-control-plane",
     "operator_producer_id": "operator-service",
 }
@@ -75,12 +74,24 @@ def test_receipt_binding_renders_core_and_operator_configuration() -> None:
     }
 
 
+def test_receipt_binding_reads_the_versionless_resource_ids_the_shared_root_outputs() -> None:
+    block = _block(
+        (_INFRA / "outputs.tf").read_text(encoding="utf-8"),
+        'output "operator_request_receipt_binding"',
+    )
+    for field in ("core_signing_seed_secret_id", "operator_signing_seed_secret_id"):
+        assert re.search(
+            rf"{field}\s*=\s*azurerm_key_vault_secret\.\S+\.resource_versionless_id", block
+        )
+
+
 @pytest.mark.parametrize(
     "change",
     [
         {"core_signing_seed_secret_id": ""},
         {"operator_signing_seed_secret_id": "fdai-operator-request-operator-signing-seed"},
-        {"core_signing_seed_secret_id": "https://kv.vault.azure.net/secrets/a/version"},
+        {"core_signing_seed_secret_id": _VAULT + "a/versions/0123456789abcdef"},
+        {"core_signing_seed_secret_id": "https://kv-fdai-dev-wus3.vault.azure.net/secrets/a"},
         {"core_producer_id": "operator-service"},
         {"operator_producer_id": "core-control-plane"},
         {"operator_producer_id": ""},
