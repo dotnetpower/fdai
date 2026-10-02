@@ -1,12 +1,12 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7701a93bd2dacf85491a42e7fc38a6dbc1a8a0f3 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 295328e581b19dd44268c7bf5c6a196f91aa8d00 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 71aae58cd6ed1d69c04086f85cf7acb9b1473e7a }, { source: docs/roadmap/deployment/source-deployment.md, sha: a2a9a658fae16c4a729d04ea337eec2d8c00ab99 }]
 ---
 
 # Deploy Quickstart
 
-> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](../roadmap/deployment/hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 You can deploy FDAI to your own Azure subscription from a clone of the repository with one command
 line after one interactive Azure sign-in. You don't need a key, a signed kit, a published release,
@@ -59,6 +59,9 @@ Before you start, confirm the following requirements:
 - Node.js and npm, only when you select the Console add-on.
 - An Azure identity that can create the Foundation resources and assign the documented deployment
   roles in the selected subscription.
+- If you select the Console or enterprise identity add-on, tenant-local FDAI Entra application and
+  group display names must be unique. Duplicate `fdai-*` applications or `aw-*` groups stop the
+  run before Azure resources are created.
 - Capacity in the selected Azure region for the required resource types.
 - An interactive Azure session for the intended subscription.
 
@@ -288,6 +291,12 @@ installation runs the 30-day Trial unless a separately issued entitlement is sup
 
 > A network with no Azure management-plane route cannot deploy Azure resources. In that profile,
 > the package can be verified and prepared, but the command cannot report deployment readiness.
+
+To upgrade an existing offline installation, rerun the same command with the newer package and the
+installation's original `--work-dir`. The command verifies the newer package, keeps the previous
+package snapshot for review, and continues the existing Foundation under the revision that created
+it. It then deploys the application from the newer package. It never approves a new Foundation
+plan under the older revision.
 
 ## Understand the result
 

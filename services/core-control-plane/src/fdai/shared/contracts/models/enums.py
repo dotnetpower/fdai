@@ -10,6 +10,15 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from fdai_service_contracts.workflow_catalog import (
+    CEILING_ROLE_RANK,
+    CeilingRole,
+    Mode,
+    WorkflowStepKind,
+    WorkflowTriggerKind,
+    WorkflowTriggerSignalReferenceKind,
+)
+
 # ---------------------------------------------------------------------------
 # Pipeline vocabulary
 # ---------------------------------------------------------------------------
@@ -30,18 +39,6 @@ class Decision(StrEnum):
     HIL = "hil"
     ABSTAIN = "abstain"
     DENY = "deny"
-
-
-class Mode(StrEnum):
-    """Autonomy mode at the time of processing.
-
-    New capabilities always ship as :attr:`SHADOW`; promotion to
-    :attr:`ENFORCE` is a separately reviewed change (see
-    ``architecture.instructions.md § Safety Invariants``).
-    """
-
-    SHADOW = "shadow"
-    ENFORCE = "enforce"
 
 
 class IncidentCorrelation(StrEnum):
@@ -237,36 +234,6 @@ class Autonomy(StrEnum):
     SHADOW_ONLY = "shadow_only"
 
 
-class CeilingRole(StrEnum):
-    """Ordinary RBAC ladder used by a ceiling ``min_role``.
-
-    BreakGlass is deliberately absent: it is off-ladder (a separate Entra
-    group, not nested in Owner - see user-rbac-and-identity.md 2) and is
-    never a ``min_role`` value.
-    """
-
-    READER = "reader"
-    CONTRIBUTOR = "contributor"
-    APPROVER = "approver"
-    OWNER = "owner"
-
-
-CEILING_ROLE_RANK: dict[CeilingRole, int] = {
-    CeilingRole.READER: 0,
-    CeilingRole.CONTRIBUTOR: 1,
-    CeilingRole.APPROVER: 2,
-    CeilingRole.OWNER: 3,
-}
-"""Numeric rank for :class:`CeilingRole` comparisons.
-
-``a >= b`` at the role level is ``CEILING_ROLE_RANK[a] >= CEILING_ROLE_RANK[b]``.
-Shared so ``shared/`` and ``core/`` can both order roles without either
-side depending on the other. Kept as a module-level dict rather than an
-:class:`~enum.IntEnum` because :class:`CeilingRole` MUST serialize as a
-string in every audit / config artifact.
-"""
-
-
 class ExecutionPath(StrEnum):
     """How the executor applies an action (execution-model.md 5)."""
 
@@ -320,37 +287,6 @@ class IncidentSeverity(StrEnum):
     SEV3 = "sev3"
     SEV4 = "sev4"
     SEV5 = "sev5"
-
-
-# ---------------------------------------------------------------------------
-# Workflow vocabulary
-# ---------------------------------------------------------------------------
-
-
-class WorkflowTriggerKind(StrEnum):
-    """How a Workflow run is started (process-automation.md 2)."""
-
-    SIGNAL = "signal"
-    SCHEDULE = "schedule"
-
-
-class WorkflowTriggerSignalReferenceKind(StrEnum):
-    """Catalog that resolved a signal-trigger reference."""
-
-    SIGNAL_TYPE = "signal_type"
-    WORKFLOW_TRIGGER_EVENT = "workflow_trigger_event"
-
-
-class WorkflowStepKind(StrEnum):
-    """Typed behavior of one Workflow step."""
-
-    ACTION = "action"
-    WAIT = "wait"
-    APPROVAL = "approval"
-    DECISION = "decision"
-    PARALLEL = "parallel"
-    GATE = "gate"
-    EVIDENCE = "evidence"
 
 
 __all__ = [

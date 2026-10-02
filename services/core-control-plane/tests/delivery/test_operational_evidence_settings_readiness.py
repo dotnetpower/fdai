@@ -47,11 +47,15 @@ _BOUND = {f"operational-evidence.{purpose}" for purpose in BOUND_READBACK_PURPOS
 _OUTBOX = "operator-service.test-context-outbox"
 _STORE = "core-control-plane.test-context-store"
 _ALL_HEALTHY = {
+    "azure.resource-existence": OperationalEvidenceSourceHealth.HEALTHY,
+    "azure.resource-graph-changes": OperationalEvidenceSourceHealth.HEALTHY,
     "azure-monitor.metrics": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.case-history": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.safety-receipts": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.test-context-store": OperationalEvidenceSourceHealth.HEALTHY,
     "deployment.case-scope-grants": OperationalEvidenceSourceHealth.HEALTHY,
+    "inventory.incarnation-ledger": OperationalEvidenceSourceHealth.HEALTHY,
+    "inventory.observation-journal": OperationalEvidenceSourceHealth.HEALTHY,
     "inventory.current-snapshot": OperationalEvidenceSourceHealth.HEALTHY,
     "operating-scope.dependency-health": OperationalEvidenceSourceHealth.HEALTHY,
     "operator-service.authentication-receipts": OperationalEvidenceSourceHealth.HEALTHY,

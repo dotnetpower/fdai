@@ -12,6 +12,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from weakref import WeakValueDictionary
 
+from fdai_service_contracts.baseline_evaluation import BaselineEvaluationCompletion
+
 from fdai.agents._framework.action_semantics import (
     ActionSemanticsCatalog,
 )
@@ -27,6 +29,13 @@ from fdai.agents._framework.cross_vertical_candidates import (
 from fdai.agents._framework.forseti_arbitration import (
     ForsetiArbitrationMixin,
     _DecisionProjection,
+)
+from fdai.agents._framework.forseti_baseline_evaluation import (
+    BaselineEvaluationAuditBinder,
+    BaselineInventoryObservation,
+)
+from fdai.agents._framework.forseti_baseline_evaluation import (
+    record_baseline_evaluation as _record_baseline_evaluation,
 )
 from fdai.agents._framework.forseti_constants import _MAX_RESOURCES as _MAX_RESOURCES
 from fdai.agents._framework.forseti_decision_helpers import (
@@ -75,9 +84,11 @@ from fdai.core.operational_planning import (
 from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineageFinalizer,
 )
+from fdai.core.tiers.t0_deterministic import T0Engine
 from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
     RegisteredDevelopmentAction,
+    Rule,
 )
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
@@ -295,6 +306,32 @@ class Forseti(
         self._agent_availability = probe
 
     # ---- typed port ----------------------------------------------------
+
+    async def evaluate_baseline_generation(
+        self,
+        *,
+        observation: BaselineInventoryObservation,
+        engine: T0Engine,
+        rules: tuple[Rule, ...],
+        catalog_revision: str,
+        audit_binder: BaselineEvaluationAuditBinder,
+        evaluated_at: datetime,
+        evidence_fresh_after: datetime | None = None,
+    ) -> BaselineEvaluationCompletion:
+        """Record Forseti-owned terminal outcomes for one complete baseline generation."""
+
+        if self._forseti_state_store is None:
+            raise ValueError("Forseti baseline evaluation requires a StateStore")
+        return await _record_baseline_evaluation(
+            observation=observation,
+            engine=engine,
+            rules=rules,
+            catalog_revision=catalog_revision,
+            audit_binder=audit_binder,
+            state_store=self._forseti_state_store,
+            evaluated_at=evaluated_at,
+            evidence_fresh_after=evidence_fresh_after,
+        )
 
     # ---- cross-vertical arbitration -----------------------------------
 

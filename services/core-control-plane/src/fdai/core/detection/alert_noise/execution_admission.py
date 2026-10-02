@@ -111,6 +111,8 @@ class _AlertExecutionAdmission:
     ) -> AlertPublicationCheck:
         approvals: tuple[AlertApproval, ...] = ()
         evidence: AlertDispatchEvidence | AlertRecoveryAdmission
+        authority = self._authority
+        allow_development_owner_quorum = False
         async with asyncio.timeout(15):
             if action.action_type == RESTORE_ACTION:
                 if self._recovery is None:
@@ -120,14 +122,16 @@ class _AlertExecutionAdmission:
                     raise AlertExecutionHeld("recovery_authority_missing")
                 evidence = AlertRecoveryAdmission.model_validate(receipt)
             else:
-                if self._authority is None:
+                if authority is None:
                     raise AlertExecutionHeld("authority_reader_missing")
                 evidence = AlertDispatchEvidence.model_validate(
-                    await self._authority.dispatch_evidence(plan)
+                    await authority.dispatch_evidence(plan)
                 )
                 approvals = tuple(
-                    AlertApproval.model_validate(item)
-                    for item in await self._authority.approvals(plan)
+                    AlertApproval.model_validate(item) for item in await authority.approvals(plan)
+                )
+                allow_development_owner_quorum = authority.allows_development_single_owner_quorum(
+                    plan
                 )
 
             def check(at: datetime) -> None:
@@ -150,7 +154,13 @@ class _AlertExecutionAdmission:
                         > evidence.authorization_until
                     ):
                         raise AlertExecutionHeld("recovery_admission_mismatch")
-                elif admission_reasons(plan, approvals=approvals, evidence=evidence, now=now):
+                elif admission_reasons(
+                    plan,
+                    approvals=approvals,
+                    evidence=evidence,
+                    now=now,
+                    allow_development_owner_quorum=allow_development_owner_quorum,
+                ):
                     raise AlertExecutionHeld("forward_admission_held")
                 if (
                     evidence.executor_ref != action.executor_identity_ref

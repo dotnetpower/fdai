@@ -18,16 +18,20 @@ from fdai_deployment_cli import (
     aks_workload_jobs,
     runtime_support_installation,
     standalone_aks_inventory,
+    standalone_aks_nodepool_guard,
     standalone_application,
     standalone_catalog_review,
+    standalone_checkpoint_failure,
     standalone_host,
     standalone_host_state,
     standalone_host_values,
+    standalone_operational_evidence,
     standalone_stage_targets,
     standalone_terraform_environment,
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.standalone_review import validate_plan_review
 
 
 def _runtime_support_artifacts(root: Path) -> tuple[Path, Path]:
@@ -75,6 +79,120 @@ def _runtime_support_artifacts(root: Path) -> tuple[Path, Path]:
         if directory.is_dir():
             directory.chmod(0o700)
     return first, second
+
+
+def _aks_runtime_context(tmp_path: Path) -> dict[str, object]:
+    runtime_infra = tmp_path / "runtime"
+    runtime_infra.mkdir()
+    variables = {
+        "workload": "fdai",
+        "env": "dev",
+        "region_short": "eus",
+    }
+    variables_path = tmp_path / "application.auto.tfvars.json"
+    variables_path.write_text(json.dumps(variables), encoding="utf-8")
+    variables_path.chmod(0o600)
+    return {
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+        "subscription_id": "00000000-0000-0000-0000-000000000000",
+        "resource_group_name": "rg-example",
+        "runtime_infra": str(runtime_infra),
+    }
+
+
+def test_runtime_node_pool_readback_blocks_existing_pool_outside_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = _aks_runtime_context(tmp_path)
+
+    def run(command, **_kwargs):
+        if command[:3] == ("az", "aks", "nodepool"):
+            return subprocess.CompletedProcess(command, 0, stdout='["runtime"]', stderr="")
+        if command[:3] == ("terraform", "state", "list"):
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(standalone_aks_nodepool_guard.subprocess, "run", run)
+
+    with pytest.raises(standalone_checkpoint_failure.ManagedHostCheckpointError) as error:
+        standalone_host._guard_existing_runtime_node_pools(context, tmp_path)
+
+    assert error.value.reason_code == "aks_node_pool_exists_outside_state"
+    assert "runtime" in error.value.excerpt
+    assert "explicit Owner confirmation" in error.value.excerpt
+
+
+def test_runtime_node_pool_readback_allows_absent_pool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = _aks_runtime_context(tmp_path)
+    commands = []
+
+    def run(command, **_kwargs):
+        commands.append(command)
+        if command[:3] == ("az", "aks", "nodepool"):
+            return subprocess.CompletedProcess(command, 0, stdout="[]", stderr="")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(standalone_aks_nodepool_guard.subprocess, "run", run)
+
+    standalone_host._guard_existing_runtime_node_pools(context, tmp_path)
+
+    assert commands == [
+        (
+            "az",
+            "aks",
+            "nodepool",
+            "list",
+            "--subscription",
+            "00000000-0000-0000-0000-000000000000",
+            "--resource-group",
+            "rg-example",
+            "--cluster-name",
+            "aks-fdai-dev-eus",
+            "--query",
+            "[].name",
+            "--output",
+            "json",
+            "--only-show-errors",
+        )
+    ]
+
+
+def test_terraform_failure_summary_extracts_provider_code_and_redacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider_error = (
+        "Error: creating <redacted>: OverconstrainedZonalAllocationRequest: "
+        "AllocationFailed. Use a different VM size such as Standard_D4as_v5 "
+        "for /subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/example "
+        "at host example.com token=placeholder-token"
+    )
+
+    def run(command, **_kwargs):
+        return subprocess.CompletedProcess(command, 1, stdout=b"", stderr=provider_error.encode())
+
+    monkeypatch.setattr(standalone_host.subprocess, "run", run)
+
+    with pytest.raises(standalone_checkpoint_failure.ManagedHostCheckpointError) as error:
+        standalone_host._run(
+            ("terraform", "apply", "-input=false"),
+            cwd=tmp_path,
+            timeout=60,
+            reason="runtime exact apply failed; verification-only recovery is required",
+        )
+
+    assert "OverconstrainedZonalAllocationRequest" in error.value.provider_error_codes
+    assert "AllocationFailed" in error.value.provider_error_codes
+    assert "Standard_D4as_v5" in error.value.excerpt
+    assert "/subscriptions/" not in error.value.excerpt
+    assert "placeholder-token" not in error.value.excerpt
+    assert "example.com" not in error.value.excerpt
+    assert len(error.value.excerpt) <= 700
 
 
 @pytest.mark.parametrize("artifact_directory", ["kit-work/verified", "source-work/verified"])
@@ -235,6 +353,45 @@ def test_prepare_persists_foundation_adoption_binding() -> None:
     assert '"key_vault_private_access": key_vault_private_access' in source
     assert '"enable_aks_document_storage_private_access": document_storage_private_access' in source
     assert '"document_storage_private_access": document_storage_private_access' in source
+
+
+def test_retained_private_access_accepts_partial_apply_tightening() -> None:
+    retained = {"key_vault_private_access": False, "document_storage_private_access": False}
+    retained_values: dict[str, object] = {}
+
+    assert (
+        standalone_stage_targets.reconcile_retained_private_access(
+            retained,
+            retained_values,
+            key_vault_private_access=True,
+            document_storage_private_access=False,
+        )
+        is True
+    )
+    assert retained["key_vault_private_access"] is True
+    assert retained_values["enable_aks_key_vault_private_access"] is True
+
+
+def test_retained_private_access_refuses_loosened_posture() -> None:
+    retained = {"key_vault_private_access": False, "document_storage_private_access": True}
+
+    with pytest.raises(ValueError, match="private-access posture loosened"):
+        standalone_stage_targets.reconcile_retained_private_access(
+            retained,
+            {},
+            key_vault_private_access=False,
+            document_storage_private_access=False,
+        )
+
+
+def test_prepare_records_private_access_transition_for_resume() -> None:
+    source = inspect.getsource(standalone_host._prepare)
+    helper = inspect.getsource(standalone_stage_targets.reconcile_retained_private_access)
+
+    assert '"private_access_posture_transition"' in helper
+    assert "_reconcile_retained_private_access(" in source
+    assert "enable_aks_key_vault_private_access" in helper
+    assert "enable_aks_document_storage_private_access" in helper
 
 
 def test_planned_key_vault_name_matches_terraform_contract() -> None:
@@ -1211,6 +1368,102 @@ def test_claimed_apply_blocks_ordinary_replanning(
         standalone_host._plan(SimpleNamespace(stage="substrate", service=None), tmp_path)
 
 
+def _runtime_context(tmp_path: Path) -> dict[str, object]:
+    return {
+        "target_binding": "b" * 64,
+        "source_commit": "c" * 40,
+        "runtime_profile_digest": "d" * 64,
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+        "runtime_infra": str(tmp_path / "cluster"),
+    }
+
+
+def _runtime_plan_review(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    cluster_in_state: bool,
+) -> tuple[dict[str, object], tuple[str, ...]]:
+    (tmp_path / "substrate-receipt.json").write_text("{}", encoding="utf-8")
+    context = _runtime_context(tmp_path)
+    commands: list[tuple[str, ...]] = []
+
+    def private_json(path: Path, _label: str) -> dict[str, object]:
+        if path.name == "context.json":
+            return context
+        raise AssertionError(path.name)
+
+    def run(command: tuple[str, ...] | list[str], **_kwargs: object) -> None:
+        normalized = tuple(command)
+        commands.append(normalized)
+        output = next(value for value in normalized if value.startswith("-out="))
+        Path(output.removeprefix("-out=")).write_bytes(b"plan")
+
+    def state_list(command: tuple[str, ...], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ("terraform", "state", "list"):
+            return subprocess.CompletedProcess(
+                command,
+                0 if cluster_in_state else 1,
+                stdout="azurerm_kubernetes_cluster.runtime\n" if cluster_in_state else "",
+                stderr="",
+            )
+        raise AssertionError(command)
+
+    monkeypatch.setattr(standalone_host, "_private_json", private_json)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_stage_paths",
+        lambda *_: (tmp_path / "cluster", tmp_path / "runtime.auto.tfvars.json"),
+    )
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(standalone_host.subprocess, "run", state_list)
+    monkeypatch.setattr(standalone_host, "_run", run)
+    monkeypatch.setattr(standalone_host, "_seal_terraform_plan", lambda path: None)
+    monkeypatch.setattr(standalone_host, "_file_digest", lambda path: "a" * 64)
+    monkeypatch.setattr(standalone_host, "_guard_existing_runtime_node_pools", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_capture", lambda *_args, **_kwargs: "{}")
+    monkeypatch.setattr(
+        standalone_host,
+        "_plan_summary",
+        lambda _value: {"action_counts": {"create": 1}},
+    )
+    monkeypatch.setattr(standalone_host, "_replace_private_json", lambda _path, _value: None)
+
+    review = standalone_host._plan(SimpleNamespace(stage="runtime", service=None), tmp_path)
+
+    assert len(commands) == 1
+    return review, commands[0]
+
+
+def test_fresh_aks_runtime_plan_excludes_container_insights_association(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    review, command = _runtime_plan_review(tmp_path, monkeypatch, cluster_in_state=False)
+
+    targets = {
+        argument.removeprefix("-target=") for argument in command if argument.startswith("-target=")
+    }
+    assert review["operation"] == "runtime-cluster"
+    assert validate_plan_review(review) == ("runtime", 0)
+    assert standalone_stage_targets.RUNTIME_CLUSTER_STATE_TARGET in targets
+    assert "azurerm_monitor_data_collection_rule.container_insights" in targets
+    assert standalone_stage_targets.CONTAINER_INSIGHTS_ASSOCIATION_TARGET not in targets
+
+
+def test_existing_aks_runtime_plan_remains_full_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    review, command = _runtime_plan_review(tmp_path, monkeypatch, cluster_in_state=True)
+
+    assert review["operation"] == "runtime"
+    assert validate_plan_review(review) == ("runtime", 0)
+    assert not any(argument.startswith("-target=") for argument in command)
+
+
 def test_aks_stages_use_independent_roots_and_variables(tmp_path: Path) -> None:
     context = {
         "runtime_profile": {
@@ -1431,6 +1684,80 @@ def test_postgres_aks_substrate_configuration_never_reaches_the_flexible_server(
     assert "module.state_store" in placements["postgres-flex"]
     assert "module.state_store" not in placements["postgres-aks"]
     assert "module.key_vault" in placements["postgres-aks"]
+
+
+_OUTPUT_BLOCK = re.compile(r'^output "([a-z0-9_]+)" \{\n(.*?)^\}', re.MULTILINE | re.DOTALL)
+_INFRA_OUTPUT_READ = re.compile(
+    r'_terraform(?:_json)?_output\(\s*(?:substrate|Path\(str\(context\["infra"\]\)\)),\s*"([a-z0-9_]+)"'
+)
+_CONDITIONAL_BLOCK = re.compile(
+    r'^(?:module "([a-z0-9_]+)"|resource "([a-z0-9_]+)" "([a-z0-9_]+)") \{\n'
+    r"(?:[ \t]*#.*\n)*[ \t]+(?:count|for_each)[ \t]*=",
+    re.MULTILINE,
+)
+# `_deployment_binding` reads this output only on Container Apps.
+_CONTAINER_APPS_ONLY_OUTPUTS = frozenset({"core_app_name"})
+# Optional blocks that a fresh standalone installation leaves at zero instances, where the
+# outputs that reach them evaluate to known empty values; an adopted installation already holds
+# them in state. Each one must stay conditional.
+_OPTIONAL_PRE_APPLICATION_BACKING = frozenset(
+    {"module.llm_azure_openai", "module.llm_foundry_partner", "module.measurement_identity"}
+)
+
+
+def _root_output_references() -> dict[str, set[str]]:
+    infra = Path(__file__).resolve().parents[3] / "infra"
+    return {
+        name: set(_ROOT_REFERENCE.findall(body))
+        for path in sorted(infra.glob("*.tf"))
+        for name, body in _OUTPUT_BLOCK.findall(path.read_text(encoding="utf-8"))
+    }
+
+
+def _conditional_root_blocks() -> set[str]:
+    infra = Path(__file__).resolve().parents[3] / "infra"
+    return {
+        f"module.{module}" if module else f"{kind}.{name}"
+        for path in sorted(infra.glob("*.tf"))
+        for module, kind, name in _CONDITIONAL_BLOCK.findall(path.read_text(encoding="utf-8"))
+    }
+
+
+def test_aks_pre_application_outputs_resolve_inside_the_substrate_closure() -> None:
+    # On AKS the shared root is applied only through targeted stages, so an output read before
+    # the application apply must not depend on a resource that no stage ever targets.
+    graph = _root_configuration_graph()
+    outputs = _root_output_references()
+    assert _OPTIONAL_PRE_APPLICATION_BACKING <= _conditional_root_blocks()
+    read = {
+        name
+        for function in (
+            standalone_host._deployment_binding,
+            standalone_host._prepare_aks_application,
+        )
+        for name in _INFRA_OUTPUT_READ.findall(inspect.getsource(function))
+    } - _CONTAINER_APPS_ONLY_OUTPUTS
+    assert {"installation_binding", "runtime_identity_bindings", "key_vault_uri"} <= read
+
+    for placement in ("postgres-flex", "postgres-aks"):
+        substrate = _configuration_closure(
+            graph,
+            standalone_stage_targets.substrate_targets(
+                {"runtime_profile": {"runtime_platform": "aks", "database_placement": placement}}
+            ),
+        )
+        names = (
+            read if placement == "postgres-flex" else read - {"postgres_fqdn", "postgres_database"}
+        )
+        for name in sorted(names):
+            backing = {
+                node
+                for node in _configuration_closure(
+                    graph, tuple(sorted(outputs[name] & graph.keys()))
+                )
+                if not node.startswith(("local.", "data."))
+            } - _OPTIONAL_PRE_APPLICATION_BACKING
+            assert backing <= substrate, (placement, name, sorted(backing - substrate))
 
 
 def test_aks_substrate_includes_application_insights_secret_binding() -> None:
@@ -1738,7 +2065,7 @@ def test_aks_kubeconfig_readback_rejects_wrong_authentication(
 
 def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
     digest = "a" * 64
-    workload = standalone_host._aks_workload(
+    workload = standalone_operational_evidence.aks_workload(
         "operator",
         {"operator-service": f"example.azurecr.io/operator-service@sha256:{digest}"},
         {"resource_id": "/identities/operator", "client_id": "operator-client"},
@@ -2015,6 +2342,13 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
         "mount_path": "/var/lib/clamav",
         "size_limit": "1Gi",
     }
+    # The image entrypoint chowns its database, which a non-root sidecar cannot do.
+    assert worker["sidecars"]["clamav"]["command"] == ["clamd"]
+    assert worker["sidecars"]["clamav"]["args"] == ["--foreground=true"]
+    assert worker["sidecars"]["clamav"]["memory"] == "2Gi"
+    assert {
+        path["mount_path"] for path in worker["sidecars"]["clamav"]["writable_paths"].values()
+    } >= {"/var/lib/clamav", "/var/log/clamav", "/tmp"}
 
 
 @pytest.mark.parametrize(
@@ -2028,7 +2362,7 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
 )
 def test_aks_workload_preserves_service_database_role(component, service, role) -> None:
     environment = {"RUNTIME_ENV": "dev", "FDAI_DATABASE_ROLE": "wrong-role", "PGOPTIONS": ""}
-    workload = standalone_host._aks_workload(
+    workload = standalone_operational_evidence.aks_workload(
         component,
         {service: f"example.com/{service}@sha256:{'a' * 64}"},
         {"resource_id": f"/identities/{component}", "client_id": f"{component}-client"},
@@ -2047,6 +2381,104 @@ def test_aks_workload_preserves_service_database_role(component, service, role) 
         "FDAI_DATABASE_ROLE": "wrong-role",
         "PGOPTIONS": "",
     }
+
+
+def _verifier_binding() -> dict[str, object]:
+    return {
+        "enabled": True,
+        "trust_registry_pin": "a" * 64,
+        "grant_registry_path": "/app/config/operational-evidence-grants.json",
+        "grant_registry_pin": "b" * 64,
+        "anchors_json": "{}",
+        "caller_token_issuer": "https://issuer.example.com/",
+        "caller_token_audience": "api://operational-evidence-verifier",
+        "caller_token_jwks_json": '{"keys":[]}',
+        "role_readback_scopes_json": '["/subscriptions/00000000-0000-0000-0000-000000000000"]',
+        "allowed_role_scopes_json": "{}",
+        "vertical_executor_principals_json": '["00000000-0000-0000-0000-000000000005"]',
+        "writer_members_json": '["fdai_operational_evidence_verifier"]',
+        "dev_gateway_executor_principal_id": "00000000-0000-0000-0000-000000000004",
+    }
+
+
+def test_aks_operational_evidence_verifier_workload_is_internal_and_identity_separated() -> None:
+    workload = standalone_operational_evidence.aks_operational_evidence_verifier_workload(
+        refs={"core-control-plane": f"example.com/fdai/core@sha256:{'a' * 64}"},
+        verifier_identity={
+            "resource_id": "/identities/verifier",
+            "client_id": "00000000-0000-0000-0000-000000000010",
+            "principal_id": "00000000-0000-0000-0000-000000000011",
+        },
+        core_identity={
+            "resource_id": "/identities/core",
+            "client_id": "00000000-0000-0000-0000-000000000020",
+            "principal_id": "00000000-0000-0000-0000-000000000021",
+        },
+        executor_identity={
+            "resource_id": "/identities/executor",
+            "client_id": "00000000-0000-0000-0000-000000000030",
+            "principal_id": "00000000-0000-0000-0000-000000000031",
+        },
+        deploy_runner_principal="00000000-0000-0000-0000-000000000040",
+        application_values={"env": "dev", "operational_evidence_verifier": _verifier_binding()},
+        postgres_fqdn="postgres.example.com",
+        postgres_database="fdai",
+    )
+
+    assert workload is not None
+    assert workload["component"] == "operational-evidence-verifier"
+    assert workload["command"] == ["python", "-m", "fdai.delivery.operational_evidence_server"]
+    assert workload["args"] == ["--host", "0.0.0.0", "--port", "8791"]
+    assert workload["external"] is False
+    assert workload["replicas"] == 1
+    assert workload["max_replicas"] == 1
+    assert workload["port"] == 8791
+    assert workload["readiness_path"] == "/v1/operational-evidence/readiness"
+    assert workload["secret_environment"] == {
+        "FDAI_OPERATIONAL_EVIDENCE_VERIFIER_DSN": "fdai-state-store-dsn"
+    }
+    environment = workload["environment"]
+    assert environment["FDAI_EXECUTION_VENUE"] == "deployed"
+    assert environment["FDAI_DATABASE_ROLE"] == "fdai_operational_evidence_verifier"
+    assert environment["FDAI_OPERATIONAL_EVIDENCE_CORE_EXECUTOR_PRINCIPAL_ID"] == (
+        "00000000-0000-0000-0000-000000000021"
+    )
+    assert environment["FDAI_OPERATIONAL_EVIDENCE_ISOLATED_EXECUTOR_PRINCIPAL_ID"] == (
+        "00000000-0000-0000-0000-000000000031"
+    )
+    assert json.loads(environment["FDAI_OPERATIONAL_EVIDENCE_EXECUTOR_PRINCIPALS_JSON"]) == [
+        "00000000-0000-0000-0000-000000000004",
+        "00000000-0000-0000-0000-000000000005",
+        "00000000-0000-0000-0000-000000000021",
+        "00000000-0000-0000-0000-000000000031",
+        "00000000-0000-0000-0000-000000000040",
+    ]
+
+
+def test_aks_operational_evidence_verifier_rejects_shared_identity() -> None:
+    with pytest.raises(ValueError, match="overlaps"):
+        standalone_operational_evidence.aks_operational_evidence_verifier_workload(
+            refs={"core-control-plane": f"example.com/fdai/core@sha256:{'a' * 64}"},
+            verifier_identity={
+                "resource_id": "/identities/verifier",
+                "client_id": "00000000-0000-0000-0000-000000000010",
+                "principal_id": "00000000-0000-0000-0000-000000000021",
+            },
+            core_identity={
+                "resource_id": "/identities/core",
+                "client_id": "00000000-0000-0000-0000-000000000020",
+                "principal_id": "00000000-0000-0000-0000-000000000021",
+            },
+            executor_identity={
+                "resource_id": "/identities/executor",
+                "client_id": "00000000-0000-0000-0000-000000000030",
+                "principal_id": "00000000-0000-0000-0000-000000000031",
+            },
+            deploy_runner_principal="00000000-0000-0000-0000-000000000040",
+            application_values={"env": "dev", "operational_evidence_verifier": _verifier_binding()},
+            postgres_fqdn="postgres.example.com",
+            postgres_database="fdai",
+        )
 
 
 @pytest.mark.parametrize(
@@ -2076,6 +2508,11 @@ def test_aks_application_readback_requires_complete_baseline(
         )
         if name != missing_service
     }
+    if missing_service is None:
+        expected["operational-evidence-verifier"] = {
+            "image": f"example.com/operational-evidence-verifier@sha256:{'a' * 64}",
+            "replicas": 1,
+        }
     observations: list[str] = []
     health_checks: list[dict[str, object]] = []
 
@@ -3621,3 +4058,12 @@ def test_aks_runtime_configuration_binds_consumer_scoped_dsns_and_roles() -> Non
         "azurerm_role_assignment.ingestion_eventhubs_sender",
     ):
         assert address in targets
+
+
+def test_postgres_aks_database_stage_passes_ingestion_principals() -> None:
+    source = Path(standalone_host.__file__).read_text(encoding="utf-8")
+
+    assert '"ingestion_api_principal_id": str(ingestion_identity["principal_id"])' in source
+    assert (
+        '"ingestion_worker_principal_id": str(ingestion_worker_identity["principal_id"])' in source
+    )

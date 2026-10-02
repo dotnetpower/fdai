@@ -749,39 +749,33 @@ async def test_a_relation_direction_no_two_readers_agree_on_is_held(
     (only_pass,) = observation.passes
     assert only_pass.disposition == "direction_held" and observation.released is False
     assert only_pass.reasons == (reason,)
-    # Only a clear dispute asks the tie-break reader.
-    assert len(model.tiebreak_calls) == (1 if direction == "disagree" else 0)
+    assert model.tiebreak_calls == []
 
 
-async def test_two_blind_readers_that_outvote_the_proposer_swap_the_relation_roles() -> None:
+async def test_a_blind_reader_dispute_holds_instead_of_swapping_relation_roles() -> None:
     vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
     model = _Model([_quoted_form()], vms, direction="disagree", tiebreak="disagree")
 
     observation = await _run(model)
 
     (only_pass,) = observation.passes
-    assert only_pass.disposition == "admitted" and only_pass.direction_swaps == ("g1",)
-    assert "roles:g1:dependent:dependency" in only_pass.shape
-    assert observation.summary()["passes"][0]["direction_swaps"] == ["g1"]
-    assert observation.model_calls == (
-        1
-        + len(model.shards)
-        + len(model.review_calls)
-        + len(model.direction_calls)
-        + len(model.tiebreak_calls)
-    )
+    assert only_pass.disposition == "direction_held"
+    assert only_pass.reasons == ("review_direction_differs:g1",)
+    assert observation.released is False
+    assert model.tiebreak_calls == []
 
 
-async def test_a_tiebreak_that_sides_with_the_proposer_keeps_the_form() -> None:
+async def test_a_blind_reader_dispute_holds_when_tiebreak_would_keep_the_form() -> None:
     vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
     model = _Model([_quoted_form()], vms, direction="disagree", tiebreak="agree")
 
     observation = await _run(model)
 
     (only_pass,) = observation.passes
-    assert only_pass.disposition == "admitted" and only_pass.direction_swaps == ()
-    assert "roles:g1:dependency:dependent" in only_pass.shape
-    assert len(model.tiebreak_calls) == 1
+    assert only_pass.disposition == "direction_held"
+    assert only_pass.reasons == ("review_direction_differs:g1",)
+    assert observation.released is False
+    assert model.tiebreak_calls == []
 
 
 async def test_the_direction_reader_sees_both_roles_in_declared_order_never_the_choice() -> None:

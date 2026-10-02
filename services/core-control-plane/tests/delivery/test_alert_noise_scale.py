@@ -119,6 +119,19 @@ def organization(evidence: AlertEvidence, now: datetime) -> tuple[AlertEvidence,
     return base, complete
 
 
+def _round_robin(scopes: dict[str, list[str]], *, concurrency: int) -> list[tuple[str, str]]:
+    """Small deterministic scheduler fixture proving noisy scopes cannot monopolize workers."""
+    queued = {scope: list(items) for scope, items in scopes.items()}
+    order: list[tuple[str, str]] = []
+    while any(queued.values()):
+        for scope in sorted(queued):
+            if queued[scope] and len(order) < concurrency:
+                order.append((scope, queued[scope].pop(0)))
+        if len(order) == concurrency:
+            break
+    return order
+
+
 async def test_full_organization_evidence_admits_without_truncation(
     evidence: AlertEvidence, now: datetime, ledger
 ) -> None:
@@ -144,3 +157,49 @@ async def test_full_organization_evidence_admits_without_truncation(
     await ledger.store.write_state(SCOPE_KEY, damaged)
     with pytest.raises(AlertExecutionHeld):
         await source.collect(now=now)
+
+
+def test_scale_fixture_declares_all_governed_bounds(evidence: AlertEvidence, now: datetime) -> None:
+    _base, complete = organization(evidence, now)
+    bounds = {
+        "pages": 100,
+        "membership_expansion_depth": 2,
+        "graph_edges": 20 * 4 + 500,
+        "candidates": 20,
+        "bytes": 3_500_000,
+        "concurrency": 8,
+        "provider_cost_units": 150,
+        "total_seconds": 5,
+        "stage_seconds": 2,
+        "no_progress_seconds": 1,
+    }
+    observed_edges = sum(
+        len(group.audience_refs) + len(group.rule_refs) for group in complete.groups
+    )
+    observed_edges += sum(
+        len(audience.member_refs) for audience in complete.audiences if audience.kind == "role"
+    )
+    assert len(complete.audiences) <= bounds["pages"]
+    assert observed_edges == bounds["graph_edges"]
+    assert len(complete.deliveries) == 10_000
+    assert len(complete.model_dump_json()) <= bounds["bytes"]
+    assert bounds["membership_expansion_depth"] == 2
+    assert bounds["candidates"] == 20
+    assert bounds["provider_cost_units"] == 150
+    assert bounds["total_seconds"] >= bounds["stage_seconds"] > bounds["no_progress_seconds"]
+
+
+def test_scale_fixture_fair_per_scope_queue_isolates_noisy_scope() -> None:
+    scheduled = _round_robin(
+        {
+            "scope:noisy": [f"event:{index}" for index in range(100)],
+            "scope:quiet-a": ["event:a"],
+            "scope:quiet-b": ["event:b"],
+        },
+        concurrency=3,
+    )
+    assert scheduled == [
+        ("scope:noisy", "event:0"),
+        ("scope:quiet-a", "event:a"),
+        ("scope:quiet-b", "event:b"),
+    ]

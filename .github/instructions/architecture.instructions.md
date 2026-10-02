@@ -51,6 +51,11 @@ mutation, destructive or irreversible work, Chaos, and promotion, demotion, or r
 classification remains audited but does not categorically deny an action by category. Scope,
 identity, target, and audit validation still fail closed.
 
+An explicitly selected **single-operator production profile** lets the one named operator of an
+installation satisfy every approval, reviewer, and quorum requirement there with an effective quorum
+of one. Risk classes, A4 denial, per-execution approval for irreversible work, and Var/Thor
+separation remain ([operator governance](../../docs/roadmap/decisioning/operator-governance-profiles.md)).
+
 Constitutional objective precedence filters policy, safety, security, identity, data-integrity, recovery, and service-objective violations before Odin scores eligible soft-objective tradeoffs.
 
 ## Agent-Driven Runtime (MUST)
@@ -142,7 +147,9 @@ verifier and policy re-check are the authority, not model text (see the threat m
 [security-and-identity.md](../../docs/roadmap/architecture/security-and-identity.md)).
 
 - **Mixed-model cross-check**: run two or more distinct models (ideally different vendors or
-  families) on the same judgment. A single model is never sufficient. On agreement, proceed;
+  families) on the same judgment. A single model is never sufficient. A regulated installation MAY
+  select two distinct same-publisher models when residency or endpoint rules prevent a
+  mixed-publisher pair ([model capability](../../docs/roadmap/architecture/model-capability-lifecycle.md)). On agreement, proceed;
   on disagreement, **escalate to HIL** (do not auto-resolve).
 - **Verifier**: re-validate every generated action against deterministic rules (policy-as-code
   and what-if) before it can execute.
@@ -184,7 +191,9 @@ domain vocabulary. Reuse them verbatim in code, docs, and identifiers.
 - **FDAI Console** terms:
   - `operator-api` - the non-privileged HTTP backend shared by FDAI Console and operator clients.
     It serves projections and accepts governed requests, but never judges or executes a
-    managed-resource action and never receives Thor's executor identity.
+    managed-resource action and never receives Thor's executor identity. The optional
+    `policy-administration` add-on lets `policy-admin` operators submit immutable approval and
+    admission policy revisions inside constitutional and Release bounds.
   - `operator-console` - the legacy contract token for the conversational pull direction (CLI / Teams / Slack / web); display it as FDAI Console conversations, not as a second product.
   - `Approvals` - the human-facing L2/L3 label for queued `hil` verdicts and the
     `/hil-queue` surface. It improves operator comprehension without renaming the
@@ -220,7 +229,10 @@ effect verification is additionally required before reporting success.
 New capabilities ship in **shadow mode** (judge-and-log only, no execution). Promotion to
 enforce is explicit, per-action, and gated on measured accuracy plus zero policy-violation
 escapes in shadow; regressions demote back to shadow automatically
-([security-and-identity.md](../../docs/roadmap/architecture/security-and-identity.md)).
+([security-and-identity.md](../../docs/roadmap/architecture/security-and-identity.md)). An
+authorized installation operator MAY record an attributed override promotion before the gate
+passes; it stays marked, never counts as promotion evidence elsewhere, and yields to regression
+demotion and vendor capability recall.
 
 The full-authority development profile may promote, demote, or roll back a capability immediately
 inside its dedicated test scope under the sole Owner's current approval. That transition is

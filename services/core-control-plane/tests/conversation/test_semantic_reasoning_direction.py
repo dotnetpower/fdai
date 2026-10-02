@@ -264,13 +264,7 @@ def _connectivity_form(utterance: str) -> Any:
     )
 
 
-@pytest.mark.parametrize(
-    ("third", "swapped", "held"),
-    (("first", (), False), ("second", ("g1",), False), ("either", (), True), (None, (), True)),
-)
-async def test_a_disputed_direction_needs_two_concrete_agreeing_readings(
-    third: str | None, swapped: tuple[str, ...], held: bool
-) -> None:
+async def test_a_disputed_direction_holds_without_a_tiebreak_reader() -> None:
     from fdai.core.conversation.semantic_reasoning_direction import settle_directions
 
     utterance = "What is connected to aks-app?"
@@ -283,15 +277,12 @@ async def test_a_disputed_direction_needs_two_concrete_agreeing_readings(
 
     async def check(question: Any, tiebreak: bool) -> dict[str, Any] | None:
         asked.append(tiebreak)
-        if not tiebreak:
-            return {"reading": "second"}
-        return None if third is None else {"reading": third}
+        return {"reading": "second"}
 
     settled = await settle_directions(
         _connectivity_form(utterance), utterance=utterance, descriptors=descriptors, check=check
     )
 
-    # The proposer said sender and the first reader receiver; "first" sides with the proposer,
-    # "second" with the reader, and a mutual or missing third reading decides nothing.
-    assert bool(settled.reasons) is held and settled.swapped == swapped
-    assert asked == [False, True]
+    assert settled.reasons == ("review_direction_differs:g1",)
+    assert settled.swapped == ()
+    assert asked == [False]

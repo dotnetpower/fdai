@@ -2,6 +2,7 @@ resource "azurerm_role_assignment" "aks_network_contributor" {
   scope                = azurerm_virtual_network.scenario_lab.id
   role_definition_name = "Network Contributor"
   principal_id         = azurerm_user_assigned_identity.aks.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # The disposable demo requires changing local egress to reach its Entra and Azure RBAC protected API.

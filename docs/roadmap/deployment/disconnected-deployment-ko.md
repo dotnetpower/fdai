@@ -1,12 +1,12 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 3a3c813b23eba5936b2b307cbd089ef886a26d88
-translation_revised: 2026-10-01
+translation_source_sha: 1a427f29b7da6d1d441cd229b87ef7937067d29b
+translation_revised: 2026-10-02
 ---
 # 폐쇄망 배포
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 공용 인터넷 egress가 차단된 네트워크 - 규제받는 금융 테난트, sovereign enclave,
 완전 air-gap 사이트 - 에 FDAI를 배포하는 단일 소유 문서입니다. 리포지토리가 이미 지원하는 것,
@@ -272,6 +272,23 @@ wheelhouse만 사용해 CLI를 설치합니다.
 새 준비 컨텍스트가 필요합니다. 배포 결과는 키트 소스 커밋과 함께 제어 패키지 다이제스트와
 버전을 보고합니다. 제어 패키지는 승인, 적용 또는 런타임 권한을 부여하지 않습니다.
 
+#### 기존 오프라인 설치 업그레이드
+
+더 새 서명 키트로 오프라인 패키지 설치를 계속하려면 같은 작업 디렉터리로 다시 실행합니다.
+
+```bash
+scripts/deployment/azure/fdai-up.sh \
+  --offline-kit <newer-kit.tar.gz> \
+  --work-dir <existing-work-dir>
+```
+
+조정기는 새 키트를 검증하고, 이전에 보존된 키트 스냅샷과 Managed Host 전송 아카이브를 로컬
+검토 디렉터리로 회전한 다음 기존 Foundation 신원을 유지합니다. Foundation 변수는 Foundation을
+만든 소스 버전을 유지합니다. 새 키트 소스는 애플리케이션 버전으로 기록되므로 애플리케이션
+단계와 Managed Host 작업 컨텍스트는 키트 매니페스트 다이제스트를 기준으로 새 Terraform,
+런타임 페이로드, CLI를 사용합니다. 비파괴 Foundation 계획은 그 계획을 표시한 호출로 승인됩니다.
+기존 리소스를 삭제하거나 교체하는 계획은 효과 전에 기존의 명시적 추가 확인이 계속 필요합니다.
+
 ### 5. 공용 egress 없이 룰 카탈로그 최신화
 
 서명된 배포 번들은 이미 rule-catalog 스키마, 배포 프로파일, risk 분류를
@@ -434,3 +451,4 @@ residency 검토를 추가로 요구합니다
 | CLI 파사드, 서명된 번들, exact-plan 적용 | [installable-deployment-cli-ko.md](installable-deployment-cli-ko.md) |
 | Offline trust 루트 확립과 교대 | [offline-trust-ceremony-ko.md](../../runbooks/offline-trust-ceremony-ko.md) |
 | 거부된 키트 또는 차단된 계획에서 복구 | [deployment-recovery-ko.md](../../runbooks/deployment-recovery-ko.md) |
+| Target Hub를 통한 오프라인 업그레이드 | [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md) |

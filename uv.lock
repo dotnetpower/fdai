@@ -21,6 +21,7 @@ members = [
     "fdai-document-processing-worker",
     "fdai-evaluation-sdk",
     "fdai-github-app-auth",
+    "fdai-governed-chaos-provider",
     "fdai-isolated-executor-service",
     "fdai-operator-service",
     "fdai-runtime-diagnostics",
@@ -970,7 +971,7 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'dev'", specifier = ">=2.9,<3" },
     { name = "pyjwt", extras = ["crypto"], marker = "extra == 'dev'", specifier = ">=2.10,<3" },
     { name = "pymysql", marker = "extra == 'scenario-lab'", specifier = ">=1.1,<2" },
-    { name = "pypdf", marker = "extra == 'dev'", specifier = ">=6.16.1,<7" },
+    { name = "pypdf", marker = "extra == 'dev'", specifier = ">=6.19.0,<7" },
     { name = "pypdfium2", marker = "extra == 'dev'", specifier = ">=5.0,<6" },
     { name = "pyte", marker = "extra == 'dev'", specifier = ">=0.8,<0.9" },
     { name = "pytesseract", marker = "extra == 'dev'", specifier = ">=0.3.13,<1" },
@@ -1152,7 +1153,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "psycopg-pool", specifier = ">=3.2,<4" },
     { name = "pydantic", specifier = ">=2.9,<3" },
-    { name = "pypdf", specifier = ">=6.16.1,<7" },
+    { name = "pypdf", specifier = ">=6.19.0,<7" },
     { name = "python-snappy", specifier = ">=0.7,<1" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "sqlalchemy", specifier = ">=2.0,<3" },
@@ -1237,7 +1238,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=12.0,<13" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pydantic", specifier = ">=2.9,<3" },
-    { name = "pypdf", specifier = ">=6.16.1,<7" },
+    { name = "pypdf", specifier = ">=6.19.0,<7" },
     { name = "pypdfium2", specifier = ">=5.0,<6" },
     { name = "pytesseract", specifier = ">=0.3.13,<1" },
 ]
@@ -1286,6 +1287,16 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
 ]
+
+[[package]]
+name = "fdai-governed-chaos-provider"
+source = { editable = "extensions/governed-chaos-provider" }
+dependencies = [
+    { name = "fdai-core-control-plane" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fdai-core-control-plane", editable = "services/core-control-plane" }]
 
 [[package]]
 name = "fdai-isolated-executor-service"
@@ -3066,11 +3077,11 @@ wheels = [
 
 [[package]]
 name = "pypdf"
-version = "6.16.2"
+version = "6.19.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/44/66/54212e75406afd9f3e933d0dda23072f6aecc55c5a273077dc2e0b028b23/pypdf-6.16.2.tar.gz", hash = "sha256:595647f6191de6f402cfde1d0c455d6cbccbd509aac32b34783009c032de5d6e", size = 7008996, upload-time = "2026-08-23T13:50:07.135Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1f/ac/63d71aaedb59acbcdef491e6ca6469165e3771c9c74358204818fd9bc5a6/pypdf-6.19.0.tar.gz", hash = "sha256:bbc43aca292369ccc6cbc8a921991ecf2538a3587ab5a116eff06c321d647155", size = 7033266, upload-time = "2026-09-16T09:32:05.946Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/f1/a2da3b55acd4ab737bf728c97edaaed5ec1d3c1236acb639dcdfa97e42c7/pypdf-6.16.2-py3-none-any.whl", hash = "sha256:c8b09a59399062fb45a1b8156c18a787a10a3dae03ac9674397a226712c94604", size = 385060, upload-time = "2026-08-23T13:50:05.349Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/2c/c43c03eaf630435f023f1dc61ec4a4a78951ad5530a62c71cc89bde307b7/pypdf-6.19.0-py3-none-any.whl", hash = "sha256:7e5d6e730e7dae87d560a2cee218b852f6498c8be61966f3cd02ead971e48d14", size = 395480, upload-time = "2026-09-16T09:32:04.087Z" },
 ]
 
 [[package]]

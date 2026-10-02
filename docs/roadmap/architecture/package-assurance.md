@@ -4,7 +4,7 @@ title: Package Assurance
 
 # Package assurance
 
-> **Deployment distribution:** The [constitution](fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](../deployment/hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document defines the minimal distribution contract for an FDAI Python package. An offline
 package should install like an ordinary local pip wheelhouse, with one detached private-key
@@ -50,6 +50,10 @@ scripts/deployment/release/build-signed-python-package.sh \
 The builder creates the deployment CLI wheel, downloads its locked runtime dependencies into
 `wheels/`, writes one sorted checksum list, signs that list, and creates a tar archive. It does not
 build service images or assemble an Azure deployment payload.
+
+The builder must run under the repository CPython 3.12 environment. That matches the managed host
+interpreter used by the install step, so binary wheels are selected for the host that installs the
+control package instead of the workstation that happened to assemble it.
 
 Every shipped file except the signature pair is listed in `SHA256SUMS`; the builder fails when
 `wheels/` contains anything other than wheel files. Locked workspace path dependencies, such as

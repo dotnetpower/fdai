@@ -17,6 +17,7 @@ decision, alternatives, consequences, status, and replacement history reviewable
 |-----|--------|----------|------------|
 | [ADR-0001](0001-azure-day-zero-platform.md) | Accepted | Azure day-zero platform baseline | lightweight OD entries in `tech-stack.md` and deployment drafts |
 | [ADR-0002](0002-independent-runtime-axes.md) | Accepted | Independent runtime, identity, autonomy, and fork axes | local shadow-only and production-fork coupling |
+| [ADR-0003](0003-hub-managed-lifecycle-and-operator-governance.md) | Accepted | Hub-managed lifecycle as the third installation path, and single-operator governance | the two-path installation rule and the two-person-only standing authorization |
 
 ## Status vocabulary
 
@@ -59,4 +60,5 @@ new ADR that explicitly supersedes the affected section.
 | Current ARB decision | [Architecture Review Board Packet](../architecture-review-board.md) |
 | Azure day-zero baseline | [ADR-0001](0001-azure-day-zero-platform.md) |
 | Runtime and customization axes | [ADR-0002](0002-independent-runtime-axes.md) |
+| Hub-managed lifecycle and operator governance | [ADR-0003](0003-hub-managed-lifecycle-and-operator-governance.md) |
 | Technology selection detail | [Technology Stack](../tech-stack.md) |

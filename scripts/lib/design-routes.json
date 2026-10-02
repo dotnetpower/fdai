@@ -3100,6 +3100,62 @@
       ]
     },
     {
+      "id": "hub-managed-lifecycle",
+      "paths": [
+        "docs/roadmap/architecture/decisions/0003-*.md",
+        "docs/roadmap/deployment/hub-managed-lifecycle*.md",
+        "docs/roadmap/deployment/lifecycle-configuration*.md",
+        "docs/roadmap/deployment/lifecycle-releases-and-channels*.md",
+        "docs/roadmap-implementation/deployment/hub-managed-lifecycle.md",
+        "docs/roadmap-implementation/deployment/lifecycle-configuration.md",
+        "docs/roadmap-implementation/deployment/lifecycle-releases-and-channels.md"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md",
+        "docs/roadmap/deployment/hub-managed-lifecycle.md",
+        "docs/roadmap/deployment/lifecycle-configuration.md",
+        "docs/roadmap/deployment/lifecycle-releases-and-channels.md",
+        "docs/roadmap/deployment/source-deployment.md",
+        "docs/roadmap/deployment/disconnected-deployment.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/hub-managed-lifecycle.md",
+        "docs/roadmap/deployment/lifecycle-configuration.md",
+        "docs/roadmap/deployment/lifecycle-releases-and-channels.md",
+        "docs/roadmap-implementation/deployment/hub-managed-lifecycle.md",
+        "docs/roadmap-implementation/deployment/lifecycle-configuration.md",
+        "docs/roadmap-implementation/deployment/lifecycle-releases-and-channels.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
+      "id": "operator-governance-profiles",
+      "paths": [
+        "docs/roadmap/decisioning/operator-governance-profiles*.md",
+        "docs/roadmap-implementation/decisioning/operator-governance-profiles.md"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/decisioning/operator-governance-profiles.md",
+        "docs/roadmap/decisioning/escalation-and-standing-authority.md",
+        "docs/roadmap/decisioning/risk-classification.md",
+        "docs/roadmap/architecture/security-and-identity.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/operator-governance-profiles.md",
+        "docs/roadmap-implementation/decisioning/operator-governance-profiles.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-constitution.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "cost-governance-package",
       "paths": [
         "config/cost-governance-package-inventory.json",
@@ -3387,7 +3443,6 @@
         "docs/roadmap/architecture/fdai-constitution.md",
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
         "docs/roadmap/architecture/security-and-identity.md",
-        "docs/roadmap/agents/agent-pantheon.md",
         "docs/roadmap/decisioning/risk-classification.md",
         "docs/roadmap/interfaces/user-rbac-and-identity.md",
         "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
@@ -3756,7 +3811,8 @@
       ],
       "validate": [
         "bash scripts/quality/localization/check-translations.sh {changed_paths}",
-        "scripts/quality/repository/check-doc-links.sh"
+        "scripts/quality/repository/check-doc-links.sh",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_translated_document_structure.py"
       ]
     },
     {

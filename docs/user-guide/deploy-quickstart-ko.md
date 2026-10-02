@@ -2,13 +2,13 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: b6e5882c68a6d50db99460b6b4b9ccee14883b1a
+translation_source_sha: d3c4bc6031bd0e4e68d500048f76170abd1f2971
 translation_revised: 2026-10-02
 ---
 
 # 배포 빠른 시작
 
-> **배포 방식:** [헌법](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](../roadmap/deployment/hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 한 번의 대화형 Azure 로그인 뒤 저장소 clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에
 배포할 수 있습니다. 키, 서명된 키트, 게시된 릴리스, GitHub 설정은 필요하지 않습니다. 업스트림
@@ -58,6 +58,9 @@ GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에�
   인터넷에 연결되지 않은 Azure VM에서는 서명된 오프라인 패키지를 사용합니다.
 - Console 추가 기능을 선택한 경우에만 Node.js와 npm
 - 선택한 구독에서 Foundation 리소스를 만들고 문서화된 배포 역할을 할당할 수 있는 Azure 신원
+- Console 또는 enterprise identity 추가 기능을 선택하는 경우 테넌트 로컬 FDAI Entra
+  애플리케이션과 그룹 표시 이름이 고유해야 합니다. `fdai-*` 애플리케이션 또는 `aw-*` 그룹이
+  중복되면 Azure 리소스를 만들기 전에 실행이 멈춥니다.
 - 선택한 Azure 리전에서 필요한 리소스 형식의 사용 가능한 용량
 - 의도한 구독을 선택한 대화형 Azure 세션
 
@@ -280,6 +283,11 @@ Azure 관리 및 데이터 평면 엔드포인트는 Azure 네트워크 경로�
 
 > Azure 관리 플레인 경로가 없는 네트워크에서는 Azure 리소스를 배포할 수 없습니다. 해당
 > 프로필에서는 패키지를 검증하고 준비할 수 있지만 명령은 배포 준비 상태를 보고할 수 없습니다.
+
+기존 오프라인 설치를 업그레이드하려면 더 새 패키지와 설치 당시의 `--work-dir`로 같은 명령을
+다시 실행합니다. 명령은 더 새 패키지를 검증하고, 이전 패키지 스냅숏은 검토용으로 보존하며,
+기존 Foundation은 그것을 만든 리비전으로 이어서 실행합니다. 그런 다음 더 새 패키지로
+애플리케이션을 배포합니다. 이전 리비전으로는 새 Foundation 계획을 승인하지 않습니다.
 
 ## 결과 이해
 

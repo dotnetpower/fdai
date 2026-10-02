@@ -3,7 +3,7 @@ title: Provisioning Execution Profiles
 ---
 # Provisioning Execution Profiles
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document defines how the planned `fdaictl` distribution selects a provisioning host, connectivity mode, command
 transport, and access path. It also defines the human approval and workload-identity boundary

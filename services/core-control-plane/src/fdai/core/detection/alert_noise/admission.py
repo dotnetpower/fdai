@@ -19,6 +19,7 @@ def admission_reasons(
     approvals: tuple[AlertApproval, ...],
     evidence: AlertDispatchEvidence,
     now: datetime,
+    allow_development_owner_quorum: bool = False,
 ) -> tuple[str, ...]:
     """Return every failed gate; trusted ports, not request bodies, supply inputs."""
     reasons: set[str] = set()
@@ -104,9 +105,17 @@ def admission_reasons(
             services.update(approval.service_refs)
         else:
             change_owners.add(approval.principal_ref)
-    if not owners or not change_owners or len(owners | change_owners) < 2:
+    development_owner_quorum = (
+        allow_development_owner_quorum
+        and len(approvals) == 1
+        and approvals[0].lane == "change_owner"
+        and set(plan.service_refs).issubset(approvals[0].service_refs)
+    )
+    if not development_owner_quorum and (
+        not owners or not change_owners or len(owners | change_owners) < 2
+    ):
         reasons.add("independent_quorum_missing")
-    if not set(plan.service_refs).issubset(services):
+    if not development_owner_quorum and not set(plan.service_refs).issubset(services):
         reasons.add("service_approval_missing")
     return tuple(sorted(reasons))
 

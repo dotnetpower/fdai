@@ -4,7 +4,7 @@ title: Installable Deployment CLI
 
 # Installable Deployment CLI
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
 
 This document defines the public FDAI deployment command. Operators run one local coordinator
 after Azure sign-in, while Terraform apply and private data-plane work run on the managed host
@@ -59,6 +59,10 @@ to `fdai`. Use a distinct token when canonical application or operations groups 
 The token is sealed into source preparation, retained variables, the run binding, and every exact
 Foundation plan. Repeat it unchanged on approval resume. It grants no ownership of existing
 resources and never authorizes deletion or adoption.
+The region suffix is selected by the same naming owner as the offline package path: retained
+Foundation variables keep their original token, a fresh work directory discovers one matching
+FDAI-owned installation token before planning, and only reviewed public-region tokens are used for
+new installs. An unknown or ambiguous token stops before Azure effects.
 Initial confirmation is separate from that approval. The coordinator advances within exact approval and returns review state when another
 checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
 execution and durable Trial activation are not yet connected. A plan
@@ -436,7 +440,8 @@ python -m pip install --no-index --find-links wheels -r requirements.txt
 
 The 6.9 MB wheelhouse installs `fdaictl` without a source checkout or network call. Every shipped
 file except the signature pair is listed in `SHA256SUMS`, and workspace path dependencies ship as
-built wheels. Runtime images,
+built wheels. The control-package builder runs only under CPython 3.12 so binary wheels match the
+managed-host interpreter that installs the package. Runtime images,
 Terraform inputs, and other deployment payloads are selected later by the deployment command and
 are not Python package-installation requirements. No appliance image is produced,
 not a second package-certification path.
@@ -536,6 +541,19 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl offline prepare` | Prepare a local deployment payload; not required for Python package installation | No |
 | `fdaictl offline install-support` | Install optional migration support from local wheels | No |
 | `fdaictl license inspect` | Verify a capability token, or an installation entitlement against both exact bindings, without a network call | No |
+
+### Entra display-name ambiguity preflight
+
+**Decision and critique:** Installations that select `read-only-console` or
+`enterprise-identity-governance` use one tenant-local shared set of Entra registrations and groups,
+resolved only by unique exact display name. Earlier alternatives would have guessed among duplicate
+registrations, generated installation-scoped names, or introduced an explicit binding file. Guessing
+can break a running Console, installation-scoped names would fork the shared tenant contract, and a
+binding file needs a separate owner-review flow. The revised contract therefore performs a read-only
+preflight before the first Azure effect: duplicate `fdai-api`, `fdai-console-spa`,
+`fdai-approval-bot`, or `aw-*` display names stop the run with a fixed ambiguity reason. The
+operator resolves the tenant by renaming or removing the extra registration, then reruns the same
+installation.
 
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.
@@ -653,6 +671,44 @@ have distinct value-safe errors. Corrupt or partial retained content is preserve
 not silently replaced or accepted. Retry never deletes run state, SSH keys, plans, or approvals,
 never changes a signed source file, and never repeats an Azure effect from kit-cache evidence.
 
+#### Offline kit upgrade design and critique
+
+**Initial design:** Require operators to move `kit-work/verified`, `kit-work/kit`, and
+`run/standalone-kit.tar.gz` out of the work directory before rerunning with a newer signed kit.
+Then treat the newer kit as a fresh installation input.
+
+**Critique:** Manual moves are not a safe installation contract. They can strand the runner SSH
+key, run binding, profile, and host-key evidence that identify the existing Foundation, and a new
+work directory can cause Terraform to plan a replacement installation beside the old one. Reusing
+the retained snapshot silently is also unsafe because a verified older kit must not mask the
+operator's newly supplied kit, and tampering in the retained snapshot must remain visible.
+
+**Revised contract:** A same-work-directory offline upgrade verifies the newly supplied kit first.
+If the retained kit snapshot and materialized payload verify against their original manifest, the
+coordinator moves them to `kit-work/retained-kit-review/` and materializes the new kit in their
+place. If the retained snapshot is unsafe, incomplete, or tampered, the run stops and preserves it
+for review. The managed-host transfer archive follows the same rule: a valid previous
+`run/standalone-kit.tar.gz` and sidecar move to `run/standalone-kit-review/` before the new archive
+is written, while an invalid archive remains blocked.
+
+Foundation continuity stays separate from application source selection. Existing offline
+Foundation variables keep their creating `source_commit`, runner SSH key, run binding, profile,
+and host keys. The current kit source becomes the application source and is recorded beside the
+Foundation lineage in `run/foundation-source-lineage.json`. The Foundation orchestration then runs
+under that retained lineage: its status, approvals, plan reviews, and receipts stay bound to the
+creating revision. The signed source evidence carries both the kit's `source_commit` and the
+retained `foundation_source_commit`, so source verification accepts exactly those two revisions.
+The continuation re-verifies completed Foundation checkpoints under the revision that created them,
+including the retained runner-image receipt, and already satisfied effects are recovered through
+their retained claims and independent readback instead of being repeated. The
+coordinator then rebuilds a no-effect Foundation adoption receipt from that retained, verified
+chain and binds it to the newer kit, so the managed host accepts the kit only through that
+evidence. It refuses to approve a new Foundation plan under the retained lineage, because a plan computed from
+the newer kit must not carry the older revision's provenance. A Foundation configuration change
+therefore needs a reviewed lineage transition, which isn't implemented yet. Application plans
+keep the existing rule: the invocation approves the non-destructive exact plan it shows, and
+deleting or replacing an existing resource still needs the explicit extra confirmation.
+
 A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
 ## Capability token behavior
@@ -673,10 +729,11 @@ human approval, executor identity, and effect verification remain separate contr
 
 ## Deployment appliance
 
-Removed. Constitution Article 1 defines exactly two installation paths, the one-command source
-deployment and a signed offline package, and states that installation tooling adds no other
-gate. An appliance image was a third packaging of the same kit, so its builder and runner are gone
-and no release step produces one.
+Removed. Constitution Article 1 defines exactly three installation paths: the one-command source
+deployment, a signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md),
+which is designed but not implemented. It also states that installation tooling adds no other
+gate. An appliance image was another packaging of the same kit rather than one of those paths, so
+its builder and runner are gone and no release step produces one.
 
 ## Result contract
 
@@ -693,6 +750,12 @@ enabled endpoint health; keeping those checks does not restore a workflow-based 
 All machine output uses stable English keys and excludes credentials, raw state, tenant values,
 and secret content. Private local and managed-host directories use mode `0700`; sensitive files
 use mode `0600`.
+
+Managed-host checkpoint failures return one bounded structured failure record to the workstation.
+The record carries a fixed reason code, a redacted provider excerpt, and any Azure provider error
+codes such as `OverconstrainedZonalAllocationRequest`, `AllocationFailed`, or
+`ParameterOutOfRange`. The excerpt is length-limited and redacts resource IDs, GUIDs, hostnames,
+tokens, and secret-like assignments before the local coordinator renders it.
 
 ## Related docs
 

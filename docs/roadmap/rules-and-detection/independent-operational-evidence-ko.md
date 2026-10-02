@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 98ca7e59f3f055b1cfad8c1f860fe4d5d1440c49
-translation_revised: 2026-10-01
+translation_source_sha: 305fa342ec5fb0277c8f87f18ab1a6c29de8d819
+translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
 
@@ -14,8 +14,9 @@ translation_revised: 2026-10-01
 > 종료 조건 1에 대한 설계 검토를 마쳤으며, 내용은 [검토 결정](#검토-결정)에 있습니다.
 > 검증기 엔진, 발급 경로, 고정된 신뢰 레지스트리와 사례 범위 권한 부여 레지스트리, 삽입 전용 증명 저장소,
 > Operator 인증 증적, 세 가지 테스트 맥락 재확인, 연결되지 않은 사례 이력
-> 재확인 모듈, 모든 소비 소유자의 유형별 기록, Settings 준비 상태 관측이 구현되어 로컬 검사를 통과합니다.
-> [구현 참고 사항](#구현-참고-사항)을 확인하세요. 배포된 검증기 워크로드는 없으며, 출처 재확인이 연결되지 않은 예측 목적은 `unavailable` 상태를 유지합니다.
+> 재확인 모듈, 모든 소비 소유자의 유형별 기록, Settings 준비 상태 관측, 선택형 배포 검증기 워크로드 렌더러가
+> 구현되어 로컬 검사를 통과합니다. [구현 참고 사항](#구현-참고-사항)을 확인하세요. 연결된 배포 검증기 시작은 아직
+> 관측되지 않았으며, 출처 재확인이 연결되지 않은 예측 목적은 `unavailable` 상태를 유지합니다.
 >
 > **에이전트 경계:** 판테온은 정확히 15개 에이전트로 유지합니다. 이 설계는 에이전트나 토픽을 추가하지 않고,
 > 어떤 에이전트의 `owns`나 `subscribes`도 바꾸지 않으며, 실행 권한이나 승격 권한을 부여하지 않습니다.
@@ -33,6 +34,9 @@ translation_revised: 2026-10-01
 수락하거나 검증기 재확인을 충족하거나 실행 권한을 부여하지 않습니다.
 봉인된 Core 전용 행 신원은 후속 읽기의 재인가 피연산자일 뿐이며, 검증기 출처 산출물, 수락 기록 또는
 증명 자료가 아닙니다.
+기준선 평가 터미널 기록도 같은 근거 경계를 사용합니다. Rule별 결과와 세대별 완료 계약은 Forseti 평가
+증적과 Saga 감사 기록을 참조할 수 있지만, 계약 자체는 독립 운영 근거를 발급하거나 검증기를 배포하거나
+실제 공급자 상태를 증명하지 않습니다.
 
 ## 현재 상태와 공백
 
@@ -416,7 +420,11 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   등록된 생산자 토큰 인증기, 자체 역할 재확인이 필요합니다. `deployment_preflight.py`는 실행기 계열 앵커 집합을 만들고,
   `operational_evidence_caller_auth.py`는 수명이 짧은 호출자 토큰을 검증한 뒤 폐기하며,
   `own_role_readback.py`는 부분 재확인, 해석할 수 없는 역할 정의, 신원 불일치, vault 전체 시크릿 접근, 다른 시크릿 접근, 정확히 렌더링된 읽기 범위를 벗어난 쓰기/데이터 플레인 역할을 거부합니다.
-  Terraform은 내부 ingress만 렌더링합니다. 현재 호출자 인증기는 배포가 제공한 JWKS 스냅샷을 사용합니다. 알 수 없는
+  Terraform은 내부 ingress만 렌더링합니다. AKS 독립 실행형 렌더러는 배포 소유 레지스트리 고정값, 앵커,
+  호출자 토큰 검증 데이터, 작성자 멤버십 정책, 역할 재확인 범위, 전용 검증기 신원이 있을 때만 같은 검증기를
+  별도 내부 워크로드로 렌더링할 수 있습니다. 루트 Terraform 단계는 사용 설정된 경우에만 그 신원을 만들고, 이미지
+  pull과 정확한 상태 저장소 DSN 시크릿만 부여하며, 같은 구성에서 만든 Managed Identity 역할 할당에
+  `principal_type = "ServicePrincipal"`을 사용합니다. 현재 호출자 인증기는 배포가 제공한 JWKS 스냅샷을 사용합니다. 알 수 없는
   `kid`는 나중에 제한된 JWKS 갱신 provider가 추가될 때까지 명확한 인증 거부입니다. 워크로드는 자신의 검증기 버전에
   해당하는 정확한 바인딩으로만 발급하므로, 일상적 교체 후에도 이전 워크로드와 이미 보관된 발급 기록은 만료될 때까지 유효하고, 철회 개정은 이를 폐기합니다. 재실행된
   시도는 동시에 실행된 작성자가 먼저 삽입한 경우에도 저장된 결과를 반환하며, 다른 조회에 다시 사용된 시도 ID는
@@ -446,7 +454,19 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 - **재확인.**  `operator-test-context-command`, `test-context-transition`, `operational-test-context`는 실제 출처를
   읽습니다. 현재 맥락은 인용한 전이 발급 기록의 조회가 그 맥락과 직전 기록으로 다시 만든 조회와 같을 때만 인정되며,
   다른 발급 기록을 인용하면 `replay_substituted`입니다. `admit`은 보관된 기록마다 정확한 검증기 바인딩과 현재 앵커
-  기준의 그 바인딩 준비 상태를 다시 확인합니다. `operational-test-observation`과 `current-case-reuse`는 아직 연결되지 않았습니다. 관측 공급자는 검증기 신원으로 사용할 수 없습니다. 사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조, Core에서 Bragi로 이어지는 참조 전파, 연결된 정확한 재확인 모듈이 있습니다. Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을 수용하는 Core가 배포된 뒤에만 켤 수 있습니다. 이 설정을 켜면 Operator가 참조를 보내기 전에 본문 없는 증적을 기록하므로 Core는 해소할 수 없는 참조를 받지 않습니다. 현재 재사용에는 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다. 출처별 예측 이력과 `forecast-context` 목적에도 아직 연결된 출처 재확인이 없습니다.
+  기준의 그 바인딩 준비 상태를 다시 확인합니다. `forecast-history-changes`와
+  `forecast-history-resource_lifecycle` 목적은 이제 #1021이 제공한 `changes`와 `resource_lifecycle`
+  생산자를 사용해 `operational_state_transition*`의 실제 파생 출처 행을 읽습니다.
+  `forecast-history-actions`는 제한된 대상 범위의 Thor/Saga 작업 감사 reader가 없어 계속 사용할 수 없고,
+  `forecast-history-excluded_windows`는 revision이 있는 `ChangeWindow` 이력 생산자가 없어 계속 사용할 수 없습니다.
+  `forecast-context`는 같은 범위, 대상, 구간에 대한 네 개의 출처별 forecast-history 검증 증적이 모두 생길 때까지
+  사용할 수 없습니다. `operational-test-observation`과 `current-case-reuse`도 아직 연결되지 않았습니다. 관측
+  공급자는 검증기 신원으로 사용할 수 없고, 현재 재사용에는 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다.
+  사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조,
+  Core에서 Bragi로 이어지는 참조 전파, 연결된 정확한 재확인 모듈이 있습니다. Operator 설정
+  `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을
+  수용하는 Core가 배포된 뒤에만 켤 수 있습니다. 이 설정을 켜면 Operator가 참조를 보내기 전에 본문 없는 증적을
+  기록하므로 Core는 해소할 수 없는 참조를 받지 않습니다.
 - **공유 권한 부여 검증.** 사례 범위 권한 부여 레지스트리 로더와 권한 부여 모델은 공유 서비스 계약 SDK에 포함되며 Core가 이를 다시 내보냅니다. Operator의 테스트 컨텍스트 선택 변환은 별도 권한 부여 검증기를 두지 않고 같은 로더를 콘텐츠 고정값과 함께 사용합니다.
 - **기능 상태와 인계.** `delivery/operational_evidence_readiness.py`는 목적마다 Settings 행 하나를 추가합니다. 런타임
   Settings 구체화는 모든 실패를 관측되지 않음으로 처리하는 제한된 읽기로 검증기 준비 상태 엔드포인트를 한 번
@@ -456,7 +476,19 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   정상으로 보고할 때만 `available`입니다. 충족하지 못한 전제 조건은 각각 이름이 표시되고, 구성만으로는 행을 사용 가능하게 만들 수 없으며, 사용 가능 여부는
   권한을 부여하지 않습니다.
   `delivery/operational_evidence_handoff_cli.py`는 자동화할 수 있는 연결 환경 인계 단계를 실행하며 남은 훈련을
-  나열합니다.
+  나열합니다. 별도의 연결 환경 승인을 받은 뒤 워크로드의 배포 제공 환경을 적재한 상태에서 조정자는 다음 명령을
+  실행합니다.
+
+  ```bash
+  FDAI_OPERATIONAL_EVIDENCE_HANDOFF_AUTHORIZED=1 \
+    .venv/bin/python -m fdai.delivery.operational_evidence_handoff_cli run \
+    --venue connected \
+    --root /app
+  ```
+
+  이 명령은 본문 없는 인계 증적을 만들고 신원, 레지스트리, 작성자 재확인, 준비 상태, 긍정 발급, 부정 훈련,
+  중지 조건 관측 중 처음 누락된 단계에서 멈춥니다. 독립 운영 자격 검증은 아니며, 그 범위는 #1026에 남아
+  있습니다.
 
 ## 목표가 아닌 것
 
@@ -489,3 +521,4 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 | 의사결정 핵심 근거 규칙 | [FDAI 헌법](../architecture/fdai-constitution-ko.md) |
 | 에이전트 소유권 및 토픽 | [에이전트 판테온](../agents/agent-pantheon-ko.md) |
 | 고정된 배포 소유 출처 | [배포 소유 Operating-Intent 출처](../architecture/operating-intent-source-ko.md) |
+| 공유 Workflow 검증 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |

@@ -32,6 +32,7 @@ from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
 from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.target import compute_target_binding
@@ -243,44 +244,63 @@ def deploy_standalone_application(
                 ("prepare-runtime",),
                 timeout=1800,
             )
-            runtime_recovery = _remote_json(
-                tunnel,
-                remote_root,
-                app_work,
-                ("recover-apply", "--stage", "runtime"),
-                timeout=3600,
-            )
-            if runtime_recovery.get("state") == "applied":
-                runtime_receipt = runtime_recovery
-            else:
-                runtime_plan, runtime_apply_command = _plan_after_recovery(
+            runtime_receipt: dict[str, Any] | None = None
+            for runtime_phase in range(2):
+                runtime_recovery = _remote_json(
                     tunnel,
                     remote_root,
                     app_work,
-                    runtime_recovery,
-                    stage="runtime",
+                    ("recover-apply", "--stage", "runtime"),
                     timeout=3600,
                 )
-                deadline.remaining()
-                runtime_approval = _approve_plan(prepared.root, runtime_plan, deadline=deadline)
-                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
-                tunnel.copy_to(runtime_approval, remote_approval, timeout=120)
-                runtime_receipt = _remote_json(
-                    tunnel,
-                    remote_root,
-                    app_work,
-                    (
-                        runtime_apply_command,
-                        "--stage",
-                        "runtime",
-                        "--approval",
-                        remote_approval,
-                    ),
-                    timeout=7200,
+                if runtime_recovery.get("state") == "applied":
+                    runtime_receipt = runtime_recovery
+                else:
+                    runtime_plan, runtime_apply_command = _plan_after_recovery(
+                        tunnel,
+                        remote_root,
+                        app_work,
+                        runtime_recovery,
+                        stage="runtime",
+                        timeout=3600,
+                    )
+                    deadline.remaining()
+                    runtime_approval = _approve_plan(prepared.root, runtime_plan, deadline=deadline)
+                    tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+                    tunnel.copy_to(runtime_approval, remote_approval, timeout=120)
+                    runtime_receipt = _remote_json(
+                        tunnel,
+                        remote_root,
+                        app_work,
+                        (
+                            runtime_apply_command,
+                            "--stage",
+                            "runtime",
+                            "--approval",
+                            remote_approval,
+                        ),
+                        timeout=7200,
+                    )
+                    runtime_approval.unlink(missing_ok=True)
+                    tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+                _require_receipt(runtime_receipt, "runtime")
+                if runtime_receipt.get("operation") != "runtime-cluster":
+                    break
+                if runtime_phase == 1:
+                    raise ValueError("fresh AKS runtime ordering did not reach the association")
+                progress_detail(
+                    "Planning Container Insights association after AKS cluster creation"
                 )
-                runtime_approval.unlink(missing_ok=True)
-                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+            if runtime_receipt is None:
+                raise ValueError("runtime apply receipt is unavailable")
             _require_receipt(runtime_receipt, "runtime")
+        if selected_runtime.runtime_platform.value == "aks" and runtime_receipt is None:
+            raise ValueError("runtime apply receipt is unavailable")
+        runtime_receipt_digest = ""
+        if selected_runtime.runtime_platform.value == "aks":
+            if runtime_receipt is None:
+                raise ValueError("runtime apply receipt is unavailable")
+            runtime_receipt_digest = str(runtime_receipt["receipt_digest"])
         binding_receipt = _remote_json(
             tunnel,
             remote_root,
@@ -528,11 +548,7 @@ def deploy_standalone_application(
         "initial_inventory_receipt_digest": initial_inventory["receipt_digest"],
         "catalog_review_receipt_digest": catalog_review["receipt_digest"],
         "catalog_review_state": catalog_review["state"],
-        "runtime_receipt_digest": (
-            runtime_receipt["receipt_digest"]
-            if selected_runtime.runtime_platform.value == "aks"
-            else ""
-        ),
+        "runtime_receipt_digest": runtime_receipt_digest,
         "database_receipt_digest": (
             database_receipt["receipt_digest"]
             if selected_runtime.database_placement.value == "postgres-aks"
@@ -613,6 +629,19 @@ def _remote_json(
         input_text=input_text,
     )
     if result.returncode != 0:
+        failure = _remote_failure(result)
+        if failure is not None:
+            codes = failure.get("provider_error_codes")
+            code_text = (
+                f"; provider_error_code={','.join(str(code) for code in codes)}"
+                if isinstance(codes, list) and codes
+                else ""
+            )
+            raise ValueError(
+                "standalone managed-host checkpoint failed: "
+                f"reason_code={failure['reason_code']}{code_text}; "
+                f"excerpt={failure['message_excerpt']}"
+            )
         raise ValueError("standalone managed-host checkpoint failed")
     try:
         value = json.loads(result.stdout)

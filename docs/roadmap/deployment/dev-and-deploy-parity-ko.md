@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 7b018189da68b6ea1f99b493dcddd9ced7852c7b
-translation_revised: 2026-10-01
+translation_source_sha: 82c50fe91b76bd1c91af08caa4d6efe2b5c51a99
+translation_revised: 2026-10-02
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -530,6 +530,10 @@ Trial 만료 워터마크도 같은 규칙을 따릅니다. 로컬과 배포된 
 체크아웃은 사용권이 없는 배포와 같은 워터마크를 표시합니다. 어떤 실행 장소, 테스트 대역,
 설정도 워터마크를 숨기지 않습니다.
 
+계획된 [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)도 같은 규칙을 따릅니다. 설치 경로는
+독립 축입니다. Hub 관리형 설치는 소스 설치나 오프라인 패키지 설치와 같은 권위 있는 소스, 계약,
+런타임 범위 증적을 바인딩하며, 수명 주기 에이전트는 컨트롤 플레인 동작을 바꾸지 않습니다.
+
 ## 배포자-스코프 LLM 프로비저닝
 
 Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석기를 실행하고 적용할 정확한 매니페스트를 봉인합니다. Terraform은 해당 publisher의 기능이 해석될 때만 각 provider 계정을 만들므로 파트너 전용 결과는 Foundry를 유지하고 Azure OpenAI 계정 할당량을 요청하지 않습니다. 개발 게이트웨이 대상 계획도 기존 종속성을 보존하도록 현재 기능 맵을 해석합니다. 대상 집합에 cognitive deployment가 없으므로 완결성 결과는 차단하지 않습니다.
@@ -575,6 +579,9 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
   없으면 범위가 제한된 프로세스 내 EventBus/SSE를 사용하며 recording/in-memory 실행기는 연결하지 않습니다.
 - `Reader` 롤만 있는 fresh 구독에서 `enable_llm=false` 로 Terraform 계획 성공 →
   LLM 모듈이 정말 명시적 선택 임을 증명.
+- 모든 `infra/services/*` 루트가 CI에 고정된 Terraform으로 오프라인 초기화와 `terraform validate`를
+  통과합니다. 이 루트들은 `service-deploy.yml`이 배포하고 모든 offline 키트에 포함되므로, 구성
+  오류가 배포 중이 아니라 CI에서 실패합니다.
 - 녹화된 리전 카탈로그에 대한 해석기 예행 실행이 고정된 `resolved-models.json` 해시 →
   멱등성 증명.
 
@@ -583,3 +590,4 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/dev-and-deploy-parity.md) |
+| 로컬 및 배포된 Operator API가 쓰는 공유 Workflow 검증 컨텍스트 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |

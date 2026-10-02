@@ -13,6 +13,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from fdai_deployment_cli.azure_naming import selected_azure_region_short_name
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.plan_input import read_plan_input, write_plan_input
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
@@ -106,6 +107,13 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
             evidence_directory=root,
             create_runner_image=False,
             workload=args.workload,
+            region_short=selected_azure_region_short_name(
+                region=args.region,
+                subscription_id=target.subscription_id,
+                environment="dev",
+                workload=args.workload,
+                retained_variables=variables,
+            ),
         )
         write_plan_input(variables, values)
     source.reverify()

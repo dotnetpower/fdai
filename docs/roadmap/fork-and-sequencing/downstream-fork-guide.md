@@ -73,6 +73,8 @@ The axes remain independent:
 | Evidence profile | authoritative, fixture | no |
 | Autonomy | shadow, enforce per capability | no |
 | Human and executor identity | Entra App Roles, Managed Identity | no |
+| Installation path and release channel | source, offline package, Hub-managed; `DEV`, `RELEASE_CANDIDATE`, `RELEASE` | no |
+| Approval profile | multi-operator, single-operator production | no |
 
 One fork can have no deployments or several deployments in different environments. Upstream can
 also be deployed directly. `.fdai-fork`, `FDAI_FORK`, and `git config fdai.fork true` enable

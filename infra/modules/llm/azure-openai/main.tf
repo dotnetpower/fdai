@@ -59,6 +59,7 @@ resource "azurerm_role_assignment" "executor_openai_user" {
   scope                = azurerm_cognitive_account.primary.id
   role_definition_name = "Cognitive Services OpenAI User"
   principal_id         = var.executor_principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "additional_openai_user" {

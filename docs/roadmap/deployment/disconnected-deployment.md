@@ -3,7 +3,7 @@ title: Disconnected Deployment
 ---
 # Disconnected Deployment
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document is the single owner for deploying FDAI into a network that blocks public internet
 egress - a regulated financial tenant, a sovereign enclave, or a fully air-gapped site. It states
@@ -270,6 +270,26 @@ changed package requires a new prepared context. The deployment result reports t
 digest and version beside the kit source commit. The control package grants no approval, apply, or
 runtime authority.
 
+#### Upgrading an existing offline installation
+
+To continue an offline-package installation with a newer signed kit, rerun the same work
+directory:
+
+```bash
+scripts/deployment/azure/fdai-up.sh \
+  --offline-kit <newer-kit.tar.gz> \
+  --work-dir <existing-work-dir>
+```
+
+The coordinator verifies the newer kit, rotates the previous retained kit snapshot and
+managed-host transport archive into local review directories, and keeps the existing Foundation
+identity. Foundation variables keep the source revision that created the Foundation. The new kit
+source is recorded as the application revision, so application stages and managed-host work
+contexts pick up the new Terraform, runtime payloads, and CLI by kit manifest digest. A
+non-destructive Foundation plan is approved by the invocation that shows it. A plan that deletes
+or replaces an existing resource still requires the existing explicit extra confirmation before
+the effect.
+
 ### 5. Keep the rule catalog fresh without public egress
 
 The signed deployment bundle already carries the rule-catalog schema, the deployment profiles, and
@@ -438,3 +458,4 @@ bootstrap and complete new-subscription runtime installation remain separate, op
 | The CLI facade, signed bundles, and exact-plan apply | [installable-deployment-cli.md](installable-deployment-cli.md) |
 | Establishing and rotating the offline trust root | [offline-trust-ceremony.md](../../runbooks/offline-trust-ceremony.md) |
 | Recovering from a rejected kit or a blocked plan | [deployment-recovery.md](../../runbooks/deployment-recovery.md) |
+| Offline upgrades through a Target Hub | [Hub-Managed Lifecycle](hub-managed-lifecycle.md) |

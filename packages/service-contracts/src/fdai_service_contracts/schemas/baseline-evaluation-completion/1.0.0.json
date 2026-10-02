@@ -1,0 +1,129 @@
+{
+  "additionalProperties": false,
+  "description": "Completion record proving the current generation/catalog denominator is covered.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "generation_id": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Generation Id",
+      "type": "string"
+    },
+    "generation_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Generation Digest",
+      "type": "string"
+    },
+    "inventory_observation_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Inventory Observation Digest",
+      "type": "string"
+    },
+    "catalog_revision": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Catalog Revision",
+      "type": "string"
+    },
+    "expected_denominator": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Expected Denominator",
+      "type": "integer"
+    },
+    "compliant_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Compliant Count",
+      "type": "integer"
+    },
+    "violated_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Violated Count",
+      "type": "integer"
+    },
+    "abstained_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Abstained Count",
+      "type": "integer"
+    },
+    "outcome_set_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Outcome Set Digest",
+      "type": "string"
+    },
+    "completion_receipt_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Completion Receipt Ref",
+      "type": "string"
+    },
+    "completion_receipt_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Completion Receipt Digest",
+      "type": "string"
+    },
+    "saga_audit_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Saga Audit Ref",
+      "type": "string"
+    },
+    "saga_audit_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Saga Audit Digest",
+      "type": "string"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "complete": {
+      "const": true,
+      "default": true,
+      "title": "Complete",
+      "type": "boolean"
+    },
+    "projection_authority": {
+      "const": false,
+      "default": false,
+      "title": "Projection Authority",
+      "type": "boolean"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    },
+    "completion_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Completion Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "generation_id",
+    "generation_digest",
+    "inventory_observation_digest",
+    "catalog_revision",
+    "expected_denominator",
+    "compliant_count",
+    "violated_count",
+    "abstained_count",
+    "outcome_set_digest",
+    "completion_receipt_ref",
+    "completion_receipt_digest",
+    "saga_audit_ref",
+    "saga_audit_digest",
+    "completed_at",
+    "completion_digest"
+  ],
+  "title": "BaselineEvaluationCompletion",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/baseline-evaluation-completion/1.0.0"
+}

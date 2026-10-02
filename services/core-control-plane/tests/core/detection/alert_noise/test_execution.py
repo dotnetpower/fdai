@@ -21,6 +21,7 @@ import pytest
 from fdai.core.detection.alert_noise.execution import (
     ALERT_ACTIONS,
     AlertActionExecution,
+    AlertExecutionHeld,
     alert_execution_key,
     alert_publication_digest,
 )
@@ -100,6 +101,16 @@ class _FixtureFence:
             raise PermissionError("test-only authority lease lost")
 
 
+class _HoldingFence:
+    """Simulate a provider writer with neither conditional updates nor exclusive proof."""
+
+    @asynccontextmanager
+    async def hold(self, **kwargs: Any) -> AsyncIterator[_FixtureFence]:
+        del kwargs
+        raise AlertExecutionHeld("alert_provider_conditional_update_or_exclusive_writer_missing")
+        yield _FixtureFence()  # pragma: no cover
+
+
 class _FixtureAuthority:
     """Simulate independent Var/risk observations without fabricating runtime bindings."""
 
@@ -112,6 +123,9 @@ class _FixtureAuthority:
 
     async def approvals(self, plan: Any) -> tuple[AlertApproval, ...]:
         return self.decisions
+
+    def allows_development_single_owner_quorum(self, plan: Any) -> bool:
+        return False
 
 
 class _FixtureSource:
@@ -413,6 +427,18 @@ async def test_real_coordinator_publishes_only_manual_pr_evidence(harness: Simpl
         for event in await h.processes.events("process:alert")
     )
     assert [row["entry"]["audit_phase"] for row in h.store.audit_entries] == ["intent", "terminal"]
+
+
+async def test_provider_without_conditional_updates_or_exclusive_writer_is_held(
+    harness: SimpleNamespace,
+) -> None:
+    h = harness
+    result = await h.make(fence=_HoldingFence()).execute(
+        action=h.action, rule=h.rule, execution_path=ExecutionPath.PR_MANUAL
+    )
+    assert result.outcome is ExecutorOutcome.REJECTED_INVARIANT
+    assert result.reason == "alert_provider_conditional_update_or_exclusive_writer_missing"
+    assert h.publisher.calls == 0
 
 
 async def test_shadow_never_reads_authority_or_publishes(harness: SimpleNamespace) -> None:

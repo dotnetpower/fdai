@@ -64,7 +64,7 @@ Design documents govern published architecture and behavior, not contract-preser
   and kill switches stay authoritative. Flag tests MUST cover defaults, Settings authorization,
   persistence / audit, unavailable degradation, and shadow / enforce independence.
 - **Full-authority development profile:** in an exact test tenant, subscription, and optional
-  resource-group scope, one Owner MAY enable, promote, demote, execute, and roll back any registered ActionType; default and production authority remain unchanged.
+  resource-group scope, one Owner MAY enable, promote, demote, execute, and roll back any registered ActionType; default and production authority remain unchanged. A single-operator production profile MAY let one named operator approve with an effective quorum of one inside normal risk classes.
 - Use distinct local variable names for unrelated types in separate branches. Strict mypy fixes
   the inferred type from the first assignment, so reusing one name for different page, result, or
   record types creates avoidable type-check failures.
@@ -137,13 +137,13 @@ Design documents govern published architecture and behavior, not contract-preser
   (`pr_revert` / `scripted` / `pitr` / `snapshot_restore` / `state_forward_only`) - the
   legacy `none` value is gone. A genuinely one-way mutation sets `irreversible: true` and
   is routed HIL+quorum by the risk-gate; it never uses `rollback_contract` to silence the
-  invariant. The full-authority development profile records the original quorum but MAY use the sole Owner as the effective quorum without inventing identities. Preconditions and stop_conditions belong on the ActionType, not the executor.
+  invariant. The full-authority development and single-operator production profiles record the original quorum but MAY use their one approver as the effective quorum without inventing identities. Preconditions and stop_conditions belong on the ActionType, not the executor.
 - Autonomous actions MUST be idempotent: re-delivery of the same event or a retried action
   MUST NOT cause duplicate changes. Use a stable idempotency key and deduplicate on it.
 - Default new actions to **shadow mode** (judge and log only) - every upstream ActionType
   declares `default_mode: shadow` and a measurable `promotion_gate`. Promotion to enforce
   is an explicit, separately reviewed change, never bundled with the capability's first PR,
-  and MUST measure the promotion_gate on the frozen scenario set before merging. The full-authority development profile MAY promote or roll back immediately in its test scope, but its receipt cannot satisfy production promotion.
+  and MUST measure the promotion_gate on the frozen scenario set before merging. The full-authority development profile MAY promote or roll back immediately in its test scope, but its receipt cannot satisfy production promotion. An installation operator's attributed override promotion changes only that installation's registry and never satisfies upstream promotion evidence.
 - The audit log is append-only and MUST record, per action: event id, tier, decision,
   idempotency key, actor identity, timestamp, shadow-vs-enforce mode, and rollback reference.
 

@@ -41,6 +41,8 @@ async def _quorum(
     executor: str,
     floor: datetime,
     end: datetime,
+    *,
+    allow_development_owner_quorum: bool = False,
 ) -> tuple[str, datetime]:
     """Match exact scoped decisions and immutable journal reads, never normalized aliases."""
     identities = dict(reader._principal_refs)
@@ -58,15 +60,26 @@ async def _quorum(
     decisions = context.approvals
     principals = {item.principal_ref for item in decisions}
     receipts = {item.receipt_ref for item in decisions}
+    production_quorum = (
+        len(principals) == len(decisions)
+        and len(receipts) == len(decisions)
+        and {item.lane for item in decisions} == {"service_owner", "change_owner"}
+        and {ref for item in decisions if item.lane == "service_owner" for ref in item.service_refs}
+        == set(plan.service_refs)
+    )
+    development_owner_quorum = (
+        allow_development_owner_quorum
+        and len(decisions) == 1
+        and len(principals) == 1
+        and len(receipts) == 1
+        and decisions[0].lane == "change_owner"
+        and set(plan.service_refs).issubset(decisions[0].service_refs)
+    )
     if (
-        len(principals) != len(decisions)
-        or len(receipts) != len(decisions)
-        or principals.intersection({plan.requester_ref, executor})
+        principals.intersection({plan.requester_ref, executor})
         or plan.requester_ref == executor
         or not (principals | {plan.requester_ref, executor}).issubset(identities.values())
-        or {item.lane for item in decisions} != {"service_owner", "change_owner"}
-        or {ref for item in decisions if item.lane == "service_owner" for ref in item.service_refs}
-        != set(plan.service_refs)
+        or not (production_quorum or development_owner_quorum)
     ):
         raise AlertExecutionHeld("alert_approval_quorum_mismatch")
     now = reader._clock()
