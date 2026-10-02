@@ -1,0 +1,32 @@
+[project]
+name = "fdai-governed-chaos-provider"
+dynamic = ["version"]
+description = "Scenario-lab governed Chaos provider bindings for FDAI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fdai-core-control-plane==0.1.3",
+]
+
+[project.entry-points."fdai.governed_chaos"]
+catalog-scenario = "fdai_governed_chaos_provider:build_governed_chaos_bindings"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai-core-control-plane = { workspace = true }
+
+[tool.hatch.version]
+path = "src/fdai_governed_chaos_provider/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_governed_chaos_provider"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/fdai_governed_chaos_provider",
+    "README.md",
+    "pyproject.toml",
+]
