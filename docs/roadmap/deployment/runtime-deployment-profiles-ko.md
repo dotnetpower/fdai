@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0e344f17ae9127b7ac3d4cdd0d0ac364f2fb942c
+translation_source_sha: 9286e4fac0dc08ebdf55d49fd4db67f8fd6cb025
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -345,7 +345,9 @@ replica-local TCP sidecar로 포함하며, 이미지 entrypoint가 데이터베�
 namespace에서는 워크로드, init container, sidecar, 예약 작업의 Pod와 container 범위 모두에
 `runAsNonRoot`가 필요합니다. Pod 범위 설정만으로는 admission을 통과하지 못합니다. Core는 공유
 root의 Event Hubs 시작 시간 설정을 받고, Core와 Operator는 substrate 단계가 만드는 secret 단위
-`Key Vault Secrets User` 권한으로 `operator_request` 영수증 seed를 읽습니다.
+`Key Vault Secrets User` 권한으로 `operator_request` 영수증 seed를 읽습니다. 구조 테스트는
+AKS 렌더러가 지정하는 모든 Key Vault secret이 substrate 대상 리소스, `postgres-aks` 데이터베이스
+root 또는 호스트가 작성하는 라이선스 secret 중 하나에서 오는지 확인합니다.
 
 선택적인 운영 근거 검증기는 자체 user-assigned Managed Identity를 사용하는 별도 내부 워크로드입니다.
 기본 5개 서비스 준비 상태 집합에 포함되지 않으며 실행기 신원을 받지 않습니다. 호출자 인증기, 실행기

@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import inspect
 import re
 from pathlib import Path
 
 import pytest
 
-from fdai_deployment_cli import standalone_stage_targets
+from fdai_deployment_cli import (
+    aks_workload_jobs,
+    standalone_host,
+    standalone_license_installation,
+    standalone_stage_targets,
+)
 from fdai_deployment_cli.standalone_host_values import (
     AKS_CORE_STARTUP_READINESS,
     aks_operator_request_receipts,
@@ -143,3 +149,51 @@ def test_each_seed_reader_is_scoped_to_one_secret_and_one_identity(
     )
     assert 'role_definition_name = "Key Vault Secrets User"' in block
     assert f"principal_id         = {principal}" in block
+
+
+_SECRET_REFERENCE = re.compile(r'"[A-Z][A-Z0-9_]+"\s*:\s*"(fdai-[a-z0-9-]+)"')
+_SECRET_RESOURCE = re.compile(
+    r'resource "azurerm_key_vault_secret" "([a-z0-9_]+)" \{[^}]*?\n\s+name\s*=\s*"([a-z0-9-]+)"'
+)
+# The managed host writes and reads back the license secret; Terraform never owns it.
+_HOST_WRITTEN_SECRETS = frozenset({standalone_license_installation.LICENSE_SECRET_NAME})
+
+
+def _secret_sources(root: Path) -> dict[str, str]:
+    return {
+        name: f"azurerm_key_vault_secret.{resource}"
+        for path in sorted(root.glob("*.tf"))
+        for resource, name in _SECRET_RESOURCE.findall(path.read_text(encoding="utf-8"))
+    }
+
+
+def test_every_aks_workload_secret_reference_has_a_targeted_or_host_written_source() -> None:
+    rendered = "".join(
+        inspect.getsource(item)
+        for item in (
+            standalone_host._prepare_aks_application,
+            standalone_host._aks_document_workloads,
+            aks_workload_jobs,
+        )
+    )
+    referenced = set(_SECRET_REFERENCE.findall(rendered))
+    assert {"fdai-state-store-dsn", "fdai-ingestion-api-dsn", "fdai-ingestion-worker-dsn"} <= (
+        referenced
+    )
+    _license_environment, license_secrets = standalone_license_installation.aks_license_environment(
+        {"license": {"token_secret_id": "id", "image_digest": "digest", "token_revision": "1"}}
+    )
+    assert set(license_secrets.values()) <= _HOST_WRITTEN_SECRETS
+    shared = _secret_sources(_INFRA)
+    database = _secret_sources(_INFRA / "runtimes" / "aks" / "database")
+
+    for placement in ("postgres-flex", "postgres-aks"):
+        targets = set(
+            standalone_stage_targets.substrate_targets(
+                {"runtime_profile": {"runtime_platform": "aks", "database_placement": placement}}
+            )
+        )
+        for name in sorted(referenced - _HOST_WRITTEN_SECRETS):
+            from_substrate = shared.get(name) in targets
+            from_database = placement == "postgres-aks" and name in database
+            assert from_substrate or from_database, (placement, name)
