@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: bbfe84713995ab4b42a108a9d6c263c604fe4f10
+translation_source_sha: df59a999b09dbb947734e51567b1ee7fcb8f452d
 translation_revised: 2026-10-02
 ---
 # Hub 관리형 수명 주기
@@ -32,6 +32,18 @@ hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객
 | 업그레이드 | 유지 관리 구간 안에서 자동으로 적용합니다. 구성 변경에는 승인된 변경 요청이, Azure 리소스 삭제나 교체에는 확인이 필요합니다. |
 | 데이터 경계 | Hub는 Azure 자격 증명, 비밀 값, 운영 데이터를 보관하지 않습니다. 경계를 넘는 것은 수명 주기 메타데이터뿐입니다. |
 | 기록 | cell이나 Target Hub마다 Hub PostgreSQL을 두고, 설치 증적은 Foundation 스토리지에 추가 전용으로 남깁니다. |
+
+## 핵심 개념
+
+설계 전체는 네 가지 개념으로 이루어집니다. 이 개념들을 분리해 두어야 제품 하나가 포크 없이 모든
+고객에게 쓰일 수 있습니다.
+
+| 개념 | 정의 | 소유자 | 변경 방법 | 위치 |
+|------|------|--------|-----------|------|
+| 제품 | 모든 고객에게 동일한 서명된 Release로 제공되는 FDAI 자체 | 공급업체 | Release 파이프라인, 채널 승격, 회수 | Release 카탈로그 |
+| 설치 | 고객 경계 하나 안에 있는 FDAI 배포 하나로, Apollo의 Environment에 해당합니다. 고객은 여러 설치를 가질 수 있습니다. | 고객 | 등록, 채널 구독, Entity 설정 | Hub의 `installation` 및 `entity` 테이블 |
+| 구성 | 설치 하나에 대해 원하는 값인 Environment Config와 Entity 재정의 블록입니다. 권한은 절대 담지 않습니다. | 고객 | 고객 Git의 검토된 병합을 서명된 패키지로 전달 | 고객 Git, 이어서 Hub 구성 테이블 |
+| 런타임 상태 | 설치가 실제로 실행하고 관측하는 것: 보고 상태, 증적, 정책과 권한 상태, 운영 데이터 | 설치 | 에이전트와 관리되는 권한 경로만 | 설치 저장소. Hub는 수명 주기 메타데이터만 봅니다. |
 
 ## 설계와 비판 검토
 

@@ -727,10 +727,11 @@ human approval, executor identity, and effect verification remain separate contr
 
 ## Deployment appliance
 
-Removed. Constitution Article 1 defines exactly two installation paths, the one-command source
-deployment and a signed offline package, and states that installation tooling adds no other
-gate. An appliance image was a third packaging of the same kit, so its builder and runner are gone
-and no release step produces one.
+Removed. Constitution Article 1 defines exactly three installation paths: the one-command source
+deployment, a signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md),
+which is designed but not implemented. It also states that installation tooling adds no other
+gate. An appliance image was another packaging of the same kit rather than one of those paths, so
+its builder and runner are gone and no release step produces one.
 
 ## Result contract
 

@@ -32,6 +32,18 @@ loop, and the customer isolation boundary.
 | Data boundary | The Hub holds no Azure credential, secret value, or operational data. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
 
+## Core concepts
+
+Four concepts carry the whole design. Keeping them apart is what lets one product serve every
+customer without a fork.
+
+| Concept | What it is | Owner | Changes through | Lives in |
+|---------|------------|-------|-----------------|----------|
+| Product | FDAI itself, shipped as signed Releases that are identical for every customer | Vendor | Release pipeline, channel promotion, and recall | Release catalog |
+| Installation | One FDAI deployment inside one customer boundary, which Apollo calls an Environment. A customer can have several. | Customer | Enrollment, channel subscription, and Entity settings | Hub `installation` and `entity` tables |
+| Configuration | Desired values for one installation: Environment Config and Entity override blocks. It never carries authority. | Customer | Reviewed merge in customer Git, delivered as a signed package | Customer Git, then Hub configuration tables |
+| Runtime state | What the installation actually runs and observes: reported state, receipts, policy and authority state, and operational data | Installation | Agents and governed authority paths only | Installation stores. The Hub sees lifecycle metadata only. |
+
 ## Design and critique
 
 **Initial design:** A central control plane stores one desired state per customer, a five-layer
