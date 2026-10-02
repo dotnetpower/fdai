@@ -705,11 +705,37 @@ including the retained runner-image receipt, and already satisfied effects are r
 their retained claims and independent readback instead of being repeated. The
 coordinator then rebuilds a no-effect Foundation adoption receipt from that retained, verified
 chain and binds it to the newer kit, so the managed host accepts the kit only through that
-evidence. It refuses to approve a new Foundation plan under the retained lineage, because a plan computed from
-the newer kit must not carry the older revision's provenance. A Foundation configuration change
-therefore needs a reviewed lineage transition, which isn't implemented yet. Application plans
-keep the existing rule: the invocation approves the non-destructive exact plan it shows, and
-deleting or replacing an existing resource still needs the explicit extra confirmation.
+evidence. It does not approve a plan computed from the newer kit while that plan carries the
+retained revision as provenance.
+
+**Transition design:** The coordinator first compares precise Foundation inputs before it decides
+whether a transition exists. The trigger set is the Terraform root content used by Foundation, the
+provider lock, the bootstrap support files, the runner-image toolchain, the Terraform binary, and
+the retained runner-image observation digest. The whole deployment-bundle digest and the whole
+offline-kit manifest digest are excluded because those values change for every kit and don't prove
+Foundation configuration drift. When those inputs are unchanged, the continuation remains the
+verified #1811 path: no transition receipt is written and no new plan is computed.
+
+**Transition critique:** A retained `foundation-plan-attempt-*` review can be a legacy review that
+has no action `summary` and can be expired long before an upgrade. Such a review is enough to
+identify the retained input context for the pure continuation path, but it is not enough to approve
+or summarize a new transition. Similarly, setting `zero_change_verified: true` without running a
+plan from the newer kit would make the receipt look verified while proving nothing about the new
+Foundation configuration.
+
+**Transition revision:** When any trigger input differs, the coordinator computes the newer kit's
+Foundation plan against the authoritative remote Foundation state after state handoff. It reuses
+the Bastion-bound state-handoff machinery, the retained SSH key, run binding, profile, and host
+keys, but records the transition under the newer revision's provenance. A zero-change plan advances
+the lineage with a no-effect transition receipt. A non-destructive plan is approved by the
+invocation, claimed before effect, applied once, independently read back, and followed by a second
+zero-change plan. A delete, replacement, or runner-image/toolchain change that implies runner
+replacement keeps the existing exact typed confirmation requirement; without an interactive TTY it
+is refused. Interrupted transitions after a claim resume by verification only. Only after
+verification does the coordinator bind the retained apply, enrollment, state-handoff, authority,
+and transition receipts to the application lineage and advance `run/foundation-source-lineage.json`.
+Application plans keep the existing rule: the invocation approves the non-destructive exact plan it
+shows, and deleting or replacing an existing resource still needs the explicit extra confirmation.
 
 A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
