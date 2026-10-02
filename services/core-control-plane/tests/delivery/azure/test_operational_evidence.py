@@ -17,7 +17,10 @@ from fdai.delivery.azure.operational_evidence import (
     AzureTemporalCausalEvidenceProvider,
     AzureTemporalPolicy,
 )
-from fdai.delivery.azure.operational_evidence_readbacks import AzureMonitorTestObservationProvider
+from fdai.delivery.azure.operational_evidence_readbacks import (
+    AzureMonitorTestObservationProvider,
+    MetricProviderSampleClient,
+)
 from fdai.shared.contracts.models import Event
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
@@ -220,6 +223,37 @@ async def test_azure_monitor_test_observation_provider_uses_exact_scope_sources(
     assert record is not None
     assert record["observed_value"] == 80.0
     assert record["source_anchor"] == "anchor:azure-platform"
+
+
+async def test_metric_provider_sample_client_requires_exact_observed_bin() -> None:
+    provider = MetricProviderSampleClient(
+        StaticMetricProvider(
+            (
+                MetricPoint(
+                    metric_name="cpu_percent",
+                    at=_NOW,
+                    value=80.0,
+                    labels={"resource_id": _RESOURCE, "dim": "node"},
+                ),
+                MetricPoint(
+                    metric_name="cpu_percent",
+                    at=_NOW + timedelta(minutes=1),
+                    value=99.0,
+                    labels={"resource_id": _RESOURCE, "dim": "node"},
+                ),
+            )
+        )
+    )
+
+    sample = await provider.sample(
+        target_ref=_RESOURCE,
+        metric_name="cpu_percent",
+        dimensions={"dim": "node"},
+        aggregation="avg",
+        observed_at=_NOW,
+    )
+
+    assert sample == {"value": 80.0}
 
 
 async def test_current_reuse_adapter_requests_exact_independent_admission() -> None:

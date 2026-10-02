@@ -49,6 +49,7 @@ BOUND_READBACK_PURPOSES = frozenset(
         "forecast-history-excluded_windows",
         "forecast-history-resource_lifecycle",
         "forecast-context",
+        "operational-test-observation",
         "operational-test-context",
         "operator-test-context-command",
         "test-context-transition",
@@ -60,10 +61,6 @@ _SOURCE_LIMITATIONS = {
     "current-case-reuse": (
         "no retained CurrentCaseReuseSource exists for current inventory snapshot, Muninn "
         "case revision, safety receipts, and case/target grant coordinates"
-    ),
-    "operational-test-observation": (
-        "no verifier-identity Azure Monitor metric sample client and operating-scope "
-        "observation reader are bound"
     ),
 }
 _FORECAST_LIMITATION = (

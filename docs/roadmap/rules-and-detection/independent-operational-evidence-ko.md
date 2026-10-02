@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 25c693b0b06ca6eea92612b7b76aa780f68ba75c
+translation_source_sha: df6bb9e53bbcd09c04d2e7c404e0961a5b885ac1
 translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
@@ -263,13 +263,14 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 | 충돌 | 충돌하는 표본, 시계열, 상태 출처가 없음 |
 | 최신성 정책 | 공급자를 읽은 시점부터 300초 |
 
-**출처 평가.** `core/operational_evidence/readback/test_observation.py`는 검증기 쪽
-`OperationalTestObservationReadback`을 정의하고, `delivery/azure/operational_evidence_readbacks.py`는
-`AzureMonitorTestObservationProvider`를 정의합니다. 하지만 이 두 조각만으로는 목적을 바인딩할 수 없습니다.
-`delivery/operational_evidence_server.py`의 검증기 workload에는 구체적인 Azure Monitor metric sample client,
-완전한 의존성 상태 관측과 protected-signal 정책을 반환하는 `OperatingScopeObservationReader`, 그리고 해당 읽기가
-검증기 신원으로 실행된다는 배포 구성이 없습니다. 이 세 계약이 생길 때까지 `operational-test-observation`은 계속
-fail-closed `unavailable`로 남습니다. 이벤트 페이로드나 local-loopback 표본은 공급자 재조회를 대신하지 못합니다.
+**출처 바인딩.** `core/operational_evidence/readback/test_observation.py`는 검증기 쪽
+`OperationalTestObservationReadback`을 제공합니다. 검증기 workload는 배포 환경에서만 이 목적을 바인딩하며, 배포
+구성은 세 가지 출처 계약을 모두 제공해야 합니다. Log Analytics workspace, 검토된 KQL metric template, 검토된 운영
+범위 관측 행입니다. `delivery/azure/operational_evidence_readbacks.py`는 검증기 소유 Azure Monitor Logs metric
+provider를 정확한 구간 표본 reader로 감싸고, 검토된 운영 범위 reader와 결합합니다. 배포된 검증기 신원은 구성된
+resource group 범위에서 `Monitoring Reader`를 가져야 하며, own-role 재조회는 이 역할이 생산자, 검토자, 실행기 신원과
+분리되어 있음을 확인한 뒤에만 목적을 available로 만듭니다. metric 구성 누락, 범위 행 누락, 배포 환경의 local-loopback
+출처, 충돌하는 표본, 불완전한 의존성 상태, protected signal은 모두 유형화된 거부로 fail-closed 처리됩니다.
 
 ### 출처별 예측 이력
 
@@ -514,13 +515,11 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   읽습니다. 현재 맥락은 인용한 전이 발급 기록의 조회가 그 맥락과 직전 기록으로 다시 만든 조회와 같을 때만 인정되며,
   다른 발급 기록을 인용하면 `replay_substituted`입니다. `admit`은 보관된 기록마다 정확한 검증기 바인딩과 현재 앵커
   기준의 그 바인딩 준비 상태를 다시 확인합니다. `forecast-history-actions`, `forecast-history-changes`,
-  `forecast-history-resource_lifecycle` 목적은 이제 `operational_state_transition*`의 실제 파생 출처 행을 읽습니다.
-  작업 생산자는 Thor/Saga StateStore 감사 앵커와 정확한 대상의 ActionRun 페이로드를 읽고, 나머지 두 생산자는 #1021이
-  제공한 `changes`와 `resource_lifecycle` 출처를 사용합니다. `forecast-history-excluded_windows`는 revision이 있는
-  `ChangeWindow` 이력 생산자가 없어 계속 사용할 수 없습니다. `forecast-context`는 같은 범위, 대상, 구간에 대한 네
-  개의 출처별 forecast-history 검증 증적이 모두 생길 때까지
-  사용할 수 없습니다. `operational-test-observation`과 `current-case-reuse`도 아직 연결되지 않았습니다. 관측
-  공급자는 검증기 신원으로 사용할 수 없고, 현재 재사용에는 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다.
+  `forecast-history-excluded_windows`, `forecast-history-resource_lifecycle` 목적은 이제
+  `operational_state_transition*`의 실제 파생 출처 행을 읽고, `forecast-context`는 네 개의 출처별 이력에
+  바인딩됩니다. `operational-test-observation`은 배포된 검증기 workload가 `Monitoring Reader`, Log Analytics metric
+  template, 검토된 운영 범위 관측 행을 모두 가질 때 바인딩됩니다. `current-case-reuse`는 아직 연결되지 않았습니다.
+  현재 재사용에는 독립적으로 보존된 인벤토리, Muninn, 안전 증적 출처가 없습니다.
   사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조,
   Core에서 Bragi로 이어지는 참조 전파, 연결된 정확한 재확인 모듈이 있습니다. Operator 설정
   `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을

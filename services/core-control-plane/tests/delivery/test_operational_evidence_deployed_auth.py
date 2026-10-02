@@ -256,6 +256,10 @@ async def _healthy_sources(_self: object) -> dict[str, OperationalEvidenceSource
     }
 
 
+async def _healthy_semantic(_self: object) -> dict[str, OperationalEvidenceSourceHealth]:
+    return {"core-control-plane.case-history": OperationalEvidenceSourceHealth.HEALTHY}
+
+
 def test_deployed_workload_requires_authenticator_and_complete_executor_anchors(
     tmp_path: Path,
 ) -> None:
@@ -296,6 +300,68 @@ async def test_deployed_startup_stays_unready_until_own_role_readback_passes(
     assert workload.readiness.state == "unavailable"
     await workload.probe()
     assert workload.readiness.state == "ready"
+
+
+async def test_deployed_observation_source_binds_under_verifier_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def grants(*_args: object, **_kwargs: object) -> ProofStoreGrantReadback:
+        return _writer_exclusive()
+
+    monkeypatch.setattr(operational_evidence_server, "read_proof_store_grants", grants)
+    monkeypatch.setattr(
+        operational_evidence_server.PostgresTestContextEvidenceSources,
+        "source_health",
+        _healthy_sources,
+    )
+    monkeypatch.setattr(
+        operational_evidence_server.PostgresSemanticAuthenticationReceiptSource,
+        "source_health",
+        _healthy_semantic,
+    )
+    env = _deployed_env(
+        tmp_path,
+        AZURE_CLIENT_ID="verifier-client",
+        FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_METRIC_WORKSPACE_ID="workspace",
+        FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_METRIC_QUERIES_JSON=json.dumps(
+            {
+                "cpu_percent": {
+                    "kql": "Perf | project TimeGenerated, Value, resource_id",
+                    "value_column": "Value",
+                    "label_columns": ["resource_id"],
+                }
+            }
+        ),
+        FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_SCOPE_ROWS_JSON=json.dumps(
+            [
+                {
+                    "target_ref": "resource-1",
+                    "signal_code": "cpu_percent",
+                    "policy_revision": "policy:1",
+                    "access_scope_digest": "a" * 64,
+                    "metric_name": "cpu_percent",
+                    "dimensions": {"resource_id": "resource-1"},
+                    "aggregation": "avg",
+                    "service_impact": "none",
+                    "protected_signal": False,
+                    "operating_scope_coverage": "complete",
+                    "dependency_health": "healthy",
+                }
+            ]
+        ),
+    )
+
+    workload = build_verifier_workload(
+        env,
+        root=tmp_path,
+        caller_authenticator=_Caller(),
+        own_role_reader=_RoleReader(_safe_roles()),
+    )
+    await workload.probe()
+
+    assert "operational-test-observation" in workload.engine.bound_purposes()
+    assert workload.readiness.source_health["azure-monitor.metrics"].value == "healthy"
+    assert workload.readiness.source_health["operating-scope.dependency-health"].value == "healthy"
 
 
 async def test_deployed_probe_does_not_publish_ready_while_role_read_is_in_flight(

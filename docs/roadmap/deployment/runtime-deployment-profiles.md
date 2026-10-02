@@ -393,6 +393,7 @@ declared database, log, run and temporary paths receive size-limited `emptyDir` 
 The optional operational evidence verifier renders as a separate internal workload with its own user-assigned
 Managed Identity only when deployment-owned pins, anchors, caller-token validation, writer policy, and role-readback scopes are present.
 It is not part of the baseline five-service readiness set, receives no executor identity, and the root grants only image pull plus exact DSN-secret read.
+When `operational-test-observation` is configured, the same dedicated identity also receives `Monitoring Reader` on the deployment resource group so Azure Monitor reads happen under the verifier identity.
 Startup still waits for the caller authenticator, executor-class anchor preflight, proof-store writer readback, and Azure own-role readback.
 
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active deadline,

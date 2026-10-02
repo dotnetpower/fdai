@@ -512,6 +512,14 @@ resource "azurerm_role_assignment" "operational_evidence_verifier_state_store_se
   principal_type       = "ServicePrincipal"
 }
 
+resource "azurerm_role_assignment" "operational_evidence_verifier_monitoring_reader" {
+  count                = var.enable_operational_evidence_verifier ? 1 : 0
+  scope                = module.resource_group.id
+  role_definition_name = "Monitoring Reader"
+  principal_id         = module.operational_evidence_verifier_identity[0].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 locals {
   measurement_runners_enabled = (
     var.baseline_measurement_enabled ||

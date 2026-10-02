@@ -36,8 +36,10 @@ run "verifier_identity_is_dedicated_when_enabled" {
     condition = (
       output.operational_evidence_verifier_identity != null &&
       length(azurerm_role_assignment.operational_evidence_verifier_acr_pull) == 1 &&
-      azurerm_role_assignment.operational_evidence_verifier_acr_pull[0].role_definition_name == "AcrPull"
+      azurerm_role_assignment.operational_evidence_verifier_acr_pull[0].role_definition_name == "AcrPull" &&
+      length(azurerm_role_assignment.operational_evidence_verifier_monitoring_reader) == 1 &&
+      azurerm_role_assignment.operational_evidence_verifier_monitoring_reader[0].role_definition_name == "Monitoring Reader"
     )
-    error_message = "The verifier identity may receive only image-pull access in the root module."
+    error_message = "The verifier identity may receive only reviewed image-pull and observation-read access in the root module."
   }
 }
