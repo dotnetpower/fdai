@@ -511,3 +511,4 @@ activation state, provider binding, or promotion authority.
 | Current vertical onboarding seam | [Scope Expansion](../fork-and-sequencing/scope-expansion.md#38-vertical-registry-new-domain-onboarding-seam) |
 | Cost authority input | [Execution Model](../decisioning/execution-model.md) |
 | Fixed agent ownership | [Agent Pantheon](../agents/agent-pantheon.md) |
+| Cost image and package pin drift handling | [Developer Workflow Assurance](../deployment/developer-workflow-assurance.md) |

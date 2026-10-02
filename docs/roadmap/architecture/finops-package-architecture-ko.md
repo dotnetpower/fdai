@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 79f667332614faf72e3e3d0670d84fbcd9bae50a
-translation_revised: 2026-09-30
+translation_source_sha: 5de706e2d47d2487603f71537f56fdba0a13c17b
+translation_revised: 2026-10-02
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -526,3 +526,4 @@ Rule 카탈로그 스냅샷 저장소와 초안 검토 전달은 공유 Core pla
 | 현재 vertical 온보딩 연결부 | [범위 확장](../fork-and-sequencing/scope-expansion-ko.md#38-vertical-registry-new-domain-onboarding-seam) |
 | 비용 권한 입력 | [실행 모델](../decisioning/execution-model-ko.md) |
 | 고정 에이전트 소유권 | [에이전트 Pantheon](../agents/agent-pantheon-ko.md) |
+| 비용 이미지 및 패키지 핀 드리프트 처리 | [개발자 워크플로 보증](../deployment/developer-workflow-assurance-ko.md) |

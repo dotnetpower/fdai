@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 96e6618b963dc71164a73c5f988645c9c22431b7
+translation_source_sha: be726ac4f27eb6da47be0999a7a28fa139ed679a
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -722,3 +722,4 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
 | 런타임 및 패키지 도구 선택 | [기술 스택](tech-stack-ko.md) |
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/project-structure.md) |
 | 공유 Workflow 검증 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |
+| 이미지 및 패키지 핀 드리프트 처리 | [개발자 워크플로 보증](../deployment/developer-workflow-assurance-ko.md) |
