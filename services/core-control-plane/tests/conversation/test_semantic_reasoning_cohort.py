@@ -213,8 +213,23 @@ async def test_gold_form_reaches_its_reviewed_outcome(case: dict[str, Any]) -> N
             assert batch.plan.nodes[-1].arguments["arguments"] == {
                 "lookback_seconds": expected["lookback_seconds"]
             }
+        if "predicates" in expected:
+            # A read the fixture graph cannot serve is checked by its exact restriction instead.
+            assert object_set_predicates(goal) == expected["predicates"]
         if {"endpoints", "count", "groups"} & set(expected):
             await _assert_executed(goal, expected)
+
+
+def object_set_predicates(goal: Any) -> list[dict[str, Any]]:
+    """Return every ObjectSet restriction a compiled goal reads, in plan order."""
+
+    return [
+        predicate
+        for batch in goal.batches
+        for node in batch.plan.nodes
+        if node.kind.value == "object_set"
+        for predicate in node.arguments.get("definition", {}).get("predicates", ())
+    ]
 
 
 async def _assert_executed(goal: Any, expected: dict[str, Any]) -> None:
