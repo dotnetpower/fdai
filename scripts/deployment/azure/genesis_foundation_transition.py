@@ -34,7 +34,7 @@ _HELPER = "genesis_foundation_transition_remote.py"
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("plan", "apply"))
+    parser.add_argument("mode", choices=("plan", "apply", "verify"))
     parser.add_argument("--retained-plan-directory", type=Path, required=True)
     parser.add_argument("--transition-directory", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
@@ -145,7 +145,9 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         or plan_result.get("plan_digest") != args.expected_plan_digest
     ):
         raise ValueError("Foundation transition apply does not match the reviewed plan")
-    if claim is None:
+    if args.mode == "verify":
+        mode = "verify"
+    elif claim is None:
         claim = _create_claim(plan_result)
         write_private_output(
             transition / CLAIM_NAME,
@@ -177,7 +179,7 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         "schema_version": "fdai.genesis-foundation-transition-receipt.v1",
         "state": "verified",
         "work_id": work_id,
-        "claim_digest": canonical_digest(claim),
+        "claim_digest": canonical_digest(claim) if claim is not None else None,
         "review_digest": args.expected_review_digest,
         "plan_digest": args.expected_plan_digest,
         "archive_digest": plan_result["archive_digest"],

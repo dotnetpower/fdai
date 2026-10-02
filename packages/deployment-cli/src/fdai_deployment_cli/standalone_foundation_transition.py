@@ -62,7 +62,9 @@ def decide_foundation_transition(
     retained_plan = _retained_plan_dir(run_root, retained_plan_ref)
     retained_review = _load_review(retained_plan, allow_expired=True, require_summary=False)
     current = _current_input_digests(kit, retained_review)
-    retained = _retained_input_digests(retained_plan, retained_review)
+    retained = _verified_transition_inputs(run_root) or _retained_input_digests(
+        retained_plan, retained_review
+    )
     changed = tuple(key for key in _INPUT_KEYS if current.get(key) != retained.get(key))
     return TransitionDecision(
         changed=bool(changed),
@@ -109,35 +111,38 @@ def run_foundation_transition(
             region=region,
             monthly_cost_ceiling=monthly_cost_ceiling,
         )
-    transition_ref = (
-        _transition_ref(transition_plan_ref)
-        if transition_plan_ref is not None
-        else f"foundation-transition-attempt-{_next_transition_attempt(run_root)}"
-    )
+    transition_ref = _select_transition_ref(run_root, transition_plan_ref)
     transition_dir = run_root / transition_ref
     transition_dir.mkdir(mode=0o700, exist_ok=True)
-    plan_result = runner(
-        operation="plan",
-        kit=kit,
-        run_root=run_root,
-        retained_plan_ref=retained_plan_ref,
-        transition_plan_ref=transition_ref,
-        decision=decision,
-    )
-    review = _write_transition_review(transition_dir, plan_result)
     claim_exists = (transition_dir / "foundation-transition-claim.json").exists()
     receipt_exists = (transition_dir / "foundation-transition-remote-receipt.json").exists()
+    if claim_exists or receipt_exists:
+        review = _load_review(transition_dir, require_summary=True)
+        plan_result = _plan_result_from_review(review)
+    else:
+        plan_result = runner(
+            operation="plan",
+            kit=kit,
+            run_root=run_root,
+            retained_plan_ref=retained_plan_ref,
+            transition_plan_ref=transition_ref,
+            decision=decision,
+        )
+        review = _write_transition_review(transition_dir, plan_result)
     if not (claim_exists or receipt_exists):
         approve_transition_plan(transition_dir)
+    operation = (
+        "verify" if claim_exists or plan_result.get("zero_change_verified") is True else "apply"
+    )
     apply_result = runner(
-        operation="apply",
+        operation=operation,
         kit=kit,
         run_root=run_root,
         retained_plan_ref=retained_plan_ref,
         transition_plan_ref=transition_ref,
         decision=decision,
-        expected_review_digest=review["review_digest"],
-        expected_plan_digest=review["plan_digest"],
+        expected_review_digest=plan_result["review_digest"],
+        expected_plan_digest=plan_result["plan_digest"],
     )
     adoption = write_lineage_adoption_receipt(
         run_root=run_root,
@@ -193,11 +198,12 @@ def default_transition_runner(**kwargs: object) -> dict[str, object]:
     transition_plan_ref = kwargs["transition_plan_ref"]
     operation = kwargs["operation"]
     if (
-        not isinstance(kit, DeploymentKit)
+        not hasattr(kit, "root")
+        or not hasattr(kit, "bundle_root")
         or not isinstance(run_root, Path)
         or not isinstance(retained_plan_ref, str)
         or not isinstance(transition_plan_ref, str)
-        or operation not in {"plan", "apply"}
+        or operation not in {"plan", "apply", "verify"}
     ):
         raise TypeError("Foundation transition runner received invalid inputs")
     command = [
@@ -227,7 +233,9 @@ def default_transition_runner(**kwargs: object) -> dict[str, object]:
         "--output",
         "json",
     ]
-    if operation == "apply":
+    script_operation = "verify" if operation == "verify" else str(operation)
+    command[2] = script_operation
+    if operation in {"apply", "verify"}:
         command.extend(
             [
                 "--expected-review-digest",
@@ -282,6 +290,29 @@ def _retained_input_digests(
     }
 
 
+def _verified_transition_inputs(run_root: Path) -> dict[str, str] | None:
+    path = run_root / "foundation-lineage-transition-receipt.json"
+    if not path.exists() and not path.is_symlink():
+        return None
+    value = load_json_object(read_private_bytes(path, max_bytes=1_048_576), label="transition")
+    if not isinstance(value, dict):
+        raise ValueError("Foundation transition receipt is invalid")
+    digest = value.get("receipt_digest")
+    unsigned = {key: item for key, item in value.items() if key != "receipt_digest"}
+    inputs = value.get("current_input_digests")
+    if (
+        value.get("schema_version") != "fdai.foundation-lineage-transition.v2"
+        or not isinstance(digest, str)
+        or canonical_digest(unsigned) != digest
+        or not isinstance(inputs, dict)
+        or any(
+            not isinstance(key, str) or not isinstance(item, str) for key, item in inputs.items()
+        )
+    ):
+        raise ValueError("Foundation transition receipt is invalid")
+    return {str(key): str(item) for key, item in inputs.items()}
+
+
 def _retained_bundle_root(retained_plan: Path, context: Mapping[str, object]) -> Path:
     candidates = []
     for parent in (retained_plan / "foundation-apply-bundle", retained_plan / "bundle"):
@@ -322,7 +353,9 @@ def _write_transition_review(directory: Path, result: Mapping[str, object]) -> d
         "remote_state_digest": _required_digest(result, "remote_state_digest"),
         "archive_digest": _required_digest(result, "archive_digest"),
         "helper_digest": _required_digest(result, "helper_digest"),
+        "transport_review_digest": _required_digest(result, "review_digest"),
         "summary": summary,
+        "transport_zero_change_verified": result.get("zero_change_verified") is True,
         "mutation_performed": False,
         "subscription_ready": False,
         "created_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
@@ -358,6 +391,7 @@ def _transition_receipt(
         "current_input_digests": decision.current_inputs,
         "retained_input_digests": decision.retained_inputs,
         "transition_review_digest": review["review_digest"],
+        "transition_transport_review_digest": review["transport_review_digest"],
         "transition_plan_digest": review["plan_digest"],
         "transition_plan_json_digest": review["plan_json_digest"],
         "transition_plan_summary_digest": _summary_digest(review),
@@ -428,7 +462,13 @@ def _validate_transition_review(review: Mapping[str, object]) -> None:
         or review.get("subscription_ready") is not False
     ):
         raise ValueError("Foundation transition review is invalid")
-    for key in ("plan_digest", "plan_json_digest", "remote_state_digest", "archive_digest"):
+    for key in (
+        "plan_digest",
+        "plan_json_digest",
+        "remote_state_digest",
+        "archive_digest",
+        "transport_review_digest",
+    ):
         _required_digest(review, key)
     _summary_counts(review)
     _summary_digest(review)
@@ -510,6 +550,45 @@ def _next_transition_attempt(run_root: Path) -> int:
         if _TRANSITION_REF.fullmatch(path.name)
     ]
     return max(attempts, default=0) + 1
+
+
+def _select_transition_ref(run_root: Path, value: str | None) -> str:
+    if value is not None:
+        return _transition_ref(value)
+    attempts = sorted(
+        (
+            path
+            for path in run_root.glob("foundation-transition-attempt-*")
+            if _TRANSITION_REF.fullmatch(path.name)
+        ),
+        key=lambda path: int(path.name.rsplit("-", 1)[1]),
+        reverse=True,
+    )
+    for attempt in attempts:
+        claim = attempt / "foundation-transition-claim.json"
+        remote_receipt = attempt / "foundation-transition-remote-receipt.json"
+        if claim.exists() and not remote_receipt.exists():
+            return attempt.name
+        if remote_receipt.exists():
+            return attempt.name
+    return f"foundation-transition-attempt-{_next_transition_attempt(run_root)}"
+
+
+def _plan_result_from_review(review: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "schema_version": "fdai.genesis-foundation-transition-plan.v1",
+        "state": "review",
+        "review_digest": review["transport_review_digest"],
+        "archive_digest": review["archive_digest"],
+        "helper_digest": review["helper_digest"],
+        "remote_state_digest": review["remote_state_digest"],
+        "plan_digest": review["plan_digest"],
+        "plan_json_digest": review["plan_json_digest"],
+        "summary": review["summary"],
+        "zero_change_verified": review.get("transport_zero_change_verified") is True,
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
 
 
 def _status_receipt_digest(run_root: Path, field: str) -> str:
