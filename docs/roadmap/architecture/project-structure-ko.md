@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b94f746c76bdfb48ddb1ef7855a18a6e0f5165ed
+translation_source_sha: 06571e03f117832be1985e821b25dcecbe2b347b
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -40,7 +40,8 @@ shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 �
 관계 방향 확인도 같은 Core 경계를 사용합니다. 블라인드 reader와의 불일치는 관계 역할을 바꾸는 대신
 컴파일 전에 보류하며, Operator 또는 문서 route는 참여하지 않습니다.
 스키마 선언 신원 검사도 Core 대화 컴파일 안에 남습니다. 근거화된 ObjectType이 명시된 스키마 주체와
-다른 스키마 읽기는 조회 계획을 release하기 전에 보류합니다.
+다르거나, 과하게 인용된 주체에 다른 ObjectType 이름이 들어 있으면 조회 계획을 release하기 전에
+보류합니다.
 관계 앵커 검사도 Core 컴파일 안에 남습니다. 넓어진 컬렉션에서 탐색을 시작할 수 있는 컬렉션 범위 관계는
 Operator 또는 문서 route가 답하기 전에 보류됩니다.
 

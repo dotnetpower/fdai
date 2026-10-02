@@ -39,7 +39,8 @@ empty relation result is answerable, and Operator or document routes receive no 
 Relation direction confirmation uses the same Core boundary: a blind-reader disagreement now holds
 before compilation instead of changing relation roles, and no Operator or document route participates.
 Schema declaration identity checks also remain in Core conversation compilation: a schema read whose
-grounded ObjectType differs from the stated schema subject holds before a query plan is released.
+grounded ObjectType differs from the stated schema subject, including an over-quoted subject that
+contains another ObjectType name, holds before a query plan is released.
 Relation anchoring checks likewise stay in Core compilation: a collection-scope relation that would
 traverse from a widened collection is held before any Operator or document route can answer.
 

@@ -92,7 +92,12 @@ def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return OperatorResult(unsupported=(f"schema_subject_unsupported:{domain.value}",))
     name = values[0]
     stated_name = ctx.text(goal.subject)
-    if stated_name in _object_type_names(ctx) and stated_name != name:
+    object_names = _object_type_names(ctx)
+    if (stated_name in object_names and stated_name != name) or _quotes_another_object_type(
+        stated_name, name, object_names
+    ):
+        return OperatorResult(clarify=("schema_subject_identity_unconfirmed",))
+    if name == "ObjectType" and goal.effective_operation is GoalOperation.DESCRIBE_SCHEMA:
         return OperatorResult(clarify=("schema_subject_identity_unconfirmed",))
     relation_failure = _relation_failure(goal)
     if relation_failure is not None:
@@ -199,6 +204,14 @@ def _object_type_names(ctx: CompileContext) -> frozenset[str]:
         for item in ctx.manifest.descriptors
         if item.get("kind") == "object" and isinstance(item.get("name"), str)
     )
+
+
+def _quotes_another_object_type(
+    stated_name: str, grounded_name: str, object_names: frozenset[str]
+) -> bool:
+    if stated_name == grounded_name:
+        return False
+    return any(item != grounded_name and item in stated_name.split() for item in object_names)
 
 
 def _declared_kinds(goal: FormGoal, ctx: CompileContext) -> tuple[str, ...]:

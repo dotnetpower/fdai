@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 9e4ec526968f570d934a9c71b4959365689c4d17
+translation_source_sha: 4b266eea70e1e0be96814fda288cd17486503aa5
 translation_revised: 2026-10-02
 ---
 # 온톨로지 추론 컴파일러
@@ -347,9 +347,10 @@ LinkType에만 허용되며 깊이는 최대 5입니다.
   `query.ontology_relationships`로만 답하고, manifest 개수는 선언 종류별로만 묶습니다. Workload 안의
   LinkType처럼 ObjectType 하나로 범위를 좁힌 LinkType 주어는 같은 조회이므로 그 ObjectType의 관계
   조회로 컴파일하고, ObjectType으로 범위를 좁힌 다른 선언 종류는 지원하지 않습니다. ObjectType 선언
-  읽기는 근거화된 ObjectType 신원이 명시된 스키마 주체와 정확히 일치해야 하므로, 개념이 흔들리면 다른
-  타입의 선언을 읽지 않고 명확화를 반환합니다. 그 밖의 스키마 관계, 방향, 상대편, 도달 범위, 앵커,
-  묶음 기준은 타입이 지정된 미지원 사유를 반환하며, V-SEM도 이를 독립적으로 거부합니다.
+  읽기는 근거화된 ObjectType 신원이 명시된 스키마 주체와 정확히 일치해야 합니다. 과하게 인용된 주체에
+  다른 알려진 ObjectType 이름이 들어 있으면 다른 타입의 선언으로 답하지 않고 명확화를 반환합니다. 그
+  밖의 스키마 관계, 방향, 상대편, 도달 범위, 앵커, 묶음 기준은 타입이 지정된 미지원 사유를 반환하며,
+  V-SEM도 이를 독립적으로 거부합니다.
 
 ### 후속 질문 참조
 
