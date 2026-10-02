@@ -226,6 +226,16 @@ chooser can tell Resource from ResourceType by meaning. FunctionTypes and Action
   per shard digest rather than for every chooser, shard, and retry, so presenting a complete catalog
   does not block the event loop.
 
+The runner may reuse a schema-valid choice only within one run and only for the identical
+utterance, mentions, original shard digest, and reader identity. The two blind readers never
+share cached answers; invalid or unavailable choices are not cached. The provider adapter
+losslessly packs every candidate under explicit column names while keeping original catalog
+hashes, safety checks, exhaustive receipts, and closed candidate-id schemas. Typed-only planning
+does not repeat legacy subtype grounding for a plan that mode never uses. These implementation
+optimizations do not relax admission, independent review, or fresh plan verification, and local
+tests do not establish a live speedup. [Timing and accounting](narrator-routing-and-latency.md#turn-local-grounding-work-reuse)
+records the measured-work boundary.
+
 ### Anchor binding
 
 An `identifier` or `name` mention with domain `instance` becomes an anchor. Binding is a two-phase protocol:

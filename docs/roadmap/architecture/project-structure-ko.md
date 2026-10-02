@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1b5ac8366be9cf1c9c09cc68f3dc756fc3c4a661
+translation_source_sha: b50013518b6af15dd97bfaa62d0cf971eac95a60
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -34,6 +34,11 @@ shadow 설정이 켜졌을 때만 방향 판독기를 바인딩합니다. 이 �
 도달하지 않고, 판단의 타입 슬롯은 frame에 바인딩되어 plan 커버리지가 이를 적용할 수 있습니다. 상태 저장소 싱크는 기록마다 서비스 자체의
 이벤트 루프에 막힘 없이 예약하고, 다시 만든 frame은 조사 식별자를 유지하며, 피연산자 출처 검사는
 탐색 끝점과 메트릭 리소스 ID도 읽습니다.
+
+질문 구조의 개념 선택 재사용은 Core 대화 처리가 소유하며 한 번의 처리가 끝나면 종료됩니다.
+정확한 입력과 판독기별로 분리된 캐시는 관측 상태, 인가 결정, 이전 요청의 의미를 저장하지
+않습니다. Azure 전달 계층은 무손실 카탈로그 프롬프트 표현을 소유하고, Operator와 Console은
+새 작성자, 서비스, 권한 경로 없이 측정된 시간과 사용량만 표시합니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

@@ -34,6 +34,11 @@ the frame so plan coverage can enforce them. The state-store sink schedules each
 service's own event loop without blocking, a rebuilt frame keeps its investigation identity, and
 operand provenance also reads traversal endpoints and metric resource ids.
 
+Question-form concept-choice reuse is owned by Core conversation processing and ends with one
+run. Its exact-input, reader-separated cache never stores observed state, authorization, or
+cross-turn meaning. Azure delivery owns lossless catalog prompt encoding; Operator and Console
+only display measured timing and usage, without another writer, service, or authority path.
+
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
