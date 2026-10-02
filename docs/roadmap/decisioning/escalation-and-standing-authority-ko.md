@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: ac446d624a58d5c724c695ca2e79176c742523eb
-translation_revised: 2026-09-30
+translation_source_sha: 7ad36dc8c6fd81b6474dfab4d4cd7e826267465b
+translation_revised: 2026-10-02
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -266,6 +266,12 @@ envelope:                         # 액션은 반드시 이 안에 완전히 들
 - **서로 다른 human 정족수가 approver-of-record입니다.** 최소 2명의 정규화된 서로 다른 human,
   accountable 서비스 소유자 및 Owner-level 권한이 승인합니다. 요청자와 실행자는 제외됩니다.
   Var가 서명된 개정 번호를 standing Approval로 전달하며 model-as-approver는 허용되지 않습니다.
+- **단독 운영자 프로덕션 프로필(계획됨).** 설치의 승인 정책이
+  [단독 운영자 프로덕션 프로필](operator-governance-profiles-ko.md)을 선택하면, 서비스 소유자와
+  Owner 역할을 모두 가진 지정 운영자가 유일한 승인자가 될 수 있으며 `quorum_required: 1`은 이
+  프로필에서만 유효합니다. 새 인증, 전체 권한 내용의 명시적 확인, 경계, 만료, 철회, 인수인계 재확인,
+  사후 검토는 그대로이며 실행자는 계속 승인자가 될 수 없습니다. 현재 제공되는 스키마는 여전히
+  두 개의 승인을 요구합니다.
 - **운영 증거가 최신이어야 합니다.** 담당자는 적용 가능한 서비스 로그, 인시던트 및 감사
   이력을 검토하고 선례의 존재 여부를 기록합니다. 충분한 선례가 없으면 현재 DR 훈련, 제한된
   Chaos 실험 또는 시뮬레이션이 시나리오 증거를 제공합니다.
@@ -363,7 +369,8 @@ target-fence 다이제스트마다 permit을 최대 하나만 발급하고 `ACCE
 - **상시 권한은 승인을 충족할 뿐 모드를 높이지 않습니다.** `ActionPromotionRegistry`는
   독립적인 shadow/enforce 축으로 유지되며 A3-E를 나타낼 수 없습니다. A3-E 검토는
   Owner를 포함한 서로 다른 두 명의 피싱 방지형 승인을 요구하는 전용
-  `standing-authority-promotion` 변경 등급을 사용합니다. 일반 `enforce-promotion` 등급은
+  `standing-authority-promotion` 변경 등급을 사용합니다. 계획된 단독 운영자 프로덕션 프로필에서는
+  지정 운영자의 단일 Owner 승인이 이 등급을 충족합니다. 일반 `enforce-promotion` 등급은
   이 권한을 충족할 수 없으며, 검토 결정 자체는 실행 권한을 부여하지 않습니다.
 - **Thor 가 실행** 하고, Vidar 는 롤백 principal 로 남으며, Saga 는 명시적
   `standing-authority` 이유와 권한 id 로 감사한다 - 재현 가능하고 귀속 가능한 기록
