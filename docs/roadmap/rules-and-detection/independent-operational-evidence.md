@@ -304,6 +304,8 @@ the principal scope, case scope, and purpose, `case-history-read`, and the activ
 Because the lookup binds the release digest, any release change, including an edited ontology function
 source outside operational evidence, starts new lookups, and a receipt issued under the previous
 release is never reused; the same change regenerates the source-bound semantic assurance corpus.
+Projection-only ontology vocabulary can refresh that corpus manifest's source digests without
+changing the release digest or any operational-evidence lookup authority.
 
 | Proof | Read-back subject |
 |-------|-------------------|
