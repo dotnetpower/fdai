@@ -106,6 +106,13 @@ complete generation writes a zero-denominator completion. The method writes dete
 records and changes no `AgentSpec`, topic owner, subscription, approval, execution, or projection
 authority.
 
+The Saga slice supplies that binder. Saga appends a baseline-evaluation audit entry to its
+append-only chain and to the durable audit store when one is bound, then returns the stable audit
+reference and digest that Forseti records in each outcome or completion. The audit payload contains
+the inventory generation, resource identity, catalog revision, Rule revision, evaluation receipt,
+and terminal outcome supplied by Forseti. Saga still does not judge or project Rule findings; it
+only binds replayable audit evidence.
+
 ### Frozen configuration baseline checks
 
 Configuration drift is a T0 (deterministic rules) finding. A reviewed actual snapshot is frozen
