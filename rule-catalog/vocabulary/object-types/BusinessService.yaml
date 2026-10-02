@@ -3,6 +3,7 @@ name: BusinessService
 version: "1.0.0"
 key: id
 description: Stable service identity used for ownership, criticality, objectives, and impact.
+query_terms: [business service, business services, 비즈니스 서비스, 서비스]
 properties:
   id: {type: string, required: true}
   name: {type: string, required: true}
@@ -22,6 +23,6 @@ lifecycle:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:BusinessService@1.0.0
-  content_hash: sha256:97c3c0eb6364623e12d01f39e04478189887485a168dbe6226c4ed4edbd9bfd2
+  content_hash: sha256:a2ac89bf337e3bf06be8e02d632a0f560ae22580c938039991d0fbe80f7317c0
   license: MIT
   retrieved_at: "2026-07-31T00:00:00Z"

@@ -16,6 +16,7 @@ name: Resource
 version: "1.1.0"
 key: id
 description: A target under governance; typically a CSP resource populated by the inventory adapter.
+query_terms: [resource, resources, 리소스]
 properties:
   id:
     type: string
@@ -29,6 +30,10 @@ properties:
     type: string
     required: false
     description: Human-readable name emitted by the source system; never a customer-identifying value in tests or fixtures.
+  aliases:
+    type: array
+    required: false
+    description: Reviewed source-provided alternate labels for semantic retrieval and display.
   parent_id:
     type: string
     required: false
@@ -44,6 +49,6 @@ properties:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Resource@1.1.0
-  content_hash: sha256:4702e502dc1cb0f0e5e2ee70808b6c4ee83efe5d87f8e565e30a01262743a8b2
+  content_hash: sha256:3b19623054c60e11527051bfbde8c8d29764517f2d4f2c977cb704a991454b95
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 
@@ -61,6 +61,7 @@ def build_ontology_semantic_generation(
     embedding_dimension: int,
     runtime_objects: Sequence[OntologyObjectRecord] = (),
     previous_documents: Sequence[CatalogSearchDocument] = (),
+    resource_type_query_terms: Mapping[str, Sequence[str]] | None = None,
 ) -> SemanticGenerationBuild:
     """Build one full inactive generation and reuse exact unchanged documents.
 
@@ -69,7 +70,14 @@ def build_ontology_semantic_generation(
     staging identities lack independent embedding provenance and are not reused.
     """
 
-    candidates = [*_declaration_documents(manifest), *_runtime_object_documents(runtime_objects)]
+    candidates = [
+        *_declaration_documents(manifest),
+        *_runtime_object_documents(
+            runtime_objects,
+            manifest=manifest,
+            resource_type_query_terms=resource_type_query_terms or {},
+        ),
+    ]
     candidates.sort(key=lambda item: item.rule_id)
     if not candidates or len(candidates) > _MAX_DOCUMENTS:
         raise ValueError(f"semantic generation document count MUST be in [1, {_MAX_DOCUMENTS}]")
@@ -294,14 +302,26 @@ def _declaration_documents(manifest: QueryManifest) -> list[CatalogSearchDocumen
 
 def _runtime_object_documents(
     records: Sequence[OntologyObjectRecord],
+    *,
+    manifest: QueryManifest,
+    resource_type_query_terms: Mapping[str, Sequence[str]],
 ) -> list[CatalogSearchDocument]:
+    declarations = {
+        str(item["name"]): item for item in manifest.descriptors if item["kind"] == "object"
+    }
     documents: list[CatalogSearchDocument] = []
     for record in records:
+        terms = _runtime_object_query_terms(
+            record,
+            declaration=declarations.get(record.object_type, {}),
+            resource_type_query_terms=resource_type_query_terms,
+        )
         values = normalize_json_value(
             {
                 "id": record.id,
                 "object_type": record.object_type,
                 "properties": record.properties,
+                **({"query_terms": terms} if terms else {}),
             },
             path=f"ontology_semantic_object.{record.id}",
         )
@@ -314,6 +334,40 @@ def _runtime_object_documents(
             )
         )
     return documents
+
+
+def _runtime_object_query_terms(
+    record: OntologyObjectRecord,
+    *,
+    declaration: Mapping[str, object],
+    resource_type_query_terms: Mapping[str, Sequence[str]],
+) -> tuple[str, ...]:
+    terms: list[str] = []
+    terms.extend(_query_terms(declaration.get("query_terms", ())))
+    raw_properties = declaration.get("properties", {})
+    properties = raw_properties if isinstance(raw_properties, Mapping) else {}
+    for name, value in record.properties.items():
+        raw_decl = properties.get(name)
+        prop_decl = raw_decl if isinstance(raw_decl, Mapping) else {}
+        terms.extend(_query_terms(prop_decl.get("query_terms", ())))
+        value_terms = prop_decl.get("value_query_terms", {})
+        if isinstance(value, str) and isinstance(value_terms, Mapping):
+            terms.extend(_query_terms(value_terms.get(value, ())))
+    if record.object_type == "Resource":
+        resource_type = record.properties.get("type")
+        if isinstance(resource_type, str):
+            terms.extend(
+                str(item)
+                for item in resource_type_query_terms.get(resource_type, ())
+                if str(item).strip()
+            )
+    return tuple(sorted(set(terms), key=str.casefold))
+
+
+def _query_terms(value: object) -> tuple[str, ...]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return tuple(str(item) for item in value if str(item).strip())
+    return ()
 
 
 def _bounded_text(value: object) -> str:

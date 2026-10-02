@@ -123,6 +123,60 @@ def test_full_generation_covers_every_manifest_descriptor_and_runtime_object() -
     assert build.reused_document_count == 0
 
 
+def test_runtime_object_documents_include_reviewed_query_terms() -> None:
+    declaration = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        description="Runtime resource.",
+        query_terms=("resource", "리소스"),
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "type": PropertyDecl(
+                type=PropertyType.STRING,
+                required=True,
+                query_terms=("resource type", "리소스 유형"),
+            ),
+            "state": PropertyDecl(
+                type=PropertyType.STRING,
+                query_terms=("state", "상태"),
+                value_query_terms={"running": ("running", "실행 중")},
+            ),
+        },
+    )
+    release = build_ontology_release(object_types=(declaration,))
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(declaration,),
+    )
+    record = OntologyObjectRecord(
+        id="resource-a",
+        object_type="Resource",
+        properties={"id": "resource-a", "type": "compute.vm", "state": "running"},
+    )
+
+    build = build_ontology_semantic_generation(
+        manifest=manifest,
+        embedding_space_id="ontology-v1",
+        embedding_model_version="lexical-only-v1",
+        embedding_dimension=1,
+        runtime_objects=(record,),
+        resource_type_query_terms={"compute.vm": ("virtual machine", "가상 머신")},
+    )
+
+    document = next(
+        item for item in build.documents if item.rule_id == "object:Resource:resource-a"
+    )
+    assert '"query_terms"' in document.text
+    assert "가상 머신" in document.text
+    assert "리소스 유형" in document.text
+    assert "실행 중" in document.text
+
+
 async def test_isolated_snapshot_survives_reader_restart_and_preserves_rule_state() -> None:
     state = InMemoryStateStore()
     await state.write_state("catalog-search:active", {"generation": "rule-generation"})

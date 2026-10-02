@@ -193,7 +193,8 @@ def _instance_types(build: SemanticGenerationBuild, manifest: QueryManifest) -> 
             payload = json.loads(document.text)
             if (
                 not isinstance(payload, dict)
-                or set(payload) != {"id", "object_type", "properties"}
+                or not {"id", "object_type", "properties"}.issubset(payload)
+                or set(payload) - {"id", "object_type", "properties", "query_terms"}
                 or not isinstance(payload["id"], str)
                 or not isinstance(payload["object_type"], str)
                 or not isinstance(payload["properties"], dict)
@@ -205,7 +206,15 @@ def _instance_types(build: SemanticGenerationBuild, manifest: QueryManifest) -> 
                 object_type=payload["object_type"],
                 properties=payload["properties"],
             )
-            if document != _runtime_object_documents((record,))[0] or document.rule_id in objects:
+            if (
+                document
+                != _runtime_object_documents(
+                    (record,),
+                    manifest=manifest,
+                    resource_type_query_terms={},
+                )[0]
+                and not isinstance(payload.get("query_terms"), list)
+            ) or document.rule_id in objects:
                 raise ValueError("noncanonical document")
         except (ValueError, KeyError, TypeError):
             raise ValueError(

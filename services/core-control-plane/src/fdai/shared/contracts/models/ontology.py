@@ -32,6 +32,11 @@ class PropertyDecl(_Base):
     purpose_binding: list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]] = Field(
         default_factory=list
     )
+    query_terms: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...] = ()
+    value_query_terms: dict[
+        Annotated[str, Field(min_length=1, max_length=128)],
+        tuple[Annotated[str, Field(min_length=1, max_length=128)], ...],
+    ] = Field(default_factory=dict)
 
 
 class OntologyProvenance(_Base):
@@ -88,6 +93,7 @@ class OntologyObjectType(_Base):
     key: Annotated[str, Field(min_length=1)]
     properties: dict[str, PropertyDecl]
     description: str | None = None
+    query_terms: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...] = ()
     lifecycle: ObjectLifecycle | None = None
     provenance: OntologyProvenance | None = None
 
