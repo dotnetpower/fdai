@@ -105,6 +105,12 @@ opens it, and Escape closes it without closing the conversation. Evidence-servic
 has a separate disclosure from answer citations and preserves unavailable and unknown states.
 These presentation controls grant no read, approval, or execution authority.
 
+The actual Console imports the shared conversation stylesheet and activates its root, transcript,
+prose, citation, and composer roles. A normal completed work record becomes a compact disclosure
+after the terminal answer is available; failed, partial, and unavailable work stays expanded.
+Every recorded step remains inspectable. The latest-message command belongs to the composer
+context row and never floats over answer text.
+
 ## 1. Framing - what this is (and what it is not)
 Instance-candidate enrollment uses the authenticated principal, role, and group scope without changing human-report-line, assignment, approval, or action authority. The default Core index lifecycle remains agent-owned and read-only; exact-ID results do not qualify semantic ranking or imply a complete collection. The bilingual identity-only terminal explicitly reports partial, non-exhaustive candidates and no execution authority. It neither projects arbitrary properties nor substitutes for attachment authorization, exact document citations, or document evidence completeness.
 

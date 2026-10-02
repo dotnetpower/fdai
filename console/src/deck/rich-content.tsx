@@ -99,11 +99,11 @@ function CiteChip({ n, hint, onCitationSelect }: { readonly n: number; readonly 
   return (
     <Tooltip content={hint}>
       {onCitationSelect ? (
-        <button type="button" class="deck-cite-chip" aria-label={`${t("deck.grounded.sourceAria")} ${n}: ${hint}`} onClick={(event) => onCitationSelect(n, event.currentTarget)}>
+        <button type="button" class="deck-cite-chip cs-deck-cite" aria-label={`${t("deck.grounded.sourceAria")} ${n}: ${hint}`} onClick={(event) => onCitationSelect(n, event.currentTarget)}>
           {n}
         </button>
       ) : (
-        <span class="deck-cite-chip" role="note" aria-label={`${t("deck.grounded.sourceAria")} ${n}`}>{n}</span>
+        <span class="deck-cite-chip cs-deck-cite" role="note" aria-label={`${t("deck.grounded.sourceAria")} ${n}`}>{n}</span>
       )}
     </Tooltip>
   );
@@ -381,7 +381,7 @@ export function RichContent({
   const interaction = { citeMarks: marks, onCitationSelect: streaming ? undefined : onCitationSelect };
   const lastIsText = segments[segments.length - 1]?.kind === "text";
   return (
-    <div class={`deck-rich${streaming ? " is-streaming" : ""}`}>
+    <div class={`deck-rich cs-deck-prose${streaming ? " is-streaming" : ""}`}>
       {segments.map((seg, i) => {
         const isLast = i === segments.length - 1;
         if (seg.kind === "text") {

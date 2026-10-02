@@ -822,9 +822,7 @@ export function InvestigationTimeline({
         <details
           key="answer-settled"
           class={`deck-investigation is-settled is-${tone} is-answer-settled`}
-          // A single observed read adds nothing the answer does not already state, but a
-          // multi-step investigation is the only place its per-step provenance is visible.
-          open={eventCount > 1}
+          open={tone !== "completed"}
           aria-label={t("deck.investigation.label")}
         >
           <summary class="deck-investigation-head cs-work-summary">{head}</summary>

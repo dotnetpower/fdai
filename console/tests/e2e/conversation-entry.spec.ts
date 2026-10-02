@@ -92,6 +92,9 @@ for (const [locale, catalog] of [["en", en], ["ko", ko]] as const) {
     await page.locator(".deck-input").fill("Read the retained evidence.");
     await page.locator(".deck-input").press("Enter");
     await expect(page.locator(".deck-answer-posture")).toBeVisible();
+    await expect(page.locator(".deck-overlay")).toHaveClass(/cs-deck-conversation/);
+    expect(await page.locator(".deck-overlay").evaluate(node => getComputedStyle(node).getPropertyValue("--cs-deck-meta-text").trim())).not.toBe("");
+    await expect(page.locator(".deck-rich.cs-deck-prose").first()).toBeVisible();
     await expect(page.locator(".deck-rich-heading").first()).toHaveText("Finding");
     await expect(page.locator('section.deck-presentation-block[data-slot="limitations"]')).toBeVisible();
     await expect(page.getByText("No execution was performed.", { exact: true })).toBeVisible();
@@ -120,6 +123,9 @@ for (const [locale, catalog] of [["en", en], ["ko", ko]] as const) {
       await page.setViewportSize(viewport);
       await cite.click();
       await expect(page.locator(".deck-src-detail").first()).toHaveAttribute("open", "");
+      if (await page.locator(".deck-jump").count() > 0) {
+        await expect(page.locator(".deck-input-row .deck-composer-context .deck-jump")).toHaveCount(1);
+      }
       const unobstructed = await page.locator(".deck-src-path").evaluate(node => {
         const path = node.getBoundingClientRect();
         const jump = document.querySelector(".deck-jump")?.getBoundingClientRect();

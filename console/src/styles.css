@@ -1,5 +1,6 @@
 @import url("../../ui/calm-slate-tokens.css");
 @import url("../../ui/calm-slate-primitives.css");
+@import url("../../ui/calm-slate-deck-conversation.css");
 
 .deck-incident-candidates {
   display: grid;
@@ -9317,28 +9318,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 780px); box-sizing: border-box; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg-muted); font-size: 12px; }
 .deck-resume-banner button { min-height: 32px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
-.deck-jump-slot {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  z-index: 3;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
 .deck-jump {
-  min-height: 36px;
-  padding: 7px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-elevated);
-  color: var(--fg);
-  box-shadow: 0 8px 24px color-mix(in oklab, var(--fg) 12%, transparent);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 650;
   white-space: nowrap;
-  pointer-events: auto;
 }
 .deck-jump:hover { border-color: var(--accent); }
 .deck-jump:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -11875,21 +11856,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 /* Inline citation chip [n] woven into settled prose (deck/rich-content.tsx). */
 .deck-cite-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 4px;
-  margin: 0 1px;
-  border-radius: 4px;
-  font-size: 9.5px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
   vertical-align: 1px;
   cursor: help;
-  color: var(--accent-strong, var(--accent));
-  background: color-mix(in oklab, var(--accent) 14%, transparent);
 }
 .deck-cite-chip:hover { background: color-mix(in oklab, var(--accent) 26%, transparent); }
 
@@ -11913,7 +11881,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-gr .deck-gr-panel-head h4 { margin: 0; font-size: var(--cs-type-panel-title-size); }
 .deck-gr .deck-gr-return { min-height: 34px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--fg); font: inherit; cursor: pointer; }
 .deck-gr .deck-gr-list { padding: 0; gap: 0; max-height: none; overflow: visible; background: transparent; }
-.deck-gr .deck-src-row { display: block; padding: 0; border: 0; border-radius: 0; background: transparent; scroll-margin-block-end: 64px; }
+.deck-gr .deck-src-row { display: block; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .deck-gr .deck-src-row + .deck-src-row { border-top: 1px solid var(--border); }
 .deck-gr .deck-src-row[data-selected="true"] { background: color-mix(in oklab, var(--accent) 7%, var(--bg-elevated)); }
 .deck-gr .deck-src-detail > summary { display: grid; grid-template-columns: 24px 64px minmax(0, 1fr) 12px; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; cursor: pointer; list-style: none; }
