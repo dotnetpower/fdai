@@ -694,6 +694,12 @@ All machine output uses stable English keys and excludes credentials, raw state,
 and secret content. Private local and managed-host directories use mode `0700`; sensitive files
 use mode `0600`.
 
+Managed-host checkpoint failures return one bounded structured failure record to the workstation.
+The record carries a fixed reason code, a redacted provider excerpt, and any Azure provider error
+codes such as `OverconstrainedZonalAllocationRequest`, `AllocationFailed`, or
+`ParameterOutOfRange`. The excerpt is length-limited and redacts resource IDs, GUIDs, hostnames,
+tokens, and secret-like assignments before the local coordinator renders it.
+
 ## Related docs
 
 | To learn about | Read |

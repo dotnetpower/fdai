@@ -15,11 +15,13 @@ from types import SimpleNamespace
 import pytest
 
 from fdai_deployment_cli import (
+    standalone_aks_nodepool_guard,
     aks_workload_jobs,
     runtime_support_installation,
     standalone_aks_inventory,
     standalone_application,
     standalone_catalog_review,
+    standalone_checkpoint_failure,
     standalone_host,
     standalone_host_state,
     standalone_host_values,
@@ -75,6 +77,120 @@ def _runtime_support_artifacts(root: Path) -> tuple[Path, Path]:
         if directory.is_dir():
             directory.chmod(0o700)
     return first, second
+
+
+def _aks_runtime_context(tmp_path: Path) -> dict[str, object]:
+    runtime_infra = tmp_path / "runtime"
+    runtime_infra.mkdir()
+    variables = {
+        "workload": "fdai",
+        "env": "dev",
+        "region_short": "eus",
+    }
+    variables_path = tmp_path / "application.auto.tfvars.json"
+    variables_path.write_text(json.dumps(variables), encoding="utf-8")
+    variables_path.chmod(0o600)
+    return {
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+        "subscription_id": "00000000-0000-0000-0000-000000000000",
+        "resource_group_name": "rg-example",
+        "runtime_infra": str(runtime_infra),
+    }
+
+
+def test_runtime_node_pool_readback_blocks_existing_pool_outside_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = _aks_runtime_context(tmp_path)
+
+    def run(command, **_kwargs):
+        if command[:3] == ("az", "aks", "nodepool"):
+            return subprocess.CompletedProcess(command, 0, stdout='["runtime"]', stderr="")
+        if command[:3] == ("terraform", "state", "list"):
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(standalone_aks_nodepool_guard.subprocess, "run", run)
+
+    with pytest.raises(standalone_checkpoint_failure.ManagedHostCheckpointError) as error:
+        standalone_host._guard_existing_runtime_node_pools(context, tmp_path)
+
+    assert error.value.reason_code == "aks_node_pool_exists_outside_state"
+    assert "runtime" in error.value.excerpt
+    assert "explicit Owner confirmation" in error.value.excerpt
+
+
+def test_runtime_node_pool_readback_allows_absent_pool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = _aks_runtime_context(tmp_path)
+    commands = []
+
+    def run(command, **_kwargs):
+        commands.append(command)
+        if command[:3] == ("az", "aks", "nodepool"):
+            return subprocess.CompletedProcess(command, 0, stdout="[]", stderr="")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(standalone_aks_nodepool_guard.subprocess, "run", run)
+
+    standalone_host._guard_existing_runtime_node_pools(context, tmp_path)
+
+    assert commands == [
+        (
+            "az",
+            "aks",
+            "nodepool",
+            "list",
+            "--subscription",
+            "00000000-0000-0000-0000-000000000000",
+            "--resource-group",
+            "rg-example",
+            "--cluster-name",
+            "aks-fdai-dev-eus",
+            "--query",
+            "[].name",
+            "--output",
+            "json",
+            "--only-show-errors",
+        )
+    ]
+
+
+def test_terraform_failure_summary_extracts_provider_code_and_redacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider_error = (
+        "Error: creating <redacted>: OverconstrainedZonalAllocationRequest: "
+        "AllocationFailed. Use a different VM size such as Standard_D4as_v5 "
+        "for /subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/example "
+        "at host example.com token=placeholder-token"
+    )
+
+    def run(command, **_kwargs):
+        return subprocess.CompletedProcess(command, 1, stdout=b"", stderr=provider_error.encode())
+
+    monkeypatch.setattr(standalone_host.subprocess, "run", run)
+
+    with pytest.raises(standalone_checkpoint_failure.ManagedHostCheckpointError) as error:
+        standalone_host._run(
+            ("terraform", "apply", "-input=false"),
+            cwd=tmp_path,
+            timeout=60,
+            reason="runtime exact apply failed; verification-only recovery is required",
+        )
+
+    assert "OverconstrainedZonalAllocationRequest" in error.value.provider_error_codes
+    assert "AllocationFailed" in error.value.provider_error_codes
+    assert "Standard_D4as_v5" in error.value.excerpt
+    assert "/subscriptions/" not in error.value.excerpt
+    assert "placeholder-token" not in error.value.excerpt
+    assert "example.com" not in error.value.excerpt
+    assert len(error.value.excerpt) <= 700
 
 
 @pytest.mark.parametrize("artifact_directory", ["kit-work/verified", "source-work/verified"])

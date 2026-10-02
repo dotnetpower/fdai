@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 98f2eb442d5112cf461deb82e2ec025544f569a9
-translation_revised: 2026-10-01
+translation_source_sha: 4c5a8781cb949646c3d4ea3fca976e61bac06eba
+translation_revised: 2026-10-02
 ---
 
 # 설치형 배포 CLI
@@ -687,6 +687,12 @@ Terraform 계획에 변경이 없음을 의미합니다. 더 넓은 구독 보�
 모든 기계 출력은 안정적인 영어 key를 사용하고 자격 증명, 원시 상태, tenant 값 및 비밀 내용을
 제외합니다. 비공개 로컬 및 Managed Host 디렉터리는 mode `0700`, 민감한 파일은 mode `0600`을
 사용합니다.
+
+Managed Host 체크포인트 실패는 작업 스테이션에 범위가 제한된 구조화 실패 레코드 하나를
+반환합니다. 이 레코드는 고정 reason code, 삭제 처리된 provider 발췌문, 그리고
+`OverconstrainedZonalAllocationRequest`, `AllocationFailed`, `ParameterOutOfRange` 같은 Azure
+provider 오류 코드를 담습니다. 발췌문은 길이가 제한되며 로컬 조정기가 표시하기 전에 resource
+ID, GUID, 호스트 이름, 토큰, 비밀처럼 보이는 할당을 삭제 처리합니다.
 
 ## 관련 문서
 
