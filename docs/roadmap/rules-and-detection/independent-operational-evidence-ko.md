@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: ba492c227040ddd8f517a942de2f98731f616ea2
+translation_source_sha: 08c60d777c6e77ad4a87b4c026c84ad7cd2bf7ec
 translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
@@ -282,6 +282,24 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 생산은 계속 [#1021](https://github.com/dotnetpower/fdai/issues/1021) 범위이며, 구현되지 않은 출처에는 발급하지
 않습니다.
 
+**설계 참고: `forecast-history-actions`.** 작업 생산자는 기존 Thor/Saga StateStore 감사 체인을 읽지만 Thor,
+Saga, 검토자, 실행자가 되지 않습니다. 고정 매개변수 `SECURITY DEFINER` 함수는 요청 구간의 각
+`thor.action-run-save` 행에 대한 해시 앵커를 반환하고, 대상이 검토된 대상과 정확히 일치할 때만 연결된 ActionRun
+페이로드를 노출합니다. 출처 어댑터는 출처 기록을 만들기 전에 연속된 시퀀스 번호, `previous_hash`와 `entry_hash`
+일치, 워터마크까지 다시 계산한 감사 해시를 요구합니다. 검토된 매핑은 `succeeded`, `failed` 같은 최종 ActionRun
+상태를 예측 작업 상태로 변환할 수 있습니다. 간격, 해시 불일치, 대기 중인 최종 상태, 매핑되지 않은 상태, 오래된
+관측 범위, 결과 제한, 대상 불일치는 출처별 검증 증적이 발급되기 전에 불완전하거나 충돌하는 출처 관측으로 차단됩니다.
+
+**비평.** ActionRun 페이로드를 `state_kv`에서 직접 읽으면 Core 상태가 과도하게 노출되고 최신 값만 증명합니다. 대상
+행만 읽으면 부재가 완전하다는 점을 증명하지 못합니다. 수정된 reader는 해시 앵커와 페이로드 공개를 분리합니다. 모든
+작업 저장 행은 시퀀스와 해시 연속성에 기여하고, 정확한 대상의 행만 기록 생성에 필요한 상태 페이로드를 반환합니다.
+이 방식은 실행 권한을 부여하지 않고 Thor 또는 Saga 소유권도 바꾸지 않습니다.
+
+**수정.** 첫 구현은 `forecast-history-actions`를 `fdai.thor_saga_state_store.action_audit` 출처와
+`forecast-action-audit-chain.v1` 개정에 바인딩하고, 검증기 역할에는 함수 `EXECUTE`만 부여합니다. Activity Log는
+교차 확인 준비 상태로 남습니다. `forecast-history-excluded_windows`는 revision이 있는 `ChangeWindow` 이력 생산자가
+생길 때까지 계속 사용할 수 없습니다.
+
 ### 예측 맥락 집계
 
 소비자: 보존에 쓰는 `StateStoreForecastContextProvider._retain`과 채점에 쓰는
@@ -456,12 +474,12 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 - **재확인.**  `operator-test-context-command`, `test-context-transition`, `operational-test-context`는 실제 출처를
   읽습니다. 현재 맥락은 인용한 전이 발급 기록의 조회가 그 맥락과 직전 기록으로 다시 만든 조회와 같을 때만 인정되며,
   다른 발급 기록을 인용하면 `replay_substituted`입니다. `admit`은 보관된 기록마다 정확한 검증기 바인딩과 현재 앵커
-  기준의 그 바인딩 준비 상태를 다시 확인합니다. `forecast-history-changes`와
-  `forecast-history-resource_lifecycle` 목적은 이제 #1021이 제공한 `changes`와 `resource_lifecycle`
-  생산자를 사용해 `operational_state_transition*`의 실제 파생 출처 행을 읽습니다.
-  `forecast-history-actions`는 제한된 대상 범위의 Thor/Saga 작업 감사 reader가 없어 계속 사용할 수 없고,
-  `forecast-history-excluded_windows`는 revision이 있는 `ChangeWindow` 이력 생산자가 없어 계속 사용할 수 없습니다.
-  `forecast-context`는 같은 범위, 대상, 구간에 대한 네 개의 출처별 forecast-history 검증 증적이 모두 생길 때까지
+  기준의 그 바인딩 준비 상태를 다시 확인합니다. `forecast-history-actions`, `forecast-history-changes`,
+  `forecast-history-resource_lifecycle` 목적은 이제 `operational_state_transition*`의 실제 파생 출처 행을 읽습니다.
+  작업 생산자는 Thor/Saga StateStore 감사 앵커와 정확한 대상의 ActionRun 페이로드를 읽고, 나머지 두 생산자는 #1021이
+  제공한 `changes`와 `resource_lifecycle` 출처를 사용합니다. `forecast-history-excluded_windows`는 revision이 있는
+  `ChangeWindow` 이력 생산자가 없어 계속 사용할 수 없습니다. `forecast-context`는 같은 범위, 대상, 구간에 대한 네
+  개의 출처별 forecast-history 검증 증적이 모두 생길 때까지
   사용할 수 없습니다. `operational-test-observation`과 `current-case-reuse`도 아직 연결되지 않았습니다. 관측
   공급자는 검증기 신원으로 사용할 수 없고, 현재 재사용에는 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다.
   사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조,

@@ -50,6 +50,8 @@ _ALL_HEALTHY = {
     "azure.resource-existence": OperationalEvidenceSourceHealth.HEALTHY,
     "azure.resource-graph-changes": OperationalEvidenceSourceHealth.HEALTHY,
     "azure-monitor.metrics": OperationalEvidenceSourceHealth.HEALTHY,
+    "azure.activity-log": OperationalEvidenceSourceHealth.HEALTHY,
+    "core-control-plane.action-audit": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.case-history": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.safety-receipts": OperationalEvidenceSourceHealth.HEALTHY,
     "core-control-plane.test-context-store": OperationalEvidenceSourceHealth.HEALTHY,

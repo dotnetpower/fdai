@@ -44,6 +44,7 @@ from fdai.delivery.repo_assets import repo_asset_root
 BOUND_READBACK_PURPOSES = frozenset(
     {
         "case-history-read",
+        "forecast-history-actions",
         "forecast-history-changes",
         "forecast-history-resource_lifecycle",
         "operational-test-context",
@@ -54,10 +55,6 @@ BOUND_READBACK_PURPOSES = frozenset(
 READINESS_MAX_AGE = timedelta(seconds=120)
 READINESS_MAX_SKEW = timedelta(seconds=30)
 _SOURCE_LIMITATIONS = {
-    "forecast-history-actions": (
-        "no bounded target-scoped Thor/Saga action audit reader exists; "
-        "see #1021 and core/detection/forecast_history_producer.py"
-    ),
     "forecast-history-excluded_windows": (
         "no revisioned ChangeWindow history producer exists; see #1021 and "
         "core/detection/forecast_history_source.py"
@@ -65,13 +62,13 @@ _SOURCE_LIMITATIONS = {
     "current-case-reuse": "verifier-identity current-case provider readback is unavailable",
     "forecast-context": (
         "all four source-specific forecast-history admissions are required; "
-        "forecast-history-actions and forecast-history-excluded_windows remain unavailable"
+        "forecast-history-excluded_windows remains unavailable"
     ),
     "operational-test-observation": "verifier-identity provider readback is unavailable",
 }
 _FORECAST_LIMITATION = (
-    "source-specific forecast readback is bound only for changes and resource_lifecycle; "
-    "actions and excluded_windows remain unavailable (#1021)"
+    "source-specific forecast readback is bound for actions, changes, and resource_lifecycle; "
+    "excluded_windows remains unavailable"
 )
 _WRITER_NOT_READY = "verifier readiness with a writer-exclusive proof store is not observed"
 _READY = OperationalEvidenceVerifierState.READY
