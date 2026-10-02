@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import importlib
 import os
 import re
 import shutil
 import subprocess
 import sys
-import importlib
 from pathlib import Path
+from types import SimpleNamespace
 
 from fdai_service_contracts.product_profile import ProductAddOn
 
 from fdai_deployment_cli.aks_preflight import inspect_aks_target
+from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.deployment_cost import inspect_aks_compute_cost
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
@@ -22,6 +24,7 @@ from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_foundation import _copy_terraform
 from fdai_deployment_cli.source_input import inspect_source
+from fdai_deployment_cli.standalone_application_completion import complete_application
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 
 
@@ -286,13 +289,30 @@ def plan_source_installation(
                 or handoff.get("receipt_digest") != expected_handoff_digest
             ):
                 raise ValueError("source Foundation handoff digest differs")
-            return {
-                **result,
-                "cost_review": cost_review,
-                "foundation_state_receipt_digest": expected_handoff_digest,
-                "reason_code": "prebuilt_runtime_artifacts_required",
-                "next_action": "resume_with_signed_kit_and_foundation_adoption",
-            }
+            prepared_source = SimpleNamespace(
+                root=foundation,
+                ssh_private_key=foundation / "runner_ed25519",
+                target_binding=preflight["target_binding"],
+                source_commit=source.commit,
+                run_binding=run_binding,
+            )
+            application = complete_application(
+                kit=None,
+                prepared=prepared_source,
+                status=status,
+                scripts=scripts,
+                deadline=deadline,
+                selected_runtime=runtime_profile,
+                trial_token=None,
+                application_state_adoption=None,
+                foundation_state_receipt_digest=str(expected_handoff_digest),
+                catalog_review_profile=CatalogReviewDeploymentProfile.unselected(),
+                current_operator_object_id=lambda: "",
+                source_snapshot=work_dir / "source-snapshot",
+                source_snapshot_digest=str(prepared["source_snapshot_digest"]),
+                source_root=source.root,
+            )
+            return {**application, "cost_review": cost_review}
         if not interactive or result["stage"] not in {
             "runner-image-apply",
             "foundation-apply",

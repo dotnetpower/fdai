@@ -24,6 +24,14 @@ from fdai.core.ontology_platform.state_transitions import (
     StateTransitionLane,
     StateTransitionRead,
 )
+from fdai.delivery.forecast_history_sources import (
+    FORECAST_ACTION_HISTORY_SOURCE_IDENTITY,
+    FORECAST_ACTION_HISTORY_SOURCE_REVISION,
+    ActionAuditHistoryRead,
+    ActionAuditHistoryRow,
+    ActionAuditHistorySource,
+)
+from fdai.shared.providers.audit_hash import GENESIS_HASH, next_hash
 from fdai.shared.providers.forecast_context import (
     ForecastContextRequest,
     ForecastContextUnavailableError,
@@ -586,3 +594,103 @@ async def test_producing_collector_bounds_failures_and_always_defers_to_the_coll
         ProducingForecastHistoryCollector(collector=Reader(), producers=(failing, failing))
     with pytest.raises(ValueError, match="timeout"):
         ProducingForecastHistoryCollector(collector=Reader(), producers=(), timeout_seconds=0)
+
+
+class ActionAuditReader:
+    def __init__(self, rows: tuple[ActionAuditHistoryRow, ...], *, truncated: bool = False) -> None:
+        self.rows = rows
+        self.truncated = truncated
+
+    async def read_action_audit(
+        self,
+        *,
+        subject_ref: str,
+        start_at: datetime,
+        end_at: datetime,
+        known_at: datetime,
+        limit: int,
+    ) -> ActionAuditHistoryRead:
+        return ActionAuditHistoryRead(self.rows, self.truncated)
+
+
+def audit_row(
+    *,
+    seq: int,
+    previous_hash: str,
+    state: str,
+    target: str = TARGET,
+    correlation_id: str = "corr-action",
+    minutes: int = 10,
+    corrupt: bool = False,
+) -> ActionAuditHistoryRow:
+    entry = {
+        "kind": "thor.action-run-save",
+        "correlation_id": correlation_id,
+        "revision": seq,
+    }
+    entry_hash = next_hash(previous_hash, entry)
+    if corrupt:
+        entry_hash = "f" * 64
+    return ActionAuditHistoryRow(
+        seq=seq,
+        recorded_at=START + timedelta(minutes=minutes),
+        entry=entry,
+        previous_hash=previous_hash,
+        entry_hash=entry_hash,
+        state={
+            "correlation_id": correlation_id,
+            "state": state,
+            "action_type": "fdai.test",
+            "resource_id": target,
+        },
+    )
+
+
+async def test_action_audit_history_source_issues_from_contiguous_chain() -> None:
+    store = MemoryStore()
+    row = audit_row(seq=1, previous_hash=GENESIS_HASH, state="succeeded")
+    source = ActionAuditHistorySource(reader=ActionAuditReader((row,)))
+    reviewed = history("actions").model_copy(
+        update={
+            "source_identity": FORECAST_ACTION_HISTORY_SOURCE_IDENTITY,
+            "source_revision": FORECAST_ACTION_HISTORY_SOURCE_REVISION,
+        }
+    )
+    binding_ = binding("actions")
+
+    receipt = await ForecastHistoryProducer(
+        binding=binding_, history=reviewed, source=source, store=store
+    ).produce(request())
+
+    assert receipt.complete and receipt.transition_count == 1
+    transitions = [item for batch in store.batches.values() for item in batch.transitions]
+    assert transitions[0].to_state == "dispatched"
+    assert transitions[0].evidence_refs == (f"state-store-audit:1:{row.entry_hash}",)
+
+
+async def test_action_audit_history_source_holds_on_hash_mismatch() -> None:
+    store = MemoryStore()
+    first = audit_row(seq=1, previous_hash=GENESIS_HASH, state="succeeded")
+    second = audit_row(
+        seq=2,
+        previous_hash=first.entry_hash,
+        state="failed",
+        correlation_id="corr-action-2",
+        minutes=20,
+        corrupt=True,
+    )
+    source = ActionAuditHistorySource(reader=ActionAuditReader((first, second)))
+    reviewed = history("actions").model_copy(
+        update={
+            "source_identity": FORECAST_ACTION_HISTORY_SOURCE_IDENTITY,
+            "source_revision": FORECAST_ACTION_HISTORY_SOURCE_REVISION,
+        }
+    )
+
+    receipt = await ForecastHistoryProducer(
+        binding=binding("actions"), history=reviewed, source=source, store=store
+    ).produce(request())
+
+    assert not receipt.complete
+    assert receipt.transition_count == 0
+    assert receipt.limitation == "audit_chain_gap_or_hash_mismatch"

@@ -19,15 +19,15 @@ from fdai.delivery.forecast_history_configuration import (
 
 _SOURCE_CORE = "core-control-plane"
 _SOURCE_READERS = {
-    "actions": None,
+    "actions": "state-store-action-audit-chain",
     "changes": "inventory-journal-witness",
-    "excluded_windows": None,
+    "excluded_windows": "operating-intent-change-window-history",
     "resource_lifecycle": "inventory-incarnation-ledger",
 }
 _SOURCE_LIMITATIONS = {
-    "actions": "no bounded target-scoped action audit reader can attest event-time completeness",
+    "actions": "action history still depends on complete source checkpoints",
     "changes": "the journal witness cannot attest a start-of-window checkpoint",
-    "excluded_windows": "no attested reviewed change-window history source exists",
+    "excluded_windows": "change-window history still depends on complete source checkpoints",
     "resource_lifecycle": "the incarnation ledger cannot attest reconciliation after the window",
 }
 _UNAVAILABLE = (

@@ -109,6 +109,7 @@ for grounding; adapters carry the explicit encoding without another model call. 
 overflow stops before judgment. Neither projection nor a prompt bound changes manifest or query authority.
 Delivery's ontology generation validator independently binds the explicit principal scope and exact declaration bytes, not only declaration IDs; runtime instance storage and activation must remain separate from Rule corpus pointers.
 Core's secured gateway also owns the off-path, complete multi-type index-source scan. It applies the existing ACL to one bounded source snapshot and binds ordered object hashes; ordinary ObjectSet limits are unchanged. Delivery may stage this projection under an isolated immutable identity but cannot infer validation, activation, observed state, or execution authority from successful storage.
+ObjectType and Property declarations can carry reviewed bilingual `query_terms` and exact value labels for semantic document projection. Delivery embeds those terms with authorized runtime object properties, along with reviewed ResourceType terms, so the candidate index preserves English and Korean context without adding a language lookup table, widening access, or changing query authority.
 The focused `query_snapshot.py` helper revalidates source declaration references and object keys before ACL projection and computes bounded ordered projection identities. Missing or stale source references are rejected, never repinned to make an old row appear current.
 Delivery's `ontology_evaluation_execution.py` encloses isolated diagnostic preparation and the
 calibration/holdout runner in one counted call and deadline budget. It verifies frozen source and
@@ -606,6 +607,7 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 The complete seam catalog and composition rules are in [Project Structure Dependency Injection](project-structure-dependency-injection.md).
 Core result-handle storage follows the same rule: `ResultHandleStore` is injected at Core composition, with an in-memory local implementation and a PostgreSQL implementation that keep encrypted handle bodies Core-owned while Operator persists only opaque references. Ordinal follow-up binding over those references stays inside the default-off compiled-answer shadow path and adds no execution authority.
 The Core `ModelEvidenceView` builder is likewise a read-only conversation boundary: adaptive model evidence reads receive only the allowlisted projection, never raw query tables, provider bodies, handles, or retained snapshot cells. Verified-answer authoring uses a shared no-authority proposition contract and default-off author/reviewer ports; it does not change the current answer path until a promoted binding enables it.
+Azure operational evidence composition may inject a retained current-reuse source writer alongside the existing snapshot, safety, metric, branch, and effect-model seams. The writer only records verifier-readable evidence for `current-case-reuse`; it does not grant approval, execution, or promotion authority.
 
 ## Control-Loop Wiring
 

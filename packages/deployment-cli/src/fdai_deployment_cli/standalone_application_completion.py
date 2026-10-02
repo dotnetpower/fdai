@@ -23,7 +23,7 @@ from fdai_deployment_cli.standalone_application import deploy_standalone_applica
 
 def complete_application(
     *,
-    kit: DeploymentKit,
+    kit: DeploymentKit | None,
     prepared: Any,
     status: dict[str, Any],
     scripts: Path,
@@ -36,9 +36,15 @@ def complete_application(
     foundation_adoption_receipt_digest: str | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
     control_package: ControlPackage | None = None,
+    source_snapshot: Path | None = None,
+    source_snapshot_digest: str | None = None,
+    source_root: Path | None = None,
 ) -> dict[str, object]:
     """Configure identity and complete one exact standalone application deployment."""
 
+    source_commit = str(getattr(prepared, "source_commit", "") or getattr(kit, "source_commit", ""))
+    if not source_commit:
+        raise ValueError("application source commit is unavailable")
     entra_bindings: dict[str, str] | None = None
     if selected_runtime.product_profile.selects(ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE):
         begin_stage("identity")
@@ -75,14 +81,15 @@ def complete_application(
             catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
         ),
         control_package=control_package,
+        source_snapshot=source_snapshot,
+        source_snapshot_digest=source_snapshot_digest,
+        source_root=source_root,
     )
     deadline.remaining()
     result: dict[str, object] = {
         "schema_version": "fdai.standalone-azure-deployment.v2",
         "state": "deployment-ready",
-        "source_commit": kit.source_commit,
-        "kit_manifest_digest": kit.verification.manifest_digest,
-        "runtime_release_digest": kit.runtime.digest,
+        "source_commit": source_commit,
         "foundation_state_receipt_digest": foundation_state_receipt_digest,
         "application_receipt_digest": application["receipt_digest"],
         "catalog_review_receipt_digest": application["catalog_review_receipt_digest"],
@@ -98,6 +105,13 @@ def complete_application(
         "mutation_performed": True,
         "subscription_ready": False,
     }
+    if source_snapshot_digest is not None:
+        result["source_snapshot_digest"] = source_snapshot_digest
+        result["provenance"] = "operator-selected-source"
+        result["release_signature_verified"] = False
+    elif kit is not None:
+        result["kit_manifest_digest"] = kit.verification.manifest_digest
+        result["runtime_release_digest"] = kit.runtime.digest
     if control_package is not None:
         result["control_package_digest"] = control_package.archive_digest
         result["control_package_version"] = control_package.version

@@ -35,6 +35,7 @@ from fdai_deployment_cli.deployment_kit_cache import (
     verify_retained_artifacts,
 )
 from fdai_deployment_cli.deployment_progress import downloaded_bytes, progress_detail
+from fdai_deployment_cli.execution_copies import new_execution_copy
 from fdai_deployment_cli.offline_kit import (
     ROOT_MANIFEST_NAME,
     ROOT_SIGNATURE_NAME,
@@ -159,7 +160,7 @@ def _acquire_deployment_kit(
         elif stat.S_ISREG(details.st_mode):
             if path_present(kit_root):
                 retained_offline_kit_root = kit_root
-                kit_root = Path(tempfile.mkdtemp(prefix="offline-source-", dir=work_dir)) / "kit"
+                kit_root = new_execution_copy(work_dir, "offline-source-") / "kit"
             _extract_kit_archive(source, kit_root)
         else:
             raise ValueError("offline kit must be a regular archive or directory")

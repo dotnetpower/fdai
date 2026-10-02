@@ -92,8 +92,36 @@ def _declaration_ref(
         kind=kind,
         name=declaration.name,
         version=declaration.version,
-        declaration_digest=_digest(declaration.model_dump(mode="json", exclude_none=True)),
+        declaration_digest=_digest(_release_payload(declaration)),
     )
+
+
+def _release_payload(
+    declaration: (
+        OntologyObjectType
+        | OntologyLinkType
+        | OntologyActionType
+        | OntologyInterfaceType
+        | OntologyFunctionType
+    ),
+) -> dict[str, Any]:
+    payload = declaration.model_dump(mode="json", exclude_none=True)
+    if isinstance(declaration, OntologyObjectType):
+        payload.pop("query_terms", None)
+    if isinstance(declaration, OntologyObjectType | OntologyInterfaceType):
+        properties = payload.get("properties")
+        if isinstance(properties, dict):
+            for property_payload in properties.values():
+                if not isinstance(property_payload, dict):
+                    continue
+                property_payload.pop("query_terms", None)
+                property_payload.pop("value_query_terms", None)
+        provenance = payload.get("provenance")
+        if isinstance(provenance, dict) and "content_hash" in provenance:
+            payload_without_provenance = dict(payload)
+            payload_without_provenance.pop("provenance", None)
+            provenance["content_hash"] = _digest(payload_without_provenance)
+    return payload
 
 
 def _digest(value: Any) -> str:

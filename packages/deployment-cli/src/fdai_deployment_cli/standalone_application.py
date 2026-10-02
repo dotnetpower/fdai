@@ -8,7 +8,6 @@ import json
 import os
 import re
 import select
-import stat
 import subprocess
 import sys
 import time
@@ -18,11 +17,9 @@ from typing import Any
 
 from fdai_deployment_cli import standalone_catalog_checkpoint
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
-from fdai_deployment_cli.bundle import extract_bundle_archive
 from fdai_deployment_cli.catalog_review_profile import (
     CatalogReviewDeploymentProfile,
 )
-from fdai_deployment_cli.console_config import configure_console
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.control_package import ControlPackage
 from fdai_deployment_cli.deadline_transport import DeadlineTransport
@@ -32,18 +29,25 @@ from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
 from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.source_application_inputs import (
+    build_source_console,
+    source_transfer_inputs,
+)
+from fdai_deployment_cli.standalone_console_publish import publish_verified_console
 from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
+from fdai_deployment_cli.standalone_transfer_cleanup import cleanup_remote_transfers, remote_prune
 from fdai_deployment_cli.target import compute_target_binding
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SSH_USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
+__all__ = ["deploy_standalone_application", "publish_verified_console"]
 
 
 def deploy_standalone_application(
     *,
-    kit: DeploymentKit,
+    kit: DeploymentKit | None,
     prepared: Any,
     foundation_status: dict[str, Any],
     entra_bindings: dict[str, str] | None,
@@ -54,6 +58,9 @@ def deploy_standalone_application(
     application_state_adoption: ApplicationStateAdoption | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
     control_package: ControlPackage | None = None,
+    source_snapshot: Path | None = None,
+    source_snapshot_digest: str | None = None,
+    source_root: Path | None = None,
 ) -> dict[str, object]:
     """Deploy and independently replan the application without a workflow host."""
 
@@ -62,8 +69,13 @@ def deploy_standalone_application(
         runtime_platform="container-apps",
         database_placement="postgres-flex",
     )
+    source_mode = source_snapshot is not None
     begin_stage("transfer")
-    progress_detail("Verifying the handoff and preparing the signed kit for Bastion transfer")
+    progress_detail(
+        "Verifying the handoff and preparing the source snapshot for Bastion transfer"
+        if source_mode
+        else "Verifying the handoff and preparing the signed kit for Bastion transfer"
+    )
     report = _mapping(foundation_status.get("foundation_report"), "Foundation report")
     plan = _mapping(report.get("foundation_plan"), "Foundation plan")
     plan_directory = prepared.root / str(plan["plan_ref"])
@@ -85,17 +97,40 @@ def deploy_standalone_application(
     private_key = prepared.ssh_private_key
     if module.validate_ssh_private_key(private_key) != runner.get("ssh_key_digest"):
         raise ValueError("standalone host SSH key differs from Foundation evidence")
-    transport_archive = prepared.root / "standalone-kit.tar.gz"
-    archive_digest = archive_verified_kit(kit, transport_archive)
+    source_transfer = None
+    if source_mode:
+        if (
+            kit is not None
+            or source_snapshot_digest is None
+            or source_snapshot is None
+            or source_root is None
+        ):
+            raise ValueError("source application continuation inputs are incomplete")
+        source_transfer = source_transfer_inputs(
+            prepared_root=prepared.root,
+            source_snapshot=source_snapshot,
+            source_snapshot_digest=source_snapshot_digest,
+        )
+        transport_archive = source_transfer.archive
+        archive_digest = None
+    else:
+        if kit is None:
+            raise ValueError("standalone application requires a verified kit or source snapshot")
+        transport_archive = prepared.root / "standalone-kit.tar.gz"
+        archive_digest = archive_verified_kit(kit, transport_archive)
     entra_path = prepared.root / "entra-bindings.json" if entra_bindings is not None else None
     if entra_path is not None and entra_bindings is not None:
         _replace_private_json(entra_path, entra_bindings)
     work_binding: dict[str, object] = {
         "target_binding": prepared.target_binding,
         "source_commit": prepared.source_commit,
-        "kit_manifest_digest": prepared.kit_manifest_digest,
         "runtime_profile_digest": selected_runtime.digest,
     }
+    if source_mode:
+        work_binding["source_snapshot_digest"] = source_snapshot_digest
+        work_binding["provenance"] = "operator-selected-source"
+    else:
+        work_binding["kit_manifest_digest"] = prepared.kit_manifest_digest
     if control_package is not None:
         work_binding["control_package_digest"] = control_package.archive_digest
     work_ref = canonical_digest(work_binding)[:24]
@@ -130,13 +165,22 @@ def deploy_standalone_application(
             tunnel,
             remote_root=remote_root,
             remote_archive=remote_archive,
-            archive=transport_archive,
+            archive=None if source_mode else transport_archive,
             archive_digest=archive_digest,
             handoff_path=handoff_path,
             remote_handoff=remote_handoff,
             entra_path=entra_path,
             remote_entra=remote_entra,
             app_work=app_work,
+            source_archive=transport_archive if source_mode else None,
+            source_archive_digest=(
+                source_transfer.archive_digest if source_transfer is not None else None
+            ),
+            source_receiver=source_transfer.receiver if source_transfer is not None else None,
+            source_receiver_digest=(
+                source_transfer.receiver_digest if source_transfer is not None else None
+            ),
+            source_snapshot_digest=source_snapshot_digest if source_mode else None,
             runtime_profile=selected_runtime,
             application_state_adoption=application_state_adoption,
             remote_adoption_state=remote_adoption_state,
@@ -517,12 +561,29 @@ def deploy_standalone_application(
                 str(entra_bindings["ENTRA_CONSOLE_SPA_CLIENT_ID"]),
                 str(browser_console["console_origin"]),
             )
-            runtime = kit.runtime.to_mapping()
-            console_artifact = _mapping(runtime.get("console"), "runtime Console artifact")
+            if source_mode:
+                if source_root is None:
+                    raise ValueError("source Console build requires a verified snapshot")
+                console_archive, console_archive_sha256 = build_source_console(
+                    source_root=source_root,
+                    source_commit=prepared.source_commit,
+                    prepared_root=prepared.root,
+                    timeout_seconds=deadline.remaining(1800),
+                )
+                assert source_snapshot is not None
+                bundle_root = source_snapshot / "tree"
+            else:
+                if kit is None:
+                    raise ValueError("signed Console publication requires the verified kit")
+                runtime = kit.runtime.to_mapping()
+                console_artifact = _mapping(runtime.get("console"), "runtime Console artifact")
+                console_archive = kit.materialized_root / str(console_artifact["archive"])
+                console_archive_sha256 = str(console_artifact["archive_sha256"])
+                bundle_root = kit.bundle_root
             console_receipt = publish_verified_console(
-                console_archive=kit.materialized_root / str(console_artifact["archive"]),
-                console_archive_sha256=str(console_artifact["archive_sha256"]),
-                bundle_root=kit.bundle_root,
+                console_archive=console_archive,
+                console_archive_sha256=console_archive_sha256,
+                bundle_root=bundle_root,
                 prepared_root=prepared.root,
                 entra_bindings=entra_bindings,
                 browser_console=browser_console,
@@ -532,13 +593,17 @@ def deploy_standalone_application(
                 timeout_seconds=deadline.remaining(),
                 redirect_changed=redirect_changed,
             )
-        begin_stage("cleanup")
-        progress_detail("Removing transient transfers and verifying their absence")
-        cleanup = tunnel.ssh(("rm", "-f", "--", remote_archive, remote_approval), timeout=300)
-        archive_absent = tunnel.ssh(("test", "!", "-e", remote_archive), timeout=60)
-        approval_absent = tunnel.ssh(("test", "!", "-e", remote_approval), timeout=60)
-        if any(result.returncode != 0 for result in (cleanup, archive_absent, approval_absent)):
-            raise ValueError("standalone remote transient cleanup is incomplete")
+        transient_paths = (
+            (f"{remote_root}/source-transfer.tar", f"{remote_root}/source-receiver.pyz")
+            if source_mode
+            else (remote_archive,)
+        )
+        cleanup_remote_transfers(
+            tunnel,
+            transient_paths=transient_paths,
+            remote_approval=remote_approval,
+            prune=lambda: remote_prune(tunnel, remote_root=remote_root, work_dir=app_work),
+        )
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-terminal-receipt.v2",
         "state": "application-converged",
@@ -573,9 +638,20 @@ def deploy_standalone_application(
         "deployment_ready": True,
         "inventory_ready": True,
         "license_mode": license_mode,
+        "provenance": "operator-selected-source" if source_mode else "signed-release",
+        "release_signature_verified": not source_mode,
         "mutation_performed": True,
         "subscription_ready": False,
     }
+    if source_mode:
+        receipt["source_snapshot_digest"] = source_snapshot_digest
+    elif kit is not None:
+        kit_verification = getattr(kit, "verification", None)
+        kit_runtime = getattr(kit, "runtime", None)
+        if kit_verification is not None:
+            receipt["kit_manifest_digest"] = kit_verification.manifest_digest
+        if kit_runtime is not None:
+            receipt["runtime_release_digest"] = kit_runtime.digest
     receipt["receipt_digest"] = canonical_digest(receipt)
     deadline.remaining()
     _replace_private_json(prepared.root / "standalone-application-receipt.json", receipt)
@@ -775,133 +851,6 @@ def _import_entra(scripts: Path) -> Any:
         sys.path.remove(str(scripts))
 
 
-def publish_verified_console(
-    *,
-    console_archive: Path,
-    console_archive_sha256: str,
-    bundle_root: Path,
-    prepared_root: Path,
-    entra_bindings: dict[str, str],
-    browser_console: dict[str, Any],
-    scripts: Path,
-    subscription_id: str,
-    tenant_id: str,
-    timeout_seconds: int,
-    redirect_changed: bool,
-    verify_only: bool = False,
-    verify_service_contracts: bool = True,
-) -> dict[str, object]:
-    """Configure a verified prebuilt Console, publish it, and read back exact bytes."""
-
-    _require_archive_digest(console_archive, console_archive_sha256)
-    extraction = prepared_root / "console-publish"
-    if extraction.exists():
-        console_directory = extraction / "dist"
-    else:
-        console_directory = extract_bundle_archive(console_archive, extraction)
-    console_directory.chmod(0o700)
-    settings = {
-        "schema_version": "fdai.console-runtime.v1",
-        "operator_api_base_url": str(browser_console["operator_api_base_url"]),
-        "ingestion_api_base_url": str(browser_console["ingestion_api_base_url"]),
-        "tenant_id": tenant_id,
-        "spa_client_id": str(entra_bindings["ENTRA_CONSOLE_SPA_CLIENT_ID"]),
-        "api_scope": str(entra_bindings["ENTRA_CONSOLE_API_SCOPE"]),
-    }
-    settings_path = prepared_root / "console-runtime-settings.json"
-    _replace_private_json(settings_path, settings)
-    configured = configure_console(
-        console_directory,
-        settings_path,
-        manual_studio_url=f"{browser_console['console_origin']}/manuals",
-    )
-    summary = prepared_root / "console-publish-summary.txt"
-    if not summary.exists():
-        write_private_output(summary, "")
-    environment = {
-        **os.environ,
-        "EXPECTED_AZURE_TENANT_ID": settings["tenant_id"],
-        "ENTRA_CONSOLE_SPA_CLIENT_ID": settings["spa_client_id"],
-        "ENTRA_CONSOLE_API_SCOPE": settings["api_scope"],
-        "ARM_SUBSCRIPTION_ID": subscription_id,
-        "CONSOLE_DEFAULT_HOSTNAME": str(browser_console["console_hostname"]),
-        "CONSOLE_STATIC_WEB_APP_ID": str(browser_console["console_static_web_app_id"]),
-        "BROWSER_GATEWAY_OPERATOR_URL": settings["operator_api_base_url"],
-        "BROWSER_GATEWAY_INGESTION_URL": settings["ingestion_api_base_url"],
-        "CONSOLE_PREBUILT_DIRECTORY": str(console_directory),
-        "FDAI_CONSOLE_VERIFY_ONLY": "1" if verify_only else "0",
-        "FDAI_CONSOLE_VERIFY_SERVICE_CONTRACTS": "1" if verify_service_contracts else "0",
-        "GITHUB_STEP_SUMMARY": str(summary),
-    }
-    completed = subprocess.run(
-        (
-            "/bin/bash",
-            str(scripts / "publish-console.sh"),
-            str(bundle_root / "infra/runtimes/aks/workloads"),
-        ),
-        cwd=bundle_root,
-        env=environment,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=timeout_seconds,
-    )
-    if completed.returncode != 0:
-        raise ValueError("prebuilt Console publication or browser verification failed")
-    receipt: dict[str, object] = {
-        "schema_version": "fdai.standalone-console-publication.v1",
-        "state": "verified" if verify_only else "published",
-        "console_origin": browser_console["console_origin"],
-        "console_archive_sha256": console_archive_sha256,
-        "runtime_config_digest": configured["runtime_config_digest"],
-        "entra_redirect_changed": redirect_changed,
-        "artifact_hash_verified": True,
-        "spa_fallback_verified": True,
-        "api_health_verified": verify_service_contracts,
-        "authorization_preflight_verified": verify_service_contracts,
-        "unauthenticated_denial_verified": verify_service_contracts,
-        "entra_redirect_verified": verify_service_contracts,
-        "mutation_performed": not verify_only,
-        "subscription_ready": False,
-    }
-    receipt["receipt_digest"] = canonical_digest(receipt)
-    _replace_private_json(prepared_root / "console-publication-receipt.json", receipt)
-    return receipt
-
-
-def _require_archive_digest(path: Path, expected_digest: str) -> None:
-    """Recheck one no-follow regular archive immediately before it is consumed."""
-
-    if _DIGEST.fullmatch(expected_digest) is None:
-        raise ValueError("Console archive digest is invalid")
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    try:
-        before = os.fstat(descriptor)
-        if not stat.S_ISREG(before.st_mode):
-            raise ValueError("Console archive is not a regular file")
-        with os.fdopen(descriptor, "rb", closefd=False) as stream:
-            observed = hashlib.file_digest(stream, "sha256").hexdigest()
-        after = os.fstat(descriptor)
-        if (
-            before.st_dev,
-            before.st_ino,
-            before.st_size,
-            before.st_mtime_ns,
-            before.st_ctime_ns,
-        ) != (
-            after.st_dev,
-            after.st_ino,
-            after.st_size,
-            after.st_mtime_ns,
-            after.st_ctime_ns,
-        ):
-            raise ValueError("Console archive changed while it was read")
-        if observed != expected_digest:
-            raise ValueError("Console archive digest does not match the signed release")
-    finally:
-        os.close(descriptor)
-
-
 def _azure_actor_digest(target_binding: str, *, timeout_seconds: int = 60) -> str:
     result = subprocess.run(
         (
@@ -969,7 +918,7 @@ def _moment(value: datetime) -> str:
 
 
 def _parse_moment(value: str) -> datetime:
-    result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    result = datetime.fromisoformat(value)
     if result.tzinfo is None:
         raise ValueError("plan expiry is invalid")
     return result.astimezone(UTC)

@@ -15,6 +15,7 @@ from fdai.delivery.catalog_search.ontology_evaluation_campaign import (
 )
 from fdai.delivery.catalog_search.ranking import CatalogRankingPolicy
 from fdai.rule_catalog.schema.object_type import load_object_type_from_mapping
+from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule_semantic_evaluation_policy import (
     load_retrieval_evaluation_policy_from_mapping,
 )
@@ -48,12 +49,10 @@ def test_authored_dataset_uses_real_declarations_and_separate_frozen_questions()
         for name in names
     )
     by_name = {item.name: item for item in declarations}
-    resource_types = {
-        item["id"]
-        for item in yaml.safe_load(
-            (_ROOT / "rule-catalog/vocabulary/resource-types.yaml").read_text()
-        )["types"]
-    }
+    resource_registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load((_ROOT / "rule-catalog/vocabulary/resource-types.yaml").read_text())
+    )
+    resource_types = resource_registry.ids()
     objects = tuple(OntologyObjectRecord(**item) for item in corpus["objects"])
     assert len(objects) == 24
     assert Counter(item.object_type for item in objects) == dict.fromkeys(names, 6)
@@ -77,7 +76,13 @@ def test_authored_dataset_uses_real_declarations_and_separate_frozen_questions()
         embedding_model_version="unbound-model-version",
         embedding_dimension=1,
         runtime_objects=objects,
+        resource_type_query_terms={item.id: item.query_terms for item in resource_registry},
     )
+    resource_f = next(
+        item for item in build.documents if item.rule_id == "object:Resource:example-resource-f"
+    )
+    assert "가상 머신" in resource_f.text
+    assert "애플리케이션 릴리스 빌드 가상 머신" in resource_f.text
     calibration_cases, heldout_cases = (
         tuple(
             OntologyRetrievalEvaluationCase(

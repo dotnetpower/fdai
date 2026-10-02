@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: bded87c45b217894c7e4250fb24282da24d7aee2
-translation_revised: 2026-10-02
+translation_source_sha: 8ff381b5f3d714f3653491d919158167f07d596e
+translation_revised: 2026-10-03
 ---
 # 독립 운영 근거 발급
 
@@ -266,6 +266,15 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 | 충돌 | 충돌하는 표본, 시계열, 상태 출처가 없음 |
 | 최신성 정책 | 공급자를 읽은 시점부터 300초 |
 
+**출처 바인딩.** `core/operational_evidence/readback/test_observation.py`는 검증기 쪽
+`OperationalTestObservationReadback`을 제공합니다. 검증기 workload는 배포 환경에서만 이 목적을 바인딩하며, 배포
+구성은 세 가지 출처 계약을 모두 제공해야 합니다. Log Analytics workspace, 검토된 KQL metric template, 검토된 운영
+범위 관측 행입니다. `delivery/azure/operational_evidence_readbacks.py`는 검증기 소유 Azure Monitor Logs metric
+provider를 정확한 구간 표본 reader로 감싸고, 검토된 운영 범위 reader와 결합합니다. 배포된 검증기 신원은 구성된
+resource group 범위에서 `Monitoring Reader`를 가져야 하며, own-role 재조회는 이 역할이 생산자, 검토자, 실행기 신원과
+분리되어 있음을 확인한 뒤에만 목적을 available로 만듭니다. metric 구성 누락, 범위 행 누락, 배포 환경의 local-loopback
+출처, 충돌하는 표본, 불완전한 의존성 상태, protected signal은 모두 유형화된 거부로 fail-closed 처리됩니다.
+
 ### 출처별 예측 이력
 
 소비자: `delivery/persistence/state_store_forecast_context.py`에 있는 Heimdall의
@@ -284,6 +293,46 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 않습니다. 범위 소속은 `FDAI_FORECAST_TARGETS_JSON`이 아니라 검토된 운영 범위에서 가져옵니다. 원본 이력
 생산은 계속 [#1021](https://github.com/dotnetpower/fdai/issues/1021) 범위이며, 구현되지 않은 출처에는 발급하지
 않습니다.
+
+**설계 참고: `forecast-history-actions`.** 작업 생산자는 기존 Thor/Saga StateStore 감사 체인을 읽지만 Thor,
+Saga, 검토자, 실행자가 되지 않습니다. 고정 매개변수 `SECURITY DEFINER` 함수는 요청 구간의 각
+`thor.action-run-save` 행에 대한 해시 앵커를 반환하고, 대상이 검토된 대상과 정확히 일치할 때만 연결된 ActionRun
+페이로드를 노출합니다. 출처 어댑터는 출처 기록을 만들기 전에 연속된 시퀀스 번호, `previous_hash`와 `entry_hash`
+일치, 워터마크까지 다시 계산한 감사 해시를 요구합니다. 검토된 매핑은 `succeeded`, `failed` 같은 최종 ActionRun
+상태를 예측 작업 상태로 변환할 수 있습니다. 간격, 해시 불일치, 대기 중인 최종 상태, 매핑되지 않은 상태, 오래된
+관측 범위, 결과 제한, 대상 불일치는 출처별 검증 증적이 발급되기 전에 불완전하거나 충돌하는 출처 관측으로 차단됩니다.
+
+**비평.** ActionRun 페이로드를 `state_kv`에서 직접 읽으면 Core 상태가 과도하게 노출되고 최신 값만 증명합니다. 대상
+행만 읽으면 부재가 완전하다는 점을 증명하지 못합니다. 수정된 reader는 해시 앵커와 페이로드 공개를 분리합니다. 모든
+작업 저장 행은 시퀀스와 해시 연속성에 기여하고, 정확한 대상의 행만 기록 생성에 필요한 상태 페이로드를 반환합니다.
+이 방식은 실행 권한을 부여하지 않고 Thor 또는 Saga 소유권도 바꾸지 않습니다.
+
+**수정.** 첫 구현은 `forecast-history-actions`를 `fdai.thor_saga_state_store.action_audit` 출처와
+`forecast-action-audit-chain.v1` 개정에 바인딩하고, 검증기 역할에는 함수 `EXECUTE`만 부여합니다. Activity Log는
+교차 확인 준비 상태로 남습니다. `forecast-history-excluded_windows`는 revision이 있는 `ChangeWindow` 이력 생산자가
+생길 때까지 계속 사용할 수 없습니다.
+
+**설계 참고: `forecast-history-excluded_windows`.** 기존 operating-intent 출처가 계속 `ChangeWindow` 객체의 유일한
+권한 있는 출처입니다. 이 경로는 성공적으로 admission을 기록할 때마다 인정된 모든 `ChangeWindow` 객체에 대해
+append-only 이력 행을 기록합니다. 키는 출처 개정과 window id에서 결정적으로 만듭니다. 각 행에는 window id, 범위나
+대상 참조, 상태, 구간 종류, 유효 구간, 출처 개정, 문서 digest, 기록 시각, 같은 window의 직전 보존 개정을 가리키는
+supersedes 참조, 그리고 전체 인정 출처 문서의 워터마크가 들어갑니다. 별도의 출처별 관측 범위 행은 출처 개정, 문서
+digest, 검증 시각, 객체 수, 워터마크를 기록합니다. 따라서 forecast 생산자는 보존된 행이 부분적인 현재 graph 읽기가
+아니라 완전한 인정 출처에서 왔음을 증명할 수 있습니다.
+
+**비평.** `OntologyChangeWindowEvidenceProvider.is_active`나 최신 ontology 객체 revision을 재사용하면 여전히 이력을
+꾸며 내게 됩니다. 현재 활성 여부만 답할 수 있고 forecast lookback 전체에서 철회, 대체, 부재가 어땠는지 증명할 수
+없기 때문입니다. 새 소유자를 만들어 이력을 쓰면 권한이 바뀝니다. 안전한 이음매는 기존 operating-intent admission
+경로입니다. 이 경로는 이미 고정된 출처, 출처 digest, rollout 세대, 소유 객체 집합을 검증했습니다. 이력 writer는
+권한에 대해 읽기 전용입니다. admission 경로가 성공한 뒤 근거를 기록하며, 이력 보존 실패가 `ChangeWindow` 권한을 더
+허용적으로 만들지는 않습니다.
+
+**수정.** `forecast-history-excluded_windows`는 출처 ID `fdai.operating_intent.change_window_history`와 개정
+`forecast-change-window-history.v1`에 바인딩됩니다. 출처 어댑터는 append-only 보존 이력을 읽고, 정확한
+operating-intent 출처 개정과 일치하는 관측 범위 워터마크를 요구하며, 초기 상태가 있는 included/excluded 상태 체인을
+도출합니다. 관측 범위 누락, 대체 관계 충돌, 같은 시각의 상태 충돌, 오래된 워터마크, 불완전한 페이지는 fail-closed로
+처리됩니다. 이 네 번째 출처별 이력이 인정되면 `forecast-context`는 같은 범위, 대상, 구간에 대한 네 개의 출처별
+검증 증적을 모두 요구하는 기존 집계 규칙을 통해 바인딩될 수 있습니다.
 
 ### 예측 맥락 집계
 
@@ -307,6 +356,8 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 조회가 릴리스 digest를 묶으므로 운영 근거 밖의 온톨로지 함수 소스 수정을 포함한 모든 릴리스 변경은 새 조회를
 시작하고, 이전 릴리스에서 발급한 증적은 다시 쓰지 않습니다. 같은 변경에서 원본에 묶인 의미 보증 코퍼스도 다시
 생성합니다.
+변환 전용 온톨로지 어휘는 릴리스 digest나 운영 근거 조회 권한을 바꾸지 않고도 해당 corpus
+매니페스트의 원본 다이제스트를 갱신할 수 있습니다.
 
 | 증명 | 재조회 대상 |
 |------|-------------|
@@ -330,6 +381,14 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 | 완전성 | 대상에 대한 완전한 현재 그래프 세대와 모든 안전 결과에 대해 읽을 수 있는 증적 |
 | 충돌 | 세대, 사례 개정, 증적 사이에 불일치가 없음 |
 | 최신성 정책 | 스냅숏 관측 시점부터 300초이며, 현재의 5분 스냅숏 한도와 같음 |
+
+**출처 바인딩.** `core/operational_evidence/readback/current_case_reuse.py`는 검증기 쪽 readback을 정의하고,
+`delivery/azure/operational_evidence.py`는 실시간 T1(가벼운 유사성 재사용) 경로에 쓰는
+`AzureCurrentReuseVerifier`를 정의합니다. 검증기는 이제 `current-case-reuse` 증적을 요청하기 전에 조회 가능한 출처
+행을 보존합니다. 이 행에는 다시 계산한 검증 결과, 현재 인벤토리 세대, Muninn 사례 참조, 일곱 가지 결정적 안전 증적
+참조, 사례와 대상 권한 부여 좌표가 포함됩니다. 검증기는 넓은 `state_kv` 접근 대신 고정 매개변수 함수로 이 행을
+읽습니다. 출처 행 누락, 잘못된 안전 증적, 세대 충돌, 사례 개정 불일치, 실패한 안전성 검토, 권한 부여 불일치는 모두
+유형화된 거부로 fail-closed 처리됩니다. Thor는 재사용된 사례가 실행 경로에 쓰이기 전에 여전히 다시 검증합니다.
 
 ## 실패 시 차단하는 거부 매트릭스
 
@@ -457,14 +516,12 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 - **재확인.**  `operator-test-context-command`, `test-context-transition`, `operational-test-context`는 실제 출처를
   읽습니다. 현재 맥락은 인용한 전이 발급 기록의 조회가 그 맥락과 직전 기록으로 다시 만든 조회와 같을 때만 인정되며,
   다른 발급 기록을 인용하면 `replay_substituted`입니다. `admit`은 보관된 기록마다 정확한 검증기 바인딩과 현재 앵커
-  기준의 그 바인딩 준비 상태를 다시 확인합니다. `forecast-history-changes`와
-  `forecast-history-resource_lifecycle` 목적은 이제 #1021이 제공한 `changes`와 `resource_lifecycle`
-  생산자를 사용해 `operational_state_transition*`의 실제 파생 출처 행을 읽습니다.
-  `forecast-history-actions`는 제한된 대상 범위의 Thor/Saga 작업 감사 reader가 없어 계속 사용할 수 없고,
-  `forecast-history-excluded_windows`는 revision이 있는 `ChangeWindow` 이력 생산자가 없어 계속 사용할 수 없습니다.
-  `forecast-context`는 같은 범위, 대상, 구간에 대한 네 개의 출처별 forecast-history 검증 증적이 모두 생길 때까지
-  사용할 수 없습니다. `operational-test-observation`과 `current-case-reuse`도 아직 연결되지 않았습니다. 관측
-  공급자는 검증기 신원으로 사용할 수 없고, 현재 재사용에는 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다.
+  기준의 그 바인딩 준비 상태를 다시 확인합니다. `forecast-history-actions`, `forecast-history-changes`,
+  `forecast-history-excluded_windows`, `forecast-history-resource_lifecycle` 목적은 이제
+  `operational_state_transition*`의 실제 파생 출처 행을 읽고, `forecast-context`는 네 개의 출처별 이력에
+  바인딩됩니다. `operational-test-observation`은 배포된 검증기 workload가 `Monitoring Reader`, Log Analytics metric
+  template, 검토된 운영 범위 관측 행을 모두 가질 때 바인딩됩니다. `current-case-reuse`는 근거 발급 전에 인벤토리
+  세대, Muninn 사례 참조, 안전 증적, 권한 부여 좌표를 보존하는 현재 재사용 출처 행을 통해 바인딩됩니다.
   사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조,
   Core에서 Bragi로 이어지는 참조 전파, 연결된 정확한 재확인 모듈이 있습니다. Operator 설정
   `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을

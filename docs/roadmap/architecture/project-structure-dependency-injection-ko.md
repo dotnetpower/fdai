@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 112615e7bf777dc5efe2dd3f10890010102684c1
-translation_revised: 2026-10-01
+translation_source_sha: 7bcc4e5d6bcdfa644d1ae30bcdc3a7647eed3fbc
+translation_revised: 2026-10-02
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -84,7 +84,7 @@ translation_revised: 2026-10-01
 - **독립 효과 관측**: 영속 kinetic artifact 저장소가 exact-plan source입니다.
   `StateStoreExecutedActionObservationStore`는 검증기가 승인한 Heimdall 관측만 받습니다.
   `effect_evidence_bridge.py`는 검증된 증적만 matched로 옮기며 실패 또는 미상 결과는 registry 접근 없이 현재 승인을 요구하는 연결되지 않은 `StateStoreShadowReversionWriter`로 ActionType 하나를 복귀해야 합니다.
-- **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory 스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator, effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭 값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
+- **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory 스냅샷 읽기 담당, 현재 안전성 평가기, 선택적인 보존 current-reuse 출처 writer, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator, effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭 값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
 - **대시보드 가용성 변환**: `shared/telemetry/dashboard_status.py`는 프로바이더와 도메인
   리듀서가 생성한 뒤의 정규화된 메트릭 관측을 사용합니다. 프로바이더 I/O를 수행하지 않으며
   어떤 권한도 부여하지 않습니다. Phase 0 서술자는 소스가 연결된 패널의 예상 생산자와 최신성

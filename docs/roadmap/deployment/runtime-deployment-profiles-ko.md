@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 3ad4adc7c232e3046f77510e6cdf283c10ea0b45
+translation_source_sha: b1b715e16711b7dbd9ab6ce3569f3da1ca68a3a8
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -30,6 +30,11 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 노드 크기·비용·호스트 신원·정확한 계획 승인은 검증하지 않습니다. 이 근거는 프로파일에 연결된
 계획을 대신할 수 없습니다. 지원 자료 설치에는 검증된 경로를 명시적으로 전달하며 소스 자료가
 없다고 kit를 자동 선택하지 않습니다. [소스 경계](installable-deployment-cli-ko.md#명시적-소스-복구)를 참고하세요.
+단일 명령 소스 배포가 standalone 애플리케이션 순서에 도달해도 런타임 프로파일은 바뀌지
+않습니다. managed host는 서명된 키트 아카이브 대신 검증된 소스 전송 아카이브를 받고, 그
+스냅샷에서 `fdaictl`을 설치하며, 스냅샷의 Terraform 루트와 마이그레이션 지원을 사용합니다.
+공급자는 커밋된 lock 파일 기준으로 공개 레지스트리에서 직접 해석합니다. 이미지 참조는 배포
+레지스트리 빌드 단계가 끝난 뒤 다시 읽은 다이제스트로만 런타임 프로파일에 들어갑니다.
 두 프로파일 모두 읽기 측 리소스 계산을 위해 Core의 잠긴 Kubernetes 수량 도구를 패키징합니다. 이 의존성은 런타임을 선택하거나 Kubernetes 접근을 허용하거나 노드 적합성을 입증하거나 Cost Governance를 활성화하지 않습니다. 독립 배포 CLI는 별도 의존성 집합을 유지합니다. 런타임 Dockerfile의 Alpine 패키지 고정값 갱신은 패키지 유지보수일 뿐이며 런타임 프로파일, 배포 권한, 프로바이더 접근 또는 제품 추가 기능 선택을 바꾸지 않습니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
@@ -352,7 +357,8 @@ root 또는 호스트가 작성하는 라이선스 secret 중 하나에서 오�
 선택적인 운영 근거 검증기는 배포 소유 고정값, 앵커, 호출자 토큰 검증, 작성자 정책, 역할 재확인 범위가
 있을 때만 자체 user-assigned Managed Identity를 쓰는 별도 내부 워크로드로 렌더링됩니다. 기본 5개 서비스
 준비 상태 집합에 포함되지 않고 실행기 신원을 받지 않으며, 루트는 이미지 pull과 정확한 DSN 시크릿 읽기만
-부여합니다. 시작은 여전히 호출자 인증기, 실행기 계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 진행됩니다.
+부여합니다. `operational-test-observation`이 구성된 경우 같은 전용 신원은 배포 resource group에 대한
+`Monitoring Reader`도 받아 Azure Monitor 읽기가 검증기 신원으로 실행되게 합니다. 시작은 여전히 호출자 인증기, 실행기 계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 진행됩니다.
 
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state

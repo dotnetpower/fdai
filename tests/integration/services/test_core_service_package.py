@@ -52,6 +52,7 @@ EXPECTED_RUNTIME_MODULES = {
     "assurance_twin_query.py",
     "blast_probe.py",
     "bootstrap.py",
+    "change_window_history.py",
     "model_lifecycle_startup.py",
     "ontology_index_runtime.py",
     "bootstrap_bindings.py",

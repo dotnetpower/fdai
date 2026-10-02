@@ -27,15 +27,18 @@ _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 
 def configure_terraform(context: dict[str, object]) -> None:
     terraform = Path(str(context["terraform"]))
-    provider_mirror = Path(str(context["provider_mirror"]))
     config = Path(str(context["terraform_config"]))
     data = Path(str(context["terraform_data"]))
     if not terraform.is_file() or not config.is_file():
         raise ValueError("verified Terraform execution context is unavailable")
-    if read_private_bytes(config, max_bytes=16_384).decode("utf-8") != terraform_configuration(
-        provider_mirror
-    ):
-        raise ValueError("Terraform provider configuration differs from the verified kit")
+    provider_mode = str(context.get("provider_installation", "filesystem_mirror"))
+    if provider_mode == "direct":
+        expected_config = source_terraform_configuration()
+    else:
+        provider_mirror = Path(str(context["provider_mirror"]))
+        expected_config = terraform_configuration(provider_mirror)
+    if read_private_bytes(config, max_bytes=16_384).decode("utf-8") != expected_config:
+        raise ValueError("Terraform provider configuration differs from the verified input")
     data.mkdir(mode=0o700, exist_ok=True)
     kit_bin = Path(str(context.get("kit_bin", terraform.parent)))
     os.environ["PATH"] = os.pathsep.join(
@@ -65,6 +68,12 @@ def terraform_configuration(provider_mirror: Path) -> str:
         "  }\n"
         "}\n"
     )
+
+
+def source_terraform_configuration() -> str:
+    """Resolve providers from public registries under committed lock files."""
+
+    return "provider_installation {\n  direct {}\n}\n"
 
 
 def requires_aks_key_vault_private_access(
@@ -177,7 +186,7 @@ def _requires_private_access(
     except json.JSONDecodeError as exc:
         raise ValueError(f"{label} public-access readback is invalid") from exc
     if not isinstance(rows, list):
-        raise ValueError(f"{label} public-access readback is invalid")
+        raise TypeError(f"{label} public-access readback is invalid")
     matches = [row for row in rows if isinstance(row, dict) and row.get("name") == resource_name]
     if not matches:
         return False

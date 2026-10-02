@@ -7,7 +7,12 @@ import json
 
 from pydantic import BaseModel
 
-from fdai.shared.contracts.models import OntologyActionType, OntologyLinkType
+from fdai.shared.contracts.models import (
+    OntologyActionType,
+    OntologyInterfaceType,
+    OntologyLinkType,
+    OntologyObjectType,
+)
 
 
 def ontology_content_hash(declaration: BaseModel) -> str:
@@ -27,6 +32,11 @@ def ontology_content_hash(declaration: BaseModel) -> str:
             payload.pop("forward_role", None)
         if payload.get("reverse_role") is None:
             payload.pop("reverse_role", None)
+    if isinstance(declaration, OntologyObjectType):
+        if payload.get("query_terms") == []:
+            payload.pop("query_terms")
+    if isinstance(declaration, OntologyObjectType | OntologyInterfaceType):
+        _strip_empty_property_terms(payload)
     if (
         isinstance(declaration, OntologyActionType)
         and payload.get("required_evidence_semantic_refs") == []
@@ -52,6 +62,19 @@ def ontology_provenance_error(declaration: BaseModel) -> str | None:
             f"provenance.content_hash mismatch: expected {expected}, got {provenance.content_hash}"
         )
     return None
+
+
+def _strip_empty_property_terms(payload: dict[str, object]) -> None:
+    properties = payload.get("properties")
+    if not isinstance(properties, dict):
+        return
+    for property_payload in properties.values():
+        if not isinstance(property_payload, dict):
+            continue
+        if property_payload.get("query_terms") == []:
+            property_payload.pop("query_terms")
+        if property_payload.get("value_query_terms") == {}:
+            property_payload.pop("value_query_terms")
 
 
 __all__ = ["ontology_content_hash", "ontology_provenance_error"]

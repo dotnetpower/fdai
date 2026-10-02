@@ -335,14 +335,14 @@ def test_an_offline_upgrade_reaches_the_application_with_the_kit_source(coordina
         written.update(kwargs)
         return {"receipt_digest": "9" * 64}
 
-    monkeypatch.setattr(standalone_deploy, "write_lineage_adoption_receipt", lineage)
+    monkeypatch.setattr(standalone_deploy, "run_foundation_transition", lineage)
 
     result = invoke(product_add_ons=("enterprise-identity-governance",))
 
     assert _source_argument(options) == "f" * 40
     assert options["application_timeout"] is not None
     assert written["application_source_commit"] == "a" * 40
-    assert str(written["plan_directory"]).endswith("run/foundation-plan-attempt-2")
+    assert written["retained_plan_ref"] == "foundation-plan-attempt-2"
     assert result["foundation_adoption_receipt_digest"] == "9" * 64
 
 

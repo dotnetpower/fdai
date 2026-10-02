@@ -44,6 +44,7 @@ class _Prepared:
     principal_scope_digest: str
     generation: CatalogGenerationMetadata
     documents: tuple[CatalogSearchDocument, ...]
+    resource_type_query_terms: dict[str, tuple[str, ...]]
 
 
 _ScopeKey = tuple[str, str, tuple[str, ...]]
@@ -163,6 +164,10 @@ class OntologyInstanceCandidateReader:
                 manifest.coverage_receipt.principal_scope_digest,
                 build.metadata,
                 tuple(documents),
+                {
+                    key: tuple(value)
+                    for key, value in self._snapshots.resource_type_query_terms.items()
+                },
             )
 
     async def search(
@@ -220,6 +225,7 @@ class OntologyInstanceCandidateReader:
                     manifest=manifest,
                     gateway=gateway,
                     as_of=as_of,
+                    resource_type_query_terms=prepared.resource_type_query_terms,
                 )
                 if selected
                 else None

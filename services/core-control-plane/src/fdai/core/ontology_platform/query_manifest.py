@@ -279,22 +279,25 @@ def _descriptor(
 ) -> tuple[dict[str, Any], str | None]:
     domains = value_domains or {}
     if isinstance(declaration, OntologyObjectType):
-        return (
-            {
-                "kind": "object",
-                "name": declaration.name,
-                "version": str(declaration.version),
-                "declaration_digest": declaration_digest,
-                "key": declaration.key,
-                "properties": {
-                    name: _property_descriptor(
-                        prop,
-                        domain=domains.get((declaration.name, name)),
-                    )
-                    for name, prop in sorted(declaration.properties.items())
-                    if _property_readable(prop.access_scope, prop.purpose_binding, role, purposes)
-                },
+        descriptor = {
+            "kind": "object",
+            "name": declaration.name,
+            "version": str(declaration.version),
+            "declaration_digest": declaration_digest,
+            "key": declaration.key,
+            "properties": {
+                name: _property_descriptor(
+                    prop,
+                    domain=domains.get((declaration.name, name)),
+                )
+                for name, prop in sorted(declaration.properties.items())
+                if _property_readable(prop.access_scope, prop.purpose_binding, role, purposes)
             },
+        }
+        if declaration.query_terms:
+            descriptor["query_terms"] = sorted(declaration.query_terms, key=str.casefold)
+        return (
+            descriptor,
             None,
         )
     if isinstance(declaration, OntologyInterfaceType):
@@ -407,6 +410,13 @@ def _property_descriptor(prop: Any, *, domain: PropertyValueDomain | None) -> di
         "access_scope": prop.access_scope.value,
         "purpose_binding": sorted(prop.purpose_binding),
     }
+    if prop.query_terms:
+        descriptor["query_terms"] = sorted(prop.query_terms, key=str.casefold)
+    if prop.value_query_terms:
+        descriptor["value_query_terms"] = {
+            value: sorted(terms, key=str.casefold)
+            for value, terms in sorted(prop.value_query_terms.items())
+        }
     if domain is not None:
         descriptor.update(domain.projection())
     return descriptor

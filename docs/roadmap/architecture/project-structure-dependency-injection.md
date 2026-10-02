@@ -75,7 +75,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
 - **Independent effect observation**: the durable kinetic artifact store is the exact-plan source.
   `StateStoreExecutedActionObservationStore` accepts verifier-approved Heimdall observations;
   `effect_evidence_bridge.py` maps only verified receipts to matched, while failed or unknown results require the unbound, current-approval-gated `StateStoreShadowReversionWriter` to revert one ActionType without registry access.
-- **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
+- **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, optional retained current-reuse source writer, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
 - **Dashboard availability projection**: `shared/telemetry/dashboard_status.py` consumes normalized
   metric observations after provider and domain reducers have produced them. It performs no provider
   I/O and grants no authority. The Phase 0 descriptor names the expected producer and freshness

@@ -424,6 +424,14 @@ expired results. Candidate retrieval separately enforces its shorter five-second
 embedding, ranking and current-graph authorization. An expired storage write may have persisted
 an inert artifact; timeout is not proof of rollback and cannot be reported as successful completion.
 
+Runtime object documents include only authorized instance properties plus reviewed ontology
+vocabulary. ObjectType and Property declarations can supply bilingual `query_terms`, exact
+property-value labels, and Resource subtype terms from the reviewed ResourceType registry. These
+terms are embedded with the document to preserve English/Korean context, but they remain model
+context only. They do not create a lookup table, grant access, infer meaning, or prove a no-match.
+Changing those document surfaces changes the frozen generation digest and requires re-embedding
+the changed documents before any calibration claim.
+
 Current source is checked before document embedding and again before calibration. Embedding
 space, model version and dimension must match the frozen generation before and after every call.
 Calibration failure prevents holdout. Provider errors, including 429/503 and timeouts, stop the
@@ -449,6 +457,12 @@ an interrupted tail; no terminal record means incomplete execution. A completed 
 contain failed calibration or holdout and never grants production qualification or activation.
 Local-only callers may omit the writer; a session-only final serializer is not sufficient for live
 evidence retention. Never append a new attempt to an existing record or reconstruct missing metrics.
+
+The frozen instance-retrieval calibration policy is part of the reviewed input binding. Policy
+`1.1.0` now uses a hybrid candidate policy with `semantic_weight=1.0`, `lexical_weight=0.25`,
+`exact_weight=1.0`, and `minimum_score=0.4`. The lexical component is a deterministic ranking
+signal over already embedded candidates, not a meaning parser or query router. Changing the score
+floor or weights requires a new campaign binding and fresh diagnostic evidence.
 
 This path neither discovers credentials nor authorizes live execution. Before supplying a live
 adapter, obtain fresh bounded approval and attest the actual target binding. The caller owns

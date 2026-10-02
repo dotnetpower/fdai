@@ -26,7 +26,6 @@ from fdai_deployment_cli.control_package import verify_control_package
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
-from fdai_deployment_cli.foundation_adoption import write_lineage_adoption_receipt
 from fdai_deployment_cli.foundation_failure import foundation_failure_summary
 from fdai_deployment_cli.foundation_output import foundation_output
 from fdai_deployment_cli.foundation_process import run_foundation_process
@@ -35,6 +34,10 @@ from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_application_completion import complete_application
 from fdai_deployment_cli.standalone_foundation_adoption import (
     deploy_with_adopted_foundation,
+)
+from fdai_deployment_cli.standalone_foundation_transition import (
+    default_transition_runner,
+    run_foundation_transition,
 )
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 from fdai_service_contracts.product_profile import ProductAddOn
@@ -564,9 +567,11 @@ def _bind_application_to_foundation_lineage(
         or re.fullmatch(r"foundation-plan-attempt-[1-9][0-9]*", plan_ref) is None
     ):
         raise ValueError("retained Foundation plan reference is invalid")
-    receipt = write_lineage_adoption_receipt(
+    receipt = run_foundation_transition(
+        kit=kit,
         run_root=prepared.root,
-        plan_directory=prepared.root / plan_ref,
+        retained_plan_ref=plan_ref,
+        transition_plan_ref=None,
         application_source_commit=kit.source_commit,
         kit_manifest_digest=kit.verification.manifest_digest,
         runtime_release_digest=kit.runtime.digest,
@@ -574,6 +579,7 @@ def _bind_application_to_foundation_lineage(
         subscription_id=subscription_id,
         region=region,
         monthly_cost_ceiling=monthly_cost_ceiling,
+        transition_runner=default_transition_runner,
     )
     return str(receipt["receipt_digest"])
 
