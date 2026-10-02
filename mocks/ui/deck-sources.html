@@ -7,9 +7,11 @@
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v4" />
   <link rel="stylesheet" href="../../ui/calm-slate-deck-conversation.css?v=conversation-v44" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <script src="assets/deck-sources.js?v=sources-readable-v3" defer></script>
-  <link rel="stylesheet" href="assets/deck-study.css?v=sources-readable-v3" />
+  <script src="assets/deck-answer.js?v=common-answer-v2" defer></script>
+  <script src="assets/deck-sources.js?v=common-answer-v2" defer></script>
+  <link rel="stylesheet" href="assets/deck-study.css?v=common-answer-v2" />
   <link rel="stylesheet" href="assets/chat-current.css?v=11" />
+  <link rel="stylesheet" href="assets/deck-answer.css?v=common-answer-v2" />
 </head>
 <body data-preserve-page-title data-chat-theme="clear-neutral" data-chat-surface="current" data-deck-state="loading" data-sources-layout="readable">
   <main class="ds-page">
@@ -59,6 +61,22 @@
           <button type="button" class="cs-control-button" id="ds-replay">Replay</button>
           <button type="button" class="cs-control-button" id="ds-finish">Show result</button>
         </div>
+        <div class="ds-preview-row">
+          <span class="ds-preview-label" id="ds-answer-format-label">Answer input</span>
+          <div class="cs-control-segmented" role="group" aria-labelledby="ds-answer-format-label">
+            <button type="button" data-answer-format="markdown" aria-pressed="true">Markdown</button>
+            <button type="button" data-answer-format="json" aria-pressed="false">JSON</button>
+          </div>
+        </div>
+        <label for="ds-answer-input">Response input</label>
+        <textarea id="ds-answer-input" class="ds-answer-input" rows="6" spellcheck="false"></textarea>
+        <div class="ds-preview-actions">
+          <button type="button" class="cs-control-button" id="ds-answer-render">Render preview</button>
+          <span id="ds-answer-input-status" role="status">Synthetic preview</span>
+        </div>
+        <section class="ds-answer-preview" aria-label="Response preview">
+          <div id="ds-answer-output"></div>
+        </section>
       </div>
     </details>
 

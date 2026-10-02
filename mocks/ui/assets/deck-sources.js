@@ -150,9 +150,44 @@
   var GROUNDED_SOURCES = ["screen", "inventory", "rule", "policy", "verdict", "action", "promotion"];
   var GROUNDED_P2 = P2_SHADOW + P2_GATE + " The latest shadow evidence shows 14 days, 31 samples, 100% accuracy, and no escapes{promotion}.";
 
+  function sourcePresentation(retentionKey, posture, promotionKey, execution) {
+    var refs = [retentionKey, "rule"];
+    var retention = TOOLS[retentionKey].output.backup_retention_days;
+    var blocks = [];
+    if (execution) {
+      refs.push("verdict", "action");
+      blocks.push({ slot_id: "overview", kind: "summary", title: "Operational state", emphasis: "primary", collapsed: false, evidence_refs: [retentionKey, "rule", "verdict", "action"], data: { items: [
+        { label: "Backup retention", value: retention + " days / " + TOOLS.rule.output.parameters.min_retention_days + " required", tone: "attention" },
+        { label: "Mode", value: TOOLS.verdict.output.mode, tone: "neutral" },
+        { label: "Execution", value: "Not executed", tone: "neutral" },
+        { label: "After promotion", value: "Human approval required", tone: "neutral" }
+      ] } });
+    }
+    blocks.push({ slot_id: "metrics", kind: "threshold_table", title: "Backup retention", emphasis: "primary", collapsed: false, evidence_refs: [retentionKey, "rule"], data: {
+      columns: [{ key: "observed", label: "Observed" }, { key: "required", label: "Required" }, { key: "status", label: "Evidence state" }],
+      rows: [{ observed: retention === undefined ? "Unknown" : retention + " days", required: TOOLS.rule.output.parameters.min_retention_days + " days", status: posture }], status_key: "status"
+    } });
+    if (promotionKey) {
+      refs.push(promotionKey);
+      var observed = TOOLS[promotionKey].output;
+      var gate = TOOLS.action.output.promotion_gate;
+      blocks.push({ slot_id: "records", kind: "table", title: "Promotion requirements", emphasis: "secondary", collapsed: false, evidence_refs: ["action", promotionKey], data: {
+        columns: [{ key: "condition", label: "Condition" }, { key: "observed", label: "Observed" }, { key: "required", label: "Required" }, { key: "status", label: "Status" }],
+        rows: [
+          { condition: "Shadow days", observed: observed.shadow_days === undefined ? "Unknown" : String(observed.shadow_days), required: "At least " + gate.min_shadow_days, status: observed.shadow_days === undefined ? "Unknown" : "Not met" },
+          { condition: "Samples", observed: observed.samples === undefined ? "Unknown" : String(observed.samples), required: "At least " + gate.min_samples, status: observed.samples === undefined ? "Unknown" : "Not met" },
+          { condition: "Accuracy", observed: observed.accuracy === undefined ? "Unknown" : Math.round(observed.accuracy * 100) + "%", required: "At least " + Math.round(gate.min_accuracy * 100) + "%", status: observed.accuracy === undefined ? "Unknown" : "Met" },
+          { condition: "Policy escapes", observed: observed.policy_escapes === undefined ? "Unknown" : String(observed.policy_escapes), required: "At most " + gate.max_policy_escapes, status: observed.policy_escapes === undefined ? "Unknown" : "Met" }
+        ], status_key: "status"
+      } });
+    }
+    return { schema_version: 1, layout: "stack", blocks: blocks, evidence_refs: refs };
+  }
+
   var SCENARIOS = {
     grounded: {
       label: "Grounded",
+      presentation: sourcePresentation("inventory", "Below minimum", "promotion", true),
       unavailableSources: [],
       stages: GROUNDED_STAGES.concat([check("9 of 9 claims supported by 7 sources")]),
       sources: GROUNDED_SOURCES,
@@ -166,6 +201,7 @@
     },
     partial: {
       label: "Partial evidence",
+      presentation: sourcePresentation("inventory", "Below minimum", "promotionDown", true),
       unavailableSources: ["audit"],
       stages: GROUNDED_STAGES.slice(0, 6).concat([
         { label: "Read promotion evidence", detail: "Audit source unavailable: shadow history not read", phase: "Retrieve", emits: ["action", "promotionDown"], attention: true },
@@ -182,6 +218,7 @@
     },
     unavailable: {
       label: "Source unavailable",
+      presentation: sourcePresentation("inventoryDown", "Current state unknown", null, false),
       unavailableSources: ["inventory"],
       stages: [
         MAIN_INTENT,
@@ -205,6 +242,7 @@
     },
     conflict: {
       label: "Conflicting evidence",
+      presentation: sourcePresentation("inventoryNew", "Unresolved conflict", null, false),
       unavailableSources: [],
       stages: [
         MAIN_INTENT,
@@ -230,6 +268,7 @@
     },
     corrected: {
       label: "Corrected",
+      presentation: sourcePresentation("inventory", "Below minimum", "promotion", true),
       unavailableSources: [],
       stages: GROUNDED_STAGES.concat([check("9 of 10 claims supported; 1 unsupported sentence removed", true)]),
       sources: GROUNDED_SOURCES,
@@ -1701,86 +1740,40 @@
     return row;
   }
 
-  function evidenceComparison(spec, turnId) {
-    var inventoryKey = spec.sources.indexOf("inventory") >= 0 ? "inventory" : spec.sources.indexOf("inventoryNew") >= 0 ? "inventoryNew" : null;
-    if (spec.sources.indexOf("rule") < 0) return null;
-    var current = inventoryKey ? TOOLS[inventoryKey].output.backup_retention_days + " days" : "Unknown";
-    return h("table", { class: "ds-comparison" }, [
-      h("caption", { text: "Backup retention" }),
-      h("thead", null, [h("tr", null, [h("th", { scope: "col", text: "Observed" }), h("th", { scope: "col", text: "Required" }), h("th", { scope: "col", text: "Evidence state" })])]),
-      h("tbody", null, [h("tr", null, [
-        h("td", null, [h("strong", { text: current }), citation(inventoryKey || "inventoryDown", spec, turnId, true)]),
-        h("td", null, [TOOLS.rule.output.parameters.min_retention_days + " days", citation("rule", spec, turnId, true)]),
-        h("td", { text: spec === SCENARIOS.conflict ? "Unresolved conflict" : inventoryKey ? "Below minimum" : "Current state unknown" })
-      ])])
-    ]);
-  }
-
-  function promotionComparison(spec, turnId) {
-    if (spec.sources.indexOf("action") < 0 || (spec.sources.indexOf("promotion") < 0 && spec.sources.indexOf("promotionDown") < 0)) return null;
-    var gate = TOOLS.action.output.promotion_gate;
-    var evidence = spec.sources.indexOf("promotion") >= 0 ? TOOLS.promotion.output : null;
-    var rows = [
-      ["Shadow days", evidence && evidence.shadow_days, gate.min_shadow_days, "minimum"],
-      ["Samples", evidence && evidence.samples, gate.min_samples, "minimum"],
-      ["Accuracy", evidence && evidence.accuracy, gate.min_accuracy, "minimum", "percent"],
-      ["Policy escapes", evidence && evidence.policy_escapes, gate.max_policy_escapes, "maximum"]
-    ];
-    function display(value, unit) { return unit === "percent" ? Math.round(value * 100) + "%" : String(value); }
-    return h("table", { class: "ds-comparison" }, [
-      h("caption", null, ["Promotion requirements ", citation("action", spec, turnId, true), citation(evidence ? "promotion" : "promotionDown", spec, turnId, true)]),
-      h("thead", null, [h("tr", null, ["Condition", "Observed", "Required", "Status"].map(function (label) { return h("th", { scope: "col", text: label }); }))]),
-      h("tbody", null, rows.map(function (row) {
-        var met = evidence && (row[3] === "maximum" ? row[1] <= row[2] : row[1] >= row[2]);
-        return h("tr", null, [h("th", { scope: "row", text: row[0] }), h("td", { text: evidence ? display(row[1], row[4]) : "Unknown" }),
-          h("td", { text: (row[3] === "maximum" ? "At most " : "At least ") + display(row[2], row[4]) }),
-          h("td", { class: !evidence || !met ? "ds-status-attention" : "", text: evidence ? met ? "Met" : "Not met" : "Unknown" })]);
-      }))
-    ]);
-  }
-
   function finalizeTurn(spec, article, answer, turnId, offset, pendingRow, animate) {
     var prose = answer.querySelector(".cs-deck-prose");
     prose.textContent = "";
-    var scenarioLayout = READABLE && Object.keys(SCENARIOS).some(function (key) { return spec === SCENARIOS[key]; });
-    if (scenarioLayout) {
+    if (READABLE) {
       answer.insertBefore(h("div", { class: "ds-answer-status" }, [
         h("strong", { text: spec.verification.label === "Verified" ? "Claims supported" : spec.verification.label }),
         h("span", { text: spec.verification.detail }),
         h("span", { text: "Answer evidence, not execution verification" })
       ]), prose);
-      if (spec.sources.indexOf("verdict") >= 0) prose.appendChild(h("dl", { class: "ds-execution-state" }, [
-        h("div", null, [h("dt", { text: "Backup retention" }), h("dd", null, [TOOLS.inventory.output.backup_retention_days + " days / " + TOOLS.rule.output.parameters.min_retention_days + " required", citation("inventory", spec, turnId, true), citation("rule", spec, turnId, true)])]),
-        h("div", null, [h("dt", { text: "Mode" }), h("dd", null, [TOOLS.verdict.output.mode, citation("verdict", spec, turnId, true)])]),
-        h("div", null, [h("dt", { text: "Execution" }), h("dd", { text: "Not executed" })]),
-        h("div", null, [h("dt", { text: "After promotion" }), h("dd", null, ["Human approval required", citation("action", spec, turnId, true)])])
-      ]));
-    }
-    spec.answer.forEach(function (paragraph, index) {
-      var host = prose;
-      if (scenarioLayout) {
-        if (index === 2) {
-          host = h("details", { class: "ds-answer-detail" }, [h("summary", { text: "Approval and safeguards" })]);
-          prose.appendChild(host);
-        } else {
-          prose.appendChild(h("h3", { class: "ds-answer-heading", text: index === 0 ? "Finding" : "Execution and next steps" }));
-        }
+      var renderOptions = { citation: function (reference) {
+        if (spec.sources.indexOf(reference) < 0) return undefined;
+        return citation(reference, spec, turnId, true);
+      } };
+      if (spec.presentation) {
+        var structured = h("div", { class: "ds-answer-data" });
+        window.FDAIDeckAnswer.render(structured, { format: "json", content: spec.presentation, verification: mockVerification(spec.sources) }, renderOptions);
+        prose.appendChild(structured);
       }
-      var node = h("p");
-      renderInline(node, paragraph.text, spec, turnId, true);
-      host.appendChild(node);
+      var markdownBody = h("div", { class: "ds-answer-markdown" });
+      window.FDAIDeckAnswer.render(markdownBody, { format: "markdown", content: answerMarkdown(spec) }, renderOptions);
+      prose.appendChild(markdownBody);
       (spec.notes || []).forEach(function (item) {
-        if (item.after === index) host.appendChild(noteElement(item, spec, turnId, true));
+        prose.appendChild(noteElement(item, spec, turnId, true));
       });
-      if (scenarioLayout && index === 0) {
-        var comparison = evidenceComparison(spec, turnId);
-        if (comparison) prose.appendChild(comparison);
-      }
-      if (scenarioLayout && index === 1) {
-        var promotion = promotionComparison(spec, turnId);
-        if (promotion) prose.appendChild(promotion);
-      }
-    });
+    } else {
+      spec.answer.forEach(function (paragraph, index) {
+        var node = h("p");
+        renderInline(node, paragraph.text, spec, turnId, true);
+        prose.appendChild(node);
+        (spec.notes || []).forEach(function (item) {
+          if (item.after === index) prose.appendChild(noteElement(item, spec, turnId, true));
+        });
+      });
+    }
     setAnswerState(article, spec.answerState, animate);
     var row = actionRow(spec, turnId);
     if (pendingRow && pendingRow.parentNode === article) pendingRow.replaceWith(row);
@@ -3196,6 +3189,34 @@
   reducedMotion.addEventListener("change", function (event) { state.reduced = event.matches; });
 
   // ---------- Start ----------
+  function answerMarkdown(spec) {
+    return spec.answer.map(function (paragraph) { return paragraph.text; }).join("\n\n");
+  }
+
+  function mockVerification(references) {
+    return { status: "verified", authority: "synthetic-preview", checks_completed: 0, checks_total: 0, evidence_refs: references, reason_code: null };
+  }
+
+  if (READABLE) {
+    var previewFormat = "markdown";
+    function renderAnswerPreview() {
+      var example = SCENARIOS[state.scenario];
+      window.FDAIDeckAnswer.render(byId("ds-answer-output"), { format: previewFormat, content: byId("ds-answer-input").value, verification: mockVerification(example.sources) });
+      byId("ds-answer-input-status").textContent = "Synthetic preview; not operational verification";
+    }
+    function selectAnswerFormat(format) {
+      previewFormat = format;
+      var example = SCENARIOS[state.scenario];
+      byId("ds-answer-input").value = format === "markdown" ? answerMarkdown(example) : JSON.stringify(example.presentation, null, 2);
+      setPressed("data-answer-format", format);
+      renderAnswerPreview();
+    }
+    document.querySelectorAll("[data-answer-format]").forEach(function (button) {
+      button.addEventListener("click", function () { selectAnswerFormat(button.getAttribute("data-answer-format")); });
+    });
+    byId("ds-answer-render").addEventListener("click", renderAnswerPreview);
+    selectAnswerFormat("markdown");
+  }
   setPressed("data-scenario", state.scenario);
   setPressed("data-width", state.width);
   traceSwitch.checked = state.captureTrace;

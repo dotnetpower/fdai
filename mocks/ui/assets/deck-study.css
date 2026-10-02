@@ -498,34 +498,11 @@ body[data-sources-layout="readable"] .ds-answer-status {
 }
 
 body[data-sources-layout="readable"] .ds-answer-status > span:last-child { flex-basis: 100%; color: var(--cs-deck-meta-text); }
-body[data-sources-layout="readable"] .ds-execution-state { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; margin: 0 0 16px; }
-body[data-sources-layout="readable"] .ds-execution-state dt { color: var(--cs-deck-meta-text); font-size: var(--cs-type-label-size); }
-body[data-sources-layout="readable"] .ds-execution-state dd { margin: 0; font-weight: 600; }
-body[data-sources-layout="readable"] .ds-execution-state > div { min-width: 0; }
-body[data-sources-layout="readable"] .ds-execution-state dd { overflow-wrap: anywhere; }
-
-body[data-sources-layout="readable"] .ds-answer-heading,
 body[data-sources-layout="readable"] .ds-evidence-heading h3 {
   margin: 16px 0 8px;
   font: 600 var(--cs-type-panel-title-size)/var(--cs-type-panel-title-line-height) var(--cs-font);
 }
 
-body[data-sources-layout="readable"] .ds-answer-heading:first-child { margin-top: 0; }
-
-body[data-sources-layout="readable"] .ds-comparison {
-  width: 100%;
-  margin: 16px 0 24px;
-  border-collapse: collapse;
-  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
-  font-variant-numeric: tabular-nums;
-}
-
-body[data-sources-layout="readable"] .ds-comparison caption { padding-bottom: 8px; text-align: left; font-weight: 600; color: var(--cs-text); }
-body[data-sources-layout="readable"] .ds-comparison :is(th, td) { padding: 8px 6px; border-bottom: 1px solid var(--cs-hairline); text-align: left; overflow-wrap: anywhere; }
-body[data-sources-layout="readable"] .ds-comparison thead th { color: var(--cs-deck-meta-text); font-weight: 500; }
-body[data-sources-layout="readable"] .ds-answer-detail { margin: 16px 0; }
-body[data-sources-layout="readable"] .ds-answer-detail summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
-body[data-sources-layout="readable"] .ds-answer-detail p { margin-top: 8px; }
 body[data-sources-layout="readable"] .cs-deck-cite { min-width: 24px; height: 24px; }
 body[data-sources-layout="readable"] .cs-deck-cite-run { white-space: normal; }
 body[data-sources-layout="readable"] .cs-deck-answer code { overflow-wrap: anywhere; }
@@ -595,5 +572,4 @@ body[data-sources-layout="readable"][data-sources-overflow="expanded"] .cs-deck-
   body[data-sources-layout="readable"] :is(.cs-deck-tool, .cs-deck-context-chip, .cs-deck-jump, .ds-evidence-return, .cs-deck-source-open, .cs-deck-composer-send, .cs-deck-composer-input) { min-height: 44px; }
   body[data-sources-layout="readable"] .cs-deck-tool-icon { min-width: 44px; }
   body[data-sources-layout="readable"] .ds-preview > summary { min-height: 44px; }
-  body[data-sources-layout="readable"] .ds-comparison { table-layout: fixed; }
 }
