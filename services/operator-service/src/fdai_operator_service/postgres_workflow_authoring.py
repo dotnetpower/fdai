@@ -14,6 +14,7 @@ from fdai_service_contracts import JsonObject
 from psycopg.rows import dict_row
 from starlette.exceptions import HTTPException
 
+from fdai_operator_service.postgres_dsn import normalize_psycopg_dsn
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreUnavailable,
@@ -309,7 +310,7 @@ class PostgresWorkflowAuthoringStore:
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         try:
             return await psycopg.AsyncConnection.connect(
-                self._store._config.dsn,
+                normalize_psycopg_dsn(self._store._config.dsn),
                 row_factory=dict_row,
                 connect_timeout=self._store._config.connect_timeout_s,
             )
