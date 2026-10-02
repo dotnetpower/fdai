@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 763e0b980ffa8bccc4b002b5bc998ec5c3da41ea
+translation_source_sha: fcd3a5b148a6602788b84c7e3aed804a0a8c3499
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -339,10 +339,13 @@ Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기
 5개 서비스 AKS 기본 구성은 embedding 배포를 요구하지 않는 lexical 문서 검색을 활성화합니다.
 Document API와 Worker는 서로 다른 워크로드 신원, 역할 범위 데이터베이스 DSN, 공유 ADLS 계정 및
 `fdai.pipeline.stages` 엔터티를 사용합니다. Worker Pod는 기존 digest 고정 ClamAV 이미지를
-replica-local TCP sidecar로 포함합니다. 루트는 읽기 전용으로 유지하고 선언된 데이터베이스, 실행 및
-임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다. restricted namespace에서는 워크로드,
-init container, sidecar, 예약 작업의 Pod와 container 범위 모두에 `runAsNonRoot`가 필요합니다.
-Pod 범위 설정만으로는 admission을 통과하지 못합니다.
+replica-local TCP sidecar로 포함하며, 이미지 entrypoint가 데이터베이스 소유자를 바꾸려다 root 권한
+없이 종료되므로 sidecar는 `clamd`를 직접 시작합니다. 루트는 읽기 전용으로 유지하고 선언된
+데이터베이스, 로그, 실행 및 임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다. restricted
+namespace에서는 워크로드, init container, sidecar, 예약 작업의 Pod와 container 범위 모두에
+`runAsNonRoot`가 필요합니다. Pod 범위 설정만으로는 admission을 통과하지 못합니다. Core는 공유
+root의 Event Hubs 시작 시간 설정을 받고, Core와 Operator는 substrate 단계가 만드는 secret 단위
+`Key Vault Secrets User` 권한으로 `operator_request` 영수증 seed를 읽습니다.
 
 선택적인 운영 근거 검증기는 자체 user-assigned Managed Identity를 사용하는 별도 내부 워크로드입니다.
 기본 5개 서비스 준비 상태 집합에 포함되지 않으며 실행기 신원을 받지 않습니다. 호출자 인증기, 실행기

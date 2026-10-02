@@ -79,6 +79,13 @@ _SUBSTRATE_TARGETS: Final = (
     "random_id.cost_pseudonym_key",
     "azurerm_key_vault_secret.cost_pseudonym_key",
     "azurerm_role_assignment.operator_cost_pseudonym_secret_reader",
+    "random_id.operator_request_core_signing_seed",
+    "azurerm_key_vault_secret.operator_request_core_signing_seed",
+    "random_id.operator_request_operator_signing_seed",
+    "azurerm_key_vault_secret.operator_request_operator_signing_seed",
+    "azurerm_role_assignment.core_operator_request_core_seed_reader",
+    "azurerm_role_assignment.core_operator_request_operator_seed_reader",
+    "azurerm_role_assignment.operator_api_operator_request_seed_reader",
 )
 
 

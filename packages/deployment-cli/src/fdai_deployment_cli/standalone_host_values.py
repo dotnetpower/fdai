@@ -224,3 +224,57 @@ def aks_operator_environment(
         {f"FDAI_STEWARD_{name.upper()}": binding for name, binding in bindings.items()}
     )
     return environment
+
+
+# Shared-root Event Hubs startup readiness defaults (`infra/variables.tf`); the AKS
+# renderer must supply them because Core's code defaults are too short for a consumer join.
+AKS_CORE_STARTUP_READINESS: dict[str, str] = {
+    "FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "12",
+    "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS": "30",
+    "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS": "60",
+}
+
+_KEY_VAULT_SECRET_ID = re.compile(
+    r"https://[A-Za-z0-9-]{3,24}\.vault\.[a-z0-9.]+/secrets/([A-Za-z0-9-]{1,127})"
+)
+
+
+def aks_operator_request_receipts(
+    binding: object,
+) -> tuple[dict[str, str], dict[str, str], dict[str, str], dict[str, str]]:
+    """Bind Core and Operator to the deployment-owned operator_request receipt seeds.
+
+    Returns Core plain and secret environments, then Operator plain and secret environments.
+    Secret environments map variable names to Key Vault secret names.
+    """
+
+    if not isinstance(binding, dict):
+        raise ValueError("operator_request receipt binding is invalid")
+    names: dict[str, str] = {}
+    for field in ("core_signing_seed_secret_id", "operator_signing_seed_secret_id"):
+        match = _KEY_VAULT_SECRET_ID.fullmatch(str(binding.get(field, "")))
+        if match is None:
+            raise ValueError("operator_request receipt seed reference is invalid")
+        names[field] = match.group(1)
+    core_producer = binding.get("core_producer_id")
+    operator_producer = binding.get("operator_producer_id")
+    if (
+        core_producer != "core-control-plane"
+        or not isinstance(operator_producer, str)
+        or not operator_producer
+        or operator_producer == core_producer
+        or names["core_signing_seed_secret_id"] == names["operator_signing_seed_secret_id"]
+    ):
+        raise ValueError("operator_request receipt producers are invalid")
+    return (
+        {
+            "FDAI_OPERATOR_REQUEST_CORE_PRODUCER_ID": core_producer,
+            "FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER_ID": operator_producer,
+        },
+        {
+            "FDAI_OPERATOR_REQUEST_CORE_SIGNING_SEED": names["core_signing_seed_secret_id"],
+            "FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED": names["operator_signing_seed_secret_id"],
+        },
+        {"FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID": operator_producer},
+        {"FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED": names["operator_signing_seed_secret_id"]},
+    )
