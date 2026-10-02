@@ -51,6 +51,10 @@ The builder creates the deployment CLI wheel, downloads its locked runtime depen
 `wheels/`, writes one sorted checksum list, signs that list, and creates a tar archive. It does not
 build service images or assemble an Azure deployment payload.
 
+The builder must run under the repository CPython 3.12 environment. That matches the managed host
+interpreter used by the install step, so binary wheels are selected for the host that installs the
+control package instead of the workstation that happened to assemble it.
+
 Every shipped file except the signature pair is listed in `SHA256SUMS`; the builder fails when
 `wheels/` contains anything other than wheel files. Locked workspace path dependencies, such as
 the service contracts, are built as wheels because they have no index hash.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
@@ -37,6 +38,32 @@ def test_builder_emits_a_standard_verifiable_wheelhouse(tmp_path: Path) -> None:
     assert sha256sum is not None
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
+    fake_repo = tmp_path / "repo"
+    (fake_repo / ".venv/bin").mkdir(parents=True)
+    _executable(
+        fake_bin / "git",
+        """
+if [[ "$*" == "rev-parse --show-toplevel" ]]; then
+  printf '%s\\n' "$TEST_REPO_ROOT"
+  exit 0
+fi
+exit 2
+""",
+    )
+    _executable(
+        fake_repo / ".venv/bin/python",
+        """
+if [[ "${1:-}" == "-" && -z "${PACKAGE_ROOT:-}" ]]; then
+  cat >/dev/null
+  exit 0
+fi
+if [[ "${1:-}" == "-c" && "$2" == *"fdai_deployment_cli.__about__"* ]]; then
+  echo 0.1.1
+  exit 0
+fi
+exec "$TEST_PYTHON" "$@"
+""",
+    )
     _executable(
         fake_bin / "uv",
         """
@@ -103,7 +130,12 @@ exit 2
     completed = subprocess.run(  # noqa: S603 - fixed repository builder and arguments.
         [bash, str(BUILDER), "--out", str(output), "--signing-key", str(key)],
         cwd=ROOT,
-        env={**os.environ, "PATH": f"{fake_bin}:{os.environ['PATH']}"},
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "TEST_PYTHON": sys.executable,
+            "TEST_REPO_ROOT": str(fake_repo),
+        },
         check=False,
         capture_output=True,
         text=True,
@@ -156,3 +188,69 @@ exit 2
         "fdai_deployment_cli-0.1.1-py3-none-any.whl",
         "fdai_service_contracts-0.1.0-py3-none-any.whl",
     ]
+
+
+def test_builder_rejects_non_cpython_312_before_downloads(tmp_path: Path) -> None:
+    bash = shutil.which("bash")
+    assert bash is not None
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_repo = tmp_path / "repo"
+    (fake_repo / ".venv/bin").mkdir(parents=True)
+    _executable(
+        fake_bin / "git",
+        """
+if [[ "$*" == "rev-parse --show-toplevel" ]]; then
+  printf '%s\\n' "$TEST_REPO_ROOT"
+  exit 0
+fi
+exit 2
+""",
+    )
+    _executable(
+        fake_bin / "uv",
+        """
+printf 'uv must not run before the interpreter guard\\n' >&2
+exit 90
+""",
+    )
+    _executable(
+        fake_repo / ".venv/bin/python",
+        """
+if [[ "${1:-}" == "-" ]]; then
+  cat >/dev/null
+  printf 'build-signed-python-package: release Python must be CPython 3.12\\n' >&2
+  exit 1
+fi
+exit 91
+""",
+    )
+    key = tmp_path / "signing-key.pem"
+    key.write_bytes(
+        Ed25519PrivateKey.generate().private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    key.chmod(0o600)
+    output = tmp_path / "release"
+
+    completed = subprocess.run(  # noqa: S603 - fixed repository builder and arguments.
+        [bash, str(BUILDER), "--out", str(output), "--signing-key", str(key)],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "TEST_REPO_ROOT": str(fake_repo),
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert completed.returncode == 1
+    assert "release Python must be CPython 3.12" in completed.stderr
+    assert "uv must not run" not in completed.stderr
+    assert not (output / "package").exists()
