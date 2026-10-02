@@ -1,0 +1,12 @@
+{
+  "summary": "모델 호출 {models}건 / 모델 누적 {modelDuration} / {tokens} 토큰 / 근거 {successful}/{attempted}건 / 검증 {verification}",
+  "summaryTraceOff": "모델 호출 수 미기록 / 모델 누적 {modelDuration} / {tokens} 토큰 / 근거 {successful}/{attempted}건 / 검증 {verification}",
+  "summaryTraceMissing": "모델 호출 수 미기록 / 모델 누적 {modelDuration} / {tokens} 토큰 / 근거 {successful}/{attempted}건 / 검증 {verification}",
+  "performanceMetrics": "시간 및 토큰 사용량",
+  "serverElapsed": "서버 경과 시간",
+  "observedElapsed": "관찰된 경과 시간",
+  "cumulativeModelTime": "모델 누적 시간 (병렬 호출 합산)",
+  "inputTokens": "입력 토큰",
+  "outputTokens": "출력 토큰",
+  "totalTokens": "전체 토큰"
+}

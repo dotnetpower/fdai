@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import answerEvidenceEn from "../../src/deck/i18n/answer-evidence.en.json" with { type: "json" };
 import answerEvidenceKo from "../../src/deck/i18n/answer-evidence.ko.json" with { type: "json" };
+import runRecordEn from "../../src/deck/i18n/run-record.en.json" with { type: "json" };
+import runRecordKo from "../../src/deck/i18n/run-record.ko.json" with { type: "json" };
 import en from "../../src/i18n/messages.en.json" with { type: "json" };
 import ko from "../../src/i18n/messages.ko.json" with { type: "json" };
 
@@ -67,9 +69,9 @@ async function openConsole(
   return requests;
 }
 
-for (const [locale, catalog, answerEvidence] of [
-  ["en", en, answerEvidenceEn],
-  ["ko", ko, answerEvidenceKo],
+for (const [locale, catalog, answerEvidence, runRecord] of [
+  ["en", en, answerEvidenceEn, runRecordEn],
+  ["ko", ko, answerEvidenceKo, runRecordKo],
 ] as const) {
   test(`separates elapsed time, cumulative models and input/output usage (${locale})`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -92,9 +94,9 @@ for (const [locale, catalog, answerEvidence] of [
     await page.locator(".deck-trajectory > summary").click();
     const panel = page.locator(".deck-trajectory-performance");
     await expect(panel).toBeVisible();
-    await expect(panel.locator('[data-metric="elapsed"] dt')).toHaveText(catalog.deck.trajectory.serverElapsed);
+    await expect(panel.locator('[data-metric="elapsed"] dt')).toHaveText(runRecord.serverElapsed);
     await expect(panel.locator('[data-metric="elapsed"] dd')).toHaveText("12.8 s");
-    await expect(panel.locator('[data-metric="model"] dt')).toHaveText(catalog.deck.trajectory.cumulativeModelTime);
+    await expect(panel.locator('[data-metric="model"] dt')).toHaveText(runRecord.cumulativeModelTime);
     await expect(panel.locator('[data-metric="model"] dd')).toHaveText("22.4 s");
     await expect(panel.locator('[data-metric="input"] dd')).toHaveText("33,905");
     await expect(panel.locator('[data-metric="output"] dd')).toHaveText("1,197");

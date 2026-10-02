@@ -17,6 +17,7 @@ import {
   TrajectoryCoverage,
   TrajectoryDecisionContext,
 } from "./conversation-trajectory-decision-context";
+import { runRecordText } from "./run-record-i18n";
 import { verificationPrimaryLabel } from "./verification-presentation";
 import {
   buildTrajectoryPresentation,
@@ -75,9 +76,9 @@ export function ConversationTrajectoryView({
           </span>
         </span>
         <span class="deck-trajectory-stats cs-run-record-stats">
-          {t(presentation.modelCallCountRecorded
-            ? "deck.trajectory.summary"
-            : showModelTrace ? "deck.trajectory.summaryTraceMissing" : "deck.trajectory.summaryTraceOff", {
+          {runRecordText(presentation.modelCallCountRecorded
+            ? "summary"
+            : showModelTrace ? "summaryTraceMissing" : "summaryTraceOff", {
             models: presentation.modelCallCountIsLowerBound
               ? `${presentation.modelCallCount}+`
               : presentation.modelCallCount,
@@ -110,15 +111,15 @@ export function ConversationTrajectoryView({
       {open ? (
         <div class="deck-trajectory-body cs-run-record-body">
           <dl class="deck-trajectory-signals deck-trajectory-performance"
-            aria-label={t("deck.trajectory.performanceMetrics")}>
+            aria-label={runRecordText("performanceMetrics")}>
             <div data-metric="elapsed">
-              <dt>{t(trajectory.timingSource === "turn_timing"
-                ? "deck.trajectory.serverElapsed" : "deck.trajectory.observedElapsed")}</dt>
+              <dt>{runRecordText(trajectory.timingSource === "turn_timing"
+                ? "serverElapsed" : "observedElapsed")}</dt>
               <dd>{trajectory.durationMs === undefined
                 ? t("deck.trajectory.notRecorded") : formatDuration(trajectory.durationMs)}</dd>
             </div>
             <div data-metric="model">
-              <dt>{t("deck.trajectory.cumulativeModelTime")}</dt>
+              <dt>{runRecordText("cumulativeModelTime")}</dt>
               <dd>{presentation.modelLatencyMs === undefined
                 ? t("deck.trajectory.notRecorded") : formatDuration(presentation.modelLatencyMs)}</dd>
             </div>
@@ -128,15 +129,15 @@ export function ConversationTrajectoryView({
                 ? numberFormat.format(presentation.modelCallCount) : t("deck.trajectory.notRecorded")}</dd>
             </div>
             <div data-metric="input">
-              <dt>{t("deck.trajectory.inputTokens")}</dt>
+              <dt>{runRecordText("inputTokens")}</dt>
               <dd>{tokenValue(presentation.inputTokens)}</dd>
             </div>
             <div data-metric="output">
-              <dt>{t("deck.trajectory.outputTokens")}</dt>
+              <dt>{runRecordText("outputTokens")}</dt>
               <dd>{tokenValue(presentation.outputTokens)}</dd>
             </div>
             <div data-metric="total">
-              <dt>{t("deck.trajectory.totalTokens")}</dt>
+              <dt>{runRecordText("totalTokens")}</dt>
               <dd>{tokenValue(presentation.totalTokens)}</dd>
             </div>
           </dl>
