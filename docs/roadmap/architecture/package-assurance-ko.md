@@ -1,12 +1,12 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: f11c7bc536fba033063a1d6460d7777d403b51aa
+translation_source_sha: aaaeaf358258703c1db91efff33ba7e26f7fb618
 translation_revised: 2026-10-02
 ---
 
 # 패키지 보증
 
-> **배포 방식:** [헌법](fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](../deployment/hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 FDAI Python 패키지의 최소 배포 계약을 정의합니다. 오프라인 패키지는 일반 로컬 pip
 wheelhouse처럼 설치할 수 있으며, 설치 전에 private key로 만든 detached signature 하나만

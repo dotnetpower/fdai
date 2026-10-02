@@ -3,7 +3,7 @@ title: Runtime Deployment Profiles
 ---
 # Runtime Deployment Profiles
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI installations without changing application behavior or deployment
 authority. Azure Container Apps remains a supported compatibility profile for existing installations. The selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan.

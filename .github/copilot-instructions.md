@@ -40,10 +40,14 @@ pre-push validates the committed snapshot.
    dedicated test scope, including Azure resource
    mutation, destructive or irreversible actions, Chaos, and ActionType or Workflow promotion,
    demotion, and rollback. No action category is categorically prohibited inside that profile.
+   An explicitly selected single-operator production profile MAY let the one named operator of an
+   installation satisfy every approval, review, and quorum requirement there; risk classes, A4
+   denial, and per-approval confirmation still apply.
    Human approval and executor identities remain distinct. Require all seven safeguards:
    stop condition, tested rollback, blast-radius limit, successful dry-run, logical-target lock,
    stable idempotency key, and two-phase audit. New capabilities start in shadow mode and change
-   mode only through the authoritative promotion registry.
+   mode only through the authoritative promotion registry, by gate evidence or by an attributed
+   operator override that recall and regression demotion take precedence over.
 8. **Effect-verified:** Verify expected effects through an independent authoritative observation.
    Dispatch, broker acceptance, or an API success is not an operational success.
 9. **Secure boundaries:** Keep the repository customer-agnostic and free of secrets, tenant values,
@@ -102,10 +106,12 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
 6. Treat GitHub Actions, Azure operations, container publication, and other slow network work as a
    post-validation phase. Local checks are preflight, not complete GitHub Actions parity; CI-only
    jobs and the exact pushed-SHA environment remain authoritative. FDAI installation follows only the
-   two [deployment distribution](../docs/roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)
+   three [deployment distribution](../docs/roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)
    paths: a one-line source deployment from any local checkout, which runs a 30-day Trial unless
-   the upstream integrity signing key selects full entitlement, or a signed offline package. Neither
-   requires a protected branch, CI result, published artifact, or attestation.
+   the upstream integrity signing key selects full entitlement, a signed offline package, or the
+   [Hub-managed lifecycle](../docs/roadmap/deployment/hub-managed-lifecycle.md), which is designed
+   but not implemented. The first two require no protected branch, CI result, published artifact, or
+   attestation.
    Explicit deployment authorization permits entering the applicable deployment path. Delivery authorization never
    selects a tenant, subscription, environment, or exact Terraform plan and never supplies a secret.
    For coding-session operations, an authenticated Owner's explicit request for a development action

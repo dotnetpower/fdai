@@ -1,8 +1,8 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: 32e00d05f4e13fddf0d643f96e777a812efa5530
-translation_revised: 2026-09-27
+translation_source_sha: 3efb935a8cc30d0d854e8083ebfc36f3253ef4e7
+translation_revised: 2026-10-02
 ---
 # ADR-0002: 독립적인 런타임 및 Customization 축
 
@@ -14,6 +14,11 @@ translation_revised: 2026-09-27
 ## 상태
 
 **Accepted:** 2026-07-20.
+
+**Amended:** 2026-10-02에
+[ADR-0003](0003-hub-managed-lifecycle-and-operator-governance-ko.md)이 개정했습니다. 이 개정은 설치
+경로, release channel, 승인 프로필, 승격 종류, 모델 다양성 축을 추가하고, Mimir가 서명한 설치
+정책 개정을 권한 확인 정책으로 쓸 수 있게 합니다.
 
 ## 맥락
 
@@ -39,12 +44,17 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
 | 액션 수명 주기 | `shadow`, `enforce` | ActionType 및 작업 흐름별 승격 레지스트리 |
 | 사용자 신원 | Entra principal 및 App 역할 | 브라우저 토큰 및 RBAC 정책 |
 | 실행기 신원 | managed 워크로드 신원 | deployed 실행기 경계 |
-| 권한 확인 정책 | Signed scoped 정책 번들 및 effective-access 근거 | execution-authorization 해석기 |
+| 권한 확인 정책 | Signed scoped 정책 번들 또는 Mimir가 서명한 설치 정책 개정, 그리고 effective-access 근거 | execution-authorization 해석기 |
 | 선택적 패키지 선호 | 사용 불가, 비활성, 활성 | exact-revision 패키지 활성화 저장소 |
 | Kinetic 근거 가용성 | 누락, 저장된 exact V2 plan, 독립적으로 관측된 outcome | 근거 producer 및 영속 저장소 |
 | 근거 충돌 상태 | 없음, 활성, 상위 개정으로 해결됨 | Heimdall 발행, Muninn 변환 결과 및 ActionType 의미 의존성 |
 | 분포 | `upstream`, `fork` | 출처 및 customization 경계 |
 | Operational 안전성 프로파일 | `mscp-operational-v1` | Versioned 코어 정책, 실행 권한 아님 |
+| 설치 경로 | `source`, `offline-package`, `hub-managed` | 설치 등록 기록 |
+| Release channel 구독 | `DEV`, `RELEASE_CANDIDATE`, `RELEASE`, 사용자 지정 채널, 선택적 버전 범위 | Lifecycle Hub 설치 설정 |
+| 승인 프로필 | `multi-operator`, `single-operator-production`, `full-authority-development` | 승인 정책 개정 또는 검토된 배포 구성 |
+| 승격 종류 | `gate-evidence`, `operator-override` | ActionType 및 작업 흐름별 승격 레지스트리 |
+| 모델 다양성 정책 | `mixed-publisher`, `same-publisher-distinct-models` | 배포 모델 바인딩 |
 
 어떤 축의 값도 다른 축의 값을 선택하지 않습니다. 특히 다음 계약을 적용합니다.
 
@@ -85,6 +95,14 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
 - Operational 안전성 프로파일은 실행 위치, 환경, 근거, 수명 주기, 신원 및
   분포와 독립적입니다. 프로파일 검사는 기존 자율성 결정을 유지하거나 낮출 수만
   있습니다.
+- 설치 경로와 release channel 구독은 FDAI 자체를 설치하고 업데이트하는 방식만 정합니다. 제품
+  추가 기능, 액션 수명 주기, 승인 프로필, 권한 확인 정책 또는 실행 권한을 선택하지 않습니다.
+- 승인 프로필은 누가 승인을 충족할 수 있는지만 정합니다. 위험 등급, 승격 상태 또는 실행기
+  신원을 바꾸지 않습니다.
+- 승격 종류는 기능이 강제 적용 모드에 도달한 방식을 기록합니다. 운영자 재정의는 그 설치의 액션
+  수명 주기만 바꾸며 다른 축을 높일 수 없습니다.
+- 모델 다양성 정책은 T2에 쓸 수 있는 모델 쌍을 정합니다. 자율성을 높이지 않으며, 모든 T2 결정은
+  어떤 정책이 적용되었는지 기록합니다.
 
 ### Interactive 로컬 프로파일
 
