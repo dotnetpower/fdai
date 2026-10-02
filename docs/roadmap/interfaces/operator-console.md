@@ -94,6 +94,26 @@ completion evidence before zero findings can be reported. A failed read never be
 row; this boundary does not write or replace prior stored state.
 
 > Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a placeholder. A fork supplies concrete values via config ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+## Common answer presentation
+
+The Command Deck retains its shared Markdown renderer and validated JSON presentation artifacts.
+It never classifies paragraphs into operational roles or infers facts from layout. Evidence
+limitations and warning or attention blocks remain visible even when a collapse hint is present.
+Settled replies expose their existing verification state before the answer. Original Markdown
+inspection includes only the display-authorized answer, not rejected terminal text.
+
+Numbered citations open the corresponding source disclosure. Returning to the answer restores
+the invoking control and transcript position. Search is an explicit header control; `Ctrl+K`
+opens it, and Escape closes it without closing the conversation. Evidence-service availability
+has a separate disclosure from answer citations and preserves unavailable and unknown states.
+These presentation controls grant no read, approval, or execution authority.
+
+The actual Console imports the shared conversation stylesheet and activates its root, transcript,
+prose, citation, and composer roles. A normal completed work record becomes a compact disclosure
+after the terminal answer is available; failed, partial, and unavailable work stays expanded.
+Every recorded step remains inspectable. The latest-message command belongs to the composer
+context row and never floats over answer text.
+
 ## 1. Framing - what this is (and what it is not)
 Instance-candidate enrollment uses the authenticated principal, role, and group scope without changing human-report-line, assignment, approval, or action authority. The default Core index lifecycle remains agent-owned and read-only; exact-ID results do not qualify semantic ranking or imply a complete collection. The bilingual identity-only terminal explicitly reports partial, non-exhaustive candidates and no execution authority. It neither projects arbitrary properties nor substitutes for attachment authorization, exact document citations, or document evidence completeness.
 

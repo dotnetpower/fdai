@@ -41,6 +41,13 @@ const historyState = readFileSync(
 );
 
 describe("Command Deck workspace hierarchy", () => {
+  test("activates the shared mock conversation layer on the real Console root", () => {
+    expect(styles).toContain('@import url("../../ui/calm-slate-deck-conversation.css");');
+    expect(source).toContain("cs-deck-workspace-shell cs-deck-conversation");
+    expect(source).toContain('class="deck-transcript cs-deck-transcript"');
+    expect(source).toContain("deck-transcript-inner cs-deck-transcript-inner");
+  });
+
   test("opens transcript-first and adds columns only for requested panels", () => {
     expect(source).toContain("const [showConversations, setShowConversations] = useState(false);");
     expect(source).toContain('class="deck-source-readiness-slot cs-deck-source-readiness-slot"');
@@ -202,20 +209,17 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).not.toContain('class="deck-digest-header"');
     expect(source).toContain('placeholder={t("deck.inputPlaceholder")}');
     expect(source).toContain('t("deck.inputPlaceholderContext", { route: routeLabel })');
-    expect(source).toContain('class="deck-composer-context"');
+    expect(source).toContain('class="deck-composer-context cs-deck-composer-context"');
     expect(source).toContain("onClick={snapshot ? onRemoveScreen : onAttachScreen}");
   });
 
-  test("anchors the latest-message action above the composer", () => {
-    const transcriptColumn = source.slice(
-      source.indexOf('class="deck-transcript-column cs-deck-transcript-column"'),
-      source.indexOf('class="deck-transcript"'),
-    );
-    expect(transcriptColumn).toContain('class="deck-jump-slot"');
-    expect(transcriptColumn).toContain('class="deck-jump"');
-    expect(styles).toMatch(/\.deck-transcript-column \{[^}]*position: relative;/s);
-    expect(styles).toMatch(/\.deck-jump-slot \{[^}]*position: absolute;[^}]*left: 50%;[^}]*bottom: 12px;[^}]*transform: translateX\(-50%\);/s);
-    expect(styles).toMatch(/\.deck-jump \{[^}]*border-radius: 999px;[^}]*pointer-events: auto;/s);
+  test("keeps the latest-message action in the composer instead of covering answers", () => {
+    const composer = source.slice(source.indexOf("function DeckComposer("));
+    expect(composer).toContain('class="deck-composer-context cs-deck-composer-context"');
+    expect(composer).toContain('class="deck-jump cs-deck-jump"');
+    expect(source).toContain("showJumpToLatest={showJumpToLatest}");
+    expect(source).not.toContain("deck-jump-slot");
+    expect(styles).not.toContain(".deck-jump-slot");
   });
 
   test("keeps readable metadata at 12px and keyboard focus visible", () => {

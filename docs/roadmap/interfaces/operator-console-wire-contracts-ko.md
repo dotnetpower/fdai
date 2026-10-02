@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 8f1884a599b78b69a3059c8a2c87567c41d10689
-translation_revised: 2026-10-01
+translation_source_sha: 2145782864c8ef3a1d071933a65ff9b23a75daee
+translation_revised: 2026-10-02
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -10,6 +10,12 @@ translation_revised: 2026-10-01
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+
+[공통 답변 표시](operator-console-ko.md#공통-답변-표시)는 기존 답변 본문, 검증, 인용,
+표시 데이터 필드를 재사용합니다. 출처 상세와 원문 Markdown 보기는 전송 필드, 요청,
+Incident 확인 또는 실행 권한을 추가하지 않습니다. 거절된 내용은 표시가 허용된 답변에
+포함하지 않습니다.
+
 테스트 맥락 선택지는 전용 인증 읽기 계약입니다. 검토된 범위와 정책 선택지 및 출처 개정을 반환하며, 수명 주기 쓰기는 계속 기존 제안, 검토, 철회 경로를 사용하고 `execution_authority=false`를 유지합니다.
 
 Core가 감독하는 인스턴스 인덱스 조정은 Incident 생성 및 전송과 분리됩니다. 접수는 모델 인자나 인덱스 레코드가 아닌 인증된 Function 호출 문맥에서만 이뤄집니다. 후보 준비와 정확한 ID 조회는 Incident를 생성하거나 변경을 승인하거나 의미 전송 계약의 실행 권한 없음 원칙을 바꿀 수 없습니다. 전용 최종 변환은 principal, release, 검색어, 결과 다이제스트, 호출 근거 및 후보 집계를 검증합니다. 식별자/타입/수정 버전 행만 표시하고 전체 목록이나 실행 권한이 아니라는 안내를 두 언어로 제공합니다. 후보 0개는 부재를 입증하지 않으며 원시 속성은 제외합니다.

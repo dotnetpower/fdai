@@ -1,5 +1,8 @@
 import type { PresentationArtifact, PresentationBlock } from "./backend-types";
-import { PresentationModuleView } from "./presentation-modules/registry";
+import {
+  PresentationModuleView,
+  presentationBlockStaysExpanded,
+} from "./presentation-modules/registry";
 import "./structured-reply.css";
 
 export function StructuredReply({ artifact }: { readonly artifact: PresentationArtifact }) {
@@ -34,9 +37,15 @@ function PresentationAssemblyView({
   );
 }
 
+export function presentationBlockCanCollapse(block: PresentationBlock): boolean {
+  return block.collapsed
+    && block.slotId !== "limitations"
+    && !presentationBlockStaysExpanded(block);
+}
+
 function PresentationBlockView({ block }: { readonly block: PresentationBlock }) {
   const body = <PresentationModuleView block={block} />;
-  if (block.collapsed) {
+  if (presentationBlockCanCollapse(block)) {
     return (
       <details
         class="deck-presentation-block is-collapsible"

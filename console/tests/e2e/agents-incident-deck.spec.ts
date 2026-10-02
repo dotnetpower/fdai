@@ -672,11 +672,8 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-investigation-badge")).toHaveText("Completed");
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
   await expect(investigation).toHaveClass(/is-answer-settled/);
-  await expect(investigation).toHaveAttribute("open", "");
-  await expect(investigation.locator(".deck-investigation-item")).toHaveCount(2);
-  await expect(investigation.getByText("Inspect server-owned read evidence")).toBeVisible();
-  await investigation.locator(":scope > summary").click();
   await expect(investigation).not.toHaveAttribute("open", "");
+  await expect(investigation.locator(".deck-investigation-item")).toHaveCount(2);
   const settledGeometry = await investigation.evaluate((root) => ({
     height: root.getBoundingClientRect().height,
     documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
