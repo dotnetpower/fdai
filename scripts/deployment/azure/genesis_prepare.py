@@ -52,7 +52,6 @@ class PreparedGenesis:
     variables: Path
     ssh_private_key: Path
     source_commit: str
-    foundation_source_commit: str
     target_binding: str
     run_binding: str
     kit_manifest_digest: str
@@ -60,6 +59,7 @@ class PreparedGenesis:
     release_root: Path
     bundle_public_key: Path
     terraform: Path
+    foundation_source_commit: str = ""
 
 
 def prepare_genesis(
