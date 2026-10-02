@@ -36,6 +36,7 @@ from fdai_deployment_cli.standalone_foundation_adoption import (
     deploy_with_adopted_foundation,
 )
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
+from fdai_service_contracts.product_profile import ProductAddOn
 
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -169,6 +170,10 @@ def deploy_azure_foundation(
         and adoption is None
         and not (work_dir / "run" / "status.json").exists()
     ):
+        if _identity_add_on_selected(selected_runtime):
+            _require_unique_entra_display_names(
+                selected_runtime, kit.bundle_root / "scripts/deployment/azure"
+            )
         _require_feasible_new_aks_target(selected_runtime, region=region, deadline=deadline)
     begin_stage("discovery")
     progress_detail("Discovering image, storage name, and non-overlapping networks")
@@ -380,6 +385,35 @@ def _require_feasible_new_aks_target(
             else "unknown"
         )
         raise ValueError(f"standalone AKS preflight blocked a new installation: {names}")
+
+
+def _require_unique_entra_display_names(
+    profile: RuntimeDeploymentProfile,
+    scripts: Path,
+) -> None:
+    """Stop identity-enabled new installations before first Azure effect if names are ambiguous."""
+
+    if not _identity_add_on_selected(profile):
+        return
+    sys.path.insert(0, str(scripts))
+    try:
+        genesis_entra = importlib.import_module("genesis_entra")
+        check = getattr(genesis_entra, "check_unique_display_names", None)
+        if callable(check):
+            check()
+            return
+        plan_entra = getattr(genesis_entra, "plan_entra", None)
+        if callable(plan_entra):
+            plan_entra()
+    finally:
+        sys.path.remove(str(scripts))
+
+
+def _identity_add_on_selected(profile: RuntimeDeploymentProfile) -> bool:
+    product = profile.product_profile
+    return product.selects(ProductAddOn.READ_ONLY_CONSOLE) or product.selects(
+        ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE
+    )
 
 
 def active_azure_target() -> ActiveAzureTarget:

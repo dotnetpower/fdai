@@ -64,6 +64,63 @@ def test_entra_plan_reads_independent_directory_objects_concurrently(monkeypatch
     assert len(plan.create_groups) == 5
 
 
+def test_unique_display_name_preflight_reports_ambiguous_application(monkeypatch) -> None:
+    def directory(command):
+        if command[:3] == ("ad", "app", "list") and command[-1] == "fdai-api":
+            return [{"displayName": "fdai-api"}, {"displayName": "fdai-api"}]
+        if command[:3] == ("ad", "app", "list"):
+            return [{"displayName": command[-1]}]
+        if command[:3] == ("ad", "group", "list"):
+            return [{"displayName": command[-1]}]
+        raise AssertionError(command)
+
+    monkeypatch.setattr(genesis_entra, "_az_json", directory)
+
+    with pytest.raises(
+        ValueError,
+        match="enterprise_identity_governance_entra_display_name_ambiguous: applications=fdai-api",
+    ):
+        genesis_entra.check_unique_display_names()
+
+
+def test_unique_display_name_preflight_reports_ambiguous_group(monkeypatch) -> None:
+    def directory(command):
+        if command[:3] == ("ad", "app", "list"):
+            return [{"displayName": command[-1]}]
+        if command[:3] == ("ad", "group", "list") and command[-1] == "aw-approvers":
+            return [{"displayName": "aw-approvers"}, {"displayName": "aw-approvers"}]
+        if command[:3] == ("ad", "group", "list"):
+            return [{"displayName": command[-1]}]
+        raise AssertionError(command)
+
+    monkeypatch.setattr(genesis_entra, "_az_json", directory)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "enterprise_identity_governance_entra_display_name_ambiguous: "
+            "applications=none; groups=aw-approvers"
+        ),
+    ):
+        genesis_entra.check_unique_display_names()
+
+
+def test_unique_display_name_preflight_accepts_unique_tenant(monkeypatch) -> None:
+    calls = []
+
+    def directory(command):
+        calls.append(command)
+        return [{"displayName": command[-1]}]
+
+    monkeypatch.setattr(genesis_entra, "_az_json", directory)
+
+    result = genesis_entra.check_unique_display_names()
+
+    assert result["state"] == "unique"
+    assert result["mutation_performed"] is False
+    assert len(calls) == 8
+
+
 def test_bounded_plan_requires_existing_groups_and_never_proposes_group_creation(
     monkeypatch,
 ) -> None:

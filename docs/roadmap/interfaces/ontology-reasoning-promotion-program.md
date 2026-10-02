@@ -148,7 +148,7 @@ baselines in Wave 0, validation after each wave, and final promotion evidence in
 |---------|------|------|
 | R0 baselines | L1 with two repeats, L2 on the fixture graph, and the Azure SRE Agent parity baseline over the reasoning cohort | Retained L1, L2, and parity receipts |
 | L1 coverage | Recover from 84 of 120 runs without a released over-compilation | At least 105 of 120 across two repeated rounds |
-| Released wrong answers | A compiled and released answer whose executed rows differ from the gold rows counts in every round | Zero in every L1 round; any occurrence is a defect |
+| Released wrong answers | A compiled and released answer whose executed rows differ from the gold rows counts in every round. When the fixture graph can't serve a read, the gold binds the exact ObjectSet restriction, and a released answer whose restriction differs counts | Zero in every L1 round; any occurrence is a defect |
 | Release variance | Three repeated 20-question rounds for the deallocated VM, recent change, and containing-group questions | All three answer in every round |
 | Long conversations | The same questions in a fresh context and late in a 20-turn context | Equal verified answers across two repeats |
 | Traced exits | Compiled-plan coverage, terminal clarification, and ambiguity-reader rounds | Each traced question meets its ledger exit |

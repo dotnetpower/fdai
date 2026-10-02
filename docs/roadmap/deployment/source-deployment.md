@@ -64,6 +64,12 @@ watermark that no setting hides. The source path builds images directly into the
 creates no signed release artifact. A present but unusable key stops the run before the first Azure
 effect instead of silently selecting Trial.
 
+When the source deployment selects `read-only-console` or `enterprise-identity-governance`, it also
+checks tenant-local Entra display names before Foundation preparation. FDAI binds to one shared
+tenant-local set of exact display names. Duplicate `fdai-*` application or `aw-*` group names stop
+the source run with a fixed ambiguity reason before any Azure effect. The command does not guess,
+create installation-scoped names, or accept an unreviewed binding file.
+
 ## Run the command
 
 ```bash

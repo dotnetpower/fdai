@@ -1915,13 +1915,20 @@
       "concepts": {
         "m1": [
           "Incident"
+        ],
+        "m2": [
+          "lifecycle:Incident.status=open"
         ]
       },
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "filter_unsupported:state"
+          "status": "compiled",
+          "predicates": [
+            {
+              "property": "status",
+              "operator": "equals",
+              "equals": "open"
+            }
           ]
         }
       }
@@ -1968,13 +1975,20 @@
       "concepts": {
         "m1": [
           "Incident"
+        ],
+        "m2": [
+          "lifecycle:Incident.status=open"
         ]
       },
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "filter_unsupported:state"
+          "status": "compiled",
+          "predicates": [
+            {
+              "property": "status",
+              "operator": "equals",
+              "equals": "open"
+            }
           ]
         }
       }
