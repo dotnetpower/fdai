@@ -640,7 +640,7 @@ Operator returns the prior page envelope, and new Operators compute the ledger-w
 for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit
 its scan cost.
 
-On AKS, the substrate root's `terraform_data.installation` anchor keeps the installation identifier
+On AKS, the substrate-targeted `terraform_data.installation` anchor keeps the installation identifier
 and first-apply time in Terraform state, so no rerun or upgrade changes them. The application stage
 gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application
 apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial

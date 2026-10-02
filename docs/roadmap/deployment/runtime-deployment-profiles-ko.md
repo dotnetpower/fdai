@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: f8cd9c236c86b543f3351fa59067a2387658fa74
+translation_source_sha: b610a9749f5c3f01015126eaba98a3dcd200bef9
 translation_revised: 2026-10-02
 ---
 # 런타임 배포 프로파일
@@ -639,7 +639,7 @@ Console이 추가적인 `summary=true`를 보내더라도 이전 Operator는 기
 Operator는 이 활성화 설정이 있을 때만 원장 전체 요약을 계산하므로 Incident, Agent Activity, Trace 및
 선택적 비용 패키지 경로가 이 조회 비용을 이어받지 않습니다.
 
-AKS에서는 substrate root의 `terraform_data.installation` 고정점이 설치 식별자와 최초 적용 시각을
+AKS에서는 substrate 단계가 대상으로 지정하는 `terraform_data.installation` 고정점이 설치 식별자와 최초 적용 시각을
 Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 애플리케이션 단계는
 Core에 `FDAI_INSTALLATION_BINDING`과 `FDAI_LICENSE_DEPLOYMENT_BINDING`을 제공합니다. 애플리케이션
 적용 후 초기 인벤토리 전에, 관리 호스트의 `activate-trial` 단계는 Key Vault 상태 저장소 DSN으로
