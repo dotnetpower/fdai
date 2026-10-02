@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from types import SimpleNamespace
 
@@ -50,18 +51,23 @@ def coordinator(tmp_path, monkeypatch):
         "create_runner_image": None,
         "foundation_adoption": None,
         "preparation_calls": 0,
+        "foundation_source_commit": None,
+        "foundation_env": None,
     }
 
     def prepare(**kwargs):
         clock[0] += options["preparation_elapsed"]
         options["preparation_calls"] += 1
         options["create_runner_image"] = kwargs["create_runner_image"]
+        if options["foundation_source_commit"] is not None:
+            prepared.foundation_source_commit = options["foundation_source_commit"]
         prepared.root.mkdir(parents=True, mode=0o700)
         return prepared
 
-    def foundation(*args, **_kwargs):
+    def foundation(*args, **kwargs):
         clock[0] += options["foundation_elapsed"]
         options["foundation_command"] = args[0]
+        options["foundation_env"] = kwargs.get("env")
         return subprocess.CompletedProcess([], 2)
 
     def identity(**_kwargs):
@@ -278,3 +284,43 @@ def test_offline_deployment_retains_image_build_context(coordinator):
     assert options["create_runner_image"] is True
     assert "--create-runner-image" in command
     assert "--runner-image-terraform" in command
+
+
+def _source_argument(options: dict[str, object]) -> str:
+    command = list(options["foundation_command"])  # type: ignore[call-overload]
+    return str(command[command.index("--source-commit") + 1])
+
+
+def test_a_new_installation_binds_the_foundation_to_the_kit_source(coordinator):
+    invoke, options, _clock = coordinator
+    with pytest.raises(RuntimeError, match="stop-after-prompt"):
+        invoke()
+
+    evidence = json.loads(options["foundation_env"]["FDAI_SIGNED_SOURCE_EVIDENCE"])
+    assert _source_argument(options) == "a" * 40
+    assert evidence["source_commit"] == evidence["foundation_source_commit"] == "a" * 40
+
+
+def test_an_offline_upgrade_continues_the_foundation_under_its_retained_lineage(coordinator):
+    invoke, options, _clock = coordinator
+    options["foundation_source_commit"] = "f" * 40
+
+    # A new Foundation plan under the old lineage is refused before any approval prompt.
+    with pytest.raises(ValueError, match="cannot approve a new Foundation plan"):
+        invoke()
+
+    evidence = json.loads(options["foundation_env"]["FDAI_SIGNED_SOURCE_EVIDENCE"])
+    assert _source_argument(options) == "f" * 40
+    assert evidence["source_commit"] == "a" * 40
+    assert evidence["foundation_source_commit"] == "f" * 40
+    assert options["prompt_timeout"] is None
+
+
+def test_an_offline_upgrade_reaches_the_application_with_the_kit_source(coordinator):
+    invoke, options, _clock = coordinator
+    options.update(application=True, foundation_source_commit="f" * 40)
+
+    invoke(product_add_ons=("enterprise-identity-governance",))
+
+    assert _source_argument(options) == "f" * 40
+    assert options["application_timeout"] is not None
