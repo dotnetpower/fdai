@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 4c5a8781cb949646c3d4ea3fca976e61bac06eba
+translation_source_sha: 9624acde7d06a36944da2d5951f2928ee739c998
 translation_revised: 2026-10-02
 ---
 
@@ -532,6 +532,18 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 | `fdaictl offline prepare` | 로컬 배포 페이로드 준비. Python 패키지 설치에는 필요하지 않음 | 아니요 |
 | `fdaictl offline install-support` | 로컬 wheel에서 선택적 마이그레이션 지원 설치 | 아니요 |
 | `fdaictl license inspect` | 네트워크 호출 없이 기능 토큰을 검증하거나, 설치 사용권을 두 정확한 바인딩으로 검증 | 아니요 |
+
+### Entra 표시 이름 모호성 사전 점검
+
+**결정과 비판:** `read-only-console` 또는 `enterprise-identity-governance`를 선택한 설치는
+테넌트 로컬 공유 Entra 등록과 그룹 한 세트를 사용하며, 고유한 정확한 표시 이름으로만
+확인합니다. 이전 대안은 중복 등록 중 하나를 추측하거나, 설치 범위 이름을 생성하거나, 명시적
+바인딩 파일을 도입하는 방식이었습니다. 추측은 실행 중인 Console을 깨뜨릴 수 있고, 설치 범위
+이름은 공유 테넌트 계약을 분기시키며, 바인딩 파일은 별도의 소유자 검토 흐름이 필요합니다.
+개정된 계약은 첫 Azure 효과 전에 읽기 전용 사전 점검을 수행합니다. `fdai-api`,
+`fdai-console-spa`, `fdai-approval-bot` 또는 `aw-*` 표시 이름이 중복되면 실행은 고정된
+모호성 이유로 멈춥니다. 운영자는 추가 등록의 이름을 바꾸거나 제거한 뒤 같은 설치를 다시
+실행합니다.
 
 공개 CLI는 `deploy plan`, `deploy apply` 또는 `deploy status`를 등록하지 않습니다. 이 명령들은
 이전에 GitHub workflow를 dispatch했으며 standalone 배포 계약에 포함되지 않습니다. 실제

@@ -283,6 +283,52 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
     assert not (tmp_path / "work").exists()
 
 
+def test_source_identity_preflight_runs_before_aks_preflight(tmp_path, monkeypatch) -> None:
+    root = tmp_path / "checkout"
+    root.mkdir()
+    source = SimpleNamespace(root=root, commit="c" * 40, reverify=lambda: None)
+    events: list[str] = []
+    monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {
+            "source_commit": source.commit,
+            "source_snapshot_digest": "e" * 64,
+            "receipt_digest": "d" * 64,
+        },
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "_require_unique_entra_display_names",
+        lambda *_args: events.append("entra") or (_ for _ in ()).throw(ValueError("ambiguous")),
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_target",
+        lambda **_: pytest.fail("AKS preflight must not run after Entra ambiguity"),
+    )
+
+    with pytest.raises(ValueError, match="ambiguous"):
+        source_azure.plan_source_installation(
+            source_root=root,
+            work_dir=tmp_path / "work",
+            runtime_profile=RuntimeDeploymentProfile.create(
+                runtime_platform="aks",
+                database_placement="postgres-flex",
+                product_add_ons=(
+                    "read-only-console",
+                    "enterprise-identity-governance",
+                ),
+            ),
+            region="eastus",
+            monthly_cost_ceiling=1000,
+            timeout_seconds=1800,
+        )
+
+    assert events == ["entra"]
+
+
 def test_over_budget_source_stops_before_foundation(tmp_path, monkeypatch):
     monkeypatch.setattr(
         source_azure, "prepare_source_deployment", lambda **_: {"source_commit": "c" * 40}

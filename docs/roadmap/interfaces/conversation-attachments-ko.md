@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: e429a6a9bd7f1eb9412c53a8216d7c9a4ed157ea
-translation_revised: 2026-10-01
+translation_source_sha: ac4640986ab6eb41cc41cdc33bd43472c819f671
+translation_revised: 2026-10-02
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -48,6 +48,7 @@ title: 대화 첨부파일
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-02 | not-applicable | 테넌트 로컬 Entra 표시 이름 중복을 확인하는 배포 사전 점검을 추가했습니다. `Document.ChannelAttachment.Submit` 역할 선언은 정확한 Entra 계획에 남지만, 첨부 허용, 할당, 인제스트, 인용, 런타임 권한은 바뀌지 않습니다. | `current change`, `genesis_entra.py`, Entra 모호성 집중 테스트 | 첨부 동작 변경은 없습니다. 배포된 channel-edge 근거는 아래 항목에서 계속 추적합니다. |
 | 2026-09-30 | not-applicable | 테스트에서 대화 이미지 저장소의 시계를 고정했습니다. 2026-08-05에 만든 fixture 이미지는 2026-11-03에 90일 만료에 도달하는데, 저장소가 실제 시계로 이미지를 읽었습니다. 첨부 동작은 바뀌지 않았습니다. | 실제 시계를 2026-10-31, 2026-11-15, 2027-06-01로 옮겨도 `test_conversation_images.py`가 통과합니다. [Issue #1719](https://github.com/dotnetpower/fdai/issues/1719). | 없음. |
 | 2026-09-27 | not-applicable | 공유 Entra 작업에서 사람 승인 근거와 직렬화된 실행기 소유 제어 및 앱/그룹 계획 읽기를 분리하고 현재 활성 대상의 정확한 일치 여부도 검증합니다. application-only 첨부 역할은 정확한 계획에 계속 포함되지만, 첨부 신원, 할당, 인제스트 및 런타임 권한은 바뀌지 않았습니다. | `current change`, Genesis 2개 스레드 직렬화, 실행기 대상, 계획/복구 컨텍스트, 권한 실패 및 출력 정제 회귀 검사. | 배포 소유 실행기 읽기 권한을 미리 부여하고 정확한 대상의 성공 관찰을 보존해야 합니다. 전용 channel-edge 할당과 준비 근거는 별도 작업으로 남습니다. |
 | 2026-09-27 | not-applicable | 그래프 새로 고침 인증 원본 변경으로 결속된 온톨로지 플랫폼 원본 다이제스트가 바뀌어 공유 의미 의도 적용 범위 산출물을 다시 생성했습니다. | `current change`, 공식 생성기, 의미 의도 적용 범위 집중 검사. | 첨부, 보고 관계, 권한 확인, 인제스트 또는 실행 동작은 바뀌지 않았습니다. |
