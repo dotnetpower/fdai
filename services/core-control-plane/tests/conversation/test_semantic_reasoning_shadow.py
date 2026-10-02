@@ -273,7 +273,11 @@ async def test_primary_read_requires_explicit_blind_agreement(
     assert result.primary_read is eligible
 
 
-async def test_independent_shard_wave_overlaps_at_most_two_without_dropping_candidates() -> None:
+@pytest.mark.parametrize("runoff", (False, True))
+async def test_independent_shard_wave_overlaps_at_most_two_without_dropping_candidates(
+    monkeypatch: pytest.MonkeyPatch, runoff: bool
+) -> None:
+    from fdai.core.conversation import semantic_reasoning_shadow
     from fdai.core.conversation.semantic_reasoning_shadow import _select_one
 
     from tests.conversation.test_semantic_reasoning_concepts import _admission
@@ -301,6 +305,21 @@ async def test_independent_shard_wave_overlaps_at_most_two_without_dropping_cand
         ConceptCandidate(f"value:example.{index}", (f"example.{index}",), ("Type",))
         for index in range(10)
     )
+    if runoff:
+        plan = semantic_reasoning_shadow.plan_concept_selection(
+            _admission(),
+            catalogs={MentionDomain.RESOURCE_TYPE: catalog},
+            max_model_calls=16,
+            max_shard_bytes=400,
+        )
+        monkeypatch.setattr(
+            semantic_reasoning_shadow,
+            "plan_concept_selection",
+            lambda *args, **kwargs: replace(plan, requests=()),
+        )
+        monkeypatch.setattr(
+            semantic_reasoning_shadow, "runoff_requests", lambda *args: plan.requests
+        )
     await asyncio.wait_for(
         _select_one(
             SimpleNamespace(choose_concepts=choose),
@@ -317,7 +336,11 @@ async def test_independent_shard_wave_overlaps_at_most_two_without_dropping_cand
     assert sorted(seen) == sorted(candidate.id for candidate in catalog)
 
 
-async def test_failed_shard_wave_cancels_and_drains_its_other_call() -> None:
+@pytest.mark.parametrize("runoff", (False, True))
+async def test_failed_shard_wave_cancels_and_drains_its_other_call(
+    monkeypatch: pytest.MonkeyPatch, runoff: bool
+) -> None:
+    from fdai.core.conversation import semantic_reasoning_shadow
     from fdai.core.conversation.semantic_reasoning_shadow import _select_one
 
     from tests.conversation.test_semantic_reasoning_concepts import _admission
@@ -340,6 +363,21 @@ async def test_failed_shard_wave_cancels_and_drains_its_other_call() -> None:
         ConceptCandidate(f"value:example.{index}", (f"example.{index}",), ("Type",))
         for index in range(10)
     )
+    if runoff:
+        plan = semantic_reasoning_shadow.plan_concept_selection(
+            _admission(),
+            catalogs={MentionDomain.RESOURCE_TYPE: catalog},
+            max_model_calls=16,
+            max_shard_bytes=400,
+        )
+        monkeypatch.setattr(
+            semantic_reasoning_shadow,
+            "plan_concept_selection",
+            lambda *args, **kwargs: replace(plan, requests=()),
+        )
+        monkeypatch.setattr(
+            semantic_reasoning_shadow, "runoff_requests", lambda *args: plan.requests
+        )
     with pytest.raises(RuntimeError, match="synthetic provider stop"):
         await asyncio.wait_for(
             _select_one(

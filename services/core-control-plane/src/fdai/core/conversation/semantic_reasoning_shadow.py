@@ -810,18 +810,21 @@ async def _select_one(
             utterance=utterance, mentions=request.mentions, shard=request.shard, second=second
         )
 
-    answers: list[Mapping[str, Any] | None] = []
-    retries = 0
-    for offset in range(0, len(plan.requests), 2):
-        wave = plan.requests[offset : offset + 2]
-        tasks = [asyncio.create_task(choose(request)) for request in wave]
+    async def choose_wave(requests: tuple[Any, ...]) -> list[Mapping[str, Any] | None]:
+        tasks = [asyncio.create_task(choose(request)) for request in requests]
         try:
-            results = await asyncio.gather(*tasks)
+            return list(await asyncio.gather(*tasks))
         except BaseException:
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
+
+    answers: list[Mapping[str, Any] | None] = []
+    retries = 0
+    for offset in range(0, len(plan.requests), 2):
+        wave = plan.requests[offset : offset + 2]
+        results = await choose_wave(wave)
         for request, answer in zip(wave, results, strict=True):
             if not shard_answer_valid(answer, request) and (
                 len(plan.requests) + retries < max_calls
@@ -834,7 +837,9 @@ async def _select_one(
     runoff = runoff_requests(plan, receipt)
     if not runoff or receipt.model_calls + len(runoff) > max_calls:
         return receipt
-    runoff_answers = [await choose(request) for request in runoff]
+    runoff_answers: list[Mapping[str, Any] | None] = []
+    for offset in range(0, len(runoff), 2):
+        runoff_answers.extend(await choose_wave(runoff[offset : offset + 2]))
     return apply_runoff(receipt, runoff, runoff_answers)
 
 
