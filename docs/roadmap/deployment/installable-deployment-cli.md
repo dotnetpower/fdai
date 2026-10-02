@@ -698,8 +698,9 @@ Foundation lineage in `run/foundation-source-lineage.json`. The Foundation orche
 under that retained lineage: its status, approvals, plan reviews, and receipts stay bound to the
 creating revision. The signed source evidence carries both the kit's `source_commit` and the
 retained `foundation_source_commit`, so source verification accepts exactly those two revisions.
-The continuation re-verifies completed Foundation checkpoints, and already satisfied effects are
-recovered through their retained claims and independent readback instead of being repeated. It
+The continuation re-verifies completed Foundation checkpoints under the revision that created them,
+including the retained runner-image receipt, and already satisfied effects are recovered through
+their retained claims and independent readback instead of being repeated. It
 refuses to approve a new Foundation plan under the retained lineage, because a plan computed from
 the newer kit must not carry the older revision's provenance. A Foundation configuration change
 therefore needs a reviewed lineage transition, which isn't implemented yet. Application plans

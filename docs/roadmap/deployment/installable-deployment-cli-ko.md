@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 28e4998b45ff725fe480698f863157eb6e5b8436
+translation_source_sha: 62152db3f6248c76b6aaf2c32e7e7506ba4a79d8
 translation_revised: 2026-10-02
 ---
 
@@ -692,8 +692,9 @@ Foundation 연속성은 애플리케이션 소스 선택과 분리됩니다. 기
 계보와 나란히 기록됩니다. 이후 Foundation 오케스트레이션은 보존된 계보로 실행되며, 상태,
 승인, 계획 검토, 영수증은 모두 생성 당시 리비전에 묶인 채로 유지됩니다. 서명된 소스 근거에는
 키트의 `source_commit`과 보존된 `foundation_source_commit`이 함께 담기므로, 소스 검증은 정확히
-이 두 리비전만 허용합니다. 연속 실행은 완료된 Foundation 체크포인트를 다시 검증하고, 이미
-만족한 효과는 반복하지 않고 보존된 claim과 독립 재확인으로 복구합니다. 보존된 계보로는 새
+이 두 리비전만 허용합니다. 연속 실행은 보존된 실행기 이미지 영수증을 포함해 완료된 Foundation
+체크포인트를 그것을 만든 리비전 기준으로 다시 검증하고, 이미 만족한 효과는 반복하지 않고 보존된
+claim과 독립 재확인으로 복구합니다. 보존된 계보로는 새
 Foundation 계획을 승인하지 않습니다. 더 새 키트로 계산한 계획에 이전 리비전의 출처를 붙이면
 안 되기 때문입니다. 따라서 Foundation 구성 변경에는 검토된 계보 전환이 필요하며, 이 전환은
 아직 구현되지 않았습니다. 애플리케이션 계획은 기존 규칙을 유지합니다. 호출은 화면에 표시된
