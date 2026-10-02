@@ -107,10 +107,13 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
             "catalog_review_gitops_binding": {},
             "operator_request_receipt_binding": {
                 "core_signing_seed_secret_id": (
-                    "https://vault.vault.azure.net/secrets/fdai-operator-request-core-signing-seed"
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg"
+                    "/providers/Microsoft.KeyVault/vaults/vault/secrets/"
+                    "fdai-operator-request-core-signing-seed"
                 ),
                 "operator_signing_seed_secret_id": (
-                    "https://vault.vault.azure.net/secrets/"
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg"
+                    "/providers/Microsoft.KeyVault/vaults/vault/secrets/"
                     "fdai-operator-request-operator-signing-seed"
                 ),
                 "core_producer_id": "core-control-plane",
