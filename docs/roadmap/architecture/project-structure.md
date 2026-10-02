@@ -732,3 +732,4 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
 | Physical service and package ownership | [Multi-Service Repository Layout](multi-service-repository-layout.md) |
 | Runtime and package-tool choices | [Tech Stack](tech-stack.md) |
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/architecture/project-structure.md) |
+| Shared Workflow validation contracts | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |

@@ -6,7 +6,6 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-import yaml
 from jsonschema import Draft202012Validator
 
 from fdai_service_contracts.schema import SchemaRegistry
@@ -223,11 +222,52 @@ def load_workflow_from_mapping(
 def workflow_to_yaml(workflow: Workflow) -> str:
     """Return the canonical YAML preview used by workflow validation."""
 
-    return yaml.safe_dump(
-        workflow.model_dump(mode="json", exclude_none=True),
-        sort_keys=False,
-        allow_unicode=True,
-    )
+    return _render_yaml(workflow.model_dump(mode="json", exclude_none=True))
+
+
+def _render_yaml(value: Any, *, indent: int = 0) -> str:
+    if isinstance(value, dict):
+        lines: list[str] = []
+        for key, item in value.items():
+            prefix = " " * indent + f"{key}:"
+            if isinstance(item, (dict, list)):
+                lines.append(prefix)
+                lines.append(_render_yaml(item, indent=indent + 2).rstrip())
+            else:
+                lines.append(f"{prefix} {_yaml_scalar(item)}")
+        return "\n".join(lines) + "\n"
+    if isinstance(value, list):
+        lines = []
+        for item in value:
+            prefix = " " * indent + "-"
+            if isinstance(item, dict):
+                item_lines = _render_yaml(item, indent=indent + 2).rstrip().splitlines()
+                first = item_lines[0].lstrip()
+                lines.append(f"{prefix} {first}")
+                lines.extend(item_lines[1:])
+            elif isinstance(item, list):
+                lines.append(prefix)
+                lines.append(_render_yaml(item, indent=indent + 2).rstrip())
+            else:
+                lines.append(f"{prefix} {_yaml_scalar(item)}")
+        return "\n".join(lines) + "\n"
+    return " " * indent + _yaml_scalar(value) + "\n"
+
+
+def _yaml_scalar(value: Any) -> str:
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if value is None:
+        return "null"
+    if isinstance(value, (int, float)):
+        return str(value)
+    text = str(value)
+    if not text or text.strip() != text or any(char in text for char in ":#[]{}&,*!|>'\"%@`"):
+        escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    return text
 
 
 def workflow_names(catalog: Iterable[Workflow]) -> set[str]:

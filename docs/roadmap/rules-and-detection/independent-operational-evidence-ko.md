@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 98ca7e59f3f055b1cfad8c1f860fe4d5d1440c49
-translation_revised: 2026-10-01
+translation_source_sha: cf8f7180ccbd5ffe0eeb7044d3df792172107e32
+translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
 
@@ -489,3 +489,4 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 | 의사결정 핵심 근거 규칙 | [FDAI 헌법](../architecture/fdai-constitution-ko.md) |
 | 에이전트 소유권 및 토픽 | [에이전트 판테온](../agents/agent-pantheon-ko.md) |
 | 고정된 배포 소유 출처 | [배포 소유 Operating-Intent 출처](../architecture/operating-intent-source-ko.md) |
+| 공유 Workflow 검증 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |
