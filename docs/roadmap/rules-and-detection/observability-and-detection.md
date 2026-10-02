@@ -50,11 +50,53 @@ are synthetic.
   observed properties. The generation and Resource content determine the Event identity. A retry of
   the same generation is deduplicated, while a later generation is evaluated again. An incomplete
   projection or publication failure remains pending and does not report a clean observation.
+- Complete inventory evaluation needs an explicit terminal-outcome contract before the Console can
+  display an evaluated Rule findings summary. Inventory remains the observation producer. Forseti
+  records one versioned terminal outcome for every eligible `(generation, resource, rule)` tuple
+  against the exact active catalog and Rule revisions. The outcome is `compliant`, `violated`, or
+  `abstained`; `abstained` is used when the evidence is missing, stale, unsupported, or otherwise
+  cannot support a deterministic rule result. A separate completion record closes the generation
+  only when the expected denominator is covered and every outcome is bound to an evaluation receipt
+  and Saga audit reference. An empty complete inventory can close only with an expected denominator
+  of zero. Provider, broker, OPA, persistence, or projection failure leaves evaluation unavailable
+  and preserves the prior complete summary.
 - Heimdall bounds retained repeated-event episodes globally and per resource. A correlation flood
   from one resource evicts only that resource's oldest episode before it can displace another
   resource's partially accumulated evidence.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their
   accuracy and false-positive rate are measured against the Phase 0 baseline.
+
+### Baseline evaluation terminal contract design
+
+This section records the reviewed contract boundary for issue #1199 before implementation. The
+runtime behavior lands in ordered slices so each PR can be reviewed without claiming evidence the
+repository does not yet produce.
+
+**Initial design.** Add two shared service-contract records:
+
+- `BaselineEvaluationOutcome` is the per-rule terminal record. It binds one inventory generation
+  and digest, one resource identity and digest, one catalog revision, one Rule identity and revision,
+  one terminal outcome (`compliant`, `violated`, or `abstained`), the evaluation receipt, the Saga
+  audit reference, and a canonical outcome digest.
+- `BaselineEvaluationCompletion` is the per-generation close record. It binds the same generation
+  and catalog revision to the expected denominator, observed outcome counts, completion receipt,
+  Saga audit reference, and canonical completion digest.
+
+**Critique.** A count-only summary is not enough because it can still infer zero from an incomplete
+denominator. A violation-only `Finding` stream is also insufficient because it omits compliant and
+held-for-review cases. The contract therefore needs per-rule terminal records, sorted identities,
+bounded reasons, and exact digest validation so duplicate or reordered delivery can be replayed
+without changing the covered denominator. The completion record must reject mismatched counts,
+mixed generation/catalog identities, and any authority flag. It also must allow the legitimate
+zero-resource case without allowing a producer to hide missing outcomes behind `evaluated=true`.
+
+**Revision.** The shared contract is authority-free and additive. It does not change the fixed
+Pantheon roles, topic ownership, or executor path: inventory produces observations, Forseti judges
+the rule outcomes, Saga persists append-only audit, and the Operator projection reads only complete
+authoritative outcomes. A projection can replace the current unavailable summary only after a
+completion record proves the expected denominator for the active generation and catalog revision.
+If a later catalog revision appears, the prior complete summary remains visible as prior evidence
+until the new revision has its own complete denominator; it is never treated as current evaluation.
 
 ### Frozen configuration baseline checks
 

@@ -47,7 +47,10 @@ page only unpublished rows through a dotted `StateStore` field filter ([Assuranc
 This addition changes no cross-service schema, approval, or execution path. Rule-generation timestamps use a dedicated UTC
 clock and never consume the injected control-loop clock used for replay, action creation, dispatch, or effect evidence.
 Core resolves Rule and submission-criterion types through the shared contracts facade rather than a
-contracts submodule, preserving the repository's one-way public import boundary.
+contracts submodule, preserving the repository's one-way public import boundary. The shared service-contract SDK also owns
+authority-free baseline evaluation terminal records for complete inventory generations: per-rule outcomes and per-generation
+completion. These records add only a versioned Core-to-Operator wire surface; Forseti judgment, Saga audit, Operator
+projection admission, and Console rendering remain separate owners.
 
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility

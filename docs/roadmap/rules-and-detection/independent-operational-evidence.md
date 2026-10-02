@@ -32,6 +32,10 @@ Operator/Core semantic transport. They do not admit operational evidence, satisf
 readbacks, or grant execution authority.
 Their sealed Core-only row identities are reauthorization operands for follow-up reads only; they
 are not verifier source artifacts, admissions, or proof material.
+Baseline evaluation terminal records use the same evidence boundary. The per-rule outcome and
+per-generation completion contracts can reference Forseti evaluation receipts and Saga audit
+records, but the contract itself does not issue independent operational evidence, deploy a verifier,
+or prove live provider state.
 
 ## Current state and gap
 
