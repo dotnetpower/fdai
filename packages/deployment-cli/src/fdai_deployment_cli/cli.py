@@ -42,6 +42,7 @@ from fdai_deployment_cli.console_update import (
 )
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.deployment_progress import DeploymentProgress
+from fdai_deployment_cli.execution_copies import execution_copy_scope
 from fdai_deployment_cli.doctor import (
     azure_active_target_binding,
     azure_cli_authenticated,
@@ -350,7 +351,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         return value if value is None or value.is_absolute() else Path.cwd() / value
 
     mode = args.progress if args.output == "text" else "off"
-    with DeploymentProgress(mode=mode) as progress:
+    with DeploymentProgress(mode=mode) as progress, execution_copy_scope():
         result = deploy_azure_foundation(
             work_dir=work_dir,
             online=args.online,

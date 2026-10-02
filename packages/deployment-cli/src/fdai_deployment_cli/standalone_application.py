@@ -35,6 +35,7 @@ from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
+from fdai_deployment_cli.standalone_transfer_cleanup import cleanup_remote_transfers
 from fdai_deployment_cli.target import compute_target_binding
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -532,13 +533,14 @@ def deploy_standalone_application(
                 timeout_seconds=deadline.remaining(),
                 redirect_changed=redirect_changed,
             )
-        begin_stage("cleanup")
-        progress_detail("Removing transient transfers and verifying their absence")
-        cleanup = tunnel.ssh(("rm", "-f", "--", remote_archive, remote_approval), timeout=300)
-        archive_absent = tunnel.ssh(("test", "!", "-e", remote_archive), timeout=60)
-        approval_absent = tunnel.ssh(("test", "!", "-e", remote_approval), timeout=60)
-        if any(result.returncode != 0 for result in (cleanup, archive_absent, approval_absent)):
-            raise ValueError("standalone remote transient cleanup is incomplete")
+        cleanup_remote_transfers(
+            tunnel,
+            remote_archive=remote_archive,
+            remote_approval=remote_approval,
+            prune=lambda: _remote_json(
+                tunnel, remote_root, app_work, ("prune-transfers",), timeout=1800
+            ),
+        )
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-terminal-receipt.v2",
         "state": "application-converged",

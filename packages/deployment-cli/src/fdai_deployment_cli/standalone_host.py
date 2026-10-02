@@ -160,6 +160,7 @@ from fdai_deployment_cli.standalone_residual_apply import (
 from fdai_deployment_cli.standalone_residual_apply import (
     seal_terraform_plan as _seal_terraform_plan,
 )
+from fdai_deployment_cli.standalone_transfer_cleanup import prune_superseded_transfers
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
 )
@@ -322,6 +323,9 @@ def main(argv: list[str] | None = None) -> int:
     migrate.set_defaults(handler=_migrate)
 
     subcommands.add_parser("activate-trial").set_defaults(handler=_activate_trial)
+    subcommands.add_parser("prune-transfers").set_defaults(
+        handler=lambda _args, work_dir: prune_superseded_transfers(work_dir)
+    )
 
     initial_inventory = subcommands.add_parser("initial-inventory")
     initial_inventory.set_defaults(handler=_initial_inventory)
