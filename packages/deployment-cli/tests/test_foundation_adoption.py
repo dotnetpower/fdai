@@ -42,7 +42,7 @@ def _receipt(value: dict[str, object], field: str = "receipt_digest") -> bytes:
     return canonical_bytes(value)
 
 
-def _inputs(tmp_path: Path) -> tuple[Path, Path]:
+def _inputs(tmp_path: Path, *, connectivity: str = "online") -> tuple[Path, Path]:
     foundation = tmp_path / "foundation"
     recovery = tmp_path / "recovery"
     foundation.mkdir(mode=0o700)
@@ -53,7 +53,7 @@ def _inputs(tmp_path: Path) -> tuple[Path, Path]:
             environment="dev",
             region=REGION,
             target_binding=TARGET,
-            connectivity="online",
+            connectivity=connectivity,
             host="managed-vm",
             transport="manual",
             access_method="bastion",
@@ -203,6 +203,30 @@ def test_recovered_foundation_adoption_selects_current_kit_source(tmp_path: Path
 
     assert selected.source_commit == APPLICATION_SOURCE
     assert selected.digest == adoption.receipt["receipt_digest"]
+
+
+def test_recovered_offline_foundation_adoption_preserves_split_lineage(
+    tmp_path: Path,
+) -> None:
+    foundation, recovery = _inputs(tmp_path, connectivity="offline")
+
+    adoption = stage_recovered_foundation(
+        foundation_directory=foundation,
+        recovery_directory=recovery,
+        destination=tmp_path / "destination",
+        application_source_commit=APPLICATION_SOURCE,
+        kit_manifest_digest="e" * 64,
+        runtime_release_digest="f" * 64,
+        tenant_id=TENANT,
+        subscription_id=SUBSCRIPTION,
+        region=REGION,
+        monthly_cost_ceiling=2000,
+    )
+
+    assert adoption.receipt["foundation_source_commit"] == SOURCE
+    assert adoption.receipt["application_source_commit"] == APPLICATION_SOURCE
+    assert adoption.receipt["no_effect_adoption"] is True
+    assert adoption.prepared.source_commit == APPLICATION_SOURCE
 
 
 def test_recovered_foundation_adoption_is_idempotent(tmp_path: Path) -> None:

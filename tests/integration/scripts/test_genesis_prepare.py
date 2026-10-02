@@ -296,6 +296,74 @@ def test_prepare_creates_private_keys_profile_and_inputs(tmp_path: Path, monkeyp
         assert (root / name).stat().st_mode & 0o777 == 0o600
 
 
+def test_standalone_preparation_keeps_foundation_lineage_for_newer_kit(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = tmp_path / "standalone"
+    old_source = SOURCE
+    new_source = "b" * 40
+    target_binding = genesis_prepare.compute_target_binding(
+        tenant_id=TENANT, subscription_id=SUBSCRIPTION
+    )
+    monkeypatch.setattr(genesis_prepare, "foundation_values", _values)
+    kit = SimpleNamespace(
+        source_commit=old_source,
+        verification=SimpleNamespace(
+            manifest_digest="f" * 64,
+            terraform_binary="terraform/terraform",
+        ),
+        runtime=SimpleNamespace(digest="a" * 64),
+        materialized_root=tmp_path / "verified",
+        root=tmp_path / "kit",
+        bundle_root=ROOT,
+    )
+    first = genesis_prepare.prepare_standalone_genesis(
+        deployment_kit=kit,
+        tenant_id=TENANT,
+        subscription_id=SUBSCRIPTION,
+        region="koreacentral",
+        monthly_cost_ceiling=1000,
+        connectivity="offline",
+        root=root,
+    )
+    kit = SimpleNamespace(
+        source_commit=new_source,
+        verification=SimpleNamespace(
+            manifest_digest="e" * 64,
+            terraform_binary="terraform/terraform",
+        ),
+        runtime=SimpleNamespace(digest="d" * 64),
+        materialized_root=tmp_path / "verified-new",
+        root=tmp_path / "kit-new",
+        bundle_root=ROOT,
+    )
+
+    second = genesis_prepare.prepare_standalone_genesis(
+        deployment_kit=kit,
+        tenant_id=TENANT,
+        subscription_id=SUBSCRIPTION,
+        region="koreacentral",
+        monthly_cost_ceiling=1000,
+        connectivity="offline",
+        root=root,
+    )
+
+    values = genesis_prepare.read_plan_input(root / "foundation-variables.json")
+    lineage = json.loads((root / "foundation-source-lineage.json").read_text())
+    assert first.source_commit == old_source
+    assert second.source_commit == new_source
+    assert second.foundation_source_commit == old_source
+    assert values["source_commit"] == old_source
+    assert values["target_binding"] == target_binding
+    assert lineage == {
+        "schema_version": "fdai.standalone-foundation-source-lineage.v1",
+        "foundation_source_commit": old_source,
+        "application_source_commit": new_source,
+        "kit_manifest_digest": "e" * 64,
+        "runtime_release_digest": "d" * 64,
+    }
+
+
 def test_prepare_overlaps_kit_staging_with_foundation_input_discovery(
     tmp_path: Path, monkeypatch
 ) -> None:

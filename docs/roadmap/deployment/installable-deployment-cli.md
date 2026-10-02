@@ -667,6 +667,35 @@ have distinct value-safe errors. Corrupt or partial retained content is preserve
 not silently replaced or accepted. Retry never deletes run state, SSH keys, plans, or approvals,
 never changes a signed source file, and never repeats an Azure effect from kit-cache evidence.
 
+#### Offline kit upgrade design and critique
+
+**Initial design:** Require operators to move `kit-work/verified`, `kit-work/kit`, and
+`run/standalone-kit.tar.gz` out of the work directory before rerunning with a newer signed kit.
+Then treat the newer kit as a fresh installation input.
+
+**Critique:** Manual moves are not a safe installation contract. They can strand the runner SSH
+key, run binding, profile, and host-key evidence that identify the existing Foundation, and a new
+work directory can cause Terraform to plan a replacement installation beside the old one. Reusing
+the retained snapshot silently is also unsafe because a verified older kit must not mask the
+operator's newly supplied kit, and tampering in the retained snapshot must remain visible.
+
+**Revised contract:** A same-work-directory offline upgrade verifies the newly supplied kit first.
+If the retained kit snapshot and materialized payload verify against their original manifest, the
+coordinator moves them to `kit-work/retained-kit-review/` and materializes the new kit in their
+place. If the retained snapshot is unsafe, incomplete, or tampered, the run stops and preserves it
+for review. The managed-host transfer archive follows the same rule: a valid previous
+`run/standalone-kit.tar.gz` and sidecar move to `run/standalone-kit-review/` before the new archive
+is written, while an invalid archive remains blocked.
+
+Foundation continuity stays separate from application source selection. Existing offline
+Foundation variables keep their creating `source_commit`, runner SSH key, run binding, profile,
+and host keys. The current kit source becomes the application source and is recorded beside the
+Foundation lineage in `run/foundation-source-lineage.json`. A reviewed Foundation plan may proceed
+when it is non-destructive because the operator's invocation approves the exact plan shown.
+Deleting or replacing an existing resource still needs the existing explicit extra confirmation;
+without it the plan is refused before the effect. Already satisfied effects are recovered through
+their retained claims and independent readback instead of being repeated.
+
 A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
 ## Capability token behavior
