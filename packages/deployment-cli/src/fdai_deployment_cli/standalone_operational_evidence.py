@@ -227,6 +227,8 @@ def add_aks_operational_evidence_verifier_workload(
 ) -> None:
     """Add the optional verifier workload to ``workloads`` when its binding is present."""
 
+    if application_values.get("operational_evidence_verifier") is None:
+        return
     verifier_workload = aks_operational_evidence_verifier_workload(
         refs=refs,
         verifier_identity=substrate_outputs["operational_evidence_verifier_identity"],
