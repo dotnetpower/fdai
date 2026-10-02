@@ -327,9 +327,10 @@ self-composable, depth at most five.
   by declaration kind. A LinkType subject scoped to one ObjectType, as in the LinkTypes in Workload,
   is the same read and compiles as that ObjectType's relationship read; any other kind scoped to an
   ObjectType is unsupported. An ObjectType declaration read also requires the grounded ObjectType
-  identity to match the stated schema subject exactly, so concept drift reads a clarification instead
-  of another type's declaration. Any other schema relation, direction, counterpart, reach, anchor, or
-  grouping returns a typed unsupported reason, and V-SEM rejects it independently.
+  identity to match the stated schema subject exactly; if an over-quoted subject contains another
+  known ObjectType name, the read clarifies instead of answering with another type's declaration. Any
+  other schema relation, direction, counterpart, reach, anchor, or grouping returns a typed
+  unsupported reason, and V-SEM rejects it independently.
 
 ### Follow-up references
 
