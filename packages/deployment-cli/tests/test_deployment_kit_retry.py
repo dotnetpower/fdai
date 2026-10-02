@@ -6,12 +6,17 @@ import errno
 import io
 import json
 import os
+import shutil
 import stat
+import sys
 import tarfile
 import urllib.error
+from pathlib import Path
 
 import pytest
-from test_offline_prepare import release as release
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from test_offline_prepare import _sign_kit, release as release
 
 from fdai_deployment_cli import deployment_kit
 
@@ -46,6 +51,22 @@ def _acquire(work, **kwargs):
     return deployment_kit.acquire_deployment_kit(
         work_dir=work, online=True, offline_kit=None, **kwargs
     )
+
+
+def _archive_kit(source, destination):
+    with tarfile.open(destination, "w:gz") as archive:
+        archive.add(source, arcname="kit")
+    destination.chmod(0o600)
+    return destination
+
+
+def _newer_signed_kit(release, tmp_path):
+    kit, key, _public = release
+    newer = tmp_path / "newer-kit"
+    shutil.copytree(kit, newer)
+    (newer / "review-note.txt").write_text("reviewed newer kit\n", encoding="utf-8")
+    _sign_kit(newer, key)
+    return newer
 
 
 def test_online_retry_reverifies_and_preserves_the_original_execution_copy(online_release):
@@ -388,6 +409,67 @@ def test_offline_retry_rejects_changed_source_without_fallback(
         deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
     assert requests == []
     assert (first.materialized_root / "bin/opa").read_bytes() == original
+
+
+def test_offline_archive_upgrade_rotates_retained_snapshot_and_transport_archive(
+    online_release, release, tmp_path
+):
+    work, requests, payload = online_release
+    old_archive = _archive_kit(release[0], tmp_path / "old-kit.tar.gz")
+    first = deployment_kit.acquire_deployment_kit(
+        work_dir=work, online=False, offline_kit=old_archive
+    )
+    transport = work / "run" / "standalone-kit.tar.gz"
+    transport.parent.mkdir(mode=0o700)
+    old_transport_digest = deployment_kit.archive_verified_kit(first, transport)
+    newer = _newer_signed_kit(release, tmp_path)
+    newer_archive = _archive_kit(newer, tmp_path / "newer-kit.tar.gz")
+
+    second = deployment_kit.acquire_deployment_kit(
+        work_dir=work, online=False, offline_kit=newer_archive
+    )
+    new_transport_digest = deployment_kit.archive_verified_kit(second, transport)
+
+    assert requests == []
+    assert first.verification.manifest_digest != second.verification.manifest_digest
+    assert (work / "kit/review-note.txt").read_text(encoding="utf-8") == "reviewed newer kit\n"
+    snapshot_reviews = list((work / "retained-kit-review").iterdir())
+    assert len(snapshot_reviews) == 1
+    assert (snapshot_reviews[0] / "kit/offline-kit.json").is_file()
+    assert (snapshot_reviews[0] / "verified/bin/opa").is_file()
+    snapshot_rotation = json.loads((snapshot_reviews[0] / "rotation.json").read_text())
+    assert snapshot_rotation["previous_kit_manifest_digest"] == first.verification.manifest_digest
+    assert snapshot_rotation["new_kit_manifest_digest"] == second.verification.manifest_digest
+    transport_reviews = list((transport.parent / "standalone-kit-review").iterdir())
+    assert len(transport_reviews) == 1
+    assert (transport_reviews[0] / "standalone-kit.tar.gz").is_file()
+    assert old_transport_digest != new_transport_digest
+    assert (
+        json.loads((transport_reviews[0] / "rotation.json").read_text())["previous_archive_sha256"]
+        == old_transport_digest
+    )
+    assert payload
+
+
+def test_offline_archive_upgrade_refuses_tampered_retained_snapshot(
+    online_release, release, tmp_path
+):
+    work, requests, _payload = online_release
+    old_archive = _archive_kit(release[0], tmp_path / "old-kit.tar.gz")
+    first = deployment_kit.acquire_deployment_kit(
+        work_dir=work, online=False, offline_kit=old_archive
+    )
+    (first.materialized_root / "bin/opa").write_bytes(b"tampered retained snapshot")
+    newer = _newer_signed_kit(release, tmp_path)
+    newer_archive = _archive_kit(newer, tmp_path / "newer-kit.tar.gz")
+
+    with pytest.raises(ValueError, match="snapshot differs"):
+        deployment_kit.acquire_deployment_kit(
+            work_dir=work, online=False, offline_kit=newer_archive
+        )
+
+    assert requests == []
+    assert not (work / "retained-kit-review").exists()
 
 
 def test_offline_directory_execution_uses_authenticated_snapshot(
