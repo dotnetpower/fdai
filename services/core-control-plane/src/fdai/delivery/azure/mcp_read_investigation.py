@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from fdai.shared.providers.read_investigation import (
     EvidenceFreshness,
@@ -87,7 +87,7 @@ class StdioAzureMcpSessionFactory:
     def __call__(self) -> AbstractAsyncContextManager[AzureMcpSession]:
         from mcp import Client
         from mcp.client.stdio import StdioServerParameters, stdio_client
-        from msmcp_azure import get_executable_path  # type: ignore[import-untyped]
+        from msmcp_azure import get_executable_path
 
         args = ["server", "start", "--mode", "all", "--read-only"]
         for namespace in self._config.namespaces:
@@ -97,9 +97,12 @@ class StdioAzureMcpSessionFactory:
             args=args,
             env=self._environment or None,
         )
-        return Client(
-            stdio_client(parameters),
-            read_timeout_seconds=self._config.call_timeout_seconds,
+        return cast(
+            AbstractAsyncContextManager[AzureMcpSession],
+            Client(
+                stdio_client(parameters),
+                read_timeout_seconds=self._config.call_timeout_seconds,
+            ),
         )
 
 
