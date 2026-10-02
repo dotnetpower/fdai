@@ -1,13 +1,13 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 62152db3f6248c76b6aaf2c32e7e7506ba4a79d8
+translation_source_sha: 4ed2bbe23825c798d2be93f1f45f394e2555d7a8
 translation_revised: 2026-10-02
 ---
 
 # 설치형 배포 CLI
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다. 소스 경로의 산출물과 사용권 선택은 [단일 명령 소스 배포](source-deployment-ko.md)가 소유합니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다. 소스 경로의 산출물과 사용권 선택은 [단일 명령 소스 배포](source-deployment-ko.md)가 소유합니다.
 
 이 문서는 공개 FDAI 배포 명령을 정의합니다. 운영자는 Azure 로그인 후 하나의 로컬 조정기를
 실행하고, Terraform 적용과 비공개 데이터 플레인 작업은 대상 Virtual Network 내부의 Managed

@@ -15,7 +15,7 @@ The layers communicate through the event bus and git, not direct in-process call
 |---|-------|-------|----------------|-----------|
 | 1 | **Core engine** | headless, event-driven backend (no UI) - trust router, T0/T1/T2, risk gate, audit, and recovery; executor remains co-located only until the tracked cutover | not yet | current Azure baseline keeps one replica until a credential-free Kafka-lag scaler is verified; scheduled jobs scale to zero |
 | 2 | **Action delivery** | GitOps / PR-native (GitHub App or Azure DevOps) - actions are remediation PRs/IaC | n/a (git-hosted) | audit, rollback, and approval already exist in git |
-| 3 | **FDAI Console** | thin SPA - query projections plus bounded operational requests | yes (static hosting) | one product surface; never executes managed-resource actions itself |
+| 3 | **FDAI Console** | thin SPA - query projections plus bounded operational and policy-administration requests | yes (static hosting) | one product surface; never executes managed-resource actions itself |
 | 4 | **Human channel** | ChatOps (Teams bot + Adaptive Cards) - high-risk HIL approvals and alerts | yes (event-driven) | reach operators where they already are |
 | 5 | **Rule catalog** | catalog-as-code (git repo) - versioned rules | n/a (git-hosted) | the update pipeline lands rules via PR |
 
@@ -55,7 +55,7 @@ The layers communicate through the event bus and git, not direct in-process call
   insufficient evidence is explained. Nested interactive controls are prohibited.
 - The **executor holds the only privileged identity** (user-assigned Managed Identity, scoped
   to an action whitelist). Console and ChatOps never share it.
-- **Approval and execution are distinct authenticated principals.** A **full-authority development profile** may let one human request and approve every registered ActionType in an exact test subscription, including destructive work, Chaos, promotion, demotion, and rollback.
+- **Approval and execution are distinct authenticated principals.** A **full-authority development profile** may let one human request and approve every registered ActionType in an exact test subscription, including destructive work, Chaos, promotion, demotion, and rollback. A single-operator production profile may let one named operator approve inside an installation's normal risk classes ([operator governance](../../docs/roadmap/decisioning/operator-governance-profiles.md)).
   The human, Console, and Operator API never acquire the executor identity. See [Security and Identity](../../docs/roadmap/architecture/security-and-identity.md).
 
 ## Local Console Port Contract (MUST)
@@ -201,7 +201,7 @@ Recommended mapping:
   subscription resource-write/delete signals into a raw Event Hub. It is not a core contract,
   broker, or decision surface. Huginn normalizes those records after Kafka ingress, so the core
   still sees Kafka only. Event Hubs local authentication remains disabled.
-- Runtime services: **AKS Standard** is the new-install default for the five packaged services.
+- Runtime services: **AKS Standard** is the new-install default for the five packaged services. The planned [Hub-managed lifecycle](../../docs/roadmap/deployment/hub-managed-lifecycle.md) adds an in-cluster lifecycle agent and an execution-host infrastructure agent; neither is an application service, a pantheon agent, or an executor-identity holder.
   Core stays non-privileged and only internal Executor may hold effect authority. Digest-pinned OCI
   images and runtime-neutral specs render to Kubernetes `Deployment`, `Service`, `ServiceAccount`,
   HPA, PDB, `NetworkPolicy`, and `CronJob`. Source deployment builds images from the checkout;

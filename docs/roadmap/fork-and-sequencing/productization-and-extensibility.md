@@ -9,7 +9,8 @@ is the central status matrix for work that spans deployment, conversational chan
 bundles, model routing, scheduling, security diagnostics, and developer interfaces.
 
 > **Architecture boundary:** FDAI remains a headless cloud-operations control plane with a thin
-> read-only console and governed ChatOps. New interfaces never receive the executor identity and
+> console and governed ChatOps. The console reads projections, and its optional policy-administration
+> add-on only submits policy revisions. New interfaces never receive the executor identity and
 > every mutation re-enters the typed trust-router, risk-gate, approval, executor, and audit path.
 >
 > **Implementation focus:** Azure remains the only implemented cloud target. Provider-neutral
@@ -66,7 +67,7 @@ background work gains durable ledgers and bounded failover.
 
 | ID | Capability | Dependency | Exit gate |
 |----|------------|------------|-----------|
-| P1-01 | Stable, beta, and development release channels | P0-08 | Implemented: channel is signed into the manifest; atomic mode-0600 upgrade/rollback state preserves config bytes and rejects channel, CLI-range, version, digest, and history mismatches |
+| P1-01 | Stable, beta, and development release channels | P0-08 | Implemented: channel is signed into the manifest; atomic mode-0600 upgrade/rollback state preserves config bytes and rejects channel, CLI-range, version, digest, and history mismatches. Planned for the Hub path: rename to `DEV`, `RELEASE_CANDIDATE`, and `RELEASE` with custom channels in [Lifecycle Releases and Channels](../deployment/lifecycle-releases-and-channels.md) |
 | P1-02 | Portable backup and restore | P0-08 | Implemented: deterministic allowlisted archive restores validated config, opaque references, audit hash metadata, and consented user context without reading or exporting secret-provider values or Terraform state |
 | P1-03 | Guided deployment onboarding | P0-02 to P0-08 | Implemented: fail-closed wizard orders toolchain and target doctor, private config, live preflight, plan-only runner submission, and bounded sanitized status post-check without a local apply path |
 | P1-04 | Rich Teams and Slack thread behavior | P0-15 | Implemented: bounded vendor-neutral mentions and exclusive stream/edit/reaction intent map to fixed Slack and Teams APIs, capability-off paths preserve the originating thread as text, and accepted sends return typed vendor acknowledgements |
@@ -158,9 +159,14 @@ incremental feature work:
 - **Arbitrary dynamic code/plugin loading:** Extensions register reviewed typed bundles. They do
   not download and execute unreviewed packages inside the control plane.
 - **One shared gateway for mutually untrusted tenants:** Each customer fork and deployment keeps
-  its own identities, state, policy, and audit boundary.
-- **Console-issued privileged actions:** The console stays read-only. Commands enter through CLI,
-  ChatOps, PR, or an authenticated proposal API and follow the standard control loop.
+  its own identities, state, policy, and audit boundary. A Lifecycle Hub cell serves one customer
+  and carries lifecycle metadata only, never operations traffic
+  ([Hub-Managed Lifecycle](../deployment/hub-managed-lifecycle.md)).
+- **Console-issued privileged actions:** The console never issues actions against managed
+  resources. Commands enter through CLI, ChatOps, PR, or an authenticated proposal API and follow
+  the standard control loop. The optional policy-administration add-on submits only policy
+  revisions that Mimir validates
+  ([Operator Governance Profiles](../decisioning/operator-governance-profiles.md)).
 
 ## Delivery order
 

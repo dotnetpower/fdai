@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: 251af19c060732d19ce601732e50787af0b6b584
-translation_revised: 2026-09-29
+translation_source_sha: e135fd56fb23233ee49511cf39c1e00b2d9180c2
+translation_revised: 2026-10-02
 ---
 # 실행 권한 부여 온톨로지
 
@@ -314,11 +314,13 @@ Saga는 요구사항 id, 일치 및 losing 배정 id, intersection 결과, 신�
 | 업스트림 | Metamodel, 해석기, 검증, base 기능, 감사 형태, 프로바이더 프로토콜입니다. |
 | 다운스트림 분포 | 추가 기능, 요구사항, 정책 템플릿, 대응, 어댑터입니다. |
 | 배포 구성 | Signed 정책 번들 참조, 신원 연결, 실제 범위 id입니다. |
-| 런타임 저장소 | 관측, 결정, 요청, 권한 부여, 만료 및 철회 증적입니다. |
+| 런타임 저장소 | 관측, 결정, 요청, 권한 부여, 만료 및 철회 증적, 그리고 계획된 Mimir 서명 설치 정책 개정입니다. |
 
 포크 표시는 권한 확인 행동을 선택하지 않습니다. 하나의 다운스트림 분포는 서로 다른
 signed 정책 번들을 가진 여러 배포를 지원할 수 있습니다. 포크 addition은 제약을 추가할
-수 있지만 업스트림 기능 id를 재정의하거나 업스트림 최대를 높일 수 없습니다.
+수 있지만 업스트림 기능 id를 재정의하거나 업스트림 최대를 높일 수 없습니다. FDAI Console에서
+만든 계획된 설치 정책 개정도 같은 규칙을 따르며, Core는 그 뒤에 강제 제약을 계속 적용합니다
+([운영자 거버넌스 프로필](operator-governance-profiles-ko.md)).
 
 제공되는 기본값은 이 게이트를 강제하지 않습니다. `Container.execution_authorization_evaluator`
 의 기본값은 `None` 이고 `execution_authorization_required` 의 기본값은 `False` 이며, 둘 중

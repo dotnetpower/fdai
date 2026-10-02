@@ -305,6 +305,7 @@ There is no universal request schema. Each operation uses the schema and route o
 | Request access | `AccessGrantRequest` schema and authorization workflow |
 | Advance a process | Transition defined by the referenced `WorkflowDefinition` and current `Process` revision |
 | Request an ActionType | Existing action argument schema with `trigger_kind: operator_request` or `both` |
+| Submit an approval or admission policy revision | Planned policy-revision request that Mimir validates and activates; see [Operator Governance Profiles](../decisioning/operator-governance-profiles.md) |
 
 `operator_request` describes who initiated an ActionType request. It is not a product name, API
 umbrella, or replacement for domain schemas.

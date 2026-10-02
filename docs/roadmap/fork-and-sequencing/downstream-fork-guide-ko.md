@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 4bc9f9b8dfcd9f07d83acb93d676c1bfb6df8fbf
-translation_revised: 2026-10-01
+translation_source_sha: ee22a116e193959fd75f23f9c5e01a02027aaccf
+translation_revised: 2026-10-02
 ---
 
 # 다운스트림 포크 가이드
@@ -78,6 +78,8 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 | 근거 프로파일 | 권위 있는, 고정본 | 아니요 |
 | 자율성 | 기능별 shadow, 강제 적용 | 아니요 |
 | Human 및 실행기 신원 | Entra App 역할, Managed Identity | 아니요 |
+| 설치 경로와 release channel | 소스, 오프라인 패키지, Hub 관리형; `DEV`, `RELEASE_CANDIDATE`, `RELEASE` | 아니요 |
+| 승인 프로필 | 다중 운영자, 단독 운영자 프로덕션 | 아니요 |
 
 하나의 포크는 배포가 없거나 서로 다른 환경에 여러 배포가 있을 수 있습니다.
 업스트림도 직접 deploy할 수 있습니다. `.fdai-fork`, `FDAI_FORK`, `git config fdai.fork true`는
