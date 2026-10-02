@@ -130,6 +130,16 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         action="store_true",
         help="Prepare source and read AKS SKU/quota feasibility without Azure mutation",
     )
+    source_action.add_argument(
+        "--teardown",
+        action="store_true",
+        help="Remove only resources proven to belong to the retained source installation",
+    )
+    azure.add_argument(
+        "--teardown-confirmation",
+        metavar="TEXT",
+        help="Typed confirmation printed by --teardown review; performs the deletion",
+    )
     azure.add_argument(
         "--approval-file",
         type=Path,

@@ -104,6 +104,13 @@ It requires a fresh exact `foundation-state` approval before writing a current-s
 That verifier then runs in `verify` mode. A later verified controller can reuse the completed repair only after revalidating the repair source and proving the verifier digest is unchanged. State comparison preserves exact lineage, resource identities, and non-transient content while allowing only one backend-migration serial increment and order-only `check_results` normalization. Refresh-only drift is accepted only when it keeps the same resource ID and its observed `after` value exactly matches the same address's no-op desired value; deferred or unclosed drift is blocked. After cleanup, reobservation transfers the current verified observer through the owner-only Bastion path, reads its digest back, and runs it under the managed identity. New authority records seal both normalized Terraform output and exact backend blob bytes; the observer downloads the protected blob through Azure CLI data-plane authorization, verifies its authority-bound digest and backend protection, then removes every transient file without restoring the old Terraform work tree or provider mirror. A completed legacy receipt that predates the blob digest remains valid through its original independent zero-change evidence, but no digest is invented and repeated blob reobservation begins only with the extended authority record. A partial base set, a different existing file, or changed readback blocks recovery.
 These adapters do not prove a completed deployment.
 
+`fdaictl provision azure --source <checkout> --teardown` is a source-only cleanup path. It derives
+one review from retained source intent, source preparation, Genesis marker, and verified Foundation
+handoff receipts. It can name only the application and operations resource groups proven by that
+evidence, binds them to the target binding and source run binding, requires one exact
+`--teardown-confirmation` value, and then reads back absence after deletion. If any ownership proof
+is missing or names an unproven resource, the command stops before any delete call.
+
 The source coordinator uses the private managed-host route and reads Foundation provider
 registrations and inherited policy without changing either. Policy visibility is not a compliance
 or deployment-success claim. An exclusive run lock covers checkpoints; exact approval remains
@@ -660,7 +667,7 @@ An online retry keeps the work directory and treats its retained kit as untruste
 the package-pinned release signature, compatibility, exact file set, all digests, runtime images,
 and bundle binding again before advancing. An existing materialized payload is reused only when it
 matches those verified files exactly; only the pinned `bin/` tools and Terraform are owner-executable. A new execution copy of the signed bundle avoids reusing
-Python bytecode, Terraform scratch files, or other residue from a previous execution copy.
+Python bytecode, Terraform scratch files, or other residue from a previous execution copy. The workstation coordinator removes its own execution copies when its process exits, after success or failure; no retained record references them, and the next retry makes a fresh copy. The managed host keeps its execution copy for every step of one run. After an application run converges, the coordinator prunes the transfer directories that earlier kits left on the managed host. A directory whose claims all have receipts is removed. A directory that still holds a claim without a receipt keeps its claims, receipts, reviews, plans, and migration evidence, and only its re-derivable kit, environments, provider data, and credential caches are removed. A pruning failure is reported and never fails the converged run.
 
 The cache records a digest of the requested artifact URL to reject an implicit source switch.
 This local record is not signature or remote-origin evidence. A legacy cache without this record
