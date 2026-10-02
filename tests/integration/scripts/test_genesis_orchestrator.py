@@ -163,6 +163,48 @@ def test_signed_kit_source_evidence_requires_no_git_or_github(
         checks.verify_source(source_commit="e" * 40, repository=None, apply=True)
 
 
+def _signed_evidence(**overrides: str) -> str:
+    value = {
+        "source_commit": "a" * 40,
+        "kit_manifest_digest": "b" * 64,
+        "bundle_manifest_digest": "c" * 64,
+        "runtime_release_digest": "d" * 64,
+    }
+    value.update(overrides)
+    return json.dumps(value)
+
+
+def test_signed_evidence_accepts_the_retained_foundation_lineage_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "FDAI_SIGNED_SOURCE_EVIDENCE", _signed_evidence(foundation_source_commit="f" * 40)
+    )
+    checks = GenesisChecks(_ROOT)
+
+    checks.verify_source(source_commit="a" * 40, repository=None, apply=True)
+    checks.verify_source(source_commit="f" * 40, repository=None, apply=True)
+    with pytest.raises(CheckError, match="signed_source_revision_mismatch"):
+        checks.verify_source(source_commit="e" * 40, repository=None, apply=True)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"foundation_source_commit": "F" * 40},
+        {"foundation_source_commit": "f" * 39},
+        {"unexpected_source_commit": "f" * 40},
+    ],
+)
+def test_signed_evidence_rejects_an_invalid_or_unknown_lineage(
+    monkeypatch: pytest.MonkeyPatch, overrides: dict[str, str]
+) -> None:
+    monkeypatch.setenv("FDAI_SIGNED_SOURCE_EVIDENCE", _signed_evidence(**overrides))
+
+    with pytest.raises(CheckError, match="signed_source_evidence_invalid"):
+        GenesisChecks(_ROOT)
+
+
 def test_provider_preview_reports_every_missing_namespace_without_mutation() -> None:
     required = tuple(dict.fromkeys((*FOUNDATION_PROVIDERS, *APPLICATION_PROVIDERS)))
     states = {namespace: "Registered" for namespace in required}
