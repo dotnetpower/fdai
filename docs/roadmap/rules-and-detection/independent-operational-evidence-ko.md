@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: e4ed027ad5c79437f77d1e3e2be8e3182f777c76
+translation_source_sha: 4d2bedfb6109dcb02e9237be83eb565a9bb91136
 translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
@@ -263,6 +263,14 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 | 충돌 | 충돌하는 표본, 시계열, 상태 출처가 없음 |
 | 최신성 정책 | 공급자를 읽은 시점부터 300초 |
 
+**출처 평가.** `core/operational_evidence/readback/test_observation.py`는 검증기 쪽
+`OperationalTestObservationReadback`을 정의하고, `delivery/azure/operational_evidence_readbacks.py`는
+`AzureMonitorTestObservationProvider`를 정의합니다. 하지만 이 두 조각만으로는 목적을 바인딩할 수 없습니다.
+`delivery/operational_evidence_server.py`의 검증기 workload에는 구체적인 Azure Monitor metric sample client,
+완전한 의존성 상태 관측과 protected-signal 정책을 반환하는 `OperatingScopeObservationReader`, 그리고 해당 읽기가
+검증기 신원으로 실행된다는 배포 구성이 없습니다. 이 세 계약이 생길 때까지 `operational-test-observation`은 계속
+fail-closed `unavailable`로 남습니다. 이벤트 페이로드나 local-loopback 표본은 공급자 재조회를 대신하지 못합니다.
+
 ### 출처별 예측 이력
 
 소비자: `delivery/persistence/state_store_forecast_context.py`에 있는 Heimdall의
@@ -368,6 +376,15 @@ operating-intent 또는 ontology projection 출처가 소유하는 revision이 �
 | 완전성 | 대상에 대한 완전한 현재 그래프 세대와 모든 안전 결과에 대해 읽을 수 있는 증적 |
 | 충돌 | 세대, 사례 개정, 증적 사이에 불일치가 없음 |
 | 최신성 정책 | 스냅숏 관측 시점부터 300초이며, 현재의 5분 스냅숏 한도와 같음 |
+
+**출처 평가.** `core/operational_evidence/readback/current_case_reuse.py`는 검증기 쪽 readback을 정의하고,
+`delivery/azure/operational_evidence.py`는 실시간 T1(가벼운 유사성 재사용) 경로에 쓰는
+`AzureCurrentReuseVerifier`를 정의합니다. 하지만 검증기 readback에는 아직
+`delivery/operational_evidence_server.py`에 구체적인 `CurrentCaseReuseSource`가 없습니다. 현재 Azure verifier는
+일시적인 검증 결과를 다시 계산하고 근거를 요청하지만, 현재 인벤토리 스냅숏, Muninn 사례 개정, 일곱 가지 안전 증적,
+사례와 대상 권한 부여 좌표를 포함하는 조회 가능한 기록을 보관하지 않습니다. 그런 보존 출처가 생길 때까지
+`current-case-reuse`는 계속 fail-closed `unavailable`로 남습니다. Core `state_kv` 행을 검증기에 복사하는 방식은
+독립 출처가 아닙니다.
 
 ## 실패 시 차단하는 거부 매트릭스
 
