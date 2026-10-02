@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: a2a9a658fae16c4a729d04ea337eec2d8c00ab99
+translation_source_sha: 5309314b0c29ec6ef16fd7fa96a6f823f40c4a12
 translation_revised: 2026-10-02
 ---
 
@@ -13,10 +13,11 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 [헌법 제1조](../architecture/fdai-constitution-ko.md#제1조-목적과-범위)의 첫 번째 설치
 방식을 이 문서가 소유합니다.
 
-> **상태:** 이 문서는 목표 계약입니다. 현재 소스 실행은 여전히 검증된 Foundation 인계 뒤
-> `prebuilt_runtime_artifacts_required`로 멈춥니다. 이어서 들어갈 AKS 애플리케이션 단계는 이미
-> 영속 Trial을 초기화하고 키 보유자의 사용권을 설치하며, Console은 만료 워터마크를 표시합니다.
-> 배포 레지스트리에서 서비스 이미지를 빌드하는 이미지 단계도 있지만 아직 연결되지 않았습니다.
+> **상태:** 이 문서는 목표 계약입니다. 이제 소스 실행은 서명된 키트 없이 검증된 Foundation
+> 인계에서 공유 AKS 애플리케이션 단계로 이어집니다. 고정된 소스 스냅샷을 managed host로
+> 전송하고, 배포 레지스트리로 서비스 이미지를 빌드하며, 커밋된 lock 파일 기준으로 공개
+> 레지스트리에서 Terraform 공급자를 해석합니다. 또한 checkout의 마이그레이션과 카탈로그를
+> 실행하고, 동일한 상태 확인, 인벤토리, 두 번째 무변경 계획 확인을 유지합니다.
 > [구현 원장](../../roadmap-implementation/deployment/source-deployment.md)이 현재 상태와
 > 순서가 정해진 남은 작업을 기록합니다.
 >
@@ -70,6 +71,22 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 로컬 공유 세트 하나에 바인딩됩니다. `fdai-*` 애플리케이션 또는 `aw-*` 그룹 이름이 중복되면
 소스 실행은 Azure에 어떤 영향도 주기 전에 고정된 모호성 이유로 멈춥니다. 명령은 추측하거나,
 설치 범위 이름을 만들거나, 검토되지 않은 바인딩 파일을 받지 않습니다.
+
+**애플리케이션 계속 진행 수정:** 첫 구현 선택지는 완료된 소스 Foundation을 서명된 키트 채택
+경로로 보내는 것이었습니다. 그러면 기존 애플리케이션 코드를 보존할 수 있지만, 키트 아카이브,
+공급자 미러, 런타임 release 매니페스트, 지원 wheelhouse, Console 아카이브가 필요합니다. 이
+입력들은 소스 경로가 피하려는 release 산출물을 다시 들여옵니다. 대신 소스 경로는 standalone
+애플리케이션 조정기를 재사용하고 산출물 입력 연결 지점만 바꿉니다.
+
+- managed host는 검증된 소스 전송 아카이브를 받고 그 소스 스냅샷에서 배포 CLI를 설치합니다.
+- Terraform 루트와 마이그레이션 지원은 스냅샷에서 오며, 공급자는 커밋된 `.terraform.lock.hcl`
+  파일 기준으로 공개 레지스트리에서 직접 해석됩니다.
+- 서비스 이미지 참조는 substrate 적용으로 배포 레지스트리가 만들어진 뒤 소스 이미지 단계
+  증적에서 옵니다.
+- Console 아카이브는 Console 추가 기능을 선택한 경우에만 로컬 checkout에서 빌드됩니다.
+- 모든 증적은 `operator-selected-source`와 `release_signature_verified=false`를 기록합니다.
+
+서명된 키트 채택은 오프라인 패키지로 계속 진행하겠다고 명시한 복구 Foundation에만 남습니다.
 
 ## 명령 실행
 

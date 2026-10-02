@@ -10,11 +10,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import standalone_host, standalone_transfer_cleanup
+from fdai_deployment_cli import standalone_transfer_cleanup
 from fdai_deployment_cli.standalone_transfer_cleanup import (
     PRUNE_SCHEMA,
     cleanup_remote_transfers,
     prune_superseded_transfers,
+    remote_prune,
     validate_prune_report,
 )
 
@@ -135,15 +136,65 @@ def test_prune_skips_links_and_transfers_that_are_in_use(tmp_path: Path) -> None
     assert (target / "keep").exists()
 
 
-def test_host_cli_runs_prune_under_the_current_checkpoint(tmp_path: Path, capsys) -> None:
+def test_module_entry_point_prunes_under_the_current_checkpoint(tmp_path: Path, capsys) -> None:
     _home_dir, work_dir = _home(tmp_path)
     work_dir.chmod(0o700)
 
-    assert standalone_host.main(["--work-dir", str(work_dir), "prune-transfers"]) == 0
+    assert standalone_transfer_cleanup.main(["--work-dir", str(work_dir)]) == 0
 
     report = json.loads(capsys.readouterr().out)
     assert report["schema_version"] == PRUNE_SCHEMA
     assert report["removed"] == [_DONE]
+
+
+def test_module_entry_point_refuses_without_a_converged_application(tmp_path: Path, capsys) -> None:
+    _home_dir, work_dir = _home(tmp_path)
+    work_dir.chmod(0o700)
+    (work_dir / "application-receipt.json").unlink()
+
+    assert standalone_transfer_cleanup.main(["--work-dir", str(work_dir)]) == 3
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert (tmp_path / "home" / _DONE).is_dir()
+
+
+def test_remote_prune_runs_the_current_environment_and_validates_its_report() -> None:
+    report = {
+        "schema_version": PRUNE_SCHEMA,
+        "removed": [],
+        "preserved": [],
+        "skipped": [],
+        "free_bytes_before": 1,
+        "free_bytes_after": 1,
+    }
+    commands: list[tuple[str, ...]] = []
+
+    def ssh(command: tuple[str, ...], **_kwargs: object) -> SimpleNamespace:
+        commands.append(command)
+        return SimpleNamespace(returncode=0, stdout=json.dumps(report))
+
+    result = remote_prune(SimpleNamespace(ssh=ssh), remote_root="/h/t", work_dir="/h/t/application")
+
+    assert result == report
+    assert commands == [
+        (
+            "/h/t/venv/bin/python",
+            "-m",
+            "fdai_deployment_cli.standalone_transfer_cleanup",
+            "--work-dir",
+            "/h/t/application",
+        )
+    ]
+
+
+@pytest.mark.parametrize(("returncode", "stdout"), [(3, ""), (0, "not-json"), (0, "[]")])
+def test_remote_prune_rejects_a_failed_or_invalid_run(returncode: int, stdout: str) -> None:
+    tunnel = SimpleNamespace(
+        ssh=lambda *_args, **_kwargs: SimpleNamespace(returncode=returncode, stdout=stdout)
+    )
+    with pytest.raises(ValueError, match="prune"):
+        remote_prune(tunnel, remote_root="/h/t", work_dir="/h/t/application")
 
 
 @pytest.mark.parametrize(
@@ -179,7 +230,13 @@ class _Tunnel:
         return SimpleNamespace(returncode=self.returncode)
 
 
-def test_cleanup_removes_transients_then_reports_the_prune(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    "transient_paths",
+    [("/h/kit.tar.gz",), ("/h/source-transfer.tar", "/h/source-receiver.pyz")],
+)
+def test_cleanup_removes_transients_then_reports_the_prune(
+    transient_paths: tuple[str, ...], monkeypatch
+) -> None:
     details: list[str] = []
     monkeypatch.setattr(standalone_transfer_cleanup, "progress_detail", details.append)
     tunnel = _Tunnel()
@@ -194,12 +251,15 @@ def test_cleanup_removes_transients_then_reports_the_prune(monkeypatch) -> None:
 
     cleanup_remote_transfers(
         tunnel,
-        remote_archive="/h/a.tar.gz",
+        transient_paths=transient_paths,
         remote_approval="/h/approval.json",
         prune=lambda: report,
     )
 
-    assert tunnel.commands[0] == ("rm", "-f", "--", "/h/a.tar.gz", "/h/approval.json")
+    assert tunnel.commands[0] == ("rm", "-f", "--", *transient_paths, "/h/approval.json")
+    assert tunnel.commands[1:] == [
+        ("test", "!", "-e", path) for path in (*transient_paths, "/h/approval.json")
+    ]
     assert (
         "Pruned 1 superseded transfer(s), kept the evidence of 1, skipped 0; 5.0 GB freed"
         in details
@@ -214,7 +274,10 @@ def test_prune_failure_never_fails_a_converged_run(monkeypatch) -> None:
         raise ValueError("standalone managed-host checkpoint failed")
 
     cleanup_remote_transfers(
-        _Tunnel(), remote_archive="/h/a.tar.gz", remote_approval="/h/a.json", prune=failing_prune
+        _Tunnel(),
+        transient_paths=("/h/a.tar.gz",),
+        remote_approval="/h/a.json",
+        prune=failing_prune,
     )
 
     assert any("were not pruned" in detail for detail in details)
@@ -224,7 +287,7 @@ def test_transient_cleanup_failure_still_stops_the_run() -> None:
     with pytest.raises(ValueError, match="cleanup is incomplete"):
         cleanup_remote_transfers(
             _Tunnel(returncode=1),
-            remote_archive="/h/a.tar.gz",
+            transient_paths=("/h/a.tar.gz",),
             remote_approval="/h/a.json",
             prune=lambda: pytest.fail("prune must not run after a failed transient cleanup"),
         )

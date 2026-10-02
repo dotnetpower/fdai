@@ -54,6 +54,8 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
             calls.append("closed")
 
         def ssh(self, command, **_kwargs):
+            if "fdai_deployment_cli.standalone_transfer_cleanup" in command:
+                calls.append("prune")
             return subprocess.CompletedProcess(command, int(failure == "cleanup"), stdout="")
 
     module = SimpleNamespace(
@@ -82,17 +84,6 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
     monkeypatch.setattr(application, "_license_token", lambda **_kwargs: check("capability"))
 
     def remote(_tunnel, _root, _work, arguments, **_kwargs):
-        if arguments[0] == "prune-transfers":
-            return {
-                "schema_version": "fdai.standalone-transfer-prune.v1",
-                "removed": [],
-                "preserved": [],
-                "skipped": [],
-                "free_bytes_before": 0,
-                "free_bytes_after": 0,
-                "mutation_performed": False,
-                "subscription_ready": False,
-            }
         stage = {
             "deployment-binding": "binding",
             "import-images": "images",
@@ -175,6 +166,7 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
             display.ready()
         assert "standalone-application-receipt.json" in persisted
         assert "Deployment ready" in output.getvalue()
+        assert calls.count("prune") == 1
     else:
         with pytest.raises(ValueError), display:
             deploy()

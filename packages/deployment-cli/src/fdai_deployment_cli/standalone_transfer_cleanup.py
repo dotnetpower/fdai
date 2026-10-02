@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
 import re
 import shutil
 import stat
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
-from fdai_deployment_cli.standalone_host_state import acquire_checkpoint_lock
+from fdai_deployment_cli.standalone_host_state import (
+    absolute,
+    acquire_checkpoint_lock,
+    private_directory,
+)
 
 PRUNE_SCHEMA = "fdai.standalone-transfer-prune.v1"
+_MODULE = "fdai_deployment_cli.standalone_transfer_cleanup"
 _TRANSFER = re.compile(r"\.fdai-transfer-[0-9a-f]{24}")
 _CLAIM_SUFFIX = "-claim.json"
 # Re-derivable copies and credential caches; claims, receipts, reviews, plans, and migration
@@ -26,18 +34,22 @@ _PROVIDER_DATA_PREFIX = "terraform-data"
 def cleanup_remote_transfers(
     tunnel: Any,
     *,
-    remote_archive: str,
+    transient_paths: tuple[str, ...],
     remote_approval: str,
     prune: Callable[[], dict[str, Any]],
 ) -> None:
     """Remove this run's transient files, then prune transfers that earlier kits left."""
 
+    if not transient_paths:
+        raise ValueError("standalone remote transient cleanup has no transfer paths")
     begin_stage("cleanup")
     progress_detail("Removing transient transfers and verifying their absence")
-    cleanup = tunnel.ssh(("rm", "-f", "--", remote_archive, remote_approval), timeout=300)
-    archive_absent = tunnel.ssh(("test", "!", "-e", remote_archive), timeout=60)
-    approval_absent = tunnel.ssh(("test", "!", "-e", remote_approval), timeout=60)
-    if any(result.returncode != 0 for result in (cleanup, archive_absent, approval_absent)):
+    cleanup = tunnel.ssh(("rm", "-f", "--", *transient_paths, remote_approval), timeout=300)
+    absent = [
+        tunnel.ssh(("test", "!", "-e", path), timeout=60)
+        for path in (*transient_paths, remote_approval)
+    ]
+    if any(result.returncode != 0 for result in (cleanup, *absent)):
         raise ValueError("standalone remote transient cleanup is incomplete")
     try:
         report = validate_prune_report(prune())
@@ -169,9 +181,57 @@ def _remove(path: Path) -> None:
         raise OSError("managed-host transfer residue remains after removal")
 
 
+def remote_prune(
+    tunnel: Any, *, remote_root: str, work_dir: str, timeout: int = 1800
+) -> dict[str, Any]:
+    """Run the managed-host prune from the current transfer's environment and validate it."""
+
+    result = tunnel.ssh(
+        (f"{remote_root}/venv/bin/python", "-m", _MODULE, "--work-dir", work_dir),
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        raise ValueError("managed-host prune failed")
+    try:
+        value = json.loads(result.stdout)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("managed-host prune report is invalid") from exc
+    return validate_prune_report(value)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Prune superseded transfers under the current application's checkpoint lock."""
+
+    parser = argparse.ArgumentParser(prog=f"python -m {_MODULE}")
+    parser.add_argument("--work-dir", type=Path, required=True)
+    args = parser.parse_args(argv)
+    work_dir = absolute(args.work_dir)
+    lock: int | None = None
+    try:
+        if not work_dir.is_dir():
+            raise ValueError("managed-host transfer layout is invalid")
+        private_directory(work_dir)
+        lock = acquire_checkpoint_lock(work_dir)
+        report = prune_superseded_transfers(work_dir)
+    except (OSError, ValueError):
+        print(json.dumps({"schema_version": PRUNE_SCHEMA, "state": "refused"}), file=sys.stderr)
+        return 3
+    finally:
+        if lock is not None:
+            os.close(lock)
+    print(json.dumps(report, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
 __all__ = [
     "PRUNE_SCHEMA",
     "cleanup_remote_transfers",
+    "main",
     "prune_superseded_transfers",
+    "remote_prune",
     "validate_prune_report",
 ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -56,9 +56,11 @@ from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
     legacy_runtime_profile_digest,
 )
+from fdai_deployment_cli import source_application_inputs
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
 )
+
 from fdai_deployment_cli.standalone_aks_inventory import (
     initial_inventory_binding as _initial_inventory_binding,
 )
@@ -160,7 +162,6 @@ from fdai_deployment_cli.standalone_residual_apply import (
 from fdai_deployment_cli.standalone_residual_apply import (
     seal_terraform_plan as _seal_terraform_plan,
 )
-from fdai_deployment_cli.standalone_transfer_cleanup import prune_superseded_transfers
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
 )
@@ -249,6 +250,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     prepare.set_defaults(handler=_prepare)
 
+    source_application_inputs.add_prepare_source_parser(subcommands, _prepare)
+
     prepare_runtime = subcommands.add_parser("prepare-runtime")
     prepare_runtime.set_defaults(handler=_prepare_runtime)
 
@@ -323,9 +326,6 @@ def main(argv: list[str] | None = None) -> int:
     migrate.set_defaults(handler=_migrate)
 
     subcommands.add_parser("activate-trial").set_defaults(handler=_activate_trial)
-    subcommands.add_parser("prune-transfers").set_defaults(
-        handler=lambda _args, work_dir: prune_superseded_transfers(work_dir)
-    )
 
     initial_inventory = subcommands.add_parser("initial-inventory")
     initial_inventory.set_defaults(handler=_initial_inventory)
@@ -515,24 +515,50 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             "mutation_performed": False,
             "subscription_ready": False,
         }
-    kit_work = work_dir / "kit-work"
-    _private_directory(kit_work)
-    kit = acquire_deployment_kit(
-        work_dir=kit_work,
-        online=False,
-        offline_kit=_absolute(args.kit),
-    )
-    foundation.adoption.require_kit(kit)
-    _install_runtime_support(
-        work_dir,
-        artifact_root=kit.materialized_root,
-        kit_manifest_digest=kit.verification.manifest_digest,
-    )
-    infra = kit.bundle_root / "infra"
-    terraform = kit.materialized_root / kit.verification.terraform_binary
-    provider_mirror = kit.materialized_root / kit.verification.provider_mirror_prefix
+    source_mode = hasattr(args, "source_snapshot")
+    if source_mode:
+        source_snapshot = _absolute(args.source_snapshot)
+        source_artifacts = source_application_inputs.source_host_artifacts(
+            source_snapshot=source_snapshot,
+            snapshot_digest=str(args.source_snapshot_digest),
+            expected_source_commit=foundation.adoption.source_commit,
+            work_dir=work_dir,
+        )
+        source_commit = source_artifacts.source_commit
+        infra = source_artifacts.infra
+        terraform = source_artifacts.terraform
+        provider_mirror: Path | None = None
+        runtime_release_digest = source_artifacts.digest
+        kit_manifest_digest = source_artifacts.digest
+        kit_bin = source_artifacts.kit_bin
+        provider_installation = "direct"
+    else:
+        kit_work = work_dir / "kit-work"
+        _private_directory(kit_work)
+        kit = acquire_deployment_kit(
+            work_dir=kit_work,
+            online=False,
+            offline_kit=_absolute(args.kit),
+        )
+        foundation.adoption.require_kit(kit)
+        _install_runtime_support(
+            work_dir,
+            artifact_root=kit.materialized_root,
+            kit_manifest_digest=kit.verification.manifest_digest,
+        )
+        infra = kit.bundle_root / "infra"
+        terraform = kit.materialized_root / kit.verification.terraform_binary
+        provider_mirror = kit.materialized_root / kit.verification.provider_mirror_prefix
+        runtime = kit.runtime.to_mapping()
+        runtime_release_digest = kit.runtime.digest
+        kit_manifest_digest = kit.verification.manifest_digest
+        source_commit = kit.source_commit
+        kit_bin = kit.materialized_root / "bin"
+        provider_installation = "filesystem_mirror"
     terraform_config = work_dir / "terraform.rc"
-    expected_terraform_config = _terraform_configuration(provider_mirror)
+    expected_terraform_config = source_application_inputs.terraform_configuration(
+        source_mode=source_mode, provider_mirror=provider_mirror
+    )
     if not terraform_config.exists():
         write_private_output(terraform_config, expected_terraform_config)
     elif (
@@ -549,22 +575,26 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         workload=workload, environment="dev", region_short=region_short, resource_suffix=suffix
     )
     login_server = f"{registry}.azurecr.io"
-    runtime = kit.runtime.to_mapping()
-    services = _mapping(runtime.get("services"), "runtime services")
-    sidecars = _mapping(runtime.get("sidecars"), "runtime sidecars")
-    refs = {
-        name: f"{login_server}/{name}@{_required_image_digest(services, name)}"
-        for name in (
-            "core-control-plane",
-            "operator-service",
-            "document-ingestion-api",
-            "document-processing-worker",
-            "isolated-executor",
-        )
-    }
-    refs["clamav"] = f"{login_server}/clamav@{_required_image_digest(sidecars, 'clamav')}"
-    if runtime_profile.database_placement.value == "postgres-aks":
-        refs["pgvector"] = f"{login_server}/pgvector@{_required_image_digest(sidecars, 'pgvector')}"
+    if source_mode:
+        refs = source_application_inputs.placeholder_image_refs(login_server, include_pgvector=True)
+    else:
+        services = _mapping(runtime.get("services"), "runtime services")
+        sidecars = _mapping(runtime.get("sidecars"), "runtime sidecars")
+        refs = {
+            name: f"{login_server}/{name}@{_required_image_digest(services, name)}"
+            for name in (
+                "core-control-plane",
+                "operator-service",
+                "document-ingestion-api",
+                "document-processing-worker",
+                "isolated-executor",
+            )
+        }
+        refs["clamav"] = f"{login_server}/clamav@{_required_image_digest(sidecars, 'clamav')}"
+        if runtime_profile.database_placement.value == "postgres-aks":
+            refs["pgvector"] = (
+                f"{login_server}/pgvector@{_required_image_digest(sidecars, 'pgvector')}"
+            )
     aks_baseline = runtime_profile.runtime_platform.value == "aks"
     values: dict[str, object] = {
         "workload": workload,
@@ -622,7 +652,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             resolved_models_sha256=adoption[0]["resolved_models_sha256"],
         )
     context: dict[str, object] = {
-        "source_commit": kit.source_commit,
+        "source_commit": source_commit,
+        "artifact_source": "operator-selected-source" if source_mode else "signed-kit",
         "target_binding": foundation.target_binding,
         "foundation_adoption_digest": foundation.adoption.digest,
         "subscription_id": foundation.subscription_id,
@@ -644,8 +675,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "inventory_progress_container_url": str(state["progress_container_url"]),
         "initial_inventory_binding": initial_inventory_binding,
         "state_key": f"fdai-{values['env']}.tfstate",
-        "kit_manifest_digest": kit.verification.manifest_digest,
-        "runtime_release_digest": kit.runtime.digest,
+        "kit_manifest_digest": kit_manifest_digest,
+        "runtime_release_digest": runtime_release_digest,
         "runtime_profile": runtime_profile.to_mapping(),
         "runtime_profile_digest": runtime_profile.digest,
         "registry_name": registry,
@@ -653,11 +684,16 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "image_refs": refs,
         "infra": str(infra),
         "terraform": str(terraform),
-        "provider_mirror": str(provider_mirror),
-        "kit_bin": str(kit.materialized_root / "bin"),
+        "provider_mirror": "" if provider_mirror is None else str(provider_mirror),
+        "provider_installation": provider_installation,
+        "kit_bin": str(kit_bin),
         "terraform_config": str(terraform_config),
         "terraform_data": str(work_dir / "terraform-data"),
     }
+    if source_mode:
+        context.update(
+            source_snapshot=str(source_snapshot), source_snapshot_digest=source_artifacts.digest
+        )
     _replace_private_json(work_dir / "application.auto.tfvars.json", values)
     _replace_private_json(work_dir / "context.json", context)
     _terraform_init(work_dir, context)
@@ -2707,6 +2743,10 @@ def _import_images(_args: argparse.Namespace, work_dir: Path) -> dict[str, objec
     _managed_identity_login_from_context(context, work_dir)
     if not (work_dir / "substrate-receipt.json").exists():
         raise ValueError("image import requires the applied substrate plan")
+    if context.get("artifact_source") == "operator-selected-source":
+        return source_application_inputs.write_source_image_import_receipt(
+            context=context, work_dir=work_dir, write_json=_replace_private_json
+        )
     token = _capture(
         (
             "az",

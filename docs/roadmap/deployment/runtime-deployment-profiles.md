@@ -31,6 +31,12 @@ The host's read-only `verify-source-runtime` command checks pinned source/runtim
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
 cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;
 missing source support never selects a kit implicitly. See the [source boundary](installable-deployment-cli.md#explicit-source-recovery).
+When a one-command source deployment reaches the standalone application sequence, the runtime
+profile does not change. The managed host receives a verified source transport archive instead of a
+signed kit archive, installs `fdaictl` from that snapshot, uses Terraform roots and migration
+support from the snapshot, and resolves providers directly from public registries under the
+committed lock files. Image references still enter the runtime profile only as read-back digests
+after the deployment registry build stage completes.
 Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set. Runtime Dockerfile Alpine package pin updates are package maintenance only and do not change profiles, authority, provider access, or add-ons.
 
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
