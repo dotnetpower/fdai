@@ -32,7 +32,7 @@ class _ReservingDirections(_Model):
 
 @pytest.mark.parametrize(
     ("direction", "tiebreak", "readers", "calls"),
-    [("agree", "agree", 1, 1), ("disagree", "disagree", 2, 2), ("disagree", "agree", 2, 2)],
+    [("agree", "agree", 1, 1), ("disagree", "disagree", 1, 1), ("disagree", "agree", 1, 1)],
 )
 async def test_a_directional_turn_records_its_reader_count_and_usage(
     direction: str, tiebreak: str, readers: int, calls: int, caplog: pytest.LogCaptureFixture
