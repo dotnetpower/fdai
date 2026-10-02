@@ -1,13 +1,13 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: dc3b5f619d78fba7670711f23eb017bd983618dd
+translation_source_sha: b0099924fcd56f4045c15252344ac0d2c8c2a75d
 translation_revised: 2026-10-02
 ---
 
 # 설치형 배포 CLI
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다. 소스 경로의 산출물과 사용권 선택은 [단일 명령 소스 배포](source-deployment-ko.md)가 소유합니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다. 소스 경로의 산출물과 사용권 선택은 [단일 명령 소스 배포](source-deployment-ko.md)가 소유합니다.
 
 이 문서는 공개 FDAI 배포 명령을 정의합니다. 운영자는 Azure 로그인 후 하나의 로컬 조정기를
 실행하고, Terraform 적용과 비공개 데이터 플레인 작업은 대상 Virtual Network 내부의 Managed
@@ -721,9 +721,10 @@ Foundation 계획을 승인하지 않습니다. 더 새 키트로 계산한 계�
 
 ## 배포 어플라이언스
 
-제거했습니다. 헌법 제1조는 설치 경로를 단일 명령 소스 배포와 서명된 오프라인 패키지 두
-가지로만 정의하며, 설치 도구가 다른 게이트를 추가하지 않는다고 규정합니다. 어플라이언스
-이미지는 같은 키트를 세 번째로 포장한 것이므로 빌더와 실행기를 삭제했고, 어떤 release 단계도
+제거했습니다. 헌법 제1조는 설치 경로를 단일 명령 소스 배포, 서명된 오프라인 패키지, 설계만 되어
+있고 아직 구현되지 않은 [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)의 세 가지로 정의하며,
+설치 도구가 다른 게이트를 추가하지 않는다고 규정합니다. 어플라이언스 이미지는 이 경로 가운데
+하나가 아니라 같은 키트를 다르게 포장한 것이므로 빌더와 실행기를 삭제했고, 어떤 release 단계도
 이를 만들지 않습니다.
 
 ## 결과 계약

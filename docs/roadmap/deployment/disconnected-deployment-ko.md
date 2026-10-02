@@ -1,12 +1,12 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 023717ed285070f8bf328dcda3bb0c46314aef5b
+translation_source_sha: 1a427f29b7da6d1d441cd229b87ef7937067d29b
 translation_revised: 2026-10-02
 ---
 # 폐쇄망 배포
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 공용 인터넷 egress가 차단된 네트워크 - 규제받는 금융 테난트, sovereign enclave,
 완전 air-gap 사이트 - 에 FDAI를 배포하는 단일 소유 문서입니다. 리포지토리가 이미 지원하는 것,
@@ -451,3 +451,4 @@ residency 검토를 추가로 요구합니다
 | CLI 파사드, 서명된 번들, exact-plan 적용 | [installable-deployment-cli-ko.md](installable-deployment-cli-ko.md) |
 | Offline trust 루트 확립과 교대 | [offline-trust-ceremony-ko.md](../../runbooks/offline-trust-ceremony-ko.md) |
 | 거부된 키트 또는 차단된 계획에서 복구 | [deployment-recovery-ko.md](../../runbooks/deployment-recovery-ko.md) |
+| Target Hub를 통한 오프라인 업그레이드 | [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md) |

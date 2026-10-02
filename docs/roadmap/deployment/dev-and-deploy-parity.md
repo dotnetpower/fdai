@@ -527,6 +527,11 @@ on authenticated responses the same way. A verified local issuer workstation pub
 any other local checkout shows the same watermark as a deployment without an entitlement. No
 venue, test fake, or setting suppresses it.
 
+The planned [Hub-managed lifecycle](hub-managed-lifecycle.md) follows the same rule. Installation
+path is an independent axis: a Hub-managed installation binds the same authoritative sources,
+contracts, and runtime-scope receipts as a source or offline-package installation, and its
+lifecycle agents never change control-plane behavior.
+
 ## Deployer-Scoped LLM Provisioning
 
 Protected full plans that can change cognitive deployments run the resolver and seal its exact manifest for apply. Terraform creates each provider account only when that publisher has a resolved capability, so a partner-only result keeps Foundry and does not request Azure OpenAI account quota. A development-gateway targeted plan still resolves the current capability map to preserve existing dependencies. Completeness findings remain non-blocking because its target set contains no cognitive deployment.

@@ -6,7 +6,7 @@ derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 71a
 
 # Deploy Quickstart
 
-> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](../roadmap/deployment/hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 You can deploy FDAI to your own Azure subscription from a clone of the repository with one command
 line after one interactive Azure sign-in. You don't need a key, a signed kit, a published release,

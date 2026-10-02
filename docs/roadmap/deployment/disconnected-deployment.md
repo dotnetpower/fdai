@@ -3,7 +3,7 @@ title: Disconnected Deployment
 ---
 # Disconnected Deployment
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document is the single owner for deploying FDAI into a network that blocks public internet
 egress - a regulated financial tenant, a sovereign enclave, or a fully air-gapped site. It states
@@ -458,3 +458,4 @@ bootstrap and complete new-subscription runtime installation remain separate, op
 | The CLI facade, signed bundles, and exact-plan apply | [installable-deployment-cli.md](installable-deployment-cli.md) |
 | Establishing and rotating the offline trust root | [offline-trust-ceremony.md](../../runbooks/offline-trust-ceremony.md) |
 | Recovering from a rejected kit or a blocked plan | [deployment-recovery.md](../../runbooks/deployment-recovery.md) |
+| Offline upgrades through a Target Hub | [Hub-Managed Lifecycle](hub-managed-lifecycle.md) |
