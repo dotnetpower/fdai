@@ -705,34 +705,11 @@ including the retained runner-image receipt, and already satisfied effects are r
 their retained claims and independent readback instead of being repeated. The
 coordinator then rebuilds a no-effect Foundation adoption receipt from that retained, verified
 chain and binds it to the newer kit, so the managed host accepts the kit only through that
-evidence.
-
-**Lineage transition design:** When the newer kit changes Foundation inputs, the coordinator still
-uses the retained runner SSH key, run binding, profile, and host keys. It computes the exact
-Foundation plan from the newer kit where the authoritative state now lives: on the retained
-managed host, reached through the installation's own Bastion path. A zero-change plan advances the
-application lineage by writing a no-effect transition receipt and then updating
-`run/foundation-source-lineage.json`. A non-destructive plan is approved by the invocation that
-shows it, writes the normal pre-effect Foundation claim, applies once, and closes only after
-control-plane readback plus a second zero-change plan. Already satisfied effects remain claims to
-verify; they are not repeated.
-
-**Lineage transition critique:** Computing the changed plan locally would use the wrong state owner
-after Foundation state handoff. Approving the newer plan while labeling it with the older
-`foundation_source_commit` would make the receipt chain unverifiable. Updating
-`run/foundation-source-lineage.json` before the plan verifies would also let a later application
-stage observe a lineage that has not actually converged.
-
-**Lineage transition revision:** The reviewed transition receipt binds both source revisions, the
-new kit and runtime digests, the retained Foundation run binding, the transition plan review and
-plan digests, and the prior apply, enrollment, state-handoff, and authority receipts. The lineage
-file changes only after that receipt is written. A destructive Foundation transition, including a
-runner replacement caused by a runner-image or toolchain change, stops unless the existing exact
-typed confirmation for the shown plan is supplied. The current offline upgrade path does not
-silently rebuild or swap the runner image across revisions; if a future kit requires that change,
-it is treated as a destructive Foundation transition rather than a no-effect adoption.
-Application plans keep the existing rule: the invocation approves the non-destructive exact plan it
-shows, and deleting or replacing an existing resource still needs the explicit extra confirmation.
+evidence. It refuses to approve a new Foundation plan under the retained lineage, because a plan computed from
+the newer kit must not carry the older revision's provenance. A Foundation configuration change
+therefore needs a reviewed lineage transition, which isn't implemented yet. Application plans
+keep the existing rule: the invocation approves the non-destructive exact plan it shows, and
+deleting or replacing an existing resource still needs the explicit extra confirmation.
 
 A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
