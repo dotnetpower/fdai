@@ -41,6 +41,8 @@ class AlertAuthorityReader(Protocol):
 
     async def dispatch_evidence(self, plan: AlertChangePlan) -> AlertDispatchEvidence: ...
 
+    def allows_development_single_owner_quorum(self, plan: AlertChangePlan) -> bool: ...
+
 
 class AlertGovernedDispatcher(Protocol):
     """Submit one registered action to the existing Thor path; never apply from a report."""

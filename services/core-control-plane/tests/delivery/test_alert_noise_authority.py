@@ -110,7 +110,7 @@ async def _promotion_fixture(h, action_type):
     )
 
 
-async def _var_fixture(h, decisions, *, step="approve_plan", attempt=1):
+async def _var_fixture(h, decisions, *, step="approve_plan", attempt=1, quorum=None):
     """Use the real Var request/slot structure, then install isolated simulated human decisions."""
     var = StateStoreWorkflowApprovalProvider(store=h.store)
     await var.ensure_requested(
@@ -120,7 +120,7 @@ async def _var_fixture(h, decisions, *, step="approve_plan", attempt=1):
         target_resource_id=h.plan.treatment.processing_rule_ref or h.plan.treatment.target_ref,
         requester_principal=next(oid for oid, ref in h.identities.items() if ref == REQUESTER),
         required_role="Owner",
-        quorum=2,
+        quorum=len(decisions) if quorum is None else quorum,
         no_self_approval=True,
         timeout_seconds=43200,
         requested_at=h.clock[0],
@@ -375,6 +375,59 @@ async def test_no_admission_or_missing_record_is_held_not_default_permissions(au
     assert (
         await h.reader.approvals(h.plan.model_copy(update={"requester_ref": SERVICE_OWNER})) == ()
     )
+
+
+async def test_same_human_cannot_fill_service_owner_and_owner_lanes_in_production(
+    authority_case,
+):
+    h = authority_case
+    approvals = (
+        h.approvals[0],
+        h.approvals[1].model_copy(
+            update={"principal_ref": h.approvals[0].principal_ref, "receipt_ref": "approval:same"}
+        ),
+    )
+    await _var_fixture(h, approvals)
+    await _install_record(
+        h,
+        key=h.authority_key,
+        payload={**h.payload, "approvals": [item.model_dump(mode="json") for item in approvals]},
+        purpose=ALERT_AUTHORITY_PURPOSE,
+    )
+
+    with pytest.raises(AlertExecutionHeld, match="held"):
+        await h.reader.dispatch_evidence(h.plan)
+
+
+async def test_development_profile_scope_allows_one_owner_with_service_scope(authority_case):
+    h = authority_case
+    approval = h.approvals[1].model_copy(
+        update={
+            "service_refs": h.plan.service_refs,
+            "receipt_ref": "approval:development-owner",
+        }
+    )
+    approvals = (approval,)
+    await _var_fixture(h, approvals, attempt=2, quorum=1)
+    await _install_record(
+        h,
+        key=h.authority_key,
+        payload={
+            **h.payload,
+            "approvals": [item.model_dump(mode="json") for item in approvals],
+            "attempt": 2,
+        },
+        purpose=ALERT_AUTHORITY_PURPOSE,
+    )
+    production_reader = StateStoreAlertAuthorityReader(**h.options)
+    development_reader = StateStoreAlertAuthorityReader(
+        **{**h.options, "allow_development_owner_quorum": True}
+    )
+
+    with pytest.raises(AlertExecutionHeld, match="held|quorum"):
+        await production_reader.dispatch_evidence(h.plan)
+    assert await development_reader.dispatch_evidence(h.plan) == h.dispatch
+    assert development_reader.allows_development_single_owner_quorum(h.plan) is True
 
 
 @pytest.mark.parametrize(
