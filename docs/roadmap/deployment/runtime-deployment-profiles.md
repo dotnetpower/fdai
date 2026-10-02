@@ -48,6 +48,13 @@ still requires authoritative effect readback and a zero-change plan. Any present
 claim path blocks ordinary replanning until validated recovery; malformed retained claims fail
 closed.
 
+Before a runtime plan, apply, residual review, or residual apply can proceed, the managed host
+reads back AKS agent pools with its deployment Managed Identity. If the `runtime` user pool already
+exists in Azure but the `azurerm_kubernetes_cluster_node_pool.user` address is absent from
+Terraform state, the run stops before any effect with `aks_node_pool_exists_outside_state`.
+The message names the pool and explains that removal requires explicit Owner confirmation. The
+coordinator does not delete or import that pool automatically.
+
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|
 | Runtime platform | `aks`, `container-apps` | `aks` | Hosts FDAI services and scheduled jobs. Container Apps is compatibility-only for new planning. |

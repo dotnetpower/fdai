@@ -27,6 +27,13 @@ from fdai_deployment_cli import (
     standalone_planned_outputs,
     standalone_terraform_environment,
 )
+from fdai_deployment_cli.standalone_aks_nodepool_guard import (
+    guard_existing_runtime_node_pools as _guard_existing_runtime_node_pools,
+)
+from fdai_deployment_cli.standalone_checkpoint_failure import (
+    failure_record as _failure_record,
+    terraform_failure as _terraform_failure,
+)
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
@@ -315,7 +322,14 @@ def main(argv: list[str] | None = None) -> int:
             lock_descriptor = _acquire_checkpoint_lock(work_dir)
         result = args.handler(args, work_dir)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
-        print(f"standalone-host: {exc}", file=sys.stderr)
+        print(
+            json.dumps(
+                _failure_record(exc),
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            file=sys.stderr,
+        )
         return 3
     finally:
         if lock_descriptor is not None:
@@ -2245,6 +2259,8 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     command.extend(f"-target={target}" for target in _stage_targets(stage, context))
     if update is not None:
         command.append(f"-target={_service_update_target(str(update['service']))}")
+    if stage == "runtime":
+        _guard_existing_runtime_node_pools(context, work_dir)
     _run(command, cwd=infra, timeout=3600, reason=f"{stage} Terraform plan failed")
     _seal_terraform_plan(plan_path)
     show = _capture(
@@ -2303,6 +2319,8 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     plan_path = work_dir / f"{operation}.tfplan"
     if _file_digest(plan_path) != review["plan_digest"]:
         raise ValueError("standalone application plan changed before apply")
+    if stage == "runtime":
+        _guard_existing_runtime_node_pools(context, work_dir)
     if reconciliation is not None:
         _validate_historical_reconciliation_plan(
             context,
@@ -2408,6 +2426,8 @@ def _apply_residual(args: argparse.Namespace, work_dir: Path) -> dict[str, objec
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
     targets = _stage_targets(stage, context)
+    if stage == "runtime":
+        _guard_existing_runtime_node_pools(context, work_dir)
     return _apply_residual_plan(
         work_dir=work_dir,
         stage=stage,
@@ -2482,6 +2502,8 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
     targets = _stage_targets(stage, context)
+    if stage == "runtime":
+        _guard_existing_runtime_node_pools(context, work_dir)
     if reconciliation is not None:
         plan_path = work_dir / f"{operation}.tfplan"
         if _file_digest(plan_path) != review.get("plan_digest"):
@@ -4446,7 +4468,9 @@ def _terraform_json_output(infra: Path, name: str) -> object:
 def _run(command: tuple[str, ...] | list[str], *, cwd: Path, timeout: int, reason: str) -> None:
     result = subprocess.run(command, cwd=cwd, check=False, capture_output=True, timeout=timeout)
     if result.returncode != 0:
-        raise ValueError(reason)
+        raise (
+            _terraform_failure(reason, result) if "terraform" in command[0] else ValueError(reason)
+        )
 
 
 def _capture(command: tuple[str, ...], *, cwd: Path, timeout: int, reason: str) -> str:
@@ -4454,7 +4478,9 @@ def _capture(command: tuple[str, ...], *, cwd: Path, timeout: int, reason: str) 
         command, cwd=cwd, check=False, capture_output=True, text=True, timeout=timeout
     )
     if result.returncode != 0:
-        raise ValueError(reason)
+        raise (
+            _terraform_failure(reason, result) if "terraform" in command[0] else ValueError(reason)
+        )
     return result.stdout
 
 

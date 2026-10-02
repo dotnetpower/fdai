@@ -32,6 +32,7 @@ from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
 from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.target import compute_target_binding
@@ -613,6 +614,19 @@ def _remote_json(
         input_text=input_text,
     )
     if result.returncode != 0:
+        failure = _remote_failure(result)
+        if failure is not None:
+            codes = failure.get("provider_error_codes")
+            code_text = (
+                f"; provider_error_code={','.join(str(code) for code in codes)}"
+                if isinstance(codes, list) and codes
+                else ""
+            )
+            raise ValueError(
+                "standalone managed-host checkpoint failed: "
+                f"reason_code={failure['reason_code']}{code_text}; "
+                f"excerpt={failure['message_excerpt']}"
+            )
         raise ValueError("standalone managed-host checkpoint failed")
     try:
         value = json.loads(result.stdout)
