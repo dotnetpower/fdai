@@ -9,10 +9,13 @@ from fdai.shared.contracts.models import (
     OntologyFunctionKind,
     OntologyFunctionType,
     OntologyInterfaceType,
+    OntologyObjectType,
     OntologyRelease,
     OntologyReleaseRef,
     Operation,
     PromotionGate,
+    PropertyDecl,
+    PropertyType,
     RollbackKind,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -147,3 +150,30 @@ def test_release_pins_interface_identity_without_changing_empty_release() -> Non
     assert reference.version == interface.version
     assert reference.catalog_digest == release.digest
     assert changed.digest != release.digest
+
+
+def test_release_identity_excludes_projection_only_query_terms() -> None:
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    with_terms = resource.model_copy(
+        update={
+            "query_terms": ("리소스",),
+            "properties": {
+                "id": PropertyDecl(
+                    type=PropertyType.STRING,
+                    required=True,
+                    query_terms=("식별자",),
+                    value_query_terms={"resource-a": ("리소스 A",)},
+                )
+            },
+        }
+    )
+
+    assert build_ontology_release(object_types=(resource,)) == build_ontology_release(
+        object_types=(with_terms,)
+    )

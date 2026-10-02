@@ -78,12 +78,34 @@
             },
             "uniqueItems": true,
             "description": "Optional purpose codes a query MUST declare via `--purpose` to read this property. When set, a query without a matching purpose receives the redacted placeholder. Empty (default) means no purpose gate."
+          },
+          "query_terms": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1, "maxLength": 128},
+            "uniqueItems": true,
+            "description": "Reviewed English and Korean property labels for semantic document projection. These terms provide model context only and do not authorize lookup or inference."
+          },
+          "value_query_terms": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1, "maxLength": 128},
+              "uniqueItems": true
+            },
+            "propertyNames": {"type": "string", "minLength": 1, "maxLength": 128},
+            "description": "Reviewed English and Korean labels for exact property values. Projection adds only the terms for values already present on the authorized object."
           }
         }
       }
     },
     "description": {
       "type": "string"
+    },
+    "query_terms": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1, "maxLength": 128},
+      "uniqueItems": true,
+      "description": "Reviewed English and Korean object labels for semantic document projection. These terms provide model context only and do not authorize lookup or inference."
     },
     "lifecycle": {
       "type": "object",

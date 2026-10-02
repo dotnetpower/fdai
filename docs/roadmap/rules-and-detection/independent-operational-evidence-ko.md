@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 305fa342ec5fb0277c8f87f18ab1a6c29de8d819
+translation_source_sha: ba492c227040ddd8f517a942de2f98731f616ea2
 translation_revised: 2026-10-02
 ---
 # 독립 운영 근거 발급
@@ -304,6 +304,8 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 조회가 릴리스 digest를 묶으므로 운영 근거 밖의 온톨로지 함수 소스 수정을 포함한 모든 릴리스 변경은 새 조회를
 시작하고, 이전 릴리스에서 발급한 증적은 다시 쓰지 않습니다. 같은 변경에서 원본에 묶인 의미 보증 코퍼스도 다시
 생성합니다.
+변환 전용 온톨로지 어휘는 릴리스 digest나 운영 근거 조회 권한을 바꾸지 않고도 해당 corpus
+매니페스트의 원본 다이제스트를 갱신할 수 있습니다.
 
 | 증명 | 재조회 대상 |
 |------|-------------|

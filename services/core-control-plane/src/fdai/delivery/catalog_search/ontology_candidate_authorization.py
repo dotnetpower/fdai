@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
@@ -66,6 +67,7 @@ async def reauthorize_ontology_candidates(
     manifest: QueryManifest,
     gateway: SecuredObjectSetQueryGateway,
     as_of: datetime,
+    resource_type_query_terms: Mapping[str, Sequence[str]] | None = None,
 ) -> AuthorizedOntologyCandidates:
     """Hold the whole candidate result on deletion, scope, source, or content drift.
 
@@ -155,7 +157,11 @@ async def reauthorize_ontology_candidates(
         raise ValueError("ontology candidate no longer exists in the authorized graph")
     current_digests = {
         item.rule_id: catalog_search_document_digest(item)
-        for item in _runtime_object_documents(tuple(observed.values()))
+        for item in _runtime_object_documents(
+            tuple(observed.values()),
+            manifest=manifest,
+            resource_type_query_terms=resource_type_query_terms or {},
+        )
     }
     if any(
         current_digests[item.rule_id] != catalog_search_document_digest(item) for item in candidates

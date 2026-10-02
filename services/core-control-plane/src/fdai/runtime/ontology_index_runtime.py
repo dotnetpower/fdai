@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -103,6 +103,11 @@ def build_ontology_index_runtime(
         action_types=catalog.action_types,
         functions=operational_function_types(catalog.function_types),
     )
+    resource_type_query_terms = (
+        {item.id: item.query_terms for item in catalog.resource_types}
+        if catalog.resource_types is not None
+        else {}
+    )
     runtime = OntologyIndexRuntime(
         store=store,
         gateway=gateway,
@@ -113,8 +118,11 @@ def build_ontology_index_runtime(
         embedding_space_id=space,
         embedding_model_version=model,
         embedding_dimension=dimension,
+        resource_type_query_terms=resource_type_query_terms,
     )
-    snapshots = OntologyGenerationSnapshotStore(store)
+    snapshots = OntologyGenerationSnapshotStore(
+        store, resource_type_query_terms=resource_type_query_terms
+    )
     vectors = OntologyVectorSnapshotStore(
         store,
         embedder=embedder,
@@ -160,6 +168,7 @@ class OntologyIndexRuntime:
         embedding_space_id: str,
         embedding_model_version: str,
         embedding_dimension: int,
+        resource_type_query_terms: Mapping[str, Sequence[str]] | None = None,
     ) -> None:
         self._store, self._gateway, self._manifest_for, self._clock = (
             store,
@@ -172,6 +181,7 @@ class OntologyIndexRuntime:
             embedding_model_version,
             embedding_dimension,
         )
+        self._resource_type_query_terms = resource_type_query_terms or {}
         self._enrollments: dict[str, _Enrollment] = {}
         self._attempted: dict[str, str] = {}
         self._restored: dict[str, str] = {}
@@ -331,6 +341,7 @@ class OntologyIndexRuntime:
             embedding_space_id=self._space,
             embedding_model_version=self._model,
             embedding_dimension=self._dimension,
+            resource_type_query_terms=self._resource_type_query_terms,
         )
         target = pointer.active
         if target is not None and (

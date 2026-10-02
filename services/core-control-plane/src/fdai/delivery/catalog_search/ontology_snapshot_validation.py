@@ -135,6 +135,7 @@ async def validate_snapshot_against_current_graph(
         embedding_space_id=embedding_space_id,
         embedding_model_version=embedding_model_version,
         embedding_dimension=embedding_dimension,
+        resource_type_query_terms=snapshots.resource_type_query_terms,
     )
     if (
         stored.document_digests != expected.document_digests

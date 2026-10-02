@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -75,8 +75,14 @@ class OntologyGenerationSnapshotStore:
     Rule corpus pointers. Source projection and activation remain owner obligations.
     """
 
-    def __init__(self, store: StateStore) -> None:
+    def __init__(
+        self,
+        store: StateStore,
+        *,
+        resource_type_query_terms: Mapping[str, Sequence[str]] | None = None,
+    ) -> None:
         self._store = store
+        self.resource_type_query_terms = resource_type_query_terms or {}
 
     async def stage_manifest_from_gateway(
         self,
@@ -141,6 +147,7 @@ class OntologyGenerationSnapshotStore:
             embedding_space_id=embedding_space_id,
             embedding_model_version=embedding_model_version,
             embedding_dimension=embedding_dimension,
+            resource_type_query_terms=self.resource_type_query_terms,
         )
         snapshot_digest = await self.stage(
             build=build,
@@ -231,6 +238,7 @@ class OntologyGenerationSnapshotStore:
             embedding_space_id=embedding_space_id,
             embedding_model_version=embedding_model_version,
             embedding_dimension=embedding_dimension,
+            resource_type_query_terms=self.resource_type_query_terms,
         )
         snapshot_digest = await self.stage(
             build=build,

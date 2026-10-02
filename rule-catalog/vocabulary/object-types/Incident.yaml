@@ -3,11 +3,29 @@ name: Incident
 version: "1.0.0"
 key: id
 description: Correlated operational episode with bounded membership and lifecycle state.
+query_terms: [incident, incidents, 인시던트, 장애]
 properties:
   id: {type: string, required: true}
   correlation_id: {type: string, required: true}
-  status: {type: string, required: true}
-  severity: {type: string, required: true}
+  status:
+    type: string
+    required: true
+    query_terms: [status, state, 상태]
+    value_query_terms:
+      open: [open, 열린, 진행 중]
+      triaging: [triaging, 분류 중, 분류]
+      mitigated: [mitigated, 완화]
+      resolved: [resolved, 해결, 해결 상태]
+      closed: [closed, 종료, 닫힘]
+  severity:
+    type: string
+    required: true
+    query_terms: [severity, 심각도]
+    value_query_terms:
+      critical: [critical, 심각, 심각도 critical]
+      high: [high, 높음, 심각도 high]
+      medium: [medium, 중간]
+      low: [low, 낮음]
   opened_at: {type: datetime, required: true}
   updated_at: {type: datetime, required: true}
 lifecycle:
@@ -26,6 +44,6 @@ lifecycle:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Incident@1.0.0
-  content_hash: sha256:8e052445f160983b6a0f9fb3c7dc7a546f340e06b99f2d1c0fe4b988df10b31b
+  content_hash: sha256:01e679f784123e991ddff9274e96057c27fdeb13883b1c51de4700a8795f8b04
   license: MIT
   retrieved_at: "2026-07-31T00:00:00Z"
