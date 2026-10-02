@@ -56,8 +56,9 @@ READINESS_MAX_AGE = timedelta(seconds=120)
 READINESS_MAX_SKEW = timedelta(seconds=30)
 _SOURCE_LIMITATIONS = {
     "forecast-history-excluded_windows": (
-        "no revisioned ChangeWindow history producer exists; see #1021 and "
-        "core/detection/forecast_history_source.py"
+        "no revisioned ChangeWindow history producer exists; current sources only expose "
+        "OntologyChangeWindowEvidenceProvider.is_active, OperatingIntentAdmission, and "
+        "OntologyInstanceStore current graph revisions"
     ),
     "current-case-reuse": "verifier-identity current-case provider readback is unavailable",
     "forecast-context": (

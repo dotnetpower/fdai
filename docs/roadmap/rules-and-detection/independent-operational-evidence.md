@@ -302,6 +302,27 @@ revision `forecast-action-audit-chain.v1`, uses only function `EXECUTE` for the 
 as corroborating readiness health. `forecast-history-excluded_windows` remains unavailable until a revisioned
 `ChangeWindow` history producer exists.
 
+**Design note: `forecast-history-excluded_windows`.** The current authoritative `ChangeWindow` readers are current-state
+gates, not revisioned history producers. `core/risk_gate/ontology_preconditions.py` exposes
+`OntologyChangeWindowEvidenceProvider.is_active`, which answers whether a projected window is active at one instant.
+`core/operational_context/operating_intent_admission.py` records the currently admitted operating-intent source
+revision, digest, generation, owned object ids, and proof age, but it does not retain per-window change history.
+`shared/providers/ontology_instance.py` exposes the current typed ontology graph and object revision counters; it does
+not provide an append-only, effective-time history for `ChangeWindow` definitions. The vocabulary entry
+`rule-catalog/vocabulary/object-types/ChangeWindow.yaml` describes immutable change-window revisions, but there is no
+runtime contract or table that stores those revisions as a bounded target-scoped source.
+
+**Critique.** Treating the current ontology graph or the latest operating-intent admission as historical absence would
+fake evidence. It would miss withdrawn, replaced, and future-recorded windows and would let a current `included` answer
+stand in for complete coverage across the forecast lookback. A safe producer must instead retain each `ChangeWindow`
+revision with source revision, target/scope, effective interval, recorded time, supersession, and a complete watermark.
+
+**Revision.** `forecast-history-excluded_windows` therefore remains fail-closed `unavailable`. The missing contract is a
+revisioned `ChangeWindow` history producer, owned by the operating-intent or ontology projection source, with a verifier
+readback that proves whole-window completeness, conflict-free revisions, and freshness without granting execution or
+promotion authority. `forecast-context` remains unavailable until that fourth source-specific admission exists for the
+same scope, target, and window.
+
 ### Forecast context aggregate
 
 Consumers: `StateStoreForecastContextProvider._retain` for retention and
