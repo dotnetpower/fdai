@@ -118,17 +118,11 @@ from fdai_deployment_cli.standalone_host_state import (
 )
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
-)
-from fdai_deployment_cli.standalone_stage_targets import (
     focused_private_access as _focused_private_access,
-)
-from fdai_deployment_cli.standalone_stage_targets import (
     operation_targets as _operation_targets,
-)
-from fdai_deployment_cli.standalone_stage_targets import (
     runtime_operation as _runtime_operation,
+    stage_targets as _stage_targets,
 )
-from fdai_deployment_cli.standalone_stage_targets import stage_targets as _stage_targets
 from fdai_deployment_cli.standalone_host_values import (
     AKS_CORE_STARTUP_READINESS,
     aks_operator_environment,
@@ -2526,23 +2520,11 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
             return _historical_reconciliation_receipt(work_dir, context, reconciliation)
         receipt = _private_json(receipt_path, "standalone apply receipt")
         if receipt.get("operation") == "runtime-cluster":
-            return {
-                "schema_version": "fdai.standalone-application-recovery.v1",
-                "state": "not-required",
-                "stage": stage,
-                "mutation_performed": False,
-                "subscription_ready": False,
-            }
+            return _not_required_recovery(stage)
         return receipt
     claim_path = work_dir / f"{operation}-claim.json"
     if not claim_path.exists():
-        return {
-            "schema_version": "fdai.standalone-application-recovery.v1",
-            "state": "not-required",
-            "stage": stage,
-            "mutation_performed": False,
-            "subscription_ready": False,
-        }
+        return _not_required_recovery(stage)
     review = _private_json(work_dir / f"{operation}-review.json", "standalone plan review")
     claim = _private_json(claim_path, "standalone apply claim")
     if (
@@ -2567,13 +2549,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
         if receipt_path.exists():
             retained_receipt = _private_json(receipt_path, "standalone apply receipt")
             if retained_receipt.get("operation") == "runtime-cluster":
-                return {
-                    "schema_version": "fdai.standalone-application-recovery.v1",
-                    "state": "not-required",
-                    "stage": stage,
-                    "mutation_performed": False,
-                    "subscription_ready": False,
-                }
+                return _not_required_recovery(stage)
             return retained_receipt
     targets = _operation_targets(stage, context, operation)
     if stage == "runtime":
@@ -2675,6 +2651,16 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     recovery_receipt["receipt_digest"] = canonical_digest(recovery_receipt)
     _replace_private_json(receipt_path, recovery_receipt)
     return recovery_receipt
+
+
+def _not_required_recovery(stage: str) -> dict[str, object]:
+    return {
+        "schema_version": "fdai.standalone-application-recovery.v1",
+        "state": "not-required",
+        "stage": stage,
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
 
 
 def _recover_historical_aks_reconciliation(
