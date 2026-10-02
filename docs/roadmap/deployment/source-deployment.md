@@ -10,11 +10,12 @@ artifacts it may and may not create, and how it selects a 30-day Trial or a full
 owns the first installation path in
 [Constitution Article 1](../architecture/fdai-constitution.md#article-1-purpose-and-scope).
 
-> **Status:** This is the target contract. Today a source run still stops after the verified
-> Foundation handoff with `prebuilt_runtime_artifacts_required`. The AKS application stage that it
-> will continue into already initializes the durable Trial and installs a key holder's
-> entitlement, the Console renders the expiry watermark, and the image stage that builds the
-> service images in the deployment registry exists but is not yet connected. The
+> **Status:** This is the target contract. The source run now continues from the verified
+> Foundation handoff into the shared AKS application stage without a signed kit. It transfers the
+> pinned source snapshot to the managed host, builds service images with the deployment registry,
+> resolves Terraform providers from the public registry under committed lock files, runs
+> migrations and catalogs from the checkout, and keeps the same health, inventory, and second
+> zero-change checks. The
 > [implementation ledger](../../roadmap-implementation/deployment/source-deployment.md)
 > records the current state and the ordered remaining work.
 >
@@ -69,6 +70,25 @@ checks tenant-local Entra display names before Foundation preparation. FDAI bind
 tenant-local set of exact display names. Duplicate `fdai-*` application or `aw-*` group names stop
 the source run with a fixed ambiguity reason before any Azure effect. The command does not guess,
 create installation-scoped names, or accept an unreviewed binding file.
+
+**Application continuation revision:** The first implementation option was to route a completed
+source Foundation into signed-kit adoption. That preserved the existing application code, but it
+would have required a kit archive, provider mirror, runtime release manifest, support wheelhouse,
+and Console archive. Those inputs would reintroduce the release artifact that the source path is
+designed to avoid. The source path instead reuses the standalone application coordinator and swaps
+only the artifact input seam:
+
+- the managed host receives the verified source transport archive and installs the deployment CLI
+  from that source snapshot;
+- Terraform roots and migration support come from the snapshot, while providers resolve directly
+  from public registries under the committed `.terraform.lock.hcl` files;
+- service image references come from the source image stage receipt after substrate apply creates
+  the deployment registry;
+- the Console archive is built from the local checkout only when the Console add-on is selected;
+- every receipt records `operator-selected-source` and `release_signature_verified=false`.
+
+Signed-kit adoption remains available only for recovered Foundations that explicitly continue with
+an offline package.
 
 ## Run the command
 
