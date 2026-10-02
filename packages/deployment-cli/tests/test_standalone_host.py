@@ -1549,6 +1549,80 @@ def test_postgres_aks_substrate_configuration_never_reaches_the_flexible_server(
     assert "module.key_vault" in placements["postgres-aks"]
 
 
+_OUTPUT_BLOCK = re.compile(r'^output "([a-z0-9_]+)" \{\n(.*?)^\}', re.MULTILINE | re.DOTALL)
+_INFRA_OUTPUT_READ = re.compile(
+    r'_terraform(?:_json)?_output\(\s*(?:substrate|Path\(str\(context\["infra"\]\)\)),\s*"([a-z0-9_]+)"'
+)
+_CONDITIONAL_BLOCK = re.compile(
+    r'^(?:module "([a-z0-9_]+)"|resource "([a-z0-9_]+)" "([a-z0-9_]+)") \{\n'
+    r"(?:[ \t]*#.*\n)*[ \t]+(?:count|for_each)[ \t]*=",
+    re.MULTILINE,
+)
+# `_deployment_binding` reads this output only on Container Apps.
+_CONTAINER_APPS_ONLY_OUTPUTS = frozenset({"core_app_name"})
+# Optional blocks that a fresh standalone installation leaves at zero instances, where the
+# outputs that reach them evaluate to known empty values; an adopted installation already holds
+# them in state. Each one must stay conditional.
+_OPTIONAL_PRE_APPLICATION_BACKING = frozenset(
+    {"module.llm_azure_openai", "module.llm_foundry_partner", "module.measurement_identity"}
+)
+
+
+def _root_output_references() -> dict[str, set[str]]:
+    infra = Path(__file__).resolve().parents[3] / "infra"
+    return {
+        name: set(_ROOT_REFERENCE.findall(body))
+        for path in sorted(infra.glob("*.tf"))
+        for name, body in _OUTPUT_BLOCK.findall(path.read_text(encoding="utf-8"))
+    }
+
+
+def _conditional_root_blocks() -> set[str]:
+    infra = Path(__file__).resolve().parents[3] / "infra"
+    return {
+        f"module.{module}" if module else f"{kind}.{name}"
+        for path in sorted(infra.glob("*.tf"))
+        for module, kind, name in _CONDITIONAL_BLOCK.findall(path.read_text(encoding="utf-8"))
+    }
+
+
+def test_aks_pre_application_outputs_resolve_inside_the_substrate_closure() -> None:
+    # On AKS the shared root is applied only through targeted stages, so an output read before
+    # the application apply must not depend on a resource that no stage ever targets.
+    graph = _root_configuration_graph()
+    outputs = _root_output_references()
+    assert _OPTIONAL_PRE_APPLICATION_BACKING <= _conditional_root_blocks()
+    read = {
+        name
+        for function in (
+            standalone_host._deployment_binding,
+            standalone_host._prepare_aks_application,
+        )
+        for name in _INFRA_OUTPUT_READ.findall(inspect.getsource(function))
+    } - _CONTAINER_APPS_ONLY_OUTPUTS
+    assert {"installation_binding", "runtime_identity_bindings", "key_vault_uri"} <= read
+
+    for placement in ("postgres-flex", "postgres-aks"):
+        substrate = _configuration_closure(
+            graph,
+            standalone_stage_targets.substrate_targets(
+                {"runtime_profile": {"runtime_platform": "aks", "database_placement": placement}}
+            ),
+        )
+        names = (
+            read if placement == "postgres-flex" else read - {"postgres_fqdn", "postgres_database"}
+        )
+        for name in sorted(names):
+            backing = {
+                node
+                for node in _configuration_closure(
+                    graph, tuple(sorted(outputs[name] & graph.keys()))
+                )
+                if not node.startswith(("local.", "data."))
+            } - _OPTIONAL_PRE_APPLICATION_BACKING
+            assert backing <= substrate, (placement, name, sorted(backing - substrate))
+
+
 def test_aks_substrate_includes_application_insights_secret_binding() -> None:
     targets = set(
         standalone_stage_targets.substrate_targets(

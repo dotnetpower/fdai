@@ -9,6 +9,8 @@ from typing import Final
 
 _SUBSTRATE_TARGETS: Final = (
     "module.resource_group",
+    # Every later stage reads installation_binding, and on AKS no untargeted apply runs.
+    "terraform_data.installation",
     "module.log_analytics",
     "azurerm_application_insights.core",
     "module.network",
