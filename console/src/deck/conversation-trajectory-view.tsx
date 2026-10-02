@@ -17,6 +17,7 @@ import {
   TrajectoryCoverage,
   TrajectoryDecisionContext,
 } from "./conversation-trajectory-decision-context";
+import { runRecordText } from "./run-record-i18n";
 import { verificationPrimaryLabel } from "./verification-presentation";
 import {
   buildTrajectoryPresentation,
@@ -55,6 +56,9 @@ export function ConversationTrajectoryView({
   ];
   const startedAt = firstValidTimestamp(trajectory.startedAt, trajectory.question.at);
   const completedAt = firstValidTimestamp(trajectory.completedAt, trajectory.answer.at);
+  const numberFormat = new Intl.NumberFormat(consoleDateTimeLocale());
+  const tokenValue = (value: number | undefined) => value === undefined
+    ? t("deck.trajectory.notRecorded") : numberFormat.format(value);
 
   return (
     <div class={`deck-trajectory-cluster is-${presentation.workProgress}`}>
@@ -72,11 +76,9 @@ export function ConversationTrajectoryView({
           </span>
         </span>
         <span class="deck-trajectory-stats cs-run-record-stats">
-          {t(!showModelTrace
-            ? "deck.trajectory.summaryTraceOff"
-            : answer.modelTrace
-              ? "deck.trajectory.summary"
-              : "deck.trajectory.summaryTraceMissing", {
+          {runRecordText(presentation.modelCallCountRecorded
+            ? "summary"
+            : showModelTrace ? "summaryTraceMissing" : "summaryTraceOff", {
             models: presentation.modelCallCountIsLowerBound
               ? `${presentation.modelCallCount}+`
               : presentation.modelCallCount,
@@ -86,9 +88,7 @@ export function ConversationTrajectoryView({
             modelDuration: presentation.modelLatencyMs === undefined
               ? t("deck.trajectory.notRecorded")
               : formatDuration(presentation.modelLatencyMs),
-            tokens: presentation.totalTokens === undefined
-              ? t("deck.trajectory.notRecorded")
-              : new Intl.NumberFormat().format(presentation.totalTokens),
+            tokens: tokenValue(presentation.totalTokens),
           })}
         </span>
         <span class="deck-trajectory-duration cs-run-record-duration">
@@ -110,6 +110,37 @@ export function ConversationTrajectoryView({
       </summary>
       {open ? (
         <div class="deck-trajectory-body cs-run-record-body">
+          <dl class="deck-trajectory-signals deck-trajectory-performance"
+            aria-label={runRecordText("performanceMetrics")}>
+            <div data-metric="elapsed">
+              <dt>{runRecordText(trajectory.timingSource === "turn_timing"
+                ? "serverElapsed" : "observedElapsed")}</dt>
+              <dd>{trajectory.durationMs === undefined
+                ? t("deck.trajectory.notRecorded") : formatDuration(trajectory.durationMs)}</dd>
+            </div>
+            <div data-metric="model">
+              <dt>{runRecordText("cumulativeModelTime")}</dt>
+              <dd>{presentation.modelLatencyMs === undefined
+                ? t("deck.trajectory.notRecorded") : formatDuration(presentation.modelLatencyMs)}</dd>
+            </div>
+            <div data-metric="calls">
+              <dt>{t("deck.trajectory.detailFact.modelCalls")}</dt>
+              <dd>{presentation.modelCallCountRecorded
+                ? numberFormat.format(presentation.modelCallCount) : t("deck.trajectory.notRecorded")}</dd>
+            </div>
+            <div data-metric="input">
+              <dt>{runRecordText("inputTokens")}</dt>
+              <dd>{tokenValue(presentation.inputTokens)}</dd>
+            </div>
+            <div data-metric="output">
+              <dt>{runRecordText("outputTokens")}</dt>
+              <dd>{tokenValue(presentation.outputTokens)}</dd>
+            </div>
+            <div data-metric="total">
+              <dt>{runRecordText("totalTokens")}</dt>
+              <dd>{tokenValue(presentation.totalTokens)}</dd>
+            </div>
+          </dl>
           <PhaseStrip phaseStates={presentation.phaseStates} />
           <PhaseDetails
             trajectory={trajectory}

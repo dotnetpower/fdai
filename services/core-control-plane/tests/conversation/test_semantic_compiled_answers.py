@@ -158,6 +158,20 @@ def _decline_reasons(caplog: pytest.LogCaptureFixture) -> list[str]:
     ]
 
 
+def test_primary_read_requires_typed_mode_and_explicit_independent_admission() -> None:
+    ticket = _ticket(_observation(primary_read=True))
+    assert ticket.primary_read_outcome(manifest_digest="d", observations=[]) is None
+    ticket.typed_only = True
+    recorded: list[Any] = []
+    outcome = ticket.primary_read_outcome(manifest_digest="d", observations=recorded)
+    assert outcome is not None and outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert len(recorded) == 1
+    missing = _ticket(_observation())
+    missing.typed_only = True
+    assert missing.primary_read_outcome(manifest_digest="d", observations=[]) is None
+    assert missing.outcome(manifest_digest="d", observations=[]) is not None
+
+
 def test_a_released_single_goal_answers_with_a_fresh_cutoff(
     caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
 ) -> None:

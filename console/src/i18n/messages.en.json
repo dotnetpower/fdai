@@ -3348,9 +3348,6 @@
     "trajectory": {
       "runRecord": "Run record",
       "title": "Observed process",
-      "summary": "{models} model calls / model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
-      "summaryTraceOff": "Model trace off / model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
-      "summaryTraceMissing": "Model trace not captured / model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
       "sequenceOnly": "causal sequence",
       "planSummary": "{count} goals / {mode}",
       "goalsLabel": "Planned intent goals",
@@ -3419,6 +3416,7 @@
         "model": "Model"
       },
       "timingPhase": {
+        "durable_queue": "Durable queue wait",
         "semantic_plan": "Semantic planning",
         "evidence": "Evidence resolution",
         "generation": "Answer generation",

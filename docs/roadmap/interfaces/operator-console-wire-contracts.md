@@ -7,6 +7,10 @@ title: Operator Console - Data and Wire Contracts
 > Focused owner document extracted from [operator-console.md](operator-console.md) section 13 (13.1-13.3, 13.6-13.9).
 
 ## 13. Data + wire contracts
+The existing numeric `usage` map may include `model_calls` beside token totals. This is
+recorded conversation-call telemetry, not detailed prompt capture, action authority, or
+independent operational evidence. Missing values remain unavailable; older consumers may
+ignore the additive numeric key without changing answer verification or Incident handling.
 
 The [common answer presentation](operator-console.md#common-answer-presentation) reuses existing
 answer text, verification, citation, and presentation-artifact fields. Source disclosure and
@@ -523,6 +527,7 @@ availability notice and grants no authority.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-02 | implemented | Preserved opt-in trace privacy while carrying recorded call count through the existing numeric usage map. | `current change`; focused Core projection and Console numeric decoding/accounting checks; full task semantic cohort 916 passed. | Exact-source live presentation remains to be measured; no Incident or execution authority changed. |
 | 2026-09-29 | in-progress | Corrected the Python task workbench state. Since the Operator service split (`8f67c5d76`), no Operator owner serves the six workbench operations, and `GET /python-tasks/capabilities` answered HTTP `503` from a projection that nothing writes ([#1655](https://github.com/dotnetpower/fdai/issues/1655)). The Operator composition now owns the capability report and returns HTTP `200` with `available: false` and each missing owner. The console keeps the workbench closed and announces those reasons. | `current change`; `python_task_capability.py`, `family_adapters.py`, and Console `python-task.ts` and `workflow-builder.catalog.tsx`; `test_python_task_capability.py`, `test_workflow_definition_catalog.py`, and Console decoder and route tests passed. | Bind a governed Python task validator, VM task runner, and artifact store to the Operator service before the capability can report available. |
 | 2026-09-29 | implemented | Added `development_owner_only` to each HIL queue item and refused every approval of a parked category-only denial except the attested development Owner's own at the Console decision route, the Slack and Teams callback service, and the decision transaction; any other authorized approver may still reject it. | `current change`; `projection_logic.py`, `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py` and Console `api.test.ts` passed. | Retain one live Owner run under [#1623](https://github.com/dotnetpower/fdai/issues/1623). |
 | 2026-09-29 | implemented | Let the requesting development Owner reject a parked category-only denial at the Console decision route, the Slack and Teams callback service, and the decision transaction, and made the decision store refuse any value other than a human approve or reject before it writes a receipt or outbox record. | `current change`; `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py` and `tests/integration/services/test_hil_development_decision_postgres.py` passed. | Retain one live Owner run under [#1623](https://github.com/dotnetpower/fdai/issues/1623). |

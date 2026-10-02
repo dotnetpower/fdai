@@ -44,6 +44,18 @@ contains another ObjectType name, holds before a query plan is released.
 Relation anchoring checks likewise stay in Core compilation: a collection-scope relation that would
 traverse from a widened collection is held before any Operator or document route can answer.
 
+Question-form concept-choice reuse is owned by Core conversation processing and ends with one
+run. Its exact-input, reader-separated cache never stores observed state, authorization, or
+cross-turn meaning. Azure delivery owns lossless catalog prompt encoding; Operator and Console
+only display measured timing and usage, without another writer, service, or authority path.
+The same typed-only boundary may reuse an independently certified direct read before legacy
+judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
+existing gates. Numeric call accounting adds no prompt capture or execution authority.
+Reader-local two-shard waves are read-only concurrency inside the same bounded turn; their
+cancellation drains outstanding work and adds no shared authority-bearing workflow state.
+The same Core-owned scheduler covers independent finalist runoffs within the existing
+remaining-call gate; no model, service, authority, or observed-state cache is added.
+
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 

@@ -3348,9 +3348,6 @@
     "trajectory": {
       "runRecord": "실행 기록",
       "title": "관찰된 처리 과정",
-      "summary": "모델 호출 {models}건 / 모델 {modelDuration} / {tokens} 토큰 / 근거 {successful}/{attempted}건 / 검증 {verification}",
-      "summaryTraceOff": "모델 trace 꺼짐 / 모델 {modelDuration} / {tokens} 토큰 / 근거 {successful}/{attempted}건 / 검증 {verification}",
-      "summaryTraceMissing": "모델 trace 미캡처 / 모델 {modelDuration} / {tokens} 토큰 / 근거 {successful}/{attempted}건 / 검증 {verification}",
       "sequenceOnly": "인과 순서",
       "planSummary": "목표 {count}개 / {mode}",
       "goalsLabel": "계획된 의도 목표",
@@ -3419,6 +3416,7 @@
         "model": "모델"
       },
       "timingPhase": {
+        "durable_queue": "영속 대기열 대기",
         "semantic_plan": "의미 계획",
         "evidence": "근거 조회",
         "generation": "답변 생성",

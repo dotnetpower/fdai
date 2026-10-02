@@ -54,6 +54,25 @@ _PREFLIGHT_OPERATIONAL_INTENTS = {
 }
 
 
+def primary_read_candidate(result: ConversationPreflightResult | None) -> bool:
+    """Select a read candidate only; independent form admission still decides its meaning."""
+
+    if result is None or not result.attempted or result.failure_kind is not None:
+        return False
+    proposal = result.proposal
+    return proposal is not None and (
+        proposal.operational_signal is OperationalSignal.EXPLICIT
+        and proposal.context_dependency is ContextDependency.NONE
+        and proposal.knowledge_signal.value == "none"
+        and proposal.social_act.value == "none"
+        and proposal.operational_family
+        in {
+            OperationalPreflightFamily.RESOURCE_COLLECTION,
+            OperationalPreflightFamily.RESOURCE_CURRENT_STATE,
+        }
+    )
+
+
 def preflight_descriptor_intent(result: ConversationPreflightResult | None) -> str | None:
     """Select a compact descriptor family without granting preflight authority."""
 

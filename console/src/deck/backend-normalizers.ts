@@ -1147,8 +1147,11 @@ export function parseModelUsage(raw: unknown): ModelUsage | undefined {
   if (total === null) return undefined;
   const prompt = usage.prompt_tokens;
   const completion = usage.completion_tokens;
+  const modelCalls = usage.model_calls;
   return {
     total_tokens: total,
+    ...(typeof modelCalls === "number" && Number.isSafeInteger(modelCalls) && modelCalls >= 0
+      ? { model_calls: modelCalls } : {}),
     ...(typeof prompt === "number" && Number.isSafeInteger(prompt) && prompt >= 0
       ? { prompt_tokens: prompt }
       : {}),

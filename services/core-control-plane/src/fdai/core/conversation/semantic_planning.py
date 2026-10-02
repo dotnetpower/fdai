@@ -95,7 +95,11 @@ from .semantic_planning_models import (
     SemanticPlanningOutcome,
 )
 from .semantic_planning_plan_dispatch import PlanDispatchResult, dispatch_semantic_plan
-from .semantic_planning_preflight import DIRECT_RESPONSE_PROFILE, SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
+from .semantic_planning_preflight import (
+    DIRECT_RESPONSE_PROFILE,
+    SAFE_UNACCEPTED_DESCRIPTOR_INTENTS,
+    primary_read_candidate,
+)
 from .semantic_planning_preflight import preflight_descriptor_intent as _preflight_descriptor_intent
 from .semantic_planning_preflight_router import PreflightDirectResponseRouter
 from .semantic_planning_preflight_service import SemanticPlanningPreflightMixin
@@ -113,6 +117,7 @@ from .semantic_planning_support import (
     _validated_metric_concepts,
     judgment_clarification_outcome,
     log_judgment_posture,
+    log_normalized_frame,
 )
 from .semantic_production_shadow import ProductionShadowRecorder, record_planned_shadow
 from .semantic_resource_state_planning import resource_condition_intents_grounded
@@ -239,6 +244,17 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                     purpose=purpose,
                     stored_reference_context=stored_reference_context,
                 )
+            if (
+                ticket is not None
+                and ticket.typed_only
+                and primary_read_candidate(preflight_router.effective_result)
+            ):
+                primary = ticket.primary_read_outcome(
+                    manifest_digest=manifest_digest, observations=model_observations
+                )
+                if primary is not None:
+                    _LOGGER.info("semantic_planning_reused_primary_read")
+                    return preflight_router.finish(primary)
             selected = self._selector.select(
                 utterance=utterance,
                 manifest=manifest,
@@ -386,7 +402,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                 if judgment_decision.accepted and judgment_decision.proposal is not None:
                     accepted = promoted_state_collection(judgment_decision.proposal)
                     accepted = reground_constraint_slots(accepted, manifest=manifest)
-                    if self._type_grounding is not None:
+                    if self._type_grounding is not None and not (
+                        self._compiled_answers is not None and self._compiled_answers.typed_only
+                    ):
                         grounding = self._type_grounding.ground(
                             utterance=utterance,
                             judgment=accepted,
@@ -581,51 +599,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                 return preflight_router.finish(normalized_frame)
             proposal, frame, investigation_intent = normalized_frame
             accepted_frame = frame
-            lookback_seconds = frame.temporal_scope.get("lookback_seconds")
-            normalized_measures = ",".join(sorted(frame.measure_concepts))
-            temporal_keys = ",".join(sorted(frame.temporal_scope))
-            temporal_kind = frame.temporal_scope.get("kind")
-            lookback_value = frame.temporal_scope.get("lookback")
-            window_value = frame.temporal_scope.get("window")
-            bounded_lookback_seconds = (
-                lookback_seconds
-                if isinstance(lookback_seconds, int) and not isinstance(lookback_seconds, bool)
-                else None
-            )
-            _LOGGER.info(
-                "semantic_planning_frame_normalized output_shape=%s measure_concepts=%s "
-                "temporal_keys=%s temporal_kind=%s lookback_seconds=%s "
-                "lookback_type=%s lookback_keys=%s window_type=%s window_keys=%s "
-                "clarification_count=%d",
-                frame.output_shape,
-                normalized_measures,
-                temporal_keys,
-                temporal_kind,
-                bounded_lookback_seconds,
-                type(lookback_value).__name__ if lookback_value is not None else None,
-                (
-                    ",".join(sorted(lookback_value))
-                    if isinstance(lookback_value, dict)
-                    and all(isinstance(key, str) for key in lookback_value)
-                    else ""
-                ),
-                type(window_value).__name__ if window_value is not None else None,
-                (
-                    ",".join(sorted(window_value))
-                    if isinstance(window_value, dict)
-                    and all(isinstance(key, str) for key in window_value)
-                    else ""
-                ),
-                len(proposal.clarification_requirements),
-                extra={
-                    "output_shape": frame.output_shape,
-                    "measure_concepts": normalized_measures,
-                    "temporal_keys": temporal_keys,
-                    "temporal_kind": temporal_kind,
-                    "lookback_seconds": bounded_lookback_seconds,
-                    "clarification_count": len(proposal.clarification_requirements),
-                },
-            )
+            log_normalized_frame(_LOGGER, frame, proposal)
             stage = "plan_proposal"
             dispatched = dispatch_semantic_plan(
                 utterance=utterance,

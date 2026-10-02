@@ -42,7 +42,7 @@ from .semantic_reasoning_form import (
     SourceSpan,
     SubjectRole,
 )
-from .semantic_reasoning_proposal import MAX_OCCURRENCE, locate_quote
+from .semantic_reasoning_proposal import MAX_OCCURRENCE, RequestKind, locate_quote
 
 MAX_EXTRACTED_CONSTRAINTS = 24
 # Domains whose mention binds one declaration name, so it can hold no second named thing.
@@ -152,6 +152,7 @@ class ConstraintExtraction(_ExtractionModel):
     literals: Annotated[tuple[SourceSpan, ...], Field(max_length=MAX_EXTRACTED_LITERALS)] = ()
     # The kind of answer asked; an older payload without it, or null, is not judged.
     answer_kind: AnswerKind | None = None
+    request_kind: RequestKind | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +161,7 @@ class FormReview:
 
     outcome: Literal["faithful", "unfaithful", "invalid", "unavailable"]
     reasons: tuple[str, ...] = ()
+    primary_read: bool = False
 
     @property
     def faithful(self) -> bool:
@@ -175,7 +177,9 @@ def extraction_schema() -> dict[str, Any]:
         raise ValueError("constraint extraction schema has no SourceSpan definition")
     definitions["SourceSpan"] = copy.deepcopy(_QUOTE_SCHEMA)
     # Strict structured output requires every property, so the extractor always answers.
-    schema["required"] = sorted({*schema.get("required", ()), "literals", "answer_kind"})
+    schema["required"] = sorted(
+        {*schema.get("required", ()), "literals", "answer_kind", "request_kind"}
+    )
     return schema
 
 
@@ -212,7 +216,7 @@ def review_forms(
             *(f"review_literal_differs:{item.start}-{item.end}" for item in differing),
         )
         return FormReview("unfaithful", tuple(dict.fromkeys(reasons))[:MAX_REVIEW_REASONS])
-    return FormReview("faithful")
+    return FormReview("faithful", primary_read=extraction.request_kind == "direct_read")
 
 
 def answer_kind_unanswered(

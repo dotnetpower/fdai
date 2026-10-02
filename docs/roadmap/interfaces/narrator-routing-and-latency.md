@@ -177,6 +177,80 @@ development process. Model transparency records every completed semantic judgmen
 model call with its measured duration and token usage when available. The end-to-end turn timing
 continues to include deterministic and provider work that is not a model call.
 
+### Single-meaning read admission
+
+In the existing typed-only development path, a released read compilation may replace the
+parallel capability-named judgment only when the form proposer and its blind independent
+constraint reader both explicitly classify the request as a direct read. Missing, quoted,
+hypothetical, action-related, or disagreeing classifications retain the existing judgment
+path. Bound investigations, resource contexts, and required-document turns are excluded.
+Principal and purpose checks run before either path; fresh plan verification and all
+constraint, catalog, reference, and evidence checks remain mandatory. Critique rejected using
+preflight confidence as authority or simply consuming a compiled ticket earlier: neither proves
+discourse or preserves action-draft handling.
+
+### Turn-local semantic work optimization
+
+Typed-only planning skips legacy subtype grounding because that mode never consumes a legacy
+plan. The released question-form path still performs complete-catalog grounding, independent
+review, and fresh plan verification; an unavailable compiled path remains held.
+
+Within one question-form run, a schema-valid concept choice may be reused only for the exact
+utterance, mention payload, original shard digest, and reader identity. Primary and independent
+readers have separate entries. Failures and malformed choices are not cached, returned values
+are copied, and the cache ends with the run. It stores no provider observations, resource state,
+authorization decisions, or cross-turn meaning. Call accounting counts provider invocations,
+not cache reads.
+
+Concept prompts represent every candidate as a row under explicit `id`, `values`, and `labels`
+columns. This lossless encoding removes repeated field names, not candidates or context. Safety
+scanning, shard hashes, exhaustive presentation receipts, and closed output schemas still use
+the original complete catalog. Local reconstruction and call-count tests prove these mechanics;
+they do not establish a live latency or billed-token reduction.
+
+Candidate references in model input are shard-local opaque positions. The adapter converts only
+presented references back to canonical candidate ids under the original shard digest and refuses
+foreign references. Shards account for their complete transmitted representation, including
+headers; every candidate remains represented once, and an oversized candidate holds the stage.
+
+Each blind reader executes complete shards in waves of at most two concurrent calls, preserving
+ordered receipt accounting and the existing call budget. A failed or cancelled wave cancels and
+drains its other calls before the stage ends; finalists and bounded repairs retain their gates.
+Independent finalist runoffs use the same two-call waves only after their total fits the
+remaining reader budget. Answers retain request order and each mention's exact candidate
+boundary. This removes serial finalist waits without claiming measured end-to-end savings.
+
+### Operator timing and token accounting
+
+The Command Deck work record separates server elapsed time from cumulative model-call duration.
+Parallel call durations are summed in the latter, so it may exceed server elapsed time. An
+observed transcript interval remains labeled separately when server timing is unavailable.
+Input, output, and total tokens are displayed independently. A missing split stays unrecorded,
+never zero. Exact call counts use a captured trace, including omitted calls, or complete
+server-owned turn-budget accounting; an incomplete budget never becomes an exact count.
+These displays require no prompt-content capture, new model request, or execution authority.
+The existing numeric usage map also carries recorded model-call count without detailed trace
+capture. Local development diagnostics retain bounded per-call durations and input/output token
+counts for grounding as well as their grouped summary; omitted call details are counted explicitly.
+Neither diagnostic capture nor a missing usage field manufactures token or billing evidence.
+
+### Bounded optimization evidence (2026-10-02)
+
+The first exact-source reevaluation on `e5c82e7e4f` made four fresh first-turn database list/count
+requests in English and Korean. Three answered with consistent verified claims and incomplete
+source evidence; the English count held on independent `resource_class` concept disagreement.
+No failed case was counted as success. The identical Korean list used 26,428 total tokens and
+10,535 ms server time versus the retained 49,105-token, 10,807 ms baseline.
+
+After bounded two-shard concurrency, the final source `66a49cb735` answered one additional list
+pair with 5/5 supported claims. Korean used 25,673 total tokens and 13,374 ms; English used
+26,405 tokens and 8,367 ms. The preceding serial English list took 14,141 ms. Input token
+reduction is supported by turn metadata, and content-free decision traces confirmed zero
+duplicate capability judgments. Korean wall time regressed, so no uniform speedup, monetary
+saving, latency distribution, or SLO qualification is claimed. Evidence snapshots changed over
+time and provider latency was not controlled. Final focused runtime checks passed 918 cases;
+Console accounting checks passed 66 cases. No provider failure was retried.
+
 ## Synthetic chat and prompt inspection
 
 The [adaptive response](../../../mocks/ui/deck-sources-v2.html) and
@@ -374,6 +448,8 @@ The implementation session reported the following bounded evidence for the curre
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Turn-local grounding reuse and lossless catalog prompts | implemented | `semantic_planning.py`; `semantic_reasoning_shadow.py`; `semantic_question_form.py`; focused grounding, compiler, catalog, and masking tests | Typed-only planning avoids unused legacy grounding. Only exact, schema-valid same-reader concept choices are reused within one run; every catalog candidate and independent review remain required. No live speedup or billing claim. |
+| Conversation time and usage presentation | implemented | `console/src/deck/conversation-trajectory-{presentation,view}.ts*`; `conversation-trajectory-presentation.test.ts`; bilingual performance cases in `conversation-entry.spec.ts` | Server elapsed and cumulative model time, input/output/total tokens, and recorded call counts remain distinct. Missing measurements stay unrecorded. Desktop, constrained desktop, and mobile synthetic checks pass. |
 | Core mini routing and per-turn model selection | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_latency.py`; `services/core-control-plane/src/fdai/composition/wire_t1_routing.py`; `wire_adaptive_conversation.py`; [focused evidence](#local-mini-routing-evidence-2026-09-06) | Python cohort: 229 passed, two PostgreSQL cases deselected; six additional opt-in configuration checks passed. Verified mini identity, immutable author/reviewer selection, and existing T2/action quality-gate bindings remain preserved. |
 | Core supervised opt-in probes | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_probe.py`; `services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py`; focused TTFT and benchmark checks | The fixed request records first non-empty token and total latency separately. The explicit benchmark reuses that request under fixed sample and concurrency bounds without changing capacity and stops without retry on pressure or provider failure. |
 | Semantic health routing projection and Console badge | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py`; `console/src/deck/backend-health.ts`; `console/src/deck/backend-health-presentation.ts`; focused Operator and Console checks | Operator validates bounded TTFT fields independently from total latency. Console labels both p50/p95 windows and sample counts; absent or stale TTFT remains unavailable instead of borrowing total latency. Runtime visual qualification remains incomplete. |
@@ -399,6 +475,8 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-02 | implemented | Completed certified typed-only read reuse, opaque complete catalog packing, recorded call metrics and bounded two-shard waves, then reevaluated four fixed cases and one final bilingual list pair. | `0cd7ab82c1`, `32833c7dea`; final measured source `66a49cb735`; [bounded results](#bounded-optimization-evidence-2026-10-02); 918 focused runtime and 66 Console accounting checks passed. | Korean end-to-end latency remains variable and the English count concept disagreement remains held. Retain a controlled paired cohort before claiming uniform speed, money or SLO improvement. |
+| 2026-10-02 | implemented | Removed unused typed-only legacy grounding, reused exact closed concept choices within one run, losslessly compacted complete catalog prompts, and separated elapsed/cumulative timing and input/output tokens in the work record. | `current change`; grounding, shadow, concept, masking, and compiled-answer cohort: 380 passed; Console performance projection: 11 passed; bilingual focused Playwright: 2 passed across 1440, 993, and 390 CSS pixel widths. | Retain an explicitly authorized same-source live comparison before claiming measured latency, billed-token, or cost improvement; no live model request or model setting change was made. |
 | 2026-10-01 | implemented | Kept narrator preference route assembly in the preference owner while Operator composition adds service-owned routes. The Settings projection remains sanitized and `personalizes_t2_bindings` stays false. | `current change`; `fdai_operator_service/composition_routes.py`; focused Operator route-count evidence. | Retain deployed startup-source and runtime timing receipts before raising this area to `validated`. |
 | 2026-09-27 | implemented | Verified the revision-fenced narrator preference write, audit record, and restart readback against the service-owned loopback PostgreSQL validation database after normalizing its private SQLAlchemy DSN for the psycopg fixture. | `current change`; `test_narrator_preference_commits_with_audit_and_survives_new_connection` passed against the prepared local validation database; PR #1458 source and required CI evidence remain unchanged. | Retain separate deployed startup-source and runtime timing receipts before raising this area to `validated`. |
 | 2026-09-27 | in-progress | Routed only the narrator preference implementation paths through their own design owner while retaining every existing shared-file route and owner requirement. The preference behavior and no-authority boundary are unchanged. | `current change`; `scripts/lib/design-routes.json`; focused Operator, route, and persistence cohort (305 passed; the optional PDF case and real PostgreSQL case skipped); `check-design-routes.py`, staged `check-design-doc-impact.py`, and roadmap/localization checks passed. The approved loopback PostgreSQL DSN is masked from this session. | Run the real PostgreSQL restart and concurrent-CAS test when the approved loopback DSN becomes available, then retain separate deployed startup and timing receipts. |

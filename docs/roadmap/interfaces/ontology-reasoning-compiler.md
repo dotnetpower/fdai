@@ -573,7 +573,9 @@ operational read can answer. The flag requires compiled answers and the local ex
 composition refuses to start when either is missing. The planner keeps its current order: the
 preflight, the judgment and its coverage review, verified denials, action-draft boundaries, and
 deterministic clarifications run first, then the judgment's own clarification, then the form path.
-None of those earlier stages answers a read. The only change is what happens after the form path:
+None of those earlier stages answers a read. Only a [single-meaning read](narrator-routing-and-latency.md#single-meaning-read-admission)
+that both blind readers classify as a direct read skips the judgment and answers from its released
+compilation. Otherwise, the only change is what happens after the form path:
 
 1. A released compilation that the selection rules accept answers the turn.
 2. Otherwise the form path's tagged decision ends the turn with a typed outcome. The turn never reaches

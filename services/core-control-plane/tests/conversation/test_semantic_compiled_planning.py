@@ -5,6 +5,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+from fdai.core.conversation.conversation_preflight import (
+    ConversationPreflightProposal,
+    ConversationPreflightResult,
+    OperationalPreflightFamily,
+    OperationalSignal,
+    SocialAct,
+)
 from fdai.core.conversation.intent_graph import build_intent_graph
 from fdai.core.conversation.semantic_judgment_coverage import UNCOVERED_CONSTRAINT_CODE
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
@@ -63,6 +70,10 @@ class _Ticket:
         self.details: tuple[str, ...] = ()
         # What the closed ambiguity reader says about a question the judgment clarified.
         self.one_reading = False
+        self.primary_read = False
+
+    def primary_read_outcome(self, **arguments: Any) -> Any:
+        return self.outcome(**arguments) if self.primary_read else None
 
     def outcome(self, *, manifest_digest: str, observations: list[Any]) -> Any:
         self.consumed = True
@@ -108,11 +119,13 @@ class _Boundary:
         self._disposition = disposition
         self._proposal = proposal
         self._reason_code = reason_code
+        self.judge_calls = 0
 
     def preflight(self, **_kwargs: Any) -> Any:
         return SimpleNamespace(observations=(), attempted=False, failure_kind=None, proposal=None)
 
     def judge(self, **_kwargs: Any) -> Any:
+        self.judge_calls += 1
         return SimpleNamespace(
             accepted=self._disposition is SemanticJudgmentDisposition.ACCEPTED,
             observations=(),
@@ -163,6 +176,29 @@ def _plan(boundary: _Boundary, path: _Path, **arguments: Any) -> tuple[Any, _Mod
         **arguments,
     )
     return outcome, model
+
+
+def test_a_primary_direct_read_avoids_the_duplicate_judgment() -> None:
+    path = _Path(typed_only=True)
+    path.ticket.primary_read = True
+    boundary = _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted())
+    preflight = ConversationPreflightResult(
+        proposal=ConversationPreflightProposal(
+            social_act=SocialAct.NONE,
+            operational_signal=OperationalSignal.EXPLICIT,
+            knowledge_signal="none",
+            context_dependency="none",
+            confidence=0.89,
+            operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+            operational_facets=("resource_collection", "list"),
+        ),
+        observations=(),
+        attempted=True,
+    )
+    outcome, model = _plan(boundary, path, preflight_result=preflight)
+    assert outcome.reason == "compiled_answer_marker"
+    assert boundary.judge_calls == 0
+    assert model.frame_calls == 0 and model.plan_calls == 0
 
 
 def test_a_released_compilation_answers_before_the_frame_model_runs() -> None:

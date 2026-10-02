@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import answerEvidenceEn from "../../src/deck/i18n/answer-evidence.en.json" with { type: "json" };
 import answerEvidenceKo from "../../src/deck/i18n/answer-evidence.ko.json" with { type: "json" };
+import runRecordEn from "../../src/deck/i18n/run-record.en.json" with { type: "json" };
+import runRecordKo from "../../src/deck/i18n/run-record.ko.json" with { type: "json" };
 import en from "../../src/i18n/messages.en.json" with { type: "json" };
 import ko from "../../src/i18n/messages.ko.json" with { type: "json" };
 
@@ -67,10 +69,49 @@ async function openConsole(
   return requests;
 }
 
-for (const [locale, catalog, answerEvidence] of [
-  ["en", en, answerEvidenceEn],
-  ["ko", ko, answerEvidenceKo],
+for (const [locale, catalog, answerEvidence, runRecord] of [
+  ["en", en, answerEvidenceEn, runRecordEn],
+  ["ko", ko, answerEvidenceKo, runRecordKo],
 ] as const) {
+  test(`separates elapsed time, cumulative models and input/output usage (${locale})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await openConsole(page, locale, (request) => ({
+      seq: 1, revision: 1, request_id: request.request_id,
+      answer: "Synthetic timing record.", source: "deterministic", execution_authority: false,
+      usage: { prompt_tokens: 33905, completion_tokens: 1197, total_tokens: 35102 },
+      latency_ms: 22416,
+      turn_timing: {
+        schema_version: 2, started_at: "2026-10-02T00:00:00Z",
+        completed_at: "2026-10-02T00:00:12.800Z", duration_ms: 12800,
+        phases: [{ phase: "durable_queue", status: "completed", duration_ms: 69,
+          started_at: "2026-10-02T00:00:00Z", completed_at: "2026-10-02T00:00:00.069Z" }],
+      },
+    }));
+    await page.getByRole("button", { name: catalog.deck.generalOpen, exact: true }).click();
+    await page.locator(".deck-input").fill("Inspect synthetic usage.");
+    await page.locator(".deck-input").press("Enter");
+    await page.locator(".deck-trajectory > summary").click();
+    const panel = page.locator(".deck-trajectory-performance");
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('[data-metric="elapsed"] dt')).toHaveText(runRecord.serverElapsed);
+    await expect(panel.locator('[data-metric="elapsed"] dd')).toHaveText("12.8 s");
+    await expect(panel.locator('[data-metric="model"] dt')).toHaveText(runRecord.cumulativeModelTime);
+    await expect(panel.locator('[data-metric="model"] dd')).toHaveText("22.4 s");
+    await expect(panel.locator('[data-metric="input"] dd')).toHaveText("33,905");
+    await expect(panel.locator('[data-metric="output"] dd')).toHaveText("1,197");
+    await expect(panel.locator('[data-metric="total"] dd')).toHaveText("35,102");
+    await expect(panel.locator('[data-metric="calls"] dd')).toHaveText(catalog.deck.trajectory.notRecorded);
+    await expect(page.getByText(catalog.deck.trajectory.timingPhase.durable_queue, { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`performance-${locale}-desktop.png`) });
+    for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      expect(await panel.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+      expect(await page.locator(".deck-overlay").evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`performance-${locale}-${viewport.width}.png`) });
+    }
+  });
+
   test(`common answer evidence navigation and Markdown inspection (${locale})`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
