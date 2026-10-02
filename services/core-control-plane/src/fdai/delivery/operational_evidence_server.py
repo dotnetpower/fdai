@@ -55,6 +55,7 @@ from fdai.core.operational_evidence.own_role_readback import (
 from fdai.core.operational_evidence.readback.base import PurposeReadback
 from fdai.core.operational_evidence.readback.case_history_read import CaseHistoryReadback
 from fdai.core.operational_evidence.readback.forecast_history import (
+    ForecastContextAggregateReadback,
     ForecastHistorySliceReadback,
     StateTransitionForecastHistorySliceSource,
 )
@@ -356,18 +357,20 @@ def build_verifier_workload(
             raise RuntimeError(
                 "operational evidence forecast history bindings are invalid"
             ) from exc
-        readbacks.append(
-            ForecastHistorySliceReadback(
-                source=StateTransitionForecastHistorySliceSource(
-                    store=PostgresStateTransitionStore(
-                        config=PostgresStateTransitionStoreConfig(
-                            dsn=settings.verifier_dsn,
-                            statement_timeout_ms=1_000,
-                            connect_timeout_s=1,
-                        )
-                    ),
-                    bindings=forecast_configuration.bindings,
+        forecast_slice_source = StateTransitionForecastHistorySliceSource(
+            store=PostgresStateTransitionStore(
+                config=PostgresStateTransitionStoreConfig(
+                    dsn=settings.verifier_dsn,
+                    statement_timeout_ms=1_000,
+                    connect_timeout_s=1,
                 )
+            ),
+            bindings=forecast_configuration.bindings,
+        )
+        readbacks.extend(
+            (
+                ForecastHistorySliceReadback(source=forecast_slice_source),
+                ForecastContextAggregateReadback(source=forecast_slice_source),
             )
         )
 

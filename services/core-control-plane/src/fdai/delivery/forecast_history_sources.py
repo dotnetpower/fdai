@@ -25,6 +25,9 @@ from fdai.core.detection.forecast_history_source import (
 )
 from fdai.delivery.forecast_change_history import ForecastChangeHistoryResult
 from fdai.delivery.persistence.postgres_forecast_change_history import ForecastChangeHistoryQuery
+from fdai.delivery.persistence.postgres_forecast_change_window_history import (
+    ChangeWindowHistoryRead,
+)
 from fdai.delivery.persistence.postgres_forecast_lifecycle_history import LifecycleLedgerRead
 from fdai.shared.providers.audit_hash import next_hash
 
@@ -34,6 +37,8 @@ FORECAST_LIFECYCLE_HISTORY_SOURCE_IDENTITY = "fdai.inventory_resource_incarnatio
 FORECAST_LIFECYCLE_HISTORY_SOURCE_REVISION = "forecast-lifecycle-ledger.v1"
 FORECAST_ACTION_HISTORY_SOURCE_IDENTITY = "fdai.thor_saga_state_store.action_audit"
 FORECAST_ACTION_HISTORY_SOURCE_REVISION = "forecast-action-audit-chain.v1"
+FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_IDENTITY = "fdai.operating_intent.change_window_history"
+FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_REVISION = "forecast-change-window-history.v1"
 
 
 class ForecastChangeWitnessReader(Protocol):
@@ -77,6 +82,17 @@ class ForecastActionAuditReader(Protocol):
         known_at: datetime,
         limit: int,
     ) -> ActionAuditHistoryRead: ...
+
+
+class ForecastChangeWindowHistoryReader(Protocol):
+    async def read_history(
+        self,
+        *,
+        subject_ref: str,
+        start_at: datetime,
+        end_at: datetime,
+        known_at: datetime,
+    ) -> ChangeWindowHistoryRead: ...
 
 
 class ActionAuditHistorySource:
@@ -161,6 +177,124 @@ class ActionAuditHistorySource:
             ),
             exhausted=not result.truncated,
         )
+
+
+class ChangeWindowHistorySource:
+    """Restate retained ChangeWindow revisions as excluded-window state history."""
+
+    def __init__(self, *, reader: ForecastChangeWindowHistoryReader) -> None:
+        self._reader = reader
+
+    async def read(
+        self,
+        *,
+        subject_ref: str,
+        start_at: datetime,
+        end_at: datetime,
+        known_at: datetime,
+    ) -> ForecastSourceRead:
+        history = await self._reader.read_history(
+            subject_ref=subject_ref,
+            start_at=start_at,
+            end_at=end_at,
+            known_at=known_at,
+        )
+        tokens: set[str] = set()
+        if history.coverage is None:
+            tokens.add("change_window_coverage_missing")
+        if history.truncated:
+            tokens.add("result_limit")
+        if history.coverage is not None and history.coverage.recorded_at > known_at:
+            tokens.add("coverage_time_invalid")
+        rows = sorted(history.rows, key=lambda item: (item.effective_from, item.window_id))
+        if len({item.window_id for item in rows}) != len(rows):
+            tokens.add("conflicting_source_record")
+        if any(item.effective_from > item.effective_to for item in rows):
+            tokens.add("change_window_interval_invalid")
+        if any(
+            history.coverage is not None
+            and (
+                item.source_revision != history.coverage.source_revision
+                or item.document_digest != history.coverage.document_digest
+                or item.revision_ref not in history.coverage.revision_refs
+            )
+            for item in rows
+        ):
+            tokens.add("change_window_revision_conflict")
+        records, initial_state = _change_window_records(rows, start_at=start_at, end_at=end_at)
+        coverage = history.coverage
+        evidence_ref = (
+            f"change-window-history:{coverage.watermark}" if coverage is not None else "unavailable"
+        )
+        return ForecastSourceRead(
+            records=tuple(records) if not tokens else (),
+            checkpoint=ForecastSourceCheckpoint(
+                source_identity=FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_IDENTITY,
+                source_revision=FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_REVISION,
+                subject_ref=subject_ref,
+                coverage_start_at=start_at,
+                coverage_end_at=end_at,
+                known_at=known_at,
+                watermark=coverage.watermark if coverage is not None else "unavailable",
+                evidence_ref=evidence_ref,
+                complete=not tokens,
+                limitation="+".join(sorted(tokens)) if tokens else None,
+                initial_state=initial_state if not tokens else None,
+                initial_state_ref=evidence_ref if not tokens else None,
+            ),
+            exhausted=not history.truncated,
+        )
+
+
+def _change_window_records(
+    rows: list[Any], *, start_at: datetime, end_at: datetime
+) -> tuple[list[ForecastSourceRecord], str]:
+    count = sum(
+        1
+        for item in rows
+        if _effective_window(item.status, item.window_kind)
+        and item.effective_from <= start_at < item.effective_to
+    )
+    state = "open" if count > 0 else "closed"
+    deltas: dict[datetime, int] = {}
+    refs: dict[datetime, list[str]] = {}
+    for item in rows:
+        if not _effective_window(item.status, item.window_kind):
+            continue
+        if start_at <= item.effective_from <= end_at:
+            deltas[item.effective_from] = deltas.get(item.effective_from, 0) + 1
+            refs.setdefault(item.effective_from, []).append(item.revision_ref)
+        if start_at <= item.effective_to <= end_at:
+            deltas[item.effective_to] = deltas.get(item.effective_to, 0) - 1
+            refs.setdefault(item.effective_to, []).append(item.revision_ref)
+    records: list[ForecastSourceRecord] = []
+    for instant in sorted(deltas):
+        count += deltas[instant]
+        next_state = "open" if count > 0 else "closed"
+        if next_state == state:
+            continue
+        revision = _digest("|".join(sorted(refs.get(instant, ()))) + "|" + next_state)
+        records.append(
+            ForecastSourceRecord(
+                source_event_id=f"change-window:{instant.isoformat()}:{revision}",
+                source_revision=revision,
+                source_state=next_state,
+                subject_ref=rows[0].scope_ref if rows else "",
+                effective_at=instant,
+                recorded_at=instant,
+                evidence_ref=f"change-window-history:{revision}",
+            )
+        )
+        state = next_state
+    return records, "open" if any(
+        _effective_window(item.status, item.window_kind)
+        and item.effective_from <= start_at < item.effective_to
+        for item in rows
+    ) else "closed"
+
+
+def _effective_window(status: str, window_kind: str) -> bool:
+    return status.casefold() in {"active", "reviewed"} and bool(window_kind.strip())
 
 
 def _row_chain_valid(previous: ActionAuditHistoryRow, current: ActionAuditHistoryRow) -> bool:
@@ -332,13 +466,17 @@ __all__ = [
     "FORECAST_CHANGE_HISTORY_SOURCE_REVISION",
     "FORECAST_ACTION_HISTORY_SOURCE_IDENTITY",
     "FORECAST_ACTION_HISTORY_SOURCE_REVISION",
+    "FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_IDENTITY",
+    "FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_REVISION",
     "FORECAST_LIFECYCLE_HISTORY_SOURCE_IDENTITY",
     "FORECAST_LIFECYCLE_HISTORY_SOURCE_REVISION",
     "ActionAuditHistoryRead",
     "ActionAuditHistoryRow",
     "ActionAuditHistorySource",
+    "ChangeWindowHistorySource",
     "ForecastChangeWitnessReader",
     "ForecastActionAuditReader",
+    "ForecastChangeWindowHistoryReader",
     "ForecastLifecycleLedgerReader",
     "IncarnationLifecycleHistorySource",
     "JournalChangeHistorySource",

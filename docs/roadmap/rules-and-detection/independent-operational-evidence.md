@@ -311,26 +311,29 @@ revision `forecast-action-audit-chain.v1`, uses only function `EXECUTE` for the 
 as corroborating readiness health. `forecast-history-excluded_windows` remains unavailable until a revisioned
 `ChangeWindow` history producer exists.
 
-**Design note: `forecast-history-excluded_windows`.** The current authoritative `ChangeWindow` readers are current-state
-gates, not revisioned history producers. `core/risk_gate/ontology_preconditions.py` exposes
-`OntologyChangeWindowEvidenceProvider.is_active`, which answers whether a projected window is active at one instant.
-`core/operational_context/operating_intent_admission.py` records the currently admitted operating-intent source
-revision, digest, generation, owned object ids, and proof age, but it does not retain per-window change history.
-`shared/providers/ontology_instance.py` exposes the current typed ontology graph and object revision counters; it does
-not provide an append-only, effective-time history for `ChangeWindow` definitions. The vocabulary entry
-`rule-catalog/vocabulary/object-types/ChangeWindow.yaml` describes immutable change-window revisions, but there is no
-runtime contract or table that stores those revisions as a bounded target-scoped source.
+**Design note: `forecast-history-excluded_windows`.** The existing operating-intent source remains the only authority for
+`ChangeWindow` objects. On each successful admission, that path records append-only history rows for every admitted
+`ChangeWindow` object under a deterministic key derived from the source revision and window id. Each row includes the
+window id, scope or target reference, status, window kind, effective interval, source revision, document digest, recorded
+time, a supersedes reference to the prior retained revision for that window when one exists, and a watermark for the
+whole admitted source document. A separate per-source coverage row records the source revision, document digest,
+validated time, object count, and watermark so the forecast producer can prove that the retained rows came from a
+complete admitted source, not from a partial current graph read.
 
-**Critique.** Treating the current ontology graph or the latest operating-intent admission as historical absence would
-fake evidence. It would miss withdrawn, replaced, and future-recorded windows and would let a current `included` answer
-stand in for complete coverage across the forecast lookback. A safe producer must instead retain each `ChangeWindow`
-revision with source revision, target/scope, effective interval, recorded time, supersession, and a complete watermark.
+**Critique.** Reusing `OntologyChangeWindowEvidenceProvider.is_active` or the latest ontology object revision would still
+fake history, because it can only answer current activity and cannot prove withdrawn, superseded, or absent windows
+across a forecast lookback. Writing history from a new owner would change authority. The safe seam is therefore the
+existing operating-intent admission path: it has already validated the pinned source, source digest, rollout generation,
+and owned object set. The history writer is read-only with respect to authority. It records evidence after the admission
+path succeeds, and a failure to retain history does not make the `ChangeWindow` authority more permissive.
 
-**Revision.** `forecast-history-excluded_windows` therefore remains fail-closed `unavailable`. The missing contract is a
-revisioned `ChangeWindow` history producer, owned by the operating-intent or ontology projection source, with a verifier
-readback that proves whole-window completeness, conflict-free revisions, and freshness without granting execution or
-promotion authority. `forecast-context` remains unavailable until that fourth source-specific admission exists for the
-same scope, target, and window.
+**Revision.** `forecast-history-excluded_windows` binds to source identity
+`fdai.operating_intent.change_window_history` revision `forecast-change-window-history.v1`. The source adapter reads the
+append-only retained history, requires a matching coverage watermark for the exact operating-intent source revision,
+derives a stateful included/excluded chain with an initial state, and fails closed on missing coverage, supersession
+conflicts, same-instant conflicting states, stale watermarks, or incomplete pages. Once this fourth slice is admitted,
+`forecast-context` can bind through the existing aggregate rule that requires all four source-specific admissions for
+the same scope, target, and window.
 
 ### Forecast context aggregate
 
