@@ -91,6 +91,9 @@ def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if domain is not MentionDomain.OBJECT_TYPE or len(values) != 1:
         return OperatorResult(unsupported=(f"schema_subject_unsupported:{domain.value}",))
     name = values[0]
+    stated_name = ctx.text(goal.subject)
+    if stated_name in _object_type_names(ctx) and stated_name != name:
+        return OperatorResult(clarify=("schema_subject_identity_unconfirmed",))
     relation_failure = _relation_failure(goal)
     if relation_failure is not None:
         return OperatorResult(unsupported=(relation_failure,))
@@ -188,6 +191,14 @@ def _relation_failure(goal: FormGoal) -> str | None:
         # The read lists incoming and outgoing LinkTypes together; one direction is not narrowed.
         return "schema_relation_roles_unsupported"
     return None
+
+
+def _object_type_names(ctx: CompileContext) -> frozenset[str]:
+    return frozenset(
+        item["name"]
+        for item in ctx.manifest.descriptors
+        if item.get("kind") == "object" and isinstance(item.get("name"), str)
+    )
 
 
 def _declared_kinds(goal: FormGoal, ctx: CompileContext) -> tuple[str, ...]:

@@ -38,6 +38,8 @@ output from a compiled plan is a typed evidence hold until independent grounding
 empty relation result is answerable, and Operator or document routes receive no new authority.
 Relation direction confirmation uses the same Core boundary: a blind-reader disagreement now holds
 before compilation instead of changing relation roles, and no Operator or document route participates.
+Schema declaration identity checks also remain in Core conversation compilation: a schema read whose
+grounded ObjectType differs from the stated schema subject holds before a query plan is released.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
