@@ -11913,7 +11913,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-gr .deck-gr-panel-head h4 { margin: 0; font-size: var(--cs-type-panel-title-size); }
 .deck-gr .deck-gr-return { min-height: 34px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--fg); font: inherit; cursor: pointer; }
 .deck-gr .deck-gr-list { padding: 0; gap: 0; max-height: none; overflow: visible; background: transparent; }
-.deck-gr .deck-src-row { display: block; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.deck-gr .deck-src-row { display: block; padding: 0; border: 0; border-radius: 0; background: transparent; scroll-margin-block-end: 64px; }
 .deck-gr .deck-src-row + .deck-src-row { border-top: 1px solid var(--border); }
 .deck-gr .deck-src-row[data-selected="true"] { background: color-mix(in oklab, var(--accent) 7%, var(--bg-elevated)); }
 .deck-gr .deck-src-detail > summary { display: grid; grid-template-columns: 24px 64px minmax(0, 1fr) 12px; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; cursor: pointer; list-style: none; }
@@ -11934,10 +11934,15 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 @container deck-transcript (max-width: 560px) {
   .deck-gr .deck-gr-return { min-height: 44px; }
+  .deck-gr .deck-answer-original summary { min-height: 44px; }
   .deck-gr .deck-src-detail > summary { grid-template-columns: 24px minmax(0, 1fr) 12px; }
   .deck-gr .deck-src-badge { grid-column: 2; }
   .deck-gr .deck-src-title { grid-column: 2; }
   .deck-gr .deck-src-chevron { grid-column: 3; grid-row: 1; }
+}
+
+@media (max-width: 640px) {
+  .deck-source-readiness-disclosure > summary { min-height: 44px; }
 }
 
 

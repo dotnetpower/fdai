@@ -120,6 +120,12 @@ for (const [locale, catalog] of [["en", en], ["ko", ko]] as const) {
       await page.setViewportSize(viewport);
       await cite.click();
       await expect(page.locator(".deck-src-detail").first()).toHaveAttribute("open", "");
+      const unobstructed = await page.locator(".deck-src-path").evaluate(node => {
+        const path = node.getBoundingClientRect();
+        const jump = document.querySelector(".deck-jump")?.getBoundingClientRect();
+        return !jump || jump.width === 0 || path.bottom <= jump.top || path.top >= jump.bottom || path.right <= jump.left || path.left >= jump.right;
+      });
+      expect(unobstructed).toBe(true);
       const geometry = await page.locator(".deck-overlay").evaluate(node => ({
         fits: node.scrollWidth <= node.clientWidth,
         documentFits: document.documentElement.scrollWidth <= innerWidth,
