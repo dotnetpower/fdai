@@ -107,6 +107,32 @@ def plan_entra(
     )
 
 
+def check_unique_display_names() -> dict[str, object]:
+    """Fail before mutation when shared tenant-local FDAI names are ambiguous."""
+
+    ambiguous_apps = tuple(
+        name for name in _APP_NAMES if len(_matching_apps(name, max_items=2)) > 1
+    )
+    ambiguous_groups = tuple(
+        name for name, _role in _GROUPS.values() if len(_matching_groups(name, max_items=2)) > 1
+    )
+    if ambiguous_apps or ambiguous_groups:
+        app_text = ",".join(ambiguous_apps) if ambiguous_apps else "none"
+        group_text = ",".join(ambiguous_groups) if ambiguous_groups else "none"
+        raise ValueError(
+            "enterprise_identity_governance_entra_display_name_ambiguous: "
+            f"applications={app_text}; groups={group_text}"
+        )
+    return {
+        "schema_version": "fdai.genesis-entra-preflight.v1",
+        "state": "unique",
+        "applications": list(_APP_NAMES),
+        "groups": [name for name, _role in _GROUPS.values()],
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+
+
 def _normalize_role_groups(
     value: Mapping[str, str] | None,
 ) -> tuple[tuple[str, str], ...]:
@@ -685,27 +711,44 @@ def _validate_app(name: str, app: dict[str, Any]) -> None:
 
 
 def _single_app(name: str) -> dict[str, Any] | None:
-    values = _az_json(("ad", "app", "list", "--display-name", name))
-    exact = (
-        [item for item in values if isinstance(item, dict) and item.get("displayName") == name]
-        if isinstance(values, list)
-        else []
-    )
+    exact = _matching_apps(name)
     if len(exact) > 1:
         raise ValueError("Entra application display name is ambiguous")
     return exact[0] if exact else None
 
 
 def _single_group(name: str) -> dict[str, Any] | None:
-    values = _az_json(("ad", "group", "list", "--display-name", name))
-    exact = (
-        [item for item in values if isinstance(item, dict) and item.get("displayName") == name]
-        if isinstance(values, list)
-        else []
-    )
+    exact = _matching_groups(name)
     if len(exact) > 1:
         raise ValueError("Entra group display name is ambiguous")
     return exact[0] if exact else None
+
+
+def _matching_apps(name: str, *, max_items: int | None = None) -> list[dict[str, Any]]:
+    values = _az_json(("ad", "app", "list", "--display-name", name))
+    return _matching_display_names(values, name, max_items=max_items)
+
+
+def _matching_groups(name: str, *, max_items: int | None = None) -> list[dict[str, Any]]:
+    values = _az_json(("ad", "group", "list", "--display-name", name))
+    return _matching_display_names(values, name, max_items=max_items)
+
+
+def _matching_display_names(
+    values: object,
+    name: str,
+    *,
+    max_items: int | None = None,
+) -> list[dict[str, Any]]:
+    if not isinstance(values, list):
+        return []
+    exact: list[dict[str, Any]] = []
+    for item in values:
+        if isinstance(item, dict) and item.get("displayName") == name:
+            exact.append(item)
+            if max_items is not None and len(exact) >= max_items:
+                break
+    return exact
 
 
 def _app(app_id: str) -> dict[str, Any]:
