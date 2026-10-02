@@ -1,10 +1,10 @@
 """Compose reviewed forecast history producers onto their authoritative source readers.
 
 Only sources with a bounded, read-only reader over an existing owner's records are bound:
-external changes read the inventory journal witness and resource lifecycle reads the
-confirmed-tombstone incarnation ledger. Action and excluded-window producers stay unavailable
-until an attested reader exists, so the shared configuration parser rejects them instead of
-inventing history.
+Thor/Saga actions read the state-store audit chain, external changes read the inventory journal
+witness, and resource lifecycle reads the confirmed-tombstone incarnation ledger. Excluded-window
+producers stay unavailable until an attested reader exists, so the shared configuration parser
+rejects them instead of inventing history.
 """
 
 from __future__ import annotations
@@ -15,8 +15,13 @@ from fdai.core.ontology_platform.state_transitions import StateTransitionStore
 from fdai.delivery.forecast_change_history import ForecastChangeHistoryWitness
 from fdai.delivery.forecast_history_configuration import ForecastHistoryConfiguration
 from fdai.delivery.forecast_history_sources import (
+    ActionAuditHistorySource,
     IncarnationLifecycleHistorySource,
     JournalChangeHistorySource,
+)
+from fdai.delivery.persistence.postgres_forecast_action_history import (
+    PostgresForecastActionHistoryConfig,
+    PostgresForecastActionHistoryReader,
 )
 from fdai.delivery.persistence.postgres_forecast_change_history import (
     PostgresForecastChangeHistoryConfig,
@@ -35,7 +40,15 @@ def build_forecast_history_producers(
     producers: list[ForecastHistoryProducer] = []
     for binding, history in configuration.producers:
         source: ForecastHistorySource
-        if binding.kind == "changes":
+        if binding.kind == "actions":
+            source = ActionAuditHistorySource(
+                reader=PostgresForecastActionHistoryReader(
+                    config=PostgresForecastActionHistoryConfig(
+                        dsn=dsn, statement_timeout_ms=1_000, connect_timeout_s=1
+                    )
+                )
+            )
+        elif binding.kind == "changes":
             source = JournalChangeHistorySource(
                 witness=ForecastChangeHistoryWitness(
                     reader=PostgresForecastChangeHistoryReader(

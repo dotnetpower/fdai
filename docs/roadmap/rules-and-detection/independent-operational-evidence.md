@@ -282,6 +282,26 @@ never past the slice's `valid_until`. Scope membership comes from the reviewed o
 `FDAI_FORECAST_TARGETS_JSON`. Raw history production remains [#1021](https://github.com/dotnetpower/fdai/issues/1021),
 and an unimplemented source means no issuance.
 
+**Design note: `forecast-history-actions`.** The action producer reads the existing Thor/Saga StateStore audit chain
+without becoming a Thor, Saga, reviewer, or executor. A fixed-parameter `SECURITY DEFINER` function returns hash
+anchors for each `thor.action-run-save` row in the requested window and only exposes the paired ActionRun payload when
+its target exactly matches the reviewed target. The source adapter requires contiguous sequence numbers, matching
+`previous_hash` to `entry_hash`, and recomputed audit hashes through the watermark before it derives source records.
+The reviewed mapping can translate terminal ActionRun states, such as `succeeded` and `failed`, into the forecast
+action state. Gaps, hash mismatches, pending terminal state, unmapped states, stale coverage, result limits, and target
+mismatches fail closed as incomplete or conflicting source coverage before any slice admission can issue.
+
+**Critique.** Reading ActionRun payloads directly from `state_kv` would overexpose Core state and would prove only the
+latest value. Reading only target rows would not prove that absence was complete. The revised reader therefore separates
+hash anchors from payload disclosure: every action-save row contributes sequence and hash continuity, while only rows
+for the exact target return the state payload needed to build records. It still does not grant execution authority or
+change Thor or Saga ownership.
+
+**Revision.** The first implementation binds `forecast-history-actions` to `fdai.thor_saga_state_store.action_audit`
+revision `forecast-action-audit-chain.v1`, uses only function `EXECUTE` for the verifier role, and leaves Activity Log
+as corroborating readiness health. `forecast-history-excluded_windows` remains unavailable until a revisioned
+`ChangeWindow` history producer exists.
+
 ### Forecast context aggregate
 
 Consumers: `StateStoreForecastContextProvider._retain` for retention and
@@ -464,12 +484,13 @@ tracks what remains.
   sources. A current context is admissible only when the transition admission it cites has the lookup rebuilt from
   that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
   retained record against its exact verifier binding and that binding's readiness under the current anchors. The
-  `forecast-history-changes` and `forecast-history-resource_lifecycle` purposes now read their real derived
-  source rows from `operational_state_transition*`, using the `changes` and `resource_lifecycle` producers that
-  #1021 delivered. `forecast-history-actions` remains unavailable because no bounded target-scoped Thor/Saga action
-  audit reader exists, and `forecast-history-excluded_windows` remains unavailable because no revisioned
-  `ChangeWindow` history producer exists. `forecast-context` stays unavailable until all four source-specific
-  forecast-history admissions exist for the same scope, target, and window. `operational-test-observation` and
+  `forecast-history-actions`, `forecast-history-changes`, and `forecast-history-resource_lifecycle` purposes now read
+  real derived source rows from `operational_state_transition*`; the action producer reads Thor/Saga state-store audit
+  anchors and exact-target ActionRun payloads, while the other two producers use the `changes` and
+  `resource_lifecycle` sources that #1021 delivered. `forecast-history-excluded_windows` remains unavailable because
+  no revisioned `ChangeWindow` history producer exists. `forecast-context` stays unavailable until all four
+  source-specific forecast-history admissions exist for the same scope, target, and window.
+  `operational-test-observation` and
   `current-case-reuse` remain unbound: the observation provider is not yet available under verifier identity, and
   current reuse lacks independent inventory, Muninn, and safety-receipt sources. Case-history now has an insert-only
   Operator semantic authentication receipt schema, `operator-core-request` `1.9.0` receipt reference, Core-to-Bragi

@@ -18,7 +18,7 @@ from ..rejections import ReadbackRejection, reject
 from .base import ReadbackContext, ReadbackFacts
 
 _R = OperationalEvidenceRejectionClass
-_BOUND_KINDS = frozenset({"changes", "resource_lifecycle"})
+_BOUND_KINDS = frozenset({"actions", "changes", "resource_lifecycle"})
 
 
 class ForecastHistorySliceSource(Protocol):
@@ -104,7 +104,7 @@ class StateTransitionForecastHistorySliceSource:
             ):
                 return None
             refs.update(item.evidence_refs)
-            if kind == "changes":
+            if kind in {"actions", "changes"}:
                 interventions.add("state-transition:" + item.transition_id)
         resource_deleted = False
         if stateful:
@@ -229,6 +229,7 @@ def _kind_from_purpose(purpose_id: str) -> str:
 
 def _source_identity(kind: str) -> str:
     return {
+        "actions": "thor-saga.state-store-audit-chain",
         "changes": "inventory.observation-journal",
         "resource_lifecycle": "inventory.incarnation-ledger",
     }.get(kind, "unavailable")
