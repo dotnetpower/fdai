@@ -274,13 +274,14 @@ def prepare_standalone_genesis(
             region_short=region_short,
         )
         write_plan_input(variables_path, values)
-    _write_source_lineage(
-        root / "foundation-source-lineage.json",
-        foundation_source_commit=foundation_source_commit,
-        application_source_commit=source_commit,
-        kit_manifest_digest=deployment_kit.verification.manifest_digest,
-        runtime_release_digest=deployment_kit.runtime.digest,
-    )
+    if foundation_source_commit == source_commit:
+        _write_source_lineage(
+            root / "foundation-source-lineage.json",
+            foundation_source_commit=foundation_source_commit,
+            application_source_commit=source_commit,
+            kit_manifest_digest=deployment_kit.verification.manifest_digest,
+            runtime_release_digest=deployment_kit.runtime.digest,
+        )
     check = root / ".foundation-variables-check.json"
     check.unlink(missing_ok=True)
     try:

@@ -53,6 +53,8 @@ def coordinator(tmp_path, monkeypatch):
         "preparation_calls": 0,
         "foundation_source_commit": None,
         "foundation_env": None,
+        "transition_approvals": [],
+        "transition_receipts": [],
     }
 
     def prepare(**kwargs):
@@ -147,10 +149,25 @@ def coordinator(tmp_path, monkeypatch):
             "current_stage": "application-plan" if options["application"] else "foundation-apply",
             "route": "private-runner",
             "completed_stages": ["foundation-state"],
-            "foundation_report": {"state_handoff": {"receipt_digest": "f" * 64}},
+            "foundation_report": {
+                "foundation_plan": {"plan_ref": "foundation-plan-attempt-2"},
+                "state_handoff": {"receipt_digest": "f" * 64},
+            },
         },
     )
     monkeypatch.setattr(standalone_deploy.subprocess, "run", prompt)
+    monkeypatch.setattr(
+        standalone_deploy,
+        "approve_transition_plan",
+        lambda path: options["transition_approvals"].append(path),
+    )
+    monkeypatch.setattr(
+        standalone_deploy,
+        "bind_foundation_lineage_transition",
+        lambda **kwargs: (
+            options["transition_receipts"].append(kwargs) or {"receipt_digest": "7" * 64}
+        ),
+    )
     monkeypatch.setattr(
         standalone_application_completion,
         "deploy_standalone_application",
@@ -305,15 +322,16 @@ def test_an_offline_upgrade_continues_the_foundation_under_its_retained_lineage(
     invoke, options, _clock = coordinator
     options["foundation_source_commit"] = "f" * 40
 
-    # A new Foundation plan under the old lineage is refused before any approval prompt.
-    with pytest.raises(ValueError, match="cannot approve a new Foundation plan"):
+    with pytest.raises(RuntimeError, match="stop-after-prompt"):
         invoke()
 
     evidence = json.loads(options["foundation_env"]["FDAI_SIGNED_SOURCE_EVIDENCE"])
     assert _source_argument(options) == "f" * 40
     assert evidence["source_commit"] == "a" * 40
     assert evidence["foundation_source_commit"] == "f" * 40
-    assert options["prompt_timeout"] is None
+    assert len(options["transition_approvals"]) == 1
+    assert str(options["transition_approvals"][0]).endswith("run/foundation-plan-attempt-2")
+    assert options["prompt_timeout"] is not None
 
 
 def test_an_offline_upgrade_reaches_the_application_with_the_kit_source(coordinator, monkeypatch):
@@ -344,6 +362,15 @@ def test_an_offline_upgrade_reaches_the_application_with_the_kit_source(coordina
     assert written["application_source_commit"] == "a" * 40
     assert str(written["plan_directory"]).endswith("run/foundation-plan-attempt-2")
     assert result["foundation_adoption_receipt_digest"] == "9" * 64
+    assert options["transition_receipts"][0]["application_source_commit"] == "a" * 40
+    assert options["transition_receipts"][0]["plan_ref"] == "foundation-plan-attempt-2"
+    lineage = json.loads(
+        (
+            options["transition_receipts"][0]["run_root"] / "foundation-source-lineage.json"
+        ).read_text()
+    )
+    assert lineage["foundation_source_commit"] == "f" * 40
+    assert lineage["application_source_commit"] == "a" * 40
 
 
 def test_returning_to_the_foundation_revision_retires_a_lineage_receipt(tmp_path):

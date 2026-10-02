@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 71aae58cd6ed1d69c04086f85cf7acb9b1473e7a
+translation_source_sha: 646a043bd9712260ae8e74083b2db4b3b55d24c2
 translation_revised: 2026-10-02
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -247,7 +247,11 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 - **진입 명령**: `fdaictl provision azure`는 `infra/` HCL 모듈의 Terraform을 조정합니다.
   환경 값은 source control 밖에 유지합니다. 소스 모드의 Standalone 조정기는 `소스 스냅샷 고정
   -> 대상 검사 -> Foundation 계획 및 적용 -> 배포 레지스트리에서 이미지 빌드 -> 애플리케이션 계획 및
-  적용 -> 배포 후 검사` 순서로 실행하며, `--offline-kit`에서는 먼저 서명된 패키지를 검증합니다. 기존 오프라인 설치의 작업 디렉터리를 더 새 패키지로 다시 실행하면 Foundation은 보존된 리비전으로 이어서 실행됩니다([오프라인 키트 업그레이드](installable-deployment-cli-ko.md#오프라인-키트-업그레이드-설계와-비평)).
+  적용 -> 배포 후 검사` 순서로 실행하며, `--offline-kit`에서는 먼저 서명된 패키지를 검증합니다.
+  기존 오프라인 설치의 작업 디렉터리를 더 새 패키지로 다시 실행하면 Foundation은 보존된
+  리비전으로 이어서 실행됩니다([오프라인 키트 업그레이드](installable-deployment-cli-ko.md#오프라인-키트-업그레이드-설계와-비평)).
+  더 새 패키지가 Foundation 입력을 바꾸면 권한 있는 상태가 있는 보존 Managed Host에서 그
+  전환을 계획한 뒤, 전환 검증이 끝난 후에만 `foundation-source-lineage.json`을 전진시킵니다.
   Terraform은 실행 엔진이자 인프라 단일 기준입니다.
 - 대상 환경 배포 전송 계층은 항상 `manual`입니다. 활성 Azure 사용자가 정확한 계획을 승인하고,
   Managed Host는 별도 workload identity로 계획을 실행합니다. 저장소 변수, 저장소 비밀,

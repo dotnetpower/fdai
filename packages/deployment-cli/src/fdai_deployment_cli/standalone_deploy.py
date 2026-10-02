@@ -36,6 +36,11 @@ from fdai_deployment_cli.standalone_application_completion import complete_appli
 from fdai_deployment_cli.standalone_foundation_adoption import (
     deploy_with_adopted_foundation,
 )
+from fdai_deployment_cli.standalone_foundation_transition import (
+    approve_transition_plan,
+    bind_foundation_lineage_transition,
+    write_verified_source_lineage,
+)
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 from fdai_service_contracts.product_profile import ProductAddOn
 
@@ -346,6 +351,16 @@ def deploy_azure_foundation(
                 region=region,
                 monthly_cost_ceiling=monthly_cost_ceiling,
             )
+            if lineage_continuation:
+                _bind_foundation_transition_receipt(
+                    kit=kit,
+                    prepared=prepared,
+                    status=status,
+                    tenant_id=target.tenant_id,
+                    subscription_id=target.subscription_id,
+                    region=region,
+                    monthly_cost_ceiling=monthly_cost_ceiling,
+                )
             deadline.remaining()
             return complete_application(
                 kit=kit,
@@ -367,12 +382,7 @@ def deploy_azure_foundation(
         if foundation_exit.returncode != 2:
             raise ValueError("standalone Foundation orchestration failed")
         if lineage_continuation:
-            # A new Foundation plan computed from the newer kit must not be approved under the
-            # retained revision's lineage; continuation only verifies completed checkpoints.
-            raise ValueError(
-                "offline kit upgrade requires a completed Foundation and cannot approve a new "
-                "Foundation plan under its retained source lineage; inspect retained status"
-            )
+            _approve_foundation_transition_review(prepared=prepared, status=status)
         approval.unlink(missing_ok=True)
         try:
             with terminal_output("Review the exact Foundation plan", approval=True):
@@ -576,6 +586,57 @@ def _bind_application_to_foundation_lineage(
         monthly_cost_ceiling=monthly_cost_ceiling,
     )
     return str(receipt["receipt_digest"])
+
+
+def _approve_foundation_transition_review(*, prepared: Any, status: dict[str, Any]) -> None:
+    """Apply the existing invocation approval rule to a changed Foundation lineage plan."""
+
+    plan_ref = _foundation_plan_ref(status)
+    approve_transition_plan(prepared.root / plan_ref)
+
+
+def _bind_foundation_transition_receipt(
+    *,
+    kit: DeploymentKit,
+    prepared: Any,
+    status: dict[str, Any],
+    tenant_id: str,
+    subscription_id: str,
+    region: str,
+    monthly_cost_ceiling: int,
+) -> None:
+    """Persist cross-revision Foundation transition evidence after verification completes."""
+
+    bind_foundation_lineage_transition(
+        run_root=prepared.root,
+        plan_ref=_foundation_plan_ref(status),
+        application_source_commit=kit.source_commit,
+        kit_manifest_digest=kit.verification.manifest_digest,
+        runtime_release_digest=kit.runtime.digest,
+        tenant_id=tenant_id,
+        subscription_id=subscription_id,
+        region=region,
+        monthly_cost_ceiling=monthly_cost_ceiling,
+    )
+    write_verified_source_lineage(
+        prepared.root / "foundation-source-lineage.json",
+        foundation_source_commit=str(getattr(prepared, "foundation_source_commit", "")),
+        application_source_commit=kit.source_commit,
+        kit_manifest_digest=kit.verification.manifest_digest,
+        runtime_release_digest=kit.runtime.digest,
+    )
+
+
+def _foundation_plan_ref(status: dict[str, Any]) -> str:
+    report = status.get("foundation_report")
+    plan = report.get("foundation_plan") if isinstance(report, dict) else None
+    plan_ref = plan.get("plan_ref") if isinstance(plan, dict) else None
+    if (
+        not isinstance(plan_ref, str)
+        or re.fullmatch(r"foundation-plan-attempt-[1-9][0-9]*", plan_ref) is None
+    ):
+        raise ValueError("retained Foundation plan reference is invalid")
+    return plan_ref
 
 
 def _foundation_result(

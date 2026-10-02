@@ -248,8 +248,11 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
   build images in the deployment registry -> application plan and apply -> post-provision checks`;
   with `--offline-kit` it first verifies the signed package. Rerunning an existing offline
   installation's work directory with a newer package continues its Foundation under the retained
-  revision ([offline kit upgrade](installable-deployment-cli.md#offline-kit-upgrade-design-and-critique)). Terraform remains the execution
-  engine and infrastructure source of truth.
+  revision ([offline kit upgrade](installable-deployment-cli.md#offline-kit-upgrade-design-and-critique)).
+  If the newer package changes Foundation inputs, that transition is planned on the retained
+  managed host where the authoritative state lives, then `foundation-source-lineage.json` advances
+  only after the transition verifies. Terraform remains the execution engine and infrastructure
+  source of truth.
 - Tenant deployment transport is always `manual`. The active Azure user approves exact plans, and
   the managed host executes them with a distinct workload identity. No repository variable,
   repository secret, GitHub Environment, workflow dispatch, or GitHub runner participates.
