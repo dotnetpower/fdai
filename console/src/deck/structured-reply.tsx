@@ -34,9 +34,16 @@ function PresentationAssemblyView({
   );
 }
 
+export function presentationBlockCanCollapse(block: PresentationBlock): boolean {
+  const critical = block.kind === "callout" && (
+    block.data.tone === "attention" || block.data.tone === "warning"
+  );
+  return block.collapsed && block.slotId !== "limitations" && !critical;
+}
+
 function PresentationBlockView({ block }: { readonly block: PresentationBlock }) {
   const body = <PresentationModuleView block={block} />;
-  if (block.collapsed) {
+  if (presentationBlockCanCollapse(block)) {
     return (
       <details
         class="deck-presentation-block is-collapsible"

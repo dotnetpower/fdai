@@ -72,8 +72,12 @@ export function SourceReadinessStrip({ client }: { readonly client: OperatorApiC
   if (!hasVerifiedSourceReadiness(state.sources)) return null;
 
   return (
-    <nav class="deck-source-readiness" aria-label={t("deck.sourceReadiness.label")}>
-      <span class="deck-source-readiness-label">{t("deck.sourceReadiness.label")}</span>
+    <details class="deck-source-readiness-disclosure">
+      <summary>
+        <span>{t("deck.sourceReadiness.servicesLabel")}</span>
+        <strong>{readinessSummary(state.sources)}</strong>
+      </summary>
+      <nav class="deck-source-readiness" aria-label={t("deck.sourceReadiness.label")}>
       <span class="deck-source-readiness-items">
         {state.sources.map((item) => (
           <a
@@ -84,16 +88,17 @@ export function SourceReadinessStrip({ client }: { readonly client: OperatorApiC
           >
             <span class="deck-source-status-dot" aria-hidden="true" />
             <span>{t(`deck.sourceReadiness.source.${item.key}`)}</span>
+            <span class="deck-source-status-label">{t(`deck.sourceReadiness.status.${item.availability}`)}</span>
           </a>
         ))}
       </span>
-      <span class="deck-source-readiness-summary">{readinessSummary(state.sources)}</span>
       <span class="deck-source-readiness-time">
         {state.observedAt
           ? observedLabel(state.observedAt)
           : t("deck.sourceReadiness.observationUnknown")}
       </span>
-    </nav>
+      </nav>
+    </details>
   );
 }
 

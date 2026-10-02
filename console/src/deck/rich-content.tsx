@@ -59,21 +59,26 @@ hljs.registerLanguage("dockerfile", dockerfile);
 hljs.registerLanguage("xml", xml);
 hljs.registerLanguage("html", xml);
 
+interface CitationInteraction {
+  readonly citeMarks?: readonly InlineCiteMark[] | undefined;
+  readonly onCitationSelect?: ((number: number, trigger: HTMLElement) => void) | undefined;
+}
+
 function TextBlock({
   text,
   caret = false,
   citeMarks,
+  onCitationSelect,
 }: {
   readonly text: string;
   readonly caret?: boolean;
-  readonly citeMarks?: readonly InlineCiteMark[] | undefined;
-}) {
+} & CitationInteraction) {
   const lines = text.split("\n");
   return (
     <>
       {lines.map((line, i) => (
         <p key={i} class="deck-turn-line">
-          <InlineContent text={line} citeMarks={citeMarks} />
+          <InlineContent text={line} citeMarks={citeMarks} onCitationSelect={onCitationSelect} />
           {caret && i === lines.length - 1 ? (
             <span class="deck-gr-caret" aria-hidden="true" />
           ) : null}
@@ -83,19 +88,23 @@ function TextBlock({
   );
 }
 
-function HeadingBlock({ level, text }: { readonly level: number; readonly text: string }) {
-  const content = <InlineContent text={text} />;
+function HeadingBlock({ level, text, ...interaction }: { readonly level: number; readonly text: string } & CitationInteraction) {
+  const content = <InlineContent text={text} {...interaction} />;
   if (level <= 1) return <h3 class="deck-rich-heading is-level-1">{content}</h3>;
   if (level === 2) return <h4 class="deck-rich-heading is-level-2">{content}</h4>;
   return <h5 class="deck-rich-heading is-level-3">{content}</h5>;
 }
 
-function CiteChip({ n, hint }: { readonly n: number; readonly hint: string }) {
+function CiteChip({ n, hint, onCitationSelect }: { readonly n: number; readonly hint: string } & CitationInteraction) {
   return (
     <Tooltip content={hint}>
-      <span class="deck-cite-chip" role="note" aria-label={`${t("deck.grounded.sourceAria")} ${n}`}>
-        {n}
-      </span>
+      {onCitationSelect ? (
+        <button type="button" class="deck-cite-chip" aria-label={`${t("deck.grounded.sourceAria")} ${n}: ${hint}`} onClick={(event) => onCitationSelect(n, event.currentTarget)}>
+          {n}
+        </button>
+      ) : (
+        <span class="deck-cite-chip" role="note" aria-label={`${t("deck.grounded.sourceAria")} ${n}`}>{n}</span>
+      )}
     </Tooltip>
   );
 }
@@ -103,10 +112,10 @@ function CiteChip({ n, hint }: { readonly n: number; readonly hint: string }) {
 function InlineContent({
   text,
   citeMarks,
+  onCitationSelect,
 }: {
   readonly text: string;
-  readonly citeMarks?: readonly InlineCiteMark[] | undefined;
-}) {
+} & CitationInteraction) {
   const runs = citeMarks && citeMarks.length > 0
     ? injectCiteMarks(parseInline(text), citeMarks)
     : parseInline(text);
@@ -122,7 +131,7 @@ function InlineContent({
         ) : run.t === "strike" ? (
           <del key={index}>{run.s}</del>
         ) : run.t === "cite" ? (
-          <CiteChip key={index} n={run.n} hint={run.title} />
+          <CiteChip key={index} n={run.n} hint={run.title} onCitationSelect={onCitationSelect} />
         ) : run.t === "link" ? (
           <a
             key={index}
@@ -140,10 +149,10 @@ function InlineContent({
   );
 }
 
-function ListBlock({ ordered, items }: {
+function ListBlock({ ordered, items, ...interaction }: {
   readonly ordered: boolean;
   readonly items: readonly ListItem[];
-}) {
+} & CitationInteraction) {
   const content = items.map((item, index) => (
     <li key={index} class={item.checked !== undefined ? "is-task" : undefined}>
       {item.checked !== undefined ? (
@@ -151,7 +160,7 @@ function ListBlock({ ordered, items }: {
           {item.checked ? "\u2713" : ""}
         </span>
       ) : null}
-      <InlineContent text={item.text} />
+      <InlineContent text={item.text} {...interaction} />
     </li>
   ));
   return ordered ? (
@@ -161,21 +170,21 @@ function ListBlock({ ordered, items }: {
   );
 }
 
-function QuoteBlock({ text }: { readonly text: string }) {
+function QuoteBlock({ text, ...interaction }: { readonly text: string } & CitationInteraction) {
   return (
     <blockquote class="deck-rich-quote">
-      <TextBlock text={text} />
+      <TextBlock text={text} {...interaction} />
     </blockquote>
   );
 }
 
-function TableCellContent({ text }: { readonly text: string }) {
+function TableCellContent({ text, ...interaction }: { readonly text: string } & CitationInteraction) {
   return (
     <>
       {text.split("\n").map((line, index) => (
         <span key={index}>
           {index > 0 ? <br /> : null}
-          <InlineContent text={line} />
+          <InlineContent text={line} {...interaction} />
         </span>
       ))}
     </>
@@ -185,10 +194,11 @@ function TableCellContent({ text }: { readonly text: string }) {
 function TableBlock({
   headers,
   rows,
+  ...interaction
 }: {
   readonly headers: readonly string[];
   readonly rows: readonly string[][];
-}) {
+} & CitationInteraction) {
   return (
     <div class="deck-table-block">
       <div class="deck-table-wrap">
@@ -196,7 +206,7 @@ function TableBlock({
           <thead>
             <tr>
               {headers.map((h, i) => (
-                <th key={i} scope="col">{h}</th>
+                <th key={i} scope="col"><InlineContent text={h} {...interaction} /></th>
               ))}
             </tr>
           </thead>
@@ -209,7 +219,7 @@ function TableBlock({
                       {headers[c] ?? ""}
                     </span>
                     <span class="deck-table-cell-value">
-                      <TableCellContent text={row[c] ?? ""} />
+                      <TableCellContent text={row[c] ?? ""} {...interaction} />
                     </span>
                   </td>
                 ))}
@@ -353,6 +363,7 @@ export function RichContent({
   streaming = false,
   suppressCode = false,
   citeMarks,
+  onCitationSelect,
 }: {
   readonly text: string;
   readonly streaming?: boolean;
@@ -360,12 +371,14 @@ export function RichContent({
   /** Numbered inline citation anchors. Injected only into settled prose (never
    *  while streaming, to avoid chips flickering mid-token). */
   readonly citeMarks?: readonly InlineCiteMark[] | undefined;
+  readonly onCitationSelect?: ((number: number, trigger: HTMLElement) => void) | undefined;
 }) {
   const segments = streaming ? parseStreamingAnswer(text) : parseAnswer(text);
   if (segments.length === 0) {
     return streaming ? <span class="deck-gr-caret" aria-hidden="true" /> : null;
   }
   const marks = streaming ? undefined : citeMarks;
+  const interaction = { citeMarks: marks, onCitationSelect: streaming ? undefined : onCitationSelect };
   const lastIsText = segments[segments.length - 1]?.kind === "text";
   return (
     <div class={`deck-rich${streaming ? " is-streaming" : ""}`}>
@@ -373,26 +386,26 @@ export function RichContent({
         const isLast = i === segments.length - 1;
         if (seg.kind === "text") {
           return (
-            <TextBlock key={i} text={seg.text} caret={streaming && isLast} citeMarks={marks} />
+            <TextBlock key={i} text={seg.text} caret={streaming && isLast} {...interaction} />
           );
         }
         if (seg.kind === "agent-activity") {
           return <AgentActivityTimeline key={i} items={seg.items} locale={seg.locale} />;
         }
         if (seg.kind === "heading") {
-          return <HeadingBlock key={i} level={seg.level} text={seg.text} />;
+          return <HeadingBlock key={i} level={seg.level} text={seg.text} {...interaction} />;
         }
         if (seg.kind === "list") {
-          return <ListBlock key={i} ordered={seg.ordered} items={seg.items} />;
+          return <ListBlock key={i} ordered={seg.ordered} items={seg.items} {...interaction} />;
         }
         if (seg.kind === "quote") {
-          return <QuoteBlock key={i} text={seg.text} />;
+          return <QuoteBlock key={i} text={seg.text} {...interaction} />;
         }
         if (seg.kind === "divider") {
           return <hr key={i} class="deck-rich-divider" />;
         }
         if (seg.kind === "table") {
-          return <TableBlock key={i} headers={seg.headers} rows={seg.rows} />;
+          return <TableBlock key={i} headers={seg.headers} rows={seg.rows} {...interaction} />;
         }
         if (seg.kind === "code") {
           return suppressCode ? null : (

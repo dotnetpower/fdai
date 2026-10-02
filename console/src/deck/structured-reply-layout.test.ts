@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import type { PresentationBlock } from "./backend-types";
+import { presentationBlockCanCollapse } from "./structured-reply";
 
 const source = readFileSync(
   fileURLToPath(new URL("./structured-reply.tsx", import.meta.url)),
@@ -12,6 +14,26 @@ const styles = readFileSync(
 );
 
 describe("adaptive structured reply layouts", () => {
+  test("keeps limitation blocks visible despite a collapsed presentation hint", () => {
+    const block: PresentationBlock = {
+      slotId: "limitations", kind: "callout", title: "Evidence limits",
+      emphasis: "supporting", collapsed: true, evidenceRefs: ["evidence-1"],
+      data: { tone: "warning", lines: ["Current evidence is unavailable."] },
+    };
+    expect(presentationBlockCanCollapse(block)).toBe(false);
+    expect(presentationBlockCanCollapse({ ...block, data: { ...block.data, tone: "neutral" } })).toBe(false);
+  });
+
+  test("preserves explicit collapse hints for ordinary summary blocks", () => {
+    const block: PresentationBlock = {
+      slotId: "overview", kind: "summary", title: "Summary",
+      emphasis: "supporting", collapsed: true, evidenceRefs: ["evidence-1"],
+      data: { items: [{ label: "Observed", value: "1", tone: "neutral" }] },
+    };
+    expect(presentationBlockCanCollapse(block)).toBe(true);
+    expect(presentationBlockCanCollapse({ ...block, collapsed: false })).toBe(false);
+  });
+
   test("renders only the server-selected artifact layout", () => {
     expect(source).toContain("data-layout={artifact.layout}");
     expect(source).toContain("<PresentationAssemblyView assembly={artifact.assembly}");

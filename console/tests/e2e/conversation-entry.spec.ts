@@ -65,6 +65,73 @@ async function openConsole(
   return requests;
 }
 
+for (const [locale, catalog] of [["en", en], ["ko", ko]] as const) {
+  test(`common answer evidence navigation and Markdown inspection (${locale})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const answer = "## Finding\n\nObserved retention: **45 days**.\n\n| Measure | Value |\n|---|---|\n| Retention | 45 days |";
+    await openConsole(page, locale, (request) => ({
+      seq: 1, revision: 1, request_id: request.request_id,
+      answer, source: "deterministic", execution_authority: false,
+      verification: {
+        status: "verified", authority: "server_read_model", checks_completed: 1, checks_total: 1,
+        evidence_refs: ["sample:retention"], reason_code: "screen_claims_supported",
+        claims: [{ claim_id: "claim-1", kind: "number", text: "45 days", span: { start: answer.indexOf("45 days"), end: answer.indexOf("45 days") + 7 }, raw_value: "45 days", normalized_value: "45 days", unit: "days", anchors: ["retention"], status: "supported", evidence_refs: ["sample:retention"], reason_code: null }],
+        evidence_manifest: {
+          schema_version: 1, manifest_id: "sample-manifest", authority: "server_read_model", route_id: null,
+          captured_at: "2026-10-02T00:00:00Z", complete: true, source_entry_count: 1,
+          entries: [{ ref: "sample:retention", path: "inventory.snapshot", field: "retention", kind: "number", raw_value: "45 days", normalized_value: "45 days", anchors: ["retention"] }],
+        },
+      },
+      presentation_artifact: {
+        schema_version: 1, layout: "stack", evidence_refs: ["sample:retention"],
+        blocks: [{ slot_id: "limitations", kind: "callout", title: "Evidence limits", emphasis: "supporting", collapsed: true, evidence_refs: ["sample:retention"], data: { tone: "warning", lines: ["No execution was performed."] } }],
+      },
+    }));
+    await page.getByRole("button", { name: catalog.deck.generalOpen, exact: true }).click();
+    await page.locator(".deck-input").fill("Read the retained evidence.");
+    await page.locator(".deck-input").press("Enter");
+    await expect(page.locator(".deck-answer-posture")).toBeVisible();
+    await expect(page.locator(".deck-rich-heading").first()).toHaveText("Finding");
+    await expect(page.locator('section.deck-presentation-block[data-slot="limitations"]')).toBeVisible();
+    await expect(page.getByText("No execution was performed.", { exact: true })).toBeVisible();
+    const cite = page.locator("button.deck-cite-chip").first();
+    await cite.focus();
+    const before = await page.locator(".deck-transcript").evaluate(node => node.scrollTop);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".deck-src-detail").first()).toHaveAttribute("open", "");
+    await expect(page.locator(".deck-src-detail summary").first()).toBeFocused();
+    await expect(page.locator(".deck-src-path")).toHaveText("inventory.snapshot");
+    await page.getByRole("button", { name: catalog.deck.grounded.returnToAnswer, exact: true }).click();
+    await expect(cite).toBeFocused();
+    await expect(page.locator(".deck-gr-panel")).toHaveCount(0);
+    expect(Math.abs(await page.locator(".deck-transcript").evaluate(node => node.scrollTop) - before)).toBeLessThanOrEqual(1);
+    await page.locator(".deck-answer-original summary").focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".deck-answer-original pre code")).toHaveText(answer);
+    await page.locator(".deck-answer-original summary").click();
+    await page.keyboard.press("Control+k");
+    await expect(page.getByRole("searchbox", { name: catalog.deck.searchConversation })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".deck-search-toggle")).toBeFocused();
+    await expect(page.locator(".deck-search")).toBeHidden();
+    await page.screenshot({ path: testInfo.outputPath(`common-answer-${locale}-desktop.png`) });
+    for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      await cite.click();
+      await expect(page.locator(".deck-src-detail").first()).toHaveAttribute("open", "");
+      const geometry = await page.locator(".deck-overlay").evaluate(node => ({
+        fits: node.scrollWidth <= node.clientWidth,
+        documentFits: document.documentElement.scrollWidth <= innerWidth,
+        clipped: [...node.querySelectorAll(".deck-header,.deck-gr,.deck-gr-panel,.deck-src-row,.deck-answer-original")].filter(element => element.scrollWidth > element.clientWidth + 1).map(element => element.className),
+      }));
+      expect(geometry).toEqual({ fits: true, documentFits: true, clipped: [] });
+      await page.screenshot({ path: testInfo.outputPath(`common-answer-${locale}-${viewport.width}.png`) });
+      await page.getByRole("button", { name: catalog.deck.grounded.returnToAnswer, exact: true }).click();
+    }
+  });
+}
+
 test("loads the Command Deck implementation only after the operator invokes it", async ({
   page,
 }) => {
