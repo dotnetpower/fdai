@@ -58,11 +58,6 @@ class RuntimeDeploymentProfile:
         minimum_user_nodes = 4 if self.database_placement is DatabasePlacement.POSTGRES_AKS else 3
         if not minimum_user_nodes <= self.user_node_min_count <= 100:
             raise ValueError(f"AKS user node minimum MUST be in [{minimum_user_nodes}, 100]")
-        if self.database_placement is DatabasePlacement.POSTGRES_AKS and self.console_selected:
-            raise ValueError(
-                "postgres-aks does not yet provide the role-scoped ingestion DSNs that the "
-                "read-only Console's document ingestion requires"
-            )
         if not self.user_node_min_count <= self.user_node_max_count <= 100:
             raise ValueError("AKS user node maximum MUST cover the minimum and be at most 100")
         for label, value in (

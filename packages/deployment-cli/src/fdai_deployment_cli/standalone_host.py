@@ -712,6 +712,10 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
         str(_mapping(identities.get(name), f"{name} runtime identity")["principal_id"])
         for name in ("core", "operator", "executor", "inventory")
     }
+    ingestion_identity = _mapping(identities.get("ingestion"), "ingestion runtime identity")
+    ingestion_worker_identity = _mapping(
+        identities.get("ingestion_worker"), "ingestion worker runtime identity"
+    )
     key_vault_id = _terraform_output(substrate, "key_vault_id")
     _activate_terraform_stage("runtime", context, work_dir)
     runtime_infra = Path(str(context["runtime_infra"]))
@@ -732,6 +736,8 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
         "image": refs["pgvector"],
         "key_vault_id": key_vault_id,
         "runtime_principal_ids": sorted(principals),
+        "ingestion_api_principal_id": str(ingestion_identity["principal_id"]),
+        "ingestion_worker_principal_id": str(ingestion_worker_identity["principal_id"]),
         "tags": {"fdai:runtime": "aks", "fdai:database-placement": "postgres-aks"},
     }
     context.update(
