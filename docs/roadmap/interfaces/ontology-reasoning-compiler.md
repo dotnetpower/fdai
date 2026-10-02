@@ -55,6 +55,9 @@ require an exact-source bounded before/after comparison.
 Each blind reader executes complete shards in waves of at most two concurrent calls, preserving
 ordered receipt accounting and the existing call budget. A failed or cancelled wave cancels and
 drains its other calls before the stage ends; finalists and bounded repairs retain their gates.
+Independent finalist runoffs use the same two-call waves only after their total fits the
+remaining reader budget. Answers retain request order and each mention's exact candidate
+boundary. This removes serial finalist waits without claiming measured end-to-end savings.
 
 ## Verified baseline
 

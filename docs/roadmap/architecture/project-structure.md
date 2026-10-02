@@ -53,6 +53,8 @@ judgment; action, quoted, hypothetical, bound-context, and required-document pat
 existing gates. Numeric call accounting adds no prompt capture or execution authority.
 Reader-local two-shard waves are read-only concurrency inside the same bounded turn; their
 cancellation drains outstanding work and adds no shared authority-bearing workflow state.
+The same Core-owned scheduler covers independent finalist runoffs within the existing
+remaining-call gate; no model, service, authority, or observed-state cache is added.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.

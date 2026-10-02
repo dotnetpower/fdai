@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 49e075ceb93fe0d0d0f0c452167662ba4d439791
+translation_source_sha: 8d66f5b5e5fec98b9509ebbe293006e5f169019c
 translation_revised: 2026-10-02
 ---
 # 프로젝트 구조
@@ -54,6 +54,8 @@ Operator 또는 문서 route가 답하기 전에 보류됩니다.
 프롬프트 수집이나 실행 권한을 추가하지 않습니다.
 판독기별 두 샤드 묶음은 같은 제한된 턴 안의 읽기 전용 동시 처리입니다. 취소 시 남은 작업을
 정리하며 권한이 있는 공유 작업 흐름 상태를 추가하지 않습니다.
+Core가 소유한 같은 스케줄러가 기존 잔여 호출 예산 검사 안에서 독립적인 최종 후보 선택도
+처리합니다. 모델, 서비스, 권한 또는 관측 상태 캐시를 추가하지 않습니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
