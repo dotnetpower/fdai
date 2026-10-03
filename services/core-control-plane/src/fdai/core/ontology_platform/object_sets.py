@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from decimal import Decimal
 from typing import Any, cast
 
 from fdai.shared.providers.ontology_instance import (
@@ -371,6 +372,8 @@ def _matches_predicate(properties: Mapping[str, Any], predicate: ObjectPredicate
 def _ordered_compare(left: Any, right: Any, *, at_least: bool) -> bool:
     if isinstance(left, bool) or isinstance(right, bool):
         return False
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        left, right = Decimal(str(left)), Decimal(str(right))
     try:
         return bool(left >= right if at_least else left <= right)
     except TypeError:

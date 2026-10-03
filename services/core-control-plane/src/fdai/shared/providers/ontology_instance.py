@@ -8,6 +8,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from fdai.shared.contracts.models import (
@@ -173,6 +174,8 @@ def json_values_equal(left: object, right: object) -> bool:
 
     if isinstance(left, bool) or isinstance(right, bool):
         return isinstance(left, bool) and isinstance(right, bool) and left == right
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        return Decimal(str(left)) == Decimal(str(right))
     if isinstance(left, Mapping) or isinstance(right, Mapping):
         return (
             isinstance(left, Mapping)

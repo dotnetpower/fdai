@@ -188,6 +188,10 @@ def _review_object(identifier: str, object_type: str = "ReviewCase") -> Ontology
         ({"a": None}, {"a": None}, True),
         ({"count": [1]}, {"count": [1.0]}, True),
         ({"a": 1, "b": False}, {"b": False, "a": 1}, True),
+        (1e23, 10**23, True),
+        (10**23, 1e23, True),
+        (1e23, 99999999999999991611392, False),
+        (10**23 - 1, 1e23, False),
     ],
 )
 async def test_isolated_property_equality_precedes_result_limit(actual, operand, equal, scan):

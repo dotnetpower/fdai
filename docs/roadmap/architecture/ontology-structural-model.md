@@ -98,7 +98,10 @@ queries never use this path, and candidate truncation remains explicit.
 
 ObjectSet equality, inequality, set membership, and array containment distinguish Boolean values
 from numbers at every JSON nesting depth. Object-key order does not affect equality, but additional
-keys, array order, and array multiplicity do. Numeric `1` and `1.0` remain equal. String containment
+keys, array order, and array multiplicity do. Numeric `1` and `1.0` remain equal.
+Numeric equality and ordering use the serialized JSON decimal value, not the
+binary float approximation: `1e23` equals `100000000000000000000000`, not
+`99999999999999991611392`. String containment
 still means substring matching, and object containment still tests keys. Store-level property
 equality checks the whole selected value before limiting results; JSONB containment alone cannot
 establish an exact match.
