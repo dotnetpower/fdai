@@ -235,7 +235,11 @@ export function layoutIntegrityErrors(
     if (!specEdge) continue;
     const effectiveRoute = specEdge?.route ??
       (spec.canvas.networkPreset ? "orthogonal-shortest" : undefined);
+    const hasMissingEdgeRoute = (edge.sections ?? []).some((section) =>
+      section.id.endsWith("-missing-edge-route"),
+    );
     if (
+      !hasMissingEdgeRoute &&
       effectiveRoute !== "diagonal" &&
       effectiveRoute !== "curve" &&
       effectiveRoute !== "orthogonal" &&
@@ -284,7 +288,7 @@ export function layoutIntegrityErrors(
           if (endpointIds.has(node.id)) continue;
           if (segmentIntersectsBox(start, end, node, 3)) {
             errors.push(
-              `${effectiveRoute === "curve" ? "Curved" : effectiveRoute === "orthogonal" || effectiveRoute === "orthogonal-shortest" || effectiveRoute === "orthogonal-horizontal" || effectiveRoute === "orthogonal-trunk" || effectiveRoute === "orthogonal-top" || effectiveRoute === "orthogonal-above" || effectiveRoute === "orthogonal-gap" || effectiveRoute === "orthogonal-right" || effectiveRoute === "orthogonal-approval" ? "Orthogonal" : "Diagonal"} edge '${edge.id}' crosses node '${node.id}'`,
+              `${hasMissingEdgeRoute ? "Fallback" : effectiveRoute === "curve" ? "Curved" : effectiveRoute === "orthogonal" || effectiveRoute === "orthogonal-shortest" || effectiveRoute === "orthogonal-horizontal" || effectiveRoute === "orthogonal-trunk" || effectiveRoute === "orthogonal-top" || effectiveRoute === "orthogonal-above" || effectiveRoute === "orthogonal-gap" || effectiveRoute === "orthogonal-right" || effectiveRoute === "orthogonal-approval" ? "Orthogonal" : "Diagonal"} edge '${edge.id}' crosses node '${node.id}'`,
             );
           }
         }

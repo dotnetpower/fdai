@@ -84,6 +84,48 @@ test("reports a specification edge without a drawn path", () => {
   ]);
 });
 
+test("reports a fallback edge that crosses an unrelated node", () => {
+  const fallbackSpec: DiagramSpec = {
+    ...spec,
+    nodes: [
+      ...spec.nodes,
+      {
+        id: "c",
+        parent: "group",
+        kind: "process",
+        label: { en: "C", ko: "C" },
+      },
+    ],
+    edges: [{ id: "fallback", from: "a", to: "b", kind: "request" }],
+  };
+  const invalid = layout();
+  invalid.nodes.set("c", {
+    id: "c",
+    x: 155,
+    y: 95,
+    width: 30,
+    height: 30,
+    depth: 2,
+  });
+  invalid.edges.push({
+    id: "fallback",
+    sources: ["a"],
+    targets: ["b"],
+    sections: [
+      {
+        id: "fallback-missing-edge-route",
+        startPoint: { x: 150, y: 110 },
+        endPoint: { x: 190, y: 110 },
+      },
+    ],
+  });
+  assert.ok(
+    layoutIntegrityErrors(fallbackSpec, invalid).includes(
+      "Fallback edge 'fallback' crosses node 'c'",
+    ),
+  );
+});
+
 test("reports overlapping edge labels", () => {
   const invalid = layout();
   invalid.edges.push(

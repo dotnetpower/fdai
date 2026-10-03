@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
+import type { ElkPoint } from "elkjs/lib/elk-api.js";
 
 import { layoutDiagram } from "../src/layout/elk.js";
 import { parseDiagram } from "../src/model/validate.js";
@@ -8,6 +11,37 @@ import {
   roundedEdgePath,
   smoothCurvePath,
 } from "../src/render/svg.js";
+
+function segmentIntersectsBox(
+  start: ElkPoint,
+  end: ElkPoint,
+  box: { x: number; y: number; width: number; height: number },
+  padding = 3,
+): boolean {
+  const left = box.x - padding;
+  const right = box.x + box.width + padding;
+  const top = box.y - padding;
+  const bottom = box.y + box.height + padding;
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  let minimum = 0;
+  let maximum = 1;
+  for (const [origin, delta, low, high] of [
+    [start.x, deltaX, left, right],
+    [start.y, deltaY, top, bottom],
+  ] as const) {
+    if (delta === 0) {
+      if (origin < low || origin > high) return false;
+      continue;
+    }
+    const first = (low - origin) / delta;
+    const second = (high - origin) / delta;
+    minimum = Math.max(minimum, Math.min(first, second));
+    maximum = Math.min(maximum, Math.max(first, second));
+    if (minimum > maximum) return false;
+  }
+  return true;
+}
 
 const source = `
 id: render-sample
@@ -153,6 +187,39 @@ edges:
   assert.ok(edge?.sections?.length);
   const svg = await renderSvg(spec, layout, "en");
   assert.match(svg, /data-edge-id="cross-boundary"/);
+});
+
+test("routes fallback cross-group edges around unrelated nodes", async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const source = await readFile(
+    path.join(
+      repositoryRoot,
+      "docs/diagrams/fdai-escalation-and-standing-authority-01.diagram.yaml",
+    ),
+    "utf8",
+  );
+  const spec = parseDiagram(source);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find((candidate) => candidate.id === "flow-03");
+  assert.ok(edge?.sections?.length);
+  assert.ok(
+    edge.sections.some((section) => section.id.endsWith("-missing-edge-route")),
+  );
+  const obstacle = layout.nodes.get("r1");
+  assert.ok(obstacle);
+  const crossingSegments = edge.sections.flatMap((section) => {
+    const points = [
+      section.startPoint,
+      ...(section.bendPoints ?? []),
+      section.endPoint,
+    ];
+    return points
+      .slice(1)
+      .filter((end, index) =>
+        segmentIntersectsBox(points[index]!, end, obstacle),
+      );
+  });
+  assert.deepEqual(crossingSegments, []);
 });
 
 test("rejects an agent node outside the fixed pantheon", async () => {

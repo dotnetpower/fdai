@@ -244,10 +244,11 @@ straight, while longer cross-region paths gain Mermaid-like visual flow without
 cutting through nodes. Region boundaries use distinct header bands for
 operational signals, the FDAI control plane, and human or delivery surfaces.
 If ELK leaves an edge without a drawable section because its endpoints cross a
-compound-group boundary, the compiler routes a deterministic orthogonal fallback
-after final placement. The integrity gate then fails any remaining specification
-edge that has no drawn path, so generated SVGs cannot silently omit authored
-relationships.
+compound-group boundary, the compiler routes a deterministic obstacle-avoiding
+orthogonal fallback after final placement. The integrity gate then fails any
+remaining specification edge that has no drawn path or whose fallback path
+crosses an unrelated node, so generated SVGs cannot silently omit or hide
+authored relationships.
 
 ## Viewer accessibility
 
