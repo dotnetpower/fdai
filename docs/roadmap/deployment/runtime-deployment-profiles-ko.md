@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 8738f71f15c76b502a4ea368825768b723bbd5db
+translation_source_sha: bbcd7a1d4bf24c17280a9c1f8a24009f61f33e5d
 translation_revised: 2026-10-03
 ---
 # 런타임 배포 프로파일
@@ -324,6 +324,9 @@ HTTPS 기준 URL을 동일한 Console 빌드 계약에 전달합니다. 런타�
 연결합니다. 이 토픽은 기존 의미 physical Event Hub와 Managed Identity 전송을 공유하며 별도
 Event Hub 엔터티나 권한 채널이 아닙니다. AKS standalone 렌더러는 정확한 substrate 출력에서
 값을 가져오고 독립 및 legacy Container Apps 렌더러는 같은 typed 배포 입력을 받습니다.
+격리된 보조 전송이 구성되어 있어도 Core는 이 토픽을 소비하고 읽기 전용 조사 단계 활동을 게시할
+때 기본 전송을 사용합니다. 보조 운영 네임스페이스는 원시 인벤토리, 카나리, 시작 프로브, 실행기
+트래픽만 전달하며 두 토픽 모두에 해당하는 엔터티가 없습니다.
 
 AKS standalone 렌더러는 Core semantic 요청, 변환 결과, physical, 읽기 전용 조사 토픽을 항상
 연결하므로 모델이 비활성화되어도 요청을 대기시키지 않고 typed hold를 반환합니다. 모델 지원이

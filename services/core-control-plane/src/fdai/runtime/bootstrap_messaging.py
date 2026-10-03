@@ -95,8 +95,19 @@ def build_messaging_runtime(
     )
 
 
+def operating_model_event_bus(messaging: MessagingRuntime) -> EventBus:
+    """Return the bus that carries the logical operating-model topic.
+
+    The topic is multiplexed over the primary semantic physical Event Hub. The isolated auxiliary
+    transport carries only raw inventory, canary, and probe traffic and has no such entity.
+    """
+
+    return messaging.bus
+
+
 __all__ = [
     "EventBusFactory",
     "MessagingRuntime",
     "build_messaging_runtime",
+    "operating_model_event_bus",
 ]
