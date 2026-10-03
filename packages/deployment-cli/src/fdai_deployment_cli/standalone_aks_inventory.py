@@ -76,8 +76,9 @@ def run_initial_aks_inventory(
             "FDAI_INVENTORY_RESOURCE_TYPES": "",
             "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
             "FDAI_INVENTORY_SOURCES": ",".join(str(source) for source in sources),
+            # The operations progress container is private to the managed host. The in-cluster
+            # Job records progress in PostgreSQL; the host closure completes the blob chain.
             "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
-            "FDAI_INVENTORY_PROGRESS_CONTAINER_URL": progress_url,
             "FDAI_INVENTORY_PROGRESS_RUN_ID": run_id,
         },
         require_suspended=False,
