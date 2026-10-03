@@ -12,6 +12,7 @@ import pytest
 from fdai_deployment_cli import standalone_host
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote
 
 
@@ -180,9 +181,10 @@ class _RecordingTunnel:
         return SimpleNamespace(returncode=0, stdout="")
 
 
+@pytest.mark.parametrize("database_sku", [None, "GP_Standard_D2ds_v5"])
 @pytest.mark.parametrize("mode", ["kit", "source"])
 def test_prepare_command_parses_with_the_host_parser(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, database_sku: str | None
 ) -> None:
     tmp_path.chmod(0o700)
     plan = tmp_path / "plan"
@@ -209,6 +211,11 @@ def test_prepare_command_parses_with_the_host_parser(
         "remote_entra": None,
         "app_work": str(tmp_path / "application"),
         "timeout_seconds": 1800,
+        "runtime_profile": RuntimeDeploymentProfile.create(
+            runtime_platform="aks",
+            database_placement="postgres-flex",
+            database_sku=database_sku,
+        ),
     }
     if mode == "kit":
         prepare_remote(
@@ -253,3 +260,7 @@ def test_prepare_command_parses_with_the_host_parser(
         assert str(seen["args"].kit) == f"{remote_root}/kit"
     else:
         assert seen["args"].source_snapshot_digest == "d" * 64
+    # The host rebuilds exactly the coordinator's profile, including an explicit database size.
+    assert (
+        RuntimeDeploymentProfile.from_prepare_arguments(seen["args"]) == common["runtime_profile"]
+    )

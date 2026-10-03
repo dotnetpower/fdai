@@ -2432,6 +2432,7 @@ module "state_store" {
   administrator_login    = var.postgres_admin_login
   administrator_password = local.postgres_admin_password
   database_name          = var.workload
+  sku_name               = var.postgres_sku_name
   tags                   = local.tags
 
   # Hardening knobs (default to dev posture; tighten via tfvars for prod).

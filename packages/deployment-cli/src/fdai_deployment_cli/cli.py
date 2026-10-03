@@ -205,6 +205,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         user_node_sku=args.user_node_sku,
         product_add_ons=tuple(args.product_add_ons),
         observation_data_sources=tuple(args.observation_data_sources),
+        database_sku=args.database_sku,
     )
     if catalog_review_profile.selected and args.runtime != "aks":
         raise ValueError("selected catalog review profile requires --runtime aks")

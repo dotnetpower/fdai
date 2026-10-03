@@ -167,6 +167,11 @@ def prepare_remote(
             "--user-node-sku",
             selected_runtime.user_node_sku,
             *(
+                ("--database-sku", selected_runtime.database_sku)
+                if selected_runtime.database_sku is not None
+                else ()
+            ),
+            *(
                 value
                 for add_on in selected_runtime.product_profile.add_ons
                 for value in ("--product-add-on", add_on.value)
