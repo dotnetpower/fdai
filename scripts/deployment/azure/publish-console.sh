@@ -184,25 +184,35 @@ remote_asset="$(mktemp)"
 response_headers="${remote_asset}.headers"
 response_body="${remote_asset}.body"
 trap 'rm -f -- "$remote_asset" "$response_headers" "$response_body"; unset SWA_CLI_DEPLOYMENT_TOKEN deployment_token' EXIT
+# Static Web Apps can serve earlier bytes or 404 briefly after a deployment, so every published
+# file must reach its exact local digest within one bounded readback window.
+readback_deadline=$((SECONDS + 300))
+await_published_content() {
+  local url="$1" local_file="$2" attempt
+  for ((attempt = 1; attempt <= 60; attempt++)); do
+    if curl --fail --silent --show-error --connect-timeout 5 --max-time 20 \
+      "$url" --output "$remote_asset" \
+      && echo "$(sha256sum "$local_file" | cut -d' ' -f1)  $remote_asset" \
+        | sha256sum --check --status; then
+      return 0
+    fi
+    if ((attempt == 60 || SECONDS >= readback_deadline)); then
+      break
+    fi
+    sleep 5
+  done
+  echo "published Console content did not converge within the readback window" >&2
+  return 1
+}
 for published_file in index.html fdai-config.js "${entry_asset#/}"; do
-  curl --fail --silent --show-error --retry 12 --retry-delay 5 \
-    --retry-all-errors --retry-max-time 120 --connect-timeout 5 --max-time 20 \
-    "https://$hostname/$published_file" --output "$remote_asset"
-  echo "$(sha256sum "$console_directory/$published_file" | cut -d' ' -f1)  $remote_asset" \
-    | sha256sum --check --status
+  await_published_content "https://$hostname/$published_file" \
+    "$console_directory/$published_file" || exit 1
 done
-curl --fail --silent --show-error --retry 6 --retry-delay 5 \
-  --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 20 \
-  "https://$hostname/ontology" --output "$remote_asset"
-echo "$(sha256sum "$console_directory/index.html" | cut -d' ' -f1)  $remote_asset" \
-  | sha256sum --check --status
+await_published_content "https://$hostname/ontology" "$console_directory/index.html" || exit 1
 if [[ "$manual_studio_present" == 1 ]]; then
   for manual_file in catalog.json library.html target-architecture.html; do
-    curl --fail --silent --show-error --retry 12 --retry-delay 5 \
-      --retry-all-errors --retry-max-time 120 --connect-timeout 5 --max-time 20 \
-      "https://$hostname/manuals/$manual_file" --output "$remote_asset"
-    echo "$(sha256sum "$console_directory/manuals/$manual_file" | cut -d' ' -f1)  $remote_asset" \
-      | sha256sum --check --status
+    await_published_content "https://$hostname/manuals/$manual_file" \
+      "$console_directory/manuals/$manual_file" || exit 1
   done
 fi
 
