@@ -8,6 +8,7 @@ import type {
 import { createRequire } from "node:module";
 
 import { layoutGantt } from "./gantt.js";
+import { routeMissingEdgeSections } from "./missing-edge-routes.js";
 import {
   layoutCoordinate,
   layoutGrid,
@@ -1824,10 +1825,16 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
   }
   const explicitRoutes = applyExplicitRoutes(spec, edges, nodes, groups);
   const routed = applyFixedSideRoutes(spec, explicitRoutes, nodes);
+  const routedEdges = routeMissingEdgeSections(
+    spec,
+    routed.edges,
+    nodes,
+    groups,
+  );
 
   let routeRight = 0;
   let routeBottom = 0;
-  for (const edge of routed.edges) {
+  for (const edge of routedEdges) {
     const container = edge.container ? groups.get(edge.container) : undefined;
     const offsetX = container?.x ?? 0;
     const offsetY = container?.y ?? 0;
@@ -1871,6 +1878,6 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
     height,
     groups,
     nodes,
-    edges: routed.edges,
+    edges: routedEdges,
   };
 }

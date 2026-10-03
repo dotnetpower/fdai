@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { performance } from "node:perf_hooks";
 import test from "node:test";
+import type { ElkPoint } from "elkjs/lib/elk-api.js";
 
 import { layoutDiagram } from "../src/layout/elk.js";
 import { parseDiagram } from "../src/model/validate.js";
@@ -8,6 +12,116 @@ import {
   roundedEdgePath,
   smoothCurvePath,
 } from "../src/render/svg.js";
+
+function segmentIntersectsBox(
+  start: ElkPoint,
+  end: ElkPoint,
+  box: { x: number; y: number; width: number; height: number },
+  padding = 3,
+): boolean {
+  const left = box.x - padding;
+  const right = box.x + box.width + padding;
+  const top = box.y - padding;
+  const bottom = box.y + box.height + padding;
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  let minimum = 0;
+  let maximum = 1;
+  for (const [origin, delta, low, high] of [
+    [start.x, deltaX, left, right],
+    [start.y, deltaY, top, bottom],
+  ] as const) {
+    if (delta === 0) {
+      if (origin < low || origin > high) return false;
+      continue;
+    }
+    const first = (low - origin) / delta;
+    const second = (high - origin) / delta;
+    minimum = Math.max(minimum, Math.min(first, second));
+    maximum = Math.min(maximum, Math.max(first, second));
+    if (minimum > maximum) return false;
+  }
+  return true;
+}
+
+function sectionPoints(section: {
+  startPoint: ElkPoint;
+  bendPoints?: ElkPoint[];
+  endPoint: ElkPoint;
+}): ElkPoint[] {
+  return [
+    section.startPoint,
+    ...(section.bendPoints ?? []),
+    section.endPoint,
+  ];
+}
+
+function firstSegmentIsPerpendicular(
+  points: ElkPoint[],
+  side: "NORTH" | "EAST" | "SOUTH" | "WEST",
+): boolean {
+  const start = points[0]!;
+  const end = points[1]!;
+  if (side === "EAST") return end.x > start.x && end.y === start.y;
+  if (side === "WEST") return end.x < start.x && end.y === start.y;
+  if (side === "SOUTH") return end.y > start.y && end.x === start.x;
+  return end.y < start.y && end.x === start.x;
+}
+
+function lastSegmentIsPerpendicular(
+  points: ElkPoint[],
+  side: "NORTH" | "EAST" | "SOUTH" | "WEST",
+): boolean {
+  const start = points[points.length - 2]!;
+  const end = points[points.length - 1]!;
+  if (side === "EAST") return start.x > end.x && start.y === end.y;
+  if (side === "WEST") return start.x < end.x && start.y === end.y;
+  if (side === "SOUTH") return start.y > end.y && start.x === end.x;
+  return start.y < end.y && start.x === end.x;
+}
+
+function distanceToRange(value: number, minimum: number, maximum: number): number {
+  if (value < minimum) return minimum - value;
+  if (value > maximum) return value - maximum;
+  return 0;
+}
+
+function segmentBoxDistance(
+  start: ElkPoint,
+  end: ElkPoint,
+  box: { x: number; y: number; width: number; height: number },
+): number {
+  if (start.y === end.y) {
+    const left = Math.min(start.x, end.x);
+    const right = Math.max(start.x, end.x);
+    const nearestX = Math.max(box.x, Math.min(right, box.x + box.width));
+    return Math.hypot(
+      distanceToRange(start.y, box.y, box.y + box.height),
+      distanceToRange(nearestX, left, right),
+    );
+  }
+  if (start.x === end.x) {
+    const top = Math.min(start.y, end.y);
+    const bottom = Math.max(start.y, end.y);
+    const nearestY = Math.max(box.y, Math.min(bottom, box.y + box.height));
+    return Math.hypot(
+      distanceToRange(start.x, box.x, box.x + box.width),
+      distanceToRange(nearestY, top, bottom),
+    );
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+function labelDistanceFromRoute(
+  points: ElkPoint[],
+  label: { x: number; y: number; width: number; height: number },
+): number {
+  return Math.min(
+    ...points.slice(1).map((end, index) =>
+      segmentBoxDistance(points[index]!, end, label)
+    ),
+  );
+}
 
 const source = `
 id: render-sample
@@ -115,6 +229,194 @@ test("lays out nested groups and renders accessible SVG", async () => {
   const core = layout.groups.get("core");
   assert.ok(internalStart && core);
   assert.ok(Number(internalStart[1]) >= core.x + 48);
+});
+
+test("routes flowchart edges that cross group boundaries", async () => {
+  const spec = parseDiagram(`
+id: cross-group-flow
+version: 1
+kind: flowchart
+locales:
+  en: { title: Cross group, description: Cross group, alt: Source sends an event to target. }
+  ko: { title: Cross group, description: Cross group, alt: Source가 target으로 event를 보냅니다. }
+canvas: { width: 800, height: 480, direction: RIGHT }
+groups:
+  - id: left
+    kind: system
+    label: { en: Left, ko: Left }
+  - id: right
+    kind: system
+    label: { en: Right, ko: Right }
+nodes:
+  - id: source
+    parent: left
+    kind: process
+    label: { en: Source, ko: Source }
+  - id: target
+    parent: right
+    kind: process
+    label: { en: Target, ko: Target }
+edges:
+  - id: cross-boundary
+    from: source
+    to: target
+    kind: event
+`);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find((candidate) => candidate.id === "cross-boundary");
+  assert.ok(edge?.sections?.length);
+  const svg = await renderSvg(spec, layout, "en");
+  assert.match(svg, /data-edge-id="cross-boundary"/);
+});
+
+test("routes fallback cross-group edges around unrelated nodes", async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const source = await readFile(
+    path.join(
+      repositoryRoot,
+      "docs/diagrams/fdai-escalation-and-standing-authority-01.diagram.yaml",
+    ),
+    "utf8",
+  );
+  const spec = parseDiagram(source);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find((candidate) => candidate.id === "flow-03");
+  assert.ok(edge?.sections?.length);
+  assert.ok(
+    edge.sections.some((section) => section.id.endsWith("-missing-edge-route")),
+  );
+  const obstacle = layout.nodes.get("r1");
+  assert.ok(obstacle);
+  const crossingSegments = edge.sections.flatMap((section) => {
+    const points = [
+      section.startPoint,
+      ...(section.bendPoints ?? []),
+      section.endPoint,
+    ];
+    return points
+      .slice(1)
+      .filter((end, index) =>
+        segmentIntersectsBox(points[index]!, end, obstacle),
+      );
+  });
+  assert.deepEqual(crossingSegments, []);
+});
+
+test("keeps aligned fallback endpoints straight and perpendicular", async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const source = await readFile(
+    path.join(
+      repositoryRoot,
+      "docs/diagrams/fdai-conceptual-control-loop.diagram.yaml",
+    ),
+    "utf8",
+  );
+  const spec = parseDiagram(source);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find(
+    (candidate) => candidate.id === "context-to-ontology",
+  );
+  assert.ok(edge?.sections?.length);
+  assert.ok(
+    edge.sections.some((section) => section.id.endsWith("-missing-edge-route")),
+  );
+  const points = sectionPoints(edge.sections[0]!);
+  assert.deepEqual(points, [
+    { x: 336, y: 562 },
+    { x: 416, y: 562 },
+  ]);
+});
+
+test("fallback endpoint stubs leave and enter perpendicular to the node side", async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const source = await readFile(
+    path.join(
+      repositoryRoot,
+      "docs/diagrams/fdai-escalation-and-standing-authority-01.diagram.yaml",
+    ),
+    "utf8",
+  );
+  const spec = parseDiagram(source);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find((candidate) => candidate.id === "flow-03");
+  assert.ok(edge?.sections?.length);
+  assert.ok(
+    edge.sections.some((section) => section.id.endsWith("-missing-edge-route")),
+  );
+  const points = sectionPoints(edge.sections[0]!);
+  assert.ok(firstSegmentIsPerpendicular(points, "WEST"));
+  assert.ok(lastSegmentIsPerpendicular(points, "EAST"));
+});
+
+test("keeps fallback labels close to their routed segment", async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const source = await readFile(
+    path.join(
+      repositoryRoot,
+      "docs/diagrams/fdai-escalation-and-standing-authority-01.diagram.yaml",
+    ),
+    "utf8",
+  );
+  const spec = parseDiagram(source);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find((candidate) => candidate.id === "flow-06");
+  assert.ok(edge?.sections?.length);
+  const label = edge.labels?.[0];
+  assert.ok(
+    label?.x !== undefined &&
+      label.y !== undefined &&
+      label.width !== undefined &&
+      label.height !== undefined,
+  );
+  const distance = labelDistanceFromRoute(sectionPoints(edge.sections[0]!), {
+    x: label.x,
+    y: label.y,
+    width: label.width,
+    height: label.height,
+  });
+  assert.ok(distance <= 12, `label is ${distance}px from route`);
+});
+
+test("lays out a dense fallback flowchart within the performance budget", async () => {
+  const nodeRows = 30;
+  const nodes = Array.from({ length: 90 }, (_, index) => {
+    const group = index < nodeRows ? "left" : index < nodeRows * 2 ? "middle" : "right";
+    return `  - id: n${index}
+    parent: ${group}
+    kind: process
+    label: { en: Node ${index}, ko: Node ${index} }`;
+  }).join("\n");
+  const edges = Array.from({ length: 15 }, (_, index) => `  - id: cross-${index}
+    from: n${index}
+    to: n${60 + index}
+    kind: request`).join("\n");
+  const spec = parseDiagram(`
+id: dense-fallback-flow
+version: 1
+kind: flowchart
+locales:
+  en: { title: Dense, description: Dense, alt: Dense fallback flow. }
+  ko: { title: Dense, description: Dense, alt: Dense fallback flow. }
+canvas: { width: 1800, height: 1200, direction: RIGHT }
+groups:
+  - id: left
+    kind: system
+    label: { en: Left, ko: Left }
+  - id: middle
+    kind: system
+    label: { en: Middle, ko: Middle }
+  - id: right
+    kind: system
+    label: { en: Right, ko: Right }
+nodes:
+${nodes}
+edges:
+${edges}
+`);
+  const start = performance.now();
+  await layoutDiagram(spec);
+  const duration = performance.now() - start;
+  assert.ok(duration < 5000, `layout took ${duration.toFixed(1)}ms`);
 });
 
 test("rejects an agent node outside the fixed pantheon", async () => {
