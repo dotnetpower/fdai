@@ -763,6 +763,11 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     assert 'git merge-base --is-ancestor "$source_commit" HEAD' in workflow
     assert "actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71" in workflow
     assert "github.rest.pulls.list" in workflow
+    assert 'state: "all"' in workflow
+    assert 'const terminalState = terminal.merged_at ? "merged" : "closed_unmerged";' in workflow
+    assert '"matching_merged_proposal"' in workflow
+    assert '"matching_closed_unmerged_proposal"' in workflow
+    assert 'core.setOutput("proposal_state", terminalState)' in workflow
     assert "github.rest.pulls.create" in workflow
     assert "github.rest.repos.getContent" in workflow
     assert "github.rest.git.getCommit" in workflow
@@ -782,6 +787,8 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     )
     assert '--source-commit "$SOURCE_COMMIT"' in workflow
     assert '--source-commit "${GITHUB_SHA}"' not in workflow
+    assert "Upload terminal proposal decision" in workflow
+    assert "model-lifecycle-terminal-${{ github.run_id }}-${{ github.run_attempt }}" in workflow
 
 
 def test_proposal_verification_uses_python_canonical_json_for_non_ascii(tmp_path: Path) -> None:

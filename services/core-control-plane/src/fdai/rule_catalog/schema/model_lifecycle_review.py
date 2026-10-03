@@ -32,6 +32,7 @@ class ModelLifecycleProposalReview:
     opened_at: datetime
     expires_at: datetime
     merged_at: datetime | None = None
+    closed_at: datetime | None = None
 
     def __post_init__(self) -> None:
         _require_digest(self.proposal_digest, "proposal_digest")
@@ -52,6 +53,33 @@ class ModelLifecycleProposalReview:
                 raise ValueError("model lifecycle merged_at MUST NOT precede opened_at")
             if self.merged_at > self.expires_at:
                 raise ValueError("model lifecycle merged_at MUST NOT be after expires_at")
+        if self.closed_at is not None:
+            _require_aware(self.closed_at, "closed_at")
+            if self.closed_at < self.opened_at:
+                raise ValueError("model lifecycle closed_at MUST NOT precede opened_at")
+        if self.merged_at is not None and self.closed_at is not None:
+            raise ValueError("model lifecycle proposal MUST NOT be both merged and closed-unmerged")
+
+
+@dataclass(frozen=True, slots=True)
+class ModelLifecycleShadowReplayReceipt:
+    """Bind frozen-scenario replay evidence to a lifecycle acceptance decision."""
+
+    proposal_digest: str
+    source_models_digest: str
+    decision_digest: str
+    result: str
+    replayed_at: datetime
+    scenario_set_digest: str
+
+    def __post_init__(self) -> None:
+        _require_digest(self.proposal_digest, "proposal_digest")
+        _require_digest(self.source_models_digest, "source_models_digest")
+        _require_digest(self.decision_digest, "decision_digest")
+        _require_digest(self.scenario_set_digest, "scenario_set_digest")
+        if self.result not in {"passed", "failed"}:
+            raise ValueError("model lifecycle shadow replay result MUST be passed or failed")
+        _require_aware(self.replayed_at, "replayed_at")
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,8 +102,9 @@ def evaluate_model_lifecycle_review(
     *,
     current_models_digest: str,
     evaluated_at: datetime,
+    shadow_replay: ModelLifecycleShadowReplayReceipt | None = None,
 ) -> ModelLifecycleReviewDecision:
-    """Hold expired unmerged capabilities only while the source digest is current."""
+    """Evaluate one trusted proposal without granting mapping or execution authority."""
 
     _require_digest(current_models_digest, "current_models_digest")
     _require_aware(evaluated_at, "evaluated_at")
@@ -87,9 +116,31 @@ def evaluate_model_lifecycle_review(
             held_capabilities=(),
             evaluated_at=evaluated_at,
         )
+    if proposal.closed_at is not None:
+        if proposal.closed_at > evaluated_at:
+            raise ValueError("model lifecycle closed_at MUST NOT be after evaluated_at")
+        return _decision(
+            proposal,
+            status=ModelLifecycleReviewStatus.HOLD,
+            reason_code="proposal_closed_unmerged",
+            held_capabilities=proposal.affected_capabilities,
+            evaluated_at=evaluated_at,
+        )
     if proposal.merged_at is not None:
         if proposal.merged_at > evaluated_at:
             raise ValueError("model lifecycle merged_at MUST NOT be after evaluated_at")
+        shadow_replay_reason = _shadow_replay_hold_reason(
+            proposal,
+            shadow_replay=shadow_replay,
+        )
+        if shadow_replay_reason is not None:
+            return _decision(
+                proposal,
+                status=ModelLifecycleReviewStatus.HOLD,
+                reason_code=shadow_replay_reason,
+                held_capabilities=proposal.affected_capabilities,
+                evaluated_at=evaluated_at,
+            )
         return _decision(
             proposal,
             status=ModelLifecycleReviewStatus.MERGED,
@@ -112,6 +163,48 @@ def evaluate_model_lifecycle_review(
         held_capabilities=(),
         evaluated_at=evaluated_at,
     )
+
+
+def model_lifecycle_acceptance_decision_digest(
+    proposal: ModelLifecycleProposalReview,
+) -> str:
+    """Return the stable acceptance decision digest a shadow replay receipt must bind."""
+
+    body = {
+        "decision_kind": "model_lifecycle_registry_acceptance",
+        "status": ModelLifecycleReviewStatus.MERGED.value,
+        "reason_code": "proposal_merged",
+        "held_capabilities": (),
+        "proposal_digest": proposal.proposal_digest,
+        "source_models_digest": proposal.source_models_digest,
+        "mapping_authority": False,
+        "execution_authority": False,
+    }
+    return hashlib.sha256(
+        json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _shadow_replay_hold_reason(
+    proposal: ModelLifecycleProposalReview,
+    *,
+    shadow_replay: ModelLifecycleShadowReplayReceipt | None,
+) -> str | None:
+    if shadow_replay is None:
+        return "shadow_replay_missing"
+    if (
+        shadow_replay.proposal_digest != proposal.proposal_digest
+        or shadow_replay.source_models_digest != proposal.source_models_digest
+        or shadow_replay.decision_digest != model_lifecycle_acceptance_decision_digest(proposal)
+    ):
+        return "shadow_replay_mismatch"
+    if shadow_replay.result != "passed":
+        return "shadow_replay_failed"
+    if shadow_replay.replayed_at < proposal.opened_at or (
+        proposal.merged_at is not None and shadow_replay.replayed_at > proposal.merged_at
+    ):
+        return "shadow_replay_stale"
+    return None
 
 
 def _decision(
@@ -160,5 +253,7 @@ __all__ = [
     "ModelLifecycleProposalReview",
     "ModelLifecycleReviewDecision",
     "ModelLifecycleReviewStatus",
+    "ModelLifecycleShadowReplayReceipt",
     "evaluate_model_lifecycle_review",
+    "model_lifecycle_acceptance_decision_digest",
 ]
