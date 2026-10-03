@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Literal
@@ -162,6 +162,7 @@ async def execute_ontology_retrieval_campaign(
     clock: Callable[[], datetime],
     budget: OntologyRetrievalExecutionBudget,
     evidence: OntologyEvaluationEvidence | None = None,
+    resource_type_query_terms: Mapping[str, Sequence[str]] | None = None,
 ) -> OntologyRetrievalExecutionReport:
     """Prepare and measure one frozen corpus through isolated, caller-owned storage.
 
@@ -172,6 +173,7 @@ async def execute_ontology_retrieval_campaign(
     counted before dispatch, including failures. Parent cancellation propagates.
     Supply an open evidence writer for live diagnostics; it records call intent before
     dispatch and persists stage/terminal reports here, not in a later session-only writer.
+    Supply the same reviewed ResourceType terms used to build the frozen generation.
     """
     started = asyncio.get_running_loop().time()
     deadline = started + budget.total_timeout_seconds
@@ -205,7 +207,9 @@ async def execute_ontology_retrieval_campaign(
     try:
         _check_deadline(preparation_deadline)
         async with asyncio.timeout_at(preparation_deadline):
-            snapshots = OntologyGenerationSnapshotStore(state)
+            snapshots = OntologyGenerationSnapshotStore(
+                state, resource_type_query_terms=resource_type_query_terms
+            )
             staged = await snapshots.stage_manifest_from_gateway(
                 gateway=gateway,
                 manifest=manifest,

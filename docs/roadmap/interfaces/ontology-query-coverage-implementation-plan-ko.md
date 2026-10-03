@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: db6f370c351cb17c31eade467c65c2cda36a40d3
-translation_revised: 2026-10-02
+translation_source_sha: a88b9de8f0c622bab4ad93a90d22cc16e867a886
+translation_revised: 2026-10-03
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -438,6 +438,9 @@ ResourceType 레지스트리의 Resource 하위 유형 용어를 제공할 수 �
 만들거나, 접근 권한을 부여하거나, 의미를 추론하거나, no-match를 입증하지 않습니다.
 이 문서 표면을 바꾸면 고정된 generation 다이제스트가 바뀌며, 보정 평가 결과를 주장하기
 전에 변경된 문서만 다시 임베딩해야 합니다.
+진단 실행기는 운영 준비 경로와 동일한 `resource_type_query_terms` 매핑을 받습니다.
+호출자는 고정된 빌드에 사용한 검토된 레지스트리를 제공해야 합니다. 누락되거나 변경된
+용어로 문서 식별자가 달라지면 임베딩을 호출하기 전에 준비를 중단합니다.
 
 문서 임베딩 전과 보정 평가 전에 현재 원본을 검증합니다. 호출 전후마다 임베딩 공간, 모델
 버전과 차원이 고정된 세대와 일치해야 합니다. 보정 평가가 실패하면 홀드아웃을 실행하지
