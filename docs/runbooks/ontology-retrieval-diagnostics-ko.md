@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: 6c1b75c68119bc14dccca39c87c9c7d9abe0b912
+translation_source_sha: b1c92ed07e32e1558c47166b60285c4b6d763b75
 translation_revised: 2026-10-03
 ---
 
@@ -97,6 +97,31 @@ v2 보정 자료에는 단일 대상 정답 32개, 복수 대상 정답 8개와 
 활성화는 계속 차단된 상태입니다. 고정된 기존 순위 검색 보고서로 이 경로의 품질을 인정하지
 않습니다. 모델과 프롬프트 출처, 실제 의미 제안 평가와 새로 검토한 홀드아웃이 여전히 필요합니다.
 
+## 진단용 모델 어댑터로 의미 제안
+
+`FileSystemPromptRegistry`에서 `semantic.query.plan`의
+`diagnostic.ontology-candidate-selection`을 명시적으로 선택하고 `PromptAssembler`로
+컴파일하세요. 이 프로필은 관찰 모드(`shadow`)이며 현재 활성 계획 프로필을 대체하지 않습니다.
+
+컴파일된 계획 본문과 재생 매니페스트, 정확히 한 대상, 5초 이하의 제한 시간으로 별도의
+`AzureOpenAISemanticPlanningModel`을 구성하세요. 질문, 매니페스트, 완전한 정규 빌드와
+준비된 스냅샷을 `propose_candidate_selection`에 전달합니다. 원본 검증기는 호출 전에
+세대와 principal 매니페스트를 확인합니다. 문맥이 128 KiB를 넘거나 입력 최소화 후 내용이
+바뀌거나 프롬프트 한도를 넘으면 호출을 보류합니다. 문서를 알리지 않고 빼지 않습니다.
+
+결과에는 입력 다이제스트와 전송된 프롬프트 및 스키마의 재생 매니페스트를 포함한 모델
+관측 정보가 남습니다. 선택 결과에는 형식화된 절과 절마다 정확한 원문 인용이 포함됩니다.
+인용 검증은 출처를 확인할 뿐 의미가 올바르게 해석됐음을 입증하지 않습니다. 명확화
+결과에는 명시적 사유가 있으며 선택 정보는 없습니다. **판독기를 호출하기 전에 명확화를
+처리하세요.** `search(selection=...)`에 `None`을 전달하면 명확화가 아니라 기존 순위
+검색 경로가 선택됩니다.
+
+이 진단 메서드는 한 번만 시도합니다. 제공자 실패, 잘못된 JSON, 불완전한 모델 응답,
+잘못된 인용과 제한 시간 초과를 빈 검색 성공으로 바꾸지 않습니다. 일반 프레임 및 계획
+제안의 재시도 동작은 변경하지 않습니다. 실제 호출 승인, 모델과 버전의 실측 확인, 호출별
+영속 근거, 평가 연결 정보와 전체 예산은 계속 호출자가 책임집니다. 모의 어댑터 검사는
+실제 품질이나 런타임 활성화 자격을 입증하지 않습니다.
+
 ## 테스트
 
 ```bash
@@ -124,6 +149,15 @@ uv run pytest -q --no-cov \
 
 이 검사는 형식화된 조건을 직접 제공하며 실제 모델을 호출하지 않습니다. 자연어 이해
 품질을 측정하는 검사가 아닙니다.
+
+모델 경계, 실제 진단 프로필과 기존 계획 동작은 다음 명령으로 검사합니다.
+
+```bash
+uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/azure/llm/test_ontology_candidate_proposal.py \
+  services/core-control-plane/tests/delivery/azure/llm/test_semantic_planning.py \
+  services/core-control-plane/tests/core/prompts/test_profiles.py
+```
 
 ## 관련 문서
 

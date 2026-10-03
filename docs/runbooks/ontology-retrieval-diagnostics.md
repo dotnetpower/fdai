@@ -92,6 +92,31 @@ An earlier embedding-ranking qualification cannot enable this new strategy. Runt
 remains disabled. The frozen raw-ranking reports don't qualify this path: model/prompt provenance,
 actual semantic proposal evaluation and a newly reviewed holdout are still required.
 
+## Propose meaning with the diagnostic model adapter
+
+Explicitly resolve `diagnostic.ontology-candidate-selection` for `semantic.query.plan` from
+`FileSystemPromptRegistry` and compile it with `PromptAssembler`. This is an observation-mode
+profile (`shadow`), not a replacement for the active plan profile.
+
+Configure a separate `AzureOpenAISemanticPlanningModel` with that compiled plan text and replay
+manifest, exactly one target and a timeout no greater than five seconds. Call
+`propose_candidate_selection` with the query, manifest, complete canonical build and staged
+snapshot. The source validator checks the generation and principal manifest before dispatch.
+Context above 128 KiB, changed content after input minimization, and prompt-budget overflow hold
+the call; no document is silently omitted.
+
+The result retains an input digest and the adapter's model observation, including the transmitted
+prompt/schema replay manifest. A selection carries typed clauses and one exact source quote per
+clause. Quotes verify attribution, not semantic entailment. A clarification carries its explicit
+reason and no selection. **Handle clarification before calling the reader:** passing `None` to
+`search(selection=...)` would select the pre-existing raw retrieval path, not a clarification.
+
+This diagnostic method permits one attempt only. Provider failures, invalid JSON, incomplete
+model choices, invalid quotes and deadline expiry never become successful empty searches. It
+doesn't change ordinary frame/plan retry behavior. The caller still owns live authorization,
+actual model/version attestation, durable per-call evidence, evaluation binding and total budgets.
+Mocked adapter tests don't establish live quality or qualify runtime activation.
+
 ## Testing
 
 ```bash
@@ -119,6 +144,15 @@ uv run pytest -q --no-cov \
 
 These tests supply typed conditions directly and make no live model request. They don't measure
 natural-language understanding.
+
+The model boundary, real diagnostic profile and existing planning behavior are covered by:
+
+```bash
+uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/azure/llm/test_ontology_candidate_proposal.py \
+  services/core-control-plane/tests/delivery/azure/llm/test_semantic_planning.py \
+  services/core-control-plane/tests/core/prompts/test_profiles.py
+```
 
 ## Related docs
 
