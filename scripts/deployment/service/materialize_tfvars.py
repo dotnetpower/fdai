@@ -818,7 +818,7 @@ def main() -> int:
                 "",
             ),
             runtime_call_evidence=_optional_object_environment("RUNTIME_CALL_EVIDENCE_JSON"),
-            cost_pseudonym_key_secret_id=os.environ.get("COST_PSEUDONYM_KEY_SECRET_ID"),
+            cost_pseudonym_key_secret_id=os.environ.get("COST_PSEUDONYM_KEY_SECRET_ID") or None,
             source_revision=os.environ.get("SOURCE_REVISION"),
         )
         write_tfvars(args.output, selected)

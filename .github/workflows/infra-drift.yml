@@ -157,6 +157,9 @@ jobs:
           pipeline_stage_topic="$(jq -er '.pipeline_stage_topic' <<<"$platform_inputs")"
           pantheon_object_topic="$(jq -er '.pantheon_object_topic' <<<"$platform_inputs")"
           model_endpoints_json="$(jq -cer '.model_endpoints' <<<"$platform_inputs")"
+          cost_pseudonym_key_secret_id="$(
+            jq -r '.cost_pseudonym_key_secret_id // ""' <<<"$platform_inputs"
+          )"
           resolved_models_digest="$(
             python3 -c 'import hashlib,json,sys; payload=json.load(sys.stdin); canonical=json.dumps(payload,separators=(",",":"),sort_keys=True).encode(); print(hashlib.sha256(canonical).hexdigest())' \
               <<<"$RESOLVED_MODELS_JSON"
@@ -177,6 +180,15 @@ jobs:
             if [[ "$service" == "core-control-plane" ]]; then
               resolved_model_args+=(--model-binding-transition)
               source_revision_binding="$TARGET_COMMIT_SHA"
+            fi
+            cost_pseudonym_binding=""
+            if [[ "$service" == "operator-service" ]]; then
+              [[ -n "$cost_pseudonym_key_secret_id" ]] || {
+                echo "Platform state has no Cost pseudonym key binding for $root_id." >&2
+                echo "Drift evidence failed: $root_id" >&2
+                exit 1
+              }
+              cost_pseudonym_binding="$cost_pseudonym_key_secret_id"
             fi
             terraform -chdir="$terraform_root" init -input=false -lockfile=readonly \
               -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
@@ -204,6 +216,7 @@ jobs:
               | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
                 RESOLVED_MODELS_DIGEST="$resolved_models_digest" \
                 SOURCE_REVISION="$source_revision_binding" \
+                COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_binding" \
                 python3 scripts/deployment/service/materialize_tfvars.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \

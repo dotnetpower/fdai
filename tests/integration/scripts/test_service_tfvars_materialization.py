@@ -267,6 +267,41 @@ def test_rejects_cost_pseudonym_key_binding_for_another_service(tfvars: ModuleTy
         )
 
 
+_COST_KEY_ID = "https://kv-example.vault.azure.net/secrets/fdai-cost-pseudonym-key"
+
+
+@pytest.mark.parametrize(
+    ("service", "binding", "expected"),
+    [
+        ("isolated-executor", "", None),
+        ("operator-service", _COST_KEY_ID, _COST_KEY_ID),
+    ],
+)
+def test_cli_treats_an_empty_cost_pseudonym_binding_as_absent(
+    tfvars: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    service: str,
+    binding: str,
+    expected: str | None,
+) -> None:
+    # Deploy and drift workflows always export the variable, empty for other services.
+    output = tmp_path / "service.tfvars.json"
+    payload = {"environments": {"dev": {service: {"name": "example", "platform": {}}}}}
+    monkeypatch.setenv("COST_PSEUDONYM_KEY_SECRET_ID", binding)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["materialize_tfvars.py", "--service", service, "--environment", "dev"]
+        + ["--output", str(output)],
+    )
+
+    assert tfvars.main() == 0
+    written = json.loads(output.read_text(encoding="utf-8"))
+    assert written.get("cost_pseudonym_key_secret_id") == expected
+
+
 def test_binds_the_same_exact_runtime_call_resource_ids_for_core(tfvars: ModuleType) -> None:
     payload = {
         "environments": {
