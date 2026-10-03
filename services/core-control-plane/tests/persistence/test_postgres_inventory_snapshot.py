@@ -1440,3 +1440,128 @@ async def test_snapshot_covered_delete_is_history_only(
         )
         assert (await journal.fetchone()) == (1,)
         assert (await pending.fetchone()) == (0,)
+
+
+async def _observation_watermarks() -> dict[str, object]:
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        cursor = await connection.execute(
+            "SELECT value FROM state_kv WHERE key='inventory-observation:watermarks'"
+        )
+        row = await cursor.fetchone()
+    assert row is not None
+    return cast(dict[str, object], row[0])
+
+
+def _late_vm_change(resource_id: str, event_id: str, last_seen: str) -> dict[str, object]:
+    return {
+        "event_id": event_id,
+        "idempotency_key": f"inventory-{event_id}",
+        "inventory_change": {
+            "kind": "upsert",
+            "resource": {
+                "resource_id": resource_id,
+                "type": "compute.vm",
+                "props": {"name": event_id},
+                "provider_ref": None,
+                "last_seen": last_seen,
+            },
+            "links": [],
+        },
+    }
+
+
+async def test_snapshot_covered_delta_closes_only_a_projected_ontology_fence() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    journal = PostgresInventoryObservationJournal(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    resource_id = f"rg-fence/vm-{attempt}"
+    await _promote_with_journal(
+        config,
+        store,
+        attempt,
+        manifest,
+        InventoryBatch(
+            resources=(ResourceRecord(resource_id, "compute.vm", {"name": "snapshot"}),),
+        ),
+    )
+    assert manifest.started_at is not None
+    started_at = manifest.started_at
+    before_snapshot = (started_at - timedelta(seconds=1)).isoformat()
+    projector = PostgresInventoryDeltaProjector(
+        config=config,
+        clock=lambda: started_at + timedelta(seconds=1),
+    )
+
+    unprojected = await _observation_watermarks()
+    early = await projector(
+        _late_vm_change(resource_id, f"fence-before-ontology-commit-{attempt}", before_snapshot)
+    )
+
+    assert early.outcome is InventoryDeltaApplyOutcome.SNAPSHOT_COVERED
+    held_before_commit = await _observation_watermarks()
+    assert int(cast(int, held_before_commit["journal_high_watermark"])) > int(
+        cast(int, unprojected["journal_high_watermark"])
+    )
+    assert (
+        held_before_commit["ontology_projection_watermark"]
+        == unprojected["ontology_projection_watermark"]
+    )
+
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        prior_cursor = await connection.execute(
+            "SELECT value FROM state_kv WHERE key='inventory-ontology:manifest'"
+        )
+        prior_manifest = await prior_cursor.fetchone()
+        await connection.execute(
+            "INSERT INTO state_kv (key, value, updated_at) "
+            "VALUES ('inventory-ontology:manifest', %s, NOW()) "
+            "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=EXCLUDED.updated_at",
+            (Jsonb({"generation": attempt, "manifest_digest": "sha256:" + "f" * 64}),),
+        )
+        await connection.commit()
+    try:
+        await journal.mark_ontology_projected(
+            generation=attempt,
+            watermark=int(cast(int, held_before_commit["journal_high_watermark"])),
+        )
+
+        covered = await projector(
+            _late_vm_change(resource_id, f"fence-late-covered-{attempt}", before_snapshot)
+        )
+
+        assert covered.outcome is InventoryDeltaApplyOutcome.SNAPSHOT_COVERED
+        closed = await _observation_watermarks()
+        assert int(cast(int, closed["journal_high_watermark"])) > int(
+            cast(int, held_before_commit["journal_high_watermark"])
+        )
+        assert closed["ontology_projection_watermark"] == closed["journal_high_watermark"]
+        assert closed["overlay_projection_watermark"] == closed["journal_high_watermark"]
+        assert closed["ontology_generation"] == attempt
+
+        newer = await projector(
+            _late_vm_change(
+                resource_id, f"fence-newer-than-generation-{attempt}", _after_snapshot(manifest, 1)
+            )
+        )
+
+        assert newer.outcome is InventoryDeltaApplyOutcome.APPLIED
+        held = await _observation_watermarks()
+        assert int(cast(int, held["journal_high_watermark"])) > int(
+            cast(int, closed["journal_high_watermark"])
+        )
+        assert held["ontology_projection_watermark"] == closed["journal_high_watermark"]
+    finally:
+        async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+            if prior_manifest is None:
+                await connection.execute(
+                    "DELETE FROM state_kv WHERE key='inventory-ontology:manifest'"
+                )
+            else:
+                await connection.execute(
+                    "UPDATE state_kv SET value=%s WHERE key='inventory-ontology:manifest'",
+                    (Jsonb(prior_manifest[0]),),
+                )
+            await connection.commit()

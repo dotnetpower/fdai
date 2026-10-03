@@ -273,7 +273,7 @@ or hydration retries cannot drift forward and skip changes. This anchor is commi
 first provider query or publication, so a failed first attempt reuses the same boundary.
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
-does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
+does not bind resource incarnations, create pending tombstones, or mutate the current overlay. When the ontology graph has already committed the covering active generation, the same transaction advances the ontology projection fence across the contiguous covered journal tail. A late provider delivery therefore cannot hold deployment closure or scheduler demand open, while a change newer than that generation still waits for complete reconciliation.
 A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
 later poll can observe either the Resource or its delete record. A returned Resource type outside
 the reviewed mapping catalog is skipped without blocking later changes; malformed hydration still
