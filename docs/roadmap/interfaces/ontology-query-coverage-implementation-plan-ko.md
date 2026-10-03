@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 65f368bba42c6076a8bf30ac47e8a288f51ad31f
+translation_source_sha: 7d1a045060419c661011ef9163b70cb9753db038
 translation_revised: 2026-10-03
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -459,9 +459,9 @@ ResourceType 레지스트리의 Resource 하위 유형 용어를 제공할 수 �
 대상은 거부합니다. 추가 전용 JSONL에는 고정된 계획과 한도, 전송 전 호출 의도, 완료된
 각 단계, 최종 보고서 또는 범위가 제한된 중단 근거를 기록합니다. 보정 평가를 디스크에
 반영한 뒤에만 홀드아웃을 시작합니다. Pydantic JSON 모드와 `fsync`를 사용하며 기록당
-4 MiB, 실행당 16 MiB와 134개 기록으로 제한합니다. 기록에 실패하면 기록 없이 호출을
-계속하지 않고 실행을 중단합니다. 취소 증적 저장에 실패해도 저장 오류를 명시하고 취소는
-그대로 전달합니다.
+4 MiB, 실행당 16 MiB와 134개 기록으로 제한하며, 벡터 보존을 명시적으로 선택하면 최대
+262개 기록을 허용합니다. 기록 실패 시 추가 호출을 중단합니다. 취소 증적 저장에 실패해도
+오류를 명시하고 취소는 전달합니다. [보정 및 재생 안내](../../runbooks/ontology-retrieval-diagnostics-ko.md)를 참조하세요.
 
 호출 의도는 실제 전송의 증명이 아닙니다. 기록과 제공자 호출 사이에 기한이 만료되거나
 작업이 중단될 수 있으므로 최종 호출 횟수가 있으면 그 값을 사용합니다. 마지막 줄이 쓰이는

@@ -1,0 +1,83 @@
+# Ontology retrieval diagnostics
+
+Use these synthetic datasets to diagnose instance-candidate retrieval before considering runtime
+activation. Neither a dataset, an offline replay, nor a passing diagnostic grants production
+qualification or execution authority.
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| [instance-corpus.v1.json](../../eval/ontology-retrieval/instance-corpus.v1.json) | Frozen 24-object fixture across four ObjectTypes. |
+| [instance-calibration.v1.json](../../eval/ontology-retrieval/instance-calibration.v1.json) | Historical 24-query calibration; preserve its questions and labels. |
+| [instance-calibration.v2.json](../../eval/ontology-retrieval/instance-calibration.v2.json) | Expanded 64-query calibration, including all v1 calibration cases unchanged. |
+| [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | Spent holdout. Preserve its evidence; don't tune on it or reuse it for qualification. |
+
+The v2 calibration has 32 singleton positives, eight multi-target positives and 24 no-match cases.
+Each language covers four distinct singleton targets per type and at least four samples for every
+measured cohort metric. Separate-context agent review checked all 64 labels against the corpus and
+declarations. Two initially ambiguous fallback instructions were corrected before measurement.
+This is label review only: synthetic coverage is not representative production evidence or human
+approval. Both qualification-related metadata flags remain `false`.
+
+## Run calibration without opening a holdout
+
+Use `prepare_ontology_retrieval_campaign` and `execute_ontology_retrieval_campaign` with
+`calibration_only=True` and `holdout_cases=()`. Supply v2 calibration cases, the real canonical
+document build, secured gateway, isolated storage and the exact reviewed ResourceType terms.
+Standalone calibration enforces every policy cohort and sample floor before embedding.
+
+The input binding includes case order, labels, source documents and both policies. The expected
+upper bound is 92 embedding requests: 28 documents and 64 questions. Existing execution ceilings
+remain 128 requests, 600 seconds overall, 120 seconds preparation and five seconds per call.
+Preparation and source/model checks are shared with the full campaign.
+
+Inspect `report.campaign.calibration.passed` for the calibration outcome. A calibration-only
+report has no holdout and its full-campaign `passed` remains `False`, even if calibration passed.
+Use a newly frozen and independently reviewed disjoint holdout for later qualification.
+
+## Retain and replay vectors privately
+
+For a separately authorized live diagnostic, select
+`OntologyEvaluationEvidence(new_private_path, source_commit=attested_sha, retain_vectors=True)`.
+Vector retention is opt-in; the default writer doesn't retain vectors. The caller still owns
+target attestation, consent, private storage and cleanup.
+
+Each completed embedding records its exact UTF-8 input digest, model identity, dimension, call
+index and validated vector. Input text isn't copied into these records. Vectors are still derived
+data: keep the evidence private and outside Git. The writer uses exclusive mode-0600 creation and
+flushes each result before another call. The existing 4 MiB record and 16 MiB file limits remain;
+opt-in vector retention permits at most 262 records for the bounded 128-call attempt.
+
+Load `OntologyEvaluationReplayEmbedder.from_evidence` with the expected whole-file SHA-256 digest
+(`sha256:<hex>`), full source commit and `(space_id, model_version, dimension)` tuple. Supply this
+adapter to the same executor with fresh isolated state and the unchanged source documents.
+Replay accepts only complete private regular files with consistent intent/result pairs and model
+identity. Missing vectors, different text bytes, corrupt records and mismatched pins fail without
+a provider fallback. Re-recorded offline output cannot refresh the original capture provenance.
+
+Reports distinguish `embedding_source="offline_replay"` from `caller_supplied` and retain
+`replay_evidence_digest`. `embedding_calls` counts interface requests, not live provider calls
+when replaying. `caller_supplied` alone doesn't attest that a real provider ran. File/model pins
+establish consistency, not provider authenticity, representativeness or activation authority.
+
+## Testing
+
+```bash
+uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_assets.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_campaign.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_execution.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_replay.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_evidence.py
+```
+
+These checks use deterministic vectors. They establish mechanics and data admission, not actual
+embedding relevance.
+
+## Related docs
+
+| To learn about | Read |
+|---------------|------|
+| Query contracts and diagnostic boundaries | [Ontology query coverage](../roadmap/interfaces/ontology-query-coverage-implementation-plan.md) |
+| Current evidence and remaining gates | [Implementation ledger](../roadmap-implementation/interfaces/ontology-query-coverage-implementation-plan.md) |

@@ -36,6 +36,7 @@ def _plan(
     calibration: tuple[OntologyRetrievalEvaluationCase, ...] | None = None,
     holdout: tuple[OntologyRetrievalEvaluationCase, ...] | None = None,
     ranking: CatalogRankingPolicy = _RANKING,
+    calibration_only: bool = False,
 ) -> OntologyRetrievalCampaignPlan:
     return prepare_ontology_retrieval_campaign(
         build=harness.build,
@@ -45,6 +46,7 @@ def _plan(
         ranking_policy=ranking,
         evaluation_policy=_POLICY,
         required_object_types=_TYPES,
+        calibration_only=calibration_only,
     )
 
 
@@ -95,6 +97,60 @@ async def test_calibration_and_holdout_use_same_reader_without_qualification() -
     assert report.calibration.production_qualification is False
     assert report.holdout.production_qualification is False
     assert report.digest != replace(report, holdout=None).digest
+
+
+async def test_standalone_calibration_has_no_holdout_and_binds_its_exact_order() -> None:
+    harness = await _harness()
+    plan = _plan(harness, calibration=_cases(), holdout=(), calibration_only=True)
+    assert plan.holdout_binding_digest is None
+    assert plan.embedding_call_upper_bound == len(harness.build.documents) + len(_cases())
+    assert plan != _plan(
+        harness, calibration=tuple(reversed(_cases())), holdout=(), calibration_only=True
+    )
+    report = await run_ontology_retrieval_campaign(
+        expected_binding_digest=plan.binding_digest,
+        build=harness.build,
+        manifest=harness.manifest,
+        calibration_cases=_cases(),
+        holdout_cases=(),
+        ranking_policy=_RANKING,
+        evaluation_policy=_POLICY,
+        required_object_types=_TYPES,
+        reader=harness.reader,
+        snapshots=harness.snapshots,
+        staged=harness.staged,
+        gateway=harness.gateway,
+        clock=lambda: harness.clock.now,
+        total_timeout_seconds=1,
+        query_timeout_seconds=1,
+        calibration_only=True,
+    )
+    assert report.calibration.passed
+    assert report.calibration.stage == "calibration"
+    assert len(report.calibration.measurements) == len(_cases())
+    assert report.holdout is None
+    assert not report.passed
+    assert report.production_qualification is False
+
+
+@pytest.mark.parametrize("mutation", ["holdout", "missing-cohort", "sample-floor"])
+async def test_standalone_calibration_cannot_bypass_floors_or_open_a_holdout(
+    mutation: str,
+) -> None:
+    harness = await _harness()
+    cases = _cases()
+    if mutation == "missing-cohort":
+        cases = tuple(item for item in cases if item.cohort != "en-negative")
+    elif mutation == "sample-floor":
+        cases = cases[1:]
+    with pytest.raises(ValueError):
+        _plan(
+            harness,
+            calibration=cases,
+            holdout=_cases() if mutation == "holdout" else (),
+            calibration_only=True,
+        )
+    assert harness.embedder.calls == 0
 
 
 async def test_campaign_binds_order_labels_and_policy_before_any_query() -> None:

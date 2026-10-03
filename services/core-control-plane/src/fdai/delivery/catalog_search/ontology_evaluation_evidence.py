@@ -13,7 +13,15 @@ from typing import Literal
 from pydantic import TypeAdapter
 from pydantic_core import PydanticSerializationError
 
-_Event = Literal["started", "embedding_call_intent", "stage", "completed", "aborted", "cancelled"]
+_Event = Literal[
+    "started",
+    "embedding_call_intent",
+    "embedding_result",
+    "stage",
+    "completed",
+    "aborted",
+    "cancelled",
+]
 _MAX_RECORD_BYTES = 4 * 1024 * 1024
 _MAX_FILE_BYTES = 16 * 1024 * 1024
 
@@ -46,9 +54,13 @@ class OntologyEvaluationEvidence:
     The caller owns the private local parent directory, isolation and later cleanup.
     """
 
-    def __init__(self, path: Path, *, source_commit: str | None = None) -> None:
+    def __init__(
+        self, path: Path, *, source_commit: str | None = None, retain_vectors: bool = False
+    ) -> None:
         if source_commit is not None and re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
             raise ValueError("ontology evidence source commit must be a full lowercase Git SHA")
+        if retain_vectors and source_commit is None:
+            raise ValueError("ontology vector retention requires a source commit")
         self._path = path
         self._source_commit = source_commit
         self._descriptor: int | None = None
@@ -57,6 +69,12 @@ class OntologyEvaluationEvidence:
         self._failed = False
         self._entered = False
         self._terminal = False
+        self._retain_vectors = retain_vectors
+
+    @property
+    def retain_vectors(self) -> bool:
+        """Explicit opt-in to private vector retention, without retaining source text."""
+        return self._retain_vectors
 
     def __enter__(self) -> OntologyEvaluationEvidence:
         if self._entered:
@@ -104,6 +122,8 @@ class OntologyEvaluationEvidence:
         try:
             if (event == "started") != (self._sequence == 0):
                 raise ValueError("ontology evidence must start exactly once")
+            if event == "embedding_result" and not self._retain_vectors:
+                raise ValueError("ontology vector retention was not selected")
             encoded = (
                 _RECORD.dump_json(
                     _Record(
@@ -121,7 +141,7 @@ class OntologyEvaluationEvidence:
             if (
                 len(encoded) > _MAX_RECORD_BYTES
                 or self._bytes + len(encoded) > _MAX_FILE_BYTES
-                or self._sequence >= 134
+                or self._sequence >= (262 if self._retain_vectors else 134)
             ):
                 raise ValueError("ontology evidence exceeds its bounded capacity")
             remaining = memoryview(encoded)

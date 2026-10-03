@@ -29,6 +29,10 @@ from .ontology_evaluation_evidence import (
     OntologyEvaluationEvidence,
     OntologyEvaluationEvidenceError,
 )
+from .ontology_evaluation_replay import (
+    OntologyEvaluationReplayEmbedder,
+    embedding_result_payload,
+)
 from .ontology_evaluation_runner import OntologyRetrievalEvaluationReport
 from .ontology_snapshot_store import OntologyGenerationSnapshotStore
 from .ontology_snapshot_validation import validate_snapshot_against_current_graph
@@ -64,6 +68,9 @@ class OntologyRetrievalExecutionReport:
     budget: OntologyRetrievalExecutionBudget
     embedding_calls: int
     elapsed_seconds: float
+    embedding_source: Literal["caller_supplied", "offline_replay"] = "caller_supplied"
+    replay_evidence_digest: str | None = None
+    calibration_only: bool = False
     production_qualification: Literal[False] = field(default=False, init=False)
     execution_authority: Literal[False] = field(default=False, init=False)
 
@@ -137,6 +144,14 @@ class _BudgetedEmbedder:
             vector = await self._embedder.embed(text)
         _check_deadline(deadline)
         self.validate_identity()
+        if self._evidence is not None and self._evidence.retain_vectors:
+            self._evidence.record(
+                "embedding_result",
+                embedding_result_payload(
+                    text, vector, call_index=self.calls, identity=self._identity
+                ),
+            )
+            _check_deadline(deadline)
         return vector
 
 
@@ -163,6 +178,7 @@ async def execute_ontology_retrieval_campaign(
     budget: OntologyRetrievalExecutionBudget,
     evidence: OntologyEvaluationEvidence | None = None,
     resource_type_query_terms: Mapping[str, Sequence[str]] | None = None,
+    calibration_only: bool = False,
 ) -> OntologyRetrievalExecutionReport:
     """Prepare and measure one frozen corpus through isolated, caller-owned storage.
 
@@ -174,6 +190,7 @@ async def execute_ontology_retrieval_campaign(
     Supply an open evidence writer for live diagnostics; it records call intent before
     dispatch and persists stage/terminal reports here, not in a later session-only writer.
     Supply the same reviewed ResourceType terms used to build the frozen generation.
+    Calibration-only mode requires every cohort and sample floor but accepts no holdout.
     """
     started = asyncio.get_running_loop().time()
     deadline = started + budget.total_timeout_seconds
@@ -186,6 +203,7 @@ async def execute_ontology_retrieval_campaign(
         ranking_policy=ranking_policy,
         evaluation_policy=evaluation_policy,
         required_object_types=required_object_types,
+        calibration_only=calibration_only,
     )
     if plan.binding_digest != expected_binding_digest:
         raise ValueError("ontology campaign frozen input binding changed")
@@ -284,6 +302,7 @@ async def execute_ontology_retrieval_campaign(
             query_timeout_seconds=min(budget.call_timeout_seconds, remaining),
             deadline=deadline,
             record_stage=record_stage,
+            calibration_only=calibration_only,
         )
         completed_campaign = report
         _check_deadline(deadline)
@@ -342,7 +361,21 @@ async def execute_ontology_retrieval_campaign(
                 raise cancelled from failure
         raise
     result = OntologyRetrievalExecutionReport(
-        report, budget, bounded.calls, asyncio.get_running_loop().time() - started
+        report,
+        budget,
+        bounded.calls,
+        asyncio.get_running_loop().time() - started,
+        embedding_source=(
+            "offline_replay"
+            if isinstance(embedder, OntologyEvaluationReplayEmbedder)
+            else "caller_supplied"
+        ),
+        replay_evidence_digest=(
+            embedder.evidence_digest
+            if isinstance(embedder, OntologyEvaluationReplayEmbedder)
+            else None
+        ),
+        calibration_only=calibration_only,
     )
     if evidence is not None:
         evidence.record("completed", {"report": asdict(result), "campaign_digest": report.digest})

@@ -17,6 +17,7 @@ from fdai.delivery.catalog_search.ontology_evaluation_execution import (
     _BudgetedEmbedder,
     execute_ontology_retrieval_campaign,
 )
+from fdai.shared.providers.knowledge import Embedder
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from pydantic import TypeAdapter
 from tests.delivery.catalog_search.test_ontology_evaluation import _POLICY, _TYPES, _cases
@@ -42,7 +43,7 @@ class _BoundEmbedder(_Embedder):
 
 async def _execute(
     harness: _Harness,
-    embedder: _BoundEmbedder,
+    embedder: Embedder,
     *,
     budget: OntologyRetrievalExecutionBudget = _BUDGET,
     expected: str | None = None,
