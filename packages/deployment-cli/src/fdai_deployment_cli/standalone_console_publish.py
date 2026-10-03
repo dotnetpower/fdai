@@ -17,6 +17,7 @@ from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.standalone_host_state import replace_private_json
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
+_PUBLISHER_FIXED_REASON = re.compile(r'echo "([^"$`\\]+)" >&2')
 
 
 def publish_verified_console(
@@ -92,7 +93,11 @@ def publish_verified_console(
         timeout=timeout_seconds,
     )
     if completed.returncode != 0:
-        raise ValueError("prebuilt Console publication or browser verification failed")
+        reason = _publisher_failure_reason(scripts / "publish-console.sh", completed.stderr)
+        raise ValueError(
+            "prebuilt Console publication or browser verification failed"
+            + (f": {reason}" if reason else "")
+        )
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-console-publication.v1",
         "state": "verified" if verify_only else "published",
@@ -112,6 +117,19 @@ def publish_verified_console(
     receipt["receipt_digest"] = canonical_digest(receipt)
     replace_private_json(prepared_root / "console-publication-receipt.json", receipt)
     return receipt
+
+
+def _publisher_failure_reason(publisher: Path, stderr: str | None) -> str | None:
+    """Return the publisher's final literal failure reason, never a variable diagnostic."""
+
+    try:
+        fixed_reasons = set(_PUBLISHER_FIXED_REASON.findall(publisher.read_text(encoding="utf-8")))
+    except OSError:
+        return None
+    for line in reversed((stderr or "").splitlines()):
+        if line.strip():
+            return line.strip() if line.strip() in fixed_reasons else None
+    return None
 
 
 def _require_archive_digest(path: Path, expected_digest: str) -> None:

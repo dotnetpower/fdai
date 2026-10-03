@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 75a3bd67d100174c7b39d871b1b2fd5a8ea96b40
+translation_source_sha: 5eff43551efe62e50921172a533311d97c23b23e
 translation_revised: 2026-10-03
 ---
 # 런타임 배포 프로파일
@@ -127,7 +127,7 @@ APIM 연결을 읽고, 기존 Entra SPA 등록에 정확한 SWA redirect를 추�
 빌드된 Console을 게시합니다. 테넌트 프로비저닝에서는 npm build를 실행하지 않습니다. 완료로
 판단하려면 원격 산출물 hash, SPA route fallback, 두 API 상태 확인, 정확한 origin의 authorization
 preflight, `/audit`의 인증되지 않은 요청에 대한 `401`, 구성한 Console origin으로 돌아오는 Entra
-redirect를 모두 확인해야 합니다.
+redirect를 모두 확인해야 합니다. Static Web Apps는 배포 직후 잠시 이전 바이트나 `404`를 반환할 수 있으므로, 게시한 각 파일은 최대 60회 시도 또는 5분인 하나의 제한된 재조회 창 안에서 정확한 로컬 digest에 도달해야 합니다. 실패하면 게시 스크립트의 고정 사유만 보고하며, 가변적인 endpoint 진단은 보고하지 않습니다.
 기존 개발 Container Apps 설치는 `fdaictl provision console-update`를 통해 정적 Console만
 갱신할 수 있습니다. 산출물 생성은 보호된 소스를 사용하는 별도 단계로 유지합니다. 갱신 계획은
 후보 하나, 별도의 롤백 산출물 하나, 기존 Static Web App 대상 및 20분 만료를 함께 결속합니다.
