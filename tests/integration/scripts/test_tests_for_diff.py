@@ -340,6 +340,30 @@ def test_question_bank_inputs_are_discovered() -> None:
     assert len(_QUESTION_BANK_INPUTS) >= 13
 
 
+def test_ontology_platform_selects_inventory_and_runtime_tests(git_repo: Path) -> None:
+    inventory_test = git_repo / _INVENTORY_TEST
+    inventory_test.parent.mkdir(parents=True)
+    inventory_test.write_text("\n", encoding="utf-8")
+    runtime_test = _core_test(git_repo, "core", "ontology_platform", "test_object_sets.py")
+    runtime_test.parent.mkdir(parents=True)
+    runtime_test.write_text("\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert (
+        _run(git_repo, "git", "commit", "--quiet", "-m", "add ontology test owners").returncode == 0
+    )
+    source = _core_source(git_repo, "core", "ontology_platform", "object_sets.py")
+    source.parent.mkdir(parents=True)
+    source.write_text("value = 1\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "services/core-control-plane/tests/core/ontology_platform",
+        _INVENTORY_TEST,
+    ]
+
+
 @pytest.mark.parametrize("path", _QUESTION_BANK_INPUTS)
 def test_question_bank_input_selects_bank_and_inventory_tests(git_repo: Path, path: str) -> None:
     for test in (_QUESTION_BANK_TEST, _INVENTORY_TEST):
