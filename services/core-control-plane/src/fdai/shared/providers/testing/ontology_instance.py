@@ -18,6 +18,7 @@ from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
     can_repeat_link,
+    json_values_equal,
     normalize_json_value,
     normalize_link_record,
     normalize_object_record,
@@ -243,8 +244,7 @@ class InMemoryOntologyInstanceStore:
             if (not selected_types or item.object_type in selected_types)
             and (not selected_ids or item.id in selected_ids)
             and all(
-                _json_values_equal(item.properties.get(key), value)
-                for key, value in filters.items()
+                json_values_equal(item.properties.get(key), value) for key, value in filters.items()
             )
             and all(
                 isinstance(item.properties.get(key), str) and item.properties.get(key) in values
@@ -382,12 +382,6 @@ class InMemoryOntologyInstanceStore:
 def _validate_limit(limit: int) -> None:
     if not 1 <= limit <= 1000:
         raise ValueError("limit MUST be in [1, 1000]")
-
-
-def _json_values_equal(left: Any, right: Any) -> bool:
-    if isinstance(left, bool) or isinstance(right, bool):
-        return isinstance(left, bool) and isinstance(right, bool) and left == right
-    return bool(left == right)
 
 
 __all__ = ["InMemoryOntologyInstanceStore"]

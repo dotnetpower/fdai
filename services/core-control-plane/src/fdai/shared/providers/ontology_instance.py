@@ -168,6 +168,28 @@ def canonical_json_mapping(value: Mapping[str, Any], *, path: str) -> tuple[dict
     return normalized, encoded
 
 
+def json_values_equal(left: object, right: object) -> bool:
+    """Compare bounded canonical JSON, including immutable projections, without bool coercion."""
+
+    if isinstance(left, bool) or isinstance(right, bool):
+        return isinstance(left, bool) and isinstance(right, bool) and left == right
+    if isinstance(left, Mapping) or isinstance(right, Mapping):
+        return (
+            isinstance(left, Mapping)
+            and isinstance(right, Mapping)
+            and left.keys() == right.keys()
+            and all(json_values_equal(left[key], right[key]) for key in left)
+        )
+    if isinstance(left, Sequence) and not isinstance(left, (str, bytes, bytearray)):
+        return (
+            isinstance(right, Sequence)
+            and not isinstance(right, (str, bytes, bytearray))
+            and len(left) == len(right)
+            and all(json_values_equal(a, b) for a, b in zip(left, right, strict=True))
+        )
+    return left == right
+
+
 def normalize_object_record(record: OntologyObjectRecord) -> OntologyObjectRecord:
     properties, _ = canonical_json_mapping(
         record.properties,
@@ -511,6 +533,7 @@ __all__ = [
     "OntologyInstanceValidationError",
     "OntologyLinkRecord",
     "OntologyObjectRecord",
+    "json_values_equal",
     "normalize_json_value",
     "normalize_link_record",
     "normalize_object_record",

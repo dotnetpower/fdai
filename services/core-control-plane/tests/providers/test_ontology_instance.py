@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import MappingProxyType
 
 import pytest
 from fdai.shared.contracts.models import (
@@ -17,9 +18,30 @@ from fdai.shared.providers.ontology_instance import (
     OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
+    json_values_equal,
     normalize_json_value,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+
+
+@pytest.mark.parametrize(
+    ("left", "right", "expected"),
+    (
+        (MappingProxyType({"flag": (True,)}), {"flag": [1]}, False),
+        (MappingProxyType({"count": (1,)}), {"count": [1.0]}, True),
+        ([1, 2], (1.0, 2), True),
+        ([], (), True),
+        ([], "", False),
+        (["a"], "a", False),
+        (None, None, True),
+        (None, 0, False),
+    ),
+)
+def test_json_equality_supports_immutable_projections(
+    left: object, right: object, expected: bool
+) -> None:
+    assert json_values_equal(left, right) is expected
+    assert json_values_equal(right, left) is expected
 
 
 def test_normalize_json_value_rejects_excessive_nesting() -> None:
