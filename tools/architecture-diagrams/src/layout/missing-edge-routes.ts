@@ -23,7 +23,15 @@ interface Candidate {
   cost: number;
 }
 
+interface LabelBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 const ENDPOINT_STUB = 12;
+const MAX_LANES_PER_AXIS = 24;
 
 interface UsedSegment {
   edgeId: string;
@@ -229,6 +237,16 @@ function laneValues(
     ]),
     ...midpointGaps(intervals),
   ]);
+}
+
+function limitedLanes(values: number[], center: number): number[] {
+  if (values.length <= MAX_LANES_PER_AXIS) return values;
+  return values
+    .map((value) => ({ value, distance: Math.abs(value - center) }))
+    .sort((left, right) => left.distance - right.distance || left.value - right.value)
+    .slice(0, MAX_LANES_PER_AXIS)
+    .map((entry) => entry.value)
+    .sort((left, right) => left - right);
 }
 
 function attachmentSpan(shape: PositionedShape, side: Side): number {
@@ -483,16 +501,16 @@ function routeCandidates(
       segment.start.y - LANE_OVERLAP_TOLERANCE - 8,
       segment.start.y + LANE_OVERLAP_TOLERANCE + 8,
     ]);
-  const shiftedYLanes = uniqueSorted([
+  const shiftedYLanes = limitedLanes(uniqueSorted([
     ...yLanes,
     ...occupiedYLanes,
     ...yLanes.map((lane) => Math.max(0, lane + laneOffset)),
-  ]);
-  const shiftedXLanes = uniqueSorted([
+  ]), (source.y + target.y) / 2);
+  const shiftedXLanes = limitedLanes(uniqueSorted([
     ...xLanes,
     ...occupiedXLanes,
     ...xLanes.map((lane) => Math.max(0, lane + laneOffset)),
-  ]);
+  ]), (source.x + target.x) / 2);
   const candidates = [
     ...(directRouteAllowed(sourceAnchor, targetAnchor)
       ? [sectionFromPoints(edgeId, [sourceAnchor.point, targetAnchor.point])]
@@ -623,7 +641,7 @@ function orthogonalFallbackSection(
 ): ElkEdgeSection {
   const anchor = anchors(edgeId, sourceId, targetId, source, target, endpointUses);
   const allNodes = [...nodes.values()];
-  const candidates: Candidate[] = [];
+  let fallback: Candidate | undefined;
   for (const sourceSide of uniqueSides(anchor.source.side)) {
     const sourceAnchor = anchorForSide(
       edgeId,
@@ -643,37 +661,46 @@ function orthogonalFallbackSection(
       const sidePenalty =
         (sourceSide === anchor.source.side ? 0 : 600) +
         (targetSide === anchor.target.side ? 0 : 600);
-      candidates.push(
-        ...routeCandidates(
-          edgeId,
-          sourceAnchor.anchor,
-          targetAnchor.anchor,
-          allNodes,
-          sourceAnchor.offset || targetAnchor.offset || anchor.laneOffset,
+      const candidates = routeCandidates(
+        edgeId,
+        sourceAnchor.anchor,
+        targetAnchor.anchor,
+        allNodes,
+        sourceAnchor.offset || targetAnchor.offset || anchor.laneOffset,
+        sourceId,
+        targetId,
+        usedSegments,
+      );
+      for (const candidate of candidates) {
+        const overlap = maximumUnrelatedOverlap(
+          candidate.section,
           sourceId,
           targetId,
           usedSegments,
-        ).map((candidate) => ({
+        );
+        const scored = {
           ...candidate,
-          cost:
-            candidate.cost +
-            sidePenalty +
-            maximumUnrelatedOverlap(
-              candidate.section,
-              sourceId,
-              targetId,
-              usedSegments,
-            ) * 1000,
-        })),
-      );
+          cost: candidate.cost + sidePenalty + overlap * 1000,
+        };
+        if (!fallback || scored.cost < fallback.cost) fallback = scored;
+        if (
+          overlap <= 40 &&
+          sectionIsClear(candidate.section, allNodes, sourceId, targetId)
+        ) {
+          return candidate.section;
+        }
+      }
     }
   }
-  candidates.sort((left, right) => left.cost - right.cost);
+  return fallback!.section;
+}
+
+function intersectsBox(left: LabelBox, right: LabelBox, padding = 0): boolean {
   return (
-    candidates.find((candidate) =>
-      sectionIsClear(candidate.section, allNodes, sourceId, targetId)
-    )
-      ?.section ?? candidates[0]!.section
+    left.x < right.x + right.width - padding &&
+    left.x + left.width > right.x + padding &&
+    left.y < right.y + right.height - padding &&
+    left.y + left.height > right.y + padding
   );
 }
 
@@ -681,9 +708,8 @@ function labelPosition(
   section: ElkEdgeSection,
   width: number,
   height: number,
-  source: PositionedShape,
-  target: PositionedShape,
   nodes: Iterable<PositionedShape>,
+  usedLabels: LabelBox[],
 ): { x: number; y: number } {
   const points = [
     section.startPoint,
@@ -709,24 +735,54 @@ function labelPosition(
     longestHorizontal ??
     segments.sort((left, right) => right.length - left.length)[0];
   const nodeList = [...nodes];
-  const midpointX =
-    (source.x + source.width / 2 + target.x + target.width / 2) / 2;
   const clear = (candidate: { x: number; y: number }): boolean => {
+    const box = { ...candidate, width, height };
     for (const node of nodeList) {
       if (
-        candidate.x < node.x + node.width - 2 &&
-        candidate.x + width > node.x + 2 &&
-        candidate.y < node.y + node.height - 2 &&
-        candidate.y + height > node.y + 2
+        intersectsBox(box, node, 2)
       ) {
         return false;
       }
     }
-    return true;
+    return usedLabels.every((label) => !intersectsBox(box, label, 1));
   };
-  const fallback = !segment
-    ? { x: section.startPoint.x, y: section.startPoint.y }
-    : segment.start.y === segment.end.y
+  const routeCandidates = segments.flatMap((routeSegment) => {
+    const fractions = [0.5, 0.33, 0.67, 0.2, 0.8];
+    return fractions.flatMap((fraction) => {
+      const x =
+        routeSegment.start.x +
+        (routeSegment.end.x - routeSegment.start.x) * fraction;
+      const y =
+        routeSegment.start.y +
+        (routeSegment.end.y - routeSegment.start.y) * fraction;
+      if (routeSegment.start.y === routeSegment.end.y) {
+        return [
+          { x: x - width / 2, y: y - height - 6 },
+          { x: x - width / 2, y: y + 6 },
+        ];
+      }
+      if (routeSegment.start.x === routeSegment.end.x) {
+        return [
+          { x: x + 8, y: y - height / 2 },
+          { x: x - width - 8, y: y - height / 2 },
+        ];
+      }
+      return [];
+    });
+  }).map((candidate) => ({
+    x: Math.max(0, candidate.x),
+    y: Math.max(0, candidate.y),
+  }));
+  const routeCandidate = routeCandidates.find(clear);
+  if (routeCandidate) return routeCandidate;
+  if (!segment) {
+    return {
+      x: section.startPoint.x,
+      y: section.startPoint.y,
+    };
+  }
+  const fallback =
+    segment.start.y === segment.end.y
       ? {
           x: (segment.start.x + segment.end.x) / 2 - width / 2,
           y: segment.start.y - height - 6,
@@ -735,33 +791,8 @@ function labelPosition(
           x: segment.start.x + 8,
           y: (segment.start.y + segment.end.y) / 2 - height / 2,
         };
-  const candidates = [
-    fallback,
-    {
-      x: midpointX - width / 2,
-      y: Math.min(source.y, target.y) - height - 10,
-    },
-    {
-      x: midpointX - width / 2,
-      y: Math.max(source.y + source.height, target.y + target.height) + 10,
-    },
-    {
-      x: Math.min(source.x, target.x) - width - 10,
-      y:
-        (source.y + target.y + source.height / 2 + target.height / 2) / 2 -
-        height / 2,
-    },
-    {
-      x: Math.max(source.x + source.width, target.x + target.width) + 10,
-      y:
-        (source.y + target.y + source.height / 2 + target.height / 2) / 2 -
-        height / 2,
-    },
-  ].map((candidate) => ({
-    x: Math.max(0, candidate.x),
-    y: Math.max(0, candidate.y),
-  }));
-  return candidates.find(clear) ?? fallback;
+  if (clear(fallback)) return fallback;
+  return routeCandidates[0] ?? fallback;
 }
 
 function endpointUses(
@@ -827,6 +858,25 @@ export function routeMissingEdgeSections(
 ): ElkExtendedEdge[] {
   const specEdgeById = new Map(spec.edges.map((edge) => [edge.id, edge]));
   const uses = endpointUses(spec, edges, nodes, groups);
+  const usedLabels: LabelBox[] = edges.flatMap((edge) =>
+    (edge.labels ?? [])
+      .filter(
+        (label) =>
+          label.x !== undefined &&
+          label.y !== undefined &&
+          label.width !== undefined &&
+          label.height !== undefined,
+      )
+      .map((label) => {
+        const container = edge.container ? groups.get(edge.container) : undefined;
+        return {
+          x: label.x! + (container?.x ?? 0),
+          y: label.y! + (container?.y ?? 0),
+          width: label.width!,
+          height: label.height!,
+        };
+      }),
+  );
   const usedSegments = edges.flatMap((edge) =>
     (edge.sections?.length ?? 0) > 0
       ? collectUsedSegments(spec, edge, groups)
@@ -857,9 +907,8 @@ export function routeMissingEdgeSections(
         section,
         label.width ?? 0,
         label.height ?? 0,
-        source,
-        target,
         nodes.values(),
+        usedLabels,
       ),
     }));
     const next: ElkExtendedEdge = {
@@ -868,6 +917,21 @@ export function routeMissingEdgeSections(
       ...(labels ? { labels } : {}),
     };
     delete next.container;
+    for (const label of next.labels ?? []) {
+      if (
+        label.x !== undefined &&
+        label.y !== undefined &&
+        label.width !== undefined &&
+        label.height !== undefined
+      ) {
+        usedLabels.push({
+          x: label.x,
+          y: label.y,
+          width: label.width,
+          height: label.height,
+        });
+      }
+    }
     usedSegments.push(...collectUsedSegments(spec, next, groups));
     return next;
   });

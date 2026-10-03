@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 import test from "node:test";
 import type { ElkPoint } from "elkjs/lib/elk-api.js";
 
@@ -77,6 +78,49 @@ function lastSegmentIsPerpendicular(
   if (side === "WEST") return start.x < end.x && start.y === end.y;
   if (side === "SOUTH") return start.y > end.y && start.x === end.x;
   return start.y < end.y && start.x === end.x;
+}
+
+function distanceToRange(value: number, minimum: number, maximum: number): number {
+  if (value < minimum) return minimum - value;
+  if (value > maximum) return value - maximum;
+  return 0;
+}
+
+function segmentBoxDistance(
+  start: ElkPoint,
+  end: ElkPoint,
+  box: { x: number; y: number; width: number; height: number },
+): number {
+  if (start.y === end.y) {
+    const left = Math.min(start.x, end.x);
+    const right = Math.max(start.x, end.x);
+    const nearestX = Math.max(box.x, Math.min(right, box.x + box.width));
+    return Math.hypot(
+      distanceToRange(start.y, box.y, box.y + box.height),
+      distanceToRange(nearestX, left, right),
+    );
+  }
+  if (start.x === end.x) {
+    const top = Math.min(start.y, end.y);
+    const bottom = Math.max(start.y, end.y);
+    const nearestY = Math.max(box.y, Math.min(bottom, box.y + box.height));
+    return Math.hypot(
+      distanceToRange(start.x, box.x, box.x + box.width),
+      distanceToRange(nearestY, top, bottom),
+    );
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+function labelDistanceFromRoute(
+  points: ElkPoint[],
+  label: { x: number; y: number; width: number; height: number },
+): number {
+  return Math.min(
+    ...points.slice(1).map((end, index) =>
+      segmentBoxDistance(points[index]!, end, label)
+    ),
+  );
 }
 
 const source = `
@@ -302,6 +346,77 @@ test("fallback endpoint stubs leave and enter perpendicular to the node side", a
   const points = sectionPoints(edge.sections[0]!);
   assert.ok(firstSegmentIsPerpendicular(points, "WEST"));
   assert.ok(lastSegmentIsPerpendicular(points, "EAST"));
+});
+
+test("keeps fallback labels close to their routed segment", async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const source = await readFile(
+    path.join(
+      repositoryRoot,
+      "docs/diagrams/fdai-escalation-and-standing-authority-01.diagram.yaml",
+    ),
+    "utf8",
+  );
+  const spec = parseDiagram(source);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find((candidate) => candidate.id === "flow-06");
+  assert.ok(edge?.sections?.length);
+  const label = edge.labels?.[0];
+  assert.ok(
+    label?.x !== undefined &&
+      label.y !== undefined &&
+      label.width !== undefined &&
+      label.height !== undefined,
+  );
+  const distance = labelDistanceFromRoute(sectionPoints(edge.sections[0]!), {
+    x: label.x,
+    y: label.y,
+    width: label.width,
+    height: label.height,
+  });
+  assert.ok(distance <= 12, `label is ${distance}px from route`);
+});
+
+test("lays out a dense fallback flowchart within the performance budget", async () => {
+  const nodeRows = 30;
+  const nodes = Array.from({ length: 90 }, (_, index) => {
+    const group = index < nodeRows ? "left" : index < nodeRows * 2 ? "middle" : "right";
+    return `  - id: n${index}
+    parent: ${group}
+    kind: process
+    label: { en: Node ${index}, ko: Node ${index} }`;
+  }).join("\n");
+  const edges = Array.from({ length: 15 }, (_, index) => `  - id: cross-${index}
+    from: n${index}
+    to: n${60 + index}
+    kind: request`).join("\n");
+  const spec = parseDiagram(`
+id: dense-fallback-flow
+version: 1
+kind: flowchart
+locales:
+  en: { title: Dense, description: Dense, alt: Dense fallback flow. }
+  ko: { title: Dense, description: Dense, alt: Dense fallback flow. }
+canvas: { width: 1800, height: 1200, direction: RIGHT }
+groups:
+  - id: left
+    kind: system
+    label: { en: Left, ko: Left }
+  - id: middle
+    kind: system
+    label: { en: Middle, ko: Middle }
+  - id: right
+    kind: system
+    label: { en: Right, ko: Right }
+nodes:
+${nodes}
+edges:
+${edges}
+`);
+  const start = performance.now();
+  await layoutDiagram(spec);
+  const duration = performance.now() - start;
+  assert.ok(duration < 5000, `layout took ${duration.toFixed(1)}ms`);
 });
 
 test("rejects an agent node outside the fixed pantheon", async () => {

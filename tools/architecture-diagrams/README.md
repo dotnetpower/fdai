@@ -249,11 +249,14 @@ orthogonal fallback after final placement. Fallback routes leave and enter their
 endpoint side with a short perpendicular stub, spread shared-side attachments,
 and avoid long shared lanes with unrelated fallback edges. Only the first
 source stub and the last target stub may touch their endpoint boxes. The
-integrity gate then fails any remaining specification edge that has no drawn
-path, whose fallback path crosses a non-stub endpoint or an unrelated node, or
-whose unrelated fallback lane overlaps for more than 40 px within the
-stroke-width tolerance, so generated SVGs cannot silently omit, hide, or merge
-authored relationships.
+fallback label search stays adjacent to the route segments, and candidate
+generation is bounded so dense generated diagrams stay deterministic and fast.
+The integrity gate then fails any remaining specification edge that has no
+drawn path, whose fallback label is detached from the route, whose fallback path
+crosses a non-stub endpoint or an unrelated node, or whose unrelated fallback
+lane overlaps for more than 40 px within the stroke-width tolerance. Generated
+SVGs therefore cannot silently omit, hide, detach, or merge authored
+relationships.
 
 ## Viewer accessibility
 

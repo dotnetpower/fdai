@@ -130,6 +130,44 @@ function labelBox(
   };
 }
 
+function distanceToRange(value: number, minimum: number, maximum: number): number {
+  if (value < minimum) return minimum - value;
+  if (value > maximum) return value - maximum;
+  return 0;
+}
+
+function segmentBoxDistance(
+  start: ElkPoint,
+  end: ElkPoint,
+  box: Box,
+): number {
+  if (start.y === end.y) {
+    const left = Math.min(start.x, end.x);
+    const right = Math.max(start.x, end.x);
+    return Math.hypot(
+      distanceToRange(start.y, box.y, box.y + box.height),
+      distanceToRange(Math.max(box.x, Math.min(right, box.x + box.width)), left, right),
+    );
+  }
+  if (start.x === end.x) {
+    const top = Math.min(start.y, end.y);
+    const bottom = Math.max(start.y, end.y);
+    return Math.hypot(
+      distanceToRange(start.x, box.x, box.x + box.width),
+      distanceToRange(Math.max(box.y, Math.min(bottom, box.y + box.height)), top, bottom),
+    );
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+function routeLabelDistance(points: ElkPoint[], box: Box): number {
+  return Math.min(
+    ...points.slice(1).map((end, index) =>
+      segmentBoxDistance(points[index]!, end, box)
+    ),
+  );
+}
+
 export function layoutIntegrityErrors(
   spec: DiagramSpec,
   layout: DiagramLayout,
@@ -209,6 +247,26 @@ export function layoutIntegrityErrors(
         continue;
       }
       edgeLabelBoxes.push(box);
+      if ((edge.sections ?? []).some((section) => section.id.endsWith("-missing-edge-route"))) {
+        const minimumDistance = Math.min(
+          ...(edge.sections ?? []).map((section) => {
+            const points = [
+              section.startPoint,
+              ...(section.bendPoints ?? []),
+              section.endPoint,
+            ].map((point) => ({
+              x: point.x + (container?.x ?? 0),
+              y: point.y + (container?.y ?? 0),
+            }));
+            return routeLabelDistance(points, box);
+          }),
+        );
+        if (minimumDistance > 12) {
+          errors.push(
+            `Edge '${edge.id}' label is ${Math.round(minimumDistance)}px from its route`,
+          );
+        }
+      }
       for (const node of nodes) {
         if (intersects(box, node, 2)) {
           errors.push(`Edge '${edge.id}' label overlaps node '${node.id}'`);

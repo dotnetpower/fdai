@@ -286,6 +286,55 @@ test("reports fallback edges that re-enter their own endpoint after the stub", (
   );
 });
 
+test("reports fallback edge labels placed far from their route", () => {
+  const labelSpec: DiagramSpec = {
+    ...spec,
+    groups: [],
+    nodes: [
+      { id: "a", kind: "process", label: { en: "A", ko: "A" } },
+      { id: "b", kind: "process", label: { en: "B", ko: "B" } },
+    ],
+    edges: [
+      {
+        id: "fallback",
+        from: "a",
+        to: "b",
+        kind: "request",
+        label: { en: "Far", ko: "Far" },
+      },
+    ],
+  };
+  const invalid: DiagramLayout = {
+    width: 320,
+    height: 200,
+    groups: new Map(),
+    nodes: new Map([
+      ["a", { id: "a", x: 0, y: 0, width: 40, height: 40, depth: 1 }],
+      ["b", { id: "b", x: 200, y: 0, width: 40, height: 40, depth: 1 }],
+    ]),
+    edges: [
+      {
+        id: "fallback",
+        sources: ["a"],
+        targets: ["b"],
+        labels: [{ id: "fallback-label", x: 160, y: 160, width: 40, height: 20 }],
+        sections: [
+          {
+            id: "fallback-missing-edge-route",
+            startPoint: { x: 40, y: 20 },
+            endPoint: { x: 200, y: 20 },
+          },
+        ],
+      },
+    ],
+  };
+  assert.ok(
+    layoutIntegrityErrors(labelSpec, invalid).some((error) =>
+      error.startsWith("Edge 'fallback' label is "),
+    ),
+  );
+});
+
 test("reports overlapping edge labels", () => {
   const invalid = layout();
   invalid.edges.push(
