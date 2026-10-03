@@ -108,6 +108,12 @@ Non-billable elements included in the deployment (see
 - App registration + workload identity federation.
 - Diagnostic Settings forwarders themselves (cost sits in the Event Hubs row).
 
+Row 6 is the day-zero size. An installation can select a larger PostgreSQL Flexible Server size
+with `--database-sku`, and an AKS installation with every baseline service typically needs one.
+A General Purpose `GP_Standard_D2ds_v5` server adds roughly $110 - $130 per month in common
+regions. The deployment CLI's compute cost review excludes the database, so price the selected
+size separately against the monthly ceiling.
+
 ## Monthly Envelope (Historical Planning Snapshot, Model Cost Excluded)
 
 Combining the categories above under the baseline assumptions:

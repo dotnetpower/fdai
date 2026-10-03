@@ -1,8 +1,8 @@
 ---
 title: 비용 모델 (예시)
 translation_of: cost-model.md
-translation_source_sha: 317a396d19b6c1d72c65c0587baf2598957833a5
-translation_revised: 2026-09-28
+translation_source_sha: bac8fe8b6d90db2410eaa919d64003f85e0a49e2
+translation_revised: 2026-10-03
 ---
 
 # 비용 모델 (예시)
@@ -104,6 +104,11 @@ translation_revised: 2026-09-28
 - Static Web Apps Free 계층 (읽기 전용 콘솔 호스팅).
 - App 등록 + 워크로드 신원 federation.
 - Diagnostic Settings 포워더 자체 (비용은 Event Hubs 행에 있음).
+
+6행은 초기 크기입니다. 설치는 `--database-sku`로 더 큰 PostgreSQL Flexible Server 크기를 선택할 수
+있으며, 모든 기본 서비스를 갖춘 AKS 설치에는 보통 더 큰 크기가 필요합니다. General Purpose
+`GP_Standard_D2ds_v5` 서버는 일반적인 지역에서 월 약 $110 - $130가 추가됩니다. 배포 CLI의 컴퓨팅
+비용 검토는 데이터베이스를 제외하므로 선택한 크기는 월 상한에 맞춰 따로 산정하세요.
 
 ## 월간 묶음 (초기 계획 수립 스냅샷, 모델 비용 제외)
 

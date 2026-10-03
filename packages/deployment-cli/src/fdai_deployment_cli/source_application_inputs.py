@@ -72,6 +72,7 @@ def add_prepare_source_parser(subcommands: Subparsers, handler: object) -> None:
     prepare_source.add_argument("--user-node-min-count", type=int, default=3)
     prepare_source.add_argument("--user-node-max-count", type=int, default=5)
     prepare_source.add_argument("--user-node-sku", default="Standard_D4as_v5")
+    prepare_source.add_argument("--database-sku")
     prepare_source.add_argument(
         "--product-add-on",
         action="append",

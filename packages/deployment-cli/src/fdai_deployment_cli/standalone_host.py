@@ -236,6 +236,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--user-node-min-count", type=int, default=3)
     prepare.add_argument("--user-node-max-count", type=int, default=5)
     prepare.add_argument("--user-node-sku", default="Standard_D4as_v5")
+    prepare.add_argument("--database-sku")
     prepare.add_argument(
         "--product-add-on",
         action="append",
@@ -384,17 +385,7 @@ def _verify_source_runtime(args: argparse.Namespace, _work_dir: Path) -> dict[st
 def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     _private_directory(work_dir)
     handoff = _private_json(_absolute(args.handoff), "Foundation handoff")
-    runtime_profile = RuntimeDeploymentProfile.create(
-        runtime_platform=str(args.runtime_platform),
-        database_placement=str(args.database_placement),
-        system_node_count=int(args.system_node_count),
-        system_node_sku=args.system_node_sku,
-        user_node_min_count=int(args.user_node_min_count),
-        user_node_max_count=int(args.user_node_max_count),
-        user_node_sku=str(args.user_node_sku),
-        product_add_ons=tuple(args.product_add_on),
-        observation_data_sources=tuple(args.observation_source),
-    )
+    runtime_profile = RuntimeDeploymentProfile.from_prepare_arguments(args)
     enterprise_identity_selected = runtime_profile.product_profile.selects(
         ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE
     )

@@ -41,6 +41,23 @@ variable "enable_ohl_scale_out_evidence_target" {
   default     = false
 }
 
+variable "postgres_sku_name" {
+  description = "PostgreSQL Flexible Server SKU. The deployment profile selects a larger size explicitly; the default keeps the day-zero Burstable B1ms."
+  type        = string
+  default     = "B_Standard_B1ms"
+
+  validation {
+    condition = contains([
+      "B_Standard_B1ms",
+      "B_Standard_B2s",
+      "B_Standard_B2ms",
+      "GP_Standard_D2ds_v5",
+      "GP_Standard_D4ds_v5",
+    ], var.postgres_sku_name)
+    error_message = "postgres_sku_name must be a supported PostgreSQL Flexible Server SKU."
+  }
+}
+
 variable "enable_operational_evidence_verifier" {
   description = "Provision the dedicated non-executor identity used by the independent operational evidence verifier. The workload remains opt-in and disabled by default."
   type        = bool
