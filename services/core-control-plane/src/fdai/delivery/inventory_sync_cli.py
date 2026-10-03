@@ -19,11 +19,9 @@ from fdai_service_contracts import InventoryProgressStage
 from fdai.core.ontology_platform.runtime_call_telemetry import RuntimeCallTelemetryProducer
 from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
 from fdai.delivery.aks_subscription_discovery import (
-    AksSubscriptionDiscoveryConfig,
     AksSubscriptionDiscoveryError,
     AksUnavailableScope,
     AzureAksSubscriptionBindingDiscovery,
-    StateStoreAksSubscriptionBindingCache,
     subscription_scope_digest,
 )
 from fdai.delivery.azure.arg_projection import to_neutral_id
@@ -593,18 +591,14 @@ async def _discover_subscription_kubernetes_bindings(
     if not config.kubernetes_subscription_discovery or config.kubernetes_bindings:
         return config
     subscription_id = config.scopes[0]
-    cache_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-    discovery = AzureAksSubscriptionBindingDiscovery(
-        identity=identity,
-        http_client=http_client,
-        config=AksSubscriptionDiscoveryConfig(
-            management_endpoint=config.management_endpoint,
-            management_audience=config.management_audience,
-        ),
-        binding_cache=StateStoreAksSubscriptionBindingCache(cache_store),
-    )
     try:
-        result = await discovery.discover(subscription_id)
+        result = await inventory_sync_cli_support.discover_aks_bindings_with_durable_cache(
+            config,
+            identity=identity,
+            http_client=http_client,
+            discovery_type=AzureAksSubscriptionBindingDiscovery,
+            store_type=PostgresStateStore,
+        )
     except AksSubscriptionDiscoveryError:
         return replace(
             config,
@@ -616,8 +610,6 @@ async def _discover_subscription_kubernetes_bindings(
                 ),
             ),
         )
-    finally:
-        await cache_store.aclose()
     if result.private_clusters:
         from fdai.delivery.kubernetes_connector_observed import build_observer_evidence
         from fdai.delivery.kubernetes_connector_preflight_runtime import build_observer_constraints

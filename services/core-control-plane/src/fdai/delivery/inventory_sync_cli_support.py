@@ -14,6 +14,12 @@ from uuid import uuid4
 
 import httpx
 
+from fdai.delivery.aks_subscription_discovery import (
+    AksSubscriptionDiscoveryConfig,
+    AksSubscriptionDiscoveryResult,
+    AzureAksSubscriptionBindingDiscovery,
+    StateStoreAksSubscriptionBindingCache,
+)
 from fdai.delivery.azure.arg_query import AzureArgQueryFactory, AzureArgQueryFactoryConfig
 from fdai.delivery.azure.arg_resource_changes import (
     AzureResourceChangeFeed,
@@ -608,3 +614,31 @@ async def _collect_kubernetes_binding_lifecycle(
             extra={"reason": type(exc).__name__, "scope_digest": binding.scope_digest},
         )
         return None
+
+
+async def discover_aks_bindings_with_durable_cache(
+    config: InventoryJobConfig,
+    *,
+    identity: WorkloadIdentity,
+    http_client: httpx.AsyncClient,
+    discovery_type: Callable[..., AzureAksSubscriptionBindingDiscovery] = (
+        AzureAksSubscriptionBindingDiscovery
+    ),
+    store_type: Callable[..., PostgresStateStore] = PostgresStateStore,
+) -> AksSubscriptionDiscoveryResult:
+    """Discover subscription AKS bindings, reusing durable non-credential binding metadata."""
+
+    cache_store = store_type(config=PostgresStateStoreConfig(dsn=config.dsn))
+    try:
+        discovery = discovery_type(
+            identity=identity,
+            http_client=http_client,
+            config=AksSubscriptionDiscoveryConfig(
+                management_endpoint=config.management_endpoint,
+                management_audience=config.management_audience,
+            ),
+            binding_cache=StateStoreAksSubscriptionBindingCache(cache_store),
+        )
+        return await discovery.discover(config.scopes[0])
+    finally:
+        await cache_store.aclose()
