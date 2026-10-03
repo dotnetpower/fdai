@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 7a137eca74ecb504cd1fa2dff9c67f479d13f9bf
+translation_source_sha: 2b3c8bd0c52b18236bc2a0153725ff7609530cc9
 translation_revised: 2026-10-03
 ---
 # 지속형 운영 인스턴스 그래프
@@ -294,6 +294,10 @@ Snapshot에 포함된 이벤트도 이력 전용 관측을
 추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
 있습니다. 이력 전용 경로는 Resource incarnation을 연결하거나 보류 중인 tombstone을 만들거나
 현재 overlay를 변경하지 않습니다.
+온톨로지 그래프가 해당 이벤트를 포함하는 활성 세대를 이미 커밋했다면 같은 트랜잭션은 연속으로
+포함된 journal 끝 구간까지 온톨로지 투영 fence를 전진시킵니다. 따라서 늦게 전달된 프로바이더
+이벤트가 배포 종결이나 scheduler 수요를 열린 상태로 두지 않으며, 그 세대보다 새로운 변경은 계속
+완전한 조정을 기다립니다.
 재조회에서 누락된 Resource는 이전 cursor를 유지하고 출처 완전성을 `false`로 남겨 이후 폴링이
 해당 Resource 또는 삭제 기록을 관측하게 합니다. 반환된 Resource 유형이 검토된 mapping
 카탈로그에 없으면 이후 변경을 막지 않고 건너뛰며, 잘못된 재조회 결과는 계속 해당 배치를
