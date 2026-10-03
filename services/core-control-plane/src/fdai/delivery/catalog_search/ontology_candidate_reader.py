@@ -94,7 +94,7 @@ class OntologyInstanceCandidateReader:
         manifest: QueryManifest,
         validation: OntologySnapshotValidation,
     ) -> None:
-        """Replace the local immutable read cache only after complete successful loading."""
+        """Replace the cache only after complete loading within the preparation deadline."""
         if (
             validation.validator_id != "Heimdall"
             or validation.snapshot_digest != staged.snapshot_digest
@@ -113,8 +113,9 @@ class OntologyInstanceCandidateReader:
         token = object()
         self._preparing[scope] = token
         self._pending_tokens.add(token)
+        deadline = asyncio.get_running_loop().time() + 120
         try:
-            prepared = await self._load(staged, vector_digest, manifest, validation)
+            prepared = await self._load(staged, vector_digest, manifest, validation, deadline)
             if self._preparing.get(scope) is not token:
                 raise ValueError("ontology candidate preparation was invalidated")
             retained_count = sum(
@@ -122,6 +123,7 @@ class OntologyInstanceCandidateReader:
             )
             if retained_count + len(prepared.documents) > self._max_documents:
                 raise ValueError("ontology candidate cache document capacity exceeded")
+            _check_deadline(deadline)
             self._prepared[scope] = prepared
         finally:
             self._pending_tokens.discard(token)
@@ -134,18 +136,22 @@ class OntologyInstanceCandidateReader:
         vector_digest: str,
         manifest: QueryManifest,
         validation: OntologySnapshotValidation,
+        deadline: float,
     ) -> _Prepared:
-        async with asyncio.timeout(120):
+        async with asyncio.timeout(max(0.0, deadline - asyncio.get_running_loop().time())):
+            _check_deadline(deadline)
             build = await self._snapshots.read(
                 staged.snapshot_digest,
                 manifest=manifest,
                 source_generation=staged.source_generation,
                 source_projection_digest=staged.source_projection_digest,
             )
+            _check_deadline(deadline)
             if build is None or build.metadata.generation_digest != validation.generation_digest:
                 raise ValueError("ontology candidate source snapshot identity mismatch")
             documents: list[CatalogSearchDocument] = []
             for offset in range(0, len(build.documents), 1000):
+                _check_deadline(deadline)
                 page = build.documents[offset : offset + 1000]
                 vectors = await self._vectors.read(
                     vector_digest,
@@ -153,6 +159,7 @@ class OntologyInstanceCandidateReader:
                     generation=build.metadata,
                     document_ids=tuple(item.rule_id for item in page),
                 )
+                _check_deadline(deadline)
                 documents.extend(
                     replace(item, embedding=vectors[item.rule_id])
                     for item in page
