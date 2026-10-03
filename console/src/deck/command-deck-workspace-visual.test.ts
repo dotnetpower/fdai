@@ -11,6 +11,10 @@ const sidebarStyles = readFileSync(
   fileURLToPath(new URL("./conversation-sidebar.css", import.meta.url)),
   "utf8",
 );
+const conversationLayer = readFileSync(
+  fileURLToPath(new URL("../../../ui/calm-slate-deck-conversation.css", import.meta.url)),
+  "utf8",
+);
 const structuredStyles = readFileSync(
   fileURLToPath(new URL("./structured-reply.css", import.meta.url)),
   "utf8",
@@ -128,7 +132,9 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toMatch(/\.deck-input-row\.is-centered \.deck-input \{[^}]*height: 48px;[^}]*padding-block: 13px;[^}]*line-height: 22px;/s);
     expect(source).toContain('class="deck-send-icon"');
     expect(styles).toContain(".deck-input-row.is-centered .deck-send-label { display: none; }");
-    expect(source).toContain("const showJumpToLatest = !stuck && turns.length > 0;");
+    // Jump to latest follows the measured transcript, never a bare turn count.
+    expect(source).toContain("{jumpVisible ? (");
+    expect(source).not.toContain("showJumpToLatest");
   });
 
   test("shows compact pending feedback before observed progress", () => {
@@ -141,17 +147,14 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain("<PendingReplyIndicator />");
     expect(source).toContain("<RetrievalTrace");
     expect(styles).toContain(".deck-pending-reply {");
-    expect(styles).toContain(".deck-rt::before {");
-    expect(styles).toContain("@keyframes deck-planning-flow");
     expect(styles).toContain("@keyframes deck-pending-dot");
-    expect(styles).toContain("@supports (interpolate-size: allow-keywords)");
-    expect(styles).toMatch(/@supports \(interpolate-size: allow-keywords\)[\s\S]*\.deck-rt-turn \{[^}]*animation: deck-preparing-expand 0\.44s/s);
-    expect(styles).toContain("@keyframes deck-preparing-expand");
     expect(styles).toContain(':root[data-motion="reduced"] .deck-pending-reply,');
-    expect(styles).toContain(':root[data-motion="reduced"] .deck-rt::before');
     expect(styles).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-rt-turn,[\s\S]*\.deck-pending-reply-dots > span,/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-pending-reply,[\s\S]*\.deck-pending-reply-dots > span,/,
     );
+    // The preparing trace enters with the conversation layer's motion, which honors reduced motion.
+    expect(conversationLayer).toContain(".cs-deck-enter { animation: cs-deck-enter .26s");
+    expect(conversationLayer).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.cs-deck-enter,/);
   });
 
   test("persists a bounded workspace conversation width", () => {
@@ -210,42 +213,70 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain('placeholder={t("deck.inputPlaceholder")}');
     expect(source).toContain('t("deck.inputPlaceholderContext", { route: routeLabel })');
     expect(source).toContain('class="deck-composer-context cs-deck-composer-context"');
+    expect(source).toContain('class={`deck-context-control cs-deck-context-chip${snapshot ? "" : " is-empty"}`}');
     expect(source).toContain("onClick={snapshot ? onRemoveScreen : onAttachScreen}");
   });
 
-  test("keeps the latest-message action in the composer instead of covering answers", () => {
-    const composer = source.slice(source.indexOf("function DeckComposer("));
-    expect(composer).toContain('class="deck-composer-context cs-deck-composer-context"');
-    expect(composer).toContain('class="deck-jump cs-deck-jump"');
-    expect(source).toContain("showJumpToLatest={showJumpToLatest}");
+  test("anchors the latest-message action in the composer context row", () => {
+    const transcriptColumn = source.slice(
+      source.indexOf('class="deck-transcript-column cs-deck-transcript-column"'),
+      source.indexOf('class="deck-transcript cs-deck-transcript"'),
+    );
+    const contextRow = source.slice(
+      source.indexOf('<div class="deck-composer-context cs-deck-composer-context">'),
+      source.indexOf('<div class="deck-composer-inner cs-deck-composer-grid">'),
+    );
+    // The action never floats over the transcript, so it can't cover an answer being read.
+    expect(transcriptColumn).not.toContain("deck-jump");
+    expect(contextRow).toContain('class="deck-jump cs-deck-jump"');
+    expect(contextRow).toContain('<span class="cs-deck-jump-label">{t("deck.jumpLatest")}</span>');
+    expect(source).toContain("{snapshot || canAttachScreen || jumpVisible ? (");
+    expect(conversationLayer).toMatch(/\.cs-deck-jump \{[^}]*margin-left: auto;[^}]*border-radius: var\(--cs-radius-pill\);/s);
     expect(source).not.toContain("deck-jump-slot");
-    expect(styles).not.toContain(".deck-jump-slot");
+    expect(styles).not.toContain(".deck-jump");
   });
 
   test("keeps readable metadata at 12px and keyboard focus visible", () => {
-    expect(styles).toContain(".deck-turn-time,\n.deck-code-lang,");
+    expect(styles).toContain(".deck-turn-time,\n.deck-citation,");
     expect(styles).toContain("font-size: 12px;\n}");
     expect(styles).toContain(".deck-btn:focus-visible,");
     expect(styles).toContain("outline: 2px solid var(--accent);");
     expect(styles).toContain(".deck-conversation-select:focus-visible {");
     expect(styles).toContain(".deck-input:focus-visible {");
-    expect(styles).toMatch(/\.deck-source-readiness \{[^}]*font-size: 12px;/s);
+    expect(conversationLayer).toMatch(
+      /\.cs-deck-readiness \{[^}]*font: var\(--cs-type-label-size\)\/var\(--cs-type-label-line-height\) var\(--cs-font\);/s,
+    );
     expect(presenters).toContain('class="deck-turn-time muted"');
-    expect(presenters).toContain('class="deck-turn-inline-time"');
+    expect(presenters).toContain('class="cs-deck-user-time"');
+    expect(presenters).toContain('class="cs-deck-user-line"');
     expect(presenters).toContain("isDeck && (!isInvestigationFlow || isInvestigationFinalAnswer)");
     expect(presenters).toContain("dateTime={turn.recordedAt}");
     expect(presenters).toContain("presentationTimestamp(");
-    expect(styles).toContain(".deck-verification.is-unverified.is-sourceUnavailable");
+    expect(conversationLayer).toMatch(
+      /\.cs-deck-verification \{[^}]*font: 600 var\(--cs-type-label-size\)\/var\(--cs-type-label-line-height\) var\(--cs-font\);/s,
+    );
+    expect(conversationLayer).toMatch(/\.cs-deck-verification:focus-visible \{[^}]*outline: 2px solid var\(--cs-steel\);/s);
+    expect(styles).not.toMatch(/\.deck-verification[\s.{:,-]/);
   });
 
-  test("keeps syntax-highlighted code on its dark slab", () => {
-    expect(styles).toMatch(/\.deck-code-pre \{[^}]*background: transparent;[^}]*color-scheme: dark;/s);
+  test("keeps syntax-highlighted code on the shared code surface", () => {
+    expect(conversationLayer).toMatch(/\.cs-deck-code \{[^}]*background: var\(--cs-code-bg\);/s);
+    expect(conversationLayer).toMatch(/\.cs-deck-code-scroll \{[^}]*color-scheme: dark;/s);
+    expect(conversationLayer).toMatch(
+      /\.cs-deck-code-block > \.cs-deck-code-text \{[^}]*overflow-wrap: anywhere;[^}]*white-space: pre-wrap;/s,
+    );
+    expect(styles).toContain(".cs-deck-code :is(.hljs-attr, .hljs-attribute, .hljs-name, .hljs-tag) { color: var(--cs-code-key); }");
+    expect(styles).toContain(".cs-deck-code :is(.hljs-string, .hljs-regexp, .hljs-addition) { color: var(--cs-code-string); }");
+    expect(styles).not.toMatch(/^\.hljs-/m);
+    expect(styles).not.toMatch(/\.deck-code(-pre|-head|-lang|-copy)?[\s.{:,]/);
   });
 
   test("reflows execution details from the deck container width", () => {
     expect(styles).toContain("container-name: deck-transcript;");
     expect(styles).toContain("@container deck-transcript (max-width: 620px)");
-    expect(styles).toContain("grid-template-columns: 58px minmax(0, 1fr) auto 9px;");
+    expect(conversationLayer).toMatch(
+      /@container deck-transcript \(max-width: 620px\)[\s\S]*\.cs-run-timeline \{ --cs-run-columns: minmax\(0, 1fr\) auto auto 10px; \}/,
+    );
   });
 
   test("keeps reply sources readable and reflows structured evidence on mobile", () => {
@@ -254,19 +285,28 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-turn-head > .tooltip-anchor .deck-turn-source { max-width: 100%; }");
     expect(structuredStyles).toContain("@media (max-width: 560px)");
     expect(structuredStyles).toMatch(/@media \(max-width: 560px\)[\s\S]*\.deck-presentation-table,[\s\S]*display: block;/);
-    expect(styles).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*\.deck-source-readiness-items \{[^}]*flex: 1 1 auto;[^}]*width: auto;[^}]*max-width: 100%;/s,
+    // A narrow deck keeps the source links on one scrollable row with unavailable sources first.
+    expect(conversationLayer).toMatch(
+      /@container deck-readiness \(max-width: 560px\) \{[\s\S]*?\.cs-deck-readiness-items \{[^}]*flex: 1 1 100%;[^}]*overflow-x: auto;/,
     );
     expect(styles).toMatch(
       /@media \(max-width: 640px\)[\s\S]*\.deck-overlay-mode-dock \.deck-dock-resize-handle \{ display: none; \}/,
     );
   });
 
-  test("matches the mock's flat report-table hierarchy", () => {
+  test("matches the conversation layer's quiet table headers", () => {
     expect(styles).toMatch(/\.deck-table \{[^}]*border: 0;[^}]*border-top: 1px solid var\(--border\);/s);
-    expect(styles).toMatch(/\.deck-table thead th \{[^}]*background: transparent;[^}]*border-bottom: 2px solid var\(--accent-strong, var\(--accent\)\);/s);
+    // Column headers read as quiet labels on a faint band, never uppercase or accent-ruled.
+    const quietHeader =
+      /background: color-mix\(in srgb, var\(--cs-text\) 2%, var\(--cs-card\)\);[^}]*color: var\(--cs-deck-meta-text\);[^}]*font-size: 12px;[^}]*text-transform: none;[^}]*border-bottom: 1px solid var\(--cs-hairline\);/s;
+    expect(styles).toMatch(new RegExp(`\\.deck-table thead th \\{[^}]*${quietHeader.source}`, "s"));
+    expect(structuredStyles).toMatch(new RegExp(`\\.deck-presentation-table th \\{[^}]*${quietHeader.source}`, "s"));
+    expect(conversationLayer).toMatch(/\.cs-deck-table th \{[^}]*color: var\(--cs-deck-meta-text\);/s);
+    // Only the first letter of a data key is raised, so headers read as sentence case.
+    const firstLetter = ".deck-presentation-table th::first-letter { text-transform: uppercase; }";
+    expect(structuredStyles).toContain(firstLetter);
+    expect(structuredStyles.replace(firstLetter, "")).not.toContain("text-transform: uppercase");
     expect(structuredStyles).toMatch(/\.deck-presentation-table \{[^}]*border: 0;[^}]*border-top: 1px solid var\(--border\);/s);
-    expect(structuredStyles).toMatch(/\.deck-presentation-table th \{[^}]*text-transform: uppercase;[^}]*border-bottom: 2px solid var\(--accent-strong, var\(--accent\)\);/s);
     expect(structuredStyles).toMatch(/\.deck-presentation-table tbody tr:nth-child\(even\) \{\s*background: transparent;/s);
   });
 
@@ -314,9 +354,7 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toMatch(/\.deck-model-selector select \{[^}]*min-height: 32px;/s);
     expect(sharedStyles).toMatch(/\.cs-grounding-head \{[^}]*min-height: 44px;/s);
     expect(sharedStyles).toMatch(/\.cs-grounding-stage \{[^}]*min-height: 36px;/s);
-    expect(styles).toMatch(
-      /\.deck-rt-side \{[^}]*min-height: 22px;[^}]*display: inline-flex;[^}]*align-items: center;/s,
-    );
+    expect(conversationLayer).toMatch(/\.cs-grounding-phase \{[^}]*white-space: nowrap;/s);
     expect(tableModule).toContain("data-layout={layout}");
     expect(structuredStyles).toMatch(
       /\.deck-presentation-table\[data-layout="wide"\] \{[^}]*min-width: 960px;[^}]*table-layout: auto;/s,
@@ -341,12 +379,10 @@ describe("Command Deck workspace hierarchy", () => {
   test("keeps pending stages visible in a stable compact source slot", () => {
     expect(sharedStyles).toMatch(/\.cs-grounding-source-window \{[^}]*height: 88px;[^}]*overflow: hidden;/s);
     expect(sharedStyles).toMatch(/\.cs-grounding-source \{[^}]*min-height: 28px;/s);
-    expect(styles).toMatch(/\.deck-rt-source \{[^}]*grid-template-columns: 64px minmax\(0, 1fr\);/s);
-    expect(styles).toMatch(/\.deck-rt-badge \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/s);
-    expect(styles).not.toContain(".deck-rt-source::after");
-    expect(styles).toMatch(/@keyframes deck-rt-rise \{\s*from \{ opacity: 0;/s);
-    expect(styles).toMatch(/@keyframes deck-rt-pop \{\s*from \{ opacity: 0;/s);
-    expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-rt-stage,[\s\S]*\.deck-rt-source \{\s*opacity: 1;\s*transform: none;/);
+    expect(conversationLayer).toMatch(
+      /\.cs-grounding-source-list \{[^}]*height: calc\(var\(--cs-grounding-source-row\) \* var\(--cs-grounding-source-rows, 3\)/s,
+    );
+    expect(conversationLayer).toMatch(/\.cs-deck-kind \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/s);
   });
 
   test("restores workspace geometry without reduced-motion transitions", () => {
@@ -361,17 +397,26 @@ describe("Command Deck workspace hierarchy", () => {
   });
 
   test("keeps deck controls operable at desktop and touch sizes", () => {
-    expect(styles).toMatch(/\.deck-llm-escalation-head \{[^}]*min-height: 44px;/s);
-    expect(styles).toContain(".deck-llm-escalation-head:focus-visible");
+    expect(conversationLayer).toMatch(/\.cs-deck-disclosure-summary \{[^}]*min-height: 28px;/s);
+    expect(conversationLayer).toMatch(/\.cs-deck-disclosure-summary:focus-visible \{[^}]*outline: 2px solid var\(--cs-steel\);/s);
+    expect(conversationLayer).toMatch(
+      /@media \(max-width: 640px\) \{\s*:is\([^)]*\.cs-deck-disclosure-summary\) \{\s*min-height: 44px;/,
+    );
     expect(styles).toMatch(/\.deck-search button \{[^}]*width: 32px;[^}]*height: 32px;/s);
-    expect(styles).toMatch(/\.deck-gr-icon \{[^}]*width: 32px;[^}]*height: 32px;/s);
+    expect(sharedStyles).toContain("--cs-deck-control-height: 32px;");
+    expect(sharedStyles).toMatch(
+      /\.cs-deck-tool-icon \{[^}]*width: var\(--cs-deck-control-height\);[^}]*height: var\(--cs-deck-control-height\);/s,
+    );
+    expect(sharedStyles).toMatch(/\.cs-deck-tool:focus-visible,\s*\.cs-deck-pill:focus-visible \{/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-search button \{ width: 44px; height: 44px; \}/);
-    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-gr-icon \{ width: 44px; height: 44px; \}/);
+    expect(sharedStyles).toMatch(/@media \(max-width: 720px\)[\s\S]*\.cs-deck-tool-icon \{ width: 44px; height: 44px; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-transcript-tools \{ overflow-x: hidden; padding-inline: 12px; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-transcript-tools button \{[^}]*min-height: 44px;[^}]*padding-inline: 6px;/s);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-layout-controls \{ display: none; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-input-row button \{ min-width: 44px; min-height: 44px; \}/);
-    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-source-status \{ min-height: 44px;/);
+    expect(conversationLayer).toMatch(
+      /@media \(max-width: 640px\) \{\s*:is\([^)]*\.cs-deck-readiness-item[^)]*\) \{\s*min-height: 44px;/,
+    );
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-search input \{ min-height: 44px; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-input \{ min-height: 44px; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-intro-card-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/s);
@@ -395,7 +440,9 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-overlay.deck-overlay-mode-workspace { left: 0; }");
     expect(styles).toMatch(/\.deck-input \{[^}]*width: 100%;[^}]*min-width: 0;[^}]*box-sizing: border-box;/s);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-investigation\.is-answer-settled \.deck-investigation-head \{[^}]*grid-template-columns: 16px minmax\(0, 1fr\) auto;/s);
-    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-gr-actions \{[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/s);
+    expect(conversationLayer).toMatch(
+      /@container deck-transcript \(max-width: 620px\)[\s\S]*\.cs-deck-action-row > :is\(\.cs-deck-verification, :has\(> \.cs-deck-verification\)\) \{\s*flex: 1 0 100%;/,
+    );
     expect(styles).toMatch(/@container deck-transcript \(max-width: 620px\)[\s\S]*\.deck-trajectory-phase-details > li \{ grid-template-columns: 20px minmax\(0, 1fr\); \}/);
     expect(styles).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.deck-search kbd \{ display: none; \}/);
   });

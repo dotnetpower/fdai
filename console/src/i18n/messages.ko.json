@@ -3021,8 +3021,6 @@
     "grounded": {
       "showTrace": "추적 보기",
       "hideTrace": "추적 숨기기",
-      "showSources": "출처 보기",
-      "hideSources": "출처 숨기기",
       "source": "개 출처",
       "sources": "개 출처",
       "traceLabel": "검색 추적",
@@ -3141,7 +3139,6 @@
       "resolvingIntent": "의도 파악 중",
       "resolvingIntentDetail": "서버가 소유한 경로 판정을 기다리는 중",
       "preparingAnswer": "답변 준비 중",
-      "compact": "간결",
       "status": "답변 준비 중. {detail}.",
       "readingCurrentSources": "선택된 근거 출처를 기다리는 중",
       "groundingReadOnly": "의도와 근거 요구를 확인하는 중",
@@ -3347,7 +3344,6 @@
     },
     "trajectory": {
       "runRecord": "실행 기록",
-      "title": "관찰된 처리 과정",
       "sequenceOnly": "인과 순서",
       "planSummary": "목표 {count}개 / {mode}",
       "goalsLabel": "계획된 의도 목표",

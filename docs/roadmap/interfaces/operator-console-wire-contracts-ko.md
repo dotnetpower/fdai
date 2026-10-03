@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 136d98f6c8e6a4923efa0b1902f189f9a7a76acc
-translation_revised: 2026-10-02
+translation_source_sha: bc9e32e2be7fd3b5333eee1015310ad07618d223
+translation_revised: 2026-10-03
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -319,9 +319,9 @@ Command Deck 의 최종 답변에 fenced 코드 블록 이 있으면 Operator AP
 표현 데이터이므로 `GroundedCodeArtifact` 추출에서 제외하며 **코드 근거** 아래에 두 번째로
 표시하지 않습니다.
 
-Console 은 기본적으로 코드 를 **코드 근거** 아래에 접어서 표시합니다. 공개
-를 펼치면 그라운딩된 정확한 내용, 산출물 참조, 구문 검증 통과
-여부를 볼 수 있습니다. 최종 산출물 는 완료되지 않은 스트리밍 토큰 이 아니라
+Console 은 기본적으로 코드 를 **코드 근거** 아래에 접어서 표시합니다. 펼치면
+각 산출물의 정적 검사 결과와 함께 코드가 실행되지 않았다는 사실, 공통 코드 표면에
+Copy와 함께 표시되는 근거에 기반한 정확한 내용, 산출물 참조를 볼 수 있습니다. 최종 산출물 는 완료되지 않은 스트리밍 토큰 이 아니라
 검증된 최종 답변에서 생성됩니다. 탭 은 대화 기록 와 함께 산출물 를
 `sessionStorage` 에 보존할 수 있으며, 방어적 파서 는 malformed 또는 oversized
 항목 를 제거합니다.

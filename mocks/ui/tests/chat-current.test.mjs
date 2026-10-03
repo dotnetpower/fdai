@@ -11,27 +11,35 @@ const output = join(root, ".fdai/visual-review/chat-current");
 const require = createRequire(join(root, "console/package.json"));
 const { chromium } = require("playwright");
 const origin = "http://127.0.0.1:5373";
-const routes = [
-  "deck",
-  "deck-sources",
-  "deck-adaptive",
-  "deck-sources-v2",
-  "incident-conversation",
-  "conversation-response-patterns",
-  "chat-home-variants",
-];
+// One Command deck page carries every chat response form; the two remaining chat studies keep
+// their own pages. Each deck form is audited as its own route.
+const deckForms = {
+  "deck-answer": "?form=answer&trace=on",
+  "deck-investigation": "?form=investigation&trace=on&scenario=drift",
+  "deck-incident": "?form=incident",
+  "deck-change": "?form=change",
+  "deck-memory": "?form=memory&scenario=document",
+};
+const routes = [...Object.keys(deckForms), "conversation-response-patterns", "chat-home-variants"];
+const pages = ["deck", "conversation-response-patterns", "chat-home-variants"];
 
 async function openChat(page, name, sequence) {
-  // The deck study starts with model trace capture on, so the audit also covers provider lanes.
-  const query = name === "deck-sources" ? "?trace=on" : name === "deck-adaptive" ? "?trace=on&scenario=drift" : "";
-  await page.goto(`${origin}/?chat-current=${sequence}#mocks/ui/${name}.html${query}`, { waitUntil: "load" });
+  const file = deckForms[name] ? "deck" : name;
+  const query = deckForms[name] || "";
+  await page.goto(`${origin}/?chat-current=${sequence}#mocks/ui/${file}.html${query}`, { waitUntil: "load" });
   await page.waitForFunction(expected => {
     const frame = document.querySelector("#preview-frame");
     return frame?.contentDocument?.readyState === "complete"
       && frame.contentWindow.location.pathname === `/mocks/ui/${expected}.html`;
-  }, name);
+  }, file);
   const frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
-  if (name === "deck-sources") {
+  if (deckForms[name]) {
+    // Reduced motion renders the settled answer immediately; no replay timing is involved.
+    await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached", timeout: 10000 });
+  }
+  if (name === "deck-incident") await frame.locator(".cs-deck-disclosure > summary").first().click();
+  if (name === "deck-memory") await frame.locator(".cs-deck-document .cs-deck-disclosure > summary").click();
+  if (name === "deck-answer") {
     // Reduced motion renders the settled answer immediately; no replay timing is involved.
     await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached", timeout: 10000 });
     await frame.locator(".cs-deck-followups").waitFor({ state: "visible", timeout: 10000 });
@@ -41,7 +49,7 @@ async function openChat(page, name, sequence) {
     await frame.waitForFunction(() => [...document.querySelectorAll(".cs-model-trace-hash code")]
       .every(code => /^[0-9a-f]{64}$/.test(code.textContent)), null, { timeout: 5000 });
   }
-  if (name === "deck-adaptive") {
+  if (name === "deck-investigation") {
     // The audit covers an open wave, an open read card, the context receipt, and the run record.
     await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached", timeout: 10000 });
     await frame.locator(".cs-deck-context-receipt > summary").click();
@@ -172,12 +180,14 @@ function assertMeasurement(measurement, route, state) {
 
 test("chat mock sources use the current shared contract", async () => {
   const master = await readFile(join(root, "index.html"), "utf8");
-  for (const route of routes) {
+  for (const route of pages) {
     const source = await readFile(join(uiRoot, `${route}.html`), "utf8");
     assert.match(master, new RegExp(`data-page="mocks/ui/${route}\\.html"`), route);
     assert.match(source, /data-chat-theme="clear-neutral"/, route);
     assert.match(source, /data-chat-surface="current"/, route);
-    assert.match(source, /chat-current\.css\?v=11/, route);
+    // The deck takes its presentation from the portable conversation layer, not the study overrides.
+    if (route === "deck") assert.doesNotMatch(source, /chat-current\.css/, route);
+    else assert.match(source, /chat-current\.css\?v=11/, route);
     assert.doesNotMatch(source, /https:\/\/fonts\.(?:googleapis|gstatic)\.com/, route);
     const buttons = [...source.matchAll(/<button\b[^>]*>/g)].map(match => match[0]);
     assert.equal(buttons.every(button => /\btype="(?:button|submit|reset)"/.test(button)), true, route);
@@ -186,7 +196,15 @@ test("chat mock sources use the current shared contract", async () => {
     const headers = [...source.matchAll(/<th\b[^>]*>/g)].map(match => match[0]);
     assert.equal(headers.every(header => /\bscope="col"/.test(header)), true, `${route}: header scopes`);
   }
-  const sources = await readFile(join(uiRoot, "deck-sources.html"), "utf8");
+  const sources = await readFile(join(uiRoot, "deck.html"), "utf8");
+  // Retired chat pages are redirects to a deck form, never a second chat implementation.
+  for (const [retired, form] of [["deck-sources", "answer"], ["deck-adaptive", "investigation"],
+    ["deck-sources-v2", "change"], ["incident-conversation", "incident"]]) {
+    const stub = await readFile(join(uiRoot, `${retired}.html`), "utf8");
+    assert.match(stub, new RegExp(`query\\.set\\("form", "${form}"\\)`), retired);
+    assert.doesNotMatch(stub, /<link\b|class="cs-/, retired);
+    assert.doesNotMatch(master, new RegExp(`data-page="mocks/ui/${retired}\\.html"`), retired);
+  }
   const sourcesScript = await readFile(join(uiRoot, "assets/deck-sources.js"), "utf8");
   assert.match(sources, /calm-slate-deck-conversation\.css\?v=/);
   assert.match(sources, /class="[^"]*\bcs-deck-conversation\b/);
@@ -249,7 +267,7 @@ test("chat interactions preserve evidence and authority boundaries", { timeout: 
       ? route.continue() : route.abort("blockedbyclient"));
     const page = await context.newPage();
 
-    let frame = await openChat(page, "deck-sources", 1);
+    let frame = await openChat(page, "deck-answer", 1);
     const grounded = frame.locator("[data-action='sources']").first();
     assert.equal(await grounded.getAttribute("aria-expanded"), "false");
     await grounded.click();
@@ -260,27 +278,22 @@ test("chat interactions preserve evidence and authority boundaries", { timeout: 
     assert.equal(await frame.locator("#ds-send").isDisabled(), true);
     assert.equal(await frame.getByRole("button", { name: /execute|approve|remediate/i }).count(), 0);
 
-    frame = await openChat(page, "deck-sources-v2", 2);
-    const previewControls = frame.locator("#ex-preview-controls");
-    if (!(await previewControls.evaluate(element => element.open))) {
-      await previewControls.locator(":scope > summary").click();
-    }
-    const switcher = frame.locator(".ex-pattern-switcher");
-    if (!(await switcher.evaluate(element => element.open))) {
-      await switcher.locator(":scope > summary").click();
-    }
-    await frame.locator('[data-response-pattern="clarification"]').click();
-    assert.equal(await frame.locator('[data-response-pattern="clarification"]').getAttribute("aria-pressed"), "true");
-    assert.match(await frame.locator("#ex-pattern-body").innerText(), /Select the database to assess/);
+    frame = await openChat(page, "deck-change", 2);
+    await frame.locator("#ds-preview > summary").click();
+    await frame.locator('button[data-scenario="verification"]').click();
+    assert.equal(await frame.locator('button[data-scenario="verification"]').getAttribute("aria-pressed"), "true");
+    await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached", timeout: 10000 });
+    assert.match(await frame.locator(".cs-deck-agent-turn").innerText(), /User-path recovery is not verified yet/);
     assert.match(await frame.locator("main").innerText(), /No live execution/);
+    assert.equal(await frame.getByRole("button", { name: /execute|approve|remediate/i }).count(), 0);
 
     frame = await openChat(page, "chat-home-variants", 3);
     await frame.locator('[data-variant="c"]').click();
     assert.equal(await frame.locator('[data-variant="c"]').getAttribute("aria-selected"), "true");
     assert.equal(await frame.locator("#variant-c").isVisible(), true);
 
-    frame = await openChat(page, "incident-conversation", 4);
-    assert.match(await frame.locator(".ic-answer").innerText(), /Current status unknown/);
+    frame = await openChat(page, "deck-incident", 4);
+    assert.match(await frame.locator(".cs-deck-agent-turn").innerText(), /Current status unknown/);
     assert.equal(await frame.getByRole("button", { name: /execute|approve|remediate/i }).count(), 0);
     await context.close();
   } finally {
@@ -309,7 +322,7 @@ test("chat surfaces reflow at constrained and mobile widths", { timeout: 120000 
         const frame = await openChat(page, route, `${viewport.name}-${++sequence}`);
         const measurement = await frame.evaluate(measureChat, viewport.width);
         assertMeasurement(measurement, route, "light");
-        if (route === "deck-sources" || route === "deck-adaptive") {
+        if (deckForms[route]) {
           assert.equal(await frame.locator(".cs-deck-transcript").evaluate(element =>
             element.scrollWidth <= element.clientWidth), true);
         }

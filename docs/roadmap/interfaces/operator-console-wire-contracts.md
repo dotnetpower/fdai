@@ -338,8 +338,9 @@ data rendered by the rich-answer chart component, so it is excluded from `Ground
 extraction and doesn't appear a second time under **Code evidence**.
 
 The console keeps code collapsed under **Code evidence** by default. Expanding
-the disclosure shows the exact grounded content, its artifact reference, and
-whether syntax validation passed. The terminal artifact is derived from the
+the disclosure shows each artifact's static check, which always states that the
+code was not executed, the exact grounded content on the shared code surface with
+Copy, and its artifact reference. The terminal artifact is derived from the
 final verified answer, not from an incomplete streaming token sequence. A tab
 may retain the artifact in `sessionStorage` with the transcript; defensive
 parsing drops malformed or oversized persisted entries.

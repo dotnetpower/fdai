@@ -185,7 +185,7 @@ async function run() {
       };
       window.__fdaiConversationAssurance = state;
       const observe = () => {
-        const preparing = document.querySelector(".deck-rt") !== null;
+        const preparing = document.querySelector(".deck-rt-turn") !== null;
         const answer = document.querySelector(".deck-gr .cs-deck-answer") !== null;
         if (preparing) state.preparingSeen = true;
         if (preparing && answer) {
@@ -252,7 +252,7 @@ async function run() {
       preparing_answer_seen: browserState?.preparingSeen === true,
       early_answer_exposed: browserState?.earlyAnswer === true,
       preparing_answer_overlapped_terminal: browserState?.overlap === true,
-      terminal_transition_completed: await page.locator(".deck-rt").count() === 0,
+      terminal_transition_completed: await page.locator(".deck-rt-turn").count() === 0,
       sensitive_output_detected: sensitiveTerminal(terminal),
       terminal: {
         terminal_state: terminal.status,

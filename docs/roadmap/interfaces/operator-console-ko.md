@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 6b4cf7af3ed6282f21f9d98288bd0a251e2ee80f
-translation_revised: 2026-10-02
+translation_source_sha: 02c7d125aafde2f68b166e4d458cc819c713795c
+translation_revised: 2026-10-03
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다. 모듈 분리 후에도 제안 claim 타입은 목적별 모델 소유자에 유지하고 공개 보증 파사드, 생성된 CQAS 인벤토리, 정본 시각 매핑을 보존하며 요청 또는 실행 권한은 바뀌지 않습니다. 파사드 가져오기 이름을 보존하는 런타임 카탈로그 로더 분리는 사람 보고 관계, 승인 경로, RBAC 또는 Console 요청 계약을 변경하지 않습니다. Rule 활성화 테스트를 소유 Core 및 Operator 서비스 테스트 묶음에 등록하는 변경은 테스트 선택만 바꾸며 보고 관계나 승인 권한을 부여하지 않습니다. Console 카탈로그나 deck 표현 계약 변경 뒤 질문은행과 CQAS 산출물을 다시 생성하는 작업은 원본 약속값만 갱신하며 질문 신원, 보고 권한 또는 대화 실행 권한을 바꾸지 않습니다.
@@ -135,7 +135,7 @@ FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI�
   불투명한 세션 기억으로 남지 않습니다. 영속 대화 상태는 감사와 내보내기가 가능한 CSP-중립
   `audit_log` 및 `operator_memory` record에 저장됩니다.
 
-완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. 단일 질문 개선 turn은 같은 인증된 `/chat/stream` 요청을 사용하고 6단계 Run Record, content-free 동적 프롬프트 manifest, Pantheon 참여자 및 평가자 프롬프트 프로필, 답변 준비 전환을 서로 다른 표현 gate로 노출합니다. 펼친 Run Record는 profile id, version, hash, situation 및 budget만 표시하며 SYSTEM text는 표시하지 않습니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다. 브라우저 assurance 파서와 근거 게이트 회귀 검사는 Console Vitest 테스트 모음에 등록되므로 저장소 전체 Console 수집과 집중 검사가 같은 실행기 계약을 검증합니다.
+완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. 단일 질문 개선 turn은 같은 인증된 `/chat/stream` 요청을 사용하고 6단계 Run Record, content-free 동적 프롬프트 manifest, Pantheon 참여자 및 평가자 프롬프트 프로필, 답변 준비 전환을 서로 다른 표현 gate로 노출합니다. 펼친 Run Record는 profile id, version, hash, situation 및 budget만 표시하며 SYSTEM text는 표시하지 않습니다. Run Record와 모델 프로바이더 워터폴, 답변 준비 추적은 [Command Deck 대화 표현 계층](command-deck-conversation-layer-ko.md)의 역할로 렌더링하며, 브라우저 assurance는 표현 클래스가 아니라 대기 중인 턴으로 답변 준비 gate를 인식합니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다. 브라우저 assurance 파서와 근거 게이트 회귀 검사는 Console Vitest 테스트 모음에 등록되므로 저장소 전체 Console 수집과 집중 검사가 같은 실행기 계약을 검증합니다.
 최종 intake는 exact 검증 사유와 evidence-manifest 완전성을 보존합니다. 결과 요약, 맥락 선택, Azure 조사, 영속 전달 및 첨부 근거는 타입이 지정된 프로바이더가 계속 소유하고 어댑터 모듈은 표현과 영속성만 조정합니다.
 Core는 의미 요청 결속, 범위가 제한된 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈로 분리합니다. 의미 턴 프로세서는 이 모듈들을 조정합니다. 이 내부 분리는 wire 필드, 근거 한도, 인용, 로케일 또는 권한을 바꾸지 않습니다. 조립된 컨텍스트 선택 연결이 있으면 프로세서는 이전 의미 턴에서 shadow 정책 비교도 예약하지만, 의미 변환 결과를 바꾸거나 브라우저 조작 권한을 부여하지 않습니다.
 Operator도 변경 불가능한 PostgreSQL 제품군 레코드, 범위가 제한된 행 변환 및 엄격한 인벤토리 근거 디코딩을 조회와 발신함 조정에서 분리합니다. Facade는 기존 import, principal 범위, 제안 멱등성, wire 값, 재생 순서 및 권한 없음 동작을 보존합니다.

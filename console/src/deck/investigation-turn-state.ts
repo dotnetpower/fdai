@@ -1,3 +1,4 @@
+import type { WorkProgressShape } from "./backend-types";
 import type { Turn } from "./command-deck-presenters";
 
 export interface InvestigationFlowPosition {
@@ -32,6 +33,33 @@ export function investigationFlowHasTerminalAnswer(
   return answer?.role === "deck" && answer.terminal === true &&
     answer.kind !== "activity" &&
     !(answer.kind === "message" && answer.source === "investigation");
+}
+
+/** The first activity turn of a flow carries the turn-wide plan, limits, and context receipt. */
+export function isInvestigationLead(turns: readonly Turn[], index: number): boolean {
+  if (turns[index]?.kind !== "activity") return false;
+  for (let cursor = index - 1; isInvestigationTurn(turns[cursor]); cursor -= 1) {
+    if (turns[cursor]?.kind === "activity") return false;
+  }
+  return true;
+}
+
+/**
+ * A pinned plan names how many reads the turn runs, so a pause between waves isn't the end of the
+ * observed work. Without a pin, the observed reads are all the work there is.
+ */
+export function plannedReadsObserved(
+  turns: readonly Turn[],
+  turnIds: ReadonlySet<string>,
+  shape: WorkProgressShape | undefined,
+): boolean {
+  if (!shape) return true;
+  const reads = new Set(turns
+    .filter((turn) => turnIds.has(turn.id))
+    .flatMap((turn) => turn.activities ?? [])
+    .filter((activity) => activity.execution?.inputKind === "query")
+    .map((activity) => activity.activityId));
+  return reads.size >= shape.planned_reads;
 }
 
 function turnContinuesInvestigation(turns: readonly Turn[], index: number): boolean {

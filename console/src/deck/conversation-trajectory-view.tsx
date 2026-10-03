@@ -27,6 +27,7 @@ import {
 } from "./conversation-trajectory-presentation";
 import { intentGoalInstruction } from "./intent-goal-presentation";
 import { JsonCodeBlock } from "./json-code-block";
+import { CodeBlock } from "./rich-content";
 import { ModelTraceWaterfall } from "./model-trace-waterfall";
 
 export function ConversationTrajectoryView({
@@ -68,12 +69,9 @@ export function ConversationTrajectoryView({
         onToggle={(event) => setOpen(event.currentTarget.open)}
       >
       <summary class="deck-trajectory-summary cs-run-record-summary">
-        <span class="deck-trajectory-title cs-run-record-title">
-          <span class="deck-trajectory-glyph cs-run-record-glyph" aria-hidden="true" />
-          <span class="deck-trajectory-title-copy cs-run-record-title-copy">
-            <small class="cs-run-record-kicker">{t("deck.trajectory.runRecord")}</small>
-            <strong class="cs-run-record-heading">{t("deck.trajectory.title")}</strong>
-          </span>
+        <span class="cs-run-record-title">
+          <span class="cs-run-record-glyph" aria-hidden="true"><i /><i /><i /></span>
+          <strong class="cs-run-record-heading">{t("deck.trajectory.runRecord")}</strong>
         </span>
         <span class="deck-trajectory-stats cs-run-record-stats">
           {runRecordText(presentation.modelCallCountRecorded
@@ -94,13 +92,16 @@ export function ConversationTrajectoryView({
         <span class="deck-trajectory-duration cs-run-record-duration">
           {trajectory.durationMs === undefined
             ? t("deck.trajectory.sequenceOnly")
-            : t(trajectory.timingSource === "turn_timing"
-              ? "deck.trajectory.serverProcessingDuration"
-              : "deck.trajectory.endToEndDuration", {
-                duration: formatDuration(trajectory.durationMs),
-              })}
+            : (
+              <RunDuration
+                labelKey={trajectory.timingSource === "turn_timing"
+                  ? "deck.trajectory.serverProcessingDuration"
+                  : "deck.trajectory.endToEndDuration"}
+                duration={formatDuration(trajectory.durationMs)}
+              />
+            )}
         </span>
-        <span class="deck-trajectory-chevron cs-run-record-chevron" aria-hidden="true" />
+        <span class="cs-run-record-chevron" aria-hidden="true" />
         {open ? (
           <span class="deck-trajectory-question">
             <small>{t("deck.trajectory.phase.input")}</small>
@@ -236,6 +237,20 @@ export function ConversationTrajectoryView({
       ) : null}
       </details>
     </div>
+  );
+}
+
+/** The duration value with its label in the layer's label role, which a narrow record hides
+ *  visually while the full text stays in the accessible name. */
+function RunDuration({ labelKey, duration }: { readonly labelKey: string; readonly duration: string }) {
+  const marker = "\u0000";
+  const [before = "", after = ""] = t(labelKey, { duration: marker }).split(marker);
+  return (
+    <>
+      {before ? <span class="cs-run-record-duration-label">{before}</span> : null}
+      {duration}
+      {after ? <span class="cs-run-record-duration-label">{after}</span> : null}
+    </>
   );
 }
 
@@ -574,7 +589,8 @@ function AnswerPhase({ trajectory, index }: {
       {answer.codeArtifacts?.map((artifact) => (
         <details key={artifact.artifact_ref} class="deck-trajectory-nested">
           <summary>{artifact.language} / {t(`deck.codeEvidence.status.${artifact.validation_status}`)}</summary>
-          <code>{artifact.artifact_ref}</code><pre><code>{artifact.content}</code></pre>
+          <code>{artifact.artifact_ref}</code>
+          <CodeBlock lang={artifact.language} code={artifact.content} pending={false} />
         </details>
       ))}
       {answer.actionDraft ? (

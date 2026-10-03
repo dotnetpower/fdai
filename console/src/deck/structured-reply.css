@@ -3,176 +3,22 @@
   margin: 0 0 18px;
 }
 
-.deck-document-artifact {
-  display: grid;
-  gap: 12px;
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-elevated);
-}
-
-.deck-document-artifact-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 12px;
-}
-
-.deck-document-artifact-meta span,
-.deck-document-artifact-meta code {
-  color: var(--fg-muted);
-  font-size: 12px;
-}
-
-.deck-document-artifact-meta code {
-  margin-left: auto;
-  overflow-wrap: anywhere;
-}
-
-.deck-document-artifact details > summary {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.deck-document-artifact details > summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
+/* Structured answer blocks render on the conversation layer's roles
+   (ui/calm-slate-deck-conversation.css): the assembly line, fact grid, evidence note, quiet
+   disclosures, and the document card. These rules keep only the Console-specific parts. */
 .deck-document-artifact-preview {
   max-height: 480px;
   overflow: auto;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.deck-document-artifact-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.deck-document-artifact-actions button {
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--fg);
-  cursor: pointer;
-}
-
-.deck-document-artifact-actions button:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.deck-document-artifact > [role="alert"] {
-  margin: 0;
-  color: var(--danger, #b42318);
 }
 
 .deck-presentation {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
 }
 
-.deck-presentation-assembly {
-  min-width: 0;
-  border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--border));
-  border-radius: 7px;
-  background: color-mix(in oklab, var(--accent) 6%, var(--bg-elevated));
-}
-
-.deck-presentation-assembly > summary {
-  min-height: 42px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  padding: 8px 10px;
-  color: var(--fg-muted);
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.deck-presentation-assembly > summary strong { color: var(--accent-strong); }
-.deck-presentation-assembly > summary code {
-  margin-left: auto;
-  padding: 0;
-  background: transparent;
-  color: var(--fg-muted);
-  font-size: 11px;
-}
-.deck-presentation-assembly > summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.deck-presentation-assembly > ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0 10px 10px;
-  list-style: none;
-}
-.deck-presentation-assembly li code {
-  display: inline-flex;
-  padding: 3px 6px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg-elevated);
-  color: var(--fg-muted);
-  font-size: 11px;
-}
-
-.deck-presentation[data-layout="operational_brief"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 20px;
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-elevated);
-}
-
-.deck-presentation[data-layout="operational_brief"] > .deck-presentation-assembly,
-.deck-presentation[data-layout="operational_brief"] > .deck-presentation-block:first-of-type,
-.deck-presentation[data-layout="operational_brief"] > .deck-presentation-block[data-kind="table"],
-.deck-presentation[data-layout="operational_brief"] > .deck-presentation-block[data-kind="callout"] {
-  grid-column: 1 / -1;
-}
-
-.deck-presentation[data-layout="operational_brief"] > .deck-presentation-block {
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.deck-presentation[data-layout="markdown_document"] {
-  gap: 0;
-  padding: 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-elevated);
-}
-
-.deck-presentation[data-layout="markdown_document"] > .deck-presentation-assembly {
-  margin-bottom: 8px;
-}
-
-.deck-presentation[data-layout="markdown_document"] > .deck-presentation-block {
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.deck-presentation[data-layout="markdown_document"] > .deck-presentation-block:last-child {
-  border-bottom: 0;
-}
+/* A Markdown document card spaces its sections by the layer's document rhythm. */
+.deck-presentation[data-layout="markdown_document"] { display: block; }
 
 .deck-presentation-block {
   min-width: 0;
@@ -181,87 +27,22 @@
 
 .deck-presentation-module { min-width: 0; }
 
-.deck-presentation-block > h4,
-.deck-presentation-block > summary {
-  margin: 0 0 7px;
-  color: var(--fg);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.deck-presentation-block.is-collapsible {
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-}
-
-.deck-presentation-block.is-collapsible > summary {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
+/* The presentation grid owns the spacing between blocks, so layer roles drop their own margins. */
+.deck-presentation-module > :is(.cs-deck-answer-facts, .cs-deck-evidence-note, .cs-deck-answer-note, .cs-run-facts) {
   margin: 0;
-  cursor: pointer;
 }
 
-.deck-presentation-block.is-collapsible > summary:focus-visible,
-.deck-presentation-exact-values > summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
+.deck-presentation-block-title {
+  margin: 0 0 6px;
+  color: var(--cs-text);
+  font: 650 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
 }
 
-.deck-presentation-block-body { margin-top: 9px; }
+.deck-presentation-summary > div[data-tone="attention"] dd { color: var(--cs-deck-attention-text); }
 
-.deck-presentation-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  column-gap: 18px;
-  margin: 0;
-  border-top: 1px solid var(--border);
-}
-
-.deck-presentation-summary > div {
-  min-width: 0;
-  padding: 10px 0 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.deck-presentation-summary dt {
-  color: var(--fg-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.deck-presentation-summary dd {
-  margin: 3px 0 0;
-  color: var(--fg);
-  font-size: 15px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-
-.deck-presentation-summary [data-value-kind="timestamp"] dd,
-.deck-presentation-summary [data-value-kind="actors"] dd { font-size: 13px; }
-.deck-presentation-summary [data-value-kind="duration"] dd { font-size: 14px; }
+/* Evidence values are identifiers and short phrases, so each fact takes a wider track. */
+.deck-presentation-evidence.cs-run-facts { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .deck-presentation-derived { grid-column: 1 / -1; }
-
-.deck-presentation-summary > div[data-tone="attention"] dd {
-  color: color-mix(in oklab, var(--warning) 78%, var(--fg));
-}
-
-.deck-presentation-callout {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  padding: 9px 12px 9px 28px;
-  border: 1px solid color-mix(in oklab, var(--warning) 38%, var(--border));
-  border-radius: 7px;
-  background: color-mix(in oklab, var(--warning) 8%, var(--bg-elevated));
-  color: var(--fg);
-}
 
 .deck-presentation-table-wrap {
   width: 100%;
@@ -300,18 +81,22 @@
   word-break: break-word;
 }
 
+/* Column headers are quiet labels on a faint band, as in the conversation layer's table role. */
 .deck-presentation-table th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--bg-elevated);
-  color: var(--fg);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  border-bottom: 2px solid var(--accent-strong, var(--accent));
+  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+  color: var(--cs-deck-meta-text);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  border-bottom: 1px solid var(--cs-hairline);
 }
+
+/* Data keys read as sentence-case labels without changing the text a screen reader hears. */
+.deck-presentation-table th::first-letter { text-transform: uppercase; }
 
 .deck-presentation-table[data-layout="balanced"] th,
 .deck-presentation-table[data-layout="wide"] th {
@@ -398,7 +183,7 @@
   max-width: 100%;
   overflow: hidden;
   color: var(--fg);
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -485,28 +270,11 @@
   background: var(--warning);
 }
 
-.deck-presentation-list { display: grid; gap: 7px; }
+/* Each record row is one group of the layer's quiet facts between hairlines. */
+.deck-presentation-list { border-top: 1px solid var(--cs-hairline); }
 .deck-presentation-list > dl {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 7px 12px;
-  margin: 0;
   padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.deck-presentation-list dt,
-.deck-presentation-evidence dt { color: var(--fg-muted); font-size: 12px; }
-.deck-presentation-list dd,
-.deck-presentation-evidence dd { margin: 2px 0 0; overflow-wrap: anywhere; }
-
-.deck-presentation-evidence {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px 18px;
-  margin: 0;
-  color: var(--fg-muted);
-  font-size: 12px;
+  border-bottom: 1px solid var(--cs-hairline);
 }
 
 .deck-presentation-accessible-chart {
@@ -518,9 +286,8 @@
 .deck-presentation-accessible-chart > p {
   max-width: 72ch;
   margin: 0;
-  color: var(--fg-muted);
-  font-size: 13px;
-  line-height: 1.5;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
 }
 
 .deck-presentation-bar-track:focus-visible,
@@ -530,23 +297,8 @@
   outline-offset: 3px;
 }
 
-.deck-presentation-exact-values {
-  min-width: 0;
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-}
-
-.deck-presentation-exact-values > summary {
-  width: fit-content;
-  min-height: 44px;
-  color: var(--fg-muted);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 44px;
-}
-
-.deck-presentation-exact-values > .deck-presentation-table { margin-top: 7px; }
+.deck-presentation-exact-values { min-width: 0; margin: 0; }
+.deck-presentation-exact-values > .deck-presentation-table-wrap { margin-top: 6px; }
 
 .deck-presentation-series {
   display: grid;
@@ -605,7 +357,7 @@
   gap: 1px;
   max-width: 94px;
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.25;
   overflow-wrap: anywhere;
   text-align: center;
@@ -686,12 +438,13 @@
   grid-template-columns: minmax(168px, 28%) minmax(0, 1fr);
   gap: 12px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--cs-hairline);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
 }
 
 .deck-presentation-timeline time {
-  color: var(--fg-muted);
-  font-size: 12px;
+  color: var(--cs-deck-meta-text);
+  font-size: var(--cs-type-label-size);
   font-variant-numeric: tabular-nums;
 }
 
@@ -744,19 +497,6 @@
 }
 
 @container deck-transcript (max-width: 560px) {
-  .deck-presentation[data-layout="operational_brief"] {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 14px;
-  }
-  .deck-presentation[data-layout="operational_brief"] > .deck-presentation-block {
-    grid-column: 1;
-  }
-  .deck-presentation[data-layout="markdown_document"] { padding: 14px; }
-  .deck-presentation-assembly > summary code {
-    flex-basis: 100%;
-    margin-left: 0;
-  }
-  .deck-presentation-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .deck-presentation-table,
   .deck-presentation-table tbody,
   .deck-presentation-table tr { display: block; }
@@ -789,25 +529,8 @@
   .deck-presentation-bar-row { grid-template-columns: minmax(72px, 30%) 1fr auto; }
 }
 
-@container deck-transcript (max-width: 420px) {
-  .deck-presentation-summary { grid-template-columns: minmax(0, 1fr); }
-}
-
 @media (max-width: 560px) {
-  .deck-presentation[data-layout="operational_brief"] {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 14px;
-  }
-  .deck-presentation[data-layout="operational_brief"] > .deck-presentation-block {
-    grid-column: 1;
-  }
-  .deck-presentation[data-layout="markdown_document"] { padding: 14px; }
-  .deck-presentation-assembly > summary code {
-    flex-basis: 100%;
-    margin-left: 0;
-  }
   .deck-presentation-table th { position: static; }
-  .deck-presentation-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .deck-presentation-table,
   .deck-presentation-table tbody,
   .deck-presentation-table tr { display: block; }
@@ -840,7 +563,6 @@
 }
 
 @media (max-width: 420px) {
-  .deck-presentation-summary { grid-template-columns: minmax(0, 1fr); }
   .deck-presentation-comparison > div,
   .deck-presentation-timeline > li { grid-template-columns: minmax(0, 1fr); gap: 4px; }
 }

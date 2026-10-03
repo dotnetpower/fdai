@@ -26,8 +26,9 @@ describe("observed trajectory typography", () => {
     );
     expect(styles).toContain("--deck-font-heading: 13px;");
     expect(styles).toContain("--deck-font-body: 12px;");
-    expect(styles).toContain("--deck-font-small: 11px;");
-    expect(styles).toContain("--deck-font-label: 11px;");
+    // Run record sections without a layer role keep readable 12px small and label text.
+    expect(styles).toContain("--deck-font-small: 12px;");
+    expect(styles).toContain("--deck-font-label: 12px;");
     expect(styles).toContain("font-size: 15px;\n  line-height: 1.62;");
   });
 
@@ -55,7 +56,8 @@ describe("observed trajectory typography", () => {
     expect(source).not.toContain('class="deck-trajectory-results"');
     expect(reply).not.toContain('class="deck-trajectory-status-trigger"');
     expect(reply).not.toContain('class="deck-trajectory-flyout"');
-    expect(reply).toContain('class="deck-gr-source-status"');
+    expect(reply).toContain('class="deck-gr-pill cs-deck-pill"');
+    expect(reply).not.toContain('class="deck-gr-source-status"');
     expect(reply).not.toContain('class="deck-gr-review-status"');
     expect(reply).not.toContain("conversation-trajectory-results.css");
   });

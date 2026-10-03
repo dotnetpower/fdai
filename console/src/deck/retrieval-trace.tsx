@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useState } from "preact/hooks";
-import { t } from "../i18n";
+import { t } from "./i18n/conversation-layer";
 import type {
   BackendHealth,
   RetrievalSourcePreview,
@@ -179,9 +179,11 @@ export function RetrievalTrace({
   const visibleSources = sources.slice(Math.max(0, shown - VISIBLE), shown);
   const iconUrl = `url("${typeof import.meta.env.BASE_URL === "string" ? import.meta.env.BASE_URL : "/"}agent-icons/bragi.svg")`;
 
+  // The conversation layer's live grounding trace: one panel with the plan's steps, a window of
+  // the newest sources, and an answer skeleton in the place the answer will take.
   return (
     <article class="deck-rt-turn cs-deck-turn cs-deck-agent-turn">
-      <header class="deck-turn-head deck-rt-agent-head cs-deck-turn-head">
+      <header class="deck-turn-head cs-deck-turn-head">
         <span class="deck-turn-role deck-turn-agent cs-deck-agent-name">
           <span
             class="deck-turn-agent-icon cs-deck-agent-icon"
@@ -190,72 +192,76 @@ export function RetrievalTrace({
           />
           Bragi
         </span>
-        <span class="deck-turn-source cs-deck-agent-source">{t("deck.retrieval.groundingReadOnly")}</span>
       </header>
-      <section class="deck-rt cs-grounding-panel" aria-label={t("deck.retrieval.preparingAnswer")}>
+      <section class="cs-grounding-panel cs-deck-enter" aria-label={t("deck.retrieval.preparingAnswer")}>
         <span class="sr-only" role="status" aria-live="polite">
           {t("deck.retrieval.status", {
             detail: progress?.label ?? t("deck.retrieval.readingCurrentSources"),
           })}
         </span>
-        <header class="deck-rt-head cs-grounding-head">
-          <span class="deck-rt-spin" aria-hidden="true" />
-          <span class="deck-rt-title">{t("deck.retrieval.preparingAnswer")}</span>
-          <span class="deck-rt-sub muted">
+        <header class="cs-grounding-head">
+          <span class="cs-grounding-title">{t("deck.retrieval.preparingAnswer")}</span>
+          <span class="cs-grounding-status">
             {progress?.label ?? t("deck.retrieval.groundingReadOnly")}
           </span>
-          <span class="deck-rt-elapsed muted" aria-hidden="true">
-            {(elapsedMs / 1000).toFixed(1)}s
+          <span class="cs-grounding-elapsed" aria-hidden="true">
+            {(elapsedMs / 1000).toFixed(1)} s
           </span>
-          <span class="deck-rt-mode">{t("deck.retrieval.compact")}</span>
+          <span class="cs-grounding-authority">{t("deck.retrieval.readOnly")}</span>
         </header>
 
-        <ol class="deck-rt-stages">
-        {stages.map((stage) => (
-          <li
-            key={stage.id}
-            class={`deck-rt-stage cs-grounding-stage ${stage.done ? "is-done" : "is-active"}`}
-            data-phase={stage.id}
-            data-done={stage.done ? "true" : "false"}
-            data-side={stage.side}
-          >
-            <span class="deck-rt-ico" aria-hidden="true">{stage.glyph}</span>
-            <span class="deck-rt-stage-copy">
-              <span class="deck-rt-slabel">{stage.label}</span>
-              <span class="deck-rt-detail muted">{stage.detail}</span>
-            </span>
-            <span class={`deck-rt-side deck-rt-side-${stage.side}`}>
-              {t(`deck.retrieval.side.${stage.side}`)}
-            </span>
-            {stage.done ? <span class="deck-rt-check" aria-hidden="true">{"\u2713"}</span> : null}
-          </li>
-        ))}
+        <ol class="cs-grounding-stages" aria-label={t("deck.retrieval.stepsLabel")}>
+          {stages.map((stage) => (
+            <li
+              key={stage.id}
+              class={`cs-grounding-stage ${stage.done ? "is-done" : "is-active"}`}
+              data-phase={stage.id}
+              data-done={stage.done ? "true" : "false"}
+              data-side={stage.side}
+            >
+              <span class="cs-grounding-mark" aria-hidden="true">
+                {stage.done ? "\u2713" : <span class="cs-grounding-spinner" />}
+              </span>
+              <span class="cs-grounding-stage-copy">
+                <span class="cs-grounding-stage-label">{stage.label}</span>
+                <span class="cs-grounding-stage-detail">{stage.detail}</span>
+              </span>
+              <span class="cs-grounding-phase">{t(`deck.retrieval.side.${stage.side}`)}</span>
+              <span class="sr-only">
+                {t(stage.done ? "deck.retrieval.stageDone" : "deck.retrieval.stageActive")}
+              </span>
+            </li>
+          ))}
         </ol>
 
         {sourceCount > 0 ? (
-          <details open class="deck-rt-sources">
-          <summary class="deck-rt-sources-label muted">
-            <span>{t("deck.retrieval.readingSources")}</span>
-            <span>{Math.min(shown, sourceCount)}/{sourceCount}</span>
-          </summary>
-          <div class="deck-rt-slot cs-grounding-source-window">
+          <div class="cs-grounding-sources">
+            <div class="cs-grounding-sources-head">
+              <span>{t("deck.retrieval.readingSources")}</span>
+              <span>{Math.min(shown, sourceCount)}/{sourceCount}</span>
+            </div>
             <ul
-              class="deck-rt-strip"
+              class="cs-grounding-source-list"
+              style={`--cs-grounding-source-rows: ${Math.min(VISIBLE, sourceCount)}`}
             >
               {visibleSources.map((source, index) => (
-                <li key={`${source.kind}-${source.label}-${index}`} class="deck-rt-source cs-grounding-source">
-                  <span class={`deck-rt-badge is-${source.kind}`}>{source.kind}</span>
-                  <span class="deck-rt-txt">
-                    <span class="deck-rt-k">{source.label}</span>
-                    <span class="deck-rt-v">{source.detail}</span>
+                <li key={`${source.kind}-${source.label}-${index}`} class="cs-grounding-source">
+                  <span class="cs-deck-kind">{source.kind}</span>
+                  <span class="cs-grounding-source-copy">
+                    <span class="cs-grounding-source-title">{source.label}</span>
+                    <span class="cs-grounding-source-meta">{source.detail}</span>
                   </span>
                 </li>
               ))}
             </ul>
           </div>
-          </details>
         ) : null}
       </section>
+      <div class="cs-deck-answer-skeleton" aria-hidden="true">
+        <span class="cs-deck-skeleton" />
+        <span class="cs-deck-skeleton" />
+        <span class="cs-deck-skeleton" />
+      </div>
     </article>
   );
 }

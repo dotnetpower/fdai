@@ -26,7 +26,7 @@ import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
 import { useTransientFlag } from "../hooks/use-transient-flag";
-import { t } from "../i18n";
+import { t } from "./i18n/conversation-layer";
 import { AgentActivityTimeline } from "./agent-activity-timeline";
 import {
   injectCiteMarks,
@@ -35,6 +35,7 @@ import {
   parseStreamingAnswer,
   type ChartSpec,
   type InlineCiteMark,
+  type InlineRun,
   type ListItem,
 } from "./rich-parse";
 import { Tooltip } from "../components/tooltip";
@@ -80,7 +81,7 @@ function TextBlock({
         <p key={i} class="deck-turn-line">
           <InlineContent text={line} citeMarks={citeMarks} onCitationSelect={onCitationSelect} />
           {caret && i === lines.length - 1 ? (
-            <span class="deck-gr-caret" aria-hidden="true" />
+            <span class="cs-deck-caret" aria-hidden="true" />
           ) : null}
         </p>
       ))}
@@ -99,11 +100,18 @@ function CiteChip({ n, hint, onCitationSelect }: { readonly n: number; readonly 
   return (
     <Tooltip content={hint}>
       {onCitationSelect ? (
-        <button type="button" class="deck-cite-chip cs-deck-cite" aria-label={`${t("deck.grounded.sourceAria")} ${n}: ${hint}`} onClick={(event) => onCitationSelect(n, event.currentTarget)}>
+        <button
+          type="button"
+          class="deck-cite-chip cs-deck-cite"
+          aria-label={`${t("deck.grounded.sourceAria")} ${n}: ${hint}`}
+          onClick={(event) => onCitationSelect(n, event.currentTarget)}
+        >
           {n}
         </button>
       ) : (
-        <span class="deck-cite-chip cs-deck-cite" role="note" aria-label={`${t("deck.grounded.sourceAria")} ${n}`}>{n}</span>
+        <span class="deck-cite-chip cs-deck-cite" role="note" aria-label={`${t("deck.grounded.sourceAria")} ${n}`}>
+          {n}
+        </span>
       )}
     </Tooltip>
   );
@@ -117,11 +125,20 @@ function InlineContent({
   readonly text: string;
 } & CitationInteraction) {
   const runs = citeMarks && citeMarks.length > 0
-    ? injectCiteMarks(parseInline(text), citeMarks)
+    ? groupCitedWords(injectCiteMarks(parseInline(text), citeMarks))
     : parseInline(text);
   return (
     <>
       {runs.map((run, index) =>
+        run.t === "citeRun" ? (
+          // The cited word and its marks never wrap apart, so a mark never starts a line alone.
+          <span key={index} class="cs-deck-cite-run">
+            {run.word}
+            {run.cites.map((cite) => (
+              <CiteChip key={cite.n} n={cite.n} hint={cite.title} onCitationSelect={onCitationSelect} />
+            ))}
+          </span>
+        ) :
         run.t === "code" ? (
           <code key={index} class="deck-inline-code">{run.s}</code>
         ) : run.t === "strong" ? (
@@ -147,6 +164,44 @@ function InlineContent({
         ))}
     </>
   );
+}
+
+type CiteRunGroup = {
+  readonly t: "citeRun";
+  readonly word: string;
+  readonly cites: readonly { readonly n: number; readonly title: string }[];
+};
+
+/** Move the last word before each citation group into one unbreakable run with its marks. */
+function groupCitedWords(runs: readonly InlineRun[]): readonly (InlineRun | CiteRunGroup)[] {
+  const grouped: (InlineRun | CiteRunGroup)[] = [];
+  for (let index = 0; index < runs.length; index += 1) {
+    const run = runs[index]!;
+    if (run.t !== "cite") {
+      grouped.push(run);
+      continue;
+    }
+    const cites: { n: number; title: string }[] = [];
+    while (runs[index]?.t === "cite") {
+      const cite = runs[index] as Extract<InlineRun, { t: "cite" }>;
+      cites.push({ n: cite.n, title: cite.title });
+      index += 1;
+    }
+    index -= 1;
+    const previous = grouped.at(-1);
+    let word = "";
+    if (previous?.t === "text") {
+      const match = /\S+$/.exec(previous.s);
+      if (match) {
+        word = match[0];
+        grouped.pop();
+        const head = previous.s.slice(0, match.index);
+        if (head) grouped.push({ t: "text", s: head });
+      }
+    }
+    grouped.push({ t: "citeRun", word, cites });
+  }
+  return grouped;
 }
 
 function ListBlock({ ordered, items, ...interaction }: {
@@ -232,7 +287,13 @@ function TableBlock({
   );
 }
 
+function escapeCode(code: string): string {
+  return code.replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
+}
+
 function highlightCode(code: string, lang: string): string {
+  // Plain text stays plain: guessing a grammar would color prose and command output arbitrarily.
+  if (lang === "text") return escapeCode(code);
   if (lang && hljs.getLanguage(lang)) {
     try {
       return hljs.highlight(code, { language: lang }).value;
@@ -243,7 +304,7 @@ function highlightCode(code: string, lang: string): string {
   try {
     return hljs.highlightAuto(code).value;
   } catch {
-    return code.replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
+    return escapeCode(code);
   }
 }
 
@@ -260,6 +321,7 @@ export function CodeBlock({
 }) {
   const [copied, showCopied] = useTransientFlag(1200);
   const html = pending ? null : highlightCode(code, lang);
+  const language = lang || t("deck.rich.code");
   const copy = () => {
     void navigator.clipboard?.writeText(code).then(
       () => {
@@ -270,29 +332,38 @@ export function CodeBlock({
       },
     );
   };
+  // The compact code pattern of the conversation layer; highlight.js token classes take the shared
+  // --cs-code-* colors in styles.css, and Copy always returns the exact source text.
   return (
-    <figure class="deck-code">
-      <figcaption class="deck-code-head">
-        <span class="deck-code-lang">{lang || "code"}</span>
+    <figure class="cs-deck-code">
+      <figcaption class="cs-deck-code-head">
+        <span class="cs-deck-code-lang">{language}</span>
         {pending ? (
-          <span class="deck-code-streaming">{t("deck.rich.streaming")}</span>
+          <span class="cs-deck-code-status">{t("deck.rich.streaming")}</span>
         ) : (
-          <button type="button" class="deck-code-copy" onClick={copy}>
-            {copied ? t("deck.tooltip.copied") : (copyLabel ?? t("deck.tooltip.copyReply"))}
+          <button
+            type="button"
+            class={`cs-deck-code-copy${copied ? " is-copied" : ""}`}
+            onClick={copy}
+            aria-label={copied ? undefined : copyLabel ?? t("deck.rich.copyCode", { language })}
+          >
+            {copied ? t("deck.tooltip.copied") : t("deck.rich.copy")}
           </button>
         )}
       </figcaption>
-      <pre class="deck-code-pre">
-        {html === null ? (
-          <code class="hljs deck-code-pending-text">
-            {code}
-            <span class="deck-gr-caret" aria-hidden="true" />
-          </code>
-        ) : (
-          // hljs escapes the input; its output HTML is safe to inject.
-          <code class="hljs" dangerouslySetInnerHTML={{ __html: html }} />
-        )}
-      </pre>
+      <div class="cs-deck-code-scroll">
+        <pre class="cs-deck-code-block">
+          {html === null ? (
+            <code class="cs-deck-code-text">
+              {code}
+              <span class="cs-deck-caret" aria-hidden="true" />
+            </code>
+          ) : (
+            // hljs escapes the input; its output HTML is safe to inject.
+            <code class="hljs cs-deck-code-text" dangerouslySetInnerHTML={{ __html: html }} />
+          )}
+        </pre>
+      </div>
     </figure>
   );
 }
@@ -375,7 +446,7 @@ export function RichContent({
 }) {
   const segments = streaming ? parseStreamingAnswer(text) : parseAnswer(text);
   if (segments.length === 0) {
-    return streaming ? <span class="deck-gr-caret" aria-hidden="true" /> : null;
+    return streaming ? <span class="cs-deck-caret" aria-hidden="true" /> : null;
   }
   const marks = streaming ? undefined : citeMarks;
   const interaction = { citeMarks: marks, onCitationSelect: streaming ? undefined : onCitationSelect };
@@ -416,7 +487,7 @@ export function RichContent({
         if (seg.spec.type === "line") return <LineChart key={i} spec={seg.spec} />;
         return <MiniChart key={i} spec={seg.spec} />;
       })}
-      {streaming && !lastIsText ? <span class="deck-gr-caret" aria-hidden="true" /> : null}
+      {streaming && !lastIsText ? <span class="cs-deck-caret" aria-hidden="true" /> : null}
     </div>
   );
 }

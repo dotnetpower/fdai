@@ -5,6 +5,8 @@ import {
   investigationFlowHasTerminalAnswer,
   investigationFlowPosition,
   investigationTurnsAreSettled,
+  isInvestigationLead,
+  plannedReadsObserved,
   settleInvestigationTurn,
   settleInvestigationTurns,
 } from "./investigation-turn-state";
@@ -139,5 +141,59 @@ describe("investigation turn state", () => {
     expect(investigationTurnsAreSettled([settled], new Set([settled.id]))).toBe(true);
     expect(investigationTurnsAreSettled([], new Set([running.id]))).toBe(false);
     expect(investigationTurnsAreSettled([], new Set())).toBe(true);
+  });
+
+  it("gives the turn-wide roles to the first activity turn of each flow", () => {
+    const question: Turn = { id: "q", role: "operator", text: "Check drift", at: "01:00:00" };
+    const milestone: Turn = {
+      id: "milestone-1",
+      role: "deck",
+      kind: "message",
+      source: "investigation",
+      text: "The first wave finished.",
+      at: "01:00:02",
+    };
+    const turns = [question, activityTurn("wave-1"), milestone, activityTurn("wave-2")];
+
+    expect(turns.map((_, index) => isInvestigationLead(turns, index))).toEqual([
+      false,
+      true,
+      false,
+      false,
+    ]);
+    // A flow that opens with a milestone still gives the roles to its first activity turn.
+    const late = [question, milestone, activityTurn("wave-1")];
+    expect(isInvestigationLead(late, 2)).toBe(true);
+  });
+
+  it("treats a pause between waves as unfinished until the pinned reads are observed", () => {
+    const read = (id: string): InvestigationActivity => ({
+      activityId: id,
+      kind: "ontology_query",
+      status: "completed",
+      label: id,
+      completed: 1,
+      total: 1,
+      execution: { tool: "Ontology query", command: "query.function", inputKind: "query", redacted: true },
+    });
+    const lifecycle: InvestigationActivity = {
+      activityId: "semantic:evidence",
+      kind: "semantic_turn",
+      status: "completed",
+      label: "Evidence checked",
+      completed: 1,
+      total: 1,
+    };
+    const shape = { schema_version: 1, density: "procedural", waves: 2, planned_reads: 3 } as const;
+    const wave1: Turn = { ...activityTurn("wave-1"), activities: [read("a"), read("b"), lifecycle] };
+    const wave2: Turn = { ...activityTurn("wave-2"), activities: [read("c")] };
+    const ids = new Set([wave1.id, wave2.id]);
+
+    expect(plannedReadsObserved([wave1], ids, undefined)).toBe(true);
+    // A lifecycle step is not a read, so two reads of three keep the work open.
+    expect(plannedReadsObserved([wave1], ids, shape)).toBe(false);
+    expect(plannedReadsObserved([wave1, wave2], ids, shape)).toBe(true);
+    // A read replayed under the same identity is counted once.
+    expect(plannedReadsObserved([wave1, { ...wave2, activities: [read("a")] }], ids, shape)).toBe(false);
   });
 });

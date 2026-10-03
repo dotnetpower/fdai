@@ -190,17 +190,18 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
 
   const {
     activeSearchMatch,
+    followLatestContent,
+    followQuestion,
     jumpToLatest,
+    jumpVisible,
     moveSearch,
     onTranscriptScroll,
-    pinTranscriptToLatest,
     revealCompletedWork,
     scrollerRef,
     searchMatches,
     searchQuery,
     setActiveSearchMatch,
     setSearchQuery,
-    stuck,
   } = useCommandDeckTranscript({
     open,
     turns,
@@ -292,7 +293,8 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     setInFlight,
     updateConversationIndex,
     focusInput,
-    pinTranscriptToLatest,
+    followLatestContent,
+    followQuestion,
     revealCompletedWork,
     conversationModelTier,
   });
@@ -431,7 +433,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       snapshot={context.snapshot}
       pending={pending}
       retrievalProgress={retrievalProgress}
-      stuck={stuck}
+      jumpVisible={jumpVisible}
       inFlight={inFlight}
       searchQuery={searchQuery}
       searchMatches={searchMatches}

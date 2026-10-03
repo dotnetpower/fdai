@@ -12,16 +12,18 @@ const require = createRequire(join(root, "console/package.json"));
 const { chromium } = require("playwright");
 const origin = "http://127.0.0.1:5373";
 
+// The answer form of the one Command deck page (deck.html) is the source-streaming study.
 async function sources() {
-  const [html, script, layer, rule, action, policy] = await Promise.all([
-    readFile(join(uiRoot, "deck-sources.html"), "utf8"),
+  const [html, engine, forms, layer, rule, action, policy] = await Promise.all([
+    readFile(join(uiRoot, "deck.html"), "utf8"),
     readFile(join(uiRoot, "assets/deck-sources.js"), "utf8"),
+    readFile(join(uiRoot, "assets/deck-forms.js"), "utf8"),
     readFile(join(root, "ui/calm-slate-deck-conversation.css"), "utf8"),
     readFile(join(root, "rule-catalog/catalog/postgresql-server.point-in-time-restore.yaml"), "utf8"),
     readFile(join(root, "rule-catalog/action-types/remediate.enable-backup-protection.yaml"), "utf8"),
     readFile(join(root, "policies/postgresql/point_in_time_restore.rego"), "utf8"),
   ]);
-  return { html, script, layer, rule, action, policy };
+  return { html, script: engine, forms, layer, rule, action, policy };
 }
 
 async function openStudy(browser, query = {}, options = {}) {
@@ -35,13 +37,13 @@ async function openStudy(browser, query = {}, options = {}) {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
-  const search = new URLSearchParams(query).toString();
-  await page.goto(`${origin}/?deck-sources=${Date.now()}#mocks/ui/deck-sources.html${search ? `?${search}` : ""}`,
+  const search = new URLSearchParams({ form: "answer", ...query }).toString();
+  await page.goto(`${origin}/?deck-sources=${Date.now()}#mocks/ui/deck.html?${search}`,
     { waitUntil: "load" });
   await page.waitForFunction(() => {
     const frame = document.querySelector("#preview-frame");
     return frame?.contentDocument?.readyState === "complete"
-      && frame.contentWindow.location.pathname === "/mocks/ui/deck-sources.html";
+      && frame.contentWindow.location.pathname === "/mocks/ui/deck.html";
   });
   const frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
   return { context, page, frame, errors };
@@ -149,7 +151,7 @@ test("common preview renders edited inputs and follow-ups share the Markdown pat
 });
 
 test("study copy stays grounded in the shipped rule catalog", async () => {
-  const { html, script, rule, action, policy } = await sources();
+  const { html, script, forms, rule, action, policy } = await sources();
   assert.match(rule, /^id: postgresql-server\.point-in-time-restore$/m);
   assert.match(rule, /^severity: high$/m);
   assert.match(rule, /^\s+min_retention_days: 7$/m);
@@ -179,9 +181,11 @@ test("study copy stays grounded in the shipped rule catalog", async () => {
   ]) {
     assert.ok(script.includes(safeguard), safeguard);
   }
-  // Every tool the run record lists is a read; the replay never records a write authority.
+  // Every tool the run record lists is a read; the replay never records a write authority. The
+  // only other authority is the operator's own conversation state, such as cancelled resumable work.
   assert.match(script, /\["Authority", "read"\]/);
   assert.doesNotMatch(script, /\["Authority", "(?!read")/);
+  assert.deepEqual([...new Set([...forms.matchAll(/authority: "([a-z_]+)"/g)].map((match) => match[1]))], ["conversation"]);
   for (const stale of [/four safety invariants/, /never a deck button/, /gpt-4o-mini/, /side_effect_class of/,
     /Two peer databases had the identical/, /\bgs-[a-z]/]) {
     assert.doesNotMatch(`${html}\n${script}`, stale);
@@ -189,16 +193,17 @@ test("study copy stays grounded in the shipped rule catalog", async () => {
 });
 
 test("study links only to existing mock destinations", async () => {
-  const { html, script } = await sources();
+  const { html, script, forms } = await sources();
+  const linked = (source) => [...source.matchAll(/href: "([a-z0-9-]+\.html)(?:[?#][^"]*)?"/g)].map((match) => match[1]);
   const targets = new Set([
     ...[...html.matchAll(/href="([a-z0-9-]+\.html)"/g)].map((match) => match[1]),
-    ...[...script.matchAll(/href: "([a-z0-9-]+\.html)"/g)].map((match) => match[1]),
-    ...[...script.matchAll(/href: "([a-z0-9-]+\.html)", text:/g)].map((match) => match[1]),
+    ...linked(script),
+    ...linked(forms),
   ]);
   assert.ok(targets.size >= 10);
   for (const target of targets) assert.ok(existsSync(join(uiRoot, target)), target);
   // Every screen a deck link can open has a name for the leave confirmation.
-  for (const target of [...script.matchAll(/href: "([a-z0-9-]+\.html)"/g)].map((match) => match[1])) {
+  for (const target of [...linked(script), ...linked(forms)]) {
     assert.ok(script.includes(`"${target}": "`), `${target} has no page label`);
   }
 });
@@ -500,7 +505,8 @@ test("run record shows the observed process and captures model traces per turn",
     assert.equal(await second.locator(".cs-model-trace-lane").count(), 2);
     assert.equal(await second.locator(".cs-model-trace-count").textContent(), "2 model calls");
     const lane = second.locator(".cs-model-trace-lane").first();
-    await lane.locator("summary").click();
+    // The lane's own summary; the synthetic prompt file inside it has a summary of its own.
+    await lane.locator(":scope > details > summary").click();
     await frame.waitForFunction(() => [...document.querySelectorAll(".cs-model-trace-lane details[open] .cs-model-trace-hash code")]
       .every((code) => /^[0-9a-f]{64}$/.test(code.textContent)), null, { timeout: 3000 });
     assert.equal(await lane.locator(".cs-model-trace-hash").count(), 3);
@@ -1143,7 +1149,7 @@ test("run record keeps wide timeline content inside the record above the compact
       const body = record.querySelector(".cs-run-record-body");
       return {
         column: document.querySelector(".cs-deck-transcript").clientWidth,
-        lanes: record.querySelectorAll(".cs-model-trace-lane details[open]").length,
+        lanes: record.querySelectorAll(".cs-model-trace-lane > details[open]").length,
         clipped: [...record.querySelectorAll("*")].filter((node) => {
           const box = node.getBoundingClientRect();
           return box.width > 0 && box.right > edge;

@@ -64,7 +64,7 @@ export function JsonCodeBlock({
     return <CodeBlock lang="json" code={formatted.text} pending={false}
       copyLabel={t("deck.rich.copyJson")} />;
   }
-  return <pre><code>{formatted.text}</code></pre>;
+  return <CodeBlock lang="text" code={formatted.text} pending={false} />;
 }
 
 function expandNestedJsonStrings(value: unknown): unknown {

@@ -50,6 +50,7 @@ import {
   parseSemanticProjectionReceipt,
 } from "./backend-normalizers";
 import { parseTrajectoryDetail } from "./trajectory-detail";
+import { parseWorkProgressShape } from "./work-progress-contract";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
 import {
   parsePersistedPresentationArtifact,
@@ -106,6 +107,8 @@ export interface PersistedTurn {
   readonly kind?: "message" | "activity";
   readonly activities?: readonly InvestigationActivity[];
   readonly branches?: readonly EvidenceBranch[];
+  readonly workProgressShape?: import("./backend-types").WorkProgressShape;
+  readonly stopped?: boolean;
   readonly at: string;
   readonly source?: string;
   /** Agent name when this turn speaks as a specific agent (icon + name header). */
@@ -189,6 +192,9 @@ export function serializeTurns(
       const modelUsage = parseModelUsage(t.modelUsage);
       const turnTiming = parseTurnTiming(t.turnTiming);
       const trajectoryDetail = parseTrajectoryDetail(t.trajectoryDetail);
+      const workProgressShape = t.kind === "activity"
+        ? parseWorkProgressShape(t.workProgressShape)
+        : undefined;
       const resourceContext = parseResourceContext(t.resourceContext);
       const intentGraph = parseIntentGraph(t.intentGraph);
       const intentGraphEvidence = parseIntentGraphEvidence(t.intentGraphEvidence);
@@ -221,6 +227,8 @@ export function serializeTurns(
         ...(t.kind ? { kind: t.kind } : {}),
         ...(validActivities(t.activities) ? { activities: t.activities } : {}),
         ...(validBranches(t.branches) ? { branches: t.branches } : {}),
+        ...(workProgressShape ? { workProgressShape } : {}),
+        ...(t.kind === "activity" && t.stopped === true ? { stopped: true } : {}),
         ...(boundedString(t.agent, MAX_AGENT_NAME_CHARS) ? { agent: t.agent } : {}),
         ...(validCitations(t.citations) ? { citations: t.citations } : {}),
         ...(validFollowUps(t.followUps) ? { followUps: t.followUps } : {}),
@@ -324,6 +332,9 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const modelUsage = parseModelUsage(rec.modelUsage);
     const turnTiming = parseTurnTiming(rec.turnTiming);
     const trajectoryDetail = parseTrajectoryDetail(rec.trajectoryDetail);
+    const workProgressShape = rec.kind === "activity"
+      ? parseWorkProgressShape(rec.workProgressShape)
+      : undefined;
     const verification = parseAnswerVerification(rec.verification);
     const presentationArtifact = verification && rec.presentationArtifact
       ? parsePersistedPresentationArtifact(rec.presentationArtifact, verification)
@@ -374,6 +385,8 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(rec.kind === "message" || rec.kind === "activity" ? { kind: rec.kind } : {}),
       ...(validActivities(rec.activities) ? { activities: rec.activities } : {}),
       ...(validBranches(rec.branches) ? { branches: rec.branches } : {}),
+      ...(workProgressShape ? { workProgressShape } : {}),
+      ...(rec.kind === "activity" && rec.stopped === true ? { stopped: true } : {}),
       ...(boundedString(rec.agent, MAX_AGENT_NAME_CHARS) ? { agent: rec.agent } : {}),
       ...(validCitations(rec.citations) ? { citations: rec.citations } : {}),
       ...(validFollowUps(rec.followUps) ? { followUps: rec.followUps } : {}),
