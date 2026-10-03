@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: ee44e47d506c1f3bcb84b64213ac4c4f9dd6d874
-translation_revised: 2026-10-02
+translation_source_sha: 906ef1d14edf53ecdf7c045f75cedb0636669d44
+translation_revised: 2026-10-03
 ---
 # 온톨로지 구조 모델
 
@@ -103,6 +103,13 @@ pool worker를 남기지 않도록 provider client 및 event transport와 함께
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된
 관계 없는 후보 스냅샷 하나를 제공할 수 있습니다. 더 큰 스캔은 연결 하나와 출처 세대 하나를
 사용합니다. 관계를 포함하는 조회는 이 경로를 사용하지 않으며 후보 잘림은 계속 명시됩니다.
+
+ObjectSet의 동등·비동등 비교, 집합 소속 및 배열 포함 조건은 JSON의 중첩 깊이에 관계없이
+불리언과 숫자를 구분합니다. 객체 키의 순서는 동등 비교에 영향을 주지 않지만, 추가 키와 배열
+원소의 순서·중복 개수는 결과에 영향을 줍니다. 숫자 `1`과 `1.0`은 계속 같은 값으로 비교합니다.
+문자열 포함 조건은 부분 문자열을, 객체 포함 조건은 키의 존재를 계속 검사합니다. 저장소의
+속성 동등 비교는 결과 수를 제한하기 전에 선택한 속성값 전체를 검사합니다. JSONB 포함 관계만으로는
+정확히 같은 값인지 판정할 수 없습니다.
 
 [구조화된 클라우드 문서 확장](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)은 개발
 중입니다. 본문 블록, 인용문 식별자 및 검색어 결속은 문서 출처 이력을 설명하며, 새 ObjectType,

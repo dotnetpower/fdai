@@ -176,6 +176,59 @@ def _review_object(identifier: str, object_type: str = "ReviewCase") -> Ontology
     )
 
 
+@pytest.mark.parametrize("scan", [False, True])
+@pytest.mark.parametrize(
+    ("actual", "operand", "equal"),
+    [
+        ({"a": 1, "b": 2}, {"a": 1}, False),
+        ([1, 2], [2, 1], False),
+        ([1, 1], [1], False),
+        ([{"enabled": True}], [{"enabled": 1}], False),
+        ({"a": None}, {"b": None}, False),
+        ({"a": None}, {"a": None}, True),
+        ({"count": [1]}, {"count": [1.0]}, True),
+        ({"a": 1, "b": False}, {"b": False, "a": 1}, True),
+    ],
+)
+async def test_isolated_property_equality_precedes_result_limit(actual, operand, equal, scan):
+    declaration = _type("ReviewCase")
+    declaration = declaration.model_copy(
+        update={
+            "properties": {
+                **declaration.properties,
+                "details": PropertyDecl(type=PropertyType.OBJECT),
+            }
+        }
+    )
+    async with _isolated_replacement_store() as isolated:
+        store = PostgresOntologyInstanceStore(
+            config=isolated._config, object_types=(declaration,), link_types=()
+        )
+        for identifier, value in (("a-decoy", actual), ("z-target", operand)):
+            await store.upsert_object(
+                OntologyObjectRecord(
+                    id=identifier,
+                    object_type="ReviewCase",
+                    properties={"id": identifier, "status": "open", "details": {"value": value}},
+                )
+            )
+        filters = {"details": {"value": operand}, "status": "open"}
+        if scan:
+            result = await store.scan_objects(
+                object_types=("ReviewCase",), property_equals=filters, candidate_limit=1
+            )
+        else:
+            result = await store.query_objects(
+                object_types=("ReviewCase",),
+                property_equals=filters,
+                limit=1,
+                include_relationships=False,
+            )
+
+    assert [record.id for record in result.objects] == (["a-decoy"] if equal else ["z-target"])
+    assert result.truncated is equal
+
+
 _WRITER_FENCE_MIGRATION = (
     REPO_ROOT
     / "service-migrations/branches/core-control-plane/versions"
@@ -324,7 +377,8 @@ async def _isolated_committed_resource_store(count=1):
                 "CREATE TABLE inventory_observation_partition "
                 "(scope_ref TEXT,state TEXT,last_watermark BIGINT);"
                 "CREATE TABLE inventory_observation_journal "
-                "(scope_ref TEXT,watermark BIGINT,source_revision TEXT,effective_at TIMESTAMPTZ)"
+                "(scope_ref TEXT,watermark BIGINT,source_revision TEXT,effective_at TIMESTAMPTZ,"
+                "subject_kind TEXT,subject_ref TEXT)"
             )
         await store.replace_subgraph_with_state(
             objects=tuple(

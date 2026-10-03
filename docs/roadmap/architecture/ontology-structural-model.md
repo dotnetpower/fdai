@@ -96,6 +96,13 @@ result limit, the store can provide one relationship-free candidate snapshot bou
 objects. The larger scan uses one connection and one source generation. Relationship-bearing
 queries never use this path, and candidate truncation remains explicit.
 
+ObjectSet equality, inequality, set membership, and array containment distinguish Boolean values
+from numbers at every JSON nesting depth. Object-key order does not affect equality, but additional
+keys, array order, and array multiplicity do. Numeric `1` and `1.0` remain equal. String containment
+still means substring matching, and object containment still tests keys. Store-level property
+equality checks the whole selected value before limiting results; JSONB containment alone cannot
+establish an exact match.
+
 The [structured cloud-document extension](../interfaces/cloud-resource-knowledge-structured-rag.md)
 is under development. Body blocks, excerpt identities, and query bindings describe document provenance,
 not new ObjectTypes, LinkTypes, resource identities, or observed topology. Retrieval terms cannot
