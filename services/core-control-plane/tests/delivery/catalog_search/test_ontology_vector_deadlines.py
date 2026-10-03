@@ -7,6 +7,9 @@ from typing import Any
 import pytest
 from fdai.delivery.catalog_search import ontology_candidate_reader as candidate_module
 from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyGenerationSnapshotStore
+from fdai.delivery.catalog_search.ontology_snapshot_validation import (
+    validate_snapshot_against_current_graph,
+)
 from fdai.delivery.catalog_search.ontology_vector_store import OntologyVectorSnapshotStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from tests.delivery.catalog_search.test_ontology_evaluation import _cases
@@ -263,3 +266,81 @@ async def test_candidate_query_enforces_its_shorter_deadline(
         )
     assert harness.embedder.calls == 1
     assert authorization_calls == (1 if phase == "authorization" else 0)
+
+
+@pytest.mark.parametrize("phase", ["snapshot", "vectors", "assembly"])
+@pytest.mark.parametrize("elapsed", [119.0, 120.0, 121.0])
+async def test_preparation_deadline_precedes_cache_publication(
+    monkeypatch: pytest.MonkeyPatch, phase: str, elapsed: float
+) -> None:
+    harness = await _harness()
+    reader = harness.reader
+    vectors = reader._vectors
+    digest = await vectors.stage(
+        snapshots=harness.snapshots,
+        snapshot_digest=harness.staged.snapshot_digest,
+        manifest=harness.manifest,
+        source_generation=harness.staged.source_generation,
+        source_projection_digest=harness.staged.source_projection_digest,
+    )
+    validation = await validate_snapshot_against_current_graph(
+        snapshots=harness.snapshots,
+        staged=harness.staged,
+        gateway=harness.gateway,
+        manifest=harness.manifest,
+        as_of=harness.clock.now,
+        embedding_space_id="test-space",
+        embedding_model_version="test-model-v1",
+        embedding_dimension=4,
+        validator_id="Heimdall",
+    )
+    previous = dict(reader._prepared)
+    loop, offset = asyncio.get_running_loop(), 0.0
+    original_time = loop.time
+    source_read, vector_read = harness.snapshots.read, vectors.read
+    assemble = candidate_module._Prepared
+    vector_reads = 0
+
+    async def late_source(*args: Any, **kwargs: Any) -> Any:
+        nonlocal offset
+        result = await source_read(*args, **kwargs)
+        if phase == "snapshot":
+            offset = elapsed
+        return result
+
+    async def late_vectors(*args: Any, **kwargs: Any) -> Any:
+        nonlocal offset, vector_reads
+        vector_reads += 1
+        result = await vector_read(*args, **kwargs)
+        if phase == "vectors":
+            offset = elapsed
+        return result
+
+    def late_assembly(*args: Any, **kwargs: Any) -> Any:
+        nonlocal offset
+        result = assemble(*args, **kwargs)
+        if phase == "assembly":
+            offset = elapsed
+        return result
+
+    monkeypatch.setattr(loop, "time", lambda: original_time() + offset)
+    monkeypatch.setattr(harness.snapshots, "read", late_source)
+    monkeypatch.setattr(vectors, "read", late_vectors)
+    monkeypatch.setattr(candidate_module, "_Prepared", late_assembly)
+    arguments = {
+        "staged": harness.staged,
+        "vector_digest": digest,
+        "manifest": harness.manifest,
+        "validation": validation,
+    }
+    if elapsed < 120:
+        await reader.prepare(**arguments)
+        assert all(reader._prepared[key] is not value for key, value in previous.items())
+    else:
+        with pytest.raises(TimeoutError, match="deadline"):
+            await reader.prepare(**arguments)
+        assert all(reader._prepared[key] is value for key, value in previous.items())
+    assert not reader._pending_tokens
+    assert not reader._preparing
+    assert harness.embedder.calls == 0
+    assert vector_reads == (0 if phase == "snapshot" and elapsed >= 120 else 1)
