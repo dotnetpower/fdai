@@ -18,6 +18,7 @@ from fdai.core.ontology_platform import (
     ObjectTraversal,
     compile_interfaces,
 )
+from fdai.core.ontology_platform.object_sets import object_matches_predicates
 from fdai.shared.contracts.models import (
     LinkCardinality,
     OntologyLinkType,
@@ -284,6 +285,106 @@ async def test_query_branch_applies_each_predicate_operator(
     )
 
     assert [item.id for item in result.graph.objects] == expected_ids
+
+
+@pytest.mark.parametrize(
+    ("actual", "operand", "equal"),
+    (
+        (True, 1, False),
+        (1, True, False),
+        (False, 0, False),
+        (0, False, False),
+        ({"enabled": True}, {"enabled": 1}, False),
+        ({"enabled": 0}, {"enabled": False}, False),
+        ([True], [1], False),
+        ([{"enabled": [False]}], [{"enabled": [0]}], False),
+        (1, 1.0, True),
+        ({"count": [1]}, {"count": [1.0]}, True),
+        ({"a": 1, "b": False}, {"b": False, "a": 1}, True),
+        ([1, 2], [2, 1], False),
+        ([1, 1], [1], False),
+        ({"a": 1, "b": 2}, {"a": 1}, False),
+        ({"a": None}, {"b": None}, False),
+        ({"a": None}, {"a": None}, True),
+        ({"a": []}, {"a": {}}, False),
+        ({"a": True}, {"a": True}, True),
+        (1e23, 10**23, True),
+        (10**23, 1e23, True),
+        (1e23, 99999999999999991611392, False),
+        (10**23 - 1, 1e23, False),
+    ),
+)
+@pytest.mark.parametrize(
+    "operator",
+    (
+        ObjectPredicateOperator.EQUALS,
+        ObjectPredicateOperator.NOT_EQUALS,
+        ObjectPredicateOperator.IN,
+        ObjectPredicateOperator.CONTAINS,
+    ),
+)
+async def test_structured_predicates_preserve_json_types_and_structure(
+    actual: Any,
+    operand: Any,
+    equal: bool,
+    operator: ObjectPredicateOperator,
+) -> None:
+    object_type = _object_type()
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a", "labels": [actual]},
+        )
+    )
+    if operator is ObjectPredicateOperator.IN:
+        predicate = ObjectPredicate(property="labels", operator=operator, values=([operand],))
+    else:
+        predicate = ObjectPredicate(
+            property="labels",
+            operator=operator,
+            equals=operand if operator is ObjectPredicateOperator.CONTAINS else [operand],
+        )
+    expected = not equal if operator is ObjectPredicateOperator.NOT_EQUALS else equal
+    result = await _service(store, object_type).materialize(_definition(predicate))
+
+    assert [item.id for item in result.graph.objects] == (["resource-a"] if expected else [])
+    assert result.truncated is False
+    if operator is ObjectPredicateOperator.EQUALS:
+        stored = await store.query_objects(property_equals={"labels": [operand]})
+        assert [item.id for item in stored.objects] == (["resource-a"] if equal else [])
+
+
+@pytest.mark.parametrize(
+    ("actual", "operand", "comparison"),
+    (
+        (1e23, 10**23, 0),
+        (10**23, 1e23, 0),
+        (1e23, 99999999999999991611392, 1),
+        (10**23 - 1, 1e23, -1),
+        (True, 1, None),
+    ),
+)
+@pytest.mark.parametrize(
+    "operator", (ObjectPredicateOperator.AT_LEAST, ObjectPredicateOperator.AT_MOST)
+)
+def test_numeric_order_uses_the_same_json_value_as_equality(
+    actual: int | float,
+    operand: int | float,
+    comparison: int | None,
+    operator: ObjectPredicateOperator,
+) -> None:
+    expected = comparison is not None and (
+        comparison >= 0 if operator is ObjectPredicateOperator.AT_LEAST else comparison <= 0
+    )
+    assert (
+        object_matches_predicates(
+            {"value": actual},
+            (ObjectPredicate(property="value", operator=operator, equals=operand),),
+        )
+        is expected
+    )
 
 
 async def test_query_pushes_down_only_equals_and_reports_post_filter_truncation() -> None:

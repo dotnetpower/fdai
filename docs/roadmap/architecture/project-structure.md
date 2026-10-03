@@ -98,6 +98,11 @@ aggregate route facade assembles handlers without reimplementing boundary normal
 Semantic query composition owns principal-scoped declaration candidate selection and source
 authorization bindings. Core retains predicate, release, freshness, receipt, and query-algebra
 verification; delivery owns bilingual ranking and PostgreSQL generation-cache validation.
+Canonical JSON comparison belongs to the shared ontology provider utilities. Core predicates and
+the reference store reuse it, including immutable projections, instead of maintaining separate
+shallow Boolean guards. PostgreSQL retains its indexable containment prefilter but also checks each
+complete property value before applying the row limit. Neither path grants query or action authority.
+A missing property never satisfies an explicit JSON `null` equality filter in either store.
 The focused current-evidence composition owner also binds graph-refresh decisions to the shared
 StateStore audit. Complete, incomplete, stale, conflicting, and unavailable reads remain distinct,
 principal-scoped, generation-bound, and authority-free without adding another service or writer.
