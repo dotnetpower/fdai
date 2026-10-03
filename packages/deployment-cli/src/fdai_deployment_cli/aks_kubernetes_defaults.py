@@ -37,8 +37,11 @@ def volume_mounts(values: Sequence[object]) -> list[dict[str, Any]]:
 
 
 def environment_entry(entry: dict[str, Any]) -> dict[str, Any]:
-    """Return an environment entry whose key references omit ``optional: false``."""
+    """Return an environment entry without an empty value or key-reference ``optional: false``."""
 
+    if "valueFrom" not in entry and entry.get("value") == "":
+        # The API server omits an empty value, which Kubernetes reads as the empty string.
+        del entry["value"]
     value_from = entry.get("valueFrom")
     if isinstance(value_from, dict):
         for reference in ("secretKeyRef", "configMapKeyRef"):

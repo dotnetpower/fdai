@@ -595,3 +595,19 @@ def test_projection_leaves_the_protected_contract_unchanged() -> None:
 
     protected = captured[-1]
     assert execution._cronjob_contract(protected) == protected  # type: ignore[arg-type]  # noqa: SLF001
+
+
+def test_existing_job_without_an_empty_env_value_keeps_the_same_contract() -> None:
+    from fdai_deployment_cli.aks_job_execution import validate_existing_job
+
+    expected = _materialize()
+    existing = copy.deepcopy(expected.manifest)  # type: ignore[attr-defined]
+    container = existing["spec"]["template"]["spec"]["containers"][0]
+    entry = next(item for item in container["env"] if item.get("value") == "")
+    del entry["value"]
+
+    validate_existing_job(existing, expected=expected)  # type: ignore[arg-type]
+
+    entry["value"] = "Microsoft.Compute/virtualMachines"
+    with pytest.raises(ValueError, match="controlled contract changed"):
+        validate_existing_job(existing, expected=expected)  # type: ignore[arg-type]
