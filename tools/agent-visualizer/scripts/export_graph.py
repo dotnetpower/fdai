@@ -13,6 +13,9 @@ from source_events import arg_metadata, event_metadata
 from source_index import SourceIndex
 from source_services import service_group, service_metadata
 
+# Shared by all 15 members; its methods are framework behavior, not one agent's composition.
+AGENT_FRAMEWORK_BASE = "fdai.agents._framework.base.Agent"
+
 
 def pantheon_records(index: SourceIndex) -> list[dict]:
     tree = index.modules["fdai.agents._framework.pantheon"]
@@ -39,8 +42,22 @@ def pantheon_records(index: SourceIndex) -> list[dict]:
     return records
 
 
+def composed_members(index: SourceIndex, agent_class: str) -> list[str]:
+    """Return methods of an agent class and its mixins, excluding the shared framework base."""
+    if AGENT_FRAMEWORK_BASE not in index.classes:
+        raise ValueError(f"Agent framework base class is missing: {AGENT_FRAMEWORK_BASE}")
+    if agent_class not in index.classes:
+        raise ValueError(f"Pantheon agent class is missing: {agent_class}")
+    composed = set(index.composed_classes(agent_class, frozenset({AGENT_FRAMEWORK_BASE})))
+    return sorted(
+        definition.identifier
+        for definition in index.functions.values()
+        if definition.identifier.rpartition(".")[0] in composed
+    )
+
+
 def export(root: Path) -> dict:
-    """Include every owned agent definition and all conservatively resolved transitive callees."""
+    """Include each agent's composed class definitions and conservatively resolved callees."""
     files = sorted(
         [
             *root.glob("services/*/src/**/*.py"),
@@ -56,21 +73,30 @@ def export(root: Path) -> dict:
     owners: dict[str, set[str]] = defaultdict(set)
     direct: dict[str, set[str]] = defaultdict(set)
     for record in records:
+        agent_class = f"fdai.agents.{record['id'].lower()}.{record['id']}"
+        members = composed_members(index, agent_class)
+        composed = set(members)
+        # Runtime mixins live under _framework/ but remain part of the agent's own class.
+        record["methods"] = [
+            {"name": name, "function_id": resolved}
+            for name in sorted({identifier.rpartition(".")[2] for identifier in members})
+            if (resolved := index.resolved_method(agent_class, name)) in composed
+        ]
         seeds = [
             definition.identifier
             for definition in index.functions.values()
             if definition.path in record["files"]
         ]
-        handler = index.class_method(
-            f"fdai.agents.{record['id'].lower()}.{record['id']}", "on_typed_message"
-        )
+        owned = set(seeds)
+        seeds.extend(identifier for identifier in members if identifier not in owned)
+        handler = index.resolved_method(agent_class, "on_typed_message")
         record["handler"] = handler
         if handler:
             seeds.append(handler)
         queue = deque(seeds)
         visited = set()
         for identifier in seeds:
-            if index.functions[identifier].path in record["files"]:
+            if index.functions[identifier].path in record["files"] or identifier in composed:
                 direct[identifier].add(record["id"])
         while queue:
             identifier = queue.popleft()
@@ -134,7 +160,8 @@ def export(root: Path) -> dict:
             "Static definition references, not observed execution or complete dynamic dispatch.",
             "Declared receiver types do not prove injected runtime implementations.",
             "Unknown receivers, builtins and external SDK calls remain unresolved.",
-            "Multiple possible inherited implementations are not guessed.",
+            "Multiple possible inherited implementations of a call are not guessed.",
+            "Agent handlers and methods follow Python's MRO only through indexed classes.",
         ],
         "agents": records,
         "functions": functions,

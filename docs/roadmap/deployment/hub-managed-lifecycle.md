@@ -84,25 +84,7 @@ run their own Target Hub.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  catalog["Vendor release catalog<br/>signed Releases, channels, recalls"]
-  hub["Lifecycle Hub<br/>central Hub cell or Target Hub"]
-  git["Customer Git<br/>desired configuration"]
-  subgraph installation["Installation inside the customer boundary"]
-    la["Lifecycle agent<br/>workloads and reported state"]
-    ia["Infrastructure agent<br/>exact Terraform plans"]
-    ops["FDAI services<br/>operations loop"]
-  end
-  azure["Azure resources"]
-  catalog -->|"sync or signed upgrade bundle"| hub
-  git -->|"signed configuration package"| hub
-  la -->|"poll Plans and report state"| hub
-  ia -->|"poll Plans and report state"| hub
-  la -->|"apply workloads"| ops
-  ia -->|"apply infrastructure"| azure
-  ops -->|"operations loop"| azure
-```
+![Architecture. The main stages are Vendor release catalog / signed Releases, channels, recalls, Lifecycle Hub / central Hub cell or Target Hub, Customer Git / desired configuration, Lifecycle agent / workloads and reported state, Infrastructure agent / exact Terraform plans, FDAI services / operations loop, Azure resources.](../../diagrams/generated/fdai-roadmap-deployment-hub-managed-lifecycle-01.en.svg)
 
 | Component | Runs in | Identity | Holds | Never holds |
 |-----------|---------|----------|-------|-------------|

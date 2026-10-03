@@ -6,6 +6,8 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
+_TYPE_CHECKING_TESTS = frozenset({"TYPE_CHECKING", "typing.TYPE_CHECKING"})
+
 
 def dotted(node: ast.AST) -> str | None:
     """Return names only; never copy literal arguments or source payloads into the graph."""
@@ -71,6 +73,7 @@ class SourceIndex:
         self.modules: dict[str, ast.Module] = {}
         self.imports: dict[str, dict[str, str]] = {}
         self.paths: dict[str, str] = {}
+        self._runtime_assignments: dict[tuple[str, str], str | None] = {}
         for path in sorted(files):
             parts = path.relative_to(root).parts
             source_offset = parts.index("src") + 1
@@ -182,6 +185,14 @@ class SourceIndex:
                     identifier, module, self.paths[module], node, lexical_owner
                 )
                 self._collect(module, node.body, identifier, lexical_owner)
+            elif (
+                isinstance(node, ast.If)
+                and owner is not None
+                and prefix == owner
+                and dotted(node.test) in _TYPE_CHECKING_TESTS
+            ):
+                # Type-only member declarations do not exist on the runtime class.
+                self._collect(module, node.orelse, prefix, owner)
             elif isinstance(node, ast.If | ast.Try):
                 self._collect(module, node.body, prefix, owner)
                 self._collect(module, node.orelse, prefix, owner)
@@ -206,6 +217,114 @@ class SourceIndex:
                 return self.exported(imported + (f".{suffix}" if suffix else ""), visited)
         return name
 
+    def runtime_assignment(self, module: str, name: str) -> str | None:
+        """Return one module-level runtime name assignment, ignoring TYPE_CHECKING-only bodies."""
+        key = (module, name)
+        if key not in self._runtime_assignments:
+
+            def statements(body: list[ast.stmt]) -> list[ast.stmt]:
+                result: list[ast.stmt] = []
+                for node in body:
+                    if isinstance(node, ast.If):
+                        if dotted(node.test) not in _TYPE_CHECKING_TESTS:
+                            result.extend(statements(node.body))
+                        result.extend(statements(node.orelse))
+                    else:
+                        result.append(node)
+                return result
+
+            values = {
+                dotted(node.value)
+                for node in statements(self.modules[module].body)
+                if isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id == name
+            }
+            self._runtime_assignments[key] = next(iter(values)) if len(values) == 1 else None
+        return self._runtime_assignments[key]
+
+    def base_classes(self, owner: str) -> list[str]:
+        """Resolve the declared runtime bases of one indexed class in declaration order."""
+        record = self.classes.get(owner)
+        if record is None:
+            return []
+        module, bases = record
+        imports = self.imports[module]
+        resolved = []
+        for base in bases:
+            raw = dotted(base)
+            if raw is None:
+                continue
+            first, _, rest = raw.partition(".")
+            if "object" not in imports and (
+                raw == "object"
+                or (
+                    first not in imports
+                    and not rest
+                    and self.runtime_assignment(module, first) == "object"
+                )
+            ):
+                # Python's implicit root contributes no application methods.
+                continue
+            absolute = imports.get(first, f"{module}.{first}")
+            resolved.append(self.exported(absolute + (f".{rest}" if rest else "")))
+        return resolved
+
+    def composed_classes(self, owner: str, excluded: frozenset[str] = frozenset()) -> list[str]:
+        """Return an indexed class and its indexed transitive bases, stopping at excluded ones."""
+        ordered: list[str] = []
+        pending = [owner]
+        while pending:
+            current = pending.pop(0)
+            if current in excluded or current in ordered or current not in self.classes:
+                continue
+            ordered.append(current)
+            pending.extend(self.base_classes(current))
+        return ordered
+
+    def mro(self, owner: str, active: frozenset[str] = frozenset()) -> list[str] | None:
+        """Return Python's C3 linearization; unindexed bases stay opaque single entries."""
+        if owner in active:
+            return None
+        if owner not in self.classes:
+            return [owner]
+        bases = self.base_classes(owner)
+        sequences = []
+        for base in bases:
+            linearization = self.mro(base, active | {owner})
+            if linearization is None:
+                return None
+            sequences.append(linearization)
+        sequences.append(list(bases))
+        result = [owner]
+        while sequences := [sequence for sequence in sequences if sequence]:
+            head = next(
+                (
+                    sequence[0]
+                    for sequence in sequences
+                    if not any(sequence[0] in other[1:] for other in sequences)
+                ),
+                None,
+            )
+            if head is None:
+                return None
+            result.append(head)
+            sequences = [
+                sequence[1:] if sequence[0] == head else sequence for sequence in sequences
+            ]
+        return result
+
+    def resolved_method(self, owner: str, method: str) -> str | None:
+        """Return the definition Python selects for an exact class, or None if any is unknown."""
+        for candidate_class in self.mro(owner) or []:
+            if candidate_class not in self.classes:
+                return None
+            candidate = f"{candidate_class}.{method}"
+            if candidate in self.functions:
+                return candidate
+        return None
+
     def class_method(self, owner: str, method: str, seen: set[str] | None = None) -> str | None:
         visited = set() if seen is None else seen
         if owner in visited:
@@ -214,19 +333,11 @@ class SourceIndex:
         candidate = f"{owner}.{method}"
         if candidate in self.functions:
             return candidate
-        record = self.classes.get(owner)
-        if record is None:
+        if owner not in self.classes:
             return None
-        module, bases = record
         candidates = set()
-        for base in bases:
-            raw = dotted(base)
-            if raw is None:
-                continue
-            first, _, rest = raw.partition(".")
-            absolute = self.imports[module].get(first, f"{module}.{first}")
-            resolved = self.exported(absolute + (f".{rest}" if rest else ""))
-            inherited = self.class_method(resolved, method, visited.copy())
+        for base in self.base_classes(owner):
+            inherited = self.class_method(base, method, visited.copy())
             if inherited:
                 candidates.add(inherited)
         return next(iter(candidates)) if len(candidates) == 1 else None

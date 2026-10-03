@@ -301,9 +301,11 @@ The pane keeps the synthetic source and rate distinction visible, including in C
 ## Source coverage and limitations
 
 The AST generator indexes Python under `services/*/src/` and `packages/*/src/`. It includes
-all definitions in canonical agent-owned files, conservatively resolved transitive callees,
+all definitions in canonical agent-owned files, the methods of every mixin composed into a
+pantheon class (not the shared `Agent` framework base), conservatively resolved transitive callees,
 declared subscriber handlers, and inventory, Azure Resource Graph query/transport, resource-change feed, and
-change-acceleration definitions with their reachable callees.
+change-acceleration definitions with their reachable callees. Agent behavior moved into a
+`_framework/` runtime mixin therefore stays attributed to its agent.
 The displayed function and edge counts describe this scope, not the whole repository.
 
 It resolves lexical calls, imports/re-exports, unambiguous inherited methods, captured `self`
@@ -311,6 +313,12 @@ in nested query closures, and explicitly declared receiver types. It doesn't gue
 receivers, multiple possible inherited implementations, external SDK implementations, or
 runtime-injected bindings. Unresolved calls remain inspectable rather than acquiring invented
 edges. A static graph cannot prove the complete runtime call graph.
+
+Subscriber handlers and workload lanes name a method of an exact pantheon class, so the
+generator resolves them with Python's method resolution order. Resolution stops as unknown at
+any unindexed base before the definition. A base that is `object` at runtime adds no entry, and
+members declared only under `TYPE_CHECKING` are excluded because they don't exist at runtime.
+A workload lane fails explicitly when its method no longer resolves.
 
 Canonical topic ownership comes from `AgentSpec.owns` and `OWNED_OBJECT_TOPICS`; subscribers
 come from `AgentSpec.subscribes`. Optional worker command subscriptions and non-agent consumer

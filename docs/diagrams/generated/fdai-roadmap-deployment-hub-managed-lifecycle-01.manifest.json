@@ -1,0 +1,170 @@
+{
+  "id": "fdai-roadmap-deployment-hub-managed-lifecycle-01",
+  "kind": "deployment",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Architecture",
+      "description": "FDAI flow for Architecture.",
+      "alt": "Architecture. The main stages are Vendor release catalog / signed Releases, channels, recalls, Lifecycle Hub / central Hub cell or Target Hub, Customer Git / desired configuration, Lifecycle agent / workloads and reported state, Infrastructure agent / exact Terraform plans, FDAI services / operations loop, Azure resources."
+    },
+    "ko": {
+      "title": "아키텍처",
+      "description": "아키텍처에 대한 FDAI 흐름입니다.",
+      "alt": "아키텍처. 주요 단계는 공급업체 Release 카탈로그 / 서명된 Release, 채널, 회수, Lifecycle Hub / 중앙 Hub cell 또는 Target Hub, 고객 Git / 원하는 구성, 수명 주기 에이전트 / 워크로드와 보고 상태, 인프라 에이전트 / 정확한 Terraform 계획, FDAI 서비스 / 운영 루프, Azure 리소스입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-deployment-hub-managed-lifecycle-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-deployment-hub-managed-lifecycle-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "catalog",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Vendor release catalog / signed Releases, channels, recalls",
+        "ko": "공급업체 Release 카탈로그 / 서명된 Release, 채널, 회수"
+      },
+      "description": {
+        "en": "Vendor release catalog / signed Releases, channels, recalls",
+        "ko": "공급업체 Release 카탈로그 / 서명된 Release, 채널, 회수"
+      }
+    },
+    {
+      "id": "hub",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Lifecycle Hub / central Hub cell or Target Hub",
+        "ko": "Lifecycle Hub / 중앙 Hub cell 또는 Target Hub"
+      },
+      "description": {
+        "en": "When: sync or signed upgrade bundle / When: signed configuration package / When: poll Plans and report state / When: poll Plans and report state",
+        "ko": "조건: 동기화 또는 서명된 업그레이드 번들 / 조건: 서명된 구성 패키지 / 조건: Plan 폴링과 상태 보고 / 조건: Plan 폴링과 상태 보고"
+      }
+    },
+    {
+      "id": "git",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Customer Git / desired configuration",
+        "ko": "고객 Git / 원하는 구성"
+      },
+      "description": {
+        "en": "Customer Git / desired configuration",
+        "ko": "고객 Git / 원하는 구성"
+      }
+    },
+    {
+      "id": "la",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Lifecycle agent / workloads and reported state",
+        "ko": "수명 주기 에이전트 / 워크로드와 보고 상태"
+      },
+      "description": {
+        "en": "Lifecycle agent / workloads and reported state",
+        "ko": "수명 주기 에이전트 / 워크로드와 보고 상태"
+      }
+    },
+    {
+      "id": "ia",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Infrastructure agent / exact Terraform plans",
+        "ko": "인프라 에이전트 / 정확한 Terraform 계획"
+      },
+      "description": {
+        "en": "Infrastructure agent / exact Terraform plans",
+        "ko": "인프라 에이전트 / 정확한 Terraform 계획"
+      }
+    },
+    {
+      "id": "ops",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "FDAI services / operations loop",
+        "ko": "FDAI 서비스 / 운영 루프"
+      },
+      "description": {
+        "en": "When: apply workloads",
+        "ko": "조건: 워크로드 적용"
+      }
+    },
+    {
+      "id": "azure",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Azure resources",
+        "ko": "Azure 리소스"
+      },
+      "description": {
+        "en": "When: apply infrastructure / When: operations loop",
+        "ko": "조건: 인프라 적용 / 조건: 운영 루프"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "catalog",
+      "to": "hub",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "git",
+      "to": "hub",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "la",
+      "to": "hub",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "ia",
+      "to": "hub",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "la",
+      "to": "ops",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "ia",
+      "to": "azure",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "ops",
+      "to": "azure",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}
