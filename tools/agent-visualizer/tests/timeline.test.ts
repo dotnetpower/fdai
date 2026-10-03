@@ -10,7 +10,7 @@ import en from "../src/ui/messages.en.json";
 import ko from "../src/ui/messages.ko.json";
 import { codeGraph, pythonFunctions, functionById, functionsFor } from "../src/source-graph";
 import { eventFlowAt, argSlotsBetween } from "../src/playback/event-flow";
-import { ARG_WORKFLOWS, independentActivityAt, independentWorkloads } from "../src/playback/workloads";
+import { ARG_WORKFLOWS, independentActivityAt, independentWorkloads, requireAgentMethod } from "../src/playback/workloads";
 
 test("the visualization preserves all 15 canonical pantheon identities", () => {
   const source = readFileSync(new URL("../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py", import.meta.url), "utf8");
@@ -154,6 +154,17 @@ test("all 15 independent workload lanes use real functions and overlap without a
   assert.ok(before.some((work, index) => work.active !== after[index]!.active));
   assert.ok(ARG_WORKFLOWS.every((work) => functionById.has(work.entry) && functionById.has(work.query)));
   assert.ok(ARG_WORKFLOWS.some((work) => work.query.endsWith("AzureResourceChangeFeed.poll")));
+});
+
+test("agent methods resolve through composed mixins and unknown methods fail explicitly", () => {
+  for (const record of codeGraph.agents) {
+    assert.ok(record.methods.length > 0);
+    for (const method of record.methods) {
+      assert.ok(functionById.get(method.function_id)?.direct_owners.includes(record.id), method.function_id);
+    }
+    if (record.handler) assert.ok(functionById.has(record.handler));
+  }
+  assert.throws(() => requireAgentMethod("Huginn", "not_a_real_method"), /agent method is missing: Huginn\.not_a_real_method/);
 });
 
 test("Azure Resource Graph is three visual request slots per second, with source budget semantics preserved", () => {

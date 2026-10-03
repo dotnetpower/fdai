@@ -1,5 +1,5 @@
 import { copy, type AgentId, type Copy } from "../model";
-import { functionById } from "../source-graph";
+import { codeGraph, functionById } from "../source-graph";
 
 export interface IndependentWork {
   readonly agent: AgentId;
@@ -16,9 +16,17 @@ export function requireFunction(id: string): string {
   return id;
 }
 
+/** Resolve an agent method through its class and mixins, wherever the definition lives. */
+export function requireAgentMethod(agent: AgentId, method: string): string {
+  const id = codeGraph.agents.find((record) => record.id === agent)
+    ?.methods.find((candidate) => candidate.name === method)?.function_id;
+  if (!id) throw new Error(`Required visualizer agent method is missing: ${agent}.${method}`);
+  return requireFunction(id);
+}
+
 function lane(agent: AgentId, method: string, period: number, offset: number, duration: number, en: string, ko: string): IndependentWork {
   return {
-    agent, functionId: requireFunction(`fdai.agents.${agent.toLowerCase()}.${agent}.${method}`),
+    agent, functionId: requireAgentMethod(agent, method),
     period, offset, duration, purpose: copy(en, ko),
   };
 }

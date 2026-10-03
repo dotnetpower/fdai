@@ -6,9 +6,38 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from source_index import SourceIndex  # noqa: E402
+
+AGENT_COMPOSITION = {
+    "fdai.agents._framework.base": (
+        "class Agent:\n def on_typed_message(self): pass\n def record(self): pass\n"
+    ),
+    "fdai.agents._framework.ingress": (
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n"
+        " from fdai.agents._framework.base import Agent as _AgentMixinBase\n"
+        "else:\n"
+        " _AgentMixinBase = object\n"
+        "class IngressMixin(_AgentMixinBase):\n"
+        " if TYPE_CHECKING:\n"
+        "  def record(self): ...\n"
+        " def ingest(self): self.record()\n"
+        " def on_typed_message(self): pass\n"
+    ),
+    "fdai.agents.huginn": (
+        "from fdai.agents._framework.base import Agent\n"
+        "from fdai.agents._framework.ingress import IngressMixin\n"
+        "class Huginn(IngressMixin, Agent):\n"
+        " def introspect(self): pass\n"
+    ),
+}
+HUGINN = "fdai.agents.huginn.Huginn"
+INGRESS = "fdai.agents._framework.ingress.IngressMixin"
+AGENT = "fdai.agents._framework.base.Agent"
 
 
 def index_for(tmp_path: Path, modules: dict[str, str]) -> SourceIndex:
@@ -134,3 +163,56 @@ def test_nested_query_closure_preserves_self_without_guessing_shadowed_receivers
         ("sample.Query.build.callback", "sample.Query.fetch"),
     }
     assert unresolved["sample.Query.build.shadow"][0]["symbol"] == "self.fetch"
+
+
+def test_agent_methods_follow_runtime_mro_through_mixins(tmp_path: Path) -> None:
+    index = index_for(tmp_path, AGENT_COMPOSITION)
+
+    # The TYPE_CHECKING-only base alias is `object` at runtime, so it adds no MRO entry.
+    assert index.mro(HUGINN) == [HUGINN, INGRESS, AGENT]
+    assert index.resolved_method(HUGINN, "on_typed_message") == f"{INGRESS}.on_typed_message"
+    assert index.resolved_method(HUGINN, "ingest") == f"{INGRESS}.ingest"
+    # A type-only stub is not a runtime member, so the framework implementation wins.
+    assert f"{INGRESS}.record" not in index.functions
+    assert index.resolved_method(HUGINN, "record") == f"{AGENT}.record"
+    # Call resolution stays conservative: two inherited candidates remain unresolved.
+    assert index.class_method(HUGINN, "on_typed_message") is None
+
+
+def test_unindexed_bases_and_inconsistent_hierarchies_stay_unknown(tmp_path: Path) -> None:
+    index = index_for(
+        tmp_path,
+        {
+            "sample": (
+                "from vendor.sdk import External\n"
+                "class Local:\n def run(self): pass\n"
+                "class Opaque(External, Local): pass\n"
+                "class Known(Local, External): pass\n"
+                "class A: pass\n"
+                "class B(A): pass\n"
+                "class C(A, B): pass\n"
+            )
+        },
+    )
+
+    assert index.resolved_method("sample.Opaque", "run") is None
+    assert index.resolved_method("sample.Known", "run") == "sample.Local.run"
+    assert index.mro("sample.C") is None
+
+
+def test_agent_composition_excludes_the_shared_framework_base(tmp_path: Path) -> None:
+    from export_graph import composed_members
+
+    index = index_for(tmp_path, AGENT_COMPOSITION)
+
+    assert composed_members(index, HUGINN) == [
+        f"{INGRESS}.ingest",
+        f"{INGRESS}.on_typed_message",
+        f"{HUGINN}.introspect",
+    ]
+    without_base = index_for(
+        tmp_path / "without-base",
+        {"fdai.agents.huginn": "class Huginn:\n def introspect(self): pass\n"},
+    )
+    with pytest.raises(ValueError, match="framework base class is missing"):
+        composed_members(without_base, HUGINN)

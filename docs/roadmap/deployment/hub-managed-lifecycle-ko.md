@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: e6d1a568932234cb52d743340b01a7984734813b
-translation_revised: 2026-10-02
+translation_source_sha: deb9623b17c91b4eed995a0da4697b83857aa2cc
+translation_revised: 2026-10-03
 ---
 # Hub 관리형 수명 주기
 
@@ -84,25 +84,7 @@ hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객
 
 ## 아키텍처
 
-```mermaid
-flowchart LR
-  catalog["Vendor release catalog<br/>signed Releases, channels, recalls"]
-  hub["Lifecycle Hub<br/>central Hub cell or Target Hub"]
-  git["Customer Git<br/>desired configuration"]
-  subgraph installation["Installation inside the customer boundary"]
-    la["Lifecycle agent<br/>workloads and reported state"]
-    ia["Infrastructure agent<br/>exact Terraform plans"]
-    ops["FDAI services<br/>operations loop"]
-  end
-  azure["Azure resources"]
-  catalog -->|"sync or signed upgrade bundle"| hub
-  git -->|"signed configuration package"| hub
-  la -->|"poll Plans and report state"| hub
-  ia -->|"poll Plans and report state"| hub
-  la -->|"apply workloads"| ops
-  ia -->|"apply infrastructure"| azure
-  ops -->|"operations loop"| azure
-```
+![아키텍처. 주요 단계는 공급업체 Release 카탈로그 / 서명된 Release, 채널, 회수, Lifecycle Hub / 중앙 Hub cell 또는 Target Hub, 고객 Git / 원하는 구성, 수명 주기 에이전트 / 워크로드와 보고 상태, 인프라 에이전트 / 정확한 Terraform 계획, FDAI 서비스 / 운영 루프, Azure 리소스입니다.](../../diagrams/generated/fdai-roadmap-deployment-hub-managed-lifecycle-01.ko.svg)
 
 | 구성 요소 | 실행 위치 | 신원 | 보관하는 것 | 보관하지 않는 것 |
 |-----------|-----------|------|-------------|------------------|

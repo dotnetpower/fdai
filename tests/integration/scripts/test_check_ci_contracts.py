@@ -1432,6 +1432,27 @@ def test_non_history_workflows_use_shallow_checkouts() -> None:
         assert "fetch-depth: 0" not in workflow
 
 
+def test_pull_requests_validate_documentation_sources_like_pages() -> None:
+    workflows = _REPO_ROOT / ".github" / "workflows"
+    ci_jobs = yaml.safe_load((workflows / "ci.yml").read_text(encoding="utf-8"))["jobs"]
+    pages = yaml.safe_load((workflows / "pages.yml").read_text(encoding="utf-8"))["jobs"]["build"]
+    contract_steps = {step.get("name"): step for step in ci_jobs["contracts"]["steps"]}
+    page_steps = {step.get("name"): step for step in pages["steps"]}
+    shared = (
+        "Set up Node.js",
+        "Install documentation build dependencies",
+        "Validate documentation sources",
+    )
+
+    # Pages runs only after merge, so the required PR job repeats its exact source checks.
+    assert "contracts" in ci_jobs["required"]["needs"]
+    assert [step.get("name") for step in ci_jobs["contracts"]["steps"]][-3:] == list(shared)
+    for name in shared:
+        assert contract_steps[name]["if"] == "needs.changes.outputs.docs == 'true'"
+        for key in ("uses", "with", "run"):
+            assert contract_steps[name].get(key) == page_steps[name].get(key)
+
+
 def test_redundant_workflow_stages_stay_consolidated() -> None:
     pages = yaml.safe_load(
         (_REPO_ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
