@@ -16,6 +16,10 @@ from .ontology_candidate_authorization import (
     AuthorizedOntologyCandidates,
     reauthorize_ontology_candidates,
 )
+from .ontology_candidate_selection import (
+    OntologyCandidateSelection,
+    resolve_candidate_selection,
+)
 from .ontology_snapshot_store import OntologyGenerationSnapshotStore, OntologyStagedProjection
 from .ontology_snapshot_validation import OntologySnapshotValidation
 from .ontology_vector_store import OntologyVectorSnapshotStore, _check_deadline
@@ -35,6 +39,10 @@ class OntologyCandidateSearchResult:
     ontology_release_digest: str
     execution_authority: Literal[False] = False
     authority: Literal["candidate_only"] = "candidate_only"
+    score_kind: Literal["hybrid_ranking", "exact_identity", "predicate_membership"] = (
+        "hybrid_ranking"
+    )
+    selection_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,11 +84,13 @@ class OntologyInstanceCandidateReader:
         max_prepared_scopes: int = 8,
         max_prepared_documents: int = 20_000,
         semantic_search_available: bool = True,
+        typed_selection_available: bool = False,
     ) -> None:
         if not 1 <= max_prepared_scopes <= 32 or not 1 <= max_prepared_documents <= 20_000:
             raise ValueError("ontology candidate cache capacity must be bounded")
         self._snapshots, self._vectors, self._policy = snapshots, vectors, ranking_policy
         self._semantic_search_available = semantic_search_available
+        self._typed_selection_available = typed_selection_available
         self._max_scopes, self._max_documents = max_prepared_scopes, max_prepared_documents
         self._prepared: dict[_ScopeKey, _Prepared] = {}
         self._preparing: dict[_ScopeKey, object] = {}
@@ -186,6 +196,7 @@ class OntologyInstanceCandidateReader:
         gateway: SecuredObjectSetQueryGateway,
         as_of: datetime,
         limit: int = 20,
+        selection: OntologyCandidateSelection | None = None,
     ) -> OntologyCandidateSearchResult:
         """Return current authorized facts or hold on any stale candidate binding."""
         if not query.strip() or len(query.encode("utf-8")) > 16_384 or not 1 <= limit <= 100:
@@ -201,13 +212,35 @@ class OntologyInstanceCandidateReader:
             raise ValueError("ontology candidate generation is not prepared for the current scope")
         deadline = asyncio.get_running_loop().time() + 5
         async with asyncio.timeout(5):
+            scope_receipts: tuple[str, ...] = ()
+            selection_digest: str | None = None
+            score_kind: Literal["hybrid_ranking", "exact_identity", "predicate_membership"]
             exact = tuple(
                 document
                 for document in prepared.documents
                 if query == document.rule_id or query == json.loads(document.text)["id"]
             )
-            if exact:
+            if selection is not None:
+                if not self._semantic_search_available or not self._typed_selection_available:
+                    raise ValueError("ontology instance typed selection is not qualified")
+                resolved = await resolve_candidate_selection(
+                    selection=selection,
+                    query=query,
+                    staged=staged,
+                    manifest=manifest,
+                    documents=prepared.documents,
+                    gateway=gateway,
+                    as_of=as_of,
+                    deadline=deadline,
+                    resource_type_query_terms=prepared.resource_type_query_terms,
+                )
+                ranked = tuple((1.0, item) for item in resolved.documents)
+                scope_receipts = resolved.query_receipt_digests
+                selection_digest = resolved.selection_digest
+                score_kind = "predicate_membership"
+            elif exact:
                 ranked = tuple((self._policy.exact_weight, item) for item in exact)
+                score_kind = "exact_identity"
             else:
                 if not self._semantic_search_available:
                     raise ValueError("ontology instance semantic ranking is not qualified")
@@ -223,6 +256,7 @@ class OntologyInstanceCandidateReader:
                         query_vector=vector,
                     )
                 )
+                score_kind = "hybrid_ranking"
             _check_deadline(deadline)
             selected = tuple(document for _score, document in ranked[:limit])
             authorized = (
@@ -237,6 +271,23 @@ class OntologyInstanceCandidateReader:
                 if selected
                 else None
             )
+            if scope_receipts:
+                authorized = (
+                    replace(
+                        authorized,
+                        query_receipt_digests=tuple(
+                            dict.fromkeys((*scope_receipts, *authorized.query_receipt_digests))
+                        ),
+                    )
+                    if authorized is not None
+                    else AuthorizedOntologyCandidates(
+                        objects=(),
+                        query_receipt_digests=scope_receipts,
+                        snapshot_digest=staged.snapshot_digest,
+                        source_generation=staged.source_generation,
+                        principal_scope_digest=manifest.coverage_receipt.principal_scope_digest,
+                    )
+                )
             _check_deadline(deadline)
             if self._prepared.get(scope) is not prepared:
                 raise ValueError("ontology candidate query was invalidated")
@@ -248,6 +299,8 @@ class OntologyInstanceCandidateReader:
                 tuple((item.rule_id, score) for score, item in ranked[:limit]),
                 manifest.manifest_digest,
                 manifest.release_digest,
+                score_kind=score_kind,
+                selection_digest=selection_digest,
             )
 
     def invalidate(self, *, principal_scope_digest: str | None = None) -> None:
@@ -264,6 +317,7 @@ class OntologyInstanceCandidateReader:
         manifest: QueryManifest,
         generation_digest: str,
         ranking_policy: CatalogRankingPolicy,
+        require_typed_selection: bool = False,
     ) -> None:
         """Check frozen diagnostic inputs without preparing or enabling this reader."""
         prepared = self._prepared.get(_scope_key(manifest))
@@ -273,5 +327,9 @@ class OntologyInstanceCandidateReader:
             or prepared.manifest_digest != manifest.manifest_digest
             or prepared.generation.generation_digest != generation_digest
             or self._policy != ranking_policy
+            or (
+                require_typed_selection
+                and (not self._semantic_search_available or not self._typed_selection_available)
+            )
         ):
             raise ValueError("ontology evaluation reader binding changed")

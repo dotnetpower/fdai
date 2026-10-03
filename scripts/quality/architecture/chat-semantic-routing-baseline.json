@@ -506,6 +506,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/delivery/catalog_search/ontology_semantic_evaluation.py",
+      "disposition": "retain",
+      "owner": "catalog-search",
+      "reason": "Retains full-match validation of source commit and digest syntax, and calls the secured typed candidate reader. It does not derive meaning from query words: a separately bound model proposes conditions, and current ObjectSets verify membership without granting qualification or authority.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/delivery/catalog_search/rule_generation.py",
       "disposition": "retain",
       "owner": "catalog-search",

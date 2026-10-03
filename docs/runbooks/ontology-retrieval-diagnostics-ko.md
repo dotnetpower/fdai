@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: 0ed728e7903157babefeed383f07068723833ab0
+translation_source_sha: e11243c6c3a14110d0c167aa97b9904bf8236475
 translation_revised: 2026-10-03
 ---
 
@@ -66,6 +66,98 @@ v2 보정 자료에는 단일 대상 정답 32개, 복수 대상 정답 8개와 
 없습니다. 파일과 모델 식별자는 일관성을 검증할 뿐, 제공자 진위, 대표성이나 활성화 권한을
 입증하지 않습니다.
 
+## 형식화된 조건으로 후보 포함 여부 진단
+
+선택적으로 사용하는 `OntologyCandidateSelection` 경로는 이미 제안된 조건을 현재 권한이
+적용된 ObjectSet 조회로 평가합니다. 자연어 단어를 해석하거나 모델을 호출하지 않습니다.
+제안의 의미는 계속 호출자가 책임집니다. 조건과 일치한다는 사실만으로 질문을 올바르게
+이해했다고 볼 수는 없습니다.
+
+`OntologyCandidateSelection.bind`로 제안을 연결하고 준비된 판독기의
+`search(selection=...)`에 전달하세요. 연결 정보에는 정확한 질문, 매니페스트와 스냅샷이
+포함됩니다. 한 절 안의 조건은 AND로 결합하고, 절별 결과는 합집합으로 모아 중복 식별자를
+제거합니다. 판독기는 조회를 기다리기 전에 중첩된 피연산자의 복사본을 고정합니다.
+
+- 제안은 32 KiB, 절 8개, 절당 조건 16개와 명시적 ID 100개로 제한합니다.
+  빈 제안과 한도를 넘은 입력은 잘라서 사용하지 않고 차단합니다.
+- principal, 목적, 기준 시점, 관계 제외와 ObjectSet의 1,000행 한도는 서비스가 정합니다.
+  조건식 속성에 대한 접근에는 게이트웨이의 기존 권한 검사를 적용합니다.
+- 각 조회 범위는 완전하고 최신이어야 하며 숨겨진 식별자가 없어야 합니다. 표시 한도 밖의
+  일치 객체도 포함하여 모든 일치 객체의 정규 내용이 준비된 원본과 같아야 합니다.
+- 판독기는 정규 문서 ID 순서로 정렬하고 표시할 객체의 권한을 다시 확인합니다. 결과가
+  비어 있어도 조회 범위의 근거를 남기며, 범위 조회와 최종 권한 검증의 증적 다이제스트를
+  보존합니다. 후보가 없다는 결과만으로 그래프에 대상이 없다고 단정하지 않습니다.
+- `score_kind="predicate_membership"`은 포함 여부를 나타내는 상수 `1.0`을 뜻하며
+  유사도 점수나 신뢰도가 아닙니다. `selection_digest`에는
+  `secured-objectset-membership.v1` 전략과 고정된 제안이 연결됩니다. 기존 순위 검색과
+  정확한 ID 조회는 동작을 유지하며 각자의 점수 종류를 표시합니다.
+
+`typed_selection_available`의 기본값은 `False`이며, 의미 검색도 사용 가능한 상태여야 합니다.
+이전에 임베딩 순위 검색의 품질을 검증했더라도 새 전략을 활성화할 수는 없습니다. 런타임
+활성화는 계속 차단된 상태입니다. 고정된 기존 순위 검색 보고서로 이 경로의 품질을 인정하지
+않습니다. 모델과 프롬프트 출처, 실제 의미 제안 평가와 새로 검토한 홀드아웃이 여전히 필요합니다.
+
+## 진단용 모델 어댑터로 의미 제안
+
+`FileSystemPromptRegistry`에서 `semantic.query.plan`의
+`diagnostic.ontology-candidate-selection`을 명시적으로 선택하고 `PromptAssembler`로
+컴파일하세요. 이 프로필은 관찰 모드(`shadow`)이며 현재 활성 계획 프로필을 대체하지 않습니다.
+
+컴파일된 계획 본문과 재생 매니페스트, 정확히 한 대상, 5초 이하의 제한 시간으로 별도의
+`AzureOpenAISemanticPlanningModel`을 구성하세요. 질문, 매니페스트, 완전한 정규 빌드와
+준비된 스냅샷을 `propose_candidate_selection`에 전달합니다. 원본 검증기는 호출 전에
+세대와 principal 매니페스트를 확인합니다. 문맥이 128 KiB를 넘거나 입력 최소화 후 내용이
+바뀌거나 프롬프트 한도를 넘으면 호출을 보류합니다. 문서를 알리지 않고 빼지 않습니다.
+
+결과에는 입력 다이제스트와 전송된 프롬프트 및 스키마의 재생 매니페스트를 포함한 모델
+관측 정보가 남습니다. 선택 결과에는 형식화된 절과 절마다 정확한 원문 인용이 포함됩니다.
+인용 검증은 출처를 확인할 뿐 의미가 올바르게 해석됐음을 입증하지 않습니다. 명확화
+결과에는 명시적 사유가 있으며 선택 정보는 없습니다. **판독기를 호출하기 전에 명확화를
+처리하세요.** `search(selection=...)`에 `None`을 전달하면 명확화가 아니라 기존 순위
+검색 경로가 선택됩니다.
+
+이 진단 메서드는 한 번만 시도합니다. 제공자 실패, 잘못된 JSON, 불완전한 모델 응답,
+잘못된 인용과 제한 시간 초과를 빈 검색 성공으로 바꾸지 않습니다. 일반 프레임 및 계획
+제안의 재시도 동작은 변경하지 않습니다. 실제 호출 승인, 모델과 버전의 실측 확인, 호출별
+영속 근거, 평가 연결 정보와 전체 예산은 계속 호출자가 책임집니다. 모의 어댑터 검사는
+실제 품질이나 런타임 활성화 자격을 입증하지 않습니다.
+
+## 의미 제안을 별도로 측정
+
+준비된 형식화 후보 판독기와 `OntologyEvaluationEvidence(..., semantic_proposals=True)`를
+사용하여 `prepare_ontology_semantic_evaluation`과 `run_ontology_semantic_evaluation`을
+실행하세요. 전체 소스 커밋 식별자가 필요합니다. 이 모드는 임베딩 벡터를 보존하거나 기존
+벡터 재생의 근거로 사용할 수 없습니다. 준비 작업에는 별도의 실행 한도를 적용합니다.
+
+평가 계획에는 문항 순서, 변경되지 않은 라벨과 정책, 정규 원본, 스냅샷, 선택 전략, 대상,
+전송할 프롬프트와 스키마, 출력 토큰과 제한 시간을 포함한 실제 요청 매개변수가 연결됩니다.
+모델 이름과 버전은 호출자가 확인했다고 제공하는 정보입니다. 실제 배포 상태 확인과 범위를
+명시한 실행 승인은 계속 호출자가 책임집니다.
+
+- **한도:** 제안 인터페이스 호출은 최대 64회, 측정은 전체 600초, 문항당 5초입니다.
+  측정 전후에 현재 원본을 검증하며, 각 검증은 전체 한도 안에서 최대 120초로 제한합니다.
+- **영속 기록 순서:** 다음 단계로 진행하기 전에 호출 의도, 수락한 제안과 측정값을 각각
+  디스크에 반영합니다. 제안 근거에는 인용문 전체가 아니라 형식화된 조건과 원문에서 인용한
+  위치를 보존합니다. 이 파생 데이터는 비공개로 보관하세요. 명확화는 별도로 기록하며 기존
+  순위 검색으로 넘어가지 않습니다.
+- **실패:** 입력이나 대상 및 요청 연결 정보가 바뀌거나, 형식화 후보 선택을 사용할 수
+  없거나, 제공자 호출, 출력 검증 또는 저장에 실패하면 중단합니다. 취소는 취소로 유지하며,
+  기록기를 사용할 수 있으면 이전 측정값을 보존합니다.
+- **별도 결과:** 의미 평가 보고서는 자체 식별자와 기존 코호트 지표 계산 및 임계값을
+  사용합니다. 한 단계의 `passed`는 전체 평가의 자격을 뜻하지 않습니다.
+  `production_qualification`과 `execution_authority`는 계속 `False`입니다.
+
+### 최종 근거의 결과 해석
+
+의미 평가 근거는 스키마 `1.1.0`을 사용하며 최대 198개 기록을 허용합니다. 기존 비공개 파일,
+기록 크기와 파일 크기 제한도 유지합니다. 보고서의 측정 경과 시간은 종료 기록 저장 전에
+계산하며, 실행기는 저장이 끝난 뒤 전체 제한 시간을 다시 확인합니다. 저장 완료가 늦으면
+실행기는 오류를 반환하고 `completed` 뒤에 `aborted` 정정 기록을 한 번 추가하여 측정값을
+보존합니다. **앞선 완료 기록이 아니라 마지막 종료 결과를 기준으로 판단하세요.**
+정정 후에는 호출을 재개하거나 중단 결과를 성공으로 바꿀 수 없습니다. 기존 근거 형식의
+종료 규칙은 변경하지 않습니다. 실패 기록 자체를 저장하지 못하면 종료 결과의 저장 완료가
+확인되지 않은 것이므로 성공으로 취급할 수 없습니다.
+
 ## 테스트
 
 ```bash
@@ -79,6 +171,30 @@ uv run pytest -q --no-cov \
 
 이 검사는 결정적 벡터를 사용합니다. 실행 구조와 데이터 수락 조건은 검증하지만 실제
 임베딩의 검색 관련성은 입증하지 않습니다.
+
+형식화된 조건의 후보 판정 경계와 기존 후보 및 평가 소비 경로는 다음 명령으로 검사합니다.
+
+```bash
+uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_selection.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidates.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_vector_deadlines.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_runner.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_execution.py
+```
+
+이 검사는 형식화된 조건을 직접 제공하며 실제 모델을 호출하지 않습니다. 자연어 이해
+품질을 측정하는 검사가 아닙니다.
+
+모델 경계, 실제 진단 프로필과 기존 계획 동작은 다음 명령으로 검사합니다.
+
+```bash
+uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_semantic_evaluation.py \
+  services/core-control-plane/tests/delivery/azure/llm/test_ontology_candidate_proposal.py \
+  services/core-control-plane/tests/delivery/azure/llm/test_semantic_planning.py \
+  services/core-control-plane/tests/core/prompts/test_profiles.py
+```
 
 ## 관련 문서
 

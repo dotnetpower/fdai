@@ -161,7 +161,6 @@ async def _measure_ontology_retrieval_cases(
 ) -> OntologyRetrievalEvaluationReport:
     """Measure already admitted inputs, sharing the caller's absolute campaign deadline."""
     measurements: list[OntologyRetrievalMeasurement] = []
-    observed: dict[tuple[str, str], list[float]] = defaultdict(list)
 
     def check_deadline(bound: float = deadline) -> None:
         if asyncio.get_running_loop().time() >= bound:
@@ -230,26 +229,48 @@ async def _measure_ontology_retrieval_cases(
                         case.case_id, query_digest(case.query), retrieved, result_digest
                     )
                 )
-                if case.expected_document_ids:
-                    expected = set(case.expected_document_ids)
-                    observed[case.cohort, f"recall-at-{evaluation_policy.top_k}"].append(
-                        len(expected.intersection(retrieved)) / len(expected)
-                    )
-                    observed[case.cohort, "mean-reciprocal-rank"].append(
-                        next(
-                            (
-                                1 / rank
-                                for rank, item in enumerate(retrieved, 1)
-                                if item in expected
-                            ),
-                            0.0,
-                        )
-                    )
-                else:
-                    observed[case.cohort, "no-match-precision"].append(float(not retrieved))
             source_after = await validate_source()
     except (ValueError, PermissionError, TimeoutError):
         raise OntologyRetrievalEvaluationAbortedError(binding_digest, tuple(measurements)) from None
+    metrics, failures = summarize_retrieval_measurements(cases, measurements, evaluation_policy)
+    return OntologyRetrievalEvaluationReport(
+        binding_digest=binding_digest,
+        measurements=tuple(measurements),
+        source_validations=(source_before, source_after),
+        cohort_metrics=metrics,
+        failure_codes=failures,
+        stage=stage,
+    )
+
+
+def summarize_retrieval_measurements(
+    cases: Sequence[OntologyRetrievalEvaluationCase],
+    measurements: Sequence[OntologyRetrievalMeasurement],
+    evaluation_policy: RetrievalEvaluationPolicy,
+) -> tuple[tuple[CohortMetric, ...], tuple[str, ...]]:
+    if not cases or len(cases) != len(measurements):
+        raise ValueError("ontology metrics require complete case measurements")
+    observed: dict[tuple[str, str], list[float]] = defaultdict(list)
+    for case, measurement in zip(cases, measurements, strict=True):
+        if (
+            case.case_id != measurement.case_id
+            or query_digest(case.query) != measurement.query_digest
+        ):
+            raise ValueError("ontology metric case binding changed")
+        retrieved = measurement.retrieved_document_ids
+        if case.expected_document_ids:
+            expected = set(case.expected_document_ids)
+            observed[case.cohort, f"recall-at-{evaluation_policy.top_k}"].append(
+                len(expected.intersection(retrieved)) / len(expected)
+            )
+            observed[case.cohort, "mean-reciprocal-rank"].append(
+                next(
+                    (1 / rank for rank, item in enumerate(retrieved, 1) if item in expected),
+                    0.0,
+                )
+            )
+        else:
+            observed[case.cohort, "no-match-precision"].append(float(not retrieved))
     metrics = tuple(
         CohortMetric(cohort, metric, sum(values) / len(values), len(values))
         for (cohort, metric), values in sorted(observed.items())
@@ -259,17 +280,10 @@ async def _measure_ontology_retrieval_cases(
         "mean-reciprocal-rank": evaluation_policy.min_mean_reciprocal_rank,
         "no-match-precision": evaluation_policy.min_no_match_precision,
     }
-    return OntologyRetrievalEvaluationReport(
-        binding_digest=binding_digest,
-        measurements=tuple(measurements),
-        source_validations=(source_before, source_after),
-        cohort_metrics=metrics,
-        failure_codes=tuple(
-            sorted(
-                f"{item.cohort}-{item.metric}-below-threshold"
-                for item in metrics
-                if item.value < thresholds[item.metric]
-            )
-        ),
-        stage=stage,
+    return metrics, tuple(
+        sorted(
+            f"{item.cohort}-{item.metric}-below-threshold"
+            for item in metrics
+            if item.value < thresholds[item.metric]
+        )
     )
