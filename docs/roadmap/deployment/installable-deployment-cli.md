@@ -562,7 +562,7 @@ binding file needs a separate owner-review flow. The revised contract therefore 
 preflight before the first Azure effect: duplicate `fdai-api`, `fdai-console-spa`,
 `fdai-approval-bot`, or `aw-*` display names stop the run with a fixed ambiguity reason. The
 operator resolves the tenant by renaming or removing the extra registration, then reruns the same
-installation.
+installation. Each installation then adds only its exact Static Web Apps origin to the shared SPA registration and keeps every other redirect. Microsoft Graph neither preserves redirect order nor guarantees read-after-write consistency, so the effect check requires the exact submitted redirect set, in any order, within six reads taken five seconds apart.
 
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.

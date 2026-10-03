@@ -506,6 +506,84 @@ def test_console_spa_redirect_preserves_existing_values_and_verifies(monkeypatch
     assert len(writes) == 1
 
 
+SPA_CLIENT_ID = "00000000-0000-0000-0000-000000000001"
+SPA_OBJECT_ID = "00000000-0000-0000-0000-000000000002"
+SWA_ORIGIN = "https://calm-field-012345678.3.azurestaticapps.net"
+LOCAL_REDIRECT = "http://localhost:5273"
+
+
+def _spa_with_redirects(redirects: list[str]) -> dict[str, object]:
+    return {
+        "id": SPA_OBJECT_ID,
+        "appId": SPA_CLIENT_ID,
+        "displayName": "fdai-console-spa",
+        "signInAudience": "AzureADMyOrg",
+        "spa": {"redirectUris": redirects},
+    }
+
+
+@pytest.mark.parametrize(
+    ("readbacks", "expected_sleeps"),
+    [
+        pytest.param([[SWA_ORIGIN, LOCAL_REDIRECT]], [], id="graph-reordered"),
+        pytest.param(
+            [[LOCAL_REDIRECT], [SWA_ORIGIN, LOCAL_REDIRECT]],
+            [5.0],
+            id="stale-then-replicated",
+        ),
+    ],
+)
+def test_console_spa_redirect_accepts_the_exact_set_in_any_graph_order(
+    monkeypatch,
+    readbacks: list[list[str]],
+    expected_sleeps: list[float],
+) -> None:
+    reads = iter([[LOCAL_REDIRECT], *readbacks])
+    writes = []
+    sleeps: list[float] = []
+    monkeypatch.setattr(genesis_entra, "_app", lambda _id: _spa_with_redirects(next(reads)))
+    monkeypatch.setattr(genesis_entra, "_graph", lambda *args: writes.append(args) or {})
+    monkeypatch.setattr(genesis_entra, "_sleep", sleeps.append)
+
+    assert genesis_entra.ensure_console_spa_redirect(SPA_CLIENT_ID, SWA_ORIGIN) is True
+    assert writes == [
+        (
+            "PATCH",
+            f"applications/{SPA_OBJECT_ID}",
+            {"spa": {"redirectUris": [LOCAL_REDIRECT, SWA_ORIGIN]}},
+        )
+    ]
+    assert sleeps == expected_sleeps
+    assert next(reads, None) is None
+
+
+@pytest.mark.parametrize(
+    "observed",
+    [
+        pytest.param([LOCAL_REDIRECT], id="never-replicated"),
+        pytest.param([SWA_ORIGIN], id="existing-redirect-lost"),
+        pytest.param(
+            [SWA_ORIGIN, LOCAL_REDIRECT, "https://other-field.azurestaticapps.net"],
+            id="unexpected-redirect",
+        ),
+        pytest.param([SWA_ORIGIN, LOCAL_REDIRECT, LOCAL_REDIRECT], id="duplicate-redirect"),
+    ],
+)
+def test_console_spa_redirect_fails_closed_after_a_bounded_readback(
+    monkeypatch, observed: list[str]
+) -> None:
+    reads = iter([[LOCAL_REDIRECT], *([observed] * 6)])
+    sleeps: list[float] = []
+    monkeypatch.setattr(genesis_entra, "_app", lambda _id: _spa_with_redirects(next(reads)))
+    monkeypatch.setattr(genesis_entra, "_graph", lambda *_args: {})
+    monkeypatch.setattr(genesis_entra, "_sleep", sleeps.append)
+
+    with pytest.raises(ValueError, match="redirect effect readback is incomplete"):
+        genesis_entra.ensure_console_spa_redirect(SPA_CLIENT_ID, SWA_ORIGIN)
+    assert sleeps == [5.0] * 5
+    assert next(reads, None) is None
+
+
 @pytest.mark.parametrize(
     ("client_id", "origin"),
     [

@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 9f19efead9574466b81c5f9cfcbede81895d1f1e
-translation_revised: 2026-10-02
+translation_source_sha: d5b4b1d65f22ddf5c937e0aa994649a0fc1ece2a
+translation_revised: 2026-10-03
 ---
 
 # 설치형 배포 CLI
@@ -555,7 +555,7 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 개정된 계약은 첫 Azure 효과 전에 읽기 전용 사전 점검을 수행합니다. `fdai-api`,
 `fdai-console-spa`, `fdai-approval-bot` 또는 `aw-*` 표시 이름이 중복되면 실행은 고정된
 모호성 이유로 멈춥니다. 운영자는 추가 등록의 이름을 바꾸거나 제거한 뒤 같은 설치를 다시
-실행합니다.
+실행합니다. 이후 각 설치는 공유 SPA 등록에 자신의 정확한 Static Web Apps origin만 추가하고 다른 redirect는 모두 유지합니다. Microsoft Graph는 redirect 순서를 보존하지 않고 쓰기 직후 읽기 일관성도 보장하지 않으므로, 효과 확인은 제출한 redirect 집합이 순서와 무관하게 정확히 일치하는지를 5초 간격으로 최대 6번 읽어 확인합니다.
 
 공개 CLI는 `deploy plan`, `deploy apply` 또는 `deploy status`를 등록하지 않습니다. 이 명령들은
 이전에 GitHub workflow를 dispatch했으며 standalone 배포 계약에 포함되지 않습니다. 실제
