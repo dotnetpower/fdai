@@ -7,6 +7,7 @@ import concurrent.futures
 import json
 import re
 import subprocess
+import time
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -38,6 +39,9 @@ _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _SWA_ORIGIN = re.compile(
     r"https://[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:[.][0-9]+)?[.]azurestaticapps[.]net"
 )
+_REDIRECT_READBACK_ATTEMPTS = 6
+_REDIRECT_READBACK_INTERVAL_SECONDS = 5.0
+_sleep = time.sleep
 
 
 @dataclass(frozen=True, slots=True)
@@ -284,19 +288,33 @@ def ensure_console_spa_redirect(spa_client_id: str, console_origin: str) -> bool
         raise ValueError("Console SPA redirect readback is invalid")
     if console_origin in redirects:
         return False
+    expected = [*redirects, console_origin]
     _graph(
         "PATCH",
         f"applications/{object_id}",
-        {"spa": {"redirectUris": [*redirects, console_origin]}},
+        {"spa": {"redirectUris": expected}},
     )
-    observed = _app(spa_client_id)
-    observed_spa = observed.get("spa")
-    observed_redirects = (
-        observed_spa.get("redirectUris") if isinstance(observed_spa, dict) else None
+    # Graph neither preserves redirect order nor guarantees read-after-write consistency, so the
+    # exact submitted set must appear within a short bounded re-read.
+    for attempt in range(_REDIRECT_READBACK_ATTEMPTS):
+        if attempt:
+            _sleep(_REDIRECT_READBACK_INTERVAL_SECONDS)
+        observed = _app(spa_client_id)
+        observed_spa = observed.get("spa")
+        observed_redirects = (
+            observed_spa.get("redirectUris") if isinstance(observed_spa, dict) else None
+        )
+        if _same_redirects(observed_redirects, expected):
+            return True
+    raise ValueError("Console SPA redirect effect readback is incomplete")
+
+
+def _same_redirects(observed: object, expected: list[str]) -> bool:
+    return (
+        isinstance(observed, list)
+        and all(isinstance(item, str) for item in observed)
+        and sorted(observed) == sorted(expected)
     )
-    if observed_redirects != [*redirects, console_origin]:
-        raise ValueError("Console SPA redirect effect readback is incomplete")
-    return True
 
 
 def _directory_inventory() -> tuple[
