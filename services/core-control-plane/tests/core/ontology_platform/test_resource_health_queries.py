@@ -27,9 +27,12 @@ from fdai.core.ontology_platform.resource_health_queries import (
     ResourceHealthCollection,
     ResourceHealthCoverage,
     ResourceHealthCoverageStatus,
+    ResourceHealthNarrationClaims,
     ResourceHealthObservation,
+    ResourceHealthTerminalDisposition,
     resource_health_function_type,
     resource_health_inventory_function,
+    validate_resource_health_answer,
 )
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.ontology.release import build_ontology_release
@@ -160,12 +163,21 @@ def _query_result(objects: tuple[OntologyObjectRecord, ...]) -> SecuredObjectSet
 
 
 class _Reader:
-    def __init__(self, result: ResourceHealthCollection) -> None:
-        self.result = result
+    def __init__(
+        self, result: ResourceHealthCollection | tuple[ResourceHealthCollection, ...]
+    ) -> None:
+        if isinstance(result, tuple):
+            self._results = list(result)
+            self.result = result[-1]
+        else:
+            self._results = []
+            self.result = result
         self.calls: list[tuple[str, ...]] = []
 
     async def read_current(self, *, resource_ids: tuple[str, ...]) -> ResourceHealthCollection:
         self.calls.append(resource_ids)
+        if self._results:
+            return self._results.pop(0)
         return self.result
 
 
@@ -305,7 +317,10 @@ async def test_health_function_preserves_mixed_health_and_inventory_state() -> N
         rows[1]["values"]["availability_state"] is None
     )
     assert all(row["values"]["execution_authority"] is False for row in rows)
-    assert reader.calls == [("resource-service-a", "resource-service-b")]
+    assert reader.calls == [
+        ("resource-service-a", "resource-service-b"),
+        ("resource-service-a", "resource-service-b"),
+    ]
 
 
 async def test_health_function_uses_fresh_ontology_availability_without_provider_read() -> None:
@@ -372,7 +387,7 @@ async def test_health_function_rejects_stored_fact_recorded_after_secured_cutoff
 
     result = await _invoke(reader, _query_result((resource,)))
 
-    assert reader.calls == [(resource.id,)]
+    assert reader.calls == [(resource.id,), (resource.id,)]
     assert result["complete"] is False
     assert result["truncation_reason"] == "no_record"
 
@@ -438,6 +453,38 @@ async def test_health_function_keeps_matches_but_demotes_partial_provider_covera
     assert result["rows"][1]["values"]["coverage_state"] == "no_record"
 
 
+async def test_health_function_reread_fence_returns_state_changed_after_unsafe_drift() -> None:
+    objects = (_resource("service-a", "Running"),)
+    resource_ids = ("resource-service-a",)
+    first = _collection(
+        resource_ids,
+        coverage_statuses=(ResourceHealthCoverageStatus.NO_RECORD,),
+    )
+    second = _collection(
+        resource_ids,
+        observations=(
+            ResourceHealthObservation(
+                resource_id="resource-service-a",
+                availability_state=ResourceHealthAvailabilityState.AVAILABLE,
+                reason_kind="status_only",
+                provider_observed_at=NOW - timedelta(minutes=1),
+                evidence_ref="azure-resource-health:service-a",
+            ),
+        ),
+        coverage_statuses=(ResourceHealthCoverageStatus.OBSERVED,),
+    )
+    reader = _Reader((first, second))
+
+    result = await _invoke(reader, _query_result(objects))
+
+    assert result["complete"] is False
+    assert result["truncation_reason"] == "state_changed"
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert rows[0]["values"]["coverage_state"] == "state_changed"
+    assert rows[0]["values"]["availability_state"] is None
+
+
 async def test_health_function_rejects_provider_scope_widening() -> None:
     objects = (_resource("service-a", "Running"),)
     reader = _Reader(
@@ -449,6 +496,128 @@ async def test_health_function_rejects_provider_scope_widening() -> None:
 
     with pytest.raises(ValueError, match="changed the secured resource scope"):
         await _invoke(reader, _query_result(objects))
+
+
+def test_resource_health_answer_validator_accepts_complete_all_available_claims() -> None:
+    collection = _collection(
+        ("resource-service-a",),
+        observations=(
+            ResourceHealthObservation(
+                resource_id="resource-service-a",
+                availability_state=ResourceHealthAvailabilityState.AVAILABLE,
+                reason_kind="status_only",
+                provider_observed_at=NOW - timedelta(minutes=1),
+                evidence_ref="azure-resource-health:service-a",
+            ),
+        ),
+        coverage_statuses=(ResourceHealthCoverageStatus.OBSERVED,),
+    )
+    claims = ResourceHealthNarrationClaims(
+        terminal_disposition=ResourceHealthTerminalDisposition.ALL_CLEAR,
+        all_clear=True,
+        denominator_count=1,
+        observed_count=1,
+        reason_codes=(),
+        window_started_at=collection.started_at,
+        window_completed_at=collection.completed_at,
+        execution_authority=False,
+    )
+
+    validation = validate_resource_health_answer(
+        collection,
+        narration="All requested Resource Health targets are available.",
+        claims=claims,
+    )
+
+    assert validation.accepted is True
+    assert validation.terminal_disposition is ResourceHealthTerminalDisposition.ALL_CLEAR
+    assert validation.replacement_claim == "resource_health_all_clear"
+    assert validation.execution_authority is False
+
+
+def test_resource_health_answer_validator_replaces_adversarial_korean_all_clear() -> None:
+    collection = _collection(
+        ("resource-service-a", "resource-service-b"),
+        observations=(
+            ResourceHealthObservation(
+                resource_id="resource-service-a",
+                availability_state=ResourceHealthAvailabilityState.AVAILABLE,
+                reason_kind="status_only",
+                provider_observed_at=NOW - timedelta(minutes=1),
+                evidence_ref="azure-resource-health:service-a",
+            ),
+        ),
+        coverage_statuses=(
+            ResourceHealthCoverageStatus.OBSERVED,
+            ResourceHealthCoverageStatus.NO_RECORD,
+        ),
+    )
+    claims = ResourceHealthNarrationClaims(
+        terminal_disposition=ResourceHealthTerminalDisposition.ALL_CLEAR,
+        all_clear=True,
+        denominator_count=2,
+        observed_count=1,
+        reason_codes=(),
+        window_started_at=collection.started_at,
+        window_completed_at=collection.completed_at,
+        execution_authority=False,
+    )
+
+    validation = validate_resource_health_answer(
+        collection,
+        narration="모든 대상이 정상이며 추가 조치가 필요 없습니다.",
+        claims=claims,
+    )
+
+    assert validation.accepted is False
+    assert validation.terminal_disposition is (
+        ResourceHealthTerminalDisposition.INCOMPLETE_DENOMINATOR
+    )
+    assert validation.replacement_claim == "resource_health_incomplete_denominator"
+    assert validation.preserved_reasons == ("resource-service-b:coverage:no_record",)
+    assert "all_clear_claim_replaced" in validation.violations
+    assert "reason_preservation_contradiction" in validation.violations
+    assert validation.execution_authority is False
+
+
+def test_resource_health_answer_validator_rejects_count_time_and_authority_contradictions() -> None:
+    collection = _collection(
+        ("resource-service-a",),
+        observations=(
+            ResourceHealthObservation(
+                resource_id="resource-service-a",
+                availability_state=ResourceHealthAvailabilityState.DEGRADED,
+                reason_kind="platform_initiated",
+                provider_observed_at=NOW - timedelta(minutes=1),
+                evidence_ref="azure-resource-health:service-a",
+            ),
+        ),
+        coverage_statuses=(ResourceHealthCoverageStatus.OBSERVED,),
+    )
+    claims = ResourceHealthNarrationClaims(
+        terminal_disposition=ResourceHealthTerminalDisposition.NON_HEALTHY,
+        all_clear=False,
+        denominator_count=2,
+        observed_count=0,
+        reason_codes=("resource-service-a:availability:degraded:platform_initiated",),
+        window_started_at=collection.started_at - timedelta(seconds=1),
+        window_completed_at=collection.completed_at,
+        execution_authority=True,
+    )
+
+    validation = validate_resource_health_answer(
+        collection,
+        narration="The typed receipt shows degraded Resource Health.",
+        claims=claims,
+    )
+
+    assert validation.accepted is False
+    assert {
+        "denominator_contradiction",
+        "count_contradiction",
+        "time_window_contradiction",
+        "authority_contradiction",
+    } <= set(validation.violations)
 
 
 async def test_health_function_preserves_unknown_separately_from_provisioning_state() -> None:

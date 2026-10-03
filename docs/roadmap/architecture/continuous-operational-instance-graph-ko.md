@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 24f0d6f902842a17ecf1eb1fe3ff8f0f45c6b440
-translation_revised: 2026-10-03
+translation_source_sha: a6554d1f5656ee2554ed761f29a7182c277a9a3d
+translation_revised: 2026-10-04
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -420,6 +420,8 @@ throttling은 동시성을 줄이고 `Retry-After`를 따르며, 지속적인 �
 tick의 범위가 제한된 복구를 위해 정본 인벤토리 세대는 유지합니다.
 두 경로는 인벤토리 CLI 지원 경계를 통해 런타임 호출, Resource Health, Static Web App,
 Kubernetes 보강을 동일한 순서의 파이프라인으로 구성합니다.
+Resource Health 보강은 전체 정상 답변 전에 정확한 분모의 튜플 집합 다시 읽기 fence를
+사용하며, 모델이 작성한 서술은 모델 밖에서 구조화된 증적 주장과 대조해 검증합니다.
 
 검증된 구성은 배포 값을 제공합니다. 저장소 기본값과 테스트는 안전한 범위를 정의하며, 하나의 간격이
 모든 tenant 또는 공급자 API에 적합하다고 주장하지 않습니다.

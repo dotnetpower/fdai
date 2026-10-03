@@ -407,6 +407,8 @@ configured interval. A one-shot job also fails when source collection or the pro
 fails, while retaining the authoritative inventory generation for bounded recovery on the next tick.
 Both paths build the same ordered runtime-call, Resource Health, Static Web App, and Kubernetes
 enrichment pipeline through the inventory CLI support boundary.
+Resource Health enrichment uses an exact-denominator tuple-set reread fence before any all-clear
+answer and validates model-authored narration against structured receipt claims outside the model.
 
 Validated configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
 claim that one interval fits every tenant or provider API. One finite end-to-end deadline covers lock acquisition, collection, enrichment, promotion, and notification; cancelled candidates get bounded failure cleanup. Pagination and continuation failures remain partial collection failures, not inferred authentication failures.
