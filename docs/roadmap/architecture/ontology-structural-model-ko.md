@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 79339a43c90b54b28e4d630fb95a1932cd338fcb
-translation_revised: 2026-10-03
+translation_source_sha: e14c936a536aef58f143c78092d0ff015c0fe459
+translation_revised: 2026-10-04
 ---
 # 온톨로지 구조 모델
 
@@ -72,6 +72,9 @@ Operator 온톨로지 변환 결과와 역할 선택은 이제 목적별 운영 
 카탈로그 소유 목표 바인딩 변환에는 다른 카탈로그 인스턴스와 같은 정확한 release 객체와 방향이
 있는 링크 검증을 적용합니다. 후보 바인딩은 검증된 목표 하나와 정확한 Rule 버전 하나를
 지정하며, 그래프 링크가 평가 결과나 권한으로 바뀌지 않습니다.
+검토된 `rule-catalog/objective-effects/` 레코드는 부호가 있는 예상 목표 효용을 정확한 Rule 콘텐츠
+다이제스트 하나와 ActionType 하나에 바인딩합니다. 재생은 이 레코드를 fail-closed로 로드하며, 레코드는
+중재 증적에만 쓰이고 작업을 선택, 승인, 실행할 수 없습니다.
 규칙별 결과 조회는 같은 리비전의 규칙 카탈로그에서 요청한 식별자를 검증합니다. 결과 프로바이더가
 연결되지 않았으면 카탈로그에 있는 규칙에 대해 `evaluated: false`와 빈 결과 목록을 반환합니다.
 요약 개수에서 Resource 식별자나 결과 세부 정보를 도출하지 않습니다.

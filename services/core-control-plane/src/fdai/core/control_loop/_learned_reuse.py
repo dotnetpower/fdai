@@ -56,6 +56,7 @@ async def record_learned_reuse_advisory(
         "reason": GOVERNED_EXECUTION_UNSELECTED_REASON,
         "citing_rule_ids": list(citing),
         "learned_signature": learned.signature if learned is not None else None,
+        "reused_from": learned.incident_id if learned is not None else None,
         "recorded_at": datetime.now(tz=UTC).isoformat(),
     }
     await audit_store.append_audit_entry(entry)

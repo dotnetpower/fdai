@@ -66,6 +66,9 @@ projection revision, evidence admission, or authority.
 The catalog-owned objective binding projection uses the same exact-release object and directed
 link validation as other catalog instances. A candidate binding names one validated objective
 and one exact Rule version; its graph links cannot become an assessment or permission.
+Reviewed `rule-catalog/objective-effects/` records bind signed expected objective utilities to one
+exact Rule content digest and ActionType. Replay loads them fail-closed; they inform arbitration
+evidence only and cannot select, approve, or execute an action.
 The per-rule findings read validates the requested identity against the same revisioned Rule catalog. Without a connected findings provider it returns `evaluated: false` and no findings for a known rule; it never derives Resource identities or finding details from summary counts.
 Committed inventory invalidation markers coordinate browser rereads without becoming graph state.
 Bulk state pages carry the marker watermark bound to their committed generation, and SSE resumes

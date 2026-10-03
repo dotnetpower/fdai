@@ -15,7 +15,6 @@
     "observed_at",
     "arbitration",
     "operating_context",
-    "objective_effects",
     "options",
     "expected"
   ],
@@ -92,55 +91,6 @@
               "to_id": {"type": "string", "pattern": "^example-[a-z0-9-]{1,63}$"}
             }
           }
-        }
-      }
-    },
-    "objective_effects": {
-      "description": "Typed frozen enrichment: the signed objective effects a shipped rule's remediation is expected to have. A record binds to an option only when that option's replay cites this rule id AND builds this ActionType, so it cannot be attached by hand. It names no domain, no option, and no counterpart, and it declares no direction vocabulary - whether two bound records oppose is decided independently by the runtime relation over their signed utilities on one and the same objective.",
-      "type": "array",
-      "minItems": 2,
-      "maxItems": 8,
-      "uniqueItems": true,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["cited_rule_id", "action_type", "effects", "note"],
-        "properties": {
-          "cited_rule_id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,127}$"},
-          "action_type": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,63}$"},
-          "effects": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 16,
-            "uniqueItems": true,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "objective_kind",
-                "metric",
-                "utility",
-                "confidence",
-                "expected_min",
-                "expected_max",
-                "observation_window_seconds"
-              ],
-              "properties": {
-                "objective_kind": {
-                  "description": "Resolved to a concrete objective id by traversing the declared ontology neighborhood, so an effect can only land on an objective the graph actually governs this target with.",
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{1,63}$"
-                },
-                "metric": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"},
-                "utility": {"type": "number", "minimum": -1.0, "maximum": 1.0},
-                "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                "expected_min": {"type": "number", "minimum": -1.0, "maximum": 1.0},
-                "expected_max": {"type": "number", "minimum": -1.0, "maximum": 1.0},
-                "observation_window_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}
-              }
-            }
-          },
-          "note": {"type": "string", "minLength": 1, "maxLength": 600}
         }
       }
     },

@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+id: effect.kubernetes-cluster-diagnostic-settings-required.enable-diagnostic-settings
+version: 1.0.0
+rule:
+  ref: kubernetes-cluster.diagnostic-settings-required@1.0.0
+  content_digest: sha256:090e136eb04285b7c80f3397ba11b770dc08f8266b1d52b6f59334cce6675c8a
+action_type: remediate.enable-diagnostic-settings
+effects:
+- objective_kind: availability
+  metric: slo_signal_completeness
+  utility: 0.6
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+- objective_kind: run_rate
+  metric: telemetry_ingestion_run_rate
+  utility: -0.4
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+reviewer: Forseti
+state: reviewed
+content_digest: sha256:1de02e588c7f4dba009460eb549f0d5b5f120be24067f5e8eafdcab98662925a
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: objective-effect:kubernetes-cluster.diagnostic-settings-required@1.0.0:remediate.enable-diagnostic-settings
+  content_hash: sha256:1de02e588c7f4dba009460eb549f0d5b5f120be24067f5e8eafdcab98662925a
+  license: MIT
+  retrieved_at: '2026-10-04T00:00:00Z'

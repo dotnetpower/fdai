@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+id: effect.postgresql-server-diagnostic-settings-required.enable-diagnostic-settings
+version: 1.0.0
+rule:
+  ref: postgresql-server.diagnostic-settings-required@1.0.0
+  content_digest: sha256:29d4a8a1499b2aaed773904a79efa00e0acdda92655dcf853511f736f81dce72
+action_type: remediate.enable-diagnostic-settings
+effects:
+- objective_kind: recovery_readiness
+  metric: recovery_plan_audit_signal
+  utility: 0.6
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+- objective_kind: run_rate
+  metric: recovery_plan_change_run_rate
+  utility: -0.4
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+reviewer: Forseti
+state: reviewed
+content_digest: sha256:c8e7fadca1c77b562a4069e41a7f3700771ee71af7fcef69d1e0490a523cc0d7
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: objective-effect:postgresql-server.diagnostic-settings-required@1.0.0:remediate.enable-diagnostic-settings
+  content_hash: sha256:c8e7fadca1c77b562a4069e41a7f3700771ee71af7fcef69d1e0490a523cc0d7
+  license: MIT
+  retrieved_at: '2026-10-04T00:00:00Z'

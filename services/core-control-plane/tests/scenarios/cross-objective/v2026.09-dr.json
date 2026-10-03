@@ -140,58 +140,6 @@
       }
     ]
   },
-  "objective_effects": [
-    {
-      "cited_rule_id": "postgresql-server.diagnostic-settings-required",
-      "action_type": "remediate.enable-diagnostic-settings",
-      "effects": [
-        {
-          "objective_kind": "recovery_readiness",
-          "metric": "recovery_plan_audit_signal",
-          "utility": 0.6,
-          "confidence": 0.9,
-          "expected_min": -1,
-          "expected_max": 1,
-          "observation_window_seconds": 300
-        },
-        {
-          "objective_kind": "run_rate",
-          "metric": "recovery_plan_change_run_rate",
-          "utility": -0.4,
-          "confidence": 0.9,
-          "expected_min": -1,
-          "expected_max": 1,
-          "observation_window_seconds": 300
-        }
-      ],
-      "note": "Attaching diagnostic settings closes the audit-trail gap the recovery-readiness objective is measured from and adds a change to the recovery plan that the run-rate objective pays for. The record binds to a replay only when that replay cites this rule and builds this ActionType; it never names a domain, an option, or a counterpart, so it cannot declare a conflict on its own."
-    },
-    {
-      "cited_rule_id": "network.load-balancer.unused-backend",
-      "action_type": "remediate.remove-orphan-resource",
-      "effects": [
-        {
-          "objective_kind": "recovery_readiness",
-          "metric": "recovery_plan_audit_signal",
-          "utility": -0.5,
-          "confidence": 0.9,
-          "expected_min": -1,
-          "expected_max": 1,
-          "observation_window_seconds": 300
-        },
-        {
-          "objective_kind": "run_rate",
-          "metric": "recovery_plan_change_run_rate",
-          "utility": 0.5,
-          "confidence": 0.9,
-          "expected_min": -1,
-          "expected_max": 1,
-          "observation_window_seconds": 300
-        }
-      ],
-      "note": "Removing the unused failover load-balancer lowers the recovery plan's change run-rate cost, but dropping a resource out of the failover path narrows the population the recovery-readiness objective's audit covers. Bound the same way, by cited rule and produced ActionType."
-    }
-  ],
   "options": [
     {
       "option_id": "enable-postgres-diagnostics",

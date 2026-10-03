@@ -140,58 +140,6 @@
       }
     ]
   },
-  "objective_effects": [
-    {
-      "cited_rule_id": "compute.vm.managed-identity.assigned",
-      "action_type": "remediate.assign-identity",
-      "effects": [
-        {
-          "objective_kind": "compliance_posture",
-          "metric": "identity_hardening_signal",
-          "utility": 0.6,
-          "confidence": 0.9,
-          "expected_min": -1,
-          "expected_max": 1,
-          "observation_window_seconds": 300
-        },
-        {
-          "objective_kind": "run_rate",
-          "metric": "fleet_change_run_rate",
-          "utility": -0.4,
-          "confidence": 0.9,
-          "expected_min": -1,
-          "expected_max": 1,
-          "observation_window_seconds": 300
-        }
-      ],
-      "note": "Assigning a managed identity closes the attestable-identity gap the compliance objective is measured from and adds a change to the fleet that the run-rate objective pays for. The record binds to a replay only when that replay cites this rule and builds this ActionType; it never names a domain, an option, or a counterpart, so it cannot declare a conflict on its own."
-    },
-    {
-      "cited_rule_id": "disk.unattached",
-      "action_type": "remediate.remove-orphan-resource",
-      "effects": [
-        {
-          "objective_kind": "compliance_posture",
-          "metric": "identity_hardening_signal",
-          "utility": -0.5,
-          "confidence": 0.9,
-          "expected_min": -1,
-          "expected_max": 1,
-          "observation_window_seconds": 300
-        },
-        {
-          "objective_kind": "run_rate",
-          "metric": "fleet_change_run_rate",
-          "utility": 0.5,
-          "confidence": 0.9,
-          "expected_min": -1,
-          "expected_max": 1,
-          "observation_window_seconds": 300
-        }
-      ],
-      "note": "Removing the unattached disk lowers the fleet's change run-rate cost, and dropping a resource out of the fleet narrows the population the compliance objective's attestation window covers. Bound the same way, by cited rule and produced ActionType."
-    }
-  ],
   "options": [
     {
       "option_id": "assign-managed-identity",

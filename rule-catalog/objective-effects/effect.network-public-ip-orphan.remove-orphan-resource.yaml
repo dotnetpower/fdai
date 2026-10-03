@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+id: effect.network-public-ip-orphan.remove-orphan-resource
+version: 1.0.0
+rule:
+  ref: network.public-ip.orphan@1.0.0
+  content_digest: sha256:c887d0b39f0436a75c70e9cb35dcb0f7514aa8841667aa976d0b293d20eaf01f
+action_type: remediate.remove-orphan-resource
+effects:
+- objective_kind: compliance_posture
+  metric: identity_hardening_signal
+  utility: -0.5
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+- objective_kind: run_rate
+  metric: fleet_change_run_rate
+  utility: 0.5
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+reviewer: Forseti
+state: reviewed
+content_digest: sha256:4fb09f107e2a989268daaead05f258adb8c5618d389f2f3489003c384750ff39
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: objective-effect:network.public-ip.orphan@1.0.0:remediate.remove-orphan-resource
+  content_hash: sha256:4fb09f107e2a989268daaead05f258adb8c5618d389f2f3489003c384750ff39
+  license: MIT
+  retrieved_at: '2026-10-04T00:00:00Z'
