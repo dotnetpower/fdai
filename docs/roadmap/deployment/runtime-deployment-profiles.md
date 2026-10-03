@@ -369,6 +369,10 @@ Both renderers bind Core to the `fdai.operating-model` logical topic through
 managed-identity transport; it is not another Event Hub entity or authority channel. The AKS
 standalone renderer obtains the value from the exact substrate output, while the independent and
 legacy Container Apps renderers receive the same typed deployment input.
+Core consumes that topic, and publishes read-investigation stage activity, through the primary
+transport even when an isolated auxiliary transport is configured. The auxiliary operations
+namespace carries only raw inventory, canary, startup-probe, and executor traffic and has no entity
+for either topic.
 
 The AKS standalone renderer always binds Core semantic request, projection, physical and read-investigation topics,
 so a disabled model returns a typed hold instead of leaving a request pending. With model support,

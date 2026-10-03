@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 90290343f7f30447a847b533ca1accd58be0de1d
-translation_revised: 2026-09-28
+translation_source_sha: dc49ae60d438bf560ef70c8f8ebed4a54c52c45d
+translation_revised: 2026-10-03
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -42,6 +42,7 @@ Core는 요청을 적용하기 전에 정본 Incident에서 같은 대상 다이
 계산합니다.
 Operator 수명 주기는 재시도 가능한 개입 보낼 편지함 작업자를 소유하며, 해당 작업자가 중지되면 준비 상태를 false로 유지합니다.
 허용 목록에 등록된 논리 요청 토픽은 물리 전송 계층을 통해 다중화되며 Core 런타임 토픽 집합에 등록됩니다.
+Core는 등록된 논리 토픽을 그 기본 다중화 전송으로만 읽고 쓰며, 격리된 보조 전송은 이 토픽을 전달하지 않습니다.
 Core는 정본 Incident 레지스트리로 consumer를 감독하며, 게재 또는 적용이 대기 중이면 HTTP 수락을 최종 상태로 보지 않습니다.
 HTTP `202` 이후 Console은 일치하는 `incident.intervention-applied` 기록이 나타날 때까지
 선택한 감사 이력을 제한된 횟수로 다시 조회합니다. 기록을 확인하면 페이지를 새로 고치지
