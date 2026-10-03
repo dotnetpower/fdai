@@ -192,7 +192,6 @@ async def build_semantic_runtime(
     control_loop: ControlLoop,
     state_store: StateStore,
     event_bus: EventBus,
-    operational_event_bus: EventBus,
     runtime_saga: Saga,
     identity: WorkloadIdentity | None,
     http_client: httpx.AsyncClient | None,
@@ -474,8 +473,9 @@ async def build_semantic_runtime(
         ontology_store=control_loop.ontology_instance_store,
         schema_registry=container.schema_registry,
         catalog_root=catalog_root,
+        # The stage topic lives on the primary namespace; the auxiliary transport lacks it.
         activity_publisher=EventBusOperationalActivityPublisher(
-            event_bus=operational_event_bus,
+            event_bus=event_bus,
             topic=stage_topic,
         ),
         evidence_conflict_reader=StateStoreEvidenceConflictProjection(state_store),
