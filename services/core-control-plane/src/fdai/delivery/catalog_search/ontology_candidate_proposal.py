@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Protocol
 
 from fdai_service_contracts.ontology_query import content_digest
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.ontology_platform import QueryManifest
+from fdai.core.prompts.types import PromptReplayManifest
 
 from .generation import SemanticGenerationBuild, validate_ontology_semantic_generation
 from .ontology_candidate_selection import (
@@ -57,6 +58,27 @@ class OntologyCandidateProposalResult:
     selection: OntologyCandidateSelection | None
     input_digest: str
     observation: SemanticJudgmentObservation
+
+
+@dataclass(frozen=True, slots=True)
+class OntologyCandidateModelBinding:
+    target_digest: str
+    deployment_digest: str
+    request_parameters_digest: str
+    prompt_manifest: PromptReplayManifest
+
+
+class OntologyCandidateProposer(Protocol):
+    def candidate_proposal_binding(self) -> OntologyCandidateModelBinding: ...
+
+    async def propose_candidate_selection(
+        self,
+        *,
+        query: str,
+        manifest: QueryManifest,
+        build: SemanticGenerationBuild,
+        staged: OntologyStagedProjection,
+    ) -> OntologyCandidateProposalResult: ...
 
 
 def candidate_proposal_payload(

@@ -317,6 +317,7 @@ class OntologyInstanceCandidateReader:
         manifest: QueryManifest,
         generation_digest: str,
         ranking_policy: CatalogRankingPolicy,
+        require_typed_selection: bool = False,
     ) -> None:
         """Check frozen diagnostic inputs without preparing or enabling this reader."""
         prepared = self._prepared.get(_scope_key(manifest))
@@ -326,5 +327,9 @@ class OntologyInstanceCandidateReader:
             or prepared.manifest_digest != manifest.manifest_digest
             or prepared.generation.generation_digest != generation_digest
             or self._policy != ranking_policy
+            or (
+                require_typed_selection
+                and (not self._semantic_search_available or not self._typed_selection_available)
+            )
         ):
             raise ValueError("ontology evaluation reader binding changed")

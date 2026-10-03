@@ -7,13 +7,13 @@ import json
 import logging
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from functools import partial
 from typing import Any, TypeVar
 
 import httpx
-from fdai_service_contracts.ontology_query import SemanticProblemFrame
+from fdai_service_contracts.ontology_query import SemanticProblemFrame, content_digest
 from pydantic import BaseModel, ValidationError
 
 from fdai.core.conversation.adaptive_call_scope import (
@@ -66,6 +66,7 @@ from fdai.delivery.azure.llm.semantic_planning_manifest import (
 )
 from fdai.delivery.catalog_search.generation import SemanticGenerationBuild
 from fdai.delivery.catalog_search.ontology_candidate_proposal import (
+    OntologyCandidateModelBinding,
     OntologyCandidateProposal,
     OntologyCandidateProposalResult,
     candidate_proposal_payload,
@@ -203,6 +204,34 @@ class AzureOpenAISemanticPlanningModel:
         self._http = http_client
         self._config = config
         self._owner_loop = owner_loop
+
+    def candidate_proposal_binding(self) -> OntologyCandidateModelBinding:
+        if len(self._config.candidates) != 1 or self._config.plan_prompt_manifest is None:
+            raise ValueError("candidate proposal binding requires one target and a prompt")
+        schema = _proposal_schema(OntologyCandidateProposal)
+        prompt = _transmitted_prompt_manifest(
+            self._config.plan_prompt_manifest,
+            system_content=f"{self._config.plan_system_prompt}\nRequired JSON Schema:\n{schema}",
+            schema=schema,
+        )
+        if prompt is None:
+            raise ValueError("candidate proposal prompt binding is unavailable")
+        target = self._config.candidates[0]
+        return OntologyCandidateModelBinding(
+            content_digest(asdict(target)),
+            content_digest({"deployment": target.deployment}),
+            content_digest(
+                {
+                    "completion": completion_body_params(
+                        target.deployment, temperature=0.0, max_tokens=self._config.max_tokens
+                    ),
+                    "response_format": {"type": "json_object"},
+                    "timeout_seconds": self._config.timeout_seconds,
+                    "max_attempts": 1,
+                }
+            ),
+            prompt,
+        )
 
     async def propose_candidate_selection(
         self,
@@ -510,13 +539,7 @@ class AzureOpenAISemanticPlanningModel:
             separators=(",", ":"),
             sort_keys=True,
         )
-        schema = json.dumps(
-            proposal_type.model_json_schema(),
-            allow_nan=False,
-            ensure_ascii=True,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
+        schema = _proposal_schema(proposal_type)
         system_content = f"{prompt}\nRequired JSON Schema:\n{schema}"
         messages = list(
             prepare_model_messages(
@@ -815,6 +838,16 @@ def _bounded_input(
     except (TypeError, ValueError):
         return False
     return len(encoded) <= _MAX_PROMPT_BYTES
+
+
+def _proposal_schema(proposal_type: type[BaseModel]) -> str:
+    return json.dumps(
+        proposal_type.model_json_schema(),
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
 
 
 def _validated_content(  # noqa: UP047 - pinned mypy does not parse PEP 695 functions

@@ -117,6 +117,43 @@ doesn't change ordinary frame/plan retry behavior. The caller still owns live au
 actual model/version attestation, durable per-call evidence, evaluation binding and total budgets.
 Mocked adapter tests don't establish live quality or qualify runtime activation.
 
+## Measure semantic proposals separately
+
+Use `prepare_ontology_semantic_evaluation` and `run_ontology_semantic_evaluation` with the
+prepared typed reader and `OntologyEvaluationEvidence(..., semantic_proposals=True)`. Supply a
+full source commit. This mode cannot retain embedding vectors or serve as legacy vector-replay
+evidence. Preparation remains a separate bounded operation.
+
+The plan binds ordered cases, unchanged labels and policies, canonical source, snapshot,
+selection strategy, target, transmitted prompt/schema and effective request parameters,
+including output tokens and timeout. Model name and version are caller-attested claims:
+the caller still verifies the live deployment and obtains scoped authorization.
+
+- **Limits:** at most 64 proposal-interface attempts, 600 seconds for measurement and five
+  seconds per question. Current-source validation runs before and after measurement, with a
+  120-second ceiling per check inside the total deadline.
+- **Durable ordering:** each call intent, accepted proposal and measurement is persisted before
+  continuing. Proposal evidence retains typed conditions and source-quote spans, not whole
+  quote strings. Keep this derived data private. Clarification is recorded explicitly and never
+  falls through to raw retrieval.
+- **Failure:** changed inputs, target/request binding drift, unavailable typed selection,
+  provider failure, invalid output or persistence failure stop the attempt. Cancellation stays
+  cancellation and retains prior measurements when the writer remains available.
+- **Separate results:** semantic reports use their own binding and the existing cohort metric
+  arithmetic and thresholds. A stage's `passed` does not qualify a complete campaign.
+  `production_qualification` and `execution_authority` remain `False`.
+
+### Interpret the final evidence outcome
+
+Semantic evidence uses schema `1.1.0`, at most 198 records, and the existing private-file,
+record-size and file-size controls. The elapsed measurement in a report is calculated before
+terminal persistence; the runner checks its total deadline again after that write. If persistence
+returns late, the runner raises and appends one `aborted` correction after `completed`, preserving
+the measurements. **Use the final terminal outcome, not an earlier completed record.**
+A correction cannot resume calls or upgrade an aborted outcome. Legacy evidence terminal rules
+remain unchanged. If writing the failure itself fails, the attempt has no acknowledged terminal
+outcome and cannot be treated as successful.
+
 ## Testing
 
 ```bash
@@ -149,6 +186,7 @@ The model boundary, real diagnostic profile and existing planning behavior are c
 
 ```bash
 uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_semantic_evaluation.py \
   services/core-control-plane/tests/delivery/azure/llm/test_ontology_candidate_proposal.py \
   services/core-control-plane/tests/delivery/azure/llm/test_semantic_planning.py \
   services/core-control-plane/tests/core/prompts/test_profiles.py

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: b1c92ed07e32e1558c47166b60285c4b6d763b75
+translation_source_sha: e11243c6c3a14110d0c167aa97b9904bf8236475
 translation_revised: 2026-10-03
 ---
 
@@ -122,6 +122,42 @@ v2 보정 자료에는 단일 대상 정답 32개, 복수 대상 정답 8개와 
 영속 근거, 평가 연결 정보와 전체 예산은 계속 호출자가 책임집니다. 모의 어댑터 검사는
 실제 품질이나 런타임 활성화 자격을 입증하지 않습니다.
 
+## 의미 제안을 별도로 측정
+
+준비된 형식화 후보 판독기와 `OntologyEvaluationEvidence(..., semantic_proposals=True)`를
+사용하여 `prepare_ontology_semantic_evaluation`과 `run_ontology_semantic_evaluation`을
+실행하세요. 전체 소스 커밋 식별자가 필요합니다. 이 모드는 임베딩 벡터를 보존하거나 기존
+벡터 재생의 근거로 사용할 수 없습니다. 준비 작업에는 별도의 실행 한도를 적용합니다.
+
+평가 계획에는 문항 순서, 변경되지 않은 라벨과 정책, 정규 원본, 스냅샷, 선택 전략, 대상,
+전송할 프롬프트와 스키마, 출력 토큰과 제한 시간을 포함한 실제 요청 매개변수가 연결됩니다.
+모델 이름과 버전은 호출자가 확인했다고 제공하는 정보입니다. 실제 배포 상태 확인과 범위를
+명시한 실행 승인은 계속 호출자가 책임집니다.
+
+- **한도:** 제안 인터페이스 호출은 최대 64회, 측정은 전체 600초, 문항당 5초입니다.
+  측정 전후에 현재 원본을 검증하며, 각 검증은 전체 한도 안에서 최대 120초로 제한합니다.
+- **영속 기록 순서:** 다음 단계로 진행하기 전에 호출 의도, 수락한 제안과 측정값을 각각
+  디스크에 반영합니다. 제안 근거에는 인용문 전체가 아니라 형식화된 조건과 원문에서 인용한
+  위치를 보존합니다. 이 파생 데이터는 비공개로 보관하세요. 명확화는 별도로 기록하며 기존
+  순위 검색으로 넘어가지 않습니다.
+- **실패:** 입력이나 대상 및 요청 연결 정보가 바뀌거나, 형식화 후보 선택을 사용할 수
+  없거나, 제공자 호출, 출력 검증 또는 저장에 실패하면 중단합니다. 취소는 취소로 유지하며,
+  기록기를 사용할 수 있으면 이전 측정값을 보존합니다.
+- **별도 결과:** 의미 평가 보고서는 자체 식별자와 기존 코호트 지표 계산 및 임계값을
+  사용합니다. 한 단계의 `passed`는 전체 평가의 자격을 뜻하지 않습니다.
+  `production_qualification`과 `execution_authority`는 계속 `False`입니다.
+
+### 최종 근거의 결과 해석
+
+의미 평가 근거는 스키마 `1.1.0`을 사용하며 최대 198개 기록을 허용합니다. 기존 비공개 파일,
+기록 크기와 파일 크기 제한도 유지합니다. 보고서의 측정 경과 시간은 종료 기록 저장 전에
+계산하며, 실행기는 저장이 끝난 뒤 전체 제한 시간을 다시 확인합니다. 저장 완료가 늦으면
+실행기는 오류를 반환하고 `completed` 뒤에 `aborted` 정정 기록을 한 번 추가하여 측정값을
+보존합니다. **앞선 완료 기록이 아니라 마지막 종료 결과를 기준으로 판단하세요.**
+정정 후에는 호출을 재개하거나 중단 결과를 성공으로 바꿀 수 없습니다. 기존 근거 형식의
+종료 규칙은 변경하지 않습니다. 실패 기록 자체를 저장하지 못하면 종료 결과의 저장 완료가
+확인되지 않은 것이므로 성공으로 취급할 수 없습니다.
+
 ## 테스트
 
 ```bash
@@ -154,6 +190,7 @@ uv run pytest -q --no-cov \
 
 ```bash
 uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_semantic_evaluation.py \
   services/core-control-plane/tests/delivery/azure/llm/test_ontology_candidate_proposal.py \
   services/core-control-plane/tests/delivery/azure/llm/test_semantic_planning.py \
   services/core-control-plane/tests/core/prompts/test_profiles.py
