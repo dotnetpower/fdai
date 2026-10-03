@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 6368d204fa5891212dff1f47421092b710043b95
-translation_revised: 2026-10-02
+translation_source_sha: 7a137eca74ecb504cd1fa2dff9c67f479d13f9bf
+translation_revised: 2026-10-03
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -255,6 +255,7 @@ UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱 �
 적용되는 활성 구성 규칙을 호출할 수 있습니다.
 수집기가 판단을 소유하는 것은 아닙니다. 기존 Forseti T0 경로가 결정을 만들고 Event는 실행 권한이
 없는 shadow 모드를 유지합니다. 그래프 완료와 Resource 이벤트 전달 완료는 별도의 영속 표식으로 관리합니다. 관측 내용에 결속된 대기 표식은 그래프 커밋보다 먼저 기록하고, 모든 Resource를 브로커가 수락한 뒤 전달 완료를 기록합니다.
+전달은 공유 producer에서 동시성이 제한된 구간 단위로 Resource 이벤트를 보내므로 복구가 큰 세대도 제한 시간 안에 마칠 수 있습니다. 첫 브로커 실패가 발생하면 해당 구간의 남은 전송을 취소하고 완료를 기록하지 않은 채 실패를 전파합니다.
 그래프가 완료된 뒤에도 그래프를 다시 쓰지 않고 미전달 이벤트를 복구할 수 있습니다. 분류된 관계 누락은 토폴로지를 저하 상태로 유지하지만 검증된 Resource 관측의 전달을 막거나 관계 부재를 의미하지 않습니다.
 명시적으로 요청한 one-shot Inventory 실행은 `FDAI_INVENTORY_OPERATOR_REQUESTED=1`을 설정해
 adaptive scheduler의 기존 operator 우선순위를 활성화할 수 있습니다. 원본이 정상이고 활성
