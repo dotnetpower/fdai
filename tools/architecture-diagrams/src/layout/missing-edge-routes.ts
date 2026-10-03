@@ -136,11 +136,17 @@ function sectionSegments(section: ElkEdgeSection): Array<{
 function sectionIsClear(
   section: ElkEdgeSection,
   obstacles: PositionedShape[],
+  sourceId: string,
+  targetId: string,
 ): boolean {
-  return sectionSegments(section).every(({ start, end }) => {
+  const segments = sectionSegments(section);
+  return segments.every(({ start, end }, index) => {
     if (start.x !== end.x && start.y !== end.y) return false;
     return obstacles.every(
-      (obstacle) => !segmentIntersectsBox(start, end, obstacle, 3),
+      (obstacle) =>
+        (obstacle.id === sourceId && index === 0) ||
+        (obstacle.id === targetId && index === segments.length - 1) ||
+        !segmentIntersectsBox(start, end, obstacle, 3),
     );
   });
 }
@@ -217,6 +223,10 @@ function laneValues(
     (start + end) / 2,
     Math.max(0, minimum - 48 - outsideOffset),
     maximum + 48 + outsideOffset,
+    ...intervals.flatMap((interval) => [
+      Math.max(0, Math.min(interval.start, interval.end) - 16 - outsideOffset),
+      Math.max(interval.start, interval.end) + 16 + outsideOffset,
+    ]),
     ...midpointGaps(intervals),
   ]);
 }
@@ -362,6 +372,51 @@ function anchors(
   };
 }
 
+function anchorForSide(
+  edgeId: string,
+  endpointId: string,
+  shape: PositionedShape,
+  side: Side,
+  endpointUses: Map<string, string[]>,
+): { anchor: Anchor; offset: number } {
+  const center = {
+    x: shape.x + shape.width / 2,
+    y: shape.y + shape.height / 2,
+  };
+  const offset = attachmentOffset(edgeId, endpointId, side, shape, endpointUses);
+  if (side === "EAST" || side === "WEST") {
+    return {
+      anchor: {
+        side,
+        point: {
+          x: side === "EAST" ? shape.x + shape.width : shape.x,
+          y: center.y + offset,
+        },
+      },
+      offset,
+    };
+  }
+  return {
+    anchor: {
+      side,
+      point: {
+        x: center.x + offset,
+        y: side === "SOUTH" ? shape.y + shape.height : shape.y,
+      },
+    },
+    offset,
+  };
+}
+
+function uniqueSides(preferred: Side): Side[] {
+  return [
+    preferred,
+    ..."NORTH EAST SOUTH WEST".split(" ").filter(
+      (side): side is Side => side !== preferred,
+    ),
+  ];
+}
+
 function stubPoint(anchor: Anchor, distance: number): ElkPoint {
   switch (anchor.side) {
     case "EAST":
@@ -442,12 +497,16 @@ function routeCandidates(
     ...(directRouteAllowed(sourceAnchor, targetAnchor)
       ? [sectionFromPoints(edgeId, [sourceAnchor.point, targetAnchor.point])]
       : []),
-    sectionFromPoints(edgeId, [
-      sourceAnchor.point,
-      source,
-      target,
-      targetAnchor.point,
-    ]),
+    ...(source.x === target.x || source.y === target.y
+      ? [
+          sectionFromPoints(edgeId, [
+            sourceAnchor.point,
+            source,
+            target,
+            targetAnchor.point,
+          ]),
+        ]
+      : []),
     sectionFromPoints(edgeId, [
       sourceAnchor.point,
       source,
@@ -486,6 +545,32 @@ function routeCandidates(
         targetAnchor.point,
       ]),
     );
+  }
+  for (const laneX of shiftedXLanes) {
+    for (const laneY of shiftedYLanes) {
+      candidates.push(
+        sectionFromPoints(edgeId, [
+          sourceAnchor.point,
+          source,
+          { x: laneX, y: source.y },
+          { x: laneX, y: laneY },
+          { x: target.x, y: laneY },
+          target,
+          targetAnchor.point,
+        ]),
+      );
+      candidates.push(
+        sectionFromPoints(edgeId, [
+          sourceAnchor.point,
+          source,
+          { x: source.x, y: laneY },
+          { x: laneX, y: laneY },
+          { x: laneX, y: target.y },
+          target,
+          targetAnchor.point,
+        ]),
+      );
+    }
   }
   const outerXLanes = [shiftedXLanes[0], shiftedXLanes.at(-1)].filter(
     (lane): lane is number => lane !== undefined,
@@ -538,33 +623,56 @@ function orthogonalFallbackSection(
 ): ElkEdgeSection {
   const anchor = anchors(edgeId, sourceId, targetId, source, target, endpointUses);
   const allNodes = [...nodes.values()];
-  const obstacles = allNodes.filter(
-    (node) => node.id !== sourceId && node.id !== targetId,
-  );
-  const candidates = routeCandidates(
-    edgeId,
-    anchor.source,
-    anchor.target,
-    allNodes,
-    anchor.laneOffset,
-    sourceId,
-    targetId,
-    usedSegments,
-  )
-    .map((candidate) => ({
-      ...candidate,
-      cost:
-        candidate.cost +
-        maximumUnrelatedOverlap(
-          candidate.section,
+  const candidates: Candidate[] = [];
+  for (const sourceSide of uniqueSides(anchor.source.side)) {
+    const sourceAnchor = anchorForSide(
+      edgeId,
+      sourceId,
+      source,
+      sourceSide,
+      endpointUses,
+    );
+    for (const targetSide of uniqueSides(anchor.target.side)) {
+      const targetAnchor = anchorForSide(
+        edgeId,
+        targetId,
+        target,
+        targetSide,
+        endpointUses,
+      );
+      const sidePenalty =
+        (sourceSide === anchor.source.side ? 0 : 600) +
+        (targetSide === anchor.target.side ? 0 : 600);
+      candidates.push(
+        ...routeCandidates(
+          edgeId,
+          sourceAnchor.anchor,
+          targetAnchor.anchor,
+          allNodes,
+          sourceAnchor.offset || targetAnchor.offset || anchor.laneOffset,
           sourceId,
           targetId,
           usedSegments,
-        ) * 1000,
-    }))
-    .sort((left, right) => left.cost - right.cost);
+        ).map((candidate) => ({
+          ...candidate,
+          cost:
+            candidate.cost +
+            sidePenalty +
+            maximumUnrelatedOverlap(
+              candidate.section,
+              sourceId,
+              targetId,
+              usedSegments,
+            ) * 1000,
+        })),
+      );
+    }
+  }
+  candidates.sort((left, right) => left.cost - right.cost);
   return (
-    candidates.find((candidate) => sectionIsClear(candidate.section, obstacles))
+    candidates.find((candidate) =>
+      sectionIsClear(candidate.section, allNodes, sourceId, targetId)
+    )
       ?.section ?? candidates[0]!.section
   );
 }

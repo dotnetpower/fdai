@@ -242,6 +242,50 @@ test("reports visually overlapping fallback lanes within stroke tolerance", () =
   );
 });
 
+test("reports fallback edges that re-enter their own endpoint after the stub", () => {
+  const endpointSpec: DiagramSpec = {
+    ...spec,
+    groups: [],
+    nodes: [
+      { id: "a", kind: "process", label: { en: "A", ko: "A" } },
+      { id: "b", kind: "process", label: { en: "B", ko: "B" } },
+    ],
+    edges: [{ id: "fallback", from: "a", to: "b", kind: "request" }],
+  };
+  const invalid: DiagramLayout = {
+    width: 200,
+    height: 120,
+    groups: new Map(),
+    nodes: new Map([
+      ["a", { id: "a", x: 0, y: 0, width: 40, height: 40, depth: 1 }],
+      ["b", { id: "b", x: 100, y: 0, width: 40, height: 40, depth: 1 }],
+    ]),
+    edges: [
+      {
+        id: "fallback",
+        sources: ["a"],
+        targets: ["b"],
+        sections: [
+          {
+            id: "fallback-missing-edge-route",
+            startPoint: { x: 40, y: 20 },
+            bendPoints: [
+              { x: 60, y: 20 },
+              { x: 120, y: 20 },
+            ],
+            endPoint: { x: 100, y: 20 },
+          },
+        ],
+      },
+    ],
+  };
+  assert.ok(
+    layoutIntegrityErrors(endpointSpec, invalid).includes(
+      "Fallback edge 'fallback' crosses node 'b'",
+    ),
+  );
+});
+
 test("reports overlapping edge labels", () => {
   const invalid = layout();
   invalid.edges.push(

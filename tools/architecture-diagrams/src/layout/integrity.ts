@@ -305,7 +305,16 @@ export function layoutIntegrityErrors(
         const start = points[index - 1]!;
         const end = points[index]!;
         for (const node of nodes) {
-          if (endpointIds.has(node.id)) continue;
+          const isSourceEndpoint = node.id === endpointElementId(specEdge.from);
+          const isTargetEndpoint = node.id === endpointElementId(specEdge.to);
+          if (
+            endpointIds.has(node.id) &&
+            (!hasMissingEdgeRoute ||
+              (isSourceEndpoint && index === 1) ||
+              (isTargetEndpoint && index === points.length - 1))
+          ) {
+            continue;
+          }
           if (segmentIntersectsBox(start, end, node, 3)) {
             errors.push(
               `${hasMissingEdgeRoute ? "Fallback" : effectiveRoute === "curve" ? "Curved" : effectiveRoute === "orthogonal" || effectiveRoute === "orthogonal-shortest" || effectiveRoute === "orthogonal-horizontal" || effectiveRoute === "orthogonal-trunk" || effectiveRoute === "orthogonal-top" || effectiveRoute === "orthogonal-above" || effectiveRoute === "orthogonal-gap" || effectiveRoute === "orthogonal-right" || effectiveRoute === "orthogonal-approval" ? "Orthogonal" : "Diagonal"} edge '${edge.id}' crosses node '${node.id}'`,
