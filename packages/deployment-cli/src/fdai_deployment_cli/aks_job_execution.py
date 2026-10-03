@@ -10,6 +10,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from fdai_deployment_cli import aks_kubernetes_defaults as defaults
+
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _DNS_LABEL = re.compile(r"^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$")
 _ENVIRONMENT_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -514,7 +516,9 @@ def _pod_spec_contract(value: Mapping[str, Any]) -> dict[str, object]:
         ),
         "containers": [_container_contract(_only_container(value))],
         "initContainers": _object_sequence(value.get("initContainers", []), "AKS init containers"),
-        "volumes": _named_object_sequence(value.get("volumes", []), "AKS volumes"),
+        "volumes": defaults.volumes(
+            _named_object_sequence(value.get("volumes", []), "AKS volumes")
+        ),
         "affinity": copy.deepcopy(value.get("affinity")),
         "tolerations": _object_sequence(value.get("tolerations", []), "AKS tolerations"),
         "topologySpreadConstraints": _object_sequence(
@@ -542,10 +546,10 @@ def _container_contract(value: Mapping[str, Any]) -> dict[str, object]:
         "env": _environment_entries(value.get("env")),
         "envFrom": _object_sequence(value.get("envFrom", []), "AKS container envFrom"),
         "resources": _optional_mapping(value.get("resources"), "AKS container resources"),
-        "securityContext": _optional_mapping(
-            value.get("securityContext"), "AKS container security context"
+        "securityContext": defaults.container_security_context(value.get("securityContext")),
+        "volumeMounts": defaults.volume_mounts(
+            _named_object_sequence(value.get("volumeMounts", []), "AKS volume mounts")
         ),
-        "volumeMounts": _named_object_sequence(value.get("volumeMounts", []), "AKS volume mounts"),
         "volumeDevices": _named_object_sequence(
             value.get("volumeDevices", []), "AKS volume devices"
         ),
@@ -608,7 +612,7 @@ def _environment_entries(value: object) -> list[dict[str, Any]]:
             or name in entries
         ):
             raise ValueError("AKS one-shot container environment is invalid")
-        entries[name] = entry
+        entries[name] = defaults.environment_entry(entry)
     return [entries[name] for name in sorted(entries)]
 
 

@@ -54,7 +54,9 @@ inventing Azure evidence.
 Production Operator composition now offers terminal answered semantic turns to a bounded
 asynchronous post-turn queue, which publishes an Operator-owned
 `operator.post-turn-review.requests` envelope through the configured semantic transport without
-blocking turn projection. Core consumes that request, validates it, and invokes Bragi's typed
+blocking turn projection. Core registers that request topic in its runtime logical topic set,
+so it receives the multiplexed request on the semantic physical Event Hub instead of a raw hub that
+does not exist. Core consumes that request, validates it, and invokes Bragi's typed
 publisher so only Bragi writes `object.post-turn-review`.
 
 ## Eligibility

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9a45118bbd8e4e9df678e248e19df6f5b22f499e
+translation_source_sha: 38f8a49cbdc512dc652cc62a768d46969680ca63
 translation_revised: 2026-10-03
 ---
 # 런타임 배포 프로파일
@@ -113,6 +113,8 @@ Static Web Apps는 미리 빌드된 Console을 호스팅합니다. API Managemen
 `/ingestion`에서 라우팅합니다. Kubernetes Service는 포트 80에서 요청을 받고 기존 컨테이너
 포트로 전달합니다. 워크로드 상태는 Service backend 주소를 사용하므로 APIM도 소유합니다. 공유
 기반은 이 경로에 Azure Front Door를 만들지 않습니다.
+APIM 태그는 안정적인 워크로드 레이블에서 Azure에 안전한 이름으로 파생됩니다. 예를 들어 Azure 태그
+이름은 `/`를 허용하지 않으므로 `fdai.io/source-commit`은 `fdai:source-commit`이 됩니다.
 
 APIM은 Microsoft Entra 인증을 대체하지 않습니다. API는 token issuer, audience, lifetime 및
 App Role을 계속 검증합니다. CORS(Cross-Origin Resource Sharing)는 정확한 Static Web Apps
@@ -204,7 +206,12 @@ AKS에서 Managed Host는 정확히 배포된 inventory CronJob에서 내용 주
 파생하고 `inventory-job` ServiceAccount와 digest-pinned Core 이미지를 보존하며 초기 실행
 진행률 identity만 전달합니다. 성공하려면 별도의 PostgreSQL 종결 읽기가 완전한 공급자
 커버리지, 최종 fence, 닫힌 overlay, 완전한 자식 출처 및 정확한 active generation을
-증명해야 합니다. Job 또는 종결이 없는 보존된 실행 전 기록은 다른 Job을 시작하지 않습니다. 격리된 정확한 revision 인벤토리 네트워크 인증은 배포 인벤토리 실행이 아닙니다. 이 인증은 비공개 변환 결과, 대체 원본 전환 중 기존 세대 유지, 원본 복구를 검증하기 위해 요청한 리소스 유형의 스냅샷을 작업 소유 샌드박스 저장소에만 승격할 수 있습니다. 초기 및 반복 런타임 인벤토리는 계속 완전한 공급자 범위를 요구하며 샌드박스 증적은 관측, 배포 또는 실행 권한을 부여하지 않습니다.
+증명해야 합니다. Job 또는 종결이 없는 보존된 실행 전 기록은 다른 Job을 시작하지 않습니다.
+실제 CronJob은 보호된 템플릿 다이제스트와 일치해야 합니다. 비교 전에 API 서버나 공급자가 명시적으로
+기록할 수 있는 Kubernetes 기본값 다섯 가지를 기본값일 때만 제외합니다. 대상은
+`privileged: false`, `readOnlyRootFilesystem: false`, 키 참조의 `optional: false`,
+`mountPropagation: None`, 빈 CSI `fsType`입니다. 다른 값은 여전히 검토된 템플릿과 다른 것으로
+판단합니다. 격리된 정확한 revision 인벤토리 네트워크 인증은 배포 인벤토리 실행이 아닙니다. 이 인증은 비공개 변환 결과, 대체 원본 전환 중 기존 세대 유지, 원본 복구를 검증하기 위해 요청한 리소스 유형의 스냅샷을 작업 소유 샌드박스 저장소에만 승격할 수 있습니다. 초기 및 반복 런타임 인벤토리는 계속 완전한 공급자 범위를 요구하며 샌드박스 증적은 관측, 배포 또는 실행 권한을 부여하지 않습니다.
 
 선택적인 검토된 catalog-review 프로필은 중지된 AKS CronJob 하나와 inventory 이후
 checkpoint를 추가합니다. 조정기는 비공개 GitHub App 프로필과 PEM만 전달하고 App의 단일
