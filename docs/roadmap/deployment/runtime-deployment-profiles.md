@@ -130,6 +130,8 @@ edge: the Operator API is routed at the APIM origin root, and Document Ingestion
 `/ingestion`. The Kubernetes Services listen on port 80 and forward to the existing container port.
 The workload state owns APIM because its backend addresses come from those Services. The shared
 substrate does not create Azure Front Door for this path.
+APIM tags derive from the stable workload labels under Azure-safe names. For example,
+`fdai.io/source-commit` becomes `fdai:source-commit`, because Azure tag names reject `/`.
 
 APIM does not replace Microsoft Entra authentication. The APIs continue to validate token issuer,
 audience, lifetime, and App Roles. Cross-origin resource sharing (CORS) accepts only the exact

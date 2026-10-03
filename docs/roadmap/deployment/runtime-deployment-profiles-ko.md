@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9a45118bbd8e4e9df678e248e19df6f5b22f499e
+translation_source_sha: 3a0ccad31f26fd05559ce857d9a78945f03a49b8
 translation_revised: 2026-10-03
 ---
 # 런타임 배포 프로파일
@@ -113,6 +113,8 @@ Static Web Apps는 미리 빌드된 Console을 호스팅합니다. API Managemen
 `/ingestion`에서 라우팅합니다. Kubernetes Service는 포트 80에서 요청을 받고 기존 컨테이너
 포트로 전달합니다. 워크로드 상태는 Service backend 주소를 사용하므로 APIM도 소유합니다. 공유
 기반은 이 경로에 Azure Front Door를 만들지 않습니다.
+APIM 태그는 안정적인 워크로드 레이블에서 Azure에 안전한 이름으로 파생됩니다. 예를 들어 Azure 태그
+이름은 `/`를 허용하지 않으므로 `fdai.io/source-commit`은 `fdai:source-commit`이 됩니다.
 
 APIM은 Microsoft Entra 인증을 대체하지 않습니다. API는 token issuer, audience, lifetime 및
 App Role을 계속 검증합니다. CORS(Cross-Origin Resource Sharing)는 정확한 Static Web Apps
