@@ -227,6 +227,11 @@ CronJob, preserves the `inventory-job` ServiceAccount and digest-pinned Core ima
 the initial-run progress identity. Success additionally requires a separate PostgreSQL closure
 read proving complete provider coverage, final fence, closed overlay, complete child sources, and
 the exact active generation. A retained claim with no Job or closure never starts another Job.
+The live CronJob must match the protected template digest. Before comparing, the projection drops
+five Kubernetes defaults that the API server or provider can write explicitly, and only while
+they hold the default: `privileged: false`, `readOnlyRootFilesystem: false`, key-reference
+`optional: false`, `mountPropagation: None`, and an empty CSI `fsType`. Any other value still
+differs from the reviewed template.
 
 The isolated exact-revision inventory-network certification is not a deployment inventory run. It
 may promote a requested-resource-type snapshot only into its task-owned sandbox store so that the
