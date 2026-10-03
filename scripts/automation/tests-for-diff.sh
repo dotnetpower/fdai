@@ -140,6 +140,13 @@ while IFS= read -r file; do
             add_test "tests/integration/evaluation/test_semantic_intent_coverage.py"
             continue
             ;;
+        # scripts/automation/build_question_bank.py records a digest of each bank source, and the
+        # semantic-intent inventory records a digest of the bank, so an edit makes both stale.
+        console/src/i18n/messages.en.json|console/src/i18n/messages.ko.json|docs/internals/browser-session-test-prompts-q001-q120.md|eval/golden-dataset/coverage.json|eval/golden-dataset/expectations.json|eval/golden-dataset/questions.en.json|eval/golden-dataset/questions.ko.json|eval/golden-dataset/questions.source.yaml|eval/golden-dataset/question-bank/*)
+            add_test "tests/integration/evaluation/test_question_bank.py"
+            add_test "tests/integration/evaluation/test_semantic_intent_coverage.py"
+            continue
+            ;;
     esac
 
     if [[ ("$file" == services/*/src/* || "$file" == packages/*/src/*) && "$file" != *.py ]]; then
