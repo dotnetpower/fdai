@@ -13,9 +13,10 @@ independent operational evidence. Missing values remain unavailable; older consu
 ignore the additive numeric key without changing answer verification or Incident handling.
 
 The [common answer presentation](operator-console.md#common-answer-presentation) reuses existing
-answer text, verification, citation, and presentation-artifact fields. Source disclosure and
-original Markdown inspection do not add wire fields, requests, Incident confirmation, or
-execution authority; rejected content remains outside the display-authorized answer.
+answer text, verification, citation, and presentation-artifact fields. Source disclosure, the
+verification posture line, and original Markdown inspection do not add wire fields, requests,
+Incident confirmation, or execution authority; rejected content remains outside the
+display-authorized answer.
 
 Test-context choices are a dedicated authenticated read contract. They return reviewed scope and policy choices plus a source revision, and lifecycle writes still use the existing proposal, review, and revocation routes with `execution_authority=false`.
 
