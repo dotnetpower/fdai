@@ -368,6 +368,10 @@ Inventory composition can explicitly select its certificate-authenticated stored
 of direct Kubernetes bindings or subscription discovery, never both. The observer receives no
 central database identity; the dedicated gateway uses the Core-owned store. Default renderers do
 not install or enable these workloads yet, and local TLS/DB evidence is not deployment readiness.
+Subscription discovery in the inventory Job reuses its prior AKS binding through the existing
+state store, so a per-run Job process skips the credential call for an unchanged cluster. The cache
+holds the API server, ARM etag, and digest-verified public cluster CA only; credentials still come
+from the Job's workload identity at connection time.
 
 FDAI services keep one runtime-neutral workload specification containing the digest-pinned image,
 command, arguments, environment names, resource requests and limits, startup, liveness and readiness
