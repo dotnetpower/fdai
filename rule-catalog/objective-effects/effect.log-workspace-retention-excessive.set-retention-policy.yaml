@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+id: effect.log-workspace-retention-excessive.set-retention-policy
+version: 1.0.0
+rule:
+  ref: log-workspace.retention-excessive@1.0.0
+  content_digest: sha256:86fd15162f5b2f723a20a9665f4bff2a22dfdf7b4eb9c7a611161c674c0ccf2f
+action_type: remediate.set-retention-policy
+effects:
+- objective_kind: availability
+  metric: slo_signal_completeness
+  utility: -0.5
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+- objective_kind: run_rate
+  metric: telemetry_ingestion_run_rate
+  utility: 0.5
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+reviewer: Forseti
+state: reviewed
+content_digest: sha256:c216ca0e7e9510473a3aeee27133c5fb61250437ef30480c87149e8e0e7ca490
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: objective-effect:log-workspace.retention-excessive@1.0.0:remediate.set-retention-policy
+  content_hash: sha256:c216ca0e7e9510473a3aeee27133c5fb61250437ef30480c87149e8e0e7ca490
+  license: MIT
+  retrieved_at: '2026-10-04T00:00:00Z'

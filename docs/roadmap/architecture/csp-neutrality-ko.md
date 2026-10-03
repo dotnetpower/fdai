@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: fe057184e20afda6591e1820eedaa620397d3dce
-translation_revised: 2026-09-04
+translation_source_sha: 205a64c4a98b5ecb160369b49e8580aaec4fe053
+translation_revised: 2026-10-04
 ---
 
 # CSP-중립성 계약
@@ -16,50 +16,6 @@ translation_revised: 2026-09-04
 모듈 경계는 [project-structure-ko.md](project-structure-ko.md), 기술 선택은
 [tech-stack-ko.md](tech-stack-ko.md), 신원 모델은 [security-and-identity-ko.md](security-and-identity-ko.md)
 를 보완합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 이벤트 버스, 런타임, 시크릿 및 워크로드 신원 계약 | implemented | `shared/providers/`; `delivery/azure/`; `infra/modules/event-bus/`; `infra/modules/compute/`; `infra/modules/secret-store/`; 집중 어댑터 및 인프라 테스트 | Azure는 프로바이더 중립 계약 뒤에서 Event Hubs의 Kafka, OCI Container Apps, native 시크릿 참조 및 워크로드 신원을 사용합니다. |
-| 인벤토리 수집, 완전 세대 관계 및 범위가 제한된 그래프 변환 결과 | implemented | `shared/providers/inventory.py`; `delivery/azure/generation_relationships.py`; `delivery/inventory_sync.py`; `delivery/inventory_live_evidence.py`; `core/ontology_platform/graph_evidence_refresh.py`; 집중 인벤토리, 관계, 새로 고침 및 변환 결과 테스트 | 지속 수집, 정확한 관계 근거와 명시적 누락 사유, 원자적 승격, 그래프 우선 새로 고침 결정, 안전한 실제 근거 반영 및 범위가 제한된 읽기 변환 결과를 구현했습니다. 일반 의미 쿼리 조립은 아직 새로 고침 선택과 실제 근거 반영을 종단 간 연결하지 않습니다. 배포 완전성은 별도의 검증 근거입니다. |
-| 메트릭, 로그 및 추적 조회 계약 | implemented | `shared/providers/metric.py`; `log_query.py`; `trace_query.py`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py` | Azure Monitor 및 Log Analytics 어댑터가 있으며 구성이 없으면 의도적으로 no-op 바인딩을 유지합니다. |
-| WARA 범위 제한 평가 읽기 | implemented | `shared/providers/wara_assessment.py`; `delivery/azure/wara_observation.py`; 정확한 평가기 overlay 및 집중 어댑터 테스트 | Azure Resource Graph 읽기는 정확한 검토 쿼리, 평가기, ARM 리소스 범위, 완전한 대상 가시성, 프로바이더 종류, 페이지/행/바이트 상한, 승인된 관리 원본 및 결정론적인 권한 없는 증적에 고정됩니다. |
-| 8개 계약 전체의 통제된 운영 근거 | in-progress | [배포 및 온보딩 구현 상태](../deployment/deploy-and-onboard-ko.md#구현-상태); `delivery/azure/` 아래의 관측 캠페인 어댑터 | 독립 서비스 배포는 검증됐지만 이 소유 문서는 모든 인벤토리와 텔레메트리 계약을 함께 입증하는 최신 통제 캠페인을 하나로 보존하지 않습니다. |
-| 비-Azure 프로바이더 구현 | deferred | [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | 이식성을 위해 계약 형태를 유지합니다. AWS, GCP 또는 다른 프로바이더 어댑터는 승인된 구현 범위에 없습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-04 | implemented | Azure WARA 어댑터가 위반 행 0개를 충족으로 해석하기 전에 정확한 대상 가시성 커버리지를 요구하도록 했습니다. 부분적인 프로바이더 가시성은 확인 불가로 유지됩니다. | `current change`; 집중 WARA 범위 커버리지 회귀 검사입니다. | 별도 권한이 있는 실제 Azure shadow 증적을 보존합니다. |
-| 2026-09-04 | implemented | 프로바이더 중립 관측 계약 뒤에 정확한 WARA 평가 읽기를 위한 Azure 어댑터를 추가했습니다. 수정 권한을 추가하지 않고 승인된 토큰 대상, 정확한 리소스 범위, 쿼리 및 평가기 다이제스트, 범위가 제한된 결정론적 증적을 결속합니다. | `current change`; 집중 WARA overlay, 런타임, Azure 어댑터, Ruff 및 strict mypy 검사입니다. | 운영 검증을 주장하기 전에 별도 권한이 있는 실제 Azure shadow 증적을 보존합니다. |
-| 2026-08-19 | implemented | 예약된 프로바이더 신원을 위한 scheduled 인벤토리 reconciliation CLI를 composition binding과 일치시켰습니다. CLI는 이미 프로바이더 범위 coverage를 연결했지만 범위가 제한된 unmapped-resource callback을 누락했으므로, 조립된 adapter와 달리 ARG source가 identity-complete 1.1 fence를 만들 수 없었습니다. 이제 ARG는 두 callback을 모두 binding하고 ARM fallback은 둘 다 binding하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Source별 wiring 회귀와 전체 인벤토리 작업 구성 파일의 focused case 18개, 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 이 revision에서 새로운 전체 reconciliation을 승격하고 1.1 coverage 증적, snapshot-ontology identity parity 및 빈 realtime overlay를 확인합니다. |
-| 2026-08-19 | validated | 운영 범위 coverage를 인증된 읽기 전용 인벤토리 그래프 경로에 연결했습니다. 범위가 제한된 응답의 각 Resource는 `service_ref`를 포함합니다. 검토된 mapping이 없거나 충돌하면 `unknown_service`가 되며, 입력이 잘리거나 대응되지 않은 결과가 하나라도 있으면 명시적 gap과 함께 응답을 강등합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 응답은 Resource 213/213개를 표시하고 `operating_scope_unmapped`를 유지했습니다. | 배포가 검토한 서비스 mapping을 제공합니다. 경로와 완전성 증적은 구현됐습니다. |
-| 2026-08-19 | implemented | 검토된 중립 vocabulary 밖의 프로바이더 타입에 대해 신원 수준 종결을 추가했습니다. Azure 어댑터는 별도의 범위 제한 ARG 조회로 해당 행을 읽고, 검토된 단일 `unclassified-resource` 타입으로 구체화하며, 프로바이더 타입별 신원 count가 최종 fence의 coverage 집계와 정확히 일치할 때만 세대를 수락합니다. 예약 타입에는 프로바이더 mapping이나 query terms가 없으며 타입별 Rule 또는 Action 지원을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, 동기화, ARG, Azure 인벤토리, 조립, CLI, 온톨로지, 카탈로그 및 값 도메인 focused 검사 259개가 통과했고 작업 범위 Ruff와 strict mypy도 통과했습니다. | 새로운 전체 재조정을 승격하고 identity-complete coverage, 스냅샷-온톨로지 parity 및 실시간 overlay 정리를 확인한 뒤 이 행을 `validated`로 변경합니다. |
-| 2026-08-19 | validated | 하드닝 Round 3에서 count, fence, 취소, ARG, 정규화, fallback, seed 복구, precedence, catalog 소유권, 상위 parsing, 그래프 parity 및 근거 lens 12개를 다시 확인했습니다. 검증된 Medium 이상 결함은 남지 않았습니다. 관측 11건은 Low guard 확인 또는 선택적 진단이며 precedence 우려 한 건은 exact mapping 경로와 보존된 실제 운영 parity를 추적한 뒤 기각했습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). Round 3은 Round 1 exact-parent guard와 Round 2 count-shape guard 뒤의 현재 HEAD를 검토했습니다. focused suite, 보존된 533/57/15 coverage, 2/2 SQL 스냅샷-온톨로지 parity 및 서명된 framework snapshot이 근거 경계로 남습니다. | 이슈 #216 하드닝에 남은 작업은 없습니다. |
-| 2026-08-19 | implemented | 하드닝 Round 2에서 계약, fence, 조회, fallback, mapping, 상위, 검증기, digest 및 근거 우려 14건을 검토했습니다. 제안된 지적과 별개로 실제 Medium 결함 한 건을 채택했습니다. Python boolean이 정수 count로 통과했고 양수 객체/0 타입이라는 불가능한 매니페스트도 유효했습니다. 이제 coverage count는 exact 정수여야 하고 0 객체와 0 타입이 서로 일치해야 하며 관측된 타입 count는 객체 count보다 클 수 없습니다. 반복된 unseeded 세대, ARG filter, shard/fence, 겹치는 glob, 잘못된 상위, 상위 근거 및 digest 우려는 focused 테스트, exact-string mapping grammar, 범위가 제한된 요청 timeout, 완전 세대 검증, 보존된 실제 운영 533/57/15 및 SQL parity 근거와 대조해 기각했습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). guard 전에는 negative case 6개가 실패했고 guard 뒤에는 `ProviderTypeCount` boolean 거부를 포함한 7개 case가 통과합니다. | 10개 이상의 lens로 Round 3을 실행해 Low 또는 기각된 관측만 남는지 확인합니다. |
-| 2026-08-19 | implemented | 하드닝 Round 1에서 coverage, fence, 조회, mapping, cardinality 및 근거 우려 13건을 검토했습니다. Medium 결함 한 건을 채택했습니다. 출처 타입 하나에 exact 상위 포함 관계 mapping 두 개가 catalog load를 통과해 나중에 온톨로지 변환을 중단할 수 있었습니다. 이제 loader가 프로바이더 I/O 전에 모호한 소유권을 거부합니다. 빈 프로바이더 범위, 리소스 yield 뒤 coverage 실패, null ARM mapping, enum decoding 및 최종 fence 우려는 기각했습니다. 최종 fence가 실행 근거이고, Azure coverage 작업은 어떤 리소스 batch도 yield하기 전에 모두 끝나며, 타입이 지정된 loader와 테스트가 해당 경계를 이미 적용하기 때문입니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). 새 catalog 회귀는 guard 전에는 실패하고 guard 뒤에는 통과합니다. focused 프로바이더 mapping, ARG 및 관계 검증이 검증 표면으로 남습니다. | 두 번째 10건 이상 검토를 실행해 Medium 이상 결함이 남지 않았는지 확인합니다. 잘린 관측의 drop 상세와 timestamp 정밀도 관측은 Low입니다. |
-| 2026-08-19 | validated | 수정된 SQL 포함 관계 세대를 승격하고 활성 인벤토리 스냅샷과 온톨로지 읽기 모델의 parity를 확인했습니다. 관측된 모든 SQL 데이터베이스는 두 저장소 모두에서 논리 서버 `parent_id` 하나와 `contains(sql-server, sql-database)` 간선 하나를 가집니다. 온톨로지 observer failure는 발생하지 않았습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). one-shot 작업은 `inventory snapshot promoted from arg`를 보고했습니다. loopback PostgreSQL은 스냅샷 SQL 데이터베이스 2개, parent id가 있는 데이터베이스 2개, 스냅샷 SQL 간선 2개, 온톨로지 SQL 데이터베이스 2개 및 온톨로지 SQL 간선 2개를 보고합니다. | SQL 논리 상위 포함 관계에 남은 작업은 없습니다. |
-| 2026-08-19 | implemented | 실제 운영 변환에서 wildcard 리소스 그룹 상위와 exact 논리 서버 상위를 모두 유지하면 `contains` one-to-many cardinality를 위반한다는 사실이 드러나 SQL 포함 관계를 바로잡았습니다. 같은 contained 하위에 대해서 exact 출처 타입 `contains` mapping이 이제 wildcard mapping을 shadow합니다. 서로 다른 하위 계층은 독립적으로 유지되므로 리소스 그룹-VNet과 VNet-subnet 포함 관계는 모두 남습니다. `Resource.parent_id`도 간선과 같은 검토된 exact mapping을 사용합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). 승격된 스냅샷은 성공했지만 온톨로지 변환 결과가 `contains violates one_to_many cardinality`로 실패했습니다. SQL 및 VNet 대조와 focused ARG, mapping audit 및 검증기 suite 117개가 통과했고 strict mypy도 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 스냅샷과 온톨로지 SQL 포함 관계가 일치하는지 확인합니다. |
-| 2026-08-19 | implemented | `Microsoft.Sql/servers/databases`를 위한 검토된 Azure 프로바이더 상위 mapping을 추가했습니다. 어댑터는 구조가 유효한 immediate nested ARM 상위만 해석하고, 기존 리소스 그룹 포함 관계 후보를 보존하면서 `contains(sql-server, sql-database)`를 발행합니다. 상위가 없거나 완전 세대에서 엔드포인트가 누락되면 검증된 간선을 만들지 않습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, exact mapping direction audit 및 완전 세대 검증기 검사 116개가 통과했습니다. 작업 범위 Ruff와 strict mypy, 온톨로지 및 Property coverage gate도 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 스냅샷 및 온톨로지 변환 결과에서 SQL 서버-데이터베이스 간선을 확인합니다. |
-| 2026-08-19 | validated | 활성 로컬 스냅샷에서 프로바이더 범위 coverage를 포함한 전체 ARG 재조정 한 번을 승격했습니다. 스냅샷은 구체화된 Resource 행 516개와 프로바이더 native 객체 533개를 분리해 저장합니다. 객체 476개는 검토된 vocabulary에 매핑되고 프로바이더 타입 15종의 객체 57개는 명시적으로 미매핑 상태를 유지합니다. 매핑된 프로바이더 객체와 스냅샷 Resource 사이의 행 40개 차이는 이전에 측정한 중첩 리소스 구체화와 구독 anchor이며 숨겨진 프로바이더 coverage가 아닙니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). committed callback은 객체 533/476/57개와 타입 68/15종을 반환했습니다. one-shot 작업은 `inventory snapshot promoted from arg`를 보고했고, loopback PostgreSQL 활성 행은 `source=arg`, `status=active`, `resource_count=516` 및 타입과 count 행 15개를 포함한 같은 coverage count를 보고합니다. | 프로바이더 범위 coverage 기록에 남은 작업은 없습니다. SQL 서버-데이터베이스 포함 관계가 다음 인벤토리 gap으로 남습니다. |
-| 2026-08-19 | implemented | 첫 committed 실제 운영 probe가 HTTP 400을 반환한 뒤 프로바이더 범위 Kusto pipeline을 고쳤습니다. ARG는 `Resources &#124; summarize ... &#124; union (...)`을 허용하고, 초기 producer가 사용한 prefix 형식 `union (Resources ...), (...)`은 거부합니다. parser는 이제 명시적인 `resource_count` 집계 열을 고정합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). one-shot 작업은 이전 스냅샷을 유지하고 두 출처를 모두 사용할 수 없다고 보고했으며, 격리된 callback이 `ArgQueryError` HTTP 400을 재현했습니다. 수정된 읽기 전용 Azure CLI 조회는 범위가 제한된 타입 및 count 행을 반환했고 focused ARG 및 조립 검사 99개가 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 승격된 리소스 57개 coverage 근거를 주장합니다. |
-| 2026-08-19 | implemented | Azure Resource Graph 타입 집계를 전체 스냅샷 fence에 연결했습니다. raw `Resources`와 리소스 그룹 `ResourceContainers`를 세고, 정규화된 프로바이더 타입을 검토된 전체 ARM vocabulary와 비교하며, 선언되지 않은 모든 타입과 count를 지원되는 Resource로 구체화하지 않은 채 기록합니다. 구독 anchor와 파생된 중첩 subnet은 이 프로바이더 범위 측정에서 제외합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, Azure 인벤토리, 조립 및 인벤토리 작업 검사 136개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 메타데이터가 보존된 리소스 57개, 타입 15종 측정을 재현하는지 확인한 뒤 런타임 근거로 사용합니다. |
-| 2026-08-19 | implemented | 범위가 제한된 프로바이더 native 범위 coverage를 CSP-중립 `InventoryBatch` 최종 fence에 추가하고 승격할 때만 변경 불가능한 스냅샷 메타데이터로 변환했습니다. 생성 전에 count 합계를 대조하고, 최종이 아닌 배치는 근거를 운반할 수 없으며, 정적 출처 메타데이터는 완료된 수집을 가장할 수 없습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused 프로바이더 계약 및 인벤토리 동기화 테스트 31개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Azure 전체 범위 타입 집계 producer를 연결하고 승격된 스냅샷에 측정된 미매핑 count를 보존합니다. |
-| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 Azure 계약 구현을 운영 근거 및 보류된 비-Azure 어댑터와 분리해 기록했습니다. | `current change`; 구현 범위 표의 프로바이더, 전달, 인프라 및 배포 근거입니다. | 하나의 통제된 8개 계약 캠페인을 보존하고 명시적으로 범위가 정해질 때까지 비-Azure 작업을 보류합니다. |
-| 2026-08-20 | implemented | 두 번째 그래프 작성자를 만들지 않고 인벤토리 수집을 지속 실행 형태로 전환했습니다. 1분 틱은 실행 조건 확인 전에 프로바이더 변경을 비우고, 구성 가능한 하한은 변경으로 시작되는 스캔을 합칩니다. 모든 ARG 샤드는 선제적 속도 제어를 공유하고, 반응형 초기화 대기는 제한되며, 각 출처에는 진행 시 다시 설정되는 마감과 절대 마감이 있습니다. | [이슈 #139](https://github.com/dotnetpower/fdai/issues/139); 현재 소스와 집중 ARG, 인벤토리, 예약, 구성, 변환 결과 및 인프라 검사입니다. | 이 범위를 `validated`로 변경하기 전에 exact revision 보호 적용, 측정된 1분 주기와 비용, 실제 프로바이더 변경 조정 증적 하나를 보존합니다. |
-| 2026-08-23 | implemented | 계약 5를 스냅샷과 델타 전송에서 완전 세대 관계 근거와 그래프 우선 읽기 동작으로 확장했습니다. 검토된 프로바이더 매핑은 정확한 출처 및 끝점 근거를 운반하고, 억제된 후보는 타입이 지정된 누락 및 사용 불가 사유를 보존하며, 순수 새로 고침 리듀서는 권한이 없는 다섯 결과 중 하나를 선택합니다. 검증된 범위 제한 실제 읽기는 정본 부분 오버레이를 통해 반영됩니다. 읽기 전용 Console 변환 결과는 두 번째 인벤토리 출처가 되지 않으면서 저장된 관계 타입, 방향, 근거 및 불완전한 범위를 보존합니다. | `current change`; [지속 운영 인스턴스 그래프](continuous-operational-instance-graph-ko.md), [네트워크 토폴로지 시각화](../interfaces/network-topology-visualization-ko.md), `shared/providers/inventory.py`, `core/ontology_platform/graph_evidence_refresh.py`, `delivery/inventory_live_evidence.py` 및 해당 소유 문서에 기록된 집중 검사입니다. | 새로 고침 선택과 실제 근거 반영을 일반 의미 쿼리 조립에 연결하고, 정확한 개정 번호의 통제된 캠페인을 보존하며, 새 범위를 `validated`로 올리기 전에 배포된 최신성, 압력 및 비용 근거를 보존합니다. |
-
-### 남은 작업
-
-- [ ] 정확한 개정 번호를 고정하고 이벤트, 런타임, 시크릿, 신원, 인벤토리, 메트릭, 로그 및 추적 행동과 실패 및 최신성 사례를 입증하는 통제된 Azure 캠페인 증적을 보존합니다.
-- [ ] 그래프 새로 고침 선택과 실제 근거 반영을 일반 의미 쿼리 조립에 연결한 뒤, 관측, 변경 또는 실행 권한 없이 다섯 결과를 모두 다루는 조립 증적을 보존합니다.
-- [ ] 루트 기반 탐색, 관계 누락 및 사용 불가 사유, 저장된 간선 방향, 잘림, 불완전한 그래프의 `unknown`, stale 대체 경로 및 권한 상승 없음을 다루는 정확한 개정 번호의 통제된 인벤토리 그래프 및 Console 근거를 보존합니다.
-- [ ] 승인된 대상이 순서, 재현, 신원, 인벤토리 및 텔레메트리 행동의 계약 동등성 테스트를 제공할 때까지 비-Azure 어댑터를 구현하지 않습니다.
-
 ## 원칙
 
 코어가 클라우드 프로바이더에서 접근하는 모든 것은 벤더 SDK 가 아니라 **관심사당 하나의
@@ -608,6 +564,7 @@ Azure 내부 대안은 `core/`를 바꾸지 않고 인프라 모듈 또는 조�
 
 | 학습 대상 | 문서 |
 |-----------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/csp-neutrality.md) |
 | 이 계약을 실현하는 구체 스택 | [tech-stack-ko.md](tech-stack-ko.md) |
 | 계약에서 렌더링되는 Azure 리소스 인벤토리 | [deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set](../deployment/deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set) |
 | 신원 모델과 시크릿 취급 심층 | [security-and-identity-ko.md](security-and-identity-ko.md) |

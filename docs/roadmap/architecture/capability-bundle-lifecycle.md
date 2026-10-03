@@ -12,30 +12,6 @@ not enable, materialize, or promote the skill.
 
 > **Authority boundary:** Bundle and extension activation registers typed metadata, references,
 > and reviewed providers only. It never grants approval or execution authority.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Bundle validation and immutable runtime registration | implemented | `core/capability_catalog/`; `composition/install_capability_bundle`; focused capability catalog tests | Unknown targets, provider mismatches, duplicate ids, and dangling references block activation without changing the current runtime. |
-| Durable trusted artifacts and skill disclosure | implemented | `core/supply_chain/`; `delivery/trust/`; PostgreSQL trusted-artifact adapters | Artifacts retain exact content, signature, publisher, state, and revision; runtime disclosure is rebuilt from reverified records. |
-| Governed external skill source lifecycle | implemented | `core/skills/source_registry.py`; `core/supply_chain/skill_source_*.py`; skill source API routes | Installation starts disabled, revocation preserves provenance, and production reloads disclosure after a command. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-27 | implemented | Returned lifecycle transition selection and completeness to this capability owner instead of the global package gate. | `current change`; minimum package assurance policy and this owning design. | Retain the governed operational linked receipt set under Issue #355. |
-| 2026-09-26 | implemented | Allowed a complete lifecycle to use bounded linked receipts with one exact artifact lineage instead of requiring one monolithic live run. | `current change`; package assurance policy, checker, owner documentation, and focused policy tests. | Retain the governed operational linked receipt set under Issue #355. |
-| 2026-08-21 | implemented | Moved the existing capability bundle and trusted-artifact lifecycle into a focused owner document without changing runtime behavior or authority. | `current change`; document-size, translation, route, and link checks. | Retain governed operational evidence for a complete install, enable, disable, revoke, and disclosure reload sequence on one exact revision. |
-
-### Remaining work
-
-- [ ] Retain a complete linked exact-artifact receipt set covering install, enable, disable,
-  revoke, and disclosure reload while proving no bundle request bypasses the typed action path.
-
 ## Bundle registration
 
 Use a `CapabilityBundle` when a fork adds a discoverable capability rather than replacing one
@@ -133,6 +109,7 @@ either command so durable disablement takes effect immediately.
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/architecture/capability-bundle-lifecycle.md) |
 | Composition roots and injectable seams | [Project Structure](project-structure.md#customization-via-dependency-injection) |
 | Downstream registration procedure | [Downstream Fork Guide](../fork-and-sequencing/downstream-fork-guide.md) |
 | Durable external skill sources | [Skill Source Management](../interfaces/skill-source-management.md) |

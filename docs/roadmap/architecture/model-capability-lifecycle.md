@@ -275,10 +275,16 @@ the existing durable state store before binding. Staging and production startup 
 authenticated observation source; they stop instead of treating a missing source as an empty
 review set.
 
-An expired, unmerged proposal for the current source contributes a pre-binding hold set. The main
-LLM, semantic judgment, ontology council, post-turn review, and conversation-assurance binders
-exclude held capabilities from the startup-owned revision. This does not rewrite the resolved
-mapping or grant mapping or execution authority. A stale-source proposal contributes no hold.
+An expired, unmerged proposal for the current source contributes a pre-binding hold set. A
+closed-unmerged proposal for the same source also contributes that hold immediately. FDAI does not
+silently reopen it or create another identical proposal; an operator must change the source or
+complete a documented human-review retry before a replacement can proceed. A merged proposal for
+the same source is idempotent only when a passing frozen-scenario shadow replay receipt binds the
+exact proposal digest, source-model digest, and registry-acceptance decision digest. Missing,
+failed, stale, or mismatched replay evidence keeps the affected capabilities held for review. The main LLM,
+semantic judgment, ontology council, post-turn review, and conversation-assurance binders exclude
+held capabilities from the startup-owned revision. This does not rewrite the resolved mapping or
+grant mapping or execution authority. A stale-source proposal contributes no hold.
 
 ```python
 # core/tiers/t2-reasoning/reasoner.py (illustrative)
@@ -413,8 +419,11 @@ draft state. It records sanitized evidence and sets activation, mapping, executi
 execution eligibility to false. Its machine-readable `required_next_gates` lists
 `human_review_and_merge` and `frozen_scenario_shadow_replay`; the legacy singular gate remains for
 compatible readers. A protected live run must retain this receipt before operators can claim
-operational validation. An expired unmerged replacement lowers the capability to human review,
-and any accepted registry change still needs Owner review plus frozen-scenario shadow replay.
+operational validation. When an idempotent branch already has a matching terminal PR, a merged PR
+suppresses duplicate draft creation and a closed-unmerged PR records an explicit human-review hold
+instead of reopening or re-proposing the same digest. An expired or closed-unmerged replacement
+lowers the capability to human review, and any accepted registry change still needs Owner review
+plus frozen-scenario shadow replay bound to the exact proposal and decision digests.
 
 ### Mixed-Model Family Strategies
 

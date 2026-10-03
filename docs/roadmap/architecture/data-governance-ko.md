@@ -1,8 +1,8 @@
 ---
 title: Data Governance와 Privacy Evidence
 translation_of: data-governance.md
-translation_source_sha: f3bda60b6b3fd34175a9d080ed2b53fa540ed3ff
-translation_revised: 2026-09-16
+translation_source_sha: 16fb1bd500fadc41e342ee430ae84f0ad3d1021b
+translation_revised: 2026-10-04
 ---
 # 데이터 거버넌스와 Privacy 근거
 
@@ -20,33 +20,6 @@ FDAI는 가능한 경우 raw customer 페이로드 대신 식별자와 derived o
 저장합니다. 머신/감사 기록은 English를 유지하고 접근은 role-scoped이며 transit와
 at-rest encryption이 필요합니다. 모델로 보내는 내용은 trust 경계를 벗어나기 전에
 민감정보 제거합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 용도, 보존, 삭제 및 legal hold 계약 | implemented | `shared/contracts/models/document.py`; `core/case_history/`; `core/trajectory/`; `delivery/persistence/postgres_user_context_retention.py`; `infra/variables.tf`; 집중 보존 테스트 | 여러 통제된 저장소가 범위가 제한된 보존과 legal hold 메타데이터를 강제합니다. Azure case-history의 활성, 삭제 예정, 이전 버전 및 변경 피드 기본값은 30일이며, 모든 데이터 등급을 아우르는 승인된 배포 일정은 포크가 소유합니다. |
-| 민감정보 제거와 데이터 최소화 컨트롤 | implemented | `rule_catalog/pipeline/distill/sensitivity.py`; `core/browser_evidence/redaction.py`; `delivery/azure/llm/model_trace.py`; `delivery/azure/llm/`; 집중 Azure 모델 경계 테스트 | 결정론적 민감정보 제거가 주요 문서, 브라우저, 온톨로지, 작업 흐름, 채널, 모델 및 임베딩 경계까지 확장되었습니다. 운영 프로바이더 조건과 privacy 승인은 계속해서 배포 게이트에서 연결합니다. |
-| 추가 전용 감사와 privacy 범위 근거 | implemented | `core/audit/`; `delivery/persistence/postgres.py`; `core/operational_context/evidence_bundle.py`; 집중 감사 및 근거 테스트 | 해시 체인 감사와 민감정보가 제거된 근거 변환 결과가 있습니다. 배포 보존, 앵커 주기, WORM 저장 및 legal hold 운영은 환경 근거로 남습니다. |
-| 운영 privacy 평가와 compliance 바인딩 | not-started | `config/architecture-review.yaml`; [운영 게이트](#운영-게이트) | 업스트림은 필수 키만 정의합니다. 승인된 평가, 소유자, processor 조건, 지역, crosswalk 및 운영 근거는 각 배포가 제공해야 합니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-16 | in-progress | 범용 비공개 Blob 변경 피드를 각 호출자의 버전 보존 일정에 결속했습니다. 따라서 case-history는 30일을 사용하고 운영 이력과 의사 결정 근거 메타데이터는 90일을 유지합니다. | `current change`; `infra/modules/storage/case-history/main.tf`; 집중 case-history 저장소 회귀 테스트. | 변경을 게시하고, 배포된 변경 피드 정책을 수렴하는 보호된 계획과 적용 증적을 보존하며, 만료 동작을 독립적으로 검증합니다. |
-| 2026-09-16 | in-progress | 운영 이력 또는 의사 결정 근거의 메타데이터 보존은 바꾸지 않고 Azure case-history의 활성, 삭제 예정 및 이전 버전 기본값을 30일로 맞췄습니다. | `current change`; `infra/variables.tf`; 집중 case-history 저장소 회귀 테스트. | 변경을 게시하고, 배포된 case-history 버전 정책을 90일에서 30일로 수렴하는 보호된 계획과 적용 증적을 보존하며, 삭제 동작을 독립적으로 검증합니다. |
-| 2026-08-29 | in-progress | 타입이 지정된 하나의 사전 모델 및 사전 임베딩 최소화 증적을 추가하고, 안전하지 않은 페이로드를 전송 전에 보류하도록 모든 직접 Azure 모델 및 임베딩 경계에 강제했으며, 남은 배포 소유 privacy 게이트 근거를 위해 이슈 `#371`을 열었습니다. | `delivery/azure/llm/model_trace.py`; `delivery/azure/llm/`; `tests/delivery/azure/llm/test_model_trace.py`; `tests/delivery/azure/llm/test_adapters.py`; 집중 Azure LLM 어댑터 테스트; 이슈 `#371` | 운영 게이트에서 배포 소유 privacy 승인, 보존 근거, 운영 증적을 연결합니다. |
-| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 재사용 가능한 업스트림 컨트롤을 배포가 소유하는 privacy 승인과 분리했습니다. | `current change`; 구현 범위 표의 계약, 보존 서비스, 민감정보 제거 경로 및 감사 근거입니다. | 공유 사전 모델 근거 경계를 완료하고 배포 privacy 게이트 증적을 보존합니다. |
-
-### 남은 작업
-
-- [x] 모든 기능에 타입이 지정된 하나의 사전 모델 및 사전 임베딩 최소화 증적을 강제하고, 민감정보를 충분히 제거할 수 없는 입력이 전송 없이 보류됨을 입증합니다.
-- [ ] 승인된 배포 데이터 인벤토리, 소유자, 보존 일정, model-provider 조건, privacy 평가 및 compliance crosswalk를 운영 게이트에 연결합니다. 이 작업은 이슈 `#371`에서 추적합니다.
-- [ ] 운영 검증을 주장하기 전에 하나의 고정된 배포 개정에서 삭제, legal hold, 접근 검토, 감사 앵커 및 인시던트 대응 증적을 보존합니다. 이 작업은 이슈 `#371`에서 추적합니다.
-
 ## 데이터 인벤토리
 
 | 데이터 등급 | 예 | 기본 처리 | System of 기록 |
@@ -153,3 +126,9 @@ not-applicable 컨트롤은 명시적으로 남기며 조용히 누락하지 않
 | Security와 threat 모델 | [Security and 신원](security-and-identity-ko.md) |
 | Human 권한 확인 | [User RBAC and Entra 신원](../interfaces/user-rbac-and-identity-ko.md) |
 | 감사와 텔레메트리 규모 | [Hyperscale Cell 아키텍처](hyperscale-cell-architecture-ko.md) |
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/data-governance.md) |

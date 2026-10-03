@@ -126,6 +126,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-04 | implemented | Checked the stale planned-change graph-freshness item, which duplicated the completed Issue #363 item and the implemented scope row. | `current change` edits only this ledger; commit `ab79eb94e`; Issue #363 closed completed. | Production bindings, prospective lineage production, and the governed replay remain open. |
 | 2026-09-18 | implemented | Revised the provider-observed `routes_to` relation to many-to-many version 2.0.0 so exact Kubernetes and Azure backend sets remain expressible as separate directed facts. | `current change`; reviewed provider mappings; focused catalog and inventory projection suites passed 85 cases. | Reconcile one fresh local generation and verify the Operator release mismatch clears. |
 | 2026-09-18 | implemented | Revised the provider-observed `routes_to` relation to many-to-many version 2.0.0 so exact Kubernetes and Azure backend sets remain expressible as separate directed facts. | `current change`; `routes_to.yaml`; reviewed provider mappings; focused catalog and inventory projection suites passed 85 cases. | Reproject one complete local generation and verify the Operator release mismatch clears before claiming runtime validation. |
 | 2026-09-16 | implemented | Added a pinned ontology hard-bound contract for the seven production LLM routing controls and five incident-detection controls, including semantic unit and scope annotations. An exact AST-derived binding test now rejects consumer, registry, active-config, type, or range drift and sweeps every boundary. | `current change`; detection-routing schema and package pin; shared threshold loader and binding registry; focused threshold and Constitution checks. | No source residual remains for FDAI-CONST-004. Active values, evidence, promotion, and rollback remain owned by their versioned configuration and decision records rather than this authority-free bound declaration. |
@@ -189,8 +190,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
-- [ ] Supply and verify graph-freshness authority for planned-change assessment before allowing any
-  automated clearance, including stale, incomplete, and conflicting negative cases.
+- [x] Supply and verify graph-freshness authority for planned-change assessment before allowing any
+  automated clearance, including stale, incomplete, and conflicting negative cases. Evidence: the
+  scope row "Planned-change graph freshness authority" (commit `ab79eb94e`) and the checked
+  [Issue #363](https://github.com/dotnetpower/fdai/issues/363) item below; #363 closed completed.
 - [ ] Complete production bindings and replay evidence for the remaining context, outcome-closure, and governed-learning paths on one pinned ontology release.
 - [ ] Produce `OperationalProspectiveLineage` from Forseti-owned uncertainty, option, precondition, effect-direction, and predictor-version values; extend independent closure to the complete multi-effect set with an authoritative telemetry-completeness receipt; then bind the source and projector only after one complete runtime episode exists.
 - [x] Bind receipt-verified Context metadata through an existing principal-scoped evidence response; focused checks prove wrong-principal, wrong-purpose, wrong-release, stale, and truncated cases remain unavailable.

@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+id: effect.network-load-balancer-unused-backend.remove-orphan-resource
+version: 1.0.0
+rule:
+  ref: network.load-balancer.unused-backend@1.0.0
+  content_digest: sha256:a07106925e8b4f646916a9c6c6ea82f035f67d050c2917c83cb92eca22a6e981
+action_type: remediate.remove-orphan-resource
+effects:
+- objective_kind: recovery_readiness
+  metric: recovery_plan_audit_signal
+  utility: -0.5
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+- objective_kind: run_rate
+  metric: recovery_plan_change_run_rate
+  utility: 0.5
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+reviewer: Forseti
+state: reviewed
+content_digest: sha256:ee323d84b1d9e6ffd5bfb84f0f58ab2a7f49cb0c6bc9cbc808edb7ccaf06a69e
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: objective-effect:network.load-balancer.unused-backend@1.0.0:remediate.remove-orphan-resource
+  content_hash: sha256:ee323d84b1d9e6ffd5bfb84f0f58ab2a7f49cb0c6bc9cbc808edb7ccaf06a69e
+  license: MIT
+  retrieved_at: '2026-10-04T00:00:00Z'

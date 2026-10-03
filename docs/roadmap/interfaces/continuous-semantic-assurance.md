@@ -45,7 +45,7 @@ ontology release without retaining question text. Excluded declarations are coun
 Any ontology release change, such as a new ActionType version, a reviewed LinkType semantic trait,
 a new readable ObjectType property, or an edited ontology function source whose artifact digest the
 release pins, such as a reader that now returns the exact count its row bound leaves out, rebinds the
-declaration partition, so the same change regenerates the manifest with its builder.
+declaration partition, so the same change regenerates the manifest with its builder. Adding the Resource Health reread fence to the source-derived `query.resource_health_inventory` FunctionType is one such release change.
 Projection-only ontology vocabulary, such as bilingual query terms used by candidate documents,
 also refreshes the manifest source digests even when the governed release identity stays stable.
 This repository-only inventory is not an executable campaign, a production binding, or a

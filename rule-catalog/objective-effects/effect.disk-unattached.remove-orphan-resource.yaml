@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+id: effect.disk-unattached.remove-orphan-resource
+version: 1.0.0
+rule:
+  ref: disk.unattached@1.0.0
+  content_digest: sha256:4a983aec3044466f8a1c5f293b4a8d9f6eb7ec836eef68633918769d71398427
+action_type: remediate.remove-orphan-resource
+effects:
+- objective_kind: compliance_posture
+  metric: identity_hardening_signal
+  utility: -0.5
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+- objective_kind: run_rate
+  metric: fleet_change_run_rate
+  utility: 0.5
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+reviewer: Forseti
+state: reviewed
+content_digest: sha256:428c1e6cfa2aadf81b75a7351e05c1ec70e4cfb9bafdeb4634f145b7a805c902
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: objective-effect:disk.unattached@1.0.0:remediate.remove-orphan-resource
+  content_hash: sha256:428c1e6cfa2aadf81b75a7351e05c1ec70e4cfb9bafdeb4634f145b7a805c902
+  license: MIT
+  retrieved_at: '2026-10-04T00:00:00Z'

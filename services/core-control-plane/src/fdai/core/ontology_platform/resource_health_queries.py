@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -16,12 +16,17 @@ from fdai.core.ontology_platform.functions import (
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryResult
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai.core.ontology_platform.resource_health_evidence import (
+    ResourceHealthAnswerValidation,
     ResourceHealthAvailabilityState,
     ResourceHealthCollection,
     ResourceHealthCollectionReader,
     ResourceHealthCoverage,
     ResourceHealthCoverageStatus,
+    ResourceHealthNarrationClaims,
     ResourceHealthObservation,
+    ResourceHealthTerminalDisposition,
+    read_current_with_reread_fence,
+    validate_resource_health_answer,
 )
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_MEASURE_CONCEPTS,
@@ -46,6 +51,7 @@ RESOURCE_HEALTH_FUNCTION_NAME = "query.resource_health_inventory"
 _MAX_CONCEPTS = 16
 _MAX_RESOURCES = 1000
 _MAX_OUTPUT_ROWS = 1000
+_REREAD_FENCE_SECONDS = 15
 _RESOURCE_HEALTH_NOT_APPLICABLE_TYPES = frozenset({"application-insights"})
 
 
@@ -170,7 +176,15 @@ def resource_health_inventory_function(
                 }
             )
         resource_ids = tuple(item.id for item in missing_targets)
-        collection = await reader.read_current(resource_ids=resource_ids) if resource_ids else None
+        collection = (
+            await read_current_with_reread_fence(
+                reader,
+                resource_ids=resource_ids,
+                deadline_at=datetime.now(UTC) + timedelta(seconds=_REREAD_FENCE_SECONDS),
+            )
+            if resource_ids
+            else None
+        )
         if collection is not None and collection.resource_ids != resource_ids:
             raise ValueError("Resource Health reader changed the secured resource scope")
         by_id = {item.id: item for item in missing_targets}
@@ -424,11 +438,16 @@ def _table(
 __all__ = [
     "RESOURCE_HEALTH_FUNCTION_NAME",
     "ResourceHealthAvailabilityState",
+    "ResourceHealthAnswerValidation",
     "ResourceHealthCollection",
     "ResourceHealthCollectionReader",
     "ResourceHealthCoverage",
     "ResourceHealthCoverageStatus",
+    "ResourceHealthNarrationClaims",
     "ResourceHealthObservation",
+    "ResourceHealthTerminalDisposition",
+    "read_current_with_reread_fence",
     "resource_health_function_type",
     "resource_health_inventory_function",
+    "validate_resource_health_answer",
 ]

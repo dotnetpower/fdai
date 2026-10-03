@@ -3,13 +3,10 @@
 This delivery ledger preserves reviewable implementation scope, append-only transitions,
 and resumable work while the roadmap owner remains focused on normative design.
 
-> **Current handover delivery (2026-09-15):** The second local main merge succeeded and was published
-> as `c8edd2769` in [PR #1014](https://github.com/dotnetpower/fdai/pull/1014).
-> [CI run 34921323157, attempt 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1) failed on that head.
-> Focused source repairs are implemented locally with main-session checks reported below; delivery
-> repair remains in progress under [#946](https://github.com/dotnetpower/fdai/issues/946).
-> The latest published head remains `c8edd2769`. No new head, whole-repository validation, remote CI
-> success, protected merge, deployment, or promotion is claimed; this documentation edit ran no checks.
+> **Handover delivery (closed 2026-09-15):** The local CI repairs were published on
+> [PR #1014](https://github.com/dotnetpower/fdai/pull/1014), which merged as `953a17de4c` after 24
+> successful protected checks; [#946](https://github.com/dotnetpower/fdai/issues/946) is closed. No
+> deployment, promotion, or deployed UI/assistive evidence is claimed.
 
 ## Implementation status
 
@@ -123,6 +120,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-04 | implemented | Reconciled the stale handover delivery items with published evidence: the CI-repair translations and canonical catalog passed the protected translation-sync and generation gates on the merged head. | [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) merged as `953a17de4c` on 2026-09-15 with 24 successful and 1 skipped check; [#946](https://github.com/dotnetpower/fdai/issues/946) closed; `current change` edits only this ledger. | Deployed UI/assistive evidence and #458 operational receipts remain open. |
 | 2026-10-02 | implemented | Extended Core's existing reader-local two-call scheduler to independent finalist runoffs without changing service, model, or authority ownership. | `b4ca1506e1`; focused shadow, concept and compiled-answer cohort: 123 passed; scoped mypy and Ruff passed. | No architectural change remains for this bounded optimization; live performance evidence belongs to the compiler owner and remains unmeasured. |
 | 2026-10-02 | implemented | Recorded the existing Core/delivery/Console ownership boundary for typed-only duplicate-work removal, run-local closed-choice reuse, and lossless complete catalog encoding. | `64d4c11a5c`; 380 focused semantic tests, scoped Ruff and mypy, Console typecheck and focused bilingual browser checks. | Live latency comparison and runtime activation are not claimed; no architecture or authority change remains for this bounded optimization. |
 | 2026-09-28 | implemented | Bound Forseti's typed ActionType proposal review producer and durable intake beside Heimdall's posture producer, replacing the retired proposed-IaC review input without moving Inventory, Rule, policy, writer, audit, approval, or execution ownership. One current review per proposal, Rule-input coverage of every changed leaf value, writer-confirmed intake settlement, and outbox scans bounded by unpublished rows through a dotted `StateStore` field filter keep the surface truthful and available, with row shapes unchanged for independent rollback. | `current change`; `runtime/bootstrap_core_model.py`, `delivery/assurance_twin_{review_producer,review_follow_up,proposal_intake}.py`; focused bootstrap, producer, lifecycle, publication, and Pantheon layout tests. | Declare reviewed ActionType effect models, bind a typed what-if producer, and retain governed runtime evidence. |
@@ -418,10 +416,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 	[FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) leave no unresolved confirmed Medium/High source finding. The later [MI-01 through MI-10](../../internals/handover-lifecycle-hardening-20260914.md#final-merge-specific-integrated-critique) record ten additional prior-merge integration rounds, not a recount of EX or FI evidence or validation of the second merge.
 - [x] Complete the prior-merge local EN/KO review, translation SHA refresh, and canonical 14-record generation;
 	the [main integration checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#main-integration-and-delivery-checkpoint) records parity, quality, main-relative size, and both-parent history results for that earlier checkpoint, not the current second-merge bytes.
-- [ ] Complete semantic review of the local CI-repair translations, then let the main implementation
-	session refresh only reviewed translation SHAs and regenerate the canonical catalog. This edit leaves SHAs and generated artifacts untouched.
-- [ ] Commit the local CI repairs through normal hooks, update the already published
-	[PR #1014](https://github.com/dotnetpower/fdai/pull/1014), and retain passing exact-head protected CI and merge evidence under [#946](https://github.com/dotnetpower/fdai/issues/946). The second merge is already published as `c8edd2769`; its failed attempt 1 and focused local repair checks do not establish delivery completion.
+- [x] The local CI-repair translations and canonical catalog passed the protected translation-sync and generation gates on the merged [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) head.
+- [x] [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) merged as `953a17de4c` with 24 successful protected checks, and [#946](https://github.com/dotnetpower/fdai/issues/946) is closed.
 - [ ] Retain complete UI/assistive evidence in the [handover plan](../../roadmap/interfaces/human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope); bounded synthetic route checks do not close it.
 - [ ] Retain [#458](https://github.com/dotnetpower/fdai/issues/458) current deployed identity, exact authorization,
 	Graph/GitHub/Teams, independent effect/inverse drills, document lifecycle, and promotion/cohort receipts before operational acceptance.

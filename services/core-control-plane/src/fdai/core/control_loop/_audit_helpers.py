@@ -149,6 +149,7 @@ async def write_t1_audit(
             "rule_id": best.action.rule_id,
             "action_type": best.action.action_type,
             "success_rate": best.action.success_rate,
+            "reused_from": best.action.incident_id,
         }
     await audit_store.append_audit_entry(
         {

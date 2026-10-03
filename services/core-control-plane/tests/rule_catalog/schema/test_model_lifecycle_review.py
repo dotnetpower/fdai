@@ -22,7 +22,9 @@ from fdai.rule_catalog.schema.llm_resolver import (
 from fdai.rule_catalog.schema.model_lifecycle_review import (
     ModelLifecycleProposalReview,
     ModelLifecycleReviewStatus,
+    ModelLifecycleShadowReplayReceipt,
     evaluate_model_lifecycle_review,
+    model_lifecycle_acceptance_decision_digest,
 )
 from fdai.runtime.bootstrap import _attach_model_lifecycle_startup_revision
 from fdai.runtime.model_lifecycle_startup import resolve_models_startup_revision
@@ -45,6 +47,25 @@ def _proposal(**changes: object) -> ModelLifecycleProposalReview:
     }
     values.update(changes)
     return ModelLifecycleProposalReview(**values)  # type: ignore[arg-type]
+
+
+def _shadow_replay(
+    proposal: ModelLifecycleProposalReview,
+    *,
+    result: str = "passed",
+    proposal_digest: str | None = None,
+    source_models_digest: str | None = None,
+    decision_digest: str | None = None,
+    replayed_at: datetime | None = None,
+) -> ModelLifecycleShadowReplayReceipt:
+    return ModelLifecycleShadowReplayReceipt(
+        proposal_digest=proposal_digest or proposal.proposal_digest,
+        source_models_digest=source_models_digest or proposal.source_models_digest,
+        decision_digest=decision_digest or model_lifecycle_acceptance_decision_digest(proposal),
+        result=result,
+        replayed_at=replayed_at or proposal.merged_at or _NOW,
+        scenario_set_digest="d" * 64,
+    )
 
 
 def test_active_proposal_does_not_hold_current_mapping() -> None:
@@ -81,10 +102,57 @@ def test_merged_proposal_does_not_hold() -> None:
         proposal,
         current_models_digest=_SOURCE_DIGEST,
         evaluated_at=_NOW + timedelta(days=8),
+        shadow_replay=_shadow_replay(proposal),
     )
 
     assert decision.status is ModelLifecycleReviewStatus.MERGED
+    assert decision.reason_code == "proposal_merged"
     assert decision.held_capabilities == ()
+
+
+def test_closed_unmerged_proposal_holds_for_human_review_without_waiting_for_expiry() -> None:
+    proposal = _proposal(closed_at=_NOW + timedelta(days=2))
+
+    decision = evaluate_model_lifecycle_review(
+        proposal,
+        current_models_digest=_SOURCE_DIGEST,
+        evaluated_at=_NOW + timedelta(days=3),
+    )
+
+    assert decision.status is ModelLifecycleReviewStatus.HOLD
+    assert decision.reason_code == "proposal_closed_unmerged"
+    assert decision.held_capabilities == ("t1.embedding", "t2.reasoner.primary")
+
+
+@pytest.mark.parametrize(
+    ("receipt_kwargs", "reason_code"),
+    [
+        ({}, "shadow_replay_missing"),
+        ({"result": "failed"}, "shadow_replay_failed"),
+        ({"proposal_digest": "c" * 64}, "shadow_replay_mismatch"),
+        ({"source_models_digest": "c" * 64}, "shadow_replay_mismatch"),
+        ({"decision_digest": "c" * 64}, "shadow_replay_mismatch"),
+        ({"replayed_at": _NOW - timedelta(seconds=1)}, "shadow_replay_stale"),
+        ({"replayed_at": _NOW + timedelta(days=3)}, "shadow_replay_stale"),
+    ],
+)
+def test_merged_proposal_requires_passing_exact_shadow_replay(
+    receipt_kwargs: dict[str, object],
+    reason_code: str,
+) -> None:
+    proposal = _proposal(merged_at=_NOW + timedelta(days=2))
+    receipt = None if not receipt_kwargs else _shadow_replay(proposal, **receipt_kwargs)
+
+    decision = evaluate_model_lifecycle_review(
+        proposal,
+        current_models_digest=_SOURCE_DIGEST,
+        evaluated_at=_NOW + timedelta(days=8),
+        shadow_replay=receipt,
+    )
+
+    assert decision.status is ModelLifecycleReviewStatus.HOLD
+    assert decision.reason_code == reason_code
+    assert decision.held_capabilities == ("t1.embedding", "t2.reasoner.primary")
 
 
 def test_superseded_source_does_not_hold_new_mapping() -> None:
@@ -132,6 +200,7 @@ def test_every_current_source_decision_has_no_authority(
         proposal,
         current_models_digest=_SOURCE_DIGEST,
         evaluated_at=evaluated_at,
+        shadow_replay=_shadow_replay(proposal) if proposal.merged_at is not None else None,
     )
 
     assert decision.status is status
@@ -172,6 +241,11 @@ def test_decision_digest_is_replay_stable() -> None:
         ({"opened_at": datetime(2026, 8, 23)}, "timezone-aware"),
         ({"merged_at": _NOW - timedelta(seconds=1)}, "MUST NOT precede"),
         ({"merged_at": _NOW + timedelta(days=8)}, "MUST NOT be after expires_at"),
+        ({"closed_at": _NOW - timedelta(seconds=1)}, "MUST NOT precede"),
+        (
+            {"merged_at": _NOW + timedelta(days=2), "closed_at": _NOW + timedelta(days=2)},
+            "both merged and closed-unmerged",
+        ),
     ],
 )
 def test_proposal_rejects_invalid_boundary(changes: dict[str, object], message: str) -> None:
@@ -181,6 +255,17 @@ def test_proposal_rejects_invalid_boundary(changes: dict[str, object], message: 
 
 def test_evaluation_rejects_future_merge_observation() -> None:
     proposal = _proposal(merged_at=_NOW + timedelta(days=2))
+
+    with pytest.raises(ValueError, match="after evaluated_at"):
+        evaluate_model_lifecycle_review(
+            proposal,
+            current_models_digest=_SOURCE_DIGEST,
+            evaluated_at=_NOW + timedelta(days=1),
+        )
+
+
+def test_evaluation_rejects_future_closed_observation() -> None:
+    proposal = _proposal(closed_at=_NOW + timedelta(days=2))
 
     with pytest.raises(ValueError, match="after evaluated_at"):
         evaluate_model_lifecycle_review(
@@ -306,6 +391,63 @@ async def test_startup_owner_accepts_current_proposal_schema() -> None:
     )
 
     assert revision.held_capabilities == ("t1.judge",)
+
+
+@pytest.mark.asyncio
+async def test_startup_owner_holds_merged_proposal_without_shadow_replay() -> None:
+    content = _resolved_content()
+    artifact = _Artifact(content, hashlib.sha256(content.encode()).hexdigest())
+    observation = _observation(content)
+    observation["merged_at"] = (_NOW + timedelta(hours=12)).isoformat()
+
+    revision = await resolve_models_startup_revision(
+        _Source(artifact),
+        expected_artifact_digest=artifact.digest,
+        observations=(observation,),
+        decision_store=InMemoryStateStore(),
+        evaluated_at=_NOW + timedelta(days=1),
+    )
+
+    assert revision.held_capabilities == ("t1.judge",)
+    assert revision.decisions[0].reason_code == "shadow_replay_missing"
+
+
+@pytest.mark.asyncio
+async def test_startup_owner_accepts_merged_proposal_with_exact_shadow_replay() -> None:
+    content = _resolved_content()
+    artifact = _Artifact(content, hashlib.sha256(content.encode()).hexdigest())
+    observation = _observation(content)
+    proposal = observation["proposal"]
+    assert isinstance(proposal, dict)
+    merged_at = _NOW + timedelta(hours=12)
+    review = ModelLifecycleProposalReview(
+        proposal_digest=str(proposal["proposal_digest"]),
+        source_models_digest=str(proposal["source_models_digest"]),
+        affected_capabilities=("t1.judge",),
+        opened_at=_NOW,
+        expires_at=_NOW + timedelta(days=1),
+        merged_at=merged_at,
+    )
+    observation["merged_at"] = merged_at.isoformat()
+    observation["shadow_replay"] = {
+        "proposal_digest": review.proposal_digest,
+        "source_models_digest": review.source_models_digest,
+        "decision_digest": model_lifecycle_acceptance_decision_digest(review),
+        "result": "passed",
+        "replayed_at": (_NOW + timedelta(hours=6)).isoformat(),
+        "scenario_set_digest": "d" * 64,
+    }
+
+    revision = await resolve_models_startup_revision(
+        _Source(artifact),
+        expected_artifact_digest=artifact.digest,
+        observations=(observation,),
+        decision_store=InMemoryStateStore(),
+        evaluated_at=_NOW + timedelta(days=1),
+    )
+
+    assert revision.held_capabilities == ()
+    assert revision.decisions[0].status is ModelLifecycleReviewStatus.MERGED
 
 
 @pytest.mark.asyncio
@@ -548,6 +690,7 @@ async def test_core_production_consumes_trusted_pr_and_persists_hold() -> None:
                 json=[
                     {
                         "number": 257,
+                        "state": "open",
                         "draft": True,
                         "created_at": _NOW.isoformat(),
                         "user": {"login": "github-actions[bot]"},

@@ -42,6 +42,7 @@ async def test_source_reads_exact_workflow_draft_head() -> None:
                 json=[
                     {
                         "number": 257,
+                        "state": "open",
                         "draft": True,
                         "created_at": "2026-08-23T00:00:00Z",
                         "user": {"login": "github-actions[bot]"},
@@ -93,6 +94,7 @@ async def test_source_follows_bounded_pull_request_pagination() -> None:
                 json=[
                     {
                         "number": 257,
+                        "state": "open",
                         "draft": True,
                         "created_at": "2026-08-23T00:00:00Z",
                         "user": {"login": "github-actions[bot]"},
@@ -129,6 +131,119 @@ async def test_source_follows_bounded_pull_request_pagination() -> None:
         ).load()
 
     assert len(observations) == 1
+
+
+@pytest.mark.asyncio
+async def test_source_reads_terminal_merged_proposal_and_shadow_replay_receipt() -> None:
+    proposal = _proposal()
+    digest = str(proposal["proposal_digest"])
+    replay = {
+        "proposal_digest": digest,
+        "source_models_digest": proposal["source_models_digest"],
+        "decision_digest": "c" * 64,
+        "result": "passed",
+        "replayed_at": "2026-08-23T12:00:00Z",
+        "scenario_set_digest": "d" * 64,
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/pulls"):
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "number": 257,
+                        "state": "closed",
+                        "draft": False,
+                        "created_at": "2026-08-23T00:00:00Z",
+                        "closed_at": "2026-08-23T13:00:00Z",
+                        "merged_at": "2026-08-23T13:00:00Z",
+                        "user": {"login": "github-actions[bot]"},
+                        "head": {
+                            "ref": f"automation/model-lifecycle-{digest[:12]}",
+                            "sha": "1" * 40,
+                        },
+                        "base": {"ref": "main"},
+                    }
+                ],
+            )
+        if request.url.path.endswith("/pulls/257/files"):
+            return httpx.Response(
+                200,
+                json=[
+                    {"filename": f"config/model-lifecycle-proposals/{digest}.json"},
+                    {"filename": f"config/model-lifecycle-shadow-replay/{digest}.json"},
+                ],
+            )
+        payload = replay if "model-lifecycle-shadow-replay" in request.url.path else proposal
+        return httpx.Response(
+            200,
+            json={
+                "encoding": "base64",
+                "content": base64.b64encode(json.dumps(payload).encode()).decode(),
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observations = await GitHubModelLifecycleObservationSource(
+            config=GitHubModelLifecycleObservationConfig(owner="example", repo="fdai"),
+            http_client=client,
+            token="test-token",
+        ).load()
+
+    assert observations[0]["merged_at"] == "2026-08-23T13:00:00+00:00"
+    assert observations[0]["closed_at"] is None
+    assert observations[0]["shadow_replay"] == replay
+
+
+@pytest.mark.asyncio
+async def test_source_reads_closed_unmerged_proposal_as_hold_observation() -> None:
+    proposal = _proposal()
+    digest = str(proposal["proposal_digest"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/pulls"):
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "number": 257,
+                        "state": "closed",
+                        "draft": False,
+                        "created_at": "2026-08-23T00:00:00Z",
+                        "closed_at": "2026-08-23T12:00:00Z",
+                        "merged_at": None,
+                        "user": {"login": "github-actions[bot]"},
+                        "head": {
+                            "ref": f"automation/model-lifecycle-{digest[:12]}",
+                            "sha": "1" * 40,
+                        },
+                        "base": {"ref": "main"},
+                    }
+                ],
+            )
+        if request.url.path.endswith("/pulls/257/files"):
+            return httpx.Response(
+                200,
+                json=[{"filename": f"config/model-lifecycle-proposals/{digest}.json"}],
+            )
+        return httpx.Response(
+            200,
+            json={
+                "encoding": "base64",
+                "content": base64.b64encode(json.dumps(proposal).encode()).decode(),
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observations = await GitHubModelLifecycleObservationSource(
+            config=GitHubModelLifecycleObservationConfig(owner="example", repo="fdai"),
+            http_client=client,
+            token="test-token",
+        ).load()
+
+    assert observations[0]["merged_at"] is None
+    assert observations[0]["closed_at"] == "2026-08-23T12:00:00+00:00"
 
 
 @pytest.mark.asyncio

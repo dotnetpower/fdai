@@ -16,6 +16,9 @@ from fdai_github_app_auth import TokenProvider, static_token_provider
 _PROPOSAL_PATH: Final[re.Pattern[str]] = re.compile(
     r"^config/model-lifecycle-proposals/([a-f0-9]{64})\.json$"
 )
+_SHADOW_REPLAY_PATH: Final[re.Pattern[str]] = re.compile(
+    r"^config/model-lifecycle-shadow-replay/([a-f0-9]{64})\.json$"
+)
 _HEAD_REF_PREFIX: Final[str] = "automation/model-lifecycle-"
 
 
@@ -86,7 +89,7 @@ class GitHubModelLifecycleObservationSource:
 
         pulls = await self._get_paginated_array(
             f"/repos/{self._config.owner}/{self._config.repo}/pulls",
-            params={"state": "open", "per_page": "100", "base": self._config.base_ref},
+            params={"state": "all", "per_page": "100", "base": self._config.base_ref},
         )
         observations: list[Mapping[str, object]] = []
         for pull in pulls:
@@ -98,13 +101,18 @@ class GitHubModelLifecycleObservationSource:
         return tuple(observations)
 
     def _is_workflow_draft(self, pull: object) -> bool:
-        if not isinstance(pull, Mapping) or pull.get("draft") is not True:
+        if not isinstance(pull, Mapping):
             return False
         user = pull.get("user")
         head = pull.get("head")
         base = pull.get("base")
+        state = pull.get("state")
+        review_state_is_visible = state == "closed" or (
+            state == "open" and pull.get("draft") is True
+        )
         return (
-            isinstance(user, Mapping)
+            review_state_is_visible
+            and isinstance(user, Mapping)
             and user.get("login") == "github-actions[bot]"
             and isinstance(head, Mapping)
             and isinstance(head.get("ref"), str)
@@ -140,34 +148,72 @@ class GitHubModelLifecycleObservationSource:
             raise ModelLifecycleObservationError(
                 "trusted lifecycle pull request MUST contain exactly one proposal"
             )
+        replay_paths = [
+            item.get("filename")
+            for item in files
+            if isinstance(item, Mapping)
+            and isinstance(item.get("filename"), str)
+            and _SHADOW_REPLAY_PATH.fullmatch(str(item["filename"])) is not None
+        ]
+        if len(replay_paths) > 1:
+            raise ModelLifecycleObservationError(
+                "trusted lifecycle pull request MUST contain at most one shadow replay receipt"
+            )
         path = str(paths[0])
-        encoded = await self._get_json(
-            f"/repos/{self._config.owner}/{self._config.repo}/contents/{path}",
-            params={"ref": head_sha},
-        )
-        if not isinstance(encoded, Mapping) or encoded.get("encoding") != "base64":
-            raise ModelLifecycleObservationError("lifecycle proposal content is invalid")
-        raw_content = encoded.get("content")
-        if not isinstance(raw_content, str):
-            raise ModelLifecycleObservationError("lifecycle proposal content is absent")
-        try:
-            proposal = json.loads(base64.b64decode("".join(raw_content.split()), validate=True))
-        except (ValueError, json.JSONDecodeError) as exc:
-            raise ModelLifecycleObservationError("lifecycle proposal JSON is invalid") from exc
-        if not isinstance(proposal, dict):
-            raise ModelLifecycleObservationError("lifecycle proposal MUST be an object")
+        proposal = await self._load_json_content(path, head_sha, "proposal")
         match = _PROPOSAL_PATH.fullmatch(path)
         if match is None or proposal.get("proposal_digest") != match.group(1):
             raise ModelLifecycleObservationError("lifecycle proposal path digest mismatch")
-        return {
+        merged_at = _optional_timestamp(pull.get("merged_at"), "merged_at")
+        closed_at = None
+        if pull.get("state") == "closed" and merged_at is None:
+            closed_at = _timestamp(pull.get("closed_at"), "closed_at")
+        observation: dict[str, object] = {
             "trusted": True,
             "pull_request": number,
             "head_sha": head_sha,
             "opened_at": created_at.isoformat(),
             "expires_at": (created_at + timedelta(hours=self._config.review_ttl_hours)).isoformat(),
-            "merged_at": None,
+            "merged_at": merged_at.isoformat() if merged_at is not None else None,
+            "closed_at": closed_at.isoformat() if closed_at is not None else None,
             "proposal": proposal,
         }
+        if replay_paths:
+            replay_path = str(replay_paths[0])
+            replay_match = _SHADOW_REPLAY_PATH.fullmatch(replay_path)
+            if replay_match is None or replay_match.group(1) != match.group(1):
+                raise ModelLifecycleObservationError("lifecycle shadow replay path digest mismatch")
+            observation["shadow_replay"] = await self._load_json_content(
+                replay_path,
+                head_sha,
+                "shadow replay",
+            )
+        return observation
+
+    async def _load_json_content(
+        self,
+        path: str,
+        head_sha: str,
+        content_kind: str,
+    ) -> dict[str, object]:
+        encoded = await self._get_json(
+            f"/repos/{self._config.owner}/{self._config.repo}/contents/{path}",
+            params={"ref": head_sha},
+        )
+        if not isinstance(encoded, Mapping) or encoded.get("encoding") != "base64":
+            raise ModelLifecycleObservationError(f"lifecycle {content_kind} content is invalid")
+        raw_content = encoded.get("content")
+        if not isinstance(raw_content, str):
+            raise ModelLifecycleObservationError(f"lifecycle {content_kind} content is absent")
+        try:
+            loaded = json.loads(base64.b64decode("".join(raw_content.split()), validate=True))
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise ModelLifecycleObservationError(
+                f"lifecycle {content_kind} JSON is invalid"
+            ) from exc
+        if not isinstance(loaded, dict):
+            raise ModelLifecycleObservationError(f"lifecycle {content_kind} MUST be an object")
+        return loaded
 
     async def _get_paginated_array(
         self,
@@ -221,6 +267,12 @@ def _timestamp(value: object, field: str) -> datetime:
             f"lifecycle pull request {field} MUST be timezone-aware"
         )
     return parsed
+
+
+def _optional_timestamp(value: object, field: str) -> datetime | None:
+    if value is None:
+        return None
+    return _timestamp(value, field)
 
 
 __all__ = [
