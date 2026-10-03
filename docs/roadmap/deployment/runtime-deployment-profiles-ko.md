@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: bbcd7a1d4bf24c17280a9c1f8a24009f61f33e5d
+translation_source_sha: 9a45118bbd8e4e9df678e248e19df6f5b22f499e
 translation_revised: 2026-10-03
 ---
 # 런타임 배포 프로파일
@@ -149,7 +149,15 @@ Studio를 포함하지 않은 기존 롤백 산출물도 계속 읽을 수 있�
 | `postgres-aks` 사용 시 AKS 사용자 노드 | 최소 4개입니다. | 비프로덕션 소형 구성에서 4 |
 | 시스템 노드 SKU | 최소 4 vCPU와 4 GB 메모리이며 선택한 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4as_v5` |
 | 사용자 노드 SKU | 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4as_v5` |
+| PostgreSQL Flexible Server SKU(`--database-sku`) | `postgres-flex`에서만 사용합니다. `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, `GP_Standard_D4ds_v5` 중 하나여야 합니다. | 지정하지 않으면 `B_Standard_B1ms`를 유지합니다. AKS에는 `GP_Standard_D2ds_v5` 같은 General Purpose 크기를 권장합니다. |
 | 가용성 영역 | 요청한 각 영역을 두 SKU에서 모두 사용할 수 있어야 합니다. | 프로덕션에서 3개 영역 |
+
+데이터베이스 크기는 선택한 경우에만 런타임 프로파일에 들어갑니다. 따라서 지정하지 않으면 기존
+프로파일 매핑, 다이제스트, 초기 서버가 그대로 유지됩니다. Burstable 서버는 CPU 크레딧을 모두 쓰면
+vCore 하나의 일부 성능으로만 동작합니다. 모든 기본 서비스와 매분 실행되는 inventory 및 analyzer
+Job을 갖춘 개발용 AKS 설치는 `B_Standard_B1ms` 서버의 크레딧을 약 한 시간 만에 소진했고, 이후 모든
+서비스가 PostgreSQL 시간 초과로 실패했습니다. 컴퓨팅 비용 검토는 여전히 데이터베이스를 제외하므로,
+더 큰 크기는 운영자가 명시적으로 내리는 비용 선택입니다.
 
 노드 수 하한은 프로파일의 구조적 지원 여부만 증명합니다. 프로덕션 플랜은 AKS 예약 용량과
 노드별 DaemonSet 요청량을 반영한 워크로드 용량도 평가합니다.

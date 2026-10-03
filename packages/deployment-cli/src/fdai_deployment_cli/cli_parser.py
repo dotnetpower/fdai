@@ -21,6 +21,7 @@ from fdai_deployment_cli.cli_help import (
 from fdai_deployment_cli.foundation_plan import register_foundation_plan_command
 from fdai_deployment_cli.state_handoff import register_state_handoff_command
 from fdai_deployment_cli.aks_service_update import SERVICES as AKS_SERVICES
+from fdai_deployment_cli.runtime_profile import DATABASE_SKUS
 
 CommandHandler = Callable[[argparse.Namespace], int]
 
@@ -201,6 +202,13 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         default="Standard_D4as_v5",
         metavar="SKU",
         help="AKS user node VM SKU (default: %(default)s)",
+    )
+    settings.add_argument(
+        "--database-sku",
+        default=None,
+        choices=DATABASE_SKUS,
+        metavar="SKU",
+        help="PostgreSQL Flexible Server SKU for postgres-flex (default: B_Standard_B1ms)",
     )
     settings.add_argument(
         "--monthly-cost-ceiling",

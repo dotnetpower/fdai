@@ -155,7 +155,15 @@ Static readback hashes only files that Static Web Apps serves; host-consumed con
 | AKS user nodes with `postgres-aks` | At least 4. | 4 for non-production compact use |
 | System node SKU | At least 4 vCPUs and 4 GB memory; available in the selected region and subscription. | `Standard_D4as_v5` |
 | User node SKU | Region and subscription must report it available. | `Standard_D4as_v5` |
+| PostgreSQL Flexible Server SKU (`--database-sku`) | `postgres-flex` only. One of `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, or `GP_Standard_D4ds_v5`. | Unset keeps `B_Standard_B1ms`; a General Purpose size such as `GP_Standard_D2ds_v5` for AKS |
 | Availability zones | Every requested zone must exist for both selected SKUs. | Three zones in production |
+
+The database size enters the runtime profile only when it is selected, so an unset size keeps the
+existing profile mapping, digest, and day-zero server. A Burstable server runs at a fraction of
+one vCore after it spends its CPU credits. A development AKS installation with every baseline
+service and the per-minute inventory and analyzer Jobs spent a `B_Standard_B1ms` server's credits
+within about an hour, and every service then failed on PostgreSQL timeouts. The compute cost
+review still excludes the database, so a larger size remains an explicit operator cost choice.
 
 The node-count floor proves only that the profile is structurally supported. Production planning
 also evaluates the declared workload envelope after AKS reservations and per-node DaemonSet

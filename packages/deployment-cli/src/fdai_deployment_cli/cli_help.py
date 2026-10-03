@@ -73,6 +73,7 @@ _ARGUMENT_HELP = {
     "--user-nodes": "AKS user node minimum; postgres-aks requires at least 4",
     "--max-user-nodes": "AKS user node autoscaler maximum",
     "--user-node-sku": "AKS user node Azure VM SKU",
+    "--database-sku": "PostgreSQL Flexible Server SKU for postgres-flex placement",
     "--environment": "Deployment environment; this value grants no execution authority",
     "--target-binding": "Reviewed target binding as a lowercase SHA-256 digest",
     "--connectivity": "Artifact connectivity profile: online or offline",
