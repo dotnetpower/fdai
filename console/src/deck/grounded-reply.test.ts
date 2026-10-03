@@ -78,6 +78,17 @@ describe("verificationLabel", () => {
     );
   });
 
+  it("omits the claim count for the posture note without changing the label variant", () => {
+    expect(verificationLabel(verification("server_read_model"), undefined, { includeClaims: false })).toBe(
+      "Consistent with server evidence",
+    );
+    expect(verificationLabel(
+      { ...verification("server_read_model"), status: "verified" },
+      semanticReceipt("incomplete"),
+      { includeClaims: false },
+    )).toBe("Grounding evidence is incomplete; widen the read or wait for the missing sources");
+  });
+
   it("keeps current-screen wording for browser snapshot evidence", () => {
     expect(verificationLabel(verification("client_snapshot"))).toBe(
       "Consistent with the current screen (1/1 claims supported)",

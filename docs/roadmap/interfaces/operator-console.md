@@ -99,8 +99,11 @@ row; this boundary does not write or replace prior stored state.
 The Command Deck retains its shared Markdown renderer and validated JSON presentation artifacts.
 It never classifies paragraphs into operational roles or infers facts from layout. Evidence
 limitations and warning or attention blocks remain visible even when a collapse hint is present.
-Settled replies expose their existing verification state before the answer. Original Markdown
-inspection includes only the display-authorized answer, not rejected terminal text.
+Settled replies expose their existing verification state before the answer: the short status and
+claim count lead, and the complete wording follows on a quieter line. The sources control names only
+a grounding issue that the verification status beside it doesn't already state, and its accessible
+name keeps every issue. Original Markdown inspection includes only the display-authorized answer,
+not rejected terminal text.
 
 Numbered citations open the corresponding source disclosure. Returning to the answer restores
 the invoking control and transcript position. Search is an explicit header control; `Ctrl+K`
@@ -112,7 +115,9 @@ The actual Console imports the shared conversation stylesheet and activates its 
 prose, citation, and composer roles. A normal completed work record becomes a compact disclosure
 after the terminal answer is available; failed, partial, and unavailable work stays expanded.
 Every recorded step remains inspectable. The latest-message command belongs to the composer
-context row and never floats over answer text.
+context row and never floats over answer text. As in the Command deck study, header commands stay
+quiet until hover or selection, a healthy chat connection is plain metadata while a degraded one
+keeps its tinted badge, and the reply source reads as metadata beside the speaker.
 
 ## 1. Framing - what this is (and what it is not)
 Instance-candidate enrollment uses the authenticated principal, role, and group scope without changing human-report-line, assignment, approval, or action authority. The default Core index lifecycle remains agent-owned and read-only; exact-ID results do not qualify semantic ranking or imply a complete collection. The bilingual identity-only terminal explicitly reports partial, non-exhaustive candidates and no execution authority. It neither projects arbitrary properties nor substitutes for attachment authorization, exact document citations, or document evidence completeness.
