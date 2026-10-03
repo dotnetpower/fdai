@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 8ff381b5f3d714f3653491d919158167f07d596e
-translation_revised: 2026-10-03
+translation_source_sha: 50606395d122f2d1714b6b1f48ce7a47978e18e8
+translation_revised: 2026-10-04
 ---
 # 독립 운영 근거 발급
 
@@ -355,7 +355,7 @@ operating-intent 출처 개정과 일치하는 관측 범위 워터마크를 요
 범위와 목적의 digest, `case-history-read`, 활성 온톨로지 릴리스 digest.
 조회가 릴리스 digest를 묶으므로 운영 근거 밖의 온톨로지 함수 소스 수정을 포함한 모든 릴리스 변경은 새 조회를
 시작하고, 이전 릴리스에서 발급한 증적은 다시 쓰지 않습니다. 같은 변경에서 원본에 묶인 의미 보증 코퍼스도 다시
-생성합니다.
+생성합니다. 소스에서 파생되는 `query.resource_health_inventory` FunctionType을 수정하는 것도 이러한 릴리스 변경입니다.
 변환 전용 온톨로지 어휘는 릴리스 digest나 운영 근거 조회 권한을 바꾸지 않고도 해당 corpus
 매니페스트의 원본 다이제스트를 갱신할 수 있습니다.
 
