@@ -20,4 +20,5 @@ CORS_EXPOSE_HEADERS: Final = (
     "X-FDAI-Expected-Rows",
     "X-FDAI-Included-Rows",
     "X-FDAI-Local-Session",
+    "X-FDAI-Revision",
 )

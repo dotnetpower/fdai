@@ -170,7 +170,7 @@ export async function workflowAuthorizationHeader(): Promise<string | null> {
 export async function createWorkflowDefinition(
   workflow: Readonly<Record<string, unknown>>,
 ): Promise<SavedWorkflowDraft> {
-  const payload = await workflowMutation("/workflows/definitions", "POST", {
+  const { payload, revision } = await workflowMutationWithRevision("/workflows/definitions", "POST", {
     workflow,
     confirmed: true,
   }, { expectedRevision: "new" });
@@ -182,7 +182,8 @@ export async function createWorkflowDefinition(
     definitionId: requiredResponseString(definition, "definition_id"),
     workflowName: requiredResponseString(definition, "workflow_name"),
     lifecycle: requiredResponseString(definition, "lifecycle"),
-    revision: requiredResponseString(payload, "revision"),
+    // The Operator carries the committed revision in X-FDAI-Revision, not in the body.
+    revision: requiredResponseString({ revision }, "revision"),
   };
 }
 
@@ -216,6 +217,15 @@ async function workflowMutation(
   body?: Readonly<Record<string, unknown>>,
   options?: { readonly expectedRevision?: string },
 ): Promise<Record<string, unknown>> {
+  return (await workflowMutationWithRevision(path, method, body, options)).payload;
+}
+
+async function workflowMutationWithRevision(
+  path: string,
+  method: "POST" | "DELETE",
+  body?: Readonly<Record<string, unknown>>,
+  options?: { readonly expectedRevision?: string },
+): Promise<{ readonly payload: Record<string, unknown>; readonly revision: string | null }> {
   const cfg = loadConfig();
   const base = cfg.operatorApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
   const headers: Record<string, string> = { accept: "application/json" };
@@ -248,8 +258,9 @@ async function workflowMutation(
     }
     throw new Error(detail);
   }
-  if (response.status === 204) return {};
-  return await response.json() as Record<string, unknown>;
+  const revision = response.headers.get("x-fdai-revision");
+  if (response.status === 204) return { payload: {}, revision };
+  return { payload: await response.json() as Record<string, unknown>, revision };
 }
 
 export function mutationIdempotencyKey(

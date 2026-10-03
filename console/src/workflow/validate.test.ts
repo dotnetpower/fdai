@@ -7,6 +7,8 @@ afterEach(() => {
 
 describe("workflow definition creation", () => {
   it("sends explicit confirmation and decodes a private draft identity", async () => {
+    // Shape returned by the Operator's direct authoring store: the revision travels in
+    // X-FDAI-Revision and the body carries no top-level revision.
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       valid: true,
       definition: {
@@ -14,8 +16,11 @@ describe("workflow definition creation", () => {
         workflow_name: "cost-review",
         lifecycle: "draft",
       },
-      revision: "revision-1",
-    }), { status: 201, headers: { "content-type": "application/json" } }));
+      duplicate: false,
+    }), {
+      status: 201,
+      headers: { "content-type": "application/json", "x-fdai-revision": "revision-1" },
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(createWorkflowDefinition({ name: "cost-review" })).resolves.toEqual({
@@ -41,6 +46,22 @@ describe("workflow definition creation", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
       valid: true,
       definition: { workflow_name: "cost-review", lifecycle: "draft" },
+    }), { status: 201, headers: { "content-type": "application/json" } })));
+
+    await expect(createWorkflowDefinition({ name: "cost-review" })).rejects.toThrow(
+      "invalid response",
+    );
+  });
+
+  it("fails closed when the committed revision header is absent", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      valid: true,
+      definition: {
+        definition_id: "definition-1",
+        workflow_name: "cost-review",
+        lifecycle: "draft",
+      },
+      duplicate: false,
     }), { status: 201, headers: { "content-type": "application/json" } })));
 
     await expect(createWorkflowDefinition({ name: "cost-review" })).rejects.toThrow(
