@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: a6554d1f5656ee2554ed761f29a7182c277a9a3d
+translation_source_sha: 56b056e821aba4a2b996488885e64ce190e3e4c6
 translation_revised: 2026-10-04
 ---
 # 지속형 운영 인스턴스 그래프

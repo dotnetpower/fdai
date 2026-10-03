@@ -1694,6 +1694,46 @@ def _raw_objective_effect_records() -> list[dict[str, Any]]:
     list(CONFLICT_SPEC_PATHS.values()),
     ids=list(CONFLICT_SPEC_PATHS.keys()),
 )
+def test_frozen_effect_enrichment_matches_shipped_objective_effects(
+    spec_path: Path,
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    """Frozen specs keep their legacy enrichment, but replay no longer consumes it.
+
+    Frozen versions are immutable, so the historical ``objective_effects`` records stay in
+    place. Every one of them MUST equal the reviewed shipped artifact replay now reads, so
+    the move to shipped effects cannot silently change a frozen outcome.
+    """
+
+    bindings = _load_objective_effect_bindings(shipped_catalog)
+    spec = _load_conflict_spec(spec_path)
+    for record in spec["objective_effects"]:
+        binding = effect_record_for(
+            bindings,
+            rule_id=str(record["cited_rule_id"]),
+            action_type=str(record["action_type"]),
+        )
+        shipped = [effect.model_dump() for effect in binding.effects]
+        frozen = [
+            {
+                "objective_kind": str(effect["objective_kind"]),
+                "metric": str(effect["metric"]),
+                "utility": float(effect["utility"]),
+                "confidence": float(effect["confidence"]),
+                "expected_min": float(effect["expected_min"]),
+                "expected_max": float(effect["expected_max"]),
+                "observation_window_seconds": int(effect["observation_window_seconds"]),
+            }
+            for effect in sorted(record["effects"], key=lambda item: str(item["objective_kind"]))
+        ]
+        assert shipped == frozen
+
+
+@pytest.mark.parametrize(
+    "spec_path",
+    list(CONFLICT_SPEC_PATHS.values()),
+    ids=list(CONFLICT_SPEC_PATHS.keys()),
+)
 def test_cross_objective_conflict_spec_is_schema_valid(spec_path: Path) -> None:
     """The frozen conflict spec MUST stay valid and self-consistent."""
 

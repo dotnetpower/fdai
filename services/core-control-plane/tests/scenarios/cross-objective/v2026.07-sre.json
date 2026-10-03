@@ -140,6 +140,58 @@
       }
     ]
   },
+  "objective_effects": [
+    {
+      "cited_rule_id": "kubernetes-cluster.diagnostic-settings-required",
+      "action_type": "remediate.enable-diagnostic-settings",
+      "effects": [
+        {
+          "objective_kind": "availability",
+          "metric": "slo_signal_completeness",
+          "utility": 0.6,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_kind": "run_rate",
+          "metric": "telemetry_ingestion_run_rate",
+          "utility": -0.4,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        }
+      ],
+      "note": "Turning cluster diagnostics on completes the signal the availability objective is measured from and raises the ingestion the run-rate objective pays for. The record binds to a replay only when that replay cites this rule and builds this ActionType; it never names a domain, an option, or a counterpart, so it cannot declare a conflict on its own."
+    },
+    {
+      "cited_rule_id": "log-workspace.retention-excessive",
+      "action_type": "remediate.set-retention-policy",
+      "effects": [
+        {
+          "objective_kind": "availability",
+          "metric": "slo_signal_completeness",
+          "utility": -0.5,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_kind": "run_rate",
+          "metric": "telemetry_ingestion_run_rate",
+          "utility": 0.5,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        }
+      ],
+      "note": "Cutting workspace retention lowers the ingestion the run-rate objective pays for and shortens the window the availability signal is reconstructed from. Bound the same way, by cited rule and produced ActionType."
+    }
+  ],
   "options": [
     {
       "option_id": "enable-cluster-diagnostics",
