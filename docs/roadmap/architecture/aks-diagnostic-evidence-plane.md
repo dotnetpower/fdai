@@ -93,6 +93,17 @@ A returned kubeconfig that embeds a token, client certificate, client key, passw
 static credential is rejected. A newly created cluster therefore enters the next bounded discovery
 run without a Terraform change, while a deleted cluster disappears only after complete subscription
 reconciliation proves its absence.
+Discovery persists public CA trust material plus non-secret binding metadata in the shared state
+store: cluster ARM id, API server origin, bounded CA PEM, CA certificate digest, observation time,
+and the ARM revision used as the binding revision. A later process may reuse that record only after
+a fresh management-plane cluster read matches the API server origin and binding revision, and only
+after recomputing the CA digest from the retained PEM. A changed API server or ARM revision,
+including the signal that can accompany CA rotation, invalidates the cache before use and forces a
+new `listClusterUserCredential` call to refresh the CA PEM and digest. Because Azure exposes CA
+bytes only in the credential response, a CA rotation that changes neither the API server nor the ARM
+revision surfaces as Kubernetes TLS verification failure and an unavailable source, never as
+unpinned trust. The cache never stores kubeconfig, tokens, client certificates, client keys,
+passwords, or usernames, and it never treats cached trust material as authority.
 Management-plane discovery and Kubernetes API reads place the validated short-lived token only in
 the transient `Authorization: Bearer` request header. The header does not enter configuration,
 inventory records, logs, errors, or source-state metadata. A redaction marker is presentation data

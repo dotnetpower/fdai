@@ -360,7 +360,7 @@ Consumer: `OperatingPatternQuery._read` in `core/ontology_platform/pattern_queri
 the principal scope, case scope, and purpose, `case-history-read`, and the active ontology release digest.
 Because the lookup binds the release digest, any release change, including an edited ontology function
 source outside operational evidence, starts new lookups, and a receipt issued under the previous
-release is never reused; the same change regenerates the source-bound semantic assurance corpus.
+release is never reused; the same change regenerates the source-bound semantic assurance corpus. Editing the source-derived `query.resource_health_inventory` FunctionType is such a release change.
 Projection-only ontology vocabulary can refresh that corpus manifest's source digests without
 changing the release digest or any operational-evidence lookup authority.
 

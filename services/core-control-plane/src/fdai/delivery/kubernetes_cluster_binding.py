@@ -16,6 +16,7 @@ _ALLOWED_KEYS = frozenset(
         "api_server",
         "audience",
         "auth_mode",
+        "ca_digest",
         "ca_path",
         "ca_pem",
         "cluster_ref",
@@ -33,6 +34,7 @@ class KubernetesClusterBinding:
     auth_mode: str
     ca_path: Path | None = None
     ca_pem: str | None = None
+    ca_digest: str | None = None
     token_path: Path | None = None
     audience: str | None = None
 
@@ -56,10 +58,24 @@ class KubernetesClusterBinding:
             or "/providers/microsoft.containerservice/managedclusters/" not in normalized_ref
         ):
             raise ValueError("Kubernetes binding cluster_ref MUST be an AKS ARM id")
-        if (self.ca_path is None) == (self.ca_pem is None):
+        if self.ca_path is not None and self.ca_pem is not None:
+            raise ValueError("Kubernetes binding accepts only one CA material source")
+        if self.ca_path is None and self.ca_pem is None:
             raise ValueError("Kubernetes binding requires exactly one CA binding")
-        if self.ca_pem is not None and (not self.ca_pem.strip() or len(self.ca_pem) > 65_536):
+        if self.ca_pem is not None and (
+            not self.ca_pem.strip() or len(self.ca_pem) > 65_536 or not self.ca_pem.isascii()
+        ):
             raise ValueError("Kubernetes binding ca_pem MUST be bounded non-empty text")
+        if self.ca_digest is not None and (
+            len(self.ca_digest) != 71
+            or not self.ca_digest.startswith("sha256:")
+            or any(character not in "0123456789abcdef" for character in self.ca_digest[7:])
+        ):
+            raise ValueError("Kubernetes binding ca_digest MUST be sha256:<64 lowercase hex>")
+        if self.ca_pem is not None and self.ca_digest is not None:
+            actual_digest = "sha256:" + hashlib.sha256(self.ca_pem.encode("ascii")).hexdigest()
+            if self.ca_digest != actual_digest:
+                raise ValueError("Kubernetes binding ca_digest MUST match ca_pem")
         if self.auth_mode not in {"service-account", "workload-identity"}:
             raise ValueError("Kubernetes binding auth_mode is invalid")
         if self.auth_mode == "service-account":
@@ -115,6 +131,7 @@ def _binding(value: object) -> KubernetesClusterBinding:
 
     ca_path = text("ca_path")
     ca_pem = text("ca_pem")
+    ca_digest = text("ca_digest")
     token_path = text("token_path")
     return KubernetesClusterBinding(
         api_server=text("api_server", required=True) or "",
@@ -122,6 +139,7 @@ def _binding(value: object) -> KubernetesClusterBinding:
         auth_mode=text("auth_mode", required=True) or "",
         ca_path=Path(ca_path) if ca_path is not None else None,
         ca_pem=ca_pem,
+        ca_digest=ca_digest,
         token_path=Path(token_path) if token_path is not None else None,
         audience=text("audience"),
     )

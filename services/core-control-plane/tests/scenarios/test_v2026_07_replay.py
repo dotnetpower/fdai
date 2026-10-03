@@ -57,6 +57,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+import yaml
 from fdai.agents import (
     ActionSemanticsCatalog,
     AuditEntry,
@@ -92,7 +93,13 @@ from fdai.core.tiers.t0_deterministic import (
 from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.tiers.t2_reasoning.testing import AbstainingT2Proposer
 from fdai.core.trust_router import TrustRouter
+from fdai.rule_catalog.schema.objective_effect import (
+    RuleObjectiveEffectBinding,
+    effect_record_for,
+    load_objective_effect_catalog,
+)
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.rule_catalog.schema.rule import rule_content_hash
 from fdai.shared.contracts.models import Action, Mode
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import (
@@ -127,6 +134,7 @@ ENRICHMENT_DIR = Path(__file__).resolve().parent / "enrichment" / "v2026.07"
 CONFLICT_DIR = Path(__file__).resolve().parent / "cross-objective"
 CONFLICT_SPEC_PATH = CONFLICT_DIR / "v2026.07-sre.json"
 CONFLICT_SCHEMA_PATH = CONFLICT_DIR / "schema.json"
+OBJECTIVE_EFFECT_ROOT = REPO_ROOT / "rule-catalog" / "objective-effects"
 
 _OPA_PRESENT = shutil.which("opa") is not None
 requires_opa = pytest.mark.skipif(
@@ -929,8 +937,8 @@ async def test_sre_full_loop_dispatch_without_observation_is_never_success(
 #
 # - each option's recommendation is the ActionType its own replay produced,
 #   so an option that produces no action can only hold;
-# - the signed objective effects an option carries come from a typed frozen
-#   enrichment that binds to it only through the rule id its replay cited
+# - the signed objective effects an option carries come from reviewed shipped
+#   objective-effect artifacts bound only through the rule id its replay cited
 #   and the ActionType its replay built, and they land on objective ids
 #   resolved from the shipped graph;
 # - whether two options conflict is then decided by the runtime relation
@@ -1080,11 +1088,11 @@ async def _governing_objective_ids(
 ) -> dict[str, str]:
     """Map each objective kind to the objective id the graph governs with.
 
-    The frozen effect records name an objective *kind* only; the concrete
+    The shipped effect records name an objective *kind* only; the concrete
     objective id is whatever the shipped graph links to the business
     service. Resolving through the store keeps an effect from landing on
     an objective this neighborhood does not actually govern, and keeps the
-    enrichment from choosing its own identifiers.
+    artifact from choosing its own identifiers.
     """
 
     link_types = sorted({str(link["link_type"]) for link in spec["operating_context"]["links"]})
@@ -1113,60 +1121,78 @@ async def _governing_objective_ids(
 
 
 def _bound_effect_record(
-    spec: dict[str, Any],
+    effect_bindings: tuple[RuleObjectiveEffectBinding, ...],
     *,
     citing_rule_ids: tuple[str, ...],
     action_type: str | None,
-) -> dict[str, Any] | None:
-    """Bind a frozen effect record to what one replay actually produced.
+) -> RuleObjectiveEffectBinding | None:
+    """Bind a shipped effect record to what one replay actually produced.
 
     A record binds only when the replay cited its rule *and* built its
-    ActionType, so the enrichment cannot be attached to an option by hand.
-    A replay that cites a rule the enrichment covers but builds a
+    ActionType, so effects cannot be attached to an option by hand.
+    A replay that cites a rule the catalog covers but builds a
     different action, or builds no action at all, binds nothing.
     """
 
     candidates = [
-        record for record in spec["objective_effects"] if record["cited_rule_id"] in citing_rule_ids
+        binding
+        for binding in effect_bindings
+        if binding.rule.ref.split("@", 1)[0] in citing_rule_ids
     ]
     if action_type is None:
         assert not candidates, (
             "an option with no ActionType MUST NOT carry objective effects: "
-            f"{[record['cited_rule_id'] for record in candidates]}"
+            f"{[binding.rule.ref for binding in candidates]}"
         )
         return None
-    bound = [record for record in candidates if record["action_type"] == action_type]
+    bound = [
+        effect_record_for(effect_bindings, rule_id=rule_id, action_type=action_type)
+        for rule_id in citing_rule_ids
+        if any(binding.rule.ref.split("@", 1)[0] == rule_id for binding in candidates)
+    ]
     assert len(bound) == 1, (
-        f"exactly one frozen effect record MUST bind to rules {list(citing_rule_ids)} "
+        f"exactly one shipped effect record MUST bind to rules {list(citing_rule_ids)} "
         f"and ActionType {action_type!r}, got {len(bound)}"
     )
-    return cast(dict[str, Any], bound[0])
+    return bound[0]
 
 
 def _option_objective_effects(
-    record: dict[str, Any],
+    record: RuleObjectiveEffectBinding,
     objective_ids: Mapping[str, str],
 ) -> list[dict[str, Any]]:
     """Resolve a bound record's effects onto governed objective ids."""
 
     effects: list[dict[str, Any]] = []
-    for effect in record["effects"]:
-        kind = str(effect["objective_kind"])
+    for effect in record.effects:
+        kind = effect.objective_kind
         assert kind in objective_ids, (
             f"effect declares objective kind {kind!r}, which this neighborhood does not govern"
         )
         effects.append(
             {
                 "objective_id": objective_ids[kind],
-                "metric": str(effect["metric"]),
-                "utility": float(effect["utility"]),
-                "confidence": float(effect["confidence"]),
-                "expected_min": float(effect["expected_min"]),
-                "expected_max": float(effect["expected_max"]),
-                "observation_window_seconds": int(effect["observation_window_seconds"]),
+                "metric": effect.metric,
+                "utility": effect.utility,
+                "confidence": effect.confidence,
+                "expected_min": effect.expected_min,
+                "expected_max": effect.expected_max,
+                "observation_window_seconds": effect.observation_window_seconds,
             }
         )
     return effects
+
+
+def _load_objective_effect_bindings(
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> tuple[RuleObjectiveEffectBinding, ...]:
+    return load_objective_effect_catalog(
+        OBJECTIVE_EFFECT_ROOT,
+        rule_digests={
+            f"{rule.id}@{rule.version}": rule_content_hash(rule) for rule in shipped_catalog.rules
+        },
+        action_type_names=frozenset(action.name for action in shipped_catalog.action_types),
+    )
 
 
 def _canonical_lineage(
@@ -1224,13 +1250,14 @@ async def _ground_conflict_options(
     deterministic outcome that cites a shipped rule and builds exactly one
     ActionType. That ActionType is the recommendation it contributes -
     never a string carried in the spec for that option - and it is also
-    half of what binds the frozen effect record the option carries into
+    half of what binds the shipped effect record the option carries into
     arbitration. Anything else - an abstention on an unmodelled signal,
     for example - leaves the option's evidence unresolved: it binds no
     effects, carries no lineage, and can only hold.
     """
 
     grounded: list[dict[str, Any]] = []
+    effect_bindings = _load_objective_effect_bindings(shipped_catalog)
     for option in spec["options"]:
         scenario_id = str(option["scenario_id"])
         scenario = json.loads(
@@ -1269,7 +1296,7 @@ async def _ground_conflict_options(
         )
         action_type = action_types[0] if eligible else None
         bound = _bound_effect_record(
-            spec,
+            effect_bindings,
             citing_rule_ids=tuple(result.citing_rule_ids),
             action_type=action_type,
         )
@@ -1561,6 +1588,21 @@ def _objective_records(spec: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _raw_objective_effect_records() -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for path in sorted(OBJECTIVE_EFFECT_ROOT.glob("*.yaml")):
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+        assert isinstance(loaded, dict)
+        if loaded.get("state") != "reviewed":
+            continue
+        record = dict(loaded)
+        rule = record.get("rule")
+        assert isinstance(rule, dict)
+        record["cited_rule_id"] = str(rule["ref"]).split("@", 1)[0]
+        records.append(record)
+    return records
+
+
 def test_cross_objective_conflict_spec_is_schema_valid() -> None:
     """The frozen conflict spec MUST stay valid and self-consistent."""
 
@@ -1599,9 +1641,9 @@ def test_cross_objective_conflict_spec_is_schema_valid() -> None:
     # An option's recommendation is the ActionType its replay is expected
     # to build, so the spec may not pin a recommendation an option has no
     # runtime basis for, and the abstaining option may not pin one at all.
+    effect_records = _raw_objective_effect_records()
     covered = {
-        (str(record["cited_rule_id"]), str(record["action_type"]))
-        for record in spec["objective_effects"]
+        (str(record["cited_rule_id"]), str(record["action_type"])) for record in effect_records
     }
     for option in spec["options"]:
         action_type = option["expected_action_type"]
@@ -1609,23 +1651,21 @@ def test_cross_objective_conflict_spec_is_schema_valid() -> None:
         if option["expected_eligibility"] == "eligible":
             assert expected["advice"][domain] == action_type
             assert any(entry[1] == action_type for entry in covered), (
-                f"no frozen effect record can bind to ActionType {action_type!r}"
+                f"no shipped effect record can bind to ActionType {action_type!r}"
             )
         else:
             assert action_type is None
             assert expected["advice"][domain] == expected["held_recommendation"]
 
-    # The enrichment MUST stay bindable-by-runtime-output only: it names no
+    # The shipped effect artifacts MUST stay bindable-by-runtime-output only: they name no
     # domain, no option, and no counterpart, so it cannot declare the
     # conflict the runtime relation is supposed to find independently.
     domains = {str(option["objective_domain"]) for option in spec["options"]}
     option_ids = {str(option["option_id"]) for option in spec["options"]}
-    for record in spec["objective_effects"]:
-        keys = set(record) - {"note"}
-        assert keys == {"cited_rule_id", "action_type", "effects"}
+    for record in effect_records:
         assert not (domains | option_ids) & {str(value) for value in record.values()}
-    assert len(covered) == len(spec["objective_effects"]), (
-        "two frozen effect records MUST NOT share one rule and ActionType binding"
+    assert len(covered) == len(effect_records), (
+        "two shipped effect records MUST NOT share one rule and ActionType binding"
     )
 
     # Every pinned conflict is a pair of domains contending over one
@@ -1636,11 +1676,9 @@ def test_cross_objective_conflict_spec_is_schema_valid() -> None:
         if "objective_kind" in record["properties"]
     }
     kinds = {str(record["properties"]["objective_kind"]) for record in _objective_records(spec)}
-    assert kinds == {
-        str(effect["objective_kind"])
-        for record in spec["objective_effects"]
-        for effect in record["effects"]
-    }, "every governed objective kind MUST be covered by the frozen effects, and no other"
+    assert kinds <= {
+        str(effect["objective_kind"]) for record in effect_records for effect in record["effects"]
+    }, "every governed objective kind MUST be covered by shipped effects"
     for conflict in expected["objective_conflicts"]:
         assert set(conflict["domains"]) <= domains
         assert conflict["objective_id"] in objectives

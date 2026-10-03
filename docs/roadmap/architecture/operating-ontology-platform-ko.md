@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: d2526ff70f6b7f48e1cb44a2d79ade33de7ea8a7
-translation_revised: 2026-10-02
+translation_source_sha: f56fb071730c6d60d2e6f5ed836b425aac31836f
+translation_revised: 2026-10-04
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -535,6 +535,12 @@ digest를 가진 변경 불가능한 내용 기반 주소 산출물을 기록합
 근거 참조를 보존합니다. 표현 계층은 완전하고 충돌이 없으며 합성이 아닌 관측에 대해서만
 `from_state -> to_state`를 표시할 수 있습니다. 파생되었거나 검증되지 않은 행은 미확정 상태를
 유지하며 관측 상태 주장으로 바뀌지 않습니다.
+
+`query.resource_health_inventory`도 현재 가용성에 대해 같은 읽기 전용 경계를 따릅니다. 이
+FunctionType은 하나의 대상 집합 다이제스트, 쿼리 개정, 기한, 커버리지 계약으로 보안이 적용된
+정확한 Resource 집합을 두 번 읽고, 한 번의 재시도 안에 튜플 집합이 안정되지 않으면
+`state_changed`를 반환합니다. 이 증적에 대한 답변은 모델 밖의 검증기를 거치며, 검증기는 타입이
+지정된 필드에서 최종 처분을 계산하고 이와 모순되는 all-clear 주장을 대체합니다.
 
 ## 제공 순서
 

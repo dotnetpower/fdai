@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+id: effect.compute-vm-managed-identity-assigned.assign-identity
+version: 1.0.0
+rule:
+  ref: compute.vm.managed-identity.assigned@1.0.0
+  content_digest: sha256:2e1b788d9d092a198b029be19da8a8552882e922a33df2f2058c480df0d9d368
+action_type: remediate.assign-identity
+effects:
+- objective_kind: compliance_posture
+  metric: identity_hardening_signal
+  utility: 0.6
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+- objective_kind: run_rate
+  metric: fleet_change_run_rate
+  utility: -0.4
+  confidence: 0.9
+  expected_min: -1
+  expected_max: 1
+  observation_window_seconds: 300
+reviewer: Forseti
+state: reviewed
+content_digest: sha256:91d940131894e538d7494c1aed8adcb11e7f3a2605f20a7c0c5cdb644dc67167
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: objective-effect:compute.vm.managed-identity.assigned@1.0.0:remediate.assign-identity
+  content_hash: sha256:91d940131894e538d7494c1aed8adcb11e7f3a2605f20a7c0c5cdb644dc67167
+  license: MIT
+  retrieved_at: '2026-10-04T00:00:00Z'

@@ -466,6 +466,7 @@ async def test_write_t1_audit_records_the_full_verdict(tmp_path: Path) -> None:
         "rule_id": "ops.legacy.restart",
         "action_type": "ops.restart-service",
         "success_rate": 0.9,
+        "reused_from": "inc-01",
     }
     assert row["resource_type"] == "compute.vm.novel"
     verification = row["t1_current_reuse_verification"]

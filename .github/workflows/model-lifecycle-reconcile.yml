@@ -198,6 +198,7 @@ jobs:
           echo "source_commit=$source_commit" >> "$GITHUB_OUTPUT"
 
       - name: Ensure idempotent draft registry proposal
+        id: registry_proposal
         if: ${{ steps.candidate.outputs.status == 'proposal' }}
         uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         env:
@@ -273,14 +274,40 @@ jobs:
             const matches = await github.paginate(github.rest.pulls.list, {
               owner,
               repo,
-              state: "open",
+              state: "all",
               head: `${owner}:${branch}`,
               per_page: 100,
             });
-            if (matches.length > 1) {
+            const openMatches = matches.filter((item) => item.state === "open");
+            const terminalMatches = matches.filter((item) => item.state === "closed");
+            if (openMatches.length > 1) {
               throw new Error("multiple open model lifecycle proposals share one branch");
             }
-            let pull = matches[0];
+            let pull = openMatches[0];
+            if (pull === undefined && terminalMatches.length > 0) {
+              const terminal = terminalMatches.sort((left, right) => right.number - left.number)[0];
+              const terminalState = terminal.merged_at ? "merged" : "closed_unmerged";
+              fs.writeFileSync(
+                process.env.PR_JSON_PATH,
+                JSON.stringify({
+                  number: terminal.number,
+                  headRefOid: headSha,
+                  isDraft: false,
+                  state: terminalState,
+                  reason:
+                    terminalState === "merged"
+                      ? "matching_merged_proposal"
+                      : "matching_closed_unmerged_proposal",
+                  proposal_digest: proposalDigest,
+                  proposal_path: proposalPath,
+                  activation_authority: false,
+                  mapping_authority: false,
+                  execution_authority: false,
+                })
+              );
+              core.setOutput("proposal_state", terminalState);
+              return;
+            }
             if (pull === undefined) {
               const created = await github.rest.pulls.create({
                 owner,
@@ -310,10 +337,11 @@ jobs:
                 isDraft: true,
               })
             );
+            core.setOutput("proposal_state", "draft");
 
       - name: Build governed draft receipt
         id: publish
-        if: ${{ steps.candidate.outputs.status == 'proposal' }}
+        if: ${{ steps.candidate.outputs.status == 'proposal' && steps.registry_proposal.outputs.proposal_state == 'draft' }}
         env:
           SOURCE_COMMIT: ${{ steps.proposal_branch.outputs.source_commit }}
         run: |
@@ -331,10 +359,19 @@ jobs:
           echo "receipt=$receipt" >> "$GITHUB_OUTPUT"
 
       - name: Upload governed draft receipt
-        if: ${{ steps.candidate.outputs.status == 'proposal' }}
+        if: ${{ steps.candidate.outputs.status == 'proposal' && steps.registry_proposal.outputs.proposal_state == 'draft' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: model-lifecycle-receipt-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ steps.publish.outputs.receipt }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload terminal proposal decision
+        if: ${{ steps.candidate.outputs.status == 'proposal' && steps.registry_proposal.outputs.proposal_state != 'draft' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: model-lifecycle-terminal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/model-lifecycle/pull-request.json
           if-no-files-found: error
           retention-days: 30

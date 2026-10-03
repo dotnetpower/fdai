@@ -20,6 +20,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
 from fdai.rule_catalog.schema.model_lifecycle_review import (
     ModelLifecycleProposalReview,
     ModelLifecycleReviewDecision,
+    ModelLifecycleShadowReplayReceipt,
     evaluate_model_lifecycle_review,
 )
 from fdai.shared.providers.state_store import StateStore
@@ -139,10 +140,12 @@ async def resolve_models_startup_revision(
     held: set[str] = set()
     for observation in observations:
         proposal = _trusted_proposal(observation)
+        shadow_replay = _trusted_shadow_replay(observation.get("shadow_replay"))
         decision = evaluate_model_lifecycle_review(
             proposal,
             current_models_digest=source_models_digest,
             evaluated_at=evaluated_at,
+            shadow_replay=shadow_replay,
         )
         _verify_decision_digest(decision)
         await _persist_decision(decision_store, observation, decision)
@@ -205,7 +208,49 @@ def _trusted_proposal(observation: Mapping[str, object]) -> ModelLifecyclePropos
         opened_at=opened_at,
         expires_at=expires_at,
         merged_at=_observation_time(observation, "merged_at", required=False),
+        closed_at=_observation_time(observation, "closed_at", required=False),
     )
+
+
+def _trusted_shadow_replay(value: object) -> ModelLifecycleShadowReplayReceipt | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("model lifecycle shadow replay receipt is invalid")
+    proposal_digest = value.get("proposal_digest")
+    source_models_digest = value.get("source_models_digest")
+    decision_digest = value.get("decision_digest")
+    result = value.get("result")
+    scenario_set_digest = value.get("scenario_set_digest")
+    if (
+        not isinstance(proposal_digest, str)
+        or not isinstance(source_models_digest, str)
+        or not isinstance(decision_digest, str)
+        or not isinstance(result, str)
+        or not isinstance(scenario_set_digest, str)
+    ):
+        raise ValueError("model lifecycle shadow replay receipt fields are invalid")
+    replayed_at = _replay_time(value.get("replayed_at"))
+    return ModelLifecycleShadowReplayReceipt(
+        proposal_digest=proposal_digest,
+        source_models_digest=source_models_digest,
+        decision_digest=decision_digest,
+        result=result,
+        replayed_at=replayed_at,
+        scenario_set_digest=scenario_set_digest,
+    )
+
+
+def _replay_time(value: object) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError("model lifecycle shadow replay replayed_at is invalid")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("model lifecycle shadow replay replayed_at is invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("model lifecycle shadow replay replayed_at MUST be timezone-aware")
+    return parsed
 
 
 def _observation_time(
