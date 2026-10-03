@@ -229,6 +229,16 @@ async def test_isolated_property_equality_precedes_result_limit(actual, operand,
     assert result.truncated is equal
 
 
+async def test_isolated_property_equality_does_not_treat_missing_as_json_null():
+    async with _isolated_replacement_store() as store:
+        await store.upsert_object(_review_object("case"))
+        query = await store.query_objects(property_equals={"missing": None})
+        scan = await store.scan_objects(property_equals={"missing": None})
+
+    assert query.objects == scan.objects == ()
+    assert not query.truncated and not scan.truncated
+
+
 _WRITER_FENCE_MIGRATION = (
     REPO_ROOT
     / "service-migrations/branches/core-control-plane/versions"

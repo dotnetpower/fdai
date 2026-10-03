@@ -53,6 +53,20 @@ def test_normalize_json_value_rejects_excessive_nesting() -> None:
         normalize_json_value(nested)
 
 
+@pytest.mark.parametrize("scan", [False, True])
+async def test_property_equality_does_not_treat_missing_as_json_null(scan: bool) -> None:
+    store = _store()
+    await _upsert(store, "case", "ReviewCase", "open")
+
+    if scan:
+        result = await store.scan_objects(property_equals={"missing": None})
+    else:
+        result = await store.query_objects(property_equals={"missing": None})
+
+    assert result.objects == ()
+    assert result.truncated is False
+
+
 def _object_type(name: str) -> OntologyObjectType:
     return OntologyObjectType(
         schema_version="1.0.0",

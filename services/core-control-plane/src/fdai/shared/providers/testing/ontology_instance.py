@@ -244,7 +244,8 @@ class InMemoryOntologyInstanceStore:
             if (not selected_types or item.object_type in selected_types)
             and (not selected_ids or item.id in selected_ids)
             and all(
-                json_values_equal(item.properties.get(key), value) for key, value in filters.items()
+                key in item.properties and json_values_equal(item.properties[key], value)
+                for key, value in filters.items()
             )
             and all(
                 isinstance(item.properties.get(key), str) and item.properties.get(key) in values
