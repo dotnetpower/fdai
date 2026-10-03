@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: 0ed728e7903157babefeed383f07068723833ab0
+translation_source_sha: 6c1b75c68119bc14dccca39c87c9c7d9abe0b912
 translation_revised: 2026-10-03
 ---
 
@@ -66,6 +66,37 @@ v2 보정 자료에는 단일 대상 정답 32개, 복수 대상 정답 8개와 
 없습니다. 파일과 모델 식별자는 일관성을 검증할 뿐, 제공자 진위, 대표성이나 활성화 권한을
 입증하지 않습니다.
 
+## 형식화된 조건으로 후보 포함 여부 진단
+
+선택적으로 사용하는 `OntologyCandidateSelection` 경로는 이미 제안된 조건을 현재 권한이
+적용된 ObjectSet 조회로 평가합니다. 자연어 단어를 해석하거나 모델을 호출하지 않습니다.
+제안의 의미는 계속 호출자가 책임집니다. 조건과 일치한다는 사실만으로 질문을 올바르게
+이해했다고 볼 수는 없습니다.
+
+`OntologyCandidateSelection.bind`로 제안을 연결하고 준비된 판독기의
+`search(selection=...)`에 전달하세요. 연결 정보에는 정확한 질문, 매니페스트와 스냅샷이
+포함됩니다. 한 절 안의 조건은 AND로 결합하고, 절별 결과는 합집합으로 모아 중복 식별자를
+제거합니다. 판독기는 조회를 기다리기 전에 중첩된 피연산자의 복사본을 고정합니다.
+
+- 제안은 32 KiB, 절 8개, 절당 조건 16개와 명시적 ID 100개로 제한합니다.
+  빈 제안과 한도를 넘은 입력은 잘라서 사용하지 않고 차단합니다.
+- principal, 목적, 기준 시점, 관계 제외와 ObjectSet의 1,000행 한도는 서비스가 정합니다.
+  조건식 속성에 대한 접근에는 게이트웨이의 기존 권한 검사를 적용합니다.
+- 각 조회 범위는 완전하고 최신이어야 하며 숨겨진 식별자가 없어야 합니다. 표시 한도 밖의
+  일치 객체도 포함하여 모든 일치 객체의 정규 내용이 준비된 원본과 같아야 합니다.
+- 판독기는 정규 문서 ID 순서로 정렬하고 표시할 객체의 권한을 다시 확인합니다. 결과가
+  비어 있어도 조회 범위의 근거를 남기며, 범위 조회와 최종 권한 검증의 증적 다이제스트를
+  보존합니다. 후보가 없다는 결과만으로 그래프에 대상이 없다고 단정하지 않습니다.
+- `score_kind="predicate_membership"`은 포함 여부를 나타내는 상수 `1.0`을 뜻하며
+  유사도 점수나 신뢰도가 아닙니다. `selection_digest`에는
+  `secured-objectset-membership.v1` 전략과 고정된 제안이 연결됩니다. 기존 순위 검색과
+  정확한 ID 조회는 동작을 유지하며 각자의 점수 종류를 표시합니다.
+
+`typed_selection_available`의 기본값은 `False`이며, 의미 검색도 사용 가능한 상태여야 합니다.
+이전에 임베딩 순위 검색의 품질을 검증했더라도 새 전략을 활성화할 수는 없습니다. 런타임
+활성화는 계속 차단된 상태입니다. 고정된 기존 순위 검색 보고서로 이 경로의 품질을 인정하지
+않습니다. 모델과 프롬프트 출처, 실제 의미 제안 평가와 새로 검토한 홀드아웃이 여전히 필요합니다.
+
 ## 테스트
 
 ```bash
@@ -79,6 +110,20 @@ uv run pytest -q --no-cov \
 
 이 검사는 결정적 벡터를 사용합니다. 실행 구조와 데이터 수락 조건은 검증하지만 실제
 임베딩의 검색 관련성은 입증하지 않습니다.
+
+형식화된 조건의 후보 판정 경계와 기존 후보 및 평가 소비 경로는 다음 명령으로 검사합니다.
+
+```bash
+uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_selection.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidates.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_vector_deadlines.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_runner.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_execution.py
+```
+
+이 검사는 형식화된 조건을 직접 제공하며 실제 모델을 호출하지 않습니다. 자연어 이해
+품질을 측정하는 검사가 아닙니다.
 
 ## 관련 문서
 

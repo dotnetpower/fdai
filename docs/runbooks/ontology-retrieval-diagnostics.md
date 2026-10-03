@@ -61,6 +61,37 @@ Reports distinguish `embedding_source="offline_replay"` from `caller_supplied` a
 when replaying. `caller_supplied` alone doesn't attest that a real provider ran. File/model pins
 establish consistency, not provider authenticity, representativeness or activation authority.
 
+## Diagnose typed candidate membership
+
+The optional `OntologyCandidateSelection` path evaluates already-proposed conditions through
+current secured ObjectSet reads. It doesn't interpret natural-language words or invoke a model.
+The caller remains responsible for the proposal's meaning; matching its conditions is not proof
+that it understood the question.
+
+Bind a proposal with `OntologyCandidateSelection.bind` and pass it to the prepared reader's
+`search(selection=...)`. The binding covers the exact query, manifest and snapshot. Conditions
+within a clause are combined with AND; clauses are unioned and duplicate identities are removed.
+The reader snapshots nested operands before awaiting any read.
+
+- Proposals are limited to 32 KiB, eight clauses, 16 conditions per clause and 100 explicit IDs
+  per clause. Empty proposals and oversized inputs are rejected rather than truncated.
+- The service owns the principal, purpose, cutoff, relationship exclusion and 1,000-row
+  ObjectSet limit. Predicate-property access uses the gateway's existing permission check.
+- Every scope must be complete, current and without hidden identities. Every matched object's
+  canonical content must match the prepared source, including matches outside the display limit.
+- The reader sorts matches by canonical document ID and reauthorizes the displayed objects.
+  It retains the scope and final authorization receipt digests, including scope evidence for an
+  empty result. A no-candidate outcome still doesn't prove graph absence.
+- `score_kind="predicate_membership"` identifies constant membership values of `1.0`, not
+  similarity scores or confidence. `selection_digest` binds strategy
+  `secured-objectset-membership.v1` and the snapshotted proposal. The existing raw ranking path
+  and exact-ID path retain their behavior and identify their respective score kinds.
+
+`typed_selection_available` defaults to `False` and also requires semantic search availability.
+An earlier embedding-ranking qualification cannot enable this new strategy. Runtime activation
+remains disabled. The frozen raw-ranking reports don't qualify this path: model/prompt provenance,
+actual semantic proposal evaluation and a newly reviewed holdout are still required.
+
 ## Testing
 
 ```bash
@@ -74,6 +105,20 @@ uv run pytest -q --no-cov \
 
 These checks use deterministic vectors. They establish mechanics and data admission, not actual
 embedding relevance.
+
+For the typed membership boundary and its existing candidate/evaluation consumers:
+
+```bash
+uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_selection.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidates.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_vector_deadlines.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_runner.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_evaluation_execution.py
+```
+
+These tests supply typed conditions directly and make no live model request. They don't measure
+natural-language understanding.
 
 ## Related docs
 
