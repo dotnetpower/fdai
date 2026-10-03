@@ -62,7 +62,12 @@ def _state(address: str, *images: str) -> dict[str, object]:
     }
 
 
-def _platform_state(*, missing_address: str | None = None) -> dict[str, Any]:
+_COST_KEY_ID = "https://kv-example.vault.azure.net/secrets/fdai-cost-pseudonym-key/0123abcd"
+
+
+def _platform_state(
+    *, missing_address: str | None = None, cost_key: object = _COST_KEY_ID
+) -> dict[str, Any]:
     resources = [
         {
             "address": "module.state_store.azurerm_postgresql_flexible_server.primary",
@@ -88,9 +93,20 @@ def _platform_state(*, missing_address: str | None = None) -> dict[str, Any]:
             },
         },
     ]
+    root_resources = (
+        []
+        if cost_key is None
+        else [
+            {
+                "address": "azurerm_key_vault_secret.cost_pseudonym_key[0]",
+                "values": {"id": cost_key},
+            }
+        ]
+    )
     return {
         "values": {
             "root_module": {
+                "resources": root_resources,
                 "child_modules": [
                     {
                         "resources": [
@@ -99,7 +115,7 @@ def _platform_state(*, missing_address: str | None = None) -> dict[str, Any]:
                             if resource["address"] != missing_address
                         ]
                     }
-                ]
+                ],
             }
         }
     }
@@ -154,6 +170,9 @@ def test_workflow_plans_every_production_root() -> None:
     assert 'source_revision_binding="$TARGET_COMMIT_SHA"' in workflow
     assert 'MODEL_ENDPOINTS_JSON="$model_endpoints_json"' in workflow
     assert 'SOURCE_REVISION="$source_revision_binding"' in workflow
+    assert "jq -r '.cost_pseudonym_key_secret_id // \"\"'" in workflow
+    assert 'COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_binding"' in workflow
+    assert "Platform state has no Cost pseudonym key binding for $root_id." in workflow
     assert "resolved_model_args+=(--model-binding-transition)" in workflow
     assert '"${resolved_model_args[@]}"' in workflow
     assert "terraform -chdir=infra show -json" in workflow
@@ -285,12 +304,27 @@ def test_stored_platform_inputs_preserve_pre_refresh_service_bindings(
     drift: ModuleType,
 ) -> None:
     assert drift.stored_platform_inputs(_platform_state()) == {
+        "cost_pseudonym_key_secret_id": _COST_KEY_ID,
         "database_host": "postgres.example.com",
         "event_topic": "fdai.change.events",
         "model_endpoints": {"azure-openai:oai-example": "https://oai-example.openai.azure.com"},
         "pantheon_object_topic": "fdai.pantheon.objects",
         "pipeline_stage_topic": "fdai.pipeline.stages",
     }
+
+
+def test_stored_platform_inputs_report_an_absent_cost_pseudonym_key(drift: ModuleType) -> None:
+    inputs = drift.stored_platform_inputs(_platform_state(cost_key=None))
+
+    assert inputs["cost_pseudonym_key_secret_id"] is None
+
+
+@pytest.mark.parametrize("cost_key", ["", "line\nbreak", 7])
+def test_stored_platform_inputs_reject_an_invalid_cost_pseudonym_key(
+    drift: ModuleType, cost_key: object
+) -> None:
+    with pytest.raises(drift.DriftContractError, match="invalid cost pseudonym key binding"):
+        drift.stored_platform_inputs(_platform_state(cost_key=cost_key))
 
 
 def test_stored_platform_inputs_reject_incomplete_state(drift: ModuleType) -> None:

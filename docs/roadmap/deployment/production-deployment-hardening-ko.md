@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 7f53588fa1ca371cccf71c142e1c49a20035b209
-translation_revised: 2026-10-02
+translation_source_sha: c32e2dbdde491ebebff8c169dfbfb725de15945c
+translation_revised: 2026-10-03
 ---
 # 운영 배포 강화
 
@@ -136,6 +136,9 @@ Terraform이 stack을 직접 생성하도록 합니다.
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml)은 실행기에서 이전 방식, 독립 서비스
 다섯 개 및 bootstrap 상태 루트에 대해 scheduled `plan -detailed-exitcode`를 실행합니다. 루트가
 없거나 읽을 수 없거나 변경되면 실패 시 차단하므로 green은 일곱 루트를 모두 다룹니다.
+Operator Service 계획은 배포와 마찬가지로 저장된 플랫폼 상태에서 읽은 플랫폼 소유 Cost 가명 키를
+연결합니다. 플랫폼에 해당 키가 없으면 설정되지 않은 Terraform 변수 오류 대신 명시적인 이유와 함께
+그 루트의 근거가 실패합니다.
 Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기, `Local` `ResourceDisk` 배치 및
 관리형 OS 디스크 부재를 요구합니다. 불일치하면 blue/green 교체 작업을 보고하고 Azure 상태를
 변경하지 않은 채 실패합니다. 임시 프로파일은 할당된 상태로 유지됩니다. 구성된 자동 종료와

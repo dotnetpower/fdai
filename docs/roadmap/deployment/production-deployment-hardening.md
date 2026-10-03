@@ -133,6 +133,9 @@ names the production gate, implemented control, provider limitation, or managed-
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml) runs scheduled
 `plan -detailed-exitcode` on the runner for the legacy, five independent-service, and bootstrap
 state roots. It fails closed on a missing, unreadable, or changed root, so green covers all seven.
+As deployment does, the Operator Service plan binds the platform-owned Cost pseudonym key that it
+reads from stored platform state. A platform without that key fails the root's evidence with an
+explicit reason instead of an unset Terraform variable.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;

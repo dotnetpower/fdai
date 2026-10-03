@@ -22,6 +22,9 @@ class DriftContractError(ValueError):
     """Raised when drift coverage or stored desired state is incomplete."""
 
 
+_COST_PSEUDONYM_KEY_ADDRESS = "azurerm_key_vault_secret.cost_pseudonym_key[0]"
+
+
 @dataclass(frozen=True, slots=True)
 class DriftRoot:
     """Describe one production Terraform state root covered by drift checks."""
@@ -188,7 +191,21 @@ def stored_platform_inputs(payload: dict[str, Any]) -> dict[str, Any]:
             raise DriftContractError("platform state contains an invalid model endpoint")
         model_endpoints[f"{reference_prefix}{name}"] = endpoint.rstrip("/")
     resolved["model_endpoints"] = dict(sorted(model_endpoints.items()))
+    resolved["cost_pseudonym_key_secret_id"] = _stored_cost_pseudonym_key_secret_id(root)
     return resolved
+
+
+def _stored_cost_pseudonym_key_secret_id(root: dict[str, Any]) -> str | None:
+    """Return the platform-owned Operator pseudonym key binding when the platform created it."""
+    try:
+        resource = _resource_at_address(root, _COST_PSEUDONYM_KEY_ADDRESS)
+    except LookupError:
+        return None
+    values = resource.get("values")
+    secret_id = values.get("id") if isinstance(values, dict) else None
+    if not isinstance(secret_id, str) or not secret_id or "\n" in secret_id:
+        raise DriftContractError("platform state contains an invalid cost pseudonym key binding")
+    return secret_id
 
 
 def _resource_at_address(module: dict[str, Any], address: str) -> dict[str, Any]:
