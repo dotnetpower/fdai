@@ -45,3 +45,25 @@ def test_cors_preflight_allows_the_if_match_revision_header(method: str, path: s
         for value in response.headers["access-control-allow-headers"].split(",")
     }
     assert {"authorization", "content-type", "idempotency-key", "if-match"} <= allowed
+
+
+def test_cors_exposes_the_committed_revision_header_to_the_console() -> None:
+    # Workflow draft and binding writes return the committed revision only in X-FDAI-Revision,
+    # so a cross-origin Console cannot read it unless CORS exposes the header.
+    client = TestClient(
+        create_app(
+            {**BASE_ENV, CORS_ORIGINS_ENV: "http://localhost:5273"},
+            composition=ProductionOperatorComposition(
+                verifier_factory=lambda environment: _verify,
+                read_model=EmptyReadModel(),
+            ),
+        )
+    )
+
+    response = client.get("/healthz", headers={"Origin": "http://localhost:5273"})
+
+    exposed = {
+        value.strip().casefold()
+        for value in response.headers["access-control-expose-headers"].split(",")
+    }
+    assert "x-fdai-revision" in exposed
