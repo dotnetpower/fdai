@@ -51,10 +51,7 @@ from fdai.runtime.bootstrap_lifecycle import (
 from fdai.runtime.bootstrap_lifecycle import (
     semantic_router_config_from_env as _semantic_router_config_from_env,
 )
-from fdai.runtime.bootstrap_messaging import (
-    build_messaging_runtime,
-    operating_model_event_bus,
-)
+from fdai.runtime.bootstrap_messaging import build_messaging_runtime, operating_model_event_bus
 from fdai.runtime.bootstrap_pantheon import (
     PantheonInitialization,
     initialize_pantheon,
