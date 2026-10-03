@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 64d79ebdd52a4641e24a3a93be9b9b71b8dd19c5
-translation_revised: 2026-10-03
+translation_source_sha: e51ba2d69b7443df141fd822bc8d8992f90c3381
+translation_revised: 2026-10-04
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다. 모듈 분리 후에도 제안 claim 타입은 목적별 모델 소유자에 유지하고 공개 보증 파사드, 생성된 CQAS 인벤토리, 정본 시각 매핑을 보존하며 요청 또는 실행 권한은 바뀌지 않습니다. 파사드 가져오기 이름을 보존하는 런타임 카탈로그 로더 분리는 사람 보고 관계, 승인 경로, RBAC 또는 Console 요청 계약을 변경하지 않습니다. Rule 활성화 테스트를 소유 Core 및 Operator 서비스 테스트 묶음에 등록하는 변경은 테스트 선택만 바꾸며 보고 관계나 승인 권한을 부여하지 않습니다. Console 카탈로그나 deck 표현 계약 변경 뒤 질문은행과 CQAS 산출물을 다시 생성하는 작업은 원본 약속값만 갱신하며 질문 신원, 보고 권한 또는 대화 실행 권한을 바꾸지 않습니다.

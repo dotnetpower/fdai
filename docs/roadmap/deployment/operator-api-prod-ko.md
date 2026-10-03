@@ -1,8 +1,8 @@
 ---
 title: 콘솔 Operator API 프로덕션 배포
 translation_of: operator-api-prod.md
-translation_source_sha: 62ed552e75b933639a8ddacd934a50f242b06833
-translation_revised: 2026-10-01
+translation_source_sha: 031755b95d34a9b6a9e4137b78c67e9ce300d43c
+translation_revised: 2026-10-04
 ---
 # 콘솔 Operator API 프로덕션 배포
 
