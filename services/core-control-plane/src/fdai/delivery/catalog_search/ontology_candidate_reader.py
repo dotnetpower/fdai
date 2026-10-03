@@ -138,7 +138,8 @@ class OntologyInstanceCandidateReader:
         validation: OntologySnapshotValidation,
         deadline: float,
     ) -> _Prepared:
-        async with asyncio.timeout_at(deadline):
+        async with asyncio.timeout(max(0.0, deadline - asyncio.get_running_loop().time())):
+            _check_deadline(deadline)
             build = await self._snapshots.read(
                 staged.snapshot_digest,
                 manifest=manifest,

@@ -6,9 +6,11 @@ from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
+from fdai.delivery.catalog_search import ontology_candidate_reader as candidate_module
 from fdai.delivery.catalog_search.ontology_evaluation_evidence import OntologyEvaluationEvidence
 from fdai.delivery.catalog_search.ontology_evaluation_execution import (
     OntologyRetrievalExecutionAbortedError,
@@ -221,6 +223,30 @@ async def test_preparation_calibration_and_holdout_share_the_enclosing_deadline(
     assert enclosing is not None
     assert all(value is not None and value <= enclosing for value in deadlines)
     assert deadlines.count(enclosing) == 3
+
+
+async def test_late_candidate_assembly_cannot_open_calibration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    harness = await _harness()
+    embedder = _BoundEmbedder()
+    loop, offset = asyncio.get_running_loop(), 0.0
+    original_time = loop.time
+    assemble = candidate_module._Prepared
+
+    def late_assembly(*args: Any, **kwargs: Any) -> Any:
+        nonlocal offset
+        result = assemble(*args, **kwargs)
+        offset = _BUDGET.total_timeout_seconds + 1
+        return result
+
+    monkeypatch.setattr(loop, "time", lambda: original_time() + offset)
+    monkeypatch.setattr(candidate_module, "_Prepared", late_assembly)
+    with pytest.raises(OntologyRetrievalExecutionAbortedError) as failure:
+        await _execute(harness, embedder)
+    assert failure.value.stage == "preparation"
+    assert failure.value.embedding_calls == embedder.calls == len(harness.build.documents)
+    assert failure.value.completed_campaign is None
 
 
 async def test_stalled_preparation_stops_at_the_call_deadline() -> None:
