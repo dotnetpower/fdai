@@ -364,7 +364,10 @@ def test_operator_restart_rejects_prepared_auth_mode_mismatch(tmp_path: Path) ->
     assert not (repo / "order.txt").exists()
 
 
-def test_wait_ready_wrapper_forwards_term_and_reaps_runner(tmp_path: Path) -> None:
+@pytest.mark.parametrize("establish_child_session", [True, False])
+def test_wait_ready_wrapper_forwards_term_and_reaps_runner(
+    tmp_path: Path, establish_child_session: bool
+) -> None:
     repo = _operator_restart_repo(tmp_path)
     runner_pid_file = repo / "runner.pid"
     stopped_file = repo / "runner.stopped"
@@ -375,7 +378,7 @@ set -euo pipefail
     setsid sleep 60 &
     child_pid=$!
 stop_child() {
-    kill -TERM -- "-$child_pid" 2>/dev/null || true
+    kill -TERM -- "-$child_pid" "$child_pid" 2>/dev/null || true
     wait "$child_pid" 2>/dev/null || true
     printf stopped > "$FDAI_TEST_STOPPED_FILE"
     exit 143
@@ -385,7 +388,7 @@ trap stop_child TERM
     mkdir -p "$(dirname "$FDAI_LOCAL_SERVICE_LAUNCH_MARKER")"
 printf '%s\n' starting > "$FDAI_LOCAL_SERVICE_LAUNCH_MARKER"
     wait "$child_pid"
-""",
+""".replace("setsid sleep 60", "setsid sleep 60" if establish_child_session else "sleep 60"),
     )
     _write_executable(
         repo / ".venv/bin/python",
@@ -448,7 +451,10 @@ esac
             try:
                 os.killpg(child_pid, signal.SIGKILL)
             except ProcessLookupError:
-                pass
+                try:
+                    os.kill(child_pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
 
 
 def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path) -> None:
