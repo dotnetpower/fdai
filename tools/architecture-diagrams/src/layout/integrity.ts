@@ -3,6 +3,7 @@ import type { ElkPoint } from "elkjs/lib/elk-api.js";
 
 import type { DiagramLayout, PositionedShape } from "./elk.js";
 import { sampleCubic } from "./curve.js";
+import { collinearOverlapLength } from "./segments.js";
 import type { DiagramSpec } from "../model/types.js";
 
 interface Box {
@@ -105,39 +106,6 @@ function segmentsProperlyCross(
     && firstRatio < 1 - epsilon
     && secondRatio > epsilon
     && secondRatio < 1 - epsilon;
-}
-
-function collinearOverlapLength(
-  firstStart: ElkPoint,
-  firstEnd: ElkPoint,
-  secondStart: ElkPoint,
-  secondEnd: ElkPoint,
-): number {
-  if (firstStart.y === firstEnd.y && secondStart.y === secondEnd.y) {
-    if (firstStart.y !== secondStart.y) return 0;
-    const left = Math.max(
-      Math.min(firstStart.x, firstEnd.x),
-      Math.min(secondStart.x, secondEnd.x),
-    );
-    const right = Math.min(
-      Math.max(firstStart.x, firstEnd.x),
-      Math.max(secondStart.x, secondEnd.x),
-    );
-    return Math.max(0, right - left);
-  }
-  if (firstStart.x === firstEnd.x && secondStart.x === secondEnd.x) {
-    if (firstStart.x !== secondStart.x) return 0;
-    const top = Math.max(
-      Math.min(firstStart.y, firstEnd.y),
-      Math.min(secondStart.y, secondEnd.y),
-    );
-    const bottom = Math.min(
-      Math.max(firstStart.y, firstEnd.y),
-      Math.max(secondStart.y, secondEnd.y),
-    );
-    return Math.max(0, bottom - top);
-  }
-  return 0;
 }
 
 function labelBox(

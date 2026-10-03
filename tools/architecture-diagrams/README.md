@@ -250,8 +250,8 @@ endpoint side with a short perpendicular stub, spread shared-side attachments,
 and avoid long shared lanes with unrelated fallback edges. The integrity gate
 then fails any remaining specification edge that has no drawn path, whose
 fallback path crosses an unrelated node, or whose unrelated fallback lane
-overlaps for more than 40 px, so generated SVGs cannot silently omit, hide, or
-merge authored relationships.
+overlaps for more than 40 px within the stroke-width tolerance, so generated
+SVGs cannot silently omit, hide, or merge authored relationships.
 
 ## Viewer accessibility
 

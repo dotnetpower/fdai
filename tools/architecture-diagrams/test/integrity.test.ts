@@ -184,6 +184,64 @@ test("reports long overlaps between unrelated fallback edges", () => {
   );
 });
 
+test("reports visually overlapping fallback lanes within stroke tolerance", () => {
+  const overlapSpec: DiagramSpec = {
+    ...spec,
+    nodes: [
+      { id: "a", kind: "process", label: { en: "A", ko: "A" } },
+      { id: "b", kind: "process", label: { en: "B", ko: "B" } },
+      { id: "c", kind: "process", label: { en: "C", ko: "C" } },
+      { id: "d", kind: "process", label: { en: "D", ko: "D" } },
+    ],
+    edges: [
+      { id: "first", from: "a", to: "b", kind: "request" },
+      { id: "second", from: "c", to: "d", kind: "request" },
+    ],
+  };
+  const invalid: DiagramLayout = {
+    width: 400,
+    height: 240,
+    groups: new Map(),
+    nodes: new Map([
+      ["a", { id: "a", x: 0, y: 0, width: 40, height: 40, depth: 1 }],
+      ["b", { id: "b", x: 360, y: 0, width: 40, height: 40, depth: 1 }],
+      ["c", { id: "c", x: 0, y: 80, width: 40, height: 40, depth: 1 }],
+      ["d", { id: "d", x: 360, y: 80, width: 40, height: 40, depth: 1 }],
+    ]),
+    edges: [
+      {
+        id: "first",
+        sources: ["a"],
+        targets: ["b"],
+        sections: [
+          {
+            id: "first-missing-edge-route",
+            startPoint: { x: 40, y: 60 },
+            endPoint: { x: 360, y: 60 },
+          },
+        ],
+      },
+      {
+        id: "second",
+        sources: ["c"],
+        targets: ["d"],
+        sections: [
+          {
+            id: "second-missing-edge-route",
+            startPoint: { x: 80, y: 61 },
+            endPoint: { x: 320, y: 61 },
+          },
+        ],
+      },
+    ],
+  };
+  assert.ok(
+    layoutIntegrityErrors(overlapSpec, invalid).includes(
+      "Fallback edges 'first' and 'second' overlap for 240px",
+    ),
+  );
+});
+
 test("reports overlapping edge labels", () => {
   const invalid = layout();
   invalid.edges.push(
