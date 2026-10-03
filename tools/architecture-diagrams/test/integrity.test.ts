@@ -74,6 +74,16 @@ test("reports an edge label that overlaps a node", () => {
   ]);
 });
 
+test("reports a specification edge without a drawn path", () => {
+  const invalidSpec: DiagramSpec = {
+    ...spec,
+    edges: [{ id: "missing", from: "a", to: "b", kind: "request" }],
+  };
+  assert.deepEqual(layoutIntegrityErrors(invalidSpec, layout()), [
+    "Edge 'missing' has no drawn path",
+  ]);
+});
+
 test("reports overlapping edge labels", () => {
   const invalid = layout();
   invalid.edges.push(

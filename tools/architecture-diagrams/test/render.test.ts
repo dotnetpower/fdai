@@ -117,6 +117,44 @@ test("lays out nested groups and renders accessible SVG", async () => {
   assert.ok(Number(internalStart[1]) >= core.x + 48);
 });
 
+test("routes flowchart edges that cross group boundaries", async () => {
+  const spec = parseDiagram(`
+id: cross-group-flow
+version: 1
+kind: flowchart
+locales:
+  en: { title: Cross group, description: Cross group, alt: Source sends an event to target. }
+  ko: { title: Cross group, description: Cross group, alt: Source가 target으로 event를 보냅니다. }
+canvas: { width: 800, height: 480, direction: RIGHT }
+groups:
+  - id: left
+    kind: system
+    label: { en: Left, ko: Left }
+  - id: right
+    kind: system
+    label: { en: Right, ko: Right }
+nodes:
+  - id: source
+    parent: left
+    kind: process
+    label: { en: Source, ko: Source }
+  - id: target
+    parent: right
+    kind: process
+    label: { en: Target, ko: Target }
+edges:
+  - id: cross-boundary
+    from: source
+    to: target
+    kind: event
+`);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find((candidate) => candidate.id === "cross-boundary");
+  assert.ok(edge?.sections?.length);
+  const svg = await renderSvg(spec, layout, "en");
+  assert.match(svg, /data-edge-id="cross-boundary"/);
+});
+
 test("rejects an agent node outside the fixed pantheon", async () => {
   const spec = parseDiagram(source.replaceAll("id: thor", "id: worker"));
   const layout = await layoutDiagram(spec);

@@ -136,6 +136,17 @@ export function layoutIntegrityErrors(
   const networkSegments: EdgeSegment[] = [];
 
   const intentionalNodeOverlap = spec.kind === "pie" || spec.kind === "venn";
+  const drawnEdgeIds = new Set(
+    layout.edges
+      .filter((edge) => (edge.sections?.length ?? 0) > 0)
+      .map((edge) => edge.id),
+  );
+  for (const edge of spec.edges) {
+    if (!drawnEdgeIds.has(edge.id)) {
+      errors.push(`Edge '${edge.id}' has no drawn path`);
+    }
+  }
+
   for (
     let leftIndex = 0;
     leftIndex < nodes.length && !intentionalNodeOverlap;
