@@ -1,8 +1,8 @@
 ---
 title: 기능 번들 수명 주기
 translation_of: capability-bundle-lifecycle.md
-translation_source_sha: 4b9aaf4ac923ac745f8b291f841459d4b9481e29
-translation_revised: 2026-09-29
+translation_source_sha: 2e2acf21f5f35aa847bb82358a3b92d23a77a186
+translation_revised: 2026-10-04
 ---
 # 기능 번들 수명 주기
 
@@ -15,30 +15,6 @@ risk, 실행, 복구 및 감사 경로에 유지합니다.
 
 > **권한 경계:** 번들 및 확장 활성화는 타입이 지정된 메타데이터, 참조 및 검토된 프로바이더만
 > 등록합니다. 승인 또는 실행 권한을 부여하지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 번들 검증 및 변경할 수 없는 런타임 등록 | implemented | `core/capability_catalog/`, `composition/install_capability_bundle`, 집중 기능 카탈로그 테스트 | 알 수 없는 대상, 프로바이더 불일치, 중복 id 및 끊어진 참조는 현재 런타임을 바꾸지 않고 활성화를 차단합니다. |
-| 영속 trusted artifact 및 스킬 공개 | implemented | `core/supply_chain/`, `delivery/trust/`, PostgreSQL trusted-artifact 어댑터 | 산출물은 exact 내용, 서명, 발행자, 상태 및 개정 번호를 유지하며 런타임 공개는 재검증된 기록에서 재구성됩니다. |
-| 통제된 외부 스킬 출처 수명 주기 | implemented | `core/skills/source_registry.py`, `core/supply_chain/skill_source_*.py`, 스킬 출처 API 경로 | 설치는 비활성 상태로 시작하고 철회는 출처 이력을 유지하며 운영은 명령 뒤 공개를 다시 부하합니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-27 | implemented | 수명 주기 전이 선택과 완결성 판단을 전역 패키지 검사 대신 이 기능 소유자에게 돌려보냈습니다. | `current change`; 최소 패키지 보증 정책과 이 소유 설계입니다. | Issue #355에서 통제된 운영 연결 증적 집합을 보존합니다. |
-| 2026-09-26 | implemented | 하나의 통합 라이브 실행만 요구하는 대신 하나의 정확한 산출물 계보를 공유하는 범위가 제한된 연결 증적으로 완전한 수명 주기를 증명할 수 있게 했습니다. | `current change`; 패키지 보증 정책, 검사기, 소유 문서, 집중 정책 테스트입니다. | Issue #355에서 통제된 운영 연결 증적 집합을 보존합니다. |
-| 2026-08-21 | implemented | 런타임 동작이나 권한을 변경하지 않고 기존 기능 번들 및 trusted-artifact 수명 주기를 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 하나의 exact revision에서 완전한 설치, 활성화, 비활성화, 철회 및 공개 reload의 통제된 운영 근거를 보존합니다. |
-
-### 남은 작업
-
-- [ ] 번들 요청이 타입이 지정된 작업 경로를 우회하지 않음을 입증하면서 설치, 활성화,
-  비활성화, 철회 및 공개 reload를 다루는 완전한 연결형 exact-artifact 증적 집합을 보존합니다.
-
 ## 번들 등록
 
 포크가 인프라 경계를 교체하는 대신 탐색 가능한 기능을 추가할 때는 `CapabilityBundle`을
@@ -133,6 +109,7 @@ shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성 상�
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/capability-bundle-lifecycle.md) |
 | 조립 루트와 주입 가능한 경계 | [프로젝트 구조](project-structure-ko.md#의존성-주입을-통한-커스터마이제이션) |
 | 다운스트림 등록 절차 | [다운스트림 포크 가이드](../fork-and-sequencing/downstream-fork-guide-ko.md) |
 | 영속 외부 스킬 출처 | [스킬 출처 관리](../interfaces/skill-source-management-ko.md) |

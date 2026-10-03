@@ -18,12 +18,16 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-04 | implemented | Migrated the inline owner status into this ledger with `--merge-existing`, merged the duplicate receipt-set item into the Issue #355 phrasing that also covers restart, and marked it deferred because Issue #355 closed as not planned. | `current change`; `scripts/automation/migrate-roadmap-implementation-ledgers.py --merge-existing --apply`; Issue #355 closure comment. | Schedule a new issue before retaining the linked exact-artifact receipt set. |
+| 2026-09-27 | implemented | Returned lifecycle transition selection and completeness to this capability owner instead of the global package gate. | `current change`; minimum package assurance policy and this owning design. | Retain the governed operational linked receipt set under Issue #355. |
+| 2026-09-26 | implemented | Allowed a complete lifecycle to use bounded linked receipts with one exact artifact lineage instead of requiring one monolithic live run. | `current change`; package assurance policy, checker, owner documentation, and focused policy tests. | Retain the governed operational linked receipt set under Issue #355. |
+| 2026-08-21 | implemented | Moved the existing capability bundle and trusted-artifact lifecycle into a focused owner document without changing runtime behavior or authority. | `current change`; document-size, translation, route, and link checks. | Retain governed operational evidence for a complete install, enable, disable, revoke, and disclosure reload sequence on one exact revision. |
 | 2026-09-26 | implemented | Allowed one complete lifecycle to be proven by bounded linked receipts that share artifact, release, environment, and audit identities instead of requiring one monolithic live run. | `current change`; package assurance policy, checker, owner documentation, and focused policy tests. | Retain the operational linked receipt set under Issue #355. This change does not manufacture or replace live evidence. |
 | 2026-08-29 | in-progress | Separated the completed local lifecycle mechanics from the missing protected operational receipt and assigned that evidence boundary to Issue #355. | `current change`; existing implementation paths and focused checks in the scope table; [Issue #355](https://github.com/dotnetpower/fdai/issues/355). | Retain the exact-revision governed lifecycle receipt before changing this area to validated. |
-| 2026-08-21 | implemented | Moved the existing capability bundle and trusted-artifact lifecycle into a focused owner document without changing runtime behavior or authority. | `current change`; document-size, translation, route, and link checks. | Retain governed operational evidence for a complete install, enable, disable, revoke, and disclosure reload sequence on one exact revision. |
+
 
 ### Remaining work
 
 - [ ] Under [Issue #355](https://github.com/dotnetpower/fdai/issues/355), retain a complete
   linked exact-artifact receipt set covering install, enable, disable, revoke, restart, and
-  disclosure reload while proving no bundle request bypasses the typed action path.
+  disclosure reload while proving no bundle request bypasses the typed action path. Deferred by the 2026-09-28 owner backlog decision that closed issue `#355` as not planned; open a new issue with exit criteria before scheduling.
