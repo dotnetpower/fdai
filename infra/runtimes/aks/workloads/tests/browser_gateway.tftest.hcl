@@ -111,3 +111,34 @@ run "browser_gateway_contract" {
     error_message = "Only public Services must wait for their LoadBalancer address."
   }
 }
+
+run "browser_gateway_tags_are_azure_safe" {
+  command = plan
+
+  variables {
+    tags = {
+      "fdai.io/source-commit" = "0000000000000000000000000000000000000000"
+    }
+  }
+
+  assert {
+    condition = (
+      azurerm_api_management.browser_gateway[0].tags == tomap({
+        "fdai:source-commit" = "0000000000000000000000000000000000000000"
+      }) &&
+      alltrue([
+        for key in keys(azurerm_api_management.browser_gateway[0].tags) :
+        length(regexall("[<>%&\\\\?/]", key)) == 0
+      ])
+    )
+    error_message = "Azure tag names must not carry Kubernetes label-key separators."
+  }
+
+  assert {
+    condition = alltrue([
+      for deployment in kubernetes_deployment_v1.workload :
+      deployment.metadata[0].labels["fdai.io/source-commit"] == "0000000000000000000000000000000000000000"
+    ])
+    error_message = "Kubernetes workload labels must keep the stable label key."
+  }
+}

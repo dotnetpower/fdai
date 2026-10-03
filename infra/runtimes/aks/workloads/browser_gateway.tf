@@ -30,6 +30,10 @@ locals {
       ]
     ]) : operation.key => operation
   }
+  # Azure tag names reject '/', so label keys such as fdai.io/source-commit become fdai:source-commit.
+  browser_gateway_tags = {
+    for key, value in var.tags : replace(replace(key, "fdai.io/", "fdai:"), "/", "-") => value
+  }
   browser_gateway_addresses = {
     for service_name, service in local.browser_gateway_services : service_name => coalesce(
       try(kubernetes_service_v1.workload[service.workload].status[0].load_balancer[0].ingress[0].ip, null),
@@ -51,7 +55,7 @@ resource "azurerm_api_management" "browser_gateway" {
   sku_name                      = "Consumption_0"
   public_network_access_enabled = true
   min_api_version               = "2021-08-01"
-  tags                          = var.tags
+  tags                          = local.browser_gateway_tags
 }
 
 resource "azurerm_api_management_api" "browser_gateway" {
