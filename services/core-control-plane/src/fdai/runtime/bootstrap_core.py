@@ -51,7 +51,10 @@ from fdai.runtime.bootstrap_lifecycle import (
 from fdai.runtime.bootstrap_lifecycle import (
     semantic_router_config_from_env as _semantic_router_config_from_env,
 )
-from fdai.runtime.bootstrap_messaging import build_messaging_runtime
+from fdai.runtime.bootstrap_messaging import (
+    build_messaging_runtime,
+    operating_model_event_bus,
+)
 from fdai.runtime.bootstrap_pantheon import (
     PantheonInitialization,
     initialize_pantheon,
@@ -571,7 +574,7 @@ async def build_core_runtime(
         resource_lock=operating_model_lock,
     )
     continuous_operating_model_worker = build_continuous_operating_model_worker(
-        bus=messaging.operational_bus,
+        bus=operating_model_event_bus(messaging),
         store=control_loop.ontology_instance_store,
         object_types=container.ontology_object_types,
         link_types=container.ontology_link_types,
@@ -600,7 +603,6 @@ async def build_core_runtime(
         control_loop=control_loop,
         state_store=state_store,
         event_bus=messaging.bus,
-        operational_event_bus=messaging.operational_bus,
         runtime_saga=runtime_saga,
         identity=identity,
         http_client=resources.http_client,
