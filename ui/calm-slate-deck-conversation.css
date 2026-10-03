@@ -2,20 +2,15 @@
  * Calm Slate Command Deck conversation layer.
  *
  * Portable presentation roles for the Command Deck conversation screen. The reference consumer is
- * the static study mocks/ui/deck-sources.html. Every rule is scoped by the root role
- * `.cs-deck-conversation` or uses a class name the Console does not render yet, so importing this
- * file never changes an existing surface by itself.
+ * the static study mocks/ui/deck.html, which replays every response form, and the Console Command
+ * Deck imports this file after calm-slate-primitives.css with `cs-deck-conversation` on its root
+ * (`.deck-overlay`). Every rule is scoped by that root role or uses a class name only a deck
+ * renders, so importing this file changes no other surface.
  *
- * Console adoption is a replacement migration, not an override:
- *   1. Import this file in console/src/styles.css after calm-slate-primitives.css.
- *   2. Add `cs-deck-conversation` to the Command Deck root (`.deck-overlay`).
- *   3. Render the roles below from the owning components (role map).
- *   4. Delete the superseded legacy declarations for `.deck-rt-*`, `.deck-gr-*`, `.deck-src-*`,
- *      `.deck-cite-chip`, `.deck-followup*`, `.deck-source-readiness*`, `.deck-source-status*`,
- *      `.deck-verification*`, `.deck-llm-escalation*`, `.deck-answer-state`, and the presentation
- *      parts of `.deck-trajectory-*`, `.deck-execution-*`, and `.deck-model-trace-*`. Console rules
- *      load after this file with equal specificity, so a leftover declaration silently wins. Do not
- *      compensate with stronger selectors or `!important`.
+ * Adoption is a replacement migration, not an override: the owning components render the roles
+ * below, and the superseded legacy `.deck-*` declarations are deleted. Console rules load after this
+ * file with equal specificity, so a leftover declaration would silently win. Do not compensate with
+ * stronger selectors or `!important`.
  *
  * Role map (Console owner -> roles):
  *   source-readiness-view.tsx   cs-deck-readiness, cs-deck-readiness-*, cs-deck-skeleton
@@ -27,14 +22,26 @@
  *                               cs-run-record refinements, cs-run-record-duration-label,
  *                               cs-run-phase refinements, cs-run-timeline, cs-run-axis,
  *                               cs-run-events, cs-run-event-*, cs-run-track, cs-run-bar,
- *                               cs-run-chevron, cs-run-facts, cs-run-payload, cs-run-observed
+ *                               cs-run-chevron, cs-run-facts, cs-run-payload, cs-run-observed,
+ *                               cs-run-references
  *   investigation-timeline.tsx  cs-deck-plan-lead, cs-deck-plan-label, cs-deck-context-receipt-*,
  *                               cs-deck-investigation-*, cs-deck-waves, cs-deck-wave-*,
  *                               cs-deck-activities, cs-deck-activity-*, cs-deck-milestone-*
- *                               (adaptive investigation form, reference mocks/ui/deck-adaptive.html)
+ *                               (investigation form, reference mocks/ui/deck.html?form=investigation)
  *   grounded-reply.tsx (investigation answers)
  *                               cs-deck-answer-facts, cs-deck-answer-checks, cs-deck-answer-note,
  *                               cs-deck-answer-next, cs-deck-affordance
+ *   grounded-reply.tsx (structured answer blocks, reference the incident, change, and memory forms)
+ *                               cs-deck-brief-*, cs-deck-status*, cs-deck-table*,
+ *                               cs-deck-evidence-group*, cs-deck-steps*, cs-deck-step-*,
+ *                               cs-deck-disclosure*, cs-deck-timeline*, cs-deck-request*,
+ *                               cs-deck-safeguard*, cs-deck-document*
+ *   structured-reply.tsx, presentation-modules/, and document-artifact-view.tsx
+ *                               cs-deck-document-assembly, cs-deck-answer-facts, cs-deck-evidence-note,
+ *                               cs-deck-answer-note, cs-deck-disclosure*, cs-run-facts,
+ *                               cs-deck-document*, cs-deck-document-actions, cs-deck-affordance
+ *   model-trace-waterfall.tsx (mock only today)
+ *                               cs-deck-prompt-* (synthetic prompt fixture under a model call)
  *   rich-content.tsx CodeBlock and json-code-block.tsx
  *                               cs-deck-code, cs-deck-code-* (compact code pattern of the
  *                               component gallery, colored by the shared --cs-code-* tokens)
@@ -168,14 +175,22 @@
   overscroll-behavior: contain;
 }
 
+/* The transcript content shares the 900px column and 20px gutters of the readiness strip and the
+   composer, so questions, answers, and the input align on the same two edges. */
 .cs-deck-transcript-inner {
-  width: min(100%, 900px);
+  width: min(100%, 940px);
   box-sizing: border-box;
   margin: 0 auto;
-  padding: 24px 24px 48px;
+  padding: 24px 20px 48px;
   display: flex;
   flex-direction: column;
   gap: 28px;
+}
+
+/* The bubble keeps its own measure when the Console stretches the question turn to the reading width. */
+.cs-deck-conversation .cs-deck-user-bubble {
+  max-width: min(100%, var(--cs-deck-user-width));
+  box-sizing: border-box;
 }
 
 .cs-deck-user-line {
@@ -259,30 +274,31 @@
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* An available source is a plain link; only an exception carries a mark, a frame, and a state. */
 .cs-deck-readiness-item {
   min-height: 28px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 8px;
-  border: 1px solid var(--cs-hairline);
+  padding: 2px 7px;
+  border: 1px solid transparent;
   border-radius: var(--cs-radius-sm);
-  background: var(--cs-card);
   color: var(--cs-text);
   text-decoration: none;
   white-space: nowrap;
 }
 
 .cs-deck-readiness-item:hover {
-  border-color: var(--cs-deck-line-strong);
-  text-decoration: none;
+  background: color-mix(in srgb, var(--cs-text) 5%, var(--cs-bg));
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .cs-deck-readiness-item:focus-visible {
@@ -301,11 +317,12 @@
   font: 800 9px/1 var(--cs-font);
 }
 
-.cs-deck-readiness-item.is-available .cs-deck-readiness-mark { color: var(--cs-deck-ok-text); }
+.cs-deck-readiness-item.is-available .cs-deck-readiness-mark { display: none; }
 .cs-deck-readiness-item.is-unknown .cs-deck-readiness-mark { color: var(--cs-deck-meta-text); }
 
 .cs-deck-readiness-item.is-unavailable {
   border-color: color-mix(in srgb, var(--cs-dusty-red) 45%, var(--cs-hairline));
+  background: var(--cs-card);
 }
 
 .cs-deck-readiness-item.is-unavailable .cs-deck-readiness-mark,
@@ -316,12 +333,13 @@
 .cs-deck-readiness-state { font-weight: 600; }
 
 .cs-deck-readiness-summary {
-  color: var(--cs-text);
+  color: var(--cs-deck-ok-text);
   font-weight: 600;
   white-space: nowrap;
 }
 
 .cs-deck-readiness-summary.is-attention { color: var(--cs-deck-failure-text); }
+.cs-deck-readiness-summary.is-unknown { color: var(--cs-deck-meta-text); }
 
 .cs-deck-readiness-time {
   margin-left: auto;
@@ -330,6 +348,14 @@
 }
 
 .cs-deck-readiness.is-loading { gap: 8px; }
+
+/* A readiness read that failed says so once and links to diagnostics instead of guessing states. */
+.cs-deck-readiness.is-error {
+  justify-content: center;
+  gap: 8px;
+}
+
+.cs-deck-readiness.is-error a { color: var(--cs-deck-link-text); }
 
 .cs-deck-readiness.is-loading .cs-deck-skeleton {
   width: 88px;
@@ -809,7 +835,7 @@
   border-radius: 4px;
   background: var(--cs-deck-accent-tint);
   color: var(--cs-deck-link-text);
-  font: 700 var(--cs-type-label-size)/1 var(--cs-font);
+  font: 600 var(--cs-type-label-size)/1 var(--cs-font);
   font-variant-numeric: tabular-nums;
   text-decoration: none;
   vertical-align: .1em;
@@ -869,6 +895,14 @@
 
 .cs-deck-evidence-note.is-conflict .cs-deck-evidence-note-mark { color: var(--cs-deck-failure-text); }
 .cs-deck-evidence-note p { margin: 0; }
+
+/* A note may state several limits as one list. */
+:is(.cs-deck-evidence-note, .cs-deck-answer-note) > :is(ul, ol) {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: 18px;
+}
 .cs-deck-evidence-note strong { font-weight: 650; }
 
 .cs-deck-evidence-note a {
@@ -904,6 +938,14 @@
 .cs-deck-verification.is-attention { color: var(--cs-deck-attention-text); }
 .cs-deck-verification.is-failure { color: var(--cs-deck-failure-text); }
 .cs-deck-verification.is-pending { color: var(--cs-deck-meta-text); }
+.cs-deck-verification.is-consistent { color: var(--cs-deck-link-text); }
+
+/* A consumer may make the verdict focusable so its complete wording can open in a tooltip. */
+.cs-deck-verification:focus-visible {
+  border-radius: var(--cs-radius-sm);
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
+}
 
 .cs-deck-verification-mark {
   width: 16px;
@@ -1140,6 +1182,16 @@
 }
 
 .cs-deck-source.is-unavailable { background: transparent; }
+
+/* A static source row states provenance only, so it neither looks nor behaves like a control. */
+.cs-deck-source.is-static { cursor: default; }
+.cs-deck-source.is-static:hover { background: transparent; }
+
+.cs-deck-source-path {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font-mono);
+  overflow-wrap: anywhere;
+}
 
 .cs-deck-source-num {
   width: 22px;
@@ -1598,12 +1650,19 @@
   font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
 }
 
-.cs-deck-milestone-label { font-weight: 600; }
+/* The line itself reads as progress; its label stays for assistive technology only. */
+.cs-deck-milestone-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 .cs-deck-milestone-text {
   flex: 1 1 24ch;
   min-width: 0;
-  color: var(--cs-text);
 }
 
 .cs-deck-milestone-time { font-variant-numeric: tabular-nums; }
@@ -1680,6 +1739,487 @@
   background: transparent;
   color: var(--cs-deck-meta-text);
   cursor: default;
+}
+
+/* ----- Structured answer blocks: every response form uses the same parts after its prose ----- */
+/* A brief names what it is about before the finding; the reference stays metadata. */
+.cs-deck-brief-head { margin: 0 0 8px; }
+
+.cs-deck-brief-ref {
+  margin: 0;
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-deck-brief-title {
+  margin: 2px 0 0;
+  color: var(--cs-text);
+  font: 650 var(--cs-type-panel-title-size)/var(--cs-type-panel-title-line-height) var(--cs-font);
+}
+
+/* Recorded state reads as one line of words; color stays on the state itself. */
+.cs-deck-status-block { margin: 0 0 12px; }
+
+.cs-deck-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0;
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-deck-status-line > [aria-hidden="true"] { color: var(--cs-deck-meta-text); }
+.cs-deck-status { color: var(--cs-text); }
+.cs-deck-status.is-failure { color: var(--cs-deck-failure-text); font-weight: 600; }
+.cs-deck-status.is-attention { color: var(--cs-deck-attention-text); }
+.cs-deck-status.is-neutral { color: var(--cs-deck-meta-text); }
+.cs-deck-status strong { font-weight: 650; }
+
+.cs-deck-status-note {
+  margin: 2px 0 0;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Four facts read as two pairs instead of three and an orphan. */
+.cs-deck-answer-facts:has(> :nth-child(4):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.cs-deck-table { margin: 0 0 12px; }
+
+.cs-deck-table-caption {
+  margin: 0 0 6px;
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+}
+
+.cs-deck-table-scroll:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 1px;
+}
+
+.cs-deck-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Header cells reset a consumer's global table header casing and tracking. */
+.cs-deck-table th {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cs-hairline);
+  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cs-deck-table td {
+  padding: 6px 10px;
+  color: var(--cs-text);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-table tbody tr + tr td { border-top: 1px solid var(--cs-hairline); }
+
+/* Evidence posture: what is verified, what is missing, and what the answer does not claim. */
+.cs-deck-evidence-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px 20px;
+  margin: 0 0 12px;
+}
+
+.cs-deck-evidence-group { min-width: 0; }
+
+.cs-deck-evidence-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 4px;
+  color: var(--cs-text);
+  font: 650 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-deck-evidence-group-mark {
+  flex: none;
+  width: 12px;
+  color: var(--cs-deck-meta-text);
+  font-weight: 700;
+  text-align: center;
+}
+
+.cs-deck-evidence-group[data-tone="verified"] .cs-deck-evidence-group-mark { color: var(--cs-deck-ok-text); }
+.cs-deck-evidence-group[data-tone="unavailable"] .cs-deck-evidence-group-mark { color: var(--cs-deck-attention-text); }
+
+.cs-deck-evidence-group ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-deck-evidence-group li::marker { color: var(--cs-deck-meta-text); }
+
+.cs-deck-steps-block { margin: 0 0 12px; }
+.cs-deck-steps-block > .cs-deck-steps { margin-bottom: 0; }
+
+.cs-deck-steps-title {
+  margin: 0 0 6px;
+  color: var(--cs-text);
+  font: 650 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-deck-steps {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.cs-deck-steps > li { padding-left: 2px; }
+.cs-deck-steps > li::marker { color: var(--cs-deck-meta-text); font-variant-numeric: tabular-nums; }
+
+.cs-deck-step-title {
+  display: block;
+  color: var(--cs-text);
+  font-weight: 600;
+}
+
+.cs-deck-step-text { color: var(--cs-text); }
+
+.cs-deck-answer-next-link { margin-left: 6px; }
+
+/* Secondary evidence opens in place, in the same quiet form as the context receipt. */
+.cs-deck-disclosure {
+  margin: 0 0 12px;
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+/* A consumer may render answer blocks after the answer body rather than inside the prose; they keep
+   the prose block rhythm. */
+.cs-deck-conversation .cs-deck-answer ~ :is(.cs-deck-disclosure, .cs-deck-request, .cs-deck-document) {
+  margin-top: 12px;
+}
+
+.cs-deck-disclosure-body > .cs-grounding-stages {
+  margin-inline: -8px;
+  padding: 0;
+}
+
+.cs-deck-disclosure-summary {
+  width: fit-content;
+  max-width: calc(100% + 16px);
+  min-height: 28px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-inline: -8px;
+  padding: 2px 8px;
+  border-radius: var(--cs-radius-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.cs-deck-disclosure-summary::-webkit-details-marker { display: none; }
+.cs-deck-disclosure-summary::marker { content: ""; }
+.cs-deck-disclosure-summary:hover { background: color-mix(in srgb, var(--cs-text) 4%, var(--cs-card)); }
+
+.cs-deck-disclosure-summary:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 1px;
+}
+
+.cs-deck-disclosure-title {
+  color: var(--cs-text);
+  font-weight: 600;
+}
+
+.cs-deck-disclosure-meta {
+  color: var(--cs-deck-meta-text);
+  font-size: var(--cs-type-label-size);
+}
+
+.cs-deck-conversation .cs-deck-disclosure[open] > .cs-deck-disclosure-summary .cs-run-chevron { transform: rotate(225deg) translate(-1px, -1px); }
+
+.cs-deck-disclosure-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+}
+
+.cs-deck-disclosure-body > p { margin: 0; }
+.cs-deck-prompt-file { margin: 8px 0 0; }
+.cs-deck-prompt-body { gap: 6px; }
+.cs-deck-prompt-status { color: var(--cs-deck-meta-text); font-size: var(--cs-type-label-size); }
+.cs-deck-prompt-download { width: fit-content; font-size: var(--cs-type-label-size); }
+.cs-deck-timeline-note { color: var(--cs-text); }
+.cs-deck-timeline-after { color: var(--cs-deck-meta-text); }
+
+.cs-deck-timeline {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-deck-timeline > li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.cs-deck-timeline-time {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-deck-timeline-copy strong { font-weight: 600; }
+.cs-deck-timeline-copy p { margin: 1px 0 0; }
+
+/* A proposal or retention request is one bounded unit of work, so it is the only card in a reply. */
+.cs-deck-request {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--cs-deck-line-strong);
+  border-radius: var(--cs-radius);
+  background: var(--cs-card);
+}
+
+.cs-deck-request-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.cs-deck-request-title {
+  min-width: 0;
+  margin: 0;
+  color: var(--cs-text);
+  font: 650 var(--cs-type-panel-title-size)/var(--cs-type-panel-title-line-height) var(--cs-font);
+}
+
+.cs-deck-request-state.is-attention {
+  border-color: color-mix(in srgb, var(--cs-terracotta) 45%, var(--cs-hairline));
+  color: var(--cs-deck-attention-text);
+}
+
+.cs-deck-request-state {
+  min-height: 22px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 9px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-pill);
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-request-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 16px;
+  margin: 10px 0 0;
+}
+
+.cs-deck-request-fields:has(> :nth-child(4):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cs-deck-request-fields > div { min-width: 0; }
+
+.cs-deck-request-fields dt {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
+}
+
+/* Request fields can be sentences, so they read at a lighter weight than the answer's fact grid. */
+.cs-deck-request-fields dd {
+  margin: 2px 0 0;
+  color: var(--cs-text);
+  font: 500 var(--cs-type-compact-size)/1.45 var(--cs-font);
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-safeguards {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cs-hairline);
+}
+
+.cs-deck-safeguards-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-safeguards-head strong {
+  color: var(--cs-text);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 650;
+}
+
+.cs-deck-safeguard-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-deck-safeguard {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 12.5em) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 5px 0;
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-deck-safeguard + .cs-deck-safeguard { border-top: 1px solid color-mix(in srgb, var(--cs-hairline) 70%, transparent); }
+
+.cs-deck-safeguard-mark {
+  color: var(--cs-deck-ok-text);
+  font-weight: 700;
+  text-align: center;
+}
+
+.cs-deck-safeguard-label { color: var(--cs-text); font-weight: 600; }
+.cs-deck-safeguard-detail { color: var(--cs-deck-meta-text); overflow-wrap: anywhere; }
+
+.cs-deck-safeguard-state {
+  color: var(--cs-deck-ok-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-safeguard[data-state="missing"] :is(.cs-deck-safeguard-mark, .cs-deck-safeguard-state) { color: var(--cs-deck-failure-text); }
+
+.cs-deck-request-note {
+  margin: 10px 0 0;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 12px;
+}
+
+.cs-deck-request-reason {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+/* A rendered document keeps its own heading scale inside one bounded frame. */
+.cs-deck-document {
+  margin: 0 0 12px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--cs-deck-line-strong);
+  border-radius: var(--cs-radius);
+  background: var(--cs-card);
+}
+
+.cs-deck-document-assembly {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0 0 10px;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-document-assembly strong { color: var(--cs-text); font-weight: 600; }
+
+.cs-deck-document-assembly code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font-mono);
+}
+
+.cs-deck-document-title {
+  margin: 0;
+  color: var(--cs-text);
+  font: 650 var(--cs-type-section-title-size)/var(--cs-type-section-title-line-height) var(--cs-font);
+}
+
+.cs-deck-document-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 6px 0 4px;
+  font-size: var(--cs-type-compact-size);
+}
+
+.cs-deck-document-meta > div { display: flex; gap: 6px; }
+.cs-deck-document-meta dt { color: var(--cs-deck-meta-text); }
+.cs-deck-document-meta dd { margin: 0; color: var(--cs-text); font-weight: 600; }
+
+.cs-deck-document-meta code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: 400 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font-mono);
+}
+
+.cs-deck-document-section { margin-top: 14px; }
+
+.cs-deck-document-heading {
+  margin: 0 0 4px;
+  color: var(--cs-text);
+  font: 650 var(--cs-type-panel-title-size)/var(--cs-type-panel-title-line-height) var(--cs-font);
+}
+
+.cs-deck-document-section > p { margin: 0 0 6px; }
+
+.cs-deck-document-section > :is(ul, ol) {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.cs-deck-document-section > .cs-deck-table { margin: 4px 0 0; }
+.cs-deck-document > .cs-deck-disclosure { margin: 14px 0 0; }
+
+.cs-deck-document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 /* ----- Run record: observed process, execution timeline, and model provider trace ----- */
@@ -2067,6 +2607,24 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   font: 600 var(--cs-type-label-size)/1.35 var(--cs-font);
 }
 
+/* Evidence references are identifiers, so they wrap as one quiet list of monospace values. */
+.cs-run-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-run-references code {
+  padding: 0;
+  background: none;
+  color: var(--cs-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font-mono);
+  overflow-wrap: anywhere;
+}
+
 /* ----- Code: the component gallery's compact code pattern on the shared code tokens. ----- */
 .cs-deck-code {
   min-width: 0;
@@ -2140,8 +2698,13 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   scrollbar-width: thin;
 }
 
+/* The block resets a consumer's bare pre styling, so the code surface stays one dark field. */
 .cs-deck-code-block {
   margin: 0;
+  padding: 0;
+  overflow: visible;
+  border-radius: 0;
+  background: transparent;
   color: var(--cs-code-text);
   font: var(--cs-type-label-size)/1.58 var(--cs-font-mono);
   font-variant-ligatures: none;
@@ -2155,6 +2718,19 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   background: transparent;
   color: inherit;
   font: inherit;
+}
+
+/* A consumer whose highlighter colors a whole block at once renders one text element, not line spans. */
+.cs-deck-code-block > .cs-deck-code-text {
+  padding: 0 12px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.cs-deck-code-status {
+  flex: none;
+  color: var(--cs-code-muted);
+  font: 600 var(--cs-type-label-size)/1.2 var(--cs-font);
 }
 
 .cs-deck-code-line {
@@ -2266,7 +2842,20 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   color: var(--cs-deck-meta-text);
 }
 
-.cs-deck-context-chip:hover { border-color: var(--cs-deck-line-strong); }
+.cs-deck-context-chip { max-width: 100%; }
+
+.cs-deck-context-chip > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-context-chip:hover:not(:disabled) { border-color: var(--cs-deck-line-strong); }
+
+/* A running turn locks the reference screen; the chip stays readable but stops inviting a click. */
+.cs-deck-context-chip:disabled {
+  color: var(--cs-deck-meta-text);
+  cursor: not-allowed;
+}
 
 .cs-deck-context-chip:focus-visible {
   outline: 2px solid var(--cs-steel);
@@ -2321,9 +2910,24 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 }
 
 /* ----- Container-driven layout ----- */
+/* Where the record's one line can't hold its facts, they move under the title and wrap instead of
+   truncating, so the verification state stays readable at every width. */
+@container deck-transcript (max-width: 960px) {
+  .cs-deck-conversation .cs-run-record-summary {
+    grid-template-columns: minmax(0, 1fr) auto 14px;
+    gap: 4px 12px;
+  }
+
+  .cs-deck-conversation .cs-run-record-stats {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    white-space: normal;
+  }
+}
+
 @container deck-transcript (max-width: 620px) {
   .cs-deck-transcript-inner {
-    padding: 16px 12px 32px;
+    padding-block: 16px 32px;
     gap: 22px;
   }
 
@@ -2352,8 +2956,11 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 
   .cs-deck-source > :is(.cs-deck-kind, .cs-deck-source-copy, .cs-deck-source-time) { grid-column: 2; }
 
-  /* The verdict takes its own line; the sources toggle and reply tools stay together below it. */
-  .cs-deck-conversation .cs-deck-action-row > .cs-deck-verification { flex: 1 0 100%; }
+  /* The verdict, or the tooltip wrapper that carries it, takes its own line; the sources toggle and
+     reply tools stay together below it. */
+  .cs-deck-conversation .cs-deck-action-row > :is(.cs-deck-verification, :has(> .cs-deck-verification)) {
+    flex: 1 0 100%;
+  }
 
   .cs-run-timeline { --cs-run-columns: minmax(0, 1fr) auto auto 10px; }
   .cs-model-trace-lane-summary { grid-template-columns: 24px minmax(0, 1fr) auto 10px; }
@@ -2458,16 +3065,22 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   }
 }
 
+/* The composer narrows its gutters at this viewport width, so the strip and transcript follow. */
+@media (max-width: 720px) {
+  .cs-deck-transcript-inner,
+  .cs-deck-readiness { padding-inline: 12px; }
+}
+
 /* ----- Touch targets ----- */
 @media (max-width: 640px) {
   :is(.cs-deck-followup, .cs-deck-context-chip, .cs-deck-readiness-item, .cs-deck-source, .cs-deck-jump,
     .cs-run-event-summary, .cs-model-trace-lane-summary, .cs-deck-code-copy, .cs-deck-source-open,
     .cs-deck-leave-actions > button, .cs-deck-wave-head, .cs-deck-activity-summary,
-    .cs-deck-context-receipt-summary, .cs-deck-affordance) {
+    .cs-deck-context-receipt-summary, .cs-deck-affordance, .cs-deck-disclosure-summary) {
     min-height: 44px;
   }
 
-  .cs-deck-conversation .cs-run-record-summary { min-height: 44px; }
+  .cs-deck-conversation :is(.cs-run-record-summary, .cs-deck-composer-input, .cs-deck-composer-send) { min-height: 44px; }
 
   .cs-deck-jump {
     min-width: 44px;
@@ -2483,19 +3096,19 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 /* ----- Motion ----- */
 /* ----- Disclosure motion: record sections open by height where the browser supports it. ----- */
 .cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details,
-  .cs-deck-activity > details, .cs-deck-context-receipt) {
+  .cs-deck-activity > details, .cs-deck-context-receipt, .cs-deck-disclosure) {
   interpolate-size: allow-keywords;
 }
 
 .cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details,
-  .cs-deck-activity > details, .cs-deck-context-receipt)::details-content {
+  .cs-deck-activity > details, .cs-deck-context-receipt, .cs-deck-disclosure)::details-content {
   block-size: 0;
   overflow: clip;
   transition: block-size .24s cubic-bezier(.2, .7, .2, 1), content-visibility .24s allow-discrete;
 }
 
 .cs-deck-conversation :is(.cs-run-record[open], .cs-run-event > details[open], .cs-model-trace-lane > details[open],
-  .cs-deck-activity > details[open], .cs-deck-context-receipt[open])::details-content {
+  .cs-deck-activity > details[open], .cs-deck-context-receipt[open], .cs-deck-disclosure[open])::details-content {
   block-size: auto;
 }
 
@@ -2544,7 +3157,7 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   .cs-deck-leave[open] { transition: none; }
 
   .cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details,
-    .cs-deck-activity > details, .cs-deck-context-receipt)::details-content {
+    .cs-deck-activity > details, .cs-deck-context-receipt, .cs-deck-disclosure)::details-content {
     transition: none;
   }
 
@@ -2572,6 +3185,9 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 
   .cs-deck-skeleton { background: GrayText; }
   .cs-deck-code { border: 1px solid CanvasText; }
+  :is(.cs-deck-request, .cs-deck-document, .cs-deck-table-scroll, .cs-deck-disclosure-body, .cs-deck-request-state) {
+    border-color: CanvasText;
+  }
   .cs-run-bar { background: Highlight; }
   .cs-run-track { outline: 1px solid CanvasText; }
   .cs-deck-caret { background: CanvasText; }

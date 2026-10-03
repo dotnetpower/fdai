@@ -1,5 +1,6 @@
 import { Tooltip } from "../../components/tooltip";
-import { getLocale, t } from "../../i18n";
+import { getLocale } from "../../i18n";
+import { t } from "../i18n/conversation-layer";
 import type {
   PresentationBlock,
   PresentationChartItem,
@@ -29,10 +30,17 @@ export function ChartModule({ block }: PresentationModuleProps) {
   return null;
 }
 
+/** The exact values behind a chart open in place as the conversation layer's quiet disclosure. */
 export function ExactTableDisclosure({ data }: { readonly data: PresentationTableData }) {
   return (
-    <details class="deck-presentation-exact-values">
-      <summary>{t("deck.presentation.exactValues")}</summary>
+    <details class="deck-presentation-exact-values cs-deck-disclosure">
+      <summary class="cs-deck-disclosure-summary">
+        <span class="cs-deck-disclosure-title">{t("deck.presentation.exactValues")}</span>
+        <span class="cs-deck-disclosure-meta">
+          {t("deck.presentation.exactValueRows", { count: data.rows.length })}
+        </span>
+        <span class="cs-run-chevron" aria-hidden="true" />
+      </summary>
       <PresentationTable data={data} />
     </details>
   );

@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 088d8a443036468be99df1dc83dae5859ed88c95
+translation_source_sha: 2e6e482f6f5b18ab445ed28f21d4d3e67dc209d5
 translation_revised: 2026-10-03
 ---
 # 서술기 라우팅과 지연 시간
@@ -14,6 +14,10 @@ translation_revised: 2026-10-03
 > 시간 검증은 아직 일부만 완료되었습니다. 탐색 처리 시간만으로 대화가 빨라졌다고 볼 수 없습니다.
 
 ## 서술기 지연 시간 라우팅
+
+테스트 컨텍스트 수명 주기 제출은 서술기 라우팅이 아니라 결정론적인 Console 작업 흐름입니다. 의미 초안이
+양식을 열 수는 있지만, 받아들인 모든 명령은 서버가 소유한 선택지와 Operator/Core 수명 주기 검사가
+결정합니다.
 
 독립된 Operator Service가 인증된 대화 HTTP 경계를 소유하고 Kafka로 의미 처리 턴을 중계합니다.
 표준 로컬 및 배포 환경의 의미 처리 경로에서 모델 선택과 추론은 Core가 담당합니다. Operator와
@@ -244,15 +248,14 @@ Command Deck의 실행 기록은 서버 경과 시간과 모델 호출 누적 �
 
 ## 합성 대화 및 프롬프트 확인
 
-[적응형 응답](../../../mocks/ui/deck-sources-v2.html)과
-[인시던트 대화](../../../mocks/ui/incident-conversation.html) 시안은 결론, 부족한 근거,
-조사 기록을 에이전트 답변 안에 표시합니다. 조사 완료와 인시던트 복구는 구분하며,
+[Command deck](../../../mocks/ui/deck.html) 시안은 인시던트와 변경 형태를 포함한 모든 응답 형태에서
+결론, 부족한 근거, 조사 기록을 에이전트 답변 안에 표시합니다. 조사 완료와 인시던트 복구는 구분하며,
 취소하면 그때까지 표시된 작업만 보존합니다.
-적응형 시안의 모의 LLM 서술 단계에서는
+턴에서 추적 캡처가 켜져 있으면 실행 기록의 각 모델 호출이 동적 시스템 프롬프트 아래에
 [`system-prompt.example.md`](../../../mocks/ui/assets/prompts/system-prompt.example.md)를
-파일 행 아래에 펼쳐 보여줍니다. 모달을 띄우거나 입력창을 막지 않으며, 읽기 전용 Markdown
+펼쳐 보여줍니다. 모달을 띄우거나 입력창을 막지 않으며, 읽기 전용 Markdown
 보기와 복사, 다운로드를 지원합니다. 기록 누락과 읽기 실패는 명시적으로 표시하고,
-파일을 접으면 진행 중인 읽기를 취소합니다. 이 파일은 실제 런타임에서 수집한 프롬프트가
+파일을 닫으면 진행 중인 읽기를 취소합니다. 이 파일은 실제 런타임에서 수집한 프롬프트가
 아니라 공개 합성 예제입니다. 이 시안은 프로덕션의 프롬프트 수집, 권한, 모델 라우팅을 바꾸지 않습니다.
 
 ## 사용자별 선호 설정과 TTFT
@@ -441,7 +444,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 | Core mini 라우팅 및 턴별 모델 선택 | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_latency.py`; `services/core-control-plane/src/fdai/composition/wire_t1_routing.py`; `wire_adaptive_conversation.py`; [집중 검사 근거](#로컬-mini-라우팅-근거-2026-09-06) | Python 229개 통과, PostgreSQL 사례 2개 실행 제외이며 명시적 활성화 구성 검사 6개도 추가로 통과했습니다. 검증된 mini 신원, 변경 불가능한 작성/검토 모델 선택 및 기존 T2/작업 품질 검사 연결을 유지합니다. |
 | Core가 관리하는 명시적 선택형 탐색 | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_probe.py`; `services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py`; 집중 TTFT 및 벤치마크 검사 | 고정 요청은 비어 있지 않은 첫 토큰과 전체 지연 시간을 따로 기록합니다. 명시적 벤치마크는 고정된 표본 및 동시성 상한에서 같은 요청을 재사용하고 용량을 변경하지 않으며 압력 또는 프로바이더 실패를 재시도하지 않습니다. |
 | 의미 처리 상태의 라우팅 변환 결과 및 Console 배지 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py`; `console/src/deck/backend-health.ts`; `console/src/deck/backend-health-presentation.ts`; 집중 Operator 및 Console 검사 | Operator는 범위가 제한된 TTFT 필드를 전체 지연 시간과 별도로 검증합니다. Console은 두 p50/p95 구간과 표본 개수를 표시하며 TTFT가 없거나 오래됐을 때 전체 지연 시간을 대신 사용하지 않습니다. 런타임 시각적 검증은 아직 불완전합니다. |
-| 합성 대화 및 인라인 프롬프트 확인 | implemented | `mocks/ui/deck-sources-v2.html`; `mocks/ui/incident-conversation.html`; `console/tests/e2e/{adaptive-prompt-mock,deck-adaptive-mock,incident-conversation-mock}.spec.ts`; 집중 Playwright 및 타입 검사 | 시안에만 적용되는 표현입니다. 프롬프트 뷰어는 합성 예제를 읽으며 프로덕션의 수집과 권한 확인은 바꾸지 않습니다. |
+| 합성 대화 및 인라인 프롬프트 확인 | implemented | `mocks/ui/deck.html`; `mocks/ui/assets/deck-sources.js`; `mocks/ui/assets/deck-forms.js`; `console/tests/e2e/{deck-forms-mock,deck-prompt-mock,neutral-chat-mock}.spec.ts`; 집중 Playwright 검사 | 시안에만 적용되는 표현입니다. 실행 기록은 합성 프롬프트 예제를 열며 프로덕션의 수집과 권한 확인은 바꾸지 않습니다. |
 | 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; 집중 배포 수명 주기 테스트 | Service 내부 어댑터는 파일 또는 계획에 봉인된 인라인 JSON을 읽고 선택적 배포 SHA를 검증하며, 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하고 Core를 가져오거나 실행 권한을 받지 않은 채 정제된 상태를 노출합니다. |
 | 해석된 narrator 후보 수집 | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; 모델 해석기 및 레지스트리 | Focused 검사는 검토된 모델 해석 입력에서 `narrator_candidates` 수집을 다룹니다. |
 | 직접 Key Vault 해석 모델 출처 어댑터 | implemented | `adapters/resolved_models_key_vault.py`; 집중 Operator 테스트 | 비동기 어댑터는 주입된 토큰 공급자와 HTTP 클라이언트를 사용하고 신뢰할 수 없는 origin, redirect, 불일치 secret 신원, 비활성 또는 만료 값, 과도한 크기나 중첩, secret을 포함한 표현을 거부합니다. 시작 조립과 통제된 런타임 근거는 열려 있습니다. |
@@ -466,6 +469,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 | 2026-10-02 | implemented | 확인된 `typed_only` 읽기 재사용, 불투명한 전체 카탈로그 표현, 기록된 호출 계측, 제한된 두 샤드 동시 처리를 완료하고 고정 질문 네 개와 최종 이중 언어 목록 한 쌍을 재평가했습니다. | `0cd7ab82c1`, `32833c7dea`; 최종 측정 소스 `66a49cb735`; [제한된 결과](#제한된-최적화-근거-2026-10-02); 집중 런타임 918개와 Console 계측 66개 검사 통과. | 한글 전체 지연은 변동이 있고 영문 개수의 개념 불일치는 보류 상태입니다. 일괄 속도, 금액, SLO 개선을 주장하기 전에 통제된 전후 비교 집합을 보존합니다. |
 | 2026-10-02 | implemented | `typed_only`에서 사용하지 않는 기존 근거화를 제거하고, 한 처리 안에서 정확히 같은 닫힌 개념 선택을 재사용하며, 전체 카탈로그 프롬프트를 무손실 압축하고, 실행 기록에서 경과/누적 시간과 입력/출력 토큰을 분리했습니다. | `current change`; 근거화, 질문 구조, 개념, 마스킹, 컴파일 답변 검사 380개 통과; Console 성능 표시 검사 11개 통과; 이중 언어 집중 Playwright 시나리오 2개가 1440, 993, 390 CSS 픽셀 폭에서 통과했습니다. | 측정된 지연 시간, 청구 대상 토큰, 비용 개선을 주장하기 전에 명시적으로 승인된 동일 소스의 실제 비교를 보존합니다. 새 모델 요청이나 모델 설정 변경은 하지 않았습니다. |
 | 2026-10-01 | implemented | Operator composition이 service-owned route를 추가하는 동안 narrator preference route assembly를 preference 소유자 안에 유지했습니다. Settings projection은 계속 sanitized 상태이며 `personalizes_t2_bindings`는 false로 남습니다. | `current change`; `fdai_operator_service/composition_routes.py`; focused Operator route-count 근거. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 보존합니다. |
+| 2026-09-29 | implemented | 합성 대화와 프롬프트 확인을 하나의 Command deck 시안으로 옮겼습니다. 적응형 응답과 인시던트 대화 주소는 이제 이 시안의 변경 형태와 인시던트 형태를 열며, 인라인 프롬프트 파일은 별도의 서술 행이 아니라 실행 기록에서 캡처된 각 모델 호출 아래에서 열립니다. | `current change`; `mocks/ui/deck.html`; `mocks/ui/assets/deck-sources.js`; `mocks/ui/assets/deck-forms.js`; `npm --prefix console run test:e2e:quick -- tests/e2e/deck-forms-mock.spec.ts tests/e2e/deck-prompt-mock.spec.ts tests/e2e/neutral-chat-mock.spec.ts` (`12 passed`) | 시안에는 남은 작업이 없습니다. 프로덕션의 프롬프트 수집과 권한 확인은 바뀌지 않습니다. |
 | 2026-09-27 | implemented | 비공개 SQLAlchemy DSN을 psycopg fixture 형식으로 내부 정규화한 뒤 서비스 소유 loopback PostgreSQL 검증 데이터베이스에서 개정 번호로 제한된 서술기 선호 설정 쓰기, 감사 기록 및 재시작 readback을 검증했습니다. | `current change`; 준비된 로컬 검증 데이터베이스에서 `test_narrator_preference_commits_with_audit_and_survives_new_connection` 통과, PR #1458의 소스 및 required CI 근거는 변경되지 않았습니다. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 별도로 보존합니다. |
 | 2026-09-27 | in-progress | 서술기 선호 설정의 구현 경로만 자체 설계 문서에 연결하면서 공유 파일에 적용되는 기존 경로와 문서 소유 요건은 모두 유지했습니다. 선호 설정 동작과 실행 권한이 없는 경계는 바뀌지 않았습니다. | `current change`; `scripts/lib/design-routes.json`; 집중 Operator, 경로 및 영속성 검사 305개 통과(선택적 PDF 검사와 실제 PostgreSQL 검사 각 1개 건너뜀); `check-design-routes.py`, 스테이징된 `check-design-doc-impact.py`, 로드맵 및 지역화 검사 통과. 승인된 로컬 전용 PostgreSQL DSN은 이 세션에서 가려져 있습니다. | 승인된 로컬 전용 DSN을 사용할 수 있을 때 실제 PostgreSQL 재시작 및 동시 쓰기 비교 및 교환을 검증하고, 배포 시작 및 지연 시간 증적을 별도로 보존합니다. |
 | 2026-09-26 | in-progress | 인증된 principal별 서술기 선호 설정 경로를 시작 시 다이제스트로 고정된 선택과 원자적 제안/상태 개정 번호 비교 및 교환에 연결했습니다. 제거된 배포의 저장된 선택은 보존하고 실효 선택만 `Auto`로 되돌립니다. 공개 설정 응답은 정제된 형태를 유지하며 T2 연결을 개인화하지 않습니다. | `current change`; `postgres_iam_configuration.py`, `model_lifecycle_startup.py`, IAM 조립 및 집중 선호 설정 검사; `uv run pytest -q --no-cov services/operator-service/tests/test_operator_service_composition.py services/operator-service/tests/test_narrator_preference_persistence.py services/operator-service/tests/test_narrator_preferences.py services/operator-service/tests/test_operator_service_postgres.py services/operator-service/tests/test_operator_iam_family.py tests/integration/services/test_narrator_preference_postgres.py` (305개 통과, 선택적 PDF 검사와 `FDAI_ASSIGNMENT_TEST_DSN`이 없는 PostgreSQL 검사 각 1개 건너뜀); Ruff와 strict mypy 통과. | 지원되는 로컬 PostgreSQL 환경에서 실제 재시작 조회와 동시 쓰기 비교 및 교환을 검증하고, 배포 시작 출처와 런타임 지연 시간의 정확한 근거를 보존합니다. |

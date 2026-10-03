@@ -1,83 +1,81 @@
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { expect, test } from "@playwright/test";
 
-import { expect, test, type Page } from "@playwright/test";
+import { openDeck } from "./deck-mock-page";
 
-const shell = pathToFileURL(fileURLToPath(new URL("../../../index.html", import.meta.url))).href;
-const mocks = [
-  { file: "incident-conversation.html", question: ".ic-question .cs-deck-user-bubble", stream: ".ic-messages", composer: ".ic-composer form", answer: ".ic-answer", input: "#incident-question", primary: ".ic-answer-actions .is-primary" },
-  { file: "deck-sources-v2.html", question: ".ex-thread > .is-user .ex-user-bubble", stream: ".ex-thread", composer: ".ex-composer", answer: ".ex-thread > .is-bragi", input: ".ex-composer-input", primary: ".ex-send" },
+// The one Command deck keeps neutral, readable chat controls: the transcript shares its edges with
+// the composer, and long Korean text or identifiers wrap without horizontal overflow.
+const forms = [
+  { form: "answer", scenario: "grounded" },
+  { form: "incident", scenario: "open" },
 ];
 
-async function openMock(page: Page, file: string) {
-  await page.goto("about:blank");
-  await page.goto(`${shell}#mocks/ui/${file}`);
-  const frame = page.frameLocator("#preview-frame");
-  await expect(frame.locator("body")).toHaveAttribute("data-chat-theme", "clear-neutral");
-  await expect(frame.locator("body")).toHaveClass(/cs-embedded/);
-  return frame;
-}
-
-test("uses neutral surfaces and aligned readable chat controls in both mock routes", async ({ page }, testInfo) => {
+test("uses neutral surfaces and aligned readable chat controls in every deck form", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const mock of mocks) {
-    const frame = await openMock(page, mock.file);
-    await expect(frame.locator(mock.question)).toHaveCSS("background-color", "rgb(242, 242, 242)");
-    await expect(frame.locator("body")).toHaveCSS("color", "rgb(38, 38, 38)");
-    await expect(frame.locator(mock.primary)).toHaveCSS("background-color", "rgb(37, 99, 235)");
-    const geometry = await frame.locator("body").evaluate((body, mock) => {
-      const stream = body.querySelector(mock.stream)!;
-      const composer = body.querySelector(mock.composer)!;
-      const rect = stream.getBoundingClientRect();
-      const control = composer.getBoundingClientRect();
+  for (const query of forms) {
+    const { frame } = await openDeck(page, query);
+    const surfaces = await frame.locator("#ds-workspace").evaluate((workspace) => {
+      const bubble = getComputedStyle(workspace.querySelector(".cs-deck-user-bubble")!);
+      const card = getComputedStyle(workspace).backgroundColor;
+      const inner = workspace.querySelector(".cs-deck-transcript-inner")!;
+      const innerStyle = getComputedStyle(inner);
+      const box = inner.getBoundingClientRect();
+      const grid = workspace.querySelector(".cs-deck-composer-grid")!.getBoundingClientRect();
+      // The Answer form folds readiness into the readable evidence services summary.
+      const strip = workspace.querySelector(".cs-deck-readiness, .ds-services > summary")!;
+      const stripStyle = getComputedStyle(strip);
+      const stripBox = strip.getBoundingClientRect();
       return {
-        left: rect.left + parseFloat(getComputedStyle(stream).paddingLeft),
-        right: rect.right - parseFloat(getComputedStyle(stream).paddingRight),
-        controlLeft: control.left + parseFloat(getComputedStyle(composer).paddingLeft),
-        controlRight: control.right - parseFloat(getComputedStyle(composer).paddingRight),
-        overflow: document.documentElement.scrollWidth > innerWidth || stream.scrollWidth > stream.clientWidth,
+        bubble: bubble.backgroundColor,
+        bubbleBorder: bubble.borderTopStyle,
+        card,
+        left: box.left + parseFloat(innerStyle.paddingLeft),
+        right: box.right - parseFloat(innerStyle.paddingRight),
+        stripLeft: stripBox.left + parseFloat(stripStyle.paddingLeft),
+        composerLeft: grid.left,
+        composerRight: grid.right,
+        overflow: document.documentElement.scrollWidth > innerWidth || inner.scrollWidth > inner.clientWidth,
       };
-    }, mock);
-    expect(Math.abs(geometry.left - geometry.controlLeft)).toBeLessThanOrEqual(1);
-    expect(Math.abs(geometry.right - geometry.controlRight)).toBeLessThanOrEqual(1);
-    expect(geometry.overflow).toBe(false);
-    await frame.locator(mock.input).focus();
-    await expect(frame.locator(mock.input)).toHaveCSS("outline-style", "solid");
-    await expect(frame.locator(mock.input)).toHaveCSS("outline-width", "2px");
-    await frame.locator(mock.primary).hover();
-    const color = await frame.locator(mock.primary).evaluate((element) => getComputedStyle(element).color);
-    expect(color).toBe("rgb(255, 255, 255)");
-    await page.screenshot({ path: testInfo.outputPath(`neutral-${mock.file}-desktop.png`) });
+    });
+    expect(surfaces.bubble).not.toBe(surfaces.card);
+    expect(surfaces.bubbleBorder).toBe("none");
+    expect(Math.abs(surfaces.left - surfaces.composerLeft)).toBeLessThanOrEqual(1);
+    expect(Math.abs(surfaces.stripLeft - surfaces.composerLeft)).toBeLessThanOrEqual(1);
+    // A classic scrollbar may take the transcript's right edge; the content never passes the composer.
+    expect(surfaces.right).toBeLessThanOrEqual(surfaces.composerRight + 1);
+    expect(surfaces.overflow).toBe(false);
+    const input = frame.locator("#ds-input");
+    await input.focus();
+    await expect(input).toHaveCSS("outline-style", "solid");
+    await expect(input).toHaveCSS("outline-width", "2px");
+    await input.fill("Is anything else flagged?");
+    const send = frame.locator("#ds-send");
+    await expect(send).toBeEnabled();
+    // The enabled state may ease in, so the color assertions retry until the transition settles.
+    await expect(send).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(send).not.toHaveCSS("background-color", surfaces.card);
+    await page.screenshot({ path: testInfo.outputPath(`neutral-deck-${query.form}-desktop.png`) });
   }
 });
 
-test("wraps long Korean replies and sample tables without changing state or overflowing", async ({ page }, testInfo) => {
+test("wraps long Korean text and identifiers in replies and tables without overflowing", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
   await page.emulateMedia({ reducedMotion: "reduce" });
   for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    for (const mock of mocks) {
-      const frame = await openMock(page, mock.file);
-      await frame.locator(mock.input).fill("현재 상태와 근거를 확인해 주세요. " + "long-unbroken-identifier".repeat(8));
-      await expect(frame.locator(mock.input)).toBeFocused();
-      await expect(frame.locator(mock.question)).toHaveCSS("background-color", "rgb(242, 242, 242)");
-      const check = () => frame.locator(mock.stream).evaluate((element) =>
-        element.scrollWidth <= element.clientWidth && document.documentElement.scrollWidth <= innerWidth,
-      );
-      expect(await check()).toBe(true);
-      await page.screenshot({ path: testInfo.outputPath(`neutral-${mock.file}-${viewport.width}x${viewport.height}.png`) });
-      if (mock.file === "deck-sources-v2.html") {
-        await frame.locator("#ex-preview-controls > summary").click();
-        await frame.locator(".ex-pattern-switcher > summary").click();
-        await frame.getByRole("button", { name: "Markdown document", exact: true }).click();
-        await frame.locator("#ex-preview-controls > summary").click();
-        await expect(frame.locator(".ex-md-document table")).toBeVisible();
-        await frame.locator(".ex-md-document table td").first().evaluate((element) => {
-          element.textContent = "확인되지 않은 긴 리소스 식별자 / " + "identifier-without-spaces".repeat(6);
-        });
-        expect(await check()).toBe(true);
-      }
-    }
+    const { frame } = await openDeck(page, { form: "memory", scenario: "document" });
+    await frame.locator("#ds-input").fill("현재 상태와 근거를 확인해 주세요. " + "long-unbroken-identifier".repeat(8));
+    await expect(frame.locator("#ds-input")).toBeFocused();
+    await frame.locator(".cs-deck-user-line").evaluate((element) => {
+      element.textContent = "현재 상태와 근거를 확인해 주세요. " + "long-unbroken-identifier".repeat(8);
+    });
+    await frame.locator(".cs-deck-document table td").first().evaluate((element) => {
+      element.textContent = "확인되지 않은 긴 리소스 식별자 / " + "identifier-without-spaces".repeat(6);
+    });
+    const contained = await frame.locator("#ds-transcript").evaluate((element) =>
+      element.scrollWidth <= element.clientWidth && document.documentElement.scrollWidth <= innerWidth);
+    expect(contained).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`neutral-deck-${viewport.width}x${viewport.height}.png`) });
   }
 });

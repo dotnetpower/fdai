@@ -1,19 +1,20 @@
 /**
- * GroundedReply - renders a deck (assistant) turn the way the source-streaming
- * mock does: the answer text types in token by token, then a "Grounded on N
- * sources" pill summarises the reply, and expanding it rolls the cited sources
- * through a slot-machine window (reusing the retrieval-trace slot styles).
+ * GroundedReply - renders a deck (assistant) turn on the shared conversation
+ * layer (ui/calm-slate-deck-conversation.css): the answer text types in token
+ * by token, then one action row carries the verification verdict, the sources
+ * pill, and the reply tools, and the pill opens the cited sources in place.
  *
- * Honest-data only: every source card is a real ``Citation`` the backend
- * returned (a fact the answer is grounded in). The pill's summary line is the
- * real reply ``source`` descriptor (``llm:<model> · <ms> · <tokens>`` or
- * ``deterministic``). Nothing here is fabricated - it re-presents what the
- * reply already carries.
+ * Honest-data only: every source row is a real ``Citation`` or evidence entry
+ * the backend returned (a fact the answer is grounded in). The processing
+ * disclosure names the real reply ``source`` descriptor
+ * (``llm:<model> · <ms> · <tokens>`` or ``deterministic``). Nothing here is
+ * fabricated - it re-presents what the reply already carries.
  *
  * Single responsibility: present one grounded deck reply. No I/O, no
  * privileged calls, only self-cancelling timers.
  */
 
+import { Fragment } from "preact";
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
@@ -283,7 +284,7 @@ export function GroundedReply({
       ) : null}
       <div class="deck-turn-body cs-deck-answer" tabIndex={-1}>
         {showAnswerState ? (
-          <span class={`deck-answer-state is-${answerState}`} role="status">
+          <span class={`cs-deck-answer-state is-${answerState}`} role="status">
             {t(`deck.answerState.${answerState}`)}
           </span>
         ) : null}
@@ -336,9 +337,13 @@ export function GroundedReply({
       ) : null}
 
       {actionDraft ? (
-        <section class="deck-action-draft" aria-label={t("deck.actionDraft.title")}>
-          <strong>{t("deck.actionDraft.title")}</strong>
-          <dl>
+        <section class="deck-action-draft cs-deck-request is-proposal" aria-labelledby={`${turnId}-action-draft-title`}>
+          <header class="cs-deck-request-head">
+            <strong class="cs-deck-request-title" id={`${turnId}-action-draft-title`}>
+              {t("deck.actionDraft.title")}
+            </strong>
+          </header>
+          <dl class="cs-deck-request-fields">
             {draftAccount ? (
               <div>
                 <dt>{t("deck.actionDraft.account")}</dt>
@@ -354,15 +359,15 @@ export function GroundedReply({
               <dd><code>{JSON.stringify(actionDraft.arguments)}</code></dd>
             </div>
           </dl>
-          <p>{t("deck.actionDraft.authorityNote")}</p>
-          {draftResult ? <p role="status">{draftResult}</p> : null}
+          <p class="cs-deck-request-note">{t("deck.actionDraft.authorityNote")}</p>
+          {draftResult ? <p class="cs-deck-request-note" role="status">{draftResult}</p> : null}
           {draftState === "cancelled" ? (
-            <p role="status">{t("deck.actionDraft.cancelled")}</p>
+            <p class="cs-deck-request-note" role="status">{t("deck.actionDraft.cancelled")}</p>
           ) : draftState === "idle" || draftState === "submitting" ? (
-            <div class="deck-action-draft-actions">
+            <div class="deck-action-draft-actions cs-deck-request-actions">
               <button
                 type="button"
-                class="deck-followup"
+                class="cs-deck-affordance"
                 disabled={draftState === "submitting"}
                 onClick={() => void confirmDraft()}
               >
@@ -372,7 +377,7 @@ export function GroundedReply({
               </button>
               <button
                 type="button"
-                class="deck-followup"
+                class="cs-deck-affordance"
                 disabled={draftState === "submitting"}
                 onClick={() => setDraftState("cancelled")}
               >
@@ -392,48 +397,50 @@ export function GroundedReply({
       ) : null}
 
       {verificationProgress && !verification ? (
-        <div class="deck-verification is-active" role="status" aria-live="polite">
-          <span class="deck-verification-spinner" aria-hidden="true" />
-          <span>{verificationProgress.label}</span>
-          {verificationProgress.total !== null && verificationProgress.completed !== null ? (
-            <span class="muted">
-              {verificationProgress.completed}/{verificationProgress.total}
-            </span>
-          ) : null}
+        <div class="cs-deck-action-row" role="status" aria-live="polite">
+          <span class="cs-deck-verification is-pending">
+            <span class="cs-grounding-spinner" aria-hidden="true" />
+            <span>{verificationProgress.label}</span>
+            {verificationProgress.total !== null && verificationProgress.completed !== null ? (
+              <span class="cs-deck-verification-detail">
+                {verificationProgress.completed}/{verificationProgress.total}
+              </span>
+            ) : null}
+          </span>
         </div>
       ) : null}
 
       {showProcessingDisclosure ? (
         <details
-          class="deck-llm-escalation"
+          class="deck-llm-escalation cs-deck-disclosure"
           aria-label={t(
             parsedSource.kind === "llm"
               ? "deck.grounded.llmEscalation"
               : "deck.grounded.deterministicPath",
           )}
         >
-          <summary class="deck-llm-escalation-head">
-            <span class="deck-llm-escalation-label">
+          <summary class="cs-deck-disclosure-summary">
+            <span class="cs-deck-disclosure-title">
               {t(
                 parsedSource.kind === "llm"
                   ? "deck.grounded.llmEscalation"
                   : "deck.grounded.deterministicPath",
               )}
             </span>
-            <strong class="deck-llm-escalation-model">
+            <span class="cs-deck-disclosure-meta">
               {parsedSource.kind === "llm"
                 ? parsedSource.model
                 : t("deck.grounded.deterministicAnswerer")}
-            </strong>
+            </span>
             {parsedSource.kind === "llm" && parsedSource.timing ? (
-              <span class="deck-llm-escalation-timing">
+              <span class="cs-deck-disclosure-meta">
                 {t("deck.grounded.processingTime", { timing: parsedSource.timing })}
               </span>
             ) : null}
-            <span class="deck-llm-escalation-chevron" aria-hidden="true" />
+            <span class="cs-run-chevron" aria-hidden="true" />
           </summary>
-          <div class="deck-llm-escalation-body">
-            <p class="deck-llm-escalation-summary">
+          <div class="cs-deck-disclosure-body">
+            <p>
               {parsedSource.kind === "llm"
                 ? t(
                     sources.length > 0
@@ -458,11 +465,14 @@ export function GroundedReply({
           {verification ? (
             <Tooltip content={renderedVerificationLabel ?? ""}>
               <div
-                class={`deck-verification is-${verifiedAmbiguity || recordedFailure ? "consistent" : boundedCorrection ? "verified" : verification.status}${verificationIssue ? ` is-${verificationIssue}` : ""}`}
+                class={`cs-deck-verification is-${verificationTone(verification, verificationIssue, {
+                  boundedCorrection,
+                  pendingSelection: verifiedAmbiguity || recordedFailure,
+                })}`}
                 role="status"
                 aria-label={renderedVerificationLabel ?? ""}
               >
-                <span class="deck-verification-mark" aria-hidden="true">
+                <span class="cs-deck-verification-mark" aria-hidden="true">
                   {verificationIssue || verifiedAmbiguity || recordedFailure
                     ? "!"
                     : verification.status === "verified" ||
@@ -473,19 +483,52 @@ export function GroundedReply({
                         ? "\u21bb"
                         : "!"}
                 </span>
-                <span class="deck-verification-short">
+                <span>
                   {shortVerificationStatus(verification, semanticReceipt, boundedCorrection)}
                 </span>
+                {claimDetail(verification) ? (
+                  <span class="cs-deck-verification-detail">{claimDetail(verification)}</span>
+                ) : null}
               </div>
             </Tooltip>
           ) : null}
 
+          {sources.length > 0 ? (
+            <Tooltip placement="top-end" content={sourceButtonLabel}>
+              <button
+                type="button"
+                class="deck-gr-pill cs-deck-pill"
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+                aria-controls={sourcePanelId}
+                aria-label={sourceButtonLabel}
+              >
+                {groundingAttention ? (
+                  <span class="cs-deck-pill-mark" aria-hidden="true">!</span>
+                ) : null}
+                <span class="cs-deck-pill-stat">
+                  <strong>{sources.length}</strong>{" "}
+                  {sources.length === 1
+                    ? t("deck.grounded.source")
+                    : t("deck.grounded.sources")}
+                </span>
+                {pillIssues(groundingIncomplete, groundingStatusLabel, secondaryGroundingIssue).map((issue) => (
+                  <Fragment key={issue}>
+                    <span aria-hidden="true">{"\u00b7"}</span>
+                    <span class="cs-deck-pill-issue">{issue}</span>
+                  </Fragment>
+                ))}
+                <span class="cs-deck-pill-more" aria-hidden="true"><IconChevron /></span>
+              </button>
+            </Tooltip>
+          ) : null}
+
           {text.trim().length > 0 ? (
-            <>
+            <span class="cs-deck-tools">
               <Tooltip content={copied ? t("deck.tooltip.copied") : t("deck.tooltip.copyReply")}>
                 <button
                   type="button"
-                  class="deck-gr-tool deck-gr-icon cs-deck-tool cs-deck-tool-icon"
+                  class={`deck-gr-tool cs-deck-tool cs-deck-tool-icon${copied ? " is-done" : ""}`}
                   onClick={copy}
                   aria-label={t("deck.tooltip.copyReply")}
                 >
@@ -496,7 +539,7 @@ export function GroundedReply({
                 <Tooltip content={t("deck.tooltip.regenerateHint")}>
                   <button
                     type="button"
-                    class="deck-gr-tool deck-gr-icon cs-deck-tool cs-deck-tool-icon"
+                    class="deck-gr-tool cs-deck-tool cs-deck-tool-icon"
                     onClick={onRegenerate}
                     aria-label={t("deck.tooltip.regenerate")}
                   >
@@ -504,49 +547,14 @@ export function GroundedReply({
                   </button>
                 </Tooltip>
               ) : null}
-              <a class="deck-gr-tool deck-gr-review cs-deck-tool" href={assuranceHref(turnId)}>
-                {t("deck.reviewAnswer")}
-              </a>
-            </>
-          ) : null}
-
-          {sources.length > 0 ? (
-            <span class="deck-gr-source-status">
-              <Tooltip placement="top-end" content={sourceButtonLabel}>
-                <button
-                  type="button"
-                  class="deck-gr-pill cs-deck-pill"
-                  onClick={() => setOpen((v) => !v)}
-                  aria-expanded={open}
-                  aria-controls={sourcePanelId}
-                  aria-label={sourceButtonLabel}
+              <Tooltip content={t("deck.reviewAnswer")}>
+                <a
+                  class="deck-gr-review cs-deck-tool cs-deck-tool-icon cs-deck-tool-link"
+                  href={assuranceHref(turnId)}
+                  aria-label={t("deck.reviewAnswer")}
                 >
-                  <span class="deck-gr-check" aria-hidden="true">
-                    {groundingAttention ? "!" : "\u2713"}
-                  </span>
-                  <span class="deck-gr-stat">
-                    <strong>{sources.length}</strong>{" "}
-                    {sources.length === 1
-                      ? t("deck.grounded.source")
-                      : t("deck.grounded.sources")}
-                  </span>
-                  {groundingIncomplete ? (
-                    <span class="deck-gr-stat">
-                      {groundingStatusLabel ?? t("deck.grounded.partialEvidence")}
-                    </span>
-                  ) : null}
-                  {!groundingIncomplete && groundingStatusLabel ? (
-                    <span class="deck-gr-stat">{groundingStatusLabel}</span>
-                  ) : null}
-                  {secondaryGroundingIssue ? (
-                    <span class="deck-gr-stat">
-                      {t(`deck.grounded.verificationStatus.${secondaryGroundingIssue}`)}
-                    </span>
-                  ) : null}
-                  <span class="deck-gr-more">
-                    {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
-                  </span>
-                </button>
+                  <IconReview />
+                </a>
               </Tooltip>
             </span>
           ) : null}
@@ -554,12 +562,23 @@ export function GroundedReply({
       ) : null}
 
       {!streaming && open && sources.length > 0 ? (
-        <section class="deck-gr-panel" id={sourcePanelId} aria-label={answerEvidenceText("answerEvidence")}>
+        <section
+          class="deck-gr-panel cs-deck-sources"
+          id={sourcePanelId}
+          aria-label={answerEvidenceText("answerEvidence")}
+        >
           <header class="deck-gr-panel-head">
             <h4>{answerEvidenceText("answerEvidence")}</h4>
-            <button type="button" class="deck-gr-return" onClick={returnToAnswer}>{answerEvidenceText("returnToAnswer")}</button>
+            <button type="button" class="deck-gr-return cs-deck-affordance" onClick={returnToAnswer}>
+              {answerEvidenceText("returnToAnswer")}
+            </button>
           </header>
-          <SourceDetail sources={sources} panelId={sourcePanelId} selectedSource={selectedSource?.number ?? null} />
+          <SourceDetail
+            sources={sources}
+            label={sourceCountLabel}
+            panelId={sourcePanelId}
+            selectedSource={selectedSource?.number ?? null}
+          />
         </section>
       ) : null}
     </div>
@@ -739,21 +758,24 @@ function shortVerificationStatus(
 function GroundingTrace({ stages }: { readonly stages: readonly TraceStage[] }) {
   if (stages.length === 0) return null;
   return (
-    <ol class="deck-gr-trace" aria-label={t("deck.grounded.traceLabel")}>
+    <ol class="cs-grounding-stages" aria-label={t("deck.grounded.traceLabel")}>
       {stages.map((stage, i) => (
-        <li key={`${stage.label}-${i}`} class={`deck-gr-trace-row is-${stage.status}`}>
-          <span class="deck-gr-trace-mark" aria-hidden="true">
+        <li
+          key={`${stage.label}-${i}`}
+          class={`cs-grounding-stage is-${stage.status === "attention" ? "attention" : "done"}`}
+        >
+          <span class="cs-grounding-mark" aria-hidden="true">
             {stage.status === "attention" ? "!" : "\u2713"}
           </span>
-          <span class="deck-gr-trace-copy">
-            <span class="deck-gr-trace-label">
+          <span class="cs-grounding-stage-copy">
+            <span class="cs-grounding-stage-label">
               {t(`deck.grounded.stage.${stage.action}`, {
                 model: stage.model ?? "",
                 from: stage.from ?? "",
                 to: stage.to ?? "",
               })}
             </span>
-            <span class="deck-gr-trace-detail">
+            <span class="cs-grounding-stage-detail">
               {stage.reasonCode
                 ? t(handoffReasonKey(stage.reasonCode))
                 : stage.detailKey
@@ -761,7 +783,7 @@ function GroundingTrace({ stages }: { readonly stages: readonly TraceStage[] }) 
                   : stage.detail}
             </span>
           </span>
-          <span class={`deck-gr-trace-side is-${stage.side}`}>
+          <span class="cs-grounding-phase">
             {t(`deck.grounded.side.${stage.side}`)}
           </span>
         </li>
@@ -770,38 +792,120 @@ function GroundingTrace({ stages }: { readonly stages: readonly TraceStage[] }) 
   );
 }
 
+/** The display-authorized answer as its original Markdown, on the layer's quiet disclosure. */
 function OriginalMarkdown({ renderedText }: { readonly renderedText: string }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <details class="deck-answer-original" onToggle={(event) => setExpanded(event.currentTarget.open)}>
-      <summary>{answerEvidenceText("originalMarkdown")}</summary>
-      {expanded ? <pre><code>{renderedText}</code></pre> : null}
+    <details
+      class="deck-answer-original cs-deck-disclosure"
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
+      <summary class="cs-deck-disclosure-summary">
+        <span class="cs-deck-disclosure-title">{answerEvidenceText("originalMarkdown")}</span>
+        <span class="cs-run-chevron" aria-hidden="true" />
+      </summary>
+      {expanded ? (
+        <div class="cs-deck-disclosure-body">
+          <pre><code>{renderedText}</code></pre>
+        </div>
+      ) : null}
     </details>
   );
 }
 
-/** Source disclosures preserve the backend's evidence entries and citation values. */
-function SourceDetail({ sources, panelId, selectedSource }: { readonly sources: readonly GroundedSource[]; readonly panelId: string; readonly selectedSource: number | null }) {
+/** Answer evidence. Each grounding source is one numbered hairline row that opens its cited
+ *  value and path in place, as in the Command deck mock. Every row is a real evidence entry or
+ *  citation the backend returned; nothing is fabricated. A numbered citation opens its row. */
+function SourceDetail({
+  sources,
+  label,
+  panelId,
+  selectedSource,
+}: {
+  readonly sources: readonly GroundedSource[];
+  readonly label: string;
+  readonly panelId: string;
+  readonly selectedSource: number | null;
+}) {
   return (
-    <ul class="deck-gr-list">
+    <ol class="cs-deck-source-list" aria-label={label}>
       {sources.map((source) => (
-        <li key={`${source.n}-${source.title}`} class="deck-src-row" id={`${panelId}-${source.n}`} data-selected={source.n === selectedSource ? "true" : "false"}>
+        <li
+          key={`${source.n}-${source.title}`}
+          class="deck-src-row"
+          id={`${panelId}-${source.n}`}
+          data-selected={source.n === selectedSource ? "true" : "false"}
+        >
           <details class="deck-src-detail">
-            <summary>
-              <span class="deck-src-num" aria-hidden="true">{source.n}</span>
-              <span class={`deck-src-badge is-${source.tone}`} aria-hidden="true">{source.badge}</span>
-              <span class="deck-src-title">{source.title}</span>
-              <span class="deck-src-chevron" aria-hidden="true" />
+            <summary class={`cs-deck-source${source.n === selectedSource ? " is-target" : ""}`}>
+              <span class="cs-deck-source-num" aria-hidden="true">{source.n}</span>
+              <span class="cs-deck-kind">{source.badge}</span>
+              <span class="cs-deck-source-copy">
+                <span class="cs-deck-source-title">{source.title}</span>
+              </span>
             </summary>
-            <div class="deck-src-text">
-              {source.meta ? <span class="deck-src-meta">{source.meta}</span> : null}
-              {source.path ? <span class="deck-src-path muted">{source.path}</span> : null}
+            <div class="deck-src-text cs-deck-source-detail">
+              {source.meta ? <span class="cs-deck-source-meta">{source.meta}</span> : null}
+              {source.path ? <code class="deck-src-path cs-deck-source-path">{source.path}</code> : null}
             </div>
           </details>
         </li>
       ))}
-    </ul>
+    </ol>
   );
+}
+
+export type VerificationTone = "verified" | "consistent" | "attention" | "failure";
+
+const HELD_FOR_INPUT_ISSUES: ReadonlySet<string> = new Set([
+  "contextRequired",
+  "sourceUnavailable",
+  "visionUnverified",
+]);
+
+/** The verification tone keeps the established meaning of each status and evidence issue: a
+ *  question held for more input or an unreachable source needs attention, while an unsupported or
+ *  contradicted answer fails. A pending incident selection or a recorded failure reason is a
+ *  consistent reading, and a bounded correction keeps only verified sentences. */
+export function verificationTone(
+  verification: AnswerVerification,
+  issue: string | null,
+  flags: { readonly boundedCorrection: boolean; readonly pendingSelection: boolean },
+): VerificationTone {
+  const status = flags.pendingSelection
+    ? "consistent"
+    : flags.boundedCorrection
+      ? "verified"
+      : verification.status;
+  if (status === "unverified") {
+    return issue && HELD_FOR_INPUT_ISSUES.has(issue) ? "attention" : "failure";
+  }
+  if (issue === "staleEvidence" || issue === "partialEvidence") return "attention";
+  if (issue === "conflictingEvidence" || issue === "evidenceUnavailable") return "failure";
+  if (status === "verified" || status === "consistent") return status;
+  return "attention";
+}
+
+/** The visible claim count beside the status; the complete wording stays in the tooltip. */
+export function claimDetail(verification: AnswerVerification): string | null {
+  const claims = verification.claims ?? [];
+  if (claims.length === 0) return null;
+  const supported = claims.filter((claim) => claim.status === "supported").length;
+  const summary = t("deck.grounded.verificationLabel.claimSummary", { supported, total: claims.length }).trim();
+  return summary.replace(/^\((.*)\)$/s, "$1");
+}
+
+/** Evidence issues shown in the sources pill, each named once. */
+export function pillIssues(
+  incomplete: boolean,
+  statusLabel: string | null,
+  secondary: string | null,
+): readonly string[] {
+  const issues = [
+    incomplete ? statusLabel ?? t("deck.grounded.partialEvidence") : statusLabel,
+    secondary ? t(`deck.grounded.verificationStatus.${secondary}`) : null,
+  ];
+  return issues.filter((issue, index): issue is string => Boolean(issue) && issues.indexOf(issue) === index);
 }
 
 /** Inline monochrome icons (currentColor) for the reply tool row. */
@@ -822,6 +926,23 @@ function IconCheck() {
   );
 }
 
+function IconReview() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 2.2l4.8 1.8v3.6c0 3-2 5.2-4.8 6.2-2.8-1-4.8-3.2-4.8-6.2V4z" />
+      <path d="M5.8 8.1l1.6 1.6 2.9-3" />
+    </svg>
+  );
+}
+
+function IconChevron() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 6.5l3 3 3-3" />
+    </svg>
+  );
+}
+
 function IconRegenerate() {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
@@ -831,30 +952,38 @@ function IconRegenerate() {
   );
 }
 
+const CODE_VALIDATION_TONE = { valid: "verified", invalid: "failure", not_checked: "pending" } as const;
+const CODE_VALIDATION_MARK = { valid: "\u2713", invalid: "!", not_checked: "?" } as const;
+
+/** Generated code evidence: one quiet disclosure, then each artifact's static check, its code, and
+ *  its artifact reference. Validation never means execution, and the status says so. */
 function CodeEvidence({ artifacts }: { readonly artifacts: readonly GroundedCodeArtifact[] }) {
   return (
-    <details class="deck-code-evidence">
-      <summary>
-        <span>{t("deck.codeEvidence.label")}</span>
-        <span class="muted">{t("deck.codeEvidence.count", { count: artifacts.length })}</span>
+    <details class="deck-code-evidence cs-deck-disclosure">
+      <summary class="cs-deck-disclosure-summary">
+        <span class="cs-deck-disclosure-title">{t("deck.codeEvidence.label")}</span>
+        <span class="cs-deck-disclosure-meta">
+          {t("deck.codeEvidence.count", { count: artifacts.length })}
+        </span>
+        <span class="cs-run-chevron" aria-hidden="true" />
       </summary>
-      <div class="deck-code-evidence-list">
+      <div class="cs-deck-disclosure-body">
         {artifacts.map((artifact, index) => (
-          <section key={artifact.artifact_ref} class="deck-code-evidence-item">
-            <header class="deck-code-evidence-head">
-              <span class="deck-code-lang">{artifact.language}</span>
-              <span class={`deck-code-validation is-${artifact.validation_status}`}>
-                {t(`deck.codeEvidence.status.${artifact.validation_status}`)}
+          <section key={artifact.artifact_ref} class="cs-run-payload">
+            <span class={`cs-deck-verification is-${CODE_VALIDATION_TONE[artifact.validation_status]}`}>
+              <span class="cs-deck-verification-mark" aria-hidden="true">
+                {CODE_VALIDATION_MARK[artifact.validation_status]}
               </span>
-              <span class="muted">#{index + 1}</span>
-            </header>
+              <span>{t(`deck.codeEvidence.status.${artifact.validation_status}`)}</span>
+              <span class="cs-deck-verification-detail">#{index + 1}</span>
+            </span>
             <RichContent
               text={`\`\`\`${artifact.language}\n${artifact.content}\`\`\``}
             />
-            <footer class="deck-code-evidence-foot">
+            <p class="cs-model-trace-hash">
               <code>{artifact.artifact_ref}</code>
               {artifact.validation_detail ? <span>{artifact.validation_detail}</span> : null}
-            </footer>
+            </p>
           </section>
         ))}
       </div>

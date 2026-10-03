@@ -12,7 +12,8 @@ export function SummaryModule({ block }: PresentationModuleProps) {
     ? presentationDuration(timestamps[0]!, timestamps[timestamps.length - 1]!)
     : null;
   return (
-    <dl class="deck-presentation-summary">
+    // The conversation layer's fact grid: quiet labels over the values they qualify.
+    <dl class="deck-presentation-summary cs-deck-answer-facts">
       {block.data.items.map((item) => (
         <div
           key={item.label}

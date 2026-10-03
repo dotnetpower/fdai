@@ -1,14 +1,11 @@
-/* Current shared presentation contract for Command Deck and chat design mocks. */
+/* Current shared presentation for the chat design studies (response patterns and chat home variants).
+   The Command deck (deck.html) takes its presentation from the portable conversation layer instead. */
 body[data-chat-surface="current"] {
   color: var(--cs-text);
   background: var(--cs-card);
 }
 
-body[data-chat-surface="current"] :is(
-  .dk-shell,
-  .ex-workbench,
-  .crp-layout
-) {
+body[data-chat-surface="current"] .crp-layout {
   border-color: var(--cs-hairline);
   border-radius: var(--cs-radius-sm);
   background: var(--cs-card);
@@ -16,22 +13,6 @@ body[data-chat-surface="current"] :is(
 }
 
 body[data-chat-surface="current"] :is(
-  .dk-t-role,
-  .dk-t-badge,
-  .dk-turn-meta,
-  .dk-turn-meta strong,
-  .dk-turn-meta time,
-  .dk-chip,
-  .dk-s-time,
-  .dk-s-avatar,
-  .ex-windowbar,
-  .ex-backend-status,
-  .ex-window-context,
-  .ex-window-search-count,
-  .ex-window-search kbd,
-  .ex-conversation-filters button,
-  .ex-conversation-group h3,
-  .ic-preview-label,
   .crp-state,
   .crp-decision-flow li > span,
   .crp-decision-flow small,
@@ -47,43 +28,7 @@ body[data-chat-surface="current"] :is(
   font-size: var(--cs-type-label-size);
 }
 
-body[data-chat-surface="current"] .dk-mention {
-  color: var(--cs-text);
-}
-
 body[data-chat-surface="current"] :is(
-  .dk-exec-times,
-  .dk-tokens b,
-  .dk-delegation-route strong,
-  .dk-delegation-route span,
-  .dk-exec-risk,
-  .dk-exec-state,
-  .dk-exec-title,
-  .dk-exec-command-head strong,
-  .dk-exec-command-head span,
-  .dk-exec-result,
-  .dk-exec-section summary,
-  .dk-exec-meta,
-  .dk-citations-label,
-  .dk-cite-link,
-  .dk-tool-latency,
-  .dk-router,
-  .dk-router b,
-  .dk-router span,
-  .dk-bubble-label,
-  .dk-cc,
-  .dk-mention,
-  .dk-code-lang,
-  .dk-chart-caption,
-  .dk-aggregation,
-  .dk-table th,
-  .dk-table code,
-  .dk-figure figcaption,
-  .dk-chart-legend,
-  .dk-turn-avatar,
-  .dk-turn-actions button,
-  .dk-attach-thumb,
-  .dk-copy,
   .crp-table th,
   .crp-activity-copy small,
   .crp-activity-duration,
@@ -104,137 +49,27 @@ body[data-chat-surface="current"] :is(
   font-size: var(--cs-type-label-size);
 }
 
-body[data-chat-surface="current"] :is(
-  .dk-layout-controls button,
-  .dk-close,
-  .dk-sessions-close,
-  .dk-sessions .dk-new,
-  .dk-suggest button,
-  .dk-t2-escalate,
-  .dk-attach-btn,
-  .ex-search-previous,
-  .ex-search-next,
-  .ex-window-layout button,
-  .ex-close-deck
-) {
-  min-width: var(--cs-control-height);
-  min-height: var(--cs-control-height);
-}
-
-body[data-chat-surface="current"] :is(
-  .dk-turn,
-  .ex-turn,
-  .ic-question,
-  .ic-answer,
-  .crp-turn
-) {
+body[data-chat-surface="current"] .crp-turn {
   min-width: 0;
 }
 
-body[data-chat-surface="current"] :is(
-  .dk-bubble,
-  .ex-user-bubble,
-  .cs-deck-user-bubble
-) {
-  border: 1px solid color-mix(in srgb, var(--cs-steel) 18%, var(--cs-hairline));
-  border-radius: 8px;
-  background: var(--cs-question-bg);
-  color: var(--cs-text);
-  box-shadow: none;
-}
-
-body[data-chat-surface="current"] :is(
-  .dk-answer,
-  .ex-answer,
-  .cs-deck-answer,
-  .ic-answer
-) {
-  color: var(--cs-text);
-}
-
-body[data-chat-surface="current"] :is(
-  .dk-source-readiness,
-  .dk-run,
-  .ex-source-readiness,
-  .ex-investigation,
-  .crp-surface,
-  .ic-unavailable
-) {
+body[data-chat-surface="current"] .crp-surface {
   border-color: var(--cs-hairline);
   border-radius: var(--cs-radius-sm);
   background: var(--cs-card);
   box-shadow: none;
 }
 
-body[data-chat-surface="current"] :is(
-  .dk-source-readiness,
-  .ex-source-readiness,
-  .ex-digest
-) {
-  background: var(--cs-shade);
-}
-
-/* Full and adaptive Command Deck */
-body[data-chat-surface="current"] .dk-shell {
-  width: min(100%, 1180px);
-  margin-inline: auto;
-}
-
-body[data-chat-surface="current"] :is(.dk-t-head, .ex-windowbar) {
-  background: var(--cs-card);
-}
-
-body[data-chat-surface="current"] :is(.dk-transcript, .ex-transcript) {
-  background: var(--cs-card);
-}
-
-body[data-chat-surface="current"] .ex-thread {
-  background: var(--cs-card);
-}
-
-body[data-chat-surface="current"] :is(.dk-input-row, .ex-composer, .ic-composer) {
-  background: var(--cs-card);
-}
-
-body[data-chat-surface="current"] :is(.dk-composer, .ex-composer-inner, .chat-composer) {
+body[data-chat-surface="current"] .chat-composer {
   border-color: var(--cs-hairline);
   border-radius: 8px;
   background: var(--cs-card);
   box-shadow: none;
 }
 
-body[data-chat-surface="current"] :is(.dk-composer textarea, .ex-composer textarea, .ic-composer textarea, .chat-composer textarea) {
+body[data-chat-surface="current"] .chat-composer textarea {
   color: var(--cs-text);
   background: transparent;
-}
-
-body[data-chat-surface="current"] .ex-workbench {
-  background: var(--cs-card);
-}
-
-body[data-chat-surface="current"] .ex-windowbar {
-  border-bottom-color: var(--cs-hairline);
-}
-
-body[data-chat-surface="current"] :is(.ex-control, .ex-window-search, .ex-conversation-search) {
-  border-color: var(--cs-hairline);
-  background: var(--cs-card);
-  color: var(--cs-text);
-}
-
-body[data-chat-surface="current"] .ex-attach {
-  border-color: var(--cs-hairline);
-  background: var(--cs-card);
-  color: var(--cs-text-soft);
-}
-
-/* Incident and response-pattern studies */
-body[data-chat-surface="current"] .ic-header {
-  background: var(--cs-card);
-}
-
-body[data-chat-surface="current"] .ic-question .cs-deck-user-bubble {
-  max-width: 70ch;
 }
 
 body[data-chat-surface="current"] .crp-page {
@@ -292,8 +127,6 @@ body[data-chat-surface="current"] :is(.chat-alert, .chat-quiet, .chat-specimen-l
 }
 
 body[data-theme="dark"][data-chat-surface="current"] :is(
-  .ex-workbench,
-  .ex-windowbar,
   .chat-mock,
   .chat-main,
   .variant-toolbar
@@ -302,19 +135,13 @@ body[data-theme="dark"][data-chat-surface="current"] :is(
 }
 
 body[data-theme="dark"][data-chat-surface="current"] :is(
-  .ex-backend-status,
   .crp-state,
   .chat-alert
 ) {
   color: var(--cs-text);
 }
 
-body[data-theme="dark"][data-chat-surface="current"] :is(
-  .dk-send,
-  .ex-send,
-  .composer-send,
-  .ic-answer-actions .cs-control-button.is-primary
-) {
+body[data-theme="dark"][data-chat-surface="current"] .composer-send {
   border-color: color-mix(in srgb, var(--cs-steel) 62%, #000);
   background: color-mix(in srgb, var(--cs-steel) 58%, #000);
   color: #fff;
@@ -332,34 +159,12 @@ body[data-theme="dark"][data-chat-surface="current"] :is(
   }
 
   body[data-chat-surface="current"] :is(
-    .dk-layout-controls button,
-    .dk-close,
-    .dk-sessions-close,
-    .dk-sessions .dk-new,
-    .dk-attach-btn,
-    .ex-search-previous,
-    .ex-search-next,
-    .ex-window-layout button,
-    .ex-close-deck,
     .chat-rail button,
     .chat-composer button
   ) {
     min-width: 44px;
     min-height: 44px;
   }
-
-  body[data-chat-surface="current"] .dk-transcript > .flow-context {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  body[data-chat-surface="current"] .dk-transcript > .flow-context > div:nth-child(2n) {
-    border-right: 0;
-  }
-
-  body[data-chat-surface="current"] .dk-transcript > .flow-context > div {
-    border-bottom: 1px solid var(--cs-hairline);
-  }
-
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -375,8 +180,6 @@ body[data-theme="dark"][data-chat-surface="current"] :is(
 
 @media (forced-colors: active) {
   body[data-chat-surface="current"] :is(
-    .dk-shell,
-    .ex-workbench,
     .crp-layout,
     .crp-surface,
     .chat-composer

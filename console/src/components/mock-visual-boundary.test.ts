@@ -91,22 +91,33 @@ describe("mock console visual boundary", () => {
 
   test("keeps the Command Deck mock aligned with responsive production panels", () => {
     const deck = readFileSync(`${MOCK_ROOT}/deck.html`, "utf8");
+    const study = readFileSync(`${MOCK_ROOT}/assets/deck-study.css`, "utf8");
+    const primitives = readFileSync(`${REPOSITORY_ROOT}/ui/calm-slate-primitives.css`, "utf8");
     const readme = readFileSync(`${MOCK_ROOT}/README.md`, "utf8");
 
-    expect(deck).toContain('id="dk-conversations-close"');
-    expect(deck).toContain('class="dk-sessions-scrim" aria-label="Close conversations"');
+    // The study renders the production shell roles, so the panels share the Console geometry.
+    expect(deck).toContain('class="cs-deck-conversation-panel ds-panel ds-conversations"');
+    expect(deck).toContain('class="cs-deck-digest-panel ds-panel ds-digest"');
+    expect(deck).toContain('id="ds-conversations-close" aria-label="Close conversations"');
+    expect(deck).toContain(
+      'class="cs-deck-conversation-scrim" id="ds-conversations-scrim" aria-label="Close conversations"',
+    );
     expect(deck).toContain('aria-label="What the deck sees"');
-    expect(deck).toContain("Current screen snapshot");
-    expect(deck).toContain(".dk-shell.is-conversations-open.is-trace-open { position: relative; grid-template-columns: minmax(0, 1fr); }");
-    expect(deck).toMatch(/@media \(max-width: 780px\)[\s\S]*\.dk-shell\.is-conversations-open \.dk-sessions \{[\s\S]*position: absolute;[\s\S]*width: min\(300px, 82%\);/);
-    expect(deck).toContain(".dk-shell.is-conversations-open .dk-sessions-close { display: grid; width: 44px; height: 44px; }");
-    expect(deck).toMatch(/@media \(max-width: 1100px\)[\s\S]*#dk-trace-toggle \{ display: none; \}/);
-    expect(deck).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.dk-shell\.is-conversations-open \.dk-sessions-scrim \{[\s\S]*position: absolute;[\s\S]*inset: 0;[\s\S]*display: block;/);
-    expect(deck).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.dk-shell\.is-conversations-open \.dk-sessions \{[\s\S]*position: absolute;[\s\S]*width: 220px;/);
-    expect(deck).toMatch(/@media \(max-width: 780px\)[\s\S]*\.dk-session-controls input,[\s\S]*\.dk-composer button \{ min-height: 44px; \}/);
-    expect(deck).toContain("a.dk-chip { min-height: 44px; align-items: center; }");
     expect(deck).not.toContain("Retrieval trace</h3>");
-    expect(readme).toContain("transcript-first workspace with optional conversation history and current-screen context panels");
+    expect(primitives).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*\.cs-deck-conversation-panel \{[\s\S]*position: absolute;[\s\S]*width: min\(var\(--cs-deck-conversation-width\), 82%\);/,
+    );
+    expect(primitives).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*\.cs-deck-conversation-scrim \{[\s\S]*position: absolute;[\s\S]*inset: 0;[\s\S]*display: block;/,
+    );
+    expect(primitives).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.cs-deck-digest-panel \{ display: none; \}/);
+    expect(study).toContain(".ds-body-grid > .cs-deck-conversation-scrim[hidden] { display: none; }");
+    expect(study).toMatch(/@media \(max-width: 1100px\) \{\s*\.ds-digest-toggle \{ display: none; \}/);
+    expect(study).toMatch(
+      /@media \(max-width: 620px\)[\s\S]*\.ds-header-actions \.ds-icon-button \{ width: 44px; height: 44px; \}/,
+    );
+    expect(study).toMatch(/@media \(max-width: 620px\)[\s\S]*\.ds-panel-filter \{ min-height: 44px; \}/);
+    expect(readme).toContain("The header opens the conversation history and screen-context panels.");
   });
 
   test("registers the synthetic Service Map under visualization studies", () => {

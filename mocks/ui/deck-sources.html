@@ -3,153 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Command deck sources - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v4" />
-  <link rel="stylesheet" href="../../ui/calm-slate-deck-conversation.css?v=conversation-v44" />
-  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <script src="assets/deck-answer.js?v=common-answer-v2" defer></script>
-  <script src="assets/deck-sources.js?v=common-answer-v2" defer></script>
-  <link rel="stylesheet" href="assets/deck-study.css?v=common-answer-v2" />
-  <link rel="stylesheet" href="assets/chat-current.css?v=11" />
-  <link rel="stylesheet" href="assets/deck-answer.css?v=common-answer-v2" />
+  <meta name="robots" content="noindex" />
+  <title>Command deck sources moved - FDAI Console</title>
+  <script>
+    // Retired study URL. The Command deck shows every response form on one page, so this address
+    // opens it on the answer form and keeps any scenario, state, width, or trace parameter.
+    (function () {
+      var query = new URLSearchParams(window.location.search);
+      query.delete("preview");
+      query.delete("shell");
+      query.set("form", "answer");
+      var target = "deck.html?" + query.toString();
+      window.location.replace(window.self === window.top ? "/#mocks/ui/" + target : target);
+    })();
+  </script>
 </head>
-<body data-preserve-page-title data-chat-theme="clear-neutral" data-chat-surface="current" data-deck-state="loading" data-sources-layout="readable">
-  <main class="ds-page">
-    <h1 class="cs-sr-only">Command deck sources</h1>
-
-    <details class="ds-preview" id="ds-preview">
-      <summary>
-        <span class="ds-preview-title">Preview controls</span>
-        <span class="ds-preview-note">Synthetic example &middot; No live execution</span>
-      </summary>
-      <div class="ds-preview-body">
-        <p class="ds-preview-lead">Replays one Command deck answer: Bragi reads read-only sources, grounds each claim, and states evidence limits. The deck can only draft a typed request; the server revalidates it, and a separate executor identity applies any approved change. Every value is synthetic, and nothing runs against a real system.</p>
-        <div class="ds-preview-row">
-          <span class="ds-preview-label" id="ds-scenario-label">Scenario</span>
-          <div class="cs-control-segmented ds-segmented" role="group" aria-labelledby="ds-scenario-label">
-            <button type="button" data-scenario="grounded" aria-pressed="true">Grounded</button>
-            <button type="button" data-scenario="partial" aria-pressed="false">Partial evidence</button>
-            <button type="button" data-scenario="unavailable" aria-pressed="false">Source unavailable</button>
-            <button type="button" data-scenario="conflict" aria-pressed="false">Conflicting evidence</button>
-            <button type="button" data-scenario="corrected" aria-pressed="false">Corrected</button>
-          </div>
-        </div>
-        <div class="ds-preview-row">
-          <span class="ds-preview-label" id="ds-speed-label">Replay speed</span>
-          <div class="cs-control-segmented ds-segmented" role="group" aria-labelledby="ds-speed-label">
-            <button type="button" data-speed="0.5" aria-pressed="false">0.5x</button>
-            <button type="button" data-speed="1" aria-pressed="true">1x</button>
-            <button type="button" data-speed="2" aria-pressed="false">2x</button>
-          </div>
-          <span class="ds-preview-label" id="ds-width-label">Width</span>
-          <div class="cs-control-segmented ds-segmented" role="group" aria-labelledby="ds-width-label">
-            <button type="button" data-width="full" aria-pressed="true">Full</button>
-            <button type="button" data-width="dock" aria-pressed="false">Dock</button>
-          </div>
-        </div>
-        <div class="ds-preview-row">
-          <label class="cs-control-switch ds-switch">
-            <input type="checkbox" id="ds-trace" />
-            <span class="cs-control-switch-track" aria-hidden="true"></span>
-            <span class="ds-switch-copy">
-              <span class="ds-switch-title">Capture model request and response trace</span>
-              <span class="ds-switch-hint">Mirrors Settings &gt; Display. New turns keep a redacted copy of model requests and responses; earlier turns stay uncaptured.</span>
-            </span>
-          </label>
-        </div>
-        <div class="ds-preview-actions">
-          <button type="button" class="cs-control-button" id="ds-replay">Replay</button>
-          <button type="button" class="cs-control-button" id="ds-finish">Show result</button>
-        </div>
-        <div class="ds-preview-row">
-          <span class="ds-preview-label" id="ds-answer-format-label">Answer input</span>
-          <div class="cs-control-segmented" role="group" aria-labelledby="ds-answer-format-label">
-            <button type="button" data-answer-format="markdown" aria-pressed="true">Markdown</button>
-            <button type="button" data-answer-format="json" aria-pressed="false">JSON</button>
-          </div>
-        </div>
-        <label for="ds-answer-input">Response input</label>
-        <textarea id="ds-answer-input" class="ds-answer-input" rows="6" spellcheck="false"></textarea>
-        <div class="ds-preview-actions">
-          <button type="button" class="cs-control-button" id="ds-answer-render">Render preview</button>
-          <span id="ds-answer-input-status" role="status">Synthetic preview</span>
-        </div>
-        <section class="ds-answer-preview" aria-label="Response preview">
-          <div id="ds-answer-output"></div>
-        </section>
-      </div>
-    </details>
-
-    <section class="ds-workspace cs-deck-surface cs-deck-workspace-shell cs-deck-conversation" id="ds-workspace" aria-label="Command deck" data-width="full" data-open="true">
-      <header class="ds-header cs-deck-workspace-header" id="ds-header">
-        <div class="ds-header-title">
-          <span class="ds-header-glyph" aria-hidden="true">
-            <svg viewBox="0 0 16 16" width="16" height="16" focusable="false"><path d="M3 2.75h10a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H7L3.5 14v-2.25H3a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 3 2.75Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          </span>
-          <span class="ds-header-copy">
-            <h2 class="ds-header-conversation" id="ds-conversation-title">Why is example-postgres flagged?</h2>
-            <span class="ds-header-route">Live cockpit</span>
-          </span>
-        </div>
-        <div class="ds-search" id="ds-search-panel" role="search">
-          <span class="ds-search-icon" aria-hidden="true">&#8981;</span>
-          <input class="ds-search-input" id="ds-search" type="search" placeholder="Search turns..." aria-label="Search this conversation" autocomplete="off" />
-          <span class="ds-search-count" id="ds-search-count" aria-live="polite"></span>
-          <button type="button" class="ds-icon-button" id="ds-search-prev" aria-label="Previous match" data-tip="Previous match" disabled>
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 12.5v-9M4 7.5l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          </button>
-          <button type="button" class="ds-icon-button" id="ds-search-next" aria-label="Next match" data-tip="Next match" disabled>
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 3.5v9M4 8.5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          </button>
-          <kbd class="ds-kbd">Ctrl K</kbd>
-        </div>
-        <div class="ds-header-actions">
-          <button type="button" class="ds-icon-button" id="ds-search-toggle" aria-label="Search conversation" aria-expanded="false" aria-controls="ds-search-panel" data-tip="Search conversation">
-            <span aria-hidden="true">&#8981;</span>
-          </button>
-          <button type="button" class="ds-icon-button" id="ds-new" aria-label="New conversation" data-tip="New conversation">
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
-          </button>
-          <button type="button" class="ds-icon-button" id="ds-close" aria-label="Close command deck" data-tip="Close command deck">
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-      </header>
-
-      <div class="cs-deck-source-readiness-slot" id="ds-readiness"></div>
-
-      <div class="cs-deck-workspace-body ds-body-grid" id="ds-body">
-        <div class="cs-deck-transcript-column">
-          <section class="cs-deck-transcript" id="ds-transcript" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" aria-busy="false">
-            <div class="cs-deck-transcript-inner" id="ds-turns"></div>
-          </section>
-        </div>
-      </div>
-
-      <form class="cs-deck-composer-shell ds-composer" id="ds-composer">
-        <div class="cs-deck-composer-context">
-          <button type="button" class="cs-deck-context-chip" id="ds-context" aria-label="Remove reference screen: Live cockpit" data-tip="Exclude this screen from future questions. Messages already sent stay in the conversation.">
-            <span><span class="cs-deck-context-prefix">Reference screen: </span>Live cockpit</span><span aria-hidden="true">&times;</span>
-          </button>
-          <button type="button" class="cs-deck-jump" id="ds-jump" data-tip="Jump to latest" hidden><span aria-hidden="true">&darr;</span> <span class="cs-deck-jump-label">Jump to latest</span></button>
-        </div>
-        <div class="cs-deck-composer-grid">
-          <button type="button" class="cs-deck-tool cs-deck-tool-icon" id="ds-attach" aria-label="Attach evidence" data-tip="Attach evidence">
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
-          </button>
-          <textarea class="cs-deck-composer-input" id="ds-input" rows="1" placeholder="Ask anything..." aria-label="Ask anything about Live cockpit, or type / for commands"></textarea>
-          <button type="submit" class="cs-deck-composer-send" id="ds-send" disabled>Send</button>
-        </div>
-        <p class="cs-deck-composer-note" id="ds-composer-note" role="status"></p>
-      </form>
-
-      <div class="ds-closed" id="ds-closed" hidden>
-        <p>Command deck is closed.</p>
-        <button type="button" class="cs-control-button" id="ds-reopen">Open Command deck</button>
-      </div>
-    </section>
-
-    <div class="cs-sr-only" id="ds-announcer" role="status" aria-live="polite" aria-atomic="true"></div>
+<body>
+  <main>
+    <p>Command deck sources is now the Answer form of the <a href="deck.html?form=answer">Command deck</a>.</p>
   </main>
 </body>
 </html>

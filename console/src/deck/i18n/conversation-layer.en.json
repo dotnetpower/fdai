@@ -1,0 +1,26 @@
+{
+  "documentArtifact": {
+    "rows": "Rows",
+    "digest": "Digest",
+    "preview": "Preview"
+  },
+  "presentation": {
+    "exactValueRows": "{count} rows"
+  },
+  "leave": {
+    "title": "Open {screen}?",
+    "body": "This closes the conversation and shows {screen} in its place. Stay here to keep reading.",
+    "stay": "Stay here",
+    "open": "Open {screen}"
+  },
+  "retrieval": {
+    "readOnly": "Read-only",
+    "stepsLabel": "Preparation steps",
+    "stageDone": "Done",
+    "stageActive": "In progress"
+  },
+  "rich": {
+    "copy": "Copy",
+    "copyCode": "Copy {language}"
+  }
+}

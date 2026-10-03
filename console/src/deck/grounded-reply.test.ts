@@ -5,10 +5,13 @@ import { setLocale } from "../i18n";
 import type { AnswerVerification, SemanticProjectionReceipt } from "./backend";
 import {
   assuranceHref,
+  claimDetail,
   hasEvidenceReferenceCitations,
+  pillIssues,
   primaryAnswerText,
   sourceButtonAccessibleLabel,
   verificationLabel,
+  verificationTone,
 } from "./grounded-reply";
 import { secondaryEvidencePostureIssueKind } from "./verification-presentation";
 
@@ -326,15 +329,63 @@ describe("grounded reply presentation", () => {
     );
   });
 
-  it("keeps long source badges readable without clipping", () => {
-    const styles = readFileSync(
-      fileURLToPath(new URL("../styles.css", import.meta.url)),
+  it("keeps long source kinds inside their column without clipping the row", () => {
+    const layer = readFileSync(
+      fileURLToPath(new URL("../../../ui/calm-slate-deck-conversation.css", import.meta.url)),
+      "utf8",
+    );
+    const component = readFileSync(
+      fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
       "utf8",
     );
 
-    expect(styles).toMatch(
-      /\.deck-src-badge \{[^}]*width: 60px;[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;/s,
+    expect(component).toContain('<span class="cs-deck-kind">{source.badge}</span>');
+    expect(layer).toMatch(
+      /\.cs-deck-source \{[^}]*grid-template-columns: 22px 84px minmax\(0, 1fr\) auto;/s,
     );
+    expect(layer).toMatch(
+      /\.cs-deck-kind \{[^}]*min-width: 0;[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;/s,
+    );
+  });
+
+  it("keeps the established verification tone for each status and evidence issue", () => {
+    const plain = { boundedCorrection: false, pendingSelection: false };
+    const of = (status: AnswerVerification["status"]) => ({ ...verification("server_read_model"), status });
+
+    expect(verificationTone(of("verified"), null, plain)).toBe("verified");
+    expect(verificationTone(of("consistent"), null, plain)).toBe("consistent");
+    expect(verificationTone(of("corrected"), null, plain)).toBe("attention");
+    expect(verificationTone(of("corrected"), null, { ...plain, boundedCorrection: true })).toBe("verified");
+    expect(verificationTone(of("verified"), null, { ...plain, pendingSelection: true })).toBe("consistent");
+    for (const held of ["contextRequired", "sourceUnavailable", "visionUnverified"]) {
+      expect(verificationTone(of("unverified"), held, plain)).toBe("attention");
+    }
+    expect(verificationTone(of("unverified"), "unsupportedClaim", plain)).toBe("failure");
+    expect(verificationTone(of("unverified"), null, plain)).toBe("failure");
+    expect(verificationTone(of("verified"), "staleEvidence", plain)).toBe("attention");
+    expect(verificationTone(of("consistent"), "partialEvidence", plain)).toBe("attention");
+    expect(verificationTone(of("verified"), "conflictingEvidence", plain)).toBe("failure");
+    expect(
+      verificationTone(of("verified"), "evidenceUnavailable", { ...plain, pendingSelection: true }),
+    ).toBe("failure");
+  });
+
+  it("shows the claim count beside the verdict and names each pill issue once", () => {
+    expect(claimDetail(verification("server_read_model"))).toBe("1/1 claims supported");
+    expect(claimDetail({ ...verification("server_read_model"), claims: [] })).toBeNull();
+    setLocale("ko");
+    try {
+      expect(claimDetail(verification("server_read_model"))).toBe("claim 1개 중 1개 근거 있음");
+    } finally {
+      setLocale("en");
+    }
+    expect(pillIssues(true, null, null)).toEqual(["partial evidence"]);
+    expect(pillIssues(true, "Partial evidence", "partialEvidence")).toEqual(["Partial evidence"]);
+    expect(pillIssues(false, "Stale evidence", "conflictingEvidence")).toEqual([
+      "Stale evidence",
+      "Conflicting evidence",
+    ]);
+    expect(pillIssues(false, null, null)).toEqual([]);
   });
 
   it("links answer review to the exact turn assessment", () => {
@@ -418,17 +469,17 @@ describe("grounded reply presentation", () => {
     );
 
     expect(component).toContain(
-      'class="deck-gr-tool deck-gr-review cs-deck-tool"',
+      'class="deck-gr-review cs-deck-tool cs-deck-tool-icon cs-deck-tool-link"',
     );
     expect(component).not.toContain('class="deck-gr-review-status"');
     expect(component).not.toContain("TrajectoryStatusTrigger");
     expect(component).not.toContain("ConversationTrajectoryResults");
     expect(component).not.toContain('class="deck-trajectory-flyout"');
     expect(component).toContain("verificationIssueKind(verification.reason_code)");
-    expect(component).toContain('is-${verificationIssue}');
+    expect(component).toContain("verificationTone(verification, verificationIssue, {");
     expect(component).toContain('verification?.status === "unverified"');
     expect(component).toContain("!verificationIssue && presentationArtifact");
-    expect(component).toContain('groundingAttention ? "!" : "\\u2713"');
+    expect(component).toContain('<span class="cs-deck-pill-mark" aria-hidden="true">!</span>');
   });
 
   it("copies the same primary answer text the operator can see", () => {

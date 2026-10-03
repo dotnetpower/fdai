@@ -102,10 +102,7 @@ Chat surfaces:
 
 | File | Purpose |
 |------|---------|
-| [deck.html](deck.html) | Command deck (chat) - transcript-first workspace with optional conversation history and current-screen context panels, visible Bragi-to-agent handoffs, grounded citations, observed read-command evidence, and evidence attachments |
-| [deck-sources.html](deck-sources.html) | Production-shaped Command Deck conversation that replays answer preparation: typed intent, read-only retrieval trace, grounded citations, sources panel, verification, a run record with the observed execution timeline and model provider waterfall, and grounded, partial-evidence, source-unavailable, conflicting-evidence, and corrected scenarios |
-| [deck-adaptive.html](deck-adaptive.html) | Procedural Command Deck investigation replayed from the shared synthetic trajectories in `fixtures/adaptive/`: a plan line, a context receipt, gated parallel read waves, activity cards that separate operation, authorization, evidence authority, and execution authority, workflow milestones, settled turn budget telemetry, and a fact-grid answer across no-drift, drift, timed-out read, conflicting evidence, denied access, clarification, stale context, and turn deadline scenarios |
-| [deck-sources-v2.html](deck-sources-v2.html) | Adaptive response lifecycle with an in-transcript selector for investigation, clarification, evidence posture, governed proposal, effect verification, cancellation, memory retention, structured brief, and rendered Markdown document examples |
+| [deck.html](deck.html) | Command deck (chat) - the one production-shaped conversation surface. Its preview controls choose a response form: Answer (grounded, partial evidence, source unavailable, conflicting evidence, corrected, unverified, and connected resources), Investigation (the eight shared trajectories in `fixtures/adaptive/`), Incident (an open incident and a service readiness brief), Change (governed proposal, effect verification, and cancellation), and Memory and documents (memory retention and a Markdown document). Every form replays the same turn anatomy: typed intent, read-only preparation, a cited answer with structured blocks, verification, sources, a run record with the execution timeline and model provider waterfall, and follow-ups. The Answer form uses the readable common answer presentation: a verification status before the answer, Markdown and typed JSON answers rendered through the common answer renderer, readable sources with Back to answer, an evidence services disclosure, and a preview tool that renders edited Markdown or JSON. The header opens the conversation history and screen-context panels. `deck-sources.html`, `deck-adaptive.html`, `deck-sources-v2.html`, and `incident-conversation.html` redirect to the matching form. |
 | [conversation-response-patterns.html](conversation-response-patterns.html) | Operational response patterns and deterministic selection order for bounded investigation disclosure, target clarification, evidence limits, governed recovery proposals, graded effect verification, cancellation receipts, consent-based durable learning, structured operational briefs, and rendered Markdown documents |
 
 Presentation wireframes (offline, not part of the console shell):
@@ -134,13 +131,12 @@ Report and kit:
 - [../../ui/calm-slate-deck-conversation.css](../../ui/calm-slate-deck-conversation.css) - portable
   Command Deck conversation roles (readiness strip, retrieval trace, citations, evidence notes,
   sources panel, follow-ups, composer context, the run record with its execution timeline and
-  model provider waterfall, compact code blocks, and the adaptive investigation roles). Only
-  [deck-sources.html](deck-sources.html) and [deck-adaptive.html](deck-adaptive.html) import it
-  today. Every rule is scoped under
-  `.cs-deck-conversation` or uses a role the Console does not render yet, so importing it changes no
-  existing surface. The file header lists the Console component that owns each role and the
-  adoption steps: import the file, add the root role, render the roles, and delete the superseded
-  legacy `.deck-*` declarations instead of overriding them.
+  model provider waterfall, compact code blocks, the investigation roles, and the structured answer
+  blocks for briefs, tables, evidence groups, steps, timelines, request cards, and documents).
+  [deck.html](deck.html) and the Console Command Deck import it. Every rule is scoped under
+  `.cs-deck-conversation` or uses a role only a deck renders, so importing it changes no other
+  surface. The file header lists the Console component that owns each role; the Console adopted the
+  roles by deleting the superseded legacy `.deck-*` declarations instead of overriding them.
 - [assets/calm-slate.css](assets/calm-slate.css) - mock layout and component styles over the shared tokens:
   layout container (max-width 1160px), section number badges, cards, KPI grid, AS-IS/TO-BE
   comparison, critique table, pill tags, severity badges, trust-tier chips, buttons, forms,
@@ -167,20 +163,30 @@ Report and kit:
   explains tier, autonomy, and mode badges on hover or focus. Queue preserves the same work facts
   as Flow while adding risk, SLA, and control state. The page renders the swarm, sparkline, and
   audit ticker entirely client-side with no backend.
-- [assets/deck-study.css](assets/deck-study.css) - page chrome shared by the two Command deck
-  studies: preview controls, the workspace shell, and the empty-conversation intro.
-- [assets/deck-sources.js](assets/deck-sources.js) - Command deck sources and adaptive
-  investigation studies. The adaptive study, selected by `data-study="adaptive"`, reads
+- [assets/deck-study.css](assets/deck-study.css) - page chrome for the Command deck study:
+  preview controls, the workspace shell with its history and screen-context panels, and the
+  empty-conversation intro.
+- [assets/deck-forms.js](assets/deck-forms.js) - synthetic content for the incident, change, and
+  memory forms and for the answer form's unverified and connected-resources scenarios. It declares
+  sources, read-only tools, answer blocks, and follow-ups; the engine renders them.
+- [assets/deck-answer.ts](assets/deck-answer.ts) - the common answer renderer for the Answer form.
+  It renders Markdown and typed JSON answers with the Console's own Markdown and presentation
+  artifact parsers and never executes input. `assets/deck-answer.js` is generated by
+  `node mocks/ui/scripts/build-deck-answer.mjs`; `--check` fails when the bundle is stale.
+  `assets/deck-answer.css` styles it.
+- [assets/deck-sources.js](assets/deck-sources.js) - the Command deck replay engine for every
+  response form. `?form=` selects the form. The investigation form reads
   `fixtures/adaptive/*.json`, the synthetic trajectories that the Console contract tests also
   parse, and replays each wave's reads in parallel before the next wave starts. Replays
   scripted synthetic turns whose rule, policy, and ActionType facts match `rule-catalog/`, streams
   whole words with a short pause after each sentence, eases the transcript without lifting the
   question being answered above the top edge, renders the settled answer immediately under reduced
-  motion, and supports `?scenario=`, `?state=settled`, `?width=dock`, and `?trace=on` preview
-  parameters. The capture switch mirrors the Console "Capture model request and response trace"
-  setting and applies to new turns only. Sources open their provenance in place, and any deck
-  link to another screen asks for confirmation before it navigates. Model calls, digests, and messages in the run record are
-  synthetic; the study performs no request, model call, or state change.
+  motion, and supports `?form=`, `?scenario=`, `?state=settled`, `?width=dock`, and `?trace=on`
+  preview parameters. The capture switch mirrors the Console "Capture model request and response
+  trace" setting and applies to new turns only; a captured model call can open the synthetic
+  prompt fixture in `assets/prompts/`. Sources open their provenance in place, and any deck link to
+  another screen asks for confirmation before it navigates. Model calls, digests, and messages in
+  the run record are synthetic; the study performs no request, model call, or state change.
 
 ## Usage
 
@@ -222,8 +228,13 @@ without querying Azure or invoking operational APIs.
 Chat study checks run against the design server on `127.0.0.1:5373`:
 
 ```bash
-node --test mocks/ui/tests/chat-current.test.mjs mocks/ui/tests/deck-sources.test.mjs mocks/ui/tests/deck-adaptive.test.mjs
+node --test mocks/ui/tests/chat-current.test.mjs mocks/ui/tests/deck-sources.test.mjs mocks/ui/tests/deck-adaptive.test.mjs mocks/ui/tests/deck-forms-contract.test.js
 ```
+
+The chat surface checks audit every deck form in Light and Dark, at desktop, constrained, and
+mobile widths. The form contract checks resolve every citation, source, and read inside its own
+form, keep typed presentation profiles, and pin the incident, change, memory, and document
+semantics.
 
 The adaptive investigation checks keep the fixtures synthetic and internally consistent, then cover
 reading order, activity-card authority fields, wave gating and parallel reads, every scenario's

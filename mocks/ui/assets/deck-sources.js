@@ -1,14 +1,21 @@
-// Command deck conversation studies: the one-shot source-streaming study (deck-sources.html) and
-// the adaptive investigation study (deck-adaptive.html), which replays fixtures/adaptive/*.json.
+// Command deck study (deck.html): one conversation surface that replays every response form with
+// one turn anatomy. The answer form streams a grounded one-shot reply, the investigation form
+// replays fixtures/adaptive/*.json, and the incident, change, and memory forms come from
+// deck-forms.js. `?form=` selects the form; the retired study pages redirect here with it.
 // Synthetic data only. The replay performs no model call, provider read, or state change; the
-// adaptive study only fetches its local fixture files.
+// investigation form only fetches its local fixture files.
 (function () {
   "use strict";
 
   var DAY = "2026-09-28";
-  var STUDY = document.body.getAttribute("data-study") === "adaptive" ? "adaptive" : "sources";
-  var ADAPTIVE = STUDY === "adaptive";
-  var READABLE = document.body.getAttribute("data-sources-layout") === "readable";
+  var FORM_ORDER = ["answer", "investigation", "incident", "change", "memory"];
+  var requestedForm = new URLSearchParams(window.location.search).get("form");
+  var FORM = FORM_ORDER.indexOf(requestedForm) >= 0 ? requestedForm
+    : document.body.getAttribute("data-study") === "adaptive" ? "investigation" : "answer";
+  var ADAPTIVE = FORM === "investigation";
+  // The Answer form is the common answer presentation study, so it reads the readable layout.
+  var READABLE = FORM === "answer" || document.body.getAttribute("data-sources-layout") === "readable";
+  if (READABLE) document.body.setAttribute("data-sources-layout", "readable");
   var ROUTE = ADAPTIVE ? "Inventory" : "Live cockpit";
   var QUESTION = ADAPTIVE
     ? "Compare the configuration in example-inventory.md with the live example-rg-app resource group."
@@ -18,6 +25,15 @@
     ? "Bragi plans typed reads, runs them in waves, and answers from what it observed. This preview replays one scripted investigation."
     : "Bragi answers from read-only sources and cites each claim. This preview replays one scripted question.";
   var INVESTIGATIONS = ["no-drift", "drift", "partial", "conflict", "denied", "clarify", "stale", "budget"];
+  var INVESTIGATION_LABEL = { "no-drift": "No drift", drift: "Drift found", partial: "Read timed out", conflict: "Conflicting evidence",
+    denied: "Access denied", clarify: "Clarification", stale: "Stale context", budget: "Turn limit reached" };
+  var FORM_LEAD = {
+    answer: "Replays one Command deck answer: Bragi reads read-only sources, grounds each claim, and states evidence limits. The deck can only draft a typed request; the server revalidates it, and a separate executor identity applies any approved change.",
+    investigation: "Replays one procedural investigation: Bragi plans once, runs typed read waves, reports workflow progress, and answers with verified findings and explicit limits. Reads never carry execution authority, and a finding never becomes a draft on its own."
+  };
+  // Seconds after midnight UTC of the first question; a scenario can start later with `clock`.
+  var CLOCK_START = 38463;
+  var clockBase = CLOCK_START;
   var CHECK = "\u2713";
   var CANCELLED = { cancelled: true };
   var TIMING = { readiness: 320, stage: 300, source: 110, paragraph: 70, verify: 320, step: 200, collapse: 240 };
@@ -55,7 +71,9 @@
     "rule-trace.html": "Rule trace", "agent-activity.html": "Agent activity", "actions.html": "Actions",
     "promotion.html": "Promotion", "audit.html": "Audit", "settings-diagnostics.html": "Diagnostics",
     "incidents.html": "Incidents", "scheduler-runs.html": "Scheduler runs",
-    "conversation-assurance.html": "Conversation assurance"
+    "conversation-assurance.html": "Conversation assurance", "dashboard.html": "Dashboard", "ontology.html": "Ontology",
+    "settings-integrations.html": "Integrations", "settings-memory.html": "Memory settings",
+    "conversation-response-patterns.html": "Response patterns", "deck.html": "Command deck"
   };
 
   function pageLabel(href) {
@@ -202,6 +220,7 @@
     partial: {
       label: "Partial evidence",
       presentation: sourcePresentation("inventory", "Below minimum", "promotionDown", true),
+      profile: "evidence_posture",
       unavailableSources: ["audit"],
       stages: GROUNDED_STAGES.slice(0, 6).concat([
         { label: "Read promotion evidence", detail: "Audit source unavailable: shadow history not read", phase: "Retrieve", emits: ["action", "promotionDown"], attention: true },
@@ -219,6 +238,7 @@
     unavailable: {
       label: "Source unavailable",
       presentation: sourcePresentation("inventoryDown", "Current state unknown", null, false),
+      profile: "evidence_posture",
       unavailableSources: ["inventory"],
       stages: [
         MAIN_INTENT,
@@ -243,6 +263,7 @@
     conflict: {
       label: "Conflicting evidence",
       presentation: sourcePresentation("inventoryNew", "Unresolved conflict", null, false),
+      profile: "evidence_posture",
       unavailableSources: [],
       stages: [
         MAIN_INTENT,
@@ -392,6 +413,41 @@
     }
   };
 
+  // ---------- Response forms from deck-forms.js ----------
+  // The answer form gains the connected-resources scenario; the incident, change, and memory forms
+  // replace the scenario catalog and reuse every turn part below.
+  var EXTRAS = typeof window.FdaiDeckForms === "function"
+    ? window.FdaiDeckForms({ day: DAY, intent: intent, check: check, verified: verified }) : {};
+  var EXTRA = EXTRAS[FORM] || null;
+  // One conversation per form feeds the history panel, whichever form this page shows.
+  var FORM_CONVERSATIONS = [
+    { form: "answer", title: "Why is example-postgres flagged?", route: "Live cockpit", time: "10:05" },
+    { form: "investigation", title: "Configuration comparison", route: "Inventory", time: "09:58" },
+    { form: "incident", title: EXTRAS.incident ? EXTRAS.incident.title : "Incident", route: EXTRAS.incident ? EXTRAS.incident.route : "Incidents", time: "09:47" },
+    { form: "change", title: EXTRAS.change ? EXTRAS.change.title : "Change", route: EXTRAS.change ? EXTRAS.change.route : "Dashboard", time: "09:20" },
+    { form: "memory", title: EXTRAS.memory ? EXTRAS.memory.title : "Memory", route: EXTRAS.memory ? EXTRAS.memory.route : "Incidents", time: "Yesterday" }
+  ];
+  if (EXTRA) {
+    Object.assign(SOURCES, EXTRA.sources);
+    Object.assign(TOOLS, EXTRA.tools);
+    Object.assign(FOLLOWUPS, EXTRA.followups || {});
+    if (FORM === "answer") {
+      Object.assign(SCENARIOS, EXTRA.scenarios);
+    } else {
+      SCENARIOS = EXTRA.scenarios;
+      ROUTE = EXTRA.route;
+      QUESTION = EXTRA.question;
+      CONVERSATION_TITLE = EXTRA.title;
+      INTRO_LEAD = EXTRA.lead;
+      FORM_LEAD[FORM] = EXTRA.lead;
+    }
+  }
+  var SCENARIO_ORDER = ADAPTIVE ? INVESTIGATIONS : EXTRA && EXTRA.order ? EXTRA.order : Object.keys(SCENARIOS);
+
+  function scenarioLabel(key) {
+    return ADAPTIVE ? INVESTIGATION_LABEL[key] : SCENARIOS[key].label;
+  }
+
   // ---------- DOM helpers ----------
   var SVG_NS = "http://www.w3.org/2000/svg";
   var ICON_PATHS = {
@@ -447,9 +503,10 @@
     return svg;
   }
 
-  // Synthetic clock: offsets in seconds from the first question at 10:41:03 UTC.
+  // Synthetic clock: offsets in seconds from the first question, 10:41:03 UTC unless the scenario
+  // starts later.
   function stamp(offsetSeconds) {
-    var total = 38463 + offsetSeconds;
+    var total = clockBase + offsetSeconds;
     var pad = function (value) { return String(value).padStart(2, "0"); };
     var hh = pad(Math.floor(total / 3600));
     var mm = pad(Math.floor((total % 3600) / 60));
@@ -525,6 +582,248 @@
       h("span", { class: "cs-deck-evidence-note-mark", "aria-hidden": "true", text: "!" }),
       copy
     ]);
+  }
+
+  // ---------- Answer blocks: structured parts that follow the cited prose ----------
+  // A block renders verified values only. Text inside a block cites the answer's own sources, so
+  // every block reads as part of one answer instead of a second surface with its own chrome.
+  var GROUP_MARK = { verified: CHECK, unavailable: "!", unclaimed: "\u2013" };
+
+  function inlineNode(tag, props, text, spec, turnId, interactive) {
+    var node = h(tag, props);
+    renderInline(node, text, spec, turnId, interactive);
+    return node;
+  }
+
+  function chevron() {
+    return h("span", { class: "cs-run-chevron", "aria-hidden": "true" });
+  }
+
+  function briefHead(head) {
+    return h("header", { class: "cs-deck-brief-head" }, [
+      h("p", { class: "cs-deck-brief-ref", text: head.ref }),
+      h("h3", { class: "cs-deck-brief-title", text: head.title })
+    ]);
+  }
+
+  function factGrid(rows, spec, turnId, interactive) {
+    return h("dl", { class: "cs-deck-answer-facts" }, rows.map(function (pair) {
+      return h("div", null, [h("dt", { text: pair[0] }), inlineNode("dd", null, pair[1], spec, turnId, interactive)]);
+    }));
+  }
+
+  // The caption names both the table and its keyboard-scrollable region. A table under its own
+  // document heading keeps the caption for assistive technology only.
+  var tableSequence = 0;
+
+  function tableBlock(table, quietCaption) {
+    var codeColumns = table.code || [];
+    tableSequence += 1;
+    var captionId = "ds-table-" + tableSequence + "-caption";
+    return h("figure", { class: "cs-deck-table" }, [
+      h("figcaption", { class: quietCaption ? "cs-sr-only" : "cs-deck-table-caption", id: captionId, text: table.caption }),
+      h("div", { class: "cs-deck-table-scroll", role: "region", tabindex: "0", "aria-labelledby": captionId }, [
+        h("table", { "aria-labelledby": captionId }, [
+          h("thead", null, [h("tr", null, table.columns.map(function (column) { return h("th", { scope: "col", text: column }); }))]),
+          h("tbody", null, table.rows.map(function (row) {
+            return h("tr", null, row.map(function (cell, index) {
+              return codeColumns.indexOf(index) >= 0 ? h("td", null, [h("code", { text: cell })]) : h("td", { text: cell });
+            }));
+          }))
+        ])
+      ])
+    ]);
+  }
+
+  function disclosure(title, meta, body) {
+    return h("details", { class: "cs-deck-disclosure" }, [
+      h("summary", { class: "cs-deck-disclosure-summary" }, spaced([
+        h("span", { class: "cs-deck-disclosure-title", text: title }),
+        meta ? h("span", { class: "cs-deck-disclosure-meta", text: meta }) : null,
+        chevron()
+      ])),
+      h("div", { class: "cs-deck-disclosure-body" }, body)
+    ]);
+  }
+
+  // A proposal or a retention request is one bounded unit of work, so it alone gets a card.
+  // Its controls start separate requests; a blocked control states why next to it.
+  function requestCard(block, turnId, kind) {
+    var titleId = turnId + "-" + kind + "-title";
+    var reasonId = turnId + "-" + kind + "-reason";
+    var children = [
+      h("header", { class: "cs-deck-request-head" }, [
+        h("h4", { class: "cs-deck-request-title", id: titleId, text: block.title }),
+        h("span", { class: "cs-deck-request-state" + (block.stateTone ? " is-" + block.stateTone : ""), text: block.state })
+      ]),
+      h("dl", { class: "cs-deck-request-fields" }, block.fields.map(function (pair) {
+        return h("div", null, [h("dt", { text: pair[0] }), h("dd", { text: pair[1] })]);
+      }))
+    ];
+    if (block.safeguards) {
+      var ready = block.safeguards.filter(function (item) { return item.state === "ready"; }).length;
+      children.push(h("div", { class: "cs-deck-safeguards" }, [
+        h("p", { class: "cs-deck-safeguards-head" }, spaced([
+          h("strong", { text: "Safeguards" }),
+          h("span", { text: ready + " of " + block.safeguards.length + " ready" })
+        ])),
+        h("ul", { class: "cs-deck-safeguard-list" }, block.safeguards.map(function (item) {
+          var isReady = item.state === "ready";
+          return h("li", { class: "cs-deck-safeguard", "data-state": item.state }, [
+            h("span", { class: "cs-deck-safeguard-mark", "aria-hidden": "true", text: isReady ? CHECK : "!" }),
+            h("span", { class: "cs-deck-safeguard-label", text: item.label }),
+            h("span", { class: "cs-deck-safeguard-detail", text: item.detail }),
+            h("span", { class: "cs-deck-safeguard-state", text: isReady ? "Ready" : "Missing" })
+          ]);
+        }))
+      ]));
+    }
+    if (block.excluded) children.push(h("p", { class: "cs-deck-request-note", text: block.excluded }));
+    var reason = null;
+    var buttons = block.actions.map(function (action) {
+      if (action.reason) reason = action.reason;
+      return h("button", {
+        type: "button",
+        class: "cs-deck-affordance",
+        "data-action": action.action,
+        "data-done": action.done || null,
+        "aria-describedby": action.reason ? reasonId : null,
+        disabled: !!action.disabled,
+        text: action.label
+      });
+    });
+    if (reason) buttons.push(h("span", { class: "cs-deck-request-reason", id: reasonId, text: reason }));
+    children.push(h("div", { class: "cs-deck-request-actions" }, buttons));
+    return h("section", { class: "cs-deck-request is-" + kind, "aria-labelledby": titleId }, children);
+  }
+
+  function documentBlock(block, turnId) {
+    var titleId = turnId + "-document-title";
+    var parts = [h("strong", { text: "Assembled document" })];
+    block.assembly.forEach(function (text) { parts.push(separator(), h("span", { text: text })); });
+    var article = h("article", { class: "cs-deck-document", "aria-labelledby": titleId }, [
+      h("p", { class: "cs-deck-document-assembly" }, spaced(parts)),
+      h("h4", { class: "cs-deck-document-title", id: titleId, text: block.title }),
+      h("dl", { class: "cs-deck-document-meta" }, block.meta.map(function (pair) {
+        return h("div", null, [h("dt", { text: pair[0] }), h("dd", { text: pair[1] })]);
+      }))
+    ]);
+    block.sections.forEach(function (section) {
+      var body = [h("h5", { class: "cs-deck-document-heading", text: section.heading })];
+      (section.paragraphs || []).forEach(function (text) {
+        var paragraph = h("p");
+        appendText(paragraph, text);
+        body.push(paragraph);
+      });
+      if (section.list) body.push(h("ul", null, section.list.map(function (text) { return h("li", { text: text }); })));
+      if (section.ordered) body.push(h("ol", null, section.ordered.map(function (text) { return h("li", { text: text }); })));
+      if (section.table) body.push(tableBlock(section.table, true));
+      if (section.code) body.push(codeBlock(section.code, "yaml"));
+      article.appendChild(h("section", { class: "cs-deck-document-section" }, body));
+    });
+    article.appendChild(disclosure("View Markdown source", block.source.split("\n").length + " lines",
+      [codeBlock(block.source, "markdown")]));
+    return article;
+  }
+
+  function blockElement(block, spec, turnId, interactive) {
+    if (block.type === "facts") return factGrid(block.rows, spec, turnId, interactive);
+    if (block.type === "note") return noteElement(block, spec, turnId, interactive);
+    if (block.type === "table") return tableBlock(block, false);
+    if (block.type === "proposal") return requestCard(block, turnId, "proposal");
+    if (block.type === "consent") return requestCard(block, turnId, "consent");
+    if (block.type === "document") return documentBlock(block, turnId);
+    if (block.type === "status") {
+      var items = [];
+      block.items.forEach(function (item) {
+        if (items.length) items.push(separator());
+        items.push(h("span", { class: "cs-deck-status is-" + item.tone }, item.meta
+          ? [h("strong", { text: item.text }), " " + item.meta] : [item.text]));
+      });
+      return h("div", { class: "cs-deck-status-block" }, [
+        h("p", { class: "cs-deck-status-line" }, items),
+        block.note ? h("p", { class: "cs-deck-status-note", text: block.note }) : null
+      ]);
+    }
+    if (block.type === "groups") {
+      return h("div", { class: "cs-deck-evidence-groups" }, block.groups.map(function (group) {
+        return h("section", { class: "cs-deck-evidence-group", "data-tone": group.tone, "aria-label": group.title }, [
+          h("h4", { class: "cs-deck-evidence-group-title" }, spaced([
+            h("span", { class: "cs-deck-evidence-group-mark", "aria-hidden": "true", text: GROUP_MARK[group.tone] }),
+            group.title
+          ])),
+          h("ul", null, group.items.map(function (text) { return inlineNode("li", null, text, spec, turnId, interactive); }))
+        ]);
+      }));
+    }
+    if (block.type === "steps") {
+      var list = h("ol", { class: "cs-deck-steps" }, block.items.map(function (item) {
+        return h("li", null, [h("strong", { class: "cs-deck-step-title", text: item.title }),
+          inlineNode("span", { class: "cs-deck-step-text" }, item.text, spec, turnId, interactive)]);
+      }));
+      return block.title ? h("div", { class: "cs-deck-steps-block" }, [h("p", { class: "cs-deck-steps-title", text: block.title }), list]) : list;
+    }
+    if (block.type === "next") {
+      var next = h("p", { class: "cs-deck-answer-next" }, [h("strong", { text: "Next safe step: " })]);
+      renderInline(next, block.text, spec, turnId, interactive);
+      if (block.link) next.appendChild(h("a", { class: "cs-deck-answer-next-link", href: block.link.href, text: block.link.text }));
+      return next;
+    }
+    if (block.type === "timeline") {
+      return disclosure(block.title, block.meta, [
+        block.note ? h("p", { class: "cs-deck-timeline-note", text: block.note }) : null,
+        h("ol", { class: "cs-deck-timeline" }, block.items.map(function (item) {
+          return h("li", null, [
+            h("time", { class: "cs-deck-timeline-time", datetime: DAY + "T" + item.time + "Z", text: item.time }),
+            h("div", { class: "cs-deck-timeline-copy" }, [
+              h("strong", { text: item.title }),
+              inlineNode("p", null, item.text, spec, turnId, interactive)
+            ])
+          ]);
+        })),
+        block.after ? h("p", { class: "cs-deck-timeline-after", text: block.after }) : null
+      ]);
+    }
+    throw new Error("Unknown answer block " + block.type + ".");
+  }
+
+  function answerBlockNodes(spec, turnId, interactive) {
+    return (spec.blocks || []).map(function (block) { return blockElement(block, spec, turnId, interactive); });
+  }
+
+  // Copy returns the answer as plain text, blocks included, with citations as [n].
+  function plainText(text, spec) {
+    return text.replace(/\{([a-zA-Z]+)\}/g, function (marker, key) {
+      return " [" + (spec.sources.indexOf(key) + 1) + "]";
+    }).replace(/`/g, "");
+  }
+
+  function plainBlocks(spec) {
+    var lines = [];
+    (spec.blocks || []).forEach(function (block) {
+      if (block.type === "facts") block.rows.forEach(function (pair) { lines.push(pair[0] + ": " + plainText(pair[1], spec)); });
+      else if (block.type === "note") lines.push(block.label + ": " + plainText(block.text, spec));
+      else if (block.type === "status") lines.push(block.items.map(function (item) { return item.text + (item.meta ? " " + item.meta : ""); }).join(" / ")
+        + (block.note ? "\n" + block.note : ""));
+      else if (block.type === "groups") block.groups.forEach(function (group) {
+        lines.push(group.title + ":\n" + group.items.map(function (text) { return "- " + plainText(text, spec); }).join("\n"));
+      });
+      else if (block.type === "table") lines.push([block.columns.join(" | ")].concat(block.rows.map(function (row) { return row.join(" | "); })).join("\n"));
+      else if (block.type === "steps") lines.push((block.title ? block.title + ":\n" : "") + block.items.map(function (item, index) {
+        return (index + 1) + ". " + item.title + ": " + plainText(item.text, spec);
+      }).join("\n"));
+      else if (block.type === "next") lines.push("Next safe step: " + plainText(block.text, spec));
+      else if (block.type === "timeline") lines.push(block.title + ":\n" + block.items.map(function (item) {
+        return item.time + " " + item.title + ": " + plainText(item.text, spec);
+      }).join("\n"));
+      else if (block.type === "proposal" || block.type === "consent") {
+        lines.push(block.title + " (" + block.state + ")\n" + block.fields.map(function (pair) { return pair[0] + ": " + pair[1]; }).join("\n")
+          + (block.safeguards ? "\n" + block.safeguards.map(function (item) {
+            return "- " + item.label + ": " + (item.state === "ready" ? "Ready" : "Missing") + " (" + item.detail + ")";
+          }).join("\n") : "") + (block.excluded ? "\n" + block.excluded : ""));
+      } else if (block.type === "document") lines.push(block.source);
+    });
+    return lines;
   }
 
   // ---------- Turn parts ----------
@@ -621,11 +920,13 @@
     var fields = {};
     (spec.stages[0].intent || []).forEach(function (pair) { fields[pair[0].toLowerCase()] = pair[1]; });
     var capabilities = [];
+    var sideEffect = "read";
     toolKeys(spec).forEach(function (key) {
       if (capabilities.indexOf(TOOLS[key].tool) < 0) capabilities.push(TOOLS[key].tool);
+      if (TOOLS[key].authority === "conversation") sideEffect = "conversation_state";
     });
     return { goal: fields.goal, target: fields.target, scope: fields.scope, window: fields.window,
-      capabilities: capabilities, side_effect_class: "read" };
+      capabilities: capabilities, side_effect_class: sideEffect };
   }
 
   // The narrator model's raw draft, before verification removes unsupported sentences.
@@ -640,6 +941,7 @@
 
   function verificationState(spec) {
     if (spec.answerState === "corrected") return "corrected";
+    if (spec.answerState === "unverified") return "unverified";
     if (spec.verification.tone === "verified") return "completed";
     if (spec.verification.label === "Source unavailable") return "unverified";
     return "degraded";
@@ -655,17 +957,21 @@
     if (record.fixture) return fixtureTrajectory(record);
     var spec = record.spec;
     var question = spec.question || QUESTION;
-    var start = (38463 + record.offset) * 1000 + 160;
+    var start = (clockBase + record.offset) * 1000 + 160;
     var cursor = start;
     var items = [];
     var calls = [];
     var plan = typedIntent(spec);
+    var screen = spec.screen || { route: "live", tile: 12, resource: "example-postgres" };
+    var screenContext = {};
+    Object.keys(screen).forEach(function (key) { if (key !== "route") screenContext[key] = screen[key]; });
     items.push({ kind: "turn", kindLabel: "Turn", label: "Input", state: "completed", start: cursor, ms: 0, summary: question,
-      facts: [["Source", "operator"]], records: [["Operator input", question]] });
+      facts: [["Source", "operator"]].concat(spec.correlation ? [["Correlation", spec.correlation]] : []),
+      records: [["Operator input", question]] });
     cursor += 6;
     var planCall = modelCall("semantic_plan", cursor + 8, MODEL.planMs, [
       { role: "system", content: "You are Bragi, the FDAI narrator. Translate the operator question into one typed intent that uses only registered read-only capabilities. Do not decide, approve, or execute anything." },
-      { role: "system", content: pretty({ locale: "en", route: "live", screen: { tile: 12, resource: "example-postgres" }, capabilities: plan.capabilities }) },
+      { role: "system", content: pretty({ locale: "en", route: screen.route, screen: screenContext, capabilities: plan.capabilities }) },
       { role: "user", content: question }
     ], { content: pretty(plan) }, { prompt_tokens: 1184, completion_tokens: 142, total_tokens: 1326 }, []);
     calls.push(planCall);
@@ -682,7 +988,7 @@
       if (stateName === "completed") completed += 1;
       items.push({ kind: "evidence", kindLabel: "Evidence", label: tool.label, state: stateName, start: cursor, ms: tool.ms,
         summary: SOURCES[key] ? SOURCES[key].title + ": " + SOURCES[key].meta : null,
-        facts: [["Tool", tool.tool], ["Authority", "read"]],
+        facts: [["Tool", tool.tool], ["Authority", tool.authority || "read"]],
         records: [[tool.input === "query" ? "IQL or typed query" : "Executed command", tool.command], ["Observed output", pretty(tool.output)]] });
       cursor += tool.ms + 3;
     });
@@ -709,10 +1015,14 @@
       records: [["Verification receipt", pretty({ status: spec.verification.label, detail: check.detail,
         evidence_refs: spec.sources.map(function (key, index) { return "source:" + (index + 1) + ":" + TOOLS[key].tool; }) })]] });
     cursor += 58;
+    // A typed presentation profile, when the form has one, is part of the delivery record.
+    var delivery = { source: "semantic-direct-response", agent: "bragi", verification_status: spec.verification.label,
+      citation_count: spec.sources.length, follow_ups: (spec.followups || []).length };
+    if (spec.profile) delivery.presentation_profile = spec.profile;
     items.push({ kind: "turn", kindLabel: "Turn", label: "Answer", state: "completed", start: cursor, ms: 0,
-      summary: "verification: " + spec.verification.label, facts: [["Source", "semantic-direct-response"], ["Agent", "Bragi"]],
-      records: [["Delivery receipt", pretty({ source: "semantic-direct-response", agent: "bragi",
-        verification_status: spec.verification.label, citation_count: spec.sources.length, follow_ups: (spec.followups || []).length })]] });
+      summary: "verification: " + spec.verification.label,
+      facts: [["Source", "semantic-direct-response"], ["Agent", "Bragi"]].concat(spec.profile ? [["Presentation profile", spec.profile]] : []),
+      records: [["Delivery receipt", pretty(delivery)]] });
     var trajectory = {
       start: start, end: cursor, items: items, calls: calls, attempted: attempted, completed: completed,
       modelMs: planCall.ms + generationCall.ms, tokens: planCall.usage.total_tokens + generationCall.usage.total_tokens,
@@ -822,7 +1132,8 @@
     var kind = language || (/^\s*[\[{]/.test(text) ? "json" : "text");
     var code = h("code");
     text.split("\n").forEach(function (line) {
-      var parts = kind === "json" ? jsonTokens(line) : kind === "text" ? [line] : commandTokens(line);
+      // Markdown and YAML documents stay plain text; only JSON and commands are tokenized.
+      var parts = kind === "json" ? jsonTokens(line) : /^(?:text|markdown|yaml)$/.test(kind) ? [line] : commandTokens(line);
       code.appendChild(h("span", { class: "cs-deck-code-line" }, parts.length && line ? parts : [" "]));
     });
     var label = kind === "json" ? "JSON" : kind;
@@ -936,7 +1247,8 @@
         h("ol", { class: "cs-model-trace-layers", "aria-label": "Ordered prompt layers" }, PROMPT_LAYERS.map(function (layer) {
           return h("li", null, [h("code", { text: layer[0] }), h("span", { text: layer[1] + " v" + layer[2] }),
             h("span", { text: layer[3] + " tokens" })]);
-        }))
+        })),
+        promptFile()
       ]),
       h("ol", { class: "cs-model-trace-messages", "aria-label": "Request messages" }, groups.map(function (group) {
         // Each message keeps its own block, so a JSON context message is highlighted as JSON.
@@ -964,6 +1276,71 @@
       ])),
       detail
     ])]);
+  }
+
+  // ---------- Synthetic prompt file: the public example fixture, never a captured runtime prompt ----------
+  // It opens inline under the dynamic system prompt, loads within a deadline, stays read-only text,
+  // and closing it cancels a load that is still pending.
+  var PROMPT_FILE = "assets/prompts/system-prompt.example.md";
+  var PROMPT_NAME = "system-prompt.example.md";
+
+  function promptFile() {
+    var status = h("p", { class: "cs-deck-prompt-status", role: "status" });
+    var body = h("div", { class: "cs-deck-disclosure-body cs-deck-prompt-body" }, [status]);
+    var details = h("details", { class: "cs-deck-disclosure cs-deck-prompt-file" }, [
+      h("summary", { class: "cs-deck-disclosure-summary" }, spaced([
+        h("span", { class: "cs-deck-disclosure-title", text: PROMPT_NAME }),
+        h("span", { class: "cs-deck-disclosure-meta", text: "Synthetic example, not a captured prompt" }),
+        chevron()
+      ])),
+      body
+    ]);
+    var load = null;
+    function reset() {
+      if (load) {
+        load.controller.abort();
+        window.clearTimeout(load.deadline);
+        if (load.url) URL.revokeObjectURL(load.url);
+      }
+      load = null;
+      Array.prototype.slice.call(body.children).forEach(function (child) { if (child !== status) child.remove(); });
+      status.textContent = "";
+      body.removeAttribute("aria-busy");
+    }
+    details.addEventListener("toggle", function () {
+      if (!details.open) {
+        reset();
+        return;
+      }
+      reset();
+      var current = { controller: new AbortController(), deadline: 0, url: null };
+      load = current;
+      current.deadline = window.setTimeout(function () { current.controller.abort(); }, 5000);
+      status.textContent = "Loading " + PROMPT_NAME + "...";
+      body.setAttribute("aria-busy", "true");
+      fetch(PROMPT_FILE, { credentials: "omit", cache: "no-store", redirect: "error", signal: current.controller.signal })
+        .then(function (response) {
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          return response.text();
+        })
+        .then(function (text) {
+          if (load !== current) return;
+          if (!text || text.length > 16384 || text.indexOf("# ") !== 0) throw new Error("not a Markdown fixture");
+          window.clearTimeout(current.deadline);
+          current.url = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
+          status.textContent = "Markdown, " + text.replace(/\r\n/g, "\n").trimEnd().split("\n").length + " lines. Read-only text.";
+          body.removeAttribute("aria-busy");
+          body.appendChild(codeBlock(text, "markdown"));
+          body.appendChild(h("a", { class: "cs-deck-prompt-download", href: current.url, download: PROMPT_NAME, text: "Download " + PROMPT_NAME }));
+        })
+        .catch(function () {
+          if (load !== current) return;
+          window.clearTimeout(current.deadline);
+          body.removeAttribute("aria-busy");
+          status.textContent = "The prompt file could not be loaded. The redacted request above is still the record of this call.";
+        });
+    });
+    return details;
   }
 
   function modelTraceSection(trajectory, captureOn, captured) {
@@ -1106,8 +1483,9 @@
         // A source opens its provenance in place; only its explicit Open action leaves, after asking.
         var detailId = turnId + "-source-" + number + "-detail";
         var tool = TOOLS[key];
-        var facts = [["Access", "Read-only"], ["Opens", pageLabel(source.href)]];
-        if (tool) facts.unshift(["Read with", tool.tool]);
+        var facts = (source.facts || []).concat([["Access", tool && tool.authority === "conversation" ? "Conversation state" : "Read-only"],
+          ["Opens", pageLabel(source.href)]]);
+        if (tool) facts.unshift([tool.authority === "conversation" ? "Recorded with" : "Read with", tool.tool]);
         var displayTitles = { rule: "Point-in-time restore rule", policy: "Backup retention policy", action: "Enable backup protection" };
         if (READABLE) facts.unshift(["Identifier", source.title]);
         return h("li", null, [
@@ -1201,7 +1579,7 @@
         skeleton(), skeleton(), skeleton()
       ]);
     }
-    var unavailable = (SCENARIOS[mode] || SCENARIOS.grounded).unavailableSources;
+    var unavailable = (SCENARIOS[mode] || { unavailableSources: [] }).unavailableSources;
     if (READABLE) {
       return h("details", { class: "ds-services" }, [
         h("summary", null, [
@@ -1250,13 +1628,13 @@
 
   function initialScenario() {
     var requested = params.get("scenario");
-    if (ADAPTIVE) return INVESTIGATIONS.indexOf(requested) >= 0 ? requested : "no-drift";
-    return SCENARIOS[requested] ? requested : "grounded";
+    return SCENARIO_ORDER.indexOf(requested) >= 0 ? requested : SCENARIO_ORDER[0];
   }
 
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   var state = {
     scenario: initialScenario(),
+    route: ROUTE,
     speed: 1,
     width: params.get("width") === "dock" ? "dock" : "full",
     token: 0,
@@ -1291,6 +1669,7 @@
   var closedPanel = byId("ds-closed");
   var reopen = byId("ds-reopen");
   var titleNode = byId("ds-conversation-title");
+  var routeNode = byId("ds-route");
   var announcer = byId("ds-announcer");
   var searchInput = byId("ds-search");
   var searchCount = byId("ds-search-count");
@@ -1492,7 +1871,7 @@
         h("span", { class: "cs-grounding-title", text: "Preparing answer" }),
         status,
         elapsed,
-        h("span", { class: "cs-grounding-authority", text: "Read-only" })
+        h("span", { class: "cs-grounding-authority", text: spec.authority || "Read-only" })
       ])),
       stages
     ]);
@@ -1714,6 +2093,7 @@
     for (var index = 0; index < spec.answer.length; index += 1) {
       var paragraph = spec.answer[index];
       var node = h("p");
+      if (index === 0 && spec.head) prose.appendChild(briefHead(spec.head));
       prose.appendChild(node);
       await streamParagraph(node, paragraph.unsupported ? paragraph.text + " " + paragraph.unsupported : paragraph.text, spec, ctx, turnId,
         index === 0 ? dropPlaceholder : null);
@@ -1722,6 +2102,14 @@
       });
       followScroll();
       await pause(TIMING.paragraph, ctx);
+    }
+    // Structured blocks arrive whole, one after another, after the prose they support.
+    var blocks = answerBlockNodes(spec, turnId, false);
+    for (var order = 0; order < blocks.length; order += 1) {
+      if (!ctx.reduced) blocks[order].classList.add("cs-deck-enter");
+      prose.appendChild(blocks[order]);
+      followScroll();
+      await pause(TIMING.paragraph * 2, ctx);
     }
   }
 
@@ -1742,7 +2130,11 @@
 
   function finalizeTurn(spec, article, answer, turnId, offset, pendingRow, animate) {
     var prose = answer.querySelector(".cs-deck-prose");
+    // Rebuilding keeps any expanded block open, so a reader inside the timeline keeps their place.
+    var openBlocks = Array.prototype.map.call(prose.querySelectorAll(":scope > details"), function (node) { return node.open; });
     prose.textContent = "";
+    var previousStatus = answer.querySelector(":scope > .ds-answer-status");
+    if (previousStatus) previousStatus.remove();
     if (READABLE) {
       answer.insertBefore(h("div", { class: "ds-answer-status" }, [
         h("strong", { text: spec.verification.label === "Verified" ? "Claims supported" : spec.verification.label }),
@@ -1765,6 +2157,7 @@
         prose.appendChild(noteElement(item, spec, turnId, true));
       });
     } else {
+      if (spec.head) prose.appendChild(briefHead(spec.head));
       spec.answer.forEach(function (paragraph, index) {
         var node = h("p");
         renderInline(node, paragraph.text, spec, turnId, true);
@@ -1774,6 +2167,8 @@
         });
       });
     }
+    answerBlockNodes(spec, turnId, true).forEach(function (block) { prose.appendChild(block); });
+    prose.querySelectorAll(":scope > details").forEach(function (node, index) { if (openBlocks[index]) node.open = true; });
     setAnswerState(article, spec.answerState, animate);
     var row = actionRow(spec, turnId);
     if (pendingRow && pendingRow.parentNode === article) pendingRow.replaceWith(row);
@@ -1857,10 +2252,10 @@
     resetConversation();
     var spec = SCENARIOS[state.scenario];
     var ctx = newContext(options.instant);
-    titleNode.textContent = CONVERSATION_TITLE;
+    applyScenario(spec);
     readiness.textContent = "";
     readiness.appendChild(readinessStrip(ctx.instant ? state.scenario : "loading"));
-    turns.appendChild(userTurn(QUESTION, 0));
+    turns.appendChild(userTurn(spec.question || QUESTION, 0, spec.attachment));
     var turnId = nextTurnId();
     var article = agentArticle(turnId);
     turns.appendChild(article);
@@ -2012,11 +2407,11 @@
     }
     titleNode.textContent = "New conversation";
     turns.appendChild(h("section", { class: "ds-intro" + (state.reduced ? "" : " cs-deck-enter"), "aria-labelledby": "ds-intro-title" }, [
-      h("h3", { class: "ds-intro-title", id: "ds-intro-title", text: "Ask about " + ROUTE }),
+      h("h3", { class: "ds-intro-title", id: "ds-intro-title", text: "Ask about " + state.route }),
       h("p", { class: "ds-intro-lead", text: INTRO_LEAD }),
       h("button", { type: "button", class: "ds-intro-card", "data-action": "suggest" }, spaced([
         h("span", { class: "ds-intro-card-label", text: "Suggested for this screen" }),
-        h("span", { class: "ds-intro-card-text", text: QUESTION })
+        h("span", { class: "ds-intro-card-text", text: ADAPTIVE ? QUESTION : SCENARIOS[state.scenario].question || QUESTION })
       ]))
     ]));
     setDeckState("empty");
@@ -2181,11 +2576,10 @@
   }
 
   function plainAnswer(spec) {
-    return spec.answer.map(function (paragraph) {
-      return paragraph.text.replace(/\{([a-zA-Z]+)\}/g, function (marker, key) {
-        return " [" + (spec.sources.indexOf(key) + 1) + "]";
-      }).replace(/`/g, "");
-    }).join("\n\n");
+    return (spec.head ? [spec.head.ref, spec.head.title] : [])
+      .concat(spec.answer.map(function (paragraph) { return plainText(paragraph.text, spec); }))
+      .concat(plainBlocks(spec))
+      .join("\n\n");
   }
 
   function copyReply(button) {
@@ -2226,17 +2620,29 @@
   function setScreenAttached(attached) {
     state.screenAttached = attached;
     contextChip.classList.toggle("is-empty", !attached);
-    contextChip.setAttribute("aria-label", attached ? "Remove reference screen: " + ROUTE : "Add current screen");
+    contextChip.setAttribute("aria-label", attached ? "Remove reference screen: " + state.route : "Add current screen");
     contextChip.setAttribute("data-tip", attached
       ? "Exclude this screen from future questions. Messages already sent stay in the conversation."
       : "Include the current screen in this conversation. You can remove it before sending.");
     contextChip.textContent = "";
     contextChip.appendChild(h("span", null, attached
-      ? [h("span", { class: "cs-deck-context-prefix", text: "Reference screen: " }), ROUTE]
+      ? [h("span", { class: "cs-deck-context-prefix", text: "Reference screen: " }), state.route]
       : ["Add current screen"]));
     contextChip.appendChild(h("span", { "aria-hidden": "true", text: attached ? "\u00d7" : "+" }));
-    input.setAttribute("aria-label", attached ? "Ask anything about " + ROUTE + ", or type / for commands" : "Ask anything...");
+    input.setAttribute("aria-label", attached ? "Ask anything about " + state.route + ", or type / for commands" : "Ask anything...");
     if (tipOwner === contextChip) showTip(contextChip);
+    renderDigest();
+  }
+
+  // The header, the reference chip, and the synthetic clock follow the scenario being replayed.
+  function applyScenario(spec) {
+    var clock = spec && spec.clock ? spec.clock.split(":").map(Number) : null;
+    clockBase = clock ? clock[0] * 3600 + clock[1] * 60 + (clock[2] || 0) : CLOCK_START;
+    state.route = (spec && spec.route) || ROUTE;
+    state.screen = (spec && spec.screen) || (ADAPTIVE ? { route: "inventory", resource: "example-rg-app" } : { route: "live", tile: 12, resource: "example-postgres" });
+    titleNode.textContent = (spec && spec.title) || CONVERSATION_TITLE;
+    if (routeNode) routeNode.textContent = state.route;
+    setScreenAttached(state.screenAttached);
   }
 
   function resizeInput() {
@@ -2703,7 +3109,7 @@
     resetConversation();
     var ctx = newContext(options.instant);
     var name = state.scenario;
-    titleNode.textContent = CONVERSATION_TITLE;
+    applyScenario(null);
     readiness.textContent = "";
     readiness.appendChild(readinessStrip(ctx.instant ? "grounded" : "loading"));
     var fixture;
@@ -2751,13 +3157,27 @@
   }
 
   // Suggested questions and Draft remediation start a separate request; this preview only records it.
+  // Request controls inside an answer do the same, and a closing control leaves its card inert.
+  var REQUEST_ACTIONS = {
+    "submit-proposal": { question: "Submit the restart request for human review.", done: "Review requested", closes: "Review requested",
+      reply: "Submitting starts a separate typed request. The server revalidates it, a person approves it, and a separate executor identity runs it. This preview submits nothing." },
+    "discard-proposal": { question: "Discard the restart draft.", done: "Discarded", closes: "Discarded",
+      reply: "The draft was discarded before submission. Nothing was submitted or changed." },
+    "review-memory": { question: "Review the retention request.", done: "Review requested", closes: "In review",
+      reply: "Retention is a separate request. In the Console, you review each field and consent before anything is stored. This preview stores nothing." },
+    "discard-memory": { question: "Discard the proposed lesson.", done: "Discarded", closes: "Discarded",
+      reply: "The proposed lesson was discarded. Nothing was stored." }
+  };
+
   function previewRequest(button, question, reply) {
     if (state.busy) return;
+    var request = REQUEST_ACTIONS[button.getAttribute("data-action")];
+    if (request) button.setAttribute("data-done", request.done);
     var item = button.closest(".cs-deck-followups > li");
     if (item) retire(item.parentElement.children.length === 1 ? item.parentElement : item);
     if (button.classList.contains("cs-deck-affordance")) {
       button.disabled = true;
-      button.textContent = "Draft requested";
+      button.textContent = button.getAttribute("data-done") || "Draft requested";
     }
     hideTip();
     state.clock += 40;
@@ -2793,7 +3213,7 @@
   function fixtureTrajectory(record) {
     var fixture = record.fixture;
     var detail = fixture.trajectory_detail;
-    var start = (38463 + record.offset) * 1000 + 160;
+    var start = (clockBase + record.offset) * 1000 + 160;
     var cursor = start;
     var items = [];
     var calls = [];
@@ -2866,7 +3286,8 @@
       records: [] });
     cursor += 58;
     items.push({ kind: "turn", kindLabel: "Turn", label: "Answer", state: "completed", start: cursor, ms: 0,
-      summary: "verification: " + fixture.answer.verification.label, facts: [["Agent", "Bragi"]], records: [] });
+      summary: "verification: " + fixture.answer.verification.label,
+      facts: [["Agent", "Bragi"], ["Presentation profile", fixture.scenario === "clarify" ? "target_selection" : "investigation"]], records: [] });
     var trajectory = {
       start: start, end: cursor, items: items, calls: calls, attempted: attempted, completed: completed,
       modelMs: calls.reduce(function (total, call) { return total + call.ms; }, 0),
@@ -2952,7 +3373,7 @@
   // router, including the mock index's preview history, and its preventDefault stops them all.
   window.addEventListener("click", function (event) {
     var link = event.target.closest ? event.target.closest("a[href]") : null;
-    if (!link || !workspace.contains(link)) return;
+    if (!link || !workspace.contains(link) || link.hasAttribute("download")) return;
     var href = link.getAttribute("href");
     if (!href || href.charAt(0) === "#") return;
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
@@ -3000,6 +3421,18 @@
     } else if (action === "draft-remediation") {
       previewRequest(target, "Draft a remediation for these differences.",
         "Draft remediation is a separate request. FDAI rechecks the scope, the policy, and whether a typed draft is available before it prepares one, and nothing runs without approval. This preview stops here.");
+    } else if (REQUEST_ACTIONS[action]) {
+      if (state.busy) return;
+      var request = REQUEST_ACTIONS[action];
+      var card = target.closest(".cs-deck-request");
+      previewRequest(target, request.question, request.reply);
+      if (card && request.closes) {
+        card.querySelectorAll("button").forEach(function (button) { button.disabled = true; });
+        var stateBadge = card.querySelector(".cs-deck-request-state");
+        stateBadge.textContent = request.closes;
+        stateBadge.classList.remove("is-attention");
+        card.setAttribute("data-closed", "");
+      }
     } else if (action === "sources") {
       setSources(target.closest(".cs-deck-agent-turn"), target.getAttribute("aria-expanded") !== "true");
     } else if (action === "copy") {
@@ -3153,6 +3586,183 @@
     stopTurn();
   });
 
+  // ---------- Conversations and screen context: the Console shell panels ----------
+  // History lists one conversation per form; the current one replays here and another reopens the
+  // page on its form. Screen context shows what the reference chip adds to the next question.
+  var conversationsPanel = byId("ds-conversations");
+  var conversationScrim = byId("ds-conversations-scrim");
+  var conversationGroups = byId("ds-conversation-groups");
+  var conversationFilter = byId("ds-conversation-filter");
+  var conversationEmpty = byId("ds-conversation-empty");
+  var historyButton = byId("ds-history");
+  var digestPanel = byId("ds-digest");
+  var digestButton = byId("ds-digest-toggle");
+  var digestBody = byId("ds-digest-body");
+  var overlayQuery = window.matchMedia("(max-width: 1100px)");
+  var observedAt = 38464;
+
+  function conversationItem(entry) {
+    var current = entry.form === FORM;
+    return h("li", null, [h("button", {
+      type: "button",
+      class: "ds-conversation-item",
+      "data-conversation-form": entry.form,
+      "aria-current": current ? "true" : null
+    }, [
+      h("span", { class: "ds-conversation-title", text: entry.title }),
+      h("span", { class: "ds-conversation-meta", text: entry.route + " \u00b7 " + (current ? stamp(0).short : entry.time) })
+    ])]);
+  }
+
+  function renderConversations() {
+    if (!conversationGroups) return;
+    var here = FORM_CONVERSATIONS.filter(function (entry) { return entry.form === FORM; });
+    var others = FORM_CONVERSATIONS.filter(function (entry) { return entry.form !== FORM; });
+    conversationGroups.textContent = "";
+    [["Current screen", here], ["Other screens", others]].forEach(function (group, index) {
+      var id = "ds-conversation-group-" + index;
+      conversationGroups.appendChild(h("section", { class: "ds-conversation-group", "aria-labelledby": id }, [
+        h("h4", { class: "ds-conversation-group-title", id: id, text: group[0] }),
+        h("ul", { class: "ds-conversation-list" }, group[1].map(conversationItem))
+      ]));
+    });
+    historyButton.setAttribute("aria-label", "Conversations, " + FORM_CONVERSATIONS.length);
+    byId("ds-history-count").textContent = String(FORM_CONVERSATIONS.length);
+  }
+
+  function filterConversations() {
+    var query = conversationFilter.value.trim().toLowerCase();
+    var shown = 0;
+    conversationGroups.querySelectorAll(".ds-conversation-item").forEach(function (item) {
+      var match = !query || item.textContent.toLowerCase().indexOf(query) >= 0;
+      item.parentElement.hidden = !match;
+      if (match) shown += 1;
+    });
+    conversationGroups.querySelectorAll(".ds-conversation-group").forEach(function (group) {
+      group.hidden = !group.querySelector("li:not([hidden])");
+    });
+    conversationEmpty.hidden = shown > 0;
+  }
+
+  function setConversations(open, restoreFocus) {
+    conversationsPanel.hidden = !open;
+    bodyGrid.classList.toggle("has-conversations", open);
+    conversationScrim.hidden = !(open && overlayQuery.matches);
+    historyButton.setAttribute("aria-expanded", open ? "true" : "false");
+    historyButton.classList.toggle("is-active", open);
+    hideTip();
+    if (open) conversationFilter.focus({ preventScroll: true });
+    else if (restoreFocus) historyButton.focus({ preventScroll: true });
+  }
+
+  function renderDigest() {
+    if (!digestBody || digestPanel.hidden) return;
+    var screen = state.screen || {};
+    var facts = [["Screen", state.route]];
+    Object.keys(screen).forEach(function (key) {
+      if (key !== "route") facts.push([key.charAt(0).toUpperCase() + key.slice(1), String(screen[key])]);
+    });
+    var time = stamp(observedAt - CLOCK_START);
+    digestBody.textContent = "";
+    digestBody.appendChild(h("p", { class: "ds-digest-state" + (state.screenAttached ? "" : " is-off") },
+      [state.screenAttached ? "Included in new questions" : "Not included in new questions"]));
+    digestBody.appendChild(h("dl", { class: "ds-digest-facts" }, facts.map(function (pair) {
+      return h("div", null, [h("dt", { text: pair[0] }), h("dd", { text: pair[1] })]);
+    })));
+    digestBody.appendChild(h("p", { class: "ds-digest-time" }, [
+      "Observed ", h("time", { datetime: time.iso, text: clockLabel(time.iso) + " UTC" })
+    ]));
+    digestBody.appendChild(h("button", { type: "button", class: "cs-control-button ds-digest-refresh", id: "ds-digest-refresh", text: "Refresh" }));
+    digestBody.appendChild(h("p", { class: "ds-digest-note",
+      text: "The deck reads this context only for new questions. Messages already sent keep the context they had." }));
+  }
+
+  function setDigest(open, restoreFocus) {
+    digestPanel.hidden = !open;
+    bodyGrid.classList.toggle("has-digest", open);
+    digestButton.setAttribute("aria-expanded", open ? "true" : "false");
+    digestButton.classList.toggle("is-active", open);
+    hideTip();
+    renderDigest();
+    if (open) byId("ds-digest-close").focus({ preventScroll: true });
+    else if (restoreFocus) digestButton.focus({ preventScroll: true });
+  }
+
+  if (historyButton) {
+    renderConversations();
+    historyButton.addEventListener("click", function () { setConversations(conversationsPanel.hidden, true); });
+    byId("ds-conversations-close").addEventListener("click", function () { setConversations(false, true); });
+    conversationScrim.addEventListener("click", function () { setConversations(false, true); });
+    conversationFilter.addEventListener("input", filterConversations);
+    conversationGroups.addEventListener("click", function (event) {
+      var item = event.target.closest(".ds-conversation-item");
+      if (!item) return;
+      var form = item.getAttribute("data-conversation-form");
+      if (form === FORM) {
+        if (overlayQuery.matches) setConversations(false, false);
+        playConversation({ instant: state.reduced, announce: true });
+        input.focus({ preventScroll: true });
+        return;
+      }
+      var next = new URLSearchParams({ form: form });
+      if (state.width === "dock") next.set("width", "dock");
+      if (state.captureTrace) next.set("trace", "on");
+      window.location.assign(window.location.pathname + "?" + next.toString());
+    });
+    overlayQuery.addEventListener("change", function () {
+      conversationScrim.hidden = !(overlayQuery.matches && !conversationsPanel.hidden);
+      if (overlayQuery.matches && !digestPanel.hidden) setDigest(false, false);
+    });
+    digestButton.addEventListener("click", function () { setDigest(digestPanel.hidden, true); });
+    byId("ds-digest-close").addEventListener("click", function () { setDigest(false, true); });
+    digestBody.addEventListener("click", function (event) {
+      if (!event.target.closest("#ds-digest-refresh")) return;
+      observedAt = CLOCK_START + state.clock + 4;
+      renderDigest();
+      byId("ds-digest-refresh").focus({ preventScroll: true });
+      announce("Screen context refreshed.");
+    });
+    workspace.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (!conversationsPanel.hidden && overlayQuery.matches) {
+        event.preventDefault();
+        setConversations(false, true);
+      }
+    });
+  }
+
+  // ---------- Preview controls: the response form and its scenarios ----------
+  // Every form shares this page. Switching the form reloads it with the same width and capture
+  // settings and keeps the preview controls open on the chosen form.
+  var scenarioGroup = byId("ds-scenarios");
+  if (scenarioGroup) {
+    scenarioGroup.textContent = "";
+    SCENARIO_ORDER.forEach(function (key) {
+      scenarioGroup.appendChild(h("button", { type: "button", "data-scenario": key, "aria-pressed": "false", text: scenarioLabel(key) }));
+    });
+  }
+  var previewLead = byId("ds-preview-lead");
+  if (previewLead && FORM_LEAD[FORM]) {
+    previewLead.textContent = FORM_LEAD[FORM] + " Every value is synthetic, and nothing runs against a real system.";
+  }
+  document.querySelectorAll("button[data-form]").forEach(function (button) {
+    button.setAttribute("aria-pressed", button.getAttribute("data-form") === FORM ? "true" : "false");
+    button.addEventListener("click", function () {
+      var form = button.getAttribute("data-form");
+      if (form === FORM) return;
+      var next = new URLSearchParams({ form: form, controls: "open" });
+      if (state.width === "dock") next.set("width", "dock");
+      if (state.captureTrace) next.set("trace", "on");
+      window.location.assign(window.location.pathname + "?" + next.toString());
+    });
+  });
+  if (params.get("controls") === "open") {
+    var previewPanel = byId("ds-preview");
+    if (previewPanel) previewPanel.open = true;
+    var activeForm = document.querySelector("button[data-form][aria-pressed='true']");
+    if (activeForm) activeForm.focus({ preventScroll: true });
+  }
+
   document.querySelectorAll("button[data-scenario]").forEach(function (button) {
     button.addEventListener("click", function () {
       state.scenario = button.getAttribute("data-scenario");
@@ -3198,6 +3808,7 @@
   }
 
   if (READABLE) {
+    byId("ds-answer-tool").hidden = false;
     var previewFormat = "markdown";
     function renderAnswerPreview() {
       var example = SCENARIOS[state.scenario];
