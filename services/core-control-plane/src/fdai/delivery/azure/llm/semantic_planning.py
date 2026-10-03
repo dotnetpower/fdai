@@ -1,4 +1,4 @@
-"""Azure OpenAI adapter for bounded semantic frame and query-plan proposals."""
+"""Azure OpenAI semantic planning and diagnostic candidate proposals."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import json
 import logging
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import datetime
 from functools import partial
 from typing import Any, TypeVar
@@ -36,7 +36,8 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticPlanningModelResponse,
 )
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
-from fdai.core.prompts import PromptAssembler, estimate_chat_request_tokens, estimate_prompt_tokens
+from fdai.core.ontology_platform import QueryManifest
+from fdai.core.prompts import estimate_chat_request_tokens, estimate_prompt_tokens
 from fdai.core.prompts.types import (
     LayerRef,
     PromptAssemblyReceipt,
@@ -50,29 +51,41 @@ from fdai.delivery.azure.llm.model_trace import (
     prepare_model_messages,
     start_model_trace,
 )
-from fdai.delivery.azure.llm.request_target import ModelRequestTarget
+from fdai.delivery.azure.llm.semantic_planning_config import (
+    MAX_SYSTEM_PROMPT_CHARS as _MAX_SYSTEM_PROMPT_CHARS,
+)
+from fdai.delivery.azure.llm.semantic_planning_config import (
+    AzureOpenAISemanticPlanningModelConfig as AzureOpenAISemanticPlanningModelConfig,
+)
+from fdai.delivery.azure.llm.semantic_planning_config import (
+    candidate_proposal_binding,
+)
+from fdai.delivery.azure.llm.semantic_planning_config import (
+    proposal_schema as _proposal_schema,
+)
 from fdai.delivery.azure.llm.semantic_planning_manifest import (
     sha256_hex as _sha256,
 )
 from fdai.delivery.azure.llm.semantic_planning_manifest import (
     transmitted_prompt_manifest as _transmitted_prompt_manifest,
 )
-from fdai.delivery.azure.llm.semantic_planning_manifest import (
-    validate_output_reserve as _validate_output_reserve,
+from fdai.delivery.catalog_search.generation import SemanticGenerationBuild
+from fdai.delivery.catalog_search.ontology_candidate_proposal import (
+    OntologyCandidateModelBinding,
+    OntologyCandidateProposal,
+    OntologyCandidateProposalResult,
+    candidate_proposal_payload,
 )
-from fdai.delivery.azure.llm.semantic_planning_manifest import (
-    validate_prompt_manifest as _validate_prompt_manifest,
-)
+from fdai.delivery.catalog_search.ontology_candidate_selection import OntologyCandidateSelection
+from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyStagedProjection
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
-_MAX_CANDIDATES = 8
 _MAX_CONTEXT_ITEMS = 8
 _MAX_CONTEXT_CHARS = 12_000
 _MAX_DESCRIPTORS = 512
 _MAX_PROMPT_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
-_MAX_SYSTEM_PROMPT_CHARS = 65_536
 _MAX_OPERATIONAL_REQUEST_BYTES = 65_536
 _MAX_RECOVERY_CONTEXT_CHARS = 1_024
 _MAX_ATTEMPTS_PER_CANDIDATE = 3
@@ -97,86 +110,15 @@ schema-valid clarification.
 """.strip()
 
 
-@dataclass(frozen=True, slots=True)
-class AzureOpenAISemanticPlanningModelConfig:
-    """Bounded request targets and catalog-owned semantic planning prompts."""
-
-    candidates: tuple[ModelRequestTarget, ...]
-    frame_system_prompt: str
-    plan_system_prompt: str
-    operational_frame_system_prompt: str | None = None
-    recovery_frame_system_prompt: str | None = None
-    frame_prompt_manifest: PromptReplayManifest | None = None
-    plan_prompt_manifest: PromptReplayManifest | None = None
-    operational_frame_prompt_manifest: PromptReplayManifest | None = None
-    recovery_frame_prompt_manifest: PromptReplayManifest | None = None
-    timeout_seconds: float = 90.0
-    max_tokens: int = 2_048
-    frame_prompt_assembler: PromptAssembler | None = None
-    plan_prompt_assembler: PromptAssembler | None = None
-
-    def __post_init__(self) -> None:
-        if not 1 <= len(self.candidates) <= _MAX_CANDIDATES:
-            raise ValueError(f"semantic planning candidates MUST contain 1 to {_MAX_CANDIDATES}")
-        for assembler, prompt, manifest in (
-            (self.frame_prompt_assembler, self.frame_system_prompt, self.frame_prompt_manifest),
-            (self.plan_prompt_assembler, self.plan_system_prompt, self.plan_prompt_manifest),
-        ):
-            if assembler is not None and (
-                assembler.complete.system_text != prompt
-                or assembler.complete.replay_manifest() != manifest
-            ):
-                raise ValueError("semantic planning assembler MUST match its complete prompt")
-        identities = tuple(
-            (candidate.endpoint, candidate.deployment, candidate.api_version)
-            for candidate in self.candidates
-        )
-        if len(identities) != len(set(identities)):
-            raise ValueError("semantic planning candidates MUST be unique")
-        for prompt in (self.frame_system_prompt, self.plan_system_prompt):
-            if not prompt or len(prompt) > _MAX_SYSTEM_PROMPT_CHARS:
-                raise ValueError("semantic planning system prompts MUST be non-empty and bounded")
-        if self.operational_frame_system_prompt is not None and (
-            not self.operational_frame_system_prompt
-            or len(self.operational_frame_system_prompt) > _MAX_SYSTEM_PROMPT_CHARS
-        ):
-            raise ValueError("operational frame system prompt MUST be non-empty and bounded")
-        if self.recovery_frame_system_prompt is not None and (
-            not self.recovery_frame_system_prompt
-            or len(self.recovery_frame_system_prompt) > _MAX_SYSTEM_PROMPT_CHARS
-        ):
-            raise ValueError("recovery frame system prompt MUST be non-empty and bounded")
-        _validate_prompt_manifest(self.frame_system_prompt, self.frame_prompt_manifest)
-        _validate_prompt_manifest(self.plan_system_prompt, self.plan_prompt_manifest)
-        _validate_prompt_manifest(
-            self.operational_frame_system_prompt,
-            self.operational_frame_prompt_manifest,
-        )
-        _validate_prompt_manifest(
-            self.recovery_frame_system_prompt,
-            self.recovery_frame_prompt_manifest,
-        )
-        if not 0 < self.timeout_seconds <= 120:
-            raise ValueError("semantic planning timeout_seconds MUST be in (0, 120]")
-        if not 1 <= self.max_tokens <= 4_096:
-            raise ValueError("semantic planning max_tokens MUST be in [1, 4096]")
-        for name, manifest in (
-            ("frame", self.frame_prompt_manifest),
-            ("plan", self.plan_prompt_manifest),
-            ("operational frame", self.operational_frame_prompt_manifest),
-            ("recovery frame", self.recovery_frame_prompt_manifest),
-        ):
-            _validate_output_reserve(name, manifest, self.max_tokens)
-
-
 class AzureOpenAISemanticPlanningModel:
-    """Synchronously propose two validated JSON records over async Azure I/O.
+    """Propose validated planning records over async Azure I/O.
 
-    Calls must run outside ``owner_loop``. ``SemanticConversationRuntime``
+    Synchronous frame/plan calls must run outside ``owner_loop``. ``SemanticConversationRuntime``
     provides that boundary with ``asyncio.to_thread``. The adapter schedules
     workload-identity and HTTP work back onto the owning runtime loop, tries
     candidates in configured order, and returns ``None`` after any bounded
-    all-candidate failure without exposing provider details.
+    all-candidate failure without exposing provider details. The async candidate
+    diagnostic runs on the owner loop and raises on its single-attempt failure.
     """
 
     def __init__(
@@ -193,6 +135,65 @@ class AzureOpenAISemanticPlanningModel:
         self._http = http_client
         self._config = config
         self._owner_loop = owner_loop
+
+    def candidate_proposal_binding(self) -> OntologyCandidateModelBinding:
+        return candidate_proposal_binding(self._config)
+
+    async def propose_candidate_selection(
+        self,
+        *,
+        query: str,
+        manifest: QueryManifest,
+        build: SemanticGenerationBuild,
+        staged: OntologyStagedProjection,
+    ) -> OntologyCandidateProposalResult:
+        """One diagnostic proposal, without fallback, repair or activation authority."""
+        if asyncio.get_running_loop() is not self._owner_loop:
+            raise ValueError("candidate proposal must run on the model owner loop")
+        if (
+            len(self._config.candidates) != 1
+            or self._config.timeout_seconds > 5
+            or self._config.plan_prompt_manifest is None
+            or self._config.plan_prompt_manifest.profile_id
+            != "diagnostic.ontology-candidate-selection"
+        ):
+            raise ValueError("candidate proposal requires one bounded target and diagnostic prompt")
+        deadline = asyncio.get_running_loop().time() + self._config.timeout_seconds
+        async with asyncio.timeout(self._config.timeout_seconds):
+            payload = candidate_proposal_payload(
+                query=query, manifest=manifest, build=build, staged=staged
+            )
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("candidate proposal deadline exceeded before dispatch")
+            response = await self._complete_async(
+                payload=payload,
+                prompt=self._config.plan_system_prompt,
+                proposal_type=OntologyCandidateProposal,
+                operation="candidate_selection",
+                manifest=self._config.plan_prompt_manifest,
+                max_attempts=1,
+            )
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("candidate proposal deadline exceeded after return")
+            if not isinstance(response, SemanticPlanningModelResponse):
+                raise ValueError("candidate proposal model unavailable")
+            proposal = OntologyCandidateProposal.model_validate(response.proposal)
+            proposal.validate_source_quotes(query)
+            result = OntologyCandidateProposalResult(
+                proposal=proposal,
+                selection=(
+                    OntologyCandidateSelection.bind(
+                        query=query, manifest=manifest, staged=staged, clauses=proposal.clauses
+                    )
+                    if proposal.status == "select"
+                    else None
+                ),
+                input_digest=str(payload["input_digest"]),
+                observation=response.observation,
+            )
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("candidate proposal deadline exceeded before publication")
+            return result
 
     def propose_frame(
         self,
@@ -414,6 +415,7 @@ class AzureOpenAISemanticPlanningModel:
         proposal_type: type[BaseModel],
         operation: str,
         manifest: PromptReplayManifest | None = None,
+        max_attempts: int = _MAX_ATTEMPTS_PER_CANDIDATE,
     ) -> Mapping[str, Any] | None:
         return await run_scoped_model(
             lambda: self._complete_attempts(
@@ -422,6 +424,7 @@ class AzureOpenAISemanticPlanningModel:
                 proposal_type=proposal_type,
                 operation=operation,
                 manifest=manifest,
+                max_attempts=max_attempts,
             )
         )
 
@@ -433,6 +436,7 @@ class AzureOpenAISemanticPlanningModel:
         proposal_type: type[BaseModel],
         operation: str,
         manifest: PromptReplayManifest | None = None,
+        max_attempts: int = _MAX_ATTEMPTS_PER_CANDIDATE,
     ) -> Mapping[str, Any] | None:
         user_content = json.dumps(
             {"untrusted_input": payload},
@@ -441,13 +445,7 @@ class AzureOpenAISemanticPlanningModel:
             separators=(",", ":"),
             sort_keys=True,
         )
-        schema = json.dumps(
-            proposal_type.model_json_schema(),
-            allow_nan=False,
-            ensure_ascii=True,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
+        schema = _proposal_schema(proposal_type)
         system_content = f"{prompt}\nRequired JSON Schema:\n{schema}"
         messages = list(
             prepare_model_messages(
@@ -460,6 +458,11 @@ class AzureOpenAISemanticPlanningModel:
         transmitted_system = messages[0]["content"]
         transmitted_user = messages[1]["content"]
         if not isinstance(transmitted_system, str) or not isinstance(transmitted_user, str):
+            return None
+        if proposal_type is OntologyCandidateProposal and (
+            transmitted_system != system_content or transmitted_user != user_content
+        ):
+            _LOGGER.warning("ontology_candidate_proposal_input_changed")
             return None
         prompt_profile = (
             "operational" if prompt == self._config.operational_frame_system_prompt else "general"
@@ -546,7 +549,7 @@ class AzureOpenAISemanticPlanningModel:
                     }
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
-                    for attempt in range(_MAX_ATTEMPTS_PER_CANDIDATE):
+                    for attempt in range(max_attempts):
                         trace_start = start_model_trace(body["messages"])
                         response, reservation = await call_scoped_provider(
                             partial(
@@ -593,7 +596,7 @@ class AzureOpenAISemanticPlanningModel:
                                 observation=observation,
                             )
                         except (ValidationError, ValueError) as exc:
-                            if attempt + 1 >= _MAX_ATTEMPTS_PER_CANDIDATE:
+                            if attempt + 1 >= max_attempts:
                                 raise
                             _LOGGER.info(
                                 "semantic_planning_candidate_retry",
@@ -751,6 +754,12 @@ def _validated_content(  # noqa: UP047 - pinned mypy does not parse PEP 695 func
     choices = envelope.get("choices") if isinstance(envelope, Mapping) else None
     if not isinstance(choices, list) or not choices:
         raise ValueError("semantic planning response has no choice")
+    if proposal_type is OntologyCandidateProposal and (
+        len(choices) != 1
+        or not isinstance(choices[0], Mapping)
+        or choices[0].get("finish_reason") != "stop"
+    ):
+        raise ValueError("candidate proposal requires one complete model choice")
     message = choices[0].get("message") if isinstance(choices[0], Mapping) else None
     content = message.get("content") if isinstance(message, Mapping) else None
     if not isinstance(content, str) or not content or len(content.encode()) > _MAX_RESPONSE_BYTES:

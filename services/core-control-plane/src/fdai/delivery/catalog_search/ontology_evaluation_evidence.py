@@ -17,6 +17,9 @@ _Event = Literal[
     "started",
     "embedding_call_intent",
     "embedding_result",
+    "semantic_call_intent",
+    "semantic_proposal",
+    "semantic_measurement",
     "stage",
     "completed",
     "aborted",
@@ -28,7 +31,7 @@ _MAX_FILE_BYTES = 16 * 1024 * 1024
 
 @dataclass(frozen=True, slots=True)
 class _Record:
-    schema_version: Literal["1.0.0"]
+    schema_version: Literal["1.0.0", "1.1.0"]
     sequence: int
     event: _Event
     recorded_at: datetime
@@ -55,12 +58,21 @@ class OntologyEvaluationEvidence:
     """
 
     def __init__(
-        self, path: Path, *, source_commit: str | None = None, retain_vectors: bool = False
+        self,
+        path: Path,
+        *,
+        source_commit: str | None = None,
+        retain_vectors: bool = False,
+        semantic_proposals: bool = False,
     ) -> None:
         if source_commit is not None and re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
             raise ValueError("ontology evidence source commit must be a full lowercase Git SHA")
         if retain_vectors and source_commit is None:
             raise ValueError("ontology vector retention requires a source commit")
+        if semantic_proposals and (source_commit is None or retain_vectors):
+            raise ValueError(
+                "semantic evidence requires source provenance and separate vector files"
+            )
         self._path = path
         self._source_commit = source_commit
         self._descriptor: int | None = None
@@ -69,7 +81,17 @@ class OntologyEvaluationEvidence:
         self._failed = False
         self._entered = False
         self._terminal = False
+        self._completed = False
         self._retain_vectors = retain_vectors
+        self._semantic_proposals = semantic_proposals
+
+    @property
+    def semantic_proposals(self) -> bool:
+        return self._semantic_proposals
+
+    @property
+    def source_commit(self) -> str | None:
+        return self._source_commit
 
     @property
     def retain_vectors(self) -> bool:
@@ -117,17 +139,20 @@ class OntologyEvaluationEvidence:
         A failed or partial write poisons this writer. Earlier complete lines are retained;
         no best-effort append, retry, truncation, raw provider error or success fallback follows.
         """
-        if self._descriptor is None or self._failed or self._terminal:
+        late_semantic_abort = self._semantic_proposals and self._completed and event == "aborted"
+        if self._descriptor is None or self._failed or (self._terminal and not late_semantic_abort):
             raise OntologyEvaluationEvidenceError("ontology evidence writer is unavailable")
         try:
             if (event == "started") != (self._sequence == 0):
                 raise ValueError("ontology evidence must start exactly once")
             if event == "embedding_result" and not self._retain_vectors:
                 raise ValueError("ontology vector retention was not selected")
+            if event.startswith("semantic_") and not self._semantic_proposals:
+                raise ValueError("ontology semantic proposal retention was not selected")
             encoded = (
                 _RECORD.dump_json(
                     _Record(
-                        "1.0.0",
+                        "1.1.0" if self._semantic_proposals else "1.0.0",
                         self._sequence,
                         event,
                         datetime.now(UTC),
@@ -141,7 +166,8 @@ class OntologyEvaluationEvidence:
             if (
                 len(encoded) > _MAX_RECORD_BYTES
                 or self._bytes + len(encoded) > _MAX_FILE_BYTES
-                or self._sequence >= (262 if self._retain_vectors else 134)
+                or self._sequence
+                >= (198 if self._semantic_proposals else 262 if self._retain_vectors else 134)
             ):
                 raise ValueError("ontology evidence exceeds its bounded capacity")
             remaining = memoryview(encoded)
@@ -159,6 +185,7 @@ class OntologyEvaluationEvidence:
         self._bytes += len(encoded)
         self._sequence += 1
         self._terminal = event in ("completed", "aborted", "cancelled")
+        self._completed = event == "completed"
 
 
 __all__ = ["OntologyEvaluationEvidence", "OntologyEvaluationEvidenceError"]
