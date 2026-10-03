@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -17,6 +17,7 @@ import yaml
 from fdai_service_contracts.compatibility import canonical_digest
 
 from fdai.delivery.kubernetes_cluster_binding import KubernetesClusterBinding
+from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _AKS_API_VERSION = "2026-05-01"
@@ -69,6 +70,103 @@ class AksSubscriptionDiscoveryResult:
 
 
 @dataclass(frozen=True, slots=True)
+class AksCachedSubscriptionBinding:
+    """Durable AKS binding metadata from a prior discovery without credentials."""
+
+    cluster_ref: str
+    api_server: str
+    audience: str
+    ca_pem: str
+    ca_digest: str
+    observed_at: datetime
+    binding_revision: str
+
+    def __post_init__(self) -> None:
+        KubernetesClusterBinding(
+            api_server=self.api_server,
+            cluster_ref=self.cluster_ref,
+            auth_mode="workload-identity",
+            ca_pem=self.ca_pem,
+            ca_digest=self.ca_digest,
+            audience=self.audience,
+        )
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("cached AKS binding observed_at MUST be timezone-aware")
+        if not self.binding_revision.strip() or len(self.binding_revision) > 512:
+            raise ValueError("cached AKS binding revision MUST be bounded non-empty text")
+
+    def to_binding(self) -> KubernetesClusterBinding:
+        """Return a runtime binding pinned to the cached public CA material."""
+
+        return KubernetesClusterBinding(
+            api_server=self.api_server,
+            cluster_ref=self.cluster_ref,
+            auth_mode="workload-identity",
+            ca_pem=self.ca_pem,
+            ca_digest=self.ca_digest,
+            audience=self.audience,
+        )
+
+
+class AksSubscriptionBindingCache(Protocol):
+    """Durably reuse non-secret subscription discovery metadata across Job processes."""
+
+    async def read(self, cluster_ref: str) -> AksCachedSubscriptionBinding | None: ...
+
+    async def write(self, binding: AksCachedSubscriptionBinding) -> None: ...
+
+
+class StateStoreAksSubscriptionBindingCache:
+    """Store AKS binding metadata in ``StateStore`` without credential material."""
+
+    def __init__(self, store: StateStore, *, key_prefix: str = "aks-binding-cache:") -> None:
+        if not key_prefix:
+            raise ValueError("AKS binding cache key prefix MUST NOT be empty")
+        self._store = store
+        self._key_prefix = key_prefix
+
+    async def read(self, cluster_ref: str) -> AksCachedSubscriptionBinding | None:
+        record = await self._store.read_state(self._key(cluster_ref))
+        if record is None or record.get("schema_version") != "1.0.0":
+            return None
+        observed_at_raw = record.get("observed_at")
+        if not isinstance(observed_at_raw, str):
+            return None
+        try:
+            observed_at = datetime.fromisoformat(observed_at_raw.replace("Z", "+00:00"))
+            return AksCachedSubscriptionBinding(
+                cluster_ref=str(record["cluster_ref"]),
+                api_server=str(record["api_server"]),
+                audience=str(record["audience"]),
+                ca_pem=str(record["ca_pem"]),
+                ca_digest=str(record["ca_digest"]),
+                observed_at=observed_at,
+                binding_revision=str(record["binding_revision"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    async def write(self, binding: AksCachedSubscriptionBinding) -> None:
+        await self._store.write_state(
+            self._key(binding.cluster_ref),
+            {
+                "schema_version": "1.0.0",
+                "cluster_ref": binding.cluster_ref,
+                "api_server": binding.api_server,
+                "audience": binding.audience,
+                "ca_pem": binding.ca_pem,
+                "ca_digest": binding.ca_digest,
+                "observed_at": binding.observed_at.isoformat(),
+                "binding_revision": binding.binding_revision,
+                "credential_material_retained": False,
+            },
+        )
+
+    def _key(self, cluster_ref: str) -> str:
+        return self._key_prefix + hashlib.sha256(cluster_ref.casefold().encode()).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
 class AksSubscriptionDiscoveryConfig:
     """Bound Azure management reads used to discover AKS clusters."""
 
@@ -105,11 +203,13 @@ class AzureAksSubscriptionBindingDiscovery:
         identity: WorkloadIdentity,
         http_client: httpx.AsyncClient,
         config: AksSubscriptionDiscoveryConfig,
+        binding_cache: AksSubscriptionBindingCache | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self._identity = identity
         self._http = http_client
         self._config = config
+        self._binding_cache = binding_cache
         self._management_host = urlparse(config.management_endpoint).netloc.casefold()
         self._now = now or (lambda: datetime.now(UTC))
 
@@ -160,10 +260,16 @@ class AzureAksSubscriptionBindingDiscovery:
                 )
                 continue
             try:
+                cached = await self._cached_binding(cluster)
+                if cached is not None:
+                    bindings.append(cached)
+                    continue
                 bindings.append(
                     await self._binding_from_exec_profile(
                         cluster_ref,
                         headers=headers,
+                        observed_at=observed_at,
+                        cluster=cluster,
                     )
                 )
             except AksSubscriptionDiscoveryError:
@@ -231,6 +337,8 @@ class AzureAksSubscriptionBindingDiscovery:
         cluster_ref: str,
         *,
         headers: Mapping[str, str],
+        observed_at: datetime,
+        cluster: Mapping[str, Any],
     ) -> KubernetesClusterBinding:
         url = (
             f"{self._config.management_endpoint.rstrip('/')}"
@@ -260,7 +368,51 @@ class AzureAksSubscriptionBindingDiscovery:
             kubeconfig = yaml.safe_load(decoded)
         except yaml.YAMLError as exc:
             raise AksSubscriptionDiscoveryError("AKS kubeconfig is not valid YAML") from exc
-        return _minimize_exec_kubeconfig(kubeconfig, cluster_ref=cluster_ref)
+        binding = _minimize_exec_kubeconfig(kubeconfig, cluster_ref=cluster_ref)
+        revision = _binding_revision(cluster)
+        if (
+            self._binding_cache is not None
+            and binding.ca_pem is not None
+            and binding.ca_digest is not None
+            and revision
+        ):
+            await self._binding_cache.write(
+                AksCachedSubscriptionBinding(
+                    cluster_ref=cluster_ref,
+                    api_server=binding.api_server,
+                    audience=binding.audience or "",
+                    ca_pem=binding.ca_pem,
+                    ca_digest=binding.ca_digest,
+                    observed_at=observed_at,
+                    binding_revision=revision,
+                )
+            )
+        return binding
+
+    async def _cached_binding(
+        self,
+        cluster: Mapping[str, Any],
+    ) -> KubernetesClusterBinding | None:
+        if self._binding_cache is None:
+            return None
+        cluster_ref = str(cluster["id"])
+        expected_api_server = _management_api_server(cluster)
+        expected_revision = _binding_revision(cluster)
+        if expected_api_server is None or not expected_revision:
+            return None
+        try:
+            cached = await self._binding_cache.read(cluster_ref)
+        except Exception:
+            return None
+        if cached is None:
+            return None
+        if (
+            cached.binding_revision != expected_revision
+            or cached.api_server.rstrip("/").casefold()
+            != expected_api_server.rstrip("/").casefold()
+        ):
+            return None
+        return cached.to_binding()
 
     async def _request(
         self,
@@ -347,6 +499,7 @@ def _minimize_exec_kubeconfig(
         cluster_ref=cluster_ref,
         auth_mode="workload-identity",
         ca_pem=ca_pem,
+        ca_digest=_ca_digest(ca_pem),
         audience=audience,
     )
 
@@ -395,6 +548,30 @@ def _supports_azure_rbac(cluster: Mapping[str, Any]) -> bool:
     )
 
 
+def _binding_revision(cluster: Mapping[str, Any]) -> str:
+    etag = cluster.get("etag")
+    if isinstance(etag, str) and etag.strip() and len(etag) <= 512:
+        return etag.strip()
+    return ""
+
+
+def _management_api_server(cluster: Mapping[str, Any]) -> str | None:
+    properties = cluster.get("properties")
+    if not isinstance(properties, Mapping):
+        return None
+    for key in ("fqdn", "privateFQDN"):
+        value = properties.get(key)
+        if isinstance(value, str) and value.strip():
+            host = value.strip().rstrip("/")
+            if "/" not in host and len(host) <= 253:
+                return f"https://{host}"
+    return None
+
+
+def _ca_digest(ca_pem: str) -> str:
+    return "sha256:" + hashlib.sha256(ca_pem.encode("ascii")).hexdigest()
+
+
 def _json_mapping(response: httpx.Response) -> Mapping[str, Any]:
     try:
         payload = response.json()
@@ -430,10 +607,14 @@ def subscription_scope_digest(subscription_id: str) -> str:
 
 
 __all__ = [
+    "AksCachedSubscriptionBinding",
+    "AksPrivateClusterObservation",
+    "AksSubscriptionBindingCache",
     "AksSubscriptionDiscoveryConfig",
     "AksSubscriptionDiscoveryError",
     "AksSubscriptionDiscoveryResult",
     "AksUnavailableScope",
     "AzureAksSubscriptionBindingDiscovery",
+    "StateStoreAksSubscriptionBindingCache",
     "subscription_scope_digest",
 ]

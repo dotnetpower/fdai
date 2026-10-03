@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 664605021249e67e8f420c864faa3f6bf4f3e29a
-translation_revised: 2026-10-01
+translation_source_sha: a2a4b366d1c528f04a21df4b82b782707f30f28b
+translation_revised: 2026-10-04
 ---
 # AKS 진단 근거 플레인
 
@@ -92,6 +92,17 @@ Kubernetes Service RBAC Reader`를 할당합니다. 각 조정 작업은 구독�
 클라이언트 키, 암호 또는 다른 정적 자격 증명이 포함되어 있으면 거부합니다. 따라서 새 클러스터는
 Terraform 변경 없이 다음 범위가 제한된 검색 실행에 포함되며, 삭제된 클러스터는 완전한 구독
 조정이 부재를 입증한 뒤에만 사라집니다.
+검색은 공유 상태 저장소에 공개 CA 신뢰 자료와 비밀이 아닌 연결 메타데이터를 보존합니다. 여기에는
+클러스터 ARM ID, API 서버 원본, 범위가 제한된 CA PEM, CA 인증서 다이제스트, 관찰 시각, 연결
+revision으로 사용하는 ARM revision이 포함됩니다. 이후 프로세스는 새 관리 플레인 클러스터
+읽기가 API 서버 원본 및 연결 revision과 일치하고, 보존된 PEM에서 CA 다이제스트를 다시 계산해
+일치할 때만 이 레코드를 재사용할 수 있습니다. API 서버나 ARM revision이 바뀌면, CA 회전에
+수반될 수 있는 신호도 포함해, 캐시를 사용하기 전에 무효화하고 `listClusterUserCredential`
+호출로 CA PEM과 다이제스트를 새로 고칩니다. Azure는 CA 바이트를 자격 증명 응답에만 노출하므로,
+API 서버와 ARM revision이 모두 바뀌지 않는 CA 회전은 Kubernetes TLS 검증 실패 및 사용할 수
+없는 출처로 드러나며, 고정되지 않은 신뢰로 처리하지 않습니다. 캐시는 kubeconfig, token,
+클라이언트 인증서, 클라이언트 키, 암호 또는 사용자 이름을 저장하지 않으며, 캐시된 신뢰 자료를
+권한으로 취급하지 않습니다.
 관리 플레인 검색과 Kubernetes API 읽기는 검증된 단기 token을 일시적인
 `Authorization: Bearer` 요청 헤더에만 넣습니다. 이 헤더는 구성, 인벤토리 레코드, 로그, 오류
 또는 출처 상태 메타데이터에 들어가지 않습니다. 교정 표시는 표현용 데이터이며 인증 자격

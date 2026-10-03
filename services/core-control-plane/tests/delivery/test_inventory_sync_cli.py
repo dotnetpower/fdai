@@ -795,7 +795,7 @@ async def test_private_cluster_discovery_closes_proposal_store(
 
     proposals.observe.assert_awaited_once_with((private_cluster,))
     publish.assert_awaited_once()
-    proposal_store.aclose.assert_awaited_once_with()
+    assert proposal_store.aclose.await_count == 2
 
 
 async def test_subscription_discovery_failure_is_explicitly_unavailable(
@@ -932,6 +932,68 @@ def test_job_config_accepts_workload_identity_kubernetes_binding() -> None:
     assert config.kubernetes_ca_pem == "-----BEGIN CERTIFICATE-----\nfixture"
     assert config.kubernetes_auth_mode == "workload-identity"
     assert config.kubernetes_audience == "api://aks-reader/.default"
+
+
+async def test_workload_identity_kubernetes_binding_uses_cached_ca_pem_for_tls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ca_pem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----"
+    fleet = json.dumps(
+        [
+            {
+                "api_server": "https://one.example",
+                "cluster_ref": _CLUSTER_REF,
+                "auth_mode": "workload-identity",
+                "ca_pem": ca_pem,
+                "ca_digest": "sha256:" + hashlib.sha256(ca_pem.encode("ascii")).hexdigest(),
+                "audience": "api://aks-reader/.default",
+            },
+        ]
+    )
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON": fleet,
+        }
+    )
+    fake_http_client = object()
+
+    @asynccontextmanager
+    async def _client_context() -> AsyncIterator[object]:
+        yield fake_http_client
+
+    source_factory = Mock(return_value=object())
+    expected_enricher = UnavailableKubernetesInventoryEnricher()
+    enricher_factory = Mock(return_value=expected_enricher)
+    tls_factory = Mock(return_value=object())
+    http_factory = Mock(return_value=_client_context())
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.ssl.create_default_context", tls_factory)
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.httpx.AsyncClient", http_factory)
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.KubernetesApiInventorySource",
+        source_factory,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.KubernetesInventoryEnricher",
+        enricher_factory,
+    )
+
+    catalog = _load_relationship_mapping_catalog()
+    async with AsyncExitStack() as stack:
+        enricher = await _build_kubernetes_enricher(
+            config=config,
+            relationship_catalog=catalog,
+            stack=stack,
+            identity=StaticWorkloadIdentity(
+                audience="api://aks-reader/.default",
+                token="synthetic",  # noqa: S106 - deterministic test credential
+            ),
+        )
+
+    assert enricher is expected_enricher
+    tls_factory.assert_called_once_with(cafile=None, cadata=ca_pem)
+    assert source_factory.call_args.kwargs["auth"].audience == "api://aks-reader/.default"
 
 
 def test_job_config_accepts_fleet_bindings_and_rejects_legacy_overlap() -> None:
@@ -1937,6 +1999,74 @@ async def test_ontology_observer_reuses_unchanged_history_and_configuration_deli
     assert delivery["status"] == "completed"
     assert (
         activity_publisher.publish.await_args.args[0].status is OperationalActivityStatus.COMPLETED
+    )
+
+
+async def test_ontology_observer_reuses_only_the_unchanged_reconciliation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        _recovery,
+        observation_journal,
+        _ontology_store,
+        history_store,
+        projector,
+        activity_publisher,
+        _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    observation_journal.append_promoted_snapshot.side_effect = [
+        SimpleNamespace(
+            journal_high_watermark=7,
+            projection_high_watermark=7,
+            active_scope_projection_watermark=7,
+            active_scope_refs=("scope-1",),
+            reused_journal_generation=None,
+        ),
+        SimpleNamespace(
+            journal_high_watermark=7,
+            projection_high_watermark=7,
+            active_scope_projection_watermark=7,
+            active_scope_refs=("scope-1",),
+            reused_journal_generation="snapshot-base",
+        ),
+        SimpleNamespace(
+            journal_high_watermark=11,
+            projection_high_watermark=11,
+            active_scope_projection_watermark=11,
+            active_scope_refs=("scope-1",),
+            reused_journal_generation=None,
+        ),
+    ]
+
+    await observer(_promoted_observation("snapshot-base"))
+    unchanged = _promoted_observation("snapshot-unchanged")
+    await observer(unchanged)
+    store = projector.construction_kwargs["status_store"]
+    delivery = await store.read_state("inventory-configuration:delivery")
+    assert delivery["generation"] == unchanged.generation
+    assert delivery["status"] == "completed"
+    await observer(
+        PromotedInventoryObservation(
+            generation="snapshot-changed",
+            resources=(
+                ResourceRecord(
+                    resource_id="vm-1",
+                    type="compute.vm",
+                    props={"state": "changed"},
+                ),
+            ),
+            links=(),
+            complete=True,
+            recorded_at=datetime(2026, 8, 13, 0, 5, tzinfo=UTC),
+        )
+    )
+
+    assert history_store.append.await_count == 2
+    assert projector.apply.await_count == 3
+    assert activity_publisher.configuration_event_publisher.await_count == 2
+    assert activity_publisher.configuration_event_publisher.await_args.args[0].generation == (
+        "snapshot-changed"
     )
 
 
