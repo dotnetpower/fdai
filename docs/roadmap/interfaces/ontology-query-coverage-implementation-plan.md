@@ -430,10 +430,7 @@ property-value labels, and Resource subtype terms from the reviewed ResourceType
 terms are embedded with the document to preserve English/Korean context, but they remain model
 context only. They do not create a lookup table, grant access, infer meaning, or prove a no-match.
 Changing those document surfaces changes the frozen generation digest and requires re-embedding
-the changed documents before any calibration claim.
-The diagnostic executor accepts the same `resource_type_query_terms` mapping as production
-staging. Callers must supply the reviewed registry used by the frozen build; missing or changed
-terms that alter document identity stop preparation before any embedding call.
+the changed documents before any calibration claim. The diagnostic executor accepts the same `resource_type_query_terms` mapping as production staging. Callers must supply the reviewed registry used by the frozen build; missing or changed terms that alter document identity stop preparation before any embedding call.
 
 Current source is checked before document embedding and again before calibration. Embedding
 space, model version and dimension must match the frozen generation before and after every call.
