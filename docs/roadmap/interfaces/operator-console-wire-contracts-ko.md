@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: bc9e32e2be7fd3b5333eee1015310ad07618d223
+translation_source_sha: bfb38bbbacacf00c37ed12171fa49e72a60f21cc
 translation_revised: 2026-10-03
 ---
 
@@ -16,7 +16,7 @@ translation_revised: 2026-10-03
 바꾸지 않습니다.
 
 [공통 답변 표시](operator-console-ko.md#공통-답변-표시)는 기존 답변 본문, 검증, 인용,
-표시 데이터 필드를 재사용합니다. 출처 상세와 원문 Markdown 보기는 전송 필드, 요청,
+표시 데이터 필드를 재사용합니다. 출처 상세, 검증 상태 줄, 원문 Markdown 보기는 전송 필드, 요청,
 Incident 확인 또는 실행 권한을 추가하지 않습니다. 거절된 내용은 표시가 허용된 답변에
 포함하지 않습니다.
 

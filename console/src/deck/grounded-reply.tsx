@@ -196,6 +196,10 @@ export function GroundedReply({
   const sourceCountLabel = evidenceReferences
     ? t("deck.tooltip.evidenceReferences", { count: sources.length })
     : t("deck.tooltip.groundedSources", { count: sources.length });
+  // The verification chip already states this status, so the sources pill omits it visibly.
+  const verificationStatusText = verification
+    ? shortVerificationStatus(verification, semanticReceipt, boundedCorrection)
+    : null;
   const sourceButtonLabel = sourceButtonAccessibleLabel(sourceCountLabel, [
     groundingStatusLabel,
     secondaryGroundingIssue
@@ -279,7 +283,11 @@ export function GroundedReply({
       ) : null}
       {!streaming && verification ? (
         <div class="deck-answer-posture" data-issue={verificationIssue ?? "none"} role="status">
-          <strong>{renderedVerificationLabel}</strong>
+          <strong>{verificationStatusText}</strong>
+          {claimDetail(verification) ? <span>{claimDetail(verification)}</span> : null}
+          <span class="deck-answer-posture-note">
+            {verificationLabel(verification, semanticReceipt, { includeClaims: false })}
+          </span>
         </div>
       ) : null}
       <div class="deck-turn-body cs-deck-answer" tabIndex={-1}>
@@ -483,9 +491,7 @@ export function GroundedReply({
                         ? "\u21bb"
                         : "!"}
                 </span>
-                <span>
-                  {shortVerificationStatus(verification, semanticReceipt, boundedCorrection)}
-                </span>
+                <span>{verificationStatusText}</span>
                 {claimDetail(verification) ? (
                   <span class="cs-deck-verification-detail">{claimDetail(verification)}</span>
                 ) : null}
@@ -512,7 +518,9 @@ export function GroundedReply({
                     ? t("deck.grounded.source")
                     : t("deck.grounded.sources")}
                 </span>
-                {pillIssues(groundingIncomplete, groundingStatusLabel, secondaryGroundingIssue).map((issue) => (
+                {pillIssues(groundingIncomplete, groundingStatusLabel, secondaryGroundingIssue)
+                  .filter((issue) => issue !== verificationStatusText)
+                  .map((issue) => (
                   <Fragment key={issue}>
                     <span aria-hidden="true">{"\u00b7"}</span>
                     <span class="cs-deck-pill-issue">{issue}</span>
@@ -994,8 +1002,9 @@ function CodeEvidence({ artifacts }: { readonly artifacts: readonly GroundedCode
 export function verificationLabel(
   verification: AnswerVerification,
   semanticReceipt?: SemanticProjectionReceipt,
+  options: { readonly includeClaims?: boolean } = {},
 ): string {
-  const claims = verification.claims ?? [];
+  const claims = options.includeClaims === false ? [] : verification.claims ?? [];
   const supportedClaims = claims.filter((claim) => claim.status === "supported").length;
   const claimSummary = claims.length > 0
     ? t("deck.grounded.verificationLabel.claimSummary", {
@@ -1040,7 +1049,7 @@ export function verificationLabel(
         : verification.authority === "server_read_model"
           ? t("deck.grounded.verificationLabel.scope.serverEvidence")
           : t("deck.grounded.verificationLabel.scope.groundedEvidence");
-      return claims.length > 0
+      return (verification.claims ?? []).length > 0
         ? t("deck.grounded.verificationLabel.consistent", {
             scope: evidenceScope,
             claims: claimSummary,

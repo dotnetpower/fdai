@@ -138,6 +138,12 @@ for (const [locale, catalog, answerEvidence, runRecord] of [
     await page.locator(".deck-input").fill("Read the retained evidence.");
     await page.locator(".deck-input").press("Enter");
     await expect(page.locator(".deck-answer-posture")).toBeVisible();
+    // The posture leads with the short status and keeps the full wording on a quieter note line.
+    const postureStatus = await page.locator(".deck-answer-posture > strong").innerText();
+    expect(postureStatus.length).toBeGreaterThan(0);
+    await expect(page.locator(".deck-answer-posture-note")).toBeVisible();
+    await expect(page.locator(".deck-answer-posture-note")).not.toHaveText(postureStatus);
+    await expect(page.locator(".deck-gr-pill .cs-deck-pill-issue", { hasText: postureStatus })).toHaveCount(0);
     await expect(page.locator(".deck-overlay")).toHaveClass(/cs-deck-conversation/);
     expect(await page.locator(".deck-overlay").evaluate(node => getComputedStyle(node).getPropertyValue("--cs-deck-meta-text").trim())).not.toBe("");
     await expect(page.locator(".deck-rich.cs-deck-prose").first()).toBeVisible();

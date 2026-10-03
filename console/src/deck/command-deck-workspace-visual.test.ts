@@ -432,6 +432,8 @@ describe("Command Deck workspace hierarchy", () => {
       /@media \(max-width: 640px\)[\s\S]*grid-template-areas:\s*"title title actions window"\s*"model headline headline headline";/,
     );
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-header-action \{ width: 44px; height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*grid-template-columns: 120px minmax\(0, 1fr\) auto 44px;/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-header-actions > \*, \.deck-header-action \{ flex: none; \}/);
     expect(styles).toMatch(
       /@media \(max-width: 640px\)[\s\S]*\.deck-composer-inner \{ grid-template-columns: auto minmax\(0, 1fr\) auto;/,
     );
