@@ -302,6 +302,7 @@ role qualification, service operations, provider/broker checks, deployment and r
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-04 | implemented | Reconciled remaining work with closed issues: checked the PostgreSQL host dependency (#262), OI-12 certification measurements (#262), and authenticated 8010/5273 runtime-call evidence (#260); narrowed the #292 and #294 items to their unevidenced remainder; split the OI-12 wording regression into its own item; removed the duplicate OI-12 item; and marked #371 and #444 receipts deferred after their not-planned closure. | `current change` edits only this ledger; closure evidence on #260, #262, #292, #294, #360, #371, and #444. | Replacement-reducer binding, termination presentation receipt, OI-12 wording regression, and governed production receipts remain open. |
 | 2026-10-04 | implemented | Closed local repeated-reconciliation and durable AKS binding reuse gaps. Unchanged complete generations reuse the retained semantic journal, skip new full journal rows, lifecycle bindings, lifecycle partitions, topology baselines, and Resource Events while still projecting the current generation. A changed generation appends and publishes a new fact set. AKS subscription discovery now writes public CA trust material plus non-secret binding metadata to the shared StateStore, recomputes the CA digest from retained PEM before reuse, and reuses it only after a fresh management-plane API server and ARM revision match. API server or ARM revision changes and cache read errors force credential rediscovery. CA rotation is detected through ARM revision or API server change; if neither changes, the stale CA surfaces as TLS unavailable rather than unpinned trust. No kubeconfig, token, client certificate, client key, password, or username is cached. | `current change`; `delivery/aks_subscription_discovery.py`; `delivery/kubernetes_cluster_binding.py`; `delivery/inventory_sync_cli.py`; `tests/delivery/test_aks_subscription_discovery.py`; `tests/delivery/test_inventory_sync_cli.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/delivery/test_aks_subscription_discovery.py services/core-control-plane/tests/delivery/test_inventory_topology_history.py services/core-control-plane/tests/delivery/test_inventory_sync_cli.py` (`139 passed`). | Deployed Azure certification and pushed-SHA evidence remain separately open under `OI-12` and linked deployed-evidence items. |
 | 2026-10-03 | implemented | A snapshot-covered realtime change now advances the ontology projection fence across the contiguous covered journal tail in the same transaction as its overlay mark (#1872). The rule applies only when the watermark state and the ontology manifest both name the active generation. Provider deliveries arrived 218-542 seconds late, and the coverage rule ran only when a generation was appended. A covered change recorded after promotion therefore left `ontology_projection_watermark` one entry behind `journal_high_watermark`, which failed the deployment closure `projection` condition. A change newer than the generation still holds the fence until complete reconciliation. | westus3 kit `8e38743b53`: initial inventory closure failed `projection` at journal 141670 and ontology 141669. The tail entry was an `inventory_delta` API Management write, effective 06:37:08Z and recorded 06:42:20Z, against a generation that started at 06:39:34Z. A read-only replay of the existing coverage query on live data returned the journal high. `test_snapshot_covered_delta_closes_only_a_projected_ontology_fence` fails on the previous code (`21 == 22`) and passes on a fresh real PostgreSQL. Nine covered-fence unit cases pass; CI service-DB selection: 34 passed. | Live westus3 initial inventory closure with a kit that includes this fix. |
 | 2026-10-03 | implemented | Inventory configuration delivery now sends Resource Events in bounded concurrent windows of 64 on the shared producer (#1853). The sequential `send_and_wait` loop needed about 136 ms per Resource on westus3, so an 806-Resource generation took about 110 seconds against the 60-second recovery bound. Every run was cancelled partway and restarted the same generation, and the CronJob failed every minute with `pending inventory projection recovery failed`. The first broker failure cancels the window's outstanding sends and propagates the original error, so delivery completion is never recorded early and retry-stable event identities are unchanged. | westus3 AKS: 806 subscription Resources, about 2,200 incoming messages per 5 minutes on `fdai.change.events`, and the CronJob failing with the recovery error. `test_promoted_inventory_publishes_in_bounded_concurrent_windows` and `test_promoted_inventory_publish_failure_cancels_its_window` fail on the sequential implementation; `test_inventory_configuration_events.py`: 20 passed. | Live inventory delivery completion with a kit that includes this fix. |
@@ -668,6 +669,8 @@ retention remain in progress.
   lifecycle state or Blob access; both deployed schedules remain `shadow` by default.
 - [ ] Retain the governed production and live-Azure receipts tracked by #371, #360, and #444. Code
   checks and synthetic certification cannot substitute for those independently authorized runs.
+  #360 closed completed with a governed receipt; #371 and #444 closed as not planned on 2026-09-28,
+  so their receipts are deferred until a new issue schedules them.
 
 - [x] Verify the closed two-type Resource Group delete-envelope exception: 130 focused tests,
   targeted Ruff and strict mypy, and one complete read-only retained-cursor page passed.
@@ -708,7 +711,8 @@ retention remain in progress.
   change-focused, release, and scheduled campaigns follow
   [Continuous Semantic Assurance](../../roadmap/interfaces/continuous-semantic-assurance.md) and are not an
   OI-11 exit criterion.
-- [ ] `OI-12` runs wording regression and [deployed Azure certification](https://github.com/dotnetpower/fdai/issues/262) after OI-11; it measures freshness, API pressure, lag, storage growth, rollup coverage, archive restore, and provider failure behavior.
+- [x] `OI-12` runs [deployed Azure certification](https://github.com/dotnetpower/fdai/issues/262) after OI-11; it measures freshness, API pressure, lag, storage growth, rollup coverage, archive restore, and provider failure behavior. Evidence: #262 closed completed after OI-12 run `34447462177` recorded all seven measurements.
+- [ ] Record a separate OI-12 wording-regression result; the #262 certification evidence covers the seven measurements only.
 - [x] `OI-13` persists a versioned normalized object and relationship observation journal with
   explicit full, partial, change-hint, and tombstone semantics. Exit requires focused duplicate,
   reorder, sparse-property, operation-status, restart, and current-projection digest checks.
@@ -743,7 +747,7 @@ retention remain in progress.
 - [x] Provide the standard local profile with `analyzer: run continuously (local)`. It reuses the deployed one-shot analyzer CLI, local runtime environment, inventory target discovery, metric mappings, idempotency keys, event contract, and shadow posture without duplicating analyzer logic.
 - [x] Suppress repeated same-window analyzer publications through a restart-durable completed broker receipt, and retain a deterministic same-UID restart and distinct-UID replacement receipt that joins detection latency, evidence completeness, publication, and recovery closure.
 - [x] Report Pod failure and recovery through the authenticated Operator API `/detection-readiness` family and its existing Console route, keeping current state, failure history, recovery, and evidence gaps separable, failing closed or unavailable on missing, stale, incomplete, or conflicting evidence, and claiming neither a cause nor execution authority. One pinned-revision end-to-end proof drives the real analyzer, ledger, recorder, Operator reader, and Console model path.
-- [ ] Complete [typed resumable Kubernetes lifecycle ingestion](https://github.com/dotnetpower/fdai/issues/292), bind its retained old/new UID and termination observations to the replacement reducer, and retain authenticated exact-target replacement and new-cutoff recovery receipts.
+- [ ] [Typed resumable Kubernetes lifecycle ingestion](https://github.com/dotnetpower/fdai/issues/292) closed completed on 2026-08-27. Remaining: bind its retained old/new UID and termination observations to the replacement reducer, and retain authenticated exact-target replacement and new-cutoff recovery receipts.
 - [x] Resolve or assign reviewed unavailable status to every persisted mapping-specific
   relationship candidate. The final generation has nine classifications and 66 candidates:
   10 `target_outside_active_generation`, 40 `target_provider_type_unmodeled`, and
@@ -751,9 +755,11 @@ retention remain in progress.
   read-only ARG comparison across all accessible subscriptions found no missing AKS managed
   endpoint or cross-subscription subnet target, and no edge was fabricated for an unavailable
   target.
-- [ ] [Deploy all five service-root `POSTGRES_HOST` inputs](https://github.com/dotnetpower/fdai/issues/262)
+- [x] [Deploy all five service-root `POSTGRES_HOST` inputs](https://github.com/dotnetpower/fdai/issues/262)
   and retain a generation that projects each exact workload-to-PostgreSQL dependency. Secret names,
   environment-variable names, secret values, and unapplied Terraform remain invalid runtime evidence.
+  Evidence: protected apply run `34483397404`; five verified active-generation workload-to-PostgreSQL
+  edges with sanitized graph evidence digest `2cf6c7d6ea41`; #262 closed completed.
 - [x] Complete the Private DNS path with 21 exact Private Endpoint to zone-group containment edges
   and 21 zone-group to zone attachments. The authenticated three-node/two-edge DNS focus exposes
   both reviewed mappings with complete direct evidence and no competing Resource Group parent.
@@ -773,9 +779,10 @@ retention remain in progress.
 - [x] Bind a typed runtime-call telemetry producer to the existing inventory single writer. The
   scheduled path records `telemetry_source_unavailable` and adds no edge until an authenticated
   source supplies both exact endpoint Resource IDs.
-- [ ] [Retain authenticated `8010` and `5273` runtime-call evidence](https://github.com/dotnetpower/fdai/issues/260)
+- [x] [Retain authenticated `8010` and `5273` runtime-call evidence](https://github.com/dotnetpower/fdai/issues/260)
   from a pushed green SHA. Name-, group-, environment-, credential-, and RBAC-based endpoint
-  inference remains rejected.
+  inference remains rejected. Evidence: #260 closed completed with every exit criterion checked,
+  including the authenticated 8010 and 5273 evidence, after recovery merge `01232ef9fc`.
 - [x] Bind a read-only broker publication reconciler keyed by the stable analyzer event ID and
   idempotency key, with focused accepted-record and fail-closed restart-path checks. Missing,
   expired, or inconclusive broker evidence keeps the claim awaiting reconciliation.
@@ -815,9 +822,9 @@ retention remain in progress.
   [Issue #292](https://github.com/dotnetpower/fdai/issues/292). For
   [Issue #294](https://github.com/dotnetpower/fdai/issues/294), add source-specific unavailable
   reasons, deterministic semantic planning, presentation, and an authenticated exact-target receipt.
-
-- [ ] `OI-12` runs wording regression and [deployed Azure certification](https://github.com/dotnetpower/fdai/issues/262)
-  after OI-11; it measures freshness, API pressure, lag, storage growth, rollup coverage, archive restore, and provider failure behavior.
+  Both issues closed completed: #294 commit `273c3fec34` added bounded termination fields and
+  fail-closed diagnosis with explicit source gaps. The authenticated exact-target receipt and
+  Operator presentation remain unevidenced.
 
 - [x] Bind the standard local VS Code profile to the same analyzer CLI, target discovery, metrics,
   idempotency, event, and shadow contracts used by the deployed scheduled Job.
