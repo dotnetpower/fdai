@@ -536,6 +536,12 @@ conflicts, synthetic status, and evidence references. Presentation can state `fr
 to_state` only for complete, conflict-free, non-synthetic observations. Derived or otherwise
 unverified rows remain unresolved and cannot become an observed-state claim.
 
+`query.resource_health_inventory` follows the same read-only boundary for current availability. It
+reads the exact secured Resource set twice under one target-set digest, query revision, deadline, and
+coverage contract, and returns `state_changed` when the tuple set does not settle within one retry.
+An answer over its receipt passes an out-of-band validator that computes the terminal disposition
+from typed fields and replaces any contradicting all-clear claim.
+
 ## Delivery sequence
 
 | Slice | Deliverable | Exit criteria |
