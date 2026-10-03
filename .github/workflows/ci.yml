@@ -354,6 +354,38 @@ jobs:
             bash scripts/quality/repository/check-doc-links.sh
           exit "$failed"
 
+      # Pages publishes only after merge; validate the same documentation sources on every
+      # pull request whose Python or documentation inputs can invalidate them.
+      - name: Set up Node.js
+        if: needs.changes.outputs.docs == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            site/package-lock.json
+            tools/architecture-diagrams/package-lock.json
+            tools/agent-visualizer/package-lock.json
+
+      - name: Install documentation build dependencies
+        if: needs.changes.outputs.docs == 'true'
+        run: |
+          npm --prefix tools/architecture-diagrams ci --no-audit --no-fund
+          npm --prefix tools/agent-visualizer ci --no-audit --no-fund
+          npm --prefix site ci --no-audit --no-fund
+
+      - name: Validate documentation sources
+        if: needs.changes.outputs.docs == 'true'
+        run: |
+          npm --prefix tools/architecture-diagrams test
+          npm --prefix tools/architecture-diagrams run typecheck
+          npm --prefix tools/architecture-diagrams run check
+          npm --prefix tools/architecture-diagrams run check-public-migration
+          npm --prefix tools/architecture-diagrams run check-repository-migration
+          npm --prefix tools/agent-visualizer run graph
+          npm --prefix tools/agent-visualizer test
+          npm --prefix site test
+
   governance-runtime-contracts:
     name: catalog and governance runtime contracts
     needs: changes
