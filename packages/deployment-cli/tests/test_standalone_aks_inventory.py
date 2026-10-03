@@ -116,6 +116,9 @@ def test_initial_inventory_overrides_mutable_template_and_retains_closure_eviden
     assert overrides["FDAI_INVENTORY_SCOPES"] == _SUBSCRIPTION
     assert overrides["FDAI_INVENTORY_SOURCES"] == "arg,arm"
     assert overrides["FDAI_INVENTORY_RESOURCE_TYPES"] == ""
+    # The in-cluster Job cannot reach the operations-private progress container.
+    assert "FDAI_INVENTORY_PROGRESS_CONTAINER_URL" not in overrides
+    assert closure_environment["FDAI_INVENTORY_PROGRESS_CONTAINER_URL"].startswith("https://")
     assert closure_environment["FDAI_INVENTORY_SCOPES"] == _SUBSCRIPTION
     assert closure_environment["FDAI_INVENTORY_SOURCES"] == "arg,arm"
     assert closure_environment["FDAI_INVENTORY_RESOURCE_TYPES"] == ""
