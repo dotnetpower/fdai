@@ -12,13 +12,18 @@ owners keep consuming them through the unchanged admission seam.
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
 > The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,
 > Operator authentication receipt, the three test-context readbacks, an unwired case-history
-> readback module, class-specific records in every consuming owner, and Settings readiness observation exist and pass local checks; see
-> [Implementation notes](#implementation-notes). No verifier workload is deployed, and forecast purposes without a bound source readback stay `unavailable`.
+> readback module, class-specific records in every consuming owner, Settings readiness observation, and
+> opt-in deployed verifier workload renderers exist and pass local checks; see
+> [Implementation notes](#implementation-notes). No connected deployed verifier start has been observed, and
+> forecast purposes without a bound source readback stay `unavailable`.
 >
 > **Agent boundary:** The pantheon remains exactly 15 agents. This design adds no agent or topic, changes no
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.
 
 ## Design at a glance
+Conversation model-call counts, token usage, and local per-call timing are diagnostic metadata.
+They cannot issue an admission, replace any source readback, qualify operational evidence,
+or prove human authorization. Adding numeric usage telemetry leaves this verifier boundary unchanged.
 
 Eleven purpose ids across eight decision slices already require an exact `DecisionEvidenceAdmission` (a
 short-lived, no-authority eligibility record that exists only after five independent proofs), but nothing
@@ -32,6 +37,10 @@ Operator/Core semantic transport. They do not admit operational evidence, satisf
 readbacks, or grant execution authority.
 Their sealed Core-only row identities are reauthorization operands for follow-up reads only; they
 are not verifier source artifacts, admissions, or proof material.
+Baseline evaluation terminal records use the same evidence boundary. The per-rule outcome and
+per-generation completion contracts can reference Forseti evaluation receipts and Saga audit
+records, but the contract itself does not issue independent operational evidence, deploy a verifier,
+or prove live provider state.
 
 ## Current state and gap
 
@@ -257,6 +266,16 @@ Lookup: `observation_context_digest`, the scope, `operational-test-observation`,
 | Conflict | No conflicting sample, series, or health source |
 | Freshness policy | 300 seconds from the provider read |
 
+**Source binding.** `core/operational_evidence/readback/test_observation.py` provides the verifier-side
+`OperationalTestObservationReadback`. The verifier workload binds it only in a deployed venue when deployment
+configuration supplies all three source contracts: a Log Analytics workspace, reviewed KQL metric templates, and
+reviewed operating-scope observation rows. `delivery/azure/operational_evidence_readbacks.py` wraps the verifier-owned
+Azure Monitor Logs metric provider with an exact-bin sample reader and pairs it with the reviewed operating-scope
+reader. The deployed verifier identity must carry `Monitoring Reader` on the configured resource-group scope; own-role
+readback keeps that role distinct from producer, reviewer, and executor identities before the purpose becomes
+available. Missing metric config, missing scope rows, a local-loopback source in a deployed venue, conflicting samples,
+incomplete dependency health, or a protected signal all fail closed with typed rejection classes.
+
 ### Forecast history source slices
 
 Consumer: Heimdall's `StateStoreForecastContextProvider._require_admission` in
@@ -275,6 +294,50 @@ the corroboration or same-instant conflicting records, and freshness is 3,600 se
 never past the slice's `valid_until`. Scope membership comes from the reviewed operating scope, not from
 `FDAI_FORECAST_TARGETS_JSON`. Raw history production remains [#1021](https://github.com/dotnetpower/fdai/issues/1021),
 and an unimplemented source means no issuance.
+
+**Design note: `forecast-history-actions`.** The action producer reads the existing Thor/Saga StateStore audit chain
+without becoming a Thor, Saga, reviewer, or executor. A fixed-parameter `SECURITY DEFINER` function returns hash
+anchors for each `thor.action-run-save` row in the requested window and only exposes the paired ActionRun payload when
+its target exactly matches the reviewed target. The source adapter requires contiguous sequence numbers, matching
+`previous_hash` to `entry_hash`, and recomputed audit hashes through the watermark before it derives source records.
+The reviewed mapping can translate terminal ActionRun states, such as `succeeded` and `failed`, into the forecast
+action state. Gaps, hash mismatches, pending terminal state, unmapped states, stale coverage, result limits, and target
+mismatches fail closed as incomplete or conflicting source coverage before any slice admission can issue.
+
+**Critique.** Reading ActionRun payloads directly from `state_kv` would overexpose Core state and would prove only the
+latest value. Reading only target rows would not prove that absence was complete. The revised reader therefore separates
+hash anchors from payload disclosure: every action-save row contributes sequence and hash continuity, while only rows
+for the exact target return the state payload needed to build records. It still does not grant execution authority or
+change Thor or Saga ownership.
+
+**Revision.** The first implementation binds `forecast-history-actions` to `fdai.thor_saga_state_store.action_audit`
+revision `forecast-action-audit-chain.v1`, uses only function `EXECUTE` for the verifier role, and leaves Activity Log
+as corroborating readiness health. `forecast-history-excluded_windows` remains unavailable until a revisioned
+`ChangeWindow` history producer exists.
+
+**Design note: `forecast-history-excluded_windows`.** The existing operating-intent source remains the only authority for
+`ChangeWindow` objects. On each successful admission, that path records append-only history rows for every admitted
+`ChangeWindow` object under a deterministic key derived from the source revision and window id. Each row includes the
+window id, scope or target reference, status, window kind, effective interval, source revision, document digest, recorded
+time, a supersedes reference to the prior retained revision for that window when one exists, and a watermark for the
+whole admitted source document. A separate per-source coverage row records the source revision, document digest,
+validated time, object count, and watermark so the forecast producer can prove that the retained rows came from a
+complete admitted source, not from a partial current graph read.
+
+**Critique.** Reusing `OntologyChangeWindowEvidenceProvider.is_active` or the latest ontology object revision would still
+fake history, because it can only answer current activity and cannot prove withdrawn, superseded, or absent windows
+across a forecast lookback. Writing history from a new owner would change authority. The safe seam is therefore the
+existing operating-intent admission path: it has already validated the pinned source, source digest, rollout generation,
+and owned object set. The history writer is read-only with respect to authority. It records evidence after the admission
+path succeeds, and a failure to retain history does not make the `ChangeWindow` authority more permissive.
+
+**Revision.** `forecast-history-excluded_windows` binds to source identity
+`fdai.operating_intent.change_window_history` revision `forecast-change-window-history.v1`. The source adapter reads the
+append-only retained history, requires a matching coverage watermark for the exact operating-intent source revision,
+derives a stateful included/excluded chain with an initial state, and fails closed on missing coverage, supersession
+conflicts, same-instant conflicting states, stale watermarks, or incomplete pages. Once this fourth slice is admitted,
+`forecast-context` can bind through the existing aggregate rule that requires all four source-specific admissions for
+the same scope, target, and window.
 
 ### Forecast context aggregate
 
@@ -298,6 +361,8 @@ the principal scope, case scope, and purpose, `case-history-read`, and the activ
 Because the lookup binds the release digest, any release change, including an edited ontology function
 source outside operational evidence, starts new lookups, and a receipt issued under the previous
 release is never reused; the same change regenerates the source-bound semantic assurance corpus.
+Projection-only ontology vocabulary can refresh that corpus manifest's source digests without
+changing the release digest or any operational-evidence lookup authority.
 
 | Proof | Read-back subject |
 |-------|-------------------|
@@ -321,6 +386,15 @@ similarity reuse) tier of Forseti's judgment, fed by `AzureCurrentReuseVerifier`
 | Completeness | A complete current graph generation for the target and a readable receipt for every safety result |
 | Conflict | No generation, case-revision, or receipt disagreement |
 | Freshness policy | 300 seconds from the snapshot observation, matching the current five-minute snapshot bound |
+
+**Source binding.** `core/operational_evidence/readback/current_case_reuse.py` defines the verifier-side readback, and
+`delivery/azure/operational_evidence.py` defines `AzureCurrentReuseVerifier` for the live T1 (lightweight similarity
+reuse) path. The verifier now retains a queryable source row before it requests the `current-case-reuse` admission. The
+row includes the recomputed verification, current inventory generation, Muninn case reference, seven deterministic
+safety receipt references, and the case/target grant coordinates. The verifier reads that row through a fixed-parameter
+function rather than broad `state_kv` access. Missing source rows, malformed safety receipts, generation conflicts,
+case-revision disagreement, failed safety checks, or grant mismatches fail closed with typed rejection classes. Thor
+still revalidates before any execution path can use a reused case.
 
 ## Fail-closed rejection matrix
 
@@ -404,6 +478,11 @@ tracks what remains.
   excludes scoring with an `operational_evidence_*` class in `ForecastOutcome` schema `1.2.0` and an
   `operational-evidence-rejection:` evidence reference, whether scoring or slice retention was rejected; the T1
   reason codes and the Pattern read's refusal name the class and cite the record.
+- **Forseti judgment table.** Forseti reads rule and risk outcomes from an injectable
+  digest-stamped judgment table, and each deterministic decision records the table digest and a
+  stable decision key. An `auto` decision remains only an upper bound: Forseti lowers it to human
+  approval (`hil`) when governed reversible `ActionType` semantics are unavailable, when the action
+  is unknown, when the required quorum is `>= 2`, or when the matching rule is retired or revoked.
 - **Verifier.** `core/operational_evidence/issuance.py` and `proofs.py` build the receipt, five proofs, and bundle
   from registry entries and its own readback, evaluates them with `DecisionEvidenceReadinessGate`, and writes one admission or one
   rejection. `separation.py` refuses a verifier principal that equals any independent principal, and
@@ -412,7 +491,12 @@ tracks what remains.
   readback before it can report `ready` or issue. `deployment_preflight.py` builds the executor-class anchor set, `operational_evidence_caller_auth.py`
   validates the short-lived caller token and discards it, and `own_role_readback.py` refuses partial readbacks,
   unresolved role definitions, identity mismatches, vault-wide secret access, other-secret access, or write/data-plane roles outside the exact rendered read scopes. Terraform
-  renders only internal ingress. The current caller authenticator consumes a deployment-supplied JWKS snapshot;
+  renders only internal ingress. The AKS standalone renderer can render the same verifier as a separate
+  internal workload only when deployment-owned registry pins, anchors, caller-token validation data, writer
+  membership policy, role-readback scopes, and a dedicated verifier identity are present. The root Terraform
+  stage creates that identity only when enabled, grants it image pull and the exact state-store DSN secret, and
+  uses `principal_type = "ServicePrincipal"` for those same-configuration Managed Identity role assignments.
+  The current caller authenticator consumes a deployment-supplied JWKS snapshot;
   an unknown `kid` is a clear authentication refusal until a later bounded JWKS refresh provider is added. The workload issues only under the exact
   binding of its own verifier version, so a routine rotation leaves an earlier workload and its retained admissions
   valid until they expire, while a revocation revision retires them. A replayed attempt returns its stored outcome,
@@ -446,7 +530,18 @@ tracks what remains.
   sources. A current context is admissible only when the transition admission it cites has the lookup rebuilt from
   that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
   retained record against its exact verifier binding and that binding's readiness under the current anchors. The
-  `operational-test-observation` and `current-case-reuse` remain unbound. The observation provider is not yet available under verifier identity. Case-history now has an insert-only Operator semantic authentication receipt schema, `operator-core-request` `1.9.0` receipt reference, Core-to-Bragi reference propagation, and a bound exact readback module. The Operator setting `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` defaults off and may be enabled only after Core that accepts `operator-core-request` `1.9.0` is deployed; when enabled, the Operator writes the content-free receipt before sending the reference so Core never receives an unresolved reference. Current reuse lacks independent inventory/Muninn/safety receipt sources. Forecast-history and forecast-context purposes also have no bound source readback.
+  `forecast-history-actions`, `forecast-history-changes`, `forecast-history-excluded_windows`, and
+  `forecast-history-resource_lifecycle` purposes now read real derived source rows from
+  `operational_state_transition*`, and `forecast-context` is bound to the four source-specific slices.
+  `operational-test-observation` is bound in deployed verifier workloads when the verifier has `Monitoring Reader`,
+  Log Analytics metric templates, and reviewed operating-scope observation rows. `current-case-reuse` is bound through
+  retained current-reuse source rows that capture the inventory generation, Muninn case reference, safety receipts, and
+  grant coordinates before evidence issuance. Case-history now has an insert-only
+  Operator semantic authentication receipt schema, `operator-core-request` `1.9.0` receipt reference, Core-to-Bragi
+  reference propagation, and a bound exact readback module. The Operator setting
+  `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` defaults off and may be enabled only after Core that accepts
+  `operator-core-request` `1.9.0` is deployed; when enabled, the Operator writes the content-free receipt before
+  sending the reference so Core never receives an unresolved reference.
 - **Shared grant validation.** The case-scope grant registry loader and authorization model are packaged in the shared service-contract SDK and re-exported by Core. Operator's test-context choice projection uses that same loader with a content pin instead of maintaining a parallel grant validator.
 - **Capability and handoff.** `delivery/operational_evidence_readiness.py` adds one Settings row per purpose. Runtime
   Settings materialization observes the verifier readiness endpoint once, through a bounded read that treats every
@@ -456,6 +551,19 @@ tracks what remains.
   version, and reports every source the purpose declares as healthy after a bounded probe read; each failed
   prerequisite is named, configuration alone never makes a row available, and availability grants no authority.
   `delivery/operational_evidence_handoff_cli.py` runs the automatable connected-handoff stages and lists the owed drills.
+  After a separate connected-environment approval and with the workload's deployment-supplied environment loaded,
+  the coordinator runs:
+
+  ```bash
+  FDAI_OPERATIONAL_EVIDENCE_HANDOFF_AUTHORIZED=1 \
+    .venv/bin/python -m fdai.delivery.operational_evidence_handoff_cli run \
+    --venue connected \
+    --root /app
+  ```
+
+  This command produces a content-free handoff receipt and stops at the first missing identity, registry,
+  writer-readback, readiness, positive-issuance, negative-drill, or stop-condition observation. It is not
+  independent operational qualification; that stays with #1026.
 
 ## Non-goals
 
@@ -488,3 +596,4 @@ The owner recorded these decisions on 2026-09-28 for exit criterion 1 of #1022:
 | Decision-critical evidence rules | [FDAI Constitution](../architecture/fdai-constitution.md) |
 | Agent ownership and topics | [Agent pantheon](../agents/agent-pantheon.md) |
 | Pinned deployment-owned sources | [Operating-intent source](../architecture/operating-intent-source.md) |
+| Shared Workflow validation contracts | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |

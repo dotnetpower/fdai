@@ -48,6 +48,7 @@ import type { DeckContextMode } from "./open-deck";
 import { GroundedReply } from "./grounded-reply";
 import { TestContextReview } from "./test-context-review";
 import { InvestigationTimeline } from "./investigation-timeline";
+import { MilestoneLine } from "./investigation-roles";
 import { introSuggestions } from "./intro-suggestions";
 import { isSemanticDirectResponseSource } from "./backend-normalizers";
 import { ModelTraceWaterfall } from "./model-trace-waterfall";
@@ -74,6 +75,10 @@ export interface Turn {
   readonly kind?: "message" | "activity";
   readonly activities?: readonly InvestigationActivity[];
   readonly branches?: readonly EvidenceBranch[];
+  /** The live plan pin on an activity turn, kept so a stopped investigation still names its plan. */
+  readonly workProgressShape?: import("./backend-types").WorkProgressShape;
+  /** The operator stopped this activity turn before every read reported an end. */
+  readonly stopped?: boolean;
   readonly confirmed?: ConfirmedAnswerSegment;
   readonly citations?: readonly { readonly label: string; readonly value?: string }[];
   readonly followUps?: readonly string[];
@@ -536,11 +541,11 @@ export function TurnBubble({
   onRegenerate,
   searchMatch,
   activeSearchMatch,
-  progressIndex,
   investigationFlowContinuation,
   investigationFlowStart,
   investigationFlowEnd,
   investigationAnswerSettled,
+  investigationLead = false,
 }: {
   readonly turn: Turn;
   readonly trajectory?: ConversationTrajectory;
@@ -549,11 +554,12 @@ export function TurnBubble({
   readonly onRegenerate?: () => void;
   readonly searchMatch: boolean;
   readonly activeSearchMatch: boolean;
-  readonly progressIndex?: number;
   readonly investigationFlowContinuation: boolean;
   readonly investigationFlowStart: boolean;
   readonly investigationFlowEnd: boolean;
   readonly investigationAnswerSettled: boolean;
+  /** The first activity turn of its flow, which carries the turn-wide plan, limits, and receipt. */
+  readonly investigationLead?: boolean;
 }) {
   const isDeck = turn.role === "deck";
   const isActivity = turn.kind === "activity";
@@ -564,6 +570,8 @@ export function TurnBubble({
   const isSemanticDirectResponse = isSemanticDirectResponseSource(turn.source);
   const showReplySource = turn.source && turn.source !== "semantic-direct-response" &&
     turn.source !== "semantic-advisory-response";
+  // The live pin names the plan while the turn runs; the settled record keeps it for replay.
+  const plan = turn.workProgressShape ?? trajectory?.workProgressShape;
   return (
     <article
       id={`deck-turn-${turn.id}`}
@@ -598,6 +606,11 @@ export function TurnBubble({
           running={turn.streaming === true}
           showStartNote={investigationFlowStart}
           answerSettled={investigationAnswerSettled}
+          lead={investigationLead}
+          stopped={turn.stopped === true}
+          {...(plan ? { plan } : {})}
+          {...(trajectory?.turnBudget ? { turnBudget: trajectory.turnBudget } : {})}
+          {...(trajectory?.contextReceipts ? { contextReceipts: trajectory.contextReceipts } : {})}
           {...(trajectory?.durationMs !== undefined
             ? { turnDurationMs: trajectory.durationMs }
             : {})}
@@ -612,19 +625,7 @@ export function TurnBubble({
             : {})}
         />
       ) : isProgressMessage ? (
-        <div class="deck-progress-note" role="status">
-          <span class="deck-progress-note-mark" aria-hidden="true">
-            {String((progressIndex ?? 0) + 1).padStart(2, "0")}
-          </span>
-          <div class="deck-progress-note-body">
-            <strong>
-              {t((progressIndex ?? 0) === 0
-                ? "deck.investigation.startingWork"
-                : "deck.investigation.progressUpdate")}
-            </strong>
-            <p>{turn.text}</p>
-          </div>
-        </div>
+        <MilestoneLine text={turn.text} {...(turn.recordedAt ? { recordedAt: turn.recordedAt } : {})} />
       ) : isDeck ? (
         <>
           <GroundedReply
@@ -659,21 +660,21 @@ export function TurnBubble({
           ) : null}
           <div class="deck-turn-body cs-deck-user-bubble">
             {turn.text.split("\n").map((line, index) => (
-              <p key={index} class="deck-turn-line">{line}</p>
+              <p key={index} class="cs-deck-user-line">{line}</p>
             ))}
-            <div class="deck-turn-inline-time">
+            <div class="cs-deck-user-time">
               <TurnRecordedTime turn={turn} />
             </div>
           </div>
         </>
       )}
       {turn.followUps && turn.followUps.length > 0 ? (
-        <ul class="deck-followups" aria-label={t("deck.suggestedFollowUps")}>
+        <ul class="cs-deck-followups" aria-label={t("deck.suggestedFollowUps")}>
           {turn.followUps.map((followUp) => (
             <li key={followUp}>
               <button
                 type="button"
-                class="deck-followup"
+                class="cs-deck-followup"
                 onClick={() => onPickFollowUp(followUp)}
               >
                 {followUp}

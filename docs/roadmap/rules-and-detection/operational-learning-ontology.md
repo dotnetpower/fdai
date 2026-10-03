@@ -230,6 +230,10 @@ question. It is not residual work for the current learning runtime.
 
 All collaboration uses typed event-bus topics. Case materialization and learning stay off the hot
 path: a delayed learner cannot block detection, mitigation, rollback, or unrelated incidents.
+If the case-history materializer is missing, Muninn reports degraded forecast-learning state
+instead of silently stopping the chain. Muninn's operational outbox recovers pending rows at
+startup before it accepts new materialization work, so retryable forecast outcomes keep their
+lineage until case-history intake resumes.
 
 ## Intake from benchmarks
 

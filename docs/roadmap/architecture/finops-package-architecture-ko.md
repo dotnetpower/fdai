@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: bc86eef9896a7108f7b4a0d90a1f72c109dea321
-translation_revised: 2026-09-30
+translation_source_sha: b5e15813c2152d021a2ce646deb938e8884d44e7
+translation_revised: 2026-10-02
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -53,7 +53,8 @@ Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발
 > 전역 Terraform 루트는 자동 읽기 전용 검색을 위해 전용 인벤토리 신원에 구독 범위 AKS
 > Cluster User 및 RBAC Reader 역할을 부여할 수 있습니다. 이 역할 할당과 일시적 클러스터
 > 연결은 Cost Governance 패키지 입력이 아니며 패키지 런타임을 활성화하거나 비용 결정을
-> 승인하거나 실행 권한을 부여할 수 없습니다. 같은
+> 승인하거나 실행 권한을 부여할 수 없습니다. 같은 apply에서 만드는 관리 ID에 대한 다른 역할 할당과 마찬가지로
+> 이 할당도 `principal_type = "ServicePrincipal"`을 선언하며, 부여하는 역할은 바뀌지 않습니다. 같은
 > 경계는 독립 런타임 호출 근거 원본 플래그, 공유 공급자 엔드포인트 가용성 및 시작 프로브 RBAC 상태 주소도 FinOps 패키지 입력과 권한에서 제외합니다.
 > 고정 대화 품질 보증 시나리오 사실도 공유 읽기 전용 Pantheon 숙의 경로의 진단 전용 입력으로 유지됩니다. 이 사실은 Cost Governance를 설치, 활성화, 구성 또는 게시할 수 없고 데이터 접근이나 작업 권한도 부여할 수 없습니다.
 > 보호된 Terraform deployer 역할은 구성된 안정 실행기 UAMI principal을 사용하며 인증된
@@ -460,6 +461,13 @@ enablement나 `ActionType` 또는 `Workflow` mode를 변경할 수 없습니다.
 순서, 효과 정산 및 학습 루프는 [FinOps 자율 운영](finops-autonomous-operations-ko.md)에
 정의되어 있습니다.
 
+비용 및 용량 전문가는 Huginn이 검증한 시각과 신원만 소비합니다. `occurred_at`을 먼저 사용하고
+그다음 신뢰된 `ingested_at`을 사용하며, 이벤트 묶음의 `resource_id`를 권위 있는 값으로 봅니다.
+속성 사본은 묶음 값과 같을 때만 수락합니다. 리소스 신원이 충돌하면 보이는 동작 근거와 함께
+거부합니다. Njord는 활성화 판독기가 연결되지 않으면 안전하게 닫히고, Freyr는 Njord 비용 근거가
+최신이며 graduation 범위와 상관관계가 있을 때만 용량 권고에 첨부합니다. 각 전문가는 health에
+유입 상태와 거부 카운터를 보고합니다.
+
 ## 호환성과 롤백
 
 마이그레이션은 일괄적인 import 변경 대신 중첩 기간을 사용합니다.
@@ -519,3 +527,4 @@ Rule 카탈로그 스냅샷 저장소와 초안 검토 전달은 공유 Core pla
 | 현재 vertical 온보딩 연결부 | [범위 확장](../fork-and-sequencing/scope-expansion-ko.md#38-vertical-registry-new-domain-onboarding-seam) |
 | 비용 권한 입력 | [실행 모델](../decisioning/execution-model-ko.md) |
 | 고정 에이전트 소유권 | [에이전트 Pantheon](../agents/agent-pantheon-ko.md) |
+| 비용 이미지 및 패키지 핀 드리프트 처리 | [개발자 워크플로 보증](../deployment/developer-workflow-assurance-ko.md) |

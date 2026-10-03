@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 9718e58ae5ea5560c8a5ee972c2a849ef518e4ce
-translation_revised: 2026-10-01
+translation_source_sha: 02c7d125aafde2f68b166e4d458cc819c713795c
+translation_revised: 2026-10-03
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다. 모듈 분리 후에도 제안 claim 타입은 목적별 모델 소유자에 유지하고 공개 보증 파사드, 생성된 CQAS 인벤토리, 정본 시각 매핑을 보존하며 요청 또는 실행 권한은 바뀌지 않습니다. 파사드 가져오기 이름을 보존하는 런타임 카탈로그 로더 분리는 사람 보고 관계, 승인 경로, RBAC 또는 Console 요청 계약을 변경하지 않습니다. Rule 활성화 테스트를 소유 Core 및 Operator 서비스 테스트 묶음에 등록하는 변경은 테스트 선택만 바꾸며 보고 관계나 승인 권한을 부여하지 않습니다. Console 카탈로그나 deck 표현 계약 변경 뒤 질문은행과 CQAS 산출물을 다시 생성하는 작업은 원본 약속값만 갱신하며 질문 신원, 보고 권한 또는 대화 실행 권한을 바꾸지 않습니다.
@@ -14,7 +14,10 @@ Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니�
 최근 참조를 최대 네 개까지 돌려보냅니다. Operator에 행 본문을 노출하거나 사람 보고 경로를
 바꾸거나 Console 실행 권한을 부여하지 않습니다.
 생성된 계약 view가 롤아웃에 안전한 핸들 참조 스키마 버전을 추가할 수는 있지만, 브라우저와 Operator는
-여전히 행 신원, 행 본문 또는 모델에 보이는 핸들 payload를 받지 않습니다.
+여전히 행 신원, 행 본문 또는 모델에 보이는 핸들 payload를 받지 않습니다. Operator Rule 점검 결과
+요약은 이제 완전한 baseline-evaluation 완료 및 결과 기록에서만 평가된 Console 상태를 수락합니다.
+coverage가 없거나 부분적이면 계속 사용할 수 없음으로 렌더링하고, 저장된 완전한 요약은 더 새 세대가
+완료될 때까지 읽을 수 있습니다.
 적응형 답변 근거는 Core가 만든 허용 목록 기반 변환 결과인 `ModelEvidenceView`로 모델 경계를
 넘습니다. 원시 조회 표, 프로바이더 본문, 핸들, 보관된 스냅숏 셀은 답변 작성 또는 검토 모델
 호출에 들어가지 않습니다.
@@ -94,6 +97,26 @@ Rules workspace는 카탈로그 출처와 배포 로컬 활성화 멤버십을 �
 완료를 입증하는 근거가 필요합니다. 읽기 실패는 행 부재로 바꾸지 않으며, 이 경계는 이전에
 저장된 상태를 쓰거나 교체하지 않습니다.
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+## 공통 답변 표시
+
+Command Deck은 기존 공통 Markdown 렌더러와 검증된 JSON 표시 데이터를 유지합니다.
+문단을 운영 역할로 분류하거나 레이아웃에서 사실을 추론하지 않습니다. 근거 제한과
+경고 또는 주의 블록은 접힘 표시가 있어도 계속 보입니다. 완료된 답변은 기존 검증
+상태를 본문 앞에 표시합니다. 원문 Markdown 보기에는 표시가 허용된 답변만 포함하고,
+검증에서 거절된 최종 응답 본문은 노출하지 않습니다.
+
+번호가 있는 인용을 선택하면 해당 출처의 상세 정보가 열립니다. 답변으로 돌아가면
+선택했던 컨트롤의 포커스와 대화의 스크롤 위치를 복원합니다. 검색은 헤더에서 명시적으로
+여는 컨트롤이며, `Ctrl+K`로 열고 Escape로 대화를 닫지 않고 검색만 닫을 수 있습니다.
+근거 서비스의 가용성은 답변 인용과 별도의 펼침 영역에 표시하고, 사용 불가와 알 수 없음
+상태를 보존합니다. 이러한 표시 컨트롤은 조회, 승인 또는 실행 권한을 부여하지 않습니다.
+
+실제 콘솔은 공통 대화 스타일 파일을 가져오고 채팅 루트, 대화 본문, 인용, 입력창의
+표현 역할을 연결합니다. 최종 답변이 표시되면 정상 완료 작업 기록은 간결한 펼침 영역으로
+접고, 실패하거나 근거가 부분적이거나 사용 불가인 작업 기록은 계속 펼쳐 둡니다.
+기록된 모든 단계는 상세에서 확인할 수 있습니다. 최신 메시지로 이동하는 명령은 입력창의
+맥락 행에 배치하며 답변 본문 위에 떠서 내용을 가리지 않습니다.
+
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 인스턴스 후보 접수는 인증된 principal, 역할 및 그룹 범위를 사용하며 사람 보고 관계, 할당, 승인 또는 액션 권한을 바꾸지 않습니다. 기본 Core 인덱스 수명 주기는 계속 에이전트가 소유하는 읽기 전용 경로입니다. 정확한 ID 결과는 의미 순위 검색의 자격이나 전체 목록을 뜻하지 않습니다. 식별자 중심의 이중 언어 최종 응답은 전체 목록이 아닌 부분 후보이며 실행 권한이 없음을 명시합니다. 임의 속성을 표시하지 않으며 첨부 파일 인가, 정확한 문서 인용 또는 문서 근거의 완전성을 대신하지 않습니다.
 
@@ -112,7 +135,7 @@ FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI�
   불투명한 세션 기억으로 남지 않습니다. 영속 대화 상태는 감사와 내보내기가 가능한 CSP-중립
   `audit_log` 및 `operator_memory` record에 저장됩니다.
 
-완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. 단일 질문 개선 turn은 같은 인증된 `/chat/stream` 요청을 사용하고 6단계 Run Record, content-free 동적 프롬프트 manifest, Pantheon 참여자 및 평가자 프롬프트 프로필, 답변 준비 전환을 서로 다른 표현 gate로 노출합니다. 펼친 Run Record는 profile id, version, hash, situation 및 budget만 표시하며 SYSTEM text는 표시하지 않습니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다. 브라우저 assurance 파서와 근거 게이트 회귀 검사는 Console Vitest 테스트 모음에 등록되므로 저장소 전체 Console 수집과 집중 검사가 같은 실행기 계약을 검증합니다.
+완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. 단일 질문 개선 turn은 같은 인증된 `/chat/stream` 요청을 사용하고 6단계 Run Record, content-free 동적 프롬프트 manifest, Pantheon 참여자 및 평가자 프롬프트 프로필, 답변 준비 전환을 서로 다른 표현 gate로 노출합니다. 펼친 Run Record는 profile id, version, hash, situation 및 budget만 표시하며 SYSTEM text는 표시하지 않습니다. Run Record와 모델 프로바이더 워터폴, 답변 준비 추적은 [Command Deck 대화 표현 계층](command-deck-conversation-layer-ko.md)의 역할로 렌더링하며, 브라우저 assurance는 표현 클래스가 아니라 대기 중인 턴으로 답변 준비 gate를 인식합니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다. 브라우저 assurance 파서와 근거 게이트 회귀 검사는 Console Vitest 테스트 모음에 등록되므로 저장소 전체 Console 수집과 집중 검사가 같은 실행기 계약을 검증합니다.
 최종 intake는 exact 검증 사유와 evidence-manifest 완전성을 보존합니다. 결과 요약, 맥락 선택, Azure 조사, 영속 전달 및 첨부 근거는 타입이 지정된 프로바이더가 계속 소유하고 어댑터 모듈은 표현과 영속성만 조정합니다.
 Core는 의미 요청 결속, 범위가 제한된 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈로 분리합니다. 의미 턴 프로세서는 이 모듈들을 조정합니다. 이 내부 분리는 wire 필드, 근거 한도, 인용, 로케일 또는 권한을 바꾸지 않습니다. 조립된 컨텍스트 선택 연결이 있으면 프로세서는 이전 의미 턴에서 shadow 정책 비교도 예약하지만, 의미 변환 결과를 바꾸거나 브라우저 조작 권한을 부여하지 않습니다.
 Operator도 변경 불가능한 PostgreSQL 제품군 레코드, 범위가 제한된 행 변환 및 엄격한 인벤토리 근거 디코딩을 조회와 발신함 조정에서 분리합니다. Facade는 기존 import, principal 범위, 제안 멱등성, wire 값, 재생 순서 및 권한 없음 동작을 보존합니다.
@@ -521,7 +544,11 @@ focused 소유자 문서로 분리했습니다:
 인증된 의미 턴은 기본값이 꺼진 Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 인증 영수증 참조를 담을 수 있습니다. 이 참조는 브라우저에 권한으로 전달되지 않으며, 배포 순서는 [13.12](operator-console-wire-contracts-ko.md#1312-의미-턴-인증-영수증-참조)를 참고하십시오. 설정을 켜면 Operator는 턴을 게시하기 전에 바로 그 요청의 영수증을 보존하므로 검증기가 이 영수증으로 `case-history-read`를 확인할 수 있습니다. 보존에 실패하면 Core가 해소할 수 없는 참조를 보내지 않고 턴을 실패로 처리합니다.
 베어러 인증된 요청의 모든 응답에는 Console 워터마크가 읽는 `X-FDAI-Entitlement` 표시도
 포함됩니다. [13.13](operator-console-wire-contracts-ko.md#1313-사용권-표시-응답-헤더)을
-참고하십시오.
+참고하십시오. 공유 Operator 전송 계층은 오류를 포함한 모든 응답에서 이 표시 값을 기록하고, 인증된
+모든 화면은 데이터 원본 읽기로 값을 갱신하는 워터마크 하나를 마운트합니다. 최신 표시 값이
+최근의 `none`이 아니면 워터마크는 오른쪽 아래에 표시되며, 자세한 동작은
+[Trial 만료 워터마크](../fork-and-sequencing/capability-licensing-ko.md#사용권-상태-전달) 설계를
+따릅니다.
 
 ## 14. MCP 전달 및 managed 카탈로그
 

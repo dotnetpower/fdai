@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _BOOTSTRAP = _REPO_ROOT / "scripts/deployment/azure/bootstrap-service-migrations.sh"
@@ -49,3 +52,29 @@ def test_bootstrap_script_rejects_invalid_rollback_revision(tmp_path: Path) -> N
     assert result.returncode == 2
     assert "rollback revision must be a lowercase 40-character git SHA" in result.stderr
     assert "service migration DSN" not in result.stdout
+
+
+def test_core_workflow_catalog_writer_has_scoped_reversible_grants(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = _REPO_ROOT / (
+        "service-migrations/branches/core-control-plane/versions/"
+        "20261002_core_workflow_catalog_writer.py"
+    )
+    spec = importlib.util.spec_from_file_location("core_workflow_catalog_writer", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    statements: list[str] = []
+    monkeypatch.setattr(module.op, "execute", statements.append)
+
+    module.upgrade()
+    module.downgrade()
+
+    assert module.migration_owner == "core-control-plane"
+    assert module.owned_tables == ()
+    assert module.rollback["restores"] == module.down_revision
+    assert statements == [
+        "GRANT SELECT, INSERT, UPDATE ON TABLE workflow_definition TO fdai_core;",
+        "REVOKE SELECT, INSERT, UPDATE ON TABLE workflow_definition FROM fdai_core;",
+    ]

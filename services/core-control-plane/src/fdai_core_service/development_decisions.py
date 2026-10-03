@@ -227,6 +227,7 @@ class _TraceBuilder:
         self.steps: list[dict[str, object]] = []
         self.cues: list[dict[str, object]] = []
         self._model_steps = 0
+        self._omitted_model_steps = 0
         self._grounding_models: list[str] = []
         self._grounding_statuses: list[str] = []
         self._preflight_spans: list[tuple[int, int]] = []
@@ -248,8 +249,8 @@ class _TraceBuilder:
         if kind in _GROUNDING_KINDS:
             self._grounding_models.append(model)
             self._grounding_statuses.append(_server_token(call.get("status")))
-            return
         if self._model_steps >= _MAX_MODEL_STEPS:
+            self._omitted_model_steps += 1
             return
         self._model_steps += 1
         stage = _stage(kind)
@@ -260,9 +261,18 @@ class _TraceBuilder:
         duration = call.get("duration_ms")
         if _is_count(duration):
             attributes["duration_ms"] = duration
+        usage = getattr(observation, "usage", None)
+        if not isinstance(usage, Mapping):
+            usage = call.get("usage")
+        if isinstance(usage, Mapping):
+            for name in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                value = usage.get(name)
+                if _is_count(value):
+                    attributes[name] = value
         index = len(self.steps)
         redactions = _Redactions()
-        attributes.update(self._call_attributes(stage, _response_body(call), index, redactions))
+        if kind not in _GROUNDING_KINDS:
+            attributes.update(self._call_attributes(stage, _response_body(call), index, redactions))
         if redactions.count:
             attributes["unreviewed_tokens"] = redactions.count
             self._cue("unreviewed_model_token", index)
@@ -394,6 +404,7 @@ class _TraceBuilder:
                 "stage": "grounding",
                 "attributes": {
                     "calls": len(self._grounding_models),
+                    "omitted_call_steps": self._omitted_model_steps,
                     "models": tuple(dict.fromkeys(self._grounding_models))[:_MAX_ITEMS],
                     "statuses": tuple(dict.fromkeys(self._grounding_statuses))[:_MAX_ITEMS],
                 },

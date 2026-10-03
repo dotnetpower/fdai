@@ -7,8 +7,8 @@ from typing import Any
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.core.architecture_review import ArchitectureReviewTraceObserver
 
-_ARCHITECTURE_REVIEW_OBSERVER_PRINCIPAL = "architecture-review-observer"
-_ARCHITECTURE_REVIEW_OBSERVER_TOPICS = (
+ARCHITECTURE_REVIEW_OBSERVER_PRINCIPAL = "architecture-review-observer"
+ARCHITECTURE_REVIEW_OBSERVER_TOPICS = (
     "object.change",
     "object.state-snapshot",
     "object.anomaly",
@@ -32,8 +32,8 @@ def bind_architecture_review_observer(
     async def _observe_topic(topic: str, payload: dict[str, Any]) -> None:
         observer.observe(topic, payload)
 
-    for topic in _ARCHITECTURE_REVIEW_OBSERVER_TOPICS:
-        bridge.subscribe(topic, _ARCHITECTURE_REVIEW_OBSERVER_PRINCIPAL, _observe_topic)
+    for topic in ARCHITECTURE_REVIEW_OBSERVER_TOPICS:
+        bridge.subscribe(topic, ARCHITECTURE_REVIEW_OBSERVER_PRINCIPAL, _observe_topic)
 
 
 def handle_architecture_review_consumer_state(
@@ -45,7 +45,7 @@ def handle_architecture_review_consumer_state(
 ) -> bool:
     """Record terminal observer degradation and report whether it was handled."""
 
-    if agent != _ARCHITECTURE_REVIEW_OBSERVER_PRINCIPAL or observer is None:
+    if agent != ARCHITECTURE_REVIEW_OBSERVER_PRINCIPAL or observer is None:
         return False
     observer.observe_consumer_state(topic=topic, state=state)
     return True
@@ -60,6 +60,8 @@ def architecture_review_observation_snapshot(
 
 
 __all__ = [
+    "ARCHITECTURE_REVIEW_OBSERVER_PRINCIPAL",
+    "ARCHITECTURE_REVIEW_OBSERVER_TOPICS",
     "architecture_review_observation_snapshot",
     "bind_architecture_review_observer",
     "handle_architecture_review_consumer_state",

@@ -46,7 +46,7 @@ def test_provider_schema_job_is_scheduled_durable_and_publishes_through_pantheon
     for dockerfile_path in (_CORE_DOCKERFILE, _COST_DOCKERFILE):
         dockerfile = dockerfile_path.read_text(encoding="utf-8")
         assert "COPY --chown=65532:65532 provider-schema-catalog/" in dockerfile
-        assert "ARG GIT_VERSION=2.55.0-r1" in dockerfile
+        assert "ARG GIT_VERSION=2.56.0-r0" in dockerfile
         assert '"git=${GIT_VERSION}"' in dockerfile
         assert "&& git --version" in dockerfile
 

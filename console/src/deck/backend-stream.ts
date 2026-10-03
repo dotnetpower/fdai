@@ -48,6 +48,7 @@ import type {
 } from "./backend-types";
 import type { ViewSnapshot } from "./context";
 import { parseTrajectoryDetail } from "./trajectory-detail";
+import { parseWorkProgressShape } from "./work-progress-contract";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
 import { chartArtifactText } from "./rich-parse";
 import { parsePresentationArtifact } from "./presentation-artifact";
@@ -274,6 +275,8 @@ export async function askBackendStream(
   let sequenceGap = false;
   let protocolError: string | null = null;
   let terminalSeen = false;
+  // The plan pin is accepted once and only before the first read, so density never flips mid-turn.
+  let workProgressWindowOpen = true;
   let confirmedSegment: ConfirmedAnswerSegment | undefined;
   let emittedRevision = -1;
   let emittedConfirmedRevision = -1;
@@ -379,15 +382,27 @@ export async function askBackendStream(
           : null,
         sources: parseRetrievalSourcePreviews(object.sources),
       });
+    } else if (event === "work_progress") {
+      const shape = workProgressWindowOpen
+        ? parseWorkProgressShape(object.work_progress_shape)
+        : undefined;
+      if (shape) {
+        workProgressWindowOpen = false;
+        callbacks.onWorkProgress?.(shape);
+      }
     } else if (event === "activity") {
       const activity = parseInvestigationActivity(object);
+      if (activity?.execution?.inputKind === "query") workProgressWindowOpen = false;
       if (activity !== null) callbacks.onActivity?.(activity);
     } else if (event === "milestone") {
       const milestone = parseInvestigationMilestone(object);
       if (milestone !== null) callbacks.onMilestone?.(milestone);
     } else if (event === "branch") {
       const branch = parseEvidenceBranch(object);
-      if (branch !== null) callbacks.onBranch?.(branch);
+      if (branch !== null) {
+        workProgressWindowOpen = false;
+        callbacks.onBranch?.(branch);
+      }
     } else if (event === "revision") {
       const replacement = typeof object.answer === "string" ? object.answer : null;
       const status = parseVerificationStatus(object.status);

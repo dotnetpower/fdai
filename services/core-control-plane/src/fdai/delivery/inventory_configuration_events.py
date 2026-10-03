@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
@@ -16,6 +17,9 @@ from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.state_store import StateStore
 
 INVENTORY_CONFIGURATION_DELIVERY_KEY = "inventory-configuration:delivery"
+# Bounded concurrency per delivery window on the shared producer. One sequential round trip per
+# Resource cannot finish a large generation inside the recovery bound.
+CONFIGURATION_PUBLISH_WINDOW = 64
 INVENTORY_CONFIGURATION_DELIVERY_PREFIX = "inventory-configuration:generations:"
 
 
@@ -168,9 +172,10 @@ async def publish_promoted_resource_events(
 ) -> int:
     """Publish one retry-stable configuration observation per Resource.
 
-    Only a complete promoted generation is eligible. Broker failure propagates
-    so promotion recovery can retry the same generation with identical event
-    identities; downstream event ingest suppresses any already accepted rows.
+    Only a complete promoted generation is eligible. Events are sent in bounded
+    concurrent windows. Broker failure cancels the window's outstanding sends and
+    propagates, so promotion recovery can retry the same generation with identical
+    event identities; downstream event ingest suppresses any already accepted rows.
     """
     if not observation.complete:
         raise ValueError("rule evaluation requires a complete promoted inventory")
@@ -186,19 +191,44 @@ async def publish_promoted_resource_events(
         raise ValueError("promoted inventory contains duplicate Resource identities")
 
     generation_digest = _digest_text(observation.generation)
-    for resource in resources:
-        event = _resource_observation_event(
-            resource,
-            generation_digest=generation_digest,
-            scope_ref=scope_ref,
-            recorded_at=observation.recorded_at,
-        )
-        await event_bus.publish(
+    for start in range(0, len(resources), CONFIGURATION_PUBLISH_WINDOW):
+        window = resources[start : start + CONFIGURATION_PUBLISH_WINDOW]
+        await _publish_window(
+            event_bus,
             topic,
-            resource.resource_id,
-            event.model_dump(mode="json"),
+            [
+                (
+                    resource.resource_id,
+                    _resource_observation_event(
+                        resource,
+                        generation_digest=generation_digest,
+                        scope_ref=scope_ref,
+                        recorded_at=observation.recorded_at,
+                    ).model_dump(mode="json"),
+                )
+                for resource in window
+            ],
         )
     return len(resources)
+
+
+async def _publish_window(
+    event_bus: EventBus,
+    topic: str,
+    window: Sequence[tuple[str, Mapping[str, object]]],
+) -> None:
+    """Send one window concurrently; the first failure cancels the rest and re-raises."""
+
+    tasks = [
+        asyncio.ensure_future(event_bus.publish(topic, key, payload)) for key, payload in window
+    ]
+    try:
+        await asyncio.gather(*tasks)
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
 
 
 def _resource_observation_event(

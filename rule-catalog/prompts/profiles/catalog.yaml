@@ -1,6 +1,17 @@
 # yaml-language-server: $schema=./schema/prompt-profile.schema.json
 schema_version: "1.1.0"
 profiles:
+  - id: diagnostic.ontology-candidate-selection
+    version: 1
+    capability_id: semantic.query.plan
+    mode: shadow
+    root: {id: ontology-candidate-selection, version: 1, layer: base}
+    packs: []
+    system_token_budget: 8192
+    request_token_budget: 32768
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/runbooks/ontology-retrieval-diagnostics.md}
   - id: active.t2-reasoner-primary
     version: 1
     capability_id: t2.reasoner.primary

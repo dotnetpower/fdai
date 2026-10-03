@@ -21,6 +21,7 @@ from aiokafka.admin import AIOKafkaAdminClient  # type: ignore[import-untyped]
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
 from fdai.shared.providers import EventBus, EventEnvelope, StateStore
+from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.testing import InMemoryEventBus, InMemoryStateStore
 from psycopg import sql
 
@@ -146,6 +147,58 @@ def state_store(
 
 
 @dataclass(slots=True)
+class _PrefixedEventBus:
+    delegate: EventBus
+    prefix: str
+    topics: set[str]
+
+    def _physical_topic(self, topic: str) -> str:
+        physical = f"{self.prefix}.{topic}"
+        self.topics.add(physical)
+        return physical
+
+    async def publish(
+        self,
+        topic: str,
+        key: str,
+        payload: dict[str, Any] | Any,
+    ) -> PublishReceipt:
+        receipt = await self.delegate.publish(self._physical_topic(topic), key, payload)
+        return PublishReceipt(topic=topic, partition=receipt.partition, offset=receipt.offset)
+
+    async def dead_letter(
+        self,
+        topic: str,
+        key: str,
+        payload: dict[str, Any] | Any,
+        reason: str,
+    ) -> None:
+        await self.delegate.dead_letter(self._physical_topic(topic), key, payload, reason)
+
+    async def _logical_stream(
+        self,
+        topic: str,
+        group_id: str,
+    ) -> AsyncIterator[EventEnvelope]:
+        physical_topic = self._physical_topic(topic)
+        async for envelope in self.delegate.subscribe(physical_topic, group_id):
+            payload = dict(envelope.payload)
+            original_topic = payload.get("original_topic")
+            topic_prefix = f"{self.prefix}."
+            if isinstance(original_topic, str) and original_topic.startswith(topic_prefix):
+                payload["original_topic"] = original_topic.removeprefix(topic_prefix)
+            yield EventEnvelope(
+                topic=topic,
+                key=envelope.key,
+                payload=payload,
+                offset=envelope.offset,
+            )
+
+    def subscribe(self, topic: str, group_id: str) -> AsyncIterator[EventEnvelope]:
+        return self._logical_stream(topic, group_id)
+
+
+@dataclass(slots=True)
 class EventBusHarness:
     """Bound one EventBus to finite assertions and exact cleanup identities."""
 
@@ -157,7 +210,6 @@ class EventBusHarness:
 
     def topic(self, suffix: str) -> str:
         topic = f"{self.prefix}.{suffix}"
-        self.topics.add(topic)
         return topic
 
     def group(self, suffix: str) -> str:
@@ -172,7 +224,6 @@ class EventBusHarness:
         *,
         expected_count: int,
     ) -> tuple[EventEnvelope, ...]:
-        self.topics.add(topic)
         self.groups.add(group)
         if not self.real:
             return tuple([envelope async for envelope in self.bus.subscribe(topic, group)])
@@ -239,7 +290,9 @@ async def event_bus_harness(request: pytest.FixtureRequest) -> AsyncIterator[Eve
     """Return one fake or loopback Redpanda bus with bounded cleanup."""
     prefix = f"fdai-provider-{uuid.uuid4().hex}"
     if request.param == "fake":
-        yield EventBusHarness(bus=InMemoryEventBus(), prefix=prefix, real=False)
+        topics: set[str] = set()
+        bus = _PrefixedEventBus(InMemoryEventBus(), prefix, topics)
+        yield EventBusHarness(bus=bus, prefix=prefix, real=False, topics=topics)
         return
     endpoint = _kafka_endpoint()
     bus = EventHubsKafkaBus(
@@ -254,7 +307,13 @@ async def event_bus_harness(request: pytest.FixtureRequest) -> AsyncIterator[Eve
             commit_max_records=1,
         ),
     )
-    harness = EventBusHarness(bus=bus, prefix=prefix, real=True)
+    topics: set[str] = set()
+    harness = EventBusHarness(
+        bus=_PrefixedEventBus(bus, prefix, topics),
+        prefix=prefix,
+        real=True,
+        topics=topics,
+    )
     try:
         yield harness
     finally:

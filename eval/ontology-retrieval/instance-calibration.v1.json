@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "origin": "authored_synthetic_calibration",
+  "independently_reviewed": false,
+  "production_qualification": false,
+  "candidate_ranking_policy": {"minimum_score": 0.4, "exact_weight": 1.0, "lexical_weight": 0.25, "semantic_weight": 1.0},
+  "evaluation_policy": {
+    "schema_version": "1.1.0",
+    "top_k": 5,
+    "min_recall_at_k": 1.0,
+    "min_mean_reciprocal_rank": 1.0,
+    "min_no_match_precision": 1.0,
+    "min_samples_per_metric": 4,
+    "required_cohorts": ["en-adversarial", "en-ambiguous", "en-negative", "en-positive", "ko-adversarial", "ko-ambiguous", "ko-negative", "ko-positive"]
+  },
+  "limits": {"embedding_calls": 128, "total_seconds": 600, "embedding_call_seconds": 5},
+  "cases": [
+    {"case_id": "cal-en-01", "query": "Which business service handles invoice payments?", "cohort": "en-positive", "expected_document_ids": ["object:BusinessService:example-service-a"]},
+    {"case_id": "cal-en-02", "query": "Find the service for employee authentication.", "cohort": "en-positive", "expected_document_ids": ["object:BusinessService:example-service-b"]},
+    {"case_id": "cal-en-03", "query": "Find the product discovery business service.", "cohort": "en-positive", "expected_document_ids": ["object:BusinessService:example-service-d"]},
+    {"case_id": "cal-en-04", "query": "Locate the background worker that balances invoices.", "cohort": "en-positive", "expected_document_ids": ["object:Workload:example-workload-a"]},
+    {"case_id": "cal-en-05", "query": "Which workload consumes the messaging queue?", "cohort": "en-positive", "expected_document_ids": ["object:Workload:example-workload-e"]},
+    {"case_id": "cal-en-06", "query": "Find the web frontend that renders editorial pages.", "cohort": "en-positive", "expected_document_ids": ["object:Workload:example-workload-f"]},
+    {"case_id": "cal-en-07", "query": "Find the resource storing public product images.", "cohort": "en-positive", "expected_document_ids": ["object:Resource:example-resource-a"]},
+    {"case_id": "cal-en-08", "query": "Locate the vault for application credentials.", "cohort": "en-positive", "expected_document_ids": ["object:Resource:example-resource-b"]},
+    {"case_id": "cal-en-09", "query": "Find the container cluster used for batch jobs.", "cohort": "en-positive", "expected_document_ids": ["object:Resource:example-resource-e"]},
+    {"case_id": "cal-en-10", "query": "Find the open incident with critical severity.", "cohort": "en-positive", "expected_document_ids": ["object:Incident:example-incident-a"]},
+    {"case_id": "cal-en-11", "query": "Locate the closed low-severity incident.", "cohort": "en-positive", "expected_document_ids": ["object:Incident:example-incident-f"]},
+    {"case_id": "cal-en-12", "query": "Find a registered satellite imagery service.", "cohort": "en-negative", "expected_document_ids": []},
+    {"case_id": "cal-ko-01", "query": "소포 배송 조회를 담당하는 비즈니스 서비스를 찾아줘.", "cohort": "ko-positive", "expected_document_ids": ["object:BusinessService:example-service-c"]},
+    {"case_id": "cal-ko-02", "query": "고객 알림을 담당하는 비즈니스 서비스가 어느 것이야?", "cohort": "ko-positive", "expected_document_ids": ["object:BusinessService:example-service-e"]},
+    {"case_id": "cal-ko-03", "query": "콘텐츠 게시용 비즈니스 서비스를 찾아줘.", "cohort": "ko-positive", "expected_document_ids": ["object:BusinessService:example-service-f"]},
+    {"case_id": "cal-ko-04", "query": "로그인 요청을 처리하는 웹 API 워크로드를 찾아줘.", "cohort": "ko-positive", "expected_document_ids": ["object:Workload:example-workload-b"]},
+    {"case_id": "cal-ko-05", "query": "배송 이벤트 스트림을 처리하는 워크로드는 무엇이야?", "cohort": "ko-positive", "expected_document_ids": ["object:Workload:example-workload-c"]},
+    {"case_id": "cal-ko-06", "query": "상품 검색 인덱스를 만드는 예약 작업을 찾아줘.", "cohort": "ko-positive", "expected_document_ids": ["object:Workload:example-workload-d"]},
+    {"case_id": "cal-ko-07", "query": "구매 주문을 저장하는 MySQL 서버를 찾아줘.", "cohort": "ko-positive", "expected_document_ids": ["object:Resource:example-resource-c"]},
+    {"case_id": "cal-ko-08", "query": "내부 애플리케이션 트래픽을 격리하는 네트워크를 찾아줘.", "cohort": "ko-positive", "expected_document_ids": ["object:Resource:example-resource-d"]},
+    {"case_id": "cal-ko-09", "query": "애플리케이션 릴리스를 빌드하는 가상 머신을 찾아줘.", "cohort": "ko-positive", "expected_document_ids": ["object:Resource:example-resource-f"]},
+    {"case_id": "cal-ko-10", "query": "분류 중이고 심각도가 critical인 인시던트를 찾아줘.", "cohort": "ko-positive", "expected_document_ids": ["object:Incident:example-incident-d"]},
+    {"case_id": "cal-ko-11", "query": "해결 상태이며 심각도가 high인 인시던트를 찾아줘.", "cohort": "ko-positive", "expected_document_ids": ["object:Incident:example-incident-e"]},
+    {"case_id": "cal-ko-12", "query": "등록된 위성 영상 처리 서비스를 찾아줘.", "cohort": "ko-negative", "expected_document_ids": []}
+  ]
+}

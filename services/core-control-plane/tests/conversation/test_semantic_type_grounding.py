@@ -6,6 +6,7 @@ import asyncio
 import concurrent.futures
 import threading
 from collections.abc import Iterator, Mapping
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -114,6 +115,8 @@ def _phrase_target() -> SemanticTarget:
 def _plan(
     choosers: _Choosers,
     owner_loop: asyncio.AbstractEventLoop,
+    *,
+    compiled_answers: Any = None,
 ) -> Any:
     manifest, _definition = _typed_fixture(groups=(_CONTAINER_APP_GROUP, _VM_GROUP))
     service = SemanticPlanningService(
@@ -129,6 +132,7 @@ def _plan(
         now=lambda: NOW,
         semantic_judgment=_JudgmentBoundary(_judgment(_phrase_target())),
         type_grounding=ResourceTypeGrounding(chooser=choosers, owner_loop=owner_loop),
+        compiled_answers=compiled_answers,
     )
     return service.plan(
         utterance=_UTTERANCE,
@@ -153,6 +157,22 @@ def test_agreed_closed_choice_binds_an_unstated_subtype_phrase(
     )
     # Every shard was presented to both blind choosers exactly once.
     assert sorted(choosers.calls) == [(False, 0), (True, 0)]
+
+
+def test_typed_only_never_pays_for_unused_legacy_grounding(
+    owner_loop: asyncio.AbstractEventLoop, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "fdai.core.conversation.semantic_planning.start_compiled_answer",
+        lambda *args, **kwargs: None,
+    )
+    choosers = _Choosers("group:compute-container-app", "group:compute-container-app")
+    outcome = _plan(choosers, owner_loop, compiled_answers=SimpleNamespace(typed_only=True))
+
+    assert choosers.calls == []
+    assert outcome.plan is None
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_reading_unavailable"
 
 
 @pytest.mark.parametrize(
@@ -232,7 +252,7 @@ def test_injected_binding_is_limited_to_declared_values() -> None:
 def test_every_catalog_candidate_is_presented_exactly_once() -> None:
     manifest, _definition = _typed_fixture(groups=(_CONTAINER_APP_GROUP, _VM_GROUP))
 
-    plan = type_selection_plan((_PHRASE,), manifest.descriptors, max_shard_bytes=256)
+    plan = type_selection_plan((_PHRASE,), manifest.descriptors, max_shard_bytes=400)
 
     assert plan is not None
     presented = [

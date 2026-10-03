@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import json
 import re
 from collections.abc import AsyncIterator, Mapping, Sequence
@@ -34,7 +33,6 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from fdai_operator_service.alert_quality import (
     ALERT_QUALITY_ROUTE_MANIFEST,
@@ -55,6 +53,10 @@ from fdai_operator_service.auth import (
 )
 from fdai_operator_service.browser_evidence_filters import (
     parse_browser_evidence_workspace_query,
+)
+from fdai_operator_service.bus_poison_halt_clear import OrderedPoisonHaltClearService
+from fdai_operator_service.bus_poison_halt_clear_route import (
+    make_ordered_poison_halt_clear_endpoint,
 )
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.cors_policy import CORS_ALLOW_HEADERS, CORS_EXPOSE_HEADERS
@@ -113,6 +115,10 @@ from fdai_operator_service.projections import (
     projection_unavailable_error,
 )
 from fdai_operator_service.redaction import redact_projection
+from fdai_operator_service.route_middleware import (
+    LoopbackOnlyMiddleware,
+    SecurityHeadersMiddleware,
+)
 from fdai_operator_service.streaming import LiveStreamHub, make_live_stream_route
 from fdai_operator_service.streaming.shutdown import STREAM_SHUTDOWN_STATE, shutting_down
 
@@ -156,6 +162,7 @@ class OperatorRouteFamilies:
     aks_commerce: AksCommerceFamilyDependencies | None = None
     cost_governance: CostGovernanceFamilyDependencies | None = None
     alert_quality: AlertQualityDependencies | None = None
+    poison_halt_clear: OrderedPoisonHaltClearService | None = None
 
 
 MINIMAL_ROUTE_MANIFEST: Final = (
@@ -174,52 +181,10 @@ MINIMAL_ROUTE_MANIFEST: Final = (
     RouteOwnership("GET", "/kpi/llm-cost", "minimal"),
     RouteOwnership("GET", "/live/stream", "minimal"),
     RouteOwnership("GET", "/notification-templates/incident-opened", "minimal"),
+    RouteOwnership("POST", "/operations/bus/ordered-poison-halts/clear", "minimal"),
     RouteOwnership("GET", "/rca", "minimal"),
     RouteOwnership("GET", "/system/data-sources", "minimal"),
 )
-
-
-class SecurityHeadersMiddleware:
-    """Add non-cacheable JSON safety headers to every HTTP response."""
-
-    def __init__(self, app: ASGIApp) -> None:
-        self._app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        async def send_with_headers(message: Message) -> None:
-            if message["type"] == "http.response.start":
-                headers = list(message.get("headers", ()))
-                headers.extend(
-                    (
-                        (b"cache-control", b"no-store"),
-                        (b"x-content-type-options", b"nosniff"),
-                    )
-                )
-                message["headers"] = headers
-            await send(message)
-
-        await self._app(scope, receive, send_with_headers)
-
-
-class LoopbackOnlyMiddleware:
-    """Reject non-loopback traffic when local CLI authentication is active."""
-
-    def __init__(self, app: ASGIApp, allowed_origins: tuple[str, ...]) -> None:
-        self._app = app
-        self._allowed_origins = frozenset(allowed_origins)
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http":
-            if not _is_loopback_client(scope.get("client")):
-                response = _error(403, "local Azure CLI authentication requires a loopback client")
-                await response(scope, receive, send)
-                return
-            origin = _header_value(scope, b"origin")
-            if origin is not None and origin not in self._allowed_origins:
-                response = _error(403, "local Azure CLI authentication rejected the request origin")
-                await response(scope, receive, send)
-                return
-        await self._app(scope, receive, send)
 
 
 def build_operator_app(
@@ -382,6 +347,11 @@ def build_operator_app(
             proposal_writer=route_families.operations_proposal_writer,
         )
 
+    post_ordered_poison_halt_clear = make_ordered_poison_halt_clear_endpoint(
+        route_families.poison_halt_clear,
+        authenticator,
+    )
+
     async def incident_attention_stream(request: Request) -> Response:
         authorize(request)
         after_seq = _last_event_id(request)
@@ -509,6 +479,12 @@ def build_operator_app(
             get_incident_opened_template,
             methods=["GET"],
             name="get_incident_opened_template",
+        ),
+        Route(
+            "/operations/bus/ordered-poison-halts/clear",
+            post_ordered_poison_halt_clear,
+            methods=["POST"],
+            name="post_ordered_poison_halt_clear",
         ),
         Route("/rca", get_rca, methods=["GET"], name="panel:rca"),
         Route(
@@ -798,22 +774,6 @@ class _BadQueryError(ValueError):
 
 def _error(status: int, message: str) -> JSONResponse:
     return JSONResponse({"error": {"status": status, "message": message}}, status_code=status)
-
-
-def _is_loopback_client(client: object) -> bool:
-    if not isinstance(client, tuple) or not client or not isinstance(client[0], str):
-        return False
-    try:
-        return ipaddress.ip_address(client[0]).is_loopback
-    except ValueError:
-        return False
-
-
-def _header_value(scope: Scope, name: bytes) -> str | None:
-    for key, value in scope.get("headers", ()):
-        if key.lower() == name and isinstance(value, bytes):
-            return value.decode("latin-1")
-    return None
 
 
 def _validate_data_sources(sources: Sequence[ReadDataSource]) -> None:

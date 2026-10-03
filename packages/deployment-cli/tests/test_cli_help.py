@@ -89,6 +89,7 @@ def test_version_alias_preserves_existing_json_contract(capsys) -> None:
         ["provision", "azure", "--online", "--source", "."],
         ["provision", "azure", "--offline-kit", "example.tar.gz", "--source", "."],
         ["provision", "azure", "--online", "--region"],
+        ["provision", "azure", "--online", "--database-sku", "GP_Standard_D64ds_v5"],
     ],
 )
 def test_invalid_input_still_fails_without_dispatch(arguments, monkeypatch, capsys) -> None:
@@ -195,3 +196,16 @@ def test_every_registered_command_is_described() -> None:
                 assert all(descriptions.values()), parser.prog
             elif action.option_strings:
                 assert action.help, (parser.prog, action.option_strings)
+
+
+def test_database_sku_option_parses_only_supported_sizes() -> None:
+    from fdai_deployment_cli.runtime_profile import DATABASE_SKUS
+
+    provision = next(
+        parser for parser in _parsers(cli._parser()) if parser.prog.endswith("provision azure")
+    )
+    action = next(item for item in provision._actions if "--database-sku" in item.option_strings)
+
+    assert action.default is None
+    assert tuple(action.choices) == DATABASE_SKUS
+    assert action.help

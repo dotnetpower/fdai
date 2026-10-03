@@ -77,6 +77,22 @@ class ConceptShard:
             "candidates": [candidate.payload() for candidate in self.candidates],
         }
 
+    def prompt_payload(self) -> dict[str, Any]:
+        """Encode every candidate with a shard-local opaque choice reference."""
+
+        return {
+            "domain": self.domain.value,
+            "index": self.index,
+            "total": self.total,
+            "catalog_digest": self.catalog_digest,
+            "candidate_id_encoding": "shard_position",
+            "candidate_columns": ["id", "values", "labels"],
+            "candidates": [
+                [f"c{index}", list(candidate.values), list(candidate.labels)]
+                for index, candidate in enumerate(self.candidates)
+            ],
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class ConceptBinding:
@@ -307,14 +323,32 @@ def shard_catalog(
         raise ValueError("concept shard budget MUST be at least 256 bytes")
     catalog_digest = content_digest([candidate.payload() for candidate in candidates])
     groups: list[list[ConceptCandidate]] = [[]]
-    used = 0
+    overhead = len(
+        json.dumps(
+            ConceptShard(
+                domain, len(candidates), len(candidates), (), catalog_digest
+            ).prompt_payload(),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode()
+    )
+    used = overhead
     for candidate in candidates:
-        size = len(json.dumps(candidate.payload(), ensure_ascii=False).encode("utf-8")) + 1
-        if size > max_bytes:
+        size = (
+            len(
+                json.dumps(
+                    [f"c{len(candidates)}", list(candidate.values), list(candidate.labels)],
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode()
+            )
+            + 1
+        )
+        if overhead + size > max_bytes:
             raise ValueError(f"concept candidate {candidate.id} exceeds the shard budget")
         if groups[-1] and used + size > max_bytes:
             groups.append([])
-            used = 0
+            used = overhead
         groups[-1].append(candidate)
         used += size
     total = len(groups)

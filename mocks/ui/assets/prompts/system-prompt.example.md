@@ -1,6 +1,6 @@
 # Example narration system message
 
-This fictional prompt is a UI fixture for the Adaptive response mock.
+This fictional prompt is a UI fixture for the Command deck mock.
 It is not a captured production prompt and is never sent to a model.
 
 ## Role

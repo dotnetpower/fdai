@@ -105,6 +105,20 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
             "document_storage_binding": {"account": "store"},
             "document_event_topics": {"ingested": "documents"},
             "catalog_review_gitops_binding": {},
+            "operator_request_receipt_binding": {
+                "core_signing_seed_secret_id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg"
+                    "/providers/Microsoft.KeyVault/vaults/vault/secrets/"
+                    "fdai-operator-request-core-signing-seed"
+                ),
+                "operator_signing_seed_secret_id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg"
+                    "/providers/Microsoft.KeyVault/vaults/vault/secrets/"
+                    "fdai-operator-request-operator-signing-seed"
+                ),
+                "core_producer_id": "core-control-plane",
+                "operator_producer_id": "operator-service",
+            },
         }.get(name, {})
 
     monkeypatch.setattr(standalone_host, "_private_json", private_json)
@@ -203,3 +217,28 @@ def test_explicit_add_ons_restore_every_aks_workload(
     operator_env = workloads["operator-service"]["env"]
     assert operator_env["FDAI_RBAC_APPROVERS_GROUP_ID"] == "approvers"
     assert operator_env["FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"].startswith("https://")
+
+
+def test_aks_core_and_operator_receive_readiness_and_receipt_bindings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workloads = _prepare(tmp_path, monkeypatch, _FULL_ADD_ONS)["workloads"]
+    assert isinstance(workloads, dict)
+    core, operator = workloads["core-control-plane"], workloads["operator-service"]
+
+    assert core["env"]["FDAI_STARTUP_KAFKA_SETTLE_SECONDS"] == "12"
+    assert core["env"]["FDAI_STARTUP_PROBE_TIMEOUT_SECONDS"] == "30"
+    assert core["env"]["FDAI_STARTUP_PHASE_TIMEOUT_SECONDS"] == "60"
+    assert core["env"]["FDAI_OPERATOR_REQUEST_CORE_PRODUCER_ID"] == "core-control-plane"
+    assert core["env"]["FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER_ID"] == "operator-service"
+    assert core["secret_environment"]["FDAI_OPERATOR_REQUEST_CORE_SIGNING_SEED"] == (
+        "fdai-operator-request-core-signing-seed"
+    )
+    assert core["secret_environment"]["FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED"] == (
+        "fdai-operator-request-operator-signing-seed"
+    )
+    assert operator["env"]["FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID"] == "operator-service"
+    assert operator["secret_environment"]["FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED"] == (
+        "fdai-operator-request-operator-signing-seed"
+    )
+    assert "FDAI_OPERATOR_REQUEST_CORE_SIGNING_SEED" not in operator["secret_environment"]

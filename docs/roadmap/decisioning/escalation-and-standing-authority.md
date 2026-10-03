@@ -38,6 +38,11 @@ outbox. This adds another safe response surface; it does not change the escalati
 standing-authority rules, or Thor's execution boundary.
 
 - An actionable `hil` verdict with a registered ActionType fires an approval request with a TTL.
+  Forseti also lowers an otherwise automatic verdict to human approval when the governed reversible
+  ActionType semantics are absent, the action is unknown, the effective quorum is two or more, or
+  the matched rule has been retired or revoked. That lowering creates the same approval lifecycle as
+  any other `hil` decision and records the deterministic reason instead of treating the automatic
+  path as executable.
   TTL expiry always converges to a **terminal no-op + audit**, even when no notification channel
   is configured. An actionless shadow Human-review Verdict whose exact reason is
   `no_rule_match` or `anomaly_action_unavailable` remains on the Verdict stream for Odin and Saga,
@@ -311,6 +316,13 @@ envelope:                         # the action MUST fall entirely inside this
   principals approve: the accountable service owner and an Owner-level authority. The requester
   and executor are ineligible. Var carries their signed revision as the standing Approval, so
   approve-vs-execute separation holds with no model-as-approver.
+- **Single-operator production profile (planned).** When the installation's approval policy selects
+  the [single-operator production profile](operator-governance-profiles.md), the named operator
+  who holds both the service-owner and Owner roles may be the only approver, and
+  `quorum_required: 1` is valid only under that profile. Fresh authentication, explicit
+  confirmation of the complete authorization, the envelope, expiry, revocation, handover
+  reconfirmation, and post-action review stay unchanged, and the executor stays ineligible. The
+  shipped schema still requires two approvals.
 - **Operational evidence is current.** The owner reviews applicable service logs, incidents, and
   audit history and records whether a precedent exists. When no adequate precedent exists, a
   current DR drill, bounded Chaos experiment, or simulation supplies scenario evidence.
@@ -412,7 +424,8 @@ When a standing authorization trips, the supervisor does **not** execute. It
 - **Standing authority satisfies approval; it does not raise mode.** The `ActionPromotionRegistry`
   remains an independent shadow/enforce axis and cannot represent A3-E. A3-E review uses the
   dedicated `standing-authority-promotion` change class, which requires two distinct
-  phishing-resistant approvals including an Owner. The generic `enforce-promotion` class cannot
+  phishing-resistant approvals including an Owner. Under the planned single-operator production
+  profile, the named operator's single Owner approval satisfies it. The generic `enforce-promotion` class cannot
   satisfy this authority, and the review decision grants no execution authority.
 - **Thor executes**, Vidar remains the rollback principal, Saga audits with an
   explicit `standing-authority` reason and the authorization id - a replayable,

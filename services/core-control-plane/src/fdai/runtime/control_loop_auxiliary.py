@@ -32,6 +32,7 @@ from fdai.core.quality_gate.promotion import (
     RubricPromotionRegistry,
 )
 from fdai.core.quality_gate.self_consistency import SelfConsistencyCascade
+from fdai.delivery.operator_request_receipt import core_operator_request_receipt_issuer_from_env
 from fdai.shared.contracts.models import Rule
 from fdai.shared.providers.event_bus import EventBus
 
@@ -151,6 +152,7 @@ def build_irp_event_handler(
             proposal_router=EventBusIrpProposalRouter(
                 bus=bus,
                 topic=container.config.kafka.topic_events,
+                receipt_issuer=core_operator_request_receipt_issuer_from_env(os.environ),
             ),
             investigation_budget_seconds=budget_seconds,
         )

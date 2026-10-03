@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: e1e1e99d60320585ef5fdccbeac8b6c83d352587
-translation_revised: 2026-09-29
+translation_source_sha: e1a568c06a258c94def40265de39f6b164adb3b1
+translation_revised: 2026-10-02
 ---
 
 # 에이전트 판테온 구현 계획
@@ -29,6 +29,8 @@ translation_revised: 2026-09-29
 | W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | 선택적 T2 종합 전의 T1 답변 평가를 포함한 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
 | 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간 및 작업 신원 잔여 문제 두 건은 아래에 열어 둡니다. |
 | 전권 개발 승인 및 복구 | in-progress | `agents/{forseti,thor,var,vidar}.py`; `agents/_framework/*development_authority*.py`; [`test_development_authority.py`](../../../services/core-control-plane/tests/agents/test_development_authority.py) | 명시적 조립은 신뢰 원본으로 검증한 확인 한 건을 Forseti에서 Var와 Thor로 전달하고 Vidar 및 재시작 시 다시 검증하며 신원을 만들어 내지 않습니다. 역할, 토픽 및 `PANTHEON_SPECS`는 바뀌지 않습니다. 업스트림 권위 결속 원본은 구현되거나 배포되지 않았습니다. |
+| Forseti 기준선 평가 구체화 | implemented | `agents/{forseti.py,_framework/forseti_baseline_evaluation.py}`; [`test_forseti_baseline_evaluation.py`](../../../services/core-control-plane/tests/agents/test_forseti_baseline_evaluation.py); Pantheon layout/parity 검사 | Forseti는 활성 T0 엔진으로 하나의 완전한 인벤토리 세대를 평가하고, Saga 감사 바인더가 필요한 감사 참조를 제공한 뒤에만 compliant, violated, abstained 터미널 기록을 쓸 수 있습니다. `PANTHEON_SPECS`, 토픽, `owns`, `subscribes`, 승인 및 실행 권한은 바뀌지 않습니다. |
+| Saga 기준선 평가 감사 바인딩 | implemented | `agents/saga.py`; [`test_saga_baseline_evaluation_audit.py`](../../../services/core-control-plane/tests/agents/test_saga_baseline_evaluation_audit.py); 집중 Saga/Forseti/Pantheon 검사 | Saga는 기준선 평가 결과와 완료에 대한 재생 가능한 감사 근거를 추가한 뒤 안정적인 감사 참조와 다이제스트를 Forseti에 반환합니다. Saga는 여전히 Rule 점검 결과를 판단, 승인, 실행 또는 변환하지 않습니다. |
 | 영속 Huginn 유입 중복 제거 | implemented | `agents/{huginn.py,_framework/huginn_dedup.py}` 및 집중 discovery/runtime 검사 | 프로덕션 조립은 유입 consumer를 시작하기 전에 최대 64개의 정확한 용량 shard에 제한된 key claim, 정확한 정규화 재시도 payload, owner lease 및 게시 checkpoint를 영속화합니다. 일반 claim은 권한 없는 개정 번호 CAS를 사용해 각 이벤트를 감사에 중복 기록하지 않으며, 복구와 이행은 계속 감사합니다. 시작 시 기존 단일 행 원장을 멱등적으로 이행하고 압축합니다. Broker 수락 후 checkpoint 전 crash는 event bus의 at-least-once 계약에 따라 동일한 stable idempotency key를 다시 전달할 수 있습니다. |
 | Loki ResilienceScore 생산 | implemented | `agents/{loki.py,_framework/loki_resilience.py}`; 집중 Wave 5 및 cross-vertical 후보 검사 | Loki는 Huginn이 소유하는 정규화 score Event를 consumer의 정확한 후보 계약으로 검증하고 `object.resilience-score`를 게시하며, 범위가 제한된 읽기 전용 score 변환 결과만 유지합니다. 후보는 판단, 승인 또는 실행 권한을 부여하지 않습니다. |
 | Bragi 세션 객체 생산 | implemented | `agents/{bragi.py,_framework/bragi_publication.py}`; 집중 Bragi, 대화, Norns, runtime 및 governance 검사 | 첫 in-process 세션은 content-free `Conversation` 하나를 게시합니다. 명시적 메서드는 검증된 `UserPreferenceRecord`와 동의가 확인된 `PostTurnReviewInput` 값만 받아 소유 topic에 게시하며 판단, 승인 또는 실행 경로를 노출하지 않습니다. 배포가 소유하는 store 및 queue binding은 별도입니다. |
@@ -40,11 +42,21 @@ translation_revised: 2026-09-29
 | O7 운영 승격 근거 측정 | implemented | [`operational_promotion.py`](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion.py), [`operational_promotion_evidence.py`](../../../services/core-control-plane/src/fdai/delivery/measurement/operational_promotion_evidence.py), [`test_operational_promotion_evidence.py`](../../../services/core-control-plane/tests/delivery/test_operational_promotion_evidence.py) | 실행기는 매니페스트에 결합된 불변 배치를 소비하고 인과관계, 측정 단위, 재발 또는 정책 이탈 근거가 없으면 안전하게 차단합니다. 현재 완전한 실제 배치를 구체화하는 런타임 생산자는 없습니다. |
 | 실제 운영 KPI 검증 및 실제 enforce 승격 | in-progress | [운영 학습 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md), [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 측정 및 관찰 소비자는 있지만 완전하게 보존된 실제 shadow 코호트, 운영 승격 증적, 독립적인 검토 또는 실제 판테온 enforce 승격 근거는 없습니다. |
 | 관찰 우선 학습 및 예측 결과 경계 | implemented | `agents/_framework/{advisory_verdicts,forseti_learned_outputs,thor_persistence,action_run_identity}.py`; `StateStoreActionRunStore.reserve_correlation`; `core/control_loop/_learned_reuse.py`; `runtime/{control_loop,bootstrap_pantheon}.py`; `test_learned_output_profile_boundary.py`; `test_learned_output_arbitration_gate.py`; `test_learned_output_durable_gate.py`; `test_learned_reuse_profile_boundary.py`; `test_bootstrap_pantheon_product_selection.py` | `governed-execution` 제품 추가 기능을 선택하지 않으면 예측, Freyr 용량 중재, 학습된 패턴의 T1 재사용은 Thor가 무시하는 ActionType 없는 자문 근거만 만듭니다. 종결된 자문 중재는 Thor의 영속 비작업 상관관계 점유를 통해 Core 재시작이나 관문 축출 뒤에도 해당 상관관계에서 나중에 관찰된 신호를 자동 실행하지 않도록 막습니다. 추가 기능을 선택하면 기존 관문이 다시 열리며, 의도적인 제한은 하나뿐입니다. 정확한 `mode: enforce`가 없는 예측에서 도출한 작업 판정은 `shadow_only`로 제한됩니다. 선택은 제품 프로필에서만 오며, T2 제안은 이 행의 범위가 아닙니다. |
+| Phase-2 실행 증적 및 failover 계약 | implemented | `agents/{thor.py,vidar.py}`; `_framework/{thor_preflight,thor_execution,vidar_dr,vidar_rehearsal}.py`; `test_wave7_workflows.py`; `test_thor_durable.py` | Thor는 고위험 및 의무 전용 실행에서 executor I/O 전에 정확한 신원에 묶인 pre-flight simulation 증적을 기록합니다. Vidar는 DR failover 계약을 수락하거나 보류하고 범위가 제한된 rollback rehearsal 증적을 기록합니다. |
+| Phase-2 학습 및 거버넌스 루프 | implemented | `agents/{huginn.py,bragi.py,mimir.py,norns.py}`; `_framework/{huginn_schema_learning,bragi_intent_training,norns_issue_close_support}.py`; `test_mimir_issue_close_evidence.py`; `test_wave7_workflows.py`; `test_runtime.py` | 서명된 operator-request 증적, schema-cluster 근거, shadow 전용 Bragi intent-training 근거, Mimir promotion/deprecation 근거, Norns quiet-window 적격성은 검토된 활성화나 Saga 소유 종료 경로가 소비하기 전까지 비활성입니다. |
+| Phase-2 전문 에이전트 sampling 및 scenario generation | implemented | `agents/{freyr.py,loki.py}`; `_framework/{capacity_utilization,loki_scheduling,loki_adversarial}.py`; `test_sensing_specialist_contracts.py`; `test_loki_recurring_scheduler.py`; `test_loki_adversarial_generation.py` | Freyr는 주입된 읽기 전용 sampler로 표본을 수집하고 capacity forecast 또는 shadow/HIL scale proposal을 냅니다. Loki는 always-HIL 제안 또는 hold를 예약하고 기본 바인딩이 없는 off-path port로 비활성 adversarial scenario 후보를 생성할 수 있습니다. |
+| Phase-2 replay, cost, backlog 제어 | implemented | `agents/{forseti.py,odin.py,muninn.py,thor.py}`; `_framework/{forseti_what_if,thor_persistence}.py`; `test_forseti_retrospective_what_if.py`; `test_wave7_workflows.py`; `muninn.py` compaction regressions | Cost annotation은 Forseti, Odin, Thor를 지나며 명시적으로 유지됩니다. Retrospective what-if replay는 비활성입니다. Muninn publication outbox compaction과 provider replay 근거는 보존 상태를 제한합니다. 영속 poison-halt 저장소는 opt-in으로 남습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-02 | implemented | 기준선 평가 결과와 완료 기록을 위한 Saga의 추가 전용 감사 바인더를 추가했습니다. | `current change`; `saga.py`; `test_saga_baseline_evaluation_audit.py`; 집중 Saga/Forseti/Pantheon 검사. | Operator 변환 결과와 Console 상태는 #1199의 별도 패키지에 남아 있습니다. |
+| 2026-10-02 | implemented | 전용 `_framework` helper와 타입 지정 Forseti 메서드로 완전한 인벤토리 기준선 평가 구체화를 추가했습니다. | `current change`; `forseti_baseline_evaluation.py`; `forseti.py`; 집중 Forseti 및 Pantheon 검사. | Saga 영속성, Operator 변환 결과, Console 상태는 #1199의 별도 패키지에 남아 있습니다. |
+| 2026-10-01 | implemented | 비평 라운드 6부터 8까지를 마무리했습니다. Mimir, Muninn, Saga는 남은 게시를 점유 토큰으로 보호되는 보낼 편지함으로 보내고, Operator Incident 생성은 서명되며 Core는 Incident를 열기 전에 증적을 검증합니다. 기본 payload 검증기는 issue, audit-entry, rule, policy 레코드를 다루고 실제 생산자 형태를 모두 허용하며, Thor는 장애 뒤 점유된 종료 ActionRun을 바이트 단위로 같게 다시 게시하고, replay 차단 장치는 만료와 관계없이 확정하며 부수 효과 뒤 실패를 적용되었지만 확정되지 않은 결과로 보고하고, Huginn, Loki, Vidar, Forseti, Norns는 broker 수락 뒤에만 게시를 보고합니다. 라운드 8에서는 Medium 이상 발견 사항이 없었습니다. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `services/core-control-plane/src/fdai_core_service/incident_creation_consumer.py`; `services/operator-service/src/fdai_operator_service/action_confirmation_runtime.py`; `packages/service-contracts/src/fdai_service_contracts/incident_creation.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4533 passed, 1 skipped; loopback Redpanda와 PostgreSQL의 실제 provider matrix가 63개 테스트로 두 번 통과했습니다. | 아래에 나열한 남은 프로덕션 port와 live 또는 배포 근거를 바인딩하고 검증합니다. |
+| 2026-10-01 | implemented | 다섯 번째 비평 라운드를 마무리했습니다. Saga 이슈 자동 종료는 재발 재확인과 취소 감사를 갖춘 checkpoint 기반 2단계 흐름이 되었고, 첫 ActionRun 게시가 실패하면 게시되지 않은 실행과 정확한 리소스 점유를 되돌리며, 적용 모드 시작은 `(ActionType, rollback_contract)` 쌍별 실행기 범위를 검증하고, `object.rollback` 레코드는 schema 검증을 거치며, Vidar rehearsal 주기는 게시를 기다리고, Bragi 보낼 편지함은 점유 토큰으로 보호되며, Heimdall은 큰 재생 payload를 유지하고, Loki, Freyr, Njord는 게시되지 않았거나 오래된 작업을 완료로 보고하지 않습니다. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `test_bragi_outbox_fencing.py`, `test_heimdall_large_publication.py`, `test_stale_sample_fences.py`, `test_mimir_issue_close_evidence.py`, `test_vidar_dr_failover_rehearsal.py`, `test_thor_durable.py`, `test_runtime.py`, `test_governance_authority.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4463 passed, 1 skipped. | 아래에 나열한 남은 프로덕션 port와 live 또는 배포 근거를 바인딩하고 검증합니다. |
+| 2026-10-01 | implemented | 반복 비평 라운드로 Phase-2 Agent Pantheon 기능을 하드닝했습니다. 서명되고 차단 장치 순서를 지키는 ordered-poison-halt clear, 존재 여부를 구분하는 workflow lineage와 pending 후 확정되는 replay 차단 장치를 가진 증적 schema `1.1.0`, 범위가 제한된 게시, 페이지 단위 복구, 행 단위 연기, 유지 관리 재게시를 갖춘 토큰 차단 영속 게시 보낼 편지함, ActionType별 롤백 준비 상태, batch 거부 집계, 범위가 제한된 전문 에이전트 sampling과 복구 가능한 Loki window, 정확한 키 단위 `delete_state` 보존을 포함합니다. 지나치게 커진 멤버는 동작 변경 없이 `_framework` 기능 모듈로 옮겼습니다. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `services/operator-service/src/fdai_operator_service/**`; `services/core-control-plane/tests/agents/test_outbox_publication_hardening.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4407 passed, 1 skipped; loopback Redpanda와 PostgreSQL의 실제 provider matrix가 두 번 통과했습니다. | 아래에 나열한 남은 프로덕션 port와 live 또는 배포 근거를 바인딩하고 검증합니다. |
+| 2026-10-01 | implemented | Phase-2 Agent Pantheon 기능을 문서화했습니다. Pre-flight 증적, DR 계약, 서명된 operator-request 증적, schema learning, intent-training 근거, Mimir 및 Norns issue-close 지원, Freyr/Loki 전문 루프, poison-halt clear 시맨틱, cost annotation, multi-target batch 시맨틱, Muninn compaction을 포함합니다. | `current change`; `docs/roadmap/agents/agent-pantheon*.md`; `docs/roadmap/agents/agent-pantheon-implementation*.md`; `docs/roadmap-implementation/agents/agent-pantheon.md`; 최종 보고서의 집중 검사. | 아래 남은 production port 및 live/deployment 근거를 바인딩하고 검증합니다. |
 | 2026-09-29 | implemented | Thor, Heimdall, Mimir, Forseti가 역할, 소유 객체, 토픽을 유지한 채 독립 검증기가 기록한 명시적 거부 유형을 기록하고 해당 거부 기록을 인용합니다. Thor의 테스트 맥락 디스패치 보류는 `object.action-run`에 `ActionRun` 결과와 `evidence_rejection_ref`를 설정하고, Heimdall은 `object.forecast-outcome`의 `ForecastOutcome` `1.2.0`에서 점수 산정을 제외합니다. Mimir는 `test_context.transition_refused` 감사 항목을 추가하고 `object.policy`를 게시하지 않으며, Forseti의 보류 판정은 `evidence_rejection_ref`를 담습니다. `unavailable`만 각 일반 사유를 유지하고, 발급은 제한된 제공자 호출로 남으며, 실행 권한이나 승격 권한은 바뀌지 않습니다. | `current change`; `agents/_framework/{thor_execution,thor_action_run,thor_persistence,forseti_judgment}.py`; `tests/agents/test_operational_evidence_owner_records.py`; [독립 운영 근거 원장](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md) 참조 | 검증기 재확인이 연결되지 않은 목적은 여전히 `unavailable`로만 이 에이전트에 도달합니다. |
 | 2026-09-28 | implemented | 기본 프로필에서 학습된 패턴과 예측이 작업 제안이 되던 남은 경로를 기존 `governed-execution` 제품 추가 기능 기준으로 닫았습니다. 컨트롤 루프 빌더가 `RuntimeProductSelection.governed_execution`을 컨트롤 루프에 전달하고, Pantheon 조립은 컨트롤 루프의 값을 Forseti에 전달하므로 두 번째 선택 입력은 없습니다. 추가 기능이 없으면 Forseti는 예측과 용량 입력이 포함된 중재에 ActionType 없는 판정으로 응답하고 예측에서 결정 선택지나 kinetic 제안을 만들지 않으며, 컨트롤 루프는 학습된 T1 재사용을 Action을 만들기 전에 멈춥니다. 종결된 모든 자문 중재는 통제 경로와 마찬가지로 해당 상관관계를 미해결로 기록하고, 상관관계별 잠금 아래에서 판정 하나만 게시하며, Thor는 ActionRun 저장소에 종결된 비작업 점유를 기록해 상관관계를 영속적으로 유지합니다. 따라서 재시작이나 관문 축출 뒤에 같은 상관관계로 온 판정은 통제 경로가 재사용된 상관관계를 거부하듯 거부되며, ActionRun, 승인 또는 실행기 호출은 생기지 않습니다. 추가 기능을 선택하면 기존 관문이 실행되며, 의도적인 제한은 하나뿐입니다. 정확한 `mode: enforce`가 없는 예측에서 도출한 작업 판정은 `shadow_only`로 제한됩니다. 역할, 토픽 및 `PANTHEON_SPECS`는 바뀌지 않았습니다. | `current change`; `test_learned_output_profile_boundary.py`, `test_learned_output_arbitration_gate.py`, `test_learned_output_durable_gate.py`, `test_learned_reuse_profile_boundary.py`, `test_bootstrap_pantheon_product_selection.py`의 검사 50개, 관문별, 미해결 기록, 게시 재시도와 잠금, 영속 점유 및 두 조립 전달 지점의 변이 검사, 제품 프로필로 추가 기능을 선택하도록 갱신한 통제 경로의 중재, 결정 사례, 전문 에이전트 및 T1 연결 검사; 프레임워크 구조, Ruff 및 엄격한 mypy 통과. | T2, 이상 작업 후보, 경보 소음 학습 및 다른 학습 근거 소비자를 검토해야 합니다. 실제 운영 검증은 수행하지 않았습니다. |
 | 2026-09-27 | in-progress | 고정 역할 및 토픽 경계를 유지하면서 신뢰 원본으로 검증한 전권 개발 묶음을 실제 Forseti, Var, Thor 및 Vidar 타입 경로에 통합했습니다. 원래 정족수와 유효 정족수를 구분하고 선택한 프로필에만 정확한 권한 부여를 재생 신원에 포함합니다. | `current change`; 집중 권한, 버스, 재생 및 인접 검사 723개, 구조 검사, Ruff 및 엄격한 타입 검사 통과. | 권위 있는 배포 원본을 구현하고 결속한 뒤 관리되는 런타임 증적을 보존해야 합니다. 실제 운영 검증은 수행하지 않았습니다. |
@@ -116,6 +128,13 @@ translation_revised: 2026-09-29
   소비자를 [학습 및 예측 결과 경계](#학습-및-예측-결과-경계)에 비추어 검토하고, 각 경로를 집중
   검사로 닫거나 기록합니다. 이 항목은 닫힌
   [이슈 #1541](https://github.com/dotnetpower/fdai/issues/1541)의 후속 강화 작업입니다.
+- [ ] Mimir promotion 근거, Freyr utilization sampling, Loki recurring schedule 및 adversarial
+  generation, Bragi reviewed activation의 production reader와 runner를 바인딩한 뒤 각 port의
+  집중 runtime 근거를 기록합니다.
+- [ ] Forseti retrospective what-if retained-input replay를 영속 저장소로 이식하고 재시작 후에도
+  입력이 안전하게 replay되는 regression을 기록합니다.
+- [ ] 영속 ordered-poison-halt 저장소를 production에서 켤지 결정한 뒤, 바인딩된 저장소 근거 또는
+  명시적인 opt-in 결정을 기록합니다.
 
 ## 설계 개요
 
@@ -153,6 +172,38 @@ translation_revised: 2026-09-29
 재시작 및 동시성 안전을 제공하지만 다른 에이전트에 판단, 승인, 실행, 감사, 복구 또는 게시
 권한을 부여하지 않습니다.
 
+#### 영속 보낼 편지함 규칙
+
+소유자 로컬의 모든 영속 보낼 편지함은 같은 재시도 계약을 따릅니다. 안정적인 멱등성 키로
+대기 의도를 쓰고, 소유 이벤트를 게시한 뒤에만 그 의도를 게시 완료로 표시합니다. 시작 복구는
+대기 의도를 같은 멱등성 키로 다시 게시하므로 전달은 at-least-once이며, 소비자는 최선 노력
+브로커 승인 대신 자체 멱등성 차단 장치에 의존합니다. 게시 후 표시 사이 구간에서 취소되면
+완료 근거가 아니라 재생 가능한 상태로 처리합니다.
+최종 보낼 편지함 행은 소유 변환 결과의 문서화된 재생 구간 뒤에 다이제스트 전용 tombstone으로
+압축됩니다. tombstone은 중복 재전달을 억제하는 데 필요한 멱등성 키, 소유자, 토픽, 다이제스트,
+보존 기한만 유지하고 전체 payload 본문과 변경 가능한 전달 metadata는 버립니다.
+
+게시 점유는 차단 장치로 보호됩니다. 소유자는 게시하기 전에 대기 행을 점유마다 고유한 소유자
+토큰과 주입된 시계 기준 `claimed_at` 임대로 점유합니다. 브로커 게시는 임대보다 짧은 제한 시간
+안에서 실행되고, 제한 시간이 지나거나 호출자가 취소하면 취소된 뒤 종료를 기다립니다. 점유
+토큰이 여전히 일치하는 compare-and-swap만 행을 게시 완료로 표시하거나 전송 실패 뒤 점유를
+해제하므로, 임대를 회수당한 늦은 게시자가 다른 점유를 완료하거나 다시 열 수 없습니다. 시작
+복구는 `pending` 행과 임대가 만료된 `publishing` 행을 명시적 백로그 한도까지 페이지 단위로
+읽고 원래 멱등성 키와 payload로 다시 게시합니다. 게시에 실패한 행이나 형식이 잘못된 행은
+기록한 뒤 연기하며 시작을 중단하지 않습니다. 범위가 제한된 유지 관리 작업이 연기된 행을 다시
+게시합니다. Var 최종 승인, Saga 감사 항목(파생된 테스트 맥락, 예상 계보, shadow 검토, 카탈로그
+검토, 문서 결정 봉인 포함), Muninn 운영 게시와 조사 전략 cohort, Heimdall 관측 게시, Mimir 규칙,
+정책, 테스트 맥락 정책, issue-close 근거 게시, Bragi 게시 보낼 편지함이 이 계약을 따릅니다.
+게시되지 않은 행은 항상 전체 재생
+payload를 유지합니다. Heimdall은 8 KiB를 넘는 본문을 게시 완료 tombstone에서만 버리고, 512 KiB를
+넘는 게시는 checkpoint를 쓰기 전에 거부합니다.
+
+소유자는 broker가 수락한 뒤에만 게시, 수락 또는 학습 결과를 완료로 보고합니다. 점유되었지만 게시되지
+않은 Thor 종료 ActionRun, Huginn Event와 Change, Loki chaos proposal, Vidar Rollback 레코드,
+schema-cluster Event, Norns quiet-window 지원 신호, Forseti 회고 what-if Verdict는 재시도할 수 있는
+상태로 남습니다. Thor는 게시 전에 원래 `terminal_at`을 담은 종료 게시 점유를 저장하므로, 장애 뒤 다시
+게시된 종료 ActionRun은 첫 사본과 바이트 단위로 같고 소비자는 멱등성 키로 중복을 제거합니다.
+
 #### Tier, 승인 및 명령 신원
 
 - 권한 상한은 액션을 실제 시작 T0, T1 또는 T2 tier로 평가합니다. 대체 경로 액션은 T0
@@ -185,6 +236,9 @@ translation_revised: 2026-09-29
   처리합니다. Var는 결정 및 최종 레코드를 이 신원으로 범위화하고 명시적 액션 필드와 함께
   전달하며, Thor는 오래된 승인을 실행 전에 거부합니다. Thor와 Var는 상관관계도 이 신원에
   결속하므로 다른 멱등성 generation이 같은 상관관계를 재사용할 수 없습니다.
+- 재시작은 만료된 승인 구간을 되살리지 않습니다. Thor는 프로세스가 중지된 동안 승인 시간이
+  지난 경우 실시간 유지 관리에서 사용하는 것과 같은 가시적인 실패 시 안전한 만료 결과로 닫아,
+  오래된 사람 승인 티켓이 리소스를 붙잡지 않게 합니다.
 
 #### 롤백 점유와 종결 재생
 
@@ -203,6 +257,111 @@ translation_revised: 2026-09-29
   롤백 계약과 함께 전달합니다. Thor는 오래되었거나 일치하지 않는 롤백을 무시하고 현재 실행과
   점유를 그대로 유지합니다.
 
+#### 파라미터 검증, 멱등성 및 보호 장치
+
+상관관계 재사용은 실행 시 검증합니다. 같은 작업 신원의 재시도는 멱등성을 유지하지만, 같은
+상관관계 아래 다른 작업은 모호한 전달이 아니라 감사 가능한 최종 차단 결과가 됩니다. Thor는
+`ActionRun`을 만들거나 영속화하기 전에 판정 파라미터를 범위 제한합니다. 너무 크거나 깊게
+중첩되었거나 스키마에 맞지 않는 필드는 영속 실행기 맥락, 승인 맥락 또는 감사 자료가 되기 전에
+차단됩니다.
+
+리소스가 활성 run 또는 승인 대기 run에 이미 점유되어 있으면 Thor는 dead letter 대신 보이는 최종
+`ActionRun` 차단 결과를 기록합니다. Thor는 실행 전이 전에 verdict 위험 어휘와 정족수 필드를
+검증하며, 알 수 없는 위험 단어나 잘못된 정족수 값은 범위가 제한된 동작 근거를 가진 보이는
+비실행 차단 결과가 됩니다. Heimdall은 필요한 상관관계 신원이 없으면 Anomaly를 게시하지 않고,
+상관관계 누락 no-op을 기록해 상관관계가 없는 근거가 incident 또는 작업 소비자에게 전달되지 않게
+합니다.
+
+실행 가능한 non-shadow 판정은 wire에 일곱 가지 보호 장치를 모두 포함합니다. 정지 조건,
+검증된 롤백, 영향 범위, 예행 실행, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사입니다.
+Thor는 Forseti가 전달한 `auto` 또는 `hil` 판정에 보호 장치가 하나라도 없으면 멱등성 키의
+형태나 첨부된 kinetic 제안과 관계없이 실행기 I/O 전에 거부합니다. 직접
+`dispatch_verdict()` 호출은 프로세스 내부 테스트 경계이며, 소스 경계 테스트가 Thor의 타입이
+지정된 포트를 유일한 운영 호출자로 고정합니다. Forseti는 실행 가능한 rule 및 중재 판정에 이 보호
+장치를 담아 내보냅니다. 자문 판정은 타입이 지정된 안정 멱등성 키를 유지하지만 작업 권한은
+부여하지 않습니다. Forseti의 rule cache는 Mimir가 인증한 엄격히 더 새로운 rule 개정만
+수락합니다.
+
+`dry_run_evidence` 보호 장치 필드는 예행 실행 보호 장치의 출처를 밝힙니다.
+`upstream_receipt`는 발생 이벤트가 가져온 what-if 또는 예행 실행 증적을 인용합니다.
+`declared_obligation`은 결정적인 의무 식별자일 뿐이며 예행 실행이 실제로 수행되었다는 증거가
+아닙니다. Thor는 의무에만 의존하는 non-shadow 전달을 `dispatch:dry_run_obligation_only`로
+집계합니다. `evaluate_pre_dispatch`를 호출하는 Core 실행기 경로는 자체 예행 실행 증적을
+계산하며, 위험도가 높거나 의무만 있는 디스패치에는 Thor 사전 시뮬레이터가 증적을 제공합니다.
+자세한 내용은 [Pre-flight simulation 및 증적](#pre-flight-simulation-및-증적)을 참조하세요.
+
+첫 `object.action-run` 게시가 실패하면 수명 주기 인계로 보지 않습니다. Thor는 게시되지 않은
+실행을 제거하고, enforce `auto` 경로에서는 게시되지 않은 정확한 리소스 점유를 포기하며, 리소스
+잠금을 해제하므로 다시 전달된 판정은 같은 멱등성 키로 재시도됩니다. 실패한 시도와 더 이상
+일치하지 않는 영속 행은 그대로 두고 집계합니다.
+
+#### 영향 범위와 배치 시맨틱
+
+현재 런타임은 `ActionAttempt`, `attempt_id`, 타입이 지정된 시도별 롤업 필드를 노출하지
+않습니다. 배치 시맨틱은 계획되어 있습니다. 종료 조건: multi-target ActionType이 독립 attempt
+신원, 대상별 rollback 격리, 타입이 지정된 롤업 필드, Saga의 시도별 및 롤업 감사 항목을
+생성합니다. 계획된 실패 격리는 실패한 시도를 자기 타깃으로 제한하고, 형제 성공을 보존하며,
+혼합 결과를 롤업 `ActionRun`에 기록하고, 시도별 및 롤업 감사 항목을 모두 씁니다.
+파티션 키는 리소스별 순서만 보존하며 리소스 간 순서는 보장하지 않습니다.
+
+#### 롤백 정족수와 복구 결정
+
+Thor는 실행 가능한 상태로 `verdicted`를 떠나기 전에 ActionType 의미에서 되돌릴 수 없는 작업의
+정족수를 다시 계산합니다. 사람 승인은 정확한 `ActionRun` 신원, Var producer 근거, 승인 멱등성
+키, 승인자 집합 및 정족수 근거에 결속됩니다. 영속 Var 재조회가 설정되어 있으면 Thor는 전이
+전에 현재 저장된 승인을 요구합니다. Var는 게시를 점유하기 전에 결정을 영속화하고 소비자는 게시
+도중에 승인을 받을 수 있으므로, 재조회는 Var 보낼 편지함의 `pending`, `publishing`,
+`published` 상태를 모두 받아들입니다. Thor가 캐시한 `ActionRun` 신원은 읽을 때마다 수명 주기
+동안 고정되어야 하는 모든 필드를 다시 검증하므로, 승인이나 롤백이 `ActionRun`에 더 이상 없는
+파라미터에 결속되지 않습니다. Var도 ActionType 의미에서 정족수를 다시 계산하고, 알 수 없거나
+카탈로그가 없는 작업은 되돌릴 수 없는 작업의 최소값이 필요한 것으로 처리합니다. Vidar는 Thor가
+소유한 `ActionRun` 메시지 중 신원과 롤백 근거가 일치하는 경우에만 롤백을 받아들입니다.
+
+Forseti는 `auto`를 상한으로만 취급합니다. 거버넌스가 적용된 되돌릴 수 있는 ActionType 의미가
+없거나 판정에 정족수 `>= 2`가 필요하면 런타임은 결정을 사람 승인(`hil`)으로 낮춥니다. 판단 표는
+주입되며 digest가 찍힙니다. Forseti는 맨 상관관계로 대체하지 않고 이벤트 신원과 작업에서
+결정론적 verdict 키를 기록합니다. retired 또는 revoked 규칙도 `auto`를 `hil`로 낮춥니다.
+중재 결정은 Odin이 보낸 경우에만 수락하며, 해결된 중재 verdict를 내보내기 전에 영역별 처리
+결과를 반영합니다. 해결된 중재 verdict에는 결과 자율성 상한과 Thor가 강제할 작업 멱등성 키가
+포함됩니다.
+
+`execution_unknown`은 성공이나 실패한 작업이 아니라 복구 결정입니다. Vidar는 롤백 계약을
+통해서만 이를 닫거나, 필요한 영속 롤백 전제 조건이 없으면 가시적인 `rollback_refused` 상태로
+닫습니다. Thor는 rollback 실패나 거절 뒤에 리소스 잠금을 해제하거나 차단해 멈춘 실행이
+가시적으로 남되 리소스를 무기한 점유하지 않게 합니다.
+
+롤백 준비 상태는 `(ActionType, rollback_contract)` 쌍 단위로 검증합니다. 적용 모드 조립은 시작
+전에 바인딩된 ActionType 시맨틱 카탈로그에서 실행 가능한 모든 쌍을 도출하고, 해당 계약용 일반
+실행기나 정확한 액션별 실행기를 요구합니다. 되돌릴 수 없는 계약과 실행기가 필요 없는 계약은
+제외합니다. 계약 이름만으로는 바인딩된 실행기가 다른 ActionType을 복구할 수 있다는 근거가
+되지 않습니다. 예를 들어 AKS acceptance `ops.scale-out` 실행기는 일치하는 `state_forward_only`
+롤백 어댑터가 함께 제공될 때만 비 shadow 실행에 바인딩됩니다.
+
+#### 중재, 서술, 감사 및 전문 에이전트 재생
+
+- Forseti는 대기 중인 중재 맥락, 영역 간 후보 기한, 완료된 후보 차단 장치, 중재 완료
+  표시를 영속화합니다. 재시작 뒤에도 저장된 Odin 결정을 소비하고 해결되지 않은 사례를
+  가시적으로 닫으며 같은 중재에 대해 두 번째 완료를 내보내지 않습니다. 대기 중인 영역 간
+  기한은 상관관계마다 sleep task를 만들지 않고 정렬된 기한 위의 범위가 제한된 timer 하나로
+  예약합니다.
+- Bragi는 도착 순서대로 턴 번호를 예약하면서 대화, 인계, 턴 보낼 편지함을 영속화하므로 느린
+  응답기나 브로커 게시가 복구 뒤 세션 대화 기록 순서를 바꾸지 않습니다.
+- Bragi가 소유한 인계 에스컬레이션과 턴 이후 검토 게시는 다른 소유자 로컬 게시와 같은
+  영속 보낼 편지함 규칙을 사용합니다. 복구는 같은 멱등성 키로 다시 게시하고 broker publish가
+  반환된 뒤에만 행을 게시 완료로 표시합니다.
+- Saga의 감사 체인은 영속 head에서 계속됩니다. 소비자가 시작되기 전에 변경, 게시, 완료를
+  검사 지점으로 기록하므로 로컬 감사 복사본이 재시작 뒤 새 체인을 만들지 않습니다.
+- 메모리 내부 및 공급자 기반 감사 체인은 entry hash를 다시 계산해 필드 변조를 감지하고, 봉인된
+  head 또는 예상 길이와 비교해 잘림을 감지합니다. Saga는 anchored checkpoint에서 증분 검증하고
+  전체 체인을 스캔하지 않고 상관관계 인덱스로 재생을 제공합니다.
+- Odin은 상관관계별 중재 결정 차단 장치를 저장합니다. 다시 전달된 중재 요청은 Odin이 같은
+  사례의 순위를 다시 매기지 않고 원래 결정을 재생합니다.
+- Forseti는 각 요청에 영역별 중재 계보와 최신성을 보존합니다. 오래된 영역 신호는 집계하되
+  결합에서 제외하며 합성 최신 중재 입력으로 바꾸지 않습니다.
+- Heimdall, Njord, Freyr는 재생된 원본 이벤트를 받기 전에 주입된 저장소에서 관측, 자문, 예측
+  차단 장치를 복구하므로, 재전달은 중복 구간이나 오래된 기준선을 전진시키지 않고 완료되지
+  않은 게시를 끝낼 수 있습니다.
+
 #### 영속 인계와 학습
 
 - Saga는 외부 변경 전에 각 에스컬레이션을 런타임 StateStore에서 점유합니다. 타입 지정 인계는
@@ -216,6 +375,9 @@ translation_revised: 2026-09-29
 - Saga는 변경, 감사, 게시 및 완료 검사 지점을 기록합니다. `object.issue`를 게시한 뒤에만
   완료를 기록합니다. 버스가 없으면 이전 검사 지점을 대기 상태로 유지하고 재시도 가능한 실패를
   발생시킵니다. 종료 정보는 범위가 제한된 발생 댓글 목록 밖에 두고 CAS 전에 검증합니다.
+- Saga 인계 이슈 구체화는 재시작 시 구체화 완료를 보고하기 전에 게시되지 않은 `object.issue`
+  레코드를 복구합니다. 이전 방식 인계 fallback은 이슈를 만들거나 댓글을 남기기 전에 문제
+  지문으로 중복 제거합니다.
 - Norns는 인계 멱등성 키를 점유하고 대기 작업을 영속 지문 횟수에 CAS로 적용하며, 게시 또는
   결정론적 보류가 전달 완료를 표시할 때까지 각 후보를 유지합니다. 시작 처리는 정확한 대기 필드를
   범위가 제한된 항목 하나씩 조회합니다. 차단된 선두 항목은 복구를 멈추지만 다음으로 성공한
@@ -229,17 +391,32 @@ translation_revised: 2026-09-29
 
 #### 범위가 제한된 공유 상태
 
-`StateStore`는 `delete_states_beyond(prefix, retain_newest)` 제거 연산 하나를 노출합니다.
-`read_states`와 같은 순서로 변환 결과 한도를 넘는 가장 오래된 행을 제거합니다. 키 하나를
-지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수 없습니다. Var 복구가 영속이면
-프로덕션은 shadow 및 enforce 모드 모두에서 Thor 저장소도 제공하므로 미완료 정족수와 해당
-ActionRun이 함께 재개됩니다. 적용 모드 조립은 여전히 명시적인 `thor_state_store`,
-`vidar_state_store`, `var_state_store` 바인딩을 모두 요구하며, 하나라도 없으면 프로세스 로컬
-승인 또는 롤백 상태를 사용하기 전에 시작을 차단합니다. 비활성 Thor 행은 안정적인 멱등성
-generation을 유지합니다. 같은 generation은 계속 억제하고 다른 generation은 실패 시
+`StateStore`는 제거 연산 두 개를 노출합니다. `delete_states_beyond(prefix, retain_newest)`는
+`read_states`와 같은 순서로 변환 결과 한도를 넘는 가장 오래된 행을 제거합니다.
+`delete_state(key)`는 만료된 재생 차단 장치처럼 권한이 없는 정확한 행 하나를, 소유자가 범위가
+제한된 보존 요약을 기록한 뒤 제거합니다. 두 연산 모두 감사 항목이나 권한 기록에는 사용하지
+않습니다. 적용 모드 조립은
+명시적인 `thor_state_store`, `vidar_state_store`, `var_state_store`, `forseti_state_store`
+바인딩을 요구합니다. Var 복구가 영속이면 프로덕션은 shadow 및 enforce 모드 모두에서 Thor
+저장소도 제공하므로 미완료 정족수와 해당 ActionRun이 함께 재개됩니다. 또한 프로덕션은 선택적
+거버넌스 및 전문 에이전트 저장소인 `forseti_state_store`, `bragi_state_store`,
+`odin_state_store`, `proposal_rate_limit_state_store`, `heimdall_state_store`,
+`njord_state_store`, `freyr_state_store`를 인시던트 감사 저장소에 연결합니다.
+`ordered_poison_halt_state_store`는 명시적 선택으로 유지합니다. Owner 전용 Operator clear 표면은
+있으며, 영속 halt 저장소를 프로덕션에서 켤지는 기록된 남은 결정입니다. 적용 모드 조립은 모든 정확한 에이전트 소유 바인딩을 요구하며, 하나라도 없으면
+프로세스 로컬 승인 또는 롤백 상태를 사용하기 전에 시작을 차단합니다. 비활성 Thor 행은 안정적인
+멱등성 generation을 유지합니다. 같은 generation은 계속 억제하고 다른 generation은 실패 시
 차단합니다. Generation을 알 수 없는 기존 tombstone도 재사용 권한을 부여하지 않습니다. 활성
 행은 리소스 점유, 수명 주기 순위 억제 또는 실행 전에 검증합니다. 해제된 리소스 점유는
 상관관계, 멱등성 키 및 액션 지문이 모두 같아야 완료된 같은 실행으로 인정합니다.
+장기간 실행되는 에이전트는 재생된 작업을 받기 전에 영속 복구 상태를 범위가 제한된 페이지로
+읽습니다. 키별 잠금은 참조 수를 추적하거나 최종 완료 뒤 회수하므로, 축출되었거나 완료된 키가
+범위 없이 프로세스 로컬 잠금을 남기지 않습니다.
+In-process bus, testing bus, local bus는 보존된 묶음과 dead letter를 범위 안에 둡니다.
+버려진 consumer group 상태는 제한 없이 쌓이지 않고 만료됩니다. 이전 tick이 아직 실행 중이면
+maintenance tick은 합쳐지므로 느린 상태 작업이 무제한 backlog를 만들지 않습니다. Redrive는
+명시적 cap을 적용한 dead-letter batch를 읽고 남은 backlog를 다음 운영자 작업의 근거로
+기록합니다.
 
 ### 대화형 액션 재진입
 
@@ -250,6 +427,172 @@ Bragi는 `object.event`의 단독 쓰기 담당인 `Huginn.ingest`에 연결된 
 요청을 차단합니다. Huginn은 `event_type == "operator_request"`일 때만 운영자 제안 필드를
 수락하고 `operator_initiated`를 엄격한 Boolean으로 처리하므로 외부 신호가 운영자 액션을
 위조할 수 없습니다.
+시작 주체 principal은 멱등성 재료에 포함되며, 타입 지정 파라미터는 대화 계보에 대한
+다이제스트 또는 참조와 액션 인자만 담고 원시 질문 텍스트나 원시 세션 식별자를 담지 않습니다.
+Huginn은 원시 요청의 형태와 깊이를 제한하고, 안전하지 않은 신원 문자를 거부하며, 수락한 원본
+시간을 범위가 제한된 오차 안에서 UTC로 정규화하고, 신뢰할 수 없는 입력에는 내용 없는 거부
+횟수를 기록합니다. 원시 운영자 요청은 엄격하게 제한된 필드와 서버가 소유한 채널만 유지합니다.
+인증된 서비스 producer에는 `ingress`, Bragi의 프로세스 내부 제안 진입점에는 `conversation`을
+사용합니다. Huginn은 호출자가 제공한 시작 주체, ActionType, params 같은 소유되지 않은 권한
+필드를 원시 유입에서 복사하지 않으며, Forseti의 RBAC는 알 수 없는 시작 주체를 verdict 형성
+전에 차단합니다.
+
+### Phase-2 기능 메커니즘
+
+이 메커니즘은 고정 역할을 확장하지 않으며 새 역할 바인딩이나 기본 실행 권한을 추가하지
+않습니다.
+
+#### Pre-flight simulation 및 증적
+
+`ThorPreflightSimulator`는 고위험 또는 의무 전용 executor I/O 전에 범위가 제한된 읽기 전용
+시뮬레이션을 제공합니다. 통과 증적은 schema version, ActionRun 신원, ActionType, target,
+parameter digest, simulator 신원과 version, outcome, timestamp, reason, receipt digest를
+기록합니다. Thor는 receipt digest를 `dry_run_receipt`로 사용합니다. 바인딩 없음, 실패,
+timeout, 오류 또는 변경을 수행하는 시뮬레이션은 executor I/O 전에 안전하게 차단됩니다.
+
+#### DR failover 계약 및 rollback rehearsal
+
+Vidar는 Thor가 `ops.failover-primary`를 계속하기 전에 정확한 ActionRun 신원에 대한
+`dr_failover_contract` 결정을 수락하거나 보류합니다. 보류된 결정과 주입된 clock timeout은
+실행을 거부합니다. Rollback rehearsal port는 dry-run-only입니다. 바인딩되지 않은 port는 보이는
+no-op 근거를 기록하고, 바인딩된 port는 digest-bound rehearsal 증적과 DR readiness fact를 만듭니다.
+Rehearsal은 증적이 `object.rollback`에 게시된 뒤에만 주기를 완료하며, 복구는 저장되었지만 게시되지
+않은 증적을 원래 신원으로 다시 게시합니다.
+
+#### Issue-close promotion 근거 및 Mimir 유지 관리
+
+Mimir는 주입된 읽기 전용 port를 통해 rule source를 polling하고 regression 근거를 실행하며
+deprecation 후보를 기록합니다. 검토된 promotion 하나는 fingerprint, promotion PR, correlation에
+대해 Saga issue-close promotion 근거를 최대 한 번 방출할 수 있습니다. 대기 중인 게시는 같은
+key로 재생되며, clean start 뒤 재발하려면 새 검토 promotion이 필요합니다.
+
+#### Norns quiet-window 적격성
+
+Norns는 `object.rule-candidate`에 비활성 quiet-window close 적격성을 게시합니다. 이슈를 직접
+변경하지 않습니다. Saga는 계속 이슈 종료 담당자이며, 종료 전에 Mimir promotion 근거와 깨끗한
+재발 없음 구간을 기다립니다. Saga는 issue-close 적격성을 범위가 제한된 영속 상태에 보관하고
+종료 검사 전에 다시 불러옵니다. 각 자동 종료는 revision compare-and-swap으로 진행하는 영속
+checkpoint입니다. `issue_auto_close_intent` 감사, 멱등적인 외부 종료 직전의 재발 재확인, 최종
+`issue_auto_close` 감사, `object.issue` 게시, 완료 순서로 진행합니다. 재발이 확인되면 최종
+`issue_auto_close_cancelled` 감사와 함께 종료를 취소합니다. 복구는 이슈가 이미 닫힌 경우를
+포함해 대기 중인 checkpoint를 페이지 단위로 처리합니다.
+
+#### Operator-request 증적 및 schema learning
+
+Raw-ingress `operator_request` 이벤트는 idempotency key, correlation id, initiator, ActionType,
+canonical params digest, resource id, producer identity, validity window를 결속하는 서명된 증적을
+가집니다. Huginn은 누락, 만료, replay, 불일치, 검증 불가, 알 수 없는 producer 증적을 거부합니다.
+Schema learning은 hot path에서 범위가 제한된 content-free fingerprint를 기록하고 maintenance 중
+비활성 `schema_cluster.evidence`를 게시합니다.
+
+증적 schema `1.1.0`이 기본값이며 `canonical_workflow_action_digest`도 결속합니다. Workflow
+lineage digest는 존재 여부를 구분하므로 lineage가 없을 때와 비어 있을 때 서로 다른 digest가
+나옵니다. Schema `1.0.0`은 workflow lineage가 없는 요청에만 허용합니다. Huginn은 게시 전에
+증적 replay 차단 장치를 pending으로 예약하고, 게시와 deduplication checkpoint가 성공한 뒤
+확정하며, 게시가 실패하면 자신이 예약한 pending 항목만 해제합니다. 차단 장치는 주입된 시계
+기준으로 `expires_at`에 허용 clock skew를 더한 시점 뒤에 만료되며, 범위가 제한된 집계 요약과
+함께 제거됩니다. Core는 시작 시 Core 및 Operator signing seed에서 신뢰하는 producer 공개 키를
+도출하고 `core-control-plane`으로만 서명합니다. Schema-cluster 근거는 이벤트 유형 인가
+검사를 통과한 뒤에만 기록합니다.
+
+Replay 차단 장치는 현재 시각과 관계없이 호출자 자신의 pending 예약을 확정합니다. 만료는 증적을
+검증하고 예약할 때 이미 확인하기 때문입니다. 게시된 Event나 열린 Incident 같은 부수 효과 뒤에
+확정이 실패하면 소유자는 적용된 요청을 거부하지 않고 적용되었지만 확정되지 않은 결과로 기록합니다.
+Operator Incident 생성도 같은 증적을 사용합니다. 서명된 params는 principal id, 역할, 대상, 인자,
+원본 요청 id를 결속하며, Core는 Incident를 열거나 재사용하기 전에 신뢰하는 `operator-service`
+키, 만료, 정확한 결속, replay를 검증합니다. 유효한 증적이 없는 요청은 구별되는 사유와 함께
+dead-letter로 보냅니다. 기본 payload 검증기는 `object.issue`, `object.audit-entry`,
+`object.rule`, `object.policy`도 다루며 실제 생산자가 만드는 모든 형태를 허용합니다.
+
+#### Freyr sampling 및 Loki scheduling/adversarial generation
+
+Freyr는 주입된 읽기 전용 sampler로 utilization을 표본 추출합니다. 바인딩되지 않았으면 sampler는
+runtime degraded가 아니라 보이는 no-op을 보고합니다. Sampler 호출은 제한 시간으로 묶이며 초과하면
+`capacity_sampling:timeout`을 기록합니다. Freyr와 Njord는 오래된 표본의 중복 차단 장치를
+완료하므로, 다시 전달된 오래된 표본은 재처리되지 않고 중복으로 처리됩니다. Forecast는 governed advisory-to-verdict
+경로가 Forseti를 통해 shadow/HIL proposal을 낼 때까지 자문 근거로 유지됩니다.
+Njord는 기본 proposal 큐 대신 범위가 제한된 영속 cost-anomaly 보낼 편지함을 소유합니다. Rate-limit에
+걸렸거나 bus가 없는 anomaly는 accepted-sample 차단 장치를 열어 둔 채 pending으로 영속화됩니다.
+다시 전달되어도 재분석하거나 다시 게시하지 않으며, 유지 관리 작업이 proposal 예산 안에서 가장
+오래된 pending 행부터 다시 게시한 뒤 차단 장치를 완료합니다. 압축은 pending 행을 삭제하지 않고,
+보낼 편지함이 가득 차면 `cost_anomaly:outbox_full`로 보고합니다. 런타임 bootstrap은 Njord를 incident
+감사 저장소에 연결하며, 상태 저장소가 없는 조립은 재시작 시 사라지는 범위가 제한된 process-local
+보낼 편지함을 유지합니다.
+
+Loki는 예약과 게시 전에 chaos 제안 근거를 검증합니다. 불완전한 제안은 검토 대상으로 보류하고,
+대상 잘림은 명시적으로 기록하며, 완전한 제안만 Heimdall 관측을 위해
+`object.chaos-experiment`를 게시합니다.
+Loki의 결정론적 recurring scheduler는 due window마다 완전한 always-HIL chaos proposal 하나를
+내거나 보이는 hold를 기록합니다. 점유된 window는 재시작 뒤 복구되거나 범위가 제한된 사유와 함께
+hold되며, 조용히 건너뛰지 않습니다. 영속 보낼 편지함과 bus가 모두 없으면 proposal은
+`publication_unavailable`이 되고 예약을 해제합니다. Loki는 기본 process-local proposal 대기열로
+대체하지 않으므로, rate-limit에 걸린 proposal은 영속 보낼 편지함에 남거나 사용할 수 없음으로
+보고됩니다. Adversarial scenario generator는 기본 바인딩이 없는 주입형 off-path port입니다.
+수락된 candidate는 비활성이며 frozen corpus에 대해 regression-gated되고, 비활성 감사 payload가
+게시된 뒤에만 `accepted_inert`로 보존됩니다.
+Heimdall의 recovery-effect 관측 키에는 게시된 resource id가 포함되므로, 한 correlation 안의 서로
+다른 리소스 관측이 하나의 키로 합쳐지지 않습니다.
+
+#### Poison-halt clear surface 및 publication replay 근거
+
+Ordered poison halt는 Owner-only Operator route가 shared pantheon-object transport로
+multiplex되는 logical `fdai.operator.ordered-poison-halt.clear.v1` topic의 요청을 영속 수락할
+때만 해제됩니다. Core는 consumer를 재개하기 전에 topic, group, agent, halt revision/digest,
+retained DLQ parked-record key, offset, digest를 검증하고 감사된 compare-and-swap clear를
+수행합니다. 영속 halt 저장소는 opt-in으로 남습니다.
+
+Operator는 principal, halt, parked-record 근거 digest를 포함한 정확한 canonical clear 요청에
+operator-request 증적으로 서명합니다. 증적 발급기가 구성되지 않으면 route는 `503`을 반환합니다.
+수락 단계는 게시 전에 저장된 proposal을 임대와 소유자 토큰으로 점유하고, 그 점유에 대한
+compare-and-swap으로 게시 완료를 표시하며, 전송 실패 뒤에만 점유를 해제합니다. 다른 활성 점유가
+있으면 요청은 수락되어 대기 중인 것으로 보고됩니다. Core는 신뢰하는 `operator-service`
+producer, 만료, replay 차단 장치, Owner 역할, halt marker의 key, offset, group, topic 결속,
+multi-handler group 문법, 요청 TTL을 검증합니다. 증적 replay 차단 장치를 예약하고, 감사되는
+halt compare-and-swap을 수행한 다음 차단 장치를 확정합니다. Clear가 실패하거나 일치하지 않으면
+예약을 해제해 같은 서명 요청을 다시 시도할 수 있고, clear 뒤 확정에 실패하면 halt는 해제된
+상태로 `applied_but_unfinalized`를 보고합니다. DLQ 근거 검색을 제한 시간과 레코드 수로 제한하며,
+해제된 ordinal consumer group만 재개합니다. 거부된 clear는 감사되고 조회할 수 있으며 집계됩니다.
+런타임 clear 바인딩은 영속 halt가 더 이상 유지되지 않으면 `applied_but_unfinalized`를 포함해 중단된
+소비자를 재개하고, 그 결과를 따로 집계하며, 재개에 실패하면 clear 요청 소비자를 멈추지 않고 보이는
+거부 기록과 상태 카운터로 남깁니다.
+
+Provider-harness restart replay 검사는 Bragi, Var final approval, Saga audit outbox, Muninn,
+Mimir, Heimdall, Odin publication replay를 다룹니다. 영속 publication replay와 Odin 재전달에 대한
+실제 provider matrix는 loopback Redpanda v26.2.2와 PostgreSQL에서 두 번 통과했습니다(각 실행
+30개 테스트). 배포 환경의 실제 broker 근거는 deployment-owned 검증 단계로 남습니다.
+
+#### Forseti what-if 및 cost annotation
+
+Forseti retrospective what-if replay는 judge-only이고 비활성입니다. 보존된 judgment input을
+versioned contract로 비교하고 권한을 바꾸지 않는 disagreement 근거를 게시합니다. What-if 키에는
+correlation이 포함되므로 같은 규칙을 다른 이벤트에 재생한 결과가 구분됩니다. 실행 가능 및
+자문 Verdict와 ArbitrationRequest는 범위가 제한된 `cost_annotation` 근거나 명시적 unavailable
+상태를 담습니다. Odin은 이를 보존하고 Thor는 non-identity metadata로 저장합니다.
+
+#### Bragi intent-training loop
+
+Bragi는 범위가 제한되고 consent-filtered이며 digest-only인 검증된 routing outcome에서 shadow 전용
+intent-training 근거를 기록합니다. Candidate 평가는 off-path, 결정론적, regression-gated, audited
+입니다. Routing 권한은 바뀌지 않으며 reviewed activation은 별도 binding으로 남습니다. Norns는
+이 근거와 `object.post-turn-review`의 다른 비 review 종류를 관측 가능한 비학습 결과로 기록하며,
+`kind: post_turn_review`만 학습기 검토에 들어갑니다.
+
+#### Multi-target batch
+
+명시적이고 범위가 제한된 target list가 있는 multi-target Verdict는 rollup `ActionRun` 하나와
+대상별 독립 `ActionRun` 하나씩을 만듭니다. 각 시도는 안정적인 신원, resource lock,
+idempotency key, 보호 장치, pre-flight/audit/executor/effect 경로, target-scoped Vidar rollback을
+가집니다. Rollup은 count, 실패 및 rollback target digest, 종료 규칙, 영속된 범위 제한 target
+list를 기록하므로 재시작 후 승인도 같은 set에 결속됩니다. Rollup은 rejected와 `deny_dropped`
+대상을 따로 집계하며, rejected 또는 deny-dropped 시도가 하나라도 있는 종료 batch는
+`batch_refused_attempt` outcome과 함께 `rollback_failed`가 됩니다. Single-target run은 기존
+신원과 payload를 유지합니다.
+
+#### Muninn compaction
+
+Muninn은 게시된 행 64개마다 그리고 maintenance 시 publication outbox를 compact하며, 5,000행
+retention window에서 최대 64행 범위 안으로 제한됩니다. In-memory StateStore test double은 감사
+write rollback을 위해 touched row만 snapshot합니다.
 
 ### 조립과 수명 주기
 
@@ -259,6 +602,10 @@ Bragi는 `object.event`의 단독 쓰기 담당인 `Huginn.ingest`에 연결된 
   루프의 레코드를 가로채거나 해당 루프의 의존성이 되지 않은 채 나란히 실행합니다.
 - `run()`은 소비자 실패를 격리하고 범위가 제한된 일시적 실패를 재시작하며 정상 형제 소비자를
   계속 실행합니다. 종료 시간도 제한됩니다.
+- 시작은 recovery-effect observer intake를 연결하고 재생 전에 ContextIndex 복구를 되살리며,
+  ContextIndex 봉인에 영속 Saga 감사를 사용할 수 없으면 실패 시 안전하게 닫습니다. 정상
+  런타임 중지는 `stopped`를 보고하고, 관측되지 않은 성능 저하 구간은 `not_observed`를
+  보고합니다.
 - 런타임은 기본적으로 활성화된 shadow입니다. `FDAI_START_PANTHEON=0`으로 비활성화하며,
   소비자 조립이 없으면 in-memory 대체품을 만들지 않고 명시적으로 건너뜁니다.
 - 별도 검토된 승격이 enforce를 활성화하기 전까지 Thor는 `enforce=False`를 유지합니다. Enforce
@@ -303,6 +650,14 @@ Thor는 모든 프로필에서 이 사유를 가진 ActionType 없는 판정을 
 | `thor_state_store` | 최종 상태가 아닌 ActionRun을 재구성하고 재시작 후 리소스 잠금을 보존하며, 종결된 비작업 점유로 자문 중재 상관관계를 유지합니다. |
 | `vidar_state_store` | 롤백 점유, 소유자 점유 유효 기간, 차단 개정 번호 및 종결 증적을 영속화합니다. |
 | `var_state_store` | 승인 결정, 최종 페이로드 및 게시 검사 지점을 영속화합니다. |
+| `forseti_state_store` | 판단 상한, 중재 맥락, 영역 간 후보 기한 및 완료 표시를 영속화합니다. 적용 모드 조립에 필요합니다. |
+| `bragi_state_store` | 대화, 인계, 턴 보낼 편지함을 영속화해 세션 복구가 도착 순서를 보존하고 대기 중인 대화 레코드를 다시 게시하게 합니다. |
+| `odin_state_store` | 중재 결정 차단 장치를 영속화하고 다시 전달된 요청에는 원래 결정을 재생합니다. |
+| `proposal_rate_limit_state_store` | 제안 예산 구간과 복제본 간 원자적 예약을 영속화합니다. |
+| `ordered_poison_halt_state_store` | 순서가 있는 소비자의 poison 중단을 선택적으로 영속화합니다. 프로덕션은 운영자 해제 표면이 생길 때까지 연결하지 않습니다. |
+| `heimdall_state_store` | 관측 구간, 알림 예산, 중계 보낼 편지함, 효과 관측 재생 차단 장치를 영속화합니다. |
+| `njord_state_store` | 비용 샘플 차단 장치, 오래된 샘플 방지 장치 및 자문 기준선을 영속화합니다. |
+| `freyr_state_store` | 용량 샘플 차단 장치, smoothing 상태, 예측 보낼 편지함 및 용량 graduation에 쓰는 비용 근거를 영속화합니다. |
 | `muninn_state_store` | Muninn 변환 결과, Saga 이슈 상태 및 Norns 인계 학습 복구를 지원합니다. |
 | `payload_validator` | 프로바이더 경계에서 잘못된 게시를 거부합니다. |
 | 소비자 재시작 제한 | 형제 소비자를 취소하지 않고 지수 백오프와 유한한 재시작 상한을 적용합니다. |
@@ -316,14 +671,64 @@ Thor는 모든 프로필에서 이 사유를 가진 ActionType 없는 판정을 
 
 - 토픽 소유권과 파티션 키는 공유 토픽 레지스트리를 사용합니다. 변경 토픽에는 비어 있지 않은
   리소스 키가 필요하며 잘못된 키는 게시 전에 차단됩니다.
+- 모든 소유 토픽 게시는 게시 경계에서 비어 있지 않은 `correlation_id`와
+  `idempotency_key`를 포함해야 합니다. 변경 토픽에는 `resource_id`도 필요합니다.
+  인메모리 버스와 프로덕션 브리지는 안전하지 않은 변경 묶음 누락을 fail closed로 처리하고,
+  다른 소유 토픽의 공유 묶음 누락은 기록합니다.
 - 게시 묶음은 생산자, 스키마, 상관관계 및 멱등성 메타데이터를 포함합니다. 소비자 측 소유권
   검사는 사칭 게시자를 핸들러에 전달하기 전에 dead-letter 처리합니다.
-- 핸들러 재시도와 시간 제한은 범위가 제한됩니다. 순서가 있는 변경 스트림은 독성 레코드에서
-  중단할 수 있으므로 나중 효과가 실패한 이전 효과를 앞지를 수 없습니다.
+- 한 에이전트의 서로 다른 핸들러가 같은 토픽을 소비하면 각각 결정론적 소비자 그룹으로
+  fan-out합니다. 핸들러가 하나뿐이면 기존 group id를 유지합니다. 순서가 있는 poison은 해당
+  토픽의 모든 형제 소비자를 중단합니다. 잘못된 소유 레코드는 broker 레코드마다 한 번만
+  dead-letter 처리하고 실패한 소비자 신원을 남깁니다.
+- 런타임 조립은 에이전트별 소비자 모드를 선택적으로 사용할 수 있습니다. 이 모드에서는 에이전트
+  그룹마다 하나의 물리 소비자가 broker 스트림을 읽고 논리 `object.*` 토픽을 로컬에서
+  라우팅합니다. 기본값은 `(topic, agent)` 쌍마다 소비자를 유지하며, 두 모드 모두 핸들러 전달
+  전에 같은 소유자, 묶음, poison, 재시도 검사를 적용합니다.
+- 각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이
+  아니라 종료 절차 중에 소비자 그룹을 반납합니다.
+- 핸들러 재시도와 토픽별 시간 제한은 범위가 제한됩니다. 핸들러는 짧은 협력적 취소 안전
+  임계 구간을 표시할 수 있으므로 멈춘 핸들러는 여전히 시간 초과되지만 영속 확정
+  구간은 끝낼 수 있습니다.
+- 관찰자 콜백과 dead-letter 쓰기는 범위가 제한됩니다. 순서가 있는 변경 스트림은
+  dead-letter를 쓸 수 없으면 중단하므로 나중 효과가 실패한 이전 효과를 앞지를 수 없습니다.
 - DLQ redrive는 명시적 운영자 작업입니다. DLQ 쓰기 실패는 집계하며 정상 소비자와 격리합니다.
-- `InMemoryBus`는 프로덕션 브리지와 동일한 묶음, 파티션, 시간 제한 및 실패 격리 계약을 따릅니다.
+  단, 순서가 있는 소비자는 스트림 순서를 보존하기 위해 중단합니다.
+- DLQ redrive는 batch 범위가 제한되며 모든 레코드에서 소유자, 스키마, 묶음, 파티션 검증을
+  보존합니다. Redrive batch가 cap에 도달하면 나머지는 빈 상태가 될 때까지 loop하지 않고
+  관측 가능한 backlog 근거와 함께 보관합니다.
+- 제안 예산은 용량을 예약하고 제안을 게시한 뒤 예약을 확정합니다. 영속 제한기는 복제본
+  전체에서 원자적 CAS 예약을 사용하고 실패나 취소 시 예약을 해제합니다.
+- `InMemoryBus`는 로컬 검사에 parity가 필요한 범위에서 프로덕션 브리지와 동일한 묶음,
+  파티션, 시간 제한 및 실패 격리 계약을 따릅니다. 선택 항목은 payload 검증, 범위가 제한된
+  handler retry, duplicate-delivery simulation, 변경 토픽의 ordered poison halt를 포함합니다.
+- 남은 로컬 버스 차이는 의도적입니다. 전달은 순차적이고 in-process이며, 토픽 간 동시성이나
+  broker 수준 partition rebalancing은 없습니다.
+- 로컬 및 테스트 bus retention은 범위가 제한됩니다. 오래된 accepted envelope, dead letter, abandoned
+  consumer-group 상태는 명시적 한도 아래에서 만료됩니다. 이렇게 해서 로컬 bus를 프로덕션
+  broker로 가장하지 않으면서 parity 검사를 결정론적으로 유지합니다.
+- `LocalEventBus`는 구독 재시작 후에도 확정된 offset을 유지합니다. 명시적 `reset_offsets()`만
+  확정된 레코드를 재생하므로 재시작 복구와 재생 검사를 구분할 수 있습니다.
 - 에이전트 게시는 `PantheonBus` 프로토콜을 사용하므로 런타임 조립에서 역할이나 권한 계약을
   바꾸지 않고 전달 어댑터를 교체할 수 있습니다.
+
+### 비율 한도, 상태 및 범위가 제한된 백로그
+
+런타임 비율 한도 적용은 고정 버킷이 아니라 슬라이딩 윈도를 사용하므로 경계 시점 버스트가
+유효 비율을 두 배로 만들지 않습니다. 초과 제안은 범위가 제한된 큐에 넣고 큐가 넘치면
+`rate_limit_exceeded` 감사 항목과 함께 폐기하여 Saga와 Norns가 에이전트 버스트의 원인을 학습하도록
+합니다. Loki chaos 제안, Norns 규칙 후보, Njord cost anomaly는 이 process-local 큐를 거치지 않습니다.
+각 에이전트가 이를 영속 대기 제안으로 유지하므로, rate-limit에 걸린 해당 제안은 재시작 시 사라지지
+않고 영속 상태에서 다시 시도됩니다.
+
+상태와 KPI 스냅샷은 측정된 값과 사용할 수 없는 근거를 구분합니다. 누락, stale, incomplete,
+degraded sample은 `value: null`과 근거 상태 및 성능 저하 사실을 함께 렌더링합니다. 승격 gate는
+이를 0이나 성공이 아니라 실패로 처리합니다. Coverage claim은 측정된 값만 사용합니다. Workflow
+7은 synthetic trace에서 추정하지 않고 사용할 수 없거나 stale한 measurement에 대해 성능 저하
+사실을 보고합니다. Freyr capacity freshness도 같은 규칙을 따릅니다. 새로운 utilization 근거의
+gap은 자동 graduation을 차단하고 오래된 sample을 재사용하는 대신 freshness gap을 기록합니다.
+Saga audit digest는 유한한 JSON-native 값의 엄격한 canonical JSON을 사용합니다. JSON이 아닌 값,
+NaN, Infinity, 프로세스별 rendering은 hash하거나 표시하지 않고 보류합니다.
 
 ## 거버넌스와 롤백
 

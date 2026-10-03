@@ -86,8 +86,12 @@ describe("Command Deck source readiness", () => {
     );
 
     expect(source).toContain("client.dataSources()");
+    expect(source).toContain('class="deck-source-readiness-disclosure"');
+    expect(source).toContain('answerEvidenceText("evidenceServices")');
     expect(source).toContain("if (!hasVerifiedSourceReadiness(state.sources)) return null;");
-    expect(source).toContain('class={`deck-source-status is-${item.availability}`}');
+    expect(source).toContain('class={`deck-source-status cs-deck-readiness-item is-${item.availability}`}');
+    expect(source).toContain('<ul class="deck-source-readiness-items cs-deck-readiness-items">');
+    expect(source).toContain('item.availability === "available" ? null : (');
     expect(source).toContain('aria-label={`${t(`deck.sourceReadiness.source.${item.key}`)}: ${t(`deck.sourceReadiness.status.${item.availability}`)}`}');
     expect(source).not.toContain('<span class="sr-only">: {t(`deck.sourceReadiness.status.${item.availability}`)}</span>');
     expect(source).toContain("panelPath(SOURCE_PANELS[item.key])");

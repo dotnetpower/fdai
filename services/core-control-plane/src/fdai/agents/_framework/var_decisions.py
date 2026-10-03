@@ -18,6 +18,7 @@ from fdai.agents._framework.action_run_identity import (
     is_action_run_identity,
 )
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.operational_context.test_context_commands import TestContextCommandHandler
 from fdai.shared.providers.state_store import StateStore
 
@@ -174,6 +175,7 @@ class ApprovalTicket(Protocol):
     original_quorum_required: int | None
     effective_quorum_required: int | None
     development_authority: dict[str, Any] | None
+    initiator_principal: str | None
     approvers: list[str]
     kind: str
     stage: str | None
@@ -185,12 +187,42 @@ class ApprovalTicket(Protocol):
     params: dict[str, Any]
 
 
+def _approval_ticket_identity(ticket: ApprovalTicket) -> dict[str, Any]:
+    return {
+        "correlation_id": ticket.correlation_id,
+        "action_id": ticket.action_id,
+        "action_type": ticket.action_type,
+        "action_run_identity": ticket.action_run_identity,
+        "resource_id": ticket.resource_id,
+        "quorum_required": ticket.quorum_required,
+        "original_quorum_required": ticket.original_quorum_required,
+        "effective_quorum_required": ticket.effective_quorum_required,
+        "development_authority": ticket.development_authority,
+        "initiator_principal": ticket.initiator_principal,
+        "kind": ticket.kind,
+        "document_id": ticket.document_id,
+        "upload_id": ticket.upload_id,
+        "stage": ticket.stage,
+        "idempotency_key": ticket.idempotency_key,
+        "rollback_contract": ticket.rollback_contract,
+        "params": ticket.params,
+        "decision_case": ticket.decision_case,
+    }
+
+
 class VarDecisionJournal:
     """Atomically combine immutable per-principal decisions across replicas."""
 
-    def __init__(self, store: StateStore, *, state_prefix: str) -> None:
+    def __init__(
+        self,
+        store: StateStore,
+        *,
+        state_prefix: str,
+        clock: Callable[[], datetime],
+    ) -> None:
         self._store = store
         self._state_prefix = state_prefix
+        self._clock = clock
 
     async def record(
         self,
@@ -252,6 +284,7 @@ class VarDecisionJournal:
                                 quorum_required,
                             )
                         ),
+                        recorded_at=self._recorded_at(),
                     ),
                 )
                 if created:
@@ -315,6 +348,7 @@ class VarDecisionJournal:
                             quorum_required,
                         )
                     ),
+                    recorded_at=self._recorded_at(),
                 ),
             )
             if advanced:
@@ -330,22 +364,31 @@ class VarDecisionJournal:
 
     async def next_pending_finalization(self) -> ApprovalDecisionState | None:
         """Return one terminal decision whose final payload is not checkpointed."""
-        stored = await self._store.find_state(
+        states = await self.pending_finalizations(limit=1)
+        return states[0] if states else None
+
+    async def pending_finalizations(self, *, limit: int) -> list[ApprovalDecisionState]:
+        """Return one bounded page of terminal decisions needing final payloads."""
+        rows, _total = await self._store.read_state_page(
             f"{self._state_prefix}/",
+            limit=limit,
             field="finalization_status",
             value="pending",
         )
-        if stored is None:
-            return None
-        ticket_identity = _stored_ticket_identity(stored)
-        return _parse_decision_state(
-            stored,
-            correlation_id=str(ticket_identity["correlation_id"]),
-            action_type=str(ticket_identity["action_type"]),
-            quorum_required=int(ticket_identity["quorum_required"]),
-            ticket_digest=_ticket_digest(ticket_identity),
-            ticket_identity=ticket_identity,
-        )[0]
+        states: list[ApprovalDecisionState] = []
+        for stored in reversed(rows):
+            ticket_identity = _stored_ticket_identity(stored)
+            states.append(
+                _parse_decision_state(
+                    stored,
+                    correlation_id=str(ticket_identity["correlation_id"]),
+                    action_type=str(ticket_identity["action_type"]),
+                    quorum_required=int(ticket_identity["quorum_required"]),
+                    ticket_digest=_ticket_digest(ticket_identity),
+                    ticket_identity=ticket_identity,
+                )[0]
+            )
+        return states
 
     async def mark_finalized(
         self,
@@ -400,12 +443,18 @@ class VarDecisionJournal:
                         "effective_quorum_required",
                         ticket_identity["quorum_required"],
                     ),
-                    "recorded_at": datetime.now(tz=UTC).isoformat(),
+                    "recorded_at": self._recorded_at(),
                 },
             )
             if advanced:
                 return
         raise RuntimeError("approval finalization CAS retry limit exceeded")
+
+    def _recorded_at(self) -> str:
+        value = self._clock()
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise RuntimeError("Var clock MUST return a timezone-aware datetime")
+        return value.astimezone(UTC).isoformat()
 
 
 def _decision_state(
@@ -602,6 +651,7 @@ def _decision_audit_entry(
     revision: int,
     original_quorum_required: int,
     effective_quorum_required: int,
+    recorded_at: str,
 ) -> dict[str, Any]:
     return {
         "actor": "Var",
@@ -614,7 +664,7 @@ def _decision_audit_entry(
         "original_quorum_required": original_quorum_required,
         "effective_quorum_required": effective_quorum_required,
         "revision": revision,
-        "recorded_at": datetime.now(tz=UTC).isoformat(),
+        "recorded_at": recorded_at,
     }
 
 
@@ -625,11 +675,16 @@ def approval_for_ticket(
     approvers: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """Build one deterministic final approval from a validated ticket."""
+    ticket_identity = _approval_ticket_identity(ticket)
     approval: dict[str, Any] = {
         "producer_principal": "Var",
         "kind": ticket.kind,
         "correlation_id": ticket.correlation_id,
-        "idempotency_key": (ticket.idempotency_key or f"{ticket.correlation_id}:hil_pending"),
+        "idempotency_key": stable_idempotency_key(
+            "approval-final",
+            ticket_identity,
+            state,
+        ),
         "action_id": ticket.action_id,
         "action_type": ticket.action_type,
         "action_run_identity": ticket.action_run_identity,
@@ -660,9 +715,11 @@ def final_approval_record(
     *,
     publication_status: str,
     revision: int,
+    claim_owner: str = "",
+    claimed_at: str = "",
 ) -> dict[str, Any]:
     """Wrap a final approval with durable outbox state."""
-    return {
+    record = {
         "schema_version": "1.0.0",
         "record_kind": "final_approval",
         "revision": revision,
@@ -670,6 +727,10 @@ def final_approval_record(
         "publication_status": publication_status,
         "approval": deepcopy(dict(approval)),
     }
+    if claim_owner or claimed_at:
+        record["claim_owner"] = claim_owner
+        record["claimed_at"] = claimed_at
+    return record
 
 
 __all__ = [

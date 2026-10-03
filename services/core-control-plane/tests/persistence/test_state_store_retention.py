@@ -84,6 +84,18 @@ async def test_prune_refuses_an_empty_prefix() -> None:
     assert len(await store.read_states(_PREFIX, limit=10)) == 2
 
 
+async def test_exact_delete_removes_only_the_named_key() -> None:
+    store = InMemoryStateStore()
+    await _seed(store, _PREFIX, 2)
+
+    assert await store.delete_state(f"{_PREFIX}00") is True
+    assert await store.delete_state(f"{_PREFIX}00") is False
+
+    remaining = await store.read_states(_PREFIX, limit=10)
+    assert len(remaining) == 1
+    assert remaining[0]["index"] == 1
+
+
 async def test_a_rewritten_row_becomes_the_newest() -> None:
     """Newest-first means last-written first, in every backend.
 

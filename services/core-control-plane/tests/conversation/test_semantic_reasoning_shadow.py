@@ -15,7 +15,8 @@ from fdai.core.conversation.adaptive_call_scope import bind_adaptive_model_budge
 from fdai.core.conversation.adaptive_models import AdaptivePolicy
 from fdai.core.conversation.adaptive_service import _Budget
 from fdai.core.conversation.semantic_reasoning_binding import GatewayAnchorResolver
-from fdai.core.conversation.semantic_reasoning_concepts import ConceptShard
+from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
+from fdai.core.conversation.semantic_reasoning_form import MentionDomain
 from fdai.core.conversation.semantic_reasoning_handles import HandleScope, ResultSetHandle
 from fdai.core.conversation.semantic_reasoning_proposal import (
     FormInputHeldError,
@@ -23,7 +24,11 @@ from fdai.core.conversation.semantic_reasoning_proposal import (
     question_form_proposal_schema,
     resolve_question_form,
 )
-from fdai.core.conversation.semantic_reasoning_shadow import ShadowBudget, run_reasoning_shadow
+from fdai.core.conversation.semantic_reasoning_shadow import (
+    ShadowBudget,
+    _CountingModel,
+    run_reasoning_shadow,
+)
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_question_form import (
     AzureOpenAIQuestionFormConfig,
@@ -162,6 +167,110 @@ class _Model:
                 for item in mentions
             ],
         }
+
+
+async def test_closed_choices_are_reused_per_reader_and_never_across_turns() -> None:
+    shard = ConceptShard(
+        MentionDomain.RESOURCE_TYPE,
+        0,
+        1,
+        (ConceptCandidate("type:compute.vm", ("compute.vm",), ("VM",)),),
+        "sha256:" + "a" * 64,
+    )
+    mentions = ({"mention": "m1", "text": "VMs"},)
+    model = _Model([], {"m1": ["type:compute.vm"]}, second_picks={"m1": []})
+    counting = _CountingModel(model)
+    first = await counting.choose_concepts(utterance="VMs", mentions=mentions, shard=shard)
+    assert first is not None
+    first["choices"].clear()
+    cached = await counting.choose_concepts(utterance="VMs", mentions=mentions, shard=shard)
+    assert cached is not None
+    assert cached["choices"][0]["candidate_ids"] == ["type:compute.vm"]
+    second = await counting.choose_concepts(
+        utterance="VMs", mentions=mentions, shard=shard, second=True
+    )
+    assert second is not None and second["choices"][0]["candidate_ids"] == []
+    assert counting.concept_calls == 2
+    assert len(model.shards) == 2
+    await _CountingModel(model).choose_concepts(utterance="VMs", mentions=mentions, shard=shard)
+    assert len(model.shards) == 3
+
+
+@pytest.mark.parametrize("changed", ("utterance", "mentions", "catalog"))
+async def test_changed_concept_inputs_always_require_a_fresh_choice(changed: str) -> None:
+    shard = ConceptShard(
+        MentionDomain.RESOURCE_TYPE,
+        0,
+        1,
+        (ConceptCandidate("type:compute.vm", ("compute.vm",), ("VM",)),),
+        "sha256:" + "a" * 64,
+    )
+    mentions = ({"mention": "m1", "text": "VMs"},)
+    model = _Model([], {"m1": ["type:compute.vm"]})
+    counting = _CountingModel(model)
+    await counting.choose_concepts(utterance="VMs", mentions=mentions, shard=shard)
+    await counting.choose_concepts(
+        utterance="List VMs" if changed == "utterance" else "VMs",
+        mentions=({"mention": "m1", "text": "virtual machines"},)
+        if changed == "mentions"
+        else mentions,
+        shard=replace(shard, catalog_digest="sha256:" + "b" * 64)
+        if changed == "catalog"
+        else shard,
+    )
+    assert counting.concept_calls == 2
+    assert len(model.shards) == 2
+
+
+@pytest.mark.parametrize("answer", (None, {"shard_digest": "wrong", "choices": []}))
+async def test_unavailable_or_malformed_concept_choices_are_never_reused(answer: Any) -> None:
+    shard = ConceptShard(
+        MentionDomain.RESOURCE_TYPE,
+        0,
+        1,
+        (ConceptCandidate("type:compute.vm", ("compute.vm",), ("VM",)),),
+        "sha256:" + "a" * 64,
+    )
+    calls: list[int] = []
+
+    async def choose(**kwargs: Any) -> Any:
+        calls.append(1)
+        return answer
+
+    counting = _CountingModel(SimpleNamespace(choose_concepts=choose))
+    for _attempt in range(2):
+        await counting.choose_concepts(
+            utterance="VMs", mentions=({"mention": "m1", "text": "VMs"},), shard=shard
+        )
+    assert counting.concept_calls == 2
+    assert calls == [1, 1]
+
+
+@pytest.mark.parametrize(
+    ("proposed", "reviewed", "eligible"),
+    [
+        ("direct_read", "direct_read", True),
+        (None, "direct_read", False),
+        ("direct_read", None, False),
+        ("direct_read", "action", False),
+        ("quoted", "direct_read", False),
+        ("hypothetical", "hypothetical", False),
+    ],
+)
+async def test_primary_read_requires_explicit_blind_agreement(
+    proposed: str | None, reviewed: str | None, eligible: bool
+) -> None:
+    model = _Model(
+        [_quoted_form(request_kind=proposed)],
+        {"m2": ["group:compute-vm"]},
+        extraction={
+            "constraints": [{"quote": {"text": "How", "occurrence": 1}, "role": "asks"}],
+            "request_kind": reviewed,
+        },
+    )
+    result = await _run(model)
+    assert result.released
+    assert result.primary_read is eligible
 
 
 async def _run(model: _Model, *, account_spans: bool = False, **budget: Any) -> Any:
@@ -331,6 +440,91 @@ async def test_adapter_sends_strict_schema_and_returns_the_json_object() -> None
     assert captured["response_format"]["json_schema"]["strict"] is True
     assert captured["authorization"] == "Bearer not-a-real-token"
     assert json.loads(captured["messages"][1]["content"])["utterance"] == _UTTERANCE
+
+
+async def test_concept_request_losslessly_compacts_every_candidate() -> None:
+    shard = ConceptShard(
+        MentionDomain.RESOURCE_TYPE,
+        0,
+        1,
+        tuple(
+            ConceptCandidate(
+                f"type:example.type.{index}", (f"example.type.{index}",), (f"Example type {index}",)
+            )
+            for index in range(24)
+        ),
+        "sha256:" + "a" * 64,
+    )
+    captured: dict[str, Any] = {}
+    answer = {
+        "shard_digest": shard.digest,
+        "choices": [{"mention": "m1", "candidate_ids": [shard.candidates[0].id]}],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        encoded_answer = {**answer, "choices": [{"mention": "m1", "candidate_ids": ["c0"]}]}
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(encoded_answer)}}]}
+        )
+
+    result = await _adapter(handler).choose_concepts(
+        utterance="List example types",
+        mentions=({"mention": "m1", "text": "types"},),
+        shard=shard,
+    )
+    assert result == answer
+    payload = json.loads(captured["messages"][1]["content"])
+    compact = payload["shard"]
+    restored = {
+        **{
+            key: value
+            for key, value in compact.items()
+            if key not in {"candidate_columns", "candidate_id_encoding"}
+        },
+        "candidates": [
+            {
+                **dict(zip(compact["candidate_columns"], row, strict=True)),
+                "id": shard.candidates[index].id,
+            }
+            for index, row in enumerate(compact["candidates"])
+        ],
+    }
+    assert restored == shard.payload()
+    assert payload["shard_digest"] == shard.digest
+
+    def encoded(value: Any) -> bytes:
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode()
+
+    assert len(encoded(compact)) < len(encoded(restored))
+    choice_schema = captured["response_format"]["json_schema"]["schema"]
+    allowed = choice_schema["properties"]["choices"]["items"]["properties"]["candidate_ids"]
+    assert set(allowed["items"]["enum"]) == {f"c{index}" for index in range(len(shard.candidates))}
+
+
+@pytest.mark.parametrize("reference", ("c999", "value:compute.vm", 1))
+async def test_unknown_or_nonopaque_concept_reference_never_binds(reference: Any) -> None:
+    shard = ConceptShard(
+        MentionDomain.RESOURCE_TYPE,
+        0,
+        1,
+        (ConceptCandidate("value:compute.vm", ("compute.vm",), ("VM",)),),
+        "sha256:" + "a" * 64,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        answer = {
+            "shard_digest": shard.digest,
+            "choices": [{"mention": "m1", "candidate_ids": [reference]}],
+        }
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(answer)}}]})
+
+    assert (
+        await _adapter(handler).choose_concepts(
+            utterance="VMs", mentions=({"mention": "m1", "text": "VMs"},), shard=shard
+        )
+        is None
+    )
 
 
 async def test_adapter_returns_none_for_transport_or_malformed_output() -> None:
@@ -749,39 +943,33 @@ async def test_a_relation_direction_no_two_readers_agree_on_is_held(
     (only_pass,) = observation.passes
     assert only_pass.disposition == "direction_held" and observation.released is False
     assert only_pass.reasons == (reason,)
-    # Only a clear dispute asks the tie-break reader.
-    assert len(model.tiebreak_calls) == (1 if direction == "disagree" else 0)
+    assert model.tiebreak_calls == []
 
 
-async def test_two_blind_readers_that_outvote_the_proposer_swap_the_relation_roles() -> None:
+async def test_a_blind_reader_dispute_holds_instead_of_swapping_relation_roles() -> None:
     vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
     model = _Model([_quoted_form()], vms, direction="disagree", tiebreak="disagree")
 
     observation = await _run(model)
 
     (only_pass,) = observation.passes
-    assert only_pass.disposition == "admitted" and only_pass.direction_swaps == ("g1",)
-    assert "roles:g1:dependent:dependency" in only_pass.shape
-    assert observation.summary()["passes"][0]["direction_swaps"] == ["g1"]
-    assert observation.model_calls == (
-        1
-        + len(model.shards)
-        + len(model.review_calls)
-        + len(model.direction_calls)
-        + len(model.tiebreak_calls)
-    )
+    assert only_pass.disposition == "direction_held"
+    assert only_pass.reasons == ("review_direction_differs:g1",)
+    assert observation.released is False
+    assert model.tiebreak_calls == []
 
 
-async def test_a_tiebreak_that_sides_with_the_proposer_keeps_the_form() -> None:
+async def test_a_blind_reader_dispute_holds_when_tiebreak_would_keep_the_form() -> None:
     vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
     model = _Model([_quoted_form()], vms, direction="disagree", tiebreak="agree")
 
     observation = await _run(model)
 
     (only_pass,) = observation.passes
-    assert only_pass.disposition == "admitted" and only_pass.direction_swaps == ()
-    assert "roles:g1:dependency:dependent" in only_pass.shape
-    assert len(model.tiebreak_calls) == 1
+    assert only_pass.disposition == "direction_held"
+    assert only_pass.reasons == ("review_direction_differs:g1",)
+    assert observation.released is False
+    assert model.tiebreak_calls == []
 
 
 async def test_the_direction_reader_sees_both_roles_in_declared_order_never_the_choice() -> None:

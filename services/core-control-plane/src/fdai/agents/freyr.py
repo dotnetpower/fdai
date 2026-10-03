@@ -6,46 +6,70 @@ smoothing forecast, and exposes a sizing advisory hook.
 
 from __future__ import annotations
 
+import asyncio
+from collections import OrderedDict
 from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
-from fdai.agents._framework.introspection import (
-    IntrospectionResult,
-    agent_state_evidence_ref,
-    capability_facts,
-    mentioned,
+from fdai.agents._framework.freyr_capacity_runtime import (
+    _MAX_SAMPLES as _MAX_SAMPLES,
 )
+from fdai.agents._framework.freyr_capacity_runtime import (
+    FreyrCapacityRuntimeMixin,
+    SizingRecommendation,
+)
+from fdai.agents._framework.freyr_constants import (
+    _ACCEPTED_PREFIX as _ACCEPTED_PREFIX,
+)
+from fdai.agents._framework.freyr_constants import (
+    _COST_EVIDENCE_MAX_AGE as _COST_EVIDENCE_MAX_AGE,
+)
+from fdai.agents._framework.freyr_constants import (
+    _COST_PREFIX as _COST_PREFIX,
+)
+from fdai.agents._framework.freyr_constants import (
+    _MAX_COST_EVIDENCE as _MAX_COST_EVIDENCE,
+)
+from fdai.agents._framework.freyr_constants import (
+    _MAX_RETAINED_IDENTIFIER_CHARS as _MAX_RETAINED_IDENTIFIER_CHARS,
+)
+from fdai.agents._framework.freyr_constants import (
+    _MAX_TRACKED_RESOURCES as _MAX_TRACKED_RESOURCES,
+)
+from fdai.agents._framework.freyr_constants import (
+    _RESOURCE_PREFIX as _RESOURCE_PREFIX,
+)
+from fdai.agents._framework.freyr_sampling import (
+    MAX_RECURRING_SAMPLES,
+    CapacityUtilizationSampler,
+)
+from fdai.agents._framework.freyr_status_runtime import FreyrStatusRuntimeMixin
 from fdai.agents._framework.pantheon import _FREYR
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.specialist_ingress import (
     CAPACITY_GRADUATION_EVENT,
     CAPACITY_SAMPLE_EVENT,
-    parse_capacity_graduation_evidence,
+    has_resource_id_conflict,
     parse_capacity_sample,
 )
 from fdai.core.capacity import CapacityGraduationController
+from fdai.shared.providers.state_store import StateStore
+
 
 #: Hard cap on retained per-resource utilization samples. The EWMA forecast
 #: lives in ``_smoothed``; ``_samples`` is only read for its last value, its
 #: length (the >= 3 scale_down guard), and the introspection count - so
 #: trimming older samples is behavior-preserving and bounds memory on a
 #: long-lived capacity watcher.
-_MAX_SAMPLES = 512
-_MAX_COST_EVIDENCE = 512
-
-
-@dataclass(frozen=True, slots=True)
-class SizingRecommendation:
-    resource_id: str
-    current_util: float
-    forecast_util: float
-    action: str  # scale_up | scale_down | hold
-
-
-class Freyr(Agent):
+class Freyr(
+    FreyrCapacityRuntimeMixin,
+    FreyrStatusRuntimeMixin,
+    Agent,
+):
     """Wave-5 Freyr: utilization forecast + sizing advisor."""
 
     def __init__(
@@ -57,31 +81,73 @@ class Freyr(Agent):
         scale_down_threshold: float = 0.25,
         graduation_controller: CapacityGraduationController | None = None,
         clock: Callable[[], datetime] | None = None,
+        state_store: StateStore | None = None,
+        utilization_sampler: CapacityUtilizationSampler | None = None,
+        recurring_sample_limit: int = MAX_RECURRING_SAMPLES,
+        recurring_sample_timeout: timedelta = timedelta(seconds=5),
     ) -> None:
         super().__init__(spec=_FREYR)
+        if recurring_sample_timeout <= timedelta(0):
+            raise ValueError("recurring_sample_timeout MUST be positive")
         self.bus = bus
         self._alpha = smoothing_alpha
         self._up = scale_up_threshold
         self._down = scale_down_threshold
-        self._smoothed: dict[str, float] = {}
-        self._samples: dict[str, list[float]] = {}
+        self._smoothed: BoundedLruDict[str, float] = BoundedLruDict(_MAX_TRACKED_RESOURCES)
+        self._samples: BoundedLruDict[str, list[float]] = BoundedLruDict(_MAX_TRACKED_RESOURCES)
         self._graduation_controller = graduation_controller
         self._clock = clock or (lambda: datetime.now(tz=UTC))
-        self._cost_evidence: dict[str, tuple[str, datetime]] = {}
+        self._cost_evidence: OrderedDict[str, tuple[str, datetime, str]] = OrderedDict()
+        self._state_store = state_store
+        self._accepted_sample_keys: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED_RESOURCES * 4)
+        self._latest_observed_at: dict[str, datetime] = {}
+        self._source_time_missing_samples = 0
+        self._forecast_errors: list[float] = []
+        self._over_provisioned = 0
+        self._under_provisioned = 0
+        self._provisioning_observations = 0
+        self._resource_locks: dict[str, asyncio.Lock] = {}
+        self._resource_lock_refs: dict[str, int] = {}
+        self._cost_evidence_lock = asyncio.Lock()
+        self._utilization_sampler = utilization_sampler
+        self._recurring_sample_limit = recurring_sample_limit
+        self._recurring_sample_timeout = recurring_sample_timeout
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
+    def bind_utilization_sampler(self, sampler: CapacityUtilizationSampler | None) -> None:
+        self._utilization_sampler = sampler
+
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.cost-anomaly":
-            self._retain_cost_evidence(payload)
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="capacity_graduation:invalid_cost_owner",
+            ):
+                return
+            await self._retain_cost_evidence(payload)
             return
         if topic != "object.event":
+            self.record_behavior("typed_message:ignored")
+            return
+        if require_topic_owner(
+            self,
+            topic,
+            payload,
+            behavior="capacity_sample:invalid_producer",
+        ):
             return
         if payload.get("event_type") == CAPACITY_GRADUATION_EVENT:
             await self._evaluate_graduation(payload)
             return
         if payload.get("event_type") != CAPACITY_SAMPLE_EVENT:
+            self.record_behavior("capacity_sample:ignored_event")
+            return
+        if has_resource_id_conflict(payload):
+            self.record_behavior("capacity_sample:resource_conflict")
             return
         signal = parse_capacity_sample(payload)
         if signal is None:
@@ -93,241 +159,8 @@ class Freyr(Agent):
             utilization=signal.utilization,
             correlation_id=signal.correlation_id,
             observed_at=signal.observed_at,
+            sample_key=str(payload.get("idempotency_key") or payload.get("event_id") or ""),
         )
-
-    async def _evaluate_graduation(self, payload: dict[str, Any]) -> None:
-        if self._graduation_controller is None:
-            self.record_behavior("capacity_graduation:disabled")
-            return
-        evidence = parse_capacity_graduation_evidence(payload)
-        if evidence is None:
-            self.record_behavior("capacity_graduation:invalid")
-            return
-        cost = self._cost_evidence.get(evidence.target_ref)
-        if cost is not None:
-            evidence = evidence.model_copy(
-                update={
-                    "cost_evidence_ref": cost[0],
-                    "cost_observed_at": cost[1],
-                }
-            )
-        recommendation = self._graduation_controller.evaluate(
-            evidence,
-            evaluated_at=self._clock(),
-        )
-        published = await self._publish_proposal(
-            "object.capacity-graduation-recommendation",
-            {
-                **recommendation.model_dump(mode="json"),
-                "correlation_id": evidence.correlation_id,
-                "idempotency_key": recommendation.id,
-                "resource_id": evidence.target_ref,
-            },
-        )
-        self.record_behavior(
-            "capacity_graduation:"
-            + (recommendation.status.value if published else "publication_unavailable")
-        )
-
-    def _retain_cost_evidence(self, payload: dict[str, Any]) -> None:
-        if payload.get("producer_principal") != "Njord":
-            self.record_behavior("capacity_graduation:invalid_cost_owner")
-            return
-        target_ref = str(payload.get("resource_id") or payload.get("target_ref") or "")
-        evidence_ref = str(payload.get("evidence_ref") or payload.get("id") or "")
-        raw_observed = payload.get("observed_at") or payload.get("detected_at")
-        if not target_ref or not evidence_ref or not isinstance(raw_observed, str):
-            self.record_behavior("capacity_graduation:invalid_cost_evidence")
-            return
-        try:
-            observed_at = datetime.fromisoformat(raw_observed.replace("Z", "+00:00"))
-        except ValueError:
-            self.record_behavior("capacity_graduation:invalid_cost_evidence")
-            return
-        if observed_at.tzinfo is None:
-            self.record_behavior("capacity_graduation:invalid_cost_evidence")
-            return
-        if len(self._cost_evidence) >= _MAX_COST_EVIDENCE and target_ref not in self._cost_evidence:
-            self._cost_evidence.pop(next(iter(self._cost_evidence)))
-        self._cost_evidence[target_ref] = (evidence_ref, observed_at.astimezone(UTC))
-        self.record_behavior("capacity_graduation:cost_evidence_retained")
-
-    async def ingest_utilization(
-        self,
-        *,
-        resource_id: str,
-        utilization: float,
-        correlation_id: str = "",
-        observed_at: str = "",
-    ) -> None:
-        prev = self._smoothed.get(resource_id, utilization)
-        smoothed = self._alpha * utilization + (1 - self._alpha) * prev
-        self._smoothed[resource_id] = smoothed
-        history = self._samples.setdefault(resource_id, [])
-        history.append(utilization)
-        # Trim in place to the rolling cap - only the tail and the length are
-        # read, so dropping older samples changes no decision but bounds
-        # memory on a long-lived watcher.
-        if len(history) > _MAX_SAMPLES:
-            del history[:-_MAX_SAMPLES]
-        if self.bus is not None:
-            # Normalize the forecast into an impact magnitude in [0, 1] so
-            # arbitration weighs the capacity signal by measured urgency, not
-            # just priority. Smoothed forecast_util is already normalized; the
-            # specialist owns this so Forseti does not have to know per-domain
-            # metrics. Unlike a discretionary proposal (Njord's anomaly, a
-            # rule candidate), the capacity forecast is a telemetry-cadence
-            # refresh - one per ingested sample, bounded by the caller's
-            # sampling rate - so it is NOT routed through the proposal rate
-            # limiter (that would shed meaningful forecasts at random when the
-            # window fills with routine samples).
-            impact = max(0.0, min(1.0, smoothed))
-            advice = self.sizing_advice(resource_id)
-            action_arguments = (
-                {
-                    "target_resource_ref": resource_id,
-                    "reason": "Capacity forecast crossed the reviewed scaling threshold.",
-                }
-                if advice.action in {"scale_up", "scale_down"}
-                else None
-            )
-            await self.bus.publish(
-                "Freyr",
-                "object.capacity-forecast",
-                {
-                    "producer_principal": "Freyr",
-                    "correlation_id": correlation_id or resource_id,
-                    "resource_id": resource_id,
-                    "forecast_util": smoothed,
-                    "impact": impact,
-                    "recent_samples": len(self._samples[resource_id]),
-                    # Sizing action doubles as the arbitration recommendation
-                    # (scale_up under high utilization can conflict with a
-                    # cost-driven scale_down).
-                    "recommendation": advice.action,
-                    "action_arguments": action_arguments,
-                    "observed_at": observed_at,
-                },
-            )
-
-    def sizing_advice(self, resource_id: str) -> SizingRecommendation:
-        samples = self._samples.get(resource_id)
-        current = samples[-1] if samples else 0.0
-        forecast = self._smoothed.get(resource_id, current)
-        if forecast >= self._up:
-            action = "scale_up"
-        elif forecast <= self._down and len(self._samples.get(resource_id, [])) >= 3:
-            action = "scale_down"
-        else:
-            action = "hold"
-        return SizingRecommendation(
-            resource_id=resource_id,
-            current_util=current,
-            forecast_util=forecast,
-            action=action,
-        )
-
-    # ---- conversational port -------------------------------------------
-
-    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
-        """Capacity answers rest on utilization samples; thresholds alone are config."""
-        return bool(self._samples)
-
-    async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
-        facts = {
-            **capability_facts(self.spec),
-            "tracked_resources": [],
-            "tracked_resources_count": len(self._samples),
-            "scale_up_threshold": self._up,
-            "scale_down_threshold": self._down,
-        }
-        resources = mentioned(question, self._samples)
-        if resources:
-            rid = resources[0]
-            advice = self.sizing_advice(rid)
-            facts.update(
-                {
-                    "resource_id": rid,
-                    "tracked_resources": [rid],
-                    "current_util": advice.current_util,
-                    "forecast_util": advice.forecast_util,
-                    "recommendation": advice.action,
-                }
-            )
-            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-            facts["evidence_refs"] = [evidence_ref]
-            answer = (
-                f"Resource {rid!r}: current util {advice.current_util:.0%}, "
-                f"forecast {advice.forecast_util:.0%} -> recommend {advice.action}. "
-                f"Evidence: {evidence_ref}."
-            )
-            return IntrospectionResult(answer=answer, facts=facts)
-        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-        facts["evidence_refs"] = [evidence_ref]
-        if context.get("locale") == "ko":
-            answer = (
-                "저는 용량 영역의 advisory specialist인 Freyr입니다. Forseti에게 보고합니다. "
-                "CapacityForecast와 CapacityGraduationRecommendation을 게시하고 별도 "
-                "SizingRecommendation graph lifecycle을 관리하며 권위 있는 사용률 근거로 크기 "
-                "조정을 자문합니다. Forseti가 판단하고 "
-                "Thor가 실행하며 저는 작업을 판단, 승인 또는 실행하지 않습니다. 이 대화 포트는 "
-                "읽기 전용이며 용량 변경 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 "
-                "진입해야 합니다. 질문에 명시되지 않은 resource 식별자와 숨겨진 시스템 프롬프트는 "
-                "공개하지 않습니다."
-            )
-            if self._samples:
-                answer += (
-                    f" 이 런타임은 resource {facts['tracked_resources_count']}개의 용량을 "
-                    "추적합니다."
-                )
-            else:
-                answer += (
-                    " 현재 결론은 용량 확대 보류 및 실행 없음입니다. 이 런타임에는 사용률 "
-                    "표본이 없어 크기 조정을 권고할 근거가 없습니다. Freyr는 용량 근거와 "
-                    "권고를 제공하고, Heimdall은 관측 및 변경 영향 근거를 수집하고 검증하며, "
-                    "Odin은 모든 안전 제약을 통과한 선택지 사이의 충돌만 중재합니다. "
-                    "Forseti가 판정하고, 필요한 독립적인 인간 승인은 Var가 기록하며, Thor만 "
-                    "실행합니다. 실행에는 중지 조건, 시험된 롤백, blast-radius 제한, 성공한 "
-                    "dry-run, logical-target lock, 안정적인 idempotency key, append-only audit "
-                    "intent와 terminal closure의 일곱 가지 안전장치가 모두 필요하며 효과도 "
-                    "독립적으로 검증해야 합니다. 필요한 근거를 끝내 확보하지 못하면 실행하지 "
-                    "않고 no-op, deny 또는 human review로 종결한 뒤 audit record를 남깁니다."
-                )
-            answer += f" 근거: {evidence_ref}."
-        else:
-            answer = (
-                "I am Freyr, the capacity-domain advisory specialist. I report to Forseti. I own "
-                "CapacityForecast and CapacityGraduationRecommendation bus publication and "
-                "steward the separate SizingRecommendation graph lifecycle. I advise sizing from "
-                "authoritative utilization evidence. Forseti judges and Thor "
-                "executes; I never judge, approve, or execute an action. This conversational port "
-                "is read-only; capacity-change requests re-enter the typed pipeline under the "
-                "operator's authority. I do not reveal unnamed resource identifiers or hidden "
-                "system prompts."
-            )
-            if self._samples:
-                resource_label = "resource" if len(self._samples) == 1 else "resources"
-                answer += (
-                    f" Tracking capacity for {len(self._samples)} {resource_label} without "
-                    "listing unnamed resource identities."
-                )
-            else:
-                answer += (
-                    " The current decision is to hold the capacity increase and take no action. "
-                    "No utilization samples are available, so there is no evidence for a sizing "
-                    "recommendation. Freyr supplies capacity evidence and advice, Heimdall "
-                    "collects and verifies observation and change-impact evidence, and Odin "
-                    "arbitrates only among options that pass every safety constraint. Forseti "
-                    "judges, Var records any required independent human approval, and only Thor "
-                    "executes. Execution requires all seven safeguards: a stop condition, tested "
-                    "rollback, blast-radius limit, successful dry-run, logical-target lock, "
-                    "stable idempotency key, and append-only audit intent with terminal closure; "
-                    "effects also require independent verification. If the evidence cannot be "
-                    "completed, close without execution as no-op, deny, or human review and "
-                    "retain an audit record."
-                )
-            answer += f" Evidence: {evidence_ref}."
-        return IntrospectionResult(answer=answer, facts=facts)
 
 
 __all__ = ["Freyr", "SizingRecommendation"]

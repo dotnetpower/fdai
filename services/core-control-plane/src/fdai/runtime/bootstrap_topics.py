@@ -8,6 +8,7 @@ from fdai_service_contracts.assignment_transport import (
 from fdai_service_contracts.background_task_projection import (
     BACKGROUND_TASK_PROJECTION_TOPIC,
 )
+from fdai_service_contracts.bus_poison_halt_clear import ORDERED_POISON_HALT_CLEAR_TOPIC
 from fdai_service_contracts.incident_creation import INCIDENT_CREATION_REQUEST_TOPIC
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
@@ -15,6 +16,7 @@ from fdai_service_contracts.incident_intervention import (
 from fdai_service_contracts.notification_receipt import (
     NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
 )
+from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_REQUEST_TOPIC
 from fdai_service_contracts.read_investigation import (
     READ_INVESTIGATION_COMPLETION_TOPIC,
     READ_INVESTIGATION_REQUEST_TOPIC,
@@ -46,10 +48,12 @@ RUNTIME_LOGICAL_TOPICS = (
             ASSIGNMENT_REQUEST_TOPIC,
             ASSIGNMENT_PROJECTION_TOPIC,
             BACKGROUND_TASK_PROJECTION_TOPIC,
+            ORDERED_POISON_HALT_CLEAR_TOPIC,
             INCIDENT_CREATION_REQUEST_TOPIC,
             INCIDENT_INTERVENTION_REQUEST_TOPIC,
             NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
             OPERATING_MODEL_TOPIC,
+            POST_TURN_REVIEW_REQUEST_TOPIC,
             SEMANTIC_REQUEST_TOPIC,
             SEMANTIC_PROJECTION_TOPIC,
             SEMANTIC_PROGRESS_TOPIC,

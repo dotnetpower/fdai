@@ -86,6 +86,17 @@ variable "runtime_call_evidence" {
   }
 }
 
+variable "operator_request_receipts" {
+  description = "Seed secret references and producer ids for authenticated raw operator_request ingress."
+  type = object({
+    core_signing_seed_secret_id     = optional(string, "")
+    operator_signing_seed_secret_id = optional(string, "")
+    core_producer_id                = optional(string, "core-control-plane")
+    operator_producer_id            = optional(string, "operator-service")
+  })
+  default = {}
+}
+
 variable "rca_reader_identity" {
   description = "Optional read-only Azure identity for Activity Log-backed T1 RCA."
   type = object({

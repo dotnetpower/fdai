@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import copy
 import functools
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Literal, Protocol, cast
+
+from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
@@ -30,14 +33,9 @@ from .semantic_reasoning_admission import (
 from .semantic_reasoning_binding import AnchorResolver, bind_anchors
 from .semantic_reasoning_compiler import ReasoningCompilation, compile_question_form
 from .semantic_reasoning_concepts import (
-    ConceptSelectionReceipt,
+    ConceptRequest,
     ConceptShard,
-    accept_concept_selection,
-    agree_concepts,
-    apply_runoff,
     concept_catalogs,
-    plan_concept_selection,
-    runoff_requests,
     shard_answer_valid,
 )
 from .semantic_reasoning_direction import (
@@ -66,6 +64,7 @@ from .semantic_reasoning_review_repair import (
     propose_review_repair,
     review_repair,
 )
+from .semantic_reasoning_selection import select_concepts
 from .semantic_reasoning_shape import form_shape
 from .turn_reservations import (
     TurnReservationLedger,
@@ -195,6 +194,7 @@ class ReasoningShadowObservation:
     compilations: tuple[ReasoningCompilation, ...] = field(default=(), repr=False)
     # Content-free cost of the turn's direction readers, split by reader count.
     direction_cost: DirectionCostReceipt | None = None
+    primary_read: bool = False
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -241,6 +241,8 @@ class _CountingModel:
         self.review_calls = 0
         self.direction_calls = 0
         self.tiebreak_calls = 0
+        self._concept_choices: dict[str, Mapping[str, Any]] = {}
+        self.request_kinds: list[str | None] = []
 
     @property
     def calls(self) -> int:
@@ -248,11 +250,35 @@ class _CountingModel:
 
     async def propose_form(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.form_calls += 1
-        return await self._inner.propose_form(**kwargs)
+        answer = await self._inner.propose_form(**kwargs)
+        self.request_kinds.append(answer.get("request_kind") if answer is not None else None)
+        return answer
 
-    async def choose_concepts(self, **kwargs: Any) -> Mapping[str, Any] | None:
+    async def choose_concepts(
+        self,
+        *,
+        utterance: str,
+        mentions: tuple[dict[str, Any], ...],
+        shard: ConceptShard,
+        second: bool = False,
+    ) -> Mapping[str, Any] | None:
+        """Reuse only a closed choice by the same reader over identical turn inputs."""
+
+        key = content_digest(
+            {"utterance": utterance, "mentions": mentions, "shard": shard.digest, "second": second}
+        )
+        cached = self._concept_choices.get(key)
+        if cached is not None:
+            return copy.deepcopy(cached)
         self.concept_calls += 1
-        return await self._inner.choose_concepts(**kwargs)
+        answer = await self._inner.choose_concepts(
+            utterance=utterance, mentions=mentions, shard=shard, second=second
+        )
+        if answer is not None and shard_answer_valid(
+            answer, ConceptRequest(shard.domain, mentions, shard)
+        ):
+            self._concept_choices[key] = copy.deepcopy(answer)
+        return answer
 
     async def extract_constraints(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.review_calls += 1
@@ -480,6 +506,14 @@ async def run_reasoning_shadow(
             notes=tuple(notes),
             compilations=tuple(compilations),
             direction_cost=_direction_cost(counting),
+            primary_read=(
+                complete
+                and review is not None
+                and review.faithful
+                and review.primary_read
+                and bool(counting.request_kinds)
+                and all(kind == "direct_read" for kind in counting.request_kinds)
+            ),
         )
     finally:
         # A cancelled or failed turn never leaves the extraction's provider call running.
@@ -609,7 +643,7 @@ async def _run_pass(
         )
 
     def select(lane: Any, calls: int) -> Any:
-        return _select(
+        return select_concepts(
             model,
             admission=lane,
             catalogs=catalogs,
@@ -707,86 +741,6 @@ async def _run_pass(
         source_generations=generations,
     )
     return shadow_pass, goals, compilation, form
-
-
-async def _select(
-    model: QuestionFormModel,
-    *,
-    admission: Any,
-    catalogs: Any,
-    utterance: str,
-    max_calls: int,
-    max_shard_bytes: int,
-) -> ConceptSelectionReceipt:
-    """Ground every concept with two blind choosers of different model families.
-
-    Each chooser sees every planned shard and resolves its own runoff; a binding stands
-    only where both choose the same values, so no single reader grounds a concept.
-    """
-
-    primary, second = await asyncio.gather(
-        _select_one(
-            model,
-            admission=admission,
-            catalogs=catalogs,
-            utterance=utterance,
-            max_calls=max_calls // 2,
-            max_shard_bytes=max_shard_bytes,
-            second=False,
-        ),
-        _select_one(
-            model,
-            admission=admission,
-            catalogs=catalogs,
-            utterance=utterance,
-            max_calls=max_calls // 2,
-            max_shard_bytes=max_shard_bytes,
-            second=True,
-        ),
-    )
-    return agree_concepts(primary, second)
-
-
-async def _select_one(
-    model: QuestionFormModel,
-    *,
-    admission: Any,
-    catalogs: Any,
-    utterance: str,
-    max_calls: int,
-    max_shard_bytes: int,
-    second: bool,
-) -> ConceptSelectionReceipt:
-    """Present every planned shard to one chooser, then accept verified choices."""
-
-    plan = plan_concept_selection(
-        admission,
-        catalogs=catalogs,
-        max_model_calls=max_calls,
-        max_shard_bytes=max_shard_bytes,
-    )
-
-    async def choose(request: Any) -> Mapping[str, Any] | None:
-        return await model.choose_concepts(
-            utterance=utterance, mentions=request.mentions, shard=request.shard, second=second
-        )
-
-    answers: list[Mapping[str, Any] | None] = []
-    retries = 0
-    for request in plan.requests:
-        answer = await choose(request)
-        # One bounded re-ask for a malformed shard answer; a second failure stays invalid.
-        if not shard_answer_valid(answer, request) and (len(plan.requests) + retries < max_calls):
-            retries += 1
-            answer = await choose(request)
-        answers.append(answer)
-    receipt = accept_concept_selection(plan, answers)
-    receipt = replace(receipt, model_calls=receipt.model_calls + retries)
-    runoff = runoff_requests(plan, receipt)
-    if not runoff or receipt.model_calls + len(runoff) > max_calls:
-        return receipt
-    runoff_answers = [await choose(request) for request in runoff]
-    return apply_runoff(receipt, runoff, runoff_answers)
 
 
 __all__ = [

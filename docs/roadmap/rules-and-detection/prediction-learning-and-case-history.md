@@ -47,6 +47,9 @@ The deployed loop is driven by a mechanical tick publisher. Huginn normalizes th
 negative, or held-for-review evaluation as an immutable episode, closes due episodes after the
 telemetry grace period, and drains a transactional publication outbox. A poison publication is
 isolated and dead-lettered without blocking unrelated episodes.
+Direct forecast outcome publications use Heimdall's durable forecast publication outbox. A broker
+or mark-published failure leaves the row pending and retryable with the same idempotency key.
+Forecast ticks that time out are recorded as incomplete coverage, not as completed evaluations.
 
 Positive forecast publications also retain the evaluator's computed breach ETA and governed
 prediction-band confidence as versioned `approval_timing` metadata. The approval supervisor reads
@@ -362,6 +365,10 @@ Mimir accepts a candidate only with grounded provenance. The candidate runs roll
 and live shadow comparison against the incumbent on the same cases. Promotion requires minimum
 closed samples and observation days, confidence-bounded improvement, no guard-metric regression,
 and zero policy escapes. Regression returns the detector or policy to shadow automatically.
+When the case-history materializer is degraded, forecast learning remains degraded rather than
+silent. Heimdall still publishes retryable forecast outcomes, Saga can audit them, and Muninn
+reports the missing materializer as degraded state until startup recovery drains the operational
+outbox and case-history materialization resumes.
 
 ## Retention and deletion
 
@@ -496,6 +503,8 @@ The implementation must prove:
   forecast rows remain readable;
 - cross-scope retrieval denial and secret/hidden-reasoning rejection;
 - subscriber concurrency, failure isolation, ownership, and duplicate delivery safety;
+- date-independent retention and replay regressions that read one injected clock instead of the
+  wall clock;
 - no model output can write an active rule, detector, promotion, or action directly.
 
 ## Connected validation handoff

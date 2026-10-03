@@ -44,6 +44,13 @@ from fdai.delivery.repo_assets import repo_asset_root
 BOUND_READBACK_PURPOSES = frozenset(
     {
         "case-history-read",
+        "current-case-reuse",
+        "forecast-history-actions",
+        "forecast-history-changes",
+        "forecast-history-excluded_windows",
+        "forecast-history-resource_lifecycle",
+        "forecast-context",
+        "operational-test-observation",
         "operational-test-context",
         "operator-test-context-command",
         "test-context-transition",
@@ -51,12 +58,11 @@ BOUND_READBACK_PURPOSES = frozenset(
 )
 READINESS_MAX_AGE = timedelta(seconds=120)
 READINESS_MAX_SKEW = timedelta(seconds=30)
-_SOURCE_LIMITATIONS = {
-    "current-case-reuse": "verifier-identity current-case provider readback is unavailable",
-    "forecast-context": "the four forecast-history slices cannot be issued yet",
-    "operational-test-observation": "verifier-identity provider readback is unavailable",
-}
-_FORECAST_LIMITATION = "raw forecast history sources are not attestable yet (#1021)"
+_SOURCE_LIMITATIONS: dict[str, str] = {}
+_FORECAST_LIMITATION = (
+    "source-specific forecast readback is bound for actions, changes, excluded_windows, "
+    "and resource_lifecycle"
+)
 _WRITER_NOT_READY = "verifier readiness with a writer-exclusive proof store is not observed"
 _READY = OperationalEvidenceVerifierState.READY
 _HEALTHY = OperationalEvidenceSourceHealth.HEALTHY

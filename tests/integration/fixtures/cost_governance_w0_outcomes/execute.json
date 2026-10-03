@@ -12,7 +12,7 @@
     "resolved_autonomy_ceiling": "enforce_auto"
   },
   "expected": {
-    "state": "succeeded",
+    "state": "effect_pending",
     "executor_calls": 1,
     "shadow_mode": false
   }

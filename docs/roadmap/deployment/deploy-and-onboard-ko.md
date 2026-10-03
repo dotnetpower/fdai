@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 70a54cd3e9b5d9f65c9041c616f19af000fd1348
-translation_revised: 2026-10-01
+translation_source_sha: 71aae58cd6ed1d69c04086f85cf7acb9b1473e7a
+translation_revised: 2026-10-02
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -215,6 +215,10 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   도구입니다. Genesis는 대신 Bastion을 통한 SSH 표준 입력으로만 등록 자료를 전달합니다.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh)는 크기와 임시 배치를 확인하고, [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh)는 환경 destroy를 보호합니다.
   두 도구 모두 ops 허브나 상태 계정을 변경하지 않고 안전하지 않은 실행기 저장소 또는 할당 해제를 차단합니다.
+- [`check-runner-terraform.sh`](../../../scripts/deployment/azure/check-runner-terraform.sh)는 공유
+  `login-deploy-identity.sh` 도우미 안에서 첫 Azure 호출 전에 실행됩니다. 실행기의 Terraform이
+  검증된 1.16.1보다 오래되었으면 보호된 워크플로를 거부합니다. 아직 Terraform 1.9.8을 고정하는
+  Genesis 이미지 실행기도 여기에 해당합니다.
 
 #### 프로덕션 하드닝 knob
 
@@ -243,7 +247,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 - **진입 명령**: `fdaictl provision azure`는 `infra/` HCL 모듈의 Terraform을 조정합니다.
   환경 값은 source control 밖에 유지합니다. 소스 모드의 Standalone 조정기는 `소스 스냅샷 고정
   -> 대상 검사 -> Foundation 계획 및 적용 -> 배포 레지스트리에서 이미지 빌드 -> 애플리케이션 계획 및
-  적용 -> 배포 후 검사` 순서로 실행하며, `--offline-kit`에서는 먼저 서명된 패키지를 검증합니다.
+  적용 -> 배포 후 검사` 순서로 실행하며, `--offline-kit`에서는 먼저 서명된 패키지를 검증합니다. 기존 오프라인 설치의 작업 디렉터리를 더 새 패키지로 다시 실행하면 Foundation은 보존된 리비전으로 이어서 실행됩니다([오프라인 키트 업그레이드](installable-deployment-cli-ko.md#오프라인-키트-업그레이드-설계와-비평)).
   Terraform은 실행 엔진이자 인프라 단일 기준입니다.
 - 대상 환경 배포 전송 계층은 항상 `manual`입니다. 활성 Azure 사용자가 정확한 계획을 승인하고,
   Managed Host는 별도 workload identity로 계획을 실행합니다. 저장소 변수, 저장소 비밀,
@@ -564,6 +568,12 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 - 시크릿은 Key Vault refs로, 절대 plain env가 아님; plain env의 시크릿은 CI secret-scan 게이트
   실패.
 - 환경별 값이 다름; 같은 이미지가 주입된 환경에서 값을 읽음.
+- Terraform은 Core와 Operator용 deployment-owned operator-request receipt signing seed
+  secret을 Key Vault에 만들고 버전이 없는 secret id와 producer id만 내보냅니다. Deploy workflow는
+  버전이 지정된 secret 참조를 hydrate 전에 거부하고 이 참조를 service tfvars로 hydrate하므로,
+  교체된 seed는 현재 버전으로 해석됩니다. Operator는 자기 seed만 받고, Core는 자기 seed와 Operator seed를
+  받아 startup에서 trusted producer public key를 파생하며 `core-control-plane`으로만 서명합니다.
+  Core는 trusted computing base 안의 verifier로 남습니다.
 
 ## 이벤트 소스 구독
 
@@ -575,6 +585,7 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 | 변경 | Activity Log (resource-write / 삭제), 변경 Analysis, Resource Health | 정본 Event Hubs Kafka 유입으로 push하며 Huginn이 실시간 발견 정규화를 소유하고 인벤토리 sync 작업이 전체 그래프를 조정합니다. |
 | DR / Chaos | Resource Health, 백업 금고 이벤트, PostgreSQL / SQL replication-lag 메트릭, restore-rehearsal 결과 | Diagnostic Settings + 스케줄 Container Apps 작업 프로브 → Kafka 토픽 (`fdai.dr.events`) |
 | FinOps | 비용 이상 알림, 예산 알림, Advisor 비용 권고 | 비용 관리 pull → Kafka 토픽 (`fdai.finops.events`); 이상 알림은 같은 Diagnostic-Settings 경로로 fan in |
+| Operator 안전 제어 | Ordered poison-halt clear 요청 | Operator가 shared pantheon-object transport의 logical `fdai.operator.ordered-poison-halt.clear.v1` topic에 씁니다. Core는 halted ordered consumer를 재개하기 전에 parked-record 근거를 검증합니다. |
 
 모든 이벤트는 유입에서 **멱등성 키가 스탬프** 되어 리플레이는 no-op; DLQ는 도달 가능
 해야 하며 어디에서든 강제 적용이 활성화되기 전에

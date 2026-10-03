@@ -237,6 +237,11 @@ output "runtime_identity_bindings" {
       client_id    = module.canary_identity.client_id
       principal_id = module.canary_identity.principal_id
     }
+    operational_evidence_verifier = var.enable_operational_evidence_verifier ? {
+      resource_id  = module.operational_evidence_verifier_identity[0].resource_id
+      client_id    = module.operational_evidence_verifier_identity[0].client_id
+      principal_id = module.operational_evidence_verifier_identity[0].principal_id
+    } : null
   }
 }
 
@@ -388,6 +393,16 @@ output "ohl_observation_context_binding" {
     vm_start_executor_credential_lineage = "azure-managed-identity:${module.identity_resilience[0].client_id}"
     source_credential_lineage            = "azure-managed-identity:${module.inventory_identity.client_id}"
   } : {})
+}
+
+output "operator_request_receipt_binding" {
+  description = "Deployment-owned operator_request receipt signing seed secret references; trusted public keys are hydrated from these seeds by deployment tooling."
+  value = {
+    core_signing_seed_secret_id     = azurerm_key_vault_secret.operator_request_core_signing_seed.resource_versionless_id
+    operator_signing_seed_secret_id = azurerm_key_vault_secret.operator_request_operator_signing_seed.resource_versionless_id
+    core_producer_id                = "core-control-plane"
+    operator_producer_id            = "operator-service"
+  }
 }
 
 output "stewardship_gitops_binding" {

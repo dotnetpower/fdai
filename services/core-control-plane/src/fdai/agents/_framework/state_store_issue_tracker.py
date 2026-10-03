@@ -54,6 +54,7 @@ class StateStoreIssueTrackerAdapter:
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool]:
         """Apply one content-addressed legacy operation."""
         request_digest = _request_digest(fingerprint, title, body)
@@ -62,6 +63,7 @@ class StateStoreIssueTrackerAdapter:
             fingerprint=fingerprint,
             title=title,
             body=body,
+            labels=labels,
         )
 
     async def create_or_comment_once(
@@ -71,6 +73,7 @@ class StateStoreIssueTrackerAdapter:
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool]:
         """CAS-apply one operation and replay its original result."""
         _validate_request(
@@ -103,6 +106,7 @@ class StateStoreIssueTrackerAdapter:
                     issue_number=issue_number,
                     title=title,
                     body=body,
+                    labels=labels,
                     comments=(),
                     open_=True,
                     closed_by_pr=None,
@@ -139,6 +143,7 @@ class StateStoreIssueTrackerAdapter:
                 issue_number = int(current["issue_number"])
                 issue_title = str(current["title"])
                 issue_body = str(current["body"])
+                issue_labels = tuple(str(label) for label in current.get("labels", []))
                 comments = (*_comments(current), body)
                 created_result = False
             else:
@@ -146,6 +151,7 @@ class StateStoreIssueTrackerAdapter:
                 issue_number = _issue_number(fingerprint, generation)
                 issue_title = title
                 issue_body = body
+                issue_labels = labels
                 comments = ()
                 created_result = True
             result = _operation_result(
@@ -166,6 +172,7 @@ class StateStoreIssueTrackerAdapter:
                 issue_number=issue_number,
                 title=issue_title,
                 body=issue_body,
+                labels=issue_labels,
                 comments=comments,
                 open_=True,
                 closed_by_pr=None,
@@ -207,6 +214,7 @@ class StateStoreIssueTrackerAdapter:
                 issue_number=int(current["issue_number"]),
                 title=str(current["title"]),
                 body=str(current["body"]),
+                labels=tuple(str(label) for label in current.get("labels", [])),
                 comments=_comments(current),
                 open_=False,
                 closed_by_pr=closed_by_pr,
@@ -311,6 +319,7 @@ def _issue_state(
     issue_number: int,
     title: str,
     body: str,
+    labels: tuple[str, ...],
     comments: tuple[str, ...],
     open_: bool,
     closed_by_pr: str | None,
@@ -324,6 +333,7 @@ def _issue_state(
         "issue_number": issue_number,
         "title": title,
         "body": body,
+        "labels": list(labels),
         "comments": list(comments),
         "open": open_,
         "closed_by_pr": closed_by_pr,
@@ -345,6 +355,7 @@ def _validate_issue_state(
     title = value.get("title")
     body = value.get("body")
     comments_raw = value.get("comments")
+    labels_raw = value.get("labels", [])
     open_ = value.get("open")
     closed_by_pr = value.get("closed_by_pr")
     operations_raw = value.get("operations")
@@ -366,6 +377,8 @@ def _validate_issue_state(
         or len(body) > 20_000
         or not isinstance(comments_raw, list)
         or any(not isinstance(comment, str) for comment in comments_raw)
+        or not isinstance(labels_raw, list)
+        or any(not isinstance(label, str) or not label for label in labels_raw)
         or len(comments_raw) >= _MAX_OPERATIONS_PER_ISSUE
         or not isinstance(open_, bool)
         or (
@@ -423,6 +436,7 @@ def _validate_issue_state(
         issue_number=int(issue_number),
         title=title,
         body=body,
+        labels=tuple(str(label) for label in labels_raw),
         comments=tuple(str(comment) for comment in comments_raw),
         open_=open_,
         closed_by_pr=closed_by_pr if isinstance(closed_by_pr, str) else None,
@@ -457,6 +471,7 @@ def _current_issue(value: Mapping[str, Any]) -> GitHubIssue:
         fingerprint=str(value["fingerprint"]),
         title=str(value["title"]),
         body=str(value["body"]),
+        labels=[str(label) for label in value.get("labels", [])],
         comments=list(_comments(value)),
         open=bool(value["open"]),
         closed_by_pr=(

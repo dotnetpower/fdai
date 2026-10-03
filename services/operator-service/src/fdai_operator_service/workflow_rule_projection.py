@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections import Counter
-from collections.abc import Mapping
-from typing import NoReturn
+from collections.abc import Mapping, Sequence
+from typing import Any, Protocol
 
+from fdai_service_contracts.baseline_evaluation import (
+    BaselineEvaluationCompletion,
+    BaselineEvaluationOutcome,
+    BaselineEvaluationTerminalOutcome,
+)
 from fdai_service_contracts.rule_activation import (
     RuleActivationGeneration,
     RuleActivationProposal,
@@ -17,6 +24,20 @@ from fdai_operator_service.families.workflow.contracts import (
     WorkflowOperation,
     WorkflowReadRequest,
 )
+
+BASELINE_EVALUATION_OUTCOME_PREFIX = "baseline-evaluation:outcomes:"
+BASELINE_EVALUATION_COMPLETION_PREFIX = "baseline-evaluation:completions:"
+
+
+class BaselineEvaluationStateReader(Protocol):
+    async def read_state_page(
+        self,
+        *,
+        prefix: str,
+        limit: int,
+        match_field: str | None = None,
+        match_value: str | None = None,
+    ) -> Any: ...
 
 
 def _promotion_gate_payload(
@@ -124,11 +145,25 @@ def _rule_catalog_payload(
 
 def _rule_findings_summary_payload(
     stored: Mapping[str, object],
-) -> NoReturn:
-    """Withhold stored summaries until a separate authority can prove their coverage."""
+) -> dict[str, object]:
+    """Admit only summaries backed by complete baseline-evaluation coverage."""
     evaluated = stored.get("evaluated")
     counts = stored.get("counts")
-    if not isinstance(evaluated, bool) or not isinstance(counts, Mapping):
+    complete = stored.get("complete")
+    expected_denominator = stored.get("expected_denominator")
+    covered_denominator = stored.get("covered_denominator")
+    if (
+        evaluated is not True
+        or complete is not True
+        or not isinstance(counts, Mapping)
+        or type(expected_denominator) is not int
+        or type(covered_denominator) is not int
+        or expected_denominator < 0
+        or covered_denominator != expected_denominator
+        or not isinstance(stored.get("generation_digest"), str)
+        or not isinstance(stored.get("catalog_revision"), str)
+        or not isinstance(stored.get("completion_digest"), str)
+    ):
         raise HTTPException(
             status_code=503,
             detail="authoritative Rule findings summary is malformed",
@@ -145,10 +180,116 @@ def _rule_findings_summary_payload(
                 status_code=503,
                 detail="authoritative Rule findings summary is malformed",
             )
-    raise HTTPException(
-        status_code=503,
-        detail="authoritative projection is unavailable",
+    return dict(stored)
+
+
+async def derive_rule_findings_summary_payload(
+    reader: BaselineEvaluationStateReader,
+) -> dict[str, object] | None:
+    """Build a current summary from authoritative completion and outcome records.
+
+    ``None`` means no complete baseline-evaluation denominator has been recorded yet.
+    Malformed or partial coverage raises ``HTTPException`` so readers do not infer zero.
+    """
+
+    read_state_page = getattr(reader, "read_state_page", None)
+    if not callable(read_state_page):
+        return None
+    completion_page = await read_state_page(
+        prefix=BASELINE_EVALUATION_COMPLETION_PREFIX,
+        limit=1,
     )
+    if not completion_page.records:
+        return None
+    if completion_page.truncated:
+        raise HTTPException(status_code=503, detail="baseline evaluation completion is ambiguous")
+    completion = _completion(completion_page.records[0].value)
+    outcome_page = await reader.read_state_page(
+        prefix=BASELINE_EVALUATION_OUTCOME_PREFIX,
+        limit=min(max(completion.expected_denominator, 1), 1_000),
+        match_field="generation_digest",
+        match_value=completion.generation_digest,
+    )
+    if outcome_page.truncated:
+        raise HTTPException(status_code=503, detail="baseline evaluation coverage is incomplete")
+    outcomes = tuple(_outcome(record.value) for record in outcome_page.records)
+    return _summary_from_completion(completion=completion, outcomes=outcomes)
+
+
+def _summary_from_completion(
+    *,
+    completion: BaselineEvaluationCompletion,
+    outcomes: tuple[BaselineEvaluationOutcome, ...],
+) -> dict[str, object]:
+    if len(outcomes) != completion.expected_denominator:
+        raise HTTPException(status_code=503, detail="baseline evaluation coverage is incomplete")
+    ordered = tuple(sorted(outcomes, key=lambda item: (item.resource_ref, item.rule_ref)))
+    if _outcome_set_digest(ordered) != completion.outcome_set_digest:
+        raise HTTPException(status_code=503, detail="baseline evaluation coverage is incomplete")
+    counts: dict[str, int] = {}
+    outcome_totals = {"compliant": 0, "violated": 0, "abstained": 0}
+    for outcome in ordered:
+        if (
+            outcome.generation_digest != completion.generation_digest
+            or outcome.catalog_revision != completion.catalog_revision
+            or outcome.inventory_observation_digest != completion.inventory_observation_digest
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="baseline evaluation outcome does not match completion",
+            )
+        counts.setdefault(outcome.rule_ref, 0)
+        if outcome.outcome is BaselineEvaluationTerminalOutcome.VIOLATED:
+            counts[outcome.rule_ref] += 1
+        outcome_totals[outcome.outcome.value] += 1
+    if (
+        outcome_totals["compliant"] != completion.compliant_count
+        or outcome_totals["violated"] != completion.violated_count
+        or outcome_totals["abstained"] != completion.abstained_count
+    ):
+        raise HTTPException(status_code=503, detail="baseline evaluation counts are incomplete")
+    return {
+        "_revision": completion.completion_digest,
+        "schema_version": "1.0.0",
+        "evaluated": True,
+        "complete": True,
+        "generation_digest": completion.generation_digest,
+        "catalog_revision": completion.catalog_revision,
+        "completion_digest": completion.completion_digest,
+        "expected_denominator": completion.expected_denominator,
+        "covered_denominator": len(outcomes),
+        "counts": dict(sorted(counts.items())),
+        "outcomes": outcome_totals,
+    }
+
+
+def _completion(value: Mapping[str, object]) -> BaselineEvaluationCompletion:
+    try:
+        return BaselineEvaluationCompletion.model_validate(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="baseline evaluation completion is malformed",
+        ) from exc
+
+
+def _outcome(value: Mapping[str, object]) -> BaselineEvaluationOutcome:
+    try:
+        return BaselineEvaluationOutcome.model_validate(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="baseline evaluation outcome is malformed",
+        ) from exc
+
+
+def _outcome_set_digest(outcomes: Sequence[BaselineEvaluationOutcome]) -> str:
+    encoded = json.dumps(
+        [outcome.outcome_digest for outcome in outcomes],
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _rule_counts(rules: list[dict[str, object]], field: str) -> dict[str, int]:

@@ -27,8 +27,11 @@ export interface TrajectoryPresentation {
   readonly phaseStates: Readonly<Record<TrajectoryPhase, TrajectoryPhaseState>>;
   readonly modelCallCount: number;
   readonly modelCallCountIsLowerBound: boolean;
+  readonly modelCallCountRecorded: boolean;
   readonly modelLatencyMs?: number;
   readonly totalTokens?: number;
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
   readonly evidenceAttemptCount: number;
   readonly evidenceCompletedCount: number;
   readonly evidenceReferenceCount: number;
@@ -46,6 +49,10 @@ export function buildTrajectoryPresentation(
   const recordedModelCalls = trajectory.answer.modelTrace
     ? trajectory.answer.modelTrace.calls.length + trajectory.answer.modelTrace.omitted_calls
     : 0;
+  const budgetCalls = trajectory.turnBudget?.complete ? trajectory.turnBudget.model_calls.used : 0;
+  const accountedCalls = trajectory.answer.modelUsage?.model_calls;
+  const modelCallCountRecorded = trajectory.answer.modelTrace !== undefined ||
+    trajectory.turnBudget?.complete === true || accountedCalls !== undefined;
   const modelBacked = trajectory.answer.source?.startsWith("llm:") === true;
   return {
     workProgress: workProgressPresentation(trajectory),
@@ -57,15 +64,23 @@ export function buildTrajectoryPresentation(
       verification: verificationState(trajectory),
       answer: "completed",
     },
-    modelCallCount: Math.max(recordedModelCalls, modelBacked ? 1 : 0),
-    modelCallCountIsLowerBound: modelBacked && recordedModelCalls === 0,
+    modelCallCount: modelCallCountRecorded
+      ? Math.max(recordedModelCalls, budgetCalls, accountedCalls ?? 0) : modelBacked ? 1 : 0,
+    modelCallCountIsLowerBound: modelBacked && !modelCallCountRecorded,
+    modelCallCountRecorded,
     ...(
       trajectory.answer.modelLatencyMs !== undefined
         ? { modelLatencyMs: trajectory.answer.modelLatencyMs }
         : {}
     ),
     ...(trajectory.answer.modelUsage
-      ? { totalTokens: trajectory.answer.modelUsage.total_tokens }
+      ? {
+        totalTokens: trajectory.answer.modelUsage.total_tokens,
+        ...(trajectory.answer.modelUsage.prompt_tokens !== undefined
+          ? { inputTokens: trajectory.answer.modelUsage.prompt_tokens } : {}),
+        ...(trajectory.answer.modelUsage.completion_tokens !== undefined
+          ? { outputTokens: trajectory.answer.modelUsage.completion_tokens } : {}),
+      }
       : {}),
     evidenceAttemptCount: evidenceStatuses.length,
     evidenceCompletedCount: evidenceStatuses.filter((status) => status === "completed").length,

@@ -706,7 +706,7 @@
       {
         "id": "cost-governance.w0.execute.001",
         "path": "tests/integration/fixtures/cost_governance_w0_outcomes/execute.json",
-        "sha256": "1d693c63d2623309b1d9d7c3604388b9e7926d956ff9ddff85f8988bf4a08b50",
+        "sha256": "240fb05a6dc142db5f97816c328ef9260975c0ef6bb52084cec7c4e06a519930",
         "outcome": "execute",
         "driver": "thor-dispatch",
         "coverage": ["executable-replay", "execute"]

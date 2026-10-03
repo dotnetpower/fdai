@@ -11,6 +11,11 @@ It prevents `local`, `dev`, `shadow`, and `fork` from becoming aliases for one a
 
 **Accepted:** 2026-07-20.
 
+**Amended:** 2026-10-02 by
+[ADR-0003](0003-hub-managed-lifecycle-and-operator-governance.md), which adds the installation path,
+release channel, approval profile, promotion kind, and model diversity axes, and lets Mimir-signed
+installation policy revisions serve as authorization policy.
+
 ## Context
 
 Earlier design text coupled several independent concerns. Local development sometimes implied
@@ -35,12 +40,17 @@ FDAI treats the following axes as independent configuration:
 | Action lifecycle | `shadow`, `enforce` | promotion registry per ActionType and Workflow |
 | Human identity | Entra principal plus App Roles | browser token and RBAC policy |
 | Executor identity | managed workload identity | deployed executor boundary |
-| Authorization policy | signed scoped policy bundle plus effective-access evidence | execution-authorization resolver |
+| Authorization policy | signed scoped policy bundle or Mimir-signed installation policy revision, plus effective-access evidence | execution-authorization resolver |
 | Optional package preference | unavailable, disabled, enabled | exact-revision package activation store |
 | Kinetic evidence availability | missing, stored exact V2 plan, independently observed outcome | evidence producers and durable stores |
 | Evidence conflict state | absent, active, resolved superseding revision | Heimdall publication, Muninn projection, and ActionType semantic dependencies |
 | Distribution | `upstream`, `fork` | source and customization boundary |
 | Operational safety profile | `mscp-operational-v1` | versioned core policy; never an execution authority |
+| Installation path | `source`, `offline-package`, `hub-managed` | installation enrollment record |
+| Release channel subscription | `DEV`, `RELEASE_CANDIDATE`, `RELEASE`, custom, optional version range | Lifecycle Hub installation settings |
+| Approval profile | `multi-operator`, `single-operator-production`, `full-authority-development` | approval policy revision or reviewed deployment configuration |
+| Promotion kind | `gate-evidence`, `operator-override` | promotion registry per ActionType and Workflow |
+| Model diversity policy | `mixed-publisher`, `same-publisher-distinct-models` | deployment model binding |
 
 No value on one axis selects a value on another axis. In particular:
 
@@ -82,6 +92,15 @@ No value on one axis selects a value on another axis. In particular:
   operational outcome.
 - The operational safety profile is venue-, environment-, evidence-, lifecycle-, identity-, and
   distribution-neutral. Its checks may only preserve or lower an existing autonomy decision.
+- Installation path and release channel subscription decide only how FDAI itself is installed and
+  updated. They never select a product add-on, action lifecycle, approval profile, authorization
+  policy, or execution authority.
+- An approval profile decides who may satisfy an approval. It never changes a risk class, promotion
+  state, or the executor identity.
+- A promotion kind records how a capability reached enforce mode. An operator override changes only
+  that installation's action lifecycle and can't raise any other axis.
+- A model diversity policy decides which model pairs may serve T2. It never raises autonomy, and
+  every T2 decision records which policy applied.
 
 ### Interactive local profile
 

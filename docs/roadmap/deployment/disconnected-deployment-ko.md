@@ -1,12 +1,12 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 71fcddf3813bb0c235d887b7222be4103b964c54
-translation_revised: 2026-10-01
+translation_source_sha: 1a427f29b7da6d1d441cd229b87ef7937067d29b
+translation_revised: 2026-10-02
 ---
 # 폐쇄망 배포
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 공용 인터넷 egress가 차단된 네트워크 - 규제받는 금융 테난트, sovereign enclave,
 완전 air-gap 사이트 - 에 FDAI를 배포하는 단일 소유 문서입니다. 리포지토리가 이미 지원하는 것,
@@ -241,6 +241,12 @@ pinned Terraform binary 및 프로바이더 mirror, 정책 엔진 binary, softwa
 서명된 번들에는 마이그레이션 중 카탈로그 구체화가 읽는 검토된 `config/agent-stewardship.yaml`과
 `config/architecture-review.yaml`도 들어 있습니다.
 
+패키지에 포함된 release 및 bundle 루트와 일치하는 로컬 비공개 키를 확인하려면
+`scripts/deployment/release/check-signing-key.py --key <path>`를 실행합니다. 이 스크립트는 지문과
+역할만 출력합니다. 일치하는 키에 대해서는 그 키를 받는 `build-standalone-deployment-kit.sh` 옵션인
+`--signing-key`, `--release-key` 또는 `--bundle-key`를 알려 줍니다. `fdai-up.sh`는 더 이상 서명 키를
+받지 않습니다.
+
 목표 폐쇄망 명령인 `fdaictl provision inspect`는 매니페스트를 파싱하기 전에 서명을 검증하고, 정확한
 CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하고, 모든 다이제스트를 스트리밍
 합니다. 존재는 결코 신뢰가 아닙니다. 검증되지 않은 키트는 `candidate`로 남고, 거부된 내용은
@@ -265,6 +271,23 @@ wheelhouse만 사용해 CLI를 설치합니다.
 바인딩과 관리형 호스트 작업 디렉터리에는 제어 패키지 다이제스트가 포함되므로 패키지가 바뀌면
 새 준비 컨텍스트가 필요합니다. 배포 결과는 키트 소스 커밋과 함께 제어 패키지 다이제스트와
 버전을 보고합니다. 제어 패키지는 승인, 적용 또는 런타임 권한을 부여하지 않습니다.
+
+#### 기존 오프라인 설치 업그레이드
+
+더 새 서명 키트로 오프라인 패키지 설치를 계속하려면 같은 작업 디렉터리로 다시 실행합니다.
+
+```bash
+scripts/deployment/azure/fdai-up.sh \
+  --offline-kit <newer-kit.tar.gz> \
+  --work-dir <existing-work-dir>
+```
+
+조정기는 새 키트를 검증하고, 이전에 보존된 키트 스냅샷과 Managed Host 전송 아카이브를 로컬
+검토 디렉터리로 회전한 다음 기존 Foundation 신원을 유지합니다. Foundation 변수는 Foundation을
+만든 소스 버전을 유지합니다. 새 키트 소스는 애플리케이션 버전으로 기록되므로 애플리케이션
+단계와 Managed Host 작업 컨텍스트는 키트 매니페스트 다이제스트를 기준으로 새 Terraform,
+런타임 페이로드, CLI를 사용합니다. 비파괴 Foundation 계획은 그 계획을 표시한 호출로 승인됩니다.
+기존 리소스를 삭제하거나 교체하는 계획은 효과 전에 기존의 명시적 추가 확인이 계속 필요합니다.
 
 ### 5. 공용 egress 없이 룰 카탈로그 최신화
 
@@ -428,3 +451,4 @@ residency 검토를 추가로 요구합니다
 | CLI 파사드, 서명된 번들, exact-plan 적용 | [installable-deployment-cli-ko.md](installable-deployment-cli-ko.md) |
 | Offline trust 루트 확립과 교대 | [offline-trust-ceremony-ko.md](../../runbooks/offline-trust-ceremony-ko.md) |
 | 거부된 키트 또는 차단된 계획에서 복구 | [deployment-recovery-ko.md](../../runbooks/deployment-recovery-ko.md) |
+| Target Hub를 통한 오프라인 업그레이드 | [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md) |

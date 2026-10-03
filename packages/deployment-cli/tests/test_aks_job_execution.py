@@ -505,3 +505,109 @@ def test_terminal_state_requires_failed_condition_or_exhausted_backoff() -> None
                 }
             }
         )
+
+
+def _materialize_inventory(cronjob: dict[str, object]) -> object:
+    return materialize_cronjob_execution(
+        cronjob,
+        purpose="inventory",
+        source_revision=_REVISION,
+        target_binding=_TARGET,
+        expected_template_name="inventory",
+        expected_container_name="inventory",
+        expected_image=_IMAGE,
+        expected_command=("python", "-m", "fdai.delivery.inventory_sync_cli"),
+        expected_service_account="inventory-job",
+        args=("--initial",),
+        require_suspended=False,
+        protected_template_digest=_template_digest(),
+        protected_identity_binding_digest=_IDENTITY_BINDING_DIGEST,
+    )
+
+
+def _with_materialized_defaults(cronjob: dict[str, object]) -> dict[str, object]:
+    changed = copy.deepcopy(cronjob)
+    container = _container(changed)
+    container["securityContext"]["privileged"] = False  # type: ignore[index]
+    container["securityContext"]["readOnlyRootFilesystem"] = False  # type: ignore[index]
+    container["volumeMounts"][0]["mountPropagation"] = "None"  # type: ignore[index]
+    _environment(changed, "FDAI_INVENTORY_DSN")["valueFrom"]["secretKeyRef"]["optional"] = False  # type: ignore[index]
+    pod = changed["spec"]["jobTemplate"]["spec"]["template"]["spec"]  # type: ignore[index]
+    pod["volumes"][0]["csi"]["fsType"] = ""  # type: ignore[index]
+    return changed
+
+
+def test_accepts_kubernetes_defaults_materialized_by_the_provider() -> None:
+    live = _with_materialized_defaults(_cronjob())
+
+    first = _materialize_inventory(live)
+    second = _materialize_inventory(copy.deepcopy(live))
+
+    annotations = first.manifest["metadata"]["annotations"]  # type: ignore[attr-defined]
+    assert annotations["fdai.io/template-digest"] == _template_digest()
+    assert first.execution_digest == second.execution_digest  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    (
+        lambda value: _container(value)["securityContext"].__setitem__("privileged", True),
+        lambda value: _container(value)["securityContext"].__setitem__(
+            "readOnlyRootFilesystem", True
+        ),
+        lambda value: _container(value)["volumeMounts"][0].__setitem__(
+            "mountPropagation", "HostToContainer"
+        ),
+        lambda value: _environment(value, "FDAI_INVENTORY_DSN")["valueFrom"][
+            "secretKeyRef"
+        ].__setitem__("optional", True),
+        lambda value: value["spec"]["jobTemplate"]["spec"]["template"]["spec"]["volumes"][0][
+            "csi"
+        ].__setitem__("fsType", "ext4"),
+    ),
+    ids=("privileged", "read-only-root", "mount-propagation", "optional-secret", "csi-fs-type"),
+)
+def test_rejects_non_default_values_of_normalized_fields(
+    mutate: Callable[[dict[str, object]], None],
+) -> None:
+    changed = _with_materialized_defaults(_cronjob())
+    mutate(changed)
+
+    with pytest.raises(ValueError, match="protected template digest"):
+        _materialize_inventory(changed)
+
+
+def test_projection_leaves_the_protected_contract_unchanged() -> None:
+    import fdai_deployment_cli.aks_job_execution as execution
+
+    captured: list[object] = []
+    original = execution._digest  # noqa: SLF001
+
+    def capture(value: object) -> str:
+        captured.append(value)
+        return original(value)
+
+    execution._digest = capture  # type: ignore[assignment]  # noqa: SLF001
+    try:
+        _template_digest()
+    finally:
+        execution._digest = original  # noqa: SLF001
+
+    protected = captured[-1]
+    assert execution._cronjob_contract(protected) == protected  # type: ignore[arg-type]  # noqa: SLF001
+
+
+def test_existing_job_without_an_empty_env_value_keeps_the_same_contract() -> None:
+    from fdai_deployment_cli.aks_job_execution import validate_existing_job
+
+    expected = _materialize()
+    existing = copy.deepcopy(expected.manifest)  # type: ignore[attr-defined]
+    container = existing["spec"]["template"]["spec"]["containers"][0]
+    entry = next(item for item in container["env"] if item.get("value") == "")
+    del entry["value"]
+
+    validate_existing_job(existing, expected=expected)  # type: ignore[arg-type]
+
+    entry["value"] = "Microsoft.Compute/virtualMachines"
+    with pytest.raises(ValueError, match="controlled contract changed"):
+        validate_existing_job(existing, expected=expected)  # type: ignore[arg-type]

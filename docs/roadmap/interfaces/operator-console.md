@@ -9,7 +9,10 @@ Semantic result-handle references persist only opaque Core-issued tokens with th
 return at most four recent references on the next semantic request. They do not expose row bodies to
 Operator, change human-report routing, or grant Console execution authority.
 Generated contract views may add rollout-safe handle-reference schema versions, but the browser and
-Operator still receive no row identity, row body, or model-visible handle payload.
+Operator still receive no row identity, row body, or model-visible handle payload. The Operator Rule
+findings summary now admits evaluated Console status only from complete baseline-evaluation
+completion and outcome records. Missing or partial coverage still renders unavailable, while a
+stored complete summary remains readable until a newer generation completes.
 Adaptive answer evidence crosses the model boundary as `ModelEvidenceView`, a Core-built
 allowlisted projection. Raw query tables, provider bodies, handles, and retained snapshot cells do
 not reach answer-authoring or review model calls.
@@ -91,6 +94,26 @@ completion evidence before zero findings can be reported. A failed read never be
 row; this boundary does not write or replace prior stored state.
 
 > Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a placeholder. A fork supplies concrete values via config ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+## Common answer presentation
+
+The Command Deck retains its shared Markdown renderer and validated JSON presentation artifacts.
+It never classifies paragraphs into operational roles or infers facts from layout. Evidence
+limitations and warning or attention blocks remain visible even when a collapse hint is present.
+Settled replies expose their existing verification state before the answer. Original Markdown
+inspection includes only the display-authorized answer, not rejected terminal text.
+
+Numbered citations open the corresponding source disclosure. Returning to the answer restores
+the invoking control and transcript position. Search is an explicit header control; `Ctrl+K`
+opens it, and Escape closes it without closing the conversation. Evidence-service availability
+has a separate disclosure from answer citations and preserves unavailable and unknown states.
+These presentation controls grant no read, approval, or execution authority.
+
+The actual Console imports the shared conversation stylesheet and activates its root, transcript,
+prose, citation, and composer roles. A normal completed work record becomes a compact disclosure
+after the terminal answer is available; failed, partial, and unavailable work stays expanded.
+Every recorded step remains inspectable. The latest-message command belongs to the composer
+context row and never floats over answer text.
+
 ## 1. Framing - what this is (and what it is not)
 Instance-candidate enrollment uses the authenticated principal, role, and group scope without changing human-report-line, assignment, approval, or action authority. The default Core index lifecycle remains agent-owned and read-only; exact-ID results do not qualify semantic ranking or imply a complete collection. The bilingual identity-only terminal explicitly reports partial, non-exhaustive candidates and no execution authority. It neither projects arbitrary properties nor substitutes for attachment authorization, exact document citations, or document evidence completeness.
 
@@ -111,7 +134,7 @@ Three properties follow directly:
   not opaque session memory. Persistent conversation state stays in auditable, exportable,
   CSP-neutral `audit_log` and `operator_memory` records.
 
-Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md) loop. A one-question improvement turn uses the same authenticated `/chat/stream` request and exposes its six-phase Run Record, content-free dynamic prompt manifest, Pantheon participant and evaluator prompt profiles, and Preparing answer transition as separate presentation gates. The expanded Run Record shows only profile ids, versions, hashes, situations, and budgets, never SYSTEM text. JSON and SSE adapters share the typed conversation-turn service and extracted request setup, evidence, progress, verification, and terminal-delivery helpers while preserving their existing wire contracts. Browser assurance parser and evidence-gate regressions register with the Console Vitest suite so repository-wide Console collection exercises the same runner contract as focused checks.
+Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md) loop. A one-question improvement turn uses the same authenticated `/chat/stream` request and exposes its six-phase Run Record, content-free dynamic prompt manifest, Pantheon participant and evaluator prompt profiles, and Preparing answer transition as separate presentation gates. The expanded Run Record shows only profile ids, versions, hashes, situations, and budgets, never SYSTEM text. The Run Record, its model provider waterfall, and the Preparing answer trace render with the [Command Deck conversation layer](command-deck-conversation-layer.md) roles, and browser assurance recognizes the Preparing answer gate by the pending turn rather than by a presentation class. JSON and SSE adapters share the typed conversation-turn service and extracted request setup, evidence, progress, verification, and terminal-delivery helpers while preserving their existing wire contracts. Browser assurance parser and evidence-gate regressions register with the Console Vitest suite so repository-wide Console collection exercises the same runner contract as focused checks.
 Terminal intake preserves the exact verification reason and evidence-manifest completeness. Outcome summaries, context selection, Azure investigations, durable delivery, and attachment evidence remain owned by their typed providers; adapter modules only coordinate presentation and persistence.
 Core separates semantic request binding, bounded Incident evidence projection, and localized Incident answer rendering into dedicated modules. The semantic turn processor coordinates those modules; this internal split changes no wire field, evidence limit, citation, locale, or authority. When composed context-selection bindings are present, the processor also schedules shadow policy comparison from the prior semantic turns without changing the semantic projection or granting browser control.
 Operator likewise separates immutable PostgreSQL family records, bounded row projection, and strict inventory evidence decoding from query and outbox orchestration. The facade preserves existing imports, principal scope, proposal idempotency, wire values, replay ordering, and no-authority behavior.
@@ -525,6 +548,11 @@ Split into focused owner documents:
 Authenticated semantic turns may carry a content-free authentication receipt reference in `operator-core-request` 1.9.0 only when the default-off Operator setting `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on; the reference never reaches the browser as authority, and see [13.12](operator-console-wire-contracts.md#1312-semantic-turn-authentication-receipt-reference) for the rollout order. With the setting on, the Operator retains that receipt for the exact request before it publishes the turn, so the verifier can check `case-history-read` against it. A retention failure fails the turn instead of sending a reference that Core cannot resolve.
 Every response to a bearer-authenticated request also carries the `X-FDAI-Entitlement` stamp
 that the Console watermark reads; see [13.13](operator-console-wire-contracts.md#1313-entitlement-stamp-response-header).
+The shared Operator transport records that stamp from every response, including errors, and every
+authenticated view mounts one watermark that refreshes it through the data-source read. The
+watermark shows in the lower-right corner unless the latest stamp is a recent `none`, as the
+[Trial expiry watermark](../fork-and-sequencing/capability-licensing.md#entitlement-state-transport)
+design defines.
 
 ## 14. MCP delivery and managed catalog
 

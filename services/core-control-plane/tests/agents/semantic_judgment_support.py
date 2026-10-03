@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from fdai.agents._framework.pantheon import PANTHEON_NAMES
+from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
@@ -19,6 +19,8 @@ _DIGEST = "sha256:" + ("a" * 64)
 _RESOURCE = re.compile(
     r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+(?![A-Za-z0-9_.-])"
 )
+_IDENTIFIER = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*")
+_QUESTION_DOMAINS = tuple(domain for spec in PANTHEON_SPECS for domain in spec.question_domains)
 _TOOL_SIGNAL_GROUPS = (
     ("arbitration history", "recorded arbitration history"),
     ("rca", "root-cause", "root cause"),
@@ -187,6 +189,10 @@ def _action_target(utterance: str, folded: str) -> dict[str, object] | None:
 
 
 def _intent_for(folded: str) -> str:
+    identifiers = set(_IDENTIFIER.findall(folded))
+    for domain in _QUESTION_DOMAINS:
+        if domain in identifiers:
+            return domain
     if "action status" in folded:
         return "action_status"
     if "approval" in folded:

@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 06106bc0e62db0e0b7287c49b4454f2fae0d1490
-translation_revised: 2026-10-01
+translation_source_sha: 82c50fe91b76bd1c91af08caa4d6efe2b5c51a99
+translation_revised: 2026-10-02
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -321,6 +321,11 @@ reader-identity ARM GET으로 대상을 확인하고 해당 증적을 비공개 
 있습니다. Stale pending 점유는 계속 차단된 상태로 남지 않고 범위가 제한된 시간 초과 이후 ETag compare-and-swap으로 복구됩니다. 동일한 계획을 반복하면 소비되지 않은 같은 증적을 반환합니다. 소비되거나 만료된 계획은 새
 멱등성 키가 필요합니다. ARM throttling은 최대 3회까지 범위가 제한된 `Retry-After`를 따르며 변경 `5xx` 응답은 결과가 모호한할 수 있으므로 자동으로 반복하지 않습니다.
 
+배포 Key Vault binding이 없을 때 로컬 준비는 Core와 Operator용 mode-0600 local-only
+operator-request receipt signing seed도 만듭니다. 생성 값은 `.fdai/` 아래에 머무르며 docs나
+manifest에 복사하지 않습니다. 배포된 producer 분리를 미러링하지만 어느 service에도 다른
+service의 signing identity를 부여하지 않습니다.
+
 동일한 read-investigation 배선이 범위가 제한된 Azure subscription-health 프로바이더를 구성합니다. 기본값은 resource-group 허용 목록이며, interactive 로컬은 권위 있는 인벤토리가 전체 구독을 이미 읽으므로 서버가 소유한 `subscription` 모드와 1,000개 리소스 상한을 선택하고 배포는 적절한 범위의 읽기 담당 신원으로 의도적으로 연결하지 않으면 `resource_groups`를 유지합니다.
 브라우저와 모델 입력은 모드를 변경할 수 없습니다. 로컬 factory는 read-investigation 배선이 있을 때만
 프로바이더를 주입하여 읽기 전용 data-plane 경계를 유지합니다.
@@ -525,6 +530,10 @@ Trial 만료 워터마크도 같은 규칙을 따릅니다. 로컬과 배포된 
 체크아웃은 사용권이 없는 배포와 같은 워터마크를 표시합니다. 어떤 실행 장소, 테스트 대역,
 설정도 워터마크를 숨기지 않습니다.
 
+계획된 [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)도 같은 규칙을 따릅니다. 설치 경로는
+독립 축입니다. Hub 관리형 설치는 소스 설치나 오프라인 패키지 설치와 같은 권위 있는 소스, 계약,
+런타임 범위 증적을 바인딩하며, 수명 주기 에이전트는 컨트롤 플레인 동작을 바꾸지 않습니다.
+
 ## 배포자-스코프 LLM 프로비저닝
 
 Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석기를 실행하고 적용할 정확한 매니페스트를 봉인합니다. Terraform은 해당 publisher의 기능이 해석될 때만 각 provider 계정을 만들므로 파트너 전용 결과는 Foundry를 유지하고 Azure OpenAI 계정 할당량을 요청하지 않습니다. 개발 게이트웨이 대상 계획도 기존 종속성을 보존하도록 현재 기능 맵을 해석합니다. 대상 집합에 cognitive deployment가 없으므로 완결성 결과는 차단하지 않습니다.
@@ -570,6 +579,9 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
   없으면 범위가 제한된 프로세스 내 EventBus/SSE를 사용하며 recording/in-memory 실행기는 연결하지 않습니다.
 - `Reader` 롤만 있는 fresh 구독에서 `enable_llm=false` 로 Terraform 계획 성공 →
   LLM 모듈이 정말 명시적 선택 임을 증명.
+- 모든 `infra/services/*` 루트가 CI에 고정된 Terraform으로 오프라인 초기화와 `terraform validate`를
+  통과합니다. 이 루트들은 `service-deploy.yml`이 배포하고 모든 offline 키트에 포함되므로, 구성
+  오류가 배포 중이 아니라 CI에서 실패합니다.
 - 녹화된 리전 카탈로그에 대한 해석기 예행 실행이 고정된 `resolved-models.json` 해시 →
   멱등성 증명.
 
@@ -578,3 +590,4 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/dev-and-deploy-parity.md) |
+| 로컬 및 배포된 Operator API가 쓰는 공유 Workflow 검증 컨텍스트 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |

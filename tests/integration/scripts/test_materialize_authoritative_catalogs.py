@@ -563,6 +563,22 @@ def test_workflow_catalog_carries_reviewed_steps_and_source() -> None:
     assert steps["production_gate"]["gate_ref"] == "architecture-review.production-ready"
 
 
+def test_workflow_validation_context_is_revision_fenced() -> None:
+    module = _module()
+
+    snapshots = module.catalog_snapshots(REPO_ROOT)
+    context = snapshots[module.WORKFLOW_VALIDATION_CONTEXT_KEY]
+
+    assert context["_revision"] == context["catalog_digest"]
+    assert context["schema_version"] == "1.0.0"
+    assert context["catalog_revision"].startswith("sha256:")
+    assert context["action_type_names"] == sorted(context["action_type_names"])
+    assert context["rule_ids"] == sorted(context["rule_ids"])
+    assert "remediate.tag-add" in context["action_type_names"]
+    assert context["signal_types"]["types"]
+    assert context["workflow_trigger_events"]["events"]
+
+
 def test_scope_snapshot_keeps_observation_separate_from_execution() -> None:
     module = _module()
 

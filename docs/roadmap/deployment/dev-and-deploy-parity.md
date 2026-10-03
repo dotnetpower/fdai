@@ -328,6 +328,10 @@ changed, expired, or replayed receipts fail before mutation. An ARM
 long-running operation remains `submitted`; only the executor can resolve its server-owned status
 URL through the original idempotency key. A stale pending claim is recovered with ETag
 compare-and-swap after its bounded timeout instead of remaining blocked indefinitely.
+Local preparation also creates mode-0600 local-only operator-request receipt signing seeds for Core
+and Operator when deployment Key Vault bindings are absent. The generated values stay under
+`.fdai/`, are not copied into docs or manifests, and mirror the deployed producer split without
+granting either service the other's signing identity.
 Repeated identical plans return the same unconsumed receipt. A consumed or expired plan needs a
 new idempotency key. ARM throttling honors a bounded `Retry-After` for at most three attempts, while
 mutation `5xx` responses remain ambiguous and aren't automatically repeated.
@@ -523,6 +527,11 @@ on authenticated responses the same way. A verified local issuer workstation pub
 any other local checkout shows the same watermark as a deployment without an entitlement. No
 venue, test fake, or setting suppresses it.
 
+The planned [Hub-managed lifecycle](hub-managed-lifecycle.md) follows the same rule. Installation
+path is an independent axis: a Hub-managed installation binds the same authoritative sources,
+contracts, and runtime-scope receipts as a source or offline-package installation, and its
+lifecycle agents never change control-plane behavior.
+
 ## Deployer-Scoped LLM Provisioning
 
 Protected full plans that can change cognitive deployments run the resolver and seal its exact manifest for apply. Terraform creates each provider account only when that publisher has a resolved capability, so a partner-only result keeps Foundry and does not request Azure OpenAI account quota. A development-gateway targeted plan still resolves the current capability map to preserve existing dependencies. Completeness findings remain non-blocking because its target set contains no cognitive deployment.
@@ -568,6 +577,9 @@ Each work item MUST be provable at CI time:
   configured and bounded in-process EventBus/SSE otherwise, without recording/in-memory executors.
 - Terraform plan with `enable_llm=false` succeeds on a fresh subscription with only
   `Reader` role - proving the LLM module is truly opt-in.
+- Every `infra/services/*` root initializes offline and passes `terraform validate` with the
+  CI-pinned Terraform. These roots are deployed by `service-deploy.yml` and packaged in every
+  offline kit, so a configuration error fails in CI instead of during deployment.
 - Resolver dry-run against a recorded region catalog produces a stable
   `resolved-models.json` hash - proving idempotency.
 
@@ -576,3 +588,4 @@ Each work item MUST be provable at CI time:
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/deployment/dev-and-deploy-parity.md) |
+| Shared Workflow validation context used by local and deployed Operator API | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |

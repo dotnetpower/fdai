@@ -25,6 +25,7 @@ import { presentationTimestamp } from "./presentation-value";
 import {
   investigationFlowHasTerminalAnswer,
   investigationFlowPosition,
+  isInvestigationLead,
 } from "./investigation-turn-state";
 import type { DeckSlashCommand } from "./command-deck-slash";
 import type { ConversationSummary } from "./conversation-sessions";
@@ -43,6 +44,12 @@ import { PendingReplyIndicator, RetrievalTrace } from "./retrieval-trace";
 import { SourceReadinessStrip } from "./source-readiness-view";
 import "./conversation-sidebar.css";
 import { GeneralConversationIntro } from "./general-conversation-intro";
+import {
+  DeckLeaveConsent,
+  followLeaveTarget,
+  leaveTargetFromClick,
+  type LeaveTarget,
+} from "./leave-consent";
 import type {
   ConversationModelAvailability,
   ConversationModelTier,
@@ -77,7 +84,8 @@ interface CommandDeckViewProps {
   readonly onRemoveScreen: () => void;
   readonly pending: boolean;
   readonly retrievalProgress: VerificationProgress | null;
-  readonly stuck: boolean;
+  /** Real content sits below the visible transcript edge. */
+  readonly jumpVisible: boolean;
   readonly inFlight: boolean;
   readonly searchQuery: string;
   readonly searchMatches: readonly number[];
@@ -146,7 +154,7 @@ export function CommandDeckView({
   onRemoveScreen,
   pending,
   retrievalProgress,
-  stuck,
+  jumpVisible,
   inFlight,
   searchQuery,
   searchMatches,
@@ -196,6 +204,7 @@ export function CommandDeckView({
     return () => window.removeEventListener(PREFERENCES_CHANGED_EVENT, sync);
   }, []);
   const [showConversations, setShowConversations] = useState(false);
+  const [leaveTarget, setLeaveTarget] = useState<LeaveTarget | null>(null);
   const beginNewConversation = () => {
     setShowConversations(false);
     onNewConversation();
@@ -254,7 +263,6 @@ export function CommandDeckView({
     -1,
   );
   const conversationCount = conversationCountLabel(conversations.length, conversationHasMore);
-  const showJumpToLatest = !stuck && turns.length > 0;
   const startConversationResize = (event: MouseEvent) => {
     if (layoutMode !== "workspace" || event.button !== 0) return;
     event.preventDefault();
@@ -292,6 +300,8 @@ export function CommandDeckView({
       canAttachScreen={canAttachScreen && !sessionLabel && !activeConversation?.binding}
       onAttachScreen={onAttachScreen}
       onRemoveScreen={onRemoveScreen}
+      jumpVisible={jumpVisible}
+      onJumpToLatest={onJumpToLatest}
       sessionKey={sessionKey}
       busySessionId={busySessionId}
       onBusySubmitted={onBusySubmitted}
@@ -325,13 +335,21 @@ export function CommandDeckView({
 
       {open ? (
         <div
-          class={`deck-overlay cs-deck-surface cs-deck-workspace-shell deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}${centeredEmptyState ? " is-empty-conversation" : ""}`}
+          class={`deck-overlay cs-deck-surface cs-deck-workspace-shell cs-deck-conversation deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}${centeredEmptyState ? " is-empty-conversation" : ""}`}
           role={layoutMode === "workspace" ? "dialog" : "complementary"}
           aria-modal={layoutMode === "workspace" ? "true" : undefined}
           aria-label={t("deck.label")}
           ref={overlayRef}
           style={deckStyle}
           onKeyDown={onOverlayKeyDown}
+          onClickCapture={(event) => {
+            // Docked and full-workspace conversations close on a route change, so ask first.
+            if (layoutMode === "floating") return;
+            const target = leaveTargetFromClick(event);
+            if (!target) return;
+            event.preventDefault();
+            setLeaveTarget(target);
+          }}
         >
           <button
             type="button"
@@ -416,20 +434,8 @@ export function CommandDeckView({
               </>
             ) : null}
             <div class="deck-transcript-column cs-deck-transcript-column">
-              {showJumpToLatest ? (
-                <div class="deck-jump-slot">
-                  <button
-                    type="button"
-                    class="deck-jump"
-                    onClick={onJumpToLatest}
-                    aria-label={t("deck.jumpLatestMessage")}
-                  >
-                    <span aria-hidden="true">↓</span> {t("deck.jumpLatest")}
-                  </button>
-                </div>
-              ) : null}
               <section
-                class="deck-transcript"
+                class="deck-transcript cs-deck-transcript"
                 ref={scrollerRef}
                 aria-label={t("deck.conversation")}
                 role="log"
@@ -438,7 +444,7 @@ export function CommandDeckView({
                 aria-busy={pending}
                 onScroll={onTranscriptScroll}
               >
-              <div class={`deck-transcript-inner${centeredEmptyState ? " is-empty-conversation" : ""}`}>
+              <div class={`deck-transcript-inner cs-deck-transcript-inner${centeredEmptyState ? " is-empty-conversation" : ""}`}>
               {resumedAt ? (
                 <div class="deck-resume-banner" role="status">
                   <span>{t("deck.resumedConversation", {
@@ -477,10 +483,7 @@ export function CommandDeckView({
                   turns,
                   index,
                 );
-                const progressIndex = turn.kind === "message" && turn.source === "investigation"
-                  ? turns.slice(0, index).filter((candidate) =>
-                      candidate.kind === "message" && candidate.source === "investigation").length
-                  : undefined;
+                const investigationLead = isInvestigationLead(turns, index);
                 return (
                   <Fragment key={turn.id}>
                     <TurnBubble
@@ -490,11 +493,11 @@ export function CommandDeckView({
                     searchMatch={searchMatches.includes(index)}
                     activeSearchMatch={searchMatches[activeSearchMatch] === index}
                     onPickFollowUp={onSubmit}
-                    {...(progressIndex !== undefined ? { progressIndex } : {})}
                     investigationFlowContinuation={investigationFlow.continuation}
                     investigationFlowStart={investigationFlow.start}
                     investigationFlowEnd={investigationFlow.end}
                     investigationAnswerSettled={investigationAnswerSettled}
+                    investigationLead={investigationLead}
                     {...(turn.role === "deck" &&
                       !turn.streaming &&
                       !inFlight &&
@@ -531,6 +534,14 @@ export function CommandDeckView({
           </div>
 
           {centeredEmptyState ? null : composer}
+          <DeckLeaveConsent
+            target={leaveTarget}
+            onClose={(open) => {
+              const target = leaveTarget;
+              setLeaveTarget(null);
+              if (open && target) followLeaveTarget(target);
+            }}
+          />
         </div>
       ) : null}
     </>
@@ -557,6 +568,8 @@ type DeckComposerProps = Pick<CommandDeckViewProps,
   | "canAttachScreen"
   | "onAttachScreen"
   | "onRemoveScreen"
+  | "jumpVisible"
+  | "onJumpToLatest"
 > & {
   readonly centered: boolean;
   readonly routeLabel: string;
@@ -576,6 +589,8 @@ function DeckComposer({
   canAttachScreen,
   onAttachScreen,
   onRemoveScreen,
+  jumpVisible,
+  onJumpToLatest,
   sessionKey,
   busySessionId,
   onBusySubmitted,
@@ -608,24 +623,35 @@ function DeckComposer({
     >
       <BusyInputControls key={sessionKey} sessionId={busySessionId}
         draft={draft} turnActive={inFlight} onConfirmedSubmit={onBusySubmitted} />
-      {snapshot || canAttachScreen ? (
-        <div class="deck-composer-context">
+      {snapshot || canAttachScreen || jumpVisible ? (
+        <div class="deck-composer-context cs-deck-composer-context">
+          {snapshot || canAttachScreen ? (
           <Tooltip content={snapshot ? t("deck.removeScreenHint") : t("deck.attachScreenHint")} placement="top">
             <button
               type="button"
-              class="deck-context-control"
+              class={`deck-context-control cs-deck-context-chip${snapshot ? "" : " is-empty"}`}
               disabled={inFlight}
               onClick={snapshot ? onRemoveScreen : onAttachScreen}
               aria-label={snapshot
                 ? t("deck.removeScreen", { route: snapshot.routeLabel })
                 : t("deck.attachScreen")}
             >
-              <span>{snapshot
-                ? t("deck.attachedScreen", { route: snapshot.routeLabel })
-                : t("deck.attachScreen")}</span>
+              {snapshot ? <AttachedScreenLabel route={snapshot.routeLabel} /> : <span>{t("deck.attachScreen")}</span>}
               <span aria-hidden="true">{snapshot ? "×" : "+"}</span>
             </button>
           </Tooltip>
+          ) : null}
+          {jumpVisible ? (
+            // Jump to latest sits at the end of the context row, so it never covers the transcript.
+            <button
+              type="button"
+              class="deck-jump cs-deck-jump"
+              onClick={onJumpToLatest}
+              aria-label={t("deck.jumpLatestMessage")}
+            >
+              <span aria-hidden="true">↓</span> <span class="cs-deck-jump-label">{t("deck.jumpLatest")}</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div class="deck-composer-inner cs-deck-composer-grid">
@@ -710,4 +736,17 @@ function DeckComposer({
 function resumedConversationTime(value: string): string {
   const timestamp = presentationTimestamp(value);
   return timestamp ? `${timestamp.date} ${timestamp.time}` : value;
+}
+
+// The localized label keeps its route; a narrow composer hides only the prefix around it.
+function AttachedScreenLabel({ route }: { readonly route: string }) {
+  const marker = "\u0000";
+  const [prefix = "", suffix = ""] = t("deck.attachedScreen", { route: marker }).split(marker);
+  return (
+    <span>
+      {prefix ? <span class="cs-deck-context-prefix">{prefix}</span> : null}
+      {route}
+      {suffix}
+    </span>
+  );
 }

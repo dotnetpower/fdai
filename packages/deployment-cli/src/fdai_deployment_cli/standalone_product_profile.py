@@ -75,6 +75,8 @@ def product_terraform_values(
             separators=(",", ":"),
         ),
     }
+    if runtime_profile.database_sku is not None:
+        values["postgres_sku_name"] = runtime_profile.database_sku
     if not enterprise_identity:
         return values
     operator_id = require_guid(entra, "CURRENT_OPERATOR_OBJECT_ID")

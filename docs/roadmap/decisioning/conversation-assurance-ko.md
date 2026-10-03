@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: b9920f5872a28a05b6bbd3e935e0c38203da34e6
-translation_revised: 2026-09-29
+translation_source_sha: 10ac77dfad4a9f6d7a2130b0e3bf08910b8c14ba
+translation_revised: 2026-09-30
 ---
 # 대화 품질 보증
 
@@ -45,6 +45,11 @@ Turn은 `27/30` 이상이면 통과하고, `24-26`이면 검토가 필요하며,
 | 에이전트 | 180 | 모든 에이전트에 필요한 6개 시나리오를 영어와 한국어로 실행합니다. |
 | 라우팅 | 30 | 모든 에이전트에 명시적 담당자 라우팅과 암시적 담당자 라우팅을 하나씩 실행합니다. |
 | T2 | 20 | 필수, 금지, 사용 불가, 예산, 공급자 및 출력 안전성 결과를 다룹니다. |
+
+Census 인계 진단은 소유 에이전트가 실행기가 아니라 보고 체계에 있는 서로 다른 peer를 대상으로
+삼아야 합니다. 인계는 진단 경로만 기록하며 승인, 실행 또는 정책 권한을 부여하지 않습니다.
+승인자 사례는 Var가 Thor를 대신해 말하지 않는다는 점도 증명하므로, 대화 추적에서 승인 신원과
+실행 신원은 계속 분리됩니다.
 
 측정된 모든 turn은 프롬프트 프로필, 라우팅, 근거, 검증, T1/T2, 예산, 계측, 지연 시간 및 최종 상태를 하나의 추적 증적에 연결하며 비공개 질문과 답변 본문은 추적 근거에서 제외합니다.
 명시적으로 시작한 로컬 캠페인은 소유자 전용 `.fdai/conversation-assurance/transcripts.jsonl`에도 범위 제한 질문, 승인된 답변, source revision, 답변 생성 및 evaluator 귀속, 출력 가용성, 평가 사유, 점수와 verdict를 기록합니다. 민감도 발견은 해당 본문을 digest와 생략 사유로 대체합니다. Transcript 내용은 qualification, 정책 승격, 감사 또는 실행 권한을 부여하지 않습니다.

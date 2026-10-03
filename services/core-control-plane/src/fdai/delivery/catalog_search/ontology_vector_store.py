@@ -86,11 +86,14 @@ class OntologyVectorSnapshotStore:
         source_generation: str,
         source_projection_digest: str | None = None,
     ) -> str:
-        """Embed one complete source snapshot; failures never publish a header.
+        """Embed one complete source snapshot; expired attempts never return success.
 
         Provider exceptions expose only a stable unavailable reason. Parent
         cancellation propagates, and total and per-call deadlines bound work.
+        Persisted partial artifacts remain inert and reusable; a late storage return
+        does not prove that its write was rolled back.
         """
+        deadline = asyncio.get_running_loop().time() + self._build_timeout
         async with asyncio.timeout(self._build_timeout):
             build = await snapshots.read(
                 snapshot_digest,
@@ -98,15 +101,19 @@ class OntologyVectorSnapshotStore:
                 source_generation=source_generation,
                 source_projection_digest=source_projection_digest,
             )
+            _check_deadline(deadline)
             if build is None:
                 raise ValueError("ontology vectors require a complete source snapshot")
             binding = self._binding(snapshot_digest, build.metadata)
-            if await self._store.read_state(f"{_PREFIX}{binding}:retired") is not None:
+            retired = await self._store.read_state(f"{_PREFIX}{binding}:retired")
+            _check_deadline(deadline)
+            if retired is not None:
                 raise ValueError("ontology vectors were retired and cannot be restaged")
             if any(item.embedding or item.generation_id is not None for item in build.documents):
                 raise ValueError("ontology vectors require canonical unembedded source documents")
             completion_key = f"{_PREFIX}{binding}:complete"
             completion = await self._store.read_state(completion_key)
+            _check_deadline(deadline)
             if completion is not None:
                 if set(completion) != {"vector_digest"} or not isinstance(
                     completion["vector_digest"], str
@@ -114,6 +121,7 @@ class OntologyVectorSnapshotStore:
                     raise ValueError("ontology vector completion identity mismatch")
                 completed_digest = completion["vector_digest"]
                 for offset in range(0, len(build.documents), 1000):
+                    _check_deadline(deadline)
                     await self.read(
                         completed_digest,
                         snapshot_digest=snapshot_digest,
@@ -122,28 +130,29 @@ class OntologyVectorSnapshotStore:
                             item.rule_id for item in build.documents[offset : offset + 1000]
                         ),
                     )
+                    _check_deadline(deadline)
                 return completed_digest
             rows: dict[str, str] = {}
             for document, document_digest in zip(
                 build.documents, build.document_digests, strict=True
             ):
+                _check_deadline(deadline)
                 key = _row_key(binding, document.rule_id)
                 raw = await self._store.read_state(key)
+                _check_deadline(deadline)
                 if raw is None:
-                    try:
-                        async with asyncio.timeout(self._call_timeout):
-                            vector = tuple(await self._embedder.embed(document.text))
-                        _validate_vector(vector, self._identity[2])
-                    except Exception:
-                        raise ValueError("ontology embedding provider unavailable") from None
+                    vector = await self._embed(document.text, deadline=deadline)
                     row = _VectorRow(
                         binding_digest=binding,
                         document_id=document.rule_id,
                         document_digest=document_digest,
                         vector=vector,
                     )
+                    _check_deadline(deadline)
                     await self._store.write_state_if_absent(key, row.model_dump(mode="json"))
+                    _check_deadline(deadline)
                     raw = await self._store.read_state(key)
+                    _check_deadline(deadline)
                 row = _parse_row(raw, binding, document.rule_id, self._identity[2])
                 if row.document_digest != document_digest:
                     raise ValueError("ontology vector source document identity mismatch")
@@ -159,13 +168,22 @@ class OntologyVectorSnapshotStore:
                 raise ValueError("ontology vector header exceeds bounded capacity")
             digest = _digest(header)
             key = f"{_PREFIX}{digest}:header"
-            if not await self._store.write_state_if_absent(key, header):
+            _check_deadline(deadline)
+            inserted = await self._store.write_state_if_absent(key, header)
+            _check_deadline(deadline)
+            if not inserted:
                 existing = await self._store.read_state(key)
+                _check_deadline(deadline)
                 if existing is None or _digest(existing) != digest:
                     raise ValueError("ontology vector immutable header conflict")
             completion_value = {"vector_digest": digest}
-            if not await self._store.write_state_if_absent(completion_key, completion_value):
-                if await self._store.read_state(completion_key) != completion_value:
+            _check_deadline(deadline)
+            inserted = await self._store.write_state_if_absent(completion_key, completion_value)
+            _check_deadline(deadline)
+            if not inserted:
+                existing = await self._store.read_state(completion_key)
+                _check_deadline(deadline)
+                if existing != completion_value:
                     raise ValueError("ontology vector immutable completion conflict")
             return digest
 
@@ -178,13 +196,17 @@ class OntologyVectorSnapshotStore:
         document_ids: tuple[str, ...],
     ) -> dict[str, tuple[float, ...]]:
         """Read exact requested vectors; missing or changed rows never become empty hits."""
+        deadline = asyncio.get_running_loop().time() + self._call_timeout
         async with asyncio.timeout(self._call_timeout):
-            return await self._read(
+            result = await self._read(
                 vector_digest,
                 snapshot_digest=snapshot_digest,
                 generation=generation,
                 document_ids=document_ids,
+                deadline=deadline,
             )
+            _check_deadline(deadline)
+            return result
 
     async def embed_query(
         self, query: str, *, generation: CatalogGenerationMetadata
@@ -198,10 +220,18 @@ class OntologyVectorSnapshotStore:
             generation.embedding_dimension,
         ):
             raise ValueError("ontology vector configured embedding identity mismatch")
+        return await self._embed(query)
+
+    async def _embed(self, text: str, *, deadline: float | None = None) -> tuple[float, ...]:
+        call_deadline = asyncio.get_running_loop().time() + self._call_timeout
+        if deadline is not None:
+            call_deadline = min(deadline, call_deadline)
         try:
-            async with asyncio.timeout(self._call_timeout):
-                vector = tuple(await self._embedder.embed(query))
+            _check_deadline(call_deadline)
+            async with asyncio.timeout(call_deadline - asyncio.get_running_loop().time()):
+                vector = tuple(await self._embedder.embed(text))
             _validate_vector(vector, self._identity[2])
+            _check_deadline(call_deadline)
             return vector
         except Exception:
             raise ValueError("ontology embedding provider unavailable") from None
@@ -213,6 +243,7 @@ class OntologyVectorSnapshotStore:
         snapshot_digest: str,
         generation: CatalogGenerationMetadata,
         document_ids: tuple[str, ...],
+        deadline: float,
     ) -> dict[str, tuple[float, ...]]:
         if (
             re.fullmatch(r"sha256:[0-9a-f]{64}", vector_digest) is None
@@ -222,6 +253,7 @@ class OntologyVectorSnapshotStore:
             raise ValueError("ontology vector reads require bounded unique document identities")
         binding = self._binding(snapshot_digest, generation)
         raw = await self._store.read_state(f"{_PREFIX}{vector_digest}:header")
+        _check_deadline(deadline)
         try:
             if (
                 raw is None
@@ -239,7 +271,9 @@ class OntologyVectorSnapshotStore:
                 raise ValueError("invalid identity")
             result: dict[str, tuple[float, ...]] = {}
             for document_id in document_ids:
+                _check_deadline(deadline)
                 stored = await self._store.read_state(_row_key(binding, document_id))
+                _check_deadline(deadline)
                 if stored is None or _digest(stored) != header.rows[document_id]:
                     raise ValueError("invalid row")
                 row = _parse_row(stored, binding, document_id, self._identity[2])
@@ -260,6 +294,11 @@ class OntologyVectorSnapshotStore:
         return _digest(
             {"snapshot_digest": snapshot_digest, "generation_digest": generation.generation_digest}
         )
+
+
+def _check_deadline(deadline: float) -> None:
+    if asyncio.get_running_loop().time() >= deadline:
+        raise TimeoutError("ontology retrieval deadline exceeded")
 
 
 def _row_key(binding: str, document_id: str) -> str:

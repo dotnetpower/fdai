@@ -183,6 +183,18 @@ class AzureReuseSafetyEvaluator(Protocol):
     ) -> AzureReuseSafetyChecks: ...
 
 
+class CurrentCaseReuseSourceRetainer(Protocol):
+    async def retain(
+        self,
+        *,
+        event: Event,
+        action: LearnedAction,
+        context: OperationalCaseContext,
+        resource_ref: str,
+        verification: CurrentReuseVerification,
+    ) -> Mapping[str, object]: ...
+
+
 class AzureCurrentReuseVerifier:
     """Recollect current Azure graph and deterministic safety evidence."""
 
@@ -196,6 +208,7 @@ class AzureCurrentReuseVerifier:
         clock: Callable[[], datetime] | None = None,
         admission_provider: DecisionEvidenceAdmissionProvider | None = None,
         evidence: OperationalEvidenceRequester | None = None,
+        source_retainer: CurrentCaseReuseSourceRetainer | None = None,
     ) -> None:
         if max_snapshot_age <= timedelta(0) or max_future_skew < timedelta(0):
             raise ValueError("Azure current snapshot freshness bounds are invalid")
@@ -206,6 +219,7 @@ class AzureCurrentReuseVerifier:
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._admission_provider = admission_provider
         self._evidence = evidence
+        self._source_retainer = source_retainer
 
     async def verify(
         self,
@@ -256,6 +270,14 @@ class AzureCurrentReuseVerifier:
             return verification
         evidence_digest = current_reuse_evidence_digest(verification)
         scope_digest = current_reuse_scope_digest(event=event, action=action, context=context)
+        if self._source_retainer is not None:
+            await self._source_retainer.retain(
+                event=event,
+                action=action,
+                context=context,
+                resource_ref=resource_ref,
+                verification=verification,
+            )
         attempt = await request_operational_evidence(
             self._evidence,
             evidence_digest=evidence_digest,
@@ -719,6 +741,7 @@ __all__ = [
     "AzureConfiguredBranchEffect",
     "AzureConfiguredBranchEstimator",
     "AzureCurrentReuseVerifier",
+    "CurrentCaseReuseSourceRetainer",
     "AzureDynamicPolicy",
     "AzureDynamicSimulationRequestProvider",
     "AzureOperationalSnapshot",

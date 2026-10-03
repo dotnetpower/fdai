@@ -8,6 +8,7 @@ import {
   type InvestigationMilestone,
   type VerificationProgress,
 } from "./backend";
+import type { WorkProgressShape } from "./backend-types";
 import {
   hasPendingComposerAttachments,
   takeComposerAttachments,
@@ -16,6 +17,7 @@ import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
 import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
 import {
   investigationTurnsAreSettled,
+  plannedReadsObserved,
   settleInvestigationTurn,
   settleInvestigationTurns,
 } from "./investigation-turn-state";
@@ -119,8 +121,9 @@ interface UseCommandDeckSubmitOptions {
   readonly setInFlight: StateSetter<boolean>;
   readonly updateConversationIndex: (summary: ConversationSummary) => void;
   readonly focusInput: () => void;
-  readonly pinTranscriptToLatest: () => void;
-  readonly revealCompletedWork: (turnId: string, childSelector?: string) => void;
+  readonly followQuestion: (turnId: string) => void;
+  readonly followLatestContent: () => void;
+  readonly revealCompletedWork: (turnId: string, childSelector: string) => void;
   readonly conversationModelTier: ConversationModelTier;
 }
 
@@ -175,7 +178,8 @@ export function useCommandDeckSubmit({
   setInFlight,
   updateConversationIndex,
   focusInput,
-  pinTranscriptToLatest,
+  followQuestion,
+  followLatestContent,
   revealCompletedWork,
   conversationModelTier,
 }: UseCommandDeckSubmitOptions) {
@@ -255,6 +259,7 @@ export function useCommandDeckSubmit({
     }, updateConversationIndex);
     setTurns((current) => [...current, operatorTurn]);
     turnsRef.current = [...currentTurns, operatorTurn];
+    followQuestion(operatorTurn.id);
     setDraft("");
     historyRef.current = recordHistory(historyRef.current, text);
     setPending(true);
@@ -268,6 +273,7 @@ export function useCommandDeckSubmit({
     const activityTurnIds = new Set<string>();
     const milestoneIds = new Set<string>();
     let hasActivityTurn = false;
+    let workProgressShape: WorkProgressShape | undefined;
     const settleCurrentActivityTurn = () => {
       if (!activityTurnIds.has(activityTurnId)) return;
       const settledTurnId = activityTurnId;
@@ -287,8 +293,11 @@ export function useCommandDeckSubmit({
       let paintFrame: number | null = null;
       const paintQueue: string[] = [];
       let terminalReplyReady = false;
-      const observedWorkSettled = () => terminalReplyReady ||
-        investigationTurnsAreSettled(turnsRef.current, activityTurnIds);
+      // A token means the server is composing, so every read it planned has ended.
+      const observedWorkSettled = () => terminalReplyReady || (
+        investigationTurnsAreSettled(turnsRef.current, activityTurnIds) &&
+        (receivedToken || plannedReadsObserved(turnsRef.current, activityTurnIds, workProgressShape))
+      );
       const scheduleStreamPaint = () => {
         if (!started || paintFrame !== null || paintQueue.length === 0 || !isCurrent()) return;
         paintFrame = requestAnimationFrame(() => {
@@ -331,7 +340,7 @@ export function useCommandDeckSubmit({
           return next;
         });
         scheduleStreamPaint();
-        pinTranscriptToLatest();
+        followLatestContent();
       };
       const revealWhenReady = () => {
         if (started || !isCurrent() || !observedWorkSettled()) return;
@@ -384,6 +393,10 @@ export function useCommandDeckSubmit({
               return next;
             });
           },
+          onWorkProgress: (shape) => {
+            if (!isCurrent()) return;
+            workProgressShape = shape;
+          },
           onActivity: (activity: InvestigationActivity) => {
             if (!isCurrent()) return;
             hasActivityTurn = true;
@@ -404,7 +417,7 @@ export function useCommandDeckSubmit({
               ].join("\n");
               const next = existing
                 ? current.map((turn) => turn.id === targetActivityTurnId
-                  ? { ...turn, text, activities }
+                  ? { ...turn, text, activities, ...(workProgressShape ? { workProgressShape } : {}) }
                   : turn)
                 : [
                     ...current,
@@ -414,6 +427,7 @@ export function useCommandDeckSubmit({
                       kind: "activity" as const,
                       text,
                       activities,
+                      ...(workProgressShape ? { workProgressShape } : {}),
                       source: "investigation",
                       streaming: true,
                       terminal: false,
@@ -426,7 +440,7 @@ export function useCommandDeckSubmit({
               return next;
             });
             revealWhenReady();
-            pinTranscriptToLatest();
+            followLatestContent();
           },
           onBranch: (branch: EvidenceBranch) => {
             if (!isCurrent()) return;
@@ -445,7 +459,7 @@ export function useCommandDeckSubmit({
               ].join("\n");
               const next = existing
                 ? current.map((turn) => turn.id === targetActivityTurnId
-                  ? { ...turn, text, branches }
+                  ? { ...turn, text, branches, ...(workProgressShape ? { workProgressShape } : {}) }
                   : turn)
                 : [
                     ...current,
@@ -455,6 +469,7 @@ export function useCommandDeckSubmit({
                       kind: "activity" as const,
                       text,
                       branches,
+                      ...(workProgressShape ? { workProgressShape } : {}),
                       source: "investigation",
                       streaming: true,
                       terminal: false,
@@ -466,7 +481,7 @@ export function useCommandDeckSubmit({
               return next;
             });
             revealWhenReady();
-            pinTranscriptToLatest();
+            followLatestContent();
           },
           onMilestone: (milestone: InvestigationMilestone) => {
             if (!isCurrent() || milestoneIds.has(milestone.messageId)) return;
@@ -494,7 +509,7 @@ export function useCommandDeckSubmit({
               turnsRef.current = next;
               return next;
             });
-            pinTranscriptToLatest();
+            followLatestContent();
           },
           onRevision: (answer, revision, status) => {
             if (!isCurrent()) return;
@@ -697,14 +712,7 @@ export function useCommandDeckSubmit({
           turnsRef.current = next;
           return next;
         });
-        const firstActivityTurnId = directResponse
-          ? undefined
-          : activityTurnIds.values().next().value;
-        const revealTarget = completedWorkRevealTarget(
-          deckId,
-          firstActivityTurnId,
-          (reply.incidentCandidates?.length ?? 0) > 0,
-        );
+        const revealTarget = completedWorkRevealTarget(deckId);
         revealCompletedWork(revealTarget.turnId, revealTarget.childSelector);
       }
     } finally {
@@ -734,7 +742,8 @@ export function useCommandDeckSubmit({
     pending,
     conversations,
     updateConversationIndex,
-    pinTranscriptToLatest,
+    followQuestion,
+    followLatestContent,
     revealCompletedWork,
     conversationModelTier,
   ]);

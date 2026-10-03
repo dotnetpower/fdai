@@ -12,6 +12,8 @@ from fdai_service_contracts.action_intent import ActionIntentSource
 from fdai_service_contracts.incident_creation import (
     INCIDENT_CREATE_ACTION_TYPE,
     INCIDENT_CREATION_REQUEST_TOPIC,
+    attach_incident_creation_receipt,
+    incident_creation_receipt_event,
 )
 
 from fdai_operator_service.action_confirmation_source import (
@@ -20,6 +22,7 @@ from fdai_operator_service.action_confirmation_source import (
 from fdai_operator_service.incident_creation_confirmation import (
     incident_creation_request_from_claim,
 )
+from fdai_operator_service.operator_request_receipt import OperatorRequestReceiptIssuer
 from fdai_operator_service.postgres_family_store import PostgresFamilyStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,6 +39,10 @@ class ActionEventPublisher(Protocol):
     ) -> object: ...
 
 
+class ActionConfirmationConfigurationError(RuntimeError):
+    """Raised when authority-bearing operator_request publication is unsigned."""
+
+
 @dataclass(frozen=True, slots=True)
 class ActionConfirmationOutboxDrainer:
     """Lease and publish action confirmations with retry-safe CAS closure."""
@@ -46,6 +53,7 @@ class ActionConfirmationOutboxDrainer:
     incident_topic: str = INCIDENT_CREATION_REQUEST_TOPIC
     worker_id: str = "operator-action-confirmation"
     lease_seconds: int = 120
+    receipt_issuer: OperatorRequestReceiptIssuer | None = None
 
     async def run_once(self) -> bool:
         """Publish at most one confirmation and release any failed attempt."""
@@ -72,9 +80,17 @@ class ActionConfirmationOutboxDrainer:
             if source is None:
                 raise ValueError("action confirmation source is unavailable")
             if body.get("action_type") == INCIDENT_CREATE_ACTION_TYPE:
+                if self.receipt_issuer is None:
+                    raise ActionConfirmationConfigurationError(
+                        "incident creation receipt issuer is unavailable"
+                    )
                 request = incident_creation_request_from_claim(
                     claim,
                     source_projection=source,
+                )
+                request = attach_incident_creation_receipt(
+                    request,
+                    self.receipt_issuer.issue(incident_creation_receipt_event(request)),
                 )
                 await self.publisher.publish(
                     self.incident_topic,
@@ -82,10 +98,15 @@ class ActionConfirmationOutboxDrainer:
                     request.model_dump(mode="json"),
                 )
             else:
+                if self.receipt_issuer is None:
+                    raise ActionConfirmationConfigurationError(
+                        "action confirmation receipt issuer is unavailable"
+                    )
                 event = _action_event(
                     claim.payload,
                     principal_id=claim.principal_id,
                     source_projection=source,
+                    receipt_issuer=self.receipt_issuer,
                 )
                 await self.publisher.publish(self.topic, str(event["idempotency_key"]), event)
         except ValueError:
@@ -95,15 +116,27 @@ class ActionConfirmationOutboxDrainer:
                 reason_code="invalid_semantic_action_source",
             )
             return False
+        except ActionConfirmationConfigurationError:
+            _LOGGER.warning(
+                "action_confirmation_receipt_issuer_unavailable",
+                extra={"proposal_key": claim.key},
+            )
+            await self.store.release_action_proposal_claim(
+                key=claim.key,
+                claim_id=claim.claim_id,
+            )
+            return False
         except Exception:  # noqa: BLE001 - transient store or transport failure remains retryable
             await self.store.release_action_proposal_claim(
                 key=claim.key,
                 claim_id=claim.claim_id,
             )
             return False
-        return await self.store.mark_action_proposal_published(
-            key=claim.key,
-            claim_id=claim.claim_id,
+        return bool(
+            await self.store.mark_action_proposal_published(
+                key=claim.key,
+                claim_id=claim.claim_id,
+            )
         )
 
 
@@ -117,6 +150,7 @@ class ActionConfirmationBridge:
         publisher: ActionEventPublisher,
         topic: str,
         incident_topic: str = INCIDENT_CREATION_REQUEST_TOPIC,
+        receipt_issuer: OperatorRequestReceiptIssuer | None = None,
         retry_seconds: float = 1.0,
     ) -> None:
         if not topic.strip():
@@ -128,6 +162,7 @@ class ActionConfirmationBridge:
             publisher,
             topic,
             incident_topic=incident_topic,
+            receipt_issuer=receipt_issuer,
         )
         self._retry_seconds = retry_seconds
         self._task: asyncio.Task[None] | None = None
@@ -169,6 +204,7 @@ def _action_event(
     *,
     principal_id: str,
     source_projection: Mapping[str, object],
+    receipt_issuer: OperatorRequestReceiptIssuer | None = None,
 ) -> dict[str, object]:
     body = payload.get("body")
     if not isinstance(body, Mapping):
@@ -198,7 +234,7 @@ def _action_event(
         or not resource_ref.strip()
     ):
         raise ValueError("action confirmation does not match its exact intent")
-    return {
+    event: dict[str, object] = {
         "idempotency_key": idempotency_key,
         "correlation_id": session_id,
         "initiator_principal": principal_id,
@@ -209,10 +245,14 @@ def _action_event(
         "params": intent.arguments,
         "ontology_intent": intent.model_dump(mode="json"),
     }
+    if receipt_issuer is not None:
+        event["operator_request_receipt"] = receipt_issuer.issue(event).model_dump(mode="json")
+    return event
 
 
 __all__ = [
     "ActionConfirmationBridge",
+    "ActionConfirmationConfigurationError",
     "ActionConfirmationOutboxDrainer",
     "ActionEventPublisher",
     "validate_action_confirmation_source",

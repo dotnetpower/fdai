@@ -9,8 +9,11 @@ import {
   type ExecutionTimelineItem,
   type ExecutionTimelineRecord,
 } from "./conversation-execution-timeline";
-import { formatJsonValue } from "./json-code-block";
+import { JsonCodeBlock } from "./json-code-block";
 
+/** The observed execution timeline on the conversation layer's run roles: one row per observed
+ *  event with its kind, label, position in the turn, duration, and outcome, opening in place to the
+ *  observed detail, facts, payloads, and evidence references. */
 export function ConversationExecutionTimelineView({
   trajectory,
   includeModelCalls,
@@ -21,56 +24,42 @@ export function ConversationExecutionTimelineView({
   const items = buildExecutionTimeline(trajectory, { includeModelCalls });
   if (items.length === 0) return null;
   const window = executionTimelineWindow(items)!;
+  const titleId = `execution-timeline-${trajectory.answer.id}`;
   return (
-    <section class="deck-execution-timeline" aria-labelledby={`execution-timeline-${trajectory.answer.id}`}>
-      <header>
-        <h4 id={`execution-timeline-${trajectory.answer.id}`}>{t("deck.trajectory.executionTimeline")}</h4>
-        <span>{t("deck.trajectory.observedEventCount", { count: items.length })}</span>
+    <section class="cs-run-timeline" aria-labelledby={titleId}>
+      <header class="cs-run-timeline-head">
+        <h4 class="cs-run-timeline-title" id={titleId}>{t("deck.trajectory.executionTimeline")}</h4>
+        <span class="cs-run-timeline-count">
+          {t("deck.trajectory.observedEventCount", { count: items.length })}
+        </span>
       </header>
-      <div class="deck-execution-axis" aria-hidden="true">
-        <div class="deck-execution-axis-range">
+      <div class="cs-run-axis" aria-hidden="true">
+        <div class="cs-run-axis-range">
           <time>{formatExecutionTimelineAxisClock(window.startedAt)}</time>
           <span>{formatDuration(window.durationMs)}</span>
           <time>{formatExecutionTimelineAxisClock(window.completedAt)}</time>
         </div>
       </div>
-      <ol>
+      <ol class="cs-run-events">
         {items.map((item) => (
-          <li key={item.id} data-kind={item.kind} data-state={item.state}>
+          <li key={item.id} class="cs-run-event" data-kind={item.kind} data-state={item.state}>
             <details>
-              <summary>
-                <span class="deck-execution-kind">{t(`deck.trajectory.executionKind.${item.kind}`)}</span>
-                <span class="deck-execution-label-wrap">
-                  <span class="deck-execution-flow-mark" aria-hidden="true" />
-                  <strong class="deck-execution-label">{executionLabel(item)}</strong>
-                </span>
-                <span
-                  class={`deck-execution-track${item.durationMs === 0 ? " is-point" : ""}`}
-                  aria-hidden="true"
-                >
-                  {item.gapWidthPct > 0 ? (
-                    <span
-                      class="deck-execution-gap"
-                      style={{ left: `${item.gapLeftPct}%`, width: `${item.gapWidthPct}%` }}
-                    />
-                  ) : null}
-                  <span
-                    class="deck-execution-bar"
-                    style={{ left: `${item.leftPct}%`, width: `${item.widthPct}%` }}
-                  />
-                </span>
-                <span class="deck-execution-duration">{formatDuration(item.durationMs)}</span>
-                <span class="deck-execution-outcome">{phaseStateLabel(item.state)}</span>
-                <span class="deck-execution-chevron" aria-hidden="true" />
+              <summary class="cs-run-event-summary">
+                <span class="cs-run-event-kind">{t(`deck.trajectory.executionKind.${item.kind}`)}</span>
+                <strong class="cs-run-event-label">{executionLabel(item)}</strong>
+                <RunTrack leftPct={item.leftPct} widthPct={item.widthPct} />
+                <span class="cs-run-event-duration">{formatDuration(item.durationMs)}</span>
+                <span class="cs-run-event-outcome">{phaseStateLabel(item.state)}</span>
+                <span class="cs-run-chevron" aria-hidden="true" />
               </summary>
-              <div class="deck-execution-detail">
+              <div class="cs-run-event-detail">
                 {item.details.summary ? (
-                  <p class="deck-execution-summary">
+                  <p class="cs-run-observed">
                     <span>{t("deck.trajectory.observedDetail")}</span>
                     {item.details.summary}
                   </p>
                 ) : null}
-                <dl class="deck-execution-facts">
+                <dl class="cs-run-facts">
                   <div><dt>{t("deck.trajectory.status")}</dt><dd>{executionDetail(item)}</dd></div>
                   <div><dt>{t("deck.investigation.startedAt")}</dt><dd><time dateTime={item.startedAt}>{formatExecutionTimelineClock(item.startedAt)}</time></dd></div>
                   <div><dt>{t("deck.investigation.completedAt")}</dt><dd><time dateTime={item.completedAt}>{formatExecutionTimelineClock(item.completedAt)}</time></dd></div>
@@ -81,25 +70,18 @@ export function ConversationExecutionTimelineView({
                     </div>
                   ))}
                 </dl>
-                {item.details.records && item.details.records.length > 0 ? (
-                  <div class="deck-execution-records">
-                    {item.details.records.map((record) => (
-                      <ExecutionRecord
-                        key={`${record.key}-${record.value}`}
-                        record={record}
-                      />
-                    ))}
-                  </div>
-                ) : null}
+                {item.details.records?.map((record) => (
+                  <ExecutionRecord key={`${record.key}-${record.value}`} record={record} />
+                ))}
                 {item.details.evidenceRefs.length > 0 ? (
-                  <div class="deck-execution-references">
+                  <section class="cs-run-payload">
                     <strong>{t("deck.trajectory.references")}</strong>
-                    <ul>
+                    <ul class="cs-run-references">
                       {item.details.evidenceRefs.map((reference) => (
                         <li key={reference}><code>{reference}</code></li>
                       ))}
                     </ul>
-                  </div>
+                  </section>
                 ) : null}
               </div>
             </details>
@@ -110,12 +92,23 @@ export function ConversationExecutionTimelineView({
   );
 }
 
-function ExecutionRecord({ record }: { readonly record: ExecutionTimelineRecord }) {
-  const formatted = formatJsonValue(record.value);
+/** A bar placed on the turn's time span; the layer's track keeps a minimum visible width. */
+export function RunTrack({ leftPct, widthPct }: { readonly leftPct: number; readonly widthPct: number }) {
   return (
-    <section class="deck-execution-record">
+    <span class="cs-run-track" aria-hidden="true">
+      <span
+        class="cs-run-bar"
+        style={`--cs-run-start: ${leftPct.toFixed(2)}; --cs-run-width: ${widthPct.toFixed(2)}`}
+      />
+    </span>
+  );
+}
+
+function ExecutionRecord({ record }: { readonly record: ExecutionTimelineRecord }) {
+  return (
+    <section class="cs-run-payload">
       <strong>{t(`deck.trajectory.detailRecord.${record.key}`)}</strong>
-      <pre><code data-format={formatted.isJson ? "json" : "text"}>{formatted.text}</code></pre>
+      <JsonCodeBlock value={record.value} />
     </section>
   );
 }

@@ -31,6 +31,22 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 # ---------------------------------------------------------------------------
 
 
+def _verdict_payload(correlation_id: str = "c", **extra: object) -> dict[str, object]:
+    return {
+        "correlation_id": correlation_id,
+        "idempotency_key": f"verdict:{correlation_id}",
+        **extra,
+    }
+
+
+def _event_payload(correlation_id: str = "c", **extra: object) -> dict[str, object]:
+    return {
+        "correlation_id": correlation_id,
+        "idempotency_key": f"event:{correlation_id}",
+        **extra,
+    }
+
+
 def test_bridge_enforces_single_writer_on_publish() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
@@ -40,7 +56,7 @@ def test_bridge_enforces_single_writer_on_publish() -> None:
         bridge.publish(
             "Forseti",
             "object.verdict",
-            {"correlation_id": "c", "risk_verdict": "auto"},
+            _verdict_payload(risk_verdict="auto"),
         )
     )
     assert receipt.topic == "object.verdict"
@@ -117,7 +133,7 @@ def test_bridge_run_dispatches_to_registered_subscriber() -> None:
 
     async def _drive() -> None:
         # Publish first so the queue has a record.
-        await bridge.publish("Huginn", "object.event", {"correlation_id": "c", "event_type": "e"})
+        await bridge.publish("Huginn", "object.event", _event_payload(event_type="e"))
         # Run consumers briefly, then stop.
         run_task = asyncio.create_task(bridge.run())
         # Yield control so the consumer(s) can drain.
@@ -165,7 +181,7 @@ def test_bridge_observes_actual_handler_lifecycle() -> None:
         await bridge.publish(
             "Huginn",
             "object.event",
-            {"correlation_id": "corr-observed", "event_type": "resource.changed"},
+            _event_payload("corr-observed", event_type="resource.changed"),
         )
         await bridge.run()
 
@@ -209,7 +225,7 @@ def test_bridge_observer_failure_does_not_block_handler_delivery() -> None:
         await bridge.publish(
             "Huginn",
             "object.event",
-            {"correlation_id": "corr-delivered", "event_type": "resource.changed"},
+            _event_payload("corr-delivered", event_type="resource.changed"),
         )
         await bridge.run()
 
@@ -297,7 +313,7 @@ def test_bridge_skips_observer_for_non_pantheon_principal() -> None:
         await bridge.publish(
             "Huginn",
             "object.event",
-            {"correlation_id": "corr-internal", "event_type": "resource.changed"},
+            _event_payload("corr-internal", event_type="resource.changed"),
         )
         await bridge.run()
 
@@ -318,7 +334,7 @@ def test_bridge_dead_letters_on_handler_failure() -> None:
     bridge.subscribe("object.event", "Heimdall", boom)
 
     async def _drive() -> None:
-        await bridge.publish("Huginn", "object.event", {"correlation_id": "c", "event_type": "e"})
+        await bridge.publish("Huginn", "object.event", _event_payload(event_type="e"))
         run_task = asyncio.create_task(bridge.run())
         for _ in range(20):
             await asyncio.sleep(0)
@@ -363,7 +379,7 @@ def test_bridge_isolates_crashed_consumer_from_siblings() -> None:
     bridge.subscribe("object.event", "Forseti", good)
 
     async def _drive() -> None:
-        await bridge.publish("Huginn", "object.event", {"correlation_id": "c", "event_type": "e"})
+        await bridge.publish("Huginn", "object.event", _event_payload(event_type="e"))
         run_task = asyncio.create_task(bridge.run())
         for _ in range(30):
             await asyncio.sleep(0)
@@ -406,7 +422,7 @@ def test_bridge_fanout_subscribers_run_concurrently() -> None:
         await bridge.publish(
             "Huginn",
             "object.event",
-            {"correlation_id": "corr-fanout", "event_type": "resource.changed"},
+            _event_payload("corr-fanout", event_type="resource.changed"),
         )
         run_task = asyncio.create_task(bridge.run())
         try:
@@ -439,7 +455,7 @@ def test_bridge_isolates_dead_letter_failure() -> None:
     bridge.subscribe("object.event", "Heimdall", boom)
 
     async def _drive() -> None:
-        await bridge.publish("Huginn", "object.event", {"correlation_id": "c", "event_type": "e"})
+        await bridge.publish("Huginn", "object.event", _event_payload(event_type="e"))
         run_task = asyncio.create_task(bridge.run())
         for _ in range(30):
             await asyncio.sleep(0)
@@ -455,15 +471,15 @@ def test_bridge_isolates_dead_letter_failure() -> None:
     assert bridge.metrics.consumers_crashed == 0  # DLQ failure did not kill it
 
 
-def test_bridge_counts_empty_partition_key() -> None:
-    """A publish whose partition key resolves to empty is counted (loss of
-    per-resource ordering) rather than silently round-robined."""
+def test_bridge_rejects_incomplete_owned_envelope() -> None:
+    """A missing owned-topic envelope fails closed and is counted."""
     reg = load_pantheon()
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg)
-    # object.verdict keys on correlation_id; absent -> empty key.
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"risk_verdict": "auto"}))
-    assert bridge.metrics.empty_partition_keys == 1
+    with pytest.raises(ValueError, match="correlation_id, idempotency_key"):
+        asyncio.run(bridge.publish("Forseti", "object.verdict", {"risk_verdict": "auto"}))
+    assert bridge.metrics.invalid_envelope_fields == 2
+    assert bridge.metrics.publish_errors == 1
 
 
 def test_bridge_snapshot_exposes_metrics() -> None:
@@ -480,8 +496,8 @@ def test_bridge_counts_published() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg)
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "d"}))
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload()))
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload("d")))
     assert bridge.metrics.published == 2
     assert bridge.metrics.publish_errors == 0
 
@@ -496,7 +512,7 @@ def test_bridge_counts_publish_error_and_reraises() -> None:
     reg = load_pantheon()
     bridge = EventBusBridge(provider=BadPublishBus(), registry=reg)
     with pytest.raises(RuntimeError, match="broker down"):
-        asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+        asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload()))
     assert bridge.metrics.publish_errors == 1
     assert bridge.metrics.published == 0
 
@@ -505,13 +521,13 @@ def test_bridge_stamps_schema_version() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg)
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload()))
     assert provider._records["object.verdict"][0][1]["schema_version"] == 1
     assert provider._records["object.verdict"][0][1]["envelope_schema_version"] == 1
     # A domain contract keeps its own schema version while the transport
     # version remains authoritative in a separate field.
     asyncio.run(
-        bridge.publish("Forseti", "object.verdict", {"correlation_id": "d", "schema_version": 99})
+        bridge.publish("Forseti", "object.verdict", _verdict_payload("d", schema_version=99))
     )
     assert provider._records["object.verdict"][1][1]["schema_version"] == 99
     assert provider._records["object.verdict"][1][1]["envelope_schema_version"] == 1
@@ -521,7 +537,8 @@ def test_bridge_counts_missing_correlation_id() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg)
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"risk_verdict": "auto"}))
+    with pytest.raises(ValueError, match="correlation_id"):
+        asyncio.run(bridge.publish("Forseti", "object.verdict", {"risk_verdict": "auto"}))
     assert bridge.metrics.missing_correlation_id == 1
 
 
@@ -539,9 +556,9 @@ def test_bridge_rejects_missing_idempotency_key_on_mutation_topic() -> None:
         )
     assert bridge.metrics.missing_idempotency_key == 1
     assert "object.action-run" not in provider._records
-    # A judgment topic without idempotency_key is NOT counted (not required).
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
-    assert bridge.metrics.missing_idempotency_key == 1
+    with pytest.raises(ValueError, match="idempotency_key"):
+        asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+    assert bridge.metrics.missing_idempotency_key == 2
 
 
 def _drain(bridge: EventBusBridge) -> None:
@@ -580,7 +597,7 @@ def test_bridge_rejects_impostor_producer_principal_on_consume() -> None:
         provider.publish(
             "object.verdict",
             "corr-1",
-            {"correlation_id": "corr-1", "producer_principal": "Bragi"},
+            _verdict_payload("corr-1", producer_principal="Bragi"),
         )
     )
     _drain(bridge)
@@ -600,7 +617,7 @@ def test_bridge_rejects_missing_producer_principal_on_owned_topic() -> None:
         seen.append(payload)
 
     bridge.subscribe("object.verdict", "Thor", handler)
-    asyncio.run(provider.publish("object.verdict", "corr-1", {"correlation_id": "corr-1"}))
+    asyncio.run(provider.publish("object.verdict", "corr-1", _verdict_payload("corr-1")))
     _drain(bridge)
     assert seen == []
     assert bridge.metrics.producer_principal_mismatch == 1
@@ -618,7 +635,7 @@ def test_bridge_allows_authentic_producer_principal_on_consume() -> None:
         seen.append(p)
 
     bridge.subscribe("object.verdict", "Thor", handler)
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "corr-1"}))
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload("corr-1")))
     _drain(bridge)
 
     assert len(seen) == 1
@@ -640,7 +657,7 @@ def test_bridge_owned_topic_principal_verification_cannot_be_disabled() -> None:
         provider.publish(
             "object.verdict",
             "corr-1",
-            {"correlation_id": "corr-1", "producer_principal": "Bragi"},
+            _verdict_payload("corr-1", producer_principal="Bragi"),
         )
     )
     _drain(bridge)
@@ -665,7 +682,7 @@ def test_bridge_retries_transient_handler_failure_before_delivery() -> None:
             raise RuntimeError("transient")
 
     bridge.subscribe("object.verdict", "Thor", flaky)
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload()))
     _drain(bridge)
 
     assert calls["n"] == 3
@@ -685,7 +702,7 @@ def test_bridge_dead_letters_after_retries_exhausted() -> None:
         raise RuntimeError("permanent")
 
     bridge.subscribe("object.verdict", "Thor", always_fail)
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload()))
     _drain(bridge)
 
     assert bridge.metrics.handler_retries == 2
@@ -723,7 +740,7 @@ def test_bridge_fail_closed_on_empty_mutation_key() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg)
-    with pytest.raises(ValueError, match="missing required"):
+    with pytest.raises(ValueError, match="correlation_id, idempotency_key"):
         asyncio.run(bridge.publish("Thor", "object.action-run", {}))
     assert bridge.metrics.missing_correlation_id == 1
     assert bridge.metrics.missing_resource_id == 1
@@ -779,14 +796,12 @@ def test_bridge_payload_validator_rejects_malformed() -> None:
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg, payload_validator=validator)
     with pytest.raises(ValueError, match="risk_verdict"):
-        asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+        asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload()))
     assert bridge.metrics.schema_violations == 1
     assert bridge.metrics.publish_errors == 1
     assert "object.verdict" not in provider._records
     # A valid record passes.
-    asyncio.run(
-        bridge.publish("Forseti", "object.verdict", {"correlation_id": "c", "risk_verdict": "auto"})
-    )
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload(risk_verdict="auto")))
     assert bridge.metrics.published == 1
 
 
@@ -801,7 +816,7 @@ def test_bridge_handler_timeout_dead_letters_stuck_handler() -> None:
         await asyncio.sleep(10)
 
     bridge.subscribe("object.verdict", "Thor", stuck)
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload()))
 
     async def _go() -> None:
         run_task = asyncio.create_task(bridge.run())
@@ -827,9 +842,7 @@ def test_bridge_redrive_reprocesses_dead_letters() -> None:
         raise RuntimeError("transient outage")
 
     bridge.subscribe("object.verdict", "Thor", boom)
-    asyncio.run(
-        bridge.publish("Forseti", "object.verdict", {"correlation_id": "c", "risk_verdict": "auto"})
-    )
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload(risk_verdict="auto")))
     _drain(bridge)
     assert bridge.metrics.dead_lettered == 1
 
@@ -853,7 +866,7 @@ def test_bridge_redrive_reparks_still_failing_record() -> None:
         raise RuntimeError("still broken")
 
     bridge.subscribe("object.verdict", "Thor", boom)
-    asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+    asyncio.run(bridge.publish("Forseti", "object.verdict", _verdict_payload()))
     _drain(bridge)
 
     result = asyncio.run(bridge.redrive("object.verdict", boom))
@@ -919,7 +932,7 @@ def test_consumer_self_heals_after_transient_subscribe_failure() -> None:
     bridge.subscribe("object.event", "Heimdall", handler)
 
     async def _drive() -> None:
-        await bridge.publish("Huginn", "object.event", {"correlation_id": "c", "event_type": "e"})
+        await bridge.publish("Huginn", "object.event", _event_payload(event_type="e"))
         await _spin(bridge)
 
     asyncio.run(_drive())
@@ -1225,7 +1238,7 @@ def test_forseti_publishes_verdict_over_provider_event_bus() -> None:
         return {}
 
     verdict = asyncio.run(_first_verdict())
-    assert verdict["risk_verdict"] == "auto"
+    assert verdict["risk_verdict"] == "hil"
     assert verdict["producer_principal"] == "Forseti"
 
 
@@ -1247,7 +1260,15 @@ def test_in_memory_bus_isolates_payload_per_subscriber() -> None:
     bus.subscribe("object.arbitration-request", "Saga", _observer)
 
     async def _run() -> None:
-        await bus.publish("Forseti", "object.arbitration-request", {"resource_id": "vm-1"})
+        await bus.publish(
+            "Forseti",
+            "object.arbitration-request",
+            {
+                "correlation_id": "arbitration:vm-1",
+                "idempotency_key": "arbitration-request:vm-1",
+                "resource_id": "vm-1",
+            },
+        )
 
     asyncio.run(_run())
     assert "injected" not in observed  # second subscriber saw a clean copy

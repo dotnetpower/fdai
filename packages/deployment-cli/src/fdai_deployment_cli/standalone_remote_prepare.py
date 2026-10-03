@@ -22,13 +22,18 @@ def prepare_remote(
     *,
     remote_root: str,
     remote_archive: str,
-    archive: Path,
-    archive_digest: str,
+    archive: Path | None,
+    archive_digest: str | None,
     handoff_path: Path,
     remote_handoff: str,
     entra_path: Path | None,
     remote_entra: str | None,
     app_work: str,
+    source_archive: Path | None = None,
+    source_archive_digest: str | None = None,
+    source_receiver: Path | None = None,
+    source_receiver_digest: str | None = None,
+    source_snapshot_digest: str | None = None,
     runtime_profile: RuntimeDeploymentProfile | None = None,
     application_state_adoption: ApplicationStateAdoption | None = None,
     remote_adoption_state: str = "",
@@ -49,13 +54,38 @@ def prepare_remote(
         runtime_platform="container-apps",
         database_placement="postgres-flex",
     )
+    source_mode = source_archive is not None
+    if source_mode:
+        if not all(
+            value is not None
+            for value in (
+                source_archive_digest,
+                source_receiver,
+                source_receiver_digest,
+                source_snapshot_digest,
+            )
+        ):
+            raise ValueError("source managed-host preparation inputs are incomplete")
+        if archive is not None or archive_digest is not None or control_package is not None:
+            raise ValueError("source managed-host preparation cannot use kit inputs")
+    elif archive is None or archive_digest is None:
+        raise ValueError("kit managed-host preparation inputs are incomplete")
     created = tunnel.ssh(("install", "-d", "-m", "0700", remote_root), timeout=60)
     if created.returncode != 0:
         raise ValueError("standalone remote work directory is unavailable")
     removed = tunnel.ssh(("rm", "-f", "--", remote_archive), timeout=60)
     if removed.returncode != 0:
         raise ValueError("standalone remote archive reset failed")
-    tunnel.copy_to(archive, remote_archive, timeout=min(1800, timeout_seconds))
+    remote_source_archive = f"{remote_root}/source-transfer.tar"
+    remote_source_receiver = f"{remote_root}/source-receiver.pyz"
+    if source_mode:
+        assert source_archive is not None
+        assert source_receiver is not None
+        tunnel.copy_to(source_archive, remote_source_archive, timeout=min(1800, timeout_seconds))
+        tunnel.copy_to(source_receiver, remote_source_receiver, timeout=300)
+    else:
+        assert archive is not None
+        tunnel.copy_to(archive, remote_archive, timeout=min(1800, timeout_seconds))
     foundation = stage_foundation_context(
         tunnel,
         handoff_path,
@@ -74,10 +104,24 @@ def prepare_remote(
         tunnel.copy_to(
             application_state_adoption.descriptor, remote_adoption_descriptor, timeout=120
         )
-    digest = tunnel.ssh(("sha256sum", remote_archive), timeout=300)
-    if digest.returncode != 0 or digest.stdout.split(maxsplit=1)[0] != archive_digest:
-        raise ValueError("standalone transport archive digest differs")
-    install_cli = _kit_cli_installation(remote_root)
+    if source_mode:
+        assert source_archive_digest is not None
+        assert source_receiver_digest is not None
+        archive_digest_result = tunnel.ssh(("sha256sum", remote_source_archive), timeout=300)
+        receiver_digest_result = tunnel.ssh(("sha256sum", remote_source_receiver), timeout=120)
+        if (
+            archive_digest_result.returncode != 0
+            or archive_digest_result.stdout.split(maxsplit=1)[0] != source_archive_digest
+            or receiver_digest_result.returncode != 0
+            or receiver_digest_result.stdout.split(maxsplit=1)[0] != source_receiver_digest
+        ):
+            raise ValueError("source transport digest differs")
+        install_cli = _source_cli_installation(remote_root)
+    else:
+        digest = tunnel.ssh(("sha256sum", remote_archive), timeout=300)
+        if digest.returncode != 0 or digest.stdout.split(maxsplit=1)[0] != archive_digest:
+            raise ValueError("standalone transport archive digest differs")
+        install_cli = _kit_cli_installation(remote_root)
     if control_package is not None:
         install_cli = _stage_control_package(tunnel, remote_root, control_package)
     try:
@@ -93,9 +137,17 @@ def prepare_remote(
             "fdai_deployment_cli.standalone_host",
             "--work-dir",
             app_work,
-            "prepare",
-            "--kit",
-            f"{remote_root}/kit",
+            *(
+                (
+                    "prepare-source",
+                    "--source-snapshot",
+                    f"{remote_root}/source-snapshot",
+                    "--source-snapshot-digest",
+                    str(source_snapshot_digest),
+                )
+                if source_mode
+                else ("prepare", "--kit", f"{remote_root}/kit")
+            ),
             "--handoff",
             foundation.handoff,
             *(("--entra", foundation.entra) if foundation.entra is not None else ()),
@@ -114,6 +166,11 @@ def prepare_remote(
             str(selected_runtime.user_node_max_count),
             "--user-node-sku",
             selected_runtime.user_node_sku,
+            *(
+                ("--database-sku", selected_runtime.database_sku)
+                if selected_runtime.database_sku is not None
+                else ()
+            ),
             *(
                 value
                 for add_on in selected_runtime.product_profile.add_ons
@@ -139,19 +196,43 @@ def prepare_remote(
             ),
         )
         commands = (
-            (("rm", "-rf", "--", f"{remote_root}/kit"), 300),
-            (("tar", "-xzf", remote_archive, "-C", remote_root), 1800),
-            (("rm", "-rf", "--", f"{remote_root}/venv"), 300),
-            (("python3", "-m", "venv", f"{remote_root}/venv"), 300),
+            *(
+                (
+                    ("clean-source", ("rm", "-rf", "--", f"{remote_root}/source-snapshot"), 300),
+                    (
+                        "receive-source",
+                        (
+                            "python3",
+                            remote_source_receiver,
+                            "--archive",
+                            remote_source_archive,
+                            "--destination",
+                            f"{remote_root}/source-snapshot",
+                            "--archive-digest",
+                            str(source_archive_digest),
+                            "--snapshot-digest",
+                            str(source_snapshot_digest),
+                        ),
+                        1800,
+                    ),
+                )
+                if source_mode
+                else (
+                    ("clean-kit", ("rm", "-rf", "--", f"{remote_root}/kit"), 300),
+                    ("extract-kit", ("tar", "-xzf", remote_archive, "-C", remote_root), 1800),
+                )
+            ),
+            ("clean-venv", ("rm", "-rf", "--", f"{remote_root}/venv"), 300),
+            ("create-venv", ("python3", "-m", "venv", f"{remote_root}/venv"), 300),
             *install_cli,
-            (("install", "-d", "-m", "0700", app_work), 60),
-            (prepare_arguments, 1800),
+            ("create-workdir", ("install", "-d", "-m", "0700", app_work), 60),
+            ("prepare", prepare_arguments, 1800),
         )
         setup = None
-        for command, limit in commands:
+        for step, command, limit in commands:
             setup = tunnel.ssh(command, timeout=min(limit, timeout_seconds))
             if setup.returncode != 0:
-                raise ValueError("standalone managed-host preparation failed")
+                raise ValueError(f"standalone managed-host preparation failed: step={step}")
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as setup_failure:
         try:
             _cleanup_catalog_review_staging(tunnel, remote_root=remote_root)
@@ -174,9 +255,10 @@ def prepare_remote(
     return {str(key): value for key, value in result.items()}
 
 
-def _kit_cli_installation(remote_root: str) -> tuple[tuple[tuple[str, ...], int], ...]:
+def _kit_cli_installation(remote_root: str) -> tuple[tuple[str, tuple[str, ...], int], ...]:
     return (
         (
+            "install-kit-cli",
             (
                 f"{remote_root}/venv/bin/pip",
                 "install",
@@ -191,9 +273,24 @@ def _kit_cli_installation(remote_root: str) -> tuple[tuple[tuple[str, ...], int]
     )
 
 
+def _source_cli_installation(remote_root: str) -> tuple[tuple[str, tuple[str, ...], int], ...]:
+    return (
+        (
+            "install-source-cli",
+            (
+                f"{remote_root}/venv/bin/pip",
+                "install",
+                "--no-cache-dir",
+                f"{remote_root}/source-snapshot/tree/packages/deployment-cli",
+            ),
+            900,
+        ),
+    )
+
+
 def _stage_control_package(
     tunnel: Any, remote_root: str, control_package: ControlPackage
-) -> tuple[tuple[tuple[str, ...], int], ...]:
+) -> tuple[tuple[str, tuple[str, ...], int], ...]:
     """Copy the locally verified wheelhouse and require the same bytes on the host."""
 
     remote_control = f"{remote_root}/control.tar.gz"
@@ -209,10 +306,11 @@ def _stage_control_package(
         raise ValueError("standalone control package digest differs")
     package = f"{control_root}/{PACKAGE_ROOT}"
     return (
-        (("rm", "-rf", "--", control_root), 120),
-        (("install", "-d", "-m", "0700", control_root), 60),
-        (("tar", "-xzf", remote_control, "-C", control_root), 300),
+        ("clean-control-package", ("rm", "-rf", "--", control_root), 120),
+        ("create-control-package-dir", ("install", "-d", "-m", "0700", control_root), 60),
+        ("extract-control-package", ("tar", "-xzf", remote_control, "-C", control_root), 300),
         (
+            "install-control-package",
             (
                 f"{remote_root}/venv/bin/pip",
                 "install",

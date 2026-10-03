@@ -94,6 +94,7 @@ from fdai.shared.providers.metric import MetricPoint, MetricQuery, NoopMetricPro
 from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.bus_poison_halt_clear import ORDERED_POISON_HALT_CLEAR_TOPIC
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
 )
@@ -237,6 +238,10 @@ def test_runtime_multiplexes_semantic_turn_channels() -> None:
 
 def test_runtime_multiplexes_incident_intervention_channel() -> None:
     assert INCIDENT_INTERVENTION_REQUEST_TOPIC in _RUNTIME_LOGICAL_TOPICS
+
+
+def test_runtime_multiplexes_ordered_poison_halt_clear_channel() -> None:
+    assert ORDERED_POISON_HALT_CLEAR_TOPIC in _RUNTIME_LOGICAL_TOPICS
 
 
 def test_runtime_multiplexes_effect_reconciliation_channels() -> None:

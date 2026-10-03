@@ -423,6 +423,37 @@ class PostgresForecastEpisodeStore:
                 (failed_at, error[:512], publication_id),
             )
 
+    async def enqueue_publication(
+        self,
+        item: ForecastPublicationOutboxItem,
+        *,
+        available_at: datetime,
+    ) -> bool:
+        if item.publication_id != forecast_publication_id(
+            episode_id=item.episode_id,
+            topic=item.topic,
+        ):
+            raise ValueError("forecast publication id does not match its episode and topic")
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await self._insert_publication(
+                connection,
+                episode_id=item.episode_id,
+                topic=item.topic,
+                payload=item.payload,
+                available_at=available_at,
+            )
+            cursor = await connection.execute(
+                "SELECT payload FROM forecast_publication_outbox WHERE publication_id = %s",
+                (item.publication_id,),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                raise RuntimeError("forecast publication enqueue did not persist")
+            if dict(row["payload"]) != dict(item.payload):
+                raise ValueError("forecast publication identity conflict")
+            return True
+
     async def _insert_publication(
         self,
         connection: psycopg.AsyncConnection[Any],

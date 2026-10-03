@@ -33,6 +33,9 @@ strong default; **MAY** is optional.
   layer, `owns`, `subscribes`, LLM flags, `hard_dependency`) is the machine-
   readable role. Editing an agent's behavior MUST keep its `AgentSpec` and this
   table in sync.
+- The Hub-managed lifecycle's lifecycle agent and infrastructure agent are installation
+  components, not pantheon agents. Pantheon agents MUST NOT install or upgrade FDAI and MUST
+  only observe FDAI-owned (`fdai:managed=true`) resources.
 
 ### 1.1 Directory layout (MUST)
 
@@ -80,15 +83,15 @@ MAY publish that object type's topic.
 |-------|------|-------|----------------------|--------------------|------------|-----------------|----------|
 | **Odin** | Master Planner (cross-vertical arbiter, final tie-break) | governance | ArbitrationDecision | `object.arbitration-decision` | `object.arbitration-request`, `object.verdict` (portfolio) | no | no |
 | **Thor** | Responder - **sole privileged executor**; MUST NOT judge | pipeline | ActionRun | `object.action-run` | `object.verdict`, `object.approval`, `object.rollback`, `object.recovery-effect-observation` (exact verified ActionRun closure only) | no | no |
-| **Forseti** | Judge - issues Verdict (auto/hil/deny); reports to Odin, not Thor | pipeline | Verdict, SecurityEvent, ArbitrationRequest, ProspectiveLineage | `object.verdict`, `object.security-event`, `object.arbitration-request`, `object.prospective-lineage` | `object.anomaly`, `object.drift`, `object.forecast`, `object.resilience-score`, `object.cost-anomaly`, `object.capacity-forecast`, `object.capacity-graduation-recommendation`, `object.arbitration-decision`, `object.rule` | yes (T2 abstain only) | no |
+| **Forseti** | Judge - issues Verdict (auto/hil/deny); reports to Odin, not Thor | pipeline | Verdict, SecurityEvent, ArbitrationRequest, ProspectiveLineage | `object.verdict`, `object.security-event`, `object.arbitration-request`, `object.prospective-lineage` | `object.change`, `object.event`, `object.anomaly`, `object.drift`, `object.forecast`, `object.resilience-score`, `object.cost-anomaly`, `object.capacity-forecast`, `object.capacity-graduation-recommendation`, `object.arbitration-decision`, `object.rule` | yes (T2 abstain only) | no |
 | **Huginn** | Event Collector / real-time resource discovery ingress - normalize + dedup + correlate | pipeline | Event, Change | `object.event`, `object.change` | (external ingress) | no | no |
 | **Heimdall** | Observer - anomaly/drift/forecast + outcome closure + evidence-conflict revision + recovery post-effect observation relay + security-severity correlation | pipeline | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | `object.anomaly`, `object.drift`, `object.forecast`, `object.forecast-outcome`, `object.retrieval-validation`, `object.evidence-conflict`, `object.recovery-effect-observation` | `object.event`, `object.action-run` (terminal effect observation), `object.security-event`, `object.chaos-experiment`, `object.rule-generation-build-result`, `object.context-index` (ontology index validation) | no | no |
 | **Vidar** | Recovery - rollback + DR failover principal | pipeline | Rollback | `object.rollback` | `object.action-run` (failed) | no | **yes** |
 | **Var** | Approver - HIL principal; MUST stay distinct from Thor | pipeline | Approval | `object.approval` | `object.action-run` (hil), `object.audit-entry` (document HIL), `object.event` (test-context review) | no | no |
-| **Bragi** | Narrator - conversational-port translator ONLY | pipeline | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | `object.conversation`, `object.turn`, `object.user-preference`, `object.handoff-escalation`, `object.post-turn-review` | (operator console) | yes (translator only) | no |
-| **Saga** | Auditor - append-only chain + handoff-to-GitHub-issue | governance | AuditEntry, Issue | `object.audit-entry`, `object.issue` | all terminal states, including `object.arbitration-decision`, `object.forecast-outcome`, `object.retrieval-validation`, `object.evidence-conflict`, `object.prospective-lineage`, `object.state-snapshot`, `object.context-index`, Mimir's `object.rule` and `object.policy`; `object.handoff-escalation` | no | **yes** |
-| **Mimir** | Rule Steward - promote/revoke rules through the quality gate | governance | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | `object.rule`, `object.policy`, `object.rule-generation-build-request`, `object.rule-generation-build-result` | `object.rule-candidate`, `object.issue`, `object.rule-generation-build-request`, `object.retrieval-validation`, `object.event` and `object.approval` (test-context lifecycle only) | no | no |
-| **Muninn** | Memory - state snapshots + case-history/context index (RAG) | governance | StateSnapshot, ContextIndex | `object.state-snapshot`, `object.context-index` | `object.turn`, `object.audit-entry`, `object.drift` (detection readiness), `object.forecast-outcome`, `object.retrieval-validation`, `object.evidence-conflict`, `object.prospective-lineage`, `object.event` (retention tick), `object.change`, `object.pattern` (verified inert retention) | no | no |
+| **Bragi** | Narrator - conversational-port translator ONLY | pipeline | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | `object.conversation`, `object.turn`, `object.user-preference`, `object.handoff-escalation`, `object.post-turn-review` | `object.verdict`, `object.action-run` (progress rendering only) | yes (translator only) | no |
+| **Saga** | Auditor - append-only chain + handoff-to-GitHub-issue | governance | AuditEntry, Issue | `object.audit-entry`, `object.issue` | `object.action-run`, `object.rollback`, `object.verdict`, `object.arbitration-decision`, `object.approval`, `object.security-event`, `object.state-snapshot`, `object.context-index`, `object.issue`, `object.forecast-outcome`, `object.retrieval-validation`, `object.evidence-conflict`, `object.prospective-lineage`, `object.handoff-escalation`, `object.rule`, `object.policy`, `object.event` | no | **yes** |
+| **Mimir** | Rule Steward - promote/revoke rules through the quality gate | governance | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | `object.rule`, `object.policy`, `object.rule-generation-build-request`, `object.rule-generation-build-result` | `object.rule-candidate`, `object.issue`, `object.rule-generation-build-request`, `object.retrieval-validation`, `object.event`, `object.approval` | no | no |
+| **Muninn** | Memory - state snapshots + case-history/context index (RAG) | governance | StateSnapshot, ContextIndex | `object.state-snapshot`, `object.context-index` | `object.conversation`, `object.turn`, `object.user-preference`, `object.audit-entry`, `object.drift` (detection readiness), `object.forecast-outcome`, `object.event` (retention tick), `object.change`, `object.evidence-conflict`, `object.prospective-lineage`, `object.retrieval-validation`, `object.pattern` (verified inert retention) | no | no |
 | **Norns** | Learner - proposes inert RuleCandidates (never mutates catalog) | governance | RuleCandidate, Pattern | `object.rule-candidate`, `object.pattern` | `object.audit-entry`, `object.issue`, `object.approval`, `object.context-index`, consent-filtered `object.post-turn-review` | off-path batch only | no |
 | **Njord** | Cost specialist - advisory to Forseti | domain | CostAnomaly | `object.cost-anomaly` | `object.event` (bounded cost samples) | no | no |
 | **Freyr** | Capacity specialist - advisory to Forseti | domain | CapacityForecast, CapacityGraduationRecommendation | `object.capacity-forecast`, `object.capacity-graduation-recommendation` | `object.event` (bounded utilization and graduation evidence), `object.cost-anomaly` | no | no |
@@ -117,8 +120,8 @@ MAY publish that object type's topic.
    any non-Thor agent mutate, is a defect.
 3. **Approval != execution (MUST).** Var carries the human approval; Thor
    executes. They MUST stay distinct authenticated principals and MUST NOT share
-   an executor identity. An explicitly declared single-operator development
-   profile MAY let the same human request and approve, but it never merges Var
+   an executor identity. An explicitly declared single-operator development or
+   production profile MAY let the same human request and approve, but it never merges Var
    and Thor or gives the human Thor's credential.
 4. **Narrator is a translator, not a judge/executor (MUST).** A conversational
    request that wants an action MUST re-enter the typed pipeline as a proposal
@@ -185,12 +188,14 @@ do all of the following before proposing the change as complete:
    idempotency key, and audit intent plus terminal closure - and these MUST be present on the wire payload
    (e.g. `ActionRun`), not only in a constructor default. New behavior ships
    **shadow-first** in the default profile. The full-authority development profile may promote or
-   roll back the action immediately inside its exact dedicated test scope.
+   roll back the action immediately inside its exact dedicated test scope. An installation
+   operator may record an attributed override promotion; regression demotion and capability
+   recall still take precedence.
 6. **Enforce quorum for irreversible actions.** An `irreversible` ActionType MUST
    route through HIL with `quorum_required >= 2`, distinct approvers, and no
-   self-approval in the default profile. The full-authority development profile preserves the
-   declared quorum in audit but may use one authenticated Owner as the effective development
-   quorum; it MUST NOT fabricate multiple approver identities. If you touch the verdict ->
+   self-approval in the default profile. The full-authority development and single-operator
+   production profiles preserve the declared quorum in audit but may use one authenticated approver
+   as the effective quorum; they MUST NOT fabricate multiple approver identities. If you touch the verdict ->
    dispatch -> approval path (Forseti, Thor, Var), you MUST ensure `quorum_required` is set by the
    judge and honored by the executor - it MUST NOT be hard-coded to 1.
 7. **Fail toward safety, never silently drop.** An agent that cannot resolve an

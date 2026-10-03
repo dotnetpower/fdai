@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import pytest
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
@@ -24,17 +25,26 @@ from fdai.agents.var import Var
 
 def _wire_pipeline(*, shadow: bool) -> tuple[InMemoryBus, Forseti, Thor, Var, Saga]:
     bus = InMemoryBus(registry=load_pantheon())
+    semantics = ActionSemanticsCatalog(
+        irreversible_by_id={
+            "remediate.disable-public-access": False,
+            "remediate.enable-encryption": False,
+            "ops.restart-service": False,
+        },
+        rollback_by_id={
+            "remediate.disable-public-access": "state_forward_only",
+            "remediate.enable-encryption": "state_forward_only",
+            "ops.restart-service": "state_forward_only",
+        },
+    )
     forseti = Forseti(
         rbac={"operator@example.com": frozenset({"remediate.enable-encryption"})},
-        action_semantics=ActionSemanticsCatalog(
-            irreversible_by_id={"remediate.enable-encryption": False},
-            rollback_by_id={},
-        ),
+        action_semantics=semantics,
     )
     forseti.bind_bus(bus)
-    thor = Thor(shadow_by_default=shadow)
+    thor = Thor(shadow_by_default=shadow, action_semantics_catalog=semantics)
     thor.bind_bus(bus)
-    var = Var()
+    var = Var(action_semantics=semantics)
     var.bind_bus(bus)
     saga = Saga()
     saga.bind_bus(bus)
@@ -47,6 +57,9 @@ def _wire_pipeline(*, shadow: bool) -> tuple[InMemoryBus, Forseti, Thor, Var, Sa
 
 
 def _emit(bus: InMemoryBus, event: dict[str, Any]) -> None:
+    correlation_id = str(event.get("correlation_id") or "").strip()
+    if correlation_id and "idempotency_key" not in event:
+        event = {**event, "idempotency_key": f"event:{correlation_id}"}
     asyncio.run(bus.publish("Huginn", "object.event", event))
 
 
@@ -143,10 +156,11 @@ def test_adversarial_duplicate_verdict_dispatched_once() -> None:
 def test_adversarial_empty_payload_does_not_act() -> None:
     """A junk / empty event must abstain (measurably) and never dispatch."""
     bus, forseti, thor, var, _ = _wire_pipeline(shadow=True)
-    _emit(bus, {})
+    with pytest.raises(ValueError, match="correlation_id"):
+        _emit(bus, {})
     _emit(bus, {"event_type": "nonsense", "correlation_id": "j1"})
     fb, tb, vb = forseti.behavior_snapshot(), thor.behavior_snapshot(), var.behavior_snapshot()
-    assert fb.get("no_rule_match") == 2
+    assert fb.get("no_rule_match") == 1
     # Nothing downstream acted.
     assert tb == {}
     assert vb == {}

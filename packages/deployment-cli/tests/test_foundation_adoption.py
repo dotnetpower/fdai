@@ -14,6 +14,7 @@ from fdai_deployment_cli.contracts import (
 )
 from fdai_deployment_cli.foundation_adoption import (
     stage_recovered_foundation,
+    write_lineage_adoption_receipt,
 )
 from fdai_deployment_cli.foundation_adoption_evidence import (
     validate_foundation_adoption_receipt,
@@ -42,7 +43,7 @@ def _receipt(value: dict[str, object], field: str = "receipt_digest") -> bytes:
     return canonical_bytes(value)
 
 
-def _inputs(tmp_path: Path) -> tuple[Path, Path]:
+def _inputs(tmp_path: Path, *, connectivity: str = "online") -> tuple[Path, Path]:
     foundation = tmp_path / "foundation"
     recovery = tmp_path / "recovery"
     foundation.mkdir(mode=0o700)
@@ -53,7 +54,7 @@ def _inputs(tmp_path: Path) -> tuple[Path, Path]:
             environment="dev",
             region=REGION,
             target_binding=TARGET,
-            connectivity="online",
+            connectivity=connectivity,
             host="managed-vm",
             transport="manual",
             access_method="bastion",
@@ -203,6 +204,30 @@ def test_recovered_foundation_adoption_selects_current_kit_source(tmp_path: Path
 
     assert selected.source_commit == APPLICATION_SOURCE
     assert selected.digest == adoption.receipt["receipt_digest"]
+
+
+def test_recovered_offline_foundation_adoption_preserves_split_lineage(
+    tmp_path: Path,
+) -> None:
+    foundation, recovery = _inputs(tmp_path, connectivity="offline")
+
+    adoption = stage_recovered_foundation(
+        foundation_directory=foundation,
+        recovery_directory=recovery,
+        destination=tmp_path / "destination",
+        application_source_commit=APPLICATION_SOURCE,
+        kit_manifest_digest="e" * 64,
+        runtime_release_digest="f" * 64,
+        tenant_id=TENANT,
+        subscription_id=SUBSCRIPTION,
+        region=REGION,
+        monthly_cost_ceiling=2000,
+    )
+
+    assert adoption.receipt["foundation_source_commit"] == SOURCE
+    assert adoption.receipt["application_source_commit"] == APPLICATION_SOURCE
+    assert adoption.receipt["no_effect_adoption"] is True
+    assert adoption.prepared.source_commit == APPLICATION_SOURCE
 
 
 def test_recovered_foundation_adoption_is_idempotent(tmp_path: Path) -> None:
@@ -420,3 +445,90 @@ def test_a_non_terminal_or_mismatched_receipt_is_refused(
             region=REGION,
             monthly_cost_ceiling=2000,
         )
+
+
+def _retained_run(tmp_path: Path) -> tuple[Path, Path, dict[str, object]]:
+    """Lay out an ordinarily applied offline Foundation the way the standalone run retains it."""
+
+    foundation, recovery = _inputs(tmp_path, connectivity="offline")
+    _swap_recovery_receipt(
+        recovery,
+        schema_version="fdai.genesis-foundation-apply-receipt.v1",
+        state="applied",
+    )
+    run_root = tmp_path / "run"
+    plan_directory = run_root / "foundation-plan-attempt-2"
+    plan_directory.mkdir(parents=True, mode=0o700)
+    run_root.chmod(0o700)
+    _write(run_root / "profile.json", (foundation / "profile.json").read_bytes())
+    for retained, recovered in (
+        ("foundation-private-handoff.json", "recovery-private-handoff.json"),
+        ("foundation-apply-receipt.json", "recovery-apply-receipt.json"),
+        ("runner-enrollment-receipt.json", "runner-enrollment-receipt.json"),
+        ("foundation-state-handoff-receipt.json", "foundation-state-handoff-receipt.json"),
+        ("foundation-state-authority.json", "foundation-state-authority.json"),
+        ("runner-known-hosts", "runner-known-hosts"),
+    ):
+        _write(plan_directory / retained, (recovery / recovered).read_bytes())
+    handoff = load_json_object(
+        (plan_directory / "foundation-private-handoff.json").read_bytes(), label="handoff"
+    )
+    return run_root, plan_directory, handoff
+
+
+def _lineage(run_root: Path, plan_directory: Path, **overrides: str) -> dict[str, object]:
+    values = {
+        "application_source_commit": APPLICATION_SOURCE,
+        "kit_manifest_digest": "e" * 64,
+        "runtime_release_digest": "f" * 64,
+    }
+    values.update(overrides)
+    return write_lineage_adoption_receipt(
+        run_root=run_root,
+        plan_directory=plan_directory,
+        tenant_id=TENANT,
+        subscription_id=SUBSCRIPTION,
+        region=REGION,
+        monthly_cost_ceiling=2000,
+        **values,
+    )
+
+
+def test_offline_upgrade_binds_the_retained_foundation_to_the_newer_kit(tmp_path: Path) -> None:
+    run_root, plan_directory, handoff = _retained_run(tmp_path)
+
+    receipt = _lineage(run_root, plan_directory)
+
+    path = run_root / "foundation-adoption-receipt.json"
+    assert path.read_bytes() == canonical_bytes(receipt)
+    assert receipt["foundation_source_commit"] == SOURCE
+    assert receipt["application_source_commit"] == APPLICATION_SOURCE
+    # The managed host accepts the newer kit only through this exact evidence.
+    host = load_foundation_host_adoption(path, handoff=handoff, target_binding=TARGET)
+    assert host.source_commit == APPLICATION_SOURCE
+    assert _lineage(run_root, plan_directory) == receipt
+
+
+def test_offline_upgrade_supersedes_the_receipt_of_another_kit(tmp_path: Path) -> None:
+    run_root, plan_directory, _handoff = _retained_run(tmp_path)
+    first = _lineage(run_root, plan_directory)
+
+    second = _lineage(run_root, plan_directory, kit_manifest_digest="d" * 64)
+
+    assert second["receipt_digest"] != first["receipt_digest"]
+    assert (run_root / "foundation-adoption-receipt.json").read_bytes() == canonical_bytes(second)
+
+
+def test_offline_upgrade_refuses_a_same_revision_or_tampered_foundation(tmp_path: Path) -> None:
+    run_root, plan_directory, _handoff = _retained_run(tmp_path)
+
+    with pytest.raises(ValueError, match="needs no lineage adoption"):
+        _lineage(run_root, plan_directory, application_source_commit=SOURCE)
+
+    state = plan_directory / "foundation-state-handoff-receipt.json"
+    value = load_json_object(state.read_bytes(), label="state")
+    value["managed_resource_count"] = 36
+    _write(state, canonical_bytes(value))
+    with pytest.raises(ValueError, match="digest differs"):
+        _lineage(run_root, plan_directory)
+    assert not (run_root / "foundation-adoption-receipt.json").exists()

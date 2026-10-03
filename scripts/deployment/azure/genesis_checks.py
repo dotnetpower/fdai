@@ -23,12 +23,22 @@ _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 
 @dataclass(frozen=True, slots=True)
 class SignedSourceEvidence:
-    """Verified distribution evidence supplied by the installed package boundary."""
+    """Verified distribution evidence supplied by the installed package boundary.
+
+    ``foundation_source_commit`` names the revision that created a retained offline Foundation.
+    An offline kit upgrade continues that Foundation under its own lineage while the signed kit
+    supplies ``source_commit`` for the application; without an upgrade both are equal.
+    """
 
     source_commit: str
     kit_manifest_digest: str
     bundle_manifest_digest: str
     runtime_release_digest: str
+    foundation_source_commit: str = ""
+
+    @property
+    def accepted_source_commits(self) -> frozenset[str]:
+        return frozenset({self.source_commit, self.foundation_source_commit or self.source_commit})
 
     @classmethod
     def from_environment(cls) -> SignedSourceEvidence | None:
@@ -49,15 +59,28 @@ class SignedSourceEvidence:
             "bundle_manifest_digest",
             "runtime_release_digest",
         }
-        if not isinstance(value, dict) or set(value) != expected:
+        if not isinstance(value, dict) or not expected <= set(value) <= {
+            *expected,
+            "foundation_source_commit",
+        }:
             raise CheckError("signed_source_evidence_invalid", 64)
-        evidence = cls(**{name: str(value[name]) for name in expected})
-        if _COMMIT.fullmatch(evidence.source_commit) is None or any(
-            _DIGEST.fullmatch(item) is None
-            for item in (
-                evidence.kit_manifest_digest,
-                evidence.bundle_manifest_digest,
-                evidence.runtime_release_digest,
+        evidence = cls(
+            **{name: str(value[name]) for name in expected},
+            foundation_source_commit=str(value.get("foundation_source_commit", "")),
+        )
+        if (
+            _COMMIT.fullmatch(evidence.source_commit) is None
+            or (
+                evidence.foundation_source_commit
+                and _COMMIT.fullmatch(evidence.foundation_source_commit) is None
+            )
+            or any(
+                _DIGEST.fullmatch(item) is None
+                for item in (
+                    evidence.kit_manifest_digest,
+                    evidence.bundle_manifest_digest,
+                    evidence.runtime_release_digest,
+                )
             )
         ):
             raise CheckError("signed_source_evidence_invalid", 64)
@@ -204,7 +227,7 @@ class GenesisChecks:
         if not apply:
             return
         if self.source_evidence is not None:
-            if source_commit != self.source_evidence.source_commit:
+            if source_commit not in self.source_evidence.accepted_source_commits:
                 raise CheckError("signed_source_revision_mismatch", 3)
             return
         git = self._required_git()

@@ -4,7 +4,7 @@ title: Installable Deployment CLI
 
 # Installable Deployment CLI
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
 
 This document defines the public FDAI deployment command. Operators run one local coordinator
 after Azure sign-in, while Terraform apply and private data-plane work run on the managed host
@@ -59,13 +59,19 @@ to `fdai`. Use a distinct token when canonical application or operations groups 
 The token is sealed into source preparation, retained variables, the run binding, and every exact
 Foundation plan. Repeat it unchanged on approval resume. It grants no ownership of existing
 resources and never authorizes deletion or adoption.
-Initial confirmation is separate from that approval. The coordinator advances within exact approval and returns review state when another
-checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
-execution and durable Trial activation are not yet connected. A plan
-returns exit code `2` for review, not deployment success; a capacity blocker returns `3`.
+The region suffix is selected by the same naming owner as the offline package path: retained
+Foundation variables keep their original token, a fresh work directory discovers one matching
+FDAI-owned installation token before planning, and only reviewed public-region tokens are used for
+new installs. An unknown or ambiguous token stops before Azure effects.
+Initial confirmation is separate from that approval. The coordinator advances within exact
+approval and returns review state when another checkpoint needs authority; it does not create
+approval, read stdin or report success. After the verified Foundation handoff, source mode
+continues into the shared managed-host application sequence without a signed kit. A plan returns
+exit code `2` for review, not deployment success; a capacity blocker returns `3`.
 `--prepare-only` makes no Azure call. `--preflight-only` reads the current human target, SKU
 restrictions, x64 architecture, host encryption, required zones and shared-family/total quota at
-autoscaler maximum plus simultaneous 33-percent surge. It neither reserves capacity nor accounts
+autoscaler maximum plus simultaneous 33-percent surge. A `postgres-flex` profile also requires the
+regional PostgreSQL Flexible Server catalog to offer PostgreSQL 16. It neither reserves capacity nor accounts
 for the Foundation graph. The distinct source work directory never adopts a kit run.
 
 After initial confirmation, a bounded public-price read adds an explicit partial AKS compute
@@ -98,13 +104,21 @@ It requires a fresh exact `foundation-state` approval before writing a current-s
 That verifier then runs in `verify` mode. A later verified controller can reuse the completed repair only after revalidating the repair source and proving the verifier digest is unchanged. State comparison preserves exact lineage, resource identities, and non-transient content while allowing only one backend-migration serial increment and order-only `check_results` normalization. Refresh-only drift is accepted only when it keeps the same resource ID and its observed `after` value exactly matches the same address's no-op desired value; deferred or unclosed drift is blocked. After cleanup, reobservation transfers the current verified observer through the owner-only Bastion path, reads its digest back, and runs it under the managed identity. New authority records seal both normalized Terraform output and exact backend blob bytes; the observer downloads the protected blob through Azure CLI data-plane authorization, verifies its authority-bound digest and backend protection, then removes every transient file without restoring the old Terraform work tree or provider mirror. A completed legacy receipt that predates the blob digest remains valid through its original independent zero-change evidence, but no digest is invented and repeated blob reobservation begins only with the extended authority record. A partial base set, a different existing file, or changed readback blocks recovery.
 These adapters do not prove a completed deployment.
 
+`fdaictl provision azure --source <checkout> --teardown` is a source-only cleanup path. It derives
+one review from retained source intent, source preparation, Genesis marker, and verified Foundation
+handoff receipts. It can name only the application and operations resource groups proven by that
+evidence, binds them to the target binding and source run binding, requires one exact
+`--teardown-confirmation` value, and then reads back absence after deletion. If any ownership proof
+is missing or names an unproven resource, the command stops before any delete call.
+
 The source coordinator uses the private managed-host route and reads Foundation provider
 registrations and inherited policy without changing either. Policy visibility is not a compliance
 or deployment-success claim. An exclusive run lock covers checkpoints; exact approval remains
 separate, and output format or TTY presence grants no authority. Source, snapshot, human target,
-retained run, and published exact-source CI must match before effects. A source run stops after
-verified Foundation handoff and does not transfer application source or invoke Docker or Buildx
-for a new installation; the bounded single-service `dev` update remains separate.
+and retained run must match before effects. After verified Foundation handoff, the source path
+transfers the pinned source snapshot to the managed host, installs the deployment CLI from it, and
+builds images with Azure Container Registry Tasks rather than Docker or Buildx. The bounded
+single-service `dev` update remains separate.
 **Initial design:** build every runtime image during source provisioning. **Critique:** that makes the tenant an unsigned release builder. **Revised contract:** a complete signed kit uses `--adopt-foundation-directory` plus `--adopt-foundation-recovery` only after recovery, enrollment, state-authority, target, profile, host-key, cleanup, and zero-change verification.
 **Superseded for new source installations:** Constitution Article 1 makes the tenant-side build the source path itself, with `operator-selected-source` provenance rather than release trust, as [source deployment](source-deployment.md) defines. The signed-kit adoption below remains for recovered Foundations that continue with an offline package.
 Adoption stages exact handoff and access evidence and emits a no-effect receipt. The local coordinator retains the complete chain, and the managed host independently verifies the historical handoff digest plus the distinct current kit and runtime digests before preparation; neither repeats Foundation apply, enrollment, migration, or state ownership. Repository admission persists digest-pinned references for all five baseline services before application planning. Application plans, approvals, and the optional catalog review checkpoint remain separate.
@@ -380,6 +394,46 @@ Foundation execution, workload activation, Trial enforcement, and live acceptanc
 readiness remains false until all selected services, identities, migrations, transport, jobs,
 Console authentication, cleanup, and second zero-change plans have been independently verified.
 
+### Source image stage
+
+**Initial design:** Build the runtime images on the managed host from the transferred snapshot with
+a local container engine, then import them like kit archives.
+
+**Critique:** The source path promises no container engine. A host-side build duplicates the
+registry's own build service, and an imported archive digest proves only that bytes moved, not
+which registry run produced them.
+
+**Revised design:** `source_image_stage.run_source_image_stage` drives the deployment registry's
+build service with only Azure CLI and one verified snapshot of one commit:
+
+- A malformed commit, snapshot digest, subscription, or registry name, or a missing service
+  Dockerfile, stops before any call. The registry must exist in the exact subscription in the
+  `Succeeded` state. A missing registry, or a subscription where Azure Container Registry Tasks is
+  not allowed, stops with `source_image_builder_unavailable` before any effect and never falls back
+  to another image source.
+- Before the first effect, an immutable claim binds the commit, snapshot digest, subscription,
+  registry, service list, and dependency pins. A claim or receipt for different inputs stops with
+  `source_image_stage_inputs_changed`.
+- The five baseline services build in canonical order with `az acr build`, tagged `sha-<commit>`.
+  Each digest comes from the run record's output image for exactly that repository, tag, and
+  registry. ClamAV and pgvector are imported with `az acr import` by the digests that the offline
+  kit builder also pins.
+- Every image is read back by digest and by its commit tag, and any mismatch stops with
+  `source_image_build_failed`. Only then does the private receipt bind the seven digests, with
+  `operator-selected-source` provenance, `release_signature_verified=false`, and
+  `deployment_ready=false`.
+- A completed receipt whose own digest verifies permits verification only; an edited receipt stops
+  with `source_image_stage_inputs_changed`. An interrupted stage keeps its claim and repeats
+  its builds on the next run. That rewrites only the stage's own commit tags, and deployment always
+  uses read-back digests.
+- The stage writes only its claim and receipt: no kit, signature, SBOM, provenance statement, or
+  attestation. Command output never reaches its error text.
+
+The stage needs only Azure CLI and the snapshot, so the application continuation can run it on the
+workstation against the clean checkout or on the managed host against the transferred snapshot. It
+runs after the platform apply creates the registry and before any service apply. Source deployment
+now invokes it inside the shared application sequence and continues with the read-back digests.
+
 ## Operator experience
 
 Install the signed offline Python package with standard tools:
@@ -395,7 +449,8 @@ python -m pip install --no-index --find-links wheels -r requirements.txt
 
 The 6.9 MB wheelhouse installs `fdaictl` without a source checkout or network call. Every shipped
 file except the signature pair is listed in `SHA256SUMS`, and workspace path dependencies ship as
-built wheels. Runtime images,
+built wheels. The control-package builder runs only under CPython 3.12 so binary wheels match the
+managed-host interpreter that installs the package. Runtime images,
 Terraform inputs, and other deployment payloads are selected later by the deployment command and
 are not Python package-installation requirements. No appliance image is produced,
 not a second package-certification path.
@@ -495,6 +550,19 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl offline prepare` | Prepare a local deployment payload; not required for Python package installation | No |
 | `fdaictl offline install-support` | Install optional migration support from local wheels | No |
 | `fdaictl license inspect` | Verify a capability token, or an installation entitlement against both exact bindings, without a network call | No |
+
+### Entra display-name ambiguity preflight
+
+**Decision and critique:** Installations that select `read-only-console` or
+`enterprise-identity-governance` use one tenant-local shared set of Entra registrations and groups,
+resolved only by unique exact display name. Earlier alternatives would have guessed among duplicate
+registrations, generated installation-scoped names, or introduced an explicit binding file. Guessing
+can break a running Console, installation-scoped names would fork the shared tenant contract, and a
+binding file needs a separate owner-review flow. The revised contract therefore performs a read-only
+preflight before the first Azure effect: duplicate `fdai-api`, `fdai-console-spa`,
+`fdai-approval-bot`, or `aw-*` display names stop the run with a fixed ambiguity reason. The
+operator resolves the tenant by renaming or removing the extra registration, then reruns the same
+installation.
 
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.
@@ -599,7 +667,7 @@ An online retry keeps the work directory and treats its retained kit as untruste
 the package-pinned release signature, compatibility, exact file set, all digests, runtime images,
 and bundle binding again before advancing. An existing materialized payload is reused only when it
 matches those verified files exactly; only the pinned `bin/` tools and Terraform are owner-executable. A new execution copy of the signed bundle avoids reusing
-Python bytecode, Terraform scratch files, or other residue from a previous execution copy.
+Python bytecode, Terraform scratch files, or other residue from a previous execution copy. The workstation coordinator removes its own execution copies when its process exits, after success or failure; no retained record references them, and the next retry makes a fresh copy. The managed host keeps its execution copy for every step of one run. After an application run converges, the coordinator prunes the transfer directories that earlier kits left on the managed host. A directory whose claims all have receipts is removed. A directory that still holds a claim without a receipt keeps its claims, receipts, reviews, plans, and migration evidence, and only its re-derivable kit, environments, provider data, and credential caches are removed. A pruning failure is reported and never fails the converged run.
 
 The cache records a digest of the requested artifact URL to reject an implicit source switch.
 This local record is not signature or remote-origin evidence. A legacy cache without this record
@@ -611,6 +679,100 @@ HTTP status, connection failure, local destination conflicts, permissions, and s
 have distinct value-safe errors. Corrupt or partial retained content is preserved and blocked,
 not silently replaced or accepted. Retry never deletes run state, SSH keys, plans, or approvals,
 never changes a signed source file, and never repeats an Azure effect from kit-cache evidence.
+
+#### Offline kit upgrade design and critique
+
+**Initial design:** Require operators to move `kit-work/verified`, `kit-work/kit`, and
+`run/standalone-kit.tar.gz` out of the work directory before rerunning with a newer signed kit.
+Then treat the newer kit as a fresh installation input.
+
+**Critique:** Manual moves are not a safe installation contract. They can strand the runner SSH
+key, run binding, profile, and host-key evidence that identify the existing Foundation, and a new
+work directory can cause Terraform to plan a replacement installation beside the old one. Reusing
+the retained snapshot silently is also unsafe because a verified older kit must not mask the
+operator's newly supplied kit, and tampering in the retained snapshot must remain visible.
+
+**Revised contract:** A same-work-directory offline upgrade verifies the newly supplied kit first.
+If the retained kit snapshot and materialized payload verify against their original manifest, the
+coordinator moves them to `kit-work/retained-kit-review/` and materializes the new kit in their
+place. If the retained snapshot is unsafe, incomplete, or tampered, the run stops and preserves it
+for review. The managed-host transfer archive follows the same rule: a valid previous
+`run/standalone-kit.tar.gz` and sidecar move to `run/standalone-kit-review/` before the new archive
+is written, while an invalid archive remains blocked.
+
+Foundation continuity stays separate from application source selection. Existing offline
+Foundation variables keep their creating `source_commit`, runner SSH key, run binding, profile,
+and host keys. The current kit source becomes the application source and is recorded beside the
+Foundation lineage in `run/foundation-source-lineage.json`. The Foundation orchestration then runs
+under that retained lineage: its status, approvals, plan reviews, and receipts stay bound to the
+creating revision. The signed source evidence carries both the kit's `source_commit` and the
+retained `foundation_source_commit`, so source verification accepts exactly those two revisions.
+The continuation re-verifies completed Foundation checkpoints under the revision that created them,
+including the retained runner-image receipt, and already satisfied effects are recovered through
+their retained claims and independent readback instead of being repeated. The
+coordinator then rebuilds a no-effect Foundation adoption receipt from that retained, verified
+chain and binds it to the newer kit, so the managed host accepts the kit only through that
+evidence. It does not approve a plan computed from the newer kit while that plan carries the
+retained revision as provenance.
+
+**Transition design:** The coordinator first compares precise Foundation inputs before it decides
+whether a transition exists. The trigger set is the Terraform root content used by Foundation, the
+provider lock, the bootstrap support files, the runner-image toolchain, the Terraform binary, and
+the retained runner-image observation digest. The whole deployment-bundle digest and the whole
+offline-kit manifest digest are excluded because those values change for every kit and don't prove
+Foundation configuration drift. When those inputs are unchanged, the continuation remains the
+verified #1811 path: no transition receipt is written and no new plan is computed.
+
+**Transition critique:** A retained `foundation-plan-attempt-*` review can be a legacy review that
+has no action `summary` and can be expired long before an upgrade. Such a review is enough to
+identify the retained input context for the pure continuation path, but it is not enough to approve
+or summarize a new transition. Similarly, setting `zero_change_verified: true` without running a
+plan from the newer kit would make the receipt look verified while proving nothing about the new
+Foundation configuration.
+
+**Transition revision:** When any trigger input differs, the coordinator computes the newer kit's
+Foundation plan against the authoritative remote Foundation state after state handoff. It reuses
+the Bastion-bound state-handoff machinery, the retained SSH key, run binding, profile, and host
+keys, but records the transition under the newer revision's provenance. A zero-change plan advances
+the lineage with a no-effect transition receipt. A non-destructive plan is approved by the
+invocation, claimed before effect, applied once, independently read back, and followed by a second
+zero-change plan. A delete, replacement, or runner-image/toolchain change that implies runner
+replacement keeps the existing exact typed confirmation requirement; without an interactive TTY it
+is refused. Interrupted transitions after a claim resume by verification only. Only after
+verification does the coordinator bind the retained apply, enrollment, state-handoff, authority,
+and transition receipts to the application lineage and advance `run/foundation-source-lineage.json`.
+Application plans keep the existing rule: the invocation approves the non-destructive exact plan it
+shows, and deleting or replacing an existing resource still needs the explicit extra confirmation.
+
+**Transport revision:** The transition helper is shipped per run and digest-bound in the transition
+evidence. It is not part of the runner image, so adding the helper does not imply a runner-image
+replacement for existing installations. The local coordinator packages the newer kit's Foundation
+root, provider mirror, modules, bootstrap support, runner-image support files, and retained
+variables into a private archive. The retained variables are the Foundation input whose normalized
+digest the retained plan reviewed, such as the runner-image materialization; when no candidate
+matches, the transition stops with `foundation_transition_variables_unverifiable`. The archive
+activates the AzureRM backend from the Foundation root's verified backend example, the same
+contract the state handoff uses, and refuses a root that still carries a local state. The
+coordinator then copies that archive and the helper under the Bastion transfer prefix over the
+installation's Bastion tunnel, and runs the helper under the retained runner Managed Identity
+against the existing AzureRM backend recorded by the state authority. The helper refuses an empty
+or unmanaged remote state, because planning without the migrated state would propose recreating the
+whole Foundation. Before each plan, it binds the policy-assigned values that the exact input cannot
+predict, the `FirstPartyUsage` public IP tags and the runner guest patch selection, from a read-only
+refresh. It applies the same supported-value rules as the Foundation apply, so drift that a tenant
+policy introduced after the apply does not turn into a replacement. The helper can plan, apply one
+already reviewed plan, verify by readback plus a zero-change plan, and clean up its transient work.
+It cannot approve, choose a target, repeat an ambiguous apply, change the runner image, or advance
+lineage; those remain local coordinator decisions after bounded evidence returns.
+
+Each transition attempt owns a distinct remote work directory. The helper publishes its bounded
+evidence below the Bastion evidence boundary, removes the transferred archive after a verified
+extraction, and, before a new plan, prunes the work, transfers, and evidence of superseded attempts.
+The coordinator resumes only the newest claimed or completed attempt, and only when that attempt's
+review records the current Foundation inputs. A completed attempt for other inputs is superseded by
+a new plan; an interrupted apply for other inputs stops with
+`foundation_transition_interrupted_for_other_inputs`. A failed remote step reports a bounded reason
+without identifiers.
 
 A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
@@ -632,10 +794,11 @@ human approval, executor identity, and effect verification remain separate contr
 
 ## Deployment appliance
 
-Removed. Constitution Article 1 defines exactly two installation paths, the one-command source
-deployment and a signed offline package, and states that installation tooling adds no other
-gate. An appliance image was a third packaging of the same kit, so its builder and runner are gone
-and no release step produces one.
+Removed. Constitution Article 1 defines exactly three installation paths: the one-command source
+deployment, a signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md),
+which is designed but not implemented. It also states that installation tooling adds no other
+gate. An appliance image was another packaging of the same kit rather than one of those paths, so
+its builder and runner are gone and no release step produces one.
 
 ## Result contract
 
@@ -652,6 +815,12 @@ enabled endpoint health; keeping those checks does not restore a workflow-based 
 All machine output uses stable English keys and excludes credentials, raw state, tenant values,
 and secret content. Private local and managed-host directories use mode `0700`; sensitive files
 use mode `0600`.
+
+Managed-host checkpoint failures return one bounded structured failure record to the workstation.
+The record carries a fixed reason code, a redacted provider excerpt, and any Azure provider error
+codes such as `OverconstrainedZonalAllocationRequest`, `AllocationFailed`, or
+`ParameterOutOfRange`. The excerpt is length-limited and redacts resource IDs, GUIDs, hostnames,
+tokens, and secret-like assignments before the local coordinator renders it.
 
 ## Related docs
 

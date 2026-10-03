@@ -9,6 +9,8 @@ from typing import Final
 
 _SUBSTRATE_TARGETS: Final = (
     "module.resource_group",
+    # Every later stage reads installation_binding, and on AKS no untargeted apply runs.
+    "terraform_data.installation",
     "module.log_analytics",
     "azurerm_application_insights.core",
     "module.network",
@@ -22,6 +24,7 @@ _SUBSTRATE_TARGETS: Final = (
     "module.command_api_identity",
     "module.inventory_identity",
     "module.canary_identity",
+    "module.operational_evidence_verifier_identity",
     "module.operator_api_identity",
     "module.isolated_executor_identity",
     "module.ingestion_identity",
@@ -50,6 +53,8 @@ _SUBSTRATE_TARGETS: Final = (
     "azurerm_role_assignment.inventory_stage_sender",
     "azurerm_role_assignment.inventory_eventhubs_raw_sender",
     "azurerm_role_assignment.canary_eventhubs_sender",
+    "azurerm_role_assignment.operational_evidence_verifier_acr_pull",
+    "azurerm_role_assignment.operational_evidence_verifier_state_store_secret_reader",
     "azurerm_role_assignment.inventory_kv_secrets_user",
     "azurerm_role_assignment.operator_api_kv_secrets_user",
     "azurerm_role_assignment.isolated_executor_kv_secrets_user",
@@ -77,6 +82,33 @@ _SUBSTRATE_TARGETS: Final = (
     "random_id.cost_pseudonym_key",
     "azurerm_key_vault_secret.cost_pseudonym_key",
     "azurerm_role_assignment.operator_cost_pseudonym_secret_reader",
+    "random_id.operator_request_core_signing_seed",
+    "azurerm_key_vault_secret.operator_request_core_signing_seed",
+    "random_id.operator_request_operator_signing_seed",
+    "azurerm_key_vault_secret.operator_request_operator_signing_seed",
+    "azurerm_role_assignment.core_operator_request_core_seed_reader",
+    "azurerm_role_assignment.core_operator_request_operator_seed_reader",
+    "azurerm_role_assignment.operator_api_operator_request_seed_reader",
+)
+CONTAINER_INSIGHTS_ASSOCIATION_TARGET: Final = (
+    "azurerm_monitor_data_collection_rule_association.container_insights"
+)
+RUNTIME_CLUSTER_STATE_TARGET: Final = "azurerm_kubernetes_cluster.runtime"
+_AKS_RUNTIME_TARGETS: Final = (
+    "azurerm_public_ip.egress",
+    "azurerm_nat_gateway.egress",
+    "azurerm_nat_gateway_public_ip_association.egress",
+    "azurerm_subnet_nat_gateway_association.egress",
+    "azurerm_user_assigned_identity.cluster",
+    "azurerm_role_assignment.cluster_network",
+    "azurerm_role_assignment.cluster_api_network",
+    RUNTIME_CLUSTER_STATE_TARGET,
+    "azurerm_monitor_data_collection_rule.container_insights",
+    CONTAINER_INSIGHTS_ASSOCIATION_TARGET,
+    "azurerm_kubernetes_cluster_node_pool.user",
+    "azurerm_role_assignment.managed_host_cluster_user",
+    "azurerm_role_assignment.managed_host_cluster_admin",
+    "azurerm_role_assignment.kubelet_acr_pull",
 )
 
 
@@ -105,6 +137,52 @@ def stage_targets(stage: str, context: dict[str, object]) -> tuple[str, ...]:
     infra = context.get("infra")
     moved = moved_state_targets(Path(infra)) if isinstance(infra, str) else ()
     return base + tuple(target for target in moved if target not in base)
+
+
+def fresh_aks_runtime_targets() -> tuple[str, ...]:
+    """Return the first fresh-runtime target set without the Container Insights association."""
+
+    return tuple(
+        target for target in _AKS_RUNTIME_TARGETS if target != CONTAINER_INSIGHTS_ASSOCIATION_TARGET
+    )
+
+
+def runtime_operation(work_dir: Path, infra: Path) -> str:
+    if (work_dir / "runtime-cluster-review.json").exists() and not (
+        work_dir / "runtime-cluster-receipt.json"
+    ).exists():
+        return "runtime-cluster"
+    if terraform_state_contains(infra, RUNTIME_CLUSTER_STATE_TARGET):
+        return "runtime"
+    return "runtime-cluster"
+
+
+def terraform_state_contains(infra: Path, address: str) -> bool:
+    completed = subprocess.run(
+        ("terraform", "state", "list", address),
+        cwd=infra,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    return completed.returncode == 0 and address in completed.stdout.splitlines()
+
+
+def operation_targets(stage: str, context: dict[str, object], operation: str) -> tuple[str, ...]:
+    if operation == "runtime-cluster":
+        return fresh_aks_runtime_targets()
+    return stage_targets(stage, context)
+
+
+def not_required_recovery(stage: str) -> dict[str, object]:
+    return {
+        "schema_version": "fdai.standalone-application-recovery.v1",
+        "state": "not-required",
+        "stage": stage,
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
 
 
 def moved_state_targets(infra: Path) -> tuple[str, ...]:
@@ -155,6 +233,40 @@ def focused_private_access(context: dict[str, object]) -> bool:
     return key_vault or document_storage
 
 
+def reconcile_retained_private_access(
+    retained: dict[str, object],
+    retained_values: dict[str, object],
+    key_vault_private_access: bool,
+    document_storage_private_access: bool,
+) -> bool:
+    changed = False
+    for key, variable, observed in (
+        (
+            "key_vault_private_access",
+            "enable_aks_key_vault_private_access",
+            key_vault_private_access,
+        ),
+        (
+            "document_storage_private_access",
+            "enable_aks_document_storage_private_access",
+            document_storage_private_access,
+        ),
+    ):
+        previous = retained.get(key)
+        if type(previous) is not bool:
+            raise ValueError("standalone host retained context differs")
+        if previous and not observed:
+            raise ValueError(f"standalone host retained private-access posture loosened: {key}")
+        tightened = previous or observed
+        if retained.get(key) is not tightened:
+            retained[key] = tightened
+            retained_values[variable] = tightened
+            changed = True
+    if changed:
+        retained["private_access_posture_transition"] = True
+    return changed
+
+
 def focused_access_targets(context: dict[str, object]) -> tuple[str, ...]:
     if not focused_private_access(context):
         raise ValueError("focused private-access plan was not selected")
@@ -187,12 +299,19 @@ def focused_access_targets(context: dict[str, object]) -> tuple[str, ...]:
 def substrate_targets(context: dict[str, object]) -> tuple[str, ...]:
     if database_placement(context) == "postgres-flex":
         return _SUBSTRATE_TARGETS
+    # -target keeps every configuration dependency even at count 0, so the ingestion DSN
+    # secrets and their readers would plan the Flexible Server through module.state_store.
     excluded = {
         "module.state_store",
         "module.postgres_public_mode_private_endpoint",
         "azurerm_key_vault_secret.state_store_dsn",
+        "azurerm_key_vault_secret.ingestion_api_dsn",
+        "azurerm_key_vault_secret.ingestion_worker_dsn",
+        "azurerm_role_assignment.ingestion_api_kv_secrets_user",
+        "azurerm_role_assignment.ingestion_worker_kv_secrets_user",
         "azurerm_role_assignment.inventory_kv_secrets_user",
         "azurerm_role_assignment.operator_api_kv_secrets_user",
         "azurerm_role_assignment.isolated_executor_kv_secrets_user",
+        "azurerm_role_assignment.operational_evidence_verifier_state_store_secret_reader",
     }
     return tuple(target for target in _SUBSTRATE_TARGETS if target not in excluded)

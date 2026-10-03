@@ -9,15 +9,29 @@ from fdai.agents._framework import factory
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bragi_intent_training import IntentTrainingEvaluator
 from fdai.agents._framework.development_authority_runtime import DevelopmentRuntimeBindings
+from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
+from fdai.agents._framework.ontology_index import (
+    ContextIndexWorkerBindings,
+    recover_context_index_publications,
+)
+from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
+from fdai.agents.bragi import Bragi
+from fdai.agents.forseti import Forseti
+from fdai.agents.freyr import Freyr
+from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
 from fdai.agents.loki import Loki
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
+from fdai.agents.njord import Njord
 from fdai.agents.norns import Norns
+from fdai.agents.odin import Odin
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
+from fdai.agents.vidar import Vidar
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.case_history import (
     CaseHistoryAnalyzer,
@@ -45,7 +59,24 @@ _LOG = logging.getLogger(__name__)
 _MAX_NORNS_STARTUP_RECOVERY = 5_000
 
 
-async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
+def bind_bragi_intent_training_evaluator(
+    agents: dict[str, Agent],
+    evaluator: IntentTrainingEvaluator | None,
+) -> None:
+    """Bind Bragi's optional off-path training evaluator at composition time."""
+
+    if evaluator is None:
+        return
+    bragi = agents.get("Bragi")
+    if isinstance(bragi, Bragi):
+        bragi.register_intent_training_evaluator(evaluator)
+
+
+async def rehydrate_operational_agents(
+    agents: dict[str, Agent],
+    *,
+    context_index_workers: ContextIndexWorkerBindings | None = None,
+) -> None:
     """Restore durable executor and learner work before consumers start."""
     huginn = agents.get("Huginn")
     if isinstance(huginn, Huginn):
@@ -57,13 +88,50 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
         restored = await thor.rehydrate()
         if restored:
             _LOG.info("pantheon_thor_rehydrated", extra={"in_flight_runs": restored})
+    forseti = agents.get("Forseti")
+    if isinstance(forseti, Forseti):
+        restored = await forseti.rehydrate()
+        if restored:
+            _LOG.info("pantheon_forseti_rehydrated", extra={"records": restored})
+    vidar = agents.get("Vidar")
+    if isinstance(vidar, Vidar):
+        restored = await vidar.recover_rollbacks()
+        if restored:
+            _LOG.info("pantheon_vidar_rollbacks_recovered", extra={"rollbacks": restored})
     loki = agents.get("Loki")
     if isinstance(loki, Loki):
         restored = await loki.rehydrate()
         if restored:
             _LOG.info("pantheon_loki_rehydrated", extra={"reserved_targets": restored})
+    heimdall = agents.get("Heimdall")
+    if isinstance(heimdall, Heimdall):
+        restored = await heimdall.rehydrate()
+        if restored:
+            _LOG.info("pantheon_heimdall_rehydrated", extra={"records": restored})
+        published = await heimdall.recover_publications()
+        if published:
+            _LOG.info(
+                "pantheon_heimdall_publications_recovered",
+                extra={"published": published},
+            )
+    njord = agents.get("Njord")
+    if isinstance(njord, Njord):
+        restored = await njord.rehydrate()
+        if restored:
+            _LOG.info("pantheon_njord_rehydrated", extra={"records": restored})
+    freyr = agents.get("Freyr")
+    if isinstance(freyr, Freyr):
+        restored = await freyr.rehydrate()
+        if restored:
+            _LOG.info("pantheon_freyr_rehydrated", extra={"records": restored})
     mimir = agents.get("Mimir")
     if isinstance(mimir, Mimir):
+        restored_governance = await mimir.recover_governance_state()
+        if restored_governance:
+            _LOG.info(
+                "pantheon_mimir_governance_rehydrated",
+                extra={"records": restored_governance},
+            )
         restored = await mimir.recover_catalog_reviews()
         if restored:
             _LOG.info(
@@ -72,6 +140,12 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
             )
     norns = agents.get("Norns")
     if isinstance(norns, Norns):
+        restored_learning = await norns.recover_learning_state()
+        if restored_learning:
+            _LOG.info(
+                "pantheon_norns_learning_rehydrated",
+                extra={"records": restored_learning},
+            )
         published = await norns.flush_candidates()
         if published or norns.pending_candidates:
             _LOG.info(
@@ -104,6 +178,18 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
         restored = await saga.rehydrate_issue_tracker()
         if restored:
             _LOG.info("pantheon_saga_issues_rehydrated", extra={"issues": restored})
+        audit_published = await saga.recover_audit_outbox()
+        if audit_published:
+            _LOG.info(
+                "pantheon_saga_audit_outbox_recovered",
+                extra={"published": audit_published},
+            )
+        issue_published = await saga.recover_handoff_issue_publications()
+        if issue_published:
+            _LOG.info(
+                "pantheon_saga_handoff_issue_publications_recovered",
+                extra={"published": issue_published},
+            )
     var = agents.get("Var")
     if isinstance(var, Var):
         finalized, published = await var.recover_approvals()
@@ -111,6 +197,35 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
             _LOG.info(
                 "pantheon_var_approvals_recovered",
                 extra={"finalized": finalized, "published": published},
+            )
+    bragi = agents.get("Bragi")
+    if isinstance(bragi, Bragi):
+        progress, turns = await bragi.recover_state()
+        if progress or turns:
+            _LOG.info(
+                "pantheon_bragi_state_recovered",
+                extra={"progress": progress, "turns_published": turns},
+            )
+    muninn = agents.get("Muninn")
+    if isinstance(muninn, Muninn):
+        operational_published = await muninn.recover_operational_publications()
+        if operational_published:
+            _LOG.info(
+                "pantheon_muninn_operational_publications_recovered",
+                extra={"published": operational_published},
+            )
+        restored = await muninn.recover_conversation_projections()
+        if restored:
+            _LOG.info(
+                "pantheon_muninn_conversation_projections_rehydrated",
+                extra={"records": restored},
+            )
+    if context_index_workers is not None:
+        published = await recover_context_index_publications(agents, context_index_workers)
+        if published:
+            _LOG.info(
+                "pantheon_context_index_publications_recovered",
+                extra={"published": published},
             )
 
 
@@ -137,18 +252,23 @@ def bind_operational_agents(
     prospective_lineage_finalizer: ProspectiveLineageFinalizer | None,
     change_assessor: ChangeAssessmentService | None,
     cost_runtime: factory.CostRuntimeBindings,
+    njord_state_store: StateStore | None,
     capacity_graduation_controller: CapacityGraduationController | None,
+    freyr_state_store: StateStore | None,
+    freyr_utilization_sampler: CapacityUtilizationSampler | None = None,
     test_context_source: TestContextSource | None = None,
     test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
     anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
     development: DevelopmentRuntimeBindings | None = None,
     action_types: tuple[OntologyActionType, ...] = (),
     governed_execution_selected: bool = False,
+    forseti_state_store: StateStore | None = None,
 ) -> None:
     """Replace baseline instances only when runtime bindings are available."""
 
     if muninn_state_store is not None:
         cast(Mimir, agents["Mimir"]).bind_catalog_review_state_store(muninn_state_store)
+        cast(Mimir, agents["Mimir"]).bind_governance_state_store(muninn_state_store)
     if case_history_materializer is not None:
         cast(Mimir, agents["Mimir"]).bind_case_history(case_history_materializer)
 
@@ -224,11 +344,33 @@ def bind_operational_agents(
             else None
         ),
         governed_execution_selected=governed_execution_selected,
+        state_store=forseti_state_store,
     )
     if forseti is not None:
         agents["Forseti"] = forseti
-    agents["Njord"] = factory.configured_njord(cost_runtime)
-    agents["Freyr"] = factory.configured_freyr(capacity_graduation_controller)
+    agents["Njord"] = factory.configured_njord(cost_runtime, state_store=njord_state_store)
+    agents["Freyr"] = factory.configured_freyr(
+        capacity_graduation_controller,
+        state_store=freyr_state_store,
+        utilization_sampler=freyr_utilization_sampler,
+    )
 
 
-__all__ = ["bind_operational_agents"]
+def bind_durable_governance_stores(
+    instantiated: dict[str, Agent],
+    *,
+    odin_state_store: StateStore | None,
+    proposal_rate_limit_state_store: StateStore | None,
+) -> None:
+    """Bind Odin's durable decision fence and every agent's proposal budget store."""
+    if odin_state_store is not None:
+        instantiated["Odin"] = Odin(
+            vertical_precedence=InitialVerticalPrecedence(),
+            state_store=odin_state_store,
+        )
+    if proposal_rate_limit_state_store is not None:
+        for agent in instantiated.values():
+            agent.bind_proposal_rate_limit_state_store(proposal_rate_limit_state_store)
+
+
+__all__ = ["bind_bragi_intent_training_evaluator", "bind_operational_agents"]

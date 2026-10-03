@@ -52,6 +52,7 @@ from fdai_aks_commerce.acceptance_closure import (
 )
 from fdai_aks_commerce.acceptance_dispatch import AcceptanceIsolatedDispatch
 from fdai_aks_commerce.acceptance_material import StoredAcceptanceDispatchMaterials
+from fdai_aks_commerce.acceptance_preflight import AcceptancePreflightSimulator
 from fdai_aks_commerce.acceptance_preparation import PreparedAcceptanceSource
 from fdai_aks_commerce.acceptance_receipts import (
     AcceptanceTrustBinding,
@@ -291,8 +292,9 @@ def build_recovery_bindings(
         safety_held=held,
         clock=clock,
     )
+    guard = AcceptanceGuardedExecutor(source=source, execute=unbound, clock=clock)
     dispatch = AcceptanceIsolatedDispatch(
-        guard=AcceptanceGuardedExecutor(source=source, execute=unbound, clock=clock),
+        guard=guard,
         read_material=materials.read,
         check_authority=authority,
         client=port,
@@ -325,6 +327,12 @@ def build_recovery_bindings(
     return AcceptanceRuntimeBindings(
         sources={ACCEPTANCE_SIGNAL: prepared},
         execute=execute,
+        preflight_simulator=AcceptancePreflightSimulator(
+            guard=guard,
+            read_material=materials.read,
+            check_authority=authority,
+        ),
+        rollback_executors={},
         observe=observer.handle,
         resolve=observer.resolve_incident,
     )

@@ -91,7 +91,7 @@ async def test_core_ingress_republishes_once_through_bragi_and_duplicate_is_term
 
     records = await runtime.reviews.list()
     assert len([record for record in records if record.review_id == "review-ingress-1"]) == 1
-    assert records[0].state is PostTurnReviewState.ABSTAINED
+    assert records[0].state is PostTurnReviewState.INELIGIBLE
 
 
 async def test_core_ingress_dead_letters_malformed_request() -> None:

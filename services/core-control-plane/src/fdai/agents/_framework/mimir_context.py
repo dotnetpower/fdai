@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fdai_service_contracts.test_context import TestContextCommand
 
@@ -22,6 +22,10 @@ class MimirContextMixin:
     _clock: Callable[[], datetime]
     _test_context_commands: TestContextCommandHandler | None = None
     _case_history: CaseHistoryMaterializer | None = None
+
+    if TYPE_CHECKING:
+        _checkpoint_rule_publication: Any
+        _publish_claimed_rule_publication: Any
 
     def bind_case_history(self, materializer: CaseHistoryMaterializer) -> None:
         """Bind the current source reader for scoped operational learning reviews."""
@@ -57,12 +61,39 @@ class MimirContextMixin:
         typed_command = TestContextCommand.model_validate(command)
         if context_proposal and typed_command.request.operation != "propose":
             return True
-        if self._test_context_commands is None or self.bus is None:
+        if self._test_context_commands is None:
             raise RuntimeError("Mimir test context dependencies are unavailable")
         async with asyncio.timeout(5):
             result = await self._test_context_commands.transition(
                 command, reviewed_by_var=context_review
             )
-            await self.bus.publish("Mimir", "object.policy", result)
+            idempotency_key = str(result.get("idempotency_key") or "")
+            if not await self._checkpoint_rule_publication(
+                topic="object.policy",
+                payload=result,
+                idempotency_key=idempotency_key,
+            ):
+                record_behavior("test_context:revision_duplicate")
+                return True
+            if self.bus is None:
+                record_behavior("test_context:revision_pending")
+                return True
+            await self._publish_with_outbox("Mimir", "object.policy", result, idempotency_key)
         record_behavior("test_context:revision_published")
         return True
+
+    async def _publish_with_outbox(
+        self,
+        principal: str,
+        topic: str,
+        payload: dict[str, Any],
+        idempotency_key: str,
+    ) -> bool:
+        if principal != "Mimir" or topic != "object.policy":
+            raise ValueError("Mimir context outbox only publishes Mimir-owned Policy records")
+        published = await self._publish_claimed_rule_publication(
+            topic=topic,
+            payload=payload,
+            idempotency_key=idempotency_key,
+        )
+        return bool(published)

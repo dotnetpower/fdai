@@ -12,6 +12,7 @@ from collections.abc import Iterable
 
 from fdai.agents._framework.base import AgentSpec
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.agents._framework.topics import OWNED_OBJECT_TOPICS, topic_for_object_type
 
 
 class PantheonRegistryError(ValueError):
@@ -108,11 +109,24 @@ def _validate(specs: tuple[AgentSpec, ...]) -> None:
                 owners_by_object_type[obj] = spec.name
 
         for topic in spec.publishes:
+            if topic not in OWNED_OBJECT_TOPICS:
+                issues.append(f"agent {spec.name!r} owns topic {topic!r}, which is not registered")
             prior_t = owners_by_topic.get(topic)
             if prior_t is not None:
                 issues.append(f"topic {topic!r} is owned by both {prior_t!r} and {spec.name!r}")
             else:
                 owners_by_topic[topic] = spec.name
+        expected_publishes = tuple(topic_for_object_type(item) for item in spec.owns)
+        if spec.publishes != expected_publishes:
+            issues.append(
+                f"agent {spec.name!r} publishes {spec.publishes!r}, expected "
+                f"{expected_publishes!r} from owns"
+            )
+        for topic in spec.subscribes:
+            if topic.startswith("object.") and topic not in OWNED_OBJECT_TOPICS:
+                issues.append(
+                    f"agent {spec.name!r} subscribes unknown pantheon object topic {topic!r}"
+                )
 
     if set(seen_names) != PANTHEON_NAMES:
         missing = PANTHEON_NAMES - seen_names

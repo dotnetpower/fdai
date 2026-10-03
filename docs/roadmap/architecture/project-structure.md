@@ -33,6 +33,28 @@ planned answer, the carried form never reaches the frame model, and the judgment
 the frame so plan coverage can enforce them. The state-store sink schedules each record on the
 service's own event loop without blocking, a rebuilt frame keeps its investigation identity, and
 operand provenance also reads traversal endpoints and metric resource ids.
+Relation execution holds also stay inside Core conversation runtime: an empty relation traversal
+output from a compiled plan is a typed evidence hold until independent grounding confirms that an
+empty relation result is answerable, and Operator or document routes receive no new authority.
+Relation direction confirmation uses the same Core boundary: a blind-reader disagreement now holds
+before compilation instead of changing relation roles, and no Operator or document route participates.
+Schema declaration identity checks also remain in Core conversation compilation: a schema read whose
+grounded ObjectType differs from the stated schema subject, including an over-quoted subject that
+contains another ObjectType name, holds before a query plan is released.
+Relation anchoring checks likewise stay in Core compilation: a collection-scope relation that would
+traverse from a widened collection is held before any Operator or document route can answer.
+
+Question-form concept-choice reuse is owned by Core conversation processing and ends with one
+run. Its exact-input, reader-separated cache never stores observed state, authorization, or
+cross-turn meaning. Azure delivery owns lossless catalog prompt encoding; Operator and Console
+only display measured timing and usage, without another writer, service, or authority path.
+The same typed-only boundary may reuse an independently certified direct read before legacy
+judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
+existing gates. Numeric call accounting adds no prompt capture or execution authority.
+Reader-local two-shard waves are read-only concurrency inside the same bounded turn; their
+cancellation drains outstanding work and adds no shared authority-bearing workflow state.
+The same Core-owned scheduler covers independent finalist runoffs within the existing
+remaining-call gate; no model, service, authority, or observed-state cache is added.
 
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
@@ -47,12 +69,16 @@ page only unpublished rows through a dotted `StateStore` field filter ([Assuranc
 This addition changes no cross-service schema, approval, or execution path. Rule-generation timestamps use a dedicated UTC
 clock and never consume the injected control-loop clock used for replay, action creation, dispatch, or effect evidence.
 Core resolves Rule and submission-criterion types through the shared contracts facade rather than a
-contracts submodule, preserving the repository's one-way public import boundary.
+contracts submodule, preserving the repository's one-way public import boundary. The shared service-contract SDK also owns
+authority-free baseline evaluation terminal records for complete inventory generations: per-rule outcomes and per-generation
+completion. These records add only a versioned Core-to-Operator wire surface; Forseti judgment, Saga audit, Operator
+projection admission, and Console rendering remain separate owners.
 
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility
 exports preserve existing imports, and the split changes no service, identity, data owner, wire
-contract, or authority. Bounded semantic candidate selection omits oversized descriptor axes and preserves the ranked prefix that fits the capability byte limit rather than failing the request.
+contract, or authority. Model-facing declaration identities remain complete within the capability
+byte limit. An oversized identity set stops before judgment instead of returning a ranked prefix.
 The Core package owns the deployed `fdai-operational-catalog-review` entry point. It composes the existing durable Pantheon, Saga audit, and GitHub App delivery adapters inside the Core runtime boundary; it adds no service, executor identity, catalog activation, merge, or managed-resource authority. The Core package also owns the `fdai.delivery.automation_blueprint_tick_cli` binding, which composes PostgreSQL blueprint evidence, candidate, proposal, audit, and scheduler stores in one inert one-shot tick, which deployment does not schedule yet, without granting Operator routes or the tick any managed-resource executor identity.
 Core keeps active Rule generation replacement behind a writer-exclusive barrier while complete decisions share concurrent read leases. This preserves one generation per decision without serializing unrelated resources. Focused modules own that barrier, semantic preflight, event-bus payload codecs, the assembled runtime model, the human-approval registry binding, and catalog loaders; public facades preserve their existing imports and authority boundaries. The `runtime/control_loop.py` facade explicitly re-exports its existing catalog-loader names for bootstrap and focused tests. The Core wheel inventory and service-test suite manifest assign every new runtime module and Rule activation test to one owning distribution without changing the five-service boundary or the System Knowledge candidate. The focused `runtime/causal_bindings.py` owner completes a deployment's bounded temporal series with Forseti's `CausalHypothesis` projection over the runtime ontology store and the `delivery/persistence/state_store_causal_receipts.py` resolver for Thor ActionRun receipts; causal revisions stay evidence-only.
 Conversation causal context uses the same evidence-only boundary: it can read state-transition change
@@ -72,15 +98,32 @@ aggregate route facade assembles handlers without reimplementing boundary normal
 Semantic query composition owns principal-scoped declaration candidate selection and source
 authorization bindings. Core retains predicate, release, freshness, receipt, and query-algebra
 verification; delivery owns bilingual ranking and PostgreSQL generation-cache validation.
+Canonical JSON comparison belongs to the shared ontology provider utilities. Core predicates and
+the reference store reuse it, including immutable projections, instead of maintaining separate
+shallow Boolean guards. PostgreSQL retains its indexable containment prefilter but also checks each
+complete property value before applying the row limit. Neither path grants query or action authority.
+A missing property never satisfies an explicit JSON `null` equality filter in either store.
 The focused current-evidence composition owner also binds graph-refresh decisions to the shared
 StateStore audit. Complete, incomplete, stale, conflicting, and unavailable reads remain distinct,
 principal-scoped, generation-bound, and authority-free without adding another service or writer.
 Its re-query dependency is a narrow materialization Protocol so an exact-revision certification
 job can exercise the same refresher without acquiring composition or provider authority.
-Model-facing capability projection preserves every selected canonical property token and rejects a byte-budget overflow before judgment rather than passing a silent descriptor prefix. This bound changes no manifest or query authority.
+The capability projection preserves every readable property name as well as every declaration
+identity. It factors property names by ObjectType and reconstructs the same qualified identities
+for grounding; adapters carry the explicit encoding without another model call. Complete projection
+overflow stops before judgment. Neither projection nor a prompt bound changes manifest or query authority.
 Delivery's ontology generation validator independently binds the explicit principal scope and exact declaration bytes, not only declaration IDs; runtime instance storage and activation must remain separate from Rule corpus pointers.
 Core's secured gateway also owns the off-path, complete multi-type index-source scan. It applies the existing ACL to one bounded source snapshot and binds ordered object hashes; ordinary ObjectSet limits are unchanged. Delivery may stage this projection under an isolated immutable identity but cannot infer validation, activation, observed state, or execution authority from successful storage.
+ObjectType and Property declarations can carry reviewed bilingual `query_terms` and exact value labels for semantic document projection. Delivery embeds those terms with authorized runtime object properties, along with reviewed ResourceType terms, so the candidate index preserves English and Korean context without adding a language lookup table, widening access, or changing query authority.
 The focused `query_snapshot.py` helper revalidates source declaration references and object keys before ACL projection and computes bounded ordered projection identities. Missing or stale source references are rejected, never repinned to make an old row appear current.
+Delivery's `ontology_evaluation_execution.py` encloses isolated diagnostic preparation and the
+calibration/holdout runner in one counted call and deadline budget. It verifies frozen source and
+embedding identities and retains bounded failure evidence. The caller supplies live authorization,
+target attestation and isolated storage; the helper grants no qualification or activation authority.
+The adjacent `ontology_evaluation_evidence.py` owns exclusive private JSONL retention for diagnostics.
+Execution records call intent before dispatch and flushes completed stages before proceeding.
+Persistence failure stops further calls; retained results remain separate from qualification,
+agent-owned generation activation and runtime pointers.
 The existing schema-repair policy recognizes a complete canonical single-kind manifest list before repair; catalog-owned prompt profiles propose that shape without raw-language routing or new authority.
 Document and operational reads keep their independent evidence authorities and exact source scope. Core's frame gate also requires an accepted matching schema intent when judgment was evaluated; a rejected judgment cannot resume through a model-authored declaration list or detail frame.
 Core defines the bounded `query.ontology_instance_candidates` contract with explicit object read sets and authenticated invocation context. Delivery supplies the audited current-index reader and reauthorizes candidate facts against the current graph. The focused `semantic_query_instance_candidates.py` binder shares one source-derived declaration between default release and semantic catalog construction. Bootstrap injects the same controlled-model workers into Pantheon and supervises bounded off-path reconciliation. Missing embedding-space/model-version identity keeps the index unavailable; unqualified semantic ranking remains closed while exact-ID reads retain current graph checks. Candidate output is non-exhaustive and cannot establish absence or execution authority.
@@ -133,7 +176,7 @@ uses its declared byte ceiling. Scope-and-generation jitter is replay-stable and
 maximum poll interval. These bounds do not yet establish a shared cross-source rolling byte budget
 or a disk-backed generation stream.
 
-Inventory also bounds retained normalized generation bytes independently from transport buffers. The PostgreSQL facade delegates batched replacement to `postgres_ontology_replacement.py`; versioned activation, copy-on-write publication and retention have focused persistence owners under the same Core writer. The four `ontology_*_version`/`ontology_graph_control` tables are Core-owned; their inactive migration changes no Operator, document or conversation writer. Explicit activation preserves read grants and reference identities, while materialization restores the latest version. Helpers gain no independent authority. Pure journal parameter conversion and observed-state validation stay in the existing record modules, preserving facade imports and evidence semantics. Journal writes, active-snapshot readers, and correction closure may likewise live in focused persistence siblings while the established modules re-export their compatibility surface and retain transaction, lock, and writer ownership. Semantic capability projection offers the judgment every declaration identity, never a ranked slice of the catalog; property-level canonical identities are optional detail added per ObjectType in link-degree order within a smaller byte allowance, and an oversized property axis is omitted rather than partially represented.
+Inventory also bounds retained normalized generation bytes independently from transport buffers. The PostgreSQL facade delegates batched replacement to `postgres_ontology_replacement.py`; versioned activation, copy-on-write publication and retention have focused persistence owners under the same Core writer. The four `ontology_*_version`/`ontology_graph_control` tables are Core-owned; their inactive migration changes no Operator, document or conversation writer. Explicit activation preserves read grants and reference identities, while materialization restores the latest version. Helpers gain no independent authority. Pure journal parameter conversion and observed-state validation stay in the existing record modules, preserving facade imports and evidence semantics. Journal writes, active-snapshot readers, and correction closure may likewise live in focused persistence siblings while the established modules re-export their compatibility surface and retain transaction, lock, and writer ownership. Semantic capability projection offers the judgment every declaration identity and its complete readable property domain, never a ranked slice or omitted property axis. Lossless ObjectType-scoped property factoring preserves the unchanged byte ceiling.
 
 ## Core domain navigation decision
 
@@ -170,6 +213,7 @@ isolation. `verticals` remains its own top-level group. A future physical move i
 would need a separate, domain-bounded design that explicitly preserves coverage and fan-out meaning.
 ## Module Boundaries
 [Alert noise governance](../operations/alert-noise-governance.md) owns typed evidence, registered provider-neutral plan/result `1.1.0` schemas with regenerated Python and TypeScript contract views, and Process. Core registers an alert-specific unavailable direct-API route before generic fallbacks, and a read-only archived decoder retires unreleased `1.0.0` records; Terraform remains an operator-local deployment tool and supplies no runtime authority. Dedicated Operator composition binds request dependencies and one supervised bridge; the shared root owns lifecycle only. Role-local framework mixins preserve agent APIs and instance isolation. Shared admission inventory pins decision guards. The existing guarded generator re-evaluates release-derived source pins without rewriting operational receipts; source tests and generated knowledge grant no authority. The shared SDK publishes `test-context-draft`, `test-context-command`, and `test-context-application` version `1.0.0` schemas generated from the existing typed models. Its validator also applies those models' cross-field rules; a schema-valid record is not authenticated evidence or current authority. These standalone registrations do not establish a broker N/N-1 deployment transition. Post-integration System Knowledge regeneration records this boundary as release metadata only; it does not promote transport compatibility or operational qualification. Forecast scoring exclusions are public string enums exported by the model facade; their JSON values and legacy outcome wire shape remain unchanged. Context projection modules belong to the Core wheel, Operator context-command tests have an explicit service-suite owner, and database-only tests run in the integration selection. Evidence admission is evaluated after type validation, with exact non-mutating replay distinguished from a newly admitted write. Catalog source commitments are refreshed after owner-document reflow even when record payloads are unchanged.
+Alert-noise authority and writer seams stay explicit composition inputs: production and shared alert changes keep two distinct authorized humans, the single-Owner quorum is accepted only for a configured full-authority development-profile scope, and provider writers without enforced conditional updates hold unless a governed exclusive-writer proof is bound.
 Incident-creation regressions are claimed exactly once by the Core or Operator service suite. Operator incident-attention and observer-deployment projection regressions also have one explicit service-suite owner; test inventory metadata changes neither runtime ownership nor authority. The generated question-bank and semantic-intent coverage artifacts are deterministic derivatives rebuilt in dependency order after catalog text changes, so reviewed source changes carry design impact instead of regenerated provenance digests requiring duplicate owner updates.
 Dependency direction is strict and one-way; a violation is a review blocker. [AKS token exchange](../deployment/runtime-deployment-profiles.md#identity-and-secrets) and declared SDK/async transport dependencies remain service-owned, never Core domain or shared-contract code. Operator's credential tests have one explicit service-suite owner, and its factory uses the existing adapters facade to preserve composition fanout. Trial records in `core/licensing/trial.py` grant no capability by themselves; `core/licensing/trial_entitlement.py` is the one place that turns a committed installation-bound record into an entitlement, and the shared license authority consults it where a token grants no acting capability, so execution paths carry no Trial check of their own. `core/licensing/entitlement_notice.py` derives the Console watermark notice from that one resolved entitlement; `runtime/licensing_state.py` publishes it through the single writer `delivery/persistence/postgres_licensing_entitlement_state.py`, and the Operator's `entitlement_stamp.py` only carries it on authenticated responses, so no second resolver exists. The crypto-free `core/licensing/installation_entitlement.py` contract is the key holder's installation-bound grant; the shared authority routes a signed token to one strict parser by its declared schema, so the v1 token, the entitlement, and the integrity manifest never verify as each other. Because a Trial observation commits to storage, the shared execution gate resolves entitlement in a worker thread, and the store refuses an event-loop thread so misuse denies instead of blocking Core. Deployment and persistence own atomic activation: the `licensing_trial` singleton row commits observations under a revision predicate, and runtime must authenticate retained state. A new service-owned table is registered in the ownership manifest's writer list rather than its legacy migration inventory, because the inventory records tables that predate service branches. Source provenance belongs to the CLI and is neither entitlement nor release signature. The Core distribution owns its Python Azure Monitor OpenTelemetry Distro dependency. Shared telemetry selects that exporter only when deployment injects the Key Vault-backed `APPLICATIONINSIGHTS_CONNECTION_STRING`, rejects a competing explicit OTLP endpoint, and otherwise preserves the local or vendor-neutral OTLP provider. This startup selection adds no provider SDK to Core domain modules or shared contracts, and the connection string never enters source, logs, or a general Terraform output.
 Cost Governance pseudonym material is an Operator-owned composition secret. Shared contracts carry only pseudonymous references and disclosure metadata; they never receive the key, grant data access, or raise action authority. [Independent operational evidence](../rules-and-detection/independent-operational-evidence.md) keeps its non-agent verifier engine, pinned registries, and readbacks in `core/operational_evidence/`, behind the `OperationalEvidenceIssuer` provider seam in `shared/providers/`; `composition/operational_evidence_binding.py` binds the proof-store reader and bounded issuer only on explicit deployment opt-in and adds no agent, topic, or authority.
@@ -178,7 +222,10 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
 - **core is portable**: it MUST NOT import any cloud SDK directly. Cloud specifics enter
   only through the CSP-neutral interfaces in `shared/providers/`, whose implementations live
   in `delivery/` and `infra/` and are injected at composition time. This keeps a second cloud
-  a matter of adding an adapter, never editing `core/`.
+  a matter of adding an adapter, never editing `core/`. The process-local
+  `shared/providers/local/event_bus.py` keeps broker-like retention: it bounds each topic's
+  replayable window, lets a late consumer group replay that window, and never compacts a record
+  that a subscribed group has not consumed yet.
 - **allowed imports**: `shared/` imports nothing from `core/`; `core/` may import only
   `shared/` contracts, providers, telemetry, and config; `delivery/` may compose `core/` and
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`
@@ -519,7 +566,7 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
 
 Repository automation is grouped by responsibility under `scripts/`; only the layout README, `verify.sh`, and the Python package marker stay
 as root files. Quality gates, integrity tooling, governance checks, catalog utilities, deployment helpers, and general automation each have
-their own directory. Cross-cutting deployment workflow tests under `tests/integration/scripts/` verify those helpers as transport contracts; they do not transfer ontology or runtime ownership. Local service launchers that wait for readiness install signal forwarding before spawning their runner and reap both the readiness probe and runner so detached service groups cannot survive supervisor shutdown. See [scripts/README.md](../../../scripts/README.md) for placement rules. `infra/scenario-lab/` is
+their own directory. Cross-cutting deployment workflow tests under `tests/integration/scripts/` verify those helpers as transport contracts; they do not transfer ontology or runtime ownership. Local service launchers that wait for readiness install signal forwarding before spawning their runner and reap both the readiness probe and runner so detached service groups cannot survive supervisor shutdown. See [scripts/README.md](../../../scripts/README.md) for placement rules. Each deployed service has its own Terraform root under `infra/services/`, which CI initializes offline and validates with the pinned Terraform. Across `infra/`, a role assignment to a managed identity that the same apply creates declares `principal_type = "ServicePrincipal"`; `tests/integration/infra/test_role_assignment_principal_type.py` enforces it. `infra/scenario-lab/` is
 an opt-in deployment-validation root, not a sixth runtime service. Its runner scripts live under `scripts/deployment/scenario-lab/`, and the
 root `scenario-lab` Python extra contains only driver dependencies needed by those bounded validation runs.
 The independent-service plan guard keeps transition orchestration in its facade, delegates plan shape, container, identity, and runtime comparison to a structural decoder, and delegates URL, model-endpoint, and database-host validation to a binding policy module. Plan bytes, resource entries, drift entries, and recursive difference depth are bounded before policy evaluation. This split changes no service scope, transition allowlist, rollback boundary, image requirement, or execution authority.
@@ -565,6 +612,7 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 The complete seam catalog and composition rules are in [Project Structure Dependency Injection](project-structure-dependency-injection.md).
 Core result-handle storage follows the same rule: `ResultHandleStore` is injected at Core composition, with an in-memory local implementation and a PostgreSQL implementation that keep encrypted handle bodies Core-owned while Operator persists only opaque references. Ordinal follow-up binding over those references stays inside the default-off compiled-answer shadow path and adds no execution authority.
 The Core `ModelEvidenceView` builder is likewise a read-only conversation boundary: adaptive model evidence reads receive only the allowlisted projection, never raw query tables, provider bodies, handles, or retained snapshot cells. Verified-answer authoring uses a shared no-authority proposition contract and default-off author/reviewer ports; it does not change the current answer path until a promoted binding enables it.
+Azure operational evidence composition may inject a retained current-reuse source writer alongside the existing snapshot, safety, metric, branch, and effect-model seams. The writer only records verifier-readable evidence for `current-case-reuse`; it does not grant approval, execution, or promotion authority.
 
 ## Control-Loop Wiring
 
@@ -716,3 +764,5 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
 | Physical service and package ownership | [Multi-Service Repository Layout](multi-service-repository-layout.md) |
 | Runtime and package-tool choices | [Tech Stack](tech-stack.md) |
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/architecture/project-structure.md) |
+| Shared Workflow validation contracts | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |
+| Image and package pin drift handling | [Developer Workflow Assurance](../deployment/developer-workflow-assurance.md) |

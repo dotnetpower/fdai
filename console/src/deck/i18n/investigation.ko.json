@@ -1,0 +1,31 @@
+{
+  "stopped": "중지됨",
+  "not_completed": "완료되지 않음",
+  "planned": "계획: {waves}, {reads}",
+  "waveOne": "웨이브 1개",
+  "wavesMany": "웨이브 {count}개",
+  "readOne": "조회 1건",
+  "readsMany": "조회 {count}건",
+  "budgetUsed": "사용량: {usage}",
+  "budgetCalls": "모델 호출 {used}/{maximum}회",
+  "budgetTokens": "토큰 {used}/{maximum}",
+  "budgetTokensReserved": "토큰 {used}/{maximum}, 예약 {reserved}",
+  "budgetElapsed": "시간 {used}/{maximum}",
+  "budgetReached": {
+    "deadline": "턴 기한 도달: {usage}",
+    "model_calls": "모델 호출 한도 도달: {usage}",
+    "tokens": "토큰 한도 도달: {usage}",
+    "rate_limited": "속도 제한됨: {usage}",
+    "cancelled": "취소됨: {usage}"
+  },
+  "budgetIncomplete": "{text}, 계측 미완료",
+  "contextApplied": "적용된 맥락",
+  "noCurrentPreference": "현재 선호 없음",
+  "contextOnly": "맥락일 뿐입니다. 표현 방식에만 영향을 주며 근거나 지시가 아닙니다.",
+  "freshness": {
+    "fresh": "현재",
+    "stale": "오래됨",
+    "superseded": "대체됨"
+  },
+  "receiptObserved": "관찰 시각 {time}"
+}

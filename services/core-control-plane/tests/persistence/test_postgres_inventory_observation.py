@@ -21,6 +21,7 @@ from fdai.delivery.persistence.postgres_inventory_observation import (
     PostgresInventoryObservationJournal,
     _active_scope_projection_watermark,
     _append_records,
+    _covered_ontology_projection_watermark,
     _global_projection_watermark,
     _observation_params,
     _rebase_recovery_metadata,
@@ -461,6 +462,132 @@ async def test_global_projection_watermark_stops_at_append_boundary() -> None:
     )
 
     assert result == 50
+
+
+class _CoveredFenceConnection:
+    def __init__(self, row: dict[str, object] | None, projection_watermark: int = 51) -> None:
+        self.row = row
+        self.projection_watermark = projection_watermark
+        self.queries: list[str] = []
+        self.journal_params: object = None
+
+    async def execute(self, query: str, params: object = None) -> _Cursor:
+        self.queries.append(query)
+        if "FROM inventory_active" in query:
+            return _Cursor([] if self.row is None else [self.row])
+        assert "FROM inventory_observation_journal" in query
+        self.journal_params = params
+        return _Cursor([{"projection_watermark": self.projection_watermark}])
+
+
+def _covered_fence_row(**overrides: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "id": "snapshot-active",
+        "started_at": NOW,
+        "scopes": ["scope-current"],
+        "watermarks": {
+            "journal_high_watermark": 51,
+            "ontology_projection_watermark": 50,
+            "ontology_generation": "snapshot-active",
+        },
+        "manifest": {"generation": "snapshot-active", "manifest_digest": "sha256:" + "a" * 64},
+    }
+    row.update(overrides)
+    return row
+
+
+async def test_covered_ontology_fence_crosses_a_late_snapshot_covered_delta() -> None:
+    connection = _CoveredFenceConnection(_covered_fence_row())
+
+    result = await _covered_ontology_projection_watermark(connection)  # type: ignore[arg-type]
+
+    assert result == ("snapshot-active", 51)
+    assert connection.journal_params == (51, 50, "snapshot-active", NOW, ["scope-current"])
+
+
+async def test_covered_ontology_fence_holds_at_a_delta_newer_than_the_generation() -> None:
+    connection = _CoveredFenceConnection(_covered_fence_row(), projection_watermark=50)
+
+    assert await _covered_ontology_projection_watermark(connection) is None  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        pytest.param({}, id="no-active-generation"),
+        pytest.param(
+            {
+                "watermarks": {
+                    "journal_high_watermark": 51,
+                    "ontology_projection_watermark": 50,
+                    "ontology_generation": "snapshot-previous",
+                }
+            },
+            id="active-generation-not-projected",
+        ),
+        pytest.param(
+            {
+                "manifest": {
+                    "generation": "snapshot-previous",
+                    "manifest_digest": "sha256:" + "a" * 64,
+                }
+            },
+            id="manifest-names-another-generation",
+        ),
+        pytest.param(
+            {"manifest": {"generation": "snapshot-active"}},
+            id="manifest-digest-missing",
+        ),
+        pytest.param(
+            {
+                "watermarks": {
+                    "journal_high_watermark": 51,
+                    "ontology_projection_watermark": 51,
+                    "ontology_generation": "snapshot-active",
+                }
+            },
+            id="fence-already-closed",
+        ),
+    ],
+)
+async def test_covered_ontology_fence_requires_a_committed_active_projection(
+    overrides: dict[str, object],
+) -> None:
+    connection = _CoveredFenceConnection(_covered_fence_row(**overrides) if overrides else None)
+
+    assert await _covered_ontology_projection_watermark(connection) is None  # type: ignore[arg-type]
+    assert not any("inventory_observation_journal" in query for query in connection.queries)
+
+
+@pytest.mark.parametrize("covered", [None, ("snapshot-active", 51)])
+async def test_overlay_mark_advances_only_a_covered_ontology_fence(
+    monkeypatch: pytest.MonkeyPatch,
+    covered: tuple[str, int] | None,
+) -> None:
+    calls: list[tuple[str, object]] = []
+
+    async def update_state(_connection: object, **values: object) -> None:
+        calls.append(("state", values))
+
+    async def covered_fence(_connection: object) -> tuple[str, int] | None:
+        return covered
+
+    async def advance(_connection: object, *, generation: str, watermark: int) -> None:
+        calls.append(("ontology", (generation, watermark)))
+
+    monkeypatch.setattr(observation_module, "_update_watermark_state", update_state)
+    monkeypatch.setattr(observation_module, "_covered_ontology_projection_watermark", covered_fence)
+    monkeypatch.setattr(observation_module, "advance_ontology_projection", advance)
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+
+    await journal.mark_overlay_projected(object(), watermark=51)  # type: ignore[arg-type]
+
+    expected: list[tuple[str, object]] = [("state", {"overlay_watermark": 51})]
+    if covered is not None:
+        expected.append(("ontology", covered))
+    assert calls == expected
 
 
 def test_journal_never_upgrades_relationship_gaps_to_complete() -> None:

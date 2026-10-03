@@ -25,6 +25,7 @@ from fdai.shared.contracts.models import FullAuthorityDevelopmentProfile
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
 from tests.agents.test_development_authority import _DistributedLock
 from tests.contracts.test_development_authority import _confirmation, _profile
 from tests.core.executor.test_direct_api_executor import _action as _direct_action
@@ -88,10 +89,12 @@ async def test_core_recorded_binding_carries_one_owner_through_var_and_thor() ->
         rollback_executors={"scripted": rollback},
         vidar_state_store=state,
         var_state_store=state,
+        forseti_state_store=state,
         approver_authorizer=lambda _principal, _action: True,
         operator_rbac={profile.owner_principal: frozenset({action_type.name})},
         execution_resource_lock=_DistributedLock(),
         action_types=(action_type,),
+        thor_preflight_simulator=PassingPreflightSimulator(),
         development_authority=DevelopmentRuntimeBindings(
             profile=profile,
             executor_principal=profile.executor_principal,
@@ -132,7 +135,7 @@ async def test_core_recorded_binding_carries_one_owner_through_var_and_thor() ->
     )
     assert approval is not None
     assert approval["approvers"] == [profile.owner_principal]
-    assert run.state is ActionRunState.SUCCEEDED
+    assert run.state is ActionRunState.EFFECT_PENDING
     assert executed == [run.correlation_id]
 
     # An operation Core never prepared has no trusted binding, so the path fails closed.
@@ -142,5 +145,5 @@ async def test_core_recorded_binding_carries_one_owner_through_var_and_thor() ->
         {**event, "correlation_id": "correlation:unprepared", "params": {"restart": False}},
     )
     unprepared = thor.action_runs.get("correlation:unprepared")
-    assert unprepared is None or unprepared.state is not ActionRunState.SUCCEEDED
+    assert unprepared is None or unprepared.state is not ActionRunState.EFFECT_PENDING
     assert executed == [run.correlation_id]

@@ -326,14 +326,15 @@ class AzureOpenAIQuestionFormModel:
             "utterance": redact_text(utterance),
             "mentions": [_redacted(item) for item in mentions],
             "shard_digest": shard.digest,
-            "shard": shard_payload,
+            "shard": shard.prompt_payload(),
         }
-        return await self._complete(
+        choices = {f"c{index}": candidate.id for index, candidate in enumerate(shard.candidates)}
+        answer = await self._complete(
             system_prompt=self._config.concept_system_prompt,
             user_payload=payload,
             schema=_concept_choice_schema(
                 [str(item.get("mention")) for item in mentions],
-                [candidate.id for candidate in shard.candidates],
+                list(choices),
                 shard.digest,
             ),
             name="semantic-concept-selection",
@@ -342,6 +343,22 @@ class AzureOpenAIQuestionFormModel:
             require_verbatim=False,
             candidates=self._config.extraction_candidates if second else None,
         )
+        if answer is None or answer.get("shard_digest") != shard.digest:
+            return None
+        raw_choices = answer.get("choices")
+        if not isinstance(raw_choices, list):
+            return None
+        decoded: list[dict[str, Any]] = []
+        for choice in raw_choices:
+            if not isinstance(choice, Mapping):
+                return None
+            ids = choice.get("candidate_ids")
+            if not isinstance(ids, list) or any(
+                not isinstance(value, str) or value not in choices for value in ids
+            ):
+                return None
+            decoded.append({**choice, "candidate_ids": [choices[value] for value in ids]})
+        return {**answer, "choices": decoded}
 
     async def extract_constraints(
         self,

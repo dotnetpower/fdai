@@ -10,7 +10,16 @@ Workflow trigger vocabulary loading now separates observation `SignalType` refer
 The [structured retrieval owner](cloud-resource-knowledge-structured-rag.md) defines v1.2 query/utterance binding, unavailable outcomes and legacy compatibility; terms never expand applicability or access. Frame-model schemas omit the server-bound query field.
 Coverage-inventory regeneration follows question-bank source changes, including navigation and trace-label catalogs, and refreshes source digests, not measured coverage. A merged Console catalog change requires rebuilding the question bank before its dependent semantic inventory; source-only repairs preserve the 400-question cohort and its existing validation gaps.
 The instance-candidate Function binds server principal scope, object read sets, the original release, query, result digest, and bounded accounting. Default bootstrap uses the same declaration as semantic composition and injects controlled-identity workers into Pantheon. Authenticated enrollment drives supervised off-path preparation, audited cold-cache restoration, and source-change withdrawal/rebuild; it never performs query-path embedding builds. Missing model identity keeps the binding unavailable and real semantic qualification remains required. Exact-ID reads retain current graph authorization. Core's dedicated bilingual terminal projection verifies the candidate bindings and displays only identities, types, and revisions, without arbitrary property bags. It reports a partial, non-exhaustive result: an empty candidate list never proves absence. Authenticated live Console evidence remains separate.
-Capability preparation preserves all selected canonical property tokens, including ObjectTypes with more than 32 properties. A complete projection over the existing 32 KiB budget fails explicitly before semantic judgment instead of silently dropping its tail.
+Capability preparation requires all selected canonical property tokens, including ObjectTypes with
+more than 32 properties. Complete declaration and property projections fail explicitly before
+semantic judgment when they exceed the existing 32 KiB budget.
+The projection uses lossless property factoring: each ObjectType carries its complete `property_names`
+list once, and canonical property identities are exactly its `name`, a dot, and one literal property
+name. Core validates this representation and retains legacy explicit `canonical_values` support.
+The model payload declares the encoding; receipts bind the complete represented list. This changes
+neither the 32 KiB ceiling nor the model-call count. Any still-oversized complete projection holds.
+Focused implementation evidence and the remaining live gates are recorded in the
+[implementation ledger](../../roadmap-implementation/interfaces/ontology-query-coverage-implementation-plan.md).
 Semantic judgment keeps the complete capability set when a dynamic prompt profile selects guidance by closed preflight request topics. Topics change only prompt guidance; an accepted meaning whose governed guidance was excluded is judged once more with the complete prompt, as described in [Dynamic assembly](../decisioning/prompt-composition.md#dynamic-assembly). Core grounds preflight collection filters from their source text, so a model-proposed canonical value on such a filter is dropped instead of voiding the route. A read-only plan request omits ActionType descriptors unless its frame is an action draft, and with shape-selected guidance it sends only the functions that guidance or the frame names.
 The causal-mechanism vocabulary is reviewed catalog data for causal context and grade receipts.
 It supplies required evidence and refutation reads only; it does not create a new ontology type,
@@ -399,6 +408,67 @@ not exist or that the peering change caused the symptom.
 | Clarification quality | Correctly asks only when material competing interpretations remain. |
 | Full vs incremental generation parity | Identical ordered document digests and retrieval cohort outcomes. |
 | Historical replay | Same cutoff resolves the same retained graph and evidence receipts. |
+
+### Bounded retrieval diagnostics
+
+The delivery-owned diagnostic execution path includes source staging and document embeddings
+before frozen calibration and holdout. Callers supply isolated storage, an exact frozen input
+binding and explicit limits: at most 128 embedding calls, 600 seconds overall and five seconds
+per call. Preparation also has a 120-second ceiling inside that same monotonic deadline.
+Calls are counted before dispatch, including failed calls; content-free call counters expose
+progress. Explicit deadline checks reject late returns from non-yielding providers.
+
+The production vector store also checks absolute deadlines after provider and storage returns.
+Document calls share the remaining build budget; cached reads and query embeddings cannot return
+expired results. Candidate retrieval separately enforces its shorter five-second boundary after
+embedding, ranking and current-graph authorization. An expired storage write may have persisted
+an inert artifact; timeout is not proof of rollback and cannot be reported as successful completion.
+
+Runtime object documents include only authorized instance properties plus reviewed ontology
+vocabulary. ObjectType and Property declarations can supply bilingual `query_terms`, exact
+property-value labels, and Resource subtype terms from the reviewed ResourceType registry. These
+terms are embedded with the document to preserve English/Korean context, but they remain model
+context only. They do not create a lookup table, grant access, infer meaning, or prove a no-match.
+Changing those document surfaces changes the frozen generation digest and requires re-embedding
+the changed documents before any calibration claim. The diagnostic executor accepts the same `resource_type_query_terms` mapping as production staging. Callers must supply the reviewed registry used by the frozen build; missing or changed terms that alter document identity stop preparation before any embedding call.
+
+Current source is checked before document embedding and again before calibration. Embedding
+space, model version and dimension must match the frozen generation before and after every call.
+Calibration failure prevents holdout. Provider errors, including 429/503 and timeouts, stop the
+attempt without retry. Aborts retain call counts and any completed calibration or partial
+measurement evidence without raw provider errors; parent cancellation propagates.
+Serialize diagnostic dataclasses with Pydantic JSON mode, not `json.dumps(asdict(report))`:
+source-validation receipts contain aware timestamps. Persist and round-trip the complete report,
+including failed calibration and its absent holdout, before treating it as retained evidence.
+
+For a live diagnostic, open the delivery-owned `OntologyEvaluationEvidence` context manager on
+a new file in a caller-owned private local directory and pass it as `evidence` to execution.
+Supply the attested source commit; the writer checks its format, not checkout identity.
+Exclusive mode-0600 creation rejects existing files and symlink destinations. The append-only
+JSONL stream records the frozen plan and budget, call intent before dispatch, each complete stage,
+and the terminal report or bounded abort. Calibration is flushed before holdout can start.
+Records use Pydantic JSON mode and `fsync`; capacity is bounded to 4 MiB per record, 16 MiB per
+attempt and 134 records, or 262 with opt-in vector retention. Recording failures stop further calls.
+Cancellation propagates even when persistence fails, with an explicit error. See the [calibration and replay guide](../../runbooks/ontology-retrieval-diagnostics.md).
+
+Call intent is not proof of dispatch: expiry or interruption can occur between recording and
+the provider call. Use terminal call counts when available. Preserve complete earlier lines after
+an interrupted tail; no terminal record means incomplete execution. A completed report may still
+contain failed calibration or holdout and never grants production qualification or activation.
+Local-only callers may omit the writer; a session-only final serializer is not sufficient for live
+evidence retention. Never append a new attempt to an existing record or reconstruct missing metrics.
+
+The frozen instance-retrieval calibration policy is part of the reviewed input binding. Policy
+`1.1.0` now uses a hybrid candidate policy with `semantic_weight=1.0`, `lexical_weight=0.25`,
+`exact_weight=1.0`, and `minimum_score=0.4`. The lexical component is a deterministic ranking
+signal over already embedded candidates, not a meaning parser or query router. Changing the score
+floor or weights requires a new campaign binding and fresh diagnostic evidence.
+
+This path neither discovers credentials nor authorizes live execution. Before supplying a live
+adapter, obtain fresh bounded approval and attest the actual target binding. The caller owns
+storage isolation and cleanup. Results remain diagnostic with `production_qualification=false`;
+the path neither publishes owner events nor activates a runtime pointer. Independent label and
+representativeness review, real relevance qualification and governed activation remain separate.
 
 ## Twenty-round hardening record
 

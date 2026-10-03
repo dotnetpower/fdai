@@ -3,6 +3,7 @@ name: Workload
 version: "1.0.0"
 key: id
 description: A deployable or operable unit that implements a business service.
+query_terms: [workload, workloads, 워크로드, 작업]
 properties:
   id: {type: string, required: true}
   name: {type: string, required: true}
@@ -22,6 +23,6 @@ lifecycle:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Workload@1.0.0
-  content_hash: sha256:d919bd6b2bece35ae7dc1c83dea515279a394f44f1c3f40586ba4d996b6cb578
+  content_hash: sha256:380b8aba3a5fc39e63fa0ebd112ccd8d8337a24338b58f4dd8afe07fd7ef16d2
   license: MIT
   retrieved_at: "2026-07-31T00:00:00Z"

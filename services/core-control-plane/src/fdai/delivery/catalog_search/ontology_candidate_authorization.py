@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
@@ -66,6 +67,7 @@ async def reauthorize_ontology_candidates(
     manifest: QueryManifest,
     gateway: SecuredObjectSetQueryGateway,
     as_of: datetime,
+    resource_type_query_terms: Mapping[str, Sequence[str]] | None = None,
 ) -> AuthorizedOntologyCandidates:
     """Hold the whole candidate result on deletion, scope, source, or content drift.
 
@@ -137,25 +139,16 @@ async def reauthorize_ontology_candidates(
                 key = record.object_type, record.id
                 if key not in expected or key in observed:
                     raise ValueError("ontology candidate current graph identity mismatch")
-                observed[key] = OntologyObjectRecord(
-                    id=record.id,
-                    object_type=record.object_type,
-                    revision=record.revision,
-                    type_ref=record.type_ref,
-                    properties=MappingProxyType(
-                        {
-                            name: value
-                            for name, value in record.properties.items()
-                            if name != "__redactions__"
-                            and name not in record.properties.get("__redactions__", {})
-                        }
-                    ),
-                )
+                observed[key] = projected_candidate_record(record)
     if observed.keys() != expected.keys():
         raise ValueError("ontology candidate no longer exists in the authorized graph")
     current_digests = {
         item.rule_id: catalog_search_document_digest(item)
-        for item in _runtime_object_documents(tuple(observed.values()))
+        for item in _runtime_object_documents(
+            tuple(observed.values()),
+            manifest=manifest,
+            resource_type_query_terms=resource_type_query_terms or {},
+        )
     }
     if any(
         current_digests[item.rule_id] != catalog_search_document_digest(item) for item in candidates
@@ -167,4 +160,22 @@ async def reauthorize_ontology_candidates(
         snapshot_digest=staged.snapshot_digest,
         source_generation=staged.source_generation,
         principal_scope_digest=manifest.coverage_receipt.principal_scope_digest,
+    )
+
+
+def projected_candidate_record(record: OntologyObjectRecord) -> OntologyObjectRecord:
+    """Remove redaction markers and withheld values before comparison or presentation."""
+    return OntologyObjectRecord(
+        id=record.id,
+        object_type=record.object_type,
+        revision=record.revision,
+        type_ref=record.type_ref,
+        properties=MappingProxyType(
+            {
+                name: value
+                for name, value in record.properties.items()
+                if name != "__redactions__"
+                and name not in record.properties.get("__redactions__", {})
+            }
+        ),
     )

@@ -10,6 +10,7 @@ from typing import Any, Protocol
 from fdai.core.irp import Alert, IrpCoordinator, IrpResult, MitigationProposal
 from fdai.core.report_feed import signal_from_irp, signals_from_investigation
 from fdai.core.report_feed.models import ReportSignal
+from fdai.delivery.operator_request_receipt import CoreOperatorRequestReceiptIssuer
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.shared.providers.event_bus import EventBus
 
@@ -25,11 +26,18 @@ class ReportSignalWriter(Protocol):
 class EventBusIrpProposalRouter:
     """Publish an IRP recommendation as a normal operator-request envelope."""
 
-    def __init__(self, *, bus: EventBus, topic: str) -> None:
+    def __init__(
+        self,
+        *,
+        bus: EventBus,
+        topic: str,
+        receipt_issuer: CoreOperatorRequestReceiptIssuer | None = None,
+    ) -> None:
         if not topic:
             raise ValueError("topic MUST be non-empty")
         self._bus = bus
         self._topic = topic
+        self._receipt_issuer = receipt_issuer
 
     async def route(self, proposal: MitigationProposal) -> None:
         target = proposal.target_resource_ref or proposal.alert_id
@@ -51,6 +59,8 @@ class EventBusIrpProposalRouter:
                 "detail": proposal.detail,
             },
         }
+        if self._receipt_issuer is not None:
+            payload = self._receipt_issuer.attach(payload)
         await self._bus.publish(self._topic, target, payload)
 
 

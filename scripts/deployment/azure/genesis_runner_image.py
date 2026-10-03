@@ -38,6 +38,7 @@ from genesis_runner_image_contract import (
     snapshot_terraform_root,
 )
 from genesis_runner_image_observation import verify_runner_image_effect
+from genesis_runner_image_policy_drift import tenant_patch_policy_drift
 from genesis_runner_image_sku_probe import verify_image_vm_skus
 from genesis_runner_image_sku_selection import recheck_image_vm_inputs, select_image_vm_inputs
 from genesis_runner_image_skus import selection_sizes
@@ -424,14 +425,17 @@ def _apply(args: argparse.Namespace) -> int:
 def _verification_source_commit(
     checks: GenesisChecks, *, review: Mapping[str, object], effect_started: bool
 ) -> str:
-    source = (
-        checks.source_evidence.source_commit
-        if checks.source_evidence is not None
-        else str(review["source_commit"])
-    )
-    if not effect_started and source != review["source_commit"]:
+    reviewed = str(review["source_commit"])
+    evidence = checks.source_evidence
+    if evidence is None or reviewed == evidence.source_commit:
+        return reviewed
+    if effect_started and reviewed == getattr(evidence, "foundation_source_commit", ""):
+        # An offline kit upgrade re-verifies the retained effect under the revision that
+        # created it, so its exact receipt still matches the current readback.
+        return reviewed
+    if not effect_started:
         raise ValueError("runner image apply source does not match the signed verifier")
-    return source
+    return evidence.source_commit
 
 
 def _foundation_input(args: argparse.Namespace) -> int:
@@ -532,26 +536,53 @@ def _verify_zero_change(
     terraform: Path,
     environment: Mapping[str, str],
 ) -> None:
+    plan_path = work_dir / "runner-image-zero-change.tfplan"
+    plan_path.unlink(missing_ok=True)
     try:
-        completed = run_with_heartbeat(
-            [
-                str(terraform),
-                "plan",
-                "-detailed-exitcode",
-                "-input=false",
-                "-no-color",
-                f"-var-file={work_dir / 'runner-image.auto.tfvars.json'}",
-            ],
+        try:
+            completed = run_with_heartbeat(
+                [
+                    str(terraform),
+                    "plan",
+                    "-detailed-exitcode",
+                    "-input=false",
+                    "-no-color",
+                    f"-var-file={work_dir / 'runner-image.auto.tfvars.json'}",
+                    f"-out={plan_path}",
+                ],
+                cwd=work_dir / "root",
+                env=environment,
+                timeout=600,
+                capture_output=True,
+                umask=0o077,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise ValueError("runner image zero-change verification failed") from exc
+        if completed.returncode == 0:
+            return
+        if completed.returncode != 2:
+            raise ValueError("runner image zero-change verification failed")
+        projection = _capture(
+            [str(terraform), "show", "-json", str(plan_path)],
             cwd=work_dir / "root",
             env=environment,
-            timeout=600,
-            capture_output=True,
-            umask=0o077,
+            timeout=120,
+            reason="runner image zero-change verification failed",
         )
-    except subprocess.TimeoutExpired as exc:
-        raise ValueError("runner image zero-change verification failed") from exc
-    if completed.returncode != 0:
-        raise ValueError("runner image zero-change verification failed")
+        try:
+            plan = json.loads(projection)
+        except json.JSONDecodeError as exc:
+            raise ValueError("runner image zero-change verification failed") from exc
+        if not isinstance(plan, dict):
+            raise ValueError("runner image zero-change verification failed")
+        tolerated = tenant_patch_policy_drift(plan)
+        print(
+            "genesis-runner-image: tenant patch-policy settings left unchanged on "
+            + ", ".join(tolerated),
+            file=sys.stderr,
+        )
+    finally:
+        plan_path.unlink(missing_ok=True)
 
 
 def _reviewed_region(work_dir: Path) -> str:

@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: b012272eedf4c6d22b8e5f9c20e8db182418dca4
-translation_revised: 2026-09-29
+translation_source_sha: 9b76784620872134f232104068a2149e1d745354
+translation_revised: 2026-09-30
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -50,6 +50,9 @@ learning intake 또는 관련 없는 예측을 차단하지 않습니다. 런타
 평가를 변경 불가능한 에피소드로 기록합니다. 또한 텔레메트리 grace 기간 이후 due 에피소드를
 종료하고 transactional 게시 발신함을 비웁니다. Poison 게시는 다른 에피소드를
 막지 않도록 격리하고 dead-letter 처리합니다.
+직접 예측 결과 게시는 Heimdall의 영속 예측 게시 보낼 편지함을 사용합니다. 브로커 또는
+게시 완료 표시 실패는 같은 멱등성 키로 다시 시도할 수 있는 대기 행으로 남습니다.
+시간 초과된 예측 틱은 완료된 평가가 아니라 불완전한 수집 범위로 기록합니다.
 
 위반 예측의 게시 기록에는 평가기가 계산한 위반 예상 시각과 통제된 예측 구간의 신뢰 수준을
 버전이 있는 `approval_timing` 메타데이터로 보존합니다. 승인 감독자는 기존 에피소드와 게시
@@ -358,6 +361,10 @@ Mimir는 근거에 기반한 출처 이력이 있는 후보만 수락합니다. 
 incumbent와 rolling-origin 재생 및 실제 운영 shadow 비교를 수행합니다. 승격에는 최소
 closed 샘플 및 관측 일, confidence-bounded improvement, guard-metric 무회귀 및 정책
 escape 0건이 필요합니다. 회귀는 detector 또는 정책을 자동으로 shadow로 되돌립니다.
+case-history 구체화기가 저하되면 예측 학습은 조용히 멈추지 않고 성능 저하 상태로 남습니다.
+Heimdall은 다시 시도 가능한 예측 결과를 계속 게시할 수 있고, Saga는 이를 감사하며, Muninn은
+시작 복구가 운영 보낼 편지함을 비우고 case-history 구체화가 재개될 때까지 구체화기 누락을
+성능 저하 상태로 보고합니다.
 
 ## 보존 및 deletion
 
@@ -488,6 +495,7 @@ T1 벡터 정리는 새 보존 정책이 아니라 기존 원본 삭제 의도�
 - Synthetic detector 또는 메트릭 값 없는 액션/인시던트 영속성과 이전 방식 예측 행 호환성
 - Cross-scope 수집 차단 및 시크릿/hidden-reasoning 거부
 - 구독자 동시성, 실패 격리, 소유권 및 중복 전달 안전성
+- 실제 시각 대신 주입된 시계 하나를 읽어 날짜와 무관하게 통과하는 보존 및 재생 회귀 검사
 - 모델 출력이 활성 룰, detector, 승격 또는 액션을 직접 기록할 수 없음
 
 ## 연결 환경 검증 인계

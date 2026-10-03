@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:61ba71d1f9c9c80db21da41b8cd5ea6fe02da4a64a528704feadae22c74d15ee",
+  "inventory_digest": "sha256:20f3c8b915852fb5a38a2289d5b379d5526ff774278249cf40d53729640884de",
   "metric_contract": {
     "ambiguity": [
       {
@@ -937,24 +937,24 @@
     "set_recall": "true_positive_items / expected_items"
   },
   "source_digests": {
-    "console/src/deck/backend-types.ts": "sha256:13a7dac51054782056d49f4484d522e6ead2b10cb89a8e1e1d9cc3d96be8f056",
+    "console/src/deck/backend-types.ts": "sha256:0f4d227b38d5a7f8aea99c52cea2d6d6255a7730c01c7e2ce40f1767598180f7",
     "console/src/deck/presentation-artifact.ts": "sha256:5946d614e455c632368810c25954a233aaa9de60b69b53f0f733d4b06485973c",
-    "console/src/deck/presentation-modules/charts.tsx": "sha256:9b93cf0c49ca9151f41e4e5037e8a1b3c0ade3b0cf949c89b15d02f29a57d890",
-    "console/src/deck/presentation-modules/registry.tsx": "sha256:980c49bf7a12162ca3690966bcafefc57f379c81c6febb4844e94d6691f0d029",
+    "console/src/deck/presentation-modules/charts.tsx": "sha256:3b0da88ee3469adce74c965bcaeba86b42149b6d9d4158faf2c9b3704c3220f6",
+    "console/src/deck/presentation-modules/registry.tsx": "sha256:27c87816f3c0b81aaea57206a2dba342b6f5a40b95ef6751f54ff43735e0ad6d",
     "console/src/deck/presentation-modules/types.ts": "sha256:b58265852af941105f1b65fc24394f7b7b204c78f8ea95aa952edc23fb8212a2",
     "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:8ffa63d40649926dfd04d5d253e7f019163c69bf14f1fabd7d1b7f6281a5202e",
     "eval/golden-dataset/expectations.json": "sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c",
-    "eval/golden-dataset/question-bank/question-bank.json": "sha256:c43aaa05be371010e663ae9dec2561fa58536659f492ec50dec0839d31436829",
+    "eval/golden-dataset/question-bank/question-bank.json": "sha256:b60651cd58381331cbbf5e044c03af238cc4b9a782c75da9111a57ffa7300c48",
     "eval/golden-dataset/question-bank/question-bank.source.yaml": "sha256:de3d78de7327eec563742fe7402f3827438152ed27f5c519a2ac3ae66fced495",
     "packages/service-contracts/src/fdai_service_contracts/adaptive_answer.py": "sha256:24b3680abade67a122f7c64c87a7121538a09c4e47ec46bdcc3a8c73c1e9039e",
     "scripts/automation/conversation_quality_metrics.py": "sha256:18b2a8c0fd2eafd708889a1610f776da65e6e514f3ef07b4beaa331200868614",
     "scripts/automation/conversation_quality_sources.py": "sha256:d6c6e311ef2b4532916148086fc2badee40fa7589dab78d137f2ab88a97107aa",
     "scripts/automation/presentation_quality_metrics.py": "sha256:d5ad9c62e2e8fb29e58a2d7fe708417be5a4fbefe35cb0f5d66bed391c4284f9",
     "scripts/automation/semantic_intent_metrics.py": "sha256:c590f8e15bfc22d3f6ce124a1e42aa915800bdc10b2e2049a958395724bf4add",
-    "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:aefebf6e35865a6dddadc33eb491c72bf40b2c8e5bd78f0019f5575e352e7835",
+    "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:dc95e4736591df8223a4cb36909d3589bd4838743f27b46065ed3a0afb11a2cf",
     "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fe9a5288e009fdf4dac438717e0ac3128a0e4caac4885b870604e732591d9aec",
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:4c191e51be8e6515a3508b97ae9e157c3761430cd29f63b78722f09ad9240020",
-    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:ba11ca818a45dffc3640fafd98991b2d5079d499811bad75dfc5530c3ed20de4",
+    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:adeff0fc84522cb70a49a0e03b68f13b6c748074d268b029aa3ad44a3b9ceb9f",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:618e049ecfc064c3dcc3972c1508dd1d0a7d48def7e8e1ab4411777f3d260299",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:2a5a515d0ebb49a4389df1ff662e99f3afbd234efaa613c92a722dc91d31795f"
   },

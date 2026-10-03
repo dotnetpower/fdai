@@ -3021,8 +3021,6 @@
     "grounded": {
       "showTrace": "show trace",
       "hideTrace": "hide trace",
-      "showSources": "show sources",
-      "hideSources": "hide sources",
       "source": "source",
       "sources": "sources",
       "traceLabel": "Retrieval trace",
@@ -3141,7 +3139,6 @@
       "resolvingIntent": "Determining intent",
       "resolvingIntentDetail": "Waiting for the server-owned route decision",
       "preparingAnswer": "Preparing answer",
-      "compact": "Compact",
       "status": "Preparing answer. {detail}.",
       "readingCurrentSources": "Waiting for selected evidence sources",
       "groundingReadOnly": "resolving intent and evidence needs",
@@ -3347,10 +3344,6 @@
     },
     "trajectory": {
       "runRecord": "Run record",
-      "title": "Observed process",
-      "summary": "{models} model calls / model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
-      "summaryTraceOff": "Model trace off / model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
-      "summaryTraceMissing": "Model trace not captured / model {modelDuration} / {tokens} tokens / evidence {successful}/{attempted} / verification {verification}",
       "sequenceOnly": "causal sequence",
       "planSummary": "{count} goals / {mode}",
       "goalsLabel": "Planned intent goals",
@@ -3419,6 +3412,7 @@
         "model": "Model"
       },
       "timingPhase": {
+        "durable_queue": "Durable queue wait",
         "semantic_plan": "Semantic planning",
         "evidence": "Evidence resolution",
         "generation": "Answer generation",

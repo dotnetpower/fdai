@@ -138,22 +138,22 @@
         "When does Odin intervene?",
         "Odin이 개입하지 않는 경우는 언제인가요?"
       ],
-      "source_manifest_hash": "49eaa7523d570c8c2b2a4c208ed184cce58da894582e457713558ab3803fc2a4",
+      "source_manifest_hash": "1dacfb30953f2bd858fb04ff5ae674b98675ba8a181f568105295cbef25d7560",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "32dc07e32ef1097e406212ec8bda7aa0317e6bdf",
-          "line_end": 235,
-          "line_start": 183,
+          "blob_sha": "74c7aa3a54e704adbca09a09b38024a8937256ec",
+          "line_end": 274,
+          "line_start": 217,
           "path": "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration.py",
           "source_kind": "code",
           "symbol": "ForsetiArbitrationMixin.maybe_request_arbitration"
         },
         {
           "authority_role": "implementation",
-          "blob_sha": "ae00b7ae3267b01367d39afd2cad5af8c1cfb81d",
-          "line_end": 249,
-          "line_start": 181,
+          "blob_sha": "e36c19708cf9812a4bc327fa55ce7848e10b64c9",
+          "line_end": 371,
+          "line_start": 284,
           "path": "services/core-control-plane/src/fdai/agents/odin.py",
           "source_kind": "code",
           "symbol": "Odin.arbitrate"
@@ -169,27 +169,27 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "3fddc49db9a913ff89a16bb7257e62d4012866ea",
-          "line_end": 77,
-          "line_start": 62,
+          "blob_sha": "cb35c09ca46babd9db5243d8920301306a9a1d30",
+          "line_end": 87,
+          "line_start": 72,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_forseti_requests_arbitration_on_conflicting_advice"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "3fddc49db9a913ff89a16bb7257e62d4012866ea",
-          "line_end": 123,
-          "line_start": 115,
+          "blob_sha": "cb35c09ca46babd9db5243d8920301306a9a1d30",
+          "line_end": 133,
+          "line_start": 125,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_forseti_no_arbitration_on_single_domain"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "3fddc49db9a913ff89a16bb7257e62d4012866ea",
-          "line_end": 399,
-          "line_start": 383,
+          "blob_sha": "cb35c09ca46babd9db5243d8920301306a9a1d30",
+          "line_end": 422,
+          "line_start": 406,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_close_call_escalates_to_hil"
@@ -246,22 +246,22 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "dbc5780fbde1183e2d1e5181c40ba7c863d97a0b8ff5cc6f0d284d43baca2dce",
+      "source_manifest_hash": "7b5aea4f18527dd02c97f21722595b63f2c02ebc6c726fd14a43e16b27520f6b",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "e28df6583acf0d70eae2c3bf24034d8bede256f9",
-          "line_end": 545,
-          "line_start": 506,
-          "path": "services/core-control-plane/src/fdai/agents/saga.py",
+          "blob_sha": "02c7ba281cef48b252f03c5981e0c56fc4fdce8f",
+          "line_end": 176,
+          "line_start": 137,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/saga_issue_runtime.py",
           "source_kind": "code",
-          "symbol": "Saga.escalate_to_github_issue"
+          "symbol": "SagaIssueRuntimeMixin.escalate_to_github_issue"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "3e27e1e3d95c6b979fb9a3661d2e4dfc24db6196",
-          "line_end": 201,
-          "line_start": 167,
+          "blob_sha": "d4571489b3f42edae8c70f5c81f5504999cd50fb",
+          "line_end": 211,
+          "line_start": 177,
           "path": "services/core-control-plane/tests/agents/test_wave2_governance.py",
           "source_kind": "test",
           "symbol": "test_saga_issue_dedup_creates_once_and_appends_comment_on_repeat"
@@ -480,22 +480,22 @@
         "Can an approver approve their own action?",
         "자기 액션을 스스로 승인할 수 있나요?"
       ],
-      "source_manifest_hash": "81d4a1d963c6923b63ae5514e8c9bf54d7ee04ac20fb92407a6c9bbdf647a31f",
+      "source_manifest_hash": "6a39c01e7a07d1e343ba334bec45a941a463a252bb53522edfc7e1255a13a8ad",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "ff41898d41bc144e12012b24ef1fd483efdefc64",
-          "line_end": 338,
-          "line_start": 326,
+          "blob_sha": "f9faa1d59d87ed074cb2553f8c6811ad3b5098ba",
+          "line_end": 370,
+          "line_start": 348,
           "path": "services/core-control-plane/src/fdai/agents/var.py",
           "source_kind": "code",
           "symbol": "Var.decide"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "799fd1cf10ebfcedebb1a5eb754eb6b0b912eea6",
-          "line_end": 431,
-          "line_start": 411,
+          "blob_sha": "36bee0fd0ea4b4ca57854387e158d8529476c42a",
+          "line_end": 508,
+          "line_start": 489,
           "path": "services/core-control-plane/tests/agents/test_chat_to_pipeline_e2e.py",
           "source_kind": "test",
           "symbol": "test_var_rejects_blank_approver_and_trims_self_approval"
@@ -705,11 +705,11 @@
         "Does the browser hold the executor identity?",
         "브라우저가 실행기 신원을 갖나요?"
       ],
-      "source_manifest_hash": "21f2263a6d512588872f317f7e1a960b8e1c00f61d5fc6ed9ce7bdd8c7dbaa5e",
+      "source_manifest_hash": "0803ea03b094a95fc44877eaad5e55a4d2d42abe8093ebc9912fa3f4747c16ab",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "d21d3fe5835899c687b15bdec1de0b5f539e8ff9",
+          "blob_sha": "56a341dc683fe2539fe95d32527a29ecf97c9d26",
           "line_end": 60,
           "line_start": 28,
           "path": ".github/instructions/app-shape.instructions.md",
@@ -840,31 +840,31 @@
         "How does Vidar handle rollback?",
         "Vidar는 롤백을 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "c56f63d7bdccc43e0025d78008512d7d003fe167d510065d6115d6f00eae9102",
+      "source_manifest_hash": "bdc74cacadab25d44b3fff8bc7dac291841b4bf432c4718216c87e875587eb5f",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "91680ecb8a86e44f088fe4cb883434b8e2b8003e",
-          "line_end": 166,
-          "line_start": 164,
-          "path": "services/core-control-plane/src/fdai/agents/vidar.py",
+          "blob_sha": "1eeae7592479b209f7f71f8b106f750270343d81",
+          "line_end": 95,
+          "line_start": 73,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/vidar_rollback_runtime.py",
           "source_kind": "code",
-          "symbol": "Vidar.rollback"
+          "symbol": "VidarRollbackRuntimeMixin.rollback"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "2dd711b7dd41759f959e0681be59f8c3b38f0612",
-          "line_end": 1590,
-          "line_start": 1559,
+          "blob_sha": "c0c33274986775f47bbb47d31855b26c734fc23c",
+          "line_end": 1649,
+          "line_start": 1614,
           "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",
           "source_kind": "test",
           "symbol": "test_thor_triggers_vidar_rollback_on_failure"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "2dd711b7dd41759f959e0681be59f8c3b38f0612",
-          "line_end": 1713,
-          "line_start": 1696,
+          "blob_sha": "c0c33274986775f47bbb47d31855b26c734fc23c",
+          "line_end": 1776,
+          "line_start": 1758,
           "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",
           "source_kind": "test",
           "symbol": "test_vidar_rollback_is_idempotent_per_correlation"
@@ -921,22 +921,22 @@
         "Can Bragi execute a command?",
         "Bragi는 명령을 직접 실행하나요?"
       ],
-      "source_manifest_hash": "d18866e24bd24a846696a44c89ca7bcd9a923e1c113fde78dd62e179ab57951e",
+      "source_manifest_hash": "ab9a178749884b9d05354bdd6ec09a2e7b6ef5a04f8003a9694a0844776e8016",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "9e0d2f4815a07f29e63c8fed818e0b1dd6641cb0",
-          "line_end": 709,
-          "line_start": 442,
-          "path": "services/core-control-plane/src/fdai/agents/bragi.py",
+          "blob_sha": "4a046b008346510012297868fd8783e7325283ac",
+          "line_end": 451,
+          "line_start": 125,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/bragi_ask_runtime.py",
           "source_kind": "code",
-          "symbol": "Bragi.ask"
+          "symbol": "BragiAskRuntimeMixin.ask"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "97fd3e476e8c0ad4235852583aef6e11f3587aa4",
-          "line_end": 1412,
-          "line_start": 1398,
+          "blob_sha": "85d9532d5ff4b5eb9a2b7cb7f6d7a89030e416cc",
+          "line_end": 1442,
+          "line_start": 1420,
           "path": "services/core-control-plane/tests/agents/test_conversational_port.py",
           "source_kind": "test",
           "symbol": "test_ask_refuses_action_intent_and_routes_to_typed_pipeline"
@@ -993,11 +993,11 @@
         "Can local Console use synthetic operational evidence?",
         "로컬 Console이 합성 운영 근거를 써도 되나요?"
       ],
-      "source_manifest_hash": "39f4bd4994670055af030772a40d3591a24063784a9784682d5f88b027af995e",
+      "source_manifest_hash": "6fb8bf368d4529255a318042360579aa0b573d91f4b727805e0aa3d87bd06d5c",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "d21d3fe5835899c687b15bdec1de0b5f539e8ff9",
+          "blob_sha": "56a341dc683fe2539fe95d32527a29ecf97c9d26",
           "line_end": 118,
           "line_start": 82,
           "path": ".github/instructions/app-shape.instructions.md",

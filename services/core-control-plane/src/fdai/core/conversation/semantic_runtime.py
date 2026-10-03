@@ -64,6 +64,7 @@ from .semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
+from .semantic_relation_holds import relation_output_empty
 from .semantic_runtime_cancellation import (
     _run_planning_with_cancellation,
     _run_preflight_with_cancellation,
@@ -639,6 +640,9 @@ class SemanticConversationRuntime:
                 elif _query_output_incomplete(planning, execution):
                     disposition = "held"
                     reason = "semantic_evidence_incomplete"
+                elif relation_output_empty(planning, execution):
+                    disposition = "held"
+                    reason = "semantic_relation_empty_unconfirmed"
                 elif (
                     document_hold_reason := _required_document_hold_reason(
                         planning,

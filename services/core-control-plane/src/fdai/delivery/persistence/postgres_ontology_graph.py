@@ -52,8 +52,14 @@ async def _query_objects(
         params.append(list(object_ids))
     if property_equals:
         normalized = normalize_json_value(property_equals, path="property_equals")
-        params.append(canonical_json_mapping(normalized, path="property_equals")[1])
+        encoded = canonical_json_mapping(normalized, path="property_equals")[1]
+        params.extend((encoded, encoded))
+        # Retain the indexable prefilter, but enforce exact values before the row limit.
         clauses.append("properties @> %s::jsonb")
+        clauses.append(
+            "NOT EXISTS (SELECT 1 FROM jsonb_each(%s::jsonb) AS expected "
+            "WHERE properties -> expected.key IS DISTINCT FROM expected.value)"
+        )
     if property_text_in:
         if len(property_text_in) > 4:
             raise ValueError("property_text_in MUST contain at most four properties")

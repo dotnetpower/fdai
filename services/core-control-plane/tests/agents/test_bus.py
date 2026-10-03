@@ -18,9 +18,13 @@ def _bus(**kwargs: object) -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon(), **kwargs)  # type: ignore[arg-type]
 
 
+def _envelope(correlation_id: str, idempotency_key: str) -> dict[str, str]:
+    return {"correlation_id": correlation_id, "idempotency_key": idempotency_key}
+
+
 def test_inmemory_bus_injects_producer_principal_and_schema_version() -> None:
     bus = _bus()
-    asyncio.run(bus.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+    asyncio.run(bus.publish("Forseti", "object.verdict", _envelope("c", "verdict:c")))
     msg = bus.messages_on("object.verdict")[0]
     assert msg.payload["producer_principal"] == "Forseti"
     assert msg.payload["schema_version"] == 1
@@ -31,7 +35,7 @@ def test_inmemory_bus_injects_producer_principal_and_schema_version() -> None:
             "Forseti",
             "object.verdict",
             {
-                "correlation_id": "d",
+                **_envelope("d", "verdict:d"),
                 "producer_principal": "Bragi",
                 "schema_version": 999,
             },
@@ -55,11 +59,30 @@ def test_inmemory_bus_computes_partition_key() -> None:
     assert bus.messages_on("object.action-run")[0].key == "vm-1"
 
 
-def test_inmemory_bus_counts_empty_partition_key() -> None:
+def test_inmemory_bus_rejects_incomplete_owned_object_envelope() -> None:
     bus = _bus()
-    # object.verdict keys on correlation_id; absent -> empty key.
-    asyncio.run(bus.publish("Forseti", "object.verdict", {"risk_verdict": "auto"}))
-    assert bus.empty_partition_keys == 1
+    with pytest.raises(ValueError, match="correlation_id, idempotency_key"):
+        asyncio.run(bus.publish("Forseti", "object.verdict", {"risk_verdict": "auto"}))
+    assert bus.envelope_violations == 1
+
+
+def test_inmemory_bus_strips_owned_object_envelope_keys() -> None:
+    bus = _bus()
+    asyncio.run(
+        bus.publish(
+            "Forseti",
+            "object.verdict",
+            {
+                "correlation_id": " corr ",
+                "idempotency_key": " verdict:corr ",
+                "risk_verdict": "auto",
+            },
+        )
+    )
+    msg = bus.messages_on("object.verdict")[0]
+    assert msg.payload["correlation_id"] == "corr"
+    assert msg.payload["idempotency_key"] == "verdict:corr"
+    assert msg.key == "corr"
 
 
 def test_inmemory_bus_rejects_wrong_owner() -> None:
@@ -82,12 +105,13 @@ def test_inmemory_bus_isolates_raising_subscriber_by_default() -> None:
 
     bus.subscribe("object.event", "Heimdall", boom)
     bus.subscribe("object.event", "Forseti", good)
-    asyncio.run(bus.publish("Huginn", "object.event", {"correlation_id": "c"}))
+    asyncio.run(bus.publish("Huginn", "object.event", _envelope("c", "event:c")))
 
     assert seen == ["good"]  # sibling still ran
     assert bus.handler_errors == 1
     assert len(bus.dead_letters) == 1
-    assert bus.dead_letters[0].principal == "Heimdall"
+    assert bus.dead_letters[0].principal == "Huginn"
+    assert bus.dead_letters[0].failing_consumer == "Heimdall"
 
 
 def test_inmemory_bus_strict_mode_propagates_handler_error() -> None:
@@ -98,18 +122,20 @@ def test_inmemory_bus_strict_mode_propagates_handler_error() -> None:
 
     bus.subscribe("object.event", "Heimdall", boom)
     with pytest.raises(RuntimeError, match="kaboom"):
-        asyncio.run(bus.publish("Huginn", "object.event", {"correlation_id": "c"}))
+        asyncio.run(bus.publish("Huginn", "object.event", _envelope("c", "event:c")))
     assert bus.handler_errors == 1
 
 
 def test_inmemory_bus_clear_history_resets_counters() -> None:
     bus = _bus()
-    asyncio.run(bus.publish("Forseti", "object.verdict", {"risk_verdict": "auto"}))
-    assert bus.empty_partition_keys == 1
+    with pytest.raises(ValueError, match="correlation_id"):
+        asyncio.run(bus.publish("Forseti", "object.verdict", {"risk_verdict": "auto"}))
+    assert bus.envelope_violations == 1
     bus.clear_history()
     assert bus.published == []
     assert bus.dead_letters == []
     assert bus.empty_partition_keys == 0
+    assert bus.envelope_violations == 0
     assert bus.handler_errors == 0
 
 
@@ -122,7 +148,7 @@ def test_inmemory_bus_skips_duplicate_subscription() -> None:
 
     bus.subscribe("object.event", "Heimdall", handler)
     bus.subscribe("object.event", "Heimdall", handler)  # duplicate -> skipped
-    asyncio.run(bus.publish("Huginn", "object.event", {"correlation_id": "c"}))
+    asyncio.run(bus.publish("Huginn", "object.event", _envelope("c", "event:c")))
     assert seen == ["x"]  # delivered once, not twice
 
 
@@ -145,6 +171,6 @@ def test_inmemory_bus_handler_timeout_is_isolated() -> None:
         await asyncio.sleep(10)
 
     bus.subscribe("object.event", "Heimdall", stuck)
-    asyncio.run(bus.publish("Huginn", "object.event", {"correlation_id": "c"}))
+    asyncio.run(bus.publish("Huginn", "object.event", _envelope("c", "event:c")))
     assert bus.handler_errors == 1
     assert len(bus.dead_letters) == 1

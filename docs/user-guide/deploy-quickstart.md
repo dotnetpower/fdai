@@ -1,12 +1,12 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 70a54cd3e9b5d9f65c9041c616f19af000fd1348 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fa493c7a1f499e59649708839904b9e7e4921dd5 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 71aae58cd6ed1d69c04086f85cf7acb9b1473e7a }, { source: docs/roadmap/deployment/source-deployment.md, sha: e758cb8f13541896b059b05549e4d80456313905 }]
 ---
 
 # Deploy Quickstart
 
-> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](../roadmap/deployment/hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 You can deploy FDAI to your own Azure subscription from a clone of the repository with one command
 line after one interactive Azure sign-in. You don't need a key, a signed kit, a published release,
@@ -36,13 +36,12 @@ GitHub Actions tests the repository. It is not part of either deployment path.
 > **Current status:** The one-command source deployment is still being completed, as its
 > [implementation ledger](../roadmap-implementation/deployment/source-deployment.md) records:
 >
-> - A keyless run creates the Foundation and then stops with
->   `prebuilt_runtime_artifacts_required` before the application stage.
-> - No deployment step starts the Trial yet, so an installation without a token stays
->   observation-only.
-> - Core verifies licenses with the upstream integrity key, but with
->   `secrets/integrity-signing-key.pem` the deployment still issues a 30-day token instead of the
->   installation entitlement, and the expiry watermark doesn't exist yet.
+> - A source run creates the Foundation and then stops with
+>   `prebuilt_runtime_artifacts_required` before the application stage. The image stage that
+>   builds the service images in your registry exists, but the source route doesn't run it yet.
+> - The AKS application stage starts the 30-day Trial, or installs the installation entitlement
+>   when `secrets/integrity-signing-key.pem` is present, and the Console shows the expiry
+>   watermark. A source run doesn't reach that stage yet.
 > - Until those items close, a holder of the offline-package signing key reaches the application
 >   stage only by building the signed offline package and passing `--offline-kit`.
 
@@ -60,6 +59,9 @@ Before you start, confirm the following requirements:
 - Node.js and npm, only when you select the Console add-on.
 - An Azure identity that can create the Foundation resources and assign the documented deployment
   roles in the selected subscription.
+- If you select the Console or enterprise identity add-on, tenant-local FDAI Entra application and
+  group display names must be unique. Duplicate `fdai-*` applications or `aw-*` groups stop the
+  run before Azure resources are created.
 - Capacity in the selected Azure region for the required resource types.
 - An interactive Azure session for the intended subscription.
 
@@ -289,6 +291,12 @@ installation runs the 30-day Trial unless a separately issued entitlement is sup
 
 > A network with no Azure management-plane route cannot deploy Azure resources. In that profile,
 > the package can be verified and prepared, but the command cannot report deployment readiness.
+
+To upgrade an existing offline installation, rerun the same command with the newer package and the
+installation's original `--work-dir`. The command verifies the newer package, keeps the previous
+package snapshot for review, and continues the existing Foundation under the revision that created
+it. It then deploys the application from the newer package. It never approves a new Foundation
+plan under the older revision.
 
 ## Understand the result
 

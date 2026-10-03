@@ -12,6 +12,7 @@ from fdai_operator_service.adapters.semantic_kafka import (
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
 )
+from fdai_service_contracts.bus_poison_halt_clear import ORDERED_POISON_HALT_CLEAR_TOPIC
 from fdai_service_contracts.incident_creation import INCIDENT_CREATION_REQUEST_TOPIC
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
@@ -388,6 +389,39 @@ async def test_incident_creation_topic_is_multiplexed_on_the_physical_topic(
     }
 
 
+async def test_ordered_poison_halt_clear_topic_is_multiplexed_on_the_physical_topic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
+    bus = OperatorSemanticKafkaBus(
+        config=OperatorSemanticKafkaConfig(
+            bootstrap_servers="example.servicebus.windows.net:9093",
+            physical_topic="fdai.pantheon.objects",
+        ),
+        credential=Credential(),  # type: ignore[arg-type]
+    )
+
+    await bus.publish(
+        ORDERED_POISON_HALT_CLEAR_TOPIC,
+        "clear-key",
+        {
+            "schema_version": "1.0.0",
+            "request_id": "request-one",
+            "execution_authority": False,
+        },
+    )
+
+    producer = Producer.latest
+    assert producer is not None
+    assert producer.sent[0][0] == "fdai.pantheon.objects"
+    assert json.loads(producer.sent[0][2]) == {
+        LOGICAL_TOPIC_FIELD: ORDERED_POISON_HALT_CLEAR_TOPIC,
+        "execution_authority": False,
+        "request_id": "request-one",
+        "schema_version": "1.0.0",
+    }
+
+
 @pytest.mark.parametrize(
     ("physical_topic", "overrides"),
     [
@@ -414,6 +448,7 @@ async def test_incident_creation_topic_is_multiplexed_on_the_physical_topic(
         ),
         (INCIDENT_CREATION_REQUEST_TOPIC, {}),
         (INCIDENT_INTERVENTION_REQUEST_TOPIC, {}),
+        (ORDERED_POISON_HALT_CLEAR_TOPIC, {}),
         (WARA_ASSESSMENT_TOPIC, {}),
     ],
 )

@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 46a56cb4522ef6fc448a72f486031e4dea10ffa2
-translation_revised: 2026-10-01
+translation_source_sha: 79339a43c90b54b28e4d630fb95a1932cd338fcb
+translation_revised: 2026-10-03
 ---
 # 온톨로지 구조 모델
 
@@ -99,10 +99,11 @@ accelerator 및 private-cluster proposal store를 소유합니다. 완료되거�
 pool worker를 남기지 않도록 provider client 및 event transport와 함께 비동기 수명 주기에서
 모두 닫습니다.
 
-저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
-평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된
-관계 없는 후보 스냅샷 하나를 제공할 수 있습니다. 더 큰 스캔은 연결 하나와 출처 세대 하나를
-사용합니다. 관계를 포함하는 조회는 이 경로를 사용하지 않으며 후보 잘림은 계속 명시됩니다.
+ObjectSet은 [범위가 제한된 조회 계약](operating-ontology-platform-ko.md)을 따르며, 잘림을 명시합니다.
+동등 비교와 소속 조건은 JSON 구조와 불리언 타입을 보존하고, 숫자 비교는 십진수 JSON 값을 사용합니다.
+키의 순서는 영향을 주지 않지만 추가 키, 배열 원소의 순서와 중복 개수는 결과에 영향을 줍니다.
+포함 조건은 문자열의 부분 문자열, 객체의 키, 배열의 정확한 원소를 검사합니다.
+저장소는 행 수 제한 전에 속성 동등 조건을 적용합니다. JSONB 포함 관계만으로는 충분하지 않습니다.
 
 [구조화된 클라우드 문서 확장](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)은 개발
 중입니다. 본문 블록, 인용문 식별자 및 검색어 결속은 문서 출처 이력을 설명하며, 새 ObjectType,
@@ -576,3 +577,4 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | Interface, ObjectSet, 함수, exact release | [온톨로지 안전 인프라](operating-ontology-platform-ko.md) |
 | 연속 그래프 최신성과 완전성 | [연속 운영 인스턴스 그래프](continuous-operational-instance-graph-ko.md) |
 | 검증된 쿼리 커버리지와 전환 | [온톨로지 쿼리 커버리지 구현 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md) |
+| 공유 Workflow 검증 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |

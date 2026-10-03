@@ -6,6 +6,8 @@ import hashlib
 import importlib.util
 import io
 import json
+import shutil
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -37,6 +39,24 @@ _CORE_IDENTITY_RESOURCE_ID = f"{_IDENTITY_ROOT}/id-core"
 _EXISTING_IDENTITY_RESOURCE_ID = f"{_IDENTITY_ROOT}/id-existing"
 _INVENTORY_IDENTITY_RESOURCE_ID = f"{_IDENTITY_ROOT}/id-inventory"
 sys.path.insert(0, str(_SCRIPTS))
+
+_OPERATOR_REQUEST_RECEIPT_BINDING_GUARD = (
+    r"""
+  . == null or (
+    type == "object" and
+    keys == [
+"""
+    '      "core_producer_id", "core_signing_seed_secret_id", '
+    '"operator_producer_id", "operator_signing_seed_secret_id"\n'
+    r"""    ] and
+    (.core_signing_seed_secret_id | test("^https://[^/]+/secrets/[^/]+$")) and
+    (.operator_signing_seed_secret_id | test("^https://[^/]+/secrets/[^/]+$")) and
+    (.core_producer_id | test("^[A-Za-z0-9_.:-]{1,128}$")) and
+    (.operator_producer_id | test("^[A-Za-z0-9_.:-]{1,128}$")) and
+    .core_producer_id != .operator_producer_id
+  )
+"""
+)
 
 
 @pytest.fixture(scope="module")
@@ -92,6 +112,19 @@ def observation_hydrator() -> ModuleType:
     spec = importlib.util.spec_from_file_location(
         "focused_hydrate_observation_context",
         _SCRIPTS / "hydrate_observation_context.py",
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
+def operator_request_hydrator() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "focused_hydrate_operator_request_receipts",
+        _SCRIPTS / "hydrate_operator_request_receipts.py",
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -769,6 +802,154 @@ def test_absent_platform_observation_binding_removes_stale_core_input(
     assert "observation_context" not in hydrated["environments"]["dev"]["core-control-plane"]
 
 
+def test_hydrates_operator_request_receipts_for_core_and_operator(
+    operator_request_hydrator: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {"name": "core", "operator_request_receipts": {}},
+                "operator-service": {"name": "operator", "operator_request_receipts": {}},
+            }
+        }
+    }
+    binding = {
+        "core_signing_seed_secret_id": "https://vault.example.com/secrets/core-seed",
+        "operator_signing_seed_secret_id": "https://vault.example.com/secrets/operator-seed",
+        "core_producer_id": "core-control-plane",
+        "operator_producer_id": "operator-service",
+    }
+
+    core = operator_request_hydrator.hydrate_operator_request_receipts(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        binding=binding,
+    )
+    operator = operator_request_hydrator.hydrate_operator_request_receipts(
+        payload,
+        service="operator-service",
+        environment="dev",
+        binding=binding,
+    )
+
+    assert core["environments"]["dev"]["core-control-plane"]["operator_request_receipts"] == {
+        "core_signing_seed_secret_id": binding["core_signing_seed_secret_id"],
+        "operator_signing_seed_secret_id": binding["operator_signing_seed_secret_id"],
+        "core_producer_id": "core-control-plane",
+        "operator_producer_id": "operator-service",
+    }
+    assert operator["environments"]["dev"]["operator-service"]["operator_request_receipts"] == {
+        "operator_signing_seed_secret_id": binding["operator_signing_seed_secret_id"],
+        "producer_id": "operator-service",
+    }
+    assert payload["environments"]["dev"]["core-control-plane"]["operator_request_receipts"] == {}
+
+
+def test_platform_operator_request_receipt_binding_matches_workflow_guard_and_hydrator(
+    operator_request_hydrator: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {"name": "core"},
+                "operator-service": {"name": "operator"},
+            }
+        }
+    }
+    binding = {
+        "core_signing_seed_secret_id": "https://vault.example.com/secrets/core-seed",
+        "operator_signing_seed_secret_id": "https://vault.example.com/secrets/operator-seed",
+        "core_producer_id": "core-control-plane",
+        "operator_producer_id": "operator-service",
+    }
+    assert "output -json operator_request_receipt_binding" in _WORKFLOW
+    assert '(.core_signing_seed_secret_id | test("^https://[^/]+/secrets/[^/]+$"))' in _WORKFLOW
+    assert '(.operator_signing_seed_secret_id | test("^https://[^/]+/secrets/[^/]+$"))' in _WORKFLOW
+    assert ".core_producer_id != .operator_producer_id" in _WORKFLOW
+    jq = shutil.which("jq")
+    assert jq is not None
+
+    accepted = subprocess.run(  # noqa: S603 - static jq guard expression and fixture input.
+        [jq, "-e", _OPERATOR_REQUEST_RECEIPT_BINDING_GUARD],
+        input=json.dumps(binding),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert accepted.returncode == 0, accepted.stderr
+    core = operator_request_hydrator.hydrate_operator_request_receipts(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        binding=binding,
+    )
+    assert core["environments"]["dev"]["core-control-plane"]["operator_request_receipts"] == {
+        "core_signing_seed_secret_id": binding["core_signing_seed_secret_id"],
+        "operator_signing_seed_secret_id": binding["operator_signing_seed_secret_id"],
+        "core_producer_id": "core-control-plane",
+        "operator_producer_id": "operator-service",
+    }
+
+
+def test_versioned_operator_request_receipt_binding_fails_workflow_guard_and_hydrator(
+    operator_request_hydrator: ModuleType,
+) -> None:
+    binding = {
+        "core_signing_seed_secret_id": "https://vault.example.com/secrets/core-seed/version",
+        "operator_signing_seed_secret_id": "https://vault.example.com/secrets/operator-seed",
+        "core_producer_id": "core-control-plane",
+        "operator_producer_id": "operator-service",
+    }
+    jq = shutil.which("jq")
+    assert jq is not None
+
+    rejected = subprocess.run(  # noqa: S603 - static jq guard expression and fixture input.
+        [jq, "-e", _OPERATOR_REQUEST_RECEIPT_BINDING_GUARD],
+        input=json.dumps(binding),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert rejected.returncode != 0
+    with pytest.raises(
+        operator_request_hydrator.OperatorRequestReceiptBindingError,
+        match="versionless HTTPS Key Vault ids",
+    ):
+        operator_request_hydrator.hydrate_operator_request_receipts(
+            {"environments": {"dev": {"core-control-plane": {"name": "core"}}}},
+            service="core-control-plane",
+            environment="dev",
+            binding=binding,
+        )
+
+
+def test_absent_operator_request_receipt_binding_removes_stale_input(
+    operator_request_hydrator: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {
+                    "name": "core",
+                    "operator_request_receipts": {"core_signing_seed_secret_id": "stale"},
+                }
+            }
+        }
+    }
+
+    hydrated = operator_request_hydrator.hydrate_operator_request_receipts(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        binding=None,
+    )
+
+    assert "operator_request_receipts" not in hydrated["environments"]["dev"]["core-control-plane"]
+
+
 def test_disabled_platform_observation_detaches_only_its_source_identity(
     observation_hydrator: ModuleType,
 ) -> None:
@@ -1150,6 +1331,8 @@ def test_workflow_materializes_platform_owned_runtime_call_resource_ids() -> Non
     assert "invalid runtime-call evidence binding" in _WORKFLOW
     assert "output -json ohl_observation_context_binding" in _WORKFLOW
     assert "hydrate_observation_context.py" in _WORKFLOW
+    assert "output -json operator_request_receipt_binding" in _WORKFLOW
+    assert "hydrate_operator_request_receipts.py" in _WORKFLOW
 
 
 def test_workflow_materializes_platform_owned_cost_pseudonym_key() -> None:

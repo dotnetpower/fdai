@@ -190,6 +190,7 @@ async def test_specialist_conflict_reaches_objective_aware_hil_verdict(
     await forseti.on_typed_message(
         "object.cost-anomaly",
         {
+            "producer_principal": "Njord",
             "correlation_id": "correlation-example",
             "resource_id": "resource-example",
             "recommendation": "scale_down",
@@ -205,6 +206,7 @@ async def test_specialist_conflict_reaches_objective_aware_hil_verdict(
     await forseti.on_typed_message(
         "object.capacity-forecast",
         {
+            "producer_principal": "Freyr",
             "correlation_id": "correlation-example",
             "resource_id": "resource-example",
             "recommendation": "scale_up",
@@ -255,6 +257,7 @@ async def test_planned_change_assessment_lowers_arbitrated_decision_case() -> No
     await forseti.on_typed_message(
         "object.event",
         {
+            "producer_principal": "Huginn",
             "correlation_id": "change-correlation",
             "idempotency_key": "change-event",
             "resource_id": "resource-example",
@@ -551,6 +554,7 @@ async def _specialist_verdict(
         (
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "kinetic-planning-e2e",
                 "resource_id": "resource-example",
                 "recommendation": "scale_down",
@@ -566,6 +570,7 @@ async def _specialist_verdict(
         (
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "kinetic-planning-e2e",
                 "resource_id": "resource-example",
                 "recommendation": "scale_up",
@@ -711,6 +716,7 @@ async def test_specialist_events_carry_operational_plan_to_human_review() -> Non
     await forseti.on_typed_message(
         "object.cost-anomaly",
         {
+            "producer_principal": "Njord",
             "correlation_id": "planning-e2e",
             "resource_id": "resource-example",
             "recommendation": "scale_down",
@@ -722,6 +728,7 @@ async def test_specialist_events_carry_operational_plan_to_human_review() -> Non
     await forseti.on_typed_message(
         "object.capacity-forecast",
         {
+            "producer_principal": "Freyr",
             "correlation_id": "planning-e2e",
             "resource_id": "resource-example",
             "recommendation": "scale_up",

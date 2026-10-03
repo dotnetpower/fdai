@@ -208,6 +208,27 @@ describe("buildTrajectoryPresentation", () => {
     expect(result.modelCallCountIsLowerBound).toBe(false);
   });
 
+  it("uses complete server call accounting without requiring captured model content", () => {
+    const budget = {
+      schema_version: 1 as const, complete: true, as_of: "2026-10-02T00:00:00Z",
+      model_calls: { used: 10, reserved: 0, maximum: 16 },
+      tokens: { used: 35102, reserved: 0, maximum: 40000 },
+      elapsed_ms: { used: 12800, reserved: 0, maximum: 45000 },
+    };
+    const recorded = buildTrajectoryPresentation(trajectory({}, { turnBudget: budget }));
+    expect(recorded.modelCallCount).toBe(10);
+    expect(recorded.modelCallCountRecorded).toBe(true);
+    expect(recorded.modelCallCountIsLowerBound).toBe(false);
+    const zero = buildTrajectoryPresentation(trajectory({ source: "llm:narrator" }, {
+      turnBudget: { ...budget, model_calls: { used: 0, reserved: 0, maximum: 16 } },
+    }));
+    expect(zero.modelCallCount).toBe(0);
+    const incomplete = buildTrajectoryPresentation(trajectory({}, {
+      turnBudget: { ...budget, complete: false },
+    }));
+    expect(incomplete.modelCallCountRecorded).toBe(false);
+  });
+
   it("surfaces measured model duration and token usage without prompt capture", () => {
     const result = buildTrajectoryPresentation(trajectory({
       source: "ontology-query",
@@ -216,11 +237,30 @@ describe("buildTrajectoryPresentation", () => {
         prompt_tokens: 1600,
         completion_tokens: 142,
         total_tokens: 1742,
+        model_calls: 6,
       },
     }));
 
     expect(result.modelLatencyMs).toBe(8450);
     expect(result.totalTokens).toBe(1742);
+    expect(result.inputTokens).toBe(1600);
+    expect(result.outputTokens).toBe(142);
+    expect(result.modelCallCount).toBe(6);
+    expect(result.modelCallCountRecorded).toBe(true);
+  });
+
+  it("keeps missing usage distinct from measured zero", () => {
+    const missing = buildTrajectoryPresentation(trajectory({}));
+    expect(missing.inputTokens).toBeUndefined();
+    expect(missing.outputTokens).toBeUndefined();
+    const totalOnly = buildTrajectoryPresentation(trajectory({ modelUsage: { total_tokens: 10 } }));
+    expect(totalOnly.inputTokens).toBeUndefined();
+    expect(totalOnly.outputTokens).toBeUndefined();
+    const measured = buildTrajectoryPresentation(trajectory({
+      modelUsage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+    }));
+    expect(measured.inputTokens).toBe(0);
+    expect(measured.outputTokens).toBe(0);
   });
 
   it("distinguishes corrected verification and degraded planning", () => {

@@ -55,6 +55,9 @@ CALLER_TOKEN_JWKS_ENV = "FDAI_OPERATIONAL_EVIDENCE_CALLER_TOKEN_JWKS_JSON"  # no
 OWN_ROLE_ASSIGNMENTS_ENV = "FDAI_OPERATIONAL_EVIDENCE_OWN_ROLE_ASSIGNMENTS_JSON"
 OWN_ROLE_READBACK_SCOPES_ENV = "FDAI_OPERATIONAL_EVIDENCE_ROLE_READBACK_SCOPES_JSON"
 OWN_ROLE_ALLOWED_SCOPES_ENV = "FDAI_OPERATIONAL_EVIDENCE_ALLOWED_ROLE_SCOPES_JSON"
+OBSERVATION_METRIC_WORKSPACE_ENV = "FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_METRIC_WORKSPACE_ID"
+OBSERVATION_METRIC_QUERIES_ENV = "FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_METRIC_QUERIES_JSON"
+OBSERVATION_SCOPE_ROWS_ENV = "FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_SCOPE_ROWS_JSON"
 DEFAULT_TRUST_REGISTRY = "config/operational-evidence-trust-registry.json"
 VERIFIER_ID = "operational-evidence-verifier"
 VERIFIER_VERSION = "1.0.0"
@@ -95,6 +98,9 @@ class OperationalEvidenceSettings:
     own_role_assignments_json: str
     role_readback_scopes_json: str
     allowed_role_scopes_json: str
+    observation_metric_workspace_id: str
+    observation_metric_queries_json: str
+    observation_scope_rows_json: str
     execution_venue: ExecutionVenue | None
 
     @classmethod
@@ -130,6 +136,9 @@ class OperationalEvidenceSettings:
             own_role_assignments_json=env.get(OWN_ROLE_ASSIGNMENTS_ENV, "").strip(),
             role_readback_scopes_json=env.get(OWN_ROLE_READBACK_SCOPES_ENV, "").strip(),
             allowed_role_scopes_json=env.get(OWN_ROLE_ALLOWED_SCOPES_ENV, "").strip(),
+            observation_metric_workspace_id=env.get(OBSERVATION_METRIC_WORKSPACE_ENV, "").strip(),
+            observation_metric_queries_json=env.get(OBSERVATION_METRIC_QUERIES_ENV, "").strip(),
+            observation_scope_rows_json=env.get(OBSERVATION_SCOPE_ROWS_ENV, "").strip(),
             execution_venue=venue,
         )
 
@@ -254,6 +263,9 @@ __all__ = [
     "OWN_ROLE_ASSIGNMENTS_ENV",
     "OWN_ROLE_ALLOWED_SCOPES_ENV",
     "OWN_ROLE_READBACK_SCOPES_ENV",
+    "OBSERVATION_METRIC_QUERIES_ENV",
+    "OBSERVATION_METRIC_WORKSPACE_ENV",
+    "OBSERVATION_SCOPE_ROWS_ENV",
     "PRODUCER_ID",
     "PRODUCER_VERSION",
     "VERTICAL_EXECUTOR_PRINCIPALS_ENV",

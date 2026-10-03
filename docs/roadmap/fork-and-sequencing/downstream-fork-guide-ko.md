@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 7047928f31a098a717c96adafe37731db7b2335c
-translation_revised: 2026-10-01
+translation_source_sha: ee22a116e193959fd75f23f9c5e01a02027aaccf
+translation_revised: 2026-10-02
 ---
 
 # 다운스트림 포크 가이드
@@ -78,6 +78,8 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 | 근거 프로파일 | 권위 있는, 고정본 | 아니요 |
 | 자율성 | 기능별 shadow, 강제 적용 | 아니요 |
 | Human 및 실행기 신원 | Entra App 역할, Managed Identity | 아니요 |
+| 설치 경로와 release channel | 소스, 오프라인 패키지, Hub 관리형; `DEV`, `RELEASE_CANDIDATE`, `RELEASE` | 아니요 |
+| 승인 프로필 | 다중 운영자, 단독 운영자 프로덕션 | 아니요 |
 
 하나의 포크는 배포가 없거나 서로 다른 환경에 여러 배포가 있을 수 있습니다.
 업스트림도 직접 deploy할 수 있습니다. `.fdai-fork`, `FDAI_FORK`, `git config fdai.fork true`는
@@ -169,7 +171,7 @@ promotion 또는 실행 권한을 선택할 수 없습니다.
 
 [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt)에 나열된 경로는 편집하지
 마세요. Core, composition, 공유 계약과 프로바이더, 에이전트, 기능 라이선싱 런타임 연결, 영속 Trial
-저장소와 활성화 작성자, trust 패키지, Trial 만료 워터마크의 상태 게시자와 Operator 표시, 스키마 및
+저장소와 활성화 작성자, trust 패키지, Trial 만료 워터마크의 상태 게시자, Operator 표시, Console 워터마크, 스키마 및
 저장소 지침의 definition은 업스트림이 소유합니다.
 포크는 자체 패키지에서 경계를 통해 구현, 카탈로그 항목 및 overlay를 추가합니다.
 

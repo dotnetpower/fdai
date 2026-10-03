@@ -1,0 +1,26 @@
+{
+  "documentArtifact": {
+    "rows": "행",
+    "digest": "다이제스트",
+    "preview": "미리 보기"
+  },
+  "presentation": {
+    "exactValueRows": "{count}행"
+  },
+  "leave": {
+    "title": "{screen} 화면을 열까요?",
+    "body": "대화를 닫고 그 자리에 {screen} 화면을 엽니다. 계속 읽으려면 여기에 머무르세요.",
+    "stay": "여기에 머무르기",
+    "open": "{screen} 열기"
+  },
+  "retrieval": {
+    "readOnly": "읽기 전용",
+    "stepsLabel": "준비 단계",
+    "stageDone": "완료",
+    "stageActive": "진행 중"
+  },
+  "rich": {
+    "copy": "복사",
+    "copyCode": "{language} 복사"
+  }
+}

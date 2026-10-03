@@ -3,7 +3,7 @@ title: Disconnected Deployment
 ---
 # Disconnected Deployment
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document is the single owner for deploying FDAI into a network that blocks public internet
 egress - a regulated financial tenant, a sovereign enclave, or a fully air-gapped site. It states
@@ -239,6 +239,11 @@ The manifest is minted from the staged tree, so
 it cannot attest to content the verifier would reject, and the release private key never enters the
 kit.
 
+To identify which local private key matches the packaged release and bundle roots, run
+`scripts/deployment/release/check-signing-key.py --key <path>`. It prints only fingerprints and
+roles. A match names the `build-standalone-deployment-kit.sh` option that accepts the key:
+`--signing-key`, `--release-key`, or `--bundle-key`. `fdai-up.sh` no longer accepts a signing key.
+
 The target disconnected command, `fdaictl provision inspect`, verifies the signature before parsing the
 manifest, binds the exact CLI and platform version, rejects symlinks and extra files, and streams
 every digest. Presence is never trust: an unverified kit stays `candidate`, and rejected content is
@@ -264,6 +269,26 @@ Console. The run binding and managed-host work directory include the control-pac
 changed package requires a new prepared context. The deployment result reports the control-package
 digest and version beside the kit source commit. The control package grants no approval, apply, or
 runtime authority.
+
+#### Upgrading an existing offline installation
+
+To continue an offline-package installation with a newer signed kit, rerun the same work
+directory:
+
+```bash
+scripts/deployment/azure/fdai-up.sh \
+  --offline-kit <newer-kit.tar.gz> \
+  --work-dir <existing-work-dir>
+```
+
+The coordinator verifies the newer kit, rotates the previous retained kit snapshot and
+managed-host transport archive into local review directories, and keeps the existing Foundation
+identity. Foundation variables keep the source revision that created the Foundation. The new kit
+source is recorded as the application revision, so application stages and managed-host work
+contexts pick up the new Terraform, runtime payloads, and CLI by kit manifest digest. A
+non-destructive Foundation plan is approved by the invocation that shows it. A plan that deletes
+or replaces an existing resource still requires the existing explicit extra confirmation before
+the effect.
 
 ### 5. Keep the rule catalog fresh without public egress
 
@@ -433,3 +458,4 @@ bootstrap and complete new-subscription runtime installation remain separate, op
 | The CLI facade, signed bundles, and exact-plan apply | [installable-deployment-cli.md](installable-deployment-cli.md) |
 | Establishing and rotating the offline trust root | [offline-trust-ceremony.md](../../runbooks/offline-trust-ceremony.md) |
 | Recovering from a rejected kit or a blocked plan | [deployment-recovery.md](../../runbooks/deployment-recovery.md) |
+| Offline upgrades through a Target Hub | [Hub-Managed Lifecycle](hub-managed-lifecycle.md) |

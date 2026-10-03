@@ -45,6 +45,16 @@ variable "runtime_call_evidence" {
   default = {}
 }
 
+variable "operator_request_receipts" {
+  type = object({
+    core_signing_seed_secret_id     = optional(string, "")
+    operator_signing_seed_secret_id = optional(string, "")
+    core_producer_id                = optional(string, "core-control-plane")
+    operator_producer_id            = optional(string, "operator-service")
+  })
+  default = {}
+}
+
 variable "rca_reader_identity" {
   type = object({
     resource_id = optional(string, "")
@@ -86,6 +96,7 @@ variable "stewardship_gitops" {
   type = object({
     enabled                   = optional(bool, false)
     owner                     = optional(string, "")
+    workflow_tools_enforce    = optional(bool, false)
     repo                      = optional(string, "")
     auth_mode                 = optional(string, "")
     token_secret_id           = optional(string, "")

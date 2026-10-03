@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 8f1884a599b78b69a3059c8a2c87567c41d10689
-translation_revised: 2026-10-01
+translation_source_sha: bc9e32e2be7fd3b5333eee1015310ad07618d223
+translation_revised: 2026-10-03
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -10,6 +10,16 @@ translation_revised: 2026-10-01
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+기존 숫자 `usage` 맵은 토큰 합계와 함께 `model_calls`를 포함할 수 있습니다. 이는 기록된
+대화 호출 계측이며, 상세 프롬프트 수집, 행동 권한, 독립 운영 근거가 아닙니다. 없는 값은
+사용 불가로 유지하며, 이전 소비자는 추가 숫자 키를 무시해도 답변 검증이나 Incident 처리를
+바꾸지 않습니다.
+
+[공통 답변 표시](operator-console-ko.md#공통-답변-표시)는 기존 답변 본문, 검증, 인용,
+표시 데이터 필드를 재사용합니다. 출처 상세와 원문 Markdown 보기는 전송 필드, 요청,
+Incident 확인 또는 실행 권한을 추가하지 않습니다. 거절된 내용은 표시가 허용된 답변에
+포함하지 않습니다.
+
 테스트 맥락 선택지는 전용 인증 읽기 계약입니다. 검토된 범위와 정책 선택지 및 출처 개정을 반환하며, 수명 주기 쓰기는 계속 기존 제안, 검토, 철회 경로를 사용하고 `execution_authority=false`를 유지합니다.
 
 Core가 감독하는 인스턴스 인덱스 조정은 Incident 생성 및 전송과 분리됩니다. 접수는 모델 인자나 인덱스 레코드가 아닌 인증된 Function 호출 문맥에서만 이뤄집니다. 후보 준비와 정확한 ID 조회는 Incident를 생성하거나 변경을 승인하거나 의미 전송 계약의 실행 권한 없음 원칙을 바꿀 수 없습니다. 전용 최종 변환은 principal, release, 검색어, 결과 다이제스트, 호출 근거 및 후보 집계를 검증합니다. 식별자/타입/수정 버전 행만 표시하고 전체 목록이나 실행 권한이 아니라는 안내를 두 언어로 제공합니다. 후보 0개는 부재를 입증하지 않으며 원시 속성은 제외합니다.
@@ -309,9 +319,9 @@ Command Deck 의 최종 답변에 fenced 코드 블록 이 있으면 Operator AP
 표현 데이터이므로 `GroundedCodeArtifact` 추출에서 제외하며 **코드 근거** 아래에 두 번째로
 표시하지 않습니다.
 
-Console 은 기본적으로 코드 를 **코드 근거** 아래에 접어서 표시합니다. 공개
-를 펼치면 그라운딩된 정확한 내용, 산출물 참조, 구문 검증 통과
-여부를 볼 수 있습니다. 최종 산출물 는 완료되지 않은 스트리밍 토큰 이 아니라
+Console 은 기본적으로 코드 를 **코드 근거** 아래에 접어서 표시합니다. 펼치면
+각 산출물의 정적 검사 결과와 함께 코드가 실행되지 않았다는 사실, 공통 코드 표면에
+Copy와 함께 표시되는 근거에 기반한 정확한 내용, 산출물 참조를 볼 수 있습니다. 최종 산출물 는 완료되지 않은 스트리밍 토큰 이 아니라
 검증된 최종 답변에서 생성됩니다. 탭 은 대화 기록 와 함께 산출물 를
 `sessionStorage` 에 보존할 수 있으며, 방어적 파서 는 malformed 또는 oversized
 항목 를 제거합니다.
@@ -488,6 +498,10 @@ Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우�
 | 관리되는 계약 간 런타임 근거 | in-progress | Operator 및 Console focused 테스트 | 단위 및 통합 검사는 동작 방식을 입증하지만 callback, proposal, code 산출물, 온톨로지 및 영속 감사 화면을 잇는 인증 증적은 아닙니다. |
 
 ### 구현 이력
+이번 변경은 기본 숫자 사용량 맵에 기록된 모델 호출 수를 전달하면서 선택적 상세 추적의
+개인정보 경계를 유지합니다. 집중 Core 변환·Console 숫자 해석 검사를 통과했고, 작업 소유
+의미·진단 검사 916개가 통과했습니다. 실제 소스에 결속된 화면 측정은 아직 수행하지 않았으며,
+Incident 또는 실행 권한은 바뀌지 않았습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|

@@ -19,18 +19,27 @@ const componentGallery = readFileSync(
   fileURLToPath(new URL("../../mocks/ui/components.html", import.meta.url)),
   "utf8",
 );
-const adaptiveMock = readFileSync(
-  fileURLToPath(new URL("../../mocks/ui/deck-sources-v2.html", import.meta.url)),
+// The Command deck mock is one page (deck.html) whose engine and form data render every response
+// form; together they are the mock side of the Console parity checks below.
+const deckPage = readFileSync(fileURLToPath(new URL("../../mocks/ui/deck.html", import.meta.url)), "utf8");
+const deckEngine = readFileSync(
+  fileURLToPath(new URL("../../mocks/ui/assets/deck-sources.js", import.meta.url)),
   "utf8",
 );
+const deckForms = readFileSync(
+  fileURLToPath(new URL("../../mocks/ui/assets/deck-forms.js", import.meta.url)),
+  "utf8",
+);
+const deckStudyStyles = readFileSync(
+  fileURLToPath(new URL("../../mocks/ui/assets/deck-study.css", import.meta.url)),
+  "utf8",
+);
+const deckMock = [deckPage, deckEngine, deckForms].join("\n");
 const conversationLayer = readFileSync(
   fileURLToPath(new URL("../../ui/calm-slate-deck-conversation.css", import.meta.url)),
   "utf8",
 );
-const sourceStreamingMock = readFileSync(
-  fileURLToPath(new URL("../../mocks/ui/deck-sources.html", import.meta.url)),
-  "utf8",
-);
+const sourceStreamingMock = deckPage;
 const productionDeck = [
   "./deck/command-deck-view.tsx",
   "./deck/command-deck-presenters.tsx",
@@ -70,10 +79,10 @@ describe("shared Calm Slate tokens", () => {
     expect(sharedPrimitives).toContain(".cs-grounding-stage");
     expect(sharedPrimitives).toContain(".cs-run-record");
     expect(sharedPrimitives).toContain(".cs-run-phase-strip");
-    expect(adaptiveMock).toContain("ex-answer-preparing cs-grounding-panel");
-    expect(adaptiveMock).toContain("ex-preparation-stage cs-grounding-stage");
-    expect(adaptiveMock).toContain("ex-observed cs-run-record");
-    expect(adaptiveMock).toContain("ex-observed-rail cs-run-phase-strip");
+    expect(deckEngine).toContain('h("section", { class: "cs-grounding-panel", "aria-label": "Preparing answer" }');
+    expect(deckEngine).toContain('h("li", { class: "cs-grounding-stage", "data-step": String(number) }');
+    expect(deckEngine).toContain('h("details", { class: "cs-run-record", "data-run-record": record.turnId }');
+    expect(deckEngine).toContain('class: "cs-run-phase-strip"');
     expect(consoleStyles).toContain("font-size: var(--cs-type-page-title-size)");
     expect(mockStyles).toContain("font-size: var(--cs-type-page-title-size)");
   });
@@ -96,8 +105,8 @@ describe("shared Calm Slate tokens", () => {
     }
   });
 
-  test("shares at least forty Command Deck visual roles across production and mock", () => {
-    expect(adaptiveMock).toContain("../../ui/calm-slate-primitives.css?v=deck-shared-v2");
+  test("accounts for every production Command Deck visual role in the unified mock", () => {
+    expect(deckPage).toMatch(/assets\/calm-slate\.css\?v=[^"]+/);
     const sharedDeckRoles = [
       "cs-deck-surface",
       "cs-deck-turn",
@@ -145,102 +154,95 @@ describe("shared Calm Slate tokens", () => {
       "cs-deck-composer-input",
       "cs-deck-composer-send",
     ];
+    // The conversation layer replaces these legacy production roles; the Console adopts the
+    // replacement when it imports the layer, so the mock renders only the replacement.
+    const supersededBy: Record<string, string> = {
+      "cs-deck-agent-source": "cs-grounding-authority",
+      "cs-deck-turn-foot": "cs-deck-action-row",
+      "cs-work-summary": "cs-deck-investigation-head",
+      "cs-work-summary-mark": "cs-deck-wave-mark",
+      "cs-work-summary-copy": "cs-deck-investigation-title",
+      "cs-work-summary-title": "cs-deck-investigation-title",
+      "cs-work-summary-meta": "cs-deck-investigation-status",
+      "cs-work-summary-safety": "cs-grounding-authority",
+      "cs-work-summary-badge": "cs-deck-answer-state",
+      "cs-grounding-source-window": "cs-grounding-source-list",
+      "cs-run-record-title-copy": "cs-run-record-heading",
+      "cs-run-record-kicker": "cs-run-record-heading",
+    };
     expect(sharedDeckRoles.length).toBeGreaterThanOrEqual(40);
+    let direct = 0;
     for (const role of sharedDeckRoles) {
       expect(sharedPrimitives, `${role} missing from shared primitives`).toContain(`.${role}`);
-      expect(productionDeck, `${role} missing from production Command Deck`).toContain(role);
-      expect(adaptiveMock, `${role} missing from adaptive mock`).toContain(role);
+      const replacement = supersededBy[role];
+      // Console adoption swaps a superseded role for its replacement, so production renders one.
+      expect(
+        productionDeck.includes(role) || (replacement !== undefined && productionDeck.includes(replacement)),
+        `${role} missing from production Command Deck`,
+      ).toBe(true);
+      if (replacement) {
+        expect(deckMock, `${role} is superseded but still rendered by the mock`).not.toContain(`"${role}`);
+        expect(conversationLayer + sharedPrimitives, `${replacement} has no shared style`).toContain(`.${replacement}`);
+        expect(deckMock, `${replacement} missing from the Command deck mock`).toContain(replacement);
+      } else {
+        expect(deckMock, `${role} missing from the Command deck mock`).toContain(role);
+        direct += 1;
+      }
     }
+    expect(direct).toBeGreaterThanOrEqual(30);
   });
 
   test("bounds mock source exposure and keeps the mobile composer on one row", () => {
-    expect(adaptiveMock).toContain("while (preparationSourceStrip.children.length > 3)");
-    expect(adaptiveMock).toContain("preparationSourceStrip.firstElementChild.remove()");
-    expect(adaptiveMock).toMatch(
-      /@media \(max-width: 720px\)[\s\S]*\.ex-composer \{ grid-template-columns: auto minmax\(0, 1fr\) auto;/,
-    );
-    expect(adaptiveMock).not.toContain("ex-composer-scope");
+    expect(deckEngine).toContain("var slots = Math.max(1, Math.min(3, emitted));");
+    expect(deckEngine).toContain("if (list.children.length <= 3) return;");
+    expect(sharedPrimitives).toMatch(/\.cs-deck-composer-grid \{[^}]*grid-template-columns: auto minmax\(0, 1fr\) auto;/);
+    expect(conversationLayer).not.toMatch(/cs-deck-composer-grid[^{]*\{[^}]*grid-template-columns/);
+    expect(deckPage).not.toContain("ex-composer-scope");
   });
 
   test("provides a same-state unverified specimen for production comparison", () => {
-    expect(adaptiveMock).toContain('id="ex-unverified"');
-    expect(adaptiveMock).toContain('workbench.dataset.outcome = "unverified"');
-    expect(adaptiveMock).toContain("This request cannot be answered with verified capabilities.");
-    expect(adaptiveMock).toContain("Unsupported claim");
-    expect(adaptiveMock).toContain("Review answer quality");
-    expect(adaptiveMock).toContain("Model trace off / evidence 2/2 /");
-    expect(adaptiveMock).toContain("verification Not verified");
-    expect(adaptiveMock).toContain('{ name: "Plan", state: "not-observed"');
-    expect(adaptiveMock).toContain('{ name: "Collaboration", state: "not-observed"');
-    expect(adaptiveMock).toContain('{ name: "Verification", state: "unverified"');
-    expect(adaptiveMock).toContain("observed.open = true");
+    expect(deckForms).toContain('answerState: "unverified"');
+    expect(deckForms).toContain('label: "Not verified", detail: "Causal claim unsupported"');
+    expect(deckForms).toContain("verification rejected the causal claim twice, so this answer shows only verified facts.");
+    expect(deckEngine).toContain('if (spec.answerState === "unverified") return "unverified";');
+    expect(deckEngine).toContain('unverified: "Unverified"');
+    expect(deckEngine).toContain('"data-tip": "Review answer quality"');
+    expect(deckEngine).toContain('"Model trace off"');
+    expect(deckEngine).toContain('"verification " + STATE_LABEL[trajectory.verification].toLowerCase()');
   });
 
   test("provides a production-shaped workspace shell around the same answer DOM", () => {
-    expect(adaptiveMock).toContain('id="ex-workspace"');
-    expect(adaptiveMock).toContain('data-shell="specimen"');
-    expect(adaptiveMock).toContain('data-conversations="closed" data-digest="closed"');
-    expect(adaptiveMock).toContain('class="ex-workspace-body cs-deck-workspace-body"');
-    expect(adaptiveMock).toContain('class="ex-conversations cs-deck-conversation-panel"');
-    expect(adaptiveMock).toContain('class="ex-workspace-tools cs-deck-workspace-toolbar"');
-    expect(adaptiveMock).toContain('class="ex-digest cs-deck-digest-panel"');
-    expect(adaptiveMock).toContain('class="ex-source-readiness-slot cs-deck-source-readiness-slot"');
-    expect(adaptiveMock).toContain('aria-label="Search this conversation"');
-    expect(adaptiveMock).toContain('class="ex-window-search-count" aria-live="polite"');
-    expect(adaptiveMock).toContain('class="ex-search-previous" aria-label="Previous match"');
-    expect(adaptiveMock).toContain('class="ex-search-next" aria-label="Next match"');
-    expect(adaptiveMock).toContain('aria-label="Command deck layout"');
-    expect(adaptiveMock).toContain('class="ex-backend-status">deterministic</span>');
-    expect(adaptiveMock).toContain('../../console/public/agent-icons/bragi.svg');
-    expect(adaptiveMock).toContain('aria-label="Filter conversations" placeholder="Filter conversations"');
-    expect(adaptiveMock).toContain('data-filter="all" aria-pressed="true">Mine</button>');
-    expect(adaptiveMock).toContain('aria-label="Conversation workspace tools"');
+    expect(deckPage).toContain('id="ds-workspace"');
+    expect(deckPage).toContain('class="ds-workspace cs-deck-surface cs-deck-workspace-shell cs-deck-conversation"');
+    expect(deckPage).toContain('class="ds-header cs-deck-workspace-header"');
+    expect(deckPage).toContain('class="cs-deck-workspace-body ds-body-grid"');
+    expect(deckPage).toContain('class="cs-deck-conversation-panel ds-panel ds-conversations"');
+    expect(deckPage).toContain('class="cs-deck-conversation-scrim"');
+    expect(deckPage).toContain('class="cs-deck-digest-panel ds-panel ds-digest"');
+    expect(deckPage).toContain('class="cs-deck-source-readiness-slot"');
+    expect(deckPage).toContain('aria-label="Search this conversation"');
+    expect(deckPage).toContain('id="ds-search-count" aria-live="polite"');
+    expect(deckPage).toContain('aria-label="Previous match"');
+    expect(deckPage).toContain('aria-label="Next match"');
+    expect(deckPage).toContain('aria-label="Filter conversations"');
+    expect(deckPage).toContain('aria-controls="ds-conversations"');
+    expect(deckPage).toContain('aria-controls="ds-digest"');
+    expect(deckPage).toContain('aria-label="New conversation"');
+    expect(deckPage).toContain('aria-label="Close command deck"');
+    expect(deckStudyStyles).toContain("../../../console/public/agent-icons/bragi.svg");
+    expect(deckEngine).toContain('bodyGrid.classList.toggle("has-conversations", open);');
+    expect(deckEngine).toContain('bodyGrid.classList.toggle("has-digest", open);');
+    expect(deckEngine).toContain('window.matchMedia("(max-width: 1100px)")');
+    expect(sharedPrimitives).toContain("@media (max-width: 1100px)");
+    expect(deckEngine).toContain('event.key !== "Escape"');
+    expect(deckEngine).toContain("searchInput.select();");
+    expect(deckEngine).toContain('h("nav", { class: "cs-deck-readiness"');
+    expect(deckEngine).toContain('h("div", { class: "cs-deck-readiness is-loading", role: "status", "aria-busy": "true" }');
     expect(sharedPrimitives).toContain("--cs-deck-conversation-width: 240px");
     expect(sharedPrimitives).toContain("--cs-deck-digest-width: 280px");
-    expect(adaptiveMock).not.toContain("grid-template-columns: 220px minmax(0, 1fr)");
-    expect(adaptiveMock).toContain("grid-template-rows: 50px auto minmax(0, 1fr) auto");
-    expect(adaptiveMock).toContain("@media (max-width: 1100px)");
-    expect(adaptiveMock).toContain("width: min(300px, 82%)");
-    expect(adaptiveMock).toContain('workbench.dataset.shell = enabled ? "workspace" : "specimen"');
-    expect(adaptiveMock).toContain("setConversations(false);");
-    expect(adaptiveMock).toContain("setDigest(false);");
-    expect(adaptiveMock).toContain('class="ex-conversations-scrim cs-deck-conversation-scrim"');
-    expect(adaptiveMock).toContain('workbench.querySelector(".ex-digest-toggle").addEventListener');
-    expect(adaptiveMock).toContain('workbench.querySelector(".ex-conversation-search").addEventListener');
-    expect(adaptiveMock).toContain('class="ex-conversations-count">20+</span>');
-    expect(adaptiveMock).toContain('class="ex-conversation-new" aria-label="New conversation"');
-    expect(adaptiveMock).toContain('class="ex-conversation-resize" role="separator"');
-    expect(adaptiveMock).toContain('class="ex-conversation-favorite"');
-    expect(adaptiveMock).toContain('class="ex-conversation-remove"');
-    expect(adaptiveMock).toContain('aria-label="Current screen"');
-    expect(adaptiveMock).toContain('aria-label="Other screens"');
-    expect(adaptiveMock).toContain('aria-label="Agent conversations"');
-    expect(adaptiveMock).toContain('workbench.querySelector(".ex-new-conversation").addEventListener');
-    expect(adaptiveMock).toContain('workbench.querySelector(".ex-jump-latest").addEventListener');
-    expect(adaptiveMock).toContain('workbench.querySelector(".ex-close-deck").addEventListener');
-    expect(adaptiveMock).toContain('transcriptSearch.addEventListener("input", applyTranscriptSearch)');
-    expect(adaptiveMock).toContain('transcriptSearchPrevious.addEventListener("click"');
-    expect(adaptiveMock).toContain('transcriptSearchNext.addEventListener("click"');
-    expect(adaptiveMock).toContain('conversationResize.addEventListener("keydown"');
-    expect(adaptiveMock).toContain('conversationResize.addEventListener("mousedown"');
-    expect(adaptiveMock).toContain('workbench.querySelector(".ex-digest-refresh").addEventListener');
-    expect(adaptiveMock).toContain('class="ex-digest-freshness" data-state="stale"');
-    expect(adaptiveMock).toContain('var states = ["hidden", "loading", "error", "ready"]');
-    expect(adaptiveMock).toContain('sourceReadiness.setAttribute("aria-busy", "true")');
-    expect(adaptiveMock).toContain('sourceReadiness.classList.add("is-error")');
-    expect(adaptiveMock).toContain('sourceReadiness.setAttribute("role", "navigation")');
-    expect(adaptiveMock).toContain('workbench.addEventListener("keydown", function (event)');
-    expect(adaptiveMock).toContain('event.key !== "Tab"');
-    expect(adaptiveMock).toContain('event.key === "Escape"');
-    expect(adaptiveMock).toContain('transcriptSearch.select()');
-    expect(adaptiveMock).toContain('.ex-workbench[data-shell="workspace"] .ex-window-layout { display: none; }');
-    expect(adaptiveMock).toContain('.ex-window-search button, .ex-close-deck { width: 44px; height: 44px; }');
-    expect(adaptiveMock).toContain('.ex-conversation-search, .ex-conversation-filters button, .ex-conversation-select { min-height: 44px;');
-    expect(adaptiveMock).toContain('workbench.querySelector(".ex-attach").addEventListener');
-    expect(adaptiveMock).toContain('workbench.querySelector(".ex-send").addEventListener');
   });
 
-  test("keeps the conversation layer additive until the Console adopts it", () => {
+  test("keeps the conversation layer additive outside the deck root", () => {
     const withoutComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
     const topLevelSelectors = (prelude: string) => {
       const selectors: string[] = [];
@@ -277,7 +279,8 @@ describe("shared Calm Slate tokens", () => {
     expect(declarations).not.toContain("!important");
     expect(declarations).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(declarations).toContain("container-name: deck-transcript;");
-    expect(conversationLayer).toContain("Console adoption is a replacement migration");
+    expect(conversationLayer).toContain("Adoption is a replacement migration, not an override");
+    expect(conversationLayer).toContain("so importing this file changes no other surface");
     expect(sourceStreamingMock).toContain("../../ui/calm-slate-deck-conversation.css?v=");
     expect(sourceStreamingMock).toContain("cs-deck-surface cs-deck-workspace-shell cs-deck-conversation");
     expect(sourceStreamingMock).not.toMatch(/\bgs-[a-z]/);

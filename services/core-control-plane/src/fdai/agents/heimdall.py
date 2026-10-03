@@ -5,6 +5,7 @@ Admin notifications retain per-initiator/action deduplication; observation grant
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -12,9 +13,10 @@ import time
 from collections import Counter, deque
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fdai.agents._framework.action_semantics import ActionSemanticsCatalog, is_irreversible
+from fdai.agents._framework import heimdall_alert_window as _heimdall_alert_window
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.alert_noise_callbacks import HeimdallAlertNoiseMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
@@ -30,33 +32,60 @@ from fdai.agents._framework.heimdall_alert_window import (
 )
 from fdai.agents._framework.heimdall_alert_window import EpisodeKey as _EpisodeKey
 from fdai.agents._framework.heimdall_alert_window import HeimdallAlertWindowMixin
-from fdai.agents._framework.heimdall_alert_window import (
-    anomaly_idempotency_key as _anomaly_idempotency_key,
+from fdai.agents._framework.heimdall_anomaly_runtime import HeimdallAnomalyRuntimeMixin
+from fdai.agents._framework.heimdall_constants import (
+    _DETECTION_READINESS_EVENT as _DETECTION_READINESS_EVENT,
 )
-from fdai.agents._framework.heimdall_alert_window import (
-    event_window_time as _event_window_time,
+from fdai.agents._framework.heimdall_constants import (
+    _EPISODE_PREFIX as _EPISODE_PREFIX,
 )
-from fdai.agents._framework.heimdall_alert_window import (
-    incident_episode_id as _incident_episode_id,
+from fdai.agents._framework.heimdall_constants import (
+    _FULL_SNAPSHOT_LIMIT as _FULL_SNAPSHOT_LIMIT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _INCIDENT_CORRELATION_DISABLED as _INCIDENT_CORRELATION_DISABLED,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _MAX_KPI_SAMPLES as _MAX_KPI_SAMPLES,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PENDING_READINESS_PREFIX as _PENDING_READINESS_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_CAS_ATTEMPTS as _PUBLICATION_CAS_ATTEMPTS,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_CLAIM_LEASE as _PUBLICATION_CLAIM_LEASE,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_MAINTENANCE_PAGE as _PUBLICATION_MAINTENANCE_PAGE,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_PREFIX as _PUBLICATION_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_RECOVERY_LIMIT as _PUBLICATION_RECOVERY_LIMIT,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES as _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _READINESS_PREFIX as _READINESS_PREFIX,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _RULE_VALIDATION_TIMEOUT_SECONDS as _RULE_VALIDATION_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _SEVERITY_RANK as _SEVERITY_RANK,
+)
+from fdai.agents._framework.heimdall_constants import (
+    _STATE_KEY as _STATE_KEY,
 )
 from fdai.agents._framework.heimdall_forecast import HeimdallForecastMixin
-from fdai.agents._framework.heimdall_helpers import (
-    TRACE_CONTINUITY_REASONS as _TRACE_CONTINUITY_REASONS,
-)
-from fdai.agents._framework.heimdall_helpers import event_severity as _event_severity
-from fdai.agents._framework.heimdall_helpers import evict_oldest as _evict_oldest
-from fdai.agents._framework.heimdall_helpers import (
-    trace_continuity_evidence as _trace_continuity_evidence,
-)
-from fdai.agents._framework.heimdall_huginn_projection import (
-    RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE,
-    evidence_conflict_record,
-    recovery_effect_observation_record,
-)
 from fdai.agents._framework.heimdall_provider_schema import HeimdallProviderSchemaMixin
-from fdai.agents._framework.heimdall_retrieval_validation import (
-    retrieval_validation_from_event,
-)
+from fdai.agents._framework.heimdall_publication_runtime import HeimdallPublicationRuntimeMixin
+from fdai.agents._framework.heimdall_readiness_runtime import HeimdallReadinessRuntimeMixin
+from fdai.agents._framework.heimdall_state_recovery import HeimdallStateRecoveryMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     attach_agent_state_evidence,
@@ -68,23 +97,15 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _HEIMDALL
 from fdai.agents._framework.role_answers import heimdall_role_answer
-from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
 from fdai.core.readiness import (
-    AuthorityCeiling,
-    DetectionReadinessDimension,
     DetectionReadinessObservation,
-    DetectionReadinessSnapshot,
-    reduce_detection_readiness,
 )
 from fdai.core.rule_semantic_generation import RuleGenerationValidationHandler
-from fdai.rule_catalog.schema.rule_semantic_generation_events import (
-    RULE_GENERATION_BUILD_RESULT_TOPIC,
-    RuleGenerationBuildResultEvent,
-)
 from fdai.shared.providers.provider_schema import ProviderSchemaDriftProjector
+from fdai.shared.providers.state_store import StateStore
 
 AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
 """Var-provided hook that delivers the admin notification card."""
@@ -98,13 +119,62 @@ ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]
 OperationalEvidenceHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
 """Composition-provided bounded evidence collector for one operational Event."""
 
+
 _LOG = logging.getLogger(__name__)
 
-_INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
-_SEVERITY_RANK = {
-    severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
-}
-_DETECTION_READINESS_EVENT = "detection.readiness.observed"
+
+def _kpi_measured(
+    value: float,
+    *,
+    numerator: int | float,
+    denominator: int | float,
+    unit: str = "ratio",
+) -> dict[str, Any]:
+    return {
+        "value": float(value),
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": unit,
+    }
+
+
+def _kpi_unavailable(evidence_state: str, reason: str, *, unit: str = "ratio") -> dict[str, Any]:
+    return {
+        "value": None,
+        "evidence_state": evidence_state,
+        "reason": reason,
+        "numerator": 0,
+        "denominator": 0,
+        "unit": unit,
+    }
+
+
+def _ratio_kpi(numerator: object, denominator: object, *, reason: str) -> dict[str, Any]:
+    if (
+        isinstance(numerator, bool)
+        or isinstance(denominator, bool)
+        or not isinstance(numerator, int | float)
+        or not isinstance(denominator, int | float)
+        or denominator <= 0
+    ):
+        return _kpi_unavailable("insufficient_sample", reason)
+    return _kpi_measured(
+        float(numerator) / float(denominator),
+        numerator=numerator,
+        denominator=denominator,
+    )
+
+
+def _mean_kpi(samples: deque[float], *, reason: str, unit: str) -> dict[str, Any]:
+    if not samples:
+        return _kpi_unavailable("insufficient_sample", reason, unit=unit)
+    return _kpi_measured(
+        sum(samples) / len(samples),
+        numerator=len(samples),
+        denominator=len(samples),
+        unit=unit,
+    )
 
 
 class Heimdall(
@@ -113,6 +183,10 @@ class Heimdall(
     HeimdallAlertWindowMixin,
     HeimdallProviderSchemaMixin,
     HeimdallForecastMixin,
+    HeimdallStateRecoveryMixin,
+    HeimdallPublicationRuntimeMixin,
+    HeimdallReadinessRuntimeMixin,
+    HeimdallAnomalyRuntimeMixin,
     Agent,
 ):
     """Wave-3 anomaly detection + Wave 6 security correlator."""
@@ -138,6 +212,7 @@ class Heimdall(
         forecast_store: ForecastEpisodeStore | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
         provider_schema_drift_projector: ProviderSchemaDriftProjector | None = None,
+        state_store: StateStore | None = None,
     ) -> None:
         if rate_threshold < 1:
             raise ValueError("rate_threshold MUST be >= 1")
@@ -146,10 +221,11 @@ class Heimdall(
         super().__init__(spec=_HEIMDALL)
         self.bus = bus
         self._provider_schema_drift_projector = provider_schema_drift_projector
+        self._state_store = state_store
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
-        self._max_tracked_keys = _MAX_TRACKED_KEYS
-        self._max_episodes_per_resource = _MAX_EPISODES_PER_RESOURCE
+        self._max_tracked_keys = _heimdall_alert_window.MAX_TRACKED_KEYS
+        self._max_episodes_per_resource = _heimdall_alert_window.MAX_EPISODES_PER_RESOURCE
         self._recent_events: dict[_EpisodeKey, deque[tuple[float, str, str]]] = {}
         self._recent_episode_keys: dict[str, dict[_EpisodeKey, None]] = {}
         self._incident_episode_ids: dict[_EpisodeKey, str] = {}
@@ -178,9 +254,26 @@ class Heimdall(
         self._detection_readiness_pending: dict[
             tuple[str, str], dict[str, DetectionReadinessObservation]
         ] = {}
+        self._detection_readiness_pass_order: dict[str, tuple[str, datetime]] = {}
+        self._publication_locks: dict[str, asyncio.Lock] = {}
+        self._dirty_episode_keys: set[_EpisodeKey] = set()
+        self._dirty_readiness_resources: set[str] = set()
+        self._dirty_pending_readiness: set[tuple[str, str]] = set()
+        self._publication_lock_refs: dict[str, int] = {}
+        self._anomaly_outcomes = Counter[str]()
+        self._forecast_absolute_percentage_errors: deque[float] = deque(maxlen=_MAX_KPI_SAMPLES)
+        self._readiness_observed_dimensions = 0
+        self._readiness_expected_dimensions = 0
+        self._stale_inventory_delays_seconds: deque[float] = deque(maxlen=_MAX_KPI_SAMPLES)
+        self._pending_effect_observations = 0
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    async def _producer_topic_markers(self) -> None:
+        if TYPE_CHECKING and self.bus is not None:
+            await self.bus.publish("Heimdall", "object.evidence-conflict", {})
+            await self.bus.publish("Heimdall", "object.retrieval-validation", {})
 
     def register_alerter(self, hook: AlerterHook) -> None:
         self._alerter_hook = hook
@@ -198,6 +291,76 @@ class Heimdall(
 
         self._operational_evidence_hook = hook
 
+    def record_anomaly_outcome(self, outcome: str) -> None:
+        """Retain an authoritative anomaly label for KPI denominators."""
+        if outcome not in {"true_positive", "false_positive", "false_negative", "missed_critical"}:
+            raise ValueError("unsupported anomaly outcome label")
+        self._anomaly_outcomes[outcome] += 1
+
+    def record_forecast_absolute_percentage_error(self, error: float) -> None:
+        if isinstance(error, bool) or error < 0:
+            raise ValueError("forecast absolute percentage error MUST be nonnegative")
+        self._forecast_absolute_percentage_errors.append(float(error))
+
+    def health(self) -> dict[str, Any]:
+        store_durability = "durable" if self._state_store is not None else "process_local"
+        dependencies = {
+            "action_observation_hook": (
+                "bound" if self._action_observation_hook is not None else "unavailable"
+            ),
+            "forecast_store": "bound" if self._forecast_store is not None else "unavailable",
+            "forecast_evaluator": (
+                "bound" if self._forecast_evaluator is not None else "unavailable"
+            ),
+            "incident_candidate_hook": (
+                "bound" if self._incident_candidate_hook is not None else "unavailable"
+            ),
+            "state_store": store_durability,
+        }
+        degraded = (
+            self._action_observation_hook is None
+            or self._forecast_store is None
+            or self._state_store is None
+        )
+        return {
+            "agent": "Heimdall",
+            "status": "degraded" if degraded else "ok",
+            "dependencies": dependencies,
+            "backlog": {
+                "recent_episode_windows": len(self._recent_events),
+                "pending_detection_readiness_passes": len(self._detection_readiness_pending),
+                "pending_effect_observations": self._pending_effect_observations,
+            },
+            "degradation": {
+                "state_changes_needing_observation": (
+                    "blocked" if self._action_observation_hook is None else "observable"
+                ),
+                "safe_effect": "rule_only_judgment_continues" if degraded else "none",
+            },
+            "kpis": {
+                "anomaly_precision": self._anomaly_precision_kpi(),
+                "anomaly_recall": self._anomaly_recall_kpi(),
+                "forecast_mape": self._forecast_mape_kpi(),
+                "discovery_coverage_detection_rate": _ratio_kpi(
+                    self._readiness_observed_dimensions,
+                    self._readiness_expected_dimensions,
+                    reason="no_detection_readiness_denominator",
+                ),
+                "false_positive_rate": self._false_positive_rate_kpi(),
+                "missed_critical_rate": _ratio_kpi(
+                    self._anomaly_outcomes["missed_critical"],
+                    sum(self._anomaly_outcomes.values()),
+                    reason="no_critical_outcome_denominator",
+                ),
+                "stale_inventory_detection_delay_seconds": _mean_kpi(
+                    self._stale_inventory_delays_seconds,
+                    reason="no_stale_inventory_delay_samples",
+                    unit="seconds",
+                ),
+            },
+            "behavior": self.behavior_snapshot(),
+        }
+
     def bind_rule_generation_validation_handler(
         self,
         handler: RuleGenerationValidationHandler,
@@ -208,544 +371,39 @@ class Heimdall(
             raise RuntimeError("Heimdall Rule generation validator is already bound")
         self._rule_generation_validation_handler = handler
 
-    async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        if await self._alert_noise_message(topic, payload):
-            return
-        if topic == "object.action-run":
-            await self._observe_action_run(payload)
-        elif topic == RULE_GENERATION_BUILD_RESULT_TOPIC:
-            await self._validate_rule_generation(payload)
-        elif topic == "object.event" and not await self._forecast_context_message(payload):
-            if payload.get("event_type") == "evidence.conflict.candidate.v1":
-                await self._publish_evidence_conflict(payload)
-                return
-            if payload.get("event_type") == RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE:
-                await self._publish_recovery_effect_observation(payload)
-                return
-            retrieval_validation = retrieval_validation_from_event(payload)
-            if retrieval_validation is not None:
-                await self._publish_retrieval_validation(retrieval_validation)
-                return
-            if str(payload.get("event_type") or "").startswith(SPECIALIST_EVENT_PREFIX):
-                self.record_behavior("specialist_signal:deferred")
-                return
-            if payload.get("event_type") == _DETECTION_READINESS_EVENT:
-                await self._observe_detection_readiness(payload)
-                return
-            if payload.get("event_type") == "forecast.evaluation_due":
-                await self._run_forecast_tick(payload)
-                return
-            if str(payload.get("event_type") or "").startswith("control_plane.t2_proposer_"):
-                await self._observe_t2_proposer_health(payload)
-                return
-            if (
-                payload.get("kind") == "document_ingestion"
-                and payload.get("event_type") == "document.inspected"
-            ):
-                await self._emit_document_safety_signal(payload)
-                return
-            await self._maybe_emit_anomaly(payload)
-        elif topic == "object.chaos-experiment":
-            await self._observe_chaos_experiment(payload)
-        elif topic == "object.security-event":
-            severity = await self._maybe_classify_severity(payload)
-            if severity in ("high", "critical") and self._alerter_hook is not None:
-                await self._maybe_send_admin_card(payload, severity)
-
-    async def _publish_evidence_conflict(self, payload: dict[str, Any]) -> None:
-        """Validate one candidate and publish the authoritative immutable revision."""
-
-        record = evidence_conflict_record(payload)
-        if record is None:
-            self.record_behavior("evidence_conflict:invalid_candidate")
-            return
-        if self.bus is None:
-            raise RuntimeError("Heimdall evidence-conflict bus is unavailable")
-        await self.bus.publish("Heimdall", "object.evidence-conflict", record)
-        self.record_behavior(f"evidence_conflict:{record['status']}")
-
-    async def _publish_recovery_effect_observation(self, payload: dict[str, Any]) -> None:
-        """Relay one external recovery post-effect observation onto the owned topic.
-
-        Heimdall is the terminal effect observer, so the independent observation
-        enters through Huginn and leaves on a Heimdall-owned topic that the
-        privileged executor can never publish to. The relay proves provenance
-        and shape only; it verifies no effect and grants no authority.
-        """
-
-        record = recovery_effect_observation_record(payload)
-        if record is None:
-            self.record_behavior("recovery_effect_observation:invalid_signal")
-            return
-        if self.bus is None:
-            raise RuntimeError("Heimdall recovery effect observation bus is unavailable")
-        await self.bus.publish("Heimdall", "object.recovery-effect-observation", record)
-        self.record_behavior("recovery_effect_observation:relayed")
-
-    async def _publish_retrieval_validation(self, payload: dict[str, object]) -> None:
-        self.record_behavior("semantic_retrieval_validation:accepted")
-        if self.bus is None:
-            raise RuntimeError("Heimdall retrieval validation bus is unavailable")
-        await self.bus.publish("Heimdall", "object.retrieval-validation", payload)
-
-    async def _validate_rule_generation(self, payload: dict[str, Any]) -> None:
-        if payload.get("producer_principal") != "Mimir":
-            raise ValueError("Rule generation build result MUST be published by Mimir")
-        build_result = RuleGenerationBuildResultEvent.model_validate(
-            {
-                field: payload[field]
-                for field in RuleGenerationBuildResultEvent.model_fields
-                if field in payload
-            }
-        )
-        handler = self._rule_generation_validation_handler
-        if handler is None:
-            raise RuntimeError("Heimdall Rule generation validator is unavailable")
-        result = await handler.handle(build_result)
-        if self.bus is None:
-            raise RuntimeError("Heimdall retrieval validation bus is unavailable")
-        await self.bus.publish(
-            "Heimdall",
-            "object.retrieval-validation",
-            result.model_dump(mode="json"),
-        )
-        self.record_behavior("rule_generation_validation:published")
-
-    async def _observe_chaos_experiment(self, proposal: dict[str, Any]) -> None:
-        experiment_id = str(proposal.get("experiment_id") or "")
-        action_type = str(proposal.get("action_type") or "")
-        raw_targets = proposal.get("targets")
-        targets = (
-            tuple(str(item) for item in raw_targets if isinstance(item, str) and item.strip())
-            if isinstance(raw_targets, list)
-            else ()
-        )
-        if not experiment_id or not action_type or not targets:
-            self.record_behavior("chaos_experiment:invalid")
-            return
-        evidence_fields = (
-            "causal_hypothesis_ref",
-            "refutation_query_ref",
-            "impact_envelope_id",
-            "recovery_plan_id",
-            "dry_run_receipt",
-        )
-        evidence_complete = all(str(proposal.get(field) or "").strip() for field in evidence_fields)
-        anomaly = {
-            "producer_principal": "Heimdall",
-            "correlation_id": str(proposal.get("correlation_id") or experiment_id),
-            "resource_id": targets[0],
-            "target_type": "experiment",
-            "event_type": "chaos_experiment_request",
-            "action_type": action_type,
-            "severity": "high",
-            "incident_correlation": "correlate",
-            "initiator_principal": "Loki",
-            "human_approval_required": True,
-            "evidence_complete": evidence_complete,
-            "params": {
-                "experiment_id": experiment_id,
-                "targets": list(targets),
-                **{field: str(proposal.get(field) or "") for field in evidence_fields},
-            },
-        }
-        self.record_behavior(
-            "chaos_experiment:grounded" if evidence_complete else "chaos_experiment:incomplete"
-        )
-        if self.bus is not None:
-            await self.bus.publish("Heimdall", "object.anomaly", anomaly)
-
-    async def _observe_t2_proposer_health(self, event: dict[str, Any]) -> None:
-        """Reduce one sanitized proposer receipt without another model call."""
-
-        attributes = event.get("attributes")
-        if not isinstance(attributes, dict):
-            self.record_behavior("t2_proposer:invalid")
-            return
-        recovered = (
-            event.get("event_type") == "control_plane.t2_proposer_recovered"
-            and attributes.get("status") == "succeeded"
-            and attributes.get("recovered") is True
-        )
-        if recovered:
-            self.record_behavior("t2_proposer:recovered")
-            return
-        terminal = attributes.get("terminal") is True and attributes.get("status") == "failed"
-        if not terminal:
-            self.record_behavior("t2_proposer:degraded")
-            return
-        correlation_id = str(event.get("correlation_id") or "")
-        resource_id = str(event.get("resource_id") or "")
-        evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "")
-        if not correlation_id or not resource_id or not evidence_key:
-            self.record_behavior("t2_proposer:invalid")
-            return
-        preferred_route = str(attributes.get("preferred_route_ref") or "")
-        if preferred_route == "legacy":
-            preferred_route = "primary"
-        if preferred_route not in {"primary", "secondary"}:
-            self.record_behavior("t2_proposer:invalid_route_hint")
-            return
-        alternate_route = (
-            "secondary"
-            if preferred_route == "primary"
-            else "primary"
-            if preferred_route == "secondary"
-            else ""
-        )
-        anomaly = {
-            "producer_principal": "Heimdall",
-            "correlation_id": correlation_id,
-            "resource_id": resource_id,
-            "target_type": "llm-endpoint",
-            "event_type": "control_plane.t2_proposer_failure",
-            "severity": "high",
-            "incident_correlation": "correlate",
-            "reason_code": "t2_proposer_candidates_exhausted",
-            "evidence_key": evidence_key,
-            "evidence_keys": [evidence_key],
-            "failure_class": str(attributes.get("failure_class") or "provider_error"),
-            "prior_route_ref": preferred_route,
-            "alternate_route_ref": alternate_route,
-        }
-        self.record_behavior("t2_proposer:unavailable")
-        if self.bus is not None:
-            await self.bus.publish("Heimdall", "object.anomaly", anomaly)
-        if self._incident_candidate_hook is None:
-            return
-        try:
-            accepted = await self._incident_candidate_hook(anomaly)
-        except Exception:  # noqa: BLE001 - next receipt retries the durable candidate
-            self.record_behavior("t2_proposer:incident_failed")
-            return
-        self.record_behavior(
-            "t2_proposer:incident_opened" if accepted else "t2_proposer:incident_held"
+    def _anomaly_precision_kpi(self) -> dict[str, Any]:
+        true_positive = self._anomaly_outcomes["true_positive"]
+        false_positive = self._anomaly_outcomes["false_positive"]
+        return _ratio_kpi(
+            true_positive,
+            true_positive + false_positive,
+            reason="no_precision_outcome_denominator",
         )
 
-    async def _observe_detection_readiness(self, event: dict[str, Any]) -> None:
-        """Validate one probe fact and publish the agent-owned reduction."""
-        resource_id = str(event.get("resource_id") or "")
-        attributes = event.get("attributes")
-        pass_id = str(attributes.get("pass_id") or "") if isinstance(attributes, dict) else ""
-        if not resource_id or not pass_id or not isinstance(attributes, dict):
-            self.record_behavior("detection_readiness:invalid")
-            return
-        try:
-            observation = DetectionReadinessObservation.model_validate(
-                {
-                    "resource_ref": resource_id,
-                    "dimension": attributes.get("dimension"),
-                    "status": attributes.get("status"),
-                    "observed_at": attributes.get("observed_at"),
-                    "expires_at": attributes.get("expires_at"),
-                    "source": attributes.get("source"),
-                    "evidence_digest": attributes.get("evidence_digest"),
-                    "detail_code": attributes.get("detail_code") or None,
-                }
-            )
-        except ValueError:
-            self.record_behavior("detection_readiness:invalid")
-            return
-
-        pending_key = (resource_id, pass_id)
-        observations = self._detection_readiness_pending.setdefault(pending_key, {})
-        _evict_oldest(self._detection_readiness_pending, _MAX_TRACKED_KEYS, keep=pending_key)
-        observations[observation.dimension.value] = observation
-        if len(observations) != len(DetectionReadinessDimension):
-            self.record_behavior("detection_readiness:collecting")
-            return
-        self._detection_readiness[resource_id] = dict(observations)
-        _evict_oldest(self._detection_readiness, _MAX_TRACKED_KEYS, keep=resource_id)
-        del self._detection_readiness_pending[pending_key]
-        snapshot = reduce_detection_readiness(
-            tuple(observations.values()),
-            resource_ref=resource_id,
-            generated_at=self._forecast_clock(),
-            deployment_ceiling=AuthorityCeiling.SHADOW,
+    def _anomaly_recall_kpi(self) -> dict[str, Any]:
+        true_positive = self._anomaly_outcomes["true_positive"]
+        false_negative = self._anomaly_outcomes["false_negative"]
+        return _ratio_kpi(
+            true_positive,
+            true_positive + false_negative,
+            reason="no_recall_outcome_denominator",
         )
-        await self._publish_detection_readiness(event, snapshot)
 
-    async def _publish_detection_readiness(
-        self,
-        event: dict[str, Any],
-        snapshot: DetectionReadinessSnapshot,
-    ) -> None:
-        material = {
-            "resource_ref": snapshot.resource_ref,
-            "decision": snapshot.decision.value,
-            "authority_ceiling": snapshot.authority_ceiling.value,
-            "observations": [
-                {
-                    "dimension": item.dimension.value,
-                    "status": item.status.value,
-                    "evidence_digest": item.evidence_digest,
-                    "expires_at": item.expires_at.isoformat(),
-                }
-                for item in snapshot.observations
-            ],
-            "missing_dimensions": [item.value for item in snapshot.missing_dimensions],
-            "stale_dimensions": [item.value for item in snapshot.stale_dimensions],
-        }
-        digest = hashlib.sha256(
-            json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        ).hexdigest()
-        payload = {
-            "producer_principal": "Heimdall",
-            "kind": "detection_readiness",
-            "event_type": "detection.readiness",
-            "correlation_id": str(event.get("correlation_id") or f"readiness:{digest}"),
-            "idempotency_key": f"detection-readiness:{digest}",
-            "resource_id": snapshot.resource_ref,
-            "target_type": "kubernetes-cluster",
-            "decision": snapshot.decision.value,
-            "authority_ceiling": snapshot.authority_ceiling.value,
-            "generated_at": snapshot.generated_at.isoformat(),
-            "observations": [item.model_dump(mode="json") for item in snapshot.observations],
-            "missing_dimensions": [item.value for item in snapshot.missing_dimensions],
-            "stale_dimensions": [item.value for item in snapshot.stale_dimensions],
-        }
-        self.record_behavior(f"detection_readiness:{snapshot.decision.value}")
-        if self.bus is not None:
-            await self.bus.publish("Heimdall", "object.drift", payload)
-
-    async def _emit_document_safety_signal(self, event: dict[str, Any]) -> None:
-        """Normalize scanner/protection facts without making the verdict."""
-        record = event.get("record")
-        if not isinstance(record, dict):
-            record = {}
-        malware_verdict = str(record.get("malware_verdict") or "unavailable")
-        protection_state = str(record.get("protection_state") or "unknown")
-        failure_code = str(record.get("failure_code") or "")
-        safety_status = (
-            "clear"
-            if malware_verdict == "clean"
-            and not failure_code
-            and protection_state in {"none", "labeled_unencrypted", "rights_managed_accessible"}
-            else "blocked"
+    def _false_positive_rate_kpi(self) -> dict[str, Any]:
+        true_positive = self._anomaly_outcomes["true_positive"]
+        false_positive = self._anomaly_outcomes["false_positive"]
+        return _ratio_kpi(
+            false_positive,
+            true_positive + false_positive,
+            reason="no_false_positive_denominator",
         )
-        signal = {
-            "producer_principal": "Heimdall",
-            "kind": "document_ingestion",
-            "stage": "protection_check",
-            "correlation_id": str(event.get("correlation_id") or ""),
-            "idempotency_key": str(event.get("idempotency_key") or ""),
-            "resource_id": str(event.get("resource_id") or ""),
-            "document_id": str(event.get("document_id") or ""),
-            "upload_id": str(record.get("upload_id") or ""),
-            "malware_verdict": malware_verdict,
-            "protection_state": protection_state,
-            "sensitivity_label": str(record.get("sensitivity_label") or ""),
-            "purposes": list(record.get("purposes") or []),
-            "initiator_principal": str(record.get("uploader_id") or ""),
-            "failure_code": failure_code,
-            "safety_status": safety_status,
-        }
-        self.record_behavior(f"document_safety:{safety_status}")
-        if self.bus is not None:
-            await self.bus.publish("Heimdall", "object.anomaly", signal)
 
-    async def _maybe_emit_anomaly(self, event: dict[str, Any]) -> None:
-        resource_id = str(event.get("resource_id") or "")
-        if not resource_id:
-            return
-        event_type = str(event.get("event_type", "generic"))
-        correlation_id = str(event.get("correlation_id") or "").strip()
-        incident_correlation = (
-            str(event.get("incident_correlation") or "correlate").strip().casefold()
+    def _forecast_mape_kpi(self) -> dict[str, Any]:
+        return _mean_kpi(
+            self._forecast_absolute_percentage_errors,
+            reason="no_forecast_error_samples",
+            unit="percent",
         )
-        time_basis, observed_at = _event_window_time(event, fallback=self._clock())
-        episode_key = (
-            resource_id,
-            event_type,
-            correlation_id,
-            incident_correlation,
-            time_basis,
-        )
-        history = self._episode_history(episode_key)
-        watermark = max(observed_at, history[-1][0] if history else observed_at)
-        while history and watermark - history[0][0] > self._rate_window:
-            history.popleft()
-        if not history:
-            self._incident_episode_ids.pop(episode_key, None)
-            self._incident_episode_severities.pop(episode_key, None)
-        if observed_at < watermark - self._rate_window:
-            self.record_behavior("repeated_event_out_of_window")
-            return
-        evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "").strip()
-        if evidence_key and any(item[2] == evidence_key for item in history):
-            self.record_behavior("repeated_event_duplicate")
-            if len(history) < self._rate_threshold:
-                return
-        else:
-            history.append(
-                (
-                    observed_at,
-                    _event_severity(event),
-                    evidence_key,
-                )
-            )
-            history = deque(
-                sorted(history, key=lambda item: (item[0], item[2])),
-                maxlen=self._rate_threshold * 2,
-            )
-            self._recent_events[episode_key] = history
-        if len(history) < self._rate_threshold:
-            return
-        window_tail = list(history)[-self._rate_threshold :]
-        if len(window_tail) == self._rate_threshold:
-            severity = min(
-                (event_severity for _, event_severity, _ in window_tail),
-                key=_SEVERITY_RANK.__getitem__,
-            )
-            emitted_severity = self._incident_episode_severities.get(episode_key)
-            if (
-                emitted_severity is not None
-                and _SEVERITY_RANK[severity] >= _SEVERITY_RANK[emitted_severity]
-            ):
-                return
-            incident_episode_id = self._incident_episode_ids.setdefault(
-                episode_key,
-                _incident_episode_id(episode_key, window_tail[0][2]),
-            )
-            anomaly = {
-                "producer_principal": "Heimdall",
-                "correlation_id": correlation_id,
-                "idempotency_key": _anomaly_idempotency_key(
-                    incident_episode_id,
-                    severity,
-                ),
-                "resource_id": resource_id,
-                "target_type": str(event.get("resource_type") or "unknown"),
-                "event_type": event_type,
-                "count_in_window": self._rate_threshold,
-                "severity": severity,
-                "incident_correlation": incident_correlation,
-            }
-            operational_evidence = await self._collect_operational_evidence(event)
-            if operational_evidence:
-                anomaly["operational_evidence"] = operational_evidence
-            trace_continuity = _trace_continuity_evidence(event)
-            if trace_continuity:
-                anomaly["trace_continuity"] = trace_continuity
-            if self.bus is not None:
-                await self.bus.publish("Heimdall", "object.anomaly", anomaly)
-            if self._incident_candidate_hook is None:
-                self._drop_episode(episode_key)
-                return
-            if incident_correlation in _INCIDENT_CORRELATION_DISABLED:
-                self.record_behavior("incident_candidate_correlation_disabled")
-                self._drop_episode(episode_key)
-                return
-            if not correlation_id:
-                self.record_behavior("incident_candidate_missing_correlation")
-                self._drop_episode(episode_key)
-                return
-            if any(not evidence_key for _, _, evidence_key in window_tail):
-                self.record_behavior("incident_candidate_missing_evidence")
-                self._drop_episode(episode_key)
-                return
-            evidence_keys = tuple(dict.fromkeys(evidence_key for _, _, evidence_key in window_tail))
-            reason_code = "repeated_event_threshold"
-            trace_reason = trace_continuity.get("reason_code")
-            if isinstance(trace_reason, str) and trace_reason in _TRACE_CONTINUITY_REASONS:
-                reason_code = trace_reason
-            candidate = {
-                **anomaly,
-                "reason_code": reason_code,
-                "evidence_key": evidence_keys[-1],
-                "evidence_keys": evidence_keys,
-                "incident_episode_id": incident_episode_id,
-            }
-            try:
-                accepted = await self._incident_candidate_hook(candidate)
-            except Exception:  # noqa: BLE001 - retry on the next matching event
-                self.record_behavior("incident_candidate_failed")
-                _LOG.exception(
-                    "incident_candidate_hook_failed",
-                    extra={"correlation_id": anomaly["correlation_id"]},
-                )
-                return
-            if accepted:
-                self._incident_episode_severities[episode_key] = severity
-            else:
-                self._drop_episode(episode_key)
-            self.record_behavior("incident_candidate" if accepted else "incident_candidate_held")
-
-    async def _collect_operational_evidence(
-        self,
-        event: dict[str, Any],
-    ) -> Mapping[str, Any]:
-        if self._operational_evidence_hook is None:
-            return {}
-        try:
-            evidence = await self._operational_evidence_hook(event)
-        except Exception:  # noqa: BLE001 - evidence loss cannot suppress the anomaly
-            self.record_behavior("operational_evidence:provider_error")
-            return {
-                "observe.kubernetes.capacity": {
-                    "status": "unavailable",
-                    "reason": "provider_error",
-                }
-            }
-        self.record_behavior(
-            "operational_evidence:available" if evidence else "operational_evidence:not_applicable"
-        )
-        return evidence
-
-    async def _maybe_classify_severity(self, event: dict[str, Any]) -> str:
-        self._security_recent.append(event)
-        initiator = str(event.get("initiator_principal", ""))
-        action = str(event.get("attempted_action", ""))
-        hint = str(event.get("severity_hint", "medium"))
-
-        matches = sum(
-            1
-            for e in self._security_recent
-            if e.get("initiator_principal") == initiator and e.get("attempted_action") == action
-        )
-        severity: str
-        if hint == "critical" or is_irreversible(action, self._action_semantics):
-            severity = "high"
-        elif matches >= self._security_high_threshold:
-            severity = "high"
-        elif matches >= 3:
-            severity = "medium"
-        else:
-            severity = "low"
-        distinct_actions = len(
-            {
-                e.get("attempted_action")
-                for e in self._security_recent
-                if e.get("initiator_principal") == initiator
-            }
-        )
-        if distinct_actions >= 3:
-            severity = "critical"
-        self._alert_counters[(initiator, action)] += 1
-        _evict_oldest(self._alert_counters, _MAX_TRACKED_KEYS, keep=(initiator, action))
-        return severity
-
-    async def _maybe_send_admin_card(self, event: dict[str, Any], severity: str) -> None:
-        """Send an admin card, deduped by (initiator, action) within window."""
-        initiator = str(event.get("initiator_principal", ""))
-        action = str(event.get("attempted_action", ""))
-        # Rate limit per user, per rolling hour (recovers when the window
-        # rolls over - a monotonic counter would silence the user forever).
-        if not self._reserve_alert_slot(initiator):
-            return
-        # Dedup: send one card per (initiator, action); repeat becomes
-        # counter increment on the last card (handled by Var adapter).
-        payload = {
-            "producer_principal": "Var",
-            "correlation_id": event.get("correlation_id", ""),
-            "severity": severity,
-            "initiator_principal": initiator,
-            "attempted_action": action,
-            "counter": self._alert_counters[(initiator, action)],
-        }
-        if self._alerter_hook is None:
-            return
-        await self._alerter_hook(payload)
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Observation answers rest on a populated window of signals.
@@ -775,6 +433,9 @@ class Heimdall(
             "rate_window_seconds": self._rate_window,
             "forecast_evidence_available": False,
             "drift_evidence_available": False,
+            "resource_id": None,
+            "recent_event_count": None,
+            "recent_event_types": [],
         }
         intents = semantic_intents(context)
         if "forecast" in intents:
@@ -828,4 +489,105 @@ __all__ = [
     "AlerterHook",
     "IncidentCandidateHook",
     "ReadInvestigationHook",
+    "_MAX_EPISODES_PER_RESOURCE",
+    "_MAX_TRACKED_KEYS",
 ]
+
+
+def _encode_episode_key(key: _EpisodeKey) -> str:
+    return json.dumps(key, ensure_ascii=True, separators=(",", ":"))
+
+
+def _digest(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _payload_digest(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _publication_row(
+    *,
+    topic: str,
+    idempotency_key: str,
+    payload: Mapping[str, Any],
+    revision: int,
+    state: str,
+) -> dict[str, Any]:
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    row: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "revision": revision,
+        "state": state,
+        "topic": topic,
+        "idempotency_key": idempotency_key,
+        "payload_digest": "sha256:" + hashlib.sha256(encoded).hexdigest(),
+    }
+    if len(encoded) <= _PUBLICATION_REPLAY_PAYLOAD_MAX_BYTES:
+        row["payload"] = dict(payload)
+    return row
+
+
+def _decode_episode_key(value: object) -> _EpisodeKey | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        decoded = json.loads(value)
+    except ValueError:
+        return None
+    if (
+        isinstance(decoded, list)
+        and len(decoded) == 5
+        and all(isinstance(item, str) for item in decoded)
+    ):
+        return (decoded[0], decoded[1], decoded[2], decoded[3], decoded[4])
+    return None
+
+
+def _decode_readiness_map(value: object) -> dict[str, dict[str, DetectionReadinessObservation]]:
+    if not isinstance(value, Mapping):
+        return {}
+    restored: dict[str, dict[str, DetectionReadinessObservation]] = {}
+    for resource, raw_observations in value.items():
+        if not isinstance(resource, str) or not isinstance(raw_observations, Mapping):
+            continue
+        observations: dict[str, DetectionReadinessObservation] = {}
+        for dimension, raw_observation in raw_observations.items():
+            if not isinstance(dimension, str) or not isinstance(raw_observation, Mapping):
+                continue
+            try:
+                observations[dimension] = DetectionReadinessObservation.model_validate(
+                    raw_observation
+                )
+            except ValueError:
+                continue
+        if observations:
+            restored[resource] = observations
+    return restored
+
+
+def _decode_pending_readiness(
+    value: object,
+) -> dict[tuple[str, str], dict[str, DetectionReadinessObservation]]:
+    if not isinstance(value, Mapping):
+        return {}
+    restored: dict[tuple[str, str], dict[str, DetectionReadinessObservation]] = {}
+    for raw_key, raw_observations in value.items():
+        if not isinstance(raw_key, str) or "\0" not in raw_key:
+            continue
+        resource, pass_id = raw_key.split("\0", 1)
+        decoded = _decode_readiness_map({resource: raw_observations}).get(resource)
+        if decoded:
+            restored[(resource, pass_id)] = decoded
+    return restored

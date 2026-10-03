@@ -7,12 +7,12 @@ import hashlib
 import json
 import os
 import stat
-import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
 from fdai_deployment_cli.contracts import load_json_object
+from fdai_deployment_cli.execution_copies import new_execution_copy
 from fdai_deployment_cli.offline_kit import (
     MANIFEST_NAME,
     SIGNATURE_NAME,
@@ -188,4 +188,4 @@ def execution_bundle_destination(work_dir: Path) -> Path:
     original = work_dir / "bundle"
     if not path_present(original):
         return original
-    return Path(tempfile.mkdtemp(prefix="bundle-recheck-", dir=work_dir)) / "bundle"
+    return new_execution_copy(work_dir, "bundle-recheck-") / "bundle"

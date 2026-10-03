@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 98b8d29806514c3234e5c921cce2aab2b557daa0
-translation_revised: 2026-10-01
+translation_source_sha: 60d583b0da594b455a483107bdca16340a3bcc16
+translation_revised: 2026-10-02
 ---
 # 배포 리소스 규약
 
@@ -109,6 +109,23 @@ A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. �
 - **env** (`dev`/`staging`/`prod`)와 **지역** (`krc`/`weu`/`eus`): 리소스를 나란히
   배포할 때만 접미사로 추가합니다. Day-zero 배포는 접미사를 사용하지 않습니다.
 - **인스턴스** (`01`, `02`, ...): 한 환경에 여러 복사본이 있을 때만 추가합니다.
+
+### 지역 토큰 설계와 비평
+
+**초기 설계:** 알 수 없는 Azure 지역 토큰은 지역 이름을 다섯 글자로 잘라 파생합니다.
+
+**비평:** 잘라내기는 명명 계약이 아닙니다. `westus`와 `westus3`가 모두 `westu`가 되는 것처럼
+서로 다른 공용 지역을 같은 토큰으로 매핑할 수 있고, 한 구독의 두 설치가 같은 리소스 그룹을
+대상으로 삼을 수 있습니다. 새 Azure 지역도 검토된 토큰 없이 지원되는 것처럼 보입니다.
+
+**개정된 계약:** 새 설치는 `azure_naming.py`의 검토된 Azure 공용 지역 토큰 표만 사용합니다.
+표에 없는 지역은 Azure 효과 전에 실패합니다. 기존 설치는 보존된 Foundation 변수와 프로파일에
+기록된 토큰을 유지합니다. 같은 작업 디렉터리의 연속 실행은 새 표에서 토큰을 다시 계산하지
+않습니다. 보존된 상태 없이 실행을 시작하면 조정기는 계획 전에 같은 구독, 환경, 워크로드 및
+Azure 위치에 대해 읽기 전용 리소스 그룹 검색을 수행합니다. FDAI 소유 태그와 이름에서 단일로
+일치하는 토큰을 재사용하며, 이후 설치가 명시적 `fdai:region-token` 태그를 기록하면 그 태그를
+사용합니다. 후보 토큰이 둘 이상이면 검색은 실패로 닫힙니다. 자동 이름 변경이나 마이그레이션은
+수행하지 않습니다.
 
 Operator API는 물리 구성 요소로 `operator-api`를 사용합니다. 워크로드 신원 이름은
 `id-<workload>[-<env>][-<region>]-operator-api`이고 Container App 이름은
@@ -291,6 +308,7 @@ Terraform의 `infra/main.tf` `base_tags`에서 결정하며 Python에서 계산�
 | `fdai:managed` | `true` | 상수 | **소유권 마커.** "FDAI가 이 리소스를 프로비저닝했다"는 것을 나타내는 단일 권위 플래그입니다. `az resource list --tag fdai:managed=true`는 FDAI 소유 리소스를 정확히 열거하며 영향 범위 제한, 정리/감사 교차 확인, 비용 귀속의 기반이 됩니다. |
 | `fdai:workload` | `fdai` | `var.workload` | 제품/워크로드 토큰이며 CAF 이름 토큰과 일치합니다. |
 | `fdai:env` | `day-zero` / `dev` / `staging` / `prod` | `var.env` | 환경입니다. `day-zero`는 한정되지 않은 배포입니다. |
+| `fdai:region-token` | `wus3` 같은 검토된 짧은 토큰 또는 `westu` 같은 보존된 legacy 토큰 | Foundation 변수 / Terraform 입력 | 향후 검색을 위한 명시적 명명 토큰입니다. 이전 설치에는 이 태그가 없을 수 있으므로, 검색은 FDAI 소유 리소스 그룹 이름을 파싱하고 모호하면 실패로 닫힙니다. |
 | `fdai:layer` | `control-plane` / `ops-bootstrap` | 설정별 | 앱 spoke인 `infra/main.tf`와 ops/허브 초기화인 `infra/bootstrap`을 구분하는 아키텍처 계층입니다. |
 | `fdai:managed-by` | `terraform` | 상수 | 프로비저닝 도구입니다. |
 | `fdai:vertical` | `shared` / `resilience` / `change-safety` / `cost-governance` | `var.cost_vertical` (기본값 `shared`) | 리소스 비용을 귀속할 AIOps 버티컬입니다. 여러 버티컬이 공유하는 컨트롤 플레인 인프라는 `shared`를 유지하고, 세 실행기 MI 같은 버티컬별 리소스가 이 키를 재정의합니다. |

@@ -6,9 +6,10 @@ import asyncio
 import logging
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
-from functools import lru_cache
 from typing import Any
+from weakref import WeakValueDictionary
 
+from fdai.agents._framework import forseti_durability as _durability
 from fdai.agents._framework.action_semantics import (
     ActionSemanticsCatalog,
     quorum_for,
@@ -19,8 +20,29 @@ from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.cross_vertical_candidates import (
     INITIAL_VERTICAL_DOMAINS,
     CandidateClosure,
-    CandidateIntakeState,
     CrossVerticalCandidateAccumulator,
+)
+from fdai.agents._framework.forseti_arbitration_contract import (
+    arbitration_action_idempotency_key as _arbitration_action_idempotency_key,
+)
+from fdai.agents._framework.forseti_arbitration_contract import (
+    autonomy_ceiling_for_risk_verdict as _autonomy_ceiling_for_risk_verdict,
+)
+from fdai.agents._framework.forseti_arbitration_contract import (
+    remember_arbitration_winner as _remember_winner,
+)
+from fdai.agents._framework.forseti_arbitration_contract import (
+    winning_domain_disposition_allows_resolution as _winning_domain_disposition_allows_resolution,
+)
+from fdai.agents._framework.forseti_arbitration_planning import (
+    finalize_planning_projection as _finalize_planning_projection,
+)
+from fdai.agents._framework.forseti_constants import _MAX_RESOURCES
+from fdai.agents._framework.forseti_cost_annotation import (
+    cost_annotation_for_arbitration as _cost_annotation_for_arbitration,
+)
+from fdai.agents._framework.forseti_cross_vertical_intake import (
+    ingest_cross_vertical_candidate_locked,
 )
 from fdai.agents._framework.forseti_decision_helpers import (
     change_assessment_mapping as _change_assessment_mapping,
@@ -32,12 +54,16 @@ from fdai.agents._framework.forseti_decision_helpers import (
     domain_option_evidence as _domain_option_evidence,
 )
 from fdai.agents._framework.forseti_decision_helpers import is_conflict as _is_conflict
-from fdai.agents._framework.forseti_decision_helpers import signal_impact as _signal_impact
 from fdai.agents._framework.forseti_decision_helpers import source_freshness as _source_freshness
-from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
+from fdai.agents._framework.forseti_domain_advice import ingest_domain_signal
 from fdai.agents._framework.forseti_learned_outputs import ForsetiLearnedOutputMixin
-from fdai.agents._framework.registry import load_pantheon
-from fdai.agents._framework.runtime_health import AGENT_DEGRADATION_POLICIES, evaluate_degradation
+from fdai.agents._framework.forseti_rule_bindings import RISK_VERDICT as _RISK_VERDICT
+from fdai.agents._framework.forseti_safeguards import attach_arbitration_safeguards
+from fdai.agents._framework.forseti_timeout_tasks import (
+    cancel_cross_vertical_timeout,
+    start_cross_vertical_timeout,
+)
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.decision_case import (
     DomainDecisionCoordinator,
     DomainDecisionProjection,
@@ -60,16 +86,7 @@ from fdai.core.operational_planning.prospective_lineage import (
 
 _LOGGER = logging.getLogger(__name__)
 
-_MAX_RESOURCES = 10_000
-
 _DecisionProjection = DomainDecisionProjection | SpecialistPlanningProjection
-
-_ARBITRATION_DECISION_TOPIC = "object.arbitration-decision"
-
-
-@lru_cache(maxsize=1)
-def _arbitration_owner() -> str | None:
-    return load_pantheon().owner_of_topic(_ARBITRATION_DECISION_TOPIC)
 
 
 class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
@@ -84,16 +101,25 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     _cross_vertical_timeout_seconds: float
     _cross_vertical_candidates: CrossVerticalCandidateAccumulator
     _cross_vertical_timeout_tasks: dict[str, asyncio.Task[None]]
+    _cross_vertical_timeout_deadlines: dict[str, float]
+    _cross_vertical_timeout_heap: list[tuple[float, str]]
+    _cross_vertical_timeout_max: int
+    _cross_vertical_locks: WeakValueDictionary[str, asyncio.Lock]
     _pending_arbitration_principals: BoundedLruDict[str, dict[str, str]]
     arbitrations: dict[str, str]
     _unresolved_arbitrations: BoundedLruDict[str, dict[str, Any]]
     _arbitration_resources: BoundedLruDict[str, str]
     _domain_advice: BoundedLruDict[str, dict[str, str]]
     _domain_impact: BoundedLruDict[str, dict[str, float]]
-    _domain_observed_at: BoundedLruDict[str, str]
+    _domain_observed_at: BoundedLruDict[str, dict[str, str]]
+    _domain_correlation_ids: BoundedLruDict[str, dict[str, str]]
+    _domain_source_freshness: BoundedLruDict[str, dict[str, tuple[SourceFreshness, ...]]]
     _domain_arguments: BoundedLruDict[str, dict[str, dict[str, object]]]
+    _domain_cost_annotations: BoundedLruDict[str, dict[str, Any]]
     _pending_decision_cases: BoundedLruDict[str, _DecisionProjection]
     _pending_change_assessments: BoundedLruDict[str, dict[str, Any]]
+    _forseti_state_store: Any | None
+    _test_context_clock: Callable[[], datetime]
 
     def record_behavior(self, name: str, amount: int = 1) -> None:
         raise NotImplementedError
@@ -105,69 +131,63 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     ) -> None:
         """Join the three owner-authenticated candidates and publish one request."""
 
-        intake = self._cross_vertical_candidates.ingest(topic, payload)
-        if intake.state is CandidateIntakeState.DUPLICATE:
-            self.record_behavior("cross_vertical_candidate:duplicate")
-            return
-        if intake.state is CandidateIntakeState.HIL:
-            await self._close_cross_vertical_candidates(intake.closures)
-            return
-        if intake.state is CandidateIntakeState.PENDING:
-            if intake.correlation_id not in self._cross_vertical_timeout_tasks:
-                self._cross_vertical_timeout_tasks[intake.correlation_id] = asyncio.create_task(
-                    self._expire_cross_vertical_candidates(intake.correlation_id)
-                )
-            self.record_behavior("cross_vertical_candidate:pending")
-            return
+        correlation_id = str(payload.get("correlation_id") or "")
+        lock = self._cross_vertical_locks.setdefault(correlation_id, asyncio.Lock())
+        async with lock:
+            await self._ingest_cross_vertical_candidate_locked(topic, payload, correlation_id)
 
-        batch = intake.batch
-        if batch is None:  # pragma: no cover - CandidateIntake invariant
-            raise RuntimeError("ready cross-vertical candidate intake has no batch")
-        timeout_task = self._cross_vertical_timeout_tasks.pop(batch.correlation_id, None)
-        if timeout_task is not None:
-            timeout_task.cancel()
-        conflicts = conflicting_objective_effects(tuple(batch.evidence_by_domain.values()))
-        if not conflicts:
-            self.record_behavior("cross_vertical_candidate:no_conflict")
+    async def _ingest_cross_vertical_candidate_locked(
+        self,
+        topic: str,
+        payload: dict[str, Any],
+        correlation_id: str,
+    ) -> None:
+        await ingest_cross_vertical_candidate_locked(self, topic, payload, correlation_id)
+
+    def _start_cross_vertical_timeout(
+        self,
+        correlation_id: str,
+        *,
+        delay_seconds: float | None = None,
+    ) -> None:
+        start_cross_vertical_timeout(self, correlation_id, delay_seconds=delay_seconds)
+
+    async def _cancel_cross_vertical_timeout(
+        self,
+        timeout: str | asyncio.Task[None],
+    ) -> None:
+        if isinstance(timeout, str):
+            self._cross_vertical_timeout_deadlines.pop(timeout, None)
             return
-        self._pending_arbitration_principals.set(
-            batch.correlation_id,
-            batch.principals_by_domain,
-        )
-        await self._emit_arbitration_request(
-            resource_id=batch.resource_id,
-            advice=batch.advice,
-            correlation_id=batch.correlation_id,
-            impacts=batch.impacts,
-            observed_at=batch.observed_at,
-            source_freshness=batch.source_freshness,
-            evidence_by_domain=batch.evidence_by_domain,
-            objective_conflicts=conflicts,
-        )
-        self.record_behavior("cross_vertical_candidate:ready")
+        await cancel_cross_vertical_timeout(timeout)
 
     async def _expire_cross_vertical_candidates(self, correlation_id: str) -> None:
         try:
-            await asyncio.sleep(self._cross_vertical_timeout_seconds)
-            closure = self._cross_vertical_candidates.expire(correlation_id)
-            if closure is not None:
-                await self._close_cross_vertical_candidates((closure,))
+            lock = self._cross_vertical_locks.setdefault(correlation_id, asyncio.Lock())
+            async with lock:
+                if await _durability.durable_cross_vertical_completed(self, correlation_id):
+                    return
+                closure = self._cross_vertical_candidates.expire(correlation_id)
+                if closure is not None:
+                    await self._close_cross_vertical_candidates((closure,))
         finally:
-            self._cross_vertical_timeout_tasks.pop(correlation_id, None)
+            self._cross_vertical_timeout_deadlines.pop(correlation_id, None)
 
     async def _close_cross_vertical_candidates(
         self,
         closures: tuple[CandidateClosure, ...],
     ) -> None:
         for closure in closures:
-            timeout_task = self._cross_vertical_timeout_tasks.pop(
-                closure.correlation_id,
-                None,
-            )
-            current = asyncio.current_task()
-            if timeout_task is not None and timeout_task is not current:
-                timeout_task.cancel()
+            await self._cancel_cross_vertical_timeout(closure.correlation_id)
             self._arbitration_resources.set(closure.correlation_id, closure.resource_id)
+            await _durability.persist_arbitration_resource(
+                self,
+                closure.correlation_id,
+                closure.resource_id,
+            )
+            await _durability.mark_cross_vertical_completed(
+                self, closure.correlation_id, closure.reason
+            )
             await self._escalate_arbitration(
                 closure.correlation_id,
                 {
@@ -179,6 +199,20 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 grounding_extra={"candidate_set_complete": False},
             )
             self.record_behavior(f"cross_vertical_candidate:{closure.reason}")
+
+    async def _close_unowned_arbitration(
+        self,
+        correlation_id: str,
+        *,
+        domains: list[str],
+        arbitration_request: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        return await _durability.close_unowned_arbitration(
+            self,
+            correlation_id,
+            domains=domains,
+            arbitration_request=arbitration_request,
+        )
 
     async def maybe_request_arbitration(self, event: dict[str, Any]) -> dict[str, Any] | None:
         """Raise an ArbitrationRequest when domains contend on the same objective.
@@ -232,68 +266,17 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             source_freshness=_source_freshness(event.get("source_freshness")),
             evidence_by_domain={item.domain: item for item in evidence},
             objective_conflicts=objective_conflicts,
+            cost_annotation=(
+                _cost_annotation_for_arbitration(event.get("cost_annotation"))
+                if isinstance(event.get("cost_annotation"), Mapping)
+                else None
+            ),
         )
 
     async def _ingest_domain_signal(
         self, domain: str, payload: dict[str, Any]
     ) -> dict[str, Any] | None:
-        """Accumulate a domain recommendation and arbitrate on conflict.
-
-        Cost anomalies and capacity forecasts arrive as separate signals;
-        Forseti keys them by resource id so a cost 'scale_down' and a
-        capacity 'scale_up' on the same resource surface as a conflict.
-        """
-        resource_id = str(payload.get("resource_id") or payload.get("scope") or "")
-        recommendation = str(payload.get("recommendation", ""))
-        if not resource_id or not recommendation:
-            return None
-        advice = self._domain_advice.get(resource_id)
-        if advice is None:
-            advice = {}
-            self._domain_advice.set(resource_id, advice)
-        advice[domain] = recommendation
-        impacts = self._domain_impact.get(resource_id)
-        if impacts is None:
-            impacts = {}
-            self._domain_impact.set(resource_id, impacts)
-        impacts[domain] = _signal_impact(domain, payload)
-        raw_arguments = payload.get("action_arguments")
-        if isinstance(raw_arguments, Mapping):
-            arguments = self._domain_arguments.get(resource_id)
-            if arguments is None:
-                arguments = {}
-                self._domain_arguments.set(resource_id, arguments)
-            arguments[domain] = {
-                str(name): value for name, value in raw_arguments.items() if isinstance(name, str)
-            }
-        observed_at = str(payload.get("observed_at") or "")
-        if observed_at:
-            self._domain_observed_at.set(resource_id, observed_at)
-        if not _is_conflict(advice):
-            return None
-        correlation_id = str(payload.get("correlation_id") or "")
-        if not correlation_id:
-            self.record_behavior("arbitration_invalid_identity")
-            raise ValueError("arbitration input correlation_id MUST be non-empty")
-        request = await self._emit_arbitration_request(
-            resource_id=resource_id,
-            advice=dict(advice),
-            correlation_id=correlation_id,
-            impacts=dict(impacts),
-            arguments_by_domain=dict(self._domain_arguments.get(resource_id) or {}),
-            observed_at=self._domain_observed_at.get(resource_id) or "",
-            source_freshness=_source_freshness(payload.get("source_freshness")),
-        )
-        # Consume the accumulated advice once the conflict is surfaced.
-        # Leaving it in place would (a) grow both maps without bound over
-        # every resource ever seen (memory leak) and (b) make the stale
-        # opposing recommendation re-trigger a duplicate arbitration on the
-        # very next signal for this resource. Fresh signals re-accumulate.
-        self._domain_advice.pop(resource_id, None)
-        self._domain_impact.pop(resource_id, None)
-        self._domain_observed_at.pop(resource_id, None)
-        self._domain_arguments.pop(resource_id, None)
-        return request
+        return await ingest_domain_signal(self, domain, payload)
 
     async def _emit_arbitration_request(
         self,
@@ -308,18 +291,45 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         source_freshness: tuple[SourceFreshness, ...] = (),
         evidence_by_domain: dict[str, DomainOptionEvidence] | None = None,
         objective_conflicts: tuple[tuple[str, str, str], ...] = (),
+        domain_observed_at: dict[str, str] | None = None,
+        domain_correlation_ids: dict[str, str] | None = None,
+        domain_source_freshness: dict[str, tuple[SourceFreshness, ...]] | None = None,
+        cost_annotation: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not correlation_id or not str(resource_id or ""):
             raise ValueError("arbitration request identities MUST be non-empty")
         request: dict[str, Any] = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
-            "idempotency_key": f"arbitration:{correlation_id}",
+            "idempotency_key": stable_idempotency_key(
+                "forseti-arbitration-request",
+                correlation_id,
+                resource_id,
+                advice,
+                domain_observed_at or {},
+                domain_correlation_ids or {},
+            ),
             "resource_id": resource_id,
             "domains_in_conflict": sorted(advice),
             "advice": advice,
             "impacts": impacts or {},
+            "source_correlations": domain_correlation_ids
+            or {domain: correlation_id for domain in advice},
+            "domain_observed_at": domain_observed_at or {},
+            "cost_annotation": _cost_annotation_for_arbitration(cost_annotation),
         }
+        if domain_source_freshness:
+            request["domain_source_freshness"] = {
+                domain: [
+                    {
+                        "source": item.source,
+                        "observed_at": item.observed_at.isoformat(),
+                        "max_age_seconds": item.max_age_seconds,
+                    }
+                    for item in values
+                ]
+                for domain, values in domain_source_freshness.items()
+            }
         if objective_conflicts:
             # The independently computed relation that justified raising
             # this at all, carried so the arbiter and the audit can see
@@ -344,85 +354,76 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             if change_assessment is not None:
                 self._pending_change_assessments.set(correlation_id, change_assessment)
         self._arbitration_resources.set(correlation_id, str(resource_id))
+        await _durability.persist_arbitration_resource(self, correlation_id, str(resource_id))
         # Decision semantics: the judge decided to raise arbitration. Recorded
         # independent of a bus (delivery is measured by the bus metrics, not
         # here), so a bus-less unit still measures the decision.
         self.record_behavior("arbitration_requested")
         if self.bus is not None:
-            await self.bus.publish("Forseti", "object.arbitration-request", request)
-        await self._close_unowned_arbitration(correlation_id, domains=sorted(advice))
+            try:
+                await self.bus.publish("Forseti", "object.arbitration-request", request)
+            except Exception:
+                self.record_behavior("arbitration_request:publish_failed")
+                closed = await _durability.close_unowned_arbitration(
+                    self,
+                    correlation_id,
+                    domains=sorted(advice),
+                    arbitration_request=request,
+                )
+                if closed is None:
+                    raise
+                return request
+        await _durability.close_unowned_arbitration(
+            self,
+            correlation_id,
+            domains=sorted(advice),
+            arbitration_request=request,
+        )
         return request
 
-    async def _close_unowned_arbitration(
-        self,
-        correlation_id: str,
-        *,
-        domains: list[str],
-    ) -> dict[str, Any] | None:
-        """Close a request the arbitration owner cannot answer, fail-closed.
-
-        A published request that nobody owns would otherwise hang open
-        forever: no decision arrives, so nothing ever escalates and the
-        conflict silently leaves no terminal record. When the runtime
-        reports the sole owner of ``object.arbitration-decision``
-        unreachable, Forseti applies the shipped degradation policy for
-        that agent immediately and issues the terminal ``hil`` verdict
-        itself - no ActionType, no initiator, no action authority
-        (``agent-pantheon.md`` 3.1, 3.7). This never appoints a second
-        arbiter: the conflict is handed to a human, not settled.
-        """
-
-        owner = _arbitration_owner()
-        probe = self._agent_availability
-        if owner is None or probe is None:
-            return None
-        try:
-            unavailable = frozenset(str(name) for name in probe())
-        except Exception:  # noqa: BLE001 - a failed probe never invents unavailability
-            self.record_behavior("arbitration_owner_probe_failed")
-            _LOGGER.warning("forseti_agent_availability_probe_failed", exc_info=True)
-            return None
-        if owner not in unavailable:
-            return None
-        # Bound the policy lookup to known agents so a misbehaving probe
-        # degrades this to the owner alone instead of raising.
-        degradation = evaluate_degradation(set(unavailable) & set(AGENT_DEGRADATION_POLICIES))
-        self.record_behavior("arbitration_owner_unavailable")
-        return await self._escalate_arbitration(
-            correlation_id,
-            {"winning_domain": "", "losing_domains": list(domains), "margin": None},
-            reason="arbitration_owner_unavailable",
-            grounding_extra={
-                "arbitration_owner": owner,
-                "owner_available": False,
-                "degradation_effect": degradation.effects.get(owner, ""),
-            },
-        )
-
     async def _record_arbitration(self, decision: dict[str, Any]) -> None:
+        if decision.get("producer_principal") != "Odin":
+            self.record_behavior("arbitration_decision:rejected_owner")
+            return
         correlation_id = str(decision.get("correlation_id", ""))
         if not correlation_id:
+            self.record_behavior("arbitration_decision:missing_correlation")
             return
-        self.arbitrations[correlation_id] = str(decision.get("winning_domain", ""))
-        # Bound the map: it is keyed by correlation id (one per arbitrated
-        # event, forever), so an unbounded dict would leak on a long-lived
-        # judge - the same reason _domain_advice / _domain_impact are LRU.
-        # Dict preserves insertion order, so the first key is the oldest; a
-        # re-recorded correlation updates in place (order unchanged) and never
-        # triggers a spurious eviction.
-        if len(self.arbitrations) > _MAX_RESOURCES:
-            self.arbitrations.pop(next(iter(self.arbitrations)))
+        if correlation_id in self.arbitrations:
+            self.record_behavior("arbitration_decision:duplicate")
+            return
+        if await _durability.durable_arbitration_completed(self, correlation_id):
+            self.record_behavior("arbitration_decision:duplicate")
+            return
+        if self._unresolved_arbitrations.get(correlation_id) is not None:
+            self.record_behavior("arbitration_decision:duplicate")
+            return
         escalated = decision.get("escalate_hil") is True
+        winning_domain = str(decision.get("winning_domain") or "")
+        if not escalated and not _winning_domain_disposition_allows_resolution(
+            decision, winning_domain
+        ):
+            escalated = True
+            self.record_behavior("arbitration_decision:disposition_escalated")
         outcome = "escalated" if escalated else "resolved"
         if await self._settle_advisory_arbitration(correlation_id, decision, outcome=outcome):
+            await _durability.mark_arbitration_completed(self, correlation_id, outcome)
             return
         if escalated:
             await self._escalate_arbitration(correlation_id, decision)
+            await _durability.mark_arbitration_completed(self, correlation_id, outcome)
             return
         projection = self._pending_decision_cases.get(correlation_id)
         if projection is None:
-            if self._arbitration_resources.get(correlation_id) is not None:
+            resource = self._arbitration_resources.get(
+                correlation_id
+            ) or await _durability.durable_arbitration_resource(self, correlation_id)
+            if resource is not None:
+                self._arbitration_resources.set(correlation_id, resource)
                 await self._escalate_arbitration(correlation_id, decision)
+                await _durability.mark_arbitration_completed(
+                    self, correlation_id, "missing_context"
+                )
             return
         if projection.selection.requires_human_approval:
             await self._escalate_arbitration(correlation_id, decision)
@@ -431,7 +432,6 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         if change_assessment is not None and change_assessment.get("review_required") is True:
             await self._escalate_arbitration(correlation_id, decision)
             return
-        winning_domain = str(decision.get("winning_domain") or "")
         option = projection.option_for_domain(winning_domain)
         eligible_options = {
             option_id for option_id, _score in projection.selection.objective_scores
@@ -439,7 +439,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         if option is None or option.option_id not in eligible_options or option.action_type is None:
             await self._escalate_arbitration(correlation_id, decision)
             return
-        projection, planning_invalid = await self._finalize_planning_projection(
+        projection, planning_invalid = await _finalize_planning_projection(
+            self,
             projection,
             selected_option_id=option.option_id,
         )
@@ -450,35 +451,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             action_type=option.action_type,
             planning_invalid=planning_invalid,
         )
-
-    async def _finalize_planning_projection(
-        self,
-        projection: _DecisionProjection,
-        *,
-        selected_option_id: str,
-    ) -> tuple[_DecisionProjection, bool]:
-        if not isinstance(projection, SpecialistPlanningProjection):
-            return projection, False
-        planner = self._operational_planner
-        if planner is None:
-            return projection, True
-        try:
-            return (
-                await planner.finalize(
-                    projection,
-                    selected_option_id=selected_option_id,
-                    recorded_at=projection.case.created_at,
-                ),
-                False,
-            )
-        except Exception:  # noqa: BLE001 - incomplete finalization denies execution
-            self.record_behavior("prospective_lineage:planning_failed")
-            _LOGGER.warning(
-                "prospective_lineage_planning_failed",
-                extra={"selected_option_id": selected_option_id},
-                exc_info=True,
-            )
-            return projection, True
+        _remember_winner(self.arbitrations, correlation_id, winning_domain, _MAX_RESOURCES)
+        await _durability.mark_arbitration_completed(self, correlation_id, "resolved")
 
     async def _build_domain_decision_projection(
         self,
@@ -556,29 +530,54 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         )
         if invalid_kinetic_proposal or planning_invalid:
             risk_verdict = "deny"
+        resource_id = self._arbitration_resources.get(correlation_id) or ""
+        action_idempotency_key = _arbitration_action_idempotency_key(
+            correlation_id,
+            action_type,
+            projection.selection.selected_option_id or "",
+            resource_id,
+            kinetic_proposal.proposal_id if kinetic_proposal is not None else "",
+        )
+        rollback_contract = rollback_contract_for(action_type, self._action_semantics)
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
-            "idempotency_key": correlation_id,
-            "resource_id": self._arbitration_resources.get(correlation_id) or "",
+            "idempotency_key": stable_idempotency_key(
+                "forseti-arbitration-verdict",
+                correlation_id,
+                action_type,
+                self._arbitration_resources.get(correlation_id) or "",
+            ),
+            "action_idempotency_key": action_idempotency_key,
+            "resource_id": resource_id,
             "action_type": action_type,
             "risk_verdict": risk_verdict,
+            "resolved_autonomy_ceiling": _autonomy_ceiling_for_risk_verdict(risk_verdict),
             "reason": "arbitration_resolved",
             "arbitration": {
                 "winning_domain": decision.get("winning_domain"),
                 "losing_domains": decision.get("losing_domains") or [],
                 "margin": decision.get("margin"),
             },
+            "cost_annotation": _cost_annotation_for_arbitration(decision.get("cost_annotation")),
             "decision_case": _decision_case_mapping(
                 projection,
                 self._pending_change_assessments.pop(correlation_id, None),
             ),
             "quorum_required": quorum_for(action_type, self._action_semantics),
-            "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
+            "rollback_contract": rollback_contract,
             "initiator_principal": (
                 self._pending_arbitration_principals.pop(correlation_id, {}) or {}
             ).get(str(decision.get("winning_domain") or "")),
         }
+        attach_arbitration_safeguards(
+            verdict,
+            risk_verdict,
+            action_type,
+            action_idempotency_key,
+            resource_id,
+            rollback_contract,
+        )
         if kinetic_proposal is not None:
             verdict["params"] = kinetic_proposal.arguments()
             verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")
@@ -599,28 +598,19 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     ) -> dict[str, Any] | None:
         """Turn an unresolved arbitration into a human-visible verdict.
 
-        Odin flags a near-tie, an unknown domain, or a non-finite impact
-        rather than auto-picking; the arbitration owner may also be
-        unreachable, in which case no decision will ever arrive. Recording
-        the winner and stopping there would drop the conflict: the
-        accumulated domain advice is already consumed, so nothing else
-        would ever surface it, and the escalation would exist only inside
-        Odin's payload. Fail toward safety instead
-        (``agent-pantheon.md`` 3.1) and issue the ``hil`` verdict that puts
-        the conflict in front of a human.
-
-        Idempotent by correlation id: a redelivered decision re-records the
-        winner but does not publish a second verdict, and a decision that
-        arrives after a fail-closed closure cannot reopen it. A default-profile
-        arbitration fed by a prediction settles as advisory evidence instead.
+        Near-ties, unknown domains, invalid impacts, and unavailable arbitration
+        ownership fail toward safety as HIL. Idempotency is by correlation:
+        once unresolved or settled, redelivery cannot publish another verdict
+        or reopen the closure.
         """
-        if await self._settle_advisory_arbitration(
-            correlation_id,
-            decision,
-            outcome=reason,
-            grounding_extra=grounding_extra,
-        ):
-            return None
+        if reason != "arbitration_owner_unavailable":
+            if await self._settle_advisory_arbitration(
+                correlation_id,
+                decision,
+                outcome=reason,
+                grounding_extra=grounding_extra,
+            ):
+                return None
         if self._unresolved_arbitrations.get(correlation_id) is not None:
             return None
         losing = [str(domain) for domain in decision.get("losing_domains") or []]
@@ -644,7 +634,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         )
         planning_invalid = False
         if projection is not None and winning_option is not None:
-            projection, planning_invalid = await self._finalize_planning_projection(
+            projection, planning_invalid = await _finalize_planning_projection(
+                self,
                 projection,
                 selected_option_id=winning_option.option_id,
             )
@@ -662,26 +653,51 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         self.record_behavior(f"verdict:{risk_verdict}")
         self.record_behavior("arbitration_escalated")
         principals = self._pending_arbitration_principals.pop(correlation_id, {}) or {}
+        resource_id = self._arbitration_resources.get(correlation_id) or ""
+        action_idempotency_key = _arbitration_action_idempotency_key(
+            correlation_id,
+            action_type,
+            winning_option.option_id if winning_option is not None else "",
+            resource_id,
+            kinetic_proposal.proposal_id if kinetic_proposal is not None else "",
+        )
+        rollback_contract = rollback_contract_for(action_type, self._action_semantics)
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
-            "idempotency_key": correlation_id,
-            "resource_id": self._arbitration_resources.get(correlation_id) or "",
+            "idempotency_key": stable_idempotency_key(
+                "forseti-arbitration-verdict",
+                correlation_id,
+                action_type,
+                self._arbitration_resources.get(correlation_id) or "",
+                reason,
+            ),
+            "action_idempotency_key": action_idempotency_key,
+            "resource_id": resource_id,
             # Odin's winner is the concrete recommendation under review; the
             # complete DecisionCase keeps every alternative visible.
             "action_type": action_type,
             "risk_verdict": risk_verdict,
             "reason": reason,
             "arbitration": grounding,
+            "cost_annotation": _cost_annotation_for_arbitration(decision.get("cost_annotation")),
             "decision_case": (
                 _decision_case_mapping(projection, change_assessment)
                 if projection is not None
                 else None
             ),
             "quorum_required": quorum_for(action_type, self._action_semantics),
-            "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
+            "rollback_contract": rollback_contract,
             "initiator_principal": principals.get(winning_domain),
         }
+        attach_arbitration_safeguards(
+            verdict,
+            risk_verdict,
+            action_type,
+            action_idempotency_key,
+            resource_id,
+            rollback_contract,
+        )
         if kinetic_proposal is not None:
             verdict["params"] = kinetic_proposal.arguments()
             verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")
@@ -689,6 +705,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             verdict["prospective_lineage"] = prospective_lineage.model_dump(mode="json")
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
+        if winning_domain:
+            _remember_winner(self.arbitrations, correlation_id, winning_domain, _MAX_RESOURCES)
         return verdict
 
     async def _resolve_kinetic_proposal(

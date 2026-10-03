@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: d24ceff74f0ad2ae38128df0541d188d42e480af
-translation_revised: 2026-10-01
+translation_source_sha: 8ff381b5f3d714f3653491d919158167f07d596e
+translation_revised: 2026-10-03
 ---
 # 독립 운영 근거 발급
 
@@ -14,13 +14,17 @@ translation_revised: 2026-10-01
 > 종료 조건 1에 대한 설계 검토를 마쳤으며, 내용은 [검토 결정](#검토-결정)에 있습니다.
 > 검증기 엔진, 발급 경로, 고정된 신뢰 레지스트리와 사례 범위 권한 부여 레지스트리, 삽입 전용 증명 저장소,
 > Operator 인증 증적, 세 가지 테스트 맥락 재확인, 연결되지 않은 사례 이력
-> 재확인 모듈, 모든 소비 소유자의 유형별 기록, Settings 준비 상태 관측이 구현되어 로컬 검사를 통과합니다.
-> [구현 참고 사항](#구현-참고-사항)을 확인하세요. 배포된 검증기 워크로드는 없으며, 출처 재확인이 연결되지 않은 예측 목적은 `unavailable` 상태를 유지합니다.
+> 재확인 모듈, 모든 소비 소유자의 유형별 기록, Settings 준비 상태 관측, 선택형 배포 검증기 워크로드 렌더러가
+> 구현되어 로컬 검사를 통과합니다. [구현 참고 사항](#구현-참고-사항)을 확인하세요. 연결된 배포 검증기 시작은 아직
+> 관측되지 않았으며, 출처 재확인이 연결되지 않은 예측 목적은 `unavailable` 상태를 유지합니다.
 >
 > **에이전트 경계:** 판테온은 정확히 15개 에이전트로 유지합니다. 이 설계는 에이전트나 토픽을 추가하지 않고,
 > 어떤 에이전트의 `owns`나 `subscribes`도 바꾸지 않으며, 실행 권한이나 승격 권한을 부여하지 않습니다.
 
 ## 설계 요약
+대화 모델 호출 수, 토큰 사용량, 로컬 호출별 시간은 진단 메타데이터입니다. 검증 증적을
+발급하거나 출처 재확인을 대체하거나 운영 근거를 입증하거나 사람의 인가를 증명할 수
+없습니다. 숫자 사용량 계측을 추가해도 이 검증기 경계는 바뀌지 않습니다.
 
 여덟 개 판단 영역에 걸친 목적 id 열한 개는 이미 정확한 `DecisionEvidenceAdmission`(다섯 가지 독립 증명을
 거친 뒤에만 생기는, 권한 없는 단기 적격성 기록)을 요구하지만 이를 발급하는 곳이 없습니다. 자체 워크로드
@@ -33,6 +37,9 @@ translation_revised: 2026-10-01
 수락하거나 검증기 재확인을 충족하거나 실행 권한을 부여하지 않습니다.
 봉인된 Core 전용 행 신원은 후속 읽기의 재인가 피연산자일 뿐이며, 검증기 출처 산출물, 수락 기록 또는
 증명 자료가 아닙니다.
+기준선 평가 터미널 기록도 같은 근거 경계를 사용합니다. Rule별 결과와 세대별 완료 계약은 Forseti 평가
+증적과 Saga 감사 기록을 참조할 수 있지만, 계약 자체는 독립 운영 근거를 발급하거나 검증기를 배포하거나
+실제 공급자 상태를 증명하지 않습니다.
 
 ## 현재 상태와 공백
 
@@ -259,6 +266,15 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 | 충돌 | 충돌하는 표본, 시계열, 상태 출처가 없음 |
 | 최신성 정책 | 공급자를 읽은 시점부터 300초 |
 
+**출처 바인딩.** `core/operational_evidence/readback/test_observation.py`는 검증기 쪽
+`OperationalTestObservationReadback`을 제공합니다. 검증기 workload는 배포 환경에서만 이 목적을 바인딩하며, 배포
+구성은 세 가지 출처 계약을 모두 제공해야 합니다. Log Analytics workspace, 검토된 KQL metric template, 검토된 운영
+범위 관측 행입니다. `delivery/azure/operational_evidence_readbacks.py`는 검증기 소유 Azure Monitor Logs metric
+provider를 정확한 구간 표본 reader로 감싸고, 검토된 운영 범위 reader와 결합합니다. 배포된 검증기 신원은 구성된
+resource group 범위에서 `Monitoring Reader`를 가져야 하며, own-role 재조회는 이 역할이 생산자, 검토자, 실행기 신원과
+분리되어 있음을 확인한 뒤에만 목적을 available로 만듭니다. metric 구성 누락, 범위 행 누락, 배포 환경의 local-loopback
+출처, 충돌하는 표본, 불완전한 의존성 상태, protected signal은 모두 유형화된 거부로 fail-closed 처리됩니다.
+
 ### 출처별 예측 이력
 
 소비자: `delivery/persistence/state_store_forecast_context.py`에 있는 Heimdall의
@@ -277,6 +293,46 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 않습니다. 범위 소속은 `FDAI_FORECAST_TARGETS_JSON`이 아니라 검토된 운영 범위에서 가져옵니다. 원본 이력
 생산은 계속 [#1021](https://github.com/dotnetpower/fdai/issues/1021) 범위이며, 구현되지 않은 출처에는 발급하지
 않습니다.
+
+**설계 참고: `forecast-history-actions`.** 작업 생산자는 기존 Thor/Saga StateStore 감사 체인을 읽지만 Thor,
+Saga, 검토자, 실행자가 되지 않습니다. 고정 매개변수 `SECURITY DEFINER` 함수는 요청 구간의 각
+`thor.action-run-save` 행에 대한 해시 앵커를 반환하고, 대상이 검토된 대상과 정확히 일치할 때만 연결된 ActionRun
+페이로드를 노출합니다. 출처 어댑터는 출처 기록을 만들기 전에 연속된 시퀀스 번호, `previous_hash`와 `entry_hash`
+일치, 워터마크까지 다시 계산한 감사 해시를 요구합니다. 검토된 매핑은 `succeeded`, `failed` 같은 최종 ActionRun
+상태를 예측 작업 상태로 변환할 수 있습니다. 간격, 해시 불일치, 대기 중인 최종 상태, 매핑되지 않은 상태, 오래된
+관측 범위, 결과 제한, 대상 불일치는 출처별 검증 증적이 발급되기 전에 불완전하거나 충돌하는 출처 관측으로 차단됩니다.
+
+**비평.** ActionRun 페이로드를 `state_kv`에서 직접 읽으면 Core 상태가 과도하게 노출되고 최신 값만 증명합니다. 대상
+행만 읽으면 부재가 완전하다는 점을 증명하지 못합니다. 수정된 reader는 해시 앵커와 페이로드 공개를 분리합니다. 모든
+작업 저장 행은 시퀀스와 해시 연속성에 기여하고, 정확한 대상의 행만 기록 생성에 필요한 상태 페이로드를 반환합니다.
+이 방식은 실행 권한을 부여하지 않고 Thor 또는 Saga 소유권도 바꾸지 않습니다.
+
+**수정.** 첫 구현은 `forecast-history-actions`를 `fdai.thor_saga_state_store.action_audit` 출처와
+`forecast-action-audit-chain.v1` 개정에 바인딩하고, 검증기 역할에는 함수 `EXECUTE`만 부여합니다. Activity Log는
+교차 확인 준비 상태로 남습니다. `forecast-history-excluded_windows`는 revision이 있는 `ChangeWindow` 이력 생산자가
+생길 때까지 계속 사용할 수 없습니다.
+
+**설계 참고: `forecast-history-excluded_windows`.** 기존 operating-intent 출처가 계속 `ChangeWindow` 객체의 유일한
+권한 있는 출처입니다. 이 경로는 성공적으로 admission을 기록할 때마다 인정된 모든 `ChangeWindow` 객체에 대해
+append-only 이력 행을 기록합니다. 키는 출처 개정과 window id에서 결정적으로 만듭니다. 각 행에는 window id, 범위나
+대상 참조, 상태, 구간 종류, 유효 구간, 출처 개정, 문서 digest, 기록 시각, 같은 window의 직전 보존 개정을 가리키는
+supersedes 참조, 그리고 전체 인정 출처 문서의 워터마크가 들어갑니다. 별도의 출처별 관측 범위 행은 출처 개정, 문서
+digest, 검증 시각, 객체 수, 워터마크를 기록합니다. 따라서 forecast 생산자는 보존된 행이 부분적인 현재 graph 읽기가
+아니라 완전한 인정 출처에서 왔음을 증명할 수 있습니다.
+
+**비평.** `OntologyChangeWindowEvidenceProvider.is_active`나 최신 ontology 객체 revision을 재사용하면 여전히 이력을
+꾸며 내게 됩니다. 현재 활성 여부만 답할 수 있고 forecast lookback 전체에서 철회, 대체, 부재가 어땠는지 증명할 수
+없기 때문입니다. 새 소유자를 만들어 이력을 쓰면 권한이 바뀝니다. 안전한 이음매는 기존 operating-intent admission
+경로입니다. 이 경로는 이미 고정된 출처, 출처 digest, rollout 세대, 소유 객체 집합을 검증했습니다. 이력 writer는
+권한에 대해 읽기 전용입니다. admission 경로가 성공한 뒤 근거를 기록하며, 이력 보존 실패가 `ChangeWindow` 권한을 더
+허용적으로 만들지는 않습니다.
+
+**수정.** `forecast-history-excluded_windows`는 출처 ID `fdai.operating_intent.change_window_history`와 개정
+`forecast-change-window-history.v1`에 바인딩됩니다. 출처 어댑터는 append-only 보존 이력을 읽고, 정확한
+operating-intent 출처 개정과 일치하는 관측 범위 워터마크를 요구하며, 초기 상태가 있는 included/excluded 상태 체인을
+도출합니다. 관측 범위 누락, 대체 관계 충돌, 같은 시각의 상태 충돌, 오래된 워터마크, 불완전한 페이지는 fail-closed로
+처리됩니다. 이 네 번째 출처별 이력이 인정되면 `forecast-context`는 같은 범위, 대상, 구간에 대한 네 개의 출처별
+검증 증적을 모두 요구하는 기존 집계 규칙을 통해 바인딩될 수 있습니다.
 
 ### 예측 맥락 집계
 
@@ -300,6 +356,8 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 조회가 릴리스 digest를 묶으므로 운영 근거 밖의 온톨로지 함수 소스 수정을 포함한 모든 릴리스 변경은 새 조회를
 시작하고, 이전 릴리스에서 발급한 증적은 다시 쓰지 않습니다. 같은 변경에서 원본에 묶인 의미 보증 코퍼스도 다시
 생성합니다.
+변환 전용 온톨로지 어휘는 릴리스 digest나 운영 근거 조회 권한을 바꾸지 않고도 해당 corpus
+매니페스트의 원본 다이제스트를 갱신할 수 있습니다.
 
 | 증명 | 재조회 대상 |
 |------|-------------|
@@ -323,6 +381,14 @@ compare-and-set(CAS) 쓰기 전에 발급을 요청합니다. 조회: 진술 dig
 | 완전성 | 대상에 대한 완전한 현재 그래프 세대와 모든 안전 결과에 대해 읽을 수 있는 증적 |
 | 충돌 | 세대, 사례 개정, 증적 사이에 불일치가 없음 |
 | 최신성 정책 | 스냅숏 관측 시점부터 300초이며, 현재의 5분 스냅숏 한도와 같음 |
+
+**출처 바인딩.** `core/operational_evidence/readback/current_case_reuse.py`는 검증기 쪽 readback을 정의하고,
+`delivery/azure/operational_evidence.py`는 실시간 T1(가벼운 유사성 재사용) 경로에 쓰는
+`AzureCurrentReuseVerifier`를 정의합니다. 검증기는 이제 `current-case-reuse` 증적을 요청하기 전에 조회 가능한 출처
+행을 보존합니다. 이 행에는 다시 계산한 검증 결과, 현재 인벤토리 세대, Muninn 사례 참조, 일곱 가지 결정적 안전 증적
+참조, 사례와 대상 권한 부여 좌표가 포함됩니다. 검증기는 넓은 `state_kv` 접근 대신 고정 매개변수 함수로 이 행을
+읽습니다. 출처 행 누락, 잘못된 안전 증적, 세대 충돌, 사례 개정 불일치, 실패한 안전성 검토, 권한 부여 불일치는 모두
+유형화된 거부로 fail-closed 처리됩니다. Thor는 재사용된 사례가 실행 경로에 쓰이기 전에 여전히 다시 검증합니다.
 
 ## 실패 시 차단하는 거부 매트릭스
 
@@ -405,6 +471,10 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   결과와 `evidence_rejection_ref`를 설정합니다. Heimdall은 점수 산정과 조각 보존 중 어느 쪽이 거부되었든
   `ForecastOutcome` 스키마 `1.2.0`의 `operational_evidence_*` 유형과 `operational-evidence-rejection:` 근거 참조로
   점수 산정을 제외합니다. T1 사유 코드와 Pattern 읽기의 거부도 유형을 밝히고 기록을 인용합니다.
+- **Forseti 판단 표.** Forseti는 규칙 및 위험 결과를 주입 가능한 digest가 찍힌 판단 표에서
+  읽고, 결정론적 결정마다 표 digest와 안정적인 결정 키를 기록합니다. `auto` 결정은 상한일 뿐입니다.
+  거버넌스가 적용된 되돌릴 수 있는 `ActionType` 의미가 없거나, 작업을 알 수 없거나, 필요한 정족수가
+  `>= 2`이거나, 일치한 규칙이 retired 또는 revoked이면 Forseti는 사람 승인(`hil`)으로 낮춥니다.
 - **검증기.** `core/operational_evidence/issuance.py`와 `proofs.py`는 레지스트리 항목과 자체 재확인으로 근거 증적, 다섯 증명,
   묶음을 만들고 `DecisionEvidenceReadinessGate`로 평가한 뒤 발급 기록 하나 또는 거부 기록 하나를 작성합니다.
   `separation.py`는 독립 principal과 같은 검증기 principal을 거부하며, `delivery/operational_evidence_server.py`는
@@ -412,7 +482,11 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   등록된 생산자 토큰 인증기, 자체 역할 재확인이 필요합니다. `deployment_preflight.py`는 실행기 계열 앵커 집합을 만들고,
   `operational_evidence_caller_auth.py`는 수명이 짧은 호출자 토큰을 검증한 뒤 폐기하며,
   `own_role_readback.py`는 부분 재확인, 해석할 수 없는 역할 정의, 신원 불일치, vault 전체 시크릿 접근, 다른 시크릿 접근, 정확히 렌더링된 읽기 범위를 벗어난 쓰기/데이터 플레인 역할을 거부합니다.
-  Terraform은 내부 ingress만 렌더링합니다. 현재 호출자 인증기는 배포가 제공한 JWKS 스냅샷을 사용합니다. 알 수 없는
+  Terraform은 내부 ingress만 렌더링합니다. AKS 독립 실행형 렌더러는 배포 소유 레지스트리 고정값, 앵커,
+  호출자 토큰 검증 데이터, 작성자 멤버십 정책, 역할 재확인 범위, 전용 검증기 신원이 있을 때만 같은 검증기를
+  별도 내부 워크로드로 렌더링할 수 있습니다. 루트 Terraform 단계는 사용 설정된 경우에만 그 신원을 만들고, 이미지
+  pull과 정확한 상태 저장소 DSN 시크릿만 부여하며, 같은 구성에서 만든 Managed Identity 역할 할당에
+  `principal_type = "ServicePrincipal"`을 사용합니다. 현재 호출자 인증기는 배포가 제공한 JWKS 스냅샷을 사용합니다. 알 수 없는
   `kid`는 나중에 제한된 JWKS 갱신 provider가 추가될 때까지 명확한 인증 거부입니다. 워크로드는 자신의 검증기 버전에
   해당하는 정확한 바인딩으로만 발급하므로, 일상적 교체 후에도 이전 워크로드와 이미 보관된 발급 기록은 만료될 때까지 유효하고, 철회 개정은 이를 폐기합니다. 재실행된
   시도는 동시에 실행된 작성자가 먼저 삽입한 경우에도 저장된 결과를 반환하며, 다른 조회에 다시 사용된 시도 ID는
@@ -442,7 +516,17 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 - **재확인.**  `operator-test-context-command`, `test-context-transition`, `operational-test-context`는 실제 출처를
   읽습니다. 현재 맥락은 인용한 전이 발급 기록의 조회가 그 맥락과 직전 기록으로 다시 만든 조회와 같을 때만 인정되며,
   다른 발급 기록을 인용하면 `replay_substituted`입니다. `admit`은 보관된 기록마다 정확한 검증기 바인딩과 현재 앵커
-  기준의 그 바인딩 준비 상태를 다시 확인합니다. `operational-test-observation`과 `current-case-reuse`는 아직 연결되지 않았습니다. 관측 공급자는 검증기 신원으로 사용할 수 없습니다. 사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조, Core에서 Bragi로 이어지는 참조 전파, 연결된 정확한 재확인 모듈이 있습니다. Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을 수용하는 Core가 배포된 뒤에만 켤 수 있습니다. 이 설정을 켜면 Operator가 참조를 보내기 전에 본문 없는 증적을 기록하므로 Core는 해소할 수 없는 참조를 받지 않습니다. 현재 재사용에는 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다. 출처별 예측 이력과 `forecast-context` 목적에도 아직 연결된 출처 재확인이 없습니다.
+  기준의 그 바인딩 준비 상태를 다시 확인합니다. `forecast-history-actions`, `forecast-history-changes`,
+  `forecast-history-excluded_windows`, `forecast-history-resource_lifecycle` 목적은 이제
+  `operational_state_transition*`의 실제 파생 출처 행을 읽고, `forecast-context`는 네 개의 출처별 이력에
+  바인딩됩니다. `operational-test-observation`은 배포된 검증기 workload가 `Monitoring Reader`, Log Analytics metric
+  template, 검토된 운영 범위 관측 행을 모두 가질 때 바인딩됩니다. `current-case-reuse`는 근거 발급 전에 인벤토리
+  세대, Muninn 사례 참조, 안전 증적, 권한 부여 좌표를 보존하는 현재 재사용 출처 행을 통해 바인딩됩니다.
+  사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조,
+  Core에서 Bragi로 이어지는 참조 전파, 연결된 정확한 재확인 모듈이 있습니다. Operator 설정
+  `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을
+  수용하는 Core가 배포된 뒤에만 켤 수 있습니다. 이 설정을 켜면 Operator가 참조를 보내기 전에 본문 없는 증적을
+  기록하므로 Core는 해소할 수 없는 참조를 받지 않습니다.
 - **공유 권한 부여 검증.** 사례 범위 권한 부여 레지스트리 로더와 권한 부여 모델은 공유 서비스 계약 SDK에 포함되며 Core가 이를 다시 내보냅니다. Operator의 테스트 컨텍스트 선택 변환은 별도 권한 부여 검증기를 두지 않고 같은 로더를 콘텐츠 고정값과 함께 사용합니다.
 - **기능 상태와 인계.** `delivery/operational_evidence_readiness.py`는 목적마다 Settings 행 하나를 추가합니다. 런타임
   Settings 구체화는 모든 실패를 관측되지 않음으로 처리하는 제한된 읽기로 검증기 준비 상태 엔드포인트를 한 번
@@ -452,7 +536,19 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   정상으로 보고할 때만 `available`입니다. 충족하지 못한 전제 조건은 각각 이름이 표시되고, 구성만으로는 행을 사용 가능하게 만들 수 없으며, 사용 가능 여부는
   권한을 부여하지 않습니다.
   `delivery/operational_evidence_handoff_cli.py`는 자동화할 수 있는 연결 환경 인계 단계를 실행하며 남은 훈련을
-  나열합니다.
+  나열합니다. 별도의 연결 환경 승인을 받은 뒤 워크로드의 배포 제공 환경을 적재한 상태에서 조정자는 다음 명령을
+  실행합니다.
+
+  ```bash
+  FDAI_OPERATIONAL_EVIDENCE_HANDOFF_AUTHORIZED=1 \
+    .venv/bin/python -m fdai.delivery.operational_evidence_handoff_cli run \
+    --venue connected \
+    --root /app
+  ```
+
+  이 명령은 본문 없는 인계 증적을 만들고 신원, 레지스트리, 작성자 재확인, 준비 상태, 긍정 발급, 부정 훈련,
+  중지 조건 관측 중 처음 누락된 단계에서 멈춥니다. 독립 운영 자격 검증은 아니며, 그 범위는 #1026에 남아
+  있습니다.
 
 ## 목표가 아닌 것
 
@@ -485,3 +581,4 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 | 의사결정 핵심 근거 규칙 | [FDAI 헌법](../architecture/fdai-constitution-ko.md) |
 | 에이전트 소유권 및 토픽 | [에이전트 판테온](../agents/agent-pantheon-ko.md) |
 | 고정된 배포 소유 출처 | [배포 소유 Operating-Intent 출처](../architecture/operating-intent-source-ko.md) |
+| 공유 Workflow 검증 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |

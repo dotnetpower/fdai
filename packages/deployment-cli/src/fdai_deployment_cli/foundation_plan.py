@@ -166,6 +166,7 @@ def save_foundation_plan(
         "context": context,
         "plan_digest": hashlib.sha256(payload).hexdigest(),
         "plan_json_digest": hashlib.sha256(projected).hexdigest(),
+        "summary": _plan_summary(details),
         "terraform_version": version,
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(hours=1)).isoformat(),
@@ -210,8 +211,9 @@ def verify_foundation_plan(
         "review_digest",
         *_AUTHORITY,
     }
+    optional_keys = {"summary"}
     if (
-        set(receipt) != expected_keys
+        not expected_keys <= set(receipt) <= expected_keys | optional_keys
         or receipt["schema_version"] not in {_SCHEMA, _SOURCE_SCHEMA}
         or receipt["state"] != "review"
         or any(receipt[key] is not value for key, value in _AUTHORITY.items())
@@ -274,6 +276,47 @@ def _validate_projection(details: dict[str, object], variables: dict[str, object
     ):
         raise ValueError("saved foundation plan does not match the normalized input")
     return version
+
+
+def _plan_summary(details: dict[str, object]) -> dict[str, object]:
+    """Return a value-free action summary for approval and transition gating."""
+
+    counts = {"create": 0, "update": 0, "delete": 0, "replace": 0, "read": 0, "no-op": 0}
+    resource_type_counts: dict[str, int] = {}
+    summarized_changes: list[dict[str, object]] = []
+    changes = details.get("resource_changes", [])
+    if not isinstance(changes, list):
+        raise ValueError("saved foundation plan resource changes are invalid")
+    for item in changes:
+        if not isinstance(item, dict):
+            raise ValueError("saved foundation plan resource changes are invalid")
+        change = item.get("change")
+        actions_value = change.get("actions") if isinstance(change, dict) else None
+        if not isinstance(actions_value, list) or not actions_value:
+            raise ValueError("saved foundation plan action summary is invalid")
+        actions = tuple(str(action) for action in actions_value)
+        if actions == ("delete", "create"):
+            counts["replace"] += 1
+        elif len(actions) == 1 and actions[0] in counts:
+            counts[actions[0]] += 1
+        else:
+            raise ValueError("saved foundation plan action summary is invalid")
+        address = item.get("address")
+        resource_type = item.get("type")
+        if not isinstance(address, str) or not address:
+            raise ValueError("saved foundation plan action summary is invalid")
+        if not isinstance(resource_type, str) or not resource_type:
+            resource_type = address.split(".", 1)[0]
+        resource_type_counts[resource_type] = resource_type_counts.get(resource_type, 0) + 1
+        summarized_changes.append({"address": address, "actions": list(actions)})
+    summary: dict[str, object] = {
+        "schema_version": "fdai.foundation-plan-summary.v1",
+        "action_counts": counts,
+        "resource_type_counts": resource_type_counts,
+        "resource_changes": summarized_changes,
+    }
+    summary["summary_digest"] = canonical_digest(summary)
+    return summary
 
 
 def _validate_review_time(receipt: dict[str, object], *, require_unexpired: bool = True) -> None:

@@ -13,6 +13,8 @@ these to enforce the contract before publish.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -21,6 +23,7 @@ from typing import Any
 # idempotency_key / producer_principal semantics), so consumers can gate
 # on it during a rolling upgrade.
 ENVELOPE_SCHEMA_VERSION = 1
+MAX_ENVELOPE_FIELD_CHARS = 512
 
 # Topics whose payloads mutate a resource - partition by `resource_id`
 # so concurrent writes to the same resource serialize. Public so the bus
@@ -112,15 +115,13 @@ def topic_for_object_type(object_type: str) -> str:
 def partition_key_for(topic: str, payload: dict[str, Any]) -> str:
     """Return the partition key for a given topic + payload.
 
-    Falls back to `correlation_id` when the payload lacks a
-    resource-scoped identifier on a mutation topic (bus adapter should
-    log this as a data-quality signal for Norns).
+    Mutation topics use the resource key the bus requires. Every other
+    owned topic uses the shared correlation key. The publish boundary is
+    responsible for rejecting or counting missing envelope values; this
+    helper only projects the already-enforced envelope into a broker key.
     """
     if topic in _MUTATION_TOPICS:
-        return str(payload.get("resource_id") or payload.get("correlation_id", ""))
-    if topic in _CORRELATION_TOPICS:
-        return str(payload.get("correlation_id", ""))
-    # Default: correlation_id if present, else empty (random partition).
+        return str(payload.get("resource_id", ""))
     return str(payload.get("correlation_id", ""))
 
 
@@ -138,6 +139,49 @@ def missing_mutation_envelope_fields(
     )
 
 
+def normalize_owned_object_envelope(
+    topic: str,
+    payload: dict[str, Any],
+) -> tuple[str, ...]:
+    """Strip and validate shared envelope keys for owned object topics."""
+    if topic not in OWNED_OBJECT_TOPICS:
+        return ()
+    invalid: list[str] = []
+    for field_name in ("correlation_id", "idempotency_key"):
+        value = str(payload.get(field_name, "")).strip()
+        if not value:
+            invalid.append(field_name)
+            continue
+        if len(value) > MAX_ENVELOPE_FIELD_CHARS:
+            invalid.append(field_name)
+            continue
+        payload[field_name] = value
+    return tuple(invalid)
+
+
+def stable_idempotency_key(kind: str, *parts: object) -> str:
+    """Return a deterministic idempotency key for one logical publication.
+
+    The key depends only on ``kind`` and the canonical JSON form of ``parts``,
+    so a redelivered or recomputed publication receives the same key while a
+    different logical publication receives a different one. Parts MUST be
+    JSON-native values; an unsupported type raises instead of hashing an
+    unstable ``repr``.
+    """
+    if not isinstance(kind, str) or not kind.strip():
+        raise ValueError("idempotency key kind MUST be a non-empty string")
+    normalized_kind = kind.strip()
+    canonical = json.dumps(
+        [normalized_kind, *parts],
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"{normalized_kind}:{digest[:32]}"
+
+
 def _kebab(name: str) -> str:
     out: list[str] = []
     for i, ch in enumerate(name):
@@ -152,7 +196,10 @@ __all__ = [
     "MUTATION_TOPICS",
     "CORRELATION_TOPICS",
     "ENVELOPE_SCHEMA_VERSION",
+    "MAX_ENVELOPE_FIELD_CHARS",
     "missing_mutation_envelope_fields",
+    "normalize_owned_object_envelope",
+    "stable_idempotency_key",
     "topic_for_object_type",
     "partition_key_for",
 ]

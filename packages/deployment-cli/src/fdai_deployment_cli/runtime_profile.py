@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -29,6 +30,17 @@ class DatabasePlacement(StrEnum):
     POSTGRES_AKS = "postgres-aks"
 
 
+# Explicit PostgreSQL Flexible Server sizes. Unset keeps the infrastructure day-zero default,
+# B_Standard_B1ms, and leaves the profile mapping and digest unchanged.
+DATABASE_SKUS = (
+    "B_Standard_B1ms",
+    "B_Standard_B2s",
+    "B_Standard_B2ms",
+    "GP_Standard_D2ds_v5",
+    "GP_Standard_D4ds_v5",
+)
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeDeploymentProfile:
     """Secret-free runtime and node-pool intent bound to exact deployment plans."""
@@ -41,6 +53,7 @@ class RuntimeDeploymentProfile:
     user_node_max_count: int = 5
     user_node_sku: str = "Standard_D4as_v5"
     product_profile: ProductProfile = field(default_factory=ProductProfile)
+    database_sku: str | None = None
 
     @property
     def console_selected(self) -> bool:
@@ -49,6 +62,11 @@ class RuntimeDeploymentProfile:
         return self.product_profile.selects(ProductAddOn.READ_ONLY_CONSOLE)
 
     def __post_init__(self) -> None:
+        if self.database_sku is not None:
+            if self.database_sku not in DATABASE_SKUS:
+                raise ValueError("database SKU is unsupported")
+            if self.database_placement is not DatabasePlacement.POSTGRES_FLEX:
+                raise ValueError("database SKU requires postgres-flex placement")
         if self.runtime_platform is RuntimePlatform.CONTAINER_APPS:
             if self.database_placement is not DatabasePlacement.POSTGRES_FLEX:
                 raise ValueError("Container Apps requires postgres-flex")
@@ -86,6 +104,7 @@ class RuntimeDeploymentProfile:
         user_node_sku: str = "Standard_D4as_v5",
         product_add_ons: tuple[str, ...] = (),
         observation_data_sources: tuple[str, ...] = (),
+        database_sku: str | None = None,
     ) -> RuntimeDeploymentProfile:
         """Parse command values and reject unsupported runtime or database names."""
 
@@ -130,12 +149,30 @@ class RuntimeDeploymentProfile:
                     selected_sources=data_sources,
                 ),
             ),
+            database_sku=database_sku,
+        )
+
+    @classmethod
+    def from_prepare_arguments(cls, args: argparse.Namespace) -> RuntimeDeploymentProfile:
+        """Rebuild the profile from managed-host prepare arguments with the same checks."""
+
+        return cls.create(
+            runtime_platform=str(args.runtime_platform),
+            database_placement=str(args.database_placement),
+            system_node_count=int(args.system_node_count),
+            system_node_sku=args.system_node_sku,
+            user_node_min_count=int(args.user_node_min_count),
+            user_node_max_count=int(args.user_node_max_count),
+            user_node_sku=str(args.user_node_sku),
+            product_add_ons=tuple(args.product_add_on),
+            observation_data_sources=tuple(args.observation_source),
+            database_sku=args.database_sku,
         )
 
     def to_mapping(self) -> dict[str, object]:
         """Return the canonical machine representation stored with deployment evidence."""
 
-        return {
+        mapping: dict[str, object] = {
             "schema_version": "fdai.runtime-deployment-profile.v2",
             "runtime_platform": self.runtime_platform.value,
             "database_placement": self.database_placement.value,
@@ -146,6 +183,9 @@ class RuntimeDeploymentProfile:
             "user_node_sku": self.user_node_sku,
             "product_profile": self.product_profile.model_dump(mode="json"),
         }
+        if self.database_sku is not None:
+            mapping["database_sku"] = self.database_sku
+        return mapping
 
     @classmethod
     def from_mapping(cls, value: dict[str, object]) -> RuntimeDeploymentProfile:
@@ -181,6 +221,9 @@ class RuntimeDeploymentProfile:
             user_node_sku=str(value.get("user_node_sku", "")),
             product_add_ons=add_ons,
             observation_data_sources=data_sources,
+            database_sku=(
+                str(value["database_sku"]) if value.get("database_sku") is not None else None
+            ),
         )
 
     def matches_mapping(self, value: dict[str, object]) -> bool:

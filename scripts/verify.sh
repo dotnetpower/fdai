@@ -267,6 +267,10 @@ if [[ -n "$DIFF_RANGE" ]]; then
     roadmap_implementation_tracking+=("$DIFF_RANGE")
 fi
 run_gate "roadmap-implementation-tracking" "${roadmap_implementation_tracking[@]}"
+# Frozen scenario-set immutability needs a base, so it runs only for a `<base>...HEAD` range.
+if [[ "$DIFF_RANGE" == *...HEAD ]]; then
+    run_gate_scoped "frozen-scenarios" '^(services/core-control-plane/tests/scenarios/|scripts/quality/ci/check-frozen-scenario-additions\.py$)' python3 scripts/quality/ci/check-frozen-scenario-additions.py --base-sha "${DIFF_RANGE%...HEAD}"
+fi
 run_gate_scoped_or_deferred "fork-runtime-independence" '^(\.github/(actions|workflows)/|\.vscode/|alembic/|benchmarks/|services/|packages/|console/|cli/|config/|delivery/|eval/|evaluation-sdk/|examples/|extensions/|fork/|infra/|mocks/|provider-schema-catalog/|rule-catalog/|policies/|security/|service-migrations/|src/|site/|tools/|ui/|scripts/(agent|automation|benchmarking|catalog|deployment|evaluation|governance|operations|quality)/|Makefile$|alembic\.ini$|azure\.yaml$|docs/internals/sregym-absorption-ledger\.json$|index\.html$|pyproject\.toml$|scripts/verify\.sh$|uv\.lock$|tests/integration/scripts/test_fork_runtime_independence\.py$)' python3 scripts/quality/architecture/check-fork-runtime-independence.py
 run_gate_scoped_or_deferred "venue-capability-contract" '^(services/[^/]+/src/|packages/service-contracts/src/|scripts/quality/architecture/check-venue-capability-contract\.py$)' python3 scripts/quality/architecture/check-venue-capability-contract.py
 run_gate_scoped_or_deferred "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
@@ -314,7 +318,7 @@ run_gate_scoped "behavior-seeds" '^(\.github/instructions/|rule-catalog/vocabula
 # Upstream: advisory (edits are legitimate; re-sign before release, rc 0).
 # Fork: hard fail on any edit/add under the signed surface (rc 1). Skipped
 # loudly when any signed artifact is missing.
-run_gate_scoped "framework-integrity" '^(services/core-control-plane/src/fdai/(core/|agents/|composition|shared/(contracts|providers)/|runtime/licensing(_trial_activation|_state)?\.py$|delivery/persistence/postgres_licensing_(trial|entitlement_state)\.py$|delivery/trust/)|services/operator-service/src/fdai_operator_service/entitlement_stamp\.py$|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
+run_gate_scoped "framework-integrity" '^(services/core-control-plane/src/fdai/(core/|agents/|composition|shared/(contracts|providers)/|runtime/licensing(_trial_activation|_state)?\.py$|delivery/persistence/postgres_licensing_(trial|entitlement_state)\.py$|delivery/trust/)|services/operator-service/src/fdai_operator_service/entitlement_stamp\.py$|console/src/(entitlement-state\.ts|components/entitlement-watermark\.tsx)$|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
 
 # ---- pytest and whole-repository gates (opt-in) -----------------------------
 

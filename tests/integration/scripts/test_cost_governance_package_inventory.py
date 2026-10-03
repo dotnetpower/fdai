@@ -336,7 +336,11 @@ async def test_rollback_fixture_exercises_thor_and_vidar() -> None:
     async def rollback_executor(action_run: dict[str, Any]) -> str:
         return f"rollback:{action_run['correlation_id']}"
 
-    vidar = Vidar(bus=bus, executors={"state_forward_only": rollback_executor})
+    vidar = Vidar(
+        bus=bus,
+        executors={"state_forward_only": rollback_executor},
+        allow_process_local_rollback=True,
+    )
     bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)
     bus.subscribe("object.rollback", "Thor", thor.on_typed_message)
 

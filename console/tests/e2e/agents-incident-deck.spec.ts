@@ -431,7 +431,7 @@ test("keeps English workspace starter cards inside their bounds", async ({ page 
   }
 });
 
-test("anchors the latest-message action above the composer", async ({ page }, testInfo) => {
+test("anchors the latest-message action in the composer context row", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
     localStorage.setItem("fdai.deck.layout.v1.screen", "workspace");
@@ -463,18 +463,20 @@ test("anchors the latest-message action above the composer", async ({ page }, te
     await expect(jump).toBeVisible();
     const geometry = await workspace.evaluate((element) => {
       const jumpBox = element.querySelector(".deck-jump")!.getBoundingClientRect();
-      const transcriptBox = element.querySelector(".deck-transcript-column")!.getBoundingClientRect();
-      const composerBox = element.querySelector(".deck-input-row")!.getBoundingClientRect();
+      const transcriptBox = element.querySelector(".deck-transcript")!.getBoundingClientRect();
+      const contextBox = element.querySelector(".cs-deck-composer-context")!.getBoundingClientRect();
+      const inputBox = element.querySelector(".deck-composer-inner")!.getBoundingClientRect();
       return {
-        centerDelta: Math.abs(
-          jumpBox.left + jumpBox.width / 2 - (transcriptBox.left + transcriptBox.width / 2),
-        ),
-        composerGap: composerBox.top - jumpBox.bottom,
+        coversTranscript: jumpBox.top < transcriptBox.bottom,
+        rowEndDelta: Math.abs(contextBox.right - jumpBox.right),
+        inputGap: inputBox.top - jumpBox.bottom,
         documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
     });
-    expect(geometry.centerDelta).toBeLessThanOrEqual(1);
-    expect(geometry.composerGap).toBe(12);
+    // The action sits at the end of the composer context row, above the input, never over an answer.
+    expect(geometry.coversTranscript).toBe(false);
+    expect(geometry.rowEndDelta).toBeLessThanOrEqual(1);
+    expect(geometry.inputGap).toBeGreaterThanOrEqual(0);
     expect(geometry.documentOverflow).toBe(0);
   }
 
@@ -516,7 +518,8 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
     await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
     await expect(workspace).toBeVisible();
-    const newConversation = workspace.getByRole("button", { name: "New conversation" });
+    // A resumed conversation also offers New conversation in its banner; the header control comes first.
+    const newConversation = workspace.getByRole("button", { name: "New conversation" }).first();
     if (await newConversation.count()) await newConversation.click();
     await workspace.getByPlaceholder(/Ask anything/i).fill("Show request trend");
     const send = workspace.getByRole("button", { name: "Send" });
@@ -576,6 +579,20 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
     expect(geometry.workspaceOverflow).toBe(0);
     expect(geometry.chartOverflow).toBe(0);
     expect(geometry.transitionMs).toBeLessThanOrEqual(1);
+    // The structured reply, its exact values, and its notes keep the readable 12px floor; chart
+    // axis ticks are graphics, not reading text.
+    const smallText = await workspace.locator(".deck-turn-deck").last().evaluate((root) => [
+      ...root.querySelectorAll("*"),
+    ].filter((element) => {
+      const box = element.getBoundingClientRect();
+      return box.width > 0 && box.height > 0 && !element.closest("[aria-hidden='true'], .sr-only, svg")
+        && [...element.childNodes].some((node) => node.nodeType === 3 && node.textContent?.trim())
+        && parseFloat(getComputedStyle(element).fontSize) < 12;
+    }).map((element) => `${element.className || element.tagName}: ${element.textContent?.trim().slice(0, 30)}`));
+    expect(smallText).toEqual([]);
+    // Column headers are quiet labels in the conversation layer's language, never uppercase.
+    expect(await details.locator("th").evaluateAll((cells) =>
+      cells.map((cell) => getComputedStyle(cell).textTransform))).toEqual(["none", "none", "none"]);
     if (viewport.width < 1_200) await details.locator(":scope > summary").click();
     await page.screenshot({
       path: testInfo.outputPath(`v2-presentation-${viewport.width}x${viewport.height}.png`),
@@ -672,11 +689,8 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-investigation-badge")).toHaveText("Completed");
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
   await expect(investigation).toHaveClass(/is-answer-settled/);
-  await expect(investigation).toHaveAttribute("open", "");
-  await expect(investigation.locator(".deck-investigation-item")).toHaveCount(2);
-  await expect(investigation.getByText("Inspect server-owned read evidence")).toBeVisible();
-  await investigation.locator(":scope > summary").click();
   await expect(investigation).not.toHaveAttribute("open", "");
+  await expect(investigation.locator(".deck-investigation-item")).toHaveCount(2);
   const settledGeometry = await investigation.evaluate((root) => ({
     height: root.getBoundingClientRect().height,
     documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -739,9 +753,8 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(runRecord).not.toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-question")).toHaveCount(0);
   await expect(runRecord.locator(".deck-trajectory-results")).toHaveCount(0);
-  const sourceControl = workspace.locator(".deck-gr-source-status");
-  const sourceButton = sourceControl.locator(".deck-gr-pill");
   const actionRow = workspace.locator(".deck-gr-actions:has(.deck-gr-pill)");
+  const sourceButton = actionRow.locator(".deck-gr-pill");
   await expect(actionRow.locator(".deck-trajectory-status-trigger")).toHaveCount(0);
   const initialFooter = await actionRow.evaluate((root) => {
     const button = root.querySelector<HTMLElement>(".deck-gr-pill")!.getBoundingClientRect();
@@ -809,7 +822,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await workspace.getByRole("button", { name: /^Conversation history/ }).click();
   await runRecord.locator(":scope > summary").click();
   await expect(runRecord).toHaveAttribute("open", "");
-  await expect(runRecord.locator(".deck-trajectory-phase-strip")).toHaveCount(1);
+  await expect(runRecord.locator(".cs-run-phase-strip")).toHaveCount(1);
   await expect(runRecord.locator(".deck-trajectory-phase-details > li")).toHaveCount(6);
   const unobservedPhases = runRecord.locator(
     '.deck-trajectory-phase-details > li[data-state="not_observed"]',
@@ -833,31 +846,27 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(queryResultCode).toContainText('"resources": [');
   await expect(queryResultCode).toContainText('"name": "vm-example"');
   await expect(prompt).toBeVisible();
-  const modelTrace = runRecord.locator(".deck-model-trace");
+  const modelTrace = runRecord.locator(".cs-model-trace");
   await expect(modelTrace).toBeVisible();
-  await modelTrace.locator(".deck-model-trace-lanes > li > details > summary").click();
-  await expect(modelTrace.locator(".deck-model-trace-messages li > span", {
-    hasText: /^system$/i,
-  })).toHaveCount(1);
-  await expect(modelTrace.locator(".deck-model-trace-messages li > span", {
-    hasText: /^user$/i,
-  })).toHaveCount(1);
-  const groupedSystem = modelTrace.locator(".deck-model-trace-message-content").first();
+  await modelTrace.locator(".cs-model-trace-lane-summary").first().click();
+  await expect(modelTrace.locator(".cs-model-trace-role", { hasText: /^system$/i })).toHaveCount(1);
+  await expect(modelTrace.locator(".cs-model-trace-role", { hasText: /^user$/i })).toHaveCount(1);
+  const groupedSystem = modelTrace.locator(".cs-model-trace-messages > li").first();
   await expect(groupedSystem).toContainText('"policy": {');
   await expect(groupedSystem).toContainText('"status": "ready"');
 
   const metrics = await workspace.evaluate((root) => {
     const transcript = root.querySelector<HTMLElement>(".deck-transcript");
     const command = root.querySelector<HTMLElement>(
-      '.deck-trajectory-event[data-phase="evidence"] .deck-code',
+      '.deck-trajectory-event[data-phase="evidence"] .cs-deck-code',
     );
-    const commandScrollSurface = command?.querySelector<HTMLElement>(".deck-code-pre");
+    const commandScrollSurface = command?.querySelector<HTMLElement>(".cs-deck-code-scroll");
     const composer = root.querySelector<HTMLElement>(".deck-input-row");
     const code = commandScrollSurface?.querySelector<HTMLElement>("code");
     const output = root.querySelector<HTMLElement>(
-      '.deck-trajectory-nested .deck-code-pre',
+      '.deck-trajectory-nested .cs-deck-code-scroll',
     );
-    const modelMessage = root.querySelector<HTMLElement>(".deck-model-trace-message-content pre");
+    const modelMessage = root.querySelector<HTMLElement>(".cs-model-trace-messages .cs-deck-code-scroll");
     const rootBounds = root.getBoundingClientRect();
     const composerBounds = composer?.getBoundingClientRect();
     return {
@@ -894,7 +903,8 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(metrics.bodyOverflow).toBe(false);
   expect(metrics.investigationOverflow).toBe(false);
   expect(metrics.composerInsideDeck).toBe(true);
-  expect(metrics.commandBackground).toBe("rgb(13, 17, 23)");
+  // The shared --cs-code-bg token (ui/calm-slate-tokens.css) colors every deck code surface.
+  expect(metrics.commandBackground).toBe("rgb(34, 42, 49)");
   expect(metrics.codeBackground).toBe("rgba(0, 0, 0, 0)");
   expect(metrics.commandScrollbar).not.toBe("auto");
   expect(metrics.outputScrollbar).not.toBe("auto");
@@ -923,30 +933,32 @@ test("pretty-prints nested serialized JSON in the model trace", async ({ page },
 
   const runRecord = workspace.locator(".deck-trajectory");
   await runRecord.locator(":scope > summary").click();
-  const modelTrace = runRecord.locator(".deck-model-trace");
-  await modelTrace.locator(".deck-model-trace-lanes > li > details > summary").click();
-  const systemMessage = modelTrace.locator(".deck-model-trace-message-content").first();
-  await expect(systemMessage).toHaveAttribute("data-format", "mixed");
-  await expect(systemMessage.locator(":scope > pre")).toContainText("Safety layer");
-  await expect(systemMessage.locator(".deck-code-lang")).toHaveText("json");
+  const modelTrace = runRecord.locator(".cs-model-trace");
+  await modelTrace.locator(".cs-model-trace-lane-summary").first().click();
+  // Grouped system messages keep one code block each: plain text stays text, JSON is highlighted.
+  const systemMessage = modelTrace.locator(".cs-model-trace-messages > li").first();
+  await expect(systemMessage.locator(".cs-deck-code-lang")).toHaveText(["text", "json"]);
+  await expect(systemMessage.locator(".cs-deck-code").first()).toContainText("Safety layer");
+  await expect(systemMessage.locator(".cs-deck-code").first().locator("[class^='hljs-']")).toHaveCount(0);
   await expect(systemMessage.locator(".hljs-attr").first()).toBeVisible();
-  const userMessage = modelTrace.locator(".deck-model-trace-message-content").nth(1);
-  await expect(userMessage).toHaveAttribute("data-format", "json");
-  await expect(userMessage.locator(".deck-code-lang")).toHaveText("json");
-  await expect(userMessage.locator(".deck-code-copy")).toHaveText("Copy JSON");
+  const userMessage = modelTrace.locator(".cs-model-trace-messages > li").nth(1);
+  await expect(userMessage.locator(".cs-deck-code-lang")).toHaveText("json");
+  await expect(userMessage.getByRole("button", { name: "Copy JSON" })).toHaveText("Copy");
   await expect(userMessage.locator(".hljs-attr").first()).toBeVisible();
   await expect(userMessage.locator(".hljs-string").first()).toBeVisible();
   await expect(userMessage).toContainText('"untrusted_input": {');
   await expect(userMessage).toContainText('"name": "Resource"');
   expect(await userMessage.textContent()).not.toContain('\\"untrusted_input\\"');
-  const modelResponse = modelTrace.locator(".deck-model-trace-response .deck-code-pre code");
+  const modelResponse = modelTrace.locator('section[aria-label="Assistant response"] .cs-deck-code-text');
   await expect(modelResponse).toContainText('"result": {');
   await expect(modelResponse).toContainText('"matched": 1');
   expect(await modelResponse.textContent()).not.toContain('\\"status\\"');
 
   const geometry = await modelTrace.evaluate((root) => {
-    const request = root.querySelector<HTMLElement>(".deck-model-trace-message-content");
-    const response = root.querySelector<HTMLElement>(".deck-model-trace-response pre");
+    const request = root.querySelector<HTMLElement>(".cs-model-trace-messages .cs-deck-code-scroll");
+    const response = root.querySelector<HTMLElement>(
+      'section[aria-label="Assistant response"] .cs-deck-code-scroll',
+    );
     return {
       documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       requestOverflow: request ? request.scrollWidth - request.clientWidth : 1,
@@ -978,13 +990,13 @@ test("keeps a standalone direct-response model trace compact", async ({ page }, 
   await deck.getByPlaceholder(/Ask anything/i).fill("Hello");
   await deck.getByRole("button", { name: "Send" }).click();
 
-  const modelTrace = deck.locator(".deck-model-trace");
+  const modelTrace = deck.locator(".cs-model-trace");
   await expect(modelTrace).toBeVisible();
   await expect(deck.locator(".deck-trajectory")).toHaveCount(0);
   const metrics = await modelTrace.evaluate((root) => {
-    const heading = root.querySelector<HTMLElement>(".deck-model-trace-head h4");
-    const notice = root.querySelector<HTMLElement>(".deck-model-trace-head p");
-    const model = root.querySelector<HTMLElement>(".deck-model-trace-model");
+    const heading = root.querySelector<HTMLElement>(".cs-model-trace-title");
+    const notice = root.querySelector<HTMLElement>(".cs-model-trace-notice");
+    const model = root.querySelector<HTMLElement>(".cs-model-trace-model");
     return {
       headingSize: heading ? getComputedStyle(heading).fontSize : "",
       noticeSize: notice ? getComputedStyle(notice).fontSize : "",
@@ -1016,7 +1028,8 @@ test("keeps completed observed work compact across supported viewports", async (
     await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
     await expect(workspace).toBeVisible();
-    const newConversation = workspace.getByRole("button", { name: "New conversation" });
+    // A resumed conversation also offers New conversation in its banner; the header control comes first.
+    const newConversation = workspace.getByRole("button", { name: "New conversation" }).first();
     if (await newConversation.count()) await newConversation.click();
     await workspace.getByPlaceholder(/Ask anything/i).fill("List resource groups");
     await workspace.getByRole("button", { name: "Send" }).click();
@@ -1025,6 +1038,9 @@ test("keeps completed observed work compact across supported viewports", async (
       .toBeVisible();
     const investigation = workspace.locator(".deck-investigation.is-answer-settled");
     const runRecord = workspace.locator(".deck-trajectory");
+    // Completed work folds once the answer settles, and every recorded step stays one click away.
+    await expect(investigation).not.toHaveAttribute("open", "");
+    await investigation.locator(":scope > summary").click();
     await expect(investigation).toHaveAttribute("open", "");
     await investigation.locator(":scope > summary").click();
     await expect(investigation).not.toHaveAttribute("open", "");
@@ -1083,11 +1099,15 @@ test("keeps completed observed work compact across supported viewports", async (
     expect(geometry.answerFontSize).toBe("15px");
     expect(geometry.runRecordBorderWidth).toBe("1px");
     expect(geometry.runRecordRadius).toBe("8px");
-    expect(geometry.runRecordHeight).toBeGreaterThanOrEqual(54);
-    expect(geometry.runRecordHeight).toBeLessThanOrEqual(viewport.width <= 720 ? 82 : 56);
-    expect(geometry.runSummaryHeight).toBeGreaterThanOrEqual(52);
-    expect(geometry.runStatsFontSize).toBe(viewport.width <= 720 ? "12px" : "14px");
-    expect(geometry.runDurationFontSize).toBe(viewport.width <= 720 ? "11px" : "13px");
+    // The conversation layer's quiet run record: a 44px summary with label-size stats and duration.
+    expect(geometry.runRecordHeight).toBeGreaterThanOrEqual(46);
+    // Below a 960px transcript the record's facts move under its title and wrap instead of truncating.
+    // The run record's facts wrap instead of truncating, so a phone gives them a third line.
+    expect(geometry.runRecordHeight)
+      .toBeLessThanOrEqual(viewport.width >= 1_200 ? 56 : viewport.width <= 640 ? 100 : 82);
+    expect(geometry.runSummaryHeight).toBeGreaterThanOrEqual(44);
+    expect(geometry.runStatsFontSize).toBe("12px");
+    expect(geometry.runDurationFontSize).toBe("12px");
     expect(geometry.minimumActionHeight).toBeGreaterThanOrEqual(viewport.width <= 640 ? 44 : 32);
     expect(geometry.composerHeight).toBeLessThanOrEqual(120);
     expect(geometry.composerInputHeight).toBeGreaterThanOrEqual(viewport.width <= 640 ? 44 : 40);
@@ -1095,6 +1115,21 @@ test("keeps completed observed work compact across supported viewports", async (
     expect(geometry.timestampFontSize).toBe("12px");
     expect(geometry.documentOverflow).toBe(0);
     expect(geometry.transcriptOverflow).toBe(0);
+
+    // Every opened activity, command, result, and event card keeps the readable 12px floor.
+    await investigation.evaluate((root) => {
+      root.querySelectorAll("details").forEach((item) => item.setAttribute("open", ""));
+      root.setAttribute("open", "");
+    });
+    const smallText = await investigation.evaluate((root) => [...root.querySelectorAll("*")]
+      .filter((element) => {
+        const box = element.getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && !element.closest("[aria-hidden='true'], .sr-only")
+          && [...element.childNodes].some((node) => node.nodeType === 3 && node.textContent?.trim())
+          && parseFloat(getComputedStyle(element).fontSize) < 12;
+      })
+      .map((element) => `${element.className || element.tagName}: ${element.textContent?.trim().slice(0, 30)}`));
+    expect(smallText).toEqual([]);
   }
 });
 

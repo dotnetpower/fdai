@@ -30,6 +30,7 @@ def test_publish_stamps_authoritative_principal_and_schema_version() -> None:
             "object.verdict",
             {
                 "correlation_id": "corr-1",
+                "idempotency_key": "verdict:corr-1",
                 "producer_principal": "Bragi",
                 "schema_version": 999,
             },
@@ -72,6 +73,44 @@ def test_publish_rejects_incomplete_mutation_envelope(
     assert "object.action-run" not in provider._records
 
 
+def test_publish_rejects_incomplete_non_mutation_owned_object_envelope() -> None:
+    provider = InMemoryEventBus()
+    bridge = _bridge(provider)
+
+    with pytest.raises(ValueError, match="idempotency_key"):
+        asyncio.run(
+            bridge.publish(
+                "Forseti",
+                "object.verdict",
+                {"correlation_id": "corr-1"},
+            )
+        )
+
+    assert "object.verdict" not in provider._records
+    assert bridge.metrics.publish_errors == 1
+    assert bridge.metrics.invalid_envelope_fields == 1
+
+
+def test_publish_strips_owned_object_envelope_keys() -> None:
+    provider = InMemoryEventBus()
+    bridge = _bridge(provider)
+
+    asyncio.run(
+        bridge.publish(
+            "Forseti",
+            "object.verdict",
+            {
+                "correlation_id": " corr-1 ",
+                "idempotency_key": " verdict:corr-1 ",
+            },
+        )
+    )
+
+    payload = provider._records["object.verdict"][0][1]
+    assert payload["correlation_id"] == "corr-1"
+    assert payload["idempotency_key"] == "verdict:corr-1"
+
+
 def test_subscribe_rejects_unknown_object_topic() -> None:
     bridge = _bridge()
 
@@ -95,7 +134,11 @@ def test_owned_topic_principal_verification_cannot_be_disabled() -> None:
         provider.publish(
             "object.verdict",
             "corr-1",
-            {"correlation_id": "corr-1", "producer_principal": "Bragi"},
+            {
+                "correlation_id": "corr-1",
+                "idempotency_key": "verdict:corr-1",
+                "producer_principal": "Bragi",
+            },
         )
     )
     _drain(bridge)
@@ -164,7 +207,11 @@ def test_redrive_rejects_forged_owned_topic_payload() -> None:
         provider.dead_letter(
             "object.verdict",
             "corr-1",
-            {"correlation_id": "corr-1", "producer_principal": "Bragi"},
+            {
+                "correlation_id": "corr-1",
+                "idempotency_key": "verdict:corr-1",
+                "producer_principal": "Bragi",
+            },
             reason="seed",
         )
     )
@@ -184,6 +231,7 @@ def test_redrive_reparks_original_payload_without_nested_wrapper() -> None:
 
     original = {
         "correlation_id": "corr-1",
+        "idempotency_key": "verdict:corr-1",
         "producer_principal": "Forseti",
         "schema_version": 1,
     }

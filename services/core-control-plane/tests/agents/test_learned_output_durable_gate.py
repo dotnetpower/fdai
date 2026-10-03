@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.provider_adapters import StateStoreActionRunStore
@@ -30,6 +31,16 @@ from tests.product_selection import governed_execution_selection
 
 _NOW = datetime(2026, 9, 28, 4, 0, tzinfo=UTC)
 _RESERVATION = "advisory_correlation_reservation"
+
+
+def _semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={"ops.restart-service": False, "ops.scale-out": False},
+        rollback_by_id={
+            "ops.restart-service": "state_forward_only",
+            "ops.scale-out": "state_forward_only",
+        },
+    )
 
 
 class _RecordingExecutor:
@@ -55,6 +66,7 @@ async def _forseti(
     forseti = Forseti(
         bus=bus,
         governed_execution_selected=governed_execution_selection(selected),
+        action_semantics=_semantics(),
         **context,
     )
     bus.subscribe("object.arbitration-decision", "Forseti", forseti.on_typed_message)
@@ -76,6 +88,7 @@ async def _capacity_conflict(forseti: Forseti, correlation_id: str) -> None:
         await forseti.on_typed_message(
             topic,
             {
+                "producer_principal": "Njord" if topic == "object.cost-anomaly" else "Freyr",
                 "correlation_id": correlation_id,
                 "resource_id": "resource-example",
                 "recommendation": recommendation,
@@ -133,11 +146,16 @@ async def test_restart_keeps_the_arbitrated_correlation_refused(
     fresh_thor, fresh_executor = _thor(after, store)
     await fresh_thor.rehydrate()
 
-    with pytest.raises(ValueError, match="ActionRun correlation"):
+    if selected and with_decision_case:
         await restarted.on_typed_message("object.event", _observed("corr-x"))
+    else:
+        with pytest.raises(ValueError, match="ActionRun correlation"):
+            await restarted.on_typed_message("object.event", _observed("corr-x"))
 
     assert executor.calls == [] and fresh_executor.calls == []
     assert fresh_thor.behavior_snapshot().get("dispatch:auto") is None
+    if selected and with_decision_case:
+        assert fresh_thor.behavior_snapshot()["dispatch:correlation_reuse_rejected"] == 1
 
 
 async def test_gate_eviction_keeps_the_arbitrated_correlation_refused() -> None:

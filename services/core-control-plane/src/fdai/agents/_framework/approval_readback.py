@@ -25,6 +25,10 @@ from fdai.shared.contracts.models import (
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.state_store import StateStore
 
+# Var persists the final decision before it claims ``publishing``; the claim guards only its
+# outbox, so a consumer that receives the approval mid-publication reads the same decision.
+_READABLE_PUBLICATION_STATUSES = frozenset({"pending", "publishing", "published"})
+
 
 async def read_current_action_approval(
     *,
@@ -59,7 +63,7 @@ async def read_current_action_approval(
             or stored.get("schema_version") != "1.0.0"
             or stored.get("record_kind") != "final_approval"
             or stored.get("correlation_id") != correlation
-            or stored.get("publication_status") not in {"pending", "published"}
+            or stored.get("publication_status") not in _READABLE_PUBLICATION_STATUSES
             or not isinstance(approval, Mapping)
             or approval.get("producer_principal") != "Var"
             or approval.get("kind") != "action"

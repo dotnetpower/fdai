@@ -83,6 +83,16 @@ class PostTurnReviewInputWire(BaseModel):
         }
 
 
+class PostTurnBodyConsent(BaseModel):
+    """Recorded learner-sharing consent for raw post-turn bodies."""
+
+    model_config = ConfigDict(frozen=True)
+
+    share_with_learner: Literal[True] = True
+    principal_scope: BoundedId
+    consent_ref: Annotated[str, Field(min_length=1, max_length=512)]
+
+
 class BragiPostTurnReviewEnvelope(BaseModel):
     """Bragi-owned event-bus envelope accepted by Norns."""
 
@@ -96,17 +106,21 @@ class BragiPostTurnReviewEnvelope(BaseModel):
         Field(min_length=1, max_length=300, pattern=r"^post-turn-review:[A-Za-z0-9._:-]+$"),
     ]
     review: PostTurnReviewInputWire
+    body_consent: PostTurnBodyConsent | None = None
 
     def to_wire_mapping(self) -> dict[str, object]:
         """Return a plain mapping suitable for JSON event-bus publication."""
 
-        return {
+        payload: dict[str, object] = {
             "producer_principal": self.producer_principal,
             "kind": self.kind,
             "correlation_id": self.correlation_id,
             "idempotency_key": self.idempotency_key,
             "review": self.review.to_wire_mapping(),
         }
+        if self.body_consent is not None:
+            payload["body_consent"] = self.body_consent.model_dump(mode="json")
+        return payload
 
 
 class OperatorPostTurnReviewRequestEnvelope(BaseModel):
@@ -139,13 +153,18 @@ class OperatorPostTurnReviewRequestEnvelope(BaseModel):
         }
 
 
-def post_turn_review_event_payload(review: PostTurnReviewInputWire) -> dict[str, object]:
+def post_turn_review_event_payload(
+    review: PostTurnReviewInputWire,
+    *,
+    body_consent: PostTurnBodyConsent | None = None,
+) -> dict[str, object]:
     """Build the shared Bragi-owned event payload for one validated input."""
 
     return BragiPostTurnReviewEnvelope(
         correlation_id=review.review_id,
         idempotency_key=f"post-turn-review:{review.review_id}",
         review=review,
+        body_consent=body_consent,
     ).to_wire_mapping()
 
 
@@ -166,6 +185,7 @@ __all__ = [
     "POST_TURN_REVIEW_KIND",
     "POST_TURN_REVIEW_PRODUCER",
     "POST_TURN_REVIEW_TOPIC",
+    "PostTurnBodyConsent",
     "PostTurnReviewInputWire",
     "PostTurnToolReceipt",
     "post_turn_review_event_payload",

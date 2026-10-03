@@ -246,8 +246,10 @@ resource "kubernetes_service_v1" "postgres_private" {
 }
 
 locals {
-  private_host = kubernetes_service_v1.postgres_private.status[0].load_balancer[0].ingress[0].ip
-  dsn          = "postgresql+psycopg://${var.admin_login}:${random_password.postgres.result}@${local.private_host}:5432/${var.database_name}?sslmode=require"
+  private_host         = kubernetes_service_v1.postgres_private.status[0].load_balancer[0].ingress[0].ip
+  dsn                  = "postgresql+psycopg://${var.admin_login}:${random_password.postgres.result}@${local.private_host}:5432/${var.database_name}?sslmode=require"
+  ingestion_api_dsn    = "${local.dsn}&options=-c%20role%3Dfdai_ingestion_api"
+  ingestion_worker_dsn = "${local.dsn}&options=-c%20role%3Dfdai_ingestion_worker"
 }
 
 resource "azurerm_key_vault_secret" "state_store_dsn" {
@@ -261,10 +263,44 @@ resource "azurerm_key_vault_secret" "state_store_dsn" {
   depends_on = [kubernetes_stateful_set_v1.postgres]
 }
 
+resource "azurerm_key_vault_secret" "ingestion_api_dsn" {
+  # checkov:skip=CKV_AZURE_41:Credential rotation requires coordinated database and workload updates; fixed secret expiry alone would cause an outage.
+  name         = "fdai-ingestion-api-dsn"
+  value        = local.ingestion_api_dsn
+  key_vault_id = var.key_vault_id
+  content_type = "postgresql-dsn"
+  tags         = var.tags
+
+  depends_on = [kubernetes_stateful_set_v1.postgres]
+}
+
+resource "azurerm_key_vault_secret" "ingestion_worker_dsn" {
+  # checkov:skip=CKV_AZURE_41:Credential rotation requires coordinated database and workload updates; fixed secret expiry alone would cause an outage.
+  name         = "fdai-ingestion-worker-dsn"
+  value        = local.ingestion_worker_dsn
+  key_vault_id = var.key_vault_id
+  content_type = "postgresql-dsn"
+  tags         = var.tags
+
+  depends_on = [kubernetes_stateful_set_v1.postgres]
+}
+
 resource "azurerm_role_assignment" "runtime_secret_reader" {
   for_each = var.runtime_principal_ids
 
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = each.value
+}
+
+resource "azurerm_role_assignment" "ingestion_api_secret_reader" {
+  scope                = azurerm_key_vault_secret.ingestion_api_dsn.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = var.ingestion_api_principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_worker_secret_reader" {
+  scope                = azurerm_key_vault_secret.ingestion_worker_dsn.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = var.ingestion_worker_principal_id
 }

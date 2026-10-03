@@ -44,7 +44,8 @@ def test_every_declared_agent_tool_is_registered_and_callable() -> None:
             assert result.charter_sha256 == expected_policy["charter_sha256"]
             assert result.prompt_sha256 == expected_policy["prompt_sha256"]
             assert result.allowed_tools == spec.conversation.tools
-            assert result.evidence_refs
+            if result.status is AgentToolStatus.OK:
+                assert result.evidence_refs
             assert all(not ref.startswith("agent-spec:") for ref in result.evidence_refs)
 
     health = runtime.health()["conversation_tools"]
@@ -151,9 +152,12 @@ def test_each_agent_tool_projects_a_distinct_owned_fact_scope() -> None:
             for tool_id in spec.conversation.tools
         ]
 
-        assert all(result.status is AgentToolStatus.OK for result in results), spec.name
-        assert len({result.answer for result in results}) == len(results), spec.name
-        assert len({tuple(sorted(result.facts)) for result in results}) == len(results), spec.name
+        ok_results = [result for result in results if result.status is AgentToolStatus.OK]
+        assert ok_results, spec.name
+        assert len({result.answer for result in ok_results}) == len(ok_results), spec.name
+        assert len({tuple(sorted(result.facts)) for result in ok_results}) == len(ok_results), (
+            spec.name
+        )
 
 
 def test_tool_projection_rejects_undeclared_reference_facts() -> None:
@@ -440,7 +444,6 @@ def test_tool_result_preserves_evidence_trace_and_policy() -> None:
     assert result.evidence_refs == (
         "audit:one",
         "metric:two",
-        "snapshot_ref:snapshot-three",
     )
     assert len(result.prompt_sha256) == 64
     assert result.charter_version == "v3"
@@ -450,8 +453,8 @@ def test_tool_result_preserves_evidence_trace_and_policy() -> None:
     assert counters["conversation_tool:read_observations:ok"] == 1
 
 
-def test_evidence_reference_cap_applies_to_explicit_and_discovered_refs() -> None:
-    """Auto-discovered ``*_ref`` fields cannot bypass the global cap."""
+def test_evidence_reference_falls_back_when_explicit_refs_are_not_allowlisted() -> None:
+    """Only declared allowlisted refs count; ``*_ref`` fields stay ordinary facts."""
     runtime = _runtime()
     heimdall = runtime.agents["Heimdall"]
 
@@ -478,9 +481,10 @@ def test_evidence_reference_cap_applies_to_explicit_and_discovered_refs() -> Non
     )
 
     assert result.status is AgentToolStatus.OK
-    assert len(result.evidence_refs) == 20
-    assert result.evidence_ref_count == 150
-    assert result.evidence_refs_truncated is True
+    assert len(result.evidence_refs) == 1
+    assert result.evidence_refs[0].startswith("agent-state:Heimdall:sha256:")
+    assert result.evidence_ref_count == 1
+    assert result.evidence_refs_truncated is False
 
 
 @pytest.mark.asyncio

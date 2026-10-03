@@ -30,10 +30,12 @@ _THRESHOLDS = ShadowDwellThresholds(min_shadow_days=14, min_samples=100, min_acc
 
 def _shadow_audit(index: int, **overrides: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
+        "producer_principal": "Saga",
         "action_type": _TARGET,
         "shadow_mode": True,
         "result": "success",
         "correlation_id": f"shadow-{index}",
+        "idempotency_key": f"shadow-{index}",
         "observed_at": (_START + timedelta(days=index * 0.2)).isoformat(),
         "operator_reviewed": True,
         "operator_agreed": True,
@@ -50,6 +52,7 @@ def _feed_shadow(norns: Norns, count: int, **overrides: Any) -> None:
 
 def _candidate(dwell: dict[str, Any] | None) -> dict[str, Any]:
     candidate: dict[str, Any] = {
+        "producer_principal": "Norns",
         "idempotency_key": f"candidate:{_TARGET}:1",
         "correlation_id": "corr-dwell",
         "target_rule_id": _TARGET,
@@ -178,9 +181,11 @@ def test_published_candidate_carries_its_dwell_evidence() -> None:
             norns.on_typed_message(
                 "object.approval",
                 {
+                    "producer_principal": "Var",
                     "action_type": _TARGET,
                     "state": "rejected",
                     "correlation_id": f"hil-{index}",
+                    "idempotency_key": f"hil-{index}",
                 },
             )
         )
@@ -192,6 +197,7 @@ def test_published_candidate_carries_its_dwell_evidence() -> None:
         async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
             published.append(payload)
 
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(_Recorder())  # type: ignore[arg-type]
     asyncio.run(norns.flush_candidates())
 
@@ -271,7 +277,12 @@ def test_promote_refuses_an_under_threshold_candidate() -> None:
 
 def test_promote_succeeds_once_the_dwell_is_proven() -> None:
     mimir = _mimir_with(_candidate(_sufficient_dwell()))
-    promotion = mimir.promote(_TARGET, source="handoff")
+    promotion = mimir.promote(
+        _TARGET,
+        source="handoff",
+        reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+        + "a" * 64,
+    )
     assert promotion.state == "enforce"
     assert mimir.pending_candidates() == ()
 
@@ -279,7 +290,15 @@ def test_promote_succeeds_once_the_dwell_is_proven() -> None:
 def test_promote_is_unaffected_for_a_rule_with_no_pending_candidate() -> None:
     """The dwell gate guards the discovery loop, not every steward decision."""
     mimir = Mimir(shadow_dwell_thresholds=_THRESHOLDS)
-    assert mimir.promote("unrelated.rule", source="manual").state == "enforce"
+    assert (
+        mimir.promote(
+            "unrelated.rule",
+            source="manual",
+            reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/2@sha256:"
+            + "b" * 64,
+        ).state
+        == "enforce"
+    )
 
 
 def test_end_to_end_shadow_dwell_closes_the_loop() -> None:
@@ -293,16 +312,31 @@ def test_end_to_end_shadow_dwell_closes_the_loop() -> None:
             published.append(payload)
             await mimir.on_typed_message(topic, payload)
 
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(_Bridge())  # type: ignore[arg-type]
     _feed_shadow(norns, 120)
     for index in range(2):
         asyncio.run(
             norns.on_typed_message(
                 "object.approval",
-                {"action_type": _TARGET, "state": "rejected", "correlation_id": f"hil-{index}"},
+                {
+                    "producer_principal": "Var",
+                    "action_type": _TARGET,
+                    "state": "rejected",
+                    "correlation_id": f"hil-{index}",
+                    "idempotency_key": f"hil-{index}",
+                },
             )
         )
 
     assert len(published) == 1
     assert len(mimir.promotion_ready_candidates()) == 1
-    assert mimir.promote(_TARGET, source="handoff").state == "enforce"
+    assert (
+        mimir.promote(
+            _TARGET,
+            source="handoff",
+            reviewed_change_ref="catalog-pr:https://git.example.com/fdai/control-plane/pull/1@sha256:"
+            + "a" * 64,
+        ).state
+        == "enforce"
+    )

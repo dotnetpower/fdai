@@ -46,6 +46,8 @@ Any ontology release change, such as a new ActionType version, a reviewed LinkTy
 a new readable ObjectType property, or an edited ontology function source whose artifact digest the
 release pins, such as a reader that now returns the exact count its row bound leaves out, rebinds the
 declaration partition, so the same change regenerates the manifest with its builder.
+Projection-only ontology vocabulary, such as bilingual query terms used by candidate documents,
+also refreshes the manifest source digests even when the governed release identity stays stable.
 This repository-only inventory is not an executable campaign, a production binding, or a
 certification receipt.
 

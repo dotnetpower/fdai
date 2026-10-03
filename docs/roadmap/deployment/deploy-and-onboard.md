@@ -213,6 +213,10 @@ These customer-agnostic helpers keep both deployment routes repeatable:
   recovery. Genesis instead sends registration material through SSH standard input over Bastion.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh) verifies the size and ephemeral placement; [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) guards environment destroy.
   Both fail closed on unsafe runner storage or deallocation without changing the ops hub or state account.
+- [`check-runner-terraform.sh`](../../../scripts/deployment/azure/check-runner-terraform.sh) runs
+  inside the shared `login-deploy-identity.sh` helper before its first Azure call. It refuses a
+  protected workflow on any runner whose Terraform is older than the validated 1.16.1. That includes
+  a Genesis-image runner, which still pins Terraform 1.9.8.
 
 #### Production hardening knobs
 
@@ -242,7 +246,9 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
   modules. Environment values stay outside source control. In source mode the standalone
   coordinator runs `pin source snapshot -> inspect target -> Foundation plan and apply ->
   build images in the deployment registry -> application plan and apply -> post-provision checks`;
-  with `--offline-kit` it first verifies the signed package. Terraform remains the execution
+  with `--offline-kit` it first verifies the signed package. Rerunning an existing offline
+  installation's work directory with a newer package continues its Foundation under the retained
+  revision ([offline kit upgrade](installable-deployment-cli.md#offline-kit-upgrade-design-and-critique)). Terraform remains the execution
   engine and infrastructure source of truth.
 - Tenant deployment transport is always `manual`. The active Azure user approves exact plans, and
   the managed host executes them with a distinct workload identity. No repository variable,
@@ -564,6 +570,12 @@ required baseline, not observations from the signed-in tenant.
 - Secrets go through Key Vault refs, never plain env; a secret in plain env fails the CI
   secret-scan gate.
 - Per-environment values differ; the same image reads them from the injected environment.
+- Terraform creates deployment-owned operator-request receipt signing seed secrets for Core and
+  Operator in Key Vault and exports only their versionless secret ids and producer ids. The deploy
+  workflow rejects a versioned secret reference before it hydrates those references into service
+  tfvars, so a rotated seed resolves to its current version. Operator receives only its own seed. Core receives
+  its own seed plus the Operator seed, derives trusted producer public keys at startup, and signs
+  only as `core-control-plane`; Core remains the verifier inside the trusted computing base.
 
 ## Event Source Subscription
 
@@ -576,6 +588,7 @@ wiring is stable.
 | Change | Activity Log (resource-write / delete), Change Analysis, Resource Health | Push into the canonical Event Hubs Kafka ingress; Huginn owns real-time discovery normalization and the Inventory sync job reconciles the full graph |
 | DR / Chaos | Resource Health, backup vault events, PostgreSQL / SQL replication-lag metrics, restore-rehearsal outcomes | Diagnostic Settings + scheduled Container Apps Job probes → Kafka topic (`fdai.dr.events`) |
 | FinOps | cost anomaly alerts, budget alerts, Advisor cost recommendations | Cost Management pull → Kafka topic (`fdai.finops.events`); anomaly alerts fan in through the same Diagnostic-Settings path |
+| Operator safety control | Ordered poison-halt clear requests | Operator writes the logical `fdai.operator.ordered-poison-halt.clear.v1` topic on the shared pantheon-object transport; Core validates the parked-record evidence before resuming a halted ordered consumer |
 
 Every event is stamped with an **idempotency key at ingress** so a replay is a no-op; DLQs
 MUST be reachable and covered by the [alert-routing contract](../operations/operating-and-verification.md#alert-routing)

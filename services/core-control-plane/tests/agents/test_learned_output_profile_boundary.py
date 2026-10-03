@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.factory import configured_forseti
 from fdai.agents._framework.registry import load_pantheon
@@ -26,12 +27,28 @@ from fdai.agents.var import Var
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
 from tests.agents.test_decision_case_e2e import AT, _context_store, _source_freshness_payload
 from tests.agents.test_wave5_specialists import _ingest, _njord
 from tests.product_selection import governed_execution_selection
 
 _NOW = datetime(2026, 9, 28, 1, 0, tzinfo=UTC)
 _ADVISORY = "governed_execution_unselected"
+
+
+def _known_action_semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={
+            "ops.restart-service": False,
+            "ops.scale-out": False,
+            "remediate.delete-storage": True,
+        },
+        rollback_by_id={
+            "ops.restart-service": "state_forward_only",
+            "ops.scale-out": "state_forward_only",
+            "remediate.delete-storage": "state_forward_only",
+        },
+    )
 
 
 class _RecordingExecutor:
@@ -55,10 +72,17 @@ def _wired(
     forseti = Forseti(
         bus=bus,
         governed_execution_selected=governed_execution_selection(selected),
+        action_semantics=_known_action_semantics(),
         **forseti_bindings,
     )
     executor = _RecordingExecutor()
-    thor = Thor(bus=bus, executor=executor, clock=lambda: _NOW)
+    thor = Thor(
+        bus=bus,
+        executor=executor,
+        clock=lambda: _NOW,
+        action_semantics_catalog=_known_action_semantics(),
+        preflight_simulator=PassingPreflightSimulator(),
+    )
     bus.subscribe("object.verdict", "Thor", thor.on_typed_message)
     if with_odin:
         odin = Odin(bus=bus, hil_margin=0.0)
@@ -206,6 +230,7 @@ async def _capacity_conflict(forseti: Forseti) -> None:
         await forseti.on_typed_message(
             topic,
             {
+                "producer_principal": "Njord" if topic == "object.cost-anomaly" else "Freyr",
                 "correlation_id": "correlation-example",
                 "resource_id": "resource-example",
                 "recommendation": recommendation,
@@ -262,7 +287,7 @@ def test_freyr_prediction_settles_as_advisory_evidence_end_to_end() -> None:
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     njord = _njord(bus=bus, anomaly_ratio=1.5)
     freyr = Freyr(bus=bus, scale_up_threshold=0.5, clock=lambda: _NOW)
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_known_action_semantics())
     odin = Odin(bus=bus)
     executor = _RecordingExecutor()
     thor = Thor(bus=bus, executor=executor, clock=lambda: _NOW)
@@ -285,6 +310,7 @@ def test_freyr_prediction_settles_as_advisory_evidence_end_to_end() -> None:
             resource_id="resource-1",
             utilization=0.9,
             correlation_id="specialist-conflict",
+            observed_at=_NOW.isoformat(),
         )
     )
 
@@ -320,9 +346,8 @@ async def test_owner_unavailable_closure_and_redelivery_stay_single_advisory_ver
     await forseti.on_typed_message("object.arbitration-decision", late_decision)
 
     verdict = _only_verdict(bus)
-    assert verdict["reason"] == _ADVISORY
-    assert verdict["arbitration"]["outcome"] == "arbitration_owner_unavailable"
-    assert forseti.behavior_snapshot()["learned_output_advisory:duplicate"] == 2
+    assert verdict["reason"] == "arbitration_owner_unavailable"
+    assert verdict["arbitration"]["owner_available"] is False
     _assert_no_action(bus, thor, executor)
 
 

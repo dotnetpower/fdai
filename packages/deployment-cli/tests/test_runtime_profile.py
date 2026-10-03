@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.runtime_profile import DATABASE_SKUS, RuntimeDeploymentProfile
 
 
 def test_container_apps_profile_preserves_the_existing_default() -> None:
@@ -148,3 +148,73 @@ def test_runtime_profile_reads_legacy_mapping_as_explicit_full_product() -> None
     assert profile.matches_mapping(legacy) is True
     assert len(profile.product_profile.add_ons) == 4
     assert profile.product_profile.authority_granted is False
+
+
+def test_postgres_aks_accepts_console_after_in_cluster_ingestion_dsns_exist() -> None:
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="aks",
+        database_placement="postgres-aks",
+        user_node_min_count=4,
+        product_add_ons=(
+            "read-only-console",
+            "notifications",
+            "governed-execution",
+            "enterprise-identity-governance",
+        ),
+    )
+    headless = RuntimeDeploymentProfile.create(
+        runtime_platform="aks",
+        database_placement="postgres-aks",
+        user_node_min_count=4,
+    )
+
+    assert profile.console_selected is True
+    assert headless.console_selected is False
+
+
+def test_unselected_database_sku_keeps_the_existing_mapping_and_digest() -> None:
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="aks", database_placement="postgres-flex"
+    )
+    explicit_none = RuntimeDeploymentProfile.create(
+        runtime_platform="aks", database_placement="postgres-flex", database_sku=None
+    )
+
+    assert "database_sku" not in profile.to_mapping()
+    assert explicit_none.digest == profile.digest
+
+
+@pytest.mark.parametrize("sku", DATABASE_SKUS)
+def test_selected_database_sku_is_bound_and_round_trips(sku: str) -> None:
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="aks", database_placement="postgres-flex", database_sku=sku
+    )
+    default = RuntimeDeploymentProfile.create(
+        runtime_platform="aks", database_placement="postgres-flex"
+    )
+
+    assert profile.to_mapping()["database_sku"] == sku
+    assert profile.digest != default.digest
+    assert RuntimeDeploymentProfile.from_mapping(profile.to_mapping()) == profile
+    assert profile.matches_mapping(profile.to_mapping())
+    assert not default.matches_mapping(profile.to_mapping())
+
+
+@pytest.mark.parametrize(
+    ("database", "sku", "message"),
+    (
+        ("postgres-flex", "GP_Standard_D64ds_v5", "database SKU is unsupported"),
+        ("postgres-flex", "Standard_D2ds_v5", "database SKU is unsupported"),
+        ("postgres-aks", "GP_Standard_D2ds_v5", "database SKU requires postgres-flex placement"),
+    ),
+)
+def test_database_sku_rejects_unsupported_values_and_placements(
+    database: str, sku: str, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        RuntimeDeploymentProfile.create(
+            runtime_platform="aks",
+            database_placement=database,
+            user_node_min_count=4,
+            database_sku=sku,
+        )

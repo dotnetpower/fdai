@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from fdai.core.runbook.models import RunbookStep
+from fdai.delivery.operator_request_receipt import CoreOperatorRequestReceiptIssuer
 from fdai.shared.providers.event_bus import EventBus
 
 
@@ -15,6 +16,7 @@ class EventBusWorkflowActionDispatcher:
 
     event_bus: EventBus
     topic: str
+    receipt_issuer: CoreOperatorRequestReceiptIssuer | None = None
 
     async def dispatch(
         self,
@@ -56,6 +58,8 @@ class EventBusWorkflowActionDispatcher:
                 "attempt": attempt,
             },
         }
+        if self.receipt_issuer is not None:
+            payload = self.receipt_issuer.attach(payload)
         await self.event_bus.publish(self.topic, target_resource_id, payload)
         return proposal_ref
 

@@ -240,12 +240,16 @@ describe("tokenSuffix", () => {
       prompt_tokens: 1600,
       completion_tokens: 142,
       total_tokens: 1742,
+      model_calls: 6,
     })).toEqual({
       prompt_tokens: 1600,
       completion_tokens: 142,
       total_tokens: 1742,
+      model_calls: 6,
     });
     expect(parseModelUsage({ total_tokens: -1 })).toBeUndefined();
+    expect(parseModelUsage({ total_tokens: 0, model_calls: -1 })).toEqual({ total_tokens: 0 });
+    expect(parseModelUsage({ total_tokens: 0, model_calls: true })).toEqual({ total_tokens: 0 });
   });
 
   it("formats nonnegative total and component token usage", () => {

@@ -925,6 +925,22 @@ jobs:
           done
           terraform -chdir=runtimes/aks/workloads test
 
+      # Service roots are deployed by service-deploy.yml and packaged in every offline kit, but the
+      # root validate above never loads them. Roots without a lock file can't use -lockfile=readonly.
+      - name: terraform validate (service roots)
+        run: |
+          set -euo pipefail
+          for service_root in services/*/; do
+            service_root="${service_root%/}"
+            [[ "$service_root" != services/_modules && -f "$service_root/versions.tf" ]] || continue
+            lock_arguments=()
+            if [[ -f "$service_root/.terraform.lock.hcl" ]]; then
+              lock_arguments=(-lockfile=readonly)
+            fi
+            terraform -chdir="$service_root" init -backend=false -input=false "${lock_arguments[@]}"
+            terraform -chdir="$service_root" validate
+          done
+
       - name: Install Terraform security scanners
         working-directory: .
         env:

@@ -94,6 +94,8 @@ state fact participates only when the query requests the generic `state` key.
 
 Ontology semantic staging consumes the secured gateway, not a raw-store bypass. The single-type writer retains the ordinary 1,000-object ceiling. The off-path manifest writer scans every readable type in one relationship-free store snapshot, applies the same role/purpose ACL, and caps the combined declarations and objects at 20,000. Truncated, incomplete, unversioned, identity-redacted, or release-mismatched results are rejected before staging. Ordered per-object hashes bind large projections without enlarging the receipt JSON limit. Redacted fields never enter candidate documents. This is inactive preparation, not admission, activation, or complete query coverage; [query coverage](../interfaces/ontology-query-coverage-implementation-plan.md) owns remaining lifecycle and retrieval work.
 
+Candidate documents include reviewed ObjectType and Property query terms, exact property-value terms, and ResourceType query terms when those terms apply to the authorized object. The terms are part of the document generation digest and vector identity. They provide bilingual ranking context only; the secured gateway, current graph reauthorization, and query function contract still decide access, identity, and authority.
+
 The off-path scan also revalidates each raw record's exact declaration reference, required fields, property types, and key before ACL projection. An absent reference, stale declaration version, or mismatched instance key cannot enter a complete index snapshot. Errors omit raw source values.
 Independent staged-source validation uses another complete gateway read and reconstructs the full candidate set. A self-consistent staged document hash cannot establish that an object exists or that its properties match the current graph. Its receipt is validation-only and does not certify vectors, activation, or execution.
 
@@ -292,6 +294,8 @@ require the retained release to match the interpreting release; an unavailable r
 ObjectSet receipts retain authenticated principal scope through source, traversal, and function
 reads. Current scoped presentation receipts expire after the configured bounded window, which
 defaults to 90 seconds. Role and principal scope separate cache entries even for identical content.
+Opaque continuation references that page a read are single-use claims, and a successful page read
+issues at most one successor reference so concurrent callers cannot advance the same cursor twice.
 Query tables preserve source generation and explicit numeric-field metadata through pure algebra.
 Mixed generations hold, exact decimal aggregation does not use ambient precision, and numeric
 strings retain numeric ordering after projection. Missing optional values stay null, result bounds

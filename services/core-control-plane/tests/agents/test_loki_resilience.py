@@ -61,7 +61,10 @@ async def test_loki_publishes_valid_resilience_score_candidate() -> None:
     assert message.payload["resource_id"] == "resource-1"
     assert forseti.behavior_snapshot()["cross_vertical_candidate:pending"] == 1
     assert bus.messages_on("object.verdict") == []
-    answer = await loki.introspect("resilience score for resource-1", {"locale": "en"})
+    answer = await loki.introspect(
+        "status for resource-1",
+        {"conversation_tool": "read_resilience_scores", "locale": "en"},
+    )
     assert answer.facts["resilience_score_available"] is True
     assert answer.facts["resilience_score"] == 0.72
     assert "0.720" in answer.answer

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
@@ -33,6 +33,15 @@ _DEVELOPMENT_IDENTITY_FIELDS = (
     "original_quorum_required",
     "effective_quorum_required",
     "development_authority",
+)
+_BATCH_IDENTITY_FIELDS = (
+    "batch_role",
+    "attempt_id",
+    "rollup_correlation_id",
+    "rollup_action_run_identity",
+    "target_set_digest",
+    "target_set",
+    "target_count",
 )
 
 
@@ -77,6 +86,9 @@ def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
                 "development_authority": value.get("development_authority"),
             }
         )
+    for field in _BATCH_IDENTITY_FIELDS:
+        if value.get(field) is not None:
+            projected[field] = value.get(field)
     try:
         encoded = json.dumps(
             projected,
@@ -88,14 +100,11 @@ def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
         canonical = json.loads(encoded)
     except (TypeError, ValueError) as exc:
         raise ValueError("ActionRun identity MUST be canonical JSON") from exc
-    expected_fields = (
-        (*_IDENTITY_FIELDS, *_DEVELOPMENT_IDENTITY_FIELDS)
-        if value.get("development_authority") is not None
-        else _IDENTITY_FIELDS
-    )
-    if not isinstance(canonical, dict) or tuple(sorted(canonical)) != tuple(
-        sorted(expected_fields)
-    ):
+    expected = [*_IDENTITY_FIELDS]
+    if value.get("development_authority") is not None:
+        expected.extend(_DEVELOPMENT_IDENTITY_FIELDS)
+    expected.extend(field for field in _BATCH_IDENTITY_FIELDS if value.get(field) is not None)
+    if not isinstance(canonical, dict) or tuple(sorted(canonical)) != tuple(sorted(expected)):
         raise ValueError("ActionRun identity projection is malformed")
     return canonical
 
@@ -103,6 +112,9 @@ def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
 def action_run_identity_digest(value: Mapping[str, Any]) -> str:
     """Return the canonical SHA-256 identity for one ActionRun projection."""
 
+    supplied = value.get("action_run_identity")
+    if value.get("_action_run_identity_verified") is True and is_action_run_identity(supplied):
+        return str(supplied)
     encoded = json.dumps(
         action_run_identity_projection(value),
         allow_nan=False,
@@ -167,8 +179,28 @@ def approval_matches_action_run(
     """Return whether an approval is bound to this exact ActionRun."""
 
     identity = approval.get("action_run_identity")
+    approvers = approval.get("approvers")
+    approval_state = approval.get("state")
+    requires_approval_evidence = str(approval.get("idempotency_key") or "").startswith("approval:")
+    has_approval_evidence = (
+        approval_state != "approved"
+        or not requires_approval_evidence
+        or isinstance(approvers, list)
+        and 1 <= len(approvers) <= 10
+        and all(
+            isinstance(person, str) and person and person == person.strip().casefold()
+            for person in approvers
+        )
+        and len(set(approvers)) == len(approvers)
+    )
     return (
-        is_action_run_identity(identity)
+        approval.get("producer_principal") == "Var"
+        and approval.get("kind") == "action"
+        and approval_state in {"approved", "rejected"}
+        and isinstance(approval.get("idempotency_key"), str)
+        and bool(str(approval.get("idempotency_key")).strip())
+        and has_approval_evidence
+        and is_action_run_identity(identity)
         and identity == action_run_identity_digest(action_run)
         and approval.get("action_type") == action_run.get("action_type")
         and approval.get("resource_id") == action_run.get("resource_id")
@@ -317,9 +349,14 @@ async def claim_durable_action_run_identity(
     completion_key: str,
     candidate: Mapping[str, Any],
     action_fingerprint: str,
+    clock: Callable[[], datetime] | None = None,
 ) -> Literal["acquired", "existing", "completed", "contended"]:
     """Atomically claim one correlation before idempotency or resource state."""
 
+    now = clock() if clock is not None else datetime.now(tz=UTC)
+    if now.tzinfo is None:
+        raise RuntimeError("Thor clock MUST be timezone-aware")
+    now = now.astimezone(UTC)
     current = await store.read_state(run_key)
     if current is not None:
         validate_durable_action_run_state(current, candidate)
@@ -335,7 +372,7 @@ async def claim_durable_action_run_identity(
     if (
         completion is not None
         and completion.get("status") == "reserved"
-        and claim_lease_expiry(completion) > datetime.now(tz=UTC)
+        and claim_lease_expiry(completion) > now
     ):
         return "contended"
     if await store.write_state_if_absent(

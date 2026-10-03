@@ -39,6 +39,7 @@ from fdai.shared.providers.operator_request import (
     OperatorProposalDispatch,
     OperatorProposalDispatcher,
 )
+from fdai.shared.providers.operator_request_receipt import OperatorRequestReceiptIssuer
 
 from .lifecycle import IncidentOperatorPrincipal
 from .workflow import IncidentLifecycleWorkflow
@@ -178,17 +179,19 @@ def sre_idempotency_key(*, correlation_id: str, action_type: str) -> str:
 class OperatorSreRequestCoordinator:
     """Turn one confirmed operator request into a governed, linked response."""
 
-    __slots__ = ("_dispatcher", "_templates", "_workflow")
+    __slots__ = ("_dispatcher", "_receipt_issuer", "_templates", "_workflow")
 
     def __init__(
         self,
         *,
         workflow: IncidentLifecycleWorkflow,
         dispatcher: OperatorProposalDispatcher,
+        receipt_issuer: OperatorRequestReceiptIssuer | None = None,
         link_templates: ProgressLinkTemplates | None = None,
     ) -> None:
         self._workflow = workflow
         self._dispatcher = dispatcher
+        self._receipt_issuer = receipt_issuer
         self._templates = link_templates or ProgressLinkTemplates()
 
     async def submit(
@@ -264,7 +267,10 @@ class OperatorSreRequestCoordinator:
             proposal["resource_type"] = _require(request.resource_type, "resource_type")
         # Freeze the published proposal: a caller must not be able to edit the
         # action after its idempotency key and correlation were derived.
-        return MappingProxyType(proposal)
+        signed = (
+            self._receipt_issuer.attach(proposal) if self._receipt_issuer is not None else proposal
+        )
+        return MappingProxyType(signed)
 
     def _build_links(
         self,

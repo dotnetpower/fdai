@@ -17,8 +17,13 @@ product control plane or its execution authority.
 
 ## Design at a glance
 The test-context choice route uses the same Operator route-family assembly as other local diagnostic surfaces. Adding it changes no developer workflow socket, validation queue behavior, or local execution authority.
+Dependency updates that remediate image-scan findings remain package maintenance: they refresh manifests and locks without making local validation, queue diagnostics, or developer tooling authoritative.
 Semantic result-handle storage and replay use the ordinary Operator/Core semantic request path.
 They add no developer workflow socket, validation queue behavior, or local execution authority.
+The governed Chaos provider workspace package is likewise an install artifact for the protected
+scenario-lab runner. Adding it to `uv sync --all-packages` makes its entry point discoverable only
+when the runner explicitly requests the package set; it does not add a local diagnostic socket,
+validation queue behavior, or developer workflow authority.
 
 
 FDAI uses one read-only developer workflow diagnostic surface across local scripts. The surface
@@ -596,3 +601,4 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | Local and deployed runtime parity | [Runtime parity](dev-and-deploy-parity.md) |
 | Repository validation commands | [Scripts reference](../../../scripts/README.md) |
 | Deployment safety | [Deployment preflight](deployment-preflight.md) |
+| Image scan and package pin drift | [Runtime Deployment Profiles](runtime-deployment-profiles.md) |

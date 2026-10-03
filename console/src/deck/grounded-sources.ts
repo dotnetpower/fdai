@@ -29,9 +29,10 @@ const MODEL_DESCRIPTOR = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const LATENCY_DESCRIPTOR = /^\d+(?:\.\d+)?ms$/;
 const TOKEN_DESCRIPTOR = /^\d+(?:\.\d+)?k? tok$/;
 
-/** Fixed badge palette. Each tone maps to a `.deck-src-badge.is-<tone>` class
- *  in styles.css. Codes are category tokens (like the mock's WAF / CIS / OPA
- *  badges), not localized prose. */
+/** Fixed source categories. The badge code renders as the conversation layer's
+ *  quiet `.cs-deck-kind` label; the tone keeps the typed category so callers
+ *  can tell sources apart without parsing the code. Codes are category tokens,
+ *  not localized prose. */
 export type SourceTone =
   | "screen"
   | "records"

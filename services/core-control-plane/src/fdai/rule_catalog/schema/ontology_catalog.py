@@ -28,7 +28,10 @@ from fdai.rule_catalog.schema.resource_class import (
     ResourceClassRegistry,
     load_resource_class_registry_from_mapping,
 )
-from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
+from fdai.rule_catalog.schema.resource_type import (
+    ResourceTypeRegistry,
+    load_resource_type_registry_from_mapping,
+)
 from fdai.shared.contracts.models import (
     OntologyActionType,
     OntologyFunctionType,
@@ -55,6 +58,7 @@ class OntologyCatalog:
     lifecycle_classifications: ObjectTypeLifecycleClassificationRegistry | None = None
     function_types: tuple[OntologyFunctionType, ...] = ()
     resource_classes: ResourceClassRegistry | None = None
+    resource_types: ResourceTypeRegistry | None = None
 
     def build_release(self) -> OntologyRelease:
         """Build the canonical release over every owned declaration kind."""
@@ -132,6 +136,7 @@ def load_ontology_catalog(
     if resource_types_path.exists() != resource_classes_path.exists():
         raise ValueError("ResourceClass taxonomy requires both registry files")
     resource_classes = None
+    resource_types = None
     if resource_types_path.exists():
         resource_types = load_resource_type_registry_from_mapping(
             yaml.safe_load(resource_types_path.read_text(encoding="utf-8"))
@@ -150,6 +155,7 @@ def load_ontology_catalog(
         lifecycle_classifications=lifecycle_classifications,
         function_types=function_types,
         resource_classes=resource_classes,
+        resource_types=resource_types,
     )
 
 

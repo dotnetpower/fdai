@@ -56,6 +56,9 @@ BACKGROUND_TASK_PROJECTION_TOPIC_ENV = "FDAI_BACKGROUND_TASK_PROJECTION_TOPIC"
 BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP_ENV = "FDAI_BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP_ID"
 MANAGED_IDENTITY_CLIENT_ID_ENV = "FDAI_COMMAND_MI_CLIENT_ID"
 TEST_CONTEXT_GRANT_REGISTRY_JSON_ENV = "FDAI_TEST_CONTEXT_GRANT_REGISTRY_JSON"
+OPERATOR_REQUEST_OPERATOR_SIGNING_SEED_ENV = "FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED"
+OPERATOR_REQUEST_RECEIPT_PRODUCER_ID_ENV = "FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID"
+OPERATOR_REQUEST_RECEIPT_TTL_SECONDS_ENV = "FDAI_OPERATOR_REQUEST_RECEIPT_TTL_SECONDS"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
 DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 20_000
@@ -129,6 +132,9 @@ class OperatorEnvironment:
     background_task_projection_consumer_group_id: str | None
     managed_identity_client_id: str | None
     test_context_grant_registry_json: str | None
+    operator_request_operator_signing_seed: str | None
+    operator_request_receipt_producer_id: str | None
+    operator_request_receipt_ttl_seconds: int
 
     @classmethod
     def parse(cls, environ: Mapping[str, str]) -> OperatorEnvironment:
@@ -412,6 +418,26 @@ class OperatorEnvironment:
         test_context_grant_registry_json = (
             values.get(TEST_CONTEXT_GRANT_REGISTRY_JSON_ENV, "").strip() or None
         )
+        operator_request_operator_signing_seed = (
+            values.get(OPERATOR_REQUEST_OPERATOR_SIGNING_SEED_ENV, "").strip() or None
+        )
+        operator_request_receipt_producer_id = (
+            values.get(OPERATOR_REQUEST_RECEIPT_PRODUCER_ID_ENV, "").strip() or None
+        )
+        operator_request_receipt_ttl_seconds = _bounded_int(
+            values,
+            OPERATOR_REQUEST_RECEIPT_TTL_SECONDS_ENV,
+            300,
+            minimum=1,
+            maximum=900,
+        )
+        if (operator_request_operator_signing_seed is None) != (
+            operator_request_receipt_producer_id is None
+        ):
+            raise OperatorServiceConfigurationError(
+                f"{OPERATOR_REQUEST_OPERATOR_SIGNING_SEED_ENV} and "
+                f"{OPERATOR_REQUEST_RECEIPT_PRODUCER_ID_ENV} MUST be configured together"
+            )
 
         return cls(
             values=MappingProxyType(values),
@@ -455,6 +481,9 @@ class OperatorEnvironment:
             ),
             managed_identity_client_id=managed_identity_client_id,
             test_context_grant_registry_json=test_context_grant_registry_json,
+            operator_request_operator_signing_seed=operator_request_operator_signing_seed,
+            operator_request_receipt_producer_id=operator_request_receipt_producer_id,
+            operator_request_receipt_ttl_seconds=operator_request_receipt_ttl_seconds,
         )
 
 

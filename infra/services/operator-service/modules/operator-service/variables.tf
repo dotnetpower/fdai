@@ -9,6 +9,13 @@ variable "runtime_call_evidence" {
   })
   default = {}
 }
+variable "operator_request_receipts" {
+  type = object({
+    operator_signing_seed_secret_id = optional(string, "")
+    producer_id                     = optional(string, "operator-service")
+  })
+  default = {}
+}
 variable "event_topics" {
   type = object({
     events                         = string

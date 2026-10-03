@@ -167,7 +167,7 @@ cannot predict either, so without these bindings the post-apply plan would deman
 of the Bastion and NAT addresses, or an update of the runner, on every attempt, and a fresh
 installation could never converge. Each variable accepts only its supported selection: an empty
 map or exactly that policy tag, and a supported patch mode whose safety-check bypass requires
-platform patching. Any other value stops the run rather than being adopted. Enrollment sends the short-lived
+platform patching. Any other value stops the run rather than being adopted. The runner image's builder and verifier VMs are deallocated after capture, so the same tenant policy can change their patch settings after the image receipt exists. Their resume verification therefore accepts one kind of planned change only: an in-place update of those two VMs confined to `patch_mode`, `patch_assessment_mode`, and the platform-safety-check bypass, from a supported observed selection. Any other change still fails, and the retained receipt is unchanged. Enrollment sends the short-lived
 GitHub token only through SSH standard input over the exact Bastion tunnel, then verifies identity,
 services, labels, and GitHub state. State handoff sends the same observed public IP tags to the runner, because it repeats that
 zero-change plan remotely and would otherwise diverge for the same reason. It compares local

@@ -48,6 +48,9 @@ from fdai.delivery.persistence.postgres_inventory_projection_checkpoints import 
     active_scope_projection_watermark as _active_scope_projection_watermark,
 )
 from fdai.delivery.persistence.postgres_inventory_projection_checkpoints import (
+    covered_ontology_projection_watermark as _covered_ontology_projection_watermark,
+)
+from fdai.delivery.persistence.postgres_inventory_projection_checkpoints import (
     global_projection_watermark as _global_projection_watermark,
 )
 from fdai.delivery.persistence.postgres_inventory_projection_replay import (
@@ -196,7 +199,17 @@ class PostgresInventoryObservationJournal:
         *,
         watermark: int,
     ) -> None:
+        """Advance the overlay fence and any ontology fence the active generation covers."""
+
         await _update_watermark_state(connection, overlay_watermark=watermark)
+        covered = await _covered_ontology_projection_watermark(connection)
+        if covered is not None:
+            generation, projection_watermark = covered
+            await advance_ontology_projection(
+                connection,
+                generation=generation,
+                watermark=projection_watermark,
+            )
 
     async def load_object_observations(
         self,

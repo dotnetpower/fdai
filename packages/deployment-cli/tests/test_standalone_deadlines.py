@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from types import SimpleNamespace
 
@@ -50,18 +51,23 @@ def coordinator(tmp_path, monkeypatch):
         "create_runner_image": None,
         "foundation_adoption": None,
         "preparation_calls": 0,
+        "foundation_source_commit": None,
+        "foundation_env": None,
     }
 
     def prepare(**kwargs):
         clock[0] += options["preparation_elapsed"]
         options["preparation_calls"] += 1
         options["create_runner_image"] = kwargs["create_runner_image"]
+        if options["foundation_source_commit"] is not None:
+            prepared.foundation_source_commit = options["foundation_source_commit"]
         prepared.root.mkdir(parents=True, mode=0o700)
         return prepared
 
-    def foundation(*args, **_kwargs):
+    def foundation(*args, **kwargs):
         clock[0] += options["foundation_elapsed"]
         options["foundation_command"] = args[0]
+        options["foundation_env"] = kwargs.get("env")
         return subprocess.CompletedProcess([], 2)
 
     def identity(**_kwargs):
@@ -278,3 +284,104 @@ def test_offline_deployment_retains_image_build_context(coordinator):
     assert options["create_runner_image"] is True
     assert "--create-runner-image" in command
     assert "--runner-image-terraform" in command
+
+
+def _source_argument(options: dict[str, object]) -> str:
+    command = list(options["foundation_command"])  # type: ignore[call-overload]
+    return str(command[command.index("--source-commit") + 1])
+
+
+def test_a_new_installation_binds_the_foundation_to_the_kit_source(coordinator):
+    invoke, options, _clock = coordinator
+    with pytest.raises(RuntimeError, match="stop-after-prompt"):
+        invoke()
+
+    evidence = json.loads(options["foundation_env"]["FDAI_SIGNED_SOURCE_EVIDENCE"])
+    assert _source_argument(options) == "a" * 40
+    assert evidence["source_commit"] == evidence["foundation_source_commit"] == "a" * 40
+
+
+def test_an_offline_upgrade_continues_the_foundation_under_its_retained_lineage(coordinator):
+    invoke, options, _clock = coordinator
+    options["foundation_source_commit"] = "f" * 40
+
+    # A new Foundation plan under the old lineage is refused before any approval prompt.
+    with pytest.raises(ValueError, match="cannot approve a new Foundation plan"):
+        invoke()
+
+    evidence = json.loads(options["foundation_env"]["FDAI_SIGNED_SOURCE_EVIDENCE"])
+    assert _source_argument(options) == "f" * 40
+    assert evidence["source_commit"] == "a" * 40
+    assert evidence["foundation_source_commit"] == "f" * 40
+    assert options["prompt_timeout"] is None
+
+
+def test_an_offline_upgrade_reaches_the_application_with_the_kit_source(coordinator, monkeypatch):
+    invoke, options, _clock = coordinator
+    options.update(application=True, foundation_source_commit="f" * 40)
+    status = {
+        "current_stage": "application-plan",
+        "route": "private-runner",
+        "completed_stages": ["foundation-state"],
+        "foundation_report": {
+            "foundation_plan": {"plan_ref": "foundation-plan-attempt-2"},
+            "state_handoff": {"receipt_digest": "f" * 64},
+        },
+    }
+    monkeypatch.setattr(standalone_deploy, "current_status", lambda *_a, **_k: status)
+    written: dict[str, object] = {}
+
+    def lineage(**kwargs):
+        written.update(kwargs)
+        return {"receipt_digest": "9" * 64}
+
+    monkeypatch.setattr(standalone_deploy, "run_foundation_transition", lineage)
+
+    result = invoke(product_add_ons=("enterprise-identity-governance",))
+
+    assert _source_argument(options) == "f" * 40
+    assert options["application_timeout"] is not None
+    assert written["application_source_commit"] == "a" * 40
+    assert written["retained_plan_ref"] == "foundation-plan-attempt-2"
+    assert result["foundation_adoption_receipt_digest"] == "9" * 64
+
+
+def test_returning_to_the_foundation_revision_retires_a_lineage_receipt(tmp_path):
+    root = tmp_path / "run"
+    root.mkdir(mode=0o700)
+    receipt = root / "foundation-adoption-receipt.json"
+    receipt.write_text(
+        json.dumps({"foundation_source_commit": "a" * 40, "receipt_digest": "8" * 64}),
+        encoding="utf-8",
+    )
+    receipt.chmod(0o600)
+    kit = SimpleNamespace(source_commit="a" * 40)
+
+    digest = standalone_deploy._bind_application_to_foundation_lineage(
+        kit=kit,
+        prepared=SimpleNamespace(root=root),
+        status={},
+        lineage_continuation=False,
+        tenant_id="t",
+        subscription_id="s",
+        region="westus3",
+        monthly_cost_ceiling=2000,
+    )
+
+    assert digest is None
+    assert not receipt.exists()
+    assert (root / "foundation-adoption-review" / ("8" * 16 + ".json")).exists()
+
+
+def test_an_offline_upgrade_requires_an_exact_retained_plan_reference(tmp_path):
+    with pytest.raises(ValueError, match="plan reference is invalid"):
+        standalone_deploy._bind_application_to_foundation_lineage(
+            kit=SimpleNamespace(source_commit="a" * 40),
+            prepared=SimpleNamespace(root=tmp_path),
+            status={"foundation_report": {"foundation_plan": {"plan_ref": "../outside"}}},
+            lineage_continuation=True,
+            tenant_id="t",
+            subscription_id="s",
+            region="westus3",
+            monthly_cost_ceiling=2000,
+        )

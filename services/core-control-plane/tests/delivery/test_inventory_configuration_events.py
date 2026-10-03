@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -9,6 +10,7 @@ import pytest
 import yaml
 from fdai.core.tiers.t0_deterministic import PolicyResult, RuleIndex, T0Engine
 from fdai.delivery.inventory_configuration_events import (
+    CONFIGURATION_PUBLISH_WINDOW,
     INVENTORY_CONFIGURATION_DELIVERY_KEY,
     complete_configuration_delivery,
     configuration_delivery_key,
@@ -23,6 +25,7 @@ from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence.postgres_inventory_delivery import verified_delivery_observation
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.shared.contracts.models import Event, Rule
+from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -308,3 +311,92 @@ async def test_incomplete_inventory_does_not_publish_configuration_observations(
             topic="events",
             scope_ref="scope-example",
         )
+
+
+class _BrokerUnavailableError(RuntimeError):
+    pass
+
+
+class _WindowProbeBus:
+    def __init__(self, *, fail_key: str | None = None) -> None:
+        self.fail_key = fail_key
+        self.in_flight = 0
+        self.max_in_flight = 0
+        self.started: list[str] = []
+        self.published: list[str] = []
+        self.cancelled = 0
+
+    async def publish(self, topic: str, key: str, payload: object) -> PublishReceipt:
+        del payload
+        self.started.append(key)
+        self.in_flight += 1
+        self.max_in_flight = max(self.max_in_flight, self.in_flight)
+        try:
+            await asyncio.sleep(0.001 if key == self.fail_key else 0.01)
+            if key == self.fail_key:
+                raise _BrokerUnavailableError(key)
+            self.published.append(key)
+            return PublishReceipt(topic=topic, partition=0, offset=len(self.published))
+        except asyncio.CancelledError:
+            self.cancelled += 1
+            raise
+        finally:
+            self.in_flight -= 1
+
+
+def _large_observation(count: int) -> PromotedInventoryObservation:
+    return PromotedInventoryObservation(
+        generation="generation-window",
+        resources=tuple(
+            ResourceRecord(
+                resource_id=f"resource-{index:04d}",
+                type="managed-identity",
+                props={"role_assignments": []},
+                last_seen="2026-09-17T00:00:00Z",
+            )
+            for index in range(count)
+        ),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 17, tzinfo=UTC),
+    )
+
+
+@pytest.mark.asyncio
+async def test_promoted_inventory_publishes_in_bounded_concurrent_windows() -> None:
+    bus = _WindowProbeBus()
+    observation = _large_observation(2 * CONFIGURATION_PUBLISH_WINDOW + 22)
+
+    published = await publish_promoted_resource_events(
+        observation,
+        event_bus=bus,  # type: ignore[arg-type]
+        topic="events",
+        scope_ref="scope-example",
+    )
+
+    assert published == len(observation.resources)
+    assert sorted(bus.published) == [item.resource_id for item in observation.resources]
+    # Sequential round trips cannot finish a large generation inside the recovery bound.
+    assert bus.max_in_flight == CONFIGURATION_PUBLISH_WINDOW
+    assert bus.cancelled == 0
+
+
+@pytest.mark.asyncio
+async def test_promoted_inventory_publish_failure_cancels_its_window() -> None:
+    bus = _WindowProbeBus(fail_key="resource-0003")
+    observation = _large_observation(2 * CONFIGURATION_PUBLISH_WINDOW)
+    first_window = {
+        item.resource_id for item in observation.resources[:CONFIGURATION_PUBLISH_WINDOW]
+    }
+
+    with pytest.raises(_BrokerUnavailableError):
+        await publish_promoted_resource_events(
+            observation,
+            event_bus=bus,  # type: ignore[arg-type]
+            topic="events",
+            scope_ref="scope-example",
+        )
+
+    assert set(bus.started) <= first_window
+    assert bus.cancelled == CONFIGURATION_PUBLISH_WINDOW - 1
+    assert bus.in_flight == 0

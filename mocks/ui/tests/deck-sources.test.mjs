@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -12,16 +12,18 @@ const require = createRequire(join(root, "console/package.json"));
 const { chromium } = require("playwright");
 const origin = "http://127.0.0.1:5373";
 
+// The answer form of the one Command deck page (deck.html) is the source-streaming study.
 async function sources() {
-  const [html, script, layer, rule, action, policy] = await Promise.all([
-    readFile(join(uiRoot, "deck-sources.html"), "utf8"),
+  const [html, engine, forms, layer, rule, action, policy] = await Promise.all([
+    readFile(join(uiRoot, "deck.html"), "utf8"),
     readFile(join(uiRoot, "assets/deck-sources.js"), "utf8"),
+    readFile(join(uiRoot, "assets/deck-forms.js"), "utf8"),
     readFile(join(root, "ui/calm-slate-deck-conversation.css"), "utf8"),
     readFile(join(root, "rule-catalog/catalog/postgresql-server.point-in-time-restore.yaml"), "utf8"),
     readFile(join(root, "rule-catalog/action-types/remediate.enable-backup-protection.yaml"), "utf8"),
     readFile(join(root, "policies/postgresql/point_in_time_restore.rego"), "utf8"),
   ]);
-  return { html, script, layer, rule, action, policy };
+  return { html, script: engine, forms, layer, rule, action, policy };
 }
 
 async function openStudy(browser, query = {}, options = {}) {
@@ -35,13 +37,13 @@ async function openStudy(browser, query = {}, options = {}) {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
-  const search = new URLSearchParams(query).toString();
-  await page.goto(`${origin}/?deck-sources=${Date.now()}#mocks/ui/deck-sources.html${search ? `?${search}` : ""}`,
+  const search = new URLSearchParams({ form: "answer", ...query }).toString();
+  await page.goto(`${origin}/?deck-sources=${Date.now()}#mocks/ui/deck.html?${search}`,
     { waitUntil: "load" });
   await page.waitForFunction(() => {
     const frame = document.querySelector("#preview-frame");
     return frame?.contentDocument?.readyState === "complete"
-      && frame.contentWindow.location.pathname === "/mocks/ui/deck-sources.html";
+      && frame.contentWindow.location.pathname === "/mocks/ui/deck.html";
   });
   const frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
   return { context, page, frame, errors };
@@ -56,8 +58,100 @@ function pressPreview(frame, selector) {
   return frame.locator(selector).evaluate((button) => button.click());
 }
 
+test("common answer renderer accepts Markdown and typed JSON without executing input", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, { state: "settled" });
+    await frame.addScriptTag({ path: join(uiRoot, "assets/deck-answer.js") });
+    const result = await frame.evaluate(() => {
+      const host = document.createElement("div");
+      document.body.append(host);
+      const markdown = "## Arbitrary answer\n\n**Important** and `literal`\n\n- One\n- Two\n\n| Name | Value |\n|---|---|\n| Example | 42 |\n\n```json\n{\"value\":42}\n```\n\n<img src=x onerror=alert(1)>\n[javascript link](javascript:alert(1))";
+      window.FDAIDeckAnswer.render(host, { format: "markdown", content: markdown });
+      const md = { heading: host.querySelector("h4")?.textContent, strong: host.querySelector("strong")?.textContent, list: host.querySelectorAll("li").length, cell: host.querySelector("tbody td:last-child")?.textContent, active: host.querySelectorAll("script,img,a[href^='javascript:']").length, original: host.querySelector(".ds-answer-original code")?.textContent };
+      const raw = {
+        schema_version: 1, layout: "stack", evidence_refs: ["sample"],
+        blocks: [
+          { slot_id: "overview", kind: "summary", title: "Explicit summary", emphasis: "primary", collapsed: false, evidence_refs: ["sample"], data: { items: [{ label: "State", value: "Unknown", tone: "neutral" }] } },
+          { slot_id: "limitations", kind: "callout", title: "Explicit limitation", emphasis: "supporting", collapsed: true, evidence_refs: ["sample"], data: { tone: "warning", lines: ["Evidence is missing."] } },
+        ],
+      };
+      const verification = { status: "verified", authority: "synthetic-test", checks_completed: 1, checks_total: 1, evidence_refs: ["sample"], reason_code: null };
+      window.FDAIDeckAnswer.render(host, { format: "json", content: raw, verification });
+      const json = { sections: host.querySelectorAll(".ds-answer-block").length, limitationVisible: host.querySelector('[data-slot="limitations"]').tagName, value: host.querySelector("dd")?.textContent, original: JSON.parse(host.querySelector(".ds-answer-original code").textContent) };
+      window.FDAIDeckAnswer.render(host, { format: "json", content: "{broken" });
+      const invalid = host.textContent;
+      const oversized = { ...raw, blocks: Array.from({ length: 9 }, () => raw.blocks[0]) };
+      window.FDAIDeckAnswer.render(host, { format: "json", content: oversized, verification });
+      const unsupported = JSON.parse(host.querySelector("pre code").textContent);
+      window.FDAIDeckAnswer.render(host, { format: "json", content: raw, verification: { evidence_refs: 42 } });
+      const invalidMetadata = host.textContent;
+      host.remove();
+      return { md, json, invalid, invalidMetadata, unsupportedCount: unsupported.blocks.length };
+    });
+    assert.equal(result.md.heading, "Arbitrary answer");
+    assert.equal(result.md.strong, "Important");
+    assert.equal(result.md.list, 2);
+    assert.equal(result.md.cell, "42");
+    assert.equal(result.md.active, 0);
+    assert.match(result.md.original, /onerror=alert/);
+    assert.equal(result.json.sections, 2);
+    assert.equal(result.json.limitationVisible, "SECTION");
+    assert.equal(result.json.value, "Unknown");
+    assert.equal(result.json.original.blocks.length, 2);
+    assert.match(result.invalid, /Invalid JSON.*\{broken/s);
+    assert.equal(result.unsupportedCount, 9);
+    assert.match(result.invalidMetadata, /Unrecognized or unsupported/);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("common preview renders edited inputs and follow-ups share the Markdown path", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, page, frame, errors } = await openStudy(browser, { state: "settled" }, { reducedMotion: "reduce" });
+    await deckState(frame, "settled", 5000);
+    await frame.locator("#ds-preview > summary").click();
+    await frame.locator("#ds-answer-input").fill("# Independent answer\n\nA **generic** reply.\n\n- First item\n- Second item");
+    await frame.locator("#ds-answer-render").click();
+    assert.equal(await frame.locator("#ds-answer-output h3").textContent(), "Independent answer");
+    assert.equal(await frame.locator("#ds-answer-output strong").textContent(), "generic");
+    assert.equal(await frame.locator("#ds-answer-output li").count(), 2);
+    assert.match(await frame.locator("#ds-answer-input-status").textContent(), /not operational verification/);
+    await frame.locator('[data-answer-format="json"]').click();
+    assert.equal(await frame.locator('#ds-answer-output [data-slot="metrics"]').count(), 1);
+    const document = JSON.parse(await frame.locator("#ds-answer-input").inputValue());
+    document.blocks[0].title = "Title supplied by JSON";
+    document.blocks[0].collapsed = true;
+    await frame.locator("#ds-answer-input").fill(JSON.stringify(document));
+    await frame.locator("#ds-answer-render").click();
+    const summary = frame.locator('#ds-answer-output [data-slot="overview"] > summary');
+    assert.equal(await summary.textContent(), "Title supplied by JSON");
+    await summary.focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await frame.locator('#ds-answer-output [data-slot="overview"]').evaluate(node => node.open), true);
+    await frame.locator("#ds-answer-input").fill('{"schema_version":99,"extra":{"retained":"entire input"}}');
+    await frame.locator("#ds-answer-render").click();
+    assert.match(await frame.locator("#ds-answer-output").textContent(), /Unrecognized or unsupported/);
+    assert.equal(JSON.parse(await frame.locator("#ds-answer-output pre code").textContent()).extra.retained, "entire input");
+    await frame.locator("#ds-preview > summary").click();
+    await frame.locator(".cs-deck-followup").first().click();
+    await deckState(frame, "settled");
+    assert.equal(await frame.locator(".cs-deck-agent-turn").last().locator(".ds-answer-markdown.ds-common-answer").count(), 1);
+    assert.equal(await frame.locator(".cs-deck-agent-turn").last().locator(".ds-answer-data").count(), 0);
+    assert.equal(await frame.locator(".cs-deck-agent-turn").last().locator(".ds-answer-status").count(), 1);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
 test("study copy stays grounded in the shipped rule catalog", async () => {
-  const { html, script, rule, action, policy } = await sources();
+  const { html, script, forms, rule, action, policy } = await sources();
   assert.match(rule, /^id: postgresql-server\.point-in-time-restore$/m);
   assert.match(rule, /^severity: high$/m);
   assert.match(rule, /^\s+min_retention_days: 7$/m);
@@ -87,9 +181,11 @@ test("study copy stays grounded in the shipped rule catalog", async () => {
   ]) {
     assert.ok(script.includes(safeguard), safeguard);
   }
-  // Every tool the run record lists is a read; the replay never records a write authority.
+  // Every tool the run record lists is a read; the replay never records a write authority. The
+  // only other authority is the operator's own conversation state, such as cancelled resumable work.
   assert.match(script, /\["Authority", "read"\]/);
   assert.doesNotMatch(script, /\["Authority", "(?!read")/);
+  assert.deepEqual([...new Set([...forms.matchAll(/authority: "([a-z_]+)"/g)].map((match) => match[1]))], ["conversation"]);
   for (const stale of [/four safety invariants/, /never a deck button/, /gpt-4o-mini/, /side_effect_class of/,
     /Two peer databases had the identical/, /\bgs-[a-z]/]) {
     assert.doesNotMatch(`${html}\n${script}`, stale);
@@ -97,16 +193,17 @@ test("study copy stays grounded in the shipped rule catalog", async () => {
 });
 
 test("study links only to existing mock destinations", async () => {
-  const { html, script } = await sources();
+  const { html, script, forms } = await sources();
+  const linked = (source) => [...source.matchAll(/href: "([a-z0-9-]+\.html)(?:[?#][^"]*)?"/g)].map((match) => match[1]);
   const targets = new Set([
     ...[...html.matchAll(/href="([a-z0-9-]+\.html)"/g)].map((match) => match[1]),
-    ...[...script.matchAll(/href: "([a-z0-9-]+\.html)"/g)].map((match) => match[1]),
-    ...[...script.matchAll(/href: "([a-z0-9-]+\.html)", text:/g)].map((match) => match[1]),
+    ...linked(script),
+    ...linked(forms),
   ]);
   assert.ok(targets.size >= 10);
   for (const target of targets) assert.ok(existsSync(join(uiRoot, target)), target);
   // Every screen a deck link can open has a name for the leave confirmation.
-  for (const target of [...script.matchAll(/href: "([a-z0-9-]+\.html)"/g)].map((match) => match[1])) {
+  for (const target of [...linked(script), ...linked(forms)]) {
     assert.ok(script.includes(`"${target}": "`), `${target} has no page label`);
   }
 });
@@ -258,11 +355,11 @@ test("stop and scenario changes cancel the running replay", { timeout: 90000 }, 
 
 test("each scenario settles with explicit evidence posture and ordered citations", { timeout: 90000 }, async () => {
   const expectations = {
-    grounded: { verification: /Verified/, summary: "All available", note: null, state: null, issue: null },
-    partial: { verification: /Partial evidence/, summary: "1 unavailable", note: /Evidence limit: shadow history is unavailable/, state: "Partial", issue: "partial evidence" },
-    unavailable: { verification: /Source unavailable/, summary: "1 unavailable", note: /Unknown: the current backup_retention_days/, state: null, issue: "source unavailable" },
-    conflict: { verification: /Conflicting evidence/, summary: "All available", note: /Conflicting evidence: FDAI treats neither reading/, state: null, issue: "conflicting evidence" },
-    corrected: { verification: /Corrected/, summary: "All available", note: /Corrected: verification removed 1 sentence/, state: "Corrected", issue: null },
+    grounded: { verification: /Verified/, summary: "5/5 available", note: null, state: null, issue: null },
+    partial: { verification: /Partial evidence/, summary: "4/5 available", note: /Evidence limit: shadow history is unavailable/, state: "Partial", issue: "partial evidence" },
+    unavailable: { verification: /Source unavailable/, summary: "4/5 available", note: /Unknown: the current backup_retention_days/, state: null, issue: "source unavailable" },
+    conflict: { verification: /Conflicting evidence/, summary: "5/5 available", note: /Conflicting evidence: FDAI treats neither reading/, state: null, issue: "conflicting evidence" },
+    corrected: { verification: /Corrected/, summary: "5/5 available", note: /Corrected: verification removed 1 sentence/, state: "Corrected", issue: null },
   };
   const browser = await chromium.launch({ headless: true });
   try {
@@ -270,7 +367,7 @@ test("each scenario settles with explicit evidence posture and ordered citations
       const { context, frame, errors } = await openStudy(browser, { scenario, state: "settled" });
       await deckState(frame, "settled", 5000);
       assert.match(await frame.locator(".cs-deck-verification").textContent(), expected.verification, scenario);
-      assert.equal(await frame.locator(".cs-deck-readiness-summary").textContent(), expected.summary, scenario);
+      assert.equal(await frame.locator(".ds-services summary strong").textContent(), expected.summary, scenario);
       if (expected.note) assert.match(await frame.locator(".cs-deck-evidence-note").textContent(), expected.note, scenario);
       else assert.equal(await frame.locator(".cs-deck-evidence-note").count(), 0, scenario);
       if (expected.state) {
@@ -291,7 +388,7 @@ test("each scenario settles with explicit evidence posture and ordered citations
         };
       });
       assert.equal(citations.missing, 0, scenario);
-      assert.deepEqual(citations.firstSeen, citations.firstSeen.slice().sort((a, b) => a - b), scenario);
+      assert.deepEqual(citations.firstSeen.slice().sort((a, b) => a - b), Array.from({ length: citations.rows }, (_, index) => index + 1), scenario);
       assert.equal(citations.firstSeen.length, citations.rows, scenario);
       assert.deepEqual(errors, [], scenario);
       await context.close();
@@ -306,7 +403,7 @@ test("citations, sources, follow-ups, and search work from the keyboard", { time
   try {
     const { context, page, frame, errors } = await openStudy(browser, { state: "settled" });
     await deckState(frame, "settled", 5000);
-    const cite = frame.locator("a.cs-deck-cite").nth(2);
+    const cite = frame.locator('a.cs-deck-cite[href="#ds-turn-1-source-3"]').first();
     await cite.focus();
     const tooltip = frame.locator("#ds-tooltip");
     assert.equal(await tooltip.isVisible(), true);
@@ -408,7 +505,8 @@ test("run record shows the observed process and captures model traces per turn",
     assert.equal(await second.locator(".cs-model-trace-lane").count(), 2);
     assert.equal(await second.locator(".cs-model-trace-count").textContent(), "2 model calls");
     const lane = second.locator(".cs-model-trace-lane").first();
-    await lane.locator("summary").click();
+    // The lane's own summary; the synthetic prompt file inside it has a summary of its own.
+    await lane.locator(":scope > details > summary").click();
     await frame.waitForFunction(() => [...document.querySelectorAll(".cs-model-trace-lane details[open] .cs-model-trace-hash code")]
       .every((code) => /^[0-9a-f]{64}$/.test(code.textContent)), null, { timeout: 3000 });
     assert.equal(await lane.locator(".cs-model-trace-hash").count(), 3);
@@ -661,6 +759,206 @@ test("settled answers keep the verdict, sources, tools, and record together", { 
   }
 });
 
+test("readable sources preserve facts and return keyboard focus to the cited claim", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, page, frame, errors } = await openStudy(browser, { state: "settled" }, { reducedMotion: "reduce" });
+    await deckState(frame, "settled", 5000);
+    assert.match(await frame.locator(".ds-answer-status").textContent(), /Answer evidence, not execution verification/);
+    assert.deepEqual(await frame.locator('.ds-answer-data [data-slot="metrics"] tbody td').allTextContents(), ["3 days", "7 days", "Below minimum"]);
+    assert.deepEqual(await frame.locator('.ds-answer-data [data-slot="records"] tbody td:last-child').allTextContents(), ["Not met", "Not met", "Met", "Met"]);
+    assert.equal(await frame.locator(".ds-answer-markdown .ds-answer-original").evaluate(node => node.open), false);
+    await frame.locator(".ds-answer-markdown .ds-answer-original summary").focus();
+    await page.keyboard.press("Enter");
+    for (const safeguard of ["stop conditions", "single-resource blast radius", "idempotency key", "forward-only recovery", "dry-run receipt", "target lock", "two-phase audit", "independent read confirms"]) {
+      assert.ok((await frame.locator(".ds-answer-markdown").textContent()).includes(safeguard), safeguard);
+    }
+    const cite = frame.locator('a.cs-deck-cite[href="#ds-turn-1-source-2"]').first();
+    await cite.focus();
+    const before = await frame.locator("#ds-transcript").evaluate(node => node.scrollTop);
+    await page.keyboard.press("Enter");
+    assert.equal(await frame.locator("#ds-turn-1-source-2").getAttribute("aria-expanded"), "true");
+    assert.equal(await frame.locator("#ds-turn-1-source-2-detail").isVisible(), true);
+    const adjacent = await frame.evaluate(() => {
+      const article = document.querySelector(".cs-deck-agent-turn");
+      const answer = article.querySelector(".cs-deck-answer").getBoundingClientRect();
+      const sources = article.querySelector(".cs-deck-sources").getBoundingClientRect();
+      return sources.left >= answer.right;
+    });
+    assert.equal(adjacent, true);
+    await frame.locator('[data-action="return-answer"]').focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await cite.evaluate(node => document.activeElement === node), true);
+    assert.equal(await frame.locator(".cs-deck-sources").isVisible(), false);
+    assert.ok(Math.abs(await frame.locator("#ds-transcript").evaluate(node => node.scrollTop) - before) <= 1);
+    await frame.locator(".ds-services summary").focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await frame.locator(".ds-services a").count(), 5);
+    assert.match(await frame.locator(".ds-services time").textContent(), /2026-09-28 10:41:04 UTC/);
+    await page.keyboard.press("Escape");
+    assert.equal(await frame.locator(".ds-services").evaluate(node => node.open), false);
+    assert.equal(await frame.locator(".ds-services summary").evaluate(node => node === document.activeElement), true);
+    const output = join(root, ".fdai/visual-review/deck-sources-readable");
+    await mkdir(output, { recursive: true });
+    await frame.locator("#ds-transcript").evaluate(node => { node.scrollTop = 0; });
+    await page.screenshot({ path: join(output, "desktop.png") });
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("readable comparison never substitutes zero for missing or conflicting evidence", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    for (const scenario of ["partial", "unavailable", "conflict", "corrected"]) {
+      const { context, frame, errors } = await openStudy(browser, { state: "settled", scenario });
+      await deckState(frame, "settled", 5000);
+      const tables = await frame.locator(".ds-answer-data table").allTextContents();
+      if (scenario === "partial") {
+        assert.deepEqual(await frame.locator('.ds-answer-data [data-slot="records"] tbody td:nth-child(2)').allTextContents(), ["Unknown", "Unknown", "Unknown", "Unknown"]);
+        assert.match(await frame.locator(".ds-services summary").textContent(), /Audit unavailable/);
+      } else if (scenario === "unavailable") {
+        assert.match(tables[0], /Unknown/);
+        assert.match(tables[0], /Current state unknown/);
+        assert.equal(tables.length, 1);
+      } else if (scenario === "conflict") {
+        assert.match(tables[0], /7 days/);
+        assert.match(tables[0], /Unresolved conflict/);
+        assert.equal(await frame.locator('.ds-answer-data [data-slot="overview"]').count(), 0);
+      } else {
+        assert.doesNotMatch(await frame.locator(".cs-deck-prose").textContent(), /Two peer databases/);
+        assert.match(await frame.locator(".cs-deck-evidence-note").textContent(), /1 sentence/);
+      }
+      assert.deepEqual(errors, [], scenario);
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test("readable sources fit constrained frames, mobile, dock, and enlarged text", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  const output = join(root, ".fdai/visual-review/deck-sources-readable");
+  await mkdir(output, { recursive: true });
+  try {
+    for (const [name, viewport, query] of [
+      ["constrained", { width: 993, height: 641 }, {}],
+      ["operator-window", { width: 1083, height: 575 }, {}],
+      ["mobile", { width: 390, height: 844 }, {}],
+      ["minimum", { width: 320, height: 844 }, {}],
+      ["dock", { width: 1440, height: 900 }, { width: "dock" }],
+    ]) {
+      const { context, page, frame, errors } = await openStudy(browser, { state: "settled", ...query }, { viewport, reducedMotion: "reduce" });
+      await deckState(frame, "settled", 5000);
+      const geometry = async () => frame.evaluate(() => {
+        const composer = document.querySelector("#ds-composer").getBoundingClientRect();
+        return {
+          pageFits: document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight,
+          composerFits: composer.bottom <= innerHeight && composer.top >= 0,
+          transcriptHeight: document.querySelector("#ds-transcript").clientHeight,
+          overflow: [...document.querySelectorAll("#ds-workspace,#ds-composer,.cs-deck-prose,.ds-answer-table,.cs-deck-sources:not([hidden])")].filter(node => node.scrollWidth > node.clientWidth + 1).map(node => node.className),
+          smallCitations: [...document.querySelectorAll("a.cs-deck-cite")].filter(node => { const rect = node.getBoundingClientRect(); return rect.width < 24 || rect.height < 24; }).length,
+          expanded: document.body.dataset.sourcesOverflow === "expanded",
+          composerReachable: composer.bottom <= document.documentElement.scrollHeight,
+        };
+      });
+      let report = await geometry();
+      assert.equal(report.pageFits, true, `${name}: document`);
+      assert.equal(report.composerFits, true, `${name}: composer`);
+      assert.ok(report.transcriptHeight >= 160, `${name}: ${report.transcriptHeight}px transcript`);
+      assert.deepEqual(report.overflow, [], `${name}: content`);
+      assert.equal(report.smallCitations, 0, `${name}: inline citation targets`);
+      await frame.locator("#ds-search-toggle").click();
+      assert.equal(await frame.locator("#ds-search").isVisible(), true);
+      await frame.locator("#ds-search").fill("shadow");
+      await frame.locator("#ds-search-count").filter({ hasText: /^1\/\d+$/ }).waitFor();
+      await page.keyboard.press("Escape");
+      assert.equal(await frame.locator("#ds-search").isVisible(), false);
+      assert.equal(await frame.locator("#ds-search-toggle").evaluate(node => node === document.activeElement), true);
+      await frame.locator('[data-action="sources"]').click();
+      await frame.locator(".cs-deck-source").first().click();
+      report = await geometry();
+      assert.deepEqual(report.overflow, [], `${name}: expanded sources`);
+      await frame.locator('[data-action="return-answer"]').click();
+      await frame.locator('a.cs-deck-cite[href="#ds-turn-1-source-2"]').first().click();
+      assert.equal(await frame.locator("#ds-turn-1-source-2-detail").evaluate(node => {
+        const detail = node.getBoundingClientRect();
+        const transcript = document.querySelector("#ds-transcript").getBoundingClientRect();
+        return detail.top >= transcript.top - 1 && detail.bottom <= transcript.bottom + 1;
+      }), true, `${name}: selected source detail is inside the reading viewport`);
+      await frame.locator('[data-action="return-answer"]').click();
+      await frame.locator("#ds-transcript").evaluate(node => { node.scrollTop = 0; });
+      await page.screenshot({ path: join(output, `${name}.png`) });
+      if (name === "operator-window") {
+        await page.setViewportSize({ width: viewport.width, height: 310 });
+        await frame.locator('body[data-sources-overflow="expanded"]').waitFor();
+        assert.ok((await geometry()).transcriptHeight > 0);
+        await page.setViewportSize(viewport);
+        await frame.locator('body[data-sources-overflow="contained"]').waitFor();
+      }
+      await frame.evaluate(() => {
+        document.querySelector("#ds-conversation-title").textContent = "운영 리소스의 백업 보존기간 확인 / example-postgresql-server-with-a-long-opaque-resource-identifier";
+        const nodes = [...document.querySelectorAll("#ds-workspace *")].filter(node => [...node.childNodes].some(child => child.nodeType === Node.TEXT_NODE && child.textContent.trim()));
+        const sizes = nodes.map(node => parseFloat(getComputedStyle(node).fontSize));
+        nodes.forEach((node, index) => {
+          node.style.fontSize = `${sizes[index] * 2}px`;
+          node.style.lineHeight = "1.5";
+          node.style.letterSpacing = ".12em";
+          node.style.wordSpacing = ".16em";
+        });
+      });
+      await frame.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      report = await geometry();
+      assert.equal(report.pageFits || report.expanded, true, `${name}: enlarged document has a deliberate scroll fallback`);
+      assert.equal(report.composerFits || report.expanded && report.composerReachable, true, `${name}: enlarged composer`);
+      assert.ok(report.transcriptHeight > 0, `${name}: enlarged transcript`);
+      assert.deepEqual(report.overflow, [], `${name}: enlarged content`);
+      assert.deepEqual(errors, [], name);
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test("readable source labels and comparison states meet text contrast", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame } = await openStudy(browser, { state: "settled", scenario: "partial" });
+    await deckState(frame, "settled", 5000);
+    await frame.locator('[data-action="sources"]').click();
+    const failures = await frame.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext("2d");
+      function luminance(pixel) {
+        return [...pixel].slice(0, 3).map(value => value / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+      }
+      return [...document.querySelectorAll(".ds-answer-status strong,.ds-answer-status span,.ds-answer-block dt,.ds-answer-block dd,.ds-answer-table th,.ds-answer-table td,.ds-status-attention,.cs-deck-source-title,.cs-deck-source-meta,.ds-source-stamp,.ds-evidence-return")].flatMap(node => {
+        if (node.getBoundingClientRect().width === 0) return [];
+        const ancestors = [];
+        for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) ancestors.unshift(ancestor);
+        context.fillStyle = "white";
+        context.fillRect(0, 0, 1, 1);
+        for (const ancestor of ancestors) { context.fillStyle = getComputedStyle(ancestor).backgroundColor; context.fillRect(0, 0, 1, 1); }
+        const background = luminance(context.getImageData(0, 0, 1, 1).data);
+        context.fillStyle = getComputedStyle(node).color;
+        context.fillRect(0, 0, 1, 1);
+        const foreground = luminance(context.getImageData(0, 0, 1, 1).data);
+        const ratio = (Math.max(background, foreground) + .05) / (Math.min(background, foreground) + .05);
+        return ratio < 4.5 ? [{ text: node.textContent, ratio }] : [];
+      });
+    });
+    assert.deepEqual(failures, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
 test("tooltips wait for hover intent and chosen follow-ups fold away", { timeout: 90000 }, async () => {
   const { layer } = await sources();
   assert.match(layer, /@starting-style \{\n  \.cs-deck-jump/);
@@ -672,7 +970,7 @@ test("tooltips wait for hover intent and chosen follow-ups fold away", { timeout
     await cite.hover();
     assert.equal(await frame.locator("#ds-tooltip").isVisible(), false);
     await frame.locator("#ds-tooltip").waitFor({ state: "visible", timeout: 2000 });
-    await frame.locator(".cs-deck-prose > p").first().hover({ position: { x: 4, y: 4 } });
+    await frame.locator(".ds-answer-markdown > p").first().hover({ position: { x: 4, y: 4 } });
     assert.equal(await frame.locator("#ds-tooltip").isVisible(), false);
 
     const count = await frame.locator(".cs-deck-followup").count();
@@ -788,8 +1086,13 @@ test("sources open in place and other screens open only after consent", { timeou
     assert.equal(frame.url(), start);
 
     // Links elsewhere in the deck ask the same way, before any router can act on them.
-    await frame.locator(".cs-deck-readiness-item").first().click();
+    await frame.locator(".ds-services summary").click();
+    await frame.locator(".ds-services a").first().click();
     assert.equal(await leave.evaluate((node) => node.open), true);
+    await page.keyboard.press("Escape");
+    assert.equal(await frame.locator(".ds-services").evaluate(node => node.open), true);
+    assert.equal(await frame.locator(".ds-services a").first().evaluate(node => node === document.activeElement), true);
+    await frame.locator(".ds-services a").first().click();
     await frame.locator(".cs-deck-leave-stay").click();
     assert.equal(await leave.evaluate((node) => node.open), false);
     assert.equal(frame.url(), start);
@@ -815,7 +1118,8 @@ test("stopping mid-paragraph keeps only the revealed words", { timeout: 60000 },
     // Check and stop in one frame, so the stop lands while citations are still unrevealed.
     await frame.waitForFunction(() => {
       const prose = document.querySelector(".cs-deck-agent-turn .cs-deck-prose");
-      if (!prose || !prose.textContent.trim() || !prose.querySelector("[hidden]")) return false;
+      const shown = prose && [...prose.querySelectorAll(".cs-deck-stream-in")].some(node => !node.hidden && node.textContent.trim());
+      if (!shown || !prose.querySelector("[hidden]")) return false;
       document.getElementById("ds-send").click();
       return true;
     }, null, { timeout: 10000, polling: "raf" });
@@ -845,7 +1149,7 @@ test("run record keeps wide timeline content inside the record above the compact
       const body = record.querySelector(".cs-run-record-body");
       return {
         column: document.querySelector(".cs-deck-transcript").clientWidth,
-        lanes: record.querySelectorAll(".cs-model-trace-lane details[open]").length,
+        lanes: record.querySelectorAll(".cs-model-trace-lane > details[open]").length,
         clipped: [...record.querySelectorAll("*")].filter((node) => {
           const box = node.getBoundingClientRect();
           return box.width > 0 && box.right > edge;
@@ -879,7 +1183,6 @@ test("dock width uses container layout without horizontal overflow", { timeout: 
       const event = document.querySelector(".cs-run-event-summary");
       const phases = document.querySelector(".cs-run-phase-strip");
       const source = document.querySelector(".cs-deck-source");
-      const label = document.querySelector(".cs-deck-readiness-label");
       const overflow = ["#ds-workspace", "#ds-transcript", "#ds-composer", ".cs-deck-sources", ".cs-run-record"].map((selector) => {
         const node = document.querySelector(selector);
         return node.scrollWidth <= node.clientWidth;
@@ -890,7 +1193,6 @@ test("dock width uses container layout without horizontal overflow", { timeout: 
         phaseColumns: getComputedStyle(phases).gridTemplateColumns.split(" ").length,
         kindShown: getComputedStyle(event.querySelector(".cs-run-event-kind")).display !== "none",
         sourceColumns: getComputedStyle(source).gridTemplateColumns.split(" ").length,
-        labelClip: getComputedStyle(label).clipPath,
         overflow,
         documentFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
       };
@@ -900,7 +1202,6 @@ test("dock width uses container layout without horizontal overflow", { timeout: 
     assert.equal(layout.phaseColumns, 3);
     assert.equal(layout.kindShown, false);
     assert.equal(layout.sourceColumns, 2);
-    assert.equal(layout.labelClip, "inset(50%)");
     assert.deepEqual(layout.overflow, [true, true, true, true, true]);
     assert.equal(layout.documentFits, true);
     assert.deepEqual(errors, []);
@@ -939,7 +1240,7 @@ test("empty, closed, reduced-motion, and forced-colors states stay operable", { 
 
     ({ context, frame, errors } = await openStudy(browser, { state: "settled" }, { forcedColors: "active" }));
     await deckState(frame, "settled", 5000);
-    const borders = await frame.evaluate(() => [".cs-deck-cite", ".cs-deck-readiness-item", ".cs-grounding-phase"]
+    const borders = await frame.evaluate(() => [".cs-deck-cite", ".ds-services > summary", ".ds-evidence-return"]
       .map((selector) => document.querySelector(selector))
       .filter(Boolean)
       .map((node) => getComputedStyle(node).borderTopStyle));

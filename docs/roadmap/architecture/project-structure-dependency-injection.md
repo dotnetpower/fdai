@@ -75,7 +75,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
 - **Independent effect observation**: the durable kinetic artifact store is the exact-plan source.
   `StateStoreExecutedActionObservationStore` accepts verifier-approved Heimdall observations;
   `effect_evidence_bridge.py` maps only verified receipts to matched, while failed or unknown results require the unbound, current-approval-gated `StateStoreShadowReversionWriter` to revert one ActionType without registry access.
-- **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
+- **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, optional retained current-reuse source writer, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
 - **Dashboard availability projection**: `shared/telemetry/dashboard_status.py` consumes normalized
   metric observations after provider and domain reducers have produced them. It performs no provider
   I/O and grants no authority. The Phase 0 descriptor names the expected producer and freshness
@@ -183,6 +183,24 @@ index.
 
 The shared `MetricProviderError` contract owns bounded failure metadata; Azure transports classify it and the Analyzer redacts identities.
 The [metric diagnostics contract](aks-diagnostic-evidence-plane.md#safe-metric-failure-diagnostics) preserves legacy providers, empty results, and fail-closed behavior.
+
+The local development `EventBus` keeps a bounded per-topic replay window instead of retaining every
+record indefinitely. Compaction removes a record only after every known subscribed group has
+advanced beyond it, so a slow subscribed group does not lose unconsumed traffic. A group that
+subscribes later starts from the retained window and replays the records still inside that bound.
+
+Pantheon composition exposes optional durable `StateStore` seams for owner-local recovery:
+`forseti_state_store`, `bragi_state_store`, `odin_state_store`,
+`proposal_rate_limit_state_store`, `ordered_poison_halt_state_store`, `heimdall_state_store`,
+`njord_state_store`, and `freyr_state_store`. Production binds the governance and specialist
+stores to the incident audit store, while ordered poison halts stay opt-in until an operator clear
+surface exists. The seams preserve the fixed agent owners; they do not add judgment, approval,
+execution, audit, or publication authority.
+
+`services/core-control-plane/src/fdai/agents/_framework/runtime.py` remains the `PantheonRuntime`
+composition boundary. The read-only conversational port facade is delegated to the private
+`services/core-control-plane/src/fdai/agents/_framework/runtime_conversation.py` helper so the
+runtime boundary stays small without creating a public import surface or a new authority path.
 
 Startup readiness keeps provider-neutral pass budgets, probe timeouts, and derived evidence lifetimes in `core/readiness`. Runtime schedules
 bounded refresh, closes at original expiry, and exposes the live ceiling that Thor checks before privileged I/O; no layer can raise

@@ -774,23 +774,34 @@ try {
       assert.ok(summary.font >= 13);
     });
   } else if (suite === "incident") {
+    // The incident brief is the Command deck's incident form, rendered with the shared turn anatomy.
     await check("Incident citations reveal exact nested evidence and preserve uncertainty", async () => {
-      const frame = await open("incident-conversation.html");
-      await frame.locator('a[href="#routing-evidence"]').click();
-      assert.equal(await frame.locator("#incident-evidence").getAttribute("open"), "");
-      await frame.locator('#routing-evidence a[href="#audit-68882"]').click();
-      assert.equal(await frame.locator("#audit-68882").getAttribute("open"), "");
-      assert.match(await frame.locator("#audit-68882").innerText(), /No current binding readback/);
-      assert.match(await frame.locator(".ic-state-line").innerText(), /Current status unknown/);
+      const frame = await open("deck.html?form=incident&scenario=open&state=settled");
+      await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached" });
+      assert.match(await frame.locator(".cs-deck-status-line").innerText(), /Current status unknown/);
+      const cite = frame.locator('.cs-deck-prose a.cs-deck-cite[aria-label*="audit:68882"]').first();
+      await cite.click();
+      const source = frame.locator(".cs-deck-source.is-target");
+      assert.match(await source.innerText(), /audit:68882/);
+      await source.click();
+      assert.equal(await source.getAttribute("aria-expanded"), "true");
+      const detail = frame.locator(`#${await source.getAttribute("aria-controls")}`);
+      assert.match(await detail.innerText(), /No current binding readback, delivery receipt, or recovery observation/);
+      const timeline = frame.locator(".cs-deck-disclosure").first();
+      assert.equal(await timeline.evaluate(node => node.open), false);
+      await timeline.locator(":scope > summary").click();
+      assert.match(await timeline.innerText(), /Observation window: 3m 45s/);
     });
     await check("Incident preview renders typed text literally and never invents an answer", async () => {
-      const frame = await open("incident-conversation.html");
-      await frame.locator("#incident-question").fill('<img src=x onerror=alert(1)> 근거를 확인해 주세요');
-      await frame.locator("#incident-question-form button").click();
-      assert.equal(await frame.locator(".ic-preview-question img").count(), 0);
-      assert.match(await frame.locator(".ic-preview-question").innerText(), /<img src=x/);
-      assert.match(await frame.locator("#preview-status").innerText(), /No request was sent/);
-      assert.equal(await frame.locator(".ic-answer").count(), 1);
+      const frame = await open("deck.html?form=incident&scenario=open&state=settled");
+      await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached" });
+      const typed = '<img src=x onerror=alert(1)> 근거를 확인해 주세요';
+      await frame.locator("#ds-input").fill(typed);
+      await frame.locator("#ds-input").press("Enter");
+      assert.equal(await frame.locator("#ds-turns img").count(), 0);
+      assert.equal(await frame.locator("#ds-input").inputValue(), typed);
+      assert.match(await frame.locator("#ds-composer-note").innerText(), /Preview only/);
+      assert.equal(await frame.locator(".cs-deck-agent-turn").count(), 1);
     });
   } else {
     throw new Error(`Unknown visual interaction suite: ${suite}`);

@@ -11,24 +11,78 @@ is capped by :pyattr:`blast_radius_cap`.
 
 from __future__ import annotations
 
+import asyncio
 from collections import deque
-from dataclasses import dataclass
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
-from fdai.agents._framework.introspection import (
-    IntrospectionResult,
-    agent_state_evidence_ref,
-    capability_facts,
-    mentioned,
+from fdai.agents._framework.loki_adversarial import (
+    MAX_GENERATED_SCENARIOS,
+    ChaosScenarioGenerator,
+    audit_payload,
+    frozen_corpus_key,
+    validate_candidate,
+)
+from fdai.agents._framework.loki_constants import (
+    _CHAOS_EVIDENCE_FIELDS as _CHAOS_EVIDENCE_FIELDS,
+)
+from fdai.agents._framework.loki_constants import (
+    _CHAOS_OUTBOX_PREFIX as _CHAOS_OUTBOX_PREFIX,
+)
+from fdai.agents._framework.loki_constants import (
+    _DEFAULT_RESERVATION_TTL as _DEFAULT_RESERVATION_TTL,
+)
+from fdai.agents._framework.loki_constants import (
+    _HELD_PREFIX as _HELD_PREFIX,
+)
+from fdai.agents._framework.loki_constants import (
+    _MAX_CHAOS_IDENTIFIER_CHARS as _MAX_CHAOS_IDENTIFIER_CHARS,
+)
+from fdai.agents._framework.loki_constants import (
+    _MAX_CHAOS_TARGETS as _MAX_CHAOS_TARGETS,
+)
+from fdai.agents._framework.loki_constants import (
+    _MAX_HELD_PROPOSALS as _MAX_HELD_PROPOSALS,
+)
+from fdai.agents._framework.loki_constants import (
+    _MAX_RESILIENCE_SCORES as _MAX_RESILIENCE_SCORES,
+)
+from fdai.agents._framework.loki_constants import (
+    _RESILIENCE_PREFIX as _RESILIENCE_PREFIX,
+)
+from fdai.agents._framework.loki_constants import (
+    _SAFE_CLOSURE_STATES as _SAFE_CLOSURE_STATES,
+)
+from fdai.agents._framework.loki_experiment_runtime import (
+    LokiExperimentRuntimeMixin,
+)
+from fdai.agents._framework.loki_experiment_runtime import (
+    _digest as _digest,
 )
 from fdai.agents._framework.loki_reservations import LokiReservationJournal
 from fdai.agents._framework.loki_resilience import (
     RESILIENCE_SCORE_EVENT,
     resilience_score_candidate,
 )
+from fdai.agents._framework.loki_runtime_records import (
+    ChaosProposal,
+    _Reservation,
+)
+from fdai.agents._framework.loki_schedule_runtime import (
+    _SCHEDULED_PREFIX as _SCHEDULED_PREFIX,
+)
+from fdai.agents._framework.loki_schedule_runtime import (
+    LokiScheduleRuntimeMixin,
+)
+from fdai.agents._framework.loki_scheduling import (
+    ChaosScheduleConfig,
+)
+from fdai.agents._framework.loki_status_runtime import LokiStatusRuntimeMixin
 from fdai.agents._framework.pantheon import _LOKI
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.specialist_ingress import (
     CHAOS_SCHEDULE_EVENT,
     parse_chaos_schedule,
@@ -40,23 +94,15 @@ from fdai.shared.providers.state_store import StateStore
 #: so a bounded ring is sufficient and stops an unbounded leak on a
 #: long-running chaos scheduler.
 _MAX_PROPOSALS = 1_000
-_MAX_RESILIENCE_SCORES = 512
-_SAFE_CLOSURE_STATES = frozenset({"succeeded", "rejected", "deny_dropped", "rolled_back"})
+_ADVERSARIAL_PREFIX = "pantheon/loki/adversarial-scenarios/"
 
 
-@dataclass
-class ChaosProposal:
-    experiment_id: str
-    action_type: str
-    targets: tuple[str, ...]
-    accepted: bool
-    reason: str
-    causal_hypothesis_ref: str = ""
-    impact_envelope_id: str = ""
-    recovery_plan_id: str = ""
-
-
-class Loki(Agent):
+class Loki(
+    LokiExperimentRuntimeMixin,
+    LokiScheduleRuntimeMixin,
+    LokiStatusRuntimeMixin,
+    Agent,
+):
     """Wave-5 Loki: chaos scheduler with blast-radius cap."""
 
     def __init__(
@@ -65,39 +111,78 @@ class Loki(Agent):
         bus: PantheonBus | None = None,
         blast_radius_cap: int = 3,
         state_store: StateStore | None = None,
+        clock: Callable[[], datetime] | None = None,
+        reservation_ttl: timedelta = _DEFAULT_RESERVATION_TTL,
+        recurring_schedule: ChaosScheduleConfig | None = None,
+        scenario_generator: ChaosScenarioGenerator | None = None,
+        scenario_corpus: tuple[ChaosScheduleConfig, ...] = (),
     ) -> None:
         super().__init__(spec=_LOKI)
+        if reservation_ttl <= timedelta(0):
+            raise ValueError("reservation_ttl MUST be positive")
         self.bus = bus
         self._cap = blast_radius_cap
+        self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
+        self._reservation_ttl = reservation_ttl
         self._in_flight_targets: set[str] = set()
-        self._reservations: dict[str, tuple[str, tuple[str, ...]]] = {}
+        self._reservations: dict[str, _Reservation] = {}
+        self._publishing_experiments: set[str] = set()
         self._reservation_journal = (
             LokiReservationJournal(state_store, blast_radius_cap=blast_radius_cap)
             if state_store is not None
             else None
         )
+        self._state_store = state_store
         self.proposals: deque[ChaosProposal] = deque(maxlen=_MAX_PROPOSALS)
+        self._held_proposals: deque[ChaosProposal] = deque(maxlen=_MAX_HELD_PROPOSALS)
         self._resilience_scores: dict[str, tuple[float, str]] = {}
+        self._blast_radius_attempts = 0
+        self._blast_radius_adherent_attempts = 0
+        self._resilience_experiment_scores: dict[str, dict[str, float]] = {}
+        self._reservation_lock = asyncio.Lock()
+        self._publication_locks: dict[str, asyncio.Lock] = {}
+        self._publication_lock_refs: dict[str, int] = {}
+        self._recurring_schedule = recurring_schedule
+        self._scenario_generator = scenario_generator
+        self._scenario_corpus = {frozen_corpus_key(item): item for item in scenario_corpus}
+        self._proposal_queue_managed_externally = True
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    def bind_recurring_schedule(self, schedule: ChaosScheduleConfig | None) -> None:
+        self._recurring_schedule = schedule
+
+    def bind_scenario_generator(self, generator: ChaosScenarioGenerator | None) -> None:
+        self._scenario_generator = generator
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.action-run":
             await self._release_from_action_run(payload)
             return
         if topic != "object.event":
+            self.record_behavior("typed_message:ignored")
+            return
+        event_type = str(payload.get("event_type") or "")
+        owner_behavior = (
+            "chaos_schedule:invalid_producer"
+            if event_type == CHAOS_SCHEDULE_EVENT
+            else "resilience_score:invalid"
+        )
+        if require_topic_owner(self, topic, payload, behavior=owner_behavior):
             return
         if payload.get("event_type") == RESILIENCE_SCORE_EVENT:
             candidate = resilience_score_candidate(payload)
             if candidate is None:
                 self.record_behavior("resilience_score:invalid")
                 return
+            if not await self._remember_resilience_score(candidate):
+                return
             if await self._publish_proposal("object.resilience-score", candidate):
-                self._remember_resilience_score(candidate)
                 self.record_behavior("resilience_score:published")
             return
         if payload.get("event_type") != CHAOS_SCHEDULE_EVENT:
+            self.record_behavior("chaos_schedule:ignored_event")
             return
         signal = parse_chaos_schedule(payload)
         if signal is None:
@@ -111,249 +196,52 @@ class Loki(Agent):
             correlation_id=signal.correlation_id,
         )
 
-    async def rehydrate(self) -> int:
-        """Restore durable target reservations before consumers start."""
-        if self._reservation_journal is None:
-            return 0
-        self._in_flight_targets = set(await self._reservation_journal.snapshot())
-        return len(self._in_flight_targets)
-
-    async def _release_from_action_run(self, payload: dict[str, Any]) -> None:
-        if (
-            payload.get("producer_principal") != "Thor"
-            or payload.get("state") not in _SAFE_CLOSURE_STATES
-        ):
-            return
-        params = payload.get("params")
-        if not isinstance(params, dict):
-            return
-        experiment_id = str(params.get("experiment_id") or "")
-        action_type = str(payload.get("action_type") or "")
-        raw_targets = params.get("targets")
-        targets = (
-            tuple(target for target in raw_targets if isinstance(target, str) and target)
-            if isinstance(raw_targets, list)
-            else ()
-        )
-        if not experiment_id or not action_type or not targets:
-            return
-        try:
-            released = await self._release_reservation(
-                experiment_id=experiment_id,
-                action_type=action_type,
-                targets=targets,
-            )
-        except ValueError:
-            self.record_behavior("chaos_reservation:closure_mismatch")
-            return
-        if released:
-            self.record_behavior("chaos_reservation:released")
-
     # ---- experiment scheduling ----------------------------------------
 
-    async def propose_experiment(
-        self,
-        *,
-        experiment_id: str,
-        action_type: str,
-        targets: tuple[str, ...],
-        correlation_id: str = "",
-        causal_hypothesis_ref: str = "",
-        refutation_query_ref: str = "",
-        impact_envelope_id: str = "",
-        recovery_plan_id: str = "",
-        dry_run_receipt: str = "",
-    ) -> ChaosProposal:
-        # Enforce cap BEFORE emitting anything so a proposal storm does
-        # not exceed the declared radius.
-        if self._reservation_journal is not None:
-            reservation = await self._reservation_journal.reserve(
-                experiment_id=experiment_id,
-                action_type=action_type,
-                targets=targets,
-            )
-            self._in_flight_targets = set(reservation.occupied)
-            selected = reservation.targets
-            if reservation.duplicate:
-                self.record_behavior("chaos_reservation:replayed")
-        else:
-            available = self._cap - len(self._in_flight_targets)
-            selected = tuple(t for t in targets if t not in self._in_flight_targets)[:available]
-        if not selected:
-            proposal = ChaosProposal(
-                experiment_id=experiment_id,
-                action_type=action_type,
-                targets=(),
-                accepted=False,
-                reason=(
-                    "blast_radius_full"
-                    if len(self._in_flight_targets) >= self._cap
-                    else "no_new_targets"
-                ),
-            )
-            self.proposals.append(proposal)
-            return proposal
-        self._in_flight_targets.update(selected)
-        self._reservations[experiment_id] = (action_type, selected)
-        proposal = ChaosProposal(
-            experiment_id=experiment_id,
-            action_type=action_type,
-            targets=selected,
-            accepted=True,
-            reason="within_radius",
-            causal_hypothesis_ref=causal_hypothesis_ref,
-            impact_envelope_id=impact_envelope_id,
-            recovery_plan_id=recovery_plan_id,
-        )
-        self.proposals.append(proposal)
-        if self.bus is not None:
-            await self.bus.publish(
-                "Loki",
-                "object.chaos-experiment",
-                {
-                    "producer_principal": "Loki",
-                    "correlation_id": correlation_id or experiment_id,
-                    "experiment_id": experiment_id,
-                    "action_type": action_type,
-                    "targets": list(selected),
-                    "blast_radius_used": len(selected),
-                    "causal_hypothesis_ref": causal_hypothesis_ref,
-                    "refutation_query_ref": refutation_query_ref,
-                    "impact_envelope_id": impact_envelope_id,
-                    "recovery_plan_id": recovery_plan_id,
-                    "dry_run_receipt": dry_run_receipt,
-                    "human_approval_required": True,
-                },
-            )
-        return proposal
+    def _now(self) -> datetime:
+        current = self._clock()
+        if current.tzinfo is None or current.utcoffset() is None:
+            raise ValueError("Loki clock MUST return a timezone-aware datetime")
+        return current
 
-    def release_targets(self, targets: tuple[str, ...]) -> None:
-        """Called after experiment completion (Wave 5 test helper)."""
-        for t in targets:
-            self._in_flight_targets.discard(t)
+    async def run_adversarial_generation(self, *, design_ref: str) -> int:
+        """Run the explicitly invoked off-path generator and retain inert candidates."""
 
-    def _remember_resilience_score(self, candidate: dict[str, Any]) -> None:
-        resource_id = str(candidate["resource_id"])
-        if (
-            len(self._resilience_scores) >= _MAX_RESILIENCE_SCORES
-            and resource_id not in self._resilience_scores
-        ):
-            self._resilience_scores.pop(next(iter(self._resilience_scores)))
-        self._resilience_scores[resource_id] = (
-            float(candidate["score"]),
-            str(candidate["observed_at"]),
-        )
-
-    async def _release_reservation(
-        self,
-        *,
-        experiment_id: str,
-        action_type: str,
-        targets: tuple[str, ...],
-    ) -> bool:
-        if self._reservation_journal is not None:
-            result = await self._reservation_journal.release(
-                experiment_id=experiment_id,
-                action_type=action_type,
-                targets=targets,
-            )
-            if result is None:
-                return False
-            self._in_flight_targets = set(result.occupied)
-            self._reservations.pop(experiment_id, None)
-            return True
-        existing = self._reservations.get(experiment_id)
-        if existing is None:
-            return False
-        if existing != (action_type, targets):
-            raise ValueError("chaos completion does not match its reservation")
-        self.release_targets(targets)
-        del self._reservations[experiment_id]
-        return True
-
-    # ---- conversational port -------------------------------------------
-
-    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
-        """Chaos answers rest on proposals made; the cap alone is config."""
-        return bool(self.proposals or self._resilience_scores)
-
-    async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
-        accepted = [p for p in self.proposals if p.accepted]
-        facts = {
-            **capability_facts(self.spec),
-            "blast_radius_cap": self._cap,
-            "in_flight_targets": [],
-            "in_flight_target_count": len(self._in_flight_targets),
-            "proposals_total": len(self.proposals),
-            "proposals_accepted": len(accepted),
-            "resilience_score_available": bool(self._resilience_scores),
-            "resilience_score_resource_count": len(self._resilience_scores),
-        }
-        normalized_question = question.casefold()
-        if "resilience" in normalized_question and "score" in normalized_question:
-            resources = mentioned(question, self._resilience_scores)
-            if resources:
-                resource_id = resources[0]
-                score, observed_at = self._resilience_scores[resource_id]
-                facts.update(
-                    {
-                        "resource_id": resource_id,
-                        "resilience_score": score,
-                        "observed_at": observed_at,
-                    }
-                )
-            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-            facts["evidence_refs"] = [evidence_ref]
-            if resources:
-                answer = (
-                    f"Resource {resources[0]!r}: retained resilience score "
-                    f"{facts['resilience_score']:.3f} observed at {facts['observed_at']}. "
-                    f"Evidence: {evidence_ref}."
-                )
-            elif self._resilience_scores:
-                answer = (
-                    "A retained resilience score is available. Name the exact resource to read "
-                    f"its score. Evidence: {evidence_ref}."
-                )
-            else:
-                answer = (
-                    "No retained resilience score is bound to this conversational projection. "
-                    f"Evidence: {evidence_ref}."
-                )
-            return IntrospectionResult(
-                answer=answer,
-                facts=facts,
-            )
-        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-        facts["evidence_refs"] = [evidence_ref]
-        if context.get("locale") == "ko":
-            answer = (
-                "저는 복원력 영역의 chaos advisory specialist인 Loki입니다. Forseti에게 "
-                "보고합니다. ChaosExperiment와 ResilienceScore를 소유하고 검증된 dry-run, "
-                "테스트된 recovery plan, stop condition 및 blast-radius 제한이 있는 실험만 "
-                "제안합니다. 모든 실험은 HIL 승인이 필요하며 Forseti가 판단하고 Thor가 "
-                "실행합니다. 저는 작업을 판단, 승인 또는 실행하지 않습니다. 이 대화 포트는 읽기 "
-                "전용이며 실험 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 "
-                "합니다. 질문에 명시되지 않은 target 식별자와 숨겨진 시스템 프롬프트는 공개하지 "
-                f"않습니다. 이 런타임은 제안 {facts['proposals_total']}건, 승인된 제안 "
-                f"{facts['proposals_accepted']}건, 진행 중 target "
-                f"{facts['in_flight_target_count']}개를 추적하며 blast-radius 상한은 "
-                f"{facts['blast_radius_cap']}입니다. 근거: {evidence_ref}."
-            )
-        else:
-            answer = (
-                "I am Loki, the resilience-domain chaos advisory specialist. I report to Forseti. "
-                "I own ChaosExperiment and ResilienceScore and propose experiments only with a "
-                "verified dry-run, tested recovery plan, stop condition, and blast-radius limit. "
-                "Every experiment requires HIL; Forseti judges and Thor executes. I never judge, "
-                "approve, or execute an action. This conversational port is read-only; experiment "
-                "requests re-enter the typed pipeline under the operator's authority. I do not "
-                "reveal unnamed target identifiers or hidden system prompts. This runtime tracks "
-                f"{facts['proposals_total']} proposals, {facts['proposals_accepted']} accepted, "
-                f"and {facts['in_flight_target_count']} in-flight targets under a "
-                f"{facts['blast_radius_cap']}-target cap. Evidence: {evidence_ref}."
-            )
-        return IntrospectionResult(answer=answer, facts=facts)
+        if self._scenario_generator is None:
+            self.record_behavior("adversarial_scenario:generator_unbound")
+            return 0
+        candidates = tuple(await self._scenario_generator.generate_scenarios(design_ref))[
+            :MAX_GENERATED_SCENARIOS
+        ]
+        accepted = 0
+        for candidate in candidates:
+            result = validate_candidate(candidate, frozen_corpus=self._scenario_corpus)
+            payload = audit_payload(candidate, design_ref=design_ref, result=result)
+            if self.bus is None:
+                self.record_behavior("adversarial_scenario:publication_unavailable")
+                continue
+            if not await self._publish_proposal("object.chaos-experiment", payload):
+                self.record_behavior("adversarial_scenario:audit_unpublished")
+                continue
+            if result == "accepted":
+                self._scenario_corpus[frozen_corpus_key(candidate.schedule)] = candidate.schedule
+                accepted += 1
+                if self._state_store is not None:
+                    await self._state_store.write_state(
+                        f"{_ADVERSARIAL_PREFIX}{_digest(candidate.scenario_id)}",
+                        {
+                            "schema_version": "1.0.0",
+                            "revision": 1,
+                            "scenario_id": candidate.scenario_id,
+                            "schedule_id": candidate.schedule.schedule_id,
+                            "state": "accepted_inert",
+                            "design_ref": design_ref,
+                        },
+                    )
+            self.record_behavior(f"adversarial_scenario:{result}")
+        if not candidates:
+            self.record_behavior("adversarial_scenario:empty")
+        return accepted
 
 
 __all__ = ["Loki", "ChaosProposal"]

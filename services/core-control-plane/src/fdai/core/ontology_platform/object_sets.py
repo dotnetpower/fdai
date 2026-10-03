@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from decimal import Decimal
 from typing import Any, cast
 
 from fdai.shared.providers.ontology_instance import (
@@ -10,6 +11,7 @@ from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyInstanceStore,
     OntologyObjectRecord,
+    json_values_equal,
 )
 
 from .interfaces import CompiledInterfaceCatalog
@@ -348,11 +350,11 @@ def _matches_predicate(properties: Mapping[str, Any], predicate: ObjectPredicate
 
     value = properties[predicate.property]
     if predicate.operator is ObjectPredicateOperator.EQUALS:
-        return _values_equal(value, predicate.equals)
+        return json_values_equal(value, predicate.equals)
     if predicate.operator is ObjectPredicateOperator.NOT_EQUALS:
-        return not _values_equal(value, predicate.equals)
+        return not json_values_equal(value, predicate.equals)
     if predicate.operator is ObjectPredicateOperator.IN:
-        return any(_values_equal(value, candidate) for candidate in predicate.values)
+        return any(json_values_equal(value, candidate) for candidate in predicate.values)
     if predicate.operator is ObjectPredicateOperator.AT_LEAST:
         return _ordered_compare(value, predicate.equals, at_least=True)
     if predicate.operator is ObjectPredicateOperator.AT_MOST:
@@ -367,15 +369,11 @@ def _matches_predicate(properties: Mapping[str, Any], predicate: ObjectPredicate
     return _contains(value, predicate.equals)
 
 
-def _values_equal(left: Any, right: Any) -> bool:
-    if isinstance(left, bool) or isinstance(right, bool):
-        return isinstance(left, bool) and isinstance(right, bool) and left == right
-    return bool(left == right)
-
-
 def _ordered_compare(left: Any, right: Any, *, at_least: bool) -> bool:
     if isinstance(left, bool) or isinstance(right, bool):
         return False
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        left, right = Decimal(str(left)), Decimal(str(right))
     try:
         return bool(left >= right if at_least else left <= right)
     except TypeError:
@@ -387,6 +385,8 @@ def _contains(container: Any, member: Any) -> bool:
         container, (bytes, bytearray)
     ):
         return False
+    if isinstance(container, Sequence) and not isinstance(container, str):
+        return any(json_values_equal(value, member) for value in container)
     try:
         return member in container
     except TypeError:

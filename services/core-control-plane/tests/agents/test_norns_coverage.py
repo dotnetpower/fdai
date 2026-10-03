@@ -102,8 +102,16 @@ async def test_coverage_learner_does_not_interfere_with_fingerprint_learner() ->
     agg = ScenarioCoverageAggregator(index=build_from_entries([]), gap_threshold=2)
     norns = Norns(promotion_threshold=2, coverage_aggregator=agg)
     # Fingerprint stream drives the fingerprint learner.
-    for _ in range(2):
-        await norns.on_typed_message("object.issue", {"fingerprint": "fp-1"})
+    for index in range(2):
+        await norns.on_typed_message(
+            "object.issue",
+            {
+                "producer_principal": "Saga",
+                "fingerprint": "fp-1",
+                "correlation_id": f"fp-1-{index}",
+                "idempotency_key": f"fp-1-{index}",
+            },
+        )
     # Coverage stream drives the coverage learner.
     for i in range(2):
         norns.observe_incident_symptom(

@@ -1,8 +1,8 @@
 ---
 title: 모델 기능 수명 주기
 translation_of: model-capability-lifecycle.md
-translation_source_sha: bfd139796d019a2375c8c9dace92eb1fcd9c5a75
-translation_revised: 2026-09-12
+translation_source_sha: 6a0ce37165a99ed272f83591c48a55fbe6bd0db7
+translation_revised: 2026-10-02
 ---
 # 모델 기능 수명 주기
 
@@ -41,7 +41,8 @@ Azure API 관리(APIM)을 경유하는 Azure OpenAI, APIM을 경유하는 OpenAI
 
 APIM은 경로 및 거버넌스 경계이며 모델 발행기가 아닙니다. Mixed-model quality 게이트는
 게이트웨이 뒤의 발행기와 계열을 계속 비교합니다. 기본과 보조 기능은 같은 APIM
-hostname을 사용해도 별도 연결을 유지하며 same-publisher 쌍은 계속 잘못된입니다.
+hostname을 사용해도 별도 연결을 유지하며, 부트스트랩 불변 조건에 적힌 규제 설치용 예외(계획됨)가
+적용되지 않는 한 same-publisher 쌍은 계속 유효하지 않습니다.
 
 자체 호스팅 엔드포인트는 virtual 네트워크 검사 또는 `/v1/models`만 신뢰해 discover하지 않습니다.
 Publisher-keyed domain-separated Ed25519 등록
@@ -207,7 +208,10 @@ Core 애플리케이션 상태 검사를 건너뜁니다.
   배포는 `--assess-fail-on critical`로 차단하도록 선택할 수 있습니다.
 - 두 T2 reasoner가 명시적 `hil-only` 모드 밖에서 모두 해석되면
   `t2.reasoner.primary.publisher`와 `t2.reasoner.secondary.publisher`는 달라야 합니다.
-  Same-publisher 쌍은 hard 해석기 오류입니다.
+  Same-publisher 쌍은 hard 해석기 오류입니다. 계획된 예외는 규제 설치의 모델 다양성 정책이
+  `same-publisher-distinct-models`를 선택한 경우에만 적용됩니다. 이때 쌍은 별도 배포에서 서로 다른
+  모델 계열이나 버전을 사용해야 하며, 모든 T2 결정은 이 정책을 기록합니다
+  ([ADR-0003](decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)).
 - Resolved 매핑은 기능당 `{deployment, family, version, publisher}` 를 기록하여 감사
   로그가 어떤 케이스를 결정한 정확한 모델을 이름 지을 수 있음.
 

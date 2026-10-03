@@ -171,5 +171,24 @@ class InMemoryForecastEpisodeStore:
         self.dead_lettered.add(publication_id)
         self._outbox_leases.pop(publication_id, None)
 
+    async def enqueue_publication(
+        self,
+        item: ForecastPublicationOutboxItem,
+        *,
+        available_at: datetime,
+    ) -> bool:
+        del available_at
+        existing = self.outbox.get(item.publication_id)
+        if existing is not None:
+            if (
+                existing.episode_id != item.episode_id
+                or existing.topic != item.topic
+                or existing.payload != item.payload
+            ):
+                raise ValueError("forecast publication identity conflict")
+            return False
+        self.outbox[item.publication_id] = item
+        return True
+
 
 __all__ = ["InMemoryForecastEpisodeStore"]

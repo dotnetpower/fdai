@@ -252,3 +252,4 @@ never runs Terraform apply.
 | Rule assignment and evidence governance | [Rule Governance](rule-governance.md) |
 | Ontology authority boundary | [FDAI Operating Ontology](../architecture/operating-ontology.md) |
 | Read-only operator behavior | [FDAI Console Conversations](../interfaces/operator-console.md) |
+| Shared Workflow validation contracts | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |

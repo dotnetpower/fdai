@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
-import { t } from "../i18n";
+import { t } from "./i18n/investigation";
 import type {
   EvidenceBranch,
   EvidenceBranchStatus,
@@ -10,8 +10,23 @@ import type {
   ModelUsage,
   TurnTiming,
 } from "./backend";
+import type { ContextReceipt, TurnBudgetTelemetry, WorkProgressShape } from "./backend-types";
+import { ContextReceiptDisclosure, plannedWorkText, TurnBudgetLimits } from "./investigation-roles";
 import { formatJsonValue } from "./json-code-block";
 import { inventoryExecutionDisplay } from "./inventory-execution-display";
+
+/** How a read that never reported an end reads once its panel stops running. */
+type ReadInterruption = "stopped" | "not_completed";
+type ActivityDisplayStatus = InvestigationActivity["status"] | ReadInterruption;
+
+function activityDisplayStatus(
+  activity: InvestigationActivity,
+  interruption: ReadInterruption | undefined,
+): ActivityDisplayStatus {
+  return interruption && (activity.status === "pending" || activity.status === "running")
+    ? interruption
+    : activity.status;
+}
 
 export function upsertEvidenceBranch(
   branches: readonly EvidenceBranch[],
@@ -62,14 +77,15 @@ function canAdvanceActivity(
   return current !== "running" || incoming !== "pending";
 }
 
-function statusMark(status: InvestigationActivity["status"]): string {
+function statusMark(status: ActivityDisplayStatus): string {
   if (status === "completed") return "\u2713";
   if (status === "unavailable") return "!";
   if (status === "failed") return "\u00d7";
+  if (status === "stopped" || status === "not_completed") return "-";
   return "";
 }
 
-function statusLabel(status: InvestigationActivity["status"] | "partial"): string {
+function statusLabel(status: ActivityDisplayStatus | "partial"): string {
   return t(`deck.investigation.${status}`);
 }
 
@@ -278,7 +294,7 @@ function ExecutionEvidence({
   agent,
 }: {
   readonly evidence: InvestigationExecutionEvidence;
-  readonly status: InvestigationActivity["status"];
+  readonly status: ActivityDisplayStatus;
   readonly authority?: string;
   readonly agent?: string;
 }) {
@@ -474,8 +490,10 @@ function ExecutionEvidence({
 
 function ActivityObservation({
   activity,
+  status,
 }: {
   readonly activity: InvestigationActivity;
+  readonly status: ActivityDisplayStatus;
 }) {
   return (
     <section
@@ -499,7 +517,7 @@ function ActivityObservation({
           <dd>{t("deck.investigation.lifecycleEvent")}</dd>
         </div>
         <div><dt>{t("deck.investigation.stage")}</dt><dd><code>{activity.kind}</code></dd></div>
-        <div><dt>{t("deck.investigation.outcome")}</dt><dd>{statusLabel(activity.status)}</dd></div>
+        <div><dt>{t("deck.investigation.outcome")}</dt><dd>{statusLabel(status)}</dd></div>
         {activity.agent ? (
           <div><dt>{t("deck.trajectory.agent")}</dt><dd>{activity.agent}</dd></div>
         ) : null}
@@ -519,15 +537,18 @@ function ActivityObservation({
 
 function ActivitySummary({
   activity,
+  status,
 }: {
   readonly activity: InvestigationActivity;
+  readonly status: ActivityDisplayStatus;
 }) {
   const progress = activity.completed !== null && activity.total !== null
     ? `${activity.completed}/${activity.total}`
     : null;
+  const metaNamesStatus = activity.execution?.durationMs === undefined && progress === null;
   const meta = activity.execution?.durationMs !== undefined
     ? formatDuration(activity.execution.durationMs)
-    : progress ?? statusLabel(activity.status);
+    : progress ?? statusLabel(status);
   const inventoryDisplay = activity.execution?.inputKind === "query"
     ? inventoryExecutionDisplay(activity.execution.command)
     : undefined;
@@ -540,7 +561,7 @@ function ActivitySummary({
   return (
     <div class="deck-investigation-summary has-kind-badge">
       <span class="deck-investigation-state" aria-hidden="true">
-        <span class="deck-marker-glyph">{statusMark(activity.status)}</span>
+        <span class="deck-marker-glyph">{statusMark(status)}</span>
       </span>
       {activity.execution ? (
         <span
@@ -558,8 +579,9 @@ function ActivitySummary({
       <span class="deck-investigation-copy">
         <span class="deck-investigation-title-line">
           <strong>{activity.label}</strong>
-          {activity.status === "running" || activity.status === "pending" ? (
-            <em>{statusLabel(activity.status)}</em>
+          {status === "running" || status === "pending" ||
+            (status !== activity.status && !metaNamesStatus) ? (
+            <em>{statusLabel(status)}</em>
           ) : null}
         </span>
         {activity.detail ? <small>{activity.detail}</small> : null}
@@ -598,6 +620,11 @@ export function InvestigationTimeline({
   modelLatencyMs,
   modelUsage,
   turnTiming,
+  lead = false,
+  stopped = false,
+  plan,
+  turnBudget,
+  contextReceipts,
 }: {
   readonly activities: readonly InvestigationActivity[];
   readonly branches: readonly EvidenceBranch[];
@@ -608,6 +635,13 @@ export function InvestigationTimeline({
   readonly modelLatencyMs?: number;
   readonly modelUsage?: ModelUsage;
   readonly turnTiming?: TurnTiming;
+  /** The first panel of the flow carries the turn-wide plan, limits, and context receipt. */
+  readonly lead?: boolean;
+  /** The operator stopped the turn, so reads that never ended were stopped, not abandoned. */
+  readonly stopped?: boolean;
+  readonly plan?: WorkProgressShape;
+  readonly turnBudget?: TurnBudgetTelemetry;
+  readonly contextReceipts?: readonly ContextReceipt[];
 }) {
   const observedExecutionMs = terminalDuration(branches, activities);
   const finalDurationMs = turnTiming?.duration_ms ?? turnDurationMs ?? observedExecutionMs;
@@ -665,6 +699,19 @@ export function InvestigationTimeline({
         })]
       : []),
   ].join(" · ") || summary;
+  // Turn-wide facts appear once, on the lead panel. The budget is end-of-turn telemetry, so it
+  // replaces the turn's own timing summary only after the answer settles.
+  const planText = lead && plan ? plannedWorkText(plan) : undefined;
+  const limits = lead && answerSettled ? turnBudget : undefined;
+  const detailText = answerSettled && lead
+    ? limits ? undefined : telemetrySummary
+    : summary;
+  const interruption: ReadInterruption | undefined = running
+    ? undefined
+    : stopped ? "stopped" : "not_completed";
+  const receipts = lead && answerSettled && contextReceipts && contextReceipts.length > 0
+    ? contextReceipts
+    : undefined;
   const body = (
     <div class="deck-investigation-body">
       {visibleBranches.length > 0 ? (
@@ -747,28 +794,27 @@ export function InvestigationTimeline({
       ) : null}
       {activities.length > 0 ? (
         <ol class="deck-investigation-list">
-          {activities.map((activity, index) => (
-              <li
-                key={activity.activityId}
-                class={`deck-investigation-item is-${activity.status}`}
-              >
+          {activities.map((activity, index) => {
+            const status = activityDisplayStatus(activity, interruption);
+            return (
+              <li key={activity.activityId} class={`deck-investigation-item is-${status}`}>
                 <details
                   class="deck-investigation-item-disclosure"
-                  open={activity.status === "running" ||
-                    (running && index === activities.length - 1)}
+                  open={running && (activity.status === "running" || index === activities.length - 1)}
                 >
-                  <summary><ActivitySummary activity={activity} /></summary>
+                  <summary><ActivitySummary activity={activity} status={status} /></summary>
                   {activity.execution ? (
                     <ExecutionEvidence
                       evidence={activity.execution}
-                      status={activity.status}
+                      status={status}
                       {...(activity.agent ? { agent: activity.agent } : {})}
                       {...(activity.authority ? { authority: activity.authority } : {})}
                     />
-                  ) : <ActivityObservation activity={activity} />}
+                  ) : <ActivityObservation activity={activity} status={status} />}
                 </details>
               </li>
-          ))}
+            );
+          })}
         </ol>
       ) : null}
     </div>
@@ -793,41 +839,42 @@ export function InvestigationTimeline({
           })}
         </small>
       </span>
-      <span class="deck-investigation-session-summary muted">
-        {answerSettled ? telemetrySummary : summary}
-      </span>
+      <span class="deck-investigation-session-summary muted">{detailText}</span>
       <span class="deck-investigation-readonly cs-work-summary-safety">
         {t("deck.investigation.readOnly")}
       </span>
       <span class={`deck-investigation-badge cs-work-summary-badge is-${running ? "running" : tone}`}>
         {statusLabel(running ? "running" : tone)}
       </span>
+      {planText || limits ? (
+        <span class="deck-investigation-turn-facts">
+          {planText ? <span class="cs-deck-investigation-status">{planText}</span> : null}
+          {planText && limits ? " " : null}
+          {limits ? <TurnBudgetLimits budget={limits} /> : null}
+        </span>
+      ) : null}
     </>
   );
+  const headClass = `deck-investigation-head cs-work-summary${planText || limits ? " has-turn-facts" : ""}`;
 
   return (
     <>
-      {showStartNote && !answerSettled && startCopy ? (
-        <div class="deck-progress-note deck-progress-note-derived" role="status">
-          <span class="deck-progress-note-mark" aria-hidden="true">
-            <span class="deck-marker-glyph">01</span>
-          </span>
-          <div class="deck-progress-note-body">
-            <strong>{t("deck.investigation.startingWork")}</strong>
-            <p>{startCopy}</p>
-          </div>
-        </div>
+      {showStartNote && !answerSettled && !stopped && startCopy ? (
+        // One quiet lead line above the work, as the layer's plan line; never a card.
+        <p class="deck-start-note cs-deck-plan-lead" role="status">
+          <span class="cs-deck-plan-label">{t("deck.investigation.startingWork")}</span>{" "}
+          <span>{startCopy}</span>
+        </p>
       ) : null}
+      {receipts ? <ContextReceiptDisclosure receipts={receipts} /> : null}
       {answerSettled ? (
         <details
           key="answer-settled"
           class={`deck-investigation is-settled is-${tone} is-answer-settled`}
-          // A single observed read adds nothing the answer does not already state, but a
-          // multi-step investigation is the only place its per-step provenance is visible.
-          open={eventCount > 1}
+          open={tone !== "completed"}
           aria-label={t("deck.investigation.label")}
         >
-          <summary class="deck-investigation-head cs-work-summary">{head}</summary>
+          <summary class={headClass}>{head}</summary>
           {body}
         </details>
       ) : (
@@ -837,7 +884,7 @@ export function InvestigationTimeline({
           open={running}
           aria-label={t("deck.investigation.label")}
         >
-          <summary class="deck-investigation-head cs-work-summary">{head}</summary>
+          <summary class={headClass}>{head}</summary>
           {body}
           {running && allObservedEventsSettled ? <InvestigationNextSkeleton /> : null}
         </details>

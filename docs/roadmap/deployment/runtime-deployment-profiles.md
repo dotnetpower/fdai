@@ -3,7 +3,7 @@ title: Runtime Deployment Profiles
 ---
 # Runtime Deployment Profiles
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, the one-command source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI installations without changing application behavior or deployment
 authority. Azure Container Apps remains a supported compatibility profile for existing installations. The selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan.
@@ -31,7 +31,17 @@ The host's read-only `verify-source-runtime` command checks pinned source/runtim
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
 cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;
 missing source support never selects a kit implicitly. See the [source boundary](installable-deployment-cli.md#explicit-source-recovery).
-Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set.
+When a one-command source deployment reaches the standalone application sequence, the runtime
+profile does not change. The managed host receives a verified source transport archive instead of a
+signed kit archive, installs `fdaictl` from that snapshot, uses Terraform roots and migration
+support from the snapshot, and resolves providers directly from public registries under the
+committed lock files. Image references still enter the runtime profile only as read-back digests
+after the deployment registry build stage completes.
+Host preparation runs exactly one host subcommand: `prepare --kit` for a signed kit and
+`prepare-source` for a source snapshot. A focused test parses the command the coordinator sends with
+the host's own parser in both modes, because a rejected command fails before the host records any
+reason.
+Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set. Runtime Dockerfile Alpine package pin updates are package maintenance only and do not change profiles, authority, provider access, or add-ons.
 
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,
@@ -47,6 +57,13 @@ Residual apply ambiguity is verification-only; it cannot create another residual
 still requires authoritative effect readback and a zero-change plan. Any present or symbolic-link
 claim path blocks ordinary replanning until validated recovery; malformed retained claims fail
 closed.
+
+Before a runtime plan, apply, residual review, or residual apply can proceed, the managed host
+reads back AKS agent pools with its deployment Managed Identity. If the `runtime` user pool already
+exists in Azure but the `azurerm_kubernetes_cluster_node_pool.user` address is absent from
+Terraform state, the run stops before any effect with `aks_node_pool_exists_outside_state`.
+The message names the pool and explains that removal requires explicit Owner confirmation. The
+coordinator does not delete or import that pool automatically.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|
@@ -113,6 +130,8 @@ edge: the Operator API is routed at the APIM origin root, and Document Ingestion
 `/ingestion`. The Kubernetes Services listen on port 80 and forward to the existing container port.
 The workload state owns APIM because its backend addresses come from those Services. The shared
 substrate does not create Azure Front Door for this path.
+APIM tags derive from the stable workload labels under Azure-safe names. For example,
+`fdai.io/source-commit` becomes `fdai:source-commit`, because Azure tag names reject `/`.
 
 APIM does not replace Microsoft Entra authentication. The APIs continue to validate token issuer,
 audience, lifetime, and App Roles. Cross-origin resource sharing (CORS) accepts only the exact
@@ -138,7 +157,15 @@ Static readback hashes only files that Static Web Apps serves; host-consumed con
 | AKS user nodes with `postgres-aks` | At least 4. | 4 for non-production compact use |
 | System node SKU | At least 4 vCPUs and 4 GB memory; available in the selected region and subscription. | `Standard_D4as_v5` |
 | User node SKU | Region and subscription must report it available. | `Standard_D4as_v5` |
+| PostgreSQL Flexible Server SKU (`--database-sku`) | `postgres-flex` only. One of `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, or `GP_Standard_D4ds_v5`. | Unset keeps `B_Standard_B1ms`; a General Purpose size such as `GP_Standard_D2ds_v5` for AKS |
 | Availability zones | Every requested zone must exist for both selected SKUs. | Three zones in production |
+
+The database size enters the runtime profile only when it is selected, so an unset size keeps the
+existing profile mapping, digest, and day-zero server. A Burstable server runs at a fraction of
+one vCore after it spends its CPU credits. A development AKS installation with every baseline
+service and the per-minute inventory and analyzer Jobs spent a `B_Standard_B1ms` server's credits
+within about an hour, and every service then failed on PostgreSQL timeouts. The compute cost
+review still excludes the database, so a larger size remains an explicit operator cost choice.
 
 The node-count floor proves only that the profile is structurally supported. Production planning
 also evaluates the declared workload envelope after AKS reservations and per-node DaemonSet
@@ -200,6 +227,15 @@ CronJob, preserves the `inventory-job` ServiceAccount and digest-pinned Core ima
 the initial-run progress identity. Success additionally requires a separate PostgreSQL closure
 read proving complete provider coverage, final fence, closed overlay, complete child sources, and
 the exact active generation. A retained claim with no Job or closure never starts another Job.
+The Job records progress only in PostgreSQL, because the `provisioning-events` container is
+private to the managed host. The host-side closure, running under the deploy identity, completes
+the progress chain there.
+The live CronJob must match the protected template digest. Before comparing, the projection drops
+five Kubernetes defaults that the API server or provider can write explicitly, and only while
+they hold the default: `privileged: false`, `readOnlyRootFilesystem: false`, key-reference
+`optional: false`, `mountPropagation: None`, an empty CSI `fsType`, and an empty environment
+`value` without `valueFrom`. Any other value still
+differs from the reviewed template.
 
 The isolated exact-revision inventory-network certification is not a deployment inventory run. It
 may promote a requested-resource-type snapshot only into its task-owned sandbox store so that the
@@ -238,7 +274,9 @@ modules are explicit substrate targets because they are dependents of document s
 implicit dependencies of the storage module. When either focused axis is selected, a separately
 approved `access` plan first converges only the selected endpoints, DNS links, peering and deployer
 data roles. Read-only Key Vault and ADLS probes must then succeed before the ordinary substrate plan
-can create secrets, filesystems, or paths. An ambiguous access apply follows the same
+can create secrets, filesystems, or paths. A retained context may tighten either selector from
+`false` to `true` after partial-substrate readback proves the private posture; loosening `true` to
+`false` is rejected as a context mismatch. An ambiguous access apply follows the same
 verification-first and bounded residual rules as every other stage.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
@@ -281,7 +319,7 @@ installation cannot switch platforms by changing one variable.
 
 The shared platform continues to own Event Hubs, Key Vault, Azure Container Registry, monitoring,
 workload identities, case-history storage, and `postgres-flex`. Foundation delegates subscription role assignment only for Reader, Monitoring Reader, and Cost Management Reader roles to service principals;
-matching Terraform resources set `principal_type = "ServicePrincipal"` so the provider request satisfies that condition without widening the delegated role set. Case-history content defaults its active, deletion-due,
+matching Terraform resources set `principal_type = "ServicePrincipal"` so the provider request satisfies that condition without widening the delegated role set. Every role assignment to a managed identity that the same apply creates sets `principal_type = "ServicePrincipal"` as well, so Azure accepts it while Entra ID still replicates the new identity; the deploy principal stays untyped because the public dev path supplies a user, and `test_role_assignment_principal_type.py` enforces the rule. Case-history content defaults its active, deletion-due,
 superseded-version, and change-feed periods to 30 days; operational-history and decision-evidence metadata keep their separate schedules. The AKS substrate state owns only the
 cluster, node pools, cluster identity, networking attachment, and cluster-scoped Azure role
 assignments.
@@ -350,6 +388,10 @@ Both renderers bind Core to the `fdai.operating-model` logical topic through
 managed-identity transport; it is not another Event Hub entity or authority channel. The AKS
 standalone renderer obtains the value from the exact substrate output, while the independent and
 legacy Container Apps renderers receive the same typed deployment input.
+Core consumes that topic, and publishes read-investigation stage activity, through the primary
+transport even when an isolated auxiliary transport is configured. The auxiliary operations
+namespace carries only raw inventory, canary, startup-probe, and executor traffic and has no entity
+for either topic.
 
 The AKS standalone renderer always binds Core semantic request, projection, physical and read-investigation topics,
 so a disabled model returns a typed hold instead of leaving a request pending. With model support,
@@ -372,13 +414,14 @@ contract; making the whole root filesystem writable is not a compatibility fallb
 The five-service AKS baseline enables lexical document retrieval without requiring an embedding
 deployment. Document API and Worker use distinct workload identities, role-scoped database DSNs,
 the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod includes the existing
-digest-pinned ClamAV image as a replica-local TCP sidecar. Its root remains read-only and only the
-declared database, run and temporary paths receive size-limited `emptyDir` volumes. The restricted namespace requires `runAsNonRoot` at both Pod and container scope for workloads, init containers, sidecars, and scheduled jobs; a Pod-level setting alone does not satisfy admission.
+digest-pinned ClamAV image as a replica-local TCP sidecar that starts `clamd` directly, because the image entrypoint changes database ownership and exits without root. Its root remains read-only and only the
+declared database, log, run and temporary paths receive size-limited `emptyDir` volumes. The restricted namespace requires `runAsNonRoot` at both Pod and container scope for workloads, init containers, sidecars, and scheduled jobs; a Pod-level setting alone does not satisfy admission. Core receives the shared-root Event Hubs startup timings, and Core and Operator read the `operator_request` receipt seeds through per-secret `Key Vault Secrets User` grants that the substrate stage creates. The renderer takes each seed's secret name from the versionless Key Vault resource ID that the shared root outputs. A structural test requires every Key Vault secret the AKS renderer names to come from a substrate-targeted resource, the `postgres-aks` database root, or the host-written license secret.
 
-The optional operational evidence verifier is a separate internal workload with its own user-assigned
-Managed Identity. It is not part of the baseline five-service readiness set, receives no executor
-identity, and starts only after its caller authenticator, executor-class anchor preflight, proof-store
-writer readback, and Azure own-role readback pass.
+The optional operational evidence verifier renders as a separate internal workload with its own user-assigned
+Managed Identity only when deployment-owned pins, anchors, caller-token validation, writer policy, and role-readback scopes are present.
+It is not part of the baseline five-service readiness set, receives no executor identity, and the root grants only image pull plus exact DSN-secret read.
+When `operational-test-observation` is configured, the same dedicated identity also receives `Monitoring Reader` on the deployment resource group so Azure Monitor reads happen under the verifier identity.
+Startup still waits for the caller authenticator, executor-class anchor preflight, proof-store writer readback, and Azure own-role readback.
 
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active deadline,
 a retry limit, and bounded history. Manual jobs require a separate approval and are not perpetual desired-state resources.
@@ -545,7 +588,13 @@ subscription and SKU support host encryption before deployment. The read-only pr
 the regional catalog once and uses an exact-name Azure CLI projection so only the distinct selected
 SKUs are serialized, then checks their regional restrictions, three required zones, architecture,
 host encryption, and family plus total quota. It does not issue a second catalog request for a
-different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
+different node-pool SKU or retry a failed provider read. A `postgres-flex` profile also reads the
+regional PostgreSQL Flexible Server catalog once and blocks unless it offers PostgreSQL 16. A
+subscription that is restricted from a region gets an empty version list instead of an error, so
+the preflight reports `postgres_flex_region_restricted`. Missing or malformed evidence blocks as
+well. The signed offline package runs this preflight before the first Azure change of a new AKS
+installation. A resumed installation skips it, so the installation's own nodes don't count against
+its quota. Unsupported targets do not disable
 encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. The association reconstructs the exact cluster Resource ID from the authenticated subscription and reviewed deployment inputs instead of depending on the managed cluster resource, so a monitoring-only plan cannot admit unrelated cluster drift. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable. Application telemetry uses the Python Azure Monitor OpenTelemetry Distro in Core. The shared substrate stores the workspace-based Application Insights connection string as a Key Vault secret, grants only the Core workload identity read access to that secret, and exposes only the secret name to the separately stateful AKS renderer. Key Vault CSI injects the value as `APPLICATIONINSIGHTS_CONNECTION_STRING`. Core selects this exporter only when the secret is present and rejects simultaneous `OTEL_EXPORTER_OTLP_ENDPOINT` configuration instead of duplicating telemetry. Local and explicit vendor-neutral OTLP profiles keep their existing exporters when the Application Insights secret is absent. The AKS workload readback verifies that each deployed container declares exactly the secret-backed environment bindings its retained workload contract requires, so an out-of-band edit that drops or adds one - including `APPLICATIONINSIGHTS_CONNECTION_STRING` - fails closed instead of reporting a healthy rollout. That readback reads Deployment and Pod observations from either the typed collection returned by `kubectl get --raw` or the generic `v1.List` returned by `kubectl get --output json`, accepting the generic envelope only when every item declares the expected singular kind. A running container's image identity is proven by the exact `imageID` digest, because container runtimes may report a local config digest in the sibling `image` field. Repository-wide CI mirrors `azure-monitor-opentelemetry` in the root `dev` extra only so root test collection can import the Core-owned telemetry adapter. The Core service manifest remains the runtime dependency owner, and the repository root remains non-installable.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
@@ -592,6 +641,14 @@ read by workloads through managed CSI. Client traffic requires TLS with a state-
 The minimum four user nodes make this profile schedulable
 but do not claim database high availability, backup, or point-in-time recovery.
 
+The in-cluster database stage writes the shared state-store DSN plus the role-scoped
+`fdai-ingestion-api-dsn` and `fdai-ingestion-worker-dsn` secrets that AKS document ingestion reads.
+Each ingestion secret grants `Key Vault Secrets User` only to the matching workload identity. The
+substrate plan still leaves out the Flexible Server-backed ingestion DSN secrets and their reader
+roles when `postgres-aks` is selected. Terraform `-target` keeps every configuration dependency of a
+target, even at count 0, so including those root secrets would otherwise plan the Flexible Server
+through `module.state_store`.
+
 The Key Vault DSN has no independent fixed expiration. Credential rotation requires coordinated
 database and workload updates; expiring only the secret would interrupt access without rotating
 the database credential. This resource-local exception does not claim automated rotation evidence.
@@ -619,15 +676,7 @@ Operator returns the prior page envelope, and new Operators compute the ledger-w
 for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit
 its scan cost.
 
-On AKS, the substrate root's `terraform_data.installation` anchor keeps the installation identifier
-and first-apply time in Terraform state, so no rerun or upgrade changes them. The application stage
-gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application
-apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial
-writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a
-retained window unchanged, so a keyless installation keeps the 30-day window that started at its
-first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)).
-The deployment receipt reports `license_mode=trial` only while that read-back window is open under
-a trusted clock.
+On AKS, the substrate-targeted `terraform_data.installation` anchor keeps the installation identifier and first-apply time in Terraform state, so no rerun or upgrade changes them. The runtime stage applies the Container Insights association only after `azurerm_kubernetes_cluster.runtime` exists in state: the first fresh-cluster review targets every runtime resource except that association, then a second ordinary full-root runtime review creates the association. Each ordinary review names its managed-host `operation`: `runtime-cluster` or `runtime` here, and otherwise the stage or the bound service update. The controller approves a review only when that operation matches its stage. The Terraform configuration still rebuilds the association target ID instead of depending on the cluster resource, because monitoring-only targeted plans must not pull managed-cluster drift into scope. The application stage gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a retained window unchanged, so a keyless installation keeps the 30-day window that started at its first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)). The deployment receipt reports `license_mode=trial` only while that read-back window is open under a trusted clock.
 
 When the deploying operator holds the upstream integrity signing key, the deployment binding step
 also returns the installation binding. The capability stage then issues a no-expiry installation

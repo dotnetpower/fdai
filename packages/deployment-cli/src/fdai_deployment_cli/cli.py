@@ -42,6 +42,7 @@ from fdai_deployment_cli.console_update import (
 )
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.deployment_progress import DeploymentProgress
+from fdai_deployment_cli.execution_copies import execution_copy_scope
 from fdai_deployment_cli.doctor import (
     azure_active_target_binding,
     azure_cli_authenticated,
@@ -68,6 +69,7 @@ from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.source_azure import plan_source_installation
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
+from fdai_deployment_cli.source_teardown import AzureResourceGroupClient, apply_source_teardown
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
 from fdai_deployment_cli.status_projection import project_status
@@ -203,11 +205,14 @@ def _provision_azure(args: argparse.Namespace) -> int:
         user_node_sku=args.user_node_sku,
         product_add_ons=tuple(args.product_add_ons),
         observation_data_sources=tuple(args.observation_data_sources),
+        database_sku=args.database_sku,
     )
     if catalog_review_profile.selected and args.runtime != "aks":
         raise ValueError("selected catalog review profile requires --runtime aks")
-    if (args.prepare_only or args.preflight_only) and args.source is None:
-        raise ValueError("source-only preparation or preflight requires --source")
+    if (args.prepare_only or args.preflight_only or args.teardown) and args.source is None:
+        raise ValueError("source-only preparation, preflight, or teardown requires --source")
+    if args.teardown_confirmation is not None and not args.teardown:
+        raise ValueError("--teardown-confirmation requires --teardown")
     if re.fullmatch(r"[a-z][a-z0-9]{1,11}", args.foundation_workload) is None:
         raise ValueError(
             "--foundation-workload must be a lowercase token of 2 through 12 characters"
@@ -215,13 +220,17 @@ def _provision_azure(args: argparse.Namespace) -> int:
     if args.foundation_workload != "fdai" and args.source is None:
         raise ValueError("--foundation-workload is supported only for source deployment")
     if args.foundation_recovery_directory is not None and (
-        args.source is None or args.work_dir is None or args.prepare_only or args.preflight_only
+        args.source is None
+        or args.work_dir is None
+        or args.prepare_only
+        or args.preflight_only
+        or args.teardown
     ):
         raise ValueError(
             "Foundation recovery requires --source and the original --work-dir without preparation or preflight"
         )
     if args.approval_file is not None and (
-        args.source is None or args.prepare_only or args.preflight_only
+        args.source is None or args.prepare_only or args.preflight_only or args.teardown
     ):
         raise ValueError("--approval-file requires source deployment, not preparation or preflight")
     initial_options_requested = (
@@ -234,6 +243,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         args.source is None
         or args.prepare_only
         or args.preflight_only
+        or args.teardown
         or args.approval_file is not None
         or args.foundation_recovery_directory is not None
     ):
@@ -285,6 +295,24 @@ def _provision_azure(args: argparse.Namespace) -> int:
             or any(path is not None for path in foundation_adoption_paths)
         ):
             raise ValueError("source deployment cannot reuse kit URLs or adoption inputs")
+        if args.teardown:
+            result = apply_source_teardown(
+                work_dir=work_dir,
+                runtime_profile=runtime_profile,
+                region=args.region,
+                monthly_cost_ceiling=args.monthly_cost_ceiling,
+                confirmation=args.teardown_confirmation,
+                client=AzureResourceGroupClient(),
+            )
+            _print_mapping(
+                result,
+                output=args.output,
+                text=(
+                    f"source teardown: {result['state']}; "
+                    f"reason={result.get('reason_code', 'complete')}"
+                ),
+            )
+            return 0 if result["state"] == "torn-down" else 3
         if not args.prepare_only and not args.preflight_only:
             result = plan_source_installation(
                 source_root=args.source,
@@ -350,7 +378,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         return value if value is None or value.is_absolute() else Path.cwd() / value
 
     mode = args.progress if args.output == "text" else "off"
-    with DeploymentProgress(mode=mode) as progress:
+    with DeploymentProgress(mode=mode) as progress, execution_copy_scope():
         result = deploy_azure_foundation(
             work_dir=work_dir,
             online=args.online,

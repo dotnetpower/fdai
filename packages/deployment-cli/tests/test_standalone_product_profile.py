@@ -124,3 +124,26 @@ def test_each_data_source_derives_only_its_own_read_role(
 
     assert values[selected_key] is True
     assert all(values[key] is False for key in role_keys - {selected_key})
+
+
+def test_database_sku_reaches_the_substrate_only_when_selected() -> None:
+    def no_guid(*_args: object) -> str:
+        raise AssertionError("default profile read enterprise identity")
+
+    default = product_terraform_values(
+        RuntimeDeploymentProfile.create(runtime_platform="aks", database_placement="postgres-flex"),
+        {},
+        require_guid=no_guid,
+    )
+    selected = product_terraform_values(
+        RuntimeDeploymentProfile.create(
+            runtime_platform="aks",
+            database_placement="postgres-flex",
+            database_sku="GP_Standard_D2ds_v5",
+        ),
+        {},
+        require_guid=no_guid,
+    )
+
+    assert "postgres_sku_name" not in default
+    assert selected["postgres_sku_name"] == "GP_Standard_D2ds_v5"

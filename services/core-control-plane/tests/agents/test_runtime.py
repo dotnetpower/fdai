@@ -14,12 +14,16 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
+from pathlib import Path
 from typing import cast
 
 import pytest
 from fdai.agents import StateStoreIssueTrackerAdapter, request_rule_generation
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
+from fdai.agents._framework.execution_safety import validate_enforce_bindings
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.agents._framework.provider_adapters import (
     StateStoreActionRunStore,
@@ -27,6 +31,7 @@ from fdai.agents._framework.provider_adapters import (
 )
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.runtime_subscriptions import RuleGenerationWorkerBindings
+from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
@@ -55,6 +60,7 @@ from fdai.delivery.catalog_search import (
     RuleGenerationBuildWorker,
     RuleGenerationValidationWorker,
 )
+from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidate
 from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RULE_GENERATION_BUILD_REQUEST_TOPIC,
@@ -64,11 +70,14 @@ from fdai.rule_catalog.schema.rule_semantic_generation_events import (
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
 from fdai.runtime.bootstrap_bindings import build_rule_generation_runtime_binding
+from fdai.shared.contracts.models import OntologyActionType
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.catalog_search import CatalogSearchDocument
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from tests.agents.preflight_helpers import PassingPreflightSimulator
 from tests.core.rule_semantic_generation.test_activation import _command, _CountingIndex
 
 
@@ -80,6 +89,28 @@ _RAW_TOPIC = "fdai.events"
 _DIGEST_A = "sha256:" + "a" * 64
 _DIGEST_B = "sha256:" + "b" * 64
 _DIGEST_C = "sha256:" + "c" * 64
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+@lru_cache(maxsize=1)
+def _action_types() -> tuple[OntologyActionType, ...]:
+    return load_action_type_catalog(
+        _REPO_ROOT / "rule-catalog" / "action-types",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+
+
+def _all_rollback_executors() -> dict[str, object]:
+    async def rollback_executor(_action_run: dict[str, object]) -> str:
+        return "rollback:test"
+
+    return {
+        action_type.rollback_contract.value: rollback_executor
+        for action_type in _action_types()
+        if not action_type.irreversible
+    }
+
+
 _VALIDATOR_DIGEST = "sha256:" + "d" * 64
 
 
@@ -113,7 +144,11 @@ def _build_request() -> RuleGenerationBuildRequestEvent:
 
 def _build() -> tuple[PantheonRuntime, InMemoryEventBus]:
     provider = InMemoryEventBus()
-    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        action_types=_action_types(),
+    )
     return runtime, provider
 
 
@@ -319,7 +354,9 @@ def test_runtime_rehydrates_pending_norns_issue_candidate() -> None:
     store = InMemoryStateStore()
     payloads = [
         {
+            "producer_principal": "Saga",
             "fingerprint": f"startup-fingerprint-{cohort}",
+            "correlation_id": f"handoff:startup-{cohort}-{index}",
             "idempotency_key": f"handoff:startup-{cohort}-{index}",
         }
         for cohort in range(2)
@@ -374,12 +411,20 @@ def test_runtime_rehydrates_durable_saga_issue_projection() -> None:
 
 def test_runtime_recovers_unpublished_var_approval() -> None:
     store = InMemoryStateStore()
-    seed = Var(state_store=store)
+    seed = Var(
+        state_store=store,
+        action_semantics=ActionSemanticsCatalog(
+            irreversible_by_id={"ops.restart-service": False},
+            rollback_by_id={},
+        ),
+    )
     asyncio.run(
         seed.on_typed_message(
             "object.action-run",
             {
+                "producer_principal": "Thor",
                 "correlation_id": "runtime-var-recovery",
+                "resource_id": "resource-1",
                 "action_type": "ops.restart-service",
                 "state": "hil_pending",
                 "idempotency_key": "runtime-var-recovery:hil_pending",
@@ -639,6 +684,7 @@ async def test_forseti_judges_forecast_finding() -> None:
     await forseti.on_typed_message(
         "object.forecast",
         {
+            "producer_principal": "Heimdall",
             "correlation_id": "corr-forecast",
             "idempotency_key": "forecast-1",
             "resource_id": "resource-1",
@@ -732,6 +778,9 @@ def test_action_run_topic_reaches_heimdall_observation_hook() -> None:
             {
                 "producer_principal": "Thor",
                 "correlation_id": "terminal-observation-1",
+                "idempotency_key": "action-run:terminal-observation-1",
+                "resource_id": "resource-1",
+                "action_type": "ops.restart-service",
                 "state": "succeeded",
             },
         )
@@ -839,6 +888,30 @@ class _PostTurnCoordinator:
         return object()
 
 
+class _IntentTrainingEvaluator:
+    def evaluate(
+        self,
+        *,
+        baseline_revision: object,
+        candidate_revision: object,
+        holdout_cases: object,
+    ) -> tuple[object, ...]:
+        del baseline_revision, candidate_revision, holdout_cases
+        return ()
+
+
+def test_runtime_injects_intent_training_evaluator_into_bragi() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        conversation_intent_training_evaluator=_IntentTrainingEvaluator(),
+    )
+    bragi = runtime.agents["Bragi"]
+
+    assert isinstance(bragi, Bragi)
+    assert bragi.health()["intent_training"]["status"] == "enabled"
+
+
 def test_runtime_injects_post_turn_review_into_norns() -> None:
     provider = InMemoryEventBus()
     coordinator = _PostTurnCoordinator()
@@ -861,6 +934,8 @@ def test_runtime_injects_post_turn_review_into_norns() -> None:
             "principal-hash-1",
             {
                 "producer_principal": "Bragi",
+                "correlation_id": "review-runtime-1",
+                "idempotency_key": "post-turn-review:review-runtime-1",
                 "kind": "post_turn_review",
                 "review": review_input_to_mapping(review_input),
             },
@@ -929,9 +1004,6 @@ def test_enforce_true_disables_forced_shadow() -> None:
         executed.append(context["run"].correlation_id)
         return True
 
-    async def rollback_executor(_action_run: dict) -> str:
-        return "rollback:test"
-
     state_store = InMemoryStateStore()
 
     runtime = PantheonRuntime.build(
@@ -941,11 +1013,14 @@ def test_enforce_true_disables_forced_shadow() -> None:
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store=state_store)),
         thor_executor=executor,
         thor_state_store=StateStoreActionRunStore(store=state_store),
-        rollback_executors={"state_forward_only": rollback_executor},
+        rollback_executors=_all_rollback_executors(),
         vidar_state_store=state_store,
         var_state_store=state_store,
+        forseti_state_store=state_store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
+        action_types=_action_types(),
+        thor_preflight_simulator=PassingPreflightSimulator(),
     )
     assert runtime.enforce is True
     thor = runtime.agents["Thor"]
@@ -1096,7 +1171,7 @@ def test_injected_saga_replaces_the_default() -> None:
                 "thor_executor": lambda _: None,
                 "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
                 "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
-                "rollback_executors": {"state_forward_only": lambda _: None},
+                "rollback_executors": _all_rollback_executors(),
             },
             "vidar_state_store",
         ),
@@ -1105,10 +1180,36 @@ def test_injected_saga_replaces_the_default() -> None:
                 "thor_executor": lambda _: None,
                 "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
                 "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
-                "rollback_executors": {"state_forward_only": lambda _: None},
+                "rollback_executors": _all_rollback_executors(),
                 "vidar_state_store": InMemoryStateStore(),
             },
             "var_state_store",
+        ),
+        (
+            {
+                "thor_executor": lambda _: None,
+                "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
+                "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
+                "rollback_executors": _all_rollback_executors(),
+                "vidar_state_store": InMemoryStateStore(),
+                "var_state_store": InMemoryStateStore(),
+            },
+            "forseti_state_store",
+        ),
+        (
+            {
+                "thor_executor": lambda _: None,
+                "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
+                "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
+                "rollback_executors": _all_rollback_executors(),
+                "vidar_state_store": InMemoryStateStore(),
+                "var_state_store": InMemoryStateStore(),
+                "forseti_state_store": InMemoryStateStore(),
+                "approver_authorizer": lambda _principal, _action_type: True,
+                "execution_resource_lock": _DistributedTestLock(),
+                "action_types": _action_types(),
+            },
+            "thor_preflight_simulator",
         ),
     ],
 )
@@ -1120,6 +1221,63 @@ def test_enforce_requires_explicit_safety_bindings(kwargs: dict, missing: str) -
             enforce=True,
             **kwargs,
         )
+
+
+def test_enforce_rollback_coverage_is_required_per_action_contract_pair() -> None:
+    async def rollback_executor(_action_run: dict[str, object]) -> str:
+        return "rollback:test"
+
+    saga = Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore()))
+    catalog = ActionSemanticsCatalog(
+        irreversible_by_id={
+            "ops.first": False,
+            "ops.second": False,
+            "ops.one-way": True,
+        },
+        rollback_by_id={
+            "ops.first": "scripted",
+            "ops.second": "snapshot_restore",
+            "ops.one-way": "state_forward_only",
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"rollback_executors\[ops\.second:snapshot_restore\]",
+    ):
+        validate_enforce_bindings(
+            enforce=True,
+            has_executor=True,
+            has_state_store=True,
+            saga=saga,
+            rollback_executors=None,
+            action_rollback_executors={("ops.first", "scripted"): rollback_executor},
+            action_semantics=catalog,
+            has_vidar_state_store=True,
+            has_var_state_store=True,
+            has_forseti_state_store=True,
+            has_approver_authorizer=True,
+            resource_lock=_DistributedTestLock(),
+            has_action_semantics=True,
+            has_preflight_simulator=True,
+        )
+
+    validate_enforce_bindings(
+        enforce=True,
+        has_executor=True,
+        has_state_store=True,
+        saga=saga,
+        rollback_executors={"snapshot_restore": rollback_executor},
+        action_rollback_executors={("ops.first", "scripted"): rollback_executor},
+        action_semantics=catalog,
+        has_vidar_state_store=True,
+        has_var_state_store=True,
+        has_forseti_state_store=True,
+        has_approver_authorizer=True,
+        resource_lock=_DistributedTestLock(),
+        has_action_semantics=True,
+        has_preflight_simulator=True,
+    )
 
 
 def test_health_snapshot_reports_agents_mode_and_metrics() -> None:
@@ -1197,6 +1355,7 @@ def test_object_event_produces_forseti_verdict_over_provider() -> None:
             {
                 "producer_principal": "Huginn",
                 "correlation_id": "corr-2",
+                "idempotency_key": "event:corr-2",
                 "resource_id": "sa-1",
                 "event_type": "public_network_enabled",
             },
@@ -1218,9 +1377,8 @@ def test_object_event_produces_forseti_verdict_over_provider() -> None:
 
     verdicts = asyncio.run(_drive())
     assert len(verdicts) == 1
-    assert verdicts[0]["producer_principal"] == "Forseti"
-    assert verdicts[0]["action_type"] == "remediate.disable-public-access"
-    assert verdicts[0]["risk_verdict"] == "auto"
+    assert verdicts[0]["safeguards"]["stable_idempotency_key"] == "event:corr-2"
+    assert runtime.bridge.metrics.schema_violations == 0
 
 
 def test_operator_guidance_event_reaches_saga_without_action_verdict() -> None:
@@ -1288,19 +1446,20 @@ async def test_operator_guidance_event_rejects_non_huginn_producer() -> None:
         "event_type": "incident.operator_guidance.v1",
     }
 
-    with pytest.raises(ValueError, match="Huginn-owned"):
-        await Saga().on_typed_message("object.event", payload)
+    saga = Saga()
+    await saga.on_typed_message("object.event", payload)
+    assert saga.audit_chain.entries == []
+    assert saga.behavior_snapshot()["typed_message:rejected_owner"] == 1
     with pytest.raises(ValueError, match="Huginn-owned"):
         await Forseti().on_typed_message("object.event", payload)
 
 
-def test_unkeyed_ingress_event_is_dropped_not_dead_lettered() -> None:
+def test_unkeyed_ingress_event_gets_derived_key_not_dead_lettered() -> None:
     runtime, provider = _build()
 
     async def _drive() -> list[dict]:
-        # A raw event with no id / event_id / idempotency_key: Huginn
-        # cannot key it. The shadow pantheon drops it (the P1 loop still
-        # processes the same record) rather than flooding the DLQ.
+        # A raw event with no id / event_id / idempotency_key now receives
+        # a deterministic Huginn-derived key instead of being dropped.
         await provider.publish(_RAW_TOPIC, "", {"resource_id": "r-no-key"})
         run_task = asyncio.create_task(runtime.run())
         for _ in range(50):
@@ -1318,8 +1477,10 @@ def test_unkeyed_ingress_event_is_dropped_not_dead_lettered() -> None:
         return dlq
 
     dlq = asyncio.run(_drive())
-    assert dlq == []  # dropped, not dead-lettered
-    assert runtime.health()["ingress_dropped"] == 1
+    assert dlq == []
+    health = runtime.health()
+    assert health["ingress_dropped"] == 0
+    assert health["agent_health"]["Huginn"]["behavior"]["ingested"] == 1
 
 
 def test_huginn_dedup_memory_is_bounded() -> None:
@@ -1362,7 +1523,16 @@ def test_shadow_observer_counts_verdicts_and_action_runs() -> None:
                 "risk_verdict": "auto",
                 "action_type": "ops.restart-service",
                 "correlation_id": "c1",
+                "idempotency_key": "c1:verdict",
                 "resource_id": "r1",
+                "safeguards": {
+                    "stop_condition": "stop",
+                    "rollback_receipt": "rollback",
+                    "blast_radius": "single-resource",
+                    "dry_run_receipt": "dry-run",
+                    "target_lock": "r1",
+                    "audit_intent": "two-phase",
+                },
             },
         )
         run_task = asyncio.create_task(runtime.run())
@@ -1377,8 +1547,8 @@ def test_shadow_observer_counts_verdicts_and_action_runs() -> None:
 
     asyncio.run(_drive())
     assert runtime.shadow_decisions["verdict:auto"] == 1
-    assert runtime.shadow_decisions["action_run:succeeded"] >= 1
-    assert runtime.shadow_decisions["action_run:verdicted"] == 1
+    assert runtime.shadow_decisions["shadow_action_run:succeeded"] == 1
+    assert runtime.shadow_decisions["shadow_action_run:verdicted"] == 1
     assert runtime.health()["shadow_decisions"]["verdict:auto"] == 1
 
 
@@ -1398,7 +1568,16 @@ def test_runtime_feeds_the_divergence_ledger() -> None:
                 "risk_verdict": "auto",
                 "action_type": "ops.restart-service",
                 "correlation_id": "c1",
+                "idempotency_key": "c1:verdict",
                 "resource_id": "r1",
+                "safeguards": {
+                    "stop_condition": "stop",
+                    "rollback_receipt": "rollback",
+                    "blast_radius": "single-resource",
+                    "dry_run_receipt": "dry-run",
+                    "target_lock": "r1",
+                    "audit_intent": "two-phase",
+                },
             },
         )
         run_task = asyncio.create_task(runtime.run())

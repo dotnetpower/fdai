@@ -52,7 +52,14 @@ from fdai.core.operational_evidence.own_role_readback import (
     VerifierOwnRoleReadbackError,
     evaluate_verifier_own_roles,
 )
+from fdai.core.operational_evidence.readback.base import PurposeReadback
 from fdai.core.operational_evidence.readback.case_history_read import CaseHistoryReadback
+from fdai.core.operational_evidence.readback.current_case_reuse import CurrentCaseReuseReadback
+from fdai.core.operational_evidence.readback.forecast_history import (
+    ForecastContextAggregateReadback,
+    ForecastHistorySliceReadback,
+    StateTransitionForecastHistorySliceSource,
+)
 from fdai.core.operational_evidence.readback.test_context_command import (
     OperatorTestContextCommandReadback,
 )
@@ -60,13 +67,29 @@ from fdai.core.operational_evidence.readback.test_context_lifecycle import (
     ContextTransitionReadback,
     OperationalTestContextReadback,
 )
+from fdai.core.operational_evidence.readback.test_observation import (
+    DEPENDENCY_HEALTH_SOURCE,
+    METRIC_SOURCE,
+    OperationalTestObservationReadback,
+)
 from fdai.core.operational_evidence.revision_history import RegistryHistory
 from fdai.core.operational_evidence.separation import assert_verifier_separation
 from fdai.core.operational_evidence.trust_registry import DeploymentAnchors, TrustRegistry, Venue
+from fdai.delivery.azure.metric_logs import (
+    AzureMonitorLogsConfig,
+    AzureMonitorLogsMetricProvider,
+    MetricKqlTemplate,
+)
+from fdai.delivery.azure.operational_evidence_readbacks import (
+    AzureMonitorTestObservationProvider,
+    JsonOperatingScopeObservationReader,
+    MetricProviderSampleClient,
+)
 from fdai.delivery.azure.operational_evidence_roles import (
     AzureAuthorizationRoleAssignmentReader,
     build_azure_management_token_provider,
 )
+from fdai.delivery.forecast_history_configuration import parse_forecast_history_configuration
 from fdai.delivery.operational_evidence_caller_auth import (
     StaticJwksBearerTokenValidator,
     WorkloadCallerAuthenticator,
@@ -75,6 +98,7 @@ from fdai.delivery.operational_evidence_configuration import (
     CALLER_TOKEN_AUDIENCE_ENV,
     CALLER_TOKEN_ISSUER_ENV,
     CALLER_TOKEN_JWKS_ENV,
+    OBSERVATION_METRIC_QUERIES_ENV,
     OWN_ROLE_ALLOWED_SCOPES_ENV,
     OWN_ROLE_READBACK_SCOPES_ENV,
     PRODUCER_ID,
@@ -86,6 +110,7 @@ from fdai.delivery.operational_evidence_configuration import (
     string_list,
 )
 from fdai.delivery.operational_evidence_transport import ISSUANCE_PATH, READINESS_PATH
+from fdai.delivery.persistence.postgres_current_case_reuse import PostgresCurrentCaseReuseSource
 from fdai.delivery.persistence.postgres_operational_evidence import (
     VERIFIER_ROLE,
     PostgresOperationalEvidenceConfig,
@@ -99,6 +124,11 @@ from fdai.delivery.persistence.postgres_operational_evidence_sources import (
     PostgresSemanticAuthenticationReceiptSource,
     PostgresTestContextEvidenceSources,
 )
+from fdai.delivery.persistence.postgres_state_transitions import (
+    PostgresStateTransitionStore,
+    PostgresStateTransitionStoreConfig,
+)
+from fdai.shared.providers.workload_identity import IdentityToken
 
 _LOGGER = logging.getLogger(__name__)
 _MAX_REQUEST_BYTES = 16_384
@@ -114,6 +144,17 @@ class OwnRoleReader(Protocol):
     """Read this verifier workload's own role assignments."""
 
     async def read(self) -> VerifierOwnRoleReadback: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _TokenProviderWorkloadIdentity:
+    provider: object
+
+    async def get_token(self, audience: str) -> IdentityToken:
+        token = await self.provider.get_token(audience)  # type: ignore[attr-defined]
+        return IdentityToken(
+            token=token.token, expires_at=datetime.max.replace(tzinfo=UTC), audience=audience
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,6 +292,7 @@ def build_verifier_workload(
     )
     sources = PostgresTestContextEvidenceSources(store)
     semantic_receipts = PostgresSemanticAuthenticationReceiptSource(store)
+    current_case_reuse = PostgresCurrentCaseReuseSource(store)
     readiness = VerifierReadiness()
     members = string_list(settings.writer_members_json, label="writer members")
     caller = caller_authenticator or (
@@ -265,6 +307,9 @@ def build_verifier_workload(
         own_role_reader or _configured_role_reader(env, settings, verifier_principal)
         if deployed
         else own_role_reader
+    )
+    observation_provider = (
+        _configured_observation_provider(env, settings, verifier_principal) if deployed else None
     )
 
     async def probe() -> VerifierReadiness:
@@ -318,7 +363,11 @@ def build_verifier_workload(
         source_health = {
             **(await sources.source_health()),
             **(await semantic_receipts.source_health()),
+            **(await current_case_reuse.source_health()),
         }
+        if observation_provider is not None:
+            source_health[METRIC_SOURCE] = OperationalEvidenceSourceHealth.HEALTHY
+            source_health[DEPENDENCY_HEALTH_SOURCE] = OperationalEvidenceSourceHealth.HEALTHY
         readiness.state = state
         readiness.reasons = reasons
         readiness.source_health = source_health
@@ -328,16 +377,49 @@ def build_verifier_workload(
     async def blocked() -> bool:
         return readiness.state != "ready"
 
+    readbacks: list[PurposeReadback] = [
+        CaseHistoryReadback(receipts=semantic_receipts),
+        OperatorTestContextCommandReadback(commands=sources),
+        ContextTransitionReadback(commands=sources, history=sources, audit=sources),
+        OperationalTestContextReadback(commands=sources, history=sources, audit=sources),
+        CurrentCaseReuseReadback(source=current_case_reuse),
+    ]
+    if observation_provider is not None:
+        readbacks.append(OperationalTestObservationReadback(provider=observation_provider))
+    forecast_sources = env.get("FDAI_FORECAST_HISTORY_SOURCES_JSON", "").strip()
+    forecast_producers = env.get("FDAI_FORECAST_HISTORY_PRODUCERS_JSON", "").strip()
+    if forecast_sources:
+        try:
+            forecast_configuration = parse_forecast_history_configuration(
+                bindings_json=forecast_sources,
+                producers_json=forecast_producers or None,
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                "operational evidence forecast history bindings are invalid"
+            ) from exc
+        forecast_slice_source = StateTransitionForecastHistorySliceSource(
+            store=PostgresStateTransitionStore(
+                config=PostgresStateTransitionStoreConfig(
+                    dsn=settings.verifier_dsn,
+                    statement_timeout_ms=1_000,
+                    connect_timeout_s=1,
+                )
+            ),
+            bindings=forecast_configuration.bindings,
+        )
+        readbacks.extend(
+            (
+                ForecastHistorySliceReadback(source=forecast_slice_source),
+                ForecastContextAggregateReadback(source=forecast_slice_source),
+            )
+        )
+
     engine = OperationalEvidenceVerifierEngine(
         identity=VerifierIdentity(verifier_id=VERIFIER_ID, verifier_version=VERIFIER_VERSION),
         history=lambda: history,
         anchors=anchors,
-        readbacks=(
-            CaseHistoryReadback(receipts=semantic_receipts),
-            OperatorTestContextCommandReadback(commands=sources),
-            ContextTransitionReadback(commands=sources, history=sources, audit=sources),
-            OperationalTestContextReadback(commands=sources, history=sources, audit=sources),
-        ),
+        readbacks=tuple(readbacks),
         writer=PostgresOperationalProofWriter(store),
         lineage=PostgresOperationalProofReader(store),
         clock=clock,
@@ -483,6 +565,70 @@ def _configured_role_reader(
         principal_id=verifier_principal,
         scopes=scopes,
     )
+
+
+def _configured_observation_provider(
+    env: Mapping[str, str], settings: OperationalEvidenceSettings, verifier_principal: str
+) -> AzureMonitorTestObservationProvider | None:
+    if not (
+        settings.observation_metric_workspace_id
+        or settings.observation_metric_queries_json
+        or settings.observation_scope_rows_json
+    ):
+        return None
+    if not (
+        settings.observation_metric_workspace_id
+        and settings.observation_metric_queries_json
+        and settings.observation_scope_rows_json
+    ):
+        raise RuntimeError(
+            "operational evidence observation readback requires metric workspace, "
+            "metric queries, and scope rows"
+        )
+    token_provider = build_azure_management_token_provider(
+        env,
+        client_id=env.get("FDAI_MI_CLIENT_ID", "").strip()
+        or env.get("AZURE_CLIENT_ID", "").strip(),
+    )
+    queries = _metric_templates(settings.observation_metric_queries_json)
+    metric_provider = AzureMonitorLogsMetricProvider(
+        config=AzureMonitorLogsConfig(
+            workspace_id=settings.observation_metric_workspace_id,
+            queries=queries,
+        ),
+        identity=_TokenProviderWorkloadIdentity(token_provider),
+        http_client=httpx.AsyncClient(timeout=2.0),
+    )
+    return AzureMonitorTestObservationProvider(
+        metrics=MetricProviderSampleClient(metric_provider),
+        scope=JsonOperatingScopeObservationReader(settings.observation_scope_rows_json),
+        source_anchor=verifier_principal,
+    )
+
+
+def _metric_templates(raw: str) -> dict[str, MetricKqlTemplate]:
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{OBSERVATION_METRIC_QUERIES_ENV} is not valid JSON") from exc
+    if not isinstance(decoded, dict) or not decoded:
+        raise RuntimeError(f"{OBSERVATION_METRIC_QUERIES_ENV} must be a non-empty object")
+    templates: dict[str, MetricKqlTemplate] = {}
+    for name, value in decoded.items():
+        if not isinstance(name, str) or not isinstance(value, Mapping):
+            raise RuntimeError(f"{OBSERVATION_METRIC_QUERIES_ENV} entries are malformed")
+        label_columns = value.get("label_columns", [])
+        if not isinstance(label_columns, list) or any(
+            not isinstance(item, str) for item in label_columns
+        ):
+            raise RuntimeError(f"{OBSERVATION_METRIC_QUERIES_ENV} label columns are malformed")
+        templates[name] = MetricKqlTemplate(
+            kql=str(value.get("kql") or ""),
+            value_column=str(value.get("value_column") or ""),
+            timestamp_column=str(value.get("timestamp_column") or "TimeGenerated"),
+            label_columns=tuple(label_columns),
+        )
+    return templates
 
 
 def _allowed_role_scopes(raw: str) -> dict[str, tuple[str, ...]]:

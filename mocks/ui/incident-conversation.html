@@ -3,191 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Operational alert route unresolved - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/incident-conversation.css?v=neutral-chat-v4" />
-  <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
-  <link rel="stylesheet" href="assets/chat-current.css?v=11" />
-  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <script src="assets/incident-conversation.js?v=chat-brief-v2" defer></script>
+  <meta name="robots" content="noindex" />
+  <title>Incident conversation moved - FDAI Console</title>
+  <script>
+    // Retired study URL. The Command deck shows every response form on one page, so this address
+    // opens it on the incident form and keeps any scenario, state, width, or trace parameter.
+    (function () {
+      var query = new URLSearchParams(window.location.search);
+      query.delete("preview");
+      query.delete("shell");
+      query.set("form", "incident");
+      var target = "deck.html?" + query.toString();
+      window.location.replace(window.self === window.top ? "/#mocks/ui/" + target : target);
+    })();
+  </script>
 </head>
-<body data-preserve-page-title data-chat-theme="clear-neutral" data-chat-surface="current">
-  <main class="ic-page" aria-labelledby="chat-title">
-    <header class="ic-header">
-      <div class="ic-chat-identity">
-        <svg class="ic-chat-glyph" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h12a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H8l-4.5 3v-3A1.5 1.5 0 0 1 2 13V5a1.5 1.5 0 0 1 2-1.5Z" /></svg>
-        <h1 id="chat-title">Command deck</h1><span class="ic-header-context">Incident conversation</span>
-      </div>
-      <span class="ic-preview-label">Design preview · Synthetic records</span>
-    </header>
-
-    <div class="ic-scroll" id="incident-scroll" role="region" tabindex="0" aria-label="Incident conversation transcript">
-      <div class="ic-messages" id="incident-messages" aria-label="Conversation messages">
-        <article class="ic-question" aria-label="Operator question">
-          <p class="cs-deck-user-bubble">What happened with INC-240824-08, what is affected, and what should I check next?</p>
-          <p class="ic-message-meta">Operator <time datetime="2026-08-24T11:14:35+09:00">11:14:35 KST</time></p>
-        </article>
-        <article class="ic-answer" aria-label="Bragi incident response">
-          <div class="ic-message-meta"><strong>Bragi</strong><span>Read-only analysis</span><time datetime="2026-08-24T11:14:46+09:00">11:14:46 KST</time></div>
-          <div class="ic-answer-heading">
-            <p class="ic-incident-ref">INC-240824-08 · Notification routing</p>
-            <h2 id="incident-title">Operational alert route unresolved</h2>
-          </div>
-          <p class="ic-lead"><strong>The shadow evaluation found no usable alert channel.</strong></p>
-          <div class="ic-state-line" aria-label="Recorded incident state">
-            <span class="ic-state is-open">Open at last record</span>
-            <a class="ic-severity" href="#severity-evidence">SEV 2 <span>recorded</span></a>
-            <span class="ic-current-state">Current status unknown</span>
-          </div>
-          <p class="ic-freshness">Historical evidence · <time datetime="2026-08-24T07:20:47+09:00">24 Aug 2026, 07:20:47 KST</time> · Not live</p>
-          <dl class="ic-facts">
-            <div><dt>Affected scope</dt><dd>Notification routing; service / environment unknown</dd></div>
-            <div><dt>Customer impact</dt><dd>Not established</dd></div>
-            <div><dt>Delivery / recovery</dt><dd>Not verified</dd></div>
-            <div><dt>Response owner</dt><dd>Not recorded</dd></div>
-          </dl>
-          <a class="ic-facts-source" href="#impact-gaps">View evidence gaps <span aria-hidden="true">&#8594;</span></a>
-          <section class="ic-next-step" aria-labelledby="next-step-title">
-            <h3 id="next-step-title">Next safe step <span>Read only</span></h3>
-            <p>Read the current route-to-channel bindings and channel availability.</p>
-            <div class="ic-answer-actions">
-              <a class="cs-control-button is-primary" href="#routing-evidence">Review routing evidence <span aria-hidden="true">&#8594;</span></a>
-              <a class="ic-secondary-link" href="#verification-checklist">What would confirm recovery?</a>
-            </div>
-          </section>
-
-          <details class="ic-disclosure" id="incident-timeline">
-            <summary>Recorded timeline <span>3 records · Shadow</span></summary>
-            <div class="ic-disclosure-body">
-              <div class="ic-panel-heading">
-                <h3>Recorded activity</h3>
-                <p>24 Aug 2026 · KST · Shadow records only</p>
-              </div>
-              <p class="ic-window-note"><strong>Observation window: 3m 45s.</strong> This is the span between records, not the incident duration.</p>
-              <ol class="ic-timeline">
-                <li>
-                  <time datetime="2026-08-24T07:17:02+09:00">07:17:02</time>
-                  <div><h3>Incident opened</h3><p>Heimdall recorded Open and SEV 2. The severity rationale is not included.</p>
-                    <a href="#audit-68858">audit:68858</a></div>
-                </li>
-                <li>
-                  <time datetime="2026-08-24T07:20:46+09:00">07:20:46</time>
-                  <div><h3>Escalation recorded</h3><p>Approval Sink recorded notification escalation. This does not confirm that a human received it.</p>
-                    <a href="#audit-68881">audit:68881</a></div>
-                </li>
-                <li>
-                  <time datetime="2026-08-24T07:20:47+09:00">07:20:47</time>
-                  <div><h3>Notification route unresolved</h3><p>Notifications Router recorded <code>route_unresolved</code>. No delivery receipt is included.</p>
-                    <a href="#audit-68882">audit:68882</a></div>
-                </li>
-              </ol>
-              <section class="ic-unavailable" aria-label="Later observations">
-                <h3>No later observation in this snapshot</h3>
-                <p>Current incident state, acknowledgement, and recovery require fresh evidence. Absence of a later record does not prove the incident is still active.</p>
-              </section>
-            </div>
-          </details>
-
-          <details class="ic-disclosure" id="incident-evidence">
-            <summary>Evidence and open questions <span>Gaps remain</span></summary>
-            <div class="ic-disclosure-body">
-              <div class="ic-panel-heading">
-                <p>Recorded facts are separated from missing observations. Nothing here is a live provider read.</p>
-              </div>
-              <section class="ic-evidence-section" id="routing-evidence" tabindex="-1" aria-labelledby="routing-title">
-                <div class="ic-section-label"><h3 id="routing-title">Routing evidence</h3><span>Recorded · Shadow</span></div>
-                <dl class="ic-comparison">
-                  <div><dt>Expected outcome</dt><dd>Resolvable channel and a delivery receipt</dd></div>
-                  <div><dt>Recorded outcome</dt><dd>Route unresolved <code>route_unresolved</code></dd></div>
-                  <div><dt>What this proves</dt><dd>The recorded evaluation could not resolve a channel. It does not establish live delivery or the configuration's underlying cause.</dd></div>
-                </dl>
-                <p class="ic-source-note">Source: <a href="#audit-68882">audit:68882</a> · Notifications Router · 07:20:47 KST</p>
-                <div class="ic-unavailable">
-                  <h4>Current route configuration is not available in this snapshot</h4>
-                  <p>Obtain an authorized readback of route-to-channel bindings and channel availability. This preview cannot fetch configuration or test delivery.</p>
-                </div>
-              </section>
-              <section class="ic-evidence-section" aria-labelledby="gaps-title">
-                <h3 id="gaps-title">Missing evidence and its consequence</h3>
-                <dl class="ic-gaps">
-                  <div id="impact-gaps" tabindex="-1"><dt>Impact scope <span>Unknown</span></dt><dd>Service, environment, region, missed alert count, and alternate routes are not recorded. Customer impact cannot be concluded.</dd></div>
-                  <div id="ownership-gap" tabindex="-1"><dt>Response ownership <span>Not recorded</span></dt><dd>No assigned human or acknowledgement is included. An escalation event alone does not prove someone is responding.</dd></div>
-                  <div id="receipt-gap" tabindex="-1"><dt>Delivery and recovery <span>Missing</span></dt><dd>No delivery receipt or independent post-change observation is included. Delivery, resolution, and recovery remain unverified.</dd></div>
-                  <div id="severity-evidence" tabindex="-1"><dt>Severity rationale <span>Not recorded</span></dt><dd>SEV 2 is copied from the incident record. The basis for that severity and its current applicability are not provided.</dd></div>
-                </dl>
-              </section>
-              <section class="ic-evidence-section" id="verification-checklist" tabindex="-1" aria-labelledby="verification-title">
-                <h3 id="verification-title">What would confirm recovery?</h3>
-                <ol class="ic-checklist">
-                  <li><strong>Establish the current scope and owner.</strong> Obtain current incident state and human acknowledgement through an authorized read.</li>
-                  <li><strong>Inspect the current configuration.</strong> Verify the exact route, channel bindings, and channel availability. Compare with the recorded failure.</li>
-                  <li><strong>Separate change from investigation.</strong> Channel configuration and delivery retries are changes, not read-only checks. Require the applicable policy, authorization, approval, and execution safeguards.</li>
-                  <li><strong>Observe the outcome independently.</strong> Require a delivery receipt and authoritative recovery observation for the same target after any authorized change. Dispatch alone is not success.</li>
-                </ol>
-                <p class="ic-source-note">All follow-up items are outstanding in this snapshot. This checklist grants no approval or execution authority.</p>
-              </section>
-              <section class="ic-evidence-section" aria-labelledby="audit-title">
-                <h3 id="audit-title">Source records</h3>
-                <p class="ic-source-note">Synthetic audit excerpts · Correlation <code>corr-notify-08</code> · All times 24 Aug 2026, KST</p>
-                <details class="ic-disclosure" id="audit-68858">
-                  <summary><code>audit:68858</code><span>Incident open · 07:17:02</span></summary>
-                  <dl class="ic-detail-list ic-disclosure-body">
-                    <div><dt>Actor</dt><dd>Heimdall</dd></div>
-                    <div><dt>Recorded</dt><dd><time datetime="2026-08-24T07:17:02+09:00">2026-08-24 07:17:02 KST</time></dd></div>
-                    <div><dt>Incident</dt><dd>INC-240824-08 · Open · SEV 2</dd></div>
-                    <div><dt>Mode</dt><dd>Shadow</dd></div>
-                  </dl>
-                </details>
-                <details class="ic-disclosure" id="audit-68881">
-                  <summary><code>audit:68881</code><span>Notification escalation · 07:20:46</span></summary>
-                  <dl class="ic-detail-list ic-disclosure-body">
-                    <div><dt>Actor</dt><dd>Approval Sink</dd></div>
-                    <div><dt>Recorded</dt><dd><time datetime="2026-08-24T07:20:46+09:00">2026-08-24 07:20:46 KST</time></dd></div>
-                    <div><dt>Activity</dt><dd>Notification escalation · Shadow</dd></div>
-                    <div><dt>Limitation</dt><dd>No human acknowledgement is included.</dd></div>
-                  </dl>
-                </details>
-                <details class="ic-disclosure" id="audit-68882">
-                  <summary><code>audit:68882</code><span>Route unresolved · 07:20:47</span></summary>
-                  <dl class="ic-detail-list ic-disclosure-body">
-                    <div><dt>Actor</dt><dd>Notifications Router</dd></div>
-                    <div><dt>Recorded</dt><dd><time datetime="2026-08-24T07:20:47+09:00">2026-08-24 07:20:47 KST</time></dd></div>
-                    <div><dt>Mode</dt><dd>Shadow</dd></div>
-                    <div><dt>Recorded reason</dt><dd><code>route_unresolved</code> · no resolvable channels</dd></div>
-                    <div><dt>Limitation</dt><dd>No current binding readback, delivery receipt, or recovery observation is included.</dd></div>
-                  </dl>
-                </details>
-              </section>
-            </div>
-          </details>
-          <details class="ic-disclosure" id="analysis-details">
-            <summary>Analysis details <span>Analysis completed · not incident resolution</span></summary>
-            <div class="ic-disclosure-body">
-              <dl class="ic-detail-list">
-                <div><dt>Recorded analysis</dt><dd>24 Aug 2026, 11:14:35-11:14:46 KST</dd></div>
-                <div><dt>Recorded duration</dt><dd>10.8 seconds</dd></div>
-                <div><dt>Evidence window</dt><dd>07:17:02-07:20:47 KST on the same date; no later observation included.</dd></div>
-                <div><dt>Source scope</dt><dd>3 audit records; the direct failure reason cites <a href="#audit-68882">audit:68882</a>.</dd></div>
-                <div><dt>Method</dt><dd>T0 recorded outcome. No probability estimate or complete root-cause claim.</dd></div>
-                <div><dt>Authority</dt><dd>Read-only analysis. No approval, execution, or recovery receipt.</dd></div>
-              </dl>
-            </div>
-          </details>
-        </article>
-      </div>
-    </div>
-
-    <footer class="ic-composer">
-      <form id="incident-question-form">
-        <label for="incident-question">Ask about this incident <span>INC-240824-08</span></label>
-        <div class="ic-composer-row">
-          <textarea class="cs-control-textarea" id="incident-question" rows="1" maxlength="2000" required placeholder="What else should I verify?" aria-describedby="preview-help"></textarea>
-          <button class="cs-control-button" type="submit">Preview question</button>
-        </div>
-        <p id="preview-help">Preview only. Questions stay in this page; no model call or operational action runs.</p>
-        <p id="preview-status" role="status" aria-live="polite"></p>
-      </form>
-    </footer>
+<body>
+  <main>
+    <p>Incident conversation is now the Incident form of the <a href="deck.html?form=incident">Command deck</a>.</p>
   </main>
 </body>
 </html>

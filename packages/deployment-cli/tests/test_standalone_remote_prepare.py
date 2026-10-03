@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from fdai_deployment_cli import standalone_host
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote
 
 
@@ -152,4 +156,111 @@ def test_cleanup_incomplete_overrides_and_chains_setup_failure(
         )
 
     assert isinstance(captured.value.__cause__, ValueError)
-    assert str(captured.value.__cause__) == "standalone managed-host preparation failed"
+    assert (
+        str(captured.value.__cause__)
+        == "standalone managed-host preparation failed: step=clean-kit"
+    )
+
+
+class _RecordingTunnel:
+    def __init__(self, digests: dict[str, str]) -> None:
+        self.digests = digests
+        self.commands: list[tuple[str, ...]] = []
+
+    def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
+        del source, destination, timeout
+
+    def ssh(self, command: tuple[str, ...], *, timeout: int) -> SimpleNamespace:
+        del timeout
+        self.commands.append(command)
+        if command[0] == "sha256sum":
+            return SimpleNamespace(returncode=0, stdout=f"{self.digests[command[1]]}  file\n")
+        if command[1:3] == ("-m", "fdai_deployment_cli.standalone_host"):
+            prepared = {"state": "prepared", "focused_private_access": False}
+            return SimpleNamespace(returncode=0, stdout=json.dumps(prepared))
+        return SimpleNamespace(returncode=0, stdout="")
+
+
+@pytest.mark.parametrize("database_sku", [None, "GP_Standard_D2ds_v5"])
+@pytest.mark.parametrize("mode", ["kit", "source"])
+def test_prepare_command_parses_with_the_host_parser(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, database_sku: str | None
+) -> None:
+    tmp_path.chmod(0o700)
+    plan = tmp_path / "plan"
+    plan.mkdir(mode=0o700)
+    handoff = plan / "foundation-private-handoff.json"
+    handoff.write_text("{}", encoding="utf-8")
+    inputs = {name: tmp_path / name for name in ("kit.tar.gz", "source.tar", "receiver.pyz")}
+    for path in inputs.values():
+        path.write_bytes(path.name.encode())
+    remote_root = "/home/fdai/.fdai-transfer-example"
+    tunnel = _RecordingTunnel(
+        {
+            f"{remote_root}/kit.tar.gz": "a" * 64,
+            f"{remote_root}/source-transfer.tar": "b" * 64,
+            f"{remote_root}/source-receiver.pyz": "c" * 64,
+        }
+    )
+    common: dict[str, object] = {
+        "remote_root": remote_root,
+        "remote_archive": f"{remote_root}/kit.tar.gz",
+        "handoff_path": handoff,
+        "remote_handoff": f"{remote_root}/foundation-handoff.json",
+        "entra_path": None,
+        "remote_entra": None,
+        "app_work": str(tmp_path / "application"),
+        "timeout_seconds": 1800,
+        "runtime_profile": RuntimeDeploymentProfile.create(
+            runtime_platform="aks",
+            database_placement="postgres-flex",
+            database_sku=database_sku,
+        ),
+    }
+    if mode == "kit":
+        prepare_remote(
+            tunnel,
+            archive=inputs["kit.tar.gz"],
+            archive_digest="a" * 64,
+            **common,  # type: ignore[arg-type]
+        )
+    else:
+        prepare_remote(
+            tunnel,
+            archive=None,
+            archive_digest=None,
+            source_archive=inputs["source.tar"],
+            source_archive_digest="b" * 64,
+            source_receiver=inputs["receiver.pyz"],
+            source_receiver_digest="c" * 64,
+            source_snapshot_digest="d" * 64,
+            **common,  # type: ignore[arg-type]
+        )
+    command = next(
+        item
+        for item in tunnel.commands
+        if item[1:3] == ("-m", "fdai_deployment_cli.standalone_host")
+    )
+    seen: dict[str, argparse.Namespace] = {}
+
+    def prepare(args: argparse.Namespace, _work_dir: Path) -> dict[str, object]:
+        seen["args"] = args
+        return {"state": "prepared"}
+
+    monkeypatch.setattr(standalone_host, "_prepare", prepare)
+    umask = os.umask(0o077)
+    os.umask(umask)
+    try:
+        # The real host parser must accept the exact command the coordinator sends.
+        assert standalone_host.main(list(command[3:])) == 0
+    finally:
+        os.umask(umask)
+
+    if mode == "kit":
+        assert str(seen["args"].kit) == f"{remote_root}/kit"
+    else:
+        assert seen["args"].source_snapshot_digest == "d" * 64
+    # The host rebuilds exactly the coordinator's profile, including an explicit database size.
+    assert (
+        RuntimeDeploymentProfile.from_prepare_arguments(seen["args"]) == common["runtime_profile"]
+    )

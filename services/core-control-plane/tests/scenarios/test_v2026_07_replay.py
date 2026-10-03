@@ -1423,8 +1423,10 @@ def _conflict_event(
     """
 
     return {
+        "producer_principal": "Huginn",
         "event_type": "cross_objective_conflict",
         "correlation_id": spec["correlation_id"],
+        "idempotency_key": f"{spec['correlation_id']}:conflict",
         "resource_id": shared_target_id,
         "detected_at": observed_at,
         "domain_advice": {
@@ -1507,6 +1509,46 @@ def _audited_verdicts(chain: InMemoryAuditChain, correlation_id: str) -> list[Au
         for entry in chain.entries_for_correlation(correlation_id)
         if entry.topic == "object.verdict"
     ]
+
+
+# The v2026.07, v2026.09, and v2026.10 corpora were frozen before the verdict
+# envelope revision that gave arbitration verdicts a Forseti-owned idempotency
+# key and added the stable action idempotency key, the seven wire safeguards,
+# and the Njord cost annotation. Before that revision a verdict reused its
+# correlation id as its idempotency key.
+_POST_FREEZE_VERDICT_FIELDS = frozenset({"action_idempotency_key", "cost_annotation", "safeguards"})
+
+
+def _audit_payload_digest(payload: Mapping[str, Any]) -> str:
+    """Digest a payload in the audit chain's historical JSON byte form."""
+
+    body = json.dumps(payload, allow_nan=False, ensure_ascii=True, sort_keys=True)
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def _frozen_era_verdict_digests(
+    audited: list[AuditEntry],
+    published: list[Mapping[str, Any]],
+) -> list[str]:
+    """Bind each audited verdict to its full publication, then digest its frozen-era view.
+
+    Saga MUST audit the complete published verdict, including the envelope
+    revision. The frozen decision digest then covers that verdict with only the
+    post-freeze envelope revision reversed, so every decision field and every
+    other envelope field still has to reproduce the frozen corpus exactly.
+    """
+
+    by_digest = {_audit_payload_digest(payload): payload for payload in published}
+    digests: list[str] = []
+    for entry in audited:
+        payload = by_digest.get(entry.payload_digest)
+        assert payload is not None, "Saga audited a verdict that was never published"
+        view = {
+            key: value for key, value in payload.items() if key not in _POST_FREEZE_VERDICT_FIELDS
+        }
+        view["idempotency_key"] = view["correlation_id"]
+        digests.append(_audit_payload_digest(view))
+    return digests
 
 
 def _objective_records(spec: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1974,9 +2016,13 @@ async def test_sre_cross_objective_conflict_replays_to_stable_digests(
                         "terminal_risk_verdict": verdict["risk_verdict"],
                         "terminal_reason": verdict["reason"],
                         "terminal_action_type": verdict["action_type"],
-                        "terminal_audit_payload_digests": [
-                            entry.payload_digest for entry in audited
-                        ],
+                        "terminal_audit_payload_digests": _frozen_era_verdict_digests(
+                            audited,
+                            [
+                                message.payload
+                                for message in bus.messages_on(spec["arbitration"]["verdict_topic"])
+                            ],
+                        ),
                     }
                 ),
                 _canonical_digest(sorted(replay.grounded, key=lambda option: option["option_id"])),

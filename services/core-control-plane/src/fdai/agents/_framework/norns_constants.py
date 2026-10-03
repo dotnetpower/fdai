@@ -1,0 +1,11 @@
+"""Shared Norns runtime constants."""
+
+_DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
+_MAX_POST_TURN_BODY_BYTES = 64 * 1024
+_MAX_TRACKED = 50_000
+
+__all__ = [
+    "_DEFAULT_PROVIDER_TIMEOUT_SECONDS",
+    "_MAX_POST_TURN_BODY_BYTES",
+    "_MAX_TRACKED",
+]

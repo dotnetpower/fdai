@@ -38,6 +38,14 @@ module "container_app" {
     name                = "database-dsn"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.database.dsn_secret_id
+    }], trimspace(var.operator_request_receipts.core_signing_seed_secret_id) == "" ? [] : [{
+    name                = "operator-request-core-signing-seed"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.operator_request_receipts.core_signing_seed_secret_id
+    }], trimspace(var.operator_request_receipts.operator_signing_seed_secret_id) == "" ? [] : [{
+    name                = "operator-request-operator-signing-seed"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.operator_request_receipts.operator_signing_seed_secret_id
     }], var.observation_context.enabled ? [{
     name                = "ohl-observation-signing-seed"
     identity            = var.identity.resource_id
@@ -108,6 +116,11 @@ module "container_app" {
     { name = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES", value = "observer:heimdall:azure-container-apps" },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
+    ], (trimspace(var.operator_request_receipts.core_signing_seed_secret_id) == "" || trimspace(var.operator_request_receipts.operator_signing_seed_secret_id) == "") ? [] : [
+    { name = "FDAI_OPERATOR_REQUEST_CORE_SIGNING_SEED", secret_name = "operator-request-core-signing-seed" },
+    { name = "FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED", secret_name = "operator-request-operator-signing-seed" },
+    { name = "FDAI_OPERATOR_REQUEST_CORE_PRODUCER_ID", value = var.operator_request_receipts.core_producer_id },
+    { name = "FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER_ID", value = var.operator_request_receipts.operator_producer_id },
     ], trimspace(var.runtime_call_evidence.caller_resource_id) == "" ? [] : [
     { name = "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID", value = var.runtime_call_evidence.caller_resource_id },
     { name = "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID", value = var.runtime_call_evidence.target_resource_id },

@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 25d1d616481f5f2b9abfda67ccedb93a36806107
+translation_source_sha: c9b6294c6cb4181545416d7b1110ccc88994faef
 translation_revised: 2026-10-01
 ---
 # 기능 라이선싱
@@ -123,9 +123,15 @@ Core에만 허용한 Trial 기록 읽기 권한을 두 번째 주체가 갖게 �
   값을 `X-FDAI-Entitlement`로 표시하며, CORS는 이 헤더를 Console에 노출합니다. 행이 없거나,
   형식이 잘못되었거나, 읽을 수 없거나, 관측 시각이 Operator 시계와 5분 넘게 차이 나면
   `not-activated`를 표시합니다.
-- Console은 공유 Operator 전송 계층의 모든 응답에서 표시 값을 기록하고, 60초마다 인증된 읽기로
-  값을 갱신합니다. 최신 표시 값이 `none`이고 5분이 지나지 않은 동안에만 워터마크를 숨깁니다.
+- Console은 오류 응답을 포함해 공유 Operator 전송 계층의 모든 응답에서 표시 값을 기록하고,
+  인증된 화면이 열릴 때, 60초마다, 탭이 다시 보일 때마다 인증된 데이터 원본 읽기로 값을
+  갱신합니다. 표시 값이 없는 응답은 이전 표시 값을 그대로 두어 시간이 지나게 합니다. 최신
+  표시 값이 `none`이고 브라우저 단조 시계로 5분이 지나지 않은 동안에만 워터마크를 숨깁니다.
   첫 표시 값이 도착하기 전에는 최대 10초까지 기다립니다.
+- Console은 안내를 브라우저 최상위 계층의 수동 팝오버로 렌더링하므로 어떤 z-index도 이를 가리지
+  못하며, 모달 대화 상자가 열리거나 화면이 전체 화면에 들어가거나 나올 때마다 다시 맨 위로
+  올립니다. 의미를 바꾸는 역할을 두지 않고, polite 라이브 영역으로 알리며, 포인터 입력을
+  통과시킵니다.
 
 Core 밖에서 행을 수정하는 것은 영속 상태 변조이며, [정직한 한계](#정직한-한계)가 이미 범위에서
 제외합니다. 워터마크 표시 여부를 정하는 설정이나 구성 값은 없습니다.
@@ -333,6 +339,7 @@ PR 기반, 직접 API 및 도구 호출 작업 경로는 모두 카탈로그 기
 | 영속 Trial 저장소 및 고정 시각 활성화 작성자 | `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py`, `services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py` |
 | 워터마크 안내 값, 상태 게시자, 기록기 | `services/core-control-plane/src/fdai/core/licensing/entitlement_notice.py`, `services/core-control-plane/src/fdai/runtime/licensing_state.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py` |
 | Operator 응답 표시 | `services/operator-service/src/fdai_operator_service/entitlement_stamp.py` |
+| Console 워터마크 상태와 렌더링 | `console/src/entitlement-state.ts`, `console/src/components/entitlement-watermark.tsx`. `console/src/app.tsx`가 마운트하고 `console/src/api-transport.ts`가 값을 공급 |
 | 최종 공유 실행 상한 | `services/core-control-plane/src/fdai/core/executor/licensing_gate.py` |
 | 발급 및 자체 검증 (release 전용) | 고정된 cryptography 의존성의 Ed25519와 배타적 mode-`0600` 출력 생성을 사용하는 `scripts/deployment/release/issue-license.py` |
 | 모든 운영자를 위한 오프라인 검증 | 배포 CLI의 독립 Ed25519 검증기를 사용하는 `fdaictl license inspect` |
@@ -344,8 +351,9 @@ crypto 백엔드, 전송 계층, `fdai.delivery`를 가져오기하지 않습니
 
 Core와 배포 CLI는 각각 `security/integrity/upstream-signing-key.pub`와 바이트까지 같은 사본을
 패키지에 포함하며, 테스트가 두 사본을 모두 원본에 고정합니다. 런타임 라이선싱 연결, 영속 Trial
-저장소와 그 활성화 작성자, 워터마크의 상태 게시자와 기록기, Operator 표시, 그 사본을 포함한
-`fdai/delivery/trust/` 패키지는 서명된 프레임워크 표면에 속합니다.
+저장소와 그 활성화 작성자, 워터마크의 상태 게시자와 기록기, Operator 표시, Console 워터마크의
+상태 계약과 컴포넌트, 그 사본을 포함한 `fdai/delivery/trust/` 패키지는 서명된 프레임워크 표면에
+속합니다.
 
 ## 이 리포지토리에서 검증하기
 
@@ -379,9 +387,12 @@ uv run python -m fdai.deployment_cli license inspect \
 tamper-proof가 아닙니다**. 이미지를 받은 고객은 그 런타임을 통제하므로 검사를 제거할 수 있습니다.
 난독화는 걸리는 시간만 바꿉니다.
 
-Trial과 워터마크에도 같은 한계가 있습니다. 둘 중 하나를 제거하려면 서명된 프레임워크 표면 코드를
-바꿔야 하며, 그 변경은 업스트림이 서명한 매니페스트로 검증할 때만 드러납니다. FDAI는 소스와
-런타임을 통제하는 운영자가 수정된 코드를 실행하는 것을 막는다고 주장하지 않습니다.
+Trial과 워터마크에도 같은 한계가 있습니다. Trial 검사나 워터마크의 판정, 문구, 렌더링을 바꾸려면
+서명된 프레임워크 표면 코드를 바꿔야 하며, 그 변경은 업스트림이 서명한 매니페스트로 검증할 때만
+드러납니다. 워터마크를 마운트하는 Console 셸과 표시 값을 기록하는 공유 전송 계층은 일반 Console
+코드입니다. 표시 값 기록 지점을 없애도 표시 값이 도착하지 않으므로 워터마크는 그대로 표시되지만,
+마운트를 뺀 셸로 다시 빌드하는 것은 서명된 파일 밖의 소스 수정입니다. FDAI는 소스와 런타임을
+통제하는 운영자가 수정된 코드를 실행하는 것을 막는다고 주장하지 않습니다.
 
 따라서 강제력 있는 부분은 binary가 아니라 배포 채널입니다.
 

@@ -1,12 +1,12 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: c1e0849928948763123b09a083512a7675506e07
-translation_revised: 2026-10-01
+translation_source_sha: aaaeaf358258703c1db91efff33ba7e26f7fb618
+translation_revised: 2026-10-02
 ---
 
 # 패키지 보증
 
-> **배포 방식:** [헌법](fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** [헌법](fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](../deployment/hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 FDAI Python 패키지의 최소 배포 계약을 정의합니다. 오프라인 패키지는 일반 로컬 pip
 wheelhouse처럼 설치할 수 있으며, 설치 전에 private key로 만든 detached signature 하나만
@@ -51,6 +51,10 @@ scripts/deployment/release/build-signed-python-package.sh \
 빌더는 Deployment CLI wheel을 만들고 잠긴 런타임 의존성을 `wheels/`에 다운로드한 다음 정렬된
 checksum 목록 하나를 작성하고 서명해 tar 아카이브를 만듭니다. 서비스 이미지를 빌드하거나 Azure
 배포 payload를 조립하지 않습니다.
+
+빌더는 저장소의 CPython 3.12 환경에서 실행해야 합니다. 이 환경은 설치 단계에서 관리형 호스트가
+사용하는 인터프리터와 일치하므로, 컨트롤 패키지를 조립한 워크스테이션이 아니라 설치 대상 호스트에
+맞는 바이너리 wheel이 선택됩니다.
 
 서명 파일 두 개를 제외한 모든 포함 파일은 `SHA256SUMS`에 나열됩니다. `wheels/`에 wheel 파일이
 아닌 항목이 있으면 빌더가 실패합니다. 서비스 계약처럼 잠긴 workspace 경로 의존성은 인덱스

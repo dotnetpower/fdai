@@ -212,6 +212,25 @@ def _record_turn() -> None:
         observe_semantic_decision(projection)
 
 
+def test_call_metrics_are_numeric_and_never_capture_grounding_content() -> None:
+    observations = _observations()
+    observations[2].trace_call["usage"] = {
+        "prompt_tokens": 123,
+        "completion_tokens": 7,
+        "total_tokens": 130,
+    }
+    observations[2].trace_call["response"] = {"content": "private question and answer"}
+    with bind_decision_events():
+        record_decision_observations(observations)
+        observe_semantic_decision({"semantic_result": _semantic_result()})
+    trace = decision_snapshot().traces[0]
+    calls = [step for step in trace.steps if step.stage == "call.semantic_concept_selection"]
+    assert calls[0].attributes["duration_ms"] == 812
+    assert calls[0].attributes["prompt_tokens"] == 123
+    assert calls[0].attributes["completion_tokens"] == 7
+    assert "private question and answer" not in trace.model_dump_json()
+
+
 def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
     _record_turn()
     snapshot = decision_snapshot()
@@ -228,6 +247,8 @@ def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
     assert stages == [
         "preflight",
         "judgment",
+        "call.semantic_concept_selection",
+        "call.semantic_concept_selection",
         "grounding",
         "event.semantic_judgment_proposal_retry",
         "event.semantic_planning_judgment_advise_only",
@@ -237,7 +258,10 @@ def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
         "intent_graph",
         "outcome",
     ]
-    preflight, judgment, grounding = (step.attributes for step in trace.steps[:3])
+    by_stage = {step.stage: step.attributes for step in trace.steps}
+    preflight, judgment, grounding = (
+        by_stage[stage] for stage in ("preflight", "judgment", "grounding")
+    )
     assert preflight["family"] == "resource_collection"
     assert preflight["target_kinds"] == ("resource_type_filter", "resource_group")
     assert preflight["general_answer"] is True
@@ -246,7 +270,7 @@ def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
     assert judgment["unresolved_terms"] == 1
     assert grounding["calls"] == 2
     assert len(set(grounding["models"])) == 2
-    assert trace.steps[4].attributes == {
+    assert by_stage["event.semantic_planning_judgment_advise_only"] == {
         "canonical_target_types": ("compute.container-app", "~"),
         "disposition": "accepted",
         "primary_intent": "query.contextual_resources",
@@ -254,18 +278,18 @@ def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
         "target_count": 2,
         "target_kinds": ("resource_group", "resource_type_filter"),
     }
-    stage_event = trace.steps[5].attributes
+    stage_event = by_stage["event.semantic_planning_stage_completed"]
     assert stage_event == {
         "output_shape": "property_filtered_resources",
         "plan_source": "server_stated_filter",
         "stage": "plan_verify",
     }
-    assert trace.steps[6].attributes == {"validation_reason": "~"}
-    assert trace.steps[7].attributes == {
+    assert by_stage["event.semantic_plan_rejected"] == {"validation_reason": "~"}
+    assert by_stage["event.semantic_judgment_proposal_rejected"] == {
         "failure_type": "UncoveredConstraintError",
         "uncovered_roles": ("times",),
     }
-    graph = trace.steps[8].attributes
+    graph = by_stage["intent_graph"]
     assert graph["predicates"] == (
         "name:equals",
         "type:equals:compute.container-app",

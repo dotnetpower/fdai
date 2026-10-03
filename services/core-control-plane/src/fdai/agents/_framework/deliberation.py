@@ -13,12 +13,14 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fdai.agents._framework.base import AgentSpec
+from fdai.agents._framework.bragi_constants import _MAX_ANSWER_CHARS, _MAX_QUESTION_CHARS
 from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.deliberation_evaluation import (
     DeliberationSignal,
     evaluate_t1_answers,
     evaluation_signals,
 )
+from fdai.agents._framework.introspection import durable_evidence_refs
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
 from fdai.core.metering.budget import (
     BudgetChargingMeteringSink,
@@ -32,11 +34,11 @@ from fdai.core.metering.sink import MeteringSink
 from fdai.core.metering.usage import TokenUsage
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 
-_MAX_QUESTION_CHARS = 2_000
-_MAX_ANSWER_CHARS = 16_000
 _MAX_CLAIMS = 3
 _MAX_PARTICIPANTS = 3
 _MAX_T2_CONCLUSION_CHARS = 4_000
+_T2_SYNTHESIS_TIMEOUT_SECONDS = 1.2
+_FIXED_ASSURANCE_SCENARIO_ID = "conversation-assurance-census-v1"
 #: Same rough tokenizer the prompt composer uses, so an estimate here and
 #: a layer budget there speak in one unit.
 _CHARS_PER_TOKEN = 4
@@ -175,8 +177,10 @@ class ConversationDeliberator:
         question: str,
         requester: str,
         correlation_id: str = "",
+        locale: str = "en",
         routing_decision: RoutingDecision | None = None,
         fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
+        fixed_assurance_scenario_id: str | None = None,
     ) -> dict[str, Any]:
         """Return a bounded presentation outcome without typed authority."""
         if len(question) > _MAX_QUESTION_CHARS:
@@ -186,7 +190,9 @@ class ConversationDeliberator:
         if len(correlation_id) > 256:
             raise ValueError("correlation_id MUST be at most 256 characters")
         scenario_signals = _trusted_scenario_signals(
-            fixed_assurance_facts,
+            fixed_assurance_facts
+            if fixed_assurance_scenario_id == _FIXED_ASSURANCE_SCENARIO_ID
+            else None,
             known_agents=set(self._specs),
         )
         base = {
@@ -264,6 +270,7 @@ class ConversationDeliberator:
                 "requester": requester,
                 "a2a": True,
                 "correlation_id": correlation_id,
+                "locale": locale,
                 "deliberation_phase": "position",
                 "deliberation_tier": "T1",
                 # Whether a model escalation is still affordable this turn,
@@ -291,6 +298,7 @@ class ConversationDeliberator:
                     question=question,
                     requester=requester,
                     correlation_id=correlation_id,
+                    locale=locale,
                     budget_key=budget_key,
                     primary_claim=primary_claim,
                 )
@@ -354,6 +362,7 @@ class ConversationDeliberator:
         question: str,
         requester: str,
         correlation_id: str,
+        locale: str,
         budget_key: str,
         primary_claim: DeliberationClaim,
     ) -> DeliberationClaim | None:
@@ -364,6 +373,7 @@ class ConversationDeliberator:
                 "requester": requester,
                 "a2a": True,
                 "correlation_id": correlation_id,
+                "locale": locale,
                 "deliberation_phase": "critique",
                 "deliberation_tier": "T1",
                 "peer_claims": (_claim_dict(primary_claim),),
@@ -424,7 +434,15 @@ class ConversationDeliberator:
             ),
         )
         try:
-            outcome = await synthesizer.synthesize(request)
+            outcome = await asyncio.wait_for(
+                synthesizer.synthesize(request),
+                timeout=_T2_SYNTHESIS_TIMEOUT_SECONDS,
+            )
+        except TimeoutError:
+            _LOG.warning("pantheon_t2_deliberation_timeout")
+            result["t2_status"] = "timeout"
+            result["escalation_budget"] = await self._budget_snapshot(budget_key)
+            return result
         except Exception as exc:  # noqa: BLE001 - optional presentation degradation
             _LOG.warning(
                 "pantheon_t2_deliberation_failed",
@@ -532,11 +550,7 @@ def _claim(agent_name: str, response: dict[str, Any] | None) -> DeliberationClai
         return None
     facts = response.get("facts")
     raw_refs = facts.get("evidence_refs") if isinstance(facts, dict) else None
-    evidence_refs = (
-        tuple(str(ref) for ref in raw_refs[:20] if str(ref))
-        if isinstance(raw_refs, list | tuple)
-        else ()
-    )
+    evidence_refs = durable_evidence_refs(raw_refs, agent_name=agent_name)
     if not evidence_refs:
         return None
     composition = response.get("prompt_composition")

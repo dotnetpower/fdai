@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -240,6 +241,21 @@ def test_budget_exhaustion_is_explicit_and_unavailable_domains_are_typed() -> No
     }
 
 
+def test_complete_prompt_shards_fit_the_actual_transmitted_byte_limit() -> None:
+    catalog = tuple(
+        ConceptCandidate(f"value:example.{index}", (f"example.{index}",), ("Example type",))
+        for index in range(20)
+    )
+    shards = shard_catalog(MentionDomain.RESOURCE_TYPE, catalog, max_bytes=400)
+    assert len(shards) > 1
+    assert tuple(item for shard in shards for item in shard.candidates) == catalog
+    assert all(
+        len(json.dumps(shard.prompt_payload(), ensure_ascii=False, separators=(",", ":")).encode())
+        <= 400
+        for shard in shards
+    )
+
+
 def test_runoff_presents_cross_shard_finalists_together() -> None:
     catalog = (
         ConceptCandidate(
@@ -277,7 +293,7 @@ def test_runoff_presents_cross_shard_finalists_together() -> None:
         choose=choose,
         utterance=_UTTERANCE,
         max_model_calls=8,
-        max_shard_bytes=256,
+        max_shard_bytes=400,
     )
 
     assert len(presented) == 3
@@ -323,7 +339,7 @@ def test_runoff_cannot_bind_another_mentions_finalist() -> None:
         choose=choose,
         utterance=_UTTERANCE,
         max_model_calls=8,
-        max_shard_bytes=256,
+        max_shard_bytes=400,
     )
 
     assert {binding.outcome for binding in receipt.bindings} == {ConceptOutcome.AMBIGUOUS}

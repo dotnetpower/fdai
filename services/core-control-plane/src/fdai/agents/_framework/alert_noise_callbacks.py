@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.topics import stable_idempotency_key
 
 _PlanHook = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 _ObserveHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
@@ -95,8 +96,24 @@ class HeimdallAlertNoiseMixin:
         }:
             if self._alert_noise_hook is None or self.bus is None:
                 raise RuntimeError("alert noise observer is unavailable")
-            signal = await self._alert_noise_hook(payload)
-            await self.bus.publish("Heimdall", "object.drift", dict(signal))
+            signal = dict(await self._alert_noise_hook(payload))
+            correlation_id = str(
+                signal.get("correlation_id")
+                or payload.get("correlation_id")
+                or payload.get("event_id")
+                or "alert_noise"
+            )
+            signal["correlation_id"] = correlation_id
+            signal["idempotency_key"] = str(
+                signal.get("idempotency_key")
+                or stable_idempotency_key(
+                    "alert-noise-drift",
+                    correlation_id,
+                    payload.get("idempotency_key") or payload.get("event_id") or "",
+                    signal,
+                )
+            )
+            await self.bus.publish("Heimdall", "object.drift", signal)
             self.record_behavior("alert_noise:observed")
             return True
         return False

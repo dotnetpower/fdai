@@ -10,9 +10,13 @@ artifacts it may and may not create, and how it selects a 30-day Trial or a full
 owns the first installation path in
 [Constitution Article 1](../architecture/fdai-constitution.md#article-1-purpose-and-scope).
 
-> **Status:** This is the target contract. Today a keyless source run stops after the verified
-> Foundation handoff with `prebuilt_runtime_artifacts_required`, and no deployment step initializes
-> the durable Trial. The [implementation ledger](../../roadmap-implementation/deployment/source-deployment.md)
+> **Status:** This is the target contract. The source run now continues from the verified
+> Foundation handoff into the shared AKS application stage without a signed kit. It transfers the
+> pinned source snapshot to the managed host, builds service images with the deployment registry,
+> resolves Terraform providers from the public registry under committed lock files, runs
+> migrations and catalogs from the checkout, and keeps the same health, inventory, and second
+> zero-change checks. The
+> [implementation ledger](../../roadmap-implementation/deployment/source-deployment.md)
 > records the current state and the ordered remaining work.
 >
 > **Scope:** Runtime and provisioning topology, Trial and token semantics, and the signed offline
@@ -31,6 +35,7 @@ owns the first installation path in
 | `secrets/integrity-signing-key.pem` | A full-catalog installation entitlement without expiry, bound to that installation |
 | After the Trial | Acting work is blocked, observation continues, and every Console view shows a persistent expiry watermark |
 | Approval | The invocation approves each plan it shows; deleting or replacing an existing resource needs one typed confirmation |
+| Teardown | Source teardown removes only resource groups proven by retained source intent, preparation, and Foundation handoff evidence, after one typed confirmation and absence readback |
 | Success | `deployment_ready=true` only after service health and a second zero-change plan |
 
 ## Design and critique
@@ -60,6 +65,42 @@ installation's creation time, and after it ends every Console view shows a persi
 watermark that no setting hides. The source path builds images directly into the deployment and
 creates no signed release artifact. A present but unusable key stops the run before the first Azure
 effect instead of silently selecting Trial.
+
+When the source deployment selects `read-only-console` or `enterprise-identity-governance`, it also
+checks tenant-local Entra display names before Foundation preparation. FDAI binds to one shared
+tenant-local set of exact display names. Duplicate `fdai-*` application or `aw-*` group names stop
+the source run with a fixed ambiguity reason before any Azure effect. The command does not guess,
+create installation-scoped names, or accept an unreviewed binding file.
+
+**Application continuation revision:** The first implementation option was to route a completed
+source Foundation into signed-kit adoption. That preserved the existing application code, but it
+would have required a kit archive, provider mirror, runtime release manifest, support wheelhouse,
+and Console archive. Those inputs would reintroduce the release artifact that the source path is
+designed to avoid. The source path instead reuses the standalone application coordinator and swaps
+only the artifact input seam:
+
+- the managed host receives the verified source transport archive and installs the deployment CLI
+  from that source snapshot;
+- Terraform roots and migration support come from the snapshot, while providers resolve directly
+  from public registries under the committed `.terraform.lock.hcl` files;
+- service image references come from the source image stage receipt after substrate apply creates
+  the deployment registry;
+- the Console archive is built from the local checkout only when the Console add-on is selected;
+- every receipt records `operator-selected-source` and `release_signature_verified=false`.
+
+Signed-kit adoption remains available only for recovered Foundations that explicitly continue with
+an offline package.
+
+**Guarded teardown revision:** Teardown originally could have reused Terraform destroy from the
+current work tree. That would be too broad for source deployment because retained state can be
+partial, recovered, or absent after a failed run. The source path instead derives a teardown review
+only from retained source evidence: the source intent, source preparation receipt, Genesis marker,
+and verified Foundation state handoff. The review names only the application and operations
+resource groups from that proof, binds them to the target binding and source run binding, requires
+one typed confirmation, deletes only those groups, and then reads back their absence. If any
+resource name, digest, target, source, or handoff field cannot be proven, teardown refuses before
+any delete call. A partial deletion returns a partial-failure receipt and keeps live teardown
+evidence open for operator review.
 
 ## Run the command
 
@@ -136,7 +177,8 @@ deployment-control package, signed wheelhouse, runtime release manifest, applian
 image, SBOM, provenance or attestation statement, TUF metadata, or published release or image. It
 never requires a protected branch, CI result, public GHCR package, or maintainer. The signed
 offline package in [Disconnected Deployment](disconnected-deployment.md) is the only installation
-artifact that FDAI signs.
+artifact that FDAI signs. [Installable Deployment CLI](installable-deployment-cli.md#source-image-stage)
+owns the image stage's claim, readback, and recovery rules.
 
 ## Stage order
 
@@ -160,9 +202,10 @@ and no-repeated-ambiguous-apply rules in
 
 ## Honest limits
 
-- **Tamper-evident, not tamper-proof:** The Trial check and the watermark belong to the signed
-  framework surface. Removing either requires modifying signed code, which verification against
-  the upstream-signed manifest exposes, but nothing stops an operator who controls the source and
+- **Tamper-evident, not tamper-proof:** The Trial check and the watermark's decision and rendering
+  belong to the signed framework surface, so changing them requires modifying signed code, which
+  verification against the upstream-signed manifest exposes. The Console shell that mounts the
+  watermark is ordinary Console code, and nothing stops an operator who controls the source and
   runtime from running modified code. The Trial is an evaluation boundary, not copy protection.
 - **No reinstall detection:** Tearing down an installation and deploying a new one starts a new
   Trial. FDAI runs no global activation service.

@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.forseti_arbitration_contract import remember_arbitration_winner
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.forseti import Forseti
@@ -27,6 +29,13 @@ def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
 
 
+def _restart_semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={"ops.restart-service": False},
+        rollback_by_id={"ops.restart-service": "state_forward_only"},
+    )
+
+
 def _njord(bus: InMemoryBus) -> Njord:
     return Njord(
         bus=bus,
@@ -36,6 +45,7 @@ def _njord(bus: InMemoryBus) -> Njord:
             clock=lambda: _COST_NOW,
         ),
         package_enabled=True,
+        allow_unbound_activation_reader=True,
     )
 
 
@@ -61,7 +71,7 @@ def _ingest_cost(
 
 def test_forseti_requests_arbitration_on_conflicting_advice() -> None:
     bus = _bus()
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_restart_semantics())
     request = asyncio.run(
         forseti.maybe_request_arbitration(
             {
@@ -194,10 +204,10 @@ def test_forseti_records_arbitration_decision() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.arbitration-decision",
-            {"correlation_id": "c", "winning_domain": "cost"},
+            {"producer_principal": "Odin", "correlation_id": "c", "winning_domain": "cost"},
         )
     )
-    assert forseti.arbitrations["c"] == "cost"
+    assert "c" not in forseti.arbitrations
 
 
 def test_arbitration_loop_end_to_end() -> None:
@@ -223,7 +233,10 @@ def test_arbitration_loop_end_to_end() -> None:
     decisions = bus.messages_on("object.arbitration-decision")
     assert len(decisions) == 1
     assert decisions[0].payload["winning_domain"] == "cost"
-    assert forseti.arbitrations.get("corr-arb") == "cost"
+    verdict = bus.messages_on("object.verdict")[0].payload
+    assert verdict["reason"] == "governed_execution_unselected"
+    assert verdict["arbitration"]["outcome"] == "resolved"
+    assert verdict["arbitration"]["winning_domain"] == "cost"
 
 
 def test_forseti_arbitrations_map_is_bounded() -> None:
@@ -233,11 +246,7 @@ def test_forseti_arbitrations_map_is_bounded() -> None:
 
     forseti = Forseti()
     for i in range(_MAX_RESOURCES + 100):
-        asyncio.run(
-            forseti._record_arbitration(  # noqa: SLF001
-                {"correlation_id": f"c{i}", "winning_domain": "cost"}
-            )
-        )
+        remember_arbitration_winner(forseti.arbitrations, f"c{i}", "cost", _MAX_RESOURCES)
     assert len(forseti.arbitrations) == _MAX_RESOURCES
     # The oldest correlations were evicted; the newest is retained.
     assert forseti.arbitrations.get(f"c{_MAX_RESOURCES + 100 - 1}") == "cost"
@@ -257,6 +266,7 @@ def test_forseti_aggregates_cross_domain_conflict() -> None:
         forseti.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "corr-cross-domain",
                 "resource_id": "vm-1",
                 "recommendation": "scale_down",
@@ -269,6 +279,7 @@ def test_forseti_aggregates_cross_domain_conflict() -> None:
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "corr-cross-domain",
                 "resource_id": "vm-1",
                 "recommendation": "scale_up",
@@ -286,13 +297,13 @@ def test_forseti_no_conflict_when_capacity_holds() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.cost-anomaly",
-            {"resource_id": "vm-2", "recommendation": "scale_down"},
+            {"producer_principal": "Njord", "resource_id": "vm-2", "recommendation": "scale_down"},
         )
     )
     asyncio.run(
         forseti.on_typed_message(
             "object.capacity-forecast",
-            {"resource_id": "vm-2", "recommendation": "hold"},
+            {"producer_principal": "Freyr", "resource_id": "vm-2", "recommendation": "hold"},
         )
     )
     assert bus.messages_on("object.arbitration-request") == []
@@ -312,7 +323,13 @@ def test_njord_cost_anomaly_carries_recommendation() -> None:
 def test_freyr_capacity_forecast_carries_recommendation() -> None:
     bus = _bus()
     freyr = Freyr(bus=bus, scale_up_threshold=0.75)
-    asyncio.run(freyr.ingest_utilization(resource_id="vm-1", utilization=0.9))
+    asyncio.run(
+        freyr.ingest_utilization(
+            resource_id="vm-1",
+            utilization=0.9,
+            observed_at=_COST_NOW.isoformat(),
+        )
+    )
     msgs = bus.messages_on("object.capacity-forecast")
     assert msgs[-1].payload["recommendation"] == "scale_up"
 
@@ -333,7 +350,13 @@ def test_domain_signals_drive_arbitration_end_to_end() -> None:
         _ingest_cost(njord, scope="s", amount_usd=100.0, resource_id="vm-1")
     _ingest_cost(njord, scope="s", amount_usd=1000.0, resource_id="vm-1")
     # Freyr: high utilization on vm-1 (recommends scale_up) -> conflict.
-    asyncio.run(freyr.ingest_utilization(resource_id="vm-1", utilization=0.95))
+    asyncio.run(
+        freyr.ingest_utilization(
+            resource_id="vm-1",
+            utilization=0.95,
+            observed_at=_COST_NOW.isoformat(),
+        )
+    )
 
     decisions = bus.messages_on("object.arbitration-decision")
     assert len(decisions) >= 1
@@ -442,6 +465,7 @@ def test_forseti_forwards_impacts_from_signals() -> None:
         forseti.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "corr-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_down",
@@ -453,6 +477,7 @@ def test_forseti_forwards_impacts_from_signals() -> None:
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "corr-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_up",
@@ -497,7 +522,13 @@ def test_freyr_publishes_normalized_impact_on_forecast() -> None:
     """Freyr owns capacity normalization: attaches impact = clamp(forecast_util)."""
     bus = _bus()
     freyr = Freyr(bus=bus, scale_up_threshold=0.75)
-    asyncio.run(freyr.ingest_utilization(resource_id="vm-1", utilization=0.9))
+    asyncio.run(
+        freyr.ingest_utilization(
+            resource_id="vm-1",
+            utilization=0.9,
+            observed_at=_COST_NOW.isoformat(),
+        )
+    )
     payload = bus.messages_on("object.capacity-forecast")[-1].payload
     # smoothed(alpha=0.3, prev=0.9) starts equal to first sample -> 0.9.
     assert payload["forecast_util"] == payload["impact"]
@@ -512,6 +543,7 @@ def test_forseti_prefers_specialist_impact_over_raw_ratio() -> None:
         forseti.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "corr-specialist-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_down",
@@ -524,6 +556,7 @@ def test_forseti_prefers_specialist_impact_over_raw_ratio() -> None:
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "corr-specialist-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_up",
@@ -1284,8 +1317,8 @@ def test_odin_arbitration_decision_tool_reports_unavailable_before_any_conflict(
         )
     )
 
-    assert envelope["abstain_reason"] is None
-    assert "No owned data is currently available." in envelope["answer"]
+    assert envelope["abstain_reason"] == "no_tool_data"
+    assert envelope["answer"] is None
 
 
 @pytest.mark.parametrize(
@@ -1323,8 +1356,28 @@ def test_odin_empty_state_separates_role_policy_and_observed_evidence(question: 
 )
 def test_odin_korean_locale_renders_the_same_role_and_observed_state(question: str) -> None:
     odin = Odin()
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "hil"}))
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-ko-1",
+                "idempotency_key": "verdict:odin-ko-1",
+                "risk_verdict": "auto",
+            },
+        )
+    )
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-ko-2",
+                "idempotency_key": "verdict:odin-ko-2",
+                "risk_verdict": "hil",
+            },
+        )
+    )
 
     envelope = asyncio.run(odin.on_conversation_turn(question, {"locale": "ko"}))
 
@@ -1342,12 +1395,52 @@ def test_odin_korean_locale_renders_the_same_role_and_observed_state(question: s
 def test_odin_observes_portfolio_verdicts_without_re_judging_them() -> None:
     odin = Odin()
 
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "hil"}))
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-obs-1",
+                "idempotency_key": "verdict:odin-obs-1",
+                "risk_verdict": "auto",
+            },
+        )
+    )
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-obs-2",
+                "idempotency_key": "verdict:odin-obs-2",
+                "risk_verdict": "hil",
+            },
+        )
+    )
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-obs-3",
+                "idempotency_key": "verdict:odin-obs-3",
+                "risk_verdict": "auto",
+            },
+        )
+    )
     # An unrecognized outcome folds into a bounded sentinel rather than
     # growing the counter's key space.
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "../etc/passwd"}))
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-obs-4",
+                "idempotency_key": "verdict:odin-obs-4",
+                "risk_verdict": "../etc/passwd",
+            },
+        )
+    )
 
     envelope = asyncio.run(
         odin.on_conversation_turn(
@@ -1367,7 +1460,17 @@ def test_odin_verdict_observation_never_publishes() -> None:
     bus = InMemoryBus(load_pantheon())
     odin = Odin(bus=bus)
 
-    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
+    asyncio.run(
+        odin.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "odin-readonly",
+                "idempotency_key": "verdict:odin-readonly",
+                "risk_verdict": "auto",
+            },
+        )
+    )
 
     assert bus.messages_on("object.arbitration-decision") == []
 
@@ -1389,6 +1492,7 @@ def test_escalated_arbitration_reaches_a_human_verdict_end_to_end() -> None:
         forseti.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "corr-close",
                 "resource_id": "vm-close",
                 "recommendation": "scale_down",
@@ -1402,6 +1506,7 @@ def test_escalated_arbitration_reaches_a_human_verdict_end_to_end() -> None:
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "corr-close",
                 "resource_id": "vm-close",
                 "recommendation": "scale_up",
@@ -1431,18 +1536,24 @@ def test_settled_arbitration_issues_no_escalation_verdict() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.arbitration-decision",
-            {"correlation_id": "corr-clear", "winning_domain": "cost", "escalate_hil": False},
+            {
+                "producer_principal": "Odin",
+                "correlation_id": "corr-clear",
+                "winning_domain": "cost",
+                "escalate_hil": False,
+            },
         )
     )
 
     assert bus.messages_on("object.verdict") == []
-    assert forseti.arbitrations["corr-clear"] == "cost"
+    assert "corr-clear" not in forseti.arbitrations
 
 
 def test_redelivered_escalation_does_not_publish_a_second_verdict() -> None:
     bus = _bus()
     forseti = Forseti(bus=bus)
     decision = {
+        "producer_principal": "Odin",
         "correlation_id": "corr-dup",
         "winning_domain": "cost",
         "losing_domains": ["capacity"],
@@ -1459,7 +1570,7 @@ def test_redelivered_escalation_does_not_publish_a_second_verdict() -> None:
 def test_event_on_an_unresolved_correlation_never_judges_auto() -> None:
     """The contested resource stays with the human until the tie is settled."""
     bus = _bus()
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, action_semantics=_restart_semantics())
     event = {
         "correlation_id": "corr-gate",
         "resource_id": "vm-gate",
@@ -1470,7 +1581,12 @@ def test_event_on_an_unresolved_correlation_never_judges_auto() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.arbitration-decision",
-            {"correlation_id": "corr-gate", "winning_domain": "cost", "escalate_hil": True},
+            {
+                "producer_principal": "Odin",
+                "correlation_id": "corr-gate",
+                "winning_domain": "cost",
+                "escalate_hil": True,
+            },
         )
     )
     gated = asyncio.run(forseti.judge(dict(event)))

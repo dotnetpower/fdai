@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 from collections import deque
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any, Protocol
 
-from fdai.agents._framework.norns_case_history import (
-    operational_candidate_cases_are_current,
-)
+from fdai.agents._framework.adapters import canonical_json_digest
+from fdai.agents._framework.bounded import BoundedLruSet
+from fdai.agents._framework.norns_case_history import operational_candidate_cases_are_current
 from fdai.agents._framework.norns_consensus import NornsConsensus
+from fdai.agents._framework.norns_constants import _DEFAULT_PROVIDER_TIMEOUT_SECONDS
 from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.core.operational_learning import ShadowDwellLedger
 from fdai.shared.providers.state_store import StateStore
@@ -40,6 +39,15 @@ class NornsOperationalCandidateJournal:
     def __init__(self, store: StateStore | None, *, capacity: int) -> None:
         self._store = store
         self._capacity = capacity
+        self._last_pending_total = 0
+
+    @property
+    def durable(self) -> bool:
+        return self._store is not None
+
+    @property
+    def last_pending_total(self) -> int:
+        return self._last_pending_total
 
     async def retain(
         self,
@@ -99,6 +107,7 @@ class NornsOperationalCandidateJournal:
     ) -> tuple[tuple[tuple[dict[str, Any], dict[str, Any], bool], ...], int]:
         store = self._store
         if store is None:
+            self._last_pending_total = 0
             return (), 0
         rows, total = await store.read_state_page(
             f"{_STATE_PREFIX}/",
@@ -108,6 +117,7 @@ class NornsOperationalCandidateJournal:
             value="pending",
         )
         recovered: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
+        self._last_pending_total = total
         for row in rows:
             candidate = row.get("candidate")
             pattern = row.get("pattern")
@@ -146,7 +156,7 @@ class NornsOperationalCandidateJournal:
             "revision": revision + 1,
             "pattern_published": True,
         }
-        await store.compare_and_set_state_with_audit(
+        if not await store.compare_and_set_state_with_audit(
             key,
             updated,
             expected_revision=revision,
@@ -158,7 +168,8 @@ class NornsOperationalCandidateJournal:
                 "pattern_digest": current["pattern_digest"],
                 "grants_authority": False,
             },
-        )
+        ):
+            raise RuntimeError("Norns operational Pattern checkpoint CAS failed")
         if await store.read_state(key) != updated:
             raise RuntimeError("Norns operational Pattern checkpoint readback failed")
 
@@ -193,7 +204,7 @@ class NornsOperationalCandidateJournal:
             "pattern_digest": pattern_digest,
             "reason": reason,
         }
-        await store.compare_and_set_state_with_audit(
+        if not await store.compare_and_set_state_with_audit(
             key,
             terminal,
             expected_revision=revision,
@@ -206,7 +217,8 @@ class NornsOperationalCandidateJournal:
                 "reason": reason,
                 "grants_authority": False,
             },
-        )
+        ):
+            raise RuntimeError("Norns operational candidate terminal CAS failed")
         if await store.read_state(key) != terminal:
             raise RuntimeError("Norns operational candidate terminal readback failed")
 
@@ -221,14 +233,19 @@ class NornsCandidateDeliveryMixin:
     _consensus: NornsConsensus
     _consensus_holds: deque[dict[str, object]]
     _flush_cursor: int
+    _durable_source_scrub_offset: int
     _issue_deduplicator: _IssueDeduplicator
     _learning_lock: Any
     _max_pending_candidates: int
     _operating_pattern_ids: Any
     _operational_journal: NornsOperationalCandidateJournal
     _pattern_publications: dict[str, dict[str, Any]]
-    _published_pattern_ids: set[str]
+    _published_pattern_ids: BoundedLruSet[str]
+    _pending_by_pattern_id: dict[str, dict[str, Any]]
+    _provider_timeout_seconds: float
     _shadow_dwell: ShadowDwellLedger
+    bus: Any
+    spec: Any
 
     def _init_candidate_delivery(
         self,
@@ -239,22 +256,20 @@ class NornsCandidateDeliveryMixin:
         self.pending_candidates = []
         self._candidate_publication_gate = None
         self._flush_cursor = 0
+        self._durable_source_scrub_offset = 0
         self._operational_journal = NornsOperationalCandidateJournal(
             store, capacity=max_pending_candidates
         )
-        self._published_pattern_ids = set()
+        self._published_pattern_ids = BoundedLruSet(max_pending_candidates)
+        self._pending_by_pattern_id = {}
 
     async def retain_operational_candidate(self, pattern_id: str) -> None:
         """Persist the exact candidate and Pattern before transport acknowledgement."""
         pattern = self._pattern_publications.get(pattern_id)
-        candidate = next(
-            (
-                item
-                for item in reversed(self.pending_candidates)
-                if item.get("suggested_pattern") == pattern_id
-            ),
-            None,
-        )
+        candidate = self._pending_by_pattern_id.get(pattern_id)
+        if candidate is None:
+            self._rebuild_pending_pattern_index()
+            candidate = self._pending_by_pattern_id.get(pattern_id)
         if pattern is not None and candidate is not None:
             retained = await self._operational_journal.retain(candidate=candidate, pattern=pattern)
             if not retained:
@@ -273,7 +288,7 @@ class NornsCandidateDeliveryMixin:
                 pattern_id = _pattern_id(candidate, pattern)
                 if pattern_id in self._operating_pattern_ids:
                     continue
-                if not await operational_candidate_cases_are_current(self, candidate):
+                if not await self._operational_candidate_cases_are_current(candidate):
                     await self._operational_journal.mark_terminal(
                         candidate=candidate,
                         pattern=pattern,
@@ -284,6 +299,7 @@ class NornsCandidateDeliveryMixin:
                     continue
                 self._ensure_pending_capacity()
                 self.pending_candidates.append(candidate)
+                self._index_pending_candidate(candidate)
                 self._pattern_publications[pattern_id] = pattern
                 if pattern_published:
                     self._published_pattern_ids.add(pattern_id)
@@ -310,6 +326,12 @@ class NornsCandidateDeliveryMixin:
             raise RuntimeError("Norns candidate publication gate is already bound")
         self._candidate_publication_gate = gate
 
+    def _proposal_rate_limiter(self) -> Any:
+        raise NotImplementedError
+
+    def _record_candidate_terminal(self, candidate: Mapping[str, Any], outcome: str) -> None:
+        raise NotImplementedError
+
     async def _flush_candidates_unlocked(self) -> int:
         published = 0
         issue_recovery_count = 0
@@ -334,6 +356,8 @@ class NornsCandidateDeliveryMixin:
         await self._scrub_source_invalidated_candidates()
         await self._scrub_durable_source_invalidated_candidates()
         if self._candidate_publication_gate is not None and not self._candidate_publication_gate():
+            for candidate in self.pending_candidates:
+                self._record_candidate_terminal(candidate, "disabled")
             self.record_behavior("rule_candidate_publication_disabled")
             return 0
         published = 0
@@ -341,7 +365,8 @@ class NornsCandidateDeliveryMixin:
             candidate = self.pending_candidates[self._flush_cursor]
             pattern_id = str(candidate.get("suggested_pattern", ""))
             pattern = self._pattern_publications.get(pattern_id)
-            if not await operational_candidate_cases_are_current(self, candidate):
+            if not await self._operational_candidate_cases_are_current(candidate):
+                self._record_candidate_terminal(candidate, "invalidated")
                 if pattern is not None:
                     await self._operational_journal.mark_terminal(
                         candidate=candidate,
@@ -349,7 +374,7 @@ class NornsCandidateDeliveryMixin:
                         status="invalidated",
                         reason="source_no_longer_current",
                     )
-                    self._published_pattern_ids.discard(pattern_id)
+                    self._forget_published_pattern(pattern_id)
                 self._pattern_publications.pop(pattern_id, None)
                 self._flush_cursor += 1
                 continue
@@ -362,7 +387,7 @@ class NornsCandidateDeliveryMixin:
                         status="held",
                         reason="consensus_held",
                     )
-                    self._published_pattern_ids.discard(pattern_id)
+                    self._forget_published_pattern(pattern_id)
                 self._pattern_publications.pop(pattern_id, None)
                 self._consensus_holds.append(
                     {
@@ -374,6 +399,7 @@ class NornsCandidateDeliveryMixin:
                     }
                 )
                 self._flush_cursor += 1
+                self._record_candidate_terminal(candidate, "held")
                 self.record_behavior("rule_candidate_consensus_held")
                 continue
             payload = {
@@ -389,37 +415,70 @@ class NornsCandidateDeliveryMixin:
             if pattern is not None and pattern_id not in self._published_pattern_ids:
                 if not await self._publish_proposal("object.pattern", pattern):
                     break
-                await self._operational_journal.mark_pattern_published(
-                    candidate=candidate,
-                    pattern=pattern,
+                mark_task = asyncio.create_task(
+                    self._operational_journal.mark_pattern_published(
+                        candidate=candidate,
+                        pattern=pattern,
+                    )
                 )
+                try:
+                    await asyncio.shield(mark_task)
+                except asyncio.CancelledError:
+                    await mark_task
+                    raise
                 self._published_pattern_ids.add(pattern_id)
-            if not await self._publish_proposal("object.rule-candidate", payload):
+            if not await self._publish_rule_candidate(candidate, pattern, payload):
                 break
             if pattern is not None:
-                await self._operational_journal.mark_terminal(
-                    candidate=candidate,
-                    pattern=pattern,
-                    status="published",
-                    reason="candidate_published",
-                )
                 self._pattern_publications.pop(pattern_id, None)
-                self._published_pattern_ids.discard(pattern_id)
+                self._forget_published_pattern(pattern_id)
             self._flush_cursor += 1
+            self._record_candidate_terminal(candidate, "published")
             self.record_behavior("rule_candidate_published")
             published += 1
         if self._flush_cursor:
             del self.pending_candidates[: self._flush_cursor]
+            self._rebuild_pending_pattern_index()
             self._flush_cursor = 0
         await self._issue_deduplicator.after_flush(self)
         return published
 
+    async def _publish_rule_candidate(
+        self,
+        candidate: Mapping[str, Any],
+        pattern: Mapping[str, Any] | None,
+        payload: dict[str, Any],
+    ) -> bool:
+        if pattern is None:
+            return await self._publish_proposal("object.rule-candidate", payload)
+        if self.bus is None:
+            return False
+        if not self._proposal_rate_limiter().allow():
+            self.record_behavior("rule_candidate_deferred:rate_limited")
+            return False
+        await self.bus.publish(self.spec.name, "object.rule-candidate", payload)
+        mark_task = asyncio.create_task(
+            self._operational_journal.mark_terminal(
+                candidate=candidate,
+                pattern=pattern,
+                status="published",
+                reason="candidate_published",
+            )
+        )
+        try:
+            await asyncio.shield(mark_task)
+        except asyncio.CancelledError:
+            await mark_task
+            raise
+        return True
+
     async def _scrub_source_invalidated_candidates(self) -> None:
         retained: list[dict[str, Any]] = []
         for candidate in self.pending_candidates:
-            if await operational_candidate_cases_are_current(self, candidate):
+            if await self._operational_candidate_cases_are_current(candidate):
                 retained.append(candidate)
                 continue
+            self._record_candidate_terminal(candidate, "invalidated")
             pattern_id = str(candidate.get("suggested_pattern", ""))
             pattern = self._pattern_publications.pop(pattern_id, None)
             if pattern is not None:
@@ -429,36 +488,69 @@ class NornsCandidateDeliveryMixin:
                     status="invalidated",
                     reason="source_no_longer_current",
                 )
-            self._published_pattern_ids.discard(pattern_id)
+            self._forget_published_pattern(pattern_id)
         self.pending_candidates[:] = retained
+        self._rebuild_pending_pattern_index()
         self._flush_cursor = 0
 
     async def _scrub_durable_source_invalidated_candidates(self) -> None:
         _first, total = await self._operational_journal.pending_page(limit=1)
-        scan_total = min(total, _MAX_SOURCE_SCRUB_RECORDS)
-        if total > scan_total:
-            self.record_behavior("operational_candidate_source_scrub_deferred", total - scan_total)
-        offset = max(scan_total - self._max_pending_candidates, 0)
-        while scan_total:
-            rows, _ = await self._operational_journal.pending_page(
-                limit=self._max_pending_candidates,
-                offset=offset,
+        if not total:
+            self._durable_source_scrub_offset = 0
+            return
+        offset = min(self._durable_source_scrub_offset, max(total - 1, 0))
+        rows, _ = await self._operational_journal.pending_page(
+            limit=min(self._max_pending_candidates, _MAX_SOURCE_SCRUB_RECORDS),
+            offset=offset,
+        )
+        for candidate, pattern, _pattern_published in rows:
+            if await self._operational_candidate_cases_are_current(candidate):
+                continue
+            self._record_candidate_terminal(candidate, "invalidated")
+            await self._operational_journal.mark_terminal(
+                candidate=candidate,
+                pattern=pattern,
+                status="invalidated",
+                reason="source_no_longer_current",
             )
-            for candidate, pattern, _pattern_published in rows:
-                if await operational_candidate_cases_are_current(self, candidate):
-                    continue
-                await self._operational_journal.mark_terminal(
-                    candidate=candidate,
-                    pattern=pattern,
-                    status="invalidated",
-                    reason="source_no_longer_current",
-                )
-            if offset == 0:
-                return
-            offset = max(offset - self._max_pending_candidates, 0)
+        self._durable_source_scrub_offset = 0 if offset + len(rows) >= total else offset + len(rows)
+        if self._durable_source_scrub_offset:
+            self.record_behavior(
+                "operational_candidate_source_scrub_deferred", total - offset - len(rows)
+            )
+
+    def _index_pending_candidate(self, candidate: dict[str, Any]) -> None:
+        pattern_id = str(candidate.get("suggested_pattern") or "")
+        if pattern_id:
+            self._pending_by_pattern_id[pattern_id] = candidate
+
+    def _rebuild_pending_pattern_index(self) -> None:
+        self._pending_by_pattern_id = {}
+        for candidate in self.pending_candidates:
+            self._index_pending_candidate(candidate)
+
+    def _forget_published_pattern(self, pattern_id: str) -> None:
+        retained = BoundedLruSet[str](self._max_pending_candidates)
+        for retained_id in self._published_pattern_ids:
+            if retained_id != pattern_id:
+                retained.add(retained_id)
+        self._published_pattern_ids = retained
 
     async def _publish_proposal(self, topic: str, payload: dict[str, Any]) -> bool:
         raise NotImplementedError
+
+    async def _operational_candidate_cases_are_current(
+        self,
+        candidate: Mapping[str, Any],
+    ) -> bool:
+        try:
+            async with asyncio.timeout(
+                getattr(self, "_provider_timeout_seconds", _DEFAULT_PROVIDER_TIMEOUT_SECONDS)
+            ):
+                return await operational_candidate_cases_are_current(self, candidate)
+        except TimeoutError:
+            self.record_behavior("operational_case_candidate_source_timeout")
+            return False
 
     def _ensure_pending_capacity(self) -> None:
         raise NotImplementedError
@@ -476,8 +568,7 @@ def _candidate_identity(candidate: Mapping[str, Any]) -> str:
     suggested = candidate.get("suggested_pattern")
     if isinstance(suggested, str) and suggested:
         return suggested
-    material = json.dumps(candidate, separators=(",", ":"), sort_keys=True, default=str)
-    return hashlib.sha256(material.encode()).hexdigest()
+    return canonical_json_digest(candidate)
 
 
 def _candidate_correlation_id(candidate: Mapping[str, Any]) -> str:
@@ -505,8 +596,7 @@ def _state_key(pattern_id: str) -> str:
 
 
 def _digest(value: Mapping[str, Any]) -> str:
-    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
-    return hashlib.sha256(payload.encode()).hexdigest()
+    return canonical_json_digest(value)
 
 
 def _required_digest(record: Mapping[str, Any], field: str) -> str:

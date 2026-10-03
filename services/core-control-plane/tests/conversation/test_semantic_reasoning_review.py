@@ -751,7 +751,12 @@ def test_a_literal_operand_must_equal_a_literal_the_extractor_quoted_alone() -> 
     assert _fragment_verdict(named, "app-dev") == FormReview("faithful")
     assert _fragment_verdict(stated, "app-dev가").reasons == ("review_literal_differs:4-11",)
     assert _fragment_verdict(named).reasons == ("review_literal_differs:4-11",)
-    assert extraction_schema()["required"] == ["answer_kind", "constraints", "literals"]
+    assert extraction_schema()["required"] == [
+        "answer_kind",
+        "constraints",
+        "literals",
+        "request_kind",
+    ]
 
 
 def test_a_literal_the_extractor_cannot_locate_voids_the_review() -> None:
@@ -1051,7 +1056,7 @@ async def test_the_second_concept_chooser_is_the_other_model_family() -> None:
     for schema in schemas:
         choice = schema["properties"]["choices"]["items"]["properties"]
         assert choice["mention"]["enum"] == ["m1"]
-        assert choice["candidate_ids"]["items"]["enum"] == ["value:compute.vm"]
+        assert choice["candidate_ids"]["items"]["enum"] == ["c0"]
         assert schema["properties"]["shard_digest"]["enum"] == [shard.digest]
 
 

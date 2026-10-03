@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
   "catalog_ref": "services/core-control-plane/src/fdai/agents/_framework/workflows.py",
-  "catalog_digest": "0702e932b27232c08dc222bc4f3ebc950dcdc7d25ba612e466f7ad560dbfe9e1",
-  "reviewed_on": "2026-09-16",
+  "catalog_digest": "bb4f441afa0429809018d1a423ea1a6b591f7145dc0cb27368fb5a406cadc731",
+  "reviewed_on": "2026-10-01",
   "authority": {
     "changes_workflow_mode": false,
     "grants_execution_authority": false,
@@ -17,7 +17,7 @@
     {
       "workflow_id": "cost-aware-remediation",
       "workflow_name": "Cost-aware remediation",
-      "definition_digest": "2294b9599cfb61e69496e5d5864ba4d624dc35c3c0d661721806d51b599d853b",
+      "definition_digest": "1d69344169739f00826fe316286af27cbe3e3d29871582686864931e95be8839",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_cost_aware_remediation_shadow_trace",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -43,7 +43,7 @@
     {
       "workflow_id": "predictive-scale",
       "workflow_name": "Predictive scale",
-      "definition_digest": "b175ffe05ed87d6b25db878bf388269a8d0a8e54f3ea0204330f455652e18961",
+      "definition_digest": "654a6af00b542a2c7febc51928669380c29f16cc3f0855965a8becde04124216",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_predictive_scale_shadow_trace",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -69,7 +69,7 @@
     {
       "workflow_id": "dr-drill-orchestration",
       "workflow_name": "DR drill orchestration",
-      "definition_digest": "ac1ec3b446e29fa38e75f03049c84b7698f0e59cc34f8bc7247187c34bd15e88",
+      "definition_digest": "350b84620c838f2a2b01b6dc563038512635d5b95ff7f357261e34c316185bf0",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_dr_drill_orchestration_respects_blast_radius",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -95,7 +95,7 @@
     {
       "workflow_id": "override-discovery",
       "workflow_name": "Override -> Discovery",
-      "definition_digest": "b8532cafaaf70d81b5a35f9beafaaaf24a0812cbc9187dd5d39614968c6c02d0",
+      "definition_digest": "5d80319d4d9e1d7b0cb0817b914ad18822e012fc1d621131ba4ad47f0cd11b4a",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_override_to_discovery_via_norns",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -121,7 +121,7 @@
     {
       "workflow_id": "security-escalation",
       "workflow_name": "Security escalation",
-      "definition_digest": "ce5d6325cd1904579934f7059712b054aacc0b68d82ce57f002f1fc758243ed6",
+      "definition_digest": "952f6d5d5f5d38e162460128ed71bd21a96205d42329805d432c00b0adf4507e",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_security_escalation_reaches_admin_channel",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -147,8 +147,8 @@
     {
       "workflow_id": "handoff-capability",
       "workflow_name": "Handoff -> Capability",
-      "definition_digest": "121789b3d89063ded4f8e910c8c9ae0e83b237f436a6714db3744825d190f958",
-      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_promotes_and_closes_issue",
+      "definition_digest": "0635d40cbbeeff42d2b8d9a39564ed966088bf49ad32a8ebe48575a60ecbad87",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_keeps_issue_open_without_promotion",
       "current_mode": "shadow",
       "verdict": "deferred",
       "evidence_status": {
@@ -167,13 +167,13 @@
       "evidence_refs": [
         "docs/roadmap/agents/agent-workflows.md",
         "docs/roadmap/agents/agent-workflow-rollout.md",
-        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_promotes_and_closes_issue"
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_keeps_issue_open_without_promotion"
       ]
     },
     {
       "workflow_id": "agent-health-degradation",
       "workflow_name": "Agent health degradation",
-      "definition_digest": "7ab12dc5d5d4ea901eb4e5e1d972f5699d543faccb8970195dad081c54138300",
+      "definition_digest": "1e4869b4cd25e1fc2be78233dabbe8b9c56174cde03794ae71284020dffcbc19",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_agent_health_degradation_reports_via_odin",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -199,7 +199,7 @@
     {
       "workflow_id": "judgment-coherence-audit",
       "workflow_name": "Judgment coherence audit",
-      "definition_digest": "7132e1dc397b9346936b7c4644efdb898528115b5ca81162af8bfe9b054d94fe",
+      "definition_digest": "a91cbcd8a19935a9e07e87e14bb3d97ddf522f5bc5cdf2286c95208254e3cbce",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_judgment_coherence_deterministic_verdict",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -225,8 +225,8 @@
     {
       "workflow_id": "rollback-rehearsal",
       "workflow_name": "Rollback rehearsal",
-      "definition_digest": "cb3f63d90ef8a06b5f9a151eba541640034735c436ab3502c4e06d8168975c27",
-      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_uses_loki_and_leaves_no_flight_targets",
+      "definition_digest": "91ef249fa62a8fa4ea0173d8cbca1a250be44e0b3b76746da611ed1f0c2e1246",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_blocks_overlapping_loki_targets",
       "current_mode": "shadow",
       "verdict": "deferred",
       "evidence_status": {
@@ -245,13 +245,13 @@
       "evidence_refs": [
         "docs/roadmap/agents/agent-workflows.md",
         "docs/roadmap/agents/agent-workflow-rollout.md",
-        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_uses_loki_and_leaves_no_flight_targets"
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_blocks_overlapping_loki_targets"
       ]
     },
     {
       "workflow_id": "retrospective-what-if",
       "workflow_name": "Retrospective what-if",
-      "definition_digest": "f3b7a883e21b1eb6c8fec42c0d8f37d565b33c715ca2fa79bb8cbc2f6c5e6faa",
+      "definition_digest": "5853ab3c219a7e2d05112a26a2b48ca94b34871c17b01d7770520657a1612db0",
       "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_retrospective_what_if_is_judge_only",
       "current_mode": "shadow",
       "verdict": "permanent_shadow",
@@ -274,7 +274,7 @@
     {
       "workflow_id": "operational-readiness-handoff",
       "workflow_name": "Operational readiness handoff",
-      "definition_digest": "2334d0c786b3edecbd969c0134efda10a619453e6d44ac0265338eb0ae79de22",
+      "definition_digest": "a6a0e7dd945db5958f203740f6518bed571d5db72597bc4f12fc0811140cb792",
       "trace_ref": "services/core-control-plane/tests/composition/test_readiness_service.py::test_blocking_posture_finding_gates_enforce_handoff",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -300,7 +300,7 @@
     {
       "workflow_id": "scheduled-governed-python-task",
       "workflow_name": "Scheduled governed Python task",
-      "definition_digest": "7ff0a55a5401be8ab2ec232cd2f8c221b4abf65b860c33bb4ed7e1f8aa711487",
+      "definition_digest": "7ad3bff007f921bde385bb385fcf66abe6022a5c3280d851f4c709735dae0ce1",
       "trace_ref": "services/core-control-plane/tests/core/test_control_loop_operator_request.py::test_raw_proposal_reaches_vm_runner_after_owner_approval",
       "current_mode": "shadow",
       "verdict": "deferred",
@@ -326,7 +326,7 @@
     {
       "workflow_id": "detection-readiness-assurance",
       "workflow_name": "Detection readiness assurance",
-      "definition_digest": "8794d13efed6423e551259699a58ef548f88e3e3ece47d9b3975f8d98994c23a",
+      "definition_digest": "73bb6737775cf2123bd33c383cfece71462161d655b11e378ec0c7ff75963f3b",
       "trace_ref": "services/core-control-plane/tests/agents/test_detection_readiness.py::test_huginn_to_heimdall_reduces_readiness_in_shadow",
       "current_mode": "shadow",
       "verdict": "deferred",

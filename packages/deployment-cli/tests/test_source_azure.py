@@ -175,6 +175,24 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(source_azure.subprocess, "run", prompt)
+    completions = []
+
+    def complete_application(**kwargs):
+        completions.append(kwargs)
+        assert kwargs["kit"] is None
+        assert kwargs["prepared"].source_commit == source.commit
+        assert kwargs["source_snapshot"] == work_dir / "source-snapshot"
+        assert kwargs["source_snapshot_digest"] == "e" * 64
+        assert kwargs["source_root"] == root
+        return {
+            "state": "deployment-ready",
+            "deployment_ready": True,
+            "source_commit": source.commit,
+            "provenance": "operator-selected-source",
+            "release_signature_verified": False,
+        }
+
+    monkeypatch.setattr(source_azure, "complete_application", complete_application)
     initial_confirmations = []
     if mode == "startup":
         from fdai_deployment_cli import installation_scope
@@ -184,38 +202,41 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             "_read_initial_answer",
             lambda deadline: initial_confirmations.append(deadline) or "install",
         )
-    arguments = dict(
-        source_root=root,
-        work_dir=work_dir,
-        runtime_profile=RuntimeDeploymentProfile.create(
+    arguments = {
+        "source_root": root,
+        "work_dir": work_dir,
+        "runtime_profile": RuntimeDeploymentProfile.create(
             runtime_platform="aks", database_placement="postgres-flex"
         ),
-        region="eastus",
-        monthly_cost_ceiling=1000,
-        timeout_seconds=1800,
-        interactive=interactive,
-        approval_file=approval_file,
-        installation_options=(
+        "region": "eastus",
+        "monthly_cost_ceiling": 1000,
+        "timeout_seconds": 1800,
+        "interactive": interactive,
+        "approval_file": approval_file,
+        "installation_options": (
             installation_scope.InstallationOptions(setup_cost_ceiling=300)
             if mode == "startup"
             else None
         ),
-        confirm_initial=mode == "startup",
-    )
+        "confirm_initial": mode == "startup",
+    }
     if deployment_ready:
         with pytest.raises(ValueError, match="bound review"):
             source_azure.plan_source_installation(**arguments)
         assert not (work_dir / "foundation/source-plan-review.json").exists()
     else:
         result = source_azure.plan_source_installation(**arguments)
-        assert result["state"] == "review"
-        assert result["deployment_ready"] is False
         assert result["release_signature_verified"] is False
         assert result["provenance"] == "operator-selected-source"
         assert result["cost_review"]["whole_installation_cost_verified"] is False
-        if result["stage"] == "application-plan":
-            assert result["reason_code"] == "prebuilt_runtime_artifacts_required"
-            assert result["next_action"] == "resume_with_signed_kit_and_foundation_adoption"
+        if result.get("stage") == "runner-image-apply":
+            assert result["state"] == "review"
+            assert result["deployment_ready"] is False
+            assert completions == []
+        else:
+            assert result["state"] == "deployment-ready"
+            assert result["deployment_ready"] is True
+            assert len(completions) == 1
     assert len(calls) == (3 if interactive and not deployment_ready else 2)
     assert len(prompts) == int(interactive and not deployment_ready)
     assert len(initial_confirmations) == int(mode == "startup")
@@ -281,6 +302,52 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
     )
     assert result["stage"] == "aks-preflight"
     assert not (tmp_path / "work").exists()
+
+
+def test_source_identity_preflight_runs_before_aks_preflight(tmp_path, monkeypatch) -> None:
+    root = tmp_path / "checkout"
+    root.mkdir()
+    source = SimpleNamespace(root=root, commit="c" * 40, reverify=lambda: None)
+    events: list[str] = []
+    monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {
+            "source_commit": source.commit,
+            "source_snapshot_digest": "e" * 64,
+            "receipt_digest": "d" * 64,
+        },
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "_require_unique_entra_display_names",
+        lambda *_args: events.append("entra") or (_ for _ in ()).throw(ValueError("ambiguous")),
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_target",
+        lambda **_: pytest.fail("AKS preflight must not run after Entra ambiguity"),
+    )
+
+    with pytest.raises(ValueError, match="ambiguous"):
+        source_azure.plan_source_installation(
+            source_root=root,
+            work_dir=tmp_path / "work",
+            runtime_profile=RuntimeDeploymentProfile.create(
+                runtime_platform="aks",
+                database_placement="postgres-flex",
+                product_add_ons=(
+                    "read-only-console",
+                    "enterprise-identity-governance",
+                ),
+            ),
+            region="eastus",
+            monthly_cost_ceiling=1000,
+            timeout_seconds=1800,
+        )
+
+    assert events == ["entra"]
 
 
 def test_over_budget_source_stops_before_foundation(tmp_path, monkeypatch):
@@ -459,18 +526,18 @@ def test_initial_confirmation_precedes_foundation_and_does_not_enable_interactiv
         raise RuntimeError("reached-foundation-after-confirmation")
 
     monkeypatch.setattr(source_azure, "_capture", capture)
-    arguments = dict(
-        source_root=tmp_path,
-        work_dir=tmp_path / "work",
-        runtime_profile=RuntimeDeploymentProfile.create(
+    arguments = {
+        "source_root": tmp_path,
+        "work_dir": tmp_path / "work",
+        "runtime_profile": RuntimeDeploymentProfile.create(
             runtime_platform="aks", database_placement="postgres-flex"
         ),
-        region="eastus",
-        monthly_cost_ceiling=1200,
-        timeout_seconds=1800,
-        installation_options=InstallationOptions(setup_cost_ceiling=300),
-        confirm_initial=True,
-    )
+        "region": "eastus",
+        "monthly_cost_ceiling": 1200,
+        "timeout_seconds": 1800,
+        "installation_options": InstallationOptions(setup_cost_ceiling=300),
+        "confirm_initial": True,
+    }
     if confirmation_state == "confirmed":
         arguments["work_dir"].mkdir()
         toolchain = tmp_path / "infra/genesis-runner-image/toolchain.json"

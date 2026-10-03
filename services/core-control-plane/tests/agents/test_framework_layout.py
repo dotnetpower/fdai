@@ -235,6 +235,24 @@ def test_framework_init_docstring_pins_intent() -> None:
         )
 
 
+def test_split_heimdall_runtime_loggers_keep_member_name() -> None:
+    from fdai.agents._framework import (
+        heimdall_anomaly_runtime,
+        heimdall_publication_runtime,
+        heimdall_readiness_runtime,
+        heimdall_state_recovery,
+    )
+
+    modules = (
+        heimdall_anomaly_runtime,
+        heimdall_publication_runtime,
+        heimdall_readiness_runtime,
+        heimdall_state_recovery,
+    )
+
+    assert {module._LOG.name for module in modules} == {"fdai.agents.heimdall"}  # noqa: SLF001
+
+
 # ---------------------------------------------------------------------------
 # H10: no _framework file may shadow a pantheon member's name. A future
 # helper named 'thor.py' under _framework/ (however tempting - "Thor's

@@ -418,6 +418,7 @@ export interface ModelTrace {
 export interface ModelUsage {
   readonly prompt_tokens?: number;
   readonly completion_tokens?: number;
+  readonly model_calls?: number;
   readonly total_tokens: number;
 }
 
@@ -806,6 +807,8 @@ export interface StreamCallbacks {
   readonly onValidatedTerminal?: () => void;
   readonly onProgress?: (progress: VerificationProgress) => void;
   readonly onActivity?: (activity: InvestigationActivity) => void;
+  /** The server's pinned plan shape; it arrives at most once, before the first read. */
+  readonly onWorkProgress?: (shape: WorkProgressShape) => void;
   readonly onMilestone?: (milestone: InvestigationMilestone) => void;
   readonly onBranch?: (branch: EvidenceBranch) => void;
   readonly onConfirmed?: (segment: ConfirmedAnswerSegment) => void;

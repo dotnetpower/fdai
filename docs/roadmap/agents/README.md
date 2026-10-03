@@ -99,13 +99,13 @@ rename agents.
 
 | What forks may do | How |
 |-------------------|-----|
-| Bind models to agents | `agents.<name>.llm_bindings` configuration |
-| Disable a domain agent, such as chaos | `agents.<name>.enabled: false` |
+| Bind models to agents | Agent ontology `llm_bindings` seam plus composition-owned model binding; no live `agents.<name>.llm_bindings` runtime key is implemented yet |
+| Disable a domain agent, such as chaos | Agent ontology `enabled` seam plus composition-owned selection; no live `agents.<name>.enabled` runtime key is implemented yet |
 | Add rules or policies | `rule-catalog/catalog/**` overlay |
 | Add or override ActionTypes | `rule-catalog/action-types-custom/**` and `-overrides/**` within Agent Pantheon section 7.8 |
 | Change ChatOps channel targets | Delivery-adapter configuration |
 | Change conversation retention or opt-in defaults | Bragi configuration |
-| Change rate-limit defaults | `agents.<name>.rate_limits` configuration |
+| Change rate-limit defaults | AgentSpec and Agent ontology `rate_limits` seam; no live `agents.<name>.rate_limits` runtime key is implemented yet |
 
 Forks may not:
 

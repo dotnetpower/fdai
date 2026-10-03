@@ -90,11 +90,11 @@ change-accelerator, and private-cluster proposal stores. It closes them through 
 lifecycle with provider clients and event transport, so a completed or failed tick leaves no
 database-pool worker behind.
 
-An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
-relationship-free candidate window. If that window is truncated and does not prove the requested
-result limit, the store can provide one relationship-free candidate snapshot bounded at 50,000
-objects. The larger scan uses one connection and one source generation. Relationship-bearing
-queries never use this path, and candidate truncation remains explicit.
+ObjectSets follow the [bounded-query contract](operating-ontology-platform.md); truncation stays explicit.
+Equality and membership preserve JSON structure and Boolean types; numeric comparisons use decimal JSON.
+Key order is irrelevant; extra keys, array order and duplicate counts matter.
+Containment tests substrings in strings, keys in objects, and exact members in arrays.
+Stores enforce property equality before row limits; JSONB containment alone is insufficient.
 
 The [structured cloud-document extension](../interfaces/cloud-resource-knowledge-structured-rag.md)
 is under development. Body blocks, excerpt identities, and query bindings describe document provenance,
@@ -581,3 +581,4 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Interfaces, ObjectSets, functions, and exact releases | [Ontology Safety Infrastructure](operating-ontology-platform.md) |
 | Continuous graph freshness and completeness | [Continuous Operational Instance Graph](continuous-operational-instance-graph.md) |
 | Verified query coverage and cutover | [Ontology Query Coverage Implementation Plan](../interfaces/ontology-query-coverage-implementation-plan.md) |
+| Shared Workflow validation contracts | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |

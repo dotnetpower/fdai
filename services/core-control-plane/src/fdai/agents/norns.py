@@ -42,12 +42,10 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections import Counter, deque
+from collections import deque
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
-
-from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
@@ -59,14 +57,26 @@ from fdai.agents._framework.introspection import (
     capped_list,
 )
 from fdai.agents._framework.norns_candidate_delivery import NornsCandidateDeliveryMixin
-from fdai.agents._framework.norns_case_history import (
-    operational_case_cohort_is_current,
-)
 from fdai.agents._framework.norns_consensus import NornsConsensus
+from fdai.agents._framework.norns_constants import (
+    _DEFAULT_PROVIDER_TIMEOUT_SECONDS as _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+)
+from fdai.agents._framework.norns_constants import (
+    _MAX_POST_TURN_BODY_BYTES as _MAX_POST_TURN_BODY_BYTES,
+)
+from fdai.agents._framework.norns_constants import (
+    _MAX_TRACKED as _MAX_TRACKED,
+)
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
+from fdai.agents._framework.norns_event_learning import NornsEventLearningMixin
 from fdai.agents._framework.norns_issue_dedup import NornsIssueDeduplicator
+from fdai.agents._framework.norns_learning import (
+    NornsCapacityError as NornsCapacityError,
+)
+from fdai.agents._framework.norns_learning import (
+    NornsLearningStateMixin,
+)
 from fdai.agents._framework.norns_learning import observe_approval as _learn_approval
-from fdai.agents._framework.norns_learning import observe_operational_case_cohort
 from fdai.agents._framework.norns_learning import observe_outcome as _learn_outcome
 from fdai.agents._framework.norns_learning import observe_override as _learn_override
 from fdai.agents._framework.norns_learning import (
@@ -83,12 +93,9 @@ from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.learning import (
     PostTurnReviewCoordinator,
     RuleCandidateHint,
-    review_input_from_mapping,
 )
 from fdai.core.operational_learning import (
     InvestigationStrategyCandidateCompiler,
-    InvestigationStrategyComparisonEvidence,
-    InvestigationStrategyCompilationDisposition,
     OperatingPatternCompiler,
     ShadowDwellEvidence,
     ShadowDwellLedger,
@@ -99,15 +106,23 @@ from fdai.shared.providers.state_store import StateStore
 
 # LRU cap on the per-event / per-fingerprint maps a long-lived learner keeps,
 # so they cannot grow without bound over the process lifetime.
-_MAX_TRACKED = 50_000
 _MAX_PENDING_CANDIDATES = 5_000
+_CANDIDATE_TERMINAL_OUTCOMES = (
+    "published",
+    "held",
+    "invalidated",
+    "disabled",
+    "rate_limited",
+)
 
 
-class NornsCapacityError(RuntimeError):
-    """Pending proposals are saturated; the caller must retry or dead-letter."""
-
-
-class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
+class Norns(
+    NornsEventLearningMixin,
+    NornsLearningStateMixin,
+    Agent,
+    HandoverKnowledgeMixin,
+    NornsCandidateDeliveryMixin,
+):
     """Wave-2 Norns: fingerprint aggregator + outcome / override / approval learner."""
 
     def __init__(
@@ -132,7 +147,9 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         operational_state_store: StateStore | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         operational_case_max_age: timedelta = timedelta(days=90),
+        issue_close_quiet_window: timedelta = timedelta(hours=24),
         clock: Callable[[], datetime] | None = None,
+        provider_timeout_seconds: float = _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
     ) -> None:  # Fail fast on misconfiguration: a non-positive threshold or a
         # rate outside [0, 1] would make the learner propose on thin or
         # impossible evidence (e.g. min_outcome_samples=0 fires on a single
@@ -153,7 +170,12 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             raise ValueError("max_pending_candidates MUST be >= 1")
         if operational_case_max_age <= timedelta(0):
             raise ValueError("operational_case_max_age MUST be positive")
+        if issue_close_quiet_window <= timedelta(0):
+            raise ValueError("issue_close_quiet_window MUST be positive")
+        if provider_timeout_seconds <= 0:
+            raise ValueError("Norns provider timeout MUST be positive")
         super().__init__(spec=_NORNS)
+        self._proposal_queue_managed_externally = True
         self._fingerprint_counter: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
         self._issue_deduplicator = NornsIssueDeduplicator(issue_state_store, _MAX_TRACKED)
         # Fingerprints already proposed - same content-hash keyspace as the
@@ -166,18 +188,23 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
             store=operational_state_store,
             max_pending_candidates=max_pending_candidates,
         )
+        self._learning_state_store = operational_state_store
+        self._learning_state_recovered = operational_state_store is None
+        self._learning_dirty: dict[str, set[str]] = {}
         self._investigation_strategy_compiler = (
             investigation_strategy_compiler or InvestigationStrategyCandidateCompiler()
         )
         self._investigation_strategy_candidate_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._learning_lock = asyncio.Lock()
+        self._forecast_analysis_lock = asyncio.Lock()
+        self._provider_timeout_seconds = provider_timeout_seconds
         self._consensus = NornsConsensus()
         self._consensus_holds: deque[dict[str, object]] = deque(maxlen=1_000)
         # Outcome-threshold learner state.
         self._rollback_alarm_rate = rollback_alarm_rate
         self._min_outcome_samples = min_outcome_samples
-        self._outcomes: dict[str, dict[str, int]] = {}
-        self._outcome_proposed: set[str] = set()
+        self._outcomes: BoundedLruDict[str, dict[str, int]] = BoundedLruDict(_MAX_TRACKED)
+        self._outcome_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         # Correlation ids whose outcome has already been counted, so a single
         # action that emits multiple adverse terminal audits (Thor emits
         # FAILED then ROLLED_BACK for a failed action) is scored once, not
@@ -190,8 +217,8 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         self._counted_shadow_outcomes: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         # Override learner state.
         self._override_retire_threshold = override_retire_threshold
-        self._override_counter: Counter[str] = Counter()
-        self._override_proposed: set[str] = set()
+        self._override_counter: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
+        self._override_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         # Approval-pattern learner state. Repeated HIL rejections of the same
         # action type mean humans consistently refuse it - a signal the action
         # is a poor fit; it proposes an inert `revision` candidate (the safe,
@@ -201,8 +228,8 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         # quality-gated decision. Dedup per correlation id (LRU) so a
         # re-delivered approval is scored once.
         self._rejection_revise_threshold = rejection_revise_threshold
-        self._approval_counts: dict[str, dict[str, int]] = {}
-        self._approval_proposed: set[str] = set()
+        self._approval_counts: BoundedLruDict[str, dict[str, int]] = BoundedLruDict(_MAX_TRACKED)
+        self._approval_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._counted_approvals: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._deployment_learning = NornsDeploymentLearning(
             coverage_aggregator=coverage_aggregator,
@@ -211,6 +238,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         )
         self._post_turn_hint_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._reviewed_trajectory_manifests: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        self._reviewed_post_turn_reviews: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._post_turn_review = post_turn_review
         self._forecast_error_threshold = forecast_error_threshold
         self._forecast_error_counts: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
@@ -221,8 +249,14 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         self._operating_pattern_compiler = operating_pattern_compiler or OperatingPatternCompiler()
         self._operational_case_max_age = operational_case_max_age
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._issue_close_quiet_window = issue_close_quiet_window
+        self._fingerprint_last_seen: BoundedLruDict[str, datetime] = BoundedLruDict(_MAX_TRACKED)
+        self._issue_close_quiet_episodes: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._operating_pattern_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._pattern_publications: dict[str, dict[str, Any]] = {}
+        self._candidate_terminal_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        self._candidate_terminal_counts = {outcome: 0 for outcome in _CANDIDATE_TERMINAL_OUTCOMES}
+        self._pattern_validation_counts = {"valid": 0, "false": 0}
         self._semantic_feedback = NornsSemanticFeedbackLearning(semantic_feedback_store)
         # Shadow outcomes never feed the rollback-rate learner (a judged-and-logged
         # 'success' says nothing about real safety), but they are the only evidence
@@ -244,229 +278,6 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         self._reviewed_trajectory_manifests.add(dataset.manifest_checksum)
         self.record_behavior("reviewed_trajectory_dataset_consumed")
         return True
-
-    async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        if topic == "object.post-turn-review":
-            await self._observe_post_turn_review(payload)
-            return
-        async with self._learning_lock:
-            if await self._handover_message(topic, payload):
-                return
-            await self._handle_typed_message(topic, payload)
-
-    async def _handle_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        operational_pattern_id = None
-        if len(self.pending_candidates) >= self._max_pending_candidates:
-            await self._flush_candidates_unlocked()
-        self._ensure_pending_capacity()
-        if topic == "object.issue":
-            await self._issue_deduplicator.observe(self, payload)
-        elif topic == "object.audit-entry":
-            # Saga audits every terminal state and republishes it as an
-            # audit-entry; the outcome learner scores rollback rates from it.
-            self._observe_outcome(payload)
-        elif topic == "object.approval":
-            # Var publishes the final HIL decision (approved / rejected); the
-            # approval-pattern learner scores recurring rejections from it.
-            self._observe_approval(payload)
-        elif topic == "object.context-index":
-            if payload.get("kind") == "operational_case_fingerprint_cohort":
-                if await operational_case_cohort_is_current(self, payload):
-                    operational_pattern_id = observe_operational_case_cohort(self, payload)
-                    if operational_pattern_id is not None:
-                        await self.retain_operational_candidate(operational_pattern_id)
-            elif payload.get("kind") == "investigation_strategy_comparison_cohort":
-                self._observe_investigation_strategy_cohort(payload)
-            elif payload.get("kind") == "semantic_retrieval_failure":
-                candidate = await self._semantic_feedback.observe(payload)
-                if candidate is None:
-                    self.record_behavior("semantic_feedback_candidate_duplicate")
-                else:
-                    self._append_candidate(candidate)
-                    self.record_behavior("semantic_feedback_candidate_created")
-            else:
-                await self._observe_forecast_case(payload)
-        # object.override is deliberately NOT handled here: it is not a pantheon
-        # bus topic (agent-pantheon.md 2 - overrides flow through the exemption
-        # / rule-catalog machinery). That machinery calls observe_override()
-        # directly.
-        # Off-path batch: forward any newly-formed inert candidates to Mimir.
-        await self._flush_candidates_unlocked()
-        if (
-            operational_pattern_id is not None
-            and payload.get("cohort_snapshot_ref")
-            and any(
-                item.get("suggested_pattern") == operational_pattern_id
-                for item in self.pending_candidates
-            )
-        ):
-            raise NornsCapacityError("operational cohort publication pending; retain for replay")
-
-    def _observe_investigation_strategy_cohort(self, payload: dict[str, Any]) -> None:
-        if payload.get("producer_principal") != "Muninn":
-            self.record_behavior("investigation_strategy_cohort_invalid_producer")
-            return
-        raw_comparisons = payload.get("comparisons")
-        if not isinstance(raw_comparisons, list) or not 1 <= len(raw_comparisons) <= 100:
-            self.record_behavior("investigation_strategy_cohort_invalid_payload")
-            return
-        try:
-            comparisons = tuple(
-                InvestigationStrategyComparisonEvidence.from_mapping(item)
-                for item in raw_comparisons
-                if isinstance(item, dict)
-            )
-        except ValueError:
-            self.record_behavior("investigation_strategy_cohort_invalid_payload")
-            return
-        if len(comparisons) != len(raw_comparisons):
-            self.record_behavior("investigation_strategy_cohort_invalid_payload")
-            return
-        pairs = {
-            (item.active_strategy_digest, item.challenger_strategy_digest) for item in comparisons
-        }
-        if len(pairs) != 1:
-            self.record_behavior("investigation_strategy_cohort_invalid_payload")
-            return
-        active_digest, challenger_digest = next(iter(pairs))
-        pair_digest = content_digest(
-            {
-                "active_strategy_digest": active_digest,
-                "challenger_strategy_digest": challenger_digest,
-            }
-        )
-        cohort_digest = content_digest(
-            {
-                "pair_digest": pair_digest,
-                "comparison_digests": sorted(item.comparison_digest for item in comparisons),
-            }
-        )
-        if (
-            payload.get("cohort_digest") != cohort_digest
-            or payload.get("correlation_id") != pair_digest
-            or payload.get("idempotency_key") != f"investigation-strategy:{cohort_digest}"
-        ):
-            self.record_behavior("investigation_strategy_cohort_invalid_seal")
-            return
-        result = self._investigation_strategy_compiler.compile_evidence(comparisons)
-        if (
-            result.disposition is not InvestigationStrategyCompilationDisposition.COMPILED
-            or result.candidate is None
-        ):
-            self.record_behavior("investigation_strategy_cohort_held")
-            return
-        if result.candidate.candidate_id in self._investigation_strategy_candidate_ids:
-            self.record_behavior("investigation_strategy_cohort_duplicate")
-            return
-        self._investigation_strategy_candidate_ids.add(result.candidate.candidate_id)
-        self._append_candidate(result.candidate.to_rule_candidate_mapping())
-        self.record_behavior("investigation_strategy_candidate_created")
-
-    async def _observe_forecast_case(self, payload: dict[str, Any]) -> None:
-        if payload.get("kind") != "forecast_case_history":
-            return
-        case_id = str(payload.get("case_id") or "")
-        revision = str(payload.get("revision") or "")
-        manifest_digest = str(payload.get("manifest_digest") or "")
-        detector_id = str(payload.get("detector_id") or "")
-        metric = str(payload.get("metric") or "")
-        label = str(payload.get("outcome_label") or "")
-        case_ref = str(payload.get("case_ref") or "")
-        dedup_key = f"{case_id}:{revision}:{manifest_digest}"
-        if not all((case_id, revision, manifest_digest, detector_id, metric, case_ref)):
-            self.record_behavior("forecast_case:invalid")
-            return
-        if dedup_key in self._counted_case_revisions:
-            return
-        self._counted_case_revisions.add(dedup_key)
-        if label not in {
-            "false_positive",
-            "false_negative",
-            "late_breach",
-            "magnitude_error",
-        }:
-            self.record_behavior(f"forecast_case:{label or 'unknown'}")
-            return
-        fingerprint = hashlib.sha256(f"{detector_id}\0{metric}".encode()).hexdigest()
-        count = (self._forecast_error_counts.get(fingerprint) or 0) + 1
-        self._forecast_error_counts.set(fingerprint, count)
-        self.record_behavior(f"forecast_case:{label}")
-        if count < self._forecast_error_threshold or fingerprint in self._forecast_error_proposed:
-            return
-        self._forecast_error_proposed.add(fingerprint)
-        if self._case_history_analyzer is not None:
-            try:
-                hint = await self._case_history_analyzer.analyze(payload)
-            except Exception:  # noqa: BLE001 - optional off-path analysis fails closed
-                hint = None
-                self.record_behavior("forecast_case:analysis_failed")
-            if hint is not None and not isinstance(hint, RuleCandidateHint):
-                self.record_behavior("forecast_case:analysis_invalid")
-                hint = None
-            if isinstance(hint, RuleCandidateHint):
-                self._append_candidate(
-                    {
-                        "source_signal": "forecast_case_history_analysis",
-                        "evidence": {
-                            "evidence_refs": list(hint.evidence_refs),
-                            "pattern_digest": hashlib.sha256(hint.pattern.encode()).hexdigest(),
-                            "confidence": hint.confidence,
-                            "occurrence_count": count,
-                        },
-                        "provenance": {
-                            "source": "case-history-analysis",
-                            "case_id": case_id,
-                            "revision": revision,
-                            "manifest_digest": manifest_digest,
-                        },
-                        "proposed_by": "Norns",
-                        "proposal_kind": hint.proposal_kind,
-                        "target_rule_id": hint.target_ref,
-                        "suggested_pattern": hint.pattern,
-                    }
-                )
-                return
-        self._append_candidate(
-            {
-                "source_signal": "forecast_case_history",
-                "evidence": {
-                    "detector_id": detector_id,
-                    "metric": metric,
-                    "latest_label": label,
-                    "occurrence_count": count,
-                    "case_ref": case_ref,
-                    "manifest_digest": manifest_digest,
-                },
-                "provenance": {
-                    "source": "case-history",
-                    "case_id": case_id,
-                    "revision": revision,
-                    "manifest_digest": manifest_digest,
-                },
-                "proposed_by": "Norns",
-                "proposal_kind": "threshold_adjustment",
-                "suggested_change": "review_forecast_detector",
-                "target_rule_id": detector_id,
-            }
-        )
-
-    async def _observe_post_turn_review(self, payload: dict[str, Any]) -> None:
-        if payload.get("kind") != "post_turn_review":
-            return
-        if payload.get("producer_principal") != "Bragi":
-            raise ValueError("post-turn review turn MUST be published by Bragi")
-        if self._post_turn_review is None:
-            self.record_behavior("post_turn_review_unavailable")
-            return
-        raw = payload.get("review")
-        if not isinstance(raw, dict):
-            raise ValueError("post-turn review payload MUST contain a review object")
-        await self._post_turn_review.review(review_input_from_mapping(raw))
-        self.record_behavior("post_turn_review_completed")
-
-    async def recover_issue_learning(self) -> int:
-        """Restore durable handoff-learning work before consumers start."""
-        return await self._issue_deduplicator.recover(self)
 
     # ---- 1. fingerprint aggregator ------------------------------------
 
@@ -570,6 +381,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         at: datetime,
     ) -> str:
         async with self._learning_lock:
+            await self._ensure_learning_state()
             return await self._submit_rule_hint_unlocked(
                 hint,
                 proposed_by=proposed_by,
@@ -607,6 +419,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         if digest in self._post_turn_hint_proposed:
             return proposal_ref
         self._post_turn_hint_proposed.add(digest)
+        self._mark_learning_dirty("post_turn_hint_proposed", digest)
         self._append_candidate(
             {
                 "source_signal": "post_turn_review",
@@ -625,16 +438,65 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                 "suggested_pattern": hint.pattern,
             }
         )
+        await self._persist_learning_state()
         await self._flush_candidates_unlocked()
         return proposal_ref
 
-    def _append_candidate(self, candidate: dict[str, Any]) -> None:
-        self._ensure_pending_capacity()
-        self.pending_candidates.append(candidate)
-
-    def _ensure_pending_capacity(self) -> None:
-        if len(self.pending_candidates) >= self._max_pending_candidates:
-            raise NornsCapacityError("Norns pending candidate capacity exhausted")
+    def health(self) -> dict[str, Any]:
+        durable_learning = self._learning_state_store is not None
+        pending_count = len(self.pending_candidates)
+        terminal_total = sum(self._candidate_terminal_counts.values())
+        pattern_total = sum(self._pattern_validation_counts.values())
+        status = "ok" if durable_learning else "degraded"
+        post_turn_status = "enabled" if self._post_turn_review is not None else "unavailable"
+        if self._post_turn_review is None and self.behavior_snapshot().get(
+            "post_turn_review_unavailable", 0
+        ):
+            status = "degraded"
+        return {
+            "agent": self.spec.name,
+            "status": status,
+            "learning": {
+                "mode": "off_path",
+                "status": "enabled",
+                "durability": "durable" if durable_learning else "process_local",
+                "warning": None if durable_learning else "learning_state_process_local",
+                "recovered": self._learning_state_recovered,
+                "post_turn_review": {
+                    "status": post_turn_status,
+                    "warning": None
+                    if post_turn_status == "enabled"
+                    else "post_turn_review_coordinator_unbound",
+                },
+            },
+            "candidate_delivery": {
+                "journal_durability": (
+                    "durable" if self._operational_journal.durable else "process_local"
+                ),
+                "pending_candidates": pending_count,
+                "durable_pending_count": self._operational_journal.last_pending_total,
+                "terminal_counts": dict(self._candidate_terminal_counts),
+                "oldest_pending_age_seconds": None,
+            },
+            "discovery_velocity": {
+                "pending_candidates": pending_count,
+                "terminal_candidates": terminal_total,
+            },
+            "kpis": {
+                "rule_candidate_adoption_rate": _ratio_kpi(
+                    self._candidate_terminal_counts["published"],
+                    terminal_total,
+                ),
+                "pattern_validity_rate": _ratio_kpi(
+                    self._pattern_validation_counts["valid"],
+                    pattern_total,
+                ),
+                "false_pattern_rate": _ratio_kpi(
+                    self._pattern_validation_counts["false"],
+                    pattern_total,
+                ),
+            },
+        }
 
     # ---- observers -----------------------------------------------------
 
@@ -650,7 +512,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         return counts["rollback"] / total if total else None
 
     def override_count(self, rule_id: str) -> int:
-        return self._override_counter[rule_id]
+        return self._override_counter.get(rule_id) or 0
 
     def rejection_count(self, action_type: str) -> int:
         """Measured HIL rejection count for an action type (0 if unseen)."""
@@ -663,7 +525,13 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Discovery answers rest on observed patterns and proposed candidates."""
-        return bool(self._fingerprint_counter or self.pending_candidates)
+        return bool(
+            self._fingerprint_counter
+            or self.pending_candidates
+            or self._outcomes
+            or self._approval_counts
+            or self._forecast_error_counts
+        )
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
@@ -678,6 +546,34 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         facts["evidence_refs"] = [evidence_ref]
         answer = norns_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
+
+
+def _forecast_case_behavior_key(label: str) -> str:
+    keys = {
+        "false_positive": "forecast_case:false_positive",
+        "false_negative": "forecast_case:false_negative",
+        "late_breach": "forecast_case:late_breach",
+        "magnitude_error": "forecast_case:magnitude_error",
+    }
+    return keys.get(label, "forecast_case:invalid_label")
+
+
+def _ratio_kpi(numerator: int, denominator: int) -> dict[str, Any]:
+    if denominator <= 0:
+        return {
+            "value": None,
+            "evidence_state": "not_observed",
+            "numerator": numerator,
+            "denominator": denominator,
+            "unit": "ratio",
+        }
+    return {
+        "value": numerator / denominator,
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": "ratio",
+    }
 
 
 __all__ = ["Norns", "NornsCapacityError"]

@@ -8,7 +8,7 @@ from datetime import datetime
 from importlib.metadata import entry_points
 from typing import Any, Protocol
 
-from fdai.agents import AnomalyActionSource, EventBusBridge
+from fdai.agents import AnomalyActionSource, EventBusBridge, ThorPreflightSimulator
 from fdai.core.control_loop import ControlLoop
 from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
 from fdai.shared.providers.state_store import StateStore
@@ -36,6 +36,8 @@ class AcceptanceRuntimeBindings:
 
     sources: dict[str, AnomalyActionSource]
     execute: Callable[[dict[str, Any]], Awaitable[bool]]
+    preflight_simulator: ThorPreflightSimulator
+    rollback_executors: dict[tuple[str, str], Callable[[dict[str, Any]], Awaitable[str | None]]]
     observe: ActionObservation | None = None
     resolve: Callable[[Mapping[str, Any]], Awaitable[bool]] | None = None
 
@@ -109,6 +111,15 @@ def build_acceptance_runtime_bindings(
         not isinstance(bindings, AcceptanceRuntimeBindings)
         or not bindings.sources
         or not callable(bindings.execute)
+        or not callable(getattr(bindings.preflight_simulator, "simulate", None))
+        or any(
+            not isinstance(action_type, str)
+            or not action_type
+            or not isinstance(contract, str)
+            or not contract
+            or not callable(executor)
+            for (action_type, contract), executor in bindings.rollback_executors.items()
+        )
     ):
         raise RuntimeError("acceptance recovery provider returned invalid bindings")
     return bindings
