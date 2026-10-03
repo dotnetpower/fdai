@@ -21,6 +21,10 @@ interface EdgeSegment {
   end: ElkPoint;
 }
 
+interface FallbackSegment extends EdgeSegment {
+  length: number;
+}
+
 function intersects(left: Box, right: Box, padding = 0): boolean {
   return (
     left.x < right.x + right.width - padding &&
@@ -103,6 +107,39 @@ function segmentsProperlyCross(
     && secondRatio < 1 - epsilon;
 }
 
+function collinearOverlapLength(
+  firstStart: ElkPoint,
+  firstEnd: ElkPoint,
+  secondStart: ElkPoint,
+  secondEnd: ElkPoint,
+): number {
+  if (firstStart.y === firstEnd.y && secondStart.y === secondEnd.y) {
+    if (firstStart.y !== secondStart.y) return 0;
+    const left = Math.max(
+      Math.min(firstStart.x, firstEnd.x),
+      Math.min(secondStart.x, secondEnd.x),
+    );
+    const right = Math.min(
+      Math.max(firstStart.x, firstEnd.x),
+      Math.max(secondStart.x, secondEnd.x),
+    );
+    return Math.max(0, right - left);
+  }
+  if (firstStart.x === firstEnd.x && secondStart.x === secondEnd.x) {
+    if (firstStart.x !== secondStart.x) return 0;
+    const top = Math.max(
+      Math.min(firstStart.y, firstEnd.y),
+      Math.min(secondStart.y, secondEnd.y),
+    );
+    const bottom = Math.min(
+      Math.max(firstStart.y, firstEnd.y),
+      Math.max(secondStart.y, secondEnd.y),
+    );
+    return Math.max(0, bottom - top);
+  }
+  return 0;
+}
+
 function labelBox(
   edgeId: string,
   label: ElkLabel,
@@ -134,6 +171,7 @@ export function layoutIntegrityErrors(
   const edgeLabelBoxes: Box[] = [];
   const stepBadgeBoxes: Box[] = [];
   const networkSegments: EdgeSegment[] = [];
+  const fallbackSegments: FallbackSegment[] = [];
 
   const intentionalNodeOverlap = spec.kind === "pie" || spec.kind === "venn";
   const drawnEdgeIds = new Set(
@@ -281,6 +319,20 @@ export function layoutIntegrityErrors(
           });
         }
       }
+      if (hasMissingEdgeRoute) {
+        for (let index = 1; index < points.length; index += 1) {
+          const start = points[index - 1]!;
+          const end = points[index]!;
+          fallbackSegments.push({
+            edgeId: edge.id,
+            source: endpointElementId(specEdge.from),
+            target: endpointElementId(specEdge.to),
+            start,
+            end,
+            length: Math.abs(end.x - start.x) + Math.abs(end.y - start.y),
+          });
+        }
+      }
       for (let index = 1; index < points.length; index += 1) {
         const start = points[index - 1]!;
         const end = points[index]!;
@@ -310,6 +362,36 @@ export function layoutIntegrityErrors(
       if (segmentsProperlyCross(left.start, left.end, right.start, right.end)) {
         const ids = [left.edgeId, right.edgeId].sort();
         const message = `Network edges '${ids[0]}' and '${ids[1]}' cross`;
+        if (!errors.includes(message)) errors.push(message);
+      }
+    }
+  }
+
+  for (let leftIndex = 0; leftIndex < fallbackSegments.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < fallbackSegments.length;
+      rightIndex += 1
+    ) {
+      const left = fallbackSegments[leftIndex]!;
+      const right = fallbackSegments[rightIndex]!;
+      if (left.edgeId === right.edgeId) continue;
+      if (
+        left.source === right.source ||
+        left.source === right.target ||
+        left.target === right.source ||
+        left.target === right.target
+      ) continue;
+      const overlap = collinearOverlapLength(
+        left.start,
+        left.end,
+        right.start,
+        right.end,
+      );
+      if (overlap > 40) {
+        const ids = [left.edgeId, right.edgeId].sort();
+        const message =
+          `Fallback edges '${ids[0]}' and '${ids[1]}' overlap for ${Math.round(overlap)}px`;
         if (!errors.includes(message)) errors.push(message);
       }
     }

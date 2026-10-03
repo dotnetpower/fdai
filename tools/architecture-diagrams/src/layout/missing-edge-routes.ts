@@ -19,6 +19,16 @@ interface Candidate {
   cost: number;
 }
 
+const ENDPOINT_STUB = 12;
+
+interface UsedSegment {
+  edgeId: string;
+  sourceId: string;
+  targetId: string;
+  start: ElkPoint;
+  end: ElkPoint;
+}
+
 function endpointElementId(endpoint: string): string {
   return endpoint.split(":", 1)[0] ?? endpoint;
 }
@@ -100,22 +110,99 @@ function sectionFromPoints(edgeId: string, points: ElkPoint[]): Candidate {
   };
 }
 
-function sectionIsClear(
-  section: ElkEdgeSection,
-  obstacles: PositionedShape[],
-): boolean {
-  const points = [
+function sectionPoints(section: ElkEdgeSection): ElkPoint[] {
+  return [
     section.startPoint,
     ...(section.bendPoints ?? []),
     section.endPoint,
   ];
-  return points.slice(1).every((end, index) => {
-    const start = points[index]!;
+}
+
+function sectionSegments(section: ElkEdgeSection): Array<{
+  start: ElkPoint;
+  end: ElkPoint;
+}> {
+  const points = sectionPoints(section);
+  return points.slice(1).map((end, index) => ({
+    start: points[index]!,
+    end,
+  }));
+}
+
+function sectionIsClear(
+  section: ElkEdgeSection,
+  obstacles: PositionedShape[],
+): boolean {
+  return sectionSegments(section).every(({ start, end }) => {
     if (start.x !== end.x && start.y !== end.y) return false;
     return obstacles.every(
       (obstacle) => !segmentIntersectsBox(start, end, obstacle, 3),
     );
   });
+}
+
+function collinearOverlapLength(
+  firstStart: ElkPoint,
+  firstEnd: ElkPoint,
+  secondStart: ElkPoint,
+  secondEnd: ElkPoint,
+): number {
+  if (firstStart.y === firstEnd.y && secondStart.y === secondEnd.y) {
+    if (firstStart.y !== secondStart.y) return 0;
+    const left = Math.max(
+      Math.min(firstStart.x, firstEnd.x),
+      Math.min(secondStart.x, secondEnd.x),
+    );
+    const right = Math.min(
+      Math.max(firstStart.x, firstEnd.x),
+      Math.max(secondStart.x, secondEnd.x),
+    );
+    return Math.max(0, right - left);
+  }
+  if (firstStart.x === firstEnd.x && secondStart.x === secondEnd.x) {
+    if (firstStart.x !== secondStart.x) return 0;
+    const top = Math.max(
+      Math.min(firstStart.y, firstEnd.y),
+      Math.min(secondStart.y, secondEnd.y),
+    );
+    const bottom = Math.min(
+      Math.max(firstStart.y, firstEnd.y),
+      Math.max(secondStart.y, secondEnd.y),
+    );
+    return Math.max(0, bottom - top);
+  }
+  return 0;
+}
+
+function sharesEndpoint(
+  left: { sourceId: string; targetId: string },
+  right: { sourceId: string; targetId: string },
+): boolean {
+  return (
+    left.sourceId === right.sourceId ||
+    left.sourceId === right.targetId ||
+    left.targetId === right.sourceId ||
+    left.targetId === right.targetId
+  );
+}
+
+function maximumUnrelatedOverlap(
+  section: ElkEdgeSection,
+  sourceId: string,
+  targetId: string,
+  usedSegments: UsedSegment[],
+): number {
+  let maximum = 0;
+  for (const segment of sectionSegments(section)) {
+    for (const used of usedSegments) {
+      if (sharesEndpoint({ sourceId, targetId }, used)) continue;
+      maximum = Math.max(
+        maximum,
+        collinearOverlapLength(segment.start, segment.end, used.start, used.end),
+      );
+    }
+  }
+  return maximum;
 }
 
 function uniqueSorted(values: number[]): number[] {
@@ -177,11 +264,45 @@ function attachmentOffset(
   shape: PositionedShape,
   endpointUses: Map<string, string[]>,
 ): number {
-  const uses = endpointUses.get(endpointId) ?? [edgeId];
+  const uses = endpointUses.get(endpointUseKey(endpointId, side)) ?? [edgeId];
   if (uses.length <= 1) return 0;
   const index = Math.max(0, uses.indexOf(edgeId));
   const span = Math.min(attachmentSpan(shape, side), (uses.length - 1) * 18);
   return -span / 2 + (span * index) / (uses.length - 1);
+}
+
+function endpointUseKey(endpointId: string, side: Side): string {
+  return `${endpointId}:${side}`;
+}
+
+function anchorSides(
+  source: PositionedShape,
+  target: PositionedShape,
+): { sourceSide: Side; targetSide: Side } {
+  const sourceCenter = {
+    x: source.x + source.width / 2,
+    y: source.y + source.height / 2,
+  };
+  const targetCenter = {
+    x: target.x + target.width / 2,
+    y: target.y + target.height / 2,
+  };
+  const horizontal =
+    Math.abs(targetCenter.x - sourceCenter.x) >=
+    Math.abs(targetCenter.y - sourceCenter.y);
+  if (horizontal) {
+    const targetIsRight = targetCenter.x >= sourceCenter.x;
+    return {
+      sourceSide: targetIsRight ? "EAST" : "WEST",
+      targetSide: targetIsRight ? "WEST" : "EAST",
+    };
+  }
+
+  const targetIsBelow = targetCenter.y >= sourceCenter.y;
+  return {
+    sourceSide: targetIsBelow ? "SOUTH" : "NORTH",
+    targetSide: targetIsBelow ? "NORTH" : "SOUTH",
+  };
 }
 
 function anchors(
@@ -200,13 +321,9 @@ function anchors(
     x: target.x + target.width / 2,
     y: target.y + target.height / 2,
   };
-  const horizontal =
-    Math.abs(targetCenter.x - sourceCenter.x) >=
-    Math.abs(targetCenter.y - sourceCenter.y);
-  if (horizontal) {
-    const targetIsRight = targetCenter.x >= sourceCenter.x;
-    const sourceSide: Side = targetIsRight ? "EAST" : "WEST";
-    const targetSide: Side = targetIsRight ? "WEST" : "EAST";
+  const { sourceSide, targetSide } = anchorSides(source, target);
+  if (sourceSide === "EAST" || sourceSide === "WEST") {
+    const targetIsRight = sourceSide === "EAST";
     const sourceOffset = attachmentOffset(
       edgeId,
       sourceId,
@@ -240,9 +357,7 @@ function anchors(
     };
   }
 
-  const targetIsBelow = targetCenter.y >= sourceCenter.y;
-  const sourceSide: Side = targetIsBelow ? "SOUTH" : "NORTH";
-  const targetSide: Side = targetIsBelow ? "NORTH" : "SOUTH";
+  const targetIsBelow = sourceSide === "SOUTH";
   const sourceOffset = attachmentOffset(
     edgeId,
     sourceId,
@@ -276,18 +391,49 @@ function anchors(
   };
 }
 
+function stubPoint(anchor: Anchor, distance: number): ElkPoint {
+  switch (anchor.side) {
+    case "EAST":
+      return { x: anchor.point.x + distance, y: anchor.point.y };
+    case "WEST":
+      return { x: anchor.point.x - distance, y: anchor.point.y };
+    case "SOUTH":
+      return { x: anchor.point.x, y: anchor.point.y + distance };
+    case "NORTH":
+      return { x: anchor.point.x, y: anchor.point.y - distance };
+  }
+}
+
+function directRouteAllowed(source: Anchor, target: Anchor): boolean {
+  if (
+    (source.side === "EAST" || source.side === "WEST") &&
+    (target.side === "EAST" || target.side === "WEST")
+  ) {
+    return source.point.y === target.point.y;
+  }
+  if (
+    (source.side === "NORTH" || source.side === "SOUTH") &&
+    (target.side === "NORTH" || target.side === "SOUTH")
+  ) {
+    return source.point.x === target.point.x;
+  }
+  return false;
+}
+
 function routeCandidates(
   edgeId: string,
-  source: ElkPoint,
-  target: ElkPoint,
-  obstacles: PositionedShape[],
+  sourceAnchor: Anchor,
+  targetAnchor: Anchor,
+  laneObstacles: PositionedShape[],
   laneOffset: number,
 ): Candidate[] {
-  const xIntervals = obstacles.map((node) => ({
+  const source = stubPoint(sourceAnchor, ENDPOINT_STUB);
+  const target = stubPoint(targetAnchor, ENDPOINT_STUB);
+  const xIntervals = laneObstacles.map((node) => ({
     start: node.x,
     end: node.x + node.width,
   }));
-  const yIntervals = obstacles.map((node) => ({
+  const yIntervals = laneObstacles.map((node) => ({
     start: node.y,
     end: node.y + node.height,
   }));
@@ -302,27 +448,51 @@ function routeCandidates(
     ...xLanes.map((lane) => Math.max(0, lane + laneOffset)),
   ]);
   const candidates = [
-    sectionFromPoints(edgeId, [source, target]),
-    sectionFromPoints(edgeId, [source, { x: target.x, y: source.y }, target]),
-    sectionFromPoints(edgeId, [source, { x: source.x, y: target.y }, target]),
+    ...(directRouteAllowed(sourceAnchor, targetAnchor)
+      ? [sectionFromPoints(edgeId, [sourceAnchor.point, targetAnchor.point])]
+      : []),
+    sectionFromPoints(edgeId, [
+      sourceAnchor.point,
+      source,
+      target,
+      targetAnchor.point,
+    ]),
+    sectionFromPoints(edgeId, [
+      sourceAnchor.point,
+      source,
+      { x: target.x, y: source.y },
+      target,
+      targetAnchor.point,
+    ]),
+    sectionFromPoints(edgeId, [
+      sourceAnchor.point,
+      source,
+      { x: source.x, y: target.y },
+      target,
+      targetAnchor.point,
+    ]),
   ];
   for (const laneX of shiftedXLanes) {
     candidates.push(
       sectionFromPoints(edgeId, [
+        sourceAnchor.point,
         source,
         { x: laneX, y: source.y },
         { x: laneX, y: target.y },
         target,
+        targetAnchor.point,
       ]),
     );
   }
   for (const laneY of shiftedYLanes) {
     candidates.push(
       sectionFromPoints(edgeId, [
+        sourceAnchor.point,
         source,
         { x: source.x, y: laneY },
         { x: target.x, y: laneY },
         target,
+        targetAnchor.point,
       ]),
     );
   }
@@ -336,11 +506,13 @@ function routeCandidates(
     for (const laneY of shiftedYLanes) {
       candidates.push(
         sectionFromPoints(edgeId, [
+          sourceAnchor.point,
           source,
           { x: laneX, y: source.y },
           { x: laneX, y: laneY },
           { x: target.x, y: laneY },
           target,
+          targetAnchor.point,
         ]),
       );
     }
@@ -349,11 +521,13 @@ function routeCandidates(
     for (const laneX of shiftedXLanes) {
       candidates.push(
         sectionFromPoints(edgeId, [
+          sourceAnchor.point,
           source,
           { x: source.x, y: laneY },
           { x: laneX, y: laneY },
           { x: laneX, y: target.y },
           target,
+          targetAnchor.point,
         ]),
       );
     }
@@ -369,18 +543,32 @@ function orthogonalFallbackSection(
   target: PositionedShape,
   nodes: DiagramLayout["nodes"],
   endpointUses: Map<string, string[]>,
+  usedSegments: UsedSegment[],
 ): ElkEdgeSection {
   const anchor = anchors(edgeId, sourceId, targetId, source, target, endpointUses);
-  const obstacles = [...nodes.values()].filter(
+  const allNodes = [...nodes.values()];
+  const obstacles = allNodes.filter(
     (node) => node.id !== sourceId && node.id !== targetId,
   );
   const candidates = routeCandidates(
     edgeId,
-    anchor.source.point,
-    anchor.target.point,
-    obstacles,
+    anchor.source,
+    anchor.target,
+    allNodes,
     anchor.laneOffset,
-  );
+  )
+    .map((candidate) => ({
+      ...candidate,
+      cost:
+        candidate.cost +
+        maximumUnrelatedOverlap(
+          candidate.section,
+          sourceId,
+          targetId,
+          usedSegments,
+        ) * 1000,
+    }))
+    .sort((left, right) => left.cost - right.cost);
   return (
     candidates.find((candidate) => sectionIsClear(candidate.section, obstacles))
       ?.section ?? candidates[0]!.section
@@ -477,6 +665,8 @@ function labelPosition(
 function endpointUses(
   spec: DiagramSpec,
   edges: ElkExtendedEdge[],
+  nodes: DiagramLayout["nodes"],
+  groups: DiagramLayout["groups"],
 ): Map<string, string[]> {
   const specEdgeById = new Map(spec.edges.map((edge) => [edge.id, edge]));
   const uses = new Map<string, string[]>();
@@ -484,14 +674,47 @@ function endpointUses(
     if ((edge.sections?.length ?? 0) > 0) continue;
     const specEdge = specEdgeById.get(edge.id);
     if (!specEdge) continue;
-    for (const endpoint of [specEdge.from, specEdge.to]) {
+    const source = endpointShape(specEdge.from, nodes, groups);
+    const target = endpointShape(specEdge.to, nodes, groups);
+    if (!source || !target) continue;
+    const { sourceSide, targetSide } = anchorSides(source, target);
+    for (const [endpoint, side] of [
+      [specEdge.from, sourceSide],
+      [specEdge.to, targetSide],
+    ] as const) {
       const endpointId = endpointElementId(endpoint);
-      const endpointEdges = uses.get(endpointId) ?? [];
+      const key = endpointUseKey(endpointId, side);
+      const endpointEdges = uses.get(key) ?? [];
       endpointEdges.push(edge.id);
-      uses.set(endpointId, endpointEdges);
+      uses.set(key, endpointEdges);
     }
   }
   return uses;
+}
+
+function collectUsedSegments(
+  spec: DiagramSpec,
+  edge: ElkExtendedEdge,
+  groups: DiagramLayout["groups"],
+): UsedSegment[] {
+  const specEdge = spec.edges.find((candidate) => candidate.id === edge.id);
+  if (!specEdge) return [];
+  const container = edge.container ? groups.get(edge.container) : undefined;
+  const offsetX = container?.x ?? 0;
+  const offsetY = container?.y ?? 0;
+  return (edge.sections ?? []).flatMap((section) => {
+    const points = sectionPoints(section).map((point) => ({
+      x: point.x + offsetX,
+      y: point.y + offsetY,
+    }));
+    return points.slice(1).map((end, index) => ({
+      edgeId: edge.id,
+      sourceId: endpointElementId(specEdge.from),
+      targetId: endpointElementId(specEdge.to),
+      start: points[index]!,
+      end,
+    }));
+  });
 }
 
 export function routeMissingEdgeSections(
@@ -501,7 +724,12 @@ export function routeMissingEdgeSections(
   groups: DiagramLayout["groups"],
 ): ElkExtendedEdge[] {
   const specEdgeById = new Map(spec.edges.map((edge) => [edge.id, edge]));
-  const uses = endpointUses(spec, edges);
+  const uses = endpointUses(spec, edges, nodes, groups);
+  const usedSegments = edges.flatMap((edge) =>
+    (edge.sections?.length ?? 0) > 0
+      ? collectUsedSegments(spec, edge, groups)
+      : [],
+  );
   return edges.map((edge) => {
     if ((edge.sections?.length ?? 0) > 0) return edge;
     const specEdge = specEdgeById.get(edge.id);
@@ -519,6 +747,7 @@ export function routeMissingEdgeSections(
       target,
       nodes,
       uses,
+      usedSegments,
     );
     const labels = edge.labels?.map((label) => ({
       ...label,
@@ -537,6 +766,7 @@ export function routeMissingEdgeSections(
       ...(labels ? { labels } : {}),
     };
     delete next.container;
+    usedSegments.push(...collectUsedSegments(spec, next, groups));
     return next;
   });
 }

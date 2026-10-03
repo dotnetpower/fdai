@@ -43,6 +43,42 @@ function segmentIntersectsBox(
   return true;
 }
 
+function sectionPoints(section: {
+  startPoint: ElkPoint;
+  bendPoints?: ElkPoint[];
+  endPoint: ElkPoint;
+}): ElkPoint[] {
+  return [
+    section.startPoint,
+    ...(section.bendPoints ?? []),
+    section.endPoint,
+  ];
+}
+
+function firstSegmentIsPerpendicular(
+  points: ElkPoint[],
+  side: "NORTH" | "EAST" | "SOUTH" | "WEST",
+): boolean {
+  const start = points[0]!;
+  const end = points[1]!;
+  if (side === "EAST") return end.x > start.x && end.y === start.y;
+  if (side === "WEST") return end.x < start.x && end.y === start.y;
+  if (side === "SOUTH") return end.y > start.y && end.x === start.x;
+  return end.y < start.y && end.x === start.x;
+}
+
+function lastSegmentIsPerpendicular(
+  points: ElkPoint[],
+  side: "NORTH" | "EAST" | "SOUTH" | "WEST",
+): boolean {
+  const start = points[points.length - 2]!;
+  const end = points[points.length - 1]!;
+  if (side === "EAST") return start.x > end.x && start.y === end.y;
+  if (side === "WEST") return start.x < end.x && start.y === end.y;
+  if (side === "SOUTH") return start.y > end.y && start.x === end.x;
+  return start.y < end.y && start.x === end.x;
+}
+
 const source = `
 id: render-sample
 version: 1
@@ -220,6 +256,52 @@ test("routes fallback cross-group edges around unrelated nodes", async () => {
       );
   });
   assert.deepEqual(crossingSegments, []);
+});
+
+test("keeps aligned fallback endpoints straight and perpendicular", async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const source = await readFile(
+    path.join(
+      repositoryRoot,
+      "docs/diagrams/fdai-conceptual-control-loop.diagram.yaml",
+    ),
+    "utf8",
+  );
+  const spec = parseDiagram(source);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find(
+    (candidate) => candidate.id === "context-to-ontology",
+  );
+  assert.ok(edge?.sections?.length);
+  assert.ok(
+    edge.sections.some((section) => section.id.endsWith("-missing-edge-route")),
+  );
+  const points = sectionPoints(edge.sections[0]!);
+  assert.deepEqual(points, [
+    { x: 336, y: 562 },
+    { x: 416, y: 562 },
+  ]);
+});
+
+test("fallback endpoint stubs leave and enter perpendicular to the node side", async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const source = await readFile(
+    path.join(
+      repositoryRoot,
+      "docs/diagrams/fdai-escalation-and-standing-authority-01.diagram.yaml",
+    ),
+    "utf8",
+  );
+  const spec = parseDiagram(source);
+  const layout = await layoutDiagram(spec);
+  const edge = layout.edges.find((candidate) => candidate.id === "flow-03");
+  assert.ok(edge?.sections?.length);
+  assert.ok(
+    edge.sections.some((section) => section.id.endsWith("-missing-edge-route")),
+  );
+  const points = sectionPoints(edge.sections[0]!);
+  assert.ok(firstSegmentIsPerpendicular(points, "WEST"));
+  assert.ok(lastSegmentIsPerpendicular(points, "EAST"));
 });
 
 test("rejects an agent node outside the fixed pantheon", async () => {
