@@ -14,6 +14,7 @@ from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGatew
 from fdai.delivery.catalog_search.generation import build_ontology_semantic_generation
 from fdai.delivery.catalog_search.ontology_evaluation import (
     OntologyRetrievalEvaluationCase,
+    prepare_ontology_retrieval_evaluation,
 )
 from fdai.delivery.catalog_search.ontology_evaluation_campaign import (
     prepare_ontology_retrieval_campaign,
@@ -138,6 +139,40 @@ async def test_authored_dataset_uses_real_declarations_and_separate_frozen_quest
     assert calibration["limits"]["embedding_call_seconds"] == 5
     assert plan.production_qualification is False
 
+    expanded = json.loads((_ASSETS / "instance-calibration.v2.json").read_text())
+    assert expanded["independently_reviewed"] is False
+    assert expanded["production_qualification"] is False
+    assert expanded["candidate_ranking_policy"] == calibration["candidate_ranking_policy"]
+    assert expanded["evaluation_policy"] == calibration["evaluation_policy"]
+    expanded_cases = tuple(
+        OntologyRetrievalEvaluationCase(
+            case_id=item["case_id"],
+            query=item["query"],
+            cohort=item["cohort"],
+            expected_document_ids=tuple(item["expected_document_ids"]),
+        )
+        for item in expanded["cases"]
+    )
+    assert len(expanded_cases) == 64
+    assert set(calibration_cases) <= set(expanded_cases)
+    assert not {query_digest(item.query) for item in expanded_cases}.intersection(
+        query_digest(item.query) for item in heldout_cases
+    )
+    expanded_plan = prepare_ontology_retrieval_evaluation(
+        build=build,
+        manifest=manifest,
+        cases=expanded_cases,
+        calibration_queries=(),
+        ranking_policy=CatalogRankingPolicy(**expanded["candidate_ranking_policy"]),
+        evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
+            expanded["evaluation_policy"]
+        ),
+        required_object_types=names,
+    )
+    assert expanded_plan.query_count == 64
+    assert expanded_plan.embedding_call_upper_bound == 92
+    assert expanded_plan.production_qualification is False
+
     release = build_ontology_release(object_types=declarations)
     store = InMemoryOntologyInstanceStore(
         object_types=declarations, link_types=(), source_generation="asset-execution"
@@ -158,7 +193,9 @@ async def test_authored_dataset_uses_real_declarations_and_separate_frozen_quest
         max_as_of_skew=timedelta(seconds=5),
     )
     document_ids = sorted(object_ids)
-    case_by_query = {case.query: case for case in (*calibration_cases, *heldout_cases)}
+    case_by_query = {
+        case.query: case for case in (*calibration_cases, *heldout_cases, *expanded_cases)
+    }
 
     class Embedder:
         embedding_space_id = build.metadata.embedding_space_id
@@ -187,13 +224,27 @@ async def test_authored_dataset_uses_real_declarations_and_separate_frozen_quest
     elif term_binding == "changed":
         terms["compute.vm"] = ("changed resource vocabulary",)
 
-    async def execute() -> OntologyRetrievalExecutionReport:
+    async def execute(*, calibration_only: bool = False) -> OntologyRetrievalExecutionReport:
+        selected_calibration = expanded_cases if calibration_only else calibration_cases
+        selected_holdout = () if calibration_only else heldout_cases
+        selected_plan = prepare_ontology_retrieval_campaign(
+            build=build,
+            manifest=manifest,
+            calibration_cases=selected_calibration,
+            holdout_cases=selected_holdout,
+            ranking_policy=CatalogRankingPolicy(**calibration["candidate_ranking_policy"]),
+            evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
+                calibration["evaluation_policy"]
+            ),
+            required_object_types=names,
+            calibration_only=calibration_only,
+        )
         return await execute_ontology_retrieval_campaign(
             build=build,
             manifest=manifest,
-            expected_binding_digest=plan.binding_digest,
-            calibration_cases=calibration_cases,
-            holdout_cases=heldout_cases,
+            expected_binding_digest=selected_plan.binding_digest,
+            calibration_cases=selected_calibration,
+            holdout_cases=selected_holdout,
             ranking_policy=CatalogRankingPolicy(**calibration["candidate_ranking_policy"]),
             evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
                 calibration["evaluation_policy"]
@@ -206,6 +257,7 @@ async def test_authored_dataset_uses_real_declarations_and_separate_frozen_quest
             clock=lambda: datetime.now(UTC),
             budget=OntologyRetrievalExecutionBudget(128, 600, 5),
             resource_type_query_terms=terms,
+            calibration_only=calibration_only,
         )
 
     if term_binding != "matching":
@@ -218,3 +270,12 @@ async def test_authored_dataset_uses_real_declarations_and_separate_frozen_quest
         assert result.campaign.passed
         assert result.embedding_calls == embedder.calls == 116
         assert result.production_qualification is False
+        embedder.calls = 0
+        calibration_result = await execute(calibration_only=True)
+        assert calibration_result.calibration_only is True
+        assert calibration_result.embedding_calls == embedder.calls == 92
+        assert calibration_result.campaign.calibration.passed
+        assert len(calibration_result.campaign.calibration.measurements) == 64
+        assert calibration_result.campaign.holdout is None
+        assert calibration_result.campaign.passed is False
+        assert calibration_result.production_qualification is False

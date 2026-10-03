@@ -448,8 +448,8 @@ Exclusive mode-0600 creation rejects existing files and symlink destinations. Th
 JSONL stream records the frozen plan and budget, call intent before dispatch, each complete stage,
 and the terminal report or bounded abort. Calibration is flushed before holdout can start.
 Records use Pydantic JSON mode and `fsync`; capacity is bounded to 4 MiB per record, 16 MiB per
-attempt and 134 records. Recording failures stop execution rather than fall back to unrecorded
-calls. Cancellation propagates even if its receipt fails, with an explicit persistence error.
+attempt and 134 records, or 262 with opt-in vector retention. Recording failures stop further calls.
+Cancellation propagates even when persistence fails, with an explicit error. See the [calibration and replay guide](../../runbooks/ontology-retrieval-diagnostics.md).
 
 Call intent is not proof of dispatch: expiry or interruption can occur between recording and
 the provider call. Use terminal call counts when available. Preserve complete earlier lines after

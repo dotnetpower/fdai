@@ -36,7 +36,7 @@ from .ranking import CatalogRankingPolicy
 @dataclass(frozen=True, slots=True)
 class OntologyRetrievalCampaignPlan:
     binding_digest: str
-    holdout_binding_digest: str
+    holdout_binding_digest: str | None
     calibration_binding_digest: str
     embedding_call_upper_bound: int
     production_qualification: Literal[False] = field(default=False, init=False)
@@ -96,14 +96,43 @@ def prepare_ontology_retrieval_campaign(
     ranking_policy: CatalogRankingPolicy,
     evaluation_policy: RetrievalEvaluationPolicy,
     required_object_types: tuple[str, ...],
+    calibration_only: bool = False,
 ) -> OntologyRetrievalCampaignPlan:
     """Bind both ordered stages before measurement; calibration cannot qualify holdout.
 
     Calibration requires positives for each type and explicit no-match in both languages,
     but does not borrow or satisfy holdout sample floors. It uses the same frozen metric
     thresholds. Policy tuning requires a new plan, not an in-run change.
+    Standalone calibration requires all policy cohorts and sample floors and no holdout.
     """
     calibration_cases, holdout_cases = tuple(calibration_cases), tuple(holdout_cases)
+    if calibration_only:
+        if holdout_cases:
+            raise ValueError("calibration-only execution must not supply holdout cases")
+        calibration = prepare_ontology_retrieval_evaluation(
+            build=build,
+            manifest=manifest,
+            cases=calibration_cases,
+            calibration_queries=(),
+            ranking_policy=ranking_policy,
+            evaluation_policy=evaluation_policy,
+            required_object_types=required_object_types,
+        )
+        calibration_digest = content_digest(
+            {
+                "stage": "calibration",
+                "evaluation_binding_digest": calibration.binding_digest,
+                "case_order": [item.case_id for item in calibration_cases],
+            }
+        )
+        return OntologyRetrievalCampaignPlan(
+            binding_digest=content_digest(
+                {"calibration_binding_digest": calibration_digest, "holdout_binding_digest": None}
+            ),
+            holdout_binding_digest=None,
+            calibration_binding_digest=calibration_digest,
+            embedding_call_upper_bound=calibration.embedding_call_upper_bound,
+        )
     holdout = prepare_ontology_retrieval_evaluation(
         build=build,
         manifest=manifest,
@@ -172,6 +201,7 @@ async def run_ontology_retrieval_campaign(
     query_timeout_seconds: float,
     deadline: float | None = None,
     record_stage: Callable[[OntologyRetrievalEvaluationReport], None] | None = None,
+    calibration_only: bool = False,
 ) -> OntologyRetrievalCampaignReport:
     """Measure one prepared generation, stopping before holdout on any calibration failure.
 
@@ -181,6 +211,7 @@ async def run_ontology_retrieval_campaign(
     If supplied, stage recording must succeed before the next stage can begin.
     Callers must obtain live authorization before supplying a real embedder. Nothing here
     performs a retry, policy adjustment, production qualification or runtime activation.
+    Calibration-only reports always lack a holdout and therefore never pass the full campaign.
     """
     _validate_deadlines(total_timeout_seconds, query_timeout_seconds)
     local_deadline = asyncio.get_running_loop().time() + total_timeout_seconds
@@ -196,6 +227,7 @@ async def run_ontology_retrieval_campaign(
         ranking_policy=ranking_policy,
         evaluation_policy=evaluation_policy,
         required_object_types=required_object_types,
+        calibration_only=calibration_only,
     )
     if plan.binding_digest != expected_binding_digest:
         raise ValueError("ontology campaign frozen input binding changed")
@@ -230,7 +262,7 @@ async def run_ontology_retrieval_campaign(
         )
         if record_stage is not None:
             record_stage(calibration)
-        if not calibration.passed:
+        if not calibration.passed or plan.holdout_binding_digest is None:
             return OntologyRetrievalCampaignReport(plan.binding_digest, calibration, None)
         stage = "holdout"
         holdout = await measure(holdout_cases, plan.holdout_binding_digest, "holdout")
