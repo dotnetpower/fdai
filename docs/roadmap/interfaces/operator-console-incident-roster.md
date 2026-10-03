@@ -39,6 +39,7 @@ recomputes the same target digest from its canonical Incident before it applies 
 The Operator lifecycle owns a retry-safe intervention outbox worker, and readiness stays false if that worker stops.
 Its allowlisted logical request topic is multiplexed through the physical transport and registered in the Core runtime topic set.
 Core reads and writes registered logical topics only through that primary multiplexed transport; the isolated auxiliary transport never carries them.
+A cross-service test requires every topic the Operator multiplexes to be registered in that set, except topics that dedicated Jobs publish on their own transport.
 Core supervises the canonical consumer with its Incident registry; HTTP acceptance isn't terminal while publication or application is pending.
 After HTTP `202`, the Console boundedly revalidates the selected audit history until the matching
 `incident.intervention-applied` record appears. It then refreshes the roster and timeline without a

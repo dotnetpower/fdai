@@ -1,8 +1,8 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: 187fbfaff243ffa194054e7648dd42b187ff08f5
-translation_revised: 2026-09-29
+translation_source_sha: 3ac38258c50297bae4711acf1359bffc82de9c11
+translation_revised: 2026-10-03
 ---
 
 # Post-Turn 개선 검토
@@ -57,7 +57,8 @@ logical-to-physical 대응을 사용합니다. Process-local 전송 계층도 Az
 Production Operator 구성은 이제 최종 answered semantic turn을 범위가 제한된 asynchronous
 post-turn 큐에 제공하며, 이 큐는 turn projection을 차단하지 않고 Operator 소유
 `operator.post-turn-review.requests` 묶음을 구성된 semantic transport로 발행합니다.
-Core는 이 요청을 소비하고 검증한 뒤 Bragi의 typed publisher를 호출하므로 Bragi만
+Core는 이 요청 토픽을 런타임 논리 토픽 집합에 등록하므로, 존재하지 않는 원시 hub가 아니라 semantic
+physical Event Hub에서 다중화된 요청을 받습니다. Core는 이 요청을 소비하고 검증한 뒤 Bragi의 typed publisher를 호출하므로 Bragi만
 `object.post-turn-review`를 씁니다.
 
 ## 충족 여부
