@@ -19,6 +19,7 @@ service update. The canonical design remains in [Existing Container Apps Service
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-04 | implemented | Live Operator recovery now canonicalizes a recovered `api://<client-id>` audience to the fdai-api client ID that v2 access tokens carry, so the service-root audience validation from #1893 doesn't block existing installations. Any other value still reaches Terraform and is rejected. | `current change`; `test_recover_operator_tfvars.py` and `test_service_tfvars_materialization.py` (134 passed; the new cases fail without the change); Ruff. | Unchanged: retain the exact dev apply and authenticated Dashboard evidence. |
 | 2026-09-19 | implemented | Restored compatibility with the internal host's Python 3.10 runtime without changing plan, approval, claim, apply, or rollback semantics. | `current change`; system Python 3.10 imports passed; 21 focused tests; Ruff check and format passed. | Retain the exact dev apply and authenticated Dashboard evidence. |
 | 2026-09-19 | implemented | Added the manual existing-host Operator exact-plan path after the retired workflow transport left no admissible service update coordinator. | `current change`; task-owned scripts and 21 focused tests; Ruff. | Merge the source and retain the exact dev apply and authenticated Dashboard evidence. |
 
