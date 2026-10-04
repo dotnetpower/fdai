@@ -13,8 +13,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Installation enrollment | not-started | Design only: Enrollment and migration section | Entities start unmanaged and become managed after review |
 | Lifecycle agent inside the cluster | not-started | Design only: Architecture section | Installed first, independent of Core, Kubernetes rights in FDAI namespaces only |
 | Infrastructure agent on the execution host | not-started | Design only: Architecture section | Reuses the existing exact-plan claim, apply, and verification-only recovery stages |
-| Lifecycle Plans, constraints, and envelope checks | not-started | Design only: Lifecycle Plans and Constraints sections | Installation agents derive the maximum envelope locally, and a Plan can only narrow it |
-| Plan authentication, replay rejection, and key lifecycle | not-started | Design only: Trust boundaries and Lifecycle Plans sections | Audience, key epoch, source-state digest, sequence, and fencing generation |
+| Lifecycle Plans, constraints, and envelope checks | in-progress | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py`, `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py`, `packages/deployment-cli/tests/test_lifecycle_plan.py`; focused pytest, ruff, format, and mypy checks | Pure local shadow-only checks only. No Hub service, installation agent, apply path, or receipt wiring exists |
+| Plan authentication, replay rejection, and key lifecycle | in-progress | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py`, `packages/deployment-cli/tests/test_lifecycle_plan.py`; focused pytest, ruff, format, and mypy checks | Admission verifies the injected signature over canonical Plan bytes for `plan_id`, `audience`, `hub_key_id`, `hub_key_epoch`, `source_state_digest`, `sequence`, `fencing_generation`, `plan_type`, target Release id and digest, configuration revision digest, Entity set, capability ids, release regions, rollback target Plan id, declared duration, envelope, and expiry. It requires those parsed fields to match the signed bytes, requires `verified is True`, and then rejects stale sequence, wrong audience, stale source-state digest, revoked or inactive Hub key id, Hub key epoch mismatch, fencing mismatch, expired or timezone-less Plan expiry, over-wide envelope, Entity set, duration, capability, or region outside the signed envelope, replayed payload retargeting, and invalid injected signature verification. It commits no key material and grants no authority |
 | Local lifecycle authorization receipt and phase fencing | not-started | Design only: Lifecycle Plans section | The receipt stands in for the operator's invocation in the exact-plan stages |
 | Dual-slot self-upgrade | not-started | Design only: Lifecycle Plans section | Covers both installation agents and Target Hubs |
 | Reported state, drift, and reconciliation | not-started | Design only: Entities and reported state, and Failure, drift, and reconciliation sections | Agents report sub-state of the Core Entity |
@@ -27,6 +27,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-10-02 | not-started | Adopted the ledger with the accepted ADR-0003 design. No implementation exists. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md`, `docs/roadmap/architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md`; design-route, roadmap-tracking, constitution, translation, punctuation, and link checks | Every item below |
+| 2026-10-05 | in-progress | Added pure deployment-cli Lifecycle Plan admission and constraint evaluators with deterministic tests. The checks are shadow-only and are not wired into any Hub, installation agent, apply stage, or receipt path. | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py`, `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py`, `packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q --no-cov packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli ruff check packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli ruff format --check packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli mypy --strict packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py` | Hub service, enrollment, lifecycle agents, exact-plan wiring, authorization receipts, drift reconciliation, commands, operations-loop exclusion, workload rendering migration, and governed runtime receipts remain open |
 
 ### Remaining work
 
@@ -40,10 +41,14 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Add the infrastructure agent, and record a test in which the deletion or replacement of an
   existing Azure resource is held for confirmation while an in-envelope change applies through the
   existing exact-plan coordinator.
-- [ ] Record constraint tests for maintenance and suppression windows, version ranges, schema
-  ranges, artifact availability, override coverage, data residency, and recall.
-- [ ] Record Plan tests that reject a stale sequence, a wrong audience, a revoked Hub key, and an
-  envelope wider than the locally derived maximum.
+- [x] Record pure constraint tests for maintenance and suppression windows, version ranges, schema
+  ranges, artifact availability, override coverage, data residency, and recall in
+  `packages/deployment-cli/tests/test_lifecycle_plan.py`; these tests exercise shadow-only local
+  evaluators and do not create a Hub, agent, apply path, or receipt.
+- [x] Record pure Plan admission tests that reject a stale sequence, a wrong audience, a revoked
+  Hub key, and an envelope wider than the locally derived maximum in
+  `packages/deployment-cli/tests/test_lifecycle_plan.py`; these tests use an injected fake
+  verifier and commit no key material.
 - [ ] Record a test in which an automatic apply runs only under a local lifecycle authorization
   receipt bound to the exact plan digest, and a later phase waits for the earlier phase receipt.
 - [ ] Record dual-slot self-upgrade tests for both agents and a Target Hub, including rollback to
