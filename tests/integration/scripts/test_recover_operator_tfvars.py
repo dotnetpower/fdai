@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -28,6 +29,8 @@ _COST_SECRET = "https://kv-example.vault.azure.net/secrets/fdai-cost-pseudonym-k
 
 @pytest.fixture
 def recovery() -> ModuleType:
+    if str(_SCRIPT.parent) not in sys.path:
+        sys.path.insert(0, str(_SCRIPT.parent))
     spec = importlib.util.spec_from_file_location("recover_operator_tfvars", _SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -186,3 +189,22 @@ def _app() -> dict[str, object]:
             },
         },
     }
+
+
+def _app_with_audience(audience: str) -> dict[str, object]:
+    app = _app()
+    containers = app["properties"]["template"]["containers"]  # type: ignore[index]
+    for item in containers[0]["env"]:  # type: ignore[index]
+        if item["name"] == "FDAI_API_AUDIENCE":
+            item["value"] = audience
+    return app
+
+
+def test_recovery_canonicalizes_the_legacy_app_id_uri_audience(recovery: ModuleType) -> None:
+    client_id = "00000000-0000-0000-0000-0000000000a1"
+
+    legacy = recovery.recover_operator_tfvars(_app_with_audience(f"api://{client_id}"), _platform())
+    other = recovery.recover_operator_tfvars(_app_with_audience("api://example"), _platform())
+
+    assert legacy["auth"]["api_audience"] == client_id
+    assert other["auth"]["api_audience"] == "api://example"

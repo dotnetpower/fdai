@@ -6737,3 +6737,45 @@ def test_expired_plan_bundle_is_rejected(bundle: ModuleType, tmp_path: Path) -> 
             now=now + timedelta(hours=25),
             **coordinates,
         )
+
+
+def _operator_plan_with_audience(before_value: str, after_value: str) -> dict[str, object]:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side, value in (("before", before_value), ("after", after_value)):
+        environment = change[side]["template"][0]["container"][0]["env"]
+        next(item for item in environment if item["name"] == "FDAI_API_AUDIENCE")["value"] = value
+    return plan
+
+
+def test_plan_guard_admits_the_legacy_audience_canonicalization(guard: ModuleType) -> None:
+    client_id = "00000000-0000-0000-0000-0000000000a1"
+
+    guard.validate_plan(
+        _operator_plan_with_audience(f"api://{client_id}", client_id),
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+    )
+
+
+@pytest.mark.parametrize(
+    ("before_value", "after_value"),
+    [
+        ("api://00000000-0000-0000-0000-0000000000a1", "00000000-0000-0000-0000-0000000000b2"),
+        ("00000000-0000-0000-0000-0000000000a1", "api://00000000-0000-0000-0000-0000000000a1"),
+        ("api://custom-uri", "custom-uri"),
+        ("00000000-0000-0000-0000-0000000000a1", "00000000-0000-0000-0000-0000000000b2"),
+    ],
+)
+def test_plan_guard_rejects_any_other_audience_change(
+    guard: ModuleType, before_value: str, after_value: str
+) -> None:
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            _operator_plan_with_audience(before_value, after_value),
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )

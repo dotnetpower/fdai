@@ -1,7 +1,7 @@
 ---
 title: 콘솔 Operator API 프로덕션 배포
 translation_of: operator-api-prod.md
-translation_source_sha: 031755b95d34a9b6a9e4137b78c67e9ce300d43c
+translation_source_sha: dc6a591f62af55d2f9e54cba98f619a26ee75973
 translation_revised: 2026-10-04
 ---
 # 콘솔 Operator API 프로덕션 배포
@@ -64,7 +64,7 @@ translation_revised: 2026-10-04
 | `FDAI_DATABASE_URL` | 배포된 프로덕션 psycopg 3 DSN입니다. 허용 스킴은 `postgresql://`, `postgres://` 및 `postgresql+psycopg://`입니다. 생략하면 데이터베이스 기반 변환 결과를 명시적으로 사용할 수 없습니다. |
 | `FDAI_DATABASE_ROLE` | `FDAI_DATABASE_URL`을 설정할 때 반드시 `fdai_operator`여야 합니다. |
 | `FDAI_ENTRA_TENANT_ID` | [`EntraJwtVerifier.from_env`](../../../services/operator-service/src/fdai_operator_service/)가 소비. |
-| `FDAI_API_AUDIENCE` | `fdai-api` App ID URI (`api://<guid>`). |
+| `FDAI_API_AUDIENCE` | `fdai-api` 애플리케이션(클라이언트) ID이며, v2 액세스 토큰의 `aud` 값입니다. `api://<guid>` App ID URI가 아닙니다. |
 | `FDAI_RBAC_READERS_GROUP_ID` | 읽기 담당 역할에 매핑되는 Entra 그룹 `objectId`. |
 | `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` | 기여자 매핑. |
 | `FDAI_RBAC_APPROVERS_GROUP_ID` | Approver 매핑. |
