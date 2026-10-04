@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Literal
 
 from fdai_deployment_cli.lifecycle_configuration import (
-    release_version_satisfies_range,
+    ConfigurationValidationError,
     resolve_configuration_layers,
 )
 from fdai_deployment_cli.runtime_release import (
@@ -153,7 +153,7 @@ class LifecycleConstraintContext:
     current_schema_revision: int
     schema_direction: SchemaDirection
     version_range: str
-    release_defaults: Mapping[str, object]
+    configuration_schema: Mapping[str, object]
     environment_config: Mapping[str, object]
     entity_overrides: tuple[Mapping[str, object], ...]
     required_artifacts: tuple[ArtifactRequirement, ...]
@@ -216,13 +216,11 @@ def evaluate_lifecycle_constraints(
     blocks: list[ConstraintBlock] = []
     _append_if_blocked(blocks, _maintenance_decision(context))
     _append_if_blocked(blocks, _suppression_decision(context))
-    _append_if_blocked(
-        blocks,
-        release_version_satisfies_range(
-            release_version=context.target_release_version,
-            version_range=context.version_range,
-        ),
+    version_range_block = _version_range_block(
+        context.target_release_version, context.version_range
     )
+    if version_range_block is not None:
+        blocks.append(version_range_block)
     _append_if_blocked(
         blocks,
         validate_schema_transition(
@@ -238,14 +236,9 @@ def evaluate_lifecycle_constraints(
     )
     if missing:
         blocks.append(ConstraintBlock("artifact_unavailable", missing))
-    resolution = resolve_configuration_layers(
-        release_version=context.target_release_version,
-        release_defaults=context.release_defaults,
-        environment_config=context.environment_config,
-        entity_overrides=context.entity_overrides,
-    )
-    if not resolution.allowed:
-        blocks.append(ConstraintBlock(resolution.reason_code))
+    override_block = _override_coverage_block(context)
+    if override_block is not None:
+        blocks.append(override_block)
     if not context.data_residency.release_regions <= context.data_residency.allowed_regions:
         blocks.append(
             ConstraintBlock(
@@ -292,6 +285,54 @@ def _suppression_decision(context: LifecycleConstraintContext) -> ReleaseDecisio
             if window.scope == f"entity:{entity_id}":
                 return ReleaseDecision(False, "suppression_window_active", (window.scope,))
     return ReleaseDecision(True, "allowed")
+
+
+def _version_range_block(release_version: str, version_range: str) -> ConstraintBlock | None:
+    try:
+        resolve_configuration_layers(
+            release_version=release_version,
+            configuration_schema=_version_range_schema(),
+            environment_config={},
+            entity_overrides=({"versions": version_range, "values": {"eligible": True}},),
+        )
+    except ConfigurationValidationError as error:
+        if error.code == "missing_matching_override_block":
+            return ConstraintBlock("release_version_outside_range", (version_range,))
+        return ConstraintBlock(_configuration_reason_code(error), error.path)
+    return None
+
+
+def _override_coverage_block(context: LifecycleConstraintContext) -> ConstraintBlock | None:
+    try:
+        resolve_configuration_layers(
+            release_version=context.target_release_version,
+            configuration_schema=context.configuration_schema,
+            environment_config=context.environment_config,
+            entity_overrides=context.entity_overrides,
+        )
+    except ConfigurationValidationError as error:
+        if error.code == "missing_matching_override_block":
+            return ConstraintBlock("override_coverage_missing", error.path)
+        return ConstraintBlock(_configuration_reason_code(error), error.path)
+    return None
+
+
+def _configuration_reason_code(error: ConfigurationValidationError) -> str:
+    if error.code == "invalid_version_range":
+        return "version_range_invalid"
+    if error.code == "invalid_release_version":
+        return "release_version_invalid"
+    return f"configuration_{error.code}"
+
+
+def _version_range_schema() -> Mapping[str, object]:
+    return {
+        "eligible": {
+            "default": False,
+            "x-fdai-axis": "Release channel subscription",
+            "x-fdai-owner": "customer",
+        }
+    }
 
 
 def _append_if_blocked(blocks: list[ConstraintBlock], decision: ReleaseDecision) -> None:

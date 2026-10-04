@@ -97,6 +97,21 @@ def _state() -> PlanAdmissionState:
     )
 
 
+def _configuration_schema() -> dict[str, object]:
+    return {
+        "region": {
+            "default": "korea-central",
+            "x-fdai-axis": "Deployment environment",
+            "x-fdai-owner": "customer",
+        },
+        "replicas": {
+            "default": 1,
+            "x-fdai-axis": "Release channel subscription",
+            "x-fdai-owner": "customer",
+        },
+    }
+
+
 def test_plan_admission_allows_narrow_signed_plan() -> None:
     verifier = _Verifier()
 
@@ -185,7 +200,7 @@ def test_constraint_evaluator_reports_every_blocking_constraint() -> None:
         current_schema_revision=17,
         schema_direction="upgrade",
         version_range=">=1.4.0 <1.5.0",
-        release_defaults={"replicas": 1},
+        configuration_schema=_configuration_schema(),
         environment_config={"replicas": 2},
         entity_overrides=(),
         required_artifacts=(
@@ -250,11 +265,11 @@ def test_constraint_evaluator_allows_candidate_when_every_constraint_passes() ->
         current_schema_revision=12,
         schema_direction="upgrade",
         version_range=">=1.4.0 <1.6.0",
-        release_defaults={"replicas": 1},
+        configuration_schema=_configuration_schema(),
         environment_config={"region": "korea-central"},
         entity_overrides=(
             {
-                "version_range": ">=1.5.0 <1.6.0",
+                "versions": ">=1.5.0 <1.6.0",
                 "values": {"replicas": 2},
             },
         ),
