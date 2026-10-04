@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: d117fe520fa8bfe414228ee89aee60b2ac5638b7
+translation_source_sha: 6a86f59e6a3268dcb82bd3bb54912d59107590ed
 translation_revised: 2026-10-05
 ---
 # 런타임 배포 프로파일
@@ -608,6 +608,11 @@ quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로�
 설치의 첫 Azure 변경 전에 이 사전 검증을 실행합니다. 재개한 설치는 이 검증을 건너뛰므로 설치가
 이미 사용하는 노드가 자체 quota 판단에 포함되지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
 할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 연결은 관리되는 클러스터 리소스에 의존하지 않고 인증된 구독 및 검토된 배포 입력에서 정확한 클러스터 Resource ID를 재구성하므로, 모니터링 전용 플랜이 관련 없는 클러스터 변경을 포함할 수 없습니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다. 애플리케이션 원격 분석에는 Core의 Python Azure Monitor OpenTelemetry Distro를 사용합니다. 공유 기반 구성은 workspace 기반 Application Insights 연결 문자열을 Key Vault 비밀로 저장하고, Core 워크로드 신원에만 이 비밀의 읽기 권한을 부여하며, 별도 상태를 사용하는 AKS 렌더러에는 비밀 이름만 전달합니다. Key Vault CSI는 값을 `APPLICATIONINSIGHTS_CONNECTION_STRING`으로 주입합니다. Core는 비밀이 있을 때만 이 내보내기를 선택하며, `OTEL_EXPORTER_OTLP_ENDPOINT`를 동시에 설정하면 원격 분석을 중복 전송하지 않고 시작을 차단합니다. Application Insights 비밀이 없으면 로컬 프로파일과 명시적인 벤더 중립 OTLP 프로파일은 기존 내보내기를 유지합니다. AKS 워크로드 재확인은 배포된 각 컨테이너가 보존된 워크로드 계약이 요구하는 비밀 기반 환경 바인딩을 정확히 선언하는지 검증합니다. 따라서 `APPLICATIONINSIGHTS_CONNECTION_STRING`을 포함해 바인딩을 외부에서 제거하거나 추가하면 정상 롤아웃으로 보고하지 않고 차단합니다. 이 재확인은 `kubectl get --raw`가 반환하는 형식화된 컬렉션과 `kubectl get --output json`이 반환하는 일반 `v1.List`를 모두 읽되, 일반 형태는 모든 항목이 기대하는 단수 kind를 선언할 때만 허용합니다. 실행 중인 컨테이너의 이미지 신원은 정확한 `imageID` digest로 증명합니다. 컨테이너 런타임이 `image` 필드에 로컬 config digest를 보고할 수 있기 때문입니다. 저장소 전체 CI는 루트 테스트 수집이 Core 소유 원격 분석 어댑터를 가져올 수 있도록 `azure-monitor-opentelemetry`를 루트 `dev` 추가 의존성에만 미러링합니다. 런타임 의존성 소유자는 계속 Core 서비스 매니페스트이며 저장소 루트는 설치할 수 없는 상태를 유지합니다.
+
+독립 운영 근거 검증기는 AKS 전용 선택적 내부 워크로드입니다. 런타임 렌더러는 독립 실행형
+배포 입력이 전용 신원을 사용 설정하고 검토된 레지스트리 고정값, 배포 앵커, 호출자 토큰 검증
+데이터, 작성자 멤버십, 역할 재확인 범위, 실행기 principal을 이미 제공한 경우에만 이를
+받습니다. 이 입력은 런타임 프로파일 선택이나 실행 권한을 바꾸지 않습니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드

@@ -86,6 +86,9 @@ only the artifact input seam:
 - service image references come from the source image stage receipt after substrate apply creates
   the deployment registry;
 - the Console archive is built from the local checkout only when the Console add-on is selected;
+- `--evidence-verifier-input` may carry the reviewed independent operational evidence verifier
+  binding into the same application continuation; omitting it leaves source deployment values
+  unchanged and the verifier off;
 - every receipt records `operator-selected-source` and `release_signature_verified=false`.
 
 Signed-kit adoption remains available only for recovered Foundations that explicitly continue with

@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: e758cb8f13541896b059b05549e4d80456313905
-translation_revised: 2026-10-02
+translation_source_sha: a572c2270d177225b1e55001a65078c2499aaaa2
+translation_revised: 2026-10-05
 ---
 
 # 단일 명령 소스 배포
@@ -85,6 +85,9 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 - 서비스 이미지 참조는 substrate 적용으로 배포 레지스트리가 만들어진 뒤 소스 이미지 단계
   증적에서 옵니다.
 - Console 아카이브는 Console 추가 기능을 선택한 경우에만 로컬 checkout에서 빌드됩니다.
+- `--evidence-verifier-input`은 검토된 독립 운영 근거 검증기 바인딩을 같은 애플리케이션
+  계속 진행 경로로 전달할 수 있습니다. 생략하면 소스 배포 값은 그대로 유지되고 검증기는 꺼져
+  있습니다.
 - 모든 증적은 `operator-selected-source`와 `release_signature_verified=false`를 기록합니다.
 
 서명된 키트 채택은 오프라인 패키지로 계속 진행하겠다고 명시한 복구 Foundation에만 남습니다.
