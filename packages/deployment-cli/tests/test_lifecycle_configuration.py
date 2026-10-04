@@ -212,6 +212,40 @@ def test_layer_resolution_validates_nonmatching_override_blocks() -> None:
             },
             ("env", "0", "Value"),
         ),
+        ({"password_id": "hunter2"}, ("password_id",)),
+        ({"client_secret_url": "hunter2"}, ("client_secret_url",)),
+        ({"api_key_version": "hunter2"}, ("api_key_version",)),
+        ({"client_secret_name": "hunter2"}, ("client_secret_name",)),
+        ({"password_type": "hunter2"}, ("password_type",)),
+        ({"secret_kind": "hunter2"}, ("secret_kind",)),
+        (
+            {"sasUrl": "https://acct.blob.core.windows.net/c?sv=1&sig=hunter2"},
+            ("sasUrl",),
+        ),
+        (
+            {"sas_uri": "https://acct.blob.core.windows.net/c?sv=1&sig=hunter2"},
+            ("sas_uri",),
+        ),
+        (
+            {"storage_sas_url": "https://acct.blob.core.windows.net/c?sv=1&sig=hunter2"},
+            ("storage_sas_url",),
+        ),
+        ({"token_url": "https://u:hunter2@x.example/"}, ("token_url",)),
+        (
+            {"env": [{"name": "CLIENT_SECRET_ID", "value": "hunter2"}]},
+            ("env", "0", "value"),
+        ),
+        (
+            {
+                "env": [
+                    {
+                        "name": "SAS_URL",
+                        "value": "https://acct.blob.core.windows.net/c?sv=1&sig=hunter2",
+                    }
+                ]
+            },
+            ("env", "0", "value"),
+        ),
     ],
 )
 def test_package_rejects_literal_secret_values_before_signing(
@@ -278,6 +312,9 @@ def test_package_allows_reference_metadata_and_numeric_token_counters() -> None:
             "token_endpoint": "https://x.example",
             "credential_kind": "managed-identity",
             "primary_key_column": "id",
+            "api_version": "2024-01-01",
+            "resource_id": "/subscriptions/example/resourceGroups/rg/providers/FDAI/type/name",
+            "secret_id": "https://vault-name.vault.azure.net/secrets/itsm-token/version1",
         }
     )
 

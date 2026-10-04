@@ -14,6 +14,7 @@ from collections.abc import Container, Mapping
 from collections.abc import Sequence as AbstractSequence
 from dataclasses import dataclass
 from typing import cast
+from urllib.parse import urlsplit
 
 _ANNOTATION_AXIS = "x-fdai-axis"
 _ANNOTATION_OWNER = "x-fdai-owner"
@@ -46,6 +47,13 @@ _KEY_VAULT_SECRET_REF = re.compile(
     r"^[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])/[A-Za-z0-9-]{1,127}$"
 )
 _KEY_VAULT_SECRET_NAME = re.compile(r"^[A-Za-z0-9-]{1,127}$")
+_GUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_AZURE_RESOURCE_ID = re.compile(r"^/subscriptions/[^/]+(?:/[^/]+)+$")
+_KEY_VAULT_SECRET_ID = re.compile(
+    r"^https://[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])"
+    r"\.vault\.azure\.net/secrets/[A-Za-z0-9-]{1,127}(?:/[A-Za-z0-9-]+)?$"
+)
+_ENUM_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _DIRECT_SECRET_TOKENS = frozenset(
     {
         "authorization",
@@ -97,6 +105,11 @@ _REFERENCE_OR_METADATA_FINAL_TOKENS = frozenset(
     {"column", "endpoint", "id", "kind", "name", "ref", "type", "uri", "url", "version"}
 )
 _NUMERIC_COUNTER_TOKENS = frozenset({"count", "limit", "max", "min", "minute", "per", "second"})
+_NONEXEMPT_REFERENCE_TOKENS = frozenset({"passphrase", "passwd", "password", "pwd", "sas"})
+_NONEXEMPT_ENUM_TOKENS = frozenset({"passphrase", "passwd", "password", "pwd", "sas", "secret"})
+_CREDENTIAL_QUERY_KEYS = frozenset(
+    {"code", "key", "password", "se", "secret", "sig", "signature", "sp", "sv", "token"}
+)
 
 Version = tuple[int, int, int]
 
@@ -352,8 +365,7 @@ def _validate_secret_reference(value: object, path: tuple[str, ...], key: str) -
     if isinstance(value, bool):
         return
     if isinstance(value, str) and _is_reference_or_metadata_key(tokens):
-        if _is_ref_key(tokens) and not _is_valid_ref_value(value):
-            _raise_literal_secret(path, key)
+        _validate_reference_or_metadata_value(tokens, value, path, key)
         return
     if _is_numeric_token_counter(tokens, value):
         return
@@ -366,6 +378,70 @@ def _validate_secret_reference(value: object, path: tuple[str, ...], key: str) -
 
 def _is_valid_ref_value(value: str) -> bool:
     return _KEY_VAULT_SECRET_NAME.fullmatch(value) is not None or _is_key_vault_reference(value)
+
+
+def _validate_reference_or_metadata_value(
+    tokens: tuple[str, ...], value: str, path: tuple[str, ...], key: str
+) -> None:
+    final = tokens[-1]
+    if final == "ref":
+        if _is_valid_ref_value(value):
+            return
+        _raise_literal_secret(path, key)
+    if final == "name":
+        if (
+            tokens[:-1]
+            and not (set(tokens) & _NONEXEMPT_REFERENCE_TOKENS)
+            and _is_allowed_name_reference_key(tokens)
+            and _KEY_VAULT_SECRET_NAME.fullmatch(value) is not None
+        ):
+            return
+        _raise_literal_secret(path, key)
+    if final in {"url", "uri", "endpoint"}:
+        if not (set(tokens) & _NONEXEMPT_REFERENCE_TOKENS) and _is_safe_https_url(value):
+            return
+        _raise_literal_secret(path, key)
+    if final == "id":
+        if not (set(tokens) & _NONEXEMPT_REFERENCE_TOKENS) and (
+            _GUID.fullmatch(value) is not None
+            or _AZURE_RESOURCE_ID.fullmatch(value) is not None
+            or _KEY_VAULT_SECRET_ID.fullmatch(value) is not None
+        ):
+            return
+        _raise_literal_secret(path, key)
+    if final in {"kind", "type", "version"}:
+        if (
+            not (set(tokens) & _NONEXEMPT_ENUM_TOKENS)
+            and not _is_contextual_key_secret(tokens)
+            and _ENUM_VALUE.fullmatch(value) is not None
+        ):
+            return
+        _raise_literal_secret(path, key)
+    if final == "column":
+        if _ENUM_VALUE.fullmatch(value) is not None:
+            return
+        _raise_literal_secret(path, key)
+    _raise_literal_secret(path, key)
+
+
+def _is_allowed_name_reference_key(tokens: tuple[str, ...]) -> bool:
+    if "secret" not in tokens:
+        return True
+    return tokens in {("secret", "name"), ("key", "vault", "secret", "name")}
+
+
+def _is_contextual_key_secret(tokens: tuple[str, ...]) -> bool:
+    token_set = set(tokens)
+    return bool(token_set & {"key", "keys"} and token_set & _KEY_CONTEXT_TOKENS)
+
+
+def _is_safe_https_url(value: str) -> bool:
+    parsed = urlsplit(value)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        return False
+    if parsed.query or parsed.fragment:
+        return False
+    return not any(key in _CREDENTIAL_QUERY_KEYS for key in _tokens(value))
 
 
 def _is_key_vault_reference(value: object) -> bool:
