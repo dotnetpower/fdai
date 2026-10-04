@@ -29,6 +29,9 @@ SignatureVerifier = Callable[[str, bytes, bytes], bool]
 
 _MODE_ORDER: Mapping[CapabilityMode, int] = {"shadow": 0, "enforce": 1}
 _SCOPE_ID = re.compile(r"[a-z][a-z0-9._-]*\Z", re.ASCII)
+_SUPPORTED_PLAN_TYPES = frozenset(
+    {"install", "upgrade", "configuration-change", "recall-rolloff", "rollback"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +93,8 @@ class LifecyclePlan:
     target_release_digest: str
     configuration_revision_digest: str
     entity_ids: frozenset[str]
+    capability_ids: tuple[str, ...]
+    release_regions: frozenset[str]
     rollback_target_plan_id: str | None
     declared_duration_minutes: int
     envelope: LifecycleEffectEnvelope
@@ -102,6 +107,8 @@ class LifecyclePlan:
             raise TypeError("sequence MUST be an integer")
         if self.sequence < 0:
             raise ValueError("sequence MUST be non-negative")
+        if not isinstance(self.plan_type, str):
+            raise TypeError("plan_type MUST be a string")
         if (
             isinstance(self.declared_duration_minutes, bool)
             or not isinstance(self.declared_duration_minutes, int)
@@ -232,6 +239,8 @@ def evaluate_plan_admission(
         return _deny("plan_signature_invalid", plan.plan_id)
     if plan.signed_payload != canonical_plan_payload(plan):
         return _deny("plan_payload_mismatch", plan.plan_id)
+    if plan.plan_type not in _SUPPORTED_PLAN_TYPES:
+        return _deny("plan_type_unsupported", plan.plan_type)
     if plan.hub_key_id in local_state.revoked_hub_key_ids:
         return _deny("hub_key_revoked", plan.hub_key_id)
     if plan.hub_key_id not in local_state.active_hub_key_ids:
@@ -254,6 +263,14 @@ def evaluate_plan_admission(
         return _deny("plan_fencing_generation_mismatch", str(plan.fencing_generation))
     if plan.source_state_digest != local_state.expected_source_state_digest:
         return _deny("plan_source_state_stale", plan.source_state_digest)
+    if not plan.entity_ids <= plan.envelope.entity_ids:
+        return _deny("plan_entities_exceed_envelope", plan.plan_id)
+    if plan.declared_duration_minutes > plan.envelope.max_duration_minutes:
+        return _deny("plan_duration_exceeds_envelope", plan.plan_id)
+    if not set(plan.capability_ids) <= set(plan.envelope.capability_modes):
+        return _deny("plan_capabilities_exceed_envelope", plan.plan_id)
+    if not plan.release_regions <= plan.envelope.regions:
+        return _deny("plan_regions_exceed_envelope", plan.plan_id)
     if not plan.envelope.narrowed_by(locally_derived_maximum):
         return _deny("plan_envelope_exceeds_local_maximum", plan.plan_id)
     return PlanAdmissionDecision(True, "allowed")
@@ -276,6 +293,7 @@ def canonical_plan_payload(plan: LifecyclePlan) -> bytes:
             "fencing_generation": plan.fencing_generation,
             "hub_key_epoch": plan.hub_key_epoch,
             "hub_key_id": plan.hub_key_id,
+            "capability_ids": list(plan.capability_ids),
             "configuration_revision_digest": plan.configuration_revision_digest,
             "declared_duration_minutes": plan.declared_duration_minutes,
             "entity_ids": sorted(plan.entity_ids),
@@ -284,6 +302,7 @@ def canonical_plan_payload(plan: LifecyclePlan) -> bytes:
             "rollback_target_plan_id": plan.rollback_target_plan_id,
             "sequence": plan.sequence,
             "source_state_digest": plan.source_state_digest,
+            "release_regions": sorted(plan.release_regions),
             "target_release_digest": plan.target_release_digest,
             "target_release_id": plan.target_release_id,
         }
@@ -301,6 +320,8 @@ def evaluate_lifecycle_constraints(
     context_block = _plan_context_block(context, admitted_plan)
     if context_block is not None:
         blocks.append(context_block)
+        if context_block.reason_code == "plan_type_unsupported":
+            return tuple(blocks)
     if context.candidate_release.digest != admitted_plan.target_release_digest:
         blocks.append(
             ConstraintBlock(
@@ -406,13 +427,7 @@ def _suppression_scope_decision(window: SuppressionWindow) -> ReleaseDecision | 
         return None
     if window.scope.startswith("plan:"):
         plan_type = window.scope.removeprefix("plan:")
-        if plan_type not in {
-            "install",
-            "upgrade",
-            "configuration-change",
-            "recall-rolloff",
-            "rollback",
-        }:
+        if plan_type not in _SUPPORTED_PLAN_TYPES:
             return ReleaseDecision(False, "suppression_scope_invalid", (window.scope,))
         return None
     if window.scope.startswith("entity:"):
@@ -434,12 +449,18 @@ def _scope_matches(scope: str, context: LifecycleConstraintContext) -> bool:
 def _schema_direction(plan_type: PlanType) -> SchemaDirection:
     if plan_type in {"rollback", "recall-rolloff"}:
         return "rollback"
-    return "upgrade"
+    if plan_type in {"install", "upgrade", "configuration-change"}:
+        return "upgrade"
+    raise ValueError(f"unsupported plan type: {plan_type}")
 
 
 def _plan_context_block(
     context: LifecycleConstraintContext, plan: LifecyclePlan
 ) -> ConstraintBlock | None:
+    if context.plan_type not in _SUPPORTED_PLAN_TYPES:
+        return ConstraintBlock("plan_type_unsupported", (str(context.plan_type),))
+    if plan.plan_type not in _SUPPORTED_PLAN_TYPES:
+        return ConstraintBlock("plan_type_unsupported", (str(plan.plan_type),))
     comparisons = (
         ("plan_id", context.plan_id, plan.plan_id),
         ("plan_type", context.plan_type, plan.plan_type),
@@ -450,6 +471,8 @@ def _plan_context_block(
             plan.configuration_revision_digest,
         ),
         ("entity_ids", context.entity_ids, plan.entity_ids),
+        ("capability_ids", context.capability_ids, plan.capability_ids),
+        ("release_regions", context.data_residency.release_regions, plan.release_regions),
         ("rollback_target_plan_id", context.rollback_target_plan_id, plan.rollback_target_plan_id),
         (
             "declared_duration_minutes",

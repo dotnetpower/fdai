@@ -96,6 +96,8 @@ def _plan(**overrides: object) -> LifecyclePlan:
         target_release_digest=_digest("release-1.5.0"),
         configuration_revision_digest=_digest("config"),
         entity_ids=frozenset({"core"}),
+        capability_ids=("action:scale-service",),
+        release_regions=frozenset({"korea-central"}),
         rollback_target_plan_id=None,
         declared_duration_minutes=15,
         envelope=_envelope(entity_ids=frozenset({"core"}), max_duration_minutes=20),
@@ -255,6 +257,53 @@ def test_plan_admission_rejects_replay_or_retarget_not_bound_to_payload() -> Non
         assert decision.reason_code == "plan_payload_mismatch"
 
 
+def test_plan_admission_rejects_signed_fields_outside_envelope() -> None:
+    cases = (
+        (
+            _plan(entity_ids=frozenset({"core", "console", "isolated-executor"})),
+            "plan_entities_exceed_envelope",
+        ),
+        (
+            _plan(declared_duration_minutes=600),
+            "plan_duration_exceeds_envelope",
+        ),
+        (
+            _plan(capability_ids=("action:scale-service", "workflow:incident-triage")),
+            "plan_capabilities_exceed_envelope",
+        ),
+        (
+            _plan(release_regions=frozenset({"korea-central", "east-us"})),
+            "plan_regions_exceed_envelope",
+        ),
+    )
+
+    for plan, reason_code in cases:
+        decision = evaluate_plan_admission(
+            plan,
+            local_state=_state(),
+            locally_derived_maximum=_envelope(),
+            verify_signature=_Verifier(),
+            trusted_now=NOW,
+        )
+        assert decision.allowed is False
+        assert decision.reason_code == reason_code
+
+
+def test_plan_admission_rejects_unsupported_signed_plan_type() -> None:
+    plan = _plan(plan_type="uninstall")
+
+    decision = evaluate_plan_admission(
+        plan,
+        local_state=_state(),
+        locally_derived_maximum=_envelope(),
+        verify_signature=_Verifier(),
+        trusted_now=NOW,
+    )
+
+    assert decision.allowed is False
+    assert decision.reason_code == "plan_type_unsupported"
+
+
 def test_plan_admission_fails_closed_when_signature_cannot_be_verified() -> None:
     invalid_signature = evaluate_plan_admission(
         _plan(),
@@ -365,7 +414,8 @@ def test_constraint_evaluator_reports_every_blocking_constraint() -> None:
     )
 
     blocks = evaluate_lifecycle_constraints(
-        context, admitted_plan=_plan(declared_duration_minutes=45)
+        context,
+        admitted_plan=_plan(declared_duration_minutes=45, release_regions=frozenset({"east-us"})),
     )
 
     assert {block.reason_code for block in blocks} == {
@@ -393,9 +443,14 @@ def test_constraint_context_must_match_signed_plan_fields() -> None:
         _passing_context(candidate_release=_release(version="1.5.1")),
         admitted_plan=_plan(),
     )
+    unsupported_type = evaluate_lifecycle_constraints(
+        _passing_context(plan_type="drift-reconciliation"),
+        admitted_plan=_plan(plan_type="drift-reconciliation"),
+    )
 
     assert {block.reason_code for block in plan_type_switch} == {"plan_context_mismatch"}
     assert {block.reason_code for block in release_swap} == {"target_release_digest_mismatch"}
+    assert {block.reason_code for block in unsupported_type} == {"plan_type_unsupported"}
 
 
 def test_suppression_windows_fail_closed_for_malformed_or_unmatched_scope() -> None:
