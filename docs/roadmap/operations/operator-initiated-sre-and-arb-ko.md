@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 38b38616bd16b9c6366c441ead94239524a46b34
-translation_revised: 2026-10-02
+translation_source_sha: 8f3a1e6e6a00a3cf8dbf1638353cc965b19b722d
+translation_revised: 2026-10-04
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -57,6 +57,9 @@ ActionType 승격 모드에 의존하지 않습니다. 프로세스 내부
 생성과 승인 만료를 서로 독립된 런타임 작업으로 감독합니다. 인시던트 전송 장애는 만료된 승인
 대기가 감사되는 무작업 결과로 수렴하는 것을 막을 수 없으며, 만료 수렴 작업은 인시던트를
 생성할 수 없습니다.
+Resource Health 답변 검증은 의미 답변이 Core를 떠나기 전에 실행됩니다. 거부된 서술을
+검증된 행과 검증 코드로 보류하는 것은 읽기 전용 표현 결과이며 Incident를 생성, 확인,
+변경할 수 없습니다.
 
 Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 Assurance Twin 보고서 및
 검토 작성기와 아웃박스 중계기를 조립하고 각각 독립적으로 감독합니다. 중계기를

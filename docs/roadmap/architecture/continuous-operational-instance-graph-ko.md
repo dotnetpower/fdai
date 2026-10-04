@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 56b056e821aba4a2b996488885e64ce190e3e4c6
+translation_source_sha: dd2812af1755140f96f636f44fef4915dc2753e9
 translation_revised: 2026-10-04
 ---
 # 지속형 운영 인스턴스 그래프
@@ -422,6 +422,9 @@ tick의 범위가 제한된 복구를 위해 정본 인벤토리 세대는 유�
 Kubernetes 보강을 동일한 순서의 파이프라인으로 구성합니다.
 Resource Health 보강은 전체 정상 답변 전에 정확한 분모의 튜플 집합 다시 읽기 fence를
 사용하며, 모델이 작성한 서술은 모델 밖에서 구조화된 증적 주장과 대조해 검증합니다.
+답변 조합기는 이러한 `ResourceHealthNarrationClaims`를 서술 옆에 내보내고, 검증이 서술을
+거부하면 `execution_authority=false`를 유지한 채 검증된 행과 최종 처리 결과, 사유 및 위반
+코드로 보류합니다.
 
 검증된 구성은 배포 값을 제공합니다. 저장소 기본값과 테스트는 안전한 범위를 정의하며, 하나의 간격이
 모든 tenant 또는 공급자 API에 적합하다고 주장하지 않습니다.
@@ -650,7 +653,7 @@ Resource ObjectSet receipt는 source generation 및 source completeness를 query
 evidence를 구분하고 공급자 configuration observation과 independently verified observation
 receipt도 구분합니다.
 
-읽기 전용 대화는 불완전한 원본을 설명하기 전에 검증된 행을 먼저 제시합니다. 빈 부분 결과에는 검증된 범위에서 일치하는 항목이 없다고 설명한 뒤 정확한 제한 사항과 복구 단계를 안내합니다. 부분 결과를 완전한 개수, 전체 부재 또는 현재 전체 인벤토리로 표현하지 않으며, 안전한 부분 집합이 없으면 판단을 보류합니다. 정확한 `BusinessService` 또는 `Workload` id, 이름, 배포 승인 alias는 `implemented_by`와 `workload_runs_on`을 따라 현재 Resource leaf에 도달할 수 있으며, 서버 소유 계획은 App Service, Container Apps 및 Kubernetes의 검증된 구성요소 상태를 읽되 전체 서비스 건강도, 원인, 누락된 신원 또는 실행 권한을 추론하지 않습니다.
+읽기 전용 대화는 불완전한 원본을 설명하기 전에 검증된 행을 먼저 제시합니다. 빈 부분 결과에는 검증된 범위에서 일치하는 항목이 없다고 설명한 뒤 정확한 제한 사항과 복구 단계를 안내합니다. 부분 결과를 완전한 개수, 전체 부재 또는 현재 전체 인벤토리로 표현하지 않으며, 안전한 부분 집합이 없으면 판단을 보류합니다. 정확한 `BusinessService` 또는 `Workload` id, 이름, 배포 승인 alias는 `implemented_by`와 `workload_runs_on`을 따라 현재 Resource leaf에 도달할 수 있으며, 서버 소유 계획은 App Service, Container Apps 및 Kubernetes의 검증된 구성요소 상태를 읽되 전체 서비스 건강도, 원인, 누락된 신원, 교체, 수명 주기 원본 coverage 또는 실행 권한을 추론하지 않습니다.
 
 ## 원본부터 저장소까지 구현 감사
 

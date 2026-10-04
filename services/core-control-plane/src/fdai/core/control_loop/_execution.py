@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 
 from fdai.core.control_loop._development import ControlLoopDevelopmentMixin
@@ -24,7 +24,14 @@ from fdai.core.executor.tool_call import (
     ToolCallExecutionResult,
     ToolCallShadowExecutor,
 )
-from fdai.core.mscp_profile import MscpAuthorityCeiling
+from fdai.core.mscp_profile import (
+    MscpAuthorityCeiling,
+    MscpAuthorityReason,
+    MscpCandidateKey,
+    MscpProfileLifecycleReader,
+    MscpProfileMode,
+    combine_mscp_authority,
+)
 from fdai.core.ontology_platform.evidence_conflict import (
     EvidenceConflictCurrentReader,
     EvidenceConflictDisposition,
@@ -101,6 +108,8 @@ class ControlLoopExecutionMixin(
     _automation_hold_reader: AutomationHoldReader | None
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
+    _mscp_profile_candidate_resolver: Callable[[Action], MscpCandidateKey | None] | None
+    _mscp_profile_lifecycle: MscpProfileLifecycleReader | None
     _development_profile: FullAuthorityDevelopmentProfile | None
     _development_binding_source: DevelopmentAuthorityBindingSource | None
     _development_executor_principal: str | None
@@ -459,6 +468,102 @@ class ControlLoopExecutionMixin(
             reason=f"evidence conflict requires shadow-only: {disposition.value}",
         )
 
+    async def _evaluate_mscp_profile_gate(
+        self,
+        *,
+        action: Action,
+        unified: UnifiedRiskDecision,
+    ) -> tuple[UnifiedRiskDecision, dict[str, object] | None]:
+        resolver = self._mscp_profile_candidate_resolver
+        lifecycle = self._mscp_profile_lifecycle
+        if resolver is None and lifecycle is None:
+            return unified, None
+        if resolver is None or lifecycle is None:
+            ceiling = MscpAuthorityCeiling.HOLD
+            reason = MscpAuthorityReason.STRUCTURAL_HOLD
+            state = "incomplete_binding"
+            candidate: MscpCandidateKey | None = None
+            revision: int | None = None
+            mode: str | None = None
+            review_id: str | None = None
+            readiness_digest: str | None = None
+        else:
+            try:
+                candidate = resolver(action)
+            except Exception:  # noqa: BLE001 - invalid profile selection fails closed
+                _LOGGER.warning(
+                    "mscp_profile_candidate_resolution_failed",
+                    extra={"action_type": action.action_type},
+                    exc_info=True,
+                )
+                candidate = None
+                ceiling = MscpAuthorityCeiling.HOLD
+                reason = MscpAuthorityReason.STRUCTURAL_HOLD
+                state = "candidate_unavailable"
+                revision = None
+                mode = None
+                review_id = None
+                readiness_digest = None
+            else:
+                if candidate is None:
+                    ceiling = MscpAuthorityCeiling.HOLD
+                    reason = MscpAuthorityReason.STRUCTURAL_HOLD
+                    state = "candidate_missing"
+                    revision = None
+                    mode = None
+                    review_id = None
+                    readiness_digest = None
+                else:
+                    try:
+                        record = await lifecycle.get(candidate)
+                    except KeyError:
+                        ceiling = MscpAuthorityCeiling.HOLD
+                        reason = MscpAuthorityReason.HUMAN_REVIEW_REQUIRED
+                        state = "profile_missing"
+                        revision = None
+                        mode = None
+                        review_id = None
+                        readiness_digest = None
+                    except Exception:  # noqa: BLE001 - unreadable lifecycle fails closed
+                        _LOGGER.warning(
+                            "mscp_profile_lifecycle_lookup_failed",
+                            extra={"action_type": action.action_type},
+                            exc_info=True,
+                        )
+                        ceiling = MscpAuthorityCeiling.HOLD
+                        reason = MscpAuthorityReason.STRUCTURAL_HOLD
+                        state = "profile_invalid"
+                        revision = None
+                        mode = None
+                        review_id = None
+                        readiness_digest = None
+                    else:
+                        revision = record.revision
+                        mode = record.mode.value
+                        review_id = record.review_id
+                        readiness_digest = record.readiness_digest
+                        if record.mode is MscpProfileMode.GATING:
+                            ceiling = MscpAuthorityCeiling.PRESERVE
+                            reason = MscpAuthorityReason.CHECKS_PASSED
+                            state = "reviewed_gating"
+                        else:
+                            ceiling = MscpAuthorityCeiling.HOLD
+                            reason = MscpAuthorityReason.HUMAN_REVIEW_REQUIRED
+                            state = "profile_unreviewed"
+        profile_decision = combine_mscp_authority(unified, ceiling=ceiling, reason=reason)
+        if profile_decision.level < unified.level:
+            unified = replace(unified, level=profile_decision.level, winning_side="mscp_profile")
+        profile_entry: dict[str, object] = {
+            **profile_decision.as_audit_dict(),
+            "state": state,
+            "candidate": asdict(candidate) if candidate is not None else None,
+            "lifecycle_mode": mode,
+            "lifecycle_revision": revision,
+            "readiness_digest": readiness_digest,
+            "review_id": review_id,
+        }
+        return unified, profile_entry
+
     async def _evaluate_and_audit(
         self,
         *,
@@ -609,11 +714,17 @@ class ControlLoopExecutionMixin(
                         evidence_conflict_clear=False,
                     )
                     conflict_disposition = EvidenceConflictDisposition.EXPIRED_UNRESOLVED
+            unified, mscp_profile_entry = await self._evaluate_mscp_profile_gate(
+                action=action,
+                unified=unified,
+            )
             entry = _unified_audit_dict(event=event, action=action, unified=unified)
             entry["evidence_conflict"] = {
                 "disposition": conflict_disposition.value,
                 "revision_refs": conflict_revision_refs,
             }
+            if mscp_profile_entry is not None:
+                entry["mscp_profile"] = mscp_profile_entry
             entry["recorded_at"] = datetime.now(tz=UTC).isoformat()
             await self._audit_store.append_audit_entry(entry)
             return unified

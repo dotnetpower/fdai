@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from fdai.core.mscp_profile.readiness import MscpCandidateKey, MscpReadinessReport
 from fdai.shared.providers.state_store import StateStore
@@ -28,6 +28,13 @@ class MscpProfileMode(StrEnum):
 
 class MscpProfileLifecycleConflictError(RuntimeError):
     """A lifecycle revision or reviewed evidence fence is stale."""
+
+
+class MscpProfileLifecycleReader(Protocol):
+    """Read-only lifecycle surface used by runtime gates."""
+
+    async def get(self, candidate: MscpCandidateKey) -> MscpProfileLifecycleRecord:
+        """Load the current profile lifecycle record for one exact candidate."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -339,6 +346,7 @@ def _instant(value: Mapping[str, Any], key: str) -> datetime:
 __all__ = [
     "IndependentProfileReview",
     "MscpProfileLifecycleConflictError",
+    "MscpProfileLifecycleReader",
     "MscpProfileLifecycleRecord",
     "MscpProfileMode",
     "StateStoreMscpProfileLifecycle",

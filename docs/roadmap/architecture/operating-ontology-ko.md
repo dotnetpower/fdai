@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 1eba9ba927c19e40019eb3194af7a716a639f6ec
-translation_revised: 2026-09-18
+translation_source_sha: 2dc5b7b3c183f4b113f8d8f7b42bd77fde047d3c
+translation_revised: 2026-10-04
 ---
 # FDAI 운영 온톨로지
 
@@ -543,6 +543,12 @@ Forseti가 해당 옵션과 exact `KineticActionProposal`을 확정한 뒤 Verdi
 proposal은 두 증적이 일치하기 전까지 실행기 I/O에 도달할 수 없습니다. Reconciliation은 observed
 multi-effect closure의 유일한 권한이며 예상 효과마다 독립적으로 관측된 결과 하나를 추가합니다.
 이전 control-loop one-effect sink와 불완전 텔레메트리 주장은 폐기했습니다.
+Prospective lineage는 Forseti가 확정한 판단 값만 사용합니다. 여기에는 선택된 옵션, 전제 조건으로
+쓰이는 제약 및 시뮬레이션 증적, 서명된 효과 방향, 효과 uncertainty, predictor version으로 쓰이는
+logic-release digest가 포함됩니다. 이 값 중 하나라도 없으면 Forseti는 `ProspectiveLineage`를 발행하지
+않고 Verdict에 이용 불가 사유를 기록합니다. Reconciliation은 독립 관측에 권위 있는 완전성 증적,
+최신의 완전하고 합성되지 않은 근거, 그리고 모든 예상 효과의 정확한 측정 항목이 있을 때만 episode를 채점합니다.
+완전한 governed runtime episode 하나를 유지하는 것이 이 경로를 검증된 source/projector 근거로 주장하기 전의 관문입니다.
 
 운영 시작은 프로바이더 경계를 통해 `FDAI_OPERATING_MODEL_PATH`를 읽고, 전체 객체/링크
 스냅샷을 검증한 뒤 provider-owned subgraph를 atomically replace합니다. `applying` 매니페스트는 stale

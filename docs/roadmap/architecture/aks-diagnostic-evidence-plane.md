@@ -66,6 +66,10 @@ list permissions after exact cluster identity checks, not diagnosis, installatio
 Observer setup recommendations now reach a separate role-gated Operator read projection over the
 existing event transport. Its short lease and explicit unavailable states never increase this plane's
 diagnostic completeness, and the Console exposes no installation or approval command.
+Local connector validation also keeps reviewed constraint facts, guarded work delivery, content-safe
+snapshot bodies, policy ownership analysis, and shadow segmentation probes outside diagnostic
+authority. These checks can make a proposal or evidence source unavailable, but they cannot promote
+inventory, approve installation, dispatch an Executor, or prove live network enforcement.
 
 The runtime accepts a bounded collection of cluster bindings. Each binding contains:
 

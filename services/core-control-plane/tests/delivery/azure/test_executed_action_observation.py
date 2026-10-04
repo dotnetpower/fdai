@@ -83,7 +83,7 @@ def _inputs() -> tuple[ResolvedReconciliationArtifacts, Action, AzureOperational
         observed_at=plan.created_at + timedelta(minutes=1),
         evidence_refs=("c" * 64,),
         resource_revision=2,
-        metric_values={"replicas": 3.0},
+        metric_values={"latency_ms": 100.0, "replicas": 3.0},
     )
     return artifacts, action, snapshot
 
@@ -111,7 +111,13 @@ async def test_collects_exact_plan_declared_scale_out_property(
     )
 
     assert observation is not None
-    assert observation.evidence.records[0].to_record().properties == {"replicas": 3.0}
+    assert observation.evidence.completeness_receipt_ref == (
+        f"telemetry-completeness:{observation.evidence.evidence_refs[0]}"
+    )
+    assert observation.evidence.records[0].to_record().properties == {
+        "latency_ms": 100.0,
+        "replicas": 3.0,
+    }
     assert observation.observation_context.signature_verified is True
 
 

@@ -41,7 +41,7 @@ provenance.
 | Conflict-aware authority lowering | implemented | `core/ontology_platform/evidence_conflict.py`; control-loop and HIL resume checks | Canonical Property semantic intersections reuse the never-raising ceiling to hold only related ActionTypes. Missing conflict state fails closed before executor I/O. |
 | Rule-governance coexistence | implemented | `runtime/control_loop.py`; `core/control_loop/_process.py`; focused governance safety-path tests | Assignment observation and exemption holds occur before dispatch. They do not activate MSCP effect observation, synthesize a `ResponseOutcome`, or alter the profile lifecycle. |
 | Immutable decision-context projection and replay | implemented | `core/mscp_profile/decision_context.py`; `decision_context_store.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); owning MSCP tests (`140 passed`) | Four owner-injected read-only observations join only for one candidate, decision, subject, and cutoff. Missing, conflicting, incomplete, stale, future, unverified, and unavailable sources hold. A content digest and first-write atomic audit fence survive restart without creating a new authority; actual runtime owner bindings remain open. |
-| Governed profile gating | not-started | [Activation and runtime behavior](#activation-and-runtime-behavior); `core/mscp_profile/readiness.py`; `profile_lifecycle.py` | Readiness and default-shadow lifecycle primitives exist, but no measured window or ControlLoop gating binding exists. |
+| Governed profile gating | implemented | [Activation and runtime behavior](#activation-and-runtime-behavior); `core/mscp_profile/readiness.py`; `profile_lifecycle.py`; `core/control_loop/_execution.py`; `core/control_loop/orchestrator.py`; `test_profile_gate_control_loop.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`146 passed`) | The optional ControlLoop lifecycle gate now requires an exact candidate resolver plus lifecycle reader, fails closed to shadow on missing, invalid, or unreviewed lifecycle state, preserves reviewed risk decisions, and never grants activation authority. The measured evidence window and operational candidate activation remain separate open work. |
 
 ### Implementation history
 
@@ -54,13 +54,14 @@ provenance.
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated implemented shadow observation from unimplemented gating. | `current change`; profile source and focused tests listed in the scope table. | Retain a measured readiness window and implement the bounded decision-context and gating work below. |
 | 2026-08-23 | implemented | Recorded the ordering boundary between immutable rule governance and optional post-dispatch MSCP effect observation. | `current change`; focused governance and MSCP composition checks. | The existing measured-readiness and governed-gating work remains unchanged. |
 | 2026-09-27 | implemented | Added a bounded, content-addressed four-owner decision context and audit-atomic first-write/restart replay, with explicit holds for missing, conflicting, stale, unverified, and unavailable evidence. Corrected the prior combined status row: default-shadow lifecycle primitives already exist, but the profile is not activated. | `current change`; `core/mscp_profile/{decision_context,decision_context_store}.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); `uv run pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`140 passed`); focused Ruff and mypy. | Bind real authoritative readers in the runtime, retain a measured shadow window, and separately govern any gating integration. |
+| 2026-10-04 | implemented | Bound the governed MSCP lifecycle reader and never-raising ceiling into ControlLoop risk evaluation as an optional all-or-nothing gate. Missing, invalid, or unreviewed profile state lowers to shadow; a reviewed `gating` lifecycle preserves the existing unified risk decision and keeps risk, approval, executor, and audit ownership unchanged. | `current change`; `core/control_loop/_execution.py`; `core/control_loop/orchestrator.py`; `core/mscp_profile/{__init__,profile_lifecycle}.py`; `tests/core/mscp_profile/test_profile_gate_control_loop.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`146 passed`); focused Ruff format/check and strict mypy on changed source passed. | Retain the pinned measured shadow window and operational candidate drill before claiming deployed activation. |
 
 ### Remaining work
 
 - [x] Project owner-supplied ontology, incident, workflow, and audit observations into one immutable, audit-atomic decision context; focused tests prove missing and conflicting inputs hold and a retry cannot rewrite the durable record (`20 passed`).
 - [ ] Bind the four actual authoritative owner readers in a governed runtime and retain a pinned decision receipt before claiming operational context availability.
 - [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): Retain a pinned shadow evidence window for the selected `ops.start-vm@1.0.0` non-production candidate that measures profile matches, mismatches, holds, audit failures, and unchanged executor outcomes and passes the initial readiness floor.
-- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): Bind the existing profile lifecycle and never-raising ceiling into ControlLoop gating only after focused tests prove rollback, replay, and unchanged risk, approval, execution, and audit ownership.
+- [x] [#53](https://github.com/dotnetpower/fdai/issues/53): Bind the existing profile lifecycle and never-raising ceiling into ControlLoop gating only after focused tests prove rollback, replay, and unchanged risk, approval, execution, and audit ownership. Evidence: `core/control_loop/_execution.py`, `core/control_loop/orchestrator.py`, `core/mscp_profile/{__init__,profile_lifecycle}.py`, `tests/core/mscp_profile/test_profile_gate_control_loop.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`146 passed`); focused Ruff format/check and strict mypy on changed source passed.
 - [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): Run a rollback and gating-to-shadow demotion drill for that candidate, confirm the drill passes, and retain its audit evidence.
 - [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): Publish English and Korean operator guidance for activation, operation, demotion, and incident response after gating is bound.
 
@@ -213,9 +214,11 @@ the ControlLoop while the measured readiness window and governed profile lifecyc
 The profile lifecycle now persists a default `shadow` record per exact candidate tuple. A `gating`
 transition requires both a ready report and an independent review bound to the report digest.
 Compare-and-set revision fencing permits only one concurrent winner. Demotion returns immediately to
-`shadow` with an audited reason and no review prerequisite. Lifecycle state remains unwired from the
-ControlLoop and fixes `activation_authority=false`, so recording `gating` cannot activate an
-ActionType or Workflow.
+`shadow` with an audited reason and no review prerequisite. When composition binds both an exact
+candidate resolver and lifecycle reader, the ControlLoop reads that lifecycle as a never-raising
+ceiling over the unified risk decision: missing, invalid, or unreviewed state lowers to `shadow`,
+while reviewed `gating` preserves the existing decision. The lifecycle still fixes
+`activation_authority=false`, so recording `gating` cannot activate an ActionType or Workflow.
 
 Every non-success prediction or observation reason now has one explicit bounded failure decision.
 Prediction failure holds before dispatch and permits at most one caller-owned retry and one approval
@@ -260,9 +263,10 @@ Focused tests under `services/core-control-plane/tests/core/mscp_profile/` cover
 - owner-injected four-source decision joins, fail-closed holds, audit-atomic first-write, concurrent
   conflict rejection, and digest-checked restart replay without runtime activation.
 
-The v1 profile is connected only as optional shadow observation. It is not connected to the enforce
-decision path. A future gating change should demonstrate that no profile outcome raises the existing
-risk decision.
+The v1 profile is connected as optional shadow observation and, when explicitly composed with the
+governed lifecycle reader, as a never-raising pre-dispatch ceiling over the unified risk decision.
+It can only preserve the existing decision or lower it to shadow. It cannot raise risk authority,
+route approval by itself, select an executor, or own audit durability.
 
 ## Related docs
 

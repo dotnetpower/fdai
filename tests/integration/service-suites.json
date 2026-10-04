@@ -131,6 +131,7 @@
           "services/operator-service/tests/test_observer_deployment_projection.py",
           "services/operator-service/tests/test_notification_receipt_ingress.py",
           "services/operator-service/tests/test_operator_user_context_projection.py",
+          "services/operator-service/tests/test_outcome_assurance_route.py",
           "services/operator-service/tests/test_ownership_projection.py",
           "services/operator-service/tests/test_pantheon_assurance_presentation.py",
           "services/operator-service/tests/test_pdf_report_encoder.py",

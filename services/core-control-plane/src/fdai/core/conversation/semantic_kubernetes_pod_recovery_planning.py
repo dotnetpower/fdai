@@ -24,15 +24,23 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     QueryManifest,
 )
+from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
+    KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
+)
 from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
     KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
     KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
 )
+from fdai.core.ontology_platform.resource_event_queries import (
+    KUBERNETES_EVENT_FAMILY,
+    RESOURCE_EVENT_FUNCTION_NAME,
+)
 
 from .semantic_investigation import InvestigationEntityRole, VerifiedInvestigationIntent
 
 _RESTART_HISTORY_WINDOW = timedelta(minutes=30)
+_DIAGNOSIS_LOOKBACK = timedelta(minutes=15)
 
 
 def compile_kubernetes_pod_recovery_plan(
@@ -199,6 +207,129 @@ def compile_kubernetes_pod_recovery_plan(
     return verifier.verify(plan, manifest=manifest)
 
 
+def compile_kubernetes_pod_diagnosis_plan(
+    *,
+    frame: SemanticProblemFrame,
+    investigation_intent: VerifiedInvestigationIntent | None,
+    manifest: QueryManifest,
+    verifier: OntologyQueryPlanVerifier,
+    evaluation_time: datetime,
+    purpose: str,
+) -> OntologyQueryPlan | None:
+    """Build an exact Pod diagnosis read from verified target and lifecycle evidence."""
+
+    if (
+        investigation_intent is None
+        or not _has_function(manifest.descriptors, KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME)
+        or not _has_function(manifest.descriptors, RESOURCE_EVENT_FUNCTION_NAME)
+    ):
+        return None
+    primary_measure = next(
+        (
+            measure
+            for measure in investigation_intent.symptom_measures
+            if measure.measure_id == investigation_intent.primary_symptom_measure_id
+        ),
+        None,
+    )
+    if (
+        primary_measure is None
+        or primary_measure.concept_id != KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT
+    ):
+        return None
+    targets = tuple(
+        entity
+        for entity in investigation_intent.entities
+        if entity.role is InvestigationEntityRole.AFFECTED_TARGET
+    )
+    if len(targets) != 1 or targets[0].object_type_candidates != ("Resource",):
+        return None
+    identity_property = _resource_identity_property(manifest.descriptors)
+    if identity_property is None:
+        return None
+    as_of = evaluation_time.astimezone(UTC)
+    lookback_seconds = int(_DIAGNOSIS_LOOKBACK.total_seconds())
+    target_definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        predicates=(
+            ObjectPredicate(
+                property=identity_property,
+                operator=ObjectPredicateOperator.EQUALS,
+                equals=targets[0].span.text,
+            ),
+        ),
+        as_of=as_of,
+        purpose=purpose,
+        limit=2,
+    )
+    nodes = (
+        OntologyQueryNode(
+            node_id="pod-diagnosis-target",
+            kind=QueryNodeKind.OBJECT_SET,
+            arguments_json=canonical_json(
+                {"definition": target_definition.model_dump(mode="json")}
+            ),
+            output_kind="query.table",
+        ),
+        OntologyQueryNode(
+            node_id="pod-diagnosis-events",
+            kind=QueryNodeKind.FUNCTION,
+            depends_on=("pod-diagnosis-target",),
+            arguments_json=canonical_json(
+                {
+                    "function_name": RESOURCE_EVENT_FUNCTION_NAME,
+                    "arguments": {
+                        "event_families": [KUBERNETES_EVENT_FAMILY],
+                        "lookback_seconds": lookback_seconds,
+                    },
+                    "dependency_arguments": {
+                        "pod-diagnosis-target": "query_result",
+                    },
+                }
+            ),
+            output_kind="query.table",
+        ),
+        OntologyQueryNode(
+            node_id="pod-diagnosis-evidence",
+            kind=QueryNodeKind.FUNCTION,
+            depends_on=("pod-diagnosis-target", "pod-diagnosis-events"),
+            arguments_json=canonical_json(
+                {
+                    "function_name": KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
+                    "arguments": {"lookback_seconds": lookback_seconds},
+                    "dependency_arguments": {
+                        "pod-diagnosis-target": "pod_query_result",
+                        "pod-diagnosis-events": "lifecycle_events",
+                    },
+                }
+            ),
+            output_kind="kubernetes.pod.diagnosis.evidence",
+        ),
+    )
+    body = {
+        "schema_version": "1.0.0",
+        "ontology_release_digest": manifest.release_digest,
+        "semantic_catalog_digest": manifest.manifest_digest,
+        "problem_frame_digest": frame.frame_digest,
+        "purpose": purpose,
+        "caller_role": manifest.principal_role.value,
+        "nodes": [node.model_dump(mode="json") for node in nodes],
+        "output_node_ids": ["pod-diagnosis-evidence"],
+        "execution_authority": False,
+    }
+    plan = OntologyQueryPlan(
+        ontology_release_digest=manifest.release_digest,
+        semantic_catalog_digest=manifest.manifest_digest,
+        problem_frame_digest=frame.frame_digest,
+        purpose=purpose,
+        caller_role=manifest.principal_role.value,
+        nodes=nodes,
+        output_node_ids=("pod-diagnosis-evidence",),
+        plan_digest=content_digest(body),
+    )
+    return verifier.verify(plan, manifest=manifest)
+
+
 def _resource_identity_property(descriptors: tuple[dict[str, Any], ...]) -> str | None:
     selected = tuple(
         descriptor
@@ -211,12 +342,14 @@ def _resource_identity_property(descriptors: tuple[dict[str, Any], ...]) -> str 
     return next((name for name in ("name", "display_name", "id") if name in properties), None)
 
 
-def _has_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
+def _has_function(
+    descriptors: tuple[dict[str, Any], ...],
+    function_name: str = KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+) -> bool:
     return any(
-        descriptor.get("kind") == "function"
-        and descriptor.get("name") == KUBERNETES_POD_RECOVERY_FUNCTION_NAME
+        descriptor.get("kind") == "function" and descriptor.get("name") == function_name
         for descriptor in descriptors
     )
 
 
-__all__ = ["compile_kubernetes_pod_recovery_plan"]
+__all__ = ["compile_kubernetes_pod_diagnosis_plan", "compile_kubernetes_pod_recovery_plan"]

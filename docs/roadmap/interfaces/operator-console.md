@@ -13,6 +13,10 @@ Operator still receive no row identity, row body, or model-visible handle payloa
 findings summary now admits evaluated Console status only from complete baseline-evaluation
 completion and outcome records. Missing or partial coverage still renders unavailable, while a
 stored complete summary remains readable until a newer generation completes.
+The Outcome Assurance drill-down reuses the existing Operating outcomes, Control assurance, and
+Verticals information architecture. It reads only the authenticated `/kpi/outcome-assurance`
+projection, preserves missing or stale source states as unavailable, and adds no request,
+approval, promotion, or execution authority.
 Adaptive answer evidence crosses the model boundary as `ModelEvidenceView`, a Core-built
 allowlisted projection. Raw query tables, provider bodies, handles, and retained snapshot cells do
 not reach answer-authoring or review model calls.

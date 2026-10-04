@@ -305,6 +305,7 @@ async def test_health_function_preserves_mixed_health_and_inventory_state() -> N
     assert isinstance(rows, list)
     assert [row["values"]["evidence_family"] for row in rows] == [
         "resource_health",
+        "resource_health",
         "current_inventory",
     ]
     assert rows[0]["values"]["health_concept"] == "resource_health.not_ready"
@@ -313,8 +314,10 @@ async def test_health_function_preserves_mixed_health_and_inventory_state() -> N
     assert rows[0]["values"]["coverage_state"] == "observed"
     assert rows[0]["values"]["collection_started_at"] == "2026-08-21T13:59:58+00:00"
     assert rows[0]["values"]["collection_completed_at"] == NOW.isoformat()
-    assert "availability_state" not in rows[1]["values"] or (
-        rows[1]["values"]["availability_state"] is None
+    assert rows[1]["values"]["availability_state"] == "available"
+    assert rows[1]["values"]["health_concept"] is None
+    assert "availability_state" not in rows[2]["values"] or (
+        rows[2]["values"]["availability_state"] is None
     )
     assert all(row["values"]["execution_authority"] is False for row in rows)
     assert reader.calls == [

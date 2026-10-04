@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: ccd161f012e7f818ac4f3c0a1991a586f7acca90
-translation_revised: 2026-09-28
+translation_source_sha: 28f401922cf3fa880434c21706826b3c2c3f5842
+translation_revised: 2026-10-04
 ---
 # MSCP Operational 프로파일
 
@@ -43,7 +43,7 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 | 충돌 인식 권한 낮추기 | implemented | `core/ontology_platform/evidence_conflict.py`, 컨트롤 루프 및 HIL 재개 검사 | 정본 Property 의미 규칙 교집합은 권한을 높이지 않는 상한을 재사용해 관련 ActionType만 보류합니다. 충돌 상태를 읽을 수 없으면 실행기 I/O 전에 안전하게 차단합니다. |
 | 룰 거버넌스 공존 | implemented | `runtime/control_loop.py`; `core/control_loop/_process.py`; 집중 거버넌스 안전 경로 테스트 | 배정 관찰과 exemption 보류는 전달 전에 발생합니다. MSCP 효과 관측을 활성화하거나 `ResponseOutcome`을 만들거나 프로파일 수명 주기를 변경하지 않습니다. |
 | 불변 결정 맥락 변환 및 재현 | implemented | `core/mscp_profile/decision_context.py`; `decision_context_store.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); MSCP 소유 테스트 (`140 passed`) | 소유자가 주입한 읽기 전용 관측 네 가지를 하나의 후보, 결정, 대상, 기준 시점에 한해서 결합합니다. 누락, 충돌, 불완전, 기한 경과, 미래 시각, 검증 실패 및 접근 불가 상태에서는 보류합니다. 내용 다이제스트와 최초 기록 시 원자적 감사 경계가 재시작 후에도 유지되며 새 권한을 만들지 않습니다. 실제 런타임 소유자 연결은 남아 있습니다. |
-| 통제된 프로파일 게이팅 | not-started | [활성화 및 런타임 동작](#활성화-및-런타임-동작); `core/mscp_profile/readiness.py`; `profile_lifecycle.py` | 준비 상태 및 기본 shadow 수명 주기 기본 요소는 있지만 측정된 구간이나 ControlLoop 게이팅 연결은 없습니다. |
+| 통제된 프로파일 게이팅 | implemented | [활성화 및 런타임 동작](#활성화-및-런타임-동작); `core/mscp_profile/readiness.py`; `profile_lifecycle.py`; `core/control_loop/_execution.py`; `core/control_loop/orchestrator.py`; `test_profile_gate_control_loop.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`146 passed`) | 선택적 ControlLoop 수명 주기 게이트는 이제 정확한 후보 해석기와 수명 주기 읽기 구성 요소를 모두 요구하고, 수명 주기 상태가 없거나 잘못되었거나 검토되지 않았으면 안전하게 `shadow`로 낮추며, 검토된 위험 결정을 보존하고 활성화 권한을 부여하지 않습니다. 측정된 근거 구간과 운영 후보 활성화는 별도의 열린 작업으로 남아 있습니다. |
 
 ### 구현 이력
 
@@ -56,13 +56,14 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 구현된 shadow 관측과 구현되지 않은 게이팅을 분리했습니다. | `current change`; 구현 범위 표의 프로파일 소스와 집중 테스트입니다. | 측정된 준비 상태 구간을 보존하고 아래의 범위가 제한된 결정 맥락 및 게이팅 작업을 구현합니다. |
 | 2026-08-23 | implemented | 불변 룰 거버넌스와 전달 후 선택적 MSCP 효과 관측 사이의 순서 경계를 기록했습니다. | `current change`; 집중 거버넌스 및 MSCP 조립 검사입니다. | 기존 측정 준비 상태 및 통제된 게이팅 작업은 변경되지 않습니다. |
 | 2026-09-27 | implemented | 범위가 제한되고 내용으로 주소를 정하는 네 소유자의 결정 맥락과 감사 항목을 함께 기록하는 최초 쓰기 및 재시작 후 재현을 추가했습니다. 누락, 충돌, 기한 경과, 검증 실패, 접근 불가 근거는 보류합니다. 이전에 결합된 상태 행을 바로잡았습니다. 기본 shadow 수명 주기 기본 요소는 이미 있지만 프로파일이 활성화된 것은 아닙니다. | `current change`; `core/mscp_profile/{decision_context,decision_context_store}.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); `uv run pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`140 passed`); 집중 Ruff 및 mypy 검사입니다. | 실제 정본 읽기 경로를 런타임에 연결하고, 측정된 shadow 구간을 보존하고, 게이팅 통합은 별도로 통제해야 합니다. |
+| 2026-10-04 | implemented | 통제된 MSCP 수명 주기 읽기 구성 요소와 권한을 높이지 않는 상한을 선택적 전부 아니면 전무 게이트로 ControlLoop 위험 평가에 연결했습니다. 프로파일 상태가 없거나 잘못되었거나 검토되지 않았으면 `shadow`로 낮추고, 검토된 `gating` 수명 주기는 기존 unified risk 결정을 보존하며 위험, 승인, 실행기 및 감사 소유권을 그대로 유지합니다. | `current change`; `core/control_loop/_execution.py`; `core/control_loop/orchestrator.py`; `core/mscp_profile/{__init__,profile_lifecycle}.py`; `tests/core/mscp_profile/test_profile_gate_control_loop.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`146 passed`); 변경된 소스의 집중 Ruff format/check 및 strict mypy가 통과했습니다. | 배포된 활성화를 주장하기 전에 고정된 측정 shadow 구간과 운영 후보 훈련을 보존합니다. |
 
 ### 남은 작업
 
 - [x] 소유자가 제공한 온톨로지, 인시던트, 작업 흐름 및 감사 관측을 불변의 원자적 감사 기록을 가진 결정 맥락으로 변환합니다. 집중 테스트는 누락되거나 충돌하는 입력이 보류되고 재시도가 영속 기록을 바꾸지 못함을 입증합니다(`20 passed`).
 - [ ] 운영 단계에서 맥락을 사용할 수 있다고 주장하기 전에 실제 정본 소유자 읽기 경로 네 가지를 통제된 런타임에 연결하고 고정된 결정 증적을 보존합니다.
 - [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): 선택된 비운영 후보 `ops.start-vm@1.0.0`에 대해 프로파일 일치, 불일치, 보류, 감사 실패 및 변경되지 않은 실행기 결과를 측정하고 초기 준비도 기준을 통과하는 고정된 shadow 근거 구간을 보존합니다.
-- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): 집중 테스트가 롤백, 재현 및 변경되지 않은 risk, 승인, 실행, 감사 소유권을 입증한 뒤에만 기존 프로파일 수명 주기와 권한을 높이지 않는 상한을 ControlLoop gating에 연결합니다.
+- [x] [#53](https://github.com/dotnetpower/fdai/issues/53): 집중 테스트가 롤백, 재현 및 변경되지 않은 risk, 승인, 실행, 감사 소유권을 입증한 뒤에만 기존 프로파일 수명 주기와 권한을 높이지 않는 상한을 ControlLoop gating에 연결합니다. 근거: `core/control_loop/_execution.py`, `core/control_loop/orchestrator.py`, `core/mscp_profile/{__init__,profile_lifecycle}.py`, `tests/core/mscp_profile/test_profile_gate_control_loop.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`146 passed`); 변경된 소스의 집중 Ruff format/check 및 strict mypy가 통과했습니다.
 - [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): 해당 후보에 대해 통과하는 롤백 및 gating에서 shadow로의 강등 훈련을 실행하고 감사 근거를 보존합니다.
 - [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): gating을 연결한 뒤 활성화, 운영, 강등 및 인시던트 대응을 설명하는 영어와 한국어 운영자 안내를 게시합니다.
 
@@ -215,9 +216,11 @@ FDAI 권한, MSCP 상한)`을 적용합니다. 변경할 수 없는 결과는 �
 프로파일 수명 주기는 정확한 후보 묶음별로 기본 `shadow` 레코드를 영속화합니다. `gating`
 전이는 준비된 보고서와 보고서 다이제스트에 결속된 독립 검토를 모두 요구합니다.
 Compare-and-set 개정 번호 차단은 동시 전이 하나만 성공시킵니다. Demotion은 별도 검토 없이 감사된
-사유와 함께 즉시 `shadow`로 돌아갑니다. 수명 주기 상태는 ControlLoop에 연결되지 않고
-`activation_authority=false`로 고정되므로 `gating` 기록이 ActionType 또는 Workflow를 활성화할 수
-없습니다.
+사유와 함께 즉시 `shadow`로 돌아갑니다. 조립이 정확한 후보 해석기와 수명 주기 읽기 구성 요소를 모두
+연결하면 ControlLoop는 해당 수명 주기를 unified risk 결정 위의 권한을 높이지 않는 상한으로
+읽습니다. 상태가 없거나 잘못되었거나 검토되지 않았으면 `shadow`로 낮추고, 검토된 `gating`은
+기존 결정을 보존합니다. 수명 주기는 여전히 `activation_authority=false`로 고정되므로 `gating`
+기록이 ActionType 또는 Workflow를 활성화할 수 없습니다.
 
 성공이 아닌 모든 예측 또는 관측 사유에는 하나의 명시적인 범위 제한 실패 결정이 있습니다. 예측
 실패는 dispatch 전에 hold하며 호출자가 소유한 재시도와 승인 요청을 각각 최대 한 번만 허용합니다.
@@ -260,9 +263,10 @@ mismatch는 dispatch 후 복구를 요청합니다. `gating`의 모든 실패는
 - 소유자가 주입한 네 출처의 결정 결합, 실패 시 보류, 감사 항목과 함께 기록되는 최초 원자적
   쓰기, 동시 충돌 거부 및 런타임 활성화 없는 다이제스트 검증 재시작 후 재현
 
-v1 프로파일은 선택적 shadow 관측으로만 연결됩니다. 강제 적용 결정 경로에는 연결되지
-않았습니다. 향후 gating 변경은 어떤 프로파일 결과도 기존 risk 결정을 높이지 않음을
-입증하는 것이 좋습니다.
+v1 프로파일은 선택적 shadow 관측으로 연결되고, 통제된 수명 주기 읽기 구성 요소와 명시적으로 조립될 때
+unified risk 결정 위의 권한을 높이지 않는 전달 전 상한으로도 연결됩니다. 기존 결정을 보존하거나
+`shadow`로 낮출 수만 있습니다. risk 권한을 높이거나, 자체적으로 승인 경로를 선택하거나, 실행기를
+선택하거나, 감사 내구성을 소유할 수 없습니다.
 
 ## 관련 문서
 

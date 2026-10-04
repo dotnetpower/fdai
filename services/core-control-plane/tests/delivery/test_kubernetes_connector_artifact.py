@@ -118,6 +118,7 @@ async def test_real_collector_roundtrip_discards_raw_secrets() -> None:
         ("cluster_ref", "foreign"),
         ("namespace", "foreign"),
         ("uid", "foreign"),
+        ("resource_version", ""),
         ("kind", "Secret"),
         ("environment", {"SECRET": "hidden"}),
         ("restart_count", True),
@@ -126,6 +127,14 @@ async def test_real_collector_roundtrip_discards_raw_secrets() -> None:
 async def test_malformed_resource_rejected(field: str, value: object) -> None:
     body = json.loads(await collected_bytes())
     body["resources"][-1]["props"][field] = value
+    content = json.dumps(body).encode()
+    with pytest.raises(ConnectorArtifactError):
+        decode_snapshot(content, envelope(content), allow_cluster_resources=False)
+
+
+async def test_observed_resource_clock_must_match_envelope_before_promotion() -> None:
+    body = json.loads(await collected_bytes())
+    body["resources"][-1]["last_seen"] = "2026-09-19T00:00:01+00:00"
     content = json.dumps(body).encode()
     with pytest.raises(ConnectorArtifactError):
         decode_snapshot(content, envelope(content), allow_cluster_resources=False)

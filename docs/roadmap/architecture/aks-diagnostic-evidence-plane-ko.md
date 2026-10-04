@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: a2a4b366d1c528f04a21df4b82b782707f30f28b
+translation_source_sha: 429c4f6883a207b4d06abfc710aec1cf30cee9db
 translation_revised: 2026-10-04
 ---
 # AKS 진단 근거 플레인
@@ -66,6 +66,10 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 관측 구성 추천은 이제 기존 이벤트 전송을 통해 별도의 역할 검사된 Operator 읽기 데이터로
 전달됩니다. 짧은 유효기간과 명시적인 사용 불가 상태는 진단 완전성을 높이지 않으며
 Console은 설치나 승인 명령을 제공하지 않습니다.
+로컬 커넥터 검증도 검토된 제약 사실, 보호된 작업 전달, 민감한 내용을 제외한 스냅샷 본문,
+정책 소유권 분석, shadow 세분화 probe를 진단 권한 밖에 둡니다. 이러한 검사는 제안이나 근거
+출처를 사용할 수 없게 만들 수 있지만, 인벤토리 승격, 설치 승인, 실행기 전달 또는 실환경
+네트워크 적용 입증은 할 수 없습니다.
 
 런타임은 개수가 제한된 클러스터 연결 모음을 허용합니다. 각 연결은 다음을 포함합니다.
 

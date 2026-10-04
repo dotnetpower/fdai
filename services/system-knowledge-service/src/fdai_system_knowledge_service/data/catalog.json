@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:28e8c4b38c2231c7d6124e3b087ccc86c65e306f19cedce922c0b9da7927d4e0",
+  "catalog_digest": "sha256:24ca194adb6b021fd84c1aaa156f1a899595ad34c9f61c14d47d43221437deab",
   "execution_authority": false,
-  "generated_at": "2026-10-02T10:39:59.392826Z",
+  "generated_at": "2026-10-04T05:51:52.471848Z",
   "records": [
     {
       "designed_behavior": [
@@ -192,11 +192,11 @@
         "How does FDAI prevent duplicate chat replies?",
         "FDAI는 중복 채팅 응답을 어떻게 방지하나요?"
       ],
-      "record_digest": "sha256:7c44aea4759b07c4bbfde5483fd1ef5b3ee8a53d14b2f6d61a961a49a00bd5ea",
+      "record_digest": "sha256:06c9bfa454098cf402a5030408669fc4f9e68e83cd943d112c72bc285ad25e36",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "aa9dd8cd85472e3e8c0e8e9fb5a736e40d9630f8",
+          "blob_sha": "766d73ef2dfac08850b93a6fd1a5ada28a11a68e",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -205,7 +205,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "aa9dd8cd85472e3e8c0e8e9fb5a736e40d9630f8",
+          "blob_sha": "766d73ef2dfac08850b93a6fd1a5ada28a11a68e",
           "line_end": 66,
           "line_start": 66,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -302,11 +302,11 @@
         "What does the FDAI ontology do?",
         "FDAI 온톨로지는 어떤 역할을 하나요?"
       ],
-      "record_digest": "sha256:311db653aeaffb26626bf3a686a84b9a261b31f4951b34eb8553f90dad305710",
+      "record_digest": "sha256:40d8cfdf02b181b281c31d75dfca4bbdcace34195d04efdb4431413bf7d56b0c",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "1eba9ba927c19e40019eb3194af7a716a639f6ec",
+          "blob_sha": "2dc5b7b3c183f4b113f8d8f7b42bd77fde047d3c",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/architecture/operating-ontology.md",
@@ -448,17 +448,8 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:64b6160952e643a7abca983106efe693f5d023e2e00809fdf3945a8abe8f9bf9",
+      "record_digest": "sha256:eaf8815fa726b5157d117b0c73d0eaceb9a4fe7f9f7602c39a4c71a02e6b52ce",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "2c5a6e7b9bb1f6324287ac8a544caa8f396452dd",
-          "line_end": 110,
-          "line_start": 110,
-          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
-          "source_kind": "doc",
-          "symbol": "Graduation scorecard"
-        },
         {
           "authority_role": "design",
           "blob_sha": "abb146564b07cb5f66047b5df5976411b8a4f376",
@@ -467,6 +458,15 @@
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "e5a789bd8b9e549aca70533579c6f3efbdb88131",
+          "line_end": 114,
+          "line_start": 114,
+          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
+          "source_kind": "doc",
+          "symbol": "Graduation scorecard"
         }
       ],
       "status": "in_progress",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "fedca7ecb7d0a2486a51472ebfa68adf0a1c67ea"
+  "source_revision": "f73a3065a6df72d475ab90b5eaea263279e7c4c2"
 }

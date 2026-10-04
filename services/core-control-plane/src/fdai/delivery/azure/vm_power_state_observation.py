@@ -155,6 +155,7 @@ class AzureVmStartObservationCollector:
             conflicts=reading.conflicts,
             censoring_refs=reading.censoring_refs,
             evidence_refs=reading.evidence_refs,
+            completeness_receipt_ref=f"telemetry-completeness:{reading.evidence_refs[0]}",
             records=records,
         )
         context = await self._context_issuer.issue(evidence=evidence)

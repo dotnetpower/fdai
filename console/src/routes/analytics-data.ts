@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import type { OutcomeAssuranceProjection } from "../api-outcome-assurance";
 import type { AutonomyPayload, DashboardKpi } from "../types";
 import type { AsyncState } from "../components/ui";
 import type { GatesSummary } from "./dashboard.model";
@@ -21,6 +22,13 @@ interface AutonomyRequestState {
   readonly client: OperatorApiClient;
   readonly dataMode: ConsoleDataMode;
   readonly state: AsyncState<AutonomyPayload | null>;
+}
+
+interface OutcomeAssuranceRequestState {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+  readonly paramsKey: string;
+  readonly state: AsyncState<OutcomeAssuranceProjection | null>;
 }
 
 async function optional<T>(load: () => Promise<T>): Promise<T | null> {
@@ -136,6 +144,50 @@ export function useAutonomyData(
     return () => { cancelled = true; };
   }, [client, dataMode]);
   return autonomyStateForRequest(request, client, dataMode);
+}
+
+export function useOutcomeAssuranceData(
+  client: OperatorApiClient,
+  dataMode: ConsoleDataMode,
+  params: Readonly<Record<string, string>>,
+): AsyncState<OutcomeAssuranceProjection | null> {
+  const paramsKey = JSON.stringify(Object.entries(params).sort());
+  const [request, setRequest] = useState<OutcomeAssuranceRequestState>({
+    client,
+    dataMode,
+    paramsKey,
+    state: { status: "loading" },
+  });
+  useEffect(() => {
+    let cancelled = false;
+    setRequest({ client, dataMode, paramsKey, state: { status: "loading" } });
+    void (async () => {
+      try {
+        const data = dataMode === "sample"
+          ? null
+          : await optional(() => client.outcomeAssurance(params));
+        if (!cancelled) {
+          setRequest({ client, dataMode, paramsKey, state: { status: "ready", data } });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRequest({
+            client,
+            dataMode,
+            paramsKey,
+            state: {
+              status: "error",
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [client, dataMode, paramsKey]);
+  return request.client === client && request.dataMode === dataMode && request.paramsKey === paramsKey
+    ? request.state
+    : { status: "loading" };
 }
 
 /** Hide a completed result as soon as the active request identity changes. */

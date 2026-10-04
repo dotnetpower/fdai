@@ -159,6 +159,10 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
         "1.0.0",
     ): "schemas/notification-delivery-receipt/1.0.0.json",
     ("observation-receipt", "1.0.0"): "schemas/observation-receipt/1.0.0.json",
+    (
+        "outcome-assurance-projection",
+        "1.0.0",
+    ): "schemas/outcome-assurance-projection/1.0.0.json",
     ("operator-core-request", "1.0.0"): "schemas/operator-core-request/1.0.0.json",
     ("operator-core-request", "1.1.0"): "schemas/operator-core-request/1.1.0.json",
     ("operator-core-request", "1.2.0"): "schemas/operator-core-request/1.2.0.json",

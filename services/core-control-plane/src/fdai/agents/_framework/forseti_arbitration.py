@@ -82,6 +82,7 @@ from fdai.core.operational_planning.prospective_lineage import (
     FinalizedProspectiveLineage,
     ProspectiveLineage,
     ProspectiveLineageFinalizer,
+    ProspectiveLineageUnavailableError,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -523,6 +524,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             kinetic_proposal,
             prospective_lineage,
             invalid_kinetic_proposal,
+            prospective_unavailable_reason,
         ) = await self._resolve_kinetic_proposal(
             correlation_id=correlation_id,
             projection=projection,
@@ -583,6 +585,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")
         if prospective_lineage is not None:
             verdict["prospective_lineage"] = prospective_lineage.model_dump(mode="json")
+        if prospective_unavailable_reason is not None:
+            verdict["prospective_lineage_unavailable_reason"] = prospective_unavailable_reason
         self.record_behavior(f"verdict:{risk_verdict}")
         self.record_behavior("arbitration_resolved")
         if self.bus is not None:
@@ -643,6 +647,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             kinetic_proposal,
             prospective_lineage,
             invalid_kinetic_proposal,
+            prospective_unavailable_reason,
         ) = await self._resolve_kinetic_proposal(
             correlation_id=correlation_id,
             projection=projection,
@@ -703,6 +708,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")
         if prospective_lineage is not None:
             verdict["prospective_lineage"] = prospective_lineage.model_dump(mode="json")
+        if prospective_unavailable_reason is not None:
+            verdict["prospective_lineage_unavailable_reason"] = prospective_unavailable_reason
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
         if winning_domain:
@@ -715,11 +722,11 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         correlation_id: str,
         projection: _DecisionProjection | None,
         action_type: str,
-    ) -> tuple[KineticActionProposal | None, ProspectiveLineage | None, bool]:
+    ) -> tuple[KineticActionProposal | None, ProspectiveLineage | None, bool, str | None]:
         """Resolve exact A0 evidence without creating or upgrading a mutation plan."""
 
         if not isinstance(projection, SpecialistPlanningProjection):
-            return None, None, False
+            return None, None, False, None
         operational_plan = projection.plan
         finalized: FinalizedProspectiveLineage | None = None
         proposal: KineticActionProposal | None
@@ -731,15 +738,18 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             elif self._kinetic_proposal_source is not None:
                 proposal = await self._kinetic_proposal_source.resolve(operational_plan)
             else:
-                return None, None, False
+                return None, None, False, None
             if proposal is None:
-                return None, None, False
+                return None, None, False, None
             if not isinstance(proposal, KineticActionProposal):
                 raise ValueError("kinetic proposal source returned an invalid contract")
             proposal = KineticActionProposal.model_validate_json(proposal.model_dump_json())
+        except ProspectiveLineageUnavailableError as exc:
+            self.record_behavior(f"prospective_lineage:unavailable:{exc.reason_code}")
+            return None, None, True, exc.reason_code
         except Exception:  # noqa: BLE001 - optional proposal evidence fails closed
             self.record_behavior("kinetic_proposal:invalid")
-            return None, None, True
+            return None, None, True, None
 
         selected_option_id = operational_plan.selection.selected_option_id
         selected_option = next(
@@ -766,13 +776,13 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             or proposal.arguments_digest != selected_option.arguments.arguments_digest
         ):
             self.record_behavior("kinetic_proposal:invalid")
-            return None, None, True
+            return None, None, True, None
         self.record_behavior("kinetic_proposal:resolved")
         envelope = finalized.envelope if finalized is not None else None
         if envelope is not None:
             if self.bus is None:
                 self.record_behavior("prospective_lineage:bus_unavailable")
-                return None, None, True
+                return None, None, True, "bus_unavailable"
             await self.bus.publish(
                 "Forseti",
                 "object.prospective-lineage",
@@ -783,4 +793,4 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 },
             )
             self.record_behavior("prospective_lineage:published")
-        return proposal, envelope, False
+        return proposal, envelope, False, None

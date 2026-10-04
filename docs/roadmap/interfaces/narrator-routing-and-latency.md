@@ -14,6 +14,9 @@ review from system-governed T2 reasoning.
 
 ## Narrator latency routing
 Test-context lifecycle submission is deterministic Console workflow, not narrator routing. A semantic draft may open the form, but server-owned choices and Operator/Core lifecycle checks decide every accepted command.
+The Outcome Assurance read panel is also outside narrator routing. It decodes an authenticated
+read-only KPI projection and does not select a model deployment, submit a semantic request, or
+create latency evidence.
 
 
 The independent Operator Service owns the authenticated conversation HTTP boundary and relays

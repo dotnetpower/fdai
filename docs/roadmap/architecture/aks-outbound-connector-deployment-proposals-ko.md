@@ -1,7 +1,7 @@
 ---
 translation_of: aks-outbound-connector-deployment-proposals.md
-translation_source_sha: c42f7c6d6ee8e6826185f32a887072bc8fc0fec3
-translation_revised: 2026-09-20
+translation_source_sha: 79e0b522891044c86c4c49d67f67afcea86f132c
+translation_revised: 2026-10-04
 ---
 
 # AKS 아웃바운드 커넥터 배포 제안
@@ -98,8 +98,8 @@ python -m fdai.delivery.kubernetes_connector_proposal_cli show --target-ref <neu
 입력 파일은 소유자만 접근하는 `0600` 권한이어야 합니다. 조회 명령은 기존 Core의
 `FDAI_STATE_STORE_DSN`을 사용하고 로컬 실행에서는 loopback PostgreSQL만 허용합니다.
 근거가 만료되거나 바뀌면 조회가 실패합니다. 두 명령 모두 승인, 설치, 알림 전송을 하지 않습니다.
-Console 표시는 아래에 설명한 대로 구현했습니다. ChatOps 알림, 승인에 따른 설치와 운영 준비
-상태 검증은 아직 남아 있습니다.
+Console 표시는 아래에 설명한 대로 구현했습니다. ChatOps 알림은 정보성 경로로 구현했으며,
+승인에 따른 설치와 운영 준비 상태 검증은 아직 남아 있습니다.
 
 ### 인증된 읽기 사전 점검
 
@@ -245,6 +245,12 @@ Operator 소비자는 자체 표시용 데이터를 소유하고 Core 저장소�
 Core의 영속 checkpoint를 읽고 설치나 알림 부수 효과를 만들지 않습니다. 역할 검사된 GET
 경로가 표시용 데이터를 노출합니다. 이후 계획·승인은 별도의 주체별 상호작용이 필요하며,
 만료된 내용은 현재 제안처럼 표시하지 않고 보류합니다.
+
+발견이 성공하면 같은 채널별 영속 전달 저장소로 기존 알림 라우터도 구성합니다. 정보성 A2
+알림은 제안 해시와 수신 principal에서 만든 안정적인 감사 ID를 사용하고, 라우터의 채널 기록이
+채널 경계를 제공합니다. 같은 제안을 재생해도 같은 principal과 채널로 Teams 또는 Slack
+메시지를 중복 전송하지 않으며, 제안 해시가 바뀌면 새 정보성 메시지 하나를 보냅니다. 카드에는
+Console 링크와 승인, 설치, 실행, 배포 권한 부여를 하지 않는다는 문구만 포함합니다.
 
 구현은 `core.observer-deployment.projections`를 사용하고 기존
 `FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC` 다중화 설정을 따릅니다. 발견이 성공하면 현재 저장된

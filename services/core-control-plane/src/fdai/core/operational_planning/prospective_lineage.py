@@ -80,6 +80,14 @@ class ProspectiveLineage(ContractBase):
         return self
 
 
+class ProspectiveLineageUnavailableError(ValueError):
+    """Raised when Forseti's judgment data cannot produce prospective lineage."""
+
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(f"prospective lineage unavailable: {reason_code}")
+        self.reason_code = reason_code
+
+
 @dataclass(frozen=True, slots=True)
 class FinalizedProspectiveLineage:
     """Exact finalized plan, proposal, records, and publishable envelope."""
@@ -139,5 +147,6 @@ __all__ = [
     "ProspectiveLineageFinalizer",
     "ProspectiveLineageMaterializer",
     "ProspectiveLineageReadinessReader",
+    "ProspectiveLineageUnavailableError",
     "prospective_subgraph_digest",
 ]

@@ -534,7 +534,7 @@ history authority.
 Each concrete observed edge retains its lane, authority, effective and recorded time, completeness,
 conflicts, synthetic status, and evidence references. Presentation can state `from_state ->
 to_state` only for complete, conflict-free, non-synthetic observations. Derived or otherwise
-unverified rows remain unresolved and cannot become an observed-state claim. `query.resource_health_inventory` follows the same read-only boundary for current availability: it reads the exact secured Resource set twice under one target-set digest, query revision, deadline, and coverage contract, returns `state_changed` when the tuple set does not settle within one retry, and its answers pass an out-of-band validator that computes the terminal disposition from typed fields and replaces any contradicting all-clear claim.
+unverified rows remain unresolved and cannot become an observed-state claim. `query.resource_health_inventory` follows the same read-only boundary for current availability: it reads the exact secured Resource set twice under one target-set digest, query revision, deadline, and coverage contract, returns `state_changed` when the tuple set does not settle within one retry, and its answers pass an out-of-band validator that computes the terminal disposition from typed fields. The answer projection carries `ResourceHealthNarrationClaims` and validation details with the narration; rejected narration is held with verified rows and codes so downstream renderers never infer health from prose.
 
 ## Delivery sequence
 

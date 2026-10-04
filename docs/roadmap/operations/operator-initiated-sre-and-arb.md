@@ -53,6 +53,9 @@ comparison for prior turns before the runtime call, but that comparison is evide
 change the Incident draft, confirmation path, or lifecycle owner. Core supervises Incident creation and approval expiry as
 independent runtime tasks. An Incident transport outage cannot stop expired approval parks from
 converging to audited no-op outcomes, and expiry reconciliation cannot create an Incident.
+Resource Health answer validation happens before a semantic answer leaves Core; holding rejected
+narration with verified rows and validation codes is a read-only presentation outcome and cannot
+create, confirm, or mutate an Incident.
 
 Core assembles the optional Assurance Twin report/review writers and outbox relays in the existing
 runtime model after Incident wiring, then supervises each independently. Relay recovery

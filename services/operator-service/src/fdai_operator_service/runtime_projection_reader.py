@@ -53,6 +53,7 @@ from fdai_operator_service.families.operations import (
 from fdai_operator_service.investigation_projection import (
     project_adaptive_investigation,
 )
+from fdai_operator_service.outcome_assurance_projection import read_outcome_assurance_projection
 from fdai_operator_service.process_transition_projection import (
     ProcessControlUnavailableError,
     project_process_control,
@@ -90,6 +91,11 @@ class RuntimeProjectionReader:
             return await self._automation_blueprints()
         if query.operation == "autonomy":
             return await self._autonomy_measurement()
+        if query.operation == "outcome_assurance":
+            return await read_outcome_assurance_projection(
+                fetch_all=self._fetch_all,
+                query=query,
+            )
         if query.operation == "conversation-delivery":
             return await self._conversation_delivery()
         if query.operation == "forecast-learning":

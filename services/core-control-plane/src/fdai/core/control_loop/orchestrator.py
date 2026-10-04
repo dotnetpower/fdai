@@ -47,7 +47,12 @@ from fdai.core.executor.safeguard_lifecycle_coordinator import (
 )
 from fdai.core.executor.tool_call import ToolCallShadowExecutor
 from fdai.core.hil_resume import HilResumeCoordinator
-from fdai.core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
+from fdai.core.mscp_profile import (
+    ExpectedEffectProvider,
+    IndependentEffectObserver,
+    MscpCandidateKey,
+    MscpProfileLifecycleReader,
+)
 from fdai.core.notifications.router import NotificationRouter
 from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictCurrentReader
 from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
@@ -82,6 +87,7 @@ from fdai.rule_catalog.schema.assignment import Assignment
 from fdai.rule_catalog.schema.override import Override
 from fdai.rule_catalog.schema.property_semantic import PropertySemanticRegistry
 from fdai.shared.contracts.models import (
+    Action,
     Event,
     FullAuthorityDevelopmentProfile,
     OntologyActionType,
@@ -175,6 +181,10 @@ class ControlLoop(
         promotion_state_refresher: Callable[[str], Awaitable[None]] | None = None,
         mscp_expected_effect_provider: ExpectedEffectProvider | None = None,
         mscp_effect_observer: IndependentEffectObserver | None = None,
+        mscp_profile_candidate_resolver: (
+            Callable[[Action], MscpCandidateKey | None] | None
+        ) = None,
+        mscp_profile_lifecycle: MscpProfileLifecycleReader | None = None,
         response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
         workflow_outcome_recorder: WorkflowOutcomeRecorder | None = None,
         effect_reconciliation_request_sink: EffectReconciliationRequestSink | None = None,
@@ -216,6 +226,10 @@ class ControlLoop(
         if (mscp_expected_effect_provider is None) != (mscp_effect_observer is None):
             raise ValueError(
                 "mscp_expected_effect_provider and mscp_effect_observer MUST be bound together"
+            )
+        if (mscp_profile_candidate_resolver is None) != (mscp_profile_lifecycle is None):
+            raise ValueError(
+                "mscp_profile_candidate_resolver and mscp_profile_lifecycle MUST be bound together"
             )
         if clock is not None and action_builder.clock is not clock:
             raise ValueError(
@@ -283,6 +297,8 @@ class ControlLoop(
         self._promotion_state_refresher = promotion_state_refresher
         self._mscp_expected_effect_provider = mscp_expected_effect_provider
         self._mscp_effect_observer = mscp_effect_observer
+        self._mscp_profile_candidate_resolver = mscp_profile_candidate_resolver
+        self._mscp_profile_lifecycle = mscp_profile_lifecycle
         self._response_outcome_sink = response_outcome_sink
         self._workflow_outcome_recorder = workflow_outcome_recorder
         self._effect_reconciliation_request_sink = effect_reconciliation_request_sink

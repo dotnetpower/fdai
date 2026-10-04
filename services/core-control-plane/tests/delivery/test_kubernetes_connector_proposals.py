@@ -128,6 +128,101 @@ async def test_verified_constraints_update_existing_case_without_installing() ->
     assert await store.verify_chain()
 
 
+async def test_reviewed_preflight_receipts_drive_eligible_and_denied_recommendations(
+    tmp_path,
+) -> None:
+    import hashlib
+    import json
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+    from fdai.delivery.kubernetes_connector_preflight import (
+        ObserverPreflightGrant,
+        SignedObserverConstraints,
+    )
+    from fdai.delivery.kubernetes_connector_preflight_runtime import collect_reviewed_preflight
+
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes_raw()
+    target = to_neutral_id(CLUSTER)
+    key_path = tmp_path / "signing.pem"
+    key_path.write_bytes(private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
+    key_path.chmod(0o600)
+    facts_path = tmp_path / "facts.json"
+    grants_path = tmp_path / "grants.json"
+    config_path = tmp_path / "reviewed.json"
+    grant = ObserverPreflightGrant(
+        issuer_ref="reviewed-writer",
+        key_ref="sha256:" + hashlib.sha256(public).hexdigest(),
+        public_key=public.hex(),
+        target_ref=target,
+        allowed_facts={fact.name: (fact.source,) for fact in context().facts},
+        producer_revision=DIGEST,
+        valid_from=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        can_select_owner=True,
+    )
+    grants_path.write_text(json.dumps([grant.model_dump(mode="json")]))
+    grants_path.chmod(0o600)
+    config = {
+        "target_ref": target,
+        "discovery_digest": DIGEST,
+        "issuer_ref": grant.issuer_ref,
+        "producer_revision": DIGEST,
+        "signing_key_path": str(key_path),
+        "grants_path": str(grants_path),
+        "facts_path": str(facts_path),
+    }
+    config_path.write_text(json.dumps(config))
+    config_path.chmod(0o600)
+
+    class GrantReader:
+        async def read(self, target_ref, issuer_ref, key_ref):
+            return grant
+
+    async def proposal_for(states: dict[str, str]):
+        facts_path.write_text(
+            json.dumps(
+                [
+                    fact.model_dump(mode="json")
+                    for fact in (
+                        item.model_copy(update={"target_ref": target})
+                        for item in context(states=states).facts
+                    )
+                ]
+            )
+        )
+        facts_path.chmod(0o600)
+        receipt = await collect_reviewed_preflight(config_path, now=lambda: NOW)
+        store = InMemoryStateStore()
+        constraints = SignedObserverConstraints(store, grants=GrantReader(), now=lambda: NOW)
+        assert await constraints.retain(receipt)
+        service = ObserverDeploymentProposalService(store, constraints=constraints, now=lambda: NOW)
+        assert await service.observe((observation(),)) == 1
+        return await service.current(target), store
+
+    eligible, eligible_store = await proposal_for({})
+    assert eligible.status == "ready_for_review"
+    assert eligible.recommended.method == "gitops"
+    assert eligible.execution_authority is False
+    denied, denied_store = await proposal_for({"gitops_authorized": "denied"})
+    assert denied.status == "ready_for_review"
+    assert denied.recommended.method == "existing_host"
+    assert all(
+        candidate.state == "blocked"
+        for candidate in denied.candidates
+        if candidate.method == "gitops"
+    )
+    assert [entry["entry"]["kind"] for entry in eligible_store.audit_entries] == [
+        "observer.preflight.retained",
+        "observer.deployment.proposed",
+    ]
+    assert [entry["entry"]["kind"] for entry in denied_store.audit_entries] == [
+        "observer.preflight.retained",
+        "observer.deployment.proposed",
+    ]
+
+
 async def test_stale_discovery_and_foreign_constraints_never_persist() -> None:
     store = InMemoryStateStore()
     service = ObserverDeploymentProposalService(
@@ -447,6 +542,114 @@ async def test_projection_publishes_current_or_unavailable_without_core_state_ac
     )
     assert bus.records[-1].state == "unavailable"
     assert bus.records[-1].proposal is None
+
+
+async def test_chatops_notification_dedupes_per_proposal_principal_and_channel() -> None:
+    from fdai.core.notifications import (
+        ChannelRegistry,
+        InMemoryNotificationDeliveryStore,
+        NotificationRouter,
+        RouteOutcome,
+        load_matrix_from_mapping,
+    )
+    from fdai.delivery.kubernetes_connector_projection import (
+        publish_observer_proposal_notification,
+    )
+    from fdai.shared.providers.notifications import TrustTier
+    from fdai.shared.providers.testing.notifications import (
+        FakeHilEscalationSink,
+        FakeSlackChannel,
+        FakeTeamsChannel,
+    )
+
+    def router(
+        delivery_store: InMemoryNotificationDeliveryStore,
+        teams: FakeTeamsChannel,
+        slack: FakeSlackChannel,
+    ) -> NotificationRouter:
+        return NotificationRouter(
+            matrix=load_matrix_from_mapping(
+                {
+                    "matrix": {
+                        "version": 1,
+                        "default_route": "operational_alert",
+                        "routes": {
+                            "operational_alert": {
+                                "trust_tier": TrustTier.A2_OPERATIONAL_ALERT.value,
+                                "delivery_mode": "fanout",
+                                "channels": [teams.channel_id, slack.channel_id],
+                            }
+                        },
+                    }
+                }
+            ),
+            registry=ChannelRegistry(channels={teams.channel_id: teams, slack.channel_id: slack}),
+            audit_store=InMemoryStateStore(),
+            hil_sink=FakeHilEscalationSink(),
+            delivery_store=delivery_store,
+            retry_backoff_seconds=0,
+        )
+
+    store, reader = InMemoryStateStore(), Constraints()
+    service = ObserverDeploymentProposalService(store, constraints=reader, now=lambda: NOW)
+    await service.observe((observation(),))
+    target = to_neutral_id(CLUSTER)
+    initial = await service.current(target)
+    teams = FakeTeamsChannel(
+        channel_id="teams-ops", trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT})
+    )
+    slack = FakeSlackChannel(
+        channel_id="slack-ops", trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT})
+    )
+    delivery_store = InMemoryNotificationDeliveryStore()
+
+    first = await publish_observer_proposal_notification(
+        proposal=initial,
+        dispatcher=router(delivery_store, teams, slack),
+        principal_ref="observer-proposal-reader",
+    )
+    duplicate_after_restart = await publish_observer_proposal_notification(
+        proposal=initial,
+        dispatcher=router(delivery_store, teams, slack),
+        principal_ref="observer-proposal-reader",
+    )
+
+    assert first.outcome is RouteOutcome.DELIVERED_ALL
+    assert duplicate_after_restart.outcome is RouteOutcome.DELIVERED_ALL
+    assert len(teams.records) == len(slack.records) == 1
+    message = teams.records[0]
+    assert message.trust_tier is TrustTier.A2_OPERATIONAL_ALERT
+    assert message.metadata["execution_authority"] == "false"
+    assert message.metadata["approval_required"] == "true"
+    assert "does not approve, install, execute, or grant deployment authority" in (
+        message.body_markdown
+    )
+    assert [link.label for link in message.links] == ["View observer proposals"]
+
+    other_principal = await publish_observer_proposal_notification(
+        proposal=initial,
+        dispatcher=router(delivery_store, teams, slack),
+        principal_ref="second-reader",
+    )
+    assert other_principal.outcome is RouteOutcome.DELIVERED_ALL
+    assert len(teams.records) == len(slack.records) == 2
+
+    valid = context()
+    reader.value = context(
+        target_ref=target,
+        facts=tuple(fact.model_copy(update={"target_ref": target}) for fact in valid.facts),
+    )
+    assert await service.observe((observation(),)) == 1
+    changed = await service.current(target)
+    assert changed.proposal_digest != initial.proposal_digest
+
+    changed_result = await publish_observer_proposal_notification(
+        proposal=changed,
+        dispatcher=router(delivery_store, teams, slack),
+        principal_ref="observer-proposal-reader",
+    )
+    assert changed_result.outcome is RouteOutcome.DELIVERED_ALL
+    assert len(teams.records) == len(slack.records) == 3
 
 
 async def test_subscription_discovery_creates_proposal_when_credentials_are_unavailable(

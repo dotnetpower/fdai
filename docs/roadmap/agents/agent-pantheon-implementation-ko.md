@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: e1a568c06a258c94def40265de39f6b164adb3b1
-translation_revised: 2026-10-02
+translation_source_sha: 22b5c00021d4a7ae07f163d9031f4a976364ae09
+translation_revised: 2026-10-04
 ---
 
 # 에이전트 판테온 구현 계획
@@ -51,6 +51,7 @@ translation_revised: 2026-10-02
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-04 | implemented | `PANTHEON_SPECS`, 토픽, 역할 바인딩, 승인 또는 실행 권한을 바꾸지 않고 Forseti의 prospective-lineage 게시 경로를 강화했습니다. Forseti가 소유한 판단 값이 없으면 이제 `ProspectiveLineage`를 만들지 않고 Verdict에 명시적인 이용 불가 사유를 기록하며, 완전한 값이 있을 때도 Forseti가 소유한 `object.prospective-lineage` 토픽으로만 게시합니다. | `current change`; `agents/_framework/forseti_arbitration.py`; `delivery/prospective_lineage.py`; 집중 prospective-lineage 및 에이전트 layout 검사. | 운영 온톨로지 잔여 항목을 유지합니다. Source/projector 재생 근거를 주장하려면 완전한 governed runtime episode 하나가 필요합니다. |
 | 2026-10-02 | implemented | 기준선 평가 결과와 완료 기록을 위한 Saga의 추가 전용 감사 바인더를 추가했습니다. | `current change`; `saga.py`; `test_saga_baseline_evaluation_audit.py`; 집중 Saga/Forseti/Pantheon 검사. | Operator 변환 결과와 Console 상태는 #1199의 별도 패키지에 남아 있습니다. |
 | 2026-10-02 | implemented | 전용 `_framework` helper와 타입 지정 Forseti 메서드로 완전한 인벤토리 기준선 평가 구체화를 추가했습니다. | `current change`; `forseti_baseline_evaluation.py`; `forseti.py`; 집중 Forseti 및 Pantheon 검사. | Saga 영속성, Operator 변환 결과, Console 상태는 #1199의 별도 패키지에 남아 있습니다. |
 | 2026-10-01 | implemented | 비평 라운드 6부터 8까지를 마무리했습니다. Mimir, Muninn, Saga는 남은 게시를 점유 토큰으로 보호되는 보낼 편지함으로 보내고, Operator Incident 생성은 서명되며 Core는 Incident를 열기 전에 증적을 검증합니다. 기본 payload 검증기는 issue, audit-entry, rule, policy 레코드를 다루고 실제 생산자 형태를 모두 허용하며, Thor는 장애 뒤 점유된 종료 ActionRun을 바이트 단위로 같게 다시 게시하고, replay 차단 장치는 만료와 관계없이 확정하며 부수 효과 뒤 실패를 적용되었지만 확정되지 않은 결과로 보고하고, Huginn, Loki, Vidar, Forseti, Norns는 broker 수락 뒤에만 게시를 보고합니다. 라운드 8에서는 Medium 이상 발견 사항이 없었습니다. | `current change`; `services/core-control-plane/src/fdai/agents/**`; `services/core-control-plane/src/fdai_core_service/incident_creation_consumer.py`; `services/operator-service/src/fdai_operator_service/action_confirmation_runtime.py`; `packages/service-contracts/src/fdai_service_contracts/incident_creation.py`; `pytest services/core-control-plane/tests/{agents,runtime,scenarios,providers}`: 4533 passed, 1 skipped; loopback Redpanda와 PostgreSQL의 실제 provider matrix가 63개 테스트로 두 번 통과했습니다. | 아래에 나열한 남은 프로덕션 port와 live 또는 배포 근거를 바인딩하고 검증합니다. |

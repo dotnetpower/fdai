@@ -49,6 +49,7 @@ from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
     PodLifecycleObservation,
     PodReplacementDeploymentObservation,
     PodTerminationObservation,
+    PodTerminationUnavailableReason,
     evaluate_kubernetes_pod_replacement,
 )
 from fdai.shared.contracts.models import Severity
@@ -56,6 +57,19 @@ from fdai.shared.contracts.models import Severity
 KIND_KUBERNETES_POD = "kubernetes_pod"
 POD_LIFECYCLE_ASSESSOR = "core.ontology_platform.kubernetes_pod_lifecycle"
 _MAX_CANDIDATES = 32
+_TERMINATION_UNAVAILABLE_REASONS = frozenset(
+    {
+        "authorization_denied",
+        "cursor_expired",
+        "durable_history_unavailable",
+        "resource_event_response_invalid",
+        "result_limit",
+        "source_retention_incomplete",
+        "source_retention_stale",
+        "source_scope_incomplete",
+        "source_unavailable",
+    }
+)
 
 _SEVERITY_BY_STATUS = {
     KubernetesPodReplacementStatus.CONTAINER_RESTART: Severity.HIGH,
@@ -106,6 +120,7 @@ class PodLifecycleEvidence:
     graph_complete: bool
     ownership_complete: bool
     detected_at: datetime | None = None
+    termination_unavailable_reason: PodTerminationUnavailableReason | None = None
 
     def __post_init__(self) -> None:
         if not self.resource_ref.strip():
@@ -118,6 +133,17 @@ class PodLifecycleEvidence:
                 raise ValueError(f"Pod lifecycle evidence {field_name} MUST be timezone-aware")
         if self.correlation_window_start >= self.cutoff:
             raise ValueError("Pod lifecycle evidence window MUST be positive")
+        if self.termination is not None and self.termination_unavailable_reason is not None:
+            raise ValueError(
+                "Pod lifecycle evidence termination_unavailable_reason requires absent termination"
+            )
+        if (
+            self.termination_unavailable_reason is not None
+            and self.termination_unavailable_reason not in _TERMINATION_UNAVAILABLE_REASONS
+        ):
+            raise ValueError(
+                "Pod lifecycle evidence termination_unavailable_reason is not reviewed"
+            )
         if self.detected_at is not None and self.detected_at.tzinfo is None:
             raise ValueError("Pod lifecycle evidence detected_at MUST be timezone-aware")
         if self.restart_history.pod_id != self.recovery_pod.pod_id:
@@ -206,6 +232,7 @@ class KubernetesPodLifecycleAnalyzer:
             old_pod=evidence.old_pod,
             candidates=evidence.candidates,
             termination=evidence.termination,
+            termination_unavailable_reason=evidence.termination_unavailable_reason,
             deployment=evidence.deployment,
             correlation_window_start=evidence.correlation_window_start,
             cutoff=evidence.cutoff,

@@ -26,6 +26,10 @@ When a source change encounters eight retained rollback generations, reconciliat
 
 Shared Operator outbox composition preserves the same test-context worker on both platforms.
 Its facade grouping creates no AKS observation, Cost Governance activation, or deployment authority. Both runtimes use the same [bounded projection recovery](../interfaces/recorded-resource-state.md#bounded-automatic-recovery) inside the existing inventory coordinator. Recovery changes neither provider scope nor infrastructure, and a release mismatch requires deployment review rather than an automatic rollout or access override. After that review, only an explicit operator-requested full reconciliation may preserve an unreplayable pending generation and collect fresh evidence under the current release; recurring recovery remains blocked.
+When subscription discovery creates observer deployment proposals, the Inventory Job uses the same
+runtime notification router and durable per-channel delivery store as other operational alerts.
+Those notifications are informational only and inherit the runtime's ChatOps bindings; they do not
+change runtime selection, deploy an observer, approve a plan, or grant execution authority.
 
 The host's read-only `verify-source-runtime` command checks pinned source/runtime content, not
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence

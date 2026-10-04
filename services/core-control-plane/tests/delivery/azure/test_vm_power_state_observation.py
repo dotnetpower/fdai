@@ -145,6 +145,9 @@ async def test_running_power_state_closes_as_matched() -> None:
     _artifacts, _action, observation, outcome = await _outcome(_reading())
 
     assert outcome.receipt.status is ReconciliationStatus.MATCHED
+    assert observation.evidence.completeness_receipt_ref == (
+        f"telemetry-completeness:{observation.evidence.evidence_refs[0]}"
+    )
     assert observation.evidence.records[0].to_record().properties == {"power_state": "running"}
     assert "provider-receipt-cannot-prove-effect" not in observation.evidence.evidence_refs
 

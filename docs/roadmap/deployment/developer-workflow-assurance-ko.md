@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 1fad2574eddf546a3dbc91d150c31b1f31dd2506
-translation_revised: 2026-10-03
+translation_source_sha: a14dde1e4d1917315ced1b2b9e6fc1c906caf762
+translation_revised: 2026-10-04
 ---
 
 # 개발 워크플로 보증
@@ -24,6 +24,9 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 
 ## 설계 개요
 테스트 맥락 선택지 경로는 다른 로컬 진단 화면과 같은 Operator 경로 패밀리 조립 방식을 사용합니다. 이 추가는 개발자 워크플로 소켓, 검증 대기열 동작 또는 로컬 실행 권한을 변경하지 않습니다.
+Outcome Assurance 읽기 패널도 Operator 경로 패밀리 조립 방식을 사용하지만, 인증된 읽기 전용
+변환 결과로 남습니다. 이 추가는 개발자 워크플로 소켓, 검증 대기열 동작, 로컬 진단 우회 경로
+또는 로컬 실행 권한을 변경하지 않습니다.
 이미지 스캔 결과를 해결하는 의존성 갱신은 패키지 유지보수입니다. 매니페스트와 lock을 갱신할 뿐이며 로컬 검증, 대기열 진단 또는 개발 도구를 권위 있는 근거로 만들지 않습니다.
 의미 결과 핸들 저장과 재생은 일반 Operator/Core 의미 요청 경로를 사용합니다. 개발자 워크플로
 소켓, 검증 대기열 동작 또는 로컬 실행 권한을 추가하지 않습니다.
