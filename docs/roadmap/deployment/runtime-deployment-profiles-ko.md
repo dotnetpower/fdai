@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 61ee3bbeb07976c3af2b992ee96957791e7193bd
-translation_revised: 2026-10-04
+translation_source_sha: d117fe520fa8bfe414228ee89aee60b2ac5638b7
+translation_revised: 2026-10-05
 ---
 # 런타임 배포 프로파일
 
@@ -123,7 +123,8 @@ APIM 태그는 안정적인 워크로드 레이블에서 Azure에 안전한 이�
 APIM은 Microsoft Entra 인증을 대체하지 않습니다. API는 token issuer, audience, lifetime 및
 App Role을 계속 검증합니다. audience는 v2 액세스 토큰에 담기는 `fdai-api` 애플리케이션(클라이언트)
 ID이며, 모든 Terraform 루트는 `api://` App ID URI 형식을 거부합니다. 이 이전 형식으로 기록된 Entra
-영수증은 나머지가 현재 readback과 일치할 때만 업그레이드됩니다. CORS(Cross-Origin Resource Sharing)는 정확한 Static Web Apps
+영수증은 나머지가 현재 readback과 일치할 때만 업그레이드되며, 서비스 배포와 live 복구는 저장된
+`api://<client-id>` 서비스 audience를 클라이언트 ID로 정규화합니다. CORS(Cross-Origin Resource Sharing)는 정확한 Static Web Apps
 origin만 허용합니다. Azure Policy가 AKS 서브넷에 네트워크 보안 그룹을 연결하면 워크로드 플랜은
 정확한 공용 Service frontend 주소에 대해서만 TCP 포트 80을 허용합니다. APIM Consumption은
 source 규칙에 사용할 수 있는 고정 outbound 주소를 제공하지 않습니다.
