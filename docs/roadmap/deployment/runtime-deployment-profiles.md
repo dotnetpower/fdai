@@ -138,7 +138,10 @@ APIM tags derive from the stable workload labels under Azure-safe names. For exa
 `fdai.io/source-commit` becomes `fdai:source-commit`, because Azure tag names reject `/`.
 
 APIM does not replace Microsoft Entra authentication. The APIs continue to validate token issuer,
-audience, lifetime, and App Roles. Cross-origin resource sharing (CORS) accepts only the exact
+audience, lifetime, and App Roles. The audience is the `fdai-api` application (client) ID that v2
+access tokens carry, and every Terraform root rejects the `api://` App ID URI form. An Entra receipt
+recorded with that legacy form is upgraded only when it otherwise matches the current readback.
+Cross-origin resource sharing (CORS) accepts only the exact
 Static Web Apps origin. When Azure Policy attaches a network security group to the AKS subnet, the
 workload plan permits TCP port 80 only for the exact public Service frontend addresses. APIM
 Consumption has no fixed outbound address that can be used as the source rule.
