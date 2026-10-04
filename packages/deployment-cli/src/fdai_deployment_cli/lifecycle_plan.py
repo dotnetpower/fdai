@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
+from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_configuration import (
     ConfigurationValidationError,
     resolve_configuration_layers,
@@ -22,6 +23,7 @@ from fdai_deployment_cli.runtime_release import (
 CapabilityMode = Literal["shadow", "enforce"]
 SchemaDirection = Literal["upgrade", "rollback"]
 PlanType = Literal["install", "upgrade", "configuration-change", "recall-rolloff", "rollback"]
+SuppressionOrigin = Literal["manual", "failure"]
 SignatureVerifier = Callable[[str, bytes, bytes], bool]
 
 _MODE_ORDER: Mapping[CapabilityMode, int] = {"shadow": 0, "enforce": 1}
@@ -80,6 +82,7 @@ class LifecyclePlan:
     sequence: int
     fencing_generation: int
     envelope: LifecycleEffectEnvelope
+    expires_at: datetime
     signed_payload: bytes
     signature: bytes
 
@@ -91,9 +94,11 @@ class PlanAdmissionState:
     expected_audience: str
     expected_source_state_digest: str
     last_accepted_sequence: int
+    current_hub_key_epoch: int
     current_fencing_generation: int
     active_hub_key_ids: frozenset[str]
     revoked_hub_key_ids: frozenset[str]
+    hub_key_epochs: Mapping[str, int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,7 +142,8 @@ class SuppressionWindow:
     scope: str
     starts_at: datetime
     ends_at: datetime
-    allows_rollback: bool = False
+    origin: SuppressionOrigin = "manual"
+    failed_plan_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,18 +151,18 @@ class LifecycleConstraintContext:
     """Candidate Plan facts and local evidence for pure constraint evaluation."""
 
     now: datetime
+    plan_id: str
     plan_type: PlanType
+    rollback_target_plan_id: str | None
     declared_duration_minutes: int
     requires_downtime: bool
     target_release_version: str
     candidate_release: RuntimeRelease
     current_schema_revision: int
-    schema_direction: SchemaDirection
     version_range: str
     configuration_schema: Mapping[str, object]
     environment_config: Mapping[str, object]
     entity_overrides: tuple[Mapping[str, object], ...]
-    required_artifacts: tuple[ArtifactRequirement, ...]
     available_artifact_digests: frozenset[str]
     data_residency: DataResidencyRequirement
     maintenance_windows: tuple[MaintenanceWindow, ...]
@@ -180,15 +186,36 @@ def evaluate_plan_admission(
     local_state: PlanAdmissionState,
     locally_derived_maximum: LifecycleEffectEnvelope,
     verify_signature: SignatureVerifier,
+    trusted_now: datetime,
 ) -> PlanAdmissionDecision:
     """Admit a signed Plan only when local replay, key, and envelope checks pass."""
 
-    if plan.audience != local_state.expected_audience:
-        return _deny("plan_audience_mismatch", plan.audience)
+    if not plan.signed_payload or not plan.signature:
+        return _deny("plan_signature_invalid", plan.plan_id)
+    try:
+        verified = verify_signature(plan.hub_key_id, plan.signed_payload, plan.signature)
+    except (TypeError, ValueError):
+        return _deny("plan_signature_invalid", plan.plan_id)
+    if verified is not True:
+        return _deny("plan_signature_invalid", plan.plan_id)
+    if plan.signed_payload != canonical_plan_payload(plan):
+        return _deny("plan_payload_mismatch", plan.plan_id)
     if plan.hub_key_id in local_state.revoked_hub_key_ids:
         return _deny("hub_key_revoked", plan.hub_key_id)
     if plan.hub_key_id not in local_state.active_hub_key_ids:
         return _deny("hub_key_not_active", plan.hub_key_id)
+    if plan.hub_key_epoch != local_state.current_hub_key_epoch:
+        return _deny("hub_key_epoch_mismatch", str(plan.hub_key_epoch))
+    if local_state.hub_key_epochs.get(plan.hub_key_id) != plan.hub_key_epoch:
+        return _deny("hub_key_epoch_mismatch", plan.hub_key_id)
+    if trusted_now.tzinfo is None or trusted_now.utcoffset() is None:
+        return _deny("trusted_clock_timezone_missing")
+    if plan.expires_at.tzinfo is None or plan.expires_at.utcoffset() is None:
+        return _deny("plan_expiry_timezone_missing", plan.plan_id)
+    if plan.expires_at <= trusted_now:
+        return _deny("plan_expired", plan.plan_id)
+    if plan.audience != local_state.expected_audience:
+        return _deny("plan_audience_mismatch", plan.audience)
     if plan.sequence <= local_state.last_accepted_sequence:
         return _deny("plan_sequence_stale", str(plan.sequence))
     if plan.fencing_generation != local_state.current_fencing_generation:
@@ -197,15 +224,31 @@ def evaluate_plan_admission(
         return _deny("plan_source_state_stale", plan.source_state_digest)
     if not plan.envelope.narrowed_by(locally_derived_maximum):
         return _deny("plan_envelope_exceeds_local_maximum", plan.plan_id)
-    if not plan.signed_payload or not plan.signature:
-        return _deny("plan_signature_invalid", plan.plan_id)
-    try:
-        verified = verify_signature(plan.hub_key_id, plan.signed_payload, plan.signature)
-    except (TypeError, ValueError):
-        return _deny("plan_signature_invalid", plan.plan_id)
-    if not verified:
-        return _deny("plan_signature_invalid", plan.plan_id)
     return PlanAdmissionDecision(True, "allowed")
+
+
+def canonical_plan_payload(plan: LifecyclePlan) -> bytes:
+    """Return the byte-for-byte JSON payload the Hub key must sign."""
+
+    return canonical_bytes(
+        {
+            "audience": plan.audience,
+            "envelope": {
+                "capability_modes": dict(sorted(plan.envelope.capability_modes.items())),
+                "destructive_allowed": plan.envelope.destructive_allowed,
+                "entity_ids": sorted(plan.envelope.entity_ids),
+                "max_duration_minutes": plan.envelope.max_duration_minutes,
+                "regions": sorted(plan.envelope.regions),
+            },
+            "expires_at": plan.expires_at.isoformat(),
+            "fencing_generation": plan.fencing_generation,
+            "hub_key_epoch": plan.hub_key_epoch,
+            "hub_key_id": plan.hub_key_id,
+            "plan_id": plan.plan_id,
+            "sequence": plan.sequence,
+            "source_state_digest": plan.source_state_digest,
+        }
+    )
 
 
 def evaluate_lifecycle_constraints(
@@ -226,20 +269,26 @@ def evaluate_lifecycle_constraints(
         validate_schema_transition(
             current_schema_revision=context.current_schema_revision,
             candidate=context.candidate_release,
-            direction=context.schema_direction,
+            direction=_schema_direction(context.plan_type),
         ),
     )
-    missing = tuple(
-        artifact.name
-        for artifact in context.required_artifacts
-        if artifact.digest not in context.available_artifact_digests
-    )
-    if missing:
-        blocks.append(ConstraintBlock("artifact_unavailable", missing))
+    required_artifacts = _required_artifacts(context.candidate_release)
+    if not required_artifacts:
+        blocks.append(ConstraintBlock("artifact_requirements_missing"))
+    else:
+        missing = tuple(
+            artifact.name
+            for artifact in required_artifacts
+            if artifact.digest not in context.available_artifact_digests
+        )
+        if missing:
+            blocks.append(ConstraintBlock("artifact_unavailable", missing))
     override_block = _override_coverage_block(context)
     if override_block is not None:
         blocks.append(override_block)
-    if not context.data_residency.release_regions <= context.data_residency.allowed_regions:
+    if not context.data_residency.release_regions:
+        blocks.append(ConstraintBlock("data_residency_missing"))
+    elif not context.data_residency.release_regions <= context.data_residency.allowed_regions:
         blocks.append(
             ConstraintBlock(
                 "data_residency_mismatch",
@@ -260,10 +309,17 @@ def evaluate_lifecycle_constraints(
 def _maintenance_decision(context: LifecycleConstraintContext) -> ReleaseDecision:
     if context.declared_duration_minutes < 1:
         return ReleaseDecision(False, "maintenance_window_unavailable")
+    requires_downtime = context.requires_downtime or bool(
+        context.entity_ids & set(context.candidate_release.downtime_entities)
+    )
     for window in context.maintenance_windows:
+        if window.starts_at >= window.ends_at:
+            return ReleaseDecision(
+                False, "maintenance_window_invalid", (window.starts_at.isoformat(),)
+            )
         if not window.starts_at <= context.now < window.ends_at:
             continue
-        if context.requires_downtime and not window.allows_downtime:
+        if requires_downtime and not window.allows_downtime:
             continue
         remaining_seconds = (window.ends_at - context.now).total_seconds()
         if remaining_seconds >= context.declared_duration_minutes * 60:
@@ -273,18 +329,79 @@ def _maintenance_decision(context: LifecycleConstraintContext) -> ReleaseDecisio
 
 def _suppression_decision(context: LifecycleConstraintContext) -> ReleaseDecision:
     for window in context.suppression_windows:
+        if window.starts_at >= window.ends_at:
+            return ReleaseDecision(False, "suppression_window_invalid", (window.scope,))
+        if window.origin not in {"manual", "failure"}:
+            return ReleaseDecision(False, "suppression_window_invalid", (window.scope,))
+        scope_decision = _suppression_scope_decision(window, context)
+        if scope_decision is not None:
+            return scope_decision
         if not window.starts_at <= context.now < window.ends_at:
             continue
-        if window.allows_rollback and context.plan_type in {"rollback", "recall-rolloff"}:
+        if (
+            window.origin == "failure"
+            and context.plan_type == "rollback"
+            and window.failed_plan_id is not None
+            and window.failed_plan_id == context.rollback_target_plan_id
+        ):
             continue
-        if window.scope == "installation":
+        if _scope_matches(window.scope, context):
             return ReleaseDecision(False, "suppression_window_active", (window.scope,))
-        if window.scope == f"plan:{context.plan_type}":
-            return ReleaseDecision(False, "suppression_window_active", (window.scope,))
-        for entity_id in context.entity_ids:
-            if window.scope == f"entity:{entity_id}":
-                return ReleaseDecision(False, "suppression_window_active", (window.scope,))
     return ReleaseDecision(True, "allowed")
+
+
+def _suppression_scope_decision(
+    window: SuppressionWindow, context: LifecycleConstraintContext
+) -> ReleaseDecision | None:
+    if window.scope == "installation":
+        return None
+    if window.scope.startswith("plan:"):
+        plan_type = window.scope.removeprefix("plan:")
+        if plan_type not in {
+            "install",
+            "upgrade",
+            "configuration-change",
+            "recall-rolloff",
+            "rollback",
+        }:
+            return ReleaseDecision(False, "suppression_scope_invalid", (window.scope,))
+        return None
+    if window.scope.startswith("entity:"):
+        entity_id = window.scope.removeprefix("entity:")
+        if not entity_id or entity_id.strip() != entity_id or entity_id not in context.entity_ids:
+            return ReleaseDecision(False, "suppression_scope_invalid", (window.scope,))
+        return None
+    return ReleaseDecision(False, "suppression_scope_invalid", (window.scope,))
+
+
+def _scope_matches(scope: str, context: LifecycleConstraintContext) -> bool:
+    if scope == "installation":
+        return True
+    if scope == f"plan:{context.plan_type}":
+        return True
+    return any(scope == f"entity:{entity_id}" for entity_id in context.entity_ids)
+
+
+def _schema_direction(plan_type: PlanType) -> SchemaDirection:
+    if plan_type in {"rollback", "recall-rolloff"}:
+        return "rollback"
+    return "upgrade"
+
+
+def _required_artifacts(release: RuntimeRelease) -> tuple[ArtifactRequirement, ...]:
+    catalog = release.to_mapping()
+    result: list[ArtifactRequirement] = []
+    for section in ("services", "sidecars", "installation_agents"):
+        records = catalog.get(section)
+        if not isinstance(records, Mapping):
+            continue
+        for name, raw_record in records.items():
+            if not isinstance(name, str) or not isinstance(raw_record, Mapping):
+                continue
+            digest = raw_record.get("image_digest")
+            if isinstance(digest, str):
+                result.append(ArtifactRequirement(f"{section}/{name}", digest))
+    return tuple(sorted(result, key=lambda artifact: artifact.name))
 
 
 def _version_range_block(release_version: str, version_range: str) -> ConstraintBlock | None:
