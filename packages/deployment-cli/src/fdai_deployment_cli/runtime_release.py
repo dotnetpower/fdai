@@ -3,7 +3,7 @@
 The enclosing fdai.offline-kit.v1 files map signs runtime/release.json and its
 artifacts. This module does not establish production trust, contact registries,
 or install anything. Catalog loading checks file hashes; validate_runtime_images
-also checks OCI content for a complete v2 inventory. Neither establishes SBOM or
+also checks OCI content for complete v2 and v3 inventories. Neither establishes SBOM or
 provenance semantics, image attestation, or operational success.
 """
 
@@ -16,7 +16,7 @@ import re
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import cast
+from typing import Literal, cast
 
 from fdai_deployment_cli import offline_kit
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
@@ -30,9 +30,11 @@ RUNTIME_RELEASE_PATH = "runtime/release.json"
 _MAX_CATALOG_BYTES = 1024 * 1024
 _LEGACY_SCHEMA = "fdai.runtime-release.v1"
 _SCHEMA = "fdai.runtime-release.v2"
+_LIFECYCLE_SCHEMA = "fdai.runtime-release.v3"
 _COMMIT = re.compile(r"[0-9a-fA-F]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _PATH = re.compile(r"runtime/[A-Za-z0-9._+/-]+")
+_TOKEN = re.compile(r"[A-Za-z0-9._:/-]+")
 _PLATFORMS = {"linux-x86_64", "linux-aarch64"}
 RUNTIME_SERVICES = frozenset(
     {
@@ -44,6 +46,7 @@ RUNTIME_SERVICES = frozenset(
     }
 )
 RUNTIME_SIDECARS = frozenset({"clamav", "pgvector"})
+RUNTIME_INSTALLATION_AGENTS = frozenset({"infrastructure-agent", "lifecycle-agent"})
 _ARCHIVE_KEYS = {"archive", "archive_sha256", "sbom", "sbom_sha256"}
 _SERVICE_KEYS = _ARCHIVE_KEYS | {"image_digest", "provenance", "provenance_sha256"}
 _CATALOG_KEYS = {
@@ -55,10 +58,60 @@ _CATALOG_KEYS = {
     "console",
     "deployment_support",
 }
+_SCHEMA_KEYS = {"target", "tolerates"}
+_SCHEMA_RANGE_KEYS = {"minimum", "maximum"}
+_CAPABILITY_RECORD_KEYS = {"kind", "maximum_mode"}
+_CAPABILITY_KINDS = {"ActionType", "Workflow"}
+_CAPABILITY_MODES = {"shadow", "enforce"}
+_DOWNTIME_KEYS = {"entities"}
 
 
 class RuntimeReleaseError(offline_kit.OfflineKitVerificationError):
     """Runtime release schema, compatibility, or local content is invalid."""
+
+
+@dataclass(frozen=True, slots=True)
+class SchemaRange:
+    """Inclusive database schema revision range tolerated by one Release."""
+
+    minimum: int
+    maximum: int
+
+    def contains(self, revision: int) -> bool:
+        return self.minimum <= revision <= self.maximum
+
+
+@dataclass(frozen=True, slots=True)
+class ReleaseDecision:
+    """Typed allow/deny result for pure release planning checks."""
+
+    allowed: bool
+    reason_code: str
+    details: tuple[str, ...] = ()
+
+
+RecallScope = Literal["release", "capability"]
+RecallAction = Literal["recall", "lift"]
+
+
+@dataclass(frozen=True, slots=True)
+class RecallRecord:
+    """Append-only recall fact used by local shadow-only release decisions."""
+
+    scope: RecallScope
+    target: str
+    sequence: int
+    action: RecallAction = "recall"
+
+    def __post_init__(self) -> None:
+        if self.scope not in {"release", "capability"}:
+            raise ValueError("recall scope MUST be release or capability")
+        if self.action not in {"recall", "lift"}:
+            raise ValueError("recall action MUST be recall or lift")
+        if not isinstance(self.sequence, int) or self.sequence < 0:
+            raise ValueError("recall sequence MUST be a non-negative integer")
+        if _TOKEN.fullmatch(self.target) is None:
+            raise ValueError("recall target is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +125,11 @@ class RuntimeRelease:
     artifact_paths: tuple[str, ...]
     _catalog: bytes = field(repr=False)
     schema_version: str = _LEGACY_SCHEMA
+    schema_target: int | None = None
+    schema_range: SchemaRange | None = None
+    capability_maximums: dict[str, str] = field(default_factory=dict)
+    downtime_entities: tuple[str, ...] = ()
+    installation_agent_images: tuple[str, ...] = ()
 
     def to_mapping(self) -> dict[str, object]:
         """Return a detached canonical catalog mapping, without host paths or bytes."""
@@ -101,9 +159,18 @@ def load_runtime_release(
         # The shared decoder currently accepts duplicate keys; reject them at every depth.
         json.loads(raw, object_pairs_hook=_unique_object)
         schema = payload.get("schema_version")
-        if not isinstance(schema, str) or schema not in (_LEGACY_SCHEMA, _SCHEMA):
+        if not isinstance(schema, str) or schema not in (
+            _LEGACY_SCHEMA,
+            _SCHEMA,
+            _LIFECYCLE_SCHEMA,
+        ):
             raise RuntimeReleaseError("runtime release schema version is unsupported")
-        catalog = _object(payload, _CATALOG_KEYS | ({"sidecars"} if schema == _SCHEMA else set()))
+        schema_keys = set(_CATALOG_KEYS)
+        if schema in {_SCHEMA, _LIFECYCLE_SCHEMA}:
+            schema_keys.add("sidecars")
+        if schema == _LIFECYCLE_SCHEMA:
+            schema_keys.update({"installation_agents", "schema", "capabilities", "downtime"})
+        catalog = _object(payload, schema_keys)
         commit, platform = catalog["source_commit"], catalog["platform_tag"]
         if not isinstance(commit, str) or _COMMIT.fullmatch(commit) is None:
             raise RuntimeReleaseError("runtime release source commit is invalid")
@@ -124,6 +191,22 @@ def load_runtime_release(
             sidecars = _object(catalog["sidecars"], set(RUNTIME_SIDECARS))
             for sidecar in sorted(RUNTIME_SIDECARS):
                 _declare_record(sidecars[sidecar], service=True, declared=declared)
+        installation_agent_images: tuple[str, ...] = ()
+        schema_target: int | None = None
+        schema_range: SchemaRange | None = None
+        capability_maximums: dict[str, str] = {}
+        downtime_entities: tuple[str, ...] = ()
+        if schema == _LIFECYCLE_SCHEMA:
+            sidecars = _object(catalog["sidecars"], set(RUNTIME_SIDECARS))
+            for sidecar in sorted(RUNTIME_SIDECARS):
+                _declare_record(sidecars[sidecar], service=True, declared=declared)
+            agents = _object(catalog["installation_agents"], set(RUNTIME_INSTALLATION_AGENTS))
+            for agent in sorted(RUNTIME_INSTALLATION_AGENTS):
+                _declare_record(agents[agent], service=True, declared=declared)
+            installation_agent_images = tuple(sorted(RUNTIME_INSTALLATION_AGENTS))
+            schema_target, schema_range = _release_schema(catalog["schema"])
+            capability_maximums = _capability_maximums(catalog["capabilities"])
+            downtime_entities = _downtime_entities(catalog["downtime"])
         for section in ("console", "deployment_support"):
             _declare_record(catalog[section], service=False, declared=declared)
         _verify_tree(root, {**declared, RUNTIME_RELEASE_PATH: hashlib.sha256(raw).hexdigest()})
@@ -136,6 +219,11 @@ def load_runtime_release(
             artifact_paths=tuple(sorted(declared)),
             _catalog=canonical,
             schema_version=schema,
+            schema_target=schema_target,
+            schema_range=schema_range,
+            capability_maximums=capability_maximums,
+            downtime_entities=downtime_entities,
+            installation_agent_images=installation_agent_images,
         )
     except RuntimeReleaseError:
         raise
@@ -144,19 +232,25 @@ def load_runtime_release(
 
 
 def validate_runtime_images(root: Path, release: RuntimeRelease) -> dict[str, str]:
-    """Validate all seven v2 OCI images against a previously verified catalog snapshot.
+    """Validate v2 and v3 OCI images against a previously verified catalog snapshot.
 
     Inspect a private snapshot; callers own signature and release-eligibility checks.
     Images are inspected one at a time within the existing per-file limits; no layer
     extraction, process, registry call, provenance verification, or execution authority
     results from this check.
     """
-    if release.schema_version != _SCHEMA:
-        raise RuntimeReleaseError("complete preparation requires runtime release v2 with sidecars")
+    if release.schema_version not in {_SCHEMA, _LIFECYCLE_SCHEMA}:
+        raise RuntimeReleaseError("complete preparation requires runtime release v2 or v3")
     catalog = release.to_mapping()
     digests: dict[str, str] = {}
     image: VerifiedOciImage[str] | VerifiedOciImage[None]
-    for section, names in (("services", RUNTIME_SERVICES), ("sidecars", RUNTIME_SIDECARS)):
+    sections: list[tuple[str, frozenset[str], bool]] = [
+        ("services", RUNTIME_SERVICES, True),
+        ("sidecars", RUNTIME_SIDECARS, False),
+    ]
+    if release.schema_version == _LIFECYCLE_SCHEMA:
+        sections.append(("installation_agents", RUNTIME_INSTALLATION_AGENTS, True))
+    for section, names, source_bound in sections:
         records = _object(catalog[section], set(names))
         for name in sorted(names):
             record = _string_record(records[name], _SERVICE_KEYS)
@@ -166,7 +260,7 @@ def validate_runtime_images(root: Path, release: RuntimeRelease) -> dict[str, st
                 "expected_manifest_digest": record["image_digest"],
                 "expected_platform_tag": release.platform_tag,
             }
-            if section == "services":
+            if source_bound:
                 image = validate_oci_archive(
                     path, expected_source_commit=release.source_commit, **expected
                 )
@@ -177,6 +271,94 @@ def validate_runtime_images(root: Path, release: RuntimeRelease) -> dict[str, st
     return digests
 
 
+def validate_schema_transition(
+    *,
+    current_schema_revision: int,
+    candidate: RuntimeRelease,
+    direction: Literal["upgrade", "rollback"],
+) -> ReleaseDecision:
+    """Allow only schema-compatible upgrade and roll-back candidates."""
+
+    if not isinstance(current_schema_revision, int) or current_schema_revision < 0:
+        return ReleaseDecision(False, "schema_revision_invalid")
+    if direction not in {"upgrade", "rollback"}:
+        return ReleaseDecision(False, "schema_transition_direction_invalid")
+    if candidate.schema_target is None or candidate.schema_range is None:
+        return ReleaseDecision(False, "release_manifest_missing_schema_range")
+    if not candidate.schema_range.contains(current_schema_revision):
+        return ReleaseDecision(
+            False,
+            "schema_revision_outside_tolerated_range",
+            (str(current_schema_revision),),
+        )
+    if direction == "upgrade" and candidate.schema_target < current_schema_revision:
+        return ReleaseDecision(
+            False,
+            "schema_target_not_forward",
+            (str(candidate.schema_target), str(current_schema_revision)),
+        )
+    return ReleaseDecision(True, "allowed")
+
+
+def evaluate_recall_candidate(
+    *,
+    release_id: str,
+    capability_ids: tuple[str, ...],
+    recall_records: tuple[RecallRecord, ...],
+) -> ReleaseDecision:
+    """Deny re-promotion of active Release or capability recalls."""
+
+    active = _active_recalls(recall_records)
+    if ("release", release_id) in active:
+        return ReleaseDecision(False, "release_recalled", (release_id,))
+    for capability_id in capability_ids:
+        if ("capability", capability_id) in active:
+            return ReleaseDecision(False, "capability_recalled", (capability_id,))
+    return ReleaseDecision(True, "allowed")
+
+
+def recall_rolloff_priority(
+    *,
+    release_id: str,
+    capability_ids: tuple[str, ...],
+    recall_records: tuple[RecallRecord, ...],
+) -> tuple[str, ...]:
+    """Return active recall targets in deterministic roll-off priority order."""
+
+    active = _active_recalls(recall_records)
+    release_priority = (
+        (active[("release", release_id)], f"release:{release_id}")
+        if ("release", release_id) in active
+        else None
+    )
+    capability_priorities = [
+        (active[("capability", capability_id)], f"capability:{capability_id}")
+        for capability_id in capability_ids
+        if ("capability", capability_id) in active
+    ]
+    ordered = []
+    if release_priority is not None:
+        ordered.append(release_priority[1])
+    ordered.extend(
+        item
+        for _sequence, item in sorted(
+            capability_priorities, key=lambda entry: (-entry[0], entry[1])
+        )
+    )
+    return tuple(ordered)
+
+
+def _active_recalls(records: tuple[RecallRecord, ...]) -> dict[tuple[str, str], int]:
+    active: dict[tuple[str, str], int] = {}
+    for record in sorted(records, key=lambda item: item.sequence):
+        key = (record.scope, record.target)
+        if record.action == "recall":
+            active[key] = record.sequence
+        else:
+            active.pop(key, None)
+    return active
+
+
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result: dict[str, object] = {}
     for key, value in pairs:
@@ -184,6 +366,57 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
             raise RuntimeReleaseError("runtime release contains duplicate JSON keys")
         result[key] = value
     return result
+
+
+def _release_schema(value: object) -> tuple[int, SchemaRange]:
+    metadata = _object(value, _SCHEMA_KEYS)
+    target = _schema_revision(metadata["target"])
+    tolerated = _object(metadata["tolerates"], _SCHEMA_RANGE_KEYS)
+    minimum = _schema_revision(tolerated["minimum"])
+    maximum = _schema_revision(tolerated["maximum"])
+    if minimum > maximum:
+        raise RuntimeReleaseError("runtime release schema range is invalid")
+    if not minimum <= target <= maximum:
+        raise RuntimeReleaseError("runtime release schema target is outside its tolerated range")
+    return target, SchemaRange(minimum=minimum, maximum=maximum)
+
+
+def _schema_revision(value: object) -> int:
+    if not isinstance(value, int) or value < 0:
+        raise RuntimeReleaseError("runtime release schema revision is invalid")
+    return value
+
+
+def _capability_maximums(value: object) -> dict[str, str]:
+    if not isinstance(value, dict) or not value:
+        raise RuntimeReleaseError("runtime release capability maximums are invalid")
+    result: dict[str, str] = {}
+    for raw_name, raw_record in value.items():
+        if not isinstance(raw_name, str) or _TOKEN.fullmatch(raw_name) is None:
+            raise RuntimeReleaseError("runtime release capability identifier is invalid")
+        record = _object(raw_record, _CAPABILITY_RECORD_KEYS)
+        kind, maximum_mode = record["kind"], record["maximum_mode"]
+        if kind not in _CAPABILITY_KINDS or maximum_mode not in _CAPABILITY_MODES:
+            raise RuntimeReleaseError("runtime release capability maximum is invalid")
+        result[raw_name] = maximum_mode
+    return dict(sorted(result.items()))
+
+
+def _downtime_entities(value: object) -> tuple[str, ...]:
+    record = _object(value, _DOWNTIME_KEYS)
+    entities = record["entities"]
+    if not isinstance(entities, list):
+        raise RuntimeReleaseError("runtime release downtime entities are invalid")
+    result: list[str] = []
+    observed: set[str] = set()
+    for entity in entities:
+        if not isinstance(entity, str) or _TOKEN.fullmatch(entity) is None:
+            raise RuntimeReleaseError("runtime release downtime entity is invalid")
+        if entity in observed:
+            raise RuntimeReleaseError("runtime release downtime entities are duplicated")
+        observed.add(entity)
+        result.append(entity)
+    return tuple(result)
 
 
 def _object(value: object, keys: set[str]) -> dict[str, object]:
