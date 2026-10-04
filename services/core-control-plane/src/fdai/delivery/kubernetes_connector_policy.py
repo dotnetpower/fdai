@@ -48,6 +48,7 @@ def assess_policy_flow(
     observed_at: datetime,
     now: datetime,
     max_age_seconds: int = 300,
+    expected_owner_ref: str | None = None,
 ) -> PolicyFlowAssessment:
     """Evaluate a complete namespaced policy set for one same-cluster Pod flow.
 
@@ -73,8 +74,11 @@ def assess_policy_flow(
         _endpoint(destination)
         if source.cluster_ref != destination.cluster_ref or source.uid == destination.uid:
             raise UnsupportedPolicyError("unsupported_endpoint_relationship")
+        if expected_owner_ref is not None:
+            _text(expected_owner_ref)
         normalized: list[tuple[str, Mapping[str, object]]] = []
         identities: set[tuple[str, str]] = set()
+        owners: set[str] = set()
         material: list[dict[str, object]] = []
         _bound_tree(policies)
         for policy in policies:
@@ -88,6 +92,9 @@ def assess_policy_flow(
             identity = (_text(metadata.get("namespace")), _text(metadata.get("name")))
             _text(metadata.get("uid"))
             _text(metadata.get("resourceVersion"))
+            owner = _policy_owner(metadata, expected_owner_ref)
+            if owner is not None:
+                owners.add(owner)
             if identity in identities:
                 raise UnsupportedPolicyError("duplicate_policy_identity")
             identities.add(identity)
@@ -103,9 +110,12 @@ def assess_policy_flow(
                     "identity": list(identity),
                     "uid": metadata["uid"],
                     "revision": metadata["resourceVersion"],
+                    "owner": owner,
                     "spec": dict(spec),
                 }
             )
+        if expected_owner_ref is not None and owners != {expected_owner_ref}:
+            raise UnsupportedPolicyError("policy_owner_conflict")
         outgoing = _direction(normalized, source, destination, "Egress", port, protocol)
         incoming = _direction(normalized, destination, source, "Ingress", port, protocol)
         material.sort(key=lambda record: str(record["identity"]))
@@ -252,6 +262,22 @@ def _selector(value: object, labels: Mapping[str, str]) -> bool:
         else:
             raise UnsupportedPolicyError("unsupported_selector_operator")
     return matched
+
+
+def _policy_owner(metadata: Mapping[str, object], expected_owner_ref: str | None) -> str | None:
+    annotations = metadata.get("annotations", {})
+    if annotations == {} and expected_owner_ref is None:
+        return None
+    values = _mapping(annotations)
+    owner = values.get("fdai.dev/policy-owner")
+    if owner is None:
+        if expected_owner_ref is None:
+            return None
+        raise UnsupportedPolicyError("policy_owner_missing")
+    owner_ref = _text(owner)
+    if expected_owner_ref is not None and owner_ref != expected_owner_ref:
+        raise UnsupportedPolicyError("policy_owner_conflict")
+    return owner_ref
 
 
 def _mapping(value: object) -> Mapping[str, object]:

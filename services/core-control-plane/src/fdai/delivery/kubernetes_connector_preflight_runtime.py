@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai_service_contracts.cluster_connector import ConnectorContract, Digest, connector_time
 from fdai_service_contracts.observer_deployment import (
+    InstallMethod,
     ObserverDeploymentContext,
     ObserverDeploymentFact,
     ObserverDeploymentProposal,
@@ -82,6 +83,14 @@ class ObserverResourcePreflightConfig(ObserverAdmissionPreflightConfig):
     claim_uid: TargetRef | None = None
 
 
+class ObserverReviewedPreflightConfig(ObserverSigningConfig):
+    """Reviewed non-Kubernetes constraints signed by a deployment-owned writer."""
+
+    facts_path: Path
+    existing_method: InstallMethod | None = None
+    requested_method: InstallMethod | None = None
+
+
 async def collect_capacity_preflight(
     path: Path, *, now: Callable[[], datetime]
 ) -> ObserverPreflightReceipt:
@@ -122,6 +131,76 @@ async def collect_artifact_preflight(
 ) -> ObserverPreflightReceipt:
     """Sign only exact Core-image evidence from the deployment-owned offline trust verifier."""
     return await _collect_preflight(path, now=now, kind="artifact")
+
+
+async def collect_reviewed_preflight(
+    path: Path, *, now: Callable[[], datetime]
+) -> ObserverPreflightReceipt:
+    """Sign reviewed constraint facts with current verifier grants and no authority."""
+    import hashlib
+
+    from fdai.delivery.kubernetes_connector_preflight import verify_preflight
+
+    content = await asyncio.to_thread(private_file, path)
+    config = ObserverReviewedPreflightConfig.model_validate(
+        json.loads(content, object_pairs_hook=_unique)
+    )
+    private = load_pem_private_key(
+        await asyncio.to_thread(private_file, config.signing_key_path), None
+    )
+    if not isinstance(private, Ed25519PrivateKey):
+        raise ValueError("observer preflight requires an Ed25519 signing key")
+    key_ref = "sha256:" + hashlib.sha256(private.public_key().public_bytes_raw()).hexdigest()
+    grants = FileObserverPreflightGrants(config.grants_path)
+    grant = await grants.read(config.target_ref, config.issuer_ref, key_ref)
+    facts_value = json.loads(
+        await asyncio.to_thread(private_file, config.facts_path), object_pairs_hook=_unique
+    )
+    if not isinstance(facts_value, list) or not 1 <= len(facts_value) <= 16:
+        raise ValueError("reviewed observer preflight requires 1 to 16 facts")
+    facts = tuple(ObserverDeploymentFact.model_validate(value) for value in facts_value)
+    cutoff = connector_time(now())
+    if (
+        grant is None
+        or grant.revoked
+        or not grant.valid_from <= cutoff < grant.expires_at
+        or grant.producer_revision != config.producer_revision
+        or (
+            (config.existing_method is not None or config.requested_method is not None)
+            and not grant.can_select_owner
+        )
+    ):
+        raise ValueError("observer preflight verifier is unavailable")
+    if any(
+        fact.target_ref != config.target_ref
+        or fact.source not in grant.allowed_facts.get(fact.name, ())
+        or fact.observed_at > cutoff
+        for fact in facts
+    ):
+        raise ValueError("reviewed observer preflight facts exceed their grant")
+    context = ObserverDeploymentContext(
+        target_ref=config.target_ref,
+        discovery_digest=config.discovery_digest,
+        observed_at=max(fact.observed_at for fact in facts),
+        expires_at=min(*(fact.expires_at for fact in facts), grant.expires_at),
+        private_cluster=True,
+        facts=tuple(sorted(facts, key=lambda fact: fact.name)),
+        existing_method=config.existing_method,
+        requested_method=config.requested_method,
+    )
+    receipt = ObserverPreflightReceipt(
+        issuer_ref=config.issuer_ref,
+        key_ref=key_ref,
+        producer_revision=config.producer_revision,
+        context=context,
+        issued_at=cutoff,
+        signature="0" * 128,
+    )
+    receipt = ObserverPreflightReceipt.model_validate(
+        {**receipt.model_dump(), "signature": private.sign(receipt.signing_bytes()).hex()}
+    )
+    await verify_preflight(receipt, grants=grants, now=now(), clock=now)
+    return receipt
 
 
 async def _collect_preflight(

@@ -34,6 +34,18 @@ def policy(
     }
 
 
+def owned_policy(
+    spec: dict[str, object],
+    *,
+    owner: str = "fdai-segmentation",
+    name: str = "example",
+    namespace: str = "backend",
+) -> dict[str, object]:
+    document = policy(spec, name=name, namespace=namespace)
+    document["metadata"]["annotations"] = {"fdai.dev/policy-owner": owner}
+    return document
+
+
 def assess(*policies: dict[str, object], **changes: object):
     arguments = dict(
         source=SOURCE,
@@ -85,6 +97,26 @@ def test_namespace_and_pod_selectors_are_intersection() -> None:
         == "blocked"
     )
     assert assess(matching, port=80).disposition == "blocked"
+
+
+def test_label_drift_recomputes_selector_match_without_granting_authority() -> None:
+    peer = {
+        "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "frontend"}},
+        "podSelector": {"matchLabels": {"role": "web"}},
+    }
+    matching = policy({"ingress": [{"from": [peer]}]})
+    assert assess(matching).disposition == "allowed"
+    drifted = assess(matching, source=replace(SOURCE, labels=(("role", "worker"),)))
+    assert drifted.disposition == "blocked"
+    assert drifted.execution_authority is False
+
+
+def test_policy_owner_conflicts_are_unknown() -> None:
+    document = owned_policy({"ingress": [{}]})
+    assert assess(document, expected_owner_ref="fdai-segmentation").disposition == "allowed"
+    assert assess(document, expected_owner_ref="other-owner").disposition == "unknown"
+    missing_owner = assess(policy({"ingress": [{}]}), expected_owner_ref="fdai-segmentation")
+    assert missing_owner.disposition == "unknown"
 
 
 def test_pod_selector_without_namespace_selector_is_local() -> None:

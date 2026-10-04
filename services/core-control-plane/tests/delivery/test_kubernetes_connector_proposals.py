@@ -128,6 +128,101 @@ async def test_verified_constraints_update_existing_case_without_installing() ->
     assert await store.verify_chain()
 
 
+async def test_reviewed_preflight_receipts_drive_eligible_and_denied_recommendations(
+    tmp_path,
+) -> None:
+    import hashlib
+    import json
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+    from fdai.delivery.kubernetes_connector_preflight import (
+        ObserverPreflightGrant,
+        SignedObserverConstraints,
+    )
+    from fdai.delivery.kubernetes_connector_preflight_runtime import collect_reviewed_preflight
+
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes_raw()
+    target = to_neutral_id(CLUSTER)
+    key_path = tmp_path / "signing.pem"
+    key_path.write_bytes(private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
+    key_path.chmod(0o600)
+    facts_path = tmp_path / "facts.json"
+    grants_path = tmp_path / "grants.json"
+    config_path = tmp_path / "reviewed.json"
+    grant = ObserverPreflightGrant(
+        issuer_ref="reviewed-writer",
+        key_ref="sha256:" + hashlib.sha256(public).hexdigest(),
+        public_key=public.hex(),
+        target_ref=target,
+        allowed_facts={fact.name: (fact.source,) for fact in context().facts},
+        producer_revision=DIGEST,
+        valid_from=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        can_select_owner=True,
+    )
+    grants_path.write_text(json.dumps([grant.model_dump(mode="json")]))
+    grants_path.chmod(0o600)
+    config = {
+        "target_ref": target,
+        "discovery_digest": DIGEST,
+        "issuer_ref": grant.issuer_ref,
+        "producer_revision": DIGEST,
+        "signing_key_path": str(key_path),
+        "grants_path": str(grants_path),
+        "facts_path": str(facts_path),
+    }
+    config_path.write_text(json.dumps(config))
+    config_path.chmod(0o600)
+
+    class GrantReader:
+        async def read(self, target_ref, issuer_ref, key_ref):
+            return grant
+
+    async def proposal_for(states: dict[str, str]):
+        facts_path.write_text(
+            json.dumps(
+                [
+                    fact.model_dump(mode="json")
+                    for fact in (
+                        item.model_copy(update={"target_ref": target})
+                        for item in context(states=states).facts
+                    )
+                ]
+            )
+        )
+        facts_path.chmod(0o600)
+        receipt = await collect_reviewed_preflight(config_path, now=lambda: NOW)
+        store = InMemoryStateStore()
+        constraints = SignedObserverConstraints(store, grants=GrantReader(), now=lambda: NOW)
+        assert await constraints.retain(receipt)
+        service = ObserverDeploymentProposalService(store, constraints=constraints, now=lambda: NOW)
+        assert await service.observe((observation(),)) == 1
+        return await service.current(target), store
+
+    eligible, eligible_store = await proposal_for({})
+    assert eligible.status == "ready_for_review"
+    assert eligible.recommended.method == "gitops"
+    assert eligible.execution_authority is False
+    denied, denied_store = await proposal_for({"gitops_authorized": "denied"})
+    assert denied.status == "ready_for_review"
+    assert denied.recommended.method == "existing_host"
+    assert all(
+        candidate.state == "blocked"
+        for candidate in denied.candidates
+        if candidate.method == "gitops"
+    )
+    assert [entry["entry"]["kind"] for entry in eligible_store.audit_entries] == [
+        "observer.preflight.retained",
+        "observer.deployment.proposed",
+    ]
+    assert [entry["entry"]["kind"] for entry in denied_store.audit_entries] == [
+        "observer.preflight.retained",
+        "observer.deployment.proposed",
+    ]
+
+
 async def test_stale_discovery_and_foreign_constraints_never_persist() -> None:
     store = InMemoryStateStore()
     service = ObserverDeploymentProposalService(
