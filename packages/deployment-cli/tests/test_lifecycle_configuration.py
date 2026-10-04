@@ -190,6 +190,28 @@ def test_layer_resolution_validates_nonmatching_override_blocks() -> None:
         ({"passphrase": "hunter2"}, ("passphrase",)),
         ({"env": [{"key": "DB_PASSWORD", "value": "hunter2"}]}, ("env", "0", "value")),
         ({"env": [{"Name": "DB_PASSWORD", "Value": "hunter2"}]}, ("env", "0", "Value")),
+        ({"privatekey": "hunter2"}, ("privatekey",)),
+        ({"encryption_key": "hunter2"}, ("encryption_key",)),
+        ({"masterKey": "hunter2"}, ("masterKey",)),
+        ({"authorization": "hunter2"}, ("authorization",)),
+        ({"pass_word": "hunter2"}, ("pass_word",)),
+        ({"access_token": 123}, ("access_token",)),
+        (
+            {"env": [{"name": "SAFE_VALUE", "key": "DB_PASSWORD", "value": "hunter2"}]},
+            ("env", "0", "value"),
+        ),
+        (
+            {
+                "env": [
+                    {
+                        "key": "DB_PASSWORD",
+                        "value": "kv://secret-vault/db-password",
+                        "Value": "hunter2",
+                    }
+                ]
+            },
+            ("env", "0", "Value"),
+        ),
     ],
 )
 def test_package_rejects_literal_secret_values_before_signing(
@@ -216,6 +238,48 @@ def test_package_rejects_non_ascii_configuration_keys(key: str) -> None:
 
     assert exc_info.value.code == "invalid_configuration_key"
     assert exc_info.value.path == (key,)
+
+
+def test_package_allows_design_environment_secret_reference_names() -> None:
+    validate_configuration_package_for_signing(
+        {
+            "environment_config": {
+                "region": "koreacentral",
+                "data_residency": {"processing_scope": "geography"},
+                "network": {"profile": "private-endpoints-only"},
+                "model_bindings": {
+                    "primary": {
+                        "provider": "azure-openai",
+                        "deployment_type": "ProvisionedManaged",
+                        "capacity": {"kind": "ptu", "units": 100},
+                        "endpoint_ref": "model-primary",
+                    }
+                },
+                "integrations": {
+                    "itsm": {
+                        "endpoint_ref": "itsm-primary",
+                        "credential_ref": "itsm-token",
+                    }
+                },
+            },
+            "entity_overrides": [],
+        }
+    )
+
+
+def test_package_allows_reference_metadata_and_numeric_token_counters() -> None:
+    validate_configuration_package_for_signing(
+        {
+            "max_tokens": 4096,
+            "tokens_per_minute": 100,
+            "passwordless": True,
+            "secret_name": "itsm-token",
+            "key_vault_secret_name": "itsm-token",
+            "token_endpoint": "https://x.example",
+            "credential_kind": "managed-identity",
+            "primary_key_column": "id",
+        }
+    )
 
 
 def test_package_allows_key_vault_secret_references_before_signing() -> None:

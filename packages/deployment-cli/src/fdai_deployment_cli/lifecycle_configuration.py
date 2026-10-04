@@ -45,10 +45,13 @@ _KEY_VAULT_REF = re.compile(
 _KEY_VAULT_SECRET_REF = re.compile(
     r"^[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])/[A-Za-z0-9-]{1,127}$"
 )
+_KEY_VAULT_SECRET_NAME = re.compile(r"^[A-Za-z0-9-]{1,127}$")
 _DIRECT_SECRET_TOKENS = frozenset(
     {
+        "authorization",
         "credential",
         "credentials",
+        "pass",
         "passphrase",
         "passphrases",
         "passwd",
@@ -69,6 +72,7 @@ _DIRECT_SECRET_SUBSTRINGS = (
     "passphrase",
     "passwd",
     "password",
+    "privatekey",
     "secret",
     "token",
 )
@@ -78,6 +82,8 @@ _KEY_CONTEXT_TOKENS = frozenset(
         "account",
         "api",
         "client",
+        "encryption",
+        "master",
         "primary",
         "private",
         "secondary",
@@ -87,6 +93,10 @@ _KEY_CONTEXT_TOKENS = frozenset(
         "subscription",
     }
 )
+_REFERENCE_OR_METADATA_FINAL_TOKENS = frozenset(
+    {"column", "endpoint", "id", "kind", "name", "ref", "type", "uri", "url", "version"}
+)
+_NUMERIC_COUNTER_TOKENS = frozenset({"count", "limit", "max", "min", "minute", "per", "second"})
 
 Version = tuple[int, int, int]
 
@@ -325,25 +335,51 @@ def _scan_secret_values(value: object, path: tuple[str, ...]) -> None:
 
 
 def _scan_name_value_secret(value: Mapping[object, object], path: tuple[str, ...]) -> None:
-    name_key = _find_casefold_key(value, "name") or _find_casefold_key(value, "key")
-    value_key = _find_casefold_key(value, "value")
-    if name_key is None or value_key is None:
+    name_keys = [*_find_casefold_keys(value, "name"), *_find_casefold_keys(value, "key")]
+    value_keys = _find_casefold_keys(value, "value")
+    if not name_keys or not value_keys:
         return
-    name = value[name_key]
-    if isinstance(name, str) and _is_sensitive_key(name):
-        _validate_secret_reference(value[value_key], (*path, str(value_key)), name)
+    for name_key in name_keys:
+        name = value[name_key]
+        if not isinstance(name, str) or not _is_sensitive_key(name):
+            continue
+        for value_key in value_keys:
+            _validate_secret_reference(value[value_key], (*path, str(value_key)), name)
 
 
 def _validate_secret_reference(value: object, path: tuple[str, ...], key: str) -> None:
-    if isinstance(value, str) and _KEY_VAULT_REF.fullmatch(value) is not None:
+    tokens = _tokens(key)
+    if isinstance(value, bool):
         return
-    if (
+    if isinstance(value, str) and _is_reference_or_metadata_key(tokens):
+        if _is_ref_key(tokens) and not _is_valid_ref_value(value):
+            _raise_literal_secret(path, key)
+        return
+    if _is_numeric_token_counter(tokens, value):
+        return
+    if _is_ref_key(tokens) and isinstance(value, str) and _KEY_VAULT_SECRET_NAME.fullmatch(value):
+        return
+    if _is_key_vault_reference(value):
+        return
+    _raise_literal_secret(path, key)
+
+
+def _is_valid_ref_value(value: str) -> bool:
+    return _KEY_VAULT_SECRET_NAME.fullmatch(value) is not None or _is_key_vault_reference(value)
+
+
+def _is_key_vault_reference(value: object) -> bool:
+    if isinstance(value, str) and _KEY_VAULT_REF.fullmatch(value) is not None:
+        return True
+    return (
         isinstance(value, Mapping)
         and set(value) == {"key_vault_secret"}
         and isinstance(value["key_vault_secret"], str)
         and _KEY_VAULT_SECRET_REF.fullmatch(value["key_vault_secret"]) is not None
-    ):
-        return
+    )
+
+
+def _raise_literal_secret(path: tuple[str, ...], key: str) -> None:
     raise ConfigurationValidationError(
         "literal_secret_value",
         path,
@@ -351,11 +387,12 @@ def _validate_secret_reference(value: object, path: tuple[str, ...], key: str) -
     )
 
 
-def _find_casefold_key(value: Mapping[object, object], target: str) -> object | None:
+def _find_casefold_keys(value: Mapping[object, object], target: str) -> tuple[object, ...]:
+    matches: list[object] = []
     for key in value:
         if isinstance(key, str) and key.casefold() == target:
-            return key
-    return None
+            matches.append(key)
+    return tuple(matches)
 
 
 def _mapping(value: object, path: tuple[str, ...]) -> Mapping[str, object]:
@@ -393,6 +430,21 @@ def _is_sensitive_key(value: str) -> bool:
     if "connection" in tokens and "string" in tokens:
         return True
     return bool(tokens & {"key", "keys"} and tokens & _KEY_CONTEXT_TOKENS)
+
+
+def _is_ref_key(tokens: tuple[str, ...]) -> bool:
+    return bool(tokens) and tokens[-1] == "ref"
+
+
+def _is_reference_or_metadata_key(tokens: tuple[str, ...]) -> bool:
+    return bool(tokens) and tokens[-1] in _REFERENCE_OR_METADATA_FINAL_TOKENS
+
+
+def _is_numeric_token_counter(tokens: tuple[str, ...], value: object) -> bool:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return False
+    token_set = set(tokens)
+    return bool(token_set & {"token", "tokens"} and token_set & _NUMERIC_COUNTER_TOKENS)
 
 
 def _tokens(value: str) -> tuple[str, ...]:
