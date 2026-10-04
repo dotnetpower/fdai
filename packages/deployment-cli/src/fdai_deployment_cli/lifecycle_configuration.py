@@ -444,7 +444,8 @@ def _is_allowed_name_reference_key(tokens: tuple[str, ...]) -> bool:
 def _metadata_prefix_is_sensitive(tokens: tuple[str, ...]) -> bool:
     if len(tokens) <= 1:
         return False
-    return _is_sensitive_key("".join(tokens[:-1]))
+    prefix = tokens[:-1]
+    return _is_sensitive_key("_".join(prefix)) or _is_sensitive_key("".join(prefix))
 
 
 def _is_contextual_key_secret(tokens: tuple[str, ...]) -> bool:

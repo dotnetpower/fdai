@@ -275,6 +275,23 @@ def test_layer_resolution_validates_nonmatching_override_blocks() -> None:
         ({"api_key_column": "id"}, ("api_key_column",)),
         ({"access_tokens_column": "id"}, ("access_tokens_column",)),
         ({"authorization_column": "id"}, ("authorization_column",)),
+        ({"primary_key_column": "id"}, ("primary_key_column",)),
+        ({"account_key_name": "hunter2"}, ("account_key_name",)),
+        (
+            {"subscription_key_name": "0123456789abcdef0123456789abcdef"},
+            ("subscription_key_name",),
+        ),
+        ({"storage_sas_type": "hunter2"}, ("storage_sas_type",)),
+        ({"db_pwd_column": "hunter2"}, ("db_pwd_column",)),
+        (
+            {"primary_key_id": "00000000-0000-0000-0000-000000000000"},
+            ("primary_key_id",),
+        ),
+        ({"http_authorization_type": "hunter2"}, ("http_authorization_type",)),
+        (
+            {"env": [{"name": "ACCOUNT_KEY_NAME", "value": "hunter2"}]},
+            ("env", "0", "value"),
+        ),
     ],
 )
 def test_package_rejects_literal_secret_values_before_signing(
@@ -342,7 +359,6 @@ def test_package_allows_reference_metadata_and_numeric_token_counters() -> None:
             "login_token_endpoint": "https://login.example.com/oauth2/token",
             "credential_kind": "managed-identity",
             "token_type": "Bearer",
-            "primary_key_column": "id",
             "api_version": "2024-01-01",
             "api_key_version": "2024-01-01",
             "resource_id": (
