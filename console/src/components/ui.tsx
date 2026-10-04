@@ -296,6 +296,8 @@ export interface DataTableProps<Row> {
   readonly rowActionLabel?: (row: Row, index: number) => string;
   /** Element controlled by the selection button. */
   readonly rowActionControls?: string;
+  /** Names a table that can scroll horizontally and makes it a keyboard-focusable region. */
+  readonly scrollRegionLabel?: string;
 }
 
 export function mobileColumnLabel<Row>(column: Column<Row>): string {
@@ -308,6 +310,15 @@ export function dataTableHeaderClass<Row>(column: Column<Row>): string | undefin
   const classes = new Set(column.headerClass?.split(/\s+/).filter(Boolean) ?? []);
   if (column.cellClass?.split(/\s+/).includes("num")) classes.add("num");
   return classes.size > 0 ? [...classes].join(" ") : undefined;
+}
+
+/** Reference the detail region only from the active row, the one whose detail is rendered,
+ * so `aria-controls` never points at an element that isn't in the document. */
+export function dataTableRowActionControls(
+  active: boolean,
+  controls: string | undefined,
+): string | undefined {
+  return active && controls ? controls : undefined;
 }
 
 export function dataTableMinWidth(columnCount: number): string {
@@ -324,6 +335,7 @@ export function DataTable<Row>({
   isRowActive,
   rowActionLabel,
   rowActionControls,
+  scrollRegionLabel,
 }: DataTableProps<Row>) {
   if (rows.length === 0) {
     return (
@@ -335,7 +347,12 @@ export function DataTable<Row>({
   const clickable = onRowClick !== undefined;
   const explicitAction = clickable && rowActionLabel !== undefined;
   return (
-    <div class="data-table-wrap">
+    <div
+      class="data-table-wrap"
+      tabIndex={scrollRegionLabel ? 0 : undefined}
+      role={scrollRegionLabel ? "region" : undefined}
+      aria-label={scrollRegionLabel}
+    >
       <table
         class={`data-table${clickable ? " data-table-clickable" : ""}`}
         style={`--data-table-min-width: ${dataTableMinWidth(columns.length)}`}
@@ -377,7 +394,7 @@ export function DataTable<Row>({
                         type="button"
                         class="data-table-row-action"
                         aria-pressed={active}
-                        aria-controls={rowActionControls}
+                        aria-controls={dataTableRowActionControls(active, rowActionControls)}
                         onClick={() => onRowClick?.(row, index)}
                       >
                         <span>{c.render(row)}</span>

@@ -370,17 +370,17 @@
 }
 
 .dv2-state[data-tone="active"] {
-  color: var(--success, var(--cs-sage));
+  color: var(--cs-sage-text, var(--success));
   background: color-mix(in srgb, var(--success, var(--cs-sage)) 9%, var(--bg-elevated));
 }
 
 .dv2-state[data-tone="attention"] {
-  color: var(--warning, var(--cs-terracotta));
+  color: var(--cs-terracotta-text, var(--warning));
   background: color-mix(in srgb, var(--warning, var(--cs-terracotta)) 10%, var(--bg-elevated));
 }
 
 .dv2-state[data-tone="negative"] {
-  color: var(--danger, var(--cs-dusty-red));
+  color: var(--cs-dusty-red-text, var(--danger));
   background: color-mix(in srgb, var(--danger, var(--cs-dusty-red)) 10%, var(--bg-elevated));
 }
 

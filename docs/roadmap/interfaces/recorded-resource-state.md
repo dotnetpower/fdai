@@ -391,6 +391,8 @@ the exact ResourceTypes whose ARM type is supported:
   health or availability. Stopped, Deallocated, Offline, Disabled, Failed, and Unavailable use red.
   Transitioning, Degraded, Stale, Paused, and every Needs review `?` use amber. Other recorded
   values remain neutral, while Not provided and Not applicable retain gray or patterned treatment.
+  State text uses the shared green, red, and amber text roles, which keep at least 4.5:1 contrast on
+  their own tints over card, page, shade, and selected-row surfaces; fills and borders keep the base state colors.
 - A `managed-identity` with no applicable operational state, no recorded provisioning state, and no
   provider availability state uses green `Observed` only when it is present in one complete
   generation-fenced `inventory_snapshot_resource` page. Observed proves Resource presence, not

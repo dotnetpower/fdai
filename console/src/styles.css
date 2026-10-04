@@ -193,6 +193,9 @@
   --cs-dusty-red: #d58a8a;
   --cs-teal: #7eaaa5;
   --cs-plum: #a99cc3;
+  --cs-sage-text: #8eac88;
+  --cs-terracotta-text: #d39b77;
+  --cs-dusty-red-text: #d58a8a;
   --bg: var(--cs-bg);
   --bg-elevated: var(--cs-card);
   --bg-subtle: var(--cs-shade);
@@ -222,6 +225,9 @@
     --cs-dusty-red: #d58a8a;
     --cs-teal: #7eaaa5;
     --cs-plum: #a99cc3;
+    --cs-sage-text: #8eac88;
+    --cs-terracotta-text: #d39b77;
+    --cs-dusty-red-text: #d58a8a;
     --bg: var(--cs-bg);
     --bg-elevated: var(--cs-card);
     --bg-subtle: var(--cs-shade);
@@ -6386,13 +6392,13 @@ pre {
 }
 .status-pill-neutral { color: var(--fg-muted); background: var(--bg); border-color: var(--border); }
 .status-pill-info    { color: var(--cs-steel); background: color-mix(in oklab, var(--cs-steel) 10%, transparent); border-color: color-mix(in oklab, var(--cs-steel) 35%, transparent); }
-.status-pill-success { color: var(--cs-sage); background: color-mix(in oklab, var(--cs-sage) 12%, transparent); border-color: color-mix(in oklab, var(--cs-sage) 35%, transparent); }
-.status-pill-warning { color: var(--cs-terracotta); background: color-mix(in oklab, var(--cs-terracotta) 12%, transparent); border-color: color-mix(in oklab, var(--cs-terracotta) 40%, transparent); }
-.status-pill-danger  { color: var(--cs-dusty-red); background: color-mix(in oklab, var(--cs-dusty-red) 12%, transparent); border-color: color-mix(in oklab, var(--cs-dusty-red) 40%, transparent); }
+.status-pill-success { color: var(--cs-sage-text); background: color-mix(in oklab, var(--cs-sage) 12%, transparent); border-color: color-mix(in oklab, var(--cs-sage) 35%, transparent); }
+.status-pill-warning { color: var(--cs-terracotta-text); background: color-mix(in oklab, var(--cs-terracotta) 12%, transparent); border-color: color-mix(in oklab, var(--cs-terracotta) 40%, transparent); }
+.status-pill-danger  { color: var(--cs-dusty-red-text); background: color-mix(in oklab, var(--cs-dusty-red) 12%, transparent); border-color: color-mix(in oklab, var(--cs-dusty-red) 40%, transparent); }
 .status-pill-shadow  { color: var(--fg-muted); background: var(--bg); border-color: var(--border); }
-.status-pill-enforce { color: var(--cs-sage); background: color-mix(in oklab, var(--cs-sage) 12%, transparent); border-color: color-mix(in oklab, var(--cs-sage) 35%, transparent); }
-.status-pill-hil     { color: var(--cs-terracotta); background: color-mix(in oklab, var(--cs-terracotta) 12%, transparent); border-color: color-mix(in oklab, var(--cs-terracotta) 40%, transparent); }
-.status-pill-auto    { color: var(--cs-sage); background: color-mix(in oklab, var(--cs-sage) 12%, transparent); border-color: color-mix(in oklab, var(--cs-sage) 35%, transparent); }
+.status-pill-enforce { color: var(--cs-sage-text); background: color-mix(in oklab, var(--cs-sage) 12%, transparent); border-color: color-mix(in oklab, var(--cs-sage) 35%, transparent); }
+.status-pill-hil     { color: var(--cs-terracotta-text); background: color-mix(in oklab, var(--cs-terracotta) 12%, transparent); border-color: color-mix(in oklab, var(--cs-terracotta) 40%, transparent); }
+.status-pill-auto    { color: var(--cs-sage-text); background: color-mix(in oklab, var(--cs-sage) 12%, transparent); border-color: color-mix(in oklab, var(--cs-sage) 35%, transparent); }
 
 /* Incidents ---------------------------------------------------------- */
 .incidents-route > .segmented-control { align-self: flex-start; }
@@ -15490,7 +15496,7 @@ main { padding-bottom: 60px !important; }
 .aa-log-row[data-operational-kind="current-state.read"] { border-inline-start: 3px solid var(--cs-sage); }
 .aa-log-row[data-operational-kind="inventory.ontology-projection"] { border-inline-start: 3px solid var(--cs-amber); }
 .aa-log-row time { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
-.aa-log-route { overflow: hidden; color: var(--cs-sage); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.aa-log-route { overflow: hidden; color: var(--cs-sage-text, var(--cs-sage)); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .aa-log-kind {
   justify-self: start;
   padding: 2px 6px;
@@ -16900,7 +16906,7 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 }
 .agent-roster-state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .agent-roster-state.state-idle { color: var(--fg-muted); }
-.agent-roster-state.state-watching { color: var(--agent-teal); }
+.agent-roster-state.state-watching { color: color-mix(in srgb, var(--agent-teal) 70%, var(--fg)); }
 .agent-roster-state.state-watching::before { animation: agent-watch-pulse 1.5s ease-out infinite; }
 .agent-roster-task { display: grid; gap: 0.12rem; margin: 0; min-height: 2.1rem; }
 .agent-roster-task > span { color: var(--fg-muted); font-size: 0.62rem; font-weight: 700; text-transform: uppercase; }
@@ -17321,7 +17327,8 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 
 .agent-role-detail header p,
 .agent-role-detail-kicker {
-  color: var(--agent-color);
+  /* Mixing toward the text color keeps every light-theme layer accent at >= 4.5:1 for small text. */
+  color: color-mix(in srgb, var(--agent-color) 70%, var(--fg));
   font-size: var(--cs-type-label-size);
   font-weight: 600;
 }
