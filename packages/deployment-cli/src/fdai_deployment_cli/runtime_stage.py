@@ -76,7 +76,7 @@ def stage_runtime_release(
         )
         if copied.digest != release.digest:
             raise ValueError("runtime inventory changed during staging")
-        if copied.schema_version == "fdai.runtime-release.v2":
+        if copied.schema_version in {"fdai.runtime-release.v2", "fdai.runtime-release.v3"}:
             validate_runtime_images(staging, copied)
         payload.rename(destination)
     return copied.digest

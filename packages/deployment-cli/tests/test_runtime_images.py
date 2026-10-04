@@ -189,7 +189,7 @@ def test_legacy_catalog_remains_stageable_but_not_a_complete_preparation(tmp_pat
         platform_tag=PLATFORM,
     )
     assert (destination / "runtime/release.json").exists()
-    with pytest.raises(RuntimeReleaseError, match="v2 with sidecars"):
+    with pytest.raises(RuntimeReleaseError, match="requires runtime release v2 or v3"):
         _prepare(tmp_path, release)
     assert list((tmp_path / "work").iterdir()) == []
 
