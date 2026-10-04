@@ -56,7 +56,6 @@ _EVIDENCE_KEYS = frozenset(
         "old_pod",
         "candidates",
         "termination",
-        "termination_unavailable_reason",
         "deployment",
         "recovery_pod",
         "restart_history",
@@ -68,6 +67,8 @@ _EVIDENCE_KEYS = frozenset(
         "detected_at",
     }
 )
+_OPTIONAL_EVIDENCE_KEYS = frozenset({"termination_unavailable_reason"})
+_OPTIONAL_TERMINATION_KEYS = frozenset({"signal", "finished_at"})
 _LIFECYCLE_KEYS = frozenset(
     {
         "pod_id",
@@ -99,8 +100,6 @@ _TERMINATION_KEYS = frozenset(
         "event_type",
         "reason",
         "exit_code",
-        "signal",
-        "finished_at",
         "event_time",
         "recorded_at",
         "source_identity",
@@ -218,7 +217,12 @@ def parse_pod_lifecycle_evidence(raw: str) -> tuple[PodLifecycleEvidence, ...]:
 
 
 def _evidence(value: Any) -> PodLifecycleEvidence:
-    item = _mapping(value, _EVIDENCE_KEYS, "pod lifecycle evidence")
+    item = _mapping(
+        value,
+        _EVIDENCE_KEYS,
+        "pod lifecycle evidence",
+        optional=_OPTIONAL_EVIDENCE_KEYS,
+    )
     candidates_raw = item["candidates"]
     if not isinstance(candidates_raw, list) or not 1 <= len(candidates_raw) <= _MAX_CANDIDATES:
         raise ValueError("candidates MUST be a bounded non-empty array")
@@ -228,7 +232,7 @@ def _evidence(value: Any) -> PodLifecycleEvidence:
         candidates=tuple(_lifecycle_observation(entry) for entry in candidates_raw),
         termination=_optional(item["termination"], _termination_observation),
         termination_unavailable_reason=_termination_unavailable_reason(
-            item["termination_unavailable_reason"]
+            item.get("termination_unavailable_reason")
         ),
         deployment=_optional(item["deployment"], _deployment_observation),
         recovery_pod=_recovery_observation(item["recovery_pod"]),
@@ -270,7 +274,12 @@ def _lifecycle_observation(value: Any) -> PodLifecycleObservation:
 
 
 def _termination_observation(value: Any) -> PodTerminationObservation:
-    item = _mapping(value, _TERMINATION_KEYS, "pod termination observation")
+    item = _mapping(
+        value,
+        _TERMINATION_KEYS,
+        "pod termination observation",
+        optional=_OPTIONAL_TERMINATION_KEYS,
+    )
     return PodTerminationObservation(
         pod_uid=_text(item["pod_uid"], "pod_uid"),
         cluster_id=_text(item["cluster_id"], "cluster_id"),
@@ -278,8 +287,8 @@ def _termination_observation(value: Any) -> PodTerminationObservation:
         event_type=_optional_text(item["event_type"], "event_type"),
         reason=_optional_text(item["reason"], "reason"),
         exit_code=_optional_count(item["exit_code"], "exit_code"),
-        signal=_optional_count(item["signal"], "signal"),
-        finished_at=_optional(item["finished_at"], _time),
+        signal=_optional_count(item.get("signal"), "signal"),
+        finished_at=_optional(item.get("finished_at"), _time),
         event_time=_optional(item["event_time"], _time),
         recorded_at=_optional(item["recorded_at"], _time),
         source_identity=_optional_text(item["source_identity"], "source_identity"),
@@ -387,13 +396,19 @@ def _link_metadata(value: Any) -> LinkObservationMetadata:
     return LinkObservationMetadata.from_mapping(value)
 
 
-def _mapping(value: Any, expected: frozenset[str], name: str) -> Mapping[str, Any]:
+def _mapping(
+    value: Any,
+    expected: frozenset[str],
+    name: str,
+    *,
+    optional: frozenset[str] = frozenset(),
+) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ValueError(f"{name} MUST be an object")
     keys = set(value)
-    if keys != set(expected):
+    if not set(expected) <= keys or not keys <= set(expected) | set(optional):
         missing = sorted(set(expected) - keys)
-        unknown = sorted(keys - set(expected))
+        unknown = sorted(keys - set(expected) - set(optional))
         raise ValueError(f"{name} keys are invalid (missing={missing}, unknown={unknown})")
     return value
 

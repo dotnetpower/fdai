@@ -454,11 +454,13 @@ def _append_termination_findings(
         conflicts.append("termination_recorded_after_cutoff")
     elif termination.event_time is not None and termination.recorded_at < termination.event_time:
         conflicts.append("termination_recorded_before_event")
-    if termination.finished_at is None:
-        gaps.append("termination_finished_at_unavailable")
-    elif termination.finished_at > cutoff:
+    if termination.finished_at is not None and termination.finished_at > cutoff:
         conflicts.append("termination_finished_after_cutoff")
-    elif termination.event_time is not None and termination.finished_at > termination.event_time:
+    elif (
+        termination.finished_at is not None
+        and termination.event_time is not None
+        and termination.finished_at > termination.event_time
+    ):
         conflicts.append("termination_finished_after_event")
     if termination.source_identity is None:
         gaps.append("termination_source_identity_unavailable")
