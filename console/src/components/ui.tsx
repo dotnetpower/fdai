@@ -8,7 +8,7 @@
  */
 
 import type { ComponentChildren, JSX } from "preact";
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import {
   useContentUpdatePulse,
   type ContentUpdateKey,
@@ -296,6 +296,8 @@ export interface DataTableProps<Row> {
   readonly rowActionLabel?: (row: Row, index: number) => string;
   /** Element controlled by the selection button. */
   readonly rowActionControls?: string;
+  /** Names a table that can scroll horizontally and makes it a keyboard-focusable region. */
+  readonly scrollRegionLabel?: string;
 }
 
 export function mobileColumnLabel<Row>(column: Column<Row>): string {
@@ -319,23 +321,6 @@ export function dataTableRowActionControls(
   return active && controls ? controls : undefined;
 }
 
-/** Keyboard users must reach a horizontally scrolling table, so the wrapper becomes a focusable,
- * named region only while its content overflows. */
-function useHorizontalOverflow(...dependencies: readonly unknown[]) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [overflowing, setOverflowing] = useState(false);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return undefined;
-    const update = () => setOverflowing(element.scrollWidth > element.clientWidth + 1);
-    update();
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
-    observer?.observe(element);
-    return () => observer?.disconnect();
-  }, dependencies);
-  return { ref, overflowing };
-}
-
 export function dataTableMinWidth(columnCount: number): string {
   return `${Math.max(1, columnCount) * 120}px`;
 }
@@ -350,8 +335,8 @@ export function DataTable<Row>({
   isRowActive,
   rowActionLabel,
   rowActionControls,
+  scrollRegionLabel,
 }: DataTableProps<Row>) {
-  const scroll = useHorizontalOverflow(rows, columns);
   if (rows.length === 0) {
     return (
       <div class="data-table-empty muted" role="status" aria-live="polite">
@@ -364,10 +349,9 @@ export function DataTable<Row>({
   return (
     <div
       class="data-table-wrap"
-      ref={scroll.ref}
-      tabIndex={scroll.overflowing ? 0 : undefined}
-      role={scroll.overflowing ? "region" : undefined}
-      aria-label={scroll.overflowing ? t("shared.scrollableTable") : undefined}
+      tabIndex={scrollRegionLabel ? 0 : undefined}
+      role={scrollRegionLabel ? "region" : undefined}
+      aria-label={scrollRegionLabel}
     >
       <table
         class={`data-table${clickable ? " data-table-clickable" : ""}`}

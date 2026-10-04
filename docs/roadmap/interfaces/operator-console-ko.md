@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 90b1675582d56566c590ade54518f64eb04b5688
+translation_source_sha: feda276f2db87d980194b1d9a3f2227480485103
 translation_revised: 2026-10-05
 ---
 # FDAI Console 대화
@@ -11,7 +11,7 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 
 Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니다. 비공개 초안과 바인딩은 영속 리비전을 포함하고 요청 principal 의 Mine 또는 My automations projection 에만 나타나며, Built-in 정의는 계속 카탈로그에서 시드되고 읽기 전용으로 유지됩니다. 로컬 Console은 다른 출처에서 Operator API를 호출하므로, Operator의 CORS 정책은 리비전을 확인하는 모든 변경 요청이 보내는 `If-Match` 헤더를 허용합니다. 허용하지 않으면 브라우저 사전 요청이 Operator에 도달하기 전에 이 저장을 차단합니다. 커밋된 리비전은 `X-FDAI-Revision` 응답 헤더로 전달되며, Operator의 CORS 정책은 이 헤더를 노출합니다. Console은 이 헤더에서 초안 리비전을 읽고, 헤더가 없으면 저장을 실패로 처리합니다.
 배포된 Console은 `api://<fdai-api-guid>/access` 범위를 요청하지만, Operator와 Document Ingestion API는 발급된 v2 액세스 토큰을 `fdai-api` 클라이언트 ID로 검증합니다. 이 값이 토큰의 `aud`이기 때문입니다. 배포는 이 클라이언트 ID를 오디언스로 기록하므로 로그인이 잘못된 오디언스로 실패하지 않습니다.
-Console 텍스트는 WCAG 2.1 AA 대비를 충족합니다. 보조 텍스트와 상태 텍스트 역할은 각 표면에서 4.5:1 이상을 유지합니다. 표의 행 버튼은 세부 영역이 렌더링된 동안에만 `aria-controls`로 그 영역을 참조하며, 가로로 넘치는 표는 포커스할 수 있는 이름 있는 영역이 됩니다. 등록된 55개 경로 전체를 대상으로, 실행 중인 Console에 동일한 CSS를 주입하여 인증된 Browser Entra axe-core 점검을 한 차례 수행해 이 규칙이 해결하는 대비 문제를 찾았습니다. `aria-controls` 변경은 단위 테스트로 확인하고, 넘침 영역 동작에는 아직 자동 테스트가 없으며, 사람의 보조 기술 검토는 별도입니다.
+Console 텍스트는 WCAG 2.1 AA 대비를 충족합니다. 보조 텍스트와 상태 텍스트 역할은 각 표면에서 4.5:1 이상을 유지합니다. 표의 행 버튼은 세부 영역이 렌더링된 동안에만 `aria-controls`로 그 영역을 참조하며, 가로로 스크롤될 수 있는 표는 Scope 축 표처럼 포커스할 수 있는 이름 있는 영역을 선택적으로 사용합니다. 등록된 55개 경로 전체를 대상으로, 실행 중인 Console에 동일한 CSS를 주입하여 인증된 Browser Entra axe-core 점검을 한 차례 수행해 이 규칙이 해결하는 대비 문제를 찾았습니다. `aria-controls` 변경은 단위 테스트로 확인하고, 스크롤 영역 선택 사용에는 아직 자동 테스트가 없으며, 사람의 보조 기술 검토는 별도입니다.
 의미 결과 핸들 참조는 Core가 발급한 불투명 토큰만 영속 턴과 함께 보관하고 다음 의미 요청에서
 최근 참조를 최대 네 개까지 돌려보냅니다. Operator에 행 본문을 노출하거나 사람 보고 경로를
 바꾸거나 Console 실행 권한을 부여하지 않습니다.
