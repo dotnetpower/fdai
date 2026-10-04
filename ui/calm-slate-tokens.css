@@ -14,10 +14,11 @@
   --cs-dusty-red: #ac5a5a;
   --cs-teal: #4f847e;
   --cs-plum: #7b6c9c;
-  /* Text roles for state colors on their own 9-12% tints; fills and borders keep the base color. */
-  --cs-sage-text: #506f4c;
-  --cs-terracotta-text: #965c3a;
-  --cs-dusty-red-text: #9f5353;
+  /* Text roles for state colors on their own 9-12% tints over card, page, shade, and selected-row
+     surfaces (>= 4.5:1); fills and borders keep the base color. */
+  --cs-sage-text: #496545;
+  --cs-terracotta-text: #855233;
+  --cs-dusty-red-text: #8d4949;
   --cs-asis-bg: #f7ecec;
   --cs-tobe-bg: #ecf2ea;
   --cs-radius: 8px;

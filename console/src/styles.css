@@ -17327,7 +17327,7 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 
 .agent-role-detail header p,
 .agent-role-detail-kicker {
-  /* Mixing toward the text color keeps every layer accent at >= 4.5:1 for small text. */
+  /* Mixing toward the text color keeps every light-theme layer accent at >= 4.5:1 for small text. */
   color: color-mix(in srgb, var(--agent-color) 70%, var(--fg));
   font-size: var(--cs-type-label-size);
   font-weight: 600;
