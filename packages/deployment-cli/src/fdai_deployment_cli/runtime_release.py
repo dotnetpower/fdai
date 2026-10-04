@@ -35,7 +35,16 @@ _COMMIT = re.compile(r"[0-9a-fA-F]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _PATH = re.compile(r"runtime/[A-Za-z0-9._+/-]+")
 _TOKEN = re.compile(r"[A-Za-z0-9._:/-]+")
-_SEMVER = re.compile(r"v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?")
+_SEMVER = re.compile(
+    r"(0|[1-9][0-9]*)\."
+    r"(0|[1-9][0-9]*)\."
+    r"(0|[1-9][0-9]*)"
+    r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    r"\Z",
+    re.ASCII,
+)
+_NUMERIC = re.compile(r"0|[1-9][0-9]*\Z", re.ASCII)
+_ALPHANUMERIC_NUMERIC_SUFFIX = re.compile(r"([0-9A-Za-z-]*[A-Za-z-])([0-9]+)\Z", re.ASCII)
 _PLATFORMS = {"linux-x86_64", "linux-aarch64"}
 RUNTIME_SERVICES = frozenset(
     {
@@ -115,10 +124,16 @@ class RecallRecord:
             raise ValueError("recall sequence MUST be a non-negative integer")
         if _TOKEN.fullmatch(self.target) is None:
             raise ValueError("recall target is invalid")
+        if self.scope == "release" and _release_version_parts(self.target) is None:
+            raise ValueError("recall Release id is invalid")
         if _SHA256.fullmatch(self.notice_digest) is None:
             raise ValueError("recall notice digest is invalid")
         if self.action == "lift":
-            if self.lifting_release_id is None or _TOKEN.fullmatch(self.lifting_release_id) is None:
+            if (
+                self.lifting_release_id is None
+                or _TOKEN.fullmatch(self.lifting_release_id) is None
+                or _release_version_parts(self.lifting_release_id) is None
+            ):
                 raise ValueError("recall lift MUST name the lifting Release")
         elif self.lifting_release_id is not None:
             raise ValueError("recall records MUST NOT name a lifting Release")
@@ -340,7 +355,7 @@ def recall_target_ordering(
 
     problem = _recall_record_problem(recall_records, release_id=release_id)
     if problem is not None:
-        return ()
+        raise RuntimeReleaseError(problem.reason_code)
     active = _active_recalls(recall_records, candidate_release_id=release_id)
     release_priority = (
         (active[("release", release_id)], f"release:{release_id}")
@@ -367,6 +382,8 @@ def recall_target_ordering(
 def _recall_record_problem(
     records: tuple[RecallRecord, ...], *, release_id: str
 ) -> ReleaseDecision | None:
+    if _release_version_parts(release_id) is None:
+        return ReleaseDecision(False, "release_version_invalid", (release_id,))
     observed: set[tuple[str, str, int]] = set()
     for record in records:
         key = (record.scope, record.target, record.sequence)
@@ -379,10 +396,7 @@ def _recall_record_problem(
         observed.add(key)
         if record.action == "lift" and record.scope == "capability":
             assert record.lifting_release_id is not None
-            if (
-                _release_version_key(release_id) is None
-                or _release_version_key(record.lifting_release_id) is None
-            ):
+            if _release_version_parts(record.lifting_release_id) is None:
                 return ReleaseDecision(
                     False,
                     "release_version_invalid",
@@ -407,20 +421,76 @@ def _active_recalls(
 
 
 def _release_at_or_after(candidate: str, baseline: str | None) -> bool:
-    candidate_key = _release_version_key(candidate)
-    baseline_key = _release_version_key(baseline)
-    return candidate_key is not None and baseline_key is not None and candidate_key >= baseline_key
+    candidate_parts = _release_version_parts(candidate)
+    baseline_parts = _release_version_parts(baseline)
+    return (
+        candidate_parts is not None
+        and baseline_parts is not None
+        and _compare_release_versions(candidate_parts, baseline_parts) >= 0
+    )
 
 
-def _release_version_key(value: str | None) -> tuple[int, int, int, tuple[int, str]] | None:
+def _release_version_parts(
+    value: str | None,
+) -> tuple[int, int, int, tuple[str, ...] | None] | None:
     if value is None:
         return None
     match = _SEMVER.fullmatch(value)
     if match is None:
         return None
     major, minor, patch, prerelease = match.groups()
-    prerelease_key = (1, "") if prerelease is None else (0, prerelease)
-    return int(major), int(minor), int(patch), prerelease_key
+    prerelease_parts: tuple[str, ...] | None = None
+    if prerelease is not None:
+        prerelease_parts = tuple(prerelease.split("."))
+        if any(part.isdigit() and _NUMERIC.fullmatch(part) is None for part in prerelease_parts):
+            return None
+    return int(major), int(minor), int(patch), prerelease_parts
+
+
+def _compare_release_versions(
+    left: tuple[int, int, int, tuple[str, ...] | None],
+    right: tuple[int, int, int, tuple[str, ...] | None],
+) -> int:
+    left_core, right_core = left[:3], right[:3]
+    if left_core != right_core:
+        return 1 if left_core > right_core else -1
+    left_prerelease, right_prerelease = left[3], right[3]
+    if left_prerelease is None and right_prerelease is None:
+        return 0
+    if left_prerelease is None:
+        return 1
+    if right_prerelease is None:
+        return -1
+    return _compare_prerelease(left_prerelease, right_prerelease)
+
+
+def _compare_prerelease(left: tuple[str, ...], right: tuple[str, ...]) -> int:
+    for left_part, right_part in zip(left, right, strict=False):
+        left_numeric, right_numeric = left_part.isdigit(), right_part.isdigit()
+        if left_numeric and right_numeric:
+            left_number, right_number = int(left_part), int(right_part)
+            if left_number != right_number:
+                return 1 if left_number > right_number else -1
+        elif left_numeric != right_numeric:
+            return -1 if left_numeric else 1
+        elif (numeric_suffix_order := _compare_numeric_suffix(left_part, right_part)) is not None:
+            return numeric_suffix_order
+        elif left_part != right_part:
+            return 1 if left_part > right_part else -1
+    if len(left) == len(right):
+        return 0
+    return 1 if len(left) > len(right) else -1
+
+
+def _compare_numeric_suffix(left: str, right: str) -> int | None:
+    left_match = _ALPHANUMERIC_NUMERIC_SUFFIX.fullmatch(left)
+    right_match = _ALPHANUMERIC_NUMERIC_SUFFIX.fullmatch(right)
+    if left_match is None or right_match is None or left_match.group(1) != right_match.group(1):
+        return None
+    left_number, right_number = int(left_match.group(2)), int(right_match.group(2))
+    if left_number == right_number:
+        return 0
+    return 1 if left_number > right_number else -1
 
 
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:

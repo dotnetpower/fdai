@@ -293,14 +293,12 @@ def test_recall_duplicate_sequence_fails_closed_in_both_orders(reverse: bool) ->
     )
     assert decision.allowed is False
     assert decision.reason_code == "recall_sequence_duplicate"
-    assert (
+    with pytest.raises(RuntimeReleaseError, match="recall_sequence_duplicate"):
         recall_target_ordering(
             release_id="1.5.1",
             capability_ids=("action:scale-service",),
             recall_records=records,
         )
-        == ()
-    )
 
 
 def test_release_scope_lift_does_not_readmit_same_recalled_release() -> None:
@@ -348,6 +346,89 @@ def test_recall_lift_requires_valid_candidate_release_ordering() -> None:
     )
     assert decision.allowed is False
     assert decision.reason_code == "release_version_invalid"
+
+
+@pytest.mark.parametrize(
+    ("candidate", "lifting_release", "allowed"),
+    [
+        ("1.5.0-rc.2", "1.5.0-rc.10", False),
+        ("1.5.0-rc2", "1.5.0-rc10", False),
+        ("1.5.0-beta.11", "1.5.0-beta.2", True),
+        ("1.5.0-alpha.1.1", "1.5.0-alpha.1", True),
+        ("1.5.0-alpha.1", "1.5.0-alpha.1.1", False),
+        ("1.5.0", "1.5.0-rc.10", True),
+    ],
+)
+def test_recall_lift_uses_semver_prerelease_precedence(
+    candidate: str, lifting_release: str, allowed: bool
+) -> None:
+    records = (
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=1,
+            notice_digest=NOTICE_A,
+        ),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=2,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id=lifting_release,
+        ),
+    )
+    decision = evaluate_recall_candidate(
+        release_id=candidate,
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert decision.allowed is allowed
+    if not allowed:
+        assert decision.reason_code == "capability_recalled"
+
+
+@pytest.mark.parametrize(
+    "release_id",
+    ["v1.5.0", "1.05.0", "١.5.0", "1.5.0+build.1", "1.5.0-01"],
+)
+def test_recall_candidate_rejects_noncanonical_release_id(release_id: str) -> None:
+    records = (RecallRecord(scope="release", target="1.5.0", sequence=1, notice_digest=NOTICE_A),)
+    decision = evaluate_recall_candidate(
+        release_id=release_id,
+        capability_ids=(),
+        recall_records=records,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == "release_version_invalid"
+    with pytest.raises(RuntimeReleaseError, match="release_version_invalid"):
+        recall_target_ordering(release_id=release_id, capability_ids=(), recall_records=records)
+
+
+@pytest.mark.parametrize("target", ["v1.5.0", "1.05.0", "١.5.0", "1.5.0+build.1"])
+def test_recall_record_rejects_noncanonical_release_target(target: str) -> None:
+    with pytest.raises(ValueError, match="Release id|target"):
+        RecallRecord(
+            scope="release",
+            target=target,
+            sequence=1,
+            notice_digest=NOTICE_A,
+        )
+
+
+@pytest.mark.parametrize("lifting_release", ["v1.5.1", "1.05.1", "١.5.1"])
+def test_recall_record_rejects_noncanonical_lifting_release(
+    lifting_release: str,
+) -> None:
+    with pytest.raises(ValueError, match="lifting Release"):
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=1,
+            notice_digest=NOTICE_A,
+            action="lift",
+            lifting_release_id=lifting_release,
+        )
 
 
 def test_recall_record_rejects_bool_sequence_and_missing_notice_digest() -> None:
