@@ -138,13 +138,13 @@
         "When does Odin intervene?",
         "Odin이 개입하지 않는 경우는 언제인가요?"
       ],
-      "source_manifest_hash": "1dacfb30953f2bd858fb04ff5ae674b98675ba8a181f568105295cbef25d7560",
+      "source_manifest_hash": "c0befdae01b4aeaa093b150db5b55aaf36119403de75429b03034d3515e073b3",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "74c7aa3a54e704adbca09a09b38024a8937256ec",
-          "line_end": 274,
-          "line_start": 217,
+          "blob_sha": "aad4abb7bff6565b32d1f1809c4bb9d7b526a1b3",
+          "line_end": 275,
+          "line_start": 218,
           "path": "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration.py",
           "source_kind": "code",
           "symbol": "ForsetiArbitrationMixin.maybe_request_arbitration"
