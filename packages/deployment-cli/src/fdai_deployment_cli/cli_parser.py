@@ -9,6 +9,7 @@ from pathlib import Path
 from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
 
 from fdai_deployment_cli.__about__ import __version__
+from fdai_deployment_cli.aks_service_update import SERVICES as AKS_SERVICES
 from fdai_deployment_cli.cli_help import (
     AZURE_DESCRIPTION,
     AZURE_EPILOG,
@@ -19,9 +20,8 @@ from fdai_deployment_cli.cli_help import (
     command_group,
 )
 from fdai_deployment_cli.foundation_plan import register_foundation_plan_command
-from fdai_deployment_cli.state_handoff import register_state_handoff_command
-from fdai_deployment_cli.aks_service_update import SERVICES as AKS_SERVICES
 from fdai_deployment_cli.runtime_profile import DATABASE_SKUS
+from fdai_deployment_cli.state_handoff import register_state_handoff_command
 
 CommandHandler = Callable[[argparse.Namespace], int]
 
@@ -240,6 +240,16 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         help=(
             "Private reviewed GitHub App profile; omit for an explicit skipped "
             "catalog-review checkpoint"
+        ),
+    )
+    settings.add_argument(
+        "--evidence-verifier-input",
+        type=Path,
+        metavar="PATH",
+        dest="operational_evidence_verifier_input",
+        help=(
+            "Private reviewed verifier deployment input; omit to keep the independent "
+            "operational evidence verifier disabled"
         ),
     )
     settings.add_argument(

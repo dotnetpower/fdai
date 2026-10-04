@@ -23,11 +23,13 @@ from fdai_service_contracts.product_profile import ObservationDataSource, Produc
 from fdai_deployment_cli import (
     aks_readiness,
     catalog_review_profile,
+    source_application_inputs,
     standalone_host_values,
     standalone_planned_outputs,
     standalone_terraform_environment,
 )
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
+from fdai_deployment_cli import operational_evidence_verifier_input as oev
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     secret_binding_reordered,
@@ -56,11 +58,9 @@ from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
     legacy_runtime_profile_digest,
 )
-from fdai_deployment_cli import source_application_inputs
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
 )
-
 from fdai_deployment_cli.standalone_aks_inventory import (
     initial_inventory_binding as _initial_inventory_binding,
 )
@@ -229,6 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--adoption-descriptor", type=Path)
     prepare.add_argument("--catalog-review-profile", type=Path)
     prepare.add_argument("--catalog-review-private-key", type=Path)
+    prepare.add_argument("--operational-evidence-verifier-input", type=Path)
     prepare.add_argument("--runtime-platform", default="aks")
     prepare.add_argument("--database-placement", default="postgres-flex")
     prepare.add_argument("--system-node-count", type=int, default=3)
@@ -420,6 +421,11 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _absolute(catalog_profile_path) if catalog_profile_path else None,
         _absolute(catalog_key_path) if catalog_key_path else None,
     )
+    verifier_input_path = getattr(args, "operational_evidence_verifier_input", None)
+    verifier_input = oev.staged_operational_evidence_verifier_input_from_path(
+        _absolute(verifier_input_path) if verifier_input_path else None
+    )
+    verifier_input_digest = verifier_input.input_digest if verifier_input is not None else ""
     foundation.login(_managed_identity_login, work_dir)
     suffix = (
         str(adoption[0]["resource_name_suffix"])
@@ -482,6 +488,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("entra_binding_digest") != entra_binding_digest
             or retained.get("application_state_adoption_digest", "") != adoption_digest
             or retained.get("catalog_review_profile_digest") != catalog_profile.profile_digest
+            or retained.get("oev_input_digest", "") != verifier_input_digest
             or retained.get("initial_inventory_binding") != initial_inventory_binding
             or retained.get("key_vault_name") != key_vault_name
             or retained.get("document_storage_account_name") != document_storage_account_name
@@ -634,6 +641,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         )
     )
     values.update(catalog_review_profile.catalog_review_terraform_values(catalog_profile))
+    oev.apply_operational_evidence_verifier_input(values, verifier_input)
     if adoption is not None:
         values.update(
             resolved_capabilities=adoption[0]["resolved_capabilities"],
@@ -660,6 +668,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "application_state_adoption_digest": adoption_digest,
         "catalog_review_profile_digest": catalog_profile.profile_digest,
         "catalog_review_selected": catalog_profile.selected,
+        "oev_input_digest": verifier_input_digest,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),

@@ -551,6 +551,12 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl offline install-support` | Install optional migration support from local wheels | No |
 | `fdaictl license inspect` | Verify a capability token, or an installation entitlement against both exact bindings, without a network call | No |
 
+`fdaictl provision azure --evidence-verifier-input <path>` is an AKS-only, default-off extension
+to the `--online`, `--offline-kit`, and connected source application deployment paths. The file is
+a private reviewed JSON input. It enables only the independent operational evidence verifier
+identity and workload binding, rejects placeholders and secret material, and grants no execution,
+promotion, or approval authority.
+
 ### Entra display-name ambiguity preflight
 
 **Decision and critique:** Installations that select `read-only-console` or

@@ -42,7 +42,6 @@ from fdai_deployment_cli.console_update import (
 )
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.deployment_progress import DeploymentProgress
-from fdai_deployment_cli.execution_copies import execution_copy_scope
 from fdai_deployment_cli.doctor import (
     azure_active_target_binding,
     azure_cli_authenticated,
@@ -55,6 +54,7 @@ from fdai_deployment_cli.entitlement_preflight import (
     select_entitlement_mode,
 )
 from fdai_deployment_cli.entra_source import run_source_entra_operation
+from fdai_deployment_cli.execution_copies import execution_copy_scope
 from fdai_deployment_cli.license import (
     INSTALLATION_ENTITLEMENT_SCHEMA,
     inspect_installation_entitlement,
@@ -185,6 +185,9 @@ def _provision_azure(args: argparse.Namespace) -> int:
         load_catalog_review_profile,
     )
     from fdai_deployment_cli.installation_scope import InstallationOptions
+    from fdai_deployment_cli.operational_evidence_verifier_input import (
+        load_operational_evidence_verifier_input,
+    )
 
     catalog_review_profile = (
         CatalogReviewDeploymentProfile.unselected()
@@ -193,6 +196,15 @@ def _provision_azure(args: argparse.Namespace) -> int:
             args.catalog_review_profile
             if args.catalog_review_profile.is_absolute()
             else Path.cwd() / args.catalog_review_profile
+        )
+    )
+    operational_evidence_verifier_input = (
+        None
+        if args.operational_evidence_verifier_input is None
+        else load_operational_evidence_verifier_input(
+            args.operational_evidence_verifier_input
+            if args.operational_evidence_verifier_input.is_absolute()
+            else Path.cwd() / args.operational_evidence_verifier_input
         )
     )
     runtime_profile = RuntimeDeploymentProfile.create(
@@ -209,8 +221,16 @@ def _provision_azure(args: argparse.Namespace) -> int:
     )
     if catalog_review_profile.selected and args.runtime != "aks":
         raise ValueError("selected catalog review profile requires --runtime aks")
+    if operational_evidence_verifier_input is not None and args.runtime != "aks":
+        raise ValueError("operational evidence verifier input requires --runtime aks")
     if (args.prepare_only or args.preflight_only or args.teardown) and args.source is None:
         raise ValueError("source-only preparation, preflight, or teardown requires --source")
+    if operational_evidence_verifier_input is not None and (
+        args.prepare_only or args.preflight_only or args.teardown
+    ):
+        raise ValueError(
+            "operational evidence verifier input requires an application deployment run"
+        )
     if args.teardown_confirmation is not None and not args.teardown:
         raise ValueError("--teardown-confirmation requires --teardown")
     if re.fullmatch(r"[a-z][a-z0-9]{1,11}", args.foundation_workload) is None:
@@ -324,6 +344,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 timeout_seconds=args.timeout_seconds,
                 approval_file=args.approval_file,
                 foundation_recovery_directory=args.foundation_recovery_directory,
+                operational_evidence_verifier_input=operational_evidence_verifier_input,
                 interactive=args.approval_file is None,
                 installation_options=(
                     InstallationOptions(
@@ -396,6 +417,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
             adopt_foundation_directory=adoption_path(args.adopt_foundation_directory),
             adopt_foundation_recovery_directory=adoption_path(args.adopt_foundation_recovery),
             catalog_review_profile=catalog_review_profile,
+            operational_evidence_verifier_input=operational_evidence_verifier_input,
             control_package=adoption_path(args.control_package),
         )
         if result.get("deployment_ready") is not True:

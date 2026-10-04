@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
-import shutil
 
 from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
 
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.runtime_support_installation import install_runtime_support
 from fdai_deployment_cli.source_image_stage import (
     AzureRegistryBuildService,
     SourceImageSnapshot,
@@ -20,7 +21,6 @@ from fdai_deployment_cli.source_image_stage import (
 from fdai_deployment_cli.source_receiver import prepare_source_receiver
 from fdai_deployment_cli.source_snapshot import verify_source_snapshot
 from fdai_deployment_cli.source_transport import prepare_source_transport
-from fdai_deployment_cli.runtime_support_installation import install_runtime_support
 from fdai_deployment_cli.standalone_terraform_environment import source_terraform_configuration
 from fdai_deployment_cli.standalone_terraform_environment import (
     terraform_configuration as mirror_terraform_configuration,
@@ -65,6 +65,7 @@ def add_prepare_source_parser(subcommands: Subparsers, handler: object) -> None:
     prepare_source.add_argument("--adoption-descriptor", type=Path)
     prepare_source.add_argument("--catalog-review-profile", type=Path)
     prepare_source.add_argument("--catalog-review-private-key", type=Path)
+    prepare_source.add_argument("--operational-evidence-verifier-input", type=Path)
     prepare_source.add_argument("--runtime-platform", default="aks")
     prepare_source.add_argument("--database-placement", default="postgres-flex")
     prepare_source.add_argument("--system-node-count", type=int, default=3)

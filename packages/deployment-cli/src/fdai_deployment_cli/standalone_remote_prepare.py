@@ -14,6 +14,10 @@ from fdai_deployment_cli.catalog_review_profile import (
 )
 from fdai_deployment_cli.control_package import PACKAGE_ROOT, ControlPackage
 from fdai_deployment_cli.foundation_adoption_transport import stage_foundation_context
+from fdai_deployment_cli.operational_evidence_verifier_input import (
+    OperationalEvidenceVerifierDeploymentInput,
+    stage_operational_evidence_verifier_input,
+)
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
 
@@ -41,6 +45,7 @@ def prepare_remote(
     remote_adoption_descriptor: str = "",
     timeout_seconds: int,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
+    operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
     control_package: ControlPackage | None = None,
 ) -> dict[str, object]:
     """Transfer exact inputs and invoke the value-free host preparation command.
@@ -131,6 +136,12 @@ def prepare_remote(
             prepared_root=handoff_path.parent,
             remote_root=remote_root,
         )
+        verifier_arguments = stage_operational_evidence_verifier_input(
+            operational_evidence_verifier_input,
+            tunnel=tunnel,
+            prepared_root=handoff_path.parent,
+            remote_root=remote_root,
+        )
         prepare_arguments = (
             f"{remote_root}/venv/bin/python",
             "-m",
@@ -182,6 +193,7 @@ def prepare_remote(
                 for value in ("--observation-source", source.value)
             ),
             *catalog_review_arguments,
+            *verifier_arguments,
             *(
                 (
                     "--adoption-state",
