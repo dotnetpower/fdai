@@ -20,10 +20,7 @@ import {
   decodeAksCommerceProjection,
   type AksCommerceProjection,
 } from "./api-aks-commerce";
-import {
-  decodeOutcomeAssuranceProjection,
-  type OutcomeAssuranceProjection,
-} from "./api-outcome-assurance";
+import type { OutcomeAssuranceProjection } from "./api-outcome-assurance";
 import {
   decodeCostGovernanceAvailability,
   decodeCostGovernanceSettings,
@@ -221,9 +218,10 @@ export class OperatorApiClient {
     params: Readonly<Record<string, string>> = {},
   ): Promise<OutcomeAssuranceProjection> {
     await this.#requireAuthoritativeSource("/kpi/outcome-assurance");
-    return decodeOutcomeAssuranceProjection(
-      await this.#insights.panel<unknown>("/kpi/outcome-assurance", params),
-    );
+    const payload = await this.#insights.panel<unknown>("/kpi/outcome-assurance", params);
+    // Keep the decoder out of the entry bundle; only the Analytics drill-down needs it.
+    const { decodeOutcomeAssuranceProjection } = await import("./api-outcome-assurance");
+    return decodeOutcomeAssuranceProjection(payload);
   }
 
   async listHilQueue(opts: { limit?: number; query?: string } = {}): Promise<HilQueuePage> {
