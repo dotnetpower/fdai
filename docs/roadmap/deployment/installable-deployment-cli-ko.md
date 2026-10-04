@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 76b89fb5ffb2bed38e48aa502109f6be96a8bfbd
+translation_source_sha: ab8fb64b198a8e80e62e9cc6b5db267433299538
 translation_revised: 2026-10-05
 ---
 
@@ -623,6 +623,12 @@ Git 상태가 깨끗하다는 사실만으로 소스 신원을 입증하지 않�
 집중 소스 테스트는 서명, 정확한 파일 목록, SBOM 검사나 네트워크가 격리된 에어갭 훈련의
 신규 및 재개 완전 산출물 수락을 대신하지 않습니다. 전체 산출물 신뢰 경계는
 [연결이 끊긴 배포](disconnected-deployment-ko.md)를 참조하세요.
+
+CLI는 [Lifecycle 구성](lifecycle-configuration-ko.md) 패키지용 순수 검증기도 포함합니다. 이
+검증기는 허용된 비권한 축과 소유자가 없는 구성 키를 거부하고, 릴리스 기본값, 환경 구성, 가장
+구체적으로 일치하는 재정의 블록을 해석하며, 서명 전에 Key Vault 참조가 아닌 리터럴 비밀 값이
+든 패키지를 거부합니다. 아직 이 검증기를 호출하는 패키저는 없으며, 배포나 적용 권한을 부여하지
+않습니다.
 
 ## Standalone 배포 순서
 

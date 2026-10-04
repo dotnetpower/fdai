@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from fdai_deployment_cli.contracts import canonical_digest, load_json_object
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.standalone_host_state import replace_or_verify_private_json
 
@@ -18,7 +18,12 @@ _STAGED_SCHEMA = "fdai.operational-evidence-verifier-staged-input.v1"
 _MAX_INPUT_BYTES = 256 * 1024
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
-_RESOURCE_SCOPE = re.compile(r"/subscriptions/[^/]+(?:/resourceGroups/[^/]+/providers/.+)?")
+_GUID_FRAGMENT = r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
+_RESOURCE_GROUP_NAME = r"[A-Za-z0-9_.()-]{1,90}"
+_RESOURCE_SCOPE = re.compile(
+    rf"/subscriptions/{_GUID_FRAGMENT}/resourceGroups/{_RESOURCE_GROUP_NAME}"
+    r"(?:/providers/[A-Za-z0-9.]+/[A-Za-z0-9_.()/:-]+)?"
+)
 _FIXED_VERIFIER_ROLE = "fdai_operational_evidence_verifier"
 _TOP_FIELDS = frozenset(
     {
@@ -78,10 +83,9 @@ def load_operational_evidence_verifier_input(
 ) -> OperationalEvidenceVerifierDeploymentInput:
     """Load one private reviewed verifier input from the operator-selected path."""
 
-    raw = load_json_object(
-        read_private_bytes(path, max_bytes=_MAX_INPUT_BYTES),
-        label="operational evidence verifier deployment input",
-        max_bytes=_MAX_INPUT_BYTES,
+    raw = _load_json_object(
+        path,
+        "operational evidence verifier deployment input",
     )
     return _from_mapping(raw, staged=False)
 
@@ -93,10 +97,9 @@ def staged_operational_evidence_verifier_input_from_path(
 
     if path is None:
         return None
-    raw = load_json_object(
-        read_private_bytes(path, max_bytes=_MAX_INPUT_BYTES),
-        label="staged operational evidence verifier deployment input",
-        max_bytes=_MAX_INPUT_BYTES,
+    raw = _load_json_object(
+        path,
+        "staged operational evidence verifier deployment input",
     )
     return _from_mapping(raw, staged=True)
 
@@ -346,7 +349,12 @@ def _scopes(value: object, label: str) -> list[str]:
         if not isinstance(item, str) or not item.strip():
             raise ValueError(f"{label} entries must be strings")
         scope = item.strip().rstrip("/")
-        if _RESOURCE_SCOPE.fullmatch(scope) is None or "00000000-0000-0000-0000-" in scope:
+        match = _RESOURCE_SCOPE.fullmatch(scope)
+        if (
+            match is None
+            or "/resourceGroups/" not in scope
+            or _resource_group_ends_with_period(scope)
+        ):
             raise ValueError(f"{label} entries must be exact Azure resource scopes")
         _reject_placeholder(scope, label)
         scopes.append(scope)
@@ -419,6 +427,35 @@ def _mapping(value: object, label: str) -> Mapping[str, Any]:
     return value
 
 
+def _load_json_object(path: Path, label: str) -> dict[str, Any]:
+    data = read_private_bytes(path, max_bytes=_MAX_INPUT_BYTES)
+    if not data:
+        raise ValueError(f"{label} is empty")
+    try:
+        value = json.loads(
+            data.decode("utf-8"),
+            object_pairs_hook=_strict_json_object,
+        )
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{label} is not valid UTF-8") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{label} is not valid JSON") from exc
+    if not isinstance(value, dict):
+        raise ValueError(  # noqa: TRY004 - normalize untrusted JSON into a stable CLI error
+            f"{label} MUST be a JSON object"
+        )
+    return value
+
+
+def _strict_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    value: dict[str, object] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON key: {key}")
+        value[key] = item
+    return value
+
+
 def _json_text(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
@@ -426,9 +463,15 @@ def _json_text(value: object) -> str:
 def _json_field(value: Mapping[str, Any], field: str) -> object:
     raw = _text(value, field)
     try:
-        return json.loads(raw)
+        return json.loads(raw, object_pairs_hook=_strict_json_object)
     except json.JSONDecodeError as exc:
         raise ValueError(f"{field} must be valid JSON") from exc
+
+
+def _resource_group_ends_with_period(scope: str) -> bool:
+    marker = "/resourceGroups/"
+    group = scope.split(marker, 1)[1].split("/", 1)[0]
+    return group.endswith(".")
 
 
 def _reject_placeholder(value: str, field: str) -> None:

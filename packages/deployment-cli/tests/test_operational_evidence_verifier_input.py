@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -38,6 +39,10 @@ def _scope(name: str) -> str:
         + "/resourceGroups/rg-fdai-dev-test/providers/FDAI.Test/"
         + name
     )
+
+
+def _resource_group_scope() -> str:
+    return "/subscriptions/" + _guid(80) + "/resourceGroups/rg-fdai-dev-test"
 
 
 def _input() -> dict[str, object]:
@@ -136,6 +141,45 @@ def test_valid_input_enables_terraform_and_renders_workload(tmp_path: Path) -> N
     assert workload["environment"]["FDAI_DATABASE_ROLE"] == ("fdai_operational_evidence_verifier")
 
 
+def test_valid_input_accepts_verifier_terraform_role_assignment_scope_shapes(
+    tmp_path: Path,
+) -> None:
+    role_scopes = _verifier_role_assignment_scope_shapes()
+    value = _input()
+    value["role_readback_scopes"] = sorted(
+        {scope for scopes in role_scopes.values() for scope in scopes}
+    )
+    value["allowed_role_scopes"] = role_scopes
+
+    profile = load_operational_evidence_verifier_input(_write(tmp_path / "verifier.json", value))
+
+    allowed = json.loads(str(profile.binding["allowed_role_scopes_json"]))
+    assert allowed["AcrPull"] == [
+        _resource_group_scope() + "/providers/Microsoft.ContainerRegistry/registries/acrfdai"
+    ]
+    assert allowed["Key Vault Secrets User"] == [
+        _resource_group_scope()
+        + "/providers/Microsoft.KeyVault/vaults/kv-fdai-dev/secrets/fdai-state-store-dsn"
+    ]
+    assert allowed["Monitoring Reader"] == [_resource_group_scope()]
+
+
+def test_duplicate_json_keys_are_rejected(tmp_path: Path) -> None:
+    path = tmp_path / "verifier.json"
+    path.write_text(
+        json.dumps(_input(), separators=(",", ":")).replace(
+            '"trust_registry_pin":"',
+            '"trust_registry_pin":"duplicate","trust_registry_pin":"',
+            1,
+        ),
+        encoding="utf-8",
+    )
+    path.chmod(0o600)
+
+    with pytest.raises(ValueError, match="duplicate JSON key"):
+        load_operational_evidence_verifier_input(path)
+
+
 @pytest.mark.parametrize(
     ("mutate", "message"),
     [
@@ -177,3 +221,48 @@ def test_public_cli_exposes_private_input_path() -> None:
     )
 
     assert args.operational_evidence_verifier_input == Path("verifier.json")
+
+
+def _verifier_role_assignment_scope_shapes() -> dict[str, list[str]]:
+    root = Path(__file__).resolve().parents[3]
+    source = (root / "infra/main.tf").read_text(encoding="utf-8")
+    pattern = re.compile(
+        r'resource "azurerm_role_assignment" "operational_evidence_verifier_[^"]+" '
+        r"\{(?P<body>.*?)\n\}",
+        re.DOTALL,
+    )
+    expression_scopes: dict[str, str] = {
+        "module.container_registry.id": (
+            _resource_group_scope() + "/providers/Microsoft.ContainerRegistry/registries/acrfdai"
+        ),
+        "azurerm_key_vault_secret.state_store_dsn.resource_versionless_id": (
+            _resource_group_scope()
+            + "/providers/Microsoft.KeyVault/vaults/kv-fdai-dev/secrets/fdai-state-store-dsn"
+        ),
+        "module.resource_group.id": _resource_group_scope(),
+    }
+    role_scopes: dict[str, list[str]] = {}
+    for match in pattern.finditer(source):
+        body = match.group("body")
+        scope_match = re.search(r"^\s*scope\s+=\s+([^\n]+)$", body, flags=re.MULTILINE)
+        role_match = re.search(
+            r'^\s*role_definition_name\s+=\s+"([^"]+)"$',
+            body,
+            flags=re.MULTILINE,
+        )
+        assert scope_match is not None
+        assert role_match is not None
+        scope_expression = scope_match.group(1).strip()
+        assert scope_expression in expression_scopes
+        role_scopes[role_match.group(1)] = [expression_scopes[scope_expression]]
+    assert role_scopes == {
+        "AcrPull": [
+            _resource_group_scope() + "/providers/Microsoft.ContainerRegistry/registries/acrfdai"
+        ],
+        "Key Vault Secrets User": [
+            _resource_group_scope()
+            + "/providers/Microsoft.KeyVault/vaults/kv-fdai-dev/secrets/fdai-state-store-dsn"
+        ],
+        "Monitoring Reader": [_resource_group_scope()],
+    }
+    return role_scopes

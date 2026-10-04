@@ -145,16 +145,19 @@ export function BackgroundTasksRoute({ client }: { readonly client: OperatorApiC
         )}
       </AsyncBoundary>
       {selectedTaskId === null ? null : (
-        <AsyncBoundary state={detailState} resourceLabel={backgroundTasksText("detailLabel", { taskId: selectedTaskId })}>
-          {(detail) => (
-            <TaskDetailView
-              detail={detail}
-              refreshing={refreshing}
-              onRefresh={() => void loadDetail(selectedTaskId, true)}
-              onClose={() => navigate(routeHref("background-tasks"))}
-            />
-          )}
-        </AsyncBoundary>
+        // A stable container keeps the row's aria-controls target present while the detail loads or fails.
+        <div id="background-task-detail">
+          <AsyncBoundary state={detailState} resourceLabel={backgroundTasksText("detailLabel", { taskId: selectedTaskId })}>
+            {(detail) => (
+              <TaskDetailView
+                detail={detail}
+                refreshing={refreshing}
+                onRefresh={() => void loadDetail(selectedTaskId, true)}
+                onClose={() => navigate(routeHref("background-tasks"))}
+              />
+            )}
+          </AsyncBoundary>
+        </div>
       )}
     </div>
   );
@@ -246,7 +249,7 @@ function TaskDetailView({ detail, refreshing, onRefresh, onClose }: {
 }) {
   const { task, progress } = detail;
   return (
-    <section id="background-task-detail" class="stack-section" aria-label={backgroundTasksText("detailLabel", { taskId: task.task_id })}>
+    <section class="stack-section" aria-label={backgroundTasksText("detailLabel", { taskId: task.task_id })}>
       <header class="background-task-detail-header">
         <div class="background-task-detail-heading">
           <p class="background-task-eyebrow mono">{task.task_id}</p>

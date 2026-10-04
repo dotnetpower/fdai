@@ -632,6 +632,12 @@ cancellation. Focused source tests do not replace signature verification, exact-
 checks, or fresh and resumed complete artifact acceptance in the network-isolated air-gap drill.
 See [Disconnected Deployment](disconnected-deployment.md) for the complete artifact trust boundary.
 
+The CLI also carries pure validators for [Lifecycle Configuration](lifecycle-configuration.md)
+packages. They reject configuration keys without an allowed non-authority axis and an owner, resolve
+Release defaults, environment configuration, and the most specific matching override block, and
+reject a package that holds a literal secret value instead of a Key Vault reference before signing.
+No packager calls them yet, and they grant no deployment or apply authority.
+
 ## Standalone deployment sequence
 
 The coordinator performs these stages in order:

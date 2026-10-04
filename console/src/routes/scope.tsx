@@ -246,6 +246,7 @@ function ScopeAxisTable({ axis }: { readonly axis: ScopeAxis }) {
         rows={axis.entries}
         keyOf={(item) => `${item.address}:${item.state}`}
         empty={t("scope.emptyAxis")}
+        scrollRegionLabel={t(`scope.axis.${axis.axis}`)}
       />
     </section>
   );
