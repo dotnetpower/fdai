@@ -19,6 +19,9 @@ from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.deployment_cost import inspect_aks_compute_cost
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.installation_scope import InstallationOptions, confirm_installation_scope
+from fdai_deployment_cli.operational_evidence_verifier_input import (
+    OperationalEvidenceVerifierDeploymentInput,
+)
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
@@ -42,6 +45,7 @@ def plan_source_installation(
     installation_options: InstallationOptions | None = None,
     confirm_initial: bool = False,
     foundation_recovery_directory: Path | None = None,
+    operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
 ) -> dict[str, object]:
     """Advance source Foundation through exact human approvals, or stop for review.
 
@@ -57,6 +61,8 @@ def plan_source_installation(
 
         if interactive or confirm_initial or installation_options is not None:
             raise ValueError("source recovery cannot replace the retained initial scope or prompt")
+        if operational_evidence_verifier_input is not None:
+            raise ValueError("source recovery cannot add a new operational evidence verifier input")
         return resume_source_installation(
             source_root=source_root,
             work_dir=work_dir,
@@ -307,6 +313,7 @@ def plan_source_installation(
                 application_state_adoption=None,
                 foundation_state_receipt_digest=str(expected_handoff_digest),
                 catalog_review_profile=CatalogReviewDeploymentProfile.unselected(),
+                operational_evidence_verifier_input=operational_evidence_verifier_input,
                 current_operator_object_id=lambda: "",
                 source_snapshot=work_dir / "source-snapshot",
                 source_snapshot_digest=str(prepared["source_snapshot_digest"]),

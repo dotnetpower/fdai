@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from fdai_service_contracts.product_profile import ProductAddOn
+
 from fdai_deployment_cli.aks_preflight import inspect_aks_target
 from fdai_deployment_cli.application_state_adoption import (
     ApplicationStateAdoption,
@@ -29,6 +31,9 @@ from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
 from fdai_deployment_cli.foundation_failure import foundation_failure_summary
 from fdai_deployment_cli.foundation_output import foundation_output
 from fdai_deployment_cli.foundation_process import run_foundation_process
+from fdai_deployment_cli.operational_evidence_verifier_input import (
+    OperationalEvidenceVerifierDeploymentInput,
+)
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_application_completion import complete_application
@@ -40,7 +45,6 @@ from fdai_deployment_cli.standalone_foundation_transition import (
     run_foundation_transition,
 )
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
-from fdai_service_contracts.product_profile import ProductAddOn
 
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -90,6 +94,7 @@ def deploy_azure_foundation(
     adopt_foundation_directory: Path | None = None,
     adopt_foundation_recovery_directory: Path | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
+    operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
     control_package: Path | None = None,
 ) -> dict[str, object]:
     """Advance one standalone deployment through verified application convergence.
@@ -170,6 +175,7 @@ def deploy_azure_foundation(
         trial_token=trial_token,
         application_state_adoption=adoption,
         catalog_review_profile=catalog_review_profile,
+        operational_evidence_verifier_input=operational_evidence_verifier_input,
         current_operator_object_id=_current_operator_object_id,
         control_package=control,
     )
@@ -364,6 +370,7 @@ def deploy_azure_foundation(
                 catalog_review_profile=(
                     catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
                 ),
+                operational_evidence_verifier_input=operational_evidence_verifier_input,
                 current_operator_object_id=_current_operator_object_id,
                 control_package=control,
             )

@@ -17,6 +17,9 @@ from fdai_deployment_cli.control_package import ControlPackage
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit
 from fdai_deployment_cli.deployment_progress import begin_stage, terminal_output
+from fdai_deployment_cli.operational_evidence_verifier_input import (
+    OperationalEvidenceVerifierDeploymentInput,
+)
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_application import deploy_standalone_application
 
@@ -35,6 +38,7 @@ def complete_application(
     current_operator_object_id: Callable[[], str],
     foundation_adoption_receipt_digest: str | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
+    operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
     control_package: ControlPackage | None = None,
     source_snapshot: Path | None = None,
     source_snapshot_digest: str | None = None,
@@ -80,6 +84,7 @@ def complete_application(
         catalog_review_profile=(
             catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
         ),
+        operational_evidence_verifier_input=operational_evidence_verifier_input,
         control_package=control_package,
         source_snapshot=source_snapshot,
         source_snapshot_digest=source_snapshot_digest,

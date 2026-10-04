@@ -27,14 +27,17 @@ from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, archive_verified_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
 from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
+from fdai_deployment_cli.operational_evidence_verifier_input import (
+    OperationalEvidenceVerifierDeploymentInput,
+)
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_application_inputs import (
     build_source_console,
     source_transfer_inputs,
 )
-from fdai_deployment_cli.standalone_console_publish import publish_verified_console
 from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
+from fdai_deployment_cli.standalone_console_publish import publish_verified_console
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.standalone_transfer_cleanup import cleanup_remote_transfers, remote_prune
@@ -57,6 +60,7 @@ def deploy_standalone_application(
     runtime_profile: RuntimeDeploymentProfile | None = None,
     application_state_adoption: ApplicationStateAdoption | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
+    operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
     control_package: ControlPackage | None = None,
     source_snapshot: Path | None = None,
     source_snapshot_digest: str | None = None,
@@ -190,6 +194,7 @@ def deploy_standalone_application(
             catalog_review_profile=(
                 catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
             ),
+            operational_evidence_verifier_input=operational_evidence_verifier_input,
             control_package=control_package,
         )
         if (

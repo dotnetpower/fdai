@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: d5b4b1d65f22ddf5c937e0aa994649a0fc1ece2a
-translation_revised: 2026-10-03
+translation_source_sha: 76b89fb5ffb2bed38e48aa502109f6be96a8bfbd
+translation_revised: 2026-10-05
 ---
 
 # 설치형 배포 CLI
@@ -544,6 +544,11 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 | `fdaictl offline prepare` | 로컬 배포 페이로드 준비. Python 패키지 설치에는 필요하지 않음 | 아니요 |
 | `fdaictl offline install-support` | 로컬 wheel에서 선택적 마이그레이션 지원 설치 | 아니요 |
 | `fdaictl license inspect` | 네트워크 호출 없이 기능 토큰을 검증하거나, 설치 사용권을 두 정확한 바인딩으로 검증 | 아니요 |
+
+`fdaictl provision azure --evidence-verifier-input <path>`는 AKS 전용이며 기본값이 꺼진
+`--online`, `--offline-kit`, 연결된 소스 애플리케이션 배포 경로의 확장입니다. 이 파일은
+비공개 검토 JSON 입력입니다. 독립 운영 근거 검증기 신원과 워크로드 바인딩만 사용하도록
+설정하고, 자리 표시자와 시크릿 자료를 거부하며, 실행, 승격, 승인 권한을 부여하지 않습니다.
 
 ### Entra 표시 이름 모호성 사전 점검
 

@@ -12,8 +12,9 @@ owners keep consuming them through the unchanged admission seam.
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
 > The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,
 > Operator authentication receipt, the three test-context readbacks, an unwired case-history
-> readback module, class-specific records in every consuming owner, Settings readiness observation, and
-> opt-in deployed verifier workload renderers exist and pass local checks; see
+> readback module, class-specific records in every consuming owner, Settings readiness observation,
+> opt-in deployed verifier workload renderers, and the reviewed standalone deployment input exist
+> and pass local checks; see
 > [Implementation notes](#implementation-notes). No connected deployed verifier start has been observed, and
 > forecast purposes without a bound source readback stay `unavailable`.
 >
@@ -496,7 +497,11 @@ tracks what remains.
   unresolved role definitions, identity mismatches, vault-wide secret access, other-secret access, or write/data-plane roles outside the exact rendered read scopes. Terraform
   renders only internal ingress. The AKS standalone renderer can render the same verifier as a separate
   internal workload only when deployment-owned registry pins, anchors, caller-token validation data, writer
-  membership policy, role-readback scopes, and a dedicated verifier identity are present. The root Terraform
+  membership policy, role-readback scopes, and a dedicated verifier identity are present. The standalone
+  deployment CLI keeps that input default-off and accepts it only from a private reviewed JSON file that
+  rejects unknown fields, missing pins, placeholders, secret key material, non-GUID principals, and any
+  verifier database role other than `fdai_operational_evidence_verifier`; selecting it sets the Terraform
+  identity flag and the application workload binding only. The root Terraform
   stage creates that identity only when enabled, grants it image pull and the exact state-store DSN secret, and
   uses `principal_type = "ServicePrincipal"` for those same-configuration Managed Identity role assignments.
   The current caller authenticator consumes a deployment-supplied JWKS snapshot;

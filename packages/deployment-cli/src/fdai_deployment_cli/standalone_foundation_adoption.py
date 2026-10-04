@@ -12,6 +12,9 @@ from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
 from fdai_deployment_cli.foundation_adoption import stage_recovered_foundation
+from fdai_deployment_cli.operational_evidence_verifier_input import (
+    OperationalEvidenceVerifierDeploymentInput,
+)
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_application_completion import complete_application
 
@@ -32,6 +35,7 @@ def deploy_with_adopted_foundation(
     trial_token: Path | None,
     application_state_adoption: ApplicationStateAdoption | None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None,
+    operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None,
     current_operator_object_id: Callable[[], str],
     control_package: ControlPackage | None = None,
 ) -> dict[str, object] | None:
@@ -77,6 +81,7 @@ def deploy_with_adopted_foundation(
         foundation_state_receipt_digest=str(adoption.receipt["foundation_state_receipt_digest"]),
         foundation_adoption_receipt_digest=str(adoption.receipt["receipt_digest"]),
         catalog_review_profile=catalog_review_profile,
+        operational_evidence_verifier_input=operational_evidence_verifier_input,
         current_operator_object_id=current_operator_object_id,
         control_package=control_package,
     )
