@@ -11,7 +11,7 @@ locales:
     alt: "10.1 Console (SPA) - OIDC + Authorization Code with PKCE. The main stages are navigate https://console./,
       /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials,
       Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 /
-      WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) +
+      WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=fdai-api client ID) +
       refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn,
       roles."
   ko:
@@ -20,7 +20,7 @@ locales:
     alt: "10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드. 주요 단계는 navigate https://console./, /authorize (client_id=spa,
       scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access
       evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response,
-      /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) + refresh_token, GET /me +
+      /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=fdai-api client ID) + refresh_token, GET /me +
       Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles입니다."
 canvas:
   width: 1100
@@ -116,8 +116,8 @@ nodes:
       en: Entra ID -> Console SPA (MSAL)
       ko: Entra ID -> Console SPA (MSAL)
     description:
-      en: id_token + access_token(aud=api://) + refresh_token
-      ko: id_token + access_token(aud=api://) + refresh_token
+      en: id_token + access_token(aud=fdai-api client ID) + refresh_token
+      ko: id_token + access_token(aud=fdai-api client ID) + refresh_token
   - id: step-11
     kind: process
     badge: 11

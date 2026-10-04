@@ -101,7 +101,7 @@ def _plan() -> repository_config.RepositoryConfigPlan:
         "ENTRA_CONSOLE_API_SCOPE": f"api://{API_APP_ID}/access",
         "ENTRA_CONSOLE_SPA_CLIENT_ID": SPA_APP_ID,
         "FDAI_TEAMS_APPLICATION_ID": APPROVAL_BOT_APP_ID,
-        "OPERATOR_API_AUDIENCE": f"api://{API_APP_ID}",
+        "OPERATOR_API_AUDIENCE": API_APP_ID,
         "RBAC_APPROVERS_GROUP_ID": "approvers",
         "RBAC_BREAK_GLASS_GROUP_ID": "break-glass",
         "RBAC_CONTRIBUTORS_GROUP_ID": "contributors",
@@ -254,5 +254,27 @@ def test_entra_binding_verifier_rejects_wrong_application_name(monkeypatch) -> N
                 "ENTRA_CONSOLE_API_SCOPE",
                 "ENTRA_CONSOLE_SPA_CLIENT_ID",
                 "FDAI_TEAMS_APPLICATION_ID",
+            ),
+        )
+
+
+def test_entra_binding_verifier_rejects_app_id_uri_audience(monkeypatch) -> None:
+    # fdai-api issues v2 access tokens whose aud is the client ID, so the App ID URI form would
+    # make every deployed Operator reject real Console tokens.
+    variables = _plan().variables | {"OPERATOR_API_AUDIENCE": f"api://{API_APP_ID}"}
+    monkeypatch.setattr(
+        repository_config,
+        "_az",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("invalid audience must fail first")),
+    )
+
+    with pytest.raises(ValueError, match="Console API scope is invalid"):
+        repository_config._verify_entra_bindings(
+            variables,
+            (
+                "ENTRA_CONSOLE_API_SCOPE",
+                "ENTRA_CONSOLE_SPA_CLIENT_ID",
+                "FDAI_TEAMS_APPLICATION_ID",
+                "OPERATOR_API_AUDIENCE",
             ),
         )

@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 7b5923ed0ca24151287a98a7e6c0aee181fe12bc
-translation_revised: 2026-09-29
+translation_source_sha: 1df4e08a44749db01be30adeeab15a14461afc9b
+translation_revised: 2026-10-04
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -425,14 +425,16 @@ RBAC 그룹 슬롯, IAM 요청 및 디렉터리 계약, 콜백 권한 경로, �
 > 저장합니다. `401` 또는 `403`이면 선택기를 유지하고 운영자에게 Entra 로그인을 안내하므로,
 > 인증을 강제하는 로컬 API에 깨진 anonymous 세션으로 진입하지 않습니다.
 
-![10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드. 주요 단계는 navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles입니다.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-03.ko.svg)
+![10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드. 주요 단계는 navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=fdai-api client ID) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles입니다.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-03.ko.svg)
 
 ### 10.2 API 토큰 검증
 
 API는 다음처럼 모든 요청 검증(거부 by 기본값):
 
 1. **서명** via Entra JWKS (`https://login.microsoftonline.com/<tenant>/discovery/v2.0/keys`).
-2. **오디언스** 가 `api://<fdai-api-guid>` 와 같음.
+2. **오디언스** 가 `fdai-api` 애플리케이션(클라이언트) ID와 같음. FDAI는 `fdai-api`를
+   `requestedAccessTokenVersion: 2`로 등록하며, Entra v2 액세스 토큰의 `aud`에는 요청 범위에 쓰는
+   `api://<fdai-api-guid>` App ID URI가 아니라 클라이언트 ID가 들어갑니다.
 3. **발급자** 가 포크의 테넌트 발급자 URL과 같음.
 4. **만료 안 됨** (`exp`) 과 **not-before 유효** (`nbf`).
 5. **역할 해석** - `roles` App 역할을 먼저 사용합니다. 이 점유가 비어 있고 inline `groups`
@@ -451,7 +453,7 @@ customer-agnostic - 포크는 값만 env로 공급:
 | Env var | 필수 | 기본값 | 용도 |
 |---------|:----:|--------|------|
 | `FDAI_ENTRA_TENANT_ID` | yes | - | 포크의 단일 테넌트; 발급자 + JWKS URI 파생. |
-| `FDAI_API_AUDIENCE` | yes | - | `fdai-api` App ID URI (`api://<fdai-api-guid>`); 토큰 `aud` 가 이것과 같아야 함. |
+| `FDAI_API_AUDIENCE` | yes | - | `fdai-api` 애플리케이션(클라이언트) ID. 토큰 `aud`가 이것과 같아야 하며, App ID URI나 범위 문자열이 아닙니다. |
 | `FDAI_ENTRA_ISSUER` | no | `https://login.microsoftonline.com/<tenant>/v2.0` | v1-토큰 앱용 오버라이드 (`https://sts.windows.net/<tenant>/`). |
 | `FDAI_ENTRA_JWKS_URI` | no | 테넌트의 `.../discovery/v2.0/keys` | 소버린 / 에어갭 클라우드용 오버라이드. |
 
