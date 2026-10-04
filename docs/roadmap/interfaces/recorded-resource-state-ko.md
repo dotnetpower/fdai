@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 4427565429aa616e0a2a534a2ed49cea04a549f0
-translation_revised: 2026-09-22
+translation_source_sha: eed1578d237c684c582f27aae6bdd15abe838ac6
+translation_revised: 2026-10-05
 ---
 # 기록된 리소스 상태
 
@@ -372,6 +372,8 @@ ResourceType을 선언합니다.
   Stopped, Deallocated, Offline, Disabled, Failed, Unavailable은 빨간색으로 표시합니다.
   Transitioning, Degraded, Stale, Paused 및 모든 검토 필요 `?`는 황색으로 표시합니다. 그 밖의
   기록 값은 중립색을 유지하고, 미제공과 적용 대상 아님은 회색 또는 패턴으로 표시합니다.
+  상태 텍스트는 공유 초록색, 빨간색, 황색 텍스트 역할을 사용하며, 각 색조 배경에서 4.5:1 이상의
+  대비를 유지합니다. 채우기와 테두리는 기본 상태 색을 유지합니다.
 - 적용 가능한 운영 상태, 기록된 프로비저닝 상태 및 공급자 가용성 상태가 없는 `managed-identity`는
   완전하고 세대로 경계가 지정된 `inventory_snapshot_resource` 페이지에 존재할 때만 초록색
   `관측됨`으로 표시합니다. 관측됨은 리소스 존재만 입증하며 ID 사용 가능성, 역할 할당, 토큰 발급,
