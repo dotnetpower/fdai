@@ -1556,9 +1556,13 @@ variable "operator_api_web_search_probe_interval_seconds" {
 }
 
 variable "operator_api_audience" {
-  description = "Expected JWT aud claim (FDAI_API_AUDIENCE), commonly the API application client id for v2 tokens. Do not use the OAuth scope string. Supplied via CI Variables; never committed."
+  description = "Expected JWT aud claim (FDAI_API_AUDIENCE): the fdai-api application client id, which v2 access tokens carry as aud. Do not use the api:// App ID URI or the OAuth scope string. Supplied via CI Variables; never committed."
   type        = string
   default     = ""
+  validation {
+    condition     = var.operator_api_audience == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.operator_api_audience))
+    error_message = "operator_api_audience must be the fdai-api application (client) ID that v2 access tokens carry as aud, not the api:// App ID URI or the scope string."
+  }
 }
 
 variable "rbac_readers_group_id" {

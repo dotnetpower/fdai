@@ -417,14 +417,16 @@ recommendations; a fork tunes them via Conditional Access.
 > to Entra sign-in, so an auth-enforcing local API cannot be entered as a broken anonymous
 > session.
 
-![10.1 Console (SPA) - OIDC + Authorization Code with PKCE. The main stages are navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-03.en.svg)
+![10.1 Console (SPA) - OIDC + Authorization Code with PKCE. The main stages are navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=fdai-api client ID) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-03.en.svg)
 
 ### 10.2 API Token Validation
 
 The API validates every request as follows (deny by default):
 
 1. **Signature** via Entra JWKS (`https://login.microsoftonline.com/<tenant>/discovery/v2.0/keys`).
-2. **Audience** equals `api://<fdai-api-guid>`.
+2. **Audience** equals the `fdai-api` application (client) ID. FDAI registers `fdai-api` with
+   `requestedAccessTokenVersion: 2`, and Entra v2 access tokens carry the client ID as `aud`, not
+   the `api://<fdai-api-guid>` App ID URI used in the requested scope.
 3. **Issuer** equals the fork's tenant issuer URL.
 4. **Not expired** (`exp`) and **not-before valid** (`nbf`).
 5. **Role resolution** - prefer `roles` App Roles. If that claim is empty and inline `groups` are
@@ -442,7 +444,7 @@ verifier is customer-agnostic - a fork supplies only values, via env:
 | Env var | Required | Default | Purpose |
 |---------|:--------:|---------|---------|
 | `FDAI_ENTRA_TENANT_ID` | yes | - | The fork's single tenant; derives issuer + JWKS URI. |
-| `FDAI_API_AUDIENCE` | yes | - | The `fdai-api` App ID URI (`api://<fdai-api-guid>`); token `aud` MUST equal it. |
+| `FDAI_API_AUDIENCE` | yes | - | The `fdai-api` application (client) ID; token `aud` MUST equal it. It is not the App ID URI or the scope string. |
 | `FDAI_ENTRA_ISSUER` | no | `https://login.microsoftonline.com/<tenant>/v2.0` | Override for a v1-token app (`https://sts.windows.net/<tenant>/`). |
 | `FDAI_ENTRA_JWKS_URI` | no | tenant's `.../discovery/v2.0/keys` | Override for sovereign / air-gapped clouds. |
 

@@ -63,7 +63,7 @@ Required (fail-fast at startup):
 | `FDAI_DATABASE_URL` | Deployed production psycopg 3 DSN. Accepted schemes: `postgresql://`, `postgres://`, and `postgresql+psycopg://`. When omitted, database-backed projections are explicitly unavailable. |
 | `FDAI_DATABASE_ROLE` | Must be `fdai_operator` whenever `FDAI_DATABASE_URL` is set. |
 | `FDAI_ENTRA_TENANT_ID` | Consumed by [`EntraJwtVerifier.from_env`](../../../services/operator-service/src/fdai_operator_service/). |
-| `FDAI_API_AUDIENCE` | The `fdai-api` App ID URI (`api://<guid>`). |
+| `FDAI_API_AUDIENCE` | The `fdai-api` application (client) ID, which is the `aud` of its v2 access tokens. Not the `api://<guid>` App ID URI. |
 | `FDAI_RBAC_READERS_GROUP_ID` | Entra group `objectId` mapped to the Reader role. |
 | `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` | Entra group `objectId` mapped to Contributor. |
 | `FDAI_RBAC_APPROVERS_GROUP_ID` | Entra group `objectId` mapped to Approver. |

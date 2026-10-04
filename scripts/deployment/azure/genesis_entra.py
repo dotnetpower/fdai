@@ -263,7 +263,8 @@ def read_entra_bindings() -> dict[str, str]:
         "ENTRA_CONSOLE_API_SCOPE": f"api://{api_app['appId']}/{scope['value']}",
         "ENTRA_CONSOLE_SPA_CLIENT_ID": str(spa_app["appId"]),
         "FDAI_TEAMS_APPLICATION_ID": str(approval_bot_app["appId"]),
-        "OPERATOR_API_AUDIENCE": f"api://{api_app['appId']}",
+        # requestedAccessTokenVersion 2 tokens carry the client ID, not the App ID URI, as aud.
+        "OPERATOR_API_AUDIENCE": str(api_app["appId"]),
         **{variable: str(value["id"]) for variable, value in groups.items() if value is not None},
     }
 

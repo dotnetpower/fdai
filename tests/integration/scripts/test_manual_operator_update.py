@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -456,3 +457,32 @@ def _cost_adoption_plan() -> tuple[dict[str, object], str]:
 def _private_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
     path.chmod(0o600)
+
+
+def _with_audience(plan: dict[str, Any], before: str, after: str) -> dict[str, Any]:
+    change = plan["resource_changes"][0]["change"]
+    for side, value in (("before", before), ("after", after)):
+        change[side]["template"][0]["container"][0]["env"].append(
+            {"name": "FDAI_API_AUDIENCE", "value": value}
+        )
+    return plan
+
+
+def test_cost_adoption_admits_the_legacy_audience_canonicalization(update: ModuleType) -> None:
+    plan, secret_id = _cost_adoption_plan()
+    client_id = "00000000-0000-0000-0000-0000000000a1"
+
+    update._normalize_cost_pseudonym_adoption(
+        _with_audience(plan, f"api://{client_id}", client_id), expected_secret_id=secret_id
+    )
+
+
+def test_cost_adoption_rejects_another_audience_change(update: ModuleType) -> None:
+    plan, secret_id = _cost_adoption_plan()
+    other = "00000000-0000-0000-0000-0000000000b2"
+
+    with pytest.raises(update.ManualOperatorUpdateError, match="environment adoption is invalid"):
+        update._normalize_cost_pseudonym_adoption(
+            _with_audience(plan, "api://00000000-0000-0000-0000-0000000000a1", other),
+            expected_secret_id=secret_id,
+        )
