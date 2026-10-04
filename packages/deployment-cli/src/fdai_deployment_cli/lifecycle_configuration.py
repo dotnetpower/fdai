@@ -111,24 +111,6 @@ _REFERENCE_OR_METADATA_FINAL_TOKENS = frozenset(
     {"column", "endpoint", "id", "kind", "name", "ref", "type", "uri", "url", "version"}
 )
 _NUMERIC_COUNTER_TOKENS = frozenset({"count", "limit", "max", "min", "minute", "per", "second"})
-_NONEXEMPT_REFERENCE_TOKENS = frozenset({"passphrase", "passwd", "password", "pwd", "sas"})
-_NONEXEMPT_ENUM_TOKENS = frozenset(
-    {
-        "credential",
-        "credentials",
-        "passphrase",
-        "passwd",
-        "password",
-        "pwd",
-        "sas",
-        "secret",
-        "token",
-        "tokens",
-    }
-)
-_COLUMN_SECRET_TOKENS = frozenset(
-    {"passphrase", "passwd", "password", "pwd", "sas", "secret", "token"}
-)
 _SENSITIVE_ENUM_VALUES = frozenset(
     {
         "api-key",
@@ -417,28 +399,30 @@ def _validate_reference_or_metadata_value(
     tokens: tuple[str, ...], value: str, path: tuple[str, ...], key: str
 ) -> None:
     final = tokens[-1]
+    prefix_sensitive = _metadata_prefix_is_sensitive(tokens)
     if final == "ref":
         if _is_valid_ref_value(value):
             return
         _raise_literal_secret(path, key)
     if final == "name":
+        # The lifecycle design uses Key Vault secret names as references for secret_name and
+        # key_vault_secret_name. Other sensitive *_name fields can hide real literal secrets.
         if (
             tokens[:-1]
-            and not (set(tokens) & _NONEXEMPT_REFERENCE_TOKENS)
-            and _is_allowed_name_reference_key(tokens)
+            and (not prefix_sensitive or _is_allowed_name_reference_key(tokens))
             and _KEY_VAULT_SECRET_NAME.fullmatch(value) is not None
         ):
             return
         _raise_literal_secret(path, key)
     if final in {"url", "uri", "endpoint"}:
-        if not (set(tokens) & _NONEXEMPT_REFERENCE_TOKENS) and _is_safe_https_url(value):
+        if _is_safe_https_url(value):
             return
         _raise_literal_secret(path, key)
     if final == "id":
-        if not (set(tokens) & _NONEXEMPT_REFERENCE_TOKENS) and (
-            _GUID.fullmatch(value) is not None
-            or _AZURE_RESOURCE_ID.fullmatch(value) is not None
-            or _KEY_VAULT_SECRET_ID.fullmatch(value) is not None
+        if _KEY_VAULT_SECRET_ID.fullmatch(value) is not None:
+            return
+        if not prefix_sensitive and (
+            _GUID.fullmatch(value) is not None or _AZURE_RESOURCE_ID.fullmatch(value) is not None
         ):
             return
         _raise_literal_secret(path, key)
@@ -447,16 +431,20 @@ def _validate_reference_or_metadata_value(
             return
         _raise_literal_secret(path, key)
     if final == "column":
-        if not (set(tokens) & _COLUMN_SECRET_TOKENS) and _ENUM_VALUE.fullmatch(value) is not None:
+        if not prefix_sensitive and _ENUM_VALUE.fullmatch(value) is not None:
             return
         _raise_literal_secret(path, key)
     _raise_literal_secret(path, key)
 
 
 def _is_allowed_name_reference_key(tokens: tuple[str, ...]) -> bool:
-    if "secret" not in tokens:
-        return True
     return tokens in {("secret", "name"), ("key", "vault", "secret", "name")}
+
+
+def _metadata_prefix_is_sensitive(tokens: tuple[str, ...]) -> bool:
+    if len(tokens) <= 1:
+        return False
+    return _is_sensitive_key("".join(tokens[:-1]))
 
 
 def _is_contextual_key_secret(tokens: tuple[str, ...]) -> bool:
@@ -465,9 +453,14 @@ def _is_contextual_key_secret(tokens: tuple[str, ...]) -> bool:
 
 
 def _is_valid_enum_metadata(tokens: tuple[str, ...], value: str) -> bool:
-    token_set = set(tokens)
-    if token_set & _NONEXEMPT_ENUM_TOKENS or _is_contextual_key_secret(tokens):
-        return value in _SENSITIVE_ENUM_VALUES and _LOWER_ENUM_VALUE.fullmatch(value) is not None
+    if _metadata_prefix_is_sensitive(tokens) or _is_contextual_key_secret(tokens):
+        if tokens[-1] == "version" and _VERSION_VALUE.fullmatch(value) is not None:
+            return True
+        normalized = value.casefold()
+        return (
+            normalized in _SENSITIVE_ENUM_VALUES
+            and _LOWER_ENUM_VALUE.fullmatch(normalized) is not None
+        )
     if tokens[-1] == "version" and _VERSION_VALUE.fullmatch(value) is not None:
         return True
     return _ENUM_VALUE.fullmatch(value) is not None and not _looks_random_enum_value(value)

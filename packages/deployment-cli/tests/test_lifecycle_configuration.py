@@ -260,6 +260,21 @@ def test_layer_resolution_validates_nonmatching_override_blocks() -> None:
         ({"secret_column": "hunter2"}, ("secret_column",)),
         ({"token_type": "ghp_123456789012345678901234567890123456"}, ("token_type",)),
         ({"credential_kind": "hunter2"}, ("credential_kind",)),
+        ({"dbpassword_type": "hunter2"}, ("dbpassword_type",)),
+        ({"dbpassword_type": "Summer2024Pass"}, ("dbpassword_type",)),
+        ({"clientsecret_kind": "hunter2"}, ("clientsecret_kind",)),
+        ({"apikey_type": "hunter2"}, ("apikey_type",)),
+        ({"accesstoken_version": "hunter2"}, ("accesstoken_version",)),
+        ({"authorization_type": "hunter2"}, ("authorization_type",)),
+        ({"privatekey_kind": "hunter2"}, ("privatekey_kind",)),
+        ({"connectionstring_type": "hunter2"}, ("connectionstring_type",)),
+        ({"dbpassword_name": "hunter2"}, ("dbpassword_name",)),
+        ({"clientsecret_name": "hunter2"}, ("clientsecret_name",)),
+        ({"apikey_name": "hunter2"}, ("apikey_name",)),
+        ({"credential_column": "hunter2"}, ("credential_column",)),
+        ({"api_key_column": "id"}, ("api_key_column",)),
+        ({"access_tokens_column": "id"}, ("access_tokens_column",)),
+        ({"authorization_column": "id"}, ("authorization_column",)),
     ],
 )
 def test_package_rejects_literal_secret_values_before_signing(
@@ -326,8 +341,10 @@ def test_package_allows_reference_metadata_and_numeric_token_counters() -> None:
             "token_endpoint": "https://x.example",
             "login_token_endpoint": "https://login.example.com/oauth2/token",
             "credential_kind": "managed-identity",
+            "token_type": "Bearer",
             "primary_key_column": "id",
             "api_version": "2024-01-01",
+            "api_key_version": "2024-01-01",
             "resource_id": (
                 "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg"
                 "/providers/FDAI/type/name"
