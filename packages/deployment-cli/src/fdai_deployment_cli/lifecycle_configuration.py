@@ -1,0 +1,643 @@
+"""Pure validators for Hub lifecycle configuration packages.
+
+The functions in this module validate and resolve candidate configuration bytes before
+signing or import. They do not read files, contact Azure, sign packages, decrypt sealed
+values, grant authority, or establish deployability beyond the returned validation result.
+"""
+
+from __future__ import annotations
+
+import copy
+import re
+import unicodedata
+from collections.abc import Container, Mapping
+from collections.abc import Sequence as AbstractSequence
+from dataclasses import dataclass
+from typing import cast
+from urllib.parse import urlsplit
+
+_ANNOTATION_AXIS = "x-fdai-axis"
+_ANNOTATION_OWNER = "x-fdai-owner"
+_CONFIGURATION_AXES = frozenset(
+    {
+        "execution-venue",
+        "deployment-environment",
+        "product-surface-profile",
+        "evidence-profile",
+        "optional-package-preference",
+        "kinetic-evidence-availability",
+        "evidence-conflict-state",
+        "distribution",
+        "operational-safety-profile",
+        "installation-path",
+        "release-channel-subscription",
+        "model-diversity-policy",
+    }
+)
+_SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+_RANGE_PART = re.compile(r"^(>=|>|<=|<|=)?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+_ACRONYM_BOUNDARY = re.compile(r"(?<=[A-Z])(?=[A-Z][a-z])")
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_DIGIT_BOUNDARY = re.compile(r"(?<=[A-Za-z])(?=[0-9])|(?<=[0-9])(?=[A-Za-z])")
+_TOKEN_SPLIT = re.compile(r"[^A-Za-z0-9]+")
+_KEY_VAULT_REF = re.compile(
+    r"^kv://[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])/[A-Za-z0-9-]{1,127}$"
+)
+_KEY_VAULT_SECRET_REF = re.compile(
+    r"^[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])/[A-Za-z0-9-]{1,127}$"
+)
+_KEY_VAULT_SECRET_NAME = re.compile(r"^[A-Za-z0-9-]{1,127}$")
+_GUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_AZURE_RESOURCE_ID = re.compile(
+    r"^/subscriptions/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/resourceGroups/[A-Za-z0-9._()-]{1,90}"
+    r"(?:/providers/[A-Za-z0-9.]+(?:/[A-Za-z0-9._()-]+/[A-Za-z0-9._()-]+)+)?$"
+)
+_KEY_VAULT_SECRET_ID = re.compile(
+    r"^https://[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])"
+    r"\.vault\.azure\.net/secrets/[A-Za-z0-9-]{1,127}(?:/[0-9a-f]{32})?$"
+)
+_ENUM_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+_LOWER_ENUM_VALUE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+_VERSION_VALUE = re.compile(r"^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]+\.[0-9]+(?:\.[0-9]+)?)$")
+_DIRECT_SECRET_TOKENS = frozenset(
+    {
+        "authorization",
+        "credential",
+        "credentials",
+        "pass",
+        "passphrase",
+        "passphrases",
+        "passwd",
+        "password",
+        "passwords",
+        "pwd",
+        "sas",
+        "secret",
+        "secrets",
+        "token",
+        "tokens",
+    }
+)
+_DIRECT_SECRET_SUBSTRINGS = (
+    "apikey",
+    "connectionstring",
+    "credential",
+    "passphrase",
+    "passwd",
+    "password",
+    "privatekey",
+    "secret",
+    "token",
+)
+_KEY_CONTEXT_TOKENS = frozenset(
+    {
+        "access",
+        "account",
+        "api",
+        "client",
+        "encryption",
+        "master",
+        "primary",
+        "private",
+        "secondary",
+        "shared",
+        "signing",
+        "storage",
+        "subscription",
+    }
+)
+_REFERENCE_OR_METADATA_FINAL_TOKENS = frozenset(
+    {"column", "endpoint", "id", "kind", "name", "ref", "type", "uri", "url", "version"}
+)
+_NUMERIC_COUNTER_TOKENS = frozenset({"count", "limit", "max", "min", "minute", "per", "second"})
+_SENSITIVE_ENUM_VALUES = frozenset(
+    {
+        "api-key",
+        "basic",
+        "bearer",
+        "certificate",
+        "client-credentials",
+        "managed-identity",
+        "none",
+        "oauth2",
+        "service-principal",
+        "workload-identity",
+    }
+)
+
+Version = tuple[int, int, int]
+
+
+class ConfigurationValidationError(ValueError):
+    """Configuration validation failure with a stable machine-readable code."""
+
+    code: str
+    path: tuple[str, ...]
+
+    def __init__(self, code: str, path: AbstractSequence[str], message: str) -> None:
+        self.code = code
+        self.path = tuple(path)
+        super().__init__(message)
+
+
+@dataclass(frozen=True, slots=True)
+class LayerResolution:
+    """Resolved configuration for one Release and Entity."""
+
+    values: dict[str, object]
+    version_range: str
+
+
+@dataclass(frozen=True, slots=True)
+class _Constraint:
+    operator: str
+    version: Version
+
+
+@dataclass(frozen=True, slots=True)
+class _VersionRange:
+    source: str
+    constraints: tuple[_Constraint, ...]
+    lower: Version | None
+    lower_inclusive: bool
+    upper: Version | None
+    upper_inclusive: bool
+
+    def contains(self, version: Version) -> bool:
+        for constraint in self.constraints:
+            if constraint.operator == ">=" and version < constraint.version:
+                return False
+            if constraint.operator == ">" and version <= constraint.version:
+                return False
+            if constraint.operator == "<=" and version > constraint.version:
+                return False
+            if constraint.operator == "<" and version >= constraint.version:
+                return False
+            if constraint.operator == "=" and version != constraint.version:
+                return False
+        return True
+
+    @property
+    def specificity(self) -> tuple[Version, int, Version, int, int]:
+        """Order overlapping ranges by the most constrained matching interval."""
+
+        lower = self.lower if self.lower is not None else (-1, -1, -1)
+        upper = (
+            self.upper if self.upper is not None else (1_000_000_000, 1_000_000_000, 1_000_000_000)
+        )
+        return (
+            lower,
+            0 if self.lower_inclusive else 1,
+            (-upper[0], -upper[1], -upper[2]),
+            1 if not self.upper_inclusive else 0,
+            len(self.constraints),
+        )
+
+
+def validate_release_configuration_schema(configuration_schema: Mapping[str, object]) -> None:
+    """Validate Release configuration key annotations without granting authority."""
+
+    for key, raw_entry in configuration_schema.items():
+        _validate_printable_configuration_key(key, (key,))
+        entry = _mapping(raw_entry, ("configuration_schema", key))
+        axis = entry.get(_ANNOTATION_AXIS)
+        owner = entry.get(_ANNOTATION_OWNER)
+        if not isinstance(axis, str) or not axis or not isinstance(owner, str) or not owner:
+            raise ConfigurationValidationError(
+                "unannotated_configuration_key",
+                (key,),
+                f"configuration key {key!r} MUST declare x-fdai-axis and x-fdai-owner",
+            )
+        if _normal_token(axis) not in _CONFIGURATION_AXES:
+            raise ConfigurationValidationError(
+                "unsupported_configuration_axis",
+                (key,),
+                f"configuration key {key!r} uses an unsupported or authority axis",
+            )
+
+
+def resolve_configuration_layers(
+    *,
+    release_version: str,
+    configuration_schema: Mapping[str, object],
+    environment_config: Mapping[str, object],
+    entity_overrides: AbstractSequence[Mapping[str, object]],
+    sealed_keys: Container[str] = frozenset(),
+) -> LayerResolution:
+    """Resolve defaults, Environment Config, and the most-specific matching override block."""
+
+    validate_release_configuration_schema(configuration_schema)
+    version = _parse_version(release_version, ("release_version",))
+    values = _defaults(configuration_schema)
+    _merge_values(
+        values,
+        environment_config,
+        schema=configuration_schema,
+        sealed_keys=sealed_keys,
+        path=("environment_config",),
+    )
+    matching: list[tuple[_VersionRange, Mapping[str, object], int]] = []
+    ranges_seen: set[str] = set()
+    for index, raw_block in enumerate(entity_overrides):
+        block_path = ("entity_overrides", str(index))
+        block = _mapping(raw_block, block_path)
+        source = _text(block.get("versions"), (*block_path, "versions"))
+        values_raw = _mapping(block.get("values"), (*block_path, "values"))
+        version_range = _parse_range(source, (*block_path, "versions"))
+        if version_range.source in ranges_seen:
+            raise ConfigurationValidationError(
+                "duplicate_override_range",
+                (*block_path, "versions"),
+                f"Entity override range {source!r} is duplicated",
+            )
+        ranges_seen.add(version_range.source)
+        _validate_values(
+            values_raw,
+            schema=configuration_schema,
+            sealed_keys=sealed_keys,
+            path=(*block_path, "values"),
+        )
+        if version_range.contains(version):
+            matching.append((version_range, values_raw, index))
+    if not matching:
+        raise ConfigurationValidationError(
+            "missing_matching_override_block",
+            ("entity_overrides",),
+            f"Release {release_version!r} has no matching Entity override block",
+        )
+    selected_range, selected_values, _index = max(
+        matching, key=lambda item: (item[0].specificity, -item[2])
+    )
+    _merge_values(
+        values,
+        selected_values,
+        schema=configuration_schema,
+        sealed_keys=sealed_keys,
+        path=("entity_overrides", selected_range.source, "values"),
+    )
+    return LayerResolution(values=values, version_range=selected_range.source)
+
+
+def validate_configuration_package_for_signing(package: Mapping[str, object]) -> None:
+    """Reject literal secret values before any package signing step can run.
+
+    Key Vault references are data-plane references and are allowed. Literal values under
+    secret-bearing fields fail closed so they cannot be signed into a package.
+    """
+
+    _scan_secret_values(package, ())
+
+
+def _defaults(configuration_schema: Mapping[str, object]) -> dict[str, object]:
+    values: dict[str, object] = {}
+    for key, raw_entry in configuration_schema.items():
+        entry = _mapping(raw_entry, ("configuration_schema", key))
+        if "default" in entry:
+            values[key] = copy.deepcopy(entry["default"])
+    return values
+
+
+def _merge_values(
+    target: dict[str, object],
+    update: Mapping[str, object],
+    *,
+    schema: Mapping[str, object],
+    sealed_keys: Container[str],
+    path: tuple[str, ...],
+) -> None:
+    for key, value in update.items():
+        key_path = (*path, key)
+        _validate_configuration_key(key, schema=schema, sealed_keys=sealed_keys, path=key_path)
+        target[key] = copy.deepcopy(value)
+
+
+def _validate_values(
+    values: Mapping[str, object],
+    *,
+    schema: Mapping[str, object],
+    sealed_keys: Container[str],
+    path: tuple[str, ...],
+) -> None:
+    for key in values:
+        _validate_configuration_key(key, schema=schema, sealed_keys=sealed_keys, path=(*path, key))
+
+
+def _validate_configuration_key(
+    key: str,
+    *,
+    schema: Mapping[str, object],
+    sealed_keys: Container[str],
+    path: tuple[str, ...],
+) -> None:
+    _validate_printable_configuration_key(key, path)
+    if key not in schema:
+        raise ConfigurationValidationError(
+            "unknown_configuration_key",
+            path,
+            f"configuration key {key!r} is not declared by the Release schema",
+        )
+    if key in sealed_keys:
+        raise ConfigurationValidationError(
+            "sealed_configuration_key",
+            path,
+            f"configuration key {key!r} belongs in the sealed section",
+        )
+
+
+def _scan_secret_values(value: object, path: tuple[str, ...]) -> None:
+    if isinstance(value, Mapping):
+        _scan_name_value_secret(value, path)
+        for raw_key, raw_item in value.items():
+            key = str(raw_key)
+            item_path = (*path, key)
+            _validate_printable_configuration_key(key, item_path)
+            if _is_sensitive_key(key):
+                _validate_secret_reference(raw_item, item_path, key)
+                continue
+            _scan_secret_values(raw_item, item_path)
+        return
+    if isinstance(value, AbstractSequence) and not isinstance(value, str | bytes | bytearray):
+        for index, item in enumerate(value):
+            _scan_secret_values(item, (*path, str(index)))
+
+
+def _scan_name_value_secret(value: Mapping[object, object], path: tuple[str, ...]) -> None:
+    name_keys = [*_find_casefold_keys(value, "name"), *_find_casefold_keys(value, "key")]
+    value_keys = _find_casefold_keys(value, "value")
+    if not name_keys or not value_keys:
+        return
+    for name_key in name_keys:
+        name = value[name_key]
+        if not isinstance(name, str) or not _is_sensitive_key(name):
+            continue
+        for value_key in value_keys:
+            _validate_secret_reference(value[value_key], (*path, str(value_key)), name)
+
+
+def _validate_secret_reference(value: object, path: tuple[str, ...], key: str) -> None:
+    tokens = _tokens(key)
+    if isinstance(value, bool):
+        return
+    if isinstance(value, str) and _is_reference_or_metadata_key(tokens):
+        _validate_reference_or_metadata_value(tokens, value, path, key)
+        return
+    if _is_numeric_token_counter(tokens, value):
+        return
+    if _is_ref_key(tokens) and isinstance(value, str) and _KEY_VAULT_SECRET_NAME.fullmatch(value):
+        return
+    if _is_key_vault_reference(value):
+        return
+    _raise_literal_secret(path, key)
+
+
+def _is_valid_ref_value(value: str) -> bool:
+    return _KEY_VAULT_SECRET_NAME.fullmatch(value) is not None or _is_key_vault_reference(value)
+
+
+def _validate_reference_or_metadata_value(
+    tokens: tuple[str, ...], value: str, path: tuple[str, ...], key: str
+) -> None:
+    final = tokens[-1]
+    prefix_sensitive = _metadata_prefix_is_sensitive(tokens)
+    if final == "ref":
+        if _is_valid_ref_value(value):
+            return
+        _raise_literal_secret(path, key)
+    if final == "name":
+        # The lifecycle design uses Key Vault secret names as references for secret_name and
+        # key_vault_secret_name. Other sensitive *_name fields can hide real literal secrets.
+        if (
+            tokens[:-1]
+            and (not prefix_sensitive or _is_allowed_name_reference_key(tokens))
+            and _KEY_VAULT_SECRET_NAME.fullmatch(value) is not None
+        ):
+            return
+        _raise_literal_secret(path, key)
+    if final in {"url", "uri", "endpoint"}:
+        if _is_safe_https_url(value):
+            return
+        _raise_literal_secret(path, key)
+    if final == "id":
+        if _KEY_VAULT_SECRET_ID.fullmatch(value) is not None:
+            return
+        if not prefix_sensitive and (
+            _GUID.fullmatch(value) is not None or _AZURE_RESOURCE_ID.fullmatch(value) is not None
+        ):
+            return
+        _raise_literal_secret(path, key)
+    if final in {"kind", "type", "version"}:
+        if _is_valid_enum_metadata(tokens, value):
+            return
+        _raise_literal_secret(path, key)
+    if final == "column":
+        if not prefix_sensitive and _ENUM_VALUE.fullmatch(value) is not None:
+            return
+        _raise_literal_secret(path, key)
+    _raise_literal_secret(path, key)
+
+
+def _is_allowed_name_reference_key(tokens: tuple[str, ...]) -> bool:
+    return tokens in {("secret", "name"), ("key", "vault", "secret", "name")}
+
+
+def _metadata_prefix_is_sensitive(tokens: tuple[str, ...]) -> bool:
+    if len(tokens) <= 1:
+        return False
+    prefix = tokens[:-1]
+    return _is_sensitive_key("_".join(prefix)) or _is_sensitive_key("".join(prefix))
+
+
+def _is_contextual_key_secret(tokens: tuple[str, ...]) -> bool:
+    token_set = set(tokens)
+    return bool(token_set & {"key", "keys"} and token_set & _KEY_CONTEXT_TOKENS)
+
+
+def _is_valid_enum_metadata(tokens: tuple[str, ...], value: str) -> bool:
+    if _metadata_prefix_is_sensitive(tokens) or _is_contextual_key_secret(tokens):
+        if tokens[-1] == "version" and _VERSION_VALUE.fullmatch(value) is not None:
+            return True
+        normalized = value.casefold()
+        return (
+            normalized in _SENSITIVE_ENUM_VALUES
+            and _LOWER_ENUM_VALUE.fullmatch(normalized) is not None
+        )
+    if tokens[-1] == "version" and _VERSION_VALUE.fullmatch(value) is not None:
+        return True
+    return _ENUM_VALUE.fullmatch(value) is not None and not _looks_random_enum_value(value)
+
+
+def _looks_random_enum_value(value: str) -> bool:
+    if len(value) < 16:
+        return False
+    digit_ratio = sum(char.isdigit() for char in value) / len(value)
+    if digit_ratio > 0.35:
+        return True
+    unique_ratio = len(set(value.casefold())) / len(value)
+    return unique_ratio > 0.70
+
+
+def _is_safe_https_url(value: str) -> bool:
+    parsed = urlsplit(value)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        return False
+    return not (parsed.query or parsed.fragment)
+
+
+def _is_key_vault_reference(value: object) -> bool:
+    if isinstance(value, str) and _KEY_VAULT_REF.fullmatch(value) is not None:
+        return True
+    return (
+        isinstance(value, Mapping)
+        and set(value) == {"key_vault_secret"}
+        and isinstance(value["key_vault_secret"], str)
+        and _KEY_VAULT_SECRET_REF.fullmatch(value["key_vault_secret"]) is not None
+    )
+
+
+def _raise_literal_secret(path: tuple[str, ...], key: str) -> None:
+    raise ConfigurationValidationError(
+        "literal_secret_value",
+        path,
+        f"field {key!r} contains a literal secret value or malformed secret reference",
+    )
+
+
+def _find_casefold_keys(value: Mapping[object, object], target: str) -> tuple[object, ...]:
+    matches: list[object] = []
+    for key in value:
+        if isinstance(key, str) and key.casefold() == target:
+            matches.append(key)
+    return tuple(matches)
+
+
+def _mapping(value: object, path: tuple[str, ...]) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise ConfigurationValidationError(
+            "invalid_mapping",
+            path,
+            f"{'.'.join(path) or 'configuration'} MUST be a mapping",
+        )
+    return cast(Mapping[str, object], value)
+
+
+def _text(value: object, path: tuple[str, ...]) -> str:
+    if not isinstance(value, str) or not value:
+        raise ConfigurationValidationError(
+            "invalid_string",
+            path,
+            f"{'.'.join(path)} MUST be a non-empty string",
+        )
+    return value
+
+
+def _normal_token(value: str) -> str:
+    tokens = _tokens(value)
+    return "-".join(tokens)
+
+
+def _is_sensitive_key(value: str) -> bool:
+    tokens_tuple = _tokens(value)
+    tokens = set(tokens_tuple)
+    if tokens & _DIRECT_SECRET_TOKENS:
+        return True
+    if any(marker in token for token in tokens_tuple for marker in _DIRECT_SECRET_SUBSTRINGS):
+        return True
+    if "connection" in tokens and "string" in tokens:
+        return True
+    return bool(tokens & {"key", "keys"} and tokens & _KEY_CONTEXT_TOKENS)
+
+
+def _is_ref_key(tokens: tuple[str, ...]) -> bool:
+    return bool(tokens) and tokens[-1] == "ref"
+
+
+def _is_reference_or_metadata_key(tokens: tuple[str, ...]) -> bool:
+    return bool(tokens) and tokens[-1] in _REFERENCE_OR_METADATA_FINAL_TOKENS
+
+
+def _is_numeric_token_counter(tokens: tuple[str, ...], value: object) -> bool:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return False
+    token_set = set(tokens)
+    return bool(token_set & {"token", "tokens"} and token_set & _NUMERIC_COUNTER_TOKENS)
+
+
+def _tokens(value: str) -> tuple[str, ...]:
+    separated = _ACRONYM_BOUNDARY.sub("-", value)
+    separated = _CAMEL_BOUNDARY.sub("-", separated)
+    separated = _DIGIT_BOUNDARY.sub("-", separated)
+    return tuple(token.lower() for token in _TOKEN_SPLIT.split(separated) if token)
+
+
+def _validate_printable_configuration_key(key: str, path: tuple[str, ...]) -> None:
+    normalized = unicodedata.normalize("NFKC", key)
+    if normalized != key or any(unicodedata.category(char) == "Cf" for char in key):
+        raise ConfigurationValidationError(
+            "invalid_configuration_key",
+            path,
+            "configuration keys MUST be printable ASCII",
+        )
+    if any(ord(char) < 0x20 or ord(char) > 0x7E for char in normalized):
+        raise ConfigurationValidationError(
+            "invalid_configuration_key",
+            path,
+            "configuration keys MUST be printable ASCII",
+        )
+
+
+def _parse_version(value: str, path: tuple[str, ...]) -> Version:
+    match = _SEMVER.fullmatch(value)
+    if match is None:
+        raise ConfigurationValidationError(
+            "invalid_release_version",
+            path,
+            f"{'.'.join(path)} MUST be a semantic version",
+        )
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def _parse_range(value: str, path: tuple[str, ...]) -> _VersionRange:
+    constraints: list[_Constraint] = []
+    lower: Version | None = None
+    lower_inclusive = True
+    upper: Version | None = None
+    upper_inclusive = True
+    for part in value.split():
+        match = _RANGE_PART.fullmatch(part)
+        if match is None:
+            raise ConfigurationValidationError(
+                "invalid_version_range",
+                path,
+                f"version range {value!r} is invalid",
+            )
+        operator = match.group(1) or "="
+        version = (int(match.group(2)), int(match.group(3)), int(match.group(4)))
+        constraints.append(_Constraint(operator=operator, version=version))
+        if operator in {">=", ">"}:
+            if lower is None or version > lower or (version == lower and operator == ">"):
+                lower = version
+                lower_inclusive = operator == ">="
+        elif operator in {"<=", "<"}:
+            if upper is None or version < upper or (version == upper and operator == "<"):
+                upper = version
+                upper_inclusive = operator == "<="
+        else:
+            lower = version
+            upper = version
+            lower_inclusive = True
+            upper_inclusive = True
+    if not constraints:
+        raise ConfigurationValidationError(
+            "invalid_version_range",
+            path,
+            "version range MUST contain at least one constraint",
+        )
+    return _VersionRange(
+        source=value,
+        constraints=tuple(constraints),
+        lower=lower,
+        lower_inclusive=lower_inclusive,
+        upper=upper,
+        upper_inclusive=upper_inclusive,
+    )
