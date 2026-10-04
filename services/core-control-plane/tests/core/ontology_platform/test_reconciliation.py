@@ -469,14 +469,13 @@ async def test_same_observation_unscorable_attempt_does_not_block_later_timeout(
     assert ledger.terminal_outcomes == (timed_out,)
 
 
-async def test_missing_telemetry_completeness_receipt_stays_unscorable_after_deadline() -> None:
+async def test_missing_telemetry_completeness_receipt_stays_unscorable_before_deadline() -> None:
     release, target, plan, action_type = _fixture()
     request = _request(
         release=release,
         target=target,
         plan=plan,
         action_type=action_type,
-        evaluated_at=DEADLINE + timedelta(seconds=1),
     )
     evidence_without_receipt = EffectObservationEnvelope.create(
         **request.evidence.model_dump(exclude={"observation_id", "completeness_receipt_ref"}),

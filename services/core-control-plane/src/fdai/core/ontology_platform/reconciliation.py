@@ -290,19 +290,19 @@ class EffectReconciliationCoordinator:
                 observed_at=validated.evidence.observed_at,
                 evidence_refs=validated.evidence.evidence_refs,
             )
+        elif validated.evaluated_at > validated.deadline:
+            receipt = ReconciliationReceipt(
+                plan_digest=validated.plan.digest,
+                status=ReconciliationStatus.TIMED_OUT,
+                observed_at=validated.evidence.observed_at,
+                evidence_refs=validated.evidence.evidence_refs,
+            )
         else:
             unscorable_reason = _unscorable_reason(validated, release, authenticated)
             if unscorable_reason is not None:
                 receipt = ReconciliationReceipt(
                     plan_digest=validated.plan.digest,
                     status=ReconciliationStatus.UNSCORABLE,
-                    observed_at=validated.evidence.observed_at,
-                    evidence_refs=validated.evidence.evidence_refs,
-                )
-            elif validated.evaluated_at > validated.deadline:
-                receipt = ReconciliationReceipt(
-                    plan_digest=validated.plan.digest,
-                    status=ReconciliationStatus.TIMED_OUT,
                     observed_at=validated.evidence.observed_at,
                     evidence_refs=validated.evidence.evidence_refs,
                 )
