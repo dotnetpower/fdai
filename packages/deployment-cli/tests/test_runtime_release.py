@@ -7,13 +7,18 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
 from fdai_deployment_cli import offline_kit
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.runtime_release import (
     RUNTIME_RELEASE_PATH,
+    RecallRecord,
     RuntimeRelease,
     RuntimeReleaseError,
+    evaluate_recall_candidate,
     load_runtime_release,
+    recall_target_ordering,
+    validate_schema_transition,
 )
 
 COMMIT = "a" * 40
@@ -26,32 +31,54 @@ SERVICES = (
     "document-processing-worker",
     "isolated-executor",
 )
+SIDECARS = ("clamav", "pgvector")
+INSTALLATION_AGENTS = ("infrastructure-agent", "lifecycle-agent")
+NOTICE_A = "c" * 64
+NOTICE_B = "d" * 64
+NOTICE_C = "e" * 64
+
+
+def _record(root: Path, role: str, service: bool = False) -> dict[str, str]:
+    result = {}
+    for kind in ("archive", "sbom", "provenance") if service else ("archive", "sbom"):
+        relative = f"runtime/{role}/{kind}.bin"
+        content = f"synthetic {role} {kind}".encode()
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        result[kind] = relative
+        result[f"{kind}_sha256"] = hashlib.sha256(content).hexdigest()
+    if service:
+        result["image_digest"] = "sha256:" + "b" * 64
+    return result
 
 
 def _catalog(root: Path) -> dict[str, Any]:
-    def record(role: str, service: bool = False) -> dict[str, str]:
-        result = {}
-        for kind in ("archive", "sbom", "provenance") if service else ("archive", "sbom"):
-            relative = f"runtime/{role}/{kind}.bin"
-            content = f"synthetic {role} {kind}".encode()
-            path = root / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(content)
-            result[kind] = relative
-            result[f"{kind}_sha256"] = hashlib.sha256(content).hexdigest()
-        if service:
-            result["image_digest"] = "sha256:" + "b" * 64
-        return result
-
     return {
         "schema_version": "fdai.runtime-release.v1",
         "source_commit": COMMIT,
         "platform_tag": PLATFORM,
         "deployment_bundle_sha256": BUNDLE_DIGEST,
-        "services": {role: record(role, True) for role in SERVICES},
-        "console": record("console"),
-        "deployment_support": record("deployment-support"),
+        "services": {role: _record(root, role, True) for role in SERVICES},
+        "console": _record(root, "console"),
+        "deployment_support": _record(root, "deployment-support"),
     }
+
+
+def _catalog_v3(root: Path) -> dict[str, Any]:
+    catalog = _catalog(root)
+    catalog["schema_version"] = "fdai.runtime-release.v3"
+    catalog["sidecars"] = {role: _record(root, role, True) for role in SIDECARS}
+    catalog["installation_agents"] = {
+        role: _record(root, role, True) for role in INSTALLATION_AGENTS
+    }
+    catalog["schema"] = {"target": 15, "tolerates": {"minimum": 12, "maximum": 16}}
+    catalog["capabilities"] = {
+        "action:scale-service": {"kind": "ActionType", "maximum_mode": "enforce"},
+        "workflow:incident-triage": {"kind": "Workflow", "maximum_mode": "shadow"},
+    }
+    catalog["downtime"] = {"entities": ["core", "operator-api"]}
+    return catalog
 
 
 def _save(root: Path, catalog: object) -> None:
@@ -95,6 +122,330 @@ def test_runtime_release_validates_local_bytes_and_canonical_metadata(
     assert _load(tmp_path, platform=platform).digest == result.digest
     (tmp_path / "unrelated.txt").write_bytes(b"outside the runtime subtree")
     assert _load(tmp_path, platform=platform).digest == result.digest
+
+
+def test_runtime_release_v3_validates_lifecycle_manifest_fields(tmp_path: Path) -> None:
+    catalog = _catalog_v3(tmp_path)
+    _save(tmp_path, catalog)
+    result = _load(tmp_path)
+    assert result.schema_version == "fdai.runtime-release.v3"
+    assert result.schema_target == 15
+    assert result.schema_range is not None
+    assert result.schema_range.minimum == 12
+    assert result.schema_range.maximum == 16
+    assert result.capability_maximums == {
+        "action:scale-service": "enforce",
+        "workflow:incident-triage": "shadow",
+    }
+    assert result.downtime_entities == ("core", "operator-api")
+    assert result.installation_agent_images == INSTALLATION_AGENTS
+    assert len(result.artifact_paths) == 31
+    assert result.to_mapping() == catalog
+
+
+@pytest.mark.parametrize(
+    ("section", "value"),
+    [
+        ("schema", {"target": 15, "tolerates": {"minimum": 17, "maximum": 16}}),
+        ("schema", {"target": "15", "tolerates": {"minimum": 12, "maximum": 16}}),
+        ("schema", {"target": 15, "tolerates": {"minimum": -1, "maximum": 16}}),
+        ("schema", {"target": True, "tolerates": {"minimum": 12, "maximum": 16}}),
+        ("schema", {"target": 15, "tolerates": {"minimum": False, "maximum": 16}}),
+        ("capabilities", {}),
+        ("capabilities", {"action:scale-service": {"kind": "ActionType", "maximum_mode": "admin"}}),
+        ("downtime", {"entities": ["core", "core"]}),
+        ("installation_agents", {"lifecycle-agent": {"archive": "runtime/agent/archive.bin"}}),
+    ],
+)
+def test_runtime_release_v3_rejects_invalid_lifecycle_manifest_fields(
+    tmp_path: Path, section: str, value: object
+) -> None:
+    catalog = _catalog_v3(tmp_path)
+    catalog[section] = value
+    _save(tmp_path, catalog)
+    with pytest.raises(RuntimeReleaseError):
+        _load(tmp_path)
+
+
+def test_schema_transition_blocks_upgrade_outside_tolerated_range(tmp_path: Path) -> None:
+    catalog = _catalog_v3(tmp_path)
+    _save(tmp_path, catalog)
+    release = _load(tmp_path)
+    assert validate_schema_transition(
+        current_schema_revision=12, candidate=release, direction="upgrade"
+    ).allowed
+    outside = validate_schema_transition(
+        current_schema_revision=17, candidate=release, direction="upgrade"
+    )
+    assert outside.allowed is False
+    assert outside.reason_code == "schema_revision_outside_tolerated_range"
+    backward = validate_schema_transition(
+        current_schema_revision=16, candidate=release, direction="upgrade"
+    )
+    assert backward.allowed is False
+    assert backward.reason_code == "schema_target_not_forward"
+    assert validate_schema_transition(
+        current_schema_revision=16, candidate=release, direction="rollback"
+    ).allowed
+    invalid = validate_schema_transition(
+        current_schema_revision=True, candidate=release, direction="upgrade"
+    )
+    assert invalid.allowed is False
+    assert invalid.reason_code == "schema_revision_invalid"
+
+
+def test_recall_decision_blocks_repromotion_and_orders_recall_targets() -> None:
+    records = (
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=7,
+            notice_digest=NOTICE_A,
+        ),
+        RecallRecord(scope="release", target="1.5.0", sequence=3, notice_digest=NOTICE_B),
+        RecallRecord(
+            scope="capability",
+            target="workflow:incident-triage",
+            sequence=5,
+            notice_digest=NOTICE_C,
+        ),
+    )
+    denied = evaluate_recall_candidate(
+        release_id="1.5.0",
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert denied.allowed is False
+    assert denied.reason_code == "release_recalled"
+    capability_denied = evaluate_recall_candidate(
+        release_id="1.5.1",
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert capability_denied.allowed is False
+    assert capability_denied.reason_code == "capability_recalled"
+    assert recall_target_ordering(
+        release_id="1.5.0",
+        capability_ids=("action:scale-service", "workflow:incident-triage"),
+        recall_records=records,
+    ) == (
+        "release:1.5.0",
+        "capability:action:scale-service",
+        "capability:workflow:incident-triage",
+    )
+
+
+def test_recall_lift_allows_later_candidate() -> None:
+    records = (
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=7,
+            notice_digest=NOTICE_A,
+        ),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=8,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id="1.5.1",
+        ),
+    )
+    still_recalled = evaluate_recall_candidate(
+        release_id="1.5.0",
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert still_recalled.allowed is False
+    assert still_recalled.reason_code == "capability_recalled"
+    assert evaluate_recall_candidate(
+        release_id="1.5.1",
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    ).allowed
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_recall_duplicate_sequence_fails_closed_in_both_orders(reverse: bool) -> None:
+    duplicate = (
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=5,
+            notice_digest=NOTICE_A,
+            action="recall",
+        ),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=5,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id="1.5.1",
+        ),
+    )
+    records = tuple(reversed(duplicate)) if reverse else duplicate
+    decision = evaluate_recall_candidate(
+        release_id="1.5.1",
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == "recall_sequence_duplicate"
+    with pytest.raises(RuntimeReleaseError, match="recall_sequence_duplicate"):
+        recall_target_ordering(
+            release_id="1.5.1",
+            capability_ids=("action:scale-service",),
+            recall_records=records,
+        )
+
+
+def test_release_scope_lift_does_not_readmit_same_recalled_release() -> None:
+    records = (
+        RecallRecord(scope="release", target="1.5.0", sequence=1, notice_digest=NOTICE_A),
+        RecallRecord(
+            scope="release",
+            target="1.5.0",
+            sequence=2,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id="1.5.1",
+        ),
+    )
+    decision = evaluate_recall_candidate(
+        release_id="1.5.0",
+        capability_ids=(),
+        recall_records=records,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == "release_recalled"
+
+
+def test_recall_lift_requires_valid_candidate_release_ordering() -> None:
+    records = (
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=1,
+            notice_digest=NOTICE_A,
+        ),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=2,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id="1.5.1",
+        ),
+    )
+    decision = evaluate_recall_candidate(
+        release_id="candidate",
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == "release_version_invalid"
+
+
+@pytest.mark.parametrize(
+    ("candidate", "lifting_release", "allowed"),
+    [
+        ("1.5.0-rc.2", "1.5.0-rc.10", False),
+        ("1.5.0-rc2", "1.5.0-rc10", False),
+        ("1.5.0-beta.11", "1.5.0-beta.2", True),
+        ("1.5.0-alpha.1.1", "1.5.0-alpha.1", True),
+        ("1.5.0-alpha.1", "1.5.0-alpha.1.1", False),
+        ("1.5.0", "1.5.0-rc.10", True),
+    ],
+)
+def test_recall_lift_uses_semver_prerelease_precedence(
+    candidate: str, lifting_release: str, allowed: bool
+) -> None:
+    records = (
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=1,
+            notice_digest=NOTICE_A,
+        ),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=2,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id=lifting_release,
+        ),
+    )
+    decision = evaluate_recall_candidate(
+        release_id=candidate,
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert decision.allowed is allowed
+    if not allowed:
+        assert decision.reason_code == "capability_recalled"
+
+
+@pytest.mark.parametrize(
+    "release_id",
+    ["v1.5.0", "1.05.0", "١.5.0", "1.5.0+build.1", "1.5.0-01"],
+)
+def test_recall_candidate_rejects_noncanonical_release_id(release_id: str) -> None:
+    records = (RecallRecord(scope="release", target="1.5.0", sequence=1, notice_digest=NOTICE_A),)
+    decision = evaluate_recall_candidate(
+        release_id=release_id,
+        capability_ids=(),
+        recall_records=records,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == "release_version_invalid"
+    with pytest.raises(RuntimeReleaseError, match="release_version_invalid"):
+        recall_target_ordering(release_id=release_id, capability_ids=(), recall_records=records)
+
+
+@pytest.mark.parametrize("target", ["v1.5.0", "1.05.0", "١.5.0", "1.5.0+build.1"])
+def test_recall_record_rejects_noncanonical_release_target(target: str) -> None:
+    with pytest.raises(ValueError, match="Release id|target"):
+        RecallRecord(
+            scope="release",
+            target=target,
+            sequence=1,
+            notice_digest=NOTICE_A,
+        )
+
+
+@pytest.mark.parametrize("lifting_release", ["v1.5.1", "1.05.1", "١.5.1"])
+def test_recall_record_rejects_noncanonical_lifting_release(
+    lifting_release: str,
+) -> None:
+    with pytest.raises(ValueError, match="lifting Release"):
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=1,
+            notice_digest=NOTICE_A,
+            action="lift",
+            lifting_release_id=lifting_release,
+        )
+
+
+def test_recall_record_rejects_bool_sequence_and_missing_notice_digest() -> None:
+    with pytest.raises(ValueError, match="sequence"):
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=True,
+            notice_digest=NOTICE_A,
+        )
+    with pytest.raises(ValueError, match="notice digest"):
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=1,
+            notice_digest="not-a-digest",
+        )
 
 
 @pytest.mark.parametrize(
