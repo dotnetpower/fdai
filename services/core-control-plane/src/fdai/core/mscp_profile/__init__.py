@@ -63,6 +63,7 @@ from fdai.core.mscp_profile.profile import DEFAULT_PROFILE, OperationalProfile
 from fdai.core.mscp_profile.profile_lifecycle import (
     IndependentProfileReview,
     MscpProfileLifecycleConflictError,
+    MscpProfileLifecycleReader,
     MscpProfileLifecycleRecord,
     MscpProfileMode,
     StateStoreMscpProfileLifecycle,
@@ -119,6 +120,7 @@ __all__ = [
     "MscpFailureDecision",
     "MscpFailureDisposition",
     "MscpProfileLifecycleConflictError",
+    "MscpProfileLifecycleReader",
     "MscpProfileLifecycleRecord",
     "MscpProfileMode",
     "MscpReadinessPolicy",
