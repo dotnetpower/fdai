@@ -47,6 +47,11 @@ the host's own parser in both modes, because a rejected command fails before the
 reason.
 Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set. Runtime Dockerfile Alpine package pin updates are package maintenance only and do not change profiles, authority, provider access, or add-ons.
 
+The deployment CLI also carries pure, shadow-only checks for future Hub-managed Lifecycle Plans.
+Those checks evaluate local Plan admission and blocking constraints against already parsed inputs,
+but they do not poll a Hub, render manifests, apply Terraform, sign receipts, or grant lifecycle
+authority.
+
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,
 and asks for approval of each exact plan. A retry can verify an uncertain effect, but it cannot

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 6a86f59e6a3268dcb82bd3bb54912d59107590ed
+translation_source_sha: fd4bca856e8b98f6660a71ea75c2705009b97d84
 translation_revised: 2026-10-05
 ---
 # 런타임 배포 프로파일
@@ -43,6 +43,11 @@ ChatOps 바인딩을 그대로 사용합니다. 런타임 선택을 바꾸거나
 소스 스냅샷에는 `prepare-source`를 사용합니다. 거부된 명령은 호스트가 이유를 기록하기 전에
 실패하므로, 집중 테스트가 두 모드 모두에서 조정기가 보내는 명령을 호스트 자체 파서로 해석합니다.
 두 프로파일 모두 읽기 측 리소스 계산을 위해 Core의 잠긴 Kubernetes 수량 도구를 패키징합니다. 이 의존성은 런타임을 선택하거나 Kubernetes 접근을 허용하거나 노드 적합성을 입증하거나 Cost Governance를 활성화하지 않습니다. 독립 배포 CLI는 별도 의존성 집합을 유지합니다. 런타임 Dockerfile의 Alpine 패키지 고정값 갱신은 패키지 유지보수일 뿐이며 런타임 프로파일, 배포 권한, 프로바이더 접근 또는 제품 추가 기능 선택을 바꾸지 않습니다.
+
+배포 CLI에는 향후 Hub 관리형 Lifecycle Plan을 위한 순수 shadow 전용 검사가 포함됩니다. 이
+검사는 이미 해석된 입력에 대해 로컬 Plan 접수와 차단 제약을 평가하지만, Hub를 폴링하거나
+매니페스트를 렌더링하거나 Terraform을 적용하거나 증적을 서명하거나 수명 주기 권한을 부여하지
+않습니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을
