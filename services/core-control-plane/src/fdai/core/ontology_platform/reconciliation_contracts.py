@@ -141,6 +141,7 @@ class EffectObservationEnvelope(ContractBase):
         tuple[Annotated[str, Field(min_length=1, max_length=512)], ...],
         Field(min_length=1, max_length=_MAX_EVIDENCE_REFS),
     ]
+    completeness_receipt_ref: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     records: Annotated[tuple[ObservedEffectRecord, ...], Field(max_length=_MAX_RECORDS)] = ()
 
     @classmethod

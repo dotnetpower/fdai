@@ -7,7 +7,7 @@ from collections.abc import Mapping
 
 from jsonschema import Draft202012Validator
 
-from fdai.core.decision_case import ActionArguments, ObjectiveEffect
+from fdai.core.decision_case import ActionArguments, ActionOption, ObjectiveEffect
 from fdai.core.ontology_platform import (
     ActionArgumentBinding,
     MutationEffect,
@@ -26,6 +26,7 @@ from fdai.core.operational_planning.hypothesis_lineage import (
 from fdai.core.operational_planning.prospective_lineage import (
     FinalizedProspectiveLineage,
     ProspectiveLineage,
+    ProspectiveLineageUnavailableError,
 )
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
 from fdai.shared.contracts.models import (
@@ -288,9 +289,9 @@ def build_prospective_lineage_records(
         or proposal.selected_option_id != selected.option_id
     ):
         raise ValueError("prospective lineage proposal does not match selected plan")
-    baseline_by_objective = {
-        effect.objective_id: effect for effect in plan.decision_case.no_action_effects
-    }
+    unavailable_reason = _prospective_unavailable_reason(plan=plan, selected=selected)
+    if unavailable_reason is not None:
+        raise ProspectiveLineageUnavailableError(unavailable_reason)
     expected_effects = tuple(
         OntologyObjectRecord(
             id=_lineage_id(
@@ -308,12 +309,12 @@ def build_prospective_lineage_records(
                     effect.objective_id,
                 ),
                 "metric": effect.metric,
-                "direction": _direction(effect, baseline_by_objective.get(effect.objective_id)),
+                "direction": _direction(effect),
                 "lower_bound": effect.expected_min,
                 "upper_bound": effect.expected_max,
                 "window_seconds": effect.observation_window_seconds,
                 "uncertainty": 1.0 - effect.confidence,
-                "predictor_version": plan.logic_release_digest,
+                "predictor_version": str(plan.decision_case.logic_release_digest),
                 "created_at": plan.decision_case.created_at,
             },
         )
@@ -358,8 +359,9 @@ def build_prospective_lineage_records(
             "preconditions": list(
                 dict.fromkeys(
                     (
-                        *proposal.plan.read_set_receipt_digests,
-                        *proposal.plan.criterion_receipt_digests,
+                        *selected.constraint_evaluation_refs,
+                        *selected.simulation_receipt_refs,
+                        *selected.logic_receipt_refs,
                     )
                 )
             ),
@@ -403,16 +405,33 @@ def _effect_values(effect: ObjectiveEffect) -> dict[str, object]:
     }
 
 
-def _direction(effect: ObjectiveEffect, baseline: ObjectiveEffect | None) -> str:
-    if baseline is None:
-        return "unknown"
-    midpoint = (effect.expected_min + effect.expected_max) / 2
-    baseline_midpoint = (baseline.expected_min + baseline.expected_max) / 2
-    if midpoint > baseline_midpoint:
+def _direction(effect: ObjectiveEffect) -> str:
+    if effect.utility > 0.0:
         return "increase"
-    if midpoint < baseline_midpoint:
+    if effect.utility < 0.0:
         return "decrease"
     return "hold"
+
+
+def _prospective_unavailable_reason(
+    *,
+    plan: OperationalPlan,
+    selected: ActionOption,
+) -> str | None:
+    if not isinstance(plan.decision_case.logic_release_digest, str) or not (
+        plan.decision_case.logic_release_digest.startswith("sha256:")
+        and len(plan.decision_case.logic_release_digest) == 71
+    ):
+        return "predictor_version_missing"
+    if any(not effect.metric for effect in selected.effects):
+        return "effect_metric_missing"
+    if any(effect.observation_window_seconds < 1 for effect in selected.effects):
+        return "effect_window_missing"
+    if not selected.constraint_evaluation_refs:
+        return "precondition_evidence_missing"
+    if not selected.simulation_receipt_refs:
+        return "predictor_receipt_missing"
+    return None
 
 
 def _lineage_id(kind: str, *parts: str) -> str:

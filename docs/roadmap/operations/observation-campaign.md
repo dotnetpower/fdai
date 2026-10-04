@@ -46,7 +46,10 @@ deployment can select different systems of record without changing Core or this 
 
 The `ops.start-vm@1.0.0` power-state observer is another separate read path. It is constructor-pinned
 to one VM and one resource group, has no campaign schedule or source-catalog entry, and cannot use
-campaign readiness as effect evidence. This shadow-only slice adds no runtime binding or live read.
+campaign readiness as effect evidence. Action-specific effect observers that create reconciliation
+evidence carry their own telemetry-completeness receipt from the authoritative observation source;
+campaign readiness cannot substitute for that receipt. This shadow-only slice adds no runtime
+binding or live read.
 
 ### Implementation history
 

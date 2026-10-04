@@ -290,19 +290,19 @@ class EffectReconciliationCoordinator:
                 observed_at=validated.evidence.observed_at,
                 evidence_refs=validated.evidence.evidence_refs,
             )
-        elif validated.evaluated_at > validated.deadline:
-            receipt = ReconciliationReceipt(
-                plan_digest=validated.plan.digest,
-                status=ReconciliationStatus.TIMED_OUT,
-                observed_at=validated.evidence.observed_at,
-                evidence_refs=validated.evidence.evidence_refs,
-            )
         else:
             unscorable_reason = _unscorable_reason(validated, release, authenticated)
             if unscorable_reason is not None:
                 receipt = ReconciliationReceipt(
                     plan_digest=validated.plan.digest,
                     status=ReconciliationStatus.UNSCORABLE,
+                    observed_at=validated.evidence.observed_at,
+                    evidence_refs=validated.evidence.evidence_refs,
+                )
+            elif validated.evaluated_at > validated.deadline:
+                receipt = ReconciliationReceipt(
+                    plan_digest=validated.plan.digest,
+                    status=ReconciliationStatus.TIMED_OUT,
                     observed_at=validated.evidence.observed_at,
                     evidence_refs=validated.evidence.evidence_refs,
                 )
@@ -469,6 +469,8 @@ def _unscorable_reason(
         )
     except (KeyError, ValueError):
         return "semantic_effect_coverage_unproven"
+    if evidence.completeness_receipt_ref is None:
+        return "telemetry_completeness_receipt_missing"
     if not evidence.complete:
         return "observation_incomplete"
     if evidence.synthetic:
@@ -483,6 +485,21 @@ def _unscorable_reason(
     ):
         return "unsupported_expected_effect"
     target_by_id = {target.object_id: target for target in request.plan.targets}
+    required_properties_by_target: dict[str, set[str]] = {}
+    for effect in request.plan.expected_effects:
+        if effect.property_name is None:
+            return "observation_property_missing"
+        required_properties_by_target.setdefault(effect.target_id, set()).add(effect.property_name)
+    records_by_id = {record.object_id: record for record in evidence.records}
+    if len(records_by_id) != len(evidence.records):
+        return "observation_duplicate_target"
+    for target_id, property_names in required_properties_by_target.items():
+        observed_record = records_by_id.get(target_id)
+        if observed_record is None:
+            return "observation_target_missing"
+        observed_properties = observed_record.to_record().properties
+        if any(property_name not in observed_properties for property_name in property_names):
+            return "observation_metric_missing"
     for record in evidence.records:
         target = target_by_id.get(record.object_id)
         if target is None:

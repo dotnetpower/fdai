@@ -154,6 +154,7 @@ class AzureScaleOutObservationCollector:
             conflicts=(),
             censoring_refs=(),
             evidence_refs=snapshot.evidence_refs,
+            completeness_receipt_ref=f"telemetry-completeness:{snapshot.evidence_refs[0]}",
             records=(ObservedEffectRecord.from_record(record),),
         )
         context = await self._context_issuer.issue(evidence=evidence)

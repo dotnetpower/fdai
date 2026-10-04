@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 4235caef4357efed7b675c261631bc9bf3bb1c18
-translation_revised: 2026-09-17
+translation_source_sha: 427a72dbb0443f4e006e49ccccabf26f3cbb82a5
+translation_revised: 2026-10-04
 ---
 
 # 권한 인식 관측 캠페인
@@ -47,8 +47,9 @@ translation_revised: 2026-09-17
 
 `ops.start-vm@1.0.0` 전원 상태 관찰자는 또 다른 별도 읽기 경로입니다. 생성자에서 VM
 하나와 리소스 그룹 하나로 고정하며, 캠페인 일정이나 출처 카탈로그 항목이 없고 캠페인 준비
-상태를 효과 근거로 사용할 수 없습니다. 이 shadow-only 범위는 런타임 연결이나 실제 읽기를
-추가하지 않습니다.
+상태를 효과 근거로 사용할 수 없습니다. Reconciliation 근거를 만드는 작업별 효과 관찰자는
+권위 있는 관측 출처에서 자체 텔레메트리 완전성 증적을 전달하며, 캠페인 준비 상태는 그 증적을
+대체할 수 없습니다. 이 shadow-only 범위는 런타임 연결이나 실제 읽기를 추가하지 않습니다.
 
 ### 구현 이력
 

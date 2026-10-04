@@ -161,7 +161,7 @@ async def test_untrusted_observation_cannot_become_terminal_after_deadline(
     assert outcome.recommendation.reason_code == reason_code
 
 
-async def test_independent_incomplete_observation_can_close_as_timed_out() -> None:
+async def test_independent_incomplete_observation_stays_unscorable_after_deadline() -> None:
     release, target, plan, action_type = _fixture()
     request = _request(
         release=release,
@@ -191,10 +191,10 @@ async def test_independent_incomplete_observation_can_close_as_timed_out() -> No
         active_release=release,
     )
 
-    assert outcome.receipt.status is ReconciliationStatus.TIMED_OUT
-    assert outcome.recommendation.next_step is ReconciliationNextStep.REQUEST_VIDAR_RECOVERY
-    assert outcome.recommendation.proposal_only is True
-    assert outcome.recommendation.grants_authority is False
+    assert outcome.receipt.status is ReconciliationStatus.UNSCORABLE
+    assert outcome.recommendation.next_step is ReconciliationNextStep.HOLD_UNSCORABLE
+    assert outcome.recommendation.reason_code == "observation_incomplete"
+    assert not outcome.terminal
 
 
 async def test_v2_semantic_effect_coverage_is_revalidated_before_matching() -> None:

@@ -270,6 +270,7 @@ async def _matched_outcome():
         conflicts=(),
         censoring_refs=(),
         evidence_refs=("sha256:" + "c" * 64,),
+        completeness_receipt_ref="telemetry-completeness:vm-power:1",
         records=(ObservedEffectRecord.from_record(observed),),
     )
     verification = ObservationVerificationReceipt.create(

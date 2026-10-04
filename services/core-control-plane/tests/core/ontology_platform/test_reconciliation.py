@@ -69,6 +69,7 @@ def _fixture():
         properties={
             "id": PropertyDecl(type=PropertyType.STRING, required=True),
             "replicas": PropertyDecl(type=PropertyType.INTEGER, required=True),
+            "latency_ms": PropertyDecl(type=PropertyType.INTEGER, required=True),
         },
     )
     planner = OntologyFunctionType(
@@ -113,6 +114,11 @@ def _fixture():
                 kind=ActionPostconditionKind.PROPERTY,
                 observation_ref="property.replicas",
             ),
+            ActionPostconditionSpec(
+                postcondition_id="latency-converged",
+                kind=ActionPostconditionKind.PROPERTY,
+                observation_ref="property.latency_ms",
+            ),
         ),
         transaction_policy=ActionTransactionPolicy(
             mode=ActionTransactionMode.SAGA,
@@ -142,7 +148,7 @@ def _fixture():
     target = OntologyObjectRecord(
         id="workload-a",
         object_type="Workload",
-        properties={"id": "workload-a", "replicas": 2},
+        properties={"id": "workload-a", "replicas": 2, "latency_ms": 120},
         revision=1,
         type_ref=release.type_ref(OntologyDeclarationKind.OBJECT, "Workload"),
     )
@@ -161,6 +167,14 @@ def _fixture():
             property_name="replicas",
             value=3,
             observation_ref="property.replicas",
+        ),
+        MutationEffect(
+            effect_id="latency-converged",
+            kind=MutationEffectKind.EXPECTED_PROPERTY,
+            target_id=target.id,
+            property_name="latency_ms",
+            value=100,
+            observation_ref="property.latency_ms",
         ),
     )
     plan = compile_action_mutation_plan(
@@ -184,6 +198,7 @@ def _request(
     plan,
     action_type: OntologyActionType,
     replicas: object = 3,
+    latency_ms: object = 100,
     authority: EffectEvidenceAuthority = EffectEvidenceAuthority.PROVIDER,
     source_identity: str = "provider-readback",
     execution_identity: str = "thor-executor",
@@ -199,7 +214,7 @@ def _request(
     observed = OntologyObjectRecord(
         id=target.id,
         object_type=target.object_type,
-        properties={"id": target.id, "replicas": replicas},
+        properties={"id": target.id, "replicas": replicas, "latency_ms": latency_ms},
         revision=2,
         type_ref=target.type_ref,
     )
@@ -222,6 +237,7 @@ def _request(
         conflicts=conflicts,
         censoring_refs=censoring_refs,
         evidence_refs=("evidence:provider-readback:1",),
+        completeness_receipt_ref="telemetry-completeness:provider-readback:1",
         records=(ObservedEffectRecord.from_record(observed),),
     )
     return EffectReconciliationRequest.create(
@@ -453,6 +469,80 @@ async def test_same_observation_unscorable_attempt_does_not_block_later_timeout(
     assert ledger.terminal_outcomes == (timed_out,)
 
 
+async def test_missing_telemetry_completeness_receipt_stays_unscorable_after_deadline() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        evaluated_at=DEADLINE + timedelta(seconds=1),
+    )
+    evidence_without_receipt = EffectObservationEnvelope.create(
+        **request.evidence.model_dump(exclude={"observation_id", "completeness_receipt_ref"}),
+        completeness_receipt_ref=None,
+    )
+    untrusted_request = EffectReconciliationRequest.create(
+        correlation_id=request.correlation_id,
+        plan=plan,
+        action_type=action_type,
+        evidence=evidence_without_receipt,
+        deadline=DEADLINE,
+        evaluated_at=request.evaluated_at,
+    )
+
+    outcome = await _coordinate(
+        EffectReconciliationCoordinator(ledger=InMemoryReconciliationLedger()),
+        untrusted_request,
+        release=release,
+    )
+
+    assert outcome.receipt.status is ReconciliationStatus.UNSCORABLE
+    assert outcome.recommendation.next_step is ReconciliationNextStep.HOLD_UNSCORABLE
+    assert outcome.recommendation.reason_code == "telemetry_completeness_receipt_missing"
+    assert not outcome.terminal
+
+
+async def test_missing_metric_for_one_expected_effect_stays_unscorable() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    partial_observation = OntologyObjectRecord(
+        id=target.id,
+        object_type=target.object_type,
+        properties={"id": target.id, "replicas": 3},
+        revision=2,
+        type_ref=target.type_ref,
+    )
+    partial_evidence = EffectObservationEnvelope.create(
+        **request.evidence.model_dump(exclude={"observation_id", "records"}),
+        records=(ObservedEffectRecord.from_record(partial_observation),),
+    )
+    partial_request = EffectReconciliationRequest.create(
+        correlation_id=request.correlation_id,
+        plan=plan,
+        action_type=action_type,
+        evidence=partial_evidence,
+        deadline=request.deadline,
+        evaluated_at=request.evaluated_at,
+    )
+
+    outcome = await _coordinate(
+        EffectReconciliationCoordinator(ledger=InMemoryReconciliationLedger()),
+        partial_request,
+        release=release,
+    )
+
+    assert outcome.receipt.status is ReconciliationStatus.UNSCORABLE
+    assert outcome.recommendation.next_step is ReconciliationNextStep.HOLD_UNSCORABLE
+    assert outcome.recommendation.reason_code == "observation_metric_missing"
+    assert not outcome.terminal
+
+
 @pytest.mark.parametrize(
     ("expected", "observed"),
     (
@@ -471,7 +561,10 @@ async def test_expected_effect_comparison_is_json_type_strict(
         targets=(target,),
         effects=plan.effects,
         rollback_effects=plan.rollback_effects,
-        expected_effects=(plan.expected_effects[0].model_copy(update={"value": expected}),),
+        expected_effects=(
+            plan.expected_effects[0].model_copy(update={"value": expected}),
+            *plan.expected_effects[1:],
+        ),
         created_at=plan.created_at,
         max_affected_objects=plan.max_affected_objects or 1,
         schema_version=plan.schema_version,

@@ -548,14 +548,14 @@ bounded options, expected effects, protected objectives, violated constraints, u
 evidence references. Odin arbitrates only when eligible options conflict across objectives. Var
 receives the same case when human approval is required, and Saga records its digest for replay.
 
-Forseti is the sole prospective-lineage owner. Specialist candidates carry typed canonical
-arguments, and those bindings participate in DecisionCase identity. After Odin resolves the winner,
-Forseti finalizes that option and the exact `KineticActionProposal`, then publishes one
-content-addressed `ProspectiveLineage` before Verdict. Muninn materializes the envelope,
-DecisionCase, selected ActionOption, and complete ExpectedEffect set; Saga seals the same subgraph
-digest. A present proposal cannot reach executor I/O until both receipts match. Reconciliation is
-the sole observed multi-effect closure authority and appends one independent outcome per expected
-effect. The former control-loop one-effect sink and its incomplete telemetry claim are retired.
+Forseti is the sole prospective-lineage owner. Specialist candidates carry typed canonical arguments, and those bindings participate in DecisionCase identity. After Odin resolves the winner,
+Forseti finalizes that option and the exact `KineticActionProposal`, then publishes one content-addressed `ProspectiveLineage` before Verdict. Muninn materializes the envelope,
+DecisionCase, selected ActionOption, and complete ExpectedEffect set; Saga seals the same subgraph digest. A present proposal cannot reach executor I/O until both receipts match.
+Reconciliation is the sole observed multi-effect closure authority and appends one independent outcome per expected effect. The former control-loop one-effect sink and its incomplete telemetry claim are retired.
+Prospective lineage uses only Forseti's finalized judgment values: selected option, precondition receipts, signed effect direction, effect uncertainty, and logic-release digest as predictor version.
+If one value is missing, Forseti publishes no `ProspectiveLineage` and records the unavailable reason on the Verdict. Reconciliation scores only observations with an authoritative completeness
+receipt, fresh complete non-synthetic evidence, and the exact metric for every expected effect; the production outcome source and projector stay unbound until one complete governed runtime
+episode remains the gate before claiming this path as validated source/projector evidence.
 
 Production startup reads `FDAI_OPERATING_MODEL_PATH` through the provider boundary, validates the
 complete object/link snapshot, and atomically replaces the provider-owned subgraph. A monotonic
