@@ -246,6 +246,20 @@ def test_layer_resolution_validates_nonmatching_override_blocks() -> None:
             },
             ("env", "0", "value"),
         ),
+        ({"client_secret_id": "/subscriptions/x/rg?sig=abc"}, ("client_secret_id",)),
+        ({"client_secret_id": "/subscriptions/x/hunter2"}, ("client_secret_id",)),
+        (
+            {"api_key_id": "/subscriptions/a/Server=x;AccountKey=abc=="},
+            ("api_key_id",),
+        ),
+        (
+            {"client_secret_id": "https://myvault.vault.azure.net/secrets/name/hunter2"},
+            ("client_secret_id",),
+        ),
+        ({"password_column": "hunter2"}, ("password_column",)),
+        ({"secret_column": "hunter2"}, ("secret_column",)),
+        ({"token_type": "ghp_123456789012345678901234567890123456"}, ("token_type",)),
+        ({"credential_kind": "hunter2"}, ("credential_kind",)),
     ],
 )
 def test_package_rejects_literal_secret_values_before_signing(
@@ -310,11 +324,16 @@ def test_package_allows_reference_metadata_and_numeric_token_counters() -> None:
             "secret_name": "itsm-token",
             "key_vault_secret_name": "itsm-token",
             "token_endpoint": "https://x.example",
+            "login_token_endpoint": "https://login.example.com/oauth2/token",
             "credential_kind": "managed-identity",
             "primary_key_column": "id",
             "api_version": "2024-01-01",
-            "resource_id": "/subscriptions/example/resourceGroups/rg/providers/FDAI/type/name",
-            "secret_id": "https://vault-name.vault.azure.net/secrets/itsm-token/version1",
+            "resource_id": (
+                "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg"
+                "/providers/FDAI/type/name"
+            ),
+            "secret_id": "https://vault-name.vault.azure.net/secrets/itsm-token/"
+            "00000000000000000000000000000000",
         }
     )
 

@@ -48,12 +48,18 @@ _KEY_VAULT_SECRET_REF = re.compile(
 )
 _KEY_VAULT_SECRET_NAME = re.compile(r"^[A-Za-z0-9-]{1,127}$")
 _GUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-_AZURE_RESOURCE_ID = re.compile(r"^/subscriptions/[^/]+(?:/[^/]+)+$")
+_AZURE_RESOURCE_ID = re.compile(
+    r"^/subscriptions/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/resourceGroups/[A-Za-z0-9._()-]{1,90}"
+    r"(?:/providers/[A-Za-z0-9.]+(?:/[A-Za-z0-9._()-]+/[A-Za-z0-9._()-]+)+)?$"
+)
 _KEY_VAULT_SECRET_ID = re.compile(
     r"^https://[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])"
-    r"\.vault\.azure\.net/secrets/[A-Za-z0-9-]{1,127}(?:/[A-Za-z0-9-]+)?$"
+    r"\.vault\.azure\.net/secrets/[A-Za-z0-9-]{1,127}(?:/[0-9a-f]{32})?$"
 )
 _ENUM_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+_LOWER_ENUM_VALUE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+_VERSION_VALUE = re.compile(r"^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]+\.[0-9]+(?:\.[0-9]+)?)$")
 _DIRECT_SECRET_TOKENS = frozenset(
     {
         "authorization",
@@ -106,9 +112,36 @@ _REFERENCE_OR_METADATA_FINAL_TOKENS = frozenset(
 )
 _NUMERIC_COUNTER_TOKENS = frozenset({"count", "limit", "max", "min", "minute", "per", "second"})
 _NONEXEMPT_REFERENCE_TOKENS = frozenset({"passphrase", "passwd", "password", "pwd", "sas"})
-_NONEXEMPT_ENUM_TOKENS = frozenset({"passphrase", "passwd", "password", "pwd", "sas", "secret"})
-_CREDENTIAL_QUERY_KEYS = frozenset(
-    {"code", "key", "password", "se", "secret", "sig", "signature", "sp", "sv", "token"}
+_NONEXEMPT_ENUM_TOKENS = frozenset(
+    {
+        "credential",
+        "credentials",
+        "passphrase",
+        "passwd",
+        "password",
+        "pwd",
+        "sas",
+        "secret",
+        "token",
+        "tokens",
+    }
+)
+_COLUMN_SECRET_TOKENS = frozenset(
+    {"passphrase", "passwd", "password", "pwd", "sas", "secret", "token"}
+)
+_SENSITIVE_ENUM_VALUES = frozenset(
+    {
+        "api-key",
+        "basic",
+        "bearer",
+        "certificate",
+        "client-credentials",
+        "managed-identity",
+        "none",
+        "oauth2",
+        "service-principal",
+        "workload-identity",
+    }
 )
 
 Version = tuple[int, int, int]
@@ -410,15 +443,11 @@ def _validate_reference_or_metadata_value(
             return
         _raise_literal_secret(path, key)
     if final in {"kind", "type", "version"}:
-        if (
-            not (set(tokens) & _NONEXEMPT_ENUM_TOKENS)
-            and not _is_contextual_key_secret(tokens)
-            and _ENUM_VALUE.fullmatch(value) is not None
-        ):
+        if _is_valid_enum_metadata(tokens, value):
             return
         _raise_literal_secret(path, key)
     if final == "column":
-        if _ENUM_VALUE.fullmatch(value) is not None:
+        if not (set(tokens) & _COLUMN_SECRET_TOKENS) and _ENUM_VALUE.fullmatch(value) is not None:
             return
         _raise_literal_secret(path, key)
     _raise_literal_secret(path, key)
@@ -435,13 +464,30 @@ def _is_contextual_key_secret(tokens: tuple[str, ...]) -> bool:
     return bool(token_set & {"key", "keys"} and token_set & _KEY_CONTEXT_TOKENS)
 
 
+def _is_valid_enum_metadata(tokens: tuple[str, ...], value: str) -> bool:
+    token_set = set(tokens)
+    if token_set & _NONEXEMPT_ENUM_TOKENS or _is_contextual_key_secret(tokens):
+        return value in _SENSITIVE_ENUM_VALUES and _LOWER_ENUM_VALUE.fullmatch(value) is not None
+    if tokens[-1] == "version" and _VERSION_VALUE.fullmatch(value) is not None:
+        return True
+    return _ENUM_VALUE.fullmatch(value) is not None and not _looks_random_enum_value(value)
+
+
+def _looks_random_enum_value(value: str) -> bool:
+    if len(value) < 16:
+        return False
+    digit_ratio = sum(char.isdigit() for char in value) / len(value)
+    if digit_ratio > 0.35:
+        return True
+    unique_ratio = len(set(value.casefold())) / len(value)
+    return unique_ratio > 0.70
+
+
 def _is_safe_https_url(value: str) -> bool:
     parsed = urlsplit(value)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
         return False
-    if parsed.query or parsed.fragment:
-        return False
-    return not any(key in _CREDENTIAL_QUERY_KEYS for key in _tokens(value))
+    return not (parsed.query or parsed.fragment)
 
 
 def _is_key_vault_reference(value: object) -> bool:
