@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: aa9dd8cd85472e3e8c0e8e9fb5a736e40d9630f8
-translation_revised: 2026-09-26
+translation_source_sha: 766d73ef2dfac08850b93a6fd1a5ada28a11a68e
+translation_revised: 2026-10-04
 ---
 # 영구 대화 전송
 
@@ -83,7 +83,7 @@ writer를 부여하지 않습니다.
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 읽기 조사 최종 완료 수신 | implemented | `read-investigation-completion` `1.0.0`, Core 완료 publisher, Operator 완료 저장소, consumer, 보존 worker 및 migration grant, 집중 완료 및 권한 검사(`24 passed`) | Core는 변경할 수 없는 최종 작업 결과 하나를 publish합니다. Operator 운영 조립은 exact 제안을 검증하고 영속 inbox 행 하나와 멱등적인 Web assistant turn 하나를 원자적으로 쓴 뒤 기한이 지난 inbox 행만 제한된 배치로 정리합니다. Slack 및 Teams outbound enqueue와 통제된 재시작 근거는 열린 상태입니다. |
+| 읽기 조사 최종 완료 수신 | implemented | `read-investigation-completion` `1.0.0`, Core 완료 publisher, Operator 완료 저장소, consumer, 보존 worker, 채널 outbound enqueue 및 migration grant, 집중 완료 및 권한 검사(`18 passed, 1 skipped`), loopback service-migrated PostgreSQL enqueue 테스트(`1 passed`) | Core는 변경할 수 없는 최종 작업 결과 하나를 publish합니다. Operator 운영 조립은 exact 제안을 검증하고 영속 inbox 행 하나와 멱등적인 Web assistant turn 하나 또는 활성 검증 principal binding에서 해석된 Operator 소유 Slack/Teams outbound delivery 행 하나를 원자적으로 씁니다. 검증되지 않았거나 취소됐거나 모호하거나 충돌하는 binding은 타입이 지정된 이유와 함께 실패 시 닫힙니다. 통제된 재시작 및 process-loss 근거는 열린 상태입니다. |
 
 ### 구현 이력
 
@@ -112,6 +112,7 @@ writer를 부여하지 않습니다.
 | 2026-09-26 | implemented | 영속 outbound ledger 위에 `ScheduledContinuationDeliveryCoordinator`를 구현했습니다. 저장된 앵커만 재생하고 고정된 앵커 id를 출처로 사용하며, 보존 삭제 fence, 없거나 만료된 앵커, 외부가 아닌 채널, 다시 쓰인 저장 내용에서 닫힘 실패합니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py`가 111개 사례를 통과했고 focused Ruff와 strict mypy도 통과했습니다. | 조정기를 운영 채널 어댑터와 시작 조립에 연결하고 통제된 Slack 및 Teams 전달 증적을 보존해야 합니다. |
 | 2026-09-27 | implemented | 조정기의 채널 렌더링을 강화했습니다. 상한을 넘는 저장 요약은 결정적으로 잘라 내고 기록 데이터에 표시하며, 채널 봉투 한도를 넘는 식별자는 앵커 id가 전달 신원을 담기 때문에 타입 없는 오류로 빠져나가지 않고 `ContinuationRenderingError`를 발생시킵니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py` 106개 사례 통과이며 2026-09-26에 기록한 개수를 정정합니다. Focused Ruff 및 엄격 mypy 통과입니다. | `ScheduledContinuationDeliveryCoordinator`를 운영 채널 어댑터와 시작 조립에 연결한 다음 통제된 Slack 및 Teams 전달 증적을 보존합니다. |
 | 2026-09-26 | 진행 중 | Core의 메모리 내 전달 저장소에 출처 범위 삭제를 추가했습니다. 전달 기록은 출처 참조를 별도 필드로 저장하며, 프로세스 범위 tombstone이 저장소의 수명 동안 늦은 쓰기를 차단합니다. `ScheduledContinuationDeliveryCoordinator.purge_origin`은 출처 삭제 fence가 기록된 경우에만 호출할 수 있습니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py`, `services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py` 및 `uv run pytest -q --no-cov services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py services/core-control-plane/tests/conversation/test_outbound_delivery.py services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py services/operator-service/tests/test_channel_delivery_postgres.py` (149건 통과, 환경 조건부 7건 건너뜀), 변경 파일 Ruff 검사와 형식 검사 및 엄격한 mypy 통과. | Operator PostgreSQL 원장에 영속 출처 삭제, 원자적인 늦은 쓰기 차단과 독립 재확인을 구현하고 보존 작업자에 연결해야 합니다. 재시작 후에도 안전한 물리 삭제는 아직 증명하지 못했습니다. |
+| 2026-10-04 | 구현됨 | Operator 소유 읽기 조사 완료 outbound enqueue를 Slack 및 Teams에 추가했습니다. Enqueue 경로는 정확히 하나의 활성 검증 principal binding을 해석하고, 검증되지 않았거나 취소됐거나 모호하거나 충돌하는 binding을 타입이 지정된 이유로 거절하며, provider I/O 없이 `conversation_outbound_delivery`에 멱등적인 pending 행 하나를 씁니다. | `current change`; `services/operator-service/src/fdai_operator_service/postgres_read_investigation_completion.py`; `services/operator-service/tests/test_read_investigation_completion_store.py`; `tests/integration/services/test_operator_completion_writer_grants.py`; `uv run --extra dev pytest -q --no-cov services/operator-service/tests/test_read_investigation_completion_store.py tests/integration/services/test_operator_completion_writer_grants.py` (18 passed, 1 skipped); disposable loopback PostgreSQL에 root Alembic 및 service-owned migration을 적용한 뒤 `FDAI_SERVICE_MIGRATIONS_READY=1 uv run --extra dev pytest -q --no-cov services/operator-service/tests/test_read_investigation_completion_store.py::test_postgres_external_completion_enqueue_replay_and_binding_rejections` (1 passed). | Operator 완료 enqueue를 검증됨으로 표시하기 전에 통제된 재시작 및 process-loss 증적을 보존합니다. |
 
 ### 남은 작업
 
@@ -143,8 +144,10 @@ writer를 부여하지 않습니다.
      poison 처리, 범위가 제한된 재시도, rollback grant 및 멱등적인 Web assistant turn을 연결합니다.
 - [x] 기한 순서, `SKIP LOCKED`, Operator 전용 삭제 권한 및 실패 시 닫히는 준비 상태 검사를
      갖춘 제한된 완료 inbox 보존 정리를 구현합니다.
-- [ ] 검증된 Slack 및 Teams binding 해석과 outbound enqueue를 추가하고 통제된 재시작 및
-     process-loss 증적을 보존합니다.
+- [x] provider I/O 없이 Operator 소유 outbound delivery ledger에 검증된 Slack 및 Teams
+     binding 해석과 outbound enqueue를 추가합니다.
+- [ ] read-investigation Slack/Teams 완료 enqueue의 통제된 재시작 및 process-loss 증적을
+     보존하고, process restart 뒤 replay가 outbound 행을 중복 생성하지 않음을 증명합니다.
 - [ ] 어떤 행이든 `검증됨`으로 승격하기 전에 재시작 간 영속성, 프로세스 손실 조정,
      외부 어댑터 확인 응답, 차단기 제어, 예약 전달 및 읽기 전용 메트릭에 대한 통제된
      런타임 증적을 기록합니다.

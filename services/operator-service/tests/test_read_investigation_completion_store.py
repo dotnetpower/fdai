@@ -15,6 +15,7 @@ from fdai_operator_service.postgres_read_investigation_completion import (
     PostgresReadInvestigationCompletionConfig,
     PostgresReadInvestigationCompletionRepository,
     ReadInvestigationCompletionConflictError,
+    ReadInvestigationCompletionRejectReason,
 )
 from fdai_service_contracts.read_investigation import (
     ReadInvestigationCompletion,
@@ -38,6 +39,40 @@ def _completion() -> ReadInvestigationCompletion:
             conversation_id="operator-request-one",
             channel_kind="web",
             channel_id="principal-one",
+        ),
+        status="succeeded",
+        terminal_reason="completed",
+        summary="Resource is healthy.",
+        evidence_refs=("evidence-one",),
+        usage=ReadInvestigationCompletionUsage(tool_calls=1),
+        started_at=started_at,
+        finished_at=started_at + timedelta(seconds=2),
+        completed_at=started_at + timedelta(seconds=3),
+        retention_until=started_at + timedelta(days=30),
+    )
+
+
+def _external_completion(
+    *,
+    channel_kind: str = "slack",
+    channel_id: str = "channel-one",
+    conversation_id: str = "conversation-one",
+    attempt: int = 1,
+) -> ReadInvestigationCompletion:
+    started_at = datetime(2026, 8, 24, tzinfo=UTC)
+    return build_read_investigation_completion(
+        task_id=read_investigation_task_id("principal-one", "idempotency-one"),
+        attempt_id=f"attempt-{attempt}",
+        attempt_number=attempt,
+        owner_principal_id="principal-one",
+        request_idempotency_key="idempotency-one",
+        correlation_id="correlation-one",
+        origin=ReadInvestigationOrigin(
+            conversation_id=conversation_id,
+            channel_kind=channel_kind,
+            channel_id=channel_id,
+            thread_id="thread-one",
+            message_id="message-one",
         ),
         status="succeeded",
         terminal_reason="completed",
@@ -119,6 +154,115 @@ async def test_project_binds_completion_to_exact_durable_request() -> None:
     assert parameters["channel_kind"] == "web"
     assert parameters["channel_id"] == "principal-one"
     assert isinstance(parameters["record"], str)
+
+
+async def test_project_verified_slack_binding_enqueues_operator_outbound_once() -> None:
+    completion = _external_completion()
+    calls: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        calls.append((statement, parameters))
+        return [
+            {
+                "sequence": 1,
+                "event": "investigation.completed",
+                "value": _stored(completion),
+                "inserted": True,
+                "reject_reason": None,
+            }
+        ]
+
+    stored = await PostgresReadInvestigationCompletionRepository(fetch_all=fetch_all).project(
+        completion
+    )
+
+    assert stored.duplicate is False
+    statement, parameters = calls[0]
+    assert "FROM principal_conversation_binding" in statement
+    assert "state = 'active'" in statement
+    assert "COUNT(*) FILTER (WHERE state = 'active')" in statement
+    assert "INSERT INTO conversation_outbound_delivery" in statement
+    assert "ON CONFLICT (idempotency_key) DO NOTHING" in statement
+    assert "JOIN selected_binding" in statement
+    assert "existing_completion AS" in statement
+    assert "NOT EXISTS (SELECT 1 FROM existing_completion)" in statement
+    assert "Slack" not in statement and "Teams" not in statement
+    assert parameters["principal_id"] == "principal-one"
+    assert parameters["channel_kind"] == "slack"
+    assert parameters["channel_id"] == "channel-one"
+    assert parameters["delivery_idempotency_key"]
+    assert str(parameters["delivery_id"]).startswith("read-completion-delivery:")
+    response = json.loads(str(parameters["response"]))
+    assert response["answer"] == "[Background task result: completed]\nResource is healthy."
+    assert response["execution_authority"] is False
+    assert response["verification"]["evidence_refs"] == ["evidence-one"]
+
+
+async def test_project_duplicate_external_enqueue_replays_without_duplication() -> None:
+    first_completion = _external_completion(channel_kind="teams")
+    duplicate_completion = _external_completion(channel_kind="teams")
+    calls: list[Mapping[str, object]] = []
+
+    async def fetch_all(
+        _statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        calls.append(parameters)
+        return [
+            {
+                "sequence": 1,
+                "event": "investigation.completed",
+                "value": _stored(first_completion),
+                "inserted": len(calls) == 1,
+                "reject_reason": None,
+            }
+        ]
+
+    repository = PostgresReadInvestigationCompletionRepository(fetch_all=fetch_all)
+    first = await repository.project(first_completion)
+    duplicate = await repository.project(duplicate_completion)
+
+    assert first.duplicate is False
+    assert duplicate.duplicate is True
+    assert calls[0]["delivery_id"] == calls[1]["delivery_id"]
+    assert calls[0]["delivery_idempotency_key"] == calls[1]["delivery_idempotency_key"]
+
+
+@pytest.mark.parametrize(
+    ("reason", "expected"),
+    [
+        ("binding_unverified", ReadInvestigationCompletionRejectReason.BINDING_UNVERIFIED),
+        ("binding_revoked", ReadInvestigationCompletionRejectReason.BINDING_REVOKED),
+        ("binding_ambiguous", ReadInvestigationCompletionRejectReason.BINDING_AMBIGUOUS),
+    ],
+)
+async def test_project_external_binding_rejections_are_typed(
+    reason: str,
+    expected: ReadInvestigationCompletionRejectReason,
+) -> None:
+    async def fetch_all(
+        _statement: str,
+        _parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        return [
+            {
+                "sequence": 0,
+                "event": "",
+                "value": {"reject_reason": reason},
+                "inserted": False,
+                "reject_reason": reason,
+            }
+        ]
+
+    with pytest.raises(ReadInvestigationCompletionConflictError) as exc_info:
+        await PostgresReadInvestigationCompletionRepository(fetch_all=fetch_all).project(
+            _external_completion()
+        )
+
+    assert exc_info.value.reason is expected
 
 
 async def test_project_returns_exact_duplicate_without_second_identity() -> None:
@@ -326,3 +470,169 @@ async def test_postgres_allocates_attempt_turns_and_reuses_duplicate_slot() -> N
     assert duplicate.duplicate is True
     assert [row[0] for row in turns] == [0, 1]
     assert conversation is not None and conversation[0] == 2
+
+
+@pytest.mark.integration
+async def test_postgres_external_completion_enqueue_replay_and_binding_rejections() -> None:
+    dsn = _database_url()
+    suffix = uuid.uuid4().hex
+    started_at = datetime(2026, 8, 26, tzinfo=UTC)
+    repository = PostgresReadInvestigationCompletionRepository(
+        config=PostgresReadInvestigationCompletionConfig(dsn=dsn)
+    )
+    principals = {
+        "verified": f"completion-external-verified-{suffix}",
+        "revoked": f"completion-external-revoked-{suffix}",
+        "unverified": f"completion-external-unverified-{suffix}",
+    }
+    idempotency_keys = {
+        name: f"completion-external-idempotency-{name}-{suffix}" for name in principals
+    }
+    proposal_ids = {name: f"operator-request-{name}-{suffix}" for name in principals}
+    correlation_ids = {name: f"correlation-{name}-{suffix}" for name in principals}
+    channel_ids = {name: f"channel-{name}-{suffix}" for name in principals}
+    binding_ids = {
+        "verified": f"binding-verified-{suffix}",
+        "revoked": f"binding-revoked-{suffix}",
+    }
+
+    def request_key(name: str) -> str:
+        digest = hashlib.sha256(idempotency_keys[name].encode()).hexdigest()
+        return f"operator-proposal:operations:{digest}"
+
+    def proposal(name: str) -> dict[str, object]:
+        return {
+            "kind": "operator.proposal",
+            "family": "operations",
+            "operation": "read_investigation.start",
+            "principal_id": principals[name],
+            "idempotency_key": idempotency_keys[name],
+            "proposal_id": proposal_ids[name],
+            "accepted_at": "2026-08-26T00:00:00+00:00",
+            "payload": {"correlation_id": correlation_ids[name]},
+        }
+
+    def completion(name: str) -> ReadInvestigationCompletion:
+        return build_read_investigation_completion(
+            task_id=read_investigation_task_id(principals[name], idempotency_keys[name]),
+            attempt_id=f"interactive-{name}",
+            attempt_number=1,
+            owner_principal_id=principals[name],
+            request_idempotency_key=idempotency_keys[name],
+            correlation_id=correlation_ids[name],
+            origin=ReadInvestigationOrigin(
+                conversation_id=proposal_ids[name],
+                channel_kind="slack",
+                channel_id=channel_ids[name],
+                thread_id=f"thread-{name}-{suffix}",
+                message_id=f"message-{name}-{suffix}",
+            ),
+            status="succeeded",
+            terminal_reason="completed",
+            summary=f"{name} completion",
+            evidence_refs=(f"evidence:{name}:{suffix}",),
+            usage=ReadInvestigationCompletionUsage(),
+            started_at=started_at,
+            finished_at=started_at,
+            completed_at=started_at + timedelta(seconds=1),
+            retention_until=started_at + timedelta(days=1),
+        )
+
+    async def seed_proposal(connection: psycopg.AsyncConnection[object], name: str) -> None:
+        await connection.execute(
+            "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb)",
+            (request_key(name), json.dumps(proposal(name))),
+        )
+
+    async def seed_binding(
+        connection: psycopg.AsyncConnection[object],
+        name: str,
+        *,
+        state: str,
+    ) -> None:
+        await connection.execute(
+            """
+            INSERT INTO principal_conversation_binding (
+                binding_id, principal_id, scope_ref, conversation_id, channel_kind,
+                channel_id, sender_id, thread_id, verification_ref, verified_at,
+                created_by, created_at, resumed_from_binding_id, state, revoked_by,
+                revoked_at
+            ) VALUES (
+                %s, %s, %s, %s, 'slack', %s, %s, %s, %s, %s, 'operator-channel-edge',
+                %s, NULL, %s, %s, %s
+            )
+            """,
+            (
+                binding_ids[name],
+                principals[name],
+                f"scope://completion/{name}/{suffix}",
+                proposal_ids[name],
+                channel_ids[name],
+                f"sender-{name}-{suffix}",
+                f"thread-{name}-{suffix}",
+                f"verification-{name}-{suffix}",
+                started_at,
+                started_at,
+                state,
+                f"revoker-{suffix}" if state == "revoked" else None,
+                started_at if state == "revoked" else None,
+            ),
+        )
+
+    try:
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            for name in principals:
+                await seed_proposal(connection, name)
+            await seed_binding(connection, "verified", state="active")
+            await seed_binding(connection, "revoked", state="revoked")
+
+        verified = completion("verified")
+        inserted = await repository.project(verified)
+        duplicate = await repository.project(verified)
+
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            delivery_cursor = await connection.execute(
+                "SELECT delivery_id, principal_id, binding_id, channel_kind, state, "
+                "response ->> 'execution_authority' "
+                "FROM conversation_outbound_delivery WHERE principal_id = %s",
+                (principals["verified"],),
+            )
+            deliveries = await delivery_cursor.fetchall()
+
+        assert inserted.duplicate is False
+        assert duplicate.duplicate is True
+        assert len(deliveries) == 1
+        assert deliveries[0][1] == principals["verified"]
+        assert deliveries[0][2] == binding_ids["verified"]
+        assert deliveries[0][3] == "slack"
+        assert deliveries[0][4] == "pending"
+        assert deliveries[0][5] == "false"
+
+        with pytest.raises(ReadInvestigationCompletionConflictError) as revoked_error:
+            await repository.project(completion("revoked"))
+        assert revoked_error.value.reason is ReadInvestigationCompletionRejectReason.BINDING_REVOKED
+
+        with pytest.raises(ReadInvestigationCompletionConflictError) as unverified_error:
+            await repository.project(completion("unverified"))
+        assert (
+            unverified_error.value.reason
+            is ReadInvestigationCompletionRejectReason.BINDING_UNVERIFIED
+        )
+    finally:
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            await connection.execute(
+                "DELETE FROM operator_read_investigation_completion WHERE principal_id = ANY(%s)",
+                (list(principals.values()),),
+            )
+            await connection.execute(
+                "DELETE FROM conversation_outbound_delivery WHERE principal_id = ANY(%s)",
+                (list(principals.values()),),
+            )
+            await connection.execute(
+                "DELETE FROM principal_conversation_binding WHERE principal_id = ANY(%s)",
+                (list(principals.values()),),
+            )
+            await connection.execute(
+                "DELETE FROM state_kv WHERE key = ANY(%s)",
+                ([request_key(name) for name in principals],),
+            )

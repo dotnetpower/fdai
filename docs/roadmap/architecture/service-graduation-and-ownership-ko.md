@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 2c5a6e7b9bb1f6324287ac8a544caa8f396452dd
-translation_revised: 2026-10-01
+translation_source_sha: e5a789bd8b9e549aca70533579c6f3efbdb88131
+translation_revised: 2026-10-04
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -46,7 +46,7 @@ translation_revised: 2026-10-01
 | 경계 docstring 강제 적용 | implemented | `scripts/quality/architecture/check-boundary-docstrings.py`; SD-09 근거 | 검토된 모든 분해 범위에서 구조적 docstring 계약을 강제 적용합니다. 의미 정확성은 계속 집중 아키텍처 테스트에 의존합니다. |
 | Temporal 인시던트 roster projection | implemented | `core_incident_projection_20260819`, `operator_incident_projection_read_20260819`, 집중 migration 및 Operator 검사 | Alembic이 소유하는 trigger가 추가 전용 감사 transaction 안에서 temporal version을 파생합니다. Core와 Executor 역할에는 projection 직접 쓰기 권한을 주지 않고 Operator 역할에는 SELECT만 부여합니다. |
 | 읽기 조사 요청 전송 | 구현됨 | `fdai-service-contracts`의 `read-investigation-request` `1.0.0`, Operator CAS 발신함, Core consumer 및 선택적 coordinator, 집중 교차 프로세스 테스트 | Operator는 영속 제안 수락과 발행을 소유합니다. Core는 요청 소비와 background-task 상태를 소유합니다. 조정기는 여섯 번째 서비스가 아니라 선택적 Core 런타임 구성 요소로 유지합니다. |
-| 읽기 조사 완료 전송 | 진행 중 | `fdai-service-contracts`의 `read-investigation-completion` `1.0.0`, Core 완료 발신함 publisher, Operator inbox, Web 대화 writer, `operator_read_investigation_completion_20260826` 및 `operator_completion_retention_20260829` | 5개 서비스 토폴로지는 바뀌지 않습니다. Core는 Operator 대화 테이블을 쓰지 않습니다. Operator는 inbox와 멱등적인 Web assistant turn을 원자적으로 소유한 뒤 기한이 지난 inbox 행만 제한된 배치로 정리합니다. 채널 outbound enqueue 및 통제된 배포 근거는 열린 상태입니다. |
+| 읽기 조사 완료 전송 | 진행 중 | `fdai-service-contracts`의 `read-investigation-completion` `1.0.0`, Core 완료 발신함 publisher, Operator inbox, Web 대화 writer, Slack/Teams outbound enqueue, `operator_read_investigation_completion_20260826`, `operator_a3_channel_delivery_20260819`, `operator_completion_retention_20260829` 및 loopback service-migrated PostgreSQL enqueue 테스트(`1 passed`) | 5개 서비스 토폴로지는 바뀌지 않습니다. Core는 Operator 대화 또는 전달 테이블을 쓰지 않습니다. Operator는 inbox와 멱등적인 Web assistant turn 또는 Slack/Teams outbound delivery enqueue를 원자적으로 소유한 뒤 기한이 지난 inbox 행만 제한된 배치로 정리합니다. Matrix의 채널 outbound enqueue 주장은 로컬에서 구현됐고, 통제된 배포 및 rollback 근거는 열린 상태입니다. |
 | 기록 상태 읽기 변환 결과 | validated | Core 및 Azure 인벤토리 변환 결과, Operator 기록 상태 변환 결과, Console 디코더 및 이유 기반 표시, 집중 검사와 실제 근거 | Operator는 활성 인벤토리 세대를 읽기 전용으로 변환합니다. Console은 Azure를 조회하거나 정상 여부를 추론하거나 변경 권한을 얻지 않습니다. |
 | 서비스 소유 테스트 범위 | implemented | `tests/integration/service-suites.json`, 서비스 스위트 소유권 게이트, 집중 Operator 측정 테스트 | 각 서비스 테스트 파일에는 정확히 하나의 소유 서비스 스위트가 있습니다. Dashboard 집계 및 출처 projection 테스트는 Operator 단위 테스트 그룹에 유지되며 새 서비스 경계를 의미하지 않습니다. |
 ### 구현 이력
@@ -90,6 +90,7 @@ CI `34928980843`이 통과한 보호된 main `91ff893cb` 병합 후의 카탈로
 | 2026-08-23 | 구현됨 | 서로 독립적이던 시작 및 취소 partition key를 소유자 범위의 정본 background-task 수명 주기 identity로 교체했습니다. 이제 한 작업의 시작 및 취소 기록이 같은 partition을 사용하며 Core는 영속화 또는 취소 전에 같은 identity를 다시 검증합니다. | `current change`; 시작/취소 partition 동등성 검사를 포함한 집중 계약 및 전송 검사 22개가 통과했고 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Core에 Operator 대화 writer를 추가하지 않고 역방향 최종 완료 계약을 정의합니다. |
 | 2026-08-26 | 진행 중 | 역방향 완료 계약을 Core 발신함과 Operator 소유 writer에 연결했습니다. Operator migration은 대화 쓰기와 inbox sequence 사용을 부여하고 하나의 transaction이 서비스 토폴로지 또는 Core 권한을 바꾸지 않으면서 제안, Web assistant turn 및 inbox 행을 dedupe합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 채널 outbound enqueue, 보존 정리 및 통제된 배포/rollback 근거를 추가합니다. |
 | 2026-08-29 | 구현됨 | Operator 소유 완료 inbox 보존 worker와 해당 inbox에만 삭제 권한을 부여하는 후속 migration을 추가했습니다. 정리는 계약 기한, 제한된 배치, 기한 순서 및 `SKIP LOCKED`를 사용합니다. 정리에 실패하면 완료 수신은 차단하지 않지만 Operator 준비 상태는 닫힌 상태를 유지합니다. | `current change`, `postgres_read_investigation_completion.py`, `read_investigation_completion_runtime.py`, `operator_completion_retention_20260829`, 집중 완료, 조립, migration 및 서비스 inventory 검사 | 검증된 채널 outbound enqueue를 추가한 뒤 통제된 재시작, 배포 및 rollback 근거를 보존합니다. |
+| 2026-10-04 | 진행 중 | 5개 서비스 토폴로지를 바꾸거나 Core에 Operator writer를 부여하지 않고, 읽기 조사 완료를 위한 service matrix의 채널 outbound enqueue 주장을 완료했습니다. Slack 및 Teams 완료 출처는 정확히 하나의 활성 검증 principal binding을 해석하고, 검증되지 않았거나 취소됐거나 모호하거나 충돌하는 binding을 타입이 지정된 이유로 거절하며, provider I/O 없이 멱등적인 Operator 소유 전달 행 하나를 enqueue합니다. | `current change`; `services/operator-service/src/fdai_operator_service/postgres_read_investigation_completion.py`; `services/operator-service/tests/test_read_investigation_completion_store.py`; `tests/integration/services/test_operator_completion_writer_grants.py`; `uv run --extra dev pytest -q --no-cov services/operator-service/tests/test_read_investigation_completion_store.py tests/integration/services/test_operator_completion_writer_grants.py` (18 passed, 1 skipped); disposable loopback PostgreSQL에 root Alembic 및 service-owned migration을 적용한 뒤 `FDAI_SERVICE_MIGRATIONS_READY=1 uv run --extra dev pytest -q --no-cov services/operator-service/tests/test_read_investigation_completion_store.py::test_postgres_external_completion_enqueue_replay_and_binding_rejections` (1 passed). | 같은 Operator 소유 완료 enqueue 경로에 대한 통제된 배포 및 rollback 근거를 보존합니다. |
 | 2026-09-05 | implemented | 새로운 handover, document 및 protection suite의 정확한 service-test 소유권을 복원하고 5개 서비스 토폴로지를 변경하지 않은 채 Operator aggregate manifest를 등록된 경로 188개와 일치시켰습니다. | `current change`, service-suite 소유권 및 Operator full-composition 검사 통과 | 각 소유 capability에서 이미 추적하는 통제된 runtime 근거를 보존합니다. |
 | 2026-09-13 | implemented | 격리 Executor의 automation-hold fence suite에 대한 정확한 service-test 소유권을 복원했습니다. 새 fence 테스트에 소유 그룹이 없어 suite runner가 단일 소유자를 확정하지 못했고 모든 coverage, 순서, 인자 검사가 fail-closed로 실패했습니다. 이제 형제인 effect-safety fence 테스트와 같은 isolated-executor `unit` 그룹에 속하며 5개 서비스 토폴로지, source root, 그룹 의미는 변경되지 않았습니다. | `current change`, `tests/integration/service-suites.json`, service-suite 소유권 및 models-facade 검사 30건 통과 | 소유 capability 설계에서 통제된 Executor runtime 근거를 보존합니다. |
 ### 남은 작업
@@ -103,7 +104,11 @@ CI `34928980843`이 통과한 보호된 main `91ff893cb` 병합 후의 카탈로
   근거, 배포 smoke 및 롤백을 갖춘 뒤 향후 서비스 후보로 다시 평가합니다.
 - [x] Core publisher, Operator inbox 및 멱등적인 Web 대화 writer를 통해 프로세스 간 계약 매트릭스의 버전 지정 최종 읽기 조사 완료 행을 구현합니다.
 - [x] Operator 소유의 제한된 보존 worker로 기한이 지난 완료 inbox 행만 정리하고 잘못된 제한, 시간대 없는 시계, migration 소유권 및 정리 실패 시 준비 상태를 검사합니다.
-- [ ] [영속 대화 전달](../interfaces/durable-conversation-delivery-ko.md)의 채널 outbound enqueue 주장을 완료한 뒤 통제된 배포 및 rollback 근거를 보존합니다.
+- [x] [영속 대화 전달](../interfaces/durable-conversation-delivery-ko.md)의 검증된 Slack 및
+  Teams 읽기 조사 완료에 대한 채널 outbound enqueue 주장을 완료합니다.
+- [ ] Operator 소유 읽기 조사 완료 채널 enqueue 경로에 대해 exact image 및 topology 증적과
+  수락된 inbox 및 outbound delivery 행을 보존하는 rollback 증명을 포함한 통제된 배포 및
+  rollback 근거를 보존합니다.
 
 ## 승격 점수표
 

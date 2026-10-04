@@ -10,6 +10,10 @@ _REVISION = (
     _REPO_ROOT / "service-migrations/branches/operator-service/versions/"
     "20260826_operator_read_investigation_completion.py"
 )
+_CHANNEL_DELIVERY_REVISION = (
+    _REPO_ROOT / "service-migrations/branches/operator-service/versions/"
+    "20260819_operator_a3_channel_delivery.py"
+)
 _RETENTION_REVISION = (
     _REPO_ROOT / "service-migrations/branches/operator-service/versions/"
     "20260829_operator_completion_retention.py"
@@ -49,6 +53,23 @@ def test_completion_migration_grants_exact_conversation_writes() -> None:
     assert "GRANT UPDATE ON TABLE conversation_turn" not in source
     assert "GRANT DELETE ON TABLE conversation_record" not in source
     assert "GRANT DELETE ON TABLE conversation_turn" not in source
+
+
+def test_operator_channel_delivery_migration_owns_outbound_enqueue_tables() -> None:
+    source = _CHANNEL_DELIVERY_REVISION.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(_CHANNEL_DELIVERY_REVISION))
+
+    assert "conversation_outbound_delivery" in migration["owned_tables"]
+    assert "principal_conversation_binding" in migration["owned_tables"]
+    assert "conversation_adapter_breaker" in migration["owned_tables"]
+    assert (
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE\n"
+        "            conversation_channel_message_claim,\n"
+        "            principal_conversation_binding,\n"
+        "            conversation_outbound_delivery," in source
+    )
+    assert "TO fdai_operator" in source
+    assert "fdai_core" not in source
 
 
 def test_completion_migration_rollback_restores_read_only_conversation_access() -> None:
