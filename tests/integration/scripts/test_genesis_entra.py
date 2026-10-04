@@ -388,7 +388,7 @@ def test_read_entra_bindings_returns_only_validated_repository_values(monkeypatc
     result = genesis_entra.read_entra_bindings()
 
     assert result["ENTRA_CONSOLE_API_SCOPE"] == f"api://{GUID}/access"
-    assert result["OPERATOR_API_AUDIENCE"] == f"api://{GUID}"
+    assert result["OPERATOR_API_AUDIENCE"] == GUID
     assert set(result) == {
         "ENTRA_CONSOLE_API_SCOPE",
         "ENTRA_CONSOLE_SPA_CLIENT_ID",

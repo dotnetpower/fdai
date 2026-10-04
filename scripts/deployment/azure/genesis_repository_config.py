@@ -219,7 +219,7 @@ def _verify_entra_bindings(variables: dict[str, str], required_names: tuple[str,
         raise ValueError("repository Entra binding inventory is incomplete")
     api_scope = variables["ENTRA_CONSOLE_API_SCOPE"]
     match = re.fullmatch(r"api://([^/]+)/access", api_scope)
-    if match is None or variables.get("OPERATOR_API_AUDIENCE") != f"api://{match.group(1)}":
+    if match is None or variables.get("OPERATOR_API_AUDIENCE") != match.group(1):
         raise ValueError("repository Console API scope is invalid")
     applications = (
         ("fdai-api", match.group(1)),

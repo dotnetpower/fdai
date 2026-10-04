@@ -181,6 +181,32 @@ def validate_image_reference(contract: ServiceContract, repository: str, referen
     return digest
 
 
+_LEGACY_API_AUDIENCE = re.compile(
+    r"api://([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
+)
+
+
+def canonical_api_audience(value: object) -> object:
+    """Return the fdai-api client ID for the legacy ``api://<client-id>`` audience form.
+
+    fdai-api issues v2 access tokens whose ``aud`` is the client ID (#1893). Any other value is
+    returned unchanged so Terraform validation still rejects it explicitly.
+    """
+
+    if isinstance(value, str) and (match := _LEGACY_API_AUDIENCE.fullmatch(value)) is not None:
+        return match.group(1)
+    return value
+
+
+def normalize_api_audience(tfvars: dict[str, Any]) -> dict[str, Any]:
+    """Canonicalize ``auth.api_audience`` in one service's materialized tfvars in place."""
+
+    auth = tfvars.get("auth")
+    if isinstance(auth, dict) and "api_audience" in auth:
+        auth["api_audience"] = canonical_api_audience(auth["api_audience"])
+    return tfvars
+
+
 def _write_github_output(path: Path, contract: ServiceContract, image_digest: str) -> None:
     values = {
         "allowed_resource_address": contract.allowed_resource_address,

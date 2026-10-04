@@ -73,6 +73,10 @@ variable "runtime_env" {
 variable "auth" {
   description = "Entra application contract for authenticated document intake."
   type        = object({ tenant_id = string, api_audience = string })
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.auth.api_audience))
+    error_message = "auth.api_audience must be the fdai-api application (client) ID that v2 access tokens carry as aud, not the api:// App ID URI or the scope string."
+  }
 }
 variable "rbac" {
   description = "Distinct Entra App Role group identifiers for document intake."
