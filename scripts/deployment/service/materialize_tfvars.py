@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from service_contract import ServiceContractError, resolve_service
+from service_contract import ServiceContractError, normalize_api_audience, resolve_service
 
 
 class TfvarsError(ValueError):
@@ -611,7 +611,7 @@ def select_tfvars(
         raise TfvarsError(
             "tfvars payload must not set runtime_call_evidence; platform state owns it"
         )
-    materialized = copy.deepcopy(selected)
+    materialized = normalize_api_audience(copy.deepcopy(selected))
     if source_revision is not None:
         if service != "core-control-plane":
             if source_revision:

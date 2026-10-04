@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from guard_plan_structure import legacy_audience_canonicalization
 from manual_operator_update_contract import (
     _GUID,
     ManualOperatorUpdateError,
@@ -469,7 +470,11 @@ def _normalize_cost_pseudonym_adoption(
         "FDAI_COST_PSEUDONYM_KEY" in before_environment
         or set(after_environment) - set(before_environment) != {"FDAI_COST_PSEUDONYM_KEY"}
         or set(before_environment) - set(after_environment)
-        or any(after_environment[name] != item for name, item in before_environment.items())
+        or any(
+            after_environment[name] != item
+            and not legacy_audience_canonicalization(name, item, after_environment[name])
+            for name, item in before_environment.items()
+        )
         or after_environment["FDAI_COST_PSEUDONYM_KEY"]
         != {"name": "FDAI_COST_PSEUDONYM_KEY", "secret_name": "cost-pseudonym-key"}
     ):

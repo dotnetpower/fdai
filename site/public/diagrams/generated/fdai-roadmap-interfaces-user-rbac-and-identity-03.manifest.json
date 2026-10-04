@@ -7,12 +7,12 @@
     "en": {
       "title": "10.1 Console (SPA) - OIDC + Authorization Code with PKCE",
       "description": "Ordered FDAI interactions for 10.1 Console (SPA) - OIDC + Authorization Code with PKCE.",
-      "alt": "10.1 Console (SPA) - OIDC + Authorization Code with PKCE. The main stages are navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles."
+      "alt": "10.1 Console (SPA) - OIDC + Authorization Code with PKCE. The main stages are navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=fdai-api client ID) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles."
     },
     "ko": {
       "title": "10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드",
       "description": "10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드에 대한 순서가 있는 FDAI 상호 작용입니다.",
-      "alt": "10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드. 주요 단계는 navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles입니다."
+      "alt": "10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드. 주요 단계는 navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=fdai-api client ID) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles입니다."
     }
   },
   "assets": {
@@ -150,8 +150,8 @@
         "ko": "Entra ID -> Console SPA (MSAL)"
       },
       "description": {
-        "en": "id_token + access_token(aud=api://) + refresh_token",
-        "ko": "id_token + access_token(aud=api://) + refresh_token"
+        "en": "id_token + access_token(aud=fdai-api client ID) + refresh_token",
+        "ko": "id_token + access_token(aud=fdai-api client ID) + refresh_token"
       }
     },
     {

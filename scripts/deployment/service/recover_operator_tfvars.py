@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from service_contract import canonical_api_audience
+
 _RESOURCE_ID = re.compile(r"/subscriptions/[^/]+/resourceGroups/[^/]+/providers/[^/]+/.+", re.I)
 _SECRET_ID = re.compile(
     r"https://[a-z0-9-]{3,24}[.]vault[.]azure[.]net/secrets/[A-Za-z0-9-]{1,127}"
@@ -154,7 +156,7 @@ def recover_operator_tfvars(app: dict[str, Any], platform: dict[str, Any]) -> di
         "runtime_env": selected["runtime_env"],
         "auth": {
             "tenant_id": selected["tenant_id"],
-            "api_audience": selected["api_audience"],
+            "api_audience": canonical_api_audience(selected["api_audience"]),
         },
         "rbac": {
             key: selected[key]

@@ -8,7 +8,7 @@ import json
 import re
 from typing import Any
 
-from service_contract import ServiceContract
+from service_contract import ServiceContract, canonical_api_audience
 
 
 class PlanGuardError(ValueError):
@@ -275,8 +275,38 @@ def runtime_contract_drift_names(
         f"env:{name}"
         for name in sorted(set(before_environment) | set(after_environment))
         if before_environment.get(name) != after_environment.get(name)
+        and not legacy_audience_canonicalization(
+            name, before_environment.get(name), after_environment.get(name)
+        )
     )
     return tuple(changed)
+
+
+_AUDIENCE_ENVIRONMENT_NAMES = frozenset(
+    {"FDAI_API_AUDIENCE", "FDAI_CHANNEL_ATTACHMENT_API_AUDIENCE"}
+)
+
+
+def legacy_audience_canonicalization(name: str, before: object, after: object) -> bool:
+    """Admit only the plain ``api://<client-id>`` -> ``<client-id>`` audience correction (#1893).
+
+    Bindings are normalized ``(value, secret_name)`` tuples or raw environment items.
+    """
+
+    if name not in _AUDIENCE_ENVIRONMENT_NAMES:
+        return False
+    if isinstance(before, dict) and isinstance(after, dict):
+        if {k: v for k, v in before.items() if k != "value"} != {
+            k: v for k, v in after.items() if k != "value"
+        }:
+            return False
+        before, after = environment_binding(before), environment_binding(after)
+    if not (isinstance(before, tuple) and isinstance(after, tuple)):
+        return False
+    if before[1] is not None or after[1] is not None:
+        return False
+    old, new = before[0], after[0]
+    return isinstance(old, str) and old != new and canonical_api_audience(old) == new
 
 
 def sort_primary_environment(
@@ -285,12 +315,20 @@ def sort_primary_environment(
     address: str,
     contract: ServiceContract,
 ) -> dict[str, Any]:
-    """Return a deep-copied resource with deterministic primary environment ordering."""
+    """Return a deep-copied comparison form with deterministic primary environment ordering.
+
+    Plain audience values are canonicalized so the directional #1893 correction, which
+    ``runtime_contract_drift_names`` admits, is provable by rollback comparison.
+    """
     normalized = copy.deepcopy(resource_value)
     container = primary_container(normalized, address=address, contract=contract)
     environment = container.get("env")
     if not isinstance(environment, list):
         raise PlanGuardError(f"resource at {address} has an invalid environment")
+    for item in environment:
+        name = item.get("name") if isinstance(item, dict) else None
+        if name in _AUDIENCE_ENVIRONMENT_NAMES and isinstance(item.get("value"), str):
+            item["value"] = canonical_api_audience(item["value"])
     container["env"] = sorted(
         environment,
         key=lambda item: str(item.get("name")) if isinstance(item, dict) else "",

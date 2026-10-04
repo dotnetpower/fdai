@@ -1392,3 +1392,44 @@ def test_workflow_binds_channel_edge_provider_through_github_secrets() -> None:
     assert (
         'OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_binding"'
     ) in _WORKFLOW
+
+
+@pytest.mark.parametrize("service", ["operator-service", "document-ingestion-api"])
+def test_select_tfvars_canonicalizes_the_legacy_app_id_uri_audience(
+    tfvars: ModuleType, service: str
+) -> None:
+    client_id = "00000000-0000-0000-0000-0000000000a1"
+    payload = {
+        "environments": {
+            "dev": {
+                service: {
+                    "name": "example",
+                    "auth": {"tenant_id": "tenant", "api_audience": f"api://{client_id}"},
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(payload, service=service, environment="dev")
+
+    assert selected["auth"]["api_audience"] == client_id
+    assert payload["environments"]["dev"][service]["auth"]["api_audience"] == f"api://{client_id}"
+
+
+def test_select_tfvars_leaves_a_non_client_id_audience_for_terraform_to_reject(
+    tfvars: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "example",
+                    "auth": {"tenant_id": "tenant", "api_audience": "api://custom-uri"},
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(payload, service="operator-service", environment="dev")
+
+    assert selected["auth"]["api_audience"] == "api://custom-uri"

@@ -6,6 +6,8 @@ import sys
 import threading
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -244,3 +246,92 @@ def test_foundation_checkpoint_reducer_accepts_only_current_exact_evidence() -> 
         "foundation_receipt_digest": "a" * 64,
         "enrollment_receipt_digest": "b" * 64,
     }
+
+
+def _receipt_prepared(tmp_path: Path) -> PreparedGenesis:
+    tmp_path.chmod(0o700)
+    return PreparedGenesis(
+        root=tmp_path,
+        stage=tmp_path / "stage",
+        profile=tmp_path / "profile.json",
+        variables=tmp_path / "variables.json",
+        ssh_private_key=tmp_path / "runner_ed25519",
+        source_commit=SOURCE,
+        target_binding="b" * 64,
+        run_binding="c" * 64,
+        kit_manifest_digest="d" * 64,
+        offline_kit=tmp_path / "offline-kit",
+        release_root=tmp_path / "release-root.pub",
+        bundle_public_key=tmp_path / "bundle-public-key.pub",
+        terraform=tmp_path / "terraform",
+    )
+
+
+_API_CLIENT_ID = "00000000-0000-0000-0000-0000000000a1"
+_OBSERVED_BINDINGS = {
+    "ENTRA_CONSOLE_API_SCOPE": f"api://{_API_CLIENT_ID}/access",
+    "OPERATOR_API_AUDIENCE": _API_CLIENT_ID,
+    "RBAC_READERS_GROUP_ID": "00000000-0000-0000-0000-0000000000b1",
+}
+
+
+def _write_receipt(prepared: PreparedGenesis, bindings: dict[str, str]) -> Path:
+    path = prepared.root / "entra-config-receipt.json"
+    genesis_supervisor._write_entra_receipt(
+        receipt_path=path,
+        plan_digest="e" * 64,
+        actor_digest="f" * 64,
+        bindings=bindings,
+        mutation_performed=True,
+    )
+    return path
+
+
+def test_entra_receipt_with_the_legacy_app_id_uri_audience_is_upgraded(
+    tmp_path: Path, monkeypatch
+) -> None:
+    prepared = _receipt_prepared(tmp_path)
+    legacy = _OBSERVED_BINDINGS | {"OPERATOR_API_AUDIENCE": f"api://{_API_CLIENT_ID}"}
+    receipt_path = _write_receipt(prepared, legacy)
+    monkeypatch.setattr(genesis_supervisor, "read_entra_bindings", lambda: dict(_OBSERVED_BINDINGS))
+
+    bindings = genesis_supervisor._configure_entra(
+        prepared=prepared, status={}, actor_digest="f" * 64
+    )
+
+    assert bindings == _OBSERVED_BINDINGS
+    rewritten = genesis_supervisor._private_json(receipt_path, "Entra configuration receipt")
+    assert rewritten["bindings"] == _OBSERVED_BINDINGS
+    assert rewritten["plan_digest"] == "e" * 64
+    assert rewritten["mutation_performed"] is True
+    assert [path.name for path in tmp_path.iterdir() if path.name.startswith(".")] == []
+    assert receipt_path.stat().st_mode & 0o777 == 0o600
+
+
+def test_entra_receipt_with_any_other_difference_still_fails_closed(
+    tmp_path: Path, monkeypatch
+) -> None:
+    prepared = _receipt_prepared(tmp_path)
+    drifted = _OBSERVED_BINDINGS | {
+        "OPERATOR_API_AUDIENCE": f"api://{_API_CLIENT_ID}",
+        "RBAC_READERS_GROUP_ID": "00000000-0000-0000-0000-0000000000b2",
+    }
+    _write_receipt(prepared, drifted)
+    monkeypatch.setattr(genesis_supervisor, "read_entra_bindings", lambda: dict(_OBSERVED_BINDINGS))
+
+    with pytest.raises(ValueError, match="receipt differs from current readback"):
+        genesis_supervisor._configure_entra(prepared=prepared, status={}, actor_digest="f" * 64)
+
+
+def test_entra_receipt_with_a_different_audience_application_fails_closed(
+    tmp_path: Path, monkeypatch
+) -> None:
+    prepared = _receipt_prepared(tmp_path)
+    other = _OBSERVED_BINDINGS | {
+        "OPERATOR_API_AUDIENCE": "api://00000000-0000-0000-0000-0000000000c9"
+    }
+    _write_receipt(prepared, other)
+    monkeypatch.setattr(genesis_supervisor, "read_entra_bindings", lambda: dict(_OBSERVED_BINDINGS))
+
+    with pytest.raises(ValueError, match="receipt differs from current readback"):
+        genesis_supervisor._configure_entra(prepared=prepared, status={}, actor_digest="f" * 64)
