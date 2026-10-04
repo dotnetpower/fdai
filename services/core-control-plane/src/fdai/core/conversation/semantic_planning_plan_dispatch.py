@@ -39,7 +39,10 @@ from .semantic_investigation_planning import (
     compile_investigation_plan,
 )
 from .semantic_judgment import SemanticJudgmentObservation
-from .semantic_kubernetes_pod_recovery_planning import compile_kubernetes_pod_recovery_plan
+from .semantic_kubernetes_pod_recovery_planning import (
+    compile_kubernetes_pod_diagnosis_plan,
+    compile_kubernetes_pod_recovery_plan,
+)
 from .semantic_kubernetes_rollout_planning import compile_kubernetes_rollout_plan
 from .semantic_latency_recovery_planning import (
     LatencyRecoveryWindowPendingError,
@@ -331,6 +334,17 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_kubernetes_pod_recovery"
+    if plan is None:
+        plan = compile_kubernetes_pod_diagnosis_plan(
+            frame=frame,
+            investigation_intent=investigation_intent,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_kubernetes_pod_diagnosis"
     if plan is None:
         plan = compile_target_error_activity_plan(
             frame=frame,

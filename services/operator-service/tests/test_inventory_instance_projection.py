@@ -1353,6 +1353,16 @@ def test_kubernetes_projection_exposes_exact_identity_and_allowlisted_diagnostic
                 "uid": "uid-api",
                 "phase": "Pending",
                 "container_waiting_reasons": ("ImagePullBackOff",),
+                "container_terminations": (
+                    {
+                        "container_name": "api",
+                        "observation_kind": "previous",
+                        "reason": "OOMKilled",
+                        "exit_code": 137,
+                        "signal": 9,
+                        "finished_at": "2026-09-09T23:59:00+00:00",
+                    },
+                ),
                 "message": "must not project",
             },
             last_seen=now,
@@ -1370,6 +1380,16 @@ def test_kubernetes_projection_exposes_exact_identity_and_allowlisted_diagnostic
         "uid": "uid-api",
     }
     assert projected["kubernetes_diagnostics"] == {
+        "container_terminations": [
+            {
+                "container_name": "api",
+                "exit_code": 137,
+                "finished_at": "2026-09-09T23:59:00+00:00",
+                "observation_kind": "previous",
+                "reason": "OOMKilled",
+                "signal": 9,
+            }
+        ],
         "container_waiting_reasons": ["ImagePullBackOff"],
         "phase": "Pending",
     }

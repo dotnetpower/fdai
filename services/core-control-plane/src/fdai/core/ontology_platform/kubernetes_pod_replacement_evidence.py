@@ -15,6 +15,13 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 
+from .kubernetes_pod_termination import (
+    PodTerminationObservation,
+    PodTerminationUnavailableReason,
+    is_termination_unavailable_reason,
+    termination_unavailable_gap,
+)
+
 _MAX_ID_LENGTH = 512
 _MAX_CANDIDATES = 32
 _ABNORMAL_REASONS = frozenset(
@@ -92,45 +99,6 @@ class PodLifecycleObservation:
             raise ValueError("workload_revision MUST be bounded non-empty text or null")
         if not self.evidence_refs or any(not item for item in self.evidence_refs):
             raise ValueError("Pod lifecycle observation MUST cite evidence")
-
-
-@dataclass(frozen=True, slots=True)
-class PodTerminationObservation:
-    """One retained termination observation for an immutable Pod UID."""
-
-    pod_uid: str
-    cluster_id: str
-    namespace: str
-    event_type: str | None
-    reason: str | None
-    exit_code: int | None
-    event_time: datetime | None
-    recorded_at: datetime | None
-    source_identity: str | None
-    source_revision: str | None
-    evidence_refs: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        for field_name in ("pod_uid", "cluster_id", "namespace"):
-            value = getattr(self, field_name)
-            if not value.strip() or len(value) > _MAX_ID_LENGTH:
-                raise ValueError(f"termination {field_name} MUST be bounded non-empty text")
-        for field_name in ("event_time", "recorded_at"):
-            value = getattr(self, field_name)
-            if value is not None and value.tzinfo is None:
-                raise ValueError(f"termination {field_name} MUST be timezone-aware")
-        if self.exit_code is not None and (
-            isinstance(self.exit_code, bool)
-            or not isinstance(self.exit_code, int)
-            or self.exit_code < 0
-        ):
-            raise ValueError("termination exit_code MUST be a non-negative integer or null")
-        for field_name in ("source_identity", "source_revision"):
-            value = getattr(self, field_name)
-            if value is not None and (not value.strip() or len(value) > _MAX_ID_LENGTH):
-                raise ValueError(f"termination {field_name} MUST be bounded non-empty text or null")
-        if not self.evidence_refs or any(not item for item in self.evidence_refs):
-            raise ValueError("termination observation MUST cite evidence")
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,6 +191,10 @@ class KubernetesPodReplacementEvidenceResult(ContractBase):
     new_owner_uid: str | None
     root_controller_uid: str | None
     root_controller_kind: str | None
+    termination_reason: str | None
+    termination_exit_code: int | None
+    termination_signal: int | None
+    termination_finished_at: datetime | None
     termination_time: datetime | None
     creation_time: datetime | None
     correlation_window_start: datetime
@@ -242,6 +214,7 @@ def evaluate_kubernetes_pod_replacement(
     old_pod: PodLifecycleObservation,
     candidates: tuple[PodLifecycleObservation, ...],
     termination: PodTerminationObservation | None,
+    termination_unavailable_reason: PodTerminationUnavailableReason | None = None,
     deployment: PodReplacementDeploymentObservation | None,
     correlation_window_start: datetime,
     cutoff: datetime,
@@ -257,6 +230,13 @@ def evaluate_kubernetes_pod_replacement(
         raise ValueError("ordering_margin MUST be a non-negative whole-second duration")
     if len(candidates) > _MAX_CANDIDATES:
         raise ValueError("replacement candidate set exceeds its bound")
+    if termination_unavailable_reason is not None:
+        if termination is not None:
+            raise ValueError(
+                "termination_unavailable_reason MUST NOT accompany termination evidence"
+            )
+        if not is_termination_unavailable_reason(termination_unavailable_reason):
+            raise ValueError("termination_unavailable_reason is not reviewed")
 
     historical_gaps, historical_conflicts = _historical_metadata_findings(
         old_pod.metadata,
@@ -309,6 +289,7 @@ def evaluate_kubernetes_pod_replacement(
             new_pod=None,
             candidates=candidates,
             termination=termination,
+            termination_unavailable_reason=termination_unavailable_reason,
             correlation_window_start=correlation_window_start,
             cutoff=cutoff,
             ordering_margin=ordering_margin,
@@ -383,6 +364,7 @@ def evaluate_kubernetes_pod_replacement(
             old_pod=old_pod,
             new_pod=new_pod,
             termination=termination,
+            termination_unavailable_reason=termination_unavailable_reason,
             correlation_window_start=correlation_window_start,
             cutoff=cutoff,
             ordering_margin=ordering_margin,
@@ -423,6 +405,7 @@ def evaluate_kubernetes_pod_replacement(
         termination=termination,
         deployment=deployment,
         candidates=(new_pod,),
+        termination_unavailable_reason=termination_unavailable_reason,
         correlation_window_start=correlation_window_start,
         cutoff=cutoff,
         ordering_margin=ordering_margin,
@@ -440,13 +423,18 @@ def _append_termination_findings(
     old_pod: PodLifecycleObservation,
     new_pod: PodLifecycleObservation,
     termination: PodTerminationObservation | None,
+    termination_unavailable_reason: PodTerminationUnavailableReason | None,
     correlation_window_start: datetime,
     cutoff: datetime,
     ordering_margin: timedelta,
     require_precedes_creation: bool,
 ) -> None:
     if termination is None:
-        gaps.append("termination_observation_unavailable")
+        gaps.append(
+            termination_unavailable_gap(termination_unavailable_reason)
+            if termination_unavailable_reason is not None
+            else "termination_observation_unavailable"
+        )
         return
     if termination.pod_uid != old_pod.pod_uid:
         conflicts.append("termination_pod_uid_conflict")
@@ -466,6 +454,12 @@ def _append_termination_findings(
         conflicts.append("termination_recorded_after_cutoff")
     elif termination.event_time is not None and termination.recorded_at < termination.event_time:
         conflicts.append("termination_recorded_before_event")
+    if termination.finished_at is None:
+        gaps.append("termination_finished_at_unavailable")
+    elif termination.finished_at > cutoff:
+        conflicts.append("termination_finished_after_cutoff")
+    elif termination.event_time is not None and termination.finished_at > termination.event_time:
+        conflicts.append("termination_finished_after_event")
     if termination.source_identity is None:
         gaps.append("termination_source_identity_unavailable")
     if termination.source_revision is None:
@@ -705,6 +699,7 @@ def _result(
     new_pod: PodLifecycleObservation | None,
     candidates: tuple[PodLifecycleObservation, ...] = (),
     termination: PodTerminationObservation | None,
+    termination_unavailable_reason: PodTerminationUnavailableReason | None = None,
     correlation_window_start: datetime,
     cutoff: datetime,
     ordering_margin: timedelta,
@@ -752,6 +747,10 @@ def _result(
         new_owner_uid=new_pod.owner_uid if new_pod is not None else None,
         root_controller_uid=old_pod.root_controller_uid,
         root_controller_kind=old_pod.root_controller_kind,
+        termination_reason=termination.reason if termination is not None else None,
+        termination_exit_code=termination.exit_code if termination is not None else None,
+        termination_signal=termination.signal if termination is not None else None,
+        termination_finished_at=termination.finished_at if termination is not None else None,
         termination_time=termination.event_time if termination is not None else None,
         creation_time=new_pod.created_at if new_pod is not None else None,
         correlation_window_start=correlation_window_start,
@@ -772,5 +771,6 @@ __all__ = [
     "PodLifecycleObservation",
     "PodReplacementDeploymentObservation",
     "PodTerminationObservation",
+    "PodTerminationUnavailableReason",
     "evaluate_kubernetes_pod_replacement",
 ]

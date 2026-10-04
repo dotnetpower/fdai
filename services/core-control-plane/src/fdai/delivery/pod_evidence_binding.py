@@ -19,7 +19,7 @@ import json
 import os
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from fdai.core.investigation import (
     PodLifecycleEvidence,
@@ -35,6 +35,7 @@ from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
     PodLifecycleObservation,
     PodReplacementDeploymentObservation,
     PodTerminationObservation,
+    PodTerminationUnavailableReason,
 )
 from fdai.shared.providers.state_evidence import (
     LinkObservationMetadata,
@@ -55,6 +56,7 @@ _EVIDENCE_KEYS = frozenset(
         "old_pod",
         "candidates",
         "termination",
+        "termination_unavailable_reason",
         "deployment",
         "recovery_pod",
         "restart_history",
@@ -97,11 +99,26 @@ _TERMINATION_KEYS = frozenset(
         "event_type",
         "reason",
         "exit_code",
+        "signal",
+        "finished_at",
         "event_time",
         "recorded_at",
         "source_identity",
         "source_revision",
         "evidence_refs",
+    }
+)
+_TERMINATION_UNAVAILABLE_REASONS = frozenset(
+    {
+        "authorization_denied",
+        "cursor_expired",
+        "durable_history_unavailable",
+        "resource_event_response_invalid",
+        "result_limit",
+        "source_retention_incomplete",
+        "source_retention_stale",
+        "source_scope_incomplete",
+        "source_unavailable",
     }
 )
 _DEPLOYMENT_KEYS = frozenset(
@@ -210,6 +227,9 @@ def _evidence(value: Any) -> PodLifecycleEvidence:
         old_pod=_lifecycle_observation(item["old_pod"]),
         candidates=tuple(_lifecycle_observation(entry) for entry in candidates_raw),
         termination=_optional(item["termination"], _termination_observation),
+        termination_unavailable_reason=_termination_unavailable_reason(
+            item["termination_unavailable_reason"]
+        ),
         deployment=_optional(item["deployment"], _deployment_observation),
         recovery_pod=_recovery_observation(item["recovery_pod"]),
         restart_history=_restart_history(item["restart_history"]),
@@ -258,12 +278,23 @@ def _termination_observation(value: Any) -> PodTerminationObservation:
         event_type=_optional_text(item["event_type"], "event_type"),
         reason=_optional_text(item["reason"], "reason"),
         exit_code=_optional_count(item["exit_code"], "exit_code"),
+        signal=_optional_count(item["signal"], "signal"),
+        finished_at=_optional(item["finished_at"], _time),
         event_time=_optional(item["event_time"], _time),
         recorded_at=_optional(item["recorded_at"], _time),
         source_identity=_optional_text(item["source_identity"], "source_identity"),
         source_revision=_optional_text(item["source_revision"], "source_revision"),
         evidence_refs=_texts(item["evidence_refs"], "evidence_refs"),
     )
+
+
+def _termination_unavailable_reason(value: Any) -> PodTerminationUnavailableReason | None:
+    if value is None:
+        return None
+    reason = _text(value, "termination_unavailable_reason")
+    if reason not in _TERMINATION_UNAVAILABLE_REASONS:
+        raise ValueError("termination_unavailable_reason is not reviewed")
+    return cast(PodTerminationUnavailableReason, reason)
 
 
 def _deployment_observation(value: Any) -> PodReplacementDeploymentObservation:

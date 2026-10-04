@@ -9,6 +9,10 @@ from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, build_query_manifest
+from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
+    KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
+    kubernetes_pod_diagnosis_function_type,
+)
 from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
     KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
@@ -16,6 +20,10 @@ from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     kubernetes_pod_recovery_function_type,
 )
 from fdai.core.ontology_platform.query_metric_handlers import METRIC_ARGUMENT_SCHEMAS
+from fdai.core.ontology_platform.resource_event_queries import (
+    RESOURCE_EVENT_FUNCTION_NAME,
+    resource_event_function_type,
+)
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
@@ -97,6 +105,45 @@ def _manifest():  # type: ignore[no-untyped-def]
         link_types=(dependency, ownership),
         functions=(function,),
         bound_function_names=(function.name,),
+    )
+
+
+def _diagnosis_manifest():  # type: ignore[no-untyped-def]
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "name": PropertyDecl(type=PropertyType.STRING),
+            "type": PropertyDecl(type=PropertyType.STRING, required=True),
+        },
+    )
+    diagnosis = kubernetes_pod_diagnosis_function_type()
+    events = resource_event_function_type()
+    dependency = OntologyLinkType(
+        schema_version="1.0.0",
+        name="depends_on",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    release = build_ontology_release(
+        object_types=(resource,),
+        link_types=(dependency,),
+        function_types=(diagnosis, events),
+    )
+    return build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(resource,),
+        link_types=(dependency,),
+        functions=(diagnosis, events),
+        bound_function_names=(diagnosis.name, events.name),
     )
 
 
@@ -220,5 +267,46 @@ def test_exact_pod_restart_investigation_uses_server_owned_plan() -> None:
     assert outcome.plan.nodes[-1].arguments["function_name"] == (
         KUBERNETES_POD_RECOVERY_FUNCTION_NAME
     )
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_exact_pod_diagnosis_uses_server_owned_plan_when_diagnosis_is_bound() -> None:
+    utterance = "order-api-0 Pod가 갑자기 재시작된 원인을 조사해줘."
+    model = _Model(_frame(utterance))
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(_diagnosis_manifest()),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION),
+        ),
+        metric_concepts=(
+            "deployment.change",
+            KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
+            KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
+            "resource.saturation",
+        ),
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED, outcome.reason
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+        QueryNodeKind.FUNCTION,
+    )
+    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_EVENT_FUNCTION_NAME
+    assert outcome.plan.nodes[2].arguments["function_name"] == (
+        KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME
+    )
+    assert outcome.plan.nodes[2].arguments["arguments"] == {"lookback_seconds": 900}
     assert model.plan_calls == 0
     assert outcome.execution_authority is False

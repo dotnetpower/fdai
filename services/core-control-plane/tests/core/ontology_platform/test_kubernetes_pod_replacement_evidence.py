@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
 from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
@@ -13,6 +14,7 @@ from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
     PodLifecycleObservation,
     PodReplacementDeploymentObservation,
     PodTerminationObservation,
+    PodTerminationUnavailableReason,
     evaluate_kubernetes_pod_replacement,
 )
 from fdai.shared.providers.state_evidence import (
@@ -123,6 +125,8 @@ def _termination(**updates: object) -> PodTerminationObservation:
         "event_type": "Failed",
         "reason": "OOMKilled",
         "exit_code": 137,
+        "signal": 9,
+        "finished_at": _CUTOFF - timedelta(minutes=5, seconds=1),
         "event_time": _CUTOFF - timedelta(minutes=5),
         "recorded_at": _CUTOFF - timedelta(minutes=5),
         "source_identity": "kubernetes-event-watch",
@@ -196,6 +200,10 @@ def test_abnormal_distinct_uid_replacement_is_correlated_and_recovered() -> None
     assert result.recovery_verified is True
     assert result.old_pod_uid == "pod-uid-old"
     assert result.new_pod_uid == "pod-uid-new"
+    assert result.termination_reason == "OOMKilled"
+    assert result.termination_exit_code == 137
+    assert result.termination_signal == 9
+    assert result.termination_finished_at == _CUTOFF - timedelta(minutes=5, seconds=1)
     assert result.cause_claim_supported is False
     assert result.execution_authority is False
 
@@ -322,6 +330,55 @@ def test_rollout_requires_scoped_termination_evidence() -> None:
     assert result.replacement_supported is False
     assert result.recovery_verified is False
     assert "termination_observation_unavailable" in result.evidence_gaps
+
+
+@pytest.mark.parametrize(
+    ("unavailable_reason", "expected_gap"),
+    (
+        (
+            "durable_history_unavailable",
+            "termination_kubernetes_lifecycle_durable_history_unavailable",
+        ),
+        ("cursor_expired", "termination_kubernetes_lifecycle_cursor_expired"),
+        ("source_unavailable", "termination_kubernetes_lifecycle_source_unavailable"),
+    ),
+)
+def test_missing_lifecycle_source_reason_never_claims_replacement(
+    unavailable_reason: str,
+    expected_gap: str,
+) -> None:
+    result = evaluate_kubernetes_pod_replacement(
+        old_pod=_old_pod(),
+        candidates=(_new_pod(),),
+        termination=None,
+        termination_unavailable_reason=cast(PodTerminationUnavailableReason, unavailable_reason),
+        deployment=_deployment(),
+        correlation_window_start=_WINDOW_START,
+        cutoff=_CUTOFF,
+    )
+
+    assert result.status is KubernetesPodReplacementStatus.INSUFFICIENT_EVIDENCE
+    assert result.replacement_supported is False
+    assert result.execution_authority is False
+    assert expected_gap in result.evidence_gaps
+
+
+def test_retained_old_and_new_uid_replacement_survives_new_cutoff() -> None:
+    later_cutoff = _CUTOFF + timedelta(minutes=3)
+    result = evaluate_kubernetes_pod_replacement(
+        old_pod=_old_pod(),
+        candidates=(_new_pod(),),
+        termination=_termination(),
+        deployment=_deployment(),
+        correlation_window_start=_WINDOW_START,
+        cutoff=later_cutoff,
+    )
+
+    assert result.status is KubernetesPodReplacementStatus.POD_REPLACEMENT
+    assert result.old_pod_uid == "pod-uid-old"
+    assert result.new_pod_uid == "pod-uid-new"
+    assert result.replacement_supported is True
+    assert result.execution_authority is False
 
 
 def test_unrelated_pod_is_not_admitted_as_replacement() -> None:
@@ -595,6 +652,7 @@ def test_termination_outside_the_window_cannot_support_replacement() -> None:
     result = _evaluate(
         termination=replace(
             _termination(),
+            finished_at=_WINDOW_START - timedelta(seconds=2),
             event_time=_WINDOW_START - timedelta(seconds=1),
             recorded_at=_WINDOW_START,
         ),

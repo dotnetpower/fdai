@@ -127,6 +127,8 @@ def _termination() -> dict[str, Any]:
         "event_type": "Failed",
         "reason": "OOMKilled",
         "exit_code": 137,
+        "signal": 9,
+        "finished_at": (at - timedelta(seconds=1)).isoformat(),
         "event_time": at.isoformat(),
         "recorded_at": at.isoformat(),
         "source_identity": "kubernetes-event-watch",
@@ -212,6 +214,7 @@ def _restart_evidence() -> dict[str, Any]:
         "old_pod": _old_pod(),
         "candidates": [restarted],
         "termination": _termination(),
+        "termination_unavailable_reason": None,
         "deployment": _deployment(),
         "recovery_pod": _recovery_pod("pod/old", 1),
         "restart_history": _restart_history("pod/old", 1),
@@ -244,6 +247,7 @@ def _replacement_evidence() -> dict[str, Any]:
         "old_pod": _old_pod(),
         "candidates": [replacement],
         "termination": _termination(),
+        "termination_unavailable_reason": None,
         "deployment": _deployment(),
         "recovery_pod": _recovery_pod("pod/new", 1),
         "restart_history": _restart_history("pod/new", 1),
@@ -432,6 +436,30 @@ def test_incomplete_recovery_evidence_never_reports_a_closed_recovery(
     assert receipt["recovery_closed"] is False
     assert receipt["evidence_gaps"]
     assert receipt["publication"] == "published"
+
+
+def test_lifecycle_cursor_gap_reaches_joined_receipt_without_replacement_claim(
+    scenario_bus: _ScenarioBus,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unavailable = _replacement_evidence()
+    unavailable["termination"] = None
+    unavailable["termination_unavailable_reason"] = "cursor_expired"
+    monkeypatch.setenv(cli.POD_EVIDENCE_JSON_ENV, json.dumps([unavailable]))
+    monkeypatch.setenv(
+        "FDAI_ANALYZER_TARGETS",
+        json.dumps([{"resource_id": _REPLACEMENT_REF, "kind": "kubernetes_pod"}]),
+    )
+
+    assert cli.main([]) == 0
+
+    receipt = _reports(capsys.readouterr().out)[-1]["receipts"][0]
+    assert receipt["signal"] == "insufficient_evidence"
+    assert receipt["evidence_complete"] is False
+    assert receipt["recovery_closed"] is False
+    assert "termination_kubernetes_lifecycle_cursor_expired" in receipt["evidence_gaps"]
+    assert receipt["execution_authority"] is False
 
 
 def test_unbound_pod_evidence_reports_unsupported_targets_instead_of_a_verdict(
