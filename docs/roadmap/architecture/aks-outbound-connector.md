@@ -82,6 +82,12 @@ are rejected. Identical retry remains safe and does not refresh the original obs
 ## Constraint-based deployment proposals
 
 The complete constraint model and proposal contract are in [AKS Outbound Connector Deployment Proposals](aks-outbound-connector-deployment-proposals.md).
+Observer proposal discovery also publishes informational ChatOps notifications through the
+existing notification router and durable per-channel delivery store. The notification key binds the
+proposal digest and recipient principal before the channel-specific outbox records, so unchanged
+digests notify once per principal/channel boundary while changed digests notify once again. The
+message has no approval button, executor identity, apply command, or authority to install an
+observer.
 
 ## Snapshot runtime
 

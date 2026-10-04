@@ -1,8 +1,8 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: df8854f595bab1d7f887edb7b1fb06396b8ffcd6
-translation_revised: 2026-09-26
+translation_source_sha: 21c2ba2289939588a66f91bf240373d50fc3a82c
+translation_revised: 2026-10-04
 ---
 # AKS 역방향 커넥터
 
@@ -83,6 +83,11 @@ Event 커서가 만료됐거나 순서가 누락되거나 스키마를 지원하
 ## 제약 기반 배포 제안
 
 전체 제약 모델과 제안 계약은 [AKS 아웃바운드 커넥터 배포 제안](aks-outbound-connector-deployment-proposals-ko.md)을 참조하세요.
+Observer 제안 발견은 기존 알림 라우터와 채널별 영속 전달 저장소를 통해 정보성 ChatOps
+알림도 발행합니다. 알림 키는 채널별 outbox 기록 전에 제안 해시와 수신 principal을 함께
+묶으므로, 변경되지 않은 해시는 principal과 채널 경계마다 한 번만 알리고 변경된 해시는 다시
+정확히 한 번 알립니다. 메시지에는 승인 버튼, 실행기 신원, 적용 명령, Observer 설치 권한이
+없습니다.
 
 ## 스냅샷 실행 구성
 

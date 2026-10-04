@@ -544,6 +544,114 @@ async def test_projection_publishes_current_or_unavailable_without_core_state_ac
     assert bus.records[-1].proposal is None
 
 
+async def test_chatops_notification_dedupes_per_proposal_principal_and_channel() -> None:
+    from fdai.core.notifications import (
+        ChannelRegistry,
+        InMemoryNotificationDeliveryStore,
+        NotificationRouter,
+        RouteOutcome,
+        load_matrix_from_mapping,
+    )
+    from fdai.delivery.kubernetes_connector_projection import (
+        publish_observer_proposal_notification,
+    )
+    from fdai.shared.providers.notifications import TrustTier
+    from fdai.shared.providers.testing.notifications import (
+        FakeHilEscalationSink,
+        FakeSlackChannel,
+        FakeTeamsChannel,
+    )
+
+    def router(
+        delivery_store: InMemoryNotificationDeliveryStore,
+        teams: FakeTeamsChannel,
+        slack: FakeSlackChannel,
+    ) -> NotificationRouter:
+        return NotificationRouter(
+            matrix=load_matrix_from_mapping(
+                {
+                    "matrix": {
+                        "version": 1,
+                        "default_route": "operational_alert",
+                        "routes": {
+                            "operational_alert": {
+                                "trust_tier": TrustTier.A2_OPERATIONAL_ALERT.value,
+                                "delivery_mode": "fanout",
+                                "channels": [teams.channel_id, slack.channel_id],
+                            }
+                        },
+                    }
+                }
+            ),
+            registry=ChannelRegistry(channels={teams.channel_id: teams, slack.channel_id: slack}),
+            audit_store=InMemoryStateStore(),
+            hil_sink=FakeHilEscalationSink(),
+            delivery_store=delivery_store,
+            retry_backoff_seconds=0,
+        )
+
+    store, reader = InMemoryStateStore(), Constraints()
+    service = ObserverDeploymentProposalService(store, constraints=reader, now=lambda: NOW)
+    await service.observe((observation(),))
+    target = to_neutral_id(CLUSTER)
+    initial = await service.current(target)
+    teams = FakeTeamsChannel(
+        channel_id="teams-ops", trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT})
+    )
+    slack = FakeSlackChannel(
+        channel_id="slack-ops", trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT})
+    )
+    delivery_store = InMemoryNotificationDeliveryStore()
+
+    first = await publish_observer_proposal_notification(
+        proposal=initial,
+        dispatcher=router(delivery_store, teams, slack),
+        principal_ref="observer-proposal-reader",
+    )
+    duplicate_after_restart = await publish_observer_proposal_notification(
+        proposal=initial,
+        dispatcher=router(delivery_store, teams, slack),
+        principal_ref="observer-proposal-reader",
+    )
+
+    assert first.outcome is RouteOutcome.DELIVERED_ALL
+    assert duplicate_after_restart.outcome is RouteOutcome.DELIVERED_ALL
+    assert len(teams.records) == len(slack.records) == 1
+    message = teams.records[0]
+    assert message.trust_tier is TrustTier.A2_OPERATIONAL_ALERT
+    assert message.metadata["execution_authority"] == "false"
+    assert message.metadata["approval_required"] == "true"
+    assert "does not approve, install, execute, or grant deployment authority" in (
+        message.body_markdown
+    )
+    assert [link.label for link in message.links] == ["View observer proposals"]
+
+    other_principal = await publish_observer_proposal_notification(
+        proposal=initial,
+        dispatcher=router(delivery_store, teams, slack),
+        principal_ref="second-reader",
+    )
+    assert other_principal.outcome is RouteOutcome.DELIVERED_ALL
+    assert len(teams.records) == len(slack.records) == 2
+
+    valid = context()
+    reader.value = context(
+        target_ref=target,
+        facts=tuple(fact.model_copy(update={"target_ref": target}) for fact in valid.facts),
+    )
+    assert await service.observe((observation(),)) == 1
+    changed = await service.current(target)
+    assert changed.proposal_digest != initial.proposal_digest
+
+    changed_result = await publish_observer_proposal_notification(
+        proposal=changed,
+        dispatcher=router(delivery_store, teams, slack),
+        principal_ref="observer-proposal-reader",
+    )
+    assert changed_result.outcome is RouteOutcome.DELIVERED_ALL
+    assert len(teams.records) == len(slack.records) == 3
+
+
 async def test_subscription_discovery_creates_proposal_when_credentials_are_unavailable(
     monkeypatch,
 ) -> None:

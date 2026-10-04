@@ -95,7 +95,8 @@ python -m fdai.delivery.kubernetes_connector_proposal_cli show --target-ref <neu
 The context file must be owner-only `0600`. The read command uses the existing Core
 `FDAI_STATE_STORE_DSN`, permits only loopback PostgreSQL in a local venue, and fails on stale or
 changed evidence. Neither command approves, installs or sends a notification. Console projection is
-implemented below; ChatOps notification, governed installation and operational readiness remain open.
+implemented below; ChatOps notification is implemented as an informational route, while governed
+installation and operational readiness remain open.
 
 ### Authenticated read preflight
 
@@ -240,6 +241,14 @@ different-content delivery is a conflict. Publication retries read the durable C
 they cannot generate an installation or notification side effect. Role-gated GET routes expose
 these read models. A separate principal-scoped interaction is required before any later plan or
 approval, and expired projection content is withheld rather than displayed as current.
+
+Successful discovery also builds the existing notification router with the same durable
+per-channel delivery store. The informational A2 notification uses a stable audit id derived from
+the proposal digest and recipient principal, and the router's channel records provide the channel
+boundary. Replaying the same proposal cannot send duplicate Teams or Slack messages to the same
+principal/channel, while a changed proposal digest sends one new informational message. The card
+contains only a Console link and text stating that it does not approve, install, execute, or grant
+deployment authority.
 
 The implementation uses `core.observer-deployment.projections` and honors the existing
 `FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC` multiplexing setting. A successful discovery publishes the

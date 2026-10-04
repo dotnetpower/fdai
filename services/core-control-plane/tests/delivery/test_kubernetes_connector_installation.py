@@ -295,9 +295,13 @@ def test_material_command_real_process_stages_and_replays_without_credentials(tm
         "--expected-digest",
         material_digest(contents),
     ]
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join(path for path in sys.path if path),
+    }
     for expected in ("staged", "unchanged"):
         result = subprocess.run(  # noqa: S603 - fixed interpreter/module and pytest-owned paths
-            command, capture_output=True, text=True, timeout=10, check=True
+            command, capture_output=True, text=True, timeout=10, check=True, env=env
         )
         assert json.loads(result.stdout) == {"status": expected}
         assert result.stderr == ""

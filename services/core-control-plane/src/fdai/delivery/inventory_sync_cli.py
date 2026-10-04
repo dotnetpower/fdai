@@ -640,6 +640,8 @@ async def _discover_subscription_kubernetes_bindings(
                 service=proposals,
                 store=proposal_store,
                 identity=identity,
+                notification_http_client=http_client,
+                notification_store_dsn=config.dsn,
             )
         finally:
             await proposal_store.aclose()

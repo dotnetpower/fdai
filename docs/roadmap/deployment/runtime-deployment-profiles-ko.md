@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 18d8123605efaf55f758fee161a7e7bdc54df712
+translation_source_sha: 0398561a3565d94f48d45a1cf0228af30a88ad50
 translation_revised: 2026-10-04
 ---
 # 런타임 배포 프로파일
@@ -25,6 +25,10 @@ Operator 운영 조립은 모든 런타임 프로파일에서 동일한 목적�
 
 공유 Operator 발신함 구성은 두 플랫폼에서 같은 테스트 맥락 작업을 사용합니다.
 facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권한은 생기지 않습니다. 두 런타임 모두 기존 인벤토리 조정기에서 같은 [제한된 변환 복구](../interfaces/recorded-resource-state-ko.md#제한된-자동-복구)를 사용합니다. 복구는 공급자 범위나 인프라를 바꾸지 않으며, 릴리스 불일치는 자동 배포나 접근 제한 우회가 아니라 배포 검토로 처리합니다. 검토 후에도 운영자가 명시적으로 요청한 전체 조정만 재현할 수 없는 pending generation을 보존하고 현재 release에서 새로운 근거를 수집할 수 있으며 반복 복구는 계속 차단됩니다.
+구독 발견이 Observer 배포 제안을 만들면 Inventory Job은 다른 운영 알림과 같은 런타임 알림
+라우터 및 채널별 영속 전달 저장소를 사용합니다. 이 알림은 정보 제공 전용이며 런타임의
+ChatOps 바인딩을 그대로 사용합니다. 런타임 선택을 바꾸거나 Observer를 배포하거나 계획을
+승인하거나 실행 권한을 부여하지 않습니다.
 
 호스트의 읽기 전용 `verify-source-runtime`은 고정된 소스·런타임 내용만 확인하며 런타임·DB 배치,
 노드 크기·비용·호스트 신원·정확한 계획 승인은 검증하지 않습니다. 이 근거는 프로파일에 연결된
