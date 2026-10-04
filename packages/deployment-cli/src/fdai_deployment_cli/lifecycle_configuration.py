@@ -9,31 +9,54 @@ from __future__ import annotations
 
 import copy
 import re
-from collections.abc import Container, Mapping, Sequence
+from collections.abc import Container, Mapping
+from collections.abc import Sequence as AbstractSequence
 from dataclasses import dataclass
 from typing import cast
 
 _ANNOTATION_AXIS = "x-fdai-axis"
 _ANNOTATION_OWNER = "x-fdai-owner"
-_AUTHORITY_AXES = frozenset(
+_CONFIGURATION_AXES = frozenset(
     {
-        "action-lifecycle",
-        "action_lifecycle",
-        "approval-profile",
-        "approval_profile",
-        "authorization-policy",
-        "authorization_policy",
-        "standing-authority",
-        "standing_authority",
-        "authority",
+        "execution-venue",
+        "deployment-environment",
+        "product-surface-profile",
+        "evidence-profile",
+        "optional-package-preference",
+        "kinetic-evidence-availability",
+        "evidence-conflict-state",
+        "distribution",
+        "operational-safety-profile",
+        "installation-path",
+        "release-channel-subscription",
+        "model-diversity-policy",
     }
 )
 _SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 _RANGE_PART = re.compile(r"^(>=|>|<=|<|=)?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
-_SENSITIVE_KEY = re.compile(
-    r"(^|[_-])(api[_-]?key|credential|password|private[_-]?key|secret|token)($|[_-])",
-    re.IGNORECASE,
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_TOKEN_SPLIT = re.compile(r"[^A-Za-z0-9]+")
+_KEY_VAULT_REF = re.compile(
+    r"^kv://[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])/[A-Za-z0-9-]{1,127}$"
 )
+_KEY_VAULT_SECRET_REF = re.compile(
+    r"^[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])/[A-Za-z0-9-]{1,127}$"
+)
+_DIRECT_SECRET_TOKENS = frozenset(
+    {
+        "credential",
+        "credentials",
+        "passwd",
+        "password",
+        "passwords",
+        "pwd",
+        "secret",
+        "secrets",
+        "token",
+        "tokens",
+    }
+)
+_KEY_CONTEXT_TOKENS = frozenset({"access", "api", "client", "private"})
 
 Version = tuple[int, int, int]
 
@@ -44,7 +67,7 @@ class ConfigurationValidationError(ValueError):
     code: str
     path: tuple[str, ...]
 
-    def __init__(self, code: str, path: Sequence[str], message: str) -> None:
+    def __init__(self, code: str, path: AbstractSequence[str], message: str) -> None:
         self.code = code
         self.path = tuple(path)
         super().__init__(message)
@@ -89,6 +112,8 @@ class _VersionRange:
 
     @property
     def specificity(self) -> tuple[Version, int, Version, int, int]:
+        """Order overlapping ranges by the most constrained matching interval."""
+
         lower = self.lower if self.lower is not None else (-1, -1, -1)
         upper = (
             self.upper if self.upper is not None else (1_000_000_000, 1_000_000_000, 1_000_000_000)
@@ -115,11 +140,11 @@ def validate_release_configuration_schema(configuration_schema: Mapping[str, obj
                 (key,),
                 f"configuration key {key!r} MUST declare x-fdai-axis and x-fdai-owner",
             )
-        if _normal_token(axis) in _AUTHORITY_AXES:
+        if _normal_token(axis) not in _CONFIGURATION_AXES:
             raise ConfigurationValidationError(
-                "authority_axis_configuration_key",
+                "unsupported_configuration_axis",
                 (key,),
-                f"configuration key {key!r} belongs to an authority axis",
+                f"configuration key {key!r} uses an unsupported or authority axis",
             )
 
 
@@ -128,7 +153,7 @@ def resolve_configuration_layers(
     release_version: str,
     configuration_schema: Mapping[str, object],
     environment_config: Mapping[str, object],
-    entity_overrides: Sequence[Mapping[str, object]],
+    entity_overrides: AbstractSequence[Mapping[str, object]],
     sealed_keys: Container[str] = frozenset(),
 ) -> LayerResolution:
     """Resolve defaults, Environment Config, and the most-specific matching override block."""
@@ -144,12 +169,26 @@ def resolve_configuration_layers(
         path=("environment_config",),
     )
     matching: list[tuple[_VersionRange, Mapping[str, object], int]] = []
+    ranges_seen: set[str] = set()
     for index, raw_block in enumerate(entity_overrides):
         block_path = ("entity_overrides", str(index))
         block = _mapping(raw_block, block_path)
         source = _text(block.get("versions"), (*block_path, "versions"))
         values_raw = _mapping(block.get("values"), (*block_path, "values"))
         version_range = _parse_range(source, (*block_path, "versions"))
+        if version_range.source in ranges_seen:
+            raise ConfigurationValidationError(
+                "duplicate_override_range",
+                (*block_path, "versions"),
+                f"Entity override range {source!r} is duplicated",
+            )
+        ranges_seen.add(version_range.source)
+        _validate_values(
+            values_raw,
+            schema=configuration_schema,
+            sealed_keys=sealed_keys,
+            path=(*block_path, "values"),
+        )
         if version_range.contains(version):
             matching.append((version_range, values_raw, index))
     if not matching:
@@ -200,48 +239,79 @@ def _merge_values(
 ) -> None:
     for key, value in update.items():
         key_path = (*path, key)
-        if key not in schema:
-            raise ConfigurationValidationError(
-                "unknown_configuration_key",
-                key_path,
-                f"configuration key {key!r} is not declared by the Release schema",
-            )
-        if key in sealed_keys:
-            raise ConfigurationValidationError(
-                "sealed_configuration_key",
-                key_path,
-                f"configuration key {key!r} belongs in the sealed section",
-            )
+        _validate_configuration_key(key, schema=schema, sealed_keys=sealed_keys, path=key_path)
         target[key] = copy.deepcopy(value)
+
+
+def _validate_values(
+    values: Mapping[str, object],
+    *,
+    schema: Mapping[str, object],
+    sealed_keys: Container[str],
+    path: tuple[str, ...],
+) -> None:
+    for key in values:
+        _validate_configuration_key(key, schema=schema, sealed_keys=sealed_keys, path=(*path, key))
+
+
+def _validate_configuration_key(
+    key: str,
+    *,
+    schema: Mapping[str, object],
+    sealed_keys: Container[str],
+    path: tuple[str, ...],
+) -> None:
+    if key not in schema:
+        raise ConfigurationValidationError(
+            "unknown_configuration_key",
+            path,
+            f"configuration key {key!r} is not declared by the Release schema",
+        )
+    if key in sealed_keys:
+        raise ConfigurationValidationError(
+            "sealed_configuration_key",
+            path,
+            f"configuration key {key!r} belongs in the sealed section",
+        )
 
 
 def _scan_secret_values(value: object, path: tuple[str, ...]) -> None:
     if isinstance(value, Mapping):
+        _scan_name_value_secret(value, path)
         for raw_key, raw_item in value.items():
             key = str(raw_key)
             item_path = (*path, key)
-            if _SENSITIVE_KEY.search(key) is not None:
-                if _is_allowed_secret_reference(key, raw_item):
-                    continue
-                if isinstance(raw_item, str):
-                    raise ConfigurationValidationError(
-                        "literal_secret_value",
-                        item_path,
-                        f"field {key!r} contains a literal secret value",
-                    )
+            if _is_sensitive_key(key):
+                _validate_secret_reference(raw_item, item_path, key)
+                continue
             _scan_secret_values(raw_item, item_path)
         return
-    if isinstance(value, list):
+    if isinstance(value, AbstractSequence) and not isinstance(value, str | bytes | bytearray):
         for index, item in enumerate(value):
             _scan_secret_values(item, (*path, str(index)))
 
 
-def _is_allowed_secret_reference(key: str, value: object) -> bool:
-    if isinstance(value, str):
-        return key.endswith("_ref") and value.startswith(("kv://", "keyvault://"))
-    if isinstance(value, Mapping):
-        return set(value) == {"key_vault_secret"} and isinstance(value["key_vault_secret"], str)
-    return False
+def _scan_name_value_secret(value: Mapping[object, object], path: tuple[str, ...]) -> None:
+    name = value.get("name")
+    if isinstance(name, str) and _is_sensitive_key(name) and "value" in value:
+        _validate_secret_reference(value["value"], (*path, "value"), name)
+
+
+def _validate_secret_reference(value: object, path: tuple[str, ...], key: str) -> None:
+    if isinstance(value, str) and _KEY_VAULT_REF.fullmatch(value) is not None:
+        return
+    if (
+        isinstance(value, Mapping)
+        and set(value) == {"key_vault_secret"}
+        and isinstance(value["key_vault_secret"], str)
+        and _KEY_VAULT_SECRET_REF.fullmatch(value["key_vault_secret"]) is not None
+    ):
+        return
+    raise ConfigurationValidationError(
+        "literal_secret_value",
+        path,
+        f"field {key!r} contains a literal secret value or malformed secret reference",
+    )
 
 
 def _mapping(value: object, path: tuple[str, ...]) -> Mapping[str, object]:
@@ -265,7 +335,22 @@ def _text(value: object, path: tuple[str, ...]) -> str:
 
 
 def _normal_token(value: str) -> str:
-    return value.strip().lower()
+    tokens = _tokens(value)
+    return "-".join(tokens)
+
+
+def _is_sensitive_key(value: str) -> bool:
+    tokens = set(_tokens(value))
+    if tokens & _DIRECT_SECRET_TOKENS:
+        return True
+    if "connection" in tokens and "string" in tokens:
+        return True
+    return bool(tokens & {"key", "keys"} and tokens & _KEY_CONTEXT_TOKENS)
+
+
+def _tokens(value: str) -> tuple[str, ...]:
+    separated = _CAMEL_BOUNDARY.sub("-", value)
+    return tuple(token.lower() for token in _TOKEN_SPLIT.split(separated) if token)
 
 
 def _parse_version(value: str, path: tuple[str, ...]) -> Version:
