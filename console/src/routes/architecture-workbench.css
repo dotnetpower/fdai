@@ -127,7 +127,7 @@
 }
 
 .architecture-coverage strong.is-partial {
-  color: var(--warning);
+  color: var(--cs-terracotta-text, var(--warning));
 }
 
 .architecture-coverage-details {

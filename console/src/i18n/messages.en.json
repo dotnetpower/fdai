@@ -73,6 +73,7 @@
     "loadingResource": "Loading {resource}...",
     "loadFailed": "Failed to load {resource}: {message}",
     "noRows": "No rows to display.",
+    "scrollableTable": "Scrollable table",
     "copy": "Copy",
     "copied": "Copied",
     "panelFailed": "Panel failed to load.",

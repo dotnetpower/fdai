@@ -73,6 +73,7 @@
     "loadingResource": "{resource} 불러오는 중...",
     "loadFailed": "{resource}을(를) 불러오지 못했습니다: {message}",
     "noRows": "표시할 행이 없습니다.",
+    "scrollableTable": "스크롤할 수 있는 표",
     "copy": "복사",
     "copied": "복사됨",
     "panelFailed": "패널을 불러오지 못했습니다.",

@@ -251,7 +251,7 @@ require every `cs-deck-*` and `cs-grounding-*` class in the study to have a shar
 |------|-----|
 | Background | `#FBFAF9` |
 | Card | `#FFFFFF` |
-| Text / soft | `#2C333A` / `#6B7178` |
+| Text / soft | `#2C333A` / `#5E6369` |
 | Hairline | `#E3E1DE` |
 | Steel blue (primary) | `#44688E` |
 | Slate navy | `#3E4C59` |

@@ -8,7 +8,7 @@
  */
 
 import type { ComponentChildren, JSX } from "preact";
-import { useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
   useContentUpdatePulse,
   type ContentUpdateKey,
@@ -310,6 +310,32 @@ export function dataTableHeaderClass<Row>(column: Column<Row>): string | undefin
   return classes.size > 0 ? [...classes].join(" ") : undefined;
 }
 
+/** Reference the detail region only from the active row, the one whose detail is rendered,
+ * so `aria-controls` never points at an element that isn't in the document. */
+export function dataTableRowActionControls(
+  active: boolean,
+  controls: string | undefined,
+): string | undefined {
+  return active && controls ? controls : undefined;
+}
+
+/** Keyboard users must reach a horizontally scrolling table, so the wrapper becomes a focusable,
+ * named region only while its content overflows. */
+function useHorizontalOverflow(...dependencies: readonly unknown[]) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return undefined;
+    const update = () => setOverflowing(element.scrollWidth > element.clientWidth + 1);
+    update();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(element);
+    return () => observer?.disconnect();
+  }, dependencies);
+  return { ref, overflowing };
+}
+
 export function dataTableMinWidth(columnCount: number): string {
   return `${Math.max(1, columnCount) * 120}px`;
 }
@@ -325,6 +351,7 @@ export function DataTable<Row>({
   rowActionLabel,
   rowActionControls,
 }: DataTableProps<Row>) {
+  const scroll = useHorizontalOverflow(rows, columns);
   if (rows.length === 0) {
     return (
       <div class="data-table-empty muted" role="status" aria-live="polite">
@@ -335,7 +362,13 @@ export function DataTable<Row>({
   const clickable = onRowClick !== undefined;
   const explicitAction = clickable && rowActionLabel !== undefined;
   return (
-    <div class="data-table-wrap">
+    <div
+      class="data-table-wrap"
+      ref={scroll.ref}
+      tabIndex={scroll.overflowing ? 0 : undefined}
+      role={scroll.overflowing ? "region" : undefined}
+      aria-label={scroll.overflowing ? t("shared.scrollableTable") : undefined}
+    >
       <table
         class={`data-table${clickable ? " data-table-clickable" : ""}`}
         style={`--data-table-min-width: ${dataTableMinWidth(columns.length)}`}
@@ -377,7 +410,7 @@ export function DataTable<Row>({
                         type="button"
                         class="data-table-row-action"
                         aria-pressed={active}
-                        aria-controls={rowActionControls}
+                        aria-controls={dataTableRowActionControls(active, rowActionControls)}
                         onClick={() => onRowClick?.(row, index)}
                       >
                         <span>{c.render(row)}</span>
