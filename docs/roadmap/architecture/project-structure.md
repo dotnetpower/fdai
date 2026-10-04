@@ -43,6 +43,9 @@ grounded ObjectType differs from the stated schema subject, including an over-qu
 contains another ObjectType name, holds before a query plan is released.
 Relation anchoring checks likewise stay in Core compilation: a collection-scope relation that would
 traverse from a widened collection is held before any Operator or document route can answer.
+Resource Health answer composition is split the same way: `ontology_platform` preserves the
+typed exact-denominator rows, `fdai_core_service` owns locale presentation and validator
+holds, and Operator receives only the terminal no-authority answer plus technical details.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or

@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 50606395d122f2d1714b6b1f48ce7a47978e18e8
+translation_source_sha: 59ef2a1e796fbd303d35cad7dc3c055791be9f72
 translation_revised: 2026-10-04
 ---
 # 독립 운영 근거 발급
@@ -40,6 +40,9 @@ translation_revised: 2026-10-04
 기준선 평가 터미널 기록도 같은 근거 경계를 사용합니다. Rule별 결과와 세대별 완료 계약은 Forseti 평가
 증적과 Saga 감사 기록을 참조할 수 있지만, 계약 자체는 독립 운영 근거를 발급하거나 검증기를 배포하거나
 실제 공급자 상태를 증명하지 않습니다.
+Resource Health 서술 주장은 타입이 지정된 읽기 증적에 붙는 답변 검증 동반 자료입니다.
+표현 전에 서술을 보존하거나 거부할 수 있지만, 독립 운영 근거 검증기의 수락 기록이 아니며
+거버넌스가 적용되는 어떤 의사결정 출처도 충족할 수 없습니다.
 
 ## 현재 상태와 공백
 

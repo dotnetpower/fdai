@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 56b056e821aba4a2b996488885e64ce190e3e4c6
+translation_source_sha: 43b4cc4228cd90b9fe94e60b0437e493d49e5bb6
 translation_revised: 2026-10-04
 ---
 # 지속형 운영 인스턴스 그래프
@@ -422,6 +422,9 @@ tick의 범위가 제한된 복구를 위해 정본 인벤토리 세대는 유�
 Kubernetes 보강을 동일한 순서의 파이프라인으로 구성합니다.
 Resource Health 보강은 전체 정상 답변 전에 정확한 분모의 튜플 집합 다시 읽기 fence를
 사용하며, 모델이 작성한 서술은 모델 밖에서 구조화된 증적 주장과 대조해 검증합니다.
+답변 조합기는 이러한 `ResourceHealthNarrationClaims`를 서술 옆에 내보내고, 검증이 서술을
+거부하면 `execution_authority=false`를 유지한 채 검증된 행과 최종 처리 결과, 사유 및 위반
+코드로 보류합니다.
 
 검증된 구성은 배포 값을 제공합니다. 저장소 기본값과 테스트는 안전한 범위를 정의하며, 하나의 간격이
 모든 tenant 또는 공급자 API에 적합하다고 주장하지 않습니다.

@@ -148,7 +148,13 @@ def resource_health_inventory_function(
         for target in objects:
             target_type = _text(target.properties.get("type"))
             if target_type in _RESOURCE_HEALTH_NOT_APPLICABLE_TYPES:
-                stored_health.append(_not_modeled_health_values(target, target_type=target_type))
+                stored_health.append(
+                    _not_modeled_health_values(
+                        target,
+                        target_type=target_type,
+                        observed_at=secured.receipt.observation_cutoff,
+                    )
+                )
                 continue
             stored = _stored_health_values(
                 target,
@@ -163,11 +169,6 @@ def resource_health_inventory_function(
                 groups=normalized_groups,
             )
             concept = matching_concepts[0] if matching_concepts else None
-            if (
-                concept is None
-                and stored["availability_state"] == ResourceHealthAvailabilityState.AVAILABLE.value
-            ):
-                continue
             stored_health.append(
                 {
                     **stored,
@@ -235,11 +236,6 @@ def resource_health_inventory_function(
                     groups=normalized_groups,
                 )
                 concept = matching_concepts[0] if matching_concepts else None
-                if (
-                    concept is None
-                    and observation.availability_state is ResourceHealthAvailabilityState.AVAILABLE
-                ):
-                    continue
                 health_rows.append(
                     _health_row_values(
                         target=target,
@@ -275,8 +271,15 @@ def resource_health_inventory_function(
     return evaluate
 
 
-def _not_modeled_health_values(target: Any, *, target_type: str) -> dict[str, object]:
+def _not_modeled_health_values(
+    target: Any,
+    *,
+    target_type: str,
+    observed_at: datetime,
+) -> dict[str, object]:
+    observed_at_text = observed_at.isoformat()
     return {
+        "resource_id": target.id,
         "name": _text(target.properties.get("name")),
         "type": target_type,
         "availability_state": None,
@@ -287,8 +290,8 @@ def _not_modeled_health_values(target: Any, *, target_type: str) -> dict[str, ob
         "health_kind": None,
         "provider_observed_at": None,
         "source_observed_at": None,
-        "collection_started_at": None,
-        "collection_completed_at": None,
+        "collection_started_at": observed_at_text,
+        "collection_completed_at": observed_at_text,
         "evidence_family": "resource_health",
         "authority": "ontology_catalog",
         "evidence_ref": f"resource-health-applicability:{target_type}",
@@ -334,6 +337,7 @@ def _stored_health_values(
     ):
         return None
     return {
+        "resource_id": target.id,
         "name": _text(target.properties.get("name")),
         "type": _text(target.properties.get("type")),
         "availability_state": state.value,
@@ -393,6 +397,7 @@ def _health_row_values(
         else None
     )
     return {
+        "resource_id": target.id,
         "name": _text(target.properties.get("name")),
         "type": _text(target.properties.get("type")),
         "availability_state": (

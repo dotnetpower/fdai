@@ -41,6 +41,9 @@ Baseline evaluation terminal records use the same evidence boundary. The per-rul
 per-generation completion contracts can reference Forseti evaluation receipts and Saga audit
 records, but the contract itself does not issue independent operational evidence, deploy a verifier,
 or prove live provider state.
+Resource Health narration claims are answer-validation companions to a typed read receipt. They
+can preserve or reject narration before presentation, but they are not admissions from the
+independent operational-evidence verifier and cannot satisfy any governed decision source.
 
 ## Current state and gap
 

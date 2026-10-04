@@ -1217,6 +1217,129 @@ def test_resource_condition_answer_preserves_per_source_empty_and_unresolved(
     assert "`execution_authority=false`" in answer
 
 
+def test_resource_health_answer_replaces_unclaimed_all_clear_narration() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "resource-health-filter",
+                "resource_health_narration": "Everything is healthy; all targets are clear.",
+                "rows": [
+                    {
+                        "row_id": "resource-health-0001",
+                        "values": {
+                            "resource_id": "resource-service-a",
+                            "name": "service-a",
+                            "type": "app-service",
+                            "availability_state": "unavailable",
+                            "coverage_state": "observed",
+                            "state_concept": None,
+                            "health_concept": "resource_health.not_ready",
+                            "matching_health_concepts": ["resource_health.not_ready"],
+                            "health_kind": "platform_initiated",
+                            "provider_observed_at": NOW.isoformat(),
+                            "source_observed_at": NOW.isoformat(),
+                            "collection_started_at": (NOW - timedelta(seconds=2)).isoformat(),
+                            "collection_completed_at": NOW.isoformat(),
+                            "evidence_family": "resource_health",
+                            "authority": "provider",
+                            "evidence_ref": "azure-resource-health:service-a",
+                            "execution_authority": False,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_health_list",
+        measure_concepts=("resource_health.not_ready",),
+    )
+
+    assert "Everything is healthy" not in answer
+    assert "Resource Health answer held" in answer
+    assert "structured claim validation did not pass" in answer
+    assert "`terminal_disposition`: `non_healthy`" in answer
+    assert "`structured_claims_absent`" in answer
+    assert "`resource-service-a:availability:unavailable:platform_initiated`" in answer
+    assert "`execution_authority=false`" in answer
+
+
+def test_resource_health_query_answer_emits_structured_claims_in_details() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "resource-health-filter": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                "resource-health-0001",
+                                {
+                                    "resource_id": "resource-service-a",
+                                    "name": "service-a",
+                                    "type": "app-service",
+                                    "availability_state": "available",
+                                    "coverage_state": "observed",
+                                    "state_concept": None,
+                                    "health_concept": None,
+                                    "matching_health_concepts": [],
+                                    "health_kind": "status_only",
+                                    "provider_observed_at": NOW.isoformat(),
+                                    "source_observed_at": NOW.isoformat(),
+                                    "collection_started_at": (
+                                        NOW - timedelta(seconds=2)
+                                    ).isoformat(),
+                                    "collection_completed_at": NOW.isoformat(),
+                                    "evidence_family": "resource_health",
+                                    "authority": "provider",
+                                    "evidence_ref": "azure-resource-health:service-a",
+                                    "execution_authority": False,
+                                },
+                            ),
+                        ),
+                        complete=True,
+                    ),
+                    evidence_refs=("azure-resource-health:service-a",),
+                    authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("resource-health-filter",),
+    )
+
+    answer, details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="resource_health_list",
+        measure_concepts=("resource_health.not_ready",),
+    )
+
+    assert answer is not None
+    assert "Verified result" in answer
+    assert "all clear" not in answer.casefold()
+    assert details is not None
+    output = cast(list[dict[str, object]], details["outputs"])[0]
+    claims = cast(dict[str, object], output["resource_health_narration_claims"])
+    validation = cast(dict[str, object], output["resource_health_answer_validation"])
+    assert claims["terminal_disposition"] == "all_clear"
+    assert claims["all_clear"] is True
+    assert claims["denominator_count"] == 1
+    assert claims["observed_count"] == 1
+    assert claims["execution_authority"] is False
+    assert validation["accepted"] is True
+
+
 def test_state_transition_answer_reports_bitemporal_edge_and_incomplete_coverage() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
