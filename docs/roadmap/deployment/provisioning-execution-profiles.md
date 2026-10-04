@@ -399,6 +399,13 @@ runtime images, and migration wheels.
 Operational validation does not require this publication path. A locally built, independently
 verified complete signed kit supplies the local coordinator; no appliance image is produced.
 
+The deployment CLI also validates `fdai.runtime-release.v3` manifests, which add the tolerated
+schema range, capability maximums, downtime, and installation agent images defined in
+[Lifecycle Releases and Channels](lifecycle-releases-and-channels.md). Pure checks deny an upgrade or
+roll-back outside the tolerated schema range and a recalled Release or capability. Release
+identifiers must be canonical ASCII semantic versions. These checks grant no promotion or apply
+authority.
+
 The target release workflow builds the wheel and source distribution once in a read-only job, checks that
 the Python and bundle versions match, and publishes that exact artifact through PyPI Trusted
 Publishing only after the matching signed bundle is published. Only the publish job receives the
