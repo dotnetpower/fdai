@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   dataTableHeaderClass,
+  dataTableRowActionControls,
   dataTableMinWidth,
   kpiEvidenceLabel,
   kpiContentUpdateKey,
@@ -86,5 +87,13 @@ describe("KPI content update keys", () => {
 
   test("requires an explicit update key for complex KPI content", () => {
     expect(kpiContentUpdateKey({ value: null })).toBeUndefined();
+  });
+});
+
+describe("data-table row action controls", () => {
+  test("references the detail region only from the active row", () => {
+    expect(dataTableRowActionControls(true, "rule-detail-drawer")).toBe("rule-detail-drawer");
+    expect(dataTableRowActionControls(false, "rule-detail-drawer")).toBeUndefined();
+    expect(dataTableRowActionControls(true, undefined)).toBeUndefined();
   });
 });

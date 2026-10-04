@@ -5,7 +5,8 @@
   --cs-hairline: #e3e1de;
   --cs-shade: #f4f2f0;
   --cs-text: #2c333a;
-  --cs-text-soft: #6b7178;
+  /* Soft text keeps >= 4.5:1 contrast on the card, page, and shade surfaces. */
+  --cs-text-soft: #5e6369;
   --cs-steel: #44688e;
   --cs-navy: #3e4c59;
   --cs-sage: #5e8259;
@@ -13,6 +14,11 @@
   --cs-dusty-red: #ac5a5a;
   --cs-teal: #4f847e;
   --cs-plum: #7b6c9c;
+  /* Text roles for state colors on their own 9-12% tints over card, page, shade, and selected-row
+     surfaces (>= 4.5:1); fills and borders keep the base color. */
+  --cs-sage-text: #496545;
+  --cs-terracotta-text: #855233;
+  --cs-dusty-red-text: #8d4949;
   --cs-asis-bg: #f7ecec;
   --cs-tobe-bg: #ecf2ea;
   --cs-radius: 8px;
@@ -22,7 +28,7 @@
   --cs-shadow-hover: 0 6px 22px rgba(46, 54, 64, 0.1);
   --cs-tooltip-bg: #ffffff;
   --cs-tooltip-text: #2c333a;
-  --cs-tooltip-muted: #6b7178;
+  --cs-tooltip-muted: #5e6369;
   --cs-tooltip-border: #c9cdd1;
   --cs-tooltip-shadow: 0 8px 24px rgba(24, 31, 38, 0.14);
   /* Code surface and syntax roles of the component gallery's compact code pattern. */
