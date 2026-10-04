@@ -35,6 +35,7 @@ _COMMIT = re.compile(r"[0-9a-fA-F]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _PATH = re.compile(r"runtime/[A-Za-z0-9._+/-]+")
 _TOKEN = re.compile(r"[A-Za-z0-9._:/-]+")
+_SEMVER = re.compile(r"v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?")
 _PLATFORMS = {"linux-x86_64", "linux-aarch64"}
 RUNTIME_SERVICES = frozenset(
     {
@@ -101,17 +102,26 @@ class RecallRecord:
     scope: RecallScope
     target: str
     sequence: int
+    notice_digest: str
     action: RecallAction = "recall"
+    lifting_release_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.scope not in {"release", "capability"}:
             raise ValueError("recall scope MUST be release or capability")
         if self.action not in {"recall", "lift"}:
             raise ValueError("recall action MUST be recall or lift")
-        if not isinstance(self.sequence, int) or self.sequence < 0:
+        if type(self.sequence) is not int or self.sequence < 0:
             raise ValueError("recall sequence MUST be a non-negative integer")
         if _TOKEN.fullmatch(self.target) is None:
             raise ValueError("recall target is invalid")
+        if _SHA256.fullmatch(self.notice_digest) is None:
+            raise ValueError("recall notice digest is invalid")
+        if self.action == "lift":
+            if self.lifting_release_id is None or _TOKEN.fullmatch(self.lifting_release_id) is None:
+                raise ValueError("recall lift MUST name the lifting Release")
+        elif self.lifting_release_id is not None:
+            raise ValueError("recall records MUST NOT name a lifting Release")
 
 
 @dataclass(frozen=True, slots=True)
@@ -279,7 +289,7 @@ def validate_schema_transition(
 ) -> ReleaseDecision:
     """Allow only schema-compatible upgrade and roll-back candidates."""
 
-    if not isinstance(current_schema_revision, int) or current_schema_revision < 0:
+    if type(current_schema_revision) is not int or current_schema_revision < 0:
         return ReleaseDecision(False, "schema_revision_invalid")
     if direction not in {"upgrade", "rollback"}:
         return ReleaseDecision(False, "schema_transition_direction_invalid")
@@ -308,7 +318,10 @@ def evaluate_recall_candidate(
 ) -> ReleaseDecision:
     """Deny re-promotion of active Release or capability recalls."""
 
-    active = _active_recalls(recall_records)
+    problem = _recall_record_problem(recall_records, release_id=release_id)
+    if problem is not None:
+        return problem
+    active = _active_recalls(recall_records, candidate_release_id=release_id)
     if ("release", release_id) in active:
         return ReleaseDecision(False, "release_recalled", (release_id,))
     for capability_id in capability_ids:
@@ -317,15 +330,18 @@ def evaluate_recall_candidate(
     return ReleaseDecision(True, "allowed")
 
 
-def recall_rolloff_priority(
+def recall_target_ordering(
     *,
     release_id: str,
     capability_ids: tuple[str, ...],
     recall_records: tuple[RecallRecord, ...],
 ) -> tuple[str, ...]:
-    """Return active recall targets in deterministic roll-off priority order."""
+    """Return active recall targets in deterministic display order."""
 
-    active = _active_recalls(recall_records)
+    problem = _recall_record_problem(recall_records, release_id=release_id)
+    if problem is not None:
+        return ()
+    active = _active_recalls(recall_records, candidate_release_id=release_id)
     release_priority = (
         (active[("release", release_id)], f"release:{release_id}")
         if ("release", release_id) in active
@@ -348,15 +364,63 @@ def recall_rolloff_priority(
     return tuple(ordered)
 
 
-def _active_recalls(records: tuple[RecallRecord, ...]) -> dict[tuple[str, str], int]:
+def _recall_record_problem(
+    records: tuple[RecallRecord, ...], *, release_id: str
+) -> ReleaseDecision | None:
+    observed: set[tuple[str, str, int]] = set()
+    for record in records:
+        key = (record.scope, record.target, record.sequence)
+        if key in observed:
+            return ReleaseDecision(
+                False,
+                "recall_sequence_duplicate",
+                (record.scope, record.target, str(record.sequence)),
+            )
+        observed.add(key)
+        if record.action == "lift" and record.scope == "capability":
+            assert record.lifting_release_id is not None
+            if (
+                _release_version_key(release_id) is None
+                or _release_version_key(record.lifting_release_id) is None
+            ):
+                return ReleaseDecision(
+                    False,
+                    "release_version_invalid",
+                    (release_id, record.lifting_release_id),
+                )
+    return None
+
+
+def _active_recalls(
+    records: tuple[RecallRecord, ...], *, candidate_release_id: str
+) -> dict[tuple[str, str], int]:
     active: dict[tuple[str, str], int] = {}
-    for record in sorted(records, key=lambda item: item.sequence):
+    for record in sorted(records, key=lambda item: (item.sequence, item.action == "recall")):
         key = (record.scope, record.target)
         if record.action == "recall":
             active[key] = record.sequence
-        else:
+        elif record.scope == "capability" and _release_at_or_after(
+            candidate_release_id, record.lifting_release_id
+        ):
             active.pop(key, None)
     return active
+
+
+def _release_at_or_after(candidate: str, baseline: str | None) -> bool:
+    candidate_key = _release_version_key(candidate)
+    baseline_key = _release_version_key(baseline)
+    return candidate_key is not None and baseline_key is not None and candidate_key >= baseline_key
+
+
+def _release_version_key(value: str | None) -> tuple[int, int, int, tuple[int, str]] | None:
+    if value is None:
+        return None
+    match = _SEMVER.fullmatch(value)
+    if match is None:
+        return None
+    major, minor, patch, prerelease = match.groups()
+    prerelease_key = (1, "") if prerelease is None else (0, prerelease)
+    return int(major), int(minor), int(patch), prerelease_key
 
 
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -382,7 +446,7 @@ def _release_schema(value: object) -> tuple[int, SchemaRange]:
 
 
 def _schema_revision(value: object) -> int:
-    if not isinstance(value, int) or value < 0:
+    if type(value) is not int or value < 0:
         raise RuntimeReleaseError("runtime release schema revision is invalid")
     return value
 

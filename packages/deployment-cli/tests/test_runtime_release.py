@@ -17,7 +17,7 @@ from fdai_deployment_cli.runtime_release import (
     RuntimeReleaseError,
     evaluate_recall_candidate,
     load_runtime_release,
-    recall_rolloff_priority,
+    recall_target_ordering,
     validate_schema_transition,
 )
 
@@ -33,6 +33,9 @@ SERVICES = (
 )
 SIDECARS = ("clamav", "pgvector")
 INSTALLATION_AGENTS = ("infrastructure-agent", "lifecycle-agent")
+NOTICE_A = "c" * 64
+NOTICE_B = "d" * 64
+NOTICE_C = "e" * 64
 
 
 def _record(root: Path, role: str, service: bool = False) -> dict[str, str]:
@@ -146,6 +149,8 @@ def test_runtime_release_v3_validates_lifecycle_manifest_fields(tmp_path: Path) 
         ("schema", {"target": 15, "tolerates": {"minimum": 17, "maximum": 16}}),
         ("schema", {"target": "15", "tolerates": {"minimum": 12, "maximum": 16}}),
         ("schema", {"target": 15, "tolerates": {"minimum": -1, "maximum": 16}}),
+        ("schema", {"target": True, "tolerates": {"minimum": 12, "maximum": 16}}),
+        ("schema", {"target": 15, "tolerates": {"minimum": False, "maximum": 16}}),
         ("capabilities", {}),
         ("capabilities", {"action:scale-service": {"kind": "ActionType", "maximum_mode": "admin"}}),
         ("downtime", {"entities": ["core", "core"]}),
@@ -182,13 +187,28 @@ def test_schema_transition_blocks_upgrade_outside_tolerated_range(tmp_path: Path
     assert validate_schema_transition(
         current_schema_revision=16, candidate=release, direction="rollback"
     ).allowed
+    invalid = validate_schema_transition(
+        current_schema_revision=True, candidate=release, direction="upgrade"
+    )
+    assert invalid.allowed is False
+    assert invalid.reason_code == "schema_revision_invalid"
 
 
-def test_recall_decision_blocks_repromotion_and_orders_rolloff_priority() -> None:
+def test_recall_decision_blocks_repromotion_and_orders_recall_targets() -> None:
     records = (
-        RecallRecord(scope="capability", target="action:scale-service", sequence=7),
-        RecallRecord(scope="release", target="1.5.0", sequence=3),
-        RecallRecord(scope="capability", target="workflow:incident-triage", sequence=5),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=7,
+            notice_digest=NOTICE_A,
+        ),
+        RecallRecord(scope="release", target="1.5.0", sequence=3, notice_digest=NOTICE_B),
+        RecallRecord(
+            scope="capability",
+            target="workflow:incident-triage",
+            sequence=5,
+            notice_digest=NOTICE_C,
+        ),
     )
     denied = evaluate_recall_candidate(
         release_id="1.5.0",
@@ -204,7 +224,7 @@ def test_recall_decision_blocks_repromotion_and_orders_rolloff_priority() -> Non
     )
     assert capability_denied.allowed is False
     assert capability_denied.reason_code == "capability_recalled"
-    assert recall_rolloff_priority(
+    assert recall_target_ordering(
         release_id="1.5.0",
         capability_ids=("action:scale-service", "workflow:incident-triage"),
         recall_records=records,
@@ -217,14 +237,134 @@ def test_recall_decision_blocks_repromotion_and_orders_rolloff_priority() -> Non
 
 def test_recall_lift_allows_later_candidate() -> None:
     records = (
-        RecallRecord(scope="capability", target="action:scale-service", sequence=7),
-        RecallRecord(scope="capability", target="action:scale-service", sequence=8, action="lift"),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=7,
+            notice_digest=NOTICE_A,
+        ),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=8,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id="1.5.1",
+        ),
     )
+    still_recalled = evaluate_recall_candidate(
+        release_id="1.5.0",
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert still_recalled.allowed is False
+    assert still_recalled.reason_code == "capability_recalled"
     assert evaluate_recall_candidate(
         release_id="1.5.1",
         capability_ids=("action:scale-service",),
         recall_records=records,
     ).allowed
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_recall_duplicate_sequence_fails_closed_in_both_orders(reverse: bool) -> None:
+    duplicate = (
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=5,
+            notice_digest=NOTICE_A,
+            action="recall",
+        ),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=5,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id="1.5.1",
+        ),
+    )
+    records = tuple(reversed(duplicate)) if reverse else duplicate
+    decision = evaluate_recall_candidate(
+        release_id="1.5.1",
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == "recall_sequence_duplicate"
+    assert (
+        recall_target_ordering(
+            release_id="1.5.1",
+            capability_ids=("action:scale-service",),
+            recall_records=records,
+        )
+        == ()
+    )
+
+
+def test_release_scope_lift_does_not_readmit_same_recalled_release() -> None:
+    records = (
+        RecallRecord(scope="release", target="1.5.0", sequence=1, notice_digest=NOTICE_A),
+        RecallRecord(
+            scope="release",
+            target="1.5.0",
+            sequence=2,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id="1.5.1",
+        ),
+    )
+    decision = evaluate_recall_candidate(
+        release_id="1.5.0",
+        capability_ids=(),
+        recall_records=records,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == "release_recalled"
+
+
+def test_recall_lift_requires_valid_candidate_release_ordering() -> None:
+    records = (
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=1,
+            notice_digest=NOTICE_A,
+        ),
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=2,
+            notice_digest=NOTICE_B,
+            action="lift",
+            lifting_release_id="1.5.1",
+        ),
+    )
+    decision = evaluate_recall_candidate(
+        release_id="candidate",
+        capability_ids=("action:scale-service",),
+        recall_records=records,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == "release_version_invalid"
+
+
+def test_recall_record_rejects_bool_sequence_and_missing_notice_digest() -> None:
+    with pytest.raises(ValueError, match="sequence"):
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=True,
+            notice_digest=NOTICE_A,
+        )
+    with pytest.raises(ValueError, match="notice digest"):
+        RecallRecord(
+            scope="capability",
+            target="action:scale-service",
+            sequence=1,
+            notice_digest="not-a-digest",
+        )
 
 
 @pytest.mark.parametrize(
