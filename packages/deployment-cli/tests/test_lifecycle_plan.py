@@ -91,6 +91,13 @@ def _plan(**overrides: object) -> LifecyclePlan:
         source_state_digest=_digest("state"),
         sequence=8,
         fencing_generation=4,
+        plan_type="upgrade",
+        target_release_id="1.5.0",
+        target_release_digest=_digest("release-1.5.0"),
+        configuration_revision_digest=_digest("config"),
+        entity_ids=frozenset({"core"}),
+        rollback_target_plan_id=None,
+        declared_duration_minutes=15,
         envelope=_envelope(entity_ids=frozenset({"core"}), max_duration_minutes=20),
         expires_at=NOW + timedelta(minutes=10),
         signed_payload=b"",
@@ -141,6 +148,7 @@ def _passing_context(**overrides: object) -> LifecycleConstraintContext:
         requires_downtime=False,
         target_release_version="1.5.0",
         candidate_release=_release(image_digests={"core": digest}),
+        configuration_revision_digest=_digest("config"),
         current_schema_revision=12,
         version_range=">=1.4.0 <1.6.0",
         configuration_schema=_configuration_schema(),
@@ -319,6 +327,7 @@ def test_constraint_evaluator_reports_every_blocking_constraint() -> None:
                 "operator-api": _digest("image-operator"),
             }
         ),
+        configuration_revision_digest=_digest("config"),
         current_schema_revision=17,
         version_range=">=1.4.0 <1.5.0",
         configuration_schema=_configuration_schema(),
@@ -355,7 +364,9 @@ def test_constraint_evaluator_reports_every_blocking_constraint() -> None:
         ),
     )
 
-    blocks = evaluate_lifecycle_constraints(context)
+    blocks = evaluate_lifecycle_constraints(
+        context, admitted_plan=_plan(declared_duration_minutes=45)
+    )
 
     assert {block.reason_code for block in blocks} == {
         "maintenance_window_unavailable",
@@ -370,7 +381,21 @@ def test_constraint_evaluator_reports_every_blocking_constraint() -> None:
 
 
 def test_constraint_evaluator_allows_candidate_when_every_constraint_passes() -> None:
-    assert evaluate_lifecycle_constraints(_passing_context()) == ()
+    assert evaluate_lifecycle_constraints(_passing_context(), admitted_plan=_plan()) == ()
+
+
+def test_constraint_context_must_match_signed_plan_fields() -> None:
+    plan_type_switch = evaluate_lifecycle_constraints(
+        _passing_context(plan_type="recall-rolloff", current_schema_revision=16),
+        admitted_plan=_plan(),
+    )
+    release_swap = evaluate_lifecycle_constraints(
+        _passing_context(candidate_release=_release(version="1.5.1")),
+        admitted_plan=_plan(),
+    )
+
+    assert {block.reason_code for block in plan_type_switch} == {"plan_context_mismatch"}
+    assert {block.reason_code for block in release_swap} == {"target_release_digest_mismatch"}
 
 
 def test_suppression_windows_fail_closed_for_malformed_or_unmatched_scope() -> None:
@@ -393,8 +418,9 @@ def test_suppression_windows_fail_closed_for_malformed_or_unmatched_scope() -> N
                         starts_at=NOW - timedelta(minutes=1),
                         ends_at=NOW + timedelta(minutes=1),
                     ),
-                )
-            )
+                ),
+            ),
+            admitted_plan=_plan(),
         )
         assert [block.reason_code for block in blocks] == ["suppression_scope_invalid"]
 
@@ -406,23 +432,37 @@ def test_suppression_windows_fail_closed_for_malformed_or_unmatched_scope() -> N
                     starts_at=NOW + timedelta(minutes=1),
                     ends_at=NOW - timedelta(minutes=1),
                 ),
-            )
-        )
+            ),
+        ),
+        admitted_plan=_plan(),
     )
-    empty_entities = evaluate_lifecycle_constraints(
+    non_matching_active = evaluate_lifecycle_constraints(
         _passing_context(
-            entity_ids=frozenset(),
             suppression_windows=(
                 SuppressionWindow(
-                    scope="entity:core",
+                    scope="entity:operator-api",
                     starts_at=NOW - timedelta(minutes=1),
                     ends_at=NOW + timedelta(minutes=1),
                 ),
             ),
-        )
+        ),
+        admitted_plan=_plan(),
+    )
+    non_matching_expired = evaluate_lifecycle_constraints(
+        _passing_context(
+            suppression_windows=(
+                SuppressionWindow(
+                    scope="entity:operator-api",
+                    starts_at=NOW - timedelta(minutes=3),
+                    ends_at=NOW - timedelta(minutes=2),
+                ),
+            ),
+        ),
+        admitted_plan=_plan(),
     )
     assert [block.reason_code for block in inverted] == ["suppression_window_invalid"]
-    assert [block.reason_code for block in empty_entities] == ["suppression_scope_invalid"]
+    assert non_matching_active == ()
+    assert non_matching_expired == ()
 
 
 def test_failure_suppression_exempts_only_matching_rollback_plan() -> None:
@@ -440,7 +480,12 @@ def test_failure_suppression_exempts_only_matching_rollback_plan() -> None:
             rollback_target_plan_id="failed-plan",
             suppression_windows=(window,),
             current_schema_revision=16,
-        )
+        ),
+        admitted_plan=_plan(
+            plan_type="rollback",
+            rollback_target_plan_id="failed-plan",
+            declared_duration_minutes=15,
+        ),
     )
     different_rollback = evaluate_lifecycle_constraints(
         _passing_context(
@@ -448,7 +493,12 @@ def test_failure_suppression_exempts_only_matching_rollback_plan() -> None:
             rollback_target_plan_id="other-plan",
             suppression_windows=(window,),
             current_schema_revision=16,
-        )
+        ),
+        admitted_plan=_plan(
+            plan_type="rollback",
+            rollback_target_plan_id="other-plan",
+            declared_duration_minutes=15,
+        ),
     )
     manual_recall = evaluate_lifecycle_constraints(
         _passing_context(
@@ -462,7 +512,8 @@ def test_failure_suppression_exempts_only_matching_rollback_plan() -> None:
                 ),
             ),
             current_schema_revision=16,
-        )
+        ),
+        admitted_plan=_plan(plan_type="recall-rolloff", declared_duration_minutes=15),
     )
 
     assert {block.reason_code for block in exempt} == set()
@@ -477,10 +528,12 @@ def test_constraints_derive_downtime_artifacts_residency_and_schema_direction() 
                 image_digests={"core": _digest("image-core")},
                 downtime_entities=("core",),
             )
-        )
+        ),
+        admitted_plan=_plan(),
     )
     missing_artifacts = evaluate_lifecycle_constraints(
-        _passing_context(candidate_release=_release(image_digests={}))
+        _passing_context(candidate_release=_release(image_digests={})),
+        admitted_plan=_plan(),
     )
     empty_residency = evaluate_lifecycle_constraints(
         _passing_context(
@@ -488,10 +541,12 @@ def test_constraints_derive_downtime_artifacts_residency_and_schema_direction() 
                 allowed_regions=frozenset({"korea-central"}),
                 release_regions=frozenset(),
             )
-        )
+        ),
+        admitted_plan=_plan(),
     )
     rollback_schema = evaluate_lifecycle_constraints(
-        _passing_context(plan_type="rollback", current_schema_revision=16)
+        _passing_context(plan_type="rollback", current_schema_revision=16),
+        admitted_plan=_plan(plan_type="rollback"),
     )
 
     assert "maintenance_window_unavailable" in {block.reason_code for block in derived_downtime}

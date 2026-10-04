@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -27,6 +28,7 @@ SuppressionOrigin = Literal["manual", "failure"]
 SignatureVerifier = Callable[[str, bytes, bytes], bool]
 
 _MODE_ORDER: Mapping[CapabilityMode, int] = {"shadow": 0, "enforce": 1}
+_SCOPE_ID = re.compile(r"[a-z][a-z0-9._-]*\Z", re.ASCII)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +50,9 @@ class LifecycleEffectEnvelope:
             or self.max_duration_minutes < 1
         ):
             raise ValueError("max_duration_minutes MUST be positive")
-        for mode in self.capability_modes.values():
+        for capability, mode in self.capability_modes.items():
+            if not isinstance(capability, str):
+                raise TypeError("capability mode keys MUST be strings")
             if mode not in _MODE_ORDER:
                 raise ValueError("capability mode is unsupported")
 
@@ -81,10 +85,29 @@ class LifecyclePlan:
     source_state_digest: str
     sequence: int
     fencing_generation: int
+    plan_type: PlanType
+    target_release_id: str
+    target_release_digest: str
+    configuration_revision_digest: str
+    entity_ids: frozenset[str]
+    rollback_target_plan_id: str | None
+    declared_duration_minutes: int
     envelope: LifecycleEffectEnvelope
     expires_at: datetime
     signed_payload: bytes
     signature: bytes
+
+    def __post_init__(self) -> None:
+        if isinstance(self.sequence, bool) or not isinstance(self.sequence, int):
+            raise TypeError("sequence MUST be an integer")
+        if self.sequence < 0:
+            raise ValueError("sequence MUST be non-negative")
+        if (
+            isinstance(self.declared_duration_minutes, bool)
+            or not isinstance(self.declared_duration_minutes, int)
+            or self.declared_duration_minutes < 1
+        ):
+            raise ValueError("declared_duration_minutes MUST be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,6 +157,10 @@ class MaintenanceWindow:
     ends_at: datetime
     allows_downtime: bool
 
+    def __post_init__(self) -> None:
+        _require_aware_datetime(self.starts_at, "starts_at")
+        _require_aware_datetime(self.ends_at, "ends_at")
+
 
 @dataclass(frozen=True, slots=True)
 class SuppressionWindow:
@@ -144,6 +171,10 @@ class SuppressionWindow:
     ends_at: datetime
     origin: SuppressionOrigin = "manual"
     failed_plan_id: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_aware_datetime(self.starts_at, "starts_at")
+        _require_aware_datetime(self.ends_at, "ends_at")
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +189,7 @@ class LifecycleConstraintContext:
     requires_downtime: bool
     target_release_version: str
     candidate_release: RuntimeRelease
+    configuration_revision_digest: str
     current_schema_revision: int
     version_range: str
     configuration_schema: Mapping[str, object]
@@ -244,19 +276,38 @@ def canonical_plan_payload(plan: LifecyclePlan) -> bytes:
             "fencing_generation": plan.fencing_generation,
             "hub_key_epoch": plan.hub_key_epoch,
             "hub_key_id": plan.hub_key_id,
+            "configuration_revision_digest": plan.configuration_revision_digest,
+            "declared_duration_minutes": plan.declared_duration_minutes,
+            "entity_ids": sorted(plan.entity_ids),
             "plan_id": plan.plan_id,
+            "plan_type": plan.plan_type,
+            "rollback_target_plan_id": plan.rollback_target_plan_id,
             "sequence": plan.sequence,
             "source_state_digest": plan.source_state_digest,
+            "target_release_digest": plan.target_release_digest,
+            "target_release_id": plan.target_release_id,
         }
     )
 
 
 def evaluate_lifecycle_constraints(
     context: LifecycleConstraintContext,
+    *,
+    admitted_plan: LifecyclePlan,
 ) -> tuple[ConstraintBlock, ...]:
     """Return every blocking constraint for a candidate Plan without side effects."""
 
     blocks: list[ConstraintBlock] = []
+    context_block = _plan_context_block(context, admitted_plan)
+    if context_block is not None:
+        blocks.append(context_block)
+    if context.candidate_release.digest != admitted_plan.target_release_digest:
+        blocks.append(
+            ConstraintBlock(
+                "target_release_digest_mismatch",
+                (context.candidate_release.digest, admitted_plan.target_release_digest),
+            )
+        )
     _append_if_blocked(blocks, _maintenance_decision(context))
     _append_if_blocked(blocks, _suppression_decision(context))
     version_range_block = _version_range_block(
@@ -333,11 +384,11 @@ def _suppression_decision(context: LifecycleConstraintContext) -> ReleaseDecisio
             return ReleaseDecision(False, "suppression_window_invalid", (window.scope,))
         if window.origin not in {"manual", "failure"}:
             return ReleaseDecision(False, "suppression_window_invalid", (window.scope,))
-        scope_decision = _suppression_scope_decision(window, context)
-        if scope_decision is not None:
-            return scope_decision
         if not window.starts_at <= context.now < window.ends_at:
             continue
+        scope_decision = _suppression_scope_decision(window)
+        if scope_decision is not None:
+            return scope_decision
         if (
             window.origin == "failure"
             and context.plan_type == "rollback"
@@ -350,9 +401,7 @@ def _suppression_decision(context: LifecycleConstraintContext) -> ReleaseDecisio
     return ReleaseDecision(True, "allowed")
 
 
-def _suppression_scope_decision(
-    window: SuppressionWindow, context: LifecycleConstraintContext
-) -> ReleaseDecision | None:
+def _suppression_scope_decision(window: SuppressionWindow) -> ReleaseDecision | None:
     if window.scope == "installation":
         return None
     if window.scope.startswith("plan:"):
@@ -368,7 +417,7 @@ def _suppression_scope_decision(
         return None
     if window.scope.startswith("entity:"):
         entity_id = window.scope.removeprefix("entity:")
-        if not entity_id or entity_id.strip() != entity_id or entity_id not in context.entity_ids:
+        if _SCOPE_ID.fullmatch(entity_id) is None:
             return ReleaseDecision(False, "suppression_scope_invalid", (window.scope,))
         return None
     return ReleaseDecision(False, "suppression_scope_invalid", (window.scope,))
@@ -386,6 +435,37 @@ def _schema_direction(plan_type: PlanType) -> SchemaDirection:
     if plan_type in {"rollback", "recall-rolloff"}:
         return "rollback"
     return "upgrade"
+
+
+def _plan_context_block(
+    context: LifecycleConstraintContext, plan: LifecyclePlan
+) -> ConstraintBlock | None:
+    comparisons = (
+        ("plan_id", context.plan_id, plan.plan_id),
+        ("plan_type", context.plan_type, plan.plan_type),
+        ("target_release_version", context.target_release_version, plan.target_release_id),
+        (
+            "configuration_revision_digest",
+            context.configuration_revision_digest,
+            plan.configuration_revision_digest,
+        ),
+        ("entity_ids", context.entity_ids, plan.entity_ids),
+        ("rollback_target_plan_id", context.rollback_target_plan_id, plan.rollback_target_plan_id),
+        (
+            "declared_duration_minutes",
+            context.declared_duration_minutes,
+            plan.declared_duration_minutes,
+        ),
+    )
+    for field, observed, expected in comparisons:
+        if observed != expected:
+            return ConstraintBlock("plan_context_mismatch", (field,))
+    return None
+
+
+def _require_aware_datetime(value: datetime, field: str) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{field} MUST include timezone information")
 
 
 def _required_artifacts(release: RuntimeRelease) -> tuple[ArtifactRequirement, ...]:
