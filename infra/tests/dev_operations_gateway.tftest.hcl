@@ -46,7 +46,7 @@ variables {
   tenant_id                  = "00000000-0000-0000-0000-000000000000"
   postgres_admin_login       = "fdaiadmin"
   postgres_admin_password    = "terraform-test-placeholder-value"
-  operator_api_audience      = "api://00000000-0000-0000-0000-000000000002"
+  operator_api_audience      = "00000000-0000-0000-0000-000000000002"
   core_image                 = "mcr.microsoft.com/example/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
@@ -258,4 +258,14 @@ run "authority_cutover_moves_the_gateway_caller_and_vertical_identities" {
     condition     = length(module.compute.vertical_identity_client_ids) == 3
     error_message = "Core must retain the three env keys as empty non-authoritative compatibility values"
   }
+}
+
+run "the_operator_audience_rejects_the_app_id_uri_form" {
+  command = plan
+
+  variables {
+    operator_api_audience = "api://00000000-0000-0000-0000-000000000002"
+  }
+
+  expect_failures = [var.operator_api_audience]
 }

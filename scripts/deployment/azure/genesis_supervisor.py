@@ -8,6 +8,7 @@ import concurrent.futures
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import time
@@ -467,9 +468,21 @@ def _configure_entra(
             receipt.get("schema_version") != "fdai.genesis-entra-receipt.v1"
             or receipt.get("state") != "applied"
             or not isinstance(bindings, dict)
-            or bindings != observed
         ):
             raise ValueError("Entra configuration receipt differs from current readback")
+        if bindings != observed:
+            if not _legacy_audience_receipt(bindings, observed):
+                raise ValueError("Entra configuration receipt differs from current readback")
+            # Receipts are write-once; replace atomically through a private sibling.
+            upgraded = receipt_path.with_name(f".{receipt_path.name}.{secrets.token_hex(8)}")
+            _write_entra_receipt(
+                receipt_path=upgraded,
+                plan_digest=str(receipt.get("plan_digest", "")),
+                actor_digest=str(receipt.get("actor_digest", "")),
+                bindings={str(key): str(value) for key, value in observed.items()},
+                mutation_performed=bool(receipt.get("mutation_performed", False)),
+            )
+            os.replace(upgraded, receipt_path)
         return {str(key): str(value) for key, value in observed.items()}
     claim_path = prepared.root / "entra-config-claim.json"
     if claim_path.exists():
@@ -554,6 +567,18 @@ def _configure_entra(
         mutation_performed=True,
     )
     return bindings
+
+
+def _legacy_audience_receipt(recorded: dict[str, object], observed: dict[str, str]) -> bool:
+    """Accept only a receipt that recorded the App ID URI form of the observed audience.
+
+    Receipts written before #1893 hold ``api://<client-id>``; every other binding must match.
+    """
+
+    audience = observed.get("OPERATOR_API_AUDIENCE")
+    if not audience or recorded.get("OPERATOR_API_AUDIENCE") != f"api://{audience}":
+        return False
+    return {**recorded, "OPERATOR_API_AUDIENCE": audience} == observed
 
 
 def _write_entra_receipt(
