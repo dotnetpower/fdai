@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e51ba2d69b7443df141fd822bc8d8992f90c3381
+translation_source_sha: 1dca88bb42e53766d7266ac2dd1ef3baa37f5f97
 translation_revised: 2026-10-04
 ---
 # FDAI Console 대화
@@ -18,6 +18,9 @@ Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니�
 요약은 이제 완전한 baseline-evaluation 완료 및 결과 기록에서만 평가된 Console 상태를 수락합니다.
 coverage가 없거나 부분적이면 계속 사용할 수 없음으로 렌더링하고, 저장된 완전한 요약은 더 새 세대가
 완료될 때까지 읽을 수 있습니다.
+Outcome Assurance 상세 화면은 기존 Operating outcomes, Control assurance, Verticals 정보
+아키텍처를 재사용합니다. 인증된 `/kpi/outcome-assurance` 변환 결과만 읽고, 누락되거나
+오래된 출처 상태를 사용 불가로 보존하며, 요청, 승인, 승격 또는 실행 권한을 추가하지 않습니다.
 적응형 답변 근거는 Core가 만든 허용 목록 기반 변환 결과인 `ModelEvidenceView`로 모델 경계를
 넘습니다. 원시 조회 표, 프로바이더 본문, 핸들, 보관된 스냅숏 셀은 답변 작성 또는 검토 모델
 호출에 들어가지 않습니다.

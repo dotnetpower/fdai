@@ -167,6 +167,40 @@
     "blockedCapabilities": "차단된 기능",
     "policyEscapes": "정책위반 탈출"
   },
+  "outcomeAssurance": {
+    "title": "성과 보증 변환 결과",
+    "subtitle": "준비 상태, 목표 정렬, 성과, 가드를 인증된 읽기 전용 출처에 연결합니다.",
+    "notConnected": "이 배포에는 성과 보증이 연결되지 않았습니다.",
+    "stale": "성과 보증 근거가 오래되었습니다. 새로운 권위 있는 출처가 보존될 때까지 값은 근거 없음으로 남습니다.",
+    "unavailable": "성과 보증을 사용할 수 없습니다: {reason}. 누락된 근거를 예시 값이나 0으로 대체하지 않습니다.",
+    "scope": "범위: {scope}",
+    "window": "기간: {start}부터 {end}까지",
+    "objective": "목표",
+    "metric": "지표",
+    "noOutcomes": "이 출처 상태에서는 측정된 성과 값을 사용할 수 없습니다.",
+    "attribution": "귀속 범위",
+    "guards": "가드 상태",
+    "state": {
+      "complete": "완료",
+      "stale": "오래됨",
+      "unavailable": "사용 불가"
+    },
+    "metricState": {
+      "measured": "측정됨",
+      "stale": "오래됨",
+      "unavailable": "사용 불가",
+      "insufficient_sample": "표본 부족",
+      "regressed": "회귀"
+    },
+    "guardState": {
+      "unknown": "알 수 없음",
+      "healthy": "정상",
+      "attention": "조치 필요",
+      "blocked": "차단됨",
+      "stale": "오래됨",
+      "unavailable": "사용 불가"
+    }
+  },
   "vertical": {
     "resilience": "복원력",
     "change-safety": "변경 안전",

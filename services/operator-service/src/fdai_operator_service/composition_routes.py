@@ -105,6 +105,7 @@ WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
 COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
 REFERENCE_PANEL_ROUTES = (
     PanelRoute("/kpi/autonomy", "autonomy", "autonomy"),
+    PanelRoute("/kpi/outcome-assurance", "outcome_assurance", "outcome_assurance"),
     PanelRoute("/capabilities", "capabilities", "capabilities"),
     PanelRoute("/configuration-baselines", "configuration-baselines", "configuration-baselines"),
     PanelRoute("/conversation-delivery", "conversation-delivery", "conversation-delivery"),

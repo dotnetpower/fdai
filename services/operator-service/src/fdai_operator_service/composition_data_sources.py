@@ -138,6 +138,17 @@ def _build_data_sources(
             reason=reason,
         ),
         ReadDataSource(
+            key="outcome-assurance",
+            source="outcome-assurance-measurement" if configured else "not-configured",
+            routes=("/kpi/outcome-assurance",),
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
+            reachable=None,
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
+        ),
+        ReadDataSource(
             key="promotion-gate-evidence",
             source=(
                 "catalog-and-promotion-registry-projection" if configured else "not-configured"

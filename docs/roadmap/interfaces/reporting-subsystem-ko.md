@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 78a9a172c66c529ebee463c135de39130a4e3740
-translation_revised: 2026-10-01
+translation_source_sha: 56166b35076954c46c9ed704af1b68393e49b2c5
+translation_revised: 2026-10-04
 ---
 # 리포팅 서브시스템
 
@@ -28,6 +28,9 @@ translation_revised: 2026-10-01
 서비스 테이블 소유권은 Operator 소유의 `operator_workflow_authoring_audit` 원장도 선언합니다. 이 원장은 Workflow 초안과 바인딩 커밋을 기록하며 보고서 원천이 아니고 보고 변환을 추가하지 않습니다.
 
 삽입 전용 Operator 의미 인증 영수증 테이블도 보고서 원천이 아닙니다. Operator 라우트 조립은 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 의미 outbox를 영수증 보존으로 감싸며, 이 테이블은 보고 변환, 위젯, 라우트를 추가하지 않습니다.
+Outcome Assurance 읽기 패널도 리포팅 서브시스템 밖에 있습니다. 이 패널은 분석 경로에서 렌더링하는
+인증된 `/kpi/outcome-assurance` 변환 결과이며, 보고 데이터 원본, 위젯, format 또는 카탈로그
+항목이 아닙니다.
 
 ## 왜 존재하는가
 

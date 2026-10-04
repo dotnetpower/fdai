@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 35756671a6a1833fec459d8cfaafe0ac1468da7a
-translation_revised: 2026-09-27
+translation_source_sha: f19d28a8f65ca7fb9e93426f178e06fd3fdcfb4a
+translation_revised: 2026-10-04
 ---
 # 결과 Assurance
 
@@ -44,13 +44,14 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 | ActionType 정규 내용 다이제스트 | implemented | `core/measurement/operational_promotion.py`; `core/measurement/__init__.py`; 집중 승격 테스트 | `action_type_digest`는 provenance를 제외한 ActionType의 결정론적 SHA-256 내용 다이제스트를 계산하는 공개 함수입니다. 평가기는 이 다이제스트를 사용하여 봉인된 배치와 현재 ActionType 정의 사이의 스키마 변이를 감지합니다. |
 | `OutcomeAssuranceProjection` 타입이 지정된 읽기 모델 | implemented | [변환 결과 계약](#변환-결과-계약); `core/measurement/outcome_assurance.py`; 집중 Outcome Assurance 계약 테스트 | 타입이 지정된 범위, 기간, 준비 상태, 귀속, 결과, 가드, 근거 모델이 이제 존재하며 결정론적 JSON 재현과 최신 권위 관측 correction 축소를 제공합니다. 이 계약은 읽기 전용으로 남고 권한 객체를 추가하지 않습니다. |
 | 목표 귀속과 집계 평가 | implemented | [목표 귀속](#목표-귀속), `core/measurement/outcome_assurance.py`, 집중 Outcome Assurance 테스트 | 순수 reducer는 명시적인 finalized 이벤트 집합을 입력받고 decision, objective, workflow, action, run, outcome 및 measurement의 완전한 체인을 요구합니다. 최신 권위 observation만 사용하고 해결되지 않은 모든 이벤트를 분모에 유지합니다. 권위 있는 출처 연결은 열린 상태입니다. |
-| 인증된 Operator API와 Console 경험 | not-started | [Operator API와 console](#operator-api와-console); `services/operator-service/` 또는 `console/` 아래에 일치하는 경로나 Console 모듈 없음 | 제안된 읽기 전용 endpoint, 요약, 근거 상세 경로 및 사용 불가 상태는 구현되지 않았습니다. |
+| 인증된 Operator API와 Console 경험 | in-progress | [Operator API와 console](#operator-api와-console); `packages/service-contracts/src/fdai_service_contracts/outcome_assurance.py`; `services/operator-service/src/fdai_operator_service/runtime_projection_reader.py`; `console/src/api-outcome-assurance.ts`; `console/src/routes/outcome-assurance-drilldown.tsx`; 집중 계약, Operator 경로, Console Vitest 및 typecheck 결과 | 공유 `1.0.0` 계약, 인증된 principal 범위 `/kpi/outcome-assurance` 읽기 패널, Console 상세 화면이 쓰기 경로나 권한 필드 없이 complete, stale, unavailable 상태를 표시합니다. 현재 Core가 권위 있는 `OutcomeAssuranceProjection` 레코드를 reader key 아래에 보존하는 producer는 없으므로, 권위 출처 연결은 아래 남은 작업으로 유지합니다. |
 | 변경 안전성 파일럿과 버티컬 확장 | not-started | [전달 순서](#전달-순서) | 비합성 OA3 파일럿 또는 OA4 확장이 근거를 생성하려면 OA0-OA2가 먼저 구현돼야 합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-04 | in-progress | 공유 Outcome Assurance `1.0.0` 읽기 계약, 인증된 principal 범위 `/kpi/outcome-assurance` Operator 읽기 패널, complete, stale, unavailable 출처 상태를 합성값이나 0 채움 없이 표시하는 Console 상세 화면을 추가했습니다. 저장소 검색 결과 Core가 권위 있는 `OutcomeAssuranceProjection` 레코드를 reader key 아래에 보존하는 producer는 없었습니다. | `current change`; `packages/service-contracts/src/fdai_service_contracts/outcome_assurance.py`; `services/operator-service/src/fdai_operator_service/runtime_projection_reader.py`; `console/src/api-outcome-assurance.ts`; `console/src/routes/outcome-assurance-drilldown.tsx`; 집중 계약, Operator 경로, Console Vitest, typecheck, Ruff 및 strict mypy 검사. | Core 소유 producer를 추가한 뒤 구성된 권위 있는 보존 변환 결과 출처에 대해 읽기 패널의 실제 인증 배포 증적을 기록합니다. |
 | 2026-09-27 | implemented | 비공개 PostgreSQL 연결에 실패한 보호된 코호트 준비 상태 시도를 attested unavailable 증적으로 보존하고 query/schema 오류와 `require_ready=true`는 계속 fail-closed로 유지했습니다. | `current change`; 실패한 exact-main 실행 `36290118007`; 집중 워크플로 계약 및 shell 검사. | 검증된 비공개 runner 연결을 복구한 뒤 집계 가용성과 실제 dual-arm cohort를 보존합니다. |
 | 2026-09-26 | implemented | 실제 관측을 가져오거나 승격하지 않으면서 비공개 집계 근거를 읽고 내용 주소 방식으로 증적을 발행하며 준비 상태가 필수일 때 안전하게 차단할 수 있는 보호된 정확한 리비전 코호트 준비 상태 점검을 추가했습니다. | `current change`; 코호트 준비 상태 워크플로, 집중 계약 테스트, CI 계약 검사 및 라우팅된 설계 맥락. | 검토된 baseline 및 treatment exporter를 추가하고 각 arm의 모든 필수 측정값에 대해 독립 관측값을 30개 이상 보존합니다. |
 | 2026-09-09 | implemented | 각 필수 코호트 지표를 검토된 95% 구간 계산법에 연결했습니다. 자동 해결률은 Wilson을 사용하고 연속값 및 횟수 평균은 결정론적 부트스트랩을 사용하므로 정책이 MTTR, 변경 리드 타임, 비용 또는 사람 접점을 베르누이 비율로 다시 해석할 수 없습니다. | `current change`; 코호트 정책 로더와 집중 정책 테스트. | 실제 운영 코호트를 보존하고 독립적으로 승인합니다. |
@@ -67,7 +68,9 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 - [x] 완전한 목표 귀속 join을 구현하고 해결되지 않은 finalized 이벤트를 명시적 커버리지와 함께 분모에 유지합니다 (`summarize_objective_attribution`, 집중 Outcome Assurance 테스트 13개 통과).
 - [x] claim 적격성이나 승격 권한을 부여하지 않고 누락된 측정값 집계를 노출하는 정확한
   `main` 읽기 전용 보호 코호트 인벤토리 증적을 추가합니다.
-- [ ] 인증된 권위 있는 출처를 연결하고 읽기 전용 Operator API와 Console 상세 경로를 추가하며, 누락되거나  stale한 데이터가 합성되지 않고 사용 불가로 표시됨을 입증합니다.
+- [x] 읽기 전용 Operator API와 Console 상세 화면을 추가하고, 보존 변환 결과 데이터가 없거나 stale하면 synthetic이 아니라 사용 불가로 표시됨을 검증합니다(`/kpi/outcome-assurance`; 집중 계약, Operator 경로, Console Vitest, typecheck, Ruff 및 strict mypy 검사).
+- [ ] 권위 있는 측정 출처에서 `OutcomeAssuranceProjection`을 만들어 shared reader key 아래에 보존하는 Core 소유 producer를 추가합니다. 종료 조건: 집중 producer-to-reader 왕복 테스트가 complete, stale, unavailable 상태를 반환합니다.
+- [ ] 구성된 권위 있는 보존 변환 결과 출처에 대해 `/kpi/outcome-assurance`의 실제 인증 배포 증적을 기록합니다. 증적은 complete 응답 하나와 누락 또는 stale 출처 응답 하나가 synthetic이 아니라 사용 불가로 남는 것을 포함해야 합니다.
 - [ ] 하나의 고정된 서비스와 시나리오 집합에서 변경 안전성 파일럿을 실행한 다음 수락 기준에 권위 있는 비합성 근거가 생긴 후에만 확장합니다.
 
 ## 범위 경계

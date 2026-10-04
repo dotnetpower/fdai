@@ -21,6 +21,10 @@ import {
   type AksCommerceProjection,
 } from "./api-aks-commerce";
 import {
+  decodeOutcomeAssuranceProjection,
+  type OutcomeAssuranceProjection,
+} from "./api-outcome-assurance";
+import {
   decodeCostGovernanceAvailability,
   decodeCostGovernanceSettings,
   type CostGovernanceAvailability,
@@ -211,6 +215,15 @@ export class OperatorApiClient {
   async autonomy(): Promise<AutonomyPayload> {
     await this.#requireAuthoritativeSource("/kpi/autonomy");
     return this.#insights.autonomy();
+  }
+
+  async outcomeAssurance(
+    params: Readonly<Record<string, string>> = {},
+  ): Promise<OutcomeAssuranceProjection> {
+    await this.#requireAuthoritativeSource("/kpi/outcome-assurance");
+    return decodeOutcomeAssuranceProjection(
+      await this.#insights.panel<unknown>("/kpi/outcome-assurance", params),
+    );
   }
 
   async listHilQueue(opts: { limit?: number; query?: string } = {}): Promise<HilQueuePage> {

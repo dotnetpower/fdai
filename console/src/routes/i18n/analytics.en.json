@@ -167,6 +167,40 @@
     "blockedCapabilities": "Capabilities blocked",
     "policyEscapes": "Policy escapes"
   },
+  "outcomeAssurance": {
+    "title": "Outcome Assurance projection",
+    "subtitle": "Authenticated read-only source binding for readiness, objective alignment, outcomes, and guards.",
+    "notConnected": "Outcome Assurance is not connected on this deployment.",
+    "stale": "Outcome Assurance evidence is stale. Values remain unavailable until a fresh authoritative source is retained.",
+    "unavailable": "Outcome Assurance is unavailable: {reason}. Missing evidence is not replaced with sample or zero values.",
+    "scope": "Scope: {scope}",
+    "window": "Window: {start} to {end}",
+    "objective": "Objective",
+    "metric": "Metric",
+    "noOutcomes": "No measured outcome values are available for this source state.",
+    "attribution": "Attribution coverage",
+    "guards": "Guard state",
+    "state": {
+      "complete": "Complete",
+      "stale": "Stale",
+      "unavailable": "Unavailable"
+    },
+    "metricState": {
+      "measured": "Measured",
+      "stale": "Stale",
+      "unavailable": "Unavailable",
+      "insufficient_sample": "Insufficient sample",
+      "regressed": "Regressed"
+    },
+    "guardState": {
+      "unknown": "Unknown",
+      "healthy": "Healthy",
+      "attention": "Needs attention",
+      "blocked": "Blocked",
+      "stale": "Stale",
+      "unavailable": "Unavailable"
+    }
+  },
   "vertical": {
     "resilience": "Resilience",
     "change-safety": "Change Safety",

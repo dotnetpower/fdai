@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 2e6e482f6f5b18ab445ed28f21d4d3e67dc209d5
-translation_revised: 2026-10-03
+translation_source_sha: ae0a89f76fc4b77537e7a6441538d7c30df86355
+translation_revised: 2026-10-04
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -18,6 +18,8 @@ translation_revised: 2026-10-03
 테스트 컨텍스트 수명 주기 제출은 서술기 라우팅이 아니라 결정론적인 Console 작업 흐름입니다. 의미 초안이
 양식을 열 수는 있지만, 받아들인 모든 명령은 서버가 소유한 선택지와 Operator/Core 수명 주기 검사가
 결정합니다.
+Outcome Assurance 읽기 패널도 서술기 라우팅 밖에 있습니다. 이 패널은 인증된 읽기 전용 KPI 변환
+결과를 해석하며 모델 배포를 선택하거나 의미 요청을 제출하거나 지연 시간 근거를 만들지 않습니다.
 
 독립된 Operator Service가 인증된 대화 HTTP 경계를 소유하고 Kafka로 의미 처리 턴을 중계합니다.
 표준 로컬 및 배포 환경의 의미 처리 경로에서 모델 선택과 추론은 Core가 담당합니다. Operator와

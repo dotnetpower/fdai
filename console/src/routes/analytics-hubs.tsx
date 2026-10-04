@@ -17,6 +17,7 @@ import { formatShare } from "./dashboard.model";
 import {
   useAnalyticsData,
   useAutonomyData,
+  useOutcomeAssuranceData,
   type AnalyticsData,
 } from "./analytics-data";
 import { buildOperatingOutcomeViewSnapshot } from "./analytics-hubs.view";
@@ -30,6 +31,7 @@ import {
   outcomeMetric,
   type OutcomeKey,
 } from "./operating-outcomes";
+import { OutcomeAssuranceDrilldown } from "./outcome-assurance-drilldown";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -126,7 +128,12 @@ export function OperatingOutcomesRoute({ client, dataMode }: Props) {
       <HubTabs panelId="operating-outcomes" values={OUTCOME_KEYS} active={active ?? ""} label={(key) => t(`analytics.metric.${key}`)} />
       {active === null ? <UnavailableState message={t("analytics.invalidDetail")} /> : (
         <AsyncBoundary state={state} resourceLabel={t("analytics.outcomes.title")}>
-          {(data) => data.autonomy ? <OutcomeBody data={data} active={active} /> : <UnavailableState message={t("analytics.autonomyUnavailable")} />}
+          {(data) => data.autonomy ? (
+            <>
+              <OutcomeBody data={data} active={active} />
+              <OutcomeAssurancePanel client={client} dataMode={dataMode} />
+            </>
+          ) : <UnavailableState message={t("analytics.autonomyUnavailable")} />}
         </AsyncBoundary>
       )}
     </div>
@@ -161,12 +168,15 @@ export function ControlAssuranceRoute({ client, dataMode }: Props) {
       <PageHeader title={t("analytics.assurance.title")} subtitle={t("analytics.assurance.subtitle")} />
       <AsyncBoundary state={state} resourceLabel={t("analytics.assurance.title")}>
         {(data) => (
-          <ControlAssuranceBody
-            data={data}
-            evidence={data.autonomy ? <EvidenceStrip autonomy={data.autonomy} /> : null}
-            guardKey={guardKey}
-            context={searchParamsRecord(currentRoute().search)}
-          />
+          <>
+            <ControlAssuranceBody
+              data={data}
+              evidence={data.autonomy ? <EvidenceStrip autonomy={data.autonomy} /> : null}
+              guardKey={guardKey}
+              context={searchParamsRecord(currentRoute().search)}
+            />
+            <OutcomeAssurancePanel client={client} dataMode={dataMode} />
+          </>
         )}
       </AsyncBoundary>
     </div>
@@ -191,11 +201,24 @@ export function VerticalOutcomesRoute({ client, dataMode }: Props) {
               ? chaosResults.data
               : null}
             context={searchParamsRecord(currentRoute().search)}
-            evidence={autonomy ? <EvidenceStrip autonomy={autonomy} /> : null}
+            evidence={<>
+              {autonomy ? <EvidenceStrip autonomy={autonomy} /> : null}
+              <OutcomeAssurancePanel client={client} dataMode={dataMode} />
+            </>}
           />
         )}
       </AsyncBoundary>
     </div>
+  );
+}
+
+function OutcomeAssurancePanel({ client, dataMode }: Props) {
+  const params = searchParamsRecord(currentRoute().search);
+  const state = useOutcomeAssuranceData(client, dataMode, params);
+  return (
+    <AsyncBoundary state={state} resourceLabel={t("analytics.outcomeAssurance.title")}>
+      {(projection) => <OutcomeAssuranceDrilldown projection={projection} />}
+    </AsyncBoundary>
   );
 }
 
