@@ -173,6 +173,23 @@ def test_layer_resolution_validates_nonmatching_override_blocks() -> None:
         ({"env": [{"name": "DB_PASSWORD", "value": "hunter2"}]}, ("env", "0", "value")),
         ({"password": {"key_vault_secret": "hunter2"}}, ("password",)),
         ({"tokens": ("hunter2",)}, ("tokens",)),
+        ({"APIKey": "hunter2"}, ("APIKey",)),
+        ({"APIToken": "hunter2"}, ("APIToken",)),
+        ({"DBPassword": "hunter2"}, ("DBPassword",)),
+        ({"JWTSecret": "hunter2"}, ("JWTSecret",)),
+        ({"apikey": "hunter2"}, ("apikey",)),
+        ({"dbpassword": "hunter2"}, ("dbpassword",)),
+        ({"clientsecret": "hunter2"}, ("clientsecret",)),
+        ({"accesstoken": "hunter2"}, ("accesstoken",)),
+        ({"connectionstring": "Server=x"}, ("connectionstring",)),
+        ({"account_key": "hunter2"}, ("account_key",)),
+        ({"storageAccountKey": "hunter2"}, ("storageAccountKey",)),
+        ({"primary_key": "hunter2"}, ("primary_key",)),
+        ({"subscription_key": "hunter2"}, ("subscription_key",)),
+        ({"sas": "hunter2"}, ("sas",)),
+        ({"passphrase": "hunter2"}, ("passphrase",)),
+        ({"env": [{"key": "DB_PASSWORD", "value": "hunter2"}]}, ("env", "0", "value")),
+        ({"env": [{"Name": "DB_PASSWORD", "Value": "hunter2"}]}, ("env", "0", "Value")),
     ],
 )
 def test_package_rejects_literal_secret_values_before_signing(
@@ -183,6 +200,22 @@ def test_package_rejects_literal_secret_values_before_signing(
 
     assert exc_info.value.code == "literal_secret_value"
     assert exc_info.value.path == path
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "pass\u200bword",
+        "\u0440\u0430ssword",
+        "\uff50\uff41\uff53\uff53\uff57\uff4f\uff52\uff44",
+    ],
+)
+def test_package_rejects_non_ascii_configuration_keys(key: str) -> None:
+    with pytest.raises(ConfigurationValidationError) as exc_info:
+        validate_configuration_package_for_signing({key: "hunter2"})
+
+    assert exc_info.value.code == "invalid_configuration_key"
+    assert exc_info.value.path == (key,)
 
 
 def test_package_allows_key_vault_secret_references_before_signing() -> None:

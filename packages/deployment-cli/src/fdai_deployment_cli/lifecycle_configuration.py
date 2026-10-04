@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import re
+import unicodedata
 from collections.abc import Container, Mapping
 from collections.abc import Sequence as AbstractSequence
 from dataclasses import dataclass
@@ -34,7 +35,9 @@ _CONFIGURATION_AXES = frozenset(
 )
 _SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 _RANGE_PART = re.compile(r"^(>=|>|<=|<|=)?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+_ACRONYM_BOUNDARY = re.compile(r"(?<=[A-Z])(?=[A-Z][a-z])")
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_DIGIT_BOUNDARY = re.compile(r"(?<=[A-Za-z])(?=[0-9])|(?<=[0-9])(?=[A-Za-z])")
 _TOKEN_SPLIT = re.compile(r"[^A-Za-z0-9]+")
 _KEY_VAULT_REF = re.compile(
     r"^kv://[A-Za-z0-9](?:[A-Za-z0-9-]{1,22}[A-Za-z0-9])/[A-Za-z0-9-]{1,127}$"
@@ -46,17 +49,44 @@ _DIRECT_SECRET_TOKENS = frozenset(
     {
         "credential",
         "credentials",
+        "passphrase",
+        "passphrases",
         "passwd",
         "password",
         "passwords",
         "pwd",
+        "sas",
         "secret",
         "secrets",
         "token",
         "tokens",
     }
 )
-_KEY_CONTEXT_TOKENS = frozenset({"access", "api", "client", "private"})
+_DIRECT_SECRET_SUBSTRINGS = (
+    "apikey",
+    "connectionstring",
+    "credential",
+    "passphrase",
+    "passwd",
+    "password",
+    "secret",
+    "token",
+)
+_KEY_CONTEXT_TOKENS = frozenset(
+    {
+        "access",
+        "account",
+        "api",
+        "client",
+        "primary",
+        "private",
+        "secondary",
+        "shared",
+        "signing",
+        "storage",
+        "subscription",
+    }
+)
 
 Version = tuple[int, int, int]
 
@@ -131,6 +161,7 @@ def validate_release_configuration_schema(configuration_schema: Mapping[str, obj
     """Validate Release configuration key annotations without granting authority."""
 
     for key, raw_entry in configuration_schema.items():
+        _validate_printable_configuration_key(key, (key,))
         entry = _mapping(raw_entry, ("configuration_schema", key))
         axis = entry.get(_ANNOTATION_AXIS)
         owner = entry.get(_ANNOTATION_OWNER)
@@ -261,6 +292,7 @@ def _validate_configuration_key(
     sealed_keys: Container[str],
     path: tuple[str, ...],
 ) -> None:
+    _validate_printable_configuration_key(key, path)
     if key not in schema:
         raise ConfigurationValidationError(
             "unknown_configuration_key",
@@ -281,6 +313,7 @@ def _scan_secret_values(value: object, path: tuple[str, ...]) -> None:
         for raw_key, raw_item in value.items():
             key = str(raw_key)
             item_path = (*path, key)
+            _validate_printable_configuration_key(key, item_path)
             if _is_sensitive_key(key):
                 _validate_secret_reference(raw_item, item_path, key)
                 continue
@@ -292,9 +325,13 @@ def _scan_secret_values(value: object, path: tuple[str, ...]) -> None:
 
 
 def _scan_name_value_secret(value: Mapping[object, object], path: tuple[str, ...]) -> None:
-    name = value.get("name")
-    if isinstance(name, str) and _is_sensitive_key(name) and "value" in value:
-        _validate_secret_reference(value["value"], (*path, "value"), name)
+    name_key = _find_casefold_key(value, "name") or _find_casefold_key(value, "key")
+    value_key = _find_casefold_key(value, "value")
+    if name_key is None or value_key is None:
+        return
+    name = value[name_key]
+    if isinstance(name, str) and _is_sensitive_key(name):
+        _validate_secret_reference(value[value_key], (*path, str(value_key)), name)
 
 
 def _validate_secret_reference(value: object, path: tuple[str, ...], key: str) -> None:
@@ -312,6 +349,13 @@ def _validate_secret_reference(value: object, path: tuple[str, ...], key: str) -
         path,
         f"field {key!r} contains a literal secret value or malformed secret reference",
     )
+
+
+def _find_casefold_key(value: Mapping[object, object], target: str) -> object | None:
+    for key in value:
+        if isinstance(key, str) and key.casefold() == target:
+            return key
+    return None
 
 
 def _mapping(value: object, path: tuple[str, ...]) -> Mapping[str, object]:
@@ -340,8 +384,11 @@ def _normal_token(value: str) -> str:
 
 
 def _is_sensitive_key(value: str) -> bool:
-    tokens = set(_tokens(value))
+    tokens_tuple = _tokens(value)
+    tokens = set(tokens_tuple)
     if tokens & _DIRECT_SECRET_TOKENS:
+        return True
+    if any(marker in token for token in tokens_tuple for marker in _DIRECT_SECRET_SUBSTRINGS):
         return True
     if "connection" in tokens and "string" in tokens:
         return True
@@ -349,8 +396,26 @@ def _is_sensitive_key(value: str) -> bool:
 
 
 def _tokens(value: str) -> tuple[str, ...]:
-    separated = _CAMEL_BOUNDARY.sub("-", value)
+    separated = _ACRONYM_BOUNDARY.sub("-", value)
+    separated = _CAMEL_BOUNDARY.sub("-", separated)
+    separated = _DIGIT_BOUNDARY.sub("-", separated)
     return tuple(token.lower() for token in _TOKEN_SPLIT.split(separated) if token)
+
+
+def _validate_printable_configuration_key(key: str, path: tuple[str, ...]) -> None:
+    normalized = unicodedata.normalize("NFKC", key)
+    if normalized != key or any(unicodedata.category(char) == "Cf" for char in key):
+        raise ConfigurationValidationError(
+            "invalid_configuration_key",
+            path,
+            "configuration keys MUST be printable ASCII",
+        )
+    if any(ord(char) < 0x20 or ord(char) > 0x7E for char in normalized):
+        raise ConfigurationValidationError(
+            "invalid_configuration_key",
+            path,
+            "configuration keys MUST be printable ASCII",
+        )
 
 
 def _parse_version(value: str, path: tuple[str, ...]) -> Version:
