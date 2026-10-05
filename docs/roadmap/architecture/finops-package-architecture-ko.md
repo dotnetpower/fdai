@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: b5e15813c2152d021a2ce646deb938e8884d44e7
-translation_revised: 2026-10-02
+translation_source_sha: be55b6dac412e2ffad51884c23157d3a4b11bea8
+translation_revised: 2026-10-05
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -440,6 +440,12 @@ SLO 회귀 및 단위 경제 값은 사용 불가 상태로 유지합니다. 보
 정규 다이제스트가 포함됩니다. 같은 요청 ID를 다른 작업, 아티팩트, 소스 개정, 런타임 구성,
 행위자, 원하는 활성화 상태 또는 예상 개정에 재사용하면 멱등성 충돌로 처리됩니다. 입력이 정확히
 같은 재시도는 현재 활성화 상태를 다시 표시하지 않고 원래 증적을 반환합니다.
+
+예약된 관측 내보내기는 개발 플랫폼 데이터베이스를 읽는데, 구독 거버넌스가 업무 시간 외에 이
+데이터베이스를 중지합니다. 내보내기는 활성 pin을 확인하기 전에 drift 감지와 같은 제한된 데이터베이스
+전원 창을 엽니다. Stopped 서버에 대한 클레임을 먼저 기록하고 시작해 Ready가 될 때까지 기다리며, 자체
+클레임에 이 실행이 시작했다고 기록된 경우에만 서버를 다시 중지합니다. 공유 동시성 그룹이 drift 감지와
+내보내기가 서로 사용 중인 서버를 중지하지 않도록 합니다.
 
 독립 promotion 검토는 별도의 Core 소유 append-only 저장소와 보호된 workflow를 사용합니다.
 workflow는 최종 attested campaign 결과를 검증하고 exact 활성 package release로 준비 상태를 다시

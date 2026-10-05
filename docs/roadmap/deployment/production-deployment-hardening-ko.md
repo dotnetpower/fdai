@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: c32e2dbdde491ebebff8c169dfbfb725de15945c
-translation_revised: 2026-10-03
+translation_source_sha: 6d77403d990a53444d9d2b11f3b94d508b22b933
+translation_revised: 2026-10-05
 ---
 # 운영 배포 강화
 
@@ -139,6 +139,13 @@ Terraform이 stack을 직접 생성하도록 합니다.
 Operator Service 계획은 배포와 마찬가지로 저장된 플랫폼 상태에서 읽은 플랫폼 소유 Cost 가명 키를
 연결합니다. 플랫폼에 해당 키가 없으면 설정되지 않은 Terraform 변수 오류 대신 명시적인 이유와 함께
 그 루트의 근거가 실패합니다.
+구독 거버넌스는 업무 시간 외에 개발 PostgreSQL 서버를 중지하며, 중지된 서버에서는 이전 방식 루트를
+새로 고칠 수 없습니다. 이전 방식 계획 전에 실행은 저장된 플랫폼 상태에서 서버 식별자를 읽고 제한된
+전원 창을 엽니다. Ready 서버는 그대로 두고, Stopped 서버는 먼저 클레임을 기록한 뒤 시작해 Ready가
+될 때까지 기다립니다. 서비스 루트 이후에는 자체 클레임에 이 실행이 시작했다고 기록된 경우에만
+서버를 다시 중지합니다. 이 창은 서버 구성을 바꾸지 않으며, Ready에 도달하지 못한 서버는 명시적인
+이유와 함께 근거를 실패로 처리합니다. Cost Governance 관측 내보내기도 같은 창을 열고, 두 작업은 하나의
+동시성 그룹을 공유하므로 어느 쪽도 다른 쪽이 사용하는 중에 서버를 중지하지 않습니다.
 Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기, `Local` `ResourceDisk` 배치 및
 관리형 OS 디스크 부재를 요구합니다. 불일치하면 blue/green 교체 작업을 보고하고 Azure 상태를
 변경하지 않은 채 실패합니다. 임시 프로파일은 할당된 상태로 유지됩니다. 구성된 자동 종료와

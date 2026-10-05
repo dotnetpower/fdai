@@ -436,6 +436,18 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "infra/scenario-lab/backend.tf" in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
 
 
+def test_destroy_waits_for_its_run_grant_before_the_first_write() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    settle = workflow.index("      - name: Wait for the run grant to settle")
+    quiesce = workflow.index("      - name: Quiesce private DNS links before destroy")
+    settle_block = workflow[settle:quiesce]
+
+    assert settle < quiesce
+    assert "inputs.action == 'destroy'" in settle_block
+    assert "readonly minimum_age_seconds=600" in settle_block
+    assert settle < workflow.index("      - name: Start retained scenario-lab compute and data")
+
+
 def test_scenario_lab_apply_diagnostic_projects_only_allowlisted_tokens(tmp_path: Path) -> None:
     lines: list[object] = [
         {

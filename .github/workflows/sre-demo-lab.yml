@@ -608,6 +608,61 @@ jobs:
           import_if_missing 'azurerm_private_dns_zone_virtual_network_link.mysql_operator[0]' \
             "$mysql_operator_link_id"
 
+      - name: Wait for the run grant to settle
+        if: >-
+          inputs.action == 'apply' ||
+          inputs.action == 'recreate-aks' ||
+          inputs.action == 'destroy'
+        working-directory: ${{ runner.temp }}
+        env:
+          RESOURCE_GROUP_ID: ${{ steps.holding-scope.outputs.resource_group_id }}
+          REMOVE_AFTER_RUN: ${{ steps.deployment-authority.outputs.remove_after_run }}
+          GRANTED_AT_EPOCH: ${{ steps.deployment-authority.outputs.granted_at_epoch }}
+        run: |
+          set -euo pipefail
+          # The permissions API can report a new grant effective before every ARM front end
+          # authorizes it, so a grant created by this run must age before the first write.
+          if [[ "$REMOVE_AFTER_RUN" != "true" ]]; then
+            echo "The pre-existing scenario-lab grant needs no settle wait."
+            exit 0
+          fi
+          [[ "$GRANTED_AT_EPOCH" =~ ^[0-9]{10}$ ]] || {
+            echo "scenario-lab grant creation time is unavailable." >&2
+            exit 1
+          }
+          readonly minimum_age_seconds=600
+          readonly settle_slack_seconds=300
+          readonly check_interval_seconds=30
+          readonly deadline=$((GRANTED_AT_EPOCH + minimum_age_seconds + settle_slack_seconds))
+          attempt=1
+          while :; do
+            effective=false
+            if permissions="$(timeout --foreground 15s az rest \
+              --method get \
+              --url "https://management.azure.com${RESOURCE_GROUP_ID}/providers/Microsoft.Authorization/permissions?api-version=2022-04-01" \
+              --output json \
+              --only-show-errors 2>/dev/null)" &&
+              jq -e 'any(.value[]?; any(.actions[]?; ascii_downcase == "*"))' \
+                <<<"$permissions" >/dev/null; then
+              effective=true
+            fi
+            permissions=""
+            now="$(date -u +%s)"
+            age=$((now - GRANTED_AT_EPOCH))
+            if [[ "$effective" == "true" ]] && ((age >= minimum_age_seconds)); then
+              printf 'The scenario-lab grant is %s seconds old and effective.\n' "$age"
+              exit 0
+            fi
+            if ((now + check_interval_seconds > deadline)); then
+              echo "scenario-lab grant did not settle within its bounded window." >&2
+              exit 1
+            fi
+            printf 'Waiting for the scenario-lab grant to settle (%s, %s seconds old, effective=%s).\n' \
+              "$attempt" "$age" "$effective"
+            sleep "$check_interval_seconds"
+            ((attempt += 1))
+          done
+
       - name: Quiesce private DNS links before destroy
         if: inputs.action == 'destroy'
         run: |
@@ -671,58 +726,6 @@ jobs:
             --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
             --region-short "$TF_VAR_region_short" \
             --runner-principal-id "$DEPLOY_RUNNER_PRINCIPAL_ID"
-
-      - name: Wait for the run grant to settle
-        if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
-        working-directory: ${{ runner.temp }}
-        env:
-          RESOURCE_GROUP_ID: ${{ steps.holding-scope.outputs.resource_group_id }}
-          REMOVE_AFTER_RUN: ${{ steps.deployment-authority.outputs.remove_after_run }}
-          GRANTED_AT_EPOCH: ${{ steps.deployment-authority.outputs.granted_at_epoch }}
-        run: |
-          set -euo pipefail
-          # The permissions API can report a new grant effective before every ARM front end
-          # authorizes it, so a grant created by this run must age before the first write.
-          if [[ "$REMOVE_AFTER_RUN" != "true" ]]; then
-            echo "The pre-existing scenario-lab grant needs no settle wait."
-            exit 0
-          fi
-          [[ "$GRANTED_AT_EPOCH" =~ ^[0-9]{10}$ ]] || {
-            echo "scenario-lab grant creation time is unavailable." >&2
-            exit 1
-          }
-          readonly minimum_age_seconds=600
-          readonly settle_slack_seconds=300
-          readonly check_interval_seconds=30
-          readonly deadline=$((GRANTED_AT_EPOCH + minimum_age_seconds + settle_slack_seconds))
-          attempt=1
-          while :; do
-            effective=false
-            if permissions="$(timeout --foreground 15s az rest \
-              --method get \
-              --url "https://management.azure.com${RESOURCE_GROUP_ID}/providers/Microsoft.Authorization/permissions?api-version=2022-04-01" \
-              --output json \
-              --only-show-errors 2>/dev/null)" &&
-              jq -e 'any(.value[]?; any(.actions[]?; ascii_downcase == "*"))' \
-                <<<"$permissions" >/dev/null; then
-              effective=true
-            fi
-            permissions=""
-            now="$(date -u +%s)"
-            age=$((now - GRANTED_AT_EPOCH))
-            if [[ "$effective" == "true" ]] && ((age >= minimum_age_seconds)); then
-              printf 'The scenario-lab grant is %s seconds old and effective.\n' "$age"
-              exit 0
-            fi
-            if ((now + check_interval_seconds > deadline)); then
-              echo "scenario-lab grant did not settle within its bounded window." >&2
-              exit 1
-            fi
-            printf 'Waiting for the scenario-lab grant to settle (%s, %s seconds old, effective=%s).\n' \
-              "$attempt" "$age" "$effective"
-            sleep "$check_interval_seconds"
-            ((attempt += 1))
-          done
 
       - name: Start retained scenario-lab compute and data
         if: inputs.action == 'apply' || inputs.action == 'recreate-aks'

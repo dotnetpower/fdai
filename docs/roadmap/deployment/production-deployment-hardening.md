@@ -136,6 +136,14 @@ state roots. It fails closed on a missing, unreadable, or changed root, so green
 As deployment does, the Operator Service plan binds the platform-owned Cost pseudonym key that it
 reads from stored platform state. A platform without that key fails the root's evidence with an
 explicit reason instead of an unset Terraform variable.
+Subscription governance stops the development PostgreSQL server outside working hours, and a
+stopped server makes the legacy refresh unreadable. Before the legacy plan, the run reads the server
+identity from stored platform state and opens a bounded power window: a Ready server is left
+running, and a Stopped server is claimed first, started, and awaited until Ready. After the service
+roots, the run stops the server again only when its own claim records that it started it. The
+window never changes server configuration, and a server that can't reach Ready fails the evidence
+with an explicit reason. The Cost Governance observation export opens the same window, and both
+jobs share one concurrency group so neither stops the server under the other.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;
