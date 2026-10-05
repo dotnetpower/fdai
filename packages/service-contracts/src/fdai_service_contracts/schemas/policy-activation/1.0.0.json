@@ -1,0 +1,104 @@
+{
+  "$defs": {
+    "PolicyKind": {
+      "description": "Policy families Mimir can validate and activate.",
+      "enum": [
+        "approval",
+        "admission"
+      ],
+      "title": "PolicyKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Typed activation event published by Mimir after durable activation.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "object_type": {
+      "const": "Policy",
+      "default": "Policy",
+      "title": "Object Type",
+      "type": "string"
+    },
+    "kind": {
+      "const": "policy_activation",
+      "default": "policy_activation",
+      "title": "Kind",
+      "type": "string"
+    },
+    "policy_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Policy Id",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "policy_activation",
+      "default": "policy_activation",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "policy_kind": {
+      "$ref": "#/$defs/PolicyKind"
+    },
+    "revision_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Revision Id",
+      "type": "string"
+    },
+    "policy_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Policy Digest",
+      "type": "string"
+    },
+    "activated_at": {
+      "format": "date-time",
+      "title": "Activated At",
+      "type": "string"
+    },
+    "author_principal": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Author Principal",
+      "type": "string"
+    },
+    "validation_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Validation Digest",
+      "type": "string"
+    },
+    "correlation_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    }
+  },
+  "required": [
+    "policy_id",
+    "policy_kind",
+    "revision_id",
+    "policy_digest",
+    "activated_at",
+    "author_principal",
+    "validation_digest",
+    "correlation_id",
+    "idempotency_key"
+  ],
+  "title": "PolicyActivationEvent",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/policy-activation/1.0.0"
+}

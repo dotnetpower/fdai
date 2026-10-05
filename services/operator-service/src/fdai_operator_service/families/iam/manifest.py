@@ -91,6 +91,7 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry("POST", "/system/break-glass/activation", "handler"),
     IamRouteManifestEntry("POST", "/configuration-baselines/review/run", "run_review"),
     IamRouteManifestEntry("POST", "/configuration-baselines/review/resume", "resume_review"),
+    IamRouteManifestEntry("POST", "/policy/revisions", "policy_revision_request"),
     IamRouteManifestEntry(
         "POST",
         "/hil/{approval_id}/operator-decision",

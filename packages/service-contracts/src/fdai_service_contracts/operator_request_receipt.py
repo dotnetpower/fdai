@@ -5,12 +5,12 @@ from __future__ import annotations
 import base64
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, override
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_serializer, model_validator
 
 from fdai_service_contracts.compatibility import canonical_digest
 from fdai_service_contracts.executor_models import ContractBase, Digest
@@ -19,7 +19,7 @@ _MAX_RECEIPT_LIFETIME = timedelta(minutes=15)
 _WORKFLOW_ACTION_ABSENT_SENTINEL = "__fdai_operator_request_workflow_action_absent__"
 
 
-_RECEIPT_SCHEMA_VERSION = Literal["1.0.0", "1.1.0"]
+_RECEIPT_SCHEMA_VERSION = Literal["1.0.0", "1.1.0", "1.2.0"]
 
 
 class OperatorRequestReceiptBody(ContractBase):
@@ -36,10 +36,15 @@ class OperatorRequestReceiptBody(ContractBase):
     producer_service_identity: Annotated[str, Field(min_length=1, max_length=512)]
     issued_at: datetime
     expires_at: datetime
+    authenticated_at: datetime | None = None
+    principal_roles: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...] = ()
+    max_auth_age_seconds: int | None = None
 
-    @field_validator("issued_at", "expires_at")
+    @field_validator("issued_at", "expires_at", "authenticated_at")
     @classmethod
-    def _normalize_time(cls, value: datetime) -> datetime:
+    def _normalize_time(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("operator request receipt time MUST include a timezone")
         return value.astimezone(UTC)
@@ -52,7 +57,47 @@ class OperatorRequestReceiptBody(ContractBase):
             raise ValueError("operator request receipt v1.0 MUST NOT bind workflow action")
         if self.schema_version == "1.1.0" and self.canonical_workflow_action_digest is None:
             raise ValueError("operator request receipt v1.1 MUST bind workflow action digest")
+        if self.schema_version in {"1.0.0", "1.1.0"}:
+            if (
+                self.authenticated_at is not None
+                or self.principal_roles
+                or self.max_auth_age_seconds is not None
+            ):
+                raise ValueError("operator request receipt v1.0/v1.1 MUST NOT bind auth context")
+        elif (
+            self.authenticated_at is None
+            or not self.principal_roles
+            or self.max_auth_age_seconds is None
+            or self.max_auth_age_seconds <= 0
+            or self.max_auth_age_seconds > 3600
+        ):
+            raise ValueError("operator request receipt v1.2 MUST bind bounded auth context")
+        if self.principal_roles != tuple(sorted(set(self.principal_roles))):
+            raise ValueError("operator request receipt principal_roles MUST be unique and ordered")
         return self
+
+    @override
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        exclude = set(kwargs.pop("exclude", set()) or set())
+        if self.schema_version in {"1.0.0", "1.1.0"}:
+            exclude.update({"authenticated_at", "principal_roles", "max_auth_age_seconds"})
+        return super().model_dump(*args, exclude=exclude, **kwargs)
+
+    @override
+    def model_dump_json(self, *args: Any, **kwargs: Any) -> str:
+        exclude = set(kwargs.pop("exclude", set()) or set())
+        if self.schema_version in {"1.0.0", "1.1.0"}:
+            exclude.update({"authenticated_at", "principal_roles", "max_auth_age_seconds"})
+        return super().model_dump_json(*args, exclude=exclude, **kwargs)
+
+    @model_serializer(mode="wrap")
+    def _serialize_without_new_auth_fields_for_legacy_versions(self, handler: Any) -> Any:
+        data = handler(self)
+        if self.schema_version in {"1.0.0", "1.1.0"} and isinstance(data, dict):
+            data.pop("authenticated_at", None)
+            data.pop("principal_roles", None)
+            data.pop("max_auth_age_seconds", None)
+        return data
 
 
 class OperatorRequestReceipt(OperatorRequestReceiptBody):
@@ -88,7 +133,7 @@ class OperatorRequestReceipt(OperatorRequestReceiptBody):
     ) -> OperatorRequestReceipt:
         """Attach a signature to a validated body and compute its digest."""
 
-        payload = body.model_dump(mode="json")
+        payload = _receipt_body_payload(body)
         return cls.model_validate(
             {
                 **payload,
@@ -121,7 +166,7 @@ def canonical_workflow_action_digest(workflow_action: Mapping[str, Any] | None) 
 def operator_request_receipt_digest(body: OperatorRequestReceiptBody) -> str:
     """Return the content digest covered by the receipt signature."""
 
-    return canonical_digest(body.model_dump(mode="json"))
+    return canonical_digest(_receipt_body_payload(body))
 
 
 def operator_request_receipt_signing_bytes(body: OperatorRequestReceiptBody) -> bytes:
@@ -188,31 +233,45 @@ def operator_request_receipt_body_from_event(
 ) -> OperatorRequestReceiptBody:
     """Build a receipt body from a flat raw-ingress operator request."""
 
+    if "operator_request_receipt_schema_version" in event:
+        schema_version = str(event["operator_request_receipt_schema_version"])
     workflow_action = event.get("workflow_action")
     workflow_action_digest = (
         canonical_workflow_action_digest(
             workflow_action if isinstance(workflow_action, Mapping) else None
         )
-        if schema_version == "1.1.0"
+        if schema_version in {"1.1.0", "1.2.0"}
         else None
     )
-    return OperatorRequestReceiptBody.model_validate(
-        {
-            "schema_version": schema_version,
-            "idempotency_key": event.get("idempotency_key"),
-            "correlation_id": event.get("correlation_id"),
-            "initiator_principal": event.get("initiator_principal"),
-            "action_type": event.get("action_type"),
-            "canonical_params_digest": canonical_params_digest(
-                event.get("params") if isinstance(event.get("params"), Mapping) else None
-            ),
-            "resource_id": event.get("resource_id"),
-            "canonical_workflow_action_digest": workflow_action_digest,
-            "producer_service_identity": producer_service_identity,
-            "issued_at": issued_at,
-            "expires_at": expires_at,
-        }
-    )
+    values = {
+        "schema_version": schema_version,
+        "idempotency_key": event.get("idempotency_key"),
+        "correlation_id": event.get("correlation_id"),
+        "initiator_principal": event.get("initiator_principal"),
+        "action_type": event.get("action_type"),
+        "canonical_params_digest": canonical_params_digest(
+            event.get("params") if isinstance(event.get("params"), Mapping) else None
+        ),
+        "resource_id": event.get("resource_id"),
+        "canonical_workflow_action_digest": workflow_action_digest,
+        "producer_service_identity": producer_service_identity,
+        "issued_at": issued_at,
+        "expires_at": expires_at,
+    }
+    if schema_version == "1.2.0":
+        values["authenticated_at"] = event.get("authenticated_at")
+        values["principal_roles"] = tuple(
+            str(role) for role in event.get("principal_roles", ()) if isinstance(role, str)
+        )
+        values["max_auth_age_seconds"] = event.get("max_auth_age_seconds")
+    return OperatorRequestReceiptBody.model_validate(values)
+
+
+def _receipt_body_payload(body: OperatorRequestReceiptBody) -> dict[str, Any]:
+    excluded = {"authenticated_at", "principal_roles", "max_auth_age_seconds"}
+    if body.schema_version == "1.2.0":
+        excluded = set()
+    return body.model_dump(mode="json", exclude=excluded)
 
 
 __all__ = [

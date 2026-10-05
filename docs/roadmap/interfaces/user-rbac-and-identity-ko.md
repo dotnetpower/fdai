@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 1df4e08a44749db01be30adeeab15a14461afc9b
+translation_source_sha: 843b195cd263f4d871822d251e7d18280afaa1d2
 translation_revised: 2026-10-04
 ---
 
@@ -248,6 +248,13 @@ App Roles를 정본 표면으로 쓰는 이유:
 
 그룹 멤버십은 **관리 표면** 유지(Owners가 Entra Portal로 멤버 추가/제거); App Roles는 API가
 보는 **토큰 표면**.
+
+`policy-administration` 추가 기능이 사용하는 `policy-admin` App Role은 이 계층 밖에 있습니다.
+일반 역할, 읽기 게이트, 승인자 또는 실행자로 매핑되지 않습니다. 정책 개정 요청 경로만 최신 인증과
+함께 이 역할을 확인합니다. 이 경로는 형식화된 요청만 게시하며, 추가 기능을 선택하기 전까지는
+비활성 상태입니다. 부트스트랩은 아직 이 App Role이나 `auth_time` 선택적 클레임을 정의하지
+않습니다. 자세한 내용은 [운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md)을
+참고하세요.
 
 ## 5. 거버넌스 액션 강제 (CI + CODEOWNERS)
 

@@ -104,6 +104,18 @@ def test_runtime_profile_requires_explicit_complete_add_on_selection() -> None:
             database_placement="postgres-flex",
             product_add_ons=("governed-execution",),
         )
+    with pytest.raises(ValueError, match="policy administration requires explicit enterprise"):
+        RuntimeDeploymentProfile.create(
+            runtime_platform="aks",
+            database_placement="postgres-flex",
+            product_add_ons=("policy-administration",),
+        )
+    with pytest.raises(ValueError, match="policy administration requires explicit read-only"):
+        RuntimeDeploymentProfile.create(
+            runtime_platform="aks",
+            database_placement="postgres-flex",
+            product_add_ons=("enterprise-identity-governance", "policy-administration"),
+        )
 
 
 def test_runtime_profile_preserves_explicit_full_product_behavior() -> None:
@@ -115,6 +127,7 @@ def test_runtime_profile_preserves_explicit_full_product_behavior() -> None:
             "notifications",
             "governed-execution",
             "enterprise-identity-governance",
+            "policy-administration",
         ),
         observation_data_sources=(
             "azure-monitor",
@@ -126,6 +139,7 @@ def test_runtime_profile_preserves_explicit_full_product_behavior() -> None:
         "enterprise-identity-governance",
         "governed-execution",
         "notifications",
+        "policy-administration",
         "read-only-console",
     )
     assert profile.product_profile.authority_granted is False
@@ -147,6 +161,7 @@ def test_runtime_profile_reads_legacy_mapping_as_explicit_full_product() -> None
 
     assert profile.matches_mapping(legacy) is True
     assert len(profile.product_profile.add_ons) == 4
+    assert "policy-administration" not in {item.value for item in profile.product_profile.add_ons}
     assert profile.product_profile.authority_granted is False
 
 

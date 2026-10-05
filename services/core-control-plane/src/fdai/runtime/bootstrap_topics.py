@@ -16,6 +16,7 @@ from fdai_service_contracts.incident_intervention import (
 from fdai_service_contracts.notification_receipt import (
     NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
 )
+from fdai_service_contracts.policy_administration import POLICY_REVISION_REQUEST_TOPIC
 from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_REQUEST_TOPIC
 from fdai_service_contracts.read_investigation import (
     READ_INVESTIGATION_COMPLETION_TOPIC,
@@ -54,6 +55,7 @@ RUNTIME_LOGICAL_TOPICS = (
             NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
             OPERATING_MODEL_TOPIC,
             POST_TURN_REVIEW_REQUEST_TOPIC,
+            POLICY_REVISION_REQUEST_TOPIC,
             SEMANTIC_REQUEST_TOPIC,
             SEMANTIC_PROJECTION_TOPIC,
             SEMANTIC_PROGRESS_TOPIC,
