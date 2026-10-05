@@ -88,6 +88,8 @@ class PromptProfile:
     reserved_output_tokens: int
     promotion_evidence: tuple[str, ...]
     provenance_source: str
+    model_role: str | None = None
+    reasoning_effort: str | None = None
 
     def __post_init__(self) -> None:
         if _COMPONENT_ID.fullmatch(self.id) is None:
@@ -123,6 +125,19 @@ class PromptProfile:
             raise ValueError("prompt profile promotion evidence MUST be unique")
         if not self.provenance_source:
             raise ValueError("prompt profile provenance source MUST be non-empty")
+        if self.model_role is not None and (
+            not isinstance(self.model_role, str)
+            or not self.model_role
+            or len(self.model_role) > _MAX_CAPABILITY_CHARS
+        ):
+            raise ValueError("prompt profile model_role MUST be bounded when provided")
+        if self.reasoning_effort is not None and self.reasoning_effort not in {
+            "minimal",
+            "low",
+            "medium",
+            "high",
+        }:
+            raise ValueError("prompt profile reasoning_effort MUST be reviewed when provided")
 
     @property
     def dynamic(self) -> bool:

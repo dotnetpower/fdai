@@ -24,6 +24,12 @@ body: |-
   for categories and collections. An exact identifier constraint uses object_ids.
   Do not enumerate only some matching objects to evade a bound.
 
+  When the query identifies a specific instance that is present in the supplied canonical
+  documents, select that instance by exact object_ids. Use property predicates for genuine
+  property-constrained sets, such as severity, criticality, type, status, or kind. Do not
+  restate a known instance's id, name, alias, label, or translated display text as a
+  contains predicate when its exact object id is available in the documents.
+
   status=select requires reason=conditions_proposed, nonempty clauses, and one exact,
   unambiguous verbatim quote from the query per clause in clause_quotes. Quotes identify
   the source of your interpretation; they do not prove that the interpretation is correct.

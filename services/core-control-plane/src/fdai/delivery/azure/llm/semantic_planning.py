@@ -5,12 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime
 from functools import partial
-from typing import Any, TypeVar
+from typing import Any
 
 import httpx
 from fdai_service_contracts.ontology_query import SemanticProblemFrame
@@ -51,6 +50,7 @@ from fdai.delivery.azure.llm.model_trace import (
     prepare_model_messages,
     start_model_trace,
 )
+from fdai.delivery.azure.llm.semantic_planning_bounds import bounded_input
 from fdai.delivery.azure.llm.semantic_planning_config import (
     MAX_SYSTEM_PROMPT_CHARS as _MAX_SYSTEM_PROMPT_CHARS,
 )
@@ -59,6 +59,10 @@ from fdai.delivery.azure.llm.semantic_planning_config import (
 )
 from fdai.delivery.azure.llm.semantic_planning_config import (
     candidate_proposal_binding,
+    candidate_proposal_request_target,
+    candidate_proposal_response_format,
+    candidate_proposal_system_content,
+    reasoning_effort_for_target,
 )
 from fdai.delivery.azure.llm.semantic_planning_config import (
     proposal_schema as _proposal_schema,
@@ -69,22 +73,25 @@ from fdai.delivery.azure.llm.semantic_planning_manifest import (
 from fdai.delivery.azure.llm.semantic_planning_manifest import (
     transmitted_prompt_manifest as _transmitted_prompt_manifest,
 )
+from fdai.delivery.azure.llm.semantic_planning_response import (
+    SemanticPlanningResponseValidationError,
+    provider_error_code,
+    validated_content,
+)
 from fdai.delivery.catalog_search.generation import SemanticGenerationBuild
 from fdai.delivery.catalog_search.ontology_candidate_proposal import (
     OntologyCandidateModelBinding,
     OntologyCandidateProposal,
     OntologyCandidateProposalResult,
     candidate_proposal_payload,
+    filter_candidate_proposal_quotes,
 )
 from fdai.delivery.catalog_search.ontology_candidate_selection import OntologyCandidateSelection
 from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyStagedProjection
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
-_MAX_CONTEXT_ITEMS = 8
-_MAX_CONTEXT_CHARS = 12_000
 _MAX_DESCRIPTORS = 512
-_MAX_PROMPT_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
 _MAX_OPERATIONAL_REQUEST_BYTES = 65_536
 _MAX_RECOVERY_CONTEXT_CHARS = 1_024
@@ -99,7 +106,6 @@ _COMPACT_OPERATIONAL_INTENTS = frozenset(
         "query.contextual_resources",
     }
 )
-_ProposalT = TypeVar("_ProposalT", bound=BaseModel)
 _RECOVERY_PROMPT = """
 This is one bounded T2 recovery attempt after a typed T1 planning failure.
 Re-evaluate the complete operator utterance against the supplied descriptors. Preserve the
@@ -139,6 +145,11 @@ class AzureOpenAISemanticPlanningModel:
     def candidate_proposal_binding(self) -> OntologyCandidateModelBinding:
         return candidate_proposal_binding(self._config)
 
+    def candidate_proposal_binding_for_manifest(
+        self, manifest: QueryManifest, build: SemanticGenerationBuild | None = None
+    ) -> OntologyCandidateModelBinding:
+        return candidate_proposal_binding(self._config, manifest=manifest, build=build)
+
     async def propose_candidate_selection(
         self,
         *,
@@ -171,14 +182,18 @@ class AzureOpenAISemanticPlanningModel:
                 proposal_type=OntologyCandidateProposal,
                 operation="candidate_selection",
                 manifest=self._config.plan_prompt_manifest,
+                query_manifest=manifest,
+                build=build,
                 max_attempts=1,
             )
             if asyncio.get_running_loop().time() >= deadline:
                 raise TimeoutError("candidate proposal deadline exceeded after return")
             if not isinstance(response, SemanticPlanningModelResponse):
                 raise ValueError("candidate proposal model unavailable")
-            proposal = OntologyCandidateProposal.model_validate(response.proposal)
-            proposal.validate_source_quotes(query)
+            proposal, quote_invalid_clauses = filter_candidate_proposal_quotes(
+                query,
+                OntologyCandidateProposal.model_validate(response.proposal),
+            )
             result = OntologyCandidateProposalResult(
                 proposal=proposal,
                 selection=(
@@ -190,6 +205,7 @@ class AzureOpenAISemanticPlanningModel:
                 ),
                 input_digest=str(payload["input_digest"]),
                 observation=response.observation,
+                quote_invalid_clauses=quote_invalid_clauses,
             )
             if asyncio.get_running_loop().time() >= deadline:
                 raise TimeoutError("candidate proposal deadline exceeded before publication")
@@ -217,7 +233,7 @@ class AzureOpenAISemanticPlanningModel:
             "purpose": purpose,
             "semantic_judgment": semantic_judgment,
         }
-        if not _bounded_input(payload, context=context, descriptors=descriptors):
+        if not bounded_input(payload, context=context, descriptors=descriptors):
             return None
         prompt, manifest, receipt = self._frame_selection(semantic_judgment)
         response = self._complete(
@@ -277,7 +293,7 @@ class AzureOpenAISemanticPlanningModel:
             "purpose": purpose,
             "evaluation_time": evaluation_time.isoformat(),
         }
-        if not _bounded_input(payload, context=(), descriptors=descriptors):
+        if not bounded_input(payload, context=(), descriptors=descriptors):
             return None
         return self._complete(
             payload=payload,
@@ -311,7 +327,7 @@ class AzureOpenAISemanticPlanningModel:
             "semantic_judgment": semantic_judgment,
             "recovery_context": _bounded_recovery_context(recovery_context),
         }
-        if not _bounded_input(payload, context=context, descriptors=descriptors):
+        if not bounded_input(payload, context=context, descriptors=descriptors):
             return None
         prompt = _recovery_prompt(
             self._config.recovery_frame_system_prompt or self._frame_prompt(semantic_judgment)
@@ -347,7 +363,7 @@ class AzureOpenAISemanticPlanningModel:
             "evaluation_time": evaluation_time.isoformat(),
             "recovery_context": _bounded_recovery_context(recovery_context),
         }
-        if not _bounded_input(payload, context=(), descriptors=descriptors):
+        if not bounded_input(payload, context=(), descriptors=descriptors):
             return None
         prompt = _recovery_prompt(self._config.plan_system_prompt)
         if prompt is None:
@@ -415,6 +431,8 @@ class AzureOpenAISemanticPlanningModel:
         proposal_type: type[BaseModel],
         operation: str,
         manifest: PromptReplayManifest | None = None,
+        query_manifest: QueryManifest | None = None,
+        build: SemanticGenerationBuild | None = None,
         max_attempts: int = _MAX_ATTEMPTS_PER_CANDIDATE,
     ) -> Mapping[str, Any] | None:
         return await run_scoped_model(
@@ -424,6 +442,8 @@ class AzureOpenAISemanticPlanningModel:
                 proposal_type=proposal_type,
                 operation=operation,
                 manifest=manifest,
+                query_manifest=query_manifest,
+                build=build,
                 max_attempts=max_attempts,
             )
         )
@@ -436,6 +456,8 @@ class AzureOpenAISemanticPlanningModel:
         proposal_type: type[BaseModel],
         operation: str,
         manifest: PromptReplayManifest | None = None,
+        query_manifest: QueryManifest | None = None,
+        build: SemanticGenerationBuild | None = None,
         max_attempts: int = _MAX_ATTEMPTS_PER_CANDIDATE,
     ) -> Mapping[str, Any] | None:
         user_content = json.dumps(
@@ -445,8 +467,17 @@ class AzureOpenAISemanticPlanningModel:
             separators=(",", ":"),
             sort_keys=True,
         )
-        schema = _proposal_schema(proposal_type)
-        system_content = f"{prompt}\nRequired JSON Schema:\n{schema}"
+        schema = _proposal_schema(
+            proposal_type,
+            manifest=query_manifest if proposal_type is OntologyCandidateProposal else None,
+            query=str(payload.get("query")) if proposal_type is OntologyCandidateProposal else None,
+            build=build if proposal_type is OntologyCandidateProposal else None,
+        )
+        system_content = (
+            candidate_proposal_system_content(prompt)
+            if proposal_type is OntologyCandidateProposal
+            else f"{prompt}\nRequired JSON Schema:\n{schema}"
+        )
         messages = list(
             prepare_model_messages(
                 (
@@ -467,9 +498,24 @@ class AzureOpenAISemanticPlanningModel:
         prompt_profile = (
             "operational" if prompt == self._config.operational_frame_system_prompt else "general"
         )
+        response_format: dict[str, Any] = (
+            candidate_proposal_response_format()
+            if proposal_type is OntologyCandidateProposal and query_manifest is None
+            else candidate_proposal_response_format(
+                manifest=query_manifest,
+                query=(
+                    str(payload.get("query"))
+                    if proposal_type is OntologyCandidateProposal
+                    else None
+                ),
+                build=build if proposal_type is OntologyCandidateProposal else None,
+            )
+            if proposal_type is OntologyCandidateProposal
+            else {"type": "json_object"}
+        )
         request_bytes = len(
             json.dumps(
-                {"messages": messages, "response_format": {"type": "json_object"}},
+                {"messages": messages, "response_format": response_format},
                 ensure_ascii=False,
                 separators=(",", ":"),
                 sort_keys=True,
@@ -503,7 +549,7 @@ class AzureOpenAISemanticPlanningModel:
             return None
         request_token_estimate = estimate_chat_request_tokens(
             messages=messages,
-            response_format={"type": "json_object"},
+            response_format=response_format,
             reserved_output_tokens=self._config.max_tokens,
         )
         if (
@@ -533,22 +579,31 @@ class AzureOpenAISemanticPlanningModel:
             },
         )
         candidate_timeout = self._config.timeout_seconds / len(self._config.candidates)
-        for index, target in enumerate(self._config.candidates):
+        request_targets = tuple(
+            candidate_proposal_request_target(target)
+            if proposal_type is OntologyCandidateProposal
+            else target
+            for target in self._config.candidates
+        )
+        for index, target in enumerate(request_targets):
             try:
                 async with asyncio.timeout(candidate_timeout):
                     token = await self._identity.get_token(target.auth_audience)
                     request = target.operation("chat/completions")
                     body: dict[str, Any] = {
                         "messages": messages,
-                        "response_format": {"type": "json_object"},
+                        "response_format": response_format,
                         **completion_body_params(
-                            target.deployment,
+                            target.model_family or target.deployment,
                             temperature=0.0,
                             max_tokens=self._config.max_tokens,
                         ),
                     }
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
+                    reasoning_effort = reasoning_effort_for_target(self._config, target)
+                    if reasoning_effort is not None:
+                        body["reasoning_effort"] = reasoning_effort
                     for attempt in range(max_attempts):
                         trace_start = start_model_trace(body["messages"])
                         response, reservation = await call_scoped_provider(
@@ -571,7 +626,7 @@ class AzureOpenAISemanticPlanningModel:
                             response.raise_for_status()
                         response.raise_for_status()
                         try:
-                            proposal, response_content, usage = _validated_content(
+                            proposal, response_content, usage = validated_content(
                                 response,
                                 proposal_type,
                             )
@@ -624,7 +679,11 @@ class AzureOpenAISemanticPlanningModel:
                 }
                 if isinstance(exc, httpx.HTTPStatusError):
                     failure["status_code"] = exc.response.status_code
+                    error_code = await provider_error_code(exc.response)
+                    if error_code is not None:
+                        failure["provider_error_code"] = error_code
                 if isinstance(exc, ValidationError):
+                    failure["validation_stage"] = "schema_validation"
                     failure["validation_errors"] = json.dumps(
                         [
                             {
@@ -636,6 +695,8 @@ class AzureOpenAISemanticPlanningModel:
                         separators=(",", ":"),
                         sort_keys=True,
                     )
+                elif isinstance(exc, SemanticPlanningResponseValidationError):
+                    failure["validation_stage"] = exc.stage
                 _LOGGER.warning(
                     "semantic_planning_candidate_failed",
                     extra=failure,
@@ -727,65 +788,6 @@ def _frame_descriptor_candidates(
                     candidate["measure_concepts"] = measure_concepts
         candidates.append(candidate)
     return tuple(candidates)
-
-
-def _bounded_input(
-    payload: Mapping[str, Any],
-    *,
-    context: tuple[str, ...],
-    descriptors: tuple[dict[str, Any], ...],
-) -> bool:
-    if len(context) > _MAX_CONTEXT_ITEMS or sum(len(item) for item in context) > _MAX_CONTEXT_CHARS:
-        return False
-    if len(descriptors) > _MAX_DESCRIPTORS:
-        return False
-    try:
-        encoded = json.dumps(payload, allow_nan=False, ensure_ascii=False, sort_keys=True).encode()
-    except (TypeError, ValueError):
-        return False
-    return len(encoded) <= _MAX_PROMPT_BYTES
-
-
-def _validated_content(  # noqa: UP047 - pinned mypy does not parse PEP 695 functions
-    response: httpx.Response,
-    proposal_type: type[_ProposalT],
-) -> tuple[dict[str, Any], str, Mapping[str, Any] | None]:
-    envelope = response.json()
-    choices = envelope.get("choices") if isinstance(envelope, Mapping) else None
-    if not isinstance(choices, list) or not choices:
-        raise ValueError("semantic planning response has no choice")
-    if proposal_type is OntologyCandidateProposal and (
-        len(choices) != 1
-        or not isinstance(choices[0], Mapping)
-        or choices[0].get("finish_reason") != "stop"
-    ):
-        raise ValueError("candidate proposal requires one complete model choice")
-    message = choices[0].get("message") if isinstance(choices[0], Mapping) else None
-    content = message.get("content") if isinstance(message, Mapping) else None
-    if not isinstance(content, str) or not content or len(content.encode()) > _MAX_RESPONSE_BYTES:
-        raise ValueError("semantic planning response content is unavailable or oversized")
-    payload = json.loads(content)
-    if proposal_type is SemanticFrameProposal and isinstance(payload, dict):
-        payload = _normalize_frame_tokens(payload)
-    proposal = proposal_type.model_validate(payload)
-    usage = envelope.get("usage") if isinstance(envelope.get("usage"), Mapping) else None
-    return proposal.model_dump(mode="json"), content, usage
-
-
-def _normalize_frame_tokens(payload: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(payload)
-    normalized.setdefault("confidence", 0.0)
-    evidence_requirements = normalized.get("evidence_requirements")
-    if isinstance(evidence_requirements, list):
-        normalized["evidence_requirements"] = [
-            _machine_token(item) if isinstance(item, str) else item
-            for item in evidence_requirements
-        ]
-    return normalized
-
-
-def _machine_token(value: str) -> str:
-    return re.sub(r"[^a-z0-9_.-]+", "_", value.strip().casefold()).strip("_")
 
 
 __all__ = [

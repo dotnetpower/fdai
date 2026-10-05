@@ -352,7 +352,9 @@ async def test_authored_dataset_uses_real_declarations_and_separate_frozen_quest
         embedder.calls = 0
         calibration_result = await execute(calibration_only=True)
         assert calibration_result.calibration_only is True
-        assert calibration_result.embedding_calls == embedder.calls == 92
+        # Two adversarial cases cite canonical ids of missing objects; the exact-identity
+        # path answers them with no match before any query embedding (28 + 62).
+        assert calibration_result.embedding_calls == embedder.calls == 90
         assert calibration_result.campaign.calibration.passed
         assert len(calibration_result.campaign.calibration.measurements) == 64
         assert calibration_result.campaign.holdout is None

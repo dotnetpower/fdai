@@ -30,6 +30,7 @@ class ModelRequestTarget:
     auth_audience: str = COGNITIVE_SERVICES_SCOPE
     route_kind: ModelRouteKind = ModelRouteKind.DIRECT
     binding_id: str | None = None
+    model_family: str | None = None
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.endpoint)
@@ -50,6 +51,8 @@ class ModelRequestTarget:
             raise ValueError("Azure OpenAI API style requires api_version")
         if self.route_kind is ModelRouteKind.APIM_GATEWAY and not self.binding_id:
             raise ValueError("APIM model request target requires binding_id")
+        if self.model_family is not None and not self.model_family.strip():
+            raise ValueError("model family MUST be non-empty when provided")
 
     def operation(self, operation: str) -> ModelRequest:
         if operation not in {"chat/completions", "embeddings"}:
