@@ -41,6 +41,85 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _ROOT = Path(__file__).resolve().parents[5]
 _ASSETS = _ROOT / "eval/ontology-retrieval"
+_INSTANCE_HOLDOUT_V2_COHORT_COUNTS = {
+    "en-positive": 16,
+    "ko-positive": 16,
+    "en-ambiguous": 8,
+    "ko-ambiguous": 8,
+    "en-negative": 4,
+    "ko-negative": 4,
+    "en-adversarial": 4,
+    "ko-adversarial": 4,
+}
+
+
+def _load_asset(name: str) -> dict:
+    return json.loads((_ASSETS / name).read_text())
+
+
+def _normalized_query(text: str) -> str:
+    return " ".join(text.casefold().split())
+
+
+def _corpus_document_ids() -> set[str]:
+    corpus = _load_asset("instance-corpus.v1.json")
+    return {f"object:{item['object_type']}:{item['id']}" for item in corpus["objects"]}
+
+
+def test_instance_holdout_v2_has_expected_shape_and_cohorts() -> None:
+    holdout = _load_asset("instance-holdout.v2.json")
+    cases = holdout["cases"]
+
+    assert holdout["schema_version"] == "1.0.0"
+    assert holdout["origin"] == "independently_authored_synthetic_holdout"
+    assert holdout["independently_reviewed"] is True
+    assert holdout["production_qualification"] is False
+    assert holdout["supersedes"] == "instance-holdout.v1.json"
+    assert len(cases) == 64
+    assert Counter(item["cohort"] for item in cases) == _INSTANCE_HOLDOUT_V2_COHORT_COUNTS
+    assert len({item["case_id"] for item in cases}) == 64
+    assert all(item["case_id"].startswith(("hold2-en-", "hold2-ko-")) for item in cases)
+
+
+def test_instance_holdout_v2_references_only_corpus_ids() -> None:
+    cases = _load_asset("instance-holdout.v2.json")["cases"]
+    object_ids = _corpus_document_ids()
+
+    for case in cases:
+        expected_ids = case["expected_document_ids"]
+        assert set(expected_ids) <= object_ids
+        if case["cohort"].endswith("-positive"):
+            assert expected_ids
+        if case["cohort"].endswith(("-negative", "-adversarial")):
+            assert expected_ids == []
+
+
+def test_instance_holdout_v2_ambiguous_cases_split_match_and_no_match() -> None:
+    cases = _load_asset("instance-holdout.v2.json")["cases"]
+
+    for language in ("en", "ko"):
+        ambiguous = [item for item in cases if item["cohort"] == f"{language}-ambiguous"]
+        assert sum(bool(item["expected_document_ids"]) for item in ambiguous) == 4
+        assert sum(not item["expected_document_ids"] for item in ambiguous) == 4
+
+
+def test_instance_holdout_v2_queries_are_exact_normalized_disjoint() -> None:
+    holdout_v2_queries = {
+        _normalized_query(item["query"])
+        for item in _load_asset("instance-holdout.v2.json")["cases"]
+    }
+    prior_queries = {
+        _normalized_query(item["query"])
+        for asset_name in (
+            "instance-calibration.v1.json",
+            "instance-calibration.v2.json",
+            "instance-holdout.v1.json",
+        )
+        for item in _load_asset(asset_name)["cases"]
+    }
+
+    assert len(holdout_v2_queries) == 64
+    assert holdout_v2_queries.isdisjoint(prior_queries)
 
 
 @pytest.mark.parametrize("term_binding", ["matching", "missing", "changed"])
