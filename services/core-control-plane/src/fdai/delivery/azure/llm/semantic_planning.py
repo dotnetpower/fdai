@@ -90,6 +90,9 @@ from fdai.delivery.catalog_search.ontology_candidate_selection import OntologyCa
 from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyStagedProjection
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
+# Bounded with OntologySemanticEvaluationBudget: one typed-selection call never exceeds 10 s.
+_CANDIDATE_PROPOSAL_MAX_TIMEOUT_SECONDS = 10
+
 _LOGGER = logging.getLogger(__name__)
 _MAX_DESCRIPTORS = 512
 _MAX_RESPONSE_BYTES = 65_536
@@ -163,7 +166,7 @@ class AzureOpenAISemanticPlanningModel:
             raise ValueError("candidate proposal must run on the model owner loop")
         if (
             len(self._config.candidates) != 1
-            or self._config.timeout_seconds > 5
+            or self._config.timeout_seconds > _CANDIDATE_PROPOSAL_MAX_TIMEOUT_SECONDS
             or self._config.plan_prompt_manifest is None
             or self._config.plan_prompt_manifest.profile_id
             != "diagnostic.ontology-candidate-selection"
