@@ -151,7 +151,9 @@ changed address, attribute path, move, and output by value hash; values never ap
 An apply run in the protected `drift-reconcile` environment recomputes the same plans, applies the
 saved refresh-only plans only when they reproduce the reviewed digest, and then requires every root
 to be drift-free. Refresh-only plans record remote objects and outputs in state; they never change
-infrastructure, so a reviewer decides separately whether a desired-state change must follow.
+infrastructure, so a reviewer decides separately whether a desired-state change must follow. When the
+platform has no Cost pseudonym key binding, the run skips only the Operator Service root and names it
+in the summary, because the key prerequisite reads platform outputs that the reconciliation records.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;

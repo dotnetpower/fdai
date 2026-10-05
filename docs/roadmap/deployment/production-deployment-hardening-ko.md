@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: c72ee031ad736400df644c30f5a7b967022807be
+translation_source_sha: 60133b9376506ff1e068551639a953592bea9cd3
 translation_revised: 2026-10-05
 ---
 # 운영 배포 강화
@@ -153,7 +153,8 @@ Operator Service 계획은 배포와 마찬가지로 저장된 플랫폼 상태�
 `drift-reconcile` 환경의 적용 실행은 같은 계획을 다시 계산해 검토된 digest를 재현할 때만 저장된
 refresh-only 계획을 적용하고, 이후 모든 루트에 drift가 없어야 합니다. Refresh-only 계획은 원격 객체와
 출력을 상태에 기록할 뿐 인프라를 바꾸지 않으므로, 원하는 상태를 바꿔야 하는지는 검토자가 따로
-결정합니다.
+결정합니다. 플랫폼에 Cost 가명 키 바인딩이 없으면 실행은 Operator Service 루트만 건너뛰고 요약에
+그 이름을 기록합니다. 키 선행 조건이 이 조정이 기록하는 플랫폼 출력을 읽기 때문입니다.
 Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기, `Local` `ResourceDisk` 배치 및
 관리형 OS 디스크 부재를 요구합니다. 불일치하면 blue/green 교체 작업을 보고하고 Azure 상태를
 변경하지 않은 채 실패합니다. 임시 프로파일은 할당된 상태로 유지됩니다. 구성된 자동 종료와

@@ -206,11 +206,13 @@ jobs:
             fi
             cost_pseudonym_binding=""
             if [[ "$service" == "operator-service" ]]; then
-              [[ -n "$cost_pseudonym_key_secret_id" ]] || {
-                echo "Platform state has no Cost pseudonym key binding for $root_id." >&2
-                echo "Create the reviewed platform key prerequisite before reconciliation." >&2
-                exit 1
-              }
+              if [[ -z "$cost_pseudonym_key_secret_id" ]]; then
+                # The platform key prerequisite reads outputs this reconciliation records, so
+                # the Operator root waits for a later run after the reviewed key exists.
+                echo "Skipped $root_id: platform state has no Cost pseudonym key binding."
+                printf '%s\n' "$root_id" >>"$work/skipped-roots.txt"
+                continue
+              fi
               cost_pseudonym_binding="$cost_pseudonym_key_secret_id"
             fi
             terraform -chdir="$terraform_root" init -input=false -lockfile=readonly \
@@ -275,10 +277,13 @@ jobs:
 
           digest="$(python3 scripts/deployment/service/refresh_drift_digest.py digest \
             "$work"/summaries/*.json)"
+          skipped="$(paste -sd, "$work/skipped-roots.txt" 2>/dev/null || true)"
           {
             echo "### Refresh-only drift"
             echo
             echo "Digest: \`$digest\`"
+            echo
+            echo "Skipped roots: ${skipped:-none}"
             echo
             echo '```text'
             python3 scripts/deployment/service/refresh_drift_digest.py render \
@@ -286,7 +291,7 @@ jobs:
             echo '```'
           } >>"$GITHUB_STEP_SUMMARY"
           python3 scripts/deployment/service/refresh_drift_digest.py render "$work"/summaries/*.json
-          echo "Refresh-only drift digest: $digest"
+          echo "Refresh-only drift digest: $digest (skipped roots: ${skipped:-none})"
           echo "digest=$digest" >>"$GITHUB_OUTPUT"
 
       - name: Apply reviewed refresh-only drift
