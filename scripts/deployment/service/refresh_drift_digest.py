@@ -5,6 +5,10 @@ A refresh-only plan proposes only to record remote changes and root outputs in s
 names every changed address, attribute path, output, and move, and hashes each before and after
 value so the digest binds exact values without printing a sensitive one. Reconciliation applies a
 saved refresh-only plan only when every root's recomputed summary reproduces the reviewed digest.
+
+A refresh-only apply also re-evaluates root outputs with the plan's inputs. A root whose plan would
+turn a deployed output value into an empty, null, unknown, or deleted value is an output
+regression: reconciliation must exclude that root instead of overwriting deploy-owned outputs.
 """
 
 from __future__ import annotations
@@ -17,12 +21,16 @@ from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = "fdai.refresh-drift-summary.v1"
+SCHEMA_VERSION = "fdai.refresh-drift-summary.v2"
 _NO_OP = ["no-op"]
 
 
 class RefreshDriftError(ValueError):
     """Raised when a plan isn't a reviewable refresh-only plan."""
+
+
+def _empty(value: object) -> bool:
+    return value is None or value in ("", {}, [])
 
 
 def _value_digest(value: object) -> str:
@@ -104,9 +112,15 @@ def summarize(plan: Mapping[str, Any], *, root_id: str) -> dict[str, Any]:
             }
         )
     outputs = []
+    regressions = []
     for name, change in sorted((plan.get("output_changes") or {}).items()):
         if change.get("actions") == _NO_OP:
             continue
+        actions = list(change.get("actions") or [])
+        if not _empty(change.get("before")) and (
+            "delete" in actions or bool(change.get("after_unknown")) or _empty(change.get("after"))
+        ):
+            regressions.append(str(name))
         outputs.append(
             {
                 "name": str(name),
@@ -128,6 +142,7 @@ def summarize(plan: Mapping[str, Any], *, root_id: str) -> dict[str, Any]:
         "root_id": root_id,
         "resource_drift": sorted(resource_drift, key=lambda item: item["address"]),
         "output_changes": outputs,
+        "output_regressions": regressions,
         "moves": moves,
     }
 
@@ -163,7 +178,17 @@ def render(summaries: Sequence[Mapping[str, Any]]) -> str:
             lines.append(f"  moved: {move['from']} -> {move['to']}")
         for output in summary["output_changes"]:
             lines.append(f"  output {'/'.join(output['actions'])}: {output['name']}")
+        for name in summary["output_regressions"]:
+            lines.append(f"  output regression (blocked): {name}")
     return "\n".join(lines)
+
+
+def output_regressions(summary: Mapping[str, Any]) -> list[str]:
+    """Return outputs whose deployed value the refresh-only apply would blank or remove."""
+
+    if summary.get("schema_version") != SCHEMA_VERSION:
+        raise RefreshDriftError("drift summary has an unsupported schema version")
+    return [str(name) for name in summary["output_regressions"]]
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -183,11 +208,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     digest.add_argument("summaries", type=Path, nargs="+")
     rendered = commands.add_parser("render")
     rendered.add_argument("summaries", type=Path, nargs="+")
+    regressed = commands.add_parser("regressions")
+    regressed.add_argument("summary", type=Path)
     args = parser.parse_args(argv)
     try:
         if args.command == "summarize":
             result = summarize(_load(args.plan_json), root_id=args.root_id)
             print(json.dumps(result, separators=(",", ":"), sort_keys=True))
+        elif args.command == "regressions":
+            print(",".join(output_regressions(_load(args.summary))))
         elif args.command == "digest":
             print(aggregate_digest([_load(path) for path in args.summaries]))
         else:

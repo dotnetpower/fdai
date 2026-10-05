@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 60133b9376506ff1e068551639a953592bea9cd3
+translation_source_sha: befb0a87490e1be7eab70a66763527f95ec29abf
 translation_revised: 2026-10-05
 ---
 # 운영 배포 강화
@@ -155,6 +155,10 @@ refresh-only 계획을 적용하고, 이후 모든 루트에 drift가 없어야 
 출력을 상태에 기록할 뿐 인프라를 바꾸지 않으므로, 원하는 상태를 바꿔야 하는지는 검토자가 따로
 결정합니다. 플랫폼에 Cost 가명 키 바인딩이 없으면 실행은 Operator Service 루트만 건너뛰고 요약에
 그 이름을 기록합니다. 키 선행 조건이 이 조정이 기록하는 플랫폼 출력을 읽기 때문입니다.
+Refresh-only 적용은 계획의 입력으로 루트 출력도 다시 평가합니다. 배포된 출력을 빈 값, null,
+알 수 없는 값 또는 삭제된 값으로 바꾸는 계획이 있으면 실행은 그 루트를 제외하고 요약에 해당 출력
+이름을 기록합니다. 레거시 플랫폼 루트가 여기에 해당합니다. 이 루트의 출력은 대상 지정 `deploy-dev`
+실행이 나누어 적용한 배포 시점 입력에 따라 달라지며, drift workflow는 그 입력을 재현할 수 없습니다.
 Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기, `Local` `ResourceDisk` 배치 및
 관리형 OS 디스크 부재를 요구합니다. 불일치하면 blue/green 교체 작업을 보고하고 Azure 상태를
 변경하지 않은 채 실패합니다. 임시 프로파일은 할당된 상태로 유지됩니다. 구성된 자동 종료와
