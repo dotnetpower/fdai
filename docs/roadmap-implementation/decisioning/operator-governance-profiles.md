@@ -9,34 +9,37 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Single-operator production profile selection and audit fields | not-started | Design only: `docs/roadmap/decisioning/operator-governance-profiles.md` Single-operator production profile section | Records the original quorum and an effective quorum of one |
-| Single-operator standing authorization | not-started | Design only: Single-operator production profile section and `docs/roadmap/decisioning/escalation-and-standing-authority.md` | The shipped schema still requires two approvals |
-| Attributed operator override promotion | not-started | Design only: Attributed operator override promotion section | Adds `promotion_kind` to the promotion registry |
+| Single-operator production profile selection and audit fields | in-progress | `services/core-control-plane/src/fdai/core/risk_gate/approval_profile.py`, `services/core-control-plane/src/fdai/core/risk_gate/authority.py`, `services/core-control-plane/tests/core/risk_gate/test_approval_profile.py` | Core decision rule and audit fields exist. Forseti, Var, HIL resume, and the Operator API don't pass a profile revision yet. |
+| Single-operator standing authorization | in-progress | `services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json`, `services/core-control-plane/src/fdai/core/standing_authority/record.py`, `services/core-control-plane/src/fdai/core/standing_authority/evaluator.py`, `services/core-control-plane/tests/core/standing_authority/test_evaluator.py` | The `standing-authority-promotion` change class doesn't accept the single Owner approval yet |
+| Attributed operator override promotion | in-progress | `services/core-control-plane/src/fdai/delivery/persistence/state_store_action_promotion.py`, `services/core-control-plane/tests/persistence/test_state_store_action_promotion.py` | Registry records `promotion_kind`, recall, and a verified override. No `governance` ActionType produces the Var approval receipt yet. |
 | Policy-administration add-on and Operator API routes | not-started | Design only: Policy administration in FDAI Console section | Requires the `read-only-console` and `enterprise-identity-governance` add-ons |
-| Policy revision validation, signing, and activation | not-started | Design only: Validation and activation section | Mimir is the single writer. Core applies hard constraints after operator policy, so no revision raises an outcome past them. |
+| Policy revision validation, signing, and activation | in-progress | `OperatorPolicyInput` and `apply_operator_policy` in `services/core-control-plane/src/fdai/core/risk_gate/approval_profile.py`; `test_approval_profile.py` | Never-raising combination and pinned digest exist. Mimir validation, signing, storage, and activation don't. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-10-02 | not-started | Adopted the ledger with the accepted ADR-0003 design. No implementation exists. | `current change`; `docs/roadmap/decisioning/operator-governance-profiles.md`, `docs/roadmap/architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md`; constitution, design-route, roadmap-tracking, translation, punctuation, and link checks | Every item below |
+| 2026-10-05 | in-progress | Added the approval profile decision rule, the single-operator quorum reduction and audit fields, the never-raising operator policy input, single-operator standing authorization, and `promotion_kind` with capability recall and verified override in the promotion registry (#1825). | `current change`; focused pytest for `tests/core/risk_gate/test_approval_profile.py`, `test_authority.py`, `test_development_authority.py`, `test_category_denial.py`, `tests/core/standing_authority/`, `tests/persistence/test_state_store_action_promotion.py`, `tests/delivery/test_promotion_executor.py`, and schema validity; ruff and strict mypy on changed sources | Runtime wiring through Forseti, Var, HIL resume, and the Operator API; the `standing-authority-promotion` single Owner approval; the `governance` override ActionType; the policy-administration add-on and Mimir activation; the governed receipt |
 
 ### Remaining work
 
-- [ ] Add the approval profile to approval policy, and record tests in which the named operator
-  satisfies a quorum of two with an effective quorum of one, an unnamed principal is refused, and
-  Var and Thor stay distinct.
-- [ ] Allow one approval in the standing-authorization schema only under the single-operator
-  production profile, and record tests that keep two approvals mandatory in the multi-operator
-  profile.
-- [ ] Add `promotion_kind` to the promotion registry, and record tests in which an override is
-  marked, regression demotion and capability recall take precedence, and a recalled capability
-  can't be promoted again.
+- [ ] Pass the active approval profile revision through Forseti, Var, the HIL resume coordinator,
+  and the Operator API HIL callback, persist `approval_profile_revision`, and record an end-to-end
+  test in which the named operator approves a quorum-of-two action alone while Var and Thor stay
+  distinct. The Core decision rule and its unit tests exist.
+- [ ] Let the `standing-authority-promotion` change class accept the named operator's single Owner
+  approval under the single-operator production profile. The record schema and evaluator already
+  admit one approval only under that profile and keep two approvals mandatory otherwise.
+- [ ] Add the `governance` ActionType override request that Forseti judges, Var approves, Thor
+  applies, and Saga audits, and wire a production `OperatorOverrideAuthorityVerifier` for its
+  approval receipt. The registry's `promotion_kind`, recall precedence, and refusal of recalled
+  capabilities are tested.
 - [ ] Add the `policy-administration` add-on, the Operator API request route, and Mimir activation,
   and record tests for role, fresh authentication, schema validation, restricted Rego compilation,
   and rejection of a revision that exceeds a Release maximum.
-- [ ] Record a never-raising test in which an operator revision that allows a hard-constraint
-  violation still ends in denial, because Core applies the constraint after operator policy.
+- [ ] Feed Mimir's evaluated policy outcome into `operator_policy` at runtime. The never-raising
+  combination is proven by tests in which an allowing operator revision still ends in denial.
 - [ ] Record activation tests in which a new revision applies only to later decisions, an in-flight
   decision keeps its pinned digest, and a relaxing revision waits for quorum in the multi-operator
   profile.

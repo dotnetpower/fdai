@@ -18,6 +18,7 @@ from fdai.core.standing_authority.lifecycle_codec import (
     require_text,
 )
 from fdai.core.standing_authority.record import (
+    ApprovalProfile,
     AuthorizationStatus,
     StandingAuthorization,
 )
@@ -182,7 +183,7 @@ def _authorization_terms(
     predecessor_revision_id: str | None,
     issued_at: datetime,
 ) -> dict[str, object]:
-    return {
+    terms: dict[str, object] = {
         "family_id": family_id,
         "issued_at": instant(issued_at),
         "predecessor_revision_id": predecessor_revision_id,
@@ -219,10 +220,14 @@ def _authorization_terms(
             "confirmed_at": instant(authorization.responders.confirmed_at),
         },
     }
+    if authorization.approval_profile is ApprovalProfile.SINGLE_OPERATOR_PRODUCTION:
+        terms["approval_profile"] = authorization.approval_profile.value
+        terms["operator_principal"] = authorization.operator_principal
+    return terms
 
 
 def _authorization_document(authorization: StandingAuthorization) -> dict[str, object]:
-    return {
+    document: dict[str, object] = {
         "schema_version": authorization.schema_version,
         "id": authorization.id,
         "authorization_revision": authorization.authorization_revision,
@@ -264,17 +269,25 @@ def _authorization_document(authorization: StandingAuthorization) -> dict[str, o
             "scenario_evidence_ref": authorization.evidence.scenario_evidence_ref,
         },
     }
+    if authorization.approval_profile is ApprovalProfile.SINGLE_OPERATOR_PRODUCTION:
+        document["approval_profile"] = authorization.approval_profile.value
+        document["operator_principal"] = authorization.operator_principal
+    return document
 
 
 def _approval_claims(authorization: StandingAuthorization) -> list[dict[str, object]]:
-    return [
-        {
+    claims: list[dict[str, object]] = []
+    for approval in authorization.approvals:
+        claim: dict[str, object] = {
             "principal": approval.principal,
-            "role": approval.role.value,
             "approved_at": instant(approval.approved_at),
         }
-        for approval in authorization.approvals
-    ]
+        if len(approval.roles) == 1:
+            claim["role"] = approval.role.value
+        else:
+            claim["roles"] = [role.value for role in approval.roles]
+        claims.append(claim)
+    return claims
 
 
 def _evidence_claims(authorization: StandingAuthorization) -> dict[str, object]:

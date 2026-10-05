@@ -23,6 +23,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.core.measurement.operational_promotion import action_type_digest
+from fdai.core.risk_gate.approval_profile import (
+    ApprovalProfileRevision,
+    OperatorPolicyInput,
+    apply_operator_policy,
+    effective_quorum_for,
+)
 from fdai.core.risk_gate.category_denial import (
     category_only_denial,
     development_evidence_unsafe,
@@ -123,6 +129,8 @@ class ExecutionAuthorityDecision:
     catalog_version: str
     ceiling_inputs: CeilingInputs
     development_authority: DevelopmentAuthorityDecision | None = None
+    approval_profile: ApprovalProfileRevision | None = None
+    operator_policy: OperatorPolicyInput | None = None
 
     @property
     def decision(self) -> str:
@@ -168,6 +176,16 @@ class ExecutionAuthorityDecision:
                 if self.development_authority is not None
                 else {}
             ),
+            **(
+                {"approval_profile": self.approval_profile.as_audit_dict()}
+                if self.approval_profile is not None
+                else {}
+            ),
+            **(
+                {"operator_policy": self.operator_policy.as_audit_dict()}
+                if self.operator_policy is not None
+                else {}
+            ),
         }
 
 
@@ -199,6 +217,8 @@ def evaluate_execution_authority(
     development_binding_source: DevelopmentAuthorityBindingSource | None = None,
     development_binding_request: DevelopmentAuthorityBindingRequest | None = None,
     evaluated_at: datetime | None = None,
+    approval_profile: ApprovalProfileRevision | None = None,
+    operator_policy: OperatorPolicyInput | None = None,
 ) -> ExecutionAuthorityDecision:
     """Run the full pipeline and return one combined decision.
 
@@ -223,7 +243,24 @@ def evaluate_execution_authority(
     re-derives the axis without re-querying the probe (execution-model.md 4.2).
     When the ActionType declares a probe but no reading is supplied, the axis
     lowers to HIL rather than treating the missing signal as consent.
+
+    ``approval_profile`` is the active production approval profile revision.
+    The single-operator production profile reduces only the HIL approval count
+    to one and records the original quorum; it never changes the level, so A4
+    denial, shadow caps, and every other ceiling stay intact. It is mutually
+    exclusive with ``development_profile``.
+
+    ``operator_policy`` is the evaluated installation approval or admission
+    policy outcome, pinned to its revision digest. It is applied with ``min()``
+    after the constitutional ceiling, so an operator revision can only lower
+    autonomy and a revision that allows a hard-constraint violation still ends
+    in denial.
     """
+    if approval_profile is not None and development_profile is not None:
+        raise ValueError(
+            "approval_profile and development_profile MUST NOT both be supplied; "
+            "the full-authority development profile owns its own approval rule"
+        )
     feature = feature_vector_from(
         action_type,
         environment=environment,
@@ -314,6 +351,9 @@ def evaluate_execution_authority(
         ):
             final_level = AxisLevel.ENFORCE_HIL
             effective_quorum = 1
+    final_level = apply_operator_policy(final_level, operator_policy)
+    if approval_profile is not None and final_level is AxisLevel.ENFORCE_HIL:
+        effective_quorum = effective_quorum_for(approval_profile, effective_quorum)
     return ExecutionAuthorityDecision(
         final_level=final_level,
         quorum=effective_quorum,
@@ -332,6 +372,8 @@ def evaluate_execution_authority(
             kill_switch_engaged=kill_switch_engaged,
         ),
         development_authority=development_decision,
+        approval_profile=approval_profile,
+        operator_policy=operator_policy,
     )
 
 

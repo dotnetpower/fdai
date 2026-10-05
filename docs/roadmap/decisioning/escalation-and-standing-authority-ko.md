@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 7ad36dc8c6fd81b6474dfab4d4cd7e826267465b
-translation_revised: 2026-10-02
+translation_source_sha: 78670d7b5270c4e2abe3b5d4564becce9493b7a2
+translation_revised: 2026-10-05
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -266,11 +266,11 @@ envelope:                         # 액션은 반드시 이 안에 완전히 들
 - **서로 다른 human 정족수가 approver-of-record입니다.** 최소 2명의 정규화된 서로 다른 human,
   accountable 서비스 소유자 및 Owner-level 권한이 승인합니다. 요청자와 실행자는 제외됩니다.
   Var가 서명된 개정 번호를 standing Approval로 전달하며 model-as-approver는 허용되지 않습니다.
-- **단독 운영자 프로덕션 프로필(계획됨).** 설치의 승인 정책이
+- **단독 운영자 프로덕션 프로필.** 설치의 승인 정책이
   [단독 운영자 프로덕션 프로필](operator-governance-profiles-ko.md)을 선택하면, 서비스 소유자와
   Owner 역할을 모두 가진 지정 운영자가 유일한 승인자가 될 수 있으며 `quorum_required: 1`은 이
-  프로필에서만 유효합니다. 새 인증, 전체 권한 내용의 명시적 확인, 경계, 만료, 철회, 인수인계 재확인,
-  사후 검토는 그대로이며 실행자는 계속 승인자가 될 수 없습니다. 현재 제공되는 스키마는 여전히
+  프로필에서만 유효합니다. 상시 권한 스키마와 평가기가 이 규칙을 구현합니다. 새 인증, 전체 권한 내용의 명시적 확인, 경계, 만료, 철회, 인수인계 재확인,
+  사후 검토는 그대로이며 실행자는 계속 승인자가 될 수 없습니다. 기본 다중 운영자 프로필은 여전히
   두 개의 승인을 요구합니다.
 - **운영 증거가 최신이어야 합니다.** 담당자는 적용 가능한 서비스 로그, 인시던트 및 감사
   이력을 검토하고 선례의 존재 여부를 기록합니다. 충분한 선례가 없으면 현재 DR 훈련, 제한된
