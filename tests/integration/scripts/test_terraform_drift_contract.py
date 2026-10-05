@@ -500,3 +500,5 @@ def test_reconcile_applies_only_reviewed_saved_refresh_only_plans() -> None:
     assert "refresh_drift_digest.py digest" in workflow
     assert "group: legacy-database-power-window-${{ inputs.environment }}" in workflow
     assert "Drift remains after reconciliation." in workflow
+    assert 'printf \'%s\\n\' "$root_id" >>"$work/skipped-roots.txt"' in workflow
+    assert "Skipped roots: ${skipped:-none}" in workflow
