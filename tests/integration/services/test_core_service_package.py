@@ -47,6 +47,7 @@ EXPECTED_RUNTIME_MODULES = {
     "alert_noise_effects.py",
     "alert_noise_execution.py",
     "approval_policy.py",
+    "approval_profile.py",
     "assignment_transport.py",
     "hil_escalation.py",
     "assurance_twin_query.py",

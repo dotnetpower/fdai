@@ -9,10 +9,10 @@ single-operator production profile, attributed operator override promotion, and 
 administration in FDAI Console.
 
 > **Status:** Partially implemented. The multi-operator profile and the full-authority development
-> profile exist today. Core decision rules for the single-operator production profile, the
-> single-operator standing authorization, `promotion_kind`, and the never-raising operator policy
-> input are implemented but not yet wired into the runtime approval path. Policy administration in
-> FDAI Console is planned. The
+> profile exist today. Core decision rules for the single-operator production profile, the runtime
+> approval path through Forseti, Var, the HIL resume coordinator, and the Operator API callback,
+> the single-operator standing authorization, `promotion_kind`, and the never-raising operator
+> policy input are implemented. Policy administration in FDAI Console is planned. The
 > [implementation ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)
 > tracks delivery. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
@@ -66,6 +66,14 @@ authorization contract that both production profiles use.
 
 - An approval policy revision declares `approval_profile: single-operator-production` and binds
   one normalized human principal from Microsoft Entra ID as the installation operator.
+- Deployment composition supplies the active immutable `ApprovalProfileRevision` from
+  `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH`. `policy_digest` is
+  content-addressed: it equals `sha256:` plus the SHA-256 of the canonical JSON, using sorted keys
+  and compact separators, for `revision_id`, `approval_profile`, `executor_principal`,
+  `effective_from`, and `operator_principal`. Malformed input, unknown fields, a missing or
+  mismatched digest, a not-yet-effective `effective_from`, a named operator that equals the
+  executor principal, or configuring it together with the full-authority development profile fails
+  closed. When no revision is supplied, FDAI uses the multi-operator default.
 - A change into or out of the profile follows the governance rule of the active profile. Moving
   from multi-operator to single-operator needs the multi-operator governance quorum. The single
   operator can move the installation back to multi-operator.
@@ -89,8 +97,8 @@ authorization contract that both production profiles use.
 - The seven safeguards, independent effect verification, and append-only audit still apply.
 - Post-action review is still required. The audit records it as a self-review.
 
-Audit entries carry `approval_profile`, `original_quorum`, `effective_quorum`, and the operator
-principal, so a reviewer can always see the reduced separation of duties.
+Audit entries carry `approval_profile`, `original_quorum`, `effective_quorum`, the operator
+principal, and `self_review`, so a reviewer can always see the reduced separation of duties.
 
 ## Attributed operator override promotion
 
@@ -179,8 +187,10 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
 
 - The approval profile, the quorum reduction, and the operator policy input exist as Core decision
   rules in `fdai.core.risk_gate.approval_profile` and `evaluate_execution_authority`. Forseti, Var,
-  the HIL resume coordinator, and the Operator API don't pass an active profile revision or policy
-  outcome yet, and no `approval_profile_revision` or `policy_revision` table exists.
+  the HIL resume coordinator, and the Operator API pass the active profile revision for HIL
+  approvals. No `approval_profile_revision` or `policy_revision` table exists yet, and the active
+  profile still comes from `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH` rather than
+  policy administration.
 - The standing-authorization schema and evaluator accept one approval only under the
   single-operator production profile. The `standing-authority-promotion` change class doesn't
   accept the single Owner approval yet.

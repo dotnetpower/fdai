@@ -83,6 +83,7 @@ from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
 from fdai.runtime.alert_noise_control import AlertWorkflowBindings, build_alert_workflow_bindings
+from fdai.runtime.approval_profile import approval_runtime_bindings
 from fdai.runtime.causal_bindings import build_causal_runtime_coordinator
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.control_loop_catalogs import (
@@ -197,6 +198,7 @@ def _build_control_loop(
     product_selection = RuntimeProductSelection.from_profile(container.config.product_profile)
     governed_execution_enabled = product_selection.governed_execution
     notification_bindings_enabled = product_selection.notifications
+    approval_bindings = approval_runtime_bindings(os.environ)
     catalog_root = _resolve_catalog_root()
     require_production_safeguard_readiness(thor_execution_port)
     policies_root = _resolve_policies_root(catalog_root)
@@ -571,6 +573,7 @@ def _build_control_loop(
             contact_consent_service=(
                 report_line_runtime.consent if report_line_runtime is not None else None
             ),
+            approval_profile=(approval_bindings.profile if approval_bindings is not None else None),
         )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 
@@ -698,10 +701,12 @@ def _build_control_loop(
         expected_effect_provider = tag_effect_verifier.expected
         effect_observer = tag_effect_verifier.observe
 
+    development_kwargs = development_control_loop_kwargs(
+        os.environ, store=audit_store, identity=identity, http_client=http_client
+    )
     return ControlLoop(
-        **development_control_loop_kwargs(
-            os.environ, store=audit_store, identity=identity, http_client=http_client
-        ),
+        **development_kwargs,
+        approval_profile=(approval_bindings.profile if approval_bindings is not None else None),
         event_ingest=event_ingest,
         trust_router=trust_router,
         t0_engine=t0,

@@ -69,6 +69,7 @@ from fdai.core.rca import (
 from fdai.core.rca.governed_knowledge_evidence import (
     GovernedKnowledgeEvidenceContextProvider,
 )
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
     AutomationHoldReader,
@@ -205,6 +206,7 @@ class ControlLoop(
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
         development_executor_principal: str | None = None,
         development_revision_reader: TargetRevisionReader | None = None,
+        approval_profile: ApprovalProfileRevision | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -238,6 +240,8 @@ class ControlLoop(
             )
         if execution_authorization_required and execution_authorization_evaluator is None:
             raise ValueError("execution authorization is required but no evaluator is bound")
+        if development_profile is not None and approval_profile is not None:
+            raise ValueError("development profile and approval profile are mutually exclusive")
         if not math.isfinite(rca_side_path_timeout_seconds) or rca_side_path_timeout_seconds <= 0.0:
             raise ValueError("rca_side_path_timeout_seconds MUST be finite and positive")
         if governed_knowledge_context_provider is not None and (
@@ -263,6 +267,7 @@ class ControlLoop(
         self._evidence_conflict_reader = evidence_conflict_reader
         self._safeguard_lifecycle_coordinator = safeguard_lifecycle_coordinator
         self._development_profile = development_profile
+        self._approval_profile = approval_profile
         self._development_binding_source = development_binding_source
         self._development_executor_principal = development_executor_principal
         self._development_revision_reader = development_revision_reader
@@ -273,6 +278,8 @@ class ControlLoop(
                 revisions=development_revision_reader,
                 category_revalidator=self,
             )
+        if hil_resume_coordinator is not None and approval_profile is not None:
+            hil_resume_coordinator.bind_approval_profile(approval_profile)
         self._executor = executor
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)

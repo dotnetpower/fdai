@@ -399,4 +399,18 @@ def _same_route(
     )
 
 
-__all__ = ["ReportLineHilCoordinator"]
+def report_line_audit_detail(parked: Mapping[str, object]) -> dict[str, str]:
+    """Return the report-line route evidence recorded on a resolution audit entry."""
+
+    route = parked.get("report_line_route")
+    if not isinstance(route, Mapping):
+        return {}
+    fields = {
+        "report_line_route_digest": route.get("route_digest"),
+        "report_line_path_revision": route.get("path_revision"),
+        "report_line_graph_revision": route.get("graph_revision"),
+    }
+    return {key: value for key, value in fields.items() if isinstance(value, str) and value}
+
+
+__all__ = ["ReportLineHilCoordinator", "report_line_audit_detail"]

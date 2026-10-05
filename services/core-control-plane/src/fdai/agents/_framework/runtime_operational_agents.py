@@ -10,7 +10,10 @@ from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bragi_intent_training import IntentTrainingEvaluator
-from fdai.agents._framework.development_authority_runtime import DevelopmentRuntimeBindings
+from fdai.agents._framework.development_authority_runtime import (
+    ApprovalRuntimeBindings,
+    DevelopmentRuntimeBindings,
+)
 from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.ontology_index import (
     ContextIndexWorkerBindings,
@@ -260,6 +263,7 @@ def bind_operational_agents(
     test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
     anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
     development: DevelopmentRuntimeBindings | None = None,
+    approval: ApprovalRuntimeBindings | None = None,
     action_types: tuple[OntologyActionType, ...] = (),
     governed_execution_selected: bool = False,
     forseti_state_store: StateStore | None = None,
@@ -343,6 +347,7 @@ def bind_operational_agents(
             if development is not None
             else None
         ),
+        approval_profile=approval.profile if approval is not None else None,
         governed_execution_selected=governed_execution_selected,
         state_store=forseti_state_store,
     )
