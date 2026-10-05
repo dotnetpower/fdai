@@ -573,6 +573,9 @@ Each work item MUST be provable at CI time:
   check, distinct executor, and exact-action confirmation. An unbound local helper never substitutes
   synthetic scope or safeguard receipts, and an unbound deployment remains on the ordinary
   multi-operator path or fails closed when the profile was explicitly selected.
+- The single-operator production approval profile is also venue-independent. Local and deployed
+  runs apply the same Core decision rule, and neither venue may select it without an approval
+  policy revision that names the operator.
 - Interactive local starts all 15 agents by default. It uses Azure transport when Event Hubs is
   configured and bounded in-process EventBus/SSE otherwise, without recording/in-memory executors.
 - Terraform plan with `enable_llm=false` succeeds on a fresh subscription with only
