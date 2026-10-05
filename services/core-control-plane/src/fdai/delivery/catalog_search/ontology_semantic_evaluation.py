@@ -66,6 +66,11 @@ def semantic_candidate_model_binding(
     return model.candidate_proposal_binding()
 
 
+# Model-mediated typed selection has a provider-side latency tail above the embedding-era 5 s
+# call bound; semantic evaluation keeps the 600 s stage total and caps each call at 10 s.
+_MAX_SEMANTIC_QUERY_TIMEOUT_SECONDS = 10
+
+
 @dataclass(frozen=True, slots=True)
 class OntologySemanticEvaluationBudget:
     max_proposal_calls: int = 64
@@ -78,7 +83,9 @@ class OntologySemanticEvaluationBudget:
             or not 1 <= self.max_proposal_calls <= 64
             or not math.isfinite(self.total_timeout_seconds)
             or not math.isfinite(self.query_timeout_seconds)
-            or not 0 < self.query_timeout_seconds <= min(5, self.total_timeout_seconds)
+            or not 0
+            < self.query_timeout_seconds
+            <= min(_MAX_SEMANTIC_QUERY_TIMEOUT_SECONDS, self.total_timeout_seconds)
             or not self.total_timeout_seconds <= 600
         ):
             raise ValueError("semantic evaluation requires bounded calls and deadlines")

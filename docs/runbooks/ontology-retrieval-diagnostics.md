@@ -103,7 +103,7 @@ Explicitly resolve `diagnostic.ontology-candidate-selection` for `semantic.query
 profile (`shadow`), not a replacement for the active plan profile.
 
 Configure a separate `AzureOpenAISemanticPlanningModel` with that compiled plan text and replay
-manifest, exactly one target and a timeout no greater than five seconds. Call
+manifest, exactly one target and a timeout no greater than ten seconds. Call
 `propose_candidate_selection` with the query, manifest, complete canonical build and staged
 snapshot. The source validator checks the generation and principal manifest before dispatch.
 Context above 128 KiB, changed content after input minimization, and prompt-budget overflow hold
@@ -139,8 +139,16 @@ validator then drops invalidly attributed clauses before membership evaluation. 
 dropped, the case records no candidates.
 The diagnostic profile owns the model role and optional reasoning effort. The current reviewed
 diagnostic candidate-selection role is `t2.reasoner.primary` with `reasoning_effort="low"` for
-models that support the field; the effort is included in the request-parameter digest. This keeps
-latency bounded without changing the five-second per-question deadline.
+models that support the field; the effort is included in the request-parameter digest.
+
+Semantic evaluation bounds each proposal call at ten seconds and keeps the 600-second stage total;
+embedding calibration keeps its five-second call bound. The earlier five-second ceiling came from
+the embedding budget. Calibration evidence on the reviewed role shows provider-side tail latency
+that output size doesn't explain: p50 about 2.2 seconds, p95 about 3.4-3.5 seconds, and calls
+that reached the five-second ceiling about once every 24-36 calls. The qualifying attempt at
+`84d7d1a26b` aborted on that deadline in both stages before any quality result. This is a
+diagnostic bound only. It doesn't approve production latency, and enabling semantic ranking
+anywhere still requires a separate latency qualification.
 
 The 2026-10-05 development semantic calibration at source `91d537c36b` plus uncommitted changes
 completed 64 proposal calls in 151.7 seconds with evidence digest
@@ -176,7 +184,7 @@ selection strategy, target, transmitted prompt/schema and effective request para
 including output tokens and timeout. Model name and version are caller-attested claims:
 the caller still verifies the live deployment and obtains scoped authorization.
 
-- **Limits:** at most 64 proposal-interface attempts, 600 seconds for measurement and five
+- **Limits:** at most 64 proposal-interface attempts, 600 seconds for measurement and ten
   seconds per question. Current-source validation runs before and after measurement, with a
   120-second ceiling per check inside the total deadline.
 - **Durable ordering:** each call intent, accepted proposal and measurement is persisted before
