@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: ed1f4b5f7f0fdef5d59307f061ed7f17e4bdbf25
+translation_source_sha: f0d3e868563e006ccf774a68c456ed89146df43d
 translation_revised: 2026-10-05
 ---
 # 운영자 거버넌스 프로필
@@ -82,7 +82,9 @@ translation_revised: 2026-10-05
 
 - 설치의 모든 승인에서 요청자, 승인자, 검토자, 정족수 요구사항을 충족합니다.
 - 서비스 소유자와 Owner 역할을 모두 가지면 상시 권한을 승인합니다.
-  `standing-authority-promotion` 변경 등급은 운영자의 단일 Owner 승인을 받아들입니다.
+  `standing-authority-promotion` 변경 등급은 운영자의 단일 Owner 승인을 원래 정족수 2,
+  유효 정족수 1의 자기 검토로 기록해 받아들입니다. 이 설계가 나중에 명시적으로 바꾸지 않는 한
+  다른 거버넌스 변경 등급은 기존 정족수, 역할, 피싱 방지 인증, 자기 승인 금지 규칙을 유지합니다.
 - 다음 섹션에 설명한 대로 귀속된 재정의로 승격하고 정책을 관리합니다.
 
 ### 그대로 유지되는 것

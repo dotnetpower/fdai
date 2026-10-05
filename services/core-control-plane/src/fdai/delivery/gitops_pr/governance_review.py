@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
+from fdai_service_contracts.approval_profile import ApprovalProfileRevision
+
 from fdai.core.rbac.roles import Role
 from fdai.rule_catalog.schema.governance_review_authority import (
     GovernanceApproval,
@@ -66,6 +68,7 @@ def build_governance_review_request(
     change_class: GovernanceChangeClass,
     context: GitHubPullRequestReviewContext,
     verified_principals: tuple[VerifiedGitHubPrincipal, ...],
+    approval_profile: ApprovalProfileRevision | None = None,
 ) -> GovernanceReviewRequest:
     """Join GitHub review facts to verified principals for deterministic review.
 
@@ -109,6 +112,7 @@ def build_governance_review_request(
         approvals=tuple(approvals),
         co_author_oids=context.co_author_oids,
         committer_oids=context.committer_oids,
+        approval_profile=approval_profile,
     )
 
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -28,6 +29,7 @@ from fdai.rule_catalog.schema.governance_review_authority import (
     GovernanceChangeClass,
     validate_governance_review,
 )
+from fdai.runtime.approval_profile import load_approval_profile
 
 _MAX_INPUT_BYTES = 1024 * 1024
 _MAX_REVIEWS = 64
@@ -263,6 +265,7 @@ def main(argv: list[str] | None = None) -> int:
                     change_class=change_class,
                     context=context,
                     verified_principals=principals,
+                    approval_profile=load_approval_profile(os.environ),
                 )
             )
             for change_class in classes
