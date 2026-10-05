@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 6d77403d990a53444d9d2b11f3b94d508b22b933
+translation_source_sha: c72ee031ad736400df644c30f5a7b967022807be
 translation_revised: 2026-10-05
 ---
 # 운영 배포 강화
@@ -146,6 +146,14 @@ Operator Service 계획은 배포와 마찬가지로 저장된 플랫폼 상태�
 서버를 다시 중지합니다. 이 창은 서버 구성을 바꾸지 않으며, Ready에 도달하지 못한 서버는 명시적인
 이유와 함께 근거를 실패로 처리합니다. Cost Governance 관측 내보내기도 같은 창을 열고, 두 작업은 하나의
 동시성 그룹을 공유하므로 어느 쪽도 다른 쪽이 사용하는 중에 서버를 중지하지 않습니다.
+검토된 외부 변경을 수용할 때는 별도의
+[`infra-drift-reconcile.yml`](../../../.github/workflows/infra-drift-reconcile.yml) workflow를
+사용합니다. 미리 보기 실행은 모든 루트의 refresh-only 계획을 다시 계산하고, 변경된 주소, 속성 경로,
+이동, 출력을 값 해시로 묶는 digest 하나를 게시합니다. 값은 로그에 나타나지 않습니다. 보호된
+`drift-reconcile` 환경의 적용 실행은 같은 계획을 다시 계산해 검토된 digest를 재현할 때만 저장된
+refresh-only 계획을 적용하고, 이후 모든 루트에 drift가 없어야 합니다. Refresh-only 계획은 원격 객체와
+출력을 상태에 기록할 뿐 인프라를 바꾸지 않으므로, 원하는 상태를 바꿔야 하는지는 검토자가 따로
+결정합니다.
 Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기, `Local` `ResourceDisk` 배치 및
 관리형 OS 디스크 부재를 요구합니다. 불일치하면 blue/green 교체 작업을 보고하고 Azure 상태를
 변경하지 않은 채 실패합니다. 임시 프로파일은 할당된 상태로 유지됩니다. 구성된 자동 종료와

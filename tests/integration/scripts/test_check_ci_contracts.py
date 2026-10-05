@@ -1425,6 +1425,7 @@ def test_non_history_workflows_use_shallow_checkouts() -> None:
         "destroy-env.yml",
         "devbox-smoke.yml",
         "infra-drift.yml",
+        "infra-drift-reconcile.yml",
         "remote-evidence-attest.yml",
         "sre-demo-lab.yml",
     ):
@@ -1584,6 +1585,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "devbox-smoke.yml",
         "destroy-env.yml",
         "infra-drift.yml",
+        "infra-drift-reconcile.yml",
         "framework-assessment-shadow.yml",
         "issue-lifecycle.yml",
         "model-lifecycle-reconcile.yml",

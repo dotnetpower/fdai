@@ -1,0 +1,374 @@
+name: infra-drift-reconcile
+
+# Reviewed refresh-only drift reconciliation. A preview run recomputes every
+# drift root's refresh-only plan and publishes one digest that binds each
+# changed address, attribute, move, and output by value hash. An apply run in
+# the protected drift-reconcile environment recomputes the same plans, applies
+# them only when they reproduce the reviewed digest, and requires every root to
+# be drift-free afterwards. Saved refresh-only plans record remote objects and
+# outputs in state; they never change infrastructure or apply configuration.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment."
+        type: choice
+        options: [dev]
+        default: dev
+      commit_sha:
+        description: "Exact protected origin/main commit."
+        type: string
+        required: true
+      reviewed_drift_digest:
+        description: "Digest from a reviewed preview run. Empty runs a preview only."
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drift-reconcile-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    environment: ${{ inputs.reviewed_drift_digest != '' && 'drift-reconcile' || 'plan-only' }}
+    timeout-minutes: 90
+    # Serialize with every scheduled run that opens the same database power window.
+    concurrency:
+      group: legacy-database-power-window-${{ inputs.environment }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      ARM_USE_AZUREAD: "true"
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      TF_VAR_deploy_runner_principal_id: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+      STATE_CONTAINER: tfstate
+      TF_VAR_env: ${{ inputs.environment }}
+      TF_VAR_region: ${{ vars.AZURE_REGION }}
+      TF_VAR_region_short: ${{ vars.AZURE_REGION_SHORT }}
+      TF_VAR_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+      TF_VAR_enable_private_networking: "true"
+      TF_VAR_runner_vnet_id: ${{ vars.OPS_VNET_ID }}
+      TF_VAR_runner_vnet_name: ${{ vars.OPS_VNET_NAME }}
+      TF_VAR_ops_resource_group_name: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
+      TF_VAR_runner_vm_size: Standard_D4ds_v5
+      TF_VAR_runner_vm_name: ${{ vars.DEPLOY_RUNNER_VM_NAME }}
+      TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
+      TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
+      TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+      TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+      REVIEWED_DRIFT_DIGEST: ${{ inputs.reviewed_drift_digest }}
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        id: protected-source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/infra-drift-reconcile.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Checkout exact protected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 1
+
+      - name: Validate reconciliation request
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ -z "$REVIEWED_DRIFT_DIGEST" || "$REVIEWED_DRIFT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "reviewed_drift_digest must be empty or sha256:<64 hex>." >&2
+            exit 1
+          }
+
+      - name: Authenticate and verify stable deploy identity
+        working-directory: ${{ github.workspace }}
+        run: >-
+          bash scripts/deployment/azure/login-deploy-identity.sh
+          "$ARM_SUBSCRIPTION_ID" "$ARM_TENANT_ID"
+          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+
+      - name: Activate remote state backends
+        run: |
+          cp backend.azurerm.tf.example backend.tf
+          cp bootstrap/backend.azurerm.tf.example bootstrap/backend.tf
+
+      - name: Initialize legacy state
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
+
+      - name: Open legacy database power window
+        id: database_window
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          umask 077
+          state_json="$RUNNER_TEMP/database-window-platform-state.json"
+          trap 'rm -f -- "$state_json"' EXIT
+          terraform -chdir=infra show -json >"$state_json"
+          server_id="$(python3 scripts/deployment/service/drift_contract.py \
+            platform-database --state-json "$state_json" | jq -er '.server_id')"
+          python3 scripts/deployment/azure/postgres_power_window.py open \
+            --server-id "$server_id" \
+            --record "$RUNNER_TEMP/database-power-window.json"
+
+      - name: Plan reviewable refresh-only drift
+        id: drift_plans
+        working-directory: ${{ github.workspace }}
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE_DEPLOY_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
+          RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
+          WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+          WEB_SEARCH_ALLOWED_DOMAINS_JSON: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ -n "$SERVICE_DEPLOY_TFVARS_JSON" ]] || {
+            echo "SERVICE_DEPLOY_TFVARS_JSON is required for service reconciliation." >&2
+            exit 1
+          }
+          work="$RUNNER_TEMP/drift-reconcile"
+          rm -rf -- "$work"
+          mkdir -m 700 "$work" "$work/plans" "$work/summaries" "$work/vars"
+          summarize_plan() {
+            local root_id="$1" terraform_root="$2" plan_file="$3" plan_json
+            plan_json="$work/plans/$(tr ':/' '__' <<<"$root_id").json"
+            terraform -chdir="$terraform_root" show -json "$plan_file" >"$plan_json"
+            python3 scripts/deployment/service/refresh_drift_digest.py summarize \
+              --root-id "$root_id" --plan-json "$plan_json" \
+              >"$work/summaries/$(tr ':/' '__' <<<"$root_id").json"
+            rm -f -- "$plan_json"
+            printf '%s\t%s\t%s\n' "$root_id" "$terraform_root" "$plan_file" >>"$work/roots.tsv"
+          }
+
+          terraform -chdir=infra plan -refresh-only -input=false -lock-timeout=300s \
+            -out="$work/plans/legacy.tfplan"
+          summarize_plan legacy infra "$work/plans/legacy.tfplan"
+
+          printf '%s' "$SERVICE_DEPLOY_TFVARS_JSON" >"$work/vars/all-services.json"
+          terraform -chdir=infra show -json >"$work/vars/platform-state.json"
+          platform_inputs="$(python3 scripts/deployment/service/drift_contract.py \
+            platform-inputs --state-json "$work/vars/platform-state.json")"
+          database_host="$(jq -er '.database_host' <<<"$platform_inputs")"
+          event_topic="$(jq -er '.event_topic' <<<"$platform_inputs")"
+          pipeline_stage_topic="$(jq -er '.pipeline_stage_topic' <<<"$platform_inputs")"
+          pantheon_object_topic="$(jq -er '.pantheon_object_topic' <<<"$platform_inputs")"
+          model_endpoints_json="$(jq -cer '.model_endpoints' <<<"$platform_inputs")"
+          cost_pseudonym_key_secret_id="$(
+            jq -r '.cost_pseudonym_key_secret_id // ""' <<<"$platform_inputs"
+          )"
+          resolved_models_digest="$(
+            python3 -c 'import hashlib,json,sys; payload=json.load(sys.stdin); canonical=json.dumps(payload,separators=(",",":"),sort_keys=True).encode(); print(hashlib.sha256(canonical).hexdigest())' \
+              <<<"$RESOLVED_MODELS_JSON"
+          )"
+          roots_json="$(python3 scripts/deployment/service/drift_contract.py roots \
+            --environment "$ENVIRONMENT")"
+          [[ "$(jq '[.[] | select(.kind == "service")] | length' <<<"$roots_json")" -eq 5 ]] || {
+            echo "Drift root contract must resolve exactly five service roots." >&2
+            exit 1
+          }
+          while IFS=$'\t' read -r root_id terraform_root backend_key; do
+            service="${root_id#service:}"
+            resolved_model_args=()
+            source_revision_binding=""
+            if [[ "$service" == "core-control-plane" ]]; then
+              resolved_model_args+=(--model-binding-transition)
+              source_revision_binding="$TARGET_COMMIT_SHA"
+            fi
+            cost_pseudonym_binding=""
+            if [[ "$service" == "operator-service" ]]; then
+              [[ -n "$cost_pseudonym_key_secret_id" ]] || {
+                echo "Platform state has no Cost pseudonym key binding for $root_id." >&2
+                echo "Create the reviewed platform key prerequisite before reconciliation." >&2
+                exit 1
+              }
+              cost_pseudonym_binding="$cost_pseudonym_key_secret_id"
+            fi
+            terraform -chdir="$terraform_root" init -input=false -lockfile=readonly \
+              -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+              -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+              -backend-config="container_name=$STATE_CONTAINER" \
+              -backend-config="key=$backend_key" \
+              -backend-config="use_azuread_auth=true"
+            terraform -chdir="$terraform_root" show -json >"$work/vars/$service-state.json"
+            image_ref="$(python3 scripts/deployment/service/drift_contract.py stored-image \
+              --service "$service" \
+              --environment "$ENVIRONMENT" \
+              --repository "$GITHUB_REPOSITORY" \
+              --state-json "$work/vars/$service-state.json")"
+            python3 scripts/deployment/service/hydrate_database_host.py \
+                --service "$service" \
+                --environment "$ENVIRONMENT" \
+                --database-host "$database_host" \
+                <"$work/vars/all-services.json" \
+              | python3 scripts/deployment/service/hydrate_event_topic.py \
+                  --service "$service" \
+                  --environment "$ENVIRONMENT" \
+                  --event-topic "$event_topic" \
+                  --pipeline-stage-topic "$pipeline_stage_topic" \
+                  --pantheon-object-topic "$pantheon_object_topic" \
+              | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
+                RESOLVED_MODELS_DIGEST="$resolved_models_digest" \
+                SOURCE_REVISION="$source_revision_binding" \
+                COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_binding" \
+                python3 scripts/deployment/service/materialize_tfvars.py \
+                  --service "$service" \
+                  --environment "$ENVIRONMENT" \
+                  "${resolved_model_args[@]}" \
+                  --output "$work/vars/$service.tfvars.json"
+            terraform -chdir="$terraform_root" plan -refresh-only -input=false -lock-timeout=5m \
+              -var-file="$work/vars/$service.tfvars.json" \
+              -var="image=$image_ref" \
+              -out="$work/plans/$service.tfplan"
+            summarize_plan "$root_id" "$terraform_root" "$work/plans/$service.tfplan"
+          done < <(jq -r \
+            '.[] | select(.kind == "service") | [.root_id, .terraform_root, .backend_key] | @tsv' \
+            <<<"$roots_json")
+
+          terraform -chdir=infra/bootstrap init -input=false -lockfile=readonly \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=ops/bootstrap/$ENVIRONMENT.tfstate" \
+            -backend-config="use_azuread_auth=true"
+          terraform -chdir=infra/bootstrap show -json >"$work/vars/bootstrap-state.json"
+          stored_inputs="$(python3 scripts/deployment/service/drift_contract.py \
+            bootstrap-inputs --state-json "$work/vars/bootstrap-state.json")"
+          TF_VAR_app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
+          TF_VAR_runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
+          TF_VAR_state_storage_account_name="$STATE_STORAGE_ACCOUNT"
+          export TF_VAR_app_resource_group_name TF_VAR_runner_ssh_public_key \
+            TF_VAR_state_storage_account_name
+          terraform -chdir=infra/bootstrap plan -refresh-only -input=false -lock-timeout=300s \
+            -out="$work/plans/bootstrap.tfplan"
+          summarize_plan bootstrap infra/bootstrap "$work/plans/bootstrap.tfplan"
+          rm -rf -- "$work/vars"
+
+          digest="$(python3 scripts/deployment/service/refresh_drift_digest.py digest \
+            "$work"/summaries/*.json)"
+          {
+            echo "### Refresh-only drift"
+            echo
+            echo "Digest: \`$digest\`"
+            echo
+            echo '```text'
+            python3 scripts/deployment/service/refresh_drift_digest.py render \
+              "$work"/summaries/*.json
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+          python3 scripts/deployment/service/refresh_drift_digest.py render "$work"/summaries/*.json
+          echo "Refresh-only drift digest: $digest"
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
+
+      - name: Apply reviewed refresh-only drift
+        if: inputs.reviewed_drift_digest != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          OBSERVED_DRIFT_DIGEST: ${{ steps.drift_plans.outputs.digest }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/drift-reconcile"
+          [[ "$OBSERVED_DRIFT_DIGEST" == "$REVIEWED_DRIFT_DIGEST" ]] || {
+            echo "Recomputed drift digest $OBSERVED_DRIFT_DIGEST differs from the reviewed digest." >&2
+            echo "No state was changed; review a new preview run." >&2
+            exit 1
+          }
+          # A saved plan carries its own variables; applying it changes only state and outputs.
+          while IFS=$'\t' read -r root_id terraform_root plan_file; do
+            echo "Applying the reviewed refresh-only plan for $root_id."
+            terraform -chdir="$terraform_root" apply -input=false -lock-timeout=300s "$plan_file"
+          done <"$work/roots.tsv"
+
+      - name: Verify every root is drift-free
+        if: inputs.reviewed_drift_digest != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE_DEPLOY_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/drift-reconcile"
+          mkdir -m 700 -p "$work/verify"
+          drift_found=0
+          while IFS=$'\t' read -r root_id terraform_root plan_file; do
+            verify_plan="$work/verify/$(tr ':/' '__' <<<"$root_id").tfplan"
+            var_args=()
+            if [[ "$root_id" == service:* ]]; then
+              # Rebuild the exact plan inputs from the saved plan's variables.
+              terraform -chdir="$terraform_root" show -json "$plan_file" \
+                | jq '.variables | map_values(.value)' >"$work/verify/vars.json"
+              var_args+=(-var-file="$work/verify/vars.json")
+            elif [[ "$root_id" == "bootstrap" ]]; then
+              stored_inputs="$(terraform -chdir=infra/bootstrap show -json \
+                | python3 scripts/deployment/service/drift_contract.py bootstrap-inputs \
+                  --state-json /dev/stdin)"
+              TF_VAR_app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
+              TF_VAR_runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
+              TF_VAR_state_storage_account_name="$STATE_STORAGE_ACCOUNT"
+              export TF_VAR_app_resource_group_name TF_VAR_runner_ssh_public_key \
+                TF_VAR_state_storage_account_name
+            fi
+            terraform -chdir="$terraform_root" plan -refresh-only -input=false -lock-timeout=300s \
+              "${var_args[@]}" -out="$verify_plan" >/dev/null
+            terraform -chdir="$terraform_root" show -json "$verify_plan" >"$work/verify/plan.json"
+            python3 scripts/deployment/service/refresh_drift_digest.py summarize \
+              --root-id "$root_id" --plan-json "$work/verify/plan.json" >"$work/verify/summary.json"
+            rm -f -- "$work/verify/plan.json" "$work/verify/vars.json"
+            if python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); sys.exit(1 if (s["resource_drift"] or s["output_changes"] or s["moves"]) else 0)' "$work/verify/summary.json"; then
+              echo "No drift remains: $root_id"
+            else
+              python3 scripts/deployment/service/refresh_drift_digest.py render "$work/verify/summary.json"
+              drift_found=1
+            fi
+          done <"$work/roots.tsv"
+          [[ "$drift_found" -eq 0 ]] || {
+            echo "Drift remains after reconciliation." >&2
+            exit 1
+          }
+
+      - name: Close legacy database power window
+        if: >-
+          always() && steps.protected-source.outcome == 'success' &&
+          steps.database_window.outcome != 'skipped'
+        working-directory: ${{ github.workspace }}
+        run: >-
+          python3 scripts/deployment/azure/postgres_power_window.py close
+          --record "$RUNNER_TEMP/database-power-window.json"
+
+      - name: Clean reconciliation material
+        if: always() && steps.protected-source.outcome == 'success'
+        working-directory: ${{ github.workspace }}
+        run: |
+          rm -rf -- "$RUNNER_TEMP/drift-reconcile"
+          rm -f infra/backend.tf infra/bootstrap/backend.tf
+          find infra -maxdepth 3 -type d -name .terraform -prune -exec rm -rf -- {} +
