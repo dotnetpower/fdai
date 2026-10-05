@@ -158,7 +158,7 @@ class ActionRun:
             payload = {
                 "action_idempotency_key": self.idempotency_key,
                 "action_type": self.action_type,
-                "approval_profile": deepcopy(self.approval_profile),
+                "approval_profile": _flat_copy(self.approval_profile),
                 "correlation_id": self.correlation_id,
                 "decision_case": self.decision_case,
                 "development_authority": deepcopy(self.development_authority),
@@ -253,7 +253,7 @@ class ActionRun:
             "original_quorum_required": self.original_quorum_required,
             "effective_quorum_required": self.effective_quorum_required,
             "development_authority": deepcopy(self.development_authority),
-            "approval_profile": deepcopy(self.approval_profile),
+            "approval_profile": _flat_copy(self.approval_profile),
             "outcome": self.outcome,
             "initiator_principal": self.initiator_principal,
             "rollback_contract": self.rollback_contract,
@@ -340,7 +340,7 @@ class ActionRun:
                 else None
             ),
             approval_profile=(
-                deepcopy(dict(data["approval_profile"]))
+                _flat_copy(data["approval_profile"])
                 if isinstance(data.get("approval_profile"), Mapping)
                 else None
             ),
@@ -565,6 +565,15 @@ def kinetic_proposal_matches(
         and operational_plan.get("complete") is True
         and operational_plan.get("plan_id") == proposal.operational_plan_id
     )
+
+
+def _flat_copy(value: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Copy a flat approval-profile audit mapping; its values are immutable scalars."""
+    if value is None:
+        return None
+    if any(isinstance(item, (Mapping, list, set)) for item in value.values()):
+        raise ValueError("approval profile audit mapping must be flat")
+    return dict(value)
 
 
 __all__ = [
