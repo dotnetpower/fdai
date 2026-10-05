@@ -40,6 +40,7 @@ for generator in \
   generate_document_context_schema.py \
   generate_authentication_receipt_ref_schema.py \
   generate_document_context_projection_schema.py \
+  generate_policy_administration_schemas.py \
   generate_test_context_schemas.py; do
   run uv run python "scripts/quality/contracts/$generator" "${check_flag[@]}"
 done

@@ -6,6 +6,7 @@ import hashlib
 import hmac
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import cast
 
 import jwt
@@ -105,6 +106,8 @@ class VerifiedOperatorIdentity:
     username: str | None
     authorized_party: str | None
     authentication_receipt: OperatorAuthenticationReceipt | None = None
+    authenticated_at: datetime | None = None
+    app_roles: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +154,8 @@ class OperatorAuthenticator:
                         session_token=self.local_session_token or "",
                         group_ids=self.group_ids,
                     ),
+                    authenticated_at=None,
+                    app_roles=frozenset(role.value for role in self.local_principal.roles),
                 )
             raise AuthenticationError("local Azure CLI session token is missing or invalid")
         token = _extract_bearer(authorization_header)
@@ -164,6 +169,7 @@ class OperatorAuthenticator:
         if not isinstance(subject_id, str) or not subject_id:
             raise AuthenticationError("invalid claims: missing non-empty oid")
 
+        app_roles = frozenset(_string_items(claims.get("roles")))
         claimed_roles = _parse_roles(claims.get("roles"))
         principal_kind = _principal_kind(claims)
         group_overage = _has_group_overage(claims)
@@ -191,6 +197,8 @@ class OperatorAuthenticator:
                 authentication_receipt=live_authentication_receipt(
                     claims, principal=workload, group_ids=self.group_ids
                 ),
+                authenticated_at=_auth_time(claims),
+                app_roles=app_roles,
             )
         if not claimed_roles:
             claimed_roles = frozenset(
@@ -209,6 +217,8 @@ class OperatorAuthenticator:
             authentication_receipt=live_authentication_receipt(
                 claims, principal=human, group_ids=self.group_ids
             ),
+            authenticated_at=_auth_time(claims),
+            app_roles=app_roles,
         )
 
     def require_any(
@@ -247,6 +257,16 @@ def _display_username(claims: Mapping[str, object]) -> str | None:
             if normalized and len(normalized) <= 320 and "\x00" not in normalized:
                 return normalized
     return None
+
+
+def _auth_time(claims: Mapping[str, object]) -> datetime | None:
+    value = claims.get("auth_time")
+    if type(value) is not int:
+        return None
+    try:
+        return datetime.fromtimestamp(value, UTC)
+    except (OSError, OverflowError, ValueError):
+        return None
 
 
 def _parse_roles(raw: object) -> frozenset[OperatorRole]:

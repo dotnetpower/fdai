@@ -17,7 +17,7 @@ _MAX_BOUNDED_STRING = 512
 _RULE_KINDS = frozenset(
     {"catalog_review_outcome", "handover_knowledge", "rule_promotion", "rule_state"}
 )
-_POLICY_KINDS = frozenset({"policy_promotion", "test_context_revision"})
+_POLICY_KINDS = frozenset({"policy_activation", "policy_promotion", "test_context_revision"})
 _VERDICT_EVIDENCE_KEYS = frozenset(
     {"arbitration", "change_assessment", "decision_case", "kind", "risk_verdict", "decision"}
 )
@@ -283,7 +283,9 @@ def _validate_policy_payload(payload: dict[str, Any]) -> None:
     kind = str(payload.get("kind") or "").strip()
     if kind and kind not in _POLICY_KINDS:
         raise ValueError("policy payload kind is invalid")
-    if kind == "policy_promotion":
+    if kind == "policy_activation":
+        _require_non_empty_strings(payload, "policy_id", "revision_id")
+    elif kind == "policy_promotion":
         _require_non_empty_strings(payload, "policy_id", "state")
     elif kind == "test_context_revision":
         _require_non_empty_strings(payload, "application")

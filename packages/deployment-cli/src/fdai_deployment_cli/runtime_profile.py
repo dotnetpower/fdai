@@ -40,6 +40,13 @@ DATABASE_SKUS = (
     "GP_Standard_D4ds_v5",
 )
 
+LEGACY_FULL_PRODUCT_ADD_ONS = (
+    ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE,
+    ProductAddOn.GOVERNED_EXECUTION,
+    ProductAddOn.NOTIFICATIONS,
+    ProductAddOn.READ_ONLY_CONSOLE,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class RuntimeDeploymentProfile:
@@ -199,7 +206,7 @@ class RuntimeDeploymentProfile:
             raise ValueError("runtime deployment profile schema is unsupported")
         product = value.get("product_profile")
         if schema_version == "fdai.runtime-deployment-profile.v1":
-            add_ons = tuple(sorted(item.value for item in ProductAddOn))
+            add_ons = tuple(item.value for item in LEGACY_FULL_PRODUCT_ADD_ONS)
             data_sources = tuple(item.value for item in ObservationDataSource)
         else:
             if not isinstance(product, dict):

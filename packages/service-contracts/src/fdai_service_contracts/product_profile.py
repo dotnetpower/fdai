@@ -15,6 +15,7 @@ class ProductAddOn(StrEnum):
     NOTIFICATIONS = "notifications"
     GOVERNED_EXECUTION = "governed-execution"
     ENTERPRISE_IDENTITY_GOVERNANCE = "enterprise-identity-governance"
+    POLICY_ADMINISTRATION = "policy-administration"
 
 
 class AzureObservationRole(StrEnum):
@@ -108,11 +109,22 @@ class ProductProfile(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _require_identity_prerequisite(self) -> ProductProfile:
-        """Block a selected surface whose authenticated identity prerequisite is absent."""
+    def _require_add_on_prerequisites(self) -> ProductProfile:
+        """Block selected surfaces whose authenticated prerequisites are absent."""
 
         if ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE in self.add_ons:
+            if (
+                ProductAddOn.POLICY_ADMINISTRATION in self.add_ons
+                and ProductAddOn.READ_ONLY_CONSOLE not in self.add_ons
+            ):
+                raise ValueError(
+                    "policy administration requires explicit read-only Console selection"
+                )
             return self
+        if ProductAddOn.POLICY_ADMINISTRATION in self.add_ons:
+            raise ValueError(
+                "policy administration requires explicit enterprise identity governance"
+            )
         if ProductAddOn.READ_ONLY_CONSOLE in self.add_ons:
             raise ValueError(
                 "read-only Console currently requires explicit enterprise identity governance"

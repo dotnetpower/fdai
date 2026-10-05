@@ -80,6 +80,7 @@ from fdai_operator_service.notification_receipt_ingress import (
     NotificationReceiptIngress,
     NotificationReceiptIngressConfig,
 )
+from fdai_operator_service.operator_request_receipt import OperatorRequestReceiptIssuer
 from fdai_operator_service.ownership_projection import OwnershipProjectionReader
 from fdai_operator_service.postgres_assignment_outbox import build_assignment_notice_bridge
 from fdai_operator_service.postgres_family_store import (
@@ -288,6 +289,7 @@ def build_postgres_iam_bindings(
     teams_http_client: httpx.AsyncClient | None,
     role_group_ids: Mapping[str, str],
     model_revision_owner: OperatorResolvedModelsRevisionOwner | None = None,
+    operator_request_receipt_issuer: OperatorRequestReceiptIssuer | None = None,
 ) -> IamFamilyBindings:
     """Compose the durable IAM family without granting execution authority."""
     if environment.database_url is None:

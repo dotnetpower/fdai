@@ -35,6 +35,7 @@ def test_explicit_add_ons_select_surfaces_without_granting_authority() -> None:
             ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE,
             ProductAddOn.GOVERNED_EXECUTION,
             ProductAddOn.NOTIFICATIONS,
+            ProductAddOn.POLICY_ADMINISTRATION,
             ProductAddOn.READ_ONLY_CONSOLE,
         ),
         observation_permissions=ObservationReadPermissions(
@@ -51,6 +52,29 @@ def test_explicit_add_ons_select_surfaces_without_granting_authority() -> None:
     assert all(profile.selects(add_on) for add_on in ProductAddOn)
     assert profile.authority_granted is False
     assert all(profile.observation_permissions.selects(role) for role in AzureObservationRole)
+
+
+def test_policy_administration_requires_console_and_identity_without_authority() -> None:
+    with pytest.raises(ValidationError, match="enterprise identity governance"):
+        ProductProfile(add_ons=(ProductAddOn.POLICY_ADMINISTRATION,))
+    with pytest.raises(ValidationError, match="read-only Console"):
+        ProductProfile(
+            add_ons=(
+                ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE,
+                ProductAddOn.POLICY_ADMINISTRATION,
+            )
+        )
+
+    profile = ProductProfile(
+        add_ons=(
+            ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE,
+            ProductAddOn.POLICY_ADMINISTRATION,
+            ProductAddOn.READ_ONLY_CONSOLE,
+        )
+    )
+
+    assert profile.selects(ProductAddOn.POLICY_ADMINISTRATION) is True
+    assert profile.authority_granted is False
 
 
 def test_profile_rejects_noncanonical_or_write_capable_values() -> None:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hmac
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -106,35 +105,51 @@ class OperatorRequestReceiptGate:
         workflow_action = raw.get("workflow_action")
         if receipt.schema_version == "1.0.0" and isinstance(workflow_action, Mapping):
             raise ValueError("unsigned_workflow_action")
-        expected = OperatorRequestReceiptBody.model_validate(
-            {
-                "schema_version": receipt.schema_version,
-                "idempotency_key": raw.get("idempotency_key"),
-                "correlation_id": raw.get("correlation_id"),
-                "initiator_principal": raw.get("initiator_principal"),
-                "action_type": raw.get("action_type"),
-                "canonical_params_digest": canonical_params_digest(
-                    raw.get("params") if isinstance(raw.get("params"), Mapping) else None
-                ),
-                "resource_id": raw.get("resource_id"),
-                "canonical_workflow_action_digest": (
-                    canonical_workflow_action_digest(
-                        workflow_action if isinstance(workflow_action, Mapping) else None
-                    )
-                    if receipt.schema_version == "1.1.0"
-                    else None
-                ),
-                "producer_service_identity": receipt.producer_service_identity,
-                "issued_at": receipt.issued_at,
-                "expires_at": receipt.expires_at,
-            }
-        )
-        if not hmac.compare_digest(
-            receipt.model_dump_json(exclude={"signature", "signature_alg"}),
-            OperatorRequestReceipt.create(
-                body=expected,
-                signature=receipt.signature_bytes(),
-            ).model_dump_json(exclude={"signature", "signature_alg"}),
+        expected_values: dict[str, Any] = {
+            "schema_version": receipt.schema_version,
+            "idempotency_key": raw.get("idempotency_key"),
+            "correlation_id": raw.get("correlation_id"),
+            "initiator_principal": raw.get("initiator_principal"),
+            "action_type": raw.get("action_type"),
+            "canonical_params_digest": canonical_params_digest(
+                raw.get("params") if isinstance(raw.get("params"), Mapping) else None
+            ),
+            "resource_id": raw.get("resource_id"),
+            "canonical_workflow_action_digest": (
+                canonical_workflow_action_digest(
+                    workflow_action if isinstance(workflow_action, Mapping) else None
+                )
+                if receipt.schema_version in {"1.1.0", "1.2.0"}
+                else None
+            ),
+            "producer_service_identity": receipt.producer_service_identity,
+            "issued_at": receipt.issued_at,
+            "expires_at": receipt.expires_at,
+        }
+        if receipt.schema_version == "1.2.0":
+            expected_values.update(
+                {
+                    "authenticated_at": receipt.authenticated_at,
+                    "principal_roles": receipt.principal_roles,
+                    "max_auth_age_seconds": receipt.max_auth_age_seconds,
+                }
+            )
+        expected = OperatorRequestReceiptBody.model_validate(expected_values)
+        if (
+            receipt.schema_version != expected.schema_version
+            or receipt.idempotency_key != expected.idempotency_key
+            or receipt.correlation_id != expected.correlation_id
+            or receipt.initiator_principal != expected.initiator_principal
+            or receipt.action_type != expected.action_type
+            or receipt.canonical_params_digest != expected.canonical_params_digest
+            or receipt.resource_id != expected.resource_id
+            or receipt.canonical_workflow_action_digest != expected.canonical_workflow_action_digest
+            or receipt.producer_service_identity != expected.producer_service_identity
+            or receipt.issued_at != expected.issued_at
+            or receipt.expires_at != expected.expires_at
+            or receipt.authenticated_at != expected.authenticated_at
+            or receipt.principal_roles != expected.principal_roles
+            or receipt.max_auth_age_seconds != expected.max_auth_age_seconds
         ):
             raise ValueError("mismatch")
         if enforce_time:

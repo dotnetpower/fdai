@@ -86,7 +86,15 @@ class HilCallbackAuthorityConfig:
         group_ids: Mapping[OperatorRole, str],
     ) -> HilCallbackAuthorityConfig:
         """Derive channel audiences independently from the five RBAC group slots."""
-        expected_roles = frozenset(OperatorRole)
+        expected_roles = frozenset(
+            {
+                OperatorRole.READER,
+                OperatorRole.CONTRIBUTOR,
+                OperatorRole.APPROVER,
+                OperatorRole.OWNER,
+                OperatorRole.BREAK_GLASS,
+            }
+        )
         if frozenset(group_ids) != expected_roles or any(
             not group_ids[role].strip() for role in expected_roles
         ):
