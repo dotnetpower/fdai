@@ -257,13 +257,17 @@ async def test_missing_proposal_evidence_stops_before_read_or_next_model(tmp_pat
         {"max_proposal_calls": 65},
         {"max_proposal_calls": True},
         {"total_timeout_seconds": 601},
-        {"query_timeout_seconds": 6},
+        {"query_timeout_seconds": 10.5},
         {"query_timeout_seconds": float("nan")},
     ],
 )
 def test_semantic_budgets_cannot_weaken_frozen_ceilings(kwargs: dict[str, object]) -> None:
     with pytest.raises(ValueError, match="bounded calls"):
         OntologySemanticEvaluationBudget(**kwargs)
+
+
+def test_semantic_budget_accepts_the_ten_second_call_ceiling() -> None:
+    assert OntologySemanticEvaluationBudget(query_timeout_seconds=10).query_timeout_seconds == 10
 
 
 def test_semantic_evidence_requires_source_and_has_its_own_finite_record_bound(
