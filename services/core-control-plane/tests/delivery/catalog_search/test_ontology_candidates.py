@@ -541,6 +541,25 @@ async def test_candidate_facts_must_match_the_current_authorized_graph(
         as_of=NOW,
     )
     assert exact.authorized == result
+    embedded_exact = await reader.search(
+        f"Inspect object:Resource:{record.id}.",
+        staged=staged,
+        manifest=manifest,
+        gateway=gateway,
+        as_of=NOW,
+    )
+    assert embedded_exact.authorized == result
+    assert embedded_exact.score_kind == "exact_identity"
+    missing_exact = await reader.search(
+        "Inspect object:Resource:missing-resource.",
+        staged=staged,
+        manifest=manifest,
+        gateway=gateway,
+        as_of=NOW,
+    )
+    assert missing_exact.authorized is None
+    assert missing_exact.scores == ()
+    assert missing_exact.score_kind == "exact_identity"
     assert exact.execution_authority is False
     assert embedder.calls == calls
     with pytest.raises(ValueError, match="provider unavailable"):

@@ -114,6 +114,10 @@ from fdai.agents._framework.mimir_maintenance import (
     MimirRuleDeprecationReader,
     MimirRuleSourcePoller,
 )
+from fdai.agents._framework.mimir_policy_administration import (
+    MimirPolicyAdministration,
+    PolicyRevisionRejectedError,
+)
 from fdai.agents._framework.mimir_promotion_runtime import MimirPromotionRuntimeMixin
 from fdai.agents._framework.mimir_rule_generation import MimirRuleGenerationMixin
 from fdai.agents._framework.mimir_rule_publication import MimirRulePublicationMixin
@@ -270,6 +274,7 @@ class Mimir(
         clock: Callable[[], datetime] | None = None,
         provider_timeout_seconds: float = _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
         reviewed_repository_prefixes: Sequence[str] = (),
+        policy_administration: MimirPolicyAdministration | None = None,
     ) -> None:
         super().__init__(spec=_MIMIR)
         if min(max_pending_candidates, max_review_packages) < 1:
@@ -335,6 +340,49 @@ class Mimir(
             "status": "unbound",
             "outcome": "bounded_noop",
         }
+        self._policy_administration = policy_administration
+
+    def bind_policy_administration(self, policy_administration: MimirPolicyAdministration) -> None:
+        """Bind the Mimir-owned policy validation and activation port."""
+
+        if self._policy_administration is not None:
+            raise RuntimeError("Mimir policy administration is already bound")
+        self._policy_administration = policy_administration
+
+    def policy_administration_configured(self) -> bool:
+        return self._policy_administration is not None
+
+    async def handle_policy_revision_request(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Validate and activate one typed policy revision request."""
+
+        if self._policy_administration is None:
+            raise RuntimeError("Mimir policy administration is not configured")
+        activation = await self._policy_administration.handle_request(payload)
+        event = activation.model_dump(mode="json")
+        if not await self._checkpoint_rule_publication(
+            topic="object.policy",
+            payload=event,
+            idempotency_key=activation.idempotency_key,
+        ):
+            self.record_behavior("policy:activation_duplicate")
+            return event
+        if self.bus is not None:
+            await self._publish_claimed_rule_publication(
+                topic="object.policy",
+                payload=event,
+                idempotency_key=activation.idempotency_key,
+            )
+        self.record_behavior("policy:activation_published")
+        return event
+
+    async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "operator.policy-revision.requests":
+            try:
+                await self.handle_policy_revision_request(payload)
+            except PolicyRevisionRejectedError as exc:
+                self.record_behavior(f"policy:request_rejected:{exc.reason}")
+            return
+        await super().on_typed_message(topic, payload)
 
     def bind_rule_generation_build_handler(
         self,

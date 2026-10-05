@@ -76,6 +76,11 @@ from fdai_operator_service.families.iam.manifest import IAM_FAMILY_MANIFEST
 from fdai_operator_service.families.iam.notification_receipt import (
     make_notification_receipt_route,
 )
+from fdai_operator_service.families.iam.policy_administration import (
+    FreshPolicyPrincipalAuthenticator,
+    PolicyRevisionEventPublisher,
+    make_policy_administration_routes,
+)
 from fdai_operator_service.families.iam.report_line_contact import (
     make_report_line_contact_route,
 )
@@ -91,6 +96,7 @@ from fdai_operator_service.families.iam.slack_handoff import (
     make_slack_handoff_routes,
 )
 from fdai_operator_service.notification_receipt_ingress import NotificationReceiptIngress
+from fdai_operator_service.operator_request_receipt import OperatorRequestReceiptIssuer
 from fdai_operator_service.redaction import redact_projection
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -132,6 +138,9 @@ class IamFamilyBindings:
     slack_authenticator: OperatorAuthenticator | None = None
     slack_console_origin: str | None = None
     notification_receipt_ingress: NotificationReceiptIngress | None = None
+    policy_authenticator: FreshPolicyPrincipalAuthenticator | None = None
+    policy_revision_publisher: PolicyRevisionEventPublisher | None = None
+    policy_receipt_issuer: OperatorRequestReceiptIssuer | None = None
     identity_provider: str = "entra"
     role_group_ids: dict[str, str] | None = None
 
@@ -187,6 +196,11 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
         *make_configuration_review_routes(
             outbox=bindings.configuration_review,
             authorize=bindings.authorize,
+        ),
+        *make_policy_administration_routes(
+            authenticator=bindings.policy_authenticator,
+            publisher=bindings.policy_revision_publisher,
+            receipt_issuer=bindings.policy_receipt_issuer,
         ),
         make_hil_operator_decision_route(
             authorize=bindings.authorize,

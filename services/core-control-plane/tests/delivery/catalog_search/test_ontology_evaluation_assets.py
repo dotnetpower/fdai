@@ -41,6 +41,311 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _ROOT = Path(__file__).resolve().parents[5]
 _ASSETS = _ROOT / "eval/ontology-retrieval"
+_INSTANCE_HOLDOUT_V2_COHORT_COUNTS = {
+    "en-positive": 16,
+    "ko-positive": 16,
+    "en-ambiguous": 8,
+    "ko-ambiguous": 8,
+    "en-negative": 4,
+    "ko-negative": 4,
+    "en-adversarial": 4,
+    "ko-adversarial": 4,
+}
+_INSTANCE_CALIBRATION_V3_COHORT_COUNTS = _INSTANCE_HOLDOUT_V2_COHORT_COUNTS
+
+
+def _load_asset(name: str) -> dict:
+    return json.loads((_ASSETS / name).read_text())
+
+
+def _normalized_query(text: str) -> str:
+    return " ".join(text.casefold().split())
+
+
+def _corpus_document_ids() -> set[str]:
+    corpus = _load_asset("instance-corpus.v1.json")
+    return {f"object:{item['object_type']}:{item['id']}" for item in corpus["objects"]}
+
+
+def _corpus_document_types() -> dict[str, str]:
+    corpus = _load_asset("instance-corpus.v1.json")
+    return {
+        f"object:{item['object_type']}:{item['id']}": item["object_type"]
+        for item in corpus["objects"]
+    }
+
+
+def test_instance_holdout_v2_has_expected_shape_and_cohorts() -> None:
+    holdout = _load_asset("instance-holdout.v2.json")
+    cases = holdout["cases"]
+
+    assert holdout["schema_version"] == "1.0.0"
+    assert holdout["origin"] == "independently_authored_synthetic_holdout"
+    assert holdout["independently_reviewed"] is True
+    assert holdout["production_qualification"] is False
+    assert holdout["supersedes"] == "instance-holdout.v1.json"
+    assert len(cases) == 64
+    assert Counter(item["cohort"] for item in cases) == _INSTANCE_HOLDOUT_V2_COHORT_COUNTS
+    assert len({item["case_id"] for item in cases}) == 64
+    assert all(item["case_id"].startswith(("hold2-en-", "hold2-ko-")) for item in cases)
+
+
+def test_instance_holdout_v2_references_only_corpus_ids() -> None:
+    cases = _load_asset("instance-holdout.v2.json")["cases"]
+    object_ids = _corpus_document_ids()
+
+    for case in cases:
+        expected_ids = case["expected_document_ids"]
+        assert set(expected_ids) <= object_ids
+        if case["cohort"].endswith("-positive"):
+            assert expected_ids
+        if case["cohort"].endswith(("-negative", "-adversarial")):
+            assert expected_ids == []
+
+
+def test_instance_holdout_v2_ambiguous_cases_split_match_and_no_match() -> None:
+    cases = _load_asset("instance-holdout.v2.json")["cases"]
+
+    for language in ("en", "ko"):
+        ambiguous = [item for item in cases if item["cohort"] == f"{language}-ambiguous"]
+        assert sum(bool(item["expected_document_ids"]) for item in ambiguous) == 4
+        assert sum(not item["expected_document_ids"] for item in ambiguous) == 4
+
+
+def test_instance_holdout_v2_queries_are_exact_normalized_disjoint() -> None:
+    holdout_v2_queries = {
+        _normalized_query(item["query"])
+        for item in _load_asset("instance-holdout.v2.json")["cases"]
+    }
+    prior_queries = {
+        _normalized_query(item["query"])
+        for asset_name in (
+            "instance-calibration.v1.json",
+            "instance-calibration.v2.json",
+            "instance-holdout.v1.json",
+        )
+        for item in _load_asset(asset_name)["cases"]
+    }
+
+    assert len(holdout_v2_queries) == 64
+    assert holdout_v2_queries.isdisjoint(prior_queries)
+
+
+def test_instance_holdout_v2_passes_real_preflight_against_calibration_v2() -> None:
+    corpus = _load_asset("instance-corpus.v1.json")
+    calibration = _load_asset("instance-calibration.v2.json")
+    holdout = _load_asset("instance-holdout.v2.json")
+    names = tuple(corpus["required_object_types"])
+    registry = PackageResourceSchemaRegistry()
+    declarations = tuple(
+        load_object_type_from_mapping(
+            yaml.safe_load(
+                (_ROOT / f"rule-catalog/vocabulary/object-types/{name}.yaml").read_text()
+            ),
+            schema_registry=registry,
+        )
+        for name in names
+    )
+    resource_registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load((_ROOT / "rule-catalog/vocabulary/resource-types.yaml").read_text())
+    )
+    objects = tuple(OntologyObjectRecord(**item) for item in corpus["objects"])
+    manifest = build_query_manifest(
+        release=build_ontology_release(object_types=declarations),
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+        object_types=declarations,
+    )
+    build = build_ontology_semantic_generation(
+        manifest=manifest,
+        embedding_space_id="qualification-space-placeholder",
+        embedding_model_version="unbound-model-version",
+        embedding_dimension=24,
+        runtime_objects=objects,
+        resource_type_query_terms={item.id: item.query_terms for item in resource_registry},
+    )
+    cases = tuple(
+        OntologyRetrievalEvaluationCase(
+            case_id=item["case_id"],
+            query=item["query"],
+            cohort=item["cohort"],
+            expected_document_ids=tuple(item["expected_document_ids"]),
+        )
+        for item in holdout["cases"]
+    )
+
+    plan = prepare_ontology_retrieval_evaluation(
+        build=build,
+        manifest=manifest,
+        cases=cases,
+        calibration_queries=tuple(item["query"] for item in calibration["cases"]),
+        ranking_policy=CatalogRankingPolicy(**calibration["candidate_ranking_policy"]),
+        evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
+            calibration["evaluation_policy"]
+        ),
+        required_object_types=names,
+    )
+
+    assert plan.query_count == 64
+    assert plan.embedding_call_upper_bound == 92
+
+
+def test_instance_calibration_v3_has_expected_shape_and_cohorts() -> None:
+    calibration = _load_asset("instance-calibration.v3.json")
+    cases = calibration["cases"]
+
+    assert calibration["schema_version"] == "1.0.0"
+    assert calibration["origin"] == "authored_synthetic_calibration"
+    assert calibration["independently_reviewed"] is True
+    assert calibration["production_qualification"] is False
+    assert (
+        calibration["purpose"]
+        == "Diagnostic calibration for positive-recall and adversarial no-match failure classes; "
+        "not an independent holdout or production qualification."
+    )
+    assert calibration["corpus"] == _load_asset("instance-calibration.v2.json")["corpus"]
+    assert (
+        calibration["candidate_ranking_policy"]
+        == _load_asset("instance-calibration.v2.json")["candidate_ranking_policy"]
+    )
+    assert (
+        calibration["evaluation_policy"]
+        == _load_asset("instance-calibration.v2.json")["evaluation_policy"]
+    )
+    assert calibration["limits"] == _load_asset("instance-calibration.v2.json")["limits"]
+    assert len(cases) == 64
+    assert Counter(item["cohort"] for item in cases) == _INSTANCE_CALIBRATION_V3_COHORT_COUNTS
+    assert len({item["case_id"] for item in cases}) == 64
+    assert all(item["case_id"].startswith(("cal-v3-en-", "cal-v3-ko-")) for item in cases)
+
+
+def test_instance_calibration_v3_references_only_corpus_ids() -> None:
+    cases = _load_asset("instance-calibration.v3.json")["cases"]
+    object_ids = _corpus_document_ids()
+
+    for case in cases:
+        expected_ids = case["expected_document_ids"]
+        assert set(expected_ids) <= object_ids
+        if case["cohort"].endswith("-positive"):
+            assert len(expected_ids) == 1
+        if case["cohort"].endswith(("-negative", "-adversarial")):
+            assert expected_ids == []
+
+
+def test_instance_calibration_v3_positive_targets_are_distinct_per_type() -> None:
+    cases = _load_asset("instance-calibration.v3.json")["cases"]
+    object_types = _corpus_document_types()
+
+    for language in ("en", "ko"):
+        targets_by_type: dict[str, set[str]] = {
+            "BusinessService": set(),
+            "Incident": set(),
+            "Resource": set(),
+            "Workload": set(),
+        }
+        positives = [item for item in cases if item["cohort"] == f"{language}-positive"]
+        assert len(positives) == 16
+        for case in positives:
+            expected_id = case["expected_document_ids"][0]
+            targets_by_type[object_types[expected_id]].add(expected_id)
+
+        assert {object_type: len(ids) for object_type, ids in targets_by_type.items()} == {
+            "BusinessService": 4,
+            "Incident": 4,
+            "Resource": 4,
+            "Workload": 4,
+        }
+
+
+def test_instance_calibration_v3_ambiguous_cases_split_match_and_no_match() -> None:
+    cases = _load_asset("instance-calibration.v3.json")["cases"]
+
+    for language in ("en", "ko"):
+        ambiguous = [item for item in cases if item["cohort"] == f"{language}-ambiguous"]
+        assert sum(bool(item["expected_document_ids"]) for item in ambiguous) == 4
+        assert sum(not item["expected_document_ids"] for item in ambiguous) == 4
+        for case in ambiguous:
+            if case["expected_document_ids"]:
+                assert 2 <= len(case["expected_document_ids"]) <= 3
+
+
+def test_instance_calibration_v3_queries_are_exact_normalized_disjoint() -> None:
+    calibration_v3_queries = {
+        _normalized_query(item["query"])
+        for item in _load_asset("instance-calibration.v3.json")["cases"]
+    }
+    prior_queries = {
+        _normalized_query(item["query"])
+        for asset_name in (
+            "instance-calibration.v1.json",
+            "instance-calibration.v2.json",
+        )
+        for item in _load_asset(asset_name)["cases"]
+    }
+
+    assert len(calibration_v3_queries) == 64
+    assert calibration_v3_queries.isdisjoint(prior_queries)
+
+
+def test_instance_calibration_v3_passes_real_preflight_against_calibration_v1() -> None:
+    corpus = _load_asset("instance-corpus.v1.json")
+    calibration_v1 = _load_asset("instance-calibration.v1.json")
+    calibration_v3 = _load_asset("instance-calibration.v3.json")
+    names = tuple(corpus["required_object_types"])
+    registry = PackageResourceSchemaRegistry()
+    declarations = tuple(
+        load_object_type_from_mapping(
+            yaml.safe_load(
+                (_ROOT / f"rule-catalog/vocabulary/object-types/{name}.yaml").read_text()
+            ),
+            schema_registry=registry,
+        )
+        for name in names
+    )
+    resource_registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load((_ROOT / "rule-catalog/vocabulary/resource-types.yaml").read_text())
+    )
+    objects = tuple(OntologyObjectRecord(**item) for item in corpus["objects"])
+    manifest = build_query_manifest(
+        release=build_ontology_release(object_types=declarations),
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+        object_types=declarations,
+    )
+    build = build_ontology_semantic_generation(
+        manifest=manifest,
+        embedding_space_id="qualification-space-placeholder",
+        embedding_model_version="unbound-model-version",
+        embedding_dimension=24,
+        runtime_objects=objects,
+        resource_type_query_terms={item.id: item.query_terms for item in resource_registry},
+    )
+    cases = tuple(
+        OntologyRetrievalEvaluationCase(
+            case_id=item["case_id"],
+            query=item["query"],
+            cohort=item["cohort"],
+            expected_document_ids=tuple(item["expected_document_ids"]),
+        )
+        for item in calibration_v3["cases"]
+    )
+
+    plan = prepare_ontology_retrieval_evaluation(
+        build=build,
+        manifest=manifest,
+        cases=cases,
+        calibration_queries=tuple(item["query"] for item in calibration_v1["cases"]),
+        ranking_policy=CatalogRankingPolicy(**calibration_v3["candidate_ranking_policy"]),
+        evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
+            calibration_v3["evaluation_policy"]
+        ),
+        required_object_types=names,
+    )
+
+    assert plan.query_count == 64
+    assert plan.embedding_call_upper_bound == 92
 
 
 @pytest.mark.parametrize("term_binding", ["matching", "missing", "changed"])
@@ -273,7 +578,9 @@ async def test_authored_dataset_uses_real_declarations_and_separate_frozen_quest
         embedder.calls = 0
         calibration_result = await execute(calibration_only=True)
         assert calibration_result.calibration_only is True
-        assert calibration_result.embedding_calls == embedder.calls == 92
+        # Two adversarial cases cite canonical ids of missing objects; the exact-identity
+        # path answers them with no match before any query embedding (28 + 62).
+        assert calibration_result.embedding_calls == embedder.calls == 90
         assert calibration_result.campaign.calibration.passed
         assert len(calibration_result.campaign.calibration.measurements) == 64
         assert calibration_result.campaign.holdout is None

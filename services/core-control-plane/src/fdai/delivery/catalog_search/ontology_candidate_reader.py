@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Literal
@@ -56,6 +57,10 @@ class _Prepared:
 
 
 _ScopeKey = tuple[str, str, tuple[str, ...]]
+_OBJECT_DOCUMENT_ID = re.compile(
+    r"(?<![A-Za-z0-9._:-])object:[A-Za-z][A-Za-z0-9_]*:[A-Za-z0-9][A-Za-z0-9._:-]{0,1023}"
+    r"(?![A-Za-z0-9._:-])"
+)
 
 
 def _scope_key(manifest: QueryManifest) -> _ScopeKey:
@@ -64,6 +69,10 @@ def _scope_key(manifest: QueryManifest) -> _ScopeKey:
         manifest.principal_role.value,
         manifest.purposes,
     )
+
+
+def _object_document_id_tokens(query: str) -> frozenset[str]:
+    return frozenset(token.rstrip(".,;!?") for token in _OBJECT_DOCUMENT_ID.findall(query))
 
 
 class OntologyInstanceCandidateReader:
@@ -215,10 +224,13 @@ class OntologyInstanceCandidateReader:
             scope_receipts: tuple[str, ...] = ()
             selection_digest: str | None = None
             score_kind: Literal["hybrid_ranking", "exact_identity", "predicate_membership"]
+            exact_tokens = _object_document_id_tokens(query)
             exact = tuple(
                 document
                 for document in prepared.documents
-                if query == document.rule_id or query == json.loads(document.text)["id"]
+                if query == document.rule_id
+                or query == json.loads(document.text)["id"]
+                or document.rule_id in exact_tokens
             )
             if selection is not None:
                 if not self._semantic_search_available or not self._typed_selection_available:
@@ -238,7 +250,7 @@ class OntologyInstanceCandidateReader:
                 scope_receipts = resolved.query_receipt_digests
                 selection_digest = resolved.selection_digest
                 score_kind = "predicate_membership"
-            elif exact:
+            elif exact or exact_tokens:
                 ranked = tuple((self._policy.exact_weight, item) for item in exact)
                 score_kind = "exact_identity"
             else:

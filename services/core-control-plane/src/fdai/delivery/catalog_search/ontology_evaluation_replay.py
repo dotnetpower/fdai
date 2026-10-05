@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import re
-import stat
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import MappingProxyType
@@ -13,7 +11,11 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat
 
-from .ontology_evaluation_evidence import _MAX_FILE_BYTES, _MAX_RECORD_BYTES, _RECORD
+from .ontology_evaluation_evidence import (
+    _MAX_RECORD_BYTES,
+    _RECORD,
+    _read_private_evidence_bytes,
+)
 from .ontology_vector_store import _validate_vector
 
 _Digest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
@@ -94,20 +96,7 @@ class OntologyEvaluationReplayEmbedder:
             or re.fullmatch(r"[0-9a-f]{40}", expected_source_commit) is None
         ):
             raise ValueError("ontology replay requires full file and source digests")
-        try:
-            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-            with os.fdopen(descriptor, "rb") as stream:
-                info = os.fstat(stream.fileno())
-                if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
-                    raise ValueError("ontology replay requires a private regular file")
-                raw = stream.read(_MAX_FILE_BYTES + 1)
-        except OSError:
-            raise ValueError("ontology replay evidence cannot be read safely") from None
-        if (
-            len(raw) > _MAX_FILE_BYTES
-            or ("sha256:" + hashlib.sha256(raw).hexdigest()) != expected_file_digest
-        ):
-            raise ValueError("ontology replay evidence file identity or size mismatch")
+        raw = _read_private_evidence_bytes(path, expected_file_digest)
         try:
             lines = raw.splitlines()
             if (

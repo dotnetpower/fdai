@@ -12,8 +12,9 @@ administration in FDAI Console.
 > profile exist today. Core decision rules for the single-operator production profile, the runtime
 > approval path through Forseti, Var, the HIL resume coordinator, and the Operator API callback,
 > the single-operator standing authorization, the `governance` override-promotion ActionType path,
-> `promotion_kind`, and the never-raising operator policy input are implemented. Policy
-> administration in FDAI Console is planned. The
+> `promotion_kind`, the never-raising operator policy input, the `policy-administration` add-on,
+> the Operator policy-revision route, and Mimir's validation and activation path are implemented.
+> Console policy-authoring UI remains planned. The
 > [implementation ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)
 > tracks delivery. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
@@ -201,11 +202,41 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
 - The standing-authorization schema and evaluator accept one approval only under the
   single-operator production profile. The `standing-authority-promotion` change class doesn't
   accept the single Owner approval yet.
-- The promotion registry records `promotion_kind`, honors a capability recall, and accepts an
   override only after an injected verifier confirms the Var approval receipt. The
   `governance.override-promote-action-type` path produces and verifies that receipt through the
   governed direct-API promotion adapter. A retained governed production receipt still remains open.
-- The Operator API has no policy-revision routes, and no `policy-administration` add-on exists.
+- The `policy-administration` add-on, the Operator API policy-revision route, and Mimir's
+  validation and activation path are implemented. The add-on requires `read-only-console` and
+  `enterprise-identity-governance`, and grants no authority by itself. The route requires a
+  `policy-admin` App Role plus fresh authentication, validates a typed body, and publishes only a
+  typed policy-revision request event. Mimir validates schema, restricted Rego, and Release
+  maximums through an injected read-side port, verifies the signed Operator request receipt, signs
+  through an injected policy signer, and stores immutable revisions plus the activation pointer
+  through the installation StateStore seam. Rego validation uses a release-pinned OPA capabilities
+  allowlist aligned to the Core image's OPA 1.18.2 and with network access disabled. Admission
+  revisions without policy tests are refused until Release-shipped policy tests arrive with #1822.
+- Production Release capability maximums still arrive with #1822. Until that source is configured,
+  Mimir fails closed for any requested ActionType mode above `shadow`. The first implementation uses
+  the existing tracked-state StateStore persistence convention rather than dedicated
+  `policy_revision` and `policy_activation` PostgreSQL tables; a later storage migration can split
+  those logical records into physical tables without changing the Mimir write contract.
+- Policy activation pinning and governance quorum for relaxing multi-operator revisions remain
+  separate #1912 work. Current activation applies the new pointer to decisions that read after
+  activation, while in-flight decision pinning still depends on the #1912 decision-side binding.
+  Because a fresh install has no approval activation pointer, it uses the multi-operator default
+  and Mimir refuses both approval and admission policy revisions until #1912 supplies the quorum
+  path. Although the target design says tightening revisions can apply immediately under
+  multi-operator, the current implementation treats even tightening admission revisions as not
+  validated unless the active profile is single-operator production.
+- The Operator service does not yet read the selected product profile. Until a product-profile seam
+  is wired, production composition leaves the policy-revision route disabled by default even when
+  the semantic bus exists. Tests bind the route explicitly to verify the publish-only contract.
+- The Entra bootstrap does not yet define the `policy-admin` App Role or require the `auth_time`
+  optional claim for Operator API access tokens. Until those identity settings are configured, the
+  policy-revision route returns 403 for every live Entra principal.
+- The policy route signs a new Operator request receipt version, `1.2.0`, for policy revision
+  requests. Existing `1.0.0` and `1.1.0` receipt digests remain byte-compatible for other Operator
+  requests.
 - The single-operator production profile reduces separation of duties by design. Customers that
   need it keep the multi-operator profile.
 

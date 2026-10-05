@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: d22e966038b47755fc3fe374e9ab8814924ee757
+translation_source_sha: 7d8d84d22e14c5096c7522473ea7acaf968018ef
 translation_revised: 2026-10-06
 ---
 # 운영자 거버넌스 프로필
@@ -13,7 +13,9 @@ translation_revised: 2026-10-06
 > **상태:** 일부 구현되었습니다. 현재 다중 운영자 프로필과 전권 개발 프로필이 있습니다. 단독 운영자
 > 프로덕션 프로필의 Core 결정 규칙과 Forseti, Var, HIL 재개 조정기, Operator API 콜백을 지나는
 > 런타임 승인 경로, 단독 운영자 상시 권한, `governance` override-promotion ActionType 경로,
-> `promotion_kind`, 자율성을 높이지 않는 운영자 정책 입력은 구현되었습니다. FDAI Console의 정책 관리는 계획 단계이며,
+> `promotion_kind`, 자율성을 높이지 않는 운영자 정책 입력, `policy-administration` 추가 기능,
+> Operator 정책 개정 경로, Mimir의 검증 및 활성화 경로가 구현되었습니다. Console 정책 작성 UI는
+> 계획 단계이며,
 > [구현 ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)가 제공
 > 현황을 추적합니다. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
 > 결정을 기록합니다.
@@ -193,7 +195,35 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   영수증을 확인한 뒤에만 재정의를 받아들입니다. `governance.override-promote-action-type` 경로는
   통제된 direct-API 승격 어댑터를 통해 그 영수증을 만들고 검증합니다. 보존된 governed production
   receipt는 아직 남은 작업입니다.
-- Operator API에는 정책 개정 경로가 없고 `policy-administration` 추가 기능도 없습니다.
+- `policy-administration` 추가 기능, Operator API 정책 개정 경로, Mimir의 검증 및 활성화 경로가
+  구현되었습니다. 이 추가 기능에는 `read-only-console`과 `enterprise-identity-governance`가 필요하며
+  그 자체로 권한을 부여하지 않습니다. 이 경로는 `policy-admin` App 역할과 새 인증을 요구하고, 타입이
+  지정된 본문을 검증한 뒤, 타입 지정 정책 개정 요청 이벤트만 게시합니다. Mimir는 스키마, 제한된
+  Rego, 주입된 읽기 측 포트를 통한 Release 최대값을 검증하고, 서명된 Operator 요청 증적을 확인하며,
+  주입된 정책 서명기로 서명하고, 설치 StateStore 이음매를 통해 변경할 수 없는 개정과 활성화 포인터를
+  저장합니다. Rego 검증은 네트워크 접근을 비활성화한 Release 고정 OPA 기능 allowlist를 사용합니다.
+  이 allowlist는 Core 이미지의 OPA 1.18.2에 맞추며, Release와 함께 제공되는 정책 테스트가 #1822에서
+  도착하기 전까지 정책 테스트가 없는 허용 정책 개정은 수락되지 않습니다.
+- 프로덕션 Release 기능 최대값은 여전히 #1822에서 제공됩니다. 그 소스가 구성되기 전에는 요청된
+  ActionType 모드가 `shadow`를 넘으면 Mimir가 안전하게 차단합니다. 첫 구현은 전용
+  `policy_revision` 및 `policy_activation` PostgreSQL 테이블이 아니라 기존 추적 상태 StateStore 지속성
+  규칙을 사용합니다. 이후 저장소 마이그레이션은 Mimir 쓰기 계약을 바꾸지 않고도 이 논리 레코드를
+  물리 테이블로 분리할 수 있습니다.
+- 정책 활성화 고정과 완화되는 다중 운영자 개정의 거버넌스 정족수는 별도 #1912 작업으로 남아
+  있습니다. 현재 활성화는 활성화 이후 포인터를 읽는 결정에 새 포인터를 적용하지만, 진행 중인 결정
+  고정은 여전히 #1912 결정 측 바인딩에 의존합니다.
+  새 설치에는 승인 활성화 포인터가 없으므로 다중 운영자 기본값을 사용하며, #1912가 정족수 경로를
+  제공하기 전까지 Mimir는 승인 정책과 허용 정책 개정을 모두 거부합니다. 목표 설계는 다중 운영자에서
+  강화되는 개정이 즉시 적용될 수 있다고 설명하지만, 현재 구현은 활성 프로필이 단독 운영자 프로덕션일
+  때만 허용 정책 개정을 검증된 것으로 봅니다.
+- Operator 서비스는 아직 선택된 제품 프로필을 읽지 않습니다. 제품 프로필 이음매가 연결되기 전까지
+  프로덕션 구성은 semantic bus가 있더라도 정책 개정 경로를 기본적으로 비활성화합니다. 테스트는
+  publish-only 계약을 검증하기 위해 이 경로를 명시적으로 바인딩합니다.
+- Entra 부트스트랩은 아직 `policy-admin` App 역할이나 Operator API 액세스 토큰의 `auth_time` 선택적
+  클레임 요구사항을 정의하지 않습니다. 해당 신원 설정이 구성되기 전에는 정책 개정 경로가 모든 live
+  Entra principal에 403을 반환합니다.
+- 정책 경로는 정책 개정 요청을 위해 새 Operator 요청 증적 버전 `1.2.0`에 서명합니다. 다른 Operator
+  요청이 쓰는 기존 `1.0.0` 및 `1.1.0` 증적 다이제스트는 바이트 호환성을 유지합니다.
 - 단독 운영자 프로덕션 프로필은 설계상 직무 분리를 줄입니다. 직무 분리가 필요한 고객은 다중
   운영자 프로필을 유지합니다.
 

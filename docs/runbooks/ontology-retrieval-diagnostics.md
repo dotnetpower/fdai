@@ -12,6 +12,7 @@ qualification or execution authority.
 | [instance-calibration.v1.json](../../eval/ontology-retrieval/instance-calibration.v1.json) | Historical 24-query calibration; preserve its questions and labels. |
 | [instance-calibration.v2.json](../../eval/ontology-retrieval/instance-calibration.v2.json) | Expanded 64-query calibration, including all v1 calibration cases unchanged. |
 | [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | Spent holdout. Preserve its evidence; don't tune on it or reuse it for qualification. |
+| [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | Spent holdout. Independently authored and reviewed; measured once at `2572f9a1b1`. Don't tune on its cases or reuse it for qualification. |
 
 The v2 calibration has 32 singleton positives, eight multi-target positives and 24 no-match cases.
 Each language covers four distinct singleton targets per type and at least four samples for every
@@ -86,6 +87,10 @@ The reader snapshots nested operands before awaiting any read.
   similarity scores or confidence. `selection_digest` binds strategy
   `secured-objectset-membership.v1` and the snapshotted proposal. The existing raw ranking path
   and exact-ID path retain their behavior and identify their respective score kinds.
+- The exact-ID path treats an `object:<ObjectType>:<id>` document ID as a typed identity token.
+  If the token is present in the query and no prepared document has that exact ID, the reader returns
+  no candidates with `score_kind="exact_identity"` instead of falling through to semantic ranking.
+  This is identity validation only; it does not infer meaning from aliases, labels or phrases.
 
 `typed_selection_available` defaults to `False` and also requires semantic search availability.
 An earlier embedding-ranking qualification cannot enable this new strategy. Runtime activation
@@ -99,11 +104,20 @@ Explicitly resolve `diagnostic.ontology-candidate-selection` for `semantic.query
 profile (`shadow`), not a replacement for the active plan profile.
 
 Configure a separate `AzureOpenAISemanticPlanningModel` with that compiled plan text and replay
-manifest, exactly one target and a timeout no greater than five seconds. Call
+manifest, exactly one target and a timeout no greater than ten seconds. Call
 `propose_candidate_selection` with the query, manifest, complete canonical build and staged
 snapshot. The source validator checks the generation and principal manifest before dispatch.
 Context above 128 KiB, changed content after input minimization, and prompt-budget overflow hold
 the call; no document is silently omitted.
+
+Candidate proposals use Azure OpenAI structured outputs. The request sends
+`response_format.type="json_schema"` with a strict schema equivalent to or stricter than
+`OntologyCandidateProposal`, and derives `object_type` and per-type predicate `property` enums from
+the same principal manifest and allowed predicate-property catalog sent in the prompt payload. The
+adapter upgrades the request API version to `2024-10-21` when the resolved target's default API
+version predates structured outputs. The request-parameter digest includes the effective response
+format, API version, timeout and output-token ceiling, so retained semantic evidence only replays
+against the same structured contract.
 
 The result retains an input digest and the adapter's model observation, including the transmitted
 prompt/schema replay manifest. A selection carries typed clauses and one exact source quote per
@@ -111,11 +125,60 @@ clause. Quotes verify attribution, not semantic entailment. A clarification carr
 reason and no selection. **Handle clarification before calling the reader:** passing `None` to
 `search(selection=...)` would select the pre-existing raw retrieval path, not a clarification.
 
+The diagnostic prompt instructs the model to use exact `object_ids` when the query identifies
+specific instances already present in the supplied canonical documents. It reserves predicates for
+genuine property-constrained sets, such as severity, criticality, type, status, or kind. This keeps
+identity mediated by the model and verified by code; it doesn't add phrase tables or lexical lookup
+logic.
+
+Before a live semantic calibration, dry-run all planned calibration cases with the exact
+manifest-bound response schema and prompt profile. The dry-run should report the maximum and median
+estimated request tokens and fail before any provider call when any case exceeds the request-token
+budget. For quote attribution, each clause carries one quote. The provider-facing schema keeps this
+as free text so the structured-output grammar stays constant for the manifest; the exact-span
+validator then drops invalidly attributed clauses before membership evaluation. If every clause is
+dropped, the case records no candidates.
+The diagnostic profile owns the model role and optional reasoning effort. The current reviewed
+diagnostic candidate-selection role is `t2.reasoner.primary` with `reasoning_effort="low"` for
+models that support the field; the effort is included in the request-parameter digest.
+
+Semantic evaluation bounds each proposal call at ten seconds and keeps the 600-second stage total;
+embedding calibration keeps its five-second call bound. The earlier five-second ceiling came from
+the embedding budget. Calibration evidence on the reviewed role shows provider-side tail latency
+that output size doesn't explain: p50 about 2.2 seconds, p95 about 3.4-3.5 seconds, and calls
+that reached the five-second ceiling about once every 24-36 calls. The qualifying attempt at
+`84d7d1a26b` aborted on that deadline in both stages before any quality result. This is a
+diagnostic bound only. It doesn't approve production latency, and enabling semantic ranking
+anywhere still requires a separate latency qualification.
+
+The 2026-10-05 development semantic calibration at source `91d537c36b` plus uncommitted changes
+completed 64 proposal calls in 151.7 seconds with evidence digest
+`sha256:b0ece2df7a47f3ed280035822b9331fab3f9ca853fc2dca441b9eaab47c70ebb`.
+Every v2 calibration cohort metric was `1.0`, `passed=True` and offline verification succeeded.
+Per-call latency, including bookkeeping, was p50 2.23 seconds, p90 3.08 seconds, p95 3.38 seconds
+and max 5.10 seconds. Treat the 5.10-second near-bound tail as residual risk for the final run.
+This is development evidence only because it was not measured on a merged immutable commit.
+
 This diagnostic method permits one attempt only. Provider failures, invalid JSON, incomplete
 model choices, invalid quotes and deadline expiry never become successful empty searches. It
 doesn't change ordinary frame/plan retry behavior. The caller still owns live authorization,
 actual model/version attestation, durable per-call evidence, evaluation binding and total budgets.
 Mocked adapter tests don't establish live quality or qualify runtime activation.
+
+Earlier diagnostic history remains relevant: raw embedding ranking fails the v2 calibration, the
+mini semantic model passed only 5 of 8 filtered failure cases, stronger-role attempts encountered
+five-second tail timeouts, `reasoning_effort="minimal"` was rejected by the deployment/API path,
+and the constant manifest-bound structured schema with `reasoning_effort="low"` passed the
+development v2 calibration.
+
+The qualifying diagnostic at merged `2572f9a1b1` ran calibration v2 and the independently reviewed
+`instance-holdout.v2` once each, under a strict replay verification. Calibration passed every
+cohort at `1.0`. The holdout failed: en-positive and ko-positive recall@5 and MRR were `0.938` (15
+of 16 each), and ko-adversarial no-match precision was `0.5`. Every other cohort was `1.0`.
+Per-call latency stayed within the 10-second bound, with a holdout maximum of 8.3 seconds.
+Semantic ranking stays disabled. Both holdouts are spent. A later change needs failure-class
+diagnosis from calibration, the corpus, and newly reviewed calibration samples only, followed by
+a newly authored independent `instance-holdout.v3`.
 
 ## Measure semantic proposals separately
 
@@ -129,7 +192,7 @@ selection strategy, target, transmitted prompt/schema and effective request para
 including output tokens and timeout. Model name and version are caller-attested claims:
 the caller still verifies the live deployment and obtains scoped authorization.
 
-- **Limits:** at most 64 proposal-interface attempts, 600 seconds for measurement and five
+- **Limits:** at most 64 proposal-interface attempts, 600 seconds for measurement and ten
   seconds per question. Current-source validation runs before and after measurement, with a
   120-second ceiling per check inside the total deadline.
 - **Durable ordering:** each call intent, accepted proposal and measurement is persisted before
@@ -153,6 +216,26 @@ the measurements. **Use the final terminal outcome, not an earlier completed rec
 A correction cannot resume calls or upgrade an aborted outcome. Legacy evidence terminal rules
 remain unchanged. If writing the failure itself fails, the attempt has no acknowledged terminal
 outcome and cannot be treated as successful.
+
+### Check retained semantic evidence offline
+
+Use [verify_ontology_semantic_evidence](../../services/core-control-plane/src/fdai/delivery/catalog_search/ontology_semantic_evidence.py)
+with an independently pinned file digest and the original prepared plan, build, manifest, staged
+snapshot, cases, calibration queries, ranking policy, evaluation policy and required object types.
+Do not obtain the expected plan or file digest from untrusted evidence and treat them as approval.
+
+- **Consistency:** the verifier recomputes the frozen input binding, requires the exact complete
+  record sequence, reconstructs proposals from their query spans, and compares per-call measurements
+  with the final report. Returned IDs are unique, ordered, bounded and present in the prepared
+  instance documents. Cohort metrics and failure codes are recalculated from the unchanged oracle.
+- **Failure preservation:** a valid failed report is returned unchanged. Changed bindings, malformed
+  records, missing calls and a trailing aborted correction raise a redacted `ValueError`.
+- **Limits:** this check makes no provider call and neither reobserves the graph nor proves the
+  authenticity of a model response, a result digest, or acknowledged terminal persistence.
+  `production_qualification` and `execution_authority` remain `False`; runtime activation is unchanged.
+
+Example: below-threshold recall remains `passed=False` after verification. Removing the failure
+codes and rewriting the summary metrics does not turn the retained measurements into a pass.
 
 ## Testing
 
@@ -186,6 +269,7 @@ The model boundary, real diagnostic profile and existing planning behavior are c
 
 ```bash
 uv run pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_semantic_evidence.py \
   services/core-control-plane/tests/delivery/catalog_search/test_ontology_semantic_evaluation.py \
   services/core-control-plane/tests/delivery/azure/llm/test_ontology_candidate_proposal.py \
   services/core-control-plane/tests/delivery/azure/llm/test_semantic_planning.py \

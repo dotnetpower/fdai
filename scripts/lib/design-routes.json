@@ -29,6 +29,9 @@
       ],
       "validate": [
         "npm --prefix console test -- --run src/routes/dashboard-v2.loading.test.ts src/routes/ontology-instances.model.test.ts"
+      ],
+      "docs_update_routes": [
+        "operator-governance-profiles"
       ]
     },
     {
@@ -281,7 +284,8 @@
         "development-diagnostic-channel",
         "reporting-subsystem",
         "narrator-preference-persistence",
-        "operational-evidence-issuance"
+        "operational-evidence-issuance",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
@@ -389,7 +393,8 @@
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
         "reporting-subsystem",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md",
@@ -467,7 +472,8 @@
         "development-diagnostic-channel",
         "operator-surfaces",
         "reporting-subsystem",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/operations/aks-commerce-business-scenario.md",
@@ -740,7 +746,8 @@
         "docs/roadmap/rules-and-detection/independent-operational-evidence.md"
       ],
       "docs_update_routes": [
-        "semantic-assurance-corpus"
+        "semantic-assurance-corpus",
+        "operator-governance-profiles"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -877,7 +884,8 @@
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
         "reporting-subsystem",
-        "operational-evidence-issuance"
+        "operational-evidence-issuance",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
@@ -1437,7 +1445,8 @@
         "docs/roadmap/rules-and-detection/operational-learning-ontology.md"
       ],
       "docs_update_routes": [
-        "human-report-lines"
+        "human-report-lines",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/agents/agent-pantheon.md",
@@ -2045,7 +2054,8 @@
         "ontology-query-coverage",
         "reporting-subsystem",
         "narrator-preference-persistence",
-        "operational-evidence-issuance"
+        "operational-evidence-issuance",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/conversation-attachments.md",
@@ -2170,7 +2180,8 @@
         "aks-commerce-business-scenario",
         "ontology-query-coverage",
         "slack-a1-request-outbox",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/human-report-lines-and-approval-routing.md",
@@ -2221,7 +2232,8 @@
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md"
       ],
       "docs_update_routes": [
-        "human-report-lines"
+        "human-report-lines",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/human-agent-assignment-and-knowledge-handover.md",
@@ -2337,7 +2349,8 @@
       ],
       "docs_update_routes": [
         "reporting-subsystem",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/deployment/developer-workflow-assurance.md",
@@ -2375,7 +2388,8 @@
       ],
       "docs_update_routes": [
         "narrator-preference-persistence",
-        "operational-evidence-issuance"
+        "operational-evidence-issuance",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/reporting-subsystem.md"
@@ -2644,7 +2658,8 @@
       "docs_update_routes": [
         "conversation-attachments",
         "development-diagnostic-channel",
-        "operational-evidence-issuance"
+        "operational-evidence-issuance",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
@@ -2969,7 +2984,8 @@
         "reporting-subsystem",
         "slack-a1-request-outbox",
         "narrator-preference-persistence",
-        "operational-evidence-issuance"
+        "operational-evidence-issuance",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
@@ -3010,7 +3026,8 @@
         "human-report-lines",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/deployment/console-read-boundary.md",
@@ -3048,6 +3065,9 @@
       "validate": [
         "uv run pytest -q --no-cov services/operator-service/tests/test_operator_service_composition.py services/operator-service/tests/test_narrator_preference_persistence.py services/operator-service/tests/test_narrator_preferences.py services/operator-service/tests/test_operator_service_postgres.py services/operator-service/tests/test_operator_iam_family.py tests/integration/services/test_narrator_preference_postgres.py",
         "uv run python scripts/quality/architecture/check-independent-services.py"
+      ],
+      "docs_update_routes": [
+        "operator-governance-profiles"
       ]
     },
     {
@@ -3136,7 +3156,41 @@
       "id": "operator-governance-profiles",
       "paths": [
         "docs/roadmap/decisioning/operator-governance-profiles*.md",
-        "docs/roadmap-implementation/decisioning/operator-governance-profiles.md"
+        "docs/roadmap-implementation/decisioning/operator-governance-profiles.md",
+        "packages/service-contracts/src/fdai_service_contracts/operator.py",
+        "packages/service-contracts/src/fdai_service_contracts/operator_authentication.py",
+        "packages/service-contracts/src/fdai_service_contracts/product_profile.py",
+        "packages/service-contracts/src/fdai_service_contracts/policy_administration.py",
+        "packages/service-contracts/src/fdai_service_contracts/schema.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/policy-*/**",
+        "packages/service-contracts/tests/test_product_profile.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/runtime_profile.py",
+        "packages/deployment-cli/tests/test_runtime_profile.py",
+        "scripts/quality/contracts/generate_policy_administration_schemas.py",
+        "scripts/automation/refresh-derived-artifacts.sh",
+        "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
+        "services/operator-service/src/fdai_operator_service/auth.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/__init__.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/capabilities.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/hil_callback_authority.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/manifest.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/policy_administration.py",
+        "services/operator-service/src/fdai_operator_service/iam_composition.py",
+        "services/operator-service/tests/test_operator_iam_family.py",
+        "services/core-control-plane/src/fdai/agents/mimir.py",
+        "services/core-control-plane/src/fdai/agents/_framework/mimir_policy_administration.py",
+        "services/core-control-plane/tests/agents/test_mimir_policy_administration.py",
+        "packages/service-contracts/src/fdai_service_contracts/operator_request_receipt.py",
+        "rule-catalog/schema/policy_admin_opa_capabilities.json",
+        "services/core-control-plane/src/fdai/agents/_framework/huginn_operator_receipt.py",
+        "services/core-control-plane/src/fdai/agents/_framework/runtime_payload_validation.py",
+        "services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_topics.py",
+        "services/operator-service/src/fdai_operator_service/composition_routes.py",
+        "services/operator-service/src/fdai_operator_service/families/aks_commerce/factory.py",
+        "services/operator-service/src/fdai_operator_service/families/cost_governance/factory.py",
+        "services/operator-service/tests/test_policy_admin_role_boundary.py",
+        "packages/service-contracts/tests/test_incident_creation.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -3273,7 +3327,8 @@
         "development-diagnostic-channel",
         "operator-surfaces",
         "reporting-subsystem",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/architecture/finops-package-architecture.md",
@@ -3371,7 +3426,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/deployment/subscription-genesis-provisioning.md",
@@ -3467,6 +3523,9 @@
         "uv run pytest -q --no-cov tests/integration/infra/test_observation_first_profile.py tests/integration/infra/test_inventory_kubernetes_identity.py tests/integration/infra/test_isolated_executor_boundary.py",
         "terraform -chdir=infra validate",
         "python3 scripts/quality/architecture/check-design-routes.py"
+      ],
+      "docs_update_routes": [
+        "operator-governance-profiles"
       ]
     },
     {
@@ -3518,6 +3577,9 @@
         "terraform -chdir=infra/runtimes/aks/workloads validate",
         "python3 scripts/quality/architecture/check-design-routes.py",
         "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ],
+      "docs_update_routes": [
+        "operator-governance-profiles"
       ]
     },
     {
@@ -3918,7 +3980,8 @@
         "development-diagnostic-channel",
         "reporting-subsystem",
         "narrator-preference-persistence",
-        "operational-evidence-issuance"
+        "operational-evidence-issuance",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/framework-assessment.md",
@@ -3982,7 +4045,8 @@
         "development-diagnostic-channel",
         "reporting-subsystem",
         "narrator-preference-persistence",
-        "operational-evidence-issuance"
+        "operational-evidence-issuance",
+        "operator-governance-profiles"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/wara-assessment.md",

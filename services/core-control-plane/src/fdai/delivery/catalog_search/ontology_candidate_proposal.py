@@ -58,6 +58,7 @@ class OntologyCandidateProposalResult:
     selection: OntologyCandidateSelection | None
     input_digest: str
     observation: SemanticJudgmentObservation
+    quote_invalid_clauses: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +100,7 @@ def candidate_proposal_payload(
         "manifest_digest": manifest.manifest_digest,
         "snapshot_digest": staged.snapshot_digest,
         "generation_digest": build.metadata.generation_digest,
+        "allowed_predicate_properties": candidate_predicate_property_catalog(manifest),
         "documents": [
             {"document_id": document.rule_id, "content": json.loads(document.text)}
             for document in build.documents
@@ -109,3 +111,81 @@ def candidate_proposal_payload(
         raise ValueError("complete candidate proposal context exceeds its byte bound")
     payload["input_digest"] = content_digest(payload)
     return payload
+
+
+def filter_candidate_proposal_quotes(
+    query: str,
+    proposal: OntologyCandidateProposal,
+) -> tuple[OntologyCandidateProposal, int]:
+    """Drop only clauses whose attribution quote is not one exact source span."""
+    if proposal.status != "select":
+        proposal.validate_source_quotes(query)
+        return proposal, 0
+    clauses = []
+    quotes = []
+    invalid = 0
+    for clause, quote in zip(proposal.clauses, proposal.clause_quotes, strict=True):
+        if query.count(quote) == 1:
+            clauses.append(clause)
+            quotes.append(quote)
+        else:
+            invalid += 1
+    if not clauses:
+        return (
+            OntologyCandidateProposal(
+                status="clarify",
+                reason="unsupported_constraint",
+                clauses=(),
+                clause_quotes=(),
+            ),
+            invalid,
+        )
+    filtered = OntologyCandidateProposal(
+        status="select",
+        reason="conditions_proposed",
+        clauses=tuple(clauses),
+        clause_quotes=tuple(quotes),
+    )
+    filtered.validate_source_quotes(query)
+    return filtered, invalid
+
+
+def candidate_predicate_property_catalog(manifest: QueryManifest) -> tuple[dict[str, object], ...]:
+    """Return the exact top-level properties the current principal manifest may predicate on."""
+    rows: list[dict[str, object]] = []
+    for descriptor in manifest.descriptors:
+        if descriptor.get("kind") != "object":
+            continue
+        properties = descriptor.get("properties")
+        if not isinstance(properties, dict):
+            continue
+        rows.append(
+            {
+                "object_type": str(descriptor["name"]),
+                "properties": tuple(sorted(str(name) for name in properties)),
+            }
+        )
+    return tuple(sorted(rows, key=lambda item: str(item["object_type"])))
+
+
+def candidate_object_id_catalog(build: SemanticGenerationBuild) -> tuple[dict[str, object], ...]:
+    """Return exact instance identifiers by ObjectType from the prepared canonical build."""
+    by_type: dict[str, set[str]] = {}
+    for document in build.documents:
+        if not document.rule_id.startswith("object:"):
+            continue
+        try:
+            payload = json.loads(document.text)
+            object_type = payload["object_type"]
+            identifier = payload["id"]
+        except (KeyError, TypeError, ValueError):
+            raise ValueError(
+                "candidate object id catalog requires canonical object documents"
+            ) from None
+        if not isinstance(object_type, str) or not isinstance(identifier, str):
+            raise ValueError("candidate object id catalog requires string identities")
+        by_type.setdefault(object_type, set()).add(identifier)
+    return tuple(
+        {"object_type": object_type, "object_ids": tuple(sorted(identifiers))}
+        for object_type, identifiers in sorted(by_type.items())
+    )

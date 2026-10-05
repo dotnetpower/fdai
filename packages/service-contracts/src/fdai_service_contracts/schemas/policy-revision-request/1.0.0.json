@@ -1,0 +1,489 @@
+{
+  "$defs": {
+    "AdmissionPolicyContent": {
+      "additionalProperties": false,
+      "description": "OPA/Rego admission content plus declared ActionType modes.",
+      "properties": {
+        "rego": {
+          "maxLength": 200000,
+          "minLength": 1,
+          "title": "Rego",
+          "type": "string"
+        },
+        "action_type_modes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PolicyMode"
+          },
+          "title": "Action Type Modes",
+          "type": "object"
+        },
+        "policy_tests": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "maxItems": 128,
+          "title": "Policy Tests",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rego"
+      ],
+      "title": "AdmissionPolicyContent",
+      "type": "object"
+    },
+    "ApprovalPolicyContent": {
+      "additionalProperties": false,
+      "description": "Approval policy document plus declared ActionType modes.",
+      "properties": {
+        "document": {
+          "additionalProperties": true,
+          "title": "Document",
+          "type": "object"
+        },
+        "action_type_modes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PolicyMode"
+          },
+          "title": "Action Type Modes",
+          "type": "object"
+        }
+      },
+      "required": [
+        "document"
+      ],
+      "title": "ApprovalPolicyContent",
+      "type": "object"
+    },
+    "OperatorAuthenticationEvidenceClass": {
+      "description": "Whether the receipt came from a verified live token or the loopback CLI session.",
+      "enum": [
+        "live",
+        "local-loopback"
+      ],
+      "title": "OperatorAuthenticationEvidenceClass",
+      "type": "string"
+    },
+    "OperatorAuthenticationReceipt": {
+      "additionalProperties": false,
+      "description": "Immutable, token-free authentication facts; possession grants no authority.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/OperatorAuthenticationEvidenceClass"
+        },
+        "issuer": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Issuer",
+          "type": "string"
+        },
+        "audience": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Audience",
+          "type": "string"
+        },
+        "tenant_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Tenant Digest",
+          "type": "string"
+        },
+        "subject_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "principal_kind": {
+          "enum": [
+            "human",
+            "workload"
+          ],
+          "title": "Principal Kind",
+          "type": "string"
+        },
+        "groups": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Groups",
+          "type": "array"
+        },
+        "group_overage": {
+          "const": false,
+          "default": false,
+          "title": "Group Overage",
+          "type": "boolean"
+        },
+        "token_id_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Token Id Digest",
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "roles": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Roles",
+          "type": "array"
+        },
+        "role_mapping_revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Role Mapping Revision",
+          "type": "string"
+        },
+        "token_retained": {
+          "const": false,
+          "default": false,
+          "title": "Token Retained",
+          "type": "boolean"
+        },
+        "receipt_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Receipt Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_class",
+        "issuer",
+        "audience",
+        "tenant_digest",
+        "subject_id",
+        "principal_kind",
+        "token_id_digest",
+        "issued_at",
+        "expires_at",
+        "role_mapping_revision",
+        "receipt_digest"
+      ],
+      "title": "OperatorAuthenticationReceipt",
+      "type": "object"
+    },
+    "OperatorRequestReceipt": {
+      "additionalProperties": false,
+      "description": "Signed immutable receipt. Possession alone grants no execution authority.",
+      "properties": {
+        "schema_version": {
+          "default": "1.1.0",
+          "enum": [
+            "1.0.0",
+            "1.1.0",
+            "1.2.0"
+          ],
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "correlation_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "initiator_principal": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Initiator Principal",
+          "type": "string"
+        },
+        "action_type": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Action Type",
+          "type": "string"
+        },
+        "canonical_params_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Canonical Params Digest",
+          "type": "string"
+        },
+        "resource_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "canonical_workflow_action_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Workflow Action Digest"
+        },
+        "producer_service_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Producer Service Identity",
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "authenticated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authenticated At"
+        },
+        "principal_roles": {
+          "default": [],
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Principal Roles",
+          "type": "array"
+        },
+        "max_auth_age_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Auth Age Seconds"
+        },
+        "receipt_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Receipt Digest",
+          "type": "string"
+        },
+        "signature_alg": {
+          "const": "Ed25519",
+          "default": "Ed25519",
+          "title": "Signature Alg",
+          "type": "string"
+        },
+        "signature": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Signature",
+          "type": "string"
+        }
+      },
+      "required": [
+        "idempotency_key",
+        "correlation_id",
+        "initiator_principal",
+        "action_type",
+        "canonical_params_digest",
+        "resource_id",
+        "producer_service_identity",
+        "issued_at",
+        "expires_at",
+        "receipt_digest",
+        "signature"
+      ],
+      "title": "OperatorRequestReceipt",
+      "type": "object"
+    },
+    "PolicyKind": {
+      "description": "Policy families Mimir can validate and activate.",
+      "enum": [
+        "approval",
+        "admission"
+      ],
+      "title": "PolicyKind",
+      "type": "string"
+    },
+    "PolicyMode": {
+      "description": "Maximum runtime mode declared for one ActionType or Workflow.",
+      "enum": [
+        "shadow",
+        "enforce"
+      ],
+      "title": "PolicyMode",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Typed event Mimir consumes; possession grants no execution authority.",
+  "properties": {
+    "policy_kind": {
+      "$ref": "#/$defs/PolicyKind"
+    },
+    "content": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AdmissionPolicyContent"
+        },
+        {
+          "$ref": "#/$defs/ApprovalPolicyContent"
+        }
+      ],
+      "title": "Content"
+    },
+    "parent_revision_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Revision Id"
+    },
+    "reason": {
+      "maxLength": 1000,
+      "minLength": 20,
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "policy_revision_request",
+      "default": "policy_revision_request",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "request_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "correlation_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "author_principal": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Author Principal",
+      "type": "string"
+    },
+    "requested_at": {
+      "format": "date-time",
+      "title": "Requested At",
+      "type": "string"
+    },
+    "authentication_receipt_ref": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Authentication Receipt Ref",
+      "type": "string"
+    },
+    "authentication_receipt": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OperatorAuthenticationReceipt"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "operator_request_receipt": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OperatorRequestReceipt"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "request_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Request Digest",
+      "type": "string"
+    },
+    "accountable_agent": {
+      "const": "Mimir",
+      "default": "Mimir",
+      "title": "Accountable Agent",
+      "type": "string"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "policy_kind",
+    "content",
+    "reason",
+    "request_id",
+    "correlation_id",
+    "idempotency_key",
+    "author_principal",
+    "requested_at",
+    "authentication_receipt_ref",
+    "request_digest"
+  ],
+  "title": "PolicyRevisionRequestEvent",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/policy-revision-request/1.0.0"
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import base64
 import json
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
@@ -79,10 +80,23 @@ from fdai_operator_service.families.iam.hil_callback_context import HilCallbackC
 from fdai_operator_service.families.iam.hil_decision_outbox import (
     DurableHilDecisionOutboxPublisher,
 )
+from fdai_operator_service.families.iam.policy_administration import FreshPolicyPrincipal
+from fdai_operator_service.operator_request_receipt import (
+    OperatorRequestReceiptIssuer,
+    SeedOperatorRequestReceiptSigner,
+)
 from fdai_operator_service.postgres_family_store import StoredProposal
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.postgres_iam_access_projection import assignment_case_from_proposal
 from fdai_service_contracts import DocumentOcrPolicy, OperatorPrincipalKind, OperatorRole
+from fdai_service_contracts.operator_authentication import (
+    LOCAL_LOOPBACK_ISSUER,
+    OperatorAuthenticationEvidenceClass,
+    OperatorAuthenticationReceipt,
+    role_mapping_revision,
+    tenant_digest,
+    token_id_digest,
+)
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import StreamingResponse
@@ -233,6 +247,85 @@ class _RuntimeSettingsStore:
             duplicate=False,
             record={},
         )
+
+
+class RecordingPolicyAuthenticator:
+    def __init__(
+        self,
+        *,
+        role: OperatorRole,
+        app_roles: frozenset[str] = frozenset({"policy-admin"}),
+        authenticated_at: datetime | None = None,
+        oid: str = "policy-admin-1",
+    ) -> None:
+        self._role = role
+        self._app_roles = app_roles
+        self._authenticated_at = authenticated_at or datetime.now(UTC)
+        self._oid = oid
+
+    async def authenticate_policy_admin(self, request: Request) -> FreshPolicyPrincipal:
+        oid = request.headers.get("x-test-oid", self._oid)
+        return FreshPolicyPrincipal(
+            principal=IamPrincipal(
+                oid=oid,
+                roles=frozenset({self._role}),
+                username="operator@example.com",
+                principal_kind=OperatorPrincipalKind.HUMAN,
+            ),
+            authentication_receipt=_authentication_receipt(
+                oid,
+                role=self._role,
+                issued_at=self._authenticated_at,
+            ),
+            authenticated_at=self._authenticated_at,
+            app_roles=self._app_roles,
+        )
+
+
+class RecordingPolicyPublisher:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, str, Mapping[str, object]]] = []
+
+    async def publish_policy_revision_request(
+        self,
+        *,
+        topic: str,
+        key: str,
+        payload: Mapping[str, object],
+    ) -> object:
+        self.events.append((topic, key, dict(payload)))
+        return {"published": True}
+
+
+def _authentication_receipt(
+    subject_id: str,
+    *,
+    role: OperatorRole,
+    issued_at: datetime,
+) -> OperatorAuthenticationReceipt:
+    return OperatorAuthenticationReceipt.create(
+        evidence_class=OperatorAuthenticationEvidenceClass.LOCAL_LOOPBACK,
+        issuer=LOCAL_LOOPBACK_ISSUER,
+        audience="operator-api",
+        tenant_digest=tenant_digest("local"),
+        subject_id=subject_id,
+        principal_kind="human",
+        token_id_digest=token_id_digest(f"token-{subject_id}-{role.value}"),
+        issued_at=issued_at,
+        expires_at=issued_at + timedelta(minutes=30),
+        roles=(role.value,),
+        role_mapping_revision=role_mapping_revision({role.value: f"group:{role.value}"}),
+    )
+
+
+def _policy_receipt_issuer() -> OperatorRequestReceiptIssuer:
+    return OperatorRequestReceiptIssuer(
+        signer=SeedOperatorRequestReceiptSigner(
+            base64.urlsafe_b64encode(b"0" * 32).decode("ascii").rstrip("=")
+        ),
+        producer_service_identity="operator-service:test",
+        clock=lambda: datetime.now(UTC),
+    )
 
 
 async def authorize(request: Request) -> IamPrincipal:
@@ -1190,7 +1283,7 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 59
+    assert len(snapshot) == 60
     assert ("GET", "/handover/readiness", "readiness") in snapshot
 
     for path in FAMILY_SOURCE.rglob("*.py"):
@@ -1201,6 +1294,85 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
             if isinstance(node, ast.ImportFrom) and node.module is not None
         }
         assert not any(name == "fdai" or name.startswith("fdai.") for name in imports)
+
+
+def test_policy_revision_route_refuses_missing_role_stale_auth_and_malformed_body() -> None:
+    valid_body = {
+        "policy_kind": "admission",
+        "content": {
+            "rego": "package fdai.policy\nallow := true\n",
+            "action_type_modes": {},
+            "policy_tests": [],
+        },
+        "reason": "Reviewed policy change for a bounded installation scope.",
+    }
+    publisher = RecordingPolicyPublisher()
+
+    denied = _client(
+        policy_authenticator=RecordingPolicyAuthenticator(
+            role=OperatorRole.READER,
+            app_roles=frozenset(),
+        ),
+        policy_revision_publisher=publisher,
+        policy_receipt_issuer=_policy_receipt_issuer(),
+    ).post("/policy/revisions", headers={"Idempotency-Key": "policy-1"}, json=valid_body)
+    stale = _client(
+        policy_authenticator=RecordingPolicyAuthenticator(
+            role=OperatorRole.OWNER,
+            authenticated_at=NOW - timedelta(minutes=11),
+        ),
+        policy_revision_publisher=publisher,
+        policy_receipt_issuer=_policy_receipt_issuer(),
+    ).post("/policy/revisions", headers={"Idempotency-Key": "policy-2"}, json=valid_body)
+    malformed = _client(
+        policy_authenticator=RecordingPolicyAuthenticator(role=OperatorRole.OWNER),
+        policy_revision_publisher=publisher,
+        policy_receipt_issuer=_policy_receipt_issuer(),
+    ).post(
+        "/policy/revisions",
+        headers={"Idempotency-Key": "policy-3"},
+        json={"policy_kind": "admission", "content": {}, "reason": "too short"},
+    )
+
+    assert denied.status_code == 403
+    assert stale.status_code == 403
+    assert b"stale_auth" in stale.content
+    assert malformed.status_code == 400
+    assert publisher.events == []
+
+
+def test_policy_revision_route_publishes_one_typed_event_and_nothing_else() -> None:
+    publisher = RecordingPolicyPublisher()
+
+    response = _client(
+        policy_authenticator=RecordingPolicyAuthenticator(role=OperatorRole.OWNER),
+        policy_revision_publisher=publisher,
+        policy_receipt_issuer=_policy_receipt_issuer(),
+    ).post(
+        "/policy/revisions",
+        headers={"Idempotency-Key": "policy-valid-1"},
+        json={
+            "policy_kind": "admission",
+            "content": {
+                "rego": "package fdai.policy\nallow := true\n",
+                "action_type_modes": {"governance.retire-rule": "shadow"},
+                "policy_tests": [],
+            },
+            "parent_revision_id": "policy-r0",
+            "reason": "Reviewed policy change for a bounded installation scope.",
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json()["published"] is True
+    assert len(publisher.events) == 1
+    topic, key, payload = publisher.events[0]
+    assert topic == "operator.policy-revision.requests"
+    assert key == "policy-valid-1"
+    assert payload["event_type"] == "policy_revision_request"
+    assert payload["accountable_agent"] == "Mimir"
+    assert payload["execution_authority"] is False
+    assert payload["author_principal"] == "policy-admin-1"
 
 
 def test_unbound_mutations_fail_closed_and_reader_cannot_cross_owner_ceiling() -> None:

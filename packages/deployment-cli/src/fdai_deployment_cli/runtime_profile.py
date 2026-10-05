@@ -40,6 +40,13 @@ DATABASE_SKUS = (
     "GP_Standard_D4ds_v5",
 )
 
+LEGACY_FULL_PRODUCT_ADD_ONS = (
+    ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE,
+    ProductAddOn.GOVERNED_EXECUTION,
+    ProductAddOn.NOTIFICATIONS,
+    ProductAddOn.READ_ONLY_CONSOLE,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class RuntimeDeploymentProfile:
@@ -199,7 +206,7 @@ class RuntimeDeploymentProfile:
             raise ValueError("runtime deployment profile schema is unsupported")
         product = value.get("product_profile")
         if schema_version == "fdai.runtime-deployment-profile.v1":
-            add_ons = tuple(sorted(item.value for item in ProductAddOn))
+            add_ons = tuple(item.value for item in LEGACY_FULL_PRODUCT_ADD_ONS)
             data_sources = tuple(item.value for item in ObservationDataSource)
         else:
             if not isinstance(product, dict):
@@ -249,3 +256,14 @@ def legacy_runtime_profile_digest(profile: RuntimeDeploymentProfile) -> str:
     """Return the digest retained by a context created before profile v2."""
 
     return canonical_digest(legacy_runtime_profile_mapping(profile))
+
+
+def legacy_full_product_matches(profile: RuntimeDeploymentProfile, retained_digest: str) -> bool:
+    """Match a pre-product-axis record only to the explicit legacy full-product selection."""
+
+    selected = profile.product_profile
+    return (
+        set(selected.add_ons) == set(LEGACY_FULL_PRODUCT_ADD_ONS)
+        and len(selected.observation_permissions.selected_sources) == len(ObservationDataSource)
+        and retained_digest == legacy_runtime_profile_digest(profile)
+    )

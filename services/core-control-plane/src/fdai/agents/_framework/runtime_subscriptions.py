@@ -6,6 +6,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from fdai_service_contracts.policy_administration import POLICY_REVISION_REQUEST_TOPIC
+
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import Handler
 from fdai.agents._framework.bus_bridge import EventBusBridge
@@ -124,6 +126,17 @@ def bind_runtime_subscriptions(
     if rule_generation_state_store is not None and "Mimir" in agents:
         bridge.subscribe(
             RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+            "Mimir",
+            agents["Mimir"].on_typed_message,
+        )
+        subscription_count += 1
+    if (
+        "Mimir" in agents
+        and isinstance(agents["Mimir"], Mimir)
+        and agents["Mimir"].policy_administration_configured()
+    ):
+        bridge.subscribe(
+            POLICY_REVISION_REQUEST_TOPIC,
             "Mimir",
             agents["Mimir"].on_typed_message,
         )

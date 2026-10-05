@@ -134,3 +134,60 @@ def test_cli_summarizes_digests_and_reports_errors(
     bad = tmp_path / "bad.json"
     bad.write_text("[]", encoding="utf-8")
     assert digest_module.main(["digest", str(bad)]) == 1
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"actions": ["update"], "before": "https://evidence", "after": ""},
+        {"actions": ["update"], "before": {"t1": 200}, "after": {}},
+        {"actions": ["update"], "before": ["a"], "after": None},
+        {"actions": ["delete"], "before": "value", "after": None},
+        {"actions": ["update"], "before": "value", "after": None, "after_unknown": True},
+    ],
+)
+def test_blanking_a_deployed_output_is_a_regression(change: dict[str, Any]) -> None:
+    summary = digest_module.summarize(
+        _plan(output_changes={"llm_endpoint": change}), root_id="legacy"
+    )
+
+    assert digest_module.output_regressions(summary) == ["llm_endpoint"]
+    assert "output regression (blocked): llm_endpoint" in digest_module.render([summary])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"actions": ["create"], "before": None, "after": "new"},
+        {"actions": ["update"], "before": "", "after": "value"},
+        {"actions": ["update"], "before": {"rev": "a"}, "after": {"rev": "b"}},
+        {"actions": ["create"], "before": None, "after": None, "after_unknown": True},
+    ],
+)
+def test_additions_and_value_changes_are_not_regressions(change: dict[str, Any]) -> None:
+    summary = digest_module.summarize(_plan(output_changes={"out": change}), root_id="legacy")
+
+    assert digest_module.output_regressions(summary) == []
+
+
+def test_regressions_cli_and_summary_schema_version(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    blanked = {"actions": ["update"], "before": "x", "after": ""}
+    plan = tmp_path / "plan.json"
+    plan.write_text(
+        json.dumps(_plan(output_changes={"b": blanked, "a": blanked})), encoding="utf-8"
+    )
+    assert digest_module.main(["summarize", "--root-id", "legacy", "--plan-json", str(plan)]) == 0
+    summary = tmp_path / "legacy.json"
+    summary.write_text(capsys.readouterr().out, encoding="utf-8")
+
+    assert digest_module.main(["regressions", str(summary)]) == 0
+    assert capsys.readouterr().out.strip() == "a,b"
+    stale = json.loads(summary.read_text(encoding="utf-8")) | {
+        "schema_version": "fdai.refresh-drift-summary.v1"
+    }
+    with pytest.raises(digest_module.RefreshDriftError, match="schema version"):
+        digest_module.output_regressions(stale)
+    with pytest.raises(digest_module.RefreshDriftError, match="schema version"):
+        digest_module.aggregate_digest([stale])

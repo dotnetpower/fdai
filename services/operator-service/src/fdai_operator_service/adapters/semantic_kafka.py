@@ -26,6 +26,7 @@ from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
 )
 from fdai_service_contracts.observer_deployment import OBSERVER_PROPOSAL_TOPIC
+from fdai_service_contracts.policy_administration import POLICY_REVISION_REQUEST_TOPIC
 from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_REQUEST_TOPIC
 from fdai_service_contracts.rule_activation_transport import RULE_ACTIVATION_REQUEST_TOPIC
 from fdai_service_contracts.semantic_turn import (
@@ -86,6 +87,7 @@ class OperatorSemanticKafkaConfig:
     rule_activation_request_topic: str = RULE_ACTIVATION_REQUEST_TOPIC
     observer_proposal_topic: str = OBSERVER_PROPOSAL_TOPIC
     post_turn_review_topic: str = POST_TURN_REVIEW_REQUEST_TOPIC
+    policy_revision_request_topic: str = POLICY_REVISION_REQUEST_TOPIC
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -282,6 +284,7 @@ class OperatorSemanticKafkaBus:
         allowed.add(self._config.alert_quality_topic + self._config.dlq_suffix)
         allowed.add(self._config.assignment_request_topic)
         allowed.add(self._config.rule_activation_request_topic)
+        allowed.add(self._config.policy_revision_request_topic)
         allowed.add(f"{self._config.assignment_projection_topic}{self._config.dlq_suffix}")
         allowed.add(f"{self._config.observer_proposal_topic}{self._config.dlq_suffix}")
         allowed.add(self._config.post_turn_review_topic)
