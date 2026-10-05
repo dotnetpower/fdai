@@ -122,6 +122,66 @@ def test_instance_holdout_v2_queries_are_exact_normalized_disjoint() -> None:
     assert holdout_v2_queries.isdisjoint(prior_queries)
 
 
+def test_instance_holdout_v2_passes_real_preflight_against_calibration_v2() -> None:
+    corpus = _load_asset("instance-corpus.v1.json")
+    calibration = _load_asset("instance-calibration.v2.json")
+    holdout = _load_asset("instance-holdout.v2.json")
+    names = tuple(corpus["required_object_types"])
+    registry = PackageResourceSchemaRegistry()
+    declarations = tuple(
+        load_object_type_from_mapping(
+            yaml.safe_load(
+                (_ROOT / f"rule-catalog/vocabulary/object-types/{name}.yaml").read_text()
+            ),
+            schema_registry=registry,
+        )
+        for name in names
+    )
+    resource_registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load((_ROOT / "rule-catalog/vocabulary/resource-types.yaml").read_text())
+    )
+    objects = tuple(OntologyObjectRecord(**item) for item in corpus["objects"])
+    manifest = build_query_manifest(
+        release=build_ontology_release(object_types=declarations),
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+        object_types=declarations,
+    )
+    build = build_ontology_semantic_generation(
+        manifest=manifest,
+        embedding_space_id="qualification-space-placeholder",
+        embedding_model_version="unbound-model-version",
+        embedding_dimension=24,
+        runtime_objects=objects,
+        resource_type_query_terms={item.id: item.query_terms for item in resource_registry},
+    )
+    cases = tuple(
+        OntologyRetrievalEvaluationCase(
+            case_id=item["case_id"],
+            query=item["query"],
+            cohort=item["cohort"],
+            expected_document_ids=tuple(item["expected_document_ids"]),
+        )
+        for item in holdout["cases"]
+    )
+
+    plan = prepare_ontology_retrieval_evaluation(
+        build=build,
+        manifest=manifest,
+        cases=cases,
+        calibration_queries=tuple(item["query"] for item in calibration["cases"]),
+        ranking_policy=CatalogRankingPolicy(**calibration["candidate_ranking_policy"]),
+        evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
+            calibration["evaluation_policy"]
+        ),
+        required_object_types=names,
+    )
+
+    assert plan.query_count == 64
+    assert plan.embedding_call_upper_bound == 92
+
+
 @pytest.mark.parametrize("term_binding", ["matching", "missing", "changed"])
 async def test_authored_dataset_uses_real_declarations_and_separate_frozen_questions(
     term_binding: str,
