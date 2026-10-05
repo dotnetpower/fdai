@@ -30,6 +30,11 @@ requester to the nearest eligible ancestor. The existing ActionType and RBAC pol
 whether that person may approve. A missing, stale, conflicting, or ineligible route produces a
 held or no-op outcome.
 
+When the single-operator production approval profile is active, the named operator can satisfy the
+approval quorum without a report-line route. FDAI still records the original quorum, effective
+quorum, operator principal, and self-review flag. The reporting graph does not select the profile,
+name the operator, or make the executor eligible to approve.
+
 ## Independent authority axes
 
 Registered machine-anomaly proposals retain Heimdall as machine initiator, never an inferred
