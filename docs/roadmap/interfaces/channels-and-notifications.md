@@ -74,6 +74,11 @@ durable delivery, and the Teams Workflows webhook binding are owned by
   full-authority development confirmation. Only the FDAI Console decision route can attach one, as a
   token-free fresh-sign-in attestation that the HIL decision payload carries to Core for
   revalidation; Slack and Teams decisions never carry it.
+- A1 approval parks may carry the active single-operator production approval-profile metadata:
+  profile revision, policy digest, original quorum, effective quorum, operator principal, and
+  executor principal. Channel adapters treat these as immutable context for the callback and audit;
+  the Operator API and Core revalidate them before any approval is accepted. The metadata does not
+  let Slack, Teams, or a notification route select a profile or grant execution authority.
 - Core's runtime task supervision runs the license entitlement-state publisher as its own
   background task beside the channel outbox tasks. It sends no channel message, and a slow or
   failed publication cannot delay Slack, Teams, or notification delivery.

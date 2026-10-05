@@ -173,6 +173,7 @@ class PantheonRuntime(RuntimeConversationPort):
         operator_rbac: dict[str, frozenset[str]] | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
         development_authority: development_runtime.DevelopmentRuntimeBindings | None = None,
+        approval_profile: development_runtime.ApprovalRuntimeBindings | None = None,
         execution_resource_lock: ResourceLock | None = None,
         incident_candidate_hook: IncidentCandidateHook | None = None,
         heimdall_rate_threshold: int = 5,
@@ -252,7 +253,9 @@ class PantheonRuntime(RuntimeConversationPort):
             has_var_state_store=var_state_store is not None,
             has_forseti_state_store=forseti_state_store is not None,
             has_approver_authorizer=(
-                approver_authorizer is not None or development_authority is not None
+                approver_authorizer is not None
+                or development_authority is not None
+                or approval_profile is not None
             ),
             resource_lock=execution_resource_lock,
             has_action_semantics=bool(action_types),
@@ -361,6 +364,7 @@ class PantheonRuntime(RuntimeConversationPort):
             freyr_state_store=freyr_state_store,
             freyr_utilization_sampler=freyr_utilization_sampler,
             development=development_authority,
+            approval=approval_profile,
             action_types=action_types,
             governed_execution_selected=governed_execution_selected,
             forseti_state_store=forseti_state_store,
@@ -389,6 +393,7 @@ class PantheonRuntime(RuntimeConversationPort):
             rollback_contracts_by_action_type=rollback_contracts_by_action_type,
             vidar_state_store=vidar_state_store,
             development=development_authority,
+            approval=approval_profile,
         )
         maybe_var = instantiated.get("Var")
         if maybe_var is not None and hasattr(maybe_var, "bind_action_semantics"):

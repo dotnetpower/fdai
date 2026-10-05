@@ -419,6 +419,12 @@ different operation, artifact, source revision, runtime configuration, actor, de
 or expected revision is an idempotency conflict. An exact retry returns the original receipt rather
 than relabeling the current activation state.
 
+The scheduled observation export reads the development platform database, which subscription
+governance stops outside working hours. Before it resolves the active pin, the export opens the same
+bounded database power window as drift detection: it claims and starts a Stopped server, waits until
+Ready, and stops it again only when its own claim records that it started it. A shared concurrency
+group keeps drift detection and the export from stopping the server under each other.
+
 Independent promotion reviews use a separate Core-owned append-only store and protected workflow.
 The workflow verifies the final attested campaign result, recomputes readiness with the exact
 active package release, and re-reads the active pin before it records one target. Every review

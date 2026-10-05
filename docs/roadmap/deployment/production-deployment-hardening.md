@@ -136,6 +136,24 @@ state roots. It fails closed on a missing, unreadable, or changed root, so green
 As deployment does, the Operator Service plan binds the platform-owned Cost pseudonym key that it
 reads from stored platform state. A platform without that key fails the root's evidence with an
 explicit reason instead of an unset Terraform variable.
+Subscription governance stops the development PostgreSQL server outside working hours, and a
+stopped server makes the legacy refresh unreadable. Before the legacy plan, the run reads the server
+identity from stored platform state and opens a bounded power window: a Ready server is left
+running, and a Stopped server is claimed first, started, and awaited until Ready. After the service
+roots, the run stops the server again only when its own claim records that it started it. The
+window never changes server configuration, and a server that can't reach Ready fails the evidence
+with an explicit reason. The Cost Governance observation export opens the same window, and both
+jobs share one concurrency group so neither stops the server under the other.
+Accepting reviewed out-of-band changes uses the separate
+[`infra-drift-reconcile.yml`](../../../.github/workflows/infra-drift-reconcile.yml) workflow. A
+preview run recomputes every root's refresh-only plan and publishes one digest that binds each
+changed address, attribute path, move, and output by value hash; values never appear in the log.
+An apply run in the protected `drift-reconcile` environment recomputes the same plans, applies the
+saved refresh-only plans only when they reproduce the reviewed digest, and then requires every root
+to be drift-free. Refresh-only plans record remote objects and outputs in state; they never change
+infrastructure, so a reviewer decides separately whether a desired-state change must follow. When the
+platform has no Cost pseudonym key binding, the run skips only the Operator Service root and names it
+in the summary, because the key prerequisite reads platform outputs that the reconciliation records.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;

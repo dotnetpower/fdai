@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: b5827ab18c11d2cf5a50694e7722c2dd2ccf6cab
-translation_revised: 2026-10-04
+translation_source_sha: 25d375f5a76182bb133f69e8129e04e9da40ae01
+translation_revised: 2026-10-05
 ---
 # 온톨로지 구조 모델
 
@@ -14,8 +14,8 @@ translation_revised: 2026-10-04
 > 관찰하거나, 작업을 승인하거나, 실행기를 선택하거나, 자율성을 높일 수 없습니다.
 > 카탈로그 스키마와 같은 위치에 있는 거버넌스 검토 등급 토큰은 변경 통제 메타데이터일 뿐,
 > 온톨로지 타입이나 자율성 축이 아닙니다. `standing-authority-promotion`은 ActionType
-> 모드를 바꾸거나 A3-E 권한을 부여할 수 없습니다. Operator promotion-gate 화면은 온톨로지
-> 식별자 및 분류 외부의 읽기 전용 레지스트리 메타데이터입니다. [관측 구성 표시 데이터](aks-outbound-connector-ko.md#operator-전달-계약)도 기존 중립 클러스터 식별자를 참조할 뿐 Resource, ObjectType, LinkType이나 설치 권한을 만들지 않습니다.
+> 모드를 바꾸거나 A3-E 권한을 부여할 수 없으며, 단독 운영자 프로덕션 프로필은 지정된 Owner가
+> 이 등급의 검토 정족수를 혼자 충족하게 할 뿐입니다. Operator promotion-gate 화면은 온톨로지 식별자 및 분류 외부의 읽기 전용 레지스트리 메타데이터입니다. [관측 구성 표시 데이터](aks-outbound-connector-ko.md#operator-전달-계약)도 기존 중립 클러스터 식별자를 참조할 뿐 Resource, ObjectType, LinkType이나 설치 권한을 만들지 않습니다.
 >
 > **호환성 경계:** 기존 `Resource`, `ResourceType`, LinkType 아이덴티티, 저장된 링크 방향,
 > 과거 온톨로지 release는 계속 유효합니다. 새 구조 표면은 추가 방식으로 도입하며 읽기 전용

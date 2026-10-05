@@ -92,6 +92,9 @@ class HilRequestMixin:
         escalation_rungs: Sequence[EscalationRung] = (),
         escalation_context: Mapping[str, object] | None = None,
         development_authority: Mapping[str, Any] | None = None,
+        approval_profile: Mapping[str, Any] | None = None,
+        original_quorum_required: int | None = None,
+        effective_quorum_required: int | None = None,
     ) -> RequestApprovalResult:
         """Park ``action`` before dispatching its approval request.
 
@@ -107,6 +110,16 @@ class HilRequestMixin:
             raise ValueError("ttl_seconds MUST be > 0")
         if approval_id is not None and not approval_id.strip():
             raise ValueError("approval_id MUST be non-empty when supplied")
+        if (original_quorum_required is None) != (effective_quorum_required is None):
+            raise ValueError("original and effective quorum MUST be supplied together")
+        if original_quorum_required is not None and (
+            isinstance(original_quorum_required, bool)
+            or isinstance(effective_quorum_required, bool)
+            or effective_quorum_required is None
+            or original_quorum_required < 1
+            or effective_quorum_required < 1
+        ):
+            raise ValueError("approval quorum fields MUST be positive integers")
         aid = approval_id or uuid4().hex
         if len(aid) > 200:
             raise ValueError("approval_id exceeds cap (200)")
@@ -189,6 +202,8 @@ class HilRequestMixin:
                 "ttl_seconds": ttl_seconds,
                 "expires_at": (parked_at + timedelta(seconds=ttl_seconds)).isoformat(),
             },
+            "original_quorum_required": original_quorum_required,
+            "effective_quorum_required": effective_quorum_required,
             "on_call": on_call_detail(on_call),
             "report_line_route": (route_plan.to_dict() if route_plan is not None else None),
             "contact_consent_id": (
@@ -200,6 +215,32 @@ class HilRequestMixin:
         }
         if development_authority is not None:
             parked["development_authority"] = dict(development_authority)
+        if approval_profile is not None:
+            parked["approval_profile"] = dict(approval_profile)
+            raw_metadata = parked.get("metadata")
+            metadata = dict(raw_metadata) if isinstance(raw_metadata, Mapping) else {}
+            metadata.update(
+                {
+                    "decision_route": metadata.get("decision_route", "action"),
+                    "approval_profile": str(approval_profile.get("approval_profile", "")),
+                    "approval_profile_revision_id": str(approval_profile.get("revision_id", "")),
+                    "approval_profile_operator_principal": str(
+                        approval_profile.get("operator_principal", "")
+                    ),
+                    "approval_profile_executor_principal": str(
+                        approval_profile.get("executor_principal", "")
+                    ),
+                    "approval_profile_policy_digest": str(
+                        approval_profile.get("policy_digest", "")
+                    ),
+                    "approval_profile_effective_from": str(
+                        approval_profile.get("effective_from", "")
+                    ),
+                    "original_quorum_required": str(original_quorum_required or ""),
+                    "effective_quorum_required": str(effective_quorum_required or ""),
+                }
+            )
+            parked["metadata"] = metadata
         if resolved_escalation_rungs and route_plan is None:
             if self.escalation_supervisor is None:
                 raise ValueError("escalation_rungs require an escalation supervisor")
@@ -247,6 +288,17 @@ class HilRequestMixin:
                     if development_authority is not None
                     else None
                 ),
+                "approval_profile": (
+                    {
+                        "revision_id": approval_profile.get("revision_id"),
+                        "approval_profile": approval_profile.get("approval_profile"),
+                        "operator_principal": approval_profile.get("operator_principal"),
+                    }
+                    if approval_profile is not None
+                    else None
+                ),
+                "original_quorum": original_quorum_required,
+                "effective_quorum": effective_quorum_required,
             },
         )
         created = await self._state_store.write_state_with_audit_if_absent(

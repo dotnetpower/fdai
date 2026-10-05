@@ -47,7 +47,11 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
     environment: ${{ inputs.environment || 'dev' }}
-    timeout-minutes: 30
+    timeout-minutes: 45
+    # Serialize with every scheduled run that opens the same database power window.
+    concurrency:
+      group: legacy-database-power-window-${{ inputs.environment || 'dev' }}
+      cancel-in-progress: false
     env:
       TARGET_COMMIT_SHA: ${{ inputs.commit_sha || github.sha }}
       CAMPAIGN_ID: ${{ inputs.campaign_id || 'cost-governance-w7-dev' }}
@@ -131,6 +135,20 @@ jobs:
             -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment || 'dev' }}.tfstate"
+
+      - name: Open legacy database power window
+        id: database_window
+        run: |
+          set -euo pipefail
+          umask 077
+          state_json="$RUNNER_TEMP/database-window-platform-state.json"
+          trap 'rm -f -- "$state_json"' EXIT
+          terraform -chdir=infra show -json >"$state_json"
+          server_id="$(python3 scripts/deployment/service/drift_contract.py \
+            platform-database --state-json "$state_json" | jq -er '.server_id')"
+          python3 scripts/deployment/azure/postgres_power_window.py open \
+            --server-id "$server_id" \
+            --record "$RUNNER_TEMP/database-power-window.json"
 
       - name: Resolve exact active package pin
         id: pin
@@ -411,6 +429,14 @@ jobs:
             ${{ steps.review-attest.outputs.bundle-path }}
           if-no-files-found: error
           retention-days: 90
+
+      - name: Close legacy database power window
+        if: >-
+          always() && steps.protected-source.outcome == 'success' &&
+          steps.database_window.outcome != 'skipped'
+        run: >-
+          python3 scripts/deployment/azure/postgres_power_window.py close
+          --record "$RUNNER_TEMP/database-power-window.json"
 
       - name: Clean private state material
         if: always() && steps.protected-source.outcome == 'success'

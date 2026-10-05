@@ -84,6 +84,7 @@ from fdai.core.operational_planning import (
 from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineageFinalizer,
 )
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.core.tiers.t0_deterministic import T0Engine
 from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
@@ -165,6 +166,7 @@ class Forseti(
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
         development_executor_principal: str | None = None,
         development_action_types: Mapping[str, RegisteredDevelopmentAction] | None = None,
+        approval_profile: ApprovalProfileRevision | None = None,
         governed_execution_selected: bool = False,
         rule_staleness_window: timedelta = _DEFAULT_RULE_STALENESS_WINDOW,
         state_store: StateStore | None = None,
@@ -210,6 +212,7 @@ class Forseti(
             action_types=development_action_types,
             clock=self._test_context_clock,
         )
+        self.initialize_approval_profile(profile=approval_profile)
         if len(self._anomaly_action_sources) > 32 or any(
             not key or key != key.strip() or len(key) > 128 for key in self._anomaly_action_sources
         ):

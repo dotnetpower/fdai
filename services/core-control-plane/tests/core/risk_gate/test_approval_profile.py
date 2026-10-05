@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fdai.core.risk_gate.approval_profile import (
@@ -19,6 +21,13 @@ from fdai.core.risk_gate.approval_profile import (
 )
 from fdai.core.risk_gate.authority import evaluate_execution_authority
 from fdai.core.risk_gate.ceiling import AxisLevel
+from fdai.runtime.approval_profile import (
+    PROFILE_JSON_ENV,
+    PROFILE_PATH_ENV,
+    approval_runtime_bindings,
+    load_approval_profile,
+)
+from fdai.runtime.development_authority import PROFILE_ENV as DEVELOPMENT_PROFILE_ENV
 from fdai.shared.contracts.models import (
     ActionBlastRadius,
     ActionInterface,
@@ -30,13 +39,28 @@ from fdai.shared.contracts.models import (
     RollbackKind,
     Tier,
 )
+from fdai_service_contracts.approval_profile import approval_profile_policy_digest
 
 from .test_authority import _destructive_at, _low_risk_at, _table
 
-_DIGEST = "sha256:" + "a" * 64
 _OPERATOR = "00000000-0000-0000-0000-00000000000A"
 _EXECUTOR = "thor-executor"
 _AT = datetime(2026, 10, 5, tzinfo=UTC)
+
+
+def _profile_payload() -> dict[str, object]:
+    payload: dict[str, object] = {
+        "revision_id": "approval-profile-r1",
+        "approval_profile": "single-operator-production",
+        "executor_principal": _EXECUTOR,
+        "effective_from": _AT.isoformat(),
+        "operator_principal": _OPERATOR,
+    }
+    payload["policy_digest"] = approval_profile_policy_digest(payload)
+    return payload
+
+
+_DIGEST = str(_profile_payload()["policy_digest"])
 
 
 def _single() -> ApprovalProfileRevision:
@@ -48,6 +72,10 @@ def _single() -> ApprovalProfileRevision:
         effective_from=_AT,
         operator_principal=_OPERATOR,
     )
+
+
+def _single_json() -> str:
+    return json.dumps(_profile_payload(), separators=(",", ":"), sort_keys=True)
 
 
 def _multi() -> ApprovalProfileRevision:
@@ -104,6 +132,61 @@ def test_profile_revision_pins_a_digest_and_aware_time() -> None:
         replace(_single(), policy_digest="sha256:XYZ")
     with pytest.raises(ValueError, match="timezone-aware"):
         replace(_single(), effective_from=datetime(2026, 10, 5))
+
+
+def test_missing_approval_profile_config_selects_multi_operator_default() -> None:
+    assert load_approval_profile({}) is None
+    assert approval_runtime_bindings({}) is None
+
+
+def test_approval_profile_loads_from_json_and_path(tmp_path: Path) -> None:
+    loaded = load_approval_profile({PROFILE_JSON_ENV: _single_json()}, clock=lambda: _AT)
+    assert loaded == _single()
+    path = tmp_path / "approval-profile.json"
+    path.write_text(_single_json(), encoding="utf-8")
+    assert load_approval_profile({PROFILE_PATH_ENV: str(path)}, clock=lambda: _AT) == _single()
+
+
+@pytest.mark.parametrize(
+    "environment",
+    [
+        {PROFILE_JSON_ENV: "{not json"},
+        {PROFILE_JSON_ENV: "[]"},
+        {
+            PROFILE_JSON_ENV: _single_json().replace(_DIGEST, "latest"),
+        },
+        {
+            PROFILE_JSON_ENV: json.dumps({**_profile_payload(), "unknown": True}),
+        },
+        {
+            PROFILE_JSON_ENV: json.dumps(
+                {
+                    **_profile_payload(),
+                    "effective_from": (_AT + timedelta(days=1)).isoformat(),
+                    "policy_digest": approval_profile_policy_digest(
+                        {
+                            **_profile_payload(),
+                            "effective_from": (_AT + timedelta(days=1)).isoformat(),
+                        }
+                    ),
+                }
+            ),
+        },
+        {
+            PROFILE_JSON_ENV: _single_json(),
+            PROFILE_PATH_ENV: "profile.json",
+        },
+        {
+            PROFILE_JSON_ENV: _single_json(),
+            DEVELOPMENT_PROFILE_ENV: '{"profile_id":"dev"}',
+        },
+    ],
+)
+def test_malformed_or_conflicting_approval_profile_config_fails_closed(
+    environment: dict[str, str],
+) -> None:
+    with pytest.raises(RuntimeError):
+        load_approval_profile(environment, clock=lambda: _AT)
 
 
 # --- approval decisions -----------------------------------------------------

@@ -169,6 +169,7 @@ def ticket_from_identity(identity: Mapping[str, Any]) -> PendingHilTicket:
     original_quorum_required = identity.get("original_quorum_required", quorum_required)
     effective_quorum_required = identity.get("effective_quorum_required", quorum_required)
     development_authority = identity.get("development_authority")
+    approval_profile = identity.get("approval_profile")
     params = identity.get("params")
     decision_case = identity.get("decision_case")
     if (
@@ -185,6 +186,8 @@ def ticket_from_identity(identity: Mapping[str, Any]) -> PendingHilTicket:
         or effective_quorum_required != quorum_required
         or development_authority is not None
         and not isinstance(development_authority, Mapping)
+        or approval_profile is not None
+        and not isinstance(approval_profile, Mapping)
         or not isinstance(params, Mapping)
         or decision_case is not None
         and not isinstance(decision_case, Mapping)
@@ -227,6 +230,9 @@ def ticket_from_identity(identity: Mapping[str, Any]) -> PendingHilTicket:
         development_authority=(
             dict(development_authority) if isinstance(development_authority, Mapping) else None
         ),
+        approval_profile=(
+            dict(approval_profile) if isinstance(approval_profile, Mapping) else None
+        ),
         action_run_identity=(str(action_run_identity) if action_run_identity is not None else None),
         initiator_principal=optional_strings["initiator_principal"],
         params=dict(params),
@@ -253,6 +259,7 @@ def ticket_identity(ticket: PendingHilTicket) -> dict[str, Any]:
         "original_quorum_required": ticket.original_quorum_required,
         "effective_quorum_required": ticket.effective_quorum_required,
         "development_authority": ticket.development_authority,
+        "approval_profile": ticket.approval_profile,
         "initiator_principal": ticket.initiator_principal,
         "kind": ticket.kind,
         "document_id": ticket.document_id,
