@@ -13,6 +13,7 @@ from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.mimir_policy_administration import (
+    POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE,
     MimirPolicyAdministration,
     OpaRegoPolicyCompiler,
     PolicyRevisionRejectedError,
@@ -20,6 +21,7 @@ from fdai.agents._framework.mimir_policy_administration import (
 )
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime_payload_validation import default_payload_validator
+from fdai.delivery.repo_assets import repo_asset_root
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.approval_profile import (
@@ -56,6 +58,9 @@ from fdai_service_contracts.policy_administration import (
 
 NOW = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
 CAPABILITIES = "rule-catalog/schema/policy_admin_opa_capabilities.json"
+
+
+_CAPABILITIES = repo_asset_root() / POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE
 
 
 class FakeSigner:
@@ -509,13 +514,13 @@ async def test_mimir_replay_rejects_same_key_different_body() -> None:
 @pytest.mark.asyncio
 async def test_opa_capabilities_reject_unavailable_builtins(rego: str) -> None:
     with pytest.raises(PolicyRevisionRejectedError):
-        await OpaRegoPolicyCompiler().compile(rego)
+        await OpaRegoPolicyCompiler(capabilities_file=_CAPABILITIES).compile(rego)
 
 
 @pytest.mark.skipif(shutil.which("opa") is None, reason="opa binary is not installed")
 @pytest.mark.asyncio
 async def test_opa_capabilities_allow_comment_only_builtin_mentions() -> None:
-    await OpaRegoPolicyCompiler().compile(
+    await OpaRegoPolicyCompiler(capabilities_file=_CAPABILITIES).compile(
         "package fdai.policy\n# http.send is not used\nallow := true\n"
     )
 

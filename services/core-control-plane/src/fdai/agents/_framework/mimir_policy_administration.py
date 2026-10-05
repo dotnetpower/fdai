@@ -37,11 +37,11 @@ from pydantic import ValidationError
 
 from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.topics import stable_idempotency_key
-from fdai.delivery.repo_assets import repo_asset_root
 from fdai.shared.providers.state_store import StateStore
 
 _MAX_CONTENT_BYTES = 250_000
-_CAPABILITIES_RELATIVE = "rule-catalog/schema/policy_admin_opa_capabilities.json"
+# Composition resolves this asset and injects its absolute path; agents never import delivery.
+POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE = "rule-catalog/schema/policy_admin_opa_capabilities.json"
 
 
 class PolicyRevisionRejectedError(ValueError):
@@ -124,9 +124,8 @@ class OpaRegoPolicyCompiler:
             raise ValueError("OPA policy compiler timeout MUST be in (0, 30]")
         if shutil.which(self.opa_binary) is None:
             raise PolicyRevisionRejectedError("opa_binary_unavailable")
-        capabilities = self.capabilities_file or repo_asset_root() / _CAPABILITIES_RELATIVE
-        object.__setattr__(self, "capabilities_file", capabilities)
-        if not capabilities.is_file():
+        capabilities = self.capabilities_file
+        if capabilities is None or not capabilities.is_file():
             raise PolicyRevisionRejectedError("opa_capabilities_unavailable")
 
     async def compile(self, rego: str) -> None:
