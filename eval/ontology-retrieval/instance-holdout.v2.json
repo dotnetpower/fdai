@@ -39,18 +39,18 @@
     },
     {
       "case_id": "hold2-en-05",
-      "query": "I need the medium service that sends customer notifications.",
+      "query": "Show the closed critical incident whose last update was one hour after opening.",
       "cohort": "en-positive",
       "expected_document_ids": [
-        "object:BusinessService:example-service-e"
+        "object:Incident:example-incident-b"
       ]
     },
     {
       "case_id": "hold2-en-06",
-      "query": "Which low-criticality business service covers editorial publishing?",
+      "query": "Find the incident with correlation id example-correlation-f, updated at 2026-09-01T11:00:00Z.",
       "cohort": "en-positive",
       "expected_document_ids": [
-        "object:BusinessService:example-service-f"
+        "object:Incident:example-incident-f"
       ]
     },
     {
@@ -87,10 +87,10 @@
     },
     {
       "case_id": "hold2-en-11",
-      "query": "Which web frontend renders editorial pages for the content team?",
+      "query": "Open the network.vnet resource named Example private application network.",
       "cohort": "en-positive",
       "expected_document_ids": [
-        "object:Workload:example-workload-f"
+        "object:Resource:example-resource-d"
       ]
     },
     {
@@ -324,18 +324,18 @@
     },
     {
       "case_id": "hold2-ko-11",
-      "query": "컨테이너화된 배치 작업을 돌리는 클러스터 리소스를 찾아 주세요.",
+      "query": "청구서 금액을 맞추는 background-worker 워크로드를 찾아 주세요.",
       "cohort": "ko-positive",
       "expected_document_ids": [
-        "object:Resource:example-resource-e"
+        "object:Workload:example-workload-a"
       ]
     },
     {
       "case_id": "hold2-ko-12",
-      "query": "애플리케이션 릴리스를 컴파일하고 패키징하는 build agent VM을 보여 주세요.",
+      "query": "상품 검색 인덱스를 만드는 scheduled-job 워크로드를 보여 주세요.",
       "cohort": "ko-positive",
       "expected_document_ids": [
-        "object:Resource:example-resource-f"
+        "object:Workload:example-workload-d"
       ]
     },
     {
