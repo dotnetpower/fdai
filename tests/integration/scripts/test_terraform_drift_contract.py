@@ -466,3 +466,37 @@ def test_observation_export_shares_the_database_window() -> None:
         "      - name: Clean private state material"
     )
     assert "group: legacy-database-power-window-${{ inputs.environment || 'dev' }}" in workflow
+
+
+def test_reconcile_applies_only_reviewed_saved_refresh_only_plans() -> None:
+    workflow = (_ROOT / ".github" / "workflows" / "infra-drift-reconcile.yml").read_text(
+        encoding="utf-8"
+    )
+    plan = workflow.index("      - name: Plan reviewable refresh-only drift")
+    apply = workflow.index("      - name: Apply reviewed refresh-only drift")
+    verify = workflow.index("      - name: Verify every root is drift-free")
+    closed = workflow.index("      - name: Close legacy database power window")
+
+    assert "workflow_dispatch:" in workflow
+    assert "schedule:" not in workflow
+    assert "push:" not in workflow
+    assert (
+        "environment: ${{ inputs.reviewed_drift_digest != '' && 'drift-reconcile' || 'plan-only' }}"
+        in workflow
+    )
+    assert workflow.index("      - name: Open legacy database power window") < plan
+    assert plan < apply < verify < closed
+    assert workflow.count("plan -refresh-only") == 4
+    assert "terraform apply -refresh-only" not in workflow
+    assert "-auto-approve" not in workflow
+    assert "-target" not in workflow
+    assert '[[ "$OBSERVED_DRIFT_DIGEST" == "$REVIEWED_DRIFT_DIGEST" ]]' in workflow
+    apply_block = workflow[apply:verify]
+    assert apply_block.index('OBSERVED_DRIFT_DIGEST" == ') < apply_block.index(
+        'apply -input=false -lock-timeout=300s "$plan_file"'
+    )
+    assert "if: inputs.reviewed_drift_digest != ''" in apply_block
+    assert "refresh_drift_digest.py summarize" in workflow
+    assert "refresh_drift_digest.py digest" in workflow
+    assert "group: legacy-database-power-window-${{ inputs.environment }}" in workflow
+    assert "Drift remains after reconciliation." in workflow

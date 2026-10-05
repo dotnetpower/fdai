@@ -144,6 +144,14 @@ roots, the run stops the server again only when its own claim records that it st
 window never changes server configuration, and a server that can't reach Ready fails the evidence
 with an explicit reason. The Cost Governance observation export opens the same window, and both
 jobs share one concurrency group so neither stops the server under the other.
+Accepting reviewed out-of-band changes uses the separate
+[`infra-drift-reconcile.yml`](../../../.github/workflows/infra-drift-reconcile.yml) workflow. A
+preview run recomputes every root's refresh-only plan and publishes one digest that binds each
+changed address, attribute path, move, and output by value hash; values never appear in the log.
+An apply run in the protected `drift-reconcile` environment recomputes the same plans, applies the
+saved refresh-only plans only when they reproduce the reviewed digest, and then requires every root
+to be drift-free. Refresh-only plans record remote objects and outputs in state; they never change
+infrastructure, so a reviewer decides separately whether a desired-state change must follow.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;
