@@ -479,6 +479,7 @@ class ThorDispatchMixin:
         )
         risk_verdict = authority.risk_verdict
         effective_quorum = authority.effective_quorum
+        approval_profile = verdict.get("approval_profile")
         run = ActionRun(
             correlation_id=correlation,
             action_type=action_type,
@@ -494,6 +495,7 @@ class ThorDispatchMixin:
             original_quorum_required=original_quorum,
             effective_quorum_required=effective_quorum,
             development_authority=authority.evidence,
+            approval_profile=dict(approval_profile) if isinstance(approval_profile, dict) else None,
             initiator_principal=verdict.get("initiator_principal"),
             rollback_contract=rollback_contract,
             decision_case=decision_case,

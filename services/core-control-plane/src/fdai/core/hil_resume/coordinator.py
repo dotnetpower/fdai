@@ -65,6 +65,11 @@ from fdai.core.executor.safeguard_lifecycle_coordinator import (
 from fdai.core.executor.tool_call import (
     ToolCallShadowExecutor,
 )
+from fdai.core.hil_resume.approval_profile_gate import (
+    HilApprovalProfileMixin,
+    approval_profile_audit_detail,
+    parked_approval_profile,
+)
 from fdai.core.hil_resume.approval_records import (
     approval_expired as _approval_expired,
 )
@@ -100,7 +105,7 @@ from fdai.core.hil_resume.load_control import (
 )
 from fdai.core.hil_resume.operator_receipt import operator_receipt_key
 from fdai.core.hil_resume.reconciliation import produce_effect_reconciliation_request
-from fdai.core.hil_resume.report_line import ReportLineHilCoordinator
+from fdai.core.hil_resume.report_line import ReportLineHilCoordinator, report_line_audit_detail
 from fdai.core.hil_resume.request import HilRequestMixin
 from fdai.core.hil_resume.results import (
     RequestApprovalResult,
@@ -117,6 +122,7 @@ from fdai.core.oncall import OnCallResolver
 from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictCurrentReader
 from fdai.core.ontology_platform.reconciliation_producer import EffectReconciliationRequestSink
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.shared.contracts.models import (
     Action,
     FullAuthorityDevelopmentProfile,
@@ -138,7 +144,11 @@ _STATUS_RESOLVED = "resolved"
 
 
 class HilResumeCoordinator(
-    HilAuditMixin, HilDispatchMixin, HilRequestMixin, HilDevelopmentApprovalMixin
+    HilAuditMixin,
+    HilDispatchMixin,
+    HilRequestMixin,
+    HilDevelopmentApprovalMixin,
+    HilApprovalProfileMixin,
 ):
     """Parks HIL-routed actions and resumes them on an approval decision."""
 
@@ -169,6 +179,7 @@ class HilResumeCoordinator(
         effect_reconciliation_request_sink: EffectReconciliationRequestSink | None = None,
         report_line_router: ReportLineApprovalRouter | None = None,
         contact_consent_service: ApprovalContactConsentService | None = None,
+        approval_profile: ApprovalProfileRevision | None = None,
     ) -> None:
         if (report_line_router is None) != (contact_consent_service is None):
             raise ValueError(
@@ -222,6 +233,7 @@ class HilResumeCoordinator(
         self._development_bindings: DevelopmentAuthorityBindingSource | None = None
         self._development_revisions: TargetRevisionReader | None = None
         self._development_category_revalidator: DevelopmentCategoryRevalidator | None = None
+        self._approval_profile = approval_profile
         self._report_line_hil = (
             ReportLineHilCoordinator(
                 store=state_store,
@@ -336,6 +348,20 @@ class HilResumeCoordinator(
         correlation_id = str(parked.get("correlation_id") or approval_id)
         idem = str(parked.get("idempotency_key") or approval_id)
         assignee_oid = str(parked.get("assignee_oid") or "").strip() or None
+        parked_profile, profile_refusal = parked_approval_profile(parked, self._approval_profile)
+        if profile_refusal is not None:
+            await self._audit(
+                action_kind="hil.resolve.approval_profile_refused",
+                idempotency_key=f"{idem}:hil_{profile_refusal}",
+                approval_id=approval_id,
+                correlation_id=correlation_id,
+                detail={"approver_oid": approver_oid, "reason": profile_refusal},
+            )
+            return ResolveResult(
+                outcome=ResolveOutcome.DECISION_REFUSED,
+                approval_id=approval_id,
+                reason=profile_refusal,
+            )
 
         if parked.get("status") == "awaiting_contact_consent":
             if self._report_line_hil is not None and self._report_line_hil.contact_consent_expired(
@@ -485,6 +511,12 @@ class HilResumeCoordinator(
                 submitter_oid=submitter_oid,
                 approver_can_approve_hil=approver_can_approve_hil,
                 assignee_oid=assignee_oid,
+                approval_profile=parked_profile,
+                original_quorum=int(
+                    parked.get("original_quorum_required")
+                    or parked.get("effective_quorum_required")
+                    or 1
+                ),
             )
             if (
                 delegation.refusal is DelegationRefusal.SELF_APPROVAL
@@ -532,6 +564,18 @@ class HilResumeCoordinator(
                         approval_id=approval_id,
                         assignee_oid=assignee_oid,
                     )
+                if delegation.refusal in {
+                    DelegationRefusal.UNNAMED_PRINCIPAL,
+                    DelegationRefusal.APPROVER_IS_EXECUTOR,
+                }:
+                    return await self._refuse_by_profile(
+                        delegation,
+                        idem=idem,
+                        approval_id=approval_id,
+                        correlation_id=correlation_id,
+                        approver_oid=approver_oid,
+                        assignee_oid=assignee_oid,
+                    )
                 await self._audit(
                     action_kind="hil.resolve.self_approval_refused",
                     idempotency_key=f"{idem}:hil_self_approval",
@@ -544,6 +588,7 @@ class HilResumeCoordinator(
                             if delegation.refusal is not None
                             else "self_approval"
                         ),
+                        **approval_profile_audit_detail(delegation.approval_profile),
                     },
                 )
                 return ResolveResult(
@@ -603,7 +648,8 @@ class HilResumeCoordinator(
             action_kind="hil.approved.claimed",
             detail={
                 "approver_oid": approver_oid,
-                **_report_line_audit_detail(parked),
+                **approval_profile_audit_detail(delegation.approval_profile),
+                **report_line_audit_detail(parked),
             },
         )
         if not claimed:
@@ -626,7 +672,7 @@ class HilResumeCoordinator(
                         else None
                     ),
                     "reason": "rule_not_in_catalog",
-                    **_report_line_audit_detail(parked),
+                    **report_line_audit_detail(parked),
                 },
             )
             return ResolveResult(
@@ -674,6 +720,7 @@ class HilResumeCoordinator(
                 "assignee_oid": assignee_oid,
                 "delegated": is_delegated,
                 "delegation_mode": delegation_mode,
+                **approval_profile_audit_detail(delegation.approval_profile),
                 "action_id": str(action.action_id),
                 "action_type": action.action_type,
                 "workflow_action": (
@@ -684,7 +731,7 @@ class HilResumeCoordinator(
                 "mode": action.mode.value,
                 "execution_outcome": result.outcome.value,
                 "safeguard_bundle_digest": result.safeguard_bundle_digest,
-                **_report_line_audit_detail(parked),
+                **report_line_audit_detail(parked),
                 **(
                     {
                         "effect_reconciliation_request_status": reconciliation.status.value,
@@ -740,18 +787,6 @@ class HilResumeCoordinator(
                 reason=f"already resolved as {prior}",
             )
         return ResolveResult(outcome=ResolveOutcome.ALREADY_RESOLVED, approval_id=approval_id)
-
-
-def _report_line_audit_detail(parked: Mapping[str, object]) -> dict[str, str]:
-    route = parked.get("report_line_route")
-    if not isinstance(route, Mapping):
-        return {}
-    fields = {
-        "report_line_route_digest": route.get("route_digest"),
-        "report_line_path_revision": route.get("path_revision"),
-        "report_line_graph_revision": route.get("graph_revision"),
-    }
-    return {key: value for key, value in fields.items() if isinstance(value, str) and value}
 
 
 __all__ = [

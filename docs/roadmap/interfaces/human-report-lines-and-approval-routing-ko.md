@@ -1,7 +1,7 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 5e97a00888b58d0b665c645930fa451570de2429
-translation_revised: 2026-10-02
+translation_source_sha: 554d2f3eb174096a69ac558b5e8255a444292b8b
+translation_revised: 2026-10-05
 title: 사람 보고선 및 승인 라우팅
 ---
 # 사람 보고선 및 승인 라우팅
@@ -28,6 +28,11 @@ ActionType에 report-line 승인이 필요하면 FDAI는 요청자에게 해당 
 연락해도 되는지 동의를 요청합니다. 동의 후 요청자부터 가장 가까운 적격 상위자까지 현재
 그래프를 탐색합니다. 기존 ActionType 및 RBAC 정책이 그 사람의 승인 가능 여부를 결정합니다.
 누락되거나 오래됐거나 충돌하거나 자격이 없는 경로는 보류 또는 무작업 결과가 됩니다.
+
+단독 운영자 프로덕션 승인 프로필이 활성 상태이면 지정된 운영자가 report-line 경로 없이 승인
+정족수를 충족할 수 있습니다. FDAI는 그래도 원래 정족수, 유효 정족수, 운영자 principal,
+`self_review` 플래그를 기록합니다. 보고 그래프는 프로필을 선택하거나 운영자를 지정하거나
+실행기가 승인할 수 있게 만들지 않습니다.
 
 ## 독립적인 권한 축
 

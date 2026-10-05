@@ -82,6 +82,7 @@ class PendingHilTicket:
     original_quorum_required: int | None = None
     effective_quorum_required: int | None = None
     development_authority: dict[str, Any] | None = None
+    approval_profile: dict[str, Any] | None = None
     action_id: str | None = None
     action_run_identity: str | None = None
     initiator_principal: str | None = None
@@ -126,6 +127,7 @@ class PendingHilTicket:
                     "original_quorum_required": self.original_quorum_required,
                     "effective_quorum_required": self.effective_quorum_required,
                     "development_authority": self.development_authority,
+                    "approval_profile": self.approval_profile,
                     "initiator_principal": self.initiator_principal,
                     "rollback_contract": self.rollback_contract,
                     "verdict": "hil",
@@ -175,6 +177,7 @@ class ApprovalTicket(Protocol):
     original_quorum_required: int | None
     effective_quorum_required: int | None
     development_authority: dict[str, Any] | None
+    approval_profile: dict[str, Any] | None
     initiator_principal: str | None
     approvers: list[str]
     kind: str
@@ -198,6 +201,7 @@ def _approval_ticket_identity(ticket: ApprovalTicket) -> dict[str, Any]:
         "original_quorum_required": ticket.original_quorum_required,
         "effective_quorum_required": ticket.effective_quorum_required,
         "development_authority": ticket.development_authority,
+        "approval_profile": ticket.approval_profile,
         "initiator_principal": ticket.initiator_principal,
         "kind": ticket.kind,
         "document_id": ticket.document_id,

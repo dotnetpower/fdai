@@ -31,6 +31,15 @@ runtime notification router and durable per-channel delivery store as other oper
 Those notifications are informational only and inherit the runtime's ChatOps bindings; they do not
 change runtime selection, deploy an observer, approve a plan, or grant execution authority.
 
+Single-operator production approval is a deployment-selected approval profile, not a runtime
+platform profile. Core may load one immutable `ApprovalProfileRevision` from
+`FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH`. The same revision is shared by
+ControlLoop, HIL resume, and Pantheon composition. It is mutually exclusive with the
+full-authority development profile and fails closed when malformed, not yet effective, or carrying
+a mismatched content-addressed digest. It reduces only the approval quorum for the named operator;
+it does not change runtime selection, risk classes, A4 denial, execution identity, or effect
+verification.
+
 The host's read-only `verify-source-runtime` command checks pinned source/runtime content, not
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
 cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;

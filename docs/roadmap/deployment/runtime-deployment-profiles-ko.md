@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: fd4bca856e8b98f6660a71ea75c2705009b97d84
+translation_source_sha: ccd96fc2d277eaa4c1947926c40925511fd326bb
 translation_revised: 2026-10-05
 ---
 # 런타임 배포 프로파일
@@ -48,6 +48,14 @@ ChatOps 바인딩을 그대로 사용합니다. 런타임 선택을 바꾸거나
 검사는 이미 해석된 입력에 대해 로컬 Plan 접수와 차단 제약을 평가하지만, Hub를 폴링하거나
 매니페스트를 렌더링하거나 Terraform을 적용하거나 증적을 서명하거나 수명 주기 권한을 부여하지
 않습니다.
+
+단독 운영자 프로덕션 승인은 런타임 플랫폼 프로필이 아니라 배포가 선택하는 승인 프로필입니다.
+Core는 `FDAI_APPROVAL_PROFILE_JSON` 또는 `FDAI_APPROVAL_PROFILE_PATH`에서 불변
+`ApprovalProfileRevision` 하나를 로드할 수 있습니다. 같은 개정은 ControlLoop, HIL 재개,
+Pantheon 조립이 공유합니다. 이 프로필은 전권 개발 프로필과 함께 사용할 수 없으며, 형식이
+잘못됐거나 아직 유효하지 않거나 콘텐츠 주소 지정 다이제스트가 맞지 않으면 안전하게 차단됩니다.
+이 프로필은 지정된 운영자의 승인 정족수만 줄이며 런타임 선택, 위험 등급, A4 차단, 실행 신원,
+효과 검증은 바꾸지 않습니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을

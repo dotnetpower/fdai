@@ -12,6 +12,7 @@ from fdai.agents._framework.var_development_authority import (
 from fdai.agents.thor import Thor
 from fdai.agents.var import ApproverAuthorizer, Var
 from fdai.agents.vidar import RollbackExecutor, Vidar
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.shared.contracts.development_authority import normalized_principal
 from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
@@ -36,6 +37,13 @@ class DevelopmentRuntimeBindings:
             raise ValueError("development executor does not match the selected profile")
 
 
+@dataclass(frozen=True, slots=True)
+class ApprovalRuntimeBindings:
+    """Deployment-owned active production approval profile."""
+
+    profile: ApprovalProfileRevision
+
+
 def configure_authority_agents(
     agents: dict[str, Any],
     *,
@@ -46,13 +54,20 @@ def configure_authority_agents(
     rollback_contracts_by_action_type: Mapping[str, str] | None,
     vidar_state_store: StateStore | None,
     development: DevelopmentRuntimeBindings | None,
+    approval: ApprovalRuntimeBindings | None = None,
 ) -> None:
     """Inject optional development evidence into existing Var and Vidar roles."""
 
     profile = development.profile if development is not None else None
     executor = development.executor_principal if development is not None else None
     owner_authorizer = development.owner_authorizer if development is not None else None
-    if approver_authorizer is not None or var_state_store is not None or profile is not None:
+    approval_profile = approval.profile if approval is not None else None
+    if (
+        approver_authorizer is not None
+        or var_state_store is not None
+        or profile is not None
+        or approval_profile is not None
+    ):
         agents["Var"] = Var(
             approver_authorizer=approver_authorizer,
             state_store=var_state_store,
@@ -62,6 +77,7 @@ def configure_authority_agents(
             development_binding_source=(
                 development.binding_source if development is not None else None
             ),
+            approval_profile=approval_profile,
         )
     if (
         rollback_executors is not None
@@ -102,6 +118,7 @@ def development_requires_enforce_bindings(
 
 
 __all__ = [
+    "ApprovalRuntimeBindings",
     "DevelopmentRuntimeBindings",
     "bind_thor_development_authority",
     "configure_authority_agents",

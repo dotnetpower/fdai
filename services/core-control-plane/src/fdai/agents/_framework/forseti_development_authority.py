@@ -11,6 +11,10 @@ from fdai.agents._framework.development_authority import (
     development_binding_verification,
     development_grant,
 )
+from fdai.core.risk_gate.approval_profile import (
+    ApprovalProfileRevision,
+    effective_quorum_for,
+)
 from fdai.shared.contracts.models import (
     Autonomy,
     FullAuthorityDevelopmentProfile,
@@ -27,6 +31,7 @@ class ForsetiDevelopmentAuthorityMixin:
     _development_executor_principal: str | None
     _development_action_types: Mapping[str, RegisteredDevelopmentAction]
     _development_clock: Callable[[], datetime]
+    _approval_profile: ApprovalProfileRevision | None
     record_behavior: Callable[..., None]
 
     def initialize_development_authority(
@@ -43,6 +48,29 @@ class ForsetiDevelopmentAuthorityMixin:
         self._development_executor_principal = executor_principal
         self._development_action_types = dict(action_types or {})
         self._development_clock = clock or (lambda: datetime.now(tz=UTC))
+        self._approval_profile = None
+
+    def initialize_approval_profile(
+        self,
+        *,
+        profile: ApprovalProfileRevision | None,
+    ) -> None:
+        self._approval_profile = profile
+
+    def attach_approval_profile(self, verdict: dict[str, Any]) -> None:
+        profile = self._approval_profile
+        if profile is None:
+            return
+        original_quorum = int(
+            verdict.get("original_quorum_required", verdict.get("quorum_required", 1))
+        )
+        effective_quorum = effective_quorum_for(profile, original_quorum)
+        verdict["approval_profile"] = profile.as_audit_dict()
+        verdict["operator_principal"] = profile.operator_principal
+        verdict["original_quorum_required"] = original_quorum
+        verdict["effective_quorum_required"] = effective_quorum
+        verdict["quorum_required"] = effective_quorum
+        self.record_behavior("approval_profile:attached")
 
     def attach_development_authority(
         self,

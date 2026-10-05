@@ -47,10 +47,67 @@ from .test_operator_iam_family import (
 )
 
 APPROVER = "00000000-0000-0000-0000-00000000a002"
+EXECUTOR = "00000000-0000-0000-0000-00000000e001"
 
 
 def _owner_only_state(parked_at: datetime, **block: object) -> dict[str, object]:
     return _state(parked_at, original_level="deny", owner_self_approval_only=True, **block)
+
+
+@pytest.mark.asyncio
+async def test_callback_single_operator_profile_names_only_operator_and_refuses_executor() -> None:
+    registry = RecordingHilRegistry(submitter_oid=APPROVER)
+    metadata = {**registry.context.metadata, **_approval_profile_metadata()}
+    registry.context = replace(registry.context, metadata=metadata)
+
+    accepted = await _callback_decision(registry, actor_oid=APPROVER)
+    assert accepted.status_code == 200
+    assert registry.command is not None
+    assert registry.command.approver_oid == APPROVER
+
+    unnamed = RecordingHilRegistry(submitter_oid=APPROVER)
+    unnamed.context = replace(unnamed.context, metadata=metadata)
+    unnamed_response = await _callback_decision(unnamed, actor_oid="00000000-0000-0000-0000-0bad")
+    assert unnamed_response.status_code == 403
+    assert b"unnamed_principal" in unnamed_response.body
+    assert unnamed.command is None
+
+    executor = RecordingHilRegistry(submitter_oid=APPROVER)
+    executor.context = replace(executor.context, metadata=metadata)
+    executor_response = await _callback_decision(executor, actor_oid=EXECUTOR)
+    assert executor_response.status_code == 403
+    assert b"approver_is_executor" in executor_response.body
+    assert executor.command is None
+
+
+@pytest.mark.asyncio
+async def test_callback_malformed_approval_profile_metadata_returns_context_unavailable() -> None:
+    registry = RecordingHilRegistry(submitter_oid=APPROVER)
+    registry.context = replace(
+        registry.context,
+        metadata={
+            **registry.context.metadata,
+            "approval_profile": "single-operator-production",
+        },
+    )
+
+    response = await _callback_decision(registry, actor_oid=APPROVER)
+
+    assert response.status_code == 503
+    assert b"context_unavailable" in response.body
+    assert registry.command is None
+
+
+@pytest.mark.asyncio
+async def test_callback_multi_operator_self_approval_response_is_unchanged() -> None:
+    registry = RecordingHilRegistry(submitter_oid=APPROVER.upper())
+
+    response = await _callback_decision(registry, actor_oid=APPROVER)
+
+    assert response.status_code == 403
+    assert b"no_self_approval - approval actor equals submitter" in response.body
+    assert b"self_approval_forbidden" in response.body
+    assert registry.command is None
 
 
 def test_owner_only_marker_comes_from_the_core_block_and_fails_closed() -> None:
@@ -77,6 +134,58 @@ def _owner_only_registry(parked_at: datetime) -> RecordingHilRegistry:
     }
     registry.context = replace(registry.context, metadata=metadata)
     return registry
+
+
+def _approval_profile_metadata() -> dict[str, str]:
+    return {
+        "decision_route": "action",
+        "approval_profile": "single-operator-production",
+        "approval_profile_revision_id": "approval-profile-r1",
+        "approval_profile_operator_principal": APPROVER,
+        "approval_profile_executor_principal": EXECUTOR,
+        "approval_profile_policy_digest": "sha256:" + "a" * 64,
+        "approval_profile_effective_from": datetime(2026, 10, 5, tzinfo=UTC).isoformat(),
+        "original_quorum_required": "2",
+        "effective_quorum_required": "1",
+    }
+
+
+async def _callback_decision(
+    registry: RecordingHilRegistry,
+    *,
+    actor_oid: str,
+    role: OperatorRole = OperatorRole.APPROVER,
+) -> Any:
+    service = HilCallbackDecisionService(
+        registry=registry,  # type: ignore[arg-type]
+        outbox=RecordingHilOutbox(),  # type: ignore[arg-type]
+        authority=None,
+        audit=RecordingHilAudit(),  # type: ignore[arg-type]
+        context_reader=registry,  # type: ignore[arg-type]
+        clock=lambda: datetime.now(UTC),
+    )
+    session = await service.begin(
+        HilCallbackAttempt(
+            callback_id=f"callback-{actor_oid}",
+            approval_id="approval-1",
+            intent_digest="sha256:" + "d" * 64,
+            channel_hint="console",
+            actor_hint=actor_oid,
+        )
+    )
+    assert isinstance(session, HilCallbackSession)
+    return await service.decide_authenticated(
+        session,
+        approval_id="approval-1",
+        decision=HilApprovalDecision.APPROVE,
+        justification="reviewed",
+        actor=HilCallbackActor(
+            oid=actor_oid,
+            identity_ref=f"actor:{actor_oid}",
+            roles=frozenset({role}),
+            authority_basis="console:entra_app_role",
+        ),
+    )
 
 
 def _console_decision(
