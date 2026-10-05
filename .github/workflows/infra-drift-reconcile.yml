@@ -159,6 +159,21 @@ jobs:
           work="$RUNNER_TEMP/drift-reconcile"
           rm -rf -- "$work"
           mkdir -m 700 "$work" "$work/plans" "$work/summaries" "$work/vars"
+          resolve_bootstrap_inputs() {
+            local stored_inputs
+            if stored_inputs="$(python3 scripts/deployment/service/drift_contract.py \
+              bootstrap-inputs --state-json "$1" 2>/dev/null)"; then
+              TF_VAR_app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
+              TF_VAR_runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
+            else
+              # Same authoritative host readback as infra-drift for a promoted runner.
+              TF_VAR_app_resource_group_name="$(terraform -chdir=infra/bootstrap output -raw app_resource_group_name)"
+              TF_VAR_runner_ssh_public_key="$(awk 'NF >= 2 && $1 ~ /^ssh-/ {print; exit}' \
+                "$HOME/.ssh/authorized_keys")"
+              [[ -n "$TF_VAR_app_resource_group_name" && -n "$TF_VAR_runner_ssh_public_key" ]]
+              echo "Recovered promoted runner plan inputs from authoritative host readback."
+            fi
+          }
           summarize_plan() {
             local root_id="$1" terraform_root="$2" plan_file="$3" plan_json
             plan_json="$work/plans/$(tr ':/' '__' <<<"$root_id").json"
@@ -263,10 +278,7 @@ jobs:
             -backend-config="key=ops/bootstrap/$ENVIRONMENT.tfstate" \
             -backend-config="use_azuread_auth=true"
           terraform -chdir=infra/bootstrap show -json >"$work/vars/bootstrap-state.json"
-          stored_inputs="$(python3 scripts/deployment/service/drift_contract.py \
-            bootstrap-inputs --state-json "$work/vars/bootstrap-state.json")"
-          TF_VAR_app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
-          TF_VAR_runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
+          resolve_bootstrap_inputs "$work/vars/bootstrap-state.json"
           TF_VAR_state_storage_account_name="$STATE_STORAGE_ACCOUNT"
           export TF_VAR_app_resource_group_name TF_VAR_runner_ssh_public_key \
             TF_VAR_state_storage_account_name
@@ -334,14 +346,10 @@ jobs:
                 | jq '.variables | map_values(.value)' >"$work/verify/vars.json"
               var_args+=(-var-file="$work/verify/vars.json")
             elif [[ "$root_id" == "bootstrap" ]]; then
-              stored_inputs="$(terraform -chdir=infra/bootstrap show -json \
-                | python3 scripts/deployment/service/drift_contract.py bootstrap-inputs \
-                  --state-json /dev/stdin)"
-              TF_VAR_app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
-              TF_VAR_runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
-              TF_VAR_state_storage_account_name="$STATE_STORAGE_ACCOUNT"
-              export TF_VAR_app_resource_group_name TF_VAR_runner_ssh_public_key \
-                TF_VAR_state_storage_account_name
+              # Reuse the exact variables of the reviewed bootstrap plan.
+              terraform -chdir="$terraform_root" show -json "$plan_file" \
+                | jq '.variables | map_values(.value)' >"$work/verify/vars.json"
+              var_args+=(-var-file="$work/verify/vars.json")
             fi
             terraform -chdir="$terraform_root" plan -refresh-only -input=false -lock-timeout=300s \
               "${var_args[@]}" -out="$verify_plan" >/dev/null
