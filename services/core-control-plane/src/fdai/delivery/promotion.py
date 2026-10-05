@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
+from fdai_service_contracts.approval_profile import (
+    ApprovalProfileKind,
+    ApprovalProfileRevision,
+)
+
 from fdai.core.executor.lock import ResourceLockManager
 from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.core.rbac.roles import Role
@@ -103,6 +108,11 @@ class GovernancePromotionAttestation:
                 ],
                 "co_author_oids": list(self.review.co_author_oids),
                 "committer_oids": list(self.review.committer_oids),
+                "approval_profile": (
+                    self.review.approval_profile.as_audit_dict()
+                    if self.review.approval_profile is not None
+                    else None
+                ),
             },
         }
 
@@ -750,6 +760,7 @@ def _attestation_from_json(raw: Mapping[str, Any]) -> GovernancePromotionAttesta
             approvals=tuple(approvals),
             co_author_oids=frozenset(_strings(review_raw.get("co_author_oids"))),
             committer_oids=frozenset(_strings(review_raw.get("committer_oids"))),
+            approval_profile=_approval_profile(review_raw.get("approval_profile")),
         ),
         action_type_id=_text(raw, "action_type_id"),
         fdai_revision=_text(raw, "fdai_revision"),
@@ -815,6 +826,21 @@ def _timestamp(raw: Mapping[str, Any], name: str) -> datetime:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise DirectApiPreconditionError(f"promotion attestation {name} is not timezone-aware")
     return parsed
+
+
+def _approval_profile(value: object) -> ApprovalProfileRevision | None:
+    if value is None:
+        return None
+    raw = _mapping(value, "approval_profile")
+    operator = raw.get("operator_principal")
+    return ApprovalProfileRevision(
+        revision_id=_text(raw, "revision_id"),
+        approval_profile=ApprovalProfileKind(_text(raw, "approval_profile")),
+        executor_principal=_text(raw, "executor_principal"),
+        policy_digest=_text(raw, "policy_digest"),
+        effective_from=_timestamp(raw, "effective_from"),
+        operator_principal=(str(operator) if operator is not None else None),
+    )
 
 
 def _optional_timestamp(value: object) -> datetime | None:
