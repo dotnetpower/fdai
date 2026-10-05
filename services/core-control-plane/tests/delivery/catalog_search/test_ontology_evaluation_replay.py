@@ -107,7 +107,8 @@ async def test_replay_enforces_file_and_record_byte_limits(
 ) -> None:
     path = tmp_path / "bounded.jsonl"
     await _capture(path)
-    monkeypatch.setattr(replay_module, limit, 1)
+    module = evidence_module if limit == "_MAX_FILE_BYTES" else replay_module
+    monkeypatch.setattr(module, limit, 1)
     with pytest.raises(ValueError):
         _replay(path)
 

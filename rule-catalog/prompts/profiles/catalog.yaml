@@ -10,6 +10,8 @@ profiles:
     system_token_budget: 8192
     request_token_budget: 32768
     reserved_output_tokens: 2048
+    model_role: t2.reasoner.primary
+    reasoning_effort: low
     promotion_evidence: []
     provenance: {source: docs/runbooks/ontology-retrieval-diagnostics.md}
   - id: active.t2-reasoner-primary

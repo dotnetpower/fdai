@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from fdai.core.prompts.profiles import PromptArtifactRef, PromptProfile, PromptProfileMode
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.core.prompts.types import PromptLayer
 from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_yaml
@@ -273,6 +275,20 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "forbidden_actions" in judgment_shadow.body
     assert "use only the supplied query.manifest FunctionType" in judgment_shadow.body
     assert "A generic prohibited operation uses kind action" in judgment_shadow.body
+
+    selection = prompts.resolve(
+        "semantic.query.plan", profile_id="diagnostic.ontology-candidate-selection"
+    )
+    artifact = selection.root
+    body = artifact.body
+    assert "select that instance by exact object_ids" in body
+    assert "Use property predicates for genuine" in body
+    assert "property-constrained sets" in body
+    assert "restate a known instance's id, name, alias" in body
+    assert "contains predicate when its exact object id is available" in body
+    assert selection.profile.model_role == "t2.reasoner.primary"
+    assert selection.profile.reasoning_effort == "low"
+
     assert "Put only explicitly negated or prohibited operations" in judgment_shadow.body
     schema_shadow = next(
         artifact
@@ -555,3 +571,21 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "audit the complete closed shape" in plan.body
     assert "exactly one unfiltered visible Resource object_set scope" in plan.body
     assert "Do not output or add query.incident_evidence" in plan.body
+
+
+def test_prompt_profile_rejects_unreviewed_reasoning_effort() -> None:
+    with pytest.raises(ValueError, match="reasoning_effort"):
+        PromptProfile(
+            id="diagnostic.test",
+            version=1,
+            capability_id="semantic.query.plan",
+            mode=PromptProfileMode.SHADOW,
+            root=PromptArtifactRef(id="x", version=1, layer=PromptLayer.BASE),
+            packs=(),
+            system_token_budget=1,
+            request_token_budget=2,
+            reserved_output_tokens=1,
+            promotion_evidence=(),
+            provenance_source="test",
+            reasoning_effort="expensive",
+        )

@@ -15,6 +15,10 @@ from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.ontology_platform import QueryManifest
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.delivery.azure.llm.semantic_planning_config import (
+    candidate_proposal_prompt_manifest,
+    candidate_proposal_schema_digest,
+)
 from fdai.rule_catalog.schema.rule_semantic_evaluation import RetrievalEvaluationPolicy
 from fdai.rule_catalog.schema.rule_semantic_retrieval import CohortMetric, query_digest
 
@@ -47,6 +51,19 @@ from .ontology_vector_store import _check_deadline
 from .ranking import CatalogRankingPolicy
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def semantic_candidate_model_binding(
+    model: OntologyCandidateProposer,
+    manifest: QueryManifest,
+    build: SemanticGenerationBuild | None = None,
+) -> OntologyCandidateModelBinding:
+    binder = getattr(model, "candidate_proposal_binding_for_manifest", None)
+    if callable(binder):
+        binding = binder(manifest, build)
+        if isinstance(binding, OntologyCandidateModelBinding):
+            return binding
+    return model.candidate_proposal_binding()
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,8 +116,18 @@ class OntologySemanticEvaluationReport:
 
 
 class OntologySemanticEvaluationAbortedError(RuntimeError):
-    def __init__(self, binding_digest: str, calls: int, completed: int) -> None:
+    def __init__(
+        self,
+        binding_digest: str,
+        calls: int,
+        completed: int,
+        *,
+        stage: str | None = None,
+        failure_chain: tuple[dict[str, str], ...] = (),
+    ) -> None:
         self.binding_digest, self.proposal_calls, self.completed = binding_digest, calls, completed
+        self.stage = stage
+        self.failure_chain = failure_chain
         super().__init__(
             f"semantic evaluation aborted after {calls} proposals and {completed} cases"
         )
@@ -202,7 +229,7 @@ async def run_ontology_semantic_evaluation(
         ranking_policy=ranking_policy,
         evaluation_policy=evaluation_policy,
         required_object_types=required_object_types,
-        model_binding=model.candidate_proposal_binding(),
+        model_binding=semantic_candidate_model_binding(model, manifest, build),
         model_name=plan.model_name,
         model_version=plan.model_version,
         source_commit=plan.source_commit,
@@ -226,7 +253,7 @@ async def run_ontology_semantic_evaluation(
 
     def validate_reader() -> None:
         _check_deadline(deadline)
-        if model.candidate_proposal_binding() != plan.model_binding:
+        if semantic_candidate_model_binding(model, manifest, build) != plan.model_binding:
             raise ValueError("semantic evaluation model binding changed")
         reader.validate_evaluation_binding(
             staged=staged,
@@ -286,11 +313,17 @@ async def run_ontology_semantic_evaluation(
                     validate_reader()
                     phase = "proposal_binding"
                     observation = proposed.observation
+                    expected_prompt_manifest = candidate_proposal_prompt_manifest(
+                        plan.model_binding.prompt_manifest,
+                        manifest=manifest,
+                        query=case.query,
+                        build=build,
+                    )
                     if (
                         proposed.input_digest != payload["input_digest"]
                         or content_digest({"deployment": observation.model})
                         != plan.model_binding.deployment_digest
-                        or observation.prompt_replay_manifest != plan.model_binding.prompt_manifest
+                        or observation.prompt_replay_manifest != expected_prompt_manifest
                     ):
                         raise ValueError("semantic proposal observation binding changed")
                     proposed.proposal.validate_source_quotes(case.query)
@@ -311,6 +344,12 @@ async def run_ontology_semantic_evaluation(
                                 for quote in proposed.proposal.clause_quotes
                             ],
                             "observation_digest": content_digest(asdict(observation)),
+                            "response_schema_digest": candidate_proposal_schema_digest(
+                                manifest=manifest,
+                                query=case.query,
+                                build=build,
+                            ),
+                            "quote_invalid_clauses": proposed.quote_invalid_clauses,
                         },
                     )
                     _check_deadline(bound)
@@ -401,6 +440,7 @@ async def run_ontology_semantic_evaluation(
     except OntologyEvaluationEvidenceError:
         raise
     except (ValueError, PermissionError, TimeoutError, RuntimeError) as exc:
+        failure_chain = _repository_exception_chain(exc)
         evidence.record(
             "aborted",
             {
@@ -409,6 +449,7 @@ async def run_ontology_semantic_evaluation(
                 "completed": len(measurements),
                 "failure_type": type(exc).__name__,
                 "stage": phase,
+                "failure_chain": failure_chain,
             },
         )
         _LOGGER.warning(
@@ -416,5 +457,19 @@ async def run_ontology_semantic_evaluation(
             extra={"stage": phase, "proposal_calls": calls, "failure_type": type(exc).__name__},
         )
         raise OntologySemanticEvaluationAbortedError(
-            plan.binding_digest, calls, len(measurements)
+            plan.binding_digest,
+            calls,
+            len(measurements),
+            stage=phase,
+            failure_chain=failure_chain,
         ) from None
+
+
+def _repository_exception_chain(exc: BaseException) -> tuple[dict[str, str], ...]:
+    chain: list[dict[str, str]] = []
+    current: BaseException | None = exc
+    while current is not None:
+        if isinstance(current, (ValueError, PermissionError)):
+            chain.append({"class": type(current).__name__, "message": str(current)})
+        current = current.__cause__ or current.__context__
+    return tuple(chain)

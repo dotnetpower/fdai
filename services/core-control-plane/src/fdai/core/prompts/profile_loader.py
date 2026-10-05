@@ -130,6 +130,10 @@ def _coerce_profile(raw: Mapping[str, object]) -> PromptProfile:
         reserved_output_tokens=int(raw["reserved_output_tokens"]),  # type: ignore[call-overload]
         promotion_evidence=tuple(str(item) for item in promotion_evidence),
         provenance_source=str(provenance["source"]),
+        model_role=str(raw["model_role"]) if raw.get("model_role") is not None else None,
+        reasoning_effort=(
+            str(raw["reasoning_effort"]) if raw.get("reasoning_effort") is not None else None
+        ),
     )
 
 
