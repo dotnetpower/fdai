@@ -12,15 +12,8 @@ or a second source of provider truth.
 > They cannot observe external state, approve an action, select an executor, or raise autonomy.
 > Governance review-class tokens colocated with catalog schemas remain change-control metadata,
 > not ontology types or autonomy axes. `standing-authority-promotion` cannot change an ActionType
-> mode or grant A3-E authority. Under the single-operator production profile, that review class may
-> carry one pinned approval-profile revision so the named Owner can satisfy its review quorum of
-> two with an effective quorum of one; other governance review classes keep their existing
-> requirements unless their owning design changes. This review metadata still cannot create a
-> Resource, ObjectType, LinkType, action authority, or execution authority. The Operator
-> promotion-gate view is read-only registry metadata outside ontology identity and classification.
-> [Observer setup projections](aks-outbound-connector.md#operator-delivery-contract) likewise
-> reference an existing neutral cluster identity without creating Resource, ObjectType, LinkType or
-> installation authority.
+> mode or grant A3-E authority; the single-operator production profile only lets its named Owner
+> meet that class's review quorum alone. The Operator promotion-gate view is read-only registry metadata outside ontology identity and classification. [Observer setup projections](aks-outbound-connector.md#operator-delivery-contract) likewise reference an existing neutral cluster identity without creating Resource, ObjectType, LinkType or installation authority.
 >
 > **Compatibility boundary:** Existing `Resource`, `ResourceType`, LinkType identities, stored link
 > directions, and historical ontology releases remain valid. New structural surfaces are additive
