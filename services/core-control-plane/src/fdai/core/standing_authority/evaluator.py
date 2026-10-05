@@ -22,6 +22,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
 from fdai.core.standing_authority.record import (
+    ApprovalProfile,
     ApproverRole,
     AuthorizationMode,
     AuthorizationStatus,
@@ -85,6 +86,10 @@ class StandingAuthorizationDecision:
     authorization_id: str
     authorization_revision: str
     evaluated_at: datetime
+    approval_profile: ApprovalProfile | None
+    original_quorum: int
+    effective_quorum: int
+    operator_principal: str | None
 
     @property
     def is_eligible(self) -> bool:
@@ -118,6 +123,10 @@ def evaluate_standing_authorization(
         authorization_id=authorization.id,
         authorization_revision=authorization.authorization_revision,
         evaluated_at=evaluated_at,
+        approval_profile=authorization.approval_profile,
+        original_quorum=_original_quorum(authorization),
+        effective_quorum=_effective_quorum(authorization),
+        operator_principal=authorization.operator_principal,
     )
 
 
@@ -175,11 +184,20 @@ def _quorum_failure(
     authorization: StandingAuthorization,
     request: AuthorizationRequest,
 ) -> str | None:
+    if authorization.approval_profile is ApprovalProfile.SINGLE_OPERATOR_PRODUCTION:
+        return _single_operator_quorum_failure(authorization, request)
+    return _multi_operator_quorum_failure(authorization, request)
+
+
+def _multi_operator_quorum_failure(
+    authorization: StandingAuthorization,
+    request: AuthorizationRequest,
+) -> str | None:
     principals = {approval.normalized_principal for approval in authorization.approvals}
     if len(principals) < authorization.quorum_required:
         return "quorum_not_met"
 
-    roles = {approval.role for approval in authorization.approvals}
+    roles = {role for approval in authorization.approvals for role in approval.roles}
     if ApproverRole.SERVICE_OWNER not in roles:
         return "service_owner_approval_missing"
     if ApproverRole.OWNER not in roles:
@@ -191,6 +209,36 @@ def _quorum_failure(
         authorization.requested_by.strip().casefold(),
     }
     if principals & ineligible:
+        return "self_approval"
+    return None
+
+
+def _single_operator_quorum_failure(
+    authorization: StandingAuthorization,
+    request: AuthorizationRequest,
+) -> str | None:
+    operator_principal = authorization.operator_principal
+    if operator_principal is None:
+        return "operator_principal_mismatch"
+    operator = operator_principal.strip().casefold()
+    principals = {approval.normalized_principal for approval in authorization.approvals}
+    if len(authorization.approvals) < authorization.quorum_required:
+        return "quorum_not_met"
+    if principals != {operator}:
+        return "operator_principal_mismatch"
+
+    operator_roles = {
+        role
+        for approval in authorization.approvals
+        if approval.normalized_principal == operator
+        for role in approval.roles
+    }
+    if ApproverRole.SERVICE_OWNER not in operator_roles:
+        return "service_owner_approval_missing"
+    if ApproverRole.OWNER not in operator_roles:
+        return "owner_authority_approval_missing"
+
+    if operator == request.executor_principal.strip().casefold():
         return "self_approval"
     return None
 
@@ -238,13 +286,30 @@ def _deny(
     evaluated_at: datetime,
 ) -> StandingAuthorizationDecision:
     revision = "" if authorization is None else authorization.authorization_revision
+    approval_profile = None if authorization is None else authorization.approval_profile
     return StandingAuthorizationDecision(
         eligibility=Eligibility.INELIGIBLE,
         reason_code=reason_code,
         authorization_id="" if authorization is None else authorization.id,
         authorization_revision=revision,
         evaluated_at=evaluated_at,
+        approval_profile=approval_profile,
+        original_quorum=0 if authorization is None else _original_quorum(authorization),
+        effective_quorum=0 if authorization is None else _effective_quorum(authorization),
+        operator_principal=None if authorization is None else authorization.operator_principal,
     )
+
+
+def _original_quorum(authorization: StandingAuthorization) -> int:
+    if authorization.approval_profile is ApprovalProfile.SINGLE_OPERATOR_PRODUCTION:
+        return 2
+    return authorization.quorum_required
+
+
+def _effective_quorum(authorization: StandingAuthorization) -> int:
+    if authorization.approval_profile is ApprovalProfile.SINGLE_OPERATOR_PRODUCTION:
+        return 1
+    return authorization.quorum_required
 
 
 __all__ = [

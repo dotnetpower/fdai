@@ -47,6 +47,13 @@ class AuthorizationMode(StrEnum):
     SHADOW = "shadow"
 
 
+class ApprovalProfile(StrEnum):
+    """Human-approval profile selected for one standing authorization."""
+
+    MULTI_OPERATOR = "multi-operator"
+    SINGLE_OPERATOR_PRODUCTION = "single-operator-production"
+
+
 class ApproverRole(StrEnum):
     """Authority class an approving human held at approval time."""
 
@@ -67,8 +74,14 @@ class Approval:
     """One human approval with its authority class and instant."""
 
     principal: str
-    role: ApproverRole
+    roles: tuple[ApproverRole, ...]
     approved_at: datetime
+
+    @property
+    def role(self) -> ApproverRole:
+        """Return the legacy single-role view used by multi-operator records."""
+
+        return self.roles[0]
 
     @property
     def normalized_principal(self) -> str:
@@ -132,6 +145,8 @@ class StandingAuthorization:
     schema_version: str
     id: str
     authorization_revision: str
+    approval_profile: ApprovalProfile
+    operator_principal: str | None
     status: AuthorizationStatus
     mode: AuthorizationMode
     requested_by: str
@@ -150,6 +165,24 @@ class StandingAuthorization:
     def __post_init__(self) -> None:
         if self.valid_from >= self.valid_until:
             raise StandingAuthorizationError("valid_from MUST precede valid_until")
+        if self.approval_profile is ApprovalProfile.SINGLE_OPERATOR_PRODUCTION:
+            if self.operator_principal is None:
+                raise StandingAuthorizationError(
+                    "operator_principal is required for single-operator production"
+                )
+            if self.quorum_required != 1:
+                raise StandingAuthorizationError(
+                    "single-operator production quorum_required MUST be 1"
+                )
+            return
+        if self.operator_principal is not None:
+            raise StandingAuthorizationError(
+                "operator_principal is only valid for single-operator production"
+            )
+        if any(len(approval.roles) != 1 for approval in self.approvals):
+            raise StandingAuthorizationError(
+                "multi-operator approvals MUST each carry exactly one role"
+            )
         if self.quorum_required < 2:
             raise StandingAuthorizationError("quorum_required MUST be at least 2")
 
@@ -162,13 +195,15 @@ class StandingAuthorization:
             schema_version=_text(value, "schema_version"),
             id=_text(value, "id"),
             authorization_revision=_text(value, "authorization_revision"),
+            approval_profile=_approval_profile(value),
+            operator_principal=_optional_text(value, "operator_principal"),
             status=AuthorizationStatus(_text(value, "status")),
             mode=AuthorizationMode(_text(value, "mode")),
             requested_by=_text(value, "requested_by"),
             approvals=tuple(
                 Approval(
                     principal=_text(item, "principal"),
-                    role=ApproverRole(_text(item, "role")),
+                    roles=_approval_roles(item),
                     approved_at=_instant(item, "approved_at"),
                 )
                 for item in _sequence(value, "approvals")
@@ -270,6 +305,27 @@ def _optional_text(value: Mapping[str, Any], key: str) -> str | None:
     return _text(value, key)
 
 
+def _approval_profile(value: Mapping[str, Any]) -> ApprovalProfile:
+    raw = value.get("approval_profile")
+    if raw is None:
+        return ApprovalProfile.MULTI_OPERATOR
+    return ApprovalProfile(_text(value, "approval_profile"))
+
+
+def _approval_roles(value: Mapping[str, Any]) -> tuple[ApproverRole, ...]:
+    raw_roles = value.get("roles")
+    if raw_roles is None:
+        return (ApproverRole(_text(value, "role")),)
+    if not isinstance(raw_roles, Sequence) or isinstance(raw_roles, (str, bytes)):
+        raise StandingAuthorizationError("'roles' MUST be an array of authority classes")
+    roles: list[ApproverRole] = []
+    for item in raw_roles:
+        if not isinstance(item, str) or not item.strip():
+            raise StandingAuthorizationError("'roles' entries MUST be non-empty strings")
+        roles.append(ApproverRole(item.strip()))
+    return tuple(roles)
+
+
 def _text_tuple(value: Mapping[str, Any], key: str) -> tuple[str, ...]:
     raw = value.get(key)
     if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
@@ -311,6 +367,7 @@ __all__ = [
     "SCHEMA_PACKAGE",
     "SCHEMA_RESOURCE",
     "Approval",
+    "ApprovalProfile",
     "ApproverRole",
     "AuthorizationEnvelope",
     "AuthorizationEvidence",

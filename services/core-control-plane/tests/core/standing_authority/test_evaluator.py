@@ -8,6 +8,7 @@ negative case asserting its exact reason code.
 from __future__ import annotations
 
 import ast
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,9 @@ from fdai.core.standing_authority.evaluator import (
     evaluate_standing_authorization,
 )
 from fdai.core.standing_authority.record import (
+    Approval,
+    ApprovalProfile,
+    ApproverRole,
     StandingAuthorization,
     StandingAuthorizationError,
 )
@@ -117,6 +121,10 @@ def test_a_complete_delegation_is_eligible() -> None:
     assert decision.reason_code == "eligible"
     assert decision.authorization_id == "sa.example-scale-out"
     assert decision.authorization_revision == "rev-1"
+    assert decision.approval_profile is ApprovalProfile.MULTI_OPERATOR
+    assert decision.original_quorum == 2
+    assert decision.effective_quorum == 2
+    assert decision.operator_principal is None
 
 
 def test_silence_is_not_authority() -> None:
@@ -213,6 +221,21 @@ _AUTHORIZATION_CASES: list[tuple[dict[str, Any], str]] = [
             ]
         },
         "self_approval",
+    ),
+    (
+        {
+            "approval_profile": "single-operator-production",
+            "operator_principal": "example-operator",
+            "approvals": [
+                {
+                    "principal": "example-other-operator",
+                    "roles": ["service_owner", "owner"],
+                    "approved_at": "2026-07-01T08:00:00Z",
+                }
+            ],
+            "quorum_required": 1,
+        },
+        "operator_principal_mismatch",
     ),
     (
         {
@@ -362,6 +385,132 @@ def test_a_run_that_ends_exactly_at_expiry_is_still_eligible() -> None:
     )
 
     assert decision.is_eligible
+
+
+def test_single_operator_profile_accepts_one_named_operator_with_both_roles() -> None:
+    authorization = _authorization(
+        approval_profile="single-operator-production",
+        operator_principal="Example-Operator",
+        approvals=[
+            {
+                "principal": "example-operator",
+                "roles": ["service_owner", "owner"],
+                "approved_at": "2026-07-01T08:00:00Z",
+            }
+        ],
+        quorum_required=1,
+    )
+
+    decision = evaluate_standing_authorization(authorization, _request(), now=NOW)
+
+    assert decision.is_eligible
+    assert decision.approval_profile is ApprovalProfile.SINGLE_OPERATOR_PRODUCTION
+    assert decision.original_quorum == 2
+    assert decision.effective_quorum == 1
+    assert decision.operator_principal == "Example-Operator"
+
+
+def test_single_operator_profile_requires_the_record_to_name_the_operator() -> None:
+    with pytest.raises(StandingAuthorizationError, match="operator_principal"):
+        StandingAuthorization.from_mapping(
+            _document(
+                approval_profile="single-operator-production",
+                approvals=[
+                    {
+                        "principal": "example-operator",
+                        "roles": ["service_owner", "owner"],
+                        "approved_at": "2026-07-01T08:00:00Z",
+                    }
+                ],
+                quorum_required=1,
+            )
+        )
+
+
+def test_single_operator_profile_rejects_a_different_approval_principal() -> None:
+    authorization = _authorization(
+        approval_profile="single-operator-production",
+        operator_principal="example-operator",
+        approvals=[
+            {
+                "principal": "example-other-operator",
+                "roles": ["service_owner", "owner"],
+                "approved_at": "2026-07-01T08:00:00Z",
+            }
+        ],
+        quorum_required=1,
+    )
+
+    decision = evaluate_standing_authorization(authorization, _request(), now=NOW)
+
+    assert decision.eligibility is Eligibility.INELIGIBLE
+    assert decision.reason_code == "operator_principal_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("roles", "reason_code"),
+    [
+        (["owner"], "service_owner_approval_missing"),
+        (["service_owner"], "owner_authority_approval_missing"),
+    ],
+)
+def test_single_operator_profile_requires_the_operator_to_hold_both_roles(
+    roles: list[str],
+    reason_code: str,
+) -> None:
+    authorization = _authorization(
+        approval_profile="single-operator-production",
+        operator_principal="example-operator",
+        approvals=[
+            {
+                "principal": "example-operator",
+                "roles": roles,
+                "approved_at": "2026-07-01T08:00:00Z",
+            }
+        ],
+        quorum_required=1,
+    )
+
+    decision = evaluate_standing_authorization(authorization, _request(), now=NOW)
+
+    assert decision.eligibility is Eligibility.INELIGIBLE
+    assert decision.reason_code == reason_code
+
+
+def test_multi_operator_profile_still_rejects_one_approval() -> None:
+    with pytest.raises(StandingAuthorizationError, match="invalid"):
+        StandingAuthorization.from_mapping(
+            _document(
+                approvals=[
+                    {
+                        "principal": "example-owner",
+                        "role": "owner",
+                        "approved_at": "2026-07-01T09:00:00Z",
+                    }
+                ],
+                quorum_required=1,
+            )
+        )
+
+
+def test_absent_approval_profile_defaults_to_existing_multi_operator_behavior() -> None:
+    authorization = _authorization()
+
+    assert authorization.approval_profile is ApprovalProfile.MULTI_OPERATOR
+    assert authorization.operator_principal is None
+    assert authorization.quorum_required == 2
+
+
+def test_multi_operator_record_cannot_combine_roles_in_one_approval() -> None:
+    authorization = _authorization()
+    combined = Approval(
+        principal="example-owner",
+        roles=(ApproverRole.SERVICE_OWNER, ApproverRole.OWNER),
+        approved_at=authorization.approvals[0].approved_at,
+    )
+
+    with pytest.raises(StandingAuthorizationError, match="exactly one role"):
+        replace(authorization, approvals=(combined, *authorization.approvals[1:]))
 
 
 def test_enforce_mode_cannot_be_parsed() -> None:

@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: e469b29e1fa345ff2ee30478a5095e400b09cffe
-translation_revised: 2026-10-02
+translation_source_sha: af92b70c7224e9cb80a624d2abc803ef5508d9f4
+translation_revised: 2026-10-05
 ---
 # 운영자 거버넌스 프로필
 
@@ -10,8 +10,10 @@ translation_revised: 2026-10-02
 허용 정책을 관리하는 방법을 정의합니다. 이 문서는 단독 운영자 프로덕션 프로필, 귀속된 운영자
 재정의 승격, FDAI Console의 정책 관리를 소유합니다.
 
-> **상태:** 설계만 되어 있습니다. 현재 다중 운영자 프로필과 전권 개발 프로필이 있습니다. 이
-> 문서의 나머지는 모두 계획 단계이며,
+> **상태:** 일부 구현되었습니다. 현재 다중 운영자 프로필과 전권 개발 프로필이 있습니다. 단독 운영자
+> 프로덕션 프로필, 단독 운영자 상시 권한, `promotion_kind`, 자율성을 높이지 않는 운영자 정책 입력의
+> Core 결정 규칙은 구현되었지만 아직 런타임 승인 경로에 연결되지 않았습니다. FDAI Console의 정책
+> 관리는 계획 단계이며,
 > [구현 ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)가 제공
 > 현황을 추적합니다. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
 > 결정을 기록합니다.
@@ -169,10 +171,16 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
 
 ## 현재 한계
 
-- 이 문서의 어떤 내용도 아직 구현되지 않았습니다.
-- 현재 제공되는 상시 권한 스키마는 여전히 두 개의 승인을 요구합니다.
-- Operator API에는 정책 개정 경로가 없고, 승격 레지스트리에는 `promotion_kind`가 없으며,
-  `policy-administration` 추가 기능도 없습니다.
+- 승인 프로필, 정족수 축소, 운영자 정책 입력은 `fdai.core.risk_gate.approval_profile`과
+  `evaluate_execution_authority`의 Core 결정 규칙으로 있습니다. Forseti, Var, HIL 재개 코디네이터,
+  Operator API는 아직 활성 프로필 개정이나 정책 결과를 전달하지 않으며,
+  `approval_profile_revision`과 `policy_revision` 테이블도 없습니다.
+- 상시 권한 스키마와 평가기는 단독 운영자 프로덕션 프로필에서만 승인 하나를 받아들입니다.
+  `standing-authority-promotion` 변경 등급은 아직 단일 Owner 승인을 받아들이지 않습니다.
+- 승격 레지스트리는 `promotion_kind`를 기록하고 기능 회수를 따르며, 주입된 검증기가 Var 승인
+  영수증을 확인한 뒤에만 재정의를 받아들입니다. 그 영수증을 만드는 `governance` ActionType 경로는
+  아직 없습니다.
+- Operator API에는 정책 개정 경로가 없고 `policy-administration` 추가 기능도 없습니다.
 - 단독 운영자 프로덕션 프로필은 설계상 직무 분리를 줄입니다. 직무 분리가 필요한 고객은 다중
   운영자 프로필을 유지합니다.
 

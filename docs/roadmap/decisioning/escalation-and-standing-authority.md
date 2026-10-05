@@ -316,13 +316,14 @@ envelope:                         # the action MUST fall entirely inside this
   principals approve: the accountable service owner and an Owner-level authority. The requester
   and executor are ineligible. Var carries their signed revision as the standing Approval, so
   approve-vs-execute separation holds with no model-as-approver.
-- **Single-operator production profile (planned).** When the installation's approval policy selects
+- **Single-operator production profile.** When the installation's approval policy selects
   the [single-operator production profile](operator-governance-profiles.md), the named operator
   who holds both the service-owner and Owner roles may be the only approver, and
-  `quorum_required: 1` is valid only under that profile. Fresh authentication, explicit
+  `quorum_required: 1` is valid only under that profile. The standing-authorization schema and
+  evaluator implement this rule. Fresh authentication, explicit
   confirmation of the complete authorization, the envelope, expiry, revocation, handover
   reconfirmation, and post-action review stay unchanged, and the executor stays ineligible. The
-  shipped schema still requires two approvals.
+  default multi-operator profile still requires two approvals.
 - **Operational evidence is current.** The owner reviews applicable service logs, incidents, and
   audit history and records whether a precedent exists. When no adequate precedent exists, a
   current DR drill, bounded Chaos experiment, or simulation supplies scenario evidence.

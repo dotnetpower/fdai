@@ -252,6 +252,12 @@ from fdai.delivery.persistence.read_investigation_latency import (
     StateStoreReadLatencyProfileStore,
 )
 from fdai.delivery.persistence.state_store_action_promotion import (
+    CapabilityRecallRecord,
+    OperatorOverrideAttribution,
+    OperatorOverrideAuthorityVerifier,
+    PromotionGateStatus,
+    PromotionKind,
+    PromotionRefusedError,
     StateStoreActionPromotionRegistry,
 )
 from fdai.delivery.persistence.state_store_decision_evidence import (
@@ -408,6 +414,12 @@ __all__ = [
     "RpcClaimConflictError",
     "PostgresHilApprovalRegistry",
     "StateStoreHilApprovalRegistry",
+    "CapabilityRecallRecord",
+    "OperatorOverrideAttribution",
+    "OperatorOverrideAuthorityVerifier",
+    "PromotionGateStatus",
+    "PromotionKind",
+    "PromotionRefusedError",
     "StateStoreActionPromotionRegistry",
     "DecisionEvidenceAdmissionRecordError",
     "StateStoreDecisionEvidenceAdmissionProvider",

@@ -8,8 +8,11 @@ approval and admission policy when one person or several people operate it. It o
 single-operator production profile, attributed operator override promotion, and policy
 administration in FDAI Console.
 
-> **Status:** Design only. The multi-operator profile and the full-authority development profile
-> exist today. Everything else here is planned, and the
+> **Status:** Partially implemented. The multi-operator profile and the full-authority development
+> profile exist today. Core decision rules for the single-operator production profile, the
+> single-operator standing authorization, `promotion_kind`, and the never-raising operator policy
+> input are implemented but not yet wired into the runtime approval path. Policy administration in
+> FDAI Console is planned. The
 > [implementation ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)
 > tracks delivery. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
@@ -174,10 +177,17 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
 
 ## Honest limits
 
-- Nothing in this document is implemented yet.
-- The shipped standing-authorization schema still requires two approvals.
-- The Operator API has no policy-revision routes, the promotion registry has no
-  `promotion_kind`, and no `policy-administration` add-on exists.
+- The approval profile, the quorum reduction, and the operator policy input exist as Core decision
+  rules in `fdai.core.risk_gate.approval_profile` and `evaluate_execution_authority`. Forseti, Var,
+  the HIL resume coordinator, and the Operator API don't pass an active profile revision or policy
+  outcome yet, and no `approval_profile_revision` or `policy_revision` table exists.
+- The standing-authorization schema and evaluator accept one approval only under the
+  single-operator production profile. The `standing-authority-promotion` change class doesn't
+  accept the single Owner approval yet.
+- The promotion registry records `promotion_kind`, honors a capability recall, and accepts an
+  override only after an injected verifier confirms the Var approval receipt. The `governance`
+  ActionType path that produces that receipt doesn't exist yet.
+- The Operator API has no policy-revision routes, and no `policy-administration` add-on exists.
 - The single-operator production profile reduces separation of duties by design. Customers that
   need it keep the multi-operator profile.
 
