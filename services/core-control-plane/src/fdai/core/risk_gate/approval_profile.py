@@ -22,6 +22,7 @@ hard constraint.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -119,6 +120,7 @@ class ApprovalProfileRevision:
             "revision_id": self.revision_id,
             "approval_profile": self.approval_profile.value,
             "operator_principal": self.operator_principal,
+            "executor_principal": self.executor_principal,
             "policy_digest": self.policy_digest,
             "effective_from": self.effective_from.isoformat(),
         }
@@ -225,6 +227,28 @@ def evaluate_profile_approval(
     )
 
 
+def approval_profile_from_audit_dict(
+    raw: Mapping[str, Any] | None,
+) -> ApprovalProfileRevision | None:
+    """Reconstruct a validated profile revision from an audit/park payload."""
+
+    if raw is None:
+        return None
+    try:
+        effective_from = datetime.fromisoformat(str(raw["effective_from"]))
+        operator = raw.get("operator_principal")
+        return ApprovalProfileRevision(
+            revision_id=str(raw["revision_id"]),
+            approval_profile=ApprovalProfileKind(str(raw["approval_profile"])),
+            executor_principal=str(raw["executor_principal"]),
+            policy_digest=str(raw["policy_digest"]),
+            effective_from=effective_from,
+            operator_principal=(str(operator) if operator is not None else None),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("approval profile payload is malformed") from exc
+
+
 def profile_transition_quorum(
     active: ApprovalProfileRevision | None,
     proposed: ApprovalProfileRevision,
@@ -309,6 +333,7 @@ __all__ = [
     "ApprovalProfileRevision",
     "OperatorPolicyInput",
     "OperatorPolicyOutcome",
+    "approval_profile_from_audit_dict",
     "apply_operator_policy",
     "effective_quorum_for",
     "evaluate_profile_approval",

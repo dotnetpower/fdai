@@ -9,6 +9,7 @@ of 2 for an irreversible action.
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -25,10 +26,24 @@ from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
 from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.var import Var
+from fdai.core.risk_gate.approval_profile import ApprovalProfileKind, ApprovalProfileRevision
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+_OPERATOR = "operator@example.com"
+_EXECUTOR = "thor-runtime-executor"
+
+
+def _approval_profile() -> ApprovalProfileRevision:
+    return ApprovalProfileRevision(
+        revision_id="approval-profile-r1",
+        approval_profile=ApprovalProfileKind.SINGLE_OPERATOR_PRODUCTION,
+        executor_principal=_EXECUTOR,
+        policy_digest="sha256:" + "a" * 64,
+        effective_from=datetime(2026, 10, 5, tzinfo=UTC),
+        operator_principal=_OPERATOR,
+    )
 
 
 def _bus() -> InMemoryBus:
@@ -280,6 +295,49 @@ class TestEndToEndQuorum:
         with pytest.raises(ValueError, match="no self-approval"):
             asyncio.run(var.decide("c-self", approver="operator-a@example.com", decision="approve"))
         assert bus.messages_on("object.approval") == []
+
+    def test_single_operator_profile_allows_named_operator_but_refuses_executor(self) -> None:
+        profile = _approval_profile()
+        bus = _bus()
+        var = Var(bus=bus, approval_profile=profile)
+        asyncio.run(
+            var.on_typed_message(
+                "object.action-run",
+                _thor_action_run(
+                    correlation_id="c-single-operator",
+                    action_type="remediate.delete-storage",
+                    quorum_required=1,
+                    original_quorum_required=2,
+                    effective_quorum_required=1,
+                    initiator_principal=_OPERATOR,
+                    approval_profile=profile.as_audit_dict(),
+                ),
+            )
+        )
+        approval = asyncio.run(
+            var.decide("c-single-operator", approver=_OPERATOR.upper(), decision="approve")
+        )
+        assert approval is not None
+        assert approval["state"] == "approved"
+        assert approval["approvers"] == [_OPERATOR]
+
+        var = Var(bus=_bus(), approval_profile=profile)
+        asyncio.run(
+            var.on_typed_message(
+                "object.action-run",
+                _thor_action_run(
+                    correlation_id="c-executor",
+                    action_type="remediate.delete-storage",
+                    quorum_required=1,
+                    original_quorum_required=2,
+                    effective_quorum_required=1,
+                    initiator_principal=_OPERATOR,
+                    approval_profile=profile.as_audit_dict(),
+                ),
+            )
+        )
+        with pytest.raises(PermissionError, match="approval profile"):
+            asyncio.run(var.decide("c-executor", approver=_EXECUTOR, decision="approve"))
 
     def test_double_approval_blocked_case_insensitively(self) -> None:
         # The distinct-approver quorum must not be satisfiable by one human

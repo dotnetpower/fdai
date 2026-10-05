@@ -15,6 +15,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
+from fdai.core.hil_resume.delegation import DelegationRefusal, evaluate_hil_delegation
+from fdai.core.risk_gate.approval_profile import (
+    ApprovalProfileKind,
+    ApprovalProfileRevision,
+)
+from fdai_operator_service.families.iam.capabilities import IamCapability, has_capability
 from fdai_operator_service.families.iam.contracts import (
     HilApprovalDecision,
     HilDecisionCommand,
@@ -341,8 +347,57 @@ class HilCallbackDecisionService:
                 outcome=HilCallbackOutcome.INVALID,
                 actor=actor,
             )
+        profile_self_approval_admitted = False
+        if decision is HilApprovalDecision.APPROVE:
+            try:
+                profile = _approval_profile(context)
+                delegation = evaluate_hil_delegation(
+                    approver_oid=actor.oid,
+                    submitter_oid=context.submitter_oid,
+                    approver_can_approve_hil=has_capability(
+                        actor.roles,
+                        IamCapability.APPROVE_RUNTIME_HIL,
+                    ),
+                    approval_profile=profile,
+                    original_quorum=_original_quorum(context),
+                    executor_principal=context.metadata.get(
+                        "approval_profile_executor_principal",
+                    ),
+                )
+            except (KeyError, TypeError, ValueError):
+                return await session.finish(
+                    error_response(
+                        503,
+                        "HIL approval profile context is malformed",
+                        kind="context_unavailable",
+                    ),
+                    outcome=HilCallbackOutcome.INVALID,
+                    actor=actor,
+                )
+            if not delegation.allowed and delegation.refusal in {
+                DelegationRefusal.BLANK_APPROVER,
+                DelegationRefusal.UNKNOWN_SUBMITTER,
+                DelegationRefusal.UNNAMED_PRINCIPAL,
+                DelegationRefusal.APPROVER_IS_EXECUTOR,
+                DelegationRefusal.MISSING_CAPABILITY,
+            }:
+                return await session.finish(
+                    error_response(
+                        403,
+                        f"{delegation.refusal.value if delegation.refusal else 'approval_refused'}",
+                        kind=_operator_refusal_kind(delegation.refusal),
+                    ),
+                    outcome=HilCallbackOutcome.INVALID,
+                    actor=actor,
+                )
+            profile_self_approval_admitted = (
+                delegation.approval_profile is not None
+                and delegation.approval_profile.self_review
+                and delegation.allowed
+            )
         if _normalize(context.submitter_oid) == actor.oid and not (
             _owner_only_rejection(context, decision=decision)
+            or profile_self_approval_admitted
             or _development_self_approval(
                 context, actor=actor, decision=decision, attestation=development_attestation
             )
@@ -564,6 +619,38 @@ def _development_self_approval(
         and attestation.binding_digest == metadata.get("development_binding_digest")
         and attestation.profile_digest == metadata.get("development_profile_digest")
     )
+
+
+def _approval_profile(context: _ApprovalContext) -> ApprovalProfileRevision | None:
+    metadata = context.metadata
+    profile = metadata.get("approval_profile", "")
+    if not profile:
+        return None
+    return ApprovalProfileRevision(
+        revision_id=metadata["approval_profile_revision_id"],
+        approval_profile=ApprovalProfileKind(profile),
+        executor_principal=metadata["approval_profile_executor_principal"],
+        policy_digest=metadata["approval_profile_policy_digest"],
+        effective_from=datetime.fromisoformat(metadata["approval_profile_effective_from"]),
+        operator_principal=metadata.get("approval_profile_operator_principal") or None,
+    )
+
+
+def _original_quorum(context: _ApprovalContext) -> int:
+    value = context.metadata.get("original_quorum_required", "")
+    return int(value) if value else 1
+
+
+def _operator_refusal_kind(refusal: DelegationRefusal | None) -> str:
+    if refusal is DelegationRefusal.MISSING_CAPABILITY:
+        return "role_forbidden"
+    if refusal is DelegationRefusal.UNNAMED_PRINCIPAL:
+        return "unnamed_principal_forbidden"
+    if refusal is DelegationRefusal.APPROVER_IS_EXECUTOR:
+        return "executor_approval_forbidden"
+    if refusal is DelegationRefusal.SELF_APPROVAL:
+        return "self_approval_forbidden"
+    return "approval_refused"
 
 
 class _AlreadyResolvedError(RuntimeError):

@@ -94,7 +94,14 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
         raise NotImplementedError
 
     async def _request_hil_approval(
-        self, *, action: Action, rule: Rule, correlation_id: str
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        correlation_id: str,
+        approval_profile: Mapping[str, Any] | None = None,
+        original_quorum_required: int | None = None,
+        effective_quorum_required: int | None = None,
     ) -> None: ...
 
     async def _write_t1_audit(
@@ -401,6 +408,18 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
                 action=action,
                 rule=rule,
                 correlation_id=correlation_id,
+                approval_profile=(
+                    unified.authority.approval_profile.as_audit_dict()
+                    if unified.authority is not None
+                    and unified.authority.approval_profile is not None
+                    else None
+                ),
+                original_quorum_required=(
+                    unified.authority.original_quorum
+                    if unified.authority is not None
+                    else unified.quorum
+                ),
+                effective_quorum_required=unified.quorum,
             )
         if unified.is_denied or unified.requires_hil:
             return ControlLoopResult(
@@ -726,6 +745,18 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
                 action=action,
                 rule=rule,
                 correlation_id=correlation_id,
+                approval_profile=(
+                    unified.authority.approval_profile.as_audit_dict()
+                    if unified.authority is not None
+                    and unified.authority.approval_profile is not None
+                    else None
+                ),
+                original_quorum_required=(
+                    unified.authority.original_quorum
+                    if unified.authority is not None
+                    else unified.quorum
+                ),
+                effective_quorum_required=unified.quorum,
             )
         if unified.is_denied or unified.requires_hil:
             outcome = ControlLoopOutcome.DENIED if unified.is_denied else ControlLoopOutcome.HIL

@@ -23,6 +23,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from fdai.core.risk_gate.approval_profile import (
+    ApprovalProfileDecision,
+    ApprovalProfileRefusal,
+    ApprovalProfileRevision,
+    evaluate_profile_approval,
+)
+
 
 class DelegationMode(StrEnum):
     """How an allowed HIL approval relates to the item's assignee."""
@@ -52,6 +59,12 @@ class DelegationRefusal(StrEnum):
     MISSING_CAPABILITY = "missing_capability"
     """The approver does not hold the HIL-approval capability."""
 
+    UNNAMED_PRINCIPAL = "unnamed_principal"
+    """The approver is not the named operator under the active profile."""
+
+    APPROVER_IS_EXECUTOR = "approver_is_executor"
+    """The approver is the executor identity."""
+
 
 @dataclass(frozen=True, slots=True)
 class DelegationDecision:
@@ -60,6 +73,7 @@ class DelegationDecision:
     allowed: bool
     mode: DelegationMode | None = None
     refusal: DelegationRefusal | None = None
+    approval_profile: ApprovalProfileDecision | None = None
 
     @property
     def is_delegated(self) -> bool:
@@ -74,6 +88,9 @@ def evaluate_hil_delegation(
     submitter_oid: str,
     approver_can_approve_hil: bool,
     assignee_oid: str | None = None,
+    approval_profile: ApprovalProfileRevision | None = None,
+    original_quorum: int = 1,
+    executor_principal: str | None = None,
 ) -> DelegationDecision:
     """Decide whether ``approver_oid`` may resolve a parked HIL item.
 
@@ -102,26 +119,62 @@ def evaluate_hil_delegation(
     submitter = submitter_oid.strip()
     assignee = (assignee_oid or "").strip()
 
-    if not approver:
-        return DelegationDecision(allowed=False, refusal=DelegationRefusal.BLANK_APPROVER)
-    if not submitter:
-        return DelegationDecision(allowed=False, refusal=DelegationRefusal.UNKNOWN_SUBMITTER)
-    if _same_principal(approver, submitter):
-        return DelegationDecision(allowed=False, refusal=DelegationRefusal.SELF_APPROVAL)
+    profile_decision = evaluate_profile_approval(
+        approval_profile,
+        approver=approver,
+        requester=submitter,
+        original_quorum=original_quorum,
+        executor_principal=executor_principal,
+    )
+    if not profile_decision.allowed:
+        refusal = _profile_refusal(profile_decision.refusal)
+        return DelegationDecision(
+            allowed=False,
+            refusal=refusal,
+            approval_profile=profile_decision,
+        )
     if not approver_can_approve_hil:
-        return DelegationDecision(allowed=False, refusal=DelegationRefusal.MISSING_CAPABILITY)
+        return DelegationDecision(
+            allowed=False,
+            refusal=DelegationRefusal.MISSING_CAPABILITY,
+            approval_profile=profile_decision,
+        )
 
     if not assignee:
-        return DelegationDecision(allowed=True, mode=DelegationMode.ROLE_SCOPED)
+        return DelegationDecision(
+            allowed=True,
+            mode=DelegationMode.ROLE_SCOPED,
+            approval_profile=profile_decision,
+        )
     if _same_principal(approver, assignee):
-        return DelegationDecision(allowed=True, mode=DelegationMode.DIRECT)
-    return DelegationDecision(allowed=True, mode=DelegationMode.DELEGATED)
+        return DelegationDecision(
+            allowed=True,
+            mode=DelegationMode.DIRECT,
+            approval_profile=profile_decision,
+        )
+    return DelegationDecision(
+        allowed=True,
+        mode=DelegationMode.DELEGATED,
+        approval_profile=profile_decision,
+    )
 
 
 def _same_principal(left: str, right: str) -> bool:
     """Whether two identity strings name the same principal."""
 
     return left.casefold() == right.casefold()
+
+
+def _profile_refusal(refusal: ApprovalProfileRefusal | None) -> DelegationRefusal:
+    if refusal is ApprovalProfileRefusal.BLANK_APPROVER:
+        return DelegationRefusal.BLANK_APPROVER
+    if refusal is ApprovalProfileRefusal.UNKNOWN_REQUESTER:
+        return DelegationRefusal.UNKNOWN_SUBMITTER
+    if refusal is ApprovalProfileRefusal.UNNAMED_PRINCIPAL:
+        return DelegationRefusal.UNNAMED_PRINCIPAL
+    if refusal is ApprovalProfileRefusal.APPROVER_IS_EXECUTOR:
+        return DelegationRefusal.APPROVER_IS_EXECUTOR
+    return DelegationRefusal.SELF_APPROVAL
 
 
 __all__ = [

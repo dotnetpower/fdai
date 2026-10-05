@@ -60,6 +60,7 @@ from fdai.core.ontology_platform.reconciliation_producer import (
     ReconciliationRequestProduction,
     ReconciliationRequestProductionStatus,
 )
+from fdai.core.risk_gate.approval_profile import ApprovalProfileKind, ApprovalProfileRevision
 from fdai.delivery.chatops.slack_adapter import (
     SLACK_POST_URL,
     SlackHilAdapter,
@@ -101,6 +102,8 @@ REMEDIATION_ROOT = REPO_ROOT / "rule-catalog" / "remediation"
 _RULE_ID = "object-storage.owner-tag.required"
 _SUBMITTER = "system:control-loop"
 _APPROVER = "alice@example.com"
+_OPERATOR = "operator@example.com"
+_EXECUTOR = "thor-runtime-executor"
 _ROUTE_START = datetime(2020, 1, 1, tzinfo=UTC)
 _ROUTE_END = datetime(2100, 1, 1, tzinfo=UTC)
 
@@ -252,6 +255,17 @@ def _action(
     )
 
 
+def _approval_profile() -> ApprovalProfileRevision:
+    return ApprovalProfileRevision(
+        revision_id="approval-profile-r1",
+        approval_profile=ApprovalProfileKind.SINGLE_OPERATOR_PRODUCTION,
+        executor_principal=_EXECUTOR,
+        policy_digest="sha256:" + "a" * 64,
+        effective_from=datetime(2026, 10, 5, tzinfo=UTC),
+        operator_principal=_OPERATOR,
+    )
+
+
 def test_legacy_approval_fingerprint_is_stable_without_report_line_route() -> None:
     action = _action()
     rule = _rule()
@@ -299,6 +313,7 @@ def _coordinator(
     report_line_router: ReportLineApprovalRouter | None = None,
     escalation_policy: EscalationPolicy | None = None,
     escalation_eligibility: Any | None = None,
+    approval_profile: ApprovalProfileRevision | None = None,
 ) -> tuple[
     HilResumeCoordinator,
     RecordingRemediationPrPublisher,
@@ -333,6 +348,7 @@ def _coordinator(
         pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
         report_line_router=report_line_router,
+        approval_profile=approval_profile,
         contact_consent_service=(
             ApprovalContactConsentService(store) if report_line_router is not None else None
         ),
@@ -1483,6 +1499,78 @@ async def test_self_approval_is_refused() -> None:
     assert result.outcome is ResolveOutcome.SELF_APPROVAL_REFUSED
     assert publisher.records == ()
     assert "hil.resolve.self_approval_refused" in _audit_kinds(store)
+
+
+@pytest.mark.asyncio
+async def test_single_operator_profile_self_approval_executes_with_reduced_quorum() -> None:
+    profile = _approval_profile()
+    coordinator, publisher, store, _ = _coordinator(approval_profile=profile)
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_OPERATOR,
+        correlation_id="single-operator",
+        approval_id="aid-single-operator",
+        approval_profile=profile.as_audit_dict(),
+        original_quorum_required=2,
+        effective_quorum_required=1,
+    )
+
+    result = await coordinator.resolve(
+        approval_id="aid-single-operator",
+        decision=HilDecision.APPROVE,
+        approver_oid=_OPERATOR.upper(),
+    )
+
+    assert result.outcome is ResolveOutcome.EXECUTED
+    assert len(publisher.records) == 1
+    audits = store.audit_entries
+    executed = [
+        entry["entry"]
+        for entry in audits
+        if entry["entry"].get("action_kind") == "hil.approved.executed"
+    ][-1]
+    assert executed["approval_profile"] == "single-operator-production"
+    assert executed["original_quorum"] == 2
+    assert executed["effective_quorum"] == 1
+    assert executed["operator_principal"] == _OPERATOR
+    assert executed["self_review"] is True
+
+
+@pytest.mark.asyncio
+async def test_single_operator_profile_refuses_unnamed_and_executor_principals() -> None:
+    profile = _approval_profile()
+    coordinator, publisher, store, _ = _coordinator(approval_profile=profile)
+    for approval_id, approver, reason in (
+        ("aid-unnamed", "somebody@example.com", "unnamed_principal"),
+        ("aid-executor", _EXECUTOR, "approver_is_executor"),
+    ):
+        await coordinator.request_approval(
+            action=_action(idempotency_key=approval_id),
+            rule=_rule(),
+            submitter_oid=_OPERATOR,
+            correlation_id=approval_id,
+            approval_id=approval_id,
+            approval_profile=profile.as_audit_dict(),
+            original_quorum_required=2,
+            effective_quorum_required=1,
+        )
+        result = await coordinator.resolve(
+            approval_id=approval_id,
+            decision=HilDecision.APPROVE,
+            approver_oid=approver,
+        )
+        assert result.outcome is ResolveOutcome.DECISION_REFUSED
+        assert result.reason == reason
+    assert publisher.records == ()
+    audits = store.audit_entries
+    reasons = [
+        entry["entry"].get("reason")
+        for entry in audits
+        if entry["entry"].get("action_kind") == "hil.resolve.approval_profile_refused"
+    ]
+    assert "unnamed_principal" in reasons
+    assert "approver_is_executor" in reasons
 
 
 @pytest.mark.asyncio

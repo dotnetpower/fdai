@@ -47,6 +47,7 @@ class ActionRun:
     original_quorum_required: int | None = None
     effective_quorum_required: int | None = None
     development_authority: dict[str, Any] | None = None
+    approval_profile: dict[str, Any] | None = None
     outcome: str | None = None
     initiator_principal: str | None = None
     rollback_contract: str = "state_forward_only"
@@ -157,6 +158,7 @@ class ActionRun:
             payload = {
                 "action_idempotency_key": self.idempotency_key,
                 "action_type": self.action_type,
+                "approval_profile": deepcopy(self.approval_profile),
                 "correlation_id": self.correlation_id,
                 "decision_case": self.decision_case,
                 "development_authority": deepcopy(self.development_authority),
@@ -204,6 +206,7 @@ class ActionRun:
             and payload["correlation_id"] == self.correlation_id
             and payload["decision_case"] == self.decision_case
             and payload["development_authority"] == self.development_authority
+            and payload["approval_profile"] == self.approval_profile
             and payload["effective_quorum_required"] == self.effective_quorum_required
             and payload["initiator_principal"] == self.initiator_principal
             and payload["kinetic_proposal"] == self.kinetic_proposal
@@ -250,6 +253,7 @@ class ActionRun:
             "original_quorum_required": self.original_quorum_required,
             "effective_quorum_required": self.effective_quorum_required,
             "development_authority": deepcopy(self.development_authority),
+            "approval_profile": deepcopy(self.approval_profile),
             "outcome": self.outcome,
             "initiator_principal": self.initiator_principal,
             "rollback_contract": self.rollback_contract,
@@ -333,6 +337,11 @@ class ActionRun:
             development_authority=(
                 deepcopy(dict(data["development_authority"]))
                 if isinstance(data.get("development_authority"), Mapping)
+                else None
+            ),
+            approval_profile=(
+                deepcopy(dict(data["approval_profile"]))
+                if isinstance(data.get("approval_profile"), Mapping)
                 else None
             ),
             outcome=data.get("outcome"),

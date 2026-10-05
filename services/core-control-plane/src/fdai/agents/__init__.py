@@ -65,6 +65,7 @@ from fdai.agents._framework.deliberation import (
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.development_authority_runtime import (
+    ApprovalRuntimeBindings,
     DevelopmentRuntimeBindings,
 )
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
@@ -187,6 +188,7 @@ __all__ = [
     "MuninnInvestigationStrategyCohortSink",
     "AgentToolResult",
     "AgentToolStatus",
+    "ApprovalRuntimeBindings",
     "ConversationToolPlan",
     "SemanticToolConfig",
     "SemanticToolPlanner",

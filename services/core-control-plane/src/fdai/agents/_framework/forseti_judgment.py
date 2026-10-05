@@ -91,6 +91,9 @@ class ForsetiJudgmentMixin:
     def record_behavior(self, name: str, amount: int = 1) -> None:
         raise NotImplementedError
 
+    def attach_approval_profile(self, verdict: dict[str, Any]) -> None:
+        raise NotImplementedError
+
     def bind_test_context_evidence(self, requester: OperationalEvidenceRequester | None) -> None:
         """Bind bounded independent issuance: a provider call, never an agent call."""
         self._test_context_evidence = requester
@@ -441,6 +444,7 @@ class ForsetiJudgmentMixin:
         await self._attach_test_context(event, verdict)
         if event.get("event_type") in self._anomaly_action_sources:
             await self._prepare_anomaly_action(event, verdict)
+        self.attach_approval_profile(verdict)
         self.attach_development_authority(event, verdict)
         if source_mode is not None:
             verdict["source_mode"] = source_mode.value
