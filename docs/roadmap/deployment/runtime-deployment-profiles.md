@@ -88,7 +88,7 @@ coordinator does not delete or import that pool automatically.
 | Runtime platform | `aks`, `container-apps` | `aks` | Hosts FDAI services and scheduled jobs. Container Apps is compatibility-only for new planning. |
 | Database placement | `postgres-flex`, `postgres-aks` | `postgres-flex` | Uses Azure Database for PostgreSQL Flexible Server or a PostgreSQL cluster inside AKS. |
 | Product surface | `observation-first` plus selected add-ons | `observation-first` | Starts headless inventory, telemetry, learning, prediction, replay, drift, and advisory evidence. |
-| Optional add-ons | `read-only-console`, `notifications`, `governed-execution`, `enterprise-identity-governance` | none | Selection never implies availability, enablement, authorization, or execution authority. |
+| Optional add-ons | `read-only-console`, `notifications`, `governed-execution`, `enterprise-identity-governance`, `policy-administration` (requires `read-only-console` and `enterprise-identity-governance`) | none | Selection never implies availability, enablement, authorization, or execution authority. |
 
 `postgres-aks` is accepted only with `runtime_platform=aks`. Production keeps
 `postgres-flex` until the in-cluster profile has independent zone-loss, backup, point-in-time
@@ -99,7 +99,7 @@ evidence path: Forseti's `CausalHypothesis` projection over the runtime ontology
 ActionRun receipt resolver. Causal revisions stay advisory evidence; they never select an add-on,
 satisfy an approval, or raise autonomy.
 
-Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`.
+Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`. A runtime record created before product profiles matches only the explicit legacy selection of the four original add-ons, so a later add-on never changes that match.
 The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor binding. A selected but incomplete add-on fails closed: `read-only-console` and
 `governed-execution` require `enterprise-identity-governance`, and every runtime carries the compiled profile to its own workloads so composition never diverges from the selection.
 The full-authority development profile remains a separate optional authority input for an exact disposable scope and never inherits from this product axis. The optional dev operations gateway is authenticated, so it requires an explicit Operator API audience and refuses to plan without one.
