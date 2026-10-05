@@ -256,3 +256,14 @@ def legacy_runtime_profile_digest(profile: RuntimeDeploymentProfile) -> str:
     """Return the digest retained by a context created before profile v2."""
 
     return canonical_digest(legacy_runtime_profile_mapping(profile))
+
+
+def legacy_full_product_matches(profile: RuntimeDeploymentProfile, retained_digest: str) -> bool:
+    """Match a pre-product-axis record only to the explicit legacy full-product selection."""
+
+    selected = profile.product_profile
+    return (
+        set(selected.add_ons) == set(LEGACY_FULL_PRODUCT_ADD_ONS)
+        and len(selected.observation_permissions.selected_sources) == len(ObservationDataSource)
+        and retained_digest == legacy_runtime_profile_digest(profile)
+    )

@@ -56,6 +56,7 @@ from fdai_deployment_cli.oci_archive import validate_oci_archive
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
+    legacy_full_product_matches,
     legacy_runtime_profile_digest,
 )
 from fdai_deployment_cli.runtime_support_installation import (
@@ -4385,10 +4386,7 @@ def _runtime_profile_matches(
     retained = _runtime_profile_digest(context)
     if retained == profile.digest:
         return True
-    legacy_full_product = len(profile.product_profile.add_ons) == len(ProductAddOn) and len(
-        profile.product_profile.observation_permissions.selected_sources
-    ) == len(ObservationDataSource)
-    return legacy_full_product and retained == legacy_runtime_profile_digest(profile)
+    return legacy_full_product_matches(profile, retained)
 
 
 def _container_app_health(context: dict[str, object], infra: Path) -> bool:
