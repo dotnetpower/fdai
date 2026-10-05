@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: 19b767ad872d8684bfa82ab1acb37794bde2bc60
+translation_source_sha: 2e8d1aa2adfa703b6f77b25a03138ef4e96021d8
 translation_revised: 2026-10-05
 ---
 
@@ -17,6 +17,7 @@ translation_revised: 2026-10-05
 | [instance-calibration.v1.json](../../eval/ontology-retrieval/instance-calibration.v1.json) | 과거의 24문항 보정 자료입니다. 질문과 정답을 보존합니다. |
 | [instance-calibration.v2.json](../../eval/ontology-retrieval/instance-calibration.v2.json) | v1 보정 문항을 모두 변경 없이 포함한 64문항 확장 보정 자료입니다. |
 | [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | 이미 사용한 홀드아웃입니다. 근거는 보존하되 튜닝이나 새 자격 검증에 사용하지 않습니다. |
+| [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | 이미 사용한 홀드아웃입니다. 독립 작성과 검토를 거쳤고 `2572f9a1b1`에서 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
 
 v2 보정 자료에는 단일 대상 정답 32개, 복수 대상 정답 8개와 일치 대상이 없는 문항 24개가
 있습니다. 각 언어의 단일 대상 문항은 유형별 서로 다른 대상 네 개를 포함하며, 측정하는
@@ -171,9 +172,15 @@ strict 스키마를 전송하며, 같은 principal 매니페스트와 프롬프�
 의미 모델은 필터링한 실패 8건 중 5건만 통과했으며, 더 강한 역할의 시도에서는 5초 꼬리 시간
 초과가 발생했습니다. `reasoning_effort="minimal"`은 배포/API 경로에서 거부되었고, 상수
 매니페스트 기반 구조화 스키마와 `reasoning_effort="low"` 조합은 개발 v2 보정을 통과했습니다.
-자격 검증 실행에는 여전히 병합된 소스 스냅샷과 새로 작성된 독립 `instance-holdout.v2`가
-필요합니다. `instance-holdout.v1.json`은 이미 사용되었으므로 자격 검증이나 튜닝에 사용하지
-마세요.
+
+병합된 `2572f9a1b1`에서 실행한 자격 검증 진단은 보정 v2와 독립 검토를 거친
+`instance-holdout.v2`를 각각 한 번씩 엄격한 재생 검증으로 측정했습니다. 보정은 모든 코호트에서
+`1.0`으로 통과했습니다. 홀드아웃은 통과하지 못했습니다. en-positive와 ko-positive의 recall@5와
+MRR은 `0.938`(각각 16건 중 15건)이고, ko-adversarial의 일치 없음 정밀도는 `0.5`였습니다. 나머지
+코호트는 모두 `1.0`이었습니다. 호출당 지연 시간은 10초 한도 안에 있었고 홀드아웃 최댓값은
+8.3초였습니다. 의미 순위 검색은 계속 비활성화 상태입니다. 두 홀드아웃은 모두 이미 사용되었습니다.
+이후 변경은 보정, 말뭉치, 새로 검토한 보정 샘플만으로 실패 유형을 진단한 다음, 새로 작성한 독립
+`instance-holdout.v3`로 검증해야 합니다.
 
 ## 의미 제안을 별도로 측정
 
