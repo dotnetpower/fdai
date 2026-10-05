@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: ae75f486b1efb73b065b81181ba2fedb663ac097
+translation_source_sha: 1f748bc60fffbb6d61c3dc503cd4f9b420ddcd07
 translation_revised: 2026-10-05
 ---
 # 독립 운영 근거 발급
@@ -44,6 +44,9 @@ translation_revised: 2026-10-05
 Resource Health 서술 주장은 타입이 지정된 읽기 증적에 붙는 답변 검증 동반 자료입니다.
 표현 전에 서술을 보존하거나 거부할 수 있지만, 독립 운영 근거 검증기의 수락 기록이 아니며
 거버넌스가 적용되는 어떤 의사결정 출처도 충족할 수 없습니다.
+Forseti는 Var와 HIL 재개 경로가 원래 정족수와 유효 정족수를 기록할 수 있도록 고정된 단독
+운영자 승인 프로필 개정을 Verdict에 실어 보낼 수 있습니다. 이 프로필 메타데이터는 승인 문맥일
+뿐입니다. 검증기 출처 산출물, `DecisionEvidenceAdmission`, 실제 프로바이더 상태의 증명이 아닙니다.
 
 ## 현재 상태와 공백
 

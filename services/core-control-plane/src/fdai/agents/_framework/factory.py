@@ -42,6 +42,7 @@ from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
 )
 from fdai.core.operational_planning.prospective_lineage import ProspectiveLineageFinalizer
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
     RegisteredDevelopmentAction,
@@ -125,6 +126,7 @@ def configured_forseti(
     development_binding_source: DevelopmentAuthorityBindingSource | None = None,
     development_executor_principal: str | None = None,
     development_action_types: dict[str, RegisteredDevelopmentAction] | None = None,
+    approval_profile: ApprovalProfileRevision | None = None,
     governed_execution_selected: bool = False,
     state_store: StateStore | None = None,
 ) -> Forseti | None:
@@ -151,6 +153,7 @@ def configured_forseti(
             development_binding_source,
             development_executor_principal,
             development_action_types,
+            approval_profile,
             state_store,
         )
     ):
@@ -171,6 +174,7 @@ def configured_forseti(
         development_binding_source=development_binding_source,
         development_executor_principal=development_executor_principal,
         development_action_types=development_action_types,
+        approval_profile=approval_profile,
         governed_execution_selected=governed_execution_selected,
         state_store=state_store,
     )

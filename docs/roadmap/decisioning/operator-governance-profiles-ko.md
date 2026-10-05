@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: af92b70c7224e9cb80a624d2abc803ef5508d9f4
+translation_source_sha: ed1f4b5f7f0fdef5d59307f061ed7f17e4bdbf25
 translation_revised: 2026-10-05
 ---
 # 운영자 거버넌스 프로필
@@ -11,9 +11,9 @@ translation_revised: 2026-10-05
 재정의 승격, FDAI Console의 정책 관리를 소유합니다.
 
 > **상태:** 일부 구현되었습니다. 현재 다중 운영자 프로필과 전권 개발 프로필이 있습니다. 단독 운영자
-> 프로덕션 프로필, 단독 운영자 상시 권한, `promotion_kind`, 자율성을 높이지 않는 운영자 정책 입력의
-> Core 결정 규칙은 구현되었지만 아직 런타임 승인 경로에 연결되지 않았습니다. FDAI Console의 정책
-> 관리는 계획 단계이며,
+> 프로덕션 프로필의 Core 결정 규칙과 Forseti, Var, HIL 재개 조정기, Operator API 콜백을 지나는
+> 런타임 승인 경로, 단독 운영자 상시 권한, `promotion_kind`, 자율성을 높이지 않는 운영자 정책 입력은
+> 구현되었습니다. FDAI Console의 정책 관리는 계획 단계이며,
 > [구현 ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)가 제공
 > 현황을 추적합니다. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
 > 결정을 기록합니다.
@@ -66,6 +66,14 @@ translation_revised: 2026-10-05
 
 - 승인 정책 개정이 `approval_profile: single-operator-production`을 선언하고, Microsoft Entra
   ID의 정규화된 사람 principal 하나를 설치 운영자로 바인딩합니다.
+- 배포 구성은 `FDAI_APPROVAL_PROFILE_JSON` 또는 `FDAI_APPROVAL_PROFILE_PATH`에서 활성 불변
+  `ApprovalProfileRevision`을 제공합니다. `policy_digest`는 콘텐츠 주소 지정 방식입니다. 즉,
+  `revision_id`, `approval_profile`, `executor_principal`, `effective_from`,
+  `operator_principal`을 정렬된 키와 압축 구분 기호로 만든 canonical JSON의 SHA-256 앞에
+  `sha256:`을 붙인 값과 같아야 합니다. 잘못된 입력, 알 수 없는 필드, 누락되었거나 맞지 않는
+  다이제스트, 아직 유효 시각이 되지 않은 `effective_from`, 실행기 principal과 같은 운영자 지정,
+  전권 개발 프로필과의 동시 구성은 안전하게 차단됩니다. 개정이 없으면 FDAI는 다중 운영자 기본값을
+  사용합니다.
 - 이 프로필로 들어가거나 나오는 변경은 활성 프로필의 거버넌스 규칙을 따릅니다. 다중 운영자에서
   단독 운영자로 바꾸려면 다중 운영자 거버넌스 정족수가 필요합니다. 단독 운영자는 설치를 다시 다중
   운영자로 바꿀 수 있습니다.
@@ -87,8 +95,8 @@ translation_revised: 2026-10-05
 - 7개 안전장치, 독립적인 효과 검증, 추가 전용 감사는 계속 적용됩니다.
 - 작업 후 검토도 여전히 필요합니다. 감사는 이를 자기 검토로 기록합니다.
 
-감사 항목에는 `approval_profile`, `original_quorum`, `effective_quorum`, 운영자 principal이 들어
-있으므로, 검토자는 줄어든 직무 분리를 언제든 확인할 수 있습니다.
+감사 항목에는 `approval_profile`, `original_quorum`, `effective_quorum`, 운영자 principal,
+`self_review`가 들어 있으므로, 검토자는 줄어든 직무 분리를 언제든 확인할 수 있습니다.
 
 ## 귀속된 운영자 재정의 승격
 
@@ -172,9 +180,10 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
 ## 현재 한계
 
 - 승인 프로필, 정족수 축소, 운영자 정책 입력은 `fdai.core.risk_gate.approval_profile`과
-  `evaluate_execution_authority`의 Core 결정 규칙으로 있습니다. Forseti, Var, HIL 재개 코디네이터,
-  Operator API는 아직 활성 프로필 개정이나 정책 결과를 전달하지 않으며,
-  `approval_profile_revision`과 `policy_revision` 테이블도 없습니다.
+  `evaluate_execution_authority`의 Core 결정 규칙으로 있습니다. Forseti, Var, HIL 재개 조정기,
+  Operator API는 HIL 승인을 위해 활성 프로필 개정을 전달합니다. `approval_profile_revision`과
+  `policy_revision` 테이블은 아직 없으며, 활성 프로필은 아직 정책 관리가 아니라
+  `FDAI_APPROVAL_PROFILE_JSON` 또는 `FDAI_APPROVAL_PROFILE_PATH`에서 제공됩니다.
 - 상시 권한 스키마와 평가기는 단독 운영자 프로덕션 프로필에서만 승인 하나를 받아들입니다.
   `standing-authority-promotion` 변경 등급은 아직 단일 Owner 승인을 받아들이지 않습니다.
 - 승격 레지스트리는 `promotion_kind`를 기록하고 기능 회수를 따르며, 주입된 검증기가 Var 승인

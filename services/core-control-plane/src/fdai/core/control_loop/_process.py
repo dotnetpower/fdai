@@ -578,6 +578,18 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
                     rule=rule,
                     correlation_id=correlation_id,
                     event=event,
+                    approval_profile=(
+                        unified.authority.approval_profile.as_audit_dict()
+                        if unified.authority is not None
+                        and unified.authority.approval_profile is not None
+                        else None
+                    ),
+                    original_quorum_required=(
+                        unified.authority.original_quorum
+                        if unified.authority is not None
+                        else unified.quorum
+                    ),
+                    effective_quorum_required=unified.quorum,
                 )
             continue
         result = await host._dispatch_action(

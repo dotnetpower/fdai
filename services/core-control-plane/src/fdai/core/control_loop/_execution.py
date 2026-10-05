@@ -38,6 +38,7 @@ from fdai.core.ontology_platform.evidence_conflict import (
     current_evidence_conflict_ceiling,
 )
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.core.risk_gate.ceiling import AxisLevel
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
@@ -90,6 +91,7 @@ class ControlLoopExecutionMixin(
     """Resolve governance, execution authority, and executor selection."""
 
     _action_types_by_name: Mapping[str, OntologyActionType]
+    _approval_profile: ApprovalProfileRevision | None
     _audit_store: StateStore
     _clock: Callable[[], datetime]
     _degradation: DegradationController | None
@@ -679,6 +681,7 @@ class ControlLoopExecutionMixin(
                 automation_hold_engaged=automation_hold_engaged,
                 automation_hold_recovery=automation_hold_recovery,
                 live_probe_observation=live_probe_observation,
+                approval_profile=self._approval_profile,
             )
             conflict_disposition = EvidenceConflictDisposition.NOT_APPLICABLE
             conflict_revision_refs: list[str] = []

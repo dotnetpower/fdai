@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.action_run_identity import validate_action_run_identity
-from fdai.agents._framework.action_semantics import ActionSemanticsCatalog, quorum_for
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import (
     AdminCard,
     AdminNotificationAdapter,
@@ -18,7 +18,6 @@ from fdai.agents._framework.assignment_workflow import AssignmentReviewMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
-from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.outbox_publication import (
     new_publication_claim_owner,
     publish_claimed_outbox,
@@ -26,7 +25,7 @@ from fdai.agents._framework.outbox_publication import (
 from fdai.agents._framework.pantheon import _VAR
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.thor_dispatch_validation import bounded_params
-from fdai.agents._framework.var_admin import deliver_admin_card as _deliver_admin_card
+from fdai.agents._framework.var_approval_profile import VarApprovalProfileMixin
 from fdai.agents._framework.var_decisions import (
     ApprovalDecisionState,
     TestContextReviewMixin,
@@ -52,9 +51,6 @@ from fdai.agents._framework.var_final_approval import (
 from fdai.agents._framework.var_final_approval import (
     release_approval_publication_claim as _release_approval_publication_claim,
 )
-from fdai.agents._framework.var_health import health as _var_health
-from fdai.agents._framework.var_introspection import evidence_available as _var_evidence_available
-from fdai.agents._framework.var_introspection import introspect_var as _introspect_var
 from fdai.agents._framework.var_pending_durability import (
     PENDING_TICKET_PREFIX,
     SHADOW_REVIEW_PREFIX,
@@ -64,7 +60,8 @@ from fdai.agents._framework.var_pending_durability import (
     mark_pending_ticket_closed_by_identity,
     shadow_review_from_state,
 )
-from fdai.agents._framework.var_shadow_review import RefCountedAsyncLock, decide_shadow_review_once
+from fdai.agents._framework.var_public_api import VarPublicApiMixin
+from fdai.agents._framework.var_shadow_review import RefCountedAsyncLock
 from fdai.agents._framework.var_ticket_identity import (
     APPROVAL_STATE_PREFIX,
     PendingHilTicket,
@@ -84,9 +81,6 @@ from fdai.agents._framework.var_ticket_identity import (
     evict_oldest_ticket as _evict_oldest_ticket,
 )
 from fdai.agents._framework.var_ticket_identity import (
-    record_blocked_attempt as _record_blocked_attempt_once,
-)
-from fdai.agents._framework.var_ticket_identity import (
     remove_pending_ticket as _remove_pending_ticket,
 )
 from fdai.agents._framework.var_ticket_identity import (
@@ -95,6 +89,7 @@ from fdai.agents._framework.var_ticket_identity import (
 from fdai.agents._framework.var_ticket_identity import (
     ticket_identity as _ticket_identity,
 )
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.shared.contracts.models import FullAuthorityDevelopmentProfile
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.state_store import StateStore
@@ -102,7 +97,14 @@ from fdai.shared.providers.state_store import StateStore
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 
 
-class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReviewMixin, Agent):
+class Var(
+    VarApprovalProfileMixin,
+    VarDevelopmentAuthorityMixin,
+    TestContextReviewMixin,
+    AssignmentReviewMixin,
+    VarPublicApiMixin,
+    Agent,
+):
     _MAX_PENDING = 5_000
     _MAX_CARDS = 5_000
     _PUBLICATION_MAINTENANCE_PAGE = 16
@@ -118,6 +120,7 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
         development_executor_principal: str | None = None,
         development_owner_authorizer: DevelopmentOwnerAuthorizer | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        approval_profile: ApprovalProfileRevision | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -134,6 +137,7 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             clock=clock,
         )
         self._state_store = state_store
+        self._approval_profile = approval_profile
         self._decision_journal = (
             VarDecisionJournal(
                 state_store,
@@ -219,24 +223,21 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             self.record_behavior("ticket_invalid_quorum")
             return
         try:
-            original_quorum, effective_quorum, development_authority = (
-                self._admit_development_ticket(payload, quorum=payload_quorum)
+            quorum, original_quorum, effective_quorum, development_authority, approval_profile = (
+                self._admit_ticket_authority(
+                    payload,
+                    action_type=action_type,
+                    payload_quorum=payload_quorum,
+                )
             )
-        except ValueError:
-            self.record_behavior("ticket_invalid_development_authority")
+        except ValueError as exc:
+            if "development" in str(exc):
+                self.record_behavior("ticket_invalid_development_authority")
+            else:
+                self.record_behavior("ticket_invalid_approval_profile")
             return
-        required_quorum = quorum_for(action_type, self._action_semantics)
-        if development_authority is None:
-            if payload_quorum < required_quorum:
-                self.record_behavior("ticket_quorum_restored")
-            quorum = max(payload_quorum, required_quorum)
-            original_quorum = quorum
-            effective_quorum = quorum
-        elif original_quorum < required_quorum:
-            self.record_behavior("ticket_invalid_development_authority")
-            return
-        else:
-            quorum = effective_quorum
+        if development_authority is None and approval_profile is None and payload_quorum < quorum:
+            self.record_behavior("ticket_quorum_restored")
         params = bounded_params(payload.get("params"))
         if params is None:
             self.record_behavior("ticket_invalid_params")
@@ -287,6 +288,9 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             original_quorum_required=original_quorum,
             effective_quorum_required=effective_quorum,
             development_authority=development_authority,
+            approval_profile=(
+                approval_profile.as_audit_dict() if approval_profile is not None else None
+            ),
             action_run_identity=action_run_identity,
             initiator_principal=raw_initiator.strip() if raw_initiator else None,
             idempotency_key=raw_idempotency_key or "",
@@ -402,7 +406,22 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             approver=approver_norm,
             correlation_id=correlation_id,
         )
-        if initiator_norm and approver_norm == initiator_norm and not development_owner_eligible:
+        profile = self._active_ticket_approval_profile(
+            {"approval_profile": ticket.approval_profile}
+        )
+        profile_approval_eligible = self._profile_approval_eligible(
+            profile=profile,
+            approver=approver_norm,
+            requester=initiator_norm or "fdai-core",
+            original_quorum=ticket.original_quorum_required or ticket.quorum_required,
+            correlation_id=correlation_id,
+        )
+        if (
+            initiator_norm
+            and approver_norm == initiator_norm
+            and not development_owner_eligible
+            and not profile_approval_eligible
+        ):
             self._record_blocked_attempt("self_approval_blocked", correlation_id, approver_norm)
             raise ValueError(
                 f"principal {approver_norm!r} cannot decide an action it initiated "
@@ -741,45 +760,6 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             approval, _published = validate_final_record(stored, correlation_id)
             approvals.append(approval)
         return approvals
-
-    async def decide_shadow_review(
-        self,
-        correlation_id: str,
-        *,
-        reviewer: str,
-        agreed: bool,
-    ) -> dict[str, Any] | None:
-        """Publish one real human review without manufacturing another sample."""
-
-        return await decide_shadow_review_once(
-            pending=self._pending_shadow_reviews,
-            locks=self._shadow_review_locks,
-            state_store=self._state_store,
-            bus=self.bus,
-            record_behavior=self.record_behavior,
-            record_blocked_attempt=self._record_blocked_attempt,
-            correlation_id=correlation_id,
-            reviewer=reviewer,
-            agreed=agreed,
-        )
-
-    def pending_tickets(self) -> tuple[PendingHilTicket, ...]:
-        return tuple(self._pending.values())
-
-    def pending_shadow_reviews(self) -> tuple[PendingShadowReview, ...]:
-        return tuple(self._pending_shadow_reviews.values())
-
-    def _record_blocked_attempt(self, key: str, correlation_id: str, approver: str) -> None:
-        _record_blocked_attempt_once(self, key, correlation_id, approver)
-
-    deliver_admin_card = _deliver_admin_card
-    health = _var_health
-
-    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
-        return _var_evidence_available(self)
-
-    async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
-        return await _introspect_var(self, question, context)
 
 
 __all__ = ["PendingHilTicket", "PendingShadowReview", "Var"]

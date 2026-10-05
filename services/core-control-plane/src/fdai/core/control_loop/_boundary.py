@@ -107,6 +107,9 @@ class ControlLoopBoundaryMixin:
         submitter_oid: str = _HIL_SYSTEM_SUBMITTER,
         event: Event | None = None,
         development_authority: Mapping[str, Any] | None = None,
+        approval_profile: Mapping[str, Any] | None = None,
+        original_quorum_required: int | None = None,
+        effective_quorum_required: int | None = None,
     ) -> None:
         """Park a HIL-routed action and push an approval card."""
         await request_hil_approval(
@@ -118,6 +121,9 @@ class ControlLoopBoundaryMixin:
             submitter_oid=submitter_oid,
             event=event,
             development_authority=development_authority,
+            approval_profile=approval_profile,
+            original_quorum_required=original_quorum_required,
+            effective_quorum_required=effective_quorum_required,
         )
 
     async def _emit_stage(

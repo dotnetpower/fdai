@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.core.risk_gate.authority import (
     ExecutionAuthorityDecision,
     evaluate_execution_authority,
@@ -79,6 +80,7 @@ def _compute_authority(
         _development_authority.DevelopmentAuthorityBindingRequest | None
     ) = None,
     development_evaluated_at: datetime | None = None,
+    approval_profile: ApprovalProfileRevision | None = None,
 ) -> ExecutionAuthorityDecision:
     """Run authority under the executor role and optional dynamic cost input."""
     environment = _extract_environment(_extract_resource_props(event.payload))
@@ -98,6 +100,7 @@ def _compute_authority(
         development_binding_source=development_binding_source,
         development_binding_request=development_binding_request,
         evaluated_at=development_evaluated_at,
+        approval_profile=approval_profile,
     )
 
 
@@ -177,6 +180,7 @@ def evaluate_unified(
         _development_authority.DevelopmentAuthorityBindingRequest | None
     ) = None,
     development_evaluated_at: datetime | None = None,
+    approval_profile: ApprovalProfileRevision | None = None,
 ) -> UnifiedRiskDecision:
     """Run the runtime-Action gate and the policy-ceiling authority and
     combine them into a single :class:`UnifiedRiskDecision` (canonical-level
@@ -203,6 +207,7 @@ def evaluate_unified(
         development_binding_source=development_binding_source,
         development_binding_request=development_binding_request,
         development_evaluated_at=development_evaluated_at,
+        approval_profile=approval_profile,
     )
     gate_decision = _development_authority.evaluate_gate(
         risk_gate=risk_gate,

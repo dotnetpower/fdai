@@ -97,6 +97,9 @@ class OperatorRequestHost(Protocol):
         correlation_id: str,
         submitter_oid: str,
         development_authority: Mapping[str, Any] | None = None,
+        approval_profile: Mapping[str, Any] | None = None,
+        original_quorum_required: int | None = None,
+        effective_quorum_required: int | None = None,
     ) -> None: ...
 
     async def _development_park_block(
@@ -277,6 +280,18 @@ async def process_operator_request(
                     unified=unified,
                     initiator=initiator,
                 ),
+                approval_profile=(
+                    unified.authority.approval_profile.as_audit_dict()
+                    if unified.authority is not None
+                    and unified.authority.approval_profile is not None
+                    else None
+                ),
+                original_quorum_required=(
+                    unified.authority.original_quorum
+                    if unified.authority is not None
+                    else unified.quorum
+                ),
+                effective_quorum_required=unified.quorum,
             )
         return await _finish_terminal(
             host, event, correlation_id, resource_type, rule, ControlLoopOutcome.HIL, "hil"
