@@ -12,6 +12,7 @@ qualification or execution authority.
 | [instance-calibration.v1.json](../../eval/ontology-retrieval/instance-calibration.v1.json) | Historical 24-query calibration; preserve its questions and labels. |
 | [instance-calibration.v2.json](../../eval/ontology-retrieval/instance-calibration.v2.json) | Expanded 64-query calibration, including all v1 calibration cases unchanged. |
 | [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | Spent holdout. Preserve its evidence; don't tune on it or reuse it for qualification. |
+| [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | Spent holdout. Independently authored and reviewed; measured once at `2572f9a1b1`. Don't tune on its cases or reuse it for qualification. |
 
 The v2 calibration has 32 singleton positives, eight multi-target positives and 24 no-match cases.
 Each language covers four distinct singleton targets per type and at least four samples for every
@@ -168,9 +169,16 @@ Earlier diagnostic history remains relevant: raw embedding ranking fails the v2 
 mini semantic model passed only 5 of 8 filtered failure cases, stronger-role attempts encountered
 five-second tail timeouts, `reasoning_effort="minimal"` was rejected by the deployment/API path,
 and the constant manifest-bound structured schema with `reasoning_effort="low"` passed the
-development v2 calibration. A qualifying run still needs the merged source snapshot and a newly
-authored independent `instance-holdout.v2`; `instance-holdout.v1.json` is spent and must not be
-used for qualification or tuning.
+development v2 calibration.
+
+The qualifying diagnostic at merged `2572f9a1b1` ran calibration v2 and the independently reviewed
+`instance-holdout.v2` once each, under a strict replay verification. Calibration passed every
+cohort at `1.0`. The holdout failed: en-positive and ko-positive recall@5 and MRR were `0.938` (15
+of 16 each), and ko-adversarial no-match precision was `0.5`. Every other cohort was `1.0`.
+Per-call latency stayed within the 10-second bound, with a holdout maximum of 8.3 seconds.
+Semantic ranking stays disabled. Both holdouts are spent. A later change needs failure-class
+diagnosis from calibration, the corpus, and newly reviewed calibration samples only, followed by
+a newly authored independent `instance-holdout.v3`.
 
 ## Measure semantic proposals separately
 
