@@ -25,7 +25,13 @@ from fdai.delivery.azure.llm.semantic_planning import (
     AzureOpenAISemanticPlanningModel,
     AzureOpenAISemanticPlanningModelConfig,
 )
+from fdai.delivery.azure.llm.semantic_planning_response import provider_error_code
 from fdai.shared.providers.workload_identity import IdentityToken
+
+
+class _OneChunkStream(httpx.AsyncByteStream):
+    async def __aiter__(self):
+        yield b'{"error":{"code":"BadRequest","message":"private"}}'
 
 
 class _Identity:
@@ -838,7 +844,10 @@ async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_out
     def handler(request: httpx.Request) -> httpx.Response:
         deployments.append(request.url.path.split("/")[3])
         if "primary" in request.url.path:
-            return httpx.Response(503, json={"error": {"message": "private provider detail"}})
+            return httpx.Response(
+                503,
+                json={"error": {"code": "Unavailable", "message": "private provider detail"}},
+            )
         return _response({"operation": "select", "unexpected": True})
 
     with caplog.at_level(logging.WARNING):
@@ -873,6 +882,7 @@ async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_out
         and record.failure_type == "HTTPStatusError"
     )
     assert http_failure.status_code == 503
+    assert http_failure.provider_error_code == "Unavailable"
     validation_failure = next(
         record
         for record in caplog.records
@@ -883,6 +893,49 @@ async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_out
     assert validation_errors
     assert all(set(error) == {"location", "type"} for error in validation_errors)
     assert "private provider detail" not in caplog.text
+
+
+async def test_candidate_failure_logs_redacted_validation_stage(caplog) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"choices": [{"finish_reason": "stop", "message": {"content": "not JSON"}}]},
+        )
+
+    with caplog.at_level(logging.WARNING):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            model = AzureOpenAISemanticPlanningModel(
+                identity=_Identity(),  # type: ignore[arg-type]
+                http_client=client,
+                config=_config(),
+                owner_loop=asyncio.get_running_loop(),
+            )
+            result = await asyncio.to_thread(
+                model.propose_frame,
+                utterance="Show resources",
+                context=(),
+                descriptors=({"kind": "object", "name": "Resource"},),
+                principal_role="reader",
+                purpose="operations-review",
+            )
+
+    assert result is None
+    failure = next(
+        record
+        for record in caplog.records
+        if record.message == "semantic_planning_candidate_failed"
+    )
+    assert failure.failure_type == "SemanticPlanningResponseValidationError"
+    assert failure.validation_stage == "json"
+    assert "not JSON" not in caplog.text
+
+
+async def test_provider_error_code_reads_streamed_error_body_without_content_leak() -> None:
+    response = httpx.Response(400, stream=_OneChunkStream())
+
+    code = await provider_error_code(response)
+
+    assert code == "BadRequest"
 
 
 def _dynamic_frame_config() -> AzureOpenAISemanticPlanningModelConfig:

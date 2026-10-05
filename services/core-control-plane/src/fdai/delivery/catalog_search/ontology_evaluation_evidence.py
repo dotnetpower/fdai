@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
+import stat
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,6 +44,26 @@ class _Record:
 
 
 _RECORD = TypeAdapter(_Record)
+
+
+def _read_private_evidence_bytes(path: Path, expected_file_digest: str) -> bytes:
+    if re.fullmatch(r"sha256:[0-9a-f]{64}", expected_file_digest) is None:
+        raise ValueError("ontology evidence requires a full file digest")
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(descriptor, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+                raise ValueError("ontology evidence requires a private regular file")
+            raw = stream.read(_MAX_FILE_BYTES + 1)
+    except OSError:
+        raise ValueError("ontology evidence cannot be read safely") from None
+    if (
+        len(raw) > _MAX_FILE_BYTES
+        or ("sha256:" + hashlib.sha256(raw).hexdigest()) != expected_file_digest
+    ):
+        raise ValueError("ontology evidence file identity or size mismatch")
+    return raw
 
 
 class OntologyEvaluationEvidenceError(RuntimeError):

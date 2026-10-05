@@ -16,9 +16,11 @@ from fdai.delivery.catalog_search.ontology_evaluation_evidence import (
 from fdai.delivery.catalog_search.ontology_semantic_evaluation import (
     OntologySemanticEvaluationAbortedError,
     OntologySemanticEvaluationBudget,
+    OntologySemanticEvaluationPlan,
     OntologySemanticEvaluationReport,
     prepare_ontology_semantic_evaluation,
     run_ontology_semantic_evaluation,
+    semantic_candidate_model_binding,
 )
 from pydantic import TypeAdapter
 from tests.delivery.azure.llm.test_ontology_candidate_proposal import _candidate_config
@@ -42,6 +44,8 @@ async def _run(
     wrong_results: bool = False,
     changed_input: str | None = None,
     cancel_call: int | None = None,
+    prepared_plans: list[OntologySemanticEvaluationPlan] | None = None,
+    budget: OntologySemanticEvaluationBudget | None = None,
 ) -> tuple[OntologySemanticEvaluationReport, int]:
     harness = await _harness(typed_selection_available=typed_available)
     cases = _cases()
@@ -84,8 +88,7 @@ async def _run(
         proposal = {
             "status": "clarify" if clarify else "select",
             "reason": "unresolved_reference" if clarify else "conditions_proposed",
-            "clauses": clauses,
-            "clause_quotes": [query] * len(clauses),
+            "clauses": [dict(clause, quote=query) for clause in clauses],
         }
         return httpx.Response(
             200,
@@ -110,12 +113,14 @@ async def _run(
             ranking_policy=_RANKING,
             evaluation_policy=_POLICY,
             required_object_types=_TYPES,
-            model_binding=model.candidate_proposal_binding(),
+            model_binding=semantic_candidate_model_binding(model, harness.manifest, harness.build),
             model_name="synthetic-model",
             model_version="fixture-v1",
             source_commit=_SOURCE,
-            budget=OntologySemanticEvaluationBudget(total_timeout_seconds=30),
+            budget=budget or OntologySemanticEvaluationBudget(total_timeout_seconds=30),
         )
+        if prepared_plans is not None:
+            prepared_plans.append(plan)
         if drift:
             model._config = replace(model._config, candidates=(_target("changed"),))
         if changed_input == "order":
@@ -211,6 +216,13 @@ async def test_provider_failure_preserves_prior_measurements_and_stops(tmp_path:
     assert rows[-1]["event"] == "aborted"
     assert sum(row["event"] == "semantic_measurement" for row in rows) == 2
     assert sum(row["event"] == "semantic_call_intent" for row in rows) == 3
+    assert captured.value.stage == "proposal"
+    assert captured.value.failure_chain == (
+        {"class": "ValueError", "message": "candidate proposal model unavailable"},
+    )
+    assert rows[-1]["payload"]["failure_chain"] == [
+        {"class": "ValueError", "message": "candidate proposal model unavailable"}
+    ]
 
 
 async def test_unqualified_reader_stops_before_any_model_call(tmp_path: Path) -> None:
@@ -245,13 +257,17 @@ async def test_missing_proposal_evidence_stops_before_read_or_next_model(tmp_pat
         {"max_proposal_calls": 65},
         {"max_proposal_calls": True},
         {"total_timeout_seconds": 601},
-        {"query_timeout_seconds": 6},
+        {"query_timeout_seconds": 10.5},
         {"query_timeout_seconds": float("nan")},
     ],
 )
 def test_semantic_budgets_cannot_weaken_frozen_ceilings(kwargs: dict[str, object]) -> None:
     with pytest.raises(ValueError, match="bounded calls"):
         OntologySemanticEvaluationBudget(**kwargs)
+
+
+def test_semantic_budget_accepts_the_ten_second_call_ceiling() -> None:
+    assert OntologySemanticEvaluationBudget(query_timeout_seconds=10).query_timeout_seconds == 10
 
 
 def test_semantic_evidence_requires_source_and_has_its_own_finite_record_bound(

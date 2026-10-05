@@ -31,6 +31,14 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final
 
+from fdai_service_contracts.approval_profile import (
+    ApprovalProfileDecision,
+    ApprovalProfileRefusal,
+    ApprovalProfileRevision,
+    effective_quorum_for,
+    evaluate_profile_approval,
+)
+
 from fdai.core.rbac.roles import Capability, Role, has_capability
 
 _MIN_REVISION_LENGTH: Final = 40
@@ -157,6 +165,7 @@ class GovernanceReviewRequest:
     approvals: tuple[GovernanceApproval, ...] = ()
     co_author_oids: frozenset[str] = frozenset()
     committer_oids: frozenset[str] = frozenset()
+    approval_profile: ApprovalProfileRevision | None = None
 
     def authorship_oids(self) -> frozenset[str]:
         """Return every normalized identity that authored or committed this change."""
@@ -183,8 +192,13 @@ class ReviewAuthorityDecision:
     allowed: bool
     required_quorum: int
     satisfied_quorum: int
+    original_quorum: int = 0
+    effective_quorum: int = 0
     counted_approver_oids: tuple[str, ...] = ()
     issues: tuple[ReviewAuthorityIssue, ...] = ()
+    approval_profile: str | None = None
+    operator_principal: str | None = None
+    self_review: bool = False
     grants_execution_authority: bool = field(default=False, init=False)
 
 
@@ -225,6 +239,7 @@ def _count_approval(
     *,
     request: GovernanceReviewRequest,
     requirement: ChangeClassRequirement,
+    profile_decision: ApprovalProfileDecision | None,
     head_committed_at: datetime | None,
     authorship: frozenset[str],
     counted: dict[str, GovernancePrincipal],
@@ -249,7 +264,21 @@ def _count_approval(
             )
         )
         return
-    if approver_oid in authorship:
+    profile_self_review = (
+        profile_decision is not None and profile_decision.allowed and profile_decision.self_review
+    )
+    if profile_decision is not None and not profile_decision.allowed:
+        refusal = profile_decision.refusal
+        issues.append(
+            ReviewAuthorityIssue(
+                code=f"approval_profile_{refusal.value if refusal is not None else 'refused'}",
+                message=_approval_profile_refusal_message(refusal),
+                blocking=True,
+                subject_oid=approver_oid,
+            )
+        )
+        return
+    if approver_oid in authorship and not profile_self_review:
         issues.append(
             ReviewAuthorityIssue(
                 code="self_approval",
@@ -338,6 +367,41 @@ def _count_approval(
     counted[approver_oid] = approval.approver
 
 
+def _approval_profile_decision_for(
+    request: GovernanceReviewRequest,
+    *,
+    approval: GovernanceApproval,
+    requirement: ChangeClassRequirement,
+) -> ApprovalProfileDecision | None:
+    profile = request.approval_profile
+    if (
+        profile is None
+        or not profile.is_single_operator
+        or request.change_class is not GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION
+    ):
+        return None
+    return evaluate_profile_approval(
+        profile,
+        approver=approval.approver.oid,
+        requester=request.author.oid,
+        original_quorum=requirement.quorum,
+    )
+
+
+def _approval_profile_refusal_message(refusal: ApprovalProfileRefusal | None) -> str:
+    if refusal is ApprovalProfileRefusal.UNNAMED_PRINCIPAL:
+        return "single-operator profile approval MUST come from the named operator"
+    if refusal is ApprovalProfileRefusal.APPROVER_IS_EXECUTOR:
+        return "approval principal MUST NOT be the executor principal"
+    if refusal is ApprovalProfileRefusal.BLANK_APPROVER:
+        return "governance approval MUST record the approver object id"
+    if refusal is ApprovalProfileRefusal.UNKNOWN_REQUESTER:
+        return "single-operator profile requester identity is unavailable"
+    if refusal is ApprovalProfileRefusal.SELF_APPROVAL:
+        return "single-operator production profile is required for self-review"
+    return "approval profile refused this governance approval"
+
+
 def validate_governance_review(
     request: GovernanceReviewRequest,
 ) -> ReviewAuthorityDecision:
@@ -350,6 +414,14 @@ def validate_governance_review(
     """
 
     requirement = _REQUIREMENTS[request.change_class]
+    effective_quorum = effective_quorum_for(
+        request.approval_profile
+        if request.change_class is GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION
+        and request.approval_profile is not None
+        and request.approval_profile.is_single_operator
+        else None,
+        requirement.quorum,
+    )
     issues: list[ReviewAuthorityIssue] = []
     head_committed_at: datetime | None = request.head_committed_at
     if not _is_revision(request.head_revision):
@@ -380,15 +452,27 @@ def validate_governance_review(
     _validate_author(request, issues)
     authorship = request.authorship_oids()
     counted: dict[str, GovernancePrincipal] = {}
+    self_review = False
     for approval in request.approvals[:_MAX_APPROVALS]:
+        profile_decision = _approval_profile_decision_for(
+            request,
+            approval=approval,
+            requirement=requirement,
+        )
         _count_approval(
             approval,
             request=request,
             requirement=requirement,
+            profile_decision=profile_decision,
             head_committed_at=head_committed_at,
             authorship=authorship,
             counted=counted,
             issues=issues,
+        )
+        self_review = self_review or bool(
+            profile_decision is not None
+            and profile_decision.allowed
+            and profile_decision.self_review
         )
     if requirement.owner_review and not _has_owner(counted.values()):
         issues.append(
@@ -398,12 +482,12 @@ def validate_governance_review(
                 blocking=True,
             )
         )
-    if len(counted) < requirement.quorum:
+    if len(counted) < effective_quorum:
         issues.append(
             ReviewAuthorityIssue(
                 code="quorum_not_met",
                 message=(
-                    f"governance change class requires {requirement.quorum} distinct authorized "
+                    f"governance change class requires {effective_quorum} distinct authorized "
                     f"approvals; {len(counted)} counted"
                 ),
                 blocking=True,
@@ -412,10 +496,27 @@ def validate_governance_review(
     return ReviewAuthorityDecision(
         change_class=request.change_class,
         allowed=not any(issue.blocking for issue in issues),
-        required_quorum=requirement.quorum,
+        required_quorum=effective_quorum,
         satisfied_quorum=len(counted),
+        original_quorum=requirement.quorum,
+        effective_quorum=effective_quorum,
         counted_approver_oids=tuple(sorted(counted)),
         issues=tuple(issues),
+        approval_profile=(
+            request.approval_profile.approval_profile.value
+            if request.approval_profile is not None
+            and request.approval_profile.is_single_operator
+            and request.change_class is GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION
+            else None
+        ),
+        operator_principal=(
+            request.approval_profile.operator_principal
+            if request.approval_profile is not None
+            and request.approval_profile.is_single_operator
+            and request.change_class is GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION
+            else None
+        ),
+        self_review=self_review,
     )
 
 

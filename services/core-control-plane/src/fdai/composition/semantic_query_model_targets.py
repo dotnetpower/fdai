@@ -33,6 +33,7 @@ def t1_model_targets(
             api_version=candidate.api_version,
             api_style=candidate.api_style,
             auth_audience=candidate.auth_audience,
+            model_family=getattr(candidate, "family", None),
         )
         for candidate in candidates
     ]
@@ -64,6 +65,7 @@ def t2_model_targets(
             api_version=candidate.api_version,
             api_style=candidate.api_style,
             auth_audience=candidate.auth_audience,
+            model_family=getattr(candidate, "family", None),
         )
         for candidate in resolved.reasoner_primary_candidates
         if "t2.reasoner.primary" not in held_capabilities
@@ -117,6 +119,7 @@ def model_target_for_capability(
             auth_audience=binding.auth_audience,
             route_kind=binding.route_kind,
             binding_id=binding.binding_id,
+            model_family=binding.family,
         )
     capability = next(
         (
@@ -133,6 +136,7 @@ def model_target_for_capability(
         endpoint=endpoint,
         deployment=capability.name,
         api_version="2024-06-01",
+        model_family=capability.family,
     )
 
 

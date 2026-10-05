@@ -13,6 +13,11 @@ from fdai.rule_catalog.schema.governance_review_authority import (
     requirement_for,
     validate_governance_review,
 )
+from fdai_service_contracts.approval_profile import (
+    ApprovalProfileKind,
+    ApprovalProfileRevision,
+    approval_profile_policy_digest,
+)
 
 _HEAD = "a" * 40
 _COMMITTED_AT = datetime(2026, 8, 17, 0, 0, tzinfo=UTC)
@@ -24,6 +29,7 @@ _APPROVER_TWO = GovernancePrincipal(oid="oid-approver-2", roles=frozenset({Role.
 _OWNER = GovernancePrincipal(oid="oid-owner-1", roles=frozenset({Role.OWNER}))
 _READER = GovernancePrincipal(oid="oid-reader-1", roles=frozenset({Role.READER}))
 _BREAK_GLASS = GovernancePrincipal(oid="oid-break-glass-1", roles=frozenset({Role.BREAK_GLASS}))
+_EXECUTOR = GovernancePrincipal(oid="oid-executor-1", roles=frozenset({Role.OWNER}))
 
 
 def _approval(
@@ -51,6 +57,7 @@ def _request(
     committer_oids: frozenset[str] = frozenset(),
     head_revision: str = _HEAD,
     head_committed_at: datetime = _COMMITTED_AT,
+    approval_profile: ApprovalProfileRevision | None = None,
 ) -> GovernanceReviewRequest:
     return GovernanceReviewRequest(
         change_class=change_class,
@@ -60,6 +67,42 @@ def _request(
         approvals=approvals,
         co_author_oids=co_author_oids,
         committer_oids=committer_oids,
+        approval_profile=approval_profile,
+    )
+
+
+def _profile(operator: GovernancePrincipal = _OWNER) -> ApprovalProfileRevision:
+    payload = {
+        "revision_id": "approval-profile-r1",
+        "approval_profile": "single-operator-production",
+        "executor_principal": _EXECUTOR.oid,
+        "effective_from": _COMMITTED_AT.isoformat(),
+        "operator_principal": operator.oid,
+    }
+    return ApprovalProfileRevision(
+        revision_id=str(payload["revision_id"]),
+        approval_profile=ApprovalProfileKind.SINGLE_OPERATOR_PRODUCTION,
+        executor_principal=str(payload["executor_principal"]),
+        policy_digest=approval_profile_policy_digest(payload),
+        effective_from=_COMMITTED_AT,
+        operator_principal=str(payload["operator_principal"]),
+    )
+
+
+def _multi_profile() -> ApprovalProfileRevision:
+    payload = {
+        "revision_id": "approval-profile-r0",
+        "approval_profile": "multi-operator",
+        "executor_principal": _EXECUTOR.oid,
+        "effective_from": _COMMITTED_AT.isoformat(),
+        "operator_principal": None,
+    }
+    return ApprovalProfileRevision(
+        revision_id=str(payload["revision_id"]),
+        approval_profile=ApprovalProfileKind.MULTI_OPERATOR,
+        executor_principal=str(payload["executor_principal"]),
+        policy_digest=approval_profile_policy_digest(payload),
+        effective_from=_COMMITTED_AT,
     )
 
 
@@ -259,6 +302,104 @@ def test_standing_authority_promotion_requires_owner_tier_quorum_of_two() -> Non
     assert with_owner.allowed is True
     assert with_owner.required_quorum == 2
     assert with_owner.grants_execution_authority is False
+
+
+def test_single_operator_profile_accepts_named_owner_for_standing_authority_promotion() -> None:
+    decision = validate_governance_review(
+        _request(
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            _approval(_OWNER),
+            author=_OWNER,
+            approval_profile=_profile(_OWNER),
+        )
+    )
+
+    assert decision.allowed is True
+    assert decision.required_quorum == 1
+    assert decision.original_quorum == 2
+    assert decision.effective_quorum == 1
+    assert decision.counted_approver_oids == (_OWNER.oid,)
+    assert decision.approval_profile == "single-operator-production"
+    assert decision.operator_principal == _OWNER.oid
+    assert decision.self_review is True
+    assert decision.grants_execution_authority is False
+
+
+def test_single_operator_profile_refuses_unnamed_and_executor_principals() -> None:
+    unnamed = validate_governance_review(
+        _request(
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            _approval(_APPROVER_ONE),
+            author=_OWNER,
+            approval_profile=_profile(_OWNER),
+        )
+    )
+    executor = validate_governance_review(
+        _request(
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            _approval(_EXECUTOR),
+            author=_OWNER,
+            approval_profile=_profile(_OWNER),
+        )
+    )
+
+    assert unnamed.allowed is False
+    assert "approval_profile_unnamed_principal" in _codes(unnamed)
+    assert executor.allowed is False
+    assert "approval_profile_approver_is_executor" in _codes(executor)
+
+
+def test_single_operator_profile_still_requires_owner_role_and_phishing_resistance() -> None:
+    non_owner_profile = _profile(_APPROVER_ONE)
+    non_owner = validate_governance_review(
+        _request(
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            _approval(_APPROVER_ONE),
+            author=_APPROVER_ONE,
+            approval_profile=non_owner_profile,
+        )
+    )
+    weak_auth = validate_governance_review(
+        _request(
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            _approval(_OWNER, phishing_resistant=False),
+            author=_OWNER,
+            approval_profile=_profile(_OWNER),
+        )
+    )
+
+    assert non_owner.allowed is False
+    assert "owner_review_missing" in _codes(non_owner)
+    assert weak_auth.allowed is False
+    assert "approval_not_phishing_resistant" in _codes(weak_auth)
+
+
+def test_multi_operator_and_other_classes_ignore_the_single_operator_profile() -> None:
+    multi_self = validate_governance_review(
+        _request(
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            _approval(_OWNER),
+            author=_OWNER,
+            approval_profile=_multi_profile(),
+        )
+    )
+    other_class = validate_governance_review(
+        _request(
+            GovernanceChangeClass.ENFORCE_PROMOTION,
+            _approval(_OWNER),
+            author=_OWNER,
+            approval_profile=_profile(_OWNER),
+        )
+    )
+
+    assert multi_self.allowed is False
+    assert _codes(multi_self) == {"owner_review_missing", "quorum_not_met", "self_approval"}
+    assert multi_self.required_quorum == 2
+    assert multi_self.approval_profile is None
+    assert other_class.allowed is False
+    assert _codes(other_class) == {"self_approval", "quorum_not_met"}
+    assert other_class.required_quorum == 2
+    assert other_class.approval_profile is None
 
 
 def test_dismissed_approval_is_silently_uncounted() -> None:

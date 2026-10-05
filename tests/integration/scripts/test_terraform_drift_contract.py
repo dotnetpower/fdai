@@ -502,3 +502,5 @@ def test_reconcile_applies_only_reviewed_saved_refresh_only_plans() -> None:
     assert "Drift remains after reconciliation." in workflow
     assert 'printf \'%s\\n\' "$root_id" >>"$work/skipped-roots.txt"' in workflow
     assert "Skipped roots: ${skipped:-none}" in workflow
+    assert "Recovered promoted runner plan inputs from authoritative host readback." in workflow
+    assert workflow.count("map_values(.value)") == 2
