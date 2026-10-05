@@ -243,6 +243,13 @@ Why App Roles over raw group claims:
 Group memberships remain the **administration surface** (Owners add/remove members via the
 Entra Portal); App Roles are the **token surface** the API sees.
 
+The `policy-admin` App Role, used by the `policy-administration` add-on, sits outside this
+hierarchy. It never maps to an ordinary role, read gate, approver, or executor. Only the
+policy-revision request route checks it, together with fresh authentication. The route
+publishes a typed request and stays disabled until the add-on is selected. The bootstrap doesn't
+define this App Role or the `auth_time` optional claim yet; see
+[Operator Governance Profiles](../decisioning/operator-governance-profiles.md).
+
 ## 5. Governance Action Enforcement (CI + CODEOWNERS)
 
 Coarse roles are made safe by **quorum + justification + author≠approver** checks at the
