@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+
+from fdai_service_contracts.approval_profile import approval_profile_policy_digest
 
 from fdai.agents import ApprovalRuntimeBindings
 from fdai.core.risk_gate.approval_profile import ApprovalProfileKind, ApprovalProfileRevision
@@ -16,35 +16,15 @@ from fdai.runtime.development_authority import PROFILE_ENV as DEVELOPMENT_PROFIL
 PROFILE_JSON_ENV = "FDAI_APPROVAL_PROFILE_JSON"
 PROFILE_PATH_ENV = "FDAI_APPROVAL_PROFILE_PATH"
 _REVISION_FIELDS = frozenset(
-    {
+    (
         "revision_id",
         "approval_profile",
         "executor_principal",
         "effective_from",
         "operator_principal",
-    }
+    )
 )
 _TOP_LEVEL_FIELDS = _REVISION_FIELDS | {"policy_digest"}
-
-
-def approval_profile_policy_digest(revision: Mapping[str, Any]) -> str:
-    """Return the content-addressed digest for an approval profile revision."""
-
-    canonical = {
-        "revision_id": revision["revision_id"],
-        "approval_profile": revision["approval_profile"],
-        "executor_principal": revision["executor_principal"],
-        "effective_from": revision["effective_from"],
-        "operator_principal": revision.get("operator_principal"),
-    }
-    encoded = json.dumps(
-        canonical,
-        allow_nan=False,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 def load_approval_profile(
@@ -116,7 +96,6 @@ def approval_runtime_bindings(
 __all__ = [
     "PROFILE_JSON_ENV",
     "PROFILE_PATH_ENV",
-    "approval_profile_policy_digest",
     "approval_runtime_bindings",
     "load_approval_profile",
 ]

@@ -22,7 +22,6 @@ from fdai.core.executor import (
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.approval_profile import (
     PROFILE_JSON_ENV,
-    approval_profile_policy_digest,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     build_mutation_dependency_readiness,
@@ -38,6 +37,7 @@ from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.shared.config import AppConfig
 from fdai.shared.providers.testing import InMemoryStateStore
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+from fdai_service_contracts.approval_profile import approval_profile_policy_digest
 from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
 
 _OPERATOR = "operator@example.com"

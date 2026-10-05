@@ -24,7 +24,6 @@ from fdai.core.risk_gate.ceiling import AxisLevel
 from fdai.runtime.approval_profile import (
     PROFILE_JSON_ENV,
     PROFILE_PATH_ENV,
-    approval_profile_policy_digest,
     approval_runtime_bindings,
     load_approval_profile,
 )
@@ -40,6 +39,7 @@ from fdai.shared.contracts.models import (
     RollbackKind,
     Tier,
 )
+from fdai_service_contracts.approval_profile import approval_profile_policy_digest
 
 from .test_authority import _destructive_at, _low_risk_at, _table
 

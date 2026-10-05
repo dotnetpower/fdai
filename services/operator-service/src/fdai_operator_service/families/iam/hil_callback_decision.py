@@ -15,11 +15,6 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
-from fdai.core.hil_resume.delegation import DelegationRefusal, evaluate_hil_delegation
-from fdai.core.risk_gate.approval_profile import (
-    ApprovalProfileKind,
-    ApprovalProfileRevision,
-)
 from fdai_operator_service.families.iam.capabilities import IamCapability, has_capability
 from fdai_operator_service.families.iam.contracts import (
     HilApprovalDecision,
@@ -56,6 +51,12 @@ from fdai_operator_service.families.iam.hil_development_approval import (
 )
 from fdai_operator_service.families.iam.http import error_response, family_error
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.approval_profile import (
+    ApprovalProfileKind,
+    ApprovalProfileRefusal,
+    ApprovalProfileRevision,
+    evaluate_profile_approval,
+)
 from fdai_service_contracts.development_approval import DevelopmentApprovalAttestation
 from starlette.responses import JSONResponse, Response
 
@@ -351,14 +352,10 @@ class HilCallbackDecisionService:
         if decision is HilApprovalDecision.APPROVE:
             try:
                 profile = _approval_profile(context)
-                delegation = evaluate_hil_delegation(
-                    approver_oid=actor.oid,
-                    submitter_oid=context.submitter_oid,
-                    approver_can_approve_hil=has_capability(
-                        actor.roles,
-                        IamCapability.APPROVE_RUNTIME_HIL,
-                    ),
-                    approval_profile=profile,
+                profile_decision = evaluate_profile_approval(
+                    profile,
+                    approver=actor.oid,
+                    requester=context.submitter_oid,
                     original_quorum=_original_quorum(context),
                     executor_principal=context.metadata.get(
                         "approval_profile_executor_principal",
@@ -374,26 +371,33 @@ class HilCallbackDecisionService:
                     outcome=HilCallbackOutcome.INVALID,
                     actor=actor,
                 )
-            if not delegation.allowed and delegation.refusal in {
-                DelegationRefusal.BLANK_APPROVER,
-                DelegationRefusal.UNKNOWN_SUBMITTER,
-                DelegationRefusal.UNNAMED_PRINCIPAL,
-                DelegationRefusal.APPROVER_IS_EXECUTOR,
-                DelegationRefusal.MISSING_CAPABILITY,
+            if not profile_decision.allowed and profile_decision.refusal in {
+                ApprovalProfileRefusal.BLANK_APPROVER,
+                ApprovalProfileRefusal.UNKNOWN_REQUESTER,
+                ApprovalProfileRefusal.UNNAMED_PRINCIPAL,
+                ApprovalProfileRefusal.APPROVER_IS_EXECUTOR,
             }:
                 return await session.finish(
                     error_response(
                         403,
-                        f"{delegation.refusal.value if delegation.refusal else 'approval_refused'}",
-                        kind=_operator_refusal_kind(delegation.refusal),
+                        profile_decision.refusal.value,
+                        kind=_operator_refusal_kind(profile_decision.refusal),
+                    ),
+                    outcome=HilCallbackOutcome.INVALID,
+                    actor=actor,
+                )
+            if not has_capability(actor.roles, IamCapability.APPROVE_RUNTIME_HIL):
+                return await session.finish(
+                    error_response(
+                        403,
+                        "missing_capability",
+                        kind="role_forbidden",
                     ),
                     outcome=HilCallbackOutcome.INVALID,
                     actor=actor,
                 )
             profile_self_approval_admitted = (
-                delegation.approval_profile is not None
-                and delegation.approval_profile.self_review
-                and delegation.allowed
+                profile_decision.self_review and profile_decision.allowed
             )
         if _normalize(context.submitter_oid) == actor.oid and not (
             _owner_only_rejection(context, decision=decision)
@@ -641,14 +645,12 @@ def _original_quorum(context: _ApprovalContext) -> int:
     return int(value) if value else 1
 
 
-def _operator_refusal_kind(refusal: DelegationRefusal | None) -> str:
-    if refusal is DelegationRefusal.MISSING_CAPABILITY:
-        return "role_forbidden"
-    if refusal is DelegationRefusal.UNNAMED_PRINCIPAL:
+def _operator_refusal_kind(refusal: ApprovalProfileRefusal | None) -> str:
+    if refusal is ApprovalProfileRefusal.UNNAMED_PRINCIPAL:
         return "unnamed_principal_forbidden"
-    if refusal is DelegationRefusal.APPROVER_IS_EXECUTOR:
+    if refusal is ApprovalProfileRefusal.APPROVER_IS_EXECUTOR:
         return "executor_approval_forbidden"
-    if refusal is DelegationRefusal.SELF_APPROVAL:
+    if refusal is ApprovalProfileRefusal.SELF_APPROVAL:
         return "self_approval_forbidden"
     return "approval_refused"
 
