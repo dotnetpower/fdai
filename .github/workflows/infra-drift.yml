@@ -10,6 +10,7 @@ on:
     paths:
       - ".github/workflows/infra-drift.yml"
       - "infra/bootstrap/check-runner-storage-posture.sh"
+      - "scripts/deployment/azure/postgres_power_window.py"
       - "scripts/deployment/azure/verify_deploy_identity_manifest.py"
       - "scripts/deployment/azure/verify_scenario_state_closure.py"
       - "scripts/deployment/service/drift_contract.py"
@@ -46,6 +47,10 @@ jobs:
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    # Serialize with every scheduled run that opens the same database power window.
+    concurrency:
+      group: legacy-database-power-window-${{ inputs.environment || 'dev' }}
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: infra
@@ -117,6 +122,23 @@ jobs:
             -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
             -backend-config="container_name=$STATE_CONTAINER" \
             -backend-config="key=fdai-${{ inputs.environment || 'dev' }}.tfstate"
+
+      - name: Open legacy database power window
+        if: inputs.scope != 'runner'
+        id: database_window
+        continue-on-error: true
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          umask 077
+          state_json="$RUNNER_TEMP/database-window-platform-state.json"
+          trap 'rm -f -- "$state_json"' EXIT
+          terraform -chdir=infra show -json >"$state_json"
+          server_id="$(python3 scripts/deployment/service/drift_contract.py \
+            platform-database --state-json "$state_json" | jq -er '.server_id')"
+          python3 scripts/deployment/azure/postgres_power_window.py open \
+            --server-id "$server_id" \
+            --record "$RUNNER_TEMP/database-power-window.json"
 
       - name: Plan legacy root
         if: inputs.scope != 'runner'
@@ -395,10 +417,20 @@ jobs:
           echo "No bootstrap Terraform drift detected."
           exit 0
 
+      - name: Close legacy database power window
+        if: >-
+          always() && steps.protected-source.outcome == 'success' &&
+          steps.database_window.outcome != 'skipped'
+        working-directory: ${{ github.workspace }}
+        run: >-
+          python3 scripts/deployment/azure/postgres_power_window.py close
+          --record "$RUNNER_TEMP/database-power-window.json"
+
       - name: Enforce complete drift evidence
         if: always() && steps.protected-source.outcome == 'success'
         env:
           DRIFT_SCOPE: ${{ inputs.scope || 'all' }}
+          DATABASE_WINDOW_OUTCOME: ${{ steps.database_window.outcome }}
           LEGACY_OUTCOME: ${{ steps.legacy_drift.outcome }}
           SERVICE_OUTCOME: ${{ steps.service_drift.outcome }}
           BOOTSTRAP_OUTCOME: ${{ steps.bootstrap_drift.outcome }}
@@ -408,6 +440,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$DRIFT_SCOPE" != "runner" ]]; then
+            [[ "$DATABASE_WINDOW_OUTCOME" == "success" ]] || {
+              echo "The legacy database power window could not make the server Ready." >&2
+              exit 1
+            }
             [[ "$LEGACY_OUTCOME" == "success" ]] || {
               echo "Legacy Terraform drift was detected or could not be evaluated." >&2
               exit 1

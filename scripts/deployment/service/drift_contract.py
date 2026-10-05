@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,13 @@ class DriftContractError(ValueError):
 
 
 _COST_PSEUDONYM_KEY_ADDRESS = "azurerm_key_vault_secret.cost_pseudonym_key[0]"
+_PLATFORM_DATABASE_ADDRESS = "module.state_store.azurerm_postgresql_flexible_server.primary"
+_POSTGRES_SERVER_ID = re.compile(
+    r"/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    r"/resourceGroups/[A-Za-z0-9._()-]{1,90}"
+    r"/providers/Microsoft\.DBforPostgreSQL/flexibleServers/[a-z0-9][a-z0-9-]{1,61}[a-z0-9]",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,6 +203,23 @@ def stored_platform_inputs(payload: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
+def stored_platform_database(payload: dict[str, Any]) -> dict[str, str]:
+    """Read the platform PostgreSQL server identity from pre-refresh platform state JSON."""
+    values = payload.get("values")
+    root = values.get("root_module") if isinstance(values, dict) else None
+    if not isinstance(root, dict):
+        raise DriftContractError("Terraform state JSON has no root module")
+    try:
+        resource = _resource_at_address(root, _PLATFORM_DATABASE_ADDRESS)
+    except LookupError:
+        raise DriftContractError("platform state is missing the PostgreSQL server") from None
+    resource_values = resource.get("values")
+    server_id = resource_values.get("id") if isinstance(resource_values, dict) else None
+    if not isinstance(server_id, str) or _POSTGRES_SERVER_ID.fullmatch(server_id) is None:
+        raise DriftContractError("platform state contains an invalid PostgreSQL server id")
+    return {"server_id": server_id}
+
+
 def _stored_cost_pseudonym_key_secret_id(root: dict[str, Any]) -> str | None:
     """Return the platform-owned Operator pseudonym key binding when the platform created it."""
     try:
@@ -272,6 +297,8 @@ def main() -> int:
     bootstrap.add_argument("--state-json", type=Path, required=True)
     platform = commands.add_parser("platform-inputs")
     platform.add_argument("--state-json", type=Path, required=True)
+    database = commands.add_parser("platform-database")
+    database.add_argument("--state-json", type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.command == "roots":
@@ -286,6 +313,8 @@ def main() -> int:
             )
         elif args.command == "bootstrap-inputs":
             print(json.dumps(stored_bootstrap_inputs(_object(args.state_json)), sort_keys=True))
+        elif args.command == "platform-database":
+            print(json.dumps(stored_platform_database(_object(args.state_json)), sort_keys=True))
         else:
             print(json.dumps(stored_platform_inputs(_object(args.state_json)), sort_keys=True))
     except (

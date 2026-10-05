@@ -152,7 +152,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert '"scripts/deployment/azure/verify_deploy_identity_manifest.py"' in workflow
     assert '"scripts/deployment/azure/verify_scenario_state_closure.py"' in workflow
     assert "options: [all, runner]" in workflow
-    assert workflow.count("if: inputs.scope != 'runner'") == 7
+    assert workflow.count("if: inputs.scope != 'runner'") == 8
+    assert '"scripts/deployment/azure/postgres_power_window.py"' in workflow
     assert "drift_contract.py roots" in workflow
     assert "drift_contract.py stored-image" in workflow
     assert "drift_contract.py \\\n            platform-inputs" in workflow
@@ -377,3 +378,91 @@ def test_stored_bootstrap_inputs_preserve_pre_refresh_intent(drift: ModuleType) 
 def test_stored_bootstrap_inputs_reject_incomplete_state(drift: ModuleType) -> None:
     with pytest.raises(LookupError):
         drift.stored_bootstrap_inputs({"values": {"root_module": {"resources": []}}})
+
+
+_SERVER_ID = (
+    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example"
+    "/providers/Microsoft.DBforPostgreSQL/flexibleServers/psql-example"
+)
+
+
+def _database_state(server_id: object) -> dict[str, Any]:
+    return {
+        "values": {
+            "root_module": {
+                "child_modules": [
+                    {
+                        "resources": [
+                            {
+                                "address": (
+                                    "module.state_store.azurerm_postgresql_flexible_server.primary"
+                                ),
+                                "values": {"id": server_id, "fqdn": "postgres.example.com"},
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+
+
+def test_stored_platform_database_reads_the_exact_server_id(drift: ModuleType) -> None:
+    assert drift.stored_platform_database(_database_state(_SERVER_ID)) == {"server_id": _SERVER_ID}
+
+
+@pytest.mark.parametrize(
+    "server_id",
+    [
+        None,
+        "",
+        _SERVER_ID + "/databases/fdai",
+        _SERVER_ID.replace("DBforPostgreSQL", "DBforMySQL"),
+    ],
+)
+def test_stored_platform_database_rejects_invalid_server_ids(
+    drift: ModuleType, server_id: object
+) -> None:
+    with pytest.raises(drift.DriftContractError, match="invalid PostgreSQL server id"):
+        drift.stored_platform_database(_database_state(server_id))
+
+
+def test_stored_platform_database_requires_the_server(drift: ModuleType) -> None:
+    with pytest.raises(drift.DriftContractError, match="missing the PostgreSQL server"):
+        drift.stored_platform_database(
+            _platform_state(
+                missing_address="module.state_store.azurerm_postgresql_flexible_server.primary"
+            )
+        )
+
+
+def test_drift_opens_the_database_window_before_the_legacy_plan_and_always_closes_it() -> None:
+    workflow = (_ROOT / ".github" / "workflows" / "infra-drift.yml").read_text(encoding="utf-8")
+    opened = workflow.index("      - name: Open legacy database power window")
+    legacy = workflow.index("      - name: Plan legacy root")
+    services = workflow.index("      - name: Plan independent service roots")
+    closed = workflow.index("      - name: Close legacy database power window")
+    enforced = workflow.index("      - name: Enforce complete drift evidence")
+
+    assert workflow.index("      - name: Initialize legacy state") < opened < legacy < services
+    assert services < closed < enforced
+    assert "drift_contract.py \\\n            platform-database" in workflow
+    assert "postgres_power_window.py open" in workflow
+    assert "postgres_power_window.py close" in workflow
+    assert "steps.database_window.outcome != 'skipped'" in workflow[closed:enforced]
+    assert '[[ "$DATABASE_WINDOW_OUTCOME" == "success" ]]' in workflow
+    assert "group: legacy-database-power-window-${{ inputs.environment || 'dev' }}" in workflow
+
+
+def test_observation_export_shares_the_database_window() -> None:
+    workflow = (
+        _ROOT / ".github" / "workflows" / "cost-governance-observation-export.yml"
+    ).read_text(encoding="utf-8")
+    opened = workflow.index("      - name: Open legacy database power window")
+
+    assert workflow.index("      - name: Authenticate and bind private platform state") < opened
+    assert opened < workflow.index("      - name: Resolve exact active package pin")
+    assert workflow.index("      - name: Close legacy database power window") < workflow.index(
+        "      - name: Clean private state material"
+    )
+    assert "group: legacy-database-power-window-${{ inputs.environment || 'dev' }}" in workflow
