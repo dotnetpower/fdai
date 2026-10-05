@@ -178,10 +178,19 @@ jobs:
             local root_id="$1" terraform_root="$2" plan_file="$3" plan_json
             plan_json="$work/plans/$(tr ':/' '__' <<<"$root_id").json"
             terraform -chdir="$terraform_root" show -json "$plan_file" >"$plan_json"
+            local summary_json regressions
+            summary_json="$work/summaries/$(tr ':/' '__' <<<"$root_id").json"
             python3 scripts/deployment/service/refresh_drift_digest.py summarize \
-              --root-id "$root_id" --plan-json "$plan_json" \
-              >"$work/summaries/$(tr ':/' '__' <<<"$root_id").json"
+              --root-id "$root_id" --plan-json "$plan_json" >"$summary_json"
             rm -f -- "$plan_json"
+            regressions="$(python3 scripts/deployment/service/refresh_drift_digest.py regressions \
+              "$summary_json")"
+            if [[ -n "$regressions" ]]; then
+              # Applying would overwrite deploy-owned outputs evaluated without the deploy inputs.
+              echo "Skipped $root_id: refresh-only plan would blank deployed outputs ($regressions)."
+              printf '%s\n' "$root_id" >>"$work/skipped-roots.txt"
+              return 0
+            fi
             printf '%s\t%s\t%s\n' "$root_id" "$terraform_root" "$plan_file" >>"$work/roots.tsv"
           }
 
