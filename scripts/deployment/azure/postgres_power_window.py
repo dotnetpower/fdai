@@ -107,11 +107,13 @@ def _wait_for(
     poll_seconds: float,
     monotonic: Callable[[], float],
     sleep: Callable[[float], None],
+    pending: frozenset[str] = frozenset(),
 ) -> str:
+    """Poll until a target state; ``pending`` names prior states an accepted request may keep."""
     deadline = monotonic() + deadline_seconds
     state = server_state(server_id, runner)
     while state not in targets:
-        if state not in _TRANSITIONAL:
+        if state not in _TRANSITIONAL and state not in pending:
             raise PowerWindowError(f"PostgreSQL server is in unsupported state {state!r}")
         if monotonic() >= deadline:
             raise PowerWindowError(f"PostgreSQL server stayed in state {state!r} past the deadline")
@@ -189,6 +191,7 @@ def open_window(
         ],
         _AZ_CALL_TIMEOUT_SECONDS,
     )
+    # An accepted asynchronous start can still report Stopped before it reports Starting.
     _wait_for(
         server_id,
         frozenset({_READY}),
@@ -197,6 +200,7 @@ def open_window(
         poll_seconds=timing.poll_seconds,
         monotonic=monotonic,
         sleep=sleep,
+        pending=frozenset({_STOPPED}),
     )
     print("PostgreSQL server is Ready.")
     return record
@@ -245,6 +249,7 @@ def close_window(
         ],
         _AZ_CALL_TIMEOUT_SECONDS,
     )
+    # An accepted asynchronous stop can still report Ready before it reports Stopping.
     _wait_for(
         server_id,
         frozenset({_STOPPED}),
@@ -253,6 +258,7 @@ def close_window(
         poll_seconds=timing.poll_seconds,
         monotonic=monotonic,
         sleep=sleep,
+        pending=frozenset({_READY}),
     )
     print("PostgreSQL server restored to Stopped.")
     return "stopped"

@@ -186,3 +186,36 @@ def test_cli_reports_failure_without_traceback(
 
     assert window.main(["close", "--record", str(record)]) == 1
     assert "database power window failed" in capsys.readouterr().err
+
+
+def test_start_tolerates_stopped_reads_before_the_request_takes_effect(tmp_path: Path) -> None:
+    record = tmp_path / "window.json"
+    azure = _Azure("Stopped", "Stopped", "Stopped", "Starting", "Ready")
+
+    opened = _open(azure, record)
+
+    assert opened["started_by_run"] is True
+    assert azure.verbs() == ["show", "start", "show", "show", "show", "show"]
+
+
+def test_stop_tolerates_ready_reads_before_the_request_takes_effect(tmp_path: Path) -> None:
+    record = tmp_path / "window.json"
+    _open(_Azure("Stopped", "Ready"), record)
+    closing = _Azure("Ready", "Ready", "Ready", "Stopping", "Stopped")
+
+    assert _close(closing, record) == "stopped"
+    assert closing.verbs() == ["show", "stop", "show", "show", "show", "show"]
+
+
+def test_a_start_that_never_leaves_stopped_fails_at_the_deadline(tmp_path: Path) -> None:
+    record = tmp_path / "window.json"
+
+    with pytest.raises(window.PowerWindowError, match="past the deadline"):
+        _open(_Azure("Stopped", *(["Stopped"] * 100)), record)
+
+    assert json.loads(record.read_text(encoding="utf-8"))["started_by_run"] is True
+
+
+def test_pending_states_never_mask_unsupported_states(tmp_path: Path) -> None:
+    with pytest.raises(window.PowerWindowError, match="unsupported state 'Disabled'"):
+        _open(_Azure("Stopped", "Stopped", "Disabled"), tmp_path / "window.json")
