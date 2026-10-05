@@ -412,6 +412,7 @@ def _build_control_loop(
             hil_authority_action_types=frozenset(
                 {
                     "governance.promote-action-type",
+                    "governance.override-promote-action-type",
                     "governance.promote-effect-model",
                 }
             )
@@ -466,6 +467,9 @@ def _build_control_loop(
         catalog_root=catalog_root,
         process_store=process_runtime_store,
         governed_execution_enabled=governed_execution_enabled,
+        active_approval_profile=(
+            approval_bindings.profile if approval_bindings is not None else None
+        ),
     )
     thor_execution_port = gate_execution(thor_execution_port, license_authority, audit_store)
     executor, direct_api_executor, tool_executor = _legacy_executor_bindings(thor_execution_port)

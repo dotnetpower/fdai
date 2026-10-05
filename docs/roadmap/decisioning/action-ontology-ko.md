@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: a17ed98e06ab438d788b131f10b5f5f4575019cf
-translation_revised: 2026-09-28
+translation_source_sha: f0ce9a9d08a4c4a8a90d7fbc1bcb2854839173ed
+translation_revised: 2026-10-05
 ---
 
 # 액션 온톨로지
@@ -375,11 +375,21 @@ catalog-as-code 산출물입니다.
   상한 의 operator-측 재정의 (포크 확장).
   **디스패처 shipped**:
   [`services/core-control-plane/src/fdai/core/risk_gate/override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py).
+- `governance.override-promote-action-type` - 하나의 attributed operator
+  override 승격을 런타임 모드 레지스트리에 적용합니다. `governance.promote-action-type`과
+  같은 Thor 소유 direct promotion adapter 계열을 사용하지만 요청은 별도이므로 레지스트리는
+  `promotion_kind: operator_override`, 승인 시점의 게이트 상태와 근거 다이제스트, 운영자, 사유,
+  Var 승인 증적을 기록합니다. 이 ActionType은 일곱 가지 safeguard proof digest를 요구하며
+  override 증적은 gate-evidence 승격으로 계산되지 않습니다.
+  **디스패처 shipped:** Thor 뒤의 `OperatorOverridePromotionDirectApiExecutor`.
+  Shadow는 변경 없이 검증하며 enforce 모드는 Forseti, Var, Thor, Saga를 지나는 통제된
+  override review를 요구합니다.
 
 거버넌스 액션은 catalog-as-code 변경이므로 `execution_path: pr_native`를 사용하고 검토된
-차이로 landing해야 하며 닫힌 예외는 2개입니다. `governance.promote-action-type`은 영속 런타임
-모드 레지스트리만 변경하고 `governance.promote-effect-model`은 reviewed graph-model active
-pointer만 변경합니다. 둘 다 Owner HIL과 exact-receipt 검증 이후에만 `direct_api`를 사용하며
+차이로 landing해야 하며 닫힌 예외는 3개입니다. `governance.promote-action-type`과
+`governance.override-promote-action-type`은 영속 런타임 모드 레지스트리만 변경하고
+`governance.promote-effect-model`은 reviewed graph-model active pointer만 변경합니다. 이들은
+Owner 또는 활성 프로필의 거버넌스 HIL과 exact-receipt 검증 이후에만 `direct_api`를 사용하며
 카탈로그 데이터나 managed 기반을 변경하지 않습니다. 다른 거버넌스 액션은 이 예외를 사용할 수 없습니다.
 
 ### 3.4 `tool.*`

@@ -280,8 +280,8 @@ The PostgreSQL evidence provider follows these boundaries:
   counts as promotion evidence elsewhere, and yields to regression demotion and vendor capability
   recall ([Operator Governance Profiles](../decisioning/operator-governance-profiles.md)). The
   promotion registry stores `promotion_kind` and accepts an override only after an injected
-  verifier confirms its Var approval receipt; the `governance` ActionType path that issues that
-  receipt is planned.
+  verifier confirms its Var approval receipt; the `governance.override-promote-action-type` path
+  issues and verifies that receipt through Thor's direct promotion adapter.
 - Regressions demote back to shadow automatically; every promotion and demotion writes an
   audit entry.
 - Working-context policy candidates use the same capability authority without gaining action

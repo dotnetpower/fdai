@@ -197,11 +197,18 @@
     },
     "section": "ActionType ({count})",
     "empty": "승격 게이트를 선언한 ActionType이 없습니다.",
+    "override": {
+      "marker": "운영자 재정의 - 운영자 증언 게이트 {status}"
+    },
     "error": {
       "windowDays": "잘못된 Operator API 응답: promotion gates.window_days는 음수가 아닌 숫자 또는 null이어야 합니다",
       "agreedCount": "잘못된 Operator API 응답: promotion gate row.agreed_count는 reviewed_count를 초과할 수 없습니다",
       "mode": "잘못된 Operator API 응답: promotion gate row.mode는 shadow 또는 enforce여야 합니다",
       "modeSource": "잘못된 Operator API 응답: promotion gate row 모드 출처가 올바르지 않습니다",
+      "promotionKind": "잘못된 Operator API 응답: promotion gate row.promotion_kind가 올바르지 않습니다",
+      "operatorOverride": "잘못된 Operator API 응답: promotion gate row.operator_override가 promotion_kind와 일치하지 않습니다",
+      "gateStatus": "잘못된 Operator API 응답: promotion gate row.operator_override.gate_status가 올바르지 않습니다",
+      "operatorAttestationSource": "잘못된 Operator API 응답: promotion gate row.operator_override 출처가 올바르지 않습니다",
       "summaryCounts": "잘못된 Operator API 응답: 승격 게이트 요약 수는 행 수와 반드시 일치해야 합니다"
     }
   },
@@ -597,6 +604,11 @@
       "ready": "준비됨",
       "blocked": "차단됨",
       "disabled": "비활성화됨"
+    },
+    "gateStatus": {
+      "passed": "통과",
+      "failed": "실패",
+      "insufficient_evidence": "근거 부족"
     },
     "compatibility": {
       "compatible": "호환됨",

@@ -589,6 +589,7 @@ _DOC_GOVERNANCE_ACTION_TYPES: frozenset[str] = frozenset(
         "governance.grant-exemption",
         "governance.reapply-rule-assignment",
         "governance.override-ceiling",
+        "governance.override-promote-action-type",
     }
 )
 
@@ -650,7 +651,12 @@ def test_governance_action_execution_paths_match_authority_contract() -> None:
             continue
         expected = (
             ExecutionPath.DIRECT_API
-            if action.name in {"governance.promote-action-type", "governance.promote-effect-model"}
+            if action.name
+            in {
+                "governance.promote-action-type",
+                "governance.override-promote-action-type",
+                "governance.promote-effect-model",
+            }
             else ExecutionPath.PR_NATIVE
         )
         assert action.execution_path is expected

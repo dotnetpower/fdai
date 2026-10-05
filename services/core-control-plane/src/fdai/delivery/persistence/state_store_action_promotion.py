@@ -88,11 +88,13 @@ class OperatorOverrideAttribution:
     def as_dict(self) -> dict[str, str]:
         return {
             "gate_status": self.gate_status.value,
+            "gate_status_source": "operator_attested",
             "gate_evidence_digest": self.gate_evidence_digest,
             "approval_receipt_digest": self.approval_receipt_digest,
             "operator_principal": self.operator_principal,
             "override_reason": self.reason,
             "override_recorded_at": self.recorded_at.isoformat(),
+            "safeguard_proof_source": "operator_attested",
         }
 
 

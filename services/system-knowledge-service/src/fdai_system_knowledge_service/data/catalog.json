@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:bdca9e2dba42a5db37a18666c6a7e6c10951c68e06b1d08845da9a804f957ae4",
+  "catalog_digest": "sha256:0e243e78f542c4aac491ec73f111f1b8fa70c505a62e7142186d51fb97953d2f",
   "execution_authority": false,
-  "generated_at": "2026-10-05T12:37:16.666277Z",
+  "generated_at": "2026-10-05T16:08:50.731316Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,7 +21,7 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:b5add0be22de48d15d0ba3cf1d846bf9ba802305762444897a6a1d9a818f202c",
+      "record_digest": "sha256:802a5edc93e6a52c11d12566fe9198b8a8bdcf7e5d09627eef5c4bf5df2d4295",
       "sources": [
         {
           "authority_role": "design",
@@ -34,7 +34,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "a17ed98e06ab438d788b131f10b5f5f4575019cf",
+          "blob_sha": "f0ce9a9d08a4c4a8a90d7fbc1bcb2854839173ed",
           "line_end": 24,
           "line_start": 24,
           "path": "docs/roadmap/decisioning/action-ontology.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "d039ef39dc8182af47e87da3913116c9196dfc45"
+  "source_revision": "d882ed3dcab8a8ef7de44b5809efcf1b3a50c405"
 }

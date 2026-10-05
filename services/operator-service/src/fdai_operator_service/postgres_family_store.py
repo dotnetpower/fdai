@@ -595,7 +595,7 @@ class PostgresFamilyStore:
             )
         return _json_object(rows[0].get("value"), label=key)
 
-    async def read_action_promotion_modes(self) -> dict[str, str]:
+    async def read_action_promotion_modes(self) -> dict[str, object]:
         """Read the bounded durable current mode for every promoted ActionType."""
 
         rows = await self._fetch_all(
@@ -607,23 +607,39 @@ class PostgresFamilyStore:
             raise PostgresFamilyStoreUnavailable(
                 "authoritative ActionType promotion state exceeds its bound"
             )
-        modes: dict[str, str] = {}
+        modes: dict[str, object] = {}
         for row in rows:
             value = _json_object(row.get("value"), label="action_promotion")
             action_type = value.get("action_type")
             mode = value.get("mode")
+            promotion_kind = value.get("promotion_kind", "gate_evidence")
             if (
                 value.get("schema_version") != "1.0.0"
                 or not isinstance(action_type, str)
                 or not action_type
                 or len(action_type) > 256
                 or mode not in {"shadow", "enforce"}
+                or promotion_kind not in {"gate_evidence", "operator_override"}
                 or action_type in modes
             ):
                 raise PostgresFamilyStoreUnavailable(
                     "authoritative ActionType promotion state is malformed"
                 )
-            modes[action_type] = mode
+            modes[action_type] = {
+                "mode": mode,
+                "promotion_kind": promotion_kind,
+                "gate_status": value.get("gate_status"),
+                "gate_status_source": value.get("gate_status_source", "operator_attested"),
+                "gate_evidence_digest": value.get("gate_evidence_digest"),
+                "approval_receipt_digest": value.get("approval_receipt_digest"),
+                "operator_principal": value.get("operator_principal"),
+                "override_reason": value.get("override_reason"),
+                "override_recorded_at": value.get("override_recorded_at"),
+                "safeguard_proof_source": value.get(
+                    "safeguard_proof_source",
+                    "operator_attested",
+                ),
+            }
         return modes
 
     async def read_wara_catalog(self) -> dict[str, object]:
@@ -3209,7 +3225,7 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         del family, operation
         raise PostgresFamilyStoreUnavailable("authoritative projection is unavailable")
 
-    async def read_action_promotion_modes(self) -> dict[str, str]:
+    async def read_action_promotion_modes(self) -> dict[str, object]:
         raise PostgresFamilyStoreUnavailable("authoritative promotion state is unavailable")
 
     async def list_background_tasks(
