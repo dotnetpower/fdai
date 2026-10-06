@@ -247,3 +247,43 @@ def _write_signed(path: Path, payload: dict[str, object]) -> None:
     payload["receipt_digest"] = canonical_digest(payload)
     path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
     path.chmod(0o600)
+
+
+@pytest.mark.parametrize(
+    "requested,expected", [([], 1000), (["--monthly-cost-ceiling", "1200"], 1200)]
+)
+def test_cli_teardown_keeps_the_retained_ceiling_by_default(
+    tmp_path, monkeypatch, requested, expected
+):
+    """A run saved under an older default must stay removable without restating it."""
+    from fdai_deployment_cli import cli
+
+    work_dir = tmp_path / "work"
+    work_dir.mkdir(mode=0o700)
+    intent = work_dir / "source-intent.json"
+    intent.write_text(json.dumps({"monthly_cost_ceiling": 1000}))
+    intent.chmod(0o600)
+    seen = []
+
+    def teardown(**kwargs):
+        seen.append(kwargs["monthly_cost_ceiling"])
+        return {"state": "torn-down"}
+
+    monkeypatch.setattr(cli, "apply_source_teardown", teardown)
+    monkeypatch.setattr(cli, "AzureResourceGroupClient", lambda: None)
+    code = cli.main(
+        [
+            "provision",
+            "azure",
+            "--source",
+            str(tmp_path),
+            "--teardown",
+            "--work-dir",
+            str(work_dir),
+            "--output",
+            "json",
+            *requested,
+        ]
+    )
+    assert code == 0
+    assert seen == [expected]

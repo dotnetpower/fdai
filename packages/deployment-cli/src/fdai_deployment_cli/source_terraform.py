@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import http.client
 import io
 import platform
 import re
@@ -62,7 +63,7 @@ def download_pinned_terraform(
                 if not chunk:
                     break
                 chunks.extend(chunk)
-    except (OSError, urllib.error.URLError):
+    except (OSError, urllib.error.URLError, http.client.HTTPException):
         raise ValueError(
             f"Terraform {version} download unavailable; install it on PATH or retry"
         ) from None

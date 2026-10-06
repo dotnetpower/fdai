@@ -201,11 +201,9 @@ def test_compute_partial_projection_cannot_approve_budget(monkeypatch, ceiling, 
     assert profile.to_mapping() == before
 
 
-def test_default_profile_fits_the_default_ceiling_at_observed_rates(monkeypatch):
+def test_default_profile_fits_the_default_ceiling_at_observed_rates(monkeypatch, tmp_path):
     """The bare one-line command must pass its own cost review at public D4as_v5 rates."""
-    from fdai_deployment_cli import cli
-
-    ceiling = cli._parser().parse_args(["provision", "azure", "--source", "."]).monthly_cost_ceiling
+    ceiling = cost.resolve_monthly_cost_ceiling(None, retained=(tmp_path / "absent.json",))
     profile = RuntimeDeploymentProfile.create(
         runtime_platform="aks", database_placement="postgres-flex"
     )
@@ -218,3 +216,28 @@ def test_default_profile_fits_the_default_ceiling_at_observed_rates(monkeypatch)
             profile=profile, region="westus3", monthly_cost_ceiling=ceiling
         )
         assert result["state"] == "partial", (rate, result["monthly_compute_estimate_usd"])
+
+
+def _retained(path, value):
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.write_text(json.dumps({"monthly_cost_ceiling": value}))
+    path.chmod(0o600)
+    return path
+
+
+def test_retained_run_keeps_its_recorded_ceiling(tmp_path):
+    intent = _retained(tmp_path / "work/source-intent.json", 1000)
+    later = _retained(tmp_path / "work/run/profile.json", 2000)
+    assert cost.resolve_monthly_cost_ceiling(None, retained=(intent, later)) == 1000
+    assert cost.resolve_monthly_cost_ceiling(1200, retained=(intent,)) == 1200
+    assert (
+        cost.resolve_monthly_cost_ceiling(None, retained=(tmp_path / "missing.json",))
+        == cost.DEFAULT_MONTHLY_COST_CEILING
+    )
+
+
+@pytest.mark.parametrize("value", ["1000", None, -1, 1.5])
+def test_unusable_retained_ceiling_requires_an_explicit_value(tmp_path, value):
+    intent = _retained(tmp_path / "work/source-intent.json", value)
+    with pytest.raises(ValueError, match="pass --monthly-cost-ceiling"):
+        cost.resolve_monthly_cost_ceiling(None, retained=(intent,))

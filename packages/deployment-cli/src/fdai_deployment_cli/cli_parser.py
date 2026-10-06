@@ -213,9 +213,12 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     settings.add_argument(
         "--monthly-cost-ceiling",
         type=int,
-        default=1500,
+        default=None,
         metavar="USD",
-        help="Monthly cost review input in USD (default: %(default)s); not a billing cap",
+        help=(
+            "Monthly cost review input in USD (default: the retained run's value, "
+            "otherwise 1500); not a billing cap"
+        ),
     )
     settings.add_argument(
         "--work-dir",

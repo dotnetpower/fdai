@@ -132,12 +132,11 @@ def plan_source_installation(
             raise ValueError("retained source Terraform differs; preserve the run")
     else:
         installed = shutil.which("terraform")
-        if (
-            installed is not None
-            and hashlib.sha256(Path(installed).read_bytes()).hexdigest() == digest
-        ):
+        try:
+            if installed is None:
+                raise ValueError("no Terraform on PATH")
             _copy_terraform(Path(installed), terraform, expected_digest=digest)
-        else:
+        except (OSError, ValueError):
             download_pinned_terraform(
                 toolchain=toolchain,
                 destination=terraform,

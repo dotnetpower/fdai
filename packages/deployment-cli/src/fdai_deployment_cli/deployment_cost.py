@@ -3,11 +3,37 @@
 from __future__ import annotations
 
 from decimal import Decimal, ROUND_CEILING
+from pathlib import Path
 
 from fdai_deployment_cli.azure_retail_prices import read_linux_vm_price
-from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
+from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+
+# Covers the default AKS profile (8 Standard_D4as_v5 nodes at most) at public US rates.
+DEFAULT_MONTHLY_COST_CEILING = 1500
+
+
+def resolve_monthly_cost_ceiling(requested: int | None, *, retained: tuple[Path, ...]) -> int:
+    """Keep a retained run's ceiling so resume, recovery and teardown match its intent.
+
+    Only a run with no retained record receives the current default.
+    """
+    if requested is not None:
+        return requested
+    for path in retained:
+        if not path.is_file():
+            continue
+        value = load_json_object(
+            read_private_bytes(path, max_bytes=1_048_576), label=path.name
+        ).get("monthly_cost_ceiling")
+        if type(value) is not int or value < 0:
+            raise ValueError(
+                f"{path.name} records no usable monthly_cost_ceiling; pass --monthly-cost-ceiling"
+            )
+        return value
+    return DEFAULT_MONTHLY_COST_CEILING
 
 
 def inspect_aks_compute_cost(
