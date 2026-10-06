@@ -72,7 +72,7 @@ from fdai_operator_service.families.iam.hil_teams_callback import (
     make_hil_teams_callback_route,
 )
 from fdai_operator_service.families.iam.iam_routes import make_iam_routes
-from fdai_operator_service.families.iam.manifest import IAM_FAMILY_MANIFEST
+from fdai_operator_service.families.iam.manifest import IAM_FAMILY_MANIFEST, iam_family_manifest
 from fdai_operator_service.families.iam.notification_receipt import (
     make_notification_receipt_route,
 )
@@ -138,6 +138,7 @@ class IamFamilyBindings:
     slack_authenticator: OperatorAuthenticator | None = None
     slack_console_origin: str | None = None
     notification_receipt_ingress: NotificationReceiptIngress | None = None
+    policy_administration_selected: bool = False
     policy_authenticator: FreshPolicyPrincipalAuthenticator | None = None
     policy_revision_publisher: PolicyRevisionEventPublisher | None = None
     policy_receipt_issuer: OperatorRequestReceiptIssuer | None = None
@@ -197,10 +198,14 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
             outbox=bindings.configuration_review,
             authorize=bindings.authorize,
         ),
-        *make_policy_administration_routes(
-            authenticator=bindings.policy_authenticator,
-            publisher=bindings.policy_revision_publisher,
-            receipt_issuer=bindings.policy_receipt_issuer,
+        *(
+            make_policy_administration_routes(
+                authenticator=bindings.policy_authenticator,
+                publisher=bindings.policy_revision_publisher,
+                receipt_issuer=bindings.policy_receipt_issuer,
+            )
+            if bindings.policy_administration_selected
+            else ()
         ),
         make_hil_operator_decision_route(
             authorize=bindings.authorize,
@@ -249,7 +254,12 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
         (next(iter((route.methods or set()) - {"HEAD"})), route.path, route.name)
         for route in routes
     )
-    expected = tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
+    expected = tuple(
+        (item.method, item.path, item.name)
+        for item in iam_family_manifest(
+            policy_administration=bindings.policy_administration_selected
+        )
+    )
     if snapshot != expected:
         raise RuntimeError("IAM family route factory does not match its frozen manifest")
     return tuple(_redacting_route(route) for route in routes)
@@ -284,5 +294,6 @@ __all__ = [
     "IAM_FAMILY_MANIFEST",
     "HilCallbackConfig",
     "IamFamilyBindings",
+    "iam_family_manifest",
     "make_iam_family_routes",
 ]

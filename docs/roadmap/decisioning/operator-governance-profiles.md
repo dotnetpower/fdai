@@ -205,16 +205,19 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   override only after an injected verifier confirms the Var approval receipt. The
   `governance.override-promote-action-type` path produces and verifies that receipt through the
   governed direct-API promotion adapter. A retained governed production receipt still remains open.
-- The `policy-administration` add-on, the Operator API policy-revision route, and Mimir's
-  validation and activation path are implemented. The add-on requires `read-only-console` and
-  `enterprise-identity-governance`, and grants no authority by itself. The route requires a
+- The `policy-administration` add-on, the Operator API policy-revision route, Mimir's validation
+  and activation path, and the product-profile composition gate are implemented. The add-on requires
+  `read-only-console` and `enterprise-identity-governance`, and grants no authority by itself. The
+  Operator route exists only when the selected product profile includes the add-on, requires a
   `policy-admin` App Role plus fresh authentication, validates a typed body, and publishes only a
-  typed policy-revision request event. Mimir validates schema, restricted Rego, and Release
-  maximums through an injected read-side port, verifies the signed Operator request receipt, signs
-  through an injected policy signer, and stores immutable revisions plus the activation pointer
-  through the installation StateStore seam. Rego validation uses a release-pinned OPA capabilities
-  allowlist aligned to the Core image's OPA 1.18.2 and with network access disabled. Admission
-  revisions without policy tests are refused until Release-shipped policy tests arrive with #1822.
+  typed policy-revision request event. Core binds Mimir's policy-administration port and subscribes
+  to `operator.policy-revision.requests` only under the same selection. Mimir validates schema,
+  restricted Rego, and Release maximums through injected read-side ports, verifies the signed
+  Operator request receipt, signs through a non-exportable Azure Key Vault key adapter, and stores
+  immutable revisions plus the activation pointer through the installation StateStore seam. Rego
+  validation uses a release-pinned OPA capabilities allowlist aligned to the Core image's OPA 1.18.2
+  and with network access disabled. Admission revisions without policy tests are refused until
+  Release-shipped policy tests arrive with #1822.
 - Production Release capability maximums still arrive with #1822. Until that source is configured,
   Mimir fails closed for any requested ActionType mode above `shadow`. The first implementation uses
   the existing tracked-state StateStore persistence convention rather than dedicated
@@ -235,12 +238,12 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   human approval instead of allowing action, and cancelled OPA evaluations kill their subprocess.
   Full-authority development category-denial resume intentionally re-reads the current pointer as a
   fail-closed revalidation; a changed result keeps the park held instead of raising authority.
-- The Operator service does not yet read the selected product profile. Until a product-profile seam
-  is wired, production composition leaves the policy-revision route disabled by default even when
-  the semantic bus exists. Tests bind the route explicitly to verify the publish-only contract.
-- The Entra bootstrap does not yet define the `policy-admin` App Role or require the `auth_time`
-  optional claim for Operator API access tokens. Until those identity settings are configured, the
-  policy-revision route returns 403 for every live Entra principal.
+- The Operator service and Core both read the selected product profile from the canonical product
+  profile JSON configuration. Missing profile JSON keeps `policy-administration` unselected, and
+  malformed profile JSON fails startup validation.
+- The Entra bootstrap now defines the `policy-admin` App Role and requests the `auth_time` optional
+  claim for Operator API access tokens. Live tenant assignment and consent remain deployment
+  operations outside this repository.
 - The policy route signs a new Operator request receipt version, `1.2.0`, for policy revision
   requests. Existing `1.0.0` and `1.1.0` receipt digests remain byte-compatible for other Operator
   requests.

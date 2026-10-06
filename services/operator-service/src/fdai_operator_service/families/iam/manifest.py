@@ -14,6 +14,11 @@ class IamRouteManifestEntry:
     name: str
 
 
+IAM_POLICY_ADMINISTRATION_MANIFEST = (
+    IamRouteManifestEntry("POST", "/policy/revisions", "policy_revision_request"),
+)
+
+
 IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry("POST", "/access-grants/{request_id:str}/decision", "handler"),
     IamRouteManifestEntry("GET", "/access-grants/stream", "handler"),
@@ -91,7 +96,6 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry("POST", "/system/break-glass/activation", "handler"),
     IamRouteManifestEntry("POST", "/configuration-baselines/review/run", "run_review"),
     IamRouteManifestEntry("POST", "/configuration-baselines/review/resume", "resume_review"),
-    IamRouteManifestEntry("POST", "/policy/revisions", "policy_revision_request"),
     IamRouteManifestEntry(
         "POST",
         "/hil/{approval_id}/operator-decision",
@@ -120,4 +124,28 @@ IAM_FAMILY_MANIFEST = (
 )
 
 
-__all__ = ["IAM_FAMILY_MANIFEST", "IamRouteManifestEntry"]
+def iam_family_manifest(
+    *, policy_administration: bool = False
+) -> tuple[IamRouteManifestEntry, ...]:
+    """Return the selected IAM route manifest for the active product profile."""
+
+    if not policy_administration:
+        return IAM_FAMILY_MANIFEST
+    insertion_index = next(
+        index
+        for index, item in enumerate(IAM_FAMILY_MANIFEST)
+        if item.path == "/hil/{approval_id}/operator-decision"
+    )
+    return (
+        *IAM_FAMILY_MANIFEST[:insertion_index],
+        *IAM_POLICY_ADMINISTRATION_MANIFEST,
+        *IAM_FAMILY_MANIFEST[insertion_index:],
+    )
+
+
+__all__ = [
+    "IAM_FAMILY_MANIFEST",
+    "IAM_POLICY_ADMINISTRATION_MANIFEST",
+    "IamRouteManifestEntry",
+    "iam_family_manifest",
+]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from json import JSONDecodeError
 from types import MappingProxyType
 
 from fdai_service_contracts import (
@@ -15,6 +16,8 @@ from fdai_service_contracts import (
 from fdai_service_contracts.notification_receipt import (
     NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
 )
+from fdai_service_contracts.product_profile import ProductProfile
+from pydantic import ValidationError
 
 HOST_ENV = "FDAI_OPERATOR_SERVICE_HOST"
 PORT_ENV = "FDAI_OPERATOR_SERVICE_PORT"
@@ -59,6 +62,7 @@ TEST_CONTEXT_GRANT_REGISTRY_JSON_ENV = "FDAI_TEST_CONTEXT_GRANT_REGISTRY_JSON"
 OPERATOR_REQUEST_OPERATOR_SIGNING_SEED_ENV = "FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED"
 OPERATOR_REQUEST_RECEIPT_PRODUCER_ID_ENV = "FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID"
 OPERATOR_REQUEST_RECEIPT_TTL_SECONDS_ENV = "FDAI_OPERATOR_REQUEST_RECEIPT_TTL_SECONDS"
+PRODUCT_PROFILE_JSON_ENV = "FDAI_PRODUCT_PROFILE_JSON"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
 DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 20_000
@@ -135,6 +139,7 @@ class OperatorEnvironment:
     operator_request_operator_signing_seed: str | None
     operator_request_receipt_producer_id: str | None
     operator_request_receipt_ttl_seconds: int
+    product_profile: ProductProfile
 
     @classmethod
     def parse(cls, environ: Mapping[str, str]) -> OperatorEnvironment:
@@ -438,6 +443,7 @@ class OperatorEnvironment:
                 f"{OPERATOR_REQUEST_OPERATOR_SIGNING_SEED_ENV} and "
                 f"{OPERATOR_REQUEST_RECEIPT_PRODUCER_ID_ENV} MUST be configured together"
             )
+        product_profile = _product_profile(values)
 
         return cls(
             values=MappingProxyType(values),
@@ -484,6 +490,7 @@ class OperatorEnvironment:
             operator_request_operator_signing_seed=operator_request_operator_signing_seed,
             operator_request_receipt_producer_id=operator_request_receipt_producer_id,
             operator_request_receipt_ttl_seconds=operator_request_receipt_ttl_seconds,
+            product_profile=product_profile,
         )
 
 
@@ -528,6 +535,18 @@ def _boolean(environ: Mapping[str, str], key: str, *, default: bool) -> bool:
     raise OperatorServiceConfigurationError(f"{key} MUST be a boolean")
 
 
+def _product_profile(environ: Mapping[str, str]) -> ProductProfile:
+    raw = environ.get(PRODUCT_PROFILE_JSON_ENV, "").strip()
+    if not raw:
+        return ProductProfile()
+    try:
+        return ProductProfile.model_validate_json(raw)
+    except (JSONDecodeError, ValidationError, ValueError) as exc:
+        raise OperatorServiceConfigurationError(
+            f"{PRODUCT_PROFILE_JSON_ENV} MUST be a valid fdai.product-profile.v1 JSON object"
+        ) from exc
+
+
 __all__ = [
     "AUDIENCE_ENV",
     "BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP_ENV",
@@ -558,6 +577,7 @@ __all__ = [
     "NARRATOR_PROBE_INTERVAL_ENV",
     "JWKS_URI_ENV",
     "PORT_ENV",
+    "PRODUCT_PROFILE_JSON_ENV",
     "READ_INVESTIGATION_REQUEST_TOPIC_ENV",
     "READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ENV",
     "READ_INVESTIGATION_COMPLETION_TOPIC_ENV",

@@ -83,6 +83,10 @@ from fdai.runtime.operator_request_receipt_gate import (
 )
 from fdai.runtime.pantheon_inputs import pantheon_development_bindings
 from fdai.runtime.pantheon_inputs import pantheon_heartbeat as _pantheon_heartbeat
+from fdai.runtime.policy_administration import (
+    build_mimir_policy_administration,
+    policy_administration_selected,
+)
 from fdai.runtime.post_turn_review import (
     PostTurnReviewRuntime,
     build_azure_post_turn_models,
@@ -435,6 +439,22 @@ async def initialize_pantheon(
         event_bus=config.bus,
         topic=config.stage_topic,
     )
+    operator_request_receipt_gate = _operator_request_receipt_gate(
+        config.environment,
+        config.incident_audit_store,
+    )
+    mimir_policy_administration = (
+        build_mimir_policy_administration(
+            environment=config.environment,
+            state_store=config.incident_audit_store,
+            http_client=config.http_client,
+            workload_identity_builder=config.build_runtime_workload_identity,
+            operator_request_receipt_gate=operator_request_receipt_gate,
+            asset_root=asset_root,
+        )
+        if policy_administration_selected(config.container.config.product_profile)
+        else None
+    )
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -472,10 +492,7 @@ async def initialize_pantheon(
         saga=config.runtime_saga,
         muninn_state_store=config.incident_audit_store,
         huginn_state_store=config.incident_audit_store,
-        operator_request_receipt_gate=_operator_request_receipt_gate(
-            config.environment,
-            config.incident_audit_store,
-        ),
+        operator_request_receipt_gate=operator_request_receipt_gate,
         huginn_schema_learning_enabled=_boolean_env(
             config.environment,
             HUGINN_SCHEMA_LEARNING_ENABLED_ENV,
@@ -541,6 +558,7 @@ async def initialize_pantheon(
             catalog_root=asset_root / "rule-catalog",
             policies_root=asset_root / "policies",
         ),
+        mimir_policy_administration=mimir_policy_administration,
         case_history_analyzer=(
             case_history_runtime.analyzer if case_history_runtime is not None else None
         ),
