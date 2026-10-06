@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 9e130bfd9e642cdc364b123aabb6034a34fc6da5
+translation_source_sha: b4b9d2c32e79b947bc65c9d9a0a52bcb73ec497c
 translation_revised: 2026-10-06
 ---
 # 운영자 거버넌스 프로필
@@ -204,9 +204,12 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   `operator.policy-revision.requests`를 구독합니다. Mimir는 스키마, 제한된 Rego, 주입된 읽기 측
   포트를 통한 Release 최대값을 검증하고, 서명된 Operator 요청 증적을 확인하며, 내보낼 수 없는
   Azure Key Vault 키 어댑터로 서명하고, 설치 StateStore 이음매를 통해 변경할 수 없는 개정과 활성화
-  포인터를 저장합니다. Rego 검증은 네트워크 접근을 비활성화한 Release 고정 OPA 기능 allowlist를
-  사용합니다. 이 allowlist는 Core 이미지의 OPA 1.18.2에 맞추며, Release와 함께 제공되는 정책
-  테스트가 #1822에서 도착하기 전까지 정책 테스트가 없는 허용 정책 개정은 수락되지 않습니다.
+  포인터를 저장합니다. 저장된 개정에는 버전이 있는 Key Vault 키 id, 정확한 서명 메시지 형식, 서명
+  알고리즘, 원시 서명이 들어 있습니다. Mimir는 활성화 전에 서명을 검증하고, Core는 허용 정책 또는
+  승인 프로필을 소비하기 전에 활성 개정을 다시 검증합니다. 누락, 변조, 잘못된 키 서명은 안전하게
+  차단됩니다. Rego 검증은 네트워크 접근을 비활성화한 Release 고정 OPA 기능 allowlist를 사용합니다.
+  이 allowlist는 Core 이미지의 OPA 1.18.2에 맞추며, Release와 함께 제공되는 정책 테스트가 #1822에서
+  도착하기 전까지 정책 테스트가 없는 허용 정책 개정은 수락되지 않습니다.
 - 프로덕션 Release 기능 최대값은 여전히 #1822에서 제공됩니다. 그 소스가 구성되기 전에는 요청된
   ActionType 모드가 `shadow`를 넘으면 Mimir가 안전하게 차단합니다. 첫 구현은 전용
   `policy_revision` 및 `policy_activation` PostgreSQL 테이블이 아니라 기존 추적 상태 StateStore 지속성
@@ -226,8 +229,10 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   전체 권한 개발 범주의 차단 재개는 실패 시 안전하게 차단하는 재검증으로 현재 포인터를 의도적으로
   다시 읽습니다. 결과가 달라지면 권한을 높이지 않고 보류를 유지합니다.
 - Operator 서비스와 Core는 모두 canonical 제품 프로필 JSON 구성에서 선택된 제품 프로필을 읽습니다.
-  프로필 JSON이 없으면 `policy-administration`은 선택되지 않은 상태로 남고, 잘못된 프로필 JSON은
-  시작 검증에서 실패합니다.
+  Terraform 루트는 같은 `product_profile_json` 값을 두 워크로드에 전달합니다. `FDAI_PRODUCT_ADDONS_JSON`,
+  `FDAI_PRODUCT_PROFILE`, Core 구성 파일 같은 Core 전용 편의 입력은 Operator 시작 전에 그 canonical
+  JSON으로 구체화해야 합니다. 프로필 JSON이 없으면 `policy-administration`은 선택되지 않은 상태로
+  남고, 잘못된 프로필 JSON은 시작 검증에서 실패합니다.
 - Entra 부트스트랩은 이제 `policy-admin` App 역할을 정의하고 Operator API 액세스 토큰의
   `auth_time` 선택적 클레임을 요청합니다. Live 테넌트 할당과 동의는 이 저장소 밖의 배포 작업으로
   남습니다.

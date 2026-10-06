@@ -50,6 +50,8 @@ from fdai_service_contracts.policy_administration import (
     POLICY_OBJECT_TOPIC,
     POLICY_REVISION_REQUEST_TOPIC,
     PolicyMode,
+    PolicyRevisionRecord,
+    PolicyRevisionSignature,
 )
 from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_REQUEST_TOPIC
 from fdai_service_contracts.wara_assessment import WARA_ASSESSMENT_TOPIC
@@ -147,8 +149,23 @@ class _RegoCompiler:
 
 
 class _Signer:
-    async def sign_policy_revision(self, *, policy_digest: str, revision_id: str) -> str:
-        return f"fake-keyvault:{revision_id}:{policy_digest}"
+    async def sign_policy_revision(
+        self, *, policy_digest: str, revision_id: str
+    ) -> PolicyRevisionSignature:
+        del policy_digest, revision_id
+        return PolicyRevisionSignature(
+            key_id="https://fdai-example.vault.azure.net/keys/policy-signing/v1",
+            algorithm="RS256",
+            signature_base64="signature-good",
+        )
+
+    async def verify_policy_revision_signature(self, record: PolicyRevisionRecord) -> bool:
+        return (
+            record.signature is not None
+            and record.signature.key_id
+            == "https://fdai-example.vault.azure.net/keys/policy-signing/v1"
+            and record.signature.signature_base64 == "signature-good"
+        )
 
 
 class _ReleaseMaximums:
@@ -275,6 +292,7 @@ async def test_selected_policy_administration_flows_from_operator_route_to_mimir
         policy_administration=MimirPolicyAdministration(
             store=_PolicyStore(StateStorePolicyRevisionStore(store)),  # type: ignore[arg-type]
             signer=_Signer(),
+            signature_verifier=_Signer(),
             rego_compiler=_RegoCompiler(),
             operator_request_receipt_gate=OperatorRequestReceiptGate(
                 verifier=object(),  # type: ignore[arg-type]

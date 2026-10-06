@@ -11,6 +11,7 @@ from fdai_service_contracts.policy_administration import (
     PolicyActivationEvent,
     PolicyKind,
     PolicyRevisionRecord,
+    PolicyRevisionSignatureVerifier,
 )
 
 from fdai.agents._framework.mimir_policy_errors import PolicyRevisionRejectedError
@@ -23,6 +24,7 @@ class StateStorePolicyRevisionStore:
     """Persist Mimir policy revisions through the existing StateStore seam."""
 
     store: StateStore
+    signature_verifier: PolicyRevisionSignatureVerifier | None = None
 
     async def append_revision(self, record: PolicyRevisionRecord) -> bool:
         key = _revision_key(record.policy_kind, record.revision_id)
@@ -70,6 +72,10 @@ class StateStorePolicyRevisionStore:
             return None
         revision = await self.revision(policy_kind=PolicyKind.APPROVAL, revision_id=active)
         if revision is None or not isinstance(revision.content, ApprovalPolicyContent):
+            return None
+        if self.signature_verifier is None:
+            return None
+        if not await self.signature_verifier.verify_policy_revision_signature(revision):
             return None
         document = revision.content.document
         effective_from = document.get("effective_from")

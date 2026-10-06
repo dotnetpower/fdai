@@ -49,8 +49,16 @@ class _Signer:
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
 
+    @classmethod
+    async def create_verified(cls, **kwargs: Any) -> _Signer:
+        return cls(**kwargs)
+
     async def sign_policy_revision(self, *, policy_digest: str, revision_id: str) -> str:
         return f"signature:{revision_id}:{policy_digest}"
+
+    async def verify_policy_revision_signature(self, record: object) -> bool:
+        del record
+        return True
 
 
 def _gate() -> OperatorRequestReceiptGate:
@@ -81,7 +89,7 @@ def test_policy_administration_selection_is_explicit() -> None:
     )
 
 
-def test_build_mimir_policy_administration_binds_required_ports(
+async def test_build_mimir_policy_administration_binds_required_ports(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -92,7 +100,7 @@ def test_build_mimir_policy_administration_binds_required_ports(
     capabilities.parent.mkdir(parents=True)
     capabilities.write_text("{}", encoding="utf-8")
 
-    admin = composition.build_mimir_policy_administration(
+    admin = await composition.build_mimir_policy_administration(
         environment={
             composition.POLICY_ADMIN_KEY_VAULT_KEY_ID_ENV: (
                 "https://fdai-example.vault.azure.net/keys/policy-signing"
@@ -142,7 +150,7 @@ def test_build_mimir_policy_administration_binds_required_ports(
         ),
     ],
 )
-def test_build_mimir_policy_administration_fails_closed_when_dependency_missing(
+async def test_build_mimir_policy_administration_fails_closed_when_dependency_missing(
     environment: dict[str, str],
     http_client: _Http | None,
     gate: OperatorRequestReceiptGate | None,
@@ -153,7 +161,7 @@ def test_build_mimir_policy_administration_fails_closed_when_dependency_missing(
     monkeypatch.setattr(composition, "AzureKeyVaultPolicyRevisionSigner", _Signer)
 
     with pytest.raises(RuntimeError, match=message):
-        composition.build_mimir_policy_administration(
+        await composition.build_mimir_policy_administration(
             environment=environment,
             state_store=InMemoryStateStore(),
             http_client=http_client,  # type: ignore[arg-type]

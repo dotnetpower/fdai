@@ -50,7 +50,35 @@ def policy_administration_selected(profile: ProductProfile) -> bool:
     return profile.selects(ProductAddOn.POLICY_ADMINISTRATION)
 
 
-def build_mimir_policy_administration(
+def build_policy_revision_signature_verifier(
+    *,
+    environment: Mapping[str, str],
+    http_client: httpx.AsyncClient | None,
+    workload_identity_builder: Callable[..., WorkloadIdentity],
+) -> AzureKeyVaultPolicyRevisionSigner | None:
+    """Build the policy signature verifier when all verification inputs exist."""
+
+    key_id = environment.get(POLICY_ADMIN_KEY_VAULT_KEY_ID_ENV, "").strip()
+    if not key_id or http_client is None:
+        return None
+    identity = workload_identity_builder(
+        http_client,
+        client_id_env=POLICY_ADMIN_KEY_VAULT_CLIENT_ID_ENV,
+        require_client_id=True,
+    )
+    algorithm = (
+        environment.get(POLICY_ADMIN_KEY_VAULT_ALGORITHM_ENV, "").strip()
+        or DEFAULT_POLICY_SIGNING_ALGORITHM
+    )
+    return AzureKeyVaultPolicyRevisionSigner(
+        key_id=key_id,
+        identity=identity,
+        http_client=http_client,
+        algorithm=algorithm,
+    )
+
+
+async def build_mimir_policy_administration(
     *,
     environment: Mapping[str, str],
     state_store: StateStore,
@@ -84,14 +112,16 @@ def build_mimir_policy_administration(
     producer_id = (
         environment.get(POLICY_ADMIN_OPERATOR_PRODUCER_ID_ENV, "").strip() or "operator-service"
     )
+    signer = await AzureKeyVaultPolicyRevisionSigner.create_verified(
+        key_id=key_id,
+        identity=identity,
+        http_client=http_client,
+        algorithm=algorithm,
+    )
     return MimirPolicyAdministration(
-        store=StateStorePolicyRevisionStore(state_store),
-        signer=AzureKeyVaultPolicyRevisionSigner(
-            key_id=key_id,
-            identity=identity,
-            http_client=http_client,
-            algorithm=algorithm,
-        ),
+        store=StateStorePolicyRevisionStore(state_store, signature_verifier=signer),
+        signer=signer,
+        signature_verifier=signer,
         rego_compiler=OpaRegoPolicyCompiler(
             opa_binary=opa_binary,
             capabilities_file=capabilities_file,
@@ -111,5 +141,6 @@ __all__ = [
     "POLICY_ADMIN_OPA_BINARY_ENV",
     "FailClosedReleaseMaximums",
     "build_mimir_policy_administration",
+    "build_policy_revision_signature_verifier",
     "policy_administration_selected",
 ]

@@ -12,6 +12,7 @@ from fdai_service_contracts.policy_administration import (
     AdmissionPolicyContent,
     PolicyKind,
     PolicyRevisionRecord,
+    PolicyRevisionSignatureVerifier,
 )
 
 from fdai.core.risk_gate.approval_profile import OperatorPolicyInput, OperatorPolicyOutcome
@@ -51,6 +52,7 @@ class StateStoreOperatorPolicyRevisionReader:
     """Read active policy revisions from Mimir's StateStore projection."""
 
     store: StateStore
+    signature_verifier: PolicyRevisionSignatureVerifier | None = None
 
     async def active_revision_id(self, policy_kind: PolicyKind) -> str | None:
         stored = await self.store.read_state(_activation_key(policy_kind))
@@ -66,7 +68,12 @@ class StateStoreOperatorPolicyRevisionReader:
         stored = await self.store.read_state(_revision_key(policy_kind, revision_id))
         if stored is None:
             return None
-        return PolicyRevisionRecord.model_validate(stored)
+        revision = PolicyRevisionRecord.model_validate(stored)
+        if self.signature_verifier is None:
+            return None
+        if not await self.signature_verifier.verify_policy_revision_signature(revision):
+            return None
+        return revision
 
 
 @dataclass(frozen=True, slots=True)

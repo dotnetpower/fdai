@@ -214,10 +214,14 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   to `operator.policy-revision.requests` only under the same selection. Mimir validates schema,
   restricted Rego, and Release maximums through injected read-side ports, verifies the signed
   Operator request receipt, signs through a non-exportable Azure Key Vault key adapter, and stores
-  immutable revisions plus the activation pointer through the installation StateStore seam. Rego
-  validation uses a release-pinned OPA capabilities allowlist aligned to the Core image's OPA 1.18.2
-  and with network access disabled. Admission revisions without policy tests are refused until
-  Release-shipped policy tests arrive with #1822.
+  immutable revisions plus the activation pointer through the installation StateStore seam. The
+  stored revision includes the versioned Key Vault key id, the exact signed-message format, the
+  signing algorithm, and the raw signature. Mimir verifies the signature before activation, and Core
+  re-verifies active revisions before admission-policy or approval-profile consumption; missing,
+  tampered, or wrong-key signatures fail closed. Rego validation uses a release-pinned OPA
+  capabilities allowlist aligned to the Core image's OPA 1.18.2 and with network access disabled.
+  Admission revisions without policy tests are refused until Release-shipped policy tests arrive
+  with #1822.
 - Production Release capability maximums still arrive with #1822. Until that source is configured,
   Mimir fails closed for any requested ActionType mode above `shadow`. The first implementation uses
   the existing tracked-state StateStore persistence convention rather than dedicated
@@ -239,8 +243,11 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   Full-authority development category-denial resume intentionally re-reads the current pointer as a
   fail-closed revalidation; a changed result keeps the park held instead of raising authority.
 - The Operator service and Core both read the selected product profile from the canonical product
-  profile JSON configuration. Missing profile JSON keeps `policy-administration` unselected, and
-  malformed profile JSON fails startup validation.
+  profile JSON configuration. The Terraform root passes the same `product_profile_json` value to
+  both workloads. Core-only convenience inputs such as `FDAI_PRODUCT_ADDONS_JSON`,
+  `FDAI_PRODUCT_PROFILE`, or a Core config file must be materialized into that canonical JSON before
+  Operator starts. Missing profile JSON keeps `policy-administration` unselected, and malformed
+  profile JSON fails startup validation.
 - The Entra bootstrap now defines the `policy-admin` App Role and requests the `auth_time` optional
   claim for Operator API access tokens. Live tenant assignment and consent remain deployment
   operations outside this repository.

@@ -444,7 +444,7 @@ async def initialize_pantheon(
         config.incident_audit_store,
     )
     mimir_policy_administration = (
-        build_mimir_policy_administration(
+        await build_mimir_policy_administration(
             environment=config.environment,
             state_store=config.incident_audit_store,
             http_client=config.http_client,

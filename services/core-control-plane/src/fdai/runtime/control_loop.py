@@ -89,6 +89,9 @@ from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
 from fdai.runtime.alert_noise_control import AlertWorkflowBindings, build_alert_workflow_bindings
 from fdai.runtime.approval_profile import approval_runtime_bindings
+from fdai.runtime.bootstrap_bindings import (
+    build_runtime_workload_identity as _build_runtime_workload_identity,
+)
 from fdai.runtime.causal_bindings import build_causal_runtime_coordinator
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.control_loop_catalogs import (
@@ -125,6 +128,7 @@ from fdai.runtime.isolated_executor_client import (
 )
 from fdai.runtime.licensing import gate_execution
 from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
+from fdai.runtime.policy_administration import build_policy_revision_signature_verifier
 from fdai.runtime.product_profile import RuntimeProductSelection, build_promotion_registry
 from fdai.runtime.providers import (
     _build_audit_store,
@@ -713,10 +717,19 @@ def _build_control_loop(
     development_kwargs = development_control_loop_kwargs(
         os.environ, store=audit_store, identity=identity, http_client=http_client
     )
+    policy_signature_verifier = build_policy_revision_signature_verifier(
+        environment=os.environ,
+        http_client=http_client,
+        workload_identity_builder=_build_runtime_workload_identity,
+    )
     operator_policy_binder = OperatorPolicyDecisionBinder(
-        reader=StateStoreOperatorPolicyRevisionReader(audit_store),
+        reader=StateStoreOperatorPolicyRevisionReader(
+            audit_store,
+            signature_verifier=policy_signature_verifier,
+        ),
         evaluator=OpaAdmissionPolicyEvaluator(
-            capabilities_file=catalog_root / "schema" / "policy_admin_opa_capabilities.json"
+            capabilities_file=catalog_root / "schema" / "policy_admin_opa_capabilities.json",
+            signature_verifier=policy_signature_verifier,
         ),
     )
     return ControlLoop(
