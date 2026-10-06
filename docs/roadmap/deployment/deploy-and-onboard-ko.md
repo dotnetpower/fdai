@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: edeab76b74b90d98fac63348374b2f07f9ec1998
-translation_revised: 2026-10-04
+translation_source_sha: 38a83b5df7b223d823352c15dfc76d8958bda188
+translation_revised: 2026-10-06
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -192,7 +192,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 다음 고객 독립적 도구를 사용해 두 배포 경로를 반복 실행할 수 있습니다.
 
-- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 [단일 명령 소스 배포](source-deployment-ko.md)입니다. 어떤 clone이든 키 없이 배포하며, 무결성 서명 키가 없으면 영속 30일 Trial을, 사용할 수 있는 `secrets/integrity-signing-key.pem`이 있으면 전체 설치 사용권을 선택합니다. 독립적인 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 [단일 명령 소스 배포](source-deployment-ko.md)입니다. 어떤 clone이든 키 없이 배포하며, 무결성 서명 키가 없으면 영속 30일 Trial을, 사용할 수 있는 `secrets/integrity-signing-key.pem`이 있으면 전체 설치 사용권을 선택합니다. 독립적인 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다. Genesis 검사는 배포하는 정확한 커밋의 깨끗한 checkout만 허용하며 CI 결과를 조회하거나 GitHub CLI를 요구하지 않습니다.
   명령 실행이 표시하는 각 계획을 승인하고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
   모드 인자가 없으면 어느 작업 디렉터리에서든 자기 checkout을 배포하고, Azure 호출 전에 `secrets/integrity-signing-key.pem`으로 사용권을 선택하며, Azure CLI 세션이 없으면 `az login`을 시작하고, 키트를 빌드하거나 서명하지 않습니다. 폐기된 `--signing-key` 옵션은 거부하며, 소스 빌드가 완성되기 전에 애플리케이션 단계가 필요한 키 보유자는 서명된 오프라인 패키지를 빌드해 `--offline-kit`로 전달합니다.
 - [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드나 배포가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. `--scan secrets`는 clone에 전체 사용권을 선택하는 업스트림 `integrity` 키가 있는지 보여 줍니다. 개발 프로필은 오프라인 패키지의 완전 키트와 번들 역할에 서명자 하나를 고정하며, 라이선싱은 무결성 키를 사용합니다.

@@ -142,7 +142,9 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
     known_hosts = directory / KNOWN_HOSTS_NAME
     validate_known_hosts(known_hosts)
 
-    checks = GenesisChecks(root)
+    checks = GenesisChecks(
+        root, operator_selected_source=args.source_snapshot is not None and recovery is None
+    )
     checks.verify_target(
         subscription_id=str(handoff["subscription_id"]),
         tenant_id=str(handoff["tenant_id"]),

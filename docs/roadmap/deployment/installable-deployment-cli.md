@@ -99,6 +99,7 @@ grant approval or apply any resources.
 
 Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source plan must match the current snapshot and source-input digests.
 Source execution copies verified infrastructure into a private state-preserving directory, uses `terraform` on `PATH` only when it matches the pinned binary digest or otherwise downloads the pinned release and verifies both committed digests, and acquires only lockfile-selected providers for a local mirror.
+Before each source effect, the Foundation, runner-enrollment, and state-handoff steps check only that the clean checkout is the exact deployed commit. They never query a CI result or require the GitHub CLI, Azure Developer CLI, or a workstation Terraform. Runner enrollment reads that mode from the saved review that the Foundation apply receipt binds.
 The immutable snapshot does not receive Terraform state or generated data. Existing exact-plan approval, pre-effect claim, verification-only recovery, and independent readback remain authoritative.
 Private state transfer includes the Foundation root, sibling bootstrap/shared modules, and the exact five `genesis-runner-image` support files referenced by Terraform.
 For a retained claim created before that archive closure, recovery preserves the original claim and backend migration while restoring the exact support bytes from the reviewed recovery configuration.

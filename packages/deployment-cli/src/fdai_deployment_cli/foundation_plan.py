@@ -30,7 +30,8 @@ REVIEW_NAME = "foundation-plan.json"
 _MAX_PLAN_BYTES = 64 * 1024 * 1024
 _MAX_JSON_BYTES = 16 * 1024 * 1024
 _SCHEMA = "fdai.foundation-saved-plan.v1"
-_SOURCE_SCHEMA = "fdai.foundation-saved-source-plan.v1"
+SOURCE_REVIEW_SCHEMA = "fdai.foundation-saved-source-plan.v1"
+_SOURCE_SCHEMA = SOURCE_REVIEW_SCHEMA
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _CONTEXT_KEYS = {
     "offline_manifest_digest",

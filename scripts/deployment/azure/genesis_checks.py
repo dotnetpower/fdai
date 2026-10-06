@@ -125,14 +125,33 @@ class CheckError(RuntimeError):
 class GenesisChecks:
     """Execute fixed external checks without exposing provider error output."""
 
-    def __init__(self, repository_root: Path, *, environment: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        repository_root: Path,
+        *,
+        environment: dict[str, str] | None = None,
+        operator_selected_source: bool = False,
+    ) -> None:
+        """``operator_selected_source`` selects the source deployment contract.
+
+        The constitution's source path needs only a clean local checkout. It requires no CI
+        result, protected branch, GitHub CLI, or workstation Terraform, so source mode checks
+        only that the clean checkout is the exact deployed commit.
+        """
         self.repository_root = repository_root
         self.environment = environment
         self.az = trusted_tool("az")
         self.bash = trusted_tool("bash")
         self.source_evidence = SignedSourceEvidence.from_environment()
+        if operator_selected_source and self.source_evidence is not None:
+            raise CheckError("signed_source_evidence_invalid", 64)
+        self.operator_selected_source = operator_selected_source
         self.git = None if self.source_evidence is not None else trusted_tool("git")
-        self.gh = None if self.source_evidence is not None else trusted_tool("gh")
+        self.gh = (
+            None
+            if self.source_evidence is not None or operator_selected_source
+            else trusted_tool("gh")
+        )
 
     def verify_toolchain(self, *, apply: bool) -> None:
         """Require only read tools for inspection and the full apply toolchain for mutation."""
@@ -141,7 +160,7 @@ class GenesisChecks:
         if self.source_evidence is None:
             git = self._required_git()
             required.append(git)
-            if apply:
+            if apply and not self.operator_selected_source:
                 gh = self._required_gh()
                 required.extend(
                     (trusted_tool("azd"), gh, trusted_tool("terraform"), trusted_tool("uv"))
@@ -222,7 +241,11 @@ class GenesisChecks:
         repository: str | None,
         apply: bool,
     ) -> None:
-        """Require a clean pushed revision with an exact green required check before apply."""
+        """Require a clean exact revision before apply.
+
+        The legacy maintainer path also requires a pushed revision with a green required check.
+        Source mode requires only that the clean checkout is ``source_commit``.
+        """
 
         if not apply:
             return
@@ -231,13 +254,18 @@ class GenesisChecks:
                 raise CheckError("signed_source_revision_mismatch", 3)
             return
         git = self._required_git()
-        gh = self._required_gh()
         dirty = self.capture(
             (git, "status", "--porcelain", "--untracked-files=all"),
             "source_status_unavailable",
         )
         if dirty:
             raise CheckError("apply_requires_clean_checkout", 3)
+        if self.operator_selected_source:
+            head = self.capture((git, "rev-parse", "HEAD"), "source_revision_unavailable")
+            if head != source_commit:
+                raise CheckError("source_revision_mismatch", 3)
+            return
+        gh = self._required_gh()
         if repository is None:
             raise CheckError("repository_required_for_apply", 64)
         remote = self.capture(
