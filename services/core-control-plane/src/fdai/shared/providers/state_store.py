@@ -156,6 +156,31 @@ class StateStore(Protocol):
         """Atomically write a matching revision and append its audit record."""
         ...
 
+    async def compare_and_set_state_with_audit_and_insert(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        insert_key: str,
+        insert_value: Mapping[str, Any],
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        """Atomically update one revision, insert one append-only row, and audit."""
+        ...
+
+    async def write_state_pair_with_audit_if_absent(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        insert_key: str,
+        insert_value: Mapping[str, Any],
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        """Atomically create two tracked-state rows and append one audit record."""
+        ...
+
     async def find_state(
         self,
         prefix: str,

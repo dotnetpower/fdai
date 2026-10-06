@@ -29,6 +29,9 @@ async def approval_profile_pin_is_authorized(
         return True
     if store is None:
         return False
+    history = await store.read_state(_activation_history_key(pinned.revision_id))
+    if history is None or _history_profile_digest(history) != pinned.policy_digest:
+        return False
     stored = await store.read_state(_revision_key(pinned.revision_id))
     if stored is None:
         return False
@@ -52,6 +55,16 @@ async def approval_profile_pin_is_authorized(
 
 def _revision_key(revision_id: str) -> str:
     return f"policy_revision:{PolicyKind.APPROVAL.value}:{revision_id}"
+
+
+def _activation_history_key(revision_id: str) -> str:
+    return f"policy_activation_history:{PolicyKind.APPROVAL.value}:{revision_id}"
+
+
+def _history_profile_digest(history: object) -> object:
+    if not isinstance(history, dict):
+        return None
+    return history.get("approval_profile_digest") or history.get("policy_digest")
 
 
 __all__ = ["approval_profile_pin_is_authorized"]

@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from fdai.agents._framework.mimir_policy_store import StateStorePolicyRevisionStore
 from fdai.core.risk_gate.approval_profile import (
     ApprovalProfileKind,
     ApprovalProfileRefusal,
@@ -20,6 +21,7 @@ from fdai.core.risk_gate.approval_profile import (
     evaluate_profile_approval,
     profile_transition_quorum,
 )
+from fdai.core.risk_gate.approval_profile_store import approval_profile_pin_is_authorized
 from fdai.core.risk_gate.authority import evaluate_execution_authority
 from fdai.core.risk_gate.ceiling import AxisLevel
 from fdai.runtime.approval_profile import (
@@ -49,7 +51,6 @@ from fdai_service_contracts.approval_profile import (
 )
 from fdai_service_contracts.policy_administration import (
     ApprovalPolicyContent,
-    PolicyActivationEvent,
     PolicyKind,
     PolicyRevisionRecord,
     PolicyValidationResult,
@@ -129,26 +130,23 @@ def _policy_revision(payload: dict[str, object]) -> PolicyRevisionRecord:
     )
 
 
-async def _activate_profile(store: InMemoryStateStore, payload: dict[str, object]) -> None:
+async def _activate_profile(
+    store: InMemoryStateStore,
+    payload: dict[str, object],
+    *,
+    parent_revision_id: str | None = None,
+) -> None:
     record = _policy_revision(payload)
-    await store.write_state(
-        f"policy_revision:{PolicyKind.APPROVAL.value}:{record.revision_id}",
-        record.model_dump(mode="json"),
-    )
-    event = PolicyActivationEvent(
-        policy_id=f"approval:{record.revision_id}",
+    revision_store = StateStorePolicyRevisionStore(store)
+    assert await revision_store.append_revision(record)
+    await revision_store.activate_revision(
         policy_kind=PolicyKind.APPROVAL,
         revision_id=record.revision_id,
         policy_digest=record.content_digest,
-        activated_at=_AT,
         author_principal=record.author_principal,
+        activated_at=_AT,
         validation_digest=record.validation.validation_digest,
-        correlation_id=f"policy-activation:approval:{record.revision_id}",
-        idempotency_key=f"policy-activation:approval:{record.revision_id}",
-    )
-    await store.write_state(
-        f"policy_activation:{PolicyKind.APPROVAL.value}",
-        {**event.model_dump(mode="json"), "revision": 1},
+        expected_parent_revision_id=parent_revision_id,
     )
 
 
@@ -287,6 +285,50 @@ def test_active_policy_pointer_digest_mismatch_fails_closed() -> None:
                 clock=lambda: _AT,
             )
         )
+
+
+def test_pending_approval_revision_does_not_authorize_profile_pin() -> None:
+    store = InMemoryStateStore()
+    payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
+    record = _policy_revision(payload)
+    asyncio.run(
+        store.write_state(
+            f"policy_revision:{PolicyKind.APPROVAL.value}:{record.revision_id}",
+            record.model_dump(mode="json"),
+        )
+    )
+    pinned = approval_profile_from_audit_dict(payload)
+    assert pinned is not None
+
+    authorized = asyncio.run(approval_profile_pin_is_authorized(store, pinned=pinned, bound=None))
+
+    assert authorized is False
+
+
+def test_activated_approval_revision_authorizes_profile_pin() -> None:
+    store = InMemoryStateStore()
+    payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
+    asyncio.run(_activate_profile(store, payload))
+    pinned = approval_profile_from_audit_dict(payload)
+    assert pinned is not None
+
+    authorized = asyncio.run(approval_profile_pin_is_authorized(store, pinned=pinned, bound=None))
+
+    assert authorized is True
+
+
+def test_superseded_approval_revision_still_authorizes_in_flight_profile_pin() -> None:
+    store = InMemoryStateStore()
+    first = _profile_payload_with_revision("approval-profile-r2", "first@example.com")
+    second = _profile_payload_with_revision("approval-profile-r3", "second@example.com")
+    asyncio.run(_activate_profile(store, first))
+    asyncio.run(_activate_profile(store, second, parent_revision_id="approval-profile-r2"))
+    pinned = approval_profile_from_audit_dict(first)
+    assert pinned is not None
+
+    authorized = asyncio.run(approval_profile_pin_is_authorized(store, pinned=pinned, bound=None))
+
+    assert authorized is True
 
 
 @pytest.mark.parametrize("activation", [{}, {"revision_id": ""}, {"revision_id": 123}])

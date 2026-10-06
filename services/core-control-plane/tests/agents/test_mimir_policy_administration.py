@@ -268,6 +268,11 @@ async def test_mimir_validates_stores_activates_and_publishes_policy() -> None:
     assert event["policy_kind"] == "admission"
     assert len(compiler.compiled) == 1
     assert await store.read_state(f"policy_activation:{PolicyKind.ADMISSION.value}") is not None
+    history = await store.read_state(
+        f"policy_activation_history:{PolicyKind.ADMISSION.value}:{event['revision_id']}"
+    )
+    assert history is not None
+    assert history["policy_digest"] == event["policy_digest"]
     assert len(bus.messages_on(POLICY_OBJECT_TOPIC)) == 1
     assert bus.messages_on(POLICY_OBJECT_TOPIC)[0].payload["revision_id"] == event["revision_id"]
 

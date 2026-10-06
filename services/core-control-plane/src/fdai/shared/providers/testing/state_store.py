@@ -219,6 +219,57 @@ class InMemoryStateStore(StateStore):
                 raise
             return True
 
+    async def compare_and_set_state_with_audit_and_insert(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        insert_key: str,
+        insert_value: Mapping[str, Any],
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        with self._lock:
+            existing = self._state.get(key)
+            current_revision = existing.get("revision", 0) if existing is not None else 0
+            if current_revision != expected_revision or insert_key in self._state:
+                return False
+            snapshot = self._snapshot_keys_locked(key, insert_key)
+            audit_length_before = len(self._audit)
+            try:
+                self._write_locked(key, value)
+                self._write_locked(insert_key, insert_value)
+                self._append_audit_locked(audit_entry)
+            except Exception:
+                self._restore_keys_locked(snapshot)
+                del self._audit[audit_length_before:]
+                raise
+            return True
+
+    async def write_state_pair_with_audit_if_absent(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        insert_key: str,
+        insert_value: Mapping[str, Any],
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        with self._lock:
+            if key in self._state or insert_key in self._state:
+                return False
+            snapshot = self._snapshot_keys_locked(key, insert_key)
+            audit_length_before = len(self._audit)
+            try:
+                self._write_locked(key, value)
+                self._write_locked(insert_key, insert_value)
+                self._append_audit_locked(audit_entry)
+            except Exception:
+                self._restore_keys_locked(snapshot)
+                del self._audit[audit_length_before:]
+                raise
+            return True
+
     async def confirm_assurance_twin_source(
         self,
         *,
