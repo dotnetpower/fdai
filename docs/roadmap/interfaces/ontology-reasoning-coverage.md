@@ -75,6 +75,12 @@ makes them binding for code.
 | Compose the answer | Authors structured claims and prose from evidence | Runs V-CLAIM and accounts every row |
 | Review | An independent model checks entailment | Holds or regenerates once |
 
+The concept shard bound only sets how many complete shards a catalog needs, so it never drops a
+candidate. In the local venue, a 32 KiB bound presents the resource-type catalog in one shard and
+removes the cross-shard finalist runoff, and the form path may start beside the preflight. The
+preflight still selects the route. See
+[narrator routing and latency](narrator-routing-and-latency.md#speculative-form-start-and-single-shard-concept-catalogs-2026-10-06).
+
 ## Measured baseline
 
 These values were measured on 2026-09-28 against the active release and the local development graph.

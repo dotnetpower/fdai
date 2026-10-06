@@ -229,13 +229,6 @@ query authority, or recovery permission.
 > OKQ-01 now has the catalog declaration, deterministic ResourceType mapping digests, fail-closed
 > classification projection, and single-writer persistence tests for `resource_classified_as`.
 > Production inventory-job injection is complete; the resource-to-Rule query function remains.
->
-> **Local form-path timing:** In the local venue, the question-form path can start beside the
-> preflight instead of after it, and a concept catalog up to the configured shard bound is
-> presented in one shard. The preflight still selects the route, a ticket the planner doesn't adopt
-> answers nothing, and every candidate is still presented exactly once. A single-shard catalog
-> removes the cross-shard finalist runoff. The measured effect is recorded in
-> [narrator routing and latency](narrator-routing-and-latency.md#speculative-form-start-and-single-shard-concept-catalogs-2026-10-06).
 ## Design at a glance
 
 ![Design at a glance. The main stages are Operator turn, SemanticProblemFrame candidate, Active ontology release, Principal-scoped query manifest, Deterministic verifier, Verified OntologyQueryPlan, Bounded task DAG, Authoritative evidence and receipts, Verified answer or explicit limitation.](../../diagrams/generated/fdai-roadmap-interfaces-ontology-query-coverage-implementation-plan-01.en.svg)

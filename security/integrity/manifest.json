@@ -604,7 +604,7 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_resource_visibility.py": "1bbe76f00f10a8ce6f31db8c69e2ae6a45b12b9c50ce1a41717e57f4c1ccf4b6",
     "services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py": "038395a6126524a086b8ab215d4f5c37cc3d041e40926aa7fa3c6cb6f4d0e3db",
     "services/core-control-plane/src/fdai/core/conversation/semantic_runtime_cancellation.py": "9ed4c4b13dd335d398ab36f56453ca9115cb03bf4a8103ae7e13dc8051bececf",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_runtime_speculation.py": "154062b9c516c33fc5248378feeebf4a0386e681a4b9bb7fc60a694cfc8dc79b",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_runtime_speculation.py": "158e7bc495be91de6505c6ac11ba83ea91c6abd1e62f29e10098340d3e3c735e",
     "services/core-control-plane/src/fdai/core/conversation/semantic_second_reader.py": "5cf9517b83f10a62c0305aa15330a747589f6d0443959e49a0ea2c0b280cdc67",
     "services/core-control-plane/src/fdai/core/conversation/semantic_service_health_planning.py": "4979e0a4d8322f495c2584c78dcecb31eed3b0dfd06f6f5d04c8f265ad04f977",
     "services/core-control-plane/src/fdai/core/conversation/semantic_slot_grounding.py": "abf3156ca0ead6b448a62e6589256c47d21cc1004a0c1fc055c9de0d48241b59",

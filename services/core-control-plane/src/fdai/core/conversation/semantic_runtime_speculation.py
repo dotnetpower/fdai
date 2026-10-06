@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
 from typing import Any, Concatenate, Protocol
 
@@ -71,8 +71,8 @@ async def take_speculative_form(question: str) -> CompiledAnswerTicket | None:
 
 
 def speculative_form_start[**P, R](
-    method: Callable[Concatenate[Any, P], Awaitable[R]],
-) -> Callable[Concatenate[Any, P], Awaitable[R]]:
+    method: Callable[Concatenate[Any, P], Coroutine[Any, Any, R]],
+) -> Callable[Concatenate[Any, P], Coroutine[Any, Any, R]]:
     """Start an eligible turn's form path in a worker thread before ``method`` runs."""
 
     @functools.wraps(method)
