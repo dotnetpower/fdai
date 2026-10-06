@@ -34,6 +34,20 @@ _CONCEPT_FORMS = frozenset(
     {MentionForm.CONCEPT, MentionForm.VALUE, MentionForm.NAME, MentionForm.IDENTIFIER}
 )
 _ANY_RESOURCE = "any:resource"
+# Reviewed state unions. Azure shows a deallocated virtual machine as Stopped (deallocated),
+# so an unnarrowed stopped fits both states; one candidate lets both blind choosers agree.
+_STATE_UNIONS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    (
+        "state:stopped_or_deallocated",
+        ("resource_state.deallocated", "resource_state.stopped"),
+        (
+            "stopped or deallocated",
+            "not running",
+            "Stopped (deallocated)",
+            "중지됨, 할당 해제 포함",
+        ),
+    ),
+)
 _RESOURCE_OBJECT_TYPE = "Resource"
 
 
@@ -290,10 +304,16 @@ def _state_candidates(descriptors: Sequence[Mapping[str, Any]]) -> tuple[Concept
         if isinstance(group, Mapping) and group.get("concept") in declared:
             terms = tuple(str(item) for item in group.get("terms") or () if str(item).strip())
             labels[str(group["concept"])] = terms
-    return tuple(
+    singles = tuple(
         ConceptCandidate(f"state:{concept}", (concept,), labels.get(concept) or (concept,))
         for concept in sorted(declared)
     )
+    unions = tuple(
+        ConceptCandidate(candidate_id, members, union_labels)
+        for candidate_id, members, union_labels in _STATE_UNIONS
+        if set(members) <= declared
+    )
+    return (*singles, *unions)
 
 
 def _lifecycle_candidates(
