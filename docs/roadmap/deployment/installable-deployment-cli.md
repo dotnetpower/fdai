@@ -76,7 +76,9 @@ for the Foundation graph. The distinct source work directory never adopts a kit 
 
 After initial confirmation, a bounded public-price read adds an explicit partial AKS compute
 cost review before Foundation planning. A compute-only overrun blocks; an under-ceiling result
-still leaves full installation and setup costs unverified. The [runtime profile owner](runtime-deployment-profiles.md#state-ownership)
+still leaves full installation and setup costs unverified. Without `--monthly-cost-ceiling`, a new
+run uses 1500 USD, which the default AKS profile fits; a retained run keeps the ceiling recorded in
+its source intent or profile. The [runtime profile owner](runtime-deployment-profiles.md#state-ownership)
 defines price selection and exclusions. Runner-image reviews retain their legacy numeric estimate
 for artifact-offline compatibility only. Connected deployment has no runner-image review.
 
@@ -96,7 +98,8 @@ The existing human-only terminal confirmation remains mandatory; selecting a che
 grant approval or apply any resources.
 
 Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source plan must match the current snapshot and source-input digests.
-Source execution copies verified infrastructure into a private state-preserving directory, verifies the pinned Terraform binary, and acquires only lockfile-selected providers for a local mirror.
+Source execution copies verified infrastructure into a private state-preserving directory, uses `terraform` on `PATH` only when it matches the pinned binary digest or otherwise downloads the pinned release and verifies both committed digests, and acquires only lockfile-selected providers for a local mirror.
+Before each source effect, the Foundation, runner-enrollment, and state-handoff steps check only that the clean checkout is the exact deployed commit. They never query a CI result or require the GitHub CLI, Azure Developer CLI, or a workstation Terraform. Runner enrollment reads that mode from the saved review that the Foundation apply receipt binds.
 The immutable snapshot does not receive Terraform state or generated data. Existing exact-plan approval, pre-effect claim, verification-only recovery, and independent readback remain authoritative.
 Private state transfer includes the Foundation root, sibling bootstrap/shared modules, and the exact five `genesis-runner-image` support files referenced by Terraform.
 For a retained claim created before that archive closure, recovery preserves the original claim and backend migration while restoring the exact support bytes from the reviewed recovery configuration.
@@ -108,8 +111,10 @@ These adapters do not prove a completed deployment.
 one review from retained source intent, source preparation, Genesis marker, and verified Foundation
 handoff receipts. It can name only the application and operations resource groups proven by that
 evidence, binds them to the target binding and source run binding, requires one exact
-`--teardown-confirmation` value, and then reads back absence after deletion. If any ownership proof
-is missing or names an unproven resource, the command stops before any delete call.
+`--teardown-confirmation` value, and then reads back absence after deletion. Because Azure deletes
+resource groups asynchronously, readback waits up to 30 minutes before it reports a partial
+failure, and a rerun skips groups that already read back absent. If any ownership proof is missing
+or names an unproven resource, the command stops before any delete call.
 
 The source coordinator uses the private managed-host route and reads Foundation provider
 registrations and inherited policy without changing either. Policy visibility is not a compliance

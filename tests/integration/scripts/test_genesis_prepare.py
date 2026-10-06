@@ -175,8 +175,9 @@ def test_source_advance_never_registers_or_applies_without_exact_approval(
     calls = []
 
     class Checks:
-        def __init__(self, root):
+        def __init__(self, root, *, operator_selected_source=False):
             assert root == ROOT
+            assert operator_selected_source is True
 
         def verify_target(self, **kwargs):
             assert kwargs["subscription_id"] == SUBSCRIPTION

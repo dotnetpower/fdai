@@ -211,7 +211,7 @@ def _advance_locked(
         mode="apply",
         deadline_at=(datetime.now(UTC) + timedelta(seconds=args.timeout_seconds)).isoformat(),
     )
-    checks = GenesisChecks(source.root)
+    checks = GenesisChecks(source.root, operator_selected_source=True)
     stage = "toolchain"
     try:
         checks.verify_toolchain(apply=False)

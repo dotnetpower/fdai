@@ -171,6 +171,7 @@ owns the exact contract.
 | Service images | Built from a `git archive` of the exact commit by the registry build service of the deployment's own registry, tagged `sha-<commit>`, and deployed by digest |
 | Dependency images | Imported by pinned digest into the deployment's registry |
 | Console | Built from the checkout and published only when the Console add-on is selected |
+| Terraform | Uses `terraform` on `PATH` only when it matches the committed binary digest; otherwise downloads the pinned `linux_amd64` release once and keeps it only when both the archive and binary digests in `infra/genesis-runner-image/toolchain.json` match |
 | Terraform providers | Resolved from the public Terraform registry under the committed lock files |
 | Database | Migrations and authoritative catalogs from the checkout, followed by Trial initialization |
 | Provenance | Recorded in the private run receipt as `operator-selected-source`, never as a signed release |

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import os
 import re
@@ -27,6 +28,7 @@ from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_foundation import _copy_terraform
 from fdai_deployment_cli.source_input import inspect_source
+from fdai_deployment_cli.source_terraform import download_pinned_terraform
 from fdai_deployment_cli.standalone_application_completion import complete_application
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 
@@ -126,15 +128,20 @@ def plan_source_installation(
     )
     digest = toolchain.get("terraform_binary_sha256")
     if terraform.exists():
-        import hashlib
-
         if hashlib.sha256(terraform.read_bytes()).hexdigest() != digest:
             raise ValueError("retained source Terraform differs; preserve the run")
     else:
         installed = shutil.which("terraform")
-        if installed is None:
-            raise ValueError("install the source-pinned Terraform before planning")
-        _copy_terraform(Path(installed), terraform, expected_digest=digest)
+        try:
+            if installed is None:
+                raise ValueError("no Terraform on PATH")
+            _copy_terraform(Path(installed), terraform, expected_digest=digest)
+        except (OSError, ValueError):
+            download_pinned_terraform(
+                toolchain=toolchain,
+                destination=terraform,
+                timeout_seconds=deadline.remaining(300),
+            )
     scripts = source.root / "scripts/deployment/azure"
     foundation = work_dir / "foundation"
     environment = {

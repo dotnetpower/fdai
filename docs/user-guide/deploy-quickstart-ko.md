@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 3565ec72dd1cd73e1ab4d0dd23ec21edb6afb827
-translation_revised: 2026-10-05
+translation_source_sha: 013e60db553de18c98f11ad825887b6855752410
+translation_revised: 2026-10-06
 ---
 
 # 배포 빠른 시작
@@ -57,6 +57,8 @@ GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에�
   인덱스와, 필요한 경우 Python 배포 호스트에 접근할 수 있어야 합니다. 이 절차는 연결된 환경용이며,
   인터넷에 연결되지 않은 Azure VM에서는 서명된 오프라인 패키지를 사용합니다.
 - Console 추가 기능을 선택한 경우에만 Node.js와 npm
+- 로컬 Terraform 설치는 필요하지 않습니다. 명령은 `PATH`의 `terraform`이 고정된 릴리스일 때만
+  사용하고, 그렇지 않으면 해당 릴리스를 한 번 내려받아 커밋된 다이제스트를 검증합니다.
 - 선택한 구독에서 Foundation 리소스를 만들고 문서화된 배포 역할을 할당할 수 있는 Azure 신원
 - Console 또는 enterprise identity 추가 기능을 선택하는 경우 테넌트 로컬 FDAI Entra
   애플리케이션과 그룹 표시 이름이 고유해야 합니다. `fdai-*` 애플리케이션 또는 `aw-*` 그룹이
@@ -170,7 +172,8 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 새 대화형 실행은 시작할 때 한 번 설치 설정을 보여 줍니다. 구축 예상 비용 한도는
 `--setup-cost-ceiling <USD>`로 지정하거나 그 검토 중에 입력합니다. 선택적 화면은 `--add-on`으로,
 선택적 관찰 출처는 `--observation-source`로 고르며, 기본값은 헤드리스 관찰 우선 프로파일입니다.
-이 설정만으로 리소스를 배포하지는 않습니다.
+AKS 컴퓨트 부분 비용 검토는 `--monthly-cost-ceiling <USD>`를 지정하지 않으면 월 1500 USD 한도를
+사용합니다. 이 설정만으로 리소스를 배포하지는 않습니다.
 
 Foundation 계획 전에 Genesis는 지역 VM 카탈로그를 읽고 할당량 안에서 호환되는 Managed Host
 크기를 선택합니다. 선택은 승인 전에 봉인하며 적용 중에는 바꾸지 않습니다. 호환되는 크기가

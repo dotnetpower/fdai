@@ -5,6 +5,7 @@ import io
 import json
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -199,3 +200,57 @@ def test_compute_partial_projection_cannot_approve_budget(monkeypatch, ceiling, 
     assert result["deployment_ready"] is False
     assert result["mutation_performed"] is False
     assert profile.to_mapping() == before
+
+
+def test_default_profile_fits_the_default_ceiling_at_observed_rates(monkeypatch, tmp_path):
+    """The bare one-line command must pass its own cost review at public D4as_v5 rates."""
+    ceiling = cost.resolve_monthly_cost_ceiling(None, retained=(tmp_path / "absent.json",))
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="aks", database_placement="postgres-flex"
+    )
+    # 0.172 USD is the observed westus3 and eastus Linux D4as_v5 rate; 0.21 covers dearer regions.
+    for rate in ("0.172", "0.21"):
+        monkeypatch.setattr(
+            cost, "read_linux_vm_price", lambda rate=rate, **_: {"hourly_rate": rate}
+        )
+        result = cost.inspect_aks_compute_cost(
+            profile=profile, region="westus3", monthly_cost_ceiling=ceiling
+        )
+        assert result["state"] == "partial", (rate, result["monthly_compute_estimate_usd"])
+
+
+def _retained(path, value):
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.write_text(json.dumps({"monthly_cost_ceiling": value}))
+    path.chmod(0o600)
+    return path
+
+
+def test_retained_run_keeps_its_recorded_ceiling(tmp_path):
+    intent = _retained(tmp_path / "work/source-intent.json", 1000)
+    later = _retained(tmp_path / "work/run/profile.json", 2000)
+    assert cost.resolve_monthly_cost_ceiling(None, retained=(intent, later)) == 1000
+    assert cost.resolve_monthly_cost_ceiling(1200, retained=(intent,)) == 1200
+    assert (
+        cost.resolve_monthly_cost_ceiling(None, retained=(tmp_path / "missing.json",))
+        == cost.DEFAULT_MONTHLY_COST_CEILING
+    )
+
+
+@pytest.mark.parametrize("value", ["1000", None, -1, 1.5])
+def test_unusable_retained_ceiling_requires_an_explicit_value(tmp_path, value):
+    intent = _retained(tmp_path / "work/source-intent.json", value)
+    with pytest.raises(ValueError, match="pass --monthly-cost-ceiling"):
+        cost.resolve_monthly_cost_ceiling(None, retained=(intent,))
+
+
+def test_work_dir_ceiling_prefers_source_intent_then_adopted_profile(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    adopted = _retained(tmp_path / "adopted/profile.json", 900).parent
+    resolve = cost.resolve_work_dir_monthly_cost_ceiling
+    assert resolve(None, work_dir=work, adopted_foundation=adopted) == 900
+    _retained(work / "source-intent.json", 1000)
+    assert resolve(None, work_dir=work, adopted_foundation=adopted) == 1000
+    assert resolve(None, work_dir=tmp_path / "fresh", adopted_foundation=None) == (
+        cost.DEFAULT_MONTHLY_COST_CEILING
+    )

@@ -629,3 +629,59 @@ def test_changed_resume_intent_names_the_differing_fields(tmp_path, monkeypatch)
     assert "retained source deployment intent differs" in message
     assert "monthly_cost_ceiling" in message
     assert "region" not in message
+
+
+@pytest.mark.parametrize("on_path", ["missing", "other-version"])
+def test_unpinned_path_terraform_fetches_the_committed_release(tmp_path, monkeypatch, on_path):
+    from fdai_deployment_cli.installation_scope import InstallationOptions
+
+    source = SimpleNamespace(commit="c" * 40, root=tmp_path, reverify=lambda: None)
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {"source_commit": source.commit, "receipt_digest": "d" * 64},
+    )
+    monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_target",
+        lambda **_: {"state": "feasible", "target_binding": "a" * 64},
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "confirm_installation_scope",
+        lambda **_: {"state": "confirmed", "deployment_ready": False},
+    )
+    monkeypatch.setattr(source_azure, "inspect_aks_compute_cost", lambda **_: {"state": "partial"})
+    toolchain = tmp_path / "infra/genesis-runner-image/toolchain.json"
+    toolchain.parent.mkdir(parents=True)
+    toolchain.write_text(json.dumps({"terraform_binary_sha256": "e" * 64}))
+    other = tmp_path / "other-terraform"
+    other.write_bytes(b"another release")
+    other.chmod(0o700)
+    monkeypatch.setattr(
+        source_azure.shutil, "which", lambda _: None if on_path == "missing" else str(other)
+    )
+    fetched = []
+
+    def download(*, toolchain, destination, timeout_seconds):
+        fetched.append(toolchain)
+        raise RuntimeError("reached-download")
+
+    monkeypatch.setattr(source_azure, "download_pinned_terraform", download)
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    with pytest.raises(RuntimeError, match="reached-download"):
+        source_azure.plan_source_installation(
+            source_root=tmp_path,
+            work_dir=work_dir,
+            runtime_profile=RuntimeDeploymentProfile.create(
+                runtime_platform="aks", database_placement="postgres-flex"
+            ),
+            region="eastus",
+            monthly_cost_ceiling=1500,
+            timeout_seconds=1800,
+            installation_options=InstallationOptions(setup_cost_ceiling=300),
+            confirm_initial=True,
+        )
+    assert fetched == [{"terraform_binary_sha256": "e" * 64}]

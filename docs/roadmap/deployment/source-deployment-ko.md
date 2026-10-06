@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: a572c2270d177225b1e55001a65078c2499aaaa2
-translation_revised: 2026-10-05
+translation_source_sha: 932cb3e31431e831b97f90e1e1eb62ad837e7263
+translation_revised: 2026-10-06
 ---
 
 # 단일 명령 소스 배포
@@ -165,6 +165,7 @@ Trial이 끝나면 Core는 재시작 없이 다음 결정부터 새 변경 작�
 | 서비스 이미지 | 정확한 커밋의 `git archive`를 배포 자체 레지스트리의 빌드 서비스가 빌드하고, `sha-<commit>` 태그를 붙여 다이제스트로 배포 |
 | 의존 이미지 | 고정된 다이제스트로 배포 레지스트리에 가져옴 |
 | Console | Console 추가 기능을 선택한 경우에만 checkout에서 빌드하고 게시 |
+| Terraform | `PATH`의 `terraform`이 커밋된 바이너리 다이제스트와 일치할 때만 사용하고, 그렇지 않으면 고정된 `linux_amd64` 릴리스를 한 번 내려받아 `infra/genesis-runner-image/toolchain.json`의 아카이브 다이제스트와 바이너리 다이제스트가 모두 일치할 때만 보관 |
 | Terraform 공급자 | 커밋된 lock 파일 기준으로 공개 Terraform 레지스트리에서 해석 |
 | 데이터베이스 | checkout의 마이그레이션과 권위 있는 카탈로그를 적용한 뒤 Trial 초기화 |
 | 출처 기록 | 비공개 실행 증적에 `operator-selected-source`로 기록하며 서명된 릴리스로 기록하지 않음 |
