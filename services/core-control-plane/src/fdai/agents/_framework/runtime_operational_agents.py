@@ -347,7 +347,7 @@ def bind_operational_agents(
             if development is not None
             else None
         ),
-        approval_profile=approval.profile if approval is not None else None,
+        approval_profile=(approval.profile if approval is not None else None),
         governed_execution_selected=governed_execution_selected,
         state_store=forseti_state_store,
     )

@@ -76,9 +76,12 @@ durable delivery, and the Teams Workflows webhook binding are owned by
   revalidation; Slack and Teams decisions never carry it.
 - A1 approval parks may carry the active single-operator production approval-profile metadata:
   profile revision, policy digest, original quorum, effective quorum, operator principal, and
-  executor principal. Channel adapters treat these as immutable context for the callback and audit;
-  the Operator API and Core revalidate them before any approval is accepted. The metadata does not
-  let Slack, Teams, or a notification route select a profile or grant execution authority.
+  executor principal. Core pins the digest-verified revision at decision start from the active
+  Mimir approval-policy pointer, or from the bootstrap environment fallback before activation.
+  Channel adapters treat these fields as immutable context for the callback and audit; the
+  Operator API and Core revalidate them before any approval is accepted. The metadata does not let
+  Slack, Teams, or a notification route select a profile or grant execution authority, and a later
+  activation does not rewrite an in-flight park.
 - The `governance.override-promote-action-type` approval uses the same A1 path. The channel carries
   the pinned profile and exact approval receipt context, while Thor alone can write the promotion
   registry after Var approval is verified.

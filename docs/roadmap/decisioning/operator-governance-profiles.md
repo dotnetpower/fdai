@@ -68,14 +68,22 @@ authorization contract that both production profiles use.
 
 - An approval policy revision declares `approval_profile: single-operator-production` and binds
   one normalized human principal from Microsoft Entra ID as the installation operator.
-- Deployment composition supplies the active immutable `ApprovalProfileRevision` from
-  `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH`. `policy_digest` is
-  content-addressed: it equals `sha256:` plus the SHA-256 of the canonical JSON, using sorted keys
-  and compact separators, for `revision_id`, `approval_profile`, `executor_principal`,
-  `effective_from`, and `operator_principal`. Malformed input, unknown fields, a missing or
-  mismatched digest, a not-yet-effective `effective_from`, a named operator that equals the
-  executor principal, or configuring it together with the full-authority development profile fails
-  closed. When no revision is supplied, FDAI uses the multi-operator default.
+- Runtime composition reads the active immutable `ApprovalProfileRevision` from Mimir's
+  policy-administration activation pointer when one exists. `FDAI_APPROVAL_PROFILE_JSON` and
+  `FDAI_APPROVAL_PROFILE_PATH` remain bootstrap-only fallbacks for an installation that has not yet
+  activated an approval policy revision. The pointer wins over a valid but different bootstrap
+  profile, and FDAI logs and audits the mismatch by revision id and digest.
+- `policy_digest` is content-addressed: it equals `sha256:` plus the SHA-256 of the canonical JSON,
+  using sorted keys and compact separators, for `revision_id`, `approval_profile`,
+  `executor_principal`, `effective_from`, and `operator_principal`. Malformed input, unknown
+  fields, a missing or mismatched digest, a not-yet-effective `effective_from`, a named operator
+  that equals the executor principal, or configuring it together with the full-authority
+  development profile fails closed. When no active revision or bootstrap revision is supplied, FDAI
+  uses the multi-operator default. HIL parks retain the revision that was active when the decision
+  started, so later activation changes do not rewrite in-flight approval rules.
+- Replay of an older stored approval revision requires Mimir's activation-history record for that
+  exact revision and profile digest. A submitted but unapproved policy revision is not enough to
+  reduce quorum, even if its immutable revision record exists.
 - A change into or out of the profile follows the governance rule of the active profile. Moving
   from multi-operator to single-operator needs the multi-operator governance quorum. The single
   operator can move the installation back to multi-operator.
@@ -165,6 +173,9 @@ managed-resource action.
    replay.
 6. Saga records the author, diff digest, and validation results.
 7. A rollback selects an earlier revision and creates a new revision with the same content.
+   For approval profiles, the per-Mimir-revision activation history remains append-only, while the
+   `policy_activation_history:approval-profile:<policy_digest>` index repoints to the newest
+   activated Mimir revision that carries the same approval-profile document digest.
 
 Validation catches mistakes early, but it doesn't prove that arbitrary Rego is safe. The bound comes
 from evaluation order instead. Core evaluates operator policy as one input and then applies the
@@ -196,12 +207,16 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
 - The approval profile, the quorum reduction, and the operator policy input exist as Core decision
   rules in `fdai.core.risk_gate.approval_profile` and `evaluate_execution_authority`. Forseti, Var,
   the HIL resume coordinator, and the Operator API pass the active profile revision for HIL
-  approvals. No `approval_profile_revision` or `policy_revision` table exists yet, and the active
-  profile still comes from `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH` rather than
-  policy administration.
-- The standing-authorization schema and evaluator accept one approval only under the
-  single-operator production profile. The `standing-authority-promotion` change class doesn't
-  accept the single Owner approval yet.
+  approvals. Core selects the active approval profile from Mimir's approval policy-administration
+  activation pointer. `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH` remains only a
+  bootstrap fallback when no pointer exists; a malformed pointer fails closed, and a
+  pointer/bootstrap mismatch is logged and audited. Deployed Core can receive a reviewed approval
+  profile through the protected service deployment input. Revisions use the StateStore convention;
+  no dedicated `approval_profile_revision` or `policy_revision` table exists yet.
+- The standing-authorization schema and evaluator, and the governance review authority for the
+  `standing-authority-promotion` and `operator-override-promotion` change classes, accept one
+  approval only under the single-operator production profile.
+- The promotion registry records `promotion_kind`, honors capability recall, and accepts an
   override only after an injected verifier confirms the Var approval receipt. The
   `governance.override-promote-action-type` path produces and verifies that receipt through the
   governed direct-API promotion adapter. A retained governed production receipt still remains open.

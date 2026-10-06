@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 9fccd57dc1b788d860d99277622bae041660bf2c
+translation_source_sha: bca53c0e0677ff801d91177b8d7f5cb78393045e
 translation_revised: 2026-10-06
 ---
 
@@ -76,9 +76,11 @@ Teams Workflows 웹훅 바인딩은
   페이로드가 이를 Core로 전달해 다시 검증합니다. Slack과 Teams 결정은 이 증명을 담지 않습니다.
 - A1 승인 보류 항목은 활성 단독 운영자 프로덕션 승인 프로필 메타데이터를 담을 수 있습니다.
   여기에는 프로필 개정, 정책 다이제스트, 원래 정족수, 유효 정족수, 운영자 principal, 실행기
-  principal이 포함됩니다. 채널 어댑터는 이를 콜백과 감사를 위한 변경 불가능한 문맥으로만
-  취급하며, Operator API와 Core가 승인을 받아들이기 전에 다시 검증합니다. 이 메타데이터는 Slack,
-  Teams 또는 알림 경로가 프로필을 선택하거나 실행 권한을 부여하게 하지 않습니다.
+  principal이 포함됩니다. Core는 결정 시작 시 활성 Mimir 승인 정책 포인터에서, 활성화 전에는
+  부트스트랩 환경 폴백에서 다이제스트가 검증된 개정을 고정합니다. 채널 어댑터는 이를 콜백과
+  감사를 위한 변경 불가능한 문맥으로만 취급하며, Operator API와 Core가 승인을 받아들이기 전에
+  다시 검증합니다. 이 메타데이터는 Slack, Teams 또는 알림 경로가 프로필을 선택하거나 실행 권한을
+  부여하게 하지 않으며, 이후 활성화가 진행 중인 보류 항목을 다시 쓰지 않습니다.
 - `governance.override-promote-action-type` 승인은 같은 A1 경로를 사용합니다. 채널은 고정된
   프로필과 정확한 승인 증적 문맥을 전달하고, Var 승인이 검증된 뒤 promotion registry를 쓰는
   주체는 Thor뿐입니다.

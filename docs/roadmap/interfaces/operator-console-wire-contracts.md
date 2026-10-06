@@ -100,6 +100,12 @@ qualification record, audit entry, or authority source.
 Operator-owned receivers resolve in one decision service. None trusts message identity or
 authority:
 
+Approval callbacks that resolve a single-operator production park read the pinned approval-profile
+metadata from the stored approval context, not from a current environment value or a Core
+implementation import. The shared approval-profile contract validates the revision shape and
+digest, while Core remains responsible for choosing the active Mimir approval policy pointer and
+for honoring the pinned revision during resume.
+
 | Transport | Route | Authentication and actor |
 |-----------|-------|--------------------------|
 | Teams Bot activity | `POST /hil/teams-activity` | Verify the Bot Framework RS256 service token, issuer, audience, `serviceurl`, tenant, configured group-connected team/channel, and `invoke` plus `adaptiveCard/action`. Derive `approval_id` from the exact card contract and the actor from `from.aadObjectId`, then verify the delegated OBO token for the Operator API audience and authorized bot client. |

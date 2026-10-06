@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 import yaml
 
+from fdai.agents import ApprovalRuntimeBindings
 from fdai.composition import Container
 from fdai.core.assurance_twin import (
     DynamicRuntimeCoordinator,
@@ -83,7 +84,7 @@ from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
 from fdai.runtime.alert_noise_control import AlertWorkflowBindings, build_alert_workflow_bindings
-from fdai.runtime.approval_profile import approval_runtime_bindings
+from fdai.runtime.approval_profile import approval_runtime_bindings, hil_approval_profile_kwargs
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
@@ -192,6 +193,7 @@ def _build_control_loop(
     license_authority: LicenseEntitlementAuthority | None = None,
     mutation_dependency_readiness: MutationDependencyReadiness,
     workflow_event_bus: EventBus | None = None,
+    approval_bindings: ApprovalRuntimeBindings | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -202,7 +204,7 @@ def _build_control_loop(
     product_selection = RuntimeProductSelection.from_profile(container.config.product_profile)
     governed_execution_enabled = product_selection.governed_execution
     notification_bindings_enabled = product_selection.notifications
-    approval_bindings = approval_runtime_bindings(os.environ)
+    approval_bindings = approval_bindings or approval_runtime_bindings(os.environ)
     catalog_root = _resolve_catalog_root()
     require_production_safeguard_readiness(thor_execution_port)
     policies_root = _resolve_policies_root(catalog_root)
@@ -211,7 +213,6 @@ def _build_control_loop(
     link_types_root = catalog_root / "vocabulary" / "link-types"
     remediation_root = catalog_root / "remediation"
     rules_root = catalog_root / "catalog"
-
     registry = container.schema_registry
     probes_root = catalog_root / "probes"
     if object_types_root.is_dir() and link_types_root.is_dir():
@@ -513,10 +514,7 @@ def _build_control_loop(
         ),
     )
 
-    # T1 temporal causal-chain RCA remains opt-in. A deployment can bind an
-    # IncidentMemberSource plus a reviewed resource-dependency graph through
-    # the immutable Container; absent either source, the side path abstains.
-
+    # T1 temporal causal-chain RCA remains opt-in.
     # HIL approval round-trip is opt-in only when a HIL channel is configured.
     # does the loop park a HIL-routed action and push an A1 approval
     # card. Absent -> ``None`` so the loop records the HIL verdict and
@@ -581,7 +579,7 @@ def _build_control_loop(
             contact_consent_service=(
                 report_line_runtime.consent if report_line_runtime is not None else None
             ),
-            approval_profile=(approval_bindings.profile if approval_bindings is not None else None),
+            **hil_approval_profile_kwargs(approval_bindings),
         )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 

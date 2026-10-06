@@ -174,6 +174,22 @@ class StateStorePolicyRevisionStore:
             ),
         )
         updated = {**event.model_dump(mode="json"), "revision": revision + 1}
+        history: dict[str, object] = {
+            "kind": "policy_activation_history",
+            "policy_kind": policy_kind.value,
+            "revision_id": revision_id,
+            "policy_digest": policy_digest,
+            "activated_at": activated_at.isoformat(),
+            "author_principal": author_principal,
+            "validation_digest": validation_digest,
+            "idempotency_key": event.idempotency_key,
+        }
+        approval_index = await self._approval_profile_activation_index(
+            policy_kind,
+            revision_id,
+            history=history,
+        )
+        history_key = _activation_history_key(policy_kind, revision_id)
         audit_entry = {
             "event_type": "policy_activation_recorded",
             "actor": "Mimir",
@@ -184,16 +200,55 @@ class StateStorePolicyRevisionStore:
             "validation_digest": validation_digest,
         }
         if existing is None:
-            if not await self.store.write_state_with_audit_if_absent(key, updated, audit_entry):
+            if not await self.store.write_state_pair_with_audit_if_absent(
+                key,
+                updated,
+                insert_key=history_key,
+                insert_value=history,
+                insert_key_2=(approval_index[0] if approval_index is not None else None),
+                insert_value_2=(approval_index[1] if approval_index is not None else None),
+                audit_entry=audit_entry,
+            ):
                 raise PolicyRevisionRejectedError("policy_activation_conflict")
-        elif not await self.store.compare_and_set_state_with_audit(
+        elif not await self.store.compare_and_set_state_with_audit_and_insert(
             key,
             updated,
             expected_revision=revision,
+            insert_key=history_key,
+            insert_value=history,
+            insert_key_2=(approval_index[0] if approval_index is not None else None),
+            insert_value_2=(approval_index[1] if approval_index is not None else None),
             audit_entry=audit_entry,
         ):
             raise PolicyRevisionRejectedError("policy_activation_conflict")
         return event
+
+    async def _approval_profile_activation_index(
+        self,
+        policy_kind: PolicyKind,
+        revision_id: str,
+        *,
+        history: dict[str, object],
+    ) -> tuple[str, dict[str, object]] | None:
+        if policy_kind is not PolicyKind.APPROVAL:
+            return None
+        revision = await self.revision(policy_kind=policy_kind, revision_id=revision_id)
+        if revision is None or not isinstance(revision.content, ApprovalPolicyContent):
+            return None
+        digest = revision.content.document.get("policy_digest")
+        if not isinstance(digest, str):
+            return None
+        return (
+            _approval_profile_activation_index_key(digest),
+            {
+                "kind": "policy_activation_history_index",
+                "approval_profile_digest": digest,
+                "policy_kind": policy_kind.value,
+                "revision_id": revision_id,
+                "policy_digest": history["policy_digest"],
+                "activated_at": history["activated_at"],
+            },
+        )
 
 
 def _revision_key(policy_kind: PolicyKind, revision_id: str) -> str:
@@ -202,6 +257,14 @@ def _revision_key(policy_kind: PolicyKind, revision_id: str) -> str:
 
 def _activation_key(policy_kind: PolicyKind) -> str:
     return f"policy_activation:{policy_kind.value}"
+
+
+def _activation_history_key(policy_kind: PolicyKind, revision_id: str) -> str:
+    return f"policy_activation_history:{policy_kind.value}:{revision_id}"
+
+
+def _approval_profile_activation_index_key(policy_digest: str) -> str:
+    return f"policy_activation_history:approval-profile:{policy_digest}"
 
 
 def _request_key(request_id: str) -> str:

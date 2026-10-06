@@ -17,6 +17,7 @@ from fdai_service_contracts.policy_administration import (
     PolicyRevisionRecord,
     PolicyRevisionSignature,
     PolicyValidationResult,
+    policy_content_digest,
 )
 
 
@@ -137,6 +138,23 @@ async def test_key_vault_policy_signer_verifies_stored_signature() -> None:
     assert await signer.verify_policy_revision_signature(_record(_signature())) is True
 
 
+@pytest.mark.asyncio
+async def test_key_vault_policy_signer_refuses_content_swapped_under_valid_signature() -> None:
+    http = _Http()
+    signer = AzureKeyVaultPolicyRevisionSigner(
+        key_id="https://fdai-example.vault.azure.net/keys/policy-signing",
+        identity=_Identity([]),
+        http_client=http,
+    )
+    swapped = _record(
+        _signature(),
+        content=_content("package fdai.policy\nallow := false\n"),
+    )
+
+    assert await signer.verify_policy_revision_signature(swapped) is False
+    assert http.requests == []
+
+
 @pytest.mark.parametrize("algorithm", ["RS384", "RS512", "PS384", "PS512"])
 def test_key_vault_policy_signer_rejects_algorithms_without_sha256_digest(
     algorithm: str,
@@ -208,16 +226,24 @@ def _signature(
     )
 
 
-def _record(signature: PolicyRevisionSignature | None) -> PolicyRevisionRecord:
+def _content(rego: str = "package fdai.policy\nallow := true\n") -> AdmissionPolicyContent:
+    return AdmissionPolicyContent(
+        rego=rego,
+        action_type_modes={},
+        policy_tests=({"rego": "package fdai.policy\n test_allow if { allow }\n"},),
+    )
+
+
+def _record(
+    signature: PolicyRevisionSignature | None,
+    *,
+    content: AdmissionPolicyContent | None = None,
+) -> PolicyRevisionRecord:
     return PolicyRevisionRecord(
         revision_id="policy-r1",
         policy_kind=PolicyKind.ADMISSION,
-        content_digest="sha256:" + "a" * 64,
-        content=AdmissionPolicyContent(
-            rego="package fdai.policy\nallow := true\n",
-            action_type_modes={},
-            policy_tests=({"rego": "package fdai.policy\n test_allow if { allow }\n"},),
-        ),
+        content_digest=policy_content_digest(_content()),
+        content=content or _content(),
         signature_ref=(signature.key_id if signature is not None else "legacy"),
         signature=signature,
         author_principal="policy-admin",

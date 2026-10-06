@@ -12,6 +12,18 @@ variable "decision_evidence_container_url" {
   type    = string
   default = ""
 }
+
+variable "approval_profile_json" {
+  description = "Optional deploy-time single-operator production approval profile revision JSON."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = trimspace(var.approval_profile_json) == "" || startswith(trimspace(var.approval_profile_json), "{")
+    error_message = "approval_profile_json must be empty or a JSON object string."
+  }
+}
 variable "image" { type = string }
 variable "source_revision" {
   type = string

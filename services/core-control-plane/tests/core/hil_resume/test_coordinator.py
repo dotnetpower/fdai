@@ -60,7 +60,11 @@ from fdai.core.ontology_platform.reconciliation_producer import (
     ReconciliationRequestProduction,
     ReconciliationRequestProductionStatus,
 )
-from fdai.core.risk_gate.approval_profile import ApprovalProfileKind, ApprovalProfileRevision
+from fdai.core.risk_gate.approval_profile import (
+    ApprovalProfileKind,
+    ApprovalProfileRevision,
+    approval_profile_policy_digest,
+)
 from fdai.delivery.chatops.slack_adapter import (
     SLACK_POST_URL,
     SlackHilAdapter,
@@ -256,13 +260,24 @@ def _action(
 
 
 def _approval_profile() -> ApprovalProfileRevision:
+    return _approval_profile_for(_OPERATOR, revision_id="approval-profile-r1")
+
+
+def _approval_profile_for(operator: str, *, revision_id: str) -> ApprovalProfileRevision:
+    payload: dict[str, object] = {
+        "revision_id": revision_id,
+        "approval_profile": "single-operator-production",
+        "executor_principal": _EXECUTOR,
+        "effective_from": "2026-10-05T00:00:00+00:00",
+        "operator_principal": operator,
+    }
     return ApprovalProfileRevision(
-        revision_id="approval-profile-r1",
+        revision_id=str(payload["revision_id"]),
         approval_profile=ApprovalProfileKind.SINGLE_OPERATOR_PRODUCTION,
-        executor_principal=_EXECUTOR,
-        policy_digest="sha256:" + "a" * 64,
-        effective_from=datetime(2026, 10, 5, tzinfo=UTC),
-        operator_principal=_OPERATOR,
+        executor_principal=str(payload["executor_principal"]),
+        policy_digest=approval_profile_policy_digest(payload),
+        effective_from=datetime.fromisoformat(str(payload["effective_from"])),
+        operator_principal=str(payload["operator_principal"]),
     )
 
 
@@ -1617,6 +1632,33 @@ async def test_single_operator_profile_refuses_unnamed_and_executor_principals()
     ]
     assert "unnamed_principal" in reasons
     assert "approver_is_executor" in reasons
+
+
+@pytest.mark.asyncio
+async def test_forged_single_operator_profile_pin_is_unavailable_without_bound_revision() -> None:
+    forged = _approval_profile_for("attacker@example.com", revision_id="attacker-r1")
+    coordinator, publisher, store, _ = _coordinator()
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid="attacker@example.com",
+        correlation_id="forged-profile",
+        approval_id="aid-forged-profile",
+        approval_profile=forged.as_audit_dict(),
+        original_quorum_required=2,
+        effective_quorum_required=1,
+    )
+
+    result = await coordinator.resolve(
+        approval_id="aid-forged-profile",
+        decision=HilDecision.APPROVE,
+        approver_oid="attacker@example.com",
+    )
+
+    assert result.outcome is ResolveOutcome.DECISION_REFUSED
+    assert result.reason == "approval_profile_unavailable"
+    assert publisher.records == ()
+    assert "hil.resolve.approval_profile_refused" in _audit_kinds(store)
 
 
 @pytest.mark.asyncio
