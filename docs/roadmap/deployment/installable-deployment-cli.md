@@ -67,7 +67,7 @@ Initial confirmation is separate from that approval. The coordinator advances wi
 approval and returns review state when another checkpoint needs authority; it does not create
 approval, read stdin or report success. After the verified Foundation handoff, source mode
 continues into the shared managed-host application sequence without a signed kit. A plan returns
-exit code `2` for review, not deployment success; a capacity blocker returns `3`.
+exit code `2` for review, not deployment success; a capacity blocker returns `3`. Only a verified `deployment-ready` source result returns `0`.
 `--prepare-only` makes no Azure call. `--preflight-only` reads the current human target, SKU
 restrictions, x64 architecture, host encryption, required zones and shared-family/total quota at
 autoscaler maximum plus simultaneous 33-percent surge. A `postgres-flex` profile also requires the
