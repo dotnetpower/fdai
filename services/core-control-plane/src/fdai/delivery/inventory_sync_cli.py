@@ -325,6 +325,9 @@ async def build_inventory_promotion_enricher(
 
 
 _resolve_resource_types = inventory_sync_cli_support.resolve_resource_types
+_RUN_LOCK_TIMEOUT_MS = 30_000
+# Bounded well inside the 900-second deadline of the inventory Job template.
+_INITIAL_RUN_LOCK_TIMEOUT_MS = 300_000
 _build_sources = inventory_sync_cli_support.build_sources
 
 
@@ -332,6 +335,7 @@ async def run(
     config: InventoryJobConfig,
     *,
     promotion_enricher: InventoryPromotionEnricher | None = None,
+    run_lock_timeout_ms: int = _RUN_LOCK_TIMEOUT_MS,
 ) -> InventoryJobResult:
     """Run ordered source fallback and optional verified pre-promotion enrichment."""
     vocabulary = _load_resource_type_registry()
@@ -399,7 +403,7 @@ async def run(
                 run_lock=PostgresAdvisoryResourceLock(
                     config=PostgresAdvisoryResourceLockConfig(
                         dsn=config.dsn,
-                        lock_timeout_ms=30_000,
+                        lock_timeout_ms=run_lock_timeout_ms,
                     )
                 ),
                 relationship_mapping_catalog=relationship_catalog,
@@ -740,7 +744,9 @@ async def _main(argv: list[str]) -> None:
     while True:
         config = await _load_job_config()
         if initial:
-            await run(config)
+            # The first scheduled tick after deployment also finds a full run due and holds the
+            # run lock for minutes; the one-shot initial run waits for it instead of failing.
+            await run(config, run_lock_timeout_ms=_INITIAL_RUN_LOCK_TIMEOUT_MS)
             return
         try:
             await _run_due_once(config)
