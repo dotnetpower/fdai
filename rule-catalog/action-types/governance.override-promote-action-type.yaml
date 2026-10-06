@@ -1,0 +1,147 @@
+schema_version: 1.0.0
+name: governance.override-promote-action-type
+version: 1.0.0
+operation: update
+interfaces:
+- ControlPlane
+- IdempotentByKey
+rollback_contract: scripted
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 7
+  min_samples: 20
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 300
+- kind: no_conflicting_open_action_on_resource
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Apply one attributed operator override promotion to the runtime ActionType
+  mode registry after Forseti judgment, Var approval under the active governance profile,
+  and Thor verification of the exact approval receipt. The override stays visible and
+  never counts as promotion evidence.
+category: governance
+trigger_kind:
+  kind: operator_request
+execution_path: direct_api
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: approver
+  t1:
+    max_autonomy: shadow_only
+    min_role: approver
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - action_type_id
+  - target_mode
+  - fdai_revision
+  - scenario_set_version
+  - gate_status
+  - gate_evidence_digest
+  - approval_receipt_digest
+  - operator_principal
+  - justification
+  - stop_condition_proof_digest
+  - rollback_proof_digest
+  - impact_scope_proof_digest
+  - dry_run_proof_digest
+  - logical_target_lock_proof_digest
+  - idempotency_key
+  - audit_intent_proof_digest
+  properties:
+    capability_kind:
+      type: string
+      enum:
+      - action_type
+      - workflow
+      default: action_type
+      description: Capability namespace. Workflow targets are refused unless every composed ActionType is registered.
+    action_type_id:
+      type: string
+      pattern: ^[a-z][a-z0-9_\.\-]{0,79}$
+      description: The ActionType.name whose effective upper-bound mode flips shadow -> enforce.
+    workflow_action_type_ids:
+      type: array
+      items:
+        type: string
+        pattern: ^[a-z][a-z0-9_\.\-]{0,79}$
+      uniqueItems: true
+      description: Registered ActionTypes composed by a Workflow target.
+    target_mode:
+      type: string
+      enum:
+      - enforce
+    fdai_revision:
+      type: string
+      pattern: ^(?:[0-9a-f]{40}|[0-9a-f]{64})$
+    scenario_set_version:
+      type: string
+      pattern: ^[A-Za-z0-9._-]{1,160}$
+    gate_status:
+      type: string
+      enum:
+      - passed
+      - failed
+      - insufficient_evidence
+    gate_evidence_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+      description: The promotion-gate evidence digest observed when the override was approved.
+    approval_receipt_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+      description: Digest of the exact Var approval attestation Thor verifies before writing.
+    operator_principal:
+      type: string
+      x-fdai-audit-safe: true
+      minLength: 1
+      maxLength: 256
+    justification:
+      type: string
+      x-fdai-audit-safe: true
+      minLength: 20
+      maxLength: 500
+    stop_condition_proof_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+    rollback_proof_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+    impact_scope_proof_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+    dry_run_proof_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+    logical_target_lock_proof_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+    idempotency_key:
+      type: string
+      x-fdai-audit-safe: true
+      minLength: 1
+      maxLength: 256
+    audit_intent_proof_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:governance.override-promote-action-type@1.0.0
+  content_hash: sha256:225143844290ce3229203d19b0768eac9b103082fe4940ddc8915c63f8042fbb
+  license: MIT
+  retrieved_at: "2026-10-05T00:00:00Z"

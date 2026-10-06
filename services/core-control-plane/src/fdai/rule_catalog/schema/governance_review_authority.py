@@ -55,6 +55,7 @@ class GovernanceChangeClass(StrEnum):
     STANDING_AUTHORITY_PROMOTION = "standing-authority-promotion"
     EXEMPTION = "exemption"
     OVERRIDE = "override"
+    OPERATOR_OVERRIDE_PROMOTION = "operator-override-promotion"
     RISK_CLASSIFICATION_LOOSENING = "risk-classification-loosening"
     RULE_RETIREMENT = "rule-retirement"
 
@@ -102,6 +103,12 @@ _REQUIREMENTS: Final = MappingProxyType(
             owner_review=False,
         ),
         GovernanceChangeClass.OVERRIDE: ChangeClassRequirement(
+            capability=Capability.APPROVE_OVERRIDE,
+            quorum=2,
+            phishing_resistant=True,
+            owner_review=False,
+        ),
+        GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION: ChangeClassRequirement(
             capability=Capability.APPROVE_OVERRIDE,
             quorum=2,
             phishing_resistant=True,
@@ -377,7 +384,11 @@ def _approval_profile_decision_for(
     if (
         profile is None
         or not profile.is_single_operator
-        or request.change_class is not GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION
+        or request.change_class
+        not in {
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
+        }
     ):
         return None
     return evaluate_profile_approval(
@@ -416,7 +427,11 @@ def validate_governance_review(
     requirement = _REQUIREMENTS[request.change_class]
     effective_quorum = effective_quorum_for(
         request.approval_profile
-        if request.change_class is GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION
+        if request.change_class
+        in {
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
+        }
         and request.approval_profile is not None
         and request.approval_profile.is_single_operator
         else None,
@@ -506,14 +521,22 @@ def validate_governance_review(
             request.approval_profile.approval_profile.value
             if request.approval_profile is not None
             and request.approval_profile.is_single_operator
-            and request.change_class is GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION
+            and request.change_class
+            in {
+                GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+                GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
+            }
             else None
         ),
         operator_principal=(
             request.approval_profile.operator_principal
             if request.approval_profile is not None
             and request.approval_profile.is_single_operator
-            and request.change_class is GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION
+            and request.change_class
+            in {
+                GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+                GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
+            }
             else None
         ),
         self_review=self_review,

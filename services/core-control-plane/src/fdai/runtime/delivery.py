@@ -18,6 +18,7 @@ from fdai.core.executor.safeguard_lifecycle_coordinator import (
 from fdai.core.executor.tool_call import ToolCallShadowExecutor, ToolReceiptObserver
 from fdai.core.notifications.matrix import NotificationMatrix, load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.delivery.chatops.slack_binding import build_slack_hil_channel
 from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
 from fdai.runtime.configuration import _resolve_catalog_root
@@ -58,9 +59,7 @@ def _build_publisher(
     Fail-fast contract: opting in requires ``owner`` + ``repo``. A
     partial configuration (token without owner/repo) is a deployment
     bug and raises immediately so the container never masquerades as
-    a real GitOps publisher.
-
-    ``http_client`` MUST be non-None when the token is set - the
+    a real GitOps publisher. ``http_client`` MUST be non-None when the token is set - the
     adapter never opens its own connection; the composition root owns
     the client lifecycle.
     """
@@ -160,13 +159,7 @@ def _build_hil_channel(
     ``docs/roadmap/interfaces/channels-and-notifications.md § 6``). The
     ``HilChannel`` Protocol is the contract, so ``core/`` neither knows
     nor cares which backend is active.
-
     Env vars (Bot Framework mode):
-
-    - ``FDAI_TEAMS_APPROVAL_ACTIVITY_URL`` - fixed group-connected channel activity endpoint.
-    - ``FDAI_TEAMS_APPROVAL_TEAM_ID`` / ``FDAI_TEAMS_APPROVAL_CHANNEL_ID`` - callback audience.
-    - ``FDAI_CHATOPS_TIMEOUT_SECONDS`` - optional per-request
-      timeout (default 15s).
 
     The injected workload identity requests the Bot Framework token. ``http_client`` remains
     composition-owned, and Incoming Webhooks are not accepted because they cannot deliver
@@ -259,6 +252,7 @@ def _build_direct_api_executor(
     action_types_by_name: Mapping[str, Any] | None = None,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
     safeguard_coordinator: SafeguardLifecycleCoordinator | None = None,
+    active_approval_profile: ApprovalProfileRevision | None = None,
 ) -> DirectApiShadowExecutor | None:
     """Select the direct-API executor for this process.
 
@@ -324,30 +318,39 @@ def _build_direct_api_executor(
         _LOGGER.info("direct_api_backend", extra={"backend": "kubernetes"})
         routes.update({action_type: kubernetes for action_type in KUBERNETES_ACTION_TYPES})
         allow_enforce = True
-
     if promotion_registry is not None and action_types_by_name:
         from fdai.delivery.persistence import (
             StateStoreActionPromotionRegistry,
             StateStoreOperationalPromotionReceiptStore,
         )
         from fdai.delivery.promotion import (
+            OVERRIDE_PROMOTION_ACTION_TYPE,
             PROMOTION_ACTION_TYPE,
             GovernancePromotionDispatcher,
             OperationalPromotionDirectApiExecutor,
+            OperatorOverridePromotionDirectApiExecutor,
             StateStorePromotionAttestationStore,
         )
 
         if isinstance(promotion_registry, StateStoreActionPromotionRegistry):
+            attestation_store = StateStorePromotionAttestationStore(audit_store)
             routes[PROMOTION_ACTION_TYPE] = GovernancePromotionDispatcher(
                 OperationalPromotionDirectApiExecutor(
                     action_types=action_types_by_name,
                     receipts=StateStoreOperationalPromotionReceiptStore(audit_store),
                     registry=promotion_registry,
                 ),
-                attestation_store=StateStorePromotionAttestationStore(audit_store),
+                attestation_store=attestation_store,
+            )
+            routes[OVERRIDE_PROMOTION_ACTION_TYPE] = GovernancePromotionDispatcher(
+                OperatorOverridePromotionDirectApiExecutor(
+                    action_types=action_types_by_name,
+                    registry=promotion_registry,
+                ),
+                attestation_store=attestation_store,
+                active_approval_profile=active_approval_profile,
             )
             allow_enforce = True
-
     if graph_model_promotion_registry is not None and action_types_by_name:
         from fdai.delivery.graph_model_promotion import (
             PROMOTE_EFFECT_MODEL_ACTION_TYPE,

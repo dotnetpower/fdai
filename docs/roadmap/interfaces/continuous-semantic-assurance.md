@@ -48,6 +48,9 @@ release pins, such as a reader that now returns the exact count its row bound le
 declaration partition, so the same change regenerates the manifest with its builder. Adding the Resource Health reread fence to the source-derived `query.resource_health_inventory` FunctionType is one such release change.
 Projection-only ontology vocabulary, such as bilingual query terms used by candidate documents,
 also refreshes the manifest source digests even when the governed release identity stays stable.
+Adding `governance.override-promote-action-type` is a structural catalog change, so the same
+builder refreshes the corpus manifest denominator and source digests without creating a live
+assurance receipt.
 This repository-only inventory is not an executable campaign, a production binding, or a
 certification receipt.
 

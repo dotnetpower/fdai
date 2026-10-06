@@ -11,8 +11,10 @@ administration in FDAI Console.
 > **Status:** Partially implemented. The multi-operator profile and the full-authority development
 > profile exist today. Core decision rules for the single-operator production profile, the runtime
 > approval path through Forseti, Var, the HIL resume coordinator, and the Operator API callback,
-> the single-operator standing authorization, `promotion_kind`, and the never-raising operator
-> policy input are implemented. Policy administration in FDAI Console is planned. The
+> the single-operator standing authorization, the `governance` override-promotion ActionType path,
+> `promotion_kind`, the never-raising operator policy input, the `policy-administration` add-on,
+> the Operator policy-revision route, and Mimir's validation and activation path are implemented.
+> Console policy-authoring UI remains planned. The
 > [implementation ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)
 > tracks delivery. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
@@ -110,14 +112,17 @@ mode to enforce mode before its promotion gate passes. In the multi-operator pro
 override follows the profile's governance quorum.
 
 - **Preconditions:** The capability is registered and structurally valid. It declares all seven
-  safeguards, isn't under a capability recall, and stays inside the Release's maximum mode. A
-  Workflow composes only registered ActionTypes.
+  safeguards, including either a rollback or bounded recovery path, isn't under a capability
+  recall, and stays inside the Release's maximum mode. A Workflow composes only registered
+  ActionTypes.
 - **Path:** The override is a `governance` ActionType request that travels the normal typed
   pipeline. Forseti judges it, the operator's approval satisfies Var under the active profile, Thor
   applies the registry change, and Saga audits it.
-- **Record:** The promotion registry stores `promotion_kind: operator_override`, the gate status
-  at that time (passed, failed, or insufficient evidence) with its evidence digest, the operator,
-  the reason, and the time. Every surface that shows the mode marks it as an operator override.
+- **Record:** The promotion registry stores `promotion_kind: operator_override`, the
+  operator-attested gate status at that time (passed, failed, or insufficient evidence) with its
+  evidence digest, the operator, the reason, and the time. Every surface that shows the mode marks
+  it as an operator override and labels the gate snapshot as operator-attested unless an independent
+  gate-evidence store verified it.
 - **Runtime effect:** Promotion stays an upper bound. The risk gate, approval policy, and every
   per-execution check still apply.
 - **Precedence:** Automatic regression demotion and a vendor capability recall override the
@@ -197,9 +202,9 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
 - The standing-authorization schema and evaluator accept one approval only under the
   single-operator production profile. The `standing-authority-promotion` change class doesn't
   accept the single Owner approval yet.
-- The promotion registry records `promotion_kind`, honors a capability recall, and accepts an
-  override only after an injected verifier confirms the Var approval receipt. The `governance`
-  ActionType path that produces that receipt doesn't exist yet.
+  override only after an injected verifier confirms the Var approval receipt. The
+  `governance.override-promote-action-type` path produces and verifies that receipt through the
+  governed direct-API promotion adapter. A retained governed production receipt still remains open.
 - The `policy-administration` add-on, the Operator API policy-revision route, and Mimir's
   validation and activation path are implemented. The add-on requires `read-only-console` and
   `enterprise-identity-governance`, and grants no authority by itself. The route requires a
@@ -219,13 +224,15 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   implemented through the typed Mimir -> Var -> Mimir event path. Mimir records every accepted
   revision immutably before activation, applies single-operator production revisions immediately,
   applies provably tightening multi-operator admission revisions immediately, and routes every
-  other multi-operator revision to Var for governance quorum before moving the pointer. Anything
+  other multi-operator revision to Var on `object.policy-activation-request` for governance quorum
+  before moving the pointer. Anything
   other than the same Rego with an unchanged ActionType set and non-raising mode changes is treated
   as relaxing. Core binds the active admission pointer at decision start, evaluates the pinned Rego
   under the release-pinned OPA capabilities file when OPA is available, and stores the pinned
-  policy digest on HIL parks so replay and resume keep the original decision input. When no active
-  admission pointer exists, the operator policy input is `None` and existing decision behavior is
-  unchanged. OPA or policy-read failures fail closed to human approval instead of allowing action.
+  policy digest on T0, T1, T2, and operator-request HIL parks so replay and resume keep the
+  original decision input. When no active admission pointer exists, the operator policy input is
+  `None` and existing decision behavior is unchanged. OPA or policy-read failures fail closed to
+  human approval instead of allowing action, and cancelled OPA evaluations kill their subprocess.
   Full-authority development category-denial resume intentionally re-reads the current pointer as a
   fail-closed revalidation; a changed result keeps the park held instead of raising authority.
 - The Operator service does not yet read the selected product profile. Until a product-profile seam

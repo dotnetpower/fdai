@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: be55b6dac412e2ffad51884c23157d3a4b11bea8
-translation_revised: 2026-10-05
+translation_source_sha: 5f65081417d755b3fc97bd1dadba3c3f041fc818
+translation_revised: 2026-10-06
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -82,7 +82,7 @@ Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발
 > 빌드 입력을 변경하는 끌어오기 요청은 별도의 읽기 전용 이미지 빌드와 취약점 검사를
 > 유지합니다. 전이 의존성의 취약점은 공유 `uv.lock`에서 수정된 버전으로 해결하며,
 > 영향받는 코드에 도달할 수 없는 이유를 기한과 함께 검토한 예외가 없으면 `.trivyignore.yaml`은
-> 비워 둡니다. 알려진 서비스 소스, 테스트 및 문서 경로는 PR 트리거에서 제외하지만 패키징된
+> 비워 둡니다. Cost Governance 이미지의 Mako와 multidict 발견 항목에도 같은 규칙을 적용합니다. 알려진 서비스 소스, 테스트 및 문서 경로는 PR 트리거에서 제외하지만 패키징된
 > 자산과 알 수 없는 서비스 입력은 보수적으로 선택합니다. 루트 README만 바뀌면 문서 변경으로
 > 처리하며 이미지 후보를 선택하지 않습니다. 레지스트리 게시, SBOM 및 증명에는 이미지 선택과 정확한 보호 소스 SHA를
 > 포함한 명시적 후보 디스패치가 필요합니다. 일반 소스 push와 버전 태그는 이미지를
@@ -265,6 +265,9 @@ shadow-first 모드입니다. 실패하면 기존의 변경할 수 없는 런타
 `resources/manifest.json`은 안정적인 id, 패키지 상대 경로, 콘텐츠 다이제스트 및 스키마
 버전을 기록합니다. 패키지 코드는 저장소 상대 경로 대신 패키지 리소스 API를 통해 리소스를
 로드하므로 wheel과 소스 checkout이 같은 방식으로 동작합니다.
+의미 프로필은 활성 온톨로지 release 다이제스트를 고정합니다. 따라서
+`governance.override-promote-action-type` 같은 Core ActionType을 추가하면 공식 생성기가 이
+다이제스트, 매니페스트 항목, F1-F8 fixture 식별자를 갱신하며 패키지 자산은 바꾸지 않습니다.
 
 ## 소유권 경계
 

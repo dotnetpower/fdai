@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 1f748bc60fffbb6d61c3dc503cd4f9b420ddcd07
+translation_source_sha: b21f4100a67d3ed6d79d3b0734a2c310a71c5066
 translation_revised: 2026-10-05
 ---
 # 독립 운영 근거 발급
@@ -47,6 +47,8 @@ Resource Health 서술 주장은 타입이 지정된 읽기 증적에 붙는 답
 Forseti는 Var와 HIL 재개 경로가 원래 정족수와 유효 정족수를 기록할 수 있도록 고정된 단독
 운영자 승인 프로필 개정을 Verdict에 실어 보낼 수 있습니다. 이 프로필 메타데이터는 승인 문맥일
 뿐입니다. 검증기 출처 산출물, `DecisionEvidenceAdmission`, 실제 프로바이더 상태의 증명이 아닙니다.
+재정의 승격 중 기록된 운영자 증언 게이트 스냅샷도 레지스트리 문맥입니다. 이 검증기 경계 아래에서
+별도의 gate-evidence 저장소가 스냅샷을 검증하기 전에는 독립 운영 근거가 되지 않습니다.
 
 ## 현재 상태와 공백
 

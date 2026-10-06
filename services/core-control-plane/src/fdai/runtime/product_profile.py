@@ -40,12 +40,16 @@ def build_promotion_registry(
     """Bind durable enforcement only for the explicit governed-execution add-on."""
 
     if selection.governed_execution and durable:
-        from fdai.delivery.persistence import StateStoreActionPromotionRegistry
+        from fdai.delivery.persistence import (
+            StateStoreActionPromotionRegistry,
+            StateStoreOperatorOverrideAuthorityVerifier,
+        )
 
         registry = StateStoreActionPromotionRegistry(
             store=audit_store,
             receipt_verifier=container.operational_promotion_receipt_verifier,
             persisted_authority_verifier=container.persisted_promotion_authority_verifier,
+            override_authority_verifier=StateStoreOperatorOverrideAuthorityVerifier(audit_store),
         )
         return registry, registry.refresh
     return (

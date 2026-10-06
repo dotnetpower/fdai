@@ -1545,7 +1545,20 @@ async def test_action_promotion_modes_parameterize_the_like_wildcard(
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
     monkeypatch.setattr(store, "_fetch_all", fetch_all)
 
-    assert await store.read_action_promotion_modes() == {"ops.restart-service": "shadow"}
+    assert await store.read_action_promotion_modes() == {
+        "ops.restart-service": {
+            "mode": "shadow",
+            "promotion_kind": "gate_evidence",
+            "gate_status": None,
+            "gate_status_source": "operator_attested",
+            "gate_evidence_digest": None,
+            "approval_receipt_digest": None,
+            "operator_principal": None,
+            "override_reason": None,
+            "override_recorded_at": None,
+            "safeguard_proof_source": "operator_attested",
+        }
+    }
     statement, parameters = calls[-1]
     assert "key LIKE %(key_pattern)s ESCAPE '\\'" in statement
     assert parameters == {"key_pattern": "action\\_promotion:%"}

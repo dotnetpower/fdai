@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: a14dde1e4d1917315ced1b2b9e6fc1c906caf762
+translation_source_sha: 68be6837e00d18f60ff07970d08c5d2abedd8744
 translation_revised: 2026-10-04
 ---
 
@@ -312,7 +312,7 @@ extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비�
 의존성 잠금 파일 변경은 작업 worktree의 자체 가상 환경처럼 그 잠금 파일로 동기화한 환경에서
 검증합니다. 공유 개발 환경에는 아직 이전 버전이 설치되어 있기 때문입니다. 전이 의존성의 보안
 업데이트라면 그 환경에서 해당 패키지나 그 패키지에 직접 의존하는 패키지를 사용하는 저장소 코드의
-집중 테스트를 실행합니다.
+집중 테스트를 실행합니다. 예를 들어 Mako는 Alembic, multidict는 aiohttp를 사용하는 코드가 대상입니다.
 
 로컬 구조 검사기는 전체 내용과 실행 문맥이 일치할 때만 선택적 검증기와 push hook 사이에서
 성공한 결과를 재사용합니다. 더 좁은 의존성 범위가 입증되지 않은 검사는 추적 중인 전체

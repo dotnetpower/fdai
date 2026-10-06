@@ -79,6 +79,9 @@ durable delivery, and the Teams Workflows webhook binding are owned by
   executor principal. Channel adapters treat these as immutable context for the callback and audit;
   the Operator API and Core revalidate them before any approval is accepted. The metadata does not
   let Slack, Teams, or a notification route select a profile or grant execution authority.
+- The `governance.override-promote-action-type` approval uses the same A1 path. The channel carries
+  the pinned profile and exact approval receipt context, while Thor alone can write the promotion
+  registry after Var approval is verified.
 - A1 approval parks may also carry a pinned operator admission-policy digest. Channel adapters
   display or return it only as immutable approval context; they never re-read the policy pointer or
   evaluate Rego.

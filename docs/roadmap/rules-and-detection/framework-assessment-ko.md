@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: e802c0aedf1d91e5712434c2c837228483c07089
+translation_source_sha: 4aa8dfe829a9b2d6d0b02bd70476a0b27607e67b
 translation_revised: 2026-10-02
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -59,6 +59,8 @@ CAF 평가 근거, 결과, 권한을 바꾸지 않습니다.
 경로, 작업별 발신함 점유 및 서명된 결과 소비자를 추가합니다. 알림 근거, 선호 설정, 생산자
 상태로 WAF/CAF 근거나 준비 상태를 충족할 수 없습니다. 기존 평가 범위, 카탈로그 고정값,
 수락 및 준비 상태 기준은 바뀌지 않으며 알림 결과로 이 항목을 갱신하지 않습니다.
+공유 거버넌스 Console 카탈로그는 Promotion gates 화면의 운영자 재정의 승격에도 레이블을 붙입니다.
+이 레이블은 평가 근거, 결과 또는 준비 상태를 바꾸지 않습니다.
 알림 요청 이력은 자체 발신함 네임스페이스, principal 및 정확한 범위로 한정합니다. 서명된
 최종 결과와 기준선 상세는 프레임워크 평가 증적이 아니며 WAF/CAF 상태를 갱신하지 않습니다.
 

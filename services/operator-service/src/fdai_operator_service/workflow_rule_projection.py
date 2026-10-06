@@ -42,7 +42,7 @@ class BaselineEvaluationStateReader(Protocol):
 
 def _promotion_gate_payload(
     stored: Mapping[str, object],
-    modes: Mapping[str, str],
+    modes: Mapping[str, object],
 ) -> dict[str, object]:
     rows_value = stored.get("rows")
     if not isinstance(rows_value, list):
@@ -65,16 +65,71 @@ def _promotion_gate_payload(
                 detail="authoritative promotion-gate projection is malformed",
             )
         action_types.add(action_type)
+        mode_record = _promotion_mode_record(modes.get(action_type))
         rows.append(
             {
                 **value,
-                "mode": modes.get(action_type, "shadow"),
+                "mode": mode_record["mode"],
                 "mode_source": (
                     "promotion-registry" if action_type in modes else "catalog-default"
                 ),
+                "promotion_kind": mode_record["promotion_kind"],
+                "operator_override": mode_record["operator_override"],
             }
         )
     return {**stored, "rows": rows}
+
+
+def _promotion_mode_record(value: object) -> dict[str, object]:
+    if value is None:
+        return {
+            "mode": "shadow",
+            "promotion_kind": "gate_evidence",
+            "operator_override": None,
+        }
+    if isinstance(value, str):
+        if value not in {"shadow", "enforce"}:
+            raise HTTPException(
+                status_code=503,
+                detail="authoritative ActionType promotion state is malformed",
+            )
+        return {
+            "mode": value,
+            "promotion_kind": "gate_evidence",
+            "operator_override": None,
+        }
+    if not isinstance(value, Mapping):
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative ActionType promotion state is malformed",
+        )
+    mode = value.get("mode")
+    promotion_kind = value.get("promotion_kind", "gate_evidence")
+    if mode not in {"shadow", "enforce"} or promotion_kind not in {
+        "gate_evidence",
+        "operator_override",
+    }:
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative ActionType promotion state is malformed",
+        )
+    override = None
+    if promotion_kind == "operator_override":
+        override = {
+            "gate_status": value.get("gate_status"),
+            "gate_status_source": value.get("gate_status_source", "operator_attested"),
+            "gate_evidence_digest": value.get("gate_evidence_digest"),
+            "approval_receipt_digest": value.get("approval_receipt_digest"),
+            "operator_principal": value.get("operator_principal"),
+            "override_reason": value.get("override_reason"),
+            "override_recorded_at": value.get("override_recorded_at"),
+            "safeguard_proof_source": value.get("safeguard_proof_source", "operator_attested"),
+        }
+    return {
+        "mode": mode,
+        "promotion_kind": promotion_kind,
+        "operator_override": override,
+    }
 
 
 def _rule_catalog_payload(

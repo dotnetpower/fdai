@@ -38,6 +38,8 @@ interface Row {
   readonly action_type_name: string;
   readonly mode: "shadow" | "enforce";
   readonly mode_source: "catalog-default" | "promotion-registry";
+  readonly promotion_kind: "gate_evidence" | "operator_override";
+  readonly operator_override: OperatorOverride | null;
   readonly shadow_days_elapsed: number;
   readonly sample_count: number;
   readonly reviewed_count: number;
@@ -46,6 +48,17 @@ interface Row {
   readonly accuracy: number;
   readonly ready: boolean;
   readonly gaps: readonly string[];
+}
+
+interface OperatorOverride {
+  readonly gate_status: "passed" | "failed" | "insufficient_evidence";
+  readonly gate_status_source: "operator_attested";
+  readonly gate_evidence_digest: string;
+  readonly approval_receipt_digest: string;
+  readonly operator_principal: string;
+  readonly override_reason: string;
+  readonly override_recorded_at: string;
+  readonly safeguard_proof_source: "operator_attested";
 }
 
 interface Response {
@@ -208,10 +221,17 @@ export function decodePromotionGates(value: unknown): Response {
       if (modeSource !== "catalog-default" && modeSource !== "promotion-registry") {
         throw new OperatorApiError(502, t("governance.promotion.error.modeSource"));
       }
+      const promotionKind = panelNonEmptyString(row, "promotion_kind", "promotion gate row");
+      if (promotionKind !== "gate_evidence" && promotionKind !== "operator_override") {
+        throw new OperatorApiError(502, t("governance.promotion.error.promotionKind"));
+      }
+      const operatorOverride = decodeOperatorOverride(row["operator_override"], promotionKind);
       return {
         action_type_name: panelNonEmptyString(row, "action_type_name", "promotion gate row"),
         mode,
         mode_source: modeSource,
+        promotion_kind: promotionKind,
+        operator_override: operatorOverride,
         shadow_days_elapsed: panelNonNegativeNumber(row, "shadow_days_elapsed", "promotion gate row"),
         sample_count: panelNonNegativeInteger(row, "sample_count", "promotion gate row"),
         reviewed_count: reviewedCount,
@@ -232,6 +252,39 @@ export function decodePromotionGates(value: unknown): Response {
     ready_count: readyCount,
     blocked_count: blockedCount,
     rows,
+  };
+}
+
+function decodeOperatorOverride(value: unknown, promotionKind: Row["promotion_kind"]): OperatorOverride | null {
+  if (promotionKind === "gate_evidence") {
+    if (value !== null && value !== undefined) {
+      throw new OperatorApiError(502, t("governance.promotion.error.operatorOverride"));
+    }
+    return null;
+  }
+  const override = panelRecord(value, "promotion gate row.operator_override");
+  const gateStatus = panelNonEmptyString(
+    override,
+    "gate_status",
+    "promotion gate row.operator_override",
+  );
+  if (gateStatus !== "passed" && gateStatus !== "failed" && gateStatus !== "insufficient_evidence") {
+    throw new OperatorApiError(502, t("governance.promotion.error.gateStatus"));
+  }
+  const gateStatusSource = panelNonEmptyString(override, "gate_status_source", "promotion gate row.operator_override");
+  const safeguardProofSource = panelNonEmptyString(override, "safeguard_proof_source", "promotion gate row.operator_override");
+  if (gateStatusSource !== "operator_attested" || safeguardProofSource !== "operator_attested") {
+    throw new OperatorApiError(502, t("governance.promotion.error.operatorAttestationSource"));
+  }
+  return {
+    gate_status: gateStatus,
+    gate_status_source: gateStatusSource,
+    gate_evidence_digest: panelNonEmptyString(override, "gate_evidence_digest", "promotion gate row.operator_override"),
+    approval_receipt_digest: panelNonEmptyString(override, "approval_receipt_digest", "promotion gate row.operator_override"),
+    operator_principal: panelNonEmptyString(override, "operator_principal", "promotion gate row.operator_override"),
+    override_reason: panelNonEmptyString(override, "override_reason", "promotion gate row.operator_override"),
+    override_recorded_at: panelNonEmptyString(override, "override_recorded_at", "promotion gate row.operator_override"),
+    safeguard_proof_source: safeguardProofSource,
   };
 }
 
@@ -287,6 +340,8 @@ function PromotionBody({
           action_type_name: r.action_type_name,
           mode: r.mode,
           mode_source: r.mode_source,
+          promotion_kind: r.promotion_kind,
+          operator_override: r.operator_override,
           ready: r.ready,
           shadow_days_elapsed: r.shadow_days_elapsed,
           sample_count: r.sample_count,
@@ -316,10 +371,21 @@ function PromotionBody({
       key: "mode",
       header: t("governance.promotion.column.mode"),
       render: (r) => (
-        <StatusPill
-          kind={r.mode === "enforce" ? "info" : "shadow"}
-          label={displayValue("mode", r.mode)}
-        />
+        <div class="stack compact">
+          <StatusPill
+            kind={r.mode === "enforce" ? "info" : "shadow"}
+            label={displayValue("mode", r.mode)}
+          />
+          {r.promotion_kind === "operator_override" && r.operator_override !== null
+            ? (
+              <small class="muted">
+                {t("governance.promotion.override.marker", {
+                  status: displayValue("gateStatus", r.operator_override.gate_status),
+                })}
+              </small>
+            )
+            : null}
+        </div>
       ),
     },
     {

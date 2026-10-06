@@ -198,11 +198,18 @@
     "section": "ActionTypes ({count})",
     "empty": "No ActionTypes declared a promotion gate."
     ,
+    "override": {
+      "marker": "Operator override - operator-attested gate {status}"
+    },
     "error": {
       "windowDays": "invalid Operator API response: promotion gates.window_days MUST be a non-negative number or null",
       "agreedCount": "invalid Operator API response: promotion gate row.agreed_count MUST NOT exceed reviewed_count",
       "mode": "invalid Operator API response: promotion gate row.mode MUST be shadow or enforce",
       "modeSource": "invalid Operator API response: promotion gate row mode source is invalid",
+      "promotionKind": "invalid Operator API response: promotion gate row.promotion_kind is invalid",
+      "operatorOverride": "invalid Operator API response: promotion gate row.operator_override does not match promotion_kind",
+      "gateStatus": "invalid Operator API response: promotion gate row.operator_override.gate_status is invalid",
+      "operatorAttestationSource": "invalid Operator API response: promotion gate row.operator_override source is invalid",
       "summaryCounts": "invalid Operator API response: promotion gate summary counts MUST match rows"
     }
   },
@@ -598,6 +605,11 @@
       "ready": "Ready",
       "blocked": "Blocked",
       "disabled": "Disabled"
+    },
+    "gateStatus": {
+      "passed": "passed",
+      "failed": "failed",
+      "insufficient_evidence": "insufficient evidence"
     },
     "compatibility": {
       "compatible": "Compatible",

@@ -73,7 +73,7 @@ domain code and assets. It does not create another control plane or move authori
 > Build-input pull requests retain a separate read-only image build and vulnerability scan.
 > A finding in a transitive dependency is fixed by resolving a patched version in the shared
 > `uv.lock`; `.trivyignore.yaml` stays empty unless a reviewed, time-bound exception records why
-> the affected code is unreachable.
+> the affected code is unreachable. The same rule covers Mako and multidict findings in the Cost Governance image.
 > Known service source, test, and documentation paths are excluded at the PR trigger, while
 > packaged assets and unknown service inputs remain conservatively selected. A root README-only
 > change is documentation and does not select an image candidate.
@@ -256,6 +256,9 @@ an absent durable row renders `shadow` and does not change package availability 
 `resources/manifest.json` records stable ids, package-relative paths, content digests, and schema
 versions. Package code loads resources through package-resource APIs rather than repository-relative
 paths, so the wheel and source checkout behave the same way.
+The semantic profile pins the active ontology release digest. Adding a Core ActionType, such as
+`governance.override-promote-action-type`, therefore refreshes that digest, the manifest entry, and
+the F1-F8 fixture identities through the official generators without changing any package asset.
 
 ## Ownership boundary
 

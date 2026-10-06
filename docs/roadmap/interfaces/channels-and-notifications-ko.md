@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 6353a03a4c870498647a0359acb272f7a5dafee0
+translation_source_sha: c0f3aa0148d9329d3f43ff058646e64687835293
 translation_revised: 2026-10-06
 ---
 
@@ -79,6 +79,9 @@ Teams Workflows 웹훅 바인딩은
   principal이 포함됩니다. 채널 어댑터는 이를 콜백과 감사를 위한 변경 불가능한 문맥으로만
   취급하며, Operator API와 Core가 승인을 받아들이기 전에 다시 검증합니다. 이 메타데이터는 Slack,
   Teams 또는 알림 경로가 프로필을 선택하거나 실행 권한을 부여하게 하지 않습니다.
+- `governance.override-promote-action-type` 승인은 같은 A1 경로를 사용합니다. 채널은 고정된
+  프로필과 정확한 승인 증적 문맥을 전달하고, Var 승인이 검증된 뒤 promotion registry를 쓰는
+  주체는 Thor뿐입니다.
 - A1 승인 보류 항목은 고정된 운영자 허용 정책 다이제스트도 담을 수 있습니다. 채널 어댑터는 이를
   변경할 수 없는 승인 문맥으로 표시하거나 반환할 뿐이며, 정책 포인터를 다시 읽거나 Rego를 평가하지
   않습니다.

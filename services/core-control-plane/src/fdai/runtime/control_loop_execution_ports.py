@@ -28,6 +28,7 @@ from fdai.core.executor import (
 )
 from fdai.core.executor.renderer import TemplateRenderer
 from fdai.core.executor.tool_call import ToolReceiptObserver
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
 from fdai.delivery.alert_noise_direct_api import (
     AlertUnavailableDirectApiExecutionPort,
@@ -89,6 +90,7 @@ def build_thor_execution_port(
     catalog_root: Path,
     process_store: ProcessRuntimeStore | None = None,
     governed_execution_enabled: bool = True,
+    active_approval_profile: ApprovalProfileRevision | None = None,
 ) -> ThorExecutionPort:
     """Return the Thor port, composing the in-process one when none is injected.
 
@@ -151,6 +153,7 @@ def build_thor_execution_port(
             action_types_by_name=action_types_by_name,
             execution_identities=execution_identities,
             safeguard_coordinator=safeguard_coordinator,
+            active_approval_profile=active_approval_profile,
         )
     direct_api_executor = AlertUnavailableDirectApiExecutionPort(
         unavailable=DirectApiShadowExecutor(

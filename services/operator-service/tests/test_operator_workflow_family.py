@@ -594,8 +594,21 @@ async def test_promotion_gate_projection_joins_authoritative_current_modes() -> 
             assert (family, operation) == ("workflow", "promotion-gate.list")
             return stored
 
-        async def read_action_promotion_modes(self) -> dict[str, str]:
-            return {"ops.restart-service": "enforce"}
+        async def read_action_promotion_modes(self) -> dict[str, object]:
+            return {
+                "ops.restart-service": {
+                    "mode": "enforce",
+                    "promotion_kind": "operator_override",
+                    "gate_status": "failed",
+                    "gate_status_source": "operator_attested",
+                    "gate_evidence_digest": "e" * 64,
+                    "approval_receipt_digest": "a" * 64,
+                    "operator_principal": "operator@example.com",
+                    "override_reason": "Operator accepted bounded promotion risk.",
+                    "override_recorded_at": "2026-10-05T00:00:00+00:00",
+                    "safeguard_proof_source": "operator_attested",
+                }
+            }
 
     result = await PostgresWorkflowAdapters(cast(Any, PromotionStore())).read(
         WorkflowReadRequest(
@@ -610,6 +623,18 @@ async def test_promotion_gate_projection_joins_authoritative_current_modes() -> 
         ("ops.restart-service", "enforce"),
         ("ops.scale-out", "shadow"),
     ]
+    first = result.payload["rows"][0]
+    assert first["promotion_kind"] == "operator_override"
+    assert first["operator_override"] == {
+        "gate_status": "failed",
+        "gate_status_source": "operator_attested",
+        "gate_evidence_digest": "e" * 64,
+        "approval_receipt_digest": "a" * 64,
+        "operator_principal": "operator@example.com",
+        "override_reason": "Operator accepted bounded promotion risk.",
+        "override_recorded_at": "2026-10-05T00:00:00+00:00",
+        "safeguard_proof_source": "operator_attested",
+    }
 
 
 async def test_postgres_control_catalogs_project_lists_filters_and_details() -> None:

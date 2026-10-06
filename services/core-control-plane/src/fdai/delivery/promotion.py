@@ -8,7 +8,9 @@ from collections import OrderedDict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Protocol
+from typing import Protocol, cast
+
+from fdai_service_contracts.approval_profile import ApprovalProfileRevision
 
 from fdai.core.executor.lock import ResourceLockManager
 from fdai.core.measurement import OperationalPromotionReceipt
@@ -19,9 +21,20 @@ from fdai.delivery.promotion_attestation import (
     direct_api_receipt_from_json,
     direct_api_receipt_json,
     optional_timestamp,
+    promotion_attestation_digest,
+)
+from fdai.delivery.promotion_override import (
+    OVERRIDE_PROMOTION_ACTION_TYPE,
+    OperatorOverridePromotionDirectApiExecutor,
+    override_promotion_arguments,
+)
+from fdai.delivery.promotion_review import (
+    approval_profile_matches,
+    attestation_matches_override_receipt,
 )
 from fdai.rule_catalog.schema.governance_review_authority import (
     GovernanceChangeClass,
+    ReviewAuthorityDecision,
     validate_governance_review,
 )
 from fdai.shared.contracts.models import Mode, OntologyActionType
@@ -85,6 +98,8 @@ class PersistedActionPromotionRegistry(Protocol):
     ) -> ActionModeRecord: ...
 
     def record(self, action_type: str) -> ActionModeRecord | None: ...
+
+    def read_model(self, action_type: str) -> dict[str, object]: ...
 
     def restore(self, action_type: str, record: ActionModeRecord | None) -> None: ...
 
@@ -176,6 +191,7 @@ class StateStorePromotionAttestationStore:
                 "schema_version": "1.0.0",
                 "state": "pending",
                 "revision": 0,
+                "approval_receipt_digest": promotion_attestation_digest(attestation),
                 "attestation": attestation.as_json(),
             },
             {
@@ -230,6 +246,7 @@ class StateStorePromotionAttestationStore:
                 "schema_version": "1.0.0",
                 "state": "reserved",
                 "revision": new_revision,
+                "approval_receipt_digest": promotion_attestation_digest(attestation),
                 "attestation": attestation.as_json(),
                 "reserved_until": reserved_until.isoformat(),
             },
@@ -307,6 +324,7 @@ class StateStorePromotionAttestationStore:
                 "schema_version": "1.0.0",
                 "state": "pending",
                 "revision": revision + 1,
+                "approval_receipt_digest": promotion_attestation_digest(attestation),
                 "attestation": attestation.as_json(),
             },
             expected_revision=revision,
@@ -358,6 +376,7 @@ class StateStorePromotionAttestationStore:
                 "schema_version": "1.0.0",
                 "state": "consumed",
                 "revision": revision + 1,
+                "approval_receipt_digest": promotion_attestation_digest(attestation),
                 "attestation": attestation.as_json(),
                 "receipt": direct_api_receipt_json(receipt),
             },
@@ -374,7 +393,6 @@ class StateStorePromotionAttestationStore:
 
 class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
     """Apply one exact, measured receipt after the ordinary HIL gate.
-
     A caller (``DirectApiShadowExecutor``) already serializes actions on
     the same ``resource_ref`` before reaching this executor, but that
     protection is external and easy to bypass (a direct unit test, a
@@ -468,6 +486,10 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
                 and prior_record.action_type_version == receipt.action_type_version
                 and prior_record.action_type_digest == receipt.action_type_digest
             ):
+                if self._registry.read_model(target.name).get("promotion_kind") != "gate_evidence":
+                    raise DirectApiPreconditionError(
+                        "persisted ActionType promotion attribution differs from this request"
+                    )
                 return DirectApiReceipt(
                     outcome=DirectApiOutcome.SUCCEEDED,
                     receipt_ref=f"promotion:{target.name}:{receipt.evidence_digest}",
@@ -503,19 +525,20 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
 class GovernancePromotionDispatcher:
     """Require an approved, distinct-approver transition before promotion.
 
-    The wrapped direct-API executor remains the mechanical promotion writer.
     This boundary validates the governance review first; a missing or
     insufficient review therefore cannot change the ActionType mode registry.
     """
 
     def __init__(
         self,
-        executor: OperationalPromotionDirectApiExecutor,
+        executor: DirectApiExecutor,
         *,
         attestation_store: PromotionAttestationStore | None = None,
+        active_approval_profile: ApprovalProfileRevision | None = None,
     ) -> None:
         self._executor = executor
         self._attestation_store = attestation_store
+        self._active_approval_profile = active_approval_profile
         self._confirmed: OrderedDict[str, tuple[str, DirectApiReceipt]] = OrderedDict()
 
     async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
@@ -553,42 +576,47 @@ class GovernancePromotionDispatcher:
         try:
             receipt = await self.dispatch(request, attestation=attestation)
         except BaseException as exc:
-            # `consume` only reserves the attestation before the wrapped
-            # executor's durable persist is known to succeed. A failed
-            # apply MUST NOT permanently spend the human approval, so
-            # restore it to pending on any failure - the same
-            # distinct-approver review can then back a retry instead of
-            # demanding a brand-new one. This compensating write is
-            # best-effort: it can fail for the exact same reason (a
-            # durable-store outage) the apply did. The caller still needs
-            # the *original* failure, not a masking restore error, and the
-            # reservation's bounded lease (see the store's docstring)
-            # recovers the approval on its own even when this write never
-            # lands. `fencing_token` scopes this restore to *this* call's
-            # own reservation, so a stale attempt whose lease already
-            # expired and was reclaimed cannot unwind a fresh claimant's
-            # in-flight attempt.
+            already_applied = await self._safe_already_applied_receipt(request, attestation)
+            if already_applied is not None:
+                await self._confirm_reserved_attestation(
+                    idempotency_key,
+                    request_fingerprint,
+                    attestation,
+                    fencing_token,
+                    already_applied,
+                )
+                return already_applied
             try:
                 await self._attestation_store.restore(idempotency_key, attestation, fencing_token)
             except BaseException:  # noqa: BLE001, S110 - best-effort, original failure wins
                 pass
             raise DirectApiRetryableError(str(exc)) from exc
+        await self._confirm_reserved_attestation(
+            idempotency_key,
+            request_fingerprint,
+            attestation,
+            fencing_token,
+            receipt,
+        )
+        return receipt
+
+    async def _confirm_reserved_attestation(
+        self,
+        idempotency_key: str,
+        request_fingerprint: str,
+        attestation: GovernancePromotionAttestation,
+        fencing_token: int,
+        receipt: DirectApiReceipt,
+    ) -> None:
         self._confirmed[idempotency_key] = (request_fingerprint, receipt)
         self._confirmed.move_to_end(idempotency_key)
         if len(self._confirmed) > 1024:
             self._confirmed.popitem(last=False)
-        # Only a confirmed durable success may permanently spend the
-        # reservation - `finalize` is the sole path to the terminal
-        # `consumed` state. The durable promotion already happened by this
-        # point (`receipt` reflects it), so `finalize` failing here is a
-        # bookkeeping gap, not a lost or unapplied action: it MUST NOT be
-        # reported to the caller as an apply failure (that could make a
-        # caller believe the promotion never happened and reapply it), and
-        # it MUST NOT stop the confirmed receipt from being returned. The
-        # stuck `reserved` record self-heals via the bounded reservation
-        # lease exactly like an unrestored failure does.
+        store = self._attestation_store
+        if store is None:
+            raise RuntimeError("promotion attestation store is unavailable")
         try:
-            await self._attestation_store.finalize(
+            await store.finalize(
                 idempotency_key,
                 attestation,
                 fencing_token,
@@ -596,7 +624,24 @@ class GovernancePromotionDispatcher:
             )
         except BaseException:  # noqa: BLE001, S110 - best-effort, the durable apply already won
             pass
-        return receipt
+
+    async def _safe_already_applied_receipt(
+        self,
+        request: DirectApiRequest,
+        attestation: GovernancePromotionAttestation,
+    ) -> DirectApiReceipt | None:
+        if not attestation_matches_override_receipt(request, attestation):
+            return None
+        try:
+            return await self._already_applied_receipt(request)
+        except Exception:
+            return None
+
+    async def _already_applied_receipt(self, request: DirectApiRequest) -> DirectApiReceipt | None:
+        method = getattr(self._executor, "already_applied_receipt", None)
+        if not callable(method):
+            return None
+        return cast(DirectApiReceipt | None, await method(request))
 
     async def dispatch(
         self,
@@ -604,18 +649,29 @@ class GovernancePromotionDispatcher:
         *,
         attestation: GovernancePromotionAttestation | None = None,
     ) -> DirectApiReceipt:
-        """Dispatch only after the exact enforce-promotion review is allowed."""
+        """Dispatch only after the exact governance review is allowed."""
         if not isinstance(attestation, GovernancePromotionAttestation):
             raise DirectApiPreconditionError(
                 "promotion requires an authenticated distinct-approver "
                 "governance review attestation"
             )
-        args = _promotion_arguments(request.arguments)
+        if request.action_type_name == OVERRIDE_PROMOTION_ACTION_TYPE:
+            override_args = override_promotion_arguments(request.arguments)
+            action_type_id = override_args["action_type_id"]
+            fdai_revision = override_args["fdai_revision"]
+            scenario_set_version = override_args["scenario_set_version"]
+            evidence_digest = override_args["gate_evidence_digest"]
+        else:
+            promotion_args = _promotion_arguments(request.arguments)
+            action_type_id = promotion_args["action_type_id"]
+            fdai_revision = promotion_args["fdai_revision"]
+            scenario_set_version = promotion_args["scenario_set_version"]
+            evidence_digest = promotion_args["evidence_digest"]
         if (
-            args["action_type_id"] != attestation.action_type_id
-            or args["fdai_revision"] != attestation.fdai_revision
-            or args["scenario_set_version"] != attestation.scenario_set_version
-            or args["evidence_digest"] != attestation.evidence_digest
+            action_type_id != attestation.action_type_id
+            or fdai_revision != attestation.fdai_revision
+            or scenario_set_version != attestation.scenario_set_version
+            or evidence_digest != attestation.evidence_digest
             or request.idempotency_key != attestation.idempotency_key
             or promotion_request_fingerprint(request) != attestation.request_fingerprint
             or attestation.review.head_revision != attestation.fdai_revision
@@ -623,16 +679,28 @@ class GovernancePromotionDispatcher:
             raise DirectApiPreconditionError(
                 "promotion review attestation does not match the exact request"
             )
-        decision = validate_governance_review(attestation.review)
-        if (
-            decision.change_class is not GovernanceChangeClass.ENFORCE_PROMOTION
-            or not decision.allowed
-            or decision.satisfied_quorum < decision.required_quorum
-            or len(decision.counted_approver_oids) < 2
+        override_request = request.action_type_name == OVERRIDE_PROMOTION_ACTION_TYPE
+        if override_request and not approval_profile_matches(
+            attestation.review.approval_profile,
+            self._active_approval_profile,
         ):
+            receipt = await self._safe_already_applied_receipt(request, attestation)
+            if receipt is not None:
+                return receipt
             raise DirectApiPreconditionError(
-                "promotion requires an approved distinct-approver governance transition"
+                "promotion review attestation approval profile does not match the active profile"
             )
+        decision = validate_governance_review(attestation.review)
+        if override_request:
+            override_args = override_promotion_arguments(request.arguments)
+            _validate_override_decision(
+                decision,
+                operator_principal=override_args["operator_principal"],
+                approval_receipt_digest=override_args["approval_receipt_digest"],
+                attestation=attestation,
+            )
+        else:
+            _validate_gate_promotion_decision(decision)
         return await self._executor.execute(request)
 
 
@@ -654,11 +722,54 @@ def _promotion_arguments(arguments: Mapping[str, object]) -> dict[str, str]:
     return values
 
 
+def _validate_gate_promotion_decision(decision: ReviewAuthorityDecision) -> None:
+    if (
+        decision.change_class is not GovernanceChangeClass.ENFORCE_PROMOTION
+        or not decision.allowed
+        or decision.satisfied_quorum < decision.required_quorum
+        or len(decision.counted_approver_oids) < 2
+    ):
+        raise DirectApiPreconditionError(
+            "promotion requires an approved distinct-approver governance transition"
+        )
+
+
+def _validate_override_decision(
+    decision: ReviewAuthorityDecision,
+    *,
+    operator_principal: object,
+    approval_receipt_digest: object,
+    attestation: GovernancePromotionAttestation,
+) -> None:
+    if (
+        decision.change_class is not GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION
+        or not decision.allowed
+        or decision.satisfied_quorum < decision.required_quorum
+    ):
+        raise DirectApiPreconditionError(
+            "override promotion requires an approved governance override transition"
+        )
+    if not isinstance(operator_principal, str) or (
+        operator_principal.casefold() not in decision.counted_approver_oids
+        and operator_principal.casefold() != (decision.operator_principal or "").casefold()
+    ):
+        raise DirectApiPreconditionError(
+            "override promotion operator MUST be a counted governance approver"
+        )
+    if approval_receipt_digest != promotion_attestation_digest(attestation):
+        raise DirectApiPreconditionError(
+            "override promotion approval receipt digest does not match the Var attestation"
+        )
+
+
 def promotion_request_fingerprint(request: DirectApiRequest) -> str:
     """Hash every request field that can affect promotion semantics."""
+    arguments = dict(request.arguments)
+    if request.action_type_name == OVERRIDE_PROMOTION_ACTION_TYPE:
+        arguments.pop("approval_receipt_digest", None)
     payload = {
         "action_id": str(request.action_id),
-        "arguments": dict(request.arguments),
+        "arguments": arguments,
         "action_type_name": request.action_type_name,
         "idempotency_key": request.idempotency_key,
         "labels": list(request.labels),
@@ -675,6 +786,7 @@ def promotion_request_fingerprint(request: DirectApiRequest) -> str:
 
 __all__ = [
     "OperationalPromotionDirectApiExecutor",
+    "OperatorOverridePromotionDirectApiExecutor",
     "GovernancePromotionDispatcher",
     "GovernancePromotionAttestation",
     "PromotionAttestationStore",
@@ -683,5 +795,6 @@ __all__ = [
     "promotion_request_fingerprint",
     "OperationalPromotionReceiptReader",
     "PROMOTION_ACTION_TYPE",
+    "OVERRIDE_PROMOTION_ACTION_TYPE",
     "PersistedActionPromotionRegistry",
 ]

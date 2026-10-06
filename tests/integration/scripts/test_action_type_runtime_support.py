@@ -49,13 +49,13 @@ def test_shipped_manifest_covers_the_catalog(checker: ModuleType) -> None:
     assert checker.main(["--root", str(REPO_ROOT)]) == 0
 
 
-def test_current_catalog_baseline_has_54_explicit_rows(
+def test_current_catalog_baseline_has_55_explicit_rows(
     checker: ModuleType,
     manifest: dict[str, Any],
 ) -> None:
     catalog = checker._load_catalog(REPO_ROOT, manifest["catalog_root"])
 
-    assert len(catalog) == 54
+    assert len(catalog) == 55
     assert set(manifest["actions"]) == set(catalog)
 
 
