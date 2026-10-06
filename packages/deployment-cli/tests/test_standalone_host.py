@@ -2605,7 +2605,7 @@ def test_aks_operational_evidence_verifier_rejects_shared_identity() -> None:
         None,
     ],
 )
-def test_aks_application_readback_requires_complete_baseline(
+def test_aks_application_readback_requires_core_and_checks_the_rendered_profile_set(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_service: str | None
 ) -> None:
     kubeconfig = tmp_path / "aks.kubeconfig"
@@ -2646,8 +2646,10 @@ def test_aks_application_readback_requires_complete_baseline(
         "source_commit": "c" * 40,
     }
 
-    assert standalone_host._readback_stage("application", context) is (missing_service is None)
-    if missing_service is None:
+    # Optional surfaces may be absent from a profile; health then requires the exact rendered set.
+    core_missing = missing_service == "core-control-plane"
+    assert standalone_host._readback_stage("application", context) is not core_missing
+    if not core_missing:
         assert observations == ["deployments", "pods"]
         assert health_checks == [
             {
