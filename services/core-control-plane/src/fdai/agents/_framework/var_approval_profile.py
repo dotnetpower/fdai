@@ -11,14 +11,16 @@ from fdai.core.risk_gate.approval_profile import (
     approval_profile_from_audit_dict,
     evaluate_profile_approval,
 )
+from fdai.core.risk_gate.approval_profile_store import approval_profile_pin_is_authorized
 
 
 class VarApprovalProfileMixin:
     """Validate profile-bearing tickets without changing Var's AgentSpec."""
 
     _approval_profile: ApprovalProfileRevision | None
+    _approval_profile_bootstrap: ApprovalProfileRevision | None
 
-    def _admit_ticket_authority(
+    async def _admit_ticket_authority(
         self,
         payload: Mapping[str, Any],
         *,
@@ -30,7 +32,7 @@ class VarApprovalProfileMixin:
             quorum=payload_quorum,
         )
         required = quorum_for(action_type, self._action_semantics)  # type: ignore[attr-defined]
-        profile = self._active_ticket_approval_profile(payload)
+        profile = await self._active_ticket_approval_profile(payload)
         if development is None and profile is None:
             quorum = max(payload_quorum, required)
             return quorum, quorum, quorum, None, None
@@ -47,12 +49,20 @@ class VarApprovalProfileMixin:
             )
         return effective, original, effective, development, profile
 
-    def _active_ticket_approval_profile(
+    async def _active_ticket_approval_profile(
         self,
         payload: Mapping[str, Any],
     ) -> ApprovalProfileRevision | None:
         raw = payload.get("approval_profile")
-        return approval_profile_from_audit_dict(raw if isinstance(raw, Mapping) else None)
+        profile = approval_profile_from_audit_dict(raw if isinstance(raw, Mapping) else None)
+        if profile is not None and not await approval_profile_pin_is_authorized(
+            self._state_store,  # type: ignore[attr-defined]
+            pinned=profile,
+            bound=self._approval_profile,
+            bootstrap=self._approval_profile_bootstrap,
+        ):
+            raise ValueError("approval profile is unavailable")
+        return profile
 
     def _admit_approval_profile_ticket(
         self,

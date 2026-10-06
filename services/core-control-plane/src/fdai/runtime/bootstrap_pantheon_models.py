@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from fdai.agents import (
+    ApprovalRuntimeBindings,
     ContextIndexWorkerBindings,
     PantheonRuntime,
     Saga,
@@ -65,6 +66,7 @@ class PantheonInitialization:
     assignment_workflow: Any = None
     effect_request_sink: EffectReconciliationRequestSink | None = None
     context_index_workers: ContextIndexWorkerBindings | None = None
+    approval_profile: ApprovalRuntimeBindings | None = None
 
 
 @dataclass(frozen=True, slots=True)

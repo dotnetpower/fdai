@@ -42,6 +42,7 @@ class ApprovalRuntimeBindings:
     """Deployment-owned active production approval profile."""
 
     profile: ApprovalProfileRevision
+    bootstrap_profile: ApprovalProfileRevision | None = None
 
 
 def configure_authority_agents(
@@ -62,6 +63,7 @@ def configure_authority_agents(
     executor = development.executor_principal if development is not None else None
     owner_authorizer = development.owner_authorizer if development is not None else None
     approval_profile = approval.profile if approval is not None else None
+    bootstrap_approval_profile = approval.bootstrap_profile if approval is not None else None
     if (
         approver_authorizer is not None
         or var_state_store is not None
@@ -78,6 +80,7 @@ def configure_authority_agents(
                 development.binding_source if development is not None else None
             ),
             approval_profile=approval_profile,
+            approval_profile_bootstrap=bootstrap_approval_profile,
         )
     if (
         rollback_executors is not None

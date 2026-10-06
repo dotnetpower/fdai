@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal, Protocol, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from fdai_service_contracts.approval_profile import approval_profile_from_audit_dict
 from fdai_service_contracts.compatibility import canonical_digest
 from fdai_service_contracts.operator_authentication import OperatorAuthenticationReceipt
 from fdai_service_contracts.operator_request_receipt import OperatorRequestReceipt
@@ -71,6 +72,12 @@ class ApprovalPolicyContent(PolicyAdministrationContract):
 
     document: dict[str, Any]
     action_type_modes: dict[str, PolicyMode] = Field(default_factory=dict)
+
+    @field_validator("document")
+    @classmethod
+    def _approval_document_is_valid(cls, value: dict[str, Any]) -> dict[str, Any]:
+        approval_profile_from_audit_dict(value)
+        return value
 
     @field_validator("action_type_modes")
     @classmethod

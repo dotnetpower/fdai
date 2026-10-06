@@ -40,12 +40,16 @@ _EXECUTOR = "thor-runtime-executor"
 
 
 def _approval_profile() -> ApprovalProfileRevision:
+    return _approval_profile_for(_OPERATOR, revision_id="approval-profile-r1")
+
+
+def _approval_profile_for(operator: str, *, revision_id: str) -> ApprovalProfileRevision:
     payload: dict[str, object] = {
-        "revision_id": "approval-profile-r1",
+        "revision_id": revision_id,
         "approval_profile": "single-operator-production",
         "executor_principal": _EXECUTOR,
         "effective_from": "2026-10-05T00:00:00+00:00",
-        "operator_principal": _OPERATOR,
+        "operator_principal": operator,
     }
     return ApprovalProfileRevision(
         revision_id=str(payload["revision_id"]),
@@ -349,6 +353,34 @@ class TestEndToEndQuorum:
         )
         with pytest.raises(PermissionError, match="approval profile"):
             asyncio.run(var.decide("c-executor", approver=_EXECUTOR, decision="approve"))
+
+    def test_forged_single_operator_profile_pin_is_rejected_without_bound_revision(self) -> None:
+        forged = _approval_profile_for("attacker@example.com", revision_id="attacker-r1")
+        bus = _bus()
+        var = Var(bus=bus)
+        asyncio.run(
+            var.on_typed_message(
+                "object.action-run",
+                _thor_action_run(
+                    correlation_id="c-forged-profile",
+                    action_type="remediate.delete-storage",
+                    quorum_required=1,
+                    original_quorum_required=2,
+                    effective_quorum_required=1,
+                    initiator_principal="attacker@example.com",
+                    approval_profile=forged.as_audit_dict(),
+                ),
+            )
+        )
+
+        assert var.behavior_snapshot()["ticket_invalid_approval_profile"] == 1
+        assert asyncio.run(
+            var.decide(
+                "c-forged-profile",
+                approver="attacker@example.com",
+                decision="approve",
+            )
+        ) == {"state": "rejected", "reason": "missing_ticket"}
 
     def test_double_approval_blocked_case_insensitively(self) -> None:
         # The distinct-approver quorum must not be satisfiable by one human

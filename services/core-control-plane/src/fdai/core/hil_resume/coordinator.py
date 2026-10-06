@@ -180,6 +180,7 @@ class HilResumeCoordinator(
         report_line_router: ReportLineApprovalRouter | None = None,
         contact_consent_service: ApprovalContactConsentService | None = None,
         approval_profile: ApprovalProfileRevision | None = None,
+        approval_profile_bootstrap: ApprovalProfileRevision | None = None,
     ) -> None:
         if (report_line_router is None) != (contact_consent_service is None):
             raise ValueError(
@@ -234,6 +235,7 @@ class HilResumeCoordinator(
         self._development_revisions: TargetRevisionReader | None = None
         self._development_category_revalidator: DevelopmentCategoryRevalidator | None = None
         self._approval_profile = approval_profile
+        self._approval_profile_bootstrap = approval_profile_bootstrap
         self._report_line_hil = (
             ReportLineHilCoordinator(
                 store=state_store,
@@ -348,7 +350,12 @@ class HilResumeCoordinator(
         correlation_id = str(parked.get("correlation_id") or approval_id)
         idem = str(parked.get("idempotency_key") or approval_id)
         assignee_oid = str(parked.get("assignee_oid") or "").strip() or None
-        parked_profile, profile_refusal = parked_approval_profile(parked, self._approval_profile)
+        parked_profile, profile_refusal = await parked_approval_profile(
+            parked,
+            self._approval_profile,
+            self._approval_profile_bootstrap,
+            self._state_store,
+        )
         if profile_refusal is not None:
             await self._audit(
                 action_kind="hil.resolve.approval_profile_refused",

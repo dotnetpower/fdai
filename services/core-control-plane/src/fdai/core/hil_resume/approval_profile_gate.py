@@ -18,14 +18,18 @@ from fdai.core.risk_gate.approval_profile import (
     ApprovalProfileRevision,
     approval_profile_from_audit_dict,
 )
+from fdai.core.risk_gate.approval_profile_store import approval_profile_pin_is_authorized
+from fdai.shared.providers.state_store import StateStore
 
 MALFORMED = "approval_profile_malformed"
 UNAVAILABLE = "approval_profile_unavailable"
 
 
-def parked_approval_profile(
+async def parked_approval_profile(
     parked: Mapping[str, object],
     bound: ApprovalProfileRevision | None,
+    bootstrap: ApprovalProfileRevision | None,
+    store: StateStore | None,
 ) -> tuple[ApprovalProfileRevision | None, str | None]:
     """Return the parked profile, or a refusal reason when it can't be honored."""
 
@@ -34,7 +38,10 @@ def parked_approval_profile(
         profile = approval_profile_from_audit_dict(raw if isinstance(raw, Mapping) else None)
     except ValueError:
         return None, MALFORMED
-    del bound
+    if profile is not None and not await approval_profile_pin_is_authorized(
+        store, pinned=profile, bound=bound, bootstrap=bootstrap
+    ):
+        return None, UNAVAILABLE
     return profile, None
 
 
@@ -59,6 +66,7 @@ class HilApprovalProfileMixin:
     """Bind the deployment-selected profile and refuse approvals it doesn't admit."""
 
     _approval_profile: ApprovalProfileRevision | None
+    _approval_profile_bootstrap: ApprovalProfileRevision | None
 
     async def _audit(
         self,

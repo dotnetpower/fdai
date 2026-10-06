@@ -53,6 +53,22 @@ def _require_digest(value: str, field_name: str) -> None:
         raise ValueError(f"{field_name} MUST be a lowercase sha256 digest")
 
 
+def approval_profile_effective_from(value: object) -> datetime:
+    """Return the canonical effective time or reject non-canonical input."""
+
+    if not isinstance(value, str):
+        raise ValueError("approval profile effective_from MUST be a string")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("approval profile effective_from MUST be valid ISO 8601") from exc
+    if parsed.tzinfo is None:
+        raise ValueError("approval profile effective_from MUST be timezone-aware")
+    if value != parsed.isoformat():
+        raise ValueError("approval profile effective_from MUST be canonical")
+    return parsed
+
+
 def approval_profile_policy_digest(revision: Mapping[str, Any]) -> str:
     """Return the content-addressed digest for an approval profile revision."""
 
@@ -240,7 +256,10 @@ def approval_profile_from_audit_dict(
     if raw.get("policy_digest") != approval_profile_policy_digest(raw):
         raise ValueError("approval profile payload digest is mismatched")
     try:
-        effective_from = datetime.fromisoformat(str(raw["effective_from"]))
+        effective_from = approval_profile_effective_from(raw["effective_from"])
+    except ValueError:
+        raise
+    try:
         operator = raw.get("operator_principal")
         return ApprovalProfileRevision(
             revision_id=str(raw["revision_id"]),
@@ -259,6 +278,7 @@ __all__ = [
     "ApprovalProfileKind",
     "ApprovalProfileRefusal",
     "ApprovalProfileRevision",
+    "approval_profile_effective_from",
     "approval_profile_from_audit_dict",
     "approval_profile_policy_digest",
     "effective_quorum_for",

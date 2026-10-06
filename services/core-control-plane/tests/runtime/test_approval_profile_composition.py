@@ -8,7 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from fdai.agents import Forseti
+from fdai.agents import ApprovalRuntimeBindings, Forseti
 from fdai.agents.var import Var
 from fdai.composition import default_container
 from fdai.core.chaos.symptom_index import build_from_entries
@@ -22,6 +22,7 @@ from fdai.core.executor import (
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.approval_profile import (
     PROFILE_JSON_ENV,
+    load_approval_profile,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     build_mutation_dependency_readiness,
@@ -150,6 +151,8 @@ async def _unused(*args: Any, **kwargs: Any) -> bool:
 async def test_pantheon_profile_env_reaches_forseti_and_var(app_config: AppConfig) -> None:
     store = InMemoryStateStore()
     settings = RuntimeSettingsService(store=None, env={})
+    profile = load_approval_profile({PROFILE_JSON_ENV: _profile_json()})
+    assert profile is not None
     result = await initialize_pantheon(
         PantheonInitialization(
             container=default_container(app_config),
@@ -171,6 +174,7 @@ async def test_pantheon_profile_env_reaches_forseti_and_var(app_config: AppConfi
             runtime_symptom_index=build_from_entries(()),
             stage_topic="fdai.stage",
             environment={PROFILE_JSON_ENV: _profile_json()},
+            approval_profile=ApprovalRuntimeBindings(profile),
             build_runtime_workload_identity=lambda *args, **kwargs: None,  # type: ignore[arg-type,return-value]
             build_operator_memory_store=_build_operator_memory_store,
             build_inventory_delta_projector=lambda: None,
@@ -188,6 +192,54 @@ async def test_pantheon_profile_env_reaches_forseti_and_var(app_config: AppConfi
     assert forseti._approval_profile is var._approval_profile  # noqa: SLF001
     assert forseti._approval_profile is not None  # noqa: SLF001
     assert forseti._approval_profile.operator_principal == _OPERATOR  # noqa: SLF001
+
+
+async def test_pantheon_uses_core_pinned_profile_instead_of_rereading_store(
+    app_config: AppConfig,
+) -> None:
+    store = InMemoryStateStore()
+    settings = RuntimeSettingsService(store=None, env={})
+    profile = load_approval_profile({PROFILE_JSON_ENV: _profile_json()})
+    assert profile is not None
+    await store.write_state(
+        "policy_activation:approval",
+        {"revision_id": "unexpected-active-revision"},
+    )
+    result = await initialize_pantheon(
+        PantheonInitialization(
+            container=default_container(app_config),
+            http_client=None,
+            identity=None,
+            bus=InMemoryEventBus(),
+            incident_audit_store=store,
+            startup_readiness=RuntimeReadinessState(),
+            runtime_saga=build_runtime_saga(store),
+            runtime_values=settings.environment_values(),
+            runtime_settings=settings,
+            discovery_activation=_DiscoveryActivation(),  # type: ignore[arg-type]
+            control_loop=_control_loop_stub(),
+            rule_generation_reconciliation=None,
+            rule_generation_binding=SimpleNamespace(activation_binder=None),  # type: ignore[arg-type]
+            open_incident_candidate=_unused,
+            resolve_verified_incident=_unused,  # type: ignore[arg-type]
+            read_investigation_hook=None,
+            runtime_symptom_index=build_from_entries(()),
+            stage_topic="fdai.stage",
+            environment={},
+            approval_profile=ApprovalRuntimeBindings(profile),
+            build_runtime_workload_identity=lambda *args, **kwargs: None,  # type: ignore[arg-type,return-value]
+            build_operator_memory_store=_build_operator_memory_store,
+            build_inventory_delta_projector=lambda: None,
+            runtime_positive_integer=runtime_positive_integer,
+            build_mutation_dependency_readiness=build_mutation_dependency_readiness,
+            semantic_router_config_from_env=semantic_router_config_from_env,
+        )
+    )
+
+    assert result.runtime is not None
+    forseti = result.runtime.agents["Forseti"]
+    assert isinstance(forseti, Forseti)
+    assert forseti._approval_profile is profile  # noqa: SLF001
 
 
 def test_development_and_approval_profiles_fail_closed(

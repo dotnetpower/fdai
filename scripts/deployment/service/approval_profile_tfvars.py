@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fdai_service_contracts.approval_profile import approval_profile_policy_digest
+from fdai_service_contracts.approval_profile import (
+    approval_profile_from_audit_dict,
+    approval_profile_policy_digest,
+)
 
 
 class ApprovalProfileTfvarsError(ValueError):
@@ -47,6 +50,10 @@ def materialize_approval_profile(raw_json: str, *, development_profile_json: str
         raise ApprovalProfileTfvarsError(
             "FDAI_APPROVAL_PROFILE_JSON policy_digest does not match revision content"
         )
+    try:
+        approval_profile_from_audit_dict(payload)
+    except ValueError as exc:
+        raise ApprovalProfileTfvarsError(str(exc)) from exc
     return json.dumps(_payload_dict(payload), separators=(",", ":"), sort_keys=True)
 
 

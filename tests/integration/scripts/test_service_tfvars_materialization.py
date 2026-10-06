@@ -1394,6 +1394,38 @@ def test_rejects_approval_profile_with_digest_mismatch(tfvars: ModuleType) -> No
         )
 
 
+@pytest.mark.parametrize(
+    "effective_from",
+    ["2026-10-06T00:00:00Z", "2026-10-06T00:00:00.000+00:00"],
+)
+def test_rejects_approval_profile_with_noncanonical_effective_from(
+    tfvars: ModuleType,
+    effective_from: str,
+) -> None:
+    payload = _approval_profile_payload()
+    payload["effective_from"] = effective_from
+    payload["policy_digest"] = "sha256:" + _digest(
+        {
+            field: payload.get(field)
+            for field in (
+                "revision_id",
+                "approval_profile",
+                "executor_principal",
+                "effective_from",
+                "operator_principal",
+            )
+        }
+    )
+
+    with pytest.raises(ValueError, match="canonical"):
+        tfvars.select_tfvars(
+            {"environments": {"prod": {"core-control-plane": {"name": "core"}}}},
+            service="core-control-plane",
+            environment="prod",
+            approval_profile_json=json.dumps(payload),
+        )
+
+
 def test_rejects_approval_profile_with_development_profile(
     tfvars: ModuleType,
     monkeypatch: pytest.MonkeyPatch,

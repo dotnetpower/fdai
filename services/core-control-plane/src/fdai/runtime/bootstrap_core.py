@@ -713,6 +713,7 @@ async def build_core_runtime(
             semantic_router_config_from_env=_semantic_router_config_from_env,
             assignment_workflow=(assignment_transport.workflow if assignment_transport else None),
             effect_request_sink=effect_request_binding.producer if effect_request_binding else None,
+            approval_profile=approval_bindings,
         )
     )
     human_access_reconciliation = bind_assignment_reconciliation(

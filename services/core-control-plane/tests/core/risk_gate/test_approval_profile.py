@@ -101,6 +101,13 @@ def _profile_payload_with_revision(revision_id: str, operator: str) -> dict[str,
     return payload
 
 
+def _profile_payload_with_effective_from(effective_from: str) -> dict[str, object]:
+    payload = _profile_payload()
+    payload["effective_from"] = effective_from
+    payload["policy_digest"] = approval_profile_policy_digest(payload)
+    return payload
+
+
 def _policy_revision(payload: dict[str, object]) -> PolicyRevisionRecord:
     content = ApprovalPolicyContent(document=payload)
     return PolicyRevisionRecord(
@@ -214,6 +221,19 @@ def test_approval_profile_loads_from_json_and_path(tmp_path: Path) -> None:
     assert load_approval_profile({PROFILE_PATH_ENV: str(path)}, clock=lambda: _AT) == _single()
 
 
+@pytest.mark.parametrize(
+    "effective_from", ["2026-10-05T00:00:00Z", "2026-10-05T00:00:00.000+00:00"]
+)
+def test_approval_profile_rejects_noncanonical_effective_from(effective_from: str) -> None:
+    payload = _profile_payload_with_effective_from(effective_from)
+
+    with pytest.raises(RuntimeError, match="canonical"):
+        load_approval_profile({PROFILE_JSON_ENV: json.dumps(payload)}, clock=lambda: _AT)
+
+    with pytest.raises(ValueError, match="canonical"):
+        ApprovalPolicyContent(document=payload)
+
+
 def test_active_policy_pointer_wins_over_bootstrap_profile_and_audits_mismatch() -> None:
     store = InMemoryStateStore()
     active_payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
@@ -244,13 +264,42 @@ def test_active_policy_pointer_wins_over_bootstrap_profile_and_audits_mismatch()
 def test_active_policy_pointer_digest_mismatch_fails_closed() -> None:
     store = InMemoryStateStore()
     payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
-    bad_payload = {**payload, "policy_digest": "sha256:" + "3" * 64}
-    asyncio.run(_activate_profile(store, bad_payload))
+    record = _policy_revision(payload).model_dump(mode="json")
+    record["content"]["document"]["policy_digest"] = "sha256:" + "3" * 64
+    asyncio.run(
+        store.write_state(
+            f"policy_revision:{PolicyKind.APPROVAL.value}:approval-profile-r2",
+            record,
+        )
+    )
+    asyncio.run(
+        store.write_state(
+            f"policy_activation:{PolicyKind.APPROVAL.value}",
+            {"revision_id": "approval-profile-r2"},
+        )
+    )
 
     with pytest.raises(RuntimeError, match="active approval profile revision is invalid"):
         asyncio.run(
             load_active_approval_profile(
                 {},
+                reader=StateStoreApprovalProfileRevisionReader(store),
+                clock=lambda: _AT,
+            )
+        )
+
+
+@pytest.mark.parametrize("activation", [{}, {"revision_id": ""}, {"revision_id": 123}])
+def test_malformed_active_policy_pointer_fails_closed_instead_of_env_fallback(
+    activation: dict[str, object],
+) -> None:
+    store = InMemoryStateStore()
+    asyncio.run(store.write_state(f"policy_activation:{PolicyKind.APPROVAL.value}", activation))
+
+    with pytest.raises(RuntimeError, match="active approval profile revision is invalid"):
+        asyncio.run(
+            load_active_approval_profile(
+                {PROFILE_JSON_ENV: _single_json()},
                 reader=StateStoreApprovalProfileRevisionReader(store),
                 clock=lambda: _AT,
             )

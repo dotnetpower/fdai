@@ -584,6 +584,9 @@ def _build_control_loop(
                 report_line_runtime.consent if report_line_runtime is not None else None
             ),
             approval_profile=(approval_bindings.profile if approval_bindings is not None else None),
+            approval_profile_bootstrap=(
+                approval_bindings.bootstrap_profile if approval_bindings is not None else None
+            ),
         )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 

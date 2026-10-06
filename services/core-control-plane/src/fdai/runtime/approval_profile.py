@@ -9,7 +9,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
-from fdai_service_contracts.approval_profile import approval_profile_policy_digest
+from fdai_service_contracts.approval_profile import (
+    approval_profile_effective_from,
+    approval_profile_policy_digest,
+)
 from fdai_service_contracts.policy_administration import (
     ApprovalPolicyContent,
     PolicyKind,
@@ -121,7 +124,9 @@ def approval_runtime_bindings(
     """Return composition bindings for the selected production approval profile."""
 
     profile = load_approval_profile(environment, clock=clock)
-    return ApprovalRuntimeBindings(profile) if profile is not None else None
+    return (
+        ApprovalRuntimeBindings(profile, bootstrap_profile=profile) if profile is not None else None
+    )
 
 
 async def active_approval_runtime_bindings(
@@ -133,13 +138,18 @@ async def active_approval_runtime_bindings(
 ) -> ApprovalRuntimeBindings | None:
     """Return composition bindings for the active policy-admin approval profile."""
 
+    bootstrap_profile = load_approval_profile(environment, clock=clock)
     profile = await load_active_approval_profile(
         environment,
         reader=reader,
         audit_store=audit_store,
         clock=clock,
     )
-    return ApprovalRuntimeBindings(profile) if profile is not None else None
+    return (
+        ApprovalRuntimeBindings(profile, bootstrap_profile=bootstrap_profile)
+        if profile is not None
+        else None
+    )
 
 
 async def active_approval_runtime_bindings_from_store(
@@ -163,8 +173,12 @@ class StateStoreApprovalProfileRevisionReader:
 
     async def active_revision_id(self, policy_kind: PolicyKind) -> str | None:
         stored = await self._store.read_state(_activation_key(policy_kind))
+        if stored is None:
+            return None
         revision_id = stored.get("revision_id") if stored is not None else None
-        return revision_id if isinstance(revision_id, str) and revision_id else None
+        if not isinstance(revision_id, str) or not revision_id:
+            raise RuntimeError("active approval profile pointer is malformed")
+        return revision_id
 
     async def revision(
         self,
@@ -219,8 +233,10 @@ def _profile_from_payload(
     if payload.get("policy_digest") != expected_digest:
         raise RuntimeError("approval profile policy_digest does not match revision content")
     try:
-        effective_from_raw = str(payload["effective_from"])
-        effective_from = datetime.fromisoformat(effective_from_raw)
+        effective_from = approval_profile_effective_from(payload.get("effective_from"))
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
+    try:
         now = clock()
         if now.tzinfo is None or effective_from.tzinfo is None:
             raise RuntimeError("approval profile clock and effective_from must be timezone-aware")
