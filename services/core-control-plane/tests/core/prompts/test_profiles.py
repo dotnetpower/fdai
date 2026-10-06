@@ -249,6 +249,17 @@ def test_profile_catalog_reports_one_missing_active_issue_per_capability(
     assert active_issues[0].path.endswith("capabilities/t2.reasoner.primary")
 
 
+def test_every_shipped_active_profile_fits_its_system_budget() -> None:
+    registry = FileSystemPromptRegistry(_CATALOG)
+    active = [item for item in registry.profiles() if item.mode is PromptProfileMode.ACTIVE]
+
+    assert active
+    # A runtime that cannot compose an active profile drops that capability's path at
+    # startup, so every shipped pack edit must still fit its profile's budget.
+    for profile in active:
+        compose_static_selection(registry.resolve(profile.capability_id))
+
+
 def test_static_composition_enforces_profile_system_budget(tmp_path: Path) -> None:
     catalog = tmp_path / "catalog"
     shutil.copytree(_CATALOG / "prompts", catalog / "prompts")

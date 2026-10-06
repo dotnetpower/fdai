@@ -649,7 +649,7 @@ profiles:
     root: {id: semantic-constraint-extraction, version: 1, layer: base}
     packs:
       - {id: semantic-constraint-extraction-azure-resources, version: 1, layer: pack}
-    system_token_budget: 4864
+    system_token_budget: 5376
     request_token_budget: 32768
     reserved_output_tokens: 1024
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
