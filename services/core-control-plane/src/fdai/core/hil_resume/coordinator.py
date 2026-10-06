@@ -286,10 +286,6 @@ class HilResumeCoordinator(
         """
         return await self._state_store.read_state(operator_receipt_key(approval_id))
 
-    # ------------------------------------------------------------------
-    # resolve (approve -> execute | reject | timeout)
-    # ------------------------------------------------------------------
-
     async def resolve(
         self,
         *,
@@ -306,12 +302,8 @@ class HilResumeCoordinator(
         never executes. Only an ``APPROVE`` on a still-pending park
         re-dispatches the action to the executor.
 
-        ``approver_can_approve_hil`` is the caller's RBAC verdict for
-        ``Capability.APPROVE_RUNTIME_HIL`` (the Operator API HIL callback fills it
-        from the operator's roles). The delegation gate refuses an approver
-        who lacks it, and - when the park carries a different ``assignee_oid``
-        than the approver - records the approval as **delegated** so the audit
-        shows both the actual approver and the original assignee.
+        ``approver_can_approve_hil`` is the caller's RBAC verdict. The delegation gate refuses an
+        approver who lacks it and records different assignee/approver pairs as delegated.
 
         ``development_attestation`` is the Operator's fresh-authentication record for an
         Owner approving their own request under the selected development profile. It lifts

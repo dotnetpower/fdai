@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 import yaml
 
+from fdai.agents import ApprovalRuntimeBindings
 from fdai.composition import Container
 from fdai.core.assurance_twin import (
     DynamicRuntimeCoordinator,
@@ -193,7 +194,7 @@ def _build_control_loop(
     license_authority: LicenseEntitlementAuthority | None = None,
     mutation_dependency_readiness: MutationDependencyReadiness,
     workflow_event_bus: EventBus | None = None,
-    approval_bindings: Any | None = None,
+    approval_bindings: ApprovalRuntimeBindings | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -213,7 +214,6 @@ def _build_control_loop(
     link_types_root = catalog_root / "vocabulary" / "link-types"
     remediation_root = catalog_root / "remediation"
     rules_root = catalog_root / "catalog"
-
     registry = container.schema_registry
     probes_root = catalog_root / "probes"
     if object_types_root.is_dir() and link_types_root.is_dir():
@@ -515,10 +515,7 @@ def _build_control_loop(
         ),
     )
 
-    # T1 temporal causal-chain RCA remains opt-in. A deployment can bind an
-    # IncidentMemberSource plus a reviewed resource-dependency graph through
-    # the immutable Container; absent either source, the side path abstains.
-
+    # T1 temporal causal-chain RCA remains opt-in.
     # HIL approval round-trip is opt-in only when a HIL channel is configured.
     # does the loop park a HIL-routed action and push an A1 approval
     # card. Absent -> ``None`` so the loop records the HIL verdict and

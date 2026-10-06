@@ -560,8 +560,7 @@ async def build_core_runtime(
             extra={"reason": "artifact_resolver_and_observation_verifier_absent"},
         )
     catalog_projection_result = await project_catalog_ontology(control_loop)
-    # Serialize manifest reads, recovery, and projection across startup replicas;
-    # another replica's in-flight apply must never trigger recovery deletion.
+    # Serialize startup projection across replicas so recovery never races another apply.
     operating_model_lock = _build_resource_lock(environment)
     operating_model_result = await project_initial_operating_model_from_env(
         store=control_loop.ontology_instance_store,
