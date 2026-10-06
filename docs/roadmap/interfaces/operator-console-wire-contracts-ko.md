@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: bfb38bbbacacf00c37ed12171fa49e72a60f21cc
-translation_revised: 2026-10-03
+translation_source_sha: 6f1c2d5611ad4faaa64fc94c3ffd45dc3a8b8a58
+translation_revised: 2026-10-06
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -453,6 +453,11 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 Operator는 스트림마다 첫 조회 `activity`보다 먼저 이 이벤트를 최대 한 번 보냅니다. 실시간 프레임은
 이벤트 ID `0:planning`을, 재생 프레임은 `<projection sequence>:planning`을 사용합니다. 이 이벤트를
 모르는 클라이언트는 무시합니다. 근거나 실행 권한은 담지 않습니다.
+
+Operator는 근거 실행, 근거 검증, 답변 준비 같은 의미 턴 자체의 수명 주기를 `kind`가
+`semantic_turn`이고 `activity_id`가 `semantic:<phase>`이며 `execution` 기록이 없는 `activity`
+이벤트로 보고합니다. 이 이벤트는 읽기가 아니라 워크플로 사실이므로, 클라이언트는 표현 밀도를 정할 때
+이를 관찰된 읽기로 세지 않습니다.
 
 최종 `done` 이벤트의 `trajectory_detail`에는 `work_progress_shape`, `turn_budget`,
 `context_receipts`가 들어갈 수 있습니다. Operator는 필드마다 따로 검증하고 잘못된 필드만 버립니다.

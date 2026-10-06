@@ -522,7 +522,10 @@ action draft never selects it.
 
 - **Density.** Each channel derives density from typed observations. The Console's
   `workProgressPresentation` shows one completed query read compactly and shows every multi-read,
-  multi-wave, or milestone-bearing trajectory as a timeline. A server that pins the shape emits a
+  multi-wave, or milestone-bearing trajectory as a timeline. Operator's `semantic_turn` steps, which
+  report the semantic turn's own lifecycle (evidence executed, verified, answer prepared) without an
+  execution record, are workflow facts and don't change the density while they settle normally. A
+  server that pins the shape emits a
   versioned `work_progress_shape` (`schema_version` 1, `density` `compact` or `procedural`, `waves`
   1 to 8, `planned_reads` 0 to 64) before the first branch and persists it for replay. A pinned
   shape that contradicts the observations falls back to the timeline.

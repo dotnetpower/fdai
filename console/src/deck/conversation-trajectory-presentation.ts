@@ -1,4 +1,10 @@
-import type { EvidenceBranchStatus, InvestigationActivityStatus } from "./backend";
+import type {
+  EvidenceBranch,
+  EvidenceBranchStatus,
+  InvestigationActivity,
+  InvestigationActivityStatus,
+  WorkProgressShape,
+} from "./backend-types";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 
 export const TRAJECTORY_PHASES = [
@@ -91,32 +97,74 @@ export function buildTrajectoryPresentation(
 export function workProgressPresentation(
   trajectory: ConversationTrajectory,
 ): WorkProgressPresentation {
+  const observedCount = trajectory.activities.length + unrepresentedBranchCount(
+    trajectory.activities,
+    trajectory.branches,
+  );
+  if (observedCount === 0 && trajectory.milestones.length === 0) return "none";
+  return compactQueryRead({
+    activities: trajectory.activities,
+    branches: trajectory.branches,
+    milestoneCount: trajectory.milestones.length,
+    ...(trajectory.workProgressShape ? { shape: trajectory.workProgressShape } : {}),
+  }) ? "compact" : "timeline";
+}
+
+/**
+ * Operator reports the semantic turn's own lifecycle (evidence executed, verified, answer prepared)
+ * as `semantic_turn` steps without an execution record. They state workflow facts, not reads, so
+ * they don't change the density while they settle normally.
+ */
+function isSemanticLifecycleStep(activity: InvestigationActivity): boolean {
+  return activity.kind === "semantic_turn" && activity.execution === undefined;
+}
+
+/**
+ * Returns the turn's one query read when the work is compact, otherwise undefined.
+ *
+ * A server-pinned shape holds only while the observations agree with it. A procedural pin always
+ * shows the timeline. A compact pin keeps one query read compact while it is still pending or
+ * running, so the density doesn't flip on completion; without a pin only a completed read is
+ * compact. A failed, unavailable, or command read, a second read or other step, an unrepresented
+ * branch, any milestone, or a lifecycle step that didn't settle normally falls back to the timeline.
+ */
+function compactQueryRead({
+  activities,
+  branches,
+  milestoneCount,
+  shape,
+}: {
+  readonly activities: readonly InvestigationActivity[];
+  readonly branches: readonly EvidenceBranch[];
+  readonly milestoneCount: number;
+  readonly shape?: WorkProgressShape;
+}): InvestigationActivity | undefined {
+  if (shape?.density === "procedural" || milestoneCount > 0) return undefined;
+  if (unrepresentedBranchCount(activities, branches) > 0) return undefined;
+  const lifecycle = activities.filter(isSemanticLifecycleStep);
+  if (lifecycle.some((step) => !LIFECYCLE_SETTLED_NORMALLY.has(step.status))) return undefined;
+  const work = activities.filter((activity) => !isSemanticLifecycleStep(activity));
+  const read = work[0];
+  if (work.length !== 1 || read?.execution?.inputKind !== "query") return undefined;
+  if (shape) return read.status !== "failed" && read.status !== "unavailable" ? read : undefined;
+  return read.status === "completed" ? read : undefined;
+}
+
+const LIFECYCLE_SETTLED_NORMALLY: ReadonlySet<InvestigationActivityStatus> = new Set([
+  "pending",
+  "running",
+  "completed",
+]);
+
+function unrepresentedBranchCount(
+  activities: readonly InvestigationActivity[],
+  branches: readonly EvidenceBranch[],
+): number {
   const representedBranchIds = new Set(
-    trajectory.activities.flatMap((activity) =>
+    activities.flatMap((activity) =>
       activity.execution && activity.branchId ? [activity.branchId] : []),
   );
-  const unrepresentedBranchCount = trajectory.branches.filter(
-    (branch) => !representedBranchIds.has(branch.branchId),
-  ).length;
-  const observedCount = trajectory.activities.length + unrepresentedBranchCount;
-  if (observedCount === 0 && trajectory.milestones.length === 0) return "none";
-
-  const activity = trajectory.activities[0];
-  const singleQuery = observedCount === 1 &&
-    trajectory.milestones.length === 0 &&
-    activity?.execution?.inputKind === "query";
-  // A server-pinned shape holds only while the observations agree with it. A procedural pin always
-  // shows the timeline. A compact pin keeps one query read compact while it is still pending or
-  // running, so the density doesn't flip on completion; a failed, unavailable, or command read, a
-  // second read, or any milestone falls back to the timeline.
-  const shape = trajectory.workProgressShape;
-  if (shape) {
-    if (shape.density === "procedural") return "timeline";
-    return singleQuery && activity?.status !== "failed" && activity?.status !== "unavailable"
-      ? "compact"
-      : "timeline";
-  }
-  return singleQuery && activity?.status === "completed" ? "compact" : "timeline";
+  return branches.filter((branch) => !representedBranchIds.has(branch.branchId)).length;
 }
 
 function collaborationState(trajectory: ConversationTrajectory): TrajectoryPhaseState {

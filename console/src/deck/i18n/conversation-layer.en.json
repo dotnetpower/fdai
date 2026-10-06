@@ -16,6 +16,7 @@
   "retrieval": {
     "readOnly": "Read-only",
     "stepsLabel": "Preparation steps",
+    "stepOf": "Step {current} of {total}",
     "stageDone": "Done",
     "stageActive": "In progress"
   },
