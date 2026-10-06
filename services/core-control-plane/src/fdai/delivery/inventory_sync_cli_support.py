@@ -92,6 +92,11 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _ResourceChangeForwarder = Callable[..., Awaitable[int]]
 _WorkloadIdentityFactory = Callable[..., WorkloadIdentity]
 
+RUN_LOCK_TIMEOUT_MS = 30_000
+# The first scheduled tick after deployment also finds a full run due and holds the run lock for
+# minutes, so the one-shot initial run waits for it, well inside its 900-second Job deadline.
+INITIAL_LOCK_MS = 300_000
+
 
 async def recover_ontology_projection(
     *,

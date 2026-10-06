@@ -120,6 +120,7 @@ def run_source_image_stage(
 
     _validate(snapshot, target)
     claim = _claim(snapshot, target)
+    work_dir.mkdir(mode=0o700, exist_ok=True)
     receipt_path = work_dir / f"source-images-{snapshot.commit}.receipt.json"
     claim_path = work_dir / f"source-images-{snapshot.commit}.claim.json"
     if receipt_path.exists():
@@ -234,12 +235,14 @@ def _read_back(
             raise SourceImageStageStopped(FAILED)
 
 
-Runner = Callable[[Sequence[str], int], "subprocess.CompletedProcess[str]"]
+Runner = Callable[..., "subprocess.CompletedProcess[str]"]
 
 
-def _run(command: Sequence[str], timeout: int) -> subprocess.CompletedProcess[str]:
+def _run(
+    command: Sequence[str], timeout: int, *, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        list(command), check=False, capture_output=True, text=True, timeout=timeout
+        list(command), check=False, capture_output=True, text=True, timeout=timeout, cwd=cwd
     )
 
 
@@ -288,6 +291,8 @@ class AzureRegistryBuildService:
             ),
             timeout=_BUILD_TIMEOUT_SECONDS + 300,
             reason=FAILED,
+            # The Azure CLI resolves a relative --file against the working directory.
+            cwd=context,
         )
         try:
             run = json.loads(output)
@@ -335,6 +340,7 @@ class AzureRegistryBuildService:
         *,
         timeout: int,
         reason: str,
+        cwd: Path | None = None,
     ) -> str:
         command = (
             "az",
@@ -345,7 +351,11 @@ class AzureRegistryBuildService:
             "--only-show-errors",
         )
         try:
-            result = self._runner(command, timeout)
+            result = (
+                self._runner(command, timeout)
+                if cwd is None
+                else self._runner(command, timeout, cwd=cwd)
+            )
         except subprocess.TimeoutExpired:
             raise SourceImageStageStopped(reason) from None
         if result.returncode != 0:

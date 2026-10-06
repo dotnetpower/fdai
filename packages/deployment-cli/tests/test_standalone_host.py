@@ -283,6 +283,31 @@ def test_terraform_failure_summary_extracts_provider_code_and_redacts(
     assert len(error.value.excerpt) <= 700
 
 
+def test_terraform_failure_excerpt_keeps_the_error_after_long_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    progress = "random_id.example: Creating... random_id.example: Creation complete\n" * 40
+    diagnostic = "Error: creating Key Vault: InnerError: soft-deleted vault name conflict"
+
+    def run(command, **_kwargs):
+        return subprocess.CompletedProcess(
+            command, 1, stdout=progress.encode(), stderr=diagnostic.encode()
+        )
+
+    monkeypatch.setattr(standalone_host.subprocess, "run", run)
+
+    with pytest.raises(standalone_checkpoint_failure.ManagedHostCheckpointError) as error:
+        standalone_host._run(
+            ("terraform", "apply", "-input=false"),
+            cwd=tmp_path,
+            timeout=60,
+            reason="substrate exact apply failed",
+        )
+
+    assert error.value.excerpt.startswith("Error: creating Key Vault")
+    assert "soft-deleted vault name conflict" in error.value.excerpt
+
+
 @pytest.mark.parametrize("artifact_directory", ["kit-work/verified", "source-work/verified"])
 def test_runtime_support_uses_only_admitted_artifact_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, artifact_directory: str
@@ -2580,7 +2605,7 @@ def test_aks_operational_evidence_verifier_rejects_shared_identity() -> None:
         None,
     ],
 )
-def test_aks_application_readback_requires_complete_baseline(
+def test_aks_application_readback_requires_core_and_checks_the_rendered_profile_set(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_service: str | None
 ) -> None:
     kubeconfig = tmp_path / "aks.kubeconfig"
@@ -2621,8 +2646,10 @@ def test_aks_application_readback_requires_complete_baseline(
         "source_commit": "c" * 40,
     }
 
-    assert standalone_host._readback_stage("application", context) is (missing_service is None)
-    if missing_service is None:
+    # Optional surfaces may be absent from a profile; health then requires the exact rendered set.
+    core_missing = missing_service == "core-control-plane"
+    assert standalone_host._readback_stage("application", context) is not core_missing
+    if not core_missing:
         assert observations == ["deployments", "pods"]
         assert health_checks == [
             {

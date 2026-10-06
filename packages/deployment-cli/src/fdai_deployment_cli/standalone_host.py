@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import stat
 import subprocess
 import sys
@@ -500,6 +499,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             _replace_private_json(retained_context, retained)
             _replace_private_json(retained_variables, retained_values)
         foundation.adoption.require_context(retained)
+        if source_application_inputs.rebind_source_tree(retained, work_dir):
+            _replace_private_json(retained_context, retained)
         _terraform_init(work_dir, retained)
         if adoption is not None:
             _adopt_application_state(work_dir, retained, *adoption)
@@ -522,6 +523,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             snapshot_digest=str(args.source_snapshot_digest),
             expected_source_commit=foundation.adoption.source_commit,
             work_dir=work_dir,
+            runtime_support=_absolute(args.runtime_support),
+            runtime_support_digest=str(args.runtime_support_digest),
         )
         source_commit = source_artifacts.source_commit
         infra = source_artifacts.infra
@@ -565,11 +568,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         != expected_terraform_config
     ):
         raise ValueError("retained Terraform provider configuration differs")
-    backend_example = infra / "backend.azurerm.tf.example"
-    backend = infra / "backend.tf"
-    if not backend.exists():
-        shutil.copyfile(backend_example, backend)
-        backend.chmod(0o600)
+    standalone_terraform_environment.ensure_backend(infra)
     registry = standalone_host_values.planned_container_registry_name(
         workload=workload, environment="dev", region_short=region_short, resource_suffix=suffix
     )
@@ -703,9 +702,9 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     return {
         "schema_version": "fdai.standalone-host-prepare.v1",
         "state": "prepared",
-        "source_commit": kit.source_commit,
-        "kit_manifest_digest": kit.verification.manifest_digest,
-        "runtime_release_digest": kit.runtime.digest,
+        "source_commit": source_commit,
+        "kit_manifest_digest": kit_manifest_digest,
+        "runtime_release_digest": runtime_release_digest,
         "runtime_profile_digest": runtime_profile.digest,
         "application_state_adopted": adoption is not None,
         "focused_private_access": _focused_private_access(context),
@@ -996,15 +995,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     ):
         raise ValueError("AKS substrate output contract is invalid")
     core_identity = _mapping(identities.get("core"), "core runtime identity")
-    operator_identity = _mapping(identities.get("operator"), "operator runtime identity")
-    command_identity = _mapping(identities.get("command"), "command runtime identity")
-    executor_identity = _mapping(identities.get("executor"), "executor runtime identity")
+    # Terraform emits null for identities of unselected surfaces, so read only selected ones.
+    operator_identity = _selected_identity(identities, "operator", operator_api_selected)
+    command_identity = _selected_identity(identities, "command", operator_api_selected)
+    executor_identity = _selected_identity(identities, "executor", governed_execution_selected)
     inventory_identity = _mapping(identities.get("inventory"), "inventory runtime identity")
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
-    ingestion_identity = _mapping(identities.get("ingestion"), "ingestion runtime identity")
-    ingestion_worker_identity = _mapping(
-        identities.get("ingestion_worker"), "ingestion worker runtime identity"
-    )
+    ingestion_identity = _selected_identity(identities, "ingestion", console_selected)
+    ingestion_worker_identity = _selected_identity(identities, "ingestion_worker", console_selected)
     core_environment = {
         "AZURE_TENANT_ID": context["tenant_id"],
         "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
@@ -3488,6 +3486,7 @@ def _browser_console_binding(context: dict[str, object], work_dir: Path) -> dict
 
 def _terraform_init(work_dir: Path, context: dict[str, object]) -> None:
     infra = Path(str(context["infra"]))
+    standalone_terraform_environment.ensure_backend(infra)
     _configure_terraform(context)
     _run(
         (
@@ -3557,11 +3556,7 @@ def _initialize_terraform_stage(stage: str, context: dict[str, object], work_dir
         state_key = context.get("state_key")
     if not isinstance(state_key, str) or not state_key:
         raise ValueError(f"{stage} Terraform state key is unavailable")
-    backend_example = infra / "backend.azurerm.tf.example"
-    backend = infra / "backend.tf"
-    if not backend.exists():
-        shutil.copyfile(backend_example, backend)
-        backend.chmod(0o600)
+    standalone_terraform_environment.ensure_backend(infra)
     _configure_terraform(context)
     _activate_terraform_stage(stage, context, work_dir)
     _run(
@@ -4326,13 +4321,8 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for workload readback")
         expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
-        if not {
-            "core-control-plane",
-            "operator-service",
-            "document-ingestion-api",
-            "document-processing-worker",
-            "isolated-executor",
-        }.issubset(expected):
+        # The rendered set follows the product profile; health requires it exactly.
+        if "core-control-plane" not in expected:
             return False
         observed = []
         for resource in ("deployments", "pods"):
@@ -4588,6 +4578,12 @@ def _capture_env(
     if result.returncode != 0:
         raise ValueError(reason)
     return result.stdout
+
+
+def _selected_identity(identities: dict[str, Any], name: str, selected: bool) -> dict[str, Any]:
+    if not selected:
+        return {}
+    return _mapping(identities.get(name), f"{name.replace('_', ' ')} runtime identity")
 
 
 def _mapping(value: object, label: str) -> dict[str, Any]:

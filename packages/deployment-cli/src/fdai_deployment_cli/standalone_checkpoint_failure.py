@@ -88,7 +88,9 @@ def terraform_failure(reason: str, result: subprocess.CompletedProcess[Any]) -> 
     )
     codes = tuple(provider_error_codes_from_text(output))
     if codes:
-        excerpt = sanitize_failure_text(output)
+        # Terraform prints progress before diagnostics; the bounded excerpt must keep the error.
+        first_error = output.find("Error: ")
+        excerpt = sanitize_failure_text(output[first_error:] if first_error >= 0 else output)
         return ManagedHostCheckpointError(
             "terraform_provider_error",
             f"{reason}; provider_error_code={','.join(codes)}; excerpt={excerpt}",

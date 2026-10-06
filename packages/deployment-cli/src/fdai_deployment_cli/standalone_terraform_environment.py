@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -226,3 +227,11 @@ __all__ = [
     "requires_aks_key_vault_private_access",
     "terraform_configuration",
 ]
+
+
+def ensure_backend(infra: Path) -> None:
+    """Recreate the generated backend file that a re-extracted source snapshot lacks."""
+    backend = infra / "backend.tf"
+    if not backend.exists():
+        shutil.copyfile(infra / "backend.azurerm.tf.example", backend)
+        backend.chmod(0o600)

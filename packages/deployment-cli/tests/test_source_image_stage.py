@@ -362,9 +362,13 @@ class FakeRunner:
     def __init__(self, *results: subprocess.CompletedProcess[str] | BaseException) -> None:
         self.results = list(results)
         self.commands: list[tuple[str, ...]] = []
+        self.cwds: list[Path | None] = []
 
-    def __call__(self, command: Sequence[str], timeout: int) -> subprocess.CompletedProcess[str]:
+    def __call__(
+        self, command: Sequence[str], timeout: int, *, cwd: Path | None = None
+    ) -> subprocess.CompletedProcess[str]:
         self.commands.append(tuple(command))
+        self.cwds.append(cwd)
         result = self.results.pop(0)
         if isinstance(result, BaseException):
             raise result
@@ -413,6 +417,8 @@ def test_azure_build_returns_the_run_record_digest_for_the_exact_image(tmp_path:
         assert command[command.index(flag) + 1] == value
     assert "--no-logs" in command
     assert str(tmp_path) in command
+    # A relative --file only resolves when the build runs from its context directory.
+    assert runner.cwds == [tmp_path]
 
 
 @pytest.mark.parametrize(
@@ -482,3 +488,14 @@ def test_azure_import_and_read_back_use_the_exact_references() -> None:
     assert "--force" in imported
     assert read[:4] == ("az", "acr", "manifest", "show-metadata")
     assert read[read.index("--name") + 1] == f"clamav@{digest}"
+
+
+def test_creates_its_private_work_directory_on_a_fresh_host(
+    snapshot: SourceImageSnapshot, work_dir: Path
+) -> None:
+    stage = work_dir / "source-image-stage"
+
+    run_source_image_stage(snapshot=snapshot, target=TARGET, builder=FakeRegistry(), work_dir=stage)
+
+    assert stage.stat().st_mode & 0o777 == 0o700
+    assert any(path.name.endswith(".receipt.json") for path in stage.iterdir())

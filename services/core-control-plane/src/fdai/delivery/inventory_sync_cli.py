@@ -332,6 +332,7 @@ async def run(
     config: InventoryJobConfig,
     *,
     promotion_enricher: InventoryPromotionEnricher | None = None,
+    run_lock_timeout_ms: int = inventory_sync_cli_support.RUN_LOCK_TIMEOUT_MS,
 ) -> InventoryJobResult:
     """Run ordered source fallback and optional verified pre-promotion enrichment."""
     vocabulary = _load_resource_type_registry()
@@ -399,7 +400,7 @@ async def run(
                 run_lock=PostgresAdvisoryResourceLock(
                     config=PostgresAdvisoryResourceLockConfig(
                         dsn=config.dsn,
-                        lock_timeout_ms=30_000,
+                        lock_timeout_ms=run_lock_timeout_ms,
                     )
                 ),
                 relationship_mapping_catalog=relationship_catalog,
@@ -740,7 +741,7 @@ async def _main(argv: list[str]) -> None:
     while True:
         config = await _load_job_config()
         if initial:
-            await run(config)
+            await run(config, run_lock_timeout_ms=inventory_sync_cli_support.INITIAL_LOCK_MS)
             return
         try:
             await _run_due_once(config)

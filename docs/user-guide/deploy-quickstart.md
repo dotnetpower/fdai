@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: c16516cdccd5e62404ec7ae3bfe49ae9bc27ca37 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 932cb3e31431e831b97f90e1e1eb62ad837e7263 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: c16516cdccd5e62404ec7ae3bfe49ae9bc27ca37 }, { source: docs/roadmap/deployment/source-deployment.md, sha: a9517a91425226a222e2a6578d75f5dcfc233299 }]
 ---
 
 # Deploy Quickstart
@@ -36,14 +36,14 @@ GitHub Actions tests the repository. It is not part of either deployment path.
 > **Current status:** The one-command source deployment is still being completed, as its
 > [implementation ledger](../roadmap-implementation/deployment/source-deployment.md) records:
 >
-> - A source run creates the Foundation and then stops with
->   `prebuilt_runtime_artifacts_required` before the application stage. The image stage that
->   builds the service images in your registry exists, but the source route doesn't run it yet.
-> - The AKS application stage starts the 30-day Trial, or installs the installation entitlement
->   when `secrets/integrity-signing-key.pem` is present, and the Console shows the expiry
->   watermark. A source run doesn't reach that stage yet.
-> - Until those items close, a holder of the offline-package signing key reaches the application
->   stage only by building the signed offline package and passing `--offline-kit`.
+> - A source run continues past the Foundation into the application stage: it builds the service
+>   images in your registry, applies the AKS runtime and workloads, runs migrations, and starts the
+>   30-day Trial. No complete end-to-end acceptance run has been recorded yet, so expect to resume
+>   or report a failed stage.
+> - With `secrets/integrity-signing-key.pem`, the application stage installs the installation
+>   entitlement instead of the Trial. No live key-holder run has been recorded yet.
+> - A run stops for review if it outlives its confirmed installation scope; start a fresh run in
+>   a new work directory after a guarded teardown.
 
 ## Deploy from a clone
 
