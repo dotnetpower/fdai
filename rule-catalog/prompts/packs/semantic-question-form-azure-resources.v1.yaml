@@ -13,6 +13,7 @@ body: |-
   - 리소스 그룹, resource group, and RG name one resource type. Groups whose names start with MC_ or ME_ are platform-managed resource groups and still count as resource groups.
   - A region such as koreacentral, westus3, or 한국 중부 is a region filter, never a name fragment.
   - A run or power state such as running, stopped, deallocated, 실행 중, 중지된, 멈춘, or 할당 해제된 is a state filter on the kind it qualifies, and that kind is the subject.
+  - Words that narrow a state, such as still allocated, still billed, 할당은 유지된 채, or 과금되는, belong to that state: quote the whole qualified phrase as one state mention, such as stopped but still allocated or 할당은 유지된 채 중지된, never as a second state or a negation.
   - Asking whether any exist, as in 중지된 가상 머신 있어 or are any VMs stopped, is a select goal that lists them; it has no count measure. Only how many, 몇 개, or 개수 asks for a count.
 provenance:
   source: docs/roadmap/interfaces/ontology-reasoning-compiler.md
