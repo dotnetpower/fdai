@@ -70,6 +70,11 @@ variable "monitor_workspace_customer_id" {
   default     = ""
 }
 
+variable "product_profile_json" {
+  description = "Canonical authority-neutral product profile shared with Core runtime composition."
+  type        = string
+}
+
 variable "chatops_webhook_secret_id" {
   description = "Key Vault secret id containing the HIL callback HMAC secret."
   type        = string

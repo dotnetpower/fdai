@@ -69,6 +69,7 @@ from fdai_service_contracts.policy_administration import (
     PolicyRevisionRecord,
     PolicyRevisionRequestBody,
     PolicyRevisionRequestEvent,
+    PolicyRevisionSignature,
     PolicyValidationResult,
     policy_content_digest,
     policy_validation_digest,
@@ -83,8 +84,31 @@ _RISK_TABLE = repo_asset_root() / "rule-catalog" / "risk-classification.yaml"
 
 
 class FakeSigner:
-    async def sign_policy_revision(self, *, policy_digest: str, revision_id: str) -> str:
-        return f"fake-keyvault-signature:{revision_id}:{policy_digest}"
+    def __init__(
+        self,
+        *,
+        key_id: str = "https://fdai-example.vault.azure.net/keys/policy-signing/v1",
+        signature_base64: str = "signature-good",
+    ) -> None:
+        self.key_id = key_id
+        self.signature_base64 = signature_base64
+
+    async def sign_policy_revision(
+        self, *, policy_digest: str, revision_id: str
+    ) -> PolicyRevisionSignature:
+        del policy_digest, revision_id
+        return PolicyRevisionSignature(
+            key_id=self.key_id,
+            algorithm="RS256",
+            signature_base64=self.signature_base64,
+        )
+
+    async def verify_policy_revision_signature(self, record: PolicyRevisionRecord) -> bool:
+        return (
+            record.signature is not None
+            and record.signature.key_id == self.key_id
+            and record.signature.signature_base64 == self.signature_base64
+        )
 
 
 def test_policy_admin_capabilities_pin_rego_v1_and_remove_unsafe_builtins() -> None:
@@ -112,6 +136,7 @@ def test_policy_administration_requires_receipt_gate() -> None:
         MimirPolicyAdministration(
             store=RecordingPolicyStore(StateStorePolicyRevisionStore(InMemoryStateStore()), None),
             signer=FakeSigner(),
+            signature_verifier=FakeSigner(),
             rego_compiler=FakeRegoCompiler(),
             operator_request_receipt_gate=None,  # type: ignore[arg-type]
             operator_producer_service_identity="operator-service:test",
@@ -246,6 +271,7 @@ async def test_mimir_validates_stores_activates_and_publishes_policy() -> None:
         policy_administration=MimirPolicyAdministration(
             store=RecordingPolicyStore(StateStorePolicyRevisionStore(store), _single_profile()),
             signer=FakeSigner(),
+            signature_verifier=FakeSigner(),
             rego_compiler=compiler,
             release_maximums=FakeMaximums({"governance.retire-rule": PolicyMode.SHADOW}),
             operator_request_receipt_gate=OperatorRequestReceiptGate(
@@ -510,6 +536,44 @@ async def test_mimir_rejects_missing_wrong_role_subject_and_stale_receipts() -> 
 
 
 @pytest.mark.asyncio
+async def test_mimir_refuses_tampered_wrong_key_and_missing_policy_signatures() -> None:
+    with pytest.raises(PolicyRevisionRejectedError, match="policy_signature_invalid"):
+        await _admin(signer=FakeSigner(signature_base64="signature-tampered")).handle_request(
+            _request({}).model_dump(mode="json")
+        )
+    with pytest.raises(PolicyRevisionRejectedError, match="policy_signature_invalid"):
+        await _admin(
+            signer=FakeSigner(key_id="https://fdai-example.vault.azure.net/keys/policy-other/v1")
+        ).handle_request(_request({}).model_dump(mode="json"))
+
+    store = InMemoryStateStore()
+    request = _request({})
+    content_digest = policy_content_digest(request.content)
+    revision_id = _expected_revision_id(content_digest)
+    legacy_record = _revision_record(request, revision_id, content_digest, missing_signature=True)
+    await StateStorePolicyRevisionStore(store).append_revision(legacy_record)
+    assert (
+        await StateStoreOperatorPolicyRevisionReader(
+            store,
+            signature_verifier=FakeSigner(),
+        ).revision(policy_kind=PolicyKind.ADMISSION, revision_id=revision_id)
+        is None
+    )
+    with pytest.raises(PolicyRevisionRejectedError, match="policy_signature_missing"):
+        await _admin(store=store).handle_activation_approval(
+            {
+                "kind": "policy_activation",
+                "state": "approved",
+                "params": {
+                    "policy_kind": PolicyKind.ADMISSION.value,
+                    "revision_id": revision_id,
+                    "request_id": "legacy-request",
+                },
+            }
+        )
+
+
+@pytest.mark.asyncio
 async def test_mimir_rejects_unnamed_admission_author_under_single_operator() -> None:
     admin = _admin()
 
@@ -546,6 +610,7 @@ async def test_mimir_redelivery_records_outcome_and_publishes_once_after_transie
         policy_administration=MimirPolicyAdministration(
             store=store,
             signer=FakeSigner(),
+            signature_verifier=FakeSigner(),
             rego_compiler=FakeRegoCompiler(),
             release_maximums=None,
             operator_request_receipt_gate=OperatorRequestReceiptGate(
@@ -609,6 +674,7 @@ async def test_var_quorum_activates_pending_relaxing_admission() -> None:
     admin = MimirPolicyAdministration(
         store=RecordingPolicyStore(StateStorePolicyRevisionStore(state), None),
         signer=FakeSigner(),
+        signature_verifier=FakeSigner(),
         rego_compiler=FakeRegoCompiler(),
         operator_request_receipt_gate=OperatorRequestReceiptGate(
             verifier=FakeReceiptVerifier(),
@@ -708,6 +774,7 @@ async def test_mimir_replay_rechecks_current_profile_before_activation() -> None
     admin = MimirPolicyAdministration(
         store=store,
         signer=FakeSigner(),
+        signature_verifier=FakeSigner(),
         rego_compiler=FakeRegoCompiler(),
         operator_request_receipt_gate=OperatorRequestReceiptGate(
             verifier=FakeReceiptVerifier(),
@@ -739,6 +806,7 @@ async def test_mimir_replay_rejects_same_key_different_body() -> None:
     admin = MimirPolicyAdministration(
         store=store,
         signer=FakeSigner(),
+        signature_verifier=FakeSigner(),
         rego_compiler=FakeRegoCompiler(),
         operator_request_receipt_gate=OperatorRequestReceiptGate(
             verifier=FakeReceiptVerifier(),
@@ -855,8 +923,14 @@ async def test_activated_admission_policy_cannot_raise_hard_constraints(
         action_types_by_name={action_type.name: action_type},
         risk_gate=RiskGate(registry=registry),
         operator_policy_binder=OperatorPolicyDecisionBinder(
-            reader=StateStoreOperatorPolicyRevisionReader(state),
-            evaluator=OpaAdmissionPolicyEvaluator(capabilities_file=_CAPABILITIES),
+            reader=StateStoreOperatorPolicyRevisionReader(
+                state,
+                signature_verifier=FakeSigner(),
+            ),
+            evaluator=OpaAdmissionPolicyEvaluator(
+                capabilities_file=_CAPABILITIES,
+                signature_verifier=FakeSigner(),
+            ),
         ),
     )
 
@@ -917,11 +991,15 @@ async def test_cancelled_admission_evaluation_kills_opa_child(tmp_path: Path) ->
         },
     )
     binder = OperatorPolicyDecisionBinder(
-        reader=StateStoreOperatorPolicyRevisionReader(state),
+        reader=StateStoreOperatorPolicyRevisionReader(
+            state,
+            signature_verifier=FakeSigner(),
+        ),
         evaluator=OpaAdmissionPolicyEvaluator(
             opa_binary=str(fake_opa),
             capabilities_file=_CAPABILITIES,
             timeout_seconds=5.0,
+            signature_verifier=FakeSigner(),
         ),
         timeout_seconds=0.2,
     )
@@ -942,12 +1020,15 @@ def _admin(
     maximums: FakeMaximums | None = None,
     profile: ApprovalProfileRevision | None | str = "single",
     store: InMemoryStateStore | None = None,
+    signer: FakeSigner | None = None,
 ) -> MimirPolicyAdministration:
     selected_profile = _single_profile() if profile == "single" else profile
     selected_store = store or InMemoryStateStore()
+    selected_signer = signer or FakeSigner()
     return MimirPolicyAdministration(
         store=RecordingPolicyStore(StateStorePolicyRevisionStore(selected_store), selected_profile),
-        signer=FakeSigner(),
+        signer=selected_signer,
+        signature_verifier=FakeSigner(),
         rego_compiler=rego_compiler or FakeRegoCompiler(),
         release_maximums=maximums,
         operator_request_receipt_gate=OperatorRequestReceiptGate(
@@ -1146,7 +1227,11 @@ def _revision_record(
     event: PolicyRevisionRequestEvent,
     revision_id: str,
     content_digest: str,
+    *,
+    signature: PolicyRevisionSignature | None = None,
+    missing_signature: bool = False,
 ) -> PolicyRevisionRecord:
+    stored_signature = None if missing_signature else signature or _signature()
     validation = PolicyValidationResult(
         rego_valid=True,
         release_maximums_valid=True,
@@ -1168,7 +1253,10 @@ def _revision_record(
         policy_kind=event.policy_kind,
         content_digest=content_digest,
         content=event.content,
-        signature_ref="fake-signature",
+        signature_ref=(
+            stored_signature.key_id if stored_signature is not None else "legacy-signature"
+        ),
+        signature=stored_signature,
         parent_revision_id=event.parent_revision_id,
         author_principal=event.author_principal,
         reason=event.reason,
@@ -1176,6 +1264,14 @@ def _revision_record(
         activated_at=None,
         validation=validation,
         diff_digest="sha256:" + "d" * 64,
+    )
+
+
+def _signature() -> PolicyRevisionSignature:
+    return PolicyRevisionSignature(
+        key_id="https://fdai-example.vault.azure.net/keys/policy-signing/v1",
+        algorithm="RS256",
+        signature_base64="signature-good",
     )
 
 

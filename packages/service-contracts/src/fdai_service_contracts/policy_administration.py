@@ -23,6 +23,9 @@ POLICY_ACTIVATION_REQUEST_TOPIC = "object.policy-activation-request"
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _REVISION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 _ACTION_TYPE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
+POLICY_REVISION_SIGNATURE_MESSAGE_FORMAT: Literal["fdai.policy-revision.v1"] = (
+    "fdai.policy-revision.v1"
+)
 
 
 class PolicyKind(StrEnum):
@@ -238,6 +241,19 @@ class PolicyValidationResult(PolicyAdministrationContract):
     details: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
 
 
+class PolicyRevisionSignature(PolicyAdministrationContract):
+    """Raw signature evidence for one immutable policy revision."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    key_id: Annotated[str, Field(min_length=1, max_length=2_048)]
+    algorithm: Literal["RS256", "PS256"]
+    digest_algorithm: Literal["SHA-256"] = "SHA-256"
+    signed_message_format: Literal["fdai.policy-revision.v1"] = (
+        POLICY_REVISION_SIGNATURE_MESSAGE_FORMAT
+    )
+    signature_base64: Annotated[str, Field(min_length=1, max_length=16_384)]
+
+
 class PolicyRevisionRecord(PolicyAdministrationContract):
     """Immutable content-addressed policy revision stored by Mimir."""
 
@@ -246,7 +262,8 @@ class PolicyRevisionRecord(PolicyAdministrationContract):
     policy_kind: PolicyKind
     content_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     content: AdmissionPolicyContent | ApprovalPolicyContent
-    signature_ref: Annotated[str, Field(min_length=1, max_length=512)]
+    signature_ref: Annotated[str, Field(min_length=1, max_length=2_048)]
+    signature: PolicyRevisionSignature | None = None
     parent_revision_id: Annotated[str, Field(min_length=1, max_length=128)] | None = None
     author_principal: Annotated[str, Field(min_length=1, max_length=512)]
     reason: Annotated[str, Field(min_length=20, max_length=1_000)]
@@ -254,6 +271,12 @@ class PolicyRevisionRecord(PolicyAdministrationContract):
     activated_at: datetime | None = None
     validation: PolicyValidationResult
     diff_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+
+
+class PolicyRevisionSignatureVerifier(Protocol):
+    """Verify the stored signature for one immutable policy revision."""
+
+    async def verify_policy_revision_signature(self, record: PolicyRevisionRecord) -> bool: ...
 
 
 class PolicyActivationEvent(PolicyAdministrationContract):
@@ -334,6 +357,17 @@ def policy_validation_digest(values: Mapping[str, object]) -> str:
     return canonical_digest(dict(values))
 
 
+def policy_revision_signature_message(
+    *,
+    revision_id: str,
+    policy_digest: str,
+    message_format: str = POLICY_REVISION_SIGNATURE_MESSAGE_FORMAT,
+) -> bytes:
+    """Return the exact byte message whose SHA-256 digest is signed."""
+
+    return f"{message_format}\n{revision_id}\n{policy_digest}".encode()
+
+
 __all__ = [
     "AdmissionPolicyContent",
     "ApprovalPolicyContent",
@@ -348,9 +382,13 @@ __all__ = [
     "PolicyRevisionRecord",
     "PolicyRevisionRequestBody",
     "PolicyRevisionRequestEvent",
+    "PolicyRevisionSignature",
+    "PolicyRevisionSignatureVerifier",
     "PolicyValidationResult",
+    "POLICY_REVISION_SIGNATURE_MESSAGE_FORMAT",
     "ReleaseCapabilityMaximums",
     "policy_content_digest",
+    "policy_revision_signature_message",
     "policy_revision_request_digest",
     "policy_validation_digest",
 ]

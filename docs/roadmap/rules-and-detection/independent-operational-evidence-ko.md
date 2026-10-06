@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: b21f4100a67d3ed6d79d3b0734a2c310a71c5066
+translation_source_sha: 38e4317eedd0e2992b2c749899c7c6218ac1fff2
 translation_revised: 2026-10-05
 ---
 # 독립 운영 근거 발급
@@ -38,6 +38,9 @@ translation_revised: 2026-10-05
 수락하거나 검증기 재확인을 충족하거나 실행 권한을 부여하지 않습니다.
 봉인된 Core 전용 행 신원은 후속 읽기의 재인가 피연산자일 뿐이며, 검증기 출처 산출물, 수락 기록 또는
 증명 자료가 아닙니다.
+Operator 서비스 제품 프로필 해석도 같은 근거 경계를 따릅니다. `FDAI_PRODUCT_PROFILE_JSON`을 읽으면
+정책 관리 경로 같은 비권한 경로가 존재할지 결정하지만, 운영 근거를 발급하거나 검증기 재확인을
+충족하거나 실행 권한을 부여하지 않습니다.
 기준선 평가 터미널 기록도 같은 근거 경계를 사용합니다. Rule별 결과와 세대별 완료 계약은 Forseti 평가
 증적과 Saga 감사 기록을 참조할 수 있지만, 계약 자체는 독립 운영 근거를 발급하거나 검증기를 배포하거나
 실제 공급자 상태를 증명하지 않습니다.

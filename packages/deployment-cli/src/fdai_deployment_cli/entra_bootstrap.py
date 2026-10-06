@@ -35,6 +35,7 @@ from fdai_deployment_cli.entra_graph import (
 
 # Human App Roles and the channel attachment workload role are pinned by the identity owners.
 ROLES = ("Reader", "Contributor", "Approver", "Owner", "BreakGlass")
+POLICY_ADMIN_ROLE = "policy-admin"
 CHANNEL_ATTACHMENT_ROLE = "Document.ChannelAttachment.Submit"
 _SLOTS = ("readers", "contributors", "approvers", "owners", "break_glass")
 
@@ -89,6 +90,7 @@ class EntraPlan:
     desired: EntraDesired
     marker: str
     role_ids: tuple[str, ...]
+    policy_admin_role_id: str
     channel_attachment_role_id: str
     scope_id: str
     digest: str
@@ -106,6 +108,7 @@ def plan_entra_bootstrap(desired: EntraDesired) -> EntraPlan:
         desired,
         marker,
         tuple(str(uuid5(NAMESPACE_URL, f"{marker}/{role}")) for role in ROLES),
+        str(uuid5(NAMESPACE_URL, f"{marker}/{POLICY_ADMIN_ROLE}")),
         str(uuid5(NAMESPACE_URL, f"{marker}/{CHANNEL_ATTACHMENT_ROLE}")),
         str(uuid5(NAMESPACE_URL, f"{marker}/access")),
         digest,
@@ -158,6 +161,14 @@ def _roles(plan: EntraPlan) -> list[Json]:
     return [
         *human_roles,
         {
+            "id": plan.policy_admin_role_id,
+            "value": POLICY_ADMIN_ROLE,
+            "displayName": "Policy administrator",
+            "description": "Submit bounded FDAI policy revisions to the Operator API",
+            "allowedMemberTypes": ["User"],
+            "isEnabled": True,
+        },
+        {
             "id": plan.channel_attachment_role_id,
             "value": CHANNEL_ATTACHMENT_ROLE,
             "displayName": "Channel attachment submitter",
@@ -179,6 +190,22 @@ def _scope(plan: EntraPlan) -> Json:
         "userConsentDisplayName": "Access the fdai Operator API",
         "userConsentDescription": "Allow the console to call the fdai Operator API on your behalf",
     }
+
+
+def _optional_claims(existing: object) -> Json:
+    old = existing if isinstance(existing, dict) else {}
+    access_token = [
+        row for row in objects(old.get("accessToken", [])) if row.get("name") != "auth_time"
+    ]
+    access_token.append(
+        {
+            "name": "auth_time",
+            "source": None,
+            "essential": True,
+            "additionalProperties": [],
+        }
+    )
+    return {**old, "accessToken": access_token}
 
 
 def _merge_definitions(existing: object, desired: list[Json]) -> list[Json]:
@@ -245,6 +272,7 @@ def _app_payload(plan: EntraPlan, label: str, existing: Json | None, api_id: str
                 [_scope(plan)],
             ),
         }
+        payload["optionalClaims"] = _optional_claims(old.get("optionalClaims", {}))
         if api_id:
             uris = strings(old.get("identifierUris", []))
             if uris and f"api://{api_id}" not in uris:

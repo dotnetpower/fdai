@@ -14,6 +14,7 @@ from typing import Any
 from fdai_service_contracts.policy_administration import (
     AdmissionPolicyContent,
     PolicyRevisionRecord,
+    PolicyRevisionSignatureVerifier,
 )
 
 from fdai.core.risk_gate.approval_profile import OperatorPolicyOutcome
@@ -26,6 +27,7 @@ class OpaAdmissionPolicyEvaluator:
     opa_binary: str = "opa"
     capabilities_file: Path | None = None
     timeout_seconds: float = 5.0
+    signature_verifier: PolicyRevisionSignatureVerifier | None = None
 
     def __post_init__(self) -> None:
         if self.timeout_seconds <= 0 or self.timeout_seconds > 30:
@@ -42,6 +44,11 @@ class OpaAdmissionPolicyEvaluator:
         if self.capabilities_file is None or not self.capabilities_file.is_file():
             return OperatorPolicyOutcome.REQUIRE_APPROVAL
         if not isinstance(revision.content, AdmissionPolicyContent):
+            return OperatorPolicyOutcome.REQUIRE_APPROVAL
+        if (
+            self.signature_verifier is not None
+            and not await self.signature_verifier.verify_policy_revision_signature(revision)
+        ):
             return OperatorPolicyOutcome.REQUIRE_APPROVAL
         stdout = b""
         with tempfile.TemporaryDirectory(prefix="fdai-admission-policy-") as directory:
