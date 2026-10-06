@@ -199,3 +199,22 @@ def test_compute_partial_projection_cannot_approve_budget(monkeypatch, ceiling, 
     assert result["deployment_ready"] is False
     assert result["mutation_performed"] is False
     assert profile.to_mapping() == before
+
+
+def test_default_profile_fits_the_default_ceiling_at_observed_rates(monkeypatch):
+    """The bare one-line command must pass its own cost review at public D4as_v5 rates."""
+    from fdai_deployment_cli import cli
+
+    ceiling = cli._parser().parse_args(["provision", "azure", "--source", "."]).monthly_cost_ceiling
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="aks", database_placement="postgres-flex"
+    )
+    # 0.172 USD is the observed westus3 and eastus Linux D4as_v5 rate; 0.21 covers dearer regions.
+    for rate in ("0.172", "0.21"):
+        monkeypatch.setattr(
+            cost, "read_linux_vm_price", lambda rate=rate, **_: {"hourly_rate": rate}
+        )
+        result = cost.inspect_aks_compute_cost(
+            profile=profile, region="westus3", monthly_cost_ceiling=ceiling
+        )
+        assert result["state"] == "partial", (rate, result["monthly_compute_estimate_usd"])

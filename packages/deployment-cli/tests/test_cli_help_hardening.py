@@ -149,7 +149,7 @@ def test_leaf_handler_defaults_and_typed_arguments_are_preserved(tmp_path):
     assert args.handler is cli._provision_azure
     assert args.offline_kit == path
     assert args.online is False
-    assert args.monthly_cost_ceiling == 1000
+    assert args.monthly_cost_ceiling == 1500
     assert args.timeout_seconds == 14400
     assert args.foundation_workload == "fdai"
     assert args.runtime == "aks"

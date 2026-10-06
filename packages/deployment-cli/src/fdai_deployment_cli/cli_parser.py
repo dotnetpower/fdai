@@ -213,7 +213,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     settings.add_argument(
         "--monthly-cost-ceiling",
         type=int,
-        default=1000,
+        default=1500,
         metavar="USD",
         help="Monthly cost review input in USD (default: %(default)s); not a billing cap",
     )
