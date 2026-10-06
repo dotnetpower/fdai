@@ -79,6 +79,12 @@ from fdai.agents._framework.huginn_operator_receipt import (
     ReservedOperatorRequestReceipt,
 )
 from fdai.agents._framework.introspection import agent_state_evidence_ref
+from fdai.agents._framework.mimir_policy_administration import (
+    POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE,
+    MimirPolicyAdministration,
+    OpaRegoPolicyCompiler,
+    StateStorePolicyRevisionStore,
+)
 from fdai.agents._framework.muninn_investigation_strategy import (
     MuninnInvestigationStrategyCohortSink,
 )
@@ -186,6 +192,7 @@ __all__ = [
     "AgentSpec",
     "MAX_TOOL_PLANS",
     "MuninnInvestigationStrategyCohortSink",
+    "POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE",
     "AgentToolResult",
     "AgentToolStatus",
     "ApprovalRuntimeBindings",
@@ -216,8 +223,10 @@ __all__ = [
     "IssueTrackerAdapter",
     "Layer",
     "Mimir",
+    "MimirPolicyAdministration",
     "Norns",
     "OperatorRequestReceiptGate",
+    "OpaRegoPolicyCompiler",
     "ReservedOperatorRequestReceipt",
     "PantheonBus",
     "InMemoryBus",
@@ -234,6 +243,7 @@ __all__ = [
     "ShadowDivergenceLedger",
     "StateStoreActionRunStore",
     "StateStoreAuditChainAdapter",
+    "StateStorePolicyRevisionStore",
     "StateStoreIssueTrackerAdapter",
     "SynthesisOutcome",
     "T2ConversationSynthesizer",

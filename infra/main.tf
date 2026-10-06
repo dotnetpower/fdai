@@ -3546,6 +3546,7 @@ module "operator_api" {
   notification_receipt_topic         = "fdai.notifications.delivery-receipts"
   entra_tenant_id                    = var.tenant_id
   api_audience                       = var.operator_api_audience
+  product_profile_json               = var.product_profile_json
   rbac_readers_group_id              = var.rbac_readers_group_id
   rbac_contributors_group_id         = var.rbac_contributors_group_id
   rbac_approvers_group_id            = var.rbac_approvers_group_id

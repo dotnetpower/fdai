@@ -16,7 +16,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from fdai.agents import StateStoreIssueTrackerAdapter, request_rule_generation
@@ -75,6 +75,7 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.catalog_search import CatalogSearchDocument
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.policy_administration import POLICY_REVISION_REQUEST_TOPIC
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from tests.agents.preflight_helpers import PassingPreflightSimulator
@@ -290,6 +291,17 @@ def test_build_registers_every_declared_subscription_plus_ingress() -> None:
     # The raw ingress topic and object.event both have subscribers.
     assert _RAW_TOPIC in runtime.bridge._subs
     assert "object.event" in runtime.bridge._subs
+    assert POLICY_REVISION_REQUEST_TOPIC not in runtime.bridge._subs
+
+
+def test_policy_administration_subscription_requires_bound_mimir_port() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        mimir_policy_administration=cast(Any, object()),
+    )
+
+    assert {name for name, _ in runtime.bridge._subs[POLICY_REVISION_REQUEST_TOPIC]} == {"Mimir"}
 
 
 def test_object_event_fans_out_to_forseti_and_heimdall() -> None:

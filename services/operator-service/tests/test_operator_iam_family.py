@@ -18,6 +18,7 @@ from fdai_operator_service.families.iam import (
     IAM_FAMILY_MANIFEST,
     HilCallbackConfig,
     IamFamilyBindings,
+    iam_family_manifest,
     make_iam_family_routes,
 )
 from fdai_operator_service.families.iam.access_grants import access_grant_sse_frame
@@ -1283,8 +1284,21 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 60
+    assert len(snapshot) == 59
     assert ("GET", "/handover/readiness", "readiness") in snapshot
+    assert ("POST", "/policy/revisions", "policy_revision_request") not in snapshot
+
+    selected_routes = make_iam_family_routes(_bindings(policy_administration_selected=True))
+    selected_snapshot = tuple(
+        (next(iter((route.methods or set()) - {"HEAD"})), route.path, route.name)
+        for route in selected_routes
+    )
+    assert selected_snapshot == tuple(
+        (item.method, item.path, item.name)
+        for item in iam_family_manifest(policy_administration=True)
+    )
+    assert len(selected_snapshot) == 60
+    assert ("POST", "/policy/revisions", "policy_revision_request") in selected_snapshot
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -1309,6 +1323,7 @@ def test_policy_revision_route_refuses_missing_role_stale_auth_and_malformed_bod
     publisher = RecordingPolicyPublisher()
 
     denied = _client(
+        policy_administration_selected=True,
         policy_authenticator=RecordingPolicyAuthenticator(
             role=OperatorRole.READER,
             app_roles=frozenset(),
@@ -1317,6 +1332,7 @@ def test_policy_revision_route_refuses_missing_role_stale_auth_and_malformed_bod
         policy_receipt_issuer=_policy_receipt_issuer(),
     ).post("/policy/revisions", headers={"Idempotency-Key": "policy-1"}, json=valid_body)
     stale = _client(
+        policy_administration_selected=True,
         policy_authenticator=RecordingPolicyAuthenticator(
             role=OperatorRole.OWNER,
             authenticated_at=NOW - timedelta(minutes=11),
@@ -1325,6 +1341,7 @@ def test_policy_revision_route_refuses_missing_role_stale_auth_and_malformed_bod
         policy_receipt_issuer=_policy_receipt_issuer(),
     ).post("/policy/revisions", headers={"Idempotency-Key": "policy-2"}, json=valid_body)
     malformed = _client(
+        policy_administration_selected=True,
         policy_authenticator=RecordingPolicyAuthenticator(role=OperatorRole.OWNER),
         policy_revision_publisher=publisher,
         policy_receipt_issuer=_policy_receipt_issuer(),
@@ -1345,6 +1362,7 @@ def test_policy_revision_route_publishes_one_typed_event_and_nothing_else() -> N
     publisher = RecordingPolicyPublisher()
 
     response = _client(
+        policy_administration_selected=True,
         policy_authenticator=RecordingPolicyAuthenticator(role=OperatorRole.OWNER),
         policy_revision_publisher=publisher,
         policy_receipt_issuer=_policy_receipt_issuer(),

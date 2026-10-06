@@ -33,6 +33,7 @@ from fdai.agents._framework.mimir_maintenance import (
     MimirRuleDeprecationReader,
     MimirRuleSourcePoller,
 )
+from fdai.agents._framework.mimir_policy_administration import MimirPolicyAdministration
 from fdai.agents._framework.pantheon import (
     HARD_DEPENDENCY_AGENTS,
     PANTHEON_NAMES,
@@ -205,6 +206,7 @@ class PantheonRuntime(RuntimeConversationPort):
         mimir_regression_runner: MimirRegressionRunner | None = None,
         mimir_rule_source_poller: MimirRuleSourcePoller | None = None,
         mimir_rule_deprecation_reader: MimirRuleDeprecationReader | None = None,
+        mimir_policy_administration: MimirPolicyAdministration | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
         forecast_closer: ForecastClosureCoordinator | None = None,
@@ -402,6 +404,8 @@ class PantheonRuntime(RuntimeConversationPort):
             instantiated["Saga"] = saga
         maybe_mimir = instantiated.get("Mimir")
         if isinstance(maybe_mimir, Mimir):
+            if mimir_policy_administration is not None:
+                maybe_mimir.bind_policy_administration(mimir_policy_administration)
             if mimir_promotion_outcome_reader is not None:
                 maybe_mimir.bind_catalog_promotion_outcome_reader(mimir_promotion_outcome_reader)
             if mimir_regression_runner is not None:

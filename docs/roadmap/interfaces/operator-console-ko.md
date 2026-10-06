@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 098acf3b69d30c12e91c85285d51920b4191933a
+translation_source_sha: 4927273ce0d21f39b4bd7145ac53220e136f7a15
 translation_revised: 2026-10-05
 ---
 # FDAI Console 대화
@@ -23,6 +23,10 @@ coverage가 없거나 부분적이면 계속 사용할 수 없음으로 렌더�
 Promotion gates 화면은 측정된 준비 상태 표시 데이터와 영속 승격 레지스트리를 결합하고
 `operator_override` 모드, 운영자 증언 게이트 스냅샷, 읽기 전용 권한 출처를 표시하지만 승인이나
 실행 권한은 부여하지 않습니다.
+정책 관리도 제품 프로필로 게이트됩니다. Operator API는 canonical 제품 프로필이
+`policy-administration` 추가 기능을 선택할 때만 `POST /policy/revisions`를 등록하고, 이 경로는
+Mimir에 타입 지정 요청만 게시합니다. 프로필 JSON이 없거나 잘못되면 경로가 없거나 시작이 실패하며,
+브라우저 쪽 정책 작성자나 실행 자격 증명을 만들지 않습니다.
 Outcome Assurance 상세 화면은 기존 Operating outcomes, Control assurance, Verticals 정보
 아키텍처를 재사용합니다. 인증된 `/kpi/outcome-assurance` 변환 결과만 읽고, 누락되거나
 오래된 출처 상태를 사용 불가로 보존하며, 요청, 승인, 승격 또는 실행 권한을 추가하지 않습니다.

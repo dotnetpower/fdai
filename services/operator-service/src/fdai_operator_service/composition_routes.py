@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 from fdai_service_contracts import OperatorReadModel
+from fdai_service_contracts.product_profile import ProductAddOn
 
 from fdai_operator_service.adapters import (
     OperatorSemanticKafkaBus,
@@ -151,6 +152,9 @@ def _build_route_families(
             iam=build_unavailable_iam_bindings(
                 authorizer=authorizer,
                 role_group_ids=role_group_ids,
+                policy_administration_selected=environment.product_profile.selects(
+                    ProductAddOn.POLICY_ADMINISTRATION
+                ),
             ),
             workflow_authorize=authorizer.workflow,
             workflow_read_store=unavailable_workflow,

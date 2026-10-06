@@ -80,8 +80,8 @@ from fdai_operator_service.families.cost_governance import (
     build_cost_governance_routes,
 )
 from fdai_operator_service.families.iam import (
-    IAM_FAMILY_MANIFEST,
     IamFamilyBindings,
+    iam_family_manifest,
     make_iam_family_routes,
 )
 from fdai_operator_service.families.operations import (
@@ -210,6 +210,7 @@ def build_operator_app(
         include_aks_commerce=route_families.aks_commerce is not None,
         include_cost_governance=route_families.cost_governance is not None,
         include_local_auth=local_cli_profile is not None,
+        include_policy_administration=route_families.iam.policy_administration_selected,
     )
 
     def authorize(request: Request) -> OperatorPrincipal:
@@ -791,6 +792,7 @@ def aggregate_route_manifest(
     include_aks_commerce: bool = False,
     include_cost_governance: bool = False,
     include_local_auth: bool = False,
+    include_policy_administration: bool = False,
 ) -> tuple[RouteOwnership, ...]:
     """Return the exact aggregate ownership manifest and reject duplicates."""
     ownership = (
@@ -804,7 +806,10 @@ def aggregate_route_manifest(
             RouteOwnership(item.method, item.path, "conversation")
             for item in CONVERSATION_ROUTE_MANIFEST
         ),
-        *(RouteOwnership(item.method, item.path, "iam") for item in IAM_FAMILY_MANIFEST),
+        *(
+            RouteOwnership(item.method, item.path, "iam")
+            for item in iam_family_manifest(policy_administration=include_policy_administration)
+        ),
         *(
             RouteOwnership(item.method, item.path, "workflow")
             for item in WORKFLOW_FAMILY_ROUTE_MANIFEST

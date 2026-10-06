@@ -20,6 +20,7 @@ class RuntimeProductSelection:
     governed_execution: bool
     notifications: bool
     enterprise_identity: bool
+    policy_administration: bool
 
     @classmethod
     def from_profile(cls, profile: ProductProfile) -> RuntimeProductSelection:
@@ -27,6 +28,7 @@ class RuntimeProductSelection:
             governed_execution=profile.selects(ProductAddOn.GOVERNED_EXECUTION),
             notifications=profile.selects(ProductAddOn.NOTIFICATIONS),
             enterprise_identity=profile.selects(ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE),
+            policy_administration=profile.selects(ProductAddOn.POLICY_ADMINISTRATION),
         )
 
 

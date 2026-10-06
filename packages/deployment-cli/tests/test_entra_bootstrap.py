@@ -16,6 +16,7 @@ import pytest
 from fdai_deployment_cli import entra_graph
 from fdai_deployment_cli.entra_bootstrap import (
     CHANNEL_ATTACHMENT_ROLE,
+    POLICY_ADMIN_ROLE,
     ROLES,
     EntraDesired,
     apply_entra_bootstrap,
@@ -194,6 +195,14 @@ def test_fresh_exact_requests_and_private_result() -> None:
             for role, role_id in zip(ROLES, plan.role_ids, strict=True)
         ],
         {
+            "id": plan.policy_admin_role_id,
+            "value": POLICY_ADMIN_ROLE,
+            "displayName": "Policy administrator",
+            "description": "Submit bounded FDAI policy revisions to the Operator API",
+            "allowedMemberTypes": ["User"],
+            "isEnabled": True,
+        },
+        {
             "id": plan.channel_attachment_role_id,
             "value": CHANNEL_ATTACHMENT_ROLE,
             "displayName": "Channel attachment submitter",
@@ -205,6 +214,16 @@ def test_fresh_exact_requests_and_private_result() -> None:
     assert api["identifierUris"] == [f"api://{api['appId']}"]
     assert api["signInAudience"] == "AzureADMyOrg"
     assert api["api"]["requestedAccessTokenVersion"] == 2
+    assert api["optionalClaims"] == {
+        "accessToken": [
+            {
+                "name": "auth_time",
+                "source": None,
+                "essential": True,
+                "additionalProperties": [],
+            }
+        ]
+    }
     assert api["api"]["oauth2PermissionScopes"][0]["type"] == "User"
     assert api["api"]["oauth2PermissionScopes"][0]["value"] == "access"
     spa = fake.rows["applications"][1]

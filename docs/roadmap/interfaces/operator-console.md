@@ -18,6 +18,11 @@ stored complete summary remains readable until a newer generation completes.
 The Promotion gates view joins the measured readiness projection with the durable promotion registry
 and marks `operator_override` modes, operator-attested gate snapshots, and their read-only authority
 source without granting approval or execution authority.
+Policy administration is also product-profile gated. The Operator API registers
+`POST /policy/revisions` only when the canonical product profile selects the
+`policy-administration` add-on, and the route publishes only a typed request for Mimir. Missing or
+malformed profile JSON leaves the route absent or fails startup; it never creates a browser-side
+policy writer or execution credential.
 The Outcome Assurance drill-down reuses the existing Operating outcomes, Control assurance, and
 Verticals information architecture. It reads only the authenticated `/kpi/outcome-assurance`
 projection, preserves missing or stale source states as unavailable, and adds no request,
