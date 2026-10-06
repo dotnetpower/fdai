@@ -359,8 +359,8 @@ where compliance requires every runtime change to land as a reviewed diff.
 
 ### 3.3 `governance.*`
 
-Ontology / catalog / exemption / promotion changes. Six entries are
-authored in the ontology today; **three currently have live dispatchers**
+Ontology / catalog / exemption / promotion changes. Seven entries are
+authored in the ontology today; **four currently have live dispatchers**
 (the other three are catalog-as-code artifacts waiting on or using a PR-native writer):
 
 - `governance.promote-action-type` - apply one exact durable operational-promotion receipt to
@@ -390,13 +390,24 @@ authored in the ontology today; **three currently have live dispatchers**
   ceiling for a specific resource / tag scope (fork extension).
   **Dispatcher shipped** in
   [`services/core-control-plane/src/fdai/core/risk_gate/override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py).
+- `governance.override-promote-action-type` - apply one attributed operator
+  override promotion to the runtime mode registry. It shares the Thor-owned
+  direct promotion adapter family with `governance.promote-action-type`, but
+  its request is distinct so the registry records `promotion_kind:
+  operator_override`, the gate status and evidence digest observed at approval
+  time, the operator, the reason, and the Var approval receipt. The ActionType
+  requires proof digests for all seven safeguards and an override receipt never
+  counts as gate-evidence promotion.
+  **Dispatcher shipped:** `OperatorOverridePromotionDirectApiExecutor` behind
+  Thor. Shadow validates without mutation; enforce mode requires the governed
+  override review through Forseti, Var, Thor, and Saga.
 
 Governance actions use `execution_path: pr_native` because they are catalog-as-code changes and
-MUST land as reviewed diffs, with two closed exceptions. `governance.promote-action-type` mutates
-only the durable runtime mode registry, and `governance.promote-effect-model` mutates only the
-reviewed graph-model active pointer. Both use `direct_api` only after Owner HIL and exact-receipt
-verification; neither edits catalog data or a managed substrate. No other governance action may
-use this exception.
+MUST land as reviewed diffs, with three closed exceptions. `governance.promote-action-type` and
+`governance.override-promote-action-type` mutate only the durable runtime mode registry, and
+`governance.promote-effect-model` mutates only the reviewed graph-model active pointer. They use
+`direct_api` only after Owner or active-profile governance HIL and exact-receipt verification;
+none edits catalog data or a managed substrate. No other governance action may use this exception.
 
 ### 3.4 `tool.*`
 

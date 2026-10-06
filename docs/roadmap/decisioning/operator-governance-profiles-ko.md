@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 7570e737d51b523af0e15a60e51d252ac4698277
-translation_revised: 2026-10-05
+translation_source_sha: 7d8d84d22e14c5096c7522473ea7acaf968018ef
+translation_revised: 2026-10-06
 ---
 # 운영자 거버넌스 프로필
 
@@ -12,8 +12,10 @@ translation_revised: 2026-10-05
 
 > **상태:** 일부 구현되었습니다. 현재 다중 운영자 프로필과 전권 개발 프로필이 있습니다. 단독 운영자
 > 프로덕션 프로필의 Core 결정 규칙과 Forseti, Var, HIL 재개 조정기, Operator API 콜백을 지나는
-> 런타임 승인 경로, 단독 운영자 상시 권한, `promotion_kind`, 자율성을 높이지 않는 운영자 정책 입력은
-> 구현되었습니다. FDAI Console의 정책 관리는 계획 단계이며,
+> 런타임 승인 경로, 단독 운영자 상시 권한, `governance` override-promotion ActionType 경로,
+> `promotion_kind`, 자율성을 높이지 않는 운영자 정책 입력, `policy-administration` 추가 기능,
+> Operator 정책 개정 경로, Mimir의 검증 및 활성화 경로가 구현되었습니다. Console 정책 작성 UI는
+> 계획 단계이며,
 > [구현 ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)가 제공
 > 현황을 추적합니다. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
 > 결정을 기록합니다.
@@ -106,15 +108,16 @@ translation_revised: 2026-10-05
 모드에서 강제 적용 모드로 옮길 수 있습니다. 다중 운영자 프로필에서는 재정의가 프로필의 거버넌스
 정족수를 따릅니다.
 
-- **전제 조건:** 기능은 등록되어 있고 구조적으로 유효해야 합니다. 7개 안전장치를 모두 선언하고,
-  기능 회수 대상이 아니며, Release의 최대 모드 안에 있어야 합니다. Workflow는 등록된 ActionType만
-  조합합니다.
+- **전제 조건:** 기능은 등록되어 있고 구조적으로 유효해야 합니다. rollback 또는 제한된 recovery
+  경로를 포함해 7개 안전장치를 모두 선언하고, 기능 회수 대상이 아니며, Release의 최대 모드 안에
+  있어야 합니다. Workflow는 등록된 ActionType만 조합합니다.
 - **경로:** 재정의는 일반적인 타입 지정 파이프라인을 거치는 `governance` ActionType 요청입니다.
   Forseti가 판단하고, 활성 프로필에서 운영자의 승인이 Var를 충족하며, Thor가 레지스트리 변경을
   적용하고, Saga가 감사합니다.
-- **기록:** 승격 레지스트리는 `promotion_kind: operator_override`, 그 시점의 게이트 상태(통과,
-  실패, 증거 부족)와 증거 다이제스트, 운영자, 사유, 시각을 저장합니다. 모드를 보여 주는 모든
-  화면은 이를 운영자 재정의로 표시합니다.
+- **기록:** 승격 레지스트리는 `promotion_kind: operator_override`, 그 시점의 운영자 증언 게이트
+  상태(통과, 실패, 증거 부족)와 증거 다이제스트, 운영자, 사유, 시각을 저장합니다. 모드를 보여 주는
+  모든 화면은 이를 운영자 재정의로 표시하고, 독립 gate-evidence 저장소가 검증하지 않은 한 게이트
+  스냅샷을 운영자 증언으로 표시합니다.
 - **런타임 효과:** 승격은 계속 상한일 뿐입니다. 위험 게이트, 승인 정책, 실행별 모든 검사가 계속
   적용됩니다.
 - **우선순위:** 자동 회귀 강등과 공급업체의 기능 회수가 승격보다 우선합니다. 회수된 기능은 이후
@@ -189,8 +192,9 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
 - 상시 권한 스키마와 평가기는 단독 운영자 프로덕션 프로필에서만 승인 하나를 받아들입니다.
   `standing-authority-promotion` 변경 등급은 아직 단일 Owner 승인을 받아들이지 않습니다.
 - 승격 레지스트리는 `promotion_kind`를 기록하고 기능 회수를 따르며, 주입된 검증기가 Var 승인
-  영수증을 확인한 뒤에만 재정의를 받아들입니다. 그 영수증을 만드는 `governance` ActionType 경로는
-  아직 없습니다.
+  영수증을 확인한 뒤에만 재정의를 받아들입니다. `governance.override-promote-action-type` 경로는
+  통제된 direct-API 승격 어댑터를 통해 그 영수증을 만들고 검증합니다. 보존된 governed production
+  receipt는 아직 남은 작업입니다.
 - `policy-administration` 추가 기능, Operator API 정책 개정 경로, Mimir의 검증 및 활성화 경로가
   구현되었습니다. 이 추가 기능에는 `read-only-console`과 `enterprise-identity-governance`가 필요하며
   그 자체로 권한을 부여하지 않습니다. 이 경로는 `policy-admin` App 역할과 새 인증을 요구하고, 타입이

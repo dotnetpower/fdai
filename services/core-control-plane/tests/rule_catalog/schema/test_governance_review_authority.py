@@ -325,6 +325,26 @@ def test_single_operator_profile_accepts_named_owner_for_standing_authority_prom
     assert decision.grants_execution_authority is False
 
 
+def test_single_operator_profile_accepts_named_operator_for_override_promotion_only() -> None:
+    decision = validate_governance_review(
+        _request(
+            GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
+            _approval(_APPROVER_ONE),
+            author=_APPROVER_ONE,
+            approval_profile=_profile(_APPROVER_ONE),
+        )
+    )
+
+    assert decision.allowed is True
+    assert decision.required_quorum == 1
+    assert decision.original_quorum == 2
+    assert decision.effective_quorum == 1
+    assert decision.counted_approver_oids == (_APPROVER_ONE.oid,)
+    assert decision.approval_profile == "single-operator-production"
+    assert decision.operator_principal == _APPROVER_ONE.oid
+    assert decision.self_review is True
+
+
 def test_single_operator_profile_refuses_unnamed_and_executor_principals() -> None:
     unnamed = validate_governance_review(
         _request(
@@ -383,9 +403,17 @@ def test_multi_operator_and_other_classes_ignore_the_single_operator_profile() -
             approval_profile=_multi_profile(),
         )
     )
-    other_class = validate_governance_review(
+    enforce_promotion = validate_governance_review(
         _request(
             GovernanceChangeClass.ENFORCE_PROMOTION,
+            _approval(_OWNER),
+            author=_OWNER,
+            approval_profile=_profile(_OWNER),
+        )
+    )
+    ordinary_override = validate_governance_review(
+        _request(
+            GovernanceChangeClass.OVERRIDE,
             _approval(_OWNER),
             author=_OWNER,
             approval_profile=_profile(_OWNER),
@@ -396,10 +424,14 @@ def test_multi_operator_and_other_classes_ignore_the_single_operator_profile() -
     assert _codes(multi_self) == {"owner_review_missing", "quorum_not_met", "self_approval"}
     assert multi_self.required_quorum == 2
     assert multi_self.approval_profile is None
-    assert other_class.allowed is False
-    assert _codes(other_class) == {"self_approval", "quorum_not_met"}
-    assert other_class.required_quorum == 2
-    assert other_class.approval_profile is None
+    assert enforce_promotion.allowed is False
+    assert _codes(enforce_promotion) == {"self_approval", "quorum_not_met"}
+    assert enforce_promotion.required_quorum == 2
+    assert enforce_promotion.approval_profile is None
+    assert ordinary_override.allowed is False
+    assert _codes(ordinary_override) == {"self_approval", "quorum_not_met"}
+    assert ordinary_override.required_quorum == 2
+    assert ordinary_override.approval_profile is None
 
 
 def test_dismissed_approval_is_silently_uncounted() -> None:
@@ -511,6 +543,7 @@ def test_every_change_class_declares_its_bounded_requirement() -> None:
         GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION: (2, True, True),
         GovernanceChangeClass.EXEMPTION: (2, True, False),
         GovernanceChangeClass.OVERRIDE: (2, True, False),
+        GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION: (2, True, False),
         GovernanceChangeClass.RISK_CLASSIFICATION_LOOSENING: (2, True, True),
         GovernanceChangeClass.RULE_RETIREMENT: (2, True, True),
     }

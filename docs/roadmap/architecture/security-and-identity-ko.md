@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: d0cde18e00d82c612738d134923f0163261a87df
+translation_source_sha: 98d59424a414f30e4bb322aef4c6ce3682a66884
 translation_revised: 2026-10-05
 ---
 
@@ -272,7 +272,8 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
   회귀 강등과 공급업체의 기능 회수가 이 재정의보다 우선함
   ([운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md)). 승격 레지스트리는
   `promotion_kind`를 저장하고, 주입된 검증기가 Var 승인 영수증을 확인한 뒤에만 재정의를 받아들임.
-  그 영수증을 발급하는 `governance` ActionType 경로는 계획 단계임.
+  `governance.override-promote-action-type` 경로는 Thor의 direct promotion adapter를 통해 그
+  영수증을 발급하고 검증함.
 - 회귀는 자동으로 shadow로 강등; 모든 승격과 강등은 감사 엔트리를 씀.
 - Working-context 정책 후보는 액션 기능을 얻지 않고 같은 기능 권한을
   사용합니다. 비활성화된 상태로 설치되고 범위가 제한된 off-path 비교를 실행하며, 승격에는

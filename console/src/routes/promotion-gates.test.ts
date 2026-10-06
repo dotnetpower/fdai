@@ -6,6 +6,8 @@ const rows = [
     action_type_name: "safe-action",
     mode: "enforce",
     mode_source: "promotion-registry",
+    promotion_kind: "gate_evidence",
+    operator_override: null,
     shadow_days_elapsed: 7,
     sample_count: 100,
     reviewed_count: 100,
@@ -19,6 +21,8 @@ const rows = [
     action_type_name: "escaped-action",
     mode: "shadow",
     mode_source: "catalog-default",
+    promotion_kind: "gate_evidence",
+    operator_override: null,
     shadow_days_elapsed: 3,
     sample_count: 20,
     reviewed_count: 10,
@@ -46,6 +50,31 @@ describe("promotion gate drilldown filters", () => {
     expect(() => decodePromotionGates(response({ agreed_count: 11 }))).toThrow(/MUST NOT exceed/);
     expect(() => decodePromotionGates(response({ mode: "unknown" }))).toThrow(/shadow or enforce/);
     expect(() => decodePromotionGates(response({ mode_source: "browser" }))).toThrow(/mode source/);
+    expect(() => decodePromotionGates(response({ promotion_kind: "manual" }))).toThrow(/promotion_kind/);
+    expect(() => decodePromotionGates(response({
+      promotion_kind: "operator_override",
+      operator_override: { gate_status: "unknown" },
+    }))).toThrow(/gate_status/);
+  });
+
+  it("decodes operator override promotion metadata", () => {
+    const decoded = decodePromotionGates(response({
+      mode: "enforce",
+      mode_source: "promotion-registry",
+      promotion_kind: "operator_override",
+      operator_override: {
+        gate_status: "failed",
+        gate_status_source: "operator_attested",
+        gate_evidence_digest: "e".repeat(64),
+        approval_receipt_digest: "a".repeat(64),
+        operator_principal: "operator@example.com",
+        override_reason: "Operator accepted bounded risk.",
+        override_recorded_at: "2026-10-05T00:00:00Z",
+        safeguard_proof_source: "operator_attested",
+      },
+    }));
+
+    expect(decoded.rows[0]?.operator_override?.gate_status).toBe("failed");
   });
 
   it("rejects summary counts that contradict the returned rows", () => {

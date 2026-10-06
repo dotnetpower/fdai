@@ -103,6 +103,22 @@
         "symbol": "PROMOTION_ACTION_TYPE"
       }
     },
+    "core-override-action-promotion": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "A StateStore action-promotion registry and independently admitted Var override approval evidence must be bound."
+      ],
+      "source_assertion": {
+        "kind": "constant_value",
+        "path": "services/core-control-plane/src/fdai/delivery/promotion_override.py",
+        "symbol": "OVERRIDE_PROMOTION_ACTION_TYPE"
+      }
+    },
     "core-effect-model-promotion": {
       "runtime_surface": "core",
       "route_status": "conditional",
@@ -687,6 +703,12 @@
         "core-pr-native": "pr-native-shadow"
       },
       "note": "Catalogued PR-native governance proposal; no current-revision deployment receipt is registered."
+    },
+    "governance.override-promote-action-type@1.0.0": {
+      "bindings": {
+        "core-override-action-promotion": "promotion-direct"
+      },
+      "note": "Direct override promotion is conditional on a durable registry and independently admitted Var approval evidence; it never counts as gate-evidence promotion."
     },
     "governance.promote-action-type@1.0.0": {
       "bindings": {

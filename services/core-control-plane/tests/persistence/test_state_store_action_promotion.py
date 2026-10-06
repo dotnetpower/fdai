@@ -176,11 +176,13 @@ async def test_operator_override_is_recorded_and_marked() -> None:
         "promotion_evidence_digest": "e" * 64,
         "capability_recall": None,
         "gate_status": "insufficient_evidence",
+        "gate_status_source": "operator_attested",
         "gate_evidence_digest": "e" * 64,
         "approval_receipt_digest": _APPROVAL,
         "operator_principal": "operator@example.com",
         "override_reason": "Development-scope owner accepted bounded promotion risk.",
         "override_recorded_at": _NOW.isoformat(),
+        "safeguard_proof_source": "operator_attested",
     }
     persisted = await store.read_state(f"action_promotion:{action_type.name}")
     assert persisted is not None

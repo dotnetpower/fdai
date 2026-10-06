@@ -280,6 +280,9 @@ from fdai.delivery.persistence.state_store_ontology_adequacy import (
 from fdai.delivery.persistence.state_store_operational_promotion import (
     StateStoreOperationalPromotionReceiptStore,
 )
+from fdai.delivery.persistence.state_store_override_authority import (
+    StateStoreOperatorOverrideAuthorityVerifier,
+)
 from fdai.delivery.persistence.state_store_preconditions import (
     StateStoreOpenActionEvidenceProvider,
 )
@@ -421,6 +424,7 @@ __all__ = [
     "PromotionKind",
     "PromotionRefusedError",
     "StateStoreActionPromotionRegistry",
+    "StateStoreOperatorOverrideAuthorityVerifier",
     "DecisionEvidenceAdmissionRecordError",
     "StateStoreDecisionEvidenceAdmissionProvider",
     "StateStoreDecisionEvidenceAdmissionRecorder",

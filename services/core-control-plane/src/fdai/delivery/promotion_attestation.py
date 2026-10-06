@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -68,7 +70,7 @@ class GovernancePromotionAttestation:
                 "change_class": self.review.change_class.value,
                 "author": {
                     "oid": self.review.author.oid,
-                    "roles": [role.value for role in self.review.author.roles],
+                    "roles": sorted(role.value for role in self.review.author.roles),
                 },
                 "head_revision": self.review.head_revision,
                 "head_committed_at": self.review.head_committed_at.isoformat(),
@@ -76,7 +78,7 @@ class GovernancePromotionAttestation:
                     {
                         "approver": {
                             "oid": approval.approver.oid,
-                            "roles": [role.value for role in approval.approver.roles],
+                            "roles": sorted(role.value for role in approval.approver.roles),
                         },
                         "reviewed_revision": approval.reviewed_revision,
                         "approved_at": approval.approved_at.isoformat(),
@@ -85,8 +87,8 @@ class GovernancePromotionAttestation:
                     }
                     for approval in self.review.approvals
                 ],
-                "co_author_oids": list(self.review.co_author_oids),
-                "committer_oids": list(self.review.committer_oids),
+                "co_author_oids": sorted(self.review.co_author_oids),
+                "committer_oids": sorted(self.review.committer_oids),
                 "approval_profile": (
                     self.review.approval_profile.as_audit_dict()
                     if self.review.approval_profile is not None
@@ -165,6 +167,18 @@ def direct_api_receipt_from_json(raw: Mapping[str, Any]) -> DirectApiReceipt:
         ),
         detail=_text(raw, "detail") if raw.get("detail") is not None else None,
     )
+
+
+def promotion_attestation_digest(attestation: GovernancePromotionAttestation) -> str:
+    """Return the stable digest of the exact Var approval attestation."""
+
+    return hashlib.sha256(
+        json.dumps(
+            attestation.as_json(),
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 def _mapping(value: object, name: str) -> Mapping[str, Any]:

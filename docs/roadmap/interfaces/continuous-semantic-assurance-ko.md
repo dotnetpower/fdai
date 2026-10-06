@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: f9b2d25da3a3fa7334b578ca775d0850fdb5d38a
+translation_source_sha: b4dab4d7f3e173fd85c6a7f2452432d5897b9524
 translation_revised: 2026-10-04
 ---
 # 지속형 의미 보증
@@ -48,6 +48,8 @@ Corpus 크기는 소스 리비전의 관측 속성입니다. 논리 기대치, �
 아닙니다.
 후보 문서에 쓰는 이중 언어 질의 용어처럼 변환 전용 온톨로지 어휘가 바뀌는 경우에도,
 governed release 신원이 안정적으로 유지되더라도 매니페스트 원본 다이제스트는 갱신됩니다.
+`governance.override-promote-action-type` 추가는 구조 카탈로그 변경이므로 같은 빌더가 live 보증
+증적을 만들지 않고도 corpus manifest 분모와 원본 다이제스트를 갱신합니다.
 
 ## 실행 프로필
 
