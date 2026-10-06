@@ -9,6 +9,7 @@ body: |-
   - A word tied to a kind by related to, containing, named, 관련, 들어간, 포함된, or 이름에 that is not a complete resource name, such as rg-app, restricts which things count by their names: give it role restricts and list the word itself as a literal.
   - A complete resource name, such as rg-app, used with in, inside, 안에, or 에 있는, names a container: give it role names.
   - A region, such as Korea Central, koreacentral, or 한국 중부, and a run or power state, such as stopped, 중지된, or 할당 해제된, restrict which things count. Quote each one and each literal exactly as the operator wrote it, spacing and case included, never as its canonical name: Korea Central stays Korea Central.
+  - Words that narrow a state, such as still allocated, still billed, 할당은 유지된 채, or 과금되는, belong to that state: quote the whole qualified phrase, such as stopped but still allocated or 할당은 유지된 채 중지된, as one restricts constraint and one literal.
 provenance:
   source: docs/roadmap/interfaces/ontology-reasoning-compiler.md
   notes: Keeps the blind reader's reading of Azure name fragments, containers, regions, and states aligned with the question-form contract.
