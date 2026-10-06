@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1c3c310cd01a9c8e3f5d03958fa05d9b3364ee8c
+translation_source_sha: 4d0302b2fa80a17ab5568d9161babccb389e5187
 translation_revised: 2026-10-06
 ---
 # 프로젝트 구조
@@ -201,7 +201,11 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 계획의 독립 두 번째 판독기를 결속합니다. 서로 모르는 두 선택기가 결속되지 않은 Resource 하위 유형
 표현을 닫힌 선택으로 근거화하고, 블라인드 제약 판독이 형식화된 판단이 명시된 모든 제한을 복사했는지
 확인합니다. `FDAI_SEMANTIC_SECOND_READER=1`은 로컬 실행기만 설정하며, 배포 환경은 이 판독기가 승격될
-때까지 단일 판독기 경로를 유지합니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
+때까지 단일 판독기 경로를 유지합니다. 같은 모듈은 로컬 전용 컴파일된 답변 처리 시점 설정 두 개를 읽습니다.
+`FDAI_SEMANTIC_CONCEPT_SHARD_BYTES`는 개념 샤드 크기를 제한하고, `FDAI_SEMANTIC_SPECULATIVE_FORM_START`는
+`core/conversation/semantic_runtime_speculation.py`가 사전 분류 옆에서 질문 구조화 경로를 시작하게 합니다.
+`core/conversation/semantic_planning_speculation.py`는 계획기에 해당 시작 기능을 제공하며, 계획기는 같은 질문에서만
+티켓을 채택합니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
 로그에는 위치, 유형, 사유만 남깁니다. `semantic_judgment_review.py`는 두 번째 계층 검토 요건과 근거화된
 상태 수집의 승격을 함께 소유하므로, 검토 결정과 계획되는 계열이 서로 어긋날 수 없습니다.
 

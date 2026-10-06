@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 7d1a045060419c661011ef9163b70cb9753db038
-translation_revised: 2026-10-03
+translation_source_sha: b02c024c74ddb21d779963910babf96f937ab204
+translation_revised: 2026-10-06
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -239,6 +239,13 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > OKQ-01에는 이제 `resource_classified_as`의 카탈로그 선언, 결정론적 ResourceType 매핑
 > 다이제스트, 안전하게 실패하는 분류 변환 결과, 단일 작성자 영속성 테스트가 있습니다. 운영
 > 운영 인벤토리 작업 주입은 완료되었고 리소스에서 Rule로 이어지는 질의 함수는 남아 있습니다.
+>
+> **로컬 질문 구조화 처리 시점:** 로컬 실행 환경에서는 질문 구조화 경로가 사전 분류가 끝난 뒤가
+> 아니라 사전 분류 옆에서 시작할 수 있으며, 설정된 샤드 상한 이하의 개념 카탈로그는 샤드 하나로
+> 제시됩니다. 사전 분류는 여전히 경로를 선택하고, 계획기가 채택하지 않은 티켓은 아무것도 답하지
+> 않으며, 모든 후보는 여전히 정확히 한 번 제시됩니다. 단일 샤드 카탈로그는 샤드 간 결선을
+> 없앱니다. 측정 효과는 [내레이터 라우팅과 지연 시간](narrator-routing-and-latency-ko.md#추측-기반-질문-구조화-시작과-단일-샤드-개념-카탈로그-2026-10-06)에
+> 기록되어 있습니다.
 ## 설계 개요
 
 ![설계 개요. 주요 단계는 Operator turn, SemanticProblemFrame candidate, Active ontology release, Principal-scoped query manifest, Deterministic verifier, Verified OntologyQueryPlan, Bounded task DAG, Authoritative evidence and receipts, Verified answer or explicit limitation입니다.](../../diagrams/generated/fdai-roadmap-interfaces-ontology-query-coverage-implementation-plan-01.ko.svg)
