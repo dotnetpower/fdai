@@ -23,6 +23,7 @@ from fdai_service_contracts.policy_administration import (
     POLICY_OBJECT_TOPIC,
     AdmissionPolicyContent,
     ApprovalPolicyContent,
+    PolicyActivationApprovalRequest,
     PolicyActivationEvent,
     PolicyKind,
     PolicyMode,
@@ -36,20 +37,13 @@ from fdai_service_contracts.policy_administration import (
 from pydantic import ValidationError
 
 from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
+from fdai.agents._framework.mimir_policy_errors import PolicyRevisionRejectedError
+from fdai.agents._framework.mimir_policy_store import StateStorePolicyRevisionStore
 from fdai.agents._framework.topics import stable_idempotency_key
-from fdai.shared.providers.state_store import StateStore
 
 _MAX_CONTENT_BYTES = 250_000
 # Composition resolves this asset and injects its absolute path; agents never import delivery.
 POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE = "rule-catalog/schema/policy_admin_opa_capabilities.json"
-
-
-class PolicyRevisionRejectedError(ValueError):
-    """Raised when Mimir rejects a policy revision before activation."""
-
-    def __init__(self, reason: str) -> None:
-        super().__init__(reason)
-        self.reason = reason
 
 
 class PolicyRevisionSigner(Protocol):
@@ -168,162 +162,6 @@ class OpaRegoPolicyCompiler:
 
 
 @dataclass(frozen=True, slots=True)
-class StateStorePolicyRevisionStore:
-    """Persist Mimir policy revisions through the existing StateStore seam."""
-
-    store: StateStore
-
-    async def append_revision(self, record: PolicyRevisionRecord) -> bool:
-        key = _revision_key(record.policy_kind, record.revision_id)
-        return await self.store.write_state_with_audit_if_absent(
-            key,
-            record.model_dump(mode="json"),
-            {
-                "event_type": "policy_revision_recorded",
-                "actor": "Mimir",
-                "policy_kind": record.policy_kind.value,
-                "revision_id": record.revision_id,
-                "policy_digest": record.content_digest,
-                "author_principal": record.author_principal,
-                "validation_digest": record.validation.validation_digest,
-            },
-        )
-
-    async def revision(
-        self,
-        *,
-        policy_kind: PolicyKind,
-        revision_id: str,
-    ) -> PolicyRevisionRecord | None:
-        stored = await self.store.read_state(_revision_key(policy_kind, revision_id))
-        if stored is None:
-            return None
-        return PolicyRevisionRecord.model_validate(stored)
-
-    async def active_revision_id(self, policy_kind: PolicyKind) -> str | None:
-        stored = await self.store.read_state(_activation_key(policy_kind))
-        revision_id = stored.get("revision_id") if stored is not None else None
-        return revision_id if isinstance(revision_id, str) and revision_id else None
-
-    async def active_activation(self, policy_kind: PolicyKind) -> PolicyActivationEvent | None:
-        stored = await self.store.read_state(_activation_key(policy_kind))
-        if stored is None:
-            return None
-        return PolicyActivationEvent.model_validate(
-            {key: value for key, value in stored.items() if key != "revision"}
-        )
-
-    async def active_approval_profile(self) -> ApprovalProfileRevision | None:
-        active = await self.active_revision_id(PolicyKind.APPROVAL)
-        if active is None:
-            return None
-        revision = await self.revision(policy_kind=PolicyKind.APPROVAL, revision_id=active)
-        if revision is None or not isinstance(revision.content, ApprovalPolicyContent):
-            return None
-        return _approval_profile_from_document(revision.content.document)
-
-    async def request_revision_id(self, request_id: str) -> str | None:
-        stored = await self.store.read_state(_request_key(request_id))
-        revision_id = stored.get("revision_id") if stored is not None else None
-        return revision_id if isinstance(revision_id, str) and revision_id else None
-
-    async def record_request_revision(self, *, request_id: str, revision_id: str) -> bool:
-        return await self.store.write_state_if_absent(
-            _request_key(request_id),
-            {
-                "kind": "policy_revision_request",
-                "request_id": request_id,
-                "revision_id": revision_id,
-                "state": "pending",
-            },
-        )
-
-    async def request_activation(self, request_id: str) -> PolicyActivationEvent | None:
-        stored = await self.store.read_state(_request_key(request_id))
-        activation = stored.get("activation") if stored is not None else None
-        if not isinstance(activation, Mapping):
-            return None
-        return PolicyActivationEvent.model_validate(activation)
-
-    async def record_request_activation(
-        self,
-        *,
-        request_id: str,
-        revision_id: str,
-        activation: PolicyActivationEvent,
-    ) -> None:
-        await self.store.write_state(
-            _request_key(request_id),
-            {
-                "kind": "policy_revision_request",
-                "request_id": request_id,
-                "revision_id": revision_id,
-                "state": "activated",
-                "activation": activation.model_dump(mode="json"),
-            },
-        )
-
-    async def activate_revision(
-        self,
-        *,
-        policy_kind: PolicyKind,
-        revision_id: str,
-        policy_digest: str,
-        author_principal: str,
-        activated_at: datetime,
-        validation_digest: str,
-        expected_parent_revision_id: str | None,
-    ) -> PolicyActivationEvent:
-        key = _activation_key(policy_kind)
-        existing = await self.store.read_state(key)
-        revision = int(existing.get("revision", 0)) if existing is not None else 0
-        active_revision_id = existing.get("revision_id") if existing is not None else None
-        if active_revision_id != expected_parent_revision_id:
-            raise PolicyRevisionRejectedError("stale_parent_revision")
-        event = PolicyActivationEvent(
-            kind="policy_activation",
-            policy_id=f"{policy_kind.value}:{revision_id}",
-            policy_kind=policy_kind,
-            revision_id=revision_id,
-            policy_digest=policy_digest,
-            activated_at=activated_at,
-            author_principal=author_principal,
-            validation_digest=validation_digest,
-            correlation_id=f"policy-activation:{policy_kind.value}:{revision_id}",
-            idempotency_key=stable_idempotency_key(
-                "policy-activation",
-                policy_kind.value,
-                revision_id,
-                policy_digest,
-            ),
-        )
-        updated = {
-            **event.model_dump(mode="json"),
-            "revision": revision + 1,
-        }
-        audit_entry = {
-            "event_type": "policy_activation_recorded",
-            "actor": "Mimir",
-            "policy_kind": policy_kind.value,
-            "revision_id": revision_id,
-            "policy_digest": policy_digest,
-            "author_principal": author_principal,
-            "validation_digest": validation_digest,
-        }
-        if existing is None:
-            if not await self.store.write_state_with_audit_if_absent(key, updated, audit_entry):
-                raise PolicyRevisionRejectedError("policy_activation_conflict")
-        elif not await self.store.compare_and_set_state_with_audit(
-            key,
-            updated,
-            expected_revision=revision,
-            audit_entry=audit_entry,
-        ):
-            raise PolicyRevisionRejectedError("policy_activation_conflict")
-        return event
-
-
-@dataclass(frozen=True, slots=True)
 class MimirPolicyAdministration:
     """Validate a typed request and activate it as Mimir's Policy object."""
 
@@ -340,7 +178,10 @@ class MimirPolicyAdministration:
         if self.operator_request_receipt_gate is None:
             raise ValueError("policy administration requires an OperatorRequestReceiptGate")
 
-    async def handle_request(self, payload: Mapping[str, object]) -> PolicyActivationEvent:
+    async def handle_request(
+        self,
+        payload: Mapping[str, object],
+    ) -> PolicyActivationEvent | PolicyActivationApprovalRequest:
         try:
             request = PolicyRevisionRequestEvent.model_validate(dict(payload))
         except ValidationError as exc:
@@ -370,10 +211,22 @@ class MimirPolicyAdministration:
                     activation=active_activation,
                 )
                 return active_activation
-            await self._validate_current_authority_for_content(
+            active_profile = await self._validate_current_authority_for_content(
                 request=request,
                 content=existing.content,
             )
+            required_quorum = await self._activation_quorum(
+                content=existing.content,
+                parent_revision_id=existing.parent_revision_id,
+                active_profile=active_profile,
+            )
+            if required_quorum > 1:
+                return _activation_approval_request(
+                    request=request,
+                    record=existing,
+                    requested_at=_now(self.clock),
+                    quorum=required_quorum,
+                )
             activation = await self.store.activate_revision(
                 policy_kind=existing.policy_kind,
                 revision_id=existing.revision_id,
@@ -395,7 +248,7 @@ class MimirPolicyAdministration:
         created_at = _now(self.clock)
         content = request.content
         _validate_content_size(content.model_dump(mode="json"))
-        await self._validate_current_authority_for_content(
+        active_profile = await self._validate_current_authority_for_content(
             request=request,
             content=content,
         )
@@ -468,6 +321,18 @@ class MimirPolicyAdministration:
             revision_id=record.revision_id,
         ):
             raise PolicyRevisionRejectedError("request_id_conflict")
+        required_quorum = await self._activation_quorum(
+            content=record.content,
+            parent_revision_id=record.parent_revision_id,
+            active_profile=active_profile,
+        )
+        if required_quorum > 1:
+            return _activation_approval_request(
+                request=request,
+                record=record,
+                requested_at=created_at,
+                quorum=required_quorum,
+            )
         activation = await self.store.activate_revision(
             policy_kind=request.policy_kind,
             revision_id=record.revision_id,
@@ -507,13 +372,97 @@ class MimirPolicyAdministration:
         active_profile = await self.store.active_approval_profile()
         if active_profile is not None and active_profile.is_single_operator:
             self._validate_profile_author(active_profile, request.author_principal)
-        if request.policy_kind is PolicyKind.ADMISSION and (
-            active_profile is None or not active_profile.is_single_operator
-        ):
-            raise PolicyRevisionRejectedError("admission_policy_requires_single_operator")
         if isinstance(content, ApprovalPolicyContent):
             self._validate_approval_policy(content, active_profile, request.author_principal)
         return active_profile
+
+    async def handle_activation_approval(
+        self,
+        payload: Mapping[str, object],
+    ) -> PolicyActivationEvent | None:
+        if payload.get("kind") != "policy_activation":
+            return None
+        if payload.get("state") != "approved":
+            return None
+        params = payload.get("params")
+        if not isinstance(params, Mapping):
+            raise PolicyRevisionRejectedError("policy_activation_approval_malformed")
+        try:
+            policy_kind = PolicyKind(str(params.get("policy_kind") or ""))
+        except ValueError as exc:
+            raise PolicyRevisionRejectedError("policy_activation_approval_malformed") from exc
+        revision_id = str(params.get("revision_id") or "")
+        request_id = str(params.get("request_id") or "")
+        if not revision_id or not request_id:
+            raise PolicyRevisionRejectedError("policy_activation_approval_malformed")
+        record = await self.store.revision(policy_kind=policy_kind, revision_id=revision_id)
+        if record is None:
+            raise PolicyRevisionRejectedError("policy_activation_approval_missing_revision")
+        active_activation = await self.store.active_activation(policy_kind)
+        if active_activation is not None and active_activation.revision_id == record.revision_id:
+            return active_activation
+        activation = await self.store.activate_revision(
+            policy_kind=record.policy_kind,
+            revision_id=record.revision_id,
+            policy_digest=record.content_digest,
+            author_principal=record.author_principal,
+            activated_at=_now(self.clock),
+            validation_digest=record.validation.validation_digest,
+            expected_parent_revision_id=record.parent_revision_id,
+        )
+        await self.store.record_request_activation(
+            request_id=request_id,
+            revision_id=record.revision_id,
+            activation=activation,
+        )
+        return activation
+
+    async def _activation_quorum(
+        self,
+        *,
+        content: AdmissionPolicyContent | ApprovalPolicyContent,
+        parent_revision_id: str | None,
+        active_profile: ApprovalProfileRevision | None,
+    ) -> int:
+        if active_profile is not None and active_profile.is_single_operator:
+            return 1
+        if isinstance(content, ApprovalPolicyContent):
+            proposed = _approval_profile_from_document(content.document)
+            return profile_transition_quorum(
+                active_profile,
+                proposed,
+                governance_quorum=self.governance_quorum,
+            )
+        if await self._admission_revision_is_tightening(
+            content=content,
+            parent_revision_id=parent_revision_id,
+        ):
+            return 1
+        return self.governance_quorum
+
+    async def _admission_revision_is_tightening(
+        self,
+        *,
+        content: AdmissionPolicyContent,
+        parent_revision_id: str | None,
+    ) -> bool:
+        if parent_revision_id is None:
+            return False
+        parent = await self.store.revision(
+            policy_kind=PolicyKind.ADMISSION,
+            revision_id=parent_revision_id,
+        )
+        if parent is None or not isinstance(parent.content, AdmissionPolicyContent):
+            return False
+        if content.rego != parent.content.rego:
+            return False
+        parent_modes = parent.content.action_type_modes
+        child_modes = content.action_type_modes
+        if set(child_modes) != set(parent_modes):
+            return False
+        return all(
+            _mode_rank(child_modes[key]) <= _mode_rank(parent_modes[key]) for key in child_modes
+        )
 
     async def _verify_request_authority(self, request: PolicyRevisionRequestEvent) -> None:
         receipt = request.operator_request_receipt
@@ -557,18 +506,9 @@ class MimirPolicyAdministration:
         author_principal: str,
     ) -> None:
         try:
-            proposed = _approval_profile_from_document(content.document)
+            _approval_profile_from_document(content.document)
         except (TypeError, ValueError) as exc:
             raise PolicyRevisionRejectedError("approval_policy_invalid") from exc
-        required_quorum = profile_transition_quorum(
-            active_profile,
-            proposed,
-            governance_quorum=self.governance_quorum,
-        )
-        if required_quorum > 1 and (
-            active_profile is None or not active_profile.is_single_operator
-        ):
-            raise PolicyRevisionRejectedError("approval_policy_requires_quorum")
         if active_profile is not None and active_profile.is_single_operator:
             self._validate_profile_author(active_profile, author_principal)
 
@@ -642,18 +582,6 @@ def _mode_rank(mode: PolicyMode) -> int:
     return 0 if mode is PolicyMode.SHADOW else 1
 
 
-def _revision_key(policy_kind: PolicyKind, revision_id: str) -> str:
-    return f"policy_revision:{policy_kind.value}:{revision_id}"
-
-
-def _activation_key(policy_kind: PolicyKind) -> str:
-    return f"policy_activation:{policy_kind.value}"
-
-
-def _request_key(request_id: str) -> str:
-    return f"policy_request:{request_id}"
-
-
 def _revision_id(
     policy_kind: PolicyKind,
     content_digest: str,
@@ -671,6 +599,36 @@ def _diff_digest(*, parent_revision_id: str | None, content_digest: str) -> str:
         separators=(",", ":"),
     )
     return "sha256:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _activation_approval_request(
+    *,
+    request: PolicyRevisionRequestEvent,
+    record: PolicyRevisionRecord,
+    requested_at: datetime,
+    quorum: int,
+) -> PolicyActivationApprovalRequest:
+    return PolicyActivationApprovalRequest(
+        policy_id=f"{record.policy_kind.value}:{record.revision_id}",
+        policy_kind=record.policy_kind,
+        revision_id=record.revision_id,
+        policy_digest=record.content_digest,
+        author_principal=record.author_principal,
+        validation_digest=record.validation.validation_digest,
+        parent_revision_id=record.parent_revision_id,
+        requested_at=requested_at,
+        correlation_id=f"policy-activation-approval:{record.policy_kind.value}:{record.revision_id}",
+        idempotency_key=stable_idempotency_key(
+            "policy-activation-approval",
+            record.policy_kind.value,
+            record.revision_id,
+            record.content_digest,
+        ),
+        request_id=request.request_id,
+        quorum_required=quorum,
+        original_quorum_required=quorum,
+        effective_quorum_required=quorum,
+    )
 
 
 def _now(clock: object | None) -> datetime:

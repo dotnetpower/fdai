@@ -215,14 +215,17 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   the existing tracked-state StateStore persistence convention rather than dedicated
   `policy_revision` and `policy_activation` PostgreSQL tables; a later storage migration can split
   those logical records into physical tables without changing the Mimir write contract.
-- Policy activation pinning and governance quorum for relaxing multi-operator revisions remain
-  separate #1912 work. Current activation applies the new pointer to decisions that read after
-  activation, while in-flight decision pinning still depends on the #1912 decision-side binding.
-  Because a fresh install has no approval activation pointer, it uses the multi-operator default
-  and Mimir refuses both approval and admission policy revisions until #1912 supplies the quorum
-  path. Although the target design says tightening revisions can apply immediately under
-  multi-operator, the current implementation treats even tightening admission revisions as not
-  validated unless the active profile is single-operator production.
+- Policy activation pinning and governance quorum for relaxing multi-operator revisions are
+  implemented through the typed Mimir -> Var -> Mimir event path. Mimir records every accepted
+  revision immutably before activation, applies single-operator production revisions immediately,
+  applies provably tightening multi-operator admission revisions immediately, and routes every
+  other multi-operator revision to Var for governance quorum before moving the pointer. Anything
+  other than the same Rego with an unchanged ActionType set and non-raising mode changes is treated
+  as relaxing. Core binds the active admission pointer at decision start, evaluates the pinned Rego
+  under the release-pinned OPA capabilities file when OPA is available, and stores the pinned
+  policy digest on HIL parks so replay and resume keep the original decision input. When no active
+  admission pointer exists, the operator policy input is `None` and existing decision behavior is
+  unchanged. OPA or policy-read failures fail closed to human approval instead of allowing action.
 - The Operator service does not yet read the selected product profile. Until a product-profile seam
   is wired, production composition leaves the policy-revision route disabled by default even when
   the semantic bus exists. Tests bind the route explicitly to verify the publish-only contract.

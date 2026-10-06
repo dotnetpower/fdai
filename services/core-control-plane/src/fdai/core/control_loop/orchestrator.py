@@ -71,6 +71,7 @@ from fdai.core.rca.governed_knowledge_evidence import (
 )
 from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.core.risk_gate.gate import RiskGate
+from fdai.core.risk_gate.operator_policy import OperatorPolicyDecisionBinder
 from fdai.core.risk_gate.preconditions import (
     AutomationHoldReader,
     EventPreconditionEvaluator,
@@ -207,6 +208,7 @@ class ControlLoop(
         development_executor_principal: str | None = None,
         development_revision_reader: TargetRevisionReader | None = None,
         approval_profile: ApprovalProfileRevision | None = None,
+        operator_policy_binder: OperatorPolicyDecisionBinder | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -268,6 +270,7 @@ class ControlLoop(
         self._safeguard_lifecycle_coordinator = safeguard_lifecycle_coordinator
         self._development_profile = development_profile
         self._approval_profile = approval_profile
+        self._operator_policy_binder = operator_policy_binder
         self._development_binding_source = development_binding_source
         self._development_executor_principal = development_executor_principal
         self._development_revision_reader = development_revision_reader

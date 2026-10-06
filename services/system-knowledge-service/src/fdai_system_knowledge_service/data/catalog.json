@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:c33aaced4c3512c01e585257ea814468c0162ff38624f23c06603c72a80fc319",
+  "catalog_digest": "sha256:19cdfeb24636c833ba1473fd6efe59574057fc131ca8062c143642989521a382",
   "execution_authority": false,
-  "generated_at": "2026-10-05T17:35:29.682549Z",
+  "generated_at": "2026-10-06T04:55:01.668748Z",
   "records": [
     {
       "designed_behavior": [
@@ -106,11 +106,11 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:098cd136c4a677faf662cdb20b8d4ab21c8925af5c457058d87772e49ec8e2ef",
+      "record_digest": "sha256:8436f4f596266bc4de11ab8098665fa363ee8e955d219f80d4c7632864bbc9c8",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "32ac615dd86cdfdd3a8819272fb3028cc36e46a1",
+          "blob_sha": "4409a36671e2af2c1e3ec72caf1c54cef1b8fca6",
           "line_end": 369,
           "line_start": 369,
           "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
@@ -119,7 +119,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "7761688bc3ec29935ba2ca2d20969f3a5f88de8b",
+          "blob_sha": "bb012efbd2f46d620f8073221ab5f8c9661d8873",
           "line_end": 29,
           "line_start": 29,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -336,11 +336,11 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:6efe2f4d2de0543c120f6b39bf43374ea850b0797679f1c024c65d02f0cc814e",
+      "record_digest": "sha256:b9ad0240525f48406ef74b526c06cb4fd73bb26b0d0ddb89d311d94cd68f6c65",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "32ac615dd86cdfdd3a8819272fb3028cc36e46a1",
+          "blob_sha": "4409a36671e2af2c1e3ec72caf1c54cef1b8fca6",
           "line_end": 738,
           "line_start": 738,
           "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
@@ -349,7 +349,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "7761688bc3ec29935ba2ca2d20969f3a5f88de8b",
+          "blob_sha": "bb012efbd2f46d620f8073221ab5f8c9661d8873",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "b1929ba4aa6d5f082fe612ca9284d6c4e16b5505"
+  "source_revision": "31f1f34f67b8290f9c7bd4f4fdc38b09149624c6"
 }

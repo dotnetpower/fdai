@@ -79,6 +79,9 @@ durable delivery, and the Teams Workflows webhook binding are owned by
   executor principal. Channel adapters treat these as immutable context for the callback and audit;
   the Operator API and Core revalidate them before any approval is accepted. The metadata does not
   let Slack, Teams, or a notification route select a profile or grant execution authority.
+- A1 approval parks may also carry a pinned operator admission-policy digest. Channel adapters
+  display or return it only as immutable approval context; they never re-read the policy pointer or
+  evaluate Rego.
 - Core's runtime task supervision runs the license entitlement-state publisher as its own
   background task beside the channel outbox tasks. It sends no channel message, and a slow or
   failed publication cannot delay Slack, Teams, or notification delivery.

@@ -257,6 +257,38 @@ class PolicyActivationEvent(PolicyAdministrationContract):
     idempotency_key: Annotated[str, Field(min_length=1, max_length=200)]
 
 
+class PolicyActivationApprovalRequest(PolicyAdministrationContract):
+    """Mimir-owned request for Var quorum before activating a relaxing revision."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    object_type: Literal["Policy"] = "Policy"
+    kind: Literal["policy_activation_approval_requested"] = "policy_activation_approval_requested"
+    event_type: Literal["policy_activation_approval_requested"] = (
+        "policy_activation_approval_requested"
+    )
+    policy_id: Annotated[str, Field(min_length=1, max_length=256)]
+    policy_kind: PolicyKind
+    revision_id: Annotated[str, Field(min_length=1, max_length=128)]
+    policy_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    author_principal: Annotated[str, Field(min_length=1, max_length=512)]
+    validation_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    parent_revision_id: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+    requested_at: datetime
+    correlation_id: Annotated[str, Field(min_length=1, max_length=512)]
+    idempotency_key: Annotated[str, Field(min_length=1, max_length=200)]
+    request_id: Annotated[str, Field(min_length=1, max_length=128)]
+    quorum_required: Annotated[int, Field(ge=2)]
+    original_quorum_required: Annotated[int, Field(ge=2)]
+    effective_quorum_required: Annotated[int, Field(ge=2)]
+
+    @field_validator("requested_at")
+    @classmethod
+    def _requested_at_is_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("policy activation approval requested_at MUST include a timezone")
+        return value.astimezone(UTC)
+
+
 class ReleaseCapabilityMaximums(Protocol):
     """Read-side source for Release maximum modes.
 
@@ -292,6 +324,7 @@ __all__ = [
     "POLICY_REVISION_CONSUMER_GROUP",
     "POLICY_REVISION_REQUEST_TOPIC",
     "PolicyActivationEvent",
+    "PolicyActivationApprovalRequest",
     "PolicyKind",
     "PolicyMode",
     "PolicyRevisionRecord",

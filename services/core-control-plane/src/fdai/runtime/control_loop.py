@@ -46,6 +46,10 @@ from fdai.core.risk_gate import (
     RiskGate,
     RiskGateConfig,
 )
+from fdai.core.risk_gate.operator_policy import (
+    OperatorPolicyDecisionBinder,
+    StateStoreOperatorPolicyRevisionReader,
+)
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.core.tiers.t0_deterministic import T0Engine
 from fdai.core.tiers.t0_deterministic.index import RuleIndex
@@ -70,6 +74,7 @@ from fdai.delivery.operator_request_receipt import core_operator_request_receipt
 from fdai.delivery.persistence.state_store_preconditions import (
     StateStoreOpenActionEvidenceProvider,
 )
+from fdai.delivery.policy_admission import OpaAdmissionPolicyEvaluator
 from fdai.delivery.prospective_lineage import (
     StateStoreProspectiveLineageReadinessReader,
 )
@@ -704,9 +709,16 @@ def _build_control_loop(
     development_kwargs = development_control_loop_kwargs(
         os.environ, store=audit_store, identity=identity, http_client=http_client
     )
+    operator_policy_binder = OperatorPolicyDecisionBinder(
+        reader=StateStoreOperatorPolicyRevisionReader(audit_store),
+        evaluator=OpaAdmissionPolicyEvaluator(
+            capabilities_file=catalog_root / "schema" / "policy_admin_opa_capabilities.json"
+        ),
+    )
     return ControlLoop(
         **development_kwargs,
         approval_profile=(approval_bindings.profile if approval_bindings is not None else None),
+        operator_policy_binder=operator_policy_binder,
         event_ingest=event_ingest,
         trust_router=trust_router,
         t0_engine=t0,

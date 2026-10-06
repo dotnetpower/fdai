@@ -358,7 +358,7 @@ _VAR = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.action-run", "object.audit-entry", "object.event"),
+    subscribes=("object.action-run", "object.audit-entry", "object.event", "object.policy"),
     question_domains=("hil_pending", "approval_backlog"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/var.py",),
 )

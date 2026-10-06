@@ -357,7 +357,34 @@ class Mimir(
 
         if self._policy_administration is None:
             raise RuntimeError("Mimir policy administration is not configured")
-        activation = await self._policy_administration.handle_request(payload)
+        result = await self._policy_administration.handle_request(payload)
+        event = result.model_dump(mode="json")
+        if not await self._checkpoint_rule_publication(
+            topic="object.policy",
+            payload=event,
+            idempotency_key=result.idempotency_key,
+        ):
+            self.record_behavior("policy:activation_duplicate")
+            return event
+        if self.bus is not None:
+            await self._publish_claimed_rule_publication(
+                topic="object.policy",
+                payload=event,
+                idempotency_key=result.idempotency_key,
+            )
+        self.record_behavior(f"policy:{event['kind']}_published")
+        return event
+
+    async def handle_policy_activation_approval(
+        self, payload: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Activate one pending relaxing revision after Var quorum approves it."""
+
+        if self._policy_administration is None:
+            raise RuntimeError("Mimir policy administration is not configured")
+        activation = await self._policy_administration.handle_activation_approval(payload)
+        if activation is None:
+            return None
         event = activation.model_dump(mode="json")
         if not await self._checkpoint_rule_publication(
             topic="object.policy",
@@ -381,6 +408,12 @@ class Mimir(
                 await self.handle_policy_revision_request(payload)
             except PolicyRevisionRejectedError as exc:
                 self.record_behavior(f"policy:request_rejected:{exc.reason}")
+            return
+        if topic == "object.approval" and payload.get("kind") == "policy_activation":
+            try:
+                await self.handle_policy_activation_approval(payload)
+            except PolicyRevisionRejectedError as exc:
+                self.record_behavior(f"policy:activation_rejected:{exc.reason}")
             return
         await super().on_typed_message(topic, payload)
 
