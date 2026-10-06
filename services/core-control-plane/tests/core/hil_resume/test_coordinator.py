@@ -60,7 +60,11 @@ from fdai.core.ontology_platform.reconciliation_producer import (
     ReconciliationRequestProduction,
     ReconciliationRequestProductionStatus,
 )
-from fdai.core.risk_gate.approval_profile import ApprovalProfileKind, ApprovalProfileRevision
+from fdai.core.risk_gate.approval_profile import (
+    ApprovalProfileKind,
+    ApprovalProfileRevision,
+    approval_profile_policy_digest,
+)
 from fdai.delivery.chatops.slack_adapter import (
     SLACK_POST_URL,
     SlackHilAdapter,
@@ -256,13 +260,20 @@ def _action(
 
 
 def _approval_profile() -> ApprovalProfileRevision:
+    payload: dict[str, object] = {
+        "revision_id": "approval-profile-r1",
+        "approval_profile": "single-operator-production",
+        "executor_principal": _EXECUTOR,
+        "effective_from": "2026-10-05T00:00:00+00:00",
+        "operator_principal": _OPERATOR,
+    }
     return ApprovalProfileRevision(
-        revision_id="approval-profile-r1",
+        revision_id=str(payload["revision_id"]),
         approval_profile=ApprovalProfileKind.SINGLE_OPERATOR_PRODUCTION,
-        executor_principal=_EXECUTOR,
-        policy_digest="sha256:" + "a" * 64,
-        effective_from=datetime(2026, 10, 5, tzinfo=UTC),
-        operator_principal=_OPERATOR,
+        executor_principal=str(payload["executor_principal"]),
+        policy_digest=approval_profile_policy_digest(payload),
+        effective_from=datetime.fromisoformat(str(payload["effective_from"])),
+        operator_principal=str(payload["operator_principal"]),
     )
 
 
