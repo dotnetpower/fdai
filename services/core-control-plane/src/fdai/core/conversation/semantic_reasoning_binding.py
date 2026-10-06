@@ -20,7 +20,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import Any, Protocol
 
 from fdai_service_contracts.ontology_query import content_digest
 
@@ -37,6 +37,7 @@ from fdai.core.ontology_platform.query_gateway import (
 )
 from fdai.shared.ontology.acl import ProjectionRequest
 
+from .semantic_environment_context import resource_group_context
 from .semantic_reasoning_admission import FormAdmission
 from .semantic_reasoning_form import FilterRole, MentionDomain, MentionForm
 
@@ -209,6 +210,16 @@ class GatewayAnchorResolver:
         self._request = projection_request
         self._purpose = purpose
         self._as_of = as_of
+
+    async def environment_context(self) -> dict[str, Any] | None:
+        """Read the principal's resource groups as model context, under the same scope."""
+
+        return await resource_group_context(
+            self._gateway,
+            projection_request=self._request,
+            purpose=self._purpose,
+            as_of=self._as_of,
+        )
 
     async def resolve(
         self, mention_id: str, text: str, extensions: tuple[str, ...] = ()

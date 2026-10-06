@@ -623,8 +623,9 @@ profiles:
     capability_id: semantic.question_form
     mode: active
     root: {id: semantic-question-form, version: 1, layer: base}
-    packs: []
-    system_token_budget: 11264
+    packs:
+      - {id: semantic-question-form-azure-resources, version: 1, layer: pack}
+    system_token_budget: 13312
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
@@ -634,8 +635,9 @@ profiles:
     capability_id: semantic.concept_selection
     mode: active
     root: {id: semantic-concept-selection, version: 1, layer: base}
-    packs: []
-    system_token_budget: 2048
+    packs:
+      - {id: semantic-concept-selection-azure-resources, version: 1, layer: pack}
+    system_token_budget: 2560
     request_token_budget: 32768
     reserved_output_tokens: 512
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
@@ -645,8 +647,9 @@ profiles:
     capability_id: semantic.constraint_extraction
     mode: active
     root: {id: semantic-constraint-extraction, version: 1, layer: base}
-    packs: []
-    system_token_budget: 4096
+    packs:
+      - {id: semantic-constraint-extraction-azure-resources, version: 1, layer: pack}
+    system_token_budget: 4864
     request_token_budget: 32768
     reserved_output_tokens: 1024
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]

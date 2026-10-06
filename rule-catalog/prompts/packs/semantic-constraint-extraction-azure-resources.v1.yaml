@@ -1,0 +1,14 @@
+id: semantic-constraint-extraction-azure-resources
+version: 1
+layer: pack
+applies_to: [semantic.constraint_extraction]
+token_budget: 768
+default_mode: shadow
+body: |-
+  Azure resource questions. The request may carry environment: the resource groups this principal can read and whether the list is complete. Use it only to classify what a word does; never quote from it.
+  - A word tied to a kind by related to, containing, named, 관련, 들어간, 포함된, or 이름에 that is not exactly one listed resource group name restricts which things count by their names: give it role restricts and list the word itself as a literal.
+  - A word that exactly matches one listed resource group name, used with in, inside, 안에, or 에 있는, names a container: give it role names.
+  - A region, such as koreacentral, and a run or power state, such as stopped, 중지된, or 할당 해제된, restrict which things count.
+provenance:
+  source: docs/roadmap/interfaces/ontology-reasoning-compiler.md
+  notes: Keeps the blind reader's reading of Azure name fragments, containers, regions, and states aligned with the question-form contract.

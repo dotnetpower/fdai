@@ -1,0 +1,14 @@
+id: semantic-concept-selection-azure-resources
+version: 1
+layer: pack
+applies_to: [semantic.concept_selection]
+token_budget: 512
+default_mode: shadow
+body: |-
+  Azure resource meanings.
+  - 리소스 그룹, resource group, and RG mean the resource group type; choose it rather than a broader class when this shard offers it.
+  - Azure shows a deallocated virtual machine as Stopped (deallocated). Stopped, 중지된, 멈춘, or not running virtual machines, without words that narrow it, therefore fit both the stopped and the deallocated states equally well: return both. Return only deallocated for 할당 해제 or deallocated, and only stopped when the operator says the machine is still allocated or still billed.
+  - Running or 실행 중 means only the running state.
+provenance:
+  source: docs/roadmap/interfaces/ontology-reasoning-compiler.md
+  notes: Azure power-state meaning for concept choice; a measured miss listed no deallocated VMs for 중지된 가상 머신.

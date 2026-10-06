@@ -61,6 +61,7 @@ from fdai.delivery.azure.llm.model_trace import (
 )
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_judgment import _strict_response_format
+from fdai.delivery.azure.llm.semantic_question_form_environment import with_environment
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
@@ -512,6 +513,8 @@ class AzureOpenAIQuestionFormModel:
         require_verbatim: bool,
         candidates: tuple[ModelRequestTarget, ...] | None = None,
     ) -> Mapping[str, Any] | None:
+        hides = lambda text: _hides_secret(text) or _hides_identity(text)  # noqa: E731
+        user_payload = with_environment(name, user_payload, hides=hides)
         try:
             prepared = prepare_model_messages(
                 (
