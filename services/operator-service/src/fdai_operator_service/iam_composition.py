@@ -11,6 +11,7 @@ from fdai_service_contracts.notification_binding import local_binding_key_materi
 from fdai_service_contracts.notification_receipt import (
     NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
 )
+from fdai_service_contracts.product_profile import ProductAddOn
 from fdai_service_contracts.schema import (
     JsonSchemaContractValidator,
     PackageResourceSchemaRegistry,
@@ -65,6 +66,10 @@ from fdai_operator_service.families.iam.hil_decision_outbox import (
 from fdai_operator_service.families.iam.hil_teams_callback import (
     TeamsHilCallbackConfig,
     TeamsHilCallbackNormalizer,
+)
+from fdai_operator_service.families.iam.policy_administration import (
+    BusPolicyRevisionEventPublisher,
+    OperatorFreshPolicyPrincipalAuthenticator,
 )
 from fdai_operator_service.families.iam.report_line_contact_outbox import (
     DurableReportLineContactPublisher,
@@ -260,6 +265,7 @@ def build_unavailable_iam_bindings(
     *,
     authorizer: OperatorFamilyAuthorizer,
     role_group_ids: Mapping[str, str],
+    policy_administration_selected: bool = False,
 ) -> IamFamilyBindings:
     """Build fail-closed IAM bindings when the authoritative store is unavailable."""
     unavailable = PostgresIamAdapters(UnavailablePostgresFamilyStore())
@@ -275,6 +281,7 @@ def build_unavailable_iam_bindings(
         runtime_settings=unavailable,
         kill_switch=unavailable,
         configuration_review=unavailable,
+        policy_administration_selected=policy_administration_selected,
         role_group_ids=dict(role_group_ids),
     )
 
@@ -342,6 +349,14 @@ def build_postgres_iam_bindings(
             ledger=store,
         )
         if semantic_bus is not None and environment.hil_decision_topic is not None
+        else None
+    )
+    policy_administration_selected = environment.product_profile.selects(
+        ProductAddOn.POLICY_ADMINISTRATION
+    )
+    policy_publisher = (
+        BusPolicyRevisionEventPublisher(semantic_bus)
+        if policy_administration_selected and semantic_bus is not None
         else None
     )
     hil_teams_normalizer = (
@@ -416,6 +431,16 @@ def build_postgres_iam_bindings(
             environment=environment,
             store=store,
             semantic_bus=semantic_bus,
+        ),
+        policy_administration_selected=policy_administration_selected,
+        policy_authenticator=(
+            OperatorFreshPolicyPrincipalAuthenticator(authenticator)
+            if policy_administration_selected
+            else None
+        ),
+        policy_revision_publisher=policy_publisher,
+        policy_receipt_issuer=(
+            operator_request_receipt_issuer if policy_administration_selected else None
         ),
         role_group_ids=dict(role_group_ids),
     )

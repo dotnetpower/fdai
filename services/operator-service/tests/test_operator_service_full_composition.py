@@ -26,6 +26,7 @@ from fdai_operator_service.postgres_family_store import PostgresFamilyStore, Sto
 from fdai_operator_service.postgres_test_context import PostgresTestContextOutbox
 from fdai_operator_service.routes import MINIMAL_ROUTE_MANIFEST, aggregate_route_manifest
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
 from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
@@ -35,6 +36,13 @@ BASE_ENV = {
     AUDIENCE_ENV: "audience",
     **{key: f"group-{index}" for index, key in enumerate(GROUP_ENV.values())},
 }
+POLICY_ADMIN_PROFILE_JSON = ProductProfile(
+    add_ons=(
+        ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE,
+        ProductAddOn.POLICY_ADMINISTRATION,
+        ProductAddOn.READ_ONLY_CONSOLE,
+    )
+).model_dump_json()
 
 
 def _verify(token: str) -> Mapping[str, object]:
@@ -189,15 +197,15 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     identities = {(item.method, item.path) for item in manifest}
     owner_counts = Counter(item.owner for item in manifest)
 
-    assert len(manifest) == len(identities) == 239
+    assert len(manifest) == len(identities) == 238
     assert ("GET", "/observer-deployment-proposals") in identities
-    assert ("POST", "/policy/revisions") in identities
+    assert ("POST", "/policy/revisions") not in identities
     assert ("GET", "/handover/readiness") in identities
     assert ("GET", "/kpi/outcome-assurance") in identities
     assert owner_counts == {
         "minimal": 18,
         "conversation": 46,
-        "iam": 60,
+        "iam": 59,
         "workflow": 47,
         "operations": 43,
         "operations-panel": 9,
@@ -217,13 +225,25 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     }
     app = cast(Starlette, _client().app)
     assert _registered_identities(app) == identities
-    assert len(app.router.routes) == 239
+    assert len(app.router.routes) == 238
     assert {
         ("GET", "/test-context/choices"),
         ("POST", "/test-context/proposals"),
         ("POST", "/test-context/reviews"),
         ("POST", "/test-context/revocations"),
     } <= identities
+
+
+def test_policy_administration_route_requires_selected_product_profile() -> None:
+    manifest = aggregate_route_manifest(include_policy_administration=True)
+    identities = {(item.method, item.path) for item in manifest}
+    app = cast(
+        Starlette,
+        _client({"FDAI_PRODUCT_PROFILE_JSON": POLICY_ADMIN_PROFILE_JSON}).app,
+    )
+
+    assert ("POST", "/policy/revisions") in identities
+    assert ("POST", "/policy/revisions") in _registered_identities(app)
 
 
 def test_unavailable_families_enforce_authentication_and_rbac_before_503() -> None:

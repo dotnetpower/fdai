@@ -52,6 +52,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from fdai_service_contracts.development_approval import development_owner_only
+from fdai_service_contracts.policy_administration import PolicyRevisionSignatureVerifier
 
 from fdai.core.executor import (
     DirectApiExecutionPort,
@@ -68,7 +69,6 @@ from fdai.core.executor.tool_call import (
 from fdai.core.hil_resume.approval_profile_gate import (
     HilApprovalProfileMixin,
     approval_profile_audit_detail,
-    parked_approval_profile,
 )
 from fdai.core.hil_resume.approval_records import (
     approval_expired as _approval_expired,
@@ -180,6 +180,8 @@ class HilResumeCoordinator(
         report_line_router: ReportLineApprovalRouter | None = None,
         contact_consent_service: ApprovalContactConsentService | None = None,
         approval_profile: ApprovalProfileRevision | None = None,
+        approval_profile_bootstrap: ApprovalProfileRevision | None = None,
+        approval_profile_signature_verifier: PolicyRevisionSignatureVerifier | None = None,
     ) -> None:
         if (report_line_router is None) != (contact_consent_service is None):
             raise ValueError(
@@ -234,6 +236,8 @@ class HilResumeCoordinator(
         self._development_revisions: TargetRevisionReader | None = None
         self._development_category_revalidator: DevelopmentCategoryRevalidator | None = None
         self._approval_profile = approval_profile
+        self._approval_profile_bootstrap = approval_profile_bootstrap
+        self._approval_profile_signature_verifier = approval_profile_signature_verifier
         self._report_line_hil = (
             ReportLineHilCoordinator(
                 store=state_store,
@@ -284,10 +288,6 @@ class HilResumeCoordinator(
         """
         return await self._state_store.read_state(operator_receipt_key(approval_id))
 
-    # ------------------------------------------------------------------
-    # resolve (approve -> execute | reject | timeout)
-    # ------------------------------------------------------------------
-
     async def resolve(
         self,
         *,
@@ -304,12 +304,8 @@ class HilResumeCoordinator(
         never executes. Only an ``APPROVE`` on a still-pending park
         re-dispatches the action to the executor.
 
-        ``approver_can_approve_hil`` is the caller's RBAC verdict for
-        ``Capability.APPROVE_RUNTIME_HIL`` (the Operator API HIL callback fills it
-        from the operator's roles). The delegation gate refuses an approver
-        who lacks it, and - when the park carries a different ``assignee_oid``
-        than the approver - records the approval as **delegated** so the audit
-        shows both the actual approver and the original assignee.
+        ``approver_can_approve_hil`` is the caller's RBAC verdict. The delegation gate refuses an
+        approver who lacks it and records different assignee/approver pairs as delegated.
 
         ``development_attestation`` is the Operator's fresh-authentication record for an
         Owner approving their own request under the selected development profile. It lifts
@@ -348,7 +344,7 @@ class HilResumeCoordinator(
         correlation_id = str(parked.get("correlation_id") or approval_id)
         idem = str(parked.get("idempotency_key") or approval_id)
         assignee_oid = str(parked.get("assignee_oid") or "").strip() or None
-        parked_profile, profile_refusal = parked_approval_profile(parked, self._approval_profile)
+        parked_profile, profile_refusal = await self._parked_approval_profile(parked)
         if profile_refusal is not None:
             await self._audit(
                 action_kind="hil.resolve.approval_profile_refused",

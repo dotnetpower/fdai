@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 898539f62ab9063f8bdff5312365d09845d228f6
+translation_source_sha: 69f974cb592d2763588526f8e2255963de818234
 translation_revised: 2026-10-02
 ---
 # 구독 초기 프로비저닝
@@ -48,7 +48,7 @@ inspect -> reconcile current state -> foundation plan/apply -> attest runner
 
 | 영역 | 현재 근거 | 이 설계가 해소하는 미비점 |
 |------|-----------|---------------------------|
-| 운영자 진입점 | `fdai-up.sh`는 전체 비공개 실행을 감독하고 그룹을 만들 수 있습니다. `fdaictl provision entra`는 프로필에 결속된 제어를 별도로 점검하고 `aw-approvers` human 승인과 비공개 Azure context에서 인증한 별도의 profile-bound managed identity 뒤에만 기존 그룹 5개에 정확한 `dev` 앱/역할 바인딩 계획을 적용합니다. 실행 전 기록, 증적 및 재확인은 두 principal을 모두 결속하며 멤버십을 만들거나 공급자 동의를 부여하지 않습니다. | 공급자 동의, Teams 설치, Conditional Access, Access Reviews, Azure Policy, 그룹 멤버십, executor 인증 및 최소 권한 검사는 별도로 관리되는 테넌트 단계로 남습니다. 완전한 준비 증적에 대한 정확한 리비전의 실제 Azure 근거가 남아 있습니다. |
+| 운영자 진입점 | `fdai-up.sh`는 전체 비공개 실행을 감독하고 그룹을 만들 수 있습니다. `fdaictl provision entra`는 프로필에 결속된 제어를 별도로 점검하고 `aw-approvers` human 승인과 비공개 Azure context에서 인증한 별도의 profile-bound managed identity 뒤에만 기존 그룹 5개에 정확한 `dev` 앱/역할 바인딩 계획을 적용합니다. 실행 전 기록, 증적 및 재확인은 두 principal을 모두 결속하며 멤버십을 만들거나 공급자 동의를 부여하지 않습니다. 테넌트 로컬 Entra 선언은 이제 원시 `policy-admin` App Role을 포함하고 Operator API 액세스 토큰의 `auth_time` 선택적 클레임을 요청합니다. | 공급자 동의, Teams 설치, Conditional Access, Access Reviews, Azure Policy, 그룹 멤버십, executor 인증, policy-admin 역할 할당 및 최소 권한 검사는 별도로 관리되는 테넌트 단계로 남습니다. 완전한 준비 증적에 대한 정확한 리비전의 실제 Azure 근거가 남아 있습니다. |
 | 초기 구성 진행률 | `genesis-up.sh`는 하위 수준 15단계 경로를 유지합니다. `fdai-up.sh`는 현재 정확한 TTY 승인만 만들고 이미 점유한 효과는 검증으로 재개하며 독립적인 인벤토리 종결까지 계속합니다. | 소스는 인벤토리 종결 뒤 `inventory_ready=true`를 내보내지만, 나머지 비인벤토리 근거 모음과 실제 테넌트 증적이 종결될 때까지 `subscription_ready=false`를 유지합니다. |
 | 데이터베이스 초기 구성 | 통합 및 서비스 소유 이행과 안전하게 차단하는 데이터베이스 및 의미 체계 재확인 계약이 있습니다. | 런타임 시작 전 표식 생성과 런타임 주체 근거가 완전한 준비 완료 증적으로 통합되지 않았습니다. |
 | 온톨로지와 규칙 | 카탈로그가 저장소에서 버전 관리되고 변경 불가능한 Operator 변환 결과로 구체화될 수 있습니다. | 카탈로그 변환 결과 생성이 Operator API 경로에 조건부로 연결되며 구독 준비도 필수 게이트가 아닙니다. |

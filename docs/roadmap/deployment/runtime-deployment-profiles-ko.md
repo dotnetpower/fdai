@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 13b26bda4918a202b87190b3208dff5dbe8e120d
+translation_source_sha: 0282c62984c8c7d2fd404ec2414a35783acf6f61
 translation_revised: 2026-10-05
 ---
 # 런타임 배포 프로파일
@@ -56,6 +56,14 @@ Pantheon 조립이 공유합니다. 이 프로필은 전권 개발 프로필과 
 잘못됐거나 아직 유효하지 않거나 콘텐츠 주소 지정 다이제스트가 맞지 않으면 안전하게 차단됩니다.
 이 프로필은 지정된 운영자의 승인 정족수만 줄이며 런타임 선택, 위험 등급, A4 차단, 실행 신원,
 효과 검증은 바꾸지 않습니다.
+
+선택된 제품 프로필은 또 다른 런타임 독립 축입니다. 로컬, AKS, Container Apps 프로필은 모두 같은
+canonical 제품 프로필 JSON을 사용합니다. Terraform 루트는 그 `product_profile_json`을 변경 없이
+Core와 Operator 모두에 전달합니다. Core 전용 편의 입력은 Operator 시작 전에 그 JSON으로 먼저
+해결해야 합니다. `policy-administration` 선택은 Operator 정책 경로와 Mimir 정책 관리 구독만
+바인딩하며 런타임 플랫폼, Cost Governance 패키지 활성화 또는 실행 신원을 바꾸지 않습니다. Terraform이
+내보낼 수 없는 정책 서명 Key Vault 키, 그 crypto 역할 부여, Core 서명 환경도 프로비저닝하기
+전까지 `product_profile_json` 검증은 `policy-administration` 추가 기능을 거부합니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을

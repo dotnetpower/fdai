@@ -167,6 +167,10 @@ resource "azurerm_container_app" "operator_api" {
         name  = "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"
         value = var.cors_allow_origins
       }
+      env {
+        name  = "FDAI_PRODUCT_PROFILE_JSON"
+        value = var.product_profile_json
+      }
       dynamic "env" {
         for_each = var.iam_directory_provider == "" ? [] : [var.iam_directory_provider]
         content {

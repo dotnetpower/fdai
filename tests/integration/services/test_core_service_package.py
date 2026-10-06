@@ -136,6 +136,7 @@ EXPECTED_RUNTIME_MODULES = {
     "pantheon_assurance_evidence.py",
     "pantheon_conversation_assurance.py",
     "pantheon_inputs.py",
+    "policy_administration.py",
     "post_turn_review.py",
     "product_profile.py",
     "providers.py",

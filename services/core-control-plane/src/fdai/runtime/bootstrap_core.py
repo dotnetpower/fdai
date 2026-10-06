@@ -35,16 +35,16 @@ from fdai.runtime.bootstrap_bindings import (
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
-from fdai.runtime.bootstrap_hil import (
-    build_hil_workflow_registry as _build_hil_workflow_registry,
-)
+from fdai.runtime.bootstrap_hil import build_hil_workflow_registry as _build_hil_workflow_registry
 from fdai.runtime.bootstrap_lifecycle import (
     build_discovery_activation_runtime,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     build_mutation_dependency_readiness as _build_mutation_dependency_readiness,
 )
-from fdai.runtime.bootstrap_lifecycle import build_runtime_saga as _build_runtime_saga
+from fdai.runtime.bootstrap_lifecycle import (
+    build_runtime_saga as _build_runtime_saga,
+)
 from fdai.runtime.bootstrap_lifecycle import (
     runtime_positive_integer as _runtime_positive_integer,
 )
@@ -87,6 +87,7 @@ from fdai.runtime.operating_intent_revalidation import (
     OperatingIntentSourceRevalidationWorker,
 )
 from fdai.runtime.operating_intent_source import bind_operating_intent_source_from_env
+from fdai.runtime.policy_administration import load_signed_approval_bindings
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_inventory_delta_projector,
@@ -437,10 +438,7 @@ async def build_core_runtime(
             extra={"reason": "executed_action_sources_absent"},
         )
     runtime_saga = _build_runtime_saga(state_store)
-    mutation_readiness = _build_mutation_dependency_readiness(
-        saga=runtime_saga,
-        rollback_executors=None,
-    )
+    approval_bindings = await load_signed_approval_bindings(environment, state_store, resources)
     control_loop = _build_control_loop(
         container,
         http_client=resources.http_client,
@@ -463,8 +461,11 @@ async def build_core_runtime(
         ),
         human_access_enabled=runtime_values["human_access.enabled"] is True,
         license_authority=license_authority,
-        mutation_dependency_readiness=mutation_readiness,
+        mutation_dependency_readiness=_build_mutation_dependency_readiness(
+            saga=runtime_saga, rollback_executors=None
+        ),
         workflow_event_bus=messaging.bus,
+        approval_bindings=approval_bindings,
     )
     from fdai.core.rule_activation import StateStoreRuleActivationLedger
 
@@ -559,8 +560,7 @@ async def build_core_runtime(
             extra={"reason": "artifact_resolver_and_observation_verifier_absent"},
         )
     catalog_projection_result = await project_catalog_ontology(control_loop)
-    # Serialize manifest reads, recovery, and projection across startup replicas;
-    # another replica's in-flight apply must never trigger recovery deletion.
+    # Serialize startup projection across replicas so recovery never races another apply.
     operating_model_lock = _build_resource_lock(environment)
     operating_model_result = await project_initial_operating_model_from_env(
         store=control_loop.ontology_instance_store,
@@ -712,6 +712,7 @@ async def build_core_runtime(
             semantic_router_config_from_env=_semantic_router_config_from_env,
             assignment_workflow=(assignment_transport.workflow if assignment_transport else None),
             effect_request_sink=effect_request_binding.producer if effect_request_binding else None,
+            approval_profile=approval_bindings,
         )
     )
     human_access_reconciliation = bind_assignment_reconciliation(

@@ -7,7 +7,10 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
 
-from fdai_service_contracts.policy_administration import POLICY_ACTIVATION_REQUEST_TOPIC
+from fdai_service_contracts.policy_administration import (
+    POLICY_ACTIVATION_REQUEST_TOPIC,
+    PolicyRevisionSignatureVerifier,
+)
 
 from fdai.agents._framework.action_run_identity import validate_action_run_identity
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
@@ -124,6 +127,8 @@ class Var(
         development_owner_authorizer: DevelopmentOwnerAuthorizer | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
         approval_profile: ApprovalProfileRevision | None = None,
+        approval_profile_bootstrap: ApprovalProfileRevision | None = None,
+        approval_profile_signature_verifier: PolicyRevisionSignatureVerifier | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -141,6 +146,8 @@ class Var(
         )
         self._state_store = state_store
         self._approval_profile = approval_profile
+        self._approval_profile_bootstrap = approval_profile_bootstrap
+        self._approval_profile_signature_verifier = approval_profile_signature_verifier
         self._decision_journal = (
             VarDecisionJournal(
                 state_store,
@@ -229,12 +236,16 @@ class Var(
             self.record_behavior("ticket_invalid_quorum")
             return
         try:
-            quorum, original_quorum, effective_quorum, development_authority, approval_profile = (
-                self._admit_ticket_authority(
-                    payload,
-                    action_type=action_type,
-                    payload_quorum=payload_quorum,
-                )
+            (
+                quorum,
+                original_quorum,
+                effective_quorum,
+                development_authority,
+                approval_profile,
+            ) = await self._admit_ticket_authority(
+                payload,
+                action_type=action_type,
+                payload_quorum=payload_quorum,
             )
         except ValueError as exc:
             if "development" in str(exc):
@@ -412,7 +423,7 @@ class Var(
             approver=approver_norm,
             correlation_id=correlation_id,
         )
-        profile = self._active_ticket_approval_profile(
+        profile = await self._active_ticket_approval_profile(
             {"approval_profile": ticket.approval_profile}
         )
         profile_approval_eligible = self._profile_approval_eligible(

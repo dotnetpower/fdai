@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 09fb6bb1b817fab990800748eda3ca79dee30bde
+translation_source_sha: 057dd1d3377e4c4bc248ec3d13b30ff15cfceae5
 translation_revised: 2026-10-06
 ---
 # 운영자 거버넌스 프로필
@@ -68,14 +68,21 @@ translation_revised: 2026-10-06
 
 - 승인 정책 개정이 `approval_profile: single-operator-production`을 선언하고, Microsoft Entra
   ID의 정규화된 사람 principal 하나를 설치 운영자로 바인딩합니다.
-- 배포 구성은 `FDAI_APPROVAL_PROFILE_JSON` 또는 `FDAI_APPROVAL_PROFILE_PATH`에서 활성 불변
-  `ApprovalProfileRevision`을 제공합니다. `policy_digest`는 콘텐츠 주소 지정 방식입니다. 즉,
-  `revision_id`, `approval_profile`, `executor_principal`, `effective_from`,
-  `operator_principal`을 정렬된 키와 압축 구분 기호로 만든 canonical JSON의 SHA-256 앞에
-  `sha256:`을 붙인 값과 같아야 합니다. 잘못된 입력, 알 수 없는 필드, 누락되었거나 맞지 않는
-  다이제스트, 아직 유효 시각이 되지 않은 `effective_from`, 실행기 principal과 같은 운영자 지정,
-  전권 개발 프로필과의 동시 구성은 안전하게 차단됩니다. 개정이 없으면 FDAI는 다중 운영자 기본값을
-  사용합니다.
+- 런타임 구성은 Mimir의 정책 관리 활성화 포인터에 활성 불변 `ApprovalProfileRevision`이 있으면
+  그 값을 읽습니다. `FDAI_APPROVAL_PROFILE_JSON`과 `FDAI_APPROVAL_PROFILE_PATH`는 아직 승인 정책
+  개정을 활성화하지 않은 설치를 위한 부트스트랩 폴백으로만 남습니다. 포인터는 유효하지만 서로
+  다른 bootstrap 프로필보다 우선하며, FDAI는 개정 ID와 다이제스트로 불일치를 로그와 감사에
+  기록합니다.
+- `policy_digest`는 콘텐츠 주소 지정 방식입니다. 즉, `revision_id`, `approval_profile`,
+  `executor_principal`, `effective_from`, `operator_principal`을 정렬된 키와 압축 구분 기호로 만든
+  canonical JSON의 SHA-256 앞에 `sha256:`을 붙인 값과 같아야 합니다. 잘못된 입력, 알 수 없는 필드,
+  누락되었거나 맞지 않는 다이제스트, 아직 유효 시각이 되지 않은 `effective_from`, 실행기 principal과
+  같은 운영자 지정, 전권 개발 프로필과의 동시 구성은 안전하게 차단됩니다. 활성 개정이나 bootstrap
+  개정이 없으면 FDAI는 다중 운영자 기본값을 사용합니다. HIL 보류 항목은 결정이 시작될 때 활성 상태였던
+  개정을 보존하므로, 이후 활성화 변경이 진행 중인 승인 규칙을 다시 쓰지 않습니다.
+- 이전에 저장된 승인 개정을 재생하려면 그 정확한 개정과 프로필 다이제스트에 대한 Mimir
+  활성화 이력 레코드가 필요합니다. 변경할 수 없는 개정 레코드가 있더라도 제출만 되고 승인되지 않은
+  정책 개정만으로는 정족수를 줄일 수 없습니다.
 - 이 프로필로 들어가거나 나오는 변경은 활성 프로필의 거버넌스 규칙을 따릅니다. 다중 운영자에서
   단독 운영자로 바꾸려면 다중 운영자 거버넌스 정족수가 필요합니다. 단독 운영자는 설치를 다시 다중
   운영자로 바꿀 수 있습니다.
@@ -157,7 +164,10 @@ Console은 타입이 지정된 정책 개정 요청을 Operator API로 제출하
    설치 정책 키로 서명한 뒤 게시합니다. 개정은 활성화 이후 시작된 결정에만 적용됩니다. 이미 진행
    중인 결정은 재현을 위해 고정된 정책 다이제스트를 유지합니다.
 6. Saga는 작성자, diff 다이제스트, 검증 결과를 기록합니다.
-7. 롤백은 이전 개정을 선택해 같은 내용의 새 개정을 만듭니다.
+7. 롤백은 이전 개정을 선택해 같은 내용의 새 개정을 만듭니다. 승인 프로필의 경우 Mimir 개정별
+   활성화 이력은 append-only로 남고,
+   `policy_activation_history:approval-profile:<policy_digest>` 인덱스는 같은 승인 프로필 문서
+   다이제스트를 가진 가장 최근 활성 Mimir 개정을 가리키도록 갱신됩니다.
 
 검증은 실수를 일찍 잡지만, 임의의 Rego가 안전하다는 것을 증명하지는 못합니다. 경계는 평가 순서에서
 나옵니다. Core는 운영자 정책을 하나의 입력으로 평가한 뒤 헌법의 강제 제약을 독자적으로
@@ -186,22 +196,33 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
 
 - 승인 프로필, 정족수 축소, 운영자 정책 입력은 `fdai.core.risk_gate.approval_profile`과
   `evaluate_execution_authority`의 Core 결정 규칙으로 있습니다. Forseti, Var, HIL 재개 조정기,
-  Operator API는 HIL 승인을 위해 활성 프로필 개정을 전달합니다. `approval_profile_revision`과
-  `policy_revision` 테이블은 아직 없으며, 활성 프로필은 아직 정책 관리가 아니라
-  `FDAI_APPROVAL_PROFILE_JSON` 또는 `FDAI_APPROVAL_PROFILE_PATH`에서 제공됩니다.
-- 상시 권한 스키마와 평가기는 단독 운영자 프로덕션 프로필에서만 승인 하나를 받아들입니다.
-  `standing-authority-promotion` 변경 등급은 아직 단일 Owner 승인을 받아들이지 않습니다.
+  Operator API는 HIL 승인을 위해 활성 프로필 개정을 전달합니다. Core는 Mimir의 승인 정책 관리
+  활성화 포인터에서 활성 승인 프로필을 선택합니다. `FDAI_APPROVAL_PROFILE_JSON` 또는
+  `FDAI_APPROVAL_PROFILE_PATH`는 포인터가 없을 때만 쓰는 부트스트랩 대체값으로 남습니다. 형식이
+  잘못된 포인터는 안전하게 실패하며, 포인터와 부트스트랩 값이 다르면 로그와 감사 기록을 남깁니다.
+  배포된 Core는 보호된 서비스 배포 입력으로 검토된 승인 프로필을 받을 수 있습니다. 개정은
+  StateStore 규칙을 사용하며, 전용 `approval_profile_revision`과 `policy_revision` 테이블은 아직
+  없습니다.
+- 상시 권한 스키마와 평가기, 그리고 `standing-authority-promotion`과
+  `operator-override-promotion` 변경 등급의 거버넌스 검토 권한은 단독 운영자 프로덕션
+  프로필에서만 승인 하나를 받아들입니다.
 - 승격 레지스트리는 `promotion_kind`를 기록하고 기능 회수를 따르며, 주입된 검증기가 Var 승인
   영수증을 확인한 뒤에만 재정의를 받아들입니다. `governance.override-promote-action-type` 경로는
   통제된 direct-API 승격 어댑터를 통해 그 영수증을 만들고 검증합니다. 보존된 governed production
   receipt는 아직 남은 작업입니다.
-- `policy-administration` 추가 기능, Operator API 정책 개정 경로, Mimir의 검증 및 활성화 경로가
-  구현되었습니다. 이 추가 기능에는 `read-only-console`과 `enterprise-identity-governance`가 필요하며
-  그 자체로 권한을 부여하지 않습니다. 이 경로는 `policy-admin` App 역할과 새 인증을 요구하고, 타입이
-  지정된 본문을 검증한 뒤, 타입 지정 정책 개정 요청 이벤트만 게시합니다. Mimir는 스키마, 제한된
-  Rego, 주입된 읽기 측 포트를 통한 Release 최대값을 검증하고, 서명된 Operator 요청 증적을 확인하며,
-  주입된 정책 서명기로 서명하고, 설치 StateStore 이음매를 통해 변경할 수 없는 개정과 활성화 포인터를
-  저장합니다. Rego 검증은 네트워크 접근을 비활성화한 Release 고정 OPA 기능 allowlist를 사용합니다.
+- `policy-administration` 추가 기능, Operator API 정책 개정 경로, Mimir의 검증 및 활성화 경로,
+  제품 프로필 구성 게이트가 구현되었습니다. 이 추가 기능에는 `read-only-console`과
+  `enterprise-identity-governance`가 필요하며 그 자체로 권한을 부여하지 않습니다. 선택된 제품
+  프로필에 이 추가 기능이 있을 때만 Operator 경로가 존재합니다. 이 경로는 `policy-admin` App 역할과
+  새 인증을 요구하고, 타입이 지정된 본문을 검증한 뒤, 타입 지정 정책 개정 요청 이벤트만 게시합니다.
+  Core는 같은 선택 아래에서만 Mimir의 정책 관리 포트를 바인딩하고
+  `operator.policy-revision.requests`를 구독합니다. Mimir는 스키마, 제한된 Rego, 주입된 읽기 측
+  포트를 통한 Release 최대값을 검증하고, 서명된 Operator 요청 증적을 확인하며, 내보낼 수 없는
+  Azure Key Vault 키 어댑터로 서명하고, 설치 StateStore 이음매를 통해 변경할 수 없는 개정과 활성화
+  포인터를 저장합니다. 저장된 개정에는 버전이 있는 Key Vault 키 id, 정확한 서명 메시지 형식, 서명
+  알고리즘, 원시 서명이 들어 있습니다. Mimir는 활성화 전에 서명을 검증하고, Core는 허용 정책 또는
+  승인 프로필을 소비하기 전에 활성 개정을 다시 검증합니다. 누락, 변조, 잘못된 키 서명은 안전하게
+  차단됩니다. Rego 검증은 네트워크 접근을 비활성화한 Release 고정 OPA 기능 allowlist를 사용합니다.
   이 allowlist는 Core 이미지의 OPA 1.18.2에 맞추며, Release와 함께 제공되는 정책 테스트가 #1822에서
   도착하기 전까지 정책 테스트가 없는 허용 정책 개정은 수락되지 않습니다.
 - 프로덕션 Release 기능 최대값은 여전히 #1822에서 제공됩니다. 그 소스가 구성되기 전에는 요청된
@@ -222,12 +243,19 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   작업 허용이 아니라 사람 승인으로 안전하게 닫히며, 취소된 OPA 평가는 하위 프로세스를 종료합니다.
   전체 권한 개발 범주의 차단 재개는 실패 시 안전하게 차단하는 재검증으로 현재 포인터를 의도적으로
   다시 읽습니다. 결과가 달라지면 권한을 높이지 않고 보류를 유지합니다.
-- Operator 서비스는 아직 선택된 제품 프로필을 읽지 않습니다. 제품 프로필 이음매가 연결되기 전까지
-  프로덕션 구성은 semantic bus가 있더라도 정책 개정 경로를 기본적으로 비활성화합니다. 테스트는
-  publish-only 계약을 검증하기 위해 이 경로를 명시적으로 바인딩합니다.
-- Entra 부트스트랩은 아직 `policy-admin` App 역할이나 Operator API 액세스 토큰의 `auth_time` 선택적
-  클레임 요구사항을 정의하지 않습니다. 해당 신원 설정이 구성되기 전에는 정책 개정 경로가 모든 live
-  Entra principal에 403을 반환합니다.
+- Operator 서비스와 Core는 모두 canonical 제품 프로필 JSON 구성에서 선택된 제품 프로필을 읽습니다.
+  Terraform 루트는 같은 `product_profile_json` 값을 두 워크로드에 전달합니다. `FDAI_PRODUCT_ADDONS_JSON`,
+  `FDAI_PRODUCT_PROFILE`, Core 구성 파일 같은 Core 전용 편의 입력은 Operator 시작 전에 그 canonical
+  JSON으로 구체화해야 합니다. 프로필 JSON이 없으면 `policy-administration`은 선택되지 않은 상태로
+  남고, 잘못된 프로필 JSON은 시작 검증에서 실패합니다.
+- 추가 기능을 배포하려면 Mimir 서명 의존성에 대한 인프라도 필요합니다. 내보낼 수 없는 Key Vault
+  정책 키, 전용 워크로드 신원에 대한 Key Vault Crypto User 역할 부여, Core의
+  `FDAI_POLICY_ADMIN_KEY_VAULT_KEY_ID` 및 `FDAI_POLICY_ADMIN_KEY_VAULT_MI_CLIENT_ID`가 필요합니다.
+  Terraform이 이 입력을 프로비저닝하기 전까지 루트 `product_profile_json` 검증은 로컬 및 테스트
+  구성이 가짜 인프라로 추가 기능을 실행할 수 있더라도 `policy-administration` 선택을 거부합니다.
+- Entra 부트스트랩은 이제 `policy-admin` App 역할을 정의하고 Operator API 액세스 토큰의
+  `auth_time` 선택적 클레임을 요청합니다. Live 테넌트 할당과 동의는 이 저장소 밖의 배포 작업으로
+  남습니다.
 - 정책 경로는 정책 개정 요청을 위해 새 Operator 요청 증적 버전 `1.2.0`에 서명합니다. 다른 Operator
   요청이 쓰는 기존 `1.0.0` 및 `1.1.0` 증적 다이제스트는 바이트 호환성을 유지합니다.
 - 단독 운영자 프로덕션 프로필은 설계상 직무 분리를 줄입니다. 직무 분리가 필요한 고객은 다중

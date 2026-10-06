@@ -32,8 +32,10 @@ held or no-op outcome.
 
 When the single-operator production approval profile is active, the named operator can satisfy the
 approval quorum without a report-line route. FDAI still records the original quorum, effective
-quorum, operator principal, and self-review flag. The reporting graph does not select the profile,
-name the operator, or make the executor eligible to approve.
+quorum, operator principal, and self-review flag from the digest-verified revision that Core pinned
+when the decision started. The reporting graph does not select the profile, name the operator, make
+the executor eligible to approve, or change an in-flight park when Mimir activates a newer approval
+policy revision.
 
 ## Independent authority axes
 

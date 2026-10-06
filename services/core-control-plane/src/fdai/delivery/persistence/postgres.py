@@ -52,6 +52,7 @@ from fdai.delivery.persistence.postgres_audit_fields import (
 from fdai.delivery.persistence.postgres_audit_fields import (
     json_object as _json_object,
 )
+from fdai.delivery.persistence.postgres_state_pair import PostgresStatePairMixin
 from fdai.shared.providers.audit_hash import GENESIS_HASH, canonical_entry, next_hash
 from fdai.shared.providers.state_store import (
     IncidentAppendStatus,
@@ -96,7 +97,9 @@ class PostgresStateStoreConfig:
     (``statement_timeout`` only starts *after* connect succeeds)."""
 
 
-class PostgresStateStore(PostgresAssuranceTwinConfirmationMixin, StateStore):
+class PostgresStateStore(
+    PostgresStatePairMixin, PostgresAssuranceTwinConfirmationMixin, StateStore
+):
     """Async :class:`StateStore` implementation for PostgreSQL."""
 
     def __init__(self, *, config: PostgresStateStoreConfig) -> None:

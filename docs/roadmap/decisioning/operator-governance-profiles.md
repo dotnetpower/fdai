@@ -68,14 +68,22 @@ authorization contract that both production profiles use.
 
 - An approval policy revision declares `approval_profile: single-operator-production` and binds
   one normalized human principal from Microsoft Entra ID as the installation operator.
-- Deployment composition supplies the active immutable `ApprovalProfileRevision` from
-  `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH`. `policy_digest` is
-  content-addressed: it equals `sha256:` plus the SHA-256 of the canonical JSON, using sorted keys
-  and compact separators, for `revision_id`, `approval_profile`, `executor_principal`,
-  `effective_from`, and `operator_principal`. Malformed input, unknown fields, a missing or
-  mismatched digest, a not-yet-effective `effective_from`, a named operator that equals the
-  executor principal, or configuring it together with the full-authority development profile fails
-  closed. When no revision is supplied, FDAI uses the multi-operator default.
+- Runtime composition reads the active immutable `ApprovalProfileRevision` from Mimir's
+  policy-administration activation pointer when one exists. `FDAI_APPROVAL_PROFILE_JSON` and
+  `FDAI_APPROVAL_PROFILE_PATH` remain bootstrap-only fallbacks for an installation that has not yet
+  activated an approval policy revision. The pointer wins over a valid but different bootstrap
+  profile, and FDAI logs and audits the mismatch by revision id and digest.
+- `policy_digest` is content-addressed: it equals `sha256:` plus the SHA-256 of the canonical JSON,
+  using sorted keys and compact separators, for `revision_id`, `approval_profile`,
+  `executor_principal`, `effective_from`, and `operator_principal`. Malformed input, unknown
+  fields, a missing or mismatched digest, a not-yet-effective `effective_from`, a named operator
+  that equals the executor principal, or configuring it together with the full-authority
+  development profile fails closed. When no active revision or bootstrap revision is supplied, FDAI
+  uses the multi-operator default. HIL parks retain the revision that was active when the decision
+  started, so later activation changes do not rewrite in-flight approval rules.
+- Replay of an older stored approval revision requires Mimir's activation-history record for that
+  exact revision and profile digest. A submitted but unapproved policy revision is not enough to
+  reduce quorum, even if its immutable revision record exists.
 - A change into or out of the profile follows the governance rule of the active profile. Moving
   from multi-operator to single-operator needs the multi-operator governance quorum. The single
   operator can move the installation back to multi-operator.
@@ -165,6 +173,9 @@ managed-resource action.
    replay.
 6. Saga records the author, diff digest, and validation results.
 7. A rollback selects an earlier revision and creates a new revision with the same content.
+   For approval profiles, the per-Mimir-revision activation history remains append-only, while the
+   `policy_activation_history:approval-profile:<policy_digest>` index repoints to the newest
+   activated Mimir revision that carries the same approval-profile document digest.
 
 Validation catches mistakes early, but it doesn't prove that arbitrary Rego is safe. The bound comes
 from evaluation order instead. Core evaluates operator policy as one input and then applies the
@@ -196,25 +207,36 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
 - The approval profile, the quorum reduction, and the operator policy input exist as Core decision
   rules in `fdai.core.risk_gate.approval_profile` and `evaluate_execution_authority`. Forseti, Var,
   the HIL resume coordinator, and the Operator API pass the active profile revision for HIL
-  approvals. No `approval_profile_revision` or `policy_revision` table exists yet, and the active
-  profile still comes from `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH` rather than
-  policy administration.
-- The standing-authorization schema and evaluator accept one approval only under the
-  single-operator production profile. The `standing-authority-promotion` change class doesn't
-  accept the single Owner approval yet.
+  approvals. Core selects the active approval profile from Mimir's approval policy-administration
+  activation pointer. `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH` remains only a
+  bootstrap fallback when no pointer exists; a malformed pointer fails closed, and a
+  pointer/bootstrap mismatch is logged and audited. Deployed Core can receive a reviewed approval
+  profile through the protected service deployment input. Revisions use the StateStore convention;
+  no dedicated `approval_profile_revision` or `policy_revision` table exists yet.
+- The standing-authorization schema and evaluator, and the governance review authority for the
+  `standing-authority-promotion` and `operator-override-promotion` change classes, accept one
+  approval only under the single-operator production profile.
+- The promotion registry records `promotion_kind`, honors capability recall, and accepts an
   override only after an injected verifier confirms the Var approval receipt. The
   `governance.override-promote-action-type` path produces and verifies that receipt through the
   governed direct-API promotion adapter. A retained governed production receipt still remains open.
-- The `policy-administration` add-on, the Operator API policy-revision route, and Mimir's
-  validation and activation path are implemented. The add-on requires `read-only-console` and
-  `enterprise-identity-governance`, and grants no authority by itself. The route requires a
+- The `policy-administration` add-on, the Operator API policy-revision route, Mimir's validation
+  and activation path, and the product-profile composition gate are implemented. The add-on requires
+  `read-only-console` and `enterprise-identity-governance`, and grants no authority by itself. The
+  Operator route exists only when the selected product profile includes the add-on, requires a
   `policy-admin` App Role plus fresh authentication, validates a typed body, and publishes only a
-  typed policy-revision request event. Mimir validates schema, restricted Rego, and Release
-  maximums through an injected read-side port, verifies the signed Operator request receipt, signs
-  through an injected policy signer, and stores immutable revisions plus the activation pointer
-  through the installation StateStore seam. Rego validation uses a release-pinned OPA capabilities
-  allowlist aligned to the Core image's OPA 1.18.2 and with network access disabled. Admission
-  revisions without policy tests are refused until Release-shipped policy tests arrive with #1822.
+  typed policy-revision request event. Core binds Mimir's policy-administration port and subscribes
+  to `operator.policy-revision.requests` only under the same selection. Mimir validates schema,
+  restricted Rego, and Release maximums through injected read-side ports, verifies the signed
+  Operator request receipt, signs through a non-exportable Azure Key Vault key adapter, and stores
+  immutable revisions plus the activation pointer through the installation StateStore seam. The
+  stored revision includes the versioned Key Vault key id, the exact signed-message format, the
+  signing algorithm, and the raw signature. Mimir verifies the signature before activation, and Core
+  re-verifies active revisions before admission-policy or approval-profile consumption; missing,
+  tampered, or wrong-key signatures fail closed. Rego validation uses a release-pinned OPA
+  capabilities allowlist aligned to the Core image's OPA 1.18.2 and with network access disabled.
+  Admission revisions without policy tests are refused until Release-shipped policy tests arrive
+  with #1822.
 - Production Release capability maximums still arrive with #1822. Until that source is configured,
   Mimir fails closed for any requested ActionType mode above `shadow`. The first implementation uses
   the existing tracked-state StateStore persistence convention rather than dedicated
@@ -235,12 +257,21 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   human approval instead of allowing action, and cancelled OPA evaluations kill their subprocess.
   Full-authority development category-denial resume intentionally re-reads the current pointer as a
   fail-closed revalidation; a changed result keeps the park held instead of raising authority.
-- The Operator service does not yet read the selected product profile. Until a product-profile seam
-  is wired, production composition leaves the policy-revision route disabled by default even when
-  the semantic bus exists. Tests bind the route explicitly to verify the publish-only contract.
-- The Entra bootstrap does not yet define the `policy-admin` App Role or require the `auth_time`
-  optional claim for Operator API access tokens. Until those identity settings are configured, the
-  policy-revision route returns 403 for every live Entra principal.
+- The Operator service and Core both read the selected product profile from the canonical product
+  profile JSON configuration. The Terraform root passes the same `product_profile_json` value to
+  both workloads. Core-only convenience inputs such as `FDAI_PRODUCT_ADDONS_JSON`,
+  `FDAI_PRODUCT_PROFILE`, or a Core config file must be materialized into that canonical JSON before
+  Operator starts. Missing profile JSON keeps `policy-administration` unselected, and malformed
+  profile JSON fails startup validation.
+- Deploying the add-on also requires infrastructure for Mimir's signing dependency: a
+  non-exportable Key Vault policy key, the Key Vault Crypto User role grant for the dedicated
+  workload identity, and `FDAI_POLICY_ADMIN_KEY_VAULT_KEY_ID` plus
+  `FDAI_POLICY_ADMIN_KEY_VAULT_MI_CLIENT_ID` in Core. Until Terraform provisions those inputs, the
+  root `product_profile_json` validation refuses `policy-administration` even though local and test
+  composition can exercise the add-on with fake infrastructure.
+- The Entra bootstrap now defines the `policy-admin` App Role and requests the `auth_time` optional
+  claim for Operator API access tokens. Live tenant assignment and consent remain deployment
+  operations outside this repository.
 - The policy route signs a new Operator request receipt version, `1.2.0`, for policy revision
   requests. Existing `1.0.0` and `1.1.0` receipt digests remain byte-compatible for other Operator
   requests.

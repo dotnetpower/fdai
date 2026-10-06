@@ -1,15 +1,17 @@
 """Approval-profile gate for resolving a parked HIL decision.
 
 A parked decision pins the approval profile that was active when it parked. Resolution refuses a
-malformed pin or a pin that differs from the profile bound to this runtime, so an in-flight
-decision never changes approval rules mid-flight. The audit details expose the reduced
-separation of duties of the single-operator production profile.
+malformed pin, but it honors a valid pinned revision even after the runtime activates a newer
+profile so an in-flight decision never changes approval rules mid-flight. The audit details expose
+the reduced separation of duties of the single-operator production profile.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+
+from fdai_service_contracts.policy_administration import PolicyRevisionSignatureVerifier
 
 from fdai.core.hil_resume.delegation import DelegationDecision
 from fdai.core.hil_resume.results import ResolveOutcome, ResolveResult
@@ -18,14 +20,19 @@ from fdai.core.risk_gate.approval_profile import (
     ApprovalProfileRevision,
     approval_profile_from_audit_dict,
 )
+from fdai.core.risk_gate.approval_profile_store import approval_profile_pin_is_authorized
+from fdai.shared.providers.state_store import StateStore
 
 MALFORMED = "approval_profile_malformed"
 UNAVAILABLE = "approval_profile_unavailable"
 
 
-def parked_approval_profile(
+async def parked_approval_profile(
     parked: Mapping[str, object],
     bound: ApprovalProfileRevision | None,
+    bootstrap: ApprovalProfileRevision | None,
+    store: StateStore | None,
+    signature_verifier: PolicyRevisionSignatureVerifier | None = None,
 ) -> tuple[ApprovalProfileRevision | None, str | None]:
     """Return the parked profile, or a refusal reason when it can't be honored."""
 
@@ -34,7 +41,13 @@ def parked_approval_profile(
         profile = approval_profile_from_audit_dict(raw if isinstance(raw, Mapping) else None)
     except ValueError:
         return None, MALFORMED
-    if profile is not None and (bound is None or profile.as_audit_dict() != bound.as_audit_dict()):
+    if profile is not None and not await approval_profile_pin_is_authorized(
+        store,
+        pinned=profile,
+        bound=bound,
+        bootstrap=bootstrap,
+        signature_verifier=signature_verifier,
+    ):
         return None, UNAVAILABLE
     return profile, None
 
@@ -60,6 +73,21 @@ class HilApprovalProfileMixin:
     """Bind the deployment-selected profile and refuse approvals it doesn't admit."""
 
     _approval_profile: ApprovalProfileRevision | None
+    _approval_profile_bootstrap: ApprovalProfileRevision | None
+    _approval_profile_signature_verifier: PolicyRevisionSignatureVerifier | None
+    _state_store: StateStore
+
+    async def _parked_approval_profile(
+        self,
+        parked: Mapping[str, object],
+    ) -> tuple[ApprovalProfileRevision | None, str | None]:
+        return await parked_approval_profile(
+            parked,
+            self._approval_profile,
+            self._approval_profile_bootstrap,
+            self._state_store,
+            self._approval_profile_signature_verifier,
+        )
 
     async def _audit(
         self,

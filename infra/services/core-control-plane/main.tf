@@ -30,6 +30,7 @@ module "core_control_plane" {
   configuration_drift                 = var.configuration_drift
   diagnostic_ingest                   = var.diagnostic_ingest
   decision_evidence_container_url     = var.decision_evidence_container_url
+  approval_profile_json               = var.approval_profile_json
   operating_intent_source             = var.operating_intent_source
   scaling                             = var.scaling
   tags                                = var.tags

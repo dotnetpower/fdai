@@ -28,6 +28,7 @@ from fdai.agents.var import Var
 from fdai.core.control_loop import ControlLoop
 from fdai.core.risk_gate import ActionPromotionRegistry, PromotionMetrics, RiskGate
 from fdai.core.risk_gate.approval_profile import OperatorPolicyOutcome
+from fdai.core.risk_gate.approval_profile_store import approval_profile_pin_is_authorized
 from fdai.core.risk_gate.operator_policy import (
     OperatorPolicyDecisionBinder,
     StateStoreOperatorPolicyRevisionReader,
@@ -41,6 +42,7 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.approval_profile import (
     ApprovalProfileKind,
     ApprovalProfileRevision,
+    approval_profile_from_audit_dict,
     approval_profile_policy_digest,
 )
 from fdai_service_contracts.operator_authentication import (
@@ -67,6 +69,7 @@ from fdai_service_contracts.policy_administration import (
     PolicyRevisionRecord,
     PolicyRevisionRequestBody,
     PolicyRevisionRequestEvent,
+    PolicyRevisionSignature,
     PolicyValidationResult,
     policy_content_digest,
     policy_validation_digest,
@@ -81,8 +84,31 @@ _RISK_TABLE = repo_asset_root() / "rule-catalog" / "risk-classification.yaml"
 
 
 class FakeSigner:
-    async def sign_policy_revision(self, *, policy_digest: str, revision_id: str) -> str:
-        return f"fake-keyvault-signature:{revision_id}:{policy_digest}"
+    def __init__(
+        self,
+        *,
+        key_id: str = "https://fdai-example.vault.azure.net/keys/policy-signing/v1",
+        signature_base64: str = "signature-good",
+    ) -> None:
+        self.key_id = key_id
+        self.signature_base64 = signature_base64
+
+    async def sign_policy_revision(
+        self, *, policy_digest: str, revision_id: str
+    ) -> PolicyRevisionSignature:
+        del policy_digest, revision_id
+        return PolicyRevisionSignature(
+            key_id=self.key_id,
+            algorithm="RS256",
+            signature_base64=self.signature_base64,
+        )
+
+    async def verify_policy_revision_signature(self, record: PolicyRevisionRecord) -> bool:
+        return (
+            record.signature is not None
+            and record.signature.key_id == self.key_id
+            and record.signature.signature_base64 == self.signature_base64
+        )
 
 
 def test_policy_admin_capabilities_pin_rego_v1_and_remove_unsafe_builtins() -> None:
@@ -110,6 +136,7 @@ def test_policy_administration_requires_receipt_gate() -> None:
         MimirPolicyAdministration(
             store=RecordingPolicyStore(StateStorePolicyRevisionStore(InMemoryStateStore()), None),
             signer=FakeSigner(),
+            signature_verifier=FakeSigner(),
             rego_compiler=FakeRegoCompiler(),
             operator_request_receipt_gate=None,  # type: ignore[arg-type]
             operator_producer_service_identity="operator-service:test",
@@ -244,6 +271,7 @@ async def test_mimir_validates_stores_activates_and_publishes_policy() -> None:
         policy_administration=MimirPolicyAdministration(
             store=RecordingPolicyStore(StateStorePolicyRevisionStore(store), _single_profile()),
             signer=FakeSigner(),
+            signature_verifier=FakeSigner(),
             rego_compiler=compiler,
             release_maximums=FakeMaximums({"governance.retire-rule": PolicyMode.SHADOW}),
             operator_request_receipt_gate=OperatorRequestReceiptGate(
@@ -268,8 +296,215 @@ async def test_mimir_validates_stores_activates_and_publishes_policy() -> None:
     assert event["policy_kind"] == "admission"
     assert len(compiler.compiled) == 1
     assert await store.read_state(f"policy_activation:{PolicyKind.ADMISSION.value}") is not None
+    history = await store.read_state(
+        f"policy_activation_history:{PolicyKind.ADMISSION.value}:{event['revision_id']}"
+    )
+    assert history is not None
+    assert history["policy_digest"] == event["policy_digest"]
     assert len(bus.messages_on(POLICY_OBJECT_TOPIC)) == 1
     assert bus.messages_on(POLICY_OBJECT_TOPIC)[0].payload["revision_id"] == event["revision_id"]
+
+
+@pytest.mark.asyncio
+async def test_unactivated_approval_revision_does_not_authorize_profile_pin() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    await _append_approval_revision(store, document)
+    pinned = approval_profile_from_audit_dict(document)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
+
+    assert authorized is False
+
+
+@pytest.mark.asyncio
+async def test_activated_approval_revision_authorizes_profile_pin() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document)
+    await _activate_approval_record(store, record)
+    pinned = approval_profile_from_audit_dict(document)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
+
+    assert authorized is True
+
+
+@pytest.mark.asyncio
+async def test_superseded_approval_revision_authorizes_in_flight_profile_pin_after_restart() -> (
+    None
+):
+    store = InMemoryStateStore()
+    first = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    first_record = await _append_approval_revision(store, first)
+    await _activate_approval_record(store, first_record)
+    second = _approval_document(revision_id="approval-profile-r3", operator="operator-2")
+    second_record = await _append_approval_revision(
+        store,
+        second,
+        parent_revision_id=first_record.revision_id,
+    )
+    await _activate_approval_record(store, second_record)
+    pinned = approval_profile_from_audit_dict(first)
+    bound = approval_profile_from_audit_dict(second)
+    assert pinned is not None
+    assert bound is not None
+
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=bound, signature_verifier=FakeSigner()
+    )
+
+    assert authorized is True
+
+
+@pytest.mark.asyncio
+async def test_rollback_to_earlier_approval_content_repoints_digest_index() -> None:
+    store = InMemoryStateStore()
+    first = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    first_record = await _append_approval_revision(store, first)
+    await _activate_approval_record(store, first_record)
+    second = _approval_document(revision_id="approval-profile-r3", operator="operator-2")
+    second_record = await _append_approval_revision(
+        store,
+        second,
+        parent_revision_id=first_record.revision_id,
+    )
+    await _activate_approval_record(store, second_record)
+    rollback_record = await _append_approval_revision(
+        store,
+        first,
+        parent_revision_id=second_record.revision_id,
+    )
+    await _activate_approval_record(store, rollback_record)
+    first_pin = approval_profile_from_audit_dict(first)
+    rollback_pin = approval_profile_from_audit_dict(first)
+    second_pin = approval_profile_from_audit_dict(second)
+    assert first_pin is not None
+    assert rollback_pin is not None
+    assert second_pin is not None
+
+    assert await approval_profile_pin_is_authorized(
+        store, pinned=first_pin, bound=None, signature_verifier=FakeSigner()
+    )
+    assert await approval_profile_pin_is_authorized(
+        store, pinned=rollback_pin, bound=None, signature_verifier=FakeSigner()
+    )
+    assert await approval_profile_pin_is_authorized(
+        store, pinned=second_pin, bound=None, signature_verifier=FakeSigner()
+    )
+    index = await store.read_state(
+        f"policy_activation_history:approval-profile:{first['policy_digest']}"
+    )
+    assert index is not None
+    assert index["revision_id"] == rollback_record.revision_id
+
+
+@pytest.mark.asyncio
+async def test_squatted_approval_digest_index_rolls_back_activation_atomically() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document)
+    await store.write_state(
+        f"policy_activation_history:approval-profile:{document['policy_digest']}",
+        {
+            "kind": "policy_activation_history_index",
+            "approval_profile_digest": "sha256:" + "f" * 64,
+            "revision_id": "attacker-revision",
+        },
+    )
+
+    with pytest.raises(PolicyRevisionRejectedError, match="policy_activation_conflict"):
+        await _activate_approval_record(store, record)
+
+    assert await store.read_state("policy_activation:approval") is None
+    assert (
+        await store.read_state(f"policy_activation_history:approval:{record.revision_id}") is None
+    )
+
+
+@pytest.mark.asyncio
+async def test_forged_approval_profile_pin_without_activation_history_is_refused() -> None:
+    store = InMemoryStateStore()
+    legitimate = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, legitimate)
+    await _activate_approval_record(store, record)
+    forged = _approval_document(revision_id="approval-profile-r-forged", operator="attacker")
+    pinned = approval_profile_from_audit_dict(forged)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
+
+    assert authorized is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("signature_base64", [None, "signature-tampered"])
+async def test_activated_approval_revision_without_valid_signature_refuses_pin(
+    signature_base64: str | None,
+) -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document, signature_base64=signature_base64)
+    await _activate_approval_record(store, record)
+    pinned = approval_profile_from_audit_dict(document)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
+
+    assert authorized is False
+
+
+@pytest.mark.asyncio
+async def test_approval_document_swapped_under_valid_signature_refuses_pin() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document)
+    await _activate_approval_record(store, record)
+    forged = _approval_document(revision_id="approval-profile-r2", operator="attacker")
+    stored = await store.read_state(f"policy_revision:approval:{record.revision_id}")
+    assert stored is not None
+    stored["content"]["document"] = forged
+    await store.write_state(f"policy_revision:approval:{record.revision_id}", stored)
+    await store.write_state(
+        f"policy_activation_history:approval-profile:{forged['policy_digest']}",
+        {
+            "kind": "policy_activation_history_index",
+            "approval_profile_digest": forged["policy_digest"],
+            "revision_id": record.revision_id,
+        },
+    )
+    pinned = approval_profile_from_audit_dict(forged)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
+
+    assert authorized is False
+
+
+@pytest.mark.asyncio
+async def test_stored_approval_pin_without_signature_verifier_is_refused() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document)
+    await _activate_approval_record(store, record)
+    pinned = approval_profile_from_audit_dict(document)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(store, pinned=pinned, bound=None)
+
+    assert authorized is False
 
 
 @pytest.mark.asyncio
@@ -377,6 +612,44 @@ async def test_mimir_rejects_missing_wrong_role_subject_and_stale_receipts() -> 
 
 
 @pytest.mark.asyncio
+async def test_mimir_refuses_tampered_wrong_key_and_missing_policy_signatures() -> None:
+    with pytest.raises(PolicyRevisionRejectedError, match="policy_signature_invalid"):
+        await _admin(signer=FakeSigner(signature_base64="signature-tampered")).handle_request(
+            _request({}).model_dump(mode="json")
+        )
+    with pytest.raises(PolicyRevisionRejectedError, match="policy_signature_invalid"):
+        await _admin(
+            signer=FakeSigner(key_id="https://fdai-example.vault.azure.net/keys/policy-other/v1")
+        ).handle_request(_request({}).model_dump(mode="json"))
+
+    store = InMemoryStateStore()
+    request = _request({})
+    content_digest = policy_content_digest(request.content)
+    revision_id = _expected_revision_id(content_digest)
+    legacy_record = _revision_record(request, revision_id, content_digest, missing_signature=True)
+    await StateStorePolicyRevisionStore(store).append_revision(legacy_record)
+    assert (
+        await StateStoreOperatorPolicyRevisionReader(
+            store,
+            signature_verifier=FakeSigner(),
+        ).revision(policy_kind=PolicyKind.ADMISSION, revision_id=revision_id)
+        is None
+    )
+    with pytest.raises(PolicyRevisionRejectedError, match="policy_signature_missing"):
+        await _admin(store=store).handle_activation_approval(
+            {
+                "kind": "policy_activation",
+                "state": "approved",
+                "params": {
+                    "policy_kind": PolicyKind.ADMISSION.value,
+                    "revision_id": revision_id,
+                    "request_id": "legacy-request",
+                },
+            }
+        )
+
+
+@pytest.mark.asyncio
 async def test_mimir_rejects_unnamed_admission_author_under_single_operator() -> None:
     admin = _admin()
 
@@ -413,6 +686,7 @@ async def test_mimir_redelivery_records_outcome_and_publishes_once_after_transie
         policy_administration=MimirPolicyAdministration(
             store=store,
             signer=FakeSigner(),
+            signature_verifier=FakeSigner(),
             rego_compiler=FakeRegoCompiler(),
             release_maximums=None,
             operator_request_receipt_gate=OperatorRequestReceiptGate(
@@ -476,6 +750,7 @@ async def test_var_quorum_activates_pending_relaxing_admission() -> None:
     admin = MimirPolicyAdministration(
         store=RecordingPolicyStore(StateStorePolicyRevisionStore(state), None),
         signer=FakeSigner(),
+        signature_verifier=FakeSigner(),
         rego_compiler=FakeRegoCompiler(),
         operator_request_receipt_gate=OperatorRequestReceiptGate(
             verifier=FakeReceiptVerifier(),
@@ -575,6 +850,7 @@ async def test_mimir_replay_rechecks_current_profile_before_activation() -> None
     admin = MimirPolicyAdministration(
         store=store,
         signer=FakeSigner(),
+        signature_verifier=FakeSigner(),
         rego_compiler=FakeRegoCompiler(),
         operator_request_receipt_gate=OperatorRequestReceiptGate(
             verifier=FakeReceiptVerifier(),
@@ -606,6 +882,7 @@ async def test_mimir_replay_rejects_same_key_different_body() -> None:
     admin = MimirPolicyAdministration(
         store=store,
         signer=FakeSigner(),
+        signature_verifier=FakeSigner(),
         rego_compiler=FakeRegoCompiler(),
         operator_request_receipt_gate=OperatorRequestReceiptGate(
             verifier=FakeReceiptVerifier(),
@@ -722,8 +999,14 @@ async def test_activated_admission_policy_cannot_raise_hard_constraints(
         action_types_by_name={action_type.name: action_type},
         risk_gate=RiskGate(registry=registry),
         operator_policy_binder=OperatorPolicyDecisionBinder(
-            reader=StateStoreOperatorPolicyRevisionReader(state),
-            evaluator=OpaAdmissionPolicyEvaluator(capabilities_file=_CAPABILITIES),
+            reader=StateStoreOperatorPolicyRevisionReader(
+                state,
+                signature_verifier=FakeSigner(),
+            ),
+            evaluator=OpaAdmissionPolicyEvaluator(
+                capabilities_file=_CAPABILITIES,
+                signature_verifier=FakeSigner(),
+            ),
         ),
     )
 
@@ -784,11 +1067,15 @@ async def test_cancelled_admission_evaluation_kills_opa_child(tmp_path: Path) ->
         },
     )
     binder = OperatorPolicyDecisionBinder(
-        reader=StateStoreOperatorPolicyRevisionReader(state),
+        reader=StateStoreOperatorPolicyRevisionReader(
+            state,
+            signature_verifier=FakeSigner(),
+        ),
         evaluator=OpaAdmissionPolicyEvaluator(
             opa_binary=str(fake_opa),
             capabilities_file=_CAPABILITIES,
             timeout_seconds=5.0,
+            signature_verifier=FakeSigner(),
         ),
         timeout_seconds=0.2,
     )
@@ -809,12 +1096,15 @@ def _admin(
     maximums: FakeMaximums | None = None,
     profile: ApprovalProfileRevision | None | str = "single",
     store: InMemoryStateStore | None = None,
+    signer: FakeSigner | None = None,
 ) -> MimirPolicyAdministration:
     selected_profile = _single_profile() if profile == "single" else profile
     selected_store = store or InMemoryStateStore()
+    selected_signer = signer or FakeSigner()
     return MimirPolicyAdministration(
         store=RecordingPolicyStore(StateStorePolicyRevisionStore(selected_store), selected_profile),
-        signer=FakeSigner(),
+        signer=selected_signer,
+        signature_verifier=FakeSigner(),
         rego_compiler=rego_compiler or FakeRegoCompiler(),
         release_maximums=maximums,
         operator_request_receipt_gate=OperatorRequestReceiptGate(
@@ -925,6 +1215,100 @@ def _single_profile() -> ApprovalProfileRevision:
     )
 
 
+def _approval_document(*, revision_id: str, operator: str) -> dict[str, object]:
+    document: dict[str, object] = {
+        "revision_id": revision_id,
+        "approval_profile": "single-operator-production",
+        "executor_principal": "executor-1",
+        "effective_from": NOW.isoformat(),
+        "operator_principal": operator,
+    }
+    document["policy_digest"] = approval_profile_policy_digest(document)
+    return document
+
+
+def _approval_revision_record(
+    document: dict[str, object],
+    *,
+    parent_revision_id: str | None = None,
+    signature_base64: str | None = "signature-good",
+) -> PolicyRevisionRecord:
+    content = ApprovalPolicyContent(document=document, action_type_modes={})
+    content_digest = policy_content_digest(content)
+    return PolicyRevisionRecord(
+        revision_id=_expected_policy_revision_id(
+            PolicyKind.APPROVAL,
+            content_digest,
+            parent_revision_id,
+        ),
+        policy_kind=PolicyKind.APPROVAL,
+        content_digest=content_digest,
+        content=content,
+        signature_ref="fake-signature",
+        signature=(
+            PolicyRevisionSignature(
+                key_id=FakeSigner().key_id,
+                algorithm="RS256",
+                signature_base64=signature_base64,
+            )
+            if signature_base64 is not None
+            else None
+        ),
+        parent_revision_id=parent_revision_id,
+        author_principal="policy-admin-1",
+        reason="Reviewed approval policy change for a bounded installation scope.",
+        created_at=NOW,
+        activated_at=None,
+        validation=PolicyValidationResult(
+            rego_valid=False,
+            release_maximums_valid=True,
+            policy_tests_valid=False,
+            validation_digest="sha256:" + "1" * 64,
+        ),
+        diff_digest="sha256:" + "d" * 64,
+    )
+
+
+def _expected_policy_revision_id(
+    policy_kind: PolicyKind,
+    content_digest: str,
+    parent_revision_id: str | None,
+) -> str:
+    seed = f"{policy_kind.value}\0{content_digest}\0{parent_revision_id or ''}"
+    return f"{policy_kind.value}:{hashlib.sha256(seed.encode('utf-8')).hexdigest()[:32]}"
+
+
+async def _append_approval_revision(
+    store: InMemoryStateStore,
+    document: dict[str, object],
+    *,
+    parent_revision_id: str | None = None,
+    signature_base64: str | None = "signature-good",
+) -> PolicyRevisionRecord:
+    record = _approval_revision_record(
+        document,
+        parent_revision_id=parent_revision_id,
+        signature_base64=signature_base64,
+    )
+    assert await StateStorePolicyRevisionStore(store).append_revision(record)
+    return record
+
+
+async def _activate_approval_record(
+    store: InMemoryStateStore,
+    record: PolicyRevisionRecord,
+) -> None:
+    await StateStorePolicyRevisionStore(store).activate_revision(
+        policy_kind=PolicyKind.APPROVAL,
+        revision_id=record.revision_id,
+        policy_digest=record.content_digest,
+        author_principal=record.author_principal,
+        activated_at=NOW,
+        validation_digest=record.validation.validation_digest,
+        expected_parent_revision_id=record.parent_revision_id,
+    )
+
+
 def _expected_revision_id(content_digest: str) -> str:
     seed = f"admission\0{content_digest}\0"
     return "admission:" + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
@@ -934,7 +1318,11 @@ def _revision_record(
     event: PolicyRevisionRequestEvent,
     revision_id: str,
     content_digest: str,
+    *,
+    signature: PolicyRevisionSignature | None = None,
+    missing_signature: bool = False,
 ) -> PolicyRevisionRecord:
+    stored_signature = None if missing_signature else signature or _signature()
     validation = PolicyValidationResult(
         rego_valid=True,
         release_maximums_valid=True,
@@ -956,7 +1344,10 @@ def _revision_record(
         policy_kind=event.policy_kind,
         content_digest=content_digest,
         content=event.content,
-        signature_ref="fake-signature",
+        signature_ref=(
+            stored_signature.key_id if stored_signature is not None else "legacy-signature"
+        ),
+        signature=stored_signature,
         parent_revision_id=event.parent_revision_id,
         author_principal=event.author_principal,
         reason=event.reason,
@@ -964,6 +1355,14 @@ def _revision_record(
         activated_at=None,
         validation=validation,
         diff_digest="sha256:" + "d" * 64,
+    )
+
+
+def _signature() -> PolicyRevisionSignature:
+    return PolicyRevisionSignature(
+        key_id="https://fdai-example.vault.azure.net/keys/policy-signing/v1",
+        algorithm="RS256",
+        signature_base64="signature-good",
     )
 
 

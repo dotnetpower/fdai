@@ -30,6 +30,8 @@ from fdai_service_contracts.policy_administration import (
     PolicyMode,
     PolicyRevisionRecord,
     PolicyRevisionRequestEvent,
+    PolicyRevisionSignature,
+    PolicyRevisionSignatureVerifier,
     PolicyValidationResult,
     ReleaseCapabilityMaximums,
     policy_content_digest,
@@ -50,7 +52,9 @@ POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE = "rule-catalog/schema/policy_admin_opa_c
 class PolicyRevisionSigner(Protocol):
     """Sign one content digest with the installation policy key."""
 
-    async def sign_policy_revision(self, *, policy_digest: str, revision_id: str) -> str: ...
+    async def sign_policy_revision(
+        self, *, policy_digest: str, revision_id: str
+    ) -> PolicyRevisionSignature: ...
 
 
 class PolicyRevisionStore(Protocol):
@@ -168,6 +172,7 @@ class MimirPolicyAdministration:
 
     store: PolicyRevisionStore
     signer: PolicyRevisionSigner
+    signature_verifier: PolicyRevisionSignatureVerifier
     rego_compiler: RegoPolicyCompiler
     operator_request_receipt_gate: OperatorRequestReceiptGate
     operator_producer_service_identity: str
@@ -201,6 +206,7 @@ class MimirPolicyAdministration:
                 raise PolicyRevisionRejectedError("request_replay_missing_revision")
             if policy_content_digest(request.content) != existing.content_digest:
                 raise PolicyRevisionRejectedError("request_replay_content_mismatch")
+            await self._verify_revision_signature(existing)
             active_activation = await self.store.active_activation(request.policy_kind)
             if (
                 active_activation is not None
@@ -228,19 +234,10 @@ class MimirPolicyAdministration:
                     requested_at=_now(self.clock),
                     quorum=required_quorum,
                 )
-            activation = await self.store.activate_revision(
-                policy_kind=existing.policy_kind,
-                revision_id=existing.revision_id,
-                policy_digest=existing.content_digest,
-                author_principal=existing.author_principal,
-                activated_at=_now(self.clock),
-                validation_digest=existing.validation.validation_digest,
-                expected_parent_revision_id=existing.parent_revision_id,
-            )
-            await self.store.record_request_activation(
+            activation = await self._activate_verified_revision(
                 request_id=request.request_id,
-                revision_id=existing.revision_id,
-                activation=activation,
+                record=existing,
+                activated_at=_now(self.clock),
             )
             return activation
         active_parent = await self.store.active_revision_id(request.policy_kind)
@@ -289,7 +286,7 @@ class MimirPolicyAdministration:
             }
         )
         revision_id = _revision_id(request.policy_kind, content_digest, request.parent_revision_id)
-        signature_ref = await self.signer.sign_policy_revision(
+        signature = await self.signer.sign_policy_revision(
             policy_digest=content_digest,
             revision_id=revision_id,
         )
@@ -298,7 +295,8 @@ class MimirPolicyAdministration:
             policy_kind=request.policy_kind,
             content_digest=content_digest,
             content=content,
-            signature_ref=signature_ref,
+            signature_ref=signature.key_id,
+            signature=signature,
             parent_revision_id=request.parent_revision_id,
             author_principal=request.author_principal,
             reason=request.reason,
@@ -317,6 +315,7 @@ class MimirPolicyAdministration:
             )
             if existing is None or existing.content_digest != record.content_digest:
                 raise PolicyRevisionRejectedError("duplicate_revision")
+        await self._verify_revision_signature(record)
         if not await self.store.record_request_revision(
             request_id=request.request_id,
             revision_id=record.revision_id,
@@ -334,17 +333,37 @@ class MimirPolicyAdministration:
                 requested_at=created_at,
                 quorum=required_quorum,
             )
+        return await self._activate_verified_revision(
+            request_id=request.request_id,
+            record=record,
+            activated_at=created_at,
+        )
+
+    async def _verify_revision_signature(self, record: PolicyRevisionRecord) -> None:
+        if record.signature is None:
+            raise PolicyRevisionRejectedError("policy_signature_missing")
+        if not await self.signature_verifier.verify_policy_revision_signature(record):
+            raise PolicyRevisionRejectedError("policy_signature_invalid")
+
+    async def _activate_verified_revision(
+        self,
+        *,
+        request_id: str,
+        record: PolicyRevisionRecord,
+        activated_at: datetime,
+    ) -> PolicyActivationEvent:
+        await self._verify_revision_signature(record)
         activation = await self.store.activate_revision(
-            policy_kind=request.policy_kind,
+            policy_kind=record.policy_kind,
             revision_id=record.revision_id,
             policy_digest=record.content_digest,
             author_principal=record.author_principal,
-            activated_at=created_at,
+            activated_at=activated_at,
             validation_digest=record.validation.validation_digest,
-            expected_parent_revision_id=request.parent_revision_id,
+            expected_parent_revision_id=record.parent_revision_id,
         )
         await self.store.record_request_activation(
-            request_id=request.request_id,
+            request_id=request_id,
             revision_id=record.revision_id,
             activation=activation,
         )
@@ -402,21 +421,11 @@ class MimirPolicyAdministration:
         active_activation = await self.store.active_activation(policy_kind)
         if active_activation is not None and active_activation.revision_id == record.revision_id:
             return active_activation
-        activation = await self.store.activate_revision(
-            policy_kind=record.policy_kind,
-            revision_id=record.revision_id,
-            policy_digest=record.content_digest,
-            author_principal=record.author_principal,
-            activated_at=_now(self.clock),
-            validation_digest=record.validation.validation_digest,
-            expected_parent_revision_id=record.parent_revision_id,
-        )
-        await self.store.record_request_activation(
+        return await self._activate_verified_revision(
             request_id=request_id,
-            revision_id=record.revision_id,
-            activation=activation,
+            record=record,
+            activated_at=_now(self.clock),
         )
-        return activation
 
     async def _activation_quorum(
         self,
@@ -455,6 +464,7 @@ class MimirPolicyAdministration:
         )
         if parent is None or not isinstance(parent.content, AdmissionPolicyContent):
             return False
+        await self._verify_revision_signature(parent)
         if content.rego != parent.content.rego:
             return False
         parent_modes = parent.content.action_type_modes
