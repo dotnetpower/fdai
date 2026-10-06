@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: edeab76b74b90d98fac63348374b2f07f9ec1998 }, { source: docs/roadmap/deployment/source-deployment.md, sha: a572c2270d177225b1e55001a65078c2499aaaa2 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: edeab76b74b90d98fac63348374b2f07f9ec1998 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 932cb3e31431e831b97f90e1e1eb62ad837e7263 }]
 ---
 
 # Deploy Quickstart
@@ -57,6 +57,8 @@ Before you start, confirm the following requirements:
   configured Python package index and, if needed, the Python distribution host. This procedure is
   for connected environments; use the signed offline package on an Azure VM without internet access.
 - Node.js and npm, only when you select the Console add-on.
+- No local Terraform installation. The command uses `terraform` on `PATH` only when it is the
+  pinned release; otherwise it downloads that release once and verifies its committed digests.
 - An Azure identity that can create the Foundation resources and assign the documented deployment
   roles in the selected subscription.
 - If you select the Console or enterprise identity add-on, tenant-local FDAI Entra application and
@@ -175,7 +177,9 @@ preparation or preflight is not a deployed application.
 A new interactive run shows the installation settings once at startup. Supply a setup estimate
 ceiling with `--setup-cost-ceiling <USD>` or enter it during that review. Select optional surfaces
 with `--add-on` and optional observation sources with `--observation-source`; the default is the
-headless observation-first profile. These settings do not deploy resources by themselves.
+headless observation-first profile. The partial AKS compute cost review uses a 1500 USD monthly
+ceiling unless you pass `--monthly-cost-ceiling <USD>`. These settings do not deploy resources by
+themselves.
 
 Before the Foundation plan, Genesis reads the regional VM catalog and chooses a compatible managed
 host size within the quota budget. The choice is sealed before approval and never changed during

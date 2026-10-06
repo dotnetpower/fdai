@@ -5,6 +5,7 @@ import io
 import json
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -241,3 +242,15 @@ def test_unusable_retained_ceiling_requires_an_explicit_value(tmp_path, value):
     intent = _retained(tmp_path / "work/source-intent.json", value)
     with pytest.raises(ValueError, match="pass --monthly-cost-ceiling"):
         cost.resolve_monthly_cost_ceiling(None, retained=(intent,))
+
+
+def test_work_dir_ceiling_prefers_source_intent_then_adopted_profile(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    adopted = _retained(tmp_path / "adopted/profile.json", 900).parent
+    resolve = cost.resolve_work_dir_monthly_cost_ceiling
+    assert resolve(None, work_dir=work, adopted_foundation=adopted) == 900
+    _retained(work / "source-intent.json", 1000)
+    assert resolve(None, work_dir=work, adopted_foundation=adopted) == 1000
+    assert resolve(None, work_dir=tmp_path / "fresh", adopted_foundation=None) == (
+        cost.DEFAULT_MONTHLY_COST_CEILING
+    )

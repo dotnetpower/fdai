@@ -41,7 +41,7 @@ from fdai_deployment_cli.console_update import (
     prepare_console_update_plan,
 )
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
-from fdai_deployment_cli.deployment_cost import resolve_monthly_cost_ceiling
+from fdai_deployment_cli.deployment_cost import resolve_work_dir_monthly_cost_ceiling
 from fdai_deployment_cli.deployment_progress import DeploymentProgress
 from fdai_deployment_cli.doctor import (
     azure_active_target_binding,
@@ -279,18 +279,10 @@ def _provision_azure(args: argparse.Namespace) -> int:
             else ".local/state/fdai/azure"
         )
     work_dir = selected_dir if selected_dir.is_absolute() else Path.cwd() / selected_dir
-    args.monthly_cost_ceiling = resolve_monthly_cost_ceiling(
+    args.monthly_cost_ceiling = resolve_work_dir_monthly_cost_ceiling(
         args.monthly_cost_ceiling,
-        retained=(
-            work_dir / "source-intent.json",
-            work_dir / "run/profile.json",
-            work_dir / "foundation/profile.json",
-            *(
-                ()
-                if args.adopt_foundation_directory is None
-                else (args.adopt_foundation_directory / "profile.json",)
-            ),
-        ),
+        work_dir=work_dir,
+        adopted_foundation=args.adopt_foundation_directory,
     )
     adoption_paths = tuple(
         getattr(args, name)

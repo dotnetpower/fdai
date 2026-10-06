@@ -36,6 +36,20 @@ def resolve_monthly_cost_ceiling(requested: int | None, *, retained: tuple[Path,
     return DEFAULT_MONTHLY_COST_CEILING
 
 
+def resolve_work_dir_monthly_cost_ceiling(
+    requested: int | None, *, work_dir: Path, adopted_foundation: Path | None
+) -> int:
+    """Resolve the ceiling from the records a run in ``work_dir`` retains, in precedence order."""
+    retained = (
+        work_dir / "source-intent.json",
+        work_dir / "run/profile.json",
+        work_dir / "foundation/profile.json",
+    )
+    if adopted_foundation is not None:
+        retained = (*retained, adopted_foundation / "profile.json")
+    return resolve_monthly_cost_ceiling(requested, retained=retained)
+
+
 def inspect_aks_compute_cost(
     *,
     profile: RuntimeDeploymentProfile,
