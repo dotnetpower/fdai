@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: ca2f064597f92a6a8e7da018eb846db81c47bcd6
+translation_source_sha: 057dd1d3377e4c4bc248ec3d13b30ff15cfceae5
 translation_revised: 2026-10-06
 ---
 # 운영자 거버넌스 프로필
@@ -196,11 +196,16 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
 
 - 승인 프로필, 정족수 축소, 운영자 정책 입력은 `fdai.core.risk_gate.approval_profile`과
   `evaluate_execution_authority`의 Core 결정 규칙으로 있습니다. Forseti, Var, HIL 재개 조정기,
-  Operator API는 HIL 승인을 위해 활성 프로필 개정을 전달합니다. `approval_profile_revision`과
-  `policy_revision` 테이블은 아직 없으며, 활성 프로필은 아직 정책 관리가 아니라
-  `FDAI_APPROVAL_PROFILE_JSON` 또는 `FDAI_APPROVAL_PROFILE_PATH`에서 제공됩니다.
-- 상시 권한 스키마와 평가기는 단독 운영자 프로덕션 프로필에서만 승인 하나를 받아들입니다.
-  `standing-authority-promotion` 변경 등급은 아직 단일 Owner 승인을 받아들이지 않습니다.
+  Operator API는 HIL 승인을 위해 활성 프로필 개정을 전달합니다. Core는 Mimir의 승인 정책 관리
+  활성화 포인터에서 활성 승인 프로필을 선택합니다. `FDAI_APPROVAL_PROFILE_JSON` 또는
+  `FDAI_APPROVAL_PROFILE_PATH`는 포인터가 없을 때만 쓰는 부트스트랩 대체값으로 남습니다. 형식이
+  잘못된 포인터는 안전하게 실패하며, 포인터와 부트스트랩 값이 다르면 로그와 감사 기록을 남깁니다.
+  배포된 Core는 보호된 서비스 배포 입력으로 검토된 승인 프로필을 받을 수 있습니다. 개정은
+  StateStore 규칙을 사용하며, 전용 `approval_profile_revision`과 `policy_revision` 테이블은 아직
+  없습니다.
+- 상시 권한 스키마와 평가기, 그리고 `standing-authority-promotion`과
+  `operator-override-promotion` 변경 등급의 거버넌스 검토 권한은 단독 운영자 프로덕션
+  프로필에서만 승인 하나를 받아들입니다.
 - 승격 레지스트리는 `promotion_kind`를 기록하고 기능 회수를 따르며, 주입된 검증기가 Var 승인
   영수증을 확인한 뒤에만 재정의를 받아들입니다. `governance.override-promote-action-type` 경로는
   통제된 direct-API 승격 어댑터를 통해 그 영수증을 만들고 검증합니다. 보존된 governed production

@@ -207,12 +207,16 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
 - The approval profile, the quorum reduction, and the operator policy input exist as Core decision
   rules in `fdai.core.risk_gate.approval_profile` and `evaluate_execution_authority`. Forseti, Var,
   the HIL resume coordinator, and the Operator API pass the active profile revision for HIL
-  approvals. No `approval_profile_revision` or `policy_revision` table exists yet, and the active
-  profile still comes from `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH` rather than
-  policy administration.
-- The standing-authorization schema and evaluator accept one approval only under the
-  single-operator production profile. The `standing-authority-promotion` change class doesn't
-  accept the single Owner approval yet.
+  approvals. Core selects the active approval profile from Mimir's approval policy-administration
+  activation pointer. `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH` remains only a
+  bootstrap fallback when no pointer exists; a malformed pointer fails closed, and a
+  pointer/bootstrap mismatch is logged and audited. Deployed Core can receive a reviewed approval
+  profile through the protected service deployment input. Revisions use the StateStore convention;
+  no dedicated `approval_profile_revision` or `policy_revision` table exists yet.
+- The standing-authorization schema and evaluator, and the governance review authority for the
+  `standing-authority-promotion` and `operator-override-promotion` change classes, accept one
+  approval only under the single-operator production profile.
+- The promotion registry records `promotion_kind`, honors capability recall, and accepts an
   override only after an injected verifier confirms the Var approval receipt. The
   `governance.override-promote-action-type` path produces and verifies that receipt through the
   governed direct-API promotion adapter. A retained governed production receipt still remains open.
