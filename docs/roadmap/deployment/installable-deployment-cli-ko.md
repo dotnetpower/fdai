@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 2bd6b7673410462e3adb41348af1df6ac690d29e
+translation_source_sha: 06b38bde1a9e83b87ae58aa7145e56a33c48917c
 translation_revised: 2026-10-06
 ---
 
@@ -99,6 +99,7 @@ Managed Host가 초기 구성 산출물을 내려받을 수 없는 아티팩트 
 
 소스와 키트 Foundation 입력은 서로 다른 타입과 저장 계획 스키마를 사용합니다. 보존된 소스 계획은 현재 스냅샷과 소스 입력의 다이제스트가 일치해야 합니다.
 소스 실행은 검증된 인프라를 상태가 보존되는 비공개 디렉터리에 복사하고, `PATH`의 `terraform`이 고정된 바이너리 다이제스트와 일치할 때만 사용하거나 고정된 릴리스를 내려받아 커밋된 두 다이제스트를 모두 검증한 뒤 잠금 파일이 선택한 공급자만 로컬 미러로 가져옵니다.
+소스 효과 전마다 Foundation, 실행기 등록, 상태 인계 단계는 깨끗한 checkout이 배포하는 정확한 커밋인지만 확인합니다. CI 결과를 조회하지 않으며 GitHub CLI, Azure Developer CLI, 워크스테이션 Terraform을 요구하지 않습니다. 실행기 등록은 Foundation 적용 영수증이 결속한 저장 검토에서 이 방식을 읽습니다.
 불변 스냅샷에는 Terraform 상태나 생성 데이터를 쓰지 않습니다. 기존의 정확한 계획 승인, 실행 전 기록, 검증 전용 복구, 독립적 결과 확인은 계속 적용됩니다.
 비공개 상태 이전에는 Foundation 루트, 같은 상위 디렉터리의 `bootstrap` 및 공유 모듈과 Terraform이 참조하는 정확한 5개 `genesis-runner-image` 지원 파일을 포함합니다.
 이 아카이브 완결 전에 만든 보존 `claim`은 원래 `claim`과 백엔드 이행을 유지하면서 검토된 복구 구성의 정확한 지원 파일을 복원합니다.

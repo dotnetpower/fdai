@@ -589,7 +589,7 @@ def test_source_coordinator_never_transfers_application_source(source_transfer, 
         ),
     )
     monkeypatch.setattr(source_genesis, "StatusStore", lambda **_kwargs: store)
-    monkeypatch.setattr(source_genesis, "GenesisChecks", lambda *_args: checks)
+    monkeypatch.setattr(source_genesis, "GenesisChecks", lambda *_args, **_kwargs: checks)
     monkeypatch.setattr(source_genesis, "load_genesis_approval", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         source_genesis,

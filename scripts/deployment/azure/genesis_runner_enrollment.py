@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
+from fdai_deployment_cli.foundation_plan import REVIEW_NAME, SOURCE_REVIEW_SCHEMA
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.profile import load_profile
 from fdai_deployment_cli.target import compute_target_binding
@@ -130,7 +131,11 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
     if validate_ssh_private_key(private_key) != runner["ssh_key_digest"]:
         raise ValueError("runner SSH private key does not match the reviewed Foundation key")
 
-    checks = GenesisChecks(root)
+    checks = GenesisChecks(
+        root,
+        operator_selected_source=recovered is None
+        and _source_foundation_plan(directory, foundation=foundation),
+    )
     checks.verify_target(
         subscription_id=str(handoff["subscription_id"]),
         tenant_id=str(handoff["tenant_id"]),
@@ -382,6 +387,15 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
         receipt_path, json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n"
     )
     return receipt
+
+
+def _source_foundation_plan(directory: Path, *, foundation: Mapping[str, object]) -> bool:
+    """Read the deployment mode from the saved review that the apply receipt binds."""
+    review = _private_json(directory / REVIEW_NAME, label="Foundation review")
+    digest = review.pop("review_digest", None)
+    if digest != foundation.get("review_digest") or canonical_digest(review) != digest:
+        raise ValueError("Foundation review does not match the apply receipt")
+    return review.get("schema_version") == SOURCE_REVIEW_SCHEMA
 
 
 def _load_foundation_receipt(path: Path, *, expected_digest: str) -> dict[str, object]:

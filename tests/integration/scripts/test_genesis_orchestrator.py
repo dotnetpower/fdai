@@ -205,6 +205,62 @@ def test_signed_evidence_rejects_an_invalid_or_unknown_lineage(
         GenesisChecks(_ROOT)
 
 
+def _source_mode_checks(
+    monkeypatch: pytest.MonkeyPatch, *, head: str, dirty: str = ""
+) -> tuple[GenesisChecks, list[tuple[str, ...]]]:
+    original = genesis_checks_module.trusted_tool
+
+    def trusted_tool(name: str) -> str:
+        if name in {"gh", "azd", "terraform"}:
+            raise AssertionError(f"source deployment requested {name}")
+        return original(name)
+
+    monkeypatch.delenv("FDAI_SIGNED_SOURCE_EVIDENCE", raising=False)
+    monkeypatch.setattr(genesis_checks_module, "trusted_tool", trusted_tool)
+    checks = GenesisChecks(_ROOT, operator_selected_source=True)
+    calls: list[tuple[str, ...]] = []
+
+    def capture(arguments: tuple[str, ...], _reason: str, *, strip: bool = True) -> str:
+        calls.append(arguments)
+        if arguments[1:2] == ("status",):
+            return dirty
+        if arguments[1:3] == ("rev-parse", "HEAD"):
+            return head
+        raise AssertionError(f"source deployment ran {arguments}")
+
+    monkeypatch.setattr(checks, "capture", capture)
+    return checks, calls
+
+
+def test_source_mode_needs_no_ci_result_github_cli_or_workstation_terraform(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checks, calls = _source_mode_checks(monkeypatch, head="a" * 40)
+
+    checks.verify_toolchain(apply=True)
+    checks.verify_source(source_commit="a" * 40, repository=None, apply=True)
+
+    assert checks.gh is None
+    assert [call[1] for call in calls] == ["status", "rev-parse"]
+
+
+def test_source_mode_requires_the_clean_exact_checkout(monkeypatch: pytest.MonkeyPatch) -> None:
+    checks, _ = _source_mode_checks(monkeypatch, head="e" * 40)
+    with pytest.raises(CheckError, match="source_revision_mismatch"):
+        checks.verify_source(source_commit="a" * 40, repository="example/repository", apply=True)
+
+    checks, _ = _source_mode_checks(monkeypatch, head="a" * 40, dirty=" M README.md")
+    with pytest.raises(CheckError, match="apply_requires_clean_checkout"):
+        checks.verify_source(source_commit="a" * 40, repository=None, apply=True)
+
+
+def test_source_mode_refuses_signed_release_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FDAI_SIGNED_SOURCE_EVIDENCE", _signed_evidence())
+
+    with pytest.raises(CheckError, match="signed_source_evidence_invalid"):
+        GenesisChecks(_ROOT, operator_selected_source=True)
+
+
 def test_provider_preview_reports_every_missing_namespace_without_mutation() -> None:
     required = tuple(dict.fromkeys((*FOUNDATION_PROVIDERS, *APPLICATION_PROVIDERS)))
     states = {namespace: "Registered" for namespace in required}

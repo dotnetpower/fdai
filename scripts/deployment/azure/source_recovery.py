@@ -128,7 +128,7 @@ def resume(args: argparse.Namespace) -> dict[str, object]:
         )
     except GenesisApprovalExpiredError:
         approval = None
-    checks = GenesisChecks(source.root)
+    checks = GenesisChecks(source.root, operator_selected_source=True)
     remote = checks.capture(("git", "remote", "get-url", "origin"), "source_repository_unavailable")
     match = _GITHUB_REMOTE.fullmatch(remote)
     if match is None:

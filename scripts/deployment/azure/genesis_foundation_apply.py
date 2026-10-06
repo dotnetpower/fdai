@@ -154,7 +154,7 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         "fdai.foundation-saved-source-plan.v1" if source_mode else "fdai.foundation-saved-plan.v1"
     ):
         raise ValueError("Foundation artifact mode differs from the exact plan")
-    checks = GenesisChecks(repository_root)
+    checks = GenesisChecks(repository_root, operator_selected_source=source_mode)
     subscription_id, tenant_id = _foundation_target(
         variables_path=variables_path,
         profile_path=profile_path,

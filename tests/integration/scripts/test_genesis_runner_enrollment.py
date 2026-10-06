@@ -112,11 +112,19 @@ def _handoff() -> dict[str, object]:
     }
 
 
-def _foundation_receipt(handoff: dict[str, object]) -> dict[str, object]:
+def _foundation_review(schema: str = "fdai.foundation-saved-plan.v1") -> dict[str, object]:
+    review: dict[str, object] = {"schema_version": schema, "plan_digest": "2" * 64}
+    review["review_digest"] = canonical_digest(review)
+    return review
+
+
+def _foundation_receipt(
+    handoff: dict[str, object], review: dict[str, object] | None = None
+) -> dict[str, object]:
     receipt: dict[str, object] = {
         "schema_version": "fdai.genesis-foundation-apply-receipt.v1",
         "state": "applied",
-        "review_digest": "1" * 64,
+        "review_digest": (review or _foundation_review())["review_digest"],
         "plan_digest": "2" * 64,
         "target_binding": BINDING,
         "source_commit": SOURCE,
@@ -208,9 +216,11 @@ def _prepare(tmp_path: Path) -> tuple[Path, Path, dict[str, object]]:
     profile = tmp_path / "profile.json"
     _profile(profile)
     handoff = _handoff()
-    receipt = _foundation_receipt(handoff)
+    review = _foundation_review()
+    receipt = _foundation_receipt(handoff, review)
     _private_json(plan / enrollment.HANDOFF_NAME, handoff)
     _private_json(plan / enrollment.FOUNDATION_RECEIPT_NAME, receipt)
+    _private_json(plan / enrollment.REVIEW_NAME, review)
     return plan, profile, receipt
 
 
@@ -531,3 +541,50 @@ def test_recovered_host_enrollment_requires_separate_authority(tmp_path, monkeyp
         == 0
     )
     assert all("fdai-enroll-runner" not in command[0] for command, _ in FakeTunnel.calls)
+
+
+def test_enrollment_selects_source_mode_only_from_the_bound_review(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    handoff = _handoff()
+    source_review = _foundation_review(enrollment.SOURCE_REVIEW_SCHEMA)
+    _private_json(tmp_path / enrollment.REVIEW_NAME, source_review)
+    assert enrollment._source_foundation_plan(
+        tmp_path, foundation=_foundation_receipt(handoff, source_review)
+    )
+
+    kit_review = _foundation_review()
+    (tmp_path / enrollment.REVIEW_NAME).unlink()
+    _private_json(tmp_path / enrollment.REVIEW_NAME, kit_review)
+    assert not enrollment._source_foundation_plan(
+        tmp_path, foundation=_foundation_receipt(handoff, kit_review)
+    )
+    with pytest.raises(ValueError, match="does not match the apply receipt"):
+        enrollment._source_foundation_plan(
+            tmp_path, foundation=_foundation_receipt(handoff, source_review)
+        )
+
+
+def test_source_enrollment_checks_run_in_source_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan, profile, _ = _prepare(tmp_path)
+    review = _foundation_review(enrollment.SOURCE_REVIEW_SCHEMA)
+    receipt = _foundation_receipt(_handoff(), review)
+    for name, value in (
+        (enrollment.REVIEW_NAME, review),
+        (enrollment.FOUNDATION_RECEIPT_NAME, receipt),
+    ):
+        (plan / name).unlink()
+        _private_json(plan / name, value)
+    _mock_boundaries(monkeypatch)
+    modes: list[bool] = []
+    original = enrollment.GenesisChecks.__init__
+
+    def recording_init(self: object, *args: object, **kwargs: object) -> None:
+        modes.append(bool(kwargs.get("operator_selected_source")))
+        original(self, *args, **kwargs)
+
+    monkeypatch.setattr(enrollment.GenesisChecks, "__init__", recording_init)
+
+    assert enrollment.main(_arguments(plan, profile, receipt, "--approve")) == 0
+    assert modes == [True]
