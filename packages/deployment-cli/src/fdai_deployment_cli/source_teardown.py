@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -163,6 +165,9 @@ def apply_source_teardown(
     monthly_cost_ceiling: int,
     confirmation: str | None,
     client: ResourceGroupClient,
+    readback_timeout_seconds: float = 1800,
+    readback_interval_seconds: float = 30,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> dict[str, object]:
     """Delete only proven-owned groups, then read back their absence."""
 
@@ -183,11 +188,19 @@ def apply_source_teardown(
             "deployment_ready": False,
         }
     for group in plan.resource_groups:
-        client.delete_group(subscription_id=plan.subscription_id, name=group)
-    absent = {
-        group: client.group_absent(subscription_id=plan.subscription_id, name=group)
-        for group in plan.resource_groups
-    }
+        # A rerun after a partial failure must not fail on a group that is already gone.
+        if not client.group_absent(subscription_id=plan.subscription_id, name=group):
+            client.delete_group(subscription_id=plan.subscription_id, name=group)
+    # Deletion is accepted asynchronously, so absence is read back until a bounded deadline.
+    deadline = time.monotonic() + readback_timeout_seconds
+    while True:
+        absent = {
+            group: client.group_absent(subscription_id=plan.subscription_id, name=group)
+            for group in plan.resource_groups
+        }
+        if all(absent.values()) or time.monotonic() >= deadline:
+            break
+        sleep(min(readback_interval_seconds, max(0.0, deadline - time.monotonic())))
     if not all(absent.values()):
         return {
             **review,

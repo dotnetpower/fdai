@@ -17,17 +17,19 @@ SUBSCRIPTION = "00000000-0000-0000-0000-000000000000"
 
 
 class FakeGroups:
-    def __init__(self, *, absent: bool = True) -> None:
+    def __init__(self, *, absent: bool = True, gone: tuple[str, ...] = ()) -> None:
         self.absent = absent
+        self.gone = set(gone)
         self.deleted: list[str] = []
 
     def delete_group(self, *, subscription_id: str, name: str) -> None:
         assert subscription_id == SUBSCRIPTION
+        assert name not in self.gone, "an absent group must not be deleted again"
         self.deleted.append(name)
 
     def group_absent(self, *, subscription_id: str, name: str) -> bool:
         assert subscription_id == SUBSCRIPTION
-        return self.absent
+        return name in self.gone or (name in self.deleted and self.absent)
 
 
 def _build_source_run(tmp_path: Path, *, app_group: str = "rg-fdai-dev-eus") -> Path:
@@ -242,8 +244,11 @@ def test_teardown_reads_back_partial_failure(source_run: Path) -> None:
         monthly_cost_ceiling=1000,
     )
     client = FakeGroups(absent=False)
+    waits: list[float] = []
 
     result = apply_source_teardown(
+        readback_timeout_seconds=0,
+        sleep=waits.append,
         work_dir=source_run,
         runtime_profile=RuntimeDeploymentProfile.create(
             runtime_platform="aks", database_placement="postgres-flex"
@@ -257,6 +262,47 @@ def test_teardown_reads_back_partial_failure(source_run: Path) -> None:
     assert result["state"] == "partial-failure"
     assert client.deleted == ["rg-fdai-dev-eus", "rg-fdai-ops-eus"]
     assert result["absent"] == {"rg-fdai-dev-eus": False, "rg-fdai-ops-eus": False}
+    assert waits == []
+
+
+def test_teardown_waits_for_asynchronous_deletion(source_run: Path) -> None:
+    """Azure accepts group deletion asynchronously; absence is read back until it settles."""
+
+    class SlowGroups(FakeGroups):
+        def __init__(self) -> None:
+            super().__init__()
+            self.reads = 0
+
+        def group_absent(self, *, subscription_id: str, name: str) -> bool:
+            if name not in self.deleted:
+                return False
+            self.reads += 1
+            return self.reads > 2
+
+    plan = plan_source_teardown(
+        work_dir=source_run,
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+        region="eastus",
+        monthly_cost_ceiling=1000,
+    )
+    waits: list[float] = []
+    result = apply_source_teardown(
+        work_dir=source_run,
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+        region="eastus",
+        monthly_cost_ceiling=1000,
+        confirmation=plan.confirmation,
+        client=SlowGroups(),
+        readback_interval_seconds=5,
+        sleep=waits.append,
+    )
+
+    assert result["state"] == "torn-down"
+    assert waits == [5]
 
 
 def test_teardown_writes_verified_receipt_after_absence(source_run: Path) -> None:
@@ -334,3 +380,28 @@ def test_cli_teardown_keeps_the_retained_ceiling_by_default(
     )
     assert code == 0
     assert seen == [expected]
+
+
+def test_teardown_rerun_skips_groups_already_absent(source_run: Path) -> None:
+    plan = plan_source_teardown(
+        work_dir=source_run,
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+        region="eastus",
+        monthly_cost_ceiling=1000,
+    )
+    client = FakeGroups(gone=("rg-fdai-dev-eus",))
+    result = apply_source_teardown(
+        work_dir=source_run,
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+        region="eastus",
+        monthly_cost_ceiling=1000,
+        confirmation=plan.confirmation,
+        client=client,
+    )
+
+    assert result["state"] == "torn-down"
+    assert client.deleted == ["rg-fdai-ops-eus"]
