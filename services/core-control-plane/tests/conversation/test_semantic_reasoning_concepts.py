@@ -529,8 +529,10 @@ def test_stopped_or_deallocated_is_one_reviewed_state_candidate() -> None:
     union = next(item for item in catalog if item.id == "state:stopped_or_deallocated")
 
     assert union.values == ("resource_state.deallocated", "resource_state.stopped")
-    # Each state stays selectable on its own, so a narrowed request never needs the union.
-    assert any(item.values == ("resource_state.stopped",) for item in catalog)
+    # Each state stays selectable on its own, so a narrowed request never needs the union;
+    # the stopped candidate then reads as the narrow still-allocated state.
+    stopped = next(item for item in catalog if item.values == ("resource_state.stopped",))
+    assert "excluding deallocated" in stopped.labels[0]
     assert any(item.values == ("resource_state.deallocated",) for item in catalog)
     # One chosen candidate binds both values as one accepted reading, not an ambiguity.
     utterance = "List the stopped VMs"

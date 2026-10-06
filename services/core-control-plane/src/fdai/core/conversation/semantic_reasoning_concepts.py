@@ -36,18 +36,24 @@ _CONCEPT_FORMS = frozenset(
 _ANY_RESOURCE = "any:resource"
 # Reviewed state unions. Azure shows a deallocated virtual machine as Stopped (deallocated),
 # so an unnarrowed stopped fits both states; one candidate lets both blind choosers agree.
+# Each union also names how a member's own candidate reads once the union is offered.
 _STATE_UNIONS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     (
         "state:stopped_or_deallocated",
         ("resource_state.deallocated", "resource_state.stopped"),
         (
-            "stopped or deallocated",
-            "not running",
-            "Stopped (deallocated)",
-            "중지됨, 할당 해제 포함",
+            "stopped or not running, without a narrower qualifier: includes deallocated",
+            "Stopped (deallocated) and Stopped",
+            "중지된, 멈춘, 정지된, 실행 중이 아닌 (할당 해제 포함)",
         ),
     ),
 )
+_STATE_NARROWED_LABELS: dict[str, tuple[str, ...]] = {
+    "resource_state.stopped": (
+        "only stopped while still allocated and billed, excluding deallocated",
+        "할당 해제되지 않고 할당이 유지된 채 중지됨만",
+    ),
+}
 _RESOURCE_OBJECT_TYPE = "Resource"
 
 
@@ -304,14 +310,21 @@ def _state_candidates(descriptors: Sequence[Mapping[str, Any]]) -> tuple[Concept
         if isinstance(group, Mapping) and group.get("concept") in declared:
             terms = tuple(str(item) for item in group.get("terms") or () if str(item).strip())
             labels[str(group["concept"])] = terms
-    singles = tuple(
-        ConceptCandidate(f"state:{concept}", (concept,), labels.get(concept) or (concept,))
-        for concept in sorted(declared)
-    )
     unions = tuple(
         ConceptCandidate(candidate_id, members, union_labels)
         for candidate_id, members, union_labels in _STATE_UNIONS
         if set(members) <= declared
+    )
+    narrowed = {member for union in unions for member in union.values} & set(_STATE_NARROWED_LABELS)
+    singles = tuple(
+        ConceptCandidate(
+            f"state:{concept}",
+            (concept,),
+            _STATE_NARROWED_LABELS[concept]
+            if concept in narrowed
+            else labels.get(concept) or (concept,),
+        )
+        for concept in sorted(declared)
     )
     return (*singles, *unions)
 
