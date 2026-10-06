@@ -69,7 +69,6 @@ from fdai.core.executor.tool_call import (
 from fdai.core.hil_resume.approval_profile_gate import (
     HilApprovalProfileMixin,
     approval_profile_audit_detail,
-    parked_approval_profile,
 )
 from fdai.core.hil_resume.approval_records import (
     approval_expired as _approval_expired,
@@ -345,13 +344,7 @@ class HilResumeCoordinator(
         correlation_id = str(parked.get("correlation_id") or approval_id)
         idem = str(parked.get("idempotency_key") or approval_id)
         assignee_oid = str(parked.get("assignee_oid") or "").strip() or None
-        parked_profile, profile_refusal = await parked_approval_profile(
-            parked,
-            self._approval_profile,
-            self._approval_profile_bootstrap,
-            self._state_store,
-            self._approval_profile_signature_verifier,
-        )
+        parked_profile, profile_refusal = await self._parked_approval_profile(parked)
         if profile_refusal is not None:
             await self._audit(
                 action_kind="hil.resolve.approval_profile_refused",

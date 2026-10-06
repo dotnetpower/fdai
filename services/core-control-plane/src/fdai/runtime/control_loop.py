@@ -84,7 +84,7 @@ from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
 from fdai.runtime.alert_noise_control import AlertWorkflowBindings, build_alert_workflow_bindings
-from fdai.runtime.approval_profile import approval_runtime_bindings
+from fdai.runtime.approval_profile import approval_runtime_bindings, hil_approval_profile_kwargs
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
@@ -579,13 +579,7 @@ def _build_control_loop(
             contact_consent_service=(
                 report_line_runtime.consent if report_line_runtime is not None else None
             ),
-            approval_profile=(approval_bindings.profile if approval_bindings is not None else None),
-            approval_profile_bootstrap=(
-                approval_bindings.bootstrap_profile if approval_bindings is not None else None
-            ),
-            approval_profile_signature_verifier=(
-                approval_bindings.signature_verifier if approval_bindings is not None else None
-            ),
+            **hil_approval_profile_kwargs(approval_bindings),
         )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 

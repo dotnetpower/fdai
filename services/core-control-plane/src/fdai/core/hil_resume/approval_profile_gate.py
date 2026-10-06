@@ -75,6 +75,19 @@ class HilApprovalProfileMixin:
     _approval_profile: ApprovalProfileRevision | None
     _approval_profile_bootstrap: ApprovalProfileRevision | None
     _approval_profile_signature_verifier: PolicyRevisionSignatureVerifier | None
+    _state_store: StateStore
+
+    async def _parked_approval_profile(
+        self,
+        parked: Mapping[str, object],
+    ) -> tuple[ApprovalProfileRevision | None, str | None]:
+        return await parked_approval_profile(
+            parked,
+            self._approval_profile,
+            self._approval_profile_bootstrap,
+            self._state_store,
+            self._approval_profile_signature_verifier,
+        )
 
     async def _audit(
         self,

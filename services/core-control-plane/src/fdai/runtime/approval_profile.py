@@ -178,6 +178,18 @@ async def active_approval_runtime_bindings_from_store(
     )
 
 
+def hil_approval_profile_kwargs(bindings: ApprovalRuntimeBindings | None) -> dict[str, Any]:
+    """Return the HIL resume coordinator's approval-profile keyword arguments."""
+
+    if bindings is None:
+        return {}
+    return {
+        "approval_profile": bindings.profile,
+        "approval_profile_bootstrap": bindings.bootstrap_profile,
+        "approval_profile_signature_verifier": bindings.signature_verifier,
+    }
+
+
 class StateStoreApprovalProfileRevisionReader:
     """Read active approval revisions from Mimir's StateStore projection.
 
@@ -320,6 +332,7 @@ __all__ = [
     "active_approval_runtime_bindings",
     "active_approval_runtime_bindings_from_store",
     "approval_runtime_bindings",
+    "hil_approval_profile_kwargs",
     "load_active_approval_profile",
     "load_approval_profile",
 ]

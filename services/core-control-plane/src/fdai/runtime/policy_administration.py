@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
 from fdai_service_contracts.policy_administration import (
@@ -15,6 +16,7 @@ from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
 
 from fdai.agents import (
     POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE,
+    ApprovalRuntimeBindings,
     MimirPolicyAdministration,
     OpaRegoPolicyCompiler,
     OperatorRequestReceiptGate,
@@ -30,8 +32,13 @@ from fdai.delivery.policy_signing import (
     AzureKeyVaultPolicyRevisionSigner,
 )
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.runtime.approval_profile import active_approval_runtime_bindings_from_store
+from fdai.runtime.bootstrap_bindings import build_runtime_workload_identity
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+
+if TYPE_CHECKING:
+    from fdai.runtime.bootstrap_resources import RuntimeResources
 
 POLICY_ADMIN_KEY_VAULT_KEY_ID_ENV = "FDAI_POLICY_ADMIN_KEY_VAULT_KEY_ID"
 POLICY_ADMIN_KEY_VAULT_CLIENT_ID_ENV = "FDAI_POLICY_ADMIN_KEY_VAULT_MI_CLIENT_ID"
@@ -80,6 +87,24 @@ def build_policy_revision_signature_verifier(
         identity=identity,
         http_client=http_client,
         algorithm=algorithm,
+    )
+
+
+async def load_signed_approval_bindings(
+    environment: Mapping[str, str],
+    state_store: StateStore,
+    resources: RuntimeResources,
+) -> ApprovalRuntimeBindings | None:
+    """Bind the active approval profile with consumption-time signature verification."""
+
+    return await active_approval_runtime_bindings_from_store(
+        environment,
+        state_store,
+        signature_verifier=build_policy_revision_signature_verifier(
+            environment=environment,
+            http_client=resources.http_client,
+            workload_identity_builder=build_runtime_workload_identity,
+        ),
     )
 
 
@@ -175,5 +200,6 @@ __all__ = [
     "build_mimir_policy_administration",
     "build_operator_policy_binder",
     "build_policy_revision_signature_verifier",
+    "load_signed_approval_bindings",
     "policy_administration_selected",
 ]
