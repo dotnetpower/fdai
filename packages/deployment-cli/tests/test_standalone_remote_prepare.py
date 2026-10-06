@@ -203,7 +203,7 @@ def test_prepare_command_parses_with_the_host_parser(
             f"{remote_root}/kit.tar.gz": "a" * 64,
             f"{remote_root}/source-transfer.tar": "b" * 64,
             f"{remote_root}/source-receiver.pyz": "c" * 64,
-            f"{remote_root}/source-runtime-requirements.txt": "e" * 64,
+            f"{remote_root}/source-runtime-support.tar": "e" * 64,
         }
     )
     common: dict[str, object] = {
@@ -238,8 +238,8 @@ def test_prepare_command_parses_with_the_host_parser(
             source_receiver=inputs["receiver.pyz"],
             source_receiver_digest="c" * 64,
             source_snapshot_digest="d" * 64,
-            source_runtime_requirements=inputs["requirements.txt"],
-            source_runtime_requirements_digest="e" * 64,
+            source_runtime_support=inputs["requirements.txt"],
+            source_runtime_support_digest="e" * 64,
             **common,  # type: ignore[arg-type]
         )
     command = next(
@@ -266,10 +266,8 @@ def test_prepare_command_parses_with_the_host_parser(
         assert str(seen["args"].kit) == f"{remote_root}/kit"
     else:
         assert seen["args"].source_snapshot_digest == "d" * 64
-        assert seen["args"].runtime_requirements_digest == "e" * 64
-        assert str(seen["args"].runtime_requirements) == (
-            f"{remote_root}/source-runtime-requirements.txt"
-        )
+        assert seen["args"].runtime_support_digest == "e" * 64
+        assert str(seen["args"].runtime_support) == (f"{remote_root}/source-runtime-support.tar")
     # The host rebuilds exactly the coordinator's profile, including an explicit database size.
     assert (
         RuntimeDeploymentProfile.from_prepare_arguments(seen["args"]) == common["runtime_profile"]
@@ -299,8 +297,8 @@ def _source_prepare(
         "source_receiver": tmp_path / "receiver.pyz",
         "source_receiver_digest": "c" * 64,
         "source_snapshot_digest": "d" * 64,
-        "source_runtime_requirements": tmp_path / "requirements.txt",
-        "source_runtime_requirements_digest": "e" * 64,
+        "source_runtime_support": tmp_path / "requirements.txt",
+        "source_runtime_support_digest": "e" * 64,
         "runtime_profile": RuntimeDeploymentProfile.create(
             runtime_platform="aks", database_placement="postgres-flex"
         ),
@@ -309,13 +307,13 @@ def _source_prepare(
     return prepare_remote(tunnel, **arguments)  # type: ignore[arg-type]
 
 
-def test_source_preparation_refuses_changed_runtime_requirements(tmp_path: Path) -> None:
+def test_source_preparation_refuses_changed_runtime_support(tmp_path: Path) -> None:
     remote_root = "/home/fdai/.fdai-transfer-example"
     tunnel = _RecordingTunnel(
         {
             f"{remote_root}/source-transfer.tar": "b" * 64,
             f"{remote_root}/source-receiver.pyz": "c" * 64,
-            f"{remote_root}/source-runtime-requirements.txt": "f" * 64,
+            f"{remote_root}/source-runtime-support.tar": "f" * 64,
         }
     )
     with pytest.raises(ValueError, match="source transport digest differs"):
@@ -326,19 +324,19 @@ def test_source_preparation_refuses_changed_runtime_requirements(tmp_path: Path)
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"source_runtime_requirements": None},
-        {"source_runtime_requirements_digest": None},
+        {"source_runtime_support": None},
+        {"source_runtime_support_digest": None},
     ],
 )
-def test_source_preparation_requires_runtime_requirements(
+def test_source_preparation_requires_runtime_support(
     tmp_path: Path, overrides: dict[str, object]
 ) -> None:
     with pytest.raises(ValueError, match="inputs are incomplete"):
         _source_prepare(tmp_path, _RecordingTunnel({}), **overrides)
 
 
-def test_kit_preparation_refuses_source_runtime_requirements(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="cannot use source runtime requirements"):
+def test_kit_preparation_refuses_source_runtime_support(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="cannot use source runtime support"):
         _source_prepare(
             tmp_path,
             _RecordingTunnel({}),

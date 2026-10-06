@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: c2106b4caad97d2e5ecbac405efba3766d4c1828
+translation_source_sha: e73c5fcfe56326f3665b8e3037b40abc8891deeb
 translation_revised: 2026-10-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -417,9 +417,7 @@ throttling은 동시성을 줄이고 `Retry-After`를 따르며, 지속적인 �
 변경 수요 또는 최대 노후 상태가 실패 시간 부재로 계속 연기되지 않습니다.
 로컬 장기 실행 루프는 원본, 변환 또는 대기 재생 실패를 형식화해 기록하고 구성된 간격 후 다시
 시도합니다. 일회성 작업은 원본 수집이나 승격된 온톨로지 변환이 실패해도 실패하며, 다음
-tick의 범위가 제한된 복구를 위해 정본 인벤토리 세대는 유지합니다.
-배포의 `--initial` 일회성 작업은 실행 잠금을 최대 300초까지 기다립니다. 배포 직후 첫 예약 tick도
-전체 조정이 필요하다고 판단해 그 잠금을 잡기 때문입니다. 예약 tick은 30초 대기를 유지합니다.
+tick의 범위가 제한된 복구를 위해 정본 인벤토리 세대는 유지합니다. 배포의 `--initial` 일회성 작업은 실행 잠금을 최대 300초까지 기다립니다. 배포 직후 첫 예약 tick도 전체 조정이 필요하다고 판단해 그 잠금을 잡기 때문입니다. 예약 tick은 30초 대기를 유지합니다.
 두 경로는 인벤토리 CLI 지원 경계를 통해 런타임 호출, Resource Health, Static Web App,
 Kubernetes 보강을 동일한 순서의 파이프라인으로 구성합니다.
 Resource Health 보강은 전체 정상 답변 전에 정확한 분모의 튜플 집합 다시 읽기 fence를

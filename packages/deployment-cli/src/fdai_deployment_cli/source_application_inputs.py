@@ -20,9 +20,9 @@ from fdai_deployment_cli.source_image_stage import (
 )
 from fdai_deployment_cli.source_receiver import prepare_source_receiver
 from fdai_deployment_cli.source_runtime_support import (
-    REQUIREMENTS_NAME,
-    export_runtime_requirements,
+    INPUT_NAME,
     install_source_runtime_support,
+    prepare_runtime_support_input,
 )
 from fdai_deployment_cli.source_snapshot import verify_source_snapshot
 from fdai_deployment_cli.source_transport import prepare_source_transport
@@ -44,8 +44,8 @@ class SourceTransferInputs:
     archive_digest: str
     receiver: Path
     receiver_digest: str
-    runtime_requirements: Path
-    runtime_requirements_digest: str
+    runtime_support: Path
+    runtime_support_digest: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,8 +64,8 @@ def add_prepare_source_parser(subcommands: Subparsers, handler: object) -> None:
     prepare_source = subcommands.add_parser("prepare-source")
     prepare_source.add_argument("--source-snapshot", type=Path, required=True)
     prepare_source.add_argument("--source-snapshot-digest", required=True)
-    prepare_source.add_argument("--runtime-requirements", type=Path, required=True)
-    prepare_source.add_argument("--runtime-requirements-digest", required=True)
+    prepare_source.add_argument("--runtime-support", type=Path, required=True)
+    prepare_source.add_argument("--runtime-support-digest", required=True)
     prepare_source.add_argument("--handoff", type=Path, required=True)
     prepare_source.add_argument("--entra", type=Path)
     prepare_source.add_argument("--foundation-adoption", type=Path)
@@ -155,8 +155,8 @@ def source_host_artifacts(
     snapshot_digest: str,
     expected_source_commit: str,
     work_dir: Path,
-    runtime_requirements: Path,
-    runtime_requirements_digest: str,
+    runtime_support: Path,
+    runtime_support_digest: str,
 ) -> SourceHostArtifacts:
     source_record = verify_source_snapshot(source_snapshot, expected_digest=snapshot_digest)
     source_commit = str(source_record["source_commit"])
@@ -167,8 +167,8 @@ def source_host_artifacts(
     install_source_runtime_support(
         work_dir,
         source_root=working_tree,
-        requirements=runtime_requirements,
-        requirements_digest=runtime_requirements_digest,
+        archive=runtime_support,
+        archive_digest=runtime_support_digest,
         snapshot_digest=snapshot_digest,
     )
     terraform_path = shutil.which("terraform")
@@ -198,15 +198,14 @@ def source_transfer_inputs(
         prepared_root,
         snapshot_digest=source_snapshot_digest,
     )
-    requirements = prepared_root / REQUIREMENTS_NAME
     return SourceTransferInputs(
         archive=prepared_root / "source-transfer.tar",
         archive_digest=str(transfer["archive_digest"]),
         receiver=prepared_root / "source-receiver.pyz",
         receiver_digest=receiver_digest,
-        runtime_requirements=requirements,
-        runtime_requirements_digest=export_runtime_requirements(
-            source_snapshot / "tree", requirements
+        runtime_support=prepared_root / INPUT_NAME,
+        runtime_support_digest=prepare_runtime_support_input(
+            source_snapshot / "tree", prepared_root
         ),
     )
 

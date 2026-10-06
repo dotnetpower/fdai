@@ -35,8 +35,27 @@ def _source_tree(root: Path, *, version: str = "0.1.0") -> Path:
     return root
 
 
-def _requirements(directory: Path, content: bytes = _LOCKED) -> tuple[Path, str]:
-    path = directory / support.REQUIREMENTS_NAME
+def _wheel_name(name: str, version: str = "0.1.0") -> str:
+    return f"{name.replace('-', '_')}-{version}-py3-none-any.whl"
+
+
+def _archive(
+    directory: Path,
+    *,
+    versions: dict[str, str] | None = None,
+    extra: dict[str, bytes] | None = None,
+) -> tuple[Path, str]:
+    members: dict[str, bytes] = {"requirements.txt": _LOCKED}
+    pins = []
+    for name in support.WORKSPACE_PACKAGES:
+        version = (versions or {}).get(name, "0.1.0")
+        content = f"wheel {name}".encode()
+        members[f"wheels/{_wheel_name(name, version)}"] = content
+        pins.append(f"{name}=={version} --hash=sha256:{hashlib.sha256(content).hexdigest()}")
+    members["workspace.txt"] = ("\n".join(pins) + "\n").encode()
+    members.update(extra or {})
+    content = support._deterministic_tar(members)
+    path = directory / support.INPUT_NAME
     path.write_bytes(content)
     path.chmod(0o600)
     return path, hashlib.sha256(content).hexdigest()
@@ -85,35 +104,52 @@ def test_workspace_packages_match_the_kit_runtime_wheelhouse() -> None:
     }
 
 
-def test_export_uses_the_committed_lock_offline_and_binds_its_digest(
+class FakeUv:
+    def __init__(self, export: bytes = _LOCKED) -> None:
+        self.export = export
+        self.calls: list[tuple[tuple[str, ...], Path | None]] = []
+
+    def __call__(self, command: tuple[str, ...], **kwargs: object) -> SimpleNamespace:
+        cwd = kwargs.get("cwd")
+        self.calls.append((tuple(command), Path(str(cwd)) if cwd is not None else None))
+        if command[1] == "export":
+            return SimpleNamespace(returncode=0, stdout=self.export, stderr=b"")
+        name = command[command.index("--package") + 1]
+        out = Path(command[command.index("--out-dir") + 1])
+        (out / _wheel_name(name)).write_bytes(f"wheel {name}".encode())
+        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+
+
+def test_prepare_bundles_locked_requirements_and_hashed_workspace_wheels(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = _private(tmp_path)
-    seen: dict[str, object] = {}
-
-    def run(command: tuple[str, ...], **kwargs: object) -> SimpleNamespace:
-        seen["command"] = command
-        seen["env"] = kwargs["env"]
-        return SimpleNamespace(returncode=0, stdout=_LOCKED, stderr=b"")
-
+    source = _source_tree(root / "tree")
+    prepared = root / "prepared"
+    prepared.mkdir(mode=0o700)
+    uv = FakeUv()
     monkeypatch.setenv("UV", "/opt/uv")
-    monkeypatch.setattr(support.subprocess, "run", run)
+    monkeypatch.setattr(support.subprocess, "run", uv)
 
-    digest = support.export_runtime_requirements(root / "tree", root / support.REQUIREMENTS_NAME)
+    digest = support.prepare_runtime_support_input(source, prepared)
 
-    command = seen["command"]
-    assert isinstance(command, tuple)
-    assert command[:4] == ("/opt/uv", "export", "--directory", str(root / "tree"))
-    assert {"--locked", "--offline", "--no-dev", "--no-emit-workspace"} <= set(command)
-    assert [command[i + 1] for i, item in enumerate(command) if item == "--package"] == list(
+    archive = prepared / support.INPUT_NAME
+    assert hashlib.sha256(archive.read_bytes()).hexdigest() == digest
+    members = support._read_input(archive, digest)
+    assert members["requirements.txt"] == _LOCKED
+    assert sorted(name for name in members if name.startswith("wheels/")) == sorted(
+        f"wheels/{_wheel_name(name)}" for name in support.WORKSPACE_PACKAGES
+    )
+    export = uv.calls[0][0]
+    assert {"--locked", "--offline", "--no-dev", "--no-emit-workspace"} <= set(export)
+    builds = [call for call in uv.calls if call[0][1] == "build"]
+    assert [call[0][call[0].index("--package") + 1] for call in builds] == list(
         support.WORKSPACE_PACKAGES
     )
-    assert digest == hashlib.sha256(_LOCKED).hexdigest()
-    assert (root / support.REQUIREMENTS_NAME).read_bytes() == _LOCKED
-    assert (
-        support.export_runtime_requirements(root / "tree", root / support.REQUIREMENTS_NAME)
-        == digest
-    )
+    # Wheels build from a private copy; the verified snapshot is never the build directory.
+    assert all(cwd is not None and cwd != source for _command, cwd in builds)
+    assert support.prepare_runtime_support_input(source, prepared) == digest
+    assert not any(path.name.startswith(".runtime-support-") for path in prepared.iterdir())
 
 
 @pytest.mark.parametrize(
@@ -123,62 +159,51 @@ def test_export_uses_the_committed_lock_offline_and_binds_its_digest(
         b"alembic==1.16.5\n",
         b"-e ./services/core-control-plane\n    --hash=sha256:" + b"a" * 64 + b"\n",
         b"pkg @ https://example.invalid/pkg.whl \\\n    --hash=sha256:" + b"a" * 64 + b"\n",
-        b"./packages/service-contracts \\\n    --hash=sha256:" + b"a" * 64 + b"\n",
     ],
 )
-def test_export_rejects_unhashed_or_non_index_requirements(
+def test_prepare_rejects_unhashed_or_non_index_requirements(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content: bytes
 ) -> None:
     root = _private(tmp_path)
+    source = _source_tree(root / "tree")
     monkeypatch.setenv("UV", "/opt/uv")
-    monkeypatch.setattr(
-        support.subprocess,
-        "run",
-        lambda *_a, **_k: SimpleNamespace(returncode=0, stdout=content, stderr=b""),
-    )
+    monkeypatch.setattr(support.subprocess, "run", FakeUv(content))
     with pytest.raises(ValueError):
-        support.export_runtime_requirements(root, root / support.REQUIREMENTS_NAME)
-    assert not (root / support.REQUIREMENTS_NAME).exists()
+        support.prepare_runtime_support_input(source, root)
+    assert not (root / support.INPUT_NAME).exists()
 
 
-def test_install_uses_hashed_binary_lock_then_snapshot_packages_without_resolution(
+def test_install_uses_hashes_only_and_never_builds_or_indexes_workspace_packages(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = _private(tmp_path)
     work = root / "work"
     work.mkdir(mode=0o700)
     source = _source_tree(root / "tree")
-    requirements, digest = _requirements(root)
+    archive, digest = _archive(root)
     host = FakeHost(_installed())
     monkeypatch.setattr(support.subprocess, "run", host)
 
     support.install_source_runtime_support(
-        work,
-        source_root=source,
-        requirements=requirements,
-        requirements_digest=digest,
-        snapshot_digest="d" * 64,
+        work, source_root=source, archive=archive, archive_digest=digest, snapshot_digest="d" * 64
     )
 
     pip = str(work / "runtime-venv/bin/pip")
-    locked = next(call for call in host.calls if "--requirement" in call)
-    assert locked[:2] == (pip, "install")
+    installs = [call for call in host.calls if call[:2] == (pip, "install")]
+    assert len(installs) == 2
+    locked, workspace = installs
     assert {"--require-hashes", "--only-binary", ":all:"} <= set(locked)
-    local = next(call for call in host.calls if "--no-deps" in call)
-    assert local[-len(support.WORKSPACE_PACKAGES) :] == tuple(
-        str(source / path) for path in support.WORKSPACE_PACKAGES.values()
+    assert {"--require-hashes", "--no-index", "--no-deps", "--only-binary"} <= set(workspace)
+    assert workspace[workspace.index("--find-links") + 1] == str(
+        work / "runtime-support-input/wheels"
     )
+    assert not any(str(source) in item for call in host.calls for item in call)
     receipt = json.loads((work / "runtime-support-installation.json").read_text())
-    assert receipt["requirements_digest"] == digest
-    assert receipt["snapshot_digest"] == "d" * 64
+    assert receipt["input_digest"] == digest
 
     host.calls.clear()
     support.install_source_runtime_support(
-        work,
-        source_root=source,
-        requirements=requirements,
-        requirements_digest=digest,
-        snapshot_digest="d" * 64,
+        work, source_root=source, archive=archive, archive_digest=digest, snapshot_digest="d" * 64
     )
     assert not any("install" in call for call in host.calls)
 
@@ -191,49 +216,47 @@ def test_install_rebuilds_a_partial_or_stale_environment(
     (work / "runtime-venv/bin").mkdir(parents=True)
     work.chmod(0o700)
     source = _source_tree(root / "tree")
-    requirements, digest = _requirements(root)
+    archive, digest = _archive(root)
     host = FakeHost(_installed())
     monkeypatch.setattr(support.subprocess, "run", host)
 
     support.install_source_runtime_support(
-        work,
-        source_root=source,
-        requirements=requirements,
-        requirements_digest=digest,
-        snapshot_digest="d" * 64,
+        work, source_root=source, archive=archive, archive_digest=digest, snapshot_digest="d" * 64
     )
 
     assert any(call[1:3] == ("-m", "venv") for call in host.calls)
     assert (work / "runtime-support-installation.json").exists()
 
 
-def test_install_refuses_a_changed_transfer_or_mismatched_snapshot_packages(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("case", "message"),
+    [
+        ("digest", "differs from the transferred digest"),
+        ("version", "pins differ from the snapshot"),
+        ("member", "member is invalid"),
+        ("installed", "differ from the snapshot"),
+    ],
+)
+def test_install_refuses_changed_or_mismatched_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: str, message: str
 ) -> None:
     root = _private(tmp_path)
     work = root / "work"
     work.mkdir(mode=0o700)
     source = _source_tree(root / "tree")
-    requirements, digest = _requirements(root)
-    monkeypatch.setattr(support.subprocess, "run", FakeHost(_installed()))
-    with pytest.raises(ValueError, match="differ from the transferred digest"):
-        support.install_source_runtime_support(
-            work,
-            source_root=source,
-            requirements=requirements,
-            requirements_digest="f" * 64,
-            snapshot_digest="d" * 64,
-        )
-
-    monkeypatch.setattr(
-        support.subprocess, "run", FakeHost(_installed({"fdai-core-control-plane": "9.9.9"}))
+    archive, digest = _archive(
+        root,
+        versions={"fdai-core-control-plane": "9.9.9"} if case == "version" else None,
+        extra={"../escape.txt": b"x"} if case == "member" else None,
     )
-    with pytest.raises(ValueError, match="differ from the snapshot"):
+    installed = _installed({"fdai-core-control-plane": "9.9.9"} if case == "installed" else None)
+    monkeypatch.setattr(support.subprocess, "run", FakeHost(installed))
+    with pytest.raises(ValueError, match=message):
         support.install_source_runtime_support(
             work,
             source_root=source,
-            requirements=requirements,
-            requirements_digest=digest,
+            archive=archive,
+            archive_digest="f" * 64 if case == "digest" else digest,
             snapshot_digest="d" * 64,
         )
     assert not (work / "runtime-support-installation.json").exists()
@@ -246,33 +269,34 @@ def test_install_reports_the_failed_step_without_writing_a_receipt(
     work = root / "work"
     work.mkdir(mode=0o700)
     source = _source_tree(root / "tree")
-    requirements, digest = _requirements(root)
+    archive, digest = _archive(root)
     host = FakeHost(_installed())
-    host.fail = "--require-hashes"
+    host.fail = "--no-index"
     monkeypatch.setattr(support.subprocess, "run", host)
 
-    with pytest.raises(ValueError, match="locked dependency installation failed"):
+    with pytest.raises(ValueError, match="workspace package installation failed"):
         support.install_source_runtime_support(
             work,
             source_root=source,
-            requirements=requirements,
-            requirements_digest=digest,
+            archive=archive,
+            archive_digest=digest,
             snapshot_digest="d" * 64,
         )
     assert not (work / "runtime-support-installation.json").exists()
 
 
-def test_export_reports_an_unavailable_uv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prepare_reports_an_unavailable_uv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _private(tmp_path)
     monkeypatch.delenv("UV", raising=False)
     monkeypatch.setattr(support.shutil, "which", lambda _name: None)
     with pytest.raises(ValueError, match="requires uv"):
-        support.export_runtime_requirements(root, root / support.REQUIREMENTS_NAME)
+        support.prepare_runtime_support_input(root, root)
 
     def fail(*_args: object, **_kwargs: object) -> None:
         raise subprocess.TimeoutExpired("uv", 120)
 
+    source = _source_tree(root / "tree")
     monkeypatch.setenv("UV", "/opt/uv")
     monkeypatch.setattr(support.subprocess, "run", fail)
     with pytest.raises(ValueError, match="export failed"):
-        support.export_runtime_requirements(root, root / support.REQUIREMENTS_NAME)
+        support.prepare_runtime_support_input(source, root)

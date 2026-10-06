@@ -84,9 +84,10 @@ only the artifact input seam:
 - Terraform roots and migration support come from the snapshot, while providers resolve directly
   from public registries under the committed `.terraform.lock.hcl` files. Because no prebuilt
   wheelhouse exists, the workstation exports the committed `uv.lock` closure of the runtime
-  packages as one hashed requirements file, the host reads back its digest, installs it as
-  binary-only hashed packages, adds the snapshot's workspace packages without dependency
-  resolution, and records a receipt;
+  packages as hashed requirements and builds the snapshot's pure-Python workspace wheels from a
+  private copy, the way the kit stage does. It transfers both as one digest-bound archive. The
+  host reads back its digest, installs the closure as binary-only hashed packages, installs the
+  workspace wheels by hash without any index or build step, and records a receipt;
 - the host acquires the kit's pinned `kubectl` and `kubelogin` releases and keeps them only when the
   committed digests match;
 - service image references come from the source image stage receipt after substrate apply creates
@@ -178,7 +179,7 @@ owns the exact contract.
 | Dependency images | Imported by pinned digest into the deployment's registry |
 | Console | Built from the checkout and published only when the Console add-on is selected |
 | Terraform | Uses `terraform` on `PATH` only when it matches the committed binary digest; otherwise downloads the pinned `linux_amd64` release once and keeps it only when both the archive and binary digests in `infra/genesis-runner-image/toolchain.json` match |
-| Runtime support environment | The committed `uv.lock` closure exported on the workstation, installed on the managed host as hashed binary packages, plus the snapshot's workspace packages |
+| Runtime support environment | The committed `uv.lock` closure and the snapshot's workspace wheels, prepared on the workstation as one digest-bound archive and installed on the managed host by hash only |
 | Kubernetes client tools | The kit's pinned `kubectl` and `kubelogin` releases, downloaded on the managed host and kept only when the committed digests match |
 | Terraform providers | Resolved from the public Terraform registry under the committed lock files |
 | Database | Migrations and authoritative catalogs from the checkout, followed by Trial initialization |

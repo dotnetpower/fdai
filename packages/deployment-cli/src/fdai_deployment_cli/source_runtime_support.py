@@ -1,24 +1,33 @@
 """Install source-deployment runtime support from the committed workspace lock.
 
 A signed kit carries a prebuilt runtime wheelhouse. A source deployment has no such artifact, so
-the workstation exports the committed ``uv.lock`` closure as one hashed requirements file and the
-managed host installs exactly that closure before it adds the snapshot's workspace packages.
+the workstation builds the snapshot's pure-Python workspace wheels, exports the committed
+``uv.lock`` closure as hashed requirements, and transfers both as one digest-bound archive. The
+managed host installs the third-party closure by hash and then the workspace wheels by hash
+without any index or build step, so no unpinned build backend ever runs on the host.
 """
 
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 import tomllib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from fdai_deployment_cli.contracts import canonical_digest
-from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from fdai_deployment_cli.private_output import (
+    read_private_bytes,
+    write_private_bytes,
+    write_private_output,
+)
 from fdai_deployment_cli.standalone_host_state import private_json as _private_json
 
 # Kept equal to the runtime and support package sets of
@@ -33,27 +42,60 @@ WORKSPACE_PACKAGES = {
     "fdai-github-app-auth": "packages/github-app-auth",
     "fdai-runtime-diagnostics": "packages/runtime-diagnostics",
 }
-REQUIREMENTS_NAME = "source-runtime-requirements.txt"
+INPUT_NAME = "source-runtime-support.tar"
 _RECEIPT = "runtime-support-installation.json"
-_SCHEMA = "fdai.source-runtime-support-installation.v1"
+_SCHEMA = "fdai.source-runtime-support-installation.v2"
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _MAX_REQUIREMENTS = 4 * 1024 * 1024
+_MAX_ARCHIVE = 256 * 1024 * 1024
+_WHEEL = re.compile(r"(?P<name>[A-Za-z0-9_.]+)-(?P<version>[^-]+)-py3-none-any\.whl")
 
 
-def export_runtime_requirements(source_root: Path, destination: Path) -> str:
-    """Export the locked third-party closure of every runtime workspace package."""
+def prepare_runtime_support_input(source_tree: Path, prepared_root: Path) -> str:
+    """Write the digest-bound runtime support archive and return its SHA-256 digest."""
     uv = os.environ.get("UV") or shutil.which("uv")
     if not uv:
-        raise ValueError("source deployment requires uv to export the locked runtime closure")
+        raise ValueError("source deployment requires uv to prepare runtime support")
+    versions = _workspace_versions(source_tree)
+    with tempfile.TemporaryDirectory(prefix=".runtime-support-", dir=prepared_root) as scratch:
+        root = Path(scratch)
+        requirements = _export_requirements(uv, source_tree, root / "uv-cache")
+        # Build from a private copy so the verified snapshot is never written.
+        tree = root / "tree"
+        shutil.copytree(source_tree, tree, symlinks=True)
+        wheels = root / "wheels"
+        wheels.mkdir(mode=0o700)
+        members: dict[str, bytes] = {"requirements.txt": requirements}
+        pins = []
+        for name in WORKSPACE_PACKAGES:
+            _run(
+                (uv, "build", "--wheel", "--package", name, "--out-dir", str(wheels), "--quiet"),
+                tree,
+                600,
+                "workspace wheel build",
+            )
+        for name, version in versions.items():
+            wheel = _single_wheel(wheels, name, version)
+            content = wheel.read_bytes()
+            members[f"wheels/{wheel.name}"] = content
+            pins.append(f"{name}=={version} --hash=sha256:{hashlib.sha256(content).hexdigest()}")
+        members["workspace.txt"] = ("\n".join(pins) + "\n").encode()
+        archive = _deterministic_tar(members)
+    destination = prepared_root / INPUT_NAME
+    destination.unlink(missing_ok=True)
+    write_private_bytes(destination, archive)
+    return hashlib.sha256(archive).hexdigest()
+
+
+def _export_requirements(uv: str, source_tree: Path, cache: Path) -> bytes:
     packages = tuple(argument for name in WORKSPACE_PACKAGES for argument in ("--package", name))
-    cache = destination.parent / ".runtime-requirements-uv-cache"
     try:
         result = subprocess.run(
             (
                 uv,
                 "export",
                 "--directory",
-                str(source_root),
+                str(source_tree),
                 "--locked",
                 "--offline",
                 *packages,
@@ -73,79 +115,145 @@ def export_runtime_requirements(source_root: Path, destination: Path) -> str:
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise ValueError("locked runtime closure export failed") from exc
-    finally:
-        shutil.rmtree(cache, ignore_errors=True)
     content = result.stdout
     if result.returncode != 0 or not content or len(content) > _MAX_REQUIREMENTS:
         raise ValueError("locked runtime closure export failed")
     _validate_requirements(content)
-    destination.unlink(missing_ok=True)
-    write_private_output(destination, content.decode("utf-8"))
-    return hashlib.sha256(content).hexdigest()
+    return content
+
+
+def _single_wheel(directory: Path, name: str, version: str) -> Path:
+    normalized = name.replace("-", "_")
+    matches = [
+        path
+        for path in directory.iterdir()
+        if (match := _WHEEL.fullmatch(path.name)) is not None
+        and match["name"] == normalized
+        and match["version"] == version
+    ]
+    if len(matches) != 1 or not matches[0].is_file() or matches[0].is_symlink():
+        raise ValueError(f"workspace package {name} did not build one pure-Python wheel")
+    return matches[0]
+
+
+def _deterministic_tar(members: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
+        for name in sorted(members):
+            info = tarfile.TarInfo(name)
+            info.size = len(members[name])
+            info.mode = 0o600
+            archive.addfile(info, io.BytesIO(members[name]))
+    return buffer.getvalue()
+
+
+def _read_input(archive: Path, digest: str) -> dict[str, bytes]:
+    content = read_private_bytes(archive, max_bytes=_MAX_ARCHIVE)
+    if hashlib.sha256(content).hexdigest() != digest:
+        raise ValueError("source runtime support input differs from the transferred digest")
+    members: dict[str, bytes] = {}
+    try:
+        with tarfile.open(fileobj=io.BytesIO(content), mode="r:") as bundle:
+            for member in bundle.getmembers():
+                path = PurePosixPath(member.name)
+                allowed = path.as_posix() in {"requirements.txt", "workspace.txt"} or (
+                    len(path.parts) == 2
+                    and path.parts[0] == "wheels"
+                    and _WHEEL.fullmatch(path.parts[1]) is not None
+                )
+                if not member.isreg() or not allowed or member.name in members:
+                    raise ValueError("source runtime support input member is invalid")
+                extracted = bundle.extractfile(member)
+                if extracted is None:
+                    raise ValueError("source runtime support input member is invalid")
+                members[member.name] = extracted.read()
+    except tarfile.TarError as exc:
+        raise ValueError("source runtime support input is invalid") from exc
+    if "requirements.txt" not in members or "workspace.txt" not in members:
+        raise ValueError("source runtime support input is incomplete")
+    return members
+
+
+def _validate_pins(content: bytes, members: dict[str, bytes], expected: dict[str, str]) -> None:
+    lines = content.decode("utf-8").splitlines()
+    pins = {}
+    for line in lines:
+        match = re.fullmatch(r"([a-z0-9-]+)==(\S+) --hash=sha256:([0-9a-f]{64})", line)
+        if match is None or match[1] in pins:
+            raise ValueError("source runtime workspace pins are invalid")
+        pins[match[1]] = (match[2], match[3])
+    wheel_digests = {
+        hashlib.sha256(value).hexdigest()
+        for name, value in members.items()
+        if name != "workspace.txt"
+    }
+    if {name: version for name, (version, _) in pins.items()} != expected or any(
+        digest not in wheel_digests for _, digest in pins.values()
+    ):
+        raise ValueError("source runtime workspace pins differ from the snapshot")
 
 
 def install_source_runtime_support(
     work_dir: Path,
     *,
     source_root: Path,
-    requirements: Path,
-    requirements_digest: str,
+    archive: Path,
+    archive_digest: str,
     snapshot_digest: str,
 ) -> None:
-    """Install the hashed lock closure, then the snapshot packages, and verify the result."""
-    if _DIGEST.fullmatch(requirements_digest) is None or _DIGEST.fullmatch(snapshot_digest) is None:
+    """Install the hashed lock closure, then the hashed workspace wheels, and verify them."""
+    if _DIGEST.fullmatch(archive_digest) is None or _DIGEST.fullmatch(snapshot_digest) is None:
         raise ValueError("source runtime support binding is invalid")
-    content = read_private_bytes(requirements, max_bytes=_MAX_REQUIREMENTS)
-    if hashlib.sha256(content).hexdigest() != requirements_digest:
-        raise ValueError("source runtime requirements differ from the transferred digest")
-    _validate_requirements(content)
+    members = _read_input(archive, archive_digest)
+    _validate_requirements(members["requirements.txt"])
     expected = _workspace_versions(source_root)
+    _validate_pins(members["workspace.txt"], members, expected)
     environment = work_dir / "runtime-venv"
     receipt_path = work_dir / _RECEIPT
     if _retained_matches(
         environment,
         receipt_path,
         snapshot_digest=snapshot_digest,
-        requirements_digest=requirements_digest,
+        input_digest=archive_digest,
         expected=expected,
         work_dir=work_dir,
     ):
         return
     # The environment is disposable tooling; any partial or stale one is rebuilt.
     receipt_path.unlink(missing_ok=True)
-    if environment.is_symlink() or environment.is_file():
-        environment.unlink()
-    elif environment.exists():
-        shutil.rmtree(environment)
+    for stale in (environment, work_dir / "runtime-support-input"):
+        if stale.is_symlink() or stale.is_file():
+            stale.unlink()
+        elif stale.exists():
+            shutil.rmtree(stale)
+    unpacked = work_dir / "runtime-support-input"
+    (unpacked / "wheels").mkdir(mode=0o700, parents=True)
+    unpacked.chmod(0o700)
+    for name, content in members.items():
+        write_private_bytes(unpacked / name, content)
     _run((sys.executable, "-m", "venv", str(environment)), work_dir, 120, "environment creation")
     pip = str(environment / "bin/pip")
+    base = (pip, "install", "--no-cache-dir", "--disable-pip-version-check", "--require-hashes")
     _run(
-        (
-            pip,
-            "install",
-            "--no-cache-dir",
-            "--disable-pip-version-check",
-            "--require-hashes",
-            "--only-binary",
-            ":all:",
-            "--requirement",
-            str(requirements),
-        ),
+        (*base, "--only-binary", ":all:", "--requirement", str(unpacked / "requirements.txt")),
         work_dir,
         1200,
         "locked dependency installation",
     )
     _run(
         (
-            pip,
-            "install",
-            "--no-cache-dir",
-            "--disable-pip-version-check",
+            *base,
+            "--no-index",
             "--no-deps",
-            *(str(source_root / path) for path in WORKSPACE_PACKAGES.values()),
+            "--only-binary",
+            ":all:",
+            "--find-links",
+            str(unpacked / "wheels"),
+            "--requirement",
+            str(unpacked / "workspace.txt"),
         ),
         work_dir,
-        900,
+        600,
         "workspace package installation",
     )
     write_private_output(
@@ -154,7 +262,7 @@ def install_source_runtime_support(
             {
                 "schema_version": _SCHEMA,
                 "snapshot_digest": snapshot_digest,
-                "requirements_digest": requirements_digest,
+                "input_digest": archive_digest,
                 "package_readback_digest": _readback(
                     environment, expected=expected, work_dir=work_dir
                 ),
@@ -172,7 +280,7 @@ def _retained_matches(
     receipt_path: Path,
     *,
     snapshot_digest: str,
-    requirements_digest: str,
+    input_digest: str,
     expected: dict[str, str],
     work_dir: Path,
 ) -> bool:
@@ -183,7 +291,7 @@ def _retained_matches(
         return (
             receipt.get("schema_version") == _SCHEMA
             and receipt.get("snapshot_digest") == snapshot_digest
-            and receipt.get("requirements_digest") == requirements_digest
+            and receipt.get("input_digest") == input_digest
             and receipt.get("dependencies_verified") is True
             and receipt.get("package_readback_digest")
             == _readback(environment, expected=expected, work_dir=work_dir)
