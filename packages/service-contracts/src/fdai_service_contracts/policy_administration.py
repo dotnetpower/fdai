@@ -76,7 +76,16 @@ class ApprovalPolicyContent(PolicyAdministrationContract):
     @field_validator("document")
     @classmethod
     def _approval_document_is_valid(cls, value: dict[str, Any]) -> dict[str, Any]:
-        approval_profile_from_audit_dict(value)
+        revision_fields = {
+            "revision_id",
+            "approval_profile",
+            "executor_principal",
+            "effective_from",
+            "operator_principal",
+            "policy_digest",
+        }
+        if revision_fields.issubset(value):
+            approval_profile_from_audit_dict(value)
         return value
 
     @field_validator("action_type_modes")
