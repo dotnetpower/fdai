@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: fa79b1136834166f227d635668cd49995559d7fd
+translation_source_sha: e95bf1acea53320dc0753983f4fa2c575d72bd62
 translation_revised: 2026-10-06
 ---
 # 에이전트 판테온
@@ -41,7 +41,9 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
   않습니다.
   정책 개정 활성화도 같은 고정 역할을 사용합니다. Mimir는 완화되는 다중 운영자 개정에 대해 타입
   지정 `object.policy-activation-request` 이벤트를 게시하고, Var는 정족수 승인을 기록하며, Mimir는
-  그 타입 지정 승인 이벤트를 받은 뒤에만 활성화 포인터를 옮깁니다.
+  그 타입 지정 승인 이벤트를 받은 뒤에만 활성화 포인터를 옮깁니다. Mimir는 활성화된 개정과
+  다이제스트에 대한 append-only 활성화 이력 행도 씁니다. Var와 HIL 재생은 저장된 승인 프로필
+  개정이 정족수를 줄이기 전에 이 행을 요구합니다.
 - **판테온은 업스트림에서 고정.** 15개 에이전트, 조직도, 역할 배정은 고정됩니다. 포크는 설정 가능한 경계 (§10)만 변경하며 에이전트를 추가, 제거하거나 이름을 바꾸지 않습니다.
 - **저장소 구조가 경계를 보존.** 이름이 있는 에이전트는 [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에, 공통 런타임은 비공개 `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오며 구조 테스트가 이 경계를 강제합니다. 런타임 조립은 소유 에이전트 모듈이 명시적으로 공개한 콜백 타입을 사용하며 타입 공개는 토픽, 관측, 승인 또는 실행 권한을 부여하지 않습니다. Heimdall의 작업 관측 중계와 Thor의 영속 `ActionRun` codec, verdict 검증, 감사로 통제된 실행 단계, 재생 및 게시 lifecycle, 효과 종결, 읽기 전용 대화 변환은 용도별 비공개 도우미에 둡니다. Thor는 이 도우미의 유일한 privileged 호출자이자 유일한 `ActionRun` 게시자로 유지됩니다. 도우미는 `AgentSpec`, topic, 판단, 승인, 감사, 복구 또는 실행 권한을 소유하지 않습니다. 영속 재생은 정확한 kinetic proposal이 없는 prospective lineage를 거부합니다.
   Bragi의 post-turn review publisher는 typed `object.post-turn-review` 묶음만 계속 소유합니다. Norns는 비활성 초안을 평가하고 라우팅하는 learner로 남습니다.

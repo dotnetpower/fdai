@@ -81,6 +81,9 @@ authorization contract that both production profiles use.
   development profile fails closed. When no active revision or bootstrap revision is supplied, FDAI
   uses the multi-operator default. HIL parks retain the revision that was active when the decision
   started, so later activation changes do not rewrite in-flight approval rules.
+- Replay of an older stored approval revision requires Mimir's activation-history record for that
+  exact revision and profile digest. A submitted but unapproved policy revision is not enough to
+  reduce quorum, even if its immutable revision record exists.
 - A change into or out of the profile follows the governance rule of the active profile. Moving
   from multi-operator to single-operator needs the multi-operator governance quorum. The single
   operator can move the installation back to multi-operator.
