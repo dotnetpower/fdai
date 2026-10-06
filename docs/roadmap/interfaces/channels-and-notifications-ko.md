@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: c0f3aa0148d9329d3f43ff058646e64687835293
+translation_source_sha: 9fccd57dc1b788d860d99277622bae041660bf2c
 translation_revised: 2026-10-06
 ---
 
@@ -85,6 +85,8 @@ Teams Workflows 웹훅 바인딩은
 - A1 승인 보류 항목은 고정된 운영자 허용 정책 다이제스트도 담을 수 있습니다. 채널 어댑터는 이를
   변경할 수 없는 승인 문맥으로 표시하거나 반환할 뿐이며, 정책 포인터를 다시 읽거나 Rego를 평가하지
   않습니다.
+- Core 정책 개정 서명 검증은 채널 계층이 승인 문맥을 보기 전에 수행됩니다. 이 변경은 채널 신뢰
+  티어, 콜백 경로, 대체 동작 또는 알림 권한을 바꾸지 않습니다.
 - Core의 런타임 작업 감독은 라이선스 사용권 상태 게시자를 채널 outbox 작업과 별도의 백그라운드
   작업으로 실행합니다. 이 게시자는 채널 메시지를 보내지 않으며, 게시가 느리거나 실패해도 Slack,
   Teams, 알림 전달을 지연시키지 않습니다.

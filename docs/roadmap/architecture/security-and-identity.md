@@ -290,6 +290,11 @@ The PostgreSQL evidence provider follows these boundaries:
   invariant violation. See [Context Selection Policy](../decisioning/context-selection-policy.md).
   Core shutdown gives pending comparisons five seconds to finish before cancelling them and
   closing the state store. An interrupted comparison cannot become promotion evidence.
+- Operator-authored policy revisions are signed by Mimir with a non-exportable installation key and
+  retain the raw signature, versioned key id, and signed-message format. Core verifies that
+  signature before activation and before using an active revision in the admission-policy or
+  approval-profile path. Missing, tampered, or wrong-key signatures fail closed to no activation or
+  human approval.
 - The T2 hallucination rubric leg follows the same evidence rule and gains no authority. Its mode
   is resolved per ActionType from an independently verified receipt, and only when the deployment
   binds the receipt source and verifier. A missing, expired, rejected, or mismatched receipt keeps

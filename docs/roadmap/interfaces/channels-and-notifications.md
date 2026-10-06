@@ -85,6 +85,9 @@ durable delivery, and the Teams Workflows webhook binding are owned by
 - A1 approval parks may also carry a pinned operator admission-policy digest. Channel adapters
   display or return it only as immutable approval context; they never re-read the policy pointer or
   evaluate Rego.
+- Core policy-revision signature verification happens before the channel layer sees approval
+  context. It changes no channel trust tier, callback route, fallback behavior, or notification
+  authority.
 - Core's runtime task supervision runs the license entitlement-state publisher as its own
   background task beside the channel outbox tasks. It sends no channel message, and a slow or
   failed publication cannot delay Slack, Teams, or notification delivery.
