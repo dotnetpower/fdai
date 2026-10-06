@@ -332,6 +332,65 @@ async def test_superseded_approval_revision_authorizes_in_flight_profile_pin_aft
 
 
 @pytest.mark.asyncio
+async def test_rollback_to_earlier_approval_content_repoints_digest_index() -> None:
+    store = InMemoryStateStore()
+    first = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    first_record = await _append_approval_revision(store, first)
+    await _activate_approval_record(store, first_record)
+    second = _approval_document(revision_id="approval-profile-r3", operator="operator-2")
+    second_record = await _append_approval_revision(
+        store,
+        second,
+        parent_revision_id=first_record.revision_id,
+    )
+    await _activate_approval_record(store, second_record)
+    rollback_record = await _append_approval_revision(
+        store,
+        first,
+        parent_revision_id=second_record.revision_id,
+    )
+    await _activate_approval_record(store, rollback_record)
+    first_pin = approval_profile_from_audit_dict(first)
+    rollback_pin = approval_profile_from_audit_dict(first)
+    second_pin = approval_profile_from_audit_dict(second)
+    assert first_pin is not None
+    assert rollback_pin is not None
+    assert second_pin is not None
+
+    assert await approval_profile_pin_is_authorized(store, pinned=first_pin, bound=None)
+    assert await approval_profile_pin_is_authorized(store, pinned=rollback_pin, bound=None)
+    assert await approval_profile_pin_is_authorized(store, pinned=second_pin, bound=None)
+    index = await store.read_state(
+        f"policy_activation_history:approval-profile:{first['policy_digest']}"
+    )
+    assert index is not None
+    assert index["revision_id"] == rollback_record.revision_id
+
+
+@pytest.mark.asyncio
+async def test_squatted_approval_digest_index_rolls_back_activation_atomically() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document)
+    await store.write_state(
+        f"policy_activation_history:approval-profile:{document['policy_digest']}",
+        {
+            "kind": "policy_activation_history_index",
+            "approval_profile_digest": "sha256:" + "f" * 64,
+            "revision_id": "attacker-revision",
+        },
+    )
+
+    with pytest.raises(PolicyRevisionRejectedError, match="policy_activation_conflict"):
+        await _activate_approval_record(store, record)
+
+    assert await store.read_state("policy_activation:approval") is None
+    assert (
+        await store.read_state(f"policy_activation_history:approval:{record.revision_id}") is None
+    )
+
+
+@pytest.mark.asyncio
 async def test_forged_approval_profile_pin_without_activation_history_is_refused() -> None:
     store = InMemoryStateStore()
     legitimate = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
