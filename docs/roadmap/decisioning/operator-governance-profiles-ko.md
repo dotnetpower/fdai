@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 5a446e7c4fcb022ea7f8441ee8d49e32ebc634e4
+translation_source_sha: 5b5b0a93ac13518c18117b63fa3895b3f560b0db
 translation_revised: 2026-10-06
 ---
 # 운영자 거버넌스 프로필
@@ -164,7 +164,10 @@ Console은 타입이 지정된 정책 개정 요청을 Operator API로 제출하
    설치 정책 키로 서명한 뒤 게시합니다. 개정은 활성화 이후 시작된 결정에만 적용됩니다. 이미 진행
    중인 결정은 재현을 위해 고정된 정책 다이제스트를 유지합니다.
 6. Saga는 작성자, diff 다이제스트, 검증 결과를 기록합니다.
-7. 롤백은 이전 개정을 선택해 같은 내용의 새 개정을 만듭니다.
+7. 롤백은 이전 개정을 선택해 같은 내용의 새 개정을 만듭니다. 승인 프로필의 경우 Mimir 개정별
+   활성화 이력은 append-only로 남고,
+   `policy_activation_history:approval-profile:<policy_digest>` 인덱스는 같은 승인 프로필 문서
+   다이제스트를 가진 가장 최근 활성 Mimir 개정을 가리키도록 갱신됩니다.
 
 검증은 실수를 일찍 잡지만, 임의의 Rego가 안전하다는 것을 증명하지는 못합니다. 경계는 평가 순서에서
 나옵니다. Core는 운영자 정책을 하나의 입력으로 평가한 뒤 헌법의 강제 제약을 독자적으로

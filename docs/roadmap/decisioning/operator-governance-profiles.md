@@ -173,6 +173,9 @@ managed-resource action.
    replay.
 6. Saga records the author, diff digest, and validation results.
 7. A rollback selects an earlier revision and creates a new revision with the same content.
+   For approval profiles, the per-Mimir-revision activation history remains append-only, while the
+   `policy_activation_history:approval-profile:<policy_digest>` index repoints to the newest
+   activated Mimir revision that carries the same approval-profile document digest.
 
 Validation catches mistakes early, but it doesn't prove that arbitrary Rego is safe. The bound comes
 from evaluation order instead. Core evaluates operator policy as one input and then applies the
