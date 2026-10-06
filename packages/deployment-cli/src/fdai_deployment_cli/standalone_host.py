@@ -996,15 +996,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     ):
         raise ValueError("AKS substrate output contract is invalid")
     core_identity = _mapping(identities.get("core"), "core runtime identity")
-    operator_identity = _mapping(identities.get("operator"), "operator runtime identity")
-    command_identity = _mapping(identities.get("command"), "command runtime identity")
-    executor_identity = _mapping(identities.get("executor"), "executor runtime identity")
+    # Terraform emits null for identities of unselected surfaces, so read only selected ones.
+    operator_identity = _selected_identity(identities, "operator", operator_api_selected)
+    command_identity = _selected_identity(identities, "command", operator_api_selected)
+    executor_identity = _selected_identity(identities, "executor", governed_execution_selected)
     inventory_identity = _mapping(identities.get("inventory"), "inventory runtime identity")
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
-    ingestion_identity = _mapping(identities.get("ingestion"), "ingestion runtime identity")
-    ingestion_worker_identity = _mapping(
-        identities.get("ingestion_worker"), "ingestion worker runtime identity"
-    )
+    ingestion_identity = _selected_identity(identities, "ingestion", console_selected)
+    ingestion_worker_identity = _selected_identity(identities, "ingestion_worker", console_selected)
     core_environment = {
         "AZURE_TENANT_ID": context["tenant_id"],
         "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
@@ -4593,6 +4592,12 @@ def _capture_env(
     if result.returncode != 0:
         raise ValueError(reason)
     return result.stdout
+
+
+def _selected_identity(identities: dict[str, Any], name: str, selected: bool) -> dict[str, Any]:
+    if not selected:
+        return {}
+    return _mapping(identities.get(name), f"{name.replace('_', ' ')} runtime identity")
 
 
 def _mapping(value: object, label: str) -> dict[str, Any]:

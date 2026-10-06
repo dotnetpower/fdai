@@ -78,18 +78,26 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
         "stewardship_maintainers": "operator",
         "stewardship_agent_bindings": {"Odin": "user:operator"},
     }
+    console = "read-only-console" in add_ons
+    operator_api = console or "enterprise-identity-governance" in add_ons
+    # Mirror Terraform's runtime_identity_bindings: unselected surfaces are null.
+    selected = {
+        "core": True,
+        "operator": operator_api,
+        "command": operator_api,
+        "executor": "governed-execution" in add_ons,
+        "inventory": True,
+        "canary": True,
+        "ingestion": console,
+        "ingestion_worker": console,
+    }
     identities = {
-        name: {"resource_id": f"/identities/{name}", "client_id": f"{name}-client"}
-        for name in (
-            "core",
-            "operator",
-            "command",
-            "executor",
-            "inventory",
-            "canary",
-            "ingestion",
-            "ingestion_worker",
+        name: (
+            {"resource_id": f"/identities/{name}", "client_id": f"{name}-client"}
+            if enabled
+            else None
         )
+        for name, enabled in selected.items()
     }
     captured: dict[str, object] = {}
 
@@ -217,6 +225,19 @@ def test_explicit_add_ons_restore_every_aks_workload(
     operator_env = workloads["operator-service"]["env"]
     assert operator_env["FDAI_RBAC_APPROVERS_GROUP_ID"] == "approvers"
     assert operator_env["FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"].startswith("https://")
+
+
+def test_observation_first_with_identity_governance_needs_no_executor_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    values = _prepare(
+        tmp_path, monkeypatch, ("enterprise-identity-governance", "read-only-console")
+    )
+    workloads = values["workloads"]
+    assert isinstance(workloads, dict)
+
+    assert "operator-service" in workloads
+    assert "isolated-executor" not in workloads
 
 
 def test_aks_core_and_operator_receive_readiness_and_receipt_bindings(
