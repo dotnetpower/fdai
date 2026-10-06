@@ -52,6 +52,7 @@ from fdai.delivery.persistence.postgres_audit_fields import (
 from fdai.delivery.persistence.postgres_audit_fields import (
     json_object as _json_object,
 )
+from fdai.delivery.persistence.postgres_state_pair import PostgresStatePairMixin
 from fdai.shared.providers.audit_hash import GENESIS_HASH, canonical_entry, next_hash
 from fdai.shared.providers.state_store import (
     IncidentAppendStatus,
@@ -78,10 +79,6 @@ _next_hash = next_hash
 _canonical = canonical_entry
 
 
-class _RollbackTransactionError(RuntimeError):
-    """Abort a multi-row state write without committing a partial update."""
-
-
 @dataclass(frozen=True, slots=True)
 class PostgresStateStoreConfig:
     """DSN + optional per-statement timeout for the adapter."""
@@ -100,7 +97,9 @@ class PostgresStateStoreConfig:
     (``statement_timeout`` only starts *after* connect succeeds)."""
 
 
-class PostgresStateStore(PostgresAssuranceTwinConfirmationMixin, StateStore):
+class PostgresStateStore(
+    PostgresStatePairMixin, PostgresAssuranceTwinConfirmationMixin, StateStore
+):
     """Async :class:`StateStore` implementation for PostgreSQL."""
 
     def __init__(self, *, config: PostgresStateStoreConfig) -> None:
@@ -271,84 +270,6 @@ class PostgresStateStore(PostgresAssuranceTwinConfirmationMixin, StateStore):
                 if await cursor.fetchone() is None:
                     return False
                 await self._append_audit_in_transaction(conn, dict(audit_entry))
-        return True
-
-    async def compare_and_set_state_with_audit_and_insert(
-        self,
-        key: str,
-        value: Mapping[str, Any],
-        *,
-        expected_revision: int,
-        insert_key: str,
-        insert_value: Mapping[str, Any],
-        audit_entry: Mapping[str, Any],
-    ) -> bool:
-        if expected_revision < 0:
-            raise ValueError("expected_revision MUST be >= 0")
-        try:
-            async with self._connection() as conn:
-                async with conn.transaction():
-                    await self._set_statement_timeout(conn)
-                    inserted = await conn.execute(
-                        """
-                        INSERT INTO state_kv (key, value)
-                        VALUES (%s, %s::jsonb)
-                        ON CONFLICT (key) DO NOTHING
-                        RETURNING key
-                        """,
-                        (insert_key, json.dumps(dict(insert_value), default=str)),
-                    )
-                    if await inserted.fetchone() is None:
-                        return False
-                    updated = await conn.execute(
-                        """
-                        UPDATE state_kv
-                           SET value = %s::jsonb,
-                               updated_at = NOW()
-                         WHERE key = %s
-                           AND COALESCE(value ->> 'revision', '0') = %s
-                        RETURNING key
-                        """,
-                        (json.dumps(dict(value), default=str), key, str(expected_revision)),
-                    )
-                    if await updated.fetchone() is None:
-                        raise _RollbackTransactionError()
-                    await self._append_audit_in_transaction(conn, dict(audit_entry))
-        except _RollbackTransactionError:
-            return False
-        return True
-
-    async def write_state_pair_with_audit_if_absent(
-        self,
-        key: str,
-        value: Mapping[str, Any],
-        *,
-        insert_key: str,
-        insert_value: Mapping[str, Any],
-        audit_entry: Mapping[str, Any],
-    ) -> bool:
-        try:
-            async with self._connection() as conn:
-                async with conn.transaction():
-                    await self._set_statement_timeout(conn)
-                    for state_key, state_value in (
-                        (key, value),
-                        (insert_key, insert_value),
-                    ):
-                        cursor = await conn.execute(
-                            """
-                            INSERT INTO state_kv (key, value)
-                            VALUES (%s, %s::jsonb)
-                            ON CONFLICT (key) DO NOTHING
-                            RETURNING key
-                            """,
-                            (state_key, json.dumps(dict(state_value), default=str)),
-                        )
-                        if await cursor.fetchone() is None:
-                            raise _RollbackTransactionError()
-                    await self._append_audit_in_transaction(conn, dict(audit_entry))
-        except _RollbackTransactionError:
-            return False
         return True
 
     async def compare_and_set_state_with_approval_guard(
