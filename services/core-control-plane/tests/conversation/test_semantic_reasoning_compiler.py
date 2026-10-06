@@ -1685,10 +1685,13 @@ def test_a_stated_state_filters_the_collection_through_the_state_inventory() -> 
 
 
 def test_a_stopped_or_deallocated_reading_reads_both_states_in_one_function() -> None:
-    utterance = "List the running VMs"
+    utterance = "List the stopped VMs"
+    form = _state_form("List the running VMs")
+    form["mentions"][1]["span"] = span(utterance, "stopped")
+    form["goals"][0]["cue"] = span(utterance, "stopped")
     compilation = _compile(
         utterance,
-        _state_form(utterance),
+        form,
         concepts(
             ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
             ("m2", MentionDomain.STATE, ("resource_state.deallocated", "resource_state.stopped")),

@@ -38,7 +38,6 @@ from .semantic_compiled_selection import (
     resample_worthy,
     single_compiled_batch,
 )
-from .semantic_environment_context import bind_environment_context
 from .semantic_manifest import semantic_principal_scope_digest
 from .semantic_plan_coverage import plan_reads_only_a_list
 from .semantic_planning_alignment import verify_frame_plan_alignment
@@ -569,16 +568,11 @@ async def _run_form_path(
     unreviewed, or mislabeled one mention's kind. At most two samples are taken.
     """
 
-    resolver = arguments.get("resolver")
-    environment = None
-    if isinstance(resolver, GatewayAnchorResolver):
-        environment = await resolver.environment_context()
-    with bind_environment_context(environment):
-        async with bind_adaptive_model_budget(collector):
-            first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
-            if not resample_worthy(first):
-                return first
-            second = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
+    async with bind_adaptive_model_budget(collector):
+        first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
+        if not resample_worthy(first):
+            return first
+        second = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
     if isinstance(single_compiled_batch(second), str):
         return replace(first, notes=(*first.notes, "form_resampled_unanswered"))
     return replace(
