@@ -28,10 +28,7 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_core_model, bootstrap_incidents
 from fdai.runtime import product_profile as _product_profile
-from fdai.runtime.approval_profile import (
-    StateStoreApprovalProfileRevisionReader,
-    active_approval_runtime_bindings,
-)
+from fdai.runtime.approval_profile import active_approval_runtime_bindings_from_store
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
@@ -39,16 +36,16 @@ from fdai.runtime.bootstrap_bindings import (
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
-from fdai.runtime.bootstrap_hil import (
-    build_hil_workflow_registry as _build_hil_workflow_registry,
-)
+from fdai.runtime.bootstrap_hil import build_hil_workflow_registry as _build_hil_workflow_registry
 from fdai.runtime.bootstrap_lifecycle import (
     build_discovery_activation_runtime,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     build_mutation_dependency_readiness as _build_mutation_dependency_readiness,
 )
-from fdai.runtime.bootstrap_lifecycle import build_runtime_saga as _build_runtime_saga
+from fdai.runtime.bootstrap_lifecycle import (
+    build_runtime_saga as _build_runtime_saga,
+)
 from fdai.runtime.bootstrap_lifecycle import (
     runtime_positive_integer as _runtime_positive_integer,
 )
@@ -441,15 +438,7 @@ async def build_core_runtime(
             extra={"reason": "executed_action_sources_absent"},
         )
     runtime_saga = _build_runtime_saga(state_store)
-    mutation_readiness = _build_mutation_dependency_readiness(
-        saga=runtime_saga,
-        rollback_executors=None,
-    )
-    approval_bindings = await active_approval_runtime_bindings(
-        environment,
-        reader=StateStoreApprovalProfileRevisionReader(state_store),
-        audit_store=state_store,
-    )
+    approval_bindings = await active_approval_runtime_bindings_from_store(environment, state_store)
     control_loop = _build_control_loop(
         container,
         http_client=resources.http_client,
@@ -472,7 +461,9 @@ async def build_core_runtime(
         ),
         human_access_enabled=runtime_values["human_access.enabled"] is True,
         license_authority=license_authority,
-        mutation_dependency_readiness=mutation_readiness,
+        mutation_dependency_readiness=_build_mutation_dependency_readiness(
+            saga=runtime_saga, rollback_executors=None
+        ),
         workflow_event_bus=messaging.bus,
         approval_bindings=approval_bindings,
     )

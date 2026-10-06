@@ -1385,7 +1385,7 @@ def test_materializes_optional_core_approval_profile(tfvars: ModuleType) -> None
 def test_rejects_approval_profile_with_digest_mismatch(tfvars: ModuleType) -> None:
     payload = {**_approval_profile_payload(), "policy_digest": "sha256:" + "5" * 64}
 
-    with pytest.raises(tfvars.TfvarsError, match="policy_digest"):
+    with pytest.raises(ValueError, match="policy_digest"):
         tfvars.select_tfvars(
             {"environments": {"prod": {"core-control-plane": {"name": "core"}}}},
             service="core-control-plane",
@@ -1400,7 +1400,7 @@ def test_rejects_approval_profile_with_development_profile(
 ) -> None:
     monkeypatch.setenv("FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", '{"profile_id":"dev"}')
 
-    with pytest.raises(tfvars.TfvarsError, match="mutually exclusive"):
+    with pytest.raises(ValueError, match="mutually exclusive"):
         tfvars.select_tfvars(
             {"environments": {"prod": {"core-control-plane": {"name": "core"}}}},
             service="core-control-plane",

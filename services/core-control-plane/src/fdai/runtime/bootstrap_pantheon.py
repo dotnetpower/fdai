@@ -61,10 +61,7 @@ from fdai.runtime.aks_commerce import (
     chain_acceptance_observer,
 )
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
-from fdai.runtime.approval_profile import (
-    StateStoreApprovalProfileRevisionReader,
-    active_approval_runtime_bindings,
-)
+from fdai.runtime.approval_profile import active_approval_runtime_bindings_from_store
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
@@ -168,10 +165,9 @@ async def initialize_pantheon(
         config.environment,
         config.startup_readiness,
     )
-    approval_bindings = await active_approval_runtime_bindings(
+    approval_bindings = await active_approval_runtime_bindings_from_store(
         config.environment,
-        reader=StateStoreApprovalProfileRevisionReader(config.incident_audit_store),
-        audit_store=config.incident_audit_store,
+        config.incident_audit_store,
     )
     disabled_raw = config.environment.get("FDAI_PANTHEON_DISABLED_AGENTS", "").strip()
     disabled_agents = (

@@ -142,6 +142,19 @@ async def active_approval_runtime_bindings(
     return ApprovalRuntimeBindings(profile) if profile is not None else None
 
 
+async def active_approval_runtime_bindings_from_store(
+    environment: Mapping[str, str],
+    store: StateStore,
+) -> ApprovalRuntimeBindings | None:
+    """Return active approval bindings from the StateStore policy pointer."""
+
+    return await active_approval_runtime_bindings(
+        environment,
+        reader=StateStoreApprovalProfileRevisionReader(store),
+        audit_store=store,
+    )
+
+
 class StateStoreApprovalProfileRevisionReader:
     """Read active approval revisions from Mimir's StateStore projection."""
 
@@ -258,6 +271,7 @@ __all__ = [
     "PROFILE_PATH_ENV",
     "StateStoreApprovalProfileRevisionReader",
     "active_approval_runtime_bindings",
+    "active_approval_runtime_bindings_from_store",
     "approval_runtime_bindings",
     "load_active_approval_profile",
     "load_approval_profile",

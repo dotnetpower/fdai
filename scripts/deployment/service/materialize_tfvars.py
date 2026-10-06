@@ -14,8 +14,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from fdai_service_contracts.approval_profile import approval_profile_policy_digest
+from approval_profile_tfvars import bind_approval_profile
 from service_contract import ServiceContractError, normalize_api_audience, resolve_service
+from stewardship_tfvars import stewardship_gitops_binding
 
 
 class TfvarsError(ValueError):
@@ -570,33 +571,6 @@ def materialize_core_llm(
     }
 
 
-def materialize_approval_profile(raw_json: str) -> str:
-    """Validate one deploy-time approval profile revision and return canonical JSON."""
-    try:
-        payload = json.loads(raw_json)
-    except json.JSONDecodeError as exc:
-        raise TfvarsError("FDAI_APPROVAL_PROFILE_JSON must contain valid JSON") from exc
-    if not isinstance(payload, dict):
-        raise TfvarsError("FDAI_APPROVAL_PROFILE_JSON must contain a JSON object")
-    expected_fields = {
-        "revision_id",
-        "approval_profile",
-        "executor_principal",
-        "effective_from",
-        "operator_principal",
-        "policy_digest",
-    }
-    if set(payload) != expected_fields:
-        raise TfvarsError("FDAI_APPROVAL_PROFILE_JSON has unexpected approval profile fields")
-    if payload.get("approval_profile") != "single-operator-production":
-        raise TfvarsError("FDAI_APPROVAL_PROFILE_JSON must select single-operator-production")
-    if payload.get("policy_digest") != approval_profile_policy_digest(payload):
-        raise TfvarsError(
-            "FDAI_APPROVAL_PROFILE_JSON policy_digest does not match revision content"
-        )
-    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
-
-
 def select_tfvars(
     payload: dict[str, Any],
     *,
@@ -704,17 +678,14 @@ def select_tfvars(
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
         )
-    if approval_profile_json:
-        if service != "core-control-plane":
-            raise TfvarsError("approval profile binding is valid only for core-control-plane")
-        if os.environ.get("FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", "").strip():
-            raise TfvarsError(
-                "FDAI_APPROVAL_PROFILE_JSON and FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON "
-                "are mutually exclusive"
-            )
-        materialized["approval_profile_json"] = materialize_approval_profile(approval_profile_json)
+    bind_approval_profile(
+        materialized,
+        service=service,
+        raw_json=approval_profile_json,
+        development_profile_json=os.environ.get("FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", ""),
+    )
     if service in {"core-control-plane", "document-ingestion-api"}:
-        materialized["stewardship_gitops"] = _stewardship_gitops_binding(
+        materialized["stewardship_gitops"] = stewardship_gitops_binding(
             stewardship_gitops,
             service=service,
         )
@@ -742,29 +713,6 @@ def select_tfvars(
         materialized["cost_pseudonym_key_secret_id"] = _key_vault_secret_id(
             cost_pseudonym_key_secret_id,
             label="Cost pseudonym key binding",
-        )
-    return materialized
-
-
-def _stewardship_gitops_binding(
-    binding: dict[str, Any] | None,
-    *,
-    service: str,
-) -> dict[str, Any]:
-    if not binding:
-        return {}
-    materialized = copy.deepcopy(binding)
-    if "auth_mode" not in materialized:
-        if service == "document-ingestion-api":
-            return {}
-        materialized.update(
-            {
-                "auth_mode": "static_token",
-                "app_client_id": "",
-                "app_installation_id": "",
-                "app_private_key_secret_id": "",
-                "webhook_secret_id": "",
-            }
         )
     return materialized
 
@@ -861,7 +809,7 @@ def main() -> int:
             approval_profile_json=os.environ.get("FDAI_APPROVAL_PROFILE_JSON", "").strip(),
         )
         write_tfvars(args.output, selected)
-    except (OSError, json.JSONDecodeError, ServiceContractError, TfvarsError) as exc:
+    except (OSError, json.JSONDecodeError, ServiceContractError, ValueError) as exc:
         parser.error(str(exc))
     return 0
 
