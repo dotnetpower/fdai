@@ -40,6 +40,11 @@ a mismatched content-addressed digest. It reduces only the approval quorum for t
 it does not change runtime selection, risk classes, A4 denial, execution identity, or effect
 verification.
 
+The selected product profile is another runtime-independent axis. Local, AKS, and Container Apps
+profiles all consume the same canonical product-profile JSON. Selecting `policy-administration`
+only binds the Operator policy route and Mimir policy-administration subscription; it does not
+change the runtime platform, Cost Governance package activation, or any execution identity.
+
 The host's read-only `verify-source-runtime` command checks pinned source/runtime content, not
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
 cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;
