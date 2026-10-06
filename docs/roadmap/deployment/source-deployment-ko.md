@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: a572c2270d177225b1e55001a65078c2499aaaa2
-translation_revised: 2026-10-05
+translation_source_sha: 932cb3e31431e831b97f90e1e1eb62ad837e7263
+translation_revised: 2026-10-06
 ---
 
 # 단일 명령 소스 배포
