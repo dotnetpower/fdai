@@ -46,10 +46,6 @@ from fdai.core.risk_gate import (
     RiskGate,
     RiskGateConfig,
 )
-from fdai.core.risk_gate.operator_policy import (
-    OperatorPolicyDecisionBinder,
-    StateStoreOperatorPolicyRevisionReader,
-)
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.core.tiers.t0_deterministic import T0Engine
 from fdai.core.tiers.t0_deterministic.index import RuleIndex
@@ -74,7 +70,6 @@ from fdai.delivery.operator_request_receipt import core_operator_request_receipt
 from fdai.delivery.persistence.state_store_preconditions import (
     StateStoreOpenActionEvidenceProvider,
 )
-from fdai.delivery.policy_admission import OpaAdmissionPolicyEvaluator
 from fdai.delivery.prospective_lineage import (
     StateStoreProspectiveLineageReadinessReader,
 )
@@ -128,7 +123,7 @@ from fdai.runtime.isolated_executor_client import (
 )
 from fdai.runtime.licensing import gate_execution
 from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
-from fdai.runtime.policy_administration import build_policy_revision_signature_verifier
+from fdai.runtime.policy_administration import build_operator_policy_binder
 from fdai.runtime.product_profile import RuntimeProductSelection, build_promotion_registry
 from fdai.runtime.providers import (
     _build_audit_store,
@@ -717,20 +712,12 @@ def _build_control_loop(
     development_kwargs = development_control_loop_kwargs(
         os.environ, store=audit_store, identity=identity, http_client=http_client
     )
-    policy_signature_verifier = build_policy_revision_signature_verifier(
+    operator_policy_binder = build_operator_policy_binder(
         environment=os.environ,
+        state_store=audit_store,
         http_client=http_client,
         workload_identity_builder=_build_runtime_workload_identity,
-    )
-    operator_policy_binder = OperatorPolicyDecisionBinder(
-        reader=StateStoreOperatorPolicyRevisionReader(
-            audit_store,
-            signature_verifier=policy_signature_verifier,
-        ),
-        evaluator=OpaAdmissionPolicyEvaluator(
-            capabilities_file=catalog_root / "schema" / "policy_admin_opa_capabilities.json",
-            signature_verifier=policy_signature_verifier,
-        ),
+        capabilities_file=catalog_root / "schema" / "policy_admin_opa_capabilities.json",
     )
     return ControlLoop(
         **development_kwargs,

@@ -20,6 +20,11 @@ from fdai.agents import (
     OperatorRequestReceiptGate,
     StateStorePolicyRevisionStore,
 )
+from fdai.core.risk_gate.operator_policy import (
+    OperatorPolicyDecisionBinder,
+    StateStoreOperatorPolicyRevisionReader,
+)
+from fdai.delivery.policy_admission import OpaAdmissionPolicyEvaluator
 from fdai.delivery.policy_signing import (
     DEFAULT_POLICY_SIGNING_ALGORITHM,
     AzureKeyVaultPolicyRevisionSigner,
@@ -133,6 +138,33 @@ async def build_mimir_policy_administration(
     )
 
 
+def build_operator_policy_binder(
+    *,
+    environment: Mapping[str, str],
+    state_store: StateStore,
+    http_client: httpx.AsyncClient | None,
+    workload_identity_builder: Callable[..., WorkloadIdentity],
+    capabilities_file: Path,
+) -> OperatorPolicyDecisionBinder:
+    """Bind decision-start policy reading with fail-closed signature verification."""
+
+    signature_verifier = build_policy_revision_signature_verifier(
+        environment=environment,
+        http_client=http_client,
+        workload_identity_builder=workload_identity_builder,
+    )
+    return OperatorPolicyDecisionBinder(
+        reader=StateStoreOperatorPolicyRevisionReader(
+            state_store,
+            signature_verifier=signature_verifier,
+        ),
+        evaluator=OpaAdmissionPolicyEvaluator(
+            capabilities_file=capabilities_file,
+            signature_verifier=signature_verifier,
+        ),
+    )
+
+
 __all__ = [
     "POLICY_ADMIN_KEY_VAULT_ALGORITHM_ENV",
     "POLICY_ADMIN_KEY_VAULT_CLIENT_ID_ENV",
@@ -141,6 +173,7 @@ __all__ = [
     "POLICY_ADMIN_OPA_BINARY_ENV",
     "FailClosedReleaseMaximums",
     "build_mimir_policy_administration",
+    "build_operator_policy_binder",
     "build_policy_revision_signature_verifier",
     "policy_administration_selected",
 ]
