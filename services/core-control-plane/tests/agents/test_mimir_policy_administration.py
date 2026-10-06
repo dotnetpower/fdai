@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -25,6 +27,7 @@ from fdai.agents._framework.runtime_payload_validation import default_payload_va
 from fdai.agents.var import Var
 from fdai.core.control_loop import ControlLoop
 from fdai.core.risk_gate import ActionPromotionRegistry, PromotionMetrics, RiskGate
+from fdai.core.risk_gate.approval_profile import OperatorPolicyOutcome
 from fdai.core.risk_gate.operator_policy import (
     OperatorPolicyDecisionBinder,
     StateStoreOperatorPolicyRevisionReader,
@@ -55,6 +58,8 @@ from fdai_service_contracts.operator_request_receipt import (
     operator_request_receipt_signing_bytes,
 )
 from fdai_service_contracts.policy_administration import (
+    POLICY_ACTIVATION_REQUEST_TOPIC,
+    POLICY_OBJECT_TOPIC,
     AdmissionPolicyContent,
     ApprovalPolicyContent,
     PolicyKind,
@@ -263,8 +268,8 @@ async def test_mimir_validates_stores_activates_and_publishes_policy() -> None:
     assert event["policy_kind"] == "admission"
     assert len(compiler.compiled) == 1
     assert await store.read_state(f"policy_activation:{PolicyKind.ADMISSION.value}") is not None
-    assert len(bus.messages_on("object.policy")) == 1
-    assert bus.messages_on("object.policy")[0].payload["revision_id"] == event["revision_id"]
+    assert len(bus.messages_on(POLICY_OBJECT_TOPIC)) == 1
+    assert bus.messages_on(POLICY_OBJECT_TOPIC)[0].payload["revision_id"] == event["revision_id"]
 
 
 @pytest.mark.asyncio
@@ -433,7 +438,7 @@ async def test_mimir_redelivery_records_outcome_and_publishes_once_after_transie
     await bridge._deliver("operator.policy-revision.requests", mimir.on_typed_message, payload)
 
     assert store.recorded_outcomes == 1
-    assert len(provider._records.get("object.policy", ())) == 1
+    assert len(provider._records.get(POLICY_OBJECT_TOPIC, ())) == 1
 
 
 @pytest.mark.asyncio
@@ -487,7 +492,7 @@ async def test_var_quorum_activates_pending_relaxing_admission() -> None:
     pending = await mimir.handle_policy_revision_request(_request({}).model_dump(mode="json"))
     pending["producer_principal"] = "Mimir"
 
-    await var.on_typed_message("object.policy", pending)
+    await var.on_typed_message(POLICY_ACTIVATION_REQUEST_TOPIC, pending)
     assert (
         await var.decide(pending["correlation_id"], approver="operator-a", decision="approve")
         is None
@@ -746,6 +751,56 @@ async def test_activated_admission_policy_cannot_raise_hard_constraints(
     assert hil is not None
     assert hil.requires_hil
     assert not hil.is_auto
+
+
+@pytest.mark.asyncio
+async def test_cancelled_admission_evaluation_kills_opa_child(tmp_path: Path) -> None:
+    pid_file = tmp_path / "opa.pid"
+    fake_opa = tmp_path / "fake-opa"
+    fake_opa.write_text(f"#!/bin/sh\necho $$ > {pid_file}\nsleep 30\n", encoding="utf-8")
+    fake_opa.chmod(0o755)
+    state = InMemoryStateStore()
+    event = _request({})
+    content_digest = policy_content_digest(event.content)
+    revision_id = _expected_revision_id(content_digest)
+    record = _revision_record(event, revision_id, content_digest)
+    await state.write_state(
+        f"policy_revision:admission:{revision_id}", record.model_dump(mode="json")
+    )
+    await state.write_state(
+        "policy_activation:admission",
+        {
+            "kind": "policy_activation",
+            "policy_id": f"admission:{revision_id}",
+            "event_type": "policy_activation",
+            "policy_kind": "admission",
+            "revision_id": revision_id,
+            "policy_digest": content_digest,
+            "activated_at": NOW.isoformat(),
+            "author_principal": "policy-admin-1",
+            "validation_digest": record.validation.validation_digest,
+            "correlation_id": "policy-activation:test",
+            "idempotency_key": "policy-activation:test",
+        },
+    )
+    binder = OperatorPolicyDecisionBinder(
+        reader=StateStoreOperatorPolicyRevisionReader(state),
+        evaluator=OpaAdmissionPolicyEvaluator(
+            opa_binary=str(fake_opa),
+            capabilities_file=_CAPABILITIES,
+            timeout_seconds=5.0,
+        ),
+        timeout_seconds=0.2,
+    )
+
+    bound = await binder.bind(action_input={"action_type": "remediate.tag-add"})
+
+    assert bound is not None
+    assert bound.outcome is OperatorPolicyOutcome.REQUIRE_APPROVAL
+    assert pid_file.is_file()
+    pid = int(pid_file.read_text(encoding="utf-8").strip())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
 
 
 def _admin(

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a27bb25df201e98d3b2b70b279521eb0557c2d8f
+translation_source_sha: a6eb3281a645976f4c546500d9221f01528f3d6d
 translation_revised: 2026-10-06
 ---
 # 프로젝트 구조
@@ -12,7 +12,7 @@ translation_revised: 2026-10-06
 검토된 모델 역할과 reasoning effort를 선택하고, Core는 principal 매니페스트를 기준으로 보안
 판독기가 권한을 확인하는 스키마 검증 형식 절만 받습니다.
 최근 Resource 변경 이어 읽기는 Core의 온톨로지 플랫폼과 persistence 모듈 안에 남습니다. Operator는 불투명 참조를 전달하는 route만 노출하고, Core가 이어 읽기 본문, keyset cursor, 만료, 재권한 확인 및 PostgreSQL 저장을 소유합니다.
-단독 운영자 프로덕션 승인 프로필 배선은 전용 모듈로 분리되어 있습니다. `packages/service-contracts/src/fdai_service_contracts/approval_profile.py`는 Core와 Operator가 공유하는 권한 중립 개정 형태, 다이제스트, 정족수, 승인자 규칙을 소유합니다. `core/risk_gate/approval_profile.py`는 이 순수 계약을 다시 내보내고 Core의 자율성을 높이지 않는 운영자 정책 입력만 소유합니다. `runtime/approval_profile.py`는 `FDAI_APPROVAL_PROFILE_JSON` 또는 `FDAI_APPROVAL_PROFILE_PATH`에서 배포 선택을 소유하며, `agents/_framework/var_approval_profile.py`는 Var의 티켓 수락과 승인자 검사를 소유합니다. ControlLoop, HIL 재개, Forseti, Var, Thor, Operator 콜백은 같은 고정 프로필 개정을 메타데이터로 전달합니다. 이 모듈들은 실행기 권한을 부여하거나 고정 에이전트 역할을 바꾸지 않습니다. 정책 관리도 같은 분리를 따릅니다. `fdai_service_contracts.policy_administration`은 형식화된 요청과 활성화 계약을 소유하고, Operator IAM 제품군의 `policy_administration.py` 경로는 인증 후 요청을 게시하기만 합니다. 개정의 검증, 서명, 저장, 활성화는 Mimir의 `agents/_framework/mimir_policy_administration.py`만 수행합니다. 결정 측 허용 정책 고정은 `core/risk_gate/operator_policy.py`에 남고, OPA 기반 평가기는 `delivery/policy_admission.py`에 있으며 런타임 조립이 주입합니다. 에이전트는 전달 어댑터를 가져오지 않습니다.
+단독 운영자 프로덕션 승인 프로필 배선은 전용 모듈로 분리되어 있습니다. `packages/service-contracts/src/fdai_service_contracts/approval_profile.py`는 Core와 Operator가 공유하는 권한 중립 개정 형태, 다이제스트, 정족수, 승인자 규칙을 소유합니다. `core/risk_gate/approval_profile.py`는 이 순수 계약을 다시 내보내고 Core의 자율성을 높이지 않는 운영자 정책 입력만 소유합니다. `runtime/approval_profile.py`는 `FDAI_APPROVAL_PROFILE_JSON` 또는 `FDAI_APPROVAL_PROFILE_PATH`에서 배포 선택을 소유하며, `agents/_framework/var_approval_profile.py`는 Var의 티켓 수락과 승인자 검사를 소유합니다. ControlLoop, HIL 재개, Forseti, Var, Thor, Operator 콜백은 같은 고정 프로필 개정을 메타데이터로 전달합니다. 이 모듈들은 실행기 권한을 부여하거나 고정 에이전트 역할을 바꾸지 않습니다. 정책 관리도 같은 분리를 따릅니다. `fdai_service_contracts.policy_administration`은 형식화된 요청과 활성화 계약을 소유하고, Operator IAM 제품군의 `policy_administration.py` 경로는 인증 후 요청을 게시하기만 합니다. 개정의 검증, 서명, 저장, 활성화는 Mimir의 `agents/_framework/mimir_policy_administration.py`만 수행합니다. 결정 측 허용 정책 고정은 `core/risk_gate/operator_policy.py`에 남고, OPA 기반 평가기는 `delivery/policy_admission.py`에 있으며 런타임 조립이 주입합니다. 에이전트는 전달 어댑터를 가져오지 않습니다. T0, T1, T2, 운영자 요청 HIL 보류는 고정된 운영자 정책 다이제스트를 전달하고, 전체 권한 개발 범주 재개는 실패 시 안전하게 차단하는 재검증으로만 현재 정책을 의도적으로 다시 읽습니다.
 연속 all-kinds 관계 이어 읽기는 이미 검증된 계획 묶음 위의 shadow 전용 상태로 Core 대화 모듈에 남습니다. Operator route나 기본 답변 동작은 추가하지 않습니다.
 컨테이너 종류 계보 그룹화는 Core 대화 컴파일과 일반 온톨로지 query handler가 나누어 소유합니다. 컴파일러는 검토된 컨테이너 종류를 선택하고, 보안 traversal은 타입 지정 계보 행을 내보내며, aggregate handler는 새 권한 없이 가장 가까운 루트 개수와 `ambiguous_membership`을 계산합니다.
 남은 E9 연산자는 전용 Core 대화 helper에 누락된 선행 조건 결정을 보존하므로, 지원되지 않는 rank, aggregate, comparison, version, evidence, diagnose 및 path 행은 다른 연산의 계획으로 fallback하지 않습니다.

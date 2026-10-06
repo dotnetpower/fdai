@@ -13,6 +13,7 @@ from fdai.core.control_loop._execution_effects import ControlLoopExecutionEffect
 from fdai.core.control_loop._governance import ControlLoopGovernanceMixin
 from fdai.core.control_loop._helpers import (
     _extract_environment,
+    _extract_resource_props,
     _unified_audit_dict,
     build_shadow_authority_audit,
     evaluate_unified,
@@ -673,7 +674,7 @@ class ControlLoopExecutionMixin(
         operator_policy = None
         policy_violation = event.payload.get("policy_violation") is True
         if self._operator_policy_binder is not None:
-            environment = _extract_environment(event.payload)
+            environment = _extract_environment(_extract_resource_props(event.payload))
             operator_policy = await self._operator_policy_binder.bind(
                 action_input=bounded_action_policy_input(
                     action_type=action.action_type,

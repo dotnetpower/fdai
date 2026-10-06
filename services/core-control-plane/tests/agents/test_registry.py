@@ -44,12 +44,21 @@ def _producer_topics() -> set[str]:
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
             ):
                 topic_index = 0 if call.func.attr == "_publish_proposal" else 1
-                if (
-                    call.func.attr not in {"publish", "_publish_proposal", "_publish_with_outbox"}
-                    or len(call.args) <= topic_index
+                if call.func.attr not in {
+                    "publish",
+                    "_publish_proposal",
+                    "_publish_with_outbox",
+                    "_publish_claimed_rule_publication",
+                } or (
+                    len(call.args) <= topic_index
+                    and not any(keyword.arg == "topic" for keyword in call.keywords)
                 ):
                     continue
-                topic = call.args[topic_index]
+                topic = (
+                    call.args[topic_index]
+                    if len(call.args) > topic_index
+                    else next(keyword.value for keyword in call.keywords if keyword.arg == "topic")
+                )
                 if isinstance(topic, ast.Constant) and isinstance(topic.value, str):
                     if topic.value.startswith("object."):
                         topics.add(topic.value)

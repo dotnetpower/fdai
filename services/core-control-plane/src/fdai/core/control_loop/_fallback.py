@@ -43,6 +43,11 @@ _T2_OUTCOME_MAP: Mapping[T2Outcome, ControlLoopOutcome] = {
 }
 
 
+def _operator_policy_audit(unified: UnifiedRiskDecision) -> dict[str, Any] | None:
+    policy = unified.authority.operator_policy if unified.authority is not None else None
+    return policy.as_audit_dict() if policy is not None else None
+
+
 class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
     """Run shadow-only T1/T2 fallback stages and route T2 candidates."""
 
@@ -100,6 +105,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
         rule: Rule,
         correlation_id: str,
         approval_profile: Mapping[str, Any] | None = None,
+        operator_policy: Mapping[str, Any] | None = None,
         original_quorum_required: int | None = None,
         effective_quorum_required: int | None = None,
     ) -> None: ...
@@ -414,6 +420,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
                     and unified.authority.approval_profile is not None
                     else None
                 ),
+                operator_policy=_operator_policy_audit(unified),
                 original_quorum_required=(
                     unified.authority.original_quorum
                     if unified.authority is not None
@@ -751,6 +758,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
                     and unified.authority.approval_profile is not None
                     else None
                 ),
+                operator_policy=_operator_policy_audit(unified),
                 original_quorum_required=(
                     unified.authority.original_quorum
                     if unified.authority is not None

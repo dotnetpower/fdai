@@ -43,6 +43,7 @@ class OpaAdmissionPolicyEvaluator:
             return OperatorPolicyOutcome.REQUIRE_APPROVAL
         if not isinstance(revision.content, AdmissionPolicyContent):
             return OperatorPolicyOutcome.REQUIRE_APPROVAL
+        stdout = b""
         with tempfile.TemporaryDirectory(prefix="fdai-admission-policy-") as directory:
             root = Path(directory)
             policy_path = root / "policy.rego"
@@ -73,9 +74,15 @@ class OpaAdmissionPolicyEvaluator:
                     timeout=self.timeout_seconds,
                 )
             except TimeoutError:
-                proc.kill()
-                await proc.wait()
                 return OperatorPolicyOutcome.REQUIRE_APPROVAL
+            finally:
+                if proc.returncode is None:
+                    proc.kill()
+                    try:
+                        await proc.wait()
+                    except asyncio.CancelledError:
+                        await proc.wait()
+                        raise
         if proc.returncode != 0:
             return OperatorPolicyOutcome.REQUIRE_APPROVAL
         try:

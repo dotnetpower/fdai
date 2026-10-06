@@ -17,6 +17,7 @@ from fdai_service_contracts.operator_request_receipt import OperatorRequestRecei
 POLICY_REVISION_REQUEST_TOPIC = "operator.policy-revision.requests"
 POLICY_REVISION_CONSUMER_GROUP = "mimir-policy-revision-v1"
 POLICY_OBJECT_TOPIC = "object.policy"
+POLICY_ACTIVATION_REQUEST_TOPIC = "object.policy-activation-request"
 
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _REVISION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
@@ -261,7 +262,7 @@ class PolicyActivationApprovalRequest(PolicyAdministrationContract):
     """Mimir-owned request for Var quorum before activating a relaxing revision."""
 
     schema_version: Literal["1.0.0"] = "1.0.0"
-    object_type: Literal["Policy"] = "Policy"
+    object_type: Literal["PolicyActivationRequest"] = "PolicyActivationRequest"
     kind: Literal["policy_activation_approval_requested"] = "policy_activation_approval_requested"
     event_type: Literal["policy_activation_approval_requested"] = (
         "policy_activation_approval_requested"
@@ -321,6 +322,7 @@ __all__ = [
     "AdmissionPolicyContent",
     "ApprovalPolicyContent",
     "POLICY_OBJECT_TOPIC",
+    "POLICY_ACTIVATION_REQUEST_TOPIC",
     "POLICY_REVISION_CONSUMER_GROUP",
     "POLICY_REVISION_REQUEST_TOPIC",
     "PolicyActivationEvent",

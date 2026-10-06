@@ -36,6 +36,7 @@ from fdai.core.quality_gate.gate import (
     QualityDecision,
     QualityOutcome,
 )
+from fdai.core.risk_gate.approval_profile import OperatorPolicyInput, OperatorPolicyOutcome
 from fdai.core.tiers.t0_deterministic import RuleIndex, T0Engine
 from fdai.core.tiers.t2_reasoning import (
     T2Decision,
@@ -189,6 +190,14 @@ def _rule(
                 "retrieved_at": "2026-07-05T00:00:00Z",
             },
         }
+    )
+
+
+def _pinned_operator_policy() -> OperatorPolicyInput:
+    return OperatorPolicyInput(
+        revision_id="admission:t2",
+        policy_digest="sha256:" + "8" * 64,
+        outcome=OperatorPolicyOutcome.REQUIRE_APPROVAL,
     )
 
 
@@ -350,6 +359,55 @@ async def test_t2_candidate_uses_t2_authority_ceiling(tmp_path: Path) -> None:
     assert result is not None
     assert result.outcome is ControlLoopOutcome.HIL
     assert risk_decision.await_args.kwargs["tier"] is Tier.T2
+
+
+@pytest.mark.asyncio
+async def test_t2_hil_park_carries_pinned_operator_policy(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(t2_engine=None, audit=audit, tmp_path=tmp_path)
+    _configure_action_builder(loop)
+    loop._risk_table = object()  # type: ignore[assignment]  # noqa: SLF001
+    loop._risk_gate = object()  # type: ignore[assignment]  # noqa: SLF001
+    policy = _pinned_operator_policy()
+    loop._hil_resume_coordinator = object()  # noqa: SLF001 - enable request path only
+    request = AsyncMock()
+    loop._request_hil_approval = request  # type: ignore[method-assign]  # noqa: SLF001
+    loop._evaluate_and_audit = AsyncMock(  # type: ignore[method-assign]  # noqa: SLF001
+        return_value=SimpleNamespace(
+            is_auto=False,
+            requires_hil=True,
+            is_denied=False,
+            decision="hil",
+            quorum=1,
+            authority=SimpleNamespace(
+                approval_profile=None,
+                operator_policy=policy,
+                original_quorum=1,
+            ),
+        )
+    )
+    event = await _ingest("evt-t2-policy-pin")
+    candidate = replace(_candidate(), params={})
+    t2 = T2Decision(
+        outcome=T2Outcome.PROPOSED,
+        candidate=candidate,
+        quality_decision=QualityDecision(outcome=QualityOutcome.ELIGIBLE, candidate=candidate),
+        reason="eligible",
+    )
+
+    result = await loop._route_t2_candidate(  # noqa: SLF001 - focused routing contract
+        event=event,
+        decision=_routing(),
+        t2=t2,
+        cs_decision=None,
+        t1_decision=None,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result is not None
+    assert result.outcome is ControlLoopOutcome.HIL
+    assert request.await_args.kwargs["operator_policy"] == policy.as_audit_dict()
 
 
 @pytest.mark.asyncio

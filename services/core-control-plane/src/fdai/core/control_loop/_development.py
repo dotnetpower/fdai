@@ -204,6 +204,9 @@ class ControlLoopDevelopmentMixin:
             or authorization.executor_identity_ref != action.executor_identity_ref
         ):
             return CategoryRevalidation(False, "execution_authorization_changed", detail)
+        # Development category-denial resume intentionally re-reads current
+        # policy. A changed operator-policy pointer can only keep the park held
+        # by changing the recomputed category denial; it never raises authority.
         unified = await self._evaluate_and_audit(event=current, action=action, rule=rule)
         if unified is None:
             return CategoryRevalidation(False, "risk_evaluation_unavailable", detail)

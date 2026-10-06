@@ -7,6 +7,8 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai_service_contracts.policy_administration import POLICY_ACTIVATION_REQUEST_TOPIC
+
 from fdai.agents._framework.action_run_identity import validate_action_run_identity
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import (
@@ -186,7 +188,7 @@ class Var(
             await ingest_document_hil(self, payload)
             await self._ingest_shadow_review(payload)
             return
-        if topic == "object.policy":
+        if topic == POLICY_ACTIVATION_REQUEST_TOPIC:
             await ingest_policy_activation_request(self, payload)
             return
         if topic != "object.action-run":

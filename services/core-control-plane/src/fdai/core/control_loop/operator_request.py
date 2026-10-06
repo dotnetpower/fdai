@@ -98,6 +98,7 @@ class OperatorRequestHost(Protocol):
         submitter_oid: str,
         development_authority: Mapping[str, Any] | None = None,
         approval_profile: Mapping[str, Any] | None = None,
+        operator_policy: Mapping[str, Any] | None = None,
         original_quorum_required: int | None = None,
         effective_quorum_required: int | None = None,
     ) -> None: ...
@@ -284,6 +285,12 @@ async def process_operator_request(
                     unified.authority.approval_profile.as_audit_dict()
                     if unified.authority is not None
                     and unified.authority.approval_profile is not None
+                    else None
+                ),
+                operator_policy=(
+                    unified.authority.operator_policy.as_audit_dict()
+                    if unified.authority is not None
+                    and unified.authority.operator_policy is not None
                     else None
                 ),
                 original_quorum_required=(

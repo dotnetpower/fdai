@@ -226,6 +226,8 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   policy digest on HIL parks so replay and resume keep the original decision input. When no active
   admission pointer exists, the operator policy input is `None` and existing decision behavior is
   unchanged. OPA or policy-read failures fail closed to human approval instead of allowing action.
+  Full-authority development category-denial resume intentionally re-reads the current pointer as a
+  fail-closed revalidation; a changed result keeps the park held instead of raising authority.
 - The Operator service does not yet read the selected product profile. Until a product-profile seam
   is wired, production composition leaves the policy-revision route disabled by default even when
   the semantic bus exists. Tests bind the route explicitly to verify the publish-only contract.

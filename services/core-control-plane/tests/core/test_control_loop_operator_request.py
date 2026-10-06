@@ -11,6 +11,7 @@ from fdai.core.executor import ResourceLockManager
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.executor.tool_call import ToolCallShadowExecutor
 from fdai.core.hil_resume import HilResumeCoordinator, ResolveOutcome
+from fdai.core.risk_gate.approval_profile import OperatorPolicyInput, OperatorPolicyOutcome
 from fdai.core.risk_gate.gate import (
     ActionPromotionRegistry,
     PromotionMetrics,
@@ -44,6 +45,15 @@ from fdai.shared.providers.vm_task import (
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
 RISK_TABLE_PATH = REPO_ROOT / "rule-catalog" / "risk-classification.yaml"
+
+
+class _PinnedOperatorPolicyBinder:
+    def __init__(self, policy: OperatorPolicyInput) -> None:
+        self.policy = policy
+
+    async def bind(self, *, action_input: dict[str, object]) -> OperatorPolicyInput:
+        assert action_input["action_type"] == "tool.run-python-on-vm"
+        return self.policy
 
 
 async def test_raw_proposal_reaches_vm_runner_after_owner_approval() -> None:
@@ -138,6 +148,13 @@ async def test_raw_proposal_reaches_vm_runner_after_owner_approval() -> None:
         inventory_age_provider=inventory_age,
         inventory_context_provider=inventory_context,
         stage_publisher=stages,
+        operator_policy_binder=_PinnedOperatorPolicyBinder(
+            OperatorPolicyInput(
+                revision_id="admission:operator-request",
+                policy_digest="sha256:" + "9" * 64,
+                outcome=OperatorPolicyOutcome.REQUIRE_APPROVAL,
+            )
+        ),
     )
     proposal = {
         "idempotency_key": "operator-1::run-1",
@@ -165,6 +182,11 @@ async def test_raw_proposal_reaches_vm_runner_after_owner_approval() -> None:
     assert parked is not None
     assert parked["submitter_oid"] == "operator-1"
     assert parked["action"]["mode"] == Mode.ENFORCE.value
+    assert parked["operator_policy"] == {
+        "revision_id": "admission:operator-request",
+        "policy_digest": "sha256:" + "9" * 64,
+        "outcome": "require_approval",
+    }
 
     resolved = await coordinator.resolve(
         approval_id=approval_id,

@@ -20,6 +20,7 @@ from fdai_service_contracts.approval_profile import (
     profile_transition_quorum,
 )
 from fdai_service_contracts.policy_administration import (
+    POLICY_ACTIVATION_REQUEST_TOPIC,
     POLICY_OBJECT_TOPIC,
     AdmissionPolicyContent,
     ApprovalPolicyContent,
@@ -641,6 +642,7 @@ def _now(clock: object | None) -> datetime:
 __all__ = [
     "MimirPolicyAdministration",
     "OpaRegoPolicyCompiler",
+    "POLICY_ACTIVATION_REQUEST_TOPIC",
     "POLICY_OBJECT_TOPIC",
     "PolicyRevisionRejectedError",
     "PolicyRevisionSigner",

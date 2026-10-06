@@ -77,6 +77,9 @@ def default_payload_validator(topic: str, payload: Any) -> None:
     if topic == "object.policy":
         _validate_policy_payload(payload)
         return
+    if topic == "object.policy-activation-request":
+        _validate_policy_activation_request_payload(payload)
+        return
 
 
 def _validate_verdict_payload(payload: dict[str, Any]) -> None:
@@ -305,6 +308,18 @@ def _validate_policy_payload(payload: dict[str, Any]) -> None:
         bool,
     ):
         raise ValueError("policy payload grants_execution_authority MUST be boolean")
+
+
+def _validate_policy_activation_request_payload(payload: dict[str, Any]) -> None:
+    _validate_owned_governance_envelope(payload, "Mimir")
+    if payload.get("object_type") != "PolicyActivationRequest":
+        raise ValueError("policy activation request payload object_type is invalid")
+    if payload.get("kind") != "policy_activation_approval_requested":
+        raise ValueError("policy activation request payload kind is invalid")
+    _require_non_empty_strings(payload, "policy_id", "revision_id", "request_id")
+    quorum = payload.get("quorum_required")
+    if not isinstance(quorum, int) or isinstance(quorum, bool) or quorum < 2:
+        raise ValueError("policy activation request quorum_required is invalid")
 
 
 __all__ = ["default_payload_validator"]

@@ -16,6 +16,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai_service_contracts.policy_administration import (
+    POLICY_ACTIVATION_REQUEST_TOPIC,
+    POLICY_OBJECT_TOPIC,
+    PolicyActivationApprovalRequest,
+)
+
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
@@ -359,8 +365,24 @@ class Mimir(
             raise RuntimeError("Mimir policy administration is not configured")
         result = await self._policy_administration.handle_request(payload)
         event = result.model_dump(mode="json")
+        if isinstance(result, PolicyActivationApprovalRequest):
+            if not await self._checkpoint_rule_publication(
+                topic=POLICY_ACTIVATION_REQUEST_TOPIC,
+                payload=event,
+                idempotency_key=result.idempotency_key,
+            ):
+                self.record_behavior("policy:activation_duplicate")
+                return event
+            if self.bus is not None:
+                await self._publish_claimed_rule_publication(
+                    topic=POLICY_ACTIVATION_REQUEST_TOPIC,
+                    payload=event,
+                    idempotency_key=result.idempotency_key,
+                )
+            self.record_behavior(f"policy:{event['kind']}_published")
+            return event
         if not await self._checkpoint_rule_publication(
-            topic="object.policy",
+            topic=POLICY_OBJECT_TOPIC,
             payload=event,
             idempotency_key=result.idempotency_key,
         ):
@@ -368,7 +390,7 @@ class Mimir(
             return event
         if self.bus is not None:
             await self._publish_claimed_rule_publication(
-                topic="object.policy",
+                topic=POLICY_OBJECT_TOPIC,
                 payload=event,
                 idempotency_key=result.idempotency_key,
             )
@@ -387,7 +409,7 @@ class Mimir(
             return None
         event = activation.model_dump(mode="json")
         if not await self._checkpoint_rule_publication(
-            topic="object.policy",
+            topic=POLICY_OBJECT_TOPIC,
             payload=event,
             idempotency_key=activation.idempotency_key,
         ):
@@ -395,7 +417,7 @@ class Mimir(
             return event
         if self.bus is not None:
             await self._publish_claimed_rule_publication(
-                topic="object.policy",
+                topic=POLICY_OBJECT_TOPIC,
                 payload=event,
                 idempotency_key=activation.idempotency_key,
             )

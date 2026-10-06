@@ -31,6 +31,7 @@ from fdai.core.executor import (
     TemplateRenderer,
 )
 from fdai.core.executor.action_builder import ActionBuilder
+from fdai.core.risk_gate.approval_profile import OperatorPolicyInput, OperatorPolicyOutcome
 from fdai.core.tiers.t0_deterministic import RuleIndex, T0Engine
 from fdai.core.tiers.t1_lightweight import CurrentReuseVerification
 from fdai.core.tiers.t1_lightweight.testing import (
@@ -110,6 +111,14 @@ def _current_verification() -> CurrentReuseVerification:
         dry_run_passed=True,
         idempotency_available=True,
         rollback_resolved=True,
+    )
+
+
+def _pinned_operator_policy() -> OperatorPolicyInput:
+    return OperatorPolicyInput(
+        revision_id="admission:test",
+        policy_digest="sha256:" + "7" * 64,
+        outcome=OperatorPolicyOutcome.REQUIRE_APPROVAL,
     )
 
 
@@ -225,6 +234,62 @@ async def test_verified_t1_reuse_routes_through_unified_risk_gate(tmp_path: Path
     action = evaluate.await_args.kwargs["action"]
     assert action.action_type == "remediate.tag-add"
     assert action.target_resource_ref == "res-01"
+
+
+async def test_t1_hil_park_carries_pinned_operator_policy(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(t1_engine=None, audit=audit, tmp_path=tmp_path)
+    _configure_t1_routing(loop)
+    policy = _pinned_operator_policy()
+    loop._hil_resume_coordinator = object()  # noqa: SLF001 - enable request path only
+    request = AsyncMock()
+    loop._request_hil_approval = request  # type: ignore[method-assign]  # noqa: SLF001
+    loop._evaluate_and_audit = AsyncMock(  # type: ignore[method-assign]  # noqa: SLF001
+        return_value=SimpleNamespace(
+            is_auto=False,
+            requires_hil=True,
+            is_denied=False,
+            decision="hil",
+            quorum=1,
+            gate=SimpleNamespace(effective_mode=Mode.SHADOW),
+            authority=SimpleNamespace(
+                approval_profile=None,
+                operator_policy=policy,
+                original_quorum=1,
+            ),
+        )
+    )
+    event = EventIngest(validator=_validator()).ingest(_event_dict("evt-t1-policy-pin"))
+    assert event is not None
+    learned = LearnedAction(
+        signature="sig-policy",
+        rule_id="r1",
+        action_type="remediate.tag-add",
+        params={},
+        incident_id="incident-1",
+        success_rate=0.99,
+        reuse_count=50,
+    )
+    t1 = T1Decision(
+        outcome=T1Outcome.REUSED,
+        event_id=str(event.event_id),
+        threshold=0.8,
+        best_match=SimilarityMatch(action=learned, score=0.95),
+        current_reuse_verification=_current_verification(),
+    )
+
+    result = await loop._route_t1_reuse(  # noqa: SLF001 - focused routing contract
+        event=event,
+        decision=RoutingDecision(tier=RoutingTier.T1, resource_type="compute.vm.novel"),
+        t1=t1,
+        cs_decision=None,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result is not None
+    assert result.outcome is ControlLoopOutcome.HIL
+    assert request.await_args.kwargs["operator_policy"] == policy.as_audit_dict()
 
 
 async def test_verified_t1_reuse_without_risk_gate_records_hil_hold(tmp_path: Path) -> None:

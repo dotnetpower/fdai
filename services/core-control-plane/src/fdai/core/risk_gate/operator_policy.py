@@ -80,7 +80,7 @@ class OperatorPolicyDecisionBinder:
 
     reader: OperatorPolicyRevisionReader
     evaluator: AdmissionPolicyEvaluator
-    timeout_seconds: float = 5.0
+    timeout_seconds: float = 6.0
 
     def __post_init__(self) -> None:
         if self.timeout_seconds <= 0 or self.timeout_seconds > 30:
