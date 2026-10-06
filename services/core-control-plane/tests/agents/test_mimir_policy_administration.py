@@ -465,6 +465,35 @@ async def test_activated_approval_revision_without_valid_signature_refuses_pin(
 
 
 @pytest.mark.asyncio
+async def test_approval_document_swapped_under_valid_signature_refuses_pin() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document)
+    await _activate_approval_record(store, record)
+    forged = _approval_document(revision_id="approval-profile-r2", operator="attacker")
+    stored = await store.read_state(f"policy_revision:approval:{record.revision_id}")
+    assert stored is not None
+    stored["content"]["document"] = forged
+    await store.write_state(f"policy_revision:approval:{record.revision_id}", stored)
+    await store.write_state(
+        f"policy_activation_history:approval-profile:{forged['policy_digest']}",
+        {
+            "kind": "policy_activation_history_index",
+            "approval_profile_digest": forged["policy_digest"],
+            "revision_id": record.revision_id,
+        },
+    )
+    pinned = approval_profile_from_audit_dict(forged)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
+
+    assert authorized is False
+
+
+@pytest.mark.asyncio
 async def test_stored_approval_pin_without_signature_verifier_is_refused() -> None:
     store = InMemoryStateStore()
     document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")

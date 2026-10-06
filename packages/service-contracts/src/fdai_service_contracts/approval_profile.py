@@ -246,6 +246,15 @@ def profile_transition_quorum(
     return governance_quorum
 
 
+_AUDIT_REQUIRED_FIELDS = (
+    "revision_id",
+    "approval_profile",
+    "executor_principal",
+    "policy_digest",
+    "effective_from",
+)
+
+
 def approval_profile_from_audit_dict(
     raw: Mapping[str, Any] | None,
 ) -> ApprovalProfileRevision | None:
@@ -253,12 +262,11 @@ def approval_profile_from_audit_dict(
 
     if raw is None:
         return None
+    if any(field not in raw for field in _AUDIT_REQUIRED_FIELDS):
+        raise ValueError("approval profile payload is malformed")
     if raw.get("policy_digest") != approval_profile_policy_digest(raw):
         raise ValueError("approval profile payload digest is mismatched")
-    try:
-        effective_from = approval_profile_effective_from(raw["effective_from"])
-    except ValueError:
-        raise
+    effective_from = approval_profile_effective_from(raw["effective_from"])
     try:
         operator = raw.get("operator_principal")
         return ApprovalProfileRevision(

@@ -18,6 +18,7 @@ from fdai_service_contracts.policy_administration import (
     PolicyKind,
     PolicyRevisionRecord,
     PolicyRevisionSignatureVerifier,
+    policy_content_digest,
 )
 
 from fdai.agents import ApprovalRuntimeBindings
@@ -214,6 +215,8 @@ class StateStoreApprovalProfileRevisionReader:
             return None
         revision = PolicyRevisionRecord.model_validate(stored)
         if self._signature_verifier is None:
+            return None
+        if policy_content_digest(revision.content) != revision.content_digest:
             return None
         if not await self._signature_verifier.verify_policy_revision_signature(revision):
             return None

@@ -13,6 +13,7 @@ from fdai_service_contracts.policy_administration import (
     PolicyKind,
     PolicyRevisionRecord,
     PolicyRevisionSignatureVerifier,
+    policy_content_digest,
 )
 
 if TYPE_CHECKING:
@@ -62,6 +63,8 @@ async def approval_profile_pin_is_authorized(
         stored_profile = approval_profile_from_audit_dict(document)
         record = PolicyRevisionRecord.model_validate(stored)
     except ValueError:
+        return False
+    if policy_content_digest(record.content) != record.content_digest:
         return False
     if not (
         stored.get("policy_kind") == PolicyKind.APPROVAL.value

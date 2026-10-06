@@ -383,6 +383,34 @@ def test_active_policy_pointer_without_verified_signature_fails_closed_instead_o
         )
 
 
+def test_active_policy_document_swapped_under_valid_signature_fails_closed() -> None:
+    store = InMemoryStateStore()
+    payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
+    asyncio.run(_activate_profile(store, payload))
+    pointer = asyncio.run(store.read_state(f"policy_activation:{PolicyKind.APPROVAL.value}"))
+    assert pointer is not None
+    key = f"policy_revision:{PolicyKind.APPROVAL.value}:{pointer['revision_id']}"
+    stored = asyncio.run(store.read_state(key))
+    assert stored is not None
+    stored["content"]["document"] = _profile_payload_with_revision(
+        "approval-profile-r2",
+        "attacker@example.com",
+    )
+    asyncio.run(store.write_state(key, stored))
+
+    with pytest.raises(RuntimeError, match="active approval profile revision is invalid"):
+        asyncio.run(
+            load_active_approval_profile(
+                {},
+                reader=StateStoreApprovalProfileRevisionReader(
+                    store,
+                    signature_verifier=_SignatureVerifier(),
+                ),
+                clock=lambda: _AT,
+            )
+        )
+
+
 def test_missing_policy_pointer_keeps_bootstrap_profile_without_verifier() -> None:
     loaded = asyncio.run(
         load_active_approval_profile(

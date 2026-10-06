@@ -12,6 +12,7 @@ import httpx
 from fdai_service_contracts.policy_administration import (
     PolicyRevisionRecord,
     PolicyRevisionSignature,
+    policy_content_digest,
     policy_revision_signature_message,
 )
 
@@ -150,6 +151,8 @@ class AzureKeyVaultPolicyRevisionSigner:
 
         signature = record.signature
         if signature is None:
+            return False
+        if policy_content_digest(record.content) != record.content_digest:
             return False
         if signature.algorithm not in SUPPORTED_POLICY_SIGNING_ALGORITHMS:
             return False
