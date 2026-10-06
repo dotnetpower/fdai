@@ -481,6 +481,11 @@ Operator sends the event at most once per stream and before the first query `act
 frame uses event id `0:planning`, and a replayed frame uses `<projection sequence>:planning`.
 Clients that don't recognize the event ignore it. It carries no evidence or execution authority.
 
+Operator reports the semantic turn's own lifecycle, such as evidence executed, evidence verified,
+and answer prepared, as `activity` events with `kind` `semantic_turn`, an `activity_id` of
+`semantic:<phase>`, and no `execution` record. They state workflow facts, not reads, so clients
+don't count them as observed reads when they choose the presentation density.
+
 The terminal `done` event's `trajectory_detail` may carry `work_progress_shape`, `turn_budget`, and
 `context_receipts`. Operator validates each field separately and drops a malformed field alone. It
 keeps at most eight activities within 60 KiB and counts the rest in `omitted.activities`.

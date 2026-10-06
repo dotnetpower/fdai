@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: e6018da1b0d10be4c86c2b9c5cdb6e4000b8527b
-translation_revised: 2026-10-03
+translation_source_sha: 579acedba838019c21eab2a2559bedab63f3276a
+translation_revised: 2026-10-06
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -509,7 +509,9 @@ object-set membership 술어에 필요한 깊이입니다. arguments, definition
 
 - **밀도.** 각 채널은 타입이 있는 관찰 결과에서 밀도를 정합니다. Console의
   `workProgressPresentation`은 완료된 조회 읽기 하나만 간결하게 보여 주고, 읽기가 여러 개이거나
-  웨이브가 여러 개이거나 마일스톤이 있는 궤적은 타임라인으로 보여 줍니다. 형태를 고정하는 서버는
+  웨이브가 여러 개이거나 마일스톤이 있는 궤적은 타임라인으로 보여 줍니다. Operator가 시맨틱 턴의
+  수명 주기(근거 실행, 검증, 답변 준비)를 알리는 `semantic_turn` 단계는 실행 기록이 없는 워크플로
+  사실이므로, 정상적으로 끝나는 한 밀도를 바꾸지 않습니다. 형태를 고정하는 서버는
   첫 가지보다 먼저 버전이 있는 `work_progress_shape`(`schema_version` 1, `density` `compact` 또는
   `procedural`, `waves` 1~8, `planned_reads` 0~64)를 보내고 재생을 위해 저장합니다. 관찰 결과와
   맞지 않는 고정 형태는 타임라인으로 되돌립니다.

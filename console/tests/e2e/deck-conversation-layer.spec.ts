@@ -512,6 +512,10 @@ test.describe("Command Deck conversation layer", () => {
       const panel = trace.locator(".cs-grounding-panel");
       await expect(panel).toBeVisible();
       await expect(panel.locator(".cs-grounding-authority")).toHaveText("Read-only");
+      // The head counts steps; the active row alone names the current step.
+      await expect(panel.locator(".cs-grounding-status")).toHaveText(/^Step \d+ of \d+$/);
+      await expect(panel.locator(".cs-grounding-stage.is-active .cs-grounding-stage-label"))
+        .toHaveText("Reading sources");
       await expect(panel.locator(".cs-grounding-stage.is-active .cs-grounding-spinner")).toHaveCount(1);
       await expect(panel.locator(".cs-grounding-sources-head")).toContainText("4/4");
       await expect(panel.locator(".cs-grounding-source")).toHaveCount(3);

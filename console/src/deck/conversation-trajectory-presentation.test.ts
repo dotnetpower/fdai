@@ -65,6 +65,32 @@ describe("buildTrajectoryPresentation", () => {
     expect(workProgressPresentation(trajectory({}, { workProgressShape: procedural }))).toBe("none");
   });
 
+  it("keeps one query read compact when Operator adds only its lifecycle steps", () => {
+    const read = {
+      activityId: "read-1", kind: "ontology_query", status: "completed" as const, label: "Read", completed: 1, total: 1,
+      execution: { tool: "query.object_set", command: "query.object_set", inputKind: "query" as const, redacted: true as const },
+    };
+    const lifecycle = ["evidence", "verification", "presentation"].map((phase) => ({
+      activityId: `semantic:${phase}`, kind: "semantic_turn", status: "completed" as const,
+      label: phase, completed: 1, total: 1,
+    }));
+    const compact = { schema_version: 1 as const, density: "compact" as const, waves: 1, planned_reads: 1 };
+
+    expect(workProgressPresentation(trajectory({}, { activities: [read, ...lifecycle] }))).toBe("compact");
+    expect(workProgressPresentation(trajectory({}, {
+      activities: [read, ...lifecycle], workProgressShape: compact,
+    }))).toBe("compact");
+    // A lifecycle step that didn't settle normally, or a step of another kind, is observed work.
+    expect(workProgressPresentation(trajectory({}, {
+      activities: [read, { ...lifecycle[0]!, status: "failed" as const }],
+    }))).toBe("timeline");
+    expect(workProgressPresentation(trajectory({}, {
+      activities: [read, { ...lifecycle[1]!, kind: "tool" }],
+    }))).toBe("timeline");
+    // Lifecycle steps alone are not a read.
+    expect(workProgressPresentation(trajectory({}, { activities: lifecycle }))).toBe("timeline");
+  });
+
   it("selects the smallest sufficient work-progress presentation", () => {
     expect(workProgressPresentation(trajectory({}))).toBe("none");
 

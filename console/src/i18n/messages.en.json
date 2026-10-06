@@ -3141,11 +3141,10 @@
       "preparingAnswer": "Preparing answer",
       "status": "Preparing answer. {detail}.",
       "readingCurrentSources": "Waiting for selected evidence sources",
-      "groundingReadOnly": "resolving intent and evidence needs",
       "readingSources": "Reading sources",
       "side": {
-        "read": "read",
-        "route": "route"
+        "read": "Read",
+        "route": "Route"
       }
     },
     "announcement": {
