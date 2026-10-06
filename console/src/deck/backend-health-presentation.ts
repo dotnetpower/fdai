@@ -107,7 +107,8 @@ function candidateView(
   };
 }
 
-function routingReason(router: RouterSnapshot, now: number): string {
+/** The operator-readable reason the router chose its deployment; never the raw reason code. */
+export function routingReason(router: RouterSnapshot, now = Date.now()): string {
   if (["stale", "unavailable", "disabled", "unmeasured"].includes(router.reason)) {
     return t(`deck.backend.routing.${router.reason}`);
   }

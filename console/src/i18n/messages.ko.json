@@ -3141,7 +3141,6 @@
       "preparingAnswer": "답변 준비 중",
       "status": "답변 준비 중. {detail}.",
       "readingCurrentSources": "선택된 근거 출처를 기다리는 중",
-      "groundingReadOnly": "의도와 근거 요구를 확인하는 중",
       "readingSources": "출처 읽는 중",
       "side": {
         "read": "조회",

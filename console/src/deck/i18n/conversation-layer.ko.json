@@ -16,6 +16,7 @@
   "retrieval": {
     "readOnly": "읽기 전용",
     "stepsLabel": "준비 단계",
+    "stepOf": "{total}단계 중 {current}단계",
     "stageDone": "완료",
     "stageActive": "진행 중"
   },

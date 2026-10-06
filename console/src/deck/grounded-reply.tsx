@@ -181,6 +181,7 @@ export function GroundedReply({
     parsedSource?.kind === "llm" || parsedSource?.kind === "deterministic"
   );
   const successfulPlanningAgents = answerPlanning?.contributions.map((item) => item.agent) ?? [];
+  // A settled answer that needs no qualifier shows no state chip; its verdict sits in the action row.
   const answerState = source?.startsWith("partial")
     ? "partial"
     : streaming
@@ -189,8 +190,6 @@ export function GroundedReply({
       : "draft"
     : verification?.status === "corrected"
     ? "corrected"
-    : confirmed
-    ? "confirmed"
     : "complete";
   const showAnswerState = answerState !== "complete";
   const sourceCountLabel = evidenceReferences

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import type { RetrievalSourcePreview } from "./backend";
+import type { BackendHealth, RetrievalSourcePreview } from "./backend";
 import type { ViewSnapshot } from "./context";
 import { buildStages, sourceCards } from "./retrieval-trace";
 
@@ -37,6 +37,17 @@ describe("sourceCards", () => {
   });
 
   describe("buildStages", () => {
+    test("states the route reason in operator words, never the raw reason code", () => {
+      const health = {
+        mode: "llm",
+        router: { chose: "narrator-gpt-5-4-mini", reason: "disabled", candidates: [] },
+      } as unknown as BackendHealth;
+      const route = buildStages(null, health, null).find((stage) => stage.id === "route");
+
+      expect(route?.label).toBe("Route - chose narrator-gpt-5-4-mini");
+      expect(route?.detail).toBe("Latency routing disabled");
+    });
+
     test("keeps stage identity stable when streamed labels change", () => {
       const first = buildStages(null, null, {
         phase: "verifying",

@@ -27,6 +27,7 @@ import type {
   VerificationProgress,
 } from "./backend";
 import type { ViewSnapshot } from "./context";
+import { routingReason } from "./backend-health-presentation";
 
 /** How many source cards stay in the slot window at once. */
 const VISIBLE = 3;
@@ -93,7 +94,7 @@ export function buildStages(
       id: "route",
       glyph: "R",
       label: t("deck.retrieval.routeChosen", { deployment: health.router.chose }),
-      detail: health.router.reason,
+      detail: routingReason(health.router),
       side: "route",
       done: true,
     });
@@ -176,6 +177,7 @@ export function RetrievalTrace({
   }, [routeId, sourceCount, sourceSignature]);
 
   const stages = buildStages(snapshot, health, progress);
+  const activeStep = stages.findIndex((stage) => !stage.done) + 1 || stages.length;
   const visibleSources = sources.slice(Math.max(0, shown - VISIBLE), shown);
   const iconUrl = `url("${typeof import.meta.env.BASE_URL === "string" ? import.meta.env.BASE_URL : "/"}agent-icons/bragi.svg")`;
 
@@ -201,8 +203,9 @@ export function RetrievalTrace({
         </span>
         <header class="cs-grounding-head">
           <span class="cs-grounding-title">{t("deck.retrieval.preparingAnswer")}</span>
+          {/* The active row names the step, so the head counts steps instead of repeating it. */}
           <span class="cs-grounding-status">
-            {progress?.label ?? t("deck.retrieval.groundingReadOnly")}
+            {t("deck.retrieval.stepOf", { current: activeStep, total: stages.length })}
           </span>
           <span class="cs-grounding-elapsed" aria-hidden="true">
             {(elapsedMs / 1000).toFixed(1)} s
