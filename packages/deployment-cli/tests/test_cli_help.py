@@ -53,7 +53,7 @@ def test_azure_help_groups_and_explains_inputs(capsys) -> None:
     output = capsys.readouterr()
     for label in ("Artifact source", "Deployment settings", "Output", "Advanced"):
         assert label in output.out
-    for value in ("koreacentral", "1000", "seconds", "14400", "observation-only"):
+    for value in ("koreacentral", "1500", "seconds", "14400", "observation-only"):
         assert value in output.out
     assert "--offline-kit" in output.out
     assert "no public artifact" in output.out.lower()

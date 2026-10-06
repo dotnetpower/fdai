@@ -293,6 +293,8 @@ def _source_cli_installation(remote_root: str) -> tuple[tuple[str, tuple[str, ..
                 f"{remote_root}/venv/bin/pip",
                 "install",
                 "--no-cache-dir",
+                # The CLI pins the workspace contracts package, which no index publishes.
+                f"{remote_root}/source-snapshot/tree/packages/service-contracts",
                 f"{remote_root}/source-snapshot/tree/packages/deployment-cli",
             ),
             900,

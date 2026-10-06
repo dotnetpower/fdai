@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -46,7 +48,8 @@ def plan_source_teardown(
 ) -> SourceTeardownPlan:
     """Prove exactly one retained source installation before naming resources to remove."""
 
-    intent = _verified(work_dir / "source-intent.json", "source intent", None)
+    # The intent is written unsigned; the signed preparation receipt binds its digest.
+    intent = _plain_json(work_dir / "source-intent.json", "source intent")
     source = _object(intent.get("source"), "source intent source")
     if (
         intent.get("schema_version") != "fdai.source-deployment-intent.v1"
@@ -93,7 +96,6 @@ def plan_source_teardown(
         handoff.get("schema_version") != "fdai.genesis-foundation-state-handoff-receipt.v1"
         or handoff.get("source_commit") != source_commit
         or handoff.get("target_binding") != target_binding
-        or handoff.get("run_digest") != run_binding
         or any(
             handoff.get(key) is not True
             for key in (
@@ -106,8 +108,28 @@ def plan_source_teardown(
         )
     ):
         raise ValueError("source teardown Foundation ownership proof is incomplete")
-    app = _object(handoff.get("app_resource_group"), "application resource group")
-    ops = _object(handoff.get("ops"), "operations resource group")
+    apply = _verified(
+        foundation / plan_ref / "foundation-apply-receipt.json",
+        "Foundation apply",
+        _text(handoff, "foundation_receipt_digest", pattern=r"[0-9a-f]{64}"),
+    )
+    if (
+        apply.get("schema_version") != "fdai.genesis-foundation-apply-receipt.v1"
+        or apply.get("state") != "applied"
+        or apply.get("source_commit") != source_commit
+        or apply.get("target_binding") != target_binding
+    ):
+        raise ValueError("source teardown Foundation apply proof differs")
+    # Resource locations live only in the private handoff that the apply receipt binds.
+    located = _plain_json(foundation / plan_ref / "foundation-private-handoff.json", "handoff")
+    if (
+        canonical_digest(located) != apply.get("handoff_digest")
+        or located.get("source_commit") != source_commit
+        or located.get("run_digest") != run_binding
+    ):
+        raise ValueError("source teardown Foundation location proof differs")
+    app = _object(located.get("app_resource_group"), "application resource group")
+    ops = _object(located.get("ops"), "operations resource group")
     groups = tuple(
         dict.fromkeys(
             (
@@ -130,7 +152,7 @@ def plan_source_teardown(
         source_commit=source_commit,
         run_binding=run_binding,
         installation_anchor=anchor,
-        subscription_id=_text(handoff, "subscription_id"),
+        subscription_id=_text(located, "subscription_id"),
         resource_groups=groups,
     )
 
@@ -143,6 +165,9 @@ def apply_source_teardown(
     monthly_cost_ceiling: int,
     confirmation: str | None,
     client: ResourceGroupClient,
+    readback_timeout_seconds: float = 1800,
+    readback_interval_seconds: float = 30,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> dict[str, object]:
     """Delete only proven-owned groups, then read back their absence."""
 
@@ -163,11 +188,19 @@ def apply_source_teardown(
             "deployment_ready": False,
         }
     for group in plan.resource_groups:
-        client.delete_group(subscription_id=plan.subscription_id, name=group)
-    absent = {
-        group: client.group_absent(subscription_id=plan.subscription_id, name=group)
-        for group in plan.resource_groups
-    }
+        # A rerun after a partial failure must not fail on a group that is already gone.
+        if not client.group_absent(subscription_id=plan.subscription_id, name=group):
+            client.delete_group(subscription_id=plan.subscription_id, name=group)
+    # Deletion is accepted asynchronously, so absence is read back until a bounded deadline.
+    deadline = time.monotonic() + readback_timeout_seconds
+    while True:
+        absent = {
+            group: client.group_absent(subscription_id=plan.subscription_id, name=group)
+            for group in plan.resource_groups
+        }
+        if all(absent.values()) or time.monotonic() >= deadline:
+            break
+        sleep(min(readback_interval_seconds, max(0.0, deadline - time.monotonic())))
     if not all(absent.values()):
         return {
             **review,
