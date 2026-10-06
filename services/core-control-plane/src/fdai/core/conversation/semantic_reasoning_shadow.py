@@ -33,6 +33,7 @@ from .semantic_reasoning_admission import (
 from .semantic_reasoning_binding import AnchorResolver, bind_anchors
 from .semantic_reasoning_compiler import ReasoningCompilation, compile_question_form
 from .semantic_reasoning_concepts import (
+    ConceptOutcome,
     ConceptRequest,
     ConceptShard,
     concept_catalogs,
@@ -169,6 +170,8 @@ class ShadowPass:
     # Distinct snapshot generations this pass's own anchor reads saw; a result handle's
     # generation is the earlier answer's and is never compared.
     source_generations: tuple[str, ...] = ()
+    # One entry per accepted catalog value, such as m2:state:resource_state.running.
+    concept_values: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -741,6 +744,12 @@ async def _run_pass(
         form_shape(form),
         settled.swapped,
         source_generations=generations,
+        concept_values=tuple(
+            f"{item.mention_id}:{item.domain.value}:{value}"
+            for item in receipt.bindings
+            if item.outcome is ConceptOutcome.ACCEPTED
+            for value in item.values
+        ),
     )
     return shadow_pass, goals, compilation, form
 

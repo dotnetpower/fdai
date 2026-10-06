@@ -629,6 +629,11 @@ def _log_completion(
                 "form_shapes": list(
                     observation.passes[-1].shape[:_MAX_SHAPE_ITEMS] if observation.passes else ()
                 ),
+                "concept_values": list(
+                    observation.passes[-1].concept_values[:_MAX_SHAPE_ITEMS]
+                    if observation.passes
+                    else ()
+                ),
             }
         )
     _LOGGER.info("semantic_compiled_answer_completed", extra=extra)

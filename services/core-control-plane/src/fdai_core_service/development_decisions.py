@@ -63,6 +63,7 @@ _SERVER_EVENT_KEYS = frozenset(
 )
 _SERVER_EVENT_LIST_KEYS = frozenset(
     {
+        "concept_values",
         "direction_swaps",
         "failed_preconditions",
         "form_shapes",
