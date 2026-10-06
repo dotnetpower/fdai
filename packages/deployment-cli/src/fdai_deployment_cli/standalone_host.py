@@ -567,11 +567,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         != expected_terraform_config
     ):
         raise ValueError("retained Terraform provider configuration differs")
-    backend_example = infra / "backend.azurerm.tf.example"
-    backend = infra / "backend.tf"
-    if not backend.exists():
-        shutil.copyfile(backend_example, backend)
-        backend.chmod(0o600)
+    _ensure_backend(infra)
     registry = standalone_host_values.planned_container_registry_name(
         workload=workload, environment="dev", region_short=region_short, resource_suffix=suffix
     )
@@ -3488,8 +3484,17 @@ def _browser_console_binding(context: dict[str, object], work_dir: Path) -> dict
     }
 
 
+def _ensure_backend(infra: Path) -> None:
+    # A source resume re-extracts the snapshot, so the generated backend file must be recreated.
+    backend = infra / "backend.tf"
+    if not backend.exists():
+        shutil.copyfile(infra / "backend.azurerm.tf.example", backend)
+        backend.chmod(0o600)
+
+
 def _terraform_init(work_dir: Path, context: dict[str, object]) -> None:
     infra = Path(str(context["infra"]))
+    _ensure_backend(infra)
     _configure_terraform(context)
     _run(
         (
@@ -3559,11 +3564,7 @@ def _initialize_terraform_stage(stage: str, context: dict[str, object], work_dir
         state_key = context.get("state_key")
     if not isinstance(state_key, str) or not state_key:
         raise ValueError(f"{stage} Terraform state key is unavailable")
-    backend_example = infra / "backend.azurerm.tf.example"
-    backend = infra / "backend.tf"
-    if not backend.exists():
-        shutil.copyfile(backend_example, backend)
-        backend.chmod(0o600)
+    _ensure_backend(infra)
     _configure_terraform(context)
     _activate_terraform_stage(stage, context, work_dir)
     _run(
