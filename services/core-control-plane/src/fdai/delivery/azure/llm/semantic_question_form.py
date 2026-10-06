@@ -323,11 +323,12 @@ class AzureOpenAIQuestionFormModel:
             _held("input_redacted", name="semantic-concept-selection", raise_error=False)
             return None
         # Concept choice needs no verbatim quotes, so raw text is redacted before encoding.
+        # Keys encode sorted, so the static catalog shard leads and stays a cacheable prefix.
         payload = {
-            "utterance": redact_text(utterance),
+            "catalog_shard": shard.prompt_payload(),
             "mentions": [_redacted(item) for item in mentions],
             "shard_digest": shard.digest,
-            "shard": shard.prompt_payload(),
+            "utterance": redact_text(utterance),
         }
         choices = {f"c{index}": candidate.id for index, candidate in enumerate(shard.candidates)}
         answer = await self._complete(

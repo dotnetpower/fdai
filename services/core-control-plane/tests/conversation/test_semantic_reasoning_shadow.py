@@ -474,8 +474,11 @@ async def test_concept_request_losslessly_compacts_every_candidate() -> None:
         shard=shard,
     )
     assert result == answer
-    payload = json.loads(captured["messages"][1]["content"])
-    compact = payload["shard"]
+    content = captured["messages"][1]["content"]
+    payload = json.loads(content)
+    compact = payload["catalog_shard"]
+    # The static shard leads the user message so turns share a cacheable prompt prefix.
+    assert content.startswith('{"catalog_shard": ')
     restored = {
         **{
             key: value
