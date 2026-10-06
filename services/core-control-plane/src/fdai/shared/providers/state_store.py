@@ -164,9 +164,11 @@ class StateStore(Protocol):
         expected_revision: int,
         insert_key: str,
         insert_value: Mapping[str, Any],
+        insert_key_2: str | None = None,
+        insert_value_2: Mapping[str, Any] | None = None,
         audit_entry: Mapping[str, Any],
     ) -> bool:
-        """Atomically update one revision, insert one append-only row, and audit."""
+        """Atomically update one revision, insert append-only rows, and audit."""
         ...
 
     async def write_state_pair_with_audit_if_absent(
@@ -176,9 +178,11 @@ class StateStore(Protocol):
         *,
         insert_key: str,
         insert_value: Mapping[str, Any],
+        insert_key_2: str | None = None,
+        insert_value_2: Mapping[str, Any] | None = None,
         audit_entry: Mapping[str, Any],
     ) -> bool:
-        """Atomically create two tracked-state rows and append one audit record."""
+        """Atomically create paired tracked-state rows and append one audit record."""
         ...
 
     async def find_state(

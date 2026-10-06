@@ -29,10 +29,16 @@ async def approval_profile_pin_is_authorized(
         return True
     if store is None:
         return False
-    history = await store.read_state(_activation_history_key(pinned.revision_id))
-    if history is None or _history_profile_digest(history) != pinned.policy_digest:
+    index = await store.read_state(_activation_index_key(pinned.policy_digest))
+    mimir_revision_id = _index_revision_id(index)
+    if mimir_revision_id is None:
         return False
-    stored = await store.read_state(_revision_key(pinned.revision_id))
+    history = await store.read_state(_activation_history_key(mimir_revision_id))
+    if history is None or _history_profile_digest(index) != pinned.policy_digest:
+        return False
+    if _history_revision_id(history) != mimir_revision_id:
+        return False
+    stored = await store.read_state(_revision_key(mimir_revision_id))
     if stored is None:
         return False
     content = stored.get("content")
@@ -59,6 +65,24 @@ def _revision_key(revision_id: str) -> str:
 
 def _activation_history_key(revision_id: str) -> str:
     return f"policy_activation_history:{PolicyKind.APPROVAL.value}:{revision_id}"
+
+
+def _activation_index_key(policy_digest: str) -> str:
+    return f"policy_activation_history:approval-profile:{policy_digest}"
+
+
+def _index_revision_id(index: object) -> str | None:
+    if not isinstance(index, dict):
+        return None
+    revision_id = index.get("revision_id")
+    return revision_id if isinstance(revision_id, str) and revision_id else None
+
+
+def _history_revision_id(history: object) -> str | None:
+    if not isinstance(history, dict):
+        return None
+    revision_id = history.get("revision_id")
+    return revision_id if isinstance(revision_id, str) and revision_id else None
 
 
 def _history_profile_digest(history: object) -> object:

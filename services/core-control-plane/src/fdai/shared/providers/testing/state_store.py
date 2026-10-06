@@ -227,18 +227,29 @@ class InMemoryStateStore(StateStore):
         expected_revision: int,
         insert_key: str,
         insert_value: Mapping[str, Any],
+        insert_key_2: str | None = None,
+        insert_value_2: Mapping[str, Any] | None = None,
         audit_entry: Mapping[str, Any],
     ) -> bool:
         with self._lock:
             existing = self._state.get(key)
             current_revision = existing.get("revision", 0) if existing is not None else 0
-            if current_revision != expected_revision or insert_key in self._state:
+            if (
+                current_revision != expected_revision
+                or insert_key in self._state
+                or (insert_key_2 is not None and insert_key_2 in self._state)
+            ):
                 return False
-            snapshot = self._snapshot_keys_locked(key, insert_key)
+            snapshot_keys = (
+                (key, insert_key) if insert_key_2 is None else (key, insert_key, insert_key_2)
+            )
+            snapshot = self._snapshot_keys_locked(*snapshot_keys)
             audit_length_before = len(self._audit)
             try:
                 self._write_locked(key, value)
                 self._write_locked(insert_key, insert_value)
+                if insert_key_2 is not None and insert_value_2 is not None:
+                    self._write_locked(insert_key_2, insert_value_2)
                 self._append_audit_locked(audit_entry)
             except Exception:
                 self._restore_keys_locked(snapshot)
@@ -253,16 +264,27 @@ class InMemoryStateStore(StateStore):
         *,
         insert_key: str,
         insert_value: Mapping[str, Any],
+        insert_key_2: str | None = None,
+        insert_value_2: Mapping[str, Any] | None = None,
         audit_entry: Mapping[str, Any],
     ) -> bool:
         with self._lock:
-            if key in self._state or insert_key in self._state:
+            if (
+                key in self._state
+                or insert_key in self._state
+                or (insert_key_2 is not None and insert_key_2 in self._state)
+            ):
                 return False
-            snapshot = self._snapshot_keys_locked(key, insert_key)
+            snapshot_keys = (
+                (key, insert_key) if insert_key_2 is None else (key, insert_key, insert_key_2)
+            )
+            snapshot = self._snapshot_keys_locked(*snapshot_keys)
             audit_length_before = len(self._audit)
             try:
                 self._write_locked(key, value)
                 self._write_locked(insert_key, insert_value)
+                if insert_key_2 is not None and insert_value_2 is not None:
+                    self._write_locked(insert_key_2, insert_value_2)
                 self._append_audit_locked(audit_entry)
             except Exception:
                 self._restore_keys_locked(snapshot)

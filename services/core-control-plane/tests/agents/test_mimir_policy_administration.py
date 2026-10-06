@@ -28,6 +28,7 @@ from fdai.agents.var import Var
 from fdai.core.control_loop import ControlLoop
 from fdai.core.risk_gate import ActionPromotionRegistry, PromotionMetrics, RiskGate
 from fdai.core.risk_gate.approval_profile import OperatorPolicyOutcome
+from fdai.core.risk_gate.approval_profile_store import approval_profile_pin_is_authorized
 from fdai.core.risk_gate.operator_policy import (
     OperatorPolicyDecisionBinder,
     StateStoreOperatorPolicyRevisionReader,
@@ -41,6 +42,7 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.approval_profile import (
     ApprovalProfileKind,
     ApprovalProfileRevision,
+    approval_profile_from_audit_dict,
     approval_profile_policy_digest,
 )
 from fdai_service_contracts.operator_authentication import (
@@ -275,6 +277,73 @@ async def test_mimir_validates_stores_activates_and_publishes_policy() -> None:
     assert history["policy_digest"] == event["policy_digest"]
     assert len(bus.messages_on(POLICY_OBJECT_TOPIC)) == 1
     assert bus.messages_on(POLICY_OBJECT_TOPIC)[0].payload["revision_id"] == event["revision_id"]
+
+
+@pytest.mark.asyncio
+async def test_unactivated_approval_revision_does_not_authorize_profile_pin() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    await _append_approval_revision(store, document)
+    pinned = approval_profile_from_audit_dict(document)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(store, pinned=pinned, bound=None)
+
+    assert authorized is False
+
+
+@pytest.mark.asyncio
+async def test_activated_approval_revision_authorizes_profile_pin() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document)
+    await _activate_approval_record(store, record)
+    pinned = approval_profile_from_audit_dict(document)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(store, pinned=pinned, bound=None)
+
+    assert authorized is True
+
+
+@pytest.mark.asyncio
+async def test_superseded_approval_revision_authorizes_in_flight_profile_pin_after_restart() -> (
+    None
+):
+    store = InMemoryStateStore()
+    first = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    first_record = await _append_approval_revision(store, first)
+    await _activate_approval_record(store, first_record)
+    second = _approval_document(revision_id="approval-profile-r3", operator="operator-2")
+    second_record = await _append_approval_revision(
+        store,
+        second,
+        parent_revision_id=first_record.revision_id,
+    )
+    await _activate_approval_record(store, second_record)
+    pinned = approval_profile_from_audit_dict(first)
+    bound = approval_profile_from_audit_dict(second)
+    assert pinned is not None
+    assert bound is not None
+
+    authorized = await approval_profile_pin_is_authorized(store, pinned=pinned, bound=bound)
+
+    assert authorized is True
+
+
+@pytest.mark.asyncio
+async def test_forged_approval_profile_pin_without_activation_history_is_refused() -> None:
+    store = InMemoryStateStore()
+    legitimate = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, legitimate)
+    await _activate_approval_record(store, record)
+    forged = _approval_document(revision_id="approval-profile-r-forged", operator="attacker")
+    pinned = approval_profile_from_audit_dict(forged)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(store, pinned=pinned, bound=None)
+
+    assert authorized is False
 
 
 @pytest.mark.asyncio
@@ -927,6 +996,85 @@ def _single_profile() -> ApprovalProfileRevision:
         policy_digest=str(document["policy_digest"]),
         effective_from=NOW,
         operator_principal=str(document["operator_principal"]),
+    )
+
+
+def _approval_document(*, revision_id: str, operator: str) -> dict[str, object]:
+    document: dict[str, object] = {
+        "revision_id": revision_id,
+        "approval_profile": "single-operator-production",
+        "executor_principal": "executor-1",
+        "effective_from": NOW.isoformat(),
+        "operator_principal": operator,
+    }
+    document["policy_digest"] = approval_profile_policy_digest(document)
+    return document
+
+
+def _approval_revision_record(
+    document: dict[str, object],
+    *,
+    parent_revision_id: str | None = None,
+) -> PolicyRevisionRecord:
+    content = ApprovalPolicyContent(document=document, action_type_modes={})
+    content_digest = policy_content_digest(content)
+    return PolicyRevisionRecord(
+        revision_id=_expected_policy_revision_id(
+            PolicyKind.APPROVAL,
+            content_digest,
+            parent_revision_id,
+        ),
+        policy_kind=PolicyKind.APPROVAL,
+        content_digest=content_digest,
+        content=content,
+        signature_ref="fake-signature",
+        parent_revision_id=parent_revision_id,
+        author_principal="policy-admin-1",
+        reason="Reviewed approval policy change for a bounded installation scope.",
+        created_at=NOW,
+        activated_at=None,
+        validation=PolicyValidationResult(
+            rego_valid=False,
+            release_maximums_valid=True,
+            policy_tests_valid=False,
+            validation_digest="sha256:" + "1" * 64,
+        ),
+        diff_digest="sha256:" + "d" * 64,
+    )
+
+
+def _expected_policy_revision_id(
+    policy_kind: PolicyKind,
+    content_digest: str,
+    parent_revision_id: str | None,
+) -> str:
+    seed = f"{policy_kind.value}\0{content_digest}\0{parent_revision_id or ''}"
+    return f"{policy_kind.value}:{hashlib.sha256(seed.encode('utf-8')).hexdigest()[:32]}"
+
+
+async def _append_approval_revision(
+    store: InMemoryStateStore,
+    document: dict[str, object],
+    *,
+    parent_revision_id: str | None = None,
+) -> PolicyRevisionRecord:
+    record = _approval_revision_record(document, parent_revision_id=parent_revision_id)
+    assert await StateStorePolicyRevisionStore(store).append_revision(record)
+    return record
+
+
+async def _activate_approval_record(
+    store: InMemoryStateStore,
+    record: PolicyRevisionRecord,
+) -> None:
+    await StateStorePolicyRevisionStore(store).activate_revision(
+        policy_kind=PolicyKind.APPROVAL,
+        revision_id=record.revision_id,
+        policy_digest=record.content_digest,
+        author_principal=record.author_principal,
+        activated_at=NOW,
+        validation_digest=record.validation.validation_digest,
+        expected_parent_revision_id=record.parent_revision_id,
     )
 
 

@@ -22,6 +22,8 @@ class PostgresStatePairMixin:
         expected_revision: int,
         insert_key: str,
         insert_value: Mapping[str, Any],
+        insert_key_2: str | None = None,
+        insert_value_2: Mapping[str, Any] | None = None,
         audit_entry: Mapping[str, Any],
     ) -> bool:
         if expected_revision < 0:
@@ -32,6 +34,9 @@ class PostgresStatePairMixin:
                     await self._set_statement_timeout(conn)
                     if not await _insert_state(conn, insert_key, insert_value):
                         return False
+                    if insert_key_2 is not None and insert_value_2 is not None:
+                        if not await _insert_state(conn, insert_key_2, insert_value_2):
+                            raise _RollbackTransactionError()
                     if not await _update_state_revision(conn, key, value, expected_revision):
                         raise _RollbackTransactionError()
                     await self._append_audit_in_transaction(conn, dict(audit_entry))
@@ -46,6 +51,8 @@ class PostgresStatePairMixin:
         *,
         insert_key: str,
         insert_value: Mapping[str, Any],
+        insert_key_2: str | None = None,
+        insert_value_2: Mapping[str, Any] | None = None,
         audit_entry: Mapping[str, Any],
     ) -> bool:
         try:
@@ -56,6 +63,9 @@ class PostgresStatePairMixin:
                         raise _RollbackTransactionError()
                     if not await _insert_state(conn, insert_key, insert_value):
                         raise _RollbackTransactionError()
+                    if insert_key_2 is not None and insert_value_2 is not None:
+                        if not await _insert_state(conn, insert_key_2, insert_value_2):
+                            raise _RollbackTransactionError()
                     await self._append_audit_in_transaction(conn, dict(audit_entry))
         except _RollbackTransactionError:
             return False

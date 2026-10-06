@@ -168,17 +168,21 @@ class StateStorePolicyRevisionStore:
             ),
         )
         updated = {**event.model_dump(mode="json"), "revision": revision + 1}
-        history = {
+        history: dict[str, object] = {
             "kind": "policy_activation_history",
             "policy_kind": policy_kind.value,
             "revision_id": revision_id,
             "policy_digest": policy_digest,
-            **await self._approval_profile_digest_history(policy_kind, revision_id),
             "activated_at": activated_at.isoformat(),
             "author_principal": author_principal,
             "validation_digest": validation_digest,
             "idempotency_key": event.idempotency_key,
         }
+        approval_index = await self._approval_profile_activation_index(
+            policy_kind,
+            revision_id,
+            history=history,
+        )
         history_key = _activation_history_key(policy_kind, revision_id)
         audit_entry = {
             "event_type": "policy_activation_recorded",
@@ -195,6 +199,8 @@ class StateStorePolicyRevisionStore:
                 updated,
                 insert_key=history_key,
                 insert_value=history,
+                insert_key_2=(approval_index[0] if approval_index is not None else None),
+                insert_value_2=(approval_index[1] if approval_index is not None else None),
                 audit_entry=audit_entry,
             ):
                 raise PolicyRevisionRejectedError("policy_activation_conflict")
@@ -204,23 +210,39 @@ class StateStorePolicyRevisionStore:
             expected_revision=revision,
             insert_key=history_key,
             insert_value=history,
+            insert_key_2=(approval_index[0] if approval_index is not None else None),
+            insert_value_2=(approval_index[1] if approval_index is not None else None),
             audit_entry=audit_entry,
         ):
             raise PolicyRevisionRejectedError("policy_activation_conflict")
         return event
 
-    async def _approval_profile_digest_history(
+    async def _approval_profile_activation_index(
         self,
         policy_kind: PolicyKind,
         revision_id: str,
-    ) -> dict[str, str]:
+        *,
+        history: dict[str, object],
+    ) -> tuple[str, dict[str, object]] | None:
         if policy_kind is not PolicyKind.APPROVAL:
-            return {}
+            return None
         revision = await self.revision(policy_kind=policy_kind, revision_id=revision_id)
         if revision is None or not isinstance(revision.content, ApprovalPolicyContent):
-            return {}
+            return None
         digest = revision.content.document.get("policy_digest")
-        return {"approval_profile_digest": str(digest)} if isinstance(digest, str) else {}
+        if not isinstance(digest, str):
+            return None
+        return (
+            _approval_profile_activation_index_key(digest),
+            {
+                "kind": "policy_activation_history_index",
+                "approval_profile_digest": digest,
+                "policy_kind": policy_kind.value,
+                "revision_id": revision_id,
+                "policy_digest": history["policy_digest"],
+                "activated_at": history["activated_at"],
+            },
+        )
 
 
 def _revision_key(policy_kind: PolicyKind, revision_id: str) -> str:
@@ -233,6 +255,10 @@ def _activation_key(policy_kind: PolicyKind) -> str:
 
 def _activation_history_key(policy_kind: PolicyKind, revision_id: str) -> str:
     return f"policy_activation_history:{policy_kind.value}:{revision_id}"
+
+
+def _approval_profile_activation_index_key(policy_digest: str) -> str:
+    return f"policy_activation_history:approval-profile:{policy_digest}"
 
 
 def _request_key(request_id: str) -> str:
