@@ -9,7 +9,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from fdai.agents._framework.mimir_policy_store import StateStorePolicyRevisionStore
 from fdai.core.risk_gate.approval_profile import (
     ApprovalProfileKind,
     ApprovalProfileRefusal,
@@ -137,16 +136,29 @@ async def _activate_profile(
     parent_revision_id: str | None = None,
 ) -> None:
     record = _policy_revision(payload)
-    revision_store = StateStorePolicyRevisionStore(store)
-    assert await revision_store.append_revision(record)
-    await revision_store.activate_revision(
-        policy_kind=PolicyKind.APPROVAL,
-        revision_id=record.revision_id,
-        policy_digest=record.content_digest,
-        author_principal=record.author_principal,
-        activated_at=_AT,
-        validation_digest=record.validation.validation_digest,
-        expected_parent_revision_id=parent_revision_id,
+    await store.write_state(
+        f"policy_revision:{PolicyKind.APPROVAL.value}:{record.revision_id}",
+        record.model_dump(mode="json"),
+    )
+    pointer = await store.read_state(f"policy_activation:{PolicyKind.APPROVAL.value}")
+    assert (None if pointer is None else pointer.get("revision_id")) == parent_revision_id
+    await store.write_state(
+        f"policy_activation:{PolicyKind.APPROVAL.value}",
+        {
+            "revision_id": record.revision_id,
+            "policy_digest": record.content_digest,
+            "activated_at": _AT.isoformat(),
+            "revision": 1 if pointer is None else int(pointer.get("revision", 0)) + 1,
+        },
+    )
+    await store.write_state(
+        f"policy_activation_history:{PolicyKind.APPROVAL.value}:{record.revision_id}",
+        {
+            "revision_id": record.revision_id,
+            "policy_digest": record.content_digest,
+            "approval_profile_digest": payload["policy_digest"],
+            "activated_at": _AT.isoformat(),
+        },
     )
 
 
