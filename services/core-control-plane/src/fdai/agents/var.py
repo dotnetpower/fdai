@@ -7,6 +7,8 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai_service_contracts.policy_administration import POLICY_ACTIVATION_REQUEST_TOPIC
+
 from fdai.agents._framework.action_run_identity import validate_action_run_identity
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import (
@@ -60,6 +62,7 @@ from fdai.agents._framework.var_pending_durability import (
     mark_pending_ticket_closed_by_identity,
     shadow_review_from_state,
 )
+from fdai.agents._framework.var_policy_activation import ingest_policy_activation_request
 from fdai.agents._framework.var_public_api import VarPublicApiMixin
 from fdai.agents._framework.var_shadow_review import RefCountedAsyncLock
 from fdai.agents._framework.var_ticket_identity import (
@@ -184,6 +187,9 @@ class Var(
         if topic == "object.audit-entry":
             await ingest_document_hil(self, payload)
             await self._ingest_shadow_review(payload)
+            return
+        if topic == POLICY_ACTIVATION_REQUEST_TOPIC:
+            await ingest_policy_activation_request(self, payload)
             return
         if topic != "object.action-run":
             self.record_behavior("typed_message:ignored")

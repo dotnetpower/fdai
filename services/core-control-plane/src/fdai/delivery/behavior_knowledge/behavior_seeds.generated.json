@@ -480,13 +480,13 @@
         "Can an approver approve their own action?",
         "자기 액션을 스스로 승인할 수 있나요?"
       ],
-      "source_manifest_hash": "3e8a8006b091dad9aa83f1f2aea308c87c93ecc1cb4c701151ea27126f8bae6e",
+      "source_manifest_hash": "79a74db235106c520ec0bf01246a356a1271c07bb7652f7d00132e61b80500c2",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "d161e8ddb9e9a063e66467a94b6ea60fd6457276",
-          "line_end": 374,
-          "line_start": 352,
+          "blob_sha": "cd767e313c44dfcc0da73dd53c6ac3414e3622c9",
+          "line_end": 380,
+          "line_start": 358,
           "path": "services/core-control-plane/src/fdai/agents/var.py",
           "source_kind": "code",
           "symbol": "Var.decide"

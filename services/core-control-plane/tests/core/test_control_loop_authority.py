@@ -20,6 +20,7 @@ from fdai.core.risk_gate import (
     RiskDecisionOutcome,
     RiskGate,
 )
+from fdai.core.risk_gate.approval_profile import OperatorPolicyInput
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.shared.contracts.models import (
     Action,
@@ -59,6 +60,15 @@ class _FailingBlastProbe:
     async def measure(self, query: ProbeQuery) -> ProbeResult:
         del query
         raise BlastProbeTimeoutError("timed out")
+
+
+class _RecordingOperatorPolicyBinder:
+    def __init__(self) -> None:
+        self.inputs: list[dict[str, Any]] = []
+
+    async def bind(self, *, action_input: dict[str, Any]) -> OperatorPolicyInput | None:
+        self.inputs.append(dict(action_input))
+        return None
 
 
 def test_extract_environment_prod_variants() -> None:
@@ -616,6 +626,58 @@ async def test_control_loop_promotion_refresh_failure_caps_authority(
     assert unified.is_auto is False
     assert unified.decision in {"shadow", "deny"}
     audit_store.append_audit_entry.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    ("resource_environment", "payload_environment", "expected_environment"),
+    [
+        ("dev", "prod", "non-prod"),
+        ("prod", "dev", "prod"),
+    ],
+)
+async def test_operator_policy_input_uses_authority_resource_environment(
+    resource_environment: str,
+    payload_environment: str,
+    expected_environment: str,
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    action_type = OntologyActionType.model_validate(valid_ontology_action_type)
+    event = Event.model_validate(valid_event).model_copy(
+        update={
+            "payload": {
+                "environment": payload_environment,
+                "resource": {"props": {"tags": {"environment": resource_environment}}},
+            }
+        }
+    )
+    action = Action.model_validate(valid_action).model_copy(
+        update={"action_type": action_type.name}
+    )
+    rule = Rule.model_validate(valid_rule).model_copy(update={"remediates": action_type.name})
+    audit_store = MagicMock()
+    audit_store.append_audit_entry = AsyncMock()
+    binder = _RecordingOperatorPolicyBinder()
+    loop = ControlLoop(
+        event_ingest=MagicMock(),
+        trust_router=MagicMock(),
+        t0_engine=MagicMock(),
+        action_builder=MagicMock(),
+        executor=MagicMock(),
+        audit_store=audit_store,
+        rules_by_id={rule.id: rule},
+        risk_table=load_risk_table(TABLE_PATH),
+        action_types_by_name={action_type.name: action_type},
+        risk_gate=RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True)),
+        operator_policy_binder=binder,
+    )
+
+    unified = await loop._evaluate_and_audit(event=event, action=action, rule=rule)
+
+    assert unified is not None
+    assert binder.inputs[0]["environment"] == expected_environment
 
 
 # ---------------------------------------------------------------------------

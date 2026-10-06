@@ -358,7 +358,12 @@ _VAR = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.action-run", "object.audit-entry", "object.event"),
+    subscribes=(
+        "object.action-run",
+        "object.audit-entry",
+        "object.event",
+        "object.policy-activation-request",
+    ),
     question_domains=("hil_pending", "approval_backlog"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/var.py",),
 )
@@ -463,6 +468,7 @@ _MIMIR = AgentSpec(
     owns=(
         "Rule",
         "Policy",
+        "PolicyActivationRequest",
         "RuleGenerationBuildRequest",
         "RuleGenerationBuildResult",
     ),

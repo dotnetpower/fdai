@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fdai.agents import Mimir
@@ -21,7 +24,18 @@ from fdai.agents._framework.mimir_policy_administration import (
 )
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime_payload_validation import default_payload_validator
+from fdai.agents.var import Var
+from fdai.core.control_loop import ControlLoop
+from fdai.core.risk_gate import ActionPromotionRegistry, PromotionMetrics, RiskGate
+from fdai.core.risk_gate.approval_profile import OperatorPolicyOutcome
+from fdai.core.risk_gate.operator_policy import (
+    OperatorPolicyDecisionBinder,
+    StateStoreOperatorPolicyRevisionReader,
+)
+from fdai.core.risk_gate.risk_table import load_risk_table
+from fdai.delivery.policy_admission import OpaAdmissionPolicyEvaluator
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.shared.contracts.models import Action, Event, Mode, OntologyActionType, Rule
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.approval_profile import (
@@ -44,6 +58,8 @@ from fdai_service_contracts.operator_request_receipt import (
     operator_request_receipt_signing_bytes,
 )
 from fdai_service_contracts.policy_administration import (
+    POLICY_ACTIVATION_REQUEST_TOPIC,
+    POLICY_OBJECT_TOPIC,
     AdmissionPolicyContent,
     ApprovalPolicyContent,
     PolicyKind,
@@ -61,6 +77,7 @@ CAPABILITIES = "rule-catalog/schema/policy_admin_opa_capabilities.json"
 
 
 _CAPABILITIES = repo_asset_root() / POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE
+_RISK_TABLE = repo_asset_root() / "rule-catalog" / "risk-classification.yaml"
 
 
 class FakeSigner:
@@ -251,8 +268,8 @@ async def test_mimir_validates_stores_activates_and_publishes_policy() -> None:
     assert event["policy_kind"] == "admission"
     assert len(compiler.compiled) == 1
     assert await store.read_state(f"policy_activation:{PolicyKind.ADMISSION.value}") is not None
-    assert len(bus.messages_on("object.policy")) == 1
-    assert bus.messages_on("object.policy")[0].payload["revision_id"] == event["revision_id"]
+    assert len(bus.messages_on(POLICY_OBJECT_TOPIC)) == 1
+    assert bus.messages_on(POLICY_OBJECT_TOPIC)[0].payload["revision_id"] == event["revision_id"]
 
 
 @pytest.mark.asyncio
@@ -318,7 +335,7 @@ async def test_mimir_rejects_admission_without_policy_tests() -> None:
 
 
 @pytest.mark.asyncio
-async def test_mimir_rejects_malformed_and_relaxing_approval_policy() -> None:
+async def test_mimir_rejects_malformed_and_routes_relaxing_approval_policy_to_quorum() -> None:
     admin = _admin(profile=None)
     with pytest.raises(PolicyRevisionRejectedError, match="approval_policy_invalid"):
         await admin.handle_request(
@@ -330,10 +347,12 @@ async def test_mimir_rejects_malformed_and_relaxing_approval_policy() -> None:
                 }
             ).model_dump(mode="json")
         )
-    with pytest.raises(PolicyRevisionRejectedError, match="approval_policy_requires_quorum"):
-        await admin.handle_request(
-            _approval_request(_single_operator_document()).model_dump(mode="json")
-        )
+    pending = await admin.handle_request(
+        _approval_request(_single_operator_document()).model_dump(mode="json")
+    )
+
+    assert pending.kind == "policy_activation_approval_requested"
+    assert pending.quorum_required == 2
 
 
 @pytest.mark.asyncio
@@ -419,7 +438,7 @@ async def test_mimir_redelivery_records_outcome_and_publishes_once_after_transie
     await bridge._deliver("operator.policy-revision.requests", mimir.on_typed_message, payload)
 
     assert store.recorded_outcomes == 1
-    assert len(provider._records.get("object.policy", ())) == 1
+    assert len(provider._records.get(POLICY_OBJECT_TOPIC, ())) == 1
 
 
 @pytest.mark.asyncio
@@ -431,6 +450,122 @@ async def test_mimir_first_activation_uses_insert_for_postgres_semantics() -> No
 
     assert event.policy_kind is PolicyKind.ADMISSION
     assert await store.read_state("policy_activation:admission") is not None
+
+
+@pytest.mark.asyncio
+async def test_multi_operator_relaxing_admission_waits_for_var_quorum() -> None:
+    state = InMemoryStateStore()
+    admin = _admin(store=state, profile=None)
+
+    pending = await admin.handle_request(_request({}).model_dump(mode="json"))
+
+    assert pending.kind == "policy_activation_approval_requested"
+    assert pending.quorum_required == 2
+    assert await state.read_state("policy_activation:admission") is None
+
+
+@pytest.mark.asyncio
+async def test_var_quorum_activates_pending_relaxing_admission() -> None:
+    state = InMemoryStateStore()
+    provider = InMemoryEventBus()
+    bridge = EventBusBridge(
+        provider=provider,
+        registry=load_pantheon(),
+        payload_validator=default_payload_validator,
+    )
+    admin = MimirPolicyAdministration(
+        store=RecordingPolicyStore(StateStorePolicyRevisionStore(state), None),
+        signer=FakeSigner(),
+        rego_compiler=FakeRegoCompiler(),
+        operator_request_receipt_gate=OperatorRequestReceiptGate(
+            verifier=FakeReceiptVerifier(),
+            state_store=InMemoryStateStore(),
+            clock=lambda: NOW,
+        ),
+        operator_producer_service_identity="operator-service:test",
+        clock=lambda: NOW,
+    )
+    mimir = Mimir(policy_administration=admin)
+    var = Var(state_store=state, approver_authorizer=lambda _principal, _action_type: True)
+    mimir.bind_bus(bridge)
+    var.bind_bus(bridge)
+    pending = await mimir.handle_policy_revision_request(_request({}).model_dump(mode="json"))
+    pending["producer_principal"] = "Mimir"
+
+    await var.on_typed_message(POLICY_ACTIVATION_REQUEST_TOPIC, pending)
+    assert (
+        await var.decide(pending["correlation_id"], approver="operator-a", decision="approve")
+        is None
+    )
+    final = await var.decide(
+        pending["correlation_id"],
+        approver="operator-b",
+        decision="approve",
+    )
+    assert final is not None
+    await mimir.on_typed_message("object.approval", final)
+
+    pointer = await state.read_state("policy_activation:admission")
+    assert pointer is not None
+    assert pointer["revision_id"] == pending["revision_id"]
+
+
+@pytest.mark.asyncio
+async def test_single_operator_relaxing_admission_applies_immediately() -> None:
+    state = InMemoryStateStore()
+    admin = _admin(store=state, profile=_single_profile())
+
+    activation = await admin.handle_request(_request({}).model_dump(mode="json"))
+
+    assert activation.kind == "policy_activation"
+    assert await state.read_state("policy_activation:admission") is not None
+
+
+@pytest.mark.asyncio
+async def test_tightening_admission_applies_immediately_under_multi_operator() -> None:
+    state = InMemoryStateStore()
+    maximums = FakeMaximums({"governance.retire-rule": PolicyMode.ENFORCE})
+    single_admin = _admin(store=state, profile=_single_profile(), maximums=maximums)
+    first = await single_admin.handle_request(
+        _request(
+            {"governance.retire-rule": "enforce"},
+            request_id="request-parent",
+        ).model_dump(mode="json")
+    )
+    multi_admin = _admin(store=state, profile=None, maximums=maximums)
+
+    activation = await multi_admin.handle_request(
+        _request(
+            {"governance.retire-rule": "shadow"},
+            parent_revision_id=first.revision_id,
+            request_id="request-child",
+        ).model_dump(mode="json")
+    )
+
+    assert activation.kind == "policy_activation"
+    assert activation.revision_id != first.revision_id
+
+
+@pytest.mark.asyncio
+async def test_rego_change_is_relaxing_even_when_modes_do_not_raise() -> None:
+    state = InMemoryStateStore()
+    single_admin = _admin(store=state, profile=_single_profile())
+    first = await single_admin.handle_request(
+        _request({}, request_id="request-parent").model_dump(mode="json")
+    )
+    multi_admin = _admin(store=state, profile=None)
+
+    pending = await multi_admin.handle_request(
+        _request(
+            {},
+            rego='package fdai.policy\noutcome := "require_approval"\n',
+            parent_revision_id=first.revision_id,
+            request_id="request-child",
+        ).model_dump(mode="json")
+    )
+
+    assert pending.kind == "policy_activation_approval_requested"
+    assert pending.quorum_required == 2
 
 
 @pytest.mark.asyncio
@@ -458,11 +593,10 @@ async def test_mimir_replay_rechecks_current_profile_before_activation() -> None
     assert await store.record_request_revision(request_id=event.request_id, revision_id=revision_id)
     store.set_profile(None)
 
-    with pytest.raises(
-        PolicyRevisionRejectedError,
-        match="admission_policy_requires_single_operator",
-    ):
-        await admin.handle_request(payload)
+    pending = await admin.handle_request(payload)
+
+    assert pending.kind == "policy_activation_approval_requested"
+    assert pending.revision_id == revision_id
 
 
 @pytest.mark.asyncio
@@ -525,6 +659,150 @@ async def test_opa_capabilities_allow_comment_only_builtin_mentions() -> None:
     )
 
 
+@pytest.mark.skipif(shutil.which("opa") is None, reason="opa binary is not installed")
+@pytest.mark.asyncio
+async def test_activated_admission_policy_cannot_raise_hard_constraints(
+    valid_event: dict[str, object],
+    valid_action: dict[str, object],
+    valid_rule: dict[str, object],
+    valid_ontology_action_type: dict[str, object],
+) -> None:
+    state = InMemoryStateStore()
+    admin = _admin(
+        store=state,
+        profile=_single_profile(),
+        rego_compiler=OpaRegoPolicyCompiler(capabilities_file=_CAPABILITIES),
+    )
+    rego = 'package fdai\npolicy := {"outcome": "allow"}\n'
+    activation = await admin.handle_request(
+        _request(
+            {},
+            rego=rego,
+            policy_test_rego='package fdai\ntest_policy { policy.outcome == "allow" }\n',
+            request_id="request-real-opa",
+        ).model_dump(mode="json")
+    )
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
+    action_type = OntologyActionType.model_validate(valid_ontology_action_type).model_copy(
+        update={"irreversible": True}
+    )
+    registry.consider_promotion(
+        action_type=action_type,
+        metrics=PromotionMetrics(
+            action_type=action_type.name,
+            shadow_days=action_type.promotion_gate.min_shadow_days,
+            samples=action_type.promotion_gate.min_samples,
+            accuracy=1.0,
+            policy_escapes=0,
+        ),
+    )
+    event = Event.model_validate(valid_event).model_copy(
+        update={
+            "payload": {
+                "policy_violation": True,
+                "resource": {"props": {"tags": {"environment": "dev"}}},
+            }
+        }
+    )
+    action = Action.model_validate(valid_action).model_copy(
+        update={"action_type": action_type.name, "mode": Mode.ENFORCE}
+    )
+    rule = Rule.model_validate(valid_rule).model_copy(update={"remediates": action_type.name})
+    audit_store = MagicMock()
+    audit_store.append_audit_entry = AsyncMock()
+    loop = ControlLoop(
+        event_ingest=MagicMock(),
+        trust_router=MagicMock(),
+        t0_engine=MagicMock(),
+        action_builder=MagicMock(),
+        executor=MagicMock(),
+        audit_store=audit_store,
+        rules_by_id={rule.id: rule},
+        risk_table=load_risk_table(_RISK_TABLE),
+        action_types_by_name={action_type.name: action_type},
+        risk_gate=RiskGate(registry=registry),
+        operator_policy_binder=OperatorPolicyDecisionBinder(
+            reader=StateStoreOperatorPolicyRevisionReader(state),
+            evaluator=OpaAdmissionPolicyEvaluator(capabilities_file=_CAPABILITIES),
+        ),
+    )
+
+    denied = await loop._evaluate_and_audit(event=event, action=action, rule=rule)
+    hil = await loop._evaluate_and_audit(
+        event=event.model_copy(
+            update={
+                "payload": {
+                    "policy_violation": False,
+                    "resource": {"props": {"tags": {"environment": "dev"}}},
+                }
+            }
+        ),
+        action=action,
+        rule=rule,
+    )
+
+    assert denied is not None
+    assert denied.is_denied
+    assert denied.authority is not None
+    assert denied.authority.operator_policy is not None
+    assert denied.authority.operator_policy.revision_id == activation.revision_id
+    assert denied.authority.operator_policy.policy_digest == activation.policy_digest
+    assert denied.authority.operator_policy.outcome.value == "allow"
+    assert hil is not None
+    assert hil.requires_hil
+    assert not hil.is_auto
+
+
+@pytest.mark.asyncio
+async def test_cancelled_admission_evaluation_kills_opa_child(tmp_path: Path) -> None:
+    pid_file = tmp_path / "opa.pid"
+    fake_opa = tmp_path / "fake-opa"
+    fake_opa.write_text(f"#!/bin/sh\necho $$ > {pid_file}\nsleep 30\n", encoding="utf-8")
+    fake_opa.chmod(0o755)
+    state = InMemoryStateStore()
+    event = _request({})
+    content_digest = policy_content_digest(event.content)
+    revision_id = _expected_revision_id(content_digest)
+    record = _revision_record(event, revision_id, content_digest)
+    await state.write_state(
+        f"policy_revision:admission:{revision_id}", record.model_dump(mode="json")
+    )
+    await state.write_state(
+        "policy_activation:admission",
+        {
+            "kind": "policy_activation",
+            "policy_id": f"admission:{revision_id}",
+            "event_type": "policy_activation",
+            "policy_kind": "admission",
+            "revision_id": revision_id,
+            "policy_digest": content_digest,
+            "activated_at": NOW.isoformat(),
+            "author_principal": "policy-admin-1",
+            "validation_digest": record.validation.validation_digest,
+            "correlation_id": "policy-activation:test",
+            "idempotency_key": "policy-activation:test",
+        },
+    )
+    binder = OperatorPolicyDecisionBinder(
+        reader=StateStoreOperatorPolicyRevisionReader(state),
+        evaluator=OpaAdmissionPolicyEvaluator(
+            opa_binary=str(fake_opa),
+            capabilities_file=_CAPABILITIES,
+            timeout_seconds=5.0,
+        ),
+        timeout_seconds=0.2,
+    )
+
+    bound = await binder.bind(action_input={"action_type": "remediate.tag-add"})
+
+    assert bound is not None
+    assert bound.outcome is OperatorPolicyOutcome.REQUIRE_APPROVAL
+    assert pid_file.is_file()
+    pid = int(pid_file.read_text(encoding="utf-8").strip())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+
+
 def _admin(
     *,
     rego_compiler: FakeRegoCompiler | None = None,
@@ -553,6 +831,9 @@ def _request(
     modes: dict[str, str],
     *,
     rego: str = "package fdai.policy\nallow := true\n",
+    policy_test_rego: str = "package fdai.policy\n test_allow if { true }\n",
+    parent_revision_id: str | None = None,
+    request_id: str = "request-1",
     app_roles: frozenset[str] = frozenset({"Owner", "policy-admin"}),
     author_principal: str = "policy-admin-1",
     receipt_author: str = "policy-admin-1",
@@ -564,25 +845,25 @@ def _request(
         content=AdmissionPolicyContent(
             rego=rego,
             action_type_modes={key: PolicyMode(value) for key, value in sorted(modes.items())},
-            policy_tests=({"rego": "package fdai.policy\n test_allow if { true }\n"},),
+            policy_tests=({"rego": policy_test_rego},),
         ),
-        parent_revision_id=None,
+        parent_revision_id=parent_revision_id,
         reason="Reviewed policy change for a bounded installation scope.",
     )
     return PolicyRevisionRequestEvent.create(
         body=body,
-        request_id="request-1",
-        correlation_id="policy-revision:request-1",
-        idempotency_key="policy-request-1",
+        request_id=request_id,
+        correlation_id=f"policy-revision:{request_id}",
+        idempotency_key=f"policy-{request_id}",
         author_principal=author_principal,
         requested_at=NOW,
         authentication_receipt=_receipt(),
         operator_request_receipt=(
             _operator_request_receipt(
                 body,
-                request_id="request-1",
-                correlation_id="policy-revision:request-1",
-                idempotency_key="policy-request-1",
+                request_id=request_id,
+                correlation_id=f"policy-revision:{request_id}",
+                idempotency_key=f"policy-{request_id}",
                 app_roles=app_roles,
                 author_principal=receipt_author,
                 authenticated_at=authenticated_at,

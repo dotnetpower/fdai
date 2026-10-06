@@ -82,6 +82,9 @@ durable delivery, and the Teams Workflows webhook binding are owned by
 - The `governance.override-promote-action-type` approval uses the same A1 path. The channel carries
   the pinned profile and exact approval receipt context, while Thor alone can write the promotion
   registry after Var approval is verified.
+- A1 approval parks may also carry a pinned operator admission-policy digest. Channel adapters
+  display or return it only as immutable approval context; they never re-read the policy pointer or
+  evaluate Rego.
 - Core's runtime task supervision runs the license entitlement-state publisher as its own
   background task beside the channel outbox tasks. It sends no channel message, and a slow or
   failed publication cannot delay Slack, Teams, or notification delivery.

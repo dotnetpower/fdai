@@ -93,6 +93,7 @@ class HilRequestMixin:
         escalation_context: Mapping[str, object] | None = None,
         development_authority: Mapping[str, Any] | None = None,
         approval_profile: Mapping[str, Any] | None = None,
+        operator_policy: Mapping[str, Any] | None = None,
         original_quorum_required: int | None = None,
         effective_quorum_required: int | None = None,
     ) -> RequestApprovalResult:
@@ -178,6 +179,9 @@ class HilRequestMixin:
                 if development_authority is not None
                 else None
             ),
+            operator_policy_digest=(
+                str(operator_policy["policy_digest"]) if operator_policy is not None else None
+            ),
         )
         parked = {
             "status": ("awaiting_contact_consent" if route_plan is not None else _STATUS_PENDING),
@@ -241,6 +245,18 @@ class HilRequestMixin:
                 }
             )
             parked["metadata"] = metadata
+        if operator_policy is not None:
+            parked["operator_policy"] = dict(operator_policy)
+            raw_metadata = parked.get("metadata")
+            metadata = dict(raw_metadata) if isinstance(raw_metadata, Mapping) else {}
+            metadata.update(
+                {
+                    "operator_policy_revision_id": str(operator_policy.get("revision_id", "")),
+                    "operator_policy_digest": str(operator_policy.get("policy_digest", "")),
+                    "operator_policy_outcome": str(operator_policy.get("outcome", "")),
+                }
+            )
+            parked["metadata"] = metadata
         if resolved_escalation_rungs and route_plan is None:
             if self.escalation_supervisor is None:
                 raise ValueError("escalation_rungs require an escalation supervisor")
@@ -288,6 +304,7 @@ class HilRequestMixin:
                     if development_authority is not None
                     else None
                 ),
+                "operator_policy": dict(operator_policy) if operator_policy is not None else None,
                 "approval_profile": (
                     {
                         "revision_id": approval_profile.get("revision_id"),

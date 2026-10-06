@@ -584,6 +584,12 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
                         and unified.authority.approval_profile is not None
                         else None
                     ),
+                    operator_policy=(
+                        unified.authority.operator_policy.as_audit_dict()
+                        if unified.authority is not None
+                        and unified.authority.operator_policy is not None
+                        else None
+                    ),
                     original_quorum_required=(
                         unified.authority.original_quorum
                         if unified.authority is not None

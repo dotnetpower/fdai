@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
-from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
+from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision, OperatorPolicyInput
 from fdai.core.risk_gate.authority import (
     ExecutionAuthorityDecision,
     evaluate_execution_authority,
@@ -31,8 +30,6 @@ from fdai.shared.contracts.models import (
 )
 
 from . import development_authority as _development_authority
-
-_LOGGER = logging.getLogger(__name__)
 
 
 def _extract_environment(resource_props: Mapping[str, Any]) -> str:
@@ -67,6 +64,7 @@ def _compute_authority(
     table: RiskTable,
     tier: Tier = Tier.T0,
     cost_override: float | None = None,
+    policy_violation: bool = False,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
     inventory_age_seconds: int | None = None,
@@ -81,6 +79,7 @@ def _compute_authority(
     ) = None,
     development_evaluated_at: datetime | None = None,
     approval_profile: ApprovalProfileRevision | None = None,
+    operator_policy: OperatorPolicyInput | None = None,
 ) -> ExecutionAuthorityDecision:
     """Run authority under the executor role and optional dynamic cost input."""
     environment = _extract_environment(_extract_resource_props(event.payload))
@@ -91,6 +90,7 @@ def _compute_authority(
         table=table,
         principal_role=CeilingRole.OWNER,
         environment=environment,
+        policy_violation=policy_violation,
         cost_impact_monthly=cost,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
@@ -101,6 +101,7 @@ def _compute_authority(
         development_binding_request=development_binding_request,
         evaluated_at=development_evaluated_at,
         approval_profile=approval_profile,
+        operator_policy=operator_policy,
     )
 
 
@@ -113,22 +114,12 @@ def build_shadow_authority_audit(
     table: RiskTable,
     tier: Tier = Tier.T0,
     cost_override: float | None = None,
+    policy_violation: bool = False,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
     live_probe_observation: LiveProbeObservation | None = None,
 ) -> dict[str, Any]:
-    """Build the ``risk_gate.shadow_authority`` audit entry for one action.
-
-    Pure: derives the environment from the event payload, runs the unified
-    execution-authority pipeline, and returns the audit dict (the caller
-    stamps ``recorded_at``). Used by :class:`ControlLoop` when a risk table
-    is wired in but no RiskGate is (authority-only record).
-
-    ``cost_override`` (Wave W2.5) is forwarded to
-    :func:`_compute_authority`; it wins over ``rule.remediation.cost_impact_monthly_usd``
-    when set, matching the estimator-fallback contract on
-    :class:`ControlLoop`.
-    """
+    """Build the ``risk_gate.shadow_authority`` audit entry for one action."""
     decision = _compute_authority(
         event=event,
         rule=rule,
@@ -136,6 +127,7 @@ def build_shadow_authority_audit(
         table=table,
         tier=tier,
         cost_override=cost_override,
+        policy_violation=policy_violation,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
         live_probe_observation=live_probe_observation,
@@ -164,6 +156,7 @@ def evaluate_unified(
     risk_gate: RiskGate,
     tier: Tier = Tier.T0,
     cost_override: float | None = None,
+    policy_violation: bool = False,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
     inventory_age_seconds: int | None = None,
@@ -181,17 +174,9 @@ def evaluate_unified(
     ) = None,
     development_evaluated_at: datetime | None = None,
     approval_profile: ApprovalProfileRevision | None = None,
+    operator_policy: OperatorPolicyInput | None = None,
 ) -> UnifiedRiskDecision:
-    """Run the runtime-Action gate and the policy-ceiling authority and
-    combine them into a single :class:`UnifiedRiskDecision` (canonical-level
-    ``min()``). Pure - no audit write, no I/O beyond the gate/authority
-    reads.
-
-    ``cost_override`` (Wave W2.5) plumbs a dynamic Cost Governance
-    estimate into the authority side; when unset the authority path
-    reads the static ``rule.remediation.cost_impact_monthly_usd`` as
-    before.
-    """
+    """Run runtime gate and policy authority into one never-raising decision."""
     authority = _compute_authority(
         event=event,
         rule=rule,
@@ -199,6 +184,7 @@ def evaluate_unified(
         table=table,
         tier=tier,
         cost_override=cost_override,
+        policy_violation=policy_violation,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
         live_probe_observation=live_probe_observation,
@@ -208,6 +194,7 @@ def evaluate_unified(
         development_binding_request=development_binding_request,
         development_evaluated_at=development_evaluated_at,
         approval_profile=approval_profile,
+        operator_policy=operator_policy,
     )
     gate_decision = _development_authority.evaluate_gate(
         risk_gate=risk_gate,

@@ -108,6 +108,7 @@ class ControlLoopBoundaryMixin:
         event: Event | None = None,
         development_authority: Mapping[str, Any] | None = None,
         approval_profile: Mapping[str, Any] | None = None,
+        operator_policy: Mapping[str, Any] | None = None,
         original_quorum_required: int | None = None,
         effective_quorum_required: int | None = None,
     ) -> None:
@@ -122,6 +123,7 @@ class ControlLoopBoundaryMixin:
             event=event,
             development_authority=development_authority,
             approval_profile=approval_profile,
+            operator_policy=operator_policy,
             original_quorum_required=original_quorum_required,
             effective_quorum_required=effective_quorum_required,
         )

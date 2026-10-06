@@ -33,6 +33,9 @@ The pantheon is a thin re-framing of the existing FDAI control loop into named o
   Thor carry the same pinned profile revision with the ActionRun and approval ticket. Var records
   both the original quorum and the effective quorum of one, while Thor remains only the executor
   and cannot be the approver. This adds no agent, topic, or role authority.
+  Policy revision activation uses the same fixed roles: Mimir publishes typed
+  `object.policy-activation-request` events for relaxing multi-operator revisions, Var records the
+  quorum approval, and Mimir moves the activation pointer only after that typed approval event.
 - **Pantheon fixed upstream.** The 15-agent set, org chart, and role assignments are locked. Forks customize configured seams (§10), never add, remove, or rename agents.
 - **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces. Runtime composition uses explicitly exported callback types from the owning agent module; exporting a type grants no topic, observation, approval, or execution authority. Heimdall's action-observation relay and Thor's durable `ActionRun` codec, verdict validation, audit-gated execution phase, replay/publication lifecycle, effect closure, and read-only conversation projection use focused private helpers. Thor remains their only privileged caller and the sole `ActionRun` publisher; the helpers own no `AgentSpec`, topic, judgment, approval, audit, recovery, or execution authority. Durable replay rejects prospective lineage without its exact kinetic proposal.
 Composition and scenario replay import `ActionSemanticsCatalog` from `fdai.agents` to bind
@@ -183,7 +186,7 @@ operations / interface), `3` = governance staff.
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; records shadow-only intent-training evidence with reviewed activation required | yes (translator only) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (normalize missing trace), escalate_to_github_issue; issue auto-close waits for Mimir promotion evidence and a clean 24 h recurrence window | no |
-| Mimir | Rule Steward | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; polls rule sources and records regression-backed promotion and deprecation evidence | no |
+| Mimir | Rule Steward | 3 | Rule, Policy, PolicyActivationRequest, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; polls rule sources and records regression-backed promotion and deprecation evidence | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
 | Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history; emits inert quiet-window close_issue eligibility without mutating issues | yes (off-path batch only) |
 | Njord | Cost | 1 | CostAnomaly | propose_cost_action; retains the separate `Budget` graph lifecycle | no |
@@ -362,8 +365,8 @@ acts. A missing or non-owner producer is blocked before state changes and counte
 delivery, even when the bridge already checked ownership. The live bridge and redrive path apply
 the same owner, envelope, and payload validation, and runtime composition binds the authority
 payload validator by default so malformed `object.verdict`, `object.approval`, `object.action-run`,
-`object.rollback`, `object.issue`, `object.audit-entry`, `object.rule`, and `object.policy` records
-do not reach handlers.
+`object.rollback`, `object.issue`, `object.audit-entry`, `object.rule`, `object.policy`, and
+`object.policy-activation-request` records do not reach handlers.
 Consumer modes, multi-handler consumer groups, and shutdown follow the
 [event-bus invariants](agent-pantheon-implementation.md#event-bus-invariants); startup recovery and
 Loki proposal evidence checks are runtime mechanics in the same implementation plan.
@@ -391,6 +394,7 @@ Loki proposal evidence checks are runtime mechanics in the same implementation p
 | object.pattern | Norns | Muninn (inert retention and current-case read validation) |
 | object.rule | Mimir | Forseti (Rule cache reload), Saga (Rule audit) |
 | object.policy | Mimir | Saga (Policy audit) |
+| object.policy-activation-request | Mimir | Var (policy activation quorum only) |
 | object.context-index | Muninn | Norns (sealed case-history intake), Heimdall (ontology index validation), Saga (index audit) |
 | object.state-snapshot | Muninn | Saga (snapshot audit) |
 | object.conversation | Bragi | Muninn (digest-only session index) |

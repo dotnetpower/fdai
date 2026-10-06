@@ -89,6 +89,7 @@ OWNED_OBJECT_TOPICS: frozenset[str] = frozenset(
         "object.issue",
         "object.rule",
         "object.policy",
+        "object.policy-activation-request",
         "object.rule-candidate",
         "object.pattern",
         "object.state-snapshot",

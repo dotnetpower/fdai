@@ -36,6 +36,9 @@ callback or the Entra-authenticated FDAI Console route. Both paths recheck the e
 current role, expiry, and separation of duty, then atomically retain the decision and durable
 outbox. This adds another safe response surface; it does not change the escalation timer,
 standing-authority rules, or Thor's execution boundary.
+When an operator admission policy is active, the HIL park also carries the policy revision digest
+that Core pinned when the decision started. Replay and resume keep that digest instead of reading a
+new activation pointer.
 
 - An actionable `hil` verdict with a registered ActionType fires an approval request with a TTL.
   Forseti also lowers an otherwise automatic verdict to human approval when the governed reversible

@@ -12,6 +12,8 @@ from fdai.core.control_loop._development import ControlLoopDevelopmentMixin
 from fdai.core.control_loop._execution_effects import ControlLoopExecutionEffectsMixin
 from fdai.core.control_loop._governance import ControlLoopGovernanceMixin
 from fdai.core.control_loop._helpers import (
+    _extract_environment,
+    _extract_resource_props,
     _unified_audit_dict,
     build_shadow_authority_audit,
     evaluate_unified,
@@ -43,6 +45,10 @@ from fdai.core.risk_gate.ceiling import AxisLevel
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.live_probe import LiveProbeObservation
+from fdai.core.risk_gate.operator_policy import (
+    OperatorPolicyDecisionBinder,
+    bounded_action_policy_input,
+)
 from fdai.core.risk_gate.preconditions import (
     AutomationHoldReader,
     AutomationHoldRecoveryReader,
@@ -92,6 +98,7 @@ class ControlLoopExecutionMixin(
 
     _action_types_by_name: Mapping[str, OntologyActionType]
     _approval_profile: ApprovalProfileRevision | None
+    _operator_policy_binder: OperatorPolicyDecisionBinder | None
     _audit_store: StateStore
     _clock: Callable[[], datetime]
     _degradation: DegradationController | None
@@ -664,6 +671,21 @@ class ControlLoopExecutionMixin(
             action=action,
             action_type=action_type,
         )
+        operator_policy = None
+        policy_violation = event.payload.get("policy_violation") is True
+        if self._operator_policy_binder is not None:
+            environment = _extract_environment(_extract_resource_props(event.payload))
+            operator_policy = await self._operator_policy_binder.bind(
+                action_input=bounded_action_policy_input(
+                    action_type=action.action_type,
+                    resource_id=action.target_resource_ref,
+                    environment=environment,
+                    mode=action.mode.value,
+                    policy_violation=policy_violation,
+                    irreversible=bool(action_type.irreversible),
+                    operation=action_type.operation.value,
+                )
+            )
         if self._risk_gate is not None:
             unified = evaluate_unified(
                 event=event,
@@ -674,6 +696,7 @@ class ControlLoopExecutionMixin(
                 risk_gate=self._risk_gate,
                 tier=tier,
                 cost_override=cost_override,
+                policy_violation=policy_violation,
                 system_degraded=system_degraded,
                 kill_switch_engaged=kill_switch_engaged,
                 inventory_age_seconds=inventory_age_seconds,
@@ -682,6 +705,7 @@ class ControlLoopExecutionMixin(
                 automation_hold_recovery=automation_hold_recovery,
                 live_probe_observation=live_probe_observation,
                 approval_profile=self._approval_profile,
+                operator_policy=operator_policy,
             )
             conflict_disposition = EvidenceConflictDisposition.NOT_APPLICABLE
             conflict_revision_refs: list[str] = []

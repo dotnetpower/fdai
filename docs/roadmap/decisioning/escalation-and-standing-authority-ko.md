@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 78670d7b5270c4e2abe3b5d4564becce9493b7a2
-translation_revised: 2026-10-05
+translation_source_sha: 915f3621be257fc3503ca1477c62598e2073501d
+translation_revised: 2026-10-06
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -37,6 +37,8 @@ translation_revised: 2026-10-05
 분리를 다시 확인한 다음 결정과 지속성 outbox를 원자적으로 보존합니다. 이 변경은 안전한
 응답 화면을 하나 더 제공하지만 에스컬레이션 타이머, 상시 권한 규칙 또는 Thor의 실행
 경계를 바꾸지 않습니다.
+운영자 허용 정책이 활성 상태이면 HIL 보류 레코드는 Core가 결정 시작 시 고정한 정책 개정
+다이제스트도 전달합니다. 재현과 재개는 새 활성화 포인터를 읽지 않고 그 다이제스트를 유지합니다.
 
 - 등록된 ActionType이 있는 실행 가능한 `hil` 판정은 TTL이 있는 승인 요청을 생성합니다.
   거버넌스가 적용된 되돌릴 수 있는 ActionType 의미가 없거나, 작업을 알 수 없거나, 유효 정족수가

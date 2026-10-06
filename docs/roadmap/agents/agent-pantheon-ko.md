@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 7761688bc3ec29935ba2ca2d20969f3a5f88de8b
-translation_revised: 2026-10-05
+translation_source_sha: 11cce257b01eef849491cbd5559af8df107e726c
+translation_revised: 2026-10-06
 ---
 # 에이전트 판테온
 
@@ -36,6 +36,9 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
   ActionRun 및 승인 티켓과 함께 전달합니다. Var는 원래 정족수와 유효 정족수 1을 모두 기록하고,
   Thor는 실행기일 뿐 승인자가 될 수 없습니다. 이 변경은 에이전트, 토픽 또는 역할 권한을 추가하지
   않습니다.
+  정책 개정 활성화도 같은 고정 역할을 사용합니다. Mimir는 완화되는 다중 운영자 개정에 대해 타입
+  지정 `object.policy-activation-request` 이벤트를 게시하고, Var는 정족수 승인을 기록하며, Mimir는
+  그 타입 지정 승인 이벤트를 받은 뒤에만 활성화 포인터를 옮깁니다.
 - **판테온은 업스트림에서 고정.** 15개 에이전트, 조직도, 역할 배정은 고정됩니다. 포크는 설정 가능한 경계 (§10)만 변경하며 에이전트를 추가, 제거하거나 이름을 바꾸지 않습니다.
 - **저장소 구조가 경계를 보존.** 이름이 있는 에이전트는 [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에, 공통 런타임은 비공개 `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오며 구조 테스트가 이 경계를 강제합니다. 런타임 조립은 소유 에이전트 모듈이 명시적으로 공개한 콜백 타입을 사용하며 타입 공개는 토픽, 관측, 승인 또는 실행 권한을 부여하지 않습니다. Heimdall의 작업 관측 중계와 Thor의 영속 `ActionRun` codec, verdict 검증, 감사로 통제된 실행 단계, 재생 및 게시 lifecycle, 효과 종결, 읽기 전용 대화 변환은 용도별 비공개 도우미에 둡니다. Thor는 이 도우미의 유일한 privileged 호출자이자 유일한 `ActionRun` 게시자로 유지됩니다. 도우미는 `AgentSpec`, topic, 판단, 승인, 감사, 복구 또는 실행 권한을 소유하지 않습니다. 영속 재생은 정확한 kinetic proposal이 없는 prospective lineage를 거부합니다.
   Bragi의 post-turn review publisher는 typed `object.post-turn-review` 묶음만 계속 소유합니다. Norns는 비활성 초안을 평가하고 라우팅하는 learner로 남습니다.
@@ -184,7 +187,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; shadow 전용 intent-training 근거를 기록하며 활성화에는 별도 검토가 필요합니다 | yes (translator 만) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 추적 정규화), escalate_to_github_issue; issue auto-close는 Mimir 승격 근거와 깨끗한 24시간 재발 없음 구간을 기다립니다 | no |
-| Mimir | Rule 담당자 | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; rule source를 polling하고 회귀 기반 승격 및 deprecation 근거를 기록합니다 | no |
+| Mimir | Rule 담당자 | 3 | Rule, Policy, PolicyActivationRequest, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; rule source를 polling하고 회귀 기반 승격 및 deprecation 근거를 기록합니다 | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
 | Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history; 이슈를 변경하지 않고 비활성 quiet-window close_issue 적격성을 냅니다 | yes (off-path 배치 만) |
 | Njord | 비용 | 1 | CostAnomaly | propose_cost_action을 수행하고 별도 `Budget` graph lifecycle을 유지합니다. | no |
@@ -364,7 +367,8 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 차단하고 거부된 전달로 계산합니다. live 브리지와 redrive 경로는 같은 소유자, 묶음, payload
 검증을 적용하며, 런타임 조립은 기본적으로 권한 payload 검증기를 연결하므로 잘못된
 `object.verdict`, `object.approval`, `object.action-run`, `object.rollback`, `object.issue`,
-`object.audit-entry`, `object.rule`, `object.policy` 레코드는 처리기에 도달하지 않습니다.
+`object.audit-entry`, `object.rule`, `object.policy`, `object.policy-activation-request` 레코드는
+처리기에 도달하지 않습니다.
 소비자 모드, multi-handler 소비자 그룹, 종료 처리는
 [이벤트 버스 불변식](agent-pantheon-implementation-ko.md#이벤트-버스-불변식)을 따르며, 시작 복구와
 Loki 제안 근거 검사는 같은 구현 계획의 런타임 메커니즘입니다.
@@ -392,6 +396,7 @@ Loki 제안 근거 검사는 같은 구현 계획의 런타임 메커니즘입�
 | object.pattern | Norns | Muninn (비활성 기록 보존 및 조회 시 현재 사례 검증) |
 | object.rule | Mimir | Forseti(Rule 캐시 갱신), Saga(Rule 감사) |
 | object.policy | Mimir | Saga(Policy 감사) |
+| object.policy-activation-request | Mimir | Var(정책 활성화 정족수 전용) |
 | object.context-index | Muninn | Norns(봉인된 case-history intake), Heimdall(온톨로지 인덱스 검증), Saga(인덱스 감사) |
 | object.state-snapshot | Muninn | Saga (스냅샷 감사) |
 | object.conversation | Bragi | Muninn(다이제스트만 담은 세션 인덱스) |

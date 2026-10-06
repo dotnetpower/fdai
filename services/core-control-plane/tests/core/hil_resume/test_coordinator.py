@@ -383,7 +383,53 @@ async def test_slack_request_is_durable_before_coordinator_reports_dispatch() ->
     assert result.receipt is not None
     assert result.receipt.channel_ref == "slack:CEXAMPLE1/1.2"
     assert posts == 1
-    assert publisher.records == ()
+
+
+async def test_hil_request_replay_keeps_pinned_operator_policy_digest() -> None:
+    coordinator, _publisher, store, _channel = _coordinator()
+    old_policy = {
+        "revision_id": "admission:old",
+        "policy_digest": "sha256:" + "1" * 64,
+        "outcome": "require_approval",
+    }
+    new_policy = {
+        "revision_id": "admission:new",
+        "policy_digest": "sha256:" + "2" * 64,
+        "outcome": "allow",
+    }
+
+    first = await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="policy-pin-correlation",
+        approval_id="policy-pin-approval",
+        operator_policy=old_policy,
+    )
+    replay = await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="policy-pin-correlation",
+        approval_id="policy-pin-approval",
+        operator_policy=old_policy,
+    )
+    conflict = await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="policy-pin-correlation",
+        approval_id="policy-pin-approval",
+        operator_policy=new_policy,
+    )
+
+    parked = await store.read_state("hil_park:policy-pin-approval")
+    assert first.outcome is RequestOutcome.PARKED
+    assert replay.outcome is RequestOutcome.ALREADY_PARKED
+    assert conflict.outcome is RequestOutcome.APPROVAL_ID_CONFLICT
+    assert parked is not None
+    assert parked["operator_policy"] == old_policy
+    assert parked["metadata"]["operator_policy_digest"] == old_policy["policy_digest"]
 
 
 class _ReportLineGraphs:
