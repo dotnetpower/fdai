@@ -500,6 +500,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             _replace_private_json(retained_context, retained)
             _replace_private_json(retained_variables, retained_values)
         foundation.adoption.require_context(retained)
+        if source_application_inputs.rebind_source_tree(retained, work_dir):
+            _replace_private_json(retained_context, retained)
         _terraform_init(work_dir, retained)
         if adoption is not None:
             _adopt_application_state(work_dir, retained, *adoption)

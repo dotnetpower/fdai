@@ -482,3 +482,14 @@ def test_azure_import_and_read_back_use_the_exact_references() -> None:
     assert "--force" in imported
     assert read[:4] == ("az", "acr", "manifest", "show-metadata")
     assert read[read.index("--name") + 1] == f"clamav@{digest}"
+
+
+def test_creates_its_private_work_directory_on_a_fresh_host(
+    snapshot: SourceImageSnapshot, work_dir: Path
+) -> None:
+    stage = work_dir / "source-image-stage"
+
+    run_source_image_stage(snapshot=snapshot, target=TARGET, builder=FakeRegistry(), work_dir=stage)
+
+    assert stage.stat().st_mode & 0o777 == 0o700
+    assert any(path.name.endswith(".receipt.json") for path in stage.iterdir())

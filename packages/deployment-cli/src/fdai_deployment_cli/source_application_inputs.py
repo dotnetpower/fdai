@@ -115,6 +115,40 @@ def placeholder_image_refs(login_server: str, *, include_pgvector: bool) -> dict
     return refs
 
 
+def source_tree_copy(snapshot_tree: Path, work_dir: Path) -> Path:
+    """Return a private working copy of the verified snapshot tree.
+
+    Terraform writes backend and lock files into its roots and Python may write bytecode beside
+    migration code. Doing that inside the snapshot would change the file set that later stages
+    verify, so every host step that runs from the tree uses this copy instead.
+    """
+    copy = work_dir / "source-tree"
+    if not copy.exists():
+        staging = work_dir / ".source-tree-staging"
+        shutil.rmtree(staging, ignore_errors=True)
+        shutil.copytree(snapshot_tree, staging, symlinks=True)
+        staging.chmod(0o700)
+        staging.rename(copy)
+    elif copy.is_symlink() or not copy.is_dir():
+        raise ValueError("source working tree is invalid")
+    return copy
+
+
+def rebind_source_tree(context: dict[str, object], work_dir: Path) -> bool:
+    """Move a retained source context's working paths out of the snapshot."""
+    if context.get("artifact_source") != "operator-selected-source":
+        return False
+    snapshot_tree = Path(str(context["source_snapshot"])) / "tree"
+    prefix = str(snapshot_tree)
+    copy = str(source_tree_copy(snapshot_tree, work_dir))
+    changed = False
+    for key, value in list(context.items()):
+        if isinstance(value, str) and (value == prefix or value.startswith(prefix + "/")):
+            context[key] = copy + value[len(prefix) :]
+            changed = True
+    return changed
+
+
 def source_host_artifacts(
     *,
     source_snapshot: Path,
@@ -129,9 +163,10 @@ def source_host_artifacts(
     if source_commit != expected_source_commit:
         raise ValueError("Foundation and source snapshot revisions differ")
     artifact_root = source_snapshot / "tree"
+    working_tree = source_tree_copy(artifact_root, work_dir)
     install_source_runtime_support(
         work_dir,
-        source_root=artifact_root,
+        source_root=working_tree,
         requirements=runtime_requirements,
         requirements_digest=runtime_requirements_digest,
         snapshot_digest=snapshot_digest,
@@ -143,7 +178,7 @@ def source_host_artifacts(
     return SourceHostArtifacts(
         source_commit=source_commit,
         artifact_root=artifact_root,
-        infra=artifact_root / "infra",
+        infra=working_tree / "infra",
         terraform=terraform,
         kit_bin=install_kubernetes_tools(work_dir / "source-tools"),
         digest=snapshot_digest,

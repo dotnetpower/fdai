@@ -120,6 +120,7 @@ def run_source_image_stage(
 
     _validate(snapshot, target)
     claim = _claim(snapshot, target)
+    work_dir.mkdir(mode=0o700, exist_ok=True)
     receipt_path = work_dir / f"source-images-{snapshot.commit}.receipt.json"
     claim_path = work_dir / f"source-images-{snapshot.commit}.claim.json"
     if receipt_path.exists():
