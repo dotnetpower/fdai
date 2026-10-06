@@ -78,6 +78,9 @@ class CompiledAnswerSettings:
     budget: ShadowBudget = field(default_factory=ShadowBudget)
     # Typed-only answering: a read answers only from the form path, never the legacy cascade.
     typed_only: bool = False
+    # Start the form path beside the preflight instead of after it. The preflight still decides
+    # whether the turn continues; a direct response cancels the unconsumed path.
+    speculative_start: bool = False
 
     def __post_init__(self) -> None:
         if not 60 <= self.default_lookback_seconds <= 31 * 86_400:
@@ -346,6 +349,10 @@ class CompiledAnswerPath:
     @property
     def typed_only(self) -> bool:
         return self._settings.typed_only
+
+    @property
+    def speculative_start(self) -> bool:
+        return self._settings.speculative_start
 
     def start(
         self,

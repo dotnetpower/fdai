@@ -107,6 +107,7 @@ from .semantic_planning_specialized_plans import (
     build_anchored_incident_plan,
     build_stated_value_filter_plan,
 )
+from .semantic_planning_speculation import SemanticPlanningSpeculationMixin
 from .semantic_planning_support import (
     _MAX_DESCRIPTORS,
     _bounded_context,
@@ -129,7 +130,7 @@ from .session import Principal, Turn
 _LOGGER = logging.getLogger(__name__)
 
 
-class SemanticPlanningService(SemanticPlanningPreflightMixin):
+class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSpeculationMixin):
     """Build a T1 proposal and apply an explicit policy to bounded T2 fallback."""
 
     def __init__(
@@ -196,6 +197,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
         preflight_result: ConversationPreflightResult | None = None,
         required_document_evidence: bool = False,
         stored_reference_context: StoredReferenceContext | None = None,
+        speculative_ticket: CompiledAnswerTicket | None = None,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
 
@@ -219,7 +221,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             supplied_preflight_result=preflight_result,
             model_observations=model_observations,
         )
-        ticket: CompiledAnswerTicket | None = None
+        ticket: CompiledAnswerTicket | None = speculative_ticket
         try:
             context = _bounded_context(prior_turns)
             preflight_outcome = preflight_router.run(context)
@@ -231,7 +233,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             scope_mismatch = manifest.principal_role.value != principal.role.value
             if scope_mismatch or purpose not in manifest.purposes:
                 raise PermissionError("principal manifest scope does not match planning request")
-            if self._compiled_answers is not None and unbound_conversation:
+            if self._compiled_answers is not None and unbound_conversation and ticket is None:
                 ticket = start_compiled_answer(
                     self._compiled_answers,
                     eligible=bound_resource_context is None and not required_document_evidence,

@@ -14,6 +14,7 @@ import logging
 import re
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import datetime
 from functools import cache
 from pathlib import Path
 from threading import Lock
@@ -238,6 +239,7 @@ class _TraceBuilder:
         self._type_predicate = False
         self._model_frame = False
         self._model_plan = False
+        self._first_call_start: datetime | None = None
 
     def add_model_call(self, observation: object) -> None:
         call = getattr(observation, "trace_call", None)
@@ -261,11 +263,14 @@ class _TraceBuilder:
         duration = call.get("duration_ms")
         if _is_count(duration):
             attributes["duration_ms"] = duration
+        offset = self._start_offset_ms(call.get("started_at"))
+        if offset is not None:
+            attributes["start_offset_ms"] = offset
         usage = getattr(observation, "usage", None)
         if not isinstance(usage, Mapping):
             usage = call.get("usage")
         if isinstance(usage, Mapping):
-            for name in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            for name in ("prompt_tokens", "completion_tokens", "total_tokens", "cached_tokens"):
                 value = usage.get(name)
                 if _is_count(value):
                     attributes[name] = value
@@ -277,6 +282,20 @@ class _TraceBuilder:
             attributes["unreviewed_tokens"] = redactions.count
             self._cue("unreviewed_model_token", index)
         self.steps.append({"stage": stage, "attributes": attributes})
+
+    def _start_offset_ms(self, started_at: object) -> int | None:
+        """Return the call's start relative to the turn's first model call, for overlap review."""
+        if not isinstance(started_at, str):
+            return None
+        try:
+            started = datetime.fromisoformat(started_at)
+        except ValueError:
+            return None
+        if started.tzinfo is None:
+            return None
+        if self._first_call_start is None or started < self._first_call_start:
+            self._first_call_start = started
+        return max(0, int((started - self._first_call_start).total_seconds() * 1000))
 
     def _call_attributes(
         self,

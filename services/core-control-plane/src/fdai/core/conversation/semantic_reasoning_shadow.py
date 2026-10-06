@@ -133,6 +133,8 @@ class ShadowBudget:
             raise ValueError("shadow form repairs per pass MUST be 0 or 1")
         if not 0 <= self.max_concept_calls <= 64:
             raise ValueError("shadow concept calls MUST be in [0, 64]")
+        if not 4 * 1024 <= self.max_shard_bytes <= 64 * 1024:
+            raise ValueError("shadow concept shard bytes MUST be in [4096, 65536]")
 
 
 @dataclass(frozen=True, slots=True)

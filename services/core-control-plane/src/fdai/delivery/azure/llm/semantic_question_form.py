@@ -54,8 +54,8 @@ from fdai.delivery.azure.llm.input_detection import (
 )
 from fdai.delivery.azure.llm.model_trace import (
     ModelInputMinimizationError,
-    bounded_usage,
     complete_model_trace,
+    observed_usage,
     prepare_model_messages,
     start_model_trace,
 )
@@ -609,7 +609,7 @@ class AzureOpenAIQuestionFormModel:
                         reservation.record(
                             ConversationModelObservation(
                                 model=target.deployment,
-                                usage=bounded_usage(usage),
+                                usage=observed_usage(usage),
                                 trace_call=_content_free(
                                     complete_model_trace(
                                         trace_start,

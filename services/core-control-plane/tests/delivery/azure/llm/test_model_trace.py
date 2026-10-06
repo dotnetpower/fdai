@@ -7,6 +7,7 @@ import pytest
 from fdai.delivery.azure.llm.model_trace import (
     ModelInputMinimizationError,
     complete_model_trace,
+    observed_usage,
     prepare_embedding_input,
     prepare_model_messages,
     start_model_trace,
@@ -115,3 +116,34 @@ def test_prepare_embedding_input_holds_fully_redacted_payload() -> None:
 
     assert caught.value.receipt.boundary == "embeddings"
     assert caught.value.receipt.transmittable_item_count == 0
+
+
+def test_observed_usage_keeps_cached_prompt_tokens_outside_the_trace_usage() -> None:
+    usage = {
+        "prompt_tokens": 4197,
+        "completion_tokens": 70,
+        "total_tokens": 4267,
+        "prompt_tokens_details": {"cached_tokens": 3968},
+    }
+
+    assert observed_usage(usage) == {
+        "prompt_tokens": 4197,
+        "completion_tokens": 70,
+        "total_tokens": 4267,
+        "cached_tokens": 3968,
+    }
+    trace = complete_model_trace(
+        start_model_trace(({"role": "user", "content": "list groups"},)),
+        call_id="c-1",
+        kind="semantic-concept-selection",
+        model="deployment-a",
+        response_content="{}",
+        usage=usage,
+    )
+    assert "cached_tokens" not in trace["usage"]
+    # A malformed or missing detail never invents a cached count.
+    assert "cached_tokens" not in (
+        observed_usage({**usage, "prompt_tokens_details": {"cached_tokens": -1}}) or {}
+    )
+    assert "cached_tokens" not in (observed_usage({**usage, "prompt_tokens_details": None}) or {})
+    assert observed_usage(None) is None

@@ -148,6 +148,21 @@ def bounded_usage(value: Mapping[str, Any] | None) -> dict[str, int] | None:
     return output or None
 
 
+def observed_usage(value: Mapping[str, Any] | None) -> dict[str, int] | None:
+    """Return bounded usage plus the provider's cached prompt-token count, when reported.
+
+    The cached count is Core-internal call metadata for latency diagnostics. It stays out of
+    the model trace and wire usage, which keep exactly the ``bounded_usage`` counters.
+    """
+    output = bounded_usage(value)
+    details = value.get("prompt_tokens_details") if value is not None else None
+    cached = details.get("cached_tokens") if isinstance(details, Mapping) else None
+    if output is not None and isinstance(cached, int) and not isinstance(cached, bool):
+        if cached >= 0:
+            output["cached_tokens"] = cached
+    return output
+
+
 def prepare_model_messages(
     messages: Sequence[Mapping[str, Any]],
     *,
@@ -345,6 +360,7 @@ __all__ = [
     "PreparedModelMessages",
     "bounded_usage",
     "complete_model_trace",
+    "observed_usage",
     "prepare_embedding_input",
     "prepare_model_messages",
     "start_model_trace",

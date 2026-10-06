@@ -254,6 +254,53 @@ saving, latency distribution, or SLO qualification is claimed. Evidence snapshot
 time and provider latency was not controlled. Final focused runtime checks passed 918 cases;
 Console accounting checks passed 66 cases. No provider failure was retried.
 
+### Speculative form start and single-shard concept catalogs (2026-10-06)
+
+A content-free trace of one Korean resource-group list showed that semantic planning took
+8.82 s of 9.06 s, while the ontology read took 180 ms. The preflight, question form, concept
+selection, and finalist runoff ran as four serial model stages of about 1.6 to 2.7 s each. The
+runoff exists only because the resource-type catalog spanned two 12 KiB shards that were judged
+independently, and a third shard, such as a region catalog, added a second chooser wave.
+Repeated identical prompts already reported 2,304 to 5,760 cached prompt tokens without shorter
+calls, so prompt-cache ordering wasn't pursued.
+
+Two local settings change the form path's timing without changing what it reads or verifies.
+Both apply only where compiled answers are enabled in the local venue, and the local launcher
+enables both:
+
+- `FDAI_SEMANTIC_CONCEPT_SHARD_BYTES` bounds a concept shard between 4 KiB and 64 KiB, with
+  12 KiB as the default. At 32 KiB, the resource-type catalog fits one shard. Every candidate is
+  still presented once with a presentation receipt, and both blind choosers still run.
+- `FDAI_SEMANTIC_SPECULATIVE_FORM_START=1` starts the form path in a worker thread when the turn
+  begins, beside the preflight, for a turn without a bound incident, investigation, resource
+  context, or document evidence. The preflight keeps its routing authority. The planner adopts the
+  ticket only for the first verified read of the same question and consumes it at the same point
+  as before. Every other route cancels it when the turn ends.
+
+Core diagnostics now record each call's start offset and provider-reported cached prompt tokens.
+The cached count stays out of the model trace and wire usage.
+
+The authenticated local Console sent the same two Korean questions through new conversations on
+the same source, five list turns and three count turns per variant. Server processing time:
+
+| Variant | List, answered | List, held | Count, answered |
+|---------|----------------|------------|-----------------|
+| Baseline | 10.0, 10.2 s | 15.3, 16.4, 18.2 s | 11.7, 15.4, 27.4 s |
+| 32 KiB shards | 7.7, 10.9 s | 11.7, 12.4, 12.8 s | 7.2, 8.1, 9.2 s |
+| 32 KiB shards and speculative start | 5.0, 5.3, 11.9 s | 7.7, 10.4 s | 5.4, 6.3, 9.9 s |
+
+With both settings, the form and constraint reader started 26 to 31 ms after the preflight
+instead of after it. The concept stage ran as one wave without a runoff. A direct answered list
+fell from 8 model calls and about 22,300 tokens to 5 calls and about 20,500 tokens. Answers
+matched the baseline: 19 rows for the list and a count of 49. The longer answered turns in each
+variant came from a second form pass.
+
+The held list turns came from the question form reading the name fragment as a value
+(`anchor_form_unsupported:value`), plus one `anchor_not_found:m1` clarification. Neither setting
+changes that reading. The samples are small, provider latency was uncontrolled, and cached
+identical prompts favor every variant equally. No latency distribution, SLO qualification, or
+monetary saving is claimed.
+
 ## Synthetic chat and prompt inspection
 
 The [Command deck](../../../mocks/ui/deck.html) mock keeps conclusions, evidence gaps, and
@@ -452,6 +499,7 @@ The implementation session reported the following bounded evidence for the curre
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Speculative form start and single-shard concept catalogs | implemented | `semantic_runtime_speculation.py`; `semantic_planning_speculation.py`; `semantic_query_type_grounding.py`; `scripts/deployment/local/run-console-service.sh`; `test_semantic_runtime_speculation.py`, `test_semantic_compiled_planning.py`, and `test_semantic_query_second_reader.py` | Local compiled-answer turns start the form path beside the preflight and present a catalog up to 32 KiB in one shard. The preflight keeps routing authority, and every candidate is still presented once. See [the 2026-10-06 evidence](#speculative-form-start-and-single-shard-concept-catalogs-2026-10-06). |
 | Turn-local grounding reuse and lossless catalog prompts | implemented | `semantic_planning.py`; `semantic_reasoning_shadow.py`; `semantic_question_form.py`; focused grounding, compiler, catalog, and masking tests | Typed-only planning avoids unused legacy grounding. Only exact, schema-valid same-reader concept choices are reused within one run; every catalog candidate and independent review remain required. No live speedup or billing claim. |
 | Conversation time and usage presentation | implemented | `console/src/deck/conversation-trajectory-{presentation,view}.ts*`; `conversation-trajectory-presentation.test.ts`; bilingual performance cases in `conversation-entry.spec.ts` | Server elapsed and cumulative model time, input/output/total tokens, and recorded call counts remain distinct. Missing measurements stay unrecorded. Desktop, constrained desktop, and mobile synthetic checks pass. |
 | Core mini routing and per-turn model selection | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_latency.py`; `services/core-control-plane/src/fdai/composition/wire_t1_routing.py`; `wire_adaptive_conversation.py`; [focused evidence](#local-mini-routing-evidence-2026-09-06) | Python cohort: 229 passed, two PostgreSQL cases deselected; six additional opt-in configuration checks passed. Verified mini identity, immutable author/reviewer selection, and existing T2/action quality-gate bindings remain preserved. |
@@ -479,6 +527,7 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-06 | implemented | Added call start offsets and cached prompt tokens to Core diagnostics, a bounded concept shard setting, and a speculative form-path start beside the preflight. The local launcher enables 32 KiB shards and the speculative start. A bounded authenticated local comparison of eight Korean turns per variant cut answered list turns from about 10 s to about 5 s and answered count turns from 11.7 to 27.4 s to 5.4 to 9.9 s, with identical answers. | `current change`; focused Core suites (`4920 passed`); mypy and ruff on changed modules; [measured evidence](#speculative-form-start-and-single-shard-concept-catalogs-2026-10-06) | The question form's value reading of a name fragment still holds two or three of five list turns per variant. |
 | 2026-10-02 | implemented | Completed certified typed-only read reuse, opaque complete catalog packing, recorded call metrics and bounded two-shard waves, then reevaluated four fixed cases and one final bilingual list pair. | `0cd7ab82c1`, `32833c7dea`; final measured source `66a49cb735`; [bounded results](#bounded-optimization-evidence-2026-10-02); 918 focused runtime and 66 Console accounting checks passed. | Korean end-to-end latency remains variable and the English count concept disagreement remains held. Retain a controlled paired cohort before claiming uniform speed, money or SLO improvement. |
 | 2026-10-02 | implemented | Removed unused typed-only legacy grounding, reused exact closed concept choices within one run, losslessly compacted complete catalog prompts, and separated elapsed/cumulative timing and input/output tokens in the work record. | `current change`; grounding, shadow, concept, masking, and compiled-answer cohort: 380 passed; Console performance projection: 11 passed; bilingual focused Playwright: 2 passed across 1440, 993, and 390 CSS pixel widths. | Retain an explicitly authorized same-source live comparison before claiming measured latency, billed-token, or cost improvement; no live model request or model setting change was made. |
 | 2026-10-01 | implemented | Kept narrator preference route assembly in the preference owner while Operator composition adds service-owned routes. The Settings projection remains sanitized and `personalizes_t2_bindings` stays false. | `current change`; `fdai_operator_service/composition_routes.py`; focused Operator route-count evidence. | Retain deployed startup-source and runtime timing receipts before raising this area to `validated`. |
@@ -535,6 +584,11 @@ The implementation session reported the following bounded evidence for the curre
   hidden Electron DOM evidence alone does not satisfy visual acceptance.
 - [ ] Retain an explicitly authorized bounded conversation comparison before claiming a live
   latency improvement; synthetic `OK` timings alone are insufficient.
+- [ ] Fix the question-form reading that types a name fragment as a value
+  (`anchor_form_unsupported:value`), which held two or three of five Korean list turns in each
+  2026-10-06 variant, through the typed form contract rather than a lexical rule.
+- [ ] Record the provider calls of a speculative ticket that a direct response cancels in the turn's
+  call accounting; today only adopted tickets contribute observations.
 - [x] Complete the mock-only chat and inline prompt scenarios in the three focused Playwright files above; production adoption remains outside this change.
 - [x] Implement and focused-test independent text and vision candidate probes, separate rolling latency and TTFT windows, bounded refresh, failover, and unavailable behavior.
 - [x] Bind a periodic refresh owner with validated interval, failure isolation, duplicate-start suppression, and shutdown cleanup.
