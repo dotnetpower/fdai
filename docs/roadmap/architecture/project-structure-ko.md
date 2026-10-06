@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1b12242c8f1ce0f3d61335300fde5c1a1a9a1f57
+translation_source_sha: abe88c841226cbefc8c74b8352df09fa0cc3643e
 translation_revised: 2026-10-05
 ---
 # 프로젝트 구조
@@ -694,7 +694,7 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   범위가 그 릴리스를 제외하면 루트와 서비스 매니페스트를 함께 옮기고, 새 릴리스에 맞춰야 하는
   어댑터 코드와 집중 테스트도 함께 갱신합니다. 취약점 데이터베이스가 갱신되면 바뀌지 않은 lock도
   이미지 검사에서 실패할 수 있습니다. 이때는 패치된 릴리스를 lock에 고정하는 변경으로 해결하고, 그
-  패키지를 사용하는 코드의 집중 테스트와 선택된 이미지의 검사로 검증합니다.
+  패키지를 사용하는 코드의 집중 테스트와 선택된 이미지의 검사로 검증합니다(예: Mako 1.4.3, multidict 6.9.1).
 - `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며

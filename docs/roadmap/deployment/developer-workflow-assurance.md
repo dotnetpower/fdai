@@ -318,7 +318,7 @@ those sources. Service manifests remain authoritative for runtime images and pac
 A dependency lock change is validated in an environment synced from that lock, such as a task
 worktree's own virtual environment, because the shared development environment still holds the
 previous versions. For a transitive security update, that validation runs the focused tests of the
-repository code that uses the package or the packages that depend on it directly.
+repository code that uses the package or the packages that depend on it directly, such as Alembic for Mako and aiohttp for multidict.
 
 The local structural runner can reuse successful results across the optional validator and push
 hook only when its complete content and execution context match. Gates without a proven narrower
