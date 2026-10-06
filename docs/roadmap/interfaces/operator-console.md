@@ -15,6 +15,9 @@ Operator still receive no row identity, row body, or model-visible handle payloa
 findings summary now admits evaluated Console status only from complete baseline-evaluation
 completion and outcome records. Missing or partial coverage still renders unavailable, while a
 stored complete summary remains readable until a newer generation completes.
+The Promotion gates view joins the measured readiness projection with the durable promotion registry
+and marks `operator_override` modes, operator-attested gate snapshots, and their read-only authority
+source without granting approval or execution authority.
 The Outcome Assurance drill-down reuses the existing Operating outcomes, Control assurance, and
 Verticals information architecture. It reads only the authenticated `/kpi/outcome-assurance`
 projection, preserves missing or stale source states as unavailable, and adds no request,

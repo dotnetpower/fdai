@@ -20,6 +20,9 @@ Console 텍스트는 WCAG 2.1 AA 대비를 충족합니다. 보조 텍스트와 
 요약은 이제 완전한 baseline-evaluation 완료 및 결과 기록에서만 평가된 Console 상태를 수락합니다.
 coverage가 없거나 부분적이면 계속 사용할 수 없음으로 렌더링하고, 저장된 완전한 요약은 더 새 세대가
 완료될 때까지 읽을 수 있습니다.
+Promotion gates 화면은 측정된 준비 상태 표시 데이터와 영속 승격 레지스트리를 결합하고
+`operator_override` 모드, 운영자 증언 게이트 스냅샷, 읽기 전용 권한 출처를 표시하지만 승인이나
+실행 권한은 부여하지 않습니다.
 Outcome Assurance 상세 화면은 기존 Operating outcomes, Control assurance, Verticals 정보
 아키텍처를 재사용합니다. 인증된 `/kpi/outcome-assurance` 변환 결과만 읽고, 누락되거나
 오래된 출처 상태를 사용 불가로 보존하며, 요청, 승인, 승격 또는 실행 권한을 추가하지 않습니다.

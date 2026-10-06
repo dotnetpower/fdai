@@ -49,6 +49,9 @@ Forseti may carry a pinned single-operator approval-profile revision on a Verdic
 HIL resume path can record original and effective quorum. That profile metadata is approval
 context only. It is not a verifier source artifact, a `DecisionEvidenceAdmission`, or proof of live
 provider state.
+Operator-attested gate snapshots recorded during override promotion are likewise registry context.
+They do not become independent operational evidence unless a separate gate-evidence store verifies
+the snapshot under this verifier boundary.
 
 ## Current state and gap
 
