@@ -366,15 +366,18 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 and args.output == "text"
                 and sys.stdin.isatty(),
             )
+            ready = result.get("deployment_ready") is True and result["state"] == "deployment-ready"
             _print_mapping(
                 result,
                 output=args.output,
                 text=(
-                    f"source deployment: {result['state']}; "
+                    "source Azure deployment ready; subscription-wide assurance evidence remains open"
+                    if ready
+                    else f"source deployment: {result['state']}; "
                     f"reason={result.get('reason_code', 'review_required')}; deployment is not ready"
                 ),
             )
-            return 2 if result["state"] == "review" else 3
+            return 0 if ready else 2 if result["state"] == "review" else 3
         result = prepare_source_deployment(
             source_root=args.source,
             work_dir=work_dir,

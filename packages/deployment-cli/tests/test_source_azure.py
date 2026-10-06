@@ -435,6 +435,22 @@ def test_source_plan_pending_approval_is_not_cli_success(
 
 
 @pytest.mark.parametrize(
+    ("result", "code", "text"),
+    [
+        ({"state": "deployment-ready", "deployment_ready": True}, 0, "deployment ready"),
+        ({"state": "deployment-ready", "deployment_ready": False}, 3, "not ready"),
+        ({"state": "failed", "deployment_ready": True}, 3, "not ready"),
+    ],
+)
+def test_verified_source_readiness_is_cli_success(monkeypatch, capsys, result, code, text) -> None:
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(cli, "plan_source_installation", lambda **_kwargs: result)
+    arguments = ["provision", "azure", "--source", ".", "--runtime", "aks"]
+    assert cli.main([*arguments, "--work-dir", "/tmp/example-source-run"]) == code
+    assert text in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
     "arguments",
     [
         ["--online"],
