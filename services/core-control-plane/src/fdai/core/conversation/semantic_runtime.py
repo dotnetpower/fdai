@@ -69,6 +69,7 @@ from .semantic_runtime_cancellation import (
     _run_planning_with_cancellation,
     _run_preflight_with_cancellation,
 )
+from .semantic_runtime_speculation import speculative_form_start, take_speculative_form
 from .semantic_stored_result_handles import StoredReferenceContext
 from .session import Principal, Turn
 from .work_progress import publish_work_progress_pin
@@ -201,6 +202,7 @@ class SemanticConversationRuntime:
 
         return self._function_bindings
 
+    @speculative_form_start
     async def handle(
         self,
         *,
@@ -529,6 +531,7 @@ class SemanticConversationRuntime:
                     reason=reason,
                 ),
             )
+        speculative_ticket = await take_speculative_form(utterance)
         planning = await _run_planning_with_cancellation(
             lambda: planner.plan(
                 utterance=utterance,
@@ -545,6 +548,7 @@ class SemanticConversationRuntime:
                 preflight_result=preflight_result,
                 required_document_evidence=document_context is not None,
                 stored_reference_context=stored_reference_context,
+                speculative_ticket=speculative_ticket,
             ),
             cancelled=cancelled,
         )

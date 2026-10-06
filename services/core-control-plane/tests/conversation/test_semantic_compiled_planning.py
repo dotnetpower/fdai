@@ -96,14 +96,23 @@ class _Ticket:
 
 class _Path:
     def __init__(
-        self, result: SemanticPlanningOutcome | None = _COMPILED, *, typed_only: bool = False
+        self,
+        result: SemanticPlanningOutcome | None = _COMPILED,
+        *,
+        typed_only: bool = False,
+        speculative_start: bool = False,
+        events: list[str] | None = None,
     ) -> None:
         self.ticket = _Ticket(result)
         self.ticket.typed_only = typed_only
         self.typed_only = typed_only
+        self.speculative_start = speculative_start
         self.starts: list[dict[str, Any]] = []
+        self._events = events
 
     def start(self, **arguments: Any) -> _Ticket:
+        if self._events is not None:
+            self._events.append("form_start")
         self.starts.append(arguments)
         return self.ticket
 
@@ -441,3 +450,82 @@ def test_typed_only_still_ends_an_ambiguous_judgment_with_its_clarification() ->
 
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
     assert path.ticket.consumed
+
+
+class _OrderedBoundary(_Boundary):
+    def __init__(self, events: list[str], proposal: Any = None) -> None:
+        super().__init__(SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted())
+        self._events = events
+        self._preflight_proposal = proposal
+
+    def preflight(self, **_kwargs: Any) -> Any:
+        self._events.append("preflight")
+        return SimpleNamespace(
+            observations=(),
+            attempted=True,
+            failure_kind=None,
+            proposal=self._preflight_proposal,
+        )
+
+    def narrate_social(self, **_kwargs: Any) -> Any:
+        return SimpleNamespace(observations=(), draft=SimpleNamespace(answer="Hello."))
+
+
+def test_a_supplied_speculative_ticket_is_adopted_instead_of_a_new_start() -> None:
+    events: list[str] = []
+    path = _Path(speculative_start=True, events=events)
+    speculative = _Ticket(_COMPILED)
+
+    outcome, _model = _plan(_OrderedBoundary(events), path, speculative_ticket=speculative)
+
+    assert events == ["preflight"]
+    assert path.starts == []
+    assert speculative.consumed and outcome.reason == "compiled_answer_marker"
+
+
+def test_a_direct_response_cancels_the_supplied_speculative_ticket() -> None:
+    events: list[str] = []
+    greeting = ConversationPreflightProposal(
+        social_act=SocialAct.GREETING,
+        operational_signal=OperationalSignal.NONE,
+        knowledge_signal="none",
+        context_dependency="none",
+        confidence=0.99,
+    )
+    speculative = _Ticket(_COMPILED)
+
+    outcome, _model = _plan(
+        _OrderedBoundary(events, greeting), _Path(events=events), speculative_ticket=speculative
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
+    assert speculative.cancelled and not speculative.consumed
+
+
+def _speculating_service(path: _Path) -> SemanticPlanningService:
+    manifest, _definition = _typed_fixture(groups=(_VM_GROUP,))
+    return SemanticPlanningService(
+        model=_Model(frame=None, plan=None),  # type: ignore[arg-type]
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        now=lambda: NOW,
+        compiled_answers=path,  # type: ignore[arg-type]
+    )
+
+
+def test_the_speculative_start_follows_the_local_setting() -> None:
+    arguments: dict[str, Any] = {
+        "utterance": _UTTERANCE,
+        "prior_turns": (),
+        "principal": Principal(id="operator", role=Role.READER),
+        "purpose": "operations-review",
+        "locale": "ko",
+    }
+    enabled = _Path(speculative_start=True)
+    disabled = _Path()
+
+    assert _speculating_service(enabled).speculative_form_enabled is True
+    assert _speculating_service(enabled).start_speculative_form(**arguments) is enabled.ticket
+    assert _speculating_service(disabled).speculative_form_enabled is False
+    assert _speculating_service(disabled).start_speculative_form(**arguments) is None
+    assert disabled.starts == []

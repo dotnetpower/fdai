@@ -38,6 +38,7 @@ from fdai.core.conversation.semantic_compiled_answers import (
     CompiledAnswerSettings,
 )
 from fdai.core.conversation.semantic_judgment_coverage import JudgmentCoverageReview
+from fdai.core.conversation.semantic_reasoning_shadow import ShadowBudget
 from fdai.core.conversation.semantic_second_reader import SemanticSecondReader
 from fdai.core.conversation.semantic_type_grounding import ResourceTypeGrounding
 from fdai.core.prompts import FileSystemPromptRegistry, compose_static_selection
@@ -56,6 +57,8 @@ SECOND_READER_ENV = "FDAI_SEMANTIC_SECOND_READER"
 COMPILED_ANSWERS_ENV = "FDAI_SEMANTIC_COMPILED_ANSWERS"
 PRODUCTION_SHADOW_ENV = "FDAI_SEMANTIC_PRODUCTION_SHADOW"
 TYPED_ONLY_ENV = "FDAI_SEMANTIC_TYPED_ONLY"
+CONCEPT_SHARD_BYTES_ENV = "FDAI_SEMANTIC_CONCEPT_SHARD_BYTES"
+SPECULATIVE_FORM_START_ENV = "FDAI_SEMANTIC_SPECULATIVE_FORM_START"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -157,7 +160,11 @@ def build_second_reader(
                     gateway=gateway,
                     purpose=purpose,
                     clock=clock,
-                    settings=CompiledAnswerSettings(typed_only=typed_only),
+                    settings=CompiledAnswerSettings(
+                        typed_only=typed_only,
+                        budget=ShadowBudget(max_shard_bytes=concept_shard_bytes()),
+                        speculative_start=speculative_form_start_enabled(),
+                    ),
                     ambiguity_reader=reader,
                 )
             )
@@ -195,6 +202,33 @@ def typed_only_enabled(environment: Mapping[str, str] | None = None) -> bool:
             "local venue"
         )
     return True
+
+
+def concept_shard_bytes(environment: Mapping[str, str] | None = None) -> int:
+    """Return the reviewed concept shard bound; an unset or invalid value keeps the default.
+
+    A larger bound presents a catalog in fewer complete shards. Every candidate is still
+    presented exactly once; only the number of shards, and so of runoff calls, changes.
+    """
+
+    source = os.environ if environment is None else environment
+    raw = source.get(CONCEPT_SHARD_BYTES_ENV)
+    default = ShadowBudget().max_shard_bytes
+    if raw is None:
+        return default
+    try:
+        ShadowBudget(max_shard_bytes=int(raw))
+    except ValueError:
+        _LOGGER.warning("semantic_concept_shard_bytes_ignored", extra={"reason": "out_of_bounds"})
+        return default
+    return int(raw)
+
+
+def speculative_form_start_enabled(environment: Mapping[str, str] | None = None) -> bool:
+    """Return whether the form path may start beside the preflight in the local venue."""
+
+    source = os.environ if environment is None else environment
+    return source.get(SPECULATIVE_FORM_START_ENV) == "1" and compiled_answers_enabled(source)
 
 
 def production_shadow_enabled(environment: Mapping[str, str] | None = None) -> bool:
@@ -255,12 +289,16 @@ def second_reader_target(
 
 __all__ = [
     "COMPILED_ANSWERS_ENV",
+    "CONCEPT_SHARD_BYTES_ENV",
     "PRODUCTION_SHADOW_ENV",
     "SECOND_READER_ENV",
+    "SPECULATIVE_FORM_START_ENV",
     "ambiguity_reader_target",
     "build_second_reader",
     "compiled_answers_enabled",
+    "concept_shard_bytes",
     "production_shadow_enabled",
+    "speculative_form_start_enabled",
     "typed_only_enabled",
     "direction_reader_target",
     "second_reader_target",

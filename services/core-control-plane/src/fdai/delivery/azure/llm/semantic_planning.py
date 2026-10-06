@@ -45,8 +45,8 @@ from fdai.core.prompts.types import (
 )
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
-    bounded_usage,
     complete_model_trace,
+    observed_usage,
     prepare_model_messages,
     start_model_trace,
 )
@@ -643,7 +643,7 @@ class AzureOpenAISemanticPlanningModel:
                             )
                             observation = SemanticJudgmentObservation(
                                 model=target.deployment,
-                                usage=bounded_usage(usage),
+                                usage=observed_usage(usage),
                                 trace_call=trace_call,
                                 prompt_replay_manifest=prompt_manifest,
                             )

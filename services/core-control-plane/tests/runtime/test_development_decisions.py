@@ -231,6 +231,27 @@ def test_call_metrics_are_numeric_and_never_capture_grounding_content() -> None:
     assert "private question and answer" not in trace.model_dump_json()
 
 
+def test_call_metrics_keep_cached_prompt_tokens_and_start_offsets() -> None:
+    observations = _observations()
+    observations[0].trace_call["started_at"] = "2026-10-06T02:30:05.800000+00:00"
+    observations[2].trace_call["started_at"] = "2026-10-06T02:30:10.900000+00:00"
+    observations[2].trace_call["usage"] = {
+        "prompt_tokens": 4197,
+        "completion_tokens": 70,
+        "total_tokens": 4267,
+        "cached_tokens": 3968,
+    }
+    with bind_decision_events():
+        record_decision_observations(observations)
+        observe_semantic_decision({"semantic_result": _semantic_result()})
+    trace = decision_snapshot().traces[0]
+    first = trace.steps[0]
+    call = next(step for step in trace.steps if step.stage == "call.semantic_concept_selection")
+    assert first.attributes["start_offset_ms"] == 0
+    assert call.attributes["start_offset_ms"] == 5100
+    assert call.attributes["cached_tokens"] == 3968
+
+
 def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
     _record_turn()
     snapshot = decision_snapshot()

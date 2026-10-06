@@ -150,3 +150,38 @@ def test_production_shadow_binds_direction_readers_without_compiled_answers(
     assert config.direction_system_prompt
     assert [target.deployment for target in config.ambiguity_candidates] == ["narrator-gpt-5-mini"]
     assert config.ambiguity_system_prompt
+
+
+def test_the_concept_shard_bound_reads_a_reviewed_value_or_keeps_the_default() -> None:
+    default = 12 * 1024
+
+    assert grounding.concept_shard_bytes({}) == default
+    assert grounding.concept_shard_bytes({grounding.CONCEPT_SHARD_BYTES_ENV: "32768"}) == 32768
+    for invalid in ("1024", "131072", "many"):
+        assert (
+            grounding.concept_shard_bytes({grounding.CONCEPT_SHARD_BYTES_ENV: invalid}) == default
+        )
+
+
+def test_speculative_form_start_needs_compiled_answers_in_the_local_venue() -> None:
+    local = {
+        grounding.COMPILED_ANSWERS_ENV: "1",
+        "FDAI_EXECUTION_VENUE": "local",
+        grounding.SPECULATIVE_FORM_START_ENV: "1",
+    }
+
+    assert grounding.speculative_form_start_enabled(local) is True
+    assert (
+        grounding.speculative_form_start_enabled({**local, "FDAI_EXECUTION_VENUE": "deployed"})
+        is False
+    )
+    assert (
+        grounding.speculative_form_start_enabled({**local, grounding.COMPILED_ANSWERS_ENV: "0"})
+        is False
+    )
+    assert (
+        grounding.speculative_form_start_enabled(
+            {**local, grounding.SPECULATIVE_FORM_START_ENV: "0"}
+        )
+        is False
+    )

@@ -167,7 +167,8 @@ def test_typed_only_never_pays_for_unused_legacy_grounding(
         lambda *args, **kwargs: None,
     )
     choosers = _Choosers("group:compute-container-app", "group:compute-container-app")
-    outcome = _plan(choosers, owner_loop, compiled_answers=SimpleNamespace(typed_only=True))
+    compiled_answers = SimpleNamespace(typed_only=True, speculative_start=False)
+    outcome = _plan(choosers, owner_loop, compiled_answers=compiled_answers)
 
     assert choosers.calls == []
     assert outcome.plan is None
