@@ -184,6 +184,8 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         assert kwargs["source_snapshot"] == work_dir / "source-snapshot"
         assert kwargs["source_snapshot_digest"] == "e" * 64
         assert kwargs["source_root"] == root
+        # Enterprise identity binds the signed-in operator, never a placeholder.
+        assert kwargs["current_operator_object_id"] is source_azure.current_operator_object_id
         return {
             "state": "deployment-ready",
             "deployment_ready": True,

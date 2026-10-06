@@ -191,7 +191,10 @@ def test_prepare_command_parses_with_the_host_parser(
     plan.mkdir(mode=0o700)
     handoff = plan / "foundation-private-handoff.json"
     handoff.write_text("{}", encoding="utf-8")
-    inputs = {name: tmp_path / name for name in ("kit.tar.gz", "source.tar", "receiver.pyz")}
+    inputs = {
+        name: tmp_path / name
+        for name in ("kit.tar.gz", "source.tar", "receiver.pyz", "requirements.txt")
+    }
     for path in inputs.values():
         path.write_bytes(path.name.encode())
     remote_root = "/home/fdai/.fdai-transfer-example"
@@ -200,6 +203,7 @@ def test_prepare_command_parses_with_the_host_parser(
             f"{remote_root}/kit.tar.gz": "a" * 64,
             f"{remote_root}/source-transfer.tar": "b" * 64,
             f"{remote_root}/source-receiver.pyz": "c" * 64,
+            f"{remote_root}/source-runtime-requirements.txt": "e" * 64,
         }
     )
     common: dict[str, object] = {
@@ -234,6 +238,8 @@ def test_prepare_command_parses_with_the_host_parser(
             source_receiver=inputs["receiver.pyz"],
             source_receiver_digest="c" * 64,
             source_snapshot_digest="d" * 64,
+            source_runtime_requirements=inputs["requirements.txt"],
+            source_runtime_requirements_digest="e" * 64,
             **common,  # type: ignore[arg-type]
         )
     command = next(
@@ -260,7 +266,83 @@ def test_prepare_command_parses_with_the_host_parser(
         assert str(seen["args"].kit) == f"{remote_root}/kit"
     else:
         assert seen["args"].source_snapshot_digest == "d" * 64
+        assert seen["args"].runtime_requirements_digest == "e" * 64
+        assert str(seen["args"].runtime_requirements) == (
+            f"{remote_root}/source-runtime-requirements.txt"
+        )
     # The host rebuilds exactly the coordinator's profile, including an explicit database size.
     assert (
         RuntimeDeploymentProfile.from_prepare_arguments(seen["args"]) == common["runtime_profile"]
     )
+
+
+def _source_prepare(
+    tmp_path: Path, tunnel: _RecordingTunnel, **overrides: object
+) -> dict[str, object]:
+    tmp_path.chmod(0o700)
+    handoff = tmp_path / "foundation-private-handoff.json"
+    handoff.write_text("{}", encoding="utf-8")
+    remote_root = "/home/fdai/.fdai-transfer-example"
+    arguments: dict[str, object] = {
+        "remote_root": remote_root,
+        "remote_archive": f"{remote_root}/kit.tar.gz",
+        "archive": None,
+        "archive_digest": None,
+        "handoff_path": handoff,
+        "remote_handoff": f"{remote_root}/foundation-handoff.json",
+        "entra_path": None,
+        "remote_entra": None,
+        "app_work": f"{remote_root}/application",
+        "timeout_seconds": 1800,
+        "source_archive": tmp_path / "source.tar",
+        "source_archive_digest": "b" * 64,
+        "source_receiver": tmp_path / "receiver.pyz",
+        "source_receiver_digest": "c" * 64,
+        "source_snapshot_digest": "d" * 64,
+        "source_runtime_requirements": tmp_path / "requirements.txt",
+        "source_runtime_requirements_digest": "e" * 64,
+        "runtime_profile": RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+    }
+    arguments.update(overrides)
+    return prepare_remote(tunnel, **arguments)  # type: ignore[arg-type]
+
+
+def test_source_preparation_refuses_changed_runtime_requirements(tmp_path: Path) -> None:
+    remote_root = "/home/fdai/.fdai-transfer-example"
+    tunnel = _RecordingTunnel(
+        {
+            f"{remote_root}/source-transfer.tar": "b" * 64,
+            f"{remote_root}/source-receiver.pyz": "c" * 64,
+            f"{remote_root}/source-runtime-requirements.txt": "f" * 64,
+        }
+    )
+    with pytest.raises(ValueError, match="source transport digest differs"):
+        _source_prepare(tmp_path, tunnel)
+    assert not any(command[0].endswith("/pip") for command in tunnel.commands)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"source_runtime_requirements": None},
+        {"source_runtime_requirements_digest": None},
+    ],
+)
+def test_source_preparation_requires_runtime_requirements(
+    tmp_path: Path, overrides: dict[str, object]
+) -> None:
+    with pytest.raises(ValueError, match="inputs are incomplete"):
+        _source_prepare(tmp_path, _RecordingTunnel({}), **overrides)
+
+
+def test_kit_preparation_refuses_source_runtime_requirements(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="cannot use source runtime requirements"):
+        _source_prepare(
+            tmp_path,
+            _RecordingTunnel({}),
+            archive=tmp_path / "kit.tar.gz",
+            archive_digest="a" * 64,
+            source_archive=None,
+        )

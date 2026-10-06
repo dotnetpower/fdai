@@ -30,6 +30,9 @@ from fdai_deployment_cli.source_foundation import _copy_terraform
 from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.source_terraform import download_pinned_terraform
 from fdai_deployment_cli.standalone_application_completion import complete_application
+from fdai_deployment_cli.standalone_deploy import (
+    _current_operator_object_id as current_operator_object_id,
+)
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 
 
@@ -321,7 +324,7 @@ def plan_source_installation(
                 foundation_state_receipt_digest=str(expected_handoff_digest),
                 catalog_review_profile=CatalogReviewDeploymentProfile.unselected(),
                 operational_evidence_verifier_input=operational_evidence_verifier_input,
-                current_operator_object_id=lambda: "",
+                current_operator_object_id=current_operator_object_id,
                 source_snapshot=work_dir / "source-snapshot",
                 source_snapshot_digest=str(prepared["source_snapshot_digest"]),
                 source_root=source.root,

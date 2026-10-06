@@ -522,6 +522,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             snapshot_digest=str(args.source_snapshot_digest),
             expected_source_commit=foundation.adoption.source_commit,
             work_dir=work_dir,
+            runtime_requirements=_absolute(args.runtime_requirements),
+            runtime_requirements_digest=str(args.runtime_requirements_digest),
         )
         source_commit = source_artifacts.source_commit
         infra = source_artifacts.infra
@@ -703,9 +705,9 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     return {
         "schema_version": "fdai.standalone-host-prepare.v1",
         "state": "prepared",
-        "source_commit": kit.source_commit,
-        "kit_manifest_digest": kit.verification.manifest_digest,
-        "runtime_release_digest": kit.runtime.digest,
+        "source_commit": source_commit,
+        "kit_manifest_digest": kit_manifest_digest,
+        "runtime_release_digest": runtime_release_digest,
         "runtime_profile_digest": runtime_profile.digest,
         "application_state_adopted": adoption is not None,
         "focused_private_access": _focused_private_access(context),

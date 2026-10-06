@@ -38,6 +38,8 @@ def prepare_remote(
     source_receiver: Path | None = None,
     source_receiver_digest: str | None = None,
     source_snapshot_digest: str | None = None,
+    source_runtime_requirements: Path | None = None,
+    source_runtime_requirements_digest: str | None = None,
     runtime_profile: RuntimeDeploymentProfile | None = None,
     application_state_adoption: ApplicationStateAdoption | None = None,
     remote_adoption_state: str = "",
@@ -68,11 +70,15 @@ def prepare_remote(
                 source_receiver,
                 source_receiver_digest,
                 source_snapshot_digest,
+                source_runtime_requirements,
+                source_runtime_requirements_digest,
             )
         ):
             raise ValueError("source managed-host preparation inputs are incomplete")
         if archive is not None or archive_digest is not None or control_package is not None:
             raise ValueError("source managed-host preparation cannot use kit inputs")
+    elif source_runtime_requirements is not None or source_runtime_requirements_digest is not None:
+        raise ValueError("kit managed-host preparation cannot use source runtime requirements")
     elif archive is None or archive_digest is None:
         raise ValueError("kit managed-host preparation inputs are incomplete")
     created = tunnel.ssh(("install", "-d", "-m", "0700", remote_root), timeout=60)
@@ -83,11 +89,14 @@ def prepare_remote(
         raise ValueError("standalone remote archive reset failed")
     remote_source_archive = f"{remote_root}/source-transfer.tar"
     remote_source_receiver = f"{remote_root}/source-receiver.pyz"
+    remote_runtime_requirements = f"{remote_root}/source-runtime-requirements.txt"
     if source_mode:
         assert source_archive is not None
         assert source_receiver is not None
+        assert source_runtime_requirements is not None
         tunnel.copy_to(source_archive, remote_source_archive, timeout=min(1800, timeout_seconds))
         tunnel.copy_to(source_receiver, remote_source_receiver, timeout=300)
+        tunnel.copy_to(source_runtime_requirements, remote_runtime_requirements, timeout=120)
     else:
         assert archive is not None
         tunnel.copy_to(archive, remote_archive, timeout=min(1800, timeout_seconds))
@@ -114,11 +123,17 @@ def prepare_remote(
         assert source_receiver_digest is not None
         archive_digest_result = tunnel.ssh(("sha256sum", remote_source_archive), timeout=300)
         receiver_digest_result = tunnel.ssh(("sha256sum", remote_source_receiver), timeout=120)
+        requirements_digest_result = tunnel.ssh(
+            ("sha256sum", remote_runtime_requirements), timeout=120
+        )
         if (
             archive_digest_result.returncode != 0
             or archive_digest_result.stdout.split(maxsplit=1)[0] != source_archive_digest
             or receiver_digest_result.returncode != 0
             or receiver_digest_result.stdout.split(maxsplit=1)[0] != source_receiver_digest
+            or requirements_digest_result.returncode != 0
+            or requirements_digest_result.stdout.split(maxsplit=1)[0]
+            != source_runtime_requirements_digest
         ):
             raise ValueError("source transport digest differs")
         install_cli = _source_cli_installation(remote_root)
@@ -155,6 +170,10 @@ def prepare_remote(
                     f"{remote_root}/source-snapshot",
                     "--source-snapshot-digest",
                     str(source_snapshot_digest),
+                    "--runtime-requirements",
+                    remote_runtime_requirements,
+                    "--runtime-requirements-digest",
+                    str(source_runtime_requirements_digest),
                 )
                 if source_mode
                 else ("prepare", "--kit", f"{remote_root}/kit")

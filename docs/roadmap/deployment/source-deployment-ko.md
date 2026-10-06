@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 932cb3e31431e831b97f90e1e1eb62ad837e7263
+translation_source_sha: 72b679e132457bf91415340f03a1790f50db3fc1
 translation_revised: 2026-10-06
 ---
 
@@ -81,7 +81,12 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 
 - managed host는 검증된 소스 전송 아카이브를 받고 그 소스 스냅샷에서 배포 CLI를 설치합니다.
 - Terraform 루트와 마이그레이션 지원은 스냅샷에서 오며, 공급자는 커밋된 `.terraform.lock.hcl`
-  파일 기준으로 공개 레지스트리에서 직접 해석됩니다.
+  파일 기준으로 공개 레지스트리에서 직접 해석됩니다. 미리 만든 wheelhouse가 없으므로 워크스테이션은
+  런타임 패키지의 커밋된 `uv.lock` 의존성 집합을 해시가 포함된 요구 사항 파일 하나로 내보내고, 호스트는
+  그 다이제스트를 다시 확인한 뒤 해시가 고정된 바이너리 패키지로만 설치하고, 의존성 해석 없이
+  스냅샷의 워크스페이스 패키지를 더한 다음 영수증을 기록합니다.
+- 호스트는 키트에 고정된 `kubectl`과 `kubelogin` 릴리스를 내려받아 커밋된 다이제스트가 일치할
+  때만 보관합니다.
 - 서비스 이미지 참조는 substrate 적용으로 배포 레지스트리가 만들어진 뒤 소스 이미지 단계
   증적에서 옵니다.
 - Console 아카이브는 Console 추가 기능을 선택한 경우에만 로컬 checkout에서 빌드됩니다.
@@ -166,6 +171,8 @@ Trial이 끝나면 Core는 재시작 없이 다음 결정부터 새 변경 작�
 | 의존 이미지 | 고정된 다이제스트로 배포 레지스트리에 가져옴 |
 | Console | Console 추가 기능을 선택한 경우에만 checkout에서 빌드하고 게시 |
 | Terraform | `PATH`의 `terraform`이 커밋된 바이너리 다이제스트와 일치할 때만 사용하고, 그렇지 않으면 고정된 `linux_amd64` 릴리스를 한 번 내려받아 `infra/genesis-runner-image/toolchain.json`의 아카이브 다이제스트와 바이너리 다이제스트가 모두 일치할 때만 보관 |
+| 런타임 지원 환경 | 워크스테이션에서 내보낸 커밋된 `uv.lock` 의존성 집합을 managed host에 해시 고정 바이너리 패키지로 설치하고 스냅샷의 워크스페이스 패키지를 추가 |
+| Kubernetes 클라이언트 도구 | 키트에 고정된 `kubectl`과 `kubelogin` 릴리스를 managed host에서 내려받아 커밋된 다이제스트가 일치할 때만 보관 |
 | Terraform 공급자 | 커밋된 lock 파일 기준으로 공개 Terraform 레지스트리에서 해석 |
 | 데이터베이스 | checkout의 마이그레이션과 권위 있는 카탈로그를 적용한 뒤 Trial 초기화 |
 | 출처 기록 | 비공개 실행 증적에 `operator-selected-source`로 기록하며 서명된 릴리스로 기록하지 않음 |

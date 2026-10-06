@@ -185,6 +185,12 @@ def deploy_standalone_application(
                 source_transfer.receiver_digest if source_transfer is not None else None
             ),
             source_snapshot_digest=source_snapshot_digest if source_mode else None,
+            source_runtime_requirements=(
+                source_transfer.runtime_requirements if source_transfer is not None else None
+            ),
+            source_runtime_requirements_digest=(
+                source_transfer.runtime_requirements_digest if source_transfer is not None else None
+            ),
             runtime_profile=selected_runtime,
             application_state_adoption=application_state_adoption,
             remote_adoption_state=remote_adoption_state,

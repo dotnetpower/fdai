@@ -10,7 +10,7 @@ from typing import Any, Protocol
 from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
 
 from fdai_deployment_cli.contracts import canonical_digest
-from fdai_deployment_cli.runtime_support_installation import install_runtime_support
+from fdai_deployment_cli.source_host_tools import install_kubernetes_tools
 from fdai_deployment_cli.source_image_stage import (
     AzureRegistryBuildService,
     SourceImageSnapshot,
@@ -19,6 +19,11 @@ from fdai_deployment_cli.source_image_stage import (
     run_source_image_stage,
 )
 from fdai_deployment_cli.source_receiver import prepare_source_receiver
+from fdai_deployment_cli.source_runtime_support import (
+    REQUIREMENTS_NAME,
+    export_runtime_requirements,
+    install_source_runtime_support,
+)
 from fdai_deployment_cli.source_snapshot import verify_source_snapshot
 from fdai_deployment_cli.source_transport import prepare_source_transport
 from fdai_deployment_cli.standalone_terraform_environment import source_terraform_configuration
@@ -39,6 +44,8 @@ class SourceTransferInputs:
     archive_digest: str
     receiver: Path
     receiver_digest: str
+    runtime_requirements: Path
+    runtime_requirements_digest: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +64,8 @@ def add_prepare_source_parser(subcommands: Subparsers, handler: object) -> None:
     prepare_source = subcommands.add_parser("prepare-source")
     prepare_source.add_argument("--source-snapshot", type=Path, required=True)
     prepare_source.add_argument("--source-snapshot-digest", required=True)
+    prepare_source.add_argument("--runtime-requirements", type=Path, required=True)
+    prepare_source.add_argument("--runtime-requirements-digest", required=True)
     prepare_source.add_argument("--handoff", type=Path, required=True)
     prepare_source.add_argument("--entra", type=Path)
     prepare_source.add_argument("--foundation-adoption", type=Path)
@@ -112,16 +121,20 @@ def source_host_artifacts(
     snapshot_digest: str,
     expected_source_commit: str,
     work_dir: Path,
+    runtime_requirements: Path,
+    runtime_requirements_digest: str,
 ) -> SourceHostArtifacts:
     source_record = verify_source_snapshot(source_snapshot, expected_digest=snapshot_digest)
     source_commit = str(source_record["source_commit"])
     if source_commit != expected_source_commit:
         raise ValueError("Foundation and source snapshot revisions differ")
     artifact_root = source_snapshot / "tree"
-    install_runtime_support(
+    install_source_runtime_support(
         work_dir,
-        artifact_root=artifact_root,
-        kit_manifest_digest=snapshot_digest,
+        source_root=artifact_root,
+        requirements=runtime_requirements,
+        requirements_digest=runtime_requirements_digest,
+        snapshot_digest=snapshot_digest,
     )
     terraform_path = shutil.which("terraform")
     if terraform_path is None:
@@ -132,7 +145,7 @@ def source_host_artifacts(
         artifact_root=artifact_root,
         infra=artifact_root / "infra",
         terraform=terraform,
-        kit_bin=terraform.parent,
+        kit_bin=install_kubernetes_tools(work_dir / "source-tools"),
         digest=snapshot_digest,
     )
 
@@ -150,11 +163,16 @@ def source_transfer_inputs(
         prepared_root,
         snapshot_digest=source_snapshot_digest,
     )
+    requirements = prepared_root / REQUIREMENTS_NAME
     return SourceTransferInputs(
         archive=prepared_root / "source-transfer.tar",
         archive_digest=str(transfer["archive_digest"]),
         receiver=prepared_root / "source-receiver.pyz",
         receiver_digest=receiver_digest,
+        runtime_requirements=requirements,
+        runtime_requirements_digest=export_runtime_requirements(
+            source_snapshot / "tree", requirements
+        ),
     )
 
 
