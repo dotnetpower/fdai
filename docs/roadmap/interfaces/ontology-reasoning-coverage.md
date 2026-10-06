@@ -236,6 +236,36 @@ kind, perspective or operation family, and locale, and a root receipt binds ever
   instead of results. Operator confirmations never count as gold.
 - **Rate cap**: If confirm-first exceeds 15% of a family's admitted turns, the family stays in shadow.
 
+## Domain guidance and environment context
+
+Azure resource questions repeat a small set of reading patterns: a kind, a region, a name fragment, a
+container, a state, and an existence or count operation. Azure SRE Agent carries this knowledge in its
+system prompt. The question-form, constraint-extraction, and concept-selection profiles therefore pin
+one reviewed Azure resource pack each in
+[`rule-catalog/prompts/packs/`](../../../rule-catalog/prompts/packs/). A pack is domain guidance with
+bilingual examples, scoped to one capability and bounded by its profile's system budget. It is not a
+pack per failing question: a pack teaches how to read a pattern into the closed form and never names
+an answer, a concept identifier mapping, or a lexical rule. Packs pin these readings:
+
+- **Name fragment**: A word that appears in resource or group names, such as a project name, is a
+  `name_fragment` filter on the kind, not a scope operand.
+- **Container**: Resources in a named resource group select over the kind with a scope filter and
+  never request a containment relation.
+- **Existence**: An existence question, such as "is there", is a select, not a count.
+- **State union**: An unnarrowed stopped virtual machine selects one reviewed
+  `state:stopped_or_deallocated` candidate. Azure shows a deallocated machine as Stopped
+  (deallocated), so returning two single-state candidates would be an ambiguity by design. While
+  the union is offered, the stopped candidate's reviewed label reads as the narrow still-allocated
+  state.
+- **Generic resources**: Resources with no kind named select the any-resource root.
+
+Each question-form and constraint-extraction call also receives a principal-scoped environment block:
+the resource-group names that the secured gateway returns for the operator, bounded at 200 names with
+a `complete` flag and a 1.5-second read deadline. A name that fails the secret or identity check, or
+that model-message redaction would change, is withheld and counted, and the list is then marked
+incomplete. The block is model context only. It never becomes evidence, never selects a meaning, and
+never widens a scope; anchor binding still resolves every named object by exact lookup in code.
+
 ## Capacity strategy
 
 | Mechanism | Contract |
