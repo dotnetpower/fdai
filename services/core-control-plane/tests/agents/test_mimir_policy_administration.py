@@ -313,7 +313,9 @@ async def test_unactivated_approval_revision_does_not_authorize_profile_pin() ->
     pinned = approval_profile_from_audit_dict(document)
     assert pinned is not None
 
-    authorized = await approval_profile_pin_is_authorized(store, pinned=pinned, bound=None)
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
 
     assert authorized is False
 
@@ -327,7 +329,9 @@ async def test_activated_approval_revision_authorizes_profile_pin() -> None:
     pinned = approval_profile_from_audit_dict(document)
     assert pinned is not None
 
-    authorized = await approval_profile_pin_is_authorized(store, pinned=pinned, bound=None)
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
 
     assert authorized is True
 
@@ -352,7 +356,9 @@ async def test_superseded_approval_revision_authorizes_in_flight_profile_pin_aft
     assert pinned is not None
     assert bound is not None
 
-    authorized = await approval_profile_pin_is_authorized(store, pinned=pinned, bound=bound)
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=bound, signature_verifier=FakeSigner()
+    )
 
     assert authorized is True
 
@@ -383,9 +389,15 @@ async def test_rollback_to_earlier_approval_content_repoints_digest_index() -> N
     assert rollback_pin is not None
     assert second_pin is not None
 
-    assert await approval_profile_pin_is_authorized(store, pinned=first_pin, bound=None)
-    assert await approval_profile_pin_is_authorized(store, pinned=rollback_pin, bound=None)
-    assert await approval_profile_pin_is_authorized(store, pinned=second_pin, bound=None)
+    assert await approval_profile_pin_is_authorized(
+        store, pinned=first_pin, bound=None, signature_verifier=FakeSigner()
+    )
+    assert await approval_profile_pin_is_authorized(
+        store, pinned=rollback_pin, bound=None, signature_verifier=FakeSigner()
+    )
+    assert await approval_profile_pin_is_authorized(
+        store, pinned=second_pin, bound=None, signature_verifier=FakeSigner()
+    )
     index = await store.read_state(
         f"policy_activation_history:approval-profile:{first['policy_digest']}"
     )
@@ -424,6 +436,41 @@ async def test_forged_approval_profile_pin_without_activation_history_is_refused
     await _activate_approval_record(store, record)
     forged = _approval_document(revision_id="approval-profile-r-forged", operator="attacker")
     pinned = approval_profile_from_audit_dict(forged)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
+
+    assert authorized is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("signature_base64", [None, "signature-tampered"])
+async def test_activated_approval_revision_without_valid_signature_refuses_pin(
+    signature_base64: str | None,
+) -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document, signature_base64=signature_base64)
+    await _activate_approval_record(store, record)
+    pinned = approval_profile_from_audit_dict(document)
+    assert pinned is not None
+
+    authorized = await approval_profile_pin_is_authorized(
+        store, pinned=pinned, bound=None, signature_verifier=FakeSigner()
+    )
+
+    assert authorized is False
+
+
+@pytest.mark.asyncio
+async def test_stored_approval_pin_without_signature_verifier_is_refused() -> None:
+    store = InMemoryStateStore()
+    document = _approval_document(revision_id="approval-profile-r2", operator="operator-1")
+    record = await _append_approval_revision(store, document)
+    await _activate_approval_record(store, record)
+    pinned = approval_profile_from_audit_dict(document)
     assert pinned is not None
 
     authorized = await approval_profile_pin_is_authorized(store, pinned=pinned, bound=None)
@@ -1155,6 +1202,7 @@ def _approval_revision_record(
     document: dict[str, object],
     *,
     parent_revision_id: str | None = None,
+    signature_base64: str | None = "signature-good",
 ) -> PolicyRevisionRecord:
     content = ApprovalPolicyContent(document=document, action_type_modes={})
     content_digest = policy_content_digest(content)
@@ -1168,6 +1216,15 @@ def _approval_revision_record(
         content_digest=content_digest,
         content=content,
         signature_ref="fake-signature",
+        signature=(
+            PolicyRevisionSignature(
+                key_id=FakeSigner().key_id,
+                algorithm="RS256",
+                signature_base64=signature_base64,
+            )
+            if signature_base64 is not None
+            else None
+        ),
         parent_revision_id=parent_revision_id,
         author_principal="policy-admin-1",
         reason="Reviewed approval policy change for a bounded installation scope.",
@@ -1197,8 +1254,13 @@ async def _append_approval_revision(
     document: dict[str, object],
     *,
     parent_revision_id: str | None = None,
+    signature_base64: str | None = "signature-good",
 ) -> PolicyRevisionRecord:
-    record = _approval_revision_record(document, parent_revision_id=parent_revision_id)
+    record = _approval_revision_record(
+        document,
+        parent_revision_id=parent_revision_id,
+        signature_base64=signature_base64,
+    )
     assert await StateStorePolicyRevisionStore(store).append_revision(record)
     return record
 

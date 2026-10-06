@@ -8,7 +8,12 @@ from fdai_service_contracts.approval_profile import (
     ApprovalProfileRevision,
     approval_profile_from_audit_dict,
 )
-from fdai_service_contracts.policy_administration import ApprovalPolicyContent, PolicyKind
+from fdai_service_contracts.policy_administration import (
+    ApprovalPolicyContent,
+    PolicyKind,
+    PolicyRevisionRecord,
+    PolicyRevisionSignatureVerifier,
+)
 
 if TYPE_CHECKING:
     from fdai.shared.providers.state_store import StateStore
@@ -20,14 +25,19 @@ async def approval_profile_pin_is_authorized(
     pinned: ApprovalProfileRevision,
     bound: ApprovalProfileRevision | None,
     bootstrap: ApprovalProfileRevision | None = None,
+    signature_verifier: PolicyRevisionSignatureVerifier | None = None,
 ) -> bool:
-    """Return whether one pinned profile is the active/bound or stored revision."""
+    """Return whether one pinned profile is the active/bound or stored revision.
+
+    A stored revision authorizes a pin only when its policy signature verifies; a missing
+    verifier or signature fails closed so the stricter quorum applies.
+    """
 
     if bound is not None and pinned.as_audit_dict() == bound.as_audit_dict():
         return True
     if bootstrap is not None and pinned.as_audit_dict() == bootstrap.as_audit_dict():
         return True
-    if store is None:
+    if store is None or signature_verifier is None:
         return False
     index = await store.read_state(_activation_index_key(pinned.policy_digest))
     mimir_revision_id = _index_revision_id(index)
@@ -50,13 +60,16 @@ async def approval_profile_pin_is_authorized(
     try:
         ApprovalPolicyContent.model_validate(content)
         stored_profile = approval_profile_from_audit_dict(document)
+        record = PolicyRevisionRecord.model_validate(stored)
     except ValueError:
         return False
-    return (
+    if not (
         stored.get("policy_kind") == PolicyKind.APPROVAL.value
         and isinstance(stored_profile, ApprovalProfileRevision)
         and stored_profile.as_audit_dict() == pinned.as_audit_dict()
-    )
+    ):
+        return False
+    return await signature_verifier.verify_policy_revision_signature(record)
 
 
 def _revision_key(revision_id: str) -> str:

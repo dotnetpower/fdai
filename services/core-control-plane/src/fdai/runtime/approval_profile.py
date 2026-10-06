@@ -17,6 +17,7 @@ from fdai_service_contracts.policy_administration import (
     ApprovalPolicyContent,
     PolicyKind,
     PolicyRevisionRecord,
+    PolicyRevisionSignatureVerifier,
 )
 
 from fdai.agents import ApprovalRuntimeBindings
@@ -134,6 +135,7 @@ async def active_approval_runtime_bindings(
     *,
     reader: ApprovalProfileRevisionReader | None = None,
     audit_store: ApprovalProfileAuditStore | None = None,
+    signature_verifier: PolicyRevisionSignatureVerifier | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(tz=UTC),
 ) -> ApprovalRuntimeBindings | None:
     """Return composition bindings for the active policy-admin approval profile."""
@@ -146,7 +148,11 @@ async def active_approval_runtime_bindings(
         clock=clock,
     )
     return (
-        ApprovalRuntimeBindings(profile, bootstrap_profile=bootstrap_profile)
+        ApprovalRuntimeBindings(
+            profile,
+            bootstrap_profile=bootstrap_profile,
+            signature_verifier=signature_verifier,
+        )
         if profile is not None
         else None
     )
@@ -155,21 +161,38 @@ async def active_approval_runtime_bindings(
 async def active_approval_runtime_bindings_from_store(
     environment: Mapping[str, str],
     store: StateStore,
+    *,
+    signature_verifier: PolicyRevisionSignatureVerifier | None = None,
 ) -> ApprovalRuntimeBindings | None:
     """Return active approval bindings from the StateStore policy pointer."""
 
     return await active_approval_runtime_bindings(
         environment,
-        reader=StateStoreApprovalProfileRevisionReader(store),
+        reader=StateStoreApprovalProfileRevisionReader(
+            store,
+            signature_verifier=signature_verifier,
+        ),
         audit_store=store,
+        signature_verifier=signature_verifier,
     )
 
 
 class StateStoreApprovalProfileRevisionReader:
-    """Read active approval revisions from Mimir's StateStore projection."""
+    """Read active approval revisions from Mimir's StateStore projection.
 
-    def __init__(self, store: StateStore) -> None:
+    A revision is returned only after its policy signature verifies. Without a verifier,
+    an unsigned record, or an invalid signature, the active pointer is unusable and startup
+    fails closed instead of falling back to the bootstrap profile.
+    """
+
+    def __init__(
+        self,
+        store: StateStore,
+        *,
+        signature_verifier: PolicyRevisionSignatureVerifier | None = None,
+    ) -> None:
         self._store = store
+        self._signature_verifier = signature_verifier
 
     async def active_revision_id(self, policy_kind: PolicyKind) -> str | None:
         stored = await self._store.read_state(_activation_key(policy_kind))
@@ -189,7 +212,12 @@ class StateStoreApprovalProfileRevisionReader:
         stored = await self._store.read_state(_revision_key(policy_kind, revision_id))
         if stored is None:
             return None
-        return PolicyRevisionRecord.model_validate(stored)
+        revision = PolicyRevisionRecord.model_validate(stored)
+        if self._signature_verifier is None:
+            return None
+        if not await self._signature_verifier.verify_policy_revision_signature(revision):
+            return None
+        return revision
 
 
 def _bootstrap_payload(*, raw_json: str, raw_path: str) -> dict[str, object] | None:

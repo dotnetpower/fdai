@@ -11,6 +11,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from fdai_service_contracts.policy_administration import PolicyRevisionSignatureVerifier
+
 from fdai.core.hil_resume.delegation import DelegationDecision
 from fdai.core.hil_resume.results import ResolveOutcome, ResolveResult
 from fdai.core.risk_gate.approval_profile import (
@@ -30,6 +32,7 @@ async def parked_approval_profile(
     bound: ApprovalProfileRevision | None,
     bootstrap: ApprovalProfileRevision | None,
     store: StateStore | None,
+    signature_verifier: PolicyRevisionSignatureVerifier | None = None,
 ) -> tuple[ApprovalProfileRevision | None, str | None]:
     """Return the parked profile, or a refusal reason when it can't be honored."""
 
@@ -39,7 +42,11 @@ async def parked_approval_profile(
     except ValueError:
         return None, MALFORMED
     if profile is not None and not await approval_profile_pin_is_authorized(
-        store, pinned=profile, bound=bound, bootstrap=bootstrap
+        store,
+        pinned=profile,
+        bound=bound,
+        bootstrap=bootstrap,
+        signature_verifier=signature_verifier,
     ):
         return None, UNAVAILABLE
     return profile, None
@@ -67,6 +74,7 @@ class HilApprovalProfileMixin:
 
     _approval_profile: ApprovalProfileRevision | None
     _approval_profile_bootstrap: ApprovalProfileRevision | None
+    _approval_profile_signature_verifier: PolicyRevisionSignatureVerifier | None
 
     async def _audit(
         self,

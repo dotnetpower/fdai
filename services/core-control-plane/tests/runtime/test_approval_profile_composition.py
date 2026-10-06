@@ -104,6 +104,24 @@ def test_control_loop_profile_env_reaches_loop_and_hil_coordinator(
     assert loop._approval_profile.operator_principal == _OPERATOR
 
 
+def test_control_loop_passes_approval_signature_verifier_to_hil_coordinator(
+    app_config: AppConfig,
+) -> None:
+    profile = load_approval_profile({PROFILE_JSON_ENV: _profile_json()})
+    assert profile is not None
+    verifier = _SignatureVerifier()
+    loop = _build_control_loop(
+        default_container(_governed_config(app_config)),
+        thor_execution_port=_thor_port(),
+        mutation_dependency_readiness=_readiness(),
+        approval_bindings=ApprovalRuntimeBindings(profile, signature_verifier=verifier),
+    )
+
+    coordinator = loop._hil_resume_coordinator
+    assert coordinator is not None
+    assert coordinator._approval_profile_signature_verifier is verifier
+
+
 def test_absent_profile_env_keeps_control_loop_default(
     app_config: AppConfig,
     monkeypatch: pytest.MonkeyPatch,
@@ -118,6 +136,12 @@ def test_absent_profile_env_keeps_control_loop_default(
     assert loop._approval_profile is None
     assert loop._hil_resume_coordinator is not None
     assert loop._hil_resume_coordinator._approval_profile is None
+
+
+class _SignatureVerifier:
+    async def verify_policy_revision_signature(self, record: object) -> bool:
+        del record
+        return True
 
 
 class _DiscoveryActivation:
@@ -153,6 +177,7 @@ async def test_pantheon_profile_env_reaches_forseti_and_var(app_config: AppConfi
     settings = RuntimeSettingsService(store=None, env={})
     profile = load_approval_profile({PROFILE_JSON_ENV: _profile_json()})
     assert profile is not None
+    verifier = _SignatureVerifier()
     result = await initialize_pantheon(
         PantheonInitialization(
             container=default_container(app_config),
@@ -174,7 +199,7 @@ async def test_pantheon_profile_env_reaches_forseti_and_var(app_config: AppConfi
             runtime_symptom_index=build_from_entries(()),
             stage_topic="fdai.stage",
             environment={PROFILE_JSON_ENV: _profile_json()},
-            approval_profile=ApprovalRuntimeBindings(profile),
+            approval_profile=ApprovalRuntimeBindings(profile, signature_verifier=verifier),
             build_runtime_workload_identity=lambda *args, **kwargs: None,  # type: ignore[arg-type,return-value]
             build_operator_memory_store=_build_operator_memory_store,
             build_inventory_delta_projector=lambda: None,
@@ -192,6 +217,7 @@ async def test_pantheon_profile_env_reaches_forseti_and_var(app_config: AppConfi
     assert forseti._approval_profile is var._approval_profile  # noqa: SLF001
     assert forseti._approval_profile is not None  # noqa: SLF001
     assert forseti._approval_profile.operator_principal == _OPERATOR  # noqa: SLF001
+    assert var._approval_profile_signature_verifier is verifier  # noqa: SLF001
 
 
 async def test_pantheon_uses_core_pinned_profile_instead_of_rereading_store(

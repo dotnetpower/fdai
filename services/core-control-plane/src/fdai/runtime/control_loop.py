@@ -583,6 +583,9 @@ def _build_control_loop(
             approval_profile_bootstrap=(
                 approval_bindings.bootstrap_profile if approval_bindings is not None else None
             ),
+            approval_profile_signature_verifier=(
+                approval_bindings.signature_verifier if approval_bindings is not None else None
+            ),
         )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 

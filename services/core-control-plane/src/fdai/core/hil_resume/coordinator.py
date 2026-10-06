@@ -52,6 +52,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from fdai_service_contracts.development_approval import development_owner_only
+from fdai_service_contracts.policy_administration import PolicyRevisionSignatureVerifier
 
 from fdai.core.executor import (
     DirectApiExecutionPort,
@@ -181,6 +182,7 @@ class HilResumeCoordinator(
         contact_consent_service: ApprovalContactConsentService | None = None,
         approval_profile: ApprovalProfileRevision | None = None,
         approval_profile_bootstrap: ApprovalProfileRevision | None = None,
+        approval_profile_signature_verifier: PolicyRevisionSignatureVerifier | None = None,
     ) -> None:
         if (report_line_router is None) != (contact_consent_service is None):
             raise ValueError(
@@ -236,6 +238,7 @@ class HilResumeCoordinator(
         self._development_category_revalidator: DevelopmentCategoryRevalidator | None = None
         self._approval_profile = approval_profile
         self._approval_profile_bootstrap = approval_profile_bootstrap
+        self._approval_profile_signature_verifier = approval_profile_signature_verifier
         self._report_line_hil = (
             ReportLineHilCoordinator(
                 store=state_store,
@@ -347,6 +350,7 @@ class HilResumeCoordinator(
             self._approval_profile,
             self._approval_profile_bootstrap,
             self._state_store,
+            self._approval_profile_signature_verifier,
         )
         if profile_refusal is not None:
             await self._audit(

@@ -52,6 +52,7 @@ from fdai_service_contracts.policy_administration import (
     ApprovalPolicyContent,
     PolicyKind,
     PolicyRevisionRecord,
+    PolicyRevisionSignature,
     PolicyValidationResult,
     policy_content_digest,
 )
@@ -108,7 +109,23 @@ def _profile_payload_with_effective_from(effective_from: str) -> dict[str, objec
     return payload
 
 
-def _policy_revision(payload: dict[str, object]) -> PolicyRevisionRecord:
+_SIGNING_KEY_ID = "https://fdai-example.vault.azure.net/keys/policy-signing/v1"
+
+
+class _SignatureVerifier:
+    async def verify_policy_revision_signature(self, record: PolicyRevisionRecord) -> bool:
+        return (
+            record.signature is not None
+            and record.signature.key_id == _SIGNING_KEY_ID
+            and record.signature.signature_base64 == "signature-good"
+        )
+
+
+def _policy_revision(
+    payload: dict[str, object],
+    *,
+    signature_base64: str | None = "signature-good",
+) -> PolicyRevisionRecord:
     content = ApprovalPolicyContent(document=payload)
     content_digest = policy_content_digest(content)
     return PolicyRevisionRecord(
@@ -117,6 +134,15 @@ def _policy_revision(payload: dict[str, object]) -> PolicyRevisionRecord:
         content_digest=content_digest,
         content=content,
         signature_ref="signature:approval-profile",
+        signature=(
+            PolicyRevisionSignature(
+                key_id=_SIGNING_KEY_ID,
+                algorithm="RS256",
+                signature_base64=signature_base64,
+            )
+            if signature_base64 is not None
+            else None
+        ),
         author_principal="policy-admin@example.com",
         reason="Select the reviewed single-operator production approval profile.",
         created_at=_AT,
@@ -144,8 +170,9 @@ async def _activate_profile(
     payload: dict[str, object],
     *,
     parent_revision_id: str | None = None,
+    signature_base64: str | None = "signature-good",
 ) -> None:
-    record = _policy_revision(payload)
+    record = _policy_revision(payload, signature_base64=signature_base64)
     if parent_revision_id is not None:
         record = PolicyRevisionRecord.model_validate(
             {
@@ -278,7 +305,10 @@ def test_active_policy_pointer_wins_over_bootstrap_profile_and_audits_mismatch()
     loaded = asyncio.run(
         load_active_approval_profile(
             {PROFILE_JSON_ENV: json.dumps(bootstrap_payload)},
-            reader=StateStoreApprovalProfileRevisionReader(store),
+            reader=StateStoreApprovalProfileRevisionReader(
+                store,
+                signature_verifier=_SignatureVerifier(),
+            ),
             audit_store=store,
             clock=lambda: _AT,
         )
@@ -315,10 +345,55 @@ def test_active_policy_pointer_digest_mismatch_fails_closed() -> None:
         asyncio.run(
             load_active_approval_profile(
                 {},
-                reader=StateStoreApprovalProfileRevisionReader(store),
+                reader=StateStoreApprovalProfileRevisionReader(
+                    store,
+                    signature_verifier=_SignatureVerifier(),
+                ),
                 clock=lambda: _AT,
             )
         )
+
+
+@pytest.mark.parametrize(
+    ("signature_base64", "verifier"),
+    [
+        (None, _SignatureVerifier()),
+        ("signature-tampered", _SignatureVerifier()),
+        ("signature-good", None),
+    ],
+)
+def test_active_policy_pointer_without_verified_signature_fails_closed_instead_of_env_fallback(
+    signature_base64: str | None,
+    verifier: _SignatureVerifier | None,
+) -> None:
+    store = InMemoryStateStore()
+    payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
+    asyncio.run(_activate_profile(store, payload, signature_base64=signature_base64))
+
+    with pytest.raises(RuntimeError, match="active approval profile revision is invalid"):
+        asyncio.run(
+            load_active_approval_profile(
+                {PROFILE_JSON_ENV: _single_json()},
+                reader=StateStoreApprovalProfileRevisionReader(
+                    store,
+                    signature_verifier=verifier,
+                ),
+                clock=lambda: _AT,
+            )
+        )
+
+
+def test_missing_policy_pointer_keeps_bootstrap_profile_without_verifier() -> None:
+    loaded = asyncio.run(
+        load_active_approval_profile(
+            {PROFILE_JSON_ENV: _single_json()},
+            reader=StateStoreApprovalProfileRevisionReader(InMemoryStateStore()),
+            clock=lambda: _AT,
+        )
+    )
+
+    assert loaded is not None
+    assert loaded.as_audit_dict() == _single().as_audit_dict()
 
 
 @pytest.mark.parametrize("activation", [{}, {"revision_id": ""}, {"revision_id": 123}])

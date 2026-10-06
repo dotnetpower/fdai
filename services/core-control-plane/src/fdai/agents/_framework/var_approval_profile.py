@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from fdai_service_contracts.policy_administration import PolicyRevisionSignatureVerifier
+
 from fdai.agents._framework.action_semantics import quorum_for
 from fdai.core.risk_gate.approval_profile import (
     ApprovalProfileRevision,
@@ -19,6 +21,7 @@ class VarApprovalProfileMixin:
 
     _approval_profile: ApprovalProfileRevision | None
     _approval_profile_bootstrap: ApprovalProfileRevision | None
+    _approval_profile_signature_verifier: PolicyRevisionSignatureVerifier | None
 
     async def _admit_ticket_authority(
         self,
@@ -60,6 +63,7 @@ class VarApprovalProfileMixin:
             pinned=profile,
             bound=self._approval_profile,
             bootstrap=self._approval_profile_bootstrap,
+            signature_verifier=self._approval_profile_signature_verifier,
         ):
             raise ValueError("approval profile is unavailable")
         return profile

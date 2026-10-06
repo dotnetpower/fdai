@@ -88,6 +88,7 @@ from fdai.runtime.operating_intent_revalidation import (
     OperatingIntentSourceRevalidationWorker,
 )
 from fdai.runtime.operating_intent_source import bind_operating_intent_source_from_env
+from fdai.runtime.policy_administration import build_policy_revision_signature_verifier
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_inventory_delta_projector,
@@ -438,7 +439,15 @@ async def build_core_runtime(
             extra={"reason": "executed_action_sources_absent"},
         )
     runtime_saga = _build_runtime_saga(state_store)
-    approval_bindings = await active_approval_runtime_bindings_from_store(environment, state_store)
+    approval_bindings = await active_approval_runtime_bindings_from_store(
+        environment,
+        state_store,
+        signature_verifier=build_policy_revision_signature_verifier(
+            environment=environment,
+            http_client=resources.http_client,
+            workload_identity_builder=_build_runtime_workload_identity,
+        ),
+    )
     control_loop = _build_control_loop(
         container,
         http_client=resources.http_client,

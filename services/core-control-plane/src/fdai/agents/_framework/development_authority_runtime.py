@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from fdai_service_contracts.policy_administration import PolicyRevisionSignatureVerifier
+
 from fdai.agents._framework.var_development_authority import (
     DevelopmentOwnerAuthorizer,
 )
@@ -43,6 +45,7 @@ class ApprovalRuntimeBindings:
 
     profile: ApprovalProfileRevision
     bootstrap_profile: ApprovalProfileRevision | None = None
+    signature_verifier: PolicyRevisionSignatureVerifier | None = None
 
 
 def configure_authority_agents(
@@ -81,6 +84,9 @@ def configure_authority_agents(
             ),
             approval_profile=approval_profile,
             approval_profile_bootstrap=bootstrap_approval_profile,
+            approval_profile_signature_verifier=(
+                approval.signature_verifier if approval is not None else None
+            ),
         )
     if (
         rollback_executors is not None

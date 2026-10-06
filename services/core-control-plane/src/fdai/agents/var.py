@@ -7,7 +7,10 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
 
-from fdai_service_contracts.policy_administration import POLICY_ACTIVATION_REQUEST_TOPIC
+from fdai_service_contracts.policy_administration import (
+    POLICY_ACTIVATION_REQUEST_TOPIC,
+    PolicyRevisionSignatureVerifier,
+)
 
 from fdai.agents._framework.action_run_identity import validate_action_run_identity
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
@@ -125,6 +128,7 @@ class Var(
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
         approval_profile: ApprovalProfileRevision | None = None,
         approval_profile_bootstrap: ApprovalProfileRevision | None = None,
+        approval_profile_signature_verifier: PolicyRevisionSignatureVerifier | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -143,6 +147,7 @@ class Var(
         self._state_store = state_store
         self._approval_profile = approval_profile
         self._approval_profile_bootstrap = approval_profile_bootstrap
+        self._approval_profile_signature_verifier = approval_profile_signature_verifier
         self._decision_journal = (
             VarDecisionJournal(
                 state_store,
