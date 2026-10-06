@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 155a13d324d607280021a69637fc3b4d47f43a50
+translation_source_sha: b513729af2e1fb77a24ea750efbf021b58e98bbc
 translation_revised: 2026-10-07
 ---
 
@@ -66,7 +66,7 @@ GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으�
 조정기는 정확한 승인 범위 안에서 진행하고 다음 체크포인트에 권한이 필요하면 검토 상태를
 반환합니다. 승인을 만들거나 표준 입력을 읽거나 성공으로 보고하지 않습니다. 검증된 Foundation
 인계 뒤에는 소스 모드가 서명된 키트 없이 공유 managed-host 애플리케이션 순서로 이어집니다.
-계획은 배포 성공이 아니라 검토 대기로 종료 코드 `2`를 반환하며, 용량 차단은 `3`을 반환합니다. 검증된 `deployment-ready` 소스 결과만 `0`을 반환합니다.
+계획은 배포 성공이 아니라 검토 대기로 종료 코드 `2`를 반환하며, 용량 차단은 `3`을 반환합니다. 검증된 `deployment-ready` 소스 결과만 `0`을 반환합니다. 재실행은 이전에 파생된 사본 대신 소스 Console 산출물을 다시 빌드합니다.
 `--prepare-only`는 Azure를 호출하지
 않습니다. `--preflight-only`는 현재 사용자 대상, SKU 제한, x64 아키텍처, 호스트 암호화,
 필수 가용 영역, 자동 확장 최대치와 동시 33퍼센트 추가 노드를 포함한 계열 및 전체 할당량을

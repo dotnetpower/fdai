@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from fdai_deployment_cli import source_application_inputs as inputs
 
 
@@ -52,3 +54,24 @@ def test_kit_contexts_are_never_rebound(tmp_path: Path) -> None:
     context: dict[str, object] = {"artifact_source": "signed-kit", "infra": "/kit/infra"}
     assert inputs.rebind_source_tree(context, tmp_path) is False
     assert context["infra"] == "/kit/infra"
+
+
+def test_a_rerun_rebuilds_the_source_console_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fdai_deployment_cli import console_artifact
+
+    def build(*, source_root: Path, revision: str, output_dir: Path, timeout_seconds: int):
+        if output_dir.exists():
+            raise ValueError("Console artifact output MUST be a new absolute directory")
+        output_dir.mkdir()
+        (output_dir / "console.tar.gz").write_bytes(revision.encode())
+        return {"artifact_directory": str(output_dir), "archive_sha256": "a" * 64}
+
+    monkeypatch.setattr(console_artifact, "build_console_update_artifact", build)
+    for _attempt in range(2):
+        archive, digest = inputs.build_source_console(
+            source_root=tmp_path, source_commit="c" * 40, prepared_root=tmp_path, timeout_seconds=60
+        )
+    assert archive == tmp_path / "source-console-artifact/console.tar.gz"
+    assert digest == "a" * 64

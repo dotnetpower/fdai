@@ -219,10 +219,16 @@ def build_source_console(
 ) -> tuple[Path, str]:
     from fdai_deployment_cli.console_artifact import build_console_update_artifact
 
+    output = prepared_root / "source-console-artifact"
+    # A rerun rebuilds the same pinned source; publication verifies the new archive digest.
+    if output.is_symlink():
+        raise ValueError("source Console artifact directory is invalid")
+    if output.exists():
+        shutil.rmtree(output)
     artifact = build_console_update_artifact(
         source_root=source_root,
         revision=source_commit,
-        output_dir=prepared_root / "source-console-artifact",
+        output_dir=output,
         timeout_seconds=timeout_seconds,
     )
     return Path(str(artifact["artifact_directory"])) / "console.tar.gz", str(
