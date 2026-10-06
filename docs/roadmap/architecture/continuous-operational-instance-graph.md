@@ -405,6 +405,9 @@ Change demand or maximum staleness therefore cannot be deferred because a failur
 The local long-running loop records typed source, projection, or pending-replay failure and retries after its
 configured interval. A one-shot job also fails when source collection or the promoted ontology projection
 fails, while retaining the authoritative inventory generation for bounded recovery on the next tick.
+The deployment's `--initial` one-shot waits up to 300 seconds for the run lock, because the first
+scheduled tick after deployment also finds a full reconciliation due and holds that lock; scheduled
+ticks keep the 30-second wait.
 Both paths build the same ordered runtime-call, Resource Health, Static Web App, and Kubernetes
 enrichment pipeline through the inventory CLI support boundary. Resource Health enrichment uses an exact-denominator tuple-set reread fence before any all-clear answer and validates model-authored narration against structured receipt claims outside the model. The answer composer emits those `ResourceHealthNarrationClaims` beside the narration and, when validation rejects the narration, holds with verified rows plus terminal disposition, reason, and violation codes while keeping `execution_authority=false`.
 
