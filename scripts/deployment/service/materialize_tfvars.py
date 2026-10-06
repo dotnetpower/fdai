@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from fdai_service_contracts.approval_profile import approval_profile_policy_digest
 from service_contract import ServiceContractError, normalize_api_audience, resolve_service
 
 
@@ -569,6 +570,33 @@ def materialize_core_llm(
     }
 
 
+def materialize_approval_profile(raw_json: str) -> str:
+    """Validate one deploy-time approval profile revision and return canonical JSON."""
+    try:
+        payload = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        raise TfvarsError("FDAI_APPROVAL_PROFILE_JSON must contain valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise TfvarsError("FDAI_APPROVAL_PROFILE_JSON must contain a JSON object")
+    expected_fields = {
+        "revision_id",
+        "approval_profile",
+        "executor_principal",
+        "effective_from",
+        "operator_principal",
+        "policy_digest",
+    }
+    if set(payload) != expected_fields:
+        raise TfvarsError("FDAI_APPROVAL_PROFILE_JSON has unexpected approval profile fields")
+    if payload.get("approval_profile") != "single-operator-production":
+        raise TfvarsError("FDAI_APPROVAL_PROFILE_JSON must select single-operator-production")
+    if payload.get("policy_digest") != approval_profile_policy_digest(payload):
+        raise TfvarsError(
+            "FDAI_APPROVAL_PROFILE_JSON policy_digest does not match revision content"
+        )
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+
 def select_tfvars(
     payload: dict[str, Any],
     *,
@@ -589,6 +617,7 @@ def select_tfvars(
     runtime_call_evidence: dict[str, Any] | None = None,
     cost_pseudonym_key_secret_id: str | None = None,
     source_revision: str | None = None,
+    approval_profile_json: str | None = None,
 ) -> dict[str, Any]:
     """Select exactly one environment/service object and reserve image for the workflow."""
     resolve_service(service, environment)
@@ -675,6 +704,15 @@ def select_tfvars(
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
         )
+    if approval_profile_json:
+        if service != "core-control-plane":
+            raise TfvarsError("approval profile binding is valid only for core-control-plane")
+        if os.environ.get("FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", "").strip():
+            raise TfvarsError(
+                "FDAI_APPROVAL_PROFILE_JSON and FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON "
+                "are mutually exclusive"
+            )
+        materialized["approval_profile_json"] = materialize_approval_profile(approval_profile_json)
     if service in {"core-control-plane", "document-ingestion-api"}:
         materialized["stewardship_gitops"] = _stewardship_gitops_binding(
             stewardship_gitops,
@@ -820,6 +858,7 @@ def main() -> int:
             runtime_call_evidence=_optional_object_environment("RUNTIME_CALL_EVIDENCE_JSON"),
             cost_pseudonym_key_secret_id=os.environ.get("COST_PSEUDONYM_KEY_SECRET_ID") or None,
             source_revision=os.environ.get("SOURCE_REVISION"),
+            approval_profile_json=os.environ.get("FDAI_APPROVAL_PROFILE_JSON", "").strip(),
         )
         write_tfvars(args.output, selected)
     except (OSError, json.JSONDecodeError, ServiceContractError, TfvarsError) as exc:

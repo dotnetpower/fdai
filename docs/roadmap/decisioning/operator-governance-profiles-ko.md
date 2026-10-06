@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 09fb6bb1b817fab990800748eda3ca79dee30bde
+translation_source_sha: 16e64362a2ed81d1df73032e77031fdbbd988216
 translation_revised: 2026-10-06
 ---
 # 운영자 거버넌스 프로필
@@ -68,14 +68,18 @@ translation_revised: 2026-10-06
 
 - 승인 정책 개정이 `approval_profile: single-operator-production`을 선언하고, Microsoft Entra
   ID의 정규화된 사람 principal 하나를 설치 운영자로 바인딩합니다.
-- 배포 구성은 `FDAI_APPROVAL_PROFILE_JSON` 또는 `FDAI_APPROVAL_PROFILE_PATH`에서 활성 불변
-  `ApprovalProfileRevision`을 제공합니다. `policy_digest`는 콘텐츠 주소 지정 방식입니다. 즉,
-  `revision_id`, `approval_profile`, `executor_principal`, `effective_from`,
-  `operator_principal`을 정렬된 키와 압축 구분 기호로 만든 canonical JSON의 SHA-256 앞에
-  `sha256:`을 붙인 값과 같아야 합니다. 잘못된 입력, 알 수 없는 필드, 누락되었거나 맞지 않는
-  다이제스트, 아직 유효 시각이 되지 않은 `effective_from`, 실행기 principal과 같은 운영자 지정,
-  전권 개발 프로필과의 동시 구성은 안전하게 차단됩니다. 개정이 없으면 FDAI는 다중 운영자 기본값을
-  사용합니다.
+- 런타임 구성은 Mimir의 정책 관리 활성화 포인터에 활성 불변 `ApprovalProfileRevision`이 있으면
+  그 값을 읽습니다. `FDAI_APPROVAL_PROFILE_JSON`과 `FDAI_APPROVAL_PROFILE_PATH`는 아직 승인 정책
+  개정을 활성화하지 않은 설치를 위한 부트스트랩 폴백으로만 남습니다. 포인터는 유효하지만 서로
+  다른 bootstrap 프로필보다 우선하며, FDAI는 개정 ID와 다이제스트로 불일치를 로그와 감사에
+  기록합니다.
+- `policy_digest`는 콘텐츠 주소 지정 방식입니다. 즉, `revision_id`, `approval_profile`,
+  `executor_principal`, `effective_from`, `operator_principal`을 정렬된 키와 압축 구분 기호로 만든
+  canonical JSON의 SHA-256 앞에 `sha256:`을 붙인 값과 같아야 합니다. 잘못된 입력, 알 수 없는 필드,
+  누락되었거나 맞지 않는 다이제스트, 아직 유효 시각이 되지 않은 `effective_from`, 실행기 principal과
+  같은 운영자 지정, 전권 개발 프로필과의 동시 구성은 안전하게 차단됩니다. 활성 개정이나 bootstrap
+  개정이 없으면 FDAI는 다중 운영자 기본값을 사용합니다. HIL 보류 항목은 결정이 시작될 때 활성 상태였던
+  개정을 보존하므로, 이후 활성화 변경이 진행 중인 승인 규칙을 다시 쓰지 않습니다.
 - 이 프로필로 들어가거나 나오는 변경은 활성 프로필의 거버넌스 규칙을 따릅니다. 다중 운영자에서
   단독 운영자로 바꾸려면 다중 운영자 거버넌스 정족수가 필요합니다. 단독 운영자는 설치를 다시 다중
   운영자로 바꿀 수 있습니다.

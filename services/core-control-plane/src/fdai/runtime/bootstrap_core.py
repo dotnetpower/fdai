@@ -28,6 +28,10 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_core_model, bootstrap_incidents
 from fdai.runtime import product_profile as _product_profile
+from fdai.runtime.approval_profile import (
+    StateStoreApprovalProfileRevisionReader,
+    active_approval_runtime_bindings,
+)
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
@@ -441,6 +445,11 @@ async def build_core_runtime(
         saga=runtime_saga,
         rollback_executors=None,
     )
+    approval_bindings = await active_approval_runtime_bindings(
+        environment,
+        reader=StateStoreApprovalProfileRevisionReader(state_store),
+        audit_store=state_store,
+    )
     control_loop = _build_control_loop(
         container,
         http_client=resources.http_client,
@@ -465,6 +474,7 @@ async def build_core_runtime(
         license_authority=license_authority,
         mutation_dependency_readiness=mutation_readiness,
         workflow_event_bus=messaging.bus,
+        approval_bindings=approval_bindings,
     )
     from fdai.core.rule_activation import StateStoreRuleActivationLedger
 

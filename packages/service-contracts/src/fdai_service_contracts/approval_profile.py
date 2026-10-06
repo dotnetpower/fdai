@@ -237,6 +237,8 @@ def approval_profile_from_audit_dict(
 
     if raw is None:
         return None
+    if raw.get("policy_digest") != approval_profile_policy_digest(raw):
+        raise ValueError("approval profile payload digest is mismatched")
     try:
         effective_from = datetime.fromisoformat(str(raw["effective_from"]))
         operator = raw.get("operator_principal")

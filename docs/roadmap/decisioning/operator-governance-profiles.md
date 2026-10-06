@@ -68,14 +68,19 @@ authorization contract that both production profiles use.
 
 - An approval policy revision declares `approval_profile: single-operator-production` and binds
   one normalized human principal from Microsoft Entra ID as the installation operator.
-- Deployment composition supplies the active immutable `ApprovalProfileRevision` from
-  `FDAI_APPROVAL_PROFILE_JSON` or `FDAI_APPROVAL_PROFILE_PATH`. `policy_digest` is
-  content-addressed: it equals `sha256:` plus the SHA-256 of the canonical JSON, using sorted keys
-  and compact separators, for `revision_id`, `approval_profile`, `executor_principal`,
-  `effective_from`, and `operator_principal`. Malformed input, unknown fields, a missing or
-  mismatched digest, a not-yet-effective `effective_from`, a named operator that equals the
-  executor principal, or configuring it together with the full-authority development profile fails
-  closed. When no revision is supplied, FDAI uses the multi-operator default.
+- Runtime composition reads the active immutable `ApprovalProfileRevision` from Mimir's
+  policy-administration activation pointer when one exists. `FDAI_APPROVAL_PROFILE_JSON` and
+  `FDAI_APPROVAL_PROFILE_PATH` remain bootstrap-only fallbacks for an installation that has not yet
+  activated an approval policy revision. The pointer wins over a valid but different bootstrap
+  profile, and FDAI logs and audits the mismatch by revision id and digest.
+- `policy_digest` is content-addressed: it equals `sha256:` plus the SHA-256 of the canonical JSON,
+  using sorted keys and compact separators, for `revision_id`, `approval_profile`,
+  `executor_principal`, `effective_from`, and `operator_principal`. Malformed input, unknown
+  fields, a missing or mismatched digest, a not-yet-effective `effective_from`, a named operator
+  that equals the executor principal, or configuring it together with the full-authority
+  development profile fails closed. When no active revision or bootstrap revision is supplied, FDAI
+  uses the multi-operator default. HIL parks retain the revision that was active when the decision
+  started, so later activation changes do not rewrite in-flight approval rules.
 - A change into or out of the profile follows the governance rule of the active profile. Moving
   from multi-operator to single-operator needs the multi-operator governance quorum. The single
   operator can move the installation back to multi-operator.

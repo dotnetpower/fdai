@@ -1,9 +1,9 @@
 """Approval-profile gate for resolving a parked HIL decision.
 
 A parked decision pins the approval profile that was active when it parked. Resolution refuses a
-malformed pin or a pin that differs from the profile bound to this runtime, so an in-flight
-decision never changes approval rules mid-flight. The audit details expose the reduced
-separation of duties of the single-operator production profile.
+malformed pin, but it honors a valid pinned revision even after the runtime activates a newer
+profile so an in-flight decision never changes approval rules mid-flight. The audit details expose
+the reduced separation of duties of the single-operator production profile.
 """
 
 from __future__ import annotations
@@ -34,8 +34,7 @@ def parked_approval_profile(
         profile = approval_profile_from_audit_dict(raw if isinstance(raw, Mapping) else None)
     except ValueError:
         return None, MALFORMED
-    if profile is not None and (bound is None or profile.as_audit_dict() != bound.as_audit_dict()):
-        return None, UNAVAILABLE
+    del bound
     return profile, None
 
 

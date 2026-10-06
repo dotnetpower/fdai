@@ -138,6 +138,28 @@ def _digest(payload: dict[str, Any]) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
+def _approval_profile_payload() -> dict[str, object]:
+    payload: dict[str, object] = {
+        "revision_id": "approval-profile-r1",
+        "approval_profile": "single-operator-production",
+        "executor_principal": "thor-executor",
+        "effective_from": "2026-10-06T00:00:00+00:00",
+        "operator_principal": "operator@example.com",
+    }
+    canonical = {
+        field: payload.get(field)
+        for field in (
+            "revision_id",
+            "approval_profile",
+            "executor_principal",
+            "effective_from",
+            "operator_principal",
+        )
+    }
+    payload["policy_digest"] = "sha256:" + _digest(canonical)
+    return payload
+
+
 def test_derives_core_llm_from_attested_resolved_models(tfvars: ModuleType) -> None:
     resolved_models = {
         "schema_version": "1.0.0",
@@ -1347,8 +1369,52 @@ def test_cli_materializes_model_binding_with_owner_only_permissions(
     assert output.stat().st_mode & 0o777 == 0o600
 
 
+def test_materializes_optional_core_approval_profile(tfvars: ModuleType) -> None:
+    payload = _approval_profile_payload()
+
+    selected = tfvars.select_tfvars(
+        {"environments": {"prod": {"core-control-plane": {"name": "core"}}}},
+        service="core-control-plane",
+        environment="prod",
+        approval_profile_json=json.dumps(payload),
+    )
+
+    assert json.loads(selected["approval_profile_json"]) == payload
+
+
+def test_rejects_approval_profile_with_digest_mismatch(tfvars: ModuleType) -> None:
+    payload = {**_approval_profile_payload(), "policy_digest": "sha256:" + "5" * 64}
+
+    with pytest.raises(tfvars.TfvarsError, match="policy_digest"):
+        tfvars.select_tfvars(
+            {"environments": {"prod": {"core-control-plane": {"name": "core"}}}},
+            service="core-control-plane",
+            environment="prod",
+            approval_profile_json=json.dumps(payload),
+        )
+
+
+def test_rejects_approval_profile_with_development_profile(
+    tfvars: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", '{"profile_id":"dev"}')
+
+    with pytest.raises(tfvars.TfvarsError, match="mutually exclusive"):
+        tfvars.select_tfvars(
+            {"environments": {"prod": {"core-control-plane": {"name": "core"}}}},
+            service="core-control-plane",
+            environment="prod",
+            approval_profile_json=json.dumps(_approval_profile_payload()),
+        )
+
+
 def test_workflow_delegates_core_model_binding_materialization() -> None:
     assert "RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}" in _WORKFLOW
+    assert (
+        "FDAI_APPROVAL_PROFILE_JSON: ${{ secrets.FDAI_APPROVAL_PROFILE_JSON || "
+        "vars.FDAI_APPROVAL_PROFILE_JSON }}" in _WORKFLOW
+    )
     assert "WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}" in _WORKFLOW
     assert "WEB_SEARCH_ALLOWED_DOMAINS_JSON:" in _WORKFLOW
     assert '[[ "$SERVICE" == "core-control-plane" ]]' in _WORKFLOW

@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 import yaml
 
+from fdai.agents import ApprovalRuntimeBindings
 from fdai.composition import Container
 from fdai.core.assurance_twin import (
     DynamicRuntimeCoordinator,
@@ -193,6 +194,7 @@ def _build_control_loop(
     license_authority: LicenseEntitlementAuthority | None = None,
     mutation_dependency_readiness: MutationDependencyReadiness,
     workflow_event_bus: EventBus | None = None,
+    approval_bindings: ApprovalRuntimeBindings | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -203,7 +205,8 @@ def _build_control_loop(
     product_selection = RuntimeProductSelection.from_profile(container.config.product_profile)
     governed_execution_enabled = product_selection.governed_execution
     notification_bindings_enabled = product_selection.notifications
-    approval_bindings = approval_runtime_bindings(os.environ)
+    if approval_bindings is None:
+        approval_bindings = approval_runtime_bindings(os.environ)
     catalog_root = _resolve_catalog_root()
     require_production_safeguard_readiness(thor_execution_port)
     policies_root = _resolve_policies_root(catalog_root)

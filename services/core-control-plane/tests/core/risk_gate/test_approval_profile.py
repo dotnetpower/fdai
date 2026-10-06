@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -24,7 +25,9 @@ from fdai.core.risk_gate.ceiling import AxisLevel
 from fdai.runtime.approval_profile import (
     PROFILE_JSON_ENV,
     PROFILE_PATH_ENV,
+    StateStoreApprovalProfileRevisionReader,
     approval_runtime_bindings,
+    load_active_approval_profile,
     load_approval_profile,
 )
 from fdai.runtime.development_authority import PROFILE_ENV as DEVELOPMENT_PROFILE_ENV
@@ -39,7 +42,19 @@ from fdai.shared.contracts.models import (
     RollbackKind,
     Tier,
 )
-from fdai_service_contracts.approval_profile import approval_profile_policy_digest
+from fdai.shared.providers.testing import InMemoryStateStore
+from fdai_service_contracts.approval_profile import (
+    approval_profile_from_audit_dict,
+    approval_profile_policy_digest,
+)
+from fdai_service_contracts.policy_administration import (
+    ApprovalPolicyContent,
+    PolicyActivationEvent,
+    PolicyKind,
+    PolicyRevisionRecord,
+    PolicyValidationResult,
+    policy_content_digest,
+)
 
 from .test_authority import _destructive_at, _low_risk_at, _table
 
@@ -76,6 +91,58 @@ def _single() -> ApprovalProfileRevision:
 
 def _single_json() -> str:
     return json.dumps(_profile_payload(), separators=(",", ":"), sort_keys=True)
+
+
+def _profile_payload_with_revision(revision_id: str, operator: str) -> dict[str, object]:
+    payload = _profile_payload()
+    payload["revision_id"] = revision_id
+    payload["operator_principal"] = operator
+    payload["policy_digest"] = approval_profile_policy_digest(payload)
+    return payload
+
+
+def _policy_revision(payload: dict[str, object]) -> PolicyRevisionRecord:
+    content = ApprovalPolicyContent(document=payload)
+    return PolicyRevisionRecord(
+        revision_id=str(payload["revision_id"]),
+        policy_kind=PolicyKind.APPROVAL,
+        content_digest=policy_content_digest(content),
+        content=content,
+        signature_ref="signature:approval-profile",
+        author_principal="policy-admin@example.com",
+        reason="Select the reviewed single-operator production approval profile.",
+        created_at=_AT,
+        validation=PolicyValidationResult(
+            rego_valid=False,
+            release_maximums_valid=True,
+            policy_tests_valid=False,
+            validation_digest="sha256:" + "1" * 64,
+        ),
+        diff_digest="sha256:" + "2" * 64,
+    )
+
+
+async def _activate_profile(store: InMemoryStateStore, payload: dict[str, object]) -> None:
+    record = _policy_revision(payload)
+    await store.write_state(
+        f"policy_revision:{PolicyKind.APPROVAL.value}:{record.revision_id}",
+        record.model_dump(mode="json"),
+    )
+    event = PolicyActivationEvent(
+        policy_id=f"approval:{record.revision_id}",
+        policy_kind=PolicyKind.APPROVAL,
+        revision_id=record.revision_id,
+        policy_digest=record.content_digest,
+        activated_at=_AT,
+        author_principal=record.author_principal,
+        validation_digest=record.validation.validation_digest,
+        correlation_id=f"policy-activation:approval:{record.revision_id}",
+        idempotency_key=f"policy-activation:approval:{record.revision_id}",
+    )
+    await store.write_state(
+        f"policy_activation:{PolicyKind.APPROVAL.value}",
+        {**event.model_dump(mode="json"), "revision": 1},
+    )
 
 
 def _multi() -> ApprovalProfileRevision:
@@ -145,6 +212,57 @@ def test_approval_profile_loads_from_json_and_path(tmp_path: Path) -> None:
     path = tmp_path / "approval-profile.json"
     path.write_text(_single_json(), encoding="utf-8")
     assert load_approval_profile({PROFILE_PATH_ENV: str(path)}, clock=lambda: _AT) == _single()
+
+
+def test_active_policy_pointer_wins_over_bootstrap_profile_and_audits_mismatch() -> None:
+    store = InMemoryStateStore()
+    active_payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
+    bootstrap_payload = _profile_payload_with_revision(
+        "approval-profile-bootstrap",
+        "bootstrap@example.com",
+    )
+    asyncio.run(_activate_profile(store, active_payload))
+
+    loaded = asyncio.run(
+        load_active_approval_profile(
+            {PROFILE_JSON_ENV: json.dumps(bootstrap_payload)},
+            reader=StateStoreApprovalProfileRevisionReader(store),
+            audit_store=store,
+            clock=lambda: _AT,
+        )
+    )
+
+    assert loaded is not None
+    assert loaded.revision_id == "approval-profile-r2"
+    assert loaded.operator_principal == "active@example.com"
+    assert any(
+        entry.get("entry", {}).get("event_type") == "approval_profile_bootstrap_mismatch"
+        for entry in store.audit_entries
+    )
+
+
+def test_active_policy_pointer_digest_mismatch_fails_closed() -> None:
+    store = InMemoryStateStore()
+    payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
+    bad_payload = {**payload, "policy_digest": "sha256:" + "3" * 64}
+    asyncio.run(_activate_profile(store, bad_payload))
+
+    with pytest.raises(RuntimeError, match="active approval profile revision is invalid"):
+        asyncio.run(
+            load_active_approval_profile(
+                {},
+                reader=StateStoreApprovalProfileRevisionReader(store),
+                clock=lambda: _AT,
+            )
+        )
+
+
+def test_parked_profile_digest_mismatch_is_malformed() -> None:
+    payload = _single().as_audit_dict()
+    payload["policy_digest"] = "sha256:" + "4" * 64
+
+    with pytest.raises(ValueError, match="digest"):
+        approval_profile_from_audit_dict(payload)
 
 
 @pytest.mark.parametrize(
