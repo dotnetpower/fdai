@@ -30,9 +30,12 @@ The pantheon is a thin re-framing of the existing FDAI control loop into named o
 - **Single-writer, multi-reader topics.** Each object type has exactly one publishing owner agent; anyone may subscribe (§6.1).
 - **Judge is not the executor.** Forseti judges and Var carries authorized non-expired approval. Thor rechecks the authority ceiling, Saga receipt, stable idempotency reservation, and owner-fenced distributed resource claim before execution; restart ambiguity stays `execution_unknown`.
   When a deployment selects the single-operator production approval profile, Forseti, Var, and
-  Thor carry the same pinned profile revision with the ActionRun and approval ticket. Var records
-  both the original quorum and the effective quorum of one, while Thor remains only the executor
-  and cannot be the approver. This adds no agent, topic, or role authority.
+  Thor carry the same digest-verified profile revision that Core selected from Mimir's active
+  approval policy-administration pointer, or from the bootstrap environment fallback before any
+  approval revision is active. Var records both the original quorum and the effective quorum of
+  one, while Thor remains only the executor and cannot be the approver. In-flight ActionRuns and
+  approval tickets keep their pinned revision even after Mimir activates a newer one. This adds no
+  agent, topic, or role authority.
   Policy revision activation uses the same fixed roles: Mimir publishes typed
   `object.policy-activation-request` events for relaxing multi-operator revisions, Var records the
   quorum approval, and Mimir moves the activation pointer only after that typed approval event.

@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 6f1c2d5611ad4faaa64fc94c3ffd45dc3a8b8a58
+translation_source_sha: a8d557644fd0c350fb041eb818ef34427d54f68e
 translation_revised: 2026-10-06
 ---
 
@@ -91,6 +91,11 @@ Operator는 digest, 배포 기본값 또는 현재 구성에서 모델을 추측
 
 Operator 소유 수신기는 하나의 결정 서비스에서 처리됩니다. 어떤 수신기도 메시지의 신원
 또는 권한을 신뢰하지 않습니다.
+
+단독 운영자 프로덕션 보류 항목을 해결하는 승인 콜백은 현재 환경 값이나 Core 구현 가져오기가
+아니라 저장된 승인 문맥의 고정 승인 프로필 메타데이터를 읽습니다. 공유 승인 프로필 계약이 개정
+형태와 다이제스트를 검증하고, 활성 Mimir 승인 정책 포인터 선택과 재개 중 고정 개정 적용은 Core가
+계속 책임집니다.
 
 | 전송 | 경로 | 인증 및 행위자 |
 |------|------|----------------|
