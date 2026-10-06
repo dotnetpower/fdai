@@ -1417,7 +1417,6 @@ variable "product_profile_json" {
           "enterprise-identity-governance",
           "governed-execution",
           "notifications",
-          "policy-administration",
           "read-only-console",
         ]),
       )) == 0 &&

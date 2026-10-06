@@ -98,7 +98,8 @@ class AzureKeyVaultPolicyRevisionSigner:
         body: Any = response.json()
         if not isinstance(body, dict):
             raise RuntimeError("Key Vault key response did not include a JSON object")
-        returned_key_id = body.get("kid")
+        key = body.get("key")
+        returned_key_id = key.get("kid") if isinstance(key, dict) else None
         if not isinstance(returned_key_id, str) or not _same_unversioned_key(
             returned_key_id, self.key_id
         ):

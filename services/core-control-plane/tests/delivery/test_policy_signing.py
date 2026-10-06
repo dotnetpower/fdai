@@ -59,7 +59,7 @@ class _Http:
             {"method": "GET", "url": url, "headers": dict(headers), "timeout": timeout}
         )
         body: dict[str, object] = {
-            "kid": self.kid,
+            "key": {"kid": self.kid},
             "attributes": {"exportable": self.exportable},
         }
         if self.release_policy is not None:

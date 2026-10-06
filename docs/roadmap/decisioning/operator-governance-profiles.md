@@ -248,6 +248,12 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   `FDAI_PRODUCT_PROFILE`, or a Core config file must be materialized into that canonical JSON before
   Operator starts. Missing profile JSON keeps `policy-administration` unselected, and malformed
   profile JSON fails startup validation.
+- Deploying the add-on also requires infrastructure for Mimir's signing dependency: a
+  non-exportable Key Vault policy key, the Key Vault Crypto User role grant for the dedicated
+  workload identity, and `FDAI_POLICY_ADMIN_KEY_VAULT_KEY_ID` plus
+  `FDAI_POLICY_ADMIN_KEY_VAULT_MI_CLIENT_ID` in Core. Until Terraform provisions those inputs, the
+  root `product_profile_json` validation refuses `policy-administration` even though local and test
+  composition can exercise the add-on with fake infrastructure.
 - The Entra bootstrap now defines the `policy-admin` App Role and requests the `auth_time` optional
   claim for Operator API access tokens. Live tenant assignment and consent remain deployment
   operations outside this repository.

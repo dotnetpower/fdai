@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: b4b9d2c32e79b947bc65c9d9a0a52bcb73ec497c
+translation_source_sha: f30af1f6f8546c77754ef35a1fedb44bb9606eda
 translation_revised: 2026-10-06
 ---
 # 운영자 거버넌스 프로필
@@ -233,6 +233,11 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   `FDAI_PRODUCT_PROFILE`, Core 구성 파일 같은 Core 전용 편의 입력은 Operator 시작 전에 그 canonical
   JSON으로 구체화해야 합니다. 프로필 JSON이 없으면 `policy-administration`은 선택되지 않은 상태로
   남고, 잘못된 프로필 JSON은 시작 검증에서 실패합니다.
+- 추가 기능을 배포하려면 Mimir 서명 의존성에 대한 인프라도 필요합니다. 내보낼 수 없는 Key Vault
+  정책 키, 전용 워크로드 신원에 대한 Key Vault Crypto User 역할 부여, Core의
+  `FDAI_POLICY_ADMIN_KEY_VAULT_KEY_ID` 및 `FDAI_POLICY_ADMIN_KEY_VAULT_MI_CLIENT_ID`가 필요합니다.
+  Terraform이 이 입력을 프로비저닝하기 전까지 루트 `product_profile_json` 검증은 로컬 및 테스트
+  구성이 가짜 인프라로 추가 기능을 실행할 수 있더라도 `policy-administration` 선택을 거부합니다.
 - Entra 부트스트랩은 이제 `policy-admin` App 역할을 정의하고 Operator API 액세스 토큰의
   `auth_time` 선택적 클레임을 요청합니다. Live 테넌트 할당과 동의는 이 저장소 밖의 배포 작업으로
   남습니다.

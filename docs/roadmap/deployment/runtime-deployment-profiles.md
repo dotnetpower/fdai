@@ -45,7 +45,9 @@ profiles all consume the same canonical product-profile JSON. The Terraform root
 `product_profile_json` unchanged to both Core and Operator; Core-only convenience inputs must first
 resolve to that JSON before Operator starts. Selecting `policy-administration` only binds the
 Operator policy route and Mimir policy-administration subscription; it does not change the runtime
-platform, Cost Governance package activation, or any execution identity.
+platform, Cost Governance package activation, or any execution identity. Until Terraform also
+provisions the non-exportable policy-signing Key Vault key, its crypto role grant, and Core signing
+environment, `product_profile_json` validation rejects the `policy-administration` add-on.
 
 The host's read-only `verify-source-runtime` command checks pinned source/runtime content, not
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
