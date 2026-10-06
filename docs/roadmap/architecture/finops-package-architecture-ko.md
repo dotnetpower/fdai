@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: be55b6dac412e2ffad51884c23157d3a4b11bea8
+translation_source_sha: 91f7ce598d8863220cd9f4f4361b61eb83ce7603
 translation_revised: 2026-10-05
 ---
 
@@ -265,6 +265,9 @@ shadow-first 모드입니다. 실패하면 기존의 변경할 수 없는 런타
 `resources/manifest.json`은 안정적인 id, 패키지 상대 경로, 콘텐츠 다이제스트 및 스키마
 버전을 기록합니다. 패키지 코드는 저장소 상대 경로 대신 패키지 리소스 API를 통해 리소스를
 로드하므로 wheel과 소스 checkout이 같은 방식으로 동작합니다.
+의미 프로필은 활성 온톨로지 release 다이제스트를 고정합니다. 따라서
+`governance.override-promote-action-type` 같은 Core ActionType을 추가하면 공식 생성기가 이
+다이제스트, 매니페스트 항목, F1-F8 fixture 식별자를 갱신하며 패키지 자산은 바꾸지 않습니다.
 
 ## 소유권 경계
 

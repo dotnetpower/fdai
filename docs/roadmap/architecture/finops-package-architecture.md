@@ -256,6 +256,9 @@ an absent durable row renders `shadow` and does not change package availability 
 `resources/manifest.json` records stable ids, package-relative paths, content digests, and schema
 versions. Package code loads resources through package-resource APIs rather than repository-relative
 paths, so the wheel and source checkout behave the same way.
+The semantic profile pins the active ontology release digest. Adding a Core ActionType, such as
+`governance.override-promote-action-type`, therefore refreshes that digest, the manifest entry, and
+the F1-F8 fixture identities through the official generators without changing any package asset.
 
 ## Ownership boundary
 

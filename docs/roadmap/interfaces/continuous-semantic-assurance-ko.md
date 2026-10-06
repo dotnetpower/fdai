@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: f9b2d25da3a3fa7334b578ca775d0850fdb5d38a
+translation_source_sha: b4dab4d7f3e173fd85c6a7f2452432d5897b9524
 translation_revised: 2026-10-04
 ---
 # 지속형 의미 보증

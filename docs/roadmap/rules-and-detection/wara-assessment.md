@@ -180,6 +180,8 @@ evidence, projections, or assessment authority.
 operation-filtered outbox claims, and a signed result consumer. Its private evidence, preferences,
 and producer health do not update WARA projections or satisfy its evidence/readiness requirements.
 WARA's existing scope, pinned queries, consumer isolation, and readiness criteria remain unchanged.
+Operator-override promotion labels in the shared governance Console catalog don't change WARA
+projections, evidence, or readiness.
 The alert request-history query selects only its own outbox namespace, principal and exact scope.
 Its signed terminal and baseline detail cannot satisfy or update any WARA assessment state.
 
