@@ -1,8 +1,8 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: cc730f9117466bf78f114632048c7c342f809d12
-translation_revised: 2026-09-28
+translation_source_sha: 2497a0e875b4d4d3da0a4aef834783e4170028ce
+translation_revised: 2026-10-08
 ---
 
 # FinOps 자율 운영
@@ -32,6 +32,10 @@ translation_revised: 2026-09-28
 > `insufficient-cohort`, `missing-live-authoritative-evidence` 사유로 차단되어 있습니다. Campaign
 > episode와 promotion review를 생성하지 않았고 런타임 권한도 바꾸지 않았습니다. 최소 30일과
 > 적격 표본 100개에 걸친 적격 정산 cohort 및 여섯 개의 독립 대상 검토는 아직 없습니다.
+> 2026-10-08에 설치 소유자가 이 cohort를 철회했고, 이슈 #903과 #904는 계획 없음으로 닫혔습니다. 카탈로그
+> promotion gate는 바뀌지 않았습니다. 대상의 gate가 통과되기 전에 promotion하려면 별도로 승인된 귀속
+> 운영자 override가 필요합니다. 이 override는 당시 gate 결과를 기록하며, 다른 곳에서 promotion 증적으로
+> 집계되지 않습니다.
 > 비평 12회에서 확인된 모든 Medium 이상 결함을 수정했으며 최종 검토에는 Low 수준의 테스트 구성 개선만 남았습니다. 런타임 권한은 바뀌지 않았습니다.
 
 ## 설계 개요
