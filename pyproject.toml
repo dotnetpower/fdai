@@ -223,6 +223,7 @@ files = [
     "extensions/aks-commerce/src/fdai_aks_commerce",
     "extensions/cost-governance/src/fdai_cost_governance",
     "lifecycle/hub/src",
+    "lifecycle/agent/src/fdai_lifecycle_agent",
 ]
 mypy_path = [
     "packages/service-contracts/src",
@@ -235,6 +236,7 @@ mypy_path = [
     "extensions/cost-governance/src",
     "extensions/aks-commerce/src",
     "lifecycle/hub/src",
+    "lifecycle/agent/src",
     "packages/deployment-cli/src",
 ]
 
@@ -275,6 +277,7 @@ pythonpath = [
     "extensions/aks-commerce/src",
     "extensions/cost-governance/src",
     "lifecycle/hub/src",
+    "lifecycle/agent/src",
     "packages/deployment-cli/src",
     "packages/service-contracts/src",
     "services/core-control-plane",
