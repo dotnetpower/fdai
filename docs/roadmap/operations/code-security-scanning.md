@@ -14,7 +14,7 @@ results feed the canonical issue model, severity, priority, and remediation pack
 > inert until the review flow and a person decide what to do.
 
 > **Status:** The deterministic lane (acquisition, sandbox, scanner catalog, FDAI rule pack, scan
-> job, and CLI) is implemented. See the
+> job, and CLI) and the off-path LLM lens lane are implemented. See the
 > [implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md).
 
 ## Design at a glance
@@ -116,6 +116,33 @@ The job builds the receipt from SARIF run metadata and its own observations:
 The review is `coverage_incomplete` unless every required scanner was bound, completed, and
 produced valid SARIF.
 
+## LLM lens lane
+
+The lens lane looks for weakness families that rules miss, such as missing authorization. It's
+optional, runs off the agent hot path inside the scan job, and produces only inert hypotheses:
+
+1. **Select deterministically:** walk the read-only source in sorted order, skip vendored,
+   oversized, binary, and non-UTF-8 files, and pick bounded excerpts around lines that match a
+   lens's sink hints in the [lens catalog](../../../rule-catalog/code-security/lenses.yaml).
+2. **Ask several model families:** send each excerpt to every configured model as untrusted JSON
+   data with line numbers, a strict JSON schema response, no tools, and a request byte ceiling.
+3. **Verify in code:** keep a candidate only when the cited line is inside the excerpt, matches a
+   sink hint, and uses one of the lens's CWEs.
+4. **Require a quorum:** emit an occurrence only when at least two distinct model families report
+   grounded candidates within the line tolerance.
+
+Kept candidates enter canonicalization in the `llm_lens` lane. They get `hypothesis` confidence,
+so they can't reach alerting priorities on their own; they're corroborated only when a
+deterministic or external producer reports the same root cause. With fewer than two model
+families, the lane doesn't run. Budget exhaustion, model failures, and skipped files are recorded
+as lens notes in `receipt.json`. Those notes don't change deterministic coverage, because the
+lane is optional. Code text that tries to instruct the model can't add findings, since every
+finding must pass grounding and quorum in code.
+
+Example: two model families both cite line 8, `Order.query.get(order_id)`, for
+`missing-authorization` with CWE-639. FDAI keeps one `hypothesis` occurrence. The issue is
+priority P3 until a person or another producer confirms it.
+
 ## Failure behavior
 
 | Condition | Outcome |
@@ -125,6 +152,8 @@ produced valid SARIF.
 | Timeout, output limit, or unexpected exit code | Run marked incomplete and truncated; its SARIF is ignored |
 | Invalid SARIF | Coverage limit; producer marked incomplete |
 | Unbounded or hostile SARIF content | Rejected or sanitized by [SARIF ingestion](code-security-findings.md#sarif-ingestion) |
+| Fewer than two model families for the lens lane | Lens lane doesn't run; a lens note records why |
+| Ungrounded, off-lens, or non-quorum model output | Discarded and counted in the lens report |
 
 ## Verification
 
@@ -132,7 +161,9 @@ Focused tests cover catalog validation, rule-pack classification and fixture cov
 command isolation, real bubblewrap runs (no writes to the source, no network interfaces,
 truncation, timeout, and failure codes), exact-commit acquisition, and the scan job end to end.
 The rule pack was validated with a Semgrep-compatible engine in test mode, with all 22 rules
-passing. A real `trivy` binary ran inside the sandbox, and its SARIF went through ingestion.
+passing. Lens tests cover deterministic selection, grounding, CWE filtering, quorum across
+families, budget and failure reporting, and the adapter's tool-free strict-schema request through
+a mock transport, without live model calls. A real `trivy` binary ran inside the sandbox, and its SARIF went through ingestion.
 
 ## Related docs
 

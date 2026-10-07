@@ -175,6 +175,9 @@ approved grant, and fresh effective-access evidence is required before the actio
   and a registry record; result import trusts only that record. Notifications and agent bus
   messages carry counts and opaque issue ids, never code or paths. See
   [Code Security Findings](../operations/code-security-findings.md#remediation-pack).
+- **Code-security LLM lens**: the optional lens lane sends bounded source excerpts to configured
+  model deployments, so the same residency and no-retention terms apply. Its output is untrusted;
+  only grounded, quorum-agreed candidates become inert hypotheses.
 
 ## Network Boundaries
 

@@ -238,3 +238,49 @@ async def test_scan_job_end_to_end_with_partial_coverage(tmp_path: Path) -> None
         sandbox=BubblewrapScannerSandbox(),
     )
     assert complete.package["coverage_complete"] is True
+
+
+async def test_scan_job_runs_optional_lens_lane_without_affecting_coverage(tmp_path: Path) -> None:
+    from fdai.rule_catalog.code_security_lenses import load_lens_catalog
+    from fdai.shared.providers.code_security_lens import (
+        LensFinding,
+        LensModelIdentity,
+        LensRequest,
+        LensResponse,
+    )
+
+    class _Model:
+        def __init__(self, family: str) -> None:
+            self.identity = LensModelIdentity(family, family)
+
+        async def review(self, request: LensRequest) -> LensResponse:
+            hits = (
+                (LensFinding(2, 78, "high", "shell command from input"),)
+                if request.lens_id == "command-injection"
+                else ()
+            )
+            return LensResponse(findings=hits, model=self.identity)
+
+    repo, revision = _repo(tmp_path)
+    result = await run_scan_job(
+        ScanJobConfig(
+            repository=str(repo),
+            revision=revision,
+            repository_alias="example-service",
+            work_root=tmp_path / "work",
+            executables={},
+            rules_dir=_CATALOG / "rules",
+        ),
+        catalog=load_code_security_catalog(_CATALOG),
+        scanners=load_scanner_catalog(_CATALOG),
+        acquirer=GitSourceAcquirer(tmp_path / "work"),
+        sandbox=BubblewrapScannerSandbox(),
+        lens_catalog=load_lens_catalog(_CATALOG),
+        lens_models=[_Model("family-a"), _Model("family-b")],
+    )
+    (issue,) = result.issues
+    assert issue.lanes == ("llm_lens",) and issue.confidence.value == "hypothesis"
+    assert result.lens_report is not None and result.lens_report.kept == 1
+    receipt = json.loads((result.artifact_dir / "receipt.json").read_text())
+    assert receipt["lens"]["ran"] is True and receipt["lens"]["kept"] == 1
+    assert all("lens" not in limit for limit in result.coverage_limits)

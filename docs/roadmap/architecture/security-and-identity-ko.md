@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 1f32ad0cf8cbb937f2ce2816492e2c3b5175ef2b
+translation_source_sha: 83f7c5296fde46b3e5efab6a0d850a5926bbd3c1
 translation_revised: 2026-10-07
 ---
 
@@ -168,6 +168,9 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
   모드), 서명된 매니페스트, 레지스트리 기록이 필요하며, 결과 가져오기는 그 기록만 신뢰합니다.
   알림과 에이전트 버스 메시지에는 건수와 불투명한 이슈 ID만 담고 코드나 경로는 담지 않습니다.
   [코드 보안 점검 결과](../operations/code-security-findings-ko.md#조치-팩)를 참조하세요.
+- **코드 보안 LLM 렌즈**: 선택 사항인 렌즈 레인은 범위가 제한된 소스 발췌를 설정된 모델 배포로
+  보내므로 같은 데이터 상주와 no-retention 조건이 적용됩니다. 출력은 신뢰하지 않으며, 근거가
+  확인되고 정족수가 합의한 후보만 비활성 가설이 됩니다.
 
 ## 네트워크 경계
 

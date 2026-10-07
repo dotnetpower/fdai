@@ -19,7 +19,7 @@ Opengrep, Trivy, and other producers.
 > **Status:** The deterministic core, catalog, signed remediation pack, pack registry, export
 > gate, rescan verification, false-positive adjudication, Heimdall review drift, notifications,
 > operator CLI, and the deterministic scanning lane ([Code Security Scanning](code-security-scanning.md))
-> are implemented. The LLM lens lane remains open. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
+> and the off-path LLM lens lane are implemented. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
 
 ## Design at a glance
 
@@ -246,7 +246,8 @@ review log.
   Korean and contain only aliases, revisions, and counts. If a deployment's matrix lacks either
   route, planning fails instead of falling back to the approval channel.
 - **LLM lens lane:** hot-path LLM use is limited to declared places, so the lens lane runs as an
-  off-path batch worker whose output is inert hypotheses (see the ledger for its status).
+  off-path worker inside the scan job whose output is inert hypotheses
+  ([Code Security Scanning](code-security-scanning.md#llm-lens-lane)).
 - **Installation:** this path adds no gate to the three FDAI installation paths.
 
 ## Licensing

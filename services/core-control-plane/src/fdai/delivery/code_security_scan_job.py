@@ -27,13 +27,21 @@ from fdai.core.security.code_findings import (
     build_issues,
     ingest_sarif,
 )
+from fdai.core.security.code_findings.lens import (
+    LensLaneReport,
+    LensLaneUnavailableError,
+    run_lens_lane,
+)
+from fdai.core.security.code_findings.models import Occurrence
 from fdai.core.security.code_findings.receipts import build_receipt, receipt_to_dict
 from fdai.core.security.code_findings.review_signal import build_review_package
 from fdai.core.security.code_findings.verification import ScanCoverageReceipt
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox, ScannerRunResult
 from fdai.rule_catalog.code_security import CodeSecurityCatalog, Exposure
+from fdai.rule_catalog.code_security_lenses import LensCatalog
 from fdai.rule_catalog.code_security_scanners import ScannerCatalog
+from fdai.shared.providers.code_security_lens import CodeSecurityLensModel
 
 
 class ReviewPublisher(Protocol):
@@ -66,6 +74,7 @@ class ScanJobResult:
     published: bool
     artifact_dir: Path
     sarif_files: tuple[Path, ...]
+    lens_report: LensLaneReport | None = None
 
 
 async def run_scan_job(
@@ -76,8 +85,14 @@ async def run_scan_job(
     acquirer: GitSourceAcquirer,
     sandbox: BubblewrapScannerSandbox,
     publisher: ReviewPublisher | None = None,
+    lens_catalog: LensCatalog | None = None,
+    lens_models: Sequence[CodeSecurityLensModel] = (),
 ) -> ScanJobResult:
-    """Run the deterministic lane for one revision and return its review."""
+    """Run the deterministic lane, and the optional LLM lens lane, for one revision.
+
+    Lens findings are inert hypotheses. Lens gaps are recorded as lens notes, not as
+    deterministic coverage limits, because the lens lane is optional.
+    """
     source = acquirer.acquire(config.repository, config.revision)
     artifacts = config.work_root / "scans" / config.revision
     artifacts.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -134,8 +149,20 @@ async def run_scan_job(
         except SarifIngestError as exc:
             observed[spec.producer] = False
             limits.append(f"scanner {scanner_id} produced invalid SARIF: {exc}")
+    occurrences: list[Occurrence] = [occ for result in ingested for occ in result.occurrences]
+    lens_report: LensLaneReport | None = None
+    lens_notes: list[str] = []
+    if lens_catalog is not None and lens_models:
+        try:
+            lens_occurrences, lens_report = await run_lens_lane(
+                source.path, lens_catalog, lens_models, revision=config.revision
+            )
+            occurrences.extend(lens_occurrences)
+            lens_notes = list(lens_report.notes)
+        except LensLaneUnavailableError as exc:
+            lens_notes = [str(exc)]
     issues = build_issues(
-        [occ for result in ingested for occ in result.occurrences],
+        occurrences,
         catalog,
         AnalysisContext(
             revision=config.revision,
@@ -169,6 +196,13 @@ async def run_scan_job(
                 "receipt": receipt_to_dict(receipt),
                 "coverage_limits": limits,
                 "tree_id": source.tree_id,
+                "lens": {
+                    "ran": lens_report is not None,
+                    "complete": lens_report.complete if lens_report else False,
+                    "kept": lens_report.kept if lens_report else 0,
+                    "model_calls": lens_report.model_calls if lens_report else 0,
+                    "notes": lens_notes,
+                },
             },
             indent=2,
         )
@@ -187,6 +221,7 @@ async def run_scan_job(
         published=published,
         artifact_dir=artifacts,
         sarif_files=tuple(sarif_files),
+        lens_report=lens_report,
     )
 
 

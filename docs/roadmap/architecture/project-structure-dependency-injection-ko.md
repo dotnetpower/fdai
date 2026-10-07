@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 0e48c08eb0212f5ca9f0af9371e79d38e5248a5e
+translation_source_sha: c623764bdd88ba3529f7811227c8997c5ea44de6
 translation_revised: 2026-10-07
 ---
 
@@ -169,7 +169,7 @@ import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 �
 | **콘솔 읽기 패널** | `ReadPanel` (`delivery/operator_api/panels.py`) | - | 코어 라우트만 (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` 은 참조용으로 제공되지만 UI 최소화를 위해 **미등록** | 포크가 `OperatorApiConfig.extra_panels` (각각 GET 전용 라우트로 래핑, 빌드 시 경로 검증) + 콘솔 `panels.tsx` 레지스트리 항목으로 버티컬 대시보드(FinOps 비용, 드리프트 보드, DR 드릴 이력) 추가 |
 | **T2 결정론적 검증 근거** | `Container.t2_deterministic_evidence_verifiers`를 통해 주입하는 `DeterministicEvidenceVerifier` 구현 | - | 런타임은 명시적인 사용 불가 `what_if` 및 `security` 검증기를 연결하므로 권위 있는 생산자 두 개 없이는 T2가 적격이 될 수 없습니다. | 시뮬레이션 엔진과 보안 스캐너 구현을 버전 있고 후보에 연결된 레코드와 함께 모두 주입합니다. 부분 연결, 오래되거나 충돌하는 근거, 합성 라이브 근거, 범위가 제한되지 않았거나 중복된 근거 메타데이터는 계속 보류합니다. |
 | **LLM 계량(metering)** | `MeteringSink` / `MeteringReader` (`core/metering/sink.py`); `MeteringEmitter`가 명시적인 `control_plane` 또는 `operator_chat` 범위와 함께 프로바이더가 측정한 `usage`를 기록 | - | 단일 프로세스 dev 실행 장치는 하나의 `InMemoryMeteringSink`를 공유합니다. T1, T2, 서술기 어댑터가 측정된 토큰을 발행합니다. 두 Azure 조립 분기는 같은 sink와 가격표를 Conversation Assurance에 전달합니다. 독립적인 Operator 서비스는 `GET /kpi/llm-cost`를 유지하고 SELECT-only 역할로 영속 `llm_invocation` 행을 읽으며 상세를 제한하되 token-only 집계는 정확하게 유지합니다. Interactive 로컬은 준비된 권위 있는 입력에서 정제된 인벤토리와 Settings 변환 결과를 별도로 materialize합니다. | 설정된 가격은 내부 예산 컨트롤에 남고 프로바이더 지출로 변환 결과되지 않으며, 누락된 프로바이더는 synthetic 대신 사용 불가 상태를 유지합니다. |
-| **코드 보안 팩과 검토 신호** | `PackSigner`, `PackSignatureVerifier`, `RemediationPackRegistry` (`shared/providers/remediation_pack.py`); `CodeSecurityDriftProjector` (`shared/providers/code_security.py`) | 정확한 매니페스트 바이트에 서명; 폐기 정보를 포함한 FDAI 소유 팩 기록만 가져오기 권한을 가짐; Heimdall이 drift를 게시하기 전에 변환기가 권한 없는 검토 패키지를 검증 | Ed25519 서명기와 검증기, 파일 기반 레지스트리, `code_security_drift_payload` | HSM 기반 서명기, 데이터베이스 기반 레지스트리 |
+| **코드 보안 팩과 검토 신호** | `PackSigner`, `PackSignatureVerifier`, `RemediationPackRegistry` (`shared/providers/remediation_pack.py`); `CodeSecurityDriftProjector` (`shared/providers/code_security.py`); `CodeSecurityLensModel` (`shared/providers/code_security_lens.py`) | 정확한 매니페스트 바이트에 서명; 폐기 정보를 포함한 FDAI 소유 팩 기록만 가져오기 권한을 가짐; Heimdall이 drift를 게시하기 전에 변환기가 권한 없는 검토 패키지를 검증 | Ed25519 서명기와 검증기, 파일 기반 레지스트리, `code_security_drift_payload`, 출력을 코어가 다시 검증하는 도구 없는 Azure OpenAI 렌즈 어댑터 | HSM 기반 서명기, 데이터베이스 기반 레지스트리 |
 | **Infra 모듈** | `infra/modules/<seam>/` (Terraform 서브-모듈, `var.<seam>_kind` 로 선택) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | [csp-neutrality-ko.md § 승인된 대안 Azure 구현](csp-neutrality-ko.md#승인된-대안-azure-구현approved-alternative-azure-implementations) 에 따라 다른 서브-모듈 선택; 모듈의 출력 계약은 고정 유지 |
 
 모든 경계가 주입되는 인터페이스이므로 고객 추가나 두 번째 클라우드는 구현 등록 문제입니다 -

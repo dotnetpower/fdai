@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: da7f88cc79883ba5f5fe6f8ae9ea1aea73a60192
+translation_source_sha: 35bd4432f0a50a9b48db30d845b6f659f4ee0668
 translation_revised: 2026-10-07
 ---
 
@@ -19,7 +19,7 @@ MDASH(Codename MDASH 에이전트형 코드 스캐너), GitHub code scanning, Op
 
 > **상태:** 결정론적 코어, 카탈로그, 서명된 조치 팩, 팩 레지스트리, 반출 검사, 재스캔 검증,
 > 오탐 판정, Heimdall 검토 drift, 알림, 운영자 CLI, 결정론 스캔 레인
-> ([코드 보안 스캔](code-security-scanning-ko.md))이 구현되었습니다. LLM 렌즈 레인은 남아 있습니다.
+> ([코드 보안 스캔](code-security-scanning-ko.md))과 오프패스 LLM 렌즈 레인이 구현되었습니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-findings.md)을 참조하세요.
 
 ## 설계 개요
@@ -237,8 +237,9 @@ FDAI는 내보낼 때 기준 커버리지 증적과 이슈 스냅샷을 팩 기�
   전달하고, A4 경로(`digest_code_security_findings_daily`)는 요약을 전달합니다. 둘 다 영어와
   한국어로 표시되며 별칭, 리비전, 건수만 담습니다. 배포 환경의 매트릭스에 두 경로 중 하나라도
   없으면 승인 채널로 대체하지 않고 계획 단계에서 실패합니다.
-- **LLM 렌즈 레인:** 핫패스 LLM 사용은 선언된 위치로 제한되므로, 렌즈 레인은 출력이 비활성
-  가설뿐인 오프패스 배치 작업자로 실행됩니다(상태는 원장을 참조하세요).
+- **LLM 렌즈 레인:** 핫패스 LLM 사용은 선언된 위치로 제한되므로, 렌즈 레인은 스캔 작업 안에서
+  출력이 비활성 가설뿐인 오프패스 작업자로 실행됩니다
+  ([코드 보안 스캔](code-security-scanning-ko.md#llm-렌즈-레인)).
 - **설치:** 이 경로는 FDAI의 세 가지 설치 경로에 어떤 검사도 추가하지 않습니다.
 
 ## 라이선스
