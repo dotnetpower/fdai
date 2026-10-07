@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: d497a262fbcb5a6cf0b00288afbb8c3f754b6d22
+translation_source_sha: b5e941571b74e42600d2ff976857536073320baf
 translation_revised: 2026-10-07
 ---
 # 온톨로지 구조 모델
@@ -291,9 +291,7 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 대규모 컬렉션 관계는 루트를 배치로 나누고 검토된 모든 LinkType 쪽과 부분 사유를 보존합니다.
 모집단 매니페스트는 범위가 제한된 길이 접두 다이제스트를 사용하며 모든 읽기는 계속 권한이
 없습니다.
-
-앵커별 커버리지 행, traversal 모집단 개수, 임대된 메트릭 읽기 이어받기는 같은 투영 그래프에 대한
-파생 조회 근거입니다. 어느 것도 객체, 링크, 상태 사실을 추가하지 않으며 실행 권한을 주지 않습니다.
+커버리지 행, traversal 개수, 메트릭 이어받기는 권한이 없는 파생 조회 근거입니다.
 
 Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인에서 가져옵니다. 요청 용어 그룹은
 검토된 각 하위 유형이 한국어와 영어 용어를 따로 결속할 수 있도록 최대 192개까지 둘 수 있으며,
