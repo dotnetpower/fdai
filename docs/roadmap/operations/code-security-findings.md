@@ -1,8 +1,8 @@
 ---
-title: Code Security Findings
+title: Code Security Findings (Detected Issues)
 ---
 
-# Code Security Findings
+# Code Security Findings (Detected Issues)
 
 This document defines how FDAI turns source-code security findings into one canonical issue per
 root cause, with one unambiguous severity, a deterministic priority, and a conversational

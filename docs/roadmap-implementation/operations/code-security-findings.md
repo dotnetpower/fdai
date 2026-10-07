@@ -1,4 +1,4 @@
-# Code Security Findings implementation ledger
+# Code Security Findings (Detected Issues) implementation ledger
 
 This delivery ledger preserves reviewable implementation scope, append-only transitions,
 and resumable work while the roadmap owner remains focused on normative design.

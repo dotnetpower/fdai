@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: 734b640c58a6e25529d1ca71fca1fa110c20cd85
-translation_revised: 2026-10-07
+translation_source_sha: b64376e18298f705d88d643ba05f693120682c3f
+translation_revised: 2026-10-08
 ---
 
 # 코드 보안 점검 결과

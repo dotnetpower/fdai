@@ -1,6 +1,6 @@
 ---
 agent: agent
-description: Remediate FDAI security findings interactively from remediation pack {{PACK_ID}}.
+description: Fix detected FDAI security issues interactively from remediation pack {{PACK_ID}}.
 argument-hint: "[scope: P0-P1 | severity-high | FG-001 | FDAI-SEC-<id>]"
 ---
 

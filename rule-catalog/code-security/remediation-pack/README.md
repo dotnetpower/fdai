@@ -1,4 +1,4 @@
-# FDAI Remediation Pack {{PACK_ID}}
+# FDAI Remediation Pack {{PACK_ID}} (security fixes)
 
 This pack lets you fix FDAI security findings in one interactive session with a coding agent such
 as GitHub Copilot or Claude Code. The agent asks how far to go (triage, mitigate, fix, or harden),

@@ -1,5 +1,5 @@
 ---
-description: Remediate FDAI security findings interactively from a remediation pack.
+description: Fix detected FDAI security issues interactively from a remediation pack.
 argument-hint: "<path to {{PACK_DIR}}> [scope: P0-P1 | severity-high | FG-001 | FDAI-SEC-<id>]"
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash(python3:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*)
 ---

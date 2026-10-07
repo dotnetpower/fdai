@@ -556,10 +556,7 @@ than draw a false direction.
 A relationship a box carries is still a relationship the drawing shows. Counting only the lines made
 the graph report less coverage than it presents once nesting removed them, which understates the
 evidence an operator is looking at just as surely as overstating it would.
-
-Code-security issues aren't ontology objects. They stay in the code-security catalog, state rows,
-and Operator projection keyed by repository revision, so their counts never enter ontology
-completeness or relationship queries.
+Code-security issues aren't ontology objects, so they never enter ontology queries.
 
 ## Migration and rollout
 
