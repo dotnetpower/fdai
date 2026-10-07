@@ -267,8 +267,7 @@ The query contract separates open graph expansion from an ordered semantic path.
 
 Verified query execution may expose bounded node lifecycle observations for presentation. Each
 observation preserves the verified node kind, dependency position, status, and evidence references
-without provider commands or execution authority. Missing, delayed, or failed observation delivery
-does not change the result; collection and metric reads stay read-only, and one-hop collection relations expose both anchors and lineage while verification re-derives the kind and LinkType side.
+without provider commands or execution authority. Missing delivery does not change the result; collection relations batch roots, preserve every reviewed LinkType side and partial reason, and population manifests use a bounded length-prefixed digest while all reads remain authority-free.
 
 Resource subtype operands come from the reviewed `Resource.type` value domain. Its request-term
 groups may hold up to 192 groups so that each reviewed subtype can bind its own bilingual terms;

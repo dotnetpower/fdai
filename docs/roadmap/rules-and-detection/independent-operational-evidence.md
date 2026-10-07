@@ -382,6 +382,8 @@ release is never reused; the same change regenerates the source-bound semantic a
 The E10 state list and E11 metric collection FunctionType revisions follow the same rule. Their
 corpus refresh records repository provenance only; it neither issues an operational proof nor
 admits a prior proof under the new release.
+P1 population counts, E12 lineage limitations, and semantic answer output reservations remain
+typed query and presentation evidence. They do not issue or admit independent operational evidence.
 Projection-only ontology vocabulary can refresh that corpus manifest's source digests without
 changing the release digest or any operational-evidence lookup authority.
 

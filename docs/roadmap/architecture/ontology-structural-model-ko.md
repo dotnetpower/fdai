@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 7138765a9be7912df07273b954d7740da98197c3
+translation_source_sha: 5309490375c88118e8fbd83536180625a302cd05
 translation_revised: 2026-10-08
 ---
 # 온톨로지 구조 모델
@@ -288,6 +288,9 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 한 단계 컬렉션 관계 계획은 앵커 ObjectSet과 계보 traversal 결과를 모두 노출합니다. 형식은 이
 앵커를 이름이 있는 인스턴스와 구분하며, 검증은 근거가 확인된 종류와 검토된 LinkType 쪽을 다시
 도출합니다. 앵커별 커버리지가 없으면 빈 간선을 입증할 수 없습니다.
+대규모 컬렉션 관계는 루트를 배치로 나누고 검토된 모든 LinkType 쪽과 부분 사유를 보존합니다.
+모집단 매니페스트는 범위가 제한된 길이 접두 다이제스트를 사용하며 모든 읽기는 계속 권한이
+없습니다.
 
 Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인에서 가져옵니다. 요청 용어 그룹은
 검토된 각 하위 유형이 한국어와 영어 용어를 따로 결속할 수 있도록 최대 192개까지 둘 수 있으며,

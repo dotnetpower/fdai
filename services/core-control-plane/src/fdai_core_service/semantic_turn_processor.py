@@ -2898,6 +2898,10 @@ def _terminal_result(
     )
 
 
+# Bytes kept for each output that follows, enough for its metadata and evidence references.
+_LATER_OUTPUT_RESERVE_BYTES = 2_048
+
+
 def _render_query_answer(
     request: SemanticTurnRequest,
     execution: QueryPlanExecution,
@@ -2927,7 +2931,10 @@ def _render_query_answer(
     projected_incident = False
     projected_relationships = False
     relationship_node_ids = set(ontology_relationships_node_id or ())
-    for node_id in execution.output_node_ids:
+    for output_index, node_id in enumerate(execution.output_node_ids):
+        # Each later output keeps room for at least its metadata, so one large table never
+        # crowds out the outputs after it and rejects the whole answer.
+        later_outputs = len(execution.output_node_ids) - output_index - 1
         result = execution.results.get(node_id)
         if result is None:
             if (
@@ -3023,7 +3030,8 @@ def _render_query_answer(
                 ),
             ]
             answer_output_limit = 220_000 if inventory_document else 48_000
-            if len(_answer_json(candidate).encode("utf-8")) > answer_output_limit:
+            reserved = _LATER_OUTPUT_RESERVE_BYTES * later_outputs
+            if len(_answer_json(candidate).encode("utf-8")) > answer_output_limit - reserved:
                 break
             rows = candidate_rows
         outputs.append(
@@ -3542,6 +3550,10 @@ def _render_general_query_answer(
                 if korean
                 else "- One verified output returned no matching rows."
             )
+            # An empty read of an incomplete source is never presented as a verified absence.
+            if output.get("source_complete") is False:
+                notice = output.get("source_truncation_reason")
+                lines.extend(["", _incomplete_source_notice(notice, korean=korean)])
         else:
             lines.append(
                 f"- 전체 {total}개 행 중 {returned}개를 검증했습니다."

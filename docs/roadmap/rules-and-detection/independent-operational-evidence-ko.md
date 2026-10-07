@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: c6f9a08c05200f1ca972d6d7bdd913d73b5aaf00
+translation_source_sha: 877fcf18110e995310bc0a9266ad979e52a22dae
 translation_revised: 2026-10-08
 ---
 # 독립 운영 근거 발급
@@ -374,6 +374,8 @@ operating-intent 출처 개정과 일치하는 관측 범위 워터마크를 요
 E10 상태 목록과 E11 메트릭 컬렉션 FunctionType revision도 같은 규칙을 따릅니다. 해당 corpus
 갱신은 리포지토리 출처 정보만 기록하며 운영 증명을 발급하거나 이전 증명을 새 릴리스에 허용하지
 않습니다.
+P1 모집단 개수, E12 계보 제한, 의미 답변 출력 예약은 타입이 지정된 조회 및 표현 근거로
+유지됩니다. 독립 운영 근거를 발급하거나 허용하지 않습니다.
 변환 전용 온톨로지 어휘는 릴리스 digest나 운영 근거 조회 권한을 바꾸지 않고도 해당 corpus
 매니페스트의 원본 다이제스트를 갱신할 수 있습니다.
 

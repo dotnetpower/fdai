@@ -10,6 +10,7 @@ from fdai.shared.providers.ontology_instance import (
     MAX_ONTOLOGY_OBJECT_SCAN,
     OntologyGraphSnapshot,
     OntologyInstanceStore,
+    OntologyInstanceValidationError,
     OntologyObjectRecord,
     json_values_equal,
 )
@@ -192,12 +193,17 @@ class ObjectSetService:
     ) -> OntologyGraphSnapshot | None:
         # A scan the page already read is the population; reading it again adds only cost.
         filters, text_in_filters = _pushed_filters(definition.predicates)
-        scan = scanned or await self._store.scan_objects(
-            object_types=concrete_types,
-            property_equals=filters,
-            property_text_in=text_in_filters,
-            candidate_limit=MAX_ONTOLOGY_OBJECT_SCAN,
-        )
+        try:
+            scan = scanned or await self._store.scan_objects(
+                object_types=concrete_types,
+                property_equals=filters,
+                property_text_in=text_in_filters,
+                candidate_limit=MAX_ONTOLOGY_OBJECT_SCAN,
+            )
+        except OntologyInstanceValidationError:
+            # A snapshot that moved under the scan states nothing about the population; the
+            # page already read stands with its own truncation.
+            return None
         # A cut or incomplete scan states nothing about the population, so the first page and
         # its own truncation stand.
         if scan.truncated or not scan.source_complete:
