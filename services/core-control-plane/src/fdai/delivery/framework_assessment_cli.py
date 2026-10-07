@@ -22,7 +22,14 @@ from fdai.core.framework_assessment import (
     FrameworkAssessmentRuntime,
     FrameworkEvidenceReceipt,
     FrameworkOwnerBinding,
+    FrameworkRuleActivationPin,
     FrameworkSatisfactionStatus,
+)
+from fdai.core.rule_activation.ledger import StateStoreRuleActivationLedger
+from fdai.delivery.framework_rule_evidence_source import (
+    WorkloadRuleEvidence,
+    WorkloadRuleEvidenceStatus,
+    load_workload_rule_evidence,
 )
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_wara_scope import (
@@ -139,6 +146,8 @@ class FrameworkAssessmentTickReport:
     workload_resource_count: int
     waf_counts: Mapping[str, int]
     caf_counts: Mapping[str, int]
+    rule_evidence_status: str = WorkloadRuleEvidenceStatus.NO_ACTIVATION.value
+    rule_receipt_count: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -152,6 +161,8 @@ class FrameworkAssessmentTickReport:
             "workload_resource_count": self.workload_resource_count,
             "waf_counts": dict(sorted(self.waf_counts.items())),
             "caf_counts": dict(sorted(self.caf_counts.items())),
+            "rule_evidence_status": self.rule_evidence_status,
+            "rule_receipt_count": self.rule_receipt_count,
         }
 
 
@@ -207,6 +218,7 @@ def _profile(
     reviewed_at: datetime,
     inventory_generation: str | None = None,
     hierarchy_generation: str | None = None,
+    rule_activation: FrameworkRuleActivationPin | None = None,
 ) -> FrameworkAssessmentProfile:
     decisions = tuple(
         FrameworkApplicabilityDecision(
@@ -249,6 +261,7 @@ def _profile(
             ("development",) if catalog.framework_scope is FrameworkScopeKind.CLOUD_ESTATE else ()
         ),
         regulatory_context=(),
+        rule_activation=rule_activation,
     )
 
 
@@ -363,8 +376,13 @@ async def execute_framework_assessment_tick(
     caf_catalog: FrameworkAssessmentCatalog,
     now: datetime,
     source_revision: str,
+    rule_evidence: WorkloadRuleEvidence | None = None,
 ) -> FrameworkAssessmentTickReport:
-    """Publish one exact-scope WAF result and one exact-estate CAF result."""
+    """Publish one exact-scope WAF result and one exact-estate CAF result.
+
+    ``rule_evidence`` pins the Rule activation on the WAF profile and supplies one T0 Rule
+    receipt per Rule requirement. Without it, Rule requirements stay ``unknown``.
+    """
 
     if now.tzinfo is None:
         raise ValueError("framework assessment tick time MUST be timezone-aware")
@@ -383,6 +401,7 @@ async def execute_framework_assessment_tick(
         reviewer_identity=settings.reviewer_identity,
         reviewed_at=now,
         inventory_generation=scope.inventory_generation,
+        rule_activation=rule_evidence.pin if rule_evidence is not None else None,
     )
     caf_profile = _profile(
         caf_catalog,
@@ -402,6 +421,7 @@ async def execute_framework_assessment_tick(
             profile=waf_profile,
             evaluated_at=now,
             recorded_at=now,
+            evidence=rule_evidence.receipts if rule_evidence is not None else (),
         )
     )
     caf_result = await caf_service.assess(
@@ -430,6 +450,12 @@ async def execute_framework_assessment_tick(
         workload_resource_count=len(scope.resources),
         waf_counts=waf_result.aggregate_counts,
         caf_counts=caf_result.aggregate_counts,
+        rule_evidence_status=(
+            rule_evidence.status.value
+            if rule_evidence is not None
+            else WorkloadRuleEvidenceStatus.NO_ACTIVATION.value
+        ),
+        rule_receipt_count=len(rule_evidence.receipts) if rule_evidence is not None else 0,
     )
 
 
@@ -468,6 +494,15 @@ async def run_once(
     waf_catalog = _load_catalog("azure-waf")
     caf_catalog = _load_catalog("azure-caf")
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=settings.dsn))
+    rule_evidence = await load_workload_rule_evidence(
+        state_store=state_store,
+        activation=await StateStoreRuleActivationLedger(store=state_store).current_generation(),
+        scope=scope,
+        catalog=waf_catalog,
+        profile_scope_digest=_waf_scope_digest(scope),
+        evaluated_at=now,
+        source_identity="forseti-baseline-evaluation",
+    )
     return await execute_framework_assessment_tick(
         settings=settings,
         scope=scope,
@@ -483,6 +518,7 @@ async def run_once(
         caf_catalog=caf_catalog,
         now=now,
         source_revision=source_revision,
+        rule_evidence=rule_evidence,
     )
 
 

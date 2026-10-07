@@ -71,9 +71,12 @@ from fdai_service_contracts.baseline_cohort import (
 )
 from fdai_service_contracts.baseline_evaluation import (
     BaselineEvaluationCompletion,
+    BaselineEvaluationCoverage,
+    BaselineEvaluationCoverageLimitation,
     BaselineEvaluationOutcome,
     BaselineEvaluationTerminalOutcome,
     baseline_evaluation_completion_digest,
+    baseline_evaluation_coverage_digest,
     baseline_evaluation_outcome_digest,
 )
 from fdai_service_contracts.channel_attachment import (
@@ -762,6 +765,8 @@ __all__ = [
     "BackgroundTaskProjectionEnvelope",
     "BackgroundTaskProjectionUsage",
     "BaselineEvaluationCompletion",
+    "BaselineEvaluationCoverage",
+    "BaselineEvaluationCoverageLimitation",
     "BaselineEvaluationOutcome",
     "BaselineEvaluationTerminalOutcome",
     "BaselineTreatmentCohortReceipt",
@@ -1175,6 +1180,7 @@ __all__ = [
     "background_task_projection_id",
     "background_task_snapshot_sequence",
     "baseline_evaluation_completion_digest",
+    "baseline_evaluation_coverage_digest",
     "baseline_evaluation_outcome_digest",
     "baseline_treatment_cohort_receipt_digest",
     "build_background_task_progress",

@@ -106,6 +106,12 @@ class T0Engine:
         return T0Engine(index=self._index.with_rules(rules), evaluator=self._evaluator)
 
     @property
+    def index(self) -> RuleIndex:
+        """Return the exact dispatch index, so callers can derive expected pairs from it."""
+
+        return self._index
+
+    @property
     def evaluator_generation_digest(self) -> str | None:
         """Return the immutable evaluator artifact generation when available."""
 
@@ -218,6 +224,15 @@ class T0Engine:
         )
 
         return Verdict(findings=tuple(findings), audit_hint=audit)
+
+
+@dataclass(frozen=True, slots=True)
+class RuleGenerationSnapshot:
+    """One consistent engine, membership, and activation digest read under the decision lease."""
+
+    engine: T0Engine
+    rules: tuple[Rule, ...]
+    generation_digest: str | None
 
 
 def _finding_id(*, rule: Rule, resource_id: str, signal_id: str) -> str:

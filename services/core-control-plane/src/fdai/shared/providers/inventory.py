@@ -479,12 +479,54 @@ class EmptyInventory:
         yield InventoryBatch(final=True)
 
 
+class PromotedInventoryGenerationUnavailableError(RuntimeError):
+    """The active generation cannot be read as one complete, consistent snapshot."""
+
+
+class PromotedInventoryGenerationLimitError(PromotedInventoryGenerationUnavailableError):
+    """The active generation holds more Resources than the caller's bound."""
+
+
+@dataclass(frozen=True, slots=True)
+class PromotedInventoryGeneration:
+    """One complete promoted inventory generation read from committed storage."""
+
+    generation: str
+    resources: tuple[ResourceRecord, ...]
+    complete: bool
+    recorded_at: datetime | None
+
+
+class PromotedInventoryGenerationReader(Protocol):
+    """Read-only access to the active promoted inventory generation.
+
+    Implementations read the committed snapshot only. They never write and never
+    reflect delivery bookkeeping, so a baseline evaluator cannot advance them.
+    """
+
+    async def active_generation_id(self) -> str | None:
+        """Return only the active generation identity, so unchanged generations are cheap."""
+        ...
+
+    async def load_active_generation(
+        self,
+        *,
+        max_resources: int,
+    ) -> PromotedInventoryGeneration | None:
+        """Return the active generation, ``None`` when none exists, or raise when unusable."""
+        ...
+
+
 __all__ = [
     "EmptyInventory",
     "Inventory",
     "InventoryBatch",
     "InventoryGraphViewNotFoundError",
     "LinkRecord",
+    "PromotedInventoryGeneration",
+    "PromotedInventoryGenerationLimitError",
+    "PromotedInventoryGenerationReader",
+    "PromotedInventoryGenerationUnavailableError",
     "ProviderRelationshipEvidence",
     "ProviderScopeCoverage",
     "ProviderTypeCount",

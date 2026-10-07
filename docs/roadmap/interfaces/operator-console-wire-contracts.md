@@ -515,6 +515,26 @@ notice. A missing, malformed, unreadable, or stale notice is stamped `not-activa
 unauthenticated response carries no stamp, and a route cannot replace it. The header is an
 availability notice and grants no authority.
 
+### 13.14 Rule detected issue summary
+
+`GET /rules/findings-summary` returns schema version `2.0.0` when Forseti's latest version 2
+baseline coverage exists. Core binds the bounded Forseti baseline worker at startup when the state
+store and an inventory database are configured. `FDAI_BASELINE_EVALUATION_ENABLED=false` disables
+it, and `FDAI_BASELINE_EVALUATION_INTERVAL_SECONDS` and `FDAI_BASELINE_EVALUATION_MAX_RESOURCES`
+bound it.
+
+| Field | Meaning |
+|-------|---------|
+| `evaluated` | `true` only when coverage is complete and the outcomes match its outcome-set digest |
+| `complete` | Whether the T0 dispatch pair set is fully covered |
+| `counts` | Violated Resource count per bounded Rule reference; empty when not evaluated |
+| `expected_pair_count`, `covered_pair_count` | Dispatch-derived denominator and terminal outcomes in it |
+| `limitations` | Coverage limitation codes, such as `pair_missing`, when not complete |
+| `coverage_digest`, `rule_activation_generation_id` | The coverage record and activation generation it binds |
+
+Without version 2 coverage the response is `{"evaluated": false, "counts": {}}`. A malformed or
+ambiguous record returns `503` instead of an inferred zero. The summary grants no authority.
+
 ## Implementation status
 
 ### Implementation scope
@@ -540,6 +560,7 @@ availability notice and grants no authority.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-07 | implemented | Documented the Rule detected issue summary wire shape, which now reads Forseti's latest version 2 baseline coverage, reports incomplete coverage as not evaluated with limitation codes, and lists the Core baseline worker settings. | `current change`; `workflow_rule_projection.py`; `services/operator-service/tests/test_rule_findings_summary_admission.py` (20 passed); `services/core-control-plane/tests/runtime/test_baseline_evaluation_binding.py` (8 passed). | None for this contract. |
 | 2026-10-02 | implemented | Preserved opt-in trace privacy while carrying recorded call count through the existing numeric usage map. | `current change`; focused Core projection and Console numeric decoding/accounting checks; full task semantic cohort 916 passed. | Exact-source live presentation remains to be measured; no Incident or execution authority changed. |
 | 2026-09-29 | in-progress | Corrected the Python task workbench state. Since the Operator service split (`8f67c5d76`), no Operator owner serves the six workbench operations, and `GET /python-tasks/capabilities` answered HTTP `503` from a projection that nothing writes ([#1655](https://github.com/dotnetpower/fdai/issues/1655)). The Operator composition now owns the capability report and returns HTTP `200` with `available: false` and each missing owner. The console keeps the workbench closed and announces those reasons. | `current change`; `python_task_capability.py`, `family_adapters.py`, and Console `python-task.ts` and `workflow-builder.catalog.tsx`; `test_python_task_capability.py`, `test_workflow_definition_catalog.py`, and Console decoder and route tests passed. | Bind a governed Python task validator, VM task runner, and artifact store to the Operator service before the capability can report available. |
 | 2026-09-29 | implemented | Added `development_owner_only` to each HIL queue item and refused every approval of a parked category-only denial except the attested development Owner's own at the Console decision route, the Slack and Teams callback service, and the decision transaction; any other authorized approver may still reject it. | `current change`; `projection_logic.py`, `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py` and Console `api.test.ts` passed. | Retain one live Owner run under [#1623](https://github.com/dotnetpower/fdai/issues/1623). |

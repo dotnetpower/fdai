@@ -121,6 +121,16 @@ instead of inferring zero. A previously stored complete summary remains readable
 generation is incomplete or unavailable; absent authoritative records still render `evaluated:
 false`.
 
+**Known limitation.** The version 1 completion sets its expected denominator to the number of
+outcomes Forseti wrote, so it can't detect an omitted Resource and Rule pair. It also identifies an
+inventory observation rather than a Rule activation generation. A version 2 completion that derives
+expected pairs independently, and the migration of the Rule findings summary to it, are designed in
+[Framework Rule Evidence from T0](framework-rule-evidence.md#scoped-rule-coverage-contract). No runtime
+path calls the Forseti evaluation yet, and the version 1 audit binding calls the Saga agent directly
+for each record; the [baseline trigger](framework-rule-evidence.md#baseline-trigger) design
+replaces both. Until then, treat the version 1 summary as observed counts, not proof of complete
+coverage.
+
 ### Frozen configuration baseline checks
 
 Configuration drift is a T0 (deterministic rules) finding. A reviewed actual snapshot is frozen

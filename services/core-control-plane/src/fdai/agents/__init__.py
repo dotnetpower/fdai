@@ -74,6 +74,20 @@ from fdai.agents._framework.factory import (
     CostRuntimeBindings,
     instantiate_pantheon,
 )
+from fdai.agents._framework.forseti_baseline_evaluation import (
+    BASELINE_EVALUATION_COMPLETION_PREFIX,
+    BASELINE_EVALUATION_OUTCOME_PREFIX,
+    BaselineEvaluationAuditReference,
+    record_baseline_evaluation,
+)
+from fdai.agents._framework.forseti_baseline_worker import (
+    BASELINE_EVALUATION_CLAIM_PREFIX,
+    BASELINE_EVALUATION_COVERAGE_PREFIX,
+    BaselineWorkerLimits,
+    BaselineWorkerResult,
+    ForsetiBaselineScheduler,
+    ForsetiBaselineWorker,
+)
 from fdai.agents._framework.huginn_operator_receipt import (
     OperatorRequestReceiptGate,
     ReservedOperatorRequestReceipt,
@@ -173,6 +187,16 @@ async def request_context_index(runtime: PantheonRuntime, request: ContextIndexM
 
 
 __all__ = [
+    "BASELINE_EVALUATION_CLAIM_PREFIX",
+    "BASELINE_EVALUATION_COMPLETION_PREFIX",
+    "BASELINE_EVALUATION_COVERAGE_PREFIX",
+    "BASELINE_EVALUATION_OUTCOME_PREFIX",
+    "BaselineEvaluationAuditReference",
+    "BaselineWorkerLimits",
+    "BaselineWorkerResult",
+    "ForsetiBaselineScheduler",
+    "ForsetiBaselineWorker",
+    "record_baseline_evaluation",
     "ContextIndexMessage",
     "ContextIndexWorkerBindings",
     "request_context_index",

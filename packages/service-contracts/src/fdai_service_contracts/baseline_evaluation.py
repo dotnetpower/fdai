@@ -133,6 +133,93 @@ class BaselineEvaluationCompletion(ContractBase):
         return self
 
 
+class BaselineEvaluationCoverageLimitation(StrEnum):
+    """Why a version 2 coverage record cannot prove a complete denominator."""
+
+    PAIR_MISSING = "pair_missing"
+    DUPLICATE_PAIR = "duplicate_pair"
+    CONFLICTING_PAIR = "conflicting_pair"
+    UNEXPECTED_PAIR = "unexpected_pair"
+    RULE_REVISION_DRIFT = "rule_revision_drift"
+
+
+_COVERAGE_LIMITATION_COUNTS = {
+    BaselineEvaluationCoverageLimitation.PAIR_MISSING: "missing_pair_count",
+    BaselineEvaluationCoverageLimitation.DUPLICATE_PAIR: "duplicate_pair_count",
+    BaselineEvaluationCoverageLimitation.CONFLICTING_PAIR: "conflicting_pair_count",
+    BaselineEvaluationCoverageLimitation.UNEXPECTED_PAIR: "unexpected_pair_count",
+    BaselineEvaluationCoverageLimitation.RULE_REVISION_DRIFT: "revision_mismatch_count",
+}
+
+
+class BaselineEvaluationCoverage(ContractBase):
+    """Version 2 completion: an independently derived denominator for one activation generation.
+
+    The expected Resource and Rule pairs come from the same T0 dispatch, not from the written
+    outcomes, so an omitted pair is visible as ``pair_missing`` instead of a smaller denominator.
+    """
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    generation_id: Ref
+    generation_digest: Digest
+    inventory_observation_digest: Digest
+    rule_activation_generation_id: Annotated[str, Field(pattern=r"^rule-activation-[a-f0-9]{32}$")]
+    rule_activation_generation_digest: Digest
+    rule_catalog_digest: Digest
+    evaluated_rule_catalog_digest: Digest
+    dispatch_signal: Ref
+    expected_pair_set_digest: Digest
+    expected_pair_count: Count
+    covered_pair_count: Count
+    compliant_count: Count
+    violated_count: Count
+    abstained_count: Count
+    missing_pair_count: Count
+    duplicate_pair_count: Count
+    conflicting_pair_count: Count
+    unexpected_pair_count: Count
+    revision_mismatch_count: Count
+    outcome_set_digest: Digest
+    complete: bool
+    limitations: tuple[BaselineEvaluationCoverageLimitation, ...] = ()
+    audit_ref: Ref
+    audit_digest: Digest
+    completed_at: datetime
+    projection_authority: Literal[False] = False
+    execution_authority: Literal[False] = False
+    coverage_digest: Digest
+
+    @model_validator(mode="after")
+    def _canonical_coverage(self) -> BaselineEvaluationCoverage:
+        if self.completed_at.tzinfo is None or self.completed_at.utcoffset() is None:
+            raise ValueError("baseline evaluation coverage completed_at MUST be timezone-aware")
+        if self.compliant_count + self.violated_count + self.abstained_count != (
+            self.covered_pair_count
+        ):
+            raise ValueError("baseline evaluation coverage outcome counts MUST match covered pairs")
+        if self.covered_pair_count > self.expected_pair_count:
+            raise ValueError("baseline evaluation coverage cannot exceed the expected pairs")
+        if list(self.limitations) != sorted(set(self.limitations), key=lambda item: item.value):
+            raise ValueError("baseline evaluation coverage limitations MUST be unique and ordered")
+        derived = tuple(
+            limitation
+            for limitation, field in sorted(
+                _COVERAGE_LIMITATION_COUNTS.items(), key=lambda item: item[0].value
+            )
+            if int(getattr(self, field)) > 0
+        )
+        if self.limitations != derived:
+            raise ValueError("baseline evaluation coverage limitations MUST match their counts")
+        if self.complete != (not derived and self.covered_pair_count == self.expected_pair_count):
+            raise ValueError("baseline evaluation coverage complete MUST follow its counts")
+        expected = baseline_evaluation_coverage_digest(
+            **self.model_dump(mode="python", exclude={"coverage_digest"})
+        )
+        if self.coverage_digest != expected:
+            raise ValueError("baseline evaluation coverage digest mismatch")
+        return self
+
+
 def baseline_evaluation_outcome_digest(**values: object) -> str:
     """Return the canonical digest for fields accepted by an outcome record."""
 
@@ -157,10 +244,25 @@ def baseline_evaluation_completion_digest(**values: object) -> str:
     return content_digest(candidate.model_dump(mode="json", exclude={"completion_digest"}))
 
 
+def baseline_evaluation_coverage_digest(**values: object) -> str:
+    """Return the canonical digest for fields accepted by a version 2 coverage record."""
+
+    body = dict(values)
+    body.pop("coverage_digest", None)
+    candidate = BaselineEvaluationCoverage.model_construct(
+        coverage_digest="",
+        **cast(dict[str, Any], body),
+    )
+    return content_digest(candidate.model_dump(mode="json", exclude={"coverage_digest"}))
+
+
 __all__ = [
     "BaselineEvaluationCompletion",
+    "BaselineEvaluationCoverage",
+    "BaselineEvaluationCoverageLimitation",
     "BaselineEvaluationOutcome",
     "BaselineEvaluationTerminalOutcome",
     "baseline_evaluation_completion_digest",
+    "baseline_evaluation_coverage_digest",
     "baseline_evaluation_outcome_digest",
 ]

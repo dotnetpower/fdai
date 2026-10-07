@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 10956102e72c17617d4315e861260de8ee2ac26f
+translation_source_sha: d2ba0136557e678eea22ae16de5d58baffee8711
 translation_revised: 2026-10-07
 ---
 # 프로젝트 구조
@@ -86,6 +86,11 @@ Core는 계약 하위 모듈이 아니라 공유 계약 파사드를 통해 Rule
 위한 권한 없는 기준선 평가 터미널 기록도 소유합니다. 기록은 Rule별 결과와 세대별 완료를 담습니다. 이
 기록은 버전이 지정된 Core-to-Operator wire 표면만 추가하며, Forseti 판단, Saga 감사, Operator 변환
 결과 수락, Console 렌더링은 계속 별도 소유자에 남습니다.
+`core/framework_rule_evidence/`는 새 wire 표면 없이 이 결과를 프레임워크 근거로 변환합니다. T0와 같은
+`RuleIndex` 디스패치로 기대 Resource와 Rule 쌍을 도출하고, 범위별 커버리지에서 모든 활성화 멤버를
+계산하며, 순서가 정해진 결과 표로 각 WAF Rule 요구 사항을 변환합니다. `core/framework_assessment/`는
+프로필이 고정한 활성화 세대와 출처가 정확히 일치하는 Rule 영수증만 수락합니다. 두 모듈 모두 활성화,
+승인, 실행 권한을 부여하지 않습니다([T0 기반 프레임워크 규칙 근거](../rules-and-detection/framework-rule-evidence-ko.md)).
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,

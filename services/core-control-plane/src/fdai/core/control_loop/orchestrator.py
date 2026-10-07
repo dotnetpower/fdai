@@ -78,7 +78,7 @@ from fdai.core.risk_gate.preconditions import (
     PreconditionEvaluator,
 )
 from fdai.core.risk_gate.risk_table import RiskTable
-from fdai.core.tiers.t0_deterministic import T0Engine
+from fdai.core.tiers.t0_deterministic import RuleGenerationSnapshot, T0Engine
 from fdai.core.tiers.t1_lightweight.tier import T1Tier
 from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.trust_router import TrustRouter
@@ -500,6 +500,16 @@ class ControlLoop(
         """Return the immutable installed Rule catalog available for activation."""
 
         return tuple(self._available_rules_by_id.values())
+
+    async def rule_generation_snapshot(self) -> RuleGenerationSnapshot:
+        """Return the engine, membership, and generation digest that decisions currently use."""
+
+        async with self._rule_generation_barrier.read():
+            return RuleGenerationSnapshot(
+                engine=self._t0_engine,
+                rules=tuple(self._rules_by_id.values()),
+                generation_digest=self._rule_generation_digest,
+            )
 
     @property
     def rule_generation_digest(self) -> str | None:

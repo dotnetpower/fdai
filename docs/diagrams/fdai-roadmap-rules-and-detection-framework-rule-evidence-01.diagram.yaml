@@ -1,0 +1,81 @@
+id: fdai-roadmap-rules-and-detection-framework-rule-evidence-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: "Design at a glance. The main stages are Mimir: activation generation, Forseti: scoped Rule coverage, Huginn:
+      complete inventory generation, Append-only audit store, t0-rule-evaluator receipts, Framework assessment runtime
+      (shadow)."
+  ko:
+    title: 설계 요약
+    description: 설계 요약에 대한 FDAI 흐름입니다.
+    alt: "설계 요약. 주요 단계는 Mimir: 활성화 세대, Forseti: 범위별 규칙 커버리지, Huginn: 완전한 인벤토리 세대, 추가 전용 감사 저장소, t0-rule-evaluator 영수증, 프레임워크
+      평가 런타임 (shadow)입니다."
+canvas:
+  width: 900
+  height: 540
+  direction: RIGHT
+groups: []
+nodes:
+  - id: mimir
+    kind: process
+    shape: card
+    label:
+      en: "Mimir: activation generation"
+      ko: "Mimir: 활성화 세대"
+  - id: forseti
+    kind: process
+    shape: card
+    label:
+      en: "Forseti: scoped Rule coverage"
+      ko: "Forseti: 범위별 규칙 커버리지"
+  - id: huginn
+    kind: process
+    shape: card
+    label:
+      en: "Huginn: complete inventory generation"
+      ko: "Huginn: 완전한 인벤토리 세대"
+  - id: audit
+    kind: process
+    shape: card
+    label:
+      en: Append-only audit store
+      ko: 추가 전용 감사 저장소
+  - id: producer
+    kind: process
+    shape: card
+    label:
+      en: t0-rule-evaluator receipts
+      ko: t0-rule-evaluator 영수증
+  - id: assessment
+    kind: process
+    shape: card
+    label:
+      en: Framework assessment runtime (shadow)
+      ko: 프레임워크 평가 런타임 (shadow)
+edges:
+  - id: flow-01
+    from: mimir
+    to: forseti
+    kind: request
+  - id: flow-02
+    from: huginn
+    to: forseti
+    kind: request
+  - id: flow-03
+    from: forseti
+    to: audit
+    kind: request
+  - id: flow-04
+    from: forseti
+    to: producer
+    kind: request
+  - id: flow-05
+    from: producer
+    to: assessment
+    kind: request

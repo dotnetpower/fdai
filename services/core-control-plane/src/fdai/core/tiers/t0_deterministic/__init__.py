@@ -25,6 +25,7 @@ from fdai.core.tiers.t0_deterministic.engine import (
     AbstainEvaluator,
     PolicyEvaluator,
     PolicyResult,
+    RuleGenerationSnapshot,
     T0Engine,
 )
 from fdai.core.tiers.t0_deterministic.index import (
@@ -57,6 +58,7 @@ __all__ = [
     "PolicyEvaluator",
     "PolicyResult",
     "RuleIndex",
+    "RuleGenerationSnapshot",
     "T0Engine",
     "Verdict",
 ]

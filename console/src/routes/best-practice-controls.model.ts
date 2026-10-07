@@ -70,6 +70,8 @@ export interface BestPracticeRequirementView {
   readonly freshness_days: number | null;
   readonly status: ControlStatus;
   readonly evidence_refs: readonly string[];
+  /** Server-owned codes explaining an unknown requirement, such as an unactivated Rule. */
+  readonly limitations: readonly string[];
 }
 
 export interface BestPracticeDetail extends BestPracticeControl {
@@ -262,6 +264,9 @@ export function decodeBestPracticeDetail(value: unknown): BestPracticeDetail {
         freshness_days: nullableInteger(row, "freshness_days", label),
         status: decodeStatus(panelNonEmptyString(row, "status", label), label),
         evidence_refs: panelStringArray(row["evidence_refs"], `${label}.evidence_refs`),
+        limitations: row["limitations"] === undefined
+          ? []
+          : panelStringArray(row["limitations"], `${label}.limitations`),
       };
     },
   );

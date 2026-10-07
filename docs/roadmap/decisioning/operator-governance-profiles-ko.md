@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 057dd1d3377e4c4bc248ec3d13b30ff15cfceae5
-translation_revised: 2026-10-06
+translation_source_sha: 82a1fe3c29b476ebf8897dec204ea993617e62b6
+translation_revised: 2026-10-07
 ---
 # 운영자 거버넌스 프로필
 
@@ -150,6 +150,10 @@ Console은 타입이 지정된 정책 개정 요청을 Operator API로 제출하
 |------|-----|------|
 | 승인 정책 | 승인 프로필, 승인자 그룹, 정족수, 에스컬레이션 사다리의 단계와 기한 | 다중 운영자 프로필에서는 정족수를 카탈로그 최소값보다 낮출 수 없습니다 |
 | 허용(OPA/Rego) 정책 | 범위, 태그, 시간, 환경에 따라 ActionType을 차단하거나, 승인을 요구하거나, 허용하는 설치 규칙 | ActionType의 Release 최대값을 넘을 수 없습니다 |
+
+탐지 규칙 활성화는 여기서 편집하는 정책이 아닙니다. 규칙은 별도의 규칙 활성화 흐름으로 활성화되며,
+Forseti의 baseline 평가와 [프레임워크 규칙 근거](../rules-and-detection/framework-rule-evidence-ko.md)는
+그 활성화 세대를 고정합니다. 정책 개정은 T0가 평가하는 규칙을 바꾸지 않습니다.
 
 ### 검증과 활성화
 
