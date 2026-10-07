@@ -24,8 +24,23 @@ from ._support import CATALOG_ROOT, REVISION, catalog, result, sarif
 SQLI, CMDI, CODE, DESER, PATH = 89, 78, 95, 502, 22
 
 
-def _verifiers() -> VerifierCatalog:
+def _shipped() -> VerifierCatalog:
     return load_verifier_catalog(CATALOG_ROOT, frozenset(catalog().weakness_classes.classes))
+
+
+def _verifiers() -> VerifierCatalog:
+    """The shipped catalog with every verifier promoted, to test analysis apart from the gate."""
+    import yaml
+
+    shipped = _shipped()
+    taint = [
+        rule["id"]
+        for rule_file in sorted((CATALOG_ROOT / "rules" / "verify").glob("*.yaml"))
+        for rule in yaml.safe_load(rule_file.read_text())["rules"]
+    ]
+    keys = (*(f"python:{name}" for name in shipped.python.classes), *taint)
+    promotion = shipped.promotion.model_copy(update={"promoted": keys})
+    return shipped.model_copy(update={"promotion": promotion})
 
 
 def _issues(findings: list[tuple[str, int, int]]) -> tuple[CodeSecurityIssue, ...]:
@@ -474,37 +489,39 @@ def test_unpromoted_taint_rule_hit_stays_in_shadow() -> None:
         ).occurrences
     )
     (issue,) = build_issues(occurrences, catalog(), AnalysisContext(revision=REVISION))
-    (verdict,) = taint_rule_verifications((issue,), occurrences, _verifiers())  # type: ignore[arg-type]
+    (verdict,) = taint_rule_verifications((issue,), occurrences, _shipped())  # type: ignore[arg-type]
     assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
     assert verdict.reason == "verifier_in_shadow"
     assert verified_confidence((verdict,)) == {}
 
 
 def test_unpromoted_python_class_stays_in_shadow(tmp_path: Path) -> None:
-    root = tmp_path / "catalog"
-    root.mkdir()
-    text = (CATALOG_ROOT / "verifiers.yaml").read_text(encoding="utf-8")
-    (root / "verifiers.yaml").write_text(
-        text.replace("    - python:command_injection\n", ""), encoding="utf-8"
-    )
-    shadow = load_verifier_catalog(root, frozenset(catalog().weakness_classes.classes))
+    shipped = _shipped()
+    assert not shipped.promoted("python:command_injection")
     source, cwe = VULNERABLE["request_args_shell"]
     body = textwrap.dedent(source)
     (tmp_path / "app.py").write_text(body, encoding="utf-8")
     issues = _issues([("app.py", _line(body, "# sink"), cwe)])
-    (verdict,) = verify_issues(tmp_path, issues, shadow, revision=REVISION)
+    (promoted,) = verify_issues(tmp_path, issues, _verifiers(), revision=REVISION)
+    assert promoted.outcome is VerifierOutcome.VERIFIED
+    (verdict,) = verify_issues(tmp_path, issues, shipped, revision=REVISION)
     assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
     assert verdict.reason == "verifier_in_shadow"
 
 
 def test_promotion_list_is_backed_by_the_real_code_corpus() -> None:
     import yaml
-    from fdai.core.security.code_findings.verifier_evaluation import locations_from_mapping
+    from fdai.core.security.code_findings.verifier_evaluation import load_verifier_corpus
 
-    _, locations = locations_from_mapping(
+    corpus = load_verifier_corpus(
         yaml.safe_load((CATALOG_ROOT / "evaluation" / "verifier-corpus.yaml").read_text())
     )
-    evidenced = {location.key for location in locations if location.vulnerable}
-    promoted = set(_verifiers().promotion.promoted)
-    assert promoted <= evidenced
+    promoted = set(_shipped().promotion.promoted)
+    assert promoted <= corpus.covered_keys()
+    assert f"{corpus.header['corpus_id']}@{corpus.header['version']}" in (
+        _shipped().promotion.evidence
+    )
+    held_out = {item.key for item in corpus.locations if item.split == "holdout"}
+    held_out |= {key for spec in corpus.expected_results for key in spec.keys}
+    assert promoted <= held_out
     assert "fdai.verify.js.path-traversal" not in promoted
