@@ -317,8 +317,11 @@ an extension can't be validated against a producer that never reaches `satisfied
   extension resources with bounded GETs: diagnostic settings (on the blob service for storage),
   blob soft delete and versioning, SQL transparent data encryption, and the PostgreSQL flexible
   server `require_secure_transport` parameter. A failed read leaves the property unobserved. NSG
-  `security_rules` are projected only when every inbound allow rule uses one protocol, one numeric
-  port, and one source that isn't an any-source alias, because the NSG Rules match exact literals.
+  `security_rules` are projected only when every inbound allow rule has a protocol, ports written
+  as `*`, one port, or one range, alone or in a list, and a source prefix, prefix list, or
+  application security group. Version 1.1.0 of the NSG exposure Rules judges wildcard protocols,
+  port ranges and lists, and the `*`, `Internet`, `Any`, `0.0.0.0/0`, and `::/0` sources;
+  version 1.0.0 matched only one exact literal shape.
   Role assignments stay unobserved: one subscription's assignments can't prove the complete set
   for an identity or a subscription, which also needs group membership, guest user type, and
   just-in-time eligibility from Microsoft Graph and Privileged Identity Management.
@@ -327,7 +330,8 @@ an extension can't be validated against a producer that never reaches `satisfied
   deployment-owned `Workload`, it binds one estate scope to the whole active inventory generation.
   `--re-evaluate` reruns Forseti's baseline in memory with the repository Rules the current
   activation pins and replays the row projection over the stored raw properties. Extension reads
-  need a fresh collection.
+  need a fresh collection. `--candidate-activation` measures a pending catalog change with an
+  in-memory activation built from the repository Rule revisions; it's never installed.
 
 ## Related docs
 

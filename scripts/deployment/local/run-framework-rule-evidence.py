@@ -15,6 +15,10 @@ replays the Azure normalized Rule property projection over each stored raw row, 
 a fresh collection without calling Azure: columns the stored row dropped, such as a null
 ``identity`` or ``zones``, stay unobserved.
 
+``--candidate-activation`` (with ``--re-evaluate``) measures a pending catalog change: it builds an
+in-memory activation generation from the repository revisions of the current activation's member
+Rules. The candidate is never installed and has its own generation digest.
+
 Usage: ``FDAI_STATE_STORE_DSN`` must point at the loopback development database.
 """
 
@@ -37,7 +41,7 @@ from fdai.core.framework_assessment import (
     FrameworkAssessmentRequest,
     FrameworkAssessmentRuntime,
 )
-from fdai.core.rule_activation.generation import rule_digest
+from fdai.core.rule_activation.generation import build_rule_activation_generation, rule_digest
 from fdai.core.rule_activation.ledger import StateStoreRuleActivationLedger
 from fdai.core.tiers.t0_deterministic import RuleGenerationSnapshot, RuleIndex, T0Engine
 from fdai.core.tiers.t0_deterministic.opa_evaluator import OpaRegoEvaluator
@@ -113,8 +117,13 @@ async def _active_scope(dsn: str, now: datetime) -> WaraResolvedScope:
     )
 
 
-def _activated_rules(activation: RuleActivationGeneration) -> tuple[Rule, ...]:
-    """Load the repository Rules the activation pins; stop when any member digest differs."""
+def _activated_rules(
+    activation: RuleActivationGeneration, *, candidate: bool = False
+) -> tuple[Rule, ...]:
+    """Load the repository Rules the activation pins; stop when any member digest differs.
+
+    With ``candidate`` the repository revision of each member is returned even when it differs.
+    """
 
     catalog_root = _ROOT / "rule-catalog"
     registry = PackageResourceSchemaRegistry()
@@ -144,7 +153,7 @@ def _activated_rules(activation: RuleActivationGeneration) -> tuple[Rule, ...]:
     selected: list[Rule] = []
     for member in activation.members:
         rule = by_id.get(member.rule_id)
-        if rule is None or rule_digest(rule) != member.rule_digest:
+        if rule is None or (not candidate and rule_digest(rule) != member.rule_digest):
             raise SystemExit("repository Rule catalog differs from the active activation")
         selected.append(rule)
     return tuple(selected)
@@ -219,16 +228,27 @@ async def _re_evaluated_store(
     return memory
 
 
-async def run(dsn: str, *, re_evaluate: bool = False) -> dict[str, object]:
+async def run(dsn: str, *, re_evaluate: bool = False, candidate: bool = False) -> dict[str, object]:
     now = datetime.now(tz=UTC)
     scope = await _active_scope(dsn, now)
     catalog = load_framework_assessment_catalog(_WAF)
     postgres = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
     activation = await StateStoreRuleActivationLedger(store=postgres).current_generation()
     store: StateStore = postgres
+    changed_members = 0
     if re_evaluate:
         if activation is None:
             raise SystemExit("no current Rule activation")
+        if candidate:
+            installed = {member.rule_id: member.rule_digest for member in activation.members}
+            rules = _activated_rules(activation, candidate=True)
+            changed_members = sum(rule_digest(rule) != installed[rule.id] for rule in rules)
+            activation = build_rule_activation_generation(
+                rules,
+                profile_id=activation.profile_id,
+                profile_version=activation.profile_version,
+                created_at=now,
+            )
         store = await _re_evaluated_store(dsn, activation, now)
     scope_digest = _waf_scope_digest(scope)
     evidence = await load_workload_rule_evidence(
@@ -242,6 +262,8 @@ async def run(dsn: str, *, re_evaluate: bool = False) -> dict[str, object]:
     )
     report: dict[str, object] = {
         "baseline_source": "re_evaluated_in_memory" if re_evaluate else "local_state_store",
+        "activation_source": "candidate_in_memory" if candidate else "installed",
+        "candidate_changed_members": changed_members,
         "mode": "shadow",
         "execution_authority": False,
         "inventory_generation": scope.inventory_generation,
@@ -331,7 +353,17 @@ def main() -> int:
     if urlparse(dsn).hostname not in _LOCAL_HOSTS:
         print("this local evidence run accepts only a loopback database", file=sys.stderr)
         return 2
-    report = asyncio.run(run(dsn, re_evaluate="--re-evaluate" in sys.argv[1:]))
+    flags = set(sys.argv[1:])
+    if "--candidate-activation" in flags and "--re-evaluate" not in flags:
+        print("--candidate-activation requires --re-evaluate", file=sys.stderr)
+        return 2
+    report = asyncio.run(
+        run(
+            dsn,
+            re_evaluate="--re-evaluate" in flags,
+            candidate="--candidate-activation" in flags,
+        )
+    )
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0
 
