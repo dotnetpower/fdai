@@ -120,7 +120,7 @@ async function expectBoundedWaraLayout(page: Page): Promise<void> {
   }
 }
 
-test("keeps WARA recommendation columns readable at desktop widths", async ({ page }) => {
+test("keeps WARA recommendation columns readable on desktop and mobile", async ({ page }) => {
   await installWaraFixture(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rules?view=controls&framework=azure-wara");
@@ -129,4 +129,18 @@ test("keeps WARA recommendation columns readable at desktop widths", async ({ pa
 
   await page.setViewportSize({ width: 993, height: 641 });
   await expectBoundedWaraLayout(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobile = await page.locator(".wara-controls-view").evaluate((view) => {
+    const wrap = view.querySelector(".data-table-wrap") as HTMLElement;
+    const visible = [...view.querySelectorAll(".data-table thead th")]
+      .map((element) => element.getBoundingClientRect().width)
+      .filter((width) => width > 0);
+    return { scrollWidth: wrap.scrollWidth, clientWidth: wrap.clientWidth, visible };
+  });
+  // Title and satisfaction stay readable without horizontal scrolling on a phone.
+  expect(mobile.scrollWidth).toBeLessThanOrEqual(mobile.clientWidth);
+  expect(mobile.visible).toHaveLength(2);
+  expect(mobile.visible[0]).toBeGreaterThan(mobile.visible[1] ?? 0);
+  expect(mobile.visible[1]).toBeGreaterThanOrEqual(90);
 });

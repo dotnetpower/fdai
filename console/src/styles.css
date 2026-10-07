@@ -13576,6 +13576,9 @@ main { padding-bottom: 60px !important; }
   .rules-route .rule-activation-form .btn,
   .rules-route .rule-activation-history .btn { min-height: 44px; }
   .rules-route .data-table { min-width: 660px; }
+  /* Controls tables hide secondary columns here, so the remaining columns fit the viewport. */
+  .rules-route .controls-catalog-view .data-table { min-width: 100%; }
+  .rules-route .controls-catalog-view .data-table th:first-child { width: 58%; }
   .rules-route .data-table tbody tr { min-height: 44px; }
 }
 @media (max-width: 360px) {

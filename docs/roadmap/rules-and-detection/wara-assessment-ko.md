@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: a5ce6c0a0c2383108abeb6f9c8a3f6476f70d8f2
+translation_source_sha: 0b29290ced33651f3cad7eeda47b95a240ff7097
 translation_revised: 2026-10-07
 ---
 # WARA 근거 기반 평가
@@ -216,6 +216,7 @@ crosswalk, shadow consumer, 변환 결과 소유권 및 권한 없음 계약은 
 표는 권고 제목을 주 텍스트로 표시하고 리소스 종류와 GUID 앞 8자리를 보조 텍스트로 표시합니다.
 자문 영향도, 매핑 처리 결과, 평가, 충족 상태는 각각 별도 열에 표시하므로 상태가 한 셀에 압축되지
 않습니다. 프레임워크 표는 자체 열 너비를 사용하며 규칙 카탈로그 표의 열 너비가 적용되지 않습니다.
+휴대폰에서는 가로 스크롤 없이 권고 열과 충족 상태 열을 표시합니다.
 규칙 카탈로그 레일은 WARA 상태를 해석하지 않고 이 Controls 목적지로 이동합니다. 레일의 레이블과
 개수는 카탈로그 탐색 정보이며, 적용 가능성, 평가, 충족 상태 또는 근거 제한 사항은 서버 소유
 WARA 변환 결과만 보고할 수 있습니다.

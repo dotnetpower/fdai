@@ -216,7 +216,8 @@ it never hides the remaining catalog behind a client-only row limit.
 The table keeps the recommendation title as the primary text, with the resource type and an
 eight-character GUID prefix as secondary text. Advisory impact, mapping disposition, evaluation, and
 satisfaction each have their own column, so no state is compressed into one cell. Framework tables
-own their column tracks; the Rule catalog table's column widths never apply to them.
+own their column tracks; the Rule catalog table's column widths never apply to them. On a phone,
+the table shows the recommendation and satisfaction columns without horizontal scrolling.
 The Rules catalog rail reaches this Controls destination without interpreting WARA state. Its
 labels and counts remain catalog navigation; only the server-owned WARA projection can report
 applicability, evaluation, satisfaction, or evidence limitations.
