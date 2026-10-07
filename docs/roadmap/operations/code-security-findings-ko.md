@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: 8d260b9bf7b4b043dc7cadeacc4cd376bd067b95
+translation_source_sha: bf84fffc89b8cdf8854e8c915bc3e6cdfc2bab00
 translation_revised: 2026-10-07
 ---
 
@@ -19,7 +19,8 @@ MDASH(Codename MDASH 에이전트형 코드 스캐너), GitHub code scanning, Op
 
 > **상태:** 결정론적 코어, 카탈로그, 서명된 조치 팩, 팩 레지스트리, 반출 검사, 재스캔 검증,
 > 오탐 판정, Heimdall 검토 drift, 알림, 운영자 CLI, 결정론 스캔 레인
-> ([코드 보안 스캔](code-security-scanning-ko.md))과 오프패스 LLM 렌즈 레인이 구현되었습니다.
+> ([코드 보안 스캔](code-security-scanning-ko.md)), 오프패스 LLM 렌즈 레인, 약점 검증기, 평가 도구,
+> 읽기 전용 Console 화면이 구현되었습니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-findings.md)을 참조하세요.
 
 ## 설계 개요
@@ -240,6 +241,12 @@ FDAI는 내보낼 때 기준 커버리지 증적과 이슈 스냅샷을 팩 기�
 - **LLM 렌즈 레인:** 핫패스 LLM 사용은 선언된 위치로 제한되므로, 렌즈 레인은 스캔 작업 안에서
   출력이 비활성 가설뿐인 오프패스 작업자로 실행됩니다
   ([코드 보안 스캔](code-security-scanning-ko.md#llm-렌즈-레인)).
+- **Console 화면:** `publish-review --record-state`와 `scan --record-state`는 각 검토 묶음을 저장소
+  리비전마다 한 번 상태 저장소에 기록하며, 데이터베이스 위치는 `FDAI_STATE_STORE_DSN`에서만
+  읽습니다. 이미 기록된 리비전에 다른 묶음이 오면 거부합니다. Operator API는 읽기 역할에
+  `GET /code-security/reviews`를 제공하고, Console의 **감사·증적 > 코드 보안** 화면은 판단, 우선순위와
+  신뢰도별 건수, 노출, 커버리지를 보여 줍니다. 형식이 잘못된 행은 보류된 기록으로 표시되며, 이
+  화면에는 승인, 실행, 조치 컨트롤이 없습니다.
 - **설치:** 이 경로는 FDAI의 세 가지 설치 경로에 어떤 검사도 추가하지 않습니다.
 
 ## 라이선스

@@ -77,6 +77,7 @@ def _build_data_sources(
                 "/assurance-twin/posture",
                 "/assurance-twin/reviews",
                 "/assurance-twin/review",
+                "/code-security/reviews",
             ),
             availability="unknown" if configured else "unavailable",
             configured=configured,

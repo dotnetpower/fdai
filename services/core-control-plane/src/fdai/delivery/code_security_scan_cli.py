@@ -45,6 +45,11 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
     scan.add_argument("--bwrap", default="/usr/bin/bwrap")
     scan.add_argument("--kafka-bootstrap-servers")
     scan.add_argument(
+        "--record-state",
+        action="store_true",
+        help="record the review for the Console in the state store from FDAI_STATE_STORE_DSN",
+    )
+    scan.add_argument(
         "--lens-model",
         action="append",
         default=[],
@@ -73,6 +78,13 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
             args, catalog_root, executables, scanners, publisher, lens_catalog, lens_models
         )
     lens = result.lens_report
+    recorded = False
+    if args.record_state:
+        from fdai.delivery.persistence.state_store_code_security_review import (
+            record_review_from_environment,
+        )
+
+        recorded = await record_review_from_environment(result.package)
     return {
         "ok": True,
         "revision": result.revision,
@@ -90,6 +102,7 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
         else {"kept": lens.kept, "model_calls": lens.model_calls, "notes": list(lens.notes)},
         "verified": sum(1 for item in result.verifier_results if item.outcome.value == "verified"),
         "published": result.published,
+        "recorded": recorded,
         "artifact_dir": str(result.artifact_dir),
         "export_sarif_args": list(sarif_specs(result)),
     }

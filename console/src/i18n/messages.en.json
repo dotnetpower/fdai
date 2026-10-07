@@ -108,6 +108,7 @@
     "contextSelectionComparisons": "Context policy comparisons",
     "browserEvidence": "Browser evidence",
     "assuranceTwin": "Assurance Twin",
+    "codeSecurity": "Code security",
     "ruleTrace": "Trace",
     "agentActivity": "Agent activity",
     "rules": "Rules",
@@ -208,6 +209,7 @@
       "browserEvidence": "Browser evidence",
       "forecastLearning": "Forecast learning",
       "assuranceTwin": "Assurance Twin",
+      "codeSecurity": "Code security",
       "dashboard": "Dashboard",
       "operatingOutcomes": "Operating outcomes",
       "controlAssurance": "Control assurance",
@@ -266,6 +268,7 @@
       "browserEvidence": "Immutable redacted evidence from allowlisted browser captures",
       "forecastLearning": "Prediction closure, miss origin, publication, and retention evidence",
       "assuranceTwin": "Posture report, ambient change reviews, and evidence gaps",
+      "codeSecurity": "Scan reviews, priority, and coverage per repository revision",
       "dashboard": "Healthy, risk, and cost, sourced from the audit log",
       "operatingOutcomes": "Trends, baselines, and contributors for core operating metrics",
       "controlAssurance": "Guard evidence, release blockers, and promotion readiness",
@@ -1005,6 +1008,47 @@
       "resource": "Resource",
       "severity": "Severity",
       "reason": "Reason"
+    }
+  },
+  "codeSecurity": {
+    "subtitle": "Read-only code-security scan reviews per repository revision. Findings never grant approval or execution authority.",
+    "readOnlyTitle": "Inspection only.",
+    "readOnlyBody": "Counts and opaque issue ids only; code, paths, and fixes stay in remediation packs on developer machines.",
+    "resourceLabel": "code-security reviews",
+    "unavailable": "Authoritative code-security review evidence is unavailable.",
+    "empty": "No code-security review has been recorded yet.",
+    "withheld": "Withheld review records",
+    "kpi": {
+      "reviews": "Reviews",
+      "openIssues": "Issues in latest reviews",
+      "urgent": "Urgent reviews",
+      "incomplete": "Incomplete coverage"
+    },
+    "column": {
+      "repository": "Repository",
+      "revision": "Revision",
+      "decision": "Decision",
+      "issues": "Issues",
+      "priority": "P0 / P1 / P2",
+      "confidence": "Verified or proven",
+      "exposure": "Exposure",
+      "recordedAt": "Recorded"
+    },
+    "decision": {
+      "urgent": "Urgent",
+      "open": "Open",
+      "clear": "Clear",
+      "coverage_incomplete": "Coverage incomplete"
+    },
+    "exposure": {
+      "exposed": "Exposed",
+      "internal": "Internal",
+      "not_deployed": "Not deployed",
+      "unknown": "Unknown"
+    },
+    "gap": {
+      "code_security_review_malformed": "A stored review is malformed and was withheld.",
+      "code_security_review_truncated": "More reviews exist than this view shows."
     }
   },
   "workflowApps": {

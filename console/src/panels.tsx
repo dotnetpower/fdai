@@ -155,6 +155,10 @@ const AssuranceTwinRoute = lazyRoute(
   () => import("./routes/assurance-twin"),
   "AssuranceTwinRoute",
 );
+const CodeSecurityRoute = lazyRoute(
+  () => import("./routes/code-security"),
+  "CodeSecurityRoute",
+);
 const loadAnalyticsHubs = () => import("./routes/analytics-hubs");
 const OperatingOutcomesRoute = lazyRoute(loadAnalyticsHubs, "OperatingOutcomesRoute");
 const ControlAssuranceRoute = lazyRoute(loadAnalyticsHubs, "ControlAssuranceRoute");
@@ -417,6 +421,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.assuranceTwin"),
     group: "evidence",
     component: AssuranceTwinRoute,
+  },
+  {
+    id: "code-security",
+    label: t("nav.panel.codeSecurity"),
+    subtitle: t("nav.panelSub.codeSecurity"),
+    group: "evidence",
+    component: CodeSecurityRoute,
   },
   {
     id: "conversation-search",

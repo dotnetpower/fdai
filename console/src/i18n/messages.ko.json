@@ -108,6 +108,7 @@
     "contextSelectionComparisons": "컨텍스트 정책 비교",
     "browserEvidence": "브라우저 근거",
     "assuranceTwin": "Assurance Twin",
+    "codeSecurity": "코드 보안",
     "ruleTrace": "추적",
     "agentActivity": "에이전트 활동",
     "rules": "규칙",
@@ -208,6 +209,7 @@
       "browserEvidence": "브라우저 근거",
       "forecastLearning": "예측 학습",
       "assuranceTwin": "Assurance Twin",
+      "codeSecurity": "코드 보안",
       "dashboard": "대시보드",
       "operatingOutcomes": "운영 성과",
       "controlAssurance": "통제 보증",
@@ -266,6 +268,7 @@
       "browserEvidence": "허용된 브라우저 캡처의 변경 불가한 마스킹 근거",
       "forecastLearning": "예측 종료, 누락 원인, 게시 및 보존 근거",
       "assuranceTwin": "자세 보고서, 변경 사항에 대한 상시 검토, 근거 공백",
+      "codeSecurity": "저장소 리비전별 스캔 검토, 우선순위, 커버리지",
       "dashboard": "감사 로그 기반 건강도 / 위험 / 비용",
       "operatingOutcomes": "핵심 운영 지표의 추세, 기준선, 기여 요인",
       "controlAssurance": "가드 근거, 승격 차단 원인, 승격 준비도",
@@ -1005,6 +1008,47 @@
       "resource": "리소스",
       "severity": "심각도",
       "reason": "사유"
+    }
+  },
+  "codeSecurity": {
+    "subtitle": "저장소 리비전별 코드 보안 스캔 검토를 읽기 전용으로 보여 줍니다. 결과는 승인이나 실행 권한을 부여하지 않습니다.",
+    "readOnlyTitle": "조회 전용입니다.",
+    "readOnlyBody": "건수와 불투명한 이슈 ID만 표시합니다. 코드, 경로, 수정 내용은 개발자 장비의 조치 팩에만 있습니다.",
+    "resourceLabel": "코드 보안 검토",
+    "unavailable": "권위 있는 코드 보안 검토 근거를 사용할 수 없습니다.",
+    "empty": "기록된 코드 보안 검토가 아직 없습니다.",
+    "withheld": "보류된 검토 기록",
+    "kpi": {
+      "reviews": "검토",
+      "openIssues": "최신 검토의 이슈",
+      "urgent": "긴급 검토",
+      "incomplete": "커버리지 불완전"
+    },
+    "column": {
+      "repository": "저장소",
+      "revision": "리비전",
+      "decision": "판단",
+      "issues": "이슈",
+      "priority": "P0 / P1 / P2",
+      "confidence": "검증 또는 입증",
+      "exposure": "노출",
+      "recordedAt": "기록 시각"
+    },
+    "decision": {
+      "urgent": "긴급",
+      "open": "열림",
+      "clear": "이상 없음",
+      "coverage_incomplete": "커버리지 불완전"
+    },
+    "exposure": {
+      "exposed": "노출됨",
+      "internal": "내부",
+      "not_deployed": "미배포",
+      "unknown": "알 수 없음"
+    },
+    "gap": {
+      "code_security_review_malformed": "저장된 검토 형식이 잘못되어 보류했습니다.",
+      "code_security_review_truncated": "이 화면에 표시된 것보다 많은 검토가 있습니다."
     }
   },
   "workflowApps": {

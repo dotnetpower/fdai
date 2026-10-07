@@ -18,8 +18,9 @@ Opengrep, Trivy, and other producers.
 
 > **Status:** The deterministic core, catalog, signed remediation pack, pack registry, export
 > gate, rescan verification, false-positive adjudication, Heimdall review drift, notifications,
-> operator CLI, and the deterministic scanning lane ([Code Security Scanning](code-security-scanning.md))
-> and the off-path LLM lens lane are implemented. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
+> operator CLI, the deterministic scanning lane ([Code Security Scanning](code-security-scanning.md)),
+> the off-path LLM lens lane, weakness verifiers, the evaluation harness, and the read-only
+> Console view are implemented. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
 
 ## Design at a glance
 
@@ -248,6 +249,13 @@ review log.
 - **LLM lens lane:** hot-path LLM use is limited to declared places, so the lens lane runs as an
   off-path worker inside the scan job whose output is inert hypotheses
   ([Code Security Scanning](code-security-scanning.md#llm-lens-lane)).
+- **Console view:** `publish-review --record-state` and `scan --record-state` store each review
+  package once per repository revision in the state store, reading the database location from
+  `FDAI_STATE_STORE_DSN` only. A different package for a recorded revision is refused. The
+  Operator API serves `GET /code-security/reviews` to reader roles, and the Console
+  **Evidence > Code security** route shows decisions, counts by priority and confidence,
+  exposure, and coverage. Malformed rows appear as withheld records, and the view offers no
+  approval, execution, or remediation control.
 - **Installation:** this path adds no gate to the three FDAI installation paths.
 
 ## Licensing

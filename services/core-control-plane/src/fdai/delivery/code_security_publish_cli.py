@@ -47,6 +47,11 @@ def add_publish_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]
     publish.add_argument("--out", help="write the review package and planned notifications here")
     publish.add_argument("--kafka-bootstrap-servers", help="publish on the deployment event bus")
     publish.add_argument(
+        "--record-state",
+        action="store_true",
+        help="record the review for the Console in the state store from FDAI_STATE_STORE_DSN",
+    )
+    publish.add_argument(
         "--matrix", default=str(repo_asset_root() / "config" / "notifications-matrix.yaml")
     )
     publish.add_argument(
@@ -162,6 +167,13 @@ async def publish_review(args: argparse.Namespace) -> dict[str, object]:
         published = await heimdall_publisher(
             args.kafka_bootstrap_servers
         ).publish_code_security_drift(package)
+    recorded = False
+    if args.record_state:
+        from fdai.delivery.persistence.state_store_code_security_review import (
+            record_review_from_environment,
+        )
+
+        recorded = await record_review_from_environment(package)
     if args.out:
         Path(args.out).write_text(
             json.dumps({"package": package, "notifications": planned}, indent=2) + "\n"
@@ -169,6 +181,7 @@ async def publish_review(args: argparse.Namespace) -> dict[str, object]:
     return {
         "ok": True,
         "published": published,
+        "recorded": recorded,
         "decision": code_security_drift_payload(package)["decision"],
         "issue_count": package["issue_count"],
         "notifications": planned,

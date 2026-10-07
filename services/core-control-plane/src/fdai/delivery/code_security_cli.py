@@ -84,6 +84,9 @@ from fdai.delivery.code_security_review_cli import (
 )
 from fdai.delivery.code_security_scan_cli import add_scan_command, run_scan
 from fdai.delivery.code_security_signing import Ed25519PackSigner
+from fdai.delivery.persistence.state_store_code_security_review import (
+    CodeSecurityReviewConflictError,
+)
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.code_security import (
     CodeSecurityCatalogError,
@@ -366,6 +369,8 @@ def main(argv: list[str] | None = None) -> int:
         output = {"ok": False, "reason": "adjudication_rejected", "error": str(exc)}
     except SourceAcquisitionError as exc:
         output = {"ok": False, "reason": "source_unavailable", "error": str(exc)}
+    except CodeSecurityReviewConflictError as exc:
+        output = {"ok": False, "reason": "review_conflict", "error": str(exc)}
     except ExportDeniedError as exc:
         output = {"ok": False, "reason": "export_denied", "error": str(exc)}
     except (
