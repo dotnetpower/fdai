@@ -285,8 +285,135 @@ time-bound role that the customer grants in its own tenant. The Hub grants none.
    operator adds its settings.
 5. The first Plan replaces any source-built images with signed images.
 
-Today the Terraform application stage renders workloads. The Hub path moves workload rendering to
-the lifecycle agent, and the Terraform stage keeps only platform resources.
+Today the Terraform application stage renders workloads. The Hub path moves the rendering of
+namespaced workload objects to the lifecycle agent, as
+[Workload rendering migration](#workload-rendering-migration) defines. Terraform keeps Azure
+resources, cluster-scoped objects, and authority-granting role bindings.
+
+## Workload rendering migration
+
+This section defines how a Hub-managed installation moves workload rendering from the Terraform
+application stage to the lifecycle agent, and how that move is rolled back. The one-command source
+deployment and the signed offline package keep the Terraform application stage unchanged.
+
+### Current rendering
+
+The deployment CLI builds a `workloads` map and a `scheduled_jobs` map from substrate outputs,
+image digests, and the product profile. It then applies one Terraform root,
+`infra/runtimes/aks/workloads`, through the exact-plan claim, apply, and verification-only recovery
+stages. That root writes three kinds of objects:
+
+- namespaced Kubernetes objects for each workload and scheduled job;
+- cluster-scoped Kubernetes objects and role bindings that grant FDAI identities their reach;
+- Azure resources: federated identity credentials, the API Management browser gateway, and its
+  network security rule.
+
+### Design and critique
+
+**Initial design:** Run the whole Terraform workloads root inside the lifecycle agent.
+
+**Critique:**
+
+- The root writes Azure resources, but ADR-0003 A11 keeps the Azure write identity on the
+  execution host.
+- The root creates the namespace and a cluster role. The lifecycle agent holds Kubernetes rights
+  in FDAI namespaces only.
+- API Management reads its backend address from the external LoadBalancer Services. If the agent
+  owned those Services, the infrastructure phase would depend on the workload phase.
+- Workload values mix product content, such as images, probes, and security settings, with
+  installation identifiers, such as client IDs and endpoints. A Release can't carry the
+  identifiers, and the Hub must never see them.
+- Removing addresses with `terraform state rm` changes state outside a reviewed exact plan.
+
+**Revised contract:** Split ownership by object kind. The lifecycle agent renders only namespaced
+workload objects from three separately signed inputs. Terraform releases and readopts those
+objects only through exact plans that use `removed` and `import` blocks.
+
+### Object ownership on the Hub path
+
+| Objects | Scope | Owner |
+|---------|-------|-------|
+| Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, internal Service, ServiceAccount, SecretProviderClass, CronJob, and the identity-bridge ConfigMap | FDAI namespace | Lifecycle agent |
+| External LoadBalancer Services for the Operator API and the Document Ingestion API | FDAI namespace | Infrastructure agent, because API Management binds to their addresses |
+| Executor Kubernetes-effect and external-scale Roles and RoleBindings | FDAI namespace and exact target namespaces | Infrastructure agent, because they grant authority |
+| Namespace, and the inventory-reader ClusterRole and ClusterRoleBinding | Cluster | Infrastructure agent |
+| Federated identity credentials, the API Management browser gateway with its APIs and operations, and its network security rule | Azure | Infrastructure agent |
+
+The lifecycle agent never creates or changes a role binding, so a workload apply can't widen any
+identity's reach.
+
+### Render inputs
+
+The lifecycle agent renders from three inputs. Each has its own signer and its own visibility.
+
+| Input | Content | Signed by | Hub sees |
+|-------|---------|-----------|----------|
+| Workload template in the Release | Images by component, commands, ports, probes, security context, sidecars, default sizing, and environment keys with their value sources | Vendor release key | Digest |
+| Entity override values | Replicas, CPU, and memory inside the template's bounds | Customer configuration key | Value |
+| Installation binding | Identity client and resource IDs, Kafka and PostgreSQL endpoints, the Key Vault name, secret names, the installation and license bindings, and sealed identifiers decrypted locally | Installation key | Digest only |
+
+The infrastructure agent writes the installation binding inside the installation after its phase.
+It combines the outputs of its own Terraform roots with the sealed identifiers that it decrypts from
+the configuration package, as [Lifecycle Configuration](lifecycle-configuration.md#value-classes)
+defines. Each environment entry in the template declares its
+value source: a literal, a configuration key, or a binding key. The renderer rejects an unknown key
+and any other value source, so a template can't carry an endpoint and a Plan never needs a binding
+value.
+
+### Phases of an upgrade Plan
+
+1. **Infrastructure:** The infrastructure agent applies Azure resources, cluster-scoped objects,
+   role bindings, external Services, and a federated identity credential for every workload and
+   job in the target Release. It then writes the installation binding and its receipt.
+2. **Schema expand:** The Release ships its database migration as a Kubernetes Job template. The
+   lifecycle agent runs it in the FDAI namespace with a dedicated migration identity, under the
+   existing database-scoped lock and deadlines, before any workload switches.
+3. **Workloads:** The lifecycle agent renders the objects, compares them with its locally derived
+   envelope, and applies them with server-side apply under its own field manager.
+4. **Verify:** Both agents require healthy workloads, a second zero-change render, a zero-change
+   plan for the remaining Terraform roots, and independent readback.
+
+A workload that is new in a Release receives its federated identity credential in phase 1, before
+its pod exists in phase 3. On the existing paths, the managed host keeps running migrations
+directly before the application stage.
+
+### Ownership handoff for an existing installation
+
+An enrolled installation moves its workload objects to the lifecycle agent in four steps. Each step
+needs a local lifecycle authorization receipt, and no step deletes or recreates a running object.
+
+1. **Shadow parity:** The agent renders the objects and compares them with the live objects without
+   writing. Differences that come only from server defaults and binding order are normalized. The
+   step passes after the configured number of consecutive zero-difference reports.
+2. **Release from Terraform:** The infrastructure agent applies an exact plan that adds `removed`
+   blocks with `destroy = false` for the agent-owned addresses. Terraform 1.7 and later support
+   these blocks, and the pinned toolchain is 1.9.8. The plan must show no destroy and no update.
+3. **Adopt:** The agent applies the same render with server-side apply under the
+   `fdai-lifecycle-agent` field manager and takes over the fields that Terraform managed. Each
+   object records the Release ID and render digest in annotations.
+4. **Verify:** A second render shows zero changes, workloads stay healthy, and the remaining
+   Terraform roots plan zero changes.
+
+**Rollback:** The infrastructure agent applies an exact plan with `import` blocks for the same
+addresses, and a following zero-change plan proves that Terraform state matches the live objects.
+The agent then records that it released ownership and stops reconciling those objects. A failure in
+step 2 or 3 leaves the running objects unchanged, so rollback never needs a recreate.
+
+### Render parity
+
+Until a single renderer exists, the Terraform root and the lifecycle agent implement one workload
+template contract. A focused test feeds the same input matrix to both renderers and compares the
+planned Terraform values with the agent output. The matrix covers product profiles, add-ons, the
+identity bridge, and executor scale targets. The comparison reuses the deployment CLI's existing
+rules that drop Kubernetes server defaults and normalize secret-provider bindings, and it also
+checks the protected CronJob template digests. Any difference fails the test.
+
+### Open questions
+
+- Which database role the migration identity holds, and how it differs from the service-owned
+  roles.
+- Whether the existing paths later apply agent-rendered manifests through Terraform, so that only
+  one renderer remains.
 
 ## Example installations
 
@@ -320,7 +447,9 @@ configuration tables belong to [Lifecycle Configuration](lifecycle-configuration
 ## Honest limits
 
 - Nothing in this document is implemented yet.
-- Moving workload rendering out of Terraform needs its own migration design.
+- Workload rendering outside Terraform is designed in
+  [Workload rendering migration](#workload-rendering-migration). The agent renderer, the render
+  parity test, and the ownership handoff aren't implemented.
 - The dual-slot self-upgrade of agents and Target Hubs needs its own failure analysis.
 - How entitlement reaches a Hub-managed installation is an open question. A Hub upgrade never
   renews a Trial.

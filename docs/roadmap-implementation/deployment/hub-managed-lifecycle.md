@@ -20,7 +20,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Reported state, drift, and reconciliation | not-started | Design only: Entities and reported state, and Failure, drift, and reconciliation sections | Agents report sub-state of the Core Entity |
 | Commands with expiry | not-started | Design only: Commands and overrides section | No command raises authority |
 | Operations-loop exclusion of FDAI-owned resources | not-started | Design only: Separation from the operations loop section | Ownership is proven by signed Foundation receipts and Terraform state identity, not by the `fdai:managed=true` tag |
-| Workload rendering outside Terraform | not-started | Design only: Enrollment and migration section | Needs its own migration design |
+| Workload rendering outside Terraform | not-started | Design only: `docs/roadmap/deployment/hub-managed-lifecycle.md` Workload rendering migration section | Design published with object ownership, render inputs, phases, ownership handoff, rollback, and render parity. No agent renderer, parity test, or handoff exists. |
 
 ### Implementation history
 
@@ -28,6 +28,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 |------|-------|--------|----------|-----------|
 | 2026-10-02 | not-started | Adopted the ledger with the accepted ADR-0003 design. No implementation exists. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md`, `docs/roadmap/architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md`; design-route, roadmap-tracking, constitution, translation, punctuation, and link checks | Every item below |
 | 2026-10-05 | in-progress | Added pure deployment-cli Lifecycle Plan admission and constraint evaluators with deterministic tests. The checks are shadow-only and are not wired into any Hub, installation agent, apply stage, or receipt path. | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py`, `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py`, `packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q --no-cov packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli ruff check packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli ruff format --check packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli mypy --strict packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py` | Hub service, enrollment, lifecycle agents, exact-plan wiring, authorization receipts, drift reconciliation, commands, operations-loop exclusion, workload rendering migration, and governed runtime receipts remain open |
+| 2026-10-07 | not-started | Published the workload rendering migration design for #1946: object ownership between the lifecycle agent and the infrastructure agent, three signed render inputs, Plan phases including the schema-expand Job, an ownership handoff through `removed` and `import` blocks in exact plans, rollback, and a render parity check. No implementation exists. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md` Workload rendering migration section; `infra/runtimes/aks/workloads/main.tf`, `infra/runtimes/aks/workloads/browser_gateway.tf`, and `packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py` reviewed as the current rendering source; design-route, roadmap-tracking, translation, punctuation, and link checks | Agent renderer and workload template, render parity test, schema-expand Job, ownership handoff and rollback, and the migration identity's database role remain open |
 
 ### Remaining work
 
@@ -60,7 +61,20 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Record a risk-gate test that denies an operations-loop action targeting a resource with a
   signed Foundation ownership receipt, and a test in which a manually tagged customer resource
   doesn't become an FDAI-owned Entity.
-- [ ] Publish a migration design that moves workload rendering from the Terraform application stage
-  to the lifecycle agent, with rollback, before any Hub-managed installation exists.
+- [x] Publish a migration design that moves workload rendering from the Terraform application stage
+  to the lifecycle agent, with rollback, before any Hub-managed installation exists. Published in
+  the Workload rendering migration section of `docs/roadmap/deployment/hub-managed-lifecycle.md`
+  for #1946.
+- [ ] Add the Release workload template and the lifecycle agent renderer, and record a render parity
+  test in which the Terraform workloads root and the agent produce equal objects for the full input
+  matrix, including protected CronJob template digests.
+- [ ] Add the installation binding that the infrastructure agent writes from its Terraform outputs,
+  and record a test in which the renderer rejects an unknown key and any value source other than a
+  literal, a configuration key, or a binding key.
+- [ ] Add the schema-expand migration Job, decide the migration identity's database role, and record
+  a test in which no workload switches before the Job receipt exists.
+- [ ] Record an ownership handoff test in which shadow parity passes, a `removed` exact plan shows no
+  destroy or update, server-side apply adoption renders zero changes, and an `import` rollback plans
+  zero changes without recreating any running object.
 - [ ] Retain one governed connected-installation receipt and one offline Target Hub receipt that
   show an automatic upgrade, independent readback, and a second zero-change plan.
