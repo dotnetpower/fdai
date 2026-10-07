@@ -32,6 +32,7 @@ import asyncio
 import json
 import os
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -70,7 +71,8 @@ from fdai.core.security.code_findings.receipts import (
     build_receipt,
     receipt_to_dict,
 )
-from fdai.delivery.code_security_acquire import SourceAcquisitionError
+from fdai.core.security.code_findings.verifier import verified_confidence, verify_issues
+from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
 from fdai.delivery.code_security_publish_cli import add_publish_command, publish_review
 from fdai.delivery.code_security_registry import FileRemediationPackRegistry
 from fdai.delivery.code_security_review_cli import (
@@ -88,6 +90,7 @@ from fdai.rule_catalog.code_security import (
     Exposure,
     load_code_security_catalog,
 )
+from fdai.rule_catalog.code_security_verifiers import load_verifier_catalog
 from fdai.shared.providers.remediation_pack import PackRegistryError
 
 _UPLOAD = (
@@ -122,6 +125,11 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument(
         "--catalog-root", default=str(repo_asset_root() / "rule-catalog" / "code-security")
     )
+    export.add_argument(
+        "--verify-repository",
+        help="git repository to acquire at --revision and run the weakness verifiers against",
+    )
+    export.add_argument("--work-root", help="private work directory for --verify-repository")
     revoke = sub.add_parser("revoke", help="revoke an exported pack")
     revoke.add_argument("--registry", required=True)
     revoke.add_argument("--pack-id", required=True)
@@ -193,13 +201,32 @@ def _export(args: argparse.Namespace) -> dict[str, object]:
         )
         if line.strip()
     )
-    issues = build_issues(
-        occurrences,
-        catalog,
-        AnalysisContext(
-            revision=args.revision, exposure=Exposure(args.exposure), known_exploited=known
-        ),
+    context = AnalysisContext(
+        revision=args.revision, exposure=Exposure(args.exposure), known_exploited=known
     )
+    issues = build_issues(occurrences, catalog, context)
+    verified = 0
+    if args.verify_repository:
+        if not args.work_root:
+            raise ValueError("--verify-repository requires --work-root")
+        source = GitSourceAcquirer(Path(args.work_root).resolve()).acquire(
+            args.verify_repository, args.revision
+        )
+        verifications = verified_confidence(
+            verify_issues(
+                source.path,
+                issues,
+                load_verifier_catalog(
+                    Path(args.catalog_root), frozenset(catalog.weakness_classes.classes)
+                ),
+                revision=args.revision,
+            )
+        )
+        verified = len(verifications)
+        if verifications:
+            issues = build_issues(
+                occurrences, catalog, replace(context, verifications=verifications)
+            )
     projects = tuple(
         ProjectRoot(**entry)
         for entry in (json.loads(Path(args.projects).read_text()) if args.projects else [])
@@ -270,6 +297,7 @@ def _export(args: argparse.Namespace) -> dict[str, object]:
         "occurrences": len(occurrences),
         "issues": len(issues),
         "issues_in_pack": len(pack.issue_ids),
+        "verified": verified,
         "dropped": dropped,
     }
 

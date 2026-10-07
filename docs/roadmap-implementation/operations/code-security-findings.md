@@ -8,8 +8,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 The deterministic core for SARIF ingestion, severity, canonical issues, priority, fix groups,
 signed remediation packs, the diff guard, result import, rescan verification, adjudication,
 Heimdall review publication, notifications, sandboxed scanning lanes, and a synthetic evaluation
-harness is implemented and covered by focused tests. The Console view, CWE verifiers, opt-in
-proof, a curated evaluation corpus, and a deployed scan runner are not built. The capability stays
+harness, and Python weakness verifiers are implemented and covered by focused tests. The Console
+view, opt-in proof, a curated evaluation corpus, and a deployed scan runner are not built. The capability stays
 in shadow mode; passing focused tests does not promote it or prove a deployed path.
 
 ### Implementation scope
@@ -25,7 +25,7 @@ in shadow mode; passing focused tests does not promote it or prove a deployed pa
 | Agent wiring and notifications | implemented | `review_signal.py`, `notify.py`; `shared/providers/code_security.py`; `agents/_framework/heimdall_code_security.py`, `agents/heimdall.py`; `config/notifications-matrix.yaml`; `core/notifications/messages.{en,ko}.json`; `delivery/code_security_publish_cli.py`; `tests/agents/test_code_security_drift.py`, `test_review_signal.py`, `test_cli.py` | Heimdall publishes a strict no-authority review package on `object.drift`; Forseti yields a `hil` verdict and Saga audits it. A2 and A4 routes fail closed when missing. The design's Huginn event path was replaced by this precedent (provider-schema drift) because Heimdall already owns review-required drift. |
 | Console view of code-security issues | not-started | Design only | Operator API projection and Console route over the registry and review log. |
 | Pack signing, revocation store, and export gate | implemented | `signing.py`, `ed25519_verify.py`, `export_gate.py`; `shared/providers/remediation_pack.py`; `delivery/code_security_signing.py`, `delivery/code_security_registry.py`; `config/code-security-agent-providers.yaml`; `test_signing.py`, `test_export_gate.py`, `test_cli.py`, `tests/delivery/test_code_security_adapters.py` | DSSE over the manifest, stdlib RFC 8032 verification in the helper, file-backed registry with revocation, fail-closed provider gate. A database-backed registry for multi-host deployments is not built. |
-| Scanning lanes, verifiers, and proof | in-progress | [Code Security Scanning ledger](code-security-scanning.md) | The deterministic lane and the off-path LLM lens lane are implemented and tracked in their own ledger. CWE verifiers and opt-in proof are not implemented. |
+| Scanning lanes, verifiers, and proof | in-progress | [Code Security Scanning ledger](code-security-scanning.md) | The deterministic lane, the off-path LLM lens lane, and Python weakness verifiers are implemented and tracked in their own ledger. Opt-in proof is not implemented. |
 | Rescan verification and adjudication | implemented | `sarif_runs.py`, `receipts.py`, `verification.py`, `adjudication.py`; `delivery/code_security_review_cli.py`; `test_verification.py`, `test_cli.py` | Baseline receipts at export, coverage-equivalence gaps, root-cause matching across line shifts and advisory aliases, separation-of-duties adjudication, append-only review log. |
 | Evaluation harness and synthetic corpus | implemented | `evaluation.py`; `rule-catalog/code-security/evaluation/synthetic-corpus.yaml`; CLI `evaluate`; `test_evaluation.py` | Dedup pairwise precision and recall, detection precision and recall, severity range containment, exact agreement and weighted kappa with labeled facts, rerun stability, and line-shift rescan matching, with acceptance floors and a receipt. The corpus is synthetic and author-labeled; it proves wiring and reproducibility, not calibration. |
 

@@ -28,6 +28,7 @@ from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.code_security import Exposure, load_code_security_catalog
 from fdai.rule_catalog.code_security_lenses import LensCatalog, load_lens_catalog
 from fdai.rule_catalog.code_security_scanners import ScannerCatalog, load_scanner_catalog
+from fdai.rule_catalog.code_security_verifiers import load_verifier_catalog
 from fdai.shared.providers.code_security_lens import CodeSecurityLensModel
 
 
@@ -87,6 +88,7 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
         "lens": None
         if lens is None
         else {"kept": lens.kept, "model_calls": lens.model_calls, "notes": list(lens.notes)},
+        "verified": sum(1 for item in result.verifier_results if item.outcome.value == "verified"),
         "published": result.published,
         "artifact_dir": str(result.artifact_dir),
         "export_sarif_args": list(sarif_specs(result)),
@@ -140,6 +142,8 @@ async def _run(
     lens_catalog: LensCatalog | None,
     lens_models: list[CodeSecurityLensModel],
 ) -> ScanJobResult:
+    catalog = load_code_security_catalog(catalog_root)
+    known = frozenset(catalog.weakness_classes.classes)
     return await run_scan_job(
         ScanJobConfig(
             repository=args.repository,
@@ -152,13 +156,14 @@ async def _run(
             exposure=Exposure(args.exposure),
             required_scanners=frozenset(args.required_scanner) or None,
         ),
-        catalog=load_code_security_catalog(catalog_root),
+        catalog=catalog,
         scanners=scanners,
         acquirer=GitSourceAcquirer(Path(args.work_root).resolve()),
         sandbox=BubblewrapScannerSandbox(Path(args.bwrap)),
         publisher=publisher,
         lens_catalog=lens_catalog,
         lens_models=lens_models,
+        verifier_catalog=load_verifier_catalog(catalog_root, known),
     )
 
 

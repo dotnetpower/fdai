@@ -23,6 +23,7 @@ The design is in [Code Security Findings](../../docs/roadmap/operations/code-sec
 | `scanners.yaml` | Deterministic-lane scanner commands, success codes, and sandbox mounts. Deployments bind each scanner id to a host executable. |
 | `rules/` | FDAI-authored Opengrep rules with positive and negative fixtures. |
 | `lenses.yaml` | LLM lens definitions: CWE scope, sink hints, and excerpt budgets for the off-path review. |
+| `verifiers.yaml` | Deterministic weakness verifiers: per-class sinks, sanitizers, entrypoints, and validation guards that raise a confirmed issue to `verified`. |
 | `evaluation/` | Labeled evaluation corpus with acceptance floors, run by the CLI `evaluate` command. |
 
 ## Change rules

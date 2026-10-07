@@ -191,7 +191,8 @@
         "services/core-control-plane/src/fdai/rule_catalog/code_security_lenses.py",
         "services/core-control-plane/src/fdai/shared/providers/code_security_lens.py",
         "services/core-control-plane/src/fdai/delivery/azure/llm/code_security_lens.py",
-        "services/core-control-plane/tests/delivery/azure/test_code_security_lens_adapter.py"
+        "services/core-control-plane/tests/delivery/azure/test_code_security_lens_adapter.py",
+        "services/core-control-plane/src/fdai/rule_catalog/code_security_verifiers.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",

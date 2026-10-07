@@ -333,3 +333,87 @@ def test_publish_review_without_bus_writes_package_and_plans_notifications(
     written = json.loads(out.read_text())
     assert written["package"]["grants_authority"] is False
     assert "src/db.py" not in out.read_text()
+
+
+def test_export_verifies_external_findings_against_the_exact_revision(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import subprocess
+
+    def git(cwd: Path, *argv: str) -> str:
+        return subprocess.run(  # noqa: S603 - controlled test command
+            ["git", *argv],  # noqa: S607 - git from PATH in tests
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    repo = tmp_path / "origin"
+    (repo / "src").mkdir(parents=True)
+    git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "config", "user.name", "test")
+    git(repo, "config", "uploadpack.allowAnySHA1InWant", "true")
+    (repo / "src" / "db.py").write_text(
+        "from flask import request\n\ndef find():\n"
+        "    cursor.execute(\"SELECT * FROM t WHERE n = '%s'\" % request.args['n'])\n"
+    )
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "initial")
+    revision = git(repo, "rev-parse", "HEAD")
+    mdash = tmp_path / "mdash.sarif"
+    mdash.write_bytes(sarif("MDASH", [result("sqli", "src/db.py", 4, cwe=89)]))
+    code, output = _run(
+        capsys,
+        "export",
+        "--sarif",
+        f"{mdash}:external",
+        "--revision",
+        revision,
+        "--repo-alias",
+        "example-service",
+        "--out",
+        str(tmp_path / "out"),
+        "--registry",
+        str(tmp_path / "registry"),
+        "--provider",
+        "example-agent",
+        "--provider-policy",
+        str(_policy(tmp_path)),
+        "--catalog-root",
+        str(CATALOG_ROOT),
+        "--verify-repository",
+        str(repo),
+        "--work-root",
+        str(tmp_path / "work"),
+    )
+    assert code == 0, output
+    assert output["verified"] == 1
+    pack_text = "".join(
+        path.read_text(encoding="utf-8")
+        for path in (tmp_path / "out").rglob("*.json")
+        if path.is_file()
+    )
+    assert '"confidence": "verified"' in pack_text
+    code, output = _run(
+        capsys,
+        "export",
+        "--sarif",
+        f"{mdash}:external",
+        "--revision",
+        revision,
+        "--repo-alias",
+        "example-service",
+        "--out",
+        str(tmp_path / "out2"),
+        "--registry",
+        str(tmp_path / "registry"),
+        "--provider",
+        "example-agent",
+        "--provider-policy",
+        str(_policy(tmp_path)),
+        "--verify-repository",
+        str(repo),
+    )
+    assert code == 1 and "--work-root" in str(output["error"])

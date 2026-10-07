@@ -1,0 +1,82 @@
+# FDAI deterministic weakness verifiers.
+#
+# A verifier confirms a reported issue at its fix site in the exact acquired revision. It parses
+# the file, finds a call to one of the class's sinks on the fix-site line, and runs an
+# intra-procedural, flow-sensitive may-taint analysis over the enclosing function. The issue is
+# `verified` only when all of these hold:
+#
+# 1. an argument the sink treats as dangerous is derived from an attacker-controlled source:
+#    a parameter of an entrypoint-decorated function or a request attribute;
+# 2. no sanitizer call or recognized validation guard cuts that flow;
+# 3. the sink is on a reachable path (not after a return, raise, or constant-false branch);
+# 4. the analysis ran on the exact revision the issue came from.
+#
+# Anything else leaves confidence unchanged and records why. Verification never lowers
+# confidence, never changes severity, and never closes an issue. Entries are matched by resolved
+# dotted name (imports and aliases are followed) or, for `method`, by the attribute name on any
+# receiver.
+schema_version: 1
+catalog_id: fdai.code-security.verifiers
+version: 1.0.0
+limits:
+  max_file_bytes: 1000000
+  max_issues: 5000
+python:
+  entrypoint_decorators: [route, get, post, put, patch, delete, head, options, api_route, websocket, view_config, action]
+  safe_parameter_annotations: [int, float, bool, UUID, uuid.UUID, datetime, date]
+  ignored_parameters: [self, cls]
+  request_roots: [request, req, self.request]
+  request_attributes: [args, form, values, json, data, files, cookies, headers, query_string, get_json, get_data, GET, POST, FILES, COOKIES, META, body, query_params, path_params, match_info, rel_url, raw_body, params]
+  # Local inputs (command-line arguments, standard input, environment) are not attacker sources
+  # here: `verified` claims a network-reachable flow. Installations may add sources in a fork.
+  source_calls: []
+  source_attributes: []
+  global_sanitizers: [int, float, bool, len, uuid.UUID, hash, id]
+  validators: [fullmatch, match, isdigit, isdecimal, isnumeric, isalnum, isalpha, isidentifier, is_valid, validate]
+  classes:
+    command_injection:
+      sanitizers: [shlex.quote, pipes.quote]
+      sinks:
+        - {call: os.system, arg: 0}
+        - {call: os.popen, arg: 0}
+        - {call: subprocess.run, arg: 0, require_keyword: {shell: true}}
+        - {call: subprocess.call, arg: 0, require_keyword: {shell: true}}
+        - {call: subprocess.check_call, arg: 0, require_keyword: {shell: true}}
+        - {call: subprocess.check_output, arg: 0, require_keyword: {shell: true}}
+        - {call: subprocess.Popen, arg: 0, require_keyword: {shell: true}}
+        - {call: subprocess.getoutput, arg: 0}
+        - {call: subprocess.getstatusoutput, arg: 0}
+    code_injection:
+      sanitizers: [ast.literal_eval]
+      sinks:
+        - {call: eval, arg: 0}
+        - {call: exec, arg: 0}
+        - {call: compile, arg: 0}
+    unsafe_deserialization:
+      sanitizers: []
+      sinks:
+        - {call: pickle.loads, arg: 0}
+        - {call: pickle.load, arg: 0}
+        - {call: cPickle.loads, arg: 0}
+        - {call: marshal.loads, arg: 0}
+        - {call: dill.loads, arg: 0}
+        - {call: jsonpickle.decode, arg: 0}
+        - {call: yaml.load, arg: 0, unsafe_unless_keyword: {Loader: [SafeLoader, CSafeLoader, BaseLoader]}}
+        - {call: yaml.unsafe_load, arg: 0}
+    sql_injection:
+      sanitizers: []
+      sinks:
+        - {method: execute, arg: 0}
+        - {method: executemany, arg: 0}
+        - {method: executescript, arg: 0}
+        - {method: raw, arg: 0}
+        - {call: sqlalchemy.text, arg: 0}
+    path_traversal:
+      sanitizers: [os.path.basename, werkzeug.utils.secure_filename, secure_filename]
+      sinks:
+        - {call: open, arg: 0}
+        - {call: io.open, arg: 0}
+        - {call: os.remove, arg: 0}
+        - {call: os.unlink, arg: 0}
+        - {call: shutil.rmtree, arg: 0}
+        - {call: flask.send_file, arg: 0}

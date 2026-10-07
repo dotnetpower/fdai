@@ -14,7 +14,8 @@ results feed the canonical issue model, severity, priority, and remediation pack
 > inert until the review flow and a person decide what to do.
 
 > **Status:** The deterministic lane (acquisition, sandbox, scanner catalog, FDAI rule pack, scan
-> job, and CLI) and the off-path LLM lens lane are implemented. See the
+> job, and CLI), the off-path LLM lens lane, and the Python weakness verifiers are implemented.
+> See the
 > [implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md).
 
 ## Design at a glance
@@ -132,8 +133,9 @@ optional, runs off the agent hot path inside the scan job, and produces only ine
    grounded candidates within the line tolerance.
 
 Kept candidates enter canonicalization in the `llm_lens` lane. They get `hypothesis` confidence,
-so they can't reach alerting priorities on their own; they're corroborated only when a
-deterministic or external producer reports the same root cause. With fewer than two model
+so they can't reach alerting priorities on their own. They're corroborated only when a
+deterministic or external producer reports the same root cause, and they become `verified` only
+when a [weakness verifier](#weakness-verifiers) confirms the flow. With fewer than two model
 families, the lane doesn't run. Budget exhaustion, model failures, and skipped files are recorded
 as lens notes in `receipt.json`. Those notes don't change deterministic coverage, because the
 lane is optional. Code text that tries to instruct the model can't add findings, since every
@@ -142,6 +144,40 @@ finding must pass grounding and quorum in code.
 Example: two model families both cite line 8, `Order.query.get(order_id)`, for
 `missing-authorization` with CWE-639. FDAI keeps one `hypothesis` occurrence. The issue is
 priority P3 until a person or another producer confirms it.
+
+## Weakness verifiers
+
+Weakness verifiers are the deterministic validate step. They run inside the scan job on the same
+read-only tree, after canonicalization, and raise a confirmed issue to `verified` confidence. The
+[verifier catalog](../../../rule-catalog/code-security/verifiers.yaml) lists, per weakness class,
+the sinks to confirm and the sanitizers and validation guards to honor. Python covers command
+injection, code injection, unsafe deserialization, SQL injection, and path traversal.
+
+For each supported issue, the verifier parses the fix-site file without importing or running it.
+It finds a catalog sink call on the fix-site line, following imports and aliases, and runs an
+intra-procedural, flow-sensitive taint analysis over the enclosing function. The issue is
+`verified` only when all of these hold:
+
+1. **Attacker source:** the sink's dangerous argument comes from a parameter of an
+   entrypoint-decorated function or a request attribute. Typed route converters and parameters
+   annotated as numbers or UUIDs aren't sources. Local inputs such as command-line arguments
+   aren't sources, because `verified` claims a network-reachable flow.
+2. **No sanitizer:** no catalog sanitizer, such as `shlex.quote` or `os.path.basename`, cuts the
+   flow. An allowlist or validation guard on the value removes taint on both branches.
+3. **Reachable:** the sink isn't after a `return` or `raise`, or in a constant-false branch.
+4. **Exact revision:** the issue and the acquired tree have the same commit.
+
+Every other outcome leaves confidence unchanged and is recorded in `receipt.json` with a reason,
+such as `no_sink_at_fix_site`, `argument_not_attacker_controlled`, `unreachable`, or
+`unsupported_language`. Verifiers never lower confidence, change severity, or close an issue.
+The analysis is conservative toward not verifying, so an unconfirmed issue isn't evidence of
+safety. The operator CLI `export --verify-repository` runs the same verifiers on external SARIF,
+such as MDASH results, against the exact acquired revision.
+
+Example: Opengrep reports CWE-78 at `os.system(request.args['cmd'])` in a function. The verifier
+finds the sink, traces the argument to `request.args`, finds no sanitizer, and marks the issue
+`verified`. If the function first checks `cmd not in ALLOWED` and aborts, the issue stays
+`reported`.
 
 ## Failure behavior
 
@@ -154,6 +190,8 @@ priority P3 until a person or another producer confirms it.
 | Unbounded or hostile SARIF content | Rejected or sanitized by [SARIF ingestion](code-security-findings.md#sarif-ingestion) |
 | Fewer than two model families for the lens lane | Lens lane doesn't run; a lens note records why |
 | Ungrounded, off-lens, or non-quorum model output | Discarded and counted in the lens report |
+| Unsupported language or class, oversized, unparsable, or escaping file | Verifier result `unsupported`; confidence unchanged |
+| Sink missing, sanitized, validated, or unreachable | Verifier result `not_verified` with a reason; confidence unchanged |
 
 ## Verification
 
@@ -163,7 +201,10 @@ truncation, timeout, and failure codes), exact-commit acquisition, and the scan 
 The rule pack was validated with a Semgrep-compatible engine in test mode, with all 22 rules
 passing. Lens tests cover deterministic selection, grounding, CWE filtering, quorum across
 families, budget and failure reporting, and the adapter's tool-free strict-schema request through
-a mock transport, without live model calls. A real `trivy` binary ran inside the sandbox, and its SARIF went through ingestion.
+a mock transport, without live model calls. Verifier tests confirm attacker-controlled flows for
+every supported class, and reject parameterized queries, sanitizers, allowlist guards, typed
+parameters, safe loaders, reassignment, unreachable sinks, local inputs, symlink escapes, and
+revision mismatches. A real `trivy` binary ran inside the sandbox, and its SARIF went through ingestion.
 
 ## Related docs
 

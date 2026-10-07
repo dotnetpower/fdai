@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -36,11 +36,17 @@ from fdai.core.security.code_findings.models import Occurrence
 from fdai.core.security.code_findings.receipts import build_receipt, receipt_to_dict
 from fdai.core.security.code_findings.review_signal import build_review_package
 from fdai.core.security.code_findings.verification import ScanCoverageReceipt
+from fdai.core.security.code_findings.verifier import (
+    VerifierResult,
+    verified_confidence,
+    verify_issues,
+)
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox, ScannerRunResult
 from fdai.rule_catalog.code_security import CodeSecurityCatalog, Exposure
 from fdai.rule_catalog.code_security_lenses import LensCatalog
 from fdai.rule_catalog.code_security_scanners import ScannerCatalog
+from fdai.rule_catalog.code_security_verifiers import VerifierCatalog
 from fdai.shared.providers.code_security_lens import CodeSecurityLensModel
 
 
@@ -75,6 +81,7 @@ class ScanJobResult:
     artifact_dir: Path
     sarif_files: tuple[Path, ...]
     lens_report: LensLaneReport | None = None
+    verifier_results: tuple[VerifierResult, ...] = ()
 
 
 async def run_scan_job(
@@ -87,11 +94,14 @@ async def run_scan_job(
     publisher: ReviewPublisher | None = None,
     lens_catalog: LensCatalog | None = None,
     lens_models: Sequence[CodeSecurityLensModel] = (),
+    verifier_catalog: VerifierCatalog | None = None,
 ) -> ScanJobResult:
     """Run the deterministic lane, and the optional LLM lens lane, for one revision.
 
     Lens findings are inert hypotheses. Lens gaps are recorded as lens notes, not as
-    deterministic coverage limits, because the lens lane is optional.
+    deterministic coverage limits, because the lens lane is optional. When a verifier catalog is
+    given, deterministic weakness verifiers run on the same acquired tree and raise confirmed
+    issues to ``verified`` confidence; they never change severity or close an issue.
     """
     source = acquirer.acquire(config.repository, config.revision)
     artifacts = config.work_root / "scans" / config.revision
@@ -161,15 +171,20 @@ async def run_scan_job(
             lens_notes = list(lens_report.notes)
         except LensLaneUnavailableError as exc:
             lens_notes = [str(exc)]
-    issues = build_issues(
-        occurrences,
-        catalog,
-        AnalysisContext(
-            revision=config.revision,
-            exposure=config.exposure,
-            known_exploited=config.known_exploited,
-        ),
+    context = AnalysisContext(
+        revision=config.revision,
+        exposure=config.exposure,
+        known_exploited=config.known_exploited,
     )
+    issues = build_issues(occurrences, catalog, context)
+    verifier_results: tuple[VerifierResult, ...] = ()
+    if verifier_catalog is not None:
+        verifier_results = verify_issues(
+            source.path, issues, verifier_catalog, revision=config.revision
+        )
+        verified = verified_confidence(verifier_results)
+        if verified:
+            issues = build_issues(occurrences, catalog, replace(context, verifications=verified))
     receipt = build_receipt(
         config.revision,
         catalog.version_stamp(),
@@ -203,6 +218,14 @@ async def run_scan_job(
                     "model_calls": lens_report.model_calls if lens_report else 0,
                     "notes": lens_notes,
                 },
+                "verifiers": {
+                    "catalog": (
+                        f"{verifier_catalog.catalog_id}@{verifier_catalog.version}"
+                        if verifier_catalog
+                        else None
+                    ),
+                    "results": [item.as_dict() for item in verifier_results],
+                },
             },
             indent=2,
         )
@@ -222,6 +245,7 @@ async def run_scan_job(
         artifact_dir=artifacts,
         sarif_files=tuple(sarif_files),
         lens_report=lens_report,
+        verifier_results=verifier_results,
     )
 
 
