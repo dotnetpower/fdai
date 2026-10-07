@@ -666,7 +666,7 @@ async def test_unbounded_or_unbound_configuration_stops_before_dispatch(invalid:
     if invalid == "fallback":
         config = replace(config, candidates=(_target("primary"), _target("secondary")))
     elif invalid == "deadline":
-        config = replace(config, timeout_seconds=10.5)
+        config = replace(config, timeout_seconds=20.5)
     elif invalid == "missing-profile":
         config = replace(config, plan_prompt_manifest=None)
     else:
