@@ -112,7 +112,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/heimdall_readiness_runtime.py": "6453ddc58663bda3daca72dc558c61b69d80e2a21206c782a19f047ac178dd15",
     "services/core-control-plane/src/fdai/agents/_framework/heimdall_retrieval_validation.py": "529489b4fea6aa75a64ef0ef93f0ff11282b166bd9a3e0a47860dd0f01f1daff",
     "services/core-control-plane/src/fdai/agents/_framework/heimdall_state_recovery.py": "de2575eed6d4d236f855152e0ad6540d6a88397aca43ccf3d09bd9f234ecf4f7",
-    "services/core-control-plane/src/fdai/agents/_framework/huginn_dedup.py": "8ea9b1eda1f9c546b05936df489a62d836cc534bb2d0dca0e8177bd5bc42f92a",
+    "services/core-control-plane/src/fdai/agents/_framework/huginn_dedup.py": "6a141e23b18b73f37d60081d25b9a8dc6993d3329a7ba63bcbc8ab71c1849a70",
     "services/core-control-plane/src/fdai/agents/_framework/huginn_ingress_helpers.py": "a7daa7158bce05521b5bb9aac83e33239906bbf5c3c348639feb72811305dc15",
     "services/core-control-plane/src/fdai/agents/_framework/huginn_ingress_runtime.py": "3b59e567331f6a29c0b1be4ebc102e2b155c0192bbf5c435b3215157f14cfffe",
     "services/core-control-plane/src/fdai/agents/_framework/huginn_operator_receipt.py": "6266675fa93a077618a247aa38708143946de4716d59df44a92cd9b4c11f348f",
@@ -1911,7 +1911,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204",
     "services/operator-service/src/fdai_operator_service/entitlement_stamp.py": "d94f5239a78fdda58caa06e5c41ac96c7cdc2e36368c8e3fe6f9adde4d7ab4f2"
   },
-  "generated_at": "2026-10-07T08:55:45Z",
+  "generated_at": "2026-10-07T09:30:00Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

@@ -276,6 +276,9 @@ Insufficient outcome evidence produces `value: null` plus an explicit evidence s
 
 When an agent itself fails or degrades, these are the declared safe
 behaviors. Anti-pattern §11 forbids collapsing these to nothing.
+At startup, Huginn restores retained published and terminal deduplication keys in their existing
+order with one bounded sort and insertion-ordered movement. Recovery remains idempotent and does
+not block the event loop with repeated minimum selection or list removal.
 
 | Agent failed | Impact | Safe degradation |
 |--------------|--------|------------------|

@@ -89,21 +89,18 @@ class HuginnDedupJournal:
                 _, stored_capacity, _, shard_entries = _decode(state)
                 self._validate_capacity(stored_capacity, expected=self._shard_capacity(index))
                 entries.update(shard_entries)
-            retained: list[str] = []
-            remaining = {
-                key: int(entry["sequence"])
+            published = sorted(
+                (int(entry["sequence"]), key)
                 for key, entry in entries.items()
                 if entry["status"] == "published"
-            }
-            while remaining:
-                key, _sequence = min(remaining.items(), key=lambda item: (item[1], item[0]))
-                retained.append(key)
-                del remaining[key]
+            )
+            # Insertion-ordered keys move a terminal key to the end in constant time; a
+            # repeated selection or list removal here was quadratic and stalled startup.
+            retained = dict.fromkeys(key for _sequence, key in published)
             for key in retained_from_terminal:
-                if key in retained:
-                    retained.remove(key)
-                retained.append(key)
-            return tuple(retained[-self._capacity :])
+                retained.pop(key, None)
+                retained[key] = None
+            return tuple(retained)[-self._capacity :]
         return retained_from_terminal[-self._capacity :]
 
     async def claim(
