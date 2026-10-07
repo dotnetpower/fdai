@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 92f8fa5452a60a5a2ae6fbbb955f724cb21b4fdf
+translation_source_sha: 410169c7ec864fdf3fcd5b8a59fa99a8d8f2faa3
 translation_revised: 2026-10-08
 ---
 # 프로젝트 구조
@@ -727,6 +727,7 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   `lifecycle/agent/`는 설치본 옆에서 실행되는 수명 주기 에이전트입니다. 각각 자체 테스트를 가진 독립
   배포 단위이므로 관리되는 5개 서비스 집합과 서비스 스위트 매니페스트는 바뀌지 않습니다. 공유 Plan 및
   Release 검사는 Lifecycle I1의 `lifecycle-contracts` 분리 전까지 `packages/deployment-cli/`에 있습니다.
+  Lifecycle I0의 에이전트는 폴링, 수용, 모의 실행, 보고만 하며 Kubernetes나 Azure 쓰기 경로가 없습니다.
 - **선택한 각 빌드 프로파일에 고정된 lock을 사용합니다.** 루트 `uv.lock`은 기본 작업 영역
   lock이며 루트 `pyproject.toml`은 계속 `package = false`인 virtual workspace입니다. 독립
   release 프로세스에 필요한 경우 독립 배포판은 다른 lock 또는 제약 조건을 소유할 수 있습니다.
