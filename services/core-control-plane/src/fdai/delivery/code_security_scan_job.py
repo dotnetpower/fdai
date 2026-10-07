@@ -38,6 +38,7 @@ from fdai.core.security.code_findings.review_signal import build_review_package
 from fdai.core.security.code_findings.verification import ScanCoverageReceipt
 from fdai.core.security.code_findings.verifier import (
     VerifierResult,
+    taint_rule_verifications,
     verified_confidence,
     verify_issues,
 )
@@ -179,12 +180,13 @@ async def run_scan_job(
     issues = build_issues(occurrences, catalog, context)
     verifier_results: tuple[VerifierResult, ...] = ()
     if verifier_catalog is not None:
-        verifier_results = verify_issues(
+        verifier_results = taint_rule_verifications(issues, occurrences, verifier_catalog)
+        verifier_results += verify_issues(
             source.path, issues, verifier_catalog, revision=config.revision
         )
-        verified = verified_confidence(verifier_results)
-        if verified:
-            issues = build_issues(occurrences, catalog, replace(context, verifications=verified))
+    verified = verified_confidence(verifier_results)
+    if verified:
+        issues = build_issues(occurrences, catalog, replace(context, verifications=verified))
     receipt = build_receipt(
         config.revision,
         catalog.version_stamp(),

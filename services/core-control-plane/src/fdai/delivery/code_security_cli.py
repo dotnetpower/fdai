@@ -11,6 +11,7 @@ Commands:
 ``publish-review`` publish a scan review through Heimdall and plan notifications;
 ``scan``          run the deterministic lane in the sandbox against one revision;
 ``evaluate``      measure dedup, severity, and rescan matching on a labeled corpus;
+``evaluate-verifiers`` measure weakness-verifier precision on pinned public projects;
 ``public-key``    print the pack-signing public key that developers pin.
 
 Example::
@@ -71,7 +72,12 @@ from fdai.core.security.code_findings.receipts import (
     build_receipt,
     receipt_to_dict,
 )
-from fdai.core.security.code_findings.verifier import verified_confidence, verify_issues
+from fdai.core.security.code_findings.verifier import (
+    taint_rule_verifications,
+    verified_confidence,
+    verify_issues,
+)
+from fdai.core.security.code_findings.verifier_evaluation import VerifierCorpusError
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
 from fdai.delivery.code_security_publish_cli import add_publish_command, publish_review
 from fdai.delivery.code_security_review_cli import (
@@ -83,6 +89,10 @@ from fdai.delivery.code_security_review_cli import (
 )
 from fdai.delivery.code_security_scan_cli import add_scan_command, run_scan
 from fdai.delivery.code_security_signing import Ed25519PackSigner
+from fdai.delivery.code_security_verifier_eval import (
+    add_verifier_evaluation_command,
+    evaluate_verifiers,
+)
 from fdai.delivery.persistence.state_store_code_security_registry import open_pack_registry
 from fdai.delivery.persistence.state_store_code_security_review import (
     CodeSecurityReviewConflictError,
@@ -141,6 +151,7 @@ def _parser() -> argparse.ArgumentParser:
     add_review_commands(sub)
     add_publish_command(sub)
     add_scan_command(sub)
+    add_verifier_evaluation_command(sub)
     evaluation = sub.add_parser("evaluate", help="measure dedup and severity on a labeled corpus")
     evaluation.add_argument(
         "--corpus",
@@ -209,28 +220,21 @@ def _export(args: argparse.Namespace) -> dict[str, object]:
         revision=args.revision, exposure=Exposure(args.exposure), known_exploited=known
     )
     issues = build_issues(occurrences, catalog, context)
-    verified = 0
+    verifier_catalog = load_verifier_catalog(
+        Path(args.catalog_root), frozenset(catalog.weakness_classes.classes)
+    )
+    results = list(taint_rule_verifications(issues, occurrences, verifier_catalog))
     if args.verify_repository:
         if not args.work_root:
             raise ValueError("--verify-repository requires --work-root")
         source = GitSourceAcquirer(Path(args.work_root).resolve()).acquire(
             args.verify_repository, args.revision
         )
-        verifications = verified_confidence(
-            verify_issues(
-                source.path,
-                issues,
-                load_verifier_catalog(
-                    Path(args.catalog_root), frozenset(catalog.weakness_classes.classes)
-                ),
-                revision=args.revision,
-            )
-        )
-        verified = len(verifications)
-        if verifications:
-            issues = build_issues(
-                occurrences, catalog, replace(context, verifications=verifications)
-            )
+        results += verify_issues(source.path, issues, verifier_catalog, revision=args.revision)
+    verifications = verified_confidence(results)
+    verified = len(verifications)
+    if verifications:
+        issues = build_issues(occurrences, catalog, replace(context, verifications=verifications))
     projects = tuple(
         ProjectRoot(**entry)
         for entry in (json.loads(Path(args.projects).read_text()) if args.projects else [])
@@ -355,6 +359,8 @@ def main(argv: list[str] | None = None) -> int:
             output = asyncio.run(run_scan(args))
         elif args.command == "evaluate":
             output = _evaluate(args)
+        elif args.command == "evaluate-verifiers":
+            output = evaluate_verifiers(args)
         else:
             signer = Ed25519PackSigner(Path(args.signing_key))
             output = {
@@ -374,6 +380,7 @@ def main(argv: list[str] | None = None) -> int:
         output = {"ok": False, "reason": "export_denied", "error": str(exc)}
     except (
         EvaluationCorpusError,
+        VerifierCorpusError,
         CodeSecurityCatalogError,
         SarifIngestError,
         PackRegistryError,

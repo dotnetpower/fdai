@@ -179,6 +179,34 @@ finds the sink, traces the argument to `request.args`, finds no sanitizer, and m
 `verified`. If the function first checks `cmd not in ALLOWED` and aborts, the issue stays
 `reported`.
 
+### Other languages and the promotion gate
+
+For JavaScript and TypeScript, Java, and C#, FDAI-authored Opengrep taint-mode rules under
+`rules/verify/` do the same job. Each rule declares request sources (Express `req`, servlet and
+Spring request parameters, ASP.NET request collections and bound action parameters), sanitizers,
+and the dangerous argument of each sink. The rules run with the rule pack in the scan job. An
+issue is confirmed only when a deterministic-lane Opengrep or Semgrep occurrence from a verifier
+rule sits in the same canonical issue, so external SARIF can't claim verification by naming a rule.
+
+A verifier grants `verified` only after measured evidence promotes it. The
+[verifier corpus](../../../rule-catalog/code-security/evaluation/verifier-corpus.yaml) pins public,
+intentionally vulnerable projects (NodeGoat, Juice Shop, WebGoat, dvcsharp-api, and pygoat) at
+exact commits. Its labels come from each project's own documentation, including Juice Shop's
+source annotations and coding-challenge verdicts. The operator CLI `evaluate-verifiers` fetches
+each project at its commit, runs both verifier kinds without executing project code, and writes a
+receipt with per-verifier precision and recall. A verifier is promoted when its precision meets
+the corpus floor of 0.90 with at least one true positive, and the promotion list in the verifier
+catalog must match that receipt. Every other verifier runs in shadow: it records its hit as
+`verifier_in_shadow` and doesn't raise confidence.
+
+Example: the 2026-10-07 receipt promoted the Python verifiers for all five classes and the taint
+rules for JavaScript code and SQL injection, Java SQL injection and path traversal, and C# SQL
+injection, all at precision 1.0. The JavaScript path traversal rule matched three safe reads in
+Juice Shop, where the path came from a server-side lookup or an existence gate, so it stays in
+shadow. Rules without real-code evidence, such as the command injection rules, also stay in
+shadow. The corpus informed rule development and samples are small, so it isn't a held-out
+benchmark.
+
 ## Failure behavior
 
 | Condition | Outcome |
@@ -192,6 +220,7 @@ finds the sink, traces the argument to `request.args`, finds no sanitizer, and m
 | Ungrounded, off-lens, or non-quorum model output | Discarded and counted in the lens report |
 | Unsupported language or class, oversized, unparsable, or escaping file | Verifier result `unsupported`; confidence unchanged |
 | Sink missing, sanitized, validated, or unreachable | Verifier result `not_verified` with a reason; confidence unchanged |
+| Verifier hit from an unpromoted verifier | Result `not_verified` with `verifier_in_shadow`; confidence unchanged |
 
 ## Verification
 

@@ -12,6 +12,7 @@ from fdai.core.security.code_findings.sarif import SarifIngestContext, ingest_sa
 from fdai.core.security.code_findings.verifier import (
     VerifierOutcome,
     VerifierResult,
+    taint_rule_verifications,
     verified_confidence,
     verify_issues,
 )
@@ -400,3 +401,110 @@ def test_catalog_rejects_unknown_class_and_ambiguous_sink(tmp_path: Path) -> Non
     )
     with pytest.raises(CodeSecurityCatalogError, match="exactly one"):
         load_verifier_catalog(tmp_path, frozenset(catalog().weakness_classes.classes))
+
+
+def _taint_issue(producer: str, lane: Lane, rule_id: str) -> tuple[CodeSecurityIssue, list[object]]:
+    occurrences = list(
+        ingest_sarif(
+            sarif(producer, [result(rule_id, "src/Orders.java", 25, cwe=SQLI)]),
+            SarifIngestContext(lane=lane, revision=REVISION),
+        ).occurrences
+    )
+    (issue,) = build_issues(occurrences, catalog(), AnalysisContext(revision=REVISION))
+    return issue, occurrences
+
+
+def test_taint_verifier_rule_hit_verifies_the_issue() -> None:
+    issue, occurrences = _taint_issue(
+        "Semgrep OSS", Lane.DETERMINISTIC, "rules.verify.fdai.verify.java.sql-injection"
+    )
+    (verdict,) = taint_rule_verifications((issue,), occurrences, _verifiers())  # type: ignore[arg-type]
+    assert verdict.outcome is VerifierOutcome.VERIFIED
+    assert verdict.sink == "java:sql-injection"
+    assert verified_confidence((verdict,)) == {issue.issue_id: Confidence.VERIFIED}
+
+
+@pytest.mark.parametrize(
+    ("producer", "lane", "rule_id"),
+    [
+        ("MDASH", Lane.EXTERNAL, "fdai.verify.java.sql-injection"),
+        ("Opengrep", Lane.EXTERNAL, "fdai.verify.java.sql-injection"),
+        ("custom-scanner", Lane.DETERMINISTIC, "fdai.verify.java.sql-injection"),
+        ("Opengrep", Lane.DETERMINISTIC, "rules.fdai.java.sql-concatenated-statement"),
+        ("Opengrep", Lane.DETERMINISTIC, "evil.fdai.verify.java.sql-injection.extra"),
+    ],
+)
+def test_taint_verification_cannot_be_claimed_by_other_lanes_or_rules(
+    producer: str, lane: Lane, rule_id: str
+) -> None:
+    issue, occurrences = _taint_issue(producer, lane, rule_id)
+    assert taint_rule_verifications((issue,), occurrences, _verifiers()) == ()  # type: ignore[arg-type]
+
+
+def test_verifier_rule_pack_is_classified_and_fixture_covered() -> None:
+    import re
+
+    import yaml
+
+    verify_dir = CATALOG_ROOT / "rules" / "verify"
+    ids: list[str] = []
+    for rule_file in sorted(verify_dir.glob("*.yaml")):
+        fixtures = [p for p in verify_dir.glob(f"{rule_file.stem}.*") if p.suffix != ".yaml"]
+        annotations = {a for f in fixtures for a in re.findall(r"ruleid: (\S+)", f.read_text())}
+        oks = {a for f in fixtures for a in re.findall(r"ok: (\S+)", f.read_text())}
+        for rule in yaml.safe_load(rule_file.read_text())["rules"]:
+            ids.append(rule["id"])
+            assert re.fullmatch(r"fdai\.verify\.[a-z]+\.[a-z-]+", rule["id"]), rule["id"]
+            assert rule["mode"] == "taint" and rule["metadata"]["fdai_verifier"] is True
+            (cwe,) = rule["metadata"]["cwe"]
+            assert catalog().weakness_classes.class_for_cwe(int(cwe.removeprefix("CWE-")))
+            assert rule["id"] in annotations, f"{rule['id']} has no positive fixture"
+            assert rule["id"] in oks, f"{rule['id']} has no negative fixture"
+    assert len(ids) == len(set(ids)) == 10
+
+
+def test_unpromoted_taint_rule_hit_stays_in_shadow() -> None:
+    occurrences = list(
+        ingest_sarif(
+            sarif(
+                "Opengrep",
+                [result("rules.verify.fdai.verify.js.path-traversal", "a.js", 4, cwe=PATH)],
+            ),
+            SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION),
+        ).occurrences
+    )
+    (issue,) = build_issues(occurrences, catalog(), AnalysisContext(revision=REVISION))
+    (verdict,) = taint_rule_verifications((issue,), occurrences, _verifiers())  # type: ignore[arg-type]
+    assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
+    assert verdict.reason == "verifier_in_shadow"
+    assert verified_confidence((verdict,)) == {}
+
+
+def test_unpromoted_python_class_stays_in_shadow(tmp_path: Path) -> None:
+    root = tmp_path / "catalog"
+    root.mkdir()
+    text = (CATALOG_ROOT / "verifiers.yaml").read_text(encoding="utf-8")
+    (root / "verifiers.yaml").write_text(
+        text.replace("    - python:command_injection\n", ""), encoding="utf-8"
+    )
+    shadow = load_verifier_catalog(root, frozenset(catalog().weakness_classes.classes))
+    source, cwe = VULNERABLE["request_args_shell"]
+    body = textwrap.dedent(source)
+    (tmp_path / "app.py").write_text(body, encoding="utf-8")
+    issues = _issues([("app.py", _line(body, "# sink"), cwe)])
+    (verdict,) = verify_issues(tmp_path, issues, shadow, revision=REVISION)
+    assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
+    assert verdict.reason == "verifier_in_shadow"
+
+
+def test_promotion_list_is_backed_by_the_real_code_corpus() -> None:
+    import yaml
+    from fdai.core.security.code_findings.verifier_evaluation import locations_from_mapping
+
+    _, locations = locations_from_mapping(
+        yaml.safe_load((CATALOG_ROOT / "evaluation" / "verifier-corpus.yaml").read_text())
+    )
+    evidenced = {location.key for location in locations if location.vulnerable}
+    promoted = set(_verifiers().promotion.promoted)
+    assert promoted <= evidenced
+    assert "fdai.verify.js.path-traversal" not in promoted

@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: b63eb657a7217f1d6e769abbcf4b85392645228d
+translation_source_sha: b5834882067aefa7d5b301716b86d909de6f9523
 translation_revised: 2026-10-07
 ---
 
@@ -176,6 +176,31 @@ Go용으로 FDAI가 작성한 규칙 22개가 있습니다. 각 규칙은 다음
 찾고, 인자를 `request.args`까지 추적하며, 정화 함수가 없음을 확인한 뒤 이슈를 `verified`로
 표시합니다. 함수가 먼저 `cmd not in ALLOWED`를 검사하고 중단한다면 이슈는 `reported`로 남습니다.
 
+### 다른 언어와 승격 게이트
+
+JavaScript와 TypeScript, Java, C#에서는 `rules/verify/` 아래의 FDAI 작성 Opengrep 오염 모드 규칙이
+같은 역할을 합니다. 각 규칙은 요청 입력원(Express의 `req`, 서블릿과 Spring 요청 매개변수, ASP.NET
+요청 컬렉션과 바인딩된 액션 매개변수), 정화 함수, 각 싱크의 위험한 인자를 선언합니다. 규칙은 스캔
+작업에서 규칙 팩과 함께 실행됩니다. 검증기 규칙에서 나온 결정론 레인의 Opengrep 또는 Semgrep 개별
+보고가 같은 정본 이슈에 속할 때만 이슈가 확인되므로, 외부 SARIF가 규칙 이름을 흉내 내어 검증을
+주장할 수 없습니다.
+
+검증기는 측정된 근거로 승격된 뒤에만 `verified`를 부여합니다.
+[검증기 평가 자료](../../../rule-catalog/code-security/evaluation/verifier-corpus.yaml)는 의도적으로
+취약하게 만든 공개 프로젝트(NodeGoat, Juice Shop, WebGoat, dvcsharp-api, pygoat)를 정확한 커밋으로
+고정합니다. 레이블은 Juice Shop의 소스 주석과 코딩 과제 판정을 포함해 각 프로젝트 자체 문서에서
+가져옵니다. 운영자 CLI의 `evaluate-verifiers`는 각 프로젝트를 해당 커밋으로 가져오고, 프로젝트 코드를
+실행하지 않은 채 두 종류의 검증기를 돌린 뒤, 검증기별 정밀도와 재현율을 담은 증적을 기록합니다.
+정밀도가 평가 자료의 하한인 0.90 이상이고 참 양성이 하나 이상이면 검증기가 승격되며, 검증기
+카탈로그의 승격 목록은 이 증적과 일치해야 합니다. 나머지 검증기는 shadow로 실행되어 결과를
+`verifier_in_shadow`로 기록할 뿐 신뢰도를 올리지 않습니다.
+
+예: 2026-10-07 증적은 다섯 클래스 모두의 Python 검증기와 JavaScript 코드 주입·SQL 주입, Java SQL
+주입·경로 조작, C# SQL 주입 오염 규칙을 정밀도 1.0으로 승격했습니다. JavaScript 경로 조작 규칙은 경로가
+서버 측 조회나 존재 확인을 거친 Juice Shop의 안전한 읽기 세 곳과 일치했으므로 shadow에 남습니다.
+명령 주입 규칙처럼 실제 코드 근거가 없는 규칙도 shadow에 남습니다. 평가 자료가 규칙 개발에 쓰였고
+표본이 작으므로 별도로 보관한 벤치마크는 아닙니다.
+
 ## 실패 시 동작
 
 | 조건 | 결과 |
@@ -189,6 +214,7 @@ Go용으로 FDAI가 작성한 규칙 22개가 있습니다. 각 규칙은 다음
 | 근거가 없거나, 렌즈와 무관하거나, 정족수에 미달한 모델 출력 | 버리고 렌즈 보고서에 집계합니다 |
 | 지원하지 않는 언어나 클래스, 크기 초과, 구문 분석 불가, 범위를 벗어나는 파일 | 검증기 결과가 `unsupported`이며 신뢰도는 그대로입니다 |
 | 싱크 없음, 정화됨, 검증됨, 도달 불가 | 검증기 결과가 사유와 함께 `not_verified`이며 신뢰도는 그대로입니다 |
+| 승격되지 않은 검증기의 일치 | 결과가 `verifier_in_shadow` 사유와 함께 `not_verified`이며 신뢰도는 그대로입니다 |
 
 ## 검증
 

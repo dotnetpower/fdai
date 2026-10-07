@@ -345,3 +345,103 @@ async def test_scan_job_verifier_raises_confirmed_lens_candidate(tmp_path: Path)
     assert verdict.outcome.value == "verified" and verdict.sink == "os.system"
     receipt = json.loads((result.artifact_dir / "receipt.json").read_text())
     assert receipt["verifiers"]["results"][0]["outcome"] == "verified"
+
+
+def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Path) -> None:
+    import argparse
+
+    import yaml
+    from fdai.delivery.code_security_verifier_eval import evaluate_verifiers
+
+    repo = tmp_path / "origin"
+    repo.mkdir()
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    _git(repo, "config", "uploadpack.allowAnySHA1InWant", "true")
+    (repo / "views.py").write_text(
+        "import os\nfrom flask import request\n\ndef run():\n    os.system(request.args['c'])\n"
+    )
+    (repo / "app.js").write_text("db.query('x' + req.query.a)\nfs.readFile(path)\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "initial")
+    commit = _git(repo, "rev-parse", "HEAD")
+    engine = tmp_path / "engine"
+    hits = {
+        "results": [
+            {
+                "check_id": "verify.fdai.verify.js.sql-injection",
+                "path": "app.js",
+                "start": {"line": 1},
+            },
+            {
+                "check_id": "verify.fdai.verify.js.code-injection",
+                "path": "app.js",
+                "start": {"line": 9},
+            },
+        ],
+        "errors": [],
+    }
+    engine.write_text("#!/bin/sh\ncat <<'JSON'\n" + json.dumps(hits) + "\nJSON\n")
+    engine.chmod(0o755)
+    corpus = tmp_path / "corpus.yaml"
+    corpus.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 1,
+                "corpus_id": "test",
+                "version": "1.0.0",
+                "provenance": "curated",
+                "precision_floor": 0.9,
+                "min_true_positives": 1,
+                "sources": [
+                    {
+                        "id": "local",
+                        "repository": str(repo),
+                        "commit": commit,
+                        "license": "MIT",
+                        "label_source": "test labels",
+                        "locations": [
+                            {
+                                "path": "views.py",
+                                "line": 5,
+                                "weakness_class": "command_injection",
+                                "verifier": "python",
+                                "label": "vulnerable",
+                            },
+                            {
+                                "path": "app.js",
+                                "line": 1,
+                                "weakness_class": "sql_injection",
+                                "verifier": "taint",
+                                "label": "vulnerable",
+                            },
+                            {
+                                "path": "app.js",
+                                "line": 2,
+                                "weakness_class": "path_traversal",
+                                "verifier": "taint",
+                                "label": "safe",
+                                "reason": "constant",
+                            },
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+    receipt = evaluate_verifiers(
+        argparse.Namespace(
+            corpus=str(corpus),
+            work_root=str(tmp_path / "work"),
+            engine=str(engine),
+            output=str(tmp_path / "receipt.json"),
+            catalog_root=str(_CATALOG),
+        )
+    )
+    by_key = {item["key"]: item for item in receipt["verifiers"]}  # type: ignore[union-attr]
+    assert by_key["python:command_injection"]["true_positives"] == 1
+    assert by_key["fdai.verify.js.sql-injection"]["promoted"] is True
+    assert by_key["fdai.verify.js.path-traversal"]["true_negatives"] == 1
+    assert receipt["unlabeled_verified"] == [
+        {"source": "local", "rule": "fdai.verify.js.code-injection", "path": "app.js", "line": 9}
+    ]
+    assert json.loads((tmp_path / "receipt.json").read_text())["promoted"] == receipt["promoted"]
