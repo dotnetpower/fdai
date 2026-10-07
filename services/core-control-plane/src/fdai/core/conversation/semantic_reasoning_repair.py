@@ -155,6 +155,7 @@ def _goal_readings(form: SemanticQuestionForm) -> list[dict[str, Any]]:
                     nested["order"].pop("limit_span", None)
         for item in reading.get("filters") or ():
             item.pop("cue", None)
+            item.pop("qualifier_span", None)
             if isinstance(item.get("comparison"), dict):
                 for key in ("comparator_span", "value_span", "unit_span"):
                     item["comparison"].pop(key, None)

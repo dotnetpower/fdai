@@ -85,6 +85,9 @@ from fdai_service_contracts.semantic_question_form import (
     MetricComparison as MetricComparison,
 )
 from fdai_service_contracts.semantic_question_form import (
+    MetricQualifier as MetricQualifier,
+)
+from fdai_service_contracts.semantic_question_form import (
     MetricUnit as MetricUnit,
 )
 from fdai_service_contracts.semantic_question_form import (
@@ -150,6 +153,7 @@ __all__ = [
     "MentionDomain",
     "MentionForm",
     "MetricComparison",
+    "MetricQualifier",
     "MetricUnit",
     "RelationAnchorScope",
     "RelationReach",

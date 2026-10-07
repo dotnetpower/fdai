@@ -391,6 +391,8 @@ def _typed_expressions(
                         spans.append(item.comparison.value_span)
                         if item.comparison.unit_span is not None:
                             spans.append(item.comparison.unit_span)
+                    if item.qualifier_span is not None:
+                        spans.append(item.qualifier_span)
             order = goal.measure.order if goal.measure is not None else None
             if role is ConstraintRole.ORDERS and order is not None:
                 spans.extend(span for span in (order.cue, order.limit_span) if span is not None)
@@ -667,6 +669,8 @@ def _semantic_spans(
                     semantic.append(item.comparison.value_span)
                     if item.comparison.unit_span is not None:
                         semantic.append(item.comparison.unit_span)
+                if item.qualifier_span is not None:
+                    semantic.append(item.qualifier_span)
             if goal.relation is not None:
                 semantic.append(goal.relation.cue)
                 if goal.relation.reach_cue is not None:

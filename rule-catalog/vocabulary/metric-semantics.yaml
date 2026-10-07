@@ -225,6 +225,17 @@ definitions:
     aggregation: average
     description: Guest operating-system CPU utilization percentage for one bounded compute resource.
     monotonic: false
+    qualitative_recipes:
+      - qualifier: high
+        comparator: gt
+        threshold: 80
+        window_seconds: null
+        source: FDAI reviewed recipe after the Azure Monitor recommended virtual machine alert on Percentage CPU greater than 80.
+      - qualifier: low
+        comparator: lt
+        threshold: 5
+        window_seconds: 604800
+        source: FDAI reviewed recipe for low use, an average below 5 percent over 7 days, after the Azure Advisor low-usage guidance.
   - concept_id: resource.saturation
     provider_metric: container_app_cpu_nanocores
     canonical_unit: nanocores

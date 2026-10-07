@@ -381,6 +381,8 @@ class OntologyQueryPlanVerifier:
             descriptor = descriptors.get(("link", link_type))
             if descriptor is None:
                 raise ValueError("relationship traversal LinkType is absent from the manifest")
+            if not definition.population_read_allowed(descriptor.get("is_transitive") is True):
+                raise ValueError("a population read repeats only a transitive LinkType")
             expected_source = (
                 descriptor.get("from_type")
                 if definition.direction == "outgoing"

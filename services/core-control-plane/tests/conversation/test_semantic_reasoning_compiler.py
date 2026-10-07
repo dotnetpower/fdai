@@ -234,6 +234,109 @@ async def test_scoped_count_uses_containment_not_a_shared_name_prefix() -> None:
     assert execution.results[batch.plan.output_node_ids[0]].value.complete
 
 
+async def test_a_scoped_count_cut_at_its_page_reads_its_exact_population() -> None:
+    from fdai_service_contracts.ontology_query import OntologyQueryNode, canonical_json
+
+    utterance = "sub-example 구독에 있는 VM 개수는?"
+    form = {
+        "mentions": [
+            _anchor(utterance, "sub-example"),
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "VM"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [{"role": "scope", "mention": "m1"}],
+                "cue": span(utterance, "개수"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    compilation = await _compile_bound(
+        utterance, form, concepts(("m2", MentionDomain.RESOURCE_TYPE, ("compute.vm",)))
+    )
+    (batch,) = compilation.goals[0].batches
+    nodes = []
+    for node in batch.plan.nodes:
+        if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
+            assert node.arguments["read_population"] is True
+            # A page of three objects cuts the subscription's twelve contained resources.
+            node = OntologyQueryNode(
+                node_id=node.node_id,
+                kind=node.kind,
+                depends_on=node.depends_on,
+                arguments_json=canonical_json({**node.arguments, "limit": 3}),
+                output_kind=node.output_kind,
+            )
+        nodes.append(node)
+    plan = batch.plan.model_copy(update={"nodes": tuple(nodes)})
+
+    execution = await execute(plan, await fixture_gateway())
+    count = execution.results[plan.output_node_ids[0]].value
+
+    assert count.complete is True
+    assert count.rows[0].values["value"] == 2
+
+
+async def test_a_population_read_never_repeats_an_intransitive_link_type() -> None:
+    from fdai_service_contracts.ontology_query import OntologyQueryNode, canonical_json
+
+    utterance = "rg-app 리소스 그룹에 있는 VM 개수는?"
+    form = {
+        "mentions": [
+            _anchor(utterance, "rg-app"),
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "VM"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [{"role": "scope", "mention": "m1"}],
+                "cue": span(utterance, "개수"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    compilation = await _compile_bound(
+        utterance, form, concepts(("m2", MentionDomain.RESOURCE_TYPE, ("compute.vm",)))
+    )
+    (batch,) = compilation.goals[0].batches
+    nodes = tuple(
+        OntologyQueryNode(
+            node_id=node.node_id,
+            kind=node.kind,
+            depends_on=node.depends_on,
+            arguments_json=canonical_json({**node.arguments, "link_types": ["depends_on"]}),
+            output_kind=node.output_kind,
+        )
+        if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
+        else node
+        for node in batch.plan.nodes
+    )
+
+    with pytest.raises(ValueError, match="population read repeats only a transitive"):
+        plan_verifier().verify(
+            batch.plan.model_copy(update={"nodes": nodes}), manifest=production_manifest()
+        )
+
+
 async def test_typed_endpoint_filter_reads_only_resource_endpoints() -> None:
     utterance = "Which VMs depend on sql-app?"
     compilation = await _compile_bound(

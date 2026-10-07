@@ -10,6 +10,7 @@ import yaml
 
 from fdai.core.ontology_platform.metric_semantics import (
     MetricAggregation,
+    MetricQualitativeRecipe,
     MetricSemanticDefinition,
     MetricSemanticRegistry,
 )
@@ -23,8 +24,11 @@ _ALLOWED_KEYS = frozenset(
         "description",
         "monotonic",
         "scope_label_selectors",
+        "qualitative_recipes",
     }
 )
+_OPTIONAL_KEYS = frozenset({"scope_label_selectors", "qualitative_recipes"})
+_RECIPE_KEYS = frozenset({"qualifier", "comparator", "threshold", "window_seconds", "source"})
 
 
 def load_metric_semantic_registry(path: Path) -> MetricSemanticRegistry:
@@ -48,7 +52,7 @@ def _definition(raw: object) -> MetricSemanticDefinition:
     if (
         not isinstance(raw, Mapping)
         or not set(raw).issubset(_ALLOWED_KEYS)
-        or not (_ALLOWED_KEYS - {"scope_label_selectors"}).issubset(raw)
+        or not (_ALLOWED_KEYS - _OPTIONAL_KEYS).issubset(raw)
     ):
         raise ValueError("metric semantic definition fields are invalid")
     values: dict[str, Any] = dict(raw)
@@ -66,7 +70,31 @@ def _definition(raw: object) -> MetricSemanticDefinition:
         description=_string(values, "description"),
         monotonic=values["monotonic"],
         scope_label_selectors=_scope_label_selectors(values.get("scope_label_selectors", {})),
+        qualitative_recipes=_recipes(values.get("qualitative_recipes", [])),
     )
+
+
+def _recipes(raw: object) -> tuple[MetricQualitativeRecipe, ...]:
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        raise ValueError("metric semantic qualitative_recipes MUST be an array")
+    recipes: list[MetricQualitativeRecipe] = []
+    for item in raw:
+        if not isinstance(item, Mapping) or set(item) != _RECIPE_KEYS:
+            raise ValueError("metric semantic recipe fields are invalid")
+        window = item["window_seconds"]
+        threshold = item["threshold"]
+        if not isinstance(threshold, int) or (window is not None and not isinstance(window, int)):
+            raise ValueError("metric semantic recipe threshold and window MUST be integers")
+        recipes.append(
+            MetricQualitativeRecipe(
+                qualifier=_string(item, "qualifier"),
+                comparator=_string(item, "comparator"),
+                threshold=threshold,
+                window_seconds=window,
+                source=_string(item, "source"),
+            )
+        )
+    return tuple(recipes)
 
 
 def _scope_label_selectors(raw: object) -> Mapping[str, tuple[str, ...]]:

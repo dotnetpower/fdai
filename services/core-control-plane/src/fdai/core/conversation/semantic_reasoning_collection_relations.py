@@ -112,6 +112,7 @@ def collection_relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorRes
                 predicates,
                 ctx,
                 emit_lineage=True,
+                emit_coverage=True,
             )
             for offset, side in enumerate(sides[start : start + MAX_SIDES_PER_PLAN])
         )
@@ -161,7 +162,9 @@ def collection_anchor_violations(
             node for node in plan.nodes if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
         ]
         if not traversals or any(
-            node.arguments.get("emit_lineage") is not True for node in traversals
+            node.arguments.get("emit_lineage") is not True
+            or node.arguments.get("emit_coverage") is not True
+            for node in traversals
         ):
             violations.append("sem_collection_anchor_lineage_missing")
             continue
