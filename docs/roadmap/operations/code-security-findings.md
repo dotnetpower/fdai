@@ -18,7 +18,8 @@ Opengrep, Trivy, and other producers.
 
 > **Status:** The deterministic core, catalog, signed remediation pack, pack registry, export
 > gate, rescan verification, false-positive adjudication, Heimdall review drift, notifications,
-> and operator CLI are implemented. Scanning-lane execution and the LLM lens lane remain open. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
+> operator CLI, and the deterministic scanning lane ([Code Security Scanning](code-security-scanning.md))
+> are implemented. The LLM lens lane remains open. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
 
 ## Design at a glance
 
@@ -278,6 +279,7 @@ result rejection reasons, and an end-to-end helper session in a temporary git re
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/operations/code-security-findings.md) |
+| Deterministic scanning lane and sandbox | [Code Security Scanning](code-security-scanning.md) |
 | Cloud security assessment | [Assurance Twin](assurance-twin.md) |
 | Vulnerability and threat-intel sources | [Rule Catalog Collection](../rules-and-detection/rule-catalog-collection.md) |
 | Fixed agent roles | [Agent Pantheon](../agents/agent-pantheon.md) |

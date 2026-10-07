@@ -176,3 +176,15 @@ def test_issue_ids_are_stable_across_runs_and_producers() -> None:
     first = _issues(_occ("ToolA", [result("x", "src/db.py", 42, cwe=89)]))[0]
     second = _issues(_occ("ToolB", [result("y", "src/db.py", 42, cwe=564)]))[0]
     assert first.issue_id == second.issue_id
+
+
+def test_misconfiguration_and_secret_tags_classify_without_cwe() -> None:
+    occurrences = _occ(
+        "Trivy",
+        [
+            result("DS-0002", "Dockerfile", 1, properties={"tags": ["misconfiguration", "HIGH"]}),
+            result("generic-api-key", "src/config.py", 3, properties={"tags": ["secret"]}),
+        ],
+    )
+    classes = sorted(issue.weakness_class for issue in _issues(occurrences))
+    assert classes == ["hardcoded_secret", "insecure_configuration"]

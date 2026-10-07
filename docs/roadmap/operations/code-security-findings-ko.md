@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: 2a1f67185169bf8404b5caead3aa62187223ebc3
+translation_source_sha: da7f88cc79883ba5f5fe6f8ae9ea1aea73a60192
 translation_revised: 2026-10-07
 ---
 
@@ -18,8 +18,8 @@ MDASH(Codename MDASH 에이전트형 코드 스캐너), GitHub code scanning, Op
 > 새 기능은 shadow 모드, 즉 FDAI가 관찰하고 기록하지만 변경하지 않는 모드로 시작합니다.
 
 > **상태:** 결정론적 코어, 카탈로그, 서명된 조치 팩, 팩 레지스트리, 반출 검사, 재스캔 검증,
-> 오탐 판정, Heimdall 검토 drift, 알림, 운영자 CLI가 구현되었습니다. 스캔 레인 실행과 LLM 렌즈
-> 레인은 남아 있습니다.
+> 오탐 판정, Heimdall 검토 drift, 알림, 운영자 CLI, 결정론 스캔 레인
+> ([코드 보안 스캔](code-security-scanning-ko.md))이 구현되었습니다. LLM 렌즈 레인은 남아 있습니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-findings.md)을 참조하세요.
 
 ## 설계 개요
@@ -270,6 +270,7 @@ SARIF를 수집합니다. 조치 지침과 규칙은 FDAI가 직접 작성합니
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 제공 상태와 남은 작업 | [구현 원장](../../roadmap-implementation/operations/code-security-findings.md) |
+| 결정론 스캔 레인과 샌드박스 | [코드 보안 스캔](code-security-scanning-ko.md) |
 | 클라우드 보안 평가 | [Assurance Twin](assurance-twin-ko.md) |
 | 취약점과 위협 정보 출처 | [규칙 카탈로그 수집](../rules-and-detection/rule-catalog-collection-ko.md) |
 | 고정된 에이전트 역할 | [에이전트 판테온](../agents/agent-pantheon-ko.md) |

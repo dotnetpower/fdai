@@ -9,6 +9,7 @@ Commands:
 ``verify-fixes``  verify fix claims with a coverage-equivalent rescan;
 ``adjudicate``    record a human decision on a false-positive claim;
 ``publish-review`` publish a scan review through Heimdall and plan notifications;
+``scan``          run the deterministic lane in the sandbox against one revision;
 ``public-key``    print the pack-signing public key that developers pin.
 
 Example::
@@ -61,6 +62,7 @@ from fdai.core.security.code_findings.receipts import (
     build_receipt,
     receipt_to_dict,
 )
+from fdai.delivery.code_security_acquire import SourceAcquisitionError
 from fdai.delivery.code_security_publish_cli import add_publish_command, publish_review
 from fdai.delivery.code_security_registry import FileRemediationPackRegistry
 from fdai.delivery.code_security_review_cli import (
@@ -70,6 +72,7 @@ from fdai.delivery.code_security_review_cli import (
     pairs,
     verify_fixes,
 )
+from fdai.delivery.code_security_scan_cli import add_scan_command, run_scan
 from fdai.delivery.code_security_signing import Ed25519PackSigner
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.code_security import (
@@ -117,6 +120,7 @@ def _parser() -> argparse.ArgumentParser:
     revoke.add_argument("--reason", required=True)
     add_review_commands(sub)
     add_publish_command(sub)
+    add_scan_command(sub)
     key = sub.add_parser("public-key", help="print the pack-signing public key")
     key.add_argument("--signing-key", required=True)
     return parser
@@ -269,6 +273,8 @@ def main(argv: list[str] | None = None) -> int:
             output = adjudicate(args)
         elif args.command == "publish-review":
             output = asyncio.run(publish_review(args))
+        elif args.command == "scan":
+            output = asyncio.run(run_scan(args))
         else:
             signer = Ed25519PackSigner(Path(args.signing_key))
             output = {
@@ -280,6 +286,8 @@ def main(argv: list[str] | None = None) -> int:
         output = {"ok": False, "reason": exc.reason, "error": str(exc)}
     except AdjudicationError as exc:
         output = {"ok": False, "reason": "adjudication_rejected", "error": str(exc)}
+    except SourceAcquisitionError as exc:
+        output = {"ok": False, "reason": "source_unavailable", "error": str(exc)}
     except ExportDeniedError as exc:
         output = {"ok": False, "reason": "export_denied", "error": str(exc)}
     except (

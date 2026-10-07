@@ -45,6 +45,7 @@ from fdai.rule_catalog.code_security import (
 
 UNCLASSIFIED_PREFIX = "unclassified"
 DEPENDENCY_CLASS = "vulnerable_dependency"
+MISCONFIGURATION_CLASS = "insecure_configuration"
 SECRET_CLASS = "hardcoded_secret"  # noqa: S105 - weakness class id, not a credential
 _PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "P4": 4}
 
@@ -70,7 +71,11 @@ def _digest(*parts: object) -> str:
 
 
 def resolve_class(occurrence: Occurrence, catalog: CodeSecurityCatalog) -> str:
-    """Return the weakness class id for a code occurrence using exact CWE membership only."""
+    """Return the weakness class id for a code occurrence.
+
+    Exact CWE membership decides first. Without a listed CWE, producer tags for secrets and
+    misconfiguration map to their classes; anything else stays unclassified.
+    """
     classes = sorted(
         {
             class_id
@@ -80,8 +85,11 @@ def resolve_class(occurrence: Occurrence, catalog: CodeSecurityCatalog) -> str:
     )
     if classes:
         return classes[0]
-    if any(tag.lower() in ("secret", "secrets", "hardcoded-secret") for tag in occurrence.tags):
+    tags = {tag.lower() for tag in occurrence.tags}
+    if tags & {"secret", "secrets", "hardcoded-secret"}:
         return SECRET_CLASS
+    if tags & {"misconfiguration", "misconfig"}:
+        return MISCONFIGURATION_CLASS
     return f"{UNCLASSIFIED_PREFIX}:{occurrence.producer}:{occurrence.rule_id}"
 
 
@@ -320,6 +328,7 @@ def build_issues(
 
 __all__ = [
     "DEPENDENCY_CLASS",
+    "MISCONFIGURATION_CLASS",
     "SECRET_CLASS",
     "UNCLASSIFIED_PREFIX",
     "AnalysisContext",

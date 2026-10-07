@@ -1,0 +1,50 @@
+# Deterministic-lane scanners FDAI runs inside the code-analysis sandbox.
+#
+# Each scanner reads the exact acquired revision mounted read-only at {source}, writes SARIF
+# 2.1.0 to standard output, has no network, and must exit with a listed success code. Optional
+# mounts: {rules} (FDAI-authored rule pack, read-only) and {cache} (pre-provisioned offline
+# vulnerability database, read-only). A deployment binds each scanner id to a host executable;
+# scanners without a binding are skipped and reported as coverage limits.
+#
+# Tool names are product names. FDAI does not redistribute these tools; installations provide
+# them. Placeholders other than {source}, {rules}, and {cache} fail validation.
+schema_version: 1
+catalog_id: fdai.code-security.scanners
+version: 1.1.0
+scanners:
+  opengrep:
+    producer: Opengrep
+    argv: ["scan", "--config", "{rules}", "--sarif", "--metrics=off", "--disable-version-check", "--quiet", "{source}"]
+    mounts: [rules]
+    success_exit_codes: [0]
+    timeout_seconds: 900
+    max_output_bytes: 5000000
+  gitleaks:
+    producer: gitleaks
+    argv: ["dir", "{source}", "--report-format", "sarif", "--report-path", "/dev/stdout", "--no-banner", "--exit-code", "0", "--redact"]
+    mounts: []
+    success_exit_codes: [0]
+    timeout_seconds: 300
+    max_output_bytes: 5000000
+  osv-scanner:
+    producer: osv-scanner
+    argv: ["scan", "source", "--offline", "--format", "sarif", "--recursive", "{source}"]
+    mounts: [cache]
+    cache_env: OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY
+    success_exit_codes: [0, 1]
+    timeout_seconds: 600
+    max_output_bytes: 5000000
+  trivy-config:
+    producer: Trivy
+    argv: ["config", "--format", "sarif", "--skip-check-update", "--cache-dir", "/scratch/trivy", "--quiet", "{source}"]
+    mounts: []
+    success_exit_codes: [0]
+    timeout_seconds: 600
+    max_output_bytes: 5000000
+  trivy-vuln:
+    producer: Trivy
+    argv: ["fs", "--format", "sarif", "--scanners", "vuln", "--offline-scan", "--skip-db-update", "--skip-java-db-update", "--cache-dir", "{cache}", "--quiet", "{source}"]
+    mounts: [cache]
+    success_exit_codes: [0]
+    timeout_seconds: 600
+    max_output_bytes: 5000000

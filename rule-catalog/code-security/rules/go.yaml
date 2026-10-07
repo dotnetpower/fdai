@@ -1,0 +1,28 @@
+# FDAI-authored Opengrep rules for Go.
+rules:
+  - id: fdai.go.shell-command
+    languages: [go]
+    severity: ERROR
+    message: A command runs through a shell with a non-literal script. Call the program with fixed arguments.
+    metadata: {cwe: ["CWE-78"], category: security, confidence: MEDIUM}
+    patterns:
+      - pattern-either:
+          - pattern: exec.Command("sh", "-c", $X)
+          - pattern: exec.Command("bash", "-c", $X)
+          - pattern: exec.CommandContext($CTX, "sh", "-c", $X)
+      - pattern-not: exec.Command("sh", "-c", "...")
+  - id: fdai.go.tls-insecure-skip-verify
+    languages: [go]
+    severity: WARNING
+    message: TLS certificate verification is disabled.
+    metadata: {cwe: ["CWE-295"], category: security, confidence: HIGH}
+    pattern: "tls.Config{..., InsecureSkipVerify: true, ...}"
+  - id: fdai.go.sql-sprintf-query
+    languages: [go]
+    severity: ERROR
+    message: A SQL query is built with fmt.Sprintf. Use placeholders and pass values as arguments.
+    metadata: {cwe: ["CWE-89"], category: security, confidence: MEDIUM}
+    pattern-either:
+      - pattern: $DB.Query(fmt.Sprintf(...), ...)
+      - pattern: $DB.Exec(fmt.Sprintf(...), ...)
+      - pattern: $DB.QueryRow(fmt.Sprintf(...), ...)

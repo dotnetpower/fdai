@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 from fdai.core.notifications.matrix import load_matrix_from_yaml
@@ -60,31 +61,43 @@ def coverage_complete(receipt: ScanCoverageReceipt) -> bool:
     )
 
 
-async def _publish_on_bus(package: dict[str, object], bootstrap_servers: str) -> bool:
-    import httpx
+class _BusHeimdallPublisher:
+    """Publish one review through Heimdall on the deployment event bus, then close the bus."""
 
-    from fdai.agents import EventBusBridge, load_pantheon
-    from fdai.agents.heimdall import Heimdall
-    from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
-    from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+    def __init__(self, bootstrap_servers: str) -> None:
+        self._bootstrap_servers = bootstrap_servers
 
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(connect=5.0, read=15.0, write=15.0, pool=5.0)
-    ) as http_client:
-        bus = EventHubsKafkaBus(
-            identity=ManagedIdentityWorkloadIdentity.from_env(http_client=http_client),
-            config=EventHubsKafkaBusConfig(
-                bootstrap_servers=bootstrap_servers, client_id="fdai-code-security-review"
-            ),
-        )
-        try:
-            heimdall = Heimdall(
-                bus=EventBusBridge(provider=bus, registry=load_pantheon()),
-                code_security_drift_projector=code_security_drift_payload,
+    async def publish_code_security_drift(self, package: Mapping[str, object]) -> bool:
+        import httpx
+
+        from fdai.agents import EventBusBridge, load_pantheon
+        from fdai.agents.heimdall import Heimdall
+        from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
+        from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=15.0, write=15.0, pool=5.0)
+        ) as http_client:
+            bus = EventHubsKafkaBus(
+                identity=ManagedIdentityWorkloadIdentity.from_env(http_client=http_client),
+                config=EventHubsKafkaBusConfig(
+                    bootstrap_servers=self._bootstrap_servers,
+                    client_id="fdai-code-security-review",
+                ),
             )
-            return await heimdall.publish_code_security_drift(package)
-        finally:
-            await bus.close()
+            try:
+                heimdall = Heimdall(
+                    bus=EventBusBridge(provider=bus, registry=load_pantheon()),
+                    code_security_drift_projector=code_security_drift_payload,
+                )
+                return await heimdall.publish_code_security_drift(package)
+            finally:
+                await bus.close()
+
+
+def heimdall_publisher(bootstrap_servers: str) -> _BusHeimdallPublisher:
+    """Return a publisher that routes reviews through Heimdall on the deployment bus."""
+    return _BusHeimdallPublisher(bootstrap_servers)
 
 
 def build_review(
@@ -146,7 +159,9 @@ async def publish_review(args: argparse.Namespace) -> dict[str, object]:
     ]
     published = False
     if args.kafka_bootstrap_servers:
-        published = await _publish_on_bus(package, args.kafka_bootstrap_servers)
+        published = await heimdall_publisher(
+            args.kafka_bootstrap_servers
+        ).publish_code_security_drift(package)
     if args.out:
         Path(args.out).write_text(
             json.dumps({"package": package, "notifications": planned}, indent=2) + "\n"
@@ -160,4 +175,10 @@ async def publish_review(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
-__all__ = ["add_publish_command", "build_review", "coverage_complete", "publish_review"]
+__all__ = [
+    "add_publish_command",
+    "build_review",
+    "coverage_complete",
+    "heimdall_publisher",
+    "publish_review",
+]

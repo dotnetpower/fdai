@@ -183,18 +183,25 @@
         "services/core-control-plane/src/fdai/delivery/code_security_*.py",
         "services/core-control-plane/tests/agents/test_code_security_drift.py",
         "services/core-control-plane/tests/delivery/test_code_security_adapters.py",
-        "config/code-security-agent-providers.yaml"
+        "config/code-security-agent-providers.yaml",
+        "docs/roadmap/operations/code-security-scanning*.md",
+        "docs/roadmap-implementation/operations/code-security-scanning.md",
+        "services/core-control-plane/src/fdai/rule_catalog/code_security_scanners.py",
+        "services/core-control-plane/tests/delivery/test_code_security_scanning.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/architecture/fdai-constitution.md",
         "docs/roadmap/operations/code-security-findings.md",
         "docs/roadmap/rules-and-detection/rule-catalog-collection.md",
-        "docs/roadmap/architecture/llm-strategy.md"
+        "docs/roadmap/architecture/llm-strategy.md",
+        "docs/roadmap/operations/code-security-scanning.md"
       ],
       "docs_update": [
         "docs/roadmap/operations/code-security-findings.md",
-        "docs/roadmap-implementation/operations/code-security-findings.md"
+        "docs/roadmap-implementation/operations/code-security-findings.md",
+        "docs/roadmap/operations/code-security-scanning.md",
+        "docs/roadmap-implementation/operations/code-security-scanning.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings",

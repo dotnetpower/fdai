@@ -9,7 +9,7 @@
 # Guidance text is FDAI-authored.
 schema_version: 1
 catalog_id: fdai.code-security.weakness-classes
-version: 1.0.0
+version: 1.1.0
 classes:
   sql_injection:
     title: SQL or query injection
@@ -187,13 +187,23 @@ classes:
       Use structured logging and neutralize line breaks in untrusted values.
   insecure_configuration:
     title: Insecure configuration or permissions
-    cwe: [16, 276, 732, 1188]
+    cwe: [16, 276, 489, 732, 1188]
     impact_range: [info_disclosure, data_write]
     fix_class: config_change
     autofix_eligibility: assisted
     max_depth: D2
     guidance: >-
       Apply the secure default for the setting and restrict permissions to the minimum required.
+  improper_certificate_validation:
+    title: Improper certificate validation
+    cwe: [295, 297]
+    impact_range: [info_disclosure, data_write]
+    fix_class: local_code_fix
+    autofix_eligibility: auto
+    max_depth: D3
+    guidance: >-
+      Keep TLS certificate and host-name verification enabled. Trust a private certificate
+      authority through the platform trust store instead of disabling verification.
   vulnerable_dependency:
     title: Vulnerable dependency
     cwe: [937, 1035, 1104, 1395]

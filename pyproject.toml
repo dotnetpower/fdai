@@ -170,8 +170,10 @@ src = [
     "extensions/governed-chaos-provider/src",
 ]
 # Mock/design assets and design experiments are not part of the shipped
-# monorepo; they live outside the lint gate on purpose.
-extend-exclude = ["mocks", "examples"]
+# monorepo; they live outside the lint gate on purpose. The code-security rule
+# pack fixtures are deliberately vulnerable inputs for scanner rule tests and
+# are never imported or executed.
+extend-exclude = ["mocks", "examples", "rule-catalog/code-security/rules"]
 
 [tool.ruff.lint]
 # Full rule selection is finalized in W1.7. This is a conservative starter set.

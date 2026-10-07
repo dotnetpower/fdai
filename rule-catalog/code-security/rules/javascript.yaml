@@ -1,0 +1,55 @@
+# FDAI-authored Opengrep rules for JavaScript and TypeScript.
+rules:
+  - id: fdai.js.eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: eval or the Function constructor runs a non-literal string. Parse data explicitly instead.
+    metadata: {cwe: ["CWE-95"], category: security, confidence: MEDIUM}
+    patterns:
+      - pattern-either:
+          - pattern: eval($X)
+          - pattern: new Function(..., $X)
+      - pattern-not: eval("...")
+  - id: fdai.js.child-process-exec
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: child_process.exec runs a non-literal command through a shell. Use execFile with an argument array.
+    metadata: {cwe: ["CWE-78"], category: security, confidence: MEDIUM}
+    patterns:
+      - pattern-either:
+          - pattern: $CP.exec($CMD, ...)
+          - pattern: $CP.execSync($CMD, ...)
+          - pattern: exec($CMD, ...)
+          - pattern: execSync($CMD, ...)
+      - pattern-not: $CP.exec("...", ...)
+      - pattern-not: $CP.execSync("...", ...)
+      - pattern-not: exec("...", ...)
+      - pattern-not: execSync("...", ...)
+  - id: fdai.js.inner-html
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: A non-literal value is assigned to innerHTML or outerHTML. Use textContent or sanitize the markup.
+    metadata: {cwe: ["CWE-79"], category: security, confidence: MEDIUM}
+    patterns:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $X
+          - pattern: $EL.outerHTML = $X
+      - pattern-not: $EL.innerHTML = "..."
+      - pattern-not: $EL.outerHTML = "..."
+  - id: fdai.js.sql-template-query
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: A SQL query is built with a template literal or concatenation. Use placeholders.
+    metadata: {cwe: ["CWE-89"], category: security, confidence: MEDIUM}
+    pattern-either:
+      - pattern: $DB.query(`...${$X}...`, ...)
+      - pattern: $DB.query("..." + $X, ...)
+      - pattern: $DB.execute(`...${$X}...`, ...)
+  - id: fdai.js.tls-reject-unauthorized
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: TLS certificate verification is disabled.
+    metadata: {cwe: ["CWE-295"], category: security, confidence: HIGH}
+    pattern-either:
+      - pattern: "{..., rejectUnauthorized: false, ...}"
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
