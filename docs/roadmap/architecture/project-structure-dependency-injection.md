@@ -193,6 +193,11 @@ index.
 
 The shared `MetricProviderError` contract owns bounded failure metadata; Azure transports classify it and the Analyzer redacts identities.
 The [metric diagnostics contract](aks-diagnostic-evidence-plane.md#safe-metric-failure-diagnostics) preserves legacy providers, empty results, and fail-closed behavior.
+`RoutedMetricProvider` also recognizes an additive concrete-provider `serves(query)` capability
+before dispatch. Providers without it retain name-only routing. A rejecting route allows the next
+declared route to inspect the same exact query, while an error after dispatch remains terminal.
+This changes no `MetricProvider` Protocol signature and grants no fallback, retry, or evidence
+authority.
 
 The local development `EventBus` keeps a bounded per-topic replay window instead of retaining every
 record indefinitely. Compaction removes a record only after every known subscribed group has

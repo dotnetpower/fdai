@@ -170,22 +170,37 @@ def _project_resource_state(value: object) -> SemanticAssuranceClaims:
             limitation_kinds=("resource_state_output_invalid",),
         )
     facts = {"resource_state.collection"}
+    member_unknown = False
     for row in rows:
-        if (
-            row.get("execution_authority") is not False
-            or not _nonempty_text(row.get("state_concept"))
-            or not _nonempty_text(row.get("source_observed_at"))
+        if row.get("execution_authority") is not False:
+            return SemanticAssuranceClaims(
+                limitation_kinds=("resource_state_output_invalid",),
+            )
+        # A listing names a member whose state is not verified, with the typed reason.
+        if row.get("state_status") == "unknown_incomplete":
+            if row.get("state_concept") is not None or not _nonempty_text(
+                row.get("unknown_reason")
+            ):
+                return SemanticAssuranceClaims(
+                    limitation_kinds=("resource_state_output_invalid",),
+                )
+            member_unknown = True
+        elif not _nonempty_text(row.get("state_concept")) or not _nonempty_text(
+            row.get("source_observed_at")
         ):
             return SemanticAssuranceClaims(
                 limitation_kinds=("resource_state_output_invalid",),
             )
-        facts.update(("evidence.observed_at", "resource.runtime_state"))
+        else:
+            facts.update(("evidence.observed_at", "resource.runtime_state"))
         if _nonempty_text(row.get("name")):
             facts.add("resource.identity")
-    limitations = () if complete is True else ("resource_state.source_incomplete",)
+    limitations = [] if complete is True else ["resource_state.source_incomplete"]
+    if member_unknown:
+        limitations.append("resource_state.member_unknown")
     return SemanticAssuranceClaims(
         fact_kinds=tuple(sorted(facts)),
-        limitation_kinds=limitations,
+        limitation_kinds=tuple(sorted(limitations)),
     )
 
 

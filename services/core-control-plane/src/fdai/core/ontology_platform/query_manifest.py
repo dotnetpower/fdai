@@ -75,6 +75,8 @@ class QueryManifest:
     # Reviewed metric concepts and descriptions the bound metric reader accepts; the digest
     # binds them whenever they are present, and they never enter a plan prompt either.
     metric_labels: tuple[tuple[str, str], ...] = ()
+    # Each offered metric concept's canonical unit, so a stated threshold unit is checked.
+    metric_units: tuple[tuple[str, str], ...] = ()
     # Reviewed Resource Health concepts and their provider values under the same binding.
     health_labels: tuple[tuple[str, tuple[str, ...]], ...] = ()
     # Reviewed Property semantics a property measure may read; bound by the digest too.
@@ -97,6 +99,7 @@ def build_query_manifest(
     metric_labels: Mapping[str, str] | None = None,
     health_labels: Mapping[str, Sequence[str]] | None = None,
     property_reads: Sequence[ReviewedPropertyRead] = (),
+    metric_units: Mapping[str, str] | None = None,
 ) -> QueryManifest:
     """Project every readable declaration or one typed unavailable record.
 
@@ -179,6 +182,8 @@ def build_query_manifest(
     # Measure concepts are offered only when their reader is a readable, bound descriptor.
     readers = {item.get("name") for item in descriptors_tuple if item.get("kind") == "function"}
     metrics = tuple(sorted((metric_labels or {}).items())) if _METRIC_READER in readers else ()
+    offered = {concept for concept, _label in metrics}
+    units = tuple(sorted(item for item in (metric_units or {}).items() if item[0] in offered))
     health = (
         tuple(sorted((concept, tuple(values)) for concept, values in (health_labels or {}).items()))
         if _HEALTH_READER in readers
@@ -198,6 +203,7 @@ def build_query_manifest(
         "unavailable": unavailable_tuple,
         "mutation_authority": False,
         **({"metric_labels": [list(item) for item in metrics]} if metrics else {}),
+        **({"metric_units": [list(item) for item in units]} if units else {}),
         **({"health_labels": [[key, list(values)] for key, values in health]} if health else {}),
         **(
             {"property_reads": [item.payload() for item in readable_reads]}
@@ -237,6 +243,7 @@ def build_query_manifest(
         coverage_receipt=coverage_receipt,
         object_labels=tuple(sorted(object_labels)),
         metric_labels=metrics,
+        metric_units=units,
         health_labels=health,
         property_reads=readable_reads,
     )

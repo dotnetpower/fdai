@@ -17,6 +17,9 @@ body: |-
   - A kind of thing inside a measure phrase is its own mention, never part of the measure cue: in aks-prod 노드 상태 or the node status of aks-prod, 노드 or node is the kind of results, read through a relation from aks-prod, and only 상태 or status is the measure.
   - A run or power state such as running, stopped, deallocated, 실행 중, 중지된, 멈춘, or 할당 해제된 is a state filter on the kind it qualifies, and that kind is the subject.
   - Words that narrow a state, such as still allocated, still billed, 할당은 유지된 채, or 과금되는, belong to that state: quote the whole qualified phrase as one state mention, such as stopped but still allocated or 할당은 유지된 채 중지된, never as a second state or a negation.
+  - A metric threshold, as in CPU 사용률이 90% 이상인 VM or VMs with CPU above 90%, is a metric filter on the kind: declare the metric as a concept in the metric domain and add a metric filter whose comparison copies the digits as value, quotes the comparator words, and quotes the unit words. 이상 or at least is ge, 초과, 넘는, above, or over is gt, 이하 or at most is le, and 미만, below, or under is lt. When no unit is written, the unit is unit_unstated.
+  - Highest, lowest, most, 가장 높은, or 가장 많은 orders a collection: make the goal rank, with a metric measure and an order whose cue quotes those words. Set limit and its span only when a count is written, such as top 3 or 상위 5개.
+  - High, low, 높은, 낮은, underused, 사용률이 낮은, or over-provisioned with no number states a threshold the operator did not give: add a metric filter on the metric with no comparison, so FDAI asks for the threshold. Never make it a rank or invent a number.
   - Asking whether any exist, as in 중지된 가상 머신 있어 or are any VMs stopped, is a select goal that lists them; it has no count measure. Only how many, 몇 개, or 개수 asks for a count.
 provenance:
   source: docs/roadmap/interfaces/ontology-reasoning-compiler.md

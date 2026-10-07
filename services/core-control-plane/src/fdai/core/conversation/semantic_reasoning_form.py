@@ -28,6 +28,9 @@ from fdai_service_contracts.semantic_question_form import (
     AtomDiff as AtomDiff,
 )
 from fdai_service_contracts.semantic_question_form import (
+    Comparator as Comparator,
+)
+from fdai_service_contracts.semantic_question_form import (
     DurationUnit as DurationUnit,
 )
 from fdai_service_contracts.semantic_question_form import (
@@ -79,6 +82,12 @@ from fdai_service_contracts.semantic_question_form import (
     MentionForm as MentionForm,
 )
 from fdai_service_contracts.semantic_question_form import (
+    MetricComparison as MetricComparison,
+)
+from fdai_service_contracts.semantic_question_form import (
+    MetricUnit as MetricUnit,
+)
+from fdai_service_contracts.semantic_question_form import (
     RelationReach as RelationReach,
 )
 from fdai_service_contracts.semantic_question_form import (
@@ -119,6 +128,7 @@ __all__ = [
     "MAX_FORM_MENTIONS",
     "MAX_UNSUPPORTED_CONSTRAINTS",
     "AtomDiff",
+    "Comparator",
     "DurationUnit",
     "DurationValue",
     "FilterRole",
@@ -136,6 +146,8 @@ __all__ = [
     "MeasureKind",
     "MentionDomain",
     "MentionForm",
+    "MetricComparison",
+    "MetricUnit",
     "RelationReach",
     "RelationScope",
     "RelationSense",

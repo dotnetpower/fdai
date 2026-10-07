@@ -17,6 +17,7 @@ from .semantic_reasoning_form import (
 class AllowedMeasureConcepts(Protocol):
     state_concepts: set[str]
     health_concepts: set[str]
+    list_state_members: bool
 
 
 def allow_listed_measure(
@@ -35,5 +36,6 @@ def allow_listed_measure(
         return
     if measure.kind is MeasureKind.STATE and not allowed.state_concepts:
         allowed.state_concepts.add(RESOURCE_STATE_OBSERVED_CONCEPT)
+        allowed.list_state_members = True
     elif measure.kind is MeasureKind.HEALTH and not allowed.health_concepts:
         allowed.health_concepts.update(health_concepts)

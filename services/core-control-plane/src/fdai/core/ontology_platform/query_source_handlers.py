@@ -671,6 +671,7 @@ class FunctionNodeHandler:
         )
         scoped_authority_inputs = {
             "query.resource_health_inventory": (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+            "query.resource_metric_inventory": (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
             "query.resource_state_transitions": (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
         }.get(function_name, ())
         exact_document_refs = _exact_document_evidence(

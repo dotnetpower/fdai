@@ -86,7 +86,7 @@ def resource_state_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=RESOURCE_STATE_FUNCTION_NAME,
-        version="1.2.0",
+        version="1.3.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
@@ -103,6 +103,8 @@ def resource_state_function_type() -> OntologyFunctionType:
                     "uniqueItems": True,
                     "items": {"enum": list(RESOURCE_STATE_QUERY_CONCEPTS)},
                 },
+                # List mode returns one row for every input Resource, never omitting one.
+                "list_members": {"type": "boolean"},
             },
         },
         output_schema={
@@ -153,24 +155,41 @@ def resource_state_inventory_function(
         scope_incomplete = secured.receipt.truncated or not secured.receipt.complete
         requested = frozenset(str(item) for item in arguments["state_concepts"])
         include_all_observed = requested == {RESOURCE_STATE_OBSERVED_CONCEPT}
+        list_members = arguments.get("list_members") is True
+        if list_members and not include_all_observed:
+            raise ValueError("resource-state list mode reads only the observed-state concept")
         rows: list[QueryRow] = []
         state_evidence_incomplete = False
-        for target in sorted(secured.materialization.graph.objects, key=lambda item: item.id):
+        targets = sorted(secured.materialization.graph.objects, key=lambda item: item.id)
+        for target in targets:
             values = verified_resource_state_values(
                 target,
                 observation_cutoff=secured.receipt.observation_cutoff,
             )
             if values is None:
                 state_evidence_incomplete = True
+                if list_members:
+                    rows.append(
+                        QueryRow.from_values(
+                            f"resource-state-{len(rows) + 1:04d}",
+                            unknown_resource_state_values(
+                                target, observation_cutoff=secured.receipt.observation_cutoff
+                            ),
+                        )
+                    )
                 continue
             if not include_all_observed and values["state_concept"] not in requested:
                 continue
+            if list_members:
+                values = {**values, "state_status": "observed"}
             rows.append(
                 QueryRow.from_values(
                     f"resource-state-{len(rows) + 1:04d}",
                     values,
                 )
             )
+        if list_members and len(rows) != len(targets):
+            raise ValueError("resource-state list mode MUST return one row per Resource")
         return _table(
             tuple(rows),
             complete=not scope_incomplete and not state_evidence_incomplete,
@@ -216,6 +235,54 @@ def verified_resource_state_values(
         "inventory_read_at": observation_cutoff.isoformat(),
         "execution_authority": False,
     }
+
+
+def unknown_resource_state_values(
+    target: OntologyObjectRecord,
+    *,
+    observation_cutoff: Any,
+) -> dict[str, object]:
+    """Describe one Resource whose state is not verified, with the typed reason why."""
+
+    provider = _mapping(target.properties.get("properties"))
+    return {
+        "name": _text(target.properties.get("name")),
+        "type": _text(target.properties.get("type")),
+        "resource_group": _text(provider.get("resource_group"))
+        or _text(provider.get("resourceGroup")),
+        "region": _text(provider.get("region")) or _text(provider.get("location")),
+        "observed_state": None,
+        "state_concept": None,
+        "state_status": "unknown_incomplete",
+        "unknown_reason": _unverified_state_reason(provider, observation_cutoff=observation_cutoff),
+        "source_observed_at": None,
+        "inventory_read_at": observation_cutoff.isoformat(),
+        "execution_authority": False,
+    }
+
+
+def _unverified_state_reason(provider: Mapping[str, Any], *, observation_cutoff: Any) -> str:
+    """Return the first reason a Resource's state is not a fresh, conflict-free observation."""
+
+    if _state_concept(_text(provider.get("state"))) is None:
+        return "state_not_reported"
+    metadata_root = _mapping(provider.get(STATE_FACT_METADATA_PROPERTY))
+    value = metadata_root if "lane" in metadata_root else metadata_root.get("state")
+    if not isinstance(value, Mapping):
+        return "state_metadata_missing"
+    try:
+        metadata = StateFactMetadata.from_mapping(value)
+    except (TypeError, ValueError):
+        return "state_metadata_invalid"
+    if metadata.lane is not StateFactLane.OBSERVED or metadata.synthetic:
+        return "state_not_observed"
+    if metadata.conflicts:
+        return "state_conflicting"
+    if metadata.completeness < 1.0:
+        return "state_partial"
+    if metadata.evidence_cutoff > observation_cutoff or metadata.recorded_at > observation_cutoff:
+        return "state_after_cutoff"
+    return "state_stale"
 
 
 def _state_concept(value: str | None) -> str | None:
@@ -278,5 +345,6 @@ __all__ = [
     "RESOURCE_STATE_QUERY_CONCEPTS",
     "resource_state_function_type",
     "resource_state_inventory_function",
+    "unknown_resource_state_values",
     "verified_resource_state_values",
 ]

@@ -51,7 +51,6 @@ def test_rank_keeps_unreviewed_measure_reason_after_order_is_bound() -> None:
                 "mention": "m2",
                 "order": {
                     "direction": "descending",
-                    "limit": 5,
                     "cue": span(_UTTERANCE, "read"),
                 },
             },

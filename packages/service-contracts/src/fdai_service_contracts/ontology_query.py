@@ -381,7 +381,12 @@ class GoalTaskReceipt(QueryContract):
                         "and manifest inputs"
                     )
                 raise ValueError("derived evidence authority requires its exact scoped inputs")
-        elif self.authority_inputs:
+        elif self.authority_inputs and not (
+            # A metric inventory reads the members of one inventory scope; other metric
+            # readers declare no inputs.
+            self.authority is EvidenceAuthority.SERVER_OPERATIONAL_METRICS
+            and self.authority_inputs == (EvidenceAuthority.SERVER_INVENTORY_GRAPH,)
+        ):
             raise ValueError(
                 "non-composite task receipt authority MUST NOT declare authority inputs"
             )

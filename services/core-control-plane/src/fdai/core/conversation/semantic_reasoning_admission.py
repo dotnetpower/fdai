@@ -14,6 +14,7 @@ import string
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal
 from enum import StrEnum
 
 from .semantic_reasoning_form import (
@@ -25,6 +26,7 @@ from .semantic_reasoning_form import (
     GoalOperation,
     MentionDomain,
     MentionForm,
+    MetricUnit,
     RelationReach,
     RelationScope,
     RelationSense,
@@ -58,6 +60,7 @@ _FILTER_DOMAINS: dict[FilterRole, frozenset[MentionDomain]] = {
     FilterRole.REGION: frozenset({MentionDomain.REGION}),
     FilterRole.NAME_FRAGMENT: frozenset({MentionDomain.INSTANCE}),
     FilterRole.SCOPE: frozenset({MentionDomain.INSTANCE}),
+    FilterRole.METRIC: frozenset({MentionDomain.METRIC}),
 }
 _SCHEMA_FILTER_DOMAINS: dict[FilterRole, frozenset[MentionDomain]] = {
     FilterRole.TYPE: frozenset({MentionDomain.DECLARATION_KIND}),
@@ -142,6 +145,7 @@ def admit_question_form(
     fractional: list[str] = []
     for goal in form.goals:
         invalid.extend(_goal_span_failures(goal, utterance))
+        invalid.extend(_comparison_failures(goal, utterance))
         invalid.extend(_goal_shape_failures(goal, form))
         check = _time_value_check(goal, utterance)
         if check is _TimeCheck.MISMATCH:
@@ -165,7 +169,7 @@ def admit_question_form(
         )
         return FormAdmission(AdmissionDisposition.CLARIFY, reasons, form, mention_text)
     # A fractional or compound amount cannot be checked, so the operator restates it.
-    contradictions = (*_relation_contradictions(form), *fractional)
+    contradictions = (*_relation_contradictions(form), *fractional, *_unstated_units(form))
     if contradictions:
         return FormAdmission(AdmissionDisposition.CLARIFY, contradictions, form, mention_text)
     unused = _unused_mentions(form)
@@ -368,6 +372,74 @@ def _continues(utterance: str, index: int, step: int) -> bool:
     )
 
 
+def _comparison_failures(goal: FormGoal, utterance: str) -> list[str]:
+    """Return why a metric comparison's quoted threshold is not the value it states.
+
+    The model copies the operator's digits into ``value``; Core checks that the quoted
+    span holds exactly one decimal literal equal to it. This validates the copy and
+    never interprets the words around it.
+    """
+
+    failures: list[str] = []
+    for item in goal.filters:
+        comparison = item.comparison
+        if comparison is None:
+            continue
+        spans = [comparison.comparator_span, comparison.value_span]
+        if comparison.unit_span is not None:
+            spans.append(comparison.unit_span)
+        if any(_span_text(span, utterance) is None for span in spans):
+            failures.append(f"comparison_span_invalid:{goal.id}")
+            continue
+        literals = _decimal_literals(str(_span_text(comparison.value_span, utterance)))
+        if literals != (Decimal(comparison.value),):
+            failures.append(f"comparison_value_mismatch:{goal.id}")
+    return failures
+
+
+def _decimal_literals(text: str) -> tuple[Decimal, ...]:
+    """Return each decimal literal in ``text``, joining digit groups split by commas."""
+
+    literals: list[Decimal] = []
+    index = 0
+    while index < len(text):
+        if not text[index].isdecimal():
+            index += 1
+            continue
+        digits = ""
+        while index < len(text):
+            character = text[index]
+            following = text[index + 1] if index + 1 < len(text) else ""
+            if character.isdecimal():
+                digits += str(unicodedata.decimal(character))
+            elif character == "," and following.isdecimal():
+                pass
+            elif character == "." and following.isdecimal() and "." not in digits:
+                digits += "."
+            else:
+                break
+            index += 1
+        literals.append(Decimal(digits))
+    return tuple(literals)
+
+
+def _unstated_units(form: SemanticQuestionForm) -> tuple[str, ...]:
+    """Return a clarification for each metric filter without a threshold or its unit.
+
+    No reviewed recipe turns a word such as high or underused into a threshold, so a
+    metric filter without a stated comparison asks for one.
+    """
+
+    reasons: list[str] = []
+    for goal in form.goals:
+        for item in goal.filters:
+            if item.role is FilterRole.METRIC and item.comparison is None:
+                reasons.append(f"metric_threshold_unstated:{goal.id}")
+            elif item.comparison is not None and item.comparison.unit is MetricUnit.UNSTATED:
+                reasons.append(f"metric_unit_unstated:{goal.id}")
+    return tuple(dict.fromkeys(reasons))
+
+
 def _goal_span_failures(goal: FormGoal, utterance: str) -> list[str]:
     spans = [("goal_cue", goal.cue)]
     if goal.relation is not None:
@@ -559,6 +631,10 @@ def _goal_shape_failures(goal: FormGoal, form: SemanticQuestionForm) -> list[str
         goal.measure is None or goal.measure.order is None
     ):
         failures.append(f"order_required:{goal.id}")
+    elif goal.operation is GoalOperation.RANK and goal.measure is not None:
+        # An order is read only from the words that state it, never from a default.
+        if goal.measure.order is not None and goal.measure.order.cue is None:
+            failures.append(f"order_cue_required:{goal.id}")
     if goal.operation is GoalOperation.DESCRIBE_SCHEMA and goal.level is not GoalLevel.SCHEMA:
         failures.append(f"describe_schema_level:{goal.id}")
     if goal.subject_scope is SubjectScope.GOAL_OUTPUT and not goal.depends_on:

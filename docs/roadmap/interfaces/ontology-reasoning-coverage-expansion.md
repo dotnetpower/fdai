@@ -260,12 +260,64 @@ read state or health only as a filter, so the measure held as `measure_unsupport
   concept in the manifest; without one, the goal holds as `health_concepts_unavailable`.
 - **Verify:** V-PROV re-derives the observed-state concept, or the manifest's complete health
   catalog, from the goal alone.
-- **Implementation note:** The local compiler lists through the existing reader modes. A member
-  without fresh, conflict-free state evidence is not a row; the table is then incomplete with
-  `resource_state_evidence_incomplete`, so the answer is partial rather than complete.
-- **Before promotion:** A versioned list mode returns exactly one row per input resource identity,
-  with an `UNKNOWN_INCOMPLETE` status and a typed member reason when evidence is missing, and V-SEM
-  checks identity-set equality between the object set and the rows.
+- **List mode:** The listing sets the state reader's `list_members` argument, added in function
+  version 1.3.0. The reader then returns exactly one row per input Resource. A member without fresh,
+  conflict-free state evidence has a row with `state_status: unknown_incomplete`, no state concept,
+  and a typed `unknown_reason`: `state_not_reported`, `state_metadata_missing`,
+  `state_metadata_invalid`, `state_not_observed`, `state_conflicting`, `state_partial`,
+  `state_after_cutoff`, or `state_stale`. Such a row keeps the table incomplete, and the assurance
+  projection records `resource_state.member_unknown`. The reader fails rather than return a row
+  count that differs from its input. The population receipt below accounts beyond one returned page.
+
+### Collection population receipt
+
+E10 to E12 read every member of a collection, but an object-set read stops at 1,000 rows and its
+receipt says only that it was cut. The population receipt makes the whole logical set accountable.
+An independent critique showed that a store count plus keyset pages is not enough today: the store
+applies no authorization, each query opens its own snapshot, scoped collections are traversals, and
+some predicates run only in memory. The design therefore pins one authorized member manifest.
+
+- **One relation:** Authorized rows, then the selector and type, then every membership predicate,
+  then a stable unique order. A definition is pageable only when every predicate and the
+  object-visibility rule evaluate inside that relation; otherwise the outcome is
+  `population_predicate_not_pageable` and the existing truncation holds.
+- **Visibility:** Projection keeps an unreadable object under an alias, so its existence is visible
+  but its identity is not. A population that contains any identity-redacted member makes no exact
+  claim and returns `population_visibility_indeterminate`. Receipts carry boundary digests, never
+  raw identifiers, and adversarial tests prove that hidden rows change no caller-visible count,
+  boundary, or completeness.
+- **Manifest:** One repeatable-read transaction reads the ordered member identifiers of that relation
+  up to a hard cap and Core stores them, with their digest, as the population manifest. Pages read
+  members by manifest identifier; a member whose revision changed after the manifest makes the page
+  `population_snapshot_unavailable` rather than a silently different set.
+- **Traversal populations:** A scoped collection's population is the deduplicated set of reached
+  endpoints of the stated kind, excluding roots and intermediate nodes, read completely once into the
+  same kind of manifest; a cut traversal returns `population_traversal_incomplete`.
+- **Processing:** Per-member readers keep their own processing receipts with a terminal disposition
+  for every member: a value, a typed unknown, or pending. The population cursor advances only when
+  every member of a page is terminal. Budget is reserved before a page is claimed; if not even one
+  page fits, the outcome is `population_budget_no_progress`.
+- **Continuation:** A dedicated collection-continuation variant, not the H5 change window, binds the
+  deployment scope, principal digest, conversation, purpose, goal, plan, manifest, and query-semantics
+  digests, the manifest digest, the cursor, the page size, and the expiry. Claiming leases the
+  reference and issues the successor atomically, so a failed page keeps its reference.
+- **Versions:** Object-set receipt 1.3.0 adds `population_status`, an optional count, page and
+  cumulative counts, and boundary and manifest digests, with invariants that tie them to `complete`
+  and `truncated`. A 1.2.0 reader treats any 1.3.0 partial population as an ordinary bounded result.
+- **Stages:** P1 reads pageable object-set populations up to the cap within one turn, with no
+  cross-turn continuation. P2 adds traversal populations. P3 adds processing receipts and the
+  collection continuation.
+
+| Population status | Outcome |
+|-------------------|---------|
+| `population_complete` | Complete answer over every member |
+| `population_partial_resumable` | Partial verified answer with a continuation |
+| `population_unknown`, `population_predicate_not_pageable` | Existing bounded result, stated as at least the members read |
+| `population_visibility_indeterminate` | Partial answer with no exact count |
+| `population_snapshot_unavailable`, `result_generation_changed` | Goal hold |
+| `population_traversal_incomplete` | Partial answer with the traversal limitation |
+| `population_budget_no_progress` | Hold with the budget reason |
+| `population_processing_partial` | Partial answer; pending members are listed as unknown |
 
 ### E11 Metric filters and ranking over a collection
 
@@ -289,6 +341,13 @@ most 16 members.
 - **Verify:** Input identities times metric concepts equal value-or-unknown rows; ranked identities
   are exactly the members with a complete value; ties order by a stated rule; V-CLAIM checks every
   value, comparison, unit, window, and rank position.
+- **First slice:** Question form 1.1.0 adds a `metric` filter with `gt`, `ge`, `lt`, or `le`, exact
+  digits, a reviewed unit, and an optional quoted order limit. Admission checks digits, units, and
+  rank cues; the compiler adds one metric stage. Function 1.2.0 reads batches of 16 under one pinned
+  window and a 128-member budget, ranking complete values by Resource identifier for ties. A list
+  keeps one typed unknown per unmeasured member; stopped reads remain incomplete. V-PROV re-derives
+  selection arguments, V-SEM rejects unread filters, and review accounts for comparison and order
+  spans. Metric evidence stays scoped; qualitative recipes, continuation, and live gold remain open.
 
 ### E12 Relations anchored on a collection
 
@@ -363,6 +422,12 @@ revision.
 | E12 turned missing edges into none | `VERIFIED_EMPTY` only with complete per-anchor relation coverage |
 | E12 reused the instance anchor field | A discriminated collection-anchor shape limited to one sense and one hop |
 | New outcomes had no typed status | The E10 to E12 status matrix |
+| The population count could reveal hidden members | Visibility inside the population relation, or `population_visibility_indeterminate` |
+| One generation didn't pin one population across pages | A manifest read in one repeatable-read transaction, checked by member revision |
+| Scoped collections are traversals | Deduplicated endpoint manifests and `population_traversal_incomplete` |
+| In-memory predicates made counts and pages inexact | Only fully pushed-down definitions are pageable |
+| A partial page could skip or repeat members | Per-member processing receipts and a leased, atomic continuation claim |
+| The receipt version and outcomes were undefined | Receipt 1.3.0 invariants and the population status table |
 
 ## Related docs
 

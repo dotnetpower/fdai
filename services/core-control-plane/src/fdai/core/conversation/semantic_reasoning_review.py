@@ -262,6 +262,12 @@ def answer_kinds(goal: FormGoal) -> frozenset[AnswerKind]:
         # A list filtered by a state answers whether its members are in that state.
         if any(item.role in {FilterRole.STATE, FilterRole.HEALTH} for item in goal.filters):
             kinds.add(AnswerKind.STATE)
+        # A metric threshold or a metric order reads each member's measured value, and a
+        # threshold also answers whether members cross it.
+        if any(item.role is FilterRole.METRIC for item in goal.filters):
+            kinds.update({AnswerKind.STATE, AnswerKind.VALUE})
+        if operation is GoalOperation.RANK and measure is MeasureKind.METRIC:
+            kinds.add(AnswerKind.VALUE)
         return frozenset(kinds)
     if operation in {GoalOperation.TRAVERSE, GoalOperation.PATH, GoalOperation.IMPACT}:
         return frozenset({AnswerKind.LIST, AnswerKind.RELATION, *_relation_kinds(goal)})
@@ -366,6 +372,31 @@ def uncovered_constraints(
     return tuple(uncovered)
 
 
+def _typed_expressions(
+    forms: Sequence[SemanticQuestionForm], role: ConstraintRole
+) -> list[SourceSpan]:
+    """Return the spans of typed fields that state a comparison or an order.
+
+    A metric filter's comparison states a threshold, and a stated order states how its
+    goal ranks; both are closed fields, so their quoted words acknowledge the constraint.
+    """
+
+    spans: list[SourceSpan] = []
+    for form in forms:
+        for goal in form.goals:
+            if role is ConstraintRole.COMPARES:
+                for item in goal.filters:
+                    if item.comparison is not None:
+                        spans.append(item.comparison.comparator_span)
+                        spans.append(item.comparison.value_span)
+                        if item.comparison.unit_span is not None:
+                            spans.append(item.comparison.unit_span)
+            order = goal.measure.order if goal.measure is not None else None
+            if role is ConstraintRole.ORDERS and order is not None:
+                spans.extend(span for span in (order.cue, order.limit_span) if span is not None)
+    return spans
+
+
 def unacknowledged_constraints(
     forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction, utterance: str
 ) -> tuple[ExtractedConstraint, ...]:
@@ -390,6 +421,7 @@ def unacknowledged_constraints(
             for goal in form.goals
             if goal.effective_operation in operations
         )
+        allowed.extend(_typed_expressions(forms, item.role))
         stated = [
             index
             for index in range(item.quote.start, min(item.quote.end, len(utterance)))
@@ -629,6 +661,12 @@ def _semantic_spans(
             if goal.effective_operation in _RANKING | _COMPARISON:
                 semantic.append(goal.cue)
             semantic.extend(item.cue for item in goal.filters if item.cue is not None)
+            for item in goal.filters:
+                if item.comparison is not None:
+                    semantic.append(item.comparison.comparator_span)
+                    semantic.append(item.comparison.value_span)
+                    if item.comparison.unit_span is not None:
+                        semantic.append(item.comparison.unit_span)
             if goal.relation is not None:
                 semantic.append(goal.relation.cue)
                 if goal.relation.reach_cue is not None:
@@ -640,6 +678,8 @@ def _semantic_spans(
             if goal.measure is not None and goal.measure.order is not None:
                 if goal.measure.order.cue is not None:
                     semantic.append(goal.measure.order.cue)
+                if goal.measure.order.limit_span is not None:
+                    semantic.append(goal.measure.order.limit_span)
     return semantic, mentions
 
 

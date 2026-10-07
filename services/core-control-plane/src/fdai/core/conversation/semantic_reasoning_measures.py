@@ -76,13 +76,17 @@ class MeasureRestriction:
     function_name: str
     output_shape: SemanticOutputShape
     concepts: tuple[str, ...]
+    # A listing reads every member, so the state reader returns a row for each one.
+    list_members: bool = False
 
     def node(self, node_id: str, source_id: str) -> OntologyQueryNode:
-        arguments: dict[str, list[str]] = (
+        arguments: dict[str, object] = (
             {"health_concepts": list(self.concepts), "state_concepts": []}
             if self.role is FilterRole.HEALTH
             else {"state_concepts": list(self.concepts)}
         )
+        if self.list_members and self.role is FilterRole.STATE:
+            arguments["list_members"] = True
         return OntologyQueryNode(
             node_id=node_id,
             kind=QueryNodeKind.FUNCTION,
@@ -181,7 +185,9 @@ def listed_measure(
             return OperatorResult(unsupported=("health_concepts_unavailable",))
     if not function_declared(ctx, reader.function_name):
         return OperatorResult(unsupported=(f"function_unavailable:{reader.function_name}",))
-    return MeasureRestriction(reader.role, reader.function_name, reader.output_shape, concepts)
+    return MeasureRestriction(
+        reader.role, reader.function_name, reader.output_shape, concepts, list_members=True
+    )
 
 
 def listed_health_concepts(

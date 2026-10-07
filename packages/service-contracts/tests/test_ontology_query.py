@@ -356,6 +356,39 @@ def test_intent_graph_console_projections_are_exact_and_bounded() -> None:
         project_intent_graph_evidence(oversized_evidence)
 
 
+@pytest.mark.parametrize(
+    ("inputs", "valid"),
+    (
+        ((), True),
+        ((EvidenceAuthority.SERVER_INVENTORY_GRAPH,), True),
+        ((EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,), False),
+    ),
+)
+def test_metric_evidence_may_declare_only_an_inventory_scope(
+    inputs: tuple[EvidenceAuthority, ...], valid: bool
+) -> None:
+    fields = {
+        "task_id": "request-1:goal-1",
+        "goal_id": "goal-1",
+        "intent": "function",
+        "capability": "query.function",
+        "evidence_mode": GoalEvidenceMode.OPERATIONAL,
+        "status": TaskStatus.COMPLETED,
+        "duration_ms": 1,
+        "evidence_refs": ("metric-receipt:1",),
+        "authority": EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
+        "authority_inputs": inputs,
+        "started_at": NOW,
+        "completed_at": NOW,
+    }
+
+    if valid:
+        assert GoalTaskReceipt(**fields).authority_inputs == inputs
+    else:
+        with pytest.raises(ValueError, match="MUST NOT declare authority inputs"):
+            GoalTaskReceipt(**fields)
+
+
 def test_intent_graph_evidence_uses_the_same_goal_bound_as_the_graph() -> None:
     receipt = GoalTaskReceipt(
         task_id="request-1:goal-1",

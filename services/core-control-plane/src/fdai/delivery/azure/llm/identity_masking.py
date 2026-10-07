@@ -174,6 +174,14 @@ def _map_quotes(
             output[key] = convert(quote)
         return output
 
+    def _comparison_quotes(item: Any) -> Any:
+        if not isinstance(item, dict) or not isinstance(item.get("comparison"), Mapping):
+            return item
+        comparison: Any = item["comparison"]
+        for key in ("comparator_span", "value_span", "unit_span"):
+            comparison = inside(comparison, key)
+        return {**item, "comparison": comparison}
+
     output = dict(payload)
     mentions = output.get("mentions")
     if isinstance(mentions, list):
@@ -191,10 +199,11 @@ def _map_quotes(
                     goal["relation"] = inside(goal["relation"], "reach_cue")
                 measure = goal.get("measure")
                 if isinstance(measure, dict) and "order" in measure:
-                    goal["measure"] = {**measure, "order": inside(measure["order"], "cue")}
+                    order = inside(inside(measure["order"], "cue"), "limit_span")
+                    goal["measure"] = {**measure, "order": order}
                 filters = goal.get("filters")
                 if isinstance(filters, list):
-                    goal["filters"] = [inside(item, "cue") for item in filters]
+                    goal["filters"] = [_comparison_quotes(inside(item, "cue")) for item in filters]
             converted.append(goal)
         output["goals"] = converted
     for key in _QUOTE_LISTS:

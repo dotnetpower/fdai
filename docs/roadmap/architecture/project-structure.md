@@ -67,6 +67,11 @@ Preflight routes environment reachability to operational evidence. A collection 
 each member's reviewed state or health concept, while the same measure on an anchor, relation, or
 schema goal remains held as unsupported. Core re-derives the selected concepts during provenance
 verification; these paths add no identity, provider, or execution authority.
+E10 list mode asks the state reader for one typed row per authorized collection member and keeps
+missing or unusable state as an explicit unknown row. E11 adds one bounded metric stage after the
+same collection selection for threshold filtering or ranking under a pinned window and member-read
+budget. The query receipt accounts for complete values and typed unknowns; provider routing and
+answer review cannot turn a partial population into complete evidence.
 The same typed-only boundary may reuse an independently certified direct read before legacy
 judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
 existing gates. Numeric call accounting adds no prompt capture or execution authority.

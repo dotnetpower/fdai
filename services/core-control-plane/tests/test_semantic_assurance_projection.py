@@ -178,6 +178,51 @@ def test_resource_state_assurance_does_not_claim_missing_identity() -> None:
     )
 
 
+def test_resource_state_listing_accounts_unknown_members_as_a_limitation() -> None:
+    def listing(unknown: dict[str, Any]) -> Any:
+        return _function_result(
+            function_name="query.resource_state_inventory",
+            value={
+                "rows": [
+                    {
+                        "row_id": "resource-state-0001",
+                        "values": {
+                            "name": "vm-a",
+                            "state_concept": "resource_state.running",
+                            "state_status": "observed",
+                            "source_observed_at": "2026-08-22T00:00:00+00:00",
+                            "execution_authority": False,
+                        },
+                    },
+                    {"row_id": "resource-state-0002", "values": unknown},
+                ],
+                "complete": False,
+                "truncation_reason": "resource_state_evidence_incomplete",
+            },
+        )
+
+    unknown = {
+        "name": "vm-b",
+        "state_concept": None,
+        "state_status": "unknown_incomplete",
+        "unknown_reason": "state_stale",
+        "source_observed_at": None,
+        "execution_authority": False,
+    }
+    observation = project_semantic_assurance(listing(unknown), disposition="answered")
+    # An unknown member without its typed reason is an invalid output, never a silent row.
+    invalid = project_semantic_assurance(
+        listing({**unknown, "unknown_reason": None}), disposition="answered"
+    )
+
+    assert observation.limitation_kinds == (
+        "resource_state.member_unknown",
+        "resource_state.source_incomplete",
+    )
+    assert "resource.runtime_state" in observation.fact_kinds
+    assert "resource_state_output_invalid" in invalid.limitation_kinds
+
+
 def test_project_semantic_assurance_blocks_all_clear_for_incomplete_health_coverage() -> None:
     result = _function_result(
         function_name="query.resource_health_inventory",

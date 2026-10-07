@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 0623ba98272d2548c7b04c765573dd0c87c224ae
-translation_revised: 2026-09-29
+translation_source_sha: 8f6b7b29ce8a9f797956c01c32b0f59740895408
+translation_revised: 2026-10-07
 ---
 
 # 근실시간 감지 경로
@@ -37,6 +37,10 @@ translation_revised: 2026-09-29
 자동으로 조립함 -
 [`infra/README.md § Opt-in variables`](../../../infra/README.md#opt-in-variables-metric-analyzer-tick--prometheus)
 참조. 두 push 경로는 포크가 리소스별로 인스턴스화하는 Terraform 모듈;
+여러 경로가 하나의 공급자 중립 메트릭 이름을 공유하면 선택적 프로바이더 호환성 검사가
+dispatch 전에 정확한 조회 대상을 수락하는 첫 경로를 선택합니다. Metrics API 경로는 이 경계를
+사용해 VM `Percentage CPU`를 제공하며, 다른 리소스 유형을 지원하는 경로에서 같은 메트릭을
+가져오지 않습니다. dispatch 이후 프로바이더 오류는 fallback을 시작하지 않습니다.
 명시적으로 배선하지 않으면 업스트림에선 아무것도 안 돌아감.
 
 ## Push 경로 #1 - 메트릭 경보 Rule -> 웹훅 (~30~90s)

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 커버리지 확장과 현재 경로 수렴
 translation_of: ontology-reasoning-coverage-expansion.md
-translation_source_sha: 934c13e58c86c17c2c7bad47489b186401615b8d
+translation_source_sha: 88fde6c2e45b836ca7faa136cd4a103f39885543
 translation_revised: 2026-10-07
 ---
 # 온톨로지 추론 커버리지 확장과 현재 경로 수렴
@@ -242,12 +242,60 @@ E9b는 첫 컴파일 셀을 추가합니다. 한 검토된 metric의 `compare_wi
   `health_concepts_unavailable`로 보류됩니다.
 - **검증:** V-PROV는 관측 상태 개념이나 매니페스트의 전체 상태 이상 카탈로그를 목표만으로 다시
   도출합니다.
-- **구현 메모:** 로컬 컴파일러는 기존 reader 모드로 목록을 만듭니다. 신선하고 충돌 없는 상태 증거가
-  없는 구성원은 행이 되지 않고, 이때 표는 `resource_state_evidence_incomplete`로 불완전 표시되어 답이
-  완전한 답이 아닌 부분 답이 됩니다.
-- **승격 전:** 버전이 붙은 목록 모드가 입력 리소스 식별자마다 정확히 한 행을 반환하고, 증거가 없으면
-  `UNKNOWN_INCOMPLETE` 상태와 타입 구성원 사유를 붙이며, V-SEM은 객체 집합과 행 사이의 식별자 집합
-  일치를 검사합니다.
+- **목록 모드:** 목록은 함수 버전 1.3.0에 추가된 상태 reader의 `list_members` 인자를 설정합니다. 그러면
+  reader는 입력 리소스마다 정확히 한 행을 반환합니다. 신선하고 충돌 없는 상태 증거가 없는 구성원은
+  `state_status: unknown_incomplete`, 상태 개념 없음, 타입 `unknown_reason`을 담은 행을 가집니다. 사유는
+  `state_not_reported`, `state_metadata_missing`, `state_metadata_invalid`, `state_not_observed`,
+  `state_conflicting`, `state_partial`, `state_after_cutoff`, `state_stale` 중 하나입니다. 이런 행이
+  있으면 표는 불완전으로 남고, 보증 투영은 `resource_state.member_unknown`을 기록합니다. 행 수가 입력과
+  다르면 reader는 결과를 반환하지 않고 실패합니다.
+- **남은 작업:** 아래 모집단 영수증. 상한에서 잘린 집합도 반환한 페이지 너머까지 계산하기 위한
+  것입니다.
+
+### 컬렉션 모집단 영수증
+
+E10~E12는 컬렉션의 모든 구성원을 읽지만, 객체 집합 조회는 1,000행에서 멈추고 영수증은 잘렸다는 사실만
+알립니다. 모집단 영수증은 논리 집합 전체를 계산할 수 있게 합니다. 독립 비평은 저장소 개수와 keyset
+페이지만으로는 지금 부족하다는 것을 보였습니다. 저장소는 인가를 적용하지 않고, 조회마다 자체 스냅샷을
+열며, 범위가 있는 컬렉션은 traversal이고, 일부 술어는 메모리에서만 실행됩니다. 그래서 이 설계는 인가된
+구성원 매니페스트 하나를 고정합니다.
+
+- **하나의 관계:** 인가된 행, 그다음 선택자와 종류, 그다음 모든 구성원 술어, 그다음 안정적인 고유
+  순서입니다. 모든 술어와 객체 가시성 규칙이 이 관계 안에서 평가될 때만 정의를 페이지로 나눌 수
+  있습니다. 그렇지 않으면 결과는 `population_predicate_not_pageable`이고 기존 잘림이 유지됩니다.
+- **가시성:** 투영은 읽을 수 없는 객체를 별칭으로 남기므로, 존재는 보이지만 식별자는 보이지 않습니다.
+  식별자가 가려진 구성원을 포함한 모집단은 정확한 주장을 하지 않고 `population_visibility_indeterminate`를
+  반환합니다. 영수증에는 원시 식별자가 아니라 경계 digest만 담기며, 적대적 테스트로 숨겨진 행이 호출자에게
+  보이는 개수, 경계, 완전성을 바꾸지 않음을 증명합니다.
+- **매니페스트:** 하나의 repeatable-read 트랜잭션이 그 관계의 정렬된 구성원 식별자를 hard cap까지 읽고,
+  Core가 이를 digest와 함께 모집단 매니페스트로 저장합니다. 페이지는 매니페스트 식별자로 구성원을 읽으며,
+  매니페스트 이후 리비전이 바뀐 구성원이 있으면 그 페이지는 조용히 다른 집합이 되지 않고
+  `population_snapshot_unavailable`이 됩니다.
+- **Traversal 모집단:** 범위가 있는 컬렉션의 모집단은 루트와 중간 노드를 제외한, 명시된 종류의 도달 끝점을
+  중복 제거한 집합이며, 같은 종류의 매니페스트로 한 번에 완전히 읽습니다. 잘린 traversal은
+  `population_traversal_incomplete`를 반환합니다.
+- **처리:** 구성원별 reader는 모든 구성원에 대해 값, 타입 미상, 대기 중 하나의 최종 처리 상태를 담은 자체
+  처리 영수증을 유지합니다. 모집단 커서는 페이지의 모든 구성원이 최종 상태일 때만 전진합니다. 예산은
+  페이지를 claim하기 전에 예약하며, 한 페이지도 맞지 않으면 결과는 `population_budget_no_progress`입니다.
+- **이어받기:** H5 변경 창이 아닌 전용 컬렉션 이어받기 변형이 배포 범위, 주체 digest, 대화, 목적, 목표,
+  계획, 매니페스트, 질의 의미 digest와 매니페스트 digest, 커서, 페이지 크기, 만료를 묶습니다. claim은 참조를
+  임대하고 후속 참조를 원자적으로 발급하므로, 실패한 페이지는 참조를 잃지 않습니다.
+- **버전:** 객체 집합 영수증 1.3.0은 `population_status`, 선택적 개수, 페이지와 누적 개수, 경계와
+  매니페스트 digest를 추가하고, 이를 `complete`, `truncated`와 묶는 불변식을 둡니다. 1.2.0 reader는 1.3.0의
+  부분 모집단을 일반적인 제한 결과로 다룹니다.
+- **단계:** P1은 페이지로 나눌 수 있는 객체 집합 모집단을 한 턴 안에서 cap까지 읽으며 턴을 넘는 이어받기는
+  없습니다. P2는 traversal 모집단을 추가합니다. P3은 처리 영수증과 컬렉션 이어받기를 추가합니다.
+
+| 모집단 상태 | 결과 |
+|-------------|------|
+| `population_complete` | 모든 구성원에 대한 완전한 답 |
+| `population_partial_resumable` | 이어받기가 있는 부분 검증 답 |
+| `population_unknown`, `population_predicate_not_pageable` | 기존 제한 결과, 읽은 구성원 수 이상으로 표현 |
+| `population_visibility_indeterminate` | 정확한 개수 없는 부분 답 |
+| `population_snapshot_unavailable`, `result_generation_changed` | 목표 보류 |
+| `population_traversal_incomplete` | traversal 한계를 밝힌 부분 답 |
+| `population_budget_no_progress` | 예산 사유로 보류 |
+| `population_processing_partial` | 부분 답, 대기 구성원은 미상으로 나열 |
 
 ### E11 컬렉션에 대한 지표 필터와 순위
 
@@ -269,6 +317,21 @@ E9b는 첫 컴파일 셀을 추가합니다. 한 검토된 metric의 `compare_wi
 - **검증:** 입력 식별자와 지표 개념의 곱이 값 또는 미상 행과 같아야 하고, 순위에 든 식별자는 완전한
   값을 가진 구성원과 정확히 같아야 하며, 동점은 명시된 규칙으로 정렬합니다. V-CLAIM은 모든 값, 비교,
   단위, 창, 순위 위치를 검사합니다.
+- **첫 구현 단계:** 질문 형식 1.1.0은 타입 비교(`gt`, `ge`, `lt`, `le`, 운영자가 쓴 숫자 그대로,
+  `percent`, `ms`, `count`, `nanocores`, `unit_unstated`)를 담는 `metric` 필터 역할과, 인용한 개수가
+  있어야 하는 정렬 제한을 추가합니다. 수용 단계는 값 span이 그 숫자와 정확히 같은지 확인하고,
+  `metric_unit_unstated`이면 확인 질문을 하며, 순위에는 정렬 cue를 요구합니다. 컴파일러는 단위를 검토된
+  지표 단위와 대조하고 컬렉션 계획에 지표 단계 하나를 추가합니다. 함수 버전 1.2.0인 지표 reader는 고정한
+  창 하나와 구성원 읽기 128회 예산 안에서 모든 구성원을 16개씩 배치로 읽습니다. 완전한 값이 있는
+  구성원만 필터링하고 순위를 매기며, 동점은 리소스 식별자 순으로 정렬합니다. 목록은 측정하지 못한
+  구성원마다 타입 미상 행 하나를 남기고, 멈춘 읽기는 `metric_budget_exhausted` 또는
+  `metric_provider_unavailable`을 불완전 사유로 보고합니다. V-PROV는 선택 인자를 목표에서 다시 도출하고,
+  V-SEM은 계획이 읽지 않는 지표 필터를 거부하며, 검토는 타입 비교와 정렬 span을 해당 제약의 명시로
+  인정합니다. "CPU가 높은"처럼 비교가 없는 지표 필터는 `metric_threshold_unstated`로 확인 질문을 합니다.
+  지표 읽기는 Resource Health처럼 자신이 읽는 인벤토리 집합에 범위가 묶인 증거이므로, 그 권한이
+  해당 집합과 함께 구성됩니다.
+- **남은 작업:** 검토된 정성 표현 레시피, 한 페이지를 넘는 집합을 위한 모집단 영수증, 멈춘 읽기 뒤의
+  이어받기, 질문 뱅크 지표 질문에 대한 라이브 정답 검증입니다.
 
 ### E12 컬렉션에 고정한 관계
 
@@ -339,6 +402,12 @@ E9b는 첫 컴파일 셀을 추가합니다. 한 검토된 metric의 `compare_wi
 | E12가 없는 간선을 "없음"으로 바꿨습니다 | 앵커별 관계 커버리지가 완전할 때만 `VERIFIED_EMPTY` |
 | E12가 인스턴스 앵커 필드를 재사용했습니다 | 한 의미, 한 단계로 제한한 별도 컬렉션 앵커 형태 |
 | 새 결과에 타입 상태가 없었습니다 | E10~E12 상태 표 |
+| 모집단 개수가 숨겨진 구성원을 드러낼 수 있었습니다 | 모집단 관계 안의 가시성, 또는 `population_visibility_indeterminate` |
+| 하나의 세대가 페이지 사이의 모집단을 고정하지 못했습니다 | 하나의 repeatable-read 트랜잭션으로 읽고 구성원 리비전으로 확인하는 매니페스트 |
+| 범위가 있는 컬렉션은 traversal입니다 | 중복 제거한 끝점 매니페스트와 `population_traversal_incomplete` |
+| 메모리 술어 때문에 개수와 페이지가 부정확했습니다 | 완전히 pushdown된 정의만 페이지로 나눔 |
+| 부분 페이지가 구성원을 건너뛰거나 반복할 수 있었습니다 | 구성원별 처리 영수증과 임대 기반 원자적 이어받기 claim |
+| 영수증 버전과 결과가 정의되지 않았습니다 | 영수증 1.3.0 불변식과 모집단 상태 표 |
 
 ## 관련 문서
 

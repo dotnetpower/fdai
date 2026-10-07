@@ -173,6 +173,10 @@ def _function_matches_output_shape(
         return output_shape == "governed_document_excerpts" or any(
             requirement.startswith("governed_documents.") for requirement in evidence_requirements
         )
+    # One reader may serve several shapes, as the metric inventory serves a collection list
+    # and one target's metric; the reverse map keeps only one of them.
+    if function_name in _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE.get(output_shape, frozenset()):
+        return True
     expected = _SPECIALIZED_FUNCTION_OUTPUT_SHAPES[function_name]
     if output_shape == expected:
         return True

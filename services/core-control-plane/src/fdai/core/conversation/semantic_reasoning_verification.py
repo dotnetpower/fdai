@@ -32,6 +32,7 @@ from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FU
 from fdai.core.ontology_platform.state_transitions import RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
 
 from . import semantic_reasoning_comparison_checks as comparison_checks
+from . import semantic_reasoning_metric_selection as metric_selection
 from . import semantic_reasoning_property_reads as property_ops
 from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
@@ -99,10 +100,6 @@ _SECONDS = {
     DurationUnit.WEEK: 604_800,
 }
 _TRANSITIVE_DEPTH = 5
-METRIC_READER = "query.resource_metric_inventory"
-# The reviewed default window a current metric question reads, and the reader's lower bound.
-_DEFAULT_METRIC_WINDOW_SECONDS = 900
-_MIN_METRIC_WINDOW_SECONDS = 300
 _REQUIRED_FUNCTIONS: Mapping[tuple[GoalLevel, GoalOperation], frozenset[str]] = {
     (GoalLevel.INSTANCE, GoalOperation.LOOKUP): frozenset({"query.resource_current_state"}),
     (GoalLevel.INSTANCE, GoalOperation.HISTORY): frozenset({"query.resource_change_activity"}),
@@ -220,10 +217,14 @@ class _Allowed:
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.state_concepts: set[str] = set()
+        # A collection select that lists every member's state, so its reader lists them all.
+        self.list_state_members = False
         # Another ObjectType's grounded lifecycle values, by (ObjectType, property).
         self.lifecycle: dict[tuple[str, str], set[str]] = {}
         self.health_concepts: set[str] = set()
         self.metric_concepts: set[str] = set()
+        # A metric threshold or order the goal states, which a metric reader must apply.
+        self.metric_selected = False
         self.regions: set[str] = set()
         self.property_fields: tuple[str, ...] | None = None
         self.relation_object_type = False
@@ -246,6 +247,7 @@ class _Allowed:
             lifecycle={key: frozenset(values) for key, values in self.lifecycle.items()},
             state_concepts=tuple(sorted(self.state_concepts)),
             health_concepts=tuple(sorted(self.health_concepts)),
+            metric_concepts=tuple(sorted(self.metric_concepts)) if self.metric_selected else (),
         )
 
 
@@ -303,6 +305,9 @@ def _allowed_operands(
             allowed.health_concepts.update(concept.values)
         elif mention.domain is MentionDomain.REGION and role is FilterRole.REGION:
             allowed.regions.update(concept.values)
+        elif mention.domain is MentionDomain.METRIC and role is FilterRole.METRIC:
+            allowed.metric_concepts.update(concept.values)
+            allowed.metric_selected = True
     measure = goal.measure
     if (
         measure is not None
@@ -326,6 +331,9 @@ def _allowed_operands(
             and concept.outcome is ConceptOutcome.ACCEPTED
         ):
             allowed.metric_concepts.update(concept.values)
+            allowed.metric_selected = allowed.metric_selected or (
+                goal.effective_operation is GoalOperation.RANK
+            )
     return allowed
 
 
@@ -456,15 +464,16 @@ def _function_violations(
         expected = {"kinds": sorted(allowed.declaration_kinds), "limit": 1000}
     elif name == RESOURCE_STATE_FUNCTION_NAME:
         expected = {"state_concepts": sorted(allowed.state_concepts)}
+        if allowed.list_state_members:
+            expected["list_members"] = True
     elif name == RESOURCE_HEALTH_FUNCTION_NAME:
         health = sorted(allowed.health_concepts)
         expected = {"health_concepts": health, "state_concepts": []} if health else None
-    elif name == METRIC_READER:
-        window = _expected_metric_window(goal, descriptors)
-        expected = (
-            {"metric_concepts": sorted(allowed.metric_concepts), "window_seconds": window}
-            if allowed.metric_concepts and window is not None
-            else None
+    elif name == metric_selection.RESOURCE_METRIC_FUNCTION_NAME:
+        expected = metric_selection.verification_arguments(
+            goal,
+            maximum_window_seconds=_declared_maximum(descriptors, name, "window_seconds"),
+            concepts=allowed.metric_concepts,
         )
     else:
         return [f"prov_unexpected_function:{node.node_id}:{name}"]
@@ -482,16 +491,6 @@ def _declared_maximum(
             maximum = (properties.get(argument) or {}).get("maximum")
             return maximum if isinstance(maximum, int) and not isinstance(maximum, bool) else None
     return None
-
-
-def _expected_metric_window(goal: FormGoal, descriptors: Sequence[Mapping[str, Any]]) -> int | None:
-    """Re-derive the metric window from the form and the reader's declared bounds."""
-
-    maximum = _declared_maximum(descriptors, METRIC_READER, "window_seconds")
-    seconds = _expected_lookback(goal, _DEFAULT_METRIC_WINDOW_SECONDS)
-    if maximum is None or seconds is None or not _MIN_METRIC_WINDOW_SECONDS <= seconds <= maximum:
-        return None
-    return seconds
 
 
 def _history_reads(goal: FormGoal) -> frozenset[str]:
@@ -558,12 +557,9 @@ def _coverage_violations(
         required = _history_reads(goal)
         if functions != required:
             violations.append("sem_history_read_differs")
-    if (
-        (goal.level, goal.effective_operation) == (GoalLevel.INSTANCE, GoalOperation.LOOKUP)
-        and goal.measure is not None
-        and goal.measure.kind is MeasureKind.METRIC
-    ):
-        required = frozenset({METRIC_READER})
+    metric_required = metric_selection.verification_required_functions(goal)
+    if metric_required is not None:
+        required = metric_required
         if functions != required:
             violations.append("sem_metric_read_differs")
     if property_ops.is_property_lookup(goal):

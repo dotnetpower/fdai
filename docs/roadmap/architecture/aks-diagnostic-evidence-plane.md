@@ -243,6 +243,10 @@ window coverage. The existing point-only `MetricProvider` can supply candidates 
 complete diagnostic window by itself. Name-only series, mixed identities, future samples,
 point-only sources, and truncated windows remain unavailable. An empty metric query does not prove
 zero.
+When several routes declare one provider-neutral metric, a concrete provider may reject an
+incompatible exact target before dispatch. The router then considers the next declared route; it
+never catches a provider failure to manufacture fallback. The Azure Metrics API catalog uses this
+boundary to bind VM `Percentage CPU` only to `Microsoft.Compute/virtualMachines`.
 Azure Managed Prometheus's default `cluster` label is a cluster-name alias, not an exact ARM
 identity. Inventory-backed analyzer routing therefore remains on Azure Monitor Logs unless an
 explicitly composed PromQL catalog preserves an exact `resource_id` label. A Prometheus response

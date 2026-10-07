@@ -54,6 +54,12 @@ class ConceptVocabularies:
             return {}
         return {concept: item.description for concept, item in registry.definitions.items()}
 
+    def metric_units(self) -> dict[str, str]:
+        registry = self.metric_registry
+        if registry is None:
+            return {}
+        return {concept: item.canonical_unit for concept, item in registry.definitions.items()}
+
     def health_labels(self) -> dict[str, tuple[str, ...]]:
         language = self.inventory_query_language
         if language is None:
@@ -132,6 +138,7 @@ class CatalogQueryManifestProvider:
         # Reviewed metric and health concepts, offered to concept choosers.
         vocabulary = vocabularies or ConceptVocabularies()
         self._metric_labels: Mapping[str, str] = vocabulary.metric_labels()
+        self._metric_units: Mapping[str, str] = vocabulary.metric_units()
         self._health_labels: Mapping[str, tuple[str, ...]] = vocabulary.health_labels()
         self._property_reads = vocabulary.property_reads()
         self._bound_function_names = (
@@ -161,6 +168,7 @@ class CatalogQueryManifestProvider:
             metric_labels=self._metric_labels,
             health_labels=self._health_labels,
             property_reads=self._property_reads,
+            metric_units=self._metric_units,
         )
 
 

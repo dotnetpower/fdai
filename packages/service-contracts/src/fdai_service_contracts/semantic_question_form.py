@@ -87,6 +87,26 @@ class FilterRole(StrEnum):
     REGION = "region"
     NAME_FRAGMENT = "name_fragment"
     SCOPE = "scope"
+    METRIC = "metric"
+
+
+class Comparator(StrEnum):
+    """How a metric value compares with a stated threshold."""
+
+    GREATER = "gt"
+    AT_LEAST = "ge"
+    LESS = "lt"
+    AT_MOST = "le"
+
+
+class MetricUnit(StrEnum):
+    """A reviewed canonical metric unit, or an explicit statement that none was given."""
+
+    PERCENT = "percent"
+    MILLISECONDS = "ms"
+    COUNT = "count"
+    NANOCORES = "nanocores"
+    UNSTATED = "unit_unstated"
 
 
 class RelationSense(StrEnum):
@@ -219,10 +239,41 @@ class FormMention(_FormModel):
     position: int | None = Field(default=None, ge=-1000, le=1000)
 
 
+class MetricComparison(_FormModel):
+    """A stated threshold: the comparator and the exact decimal the operator wrote.
+
+    ``value`` copies the operator's digits; ``value_span`` quotes them, and Core checks
+    that the span holds exactly those digits. A unit the operator didn't write is
+    ``unit_unstated`` and never inherits the metric's canonical unit.
+    """
+
+    comparator: Comparator
+    value: Annotated[str, Field(pattern=r"^-?[0-9]{1,12}(\.[0-9]{1,6})?$")]
+    value_span: SourceSpan
+    unit: MetricUnit
+    unit_span: SourceSpan | None = None
+    comparator_span: SourceSpan
+
+    @model_validator(mode="after")
+    def _unit_has_its_span(self) -> MetricComparison:
+        if (self.unit is MetricUnit.UNSTATED) != (self.unit_span is None):
+            raise ValueError("a stated metric unit needs its span, and an unstated one has none")
+        return self
+
+
 class FormFilter(_FormModel):
     role: FilterRole
     mention: Annotated[str, Field(pattern=_MENTION_ID)]
     cue: SourceSpan | None = None
+    comparison: MetricComparison | None = None
+
+    @model_validator(mode="after")
+    def _comparison_matches_role(self) -> FormFilter:
+        # A metric filter without a comparison is a threshold the operator did not state;
+        # admission asks for it rather than rejecting the reading.
+        if self.comparison is not None and self.role is not FilterRole.METRIC:
+            raise ValueError("only a metric filter carries a comparison")
+        return self
 
 
 # Reviewed role convention per sense: (role of the stored from-end, role of the to-end).
@@ -283,9 +334,19 @@ class FormRelation(_FormModel):
 
 
 class FormOrder(_FormModel):
+    """A stated order. ``limit`` is set only when the operator states a count, such as top 3;
+    without one the answer is the complete ordered collection."""
+
     direction: OrderDirection
-    limit: int = Field(default=10, ge=1, le=50)
+    limit: int | None = Field(default=None, ge=1, le=50)
+    limit_span: SourceSpan | None = None
     cue: SourceSpan | None = None
+
+    @model_validator(mode="after")
+    def _limit_has_its_span(self) -> FormOrder:
+        if (self.limit is None) != (self.limit_span is None):
+            raise ValueError("a stated order limit needs its span, and no limit has none")
+        return self
 
 
 class FormMeasure(_FormModel):
@@ -411,7 +472,8 @@ class FormAlternative(_FormModel):
 class SemanticQuestionForm(_FormModel):
     """One bounded judgment pass over the current utterance."""
 
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    # 1.1.0 adds metric comparisons and stated order limits; 1.0.0 forms stay readable.
+    schema_version: Literal["1.0.0", "1.1.0"] = "1.1.0"
     mentions: Annotated[tuple[FormMention, ...], Field(max_length=MAX_FORM_MENTIONS)] = ()
     goals: Annotated[tuple[FormGoal, ...], Field(min_length=1, max_length=MAX_FORM_GOALS)]
     alternatives: Annotated[
@@ -503,6 +565,12 @@ class SemanticQuestionForm(_FormModel):
         for goal in self.goals:
             spans.append(goal.cue)
             spans.extend(item.cue for item in goal.filters if item.cue is not None)
+            for item in goal.filters:
+                if item.comparison is not None:
+                    spans.append(item.comparison.comparator_span)
+                    spans.append(item.comparison.value_span)
+                    if item.comparison.unit_span is not None:
+                        spans.append(item.comparison.unit_span)
             if goal.relation is not None:
                 spans.append(goal.relation.cue)
                 if goal.relation.reach_cue is not None:
@@ -511,12 +579,11 @@ class SemanticQuestionForm(_FormModel):
                 spans.append(goal.time.cue)
             if goal.measure is not None and goal.measure.cue is not None:
                 spans.append(goal.measure.cue)
-            if (
-                goal.measure is not None
-                and goal.measure.order is not None
-                and goal.measure.order.cue is not None
-            ):
-                spans.append(goal.measure.order.cue)
+            order = goal.measure.order if goal.measure is not None else None
+            if order is not None and order.cue is not None:
+                spans.append(order.cue)
+            if order is not None and order.limit_span is not None:
+                spans.append(order.limit_span)
         spans.extend(self.unsupported_constraints)
         if context:
             spans.extend(self.context)
@@ -559,6 +626,7 @@ __all__ = [
     "MAX_FORM_MENTIONS",
     "MAX_UNSUPPORTED_CONSTRAINTS",
     "AtomDiff",
+    "Comparator",
     "DurationUnit",
     "DurationValue",
     "FilterRole",
@@ -576,6 +644,8 @@ __all__ = [
     "MeasureKind",
     "MentionDomain",
     "MentionForm",
+    "MetricComparison",
+    "MetricUnit",
     "RelationReach",
     "RelationScope",
     "RelationSense",
