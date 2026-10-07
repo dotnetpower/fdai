@@ -4,8 +4,10 @@ The command ingests SARIF, builds canonical issues and a coverage receipt, and p
 no-authority review package. With ``--kafka-bootstrap-servers`` it publishes the package through
 Heimdall's ``object.drift`` ownership on the deployment event bus, where Forseti judges it and
 Saga audits the verdict. Without a bus it writes the package for a later governed publisher.
-Either way it plans A2 and A4 notifications against the deployment's notification matrix, so a
-missing route fails here instead of falling back to the approval channel.
+Either way it plans A2 and A4 notifications against the deployment's notification matrix. When
+the governed matrix lacks the code-security routes, the review is still published and recorded,
+and the output names the missing routes as a notification gap. Nothing falls back to the approval
+channel.
 """
 
 from __future__ import annotations
@@ -23,7 +25,10 @@ from fdai.core.security.code_findings import (
     build_issues,
     ingest_sarif,
 )
-from fdai.core.security.code_findings.notify import plan_code_security_notifications
+from fdai.core.security.code_findings.notify import (
+    NotificationPlanError,
+    plan_code_security_notifications,
+)
 from fdai.core.security.code_findings.receipts import build_receipt
 from fdai.core.security.code_findings.review_signal import (
     build_review_package,
@@ -107,7 +112,7 @@ def heimdall_publisher(bootstrap_servers: str) -> _BusHeimdallPublisher:
 
 def build_review(
     args: argparse.Namespace,
-) -> tuple[dict[str, object], tuple[NotificationMessage, ...]]:
+) -> tuple[dict[str, object], tuple[NotificationMessage, ...], str | None]:
     catalog = load_code_security_catalog(Path(args.catalog_root))
     ingested = []
     for spec in args.sarif:
@@ -148,11 +153,14 @@ def build_review(
         coverage_complete=coverage_complete(receipt),
     )
     routes = load_matrix_from_yaml(Path(args.matrix)).routes
-    return package, plan_code_security_notifications(package, routes=set(routes))
+    try:
+        return package, plan_code_security_notifications(package, routes=set(routes)), None
+    except NotificationPlanError as exc:
+        return package, (), str(exc)
 
 
 async def publish_review(args: argparse.Namespace) -> dict[str, object]:
-    package, messages = build_review(args)
+    package, messages, notification_gap = build_review(args)
     planned = [
         {
             "category": message.category,
@@ -185,6 +193,7 @@ async def publish_review(args: argparse.Namespace) -> dict[str, object]:
         "decision": code_security_drift_payload(package)["decision"],
         "issue_count": package["issue_count"],
         "notifications": planned,
+        "notification_gap": notification_gap,
     }
 
 

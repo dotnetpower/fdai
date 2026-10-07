@@ -247,8 +247,10 @@ review log.
 - **Notifications:** an A2 route (`code_security_operational_alert`) carries urgent,
   known-exploited, and coverage-incomplete alerts, and an A4 route
   (`digest_code_security_findings_daily`) carries the digest. Both are localized in English and
-  Korean and contain only aliases, revisions, and counts. If a deployment's matrix lacks either
-  route, planning fails instead of falling back to the approval channel.
+  Korean and contain only aliases, revisions, and counts. Both routes are governed matrix
+  changes that need governance review. If a deployment's matrix lacks either route, planning
+  plans nothing and reports the missing routes as a notification gap. It never falls back to the
+  approval channel, and the review is still published and recorded.
 - **LLM lens lane:** hot-path LLM use is limited to declared places, so the lens lane runs as an
   off-path worker inside the scan job whose output is inert hypotheses
   ([Code Security Scanning](code-security-scanning.md#llm-lens-lane)).

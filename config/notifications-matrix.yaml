@@ -77,16 +77,6 @@ matrix:
         - email-oncall
       on_all_fail: hil_escalate
 
-    # Code-security findings: urgent or coverage-incomplete scans. Bodies carry
-    # counts and repository aliases only, never code or file paths.
-    code_security_operational_alert:
-      trust_tier: a2_operational_alert
-      delivery_mode: fanout
-      channels:
-        - teams-ops-prd
-        - email-oncall
-      on_all_fail: hil_escalate
-
     # A3 - chat command responses (bidirectional, medium auth). The
     # router does not gate role checks - those are per-command (§3.1
     # of the design doc).
@@ -133,14 +123,6 @@ matrix:
       on_all_fail: hil_escalate
 
     digest_exemption_expiry_lookahead_weekly:
-      trust_tier: a4_digest
-      delivery_mode: fanout
-      channels:
-        - teams-hil-prd
-        - email-governance
-      on_all_fail: hil_escalate
-
-    digest_code_security_findings_daily:
       trust_tier: a4_digest
       delivery_mode: fanout
       channels:

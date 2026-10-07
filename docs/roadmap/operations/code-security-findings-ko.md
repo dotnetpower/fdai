@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: b64376e18298f705d88d643ba05f693120682c3f
+translation_source_sha: 00d3d8c7b6290b98686a638b5242c80a7dbf34a4
 translation_revised: 2026-10-08
 ---
 
@@ -238,8 +238,9 @@ FDAI는 내보낼 때 기준 커버리지 증적과 이슈 스냅샷을 팩 기�
   (`hil` verdict)을 내리고, Saga가 그 판정을 감사합니다.
 - **알림:** A2 경로(`code_security_operational_alert`)는 긴급, 알려진 악용, 커버리지 불완전 경고를
   전달하고, A4 경로(`digest_code_security_findings_daily`)는 요약을 전달합니다. 둘 다 영어와
-  한국어로 표시되며 별칭, 리비전, 건수만 담습니다. 배포 환경의 매트릭스에 두 경로 중 하나라도
-  없으면 승인 채널로 대체하지 않고 계획 단계에서 실패합니다.
+  한국어로 표시되며 별칭, 리비전, 건수만 담습니다. 두 경로는 거버넌스 검토가 필요한 매트릭스
+  변경입니다. 배포 환경의 매트릭스에 두 경로 중 하나라도 없으면 알림을 계획하지 않고 누락된 경로를
+  알림 공백으로 보고합니다. 승인 채널로 대체하지 않으며, 검토 패키지는 그대로 게시되고 기록됩니다.
 - **LLM 렌즈 레인:** 핫패스 LLM 사용은 선언된 위치로 제한되므로, 렌즈 레인은 스캔 작업 안에서
   출력이 비활성 가설뿐인 오프패스 작업자로 실행됩니다
   ([코드 보안 스캔](code-security-scanning-ko.md#llm-렌즈-레인)).
