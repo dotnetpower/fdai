@@ -22,7 +22,7 @@ runs inside FDAI. Passing focused tests does not promote the capability or prove
 | Pack helper and diff guard | implemented | `pack_helper.py`, `pack_runtime.py`, `diff_guard.py`; `test_diff_guard.py`, `test_pack_helper_session.py` | Verify, scope, branch, guard, commit, rollback, and finish against a real git repository. |
 | Result import and operator CLI | implemented | `result_import.py`; `delivery/code_security_cli.py`; `test_result_import.py`, `test_cli.py` | Results stay claims; `fixed_verified` is never produced by import. |
 | Agent wiring, Console, and notifications | not-started | Design only | Huginn event ingress, Heimdall exposure correlation, Forseti verdicts, Saga audit, A2 and A4 routes. |
-| Pack signing, revocation store, and export gate | not-started | Design only | Detached signature, server-side revocation, approved coding-agent provider list. |
+| Pack signing, revocation store, and export gate | implemented | `signing.py`, `ed25519_verify.py`, `export_gate.py`; `shared/providers/remediation_pack.py`; `delivery/code_security_signing.py`, `delivery/code_security_registry.py`; `config/code-security-agent-providers.yaml`; `test_signing.py`, `test_export_gate.py`, `test_cli.py`, `tests/delivery/test_code_security_adapters.py` | DSSE over the manifest, stdlib RFC 8032 verification in the helper, file-backed registry with revocation, fail-closed provider gate. A database-backed registry for multi-host deployments is not built. |
 | Scanning lanes, verifiers, and proof | not-started | Design only | Acquisition and analysis sandbox contracts, deterministic lane execution, LLM lens lane, CWE verifiers, opt-in proof. |
 | Rescan verification and adjudication | not-started | Design only | Coverage-equivalent rescan for `fixed_verified`; false-positive adjudication workflow. |
 
@@ -31,6 +31,7 @@ runs inside FDAI. Passing focused tests does not promote the capability or prove
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-10-07 | implemented | Added the code-security catalog, deterministic core, remediation pack with standard-library helper and diff guard, result import, operator CLI, and owning design under #1966. | current change; `uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings` (110 passed, including regression tests for eight review findings on guard bypass, ref injection, quoted and subdirectory paths, SARIF globs, truncation priority, pack self-commit, and minimized paths); ruff and strict mypy on changed modules pass; helper session also run under Python 3.10. | Agent wiring, signing, export gate, scanning lanes, rescan verification, adjudication, and measured evaluation. |
+| 2026-10-07 | implemented | Added Ed25519 DSSE pack signing with developer-side stdlib verification, a pack registry seam with a file-backed adapter and revocation, the coding-agent provider export gate, and CLI `revoke`, `public-key`, and registry-based `import-result`. | current change; `uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings services/core-control-plane/tests/delivery/test_code_security_adapters.py` (130 passed); ruff and strict mypy pass. | Agent wiring, notifications, scanning lanes, LLM lens lane, rescan verification, adjudication, and evaluation. |
 
 ### Remaining work
 
@@ -39,9 +40,9 @@ runs inside FDAI. Passing focused tests does not promote the capability or prove
   ownership, idempotency, and replay under #1966.
 - [ ] Add A2 immediate and A4 digest notification routes that fail closed on a missing category
   and carry no code excerpts; exit with notification routing tests.
-- [ ] Sign packs with a detached envelope, keep a server-side revocation store, and gate export
-  on an approved coding-agent provider list; exit with signature, revocation, and export-gate
-  tests.
+- [x] Sign packs with a detached envelope, keep a server-side revocation store, and gate export
+  on an approved coding-agent provider list; signature, revocation, and export-gate tests pass
+  in the 2026-10-07 transition above.
 - [ ] Define `code-acquire` and `code-analyze` sandbox contracts and run the deterministic lane with
   FDAI-authored rules; exit with egress-free and quota tests.
 - [ ] Approve the pantheon design change for the LLM lens lane, then implement lenses with

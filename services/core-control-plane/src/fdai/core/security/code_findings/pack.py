@@ -8,7 +8,8 @@ Copilot, Claude Code, or another coding agent. The pack contains:
   ``findings/findings.sarif``;
 - ``policy/remediation-policy.json`` and the stdlib helper ``tools/fdai_remediate.py`` with its
   ``tools/fdai_pack_runtime.py`` and ``tools/fdai_diff_guard.py`` modules;
-- ``pack.manifest.json`` with every file's SHA-256 digest, the base commit, and the expiry.
+- ``pack.manifest.json`` with every file's SHA-256 digest, the base commit, and the expiry, and
+  ``pack.manifest.dsse.json`` when FDAI signs the pack.
 
 Rendering is pure and deterministic for the same inputs. Minimized mode omits restricted fields
 (code flows and scanner messages) for organizations that must not send vulnerability detail to an
@@ -29,7 +30,9 @@ from importlib import resources
 
 from fdai.core.security.code_findings.fix_groups import build_fix_groups
 from fdai.core.security.code_findings.models import CodeSecurityIssue, FixGroup, ProjectRoot
+from fdai.core.security.code_findings.signing import ENVELOPE_PATH, build_envelope
 from fdai.rule_catalog.code_security import CodeSecurityCatalog
+from fdai.shared.providers.remediation_pack import PackSigner
 
 GENERATOR = "fdai.code-security.remediation-pack"
 GENERATOR_VERSION = "1.0.0"
@@ -59,6 +62,7 @@ class PackRequest:
     mode: PackMode = PackMode.FULL
     coverage_limits: tuple[str, ...] = ()
     project_roots: tuple[ProjectRoot, ...] = ()
+    target_provider: str = ""
     upload_instructions: str = (
         "Return result/remediation-result.json to FDAI with "
         "`fdai-code-security import-result` or the FDAI Console."
@@ -81,6 +85,7 @@ class RemediationPack:
     manifest_sha256: str
     expires_at: datetime
     issue_ids: tuple[str, ...]
+    signing_key_id: str = ""
 
 
 def _json_bytes(document: object) -> bytes:
@@ -249,13 +254,21 @@ def _helper_sources() -> dict[str, bytes]:
         "tools/fdai_remediate.py": package.joinpath("pack_helper.py").read_bytes(),
         "tools/fdai_diff_guard.py": package.joinpath("diff_guard.py").read_bytes(),
         "tools/fdai_pack_runtime.py": package.joinpath("pack_runtime.py").read_bytes(),
+        "tools/fdai_ed25519.py": package.joinpath("ed25519_verify.py").read_bytes(),
     }
 
 
 def render_remediation_pack(
-    issues: Sequence[CodeSecurityIssue], catalog: CodeSecurityCatalog, request: PackRequest
+    issues: Sequence[CodeSecurityIssue],
+    catalog: CodeSecurityCatalog,
+    request: PackRequest,
+    signer: PackSigner | None = None,
 ) -> RemediationPack:
-    """Render a remediation pack for ``issues`` (already ordered by priority)."""
+    """Render a remediation pack for ``issues`` (already ordered by priority).
+
+    With a ``signer`` the pack also carries a DSSE envelope over the exact manifest bytes,
+    which authenticates every listed file through its digest.
+    """
     if any(issue.revision != request.base_commit for issue in issues):
         raise ValueError("every issue must target the pack base commit")
     limits = catalog.remediation_policy.limits
@@ -337,6 +350,8 @@ def render_remediation_pack(
         "created_at": request.created_at.isoformat(),
         "expires_at": expires_at.isoformat(),
         "mode": request.mode.value,
+        "target_provider": request.target_provider,
+        "signing_key_id": signer.key_id if signer else "",
         "issue_ids": list(issue_ids),
         "counts": {
             "issues_total": len(issues),
@@ -353,6 +368,8 @@ def render_remediation_pack(
     }
     manifest_bytes = _json_bytes(manifest)
     files["pack.manifest.json"] = manifest_bytes
+    if signer is not None:
+        files[ENVELOPE_PATH] = build_envelope(manifest_bytes, signer)
     return RemediationPack(
         pack_id=pack_id,
         directory_name=directory,
@@ -360,6 +377,7 @@ def render_remediation_pack(
         manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
         expires_at=expires_at,
         issue_ids=issue_ids,
+        signing_key_id=signer.key_id if signer else "",
     )
 
 

@@ -264,6 +264,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--pack", default=str(Path(__file__).resolve().parent.parent))
     parser.add_argument("--repo", default=".")
+    parser.add_argument("--trusted-key", help="FDAI pack-signing public key (PEM or 64-hex)")
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ("verify", "summary", "plan", "next-group", "start", "finish"):
         sub.add_parser(name)
@@ -293,7 +294,7 @@ def main(argv: list[str] | None = None) -> int:
         # Every git call runs at the repository top level so paths are root-relative.
         pack, repo = rt.Pack(Path(args.pack)), rt.repo_root(Path(args.repo).resolve())
         handlers = {
-            "verify": lambda: rt.cmd_verify(pack, repo),
+            "verify": lambda: rt.cmd_verify(pack, repo, args.trusted_key),
             "summary": lambda: rt.cmd_summary(pack),
             "plan": lambda: rt.cmd_plan(pack),
             "next-group": lambda: rt.cmd_next_group(pack),

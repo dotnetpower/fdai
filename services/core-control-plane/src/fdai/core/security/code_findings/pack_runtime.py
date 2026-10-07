@@ -8,6 +8,8 @@ Python standard library.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import datetime as dt
 import hashlib
 import json
@@ -15,7 +17,15 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from fdai.core.security.code_findings import ed25519_verify as ed
+else:
+    try:  # remediation-pack layout: sibling module in tools/
+        import fdai_ed25519 as ed
+    except ImportError:  # FDAI source tree
+        from fdai.core.security.code_findings import ed25519_verify as ed
 
 HELPER_VERSION = "1.0.0"
 LEDGER = "ledger/remediation-ledger.json"
@@ -225,7 +235,53 @@ def plan_groups(pack: Pack) -> list[dict[str, Any]]:
     return [group for group in index["groups"] if selected & set(group["issue_ids"])]
 
 
-def cmd_verify(pack: Pack, repo: Path) -> dict[str, Any]:
+ENVELOPE = "pack.manifest.dsse.json"
+PAYLOAD_TYPE = "application/vnd.fdai.remediation-pack-manifest+json"
+
+
+def signature_check(pack: Pack, trusted_key: str | None) -> dict[str, Any]:
+    """Verify the DSSE envelope against a key the developer obtained from FDAI out of band.
+
+    The key in the manifest is never trusted, because an attacker who replaces the pack can
+    replace the manifest too.
+    """
+    envelope_path = pack.root / ENVELOPE
+    if not envelope_path.exists():
+        if trusted_key:
+            return {"id": "signature", "ok": False, "detail": "pack is unsigned"}
+        return {"id": "signature", "ok": True, "warning": "pack is unsigned"}
+    if not trusted_key:
+        return {
+            "id": "signature",
+            "ok": True,
+            "warning": "pack is signed; pass --trusted-key with FDAI's public key to verify it",
+        }
+    try:
+        public = ed.parse_public_key(Path(trusted_key).read_text(encoding="utf-8"))
+        document = json.loads(envelope_path.read_text(encoding="utf-8"))
+        payload = base64.b64decode(document["payload"], validate=True)
+        manifest = (pack.root / "pack.manifest.json").read_bytes()
+        kind = PAYLOAD_TYPE.encode()
+        message = b"DSSEv1 %d %s %d %s" % (len(kind), kind, len(payload), payload)
+        valid = (
+            payload == manifest
+            and document.get("payloadType") == PAYLOAD_TYPE
+            and any(
+                entry.get("keyid") == ed.key_id(public)
+                and ed.verify(public, message, base64.b64decode(entry["sig"], validate=True))
+                for entry in document.get("signatures", [])
+            )
+        )
+    except (OSError, ValueError, KeyError, TypeError, binascii.Error) as exc:
+        return {"id": "signature", "ok": False, "detail": f"{type(exc).__name__}: {exc}"}
+    return {
+        "id": "signature",
+        "ok": bool(valid),
+        "detail": ed.key_id(public) if valid else "signature does not verify with the trusted key",
+    }
+
+
+def cmd_verify(pack: Pack, repo: Path, trusted_key: str | None = None) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
 
     def add(check_id: str, ok: bool, detail: str = "") -> None:
@@ -234,16 +290,7 @@ def cmd_verify(pack: Pack, repo: Path) -> dict[str, Any]:
     add("manifest-schema", pack.manifest.get("schema_version") == 1)
     bad = tampered_files(pack)
     add("file-digests", not bad, ", ".join(bad[:10]))
-    checks.append(
-        {
-            "id": "signature",
-            "ok": True,
-            "warning": (
-                "pack signature is not verified locally in helper 1.0.0; "
-                "FDAI verifies the manifest digest on import"
-            ),
-        }
-    )
+    checks.append(signature_check(pack, trusted_key))
     expires = dt.datetime.fromisoformat(pack.manifest["expires_at"])
     add("not-expired", now_utc() <= expires, pack.manifest["expires_at"])
     top = repo_root(repo)

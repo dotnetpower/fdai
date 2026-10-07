@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -83,3 +84,17 @@ def sarif(
         ],
     }
     return json.dumps(document).encode()
+
+
+def write_signing_key(path: Path) -> Path:
+    """Write a fresh owner-only Ed25519 PEM private key for signing tests."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+
+    pem = Ed25519PrivateKey.generate().private_bytes(
+        Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
+    )
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "wb") as handle:
+        handle.write(pem)
+    return path

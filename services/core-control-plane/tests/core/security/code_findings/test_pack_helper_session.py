@@ -296,3 +296,51 @@ def test_editing_group_scope_after_verify_blocks_the_guard(tmp_path: Path) -> No
     group_file.write_text(json.dumps(document))
     outcome = _helper(pack_dir, repo, env, "guard", group_id)
     assert outcome["ok"] is False and "changed since export" in outcome["error"]
+
+
+def test_signed_pack_verifies_only_with_the_trusted_key(tmp_path: Path) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+    from fdai.core.security.code_findings import ed25519_verify
+    from fdai.core.security.code_findings.signing import ENVELOPE_PATH, build_envelope
+
+    repo, pack_dir, _, env = _setup(tmp_path)
+    key = Ed25519PrivateKey.generate()
+    raw = key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+
+    class _Signer:
+        key_id = ed25519_verify.key_id(raw)
+
+        def sign(self, message: bytes) -> bytes:
+            return key.sign(message)
+
+    manifest = (pack_dir / "pack.manifest.json").read_bytes()
+    (pack_dir / ENVELOPE_PATH).write_bytes(build_envelope(manifest, _Signer()))
+    trusted = tmp_path / "fdai-pack.pub"
+    trusted.write_bytes(
+        key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+    )
+    checks = {
+        c["id"]: c
+        for c in _helper(pack_dir, repo, env, "--trusted-key", str(trusted), "verify")["checks"]
+    }
+    assert checks["signature"]["ok"] is True
+
+    other = tmp_path / "other.pub"
+    other.write_text(
+        Ed25519PrivateKey.generate().public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+    )
+    checks = {
+        c["id"]: c
+        for c in _helper(pack_dir, repo, env, "--trusted-key", str(other), "verify")["checks"]
+    }
+    assert checks["signature"]["ok"] is False
+
+    (pack_dir / ENVELOPE_PATH).unlink()
+    checks = {
+        c["id"]: c
+        for c in _helper(pack_dir, repo, env, "--trusted-key", str(trusted), "verify")["checks"]
+    }
+    assert (
+        checks["signature"]["ok"] is False and checks["signature"]["detail"] == "pack is unsigned"
+    )

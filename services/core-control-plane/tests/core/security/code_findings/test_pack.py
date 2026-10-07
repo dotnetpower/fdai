@@ -171,12 +171,18 @@ def test_unknown_template_placeholder_fails() -> None:
 
 
 @pytest.mark.parametrize(
-    "path", ["tools/fdai_remediate.py", "tools/fdai_diff_guard.py", "tools/fdai_pack_runtime.py"]
+    "path",
+    [
+        "tools/fdai_remediate.py",
+        "tools/fdai_diff_guard.py",
+        "tools/fdai_pack_runtime.py",
+        "tools/fdai_ed25519.py",
+    ],
 )
 def test_shipped_helper_imports_only_the_standard_library(path: str) -> None:
     pack = render_remediation_pack(issues_fixture(), catalog(), _request())
     tree = ast.parse(pack.files[path])
-    allowed_local = {"fdai_diff_guard", "fdai_pack_runtime", "fdai"}
+    allowed_local = {"fdai_diff_guard", "fdai_pack_runtime", "fdai_ed25519", "fdai"}
     for node in ast.walk(tree):
         names: list[str] = []
         if isinstance(node, ast.Import):

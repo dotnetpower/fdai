@@ -16,9 +16,9 @@ Opengrep, Trivy, and other producers.
 > verifies it. New capabilities start in shadow mode, where FDAI observes and logs but doesn't
 > act.
 
-> **Status:** The deterministic core, catalog, remediation pack, and operator CLI are implemented.
-> Agent wiring, scanning-lane execution, the LLM lens lane, pack signing, and rescan verification
-> remain open. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
+> **Status:** The deterministic core, catalog, signed remediation pack, pack registry, export
+> gate, and operator CLI are implemented. Agent wiring, scanning-lane execution, the LLM lens
+> lane, and rescan verification remain open. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
 
 ## Design at a glance
 
@@ -176,6 +176,21 @@ the server.
 - **Private files:** the operator CLI writes the pack with owner-only permissions. FDAI's pack
   record stays outside the pack.
 - **Disclosure limits:** commit messages contain only weakness classes and issue IDs.
+
+**Integrity and export control:**
+
+- **Signing:** FDAI signs the exact manifest bytes with an Ed25519 key in a DSSE envelope
+  (`pack.manifest.dsse.json`). Because the manifest lists every file digest, one signature
+  authenticates the whole pack. The helper verifies it with a standard-library RFC 8032
+  verifier against a public key the developer obtains from FDAI out of band
+  (`verify --trusted-key`). The key id in the manifest is never trusted on its own.
+- **Registry and revocation:** FDAI records every exported pack (id, manifest digest, base
+  commit, issues, expiry) in a pack registry. Result import reads only that record, and a
+  revoked pack's results are rejected.
+- **Export gate:** a pack is exported only for a coding-agent provider that the deployment
+  approved, with its data residency, a no-training commitment, retention, an approval end date,
+  and the pack modes it may receive. The upstream policy approves nothing, so export fails
+  closed until an installation lists a provider. The operator CLI defaults to minimized mode.
 
 ## Result import and verification
 
