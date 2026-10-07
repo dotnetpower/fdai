@@ -101,6 +101,7 @@
           "services/operator-service/tests/test_browser_evidence_projection.py",
           "services/operator-service/tests/test_browser_evidence_workspace_projection.py",
           "services/operator-service/tests/test_browser_evidence_workspace_read_model.py",
+          "services/operator-service/tests/test_code_security_review_projection.py",
           "services/operator-service/tests/test_conversation_history.py",
           "services/operator-service/tests/test_conversation_document_export.py",
           "services/operator-service/tests/test_dashboard_aggregation.py",
