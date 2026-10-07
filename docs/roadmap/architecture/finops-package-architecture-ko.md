@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 5f65081417d755b3fc97bd1dadba3c3f041fc818
-translation_revised: 2026-10-06
+translation_source_sha: 4a2aaa4632ad50fb73f061ddf59ccc9a2cf277c9
+translation_revised: 2026-10-08
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -449,6 +449,12 @@ SLO 회귀 및 단위 경제 값은 사용 불가 상태로 유지합니다. 보
 전원 창을 엽니다. Stopped 서버에 대한 클레임을 먼저 기록하고 시작해 Ready가 될 때까지 기다리며, 자체
 클레임에 이 실행이 시작했다고 기록된 경우에만 서버를 다시 중지합니다. 공유 동시성 그룹이 drift 감지와
 내보내기가 서로 사용 중인 서버를 중지하지 않도록 합니다.
+
+내보내기는 활성 release의 적용 시각 이후로 잘린 제한 창 안에 보존 중이고 삭제되지 않은 비용 공개 감사
+범위와, 위험 결정·intent·terminal 감사·outcome으로 이어지는 완전한 shadow 작업 계보가 하나 이상 있을
+때만 원본 배치를 보존합니다. 그렇지 않으면 완전한 관측이 없다고 보고하고 원본 attestation, 업로드,
+가져오기를 건너뛰지만, 대상이 계속 차단된 검토 전용 결과는 여전히 attest합니다. 에피소드를 합성하지
+않으므로 빈 창은 표본 수를 늘릴 수 없습니다.
 
 독립 promotion 검토는 별도의 Core 소유 append-only 저장소와 보호된 workflow를 사용합니다.
 workflow는 최종 attested campaign 결과를 검증하고 exact 활성 package release로 준비 상태를 다시

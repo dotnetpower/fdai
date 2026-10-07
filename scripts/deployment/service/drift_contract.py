@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -25,6 +27,9 @@ class DriftContractError(ValueError):
 
 _COST_PSEUDONYM_KEY_ADDRESS = "azurerm_key_vault_secret.cost_pseudonym_key[0]"
 _PLATFORM_DATABASE_ADDRESS = "module.state_store.azurerm_postgresql_flexible_server.primary"
+_PLATFORM_OPERATOR_IDENTITY_ADDRESS = (
+    "module.operator_api_identity[0].azurerm_user_assigned_identity.primary"
+)
 _POSTGRES_SERVER_ID = re.compile(
     r"/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     r"/resourceGroups/[A-Za-z0-9._()-]{1,90}"
@@ -220,6 +225,90 @@ def stored_platform_database(payload: dict[str, Any]) -> dict[str, str]:
     return {"server_id": server_id}
 
 
+def stored_platform_operator_identity(payload: dict[str, Any]) -> dict[str, str]:
+    """Read the tracked legacy Operator identity without relying on root outputs."""
+    values = payload.get("values")
+    root = values.get("root_module") if isinstance(values, dict) else None
+    if not isinstance(root, dict):
+        raise DriftContractError("Terraform state JSON has no root module")
+    try:
+        resource = _resource_at_address(root, _PLATFORM_OPERATOR_IDENTITY_ADDRESS)
+    except LookupError:
+        raise DriftContractError("platform state is missing the Operator identity") from None
+    resource_values = resource.get("values")
+    principal_id = (
+        resource_values.get("principal_id") if isinstance(resource_values, dict) else None
+    )
+    if not isinstance(principal_id, str) or not principal_id or "\n" in principal_id:
+        raise DriftContractError("platform state contains an invalid Operator identity")
+    return {"principal_id": principal_id}
+
+
+def stored_platform_output_inputs(
+    payload: dict[str, Any],
+    *,
+    resolved_models: dict[str, Any],
+) -> dict[str, Any]:
+    """Reproduce output-affecting inputs for a legacy refresh-only plan."""
+    values = payload.get("values")
+    root = values.get("root_module") if isinstance(values, dict) else None
+    outputs = values.get("outputs") if isinstance(values, dict) else None
+    if not isinstance(root, dict) or not isinstance(outputs, dict):
+        raise DriftContractError("Terraform state JSON has no platform values")
+
+    addresses = _resource_addresses(root)
+
+    def has_prefix(prefix: str) -> bool:
+        return any(address.startswith(prefix) for address in addresses)
+
+    governed_identity_prefixes = (
+        "module.identity_change[0].",
+        "module.identity_resilience[0].",
+        "module.identity_finops[0].",
+    )
+    governed_identities = tuple(has_prefix(prefix) for prefix in governed_identity_prefixes)
+    if any(governed_identities) and not all(governed_identities):
+        raise DriftContractError("platform state has an incomplete governed identity set")
+
+    plan_inputs: dict[str, Any] = {
+        "enable_dev_operations_gateway": has_prefix(
+            "azurerm_function_app_flex_consumption.dev_gateway[0]"
+        ),
+        "enable_governed_execution": all(governed_identities),
+        "enable_llm": has_prefix("module.llm_azure_openai[0].azurerm_cognitive_account.primary"),
+        "enable_ohl_scale_out_evidence_target": has_prefix(
+            "azurerm_linux_virtual_machine_scale_set.ohl_evidence[0]"
+        ),
+        "enable_operational_history": has_prefix("module.operational_history_storage[0]."),
+    }
+    if not plan_inputs["enable_llm"]:
+        return plan_inputs
+
+    stored_digest = _stored_output_string(outputs, "resolved_models_sha256")
+    capabilities = resolved_models.get("capabilities")
+    if not isinstance(capabilities, list) or not capabilities:
+        raise DriftContractError("resolved model capabilities are missing")
+    if not all(isinstance(capability, dict) for capability in capabilities):
+        raise DriftContractError("resolved model capabilities must contain objects")
+    normalized = json.dumps(resolved_models, separators=(",", ":"), sort_keys=True)
+    observed_digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    if observed_digest != stored_digest:
+        raise DriftContractError("resolved model bindings do not match the stored platform output")
+    active_capabilities = [
+        capability for capability in capabilities if capability.get("status") != "hil-only"
+    ]
+    if not active_capabilities:
+        raise DriftContractError("resolved model bindings contain no active capabilities")
+    plan_inputs.update(
+        {
+            "resolved_capabilities": active_capabilities,
+            "resolved_models_json": normalized,
+            "resolved_models_sha256": stored_digest,
+        }
+    )
+    return plan_inputs
+
+
 def _stored_cost_pseudonym_key_secret_id(root: dict[str, Any]) -> str | None:
     """Return the platform-owned Operator pseudonym key binding when the platform created it."""
     try:
@@ -231,6 +320,32 @@ def _stored_cost_pseudonym_key_secret_id(root: dict[str, Any]) -> str | None:
     if not isinstance(secret_id, str) or not secret_id or "\n" in secret_id:
         raise DriftContractError("platform state contains an invalid cost pseudonym key binding")
     return secret_id
+
+
+def _stored_output_string(outputs: dict[str, Any], name: str) -> str:
+    output = outputs.get(name)
+    value = output.get("value") if isinstance(output, dict) else None
+    if not isinstance(value, str) or not value or "\n" in value:
+        raise DriftContractError(f"platform state is missing required {name} output")
+    return value
+
+
+def _resource_addresses(module: dict[str, Any]) -> frozenset[str]:
+    resources = module.get("resources", [])
+    children = module.get("child_modules", [])
+    if not isinstance(resources, list) or not isinstance(children, list):
+        raise DriftContractError("Terraform state contains an invalid module")
+    addresses: set[str] = set()
+    for resource in resources:
+        address = resource.get("address") if isinstance(resource, dict) else None
+        if not isinstance(address, str) or not address:
+            raise DriftContractError("Terraform state contains an invalid resource")
+        addresses.add(address)
+    for child in children:
+        if not isinstance(child, dict):
+            raise DriftContractError("Terraform state contains an invalid child module")
+        addresses.update(_resource_addresses(child))
+    return frozenset(addresses)
 
 
 def _resource_at_address(module: dict[str, Any], address: str) -> dict[str, Any]:
@@ -282,6 +397,13 @@ def _object(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+        json.dump(payload, stream, separators=(",", ":"), sort_keys=True)
+        stream.write("\n")
+
+
 def main() -> int:
     """Print drift coordinates or stored planning inputs for workflow use."""
     parser = argparse.ArgumentParser()
@@ -297,6 +419,10 @@ def main() -> int:
     bootstrap.add_argument("--state-json", type=Path, required=True)
     platform = commands.add_parser("platform-inputs")
     platform.add_argument("--state-json", type=Path, required=True)
+    platform_output = commands.add_parser("platform-output-inputs")
+    platform_output.add_argument("--state-json", type=Path, required=True)
+    platform_output.add_argument("--resolved-models-json", type=Path, required=True)
+    platform_output.add_argument("--output", type=Path, required=True)
     database = commands.add_parser("platform-database")
     database.add_argument("--state-json", type=Path, required=True)
     args = parser.parse_args()
@@ -315,6 +441,14 @@ def main() -> int:
             print(json.dumps(stored_bootstrap_inputs(_object(args.state_json)), sort_keys=True))
         elif args.command == "platform-database":
             print(json.dumps(stored_platform_database(_object(args.state_json)), sort_keys=True))
+        elif args.command == "platform-output-inputs":
+            _write_private_json(
+                args.output,
+                stored_platform_output_inputs(
+                    _object(args.state_json),
+                    resolved_models=_object(args.resolved_models_json),
+                ),
+            )
         else:
             print(json.dumps(stored_platform_inputs(_object(args.state_json)), sort_keys=True))
     except (
