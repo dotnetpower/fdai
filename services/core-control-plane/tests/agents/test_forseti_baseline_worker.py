@@ -409,3 +409,28 @@ async def test_older_run_never_replaces_a_newer_latest_pointer() -> None:
     assert await _worker(store).run_once() is BaselineWorkerResult.COMPLETED
 
     assert await store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY) == newer
+
+
+@pytest.mark.asyncio
+async def test_outcome_set_digest_uses_canonical_pair_order() -> None:
+    import hashlib
+    import json
+
+    from fdai.agents import BASELINE_EVALUATION_OUTCOME_PREFIX
+    from fdai_service_contracts.baseline_evaluation import BaselineEvaluationOutcome
+
+    store = _AuditingStore()
+    resources = (
+        ResourceRecord(resource_id="resource-b", type="example.resource", props={}),
+        ResourceRecord(resource_id="resource-a", type="example.resource", props={}),
+    )
+    await _worker(store, reader=_Reader(_generation(*resources))).run_once()
+
+    coverage = await _coverage(store)
+    rows, _ = await store.read_state_page(prefix=BASELINE_EVALUATION_OUTCOME_PREFIX, limit=100)
+    outcomes = sorted(
+        (BaselineEvaluationOutcome.model_validate(row) for row in rows),
+        key=lambda item: (item.resource_ref, item.rule_ref),
+    )
+    encoded = json.dumps([item.outcome_digest for item in outcomes], separators=(",", ":"))
+    assert coverage.outcome_set_digest == "sha256:" + hashlib.sha256(encoded.encode()).hexdigest()

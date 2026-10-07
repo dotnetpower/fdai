@@ -201,7 +201,9 @@ async def _completion_record(
     }
     for outcome in outcomes:
         counts[outcome.outcome] += 1
-    outcome_set_digest = _digest_json(tuple(outcome.outcome_digest for outcome in outcomes))
+    # Readers page outcomes in storage order, so the digest uses one canonical pair order.
+    canonical = sorted(outcomes, key=lambda item: (item.resource_ref, item.rule_ref))
+    outcome_set_digest = _digest_json(tuple(outcome.outcome_digest for outcome in canonical))
     completion_values: dict[str, object] = {
         "generation_id": _bounded_ref("generation", observation.generation),
         "generation_digest": _generation_digest(observation),
